@@ -487,10 +487,20 @@ class TestAnchors:
     def test_the_bound_records_each_carrier_s_provenance(self) -> None:
         report = evaluate(CorpusSubject(CORPUS_ID), corpus_chain(), observers(record_carrier(E2)))
         expected = (
-            f"registry-record provenance=named-local subject=corpus:{CORPUS_ID} "
+            f"registry-record provenance=named-local custody=read-from-root subject=corpus:{CORPUS_ID} "
             f"genesis={CORPUS_GENESIS} head={E2}"
         )
         assert report.observer_bound == (expected,)
+
+    def test_the_bound_states_a_supplied_carrier_as_caller_attested(self) -> None:
+        """§10.9: a factory name cannot prove custody, so `supplied-export` is
+        caller-attested evidence and the bound says so."""
+        report = evaluate(
+            WorldSubject(WORLD_ID),
+            world_chain(),
+            observers(artifact_carrier(WorldSubject(WORLD_ID), WORLD_GENESIS, E1)),
+        )
+        assert "provenance=supplied-export custody=caller-attested" in report.observer_bound[0]
 
 
 # --- the L11 eligibility square --------------------------------------------

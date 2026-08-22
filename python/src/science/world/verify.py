@@ -1043,10 +1043,25 @@ def _bound_anchors(
     return tuple(bound), tuple(ineligible)
 
 
+_CUSTODY: Mapping[Provenance, str] = MappingProxyType(
+    {"named-local": "read-from-root", "supplied-export": "caller-attested"}
+)
+"""What each provenance is *evidence of*, stated in the bound itself.
+
+A factory fixes the discriminator from the authority it read, but a factory
+name cannot prove custody: a caller may read the local epoch members itself and
+hand them to `from_export`. So `supplied-export` is caller-attested evidence
+under the deferred holder protocol (§10.9) — nothing in this slice learns which
+exported anchors survive outside the root they describe — while `named-local`
+is a read this module performed. A reader of the bound is told which of the two
+they are holding.
+"""
+
+
 def _bound_entry(anchor: _ObservedAnchor) -> str:
     return (
-        f"{anchor.carrier} provenance={anchor.provenance} subject={_subject_label(anchor.subject)} "
-        f"genesis={anchor.genesis} head={anchor.head}"
+        f"{anchor.carrier} provenance={anchor.provenance} custody={_CUSTODY[anchor.provenance]} "
+        f"subject={_subject_label(anchor.subject)} genesis={anchor.genesis} head={anchor.head}"
     )
 
 
