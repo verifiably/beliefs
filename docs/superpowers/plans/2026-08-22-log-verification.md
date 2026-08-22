@@ -61,11 +61,11 @@
 
 **Files:**
 - Create (atoms repo): `python/src/atoms/chain/inspect.py`, `python/tests/test_chain_inspect.py`, `python/tests/test_pending_gate.py`, `python/tests/test_capture_states.py`
-- Modify (atoms repo): `python/src/atoms/coordinator/commands.py`, `python/src/atoms/chain/read.py`, `python/src/atoms/core/errors.py` (`PendingUnresolved`)
+- Modify (atoms repo): `python/src/atoms/coordinator/commands.py`, `python/src/atoms/chain/read.py`; create `python/src/atoms/chain/errors.py` (`PendingUnresolved`)
 
 **Interfaces:**
 - Consumes: Task 1's reviewed contracts.
-- Produces (for Task 4's callbacks): `inspect_chain(backend, project_root, metadata_root, storage)`, `inspect_chain_detached(backend, project_root)`, `capture_states(backend, root, paths)`, `PendingUnresolved` — importable from `atoms.coordinator.commands` / `atoms.chain.inspect` / `atoms.core.errors`.
+- Produces (for Task 4's callbacks): `inspect_chain(backend, project_root, metadata_root, storage)`, `inspect_chain_detached(backend, project_root)`, `capture_states(backend, root, paths)`, `PendingUnresolved` — importable from `atoms.coordinator.commands` / `atoms.chain.inspect` / `atoms.chain.errors`.
 
 - [ ] **Step 1: Write the failing structural tests** in `test_chain_inspect.py`: **twelve taxonomy entries retain directory cases — fourteen concrete fabrications** once zero/multiple genesis and the two fabricable `fulfills` variants are split (foreign leaf; name/bytes mismatch; undecodable entry; zero genesis; multiple genesis; missing predecessor; sibling branch; settlement without ancestor registration; settlement txid mismatch; duplicate settlement; duplicate registration per txid; `fulfills` missing; `fulfills` non-intent; duplicate committed fulfillment), each fabricating the defective chain directory and asserting `MalformedChain` with exactly that first defect; the three **core-only** classes (cycle; orphan history; `fulfills` naming an existing non-ancestor) against the typed core with injected entry maps; at least one **multi-defect chain** asserting the deterministic first defect by traversal order; well-formed, absent, pending-listing, and staging-leaf cases in both modes; the detached call on a root with no metadata directory at all; the registered-order probe (malformed chain: recovery entry point not invoked).
 - [ ] **Step 2:** Run them: every one fails for want of `atoms.chain.inspect`.

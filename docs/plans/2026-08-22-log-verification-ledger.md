@@ -76,6 +76,14 @@ defines `LogEvidenceRefused`), and Task 4's tests cover the
 wrong: one of the three contracted arms ships untested until an audit or
 arrival happens to exercise it.
 
+**R9: `PendingUnresolved` lives in `atoms.chain.errors` (Task 3 boundary, 2026-08-22)**
+
+The plan's Task 2 lines pointed it at `atoms.core.errors`; the gate-approved
+atoms design and the landed implementation put it in a new
+`atoms/chain/errors.py`. The design wins; the plan's two lines are
+corrected, and Task 4's seam imports it from `atoms.chain.errors`. Cost if
+wrong: Task 4's implementer chases a nonexistent import path.
+
 ## Heads
 
 Atoms commit hash (Task 2): `3aa5a766efb5275e444de193407992ce33e8edb7` (local atoms `main`, merge of `design/chain-inspection`; unpushed, joining row 4's disclosure per R1)  
