@@ -10,7 +10,7 @@
 
 The spec's original wording in §8 ("and the merge-then-push obligation extending row 4's existing unpushed-`atoms` disclosure") and §11 step 4 ("the push obligation extending row 4's disclosure") implied the atoms head is pushed as part of this plan. This is clarified to match row 4's actual practice: the new atoms head joins row 4's recorded **unpushed** disclosure, and pushing remains a prerequisite of any integration expecting a fresh checkout to build (identical to `read_chain`'s `2c077ed` treatment).
 
-Cost if wrong: A reader assumes the atoms head was pushed during this execution, creating ambiguity about which pushed state a fresh checkout integrates against.
+Cost if wrong: A reader assumes the atoms head was pushed during this execution, creating ambiguity about which pushed state a fresh checkout integrates against. Follow-up: aligned the same duty terminology in §2's seam introduction ("merge-and-disclosure" duty).
 
 ## Heads
 

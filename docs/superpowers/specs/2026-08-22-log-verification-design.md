@@ -86,7 +86,7 @@ registration-surface design act, not a test fixture's liberty.
 
 ## 2. The atoms seam — `inspect_chain`, capture, and the pending gate
 
-Three APIs, four obligations (§8 adds the merge-then-push duty), one
+Three APIs, four obligations (§8 adds the merge-and-disclosure duty), one
 design document in the atoms repository, reviewed there before any Science
 implementation task starts (§8, §11). Science consumes all three
 through `science.root`-injected callbacks; `science.root` stays the only
