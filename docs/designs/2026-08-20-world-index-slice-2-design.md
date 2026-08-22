@@ -7,9 +7,9 @@ algorithm; cut-7 accounting is unchanged. **Implemented on branch
 `design/world-index-slice-2`, based on `f3a14bf` on `main` — see the branch's
 close-out commit for the final documentation state — and cut 7's 48
 declarations discharged on the certified tuple — see
-`../plans/2026-08-20-conformance-cut-7-results.md`. That branch is not merged:
-there is no integration commit, and it must be integrated preserving history
-(results record §7).** §9's empty-directory sentence was corrected in the same
+`../plans/2026-08-20-conformance-cut-7-results.md`. That branch was merged into
+`main` on 2026-08-22 with `--no-ff` (integration commit `83744e7`), preserving
+history as results record §7 requires; that constraint outlives the merge.** §9's empty-directory sentence was corrected in the same
 landing; it was wrong as banked.
 **Scope:** adoption-ledger artifact 1; the build-time uniqueness half of
 artifact 2; anchor carriage needed by artifact 5.

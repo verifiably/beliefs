@@ -10,12 +10,12 @@ conformance cut 7's frozen selection
 here.** Cut 7 froze on 2026-08-20 and results are recorded separately, which is
 what this document is.
 
-**Integration state.** Every commit named below is on the implementation branch
-`design/world-index-slice-2`, whose base is `f3a14bf` on `main`; see the
-branch's close-out commit for the final documentation state. **This branch is
-not merged.** There is no integration
-commit, and no claim in this record depends on one. Read §7 before merging: the
-branch has a history-preservation constraint.
+**Integration state.** Every commit named below was made on the implementation
+branch `design/world-index-slice-2`, whose base is `f3a14bf` on `main`. **That
+branch was merged into `main` on 2026-08-22 with `--no-ff`, preserving its
+history as §7 requires**; the integration commit is `83744e7`, and the branch
+and its worktree have since been removed. The merge does *not* discharge §7's
+constraint — read it before any later history rewrite.
 
 ## 1. The accounting, re-derived
 
@@ -300,8 +300,16 @@ cut 6 degrades into an acceptance run that cannot check out the tree its arms
 name, while cut 7 fails in the ordinary test suite with a message that says
 which commit went missing.
 
-**Mitigation: put a signed git tag on `4a7dc19`** (and keep `c8c0b12`
-reachable), so neither commit can be collected as an unreferenced object.
+**Mitigation, applied 2026-08-22: both commits carry a tag.**
+`pin/cut6-pre-move-tree` points at `4a7dc19` and `pin/cut6-acceptance-amendment`
+at `c8c0b12`; each tag's message names the file it protects and the failure it
+prevents. A tag keeps the object from being collected and makes the constraint
+discoverable from `git tag --points-at`. Two limits, stated plainly: the tags
+are **annotated, not signed** — this checkout has no signing key configured, so
+they carry no authorship proof and anyone can move or delete them — and a tag
+does not survive a hash-rewriting migration, so the indefinite lifetime below
+stays exactly as true after tagging as before it. The tags are local; nothing
+has been pushed.
 
 **The lifetime of this constraint is indefinite.** It is not discharged by
 merging: `4a7dc19` and `c8c0b12` must stay reachable from *every future
@@ -336,6 +344,18 @@ currently work around the widened type.
 - `tools/cut7_acceptance.py`'s `PROBE_REFUSED = 2` docstring claims the code is
   distinct from pytest's own; it is not — `pytest.ExitCode.INTERRUPTED` is also
   2. The behavior is correct; the docstring's justification is wrong.
+- **`_require_lower_hex` is defined twice**, at `world/registry.py:178` and
+  `world/derive.py:906`, with behavior that differs only in whether the hex
+  alphabet is a named constant. Neither definition is shared, so `world/read.py`
+  (`:403`, `:413`) and `world/epoch.py:1029` reach across a module boundary into
+  `registry`'s *private* copy rather than importing one owned helper.
+- **`_require_text` is defined three times with divergent contracts**, and the
+  divergence is silent because the name is identical: `world/epoch.py:518`
+  admits `""` (deliberately — its docstring says which string it is belongs to
+  the validator), while `world/derive.py:900` and `decode.py:79` both refuse the
+  empty string, and `decode.py`'s raises `MalformedWireClaim` where the other
+  two raise `ValueError`. A reader who learns one contract will carry it to the
+  wrong call site.
 
 **Performance and concurrency**
 
@@ -400,3 +420,54 @@ the past:
    the class segment and the landed declarations do too; the table now carries
    that annotation. No unit was renumbered or re-homed, and the reduction of the
    landed declarations back to `file::function` is set-identical to the table.
+
+## 10. Execution record — the rulings ledger was destroyed
+
+Recorded 2026-08-22, after the merge.
+
+This slice was executed with a subagent-driven controller: a fresh implementer
+per task, an independent review after each, and a bounded fix loop. Every
+controller decision that departed from the plan text was written to a rulings
+ledger at `.superpowers/sdd/2026-08-20-world-index-slice-2/progress.md` — a
+git-ignored file inside the disposable worktree. **The worktree was removed
+before the ledger was copied out, so the ledger is gone and nothing in git ever
+held it.** Rulings R1–R15 are unreproducible; what follows is the reconstruction
+that survives, and it is a reconstruction, not a transcript.
+
+**Reconstructed rulings, with what each costs if wrong**
+
+- **R8** — amend `tests/acceptance/test_n2_cut6.py` to audit the pre-move tree
+  at `4a7dc19` rather than declare a cut 6b. Cost: the permanent reachability
+  constraint in §7. Judged under-priced rather than wrong at final review, and
+  §7 now prices it.
+- **R10** — integrate preserving history. Cost if ignored: cuts 6 and 7 red,
+  unrepairable. Discharged by the `--no-ff` merge at `83744e7`.
+- **R13** — a criterion the controller gave Task 6 about carrier failure was
+  withdrawn as wrong: §8.2's list is closed and a missing receipt *key* is not
+  on it. Cost if it had stood: a receipt outcome misclassified as carrier
+  failure, collapsing the §8.2 layering.
+- **R17** — treat project-wide `pyright` as the gate, and insert Task 13.5 to
+  restore it. Partly wrong as first framed: `python/README.md` documented the
+  gate as `pyright src`, so the implementers who reported it clean reported
+  truthfully. The 73 added errors and the remediation were real; the imputation
+  of misreporting was not, and is withdrawn here.
+- **R19** — the frozen cut's check-node table is spelled `file.py::function`,
+  but 31 of its 45 names are methods; declarations carry the class segment
+  instead. Recorded in full at §9.2.
+- **R18, R20, R22, R23** — process rulings: one skipped fix round on an approved
+  task, one skipped re-review of a five-line documentation fix the controller
+  verified itself, one extra fix round spent closing a half-unfalsified arm on
+  an already-approved Task 12, and the parking of the two helper duplications
+  now recorded in §8.
+- **R1–R7, R9, R11, R12, R14, R15, R16, R21** — lost. Their effects are in the
+  commits and in the reviews those commits passed; their reasoning is not
+  recoverable.
+
+**The process failure, named.** The rulings ledger is an execution artifact
+whose whole purpose is to outlive the execution, and it was kept in
+git-ignored scratch inside a worktree scheduled for deletion. That is the same
+durability failure class this repository already names for certified arms: an
+artifact that must survive belongs on the durable volume beside the checkout,
+not in scratch. Future subagent-driven executions must either keep the rulings
+ledger at a tracked path and commit it at close-out, or copy it out of the
+worktree before `git worktree remove`.

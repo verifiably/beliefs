@@ -5,7 +5,9 @@ the project-wide Pyright gate) on branch `design/world-index-slice-2`, based on 
 `main`; see the branch's close-out commit for the final documentation state. Conformance cut 7's 48 declarations are discharged on the certified tuple; the
 results are recorded in `docs/plans/2026-08-20-conformance-cut-7-results.md`.
 
-**This branch is not merged.** There is no integration commit, and nothing here claims one.
+**Merged.** `design/world-index-slice-2` was merged into `main` on 2026-08-22 with `--no-ff`
+(integration commit `83744e7`), preserving history as the constraint below requires; the branch
+and its worktree are removed. The constraint itself outlives the merge.
 
 > **Integration constraint — merge preserving history.** Cut 6's 22 arms all declare
 > `module="world.py"`, and Task 3 moved that file to `world/registry.py`.
