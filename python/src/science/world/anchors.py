@@ -1,10 +1,13 @@
-"""The registry log-head record and the exported head artifact — pure codecs.
+"""The registry log-head record, the exported head artifact, and the two acts
+that write and read them.
 
 Design: ``docs/superpowers/specs/2026-08-22-log-verification-design.md`` §3.1
 (the registry log-head record, discriminated by ``record_kind: log-head``,
-content-named by its digest under the minted domain ``science.log-head.v1``)
-and §3.2 (the standalone exported head artifact, canonical bytes via
-``science.identity.v1`` encoding, minted under ``science.head-artifact.v1``).
+content-named by its digest under the minted domain ``science.log-head.v1``),
+§3.2 (the standalone exported head artifact, canonical bytes via
+``science.identity.v1`` encoding, minted under ``science.head-artifact.v1``,
+produced by ``export_head_artifact``) and §3.3 (``anchor_heads``, the explicit
+anchor act).
 
 Both ruled forms share one subject grammar — ``corpus(corpus_id) |
 world(world_id) | store(store_id)`` — though each admits a different subset.
@@ -13,26 +16,47 @@ not in that union at all (log design §5/L11). The head artifact's subject
 spans all three, because a world artifact must carry ``world_id`` outside the
 chain, where nothing else names it.
 
-This module is pure: it mints its two domains and decides nothing about when
-to write them. It imports neither ``atoms`` nor ``science.root``, and — so
-that ``science.world.registry`` can depend on it for the registry scan without
-a import cycle — it does not import ``science.world.registry`` either. The
-small grammar helpers below (``_require_lower_hex``, ``_closed_mapping``) are
-therefore local restatements of ``registry.py``'s, not imports of them; they
-follow the same shape on purpose.
+**The codecs are pure and the acts hold no capability of their own.** The two
+act cores below reach the engine only through the ``LogSeam`` they are handed
+— one head read and two locks — so this module imports neither ``atoms`` nor
+``science.root``. It reaches ``science.world.registry`` in the module form
+every edge of that cycle uses, and only at call time, because the registry
+scan depends on this module's codec: a name-form import in either direction
+would make one import order fail.
+
+The small grammar helpers below (``_require_lower_hex``, ``_require_actor``,
+``_closed_mapping``) are local restatements of ``registry.py``'s rather than
+imports of them, and follow the same shape on purpose. The shape is what is
+shared, not the refusal: ``registry.py``'s ``_closed_mapping`` raises
+``ManifestMalformed`` where this one raises ``ValueError``, because a codec
+refusal here is wrapped by whichever caller supplied the document.
 """
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TypeAlias, cast
 
+import yaml
+from nodes.core.write_plan import CreateOp
+
+from science.errors import (
+    AnchorSubjectUnknown,
+    AnchorTargetUnresolvable,
+    LogHeadCollision,
+    WorldIdMismatch,
+    WorldUninitialized,
+)
 from science.identity import v1
+from science.world import registry
+from science.world.verify import LogSeam
 
 __all__ = [
     "HEAD_ARTIFACT_DOMAIN",
     "LOG_HEAD_DOMAIN",
+    "WORLD_GENESIS_DOMAIN",
     "AnchorActOrigin",
     "BuildOrigin",
     "CorpusSubject",
@@ -46,11 +70,20 @@ __all__ = [
     "head_artifact_bytes",
     "log_head_digest",
     "log_head_projection",
+    "log_head_record_bytes",
     "parse_log_head_record",
 ]
 
 LOG_HEAD_DOMAIN = "science.log-head.v1"
 HEAD_ARTIFACT_DOMAIN = "science.head-artifact.v1"
+
+WORLD_GENESIS_DOMAIN = "science.world-root.v1"
+"""The world chain's genesis domain, as the composition root mints it.
+
+Restated rather than imported: the world package may not import
+``science.root``, and a world export must bind its subject to the ``world_id``
+the genesis payload carries. The two spellings are pinned equal by a test, so
+the restatement cannot drift into a second definition."""
 
 _LOWER_HEX = frozenset("0123456789abcdef")
 
@@ -245,6 +278,16 @@ def log_head_digest(record: LogHeadRecord) -> str:
     return v1.digest(LOG_HEAD_DOMAIN, log_head_projection(record))
 
 
+def log_head_record_bytes(record: LogHeadRecord) -> bytes:
+    """One record's registry bytes: the canonical dump of its projection.
+
+    The same deterministic encoding admission and status records are written
+    with, because the registry scan reads all three with one loader and a
+    log-head record filed under a second grammar would be a second registry.
+    """
+    return yaml.safe_dump(log_head_projection(record), sort_keys=True, allow_unicode=True).encode("utf-8")
+
+
 def parse_log_head_record(value: object) -> LogHeadRecord:
     """The decode half of the log-head record codec: a decoded YAML mapping in,
     a validated `LogHeadRecord` out, or a `ValueError` refusal. Consumed by
@@ -305,3 +348,179 @@ def decode_head_artifact(data: bytes) -> HeadArtifact:
     if head_artifact_bytes(artifact) != data:
         raise ValueError("head artifact is not the canonical encoding of its own payload")
     return artifact
+
+
+# --- the two acts (§3.2, §3.3) ------------------------------------------------
+#
+# Both cores take the seam as a parameter and hold no capability of their own,
+# and both resolve a corpus subject by the one rule below. `science.root` is
+# the only constructor of a production seam, and its `anchor_heads` /
+# `export_head_artifact` wrappers are the only public callers of these two.
+
+
+def _resolve_carrier(config: registry.WorldConfig, view: registry.RegistryView, corpus_id: str) -> Path:
+    """§3.3's resolution rule: one admitted id, exactly one configured carrier.
+
+    The two refusals are distinct and ordered. An id this world never admitted
+    is not a resolution failure at all — no set of roots would make it
+    anchorable — so it is decided first, from the registry the caller already
+    scanned. Zero carriers and two carriers are then the same failure and
+    refuse alike: an act that picked whichever root sorted first would anchor a
+    chain whose provenance depended on configuration order.
+
+    Terminal status is deliberately not consulted. §3.3 rules that terminal
+    corpora may be anchored, because anchoring immediately before retirement or
+    departure cleanup is the archetypal use of the act.
+    """
+    if not any(record.corpus_id == corpus_id for record in view.admissions):
+        raise AnchorSubjectUnknown(f"{corpus_id}: this world has not admitted the named corpus")
+    roots = registry._carrier_roots(config, corpus_id)
+    if len(roots) != 1:
+        detail = ",".join(sorted(str(root) for root in roots)) or "none"
+        raise AnchorTargetUnresolvable(
+            f"{corpus_id}: exactly one configured carrier root is required; carriers={detail}"
+        )
+    return roots[0]
+
+
+def _log_head_member(world_root: Path, record: LogHeadRecord) -> CreateOp | None:
+    """§3.1's idempotency rule, as one create-or-nothing decision.
+
+    `None` means the record already stands, byte for byte, and there is
+    nothing to submit — the rules store's discipline verbatim, and the reason
+    re-anchoring an unmoved head opens no transaction at all.
+    """
+    path = f"registry/{log_head_digest(record)}.yaml"
+    content = log_head_record_bytes(record)
+    target = Path(world_root) / path
+    if target.is_symlink() or (target.exists() and not target.is_file()):
+        raise LogHeadCollision(f"{target}: a content-addressed log-head record path is not a regular file")
+    if target.exists():
+        if target.read_bytes() != content:
+            raise LogHeadCollision(f"{target}: a content-addressed log-head record path holds different bytes")
+        return None
+    return CreateOp(path, content)
+
+
+def _anchor_heads(
+    world: registry.World,
+    corpus_ids: frozenset[str],
+    *,
+    actor: str,
+    seam: LogSeam,
+) -> tuple[LogHeadRecord, ...]:
+    """§3.3: anchor each named corpus's present chain head, in one transaction.
+
+    Under the world lock throughout, in sorted id order so that a world with
+    two faults reports the one that is decided first rather than the one that
+    happens to be met first. Per corpus: resolve the carrier by §3.3's rule,
+    read that carrier's validated head through the seam — chain validation
+    only, no registered-surface scan and no corpus-state identity — and mint
+    the record. The plan is submitted once, at the end, so a refusal over the
+    third named corpus leaves no record standing for the first two.
+
+    **No `World` method is called under the lock (R12).** The seam's
+    `world_lock` hands back the very non-reentrant lock `World.registry()`
+    takes, so the registry is scanned here directly, exactly as an epoch
+    build's preflight scans it.
+
+    A `LogEvidenceRefused` from the head read propagates untranslated: it is a
+    refusal to judge, not a judgment, and it sits outside every precedence.
+    """
+    _require_actor(actor)
+    if type(corpus_ids) is not frozenset:
+        raise TypeError("corpus_ids must be an exact frozenset")
+    targets = sorted(_require_lower_hex(corpus_id, 32, "corpus_id") for corpus_id in corpus_ids)
+    origin = AnchorActOrigin(actor)
+    config = world.config
+    with seam.world_lock(config.world_root):
+        view = registry._scan_registry(config.world_root)
+        world._state.registry = view
+        records: list[LogHeadRecord] = []
+        plan: list[CreateOp] = []
+        for corpus_id in targets:
+            carrier = _resolve_carrier(config, view, corpus_id)
+            head = seam.read_head(carrier)
+            record = LogHeadRecord(CorpusSubject(corpus_id), head.genesis_digest, head.tip, origin)
+            records.append(record)
+            member = _log_head_member(config.world_root, record)
+            if member is not None:
+                plan.append(member)
+        if plan:
+            world._executor_factory(config.world_root).execute(plan)
+        return tuple(records)
+
+
+def _require_world_genesis(world_root: Path, payload: bytes, world_id: str) -> None:
+    """The world export's binding half: the genesis must be *this* world's.
+
+    Two distinct refusals, because they are two different facts. A payload
+    that is not a Science world genesis at all says the root was never
+    initialized as one; a well-formed genesis naming another `world_id` says
+    the subject and the chain disagree, which is exactly the mismatch that
+    stops `World(W2)` being encoded over W1's chain.
+    """
+    try:
+        document = json.loads(payload.decode("utf-8"))
+    except Exception as caught:
+        raise WorldUninitialized(
+            f"{world_root}: the chain genesis payload is not a Science world genesis: {caught}"
+        ) from caught
+    if (
+        type(document) is not dict
+        or set(document) != {"domain", "world_id"}
+        or document["domain"] != WORLD_GENESIS_DOMAIN
+    ):
+        raise WorldUninitialized(
+            f"{world_root}: the chain genesis payload is not a {WORLD_GENESIS_DOMAIN} genesis"
+        )
+    if document["world_id"] != world_id:
+        raise WorldIdMismatch(
+            f"{world_root}: the chain genesis names world_id {document['world_id']!r}, not {world_id!r}"
+        )
+
+
+def _export_head_artifact(
+    world: registry.World,
+    subject: CorpusSubject | WorldSubject,
+    *,
+    seam: LogSeam,
+) -> bytes:
+    """§3.2: the canonical bytes of one subject's present head. Writes nothing.
+
+    Export *is* the return of the value: storing the bytes with an external
+    holder is the holder's job, and it is that holding — an epoch copy or an
+    artifact reaching a holder outside the world root — that anchors the world
+    chain, since no local act can (log design §5, L11). Hence no `actor`: the
+    ruled artifact has no member to record one.
+
+    **The subject binds, never decorates.** A world subject must agree with the
+    configuration *and* with the genesis payload the head was read alongside; a
+    corpus subject resolves under §3.3's rule, so an unknown id or an
+    unresolvable carrier refuses exactly as the anchor act refuses.
+
+    The world lock is held across the whole act and, for a corpus subject, the
+    carrier's operation lock across the tip read — taken in the existing
+    world→corpus order. It is taken as a *writer* rather than as a build's
+    capture: an export is a short read, and a capture hold would turn a corpus
+    write already waiting in the queue into a `BuildHold` refusal.
+    """
+    if type(subject) not in {CorpusSubject, WorldSubject}:
+        raise TypeError("subject must be CorpusSubject or WorldSubject")
+    config = world.config
+    with seam.world_lock(config.world_root):
+        if type(subject) is WorldSubject:
+            if subject.world_id != config.world_id:
+                raise WorldIdMismatch(
+                    f"the exported subject names world_id {subject.world_id!r}, "
+                    f"but this world is configured as {config.world_id!r}"
+                )
+            head = seam.read_head(config.world_root)
+            _require_world_genesis(config.world_root, head.genesis_payload, subject.world_id)
+            return head_artifact_bytes(HeadArtifact(subject, head.genesis_digest, head.tip))
+        view = registry._scan_registry(config.world_root)
+        world._state.registry = view
+        carrier = _resolve_carrier(config, view, cast(CorpusSubject, subject).corpus_id)
+        with seam.corpus_lock(carrier):
+            head = seam.read_head(carrier)
+            return head_artifact_bytes(HeadArtifact(subject, head.genesis_digest, head.tip))

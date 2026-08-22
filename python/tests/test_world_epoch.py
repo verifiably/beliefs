@@ -42,9 +42,11 @@ from test_world_build import (
     JOIN_TIMEOUT,
     ChainHeads,
     corpus_at,
+    genesis_of,
     install_bindings,
     sample_nodes,
     slug_for,
+    tip_of,
 )
 
 from science import stored
@@ -252,8 +254,8 @@ class TestTheDeterministicCarrier:
         assert anchors["corpora"] == [
             {
                 "subject": corpus_id,
-                "genesis_digest": f"genesis:{roots[corpus_id].name}",
-                "head_digest": f"tip:{roots[corpus_id].name}",
+                "genesis_digest": genesis_of(roots[corpus_id]),
+                "head_digest": tip_of(roots[corpus_id]),
             }
             for corpus_id in (ALPHA, BETA, GAMMA)
         ]
@@ -262,8 +264,8 @@ class TestTheDeterministicCarrier:
         )
         assert anchors["world"] == {
             "subject": world.config.world_id,
-            "genesis_digest": f"genesis:{world.config.world_root.name}",
-            "head_digest": f"tip:{world.config.world_root.name}",
+            "genesis_digest": genesis_of(world.config.world_root),
+            "head_digest": tip_of(world.config.world_root),
         }
 
     def test_the_coverage_member_carries_sorted_ids_and_captured_states(self, tmp_path):
@@ -368,7 +370,11 @@ class TestTheDeterministicCarrier:
 
 
 class TestPublicationIsOneTransaction:
-    def test_first_publication_is_one_plan_of_eleven_creates_and_the_pointer(self, tmp_path):
+    def test_first_publication_is_one_plan_of_eleven_creates_the_pointer_and_the_records(self, tmp_path):
+        # Slice 3 (log-verification design §3.3) adds the build's registry-record
+        # half to this very plan: one log-head record per covered corpus, created
+        # after the pointer. The count is stated as `members + pointer + coverage`
+        # so a build that quietly stopped writing them would fail here.
         world, recorder, bindings, _roots = admitted_world(tmp_path)
 
         published = publish(world, (ALPHA,), bindings)
@@ -378,12 +384,15 @@ class TestPublicationIsOneTransaction:
         assert all(type(operation) is CreateOp for operation in plan)
         creates = [operation for operation in plan if isinstance(operation, CreateOp)]
         assert len(creates) == len(plan)
+        records = [operation for operation in creates if operation.path.startswith("registry/")]
+        assert len(records) == 1
         assert [operation.path for operation in creates] == [
             *(f"epochs/{published.packaging_identity}/{member}" for member in epoch.EPOCH_MEMBERS),
             f"epochs/{epoch.CURRENT_POINTER}",
+            *(operation.path for operation in records),
         ]
-        assert creates[-1].content == f"{published.packaging_identity}\n".encode()
-        assert [operation.content for operation in creates[:-1]] == [
+        assert creates[len(epoch.EPOCH_MEMBERS)].content == f"{published.packaging_identity}\n".encode()
+        assert [operation.content for operation in creates[: len(epoch.EPOCH_MEMBERS)]] == [
             published.members[member] for member in epoch.EPOCH_MEMBERS
         ]
 
@@ -396,11 +405,15 @@ class TestPublicationIsOneTransaction:
         assert second.packaging_identity != first.packaging_identity
         assert len(recorder.epoch_plans) == 2
         plan = recorder.epoch_plans[1]
-        assert [type(operation) for operation in plan] == [CreateOp] * 11 + [ReplaceOp]
-        assert [operation.path for operation in plan[:-1]] == [
+        # Eleven members, the pointer replacement, and the two build-origin
+        # records: BETA's is new, and ALPHA's differs from the first build's
+        # only in the packaging identity its origin names.
+        assert [type(operation) for operation in plan] == [CreateOp] * 11 + [ReplaceOp] + [CreateOp] * 2
+        assert [operation.path for operation in plan[:11]] == [
             f"epochs/{second.packaging_identity}/{member}" for member in epoch.EPOCH_MEMBERS
         ]
-        pointer = plan[-1]
+        assert all(operation.path.startswith("registry/") for operation in plan[12:])
+        pointer = plan[11]
         assert isinstance(pointer, ReplaceOp), pointer
         assert pointer.path == f"epochs/{epoch.CURRENT_POINTER}"
         assert pointer.content == f"{second.packaging_identity}\n".encode()
@@ -510,9 +523,9 @@ class TestExactRebuild:
         monkeypatch.setattr(
             epoch,
             "_locked_publication_plan",
-            lambda world_root, identity, members: (
+            lambda world_root, identity, members, anchors: (
                 mark("plan"),
-                planner(world_root, identity, members),
+                planner(world_root, identity, members, anchors),
             )[1],
         )
         monkeypatch.setattr(
@@ -700,6 +713,10 @@ class TestOpening:
                 if operation.path == f"epochs/{epoch.CURRENT_POINTER}":
                     continue
                 assert type(operation) is CreateOp, operation
+                # The build's log-head records ride in the same plan (§3.3) and
+                # are creates into `registry/`, never touches of a member.
+                if operation.path.startswith("registry/"):
+                    continue
                 assert operation.path in members, operation.path
         assert rebuilt.packaging_identity == first.packaging_identity
 

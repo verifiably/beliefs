@@ -77,7 +77,17 @@ from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp, WritePlan, vali
 from science.corpus import CorpusWriter, _operation_lock_for
 from science.errors import CorpusRootRefused, LogEvidenceRefused, WorldIdMismatch
 from science.identity import v1
-from science.world import World, WorldConfig, _load_world_mirror, _world_lock_for, _world_mirror_bytes
+from science.world import (
+    CorpusSubject,
+    LogHeadRecord,
+    World,
+    WorldConfig,
+    WorldSubject,
+    _load_world_mirror,
+    _world_lock_for,
+    _world_mirror_bytes,
+)
+from science.world.anchors import _anchor_heads, _export_head_artifact
 from science.world.logmodel import (
     AbsentView,
     ChainHead,
@@ -107,8 +117,10 @@ __all__ = [
     "WORLD_GENESIS_DOMAIN",
     "DurableExecutor",
     "DurableOperationPort",
+    "anchor_heads",
     "chain_head_reader",
     "durable_executor_factory",
+    "export_head_artifact",
     "init_corpus_root",
     "init_world_root",
     "install_shipped_world_rules",
@@ -834,6 +846,27 @@ def _log_seam() -> LogSeam:
     than one that merely behaves like it.
     """
     return _LOG_SEAM
+
+
+def anchor_heads(world: World, corpus_ids: frozenset[str], *, actor: str) -> tuple[LogHeadRecord, ...]:
+    """The explicit anchor act: record each named corpus's present chain head.
+
+    The wrapper is the whole of what this module adds — the production seam.
+    The act itself is `science.world.anchors._anchor_heads`, which holds no
+    engine capability of its own and is testable against a stand-in seam
+    (log-verification design §3.3).
+    """
+    return _anchor_heads(world, corpus_ids, actor=actor, seam=_log_seam())
+
+
+def export_head_artifact(world: World, subject: CorpusSubject | WorldSubject) -> bytes:
+    """One subject's head, as the canonical bytes of a standalone artifact.
+
+    Writes nothing and mints no record: export *is* the return of the value,
+    and storing it with an external holder is the holder's job — which is also
+    what makes it the one act that can anchor the world chain (§3.2, L11).
+    """
+    return _export_head_artifact(world, subject, seam=_log_seam())
 
 
 def open_corpus(corpus_root: Path) -> CorpusWriter:

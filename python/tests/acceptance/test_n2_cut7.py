@@ -85,7 +85,7 @@ from nodes.core.corpus import Corpus
 from nodes.core.write_plan import DefaultExecutor
 from test_durable_families import chain_entries
 from test_n2 import MalformedArm, audit, baseline
-from test_world_build import ALPHA, BETA, corpus_at, sample_nodes
+from test_world_build import ALPHA, BETA, corpus_at, genesis_of, sample_nodes, tip_of
 from test_world_read import RETIRED, coreference_successor, linked_nodes
 from test_world_receipts import corpora, document, publish, world_over
 
@@ -180,6 +180,11 @@ class ContentHeads:
     Here the corpus roots answer with `corpus_state_identity`, so the anchored
     head is comparable with the captured state, and the world root keeps the
     constant because it is not a corpus.
+
+    The constant is `test_world_build`'s stand-in digest rather than a
+    `genesis:<name>` label: publication mints registry log-head records from
+    these values, and those validate the 64-character lowercase hexadecimal
+    form a chain digest actually has.
     """
 
     def __init__(self, corpus_roots: tuple[Path, ...]) -> None:
@@ -188,8 +193,8 @@ class ContentHeads:
     def __call__(self, target: Path) -> tuple[str, str]:
         target = Path(target).resolve()
         if target in self.corpus_roots:
-            return (f"genesis:{target.name}", registry.corpus_state_identity(target))
-        return (f"genesis:{target.name}", f"tip:{target.name}")
+            return (genesis_of(target), registry.corpus_state_identity(target))
+        return (genesis_of(target), tip_of(target))
 
 
 def test_anchored_head_describes_the_captured_corpus_view(tmp_path):
@@ -747,6 +752,13 @@ def test_publication_registration_names_epoch_and_current(durable_world):
     Both shapes are exercised. The first publication *creates* the pointer; the
     second *replaces* it, and both entries name the eleven members of their own
     epoch alongside it.
+
+    Slice 3's build-origin log-head record joins the same transaction
+    (log-verification design §3.3), so the committed entry names one
+    `registry/` path per covered corpus beside the epoch's own. The record is
+    admitted by name rather than by content — X2's claim is about *this*
+    transaction naming what it wrote, and the record's own form is covered
+    where it is written.
     """
     case = durable_world
     bindings = shipped_bindings(case["world"])
@@ -757,9 +769,11 @@ def test_publication_registration_names_epoch_and_current(durable_world):
         case["world"], coverage=frozenset({case["corpus_id"]}), bindings=bindings
     )
     (created,) = _registrations(chain_entries(case["world_root"])[len(before) :])
+    created_records = {path for path in dict(created.final) if path.startswith("registry/")}
+    assert len(created_records) == 1
     assert set(dict(created.final)) == {
         f"epochs/{first.packaging_identity}/{member}" for member in epoch.EPOCH_MEMBERS
-    } | {pointer}
+    } | {pointer} | created_records
 
     _extra_record(case["corpus_root"], "second-publication")
     before = chain_entries(case["world_root"])
@@ -768,9 +782,11 @@ def test_publication_registration_names_epoch_and_current(durable_world):
     )
     assert second.packaging_identity != first.packaging_identity
     (replaced,) = _registrations(chain_entries(case["world_root"])[len(before) :])
+    replaced_records = {path for path in dict(replaced.final) if path.startswith("registry/")}
+    assert len(replaced_records) == 1 and replaced_records != created_records
     assert set(dict(replaced.final)) == {
         f"epochs/{second.packaging_identity}/{member}" for member in epoch.EPOCH_MEMBERS
-    } | {pointer}
+    } | {pointer} | replaced_records
     assert read.current_epoch(case["world"]).packaging_identity == second.packaging_identity
 
 

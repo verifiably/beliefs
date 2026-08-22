@@ -156,6 +156,32 @@ class CaptureDrift(ScienceError):
     eventually succeeded without saying so."""
 
 
+class AnchorSubjectUnknown(ScienceError):
+    """An anchoring act named a `corpus_id` this world has not admitted.
+    Anchoring records what a corpus's chain presently says, and a world that
+    anchored an unadmitted id would be recording a claim about a corpus it has
+    never granted membership to — presence on a configured root is the
+    corpus's own claim, not the world's."""
+
+
+class AnchorTargetUnresolvable(ScienceError):
+    """An admitted `corpus_id` has no presently configured carrier root, or
+    more than one. Both are the same failure — the act cannot say whose chain
+    it would read — and neither is repairable by choosing: resolution failure
+    is never silent narrowing to whichever root sorted first."""
+
+
+class LogHeadCollision(ScienceError):
+    """A content-addressed log-head record path exists with different bytes.
+
+    The rules store's discipline, verbatim (log-verification design §3.1): a
+    byte-identical record is skipped as success and submits no transaction,
+    and a same-name file holding anything else is a collision rather than an
+    overwrite — a record is immutable, and one whose name no longer names its
+    content would make every later "maximal anchor" a reading of corrupted
+    evidence."""
+
+
 class LogEvidenceRefused(ScienceError):
     """The engine refused to produce the log evidence an act asked for.
 

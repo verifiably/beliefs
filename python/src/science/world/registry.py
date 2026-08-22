@@ -31,7 +31,7 @@ from science.errors import (
     WorldUninitialized,
 )
 from science.identity import v1
-from science.world.anchors import LogHeadRecord, log_head_digest, parse_log_head_record
+from science.world import anchors
 
 __all__ = [
     "AdmissionProvenance",
@@ -156,7 +156,7 @@ class WorldConfig:
 class RegistryView:
     admissions: tuple[AdmissionRecord, ...] = ()
     statuses: tuple[StatusRecord, ...] = ()
-    log_heads: tuple[LogHeadRecord, ...] = ()
+    log_heads: tuple[anchors.LogHeadRecord, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -540,7 +540,7 @@ def _parse_provenance(value: object) -> AdmissionProvenance:
     raise ValueError(f"unknown or malformed admission provenance {kind!r}")
 
 
-def _parse_registry_record(value: object) -> AdmissionRecord | StatusRecord | LogHeadRecord:
+def _parse_registry_record(value: object) -> AdmissionRecord | StatusRecord | anchors.LogHeadRecord:
     if type(value) is not dict or type(value.get("record_kind")) is not str:
         raise ValueError("registry record must be a closed mapping selected by record_kind")
     if value["record_kind"] == "admission":
@@ -560,7 +560,7 @@ def _parse_registry_record(value: object) -> AdmissionRecord | StatusRecord | Lo
             raise ValueError(f"status record must have exactly {sorted(expected)}")
         return StatusRecord(value["corpus_id"], value["status"], value["actor"])
     if value["record_kind"] == "log-head":
-        return parse_log_head_record(value)
+        return anchors.parse_log_head_record(value)
     raise ValueError(f"unknown registry record_kind {value['record_kind']!r}")
 
 
@@ -573,7 +573,7 @@ def _scan_registry(root: Path) -> RegistryView:
             raise ValueError("registry must be a regular directory")
         admissions: list[AdmissionRecord] = []
         statuses: list[StatusRecord] = []
-        log_heads: list[LogHeadRecord] = []
+        log_heads: list[anchors.LogHeadRecord] = []
         for path in registry.iterdir():
             if path.is_symlink() or not path.is_file() or path.suffix != ".yaml":
                 raise ValueError(f"{path.name!r} is not a regular *.yaml registry member")
@@ -584,7 +584,7 @@ def _scan_registry(root: Path) -> RegistryView:
             elif isinstance(record, StatusRecord):
                 digest = status_digest(record)
             else:
-                digest = log_head_digest(record)
+                digest = anchors.log_head_digest(record)
             if path.name != f"{digest}.yaml":
                 raise ValueError(f"{path.name!r} is not the record's content name")
             if isinstance(record, AdmissionRecord):
@@ -596,7 +596,7 @@ def _scan_registry(root: Path) -> RegistryView:
         return RegistryView(
             tuple(sorted(admissions, key=admission_digest)),
             tuple(sorted(statuses, key=status_digest)),
-            tuple(sorted(log_heads, key=log_head_digest)),
+            tuple(sorted(log_heads, key=anchors.log_head_digest)),
         )
     except Exception as caught:
         raise RegistryMalformed(f"{registry}: malformed registry: {caught}") from caught

@@ -3,7 +3,8 @@
 Slice 1's registry lives in `science.world.registry`, slice 2's rules store in
 `science.world.rules`, its epoch carrier and publication in
 `science.world.epoch`, its pure derivations in `science.world.derive` and its
-read surface in `science.world.read`; slice 3's log-anchoring codecs in
+read surface in `science.world.read`; slice 3's log-anchoring codecs and the two acts over
+them — the anchor act and the head export — in
 `science.world.anchors`, its Science-typed chain views in
 `science.world.logmodel` and the engine seam every verification act is handed
 in `science.world.verify`; this module is the package's import
@@ -19,6 +20,7 @@ from __future__ import annotations
 from science.world.anchors import (
     HEAD_ARTIFACT_DOMAIN,
     LOG_HEAD_DOMAIN,
+    WORLD_GENESIS_DOMAIN,
     AnchorActOrigin,
     BuildOrigin,
     CorpusSubject,
@@ -32,6 +34,7 @@ from science.world.anchors import (
     head_artifact_bytes,
     log_head_digest,
     log_head_projection,
+    log_head_record_bytes,
     parse_log_head_record,
 )
 from science.world.derive import (
@@ -202,6 +205,7 @@ __all__ = [
     "RULE_DOMAIN",
     "SNAPSHOT_SUBJECT",
     "SUBJECT_DOMAINS",
+    "WORLD_GENESIS_DOMAIN",
     "AbsentView",
     "AdmissionProvenance",
     "AdmissionRecord",
@@ -287,6 +291,7 @@ __all__ = [
     "load_manifest",
     "log_head_digest",
     "log_head_projection",
+    "log_head_record_bytes",
     "manifest_bytes",
     "manifest_projection",
     "member_content_digest",
