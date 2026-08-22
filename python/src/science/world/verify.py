@@ -167,8 +167,15 @@ def registered_surface_paths(root: Path, kind: RootKind) -> tuple[str, ...]:
     a claimed path, because its state is one the surface can disagree about.
     Only paths that presently exist are listed; a path the timeline knows and
     the disk does not is replay's union comparison to make, not this one's.
+
+    A `root` that is not a directory raises `FileNotFoundError`, both kinds
+    alike: an audit whose target root is missing must refuse loudly, and a
+    projection that answered `()` would hand replay a wholly absent surface as
+    if it had scanned one.
     """
     root = Path(root)
+    if not root.is_dir():
+        raise FileNotFoundError(f"{root}: a registered surface is projected from a root directory")
     if kind == "corpus":
         # Sorted over whole paths, not per directory: a walk's own order puts
         # `a/b.md` before `a.md`, and the projection's order is its caller's
@@ -250,7 +257,7 @@ def validate_history(history: Mapping[str, bytes]) -> None:
     it checked.
     """
     for key, payload in history.items():
-        if not CONTENT_HASH.match(key):
+        if not CONTENT_HASH.fullmatch(key):
             raise ValueError(f"{key!r} is not a content hash: the form is 'sha256:<64 lowercase hex>'")
         if type(payload) is not bytes:
             raise ValueError(f"{key}: a held copy is bytes, not {type(payload).__name__}")
@@ -304,11 +311,14 @@ def replay(
     performed on one is `==`. Nothing is interpreted, and nothing is
     re-encoded — that is what keeps one summary model a mechanism.
 
-    An initial-fingerprint disagreement stops the replay: past it the
-    accumulated surface is no longer what the timeline claims, and a head
-    comparison against a surface known to have diverged would report
-    consequences of the first disagreement as further evidence. The findings
-    gathered up to that point are returned with it.
+    An initial-fingerprint disagreement is reported at the entry where the
+    timeline stopped agreeing with itself, and it **skips the head
+    comparison**: past that point the accumulated surface is no longer what
+    the timeline claims, and comparing it against the disk would report
+    consequences of the first disagreement as further evidence. The **policy
+    pass still runs to the end of the chain**, because a removal is the
+    timeline's own claim about its transition and an inventory truncated at
+    the first disagreement would be a silently short one.
     """
     if history is not None:
         validate_history(history)
@@ -318,22 +328,28 @@ def replay(
         entry.registration for entry in view.entries if type(entry) is SettledEntryView and entry.committed
     }
     findings: list[Finding] = []
+    diverged: tuple[str, ...] = ()
 
     for entry in view.entries:
         if type(entry) is not RegisteredEntryView or entry.digest not in committed:
             continue
-        disagreed = tuple(
-            f"initial:{path}@{entry.txid}"
-            for path, state in entry.initial
-            if modeled.get(path, absent_state) != state
-        )
-        if disagreed:
-            return ReplayResult(refuted=True, disagreements=disagreed, findings=tuple(findings))
+        if not diverged:
+            diverged = tuple(
+                f"initial:{path}@{entry.txid}"
+                for path, state in entry.initial
+                if modeled.get(path, absent_state) != state
+            )
+        # The transition's *declared* pre-state, not the accumulated one: what
+        # a transition removed is the timeline's claim about itself, and past a
+        # divergence the accumulation is no longer evidence of it.
+        declared = dict(entry.initial)
         for path, state in entry.final:
-            if state == absent_state and modeled.get(path, absent_state) != absent_state:
+            if state == absent_state and declared.get(path, absent_state) != absent_state:
                 findings.extend(_removal_findings(path, entry.txid, held))
             modeled[path] = state
 
+    if diverged:
+        return ReplayResult(refuted=True, disagreements=diverged, findings=tuple(findings))
     scanned = dict(disk)
     disagreements = tuple(
         f"head:{path}"
@@ -343,7 +359,23 @@ def replay(
     return ReplayResult(refuted=bool(disagreements), disagreements=disagreements, findings=tuple(findings))
 
 
-def _removal_findings(path: str, txid: str, held: Mapping[str, tuple[str, str, str | None]]) -> tuple[Finding, ...]:
+@dataclass(frozen=True, slots=True)
+class _HeldRecord:
+    """One held copy, as the policy pass reads it.
+
+    `verdict` is a held verification's verdict and `None` for every other
+    kind; `verdict_unreadable` is true for exactly one case — a held
+    verification whose facet does not validate — which is a different fact
+    from "not a verification" and is worded as its own classification.
+    """
+
+    digest: str
+    kind: str
+    verdict: str | None
+    verdict_unreadable: bool
+
+
+def _removal_findings(path: str, txid: str, held: Mapping[str, _HeldRecord]) -> tuple[Finding, ...]:
     """One committed removal's findings: the removal, and its classification
     where the caller's held bytes resolve the removed record.
 
@@ -352,6 +384,13 @@ def _removal_findings(path: str, txid: str, held: Mapping[str, tuple[str, str, s
     act made, because the judgment it supports is the consumer contract's and
     not this design's. Classification is the separate claim, and it is made
     only from evidence the caller actually holds.
+
+    **Every classification speaks about the held copy, never about the removed
+    bytes.** The match is by claimed path (see `_held_records`), so a copy that
+    claims the path may be a different version of the record than the one the
+    transition removed; a finding that said "the removed record is not a
+    failing verification" would be asserting exactly what the missing digest
+    match would have had to establish.
     """
     removal = Finding(
         severity="warning",
@@ -363,32 +402,48 @@ def _removal_findings(path: str, txid: str, held: Mapping[str, tuple[str, str, s
     resolved = held.get(path)
     if resolved is None:
         return (removal,)
-    digest, kind, verdict = resolved
-    if kind == "verification" and verdict == "failed":
-        return (
-            removal,
-            Finding(
-                severity="error",
-                code="failing-verification-removed",
-                ref=path,
-                detail=f"txid={txid} digest={digest}",
-                message="the removed record is a failing verification, which the kernel's immutability rules keep",
-            ),
-        )
-    detail = f"txid={txid} digest={digest} kind={kind}"
-    return (
-        removal,
-        Finding(
+    return (removal, _classification(path, txid, resolved))
+
+
+def _classification(path: str, txid: str, held: _HeldRecord) -> Finding:
+    """What the one held copy claiming `path` says about the removal."""
+    detail = f"txid={txid} digest={held.digest} kind={held.kind}"
+    if held.kind != "verification":
+        return Finding(
             severity="warning",
             code="removal-classified",
             ref=path,
-            detail=detail if verdict is None else f"{detail} verdict={verdict}",
-            message="the removed record is resolved by a held copy and is not a failing verification",
-        ),
+            detail=detail,
+            message="a held copy filed under this digest claims the removed path and is not a verification",
+        )
+    if held.verdict_unreadable:
+        return Finding(
+            severity="warning",
+            code="removal-classified",
+            ref=path,
+            detail=f"{detail} verdict=unreadable",
+            message="a held copy filed under this digest claims the removed path, and its verification facet does "
+            "not validate, so no verdict is read from it",
+        )
+    if held.verdict == "failed":
+        return Finding(
+            severity="error",
+            code="failing-verification-removed",
+            ref=path,
+            detail=f"txid={txid} digest={held.digest}",
+            message="a held copy filed under this digest claims the removed path and carries a failing verdict, "
+            "which the kernel's immutability rules keep",
+        )
+    return Finding(
+        severity="warning",
+        code="removal-classified",
+        ref=path,
+        detail=f"{detail} verdict={held.verdict}",
+        message="a held copy filed under this digest claims the removed path and carries no failing verdict",
     )
 
 
-def _held_records(history: Mapping[str, bytes] | None) -> dict[str, tuple[str, str, str | None]]:
+def _held_records(history: Mapping[str, bytes] | None) -> dict[str, _HeldRecord]:
     """The caller's held copies, indexed by the corpus path each one claims.
 
     **What this resolution is, and is not.** A chain entry retains a path's
@@ -407,14 +462,14 @@ def _held_records(history: Mapping[str, bytes] | None) -> dict[str, tuple[str, s
     """
     if history is None:
         return {}
-    claimed: dict[str, list[tuple[str, str, str | None]]] = {}
+    claimed: dict[str, list[_HeldRecord]] = {}
     for digest, payload in history.items():
         try:
             node = node_from_markdown(payload.decode("utf-8"))
             path = _record_path(node.id)
         except (NodesError, ValueError, YAMLError):
             continue
-        claimed.setdefault(path, []).append((digest, node.kind, _verdict_of(node)))
+        claimed.setdefault(path, []).append(_held_record(digest, node))
     return {path: copies[0] for path, copies in claimed.items() if len(copies) == 1}
 
 
@@ -429,13 +484,12 @@ def _record_path(node_id: str) -> str:
     return f"{parsed.kind}/{parsed.slug.replace(':', '__')}{RECORD_SUFFIX}"
 
 
-def _verdict_of(node: Node) -> str | None:
-    """A verification's verdict, or `None` for every other kind and for a
-    verification whose facet does not validate — an unreadable held copy
-    classifies nothing."""
+def _held_record(digest: str, node: Node) -> _HeldRecord:
+    """One decoded held copy, with its verdict read where there is one to read."""
     if node.kind != "verification":
-        return None
+        return _HeldRecord(digest=digest, kind=node.kind, verdict=None, verdict_unreadable=False)
     try:
-        return verification_value(node).verdict
+        verdict = verification_value(node).verdict
     except MalformedRecord:
-        return None
+        return _HeldRecord(digest=digest, kind=node.kind, verdict=None, verdict_unreadable=True)
+    return _HeldRecord(digest=digest, kind=node.kind, verdict=verdict, verdict_unreadable=False)

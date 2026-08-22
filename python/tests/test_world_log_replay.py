@@ -17,9 +17,12 @@ from pathlib import Path
 
 import pytest
 from nodes.core.frontmatter import node_to_markdown
+from nodes.core.ids import KIND_RE, SLUG_RE
 from nodes.core.node import Node
+from nodes.core.store import Store
 
 from science.world import verify
+from science.world.epoch import CURRENT_POINTER, EPOCH_MEMBERS
 from science.world.logmodel import (
     GenesisEntryView,
     IntentEntryView,
@@ -27,12 +30,18 @@ from science.world.logmodel import (
     SettledEntryView,
     WellFormedView,
 )
+from science.world.rules import _MEMBER_NAME
 
 # --- the opaque state stand-in ------------------------------------------
 
 
 class Opaque:
     """A path state that answers equality and nothing else."""
+
+    __hash__ = None  # type: ignore[assignment]  # pyright: ignore[reportIncompatibleMethodOverride]
+    """Unhashable on purpose: a state belongs in a comparison, never in a set
+    or a dict key. Code that indexed by state fails here instead of quietly
+    depending on an engine value's hash."""
 
     def __init__(self, label: str) -> None:
         # `label` is set through the instance dict, so `__getattr__` never
@@ -189,9 +198,63 @@ def test_the_world_projection_is_the_three_grammars_and_the_mirror(tmp_path):
     )
 
 
+def test_a_non_directory_occupying_a_grammars_name_is_a_claimed_path(tmp_path):
+    # Squatting `registry` with a file is a surface disagreement to report,
+    # not a namespace to look away from.
+    root = tmp_path / "world"
+    write(root / "world.yaml")
+    write(root / "registry")
+
+    assert verify.registered_surface_paths(root, "world") == ("registry", "world.yaml")
+
+
 def test_an_unclaimed_kind_refuses(tmp_path):
     with pytest.raises(ValueError):
         verify.registered_surface_paths(tmp_path, "store")  # pyright: ignore[reportArgumentType]
+
+
+@pytest.mark.parametrize("kind", ["corpus", "world"])
+def test_a_missing_root_refuses_rather_than_projecting_an_empty_surface(tmp_path, kind):
+    with pytest.raises(FileNotFoundError):
+        verify.registered_surface_paths(tmp_path / "gone", kind)
+
+
+@pytest.mark.parametrize("kind", ["corpus", "world"])
+def test_a_root_that_is_not_a_directory_refuses(tmp_path, kind):
+    write(tmp_path / "a-file")
+
+    with pytest.raises(FileNotFoundError):
+        verify.registered_surface_paths(tmp_path / "a-file", kind)
+
+
+def test_no_declared_layout_name_can_begin_with_a_dot():
+    """The exclusion rule's safety, made load-bearing.
+
+    Bookkeeping is excluded by its leading dot, which is only sound while no
+    declared name can carry one. Every grammar that can name a leaf in a
+    projected root is checked here, so a substrate or packaging change that
+    admitted a dotted name fails this arm instead of silently shrinking the
+    surface.
+    """
+    named = (
+        verify.CORPUS_MANIFEST,
+        verify.WORLD_MANIFEST,
+        CURRENT_POINTER,
+        *verify.WORLD_NAMESPACES,
+        *EPOCH_MEMBERS,
+    )
+    assert [name for name in named if name.startswith(".")] == []
+    for pattern in (KIND_RE, SLUG_RE, _MEMBER_NAME):
+        assert pattern.fullmatch(".hidden") is None, pattern.pattern
+        assert pattern.fullmatch(".") is None, pattern.pattern
+
+
+def test_the_record_path_rule_is_the_substrates_own(tmp_path):
+    # A layout change in `nodes` must fail here rather than quietly leaving
+    # every held copy unresolved.
+    node_id = "verification:a-b.c:d"
+
+    assert verify._record_path(node_id) == Store(tmp_path).path_for(node_id).relative_to(tmp_path).as_posix()
 
 
 # --- replay --------------------------------------------------------------
@@ -255,6 +318,29 @@ def test_an_initial_fingerprint_disagreement_refutes():
     assert result.disagreements == ("initial:corpus.yaml@tx-4",)
 
 
+def test_a_disagreement_does_not_truncate_the_removal_inventory():
+    # The disagreement is at entry 1 and the removal at entry 3: an inventory
+    # that stopped at the first disagreement would report the removal as
+    # never having happened.
+    view = chain(
+        genesis(("corpus.yaml", MANIFEST), ("verification/v1.md", RECORD)),
+        registration("d" * 64, "tx-4", (("corpus.yaml", OTHER),), (("corpus.yaml", MANIFEST),)),
+        settlement("d" * 64, "tx-4", committed=True),
+        registration("e" * 64, "tx-5", (("verification/v1.md", RECORD),), (("verification/v1.md", ABSENT),)),
+        settlement("e" * 64, "tx-5", committed=True),
+    )
+
+    result = verify.replay(view, SURVIVING_DISK, ABSENT, None)
+
+    assert result.refuted
+    # The head comparison is skipped — every `head:` entry past a divergence
+    # would be a consequence of it — and the first disagreement is the report.
+    assert result.disagreements == ("initial:corpus.yaml@tx-4",)
+    assert [(finding.code, finding.ref) for finding in result.findings] == [
+        ("record-removed", "verification/v1.md")
+    ]
+
+
 def test_the_baseline_is_replayed_from_the_genesis():
     view = chain(genesis(("corpus.yaml", MANIFEST)))
 
@@ -309,6 +395,37 @@ def test_a_held_passing_verification_classifies_the_removal_without_calling_it_f
     assert result.findings[1].detail == f"txid=tx-5 digest={digest} kind=verification verdict=passed"
 
 
+def test_a_held_verification_whose_facet_does_not_validate_says_so(tmp_path):
+    node = Node(
+        id="verification:v1",
+        uid="0" * 32,
+        kind="verification",
+        title="a held copy",
+        facets={"verification": {"assessment": "assessment:a1", "scope": "invented", "verdict": "failed"}},
+    )
+    history = held(node_to_markdown(node).encode("utf-8"))
+    digest = next(iter(history))
+
+    result = verify.replay(REMOVED, SURVIVING_DISK, ABSENT, history)
+
+    codes = [finding.code for finding in result.findings]
+    assert codes == ["record-removed", "removal-classified"]
+    classified = result.findings[1]
+    assert classified.detail == f"txid=tx-5 digest={digest} kind=verification verdict=unreadable"
+    assert "no verdict is read" in classified.message
+
+
+def test_a_classification_speaks_about_the_held_copy_and_not_the_removed_bytes():
+    # Path matching cannot establish that the *removed* record was not a
+    # failing verification: the copy in hand may be another version of it.
+    passing = verify.replay(REMOVED, SURVIVING_DISK, ABSENT, held(verification_bytes("v1", "passed")))
+    failing = verify.replay(REMOVED, SURVIVING_DISK, ABSENT, held(verification_bytes("v1", "failed")))
+
+    for result in (passing, failing):
+        assert result.findings[1].message.startswith("a held copy filed under this digest claims the removed path")
+    assert "the removed record" not in passing.findings[1].message
+
+
 def test_history_naming_another_record_leaves_the_classification_absent():
     result = verify.replay(REMOVED, SURVIVING_DISK, ABSENT, held(verification_bytes("v9", "failed")))
 
@@ -342,10 +459,13 @@ def test_a_well_formed_history_validates():
         "sha256:" + "A" * 64,
         "sha1:" + "a" * 40,
         "sha256:" + "a" * 65,
+        # A key whose form is right up to a trailing newline is malformed, and
+        # says so: `$` would have matched before it.
+        "sha256:" + "a" * 64 + "\n",
     ],
 )
 def test_a_malformed_history_key_refuses(key):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="is not a content hash"):
         verify.validate_history({key: b"a record"})
 
 
