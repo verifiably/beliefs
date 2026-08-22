@@ -149,6 +149,66 @@ arises: builds capture before taking the world lock, so the world→corpus
 order is consistent. Cost if wrong: an undocumented refusal surfaces
 mid-export and reads as a defect.
 
+**R16: The held-copy match runs on paths, not digests — a second stated
+partiality of L13 (Task 6 review, 2026-08-22)**
+
+Spec §5.3's "a held copy resolves iff its digest matches the recorded
+state" is not implementable through the frozen Task-4 seam: states are
+opaque above the composition root and the seam exposes no state→digest
+accessor (verified against `LogSeam`'s surface). The landed policy pass
+decodes held bytes, derives the path the copy's identity claims, matches
+the removed path, and names the digest the copy was filed under; two
+copies claiming one path resolve nothing. This is a second, distinct
+departure beyond §10.4's resolver deferral: the match predicate itself is
+weakened, and a single held copy of a different version can misclassify a
+removal in either direction. Finding messages are scoped to what the
+evidence supports (the copy, never the removed record). Obligations: L13
+remains partial with this second reason stated wherever the first is; §5.3
+gains a dated amendment at banking (Task 12); the results record
+discloses it. Cost if wrong: a reader takes `removal-classified` as proof
+the removed bytes were not a failing verification — the understated
+immutability violation the pass exists to catch.
+
+**R17: Removal findings carry a severity split (Task 6 review, 2026-08-22)**
+
+`record-removed` is a warning (occurrence is not authorization; epoch GC
+removes legitimately); `failing-verification-removed` is an error (§8's
+immutability violation). `"warning"` is already the second member of the
+nodes `Finding` envelope Science reuses; no production code branches on
+severity. Cost if wrong: a reportorial distinction hardens into policy
+somewhere downstream without a spec sentence.
+
+**R18: Replay's divergence handling — skip the head compare, never the
+policy pass (Task 6 review, 2026-08-22)**
+
+After the first initial-fingerprint disagreement the head compare reports
+consequences, not evidence, and is skipped; the policy pass still scans
+every committed transition, so the removal inventory is always complete.
+Cost if wrong: the highest-value finding of the pass (a
+failing-verification removal after the divergence point) silently drops.
+
+**R19: The world projection walks the three grammar namespaces, not the
+exact grammars (Task 6 review, 2026-08-22)**
+
+§5.1 says "the exact registry, epoch, and rules-store grammars"; the
+landed `_world_surface` lists everything beneath `registry/`, `epochs/`,
+`rules/` plus `world.yaml`. Strictly broader: a raw-created foreign file
+inside a grammar directory becomes a head disagreement instead of
+vanishing. The departure is toward more detection and is stated in the
+docstring. Cost if wrong: a reader of §5.1 expects grammar-exact
+enumeration and misreads a foreign-file disagreement as a false positive.
+
+**R20: The bookkeeping exclusion is a dot-prefix rule, pinned to the
+grammars (Task 6 review, 2026-08-22)**
+
+`.nodes-index`, the engine's `.#~` sigil, and every other exclusion share
+the dot prefix; every grammar that can name a claimed path (node kinds and
+slugs, registry digests, epoch identities and members, rule identities and
+member names) provably refuses a leading dot, and a test pins those
+grammar anchors so the equivalence is load-bearing. Cost if wrong: a
+future dot-prefixed claimable name silently shrinks the audited surface —
+the coverage-overstating direction.
+
 ## Heads
 
 Atoms commit hash (Task 2): `3aa5a766efb5275e444de193407992ce33e8edb7` (local atoms `main`, merge of `design/chain-inspection`; unpushed, joining row 4's disclosure per R1)  
