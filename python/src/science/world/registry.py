@@ -31,6 +31,7 @@ from science.errors import (
     WorldUninitialized,
 )
 from science.identity import v1
+from science.world.anchors import LogHeadRecord, log_head_digest, parse_log_head_record
 
 __all__ = [
     "AdmissionProvenance",
@@ -155,6 +156,7 @@ class WorldConfig:
 class RegistryView:
     admissions: tuple[AdmissionRecord, ...] = ()
     statuses: tuple[StatusRecord, ...] = ()
+    log_heads: tuple[LogHeadRecord, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -326,7 +328,7 @@ def _construct_mapping(loader: _ManifestLoader, node: yaml.MappingNode, deep: bo
             raise yaml.constructor.ConstructorError(None, None, f"duplicate key {key!r}", key_node.start_mark)
         mapping[key] = (
             value_node.value
-            if key in {"corpus_id", "corpus_state", "world_id"}
+            if key in {"corpus_id", "corpus_state", "world_id", "store_id", "genesis", "head", "packaging_identity"}
             and isinstance(value_node, yaml.ScalarNode)
             and value_node.tag == "tag:yaml.org,2002:int"
             else loader.construct_object(value_node, deep=deep)
@@ -520,7 +522,7 @@ def _parse_provenance(value: object) -> AdmissionProvenance:
     raise ValueError(f"unknown or malformed admission provenance {kind!r}")
 
 
-def _parse_registry_record(value: object) -> AdmissionRecord | StatusRecord:
+def _parse_registry_record(value: object) -> AdmissionRecord | StatusRecord | LogHeadRecord:
     if type(value) is not dict or type(value.get("record_kind")) is not str:
         raise ValueError("registry record must be a closed mapping selected by record_kind")
     if value["record_kind"] == "admission":
@@ -539,6 +541,8 @@ def _parse_registry_record(value: object) -> AdmissionRecord | StatusRecord:
         if set(value) != expected:
             raise ValueError(f"status record must have exactly {sorted(expected)}")
         return StatusRecord(value["corpus_id"], value["status"], value["actor"])
+    if value["record_kind"] == "log-head":
+        return parse_log_head_record(value)
     raise ValueError(f"unknown registry record_kind {value['record_kind']!r}")
 
 
@@ -551,21 +555,30 @@ def _scan_registry(root: Path) -> RegistryView:
             raise ValueError("registry must be a regular directory")
         admissions: list[AdmissionRecord] = []
         statuses: list[StatusRecord] = []
+        log_heads: list[LogHeadRecord] = []
         for path in registry.iterdir():
             if path.is_symlink() or not path.is_file() or path.suffix != ".yaml":
                 raise ValueError(f"{path.name!r} is not a regular *.yaml registry member")
             document = yaml.load(path.read_text(encoding="utf-8"), Loader=_ManifestLoader)
             record = _parse_registry_record(document)
-            digest = admission_digest(record) if isinstance(record, AdmissionRecord) else status_digest(record)
+            if isinstance(record, AdmissionRecord):
+                digest = admission_digest(record)
+            elif isinstance(record, StatusRecord):
+                digest = status_digest(record)
+            else:
+                digest = log_head_digest(record)
             if path.name != f"{digest}.yaml":
                 raise ValueError(f"{path.name!r} is not the record's content name")
             if isinstance(record, AdmissionRecord):
                 admissions.append(record)
-            else:
+            elif isinstance(record, StatusRecord):
                 statuses.append(record)
+            else:
+                log_heads.append(record)
         return RegistryView(
             tuple(sorted(admissions, key=admission_digest)),
             tuple(sorted(statuses, key=status_digest)),
+            tuple(sorted(log_heads, key=log_head_digest)),
         )
     except Exception as caught:
         raise RegistryMalformed(f"{registry}: malformed registry: {caught}") from caught
