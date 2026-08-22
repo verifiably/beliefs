@@ -1372,7 +1372,7 @@ def build_epoch(
     # after recovery rather than beside it.
     with registry._locked_barrier(world) as world_root:
         _locked_recheck_rule_bindings(world_root, draft)
-        plan = _locked_publication_plan(world_root, packaging_identity, members, draft.anchors)
+        plan = _locked_publication_plan(world_root, packaging_identity, members)
         if plan:
             world._executor_factory(world_root).execute(plan)
         return _locked_open_epoch(world_root, packaging_identity)
@@ -1491,7 +1491,7 @@ def _receipt_projection(receipt: derive.DerivationReceipt) -> dict[str, object]:
 
 
 def _locked_log_head_records(
-    world_root: Path, packaging_identity: str, corpus_anchors: tuple[_Anchor, ...]
+    world_root: Path, packaging_identity: str, members: Mapping[str, bytes]
 ) -> list[CreateOp]:
     """The build's registry-record half: one log-head record per covered corpus.
 
@@ -1502,16 +1502,25 @@ def _locked_log_head_records(
     identity of the epoch this build is publishing — the fact that
     distinguishes them from the anchor act's records, which name an actor.
 
+    **The triples are read back out of the member, not carried in beside it.**
+    The member is the bytes the epoch will publish, so deriving the records
+    from it is what makes "the same triples" a fact rather than an intention:
+    a build cannot record an anchor its own `anchors.yaml` does not state.
+    `_corpus_anchors` returns them already sorted by subject, because the
+    member is written sorted.
+
     The world anchor is deliberately absent: a `world` subject is not in the
     record's union at all (§3.1/L11), and only an exported artifact leaving the
-    world root can anchor the world chain.
+    world root can anchor the world chain — the member carries it under a
+    separate key, which this reads past.
 
     §3.1's idempotency rule applies here exactly as it does to the act, so a
     republication of the same epoch over unmoved heads adds nothing to the
     plan.
     """
+    document = _parse_member(packaging_identity, "anchors.yaml", members["anchors.yaml"])
     plan: list[CreateOp] = []
-    for anchor in sorted(corpus_anchors, key=lambda anchor: anchor.subject):
+    for anchor in _corpus_anchors(document):
         record = LogHeadRecord(
             CorpusSubject(anchor.subject),
             anchor.genesis_digest,
@@ -1525,10 +1534,7 @@ def _locked_log_head_records(
 
 
 def _locked_publication_plan(
-    world_root: Path,
-    packaging_identity: str,
-    members: Mapping[str, bytes],
-    corpus_anchors: tuple[_Anchor, ...],
+    world_root: Path, packaging_identity: str, members: Mapping[str, bytes]
 ) -> WritePlan:
     """The one transaction, or nothing at all. The caller holds the world lock.
 
@@ -1576,7 +1582,7 @@ def _locked_publication_plan(
                 rules.member_content_digest(_current_pointer_bytes(pointer)),
             )
         )
-    operations.extend(_locked_log_head_records(world_root, packaging_identity, corpus_anchors))
+    operations.extend(_locked_log_head_records(world_root, packaging_identity, members))
     return operations
 
 

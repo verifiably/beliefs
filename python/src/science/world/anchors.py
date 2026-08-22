@@ -435,7 +435,6 @@ def _anchor_heads(
     config = world.config
     with seam.world_lock(config.world_root):
         view = registry._scan_registry(config.world_root)
-        world._state.registry = view
         records: list[LogHeadRecord] = []
         plan: list[CreateOp] = []
         for corpus_id in targets:
@@ -503,7 +502,11 @@ def _export_head_artifact(
     carrier's operation lock across the tip read — taken in the existing
     world→corpus order. It is taken as a *writer* rather than as a build's
     capture: an export is a short read, and a capture hold would turn a corpus
-    write already waiting in the queue into a `BuildHold` refusal.
+    write already waiting in the queue into a `BuildHold` refusal. The cost of
+    that choice is the mirror refusal, and it is a refusal this act can raise:
+    an export arriving while an epoch build holds the carrier's capture is
+    itself refused `BuildHold`, because a read that waited across a capture
+    would return a tip from the far side of it.
     """
     if type(subject) not in {CorpusSubject, WorldSubject}:
         raise TypeError("subject must be CorpusSubject or WorldSubject")
@@ -519,7 +522,6 @@ def _export_head_artifact(
             _require_world_genesis(config.world_root, head.genesis_payload, subject.world_id)
             return head_artifact_bytes(HeadArtifact(subject, head.genesis_digest, head.tip))
         view = registry._scan_registry(config.world_root)
-        world._state.registry = view
         carrier = _resolve_carrier(config, view, cast(CorpusSubject, subject).corpus_id)
         with seam.corpus_lock(carrier):
             head = seam.read_head(carrier)

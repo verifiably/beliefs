@@ -523,9 +523,9 @@ class TestExactRebuild:
         monkeypatch.setattr(
             epoch,
             "_locked_publication_plan",
-            lambda world_root, identity, members, anchors: (
+            lambda world_root, identity, members: (
                 mark("plan"),
-                planner(world_root, identity, members, anchors),
+                planner(world_root, identity, members),
             )[1],
         )
         monkeypatch.setattr(

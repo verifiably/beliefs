@@ -38,6 +38,7 @@ from science.errors import (
     AnchorSubjectUnknown,
     AnchorTargetUnresolvable,
     BuildContended,
+    BuildHold,
     LogEvidenceRefused,
     LogHeadCollision,
     WorldIdMismatch,
@@ -59,7 +60,14 @@ CORPUS_GENESIS_PAYLOAD = v1.encode({"domain": "science.corpus-root.v1"})
 
 
 def world_genesis_payload(world_id: str = WORLD_ID) -> bytes:
-    return v1.encode({"domain": anchors.WORLD_GENESIS_DOMAIN, "world_id": world_id})
+    """The payload `init_world_root` registers, from its own producer.
+
+    Rebuilding the expression here would make the export arms agree with a
+    second author's idea of the genesis: a key added or renamed at
+    initialization would leave these arms passing against bytes no world root
+    carries.
+    """
+    return science_root._world_genesis_payload(world_id)
 
 
 # --- the harness -------------------------------------------------------------
@@ -435,6 +443,19 @@ class TestTheHeadExport:
             exported = export(world, heads, anchors.WorldSubject(WORLD_ID))
 
         assert anchors.decode_head_artifact(exported).subject == anchors.WorldSubject(WORLD_ID)
+
+    def test_a_corpus_subject_refuses_while_a_build_holds_the_carriers_capture(self, tmp_path):
+        # The mirror of the writer-mode hold: the export never waits across a
+        # capture, because a tip read from the far side of one would describe a
+        # corpus the capture had already finished reporting on.
+        world, _recorder, heads, roots = anchorable_world(tmp_path, ALPHA)
+
+        with _operation_lock_for(roots[ALPHA]).capture(), pytest.raises(BuildHold):
+            export(world, heads, anchors.CorpusSubject(ALPHA))
+
+        assert heads.roots == []
+        assert registry._world_lock_for(world.config.world_root).acquire(blocking=False) is True
+        registry._world_lock_for(world.config.world_root).release()
 
     def test_a_world_subject_naming_another_world_refuses(self, tmp_path):
         # `World(W2)` over W1's chain: the subject binds, it never decorates.

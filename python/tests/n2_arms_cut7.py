@@ -177,12 +177,12 @@ CUT7_ARMS: tuple[Arm, ...] = (
         sabotage=Sabotage(
             module="world/epoch.py",
             before=(
-                "        plan = _locked_publication_plan(world_root, packaging_identity, members, draft.anchors)\n"
+                "        plan = _locked_publication_plan(world_root, packaging_identity, members)\n"
                 "        if plan:\n"
                 "            world._executor_factory(world_root).execute(plan)"
             ),
             after=(
-                "        plan = _locked_publication_plan(world_root, packaging_identity, members, draft.anchors)\n"
+                "        plan = _locked_publication_plan(world_root, packaging_identity, members)\n"
                 "        executor = world._executor_factory(world_root)\n"
                 "        for operation in reversed(plan):\n"
                 "            executor.execute([operation])"
@@ -873,9 +873,9 @@ CUT7_ARMS: tuple[Arm, ...] = (
             module="world/epoch.py",
             before=(
                 "        _locked_recheck_rule_bindings(world_root, draft)\n"
-                "        plan = _locked_publication_plan(world_root, packaging_identity, members, draft.anchors)"
+                "        plan = _locked_publication_plan(world_root, packaging_identity, members)"
             ),
-            after="        plan = _locked_publication_plan(world_root, packaging_identity, members, draft.anchors)",
+            after="        plan = _locked_publication_plan(world_root, packaging_identity, members)",
         ),
         checks=("test_world_build.py::test_removed_rule_before_publication_refuses",),
     ),
