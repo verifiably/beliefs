@@ -78,5 +78,5 @@ arrival happens to exercise it.
 
 ## Heads
 
-Atoms commit hash (Task 2): *(recorded at Task 2)*  
+Atoms commit hash (Task 2): `3aa5a766efb5275e444de193407992ce33e8edb7` (local atoms `main`, merge of `design/chain-inspection`; unpushed, joining row 4's disclosure per R1)  
 Science commit hash (Task 9): *(recorded at Task 9)*
