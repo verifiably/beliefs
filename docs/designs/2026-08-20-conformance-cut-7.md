@@ -2,7 +2,7 @@
 
 **Status:** Frozen 2026-08-20; second reader discharged 2026-08-20 (§6.1),
 its seven findings and the carrier-authority prerequisite closed before
-freeze. Discharged 2026-08-21;
+freeze. Discharged 2026-08-22;
 [results](../plans/2026-08-20-conformance-cut-7-results.md). The implementation
 was merged into `main` on 2026-08-22 preserving history, as the results
 record's §7 constraint requires.

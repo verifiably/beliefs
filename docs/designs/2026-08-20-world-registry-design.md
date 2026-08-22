@@ -783,10 +783,10 @@ reviewed and banked. The first implementation task is the cross-repository
 > emitted — and X7 is discharged in full, along with epochs, the four maps and
 > receipts, the rules store, `current`, bounded reads, GC, and anchored members.
 > The slice-1 boundary statements above are unchanged: they describe what slice 1
-> contains, and that is still what it contains. Slice 2 is on branch
-> `design/world-index-slice-2` and is **not yet merged**; fork construction,
-> genesis/mirror verification, registry deletion detection, cross-process writers,
-> and the reserved manifest path are untouched by it.
+> contains, and that is still what it contains. Slice 2 **merged into `main` on
+> 2026-08-22 preserving history**; fork construction, genesis/mirror
+> verification, registry deletion detection, cross-process writers, and the
+> reserved manifest path are untouched by it.
 
 No `atoms` amendment is required for slice 1. The mirror ruling removes the
 runtime genesis-read consumer, and the fork deferral removes the runtime

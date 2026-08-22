@@ -2,7 +2,7 @@
 title: Open questions
 status: living
 created: 2026-08-08
-updated: 2026-08-21
+updated: 2026-08-22
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-substrate-consolidation-design.md
@@ -199,8 +199,8 @@ implementation**: a guarantee row awaiting code is work, not a question.
   corpus-state identity, registry, lifecycle, and presence core. Cut 7 froze
   the epoch build, four maps and receipts, rules store, bounded reads,
   GC, and anchor carrier, and discharged all 48 declarations on the certified
-  tuple; anchor verification remains outside it. Cuts 4–7 are implemented and
-  discharged, cut 7 on a branch that is not yet merged.
+  tuple; anchor verification remains outside it. Cuts 4–7 are implemented,
+  discharged, and merged on `main`.
   The separately deferred consolidate/move/deletion cut no longer waits on the
   world index.
   ([conformance cut 3](../designs/2026-08-11-conformance-cut-3.md),

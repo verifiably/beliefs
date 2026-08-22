@@ -1,6 +1,6 @@
 # Conformance cut 7 — discharge results
 
-**Date:** 2026-08-21
+**Date:** 2026-08-22
 **Subject:** the world-index epoch carrier
 (`docs/designs/2026-08-20-world-index-slice-2-design.md`), measured against
 conformance cut 7's frozen selection
@@ -355,7 +355,14 @@ currently work around the widened type.
   the validator), while `world/derive.py:900` and `decode.py:79` both refuse the
   empty string, and `decode.py`'s raises `MalformedWireClaim` where the other
   two raise `ValueError`. A reader who learns one contract will carry it to the
-  wrong call site.
+  wrong call site. **The fix is renames, not deduplication.** All three
+  contracts are correct where they stand; collapsing them into one helper with
+  a flag would trade a naming collision for a defensive interface, which this
+  repository's rules forbid. Distinct names — `_require_text_allow_empty` in
+  `epoch`, a `decode`-local `_require_wire_text` — remove the collision without
+  touching any contract. Only `_require_lower_hex` above is a genuine dedup:
+  one definition, exported properly, so `read.py` and `epoch.py` stop reaching
+  into a private.
 
 **Performance and concurrency**
 
@@ -394,9 +401,10 @@ currently work around the widened type.
 
 ## 9. Corrections this landing made to the frozen and banked text
 
-Two claims were found wrong and corrected in the same change, per this
-repository's rule that a status header and a design sentence are claims about
-the past:
+Three claims were found wrong and corrected, per this repository's rule that a
+status header and a design sentence are claims about the past. The first two
+were corrected in the landing change itself; the third on 2026-08-22, after the
+merge:
 
 1. **The slice-2 design's "empty directories are nonsemantic and may remain"
    was wrong as written** (§9, and the same wording in §4.3). Implemented
@@ -420,6 +428,18 @@ the past:
    the class segment and the landed declarations do too; the table now carries
    that annotation. No unit was renumbered or re-homed, and the reduction of the
    landed declarations back to `file::function` is set-identical to the table.
+
+3. **This record was dated 2026-08-21; the discharge is 2026-08-22.** The
+   original date named the evening the certifying acceptance run first went
+   green (`279391a`, 22:40 on 2026-08-21). But two later commits changed
+   surfaces cut 7's own arms audit — `4ed5fd4` and `be96250` touched six
+   `tests/test_world_*.py` modules, and `f3217cc`, at 00:41 on 2026-08-22,
+   touched `tests/test_world_rules.py`, which three cut-7 arms name. A
+   discharge dates from the run that certifies the tuple actually landed, so it
+   cannot predate the last change to an audited surface. The runs that satisfy
+   that — after `f3217cc`, after the merge `83744e7`, and after `e7ed517` — all
+   ran on 2026-08-22. The date is corrected here, in the frozen cut's status
+   header, and in the root `README.md`.
 
 ## 10. Execution record — the rulings ledger was destroyed
 

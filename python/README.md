@@ -24,8 +24,8 @@ landed. The gate is the whole project or it is not the gate.
 |---|---|---|
 | `science.identity.v1` | the canonical value contract — injective, domain-separated per kind | computation §4.3 |
 
-Cuts 1–7 have landed their selected slices; cut 7's world-index epoch carrier is
-on branch `design/world-index-slice-2` and is not yet merged
+Cuts 1–7 have landed their selected slices; cut 7's world-index epoch carrier
+merged into `main` on 2026-08-22 preserving history
 ([results](../docs/plans/2026-08-20-conformance-cut-7-results.md)). The
 [`adoption ledger`](../docs/designs/2026-08-03-redesign-adoption-ledger.md) is the
 authority for what is built and what still waits on another artifact.
