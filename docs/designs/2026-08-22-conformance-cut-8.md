@@ -1,7 +1,8 @@
 # Conformance cut 8 — log verification and anchoring
 
-**Status:** Draft 2026-08-22; not frozen. Second reader not yet discharged
-(§7). Implementation is prospective.
+**Status:** Frozen 2026-08-22; second reader discharged 2026-08-22 (§7.1),
+its five findings and one spec-side stale claim closed before freeze.
+Implementation is prospective.
 
 **Sources:** `2026-08-20-conformance-cut-7.md` (rule and practice
 inheritances); the log-verification specification
@@ -337,6 +338,25 @@ partiality against the any-unrun-arm rule (no "full" by argument); verify
 the §4 accounting by independent recount; and read §3.2's unread-row
 justification adversarially. Findings and their dispositions are recorded
 here before freeze.
+
+### 7.1 The run and its dispositions
+
+The reader ran 2026-08-22 and returned five findings, all closed at
+`c5700ed` before freeze: the L4 different-genesis unit contradicted
+genesis-form validation and was replaced by the same-genesis
+alternative-chain unit refuted through ancestry; L6's selected negative
+was vacuous under the §1.3 amendment and the row moved to unread (§3.2);
+L10's unread justification failed adversarial review — the arrival act
+constructs the frozen copy-under-a-fresh-manifest case — and the row moved
+to partial with that one amended arm; labeled declarations 4 and 5
+violated single-homing against L4 and L10 and were narrowed to ordering
+and the mirror branch respectively; and L1's boundary wording overclaimed
+`run_transaction` coverage and was corrected to registered-surface
+mutations. A sixth, spec-side stale claim ("all of L10 wait on row 4",
+spec §10.3) was corrected in the freeze change. Mechanical checks at
+discharge: quoted rows byte-identical (L1–L5, L7–L13); independent
+recount 43 selected across 12 rows plus 10 labels; corpus guard 12/12;
+guide check exit 0; `git show --check` clean.
 
 ## 8. Limitations
 
