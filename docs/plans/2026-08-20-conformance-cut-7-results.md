@@ -304,9 +304,11 @@ which commit went missing.
 `pin/cut6-pre-move-tree` points at `4a7dc19` and `pin/cut6-acceptance-amendment`
 at `c8c0b12`; each tag's message names the file it protects and the failure it
 prevents. A tag keeps the object from being collected and makes the constraint
-discoverable from `git tag --points-at`. Two limits, stated plainly: the tags
-are **annotated, not signed** — this checkout has no signing key configured, so
-they carry no authorship proof and anyone can move or delete them — and a tag
+discoverable from `git tag --points-at`. The tags were first made annotated —
+this checkout had no signing key configured — and re-made **SSH-signed** later
+the same day, with a repo-local `gpg.ssh.allowedSignersFile` so `git tag -v`
+verifies them here; a clone verifies them only after configuring its own
+allowed-signers entry for the key. One limit remains, stated plainly: a tag
 does not survive a hash-rewriting migration, so the indefinite lifetime below
 stays exactly as true after tagging as before it. The tags are local; nothing
 has been pushed.
