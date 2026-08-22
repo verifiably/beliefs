@@ -17,9 +17,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Thirty documents in `docs/designs/`: the banked redesigns, review disposition,
+Thirty-one documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
-2026-08-02 through 2026-08-20. Read them in this order:
+2026-08-02 through 2026-08-22. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -53,6 +53,7 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-08-20-conformance-cut-6.md` | the sixth frozen conformance cut, selecting the world-registry slice's registry-side and identity arms: 2 rows full, 2 part, 1 deferred, with 8 labeled declarations |
 | `2026-08-20-world-index-slice-2-design.md` | the world-index epoch carrier: rules, coherent capture, four derived maps and receipts, publication, bounded reads, and whole-epoch GC |
 | `2026-08-20-conformance-cut-7.md` | the seventh frozen conformance cut, selecting the epoch carrier: 7 rows full, 4 part, with 38 selected and 10 labeled declarations |
+| `2026-08-22-conformance-cut-8.md` | the eighth conformance cut, selecting log verification and anchoring: drafted 2026-08-22, not yet frozen; 5 rows full, 7 part, L10 unread, with 43 selected and 10 labeled declarations |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and

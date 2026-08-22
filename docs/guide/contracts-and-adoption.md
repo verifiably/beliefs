@@ -15,6 +15,7 @@ sources:
   - ../designs/2026-08-11-conformance-cut-3.md
   - ../designs/2026-08-20-world-index-slice-2-design.md
   - ../designs/2026-08-20-conformance-cut-7.md
+  - ../designs/2026-08-22-conformance-cut-8.md
 ---
 
 # Contracts and adoption
