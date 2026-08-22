@@ -212,6 +212,35 @@ class LogEvidenceRefused(ScienceError):
         self.detail = detail
 
 
+class StoreSubjectUnsupported(ScienceError):
+    """A verification named a store subject, whose behavior is unbuilt.
+
+    The evaluator's subject union is the one API in this slice that can spell a
+    store (log-verification design §4.1): the anchor act's signature is
+    corpus-only and carries no such error, and the record and artifact codecs
+    admit the store arm as *shape* alone. So the refusal lives here and only
+    here, and it stays a refusal rather than an outcome — a store subject is
+    not an unresolvable chain, it is a question this slice does not answer.
+    Behavior and the store-artifact writer are the holdings row's (§10.2).
+    """
+
+
+class ObserverCarrierInvalid(ScienceError):
+    """A supplied observer carrier does not validate as what it claims to be.
+
+    Every carrier validates before evaluation (log-verification design §4.1):
+    an epoch against its packaging identity, an artifact by its codec, a record
+    by its grammar. A carrier that fails refuses the act — **never a silently
+    narrowed observer set**, because an anchor dropped for being unreadable and
+    an anchor that was never held are the same evidence-free state to a caller
+    who is not told, and the second one is admissible.
+
+    It is also the refusal of a carrier constructed past its factory: the
+    factories are what retain the validation evidence, and a dataclass built
+    directly would carry a provenance discriminator nothing had checked.
+    """
+
+
 class EnumeratedKindUngoverned(ScienceError):
     """A captured record claims a kind that one of the four epoch derivations
     enumerates but that has no governed stored-kind definition (§13). The
