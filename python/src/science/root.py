@@ -16,19 +16,44 @@ neither standing in for the other.
 API is `(root: Path) -> DurableExecutor`, using the module-bound backend and
 storage profile and deriving the metadata root by §2's sibling rule. A
 pre-bound executor would let the corpus write through a root it never verified.
+
+**The log seam is the same discipline over reads.** Verification needs to
+inspect a chain, state a surface, read a head and take two locks; it gets all
+five as callables on one `LogSeam`, typed in Science's own vocabulary, built
+here and nowhere else (log-verification design §2, §6.4).
 """
 
 from __future__ import annotations
 
 import io
 import stat as stat_module
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import contextmanager
 from hashlib import sha256
 from pathlib import Path
 from typing import IO
 
 from atoms.chain.errors import ChainStateInvalid
-from atoms.coordinator.commands import append_intent, read_chain, register_root, run_transaction
+from atoms.chain.inspect import AbsentChain, ChainInspection, DefectKind, MalformedChain, WellFormedChain
+from atoms.chain.model import (
+    ChainOutcome,
+    Entry,
+    GenesisEntry,
+    IntentEntry,
+    PathStateJSON,
+    RegisteredEntry,
+    SettledEntry,
+    state_from_json,
+)
+from atoms.coordinator.commands import (
+    append_intent,
+    capture_states,
+    inspect_chain,
+    inspect_chain_detached,
+    read_chain,
+    register_root,
+    run_transaction,
+)
 from atoms.core.effects import CreateDirectory, CreateFileNoClobber, DeletePath, Effect, ReplaceFile
 from atoms.core.errors import (
     AtomsError,
@@ -49,11 +74,26 @@ from atoms.store.errors import MetadataStoreInvalid
 from nodes.core.errors import ExecutionError, PlanRefusedError
 from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp, WritePlan, validate_plan
 
-from science.corpus import CorpusWriter
-from science.errors import CorpusRootRefused, WorldIdMismatch
+from science.corpus import CorpusWriter, _operation_lock_for
+from science.errors import CorpusRootRefused, LogEvidenceRefused, WorldIdMismatch
 from science.identity import v1
-from science.world import World, WorldConfig, _load_world_mirror, _world_mirror_bytes
+from science.world import World, WorldConfig, _load_world_mirror, _world_lock_for, _world_mirror_bytes
+from science.world.logmodel import (
+    AbsentView,
+    ChainHead,
+    ChainView,
+    DefectView,
+    EntryView,
+    GenesisEntryView,
+    IntentEntryView,
+    MalformedView,
+    RegisteredEntryView,
+    SettledEntryView,
+    WellFormedView,
+)
+from science.world.logmodel import DefectKind as ViewDefectKind
 from science.world.rules import RuleBinding, install_rule_binding, shipped_rule_bundles
+from science.world.verify import LogSeam
 
 __all__ = [
     "CONSUMER_TAG",
@@ -597,6 +637,189 @@ def chain_head_reader() -> Callable[[Path], tuple[str, str]]:
     reader rather than one that merely behaves like it.
     """
     return _chain_head
+
+
+# --- the log seam ------------------------------------------------------------
+#
+# `atoms` inspection results are engine types, and every act of the log
+# verification slice discriminates over one. Rather than let those classes be
+# named above this module, the conversion below re-types the *shape* into
+# `science.world.logmodel`'s closed unions and carries the *facts* — the path
+# state fingerprints — as the engine's own objects, opaque and compared only by
+# equality. That is the whole of the seam's cleverness, and it is what makes
+# "Science owns no second summary model" a mechanism.
+
+
+_DEFECT_KINDS: dict[DefectKind, ViewDefectKind] = {
+    DefectKind.FOREIGN_LEAF: "foreign-leaf",
+    DefectKind.NAME_BYTES_MISMATCH: "name-mismatch",
+    DefectKind.UNDECODABLE_ENTRY: "undecodable-entry",
+    DefectKind.GENESIS_COUNT: "genesis-count",
+    DefectKind.MISSING_PREDECESSOR: "missing-predecessor",
+    DefectKind.SIBLING_BRANCH: "sibling-branch",
+    DefectKind.CYCLE: "cycle",
+    DefectKind.ORPHAN_HISTORY: "orphan-history",
+    DefectKind.SETTLEMENT_WITHOUT_REGISTRATION: "settlement-unregistered",
+    DefectKind.SETTLEMENT_TXID_MISMATCH: "settlement-txid-mismatch",
+    DefectKind.DUPLICATE_SETTLEMENT: "duplicate-settlement",
+    DefectKind.DUPLICATE_REGISTRATION: "duplicate-registration",
+    DefectKind.FULFILLS_UNRESOLVED: "fulfills-invalid",
+    DefectKind.DUPLICATE_FULFILLMENT: "duplicate-fulfillment",
+}
+"""The taxonomy, member by member, in the engine's own declaration order.
+
+Three names differ between the vocabularies and the difference is deliberate,
+not drift: the engine's `NAME_BYTES_MISMATCH`, `SETTLEMENT_WITHOUT_REGISTRATION`
+and `FULFILLS_UNRESOLVED` are spelled `name-mismatch`,
+`settlement-unregistered` and `fulfills-invalid` in the design's taxonomy. The
+mapping is **closed**: an engine member absent from it raises rather than
+producing a view, because a fifteenth defect kind Science silently dropped
+would be a malformed chain reported as something else.
+"""
+
+
+def _surface_view(surface: tuple[tuple[str, PathStateJSON], ...]) -> tuple[tuple[str, object], ...]:
+    """Decode a chain-carried surface into the engine's `PathState` values.
+
+    The two atoms forms meet here: entries carry `PathStateJSON` and capture
+    returns `PathState`, so decoding with the engine's own `state_from_json`
+    is what lets replay compare a chain fact against a disk fact directly.
+    Science neither builds nor reads the result — it hands it on.
+    """
+    return tuple((path, state_from_json(state)) for path, state in surface)
+
+
+def _entry_view(digest: str, entry: Entry) -> EntryView:
+    if type(entry) is GenesisEntry:
+        return GenesisEntryView(
+            digest=digest, payload=entry.payload, baseline=_surface_view(entry.baseline)
+        )
+    if type(entry) is RegisteredEntry:
+        return RegisteredEntryView(
+            digest=digest,
+            txid=entry.txid,
+            initial=_surface_view(entry.initial),
+            final=_surface_view(entry.final),
+            fulfills=entry.fulfills,
+        )
+    if type(entry) is SettledEntry:
+        return SettledEntryView(
+            digest=digest,
+            txid=entry.txid,
+            registration=entry.registration,
+            committed=entry.outcome is ChainOutcome.COMMITTED,
+        )
+    if type(entry) is IntentEntry:
+        return IntentEntryView(digest=digest, payload=entry.payload)
+    raise ProtocolError(f"unknown chain entry class: {type(entry).__name__}")
+
+
+def _chain_view(inspection: ChainInspection) -> ChainView:
+    """One `atoms` inspection result, re-typed into Science's vocabulary."""
+    if type(inspection) is AbsentChain:
+        return AbsentView()
+    if type(inspection) is MalformedChain:
+        defect = inspection.defect
+        kind = _DEFECT_KINDS.get(defect.kind)
+        if kind is None:
+            raise ProtocolError(f"unmapped chain defect kind: {defect.kind}")
+        return MalformedView(DefectView(kind=kind, subject=defect.subject, detail=defect.detail))
+    if type(inspection) is WellFormedChain:
+        entries = tuple(_entry_view(digest, entry) for digest, entry in inspection.entries)
+        genesis = entries[0] if entries else None
+        if type(genesis) is not GenesisEntryView:
+            raise ProtocolError("a well-formed chain's first entry is not its genesis")
+        return WellFormedView(
+            genesis=genesis, entries=entries, tip=inspection.tip, pending=inspection.pending
+        )
+    raise ProtocolError(f"unknown chain inspection result: {type(inspection).__name__}")
+
+
+@contextmanager
+def _inspect_escapes() -> Iterator[None]:
+    """§6.4's two inspect-phase translations, minted in one place.
+
+    Exactly two exceptions are caught: everything else — `ProtocolError`, the
+    volume and store setup errors, anything unforeseen — keeps its own
+    contract, because a seam that swallowed the unforeseen would report an
+    engine bug as evidence that could not be obtained.
+    """
+    try:
+        yield
+    except ChainStateInvalid as caught:
+        raise LogEvidenceRefused("inspect", "ChainStateInvalid", str(caught)) from caught
+    except TransactionHalted as caught:
+        raise LogEvidenceRefused("inspect", "TransactionHalted", str(caught)) from caught
+
+
+def _inspect_registered(root: Path) -> ChainView:
+    with _inspect_escapes():
+        inspection = inspect_chain(
+            _PRODUCTION_BACKEND, str(root), str(metadata_root_for(root)), PRODUCTION_STORAGE
+        )
+    return _chain_view(inspection)
+
+
+def _inspect_detached(root: Path) -> ChainView:
+    with _inspect_escapes():
+        inspection = inspect_chain_detached(_PRODUCTION_BACKEND, str(root))
+    return _chain_view(inspection)
+
+
+def _capture(root: Path, paths: tuple[str, ...]) -> tuple[tuple[str, object], ...]:
+    """State exactly the named paths, the engine's values passed through.
+
+    Nothing is decoded, wrapped or copied on the way out: the tuple the engine
+    built is the tuple the seam hands on.
+    """
+    try:
+        return capture_states(_PRODUCTION_BACKEND, str(root), paths)
+    except PreconditionRefused as caught:
+        raise LogEvidenceRefused("capture", "PreconditionRefused", str(caught)) from caught
+
+
+def _read_head(root: Path) -> ChainHead:
+    """The validated head, with the genesis payload it was read alongside."""
+    with _inspect_escapes():
+        view = read_chain(
+            _PRODUCTION_BACKEND, str(root), str(metadata_root_for(root)), PRODUCTION_STORAGE
+        )
+    genesis = view.entries[0][1] if view.entries else None
+    if type(genesis) is not GenesisEntry:
+        raise ProtocolError("a validated chain's first entry is not its genesis")
+    return ChainHead(genesis_digest=view.genesis_digest, genesis_payload=genesis.payload, tip=view.tip)
+
+
+@contextmanager
+def _world_lock(root: Path) -> Iterator[None]:
+    with _world_lock_for(root):
+        yield
+
+
+_LOG_SEAM = LogSeam(
+    inspect_registered=_inspect_registered,
+    inspect_detached=_inspect_detached,
+    capture=_capture,
+    read_head=_read_head,
+    # The engine's own absent singleton, never a Science reconstruction: it is
+    # the default of replay's union comparison, and a value that merely
+    # compared equal would be a second summary model with one member.
+    absent_state=ABSENT,
+    world_lock=_world_lock,
+    # The write API's own lock-only lookup, unwrapped: an audit and a writer
+    # contending for one corpus root must contend for one object.
+    corpus_lock=_operation_lock_for,
+)
+
+
+def _log_seam() -> LogSeam:
+    """The production seam — one object, stable across calls.
+
+    Stable in the same sense as `durable_executor_factory` and
+    `chain_head_reader`: an act may be asserted to hold *this* seam rather
+    than one that merely behaves like it.
+    """
+    return _LOG_SEAM
 
 
 def open_corpus(corpus_root: Path) -> CorpusWriter:

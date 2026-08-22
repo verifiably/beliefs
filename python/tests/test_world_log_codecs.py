@@ -1,16 +1,37 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any, cast, get_args
 
 import pytest
 import yaml
+from atoms.chain.errors import ChainStateInvalid
+from atoms.chain.inspect import AbsentChain, MalformedChain
+from atoms.chain.inspect import ChainDefect as EngineDefect
+from atoms.chain.inspect import DefectKind as EngineDefectKind
+from atoms.chain.model import (
+    ChainOutcome,
+    GenesisEntry,
+    IntentEntry,
+    RegisteredEntry,
+    SettledEntry,
+    encode_entry,
+    entry_digest,
+    state_to_json,
+)
+from atoms.coordinator.commands import ChainView as EngineChainView
+from atoms.core.errors import PreconditionRefused, ProtocolError, TransactionHalted
+from atoms.core.fingerprint import ABSENT, AbsentState, FileState
+from atoms.core.scratch import CHAIN_LEAF
 from fixtures_cut6 import PINS
 from nodes.core.write_plan import DefaultExecutor
 
 import science.world.registry as world_module
-from science.errors import MalformedDomain, RegistryMalformed
+from science import corpus as corpus_module
+from science import root as science_root
+from science.errors import LogEvidenceRefused, MalformedDomain, RegistryMalformed
 from science.identity import v1
-from science.world import anchors
+from science.world import anchors, logmodel
 
 # --- shared fixtures -----------------------------------------------------
 
@@ -337,3 +358,318 @@ def test_registry_scan_refuses_a_log_head_file_with_a_wrong_content_name(tmp_pat
 
     with pytest.raises(RegistryMalformed):
         instance.registry()
+
+
+# --- the log seam: chain views, capture pass-through, locks ----------------
+#
+# The conversion is exercised two ways on purpose. The parametrized arms drive
+# `science.root`'s converter with fabricated `atoms` inspection results, which
+# is the only way to reach all fourteen defect kinds without fourteen damaged
+# chains; the end-to-end arms drive the seam's own callables over a chain
+# written to disk as real canonical envelopes, so the fabrications are not the
+# whole evidence.
+
+
+def write_chain(root: Path, entries: list[tuple[str | None, object]]) -> list[str]:
+    """Write canonical entry envelopes into the reserved chain directory."""
+    chain = root / CHAIN_LEAF
+    chain.mkdir(parents=True, exist_ok=True)
+    digests: list[str] = []
+    for previous, entry in entries:
+        envelope = encode_entry(previous, cast(Any, entry))
+        digest = entry_digest(envelope)
+        (chain / digest).write_bytes(envelope)
+        digests.append(digest)
+    return digests
+
+
+def populated_root(tmp_path: Path) -> tuple[Path, tuple[tuple[str, object], ...], list[str]]:
+    """A root holding one file, and a four-entry chain over its captured state."""
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "f.txt").write_bytes(b"hello\n")
+    captured = science_root._log_seam().capture(root, ("f.txt",))
+    surface = ("f.txt", state_to_json(cast(Any, captured[0][1])))
+    genesis = GenesisEntry(payload=b'{"domain":"science.corpus-root.v1"}', baseline=(surface,))
+    digests = write_chain(root, [(None, genesis)])
+    intent = IntentEntry(payload=b"an intent")
+    digests += write_chain(root, [(digests[-1], intent)])
+    registered = RegisteredEntry(
+        txid="tx-one",
+        intent_digest="sha256:" + "a" * 64,
+        consumer_tag="science-corpus-write-v1",
+        initial=(surface,),
+        final=(surface,),
+        fulfills=digests[-1],
+    )
+    digests += write_chain(root, [(digests[-1], registered)])
+    settled = SettledEntry(txid="tx-one", registration=digests[-1], outcome=ChainOutcome.COMMITTED)
+    digests += write_chain(root, [(digests[-1], settled)])
+    return root, captured, digests
+
+
+DEFECT_SUBJECTS = {
+    engine_kind: ("d" * 64 if engine_kind is not EngineDefectKind.GENESIS_COUNT else None)
+    for engine_kind in EngineDefectKind
+}
+
+DEFECT_MAPPING = [
+    (EngineDefectKind.FOREIGN_LEAF, "foreign-leaf"),
+    (EngineDefectKind.NAME_BYTES_MISMATCH, "name-mismatch"),
+    (EngineDefectKind.UNDECODABLE_ENTRY, "undecodable-entry"),
+    (EngineDefectKind.GENESIS_COUNT, "genesis-count"),
+    (EngineDefectKind.MISSING_PREDECESSOR, "missing-predecessor"),
+    (EngineDefectKind.SIBLING_BRANCH, "sibling-branch"),
+    (EngineDefectKind.CYCLE, "cycle"),
+    (EngineDefectKind.ORPHAN_HISTORY, "orphan-history"),
+    (EngineDefectKind.SETTLEMENT_WITHOUT_REGISTRATION, "settlement-unregistered"),
+    (EngineDefectKind.SETTLEMENT_TXID_MISMATCH, "settlement-txid-mismatch"),
+    (EngineDefectKind.DUPLICATE_SETTLEMENT, "duplicate-settlement"),
+    (EngineDefectKind.DUPLICATE_REGISTRATION, "duplicate-registration"),
+    (EngineDefectKind.FULFILLS_UNRESOLVED, "fulfills-invalid"),
+    (EngineDefectKind.DUPLICATE_FULFILLMENT, "duplicate-fulfillment"),
+]
+
+
+def test_the_defect_mapping_is_closed_over_the_engines_taxonomy():
+    assert set(science_root._DEFECT_KINDS) == set(EngineDefectKind)
+    assert set(science_root._DEFECT_KINDS.values()) == set(get_args(logmodel.DefectKind))
+    assert len(science_root._DEFECT_KINDS) == 14
+    assert logmodel.DEFECT_KINDS == tuple(get_args(logmodel.DefectKind))
+
+
+def test_this_files_mapping_table_is_the_whole_taxonomy():
+    # Otherwise the parametrization below could quietly cover thirteen.
+    assert [engine_kind for engine_kind, _science_kind in DEFECT_MAPPING] == list(EngineDefectKind)
+
+
+@pytest.mark.parametrize(("engine_kind", "science_kind"), DEFECT_MAPPING, ids=lambda value: str(value))
+def test_each_engine_defect_kind_converts_to_its_view(engine_kind, science_kind):
+    subject = DEFECT_SUBJECTS[engine_kind]
+    inspection = MalformedChain(EngineDefect(engine_kind, subject, "the engine's own wording"))
+
+    view = science_root._chain_view(inspection)
+
+    assert view == logmodel.MalformedView(
+        logmodel.DefectView(science_kind, subject, "the engine's own wording")
+    )
+
+
+def test_the_absent_chain_converts_to_the_absent_view():
+    assert science_root._chain_view(AbsentChain()) == logmodel.AbsentView()
+
+
+def test_the_well_formed_chain_converts_entry_by_entry(tmp_path):
+    root, captured, digests = populated_root(tmp_path)
+
+    view = science_root._log_seam().inspect_detached(root)
+
+    assert isinstance(view, logmodel.WellFormedView)
+    assert view.tip == digests[-1]
+    assert view.pending == ()
+    assert view.genesis is view.entries[0]
+    assert view.genesis == logmodel.GenesisEntryView(
+        digest=digests[0],
+        payload=b'{"domain":"science.corpus-root.v1"}',
+        baseline=(("f.txt", captured[0][1]),),
+    )
+    assert view.entries[1] == logmodel.IntentEntryView(digest=digests[1], payload=b"an intent")
+    assert view.entries[2] == logmodel.RegisteredEntryView(
+        digest=digests[2],
+        txid="tx-one",
+        initial=(("f.txt", captured[0][1]),),
+        final=(("f.txt", captured[0][1]),),
+        fulfills=digests[1],
+    )
+    assert view.entries[3] == logmodel.SettledEntryView(
+        digest=digests[3], txid="tx-one", registration=digests[2], committed=True
+    )
+
+
+def test_a_rolled_back_settlement_is_the_uncommitted_view(tmp_path):
+    root, _captured, digests = populated_root(tmp_path)
+    (root / CHAIN_LEAF / digests[3]).unlink()
+    rolled = SettledEntry(txid="tx-one", registration=digests[2], outcome=ChainOutcome.ROLLED_BACK)
+    write_chain(root, [(digests[2], rolled)])
+
+    view = science_root._log_seam().inspect_detached(root)
+
+    assert isinstance(view, logmodel.WellFormedView)
+    settlement = view.entries[3]
+    assert isinstance(settlement, logmodel.SettledEntryView)
+    assert settlement.committed is False
+
+
+def test_capture_states_exactly_the_named_paths_in_order(tmp_path):
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "f.txt").write_bytes(b"hello\n")
+
+    captured = science_root._log_seam().capture(root, ("f.txt", "absent-here"))
+
+    assert [path for path, _state in captured] == ["f.txt", "absent-here"]
+    assert type(captured[0][1]) is FileState
+    assert captured[1][1] == AbsentState()
+
+
+def test_the_capture_pass_through_is_the_engines_own_object(tmp_path, monkeypatch):
+    root = tmp_path / "project"
+    root.mkdir()
+    minted = FileState(content_hash="sha256:" + "b" * 64, mode=0o644, byte_len=7)
+    monkeypatch.setattr(science_root, "capture_states", lambda backend, root, paths: (("f.txt", minted),))
+
+    captured = science_root._log_seam().capture(root, ("f.txt",))
+
+    assert captured[0][1] is minted
+
+
+def test_a_decoded_entry_state_equals_the_capture_of_the_same_disk_state(tmp_path):
+    root, captured, _digests = populated_root(tmp_path)
+
+    view = science_root._log_seam().inspect_detached(root)
+
+    assert isinstance(view, logmodel.WellFormedView)
+    decoded = view.genesis.baseline[0][1]
+    # Two atoms forms — the chain's `PathStateJSON` and capture's `PathState` —
+    # meeting in one comparable value, which is what makes replay's comparison
+    # a comparison rather than a re-encoding.
+    assert decoded == captured[0][1]
+    assert type(decoded) is FileState
+
+
+def test_detached_inspect_over_a_metadata_less_root_returns_rather_than_raises(tmp_path):
+    root = tmp_path / "arriving"
+    root.mkdir()
+    (root / "corpus.yaml").write_bytes(b"corpus_id: " + b"1" * 32 + b"\n")
+
+    assert science_root._log_seam().inspect_detached(root) == logmodel.AbsentView()
+    assert not (root / ".metadata").exists()
+
+
+def test_a_foreign_chain_leaf_reaches_the_view_as_a_defect(tmp_path):
+    root, _captured, _digests = populated_root(tmp_path)
+    (root / CHAIN_LEAF / "not-a-digest").write_bytes(b"")
+
+    view = science_root._log_seam().inspect_detached(root)
+
+    assert isinstance(view, logmodel.MalformedView)
+    assert view.defect.kind == "foreign-leaf"
+    assert view.defect.subject == "not-a-digest"
+    assert view.defect.detail
+
+
+def test_a_registered_inspect_translates_a_halted_transaction(tmp_path, monkeypatch):
+    halted = TransactionHalted("the transaction stopped mid-flight")
+
+    def raising(backend, project_root, metadata_root, storage):
+        raise halted
+
+    monkeypatch.setattr(science_root, "inspect_chain", raising)
+
+    with pytest.raises(LogEvidenceRefused) as caught:
+        science_root._log_seam().inspect_registered(tmp_path)
+
+    assert caught.value.phase == "inspect"
+    assert caught.value.engine_error == "TransactionHalted"
+    assert caught.value.detail == "the transaction stopped mid-flight"
+    assert caught.value.__cause__ is halted
+
+
+def test_a_registered_inspect_translates_a_chain_record_contradiction(tmp_path, monkeypatch):
+    invalid = ChainStateInvalid("a live transaction record exists without its project chain")
+
+    def raising(backend, project_root, metadata_root, storage):
+        raise invalid
+
+    monkeypatch.setattr(science_root, "inspect_chain", raising)
+
+    with pytest.raises(LogEvidenceRefused) as caught:
+        science_root._log_seam().inspect_registered(tmp_path)
+
+    assert (caught.value.phase, caught.value.engine_error) == ("inspect", "ChainStateInvalid")
+    assert caught.value.__cause__ is invalid
+
+
+def test_a_capture_refusal_translates_at_the_capture_phase(tmp_path, monkeypatch):
+    refused = PreconditionRefused("a modeled path holds an unrepresentable entry")
+
+    def raising(backend, root, paths):
+        raise refused
+
+    monkeypatch.setattr(science_root, "capture_states", raising)
+
+    with pytest.raises(LogEvidenceRefused) as caught:
+        science_root._log_seam().capture(tmp_path, ("f.txt",))
+
+    assert (caught.value.phase, caught.value.engine_error) == ("capture", "PreconditionRefused")
+    assert caught.value.detail == "a modeled path holds an unrepresentable entry"
+    assert caught.value.__cause__ is refused
+
+
+def test_a_protocol_error_passes_through_untranslated(tmp_path, monkeypatch):
+    def raising(backend, project_root, metadata_root, storage):
+        raise ProtocolError("the caller misused the command")
+
+    monkeypatch.setattr(science_root, "inspect_chain", raising)
+
+    with pytest.raises(ProtocolError):
+        science_root._log_seam().inspect_registered(tmp_path)
+
+
+def test_read_head_carries_the_genesis_payload(tmp_path, monkeypatch):
+    payload = b'{"domain":"science.world-root.v1","world_id":"' + b"f" * 32 + b'"}'
+    entries = (
+        ("a" * 64, GenesisEntry(payload=payload, baseline=())),
+        ("b" * 64, IntentEntry(payload=b"i")),
+    )
+    monkeypatch.setattr(
+        science_root,
+        "read_chain",
+        lambda backend, project_root, metadata_root, storage: EngineChainView(
+            genesis_digest="a" * 64, entries=entries, tip="b" * 64
+        ),
+    )
+
+    head = science_root._log_seam().read_head(tmp_path)
+
+    assert head == logmodel.ChainHead(genesis_digest="a" * 64, genesis_payload=payload, tip="b" * 64)
+
+
+def test_the_seam_carries_the_engines_absent_singleton(tmp_path):
+    assert science_root._log_seam().absent_state is ABSENT
+
+
+def test_the_seam_is_one_stable_object():
+    # The same sense of stable as `chain_head_reader`: a caller may assert that
+    # an act holds *this* seam, not one that merely behaves like it.
+    assert science_root._log_seam() is science_root._log_seam()
+
+
+def test_the_world_lock_lookup_yields_the_lock_an_opened_world_holds(tmp_path):
+    root = tmp_path / "world"
+    root.mkdir()
+
+    looked_up = world_module._world_lock_for(root)
+    instance = make_world(tmp_path)
+
+    assert instance._state.lock is looked_up
+    assert world_module._world_lock_for(root) is looked_up
+
+
+def test_the_seams_world_lock_holds_that_very_lock(tmp_path):
+    root = tmp_path / "world"
+    root.mkdir()
+    held = world_module._world_lock_for(root)
+
+    with science_root._log_seam().world_lock(root):
+        assert held.acquire(blocking=False) is False
+
+    assert held.acquire(blocking=False) is True
+    held.release()
+
+
+def test_the_seams_corpus_lock_is_the_write_apis_own(tmp_path):
+    root = tmp_path / "corpus"
+    root.mkdir()
+
+    assert science_root._log_seam().corpus_lock(root) is corpus_module._operation_lock_for(root)

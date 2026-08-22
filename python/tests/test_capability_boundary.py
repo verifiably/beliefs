@@ -18,6 +18,7 @@ call — is stated in §4.2.1 and pinned by the acceptance negative, not by this
 from __future__ import annotations
 
 import ast
+import sys
 from pathlib import Path
 
 import pytest
@@ -36,9 +37,33 @@ WRITE_API = "corpus.py"
 COMPOSITION_ROOT = "root.py"
 WORLD_PACKAGE = "world"
 """The world layer, which now reaches the engine's chain and must not do so
-directly. `World` receives one `(genesis_digest, tip)` callback; `root.py`
-implements it with `atoms.read_chain`, and no `ChainView` — nor any other
-engine type — crosses the package boundary."""
+directly. `World` receives one `(genesis_digest, tip)` callback and the log
+seam receives Science-owned view types; `root.py` implements both with the
+engine's own commands, and no engine type crosses the package boundary."""
+
+VIEW_MODULE = "world/logmodel.py"
+"""The Science-typed chain views. Stdlib imports only, by rule: it is the
+vocabulary the seam speaks *instead of* the engine's, so a dependency of its
+own would be a second place engine shape could enter."""
+
+SEAM_MODULE = "world/verify.py"
+
+ENGINE_COMMANDS = (
+    "inspect_chain",
+    "inspect_chain_detached",
+    "capture_states",
+    "state_from_json",
+    "read_chain",
+    "register_root",
+    "run_transaction",
+)
+"""The engine entry points Science calls by name, the log seam's four included.
+
+`append_intent` is deliberately absent: `science.corpus` declares a port method
+of that name, so the bare name is not evidence of an engine call. Every name
+here is one only `root.py` may write — the confinement asserted over imports
+above, restated over *use* so a module reaching one through an alias or a
+re-export is caught too."""
 
 
 def modules() -> list[Path]:
@@ -129,17 +154,35 @@ class TestTheCompositionRootIsTheOneAtomsImporter:
         imported = imported_modules(parsed(PACKAGE / COMPOSITION_ROOT))
         assert any(name == "atoms" or name.startswith("atoms.") for name in imported)
 
+    @pytest.mark.parametrize(
+        "module", [path for path in modules() if relative(path) != COMPOSITION_ROOT], ids=relative
+    )
+    def test_no_module_outside_the_composition_root_names_an_engine_command(self, module):
+        named = names_of(parsed(module)) & set(ENGINE_COMMANDS)
+        assert named == set(), f"{relative(module)} names {sorted(named)}"
+
+    def test_the_composition_root_names_every_engine_command(self):
+        # The roster is checked in both directions: a command that quietly left
+        # `root.py` would otherwise leave a dead ban behind, and the log seam's
+        # four new names are the ones this arm exists to keep honest.
+        named = names_of(parsed(PACKAGE / COMPOSITION_ROOT))
+        missing = [command for command in ENGINE_COMMANDS if command not in named]
+        assert missing == []
+
 
 class TestTheWorldPackageHoldsNoEngineCapability:
     """The same rule, stated over the package that most nearly needs to break it.
 
     The world layer is where recovery-completing chain reads enter Science: a
-    build's anchors are chain digests, and preflight completes recovery before
-    it inspects a single world file. It gets there through an injected
-    `Callable[[Path], tuple[str, str]]` and never through `atoms`, so the two
-    digests are the only engine-derived values that exist above the composition
-    root. Asserting it here, over `science/world/` by name, means a future
-    module in that package cannot pass by being one of many.
+    build's anchors are chain digests, preflight completes recovery before it
+    inspects a single world file, and the log seam hands verification a whole
+    chain. It gets there through injected callables and never through `atoms`
+    — the chain arrives already re-typed into `science.world.logmodel`'s own
+    unions, and the only engine-derived *values* above the composition root
+    are chain digests and path-state fingerprints the layer holds opaquely and
+    compares only by equality. Asserting it here, over `science/world/` by
+    name, means a future module in that package cannot pass by being one of
+    many.
     """
 
     def test_the_world_package_is_not_empty(self):
@@ -157,18 +200,69 @@ class TestTheWorldPackageHoldsNoEngineCapability:
         assert offending == [], f"{relative(module)} imports {offending}"
 
     @pytest.mark.parametrize("module", world_modules(), ids=relative)
-    def test_no_world_module_names_an_engine_chain_view(self, module):
-        assert "ChainView" not in names_of(parsed(module)), f"{relative(module)} names ChainView"
+    def test_no_world_module_imports_the_composition_root(self, module):
+        """The second half of the same confinement.
+
+        Banning `atoms` alone would leave the world layer one hop away from
+        every engine type: `science.root` holds them all, so importing it is
+        importing the engine with extra steps. The seam types the world layer
+        does hold are handed to it as values, never fetched from the module
+        that builds them.
+        """
+        offending = [
+            imported
+            for imported in imported_modules(parsed(module))
+            if imported == "science.root" or imported.startswith("science.root.")
+        ]
+        assert offending == [], f"{relative(module)} imports {offending}"
+
+    @pytest.mark.parametrize("module", world_modules(), ids=relative)
+    def test_no_world_module_names_the_engines_chain_reader(self, module):
         assert "read_chain" not in names_of(parsed(module)), f"{relative(module)} names read_chain"
+
+    def test_the_chain_view_the_world_package_names_is_sciences_own(self):
+        """`ChainView` is now a name in both vocabularies, so the bare name is
+        no longer the check — the object is.
+
+        `science.world.logmodel` mints its own closed union under that name
+        because the seam speaks Science's vocabulary; the engine's `ChainView`
+        is a different class, reachable only through an `atoms` import the arms
+        above forbid.
+        """
+        from atoms.coordinator.commands import ChainView as EngineChainView
+
+        from science.world.logmodel import ChainView as ScienceChainView
+
+        assert ScienceChainView is not EngineChainView
+
+    def test_the_view_module_imports_only_the_standard_library(self):
+        imported = imported_modules(parsed(PACKAGE / VIEW_MODULE))
+        foreign = sorted(name for name in imported if name.split(".")[0] not in sys.stdlib_module_names)
+        assert foreign == [], f"{VIEW_MODULE} imports {foreign}"
+
+    def test_the_seam_module_imports_neither_the_engine_nor_the_composition_root(self):
+        imported = imported_modules(parsed(PACKAGE / SEAM_MODULE))
+        assert not any(name == "atoms" or name.startswith("atoms.") for name in imported)
+        assert not any(name == "science.root" or name.startswith("science.root.") for name in imported)
 
     def test_the_check_would_see_a_world_module_reading_the_chain(self, tmp_path):
         offender = tmp_path / "epoch.py"
         offender.write_text(
-            "from atoms.coordinator.commands import read_chain\n\n\n"
-            "def head(root, backend, storage) -> ChainView:\n"
+            "from atoms.coordinator.commands import read_chain\n"
+            "from science.root import _log_seam\n\n\n"
+            "def head(root, backend, storage):\n"
             "    return read_chain(backend, str(root), str(root), storage)\n",
             encoding="utf-8",
         )
         tree = parsed(offender)
         assert any(name.startswith("atoms") for name in imported_modules(tree))
-        assert {"ChainView", "read_chain"} <= names_of(tree)
+        assert "science.root" in imported_modules(tree)
+        assert "read_chain" in names_of(tree)
+
+    def test_the_check_would_see_a_view_module_reaching_past_the_standard_library(self, tmp_path):
+        offender = tmp_path / "logmodel.py"
+        offender.write_text("from atoms.core.fingerprint import PathState\n", encoding="utf-8")
+        imported = imported_modules(parsed(offender))
+        assert [name for name in imported if name.split(".")[0] not in sys.stdlib_module_names] == [
+            "atoms.core.fingerprint"
+        ]

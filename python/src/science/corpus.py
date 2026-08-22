@@ -352,7 +352,38 @@ class _ImportView:
 
 
 _ROOT_STATES: dict[str, _RootState] = {}
+_OPERATION_LOCKS: dict[str, OperationLock] = {}
 _ROOT_STATES_LOCK = threading.Lock()
+"""One mutex over both registries, which is what keeps them one registry.
+
+The lock a root's writers take and the lock an auditor takes must be the same
+object or they serialize nothing, so the two entry points below hand out
+entries of the same per-root map and `_root_state_for` takes its lock from it
+rather than minting one of its own.
+"""
+
+
+def _locked_operation_lock(key: str) -> OperationLock:
+    """The per-root lock, with `_ROOT_STATES_LOCK` already held."""
+    lock = _OPERATION_LOCKS.get(key)
+    if lock is None:
+        lock = OperationLock()
+        _OPERATION_LOCKS[key] = lock
+    return lock
+
+
+def _operation_lock_for(root: Path) -> OperationLock:
+    """One root's operation lock, constructing no `Corpus`.
+
+    Verification locks roots it does not open. `_root_state_for` cannot serve
+    it: that entry point builds a `Corpus`, which reads and validates every
+    node under the root — so on exactly the damaged root an audit exists to
+    judge, asking for the lock would raise before the audit could say what was
+    wrong. The lock is per-root state, not corpus state, so it is handed out
+    without one.
+    """
+    with _ROOT_STATES_LOCK:
+        return _locked_operation_lock(str(Path(root).resolve()))
 
 
 def _root_state_for(root: Path, executor_factory: Callable[[Path], WritePlanExecutor]) -> _RootState:
@@ -361,8 +392,9 @@ def _root_state_for(root: Path, executor_factory: Callable[[Path], WritePlanExec
     with _ROOT_STATES_LOCK:
         state = _ROOT_STATES.get(key)
         if state is None:
+            lock = _locked_operation_lock(key)
             corpus = Corpus(resolved, executor_factory=executor_factory)
-            state = _RootState(OperationLock(), corpus, ReadView(corpus), executor_factory)
+            state = _RootState(lock, corpus, ReadView(corpus), executor_factory)
             _ROOT_STATES[key] = state
         elif state.executor_factory is not executor_factory:
             raise ScienceError(f"corpus root {key!r} is already open with a different executor factory")

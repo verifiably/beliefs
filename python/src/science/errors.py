@@ -7,6 +7,8 @@ sharpest case), and a test that can only assert "something was raised" cannot
 tell a good refusal from a bad one.
 """
 
+from typing import Literal
+
 
 class ScienceError(Exception):
     """Base for every error this package raises."""
@@ -152,6 +154,36 @@ class CaptureDrift(ScienceError):
     is published; the build does not retry, because a silent retry would turn
     an operator editing a corpus under a running build into a build that
     eventually succeeded without saying so."""
+
+
+class LogEvidenceRefused(ScienceError):
+    """The engine refused to produce the log evidence an act asked for.
+
+    Three engine states escape the inspecting commands' never-raises envelope
+    by design (log-verification design §6.4): a chain-vs-record contradiction
+    (``ChainStateInvalid``), a halted transaction (``TransactionHalted``), and
+    a capture refusal at a modeled path holding an unrepresentable entry
+    (``PreconditionRefused``). The composition root's seam adapters translate
+    exactly those three — nothing else, and ``ProtocolError`` and setup errors
+    keep their own contracts — preserving the engine exception as ``__cause__``.
+
+    **It is a refusal to judge, not a judgment.** It produces no report, it is
+    not an arrival refusal, and it sits outside the evaluator's precedence and
+    the arrival-cause ranking: the act did not decide that the evidence was
+    bad, it never obtained any. Collapsing it into an outcome would let an
+    unreadable root and a refuted one read the same downstream.
+    """
+
+    def __init__(
+        self,
+        phase: Literal["inspect", "capture"],
+        engine_error: Literal["ChainStateInvalid", "TransactionHalted", "PreconditionRefused"],
+        detail: str,
+    ) -> None:
+        super().__init__(f"{phase}: the engine refused with {engine_error}: {detail}")
+        self.phase = phase
+        self.engine_error = engine_error
+        self.detail = detail
 
 
 class EnumeratedKindUngoverned(ScienceError):

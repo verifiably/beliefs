@@ -3,7 +3,10 @@
 Slice 1's registry lives in `science.world.registry`, slice 2's rules store in
 `science.world.rules`, its epoch carrier and publication in
 `science.world.epoch`, its pure derivations in `science.world.derive` and its
-read surface in `science.world.read`; this module is the package's import
+read surface in `science.world.read`; slice 3's log-anchoring codecs in
+`science.world.anchors`, its Science-typed chain views in
+`science.world.logmodel` and the engine seam every verification act is handed
+in `science.world.verify`; this module is the package's import
 surface and re-exports them unchanged. The private names below are the seams
 `science.root`, `science.corpus`, and the suite already reach for through
 `science.world`, kept importable so the promotion moves no caller. Anything
@@ -89,6 +92,21 @@ from science.world.epoch import (
     packaging_identity_of,
     receipt_identity,
 )
+from science.world.logmodel import (
+    DEFECT_KINDS,
+    AbsentView,
+    ChainHead,
+    ChainView,
+    DefectKind,
+    DefectView,
+    EntryView,
+    GenesisEntryView,
+    IntentEntryView,
+    MalformedView,
+    RegisteredEntryView,
+    SettledEntryView,
+    WellFormedView,
+)
 from science.world.read import (
     EDGE_STATES,
     BoundStamp,
@@ -130,6 +148,7 @@ from science.world.registry import (
 from science.world.registry import _lift_json as _lift_json
 from science.world.registry import _load_world_mirror as _load_world_mirror
 from science.world.registry import _parse_manifest as _parse_manifest
+from science.world.registry import _world_lock_for as _world_lock_for
 from science.world.registry import _world_mirror_bytes as _world_mirror_bytes
 from science.world.rules import (
     FIXTURE_SET_DOMAIN,
@@ -150,12 +169,19 @@ from science.world.rules import (
 )
 from science.world.rules import _HeldRule as _HeldRule
 from science.world.rules import _resolve_rule_binding as _resolve_rule_binding
+from science.world.verify import (
+    LogSeam,
+    PresentedIdentity,
+    PresentedManifest,
+    PresentedWorldIds,
+)
 
 __all__ = [
     "BELIEF_INPUT_KIND",
     "CERTIFICATION_INVENTORY_DOMAIN",
     "COREFERENCE_MAP_DOMAIN",
     "CURRENT_POINTER",
+    "DEFECT_KINDS",
     "DERIVATION_KINDS",
     "EDGE_STATES",
     "ENUMERATED_SOURCE_KINDS",
@@ -176,6 +202,7 @@ __all__ = [
     "RULE_DOMAIN",
     "SNAPSHOT_SUBJECT",
     "SUBJECT_DOMAINS",
+    "AbsentView",
     "AdmissionProvenance",
     "AdmissionRecord",
     "AnchorActOrigin",
@@ -188,37 +215,52 @@ __all__ = [
     "CapturedRecord",
     "CapturedRetraction",
     "CertificationInventory",
+    "ChainHead",
+    "ChainView",
     "CoreferenceMap",
     "CorpusManifest",
     "CorpusStatus",
     "CorpusSubject",
+    "DefectKind",
+    "DefectView",
     "DerivationBindings",
     "DerivationReceipt",
     "EdgeAnswer",
+    "EntryView",
     "Epoch",
     "EpochDeletionReport",
     "ForkOf",
     "ForkedFrom",
     "Fresh",
+    "GenesisEntryView",
     "HeadArtifact",
+    "IntentEntryView",
     "Location",
     "LogHeadOrigin",
     "LogHeadRecord",
+    "LogSeam",
+    "MalformedView",
     "NotPresent",
+    "PresentedIdentity",
+    "PresentedManifest",
+    "PresentedWorldIds",
     "ProducerSnapshot",
     "ReceiptKind",
     "ReceiptOutcome",
+    "RegisteredEntryView",
     "RegistryView",
     "ReplicaOf",
     "Resolved",
     "RuleBinding",
     "RuleBundle",
     "RuleRemovalReport",
+    "SettledEntryView",
     "SeveredIdentity",
     "StatusRecord",
     "StoreSubject",
     "Subject",
     "Unknown",
+    "WellFormedView",
     "World",
     "WorldConfig",
     "WorldSubject",

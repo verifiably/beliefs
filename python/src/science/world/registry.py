@@ -177,6 +177,27 @@ _WORLD_STATES: dict[str, _WorldState] = {}
 _WORLD_STATES_LOCK = threading.Lock()
 
 
+def _world_state_for(world_root: Path) -> _WorldState:
+    with _WORLD_STATES_LOCK:
+        return _WORLD_STATES.setdefault(
+            str(Path(world_root).resolve()), _WorldState(threading.Lock(), RegistryView())
+        )
+
+
+def _world_lock_for(world_root: Path) -> threading.Lock:
+    """One world root's lock, without opening a `World`.
+
+    The lock-only lookup exists because verification locks a world it never
+    opened: constructing a `World` needs a `WorldConfig`, an executor factory
+    and a chain reader, none of which an audit has or should invent. The
+    corpus registry cannot serve here either — `_ROOT_STATES` and
+    `_WORLD_STATES` are separate maps over different roots — so this is the
+    world's own entry point, handing back the identical object an opened
+    `World` holds.
+    """
+    return _world_state_for(world_root).lock
+
+
 def _require_lower_hex(value: object, length: int, location: str) -> str:
     if type(value) is not str or len(value) != length or any(character not in _LOWER_HEX for character in value):
         raise ValueError(f"{location} must be {length} lowercase hexadecimal characters")
@@ -223,10 +244,7 @@ class World:
         self._executor_factory = executor_factory
         self._chain_head = chain_head
         self._corpus_executor_factory = corpus_executor_factory
-        with _WORLD_STATES_LOCK:
-            self._state = _WORLD_STATES.setdefault(
-                str(config.world_root), _WorldState(threading.Lock(), RegistryView())
-            )
+        self._state = _world_state_for(config.world_root)
 
     def registry(self) -> RegistryView:
         with self._state.lock:
