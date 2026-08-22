@@ -67,6 +67,15 @@ existing central `python/src/science/errors.py` is the home, including for
 `LogEvidenceRefused`. Cost if wrong: an executor mints a parallel errors
 module against house convention.
 
+**R8: The `TransactionHalted` adapter arm is tested at Task 4 (gate closure, 2026-08-22)**
+
+Task 4's file list gains `python/src/science/errors.py` (where the seam
+defines `LogEvidenceRefused`), and Task 4's tests cover the
+`TransactionHalted` arm of the §6.4 translation; Tasks 8 and 9 cover the
+`ChainStateInvalid` and `PreconditionRefused` arms in context. Cost if
+wrong: one of the three contracted arms ships untested until an audit or
+arrival happens to exercise it.
+
 ## Heads
 
 Atoms commit hash (Task 2): *(recorded at Task 2)*  
