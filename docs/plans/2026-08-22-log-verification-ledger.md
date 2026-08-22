@@ -84,6 +84,35 @@ atoms design and the landed implementation put it in a new
 corrected, and Task 4's seam imports it from `atoms.chain.errors`. Cost if
 wrong: Task 4's implementer chases a nonexistent import path.
 
+**R10: The well-formed view's genesis is `entries[0]`, by identity (Task 4
+review, 2026-08-22)**
+
+`WellFormedView.entries` includes the genesis at index 0 with
+`genesis is entries[0]` — the engine's own linearization sets
+`genesis_digest = entries[0][0]`, and the seam re-types rather than
+reshapes. Tasks 5–8's replay and evaluator indexing build on this. Cost if
+wrong: an off-by-one over the registered surface, caught by cut 8's replay
+units.
+
+**R11: Every seam adapter translates, including `read_head` (Task 4 review,
+2026-08-22)**
+
+`read_head` translates the inspect-phase escapes exactly as
+`inspect_registered` does — §6.4's contract binds the root-owned seam
+adapters as a class, and the phase vocabulary has no third member. The
+`World`'s injected `_chain_head` reader is not a seam member and does not
+translate. Cost if wrong: audit and the anchor/export acts would see two
+different error contracts over the same engine state.
+
+**R12: An act holding `world_lock` must not call `World` methods (Task 4
+review, 2026-08-22)**
+
+The seam's `world_lock` returns the identical non-reentrant lock an opened
+`World` takes in `registry()`/`status()` — that identity is the contract,
+and its consequence is that Tasks 5–9's act cores read registry state
+through their own parameters, never through a `World` method call made
+under the lock. Cost if wrong: a self-deadlock, not an error.
+
 ## Heads
 
 Atoms commit hash (Task 2): `3aa5a766efb5275e444de193407992ce33e8edb7` (local atoms `main`, merge of `design/chain-inspection`; unpushed, joining row 4's disclosure per R1)  
