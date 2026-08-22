@@ -101,7 +101,10 @@ of the write path's reads. Result is a closed union:
 - **`WellFormedChain(genesis_digest, entries, tip, pending)`** — the
   linearized sequence over the already-public `Entry` union, plus
   `pending`: the registrations with no settlement, by transaction id and
-  entry digest.
+  entry digest. In detached mode a staged, non-durable registration that
+  links the tip joins `pending`; **detached pending digests need not occur
+  in `entries`** — staged evidence errs toward refusal (ruled at the atoms
+  gate, 2026-08-22).
 - **`MalformedChain(defect)`** — **one deterministic defect**, the first in
   the validator's fixed traversal order, naming the offending digest or
   leaf. The taxonomy: foreign leaf; name/bytes mismatch; undecodable entry;
@@ -114,11 +117,17 @@ of the write path's reads. Result is a closed union:
   are facts about atoms's own entry classes and linkage: atoms carries
   `fulfills`' *meaning* opaquely, but its referent's ancestry is chain
   structure.
-- **`AbsentChain()`** — no chain directory at all; the evaluator's
-  absent-chain bypass is a typed input, never an exception.
+- **`AbsentChain()`** — **no durable chain claim**: the chain directory
+  absent, or present and empty with no contradictory live metadata (a live
+  transaction record over an empty chain is the engine's own chain/store
+  contradiction and keeps raising). The evaluator's absent-chain bypass is
+  a typed input, never an exception, and arrival treats either absent form
+  as chainless.
 
 The fixed staging leaf is engine bookkeeping, **never a foreign-leaf
-defect**, in both modes.
+defect when it is a readable, no-follow regular staging file**, in both
+modes; anything else occupying the reserved name is a foreign leaf (ruled
+at the atoms gate, 2026-08-22).
 
 **Two modes, explicit in the signature.** *Registered mode* serves a live
 root, in the pinned order: acquire the project lock → structural inspection
@@ -425,6 +434,31 @@ consumer crosses), while the **world audit reports it** as the
 subject-mismatch finding — the audit must stay usable on exactly the
 worlds `open_world` refuses (§6.1). The genesis payload's `world_id` is
 read through `read_chain` in both.
+
+### 6.4 Engine refusals at the boundaries
+
+Three engine states escape the never-raises envelope by design: a
+chain-vs-record contradiction that `resolve` raises (`ChainStateInvalid` —
+not a chain-structural fact, so it gets no taxonomy row); a halted
+transaction (`TransactionHalted`); and a capture refusal on an
+unrepresentable entry at a modeled path (`PreconditionRefused`). The
+boundary contract for all three, ruled at the atoms gate (2026-08-22):
+the **root-owned seam adapters translate exactly those exceptions** into
+one Science error,
+
+```
+LogEvidenceRefused(phase: "inspect" | "capture",
+                   engine_error: "ChainStateInvalid" | "TransactionHalted"
+                                 | "PreconditionRefused",
+                   detail: str)
+```
+
+preserving the original as `__cause__`. It produces **no `LogReport`**, is
+**not** `ArrivalRefused`, and sits **outside** the evaluator's precedence
+and the arrival-cause ranking — the act refused to judge, it did not
+judge. `ProtocolError` and unrelated setup errors keep their existing
+contracts untranslated. Audit and arrival both carry tests for the
+translation.
 
 ## 7. The ordered-cuts predicate
 
