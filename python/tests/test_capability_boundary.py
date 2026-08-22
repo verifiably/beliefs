@@ -103,6 +103,46 @@ def imported_modules(tree: ast.Module) -> set[str]:
     return found
 
 
+def composition_root_imports(tree: ast.Module) -> list[str]:
+    """Every statement that binds `science.root`, in all four spellings.
+
+    `imported_modules` records an `ImportFrom`'s *module*, so `from science
+    import root` shows up there as plain `"science"` — a module-name predicate
+    reading that set would miss the shortest evasion there is. The submodule
+    can be bound four ways and each one is checked here: `import
+    science.root`, `from science.root import …`, `from science import root`,
+    and the package-relative `from .. import root` a module inside the package
+    can write. The last two are recognized by the *alias* rather than the
+    module, which is exactly what a set of module names cannot express.
+    """
+    offending: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            offending.extend(
+                alias.name
+                for alias in node.names
+                if alias.name == "science.root" or alias.name.startswith("science.root.")
+            )
+            continue
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        module = node.module or ""
+        statement = f"from {'.' * node.level}{module}"
+        # Inside the package the leading dots stand in for `science`, so a
+        # relative import's module part is measured against `root` and an
+        # absolute one's against `science.root`; `package` is what each
+        # spelling calls the package whose `root` submodule an alias may name.
+        submodule = "root" if node.level else "science.root"
+        package = "" if node.level else "science"
+        if module == submodule or module.startswith(submodule + "."):
+            offending.append(statement)
+        elif module == package:
+            offending.extend(
+                f"{statement} import {alias.name}" for alias in node.names if alias.name == "root"
+            )
+    return offending
+
+
 class TestS8TheMutableCorpusHandleHasOneHolder:
     @pytest.mark.parametrize("module", [path for path in modules() if relative(path) != WRITE_API], ids=relative)
     def test_no_module_outside_the_write_api_names_the_mutable_corpus(self, module):
@@ -208,12 +248,11 @@ class TestTheWorldPackageHoldsNoEngineCapability:
         importing the engine with extra steps. The seam types the world layer
         does hold are handed to it as values, never fetched from the module
         that builds them.
+
+        Checked over statements rather than over module names, because `from
+        science import root` binds the module while naming only the package.
         """
-        offending = [
-            imported
-            for imported in imported_modules(parsed(module))
-            if imported == "science.root" or imported.startswith("science.root.")
-        ]
+        offending = composition_root_imports(parsed(module))
         assert offending == [], f"{relative(module)} imports {offending}"
 
     @pytest.mark.parametrize("module", world_modules(), ids=relative)
@@ -243,7 +282,7 @@ class TestTheWorldPackageHoldsNoEngineCapability:
     def test_the_seam_module_imports_neither_the_engine_nor_the_composition_root(self):
         imported = imported_modules(parsed(PACKAGE / SEAM_MODULE))
         assert not any(name == "atoms" or name.startswith("atoms.") for name in imported)
-        assert not any(name == "science.root" or name.startswith("science.root.") for name in imported)
+        assert composition_root_imports(parsed(PACKAGE / SEAM_MODULE)) == []
 
     def test_the_check_would_see_a_world_module_reading_the_chain(self, tmp_path):
         offender = tmp_path / "epoch.py"
@@ -256,8 +295,49 @@ class TestTheWorldPackageHoldsNoEngineCapability:
         )
         tree = parsed(offender)
         assert any(name.startswith("atoms") for name in imported_modules(tree))
-        assert "science.root" in imported_modules(tree)
+        assert composition_root_imports(tree) == ["from science.root"]
         assert "read_chain" in names_of(tree)
+
+    @pytest.mark.parametrize(
+        "statement",
+        [
+            "import science.root",
+            "import science.root as science_root",
+            "from science.root import _log_seam",
+            # The evasion the module-name predicate this replaced could not
+            # see: `imported_modules` records only `science` for this form.
+            "from science import root",
+            "from science import root as science_root",
+            "from .. import root",
+            "from ..root import _log_seam",
+        ],
+    )
+    def test_the_check_would_see_every_spelling_of_the_composition_root_import(self, tmp_path, statement):
+        offender = tmp_path / "epoch.py"
+        offender.write_text(f"{statement}\n", encoding="utf-8")
+
+        assert composition_root_imports(parsed(offender)) != []
+
+    @pytest.mark.parametrize(
+        "statement",
+        [
+            "import science",
+            "from science import stored",
+            "from science.world.anchors import LogHeadRecord",
+            "from science.corpus import ReadView",
+            "from .anchors import LogHeadRecord",
+            "from .. import corpus",
+            "from ..corpus import ReadView",
+        ],
+    )
+    def test_the_check_does_not_see_the_imports_the_world_layer_may_write(self, tmp_path, statement):
+        # The other half: a ban that also caught `from science import stored`
+        # would be an assertion nobody could satisfy, and would be deleted
+        # rather than obeyed.
+        offender = tmp_path / "epoch.py"
+        offender.write_text(f"{statement}\n", encoding="utf-8")
+
+        assert composition_root_imports(parsed(offender)) == []
 
     def test_the_check_would_see_a_view_module_reaching_past_the_standard_library(self, tmp_path):
         offender = tmp_path / "logmodel.py"

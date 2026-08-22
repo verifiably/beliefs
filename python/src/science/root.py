@@ -619,6 +619,15 @@ def _chain_head(root: Path) -> tuple[str, str]:
     survivor left behind. Only the digests are returned: the `ChainView` — its
     entries, its engine types — stops here, which is what lets the world layer
     anchor an epoch to a chain without importing the engine that keeps one.
+
+    **The seam's `_read_head` issues the identical `read_chain` call with a
+    deliberately different error contract, and the asymmetry is not drift.**
+    That one is a seam adapter, so §6.4 obliges it to translate
+    `ChainStateInvalid` and `TransactionHalted` into `LogEvidenceRefused`;
+    this one is the build's chain reader, whose callers — preflight,
+    publication — already handle the engine's own exceptions and would be
+    changed, not helped, by a Science-typed refusal appearing under them.
+    Making the two calls agree would break one of the two contracts.
     """
     view = read_chain(
         _PRODUCTION_BACKEND,
@@ -779,7 +788,12 @@ def _capture(root: Path, paths: tuple[str, ...]) -> tuple[tuple[str, object], ..
 
 
 def _read_head(root: Path) -> ChainHead:
-    """The validated head, with the genesis payload it was read alongside."""
+    """The validated head, with the genesis payload it was read alongside.
+
+    The twin of `_chain_head` above — same `read_chain` call, deliberately
+    different error contract; see that docstring for why they must not be
+    made to agree.
+    """
     with _inspect_escapes():
         view = read_chain(
             _PRODUCTION_BACKEND, str(root), str(metadata_root_for(root)), PRODUCTION_STORAGE
