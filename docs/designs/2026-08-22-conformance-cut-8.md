@@ -69,8 +69,10 @@ well-formedness obligation.
 
 - **Partial.** Selected (1 unit): the unspellability arm — no cooperative
   mutation path skips registration, asserted over the composition surface
-  (`science.root` is the only atoms importer; every corpus and world write
-  flows through `run_transaction`). Deferred, engine-certified: every
+  (`science.root` is the only atoms importer; every **registered-surface
+  mutation** flows through `run_transaction`, while genesis registration
+  and intent append are protocol entries rather than application
+  mutations). Deferred, engine-certified: every
   kill-at-stage and settlement-persistence arm — those run inside the
   transaction path and are A7/A8's certified productions; Science holds no
   persistence-cut harness (the cut-7 X2 gap, named, not argued around).
@@ -112,11 +114,13 @@ well-formedness obligation.
   verified selecting A → A-bound anchors admitted, the manifest mismatch
   reported separately, replay refuting the edit; the edited configuration
   `world_id` → subject-mismatch finding **and** `open_world`'s operation
-  refusal, the chain verdict derived independently; chain replacement
-  under a **fabricated different genesis** with the same `corpus_id` →
-  refuted as replacement — with the spec §1.2 amendment noted in the
-  declaration: a cooperative same-genesis replacement refutes by
-  anchored-head unreachability instead, same verdict, stated mechanism;
+  refusal, the chain verdict derived independently; chain replacement by a
+  **self-consistent alternative chain under the same constant genesis**
+  and the same `corpus_id` → refuted through anchored-head unreachability
+  — the spec §1.2 amendment's stated mechanism for corpus replacement,
+  since a fabricated distinct genesis would be malformed at genesis-form
+  validation before any anchor judgment; the distinct-genesis variant is
+  the future fork arm's, deferred with L10's fork arms;
   the W1 head exported, the local world rewritten to W2, verification
   selecting W1 → refuted as removal/replacement, selecting W2 a separate
   audit; and chain deletion **plus** manifest re-mint as B, verified
@@ -131,18 +135,6 @@ well-formedness obligation.
   nonvacuousness check that the rewrite genuinely altered entries beyond
   the maximal anchor; and the report's unanchored-tail extent covering the
   rewritten span.
-
-| L6 | The genesis baseline reaches pre-log history — once anchored | register over a populated root, anchor, then delete a baseline-covered pre-log record → refuted at replay; **negative:** with **no surviving anchor for the selected subject**, rewrite genesis, baseline, and chain consistently to omit the record → unresolvable at best, undetected — the baseline is load-bearing only under an anchor, and one surviving selected-subject anchor turns the same rewrite into a refutation (L4) |
-
-- **Partial.** Selected (1 unit): the anchor-free negative — genesis,
-  chain, and surface rewritten consistently to omit a record, no surviving
-  selected-subject anchor → unresolvable at best, undetected; the
-  one-surviving-anchor contrast stays homed in L4's deletion arms and is
-  cited, not re-declared. Deferred: the pre-log-history arm — the spec
-  §1.3 empty-baseline amendment makes a populated baseline both
-  unconstructible by any Science path and **malformed** by genesis-form
-  validation, so the arm waits on a registration-surface design act, named
-  in the spec's deferral ledger.
 
 | L7 | Intent claims are exactly as wide as stated | assessment-run intent with **no pointers at all, or every `fulfills` pointer fully resolved and non-qualifying** — §6's exact reduction, never a collapse of an unresolved candidate → attempt-without-recorded-outcome finding, never a refutation; excise the intent entry after anchoring → **malformed** (interior linkage break) or, via truncation to a valid prefix, **refuted** — never silent; a second committed registration fulfilling the same intent, or a `fulfills` naming a missing or non-ancestor intent → **malformed**; mutate the fulfillment itself — a wrong-purpose committed transaction carrying `fulfills = I`, a run publication under another spec, another `event_token`, or a publication creating no run → each **fails qualification** (§3), the intent stays attempt-without-recorded-outcome, and the non-qualifying `fulfills` is named in a finding; make a **genuine** published run's bytes unresolvable → qualification **unresolvable**, and **no** unmatched finding is emitted (§6's reduction); kill between the intent's durable append and execution start → intent present, no execution — attempt-without-recorded-outcome, exactly as stated; race two cooperative intent appends on one root → serialized by the root lease, one linear chain, never a sibling branch (L3); attempt to publish the run through a root other than the intent's → **refused**, placement froze before execution; assert no caller-supplied `fulfills` path exists at the boundary; **negative:** crash, cancellation, and discarded failure are indistinguishable by construction; the guarantee quantifies over **both** intent kinds — instantiated for the holdings shape, a wrong-location observation, a wrong token, or a publication creating no observation each **fails qualification**; a kill between a holdings intent's append and its mutation reads attempt-without-recorded-outcome, exactly as stated *(amended 2026-08-10, the verified-holdings record design §8)*; the guarantee now quantifies over the **operation intent** too — instantiated for its shape, a report carrying another operation's token, a report of the wrong kind, a run publication for a non-run operation, or a registration publishing no terminal record each **fails qualification** (a second fulfilling registration on one intent stays the chain's **malformed**, classified before qualification — T2's arm), and a kill between the operation intent's append and its first act reads attempt-without-recorded-outcome, exactly as stated *(amended 2026-08-11, the act-report design §3)* |
 
@@ -176,6 +168,17 @@ well-formedness obligation.
   empty observer set → unresolvable with the observer bound recorded;
   `anchored-through` and the observer set present as report fields; and
   malformed structure stopping evaluation before any anchor judgment.
+
+| L10 | A fork is a new chain; a replica is the same chain | fork act → fresh genesis carrying `(parent genesis, parent head)` and its own baseline; assert parent and fork anchors are never compared; replica/restore → same genesis, chain carried unchanged, comparability intact; a copy presenting the parent genesis under a fresh `corpus_id` manifest without a fork-genesis → its chain refuses to verify under the new identity (genesis names the parent `corpus_id`); the **store instantiation** (the verified-holdings record design §2) — replica act → same genesis, chain carried unchanged, the copy stamped read-only in engine bookkeeping, the stamp durable **before** the copy is exposable; kill inside that window → the interrupted copy is metadata-less, hence read-only, never a writable twin; cooperative mutation on any root **not granted writability** → refused, the fork act the only exit; fork act → the new `store(store_id, forked_from)` genesis durable **before** the writability grant; kill between them → still a read-only replica; **copy any store tree without its engine metadata — replica or original alike — and cold-bootstrap it → read-only and unresolvable for holdings reads**, every mutation refused, the stamp's loss failing closed, never open; **restore two metadata-less copies of one `store_id` on two hosts → both enter service read-only**, a write on either refused — the sole writable exit is a fork under a new `store_id`, so two cooperative writers of one store stay unconstructible; **an interrupted copy carrying genesis and chain with payload files missing → the restore act's verification under a store-anchored observer set never returns `validated`**, the verdict is preserved — refuted, malformed, or unresolvable, never coerced to an admission — the root stays unserviceable and its dereferences mint nothing, in particular never an `absent` for a path the copy failed to carry; **a restore presented with an empty store-anchored observer set → unresolvable, replay not reached** (the verifier's L9 bound), the root unserviceable; raw-written copies of one `store_id` with branches assembled in one root → sibling-malformed (L3); both divergent heads supplied as anchors in one observer set → refuted (L9); the same two copies verified **separately** after their last common anchored head → each validates, the divergent tails L5's unanchored residue — the pinned surviving-observer negative *(amended 2026-08-10, the verified-holdings record design §8)* |
+
+- **Partial.** Selected (1 unit): the copy-presenting-the-parent-genesis
+  arm, under the spec §1.2/§6.2 amendment's mechanism — `admit_arrival`
+  selects `S = Corpus(provenance.parent_corpus_id)`, so a copy presented
+  under a fresh `corpus_id` manifest without a fork genesis refuses with
+  `SubjectMismatch`: the chain refuses to verify under the new identity,
+  exactly the frozen claim, reached through the arrival act rather than a
+  genesis-payload comparison. Deferred, owner named (row 4): every fork,
+  replica-construction, restore, and store-instantiation arm.
 
 | L11 | The world chain is anchored only by export | present an epoch stored inside the world root as the world chain's anchor → not accepted into the observer set, while the **same** epoch supplied for a **corpus** subject is accepted — eligibility is carrier-specific, not a property of the epoch; a registry log-head record carrying a `world` subject → unconstructible through the anchor act and never accepted as an anchor; coordinated truncation of world chain, registry, and in-root epochs with no exported holder → undetected (**negative**, the surviving-observer bound); the same truncation with one exported epoch supplied → refuted |
 
@@ -217,11 +220,16 @@ well-formedness obligation.
 
 ### 3.2 The row not read
 
-**L10** (fork, replica, restore, and store instantiation) is not read by
-this cut: every arm turns on the fork, replica, restore, and store acts,
-which are row 4's Plan B holdings work, unbuilt in both repositories. The
-spec's §1.2 amendment note about a future fork genesis is carried by L4's
-replacement declaration, not by reading L10.
+**L6** (the genesis baseline reaching pre-log history) is not read by this
+cut: both arms fail construction under the spec §1.3 empty-baseline
+amendment. The positive arm needs a populated baseline no Science path
+mints and genesis-form validation rejects as malformed; the anchor-free
+negative needs the same populated-baseline starting state for the omission
+to be the **baseline's** claim — under empty baselines it collapses into
+the anchor-free rewrite residue already homed in L5. Reading L6 would
+certify nothing the amendment leaves standing; the row waits on the
+registration-surface design act named in the spec's deferral ledger
+(§10.6 there).
 
 ### 3.3 Labeled declarations
 
@@ -243,14 +251,16 @@ same audit discipline:
    commits through the same admission core, and the `AdmissionRecord`'s
    identity is byte-identical to a fixture admission of the same inputs —
    admission identity unamended (spec §6.2).
-4. **Subject-mismatch ordering** — report-based refusals outrank
-   `SubjectMismatch`, which is checked before the admission transaction; at
-   audit it is a finding, never a refusal and never an anchor filter (spec
-   §6.3).
-5. **The world-id agreement discharge** — `open_world` checks
-   genesis/configuration/mirror agreement and refuses on mismatch; the
-   world audit reports the same disagreement as a finding and remains
-   callable on exactly the worlds `open_world` refuses (spec §6.1, §6.3).
+4. **Refusal ordering at arrival** — report-based refusals outrank the
+   subject-mismatch refusal, and that refusal precedes the admission
+   transaction; the underlying mismatch outcomes are homed in L4 (the
+   audit finding and configuration refusal) and L10 (the arrival refusal)
+   and are cited here, never re-declared (spec §6.3).
+5. **The mirror branch and audit callability** — `open_world`'s
+   `world.yaml` mirror-agreement check refuses on mismatch, and the world
+   audit remains callable on exactly the worlds `open_world` refuses; the
+   configuration-mismatch outcome itself is homed in L4 and cited (spec
+   §6.1, §6.3).
 6. **Store subjects are shape-only** — the log-head and head-artifact
    codecs round-trip the store arm; the evaluator refuses
    `StoreSubjectUnsupported`; the anchor act's signature cannot spell a
@@ -278,8 +288,8 @@ same audit discipline:
 ## 4. Accounting
 
 Twelve rows read: **5 full** (L3, L5, L9, L11, L12) **+ 7 partial** (L1,
-L2, L4, L6, L7, L8, L13); L10 unread (§3.2). Selected units by row: L1 1,
-L2 5, L3 4, L4 7, L5 2, L6 1, L7 2, L8 2, L9 5, L11 4, L12 5, L13 5 —
+L2, L4, L7, L8, L10, L13); L6 unread (§3.2). Selected units by row: L1 1,
+L2 5, L3 4, L4 7, L5 2, L7 2, L8 2, L9 5, L10 1, L11 4, L12 5, L13 5 —
 **43 selected + 10 labeled = 53 declaration units**.
 
 ## 5. N2 obligations
@@ -340,8 +350,9 @@ here before freeze.
    suite is the standing mitigation.
 3. **Intent qualification is entirely out** (L7's reduction); the cut's
    L7 units certify inspection taxonomy only.
-4. **L10 is unread**; fork/replica/restore/store behavior has no
-   certification here at all.
+4. **L10's fork, replica-construction, restore, and store arms have no
+   certification here**; only its arrival-identity arm is read. **L6 is
+   unread entirely** (§3.2).
 5. **The cut inherits the spec's dated amendments** (§1.2, §1.3); if a
    future design lifts either, the affected declarations are extended by a
    successor cut, never edited here.
