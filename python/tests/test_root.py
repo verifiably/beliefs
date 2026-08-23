@@ -10,6 +10,7 @@ green for a guarantee it never exercised.
 
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 
 import pytest
@@ -225,6 +226,47 @@ class TestWorldRoots:
         # for every other reader of a head, because nothing was translated there.
         with pytest.raises(PreconditionRefused):
             root._log_seam().read_head(config.world_root)
+
+    def test_open_world_leaves_every_other_chain_read_refusal_alone(self, monkeypatch, tmp_path):
+        # The mapping above is conditioned, not by type, and this is why.
+        # `read_chain` resolves recovery *before* it reaches the registration
+        # check, and resolution refuses with the same class for reasons of its
+        # own — a namespace that moved under an observation, a create whose
+        # target appeared while the plan ran. Renaming one of those "never
+        # initialized as a world" would state something false about a registered
+        # root that is mid-recovery, with the truth only on `__cause__`.
+        calls = []
+        patch_world_engine(monkeypatch, calls)
+        config = WorldConfig(tmp_path / "world", "1" * 32, ())
+        config.world_root.mkdir()
+        (config.world_root / "world.yaml").write_bytes(_world_mirror_bytes(config.world_id))
+
+        for message in (
+            "the namespace no longer matches approval while opening 'registry': [Errno 2] ...",
+            "'registry' stopped being a directory between lookup and open",
+            "'epochs/current' already exists; CreateFileNoClobber refuses",
+        ):
+            mid_recovery = PreconditionRefused(message)
+
+            def raising(*_args, refusal=mid_recovery):
+                raise refusal
+
+            monkeypatch.setattr(root, "read_chain", raising)
+
+            with pytest.raises(PreconditionRefused) as caught:
+                root.open_world(config)
+
+            assert caught.value is mid_recovery
+
+    def test_the_unregistered_root_sentinel_is_the_engines_own_wording(self):
+        # The one string the mapping turns on, pinned against `atoms`' source —
+        # R27's treatment of a restated constant. Both of `_registered_root`'s
+        # sites raise it, and a reword there turns this red rather than silently
+        # disabling the mapping.
+        from atoms.coordinator import recover
+
+        source = inspect.getsource(recover)
+        assert source.count(f'PreconditionRefused("{root.UNREGISTERED_ROOT}")') == 2
 
     def test_world_consumer_tag_is_the_world_executor_tag(self):
         assert root.WORLD_CONSUMER_TAG == "science-world-write-v1"

@@ -177,6 +177,23 @@ engine's own refusal — relied on, never re-implemented.
 
 _PRODUCTION_BACKEND: Backend = select_backend()
 
+UNREGISTERED_ROOT = "the project root is not registered"
+"""The engine's own words for a root that was never registered.
+
+Restated here because `open_world` must tell that state apart from the *other*
+things a chain read can refuse with. `PreconditionRefused` is not one fact:
+`read_chain` resolves recovery before it reaches the registration check, and
+resolution raises the same class for an observation whose namespace moved and
+for a create whose target appeared — each with its own message. Only
+`_registered_root` produces this one, at both of its sites, and only it is
+mapped onto `WorldUninitialized`.
+
+A test pins the string against `atoms`' own source, the treatment R27 gave
+`CORPUS_GENESIS_DOMAIN`. If it ever drifts unnoticed the mapping simply stops
+firing and the engine's refusal reaches the caller unchanged — a less friendly
+error, never a false statement about a registered root.
+"""
+
 METADATA_SUFFIX = ".metadata"
 
 
@@ -1009,19 +1026,27 @@ def open_world(config: WorldConfig) -> World:
     the configuration and the chain disagree (`WorldIdMismatch`).
 
     A root with **no registered chain at all** joins the first of those two.
-    `read_chain` reports it as `PreconditionRefused("the project root is not
-    registered")` — its only `PreconditionRefused`, raised at both of
-    `_registered_root`'s sites and meaning that one thing — and
-    `WorldUninitialized` is already Science's name for the state, the very name
-    the mirror loader raises for a root `init_world_root` never made. The
-    mapping is made **here**, at the boundary that made the read, and not in the
-    seam: §6.4's translation vocabulary is closed at three engine states and this
-    is not one of them.
+    `read_chain` reports it as `PreconditionRefused`, and `WorldUninitialized` is
+    already Science's name for the state — the very name the mirror loader raises
+    for a root `init_world_root` never made. The mapping is made **here**, at the
+    boundary that made the read, and not in the seam: §6.4's translation
+    vocabulary is closed at three engine states and this is not one of them.
+
+    **The mapping is conditioned, not by type.** `PreconditionRefused` is not
+    that one fact: `read_chain` resolves recovery *before* it reaches the
+    registration check, and resolution refuses with the same class for reasons of
+    its own — an observation whose namespace moved under it, a create whose
+    target appeared while the plan ran. Renaming any of those "never initialized
+    as a world" would be a false statement about a registered root that is
+    mid-recovery, with the truth visible only on `__cause__`. So only
+    `UNREGISTERED_ROOT`'s exact wording is mapped and everything else propagates
+    untouched.
 
     **Opening is no longer a cheap read.** `read_chain` takes the atoms project
-    lock and resolves recovery before it answers, so this call can now block on a
-    concurrent build over the same world root, and it requires the certified
-    volume that every other act on an opened `World` already required.
+    lock and **resolves recovery** before it answers, so this call can now block
+    on a concurrent build or writer holding the same root's lease, recovers an
+    interrupted transaction as a side effect of opening, and requires the
+    certified volume that every other act on an opened `World` already required.
 
     The detection/refusal split is deliberate: `audit_log` **reports** the same
     fact as a subject-mismatch finding and takes the configuration rather than
@@ -1034,6 +1059,10 @@ def open_world(config: WorldConfig) -> World:
     try:
         head = _log_seam().read_head(config.world_root)
     except PreconditionRefused as caught:
+        if str(caught) != UNREGISTERED_ROOT:
+            # Recovery resolution ran first and refused for a reason of its own.
+            # That is not this refusal and is not renamed into it.
+            raise
         raise WorldUninitialized(
             f"{config.world_root}: the world root carries no registered chain, so it was never initialized "
             "as a world; init_world_root is the act that mints one"

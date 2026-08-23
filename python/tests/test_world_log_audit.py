@@ -1218,13 +1218,15 @@ def test_one_evaluator_one_inspection_contract(tmp_path, monkeypatch):
     damaged = seam.inspect_detached(populated)
     assert type(damaged) is logmodel.MalformedView
     # The lowest offending leaf in sorted-name order — not whichever `readdir`
-    # happened to hand back first, and not the last one written.
-    assert damaged.defect.subject == "aaa-foreign"
+    # happened to hand back first, and not the last one written. The defect
+    # *class* is asserted beside its subject, as cut 8 §5's first declaration-time
+    # obligation asks of every fabricated-chain arm.
+    assert (damaged.defect.kind, damaged.defect.subject) == ("foreign-leaf", "aaa-foreign")
     assert seam.inspect_detached(populated) == damaged
     (populated / CHAIN_LEAF / "aaa-foreign").unlink()
     next_lowest = seam.inspect_detached(populated)
     assert type(next_lowest) is logmodel.MalformedView
-    assert next_lowest.defect.subject == "mmm-foreign"
+    assert (next_lowest.defect.kind, next_lowest.defect.subject) == ("foreign-leaf", "mmm-foreign")
 
 
 # --- §6.4's engine refusal, in the audit's context -------------------------------
