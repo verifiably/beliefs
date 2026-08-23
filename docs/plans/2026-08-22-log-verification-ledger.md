@@ -209,6 +209,98 @@ grammar anchors so the equivalence is load-bearing. Cost if wrong: a
 future dot-prefixed claimable name silently shrinks the audited surface —
 the coverage-overstating direction.
 
+**R21: Provenance is a member of all three carrier arms (Task 7 review,
+2026-08-22)**
+
+§4.1 attaches the discriminator to epoch members; the evaluator fixes it in
+every factory — `named-local` for a registry record and a world-root epoch
+directory, `supplied-export` for a supplied member mapping and an
+artifact's bytes — so L11's eligibility is one predicate. Behaviorally
+identical today: artifacts are unconditionally `supplied-export` and a
+world-subject registry record is unconstructible (§3.1). Forward risk
+stated in the carrier docstring: a future artifact arm reading a locally
+stored artifact would be labeled `named-local` and become ineligible,
+diverging from §4.1's unqualified acceptance of artifacts for a world
+subject. Cost if wrong: a carrier arm inherits a custody label its factory
+could not establish.
+
+**R22: "Mutually incomparable" is the pair statement of unplaceability
+(Task 7 review, 2026-08-22)**
+
+`entries` is a linearization (R10) and a sibling branch is a malformed
+defect, so two *reachable* heads are always ordered; the incomparable arm
+fires exactly when at least one of a differing pair is unplaced. This is
+the spec's only reachable meaning. The pairing is restricted to
+unplaced×unplaced so the finding is not re-derived against every healthy
+anchor. Cost if wrong: a reader expects a state a linearization cannot
+present.
+
+**R23: An epoch carrier revalidates the identity over eleven members and
+parses only `anchors.yaml` (Task 7 review, 2026-08-22)**
+
+The other ten are covered by the identity digest and belong to the epoch
+reader; an observer carrier is not a second `_locked_open_epoch`. The check
+is **self-consistency**, not provenance: `from_export` recomputes the
+identity from the mapping the caller supplies, so a caller can fabricate
+all eleven and pass a matching identity. That is §10.9's model — custody is
+caller-attested and reported as such — not a defect. Cost if wrong: a
+reader takes a validated epoch carrier for evidence of origin.
+
+**R24: An absent chain is stated as a `chain-absent` finding, under an
+exported constant (Task 7 review, 2026-08-22)**
+
+§6.2 ranks arrival's causes from the report's fields, and `chainless`
+versus a fresh unanchored chain is otherwise indistinguishable there — the
+two are refused and admitted respectively. Task 9 imports the finding-code
+constant rather than matching a bare string. Cost if wrong: arrival
+consults its own copy of the view, which §6.2 forbids.
+
+**R25: Eligibility exclusions and the observer bound are always reported
+(Task 7 review, 2026-08-22)**
+
+An L11 exclusion is an `observer-ineligible` finding, never a silent
+narrowing; the bound is reported in every outcome, malformed included, and
+each entry states custody (`read-from-root` | `caller-attested`, §10.9's
+deferred holder protocol). Cost if wrong: a caller's supplied evidence
+vanishes without explanation, or a `supplied-export` label reads as a
+custody claim the module cannot make.
+
+**R26: A wrong-kind `presented` identity is a `TypeError` (Task 7 review,
+2026-08-22)**
+
+It is a caller-composition error, not a fact about the root, so it refuses
+rather than becoming a mismatch finding — raised before step 1's malformed
+return, which is the correct precedence for a programming error. Cost if
+wrong: a composition bug is laundered into an evidentiary finding.
+
+**R27: `CORPUS_GENESIS_DOMAIN` is restated in `verify.py`, pinned equal
+(Task 7 review, 2026-08-22)**
+
+`science.world` may not import `science.root`, so the constant is restated
+and a test pins it equal to `root.GENESIS_DOMAIN` — the treatment
+`anchors.WORLD_GENESIS_DOMAIN` already has. The genesis-form predicate
+itself is single-homed across `verify.py` and `anchors.py` (Task 7 fix
+round) so the two cannot drift. Cost if wrong: two spellings of one domain
+diverge silently.
+
+**R28: One genesis-form predicate, owned by `anchors.py`, strict grammar
+(Task 7 fix round, 2026-08-22)**
+
+`verify.py` and `anchors.py` had each stated the Science genesis form, and
+they had already drifted — the evaluator required a 32-lowercase-hex
+`world_id`, the export path did not. `anchors.py` now owns
+`parse_corpus_genesis`/`parse_world_genesis` and both callers use them; the
+strict grammar won because `WorldConfig.__post_init__` and
+`registry._load_world_mirror` already enforce it, so the three loaders now
+agree. Consequence inside Task 5's reviewed export act: an on-disk genesis
+naming an ungrammatical `world_id` now refuses `WorldUninitialized` rather
+than `WorldIdMismatch` — a reclassification within §3.2's documented
+refusal set, unreachable for any world root Science can mint (the id is
+grammar-checked at config construction and the genesis payload is minted
+from it), and reachable only for a tampered or foreign-written genesis.
+Cost if wrong: a hand-written world root that a reader considered valid
+refuses export with a form error instead of a mismatch.
+
 ## Heads
 
 Atoms commit hash (Task 2): `3aa5a766efb5275e444de193407992ce33e8edb7` (local atoms `main`, merge of `design/chain-inspection`; unpushed, joining row 4's disclosure per R1)  
