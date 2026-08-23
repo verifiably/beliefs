@@ -19,12 +19,19 @@ Three things, in the cut-7 pattern:
 judges a chain on disk names its builder in `FABRICATION_BY_UNIT`; those
 builders are catalogued in `test_world_log_codecs.CUT8_FABRICATIONS` with the
 engine's own verdict, and this module runs `inspect_chain` over each. The arms
-that hand a chain *view* to a stubbed seam cannot meet the obligation literally
-— there is no directory to inspect, which is the point of a stand-in inspection
-— so they are named in `VIEW_LEVEL_UNITS` with a reason, and the obligation's
-*purpose* is run over them instead: a structural well-formedness predicate over
-the linearization, pinned against the engine on the three defect classes a view
-can express.
+that hand a chain *view* to a stubbed seam cannot meet the obligation literally,
+and the ground they are admitted on is narrower than "no directory exists":
+**the arm's claim does not turn on the chain** — it turns on lock order,
+precedence, refusal placement, admission identity, or the count of evaluator
+calls. Three of them (L10u1, D3, D4) run over real roots with a real executor
+and *could* have been converted the way L4u6, L11u3 and L11u4 were; they were
+not, because the conversion would rewrite Task 9's reviewed arrival fixtures
+without changing what the arms assert, and that cost is recorded rather than
+argued away. They are named per unit in `VIEW_LEVEL_UNITS` with that reason, and
+the obligation's *purpose* is run over them **per unit** through
+`VIEW_FACTORIES`: a structural well-formedness predicate over the very views
+each arm hands to its seam, pinned against the engine on the three defect
+classes a view can express.
 """
 
 from __future__ import annotations
@@ -57,27 +64,27 @@ from n2_arms_cut8 import (
     VIEW_LEVEL_UNITS,
 )
 from test_n2 import MalformedArm, audit, baseline
-from test_world_arrival import pending_view
-from test_world_log_audit import surfaced, world_chain
+from test_world_arrival import pending_view, replica_root
+from test_world_build import ALPHA, BETA
+from test_world_log_audit import OTHER_WORLD_ID as AUDIT_OTHER_WORLD_ID
+from test_world_log_audit import WORLD_ID as AUDIT_WORLD_ID
+from test_world_log_audit import Sequence, corpus_root, surfaced, world_chain, world_root
 from test_world_log_codecs import (
     ABSENT_CHAIN,
     CUT8_CORPUS_ID,
     CUT8_FABRICATIONS,
     CUT8_SIBLING_ID,
-    CUT8_WORLD_ID,
     IN_ROOT_CARRIERS,
     MANIFEST,
     RECORD,
     capture_at,
     coordinated_truncation,
-    corpus_root_at,
     four_state_classes,
     inspected,
     manifest_remint,
     rewritten_tail,
     rolled_back_creation,
     settled_corpus,
-    settled_world,
 )
 
 from science import root as science_root
@@ -525,41 +532,82 @@ def test_the_view_predicate_agrees_with_the_engine(tmp_path):
     assert view_defect(doubled) == engine_kind(duplicate_fulfillment, "dup-fulfillment")
 
 
-def _corpus_view(base: Path) -> logmodel.WellFormedView:
-    """The view a stand-in corpus inspection hands back — `test_world_log_audit`'s
-    own fabricator over a real corpus root's projection."""
-    root = corpus_root_at(base, CUT8_CORPUS_ID, name="corpus")
-    return surfaced(root, "corpus", science_root.GENESIS_PAYLOAD)
+def _audit_world_view(base: Path) -> logmodel.WellFormedView:
+    """L4u4's and D5's own construction, through the helpers those nodes call:
+    `test_world_log_audit`'s `world_root` with the mirror disagreeing, surfaced
+    under the *configured* world's genesis payload."""
+    root = world_root(base, mirrored=AUDIT_OTHER_WORLD_ID)
+    return surfaced(root, "world", science_root._world_genesis_payload(AUDIT_WORLD_ID))
 
 
-def _world_view(base: Path) -> logmodel.WellFormedView:
-    root = settled_world(base).root
-    return surfaced(root, "world", science_root._world_genesis_payload(CUT8_WORLD_ID))
+def _audit_corpus_view(base: Path) -> logmodel.WellFormedView:
+    """D10's own construction."""
+    return surfaced(corpus_root(base), "corpus", science_root.GENESIS_PAYLOAD)
+
+
+def _arriving_view(base: Path, corpus_id: str, *, name: str = "arriving") -> logmodel.WellFormedView:
+    """The arrival nodes' own construction: a copied root, surfaced as a corpus."""
+    return surfaced(replica_root(base, corpus_id, name=name), "corpus", science_root.GENESIS_PAYLOAD)
 
 
 def _arrival_causes(base: Path) -> tuple[logmodel.WellFormedView, ...]:
-    view = _corpus_view(base)
-    return (view, pending_view(view))
+    """D2 hands its seam two well-formed shapes — the clean chain and the same
+    chain carrying an unsettled registration. (Its malformed and absent views
+    are not `WellFormedView`s and carry no structure for the predicate to read.)
+    """
+    clean = _arriving_view(base, ALPHA)
+    return (clean, pending_view(clean))
+
+
+def _refusal_ordering_views(base: Path) -> tuple[logmodel.WellFormedView, ...]:
+    """D4 hands its seam three: the mismatched root's chain, that chain pending,
+    and the matching parent copy's chain that is finally admitted."""
+    clean = _arriving_view(base, BETA)
+    return (clean, pending_view(clean), _arriving_view(base, ALPHA, name="parent-copy"))
+
+
+def _ordered_cuts_views(base: Path) -> tuple[logmodel.WellFormedView, ...]:
+    """L8u1's own construction: a **real** `Sequence` of two published epochs,
+    and the two world chains the node fabricates over the first's identity."""
+    sequence = Sequence(base)
+    return (world_chain(sequence.first), world_chain(sequence.first, committed=False))
+
+
+def _sequence_number_views(base: Path) -> tuple[logmodel.WellFormedView, ...]:
+    """L8u2's: the same pair, the chain fabricated over the **second** epoch's
+    identity — the reversed order the node answers `unordered` for."""
+    sequence = Sequence(base)
+    return (world_chain(sequence.second),)
 
 
 VIEW_FACTORIES: dict[str, Callable[[Path], tuple[logmodel.WellFormedView, ...]]] = {
-    "L4u4": lambda base: (_world_view(base),),
-    "L8u1": lambda _base: (world_chain("1" * 64), world_chain("1" * 64, committed=False)),
-    "L8u2": lambda _base: (world_chain("1" * 64), world_chain("2" * 64)),
-    "L10u1": lambda base: (_corpus_view(base),),
+    "L4u4": lambda base: (_audit_world_view(base),),
+    "L8u1": _ordered_cuts_views,
+    "L8u2": _sequence_number_views,
+    "L10u1": lambda base: (_arriving_view(base, BETA),),
     "D2": _arrival_causes,
-    "D3": lambda base: (_corpus_view(base),),
-    "D4": lambda base: (_corpus_view(base),),
-    "D5": lambda base: (_world_view(base),),
-    "D10": lambda base: (_corpus_view(base),),
+    "D3": lambda base: (_arriving_view(base, ALPHA),),
+    "D4": _refusal_ordering_views,
+    "D5": lambda base: (_audit_world_view(base),),
+    "D10": lambda base: (_audit_corpus_view(base),),
 }
-"""One entry per **stand-in inspection** unit: the views that unit's arm hands
-to its stubbed seam.
+"""One entry per **stand-in inspection** unit: every well-formed view that unit's
+arm hands to its stubbed seam.
 
 Keyed by unit rather than by helper, so the substitute is wired to the thing it
-excuses. A future unit added to `VIEW_LEVEL_UNITS` on that ground and left out
-of this table fails the reconciliation below rather than being excused by
-wording and checked by nothing.
+excuses. A future unit added to `VIEW_LEVEL_UNITS` on that ground and left out of
+this table fails the reconciliation below rather than being excused by wording
+and checked by nothing.
+
+**Each factory calls the helpers the node itself calls** — `world_root`,
+`corpus_root`, `replica_root`, `surfaced`, `pending_view`, `world_chain`, and for
+L8 a real two-epoch `Sequence` — rather than restating what those helpers
+returned. **The residual cost, named:** the *arguments* are still restated. If a
+node changed which root it copies, which world id it mirrors, or how many shapes
+it hands its seam, this table would go on checking a stale replica of the old
+one, and nothing would say so. Removing that would mean refactoring the nodes to
+expose their own view construction — which is Task 9's reviewed arrival fixtures
+— so it is recorded here as a cost rather than paid.
 """
 
 
@@ -578,7 +626,9 @@ def test_every_stand_in_units_view_is_structurally_well_formed(tmp_path, unit):
     """Obligation 1's *purpose*, per unit, over the fabrications that cannot meet
     it literally: no view a stand-in unit hands to its seam carries a structural
     defect it claims not to have."""
-    views = VIEW_FACTORIES[unit](tmp_path / unit)
+    base = tmp_path / unit
+    base.mkdir(parents=True, exist_ok=True)
+    views = VIEW_FACTORIES[unit](base)
     assert views, unit
     for index, view in enumerate(views):
         assert view_defect(view) is None, f"{unit}[{index}]: {view_defect(view)}"
