@@ -80,6 +80,7 @@ from science.identity import v1
 from science.world import (
     CorpusSubject,
     LogHeadRecord,
+    Subject,
     World,
     WorldConfig,
     WorldSubject,
@@ -103,7 +104,7 @@ from science.world.logmodel import (
 )
 from science.world.logmodel import DefectKind as ViewDefectKind
 from science.world.rules import RuleBinding, install_rule_binding, shipped_rule_bundles
-from science.world.verify import LogSeam
+from science.world.verify import LogReport, LogSeam, ObserverSet, Ordering, _audit_log, _epochs_ordered
 
 __all__ = [
     "CONSUMER_TAG",
@@ -118,8 +119,10 @@ __all__ = [
     "DurableExecutor",
     "DurableOperationPort",
     "anchor_heads",
+    "audit_log",
     "chain_head_reader",
     "durable_executor_factory",
+    "epochs_ordered",
     "export_head_artifact",
     "init_corpus_root",
     "init_world_root",
@@ -867,6 +870,42 @@ def export_head_artifact(world: World, subject: CorpusSubject | WorldSubject) ->
     what makes it the one act that can anchor the world chain (§3.2, L11).
     """
     return _export_head_artifact(world, subject, seam=_log_seam())
+
+
+def audit_log(
+    config: WorldConfig,
+    subject: Subject,
+    target_root: Path,
+    observers: ObserverSet,
+    *,
+    actor: str,
+    history: Mapping[str, bytes] | None = None,
+) -> LogReport:
+    """Judge one root's chain against one observer set, and report. Writes
+    nothing and mints nothing.
+
+    The wrapper is the whole of what this module adds — the production seam.
+    The act is `science.world.verify._audit_log`, which takes the world
+    **configuration** rather than an opened `World` precisely so that it runs
+    on the worlds `open_world` refuses (log-verification design §6.1, §6.3),
+    and an **explicit** target root, which is never associated to the subject
+    by reading its manifest.
+    """
+    return _audit_log(
+        config, subject, target_root, observers, actor=actor, history=history, seam=_log_seam()
+    )
+
+
+def epochs_ordered(config: WorldConfig, e1: str, e2: str) -> Ordering:
+    """Whether `e2` orders after `e1`, by the world chain's own ancestry.
+
+    Log-verification design §7: ordered iff E2's build-start world head
+    descends from the settlement that committed E1's publication; a missing or
+    rolled-back publication is `unordered`. Epoch sequence numbers are read by
+    nothing. This is the log design §7's predicate only — the event-level
+    relation is deferred and L8 is partial.
+    """
+    return _epochs_ordered(config, e1, e2, seam=_log_seam())
 
 
 def open_corpus(corpus_root: Path) -> CorpusWriter:

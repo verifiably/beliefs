@@ -41,7 +41,7 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Literal, TypeAlias, cast
+from typing import TYPE_CHECKING, Literal, NoReturn, TypeAlias, cast
 
 from nodes.core.errors import NodesError
 from nodes.core.frontmatter import node_from_markdown
@@ -51,10 +51,15 @@ from yaml import YAMLError
 
 from science.corpus import Finding, OperationLock
 from science.errors import (
+    AuditTargetUnconfigured,
     EpochMalformed,
+    EpochUnknown,
     MalformedRecord,
+    ManifestMalformed,
+    ManifestMissing,
     ObserverCarrierInvalid,
     StoreSubjectUnsupported,
+    WorldUninitialized,
 )
 from science.stored import verification_value
 from science.world.logmodel import (
@@ -72,6 +77,7 @@ from science.world.logmodel import (
 
 if TYPE_CHECKING:  # pragma: no cover - the cycle below is real at run time
     from science.world.anchors import HeadArtifact, LogHeadRecord, Subject
+    from science.world.registry import WorldConfig
 
 __all__ = [
     "CHAIN_ABSENT",
@@ -81,6 +87,7 @@ __all__ = [
     "LogSeam",
     "ObserverCarrier",
     "ObserverSet",
+    "Ordering",
     "PresentedIdentity",
     "PresentedManifest",
     "PresentedWorldIds",
@@ -921,9 +928,7 @@ def evaluate_log(
         validate_history(history)
     kind = _subject_kind(subject)
     if kind == "store":
-        raise StoreSubjectUnsupported(
-            f"{_subject_label(subject)}: store-subject verification is the holdings row's, not this slice's"
-        )
+        _refuse_store_subject(subject)
     if type(observers) is not ObserverSet:
         raise TypeError("observers is an ObserverSet, which is the whole of what the evaluator may consult")
     if type(disk) is not tuple:
@@ -1014,6 +1019,21 @@ def evaluate_log(
 
 
 SubjectKind: TypeAlias = Literal["corpus", "world", "store"]
+
+
+def _refuse_store_subject(subject: Subject) -> NoReturn:
+    """§4.1's store refusal, stated once and called from both places that can
+    reach a store subject.
+
+    The evaluator's subject union is the one API in this slice that can *spell*
+    a store, and audit spells one only by handing it here — the act has no root
+    rule for a store and no chain to inspect for it, so the refusal is decided
+    before anything is read. One function so the two callers cannot drift into
+    two refusals of one fact.
+    """
+    raise StoreSubjectUnsupported(
+        f"{_subject_label(subject)}: store-subject verification is the holdings row's, not this slice's"
+    )
 
 
 def _subject_kind(subject: Subject) -> SubjectKind:
@@ -1373,3 +1393,245 @@ def _extent(
         return None, digests
     top = max(placed)
     return digests[top], digests[top + 1 :]
+
+
+# --- the audit boundary (design §6.1) ----------------------------------------
+#
+# Like the two acts in `anchors`, the cores below take the seam as a parameter
+# and hold no capability of their own, and they reach `science.world.registry`
+# and `science.world.epoch` **at call time, in the module form** — the same
+# edge treatment every cycle in this package uses.
+
+
+def _audit_log(
+    config: WorldConfig,
+    subject: Subject,
+    target_root: Path,
+    observers: ObserverSet,
+    *,
+    actor: str,
+    history: Mapping[str, bytes] | None = None,
+    seam: LogSeam,
+) -> LogReport:
+    """§6.1: the evaluator plus a report, and **nothing else**. Writes nothing.
+
+    **The configuration, never an opened `World`.** The act needs the
+    configured root set and the world id, and it must stay callable when
+    ordinary `open_world` refuses a genesis/configuration/mirror disagreement —
+    auditing a broken world is the point (§6.3). So it is built from `config`
+    directly, which also settles R12 by construction: there is no `World` here
+    to call a method on under the lock.
+
+    **The target root is explicit and never associated by manifest.** The
+    configuration holds an unassociated root tuple and ordinary resolution
+    associates a root to a subject by reading its `corpus.yaml`, so a
+    manifest-based lookup could not locate the root whose manifest was
+    rewritten to another id — the exact mismatch this audit exists to report.
+    What is checked is only that the root is *configured*: one of the corpus
+    roots for a corpus subject, the world root for a world subject. Anything
+    else refuses `AuditTargetUnconfigured`.
+
+    **One hold across inspection and capture**, so the verdict and the surface
+    it judged are one view: the corpus's own operation lock through the
+    lock-only lookup — an audit must remain possible over damaged node bytes,
+    which constructing a `Corpus` would refuse before judging — or the world
+    root's lock, the identical object an opened `World` takes. Taking a
+    corpus's lock in writer mode can refuse `BuildHold` while an epoch build
+    holds that root's capture, exactly as the export act can (R15): a surface
+    stated from the far side of a capture would not be the surface the chain
+    was inspected against.
+
+    The presented identity is read inside the hold too, because it is a claim
+    the same bytes make. **Evaluation is outside it**: the evaluator is pure
+    over values already captured, and the hold exists to make those two reads
+    one view rather than to serialize the judgment.
+
+    **The caller's own inputs are checked before the root is touched**: an
+    unencodable actor, a store subject, a target root outside the
+    configuration, and a `history` that does not validate (§5.3) are all facts
+    about the call rather than about the root, and refusing them after a lock
+    and an inspection would state a surface nobody could be told about. The
+    evaluator validates the history again — it is the judgment surface and
+    keeps its own guarantee — exactly as `replay` does after it.
+
+    A `LogEvidenceRefused` from either seam call propagates untranslated: the
+    act refused to judge, it did not judge (§6.4).
+    """
+    from science.world import registry
+
+    registry._require_actor(actor)
+    if history is not None:
+        validate_history(history)
+    kind = _subject_kind(subject)
+    if kind == "store":
+        _refuse_store_subject(subject)
+    root = Path(target_root).resolve()
+    _configured_target(config, kind, root)
+    root_kind: RootKind = "corpus" if kind == "corpus" else "world"
+    with _subject_hold(seam, root_kind, root):
+        presented = _presented_identity(config, root_kind, root)
+        view = seam.inspect_registered(root)
+        disk = seam.capture(root, registered_surface_paths(root, root_kind))
+    return evaluate_log(subject, view, observers, disk, presented, seam.absent_state, history)
+
+
+def _subject_hold(seam: LogSeam, kind: RootKind, root: Path) -> AbstractContextManager[object]:
+    """§6.1's one hold, per root kind: the corpus's operation lock through the
+    lock-only lookup, or the world root's own lock."""
+    return seam.corpus_lock(root) if kind == "corpus" else seam.world_lock(root)
+
+
+def _configured_target(config: WorldConfig, kind: SubjectKind, root: Path) -> None:
+    """The target-root rule, and the whole of it (§6.1).
+
+    Membership of the configured tuple, compared as resolved paths —
+    `WorldConfig` resolves both members on construction — and **never** a
+    manifest read: associating the root to the subject by what its manifest
+    claims is precisely what this act must not do.
+    """
+    if kind == "world":
+        if root != Path(config.world_root):
+            raise AuditTargetUnconfigured(
+                f"{root}: a world subject's audit targets the configured world root {config.world_root}"
+            )
+        return
+    if root not in config.corpus_roots:
+        configured = ",".join(sorted(str(path) for path in config.corpus_roots)) or "none"
+        raise AuditTargetUnconfigured(
+            f"{root}: a corpus subject's audit targets one of the configured corpus roots; configured={configured}"
+        )
+
+
+def _presented_identity(config: WorldConfig, kind: RootKind, root: Path) -> PresentedIdentity | None:
+    """What the root under audit *claims* to be, read from where it is written.
+
+    A claim that cannot be read is `None` — "no claim was supplied" — rather
+    than a mismatch: a missing or malformed `corpus.yaml`, and a world root
+    carrying no readable `world.yaml`, say nothing about which subject the
+    operator believes they hold, and reporting them as a disagreeing claim
+    would put words in a root's mouth. The bytes themselves are still judged:
+    an edited manifest or mirror is a path on the registered surface, and
+    replay compares it like any other.
+    """
+    from science.world import registry
+
+    if kind == "corpus":
+        try:
+            return PresentedManifest(registry.load_manifest(root).corpus_id)
+        except (ManifestMissing, ManifestMalformed):
+            return None
+    try:
+        mirrored: str | None = registry._load_world_mirror(root)
+    except WorldUninitialized:
+        mirrored = None
+    return PresentedWorldIds(config.world_id, mirrored)
+
+
+# --- the ordered-cuts predicate (design §7) ----------------------------------
+
+Ordering: TypeAlias = Literal["ordered", "unordered"]
+
+PUBLICATION_WITNESS = "anchors.yaml"
+"""The epoch member whose creation the predicate reads as a publication.
+
+Every publication creates all eleven members in one transaction, so any of them
+would witness it. This one is chosen because it is the member the predicate
+reads on the *other* side — E2's build-start world head — so a packaging change
+that stopped publishing it fails both halves of the predicate together rather
+than leaving one half quietly answering about nothing.
+"""
+
+
+def _epochs_ordered(config: WorldConfig, e1: str, e2: str, *, seam: LogSeam) -> Ordering:
+    """§7: does E2 order after E1, over already validated epochs and chain?
+
+    Ordered **iff** E2's build-start world head descends by ancestry from the
+    settlement that committed E1's publication. Both halves are read from
+    evidence rather than from any ordering an epoch declares about itself:
+    E1's publication is the world-chain transaction that created its members,
+    and E2's build-start head is the world head its `anchors.yaml` recorded at
+    preflight. **Epoch sequence numbers are read by nothing** — there are none,
+    and the predicate would not consult one if there were.
+
+    `unordered` is the answer wherever the descent cannot be established, and
+    each way of failing is a fact rather than a fallback: E1's publication
+    missing from the chain, or settled as a rollback (no committed publication,
+    so nothing to descend from); E2's recorded head absent from the chain (this
+    chain does not carry the build's start, so it cannot place it); a chain
+    that is absent or malformed (it carries no placeable publication at all).
+    Only an established descent answers `ordered`.
+
+    **Descent includes the settlement itself**, because the settlement is the
+    tip immediately after E1's publication commits: a build started as soon as
+    the publication landed records exactly that entry, and reading descent
+    strictly would call the archetypal sequential pair unordered.
+
+    Under the world lock throughout, in the pinned order: inspect first — which
+    completes recovery — and then read the epoch, so the members read are the
+    members recovery left. `_locked_open_epoch` is the world's own epoch reader
+    and assumes the hold; no `World` method is called under the lock (R12).
+
+    This is the log design §7's predicate **only**; the event-level relation is
+    deferred and L8 is partial (§10.7).
+    """
+    from science.world import epoch
+
+    first = _packaging_identity(e1)
+    second = _packaging_identity(e2)
+    with seam.world_lock(config.world_root):
+        view = seam.inspect_registered(config.world_root)
+        built_from = epoch._locked_open_epoch(config.world_root, second).world_anchor.head_digest
+    if type(view) is not WellFormedView:
+        return "unordered"
+    settlement = _publication_settlement(view, first, seam.absent_state)
+    positions = {entry.digest: index for index, entry in enumerate(view.entries)}
+    if settlement is None or built_from not in positions:
+        return "unordered"
+    return "ordered" if positions[built_from] >= positions[settlement] else "unordered"
+
+
+def _packaging_identity(value: str) -> str:
+    """The identity grammar `_locked_open_epoch` holds its own argument to,
+    applied to E1 as well — a value that is not a packaging identity names no
+    epoch, so no chain entry can have published one."""
+    from science.world import epoch
+
+    if type(value) is not str or not epoch._PACKAGING_IDENTITY.fullmatch(value):
+        raise EpochUnknown(f"{value!r} is not a packaging identity, so no epoch is named by it")
+    return value
+
+
+def _publication_settlement(view: WellFormedView, packaging_identity: str, absent_state: object) -> str | None:
+    """The digest of the settlement that committed this epoch's publication.
+
+    A publication is the committed transaction that *created* the epoch's
+    members: the registration declares the witness path absent and states it
+    present. The earliest committed settlement of such a registration is the
+    moment the epoch became published, which is what a later build descends
+    from; a republication after §9's deletion recreates the same members and
+    does not move that moment.
+
+    `None` where no registration published it, and where every one that did
+    settled as a rollback — the two ways §7 words a missing publication.
+    """
+    witness = f"epochs/{packaging_identity}/{PUBLICATION_WITNESS}"
+    publications = {
+        entry.digest
+        for entry in view.entries
+        if type(entry) is RegisteredEntryView and _publishes(entry, witness, absent_state)
+    }
+    if not publications:
+        return None
+    for entry in view.entries:
+        if type(entry) is SettledEntryView and entry.committed and entry.registration in publications:
+            return entry.digest
+    return None
+
+
+def _publishes(entry: RegisteredEntryView, witness: str, absent_state: object) -> bool:
+    """Whether this registration is the transition that brought `witness` into
+    existence — its declared pre-state absent, its post-state present."""
+    return (
+        dict(entry.final).get(witness, absent_state) != absent_state
+        and dict(entry.initial).get(witness, absent_state) == absent_state
+    )

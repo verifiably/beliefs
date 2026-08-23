@@ -171,6 +171,25 @@ class AnchorTargetUnresolvable(ScienceError):
     is never silent narrowing to whichever root sorted first."""
 
 
+class AuditTargetUnconfigured(ScienceError):
+    """An audit named a target root this world is not configured with.
+
+    The audit's target is **explicit and never associated to the subject by
+    reading its manifest** (log-verification design §6.1) — a manifest-based
+    lookup could not locate the root whose `corpus.yaml` was rewritten to
+    another id, which is the exact mismatch the audit exists to report. What
+    remains is the configuration: for a corpus subject the root must be one of
+    the configured corpus roots, and for a world subject it is the configured
+    world root. A root outside both is one this world has made no claim about
+    at all, and auditing it would be judging a stranger's bytes under this
+    world's subject.
+
+    It is a distinct name rather than `AnchorTargetUnresolvable`: that refusal
+    says the act cannot tell *whose* chain it would read, and here the act was
+    told exactly which root and that root is not this world's.
+    """
+
+
 class LogHeadCollision(ScienceError):
     """A content-addressed log-head record path exists with different bytes.
 
