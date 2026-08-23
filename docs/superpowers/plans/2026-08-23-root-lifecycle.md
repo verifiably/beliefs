@@ -323,15 +323,13 @@ now.
       store_root.mkdir(parents=True, exist_ok=True)
       existing = _read_existing_store_genesis(store_root)
       if existing is not None:
-          # The retry path is gated on RECOGNIZED local state, never on the
-          # genesis alone — a metadata-less copied store must refuse, not
-          # promote (register_root grants only for its own recorded
-          # initialization operation; a completed init reads writable):
-          state = read_lifecycle_state(store_root)
-          if state == "writable":
-              return existing                    # completed init, idempotent
-          if _has_recorded_initialization(store_root):
-              register_root(...)                 # the matching retry completes the grant
+          # Let register_root recognize its own durable initialization
+          # operation; Science never reads or interprets that bookkeeping.
+          # The matching retry grants, a completed init stays writable, and a
+          # bare copied genesis remains metadata-less.
+          register_root(_PRODUCTION_BACKEND, str(store_root), str(metadata_root_for(store_root)),
+                        PRODUCTION_STORAGE, _store_genesis_payload(existing, None), ())
+          if read_lifecycle_state(store_root) == "writable":
               return existing
           raise CorpusRootRefused(
               f"{str(store_root)!r} carries a store genesis this host did not "
@@ -726,6 +724,9 @@ now.
 - Produces: `CUT9_ARMS`, the 30 declaration units cut 9 §3 freezes — L2
   u1; L4 u1–u2; L6 u1–u2; L10 u1–u12; W13 u1–u2; labels 1–11 — each
   naming its check nodes in Tasks 2–8's test files, plus
+  `ATOMS_CITATIONS_BY_UNIT: dict[str, tuple[str, ...]]`, a parallel
+  metadata map whose values are fully qualified atoms pytest nodes and
+  which never enters `Arm.checks`; plus
   `test_the_declared_units_are_unique_and_number_thirty` pinning the
   count.
 
@@ -743,8 +744,17 @@ now.
   Where a unit's producing half is atoms-certified, the declaration
   carries an **atoms citation** as metadata beside its local check —
   named in the "atoms citation" column, resolved by the harness against
-  nothing (it is recorded provenance, not a collected node). `t_`
-  abbreviates `tests/`.
+  nothing (it is recorded provenance, not a collected node). Implement
+  that metadata as the exported parallel map
+  `ATOMS_CITATIONS_BY_UNIT`; its keys are exactly `L10u4`, `L10u5`,
+  `L10u7`, and `D1`–`D6`, and every value is one fully qualified node
+  beneath atoms' `tests/test_lifecycle_commands.py`. Add
+  `test_atoms_citations_are_metadata_not_checks`: assert the exact key
+  set, assert every value has the form
+  `tests/test_lifecycle_commands.py::test_*`, and assert no citation
+  occurs in any `Arm.checks`. The audit never passes this map to
+  `baseline` or `audit`. `t_` abbreviates Science's `tests/`; the atoms
+  column shows the exact stored node ids.
 
   | unit | check node(s) (Science `tests/`) | atoms citation (metadata) |
   |---|---|---|
@@ -756,10 +766,10 @@ now.
   | L10 u1 | `t_fork_acts::test_fork_genesis_carries_parent_digests_and_nonempty_baseline` | — |
   | L10 u2 | `t_fork_acts::test_parent_anchor_never_compared_in_fork_subject_evaluation` | — |
   | L10 u3 | `t_lifecycle_wrappers::test_completed_replica_reads_read_only_unserviceable`, `::test_replica_chain_is_byte_identical` | — |
-  | L10 u4 | `t_lifecycle_wrappers::test_completed_replica_reads_read_only_unserviceable` | `test_replicate_interrupted_after_stamp_is_read_only_unserviceable` (the order) |
-  | L10 u5 | `t_lifecycle_wrappers::test_metadata_less_store_copy_reads_metadata_less_and_refuses_mutation` (the Science-observable residue of the window) | `test_replicate_interrupted_before_stamp_is_metadata_less` |
+  | L10 u4 | `t_lifecycle_wrappers::test_completed_replica_reads_read_only_unserviceable` | `tests/test_lifecycle_commands.py::test_replicate_interrupted_after_stamp_is_read_only_unserviceable` (the order) |
+  | L10 u5 | `t_lifecycle_wrappers::test_metadata_less_store_copy_reads_metadata_less_and_refuses_mutation` (the Science-observable residue of the window) | `tests/test_lifecycle_commands.py::test_replicate_interrupted_before_stamp_is_metadata_less` |
   | L10 u6 | `t_lifecycle_wrappers::test_metadata_less_copy_refuses_mutation_at_the_writability_gate`, `::test_metadata_less_store_copy_reads_metadata_less_and_refuses_mutation` | — |
-  | L10 u7 | `t_fork_acts::test_fork_retry_reuses_the_original_child_identity` | `test_fork_interrupted_before_grant_is_read_only` (the order) |
+  | L10 u7 | `t_fork_acts::test_fork_retry_reuses_the_original_child_identity` | `tests/test_lifecycle_commands.py::test_fork_interrupted_before_grant_is_read_only` (the order) |
   | L10 u8 | `t_lifecycle_wrappers::test_metadata_less_store_copy_reads_metadata_less_and_refuses_mutation` (holdings-read clauses deferred, stated in the declaration) | — |
   | L10 u9 | `t_restore_root::test_two_copies_both_admit_read_only` | — |
   | L10 u10 | `t_restore_root::test_incomplete_copy_never_validates` | — |
@@ -767,12 +777,12 @@ now.
   | L10 u12 | `t_restore_root::test_divergent_copies_assembled_in_one_root_are_sibling_malformed`, `::test_both_divergent_heads_in_one_observer_set_refute`, `::test_divergent_copies_verified_separately_each_validate` | — |
   | W13 u1 | `t_fork_acts::test_fork_corpus_mints_a_fresh_id_independent_of_path_and_name` | — |
   | W13 u2 | `t_fork_acts::test_fork_manifest_is_complete_before_writability`, `::test_source_moved_between_derivation_and_fork_refuses` | — |
-  | label 1 | `t_store_root::test_interrupted_init_retry_returns_the_original_store_id`, `::test_cold_existing_store_root_refuses_reinitialization` | `test_interrupted_registration_matching_retry_grants`, `test_bare_reregistration_over_an_existing_genesis_never_grants` |
-  | label 2 | `t_lifecycle_wrappers::test_binding_delta_reads_binding_mismatched` (host and path deltas; the moved-root consequence is the path delta) | `test_host_delta_reads_binding_mismatched`, `test_path_delta_reads_binding_mismatched` |
-  | label 3 | `t_lifecycle_wrappers::test_migration_authorized_success_reads_writable`, `::test_migration_refuses_metadata_less_and_mismatched` | `test_migration_authorized_success_grants_with_a_fresh_binding` |
-  | label 4 | `t_lifecycle_wrappers::test_replicate_refuses_an_existing_destination`, `t_fork_acts::test_fork_retry_reuses_the_original_child_identity` | `test_fork_pregrant_retry_completes_with_identical_inputs`, `test_fork_pregrant_retry_refuses_different_bytes`, `test_fork_postgrant_retry_returns_success_after_legitimate_writes` |
-  | label 5 | `t_restore_root::test_validated_store_copy_admits_read_only_serviceable` (the cold-root creation path), `::test_re_restore_is_idempotent`, `::test_restore_never_grants_writability`; the out-of-band pinning is the declaration's stated negative | `test_grant_refuses_a_writable_root`, `test_grant_creates_bookkeeping_for_a_metadata_less_root`, `test_grant_is_idempotent_on_read_only_serviceable` |
-  | label 6 | `t_lifecycle_wrappers::test_lifecycle_union_is_closed_at_five`, `::test_binding_delta_reads_binding_mismatched` | `test_metadata_less_tree_reads_metadata_less` |
+  | label 1 | `t_store_root::test_interrupted_init_retry_returns_the_original_store_id`, `::test_cold_existing_store_root_refuses_reinitialization` | `tests/test_lifecycle_commands.py::test_interrupted_registration_matching_retry_grants`, `tests/test_lifecycle_commands.py::test_bare_reregistration_over_an_existing_genesis_never_grants` |
+  | label 2 | `t_lifecycle_wrappers::test_binding_delta_reads_binding_mismatched` (host and path deltas; the moved-root consequence is the path delta) | `tests/test_lifecycle_commands.py::test_host_delta_reads_binding_mismatched`, `tests/test_lifecycle_commands.py::test_path_delta_reads_binding_mismatched` |
+  | label 3 | `t_lifecycle_wrappers::test_migration_authorized_success_reads_writable`, `::test_migration_refuses_metadata_less_and_mismatched` | `tests/test_lifecycle_commands.py::test_migration_authorized_success_grants_with_a_fresh_binding` |
+  | label 4 | `t_lifecycle_wrappers::test_replicate_refuses_an_existing_destination`, `t_fork_acts::test_fork_retry_reuses_the_original_child_identity` | `tests/test_lifecycle_commands.py::test_fork_pregrant_retry_completes_with_identical_inputs`, `tests/test_lifecycle_commands.py::test_fork_pregrant_retry_refuses_different_bytes`, `tests/test_lifecycle_commands.py::test_fork_postgrant_retry_returns_success_after_legitimate_writes` |
+  | label 5 | `t_restore_root::test_validated_store_copy_admits_read_only_serviceable` (the cold-root creation path), `::test_re_restore_is_idempotent`, `::test_restore_never_grants_writability`; the out-of-band pinning is the declaration's stated negative | `tests/test_lifecycle_commands.py::test_grant_refuses_a_writable_root`, `tests/test_lifecycle_commands.py::test_grant_creates_bookkeeping_for_a_metadata_less_root`, `tests/test_lifecycle_commands.py::test_grant_is_idempotent_on_read_only_serviceable` |
+  | label 6 | `t_lifecycle_wrappers::test_lifecycle_union_is_closed_at_five`, `::test_binding_delta_reads_binding_mismatched` | `tests/test_lifecycle_commands.py::test_metadata_less_tree_reads_metadata_less` |
   | label 7 | `t_restore_root::test_malformed_copy_returns_malformed_and_stays_unserviceable`, `::test_validated_with_store_subject_mismatch_does_not_admit`, `::test_validated_with_corpus_manifest_mismatch_does_not_admit`, `::test_restore_never_grants_writability`, `::test_restore_holds_one_boundary_across_evaluate_and_grant` | — |
   | label 8 | `t_arrival_modes::test_fork_product_admits_through_the_fork_of_path`, `::test_arrival_registered_mode_on_serviceable`, `::test_arrival_detached_on_unserviceable_metadata_less_and_mismatched`, `::test_arrival_refuses_a_writable_root`, `::test_restored_arrival_requires_restore_first`, `::test_store_subject_unspellable_at_arrival` | — |
   | label 9 | `t_store_subjects::test_anchor_refuses_a_store_id_genesis_mismatch_before_registry_mutation`, `::test_export_head_artifact_round_trips_a_store_head`, `::test_store_audit_holds_one_boundary_across_inspect_capture_evaluate` | — |
