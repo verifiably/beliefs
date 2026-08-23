@@ -212,6 +212,13 @@ def surfaced(root: Path, kind: verify.RootKind, payload: bytes) -> logmodel.Well
     every path the projection presently finds — which is the smallest timeline
     that agrees with a populated root, and the shape every arm wanting a
     verdict over one starts from.
+
+    **The timeline is derived from the surface as the arm has already damaged
+    it**, so replay cannot disagree by construction: an arm calling this after
+    deleting or rewriting a file is stating a chain that cooperatively logged
+    that change, and a `validated` outcome beneath it is evidence about the
+    *claim* being judged, never evidence that the change was undetectable.
+    Replay's own detection is `test_world_log_replay`'s to arm.
     """
     paths = verify.registered_surface_paths(root, kind)
     created = registration(
@@ -371,6 +378,39 @@ class TestTheAuditAct:
         # chain verdict is whatever the chain says — a cooperatively logged
         # rewrite replays consistently (§1.2).
         assert report.outcome == "validated"
+
+    def test_the_presented_claim_is_the_one_the_recovered_root_makes(self, tmp_path):
+        # Registered-mode inspection runs recovery, which applies a settled
+        # transaction's finals to disk. A manifest read *before* that is a
+        # pre-recovery claim standing beside a post-recovery surface: the two
+        # reads in one hold would not be one view, and the report would name an
+        # identity the act's own inspection had already replaced. The probe
+        # rewrites the manifest during the inspection, exactly as recovering a
+        # pending settled transaction over `corpus.yaml` would.
+        root = corpus_root(tmp_path)
+        view = surfaced(root, "corpus", science_root.GENESIS_PAYLOAD)
+        inspections, captures = Inspections(), Captures()
+        inspections.set(root, view)
+
+        def recover(_root: Path) -> None:
+            (root / "corpus.yaml").write_bytes(registry.manifest_bytes(registry.CorpusManifest(2, BETA, PINS)))
+
+        inspections.probe = recover
+
+        report = audit(
+            config_for(tmp_path, root),
+            anchors.CorpusSubject(ALPHA),
+            root,
+            inspections,
+            captures,
+            observers=(corpus_anchor(view),),
+        )
+
+        # Read before the inspection this would be `ALPHA`, agreeing with the
+        # subject, and the mismatch would go unreported.
+        assert [(finding.code, finding.ref, finding.detail) for finding in report.findings] == [
+            ("subject-mismatch", "manifest", f"claims={BETA} subject=corpus:{ALPHA}")
+        ]
 
     def test_a_manifest_that_cannot_be_read_states_no_claim(self, tmp_path):
         # `None` is "no claim was supplied", which is neither agreement nor
@@ -977,17 +1017,20 @@ class TestThePublicWrappers:
 def test_a_chain_record_contradiction_at_audit_refuses_with_no_report(tmp_path, monkeypatch):
     """R11/§6.4's `ChainStateInvalid` arm, reached through the audit.
 
-    The contradiction is a live transaction record standing beside an empty
-    chain — the engine's own chain/store contradiction, which keeps raising
-    rather than returning `AbsentChain`. It is injected at the engine command
-    here because a registered-mode inspection over a real root needs the
-    certified tuple the ordinary run does not have (the arms that stand one up
-    live in `tests/acceptance`). What is asserted is the seam adapter's
-    contract *as the audit sees it*: a refusal to judge, outside every
-    precedence, with no `LogReport` produced and the lock released.
+    The state being modelled is a live transaction record standing beside an
+    empty chain — the engine's own chain/store contradiction, which keeps
+    raising rather than returning `AbsentChain`.
+
+    **The engine's decision to raise is injected, deliberately.** Whether that
+    disk state produces `ChainStateInvalid` is the engine's own contract,
+    certified in `atoms` and outside this cut's mutation surface; what is
+    Science's to arm is what the audit does with the exception — the seam
+    adapter's §6.4 translation reaching the caller as a refusal to judge,
+    outside every precedence, with no `LogReport` produced and the lock
+    released. Task 4's `TransactionHalted` and `PreconditionRefused` arms are
+    injected on the same ground.
     """
     root = corpus_root(tmp_path)
-    (root / ".#~chain").mkdir()
     invalid = ChainStateInvalid("a live transaction record exists without its project chain")
 
     def raising(backend, project_root, metadata_root, storage):

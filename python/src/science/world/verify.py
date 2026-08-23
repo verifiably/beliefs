@@ -1441,10 +1441,15 @@ def _audit_log(
     stated from the far side of a capture would not be the surface the chain
     was inspected against.
 
-    The presented identity is read inside the hold too, because it is a claim
-    the same bytes make. **Evaluation is outside it**: the evaluator is pure
-    over values already captured, and the hold exists to make those two reads
-    one view rather than to serialize the judgment.
+    **Inside the hold the order is inspection, then the claim, then the
+    surface** — the same pinned order `_epochs_ordered` takes below, and for
+    the same reason. Registered-mode inspection runs recovery, which applies a
+    settled transaction's finals to disk; a manifest or mirror read *before*
+    that is a pre-recovery claim standing beside a post-recovery surface, and
+    the report would then state a subject mismatch about bytes the act's own
+    inspection had already replaced. **Evaluation is outside the hold**: the
+    evaluator is pure over values already captured, and the hold exists to make
+    those reads one view rather than to serialize the judgment.
 
     **The caller's own inputs are checked before the root is touched**: an
     unencodable actor, a store subject, a target root outside the
@@ -1469,8 +1474,8 @@ def _audit_log(
     _configured_target(config, kind, root)
     root_kind: RootKind = "corpus" if kind == "corpus" else "world"
     with _subject_hold(seam, root_kind, root):
-        presented = _presented_identity(config, root_kind, root)
         view = seam.inspect_registered(root)
+        presented = _presented_identity(config, root_kind, root)
         disk = seam.capture(root, registered_surface_paths(root, root_kind))
     return evaluate_log(subject, view, observers, disk, presented, seam.absent_state, history)
 
@@ -1504,6 +1509,9 @@ def _configured_target(config: WorldConfig, kind: SubjectKind, root: Path) -> No
 
 def _presented_identity(config: WorldConfig, kind: RootKind, root: Path) -> PresentedIdentity | None:
     """What the root under audit *claims* to be, read from where it is written.
+
+    Called after the inspection and before the capture, so the claim is the one
+    the recovered root makes — see `_audit_log`.
 
     A claim that cannot be read is `None` — "no claim was supplied" — rather
     than a mismatch: a missing or malformed `corpus.yaml`, and a world root
@@ -1630,8 +1638,20 @@ def _publication_settlement(view: WellFormedView, packaging_identity: str, absen
 
 def _publishes(entry: RegisteredEntryView, witness: str, absent_state: object) -> bool:
     """Whether this registration is the transition that brought `witness` into
-    existence — its declared pre-state absent, its post-state present."""
+    existence — the witness **declared** in its initial surface as absent, and
+    stated present in its final.
+
+    The initial declaration is required rather than defaulted. A transaction
+    states an initial for every path it registers — the adapter records one at
+    each path's first occurrence, and `CreateOp`'s is the engine's own absent
+    singleton — so a registration that states a final for the witness and no
+    initial for it is not a shape any publication has. Reading the missing
+    declaration as absence would let such an entry count as a publication, and
+    the error would run toward asserting an order the chain never established.
+    """
+    initial = dict(entry.initial)
     return (
         dict(entry.final).get(witness, absent_state) != absent_state
-        and dict(entry.initial).get(witness, absent_state) == absent_state
+        and witness in initial
+        and initial[witness] == absent_state
     )
