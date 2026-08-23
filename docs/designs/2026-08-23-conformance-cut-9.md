@@ -1,9 +1,11 @@
 # Conformance cut 9 — root lifecycle and the store substrate
 
-**Status:** Drafted 2026-08-23; awaiting the second reader (§7); **freezes
-before any implementation** (spec §8 step 3). The L6 source row was amended
-with the fork-baseline lift before this draft, so §3.1's quotation carries
-the lifted ruling.
+**Status:** **Frozen 2026-08-23 at `0977bde`** — the commit closing the
+second reader's sixteen findings (§7.1); no implementation preceded the
+freeze (spec §8 step 3). The L6 source row was amended with the
+fork-baseline lift before drafting, so §3.1's quotation carries the
+lifted ruling; every quoted row is byte-exact against its source table
+as of `0977bde`.
 
 **Sources:** `2026-08-22-conformance-cut-8.md` (rule and practice
 inheritances); the root-lifecycle specification
