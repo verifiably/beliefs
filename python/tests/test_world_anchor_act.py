@@ -22,6 +22,7 @@ failure with a name.
 from __future__ import annotations
 
 import inspect
+import json
 from collections.abc import Callable
 from contextlib import contextmanager
 from pathlib import Path
@@ -668,3 +669,137 @@ def test_the_act_cores_hold_no_engine_capability():
         inspect.signature(anchors._export_head_artifact).parameters
     )
     assert parameters == {"world", "corpus_ids", "actor", "seam", "subject"}
+
+
+# --- cut 8's labeled declarations 7 and 8 -------------------------------------
+
+
+def test_export_binds_subject_and_takes_no_actor(tmp_path):
+    """D7. The export act's four clauses, together because they are one claim:
+    the subject **binds**, it never decorates.
+
+    `export_head_artifact` refuses a `World(world_id)` disagreeing with the
+    configuration *or* with the genesis the chain was minted under; a corpus
+    subject resolves under the exactly-one-carrier rule — zero carriers and two
+    both refuse `AnchorTargetUnresolvable`; the function takes **no actor** and
+    writes nothing, which is what makes it the one act that can anchor the
+    world chain (§3.2, L11); and the bytes it returns decode under
+    `science.head-artifact.v1`.
+    """
+    world, recorder, heads, _roots = anchorable_world(tmp_path / "bound", ALPHA)
+    before, submitted = registry_tree(world), len(recorder.plans)
+
+    # Neither act takes an actor: export mints no record, so there is nobody to
+    # attribute — the anchor act beside it does take one, which is the contrast
+    # that makes the absence a choice rather than an oversight.
+    assert "actor" not in inspect.signature(anchors._export_head_artifact).parameters
+    assert "actor" not in inspect.signature(science_root.export_head_artifact).parameters
+    assert "actor" in inspect.signature(anchors._anchor_heads).parameters
+
+    exported = export(world, heads, anchors.WorldSubject(WORLD_ID))
+    assert json.loads(exported.decode("utf-8"))["domain"] == anchors.HEAD_ARTIFACT_DOMAIN
+    assert exported == v1.encode(
+        {
+            "domain": anchors.HEAD_ARTIFACT_DOMAIN,
+            "subject": {"kind": "world", "world_id": WORLD_ID},
+            "genesis": WORLD_GENESIS,
+            "head": WORLD_TIP,
+        }
+    )
+    assert anchors.decode_head_artifact(exported) == anchors.HeadArtifact(
+        anchors.WorldSubject(WORLD_ID), WORLD_GENESIS, WORLD_TIP
+    )
+    corpus_bytes = export(world, heads, anchors.CorpusSubject(ALPHA))
+    assert anchors.decode_head_artifact(corpus_bytes) == anchors.HeadArtifact(
+        anchors.CorpusSubject(ALPHA), GENESIS[ALPHA], TIP[ALPHA]
+    )
+
+    # Writes nothing: no record, no transaction.
+    assert registry_tree(world) == before
+    assert len(recorder.plans) == submitted
+
+    # The subject binds against the configuration...
+    with pytest.raises(WorldIdMismatch):
+        export(world, heads, anchors.WorldSubject(OTHER_WORLD_ID))
+    # ...and against the genesis the chain itself carries.
+    heads.set(world.config.world_root, WORLD_GENESIS, WORLD_TIP, world_genesis_payload(OTHER_WORLD_ID))
+    with pytest.raises(WorldIdMismatch):
+        export(world, heads, anchors.WorldSubject(WORLD_ID))
+
+    # The corpus arm's exactly-one-carrier rule, both ways it can fail.
+    none_world, _recorder, none_heads, none_roots = anchorable_world(tmp_path / "none", ALPHA)
+    (none_roots[ALPHA] / "corpus.yaml").unlink()
+    with pytest.raises(AnchorTargetUnresolvable):
+        export(none_world, none_heads, anchors.CorpusSubject(ALPHA))
+
+    two_world, _recorder, two_heads, two_roots = anchorable_world(tmp_path / "two", ALPHA)
+    twin = corpus_at(tmp_path / "twin", ALPHA)
+    two_heads.set(twin, GENESIS[ALPHA], TIP[ALPHA])
+    two_world.config = registry.WorldConfig(two_world.config.world_root, WORLD_ID, (two_roots[ALPHA], twin))
+    with pytest.raises(AnchorTargetUnresolvable):
+        export(two_world, two_heads, anchors.CorpusSubject(ALPHA))
+
+
+def test_anchor_act_refusals_idempotency_and_terminal_corpora(tmp_path):
+    """D8. The anchor act's refusal set and its idempotency discipline.
+
+    `AnchorSubjectUnknown` for an id the registry does not carry;
+    `AnchorTargetUnresolvable` for zero or multiple carriers; byte-identical
+    re-anchoring is **success submitting no transaction**, while a same-name
+    record holding different bytes is a **collision** rather than an overwrite;
+    and a terminal corpus is anchorable — anchoring immediately before
+    retirement or departure cleanup is the archetypal use of the act (§3.1,
+    §3.3).
+    """
+    unknown, _recorder, unknown_heads, _unknown_roots = anchorable_world(
+        tmp_path / "unknown", ALPHA, admitted=()
+    )
+    with pytest.raises(AnchorSubjectUnknown):
+        anchor(unknown, unknown_heads, ALPHA)
+    assert stored_log_heads(unknown) == ()
+
+    none_world, _recorder, none_heads, none_roots = anchorable_world(tmp_path / "none", ALPHA)
+    (none_roots[ALPHA] / "corpus.yaml").unlink()
+    with pytest.raises(AnchorTargetUnresolvable):
+        anchor(none_world, none_heads, ALPHA)
+
+    two_world, two_recorder, two_heads, two_roots = anchorable_world(tmp_path / "two", ALPHA)
+    twin = corpus_at(tmp_path / "twin", ALPHA)
+    two_heads.set(twin, GENESIS[ALPHA], TIP[ALPHA])
+    two_world.config = registry.WorldConfig(two_world.config.world_root, WORLD_ID, (two_roots[ALPHA], twin))
+    submitted = len(two_recorder.plans)
+    with pytest.raises(AnchorTargetUnresolvable):
+        anchor(two_world, two_heads, ALPHA)
+    assert stored_log_heads(two_world) == ()
+    assert len(two_recorder.plans) == submitted
+
+    # Idempotency: the same head twice is one record and one transaction.
+    world, recorder, heads, _roots = anchorable_world(tmp_path / "idempotent", ALPHA)
+    first = anchor(world, heads, ALPHA)
+    tree_after_first = registry_tree(world)
+    submitted = len(recorder.plans)
+    assert anchor(world, heads, ALPHA) == first
+    assert registry_tree(world) == tree_after_first
+    assert len(recorder.plans) == submitted
+
+    # ...and a same-name record holding *different* bytes is a collision, never
+    # an overwrite: a hand-edited comment leaves the document, and so the
+    # content name, unchanged while the bytes move.
+    (record,) = first
+    squatter = world.config.world_root / "registry" / f"{anchors.log_head_digest(record)}.yaml"
+    edited = b"# anchored by hand\n" + anchors.log_head_record_bytes(record)
+    squatter.write_bytes(edited)
+    with pytest.raises(LogHeadCollision):
+        anchor(world, heads, ALPHA)
+    assert squatter.read_bytes() == edited
+
+    # Terminal corpora are anchorable.
+    terminal, _recorder, terminal_heads, _roots = anchorable_world(tmp_path / "terminal", ALPHA, BETA)
+    terminal.retire(ALPHA, actor="alice")
+    terminal.depart(BETA, actor="alice")
+    recorded = anchor(terminal, terminal_heads, ALPHA, BETA)
+    assert [entry.subject for entry in recorded] == [
+        anchors.CorpusSubject(ALPHA),
+        anchors.CorpusSubject(BETA),
+    ]
+    assert len(stored_log_heads(terminal)) == 2

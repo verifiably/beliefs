@@ -13,15 +13,37 @@ makes the property assertable.
 from __future__ import annotations
 
 import hashlib
+import inspect
 from pathlib import Path
 
 import pytest
+from atoms.chain.inspect import STAGING_LEAF
+from atoms.core.fingerprint import ABSENT as ENGINE_ABSENT
+from atoms.core.scratch import CHAIN_LEAF, SCRATCH_SIGIL
+from nodes.core.errors import PlanRefusedError
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.ids import KIND_RE, SLUG_RE
 from nodes.core.node import Node
 from nodes.core.store import Store
+from nodes.core.write_plan import CreateOp
+from test_world_log_codecs import (
+    CUT8_CORPUS_ID,
+    Chain,
+    capture_at,
+    four_state_classes,
+    inspected,
+    populated_corpus,
+    removed_record,
+    rewritten_tail,
+    rolled_back_creation,
+    settled_corpus,
+)
+from test_world_log_codecs import MANIFEST as MANIFEST_PATH
+from test_world_log_codecs import RECORD as RECORD_PATH
 
+from science import root as science_root
 from science.world import verify
+from science.world.anchors import AnchorActOrigin, CorpusSubject, LogHeadRecord
 from science.world.epoch import CURRENT_POINTER, EPOCH_MEMBERS
 from science.world.logmodel import (
     GenesisEntryView,
@@ -482,3 +504,366 @@ def test_a_history_value_that_is_not_bytes_refuses():
 def test_replay_refuses_a_corrupt_history_rather_than_naming_a_digest_it_never_checked():
     with pytest.raises(ValueError):
         verify.replay(REMOVED, SURVIVING_DISK, ABSENT, {"sha256:nope": b"a record"})
+
+
+# --- cut 8's declarations, over chains the engine itself calls well formed ---
+#
+# Cut 8 §5's obligation 1: the chains below are real directories of canonical
+# entry envelopes, built by `test_world_log_codecs`'s catalogued builders and
+# read back through the production seam's detached inspection, so
+# `inspect_chain` itself is what says they are well formed. The `Opaque` arms
+# above stay the unit arms for replay's own comparison rule; these are the
+# declarations, and their states are the engine's own.
+
+
+def cut8_disk(chain: Chain) -> tuple[tuple[str, object], ...]:
+    return capture_at(chain.root, *chain.paths)
+
+
+def cut8_view(chain: Chain) -> WellFormedView:
+    view = inspected(chain.root)
+    assert type(view) is WellFormedView, f"the engine calls this fabrication {type(view).__name__}"
+    return view
+
+
+def cut8_anchor(chain: Chain, head: str) -> verify.RegistryCarrier:
+    return verify.RegistryCarrier.from_record(
+        LogHeadRecord(CorpusSubject(CUT8_CORPUS_ID), chain.digests[0], head, AnchorActOrigin("keith"))
+    )
+
+
+def cut8_judge(chain: Chain, *carriers: verify.ObserverCarrier) -> verify.LogReport:
+    return verify.evaluate_log(
+        CorpusSubject(CUT8_CORPUS_ID),
+        cut8_view(chain),
+        verify.ObserverSet(carriers),
+        cut8_disk(chain),
+        None,
+        ENGINE_ABSENT,
+        None,
+    )
+
+
+# --- L2: settlement gates every absence test ---------------------------------
+
+
+def test_rolled_back_creation_absence_is_not_refuted(tmp_path):
+    """L2u1. A registered creation that **rolled back**: the record's absence is
+    not refuted, because a rolled-back settlement is no transition at all.
+
+    Cut 8 §5's obligation 2 is asserted before anything is evaluated — the
+    fabricated entry is genuinely `settled(rolled-back)` and the path it would
+    have created is genuinely absent from disk. A refusal before registration,
+    or a missing settlement, would make this arm vacuous: it would then be
+    asserting that a chain saying nothing implies nothing.
+    """
+    chain = rolled_back_creation(tmp_path)
+    view = cut8_view(chain)
+    (creation,) = [
+        entry
+        for entry in view.entries
+        if type(entry) is RegisteredEntryView and RECORD_PATH in dict(entry.final)
+    ]
+    settlements = [
+        entry
+        for entry in view.entries
+        if type(entry) is SettledEntryView and entry.registration == creation.digest
+    ]
+    assert [entry.committed for entry in settlements] == [False]
+    assert not (chain.root / RECORD_PATH).exists()
+    disk = cut8_disk(chain)
+    assert dict(disk)[RECORD_PATH] == ENGINE_ABSENT
+
+    result = verify.replay(view, disk, ENGINE_ABSENT, None)
+    report = cut8_judge(chain, cut8_anchor(chain, chain.tip))
+
+    assert result == verify.ReplayResult(refuted=False, disagreements=(), findings=())
+    assert report.outcome == "validated"
+    assert report.findings == ()
+
+
+def test_committed_creation_raw_deleted_is_refuted(tmp_path):
+    """L2u2. A **committed** creation whose record is then raw-deleted → refuted
+    at replay, the disagreement naming the head state of the deleted path.
+
+    The contrast with L2u1 is the whole claim: the same absent path is innocent
+    under a rolled-back settlement and refuting under a committed one, so it is
+    the settlement — never the disk — that gates the absence test.
+    """
+    chain = populated_corpus(tmp_path)
+    view = cut8_view(chain)
+    assert (chain.root / RECORD_PATH).exists()
+    settled = [
+        entry
+        for entry in view.entries
+        if type(entry) is SettledEntryView and entry.committed
+    ]
+    assert len(settled) == 2
+
+    (chain.root / RECORD_PATH).unlink()
+    disk = cut8_disk(chain)
+    result = verify.replay(view, disk, ENGINE_ABSENT, None)
+    report = cut8_judge(chain, cut8_anchor(chain, chain.tip))
+
+    assert result.refuted
+    assert result.disagreements == (f"head:{RECORD_PATH}",)
+    assert report.outcome == "refuted"
+    assert [finding.code for finding in report.findings] == ["replay-disagreement"]
+
+
+# --- L5: the unanchored tail is the pinned residue ---------------------------
+
+
+def test_consistent_tail_rewrite_beyond_anchor_validates(tmp_path):
+    """L5u1, the pinned negative. The tail beyond the maximal anchor rewritten
+    into a self-consistent alternative, **and the affected registered surface
+    rewritten to match** → `validated`, undetected. The bound is anchor cadence,
+    and the negative is the claim.
+
+    Cut 8 §5's obligation 3 is asserted before the verdict is read: at least one
+    entry beyond the anchor was rewritten, and the entry envelopes differ
+    byte-wise from the ones they replaced. An empty rewrite would validate
+    vacuously.
+    """
+    chain = rewritten_tail(tmp_path)
+    view = cut8_view(chain)
+    beyond = tuple(entry.digest for entry in view.entries)[view.entries.index(view.genesis) + 3 :]
+    assert len(chain.added) >= 1
+    assert len(chain.added) == len(chain.replaced)
+    assert set(chain.added).isdisjoint(chain.replaced)
+    assert chain.removed and chain.anchor not in chain.removed
+    assert len(beyond) == len(chain.added)
+
+    report = cut8_judge(chain, cut8_anchor(chain, chain.anchor))
+
+    assert report.outcome == "validated"
+    assert report.findings == ()
+    assert report.anchored_through == chain.anchor
+
+
+def test_unanchored_tail_extent_covers_the_rewrite(tmp_path):
+    """L5u2. The report's unanchored-tail extent covers the rewritten span
+    exactly — the residue is stated, never left for a caller to infer."""
+    chain = rewritten_tail(tmp_path)
+    view = cut8_view(chain)
+    digests = tuple(entry.digest for entry in view.entries)
+    rewritten = digests[digests.index(chain.anchor) + 1 :]
+    assert len(rewritten) == len(chain.added)
+
+    report = cut8_judge(chain, cut8_anchor(chain, chain.anchor))
+
+    assert report.outcome == "validated"
+    assert report.unanchored_tail == rewritten
+    assert chain.anchor not in report.unanchored_tail
+
+
+# --- L12: one state vocabulary, and the log path is bookkeeping --------------
+
+
+def test_all_four_state_classes_round_trip(tmp_path):
+    """L12u1. Each typed state class — **absence, directory, symlink target,
+    mode** — round-trips through registration fingerprints and replay.
+
+    Cut 8 §5's obligation 6: all four, asserted as four distinct engine classes
+    over one committed transaction. A subset pass is malformed declaration
+    content, not a pass, so the class set is compared for equality rather than
+    for containment. Each is then shown load-bearing: rotating the four states
+    among the four paths refutes at every one of them, and the two clauses the
+    row names by their *content* — a symlink's target and a file's mode — refute
+    on their own.
+    """
+    chain = four_state_classes(tmp_path)
+    view = cut8_view(chain)
+    disk = cut8_disk(chain)
+    assert {type(state).__name__ for _path, state in disk} == {
+        "AbsentState",
+        "DirectoryState",
+        "FileState",
+        "SymlinkState",
+    }
+
+    (created,) = [entry for entry in view.entries if type(entry) is RegisteredEntryView]
+    assert created.final == disk
+    assert verify.replay(view, disk, ENGINE_ABSENT, None) == verify.ReplayResult(False, (), ())
+
+    for index, (path, _state) in enumerate(disk):
+        rotated = disk[:index] + ((path, disk[(index + 1) % len(disk)][1]),) + disk[index + 1 :]
+        result = verify.replay(view, rotated, ENGINE_ABSENT, None)
+        assert result.refuted, path
+        assert result.disagreements == (f"head:{path}",)
+
+    (chain.root / "link").unlink()
+    (chain.root / "link").symlink_to("d")
+    (chain.root / "f.txt").chmod(0o755)
+    moved = cut8_disk(chain)
+    result = verify.replay(view, moved, ENGINE_ABSENT, None)
+    assert result.refuted
+    assert set(result.disagreements) == {"head:link", "head:f.txt"}
+
+
+def test_log_appends_are_not_recursively_registered(tmp_path):
+    """L12u3. Appending the log is not itself registered.
+
+    Four facts, and together they close it: a transaction's registered paths are
+    derived from **the plan's own operation paths** and from nothing else; no
+    cooperative plan can name a path under the engine's reserved sigil, and the
+    chain and staging leaves both live under it; the registered-surface
+    projection never claims them; and a chain over a real root names only the
+    surface paths its transactions touched.
+
+    The first is the load-bearing link and is read out of the composition root's
+    own source: if the registration set were assembled from anywhere but the
+    plan, banning the sigil in the plan would ban nothing.
+    """
+    submitted = inspect.getsource(science_root.DurableExecutor.execute)
+    assert "registered_paths=tuple(dict.fromkeys(operation.path for operation in plan))" in submitted
+
+    chain = settled_corpus(tmp_path)
+    assert (chain.root / CHAIN_LEAF).is_dir()
+    assert CHAIN_LEAF.startswith(SCRATCH_SIGIL)
+    assert STAGING_LEAF.startswith(SCRATCH_SIGIL)
+    assert verify.registered_surface_paths(chain.root, "corpus") == (MANIFEST_PATH,)
+
+    with pytest.raises(PlanRefusedError, match="engine-reserved leaf"):
+        science_root._refuse_malformed([CreateOp(path=f"{CHAIN_LEAF}/{'a' * 64}", content=b"forged")])
+
+    view = cut8_view(chain)
+    named = {
+        path
+        for entry in view.entries
+        if type(entry) is RegisteredEntryView
+        for path, _state in entry.initial + entry.final
+    }
+    assert named == {MANIFEST_PATH}
+
+
+# --- L13: logged is not permitted --------------------------------------------
+
+
+def test_cooperative_verification_removal_is_in_timeline_with_finding(tmp_path):
+    """L13u1. A log-visible removal of a verification via a cooperative act is
+    **in the replayed timeline** *and* draws the policy finding naming the
+    deleted record. Occurrence is not authorization, so the removal is a
+    finding beside a verdict that does not refute."""
+    chain = removed_record(tmp_path)
+    view = cut8_view(chain)
+    disk = cut8_disk(chain)
+    assert not (chain.root / RECORD_PATH).exists()
+
+    removals = [
+        entry
+        for entry in view.entries
+        if type(entry) is RegisteredEntryView and dict(entry.final).get(RECORD_PATH) == ENGINE_ABSENT
+    ]
+    assert len(removals) == 1
+    settlements = [
+        entry
+        for entry in view.entries
+        if type(entry) is SettledEntryView and entry.registration == removals[0].digest
+    ]
+    assert [entry.committed for entry in settlements] == [True]
+
+    result = verify.replay(view, disk, ENGINE_ABSENT, None)
+
+    assert not result.refuted
+    assert [(finding.code, finding.ref, finding.detail) for finding in result.findings] == [
+        ("record-removed", RECORD_PATH, f"txid={removals[0].txid}")
+    ]
+    assert result.findings[0].severity == "warning"
+
+
+def test_failing_classification_resolves_through_history_naming_digest(tmp_path):
+    """L13u2. Where the supplied `history` bytes resolve, the removal is
+    classified as a *failing* verification's and the finding names the matched
+    digest.
+
+    **R16, stated here because L13 is partial for it:** the match is by *path*,
+    not by digest — the seam exposes no state→digest accessor, so the pass
+    decodes the held bytes, derives the path the copy's identity claims, and
+    matches the removed path. The finding therefore speaks about the held copy
+    and never about the removed bytes, and a held copy of another version of the
+    same record could misclassify a removal in either direction.
+    """
+    chain = removed_record(tmp_path)
+    view = cut8_view(chain)
+    disk = cut8_disk(chain)
+    history = held(verification_bytes("v1", "failed"))
+    digest = next(iter(history))
+
+    result = verify.replay(view, disk, ENGINE_ABSENT, history)
+
+    codes = [finding.code for finding in result.findings]
+    assert codes == ["record-removed", "failing-verification-removed"]
+    classified = result.findings[1]
+    assert classified.severity == "error"
+    assert classified.ref == RECORD_PATH
+    assert classified.detail.endswith(f"digest={digest}")
+    assert classified.message.startswith("a held copy filed under this digest claims the removed path")
+    assert "the removed record" not in classified.message
+
+
+def test_without_history_deletion_detected_classification_absent(tmp_path):
+    """L13u3. With no copy held the deletion is **still detected** and the
+    semantic classification is honestly **absent** — never guessed from the
+    entry, which retains a state digest and not a verdict.
+
+    The two other ways the evidence fails to resolve are the same answer: a
+    history naming another record, and two copies claiming one path (R16's
+    weakened match refuses to choose between them).
+    """
+    chain = removed_record(tmp_path)
+    view = cut8_view(chain)
+    disk = cut8_disk(chain)
+
+    for history in (
+        None,
+        held(verification_bytes("v9", "failed")),
+        held(verification_bytes("v1", "failed"), verification_bytes("v1", "passed")),
+    ):
+        result = verify.replay(view, disk, ENGINE_ABSENT, history)
+
+        assert not result.refuted
+        assert [finding.code for finding in result.findings] == ["record-removed"]
+        assert result.findings[0].ref == RECORD_PATH
+
+
+# --- D9: history evidence is validated ---------------------------------------
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "a" * 64,
+        "sha256:short",
+        "sha256:" + "A" * 64,
+        "sha1:" + "a" * 40,
+        "sha256:" + "a" * 65,
+        "sha256:" + "a" * 64 + "\n",
+    ],
+)
+def test_history_validation_refusals_and_digest_named_findings(tmp_path, key):
+    """D9. A malformed `history` key, or bytes that do not hash to their key,
+    **refuses the act**; keys are exactly `sha256:<64 lowercase hex>`; and every
+    classified finding names the matched digest (spec §5.3)."""
+    with pytest.raises(ValueError, match="is not a content hash"):
+        verify.validate_history({key: b"a record"})
+    assert verify.CONTENT_HASH.pattern == r"^sha256:[0-9a-f]{64}$"
+    assert verify.validate_history(held(b"a record")) is None
+    with pytest.raises(ValueError):
+        verify.validate_history({f"sha256:{hashlib.sha256(b'one').hexdigest()}": b"another"})
+
+    chain = removed_record(tmp_path)
+    view = cut8_view(chain)
+    disk = cut8_disk(chain)
+
+    # The refusal reaches the act itself, before any digest is named.
+    with pytest.raises(ValueError):
+        verify.replay(view, disk, ENGINE_ABSENT, {key: b"a record"})
+
+    # And every classification that *is* produced names the digest it matched.
+    for verdict, code in (("failed", "failing-verification-removed"), ("passed", "removal-classified")):
+        history = held(verification_bytes("v1", verdict))
+        matched = next(iter(history))
+        result = verify.replay(view, disk, ENGINE_ABSENT, history)
+        assert [finding.code for finding in result.findings] == ["record-removed", code]
+        assert f"digest={matched}" in result.findings[1].detail

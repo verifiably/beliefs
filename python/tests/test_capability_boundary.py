@@ -18,8 +18,10 @@ call — is stated in §4.2.1 and pinned by the acceptance negative, not by this
 from __future__ import annotations
 
 import ast
+import inspect
 import sys
 from pathlib import Path
+from typing import get_args
 
 import pytest
 
@@ -91,6 +93,19 @@ def names_of(tree: ast.Module) -> set[str]:
         elif isinstance(node, ast.Attribute):
             found.add(node.attr)
     return found
+
+
+def defined_names(tree: ast.Module) -> set[str]:
+    """Every name this module *binds* as a class or a function.
+
+    `names_of` reads uses, and a second summary model is a definition before it
+    is ever used. A ban that read uses alone would pass over the class itself.
+    """
+    return {
+        node.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
+    }
 
 
 def imported_modules(tree: ast.Module) -> set[str]:
@@ -346,3 +361,208 @@ class TestTheWorldPackageHoldsNoEngineCapability:
         assert [name for name in imported if name.split(".")[0] not in sys.stdlib_module_names] == [
             "atoms.core.fingerprint"
         ]
+
+
+# --- cut 8's declarations over the composition surface ----------------------
+
+MUTATING_ENGINE_COMMANDS = ("register_root", "append_intent", "run_transaction")
+"""The three engine entry points that change a root. Everything else in
+`ENGINE_COMMANDS` reads."""
+
+ENGINE_CALL_SITES = {
+    "run_transaction": ["DurableExecutor._submit"],
+    "register_root": ["init_corpus_root", "init_world_root"],
+    "append_intent": ["DurableOperationPort.append_intent"],
+}
+"""Where each mutating command is called, by enclosing definition.
+
+One `run_transaction` site, and it is the durable executor's submission — so
+**every registered-surface mutation flows through it**. `register_root` runs
+only in the two initializers and `append_intent` only in the operation port:
+genesis registration and intent append are protocol entries, not application
+mutations, which is why they are named separately rather than counted as a
+second mutation path.
+"""
+
+PORT_METHOD_NAMES = frozenset({"append_intent"})
+"""`science.corpus` declares an `OperationPort` method of this name, so the bare
+name is not evidence of an engine call and the name ban above cannot cover it —
+exactly the carve-out `ENGINE_COMMANDS` already records. The *call sites* are
+still counted: a port method is an `Attribute`, and the composition root's own
+call is the only bare `Name`.
+"""
+
+BYTE_MUTATION_PRIMITIVES = (
+    "write_bytes",
+    "write_text",
+    "unlink",
+    "rmdir",
+    "rmtree",
+    "rename",
+    "symlink_to",
+    "chmod",
+    "touch",
+    "makedirs",
+    "remove",
+    "copy",
+    "copy2",
+    "copytree",
+    "move",
+)
+"""Every way a Python module reaches a byte of a file without the engine.
+
+`mkdir` is deliberately absent: creating the directory a root will occupy is
+what `init_corpus_root` and `init_world_root` do *before* registering it, and
+banning it would ban initialization rather than unregistered mutation.
+`replace` is absent because the name is `str.replace` and
+`dataclasses.replace` far more often than it is `Path.replace`, and a ban
+nobody can satisfy is a ban that gets deleted.
+"""
+
+RAW_WRITE_ALLOWLIST = {
+    # The export bundle: a directory this module mints for a consumer, outside
+    # every corpus and world root and registered by nothing.
+    "adapter.py": {"copy2"},
+    # The execution sandbox: an inputs tree and the log-handler script, minted
+    # per run under a scratch directory the substrate owns.
+    "boundary.py": {"copy2", "write_text"},
+}
+"""The two surfaces Science writes with its own hands, both stated. Neither is
+a registered surface; a third entry appearing here would be a claim to weigh,
+which is why the allowlist is compared for equality and never for containment.
+"""
+
+STATE_VOCABULARY = (
+    "PathState",
+    "PathStateJSON",
+    "FileState",
+    "AbsentState",
+    "DirectoryState",
+    "SymlinkState",
+    "state_from_json",
+    "state_to_json",
+    "capture_states",
+)
+"""L12's one state vocabulary. Every member is the engine's; Science names them
+in the composition root and nowhere else, and mints none of its own."""
+
+
+def call_sites(tree: ast.Module, command: str) -> list[str]:
+    """Every call to `command`, named by the definition that encloses it."""
+    found: list[str] = []
+
+    def walk(node: ast.AST, scope: tuple[str, ...]) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+                walk(child, (*scope, child.name))
+                continue
+            if (
+                isinstance(child, ast.Call)
+                and isinstance(child.func, ast.Name)
+                and child.func.id == command
+            ):
+                found.append(".".join(scope))
+            walk(child, scope)
+
+    walk(tree, ())
+    return found
+
+
+def test_no_cooperative_mutation_path_skips_registration():
+    """L1u1. The unspellability arm, over the composition surface.
+
+    Three facts, and no cooperative mutation path survives all three. First,
+    `science.root` is the only `atoms` importer, so no other module holds
+    engine capability at all. Second, the three mutating engine commands are
+    named only there, and each is called from exactly the definitions the
+    composition allows: **one** `run_transaction` site, the durable executor's
+    submission, so every registered-surface mutation flows through it; the two
+    initializers' `register_root` and the operation port's `append_intent` are
+    protocol entries rather than application mutations. Third, no module in
+    Science reaches a byte of a file itself outside the two stated non-registered
+    surfaces — so there is no path that mutates a registered root *without* the
+    engine, and no engine mutation that is not a registration.
+
+    What this does not cover is stated rather than implied: a *new* module
+    reaching the filesystem through a primitive absent from
+    `BYTE_MUTATION_PRIMITIVES`. The kill-at-stage arms of L1 are deferred to
+    atoms's own certification (cut 8 §3.1, §8.1).
+    """
+    for module in modules():
+        offending = [
+            imported
+            for imported in imported_modules(parsed(module))
+            if (imported == "atoms" or imported.startswith("atoms.")) and relative(module) != COMPOSITION_ROOT
+        ]
+        assert offending == [], f"{relative(module)} imports {offending}"
+
+    composition_root = parsed(PACKAGE / COMPOSITION_ROOT)
+    for command in MUTATING_ENGINE_COMMANDS:
+        if command not in PORT_METHOD_NAMES:
+            elsewhere = [
+                relative(module)
+                for module in modules()
+                if relative(module) != COMPOSITION_ROOT and command in names_of(parsed(module))
+            ]
+            assert elsewhere == [], f"{command} is named outside the composition root by {elsewhere}"
+        assert sorted(call_sites(composition_root, command)) == sorted(ENGINE_CALL_SITES[command]), command
+
+    for module in modules():
+        named = names_of(parsed(module)) & set(BYTE_MUTATION_PRIMITIVES)
+        assert named == RAW_WRITE_ALLOWLIST.get(relative(module), set()), (
+            f"{relative(module)} writes bytes itself: {sorted(named)}"
+        )
+    assert set(RAW_WRITE_ALLOWLIST) == {"adapter.py", "boundary.py"}
+
+
+def test_science_fingerprints_only_through_the_capture_command():
+    """L12u2. No second summary model: Science fingerprints exclusively through
+    the engine's capture command, asserted over the package surface.
+
+    The state vocabulary is the engine's own union, named in the composition
+    root and nowhere else; `capture_states` — the one call that reads a disk
+    state — has exactly one call site; and the one place Science *constructs* a
+    state builds the engine's `FileState` over **caller-supplied bytes**, never
+    over a path, so it is a projection of a planned write and not a second way
+    to observe a root.
+    """
+    composition_root = parsed(PACKAGE / COMPOSITION_ROOT)
+    for name in STATE_VOCABULARY:
+        elsewhere = [
+            relative(module)
+            for module in modules()
+            if relative(module) != COMPOSITION_ROOT
+            and name in names_of(parsed(module)) | defined_names(parsed(module))
+        ]
+        assert elsewhere == [], f"{name} is named or defined outside the composition root by {elsewhere}"
+    # The composition root does name the members it uses — the ban above would
+    # otherwise pass over a vocabulary nobody speaks. It never names
+    # `state_to_json` or `SymlinkState`: Science decodes states and compares
+    # them, and encodes none.
+    named = set(STATE_VOCABULARY) & names_of(composition_root)
+    assert named == {
+        "AbsentState",
+        "DirectoryState",
+        "FileState",
+        "PathState",
+        "PathStateJSON",
+        "capture_states",
+        "state_from_json",
+    }
+    assert call_sites(composition_root, "capture_states") == ["_capture"]
+
+    # Science mints no state class of its own: the vocabulary is exactly the
+    # engine's union, and every member Science names is that class.
+    from atoms.core.fingerprint import AbsentState, DirectoryState, FileState, PathState, SymlinkState
+
+    import science.root as composition
+
+    assert set(get_args(PathState)) == {AbsentState, DirectoryState, FileState, SymlinkState}
+    assert composition.FileState is FileState
+
+    # ...and the one construction is over bytes, never over a path.
+    signature = inspect.signature(composition._file_state)
+    assert [(name, parameter.annotation) for name, parameter in signature.parameters.items()] == [
+        ("content", "bytes")
+    ]
+    assert signature.return_annotation == "FileState"

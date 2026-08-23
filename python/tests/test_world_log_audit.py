@@ -42,7 +42,16 @@ from nodes.core.node import Node
 from nodes.core.write_plan import DefaultExecutor
 from test_world_build import ALPHA, BETA, ChainHeads, corpus_at
 from test_world_epoch import admitted_world, publish
-from test_world_log_codecs import populated_root
+from test_world_log_codecs import (
+    CUT8_OTHER_WORLD_ID,
+    CUT8_WORLD_ID,
+    WORLD_MIRROR,
+    coordinated_truncation,
+    populated_root,
+    rewritten_world,
+    settled_world,
+)
+from test_world_log_evaluator import epoch_members
 from test_world_log_replay import Opaque
 
 from science import root as science_root
@@ -1268,3 +1277,172 @@ def test_a_chain_record_contradiction_at_audit_refuses_with_no_report(tmp_path, 
     assert (caught.value.phase, caught.value.engine_error) == ("inspect", "ChainStateInvalid")
     assert caught.value.__cause__ is invalid
     assert _operation_lock_for(root)._holder is None
+
+
+# --- cut 8's declarations, audited over real chains -----------------------------
+#
+# Cut 8 §5's obligation 1 in its literal form. The arms above build chain
+# *views* and hand them to a stubbed inspection, which is what lets them state
+# lock order, precedence and refusal without a disk; the three declarations
+# below judge **real directories of canonical entry envelopes** instead, so
+# `inspect_chain` itself says whether the fabrication is well formed.
+
+
+def real_seam() -> verify.LogSeam:
+    """A seam whose inspection and capture are the production ones.
+
+    The registered slot is wired to the production seam's *detached* inspection:
+    registered mode resolves recovery through a metadata root these fabricated
+    roots do not have, and both modes share one validation core (spec §2.1), so
+    the substitution changes nothing the audit reads and buys the engine's own
+    verdict over the chain. The locks are the production lookups, as everywhere
+    in this module.
+    """
+    production = science_root._log_seam()
+    return verify.LogSeam(
+        inspect_registered=production.inspect_detached,
+        inspect_detached=unreached_detached,
+        capture=production.capture,
+        read_head=unreached_head,
+        absent_state=production.absent_state,
+        world_lock=production.world_lock,
+        corpus_lock=production.corpus_lock,
+    )
+
+
+def real_audit(
+    config: registry.WorldConfig,
+    subject: anchors.Subject,
+    target_root: Path,
+    *,
+    observers: tuple[verify.ObserverCarrier, ...] = (),
+) -> verify.LogReport:
+    return verify._audit_log(
+        config,
+        subject,
+        target_root,
+        verify.ObserverSet(observers),
+        actor="alice",
+        history=None,
+        seam=real_seam(),
+    )
+
+
+def world_config_at(root: Path, world_id: str) -> registry.WorldConfig:
+    return registry.WorldConfig(root, world_id, ())
+
+
+def exported_world_epoch(genesis_digest: str, head_digest: str) -> verify.EpochCarrier:
+    """An epoch supplied as an export, holding one world anchor — L11's only
+    eligible carrier for a world subject."""
+    members = epoch_members(world_head=head_digest, world_genesis=genesis_digest)
+    return verify.EpochCarrier.from_export(members, epoch.packaging_identity_of(members))
+
+
+def codes_of(report: verify.LogReport) -> list[str]:
+    return [finding.code for finding in report.findings]
+
+
+def test_exported_w1_head_refutes_rewritten_world(tmp_path):
+    """L4u6. A **W1** head exported, the local world subject and genesis then
+    rewritten to **W2**, and verification run explicitly selecting W1 → refuted
+    as removal/replacement. Selecting W2 is a *separate-world audit* and never a
+    verdict about W1: W1's artifact is filtered out by the subject, so nothing
+    in that report speaks about the world the holder anchored.
+    """
+    chain = rewritten_world(tmp_path)
+    w1_genesis, w1_head = chain.removed[0], chain.anchor
+    exported_w1 = verify.ArtifactCarrier.from_bytes(
+        anchors.head_artifact_bytes(
+            anchors.HeadArtifact(anchors.WorldSubject(CUT8_WORLD_ID), w1_genesis, w1_head)
+        )
+    )
+    exported_w2 = verify.ArtifactCarrier.from_bytes(
+        anchors.head_artifact_bytes(
+            anchors.HeadArtifact(
+                anchors.WorldSubject(CUT8_OTHER_WORLD_ID), chain.digests[0], chain.tip
+            )
+        )
+    )
+    assert w1_genesis != chain.digests[0]
+    assert registry._load_world_mirror(chain.root) == CUT8_OTHER_WORLD_ID
+
+    about_w1 = real_audit(
+        world_config_at(chain.root, CUT8_WORLD_ID),
+        anchors.WorldSubject(CUT8_WORLD_ID),
+        chain.root,
+        observers=(exported_w1,),
+    )
+    about_w2 = real_audit(
+        world_config_at(chain.root, CUT8_OTHER_WORLD_ID),
+        anchors.WorldSubject(CUT8_OTHER_WORLD_ID),
+        chain.root,
+        observers=(exported_w2, exported_w1),
+    )
+
+    assert about_w1.outcome == "refuted"
+    assert "anchor-genesis-mismatch" in codes_of(about_w1)
+    assert [finding.ref for finding in about_w1.findings if finding.code == "anchor-genesis-mismatch"] == [
+        w1_head
+    ]
+
+    assert about_w2.outcome == "validated"
+    assert len(about_w2.observer_bound) == 1
+    assert w1_head not in about_w2.observer_bound[0]
+    assert "anchor-genesis-mismatch" not in codes_of(about_w2)
+
+
+def test_coordinated_truncation_without_exported_holder_is_undetected(tmp_path):
+    """L11u3, the surviving-observer **negative**. World chain, registry records
+    and in-root epochs truncated together, with no exported holder → undetected.
+
+    Cut 8 §5's obligation 5 is asserted rather than assumed: all three in-root
+    carriers really were truncated, so the negative is not a partial truncation
+    refuting for the wrong reason. The verdict is then compared against an
+    untouched world's: the two reports agree on outcome and findings, which is
+    what *undetected* means — the root under audit is indistinguishable from
+    one nothing happened to.
+    """
+    chain = coordinated_truncation(tmp_path)
+    assert not (chain.root / "registry").exists()
+    assert not (chain.root / "epochs").exists()
+    assert len(chain.removed) == 2
+    assert chain.anchor in chain.removed
+    assert verify.registered_surface_paths(chain.root, "world") == (WORLD_MIRROR,)
+
+    truncated = real_audit(
+        world_config_at(chain.root, CUT8_WORLD_ID), anchors.WorldSubject(CUT8_WORLD_ID), chain.root
+    )
+    untouched_chain = settled_world(tmp_path / "untouched")
+    untouched = real_audit(
+        world_config_at(untouched_chain.root, CUT8_WORLD_ID),
+        anchors.WorldSubject(CUT8_WORLD_ID),
+        untouched_chain.root,
+    )
+
+    assert truncated.outcome == "unresolvable"
+    assert codes_of(truncated) == ["unanchored"]
+    assert truncated.observer_bound == ()
+    assert (truncated.outcome, codes_of(truncated)) == (untouched.outcome, codes_of(untouched))
+
+
+def test_coordinated_truncation_with_one_exported_epoch_refutes(tmp_path):
+    """L11u4. The **same** truncation, with one exported epoch supplied →
+    refuted. The bound is the surviving observer, and one is enough."""
+    chain = coordinated_truncation(tmp_path)
+    assert not (chain.root / "registry").exists()
+    assert not (chain.root / "epochs").exists()
+    holder = exported_world_epoch(chain.digests[0], chain.anchor)
+
+    report = real_audit(
+        world_config_at(chain.root, CUT8_WORLD_ID),
+        anchors.WorldSubject(CUT8_WORLD_ID),
+        chain.root,
+        observers=(holder,),
+    )
+
+    assert report.outcome == "refuted"
+    assert codes_of(report) == ["anchor-unreachable"]
+    assert report.findings[0].ref == chain.anchor
+    assert len(report.observer_bound) == 1
+    assert "provenance=supplied-export" in report.observer_bound[0]

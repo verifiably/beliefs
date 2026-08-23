@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import inspect
+import shutil
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast, get_args
 
@@ -29,9 +32,15 @@ from nodes.core.write_plan import DefaultExecutor
 import science.world.registry as world_module
 from science import corpus as corpus_module
 from science import root as science_root
-from science.errors import LogEvidenceRefused, MalformedDomain, RegistryMalformed
+from science.errors import (
+    LogEvidenceRefused,
+    MalformedDomain,
+    ObserverCarrierInvalid,
+    RegistryMalformed,
+    StoreSubjectUnsupported,
+)
 from science.identity import v1
-from science.world import anchors, logmodel
+from science.world import anchors, logmodel, verify
 
 # --- shared fixtures -----------------------------------------------------
 
@@ -673,3 +682,704 @@ def test_the_seams_corpus_lock_is_the_write_apis_own(tmp_path):
     root.mkdir()
 
     assert science_root._log_seam().corpus_lock(root) is corpus_module._operation_lock_for(root)
+
+
+# --- cut 8's on-disk chain fabrication -------------------------------------
+#
+# Cut 8 §5's first obligation: **every fabricated chain a declared arm rests on
+# passes `inspect_chain` as well-formed**, asserted at declaration time, unless
+# the arm's point is the defect — and then exactly that one defect class and no
+# other. The builders below discharge it the only way the obligation can be
+# discharged literally: they write **real canonical entry envelopes** into a
+# real root's reserved chain directory, and every arm reads them back through
+# the production seam's *detached* inspection, which needs no metadata root and
+# so runs anywhere the suite runs. The engine's own validator, not a view
+# nobody inspected, is what says the fabrication is well formed.
+#
+# `CUT8_FABRICATIONS` at the foot of this section is the catalogue
+# `acceptance/test_n2_cut8.py` walks: one entry per fabrication a declared arm
+# builds, naming the defect the engine must report over it (`None` for the
+# well-formed ones). A builder used by an arm and missing from the catalogue is
+# a fabrication nobody inspected, which the harness refuses.
+
+SCIENCE_CORPUS_GENESIS = v1.encode({"domain": "science.corpus-root.v1"})
+CONSUMER_TAG = "science-corpus-write-v1"
+UNRESOLVED_INTENT = "sha256:" + "0" * 64
+"""`RegisteredEntry.intent_digest` is the engine's own staging bookkeeping and
+is not the `fulfills` referent the taxonomy validates; the arms that mean an
+intent name one through `fulfills`."""
+
+MANIFEST = "corpus.yaml"
+RECORD = "verification/v1.md"
+
+
+def corpus_root_at(base: Path, corpus_id: str, *, name: str = "corpus") -> Path:
+    """A corpus root with the manifest the presented-identity read expects."""
+    root = base / name
+    root.mkdir(parents=True)
+    (root / MANIFEST).write_text(f"corpus_id: {corpus_id}\nversion: 2\n", encoding="utf-8")
+    return root
+
+
+def capture_at(root: Path, *paths: str) -> tuple[tuple[str, object], ...]:
+    """The engine's own states for exactly these paths, through the seam."""
+    return science_root._log_seam().capture(root, paths)
+
+
+def state_at(root: Path, path: str) -> object:
+    return capture_at(root, path)[0][1]
+
+
+def inspected(root: Path) -> logmodel.ChainView:
+    """Detached inspection through the production seam — `inspect_chain`'s own
+    verdict over the fabrication, which is what cut 8 §5's obligation 1 asks
+    for."""
+    return science_root._log_seam().inspect_detached(root)
+
+
+class Chain:
+    """Canonical entry envelopes, written one at a time into a real root.
+
+    Every mutator returns the digest the engine will name the entry by, so an
+    arm can state a truncation, a sibling or an anchor over the very digests
+    the chain carries rather than over stand-ins that merely look like them.
+    """
+
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.digests: list[str] = []
+        self.anchor = ""
+        """The head a declared arm anchors at — set by the builders that mean one."""
+        self.removed: tuple[str, ...] = ()
+        """Digests the raw write deleted, in chain order."""
+        self.replaced: tuple[bytes, ...] = ()
+        self.added: tuple[bytes, ...] = ()
+        """The envelope bytes a rewrite removed and the ones it wrote in their
+        place — cut 8 §5's obligation 3 is asserted over exactly these."""
+        self.paths: tuple[str, ...] = ()
+        """The surface paths the arm judges this chain against."""
+
+    # --- cooperative appends ---------------------------------------------
+    def after(self, previous: str | None, entry: object) -> str:
+        (digest,) = write_chain(self.root, [(previous, cast(Any, entry))])
+        self.digests.append(digest)
+        return digest
+
+    def append(self, entry: object) -> str:
+        return self.after(self.digests[-1] if self.digests else None, entry)
+
+    def genesis(self, payload: bytes = SCIENCE_CORPUS_GENESIS) -> str:
+        """§1.3's **empty** baseline: both Science initializers register `()`,
+        so a populated one is a chain no Science path mints."""
+        return self.append(GenesisEntry(payload=payload, baseline=()))
+
+    def intent(self, payload: bytes = b"an intent") -> str:
+        return self.append(IntentEntry(payload=payload))
+
+    def registered(
+        self,
+        txid: str,
+        initial: tuple[tuple[str, object], ...],
+        final: tuple[tuple[str, object], ...],
+        *,
+        fulfills: str | None = None,
+    ) -> RegisteredEntry:
+        """The entry value, unwritten — for the arms that place it themselves."""
+        return RegisteredEntry(
+            txid=txid,
+            intent_digest=UNRESOLVED_INTENT,
+            consumer_tag=CONSUMER_TAG,
+            initial=tuple((path, state_to_json(cast(Any, value))) for path, value in initial),
+            final=tuple((path, state_to_json(cast(Any, value))) for path, value in final),
+            fulfills=fulfills,
+        )
+
+    def registration(
+        self,
+        txid: str,
+        initial: tuple[tuple[str, object], ...],
+        final: tuple[tuple[str, object], ...],
+        *,
+        fulfills: str | None = None,
+    ) -> str:
+        return self.append(self.registered(txid, initial, final, fulfills=fulfills))
+
+    def settlement(self, txid: str, registration: str, *, committed: bool = True) -> str:
+        return self.append(
+            SettledEntry(
+                txid=txid,
+                registration=registration,
+                outcome=ChainOutcome.COMMITTED if committed else ChainOutcome.ROLLED_BACK,
+            )
+        )
+
+    def transaction(
+        self,
+        txid: str,
+        initial: tuple[tuple[str, object], ...],
+        final: tuple[tuple[str, object], ...],
+        *,
+        committed: bool = True,
+        fulfills: str | None = None,
+    ) -> tuple[str, str]:
+        registration = self.registration(txid, initial, final, fulfills=fulfills)
+        return registration, self.settlement(txid, registration, committed=committed)
+
+    # --- the raw-write licence (cut 8 §2) ---------------------------------
+    def leaf(self, digest: str) -> Path:
+        return self.root / CHAIN_LEAF / digest
+
+    def drop(self, digest: str) -> None:
+        self.leaf(digest).unlink()
+        self.digests.remove(digest)
+
+    def truncate_to(self, digest: str) -> tuple[str, ...]:
+        """Delete every entry after `digest`, returning the digests removed."""
+        removed = tuple(self.digests[self.digests.index(digest) + 1 :])
+        for entry in removed:
+            self.drop(entry)
+        return removed
+
+    @property
+    def tip(self) -> str:
+        return self.digests[-1]
+
+
+# --- the builders every cut-8 declared arm fabricates through ---------------
+
+CUT8_CORPUS_ID = "a" * 32
+CUT8_SIBLING_ID = "b" * 32
+CUT8_REMINTED_ID = "c" * 32
+
+
+def _record_state(root: Path, content: bytes = b"# a held verification\n") -> object:
+    """Write `verification/v1.md`, state it, and leave it on disk."""
+    path = root / RECORD
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(content)
+    return state_at(root, RECORD)
+
+
+def settled_corpus(base: Path, *, corpus_id: str = CUT8_CORPUS_ID, name: str = "corpus") -> Chain:
+    """A corpus root and the committed transaction that created its manifest."""
+    root = corpus_root_at(base, corpus_id, name=name)
+    chain = Chain(root)
+    chain.genesis()
+    chain.transaction("tx-1", ((MANIFEST, ABSENT),), ((MANIFEST, state_at(root, MANIFEST)),))
+    chain.anchor = chain.tip
+    chain.paths = (MANIFEST,)
+    return chain
+
+
+def populated_corpus(base: Path, *, corpus_id: str = CUT8_CORPUS_ID, name: str = "corpus") -> Chain:
+    """The same, plus a second committed transaction creating one record."""
+    chain = settled_corpus(base, corpus_id=corpus_id, name=name)
+    chain.anchor = chain.tip
+    record = _record_state(chain.root)
+    chain.transaction("tx-2", ((RECORD, ABSENT),), ((RECORD, record),))
+    chain.paths = (MANIFEST, RECORD)
+    return chain
+
+
+def rolled_back_creation(base: Path) -> Chain:
+    """L2u1: a registration whose settlement rolled back, and the path it would
+    have created genuinely absent from disk (cut 8 §5's obligation 2)."""
+    chain = settled_corpus(base)
+    record = _record_state(chain.root)
+    (chain.root / RECORD).unlink()
+    chain.registration("tx-2", ((RECORD, ABSENT),), ((RECORD, record),))
+    chain.settlement("tx-2", chain.tip, committed=False)
+    chain.paths = (MANIFEST, RECORD)
+    return chain
+
+
+def removed_record(base: Path) -> Chain:
+    """L13: a cooperatively logged removal of a verification record."""
+    chain = populated_corpus(base)
+    record = state_at(chain.root, RECORD)
+    (chain.root / RECORD).unlink()
+    chain.transaction("tx-3", ((RECORD, record),), ((RECORD, ABSENT),))
+    chain.paths = (MANIFEST, RECORD)
+    return chain
+
+
+def pending_before_apply(base: Path) -> Chain:
+    """L2u4: a copy caught before apply — the registration is unsettled and the
+    record it would create is **absent** from the copied root."""
+    chain = settled_corpus(base)
+    record = _record_state(chain.root)
+    (chain.root / RECORD).unlink()
+    chain.registration("tx-2", ((RECORD, ABSENT),), ((RECORD, record),))
+    chain.paths = (MANIFEST, RECORD)
+    return chain
+
+
+def pending_after_apply(base: Path) -> Chain:
+    """L2u4's other variant: the copy caught *after* apply — same unsettled
+    registration, and the record present on disk."""
+    chain = settled_corpus(base)
+    record = _record_state(chain.root)
+    chain.registration("tx-2", ((RECORD, ABSENT),), ((RECORD, record),))
+    chain.paths = (MANIFEST, RECORD)
+    return chain
+
+
+def truncated_prefix(base: Path) -> Chain:
+    """L3u1/L12u4: two committed transactions, truncated back to the first.
+
+    `anchor` is the head that was anchored before the truncation, which the
+    surviving prefix can no longer reach.
+    """
+    chain = populated_corpus(base)
+    chain.anchor = chain.tip
+    behind = chain.digests[2]
+    chain.removed = chain.truncate_to(behind)
+    (chain.root / RECORD).unlink()
+    chain.paths = (MANIFEST,)
+    return chain
+
+
+def alternative_chain(base: Path) -> Chain:
+    """L4u5: the same constant genesis, a self-consistent replacement tail.
+
+    The corpus genesis payload carries no per-corpus identity, so a replacement
+    chain shares the original's genesis digest exactly — which is why §1.2's
+    mechanism for corpus replacement is anchored-head unreachability and not a
+    genesis comparison.
+    """
+    chain = populated_corpus(base)
+    chain.anchor = chain.tip
+    genesis = chain.digests[0]
+    chain.removed = chain.truncate_to(genesis)
+    (chain.root / RECORD).unlink()
+    chain.transaction("tx-9", ((MANIFEST, ABSENT),), ((MANIFEST, state_at(chain.root, MANIFEST)),))
+    chain.paths = (MANIFEST,)
+    return chain
+
+
+def rewritten_tail(base: Path) -> Chain:
+    """L5: the tail beyond the maximal anchor rewritten into a self-consistent
+    alternative, **and the registered surface rewritten to match**.
+
+    `replaced` and `added` are the entry envelopes either side of the rewrite,
+    so cut 8 §5's obligation 3 — a byte difference beyond the anchor, over at
+    least one entry — is asserted over the bytes themselves.
+    """
+    chain = populated_corpus(base)
+    chain.anchor = chain.digests[2]
+    original = tuple(chain.leaf(digest).read_bytes() for digest in chain.digests[3:])
+    chain.removed = chain.truncate_to(chain.anchor)
+    rewritten = _record_state(chain.root, b"# a different verification\n")
+    chain.transaction("tx-2b", ((RECORD, ABSENT),), ((RECORD, rewritten),))
+    chain.replaced = original
+    chain.added = tuple(chain.leaf(digest).read_bytes() for digest in chain.digests[3:])
+    chain.paths = (MANIFEST, RECORD)
+    return chain
+
+
+def forged_intent_beyond_the_anchor(base: Path) -> Chain:
+    """L12u5: a structurally valid raw append past the maximal anchor."""
+    chain = settled_corpus(base)
+    chain.anchor = chain.tip
+    chain.intent(b"an intent no act ever appended")
+    chain.paths = (MANIFEST,)
+    return chain
+
+
+def four_state_classes(base: Path) -> Chain:
+    """L12u1: one committed transaction creating one path of each state class."""
+    root = base / "states"
+    root.mkdir(parents=True)
+    (root / "f.txt").write_bytes(b"hello\n")
+    (root / "d").mkdir()
+    (root / "link").symlink_to("f.txt")
+    paths = ("d", "f.txt", "gone", "link")
+    """Sorted, because the engine's own envelope grammar requires a surface to
+    be — the four classes are `DirectoryState`, `FileState` (which carries the
+    mode), `AbsentState` and `SymlinkState` (which carries the target)."""
+    chain = Chain(root)
+    chain.genesis()
+    chain.transaction(
+        "tx-1",
+        tuple((path, ABSENT) for path in paths),
+        capture_at(root, *paths),
+    )
+    chain.paths = paths
+    return chain
+
+
+def deleted_chain(base: Path) -> Chain:
+    """L4u1: the chain directory removed from an anchored corpus root."""
+    chain = settled_corpus(base)
+    chain.anchor = chain.tip
+    chain.removed = tuple(chain.digests)
+    for digest in chain.removed:
+        chain.leaf(digest).unlink()
+    (chain.root / CHAIN_LEAF).rmdir()
+    return chain
+
+
+def deletion_plus_remint(base: Path) -> Chain:
+    """L4u7: A's chain deleted **and** its `corpus.yaml` re-minted as B."""
+    chain = deleted_chain(base)
+    (chain.root / MANIFEST).write_text(f"corpus_id: {CUT8_REMINTED_ID}\nversion: 2\n", encoding="utf-8")
+    return chain
+
+
+def manifest_remint(base: Path) -> Chain:
+    """L4u3: the manifest raw re-minted A → B with the chain present, and
+    **nothing else touched** — cut 8 §6's first freeze obligation."""
+    chain = populated_corpus(base)
+    chain.anchor = chain.tip
+    (chain.root / MANIFEST).write_text(f"corpus_id: {CUT8_REMINTED_ID}\nversion: 2\n", encoding="utf-8")
+    return chain
+
+
+def duplicate_settlement(base: Path) -> Chain:
+    """L2u3: two settlements for one registration."""
+    chain = settled_corpus(base)
+    chain.settlement("tx-1", chain.digests[1])
+    return chain
+
+
+def interior_deleted(base: Path) -> Chain:
+    """L3u2/L12u4: an interior entry deleted, breaking the linkage."""
+    chain = populated_corpus(base)
+    chain.removed = (chain.digests[1],)
+    chain.drop(chain.removed[0])
+    return chain
+
+
+def interior_rewritten(base: Path) -> Chain:
+    """L3u2/L12u4: an interior entry's bytes edited under its content name."""
+    chain = populated_corpus(base)
+    leaf = chain.leaf(chain.digests[1])
+    leaf.write_bytes(leaf.read_bytes() + b" ")
+    return chain
+
+
+def sibling_branch(base: Path) -> Chain:
+    """L3u3: a second successor raw-appended beside the retained original."""
+    chain = settled_corpus(base)
+    chain.after(chain.digests[0], chain.registered("tx-9", ((MANIFEST, ABSENT),), ((MANIFEST, ABSENT),)))
+    return chain
+
+
+def orphan_entry(base: Path) -> Chain:
+    """L3u4: an entry naming a predecessor this chain does not carry.
+
+    The engine names it `missing-predecessor`: `orphan-history` is reserved for
+    a disconnected component with valid *internal* linkage, which no
+    content-named directory fixture can construct (a digest fixed point), and
+    is certified in atoms through the typed validation core.
+    """
+    chain = settled_corpus(base)
+    chain.after("f" * 64, chain.registered("tx-9", ((MANIFEST, ABSENT),), ((MANIFEST, ABSENT),)))
+    return chain
+
+
+def fulfills_missing_intent(base: Path) -> Chain:
+    """L7u1: a `fulfills` naming an intent this chain does not carry."""
+    chain = settled_corpus(base)
+    chain.registration("tx-2", ((RECORD, ABSENT),), ((RECORD, ABSENT),), fulfills="e" * 64)
+    return chain
+
+
+def fulfills_non_intent(base: Path) -> Chain:
+    """L7u1: a `fulfills` naming a present entry that is not an intent."""
+    chain = settled_corpus(base)
+    chain.registration("tx-2", ((RECORD, ABSENT),), ((RECORD, ABSENT),), fulfills=chain.digests[1])
+    return chain
+
+
+def duplicate_fulfillment(base: Path) -> Chain:
+    """L7u2: a second committed registration fulfilling one intent."""
+    root = corpus_root_at(base, CUT8_CORPUS_ID)
+    chain = Chain(root)
+    chain.genesis()
+    intent = chain.intent()
+    manifest = state_at(root, MANIFEST)
+    chain.transaction("tx-1", ((MANIFEST, ABSENT),), ((MANIFEST, manifest),), fulfills=intent)
+    chain.transaction("tx-2", ((MANIFEST, manifest),), ((MANIFEST, manifest),), fulfills=intent)
+    chain.paths = (MANIFEST,)
+    return chain
+
+
+CUT8_WORLD_ID = "e" * 32
+CUT8_OTHER_WORLD_ID = "d" * 32
+WORLD_MIRROR = "world.yaml"
+
+
+def settled_world(base: Path, *, world_id: str = CUT8_WORLD_ID, name: str = "world", genesis_id: str | None = None) -> Chain:
+    """A world root, its mirror, and the transaction that created it.
+
+    `genesis_id` names the world the *chain* was minted under when it differs
+    from the configured one — D1's subject-mismatch split and L4u6's rewritten
+    world both turn on exactly that disagreement.
+    """
+    root = base / name
+    root.mkdir(parents=True)
+    (root / WORLD_MIRROR).write_bytes(world_module._world_mirror_bytes(world_id))
+    chain = Chain(root)
+    chain.genesis(payload=science_root._world_genesis_payload(genesis_id if genesis_id is not None else world_id))
+    chain.transaction(
+        "tx-1", ((WORLD_MIRROR, ABSENT),), ((WORLD_MIRROR, state_at(root, WORLD_MIRROR)),)
+    )
+    chain.anchor = chain.tip
+    chain.paths = (WORLD_MIRROR,)
+    return chain
+
+
+def foreign_world_genesis(base: Path) -> Chain:
+    """D1: a *valid* world genesis naming another world — subject mismatch, and
+    never step 1's malformed exit (§4.2, §1.3)."""
+    return settled_world(base, world_id=CUT8_WORLD_ID, genesis_id=CUT8_OTHER_WORLD_ID)
+
+
+def undecodable_genesis(base: Path) -> Chain:
+    """D1: a genesis payload that is not a Science genesis document at all.
+
+    The engine calls this chain well formed — an entry payload is opaque bytes
+    to the validator — so the malformation is the evaluator's own step-1 finding
+    and this fabrication belongs in the catalogue as well formed.
+    """
+    root = corpus_root_at(base, CUT8_CORPUS_ID)
+    chain = Chain(root)
+    chain.genesis(payload=b"\xff\xfe not a document")
+    chain.transaction("tx-1", ((MANIFEST, ABSENT),), ((MANIFEST, state_at(root, MANIFEST)),))
+    chain.paths = (MANIFEST,)
+    return chain
+
+
+def wrong_form_genesis(base: Path) -> Chain:
+    """D1: a well-formed *world* genesis carried by a corpus root."""
+    root = corpus_root_at(base, CUT8_CORPUS_ID)
+    chain = Chain(root)
+    chain.genesis(payload=science_root._world_genesis_payload(CUT8_WORLD_ID))
+    chain.transaction("tx-1", ((MANIFEST, ABSENT),), ((MANIFEST, state_at(root, MANIFEST)),))
+    chain.paths = (MANIFEST,)
+    return chain
+
+
+def populated_baseline(base: Path) -> Chain:
+    """D1: §1.3's non-empty baseline — a chain no Science initializer mints."""
+    root = corpus_root_at(base, CUT8_CORPUS_ID)
+    manifest = state_at(root, MANIFEST)
+    chain = Chain(root)
+    chain.append(
+        GenesisEntry(
+            payload=SCIENCE_CORPUS_GENESIS,
+            baseline=((MANIFEST, state_to_json(cast(Any, manifest))),),
+        )
+    )
+    chain.transaction("tx-1", ((MANIFEST, manifest),), ((MANIFEST, manifest),))
+    chain.paths = (MANIFEST,)
+    return chain
+
+
+def rewritten_world(base: Path) -> Chain:
+    """L4u6: a world root minted under W1, then rewritten — chain **and** mirror
+    — to W2.
+
+    `removed` is the superseded W1 chain's digests, its genesis first, and
+    `anchor` is the W1 head an external holder exported before the rewrite.
+    """
+    first = settled_world(base, world_id=CUT8_WORLD_ID)
+    root = first.root
+    superseded = tuple(first.digests)
+    for digest in superseded:
+        first.leaf(digest).unlink()
+    (root / WORLD_MIRROR).write_bytes(world_module._world_mirror_bytes(CUT8_OTHER_WORLD_ID))
+    chain = Chain(root)
+    chain.genesis(payload=science_root._world_genesis_payload(CUT8_OTHER_WORLD_ID))
+    chain.transaction(
+        "tx-1", ((WORLD_MIRROR, ABSENT),), ((WORLD_MIRROR, state_at(root, WORLD_MIRROR)),)
+    )
+    chain.removed = superseded
+    chain.anchor = superseded[-1]
+    chain.paths = (WORLD_MIRROR,)
+    return chain
+
+
+IN_ROOT_EPOCH = "1" * 64
+IN_ROOT_RECORD = "a" * 64
+IN_ROOT_CARRIERS = (f"epochs/{IN_ROOT_EPOCH}/anchors.yaml", f"registry/{IN_ROOT_RECORD}.yaml")
+"""The two in-root carriers L11's negative truncates beside the chain itself —
+an epoch stored in the world root and a registry record. Sorted, because the
+envelope grammar requires a surface to be."""
+
+
+def coordinated_truncation(base: Path) -> Chain:
+    """L11u3/L11u4: world chain, registry and in-root epochs truncated together.
+
+    `removed` is the chain entries deleted and `anchor` the world head the
+    deleted tip carried — the head an *exported* epoch would still hold. The
+    two in-root carriers are gone from disk, so the surviving prefix replays
+    against the surviving surface with nothing left over.
+    """
+    root = base / "world"
+    root.mkdir(parents=True)
+    (root / WORLD_MIRROR).write_bytes(world_module._world_mirror_bytes(CUT8_WORLD_ID))
+    chain = Chain(root)
+    chain.genesis(payload=science_root._world_genesis_payload(CUT8_WORLD_ID))
+    chain.transaction(
+        "tx-1", ((WORLD_MIRROR, ABSENT),), ((WORLD_MIRROR, state_at(root, WORLD_MIRROR)),)
+    )
+    behind = chain.tip
+    for carrier in IN_ROOT_CARRIERS:
+        target = root / carrier
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(f"# {carrier}\n", encoding="utf-8")
+    chain.transaction(
+        "tx-2",
+        tuple((carrier, ABSENT) for carrier in IN_ROOT_CARRIERS),
+        capture_at(root, *IN_ROOT_CARRIERS),
+    )
+    chain.anchor = chain.tip
+
+    chain.removed = chain.truncate_to(behind)
+    shutil.rmtree(root / "registry")
+    shutil.rmtree(root / "epochs")
+    chain.paths = (WORLD_MIRROR,)
+    return chain
+
+
+ABSENT_CHAIN = "absent"
+"""The catalogue's marker for a fabrication with no chain at all — an
+`AbsentView` is neither well formed nor a defect, and cut 8's L4 arms mean it."""
+
+CUT8_FABRICATIONS: tuple[tuple[str, Callable[[Path], Chain], str | None], ...] = (
+    ("settled_corpus", settled_corpus, None),
+    ("settled_world", settled_world, None),
+    ("rewritten_world", rewritten_world, None),
+    ("coordinated_truncation", coordinated_truncation, None),
+    ("foreign_world_genesis", foreign_world_genesis, None),
+    ("undecodable_genesis", undecodable_genesis, None),
+    ("wrong_form_genesis", wrong_form_genesis, None),
+    ("populated_baseline", populated_baseline, None),
+    ("populated_corpus", populated_corpus, None),
+    ("rolled_back_creation", rolled_back_creation, None),
+    ("removed_record", removed_record, None),
+    ("pending_before_apply", pending_before_apply, None),
+    ("pending_after_apply", pending_after_apply, None),
+    ("truncated_prefix", truncated_prefix, None),
+    ("alternative_chain", alternative_chain, None),
+    ("rewritten_tail", rewritten_tail, None),
+    ("forged_intent_beyond_the_anchor", forged_intent_beyond_the_anchor, None),
+    ("four_state_classes", four_state_classes, None),
+    ("manifest_remint", manifest_remint, None),
+    ("deleted_chain", deleted_chain, ABSENT_CHAIN),
+    ("deletion_plus_remint", deletion_plus_remint, ABSENT_CHAIN),
+    ("duplicate_settlement", duplicate_settlement, "duplicate-settlement"),
+    ("interior_deleted", interior_deleted, "missing-predecessor"),
+    ("interior_rewritten", interior_rewritten, "name-mismatch"),
+    ("sibling_branch", sibling_branch, "sibling-branch"),
+    ("orphan_entry", orphan_entry, "missing-predecessor"),
+    ("fulfills_missing_intent", fulfills_missing_intent, "fulfills-invalid"),
+    ("fulfills_non_intent", fulfills_non_intent, "fulfills-invalid"),
+    ("duplicate_fulfillment", duplicate_fulfillment, "duplicate-fulfillment"),
+)
+"""Every on-disk fabrication a cut-8 declared arm rests on, with the engine's
+own verdict over it. `acceptance/test_n2_cut8.py` walks this table and runs
+`inspect_chain` over each — §5's obligation 1, discharged by the validator."""
+
+
+# --- cut 8's declarations homed here ---------------------------------------
+
+
+def test_world_subject_registry_record_is_unconstructible():
+    """L11u2. A registry log-head record carrying a `world` subject is
+    unconstructible through the anchor act **and** is never accepted as an
+    anchor: the value type refuses it, the parser refuses it, the act's own
+    signature cannot spell one, and the observer carrier refuses a record whose
+    subject was forced past the constructor."""
+    with pytest.raises(TypeError):
+        anchors.LogHeadRecord(
+            anchors.WorldSubject(WORLD_ID),  # pyright: ignore[reportArgumentType]
+            GENESIS,
+            HEAD,
+            anchors.AnchorActOrigin("alice"),
+        )
+    with pytest.raises(ValueError):
+        anchors.parse_log_head_record(
+            {
+                "record_kind": "log-head",
+                "subject": {"kind": "world", "world_id": WORLD_ID},
+                "genesis": GENESIS,
+                "head": HEAD,
+                "origin": {"kind": "anchor-act", "actor": "alice"},
+            }
+        )
+    assert anchors._LOG_HEAD_SUBJECT_KINDS == frozenset({"corpus", "store"})
+
+    # The act takes corpus ids and nothing else, so no caller can hand it a
+    # world subject to record in the first place.
+    parameters = inspect.signature(anchors._anchor_heads).parameters
+    assert str(parameters["corpus_ids"].annotation) == "frozenset[str]"
+    assert "subject" not in parameters
+
+    # And the last door: a record forced past its constructor is refused by the
+    # carrier rather than admitted as a world anchor.
+    forced = anchors.LogHeadRecord(anchors.CorpusSubject(CORPUS_ID), GENESIS, HEAD, anchors.AnchorActOrigin("alice"))
+    object.__setattr__(forced, "subject", anchors.WorldSubject(WORLD_ID))
+    with pytest.raises(ObserverCarrierInvalid):
+        verify.RegistryCarrier.from_record(forced)
+
+
+def test_no_entry_class_records_preimage_gc():
+    """L13u5, at the width the cut declares: a **taxonomy** fact over the entry
+    classes.
+
+    Preimage-blob collection is engine bookkeeping over content-addressed
+    payloads, and the chain's vocabulary has no way to say it happened: the four
+    entry classes carry a genesis payload and baseline, a transaction's
+    before/after path states, a settlement outcome, and an intent payload —
+    nothing that names a blob, a preimage or a collection. Asserted over the
+    closed union rather than over one chain, because a chain that happens to
+    carry no such entry says nothing about whether one could exist.
+    """
+    classes = get_args(logmodel.EntryView)
+    assert set(classes) == {
+        logmodel.GenesisEntryView,
+        logmodel.RegisteredEntryView,
+        logmodel.SettledEntryView,
+        logmodel.IntentEntryView,
+    }
+    fields = {
+        f"{entry.__name__}.{name}"
+        for entry in classes
+        for name in getattr(entry, "__dataclass_fields__", {})
+    }
+    assert not [name for name in fields if any(word in name.lower() for word in ("blob", "preimage", "gc"))]
+
+    # The same width from the engine's side: the taxonomy of things a chain can
+    # be malformed *about* names no collection either, so there is no defect
+    # class standing in for one.
+    assert not [kind for kind in logmodel.DEFECT_KINDS if "blob" in kind or "preimage" in kind]
+
+
+def test_store_subject_shape_only_across_codecs_and_evaluator():
+    """D6. The store arm is carried by both codecs and refused everywhere a
+    store would have to be *acted* on: the evaluator refuses
+    `StoreSubjectUnsupported`, and neither act's signature can spell a store."""
+    record = build_record(subject=anchors.StoreSubject(STORE_ID))
+    assert anchors.parse_log_head_record(anchors.log_head_projection(record)) == record
+    artifact = anchors.HeadArtifact(anchors.StoreSubject(STORE_ID), GENESIS, HEAD)
+    assert anchors.decode_head_artifact(anchors.head_artifact_bytes(artifact)) == artifact
+
+    with pytest.raises(StoreSubjectUnsupported):
+        verify.evaluate_log(
+            anchors.StoreSubject(STORE_ID),
+            logmodel.AbsentView(),
+            verify.ObserverSet(()),
+            (),
+            None,
+            ABSENT,
+            None,
+        )
+
+    # The anchor act takes corpus ids; the export act's subject union has two
+    # members and refuses a store at run time as well as in the annotation.
+    assert "subject" not in inspect.signature(anchors._anchor_heads).parameters
+    exported = inspect.signature(anchors._export_head_artifact).parameters["subject"]
+    assert str(exported.annotation) == "CorpusSubject | WorldSubject"
