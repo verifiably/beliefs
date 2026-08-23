@@ -1,7 +1,10 @@
 # Root lifecycle and the store substrate — design (world-index slice 4)
 
 **Date:** 2026-08-23
-**Status:** draft, in review.
+**Status:** approved 2026-08-23 — review closed at `56db3f3`, conformance
+cut 9 frozen at `0977bde`; implementation plan
+`../plans/2026-08-23-root-lifecycle.md`; promotes to `docs/designs/` at
+banking (§8 step 7).
 **Inherits:** `2026-08-10-verified-holdings-record-design.md` §2 (the
 fail-closed writer state, the durability orders, the restore-as-verification
 ruling, and the store amendments its §8 applied to the log design — the
