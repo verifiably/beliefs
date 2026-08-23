@@ -8,4 +8,5 @@ build/
 *.egg-info/
 
 .cut4-acceptance/
+.cut8-acceptance/
 node_modules/
