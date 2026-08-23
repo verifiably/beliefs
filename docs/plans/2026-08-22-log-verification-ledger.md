@@ -301,6 +301,69 @@ from it), and reachable only for a tampered or foreign-written genesis.
 Cost if wrong: a hand-written world root that a reader considered valid
 refuses export with a form error instead of a mismatch.
 
+**R29: `epochs_ordered`'s descent includes the settlement entry (Task 8
+review, 2026-08-22)**
+
+A publication linearizes as registration → settlement, so the chain tip at
+the instant E1's publication commits *is* the settlement entry, and a build
+preflighting then records exactly that digest. Strict descent would answer
+`unordered` for the archetypal sequential pair. Nothing the spec means to
+exclude is admitted: a build that preflighted *inside* the transaction
+recorded the registration digest, whose linearization position is strictly
+lower, and still answers `unordered`. Cost if wrong: two epochs published
+in sequence read as unordered, and L8's evidence inverts.
+
+**R30: The publication moment is the earliest committed settlement of the
+registration creating `epochs/<e1>/anchors.yaml` (Task 8 review,
+2026-08-22)**
+
+All eleven members land in one transaction, so any witnesses the same
+registration; the anchors member is chosen because the predicate's other
+half reads it, making a packaging regression fail both halves together. A
+rolled-back first settlement is skipped in favour of a later committed one.
+Consequence the ruling accepts explicitly: after a §9 deletion and
+republication the *earliest* settlement is retained, so a build started
+inside the deletion window is answered `ordered` against an epoch whose
+members were absent at its preflight — §7 asks whether E1's publication
+event precedes E2's build start in the world timeline, not whether the
+members were readable then. Cost if wrong: the predicate is more permissive
+than L8's reading of world-ancestry order.
+
+**R31: An absent or malformed world chain answers `unordered` (Task 8
+review, 2026-08-22)**
+
+§7 scopes the predicate to an already-validated world chain, the return
+type has two values, and the rule is stated in the docstring rather than
+left as a fallback. Caller-input facts still refuse (`EpochUnknown`); root
+facts are answered. A caller cannot distinguish "no order" from "unreadable
+chain" — the audit act is the named place a damaged chain gets named. Cost
+if wrong: a damaged world reads as merely unordered to a caller who never
+audits.
+
+**R32: `AuditTargetUnconfigured`, boundary history validation, and the
+single store refusal (Task 8 review, 2026-08-22)**
+
+`AuditTargetUnconfigured` is minted in the central errors module on R7/R14
+precedent — `AnchorTargetUnresolvable` means the opposite state (cannot say
+whose chain it would read). `history` is validated at the audit boundary
+before the hold, because a corrupt key is a fact about the call, not the
+root; the evaluator re-validates, as `replay` already does. The store
+refusal is one statement with two callers: audit must refuse before
+resolving a root, since a store subject has no root rule. An unreadable
+manifest or mirror presents `None` — an unreadable claim is not a
+disagreeing claim. Cost if wrong: three small vocabulary choices to redo.
+
+**R33: `epochs_ordered` takes `config`, not `world` — spec §7 needs
+amending at banking (Task 8 review, 2026-08-22)**
+
+Spec §7 states `epochs_ordered(world, e1, e2)`; the plan, the brief, and
+the landed code take `WorldConfig`, which matches the audit act's own
+reason for refusing an opened `World` (it must run where `open_world`
+refuses). The code is right and the spec sentence is stale. Obligation:
+§7's signature is amended at Task 12 before the spec is promoted to
+`docs/designs/`, or a design document banks a false claim. Cost if wrong:
+the promoted spec describes an API that does not exist.
+
 ## Heads
 
 Atoms commit hash (Task 2): `3aa5a766efb5275e444de193407992ce33e8edb7` (local atoms `main`, merge of `design/chain-inspection`; unpushed, joining row 4's disclosure per R1)  
