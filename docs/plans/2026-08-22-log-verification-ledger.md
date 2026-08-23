@@ -432,6 +432,47 @@ by a test (R27's treatment of `CORPUS_GENESIS_DOMAIN`), and drift fails
 safe: the mapping stops firing and the raw engine refusal reaches the
 caller, never a false statement.
 
+**R37: Cut 8's accounting is 51 full + 2 partial (Task 10 review,
+2026-08-22)**
+
+L7u1 is partial because the non-ancestor `fulfills` spelling is
+directory-unconstructible — a linear content-addressed chain cannot present
+a non-ancestor referent without a cycle — and is certified only in atoms's
+typed core; the missing and non-intent spellings run on disk. **L2u5 is
+partial** because cut 8's L2 bullet enumerates the pending gate's refusal
+from all three commands and only two run: `run_transaction` and
+`append_intent`. `register_root`'s existing-chain arm has no Science
+mapping at all (both initializers call it bare, pinned mechanically by a
+source assertion), so there is no Science behaviour to exercise. The fix
+round also armed the second production mapping in
+`DurableOperationPort.append_intent`, whose own comment said the two
+mappings must not drift — the arm now asserts they agree on `(applied,
+index)`, verified to bite by counterfactual mutation of each site
+independently. Cost if wrong: the results record banks a "full" over an
+enumerated arm nobody ran — the error §1 exists to forbid.
+
+**R38: Obligation 1 is discharged two ways, and the split is stated (Task
+10 review, 2026-08-22)**
+
+Thirty-five units judge real on-disk canonical envelopes read back through
+the engine's own `inspect_chain_detached`, catalogued two-way so a builder
+cannot hide, with each of the nine deliberate defects asserting exactly one
+engine kind. Sixteen units hand a chain *view* to a stubbed seam and cannot
+meet the obligation literally; they are admitted on the narrower ground
+that **the arm's claim does not turn on the chain** (it turns on lock
+order, precedence, refusal placement, admission identity, or the count of
+evaluator calls), named per unit, with the obligation's *purpose* run over
+each through a per-unit view-factory table and a structural predicate
+pinned against the engine on the three classes a linearization can express.
+Three of them (L10u1, D3, D4) were convertible and were not converted,
+because conversion would rewrite Task 9's reviewed arrival fixtures without
+changing what the arms assert; that is recorded as a cost rather than
+argued away. The three converted audit arms wire the registered slot to the
+production *detached* inspection, so recovery does not run in them. Cost if
+wrong: a fabrication smuggles in the malformation it claims not to have —
+structurally impossible for the six defect classes a view cannot express,
+which is why the substitute is adequate for what it covers.
+
 ## Heads
 
 Atoms commit hash (Task 2): `3aa5a766efb5275e444de193407992ce33e8edb7` (local atoms `main`, merge of `design/chain-inspection`; unpushed, joining row 4's disclosure per R1)  
