@@ -13,6 +13,7 @@ inside one would fail rather than pass quietly.
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 
 import pytest
@@ -21,6 +22,7 @@ import yaml
 from science import root as science_root
 from science.errors import ObserverCarrierInvalid, StoreSubjectUnsupported
 from science.identity import v1
+from science.world import anchors as anchors_module
 from science.world import verify
 from science.world.anchors import (
     AnchorActOrigin,
@@ -65,6 +67,7 @@ E1 = "11" * 32
 E2 = "22" * 32
 E3 = "33" * 32
 STRANGER = "99" * 32
+FOREIGN = "88" * 32
 
 CORPUS_GENESIS_PAYLOAD = v1.encode({"domain": "science.corpus-root.v1"})
 WORLD_GENESIS_PAYLOAD = v1.encode({"domain": "science.world-root.v1", "world_id": WORLD_ID})
@@ -332,10 +335,35 @@ class TestStructure:
         assert codes(report) == ["genesis-form-invalid"]
 
     def test_the_corpus_genesis_domain_is_the_composition_root_s(self) -> None:
-        """The constant is restated here because `verify` may not import
-        `science.root`; the two spellings are pinned equal so the restatement
-        cannot drift into a second definition."""
-        assert verify.CORPUS_GENESIS_DOMAIN == science_root.GENESIS_DOMAIN
+        """The constant is restated in `anchors` because `science.world` may not
+        import `science.root`; the two spellings are pinned equal so the
+        restatement cannot drift into a second definition."""
+        assert anchors_module.CORPUS_GENESIS_DOMAIN == science_root.GENESIS_DOMAIN
+
+    def test_the_genesis_form_is_the_export_act_s_own_predicate(self) -> None:
+        """One statement of each form (M-2): the evaluator's step-1 check and the
+        export act's subject binding read the same two parsers, so the two
+        cannot drift apart on what a Science genesis is."""
+        assert anchors_module.parse_corpus_genesis(CORPUS_GENESIS_PAYLOAD) is None
+        assert anchors_module.parse_world_genesis(WORLD_GENESIS_PAYLOAD) == WORLD_ID
+        with pytest.raises(ValueError, match="world_id"):
+            anchors_module.parse_world_genesis(v1.encode({"domain": "science.world-root.v1", "world_id": "nope"}))
+
+    def test_a_world_genesis_naming_an_ungrammatical_id_is_malformed(self) -> None:
+        """A `world_id` outside the identity grammar is a root that was never
+        initialized as a Science world — not a *different* world, which is the
+        stronger claim the bytes do not support."""
+        payload = v1.encode({"domain": "science.world-root.v1", "world_id": "NOT-AN-ID"})
+        report = evaluate(WorldSubject(WORLD_ID), world_chain(payload), observers())
+        assert report.outcome == "malformed"
+        assert codes(report) == ["genesis-form-invalid"]
+
+    def test_the_chain_absent_code_is_a_named_constant(self) -> None:
+        """Task 9 imports this name: §6.2's `chainless` cause is derived from it
+        and a restated string on the other side could drift."""
+        assert verify.CHAIN_ABSENT == "chain-absent"
+        report = evaluate(CorpusSubject(CORPUS_ID), AbsentView(), observers())
+        assert verify.CHAIN_ABSENT in codes(report)
 
 
 # --- the subject-mismatch findings (§6.3) ----------------------------------
@@ -450,14 +478,29 @@ class TestAnchors:
         assert "anchor-unreachable" in codes(report)
 
     def test_two_anchors_the_chain_cannot_order_are_incomparable(self) -> None:
+        """Two heads this chain places nowhere: two claimed heads of one subject
+        that no single chain here carries."""
         report = evaluate(
             CorpusSubject(CORPUS_ID),
             corpus_chain(),
-            observers(record_carrier(E1), record_carrier(STRANGER)),
+            observers(record_carrier(STRANGER), record_carrier(FOREIGN)),
         )
+        assert report.outcome == "refuted"
         incomparable = [finding for finding in report.findings if finding.code == "anchors-incomparable"]
         assert len(incomparable) == 1
-        assert {incomparable[0].ref, incomparable[0].detail.removeprefix("other=")} == {E1, STRANGER}
+        assert {incomparable[0].ref, incomparable[0].detail.removeprefix("other=")} == {STRANGER, FOREIGN}
+
+    def test_an_unplaced_anchor_emits_no_pair_finding_against_placed_ones(self) -> None:
+        """One fault among many anchors states itself once. Pairing the unplaced
+        head against every surviving one would bury the fault under findings
+        derived from it."""
+        report = evaluate(
+            CorpusSubject(CORPUS_ID),
+            corpus_chain(),
+            observers(record_carrier(E1), record_carrier(E2), record_carrier(STRANGER)),
+        )
+        assert report.outcome == "refuted"
+        assert codes(report) == ["anchor-unreachable"]
 
     def test_the_subject_filter_runs_first_and_alone(self) -> None:
         """An anchor for another corpus is filtered out, not refuted: the two
@@ -557,6 +600,20 @@ class TestPending:
         assert report.pending == (("tx-2", E3),)
         assert codes(report) == ["pending-unresolved"]
 
+    def test_an_unanchored_pending_chain_keeps_its_pending_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """§6.2's worked example: an empty observer set makes this `unresolvable`
+        at step 2, before the pending step runs at all — and the pending set is
+        still in the report, because arrival ranks the cause `pending` from the
+        report's *fields* and not from the step that produced the outcome."""
+        monkeypatch.setattr(verify, "replay", _never)
+        view = corpus_chain(pending=(("tx-2", E3),))
+        report = evaluate(CorpusSubject(CORPUS_ID), view, observers())
+        assert report.outcome == "unresolvable"
+        assert report.pending == (("tx-2", E3),)
+        assert report.observer_bound == ()
+        assert codes(report) == ["unanchored"]
+        assert report.unanchored_tail == (CORPUS_GENESIS, E1, E2)
+
     def test_the_anchor_step_outranks_pending(self) -> None:
         view = corpus_chain(pending=(("tx-2", E3),))
         report = evaluate(CorpusSubject(CORPUS_ID), view, observers(record_carrier(STRANGER)))
@@ -646,7 +703,9 @@ class TestRegistryCarrier:
             RegistryCarrier.from_record(record)
 
     def test_the_provenance_is_fixed_by_the_factory(self) -> None:
-        assert record_carrier(E1).provenance == "named-local"
+        carrier = record_carrier(E1)
+        assert carrier.provenance == "named-local"
+        assert [anchor.provenance for anchor in carrier.observed] == ["named-local"]
 
 
 class TestArtifactCarrier:
@@ -664,6 +723,7 @@ class TestArtifactCarrier:
         carrier = ArtifactCarrier.from_bytes(canonical)
         assert carrier.data == canonical
         assert carrier.provenance == "supplied-export"
+        assert [anchor.provenance for anchor in carrier.observed] == ["supplied-export"]
 
 
 class TestEpochCarrier:
@@ -696,7 +756,20 @@ class TestEpochCarrier:
     def test_a_named_local_epoch_is_read_from_its_directory(self, tmp_path: Path) -> None:
         carrier = local_epoch(tmp_path)
         assert carrier.provenance == "named-local"
+        assert {anchor.provenance for anchor in carrier.observed} == {"named-local"}
         assert carrier.packaging_identity == packaging_identity_of(epoch_members())
+
+    def test_the_provenance_a_reader_sees_is_the_one_eligibility_reads(self, tmp_path: Path) -> None:
+        """One copy of the fact, not two. `provenance` is derived from the very
+        anchors the eligibility rule consults, so there is no second field a
+        `dataclasses.replace` could rewrite while the anchors stayed local — and
+        no arm that could assert on the copy the verdict does not turn on."""
+        carrier = local_epoch(tmp_path, world_head=E1)
+        with pytest.raises(TypeError):
+            dataclasses.replace(carrier, provenance="supplied-export")  # pyright: ignore[reportCallIssue]
+        report = evaluate(WorldSubject(WORLD_ID), world_chain(), observers(carrier))
+        assert report.outcome == "unresolvable"
+        assert "observer-ineligible" in codes(report)
 
     def test_a_named_local_directory_that_lies_about_its_identity_refuses(self, tmp_path: Path) -> None:
         carrier_root = tmp_path / ("0" * 64)
@@ -717,7 +790,7 @@ class TestConstruction:
         with pytest.raises(TypeError):
             RegistryCarrier(record)  # pyright: ignore[reportCallIssue]
         with pytest.raises(ObserverCarrierInvalid):
-            RegistryCarrier(object(), record, "named-local", ())
+            RegistryCarrier(object(), record, ())
 
     def test_an_observer_set_takes_carriers_only(self) -> None:
         with pytest.raises(TypeError):

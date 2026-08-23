@@ -54,6 +54,7 @@ from science.world import registry
 from science.world.verify import LogSeam
 
 __all__ = [
+    "CORPUS_GENESIS_DOMAIN",
     "HEAD_ARTIFACT_DOMAIN",
     "LOG_HEAD_DOMAIN",
     "WORLD_GENESIS_DOMAIN",
@@ -71,7 +72,9 @@ __all__ = [
     "log_head_digest",
     "log_head_projection",
     "log_head_record_bytes",
+    "parse_corpus_genesis",
     "parse_log_head_record",
+    "parse_world_genesis",
 ]
 
 LOG_HEAD_DOMAIN = "science.log-head.v1"
@@ -84,6 +87,15 @@ Restated rather than imported: the world package may not import
 ``science.root``, and a world export must bind its subject to the ``world_id``
 the genesis payload carries. The two spellings are pinned equal by a test, so
 the restatement cannot drift into a second definition."""
+
+CORPUS_GENESIS_DOMAIN = "science.corpus-root.v1"
+"""The corpus chain's genesis domain, restated on the same terms.
+
+Its payload is *identity-free* by ruling — the constant ``{"domain": ...}`` and
+nothing else — which is the whole of the genesis-subject amendment: every
+currently constructible corpus chain has the byte-identical genesis, so anchor
+comparison is scoped by ``(subject, genesis_digest)`` and a replaced corpus
+chain is caught by ancestry rather than by a genesis that cannot differ."""
 
 _LOWER_HEX = frozenset("0123456789abcdef")
 
@@ -350,6 +362,54 @@ def decode_head_artifact(data: bytes) -> HeadArtifact:
     return artifact
 
 
+# --- the genesis payload forms (§4.2 step 1) ----------------------------------
+#
+# One statement of each form, here rather than beside each consumer. The export
+# act binds a subject to the `world_id` a genesis names and the evaluator
+# validates a genesis's *form* before it looks at anything else; those are two
+# consequences of one predicate, and two spellings of it would drift — as they
+# did, the export path admitting a `world_id` outside the identity grammar the
+# evaluator refused.
+
+
+def _genesis_document(payload: bytes) -> dict[str, object]:
+    try:
+        document = json.loads(payload.decode("utf-8"))
+    except Exception as caught:
+        raise ValueError(f"the genesis payload does not decode: {caught}") from caught
+    if type(document) is not dict:
+        raise ValueError("a genesis payload is a mapping")
+    return cast("dict[str, object]", document)
+
+
+def parse_corpus_genesis(payload: bytes) -> None:
+    """Refuse anything but the constant corpus genesis payload.
+
+    There is nothing to return: the payload carries no identity, which is the
+    ruling `CORPUS_GENESIS_DOMAIN` states. An adopted identity binds through a
+    later chain entry, never by rewriting genesis.
+    """
+    document = _genesis_document(payload)
+    if set(document) != {"domain"} or document["domain"] != CORPUS_GENESIS_DOMAIN:
+        raise ValueError(f"a corpus genesis is the constant {CORPUS_GENESIS_DOMAIN} payload")
+
+
+def parse_world_genesis(payload: bytes) -> str:
+    """The `world_id` a world genesis names, under the one identity grammar.
+
+    The id is held to the same 32-lowercase-hex form `WorldSubject` and the
+    world mirror loader hold it to: no Science path mints another spelling, and
+    a payload carrying one was not written by an initializer — so it is a root
+    that was never initialized as a Science world, not a *different* world.
+    Reading it as a different world would be the stronger claim, and the one
+    the bytes do not support.
+    """
+    document = _genesis_document(payload)
+    if set(document) != {"domain", "world_id"} or document["domain"] != WORLD_GENESIS_DOMAIN:
+        raise ValueError(f"a world genesis is a {WORLD_GENESIS_DOMAIN} payload naming a world_id")
+    return _require_lower_hex(document["world_id"], 32, "world_id")
+
+
 # --- the two acts (§3.2, §3.3) ------------------------------------------------
 #
 # Both cores take the seam as a parameter and hold no capability of their own,
@@ -453,30 +513,25 @@ def _anchor_heads(
 def _require_world_genesis(world_root: Path, payload: bytes, world_id: str) -> None:
     """The world export's binding half: the genesis must be *this* world's.
 
-    Two distinct refusals, because they are two different facts. A payload
-    that is not a Science world genesis at all says the root was never
-    initialized as one; a well-formed genesis naming another `world_id` says
-    the subject and the chain disagree, which is exactly the mismatch that
-    stops `World(W2)` being encoded over W1's chain.
+    Two distinct refusals, because they are two different facts. A payload that
+    is not a Science world genesis at all — including one naming a `world_id`
+    outside the identity grammar — says the root was never initialized as one;
+    a well-formed genesis naming *another* well-formed `world_id` says the
+    subject and the chain disagree, which is exactly the mismatch that stops
+    `World(W2)` being encoded over W1's chain.
+
+    The form half is `parse_world_genesis`, which the evaluator's genesis-form
+    step reads too. One predicate, two consequences: here a refusal, there a
+    finding.
     """
     try:
-        document = json.loads(payload.decode("utf-8"))
-    except Exception as caught:
+        named = parse_world_genesis(payload)
+    except ValueError as caught:
         raise WorldUninitialized(
-            f"{world_root}: the chain genesis payload is not a Science world genesis: {caught}"
+            f"{world_root}: the chain genesis payload is not a {WORLD_GENESIS_DOMAIN} genesis: {caught}"
         ) from caught
-    if (
-        type(document) is not dict
-        or set(document) != {"domain", "world_id"}
-        or document["domain"] != WORLD_GENESIS_DOMAIN
-    ):
-        raise WorldUninitialized(
-            f"{world_root}: the chain genesis payload is not a {WORLD_GENESIS_DOMAIN} genesis"
-        )
-    if document["world_id"] != world_id:
-        raise WorldIdMismatch(
-            f"{world_root}: the chain genesis names world_id {document['world_id']!r}, not {world_id!r}"
-        )
+    if named != world_id:
+        raise WorldIdMismatch(f"{world_root}: the chain genesis names world_id {named!r}, not {world_id!r}")
 
 
 def _export_head_artifact(

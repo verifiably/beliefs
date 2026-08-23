@@ -34,7 +34,6 @@ both call it, and no third path evaluates.
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import re
 from collections.abc import Callable, Mapping
@@ -51,7 +50,12 @@ from nodes.core.node import Node
 from yaml import YAMLError
 
 from science.corpus import Finding, OperationLock
-from science.errors import MalformedRecord, ObserverCarrierInvalid, StoreSubjectUnsupported
+from science.errors import (
+    EpochMalformed,
+    MalformedRecord,
+    ObserverCarrierInvalid,
+    StoreSubjectUnsupported,
+)
 from science.stored import verification_value
 from science.world.logmodel import (
     AbsentView,
@@ -70,7 +74,7 @@ if TYPE_CHECKING:  # pragma: no cover - the cycle below is real at run time
     from science.world.anchors import HeadArtifact, LogHeadRecord, Subject
 
 __all__ = [
-    "CORPUS_GENESIS_DOMAIN",
+    "CHAIN_ABSENT",
     "ArtifactCarrier",
     "EpochCarrier",
     "LogReport",
@@ -540,19 +544,14 @@ world root's own — and a head artifact is `supplied-export` by construction:
 its bytes reached the caller's hands to be passed in at all.
 """
 
-_LOWER_HEX = frozenset("0123456789abcdef")
+CHAIN_ABSENT = "chain-absent"
+"""The finding code that says the chain view carried no durable claim.
 
-CORPUS_GENESIS_DOMAIN = "science.corpus-root.v1"
-"""The corpus chain's genesis domain, as the composition root mints it.
-
-Restated rather than imported, exactly as `anchors.WORLD_GENESIS_DOMAIN` is:
-`science.world` may not import `science.root`. A test pins the two spellings
-equal so the restatement cannot drift into a second definition.
-
-The payload is *constant* — no `corpus_id` in it — which is §1.2's whole
-subject: every currently constructible corpus chain has the byte-identical
-genesis, so anchor comparison is scoped by `(subject, genesis_digest)` and a
-replaced corpus chain is caught by ancestry rather than by genesis mismatch.
+A module-level constant because it is a **contract between two acts**: §6.2's
+arrival causes derive from the report's fields, and this code is the whole of
+what separates `chainless` (a `ReplicaOf` that did not carry its chain — always
+refused) from a fresh chain nobody has anchored yet (admissible). The arrival
+boundary imports this name rather than restating the string.
 """
 
 _FACTORY_TOKEN = object()
@@ -570,6 +569,18 @@ def _factory_built(token: object) -> None:
         raise ObserverCarrierInvalid(
             "an observer carrier is built by its factory, which is what retains the validation evidence"
         )
+
+
+def _carrier_provenance(observed: tuple[_ObservedAnchor, ...]) -> Provenance:
+    """A carrier's provenance, read off the anchors it states.
+
+    Derived rather than stored, because the eligibility rule reads the
+    *anchor's* copy: a second field would be a second copy of one fact, and the
+    one a reader could inspect would not be the one the verdict turned on. A
+    carrier always states at least one anchor — an epoch states its world
+    triple even where it covers no corpus — so there is always one to read.
+    """
+    return observed[0].provenance
 
 
 @dataclass(frozen=True, slots=True)
@@ -601,11 +612,14 @@ class RegistryCarrier:
 
     _token: object
     record: LogHeadRecord
-    provenance: Provenance
     observed: tuple[_ObservedAnchor, ...]
 
     def __post_init__(self) -> None:
         _factory_built(self._token)
+
+    @property
+    def provenance(self) -> Provenance:
+        return _carrier_provenance(self.observed)
 
     @staticmethod
     def from_record(record: LogHeadRecord) -> RegistryCarrier:
@@ -625,14 +639,17 @@ class RegistryCarrier:
             )
         try:
             decoded = anchors.parse_log_head_record(anchors.log_head_projection(record))
-        except Exception as caught:
+        # The codec's own refusals and nothing wider: the projection raises
+        # `TypeError` on a subject or origin outside its union and the parser
+        # raises `ValueError` on every grammar failure.
+        except (TypeError, ValueError) as caught:
             raise ObserverCarrierInvalid(f"the log-head record does not satisfy its grammar: {caught}") from caught
         if decoded != record:
             raise ObserverCarrierInvalid("the log-head record is not what its own projection decodes to")
         observed = (
             _ObservedAnchor(record.subject, record.genesis, record.head, "named-local", "registry-record"),
         )
-        return RegistryCarrier(_FACTORY_TOKEN, record, "named-local", observed)
+        return RegistryCarrier(_FACTORY_TOKEN, record, observed)
 
 
 @dataclass(frozen=True, slots=True)
@@ -648,11 +665,14 @@ class ArtifactCarrier:
     _token: object
     artifact: HeadArtifact
     data: bytes
-    provenance: Provenance
     observed: tuple[_ObservedAnchor, ...]
 
     def __post_init__(self) -> None:
         _factory_built(self._token)
+
+    @property
+    def provenance(self) -> Provenance:
+        return _carrier_provenance(self.observed)
 
     @staticmethod
     def from_bytes(data: bytes) -> ArtifactCarrier:
@@ -660,12 +680,14 @@ class ArtifactCarrier:
 
         try:
             artifact = anchors.decode_head_artifact(data)
-        except Exception as caught:
+        # `TypeError` for bytes that are not bytes, `ValueError` for everything
+        # the codec refuses, including non-canonical encodings.
+        except (TypeError, ValueError) as caught:
             raise ObserverCarrierInvalid(f"the head artifact does not decode: {caught}") from caught
         observed = (
             _ObservedAnchor(artifact.subject, artifact.genesis, artifact.head, "supplied-export", "head-artifact"),
         )
-        return ArtifactCarrier(_FACTORY_TOKEN, artifact, data, "supplied-export", observed)
+        return ArtifactCarrier(_FACTORY_TOKEN, artifact, data, observed)
 
 
 @dataclass(frozen=True, slots=True)
@@ -694,11 +716,14 @@ class EpochCarrier:
     _token: object
     packaging_identity: str
     members: Mapping[str, bytes]
-    provenance: Provenance
     observed: tuple[_ObservedAnchor, ...]
 
     def __post_init__(self) -> None:
         _factory_built(self._token)
+
+    @property
+    def provenance(self) -> Provenance:
+        return _carrier_provenance(self.observed)
 
     @staticmethod
     def from_named_local(epoch_root: Path) -> EpochCarrier:
@@ -714,7 +739,9 @@ class EpochCarrier:
         directory = Path(epoch_root)
         try:
             members = dict(epoch._carrier_members(directory))
-        except Exception as caught:
+        # `EpochMalformed` for a member set or member kind the layout refuses,
+        # `OSError` for the directory that is missing or unreadable.
+        except (EpochMalformed, OSError) as caught:
             raise ObserverCarrierInvalid(f"{directory}: the epoch members do not read: {caught}") from caught
         return _epoch_carrier(members, directory.name, "named-local")
 
@@ -762,11 +789,15 @@ def _epoch_carrier(members: dict[str, bytes], packaging_identity: str, provenanc
                 f"epoch:{packaging_identity}",
             ),
         )
-    except Exception as caught:
+    # `_parse_member` wraps every shape failure as `EpochMalformed`, and the
+    # subject constructors raise `ValueError` on an anchor subject that is not
+    # an identity. Nothing between them raises anything else: the member's
+    # closed-document check has already run when the triples are lifted.
+    except (EpochMalformed, ValueError) as caught:
         raise ObserverCarrierInvalid(
             f"{packaging_identity}: the anchors member is not the triples §6.1 fixes: {caught}"
         ) from caught
-    return EpochCarrier(_FACTORY_TOKEN, packaging_identity, MappingProxyType(members), provenance, observed)
+    return EpochCarrier(_FACTORY_TOKEN, packaging_identity, MappingProxyType(members), observed)
 
 
 ObserverCarrier: TypeAlias = RegistryCarrier | EpochCarrier | ArtifactCarrier
@@ -918,13 +949,18 @@ def evaluate_log(
     if type(view) is not WellFormedView:
         raise TypeError(f"{type(view).__name__} is not a chain view")
 
+    intents = tuple(entry.digest for entry in view.entries if type(entry) is IntentEntryView)
     defect, genesis_world_id = _genesis_form(kind, view.genesis)
     if defect is not None:
-        return _report("malformed", bound=labels, findings=tuple(findings) + (defect,))
+        # The inventory is carried even here: §10.1 asks that the qualification
+        # deferral be stated in *every* report, and a chain the engine
+        # linearized has an intent inventory whatever its genesis payload says.
+        # The `MalformedView` exit above states none because there are no
+        # entries there to inventory, which is a different fact.
+        return _report("malformed", intents=intents, bound=labels, findings=tuple(findings) + (defect,))
     findings.extend(_genesis_findings(subject, kind, genesis_world_id))
 
     pending = view.pending
-    intents = tuple(entry.digest for entry in view.entries if type(entry) is IntentEntryView)
     digests = tuple(entry.digest for entry in view.entries)
     positions = {digest: index for index, digest in enumerate(digests)}
 
@@ -1099,35 +1135,28 @@ def _genesis_form(kind: SubjectKind, genesis: GenesisEntryView) -> tuple[Finding
     the selected subject, and `None` for a corpus genesis, whose payload
     carries no identity at all (§1.2).
 
-    A world genesis naming *another* world is well-formed here on purpose: it
-    is §6.3's mismatch, and calling it malformed would report a lifecycle fact
-    as structural damage — and would make the audit of exactly the world
-    `open_world` refuses report the wrong thing (§6.1).
+    **The form itself is `anchors`'** (`parse_corpus_genesis`,
+    `parse_world_genesis`), which is also what the export act's subject binding
+    reads. One predicate, two consequences: a refusal there, a finding here.
+    What is this step's own is the *consequence* — a malformed genesis is an
+    outcome, never an exception — and the empty-baseline rule, which is a fact
+    about the chain's first entry rather than about its payload.
+
+    A world genesis naming *another* well-formed world is not a defect here on
+    purpose: it is §6.3's mismatch, and calling it malformed would report a
+    lifecycle fact as structural damage — and would make the audit of exactly
+    the world `open_world` refuses report the wrong thing (§6.1).
     """
     from science.world import anchors
 
-    try:
-        document = json.loads(genesis.payload.decode("utf-8"))
-    except (UnicodeDecodeError, ValueError) as caught:
-        return _genesis_defect(genesis, f"the genesis payload does not decode: {caught}"), None
-    if type(document) is not dict:
-        return _genesis_defect(genesis, "the genesis payload is not a Science genesis document"), None
     world_id: str | None = None
-    if kind == "corpus":
-        if set(document) != {"domain"} or document["domain"] != CORPUS_GENESIS_DOMAIN:
-            return _genesis_defect(
-                genesis, f"a corpus genesis is the constant {CORPUS_GENESIS_DOMAIN} payload"
-            ), None
-    else:
-        if (
-            set(document) != {"domain", "world_id"}
-            or document["domain"] != anchors.WORLD_GENESIS_DOMAIN
-            or not _is_identity(document["world_id"])
-        ):
-            return _genesis_defect(
-                genesis, f"a world genesis is a {anchors.WORLD_GENESIS_DOMAIN} payload naming a world_id"
-            ), None
-        world_id = document["world_id"]
+    try:
+        if kind == "corpus":
+            anchors.parse_corpus_genesis(genesis.payload)
+        else:
+            world_id = anchors.parse_world_genesis(genesis.payload)
+    except ValueError as caught:
+        return _genesis_defect(genesis, str(caught)), None
     if genesis.baseline != ():
         return _genesis_defect(
             genesis,
@@ -1135,10 +1164,6 @@ def _genesis_form(kind: SubjectKind, genesis: GenesisEntryView) -> tuple[Finding
             "baseline is a chain no Science path mints (§1.3)",
         ), None
     return None, world_id
-
-
-def _is_identity(value: object) -> bool:
-    return type(value) is str and len(value) == 32 and all(character in _LOWER_HEX for character in value)
 
 
 def _mismatch(source: str, claimed: str, subject: Subject) -> Finding:
@@ -1232,7 +1257,7 @@ def _chainless_finding() -> Finding:
     """
     return Finding(
         severity="warning",
-        code="chain-absent",
+        code=CHAIN_ABSENT,
         ref="chain",
         detail="",
         message="no durable chain claim: the chain directory is absent, or present and empty",
@@ -1274,11 +1299,14 @@ def _anchor_refutations(
     corpus genesis is a constant — a replaced corpus chain is caught one line
     below, as an anchored head its ancestry cannot reach.
 
-    **Incomparability** is the pair statement of the same fact. The chain's
-    entries are a linearization, so any two heads it *can* place are ordered by
-    it; a pair it cannot order is a pair where at least one head belongs to a
-    history this chain does not contain, which is two claimed heads of one
-    subject that no single chain can carry.
+    **Incomparability** is the pair statement of the same fact, and it is
+    reported only over pairs where *both* heads are unplaced. The chain's
+    entries are a linearization, so any two heads it can place are ordered by
+    it, and a placed head against an unplaced one is already said in full by
+    the unreachability finding — pairing the two would emit one derived finding
+    per surviving anchor and bury the fault that was found. Two unplaced heads
+    are the pair that says something more: two claimed heads of one subject
+    that no single chain here carries.
     """
     findings: list[Finding] = []
     unplaced: list[_ObservedAnchor] = []
@@ -1308,7 +1336,7 @@ def _anchor_refutations(
             )
     reported: set[tuple[str, str]] = set()
     for anchor in unplaced:
-        for other in bound:
+        for other in unplaced:
             if other.head == anchor.head:
                 continue
             pair = (anchor.head, other.head) if anchor.head < other.head else (other.head, anchor.head)
