@@ -1317,8 +1317,8 @@ ordinary terms.
 
    **Three of the four closed 2026-08-23**, at the discharge of conformance
    cut 8 by world-index slice 3 (`2026-08-22-log-verification-design.md`;
-   results at `../plans/2026-08-22-conformance-cut-8-results.md`), on branch
-   `design/log-verification` pending its `--no-ff` merge. **G8**, **semantic
+   results at `../plans/2026-08-22-conformance-cut-8-results.md`), merged
+   into `main` on 2026-08-23 with `--no-ff` (`10cc84b`). **G8**, **semantic
    identity** and **5a's standing subtraction** are each a removal or rewrite
    inside the registered surface, and the log's replay refutes each against a
    surviving anchor — the removal itself additionally named in a policy finding,

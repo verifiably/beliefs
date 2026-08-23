@@ -9,7 +9,8 @@ certification on 2026-08-17.
 (`2026-08-22-log-verification-design.md`), discharging conformance cut 8
 (`2026-08-22-conformance-cut-8.md`; results at
 `../plans/2026-08-22-conformance-cut-8-results.md`) on branch
-`design/log-verification`, whose `--no-ff` merge is the one remaining act.
+`design/log-verification`, merged into `main` on 2026-08-23 with `--no-ff`
+(integration commit `10cc84b`).
 What that closes, exactly: the **detectability** of three of kernel §8.7's
 four recorded-mutation consequences — deleting a failing verification (G8),
 hand-editing a proposition's semantic fields with its stored hash, and

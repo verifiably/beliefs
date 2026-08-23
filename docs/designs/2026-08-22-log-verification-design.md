@@ -617,7 +617,9 @@ banked.
    docs.
 
 **All six steps completed 2026-08-23** on branch `design/log-verification`,
-whose `--no-ff` merge to `main` is the one remaining act. The thirty-eight
+merged to `main` the same day with `--no-ff` (integration commit `10cc84b`);
+the atoms head `3aa5a76` was pushed to the `atoms` remote the same day,
+closing §8's fresh-checkout prerequisite. The forty-four
 execution rulings are in
 `../plans/2026-08-22-log-verification-ledger.md`; the discharge is
 `../plans/2026-08-22-conformance-cut-8-results.md`.

@@ -150,7 +150,7 @@ receipts, bounded reads, whole-epoch GC, and anchor carriage, merged into
 `main` on 2026-08-22; cut 8 adds anchor **verification** — the anchor act, the
 four-outcome log evaluator, replay with its removal policy pass, the audit and
 replica-arrival boundaries, and the genesis↔mirror agreement check — discharged
-2026-08-23 on a branch not yet merged. Global resolution remains designed, and
+2026-08-23 and merged into `main` the same day. Global resolution remains designed, and
 so do the log slice's named deferrals: intent qualification, the
 preimage-backed classification of a removed verification, event-level
 cross-chain order, and the fork/replica/restore arms.

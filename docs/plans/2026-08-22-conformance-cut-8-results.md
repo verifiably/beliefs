@@ -19,6 +19,11 @@ the human partner's act, as it was for slice 2. Nothing below claims otherwise:
 where a banked document now says this slice landed, it says so about this
 branch.
 
+**Corrected 2026-08-23.** The merge landed later the same day: `--no-ff`
+integration commit `10cc84b` on `main`, preserving branch history as §7's
+constraint requires. The paragraph above is true of the discharge and false of
+the present.
+
 ## 1. The accounting, re-derived
 
 Recounted from the frozen cut's own §3 bullets rather than copied from its §4.
@@ -388,6 +393,14 @@ written, and the `atoms` remote `main` stands at it. Row 4 and cut 7's results
 change. So cut 7's reproduction prerequisite is satisfied, cut 8's is not, and
 the local `atoms` `main` is nine commits ahead of the remote (execution ledger
 R44).
+
+**Corrected 2026-08-23.** `3aa5a76` was **pushed on 2026-08-23**, after this
+record was written and after the branch merged; the `atoms` remote `main`
+stands at it now. The paragraphs above are true of the discharge and false of
+the present: reproducing this discharge no longer needs a local clone, and the
+fresh-checkout prerequisite is closed. The treatment is `2c077ed`'s exactly —
+the original sentences stand, and adoption-ledger row 4 is corrected in place
+as the live authority.
 
 The three commands' own behaviour is **not re-certified here**. Their tests live
 in `atoms`; this cut consumes the seam contract and gates on the landed

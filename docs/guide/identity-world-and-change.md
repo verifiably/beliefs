@@ -154,9 +154,9 @@ implemented as well** — the log-head record and head artifact, the explicit
 anchor act, the four-outcome evaluator, replay with its removal policy pass, the
 genesis↔mirror agreement check, and the ordered-cuts predicate, discharged
 against [conformance cut 8](../designs/2026-08-22-conformance-cut-8.md) on
-2026-08-23 ([results](../plans/2026-08-22-conformance-cut-8-results.md)) — but
-on a branch not yet merged, and intent qualification and the preimage-backed
-classification of a removed verification are still deferred. Global resolution
+2026-08-23 ([results](../plans/2026-08-22-conformance-cut-8-results.md)) and
+merged into `main` the same day — though intent qualification and the
+preimage-backed classification of a removed verification are still deferred. Global resolution
 remains designed. The address ruling still governs the eventual derived
 views: labels are computed on read, coreference is graded rather than merged,
 and storage duplication changes no address.
