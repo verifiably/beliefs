@@ -25,7 +25,8 @@ slice's, not this one's. This slice builds the substrate those stand on.
 step 5):** the fail-closed
 writer state; the root-model amendment admitting a second root kind while
 the engine stays root-kind agnostic; `replicate_root`, `fork_root`, and
-`grant_read_serviceability`; and the explicit pre-lifecycle migration.
+`grant_read_serviceability` with the read-only `read_lifecycle_state`
+query; and the explicit pre-lifecycle migration.
 
 **Built here (Science):** `init_store_root`; the widened `anchor_heads`
 and `export_head_artifact`; the evaluator's store-subject path;
@@ -45,6 +46,20 @@ bookkeeping** — the metadata root, single-host by construction, never
 traveling with the tree. The coordinator refuses every mutation on a root
 not granted writability. A tree arriving without metadata cold-bootstraps
 **read-only and unserviceable**.
+
+**The grant is host-local by a verifiable root/host binding, not by
+assumption.** Bookkeeping is a directory, and a directory can be copied;
+"never travels" is a construction fact about the engine's own operations,
+not a property of `rsync`. So the grant record carries a **binding to the
+host's stable machine identity and the root's canonical path**, and the
+coordinator validates the binding **before honoring any grant**: a
+mismatch reads as no grant — fail-closed, exactly the metadata-less
+outcome. This is what makes the migration's "this host minted"
+distinction and the two-restored-copies arm implementable from available
+state: copied bookkeeping fails the binding on arrival. The binding's
+exact carrier is the atoms gate's to design; the requirement — no grant
+honored without a matching binding — is frozen here. Forging the binding
+in place is a raw bookkeeping edit, already out-of-band.
 
 **Two steady-state grantors, plus the explicit pre-lifecycle migration:**
 
@@ -87,10 +102,13 @@ tuple** from Science.
 Corpus genesis stays identity-free with an empty baseline; the **fork
 genesis** is the ruled exception on both counts (§4, §5).
 
-## 4. The three lifecycle commands (atoms)
+## 4. The lifecycle commands and the state query (atoms)
 
 All three are exact-retry operations; an interrupted invocation is
-resumable, and resumption proves before proceeding.
+resumable, and resumption proves before proceeding. The two copy
+commands are **no-clobber**: the destination must not exist, and
+exclusivity is claimed durably at start by an **operation identity**
+recorded in the destination bookkeeping — the fact a retry recognizes.
 
 **`replicate_root(source_root, dest_root, dest_metadata_root)`.** Runs
 under the source's held lease, so chain and payload are one coherent view
@@ -110,10 +128,15 @@ interpreting nothing**. Under the source's held lease: materialize the
 destination tree, apply the overrides, capture the baseline over
 `surface_paths` (the existing internal baseline capture, reused), append
 the fresh genesis as a **new chain** — parent and fork never share one —
-and record the writability grant only after the genesis is durable. A kill
-between genesis and grant leaves a read-only root with a new genesis;
-**retry resumes the grant after proving genesis, baseline, and destination
-tree match** — an interrupted fork is never stranded unusable.
+and record the writability grant only after the genesis is durable. Retry
+semantics split at the grant. A kill between genesis and grant leaves a
+read-only root with a new genesis; **pre-grant retry resumes the grant
+after proving genesis, baseline, and destination tree match** — an
+interrupted fork is never stranded unusable. **After the grant, the
+operation is complete and legitimate writes may change the tree**, so a
+retry recognizes the stored operation identity and returns success
+without requiring the original snapshot — it never compares the tree it
+has no right to expect.
 
 **`grant_read_serviceability(root, metadata_root)`.** Rechecks structural
 facts only — the root is non-writable and currently unserviceable — then
@@ -123,15 +146,28 @@ Calling it outside Science's restore orchestration is explicitly
 **out-of-band**, beside raw bookkeeping edits and raw `rm`. Atoms never
 exposes a `restore_root`: no atoms name implies verification.
 
+**`read_lifecycle_state(root, metadata_root)`.** The read-only query
+beside the three mutating commands: it reports the root's validated
+lifecycle state — **writable**, **read-only serviceable**, **read-only
+unserviceable**, or **metadata-less** — with the §2 root/host binding
+validated as part of the reading, so binding-mismatched bookkeeping
+reports as no grant, never as the state its bytes claim. It is how
+Science selects `admit_arrival`'s inspection mode (§7.2) and how any
+consumer asks a lifecycle question without interpreting bookkeeping.
+
 ## 5. The fork-baseline ruling (lifting §1.3 for fork geneses)
 
 A fork is a populated root with a fresh chain — the shape the
 log-verification design's §1.3 declared unconstructible, leaving L6 wholly
 unread. This slice is the **registration-surface design act** that
-amendment named: a **fork genesis registers the captured source surface as
-its baseline**; non-fork geneses still require an empty baseline. The
-capture is the same coherent source-lease capture the fork needs anyway,
-so the lift costs no new machinery.
+amendment named: a **fork genesis registers the destination surface after
+`dest_overrides` as its baseline** — the copied source surface plus the
+installed overrides, captured at the destination, which is why §4 orders
+override application before baseline capture; non-fork geneses still
+require an empty baseline, and **`init_store_root` refuses a populated
+payload root** for the same reason. The capture reuses the registration
+baseline machinery the fork needs anyway, so the lift costs no new
+mechanism.
 
 Both L6 arms become constructible and cut 9 selects both (§7): damage a
 baseline-covered pre-log member under a surviving anchor → replay
@@ -142,7 +178,7 @@ the lifted ruling rather than the unconstructible original (§8).
 
 ## 6. The fork acts, and the two `forked_from` facts (Science)
 
-`fork_corpus(source_root, dest_root, *, actor)`: mint a fresh `corpus_id`
+`fork_corpus(source_root, dest_root)`: mint a fresh `corpus_id`
 — W13's fork-constructor arm: a fresh opaque mint, no re-mint path —
 author the child manifest **from the act**, and call `fork_root` with the
 corpus surface tuple and the manifest as a destination override, so the
@@ -161,9 +197,9 @@ The two `forked_from` facts are distinct and stay so:
 
 Consequences: `World.admit`'s fork-of path now takes act-minted manifests,
 retiring row 2's fixture authorship; packaging limitation 5 **narrows** —
-an act-minted fork's `forked_from` is derived from the parent's
-genesis-verified identity, never caller-supplied, while declared-only
-forks stay authored claims; and L4's genesis-mismatch arm becomes readable
+an act-minted fork's `forked_from` is derived from the parent's manifest
+`corpus_id` and corpus-state identity, never caller-supplied, while
+declared-only forks stay authored claims; and L4's genesis-mismatch arm becomes readable
 for corpora, scoped exactly: **a mismatch is between two fork geneses
 selected as the same child corpus subject**. Parent and child anchors are
 incomparable by policy and must never trigger it.
@@ -174,7 +210,10 @@ incomparable by policy and must never trigger it.
 
 `anchor_heads` widens to take store subjects beside corpus ids, each store
 resolving by a **supplied root**; `export_head_artifact` widens to
-`StoreSubject`. The `HeadArtifact` and `LogHeadRecord` codecs already
+`StoreSubject` **under the same resolution contract** — a supplied store
+root whose genesis must carry the subject's `store_id`, since with no
+store registry there is nothing else to resolve against. The
+`HeadArtifact` and `LogHeadRecord` codecs already
 carry stores — only the acts, wrappers, and the reachable evaluator path
 widen: `_refuse_store_subject` is removed from **both** reachable sites
 (`evaluate_log` and `_audit_log`), and `RootKind`,
@@ -193,20 +232,24 @@ corpus-only.
 boundary on the destination root** across every step — no cooperative act
 can interleave between check and grant:
 
-1. **Resolve and bind the subject**, by root kind: for a **store**, the
-   genesis `store_id` must equal the selected subject; for a **corpus**,
-   the **manifest `corpus_id`** must equal the selected subject, while the
-   genesis passes corpus/fork **form validation only** — corpus genesis
-   never carries a `corpus_id` to compare.
-2. **Inspect.** The evaluator's precedence is preserved: a malformed view
+1. **Inspect.** The evaluator's precedence is preserved: a malformed view
    **reaches `evaluate_log` and returns `malformed`** — never a
-   pre-evaluation exception.
-3. **Capture** the registered surface under the subject's canonical
-   projection.
-4. **Evaluate** with the slice-3 evaluator against the **explicit observer
+   pre-evaluation exception. Nothing binds the subject before inspection;
+   binding reads the genesis and manifest, and inspection gets to those
+   bytes first.
+2. **Capture the presented identity and the surface**: the genesis (and,
+   for a corpus, the manifest) as presented, and the registered surface
+   under the subject's canonical projection.
+3. **Evaluate** with the slice-3 evaluator against the **explicit observer
    set** — store- or corpus-subject registry log-head records, or supplied
    exported head artifacts. An empty observer set is `unresolvable`,
    replay never reached — L9's bound, no new rule.
+4. **Subject-agreement gate**, by root kind, over the captured identity:
+   for a **store**, the genesis `store_id` must equal the selected
+   subject; for a **corpus**, the **manifest `corpus_id`** must equal the
+   selected subject, while the genesis passes corpus/fork **form
+   validation only** — corpus genesis never carries a `corpus_id` to
+   compare.
 5. **Grant only on `validated` with subject agreement.** Subject agreement
    is a **separate lifecycle precondition**: a `validated` report carrying
    a subject mismatch does not grant. Every other verdict is preserved and
@@ -216,10 +259,17 @@ can interleave between check and grant:
 **`admit_arrival`'s inspection premise.** A restored corpus root carries
 bookkeeping, so the arrival act's detached-mode premise no longer holds
 for it. Ruled here: `admit_arrival` selects its inspection mode by
-bookkeeping presence — **registered inspection where bookkeeping exists**
-(a serviceable read-only root has no possible pending writer state, so
-registered inspection is exact), detached inspection for the metadata-less
-arrival it was built for. The detached staging-leaf ruling is untouched.
+**validated lifecycle state, not by filesystem bookkeeping presence** —
+partial or restored bookkeeping may exist while the root is unserviceable,
+and a directory's existence is not a state. Science reads that state
+through the atoms gate's **`read_lifecycle_state`** query (§4): a root
+reading **serviceable read-only** takes registered inspection (such a root
+has no possible pending writer state, so registered inspection is exact);
+every other reading — unserviceable, metadata-less, binding-mismatched —
+takes the detached inspection the act was built for. Consequently a
+**restored corpus arrival must be serviceable before registered-mode
+`admit_arrival`**: run `restore_root` first, or arrive detached. The
+detached staging-leaf ruling is untouched.
 
 The Science `replicate_root` wrapper is thin: it calls the atoms command
 and appends nothing — a replica's chain must arrive unchanged, so there is
@@ -256,8 +306,8 @@ quotes pytest's own summary line under `pipefail`.
 6. Science implementation against the merged seam.
 7. Certified acceptance, results record, and banking: this document
    promotes to `docs/designs/`; adoption-ledger rows 2, 4, and 5 are
-   corrected in the same change (row 4 gains the three commands as landed
-   atoms state; row 2's fork construction closes; row 5's remainder
+   corrected in the same change (row 4 gains the lifecycle commands and
+   the state query as landed atoms state; row 2's fork construction closes; row 5's remainder
    shrinks to intent qualification, event-level L8, and L13's preimage
    resolver); the log-verification design's limitations 2, 3, and 6 close
    or narrow — its limitations 5, 8, and 9 stand; packaging limitation 5
