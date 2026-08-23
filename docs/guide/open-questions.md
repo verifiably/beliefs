@@ -2,7 +2,7 @@
 title: Open questions
 status: living
 created: 2026-08-08
-updated: 2026-08-22
+updated: 2026-08-23
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-substrate-consolidation-design.md
@@ -181,7 +181,7 @@ implementation**: a guarantee row awaiting code is work, not a question.
   certification is unspellable and existing instruments certify only through a
   successor spec. Open is the cadence: sweep, mint on next authored use, or
   never. ([normative-contract questions](../designs/2026-08-03-normative-contract-design.md#11-open-questions))
-- **Cut 7 is discharged; most of cut 3's deferred boundary stays open.** Cut 3
+- **Cut 8 is discharged; part of cut 3's deferred boundary stays open.** Cut 3
   was frozen 2026-08-11 at the run boundary,
   taking run capture — the seam the verified-holdings record (2026-08-10)
   and the act-report design (2026-08-11) finished designing. Its §5
@@ -199,8 +199,16 @@ implementation**: a guarantee row awaiting code is work, not a question.
   corpus-state identity, registry, lifecycle, and presence core. Cut 7 froze
   the epoch build, four maps and receipts, rules store, bounded reads,
   GC, and anchor carrier, and discharged all 48 declarations on the certified
-  tuple; anchor verification remains outside it. Cuts 4–7 are implemented,
-  discharged, and merged on `main`.
+  tuple; anchor verification was outside it. Cut 8 closed that: it froze
+  2026-08-22 over the L table, reading five rows in full and seven in part with
+  L6 unread, and discharged all 53 declarations on the certified tuple on
+  2026-08-23 — the anchor act, the one four-outcome evaluator, replay, the
+  audit and replica-arrival boundaries, and the genesis↔mirror check. Cuts 4–7
+  are implemented, discharged, and merged on `main`; **cut 8 is discharged on a
+  branch that is not merged.** What the tamper-log group still owes is named
+  and owned: intent qualification with G4, the preimage-backed classification
+  of a removed verification, event-level cross-chain order, and L10's
+  fork/replica/restore arms.
   The separately deferred consolidate/move/deletion cut no longer waits on the
   world index.
   ([conformance cut 3](../designs/2026-08-11-conformance-cut-3.md),
@@ -213,19 +221,23 @@ implementation**: a guarantee row awaiting code is work, not a question.
   [cut 6 results](../plans/2026-08-20-conformance-cut-6-results.md),
   [epoch-carrier design](../designs/2026-08-20-world-index-slice-2-design.md),
   [conformance cut 7](../designs/2026-08-20-conformance-cut-7.md),
-  [cut 7 results](../plans/2026-08-20-conformance-cut-7-results.md))
+  [cut 7 results](../plans/2026-08-20-conformance-cut-7-results.md),
+  [log-verification design](../designs/2026-08-22-log-verification-design.md),
+  [conformance cut 8](../designs/2026-08-22-conformance-cut-8.md),
+  [cut 8 results](../plans/2026-08-22-conformance-cut-8-results.md))
 - **The act-report's residue.** The act-report design (2026-08-11) closed
   the run boundary's report seam: the boundary-minted terminal record of
   an opened operation — or the pre-intent refusal record of a rejected
   run request — the operation intent's three-valued completion reading
   (unfinished, indeterminate, closed), and the durable home of a look's
-  non-report. Five things stay open, deliberately: cross-root publication
+  non-report. Four things stay open, deliberately: cross-root publication
   of a dataset's provenance reference and its acquiring report (refused
   today); a compaction protocol that must preserve intent-qualification
   resolvability and fulfillment evidence (the rule today is retain); new
   operation kinds (the enum is closed at five); the agentic surface —
-  audit scheduling and liveness, kernel sub-problem 6; and Science-side anchor
-  carriage and a durable-log consumer, which remain unimplemented after
-  composition-root adoption.
+  audit scheduling and liveness, kernel sub-problem 6. Science-side anchor
+  carriage and a durable-log consumer are **no longer among them**: carriage
+  landed with cut 7 and the consumer — the explicit anchor act, the evaluator,
+  and the audit and arrival boundaries — with cut 8 on 2026-08-23.
   ([act-report design](../designs/2026-08-11-act-report-design.md),
   [what stays open](../designs/2026-08-11-act-report-design.md#6-what-this-unblocks-and-what-stays-open))

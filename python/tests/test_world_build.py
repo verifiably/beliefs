@@ -30,6 +30,7 @@ import sys
 import threading
 from collections.abc import Callable
 from dataclasses import FrozenInstanceError, fields
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
@@ -81,6 +82,26 @@ rather than guessed inside a helper."""
 # --- the harness -------------------------------------------------------------
 
 
+def stand_in_digest(label: str, target: Path) -> str:
+    """A stand-in chain digest with the *form* a chain digest has.
+
+    A chain digest is the 64-character lowercase SHA-256 of an entry envelope,
+    and publication now mints registry log-head records from these values —
+    where that form is validated. A stub answering `genesis:alpha` would be a
+    double that no longer stands in for the thing it doubles, so the digest is
+    derived from the root's name and then hashed into the real shape.
+    """
+    return sha256(f"{label}:{Path(target).name}".encode()).hexdigest()
+
+
+def genesis_of(target: Path) -> str:
+    return stand_in_digest("genesis", target)
+
+
+def tip_of(target: Path) -> str:
+    return stand_in_digest("tip", target)
+
+
 class ChainHeads:
     """The injected `(genesis_digest, tip)` callback, recording every call.
 
@@ -105,7 +126,7 @@ class ChainHeads:
         if self.gate is not None and target == self.gate_root:
             self.entered.set()
             assert self.gate.wait(JOIN_TIMEOUT), "the gated capture was never released"
-        return (f"genesis:{target.name}", f"tip:{target.name}")
+        return (genesis_of(target), tip_of(target))
 
 
 def make_world(tmp_path: Path, *corpus_roots: Path, chain_head: ChainHeads | None = None) -> registry.World:
@@ -293,7 +314,9 @@ class TestTheCompositionRootReadsTheChain:
         assert world._corpus_executor_factory is composition_root.durable_executor_factory()
 
 
-@pytest.mark.parametrize("module", ["derive", "epoch", "read", "registry", "rules"])
+@pytest.mark.parametrize(
+    "module", ["anchors", "derive", "epoch", "logmodel", "read", "registry", "rules", "verify"]
+)
 def test_each_world_module_imports_first_without_a_cycle(module):
     """Every world module is importable *first* in a fresh interpreter.
 
@@ -301,6 +324,11 @@ def test_each_world_module_imports_first_without_a_cycle(module):
     imports `epoch`. All three edges are module-form and every use is at call
     time, which is what makes the cycle resolvable in every order — a name-form
     import of any of them would raise on exactly one of these four entries.
+
+    Slice 3 adds a fourth edge of the same shape: `registry` needs `anchors`'
+    codec for its scan and `anchors`' act cores need `registry`'s scan and
+    carrier resolution, so both spellings are module-form and both are used
+    only at call time.
     """
     completed = subprocess.run(
         [sys.executable, "-c", f"import science.world.{module}"],
@@ -549,8 +577,8 @@ class TestPreflightOrder:
         draft = build(world, (ALPHA,), bindings)
 
         assert draft.world_anchor.subject == world.config.world_id
-        assert draft.world_anchor.head_digest == f"tip:{world.config.world_root.name}"
-        assert draft.world_anchor.genesis_digest == f"genesis:{world.config.world_root.name}"
+        assert draft.world_anchor.head_digest == tip_of(world.config.world_root)
+        assert draft.world_anchor.genesis_digest == genesis_of(world.config.world_root)
 
 
 # --- Step 3: serial coherent capture ------------------------------------------
@@ -595,7 +623,7 @@ def test_chain_head_and_state_are_captured_in_one_hold(monkeypatch, tmp_path):
     assert {holder for _stage, holder, _generation in seen} == {"capture"}
     assert len({generation for _stage, _holder, generation in seen}) == 1
     assert lock._holder is None
-    assert draft.anchors == (epoch._Anchor(ALPHA, f"genesis:{roots[ALPHA].name}", f"tip:{roots[ALPHA].name}"),)
+    assert draft.anchors == (epoch._Anchor(ALPHA, genesis_of(roots[ALPHA]), tip_of(roots[ALPHA])),)
 
 
 def test_api_write_refuses_during_capture(tmp_path):

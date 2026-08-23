@@ -26,11 +26,13 @@ from science.errors import (
     ManifestMissing,
     ProvenanceMismatch,
     RegistryMalformed,
+    ReplicaAdmissionRequiresVerification,
     StatusTargetUnknown,
     StatusTerminal,
     WorldUninitialized,
 )
 from science.identity import v1
+from science.world import anchors
 
 __all__ = [
     "AdmissionProvenance",
@@ -155,6 +157,7 @@ class WorldConfig:
 class RegistryView:
     admissions: tuple[AdmissionRecord, ...] = ()
     statuses: tuple[StatusRecord, ...] = ()
+    log_heads: tuple[anchors.LogHeadRecord, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -173,6 +176,27 @@ class _WorldState:
 
 _WORLD_STATES: dict[str, _WorldState] = {}
 _WORLD_STATES_LOCK = threading.Lock()
+
+
+def _world_state_for(world_root: Path) -> _WorldState:
+    with _WORLD_STATES_LOCK:
+        return _WORLD_STATES.setdefault(
+            str(Path(world_root).resolve()), _WorldState(threading.Lock(), RegistryView())
+        )
+
+
+def _world_lock_for(world_root: Path) -> threading.Lock:
+    """One world root's lock, without opening a `World`.
+
+    The lock-only lookup exists because verification locks a world it never
+    opened: constructing a `World` needs a `WorldConfig`, an executor factory
+    and a chain reader, none of which an audit has or should invent. The
+    corpus registry cannot serve here either — `_ROOT_STATES` and
+    `_WORLD_STATES` are separate maps over different roots — so this is the
+    world's own entry point, handing back the identical object an opened
+    `World` holds.
+    """
+    return _world_state_for(world_root).lock
 
 
 def _require_lower_hex(value: object, length: int, location: str) -> str:
@@ -221,10 +245,7 @@ class World:
         self._executor_factory = executor_factory
         self._chain_head = chain_head
         self._corpus_executor_factory = corpus_executor_factory
-        with _WORLD_STATES_LOCK:
-            self._state = _WORLD_STATES.setdefault(
-                str(config.world_root), _WorldState(threading.Lock(), RegistryView())
-            )
+        self._state = _world_state_for(config.world_root)
 
     def registry(self) -> RegistryView:
         with self._state.lock:
@@ -244,26 +265,28 @@ class World:
         provenance: AdmissionProvenance,
         actor: str,
     ) -> AdmissionRecord:
-        with self._state.lock:
-            self._state.registry = _scan_registry(self.config.world_root)
-            manifest = load_manifest(corpus_root)
-            _validate_provenance(manifest, provenance)
-            candidate = AdmissionRecord(manifest, provenance, actor)
-            digest = admission_digest(candidate)
-            for record in self._state.registry.admissions:
-                if admission_digest(record) == digest:
-                    return record
-            if any(record.corpus_id == candidate.corpus_id for record in self._state.registry.admissions):
-                raise CorpusIdKnown(f"corpus_id {candidate.corpus_id!r} is already admitted")
-            if isinstance(provenance, ForkOf) and not any(
-                record.corpus_id == provenance.parent_corpus_id for record in self._state.registry.admissions
-            ):
-                raise ForkParentUnknown(f"fork parent {provenance.parent_corpus_id!r} is not admitted")
-            self._executor_factory(self.config.world_root).execute(
-                [CreateOp(f"registry/{digest}.yaml", _record_bytes(admission_projection(candidate)))]
+        """Admit a corpus root this world holds no verdict about.
+
+        `ReplicaOf` is refused here (log-verification design §6.2): a replica's
+        chain traveled, and admitting it is the one admission that asks a
+        question about evidence. This call inspects nothing, so it has no
+        answer to report — `science.root.admit_arrival` is the route that does,
+        and it commits through the very core below.
+        """
+        if type(provenance) is ReplicaOf:
+            raise ReplicaAdmissionRequiresVerification(
+                f"{Path(corpus_root)}: a replica is admitted through admit_arrival, which verifies the chain "
+                "it traveled with and reports the verdict beside the record"
             )
-            self._state.registry = _scan_registry(self.config.world_root)
-            return next(record for record in self._state.registry.admissions if admission_digest(record) == digest)
+        with self._state.lock:
+            return _locked_admit(
+                self._state,
+                self.config.world_root,
+                self._executor_factory,
+                lambda: load_manifest(corpus_root),
+                provenance,
+                actor,
+            )
 
     def retire(self, corpus_id: str, *, actor: str) -> StatusRecord:
         return self._terminal(corpus_id, "retired", actor)
@@ -288,6 +311,59 @@ class World:
             )
             self._state.registry = _scan_registry(self.config.world_root)
             return next(record for record in self._state.registry.statuses if status_digest(record) == digest)
+
+
+def _locked_admit(
+    state: _WorldState,
+    world_root: Path,
+    executor_factory: Callable[[Path], WritePlanExecutor],
+    manifest_of: Callable[[], CorpusManifest],
+    provenance: AdmissionProvenance,
+    actor: str,
+) -> AdmissionRecord:
+    """The whole of admission, assuming `state.lock` is already held.
+
+    **One core, two callers** (log-verification design §6.2): `World.admit` and
+    the verified arrival both commit through this and there is no second
+    registration path, which is what makes admission identity byte-identical
+    across the two routes. Nothing here is amended by verification — the
+    observer bound is never a member of an `AdmissionRecord`.
+
+    **The manifest arrives as a thunk**, which lets the two callers keep two
+    different — and each correct — readings of it. The core scans the world's
+    own registry before calling the thunk, so `World.admit`, whose thunk *is*
+    the read, keeps its ordering: a malformed registry is reported ahead of a
+    malformed manifest, the world's state judged before the candidate's claim.
+    The arrival's thunk is not a read at all — it has already read the manifest,
+    under the arriving root's own lock and before its capture, because the
+    subject check and the presented identity both need it there — so passing the
+    value in is what keeps the record's manifest and the judged manifest one
+    read. Scan-before-read is therefore the bare-admit caller's ordering rather
+    than a property this core imposes on every caller.
+
+    It is `_locked_*` for the reason every helper in this module is: the world
+    lock is not reentrant, and the arrival already holds it when it arrives
+    here — so this takes no lock and calls no `World` method (R12).
+    """
+    state.registry = _scan_registry(world_root)
+    manifest = manifest_of()
+    _validate_provenance(manifest, provenance)
+    candidate = AdmissionRecord(manifest, provenance, actor)
+    digest = admission_digest(candidate)
+    for record in state.registry.admissions:
+        if admission_digest(record) == digest:
+            return record
+    if any(record.corpus_id == candidate.corpus_id for record in state.registry.admissions):
+        raise CorpusIdKnown(f"corpus_id {candidate.corpus_id!r} is already admitted")
+    if type(provenance) is ForkOf and not any(
+        record.corpus_id == provenance.parent_corpus_id for record in state.registry.admissions
+    ):
+        raise ForkParentUnknown(f"fork parent {provenance.parent_corpus_id!r} is not admitted")
+    executor_factory(world_root).execute(
+        [CreateOp(f"registry/{digest}.yaml", _record_bytes(admission_projection(candidate)))]
+    )
+    state.registry = _scan_registry(world_root)
+    return next(record for record in state.registry.admissions if admission_digest(record) == digest)
 
 
 @contextmanager
@@ -326,7 +402,7 @@ def _construct_mapping(loader: _ManifestLoader, node: yaml.MappingNode, deep: bo
             raise yaml.constructor.ConstructorError(None, None, f"duplicate key {key!r}", key_node.start_mark)
         mapping[key] = (
             value_node.value
-            if key in {"corpus_id", "corpus_state", "world_id"}
+            if key in {"corpus_id", "corpus_state", "world_id", "store_id", "genesis", "head", "packaging_identity"}
             and isinstance(value_node, yaml.ScalarNode)
             and value_node.tag == "tag:yaml.org,2002:int"
             else loader.construct_object(value_node, deep=deep)
@@ -495,11 +571,19 @@ def _record_bytes(projection: dict[str, object]) -> bytes:
 
 
 def _validate_provenance(manifest: CorpusManifest, provenance: AdmissionProvenance) -> None:
-    if isinstance(provenance, Fresh):
+    """The provenance/manifest agreement, over **exact** types.
+
+    Exact and not `isinstance`, because `World.admit`'s replica gate is exact
+    (log-verification design §6.2): a `ReplicaOf` subclass that slipped past that
+    gate must not then be accepted *as a replica* here. The two tests are one
+    decision, so they are spelled the same way, and anything outside the three
+    falls to the `TypeError` below rather than being read as its base.
+    """
+    if type(provenance) is Fresh:
         matches = manifest.forked_from is None
-    elif isinstance(provenance, ReplicaOf):
+    elif type(provenance) is ReplicaOf:
         matches = manifest.forked_from is None and provenance.parent_corpus_id == manifest.corpus_id
-    elif isinstance(provenance, ForkOf):
+    elif type(provenance) is ForkOf:
         matches = manifest.forked_from == ForkedFrom(provenance.parent_corpus_id, provenance.parent_corpus_state)
     else:
         raise TypeError("provenance must be Fresh, ReplicaOf, or ForkOf")
@@ -520,7 +604,7 @@ def _parse_provenance(value: object) -> AdmissionProvenance:
     raise ValueError(f"unknown or malformed admission provenance {kind!r}")
 
 
-def _parse_registry_record(value: object) -> AdmissionRecord | StatusRecord:
+def _parse_registry_record(value: object) -> AdmissionRecord | StatusRecord | anchors.LogHeadRecord:
     if type(value) is not dict or type(value.get("record_kind")) is not str:
         raise ValueError("registry record must be a closed mapping selected by record_kind")
     if value["record_kind"] == "admission":
@@ -539,6 +623,8 @@ def _parse_registry_record(value: object) -> AdmissionRecord | StatusRecord:
         if set(value) != expected:
             raise ValueError(f"status record must have exactly {sorted(expected)}")
         return StatusRecord(value["corpus_id"], value["status"], value["actor"])
+    if value["record_kind"] == "log-head":
+        return anchors.parse_log_head_record(value)
     raise ValueError(f"unknown registry record_kind {value['record_kind']!r}")
 
 
@@ -551,21 +637,30 @@ def _scan_registry(root: Path) -> RegistryView:
             raise ValueError("registry must be a regular directory")
         admissions: list[AdmissionRecord] = []
         statuses: list[StatusRecord] = []
+        log_heads: list[anchors.LogHeadRecord] = []
         for path in registry.iterdir():
             if path.is_symlink() or not path.is_file() or path.suffix != ".yaml":
                 raise ValueError(f"{path.name!r} is not a regular *.yaml registry member")
             document = yaml.load(path.read_text(encoding="utf-8"), Loader=_ManifestLoader)
             record = _parse_registry_record(document)
-            digest = admission_digest(record) if isinstance(record, AdmissionRecord) else status_digest(record)
+            if isinstance(record, AdmissionRecord):
+                digest = admission_digest(record)
+            elif isinstance(record, StatusRecord):
+                digest = status_digest(record)
+            else:
+                digest = anchors.log_head_digest(record)
             if path.name != f"{digest}.yaml":
                 raise ValueError(f"{path.name!r} is not the record's content name")
             if isinstance(record, AdmissionRecord):
                 admissions.append(record)
-            else:
+            elif isinstance(record, StatusRecord):
                 statuses.append(record)
+            else:
+                log_heads.append(record)
         return RegistryView(
             tuple(sorted(admissions, key=admission_digest)),
             tuple(sorted(statuses, key=status_digest)),
+            tuple(sorted(log_heads, key=anchors.log_head_digest)),
         )
     except Exception as caught:
         raise RegistryMalformed(f"{registry}: malformed registry: {caught}") from caught

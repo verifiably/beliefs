@@ -15,12 +15,12 @@ from typing import ClassVar
 
 import pytest
 from fixtures_cut6 import PINS
-from nodes.core.errors import CollisionError, ExecutionError
+from nodes.core.errors import CollisionError, ExecutionError, ValidationError
 from nodes.core.node import Node, NodeMetadata
 from nodes.core.write_plan import CreateOp, DefaultExecutor, DeleteOp, ReplaceOp
 
 from science import stored
-from science.corpus import CorpusWriter
+from science.corpus import CorpusWriter, OperationLock, _operation_lock_for
 from science.errors import (
     BasisMissing,
     BuildHold,
@@ -477,3 +477,49 @@ class TestTheOperationLock:
         assert failures == []
         assert len(Recorder.plans) == len(nodes)
         assert all(writers[0].read_view.holds(node.id) for node in nodes)
+
+
+class TestTheLockOnlyLookup:
+    """`_operation_lock_for`: the same per-root lock, without a `Corpus`.
+
+    Audit locks a root it never opens, and the root it audits may be exactly
+    the one whose bytes are damaged — so the lookup that hands out the lock
+    cannot be the one that also builds a corpus and reads every node. Two
+    entry points, one registry, one lock object: a lock that merely behaved
+    like the writer's would serialize nothing.
+    """
+
+    def test_the_lookup_yields_the_lock_the_write_api_later_holds(self, tmp_path):
+        looked_up = _operation_lock_for(tmp_path)
+        writer = CorpusWriter(tmp_path, Recorder)
+
+        assert writer._operation is looked_up
+
+    def test_the_write_apis_lock_is_what_a_later_lookup_yields(self, tmp_path):
+        # The other order, because a lookup that constructed a second lock
+        # after the writer had one would still pass the arm above.
+        writer = CorpusWriter(tmp_path, Recorder)
+
+        assert _operation_lock_for(tmp_path) is writer._operation
+
+    def test_the_lookup_resolves_the_root_the_way_the_write_api_does(self, tmp_path):
+        (tmp_path / "sub").mkdir()
+        writer = CorpusWriter(tmp_path, Recorder)
+
+        assert _operation_lock_for(tmp_path / "sub" / "..") is writer._operation
+
+    def test_the_lookup_works_over_damaged_node_bytes(self, tmp_path):
+        (tmp_path / "dataset").mkdir()
+        (tmp_path / "dataset" / "broken.md").write_text("---\nnot: a node\n---\n", encoding="utf-8")
+
+        looked_up = _operation_lock_for(tmp_path)
+
+        assert isinstance(looked_up, OperationLock)
+        assert _operation_lock_for(tmp_path) is looked_up
+        # The corpus-constructing entry point cannot serve here, which is why
+        # the lock-only one exists.
+        with pytest.raises(ValidationError):
+            CorpusWriter(tmp_path, Recorder)
+
+    def test_two_roots_do_not_share_a_lock(self, tmp_path):
+        assert _operation_lock_for(tmp_path / "one") is not _operation_lock_for(tmp_path / "two")

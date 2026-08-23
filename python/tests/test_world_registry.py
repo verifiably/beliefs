@@ -15,6 +15,7 @@ from science.errors import (
     ManifestMalformed,
     ProvenanceMismatch,
     RegistryMalformed,
+    ReplicaAdmissionRequiresVerification,
     StatusTargetUnknown,
     StatusTerminal,
 )
@@ -160,35 +161,50 @@ def test_known_id_refuses_fresh_and_replica_provenance(tmp_path):
     instance = make_world(tmp_path, corpus)
     instance.admit(corpus, provenance=world_module.Fresh(), actor="alice")
 
-    for provenance in (world_module.Fresh(), world_module.ReplicaOf("1" * 32)):
-        with pytest.raises(CorpusIdKnown):
-            instance.admit(corpus, provenance=provenance, actor="bob")
+    with pytest.raises(CorpusIdKnown):
+        instance.admit(corpus, provenance=world_module.Fresh(), actor="bob")
+    # A replica refuses too, and now it refuses *sooner*: the log-verification
+    # design (§6.2) moved the replica route to `admit_arrival`, so a bare admit
+    # never reaches the known-id check for one. The known-id refusal itself
+    # still stands on that route, over the same shared core — armed in
+    # `test_world_arrival.py::test_an_id_already_admitted_under_another_provenance_still_refuses`.
+    with pytest.raises(ReplicaAdmissionRequiresVerification):
+        instance.admit(corpus, provenance=world_module.ReplicaOf("1" * 32), actor="bob")
 
     assert len(registry_paths(instance)) == 1
 
 
 def test_replica_parent_is_the_retained_manifest_id(tmp_path):
+    # The predicate is unchanged; only its reachable caller moved. A bare admit
+    # refuses a replica before it (§6.2), so the rule is armed where it now
+    # runs — the shared core's own validation, reached through `admit_arrival`.
     corpus = tmp_path / "replica"
     write_manifest(corpus, "1" * 32)
     instance = make_world(tmp_path, corpus)
+    manifest = world_module.load_manifest(corpus)
+
+    with pytest.raises(ReplicaAdmissionRequiresVerification):
+        instance.admit(corpus, provenance=world_module.ReplicaOf("1" * 32), actor="alice")
 
     with pytest.raises(ProvenanceMismatch):
-        instance.admit(corpus, provenance=world_module.ReplicaOf("2" * 32), actor="alice")
+        world_module._validate_provenance(manifest, world_module.ReplicaOf("2" * 32))
+    assert world_module._validate_provenance(manifest, world_module.ReplicaOf("1" * 32)) is None
 
-    assert instance.admit(corpus, provenance=world_module.ReplicaOf("1" * 32), actor="alice").corpus_id == "1" * 32
 
-
-@pytest.mark.parametrize(
-    "provenance",
-    (world_module.Fresh(), world_module.ReplicaOf("1" * 32)),
-)
-def test_non_fork_provenance_refuses_a_fork_manifest(tmp_path, provenance):
+def test_non_fork_provenance_refuses_a_fork_manifest(tmp_path):
     corpus = tmp_path / "fork"
     write_manifest(corpus, "1" * 32, ("2" * 32, "3" * 64))
     instance = make_world(tmp_path, corpus)
 
     with pytest.raises(ProvenanceMismatch):
-        instance.admit(corpus, provenance=provenance, actor="alice")
+        instance.admit(corpus, provenance=world_module.Fresh(), actor="alice")
+    # The replica arm of the same rule: a bare admit refuses a replica first
+    # (§6.2), so the fork-manifest refusal is armed over the predicate the
+    # shared core applies on either route.
+    with pytest.raises(ProvenanceMismatch):
+        world_module._validate_provenance(
+            world_module.load_manifest(corpus), world_module.ReplicaOf("1" * 32)
+        )
 
     assert registry_paths(instance) == ()
 

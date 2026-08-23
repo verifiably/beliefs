@@ -16,19 +16,44 @@ neither standing in for the other.
 API is `(root: Path) -> DurableExecutor`, using the module-bound backend and
 storage profile and deriving the metadata root by §2's sibling rule. A
 pre-bound executor would let the corpus write through a root it never verified.
+
+**The log seam is the same discipline over reads.** Verification needs to
+inspect a chain, state a surface, read a head and take two locks; it gets all
+five as callables on one `LogSeam`, typed in Science's own vocabulary, built
+here and nowhere else (log-verification design §2, §6.4).
 """
 
 from __future__ import annotations
 
 import io
 import stat as stat_module
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import contextmanager
 from hashlib import sha256
 from pathlib import Path
 from typing import IO
 
-from atoms.chain.errors import ChainStateInvalid
-from atoms.coordinator.commands import append_intent, read_chain, register_root, run_transaction
+from atoms.chain.errors import ChainStateInvalid, PendingUnresolved
+from atoms.chain.inspect import AbsentChain, ChainInspection, DefectKind, MalformedChain, WellFormedChain
+from atoms.chain.model import (
+    ChainOutcome,
+    Entry,
+    GenesisEntry,
+    IntentEntry,
+    PathStateJSON,
+    RegisteredEntry,
+    SettledEntry,
+    state_from_json,
+)
+from atoms.coordinator.commands import (
+    append_intent,
+    capture_states,
+    inspect_chain,
+    inspect_chain_detached,
+    read_chain,
+    register_root,
+    run_transaction,
+)
 from atoms.core.effects import CreateDirectory, CreateFileNoClobber, DeletePath, Effect, ReplaceFile
 from atoms.core.errors import (
     AtomsError,
@@ -49,11 +74,47 @@ from atoms.store.errors import MetadataStoreInvalid
 from nodes.core.errors import ExecutionError, PlanRefusedError
 from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp, WritePlan, validate_plan
 
-from science.corpus import CorpusWriter
-from science.errors import CorpusRootRefused, WorldIdMismatch
+from science.corpus import CorpusWriter, _operation_lock_for
+from science.errors import CorpusRootRefused, LogEvidenceRefused, WorldIdMismatch, WorldUninitialized
 from science.identity import v1
-from science.world import World, WorldConfig, _load_world_mirror, _world_mirror_bytes
+from science.world import (
+    AdmissionRecord,
+    CorpusSubject,
+    LogHeadRecord,
+    ReplicaOf,
+    Subject,
+    World,
+    WorldConfig,
+    WorldSubject,
+    _load_world_mirror,
+    _world_lock_for,
+    _world_mirror_bytes,
+)
+from science.world.anchors import _anchor_heads, _export_head_artifact, _require_world_genesis
+from science.world.logmodel import (
+    AbsentView,
+    ChainHead,
+    ChainView,
+    DefectView,
+    EntryView,
+    GenesisEntryView,
+    IntentEntryView,
+    MalformedView,
+    RegisteredEntryView,
+    SettledEntryView,
+    WellFormedView,
+)
+from science.world.logmodel import DefectKind as ViewDefectKind
 from science.world.rules import RuleBinding, install_rule_binding, shipped_rule_bundles
+from science.world.verify import (
+    LogReport,
+    LogSeam,
+    ObserverSet,
+    Ordering,
+    _admit_arrival,
+    _audit_log,
+    _epochs_ordered,
+)
 
 __all__ = [
     "CONSUMER_TAG",
@@ -67,8 +128,13 @@ __all__ = [
     "WORLD_GENESIS_DOMAIN",
     "DurableExecutor",
     "DurableOperationPort",
+    "admit_arrival",
+    "anchor_heads",
+    "audit_log",
     "chain_head_reader",
     "durable_executor_factory",
+    "epochs_ordered",
+    "export_head_artifact",
     "init_corpus_root",
     "init_world_root",
     "install_shipped_world_rules",
@@ -110,6 +176,23 @@ engine's own refusal — relied on, never re-implemented.
 """
 
 _PRODUCTION_BACKEND: Backend = select_backend()
+
+UNREGISTERED_ROOT = "the project root is not registered"
+"""The engine's own words for a root that was never registered.
+
+Restated here because `open_world` must tell that state apart from the *other*
+things a chain read can refuse with. `PreconditionRefused` is not one fact:
+`read_chain` resolves recovery before it reaches the registration check, and
+resolution raises the same class for an observation whose namespace moved and
+for a create whose target appeared — each with its own message. Only
+`_registered_root` produces this one, at both of its sites, and only it is
+mapped onto `WorldUninitialized`.
+
+A test pins the string against `atoms`' own source, the treatment R27 gave
+`CORPUS_GENESIS_DOMAIN`. If it ever drifts unnoticed the mapping simply stops
+firing and the engine's refusal reaches the caller unchanged — a less friendly
+error, never a false statement about a registered root.
+"""
 
 METADATA_SUFFIX = ".metadata"
 
@@ -428,6 +511,15 @@ class DurableExecutor:
             # capability: each is raised before any project mutation, or refuses
             # cleanly with restoration proven by the engine's own contract.
             raise ExecutionError(str(caught), index=None, applied=0) from caught
+        except PendingUnresolved as caught:
+            # The engine's shared pending gate (log-verification design §2.3)
+            # runs over the validated chain **before** the transaction is taken
+            # under lease, so the engine's own contract proves no mutation was
+            # attempted: `applied=0`, not the catch-all's unproved `None`. It is
+            # a direct `AtomsError` subclass, so without an arm of its own it
+            # falls into the default and reports restoration as unproved — the
+            # one refusal here whose honest answer is available and specific.
+            raise ExecutionError(str(caught), index=None, applied=0) from caught
         except (MetadataStoreInvalid, ChainStateInvalid) as caught:
             # Stop-and-preserve, bypassing rollback.
             raise ExecutionError(str(caught), index=None, applied=None) from caught
@@ -456,6 +548,10 @@ class DurableOperationPort:
                 payload,
             )
         except (ProjectApprovalRefused, PreconditionRefused, CapabilityUnavailable) as caught:
+            raise ExecutionError(str(caught), index=None, applied=0) from caught
+        except PendingUnresolved as caught:
+            # The same gate, before the intent entry is appended: the two
+            # mappings state one engine contract and must not drift.
             raise ExecutionError(str(caught), index=None, applied=0) from caught
         except (MetadataStoreInvalid, ChainStateInvalid) as caught:
             raise ExecutionError(str(caught), index=None, applied=None) from caught
@@ -579,6 +675,15 @@ def _chain_head(root: Path) -> tuple[str, str]:
     survivor left behind. Only the digests are returned: the `ChainView` — its
     entries, its engine types — stops here, which is what lets the world layer
     anchor an epoch to a chain without importing the engine that keeps one.
+
+    **The seam's `_read_head` issues the identical `read_chain` call with a
+    deliberately different error contract, and the asymmetry is not drift.**
+    That one is a seam adapter, so §6.4 obliges it to translate
+    `ChainStateInvalid` and `TransactionHalted` into `LogEvidenceRefused`;
+    this one is the build's chain reader, whose callers — preflight,
+    publication — already handle the engine's own exceptions and would be
+    changed, not helped, by a Science-typed refusal appearing under them.
+    Making the two calls agree would break one of the two contracts.
     """
     view = read_chain(
         _PRODUCTION_BACKEND,
@@ -597,6 +702,279 @@ def chain_head_reader() -> Callable[[Path], tuple[str, str]]:
     reader rather than one that merely behaves like it.
     """
     return _chain_head
+
+
+# --- the log seam ------------------------------------------------------------
+#
+# `atoms` inspection results are engine types, and every act of the log
+# verification slice discriminates over one. Rather than let those classes be
+# named above this module, the conversion below re-types the *shape* into
+# `science.world.logmodel`'s closed unions and carries the *facts* — the path
+# state fingerprints — as the engine's own objects, opaque and compared only by
+# equality. That is the whole of the seam's cleverness, and it is what makes
+# "Science owns no second summary model" a mechanism.
+
+
+_DEFECT_KINDS: dict[DefectKind, ViewDefectKind] = {
+    DefectKind.FOREIGN_LEAF: "foreign-leaf",
+    DefectKind.NAME_BYTES_MISMATCH: "name-mismatch",
+    DefectKind.UNDECODABLE_ENTRY: "undecodable-entry",
+    DefectKind.GENESIS_COUNT: "genesis-count",
+    DefectKind.MISSING_PREDECESSOR: "missing-predecessor",
+    DefectKind.SIBLING_BRANCH: "sibling-branch",
+    DefectKind.CYCLE: "cycle",
+    DefectKind.ORPHAN_HISTORY: "orphan-history",
+    DefectKind.SETTLEMENT_WITHOUT_REGISTRATION: "settlement-unregistered",
+    DefectKind.SETTLEMENT_TXID_MISMATCH: "settlement-txid-mismatch",
+    DefectKind.DUPLICATE_SETTLEMENT: "duplicate-settlement",
+    DefectKind.DUPLICATE_REGISTRATION: "duplicate-registration",
+    DefectKind.FULFILLS_UNRESOLVED: "fulfills-invalid",
+    DefectKind.DUPLICATE_FULFILLMENT: "duplicate-fulfillment",
+}
+"""The taxonomy, member by member, in the engine's own declaration order.
+
+Three names differ between the vocabularies and the difference is deliberate,
+not drift: the engine's `NAME_BYTES_MISMATCH`, `SETTLEMENT_WITHOUT_REGISTRATION`
+and `FULFILLS_UNRESOLVED` are spelled `name-mismatch`,
+`settlement-unregistered` and `fulfills-invalid` in the design's taxonomy. The
+mapping is **closed**: an engine member absent from it raises rather than
+producing a view, because a fifteenth defect kind Science silently dropped
+would be a malformed chain reported as something else.
+"""
+
+
+def _surface_view(surface: tuple[tuple[str, PathStateJSON], ...]) -> tuple[tuple[str, object], ...]:
+    """Decode a chain-carried surface into the engine's `PathState` values.
+
+    The two atoms forms meet here: entries carry `PathStateJSON` and capture
+    returns `PathState`, so decoding with the engine's own `state_from_json`
+    is what lets replay compare a chain fact against a disk fact directly.
+    Science neither builds nor reads the result — it hands it on.
+    """
+    return tuple((path, state_from_json(state)) for path, state in surface)
+
+
+def _entry_view(digest: str, entry: Entry) -> EntryView:
+    if type(entry) is GenesisEntry:
+        return GenesisEntryView(
+            digest=digest, payload=entry.payload, baseline=_surface_view(entry.baseline)
+        )
+    if type(entry) is RegisteredEntry:
+        return RegisteredEntryView(
+            digest=digest,
+            txid=entry.txid,
+            initial=_surface_view(entry.initial),
+            final=_surface_view(entry.final),
+            fulfills=entry.fulfills,
+        )
+    if type(entry) is SettledEntry:
+        return SettledEntryView(
+            digest=digest,
+            txid=entry.txid,
+            registration=entry.registration,
+            committed=entry.outcome is ChainOutcome.COMMITTED,
+        )
+    if type(entry) is IntentEntry:
+        return IntentEntryView(digest=digest, payload=entry.payload)
+    raise ProtocolError(f"unknown chain entry class: {type(entry).__name__}")
+
+
+def _chain_view(inspection: ChainInspection) -> ChainView:
+    """One `atoms` inspection result, re-typed into Science's vocabulary."""
+    if type(inspection) is AbsentChain:
+        return AbsentView()
+    if type(inspection) is MalformedChain:
+        defect = inspection.defect
+        kind = _DEFECT_KINDS.get(defect.kind)
+        if kind is None:
+            raise ProtocolError(f"unmapped chain defect kind: {defect.kind}")
+        return MalformedView(DefectView(kind=kind, subject=defect.subject, detail=defect.detail))
+    if type(inspection) is WellFormedChain:
+        entries = tuple(_entry_view(digest, entry) for digest, entry in inspection.entries)
+        genesis = entries[0] if entries else None
+        if type(genesis) is not GenesisEntryView:
+            raise ProtocolError("a well-formed chain's first entry is not its genesis")
+        return WellFormedView(
+            genesis=genesis, entries=entries, tip=inspection.tip, pending=inspection.pending
+        )
+    raise ProtocolError(f"unknown chain inspection result: {type(inspection).__name__}")
+
+
+@contextmanager
+def _inspect_escapes() -> Iterator[None]:
+    """§6.4's two inspect-phase translations, minted in one place.
+
+    Exactly two exceptions are caught: everything else — `ProtocolError`, the
+    volume and store setup errors, anything unforeseen — keeps its own
+    contract, because a seam that swallowed the unforeseen would report an
+    engine bug as evidence that could not be obtained.
+    """
+    try:
+        yield
+    except ChainStateInvalid as caught:
+        raise LogEvidenceRefused("inspect", "ChainStateInvalid", str(caught)) from caught
+    except TransactionHalted as caught:
+        raise LogEvidenceRefused("inspect", "TransactionHalted", str(caught)) from caught
+
+
+def _inspect_registered(root: Path) -> ChainView:
+    with _inspect_escapes():
+        inspection = inspect_chain(
+            _PRODUCTION_BACKEND, str(root), str(metadata_root_for(root)), PRODUCTION_STORAGE
+        )
+    return _chain_view(inspection)
+
+
+def _inspect_detached(root: Path) -> ChainView:
+    with _inspect_escapes():
+        inspection = inspect_chain_detached(_PRODUCTION_BACKEND, str(root))
+    return _chain_view(inspection)
+
+
+def _capture(root: Path, paths: tuple[str, ...]) -> tuple[tuple[str, object], ...]:
+    """State exactly the named paths, the engine's values passed through.
+
+    Nothing is decoded, wrapped or copied on the way out: the tuple the engine
+    built is the tuple the seam hands on.
+    """
+    try:
+        return capture_states(_PRODUCTION_BACKEND, str(root), paths)
+    except PreconditionRefused as caught:
+        raise LogEvidenceRefused("capture", "PreconditionRefused", str(caught)) from caught
+
+
+def _read_head(root: Path) -> ChainHead:
+    """The validated head, with the genesis payload it was read alongside.
+
+    The twin of `_chain_head` above — same `read_chain` call, deliberately
+    different error contract; see that docstring for why they must not be
+    made to agree.
+    """
+    with _inspect_escapes():
+        view = read_chain(
+            _PRODUCTION_BACKEND, str(root), str(metadata_root_for(root)), PRODUCTION_STORAGE
+        )
+    genesis = view.entries[0][1] if view.entries else None
+    if type(genesis) is not GenesisEntry:
+        raise ProtocolError("a validated chain's first entry is not its genesis")
+    return ChainHead(genesis_digest=view.genesis_digest, genesis_payload=genesis.payload, tip=view.tip)
+
+
+@contextmanager
+def _world_lock(root: Path) -> Iterator[None]:
+    with _world_lock_for(root):
+        yield
+
+
+_LOG_SEAM = LogSeam(
+    inspect_registered=_inspect_registered,
+    inspect_detached=_inspect_detached,
+    capture=_capture,
+    read_head=_read_head,
+    # The engine's own absent singleton, never a Science reconstruction: it is
+    # the default of replay's union comparison, and a value that merely
+    # compared equal would be a second summary model with one member.
+    absent_state=ABSENT,
+    world_lock=_world_lock,
+    # The write API's own lock-only lookup, unwrapped: an audit and a writer
+    # contending for one corpus root must contend for one object.
+    corpus_lock=_operation_lock_for,
+)
+
+
+def _log_seam() -> LogSeam:
+    """The production seam — one object, stable across calls.
+
+    Stable in the same sense as `durable_executor_factory` and
+    `chain_head_reader`: an act may be asserted to hold *this* seam rather
+    than one that merely behaves like it.
+    """
+    return _LOG_SEAM
+
+
+def anchor_heads(world: World, corpus_ids: frozenset[str], *, actor: str) -> tuple[LogHeadRecord, ...]:
+    """The explicit anchor act: record each named corpus's present chain head.
+
+    The wrapper is the whole of what this module adds — the production seam.
+    The act itself is `science.world.anchors._anchor_heads`, which holds no
+    engine capability of its own and is testable against a stand-in seam
+    (log-verification design §3.3).
+    """
+    return _anchor_heads(world, corpus_ids, actor=actor, seam=_log_seam())
+
+
+def export_head_artifact(world: World, subject: CorpusSubject | WorldSubject) -> bytes:
+    """One subject's head, as the canonical bytes of a standalone artifact.
+
+    Writes nothing and mints no record: export *is* the return of the value,
+    and storing it with an external holder is the holder's job — which is also
+    what makes it the one act that can anchor the world chain (§3.2, L11).
+    """
+    return _export_head_artifact(world, subject, seam=_log_seam())
+
+
+def audit_log(
+    config: WorldConfig,
+    subject: Subject,
+    target_root: Path,
+    observers: ObserverSet,
+    *,
+    actor: str,
+    history: Mapping[str, bytes] | None = None,
+) -> LogReport:
+    """Judge one root's chain against one observer set, and report. Writes
+    nothing and mints nothing.
+
+    The wrapper is the whole of what this module adds — the production seam.
+    The act is `science.world.verify._audit_log`, which takes the world
+    **configuration** rather than an opened `World` precisely so that it runs
+    on the worlds `open_world` refuses (log-verification design §6.1, §6.3),
+    and an **explicit** target root, which is never associated to the subject
+    by reading its manifest.
+    """
+    return _audit_log(
+        config, subject, target_root, observers, actor=actor, history=history, seam=_log_seam()
+    )
+
+
+def admit_arrival(
+    world: World,
+    corpus_root: Path,
+    provenance: ReplicaOf,
+    observers: ObserverSet,
+    *,
+    actor: str,
+    history: Mapping[str, bytes] | None = None,
+) -> tuple[AdmissionRecord, LogReport]:
+    """Admit an arriving replica, its traveled chain verified first.
+
+    The wrapper is the whole of what this module adds — the production seam.
+    The act is `science.world.verify._admit_arrival`, which loads the arriving
+    root's manifest itself under that root's own lock, verifies against
+    `Corpus(provenance.parent_corpus_id)` — the chain a replica carries is its
+    parent's — and commits through the one admission core `World.admit` commits
+    through (log-verification design §6.2).
+
+    Returns the `AdmissionRecord` and the verification report **side by side**:
+    the observer bound is never discarded, and it never enters admission
+    identity, which this design does not amend. `World.admit` refuses
+    `ReplicaOf` outright, since it holds no verdict to report.
+    """
+    return _admit_arrival(
+        world, corpus_root, provenance, observers, actor=actor, history=history, seam=_log_seam()
+    )
+
+
+def epochs_ordered(config: WorldConfig, e1: str, e2: str) -> Ordering:
+    """Whether `e2` orders after `e1`, by the world chain's own ancestry.
+
+    Log-verification design §7: ordered iff E2's build-start world head
+    descends from the settlement that committed E1's publication; a missing or
+    rolled-back publication is `unordered`. Epoch sequence numbers are read by
+    nothing. This is the log design §7's predicate only — the event-level
+    relation is deferred and L8 is partial.
+    """
+    return _epochs_ordered(config, e1, e2, seam=_log_seam())
 
 
 def open_corpus(corpus_root: Path) -> CorpusWriter:
@@ -634,9 +1012,62 @@ def install_shipped_world_rules(world: World) -> tuple[RuleBinding, ...]:
 
 
 def open_world(config: WorldConfig) -> World:
+    """Open one configured world root, its three identity claims agreeing.
+
+    A world says who it is in three places — the configuration the caller holds,
+    the `world.yaml` mirror, and the chain genesis the root was minted under —
+    and this is the surface every ordinary consumer crosses, so it is where the
+    disagreement is **refused** (log-verification design §6.3, discharging the
+    slice-1/2 deferral). The genesis payload is read through `read_chain`, and
+    the two refusals it can raise are the export act's own, single-homed in
+    `anchors._require_world_genesis`: a payload that is not a Science world
+    genesis at all says the root was never initialized as one
+    (`WorldUninitialized`), and a well-formed genesis naming another world says
+    the configuration and the chain disagree (`WorldIdMismatch`).
+
+    A root with **no registered chain at all** joins the first of those two.
+    `read_chain` reports it as `PreconditionRefused`, and `WorldUninitialized` is
+    already Science's name for the state — the very name the mirror loader raises
+    for a root `init_world_root` never made. The mapping is made **here**, at the
+    boundary that made the read, and not in the seam: §6.4's translation
+    vocabulary is closed at three engine states and this is not one of them.
+
+    **The mapping is conditioned, not by type.** `PreconditionRefused` is not
+    that one fact: `read_chain` resolves recovery *before* it reaches the
+    registration check, and resolution refuses with the same class for reasons of
+    its own — an observation whose namespace moved under it, a create whose
+    target appeared while the plan ran. Renaming any of those "never initialized
+    as a world" would be a false statement about a registered root that is
+    mid-recovery, with the truth visible only on `__cause__`. So only
+    `UNREGISTERED_ROOT`'s exact wording is mapped and everything else propagates
+    untouched.
+
+    **Opening is no longer a cheap read.** `read_chain` takes the atoms project
+    lock and **resolves recovery** before it answers, so this call can now block
+    on a concurrent build or writer holding the same root's lease, recovers an
+    interrupted transaction as a side effect of opening, and requires the
+    certified volume that every other act on an opened `World` already required.
+
+    The detection/refusal split is deliberate: `audit_log` **reports** the same
+    fact as a subject-mismatch finding and takes the configuration rather than
+    an opened `World` precisely so that auditing the worlds this call refuses
+    stays possible (§6.1).
+    """
     mirror_id = _load_world_mirror(config.world_root)
     if mirror_id != config.world_id:
         raise WorldIdMismatch(f"{config.world_root / 'world.yaml'}: world_id does not match configuration")
+    try:
+        head = _log_seam().read_head(config.world_root)
+    except PreconditionRefused as caught:
+        if str(caught) != UNREGISTERED_ROOT:
+            # Recovery resolution ran first and refused for a reason of its own.
+            # That is not this refusal and is not renamed into it.
+            raise
+        raise WorldUninitialized(
+            f"{config.world_root}: the world root carries no registered chain, so it was never initialized "
+            "as a world; init_world_root is the act that mints one"
+        ) from caught
+    _require_world_genesis(config.world_root, head.genesis_payload, config.world_id)
     return World(
         config,
         _world_executor_factory(),

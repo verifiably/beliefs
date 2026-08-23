@@ -7,6 +7,13 @@ sharpest case), and a test that can only assert "something was raised" cannot
 tell a good refusal from a bad one.
 """
 
+from collections.abc import Mapping
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Literal, TypeAlias
+
+if TYPE_CHECKING:  # pragma: no cover - the report type is the verification module's
+    from science.world.verify import LogReport
+
 
 class ScienceError(Exception):
     """Base for every error this package raises."""
@@ -152,6 +159,198 @@ class CaptureDrift(ScienceError):
     is published; the build does not retry, because a silent retry would turn
     an operator editing a corpus under a running build into a build that
     eventually succeeded without saying so."""
+
+
+class AnchorSubjectUnknown(ScienceError):
+    """An anchoring act named a `corpus_id` this world has not admitted.
+    Anchoring records what a corpus's chain presently says, and a world that
+    anchored an unadmitted id would be recording a claim about a corpus it has
+    never granted membership to — presence on a configured root is the
+    corpus's own claim, not the world's."""
+
+
+class AnchorTargetUnresolvable(ScienceError):
+    """An admitted `corpus_id` has no presently configured carrier root, or
+    more than one. Both are the same failure — the act cannot say whose chain
+    it would read — and neither is repairable by choosing: resolution failure
+    is never silent narrowing to whichever root sorted first."""
+
+
+class AuditTargetUnconfigured(ScienceError):
+    """An audit named a target root this world is not configured with.
+
+    The audit's target is **explicit and never associated to the subject by
+    reading its manifest** (log-verification design §6.1) — a manifest-based
+    lookup could not locate the root whose `corpus.yaml` was rewritten to
+    another id, which is the exact mismatch the audit exists to report. What
+    remains is the configuration: for a corpus subject the root must be one of
+    the configured corpus roots, and for a world subject it is the configured
+    world root. A root outside both is one this world has made no claim about
+    at all, and auditing it would be judging a stranger's bytes under this
+    world's subject.
+
+    It is a distinct name rather than `AnchorTargetUnresolvable`: that refusal
+    says the act cannot tell *whose* chain it would read, and here the act was
+    told exactly which root and that root is not this world's.
+    """
+
+
+class LogHeadCollision(ScienceError):
+    """A content-addressed log-head record path exists with different bytes.
+
+    The rules store's discipline, verbatim (log-verification design §3.1): a
+    byte-identical record is skipped as success and submits no transaction,
+    and a same-name file holding anything else is a collision rather than an
+    overwrite — a record is immutable, and one whose name no longer names its
+    content would make every later "maximal anchor" a reading of corrupted
+    evidence."""
+
+
+class LogEvidenceRefused(ScienceError):
+    """The engine refused to produce the log evidence an act asked for.
+
+    Three engine states escape the inspecting commands' never-raises envelope
+    by design (log-verification design §6.4): a chain-vs-record contradiction
+    (``ChainStateInvalid``), a halted transaction (``TransactionHalted``), and
+    a capture refusal at a modeled path holding an unrepresentable entry
+    (``PreconditionRefused``). The composition root's seam adapters translate
+    exactly those three — nothing else, and ``ProtocolError`` and setup errors
+    keep their own contracts — preserving the engine exception as ``__cause__``.
+
+    **It is a refusal to judge, not a judgment.** It produces no report, it is
+    not an arrival refusal, and it sits outside the evaluator's precedence and
+    the arrival-cause ranking: the act did not decide that the evidence was
+    bad, it never obtained any. Collapsing it into an outcome would let an
+    unreadable root and a refuted one read the same downstream.
+    """
+
+    def __init__(
+        self,
+        phase: Literal["inspect", "capture"],
+        engine_error: Literal["ChainStateInvalid", "TransactionHalted", "PreconditionRefused"],
+        detail: str,
+    ) -> None:
+        super().__init__(f"{phase}: the engine refused with {engine_error}: {detail}")
+        self.phase = phase
+        self.engine_error = engine_error
+        self.detail = detail
+
+
+class ReplicaAdmissionRequiresVerification(ScienceError):
+    """A bare `World.admit` was handed `ReplicaOf` provenance.
+
+    A replica arrives carrying a chain that was written somewhere else, and
+    admitting it is the one admission that asks a question about evidence:
+    whether the traveled chain is the one its anchors describe. `admit` holds no
+    verdict to report — it inspects nothing, states no surface and consults no
+    observer — so it refuses rather than admitting on trust
+    (log-verification design §6.2). The verified route is
+    `science.root.admit_arrival`, which returns the admission record and the
+    report side by side.
+
+    It is its own name rather than `ProvenanceMismatch`: nothing about the
+    caller's composition is wrong here, and the remedy is a different call
+    rather than a different argument.
+    """
+
+
+ArrivalCause: TypeAlias = Literal["malformed", "refuted", "pending", "chainless"]
+"""§6.2's closed refusal vocabulary for a verified arrival, ranked
+`malformed > refuted > pending > chainless`. The cause is derived from the
+**report's fields**, never from which precedence step produced the outcome."""
+
+_ARRIVAL_REMEDIES: Mapping[ArrivalCause, str] = MappingProxyType(
+    {
+        "malformed": "recopy from the origin; a structurally damaged chain is not repairable by evidence "
+        "supplied here",
+        "refuted": "recopy from the origin, or supply the observers that account for the disagreement",
+        "pending": "settlement evidence from the origin, or recopy",
+        "chainless": "recopy carrying the chain; a replica that did not carry its chain is not an "
+        "unanchored arrival",
+    }
+)
+"""The remedy each cause names, so that "the remedy named" (§6.2) is a property
+of the error rather than of whichever call site raised it. The mapping is also
+what closes the vocabulary at run time: a fifth cause would have no remedy and
+could not be raised."""
+
+
+class ArrivalRefused(ScienceError):
+    """A verified arrival refused on the evidence its own report states.
+
+    Carries the **complete** report — never a summary of it, since the caller's
+    next move depends on the findings, the pending set and the observer bound —
+    plus one closed cause and the remedy that cause names (log-verification
+    design §6.2).
+
+    The cause is read off the report's fields rather than off the precedence
+    step that produced the outcome: a pending chain with an empty observer set
+    is `unresolvable` at the anchor step and never reaches the pending step, and
+    it still refuses arrival with cause `pending`. The four rank
+    `malformed > refuted > pending > chainless`, and admissibility requires none
+    of them.
+
+    It is not `LogEvidenceRefused` and never overlaps it: this act judged and
+    the verdict refused it, where that one never obtained evidence to judge.
+    """
+
+    def __init__(self, cause: ArrivalCause, report: "LogReport", detail: str) -> None:
+        remedy = _ARRIVAL_REMEDIES[cause]
+        super().__init__(f"{detail}: arrival refused on {cause}; remedy: {remedy}")
+        self.cause = cause
+        self.report = report
+        self.remedy = remedy
+
+
+class SubjectMismatch(ScienceError):
+    """A root's manifest claims an identity that is not the selected subject.
+
+    At **arrival** this is a lifecycle-boundary refusal and it fires even on a
+    `validated` report (log-verification design §1.2, §6.3): a copied root whose
+    manifest was re-minted to a fresh id still carries its parent's chain, and
+    that chain judged against the parent validates — a cooperatively logged
+    identity rewrite replays consistently. The chain is not what is wrong; the
+    lifecycle is, and admitting it would enter one corpus into the registry
+    under another's history.
+
+    At **audit** the same disagreement is a finding and never this error: the
+    audit reports, and it must stay usable on exactly the roots the operational
+    surfaces refuse.
+
+    Its placement is pinned: the report-based causes outrank it — a malformed,
+    refuted, pending or chainless chain refuses on that cause first — and it is
+    checked **before** the admission transaction, so no mismatched subject is
+    ever admitted and then reported.
+    """
+
+
+class StoreSubjectUnsupported(ScienceError):
+    """A verification named a store subject, whose behavior is unbuilt.
+
+    The evaluator's subject union is the one API in this slice that can spell a
+    store (log-verification design §4.1): the anchor act's signature is
+    corpus-only and carries no such error, and the record and artifact codecs
+    admit the store arm as *shape* alone. So the refusal lives here and only
+    here, and it stays a refusal rather than an outcome — a store subject is
+    not an unresolvable chain, it is a question this slice does not answer.
+    Behavior and the store-artifact writer are the holdings row's (§10.2).
+    """
+
+
+class ObserverCarrierInvalid(ScienceError):
+    """A supplied observer carrier does not validate as what it claims to be.
+
+    Every carrier validates before evaluation (log-verification design §4.1):
+    an epoch against its packaging identity, an artifact by its codec, a record
+    by its grammar. A carrier that fails refuses the act — **never a silently
+    narrowed observer set**, because an anchor dropped for being unreadable and
+    an anchor that was never held are the same evidence-free state to a caller
+    who is not told, and the second one is admissible.
+
+    It is also the refusal of a carrier constructed past its factory: the
+    factories are what retain the validation evidence, and a dataclass built
+    directly would carry a provenance discriminator nothing had checked.
+    """
 
 
 class EnumeratedKindUngoverned(ScienceError):

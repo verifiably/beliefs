@@ -469,15 +469,26 @@ writer carries limitation 2 instead of the claim.
 
 ## 11. Limitations
 
-1. **The registry is unanchored until §9 lands.** Deleting an admission record —
-   or a future head record — is undetectable today. The anchor carrier arrives
+1. **The registry was unanchored until §9 landed** *(closed 2026-08-23; see the
+   end of this item)*. As written: deleting an admission record —
+   or a future head record — is undetectable. The anchor carrier arrives
    before the anchor; the bootstrap order is deliberate and stated on arrival
    (the §8.7 pattern), and closing it is the log design's job (repro §9), not
    this design's. **Designed 2026-08-03**
    (`2026-08-03-tamper-evident-log-design.md`): the world chain registers the
    registry as part of the world root's surface, exported heads anchor the
    world chain from outside, and the closure lands at implementation with its
-   L1–L13 — until then this limitation stands.
+   L1–L13. **Closed 2026-08-23** by world-index slice 3
+   (`2026-08-22-log-verification-design.md`), discharging conformance cut 8:
+   the registry lives inside the world root's registered surface, so deleting
+   an admission or a log-head record is a removal replay refutes against a
+   surviving anchor, and the explicit anchor act plus exported head artifacts
+   supply anchors from outside the deletable set. Two bounds survive the
+   closure and are not this limitation's: detection is quantified over
+   **surviving observers** — a coordinated truncation with no exported holder
+   is undetected, which is that design's own pinned negative — and a rewrite of
+   the tail beyond the maximal anchor stays the unanchored residue, bounded by
+   anchor cadence.
 2. **Interim publication is neither crash-atomic nor durably pointed.** Until
    composition-root adoption, the writer is best-effort
    create-then-pointer-replace; after a

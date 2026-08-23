@@ -17,9 +17,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Thirty documents in `docs/designs/`: the banked redesigns, review disposition,
+Thirty-two documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
-2026-08-02 through 2026-08-20. Read them in this order:
+2026-08-02 through 2026-08-22. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -53,6 +53,8 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-08-20-conformance-cut-6.md` | the sixth frozen conformance cut, selecting the world-registry slice's registry-side and identity arms: 2 rows full, 2 part, 1 deferred, with 8 labeled declarations |
 | `2026-08-20-world-index-slice-2-design.md` | the world-index epoch carrier: rules, coherent capture, four derived maps and receipts, publication, bounded reads, and whole-epoch GC |
 | `2026-08-20-conformance-cut-7.md` | the seventh frozen conformance cut, selecting the epoch carrier: 7 rows full, 4 part, with 38 selected and 10 labeled declarations |
+| `2026-08-22-log-verification-design.md` | world-index slice 3, the Science half of the tamper-evident mutation log: the registry log-head record and exported head artifact, the explicit anchor act, the one four-outcome log evaluator behind an audit act and a verified `ReplicaOf` arrival act, replay with its removal policy pass, the world genesis↔mirror check, and the ordered-cuts predicate |
+| `2026-08-22-conformance-cut-8.md` | the eighth frozen conformance cut, selecting log verification and anchoring: 5 rows full, 7 part, L6 unread, with 43 selected and 10 labeled declarations |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -115,6 +117,21 @@ declarations** across **7 rows in full and 4 in part**. See the
 [results](docs/plans/2026-08-20-conformance-cut-7-results.md). The work **merged
 into `main` on 2026-08-22 preserving history**; the results record's §7 names a
 history constraint that outlives that merge.
+
+**Conformance cut 8** froze 2026-08-22 and was discharged 2026-08-23.
+World-index slice 3 implements the Science half of the
+tamper-evident mutation log: the registry log-head record and the exported head
+artifact, the explicit anchor act, the one read-only four-outcome evaluator
+behind an audit act and a verified `ReplicaOf` arrival act, registered-surface
+replay with its removal policy pass, the world genesis↔mirror agreement check,
+and the ordered-cuts predicate — **43 selected + 10 labeled = 53 declarations**
+across **5 rows in full and 7 in part**, with L6 unread and 51 of the 53 units
+certified in full. See the
+[results](docs/plans/2026-08-22-conformance-cut-8-results.md). **This work is on
+branch `design/log-verification` and is not merged**; its `--no-ff` merge
+inherits cut 7's reachability constraint and adds cut 8's freeze commit to it.
+Three of kernel §8.7's four recorded-mutation consequences close there; G4 does
+not.
 
 ```
 python/     the implementation (substrate §11 puts the composition root here)

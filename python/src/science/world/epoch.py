@@ -124,6 +124,12 @@ from science.identity import v1
 # level for the same reason.
 from science.world import derive, registry, rules
 
+# Name form, unlike the three above: `science.world.anchors` imports nothing
+# from this module, so there is no cycle to survive, and the names below are
+# spelled out because `anchors` is also what this module calls an epoch's
+# chain-head triples.
+from science.world.anchors import BuildOrigin, CorpusSubject, LogHeadRecord, _log_head_member
+
 __all__ = [
     "CURRENT_POINTER",
     "DERIVATION_KINDS",
@@ -1484,16 +1490,64 @@ def _receipt_projection(receipt: derive.DerivationReceipt) -> dict[str, object]:
     return projection
 
 
+def _locked_log_head_records(
+    world_root: Path, packaging_identity: str, members: Mapping[str, bytes]
+) -> list[CreateOp]:
+    """The build's registry-record half: one log-head record per covered corpus.
+
+    Log-verification design §3.3. The epoch's `anchors.yaml` member and these
+    records carry the same triples; the records exist because an anchor a
+    consumer can find without opening an epoch is what makes the registry a
+    carrier of the observer set. Origin is `build`, naming the packaging
+    identity of the epoch this build is publishing — the fact that
+    distinguishes them from the anchor act's records, which name an actor.
+
+    **The triples are read back out of the member, not carried in beside it.**
+    The member is the bytes the epoch will publish, so deriving the records
+    from it is what makes "the same triples" a fact rather than an intention:
+    a build cannot record an anchor its own `anchors.yaml` does not state.
+    `_corpus_anchors` returns them already sorted by subject, because the
+    member is written sorted.
+
+    The world anchor is deliberately absent: a `world` subject is not in the
+    record's union at all (§3.1/L11), and only an exported artifact leaving the
+    world root can anchor the world chain — the member carries it under a
+    separate key, which this reads past.
+
+    §3.1's idempotency rule applies here exactly as it does to the act, so a
+    republication of the same epoch over unmoved heads adds nothing to the
+    plan.
+    """
+    document = _parse_member(packaging_identity, "anchors.yaml", members["anchors.yaml"])
+    plan: list[CreateOp] = []
+    for anchor in _corpus_anchors(document):
+        record = LogHeadRecord(
+            CorpusSubject(anchor.subject),
+            anchor.genesis_digest,
+            anchor.head_digest,
+            BuildOrigin(packaging_identity),
+        )
+        member = _log_head_member(world_root, record)
+        if member is not None:
+            plan.append(member)
+    return plan
+
+
 def _locked_publication_plan(
     world_root: Path, packaging_identity: str, members: Mapping[str, bytes]
 ) -> WritePlan:
     """The one transaction, or nothing at all. The caller holds the world lock.
 
-    First publication is eleven creates and a create for the pointer. Later
-    publication is the same eleven creates and a replace. An exact rebuild —
-    the content-addressed epoch already stands and is byte-identical — creates
-    nothing, because no member is ever overwritten, and a pointer already
-    naming it leaves nothing to do at all.
+    First publication is eleven creates, a create for the pointer, and one
+    log-head record per covered corpus. Later publication is the same, with a
+    replace for the pointer. An exact rebuild — the content-addressed epoch
+    already stands and is byte-identical — creates nothing, because no member
+    is ever overwritten, a pointer already naming it leaves nothing to do, and
+    the records the first publication wrote are byte-identical too.
+
+    The records join *this* plan rather than a second one because a published
+    epoch whose registry half failed separately would be an anchor a consumer
+    could find in one carrier and not the other.
 
     A same-name carrier is validated in full before any of that. It cannot be
     byte-different and still pass: its members would recompute a different
@@ -1528,6 +1582,7 @@ def _locked_publication_plan(
                 rules.member_content_digest(_current_pointer_bytes(pointer)),
             )
         )
+    operations.extend(_locked_log_head_records(world_root, packaging_identity, members))
     return operations
 
 

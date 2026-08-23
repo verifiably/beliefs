@@ -1313,7 +1313,30 @@ ordinary terms.
    subtraction — close at implementation, with that design's L1–L13 passing
    against the `atoms`-backed executor; the **G2a-ordering row strengthens for
    boundary-mediated executions only**, and out-of-band chronology remains open
-   (its limitation 5). Until then this limitation stands unchanged.
+   (its limitation 5).
+
+   **Three of the four closed 2026-08-23**, at the discharge of conformance
+   cut 8 by world-index slice 3 (`2026-08-22-log-verification-design.md`;
+   results at `../plans/2026-08-22-conformance-cut-8-results.md`), on branch
+   `design/log-verification` pending its `--no-ff` merge. **G8**, **semantic
+   identity** and **5a's standing subtraction** are each a removal or rewrite
+   inside the registered surface, and the log's replay refutes each against a
+   surviving anchor — the removal itself additionally named in a policy finding,
+   with the *failing*-verification classification resolving only where the
+   caller supplies the historical bytes. **G4 has not closed**: discarding a
+   failed replay attempt is an intent-qualification question, qualification is
+   marked unevaluated in every report that slice produces, and it waits on the
+   intent-boundary slice. **The G2a-ordering row is unchanged** — its
+   strengthening stays boundary-mediated, exactly as banked, and the
+   out-of-band negative stands. Detection is quantified over surviving
+   observers throughout: destruction of a root together with every anchor
+   holding it is not detectable from nothing.
+
+   The three closures are about **detectability**, which is what this
+   limitation is about. The separate derived-answer negatives — a deleted
+   failing verification stops invalidating, a discarded replay stops being
+   consulted — are facts about how belief is computed from what remains, and
+   neither this limitation nor that design ever claimed to change them.
 
    G4 and G8 each carry a negative test pinning the current limit so neither is
    read as the strong claim; semantic-identity enforcement carries the same bound

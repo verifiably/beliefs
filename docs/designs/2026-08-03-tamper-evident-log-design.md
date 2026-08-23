@@ -4,9 +4,27 @@
 applies the amendment set below across kernel, comp, repro, packaging, the
 `atoms` design (its repo), and the ledger. Closes ledger artifact 5 at the design
 level. `atoms` A7 landed the engine half on 2026-08-14 and A8 landed durability
-certification on 2026-08-17; the end-to-end capability still waits on
-composition-root adoption. Until then every existing honest limitation (kernel §8.7, packaging limitations 1–2,
-the G4/G8/G2a/R12/R19 negatives) stands unchanged.
+certification on 2026-08-17.
+**Science's half landed 2026-08-23** as world-index slice 3
+(`2026-08-22-log-verification-design.md`), discharging conformance cut 8
+(`2026-08-22-conformance-cut-8.md`; results at
+`../plans/2026-08-22-conformance-cut-8-results.md`) on branch
+`design/log-verification`, whose `--no-ff` merge is the one remaining act.
+What that closes, exactly: the **detectability** of three of kernel §8.7's
+four recorded-mutation consequences — deleting a failing verification (G8),
+hand-editing a proposition's semantic fields with its stored hash, and
+deleting a retraction record (5a's standing subtraction) — each now a
+registered-surface removal or rewrite that replay refutes against a
+surviving anchor, with the removal itself named in a policy finding. **G4
+does not close**: discarding a failed replay attempt is an
+intent-qualification question, and qualification is unevaluated in every
+report this slice produces. Chronology's strengthening stays
+boundary-mediated, as banked; G2a/R12's out-of-band negative and packaging
+limitation 2 stand unchanged, and the derived-answer negatives of G4 and G8
+(a deleted record stops invalidating) are a separate fact this design never
+claimed to change. §10's rows carry their own dispositions: L3, L5, L9, L11
+and L12 read in full, L1/L2/L4/L7/L8/L10/L13 in part, and **L6 not at all**
+(see its row).
 **Inherits:** kernel §8.7 (the contract — pre-mutation durable registration
 **and** detectable removal, stricter than crash recovery — and its five
 consequences); repro §9 and its 2026-08-03 amendment (the shared facility, one
@@ -28,6 +46,12 @@ standing subtraction) and **strengthens chronology for boundary-mediated
 executions only** — G2a/R12's out-of-band chronology negative remains
 (limitation 5). None of it closes when this document banks. No interim logger
 is designed: registration exists exactly where the `atoms` executor runs.
+*(Amended 2026-08-23: at the actual implementation the claim realized is
+**three**-of-five, not four. G4's closure was conditioned on the whole of
+L1–L13 passing, and intent qualification — L7's reduction — is not built
+here; it waits on the intent-boundary slice. The other three closed as
+stated. The four-of-five figure remains the design's claim for the
+completed capability, not a claim about the tree.)*
 
 **Banking amendment set** (to apply across the corpus in the banking commit):
 kernel §8.7 gains "designed 2026-08-03 (`2026-08-03-tamper-evident-log-design.md`);
@@ -159,6 +183,22 @@ replacement remains L5's residue.
   verified-holdings record design §2) *(amended 2026-08-10, the
   verified-holdings record design §8)*.
 
+*(Amended 2026-08-23, the log-verification design §1.2 — the genesis-subject
+amendment.)* The corpus arm's **`corpus_id` is not carried in the genesis
+payload**. `science.corpus-root.v1` is a constant payload and both Science
+root initializers register an empty surface, so **every currently
+constructible non-fork corpus chain has the byte-identical genesis entry and
+the identical genesis digest**; a future fork genesis is the ruled exception
+and may carry `forked_from`. This is the banked slice-1 ruling — an adopted
+identity binds through a later chain entry, never by rewriting genesis — and
+it is the authority, so this arm is amended rather than retrofitted. The
+consequence for §5 and §6: **corpus anchor comparison is scoped by
+`(selected subject, genesis_digest)`, never genesis alone**. Subject
+filtering happens first, then genesis and ancestry evaluation, and the
+presented manifest is a separate policy check against the selected subject.
+The `world` and `store` arms are unaffected — their payloads carry
+`world_id` and `store_id`.
+
 All three arms commit a **baseline**: the sorted typed path/state fingerprints of
 the root's **registered surface** at registration. The baseline is what brings a
 pre-log surface into history — the registry deliberately arrives before this
@@ -166,6 +206,17 @@ log (packaging limitation 1), and without a committed baseline, deleting an
 admission record or a verification that predates log activation would remain
 invisible forever. Refusing nonempty adoption would have been simpler and
 cannot handle the already-populated world root.
+
+*(Amended 2026-08-23, the log-verification design §1.3 — the empty-baseline
+amendment.)* Both Science initializers register `()` as the surface, so
+**every genesis baseline that exists is empty**, and genesis-form validation
+therefore **requires an empty baseline: a non-empty baseline is malformed**,
+classified at step 1 before any anchor judgment. The paragraph above states
+what a populated baseline would be *for*; no Science path mints one today.
+The consequence for the guarantee table is L6's, recorded in its own row:
+both of that row's arms are presently unconstructible, and conformance cut 8
+reads the row not at all. Lifting this is a future registration-surface
+design act, not a test fixture's liberty.
 
 **The registered surface is one projection, used three times.** A root's
 registered surface is every path its declared layout claims — node records and
@@ -352,7 +403,13 @@ filter** (§6): a corpus anchor binds by `corpus_id`, the world's by
 installation configuration at world-root initialization and carried by every
 exported head artifact. The presented manifest or configuration never
 associates, admits, or discards an anchor; it is compared separately against
-the genesis subject (§6).
+the genesis subject (§6). *(Amended 2026-08-23, the log-verification design
+§1.2: for a corpus the comparison scope is the **pair** `(selected subject,
+genesis_digest)`, because the corpus genesis is identity-free and every
+constructible non-fork corpus chain shares one genesis digest — subject
+filtering first, then genesis and ancestry. Nothing about the filter itself
+changes; what changes is that genesis alone can no longer distinguish two
+corpora.)*
 
 **The explicit anchor act** writes registry log-head records for named
 corpora and stores alike, outside any build *(amended 2026-08-10, the
@@ -417,7 +474,15 @@ bound, policy findings — is a **report field**, never a fifth outcome.
    - chain **wholly absent** → **refuted** — removal (L4);
    - chain present under a **different genesis** → **refuted** —
      replacement: the anchored history was rewritten, not extended — prefix
-     rewriting, never L5's tail residue, and never a mere non-match;
+     rewriting, never L5's tail residue, and never a mere non-match
+     *(amended 2026-08-23, the log-verification design §1.2: this bullet
+     fires for **world** subjects and for future fork geneses. For a corpus
+     subject it is presently unreachable — the genesis is identity-free, so
+     a replacement chain under the same `corpus_id` carries the **same**
+     genesis digest and a fabricated distinct corpus genesis is malformed at
+     genesis-form validation before any anchor judgment. Corpus-chain
+     replacement is refuted through **anchored-head unreachability** in the
+     bullet below instead: same verdict, stated mechanism)*;
    - **matching genesis** → into ancestry evaluation: **all** such anchors
      must be reachable in the chain by ancestry and mutually comparable —
      an unreachable anchored head or an incomparable pair → **refuted**; a
@@ -433,7 +498,16 @@ bound, policy findings — is a **report field**, never a fifth outcome.
    subject: a disagreement is a **subject-mismatch finding** plus §3's
    refusal where its lifecycle rule applies, and replay refutes a manifest
    edit since `corpus.yaml` is registered surface — the comparison never
-   filters anchors.
+   filters anchors. *(Amended 2026-08-23, the log-verification design
+   §1.2/§6.3: at an import boundary the disagreement is a **refusal even
+   when the chain verdict is `validated`** — a cooperatively logged
+   `corpus.yaml` identity rewrite replays consistently, so replay alone is
+   not the guard. At an explicit audit it stays a finding, since auditing a
+   root whose identity is in dispute is the point. Step 1 also gained the
+   genesis-**form** check, which runs before anchors: an undecodable or
+   wrong-form genesis payload, or a non-empty baseline, is malformed, while
+   a valid world genesis naming a **different** `world_id` is this
+   subject-mismatch case and never malformed.)*
 3. **Pending.** A pending registration whose transaction metadata is live
    resolves through recovery first; a pending registration **without** live
    transaction metadata — the copied root of §3 — → **unresolvable**, and
@@ -598,13 +672,13 @@ to L9 and step 1.
 | L1 | Registration precedes application, with no unregistered cooperative path | kill the executor between entry durability and apply at every stage → entry present, pending; recovery settles it and the surface matches the settlement; crash after entry durability but **before** the transaction record stores the entry digest → recovery appends **no second registration** (idempotent by transaction id); cut persistence at **every** stage of the settlement sequence, for **both terminal arms** — a normally committing and a normally rolling-back transaction alike → recovery converges on exactly one registration and one settlement, backfills the transaction record's settlement binding, and **neither terminal outcome is returned, nor the lease released, before the settlement is durable**; attempt any cooperative mutation path that skips registration → unspellable |
 | L2 | Settlement gates every absence test | under an anchored observer set: roll back a registered creation → the record's absence is **not** refuted (no transition); commit a creation, then raw-delete the record → refuted at replay; append two settlements for one registration → **malformed** at step 1; a pending entry on a **live** root settles through recovery; the same entry on a **copied** root (no metadata) → **unresolvable at step 3**, whether the copy caught the transaction **before apply** (record absent) or **after apply** (record present) — never refuted as a disk mismatch, never inferred from disk — and further mutation on that root is refused |
 | L3 | Valid-prefix truncation refutes; interior damage is malformed | anchor, then truncate the chain to a valid prefix behind the anchored head → **refuted** at step 2, and the finding names the unreachable anchored head; delete or rewrite an **interior** entry → broken linkage, **malformed** at step 1; raw-append a **sibling branch** beside a retained original, or an **orphan** entry → **malformed** at step 1 (§3's linearity invariant — one genesis-connected sequence, one tip), never a silently ignored fork — never silently validated in any arm |
-| L4 | Chain removal refutes against any surviving anchor, bound to its subject | delete the chain while a registry log-head record (or supplied exported head) is in the observer set → refuted — the "detectable journal removal" clause of kernel §8.7, discharged; with **two anchored corpora** and one arriving chainless → the subject binding associates the surviving anchor with the arriving corpus's `corpus_id` and refutes exactly it, never the sibling — an anchor is never matched to a root by elimination or by opaque genesis digest alone; raw re-mint an anchored corpus's manifest (`corpus.yaml` A → B) with the chain present → verify selecting **A**; A-bound anchors remain admitted by the selected subject, the manifest mismatch is reported separately, and replay **refutes** the edit — never `unresolvable` by subject disqualification; an edited configuration `world_id` against a present world chain → subject-mismatch finding **and operation refusal** (§3's lifecycle rule) — configuration is not registered surface, so replay cannot refute it, and the chain verdict derives independently of the presented configuration; replace an anchored corpus's chain with a **self-consistent different genesis** under the same `corpus_id`, verify selecting that subject → **refuted**, never empty-set `unresolvable` — a selected-subject anchor naming another genesis is replacement evidence, not a non-match; export a **W1** head, rewrite the local world subject and genesis to **W2**, verify explicitly selecting **W1** → refuted as removal/replacement, while selecting **W2** is a separate-world audit, never a verdict about W1; delete an anchored corpus A's chain **and** re-mint its `corpus.yaml` as B, then verify explicitly selecting **A** with A's anchor supplied → **refuted** as removal — the selected subject associates the anchor, and the presented manifest never discards it into empty-set `unresolvable`; delete or replace a store's chain while its store-subject registry record is in the observer set → **refuted**, the subject binding associating the anchor by `store_id`, never by elimination *(amended 2026-08-10, the verified-holdings record design §8)* |
+| L4 | Chain removal refutes against any surviving anchor, bound to its subject | delete the chain while a registry log-head record (or supplied exported head) is in the observer set → refuted — the "detectable journal removal" clause of kernel §8.7, discharged; with **two anchored corpora** and one arriving chainless → the subject binding associates the surviving anchor with the arriving corpus's `corpus_id` and refutes exactly it, never the sibling — an anchor is never matched to a root by elimination or by opaque genesis digest alone; raw re-mint an anchored corpus's manifest (`corpus.yaml` A → B) with the chain present → verify selecting **A**; A-bound anchors remain admitted by the selected subject, the manifest mismatch is reported separately, and replay **refutes** the edit — never `unresolvable` by subject disqualification; an edited configuration `world_id` against a present world chain → subject-mismatch finding **and operation refusal** (§3's lifecycle rule) — configuration is not registered surface, so replay cannot refute it, and the chain verdict derives independently of the presented configuration; replace an anchored corpus's chain with a **self-consistent different genesis** under the same `corpus_id`, verify selecting that subject → **refuted**, never empty-set `unresolvable` — a selected-subject anchor naming another genesis is replacement evidence, not a non-match; export a **W1** head, rewrite the local world subject and genesis to **W2**, verify explicitly selecting **W1** → refuted as removal/replacement, while selecting **W2** is a separate-world audit, never a verdict about W1; delete an anchored corpus A's chain **and** re-mint its `corpus.yaml` as B, then verify explicitly selecting **A** with A's anchor supplied → **refuted** as removal — the selected subject associates the anchor, and the presented manifest never discards it into empty-set `unresolvable`; delete or replace a store's chain while its store-subject registry record is in the observer set → **refuted**, the subject binding associating the anchor by `store_id`, never by elimination *(amended 2026-08-10, the verified-holdings record design §8)*; *(amended 2026-08-23, the log-verification design §1.2 — mechanism, not verdict: the corpus genesis is identity-free, so the "self-consistent **different** genesis under the same `corpus_id`" arm is not currently constructible — a fabricated distinct corpus genesis is malformed at genesis-form validation before any anchor judgment. Corpus-chain **replacement** is refuted through anchored-head unreachability under the same constant genesis instead, which is the arm conformance cut 8 reads; the different-genesis refutation is read for **world** subjects and defers, with L10's fork arms, for a future fork genesis)* |
 | L5 | The unanchored tail is the pinned residue | rewrite the tail beyond the maximal anchor into a self-consistent alternative **and rewrite the affected registered surface to match** → validated, undetected; assert the report's unanchored-tail extent covers it — the bound is anchor cadence, and the negative is the claim |
-| L6 | The genesis baseline reaches pre-log history — once anchored | register over a populated root, anchor, then delete a baseline-covered pre-log record → refuted at replay; **negative:** with **no surviving anchor for the selected subject**, rewrite genesis, baseline, and chain consistently to omit the record → unresolvable at best, undetected — the baseline is load-bearing only under an anchor, and one surviving selected-subject anchor turns the same rewrite into a refutation (L4) |
+| L6 | The genesis baseline reaches pre-log history — once anchored | register over a populated root, anchor, then delete a baseline-covered pre-log record → refuted at replay; **negative:** with **no surviving anchor for the selected subject**, rewrite genesis, baseline, and chain consistently to omit the record → unresolvable at best, undetected — the baseline is load-bearing only under an anchor, and one surviving selected-subject anchor turns the same rewrite into a refutation (L4) *(amended 2026-08-23, the log-verification design §1.3 — **both arms are presently unconstructible**: every genesis baseline is empty, no Science path mints a populated one, and genesis-form validation refuses a non-empty baseline as malformed, so the positive arm has no starting state; the anchor-free negative needs the same populated-baseline start for the omission to be the **baseline's** claim, and under empty baselines it collapses into the anchor-free rewrite residue already homed in L5. Conformance cut 8 reads this row **not at all** — reading it would certify nothing the amendment leaves standing. Lifting the amendment is a registration-surface design act, and the row is then read by that act's own cut)* |
 | L7 | Intent claims are exactly as wide as stated | assessment-run intent with **no pointers at all, or every `fulfills` pointer fully resolved and non-qualifying** — §6's exact reduction, never a collapse of an unresolved candidate → attempt-without-recorded-outcome finding, never a refutation; excise the intent entry after anchoring → **malformed** (interior linkage break) or, via truncation to a valid prefix, **refuted** — never silent; a second committed registration fulfilling the same intent, or a `fulfills` naming a missing or non-ancestor intent → **malformed**; mutate the fulfillment itself — a wrong-purpose committed transaction carrying `fulfills = I`, a run publication under another spec, another `event_token`, or a publication creating no run → each **fails qualification** (§3), the intent stays attempt-without-recorded-outcome, and the non-qualifying `fulfills` is named in a finding; make a **genuine** published run's bytes unresolvable → qualification **unresolvable**, and **no** unmatched finding is emitted (§6's reduction); kill between the intent's durable append and execution start → intent present, no execution — attempt-without-recorded-outcome, exactly as stated; race two cooperative intent appends on one root → serialized by the root lease, one linear chain, never a sibling branch (L3); attempt to publish the run through a root other than the intent's → **refused**, placement froze before execution; assert no caller-supplied `fulfills` path exists at the boundary; **negative:** crash, cancellation, and discarded failure are indistinguishable by construction; the guarantee quantifies over **both** intent kinds — instantiated for the holdings shape, a wrong-location observation, a wrong token, or a publication creating no observation each **fails qualification**; a kill between a holdings intent's append and its mutation reads attempt-without-recorded-outcome, exactly as stated *(amended 2026-08-10, the verified-holdings record design §8)*; the guarantee now quantifies over the **operation intent** too — instantiated for its shape, a report carrying another operation's token, a report of the wrong kind, a run publication for a non-run operation, or a registration publishing no terminal record each **fails qualification** (a second fulfilling registration on one intent stays the chain's **malformed**, classified before qualification — T2's arm), and a kill between the operation intent's append and its first act reads attempt-without-recorded-outcome, exactly as stated *(amended 2026-08-11, the act-report design §3)* |
 | L8 | Cross-chain order exists only through world-ancestry-ordered cuts | committed spec-freeze transition in E1's captured head, intent absent from E1, intent in E2, E2's build-start world head descending from E1's publication entry → ordered; both events first appearing in one cut → unordered, and "spec predates run" is not emitted; assert epoch sequence numbers are read by nothing |
 | L9 | Anchor evaluation is total over the observer set, never best-reachable | observer set holding an old reachable anchor and a newer anchored head absent from the chain → refuted, never validated-through-the-old; two mutually incomparable anchored heads for one genesis → refuted; empty set → unresolvable with the observer bound recorded; assert `anchored-through` and the observer set appear as report fields, and that malformed structure stops evaluation before any anchor judgment |
-| L10 | A fork is a new chain; a replica is the same chain | fork act → fresh genesis carrying `(parent genesis, parent head)` and its own baseline; assert parent and fork anchors are never compared; replica/restore → same genesis, chain carried unchanged, comparability intact; a copy presenting the parent genesis under a fresh `corpus_id` manifest without a fork-genesis → its chain refuses to verify under the new identity (genesis names the parent `corpus_id`); the **store instantiation** (the verified-holdings record design §2) — replica act → same genesis, chain carried unchanged, the copy stamped read-only in engine bookkeeping, the stamp durable **before** the copy is exposable; kill inside that window → the interrupted copy is metadata-less, hence read-only, never a writable twin; cooperative mutation on any root **not granted writability** → refused, the fork act the only exit; fork act → the new `store(store_id, forked_from)` genesis durable **before** the writability grant; kill between them → still a read-only replica; **copy any store tree without its engine metadata — replica or original alike — and cold-bootstrap it → read-only and unresolvable for holdings reads**, every mutation refused, the stamp's loss failing closed, never open; **restore two metadata-less copies of one `store_id` on two hosts → both enter service read-only**, a write on either refused — the sole writable exit is a fork under a new `store_id`, so two cooperative writers of one store stay unconstructible; **an interrupted copy carrying genesis and chain with payload files missing → the restore act's verification under a store-anchored observer set never returns `validated`**, the verdict is preserved — refuted, malformed, or unresolvable, never coerced to an admission — the root stays unserviceable and its dereferences mint nothing, in particular never an `absent` for a path the copy failed to carry; **a restore presented with an empty store-anchored observer set → unresolvable, replay not reached** (the verifier's L9 bound), the root unserviceable; raw-written copies of one `store_id` with branches assembled in one root → sibling-malformed (L3); both divergent heads supplied as anchors in one observer set → refuted (L9); the same two copies verified **separately** after their last common anchored head → each validates, the divergent tails L5's unanchored residue — the pinned surviving-observer negative *(amended 2026-08-10, the verified-holdings record design §8)* |
+| L10 | A fork is a new chain; a replica is the same chain | fork act → fresh genesis carrying `(parent genesis, parent head)` and its own baseline; assert parent and fork anchors are never compared; replica/restore → same genesis, chain carried unchanged, comparability intact; a copy presenting the parent genesis under a fresh `corpus_id` manifest without a fork-genesis → its chain refuses to verify under the new identity (genesis names the parent `corpus_id`); the **store instantiation** (the verified-holdings record design §2) — replica act → same genesis, chain carried unchanged, the copy stamped read-only in engine bookkeeping, the stamp durable **before** the copy is exposable; kill inside that window → the interrupted copy is metadata-less, hence read-only, never a writable twin; cooperative mutation on any root **not granted writability** → refused, the fork act the only exit; fork act → the new `store(store_id, forked_from)` genesis durable **before** the writability grant; kill between them → still a read-only replica; **copy any store tree without its engine metadata — replica or original alike — and cold-bootstrap it → read-only and unresolvable for holdings reads**, every mutation refused, the stamp's loss failing closed, never open; **restore two metadata-less copies of one `store_id` on two hosts → both enter service read-only**, a write on either refused — the sole writable exit is a fork under a new `store_id`, so two cooperative writers of one store stay unconstructible; **an interrupted copy carrying genesis and chain with payload files missing → the restore act's verification under a store-anchored observer set never returns `validated`**, the verdict is preserved — refuted, malformed, or unresolvable, never coerced to an admission — the root stays unserviceable and its dereferences mint nothing, in particular never an `absent` for a path the copy failed to carry; **a restore presented with an empty store-anchored observer set → unresolvable, replay not reached** (the verifier's L9 bound), the root unserviceable; raw-written copies of one `store_id` with branches assembled in one root → sibling-malformed (L3); both divergent heads supplied as anchors in one observer set → refuted (L9); the same two copies verified **separately** after their last common anchored head → each validates, the divergent tails L5's unanchored residue — the pinned surviving-observer negative *(amended 2026-08-10, the verified-holdings record design §8)*; *(amended 2026-08-23, the log-verification design §1.2/§6.2 — mechanism, not verdict: the copy presenting the parent genesis under a fresh `corpus_id` manifest **cannot** be caught by a genesis-payload comparison, since a corpus genesis names no `corpus_id`. The arrival act is the mechanism instead — `admit_arrival` selects `S = Corpus(provenance.parent_corpus_id)`, because the chain a replica carries is its parent's, and the fresh manifest then refuses `SubjectMismatch`: its chain refuses to verify under the new identity, exactly the frozen claim. This is the one arm of this row conformance cut 8 reads; every fork, replica-construction, restore and store arm still waits on ledger row 4)* |
 | L11 | The world chain is anchored only by export | present an epoch stored inside the world root as the world chain's anchor → not accepted into the observer set, while the **same** epoch supplied for a **corpus** subject is accepted — eligibility is carrier-specific, not a property of the epoch; a registry log-head record carrying a `world` subject → unconstructible through the anchor act and never accepted as an anchor; coordinated truncation of world chain, registry, and in-root epochs with no exported holder → undetected (**negative**, the surviving-observer bound); the same truncation with one exported epoch supplied → refuted |
 | L12 | One state vocabulary, and the log path is bookkeeping | each typed state class — absence, directory, symlink target, mode — round-trips through registration fingerprints and replay; assert no second summary model exists; appending the log is not recursively registered; raw-edit the log path **within the anchored prefix** → caught at step 1 (interior damage, malformed) or step 2 (prefix truncation, refuted); **negative:** a structurally valid raw append beyond the maximal anchor — most sharply a forged intent — passes steps 1 and 2 and may later be anchored: L5's residue, and why every entry-proves-an-act claim holds only under the cooperative-write assumption (§3) |
 | L13 | Logged is not permitted | log-visible removal of a **verification** via a cooperative act → the removal is in the timeline **and** verification emits the policy finding naming the deleted record; assert the finding classifies it as removal of a *failing* verification only where the historical content resolves — a held copy or surviving preimage bytes — since entries retain state digests, not verdicts; with the preimage GC'd and no copy held, the deletion is still detected and the semantic classification is honestly absent; assert corpus retirement appends a status event and deletes nothing; assert preimage-blob GC appears in no chain |

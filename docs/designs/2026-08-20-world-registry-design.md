@@ -506,6 +506,29 @@ no new act; changing configured presence is sufficient. `replica-of` describes
 the first arrival of that retained id to a world that has never admitted it. It
 is not an exception that permits a second admission.
 
+> **Amended 2026-08-23** (the log-verification design §6.2; execution ruling
+> R34). `World.admit` now refuses a `ReplicaOf` provenance outright with
+> **`ReplicaAdmissionRequiresVerification`**, *before* the world lock and
+> *before* any known-id consideration — a replica's chain traveled, admitting it
+> is the one admission that asks a question about evidence, and a bare `admit`
+> inspects nothing and so has no answer to report. The refusal order above is
+> therefore what runs **after** that check, and the two paragraphs above
+> describe the **verified** route: `science.root.admit_arrival`, which loads the
+> arriving root's manifest under that root's own lock, verifies the traveled
+> chain against `Corpus(parent_corpus_id)`, and commits through the very
+> admission core the numbered order states. On the bare-admit path a replica
+> never reaches the known-id check at all. `Fresh` and `ForkOf` are unchanged.
+>
+> **Cut 6's X5 replica clause is superseded by this, not satisfied.** Its arm
+> `test_known_id_refuses_fresh_and_replica_provenance` asserts that a *known id*
+> refuses both provenances; both refusals and the arm's green result survive,
+> and no frozen cut-6 file was edited, but the replica half no longer
+> demonstrates the row's claim, because the refusal it now observes is the
+> replica refusal rather than the known-id one. There is no way to preserve the
+> claim on that path. Recorded in the cut-8 results record
+> (`../plans/2026-08-22-conformance-cut-8-results.md`, §7.2) rather than left
+> for a harness that cannot see it.
+
 A legitimate fork retains the parent's admission and declares the parent in its
 manifest. `fork-of` therefore raises `ForkParentUnknown` when that parent is not
 known. This is also the registry fact W13 uses to distinguish a declared fork
@@ -682,7 +705,14 @@ is prospective until the cut document records exact declarations.
 The durability claim is intentionally limited to committed registration-entry
 evidence. Tests may decode the engine-owned chain as acceptance evidence, as
 the existing durable-family tests do. Full replay/refutation and
-genesis-to-mirror agreement remain the deferred log reader's claim.
+genesis-to-mirror agreement remain the deferred log reader's claim. *(Amended
+2026-08-23: that reader is no longer deferred. World-index slice 3
+(`2026-08-22-log-verification-design.md`) built the registered-surface
+projection and replay, the four-outcome evaluator, and the genesis↔mirror
+agreement check — `open_world` now refuses a mismatch and the world audit
+reports it — discharging conformance cut 8. **Cut 6's own durability claim is
+unchanged and is not restated by that landing**; what changes is that the
+claim's stated successor exists.)*
 
 ### 8.2 Declared deferrals and classification
 
