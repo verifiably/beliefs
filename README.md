@@ -127,9 +127,10 @@ replay with its removal policy pass, the world genesis↔mirror agreement check,
 and the ordered-cuts predicate — **43 selected + 10 labeled = 53 declarations**
 across **5 rows in full and 7 in part**, with L6 unread and 51 of the 53 units
 certified in full. See the
-[results](docs/plans/2026-08-22-conformance-cut-8-results.md). **This work is on
-branch `design/log-verification` and is not merged**; its `--no-ff` merge
-inherits cut 7's reachability constraint and adds cut 8's freeze commit to it.
+[results](docs/plans/2026-08-22-conformance-cut-8-results.md). The work
+**merged into `main` on 2026-08-23 with `--no-ff`** (integration commit
+`10cc84b`), inheriting cut 7's reachability constraint and adding cut 8's
+freeze commit to it.
 Three of kernel §8.7's four recorded-mutation consequences close there; G4 does
 not.
 

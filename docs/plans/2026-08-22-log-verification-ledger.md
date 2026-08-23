@@ -628,3 +628,14 @@ Results §9 lists these same ten.
 Branch: `design/log-verification`, base `cd549aa` on `main`. **Not merged** — the
 `--no-ff` merge is the human partner's act, and it inherits cut 7's reachability
 constraint on `4a7dc19` and `c8c0b12` plus cut 8's own freeze pin `117f37e`.
+
+## Close-out — 2026-08-23, after the merge
+
+Recorded after finalization; no ruling above is rewritten. The `--no-ff` merge
+landed as integration commit `10cc84b` on `main`, so the Branch paragraph above
+is true of finalization and false of the present. The atoms head `3aa5a76` was
+pushed to the `atoms` remote `main` later the same day, so the Heads bullet's
+"unpushed" and R44's "genuinely unpushed" were true when written and that state
+is now discharged: cut 8's reproduction prerequisite is satisfied from the
+remote, and adoption-ledger row 4 and the results record's §4 carry the dated
+corrections.

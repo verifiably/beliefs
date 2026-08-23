@@ -206,6 +206,10 @@ because their reasoning is what the next slice inherited — cut 8's own atoms
 prerequisite is unpushed today for exactly the same reason and carries exactly
 the same disclosure (`../plans/2026-08-22-conformance-cut-8-results.md` §4).
 
+**Corrected again 2026-08-23, later the same day.** Cut 8's prerequisite
+`3aa5a76` has now also been pushed; the "unpushed today" above was true when
+written, and cut 8's record carries its own dated correction (its §4).
+
 Science resolves `atoms-core` through an editable path dependency, so that local
 merge is what makes this branch green. **Anyone reproducing this discharge needs
 that `atoms` commit, and it exists only in a local clone.** Pushing it is a

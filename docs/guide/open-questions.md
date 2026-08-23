@@ -203,9 +203,10 @@ implementation**: a guarantee row awaiting code is work, not a question.
   2026-08-22 over the L table, reading five rows in full and seven in part with
   L6 unread, and discharged all 53 declarations on the certified tuple on
   2026-08-23 — the anchor act, the one four-outcome evaluator, replay, the
-  audit and replica-arrival boundaries, and the genesis↔mirror check. Cuts 4–7
-  are implemented, discharged, and merged on `main`; **cut 8 is discharged on a
-  branch that is not merged.** What the tamper-log group still owes is named
+  audit and replica-arrival boundaries, and the genesis↔mirror check. Cuts 4–8
+  are implemented, discharged, and merged on `main` — cut 8's `--no-ff`
+  integration commit is `10cc84b`, 2026-08-23.
+  What the tamper-log group still owes is named
   and owned: intent qualification with G4, the preimage-backed classification
   of a removed verification, event-level cross-chain order, and L10's
   fork/replica/restore arms.

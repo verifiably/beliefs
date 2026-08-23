@@ -158,8 +158,8 @@ world-index epoch carrier — rules, coherent capture, derived maps and receipts
 publication, bounded reads, GC, and anchor carriage — and merged into `main` on
 2026-08-22. Cut 8 discharged mutation-log verification on 2026-08-23 — the
 anchor act, the four-outcome evaluator, replay, the audit and arrival
-boundaries, and the genesis↔mirror check — **on a branch that is not yet
-merged**. The complete normative contract cut and the two governed stored kinds
+boundaries, and the genesis↔mirror check — merged into `main` on 2026-08-23.
+The complete normative contract cut and the two governed stored kinds
 remain open, and so do the parts of the log slice that carried named owners:
 intent qualification, the preimage-backed classification, event-level
 cross-chain order, and the fork/replica/restore arms.
