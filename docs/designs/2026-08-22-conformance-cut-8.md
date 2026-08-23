@@ -6,12 +6,19 @@ before freeze. **Discharged 2026-08-23** on branch `design/log-verification`
 — results, with the evidence and the per-unit dispositions, at
 `../plans/2026-08-22-conformance-cut-8-results.md`; the execution rulings at
 `../plans/2026-08-22-log-verification-ledger.md`. Nothing below this header
-changed at discharge. Two notes a reader needs and this frozen text cannot
-carry: the specification cited in **Sources** was promoted in the banking
+changed at discharge. Three notes a reader needs and this frozen text cannot
+carry. The specification cited in **Sources** was promoted in the banking
 change and now lives at `2026-08-22-log-verification-design.md`, so the path
-quoted there is pre-promotion; and 51 of the 53 declaration units are
+quoted there is pre-promotion. 51 of the 53 declaration units are
 certified in full, the other two — L7u1 and L2u5 — partial, for reasons the
-results record states.
+results record states. And **§7's byte-exactness charge now needs a stated
+comparison basis**: the banking change amended the source L table in place,
+so §3.1's quotations of **L4 and L10** are no longer byte-exact against the
+live `2026-08-03-tamper-evident-log-design.md`. All twelve remain byte-exact
+against that table **as of this cut's freeze commit `117f37e`**, which is the
+basis to compare against; the two amendments are dated in the source rows,
+move no disposition, and are ruled in the execution ledger (R39). No
+mechanical guard enforces the pairing — this header is it.
 
 **Sources:** `2026-08-20-conformance-cut-7.md` (rule and practice
 inheritances); the log-verification specification

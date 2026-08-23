@@ -137,18 +137,29 @@ directories.
 **Evidence order.** Cut 8 §5's obligation 7 is homed here, and its discipline is
 that a count claim quotes pytest's own summary line under `pipefail`, never a
 collect-only count. Every command below was run **after the last edit to the
-tree** — after the banking amendment set of §8, after the spec's promotion,
-after the stale-claim sweep, and after the one code edit the gates forced
-(§3). It was collected twice for that reason: the correction in §8 item 11 was
-found after the first collection, and every item was **re-collected after it**.
-The two collections agree on every count and every exit code; the run pasted
-below is the later one. The only tree changes made afterwards are this section's
-own text and the execution ledger's rulings and final heads. Neither is read by
-any gate: the
-corpus guard reads `docs/designs/`, `docs/guide/` and `README.md`, and
-`check_guide.py` reads `docs/guide/`. Both resolve *links into* `docs/plans/` —
-this file's own path among them, which is why it was created before the runs —
-but neither reads a word of what is inside one.
+tree it measures** — after the banking amendment set of §8, after the spec's
+promotion, after the stale-claim sweep, and after both Python edits the gates
+forced (§3). **The set was collected three times**, because the tree moved twice
+after the first collection and evidence recorded before the last edit is not
+evidence of the final tree:
+
+1. after the banking change's edits;
+2. after §8.11's push-state correction, which edited
+   `docs/designs/2026-08-03-redesign-adoption-ledger.md` (row 4) and
+   `docs/plans/2026-08-20-conformance-cut-7-results.md` (§4) — the first of those
+   is under `docs/designs/`, which the corpus guard reads, so a re-collection was
+   owed and not optional;
+3. after the whole-branch review's four corrections, of which one — §7.5's
+   clause in cut 8's status header — again edits a file the corpus guard reads.
+
+**All three collections agree on every count and every exit code**; the run
+pasted below is the third. The only tree changes made after it are this
+section's own text, §7.5, §8.13 and §9's ruling count, and the execution
+ledger. None of those is read by any gate: the corpus guard reads
+`docs/designs/`, `docs/guide/` and `README.md`, and `check_guide.py` reads
+`docs/guide/`. Both resolve *links into* `docs/plans/` — this file's own path
+among them, which is why it was created before the runs — but neither reads a
+word of what is inside one.
 
 ### 2.1 Host and certified tuple
 
@@ -161,7 +172,7 @@ but neither reads a word of what is inside one.
   occupies one certified volume and removes what it made.
 - volume: ext4 on `/dev/nvme0n1p2`, mounted `rw,noatime,data=ordered`
 - kernel `7.1.8-arch1-3`
-- source commit `4389d2a`, plus this banking change's own edits (§3)
+- source commit `4389d2a`, plus the close-out commits' own edits (§3)
 
 ### 2.2 The four evidence items
 
@@ -174,7 +185,7 @@ durability claim.
 ```text
 $ cd python && set -o pipefail && uv run --frozen pytest 2>&1 | tail -2
 ......................                                                   [100%]
-2182 passed in 345.53s (0:05:45)
+2182 passed in 332.15s (0:05:32)
 ```
 
 **2 — the cut-8 acceptance command.** This is the discharge. Four numbers, and
@@ -185,17 +196,17 @@ $ cd python && set -o pipefail && uv run --frozen python tools/cut8_acceptance.p
 [cut8 phase 1/2] cut7_acceptance.py
 [cut7 phase 1/3] cut5_acceptance.py
 .......................................                                  [100%]
-39 passed in 15.01s
+39 passed in 14.52s
 [cut7 phase 2/3] cut6_acceptance.py
 .......................                                                  [100%]
-23 passed in 11.39s
+23 passed in 11.18s
 [cut7 phase 3/3] test_n2_cut7.py
 ..........................................                               [100%]
-42 passed in 42.00s
+42 passed in 40.32s
 [cut8 phase 2/2] test_n2_cut8.py
 ........................................................................ [ 94%]
 ....                                                                     [100%]
-76 passed in 13.57s
+76 passed in 13.07s
 declared units: 53 (pinned by test_the_declared_units_are_unique_and_number_fifty_three, among the tests above; not itself a pytest total)
 ### exit: 0
 ```
@@ -220,7 +231,7 @@ discharge.
 ```text
 $ cd python && set -o pipefail && uv run --frozen pytest tests/test_designs_corpus.py 2>&1 | tail -3
 ............                                                             [100%]
-12 passed in 0.43s
+12 passed in 0.40s
 ```
 
 Twelve guards, all mechanical and all over *documents*: the design corpus's
@@ -243,7 +254,7 @@ $ cd python && set -o pipefail && uv run --frozen python tools/check_guide.py; e
 | gate | command | result | claim |
 |---|---|---|---|
 | lint | `uv run --frozen ruff check` | All checks passed! | code quality |
-| typing | `uv run --frozen pyright` | 4 errors, 0 warnings, 0 informations | typing; equal to `main`'s known baseline at `83744e7` |
+| typing | `uv run --frozen pyright` | 4 errors, 0 warnings, 0 informations | typing; the four the implementation plan fixes as the baseline present at merge `83744e7`, not re-measured there by this landing |
 | whitespace | `git diff --check` | clean | no whitespace errors |
 
 `pyright` takes no path argument here. A narrowed `pyright src` reports 0 and
@@ -296,12 +307,17 @@ Base `cd549aa` on `main`. The commits this discharge measured, in order:
 | `2bad282` | fix(cut8): self-describe the declared-unit count and correct a citation |
 | `4389d2a` | docs(plans): state each acceptance count with what it counts |
 
-Three close-out commits complete the branch: the banking change that carries
-this record and §8's amendments (`55b6de7`, the hash the execution ledger's
-`## Heads` records), the finalized execution ledger, and one correction found
-while checking R1's precedent against the sibling repository rather than against
-the sentence describing it (§8 item 11). None of the three touches
-`python/src` or any cut declaration. The banking change makes two Python edits,
+The close-out commits that follow are documentation: the banking change that
+carries this record and §8's amendments (`55b6de7`, the hash the execution
+ledger's `## Heads` records), the finalized execution ledger, the correction
+found while checking R1's precedent against the sibling repository rather than
+against the sentence describing it (§8.11), and the whole-branch review's four
+corrections — §9's ruling count, §7.5 together with the clause it added to
+cut 8's status header, §2's evidence order, and §8.13. The branch history is the
+exhaustive list; no count of close-out commits is given here, because such a
+count goes stale on the commit that follows it. **None of them touches
+`python/src` or any cut declaration.** The banking change makes two Python
+edits,
 both forced by a gate and neither behavioural: one entry added to the corpus
 guard's design-count spelling table, since promoting the specification takes the
 design corpus from 31 documents to 32 and the guard refuses a count it cannot
@@ -466,6 +482,10 @@ deferrals are preserved:
 - **The acceptance-node dependency** noted in cut 7's results §8 applies
   unchanged: explicit node ids beating `--ignore` is undocumented pytest
   behaviour the harness relies on.
+- **Two of the frozen cut's quoted rows no longer match the live source
+  table.** No disposition moves and no frozen text was edited, but the next
+  second reader will hit a red running §7's byte-exactness charge unless they
+  read §7.5 below first.
 
 ## 7. Known limitations of the landed implementation
 
@@ -585,6 +605,48 @@ stated in the code where it lands:
   implementation plan's Task 11, and the runner says so in its own docstring
   rather than misattributing it.
 
+### 7.5 Cut 8's quoted rows are a freeze snapshot: L4 and L10 have drifted
+
+Cut 8 §7's standing second-reader charge opens with *verify every quoted row
+byte-exact against the source table*. **Run against the live table today, that
+check reds on two rows**, and it is meant to — but nothing in the frozen cut
+could say so, so it is said here and in the cut's status header.
+
+The banking change amended the source table, `2026-08-03-tamper-evident-log-design.md`
+§10, in place: **L4** and **L10** each gained a dated `(amended 2026-08-23 …)`
+marker carrying spec §1.2's genesis-subject consequence — for L4, that a
+fabricated distinct corpus genesis is malformed before any anchor judgment so
+replacement is refuted through anchored-head unreachability; for L10, that the
+copy-under-a-fresh-manifest arm is demonstrated through `admit_arrival`'s
+`SubjectMismatch` rather than a genesis-payload comparison. **L6** was amended
+the same way with §1.3's empty-baseline consequence, but cut 8 does not quote
+L6 — it is the unread row (§3.2 there) — so it is not part of the drift.
+
+Measured, not asserted:
+
+| comparison | result |
+|---|---|
+| cut 8 §3.1's twelve quoted rows vs. the source table **at `117f37e`** | all twelve byte-exact |
+| the same twelve vs. the **live** source table | ten byte-exact; **L4 and L10 differ** |
+
+**The comparison basis for cut 8 is `117f37e`, its own freeze commit.** That is
+the whole of the remedy, and it is a documentary one: nothing in this repository
+reads a cut's quotations against the design table it quotes — the corpus guard
+checks row *inventories* and cross-references, never quoted text — so **no
+mechanical guard enforces the pairing**. A reader who compares against `HEAD`
+and stops there will conclude a frozen cut was tampered with.
+
+Why it was done this way rather than avoided (execution ledger R39): amending
+in place with a dated marker is this corpus's own convention for a frozen
+table — L4, L7 and L10 already carried 2026-08-10 and 2026-08-11 markers before
+this landing — and cut 8's §8 limitation 5 anticipated exactly this case. The
+alternative, keeping the amendments in section prose and out of the row cells,
+would have left the guarantee table stating a mechanism the shipped code does
+not implement, which is the failure this repository's design-doc rule exists to
+prevent. Neither row's **disposition** changed: L4 and L10 are partial in the
+frozen cut and partial in the amended table, and the amendments state mechanism,
+never verdict.
+
 ## 8. Corrections this landing made to the banked and frozen text
 
 Per this repository's rule that a status header and a design sentence are claims
@@ -650,7 +712,32 @@ in the banking change.
     discharge (§4 above; execution ledger R44).
 12. **Cut 8's own frozen text cites the spec at its pre-promotion path**
     (`docs/superpowers/specs/…`). The frozen text is not edited; the cut's
-    status header records the promotion and the new path.
+    status header records the promotion and the new path, and — after the
+    whole-branch review — the L4/L10 drift of §7.5 as well.
+13. **Three further live design documents carried claims this landing makes
+    false**, outside the plan's sweep, corrected on the rule that drift
+    propagates outward (execution ledger R40):
+    - `2026-08-03-world-index-packaging-design.md` **limitation 1** — "the
+      registry is unanchored until §9 lands … deleting an admission record is
+      undetectable today." Closed, with the two bounds that survive the closure
+      named: detection is quantified over surviving observers, and the tail
+      beyond the maximal anchor stays L5's residue.
+    - `2026-08-20-world-registry-design.md` **§8.1** — "full replay/refutation
+      and genesis-to-mirror agreement remain the deferred log reader's claim."
+      That reader is no longer deferred; cut 6's own durability claim is
+      explicitly not restated by the correction.
+    - `2026-08-20-world-index-slice-2-design.md`'s **out-of-scope list** — its
+      first two entries ("log verification, L1–L13, the explicit anchor act,
+      and the replay reader"; "genesis-to-mirror verification, pending the
+      configuration-mismatch audit") are no longer deferred anywhere. The
+      slice's own boundary is unchanged and stays accurate as a statement about
+      *that* slice.
+
+    **The frozen conformance cuts were deliberately left alone.** Cuts 2, 3, 4,
+    6 and 7 and the disposition record all carry L-row deferral tables this
+    landing makes historically stale. A frozen cut's deferral table states the
+    world at its freeze; editing one to track later work is what the freeze
+    discipline forbids.
 
 ## 9. Execution record — the rulings ledger survived, at a tracked path
 
@@ -660,11 +747,13 @@ results §10 recorded that slice 2's rulings ledger was destroyed with its
 worktree — a git-ignored file inside a disposable checkout — and named the fix:
 keep the ledger at a tracked path and commit it at every task boundary.
 
-That was done. **All 38 rulings are in
-`docs/plans/2026-08-22-log-verification-ledger.md`**, committed at each task
-boundary rather than at the end, with the atoms and Science heads recorded
-beside them. Nothing in this execution depends on a file that lives only in a
-worktree.
+That was done. **All 44 rulings are in
+`docs/plans/2026-08-22-log-verification-ledger.md`**, with the atoms and Science
+heads recorded beside them. **R1–R38 were written and committed at their task
+boundaries** — the discipline cut 7's results asked for — and **R39–R44 are the
+banking task's own**, committed with the close-out. Nothing in this execution
+depends on a file that lives only in a worktree.
 
 Rulings with obligations discharged in this document: R1 (§4), R13 (§3), R16
-(§7.1), R33 (§8.1), R34 (§7.2), R37 (§1.1), R38 (§1.2).
+(§7.1), R33 (§8.1), R34 (§7.2), R37 (§1.1), R38 (§1.2), R39 (§7.5), R40
+(§8.13), R44 (§4 and §8.11).

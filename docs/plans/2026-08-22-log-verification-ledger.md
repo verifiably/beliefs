@@ -494,6 +494,18 @@ failure mode this repository's design-doc rule exists to prevent. Cost if
 wrong: a future second reader's byte-exactness check against cut 8 reports a
 drift that is intentional and dated, and must read this ruling to see why.
 
+**Measured at the whole-branch review, 2026-08-23.** Of cut 8 §3.1's twelve
+quoted rows, **ten are still byte-exact against the live table and two — L4 and
+L10 — are not**; all twelve are byte-exact against the table at `117f37e`, which
+is therefore the comparison basis. L6 is amended too but is not among the
+twelve: cut 8 does not quote it, because it is the unread row (§3.2 there). No
+disposition moves in either amended row. Because the cost above lands on a
+reader who may never open this ledger, the consequence is now stated in the two
+places such a reader does start — **cut 8's status header** (the only part of
+the frozen cut that may change) and the **results record's §7.5**, which carries
+the measurement above. Still unguarded mechanically: nothing in this corpus
+reads a cut's quotations against the design table it quotes.
+
 **R40: Three live design documents outside the plan's Modify list are corrected
 (Task 12 banking, 2026-08-23)**
 
