@@ -53,10 +53,11 @@ assumption.** Bookkeeping is a directory, and a directory can be copied;
 not a property of `rsync`. So the grant record carries a **binding to the
 host's stable machine identity and the root's canonical path**, and the
 coordinator validates the binding **before honoring any grant**: a
-mismatch reads as no grant — fail-closed, exactly the metadata-less
-outcome. This is what makes the migration's "this host minted"
-distinction and the two-restored-copies arm implementable from available
-state: copied bookkeeping fails the binding on arrival. The binding's
+mismatch reports **`binding-mismatched`** (§4's declared state) and
+conveys no grant. This makes post-lifecycle copied bookkeeping fail
+closed and supports the two-restored-copies arm. It cannot distinguish
+pre-lifecycle origins; the explicit migration exception below addresses
+that limit. The binding's
 exact carrier is the atoms gate's to design; the requirement — no grant
 honored without a matching binding — is frozen here. Forging the binding
 in place is a raw bookkeeping edit, already out-of-band. One consequence
@@ -155,9 +156,9 @@ has no right to expect.
 
 **`grant_read_serviceability(root, metadata_root)`.** Rechecks structural
 facts only — the root is non-writable, and either currently unserviceable
-or **already read-only serviceable, which returns success idempotently**:
-that is what makes the grant exact-retry like its two siblings — then
-durably records read-only serviceability. It accepts **no verdict and no
+or **already read-only serviceable, which returns success without another
+write**: that idempotency is what makes the grant exact-retry like its
+two siblings — then durably records read-only serviceability. It accepts **no verdict and no
 attestation**; atoms cannot authenticate one, so none is offered a channel.
 Calling it outside Science's restore orchestration is explicitly
 **out-of-band**, beside raw bookkeeping edits and raw `rm`. Atoms never
