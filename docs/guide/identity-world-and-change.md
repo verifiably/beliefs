@@ -2,7 +2,7 @@
 title: Identity, world, and change
 status: living
 created: 2026-08-08
-updated: 2026-08-22
+updated: 2026-08-23
 sources:
   - ../designs/2026-08-02-substrate-consolidation-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -15,7 +15,10 @@ sources:
   - ../designs/2026-08-20-conformance-cut-6.md
   - ../designs/2026-08-20-world-index-slice-2-design.md
   - ../designs/2026-08-20-conformance-cut-7.md
+  - ../designs/2026-08-22-log-verification-design.md
+  - ../designs/2026-08-22-conformance-cut-8.md
   - ../plans/2026-08-20-conformance-cut-6-results.md
+  - ../plans/2026-08-22-conformance-cut-8-results.md
 ---
 
 # Identity, world, and change
@@ -114,6 +117,16 @@ the world registry or an epoch, while the world head needs an external export.
 Verification reports `validated`, `refuted`, `unresolvable`, or `malformed`
 against an explicit observer set.
 
+That verifier is now built. One read-only evaluator judges a root's chain in
+four steps — structure, anchors, pending, replay — and both the audit act and
+the verified replica-arrival act call it rather than reimplementing it. Replay
+walks the registered surface from the genesis baseline and compares in both
+directions, so a record the timeline never produced is a disagreement, and a
+removal inside that surface emits a finding naming the path and the removing
+transaction. Whether the removed record was a *failing verification* resolves
+only where the caller supplies historical bytes, and even then by the path the
+held copy claims rather than by digest.
+
 This is deliberately bounded. A surviving anchor can expose truncation or
 rewriting; destruction of a root and every observer cannot be detected from
 nothing. An entry proves that an operation occurred through the boundary, not
@@ -136,8 +149,15 @@ The authoritative world root, manifest, corpus-state identity, and append-only
 registry core are implemented, including fresh adoption, lifecycle status, and
 configured presence. Epoch publication, the four derived maps and their
 fixture-bound receipts, bounded reads, whole-epoch GC, and anchor carriage are
-implemented too, merged on `main` since 2026-08-22. Global resolution and anchor
-verification remain designed or deferred. The address ruling still governs the eventual derived
+implemented too, merged on `main` since 2026-08-22. **Anchor verification is
+implemented as well** — the log-head record and head artifact, the explicit
+anchor act, the four-outcome evaluator, replay with its removal policy pass, the
+genesis↔mirror agreement check, and the ordered-cuts predicate, discharged
+against [conformance cut 8](../designs/2026-08-22-conformance-cut-8.md) on
+2026-08-23 ([results](../plans/2026-08-22-conformance-cut-8-results.md)) — but
+on a branch not yet merged, and intent qualification and the preimage-backed
+classification of a removed verification are still deferred. Global resolution
+remains designed. The address ruling still governs the eventual derived
 views: labels are computed on read, coreference is graded rather than merged,
 and storage duplication changes no address.
 
@@ -156,4 +176,5 @@ what chain verification costs at scale.
 - [Correction guarantees C1–C10](../designs/2026-08-03-correction-lifecycle-design.md#7-guarantees)
 - [World-index guarantees X1–X12](../designs/2026-08-03-world-index-packaging-design.md#10-guarantees)
 - [Mutation-log guarantees L1–L13](../designs/2026-08-03-tamper-evident-log-design.md#10-guarantees)
+- [The log evaluator, its precedence, and its two boundaries](../designs/2026-08-22-log-verification-design.md#4-the-evaluator)
 - [Per-kind world identity bases](../designs/2026-08-02-world-addressing-design.md#42-the-basis-ruled-per-kind)

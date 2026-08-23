@@ -52,6 +52,15 @@ The following remain outside this slice:
 - artifact 11's pinned authority snapshot; and
 - any use of chain reading to erase those deferrals.
 
+*(Noted 2026-08-23, after the fact and without widening this slice.)* The first
+two are no longer deferred anywhere: world-index slice 3
+(`2026-08-22-log-verification-design.md`) built the explicit anchor act, the
+replay reader, the one four-outcome log evaluator, and the genesis↔mirror
+agreement check, discharging conformance cut 8 with five L rows read in full and
+seven in part (L6 unread). This slice's own boundary is unchanged — the
+statement above is what was outside *it*, and it stays accurate as such. The
+fork constructor and the authority snapshot are still owed.
+
 The one cross-repository prerequisite is the `atoms` command in §2. It lands
 before Science implementation, under that repository's own design and review
 discipline.

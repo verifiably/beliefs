@@ -1,6 +1,10 @@
 # Log verification and anchoring — design (world-index slice 3)
 
-**Status:** Draft 2026-08-22, uncommitted pending review. Implements the
+**Status:** Banked 2026-08-23, promoted here from
+`docs/superpowers/specs/` at the discharge of conformance cut 8 (results:
+`../plans/2026-08-22-conformance-cut-8-results.md`), with §5.3 and §7
+amended first from the execution rulings — a promoted design must not bank
+a claim the code contradicts. Implements the
 Science half of the tamper-evident mutation log (ledger row 5): the ruled
 registry log-head record, the exported head artifact, the explicit anchor
 act, the §6 evaluator behind an audit act and a `ReplicaOf` arrival act,
@@ -12,10 +16,13 @@ identity-free corpus genesis ruling); `2026-08-20-world-index-slice-2-design.md`
 (the epoch anchors, `read_chain`, and the callback seam);
 `2026-08-10-verified-holdings-record-design.md` (store subjects and the
 supplied-store-anchor route this slice's codecs must not exclude).
-**Amends at banking:** the log design's §3/§5/§6 genesis-subject clauses and
-the affected L4/L10 arm mechanisms (§1.2 here); its L6 pre-log-history arm's
-constructibility (§1.3); ledger rows 4 and 5; kernel §8.7's status line
-(three of the four recorded-mutation consequences close at this slice's
+**Amended at banking, 2026-08-23** (all applied in the banking change): the
+log design's §3/§5/§6 genesis-subject clauses and the affected L4/L10 arm
+mechanisms (§1.2 here); its L6 pre-log-history arm's constructibility
+(§1.3); the world-registry design's admission algorithm (`World.admit`'s
+`ReplicaOf` refusal now precedes the known-id refusal, superseding cut 6's
+X5 replica clause); ledger rows 4 and 5; kernel §8.7's status line (three
+of the four recorded-mutation consequences closed at this slice's
 discharge; G4 waits on the intent boundary).
 
 ## 1. Scope and the two dated amendments
@@ -341,11 +348,30 @@ boundaries accept a typed optional input, `history: Mapping[content-hash,
 bytes]`, whose keys are atoms's exact content-hash form —
 `sha256:<64 lowercase hex>`. A malformed key, or a key whose bytes do not
 hash to it, **refuses the act** — corrupt evidence is never silently
-ignored. A held copy resolves iff its digest matches the recorded state,
-and every classified finding **names the matched digest**. The
+ignored. A held copy resolves by **the path its own identity claims**, and
+every classified finding **names the digest the copy was filed under**; two
+copies claiming one path resolve nothing. The
 preimage-store resolver is a named atoms seam (§10) and until it
 exists the classification without a held copy is honestly absent, exactly
-as L13's own arm words it. That L13 arm is **partial, stated**.
+as L13's own arm words it. That L13 arm is **partial, stated** — and
+partial for **two** reasons, not one.
+
+> **Amended 2026-08-23 (execution ruling R16).** This clause first read
+> "a held copy resolves iff its digest matches the recorded state". That is
+> not implementable through the frozen §2 seam: a chain entry retains a
+> path *state*, states are opaque above the composition root, and `LogSeam`
+> exposes no state→digest accessor — checked against the seam's surface,
+> not assumed. The landed pass decodes the held bytes, derives the corpus
+> path the copy's identity claims, matches the removed path, and names the
+> digest the copy was filed under. **This is a second, distinct partiality
+> of L13**, beyond §10.4's resolver deferral: the deferral says the
+> classification is absent when no copy is held; this says the *match
+> predicate itself* is weakened when one is. A single held copy of a
+> different version of the same record can misclassify a removal in either
+> direction, so every finding message is scoped to what the evidence
+> supports — it speaks about the held copy, never about the removed bytes.
+> Stating both reasons wherever the first is stated is part of the
+> amendment. The digest match returns with the preimage resolver.
 
 ## 6. The two boundaries and the mismatch rule
 
@@ -462,7 +488,7 @@ translation.
 
 ## 7. The ordered-cuts predicate
 
-`epochs_ordered(world, e1, e2)` → `ordered | unordered`, over already
+`epochs_ordered(config, e1, e2)` → `ordered | unordered`, over already
 validated epochs and world chain: locate E1's **committed** publication
 registration and its settlement in the world chain; E2 orders after E1
 **iff** E2's build-start world head descends from that settlement by
@@ -471,6 +497,19 @@ sequence numbers are read by nothing. This is the log design §7's
 predicate **only** — the event-level relation (presence/exclusion
 reasoning across both captured corpus heads) is deferred, and L8 is
 **partial**.
+
+> **Amended 2026-08-23 (execution ruling R33).** The signature first read
+> `epochs_ordered(world, e1, e2)`. The predicate takes the world
+> **configuration**, for the audit act's own reason (§6.1): it must answer
+> on exactly the worlds `open_world` refuses, and `open_world` now reads
+> the chain (§6.3). Three further rules landed in the docstring rather than
+> as fallbacks: the descent **includes** the settlement entry, since a
+> publication linearizes registration → settlement and the tip at the
+> instant E1 commits *is* the settlement (R29); the publication moment is
+> the **earliest committed** settlement of the registration creating
+> `epochs/<e1>/anchors.yaml` (R30); and an absent or malformed world chain
+> answers `unordered`, caller-input facts still refusing `EpochUnknown`
+> (R31).
 
 ## 8. The atoms design gate
 
@@ -487,7 +526,8 @@ integration expecting a fresh checkout to build.
 
 Selected from the log design's L table; verbatim splicing and the
 any-unrun-arm rule apply as in cuts 5–7. Expected shape, to be fixed at
-the cut's own freeze:
+the cut's own freeze — **the cut is now frozen and its own §3/§4 are the
+authority; the two places this expectation was refined are noted below**:
 
 - **In:** L3, L5, L9, L11, L12.
 - **Partial:** L1 (the pending-gate and refusal arms here; the
@@ -509,6 +549,20 @@ the cut's own freeze:
   claim, collapsing otherwise into L5's homed residue; L7's remainder (its
   structural half is selected as chain-structural inspection arms;
   qualification with the intent boundary).
+
+> **Refinements at the freeze, recorded 2026-08-23.** Two. **L7 is
+> partial**, not deferred: its two chain-structural units are selected
+> because they are `inspect_chain` taxonomy entries with no other
+> certifying home, and the cut records that refinement in its own §3.1.
+> **L4's different-genesis unit was replaced** — a fabricated distinct
+> corpus genesis contradicts §4.2's genesis-form validation, so the
+> same-genesis alternative-chain unit refuted through ancestry stands in
+> its place, and the distinct-genesis variant defers with L10's fork arms.
+> The cut's §7.1 records these and three other second-reader dispositions.
+> Two of the 53 declared units are themselves **partial** at discharge —
+> L7u1 (the non-ancestor `fulfills` spelling is directory-unconstructible)
+> and L2u5 (`register_root`'s existing-chain arm has no Science mapping) —
+> giving 51 full + 2 partial; the results record's §1.1 states both.
 
 ## 10. Limitations and the deferral ledger
 
@@ -561,3 +615,9 @@ banked.
    §1.3), ledger rows 4 and 5 and kernel §8.7's status line are corrected
    in the same change, and the stale-claim grep runs over the user-facing
    docs.
+
+**All six steps completed 2026-08-23** on branch `design/log-verification`,
+whose `--no-ff` merge to `main` is the one remaining act. The thirty-eight
+execution rulings are in
+`../plans/2026-08-22-log-verification-ledger.md`; the discharge is
+`../plans/2026-08-22-conformance-cut-8-results.md`.

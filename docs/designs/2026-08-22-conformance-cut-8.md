@@ -1,8 +1,17 @@
 # Conformance cut 8 — log verification and anchoring
 
-**Status:** Frozen 2026-08-22; second reader discharged 2026-08-22 (§7.1),
-its five findings and one spec-side stale claim closed before freeze.
-Implementation is prospective.
+**Status:** Frozen 2026-08-22 at `117f37e`; second reader discharged
+2026-08-22 (§7.1), its five findings and one spec-side stale claim closed
+before freeze. **Discharged 2026-08-23** on branch `design/log-verification`
+— results, with the evidence and the per-unit dispositions, at
+`../plans/2026-08-22-conformance-cut-8-results.md`; the execution rulings at
+`../plans/2026-08-22-log-verification-ledger.md`. Nothing below this header
+changed at discharge. Two notes a reader needs and this frozen text cannot
+carry: the specification cited in **Sources** was promoted in the banking
+change and now lives at `2026-08-22-log-verification-design.md`, so the path
+quoted there is pre-promotion; and 51 of the 53 declaration units are
+certified in full, the other two — L7u1 and L2u5 — partial, for reasons the
+results record states.
 
 **Sources:** `2026-08-20-conformance-cut-7.md` (rule and practice
 inheritances); the log-verification specification

@@ -2,7 +2,7 @@
 title: Contracts and adoption
 status: living
 created: 2026-08-08
-updated: 2026-08-22
+updated: 2026-08-23
 sources:
   - ../designs/2026-08-03-normative-contract-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -153,11 +153,16 @@ fitted result into independent validation.
 
 ## Current state
 
-Cuts 1–7 have landed their implementation slices. Cut 7 discharged the
+Cuts 1–8 have landed their implementation slices. Cut 7 discharged the
 world-index epoch carrier — rules, coherent capture, derived maps and receipts,
-publication, bounded reads, GC, and anchor carriage — on a branch that is not
-yet merged. The complete normative contract cut, the two governed stored kinds,
-and mutation-log verification remain open.
+publication, bounded reads, GC, and anchor carriage — and merged into `main` on
+2026-08-22. Cut 8 discharged mutation-log verification on 2026-08-23 — the
+anchor act, the four-outcome evaluator, replay, the audit and arrival
+boundaries, and the genesis↔mirror check — **on a branch that is not yet
+merged**. The complete normative contract cut and the two governed stored kinds
+remain open, and so do the parts of the log slice that carried named owners:
+intent qualification, the preimage-backed classification, event-level
+cross-chain order, and the fork/replica/restore arms.
 Consult the ledger for the current state rather than carrying these sentences
 into a status report.
 

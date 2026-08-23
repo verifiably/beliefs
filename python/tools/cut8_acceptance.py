@@ -121,12 +121,18 @@ def declared_unit_count() -> int:
     `sys.path` for its own run but this standalone script does not inherit —
     so both `tests/` and `tests/acceptance` are added here, for this one
     import, rather than assumed.
+
+    The import is suppressed for the type checker because the path it resolves
+    against is inserted three lines above, at call time: a static resolver
+    cannot see that and reports the module missing. Suppressing it here keeps
+    the project-wide `pyright` gate at its four known baseline diagnostics
+    rather than teaching the whole project to resolve a test directory.
     """
     for directory in (PYTHON_ROOT / "tests", ACCEPTANCE):
         path = str(directory)
         if path not in sys.path:
             sys.path.insert(0, path)
-    from n2_arms_cut8 import CUT8_ARMS
+    from n2_arms_cut8 import CUT8_ARMS  # pyright: ignore[reportMissingImports]
 
     return len(CUT8_ARMS)
 
