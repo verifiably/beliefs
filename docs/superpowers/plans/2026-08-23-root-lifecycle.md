@@ -290,8 +290,13 @@ now.
     grant); a re-run of `init_store_root` completes the grant and
     returns the id decoded from the existing genesis, never a re-mint.
   - `test_store_genesis_payload_round_trips` — payload with and without
-    `forked_from` decodes to its inputs; a non-fork payload carrying
-    `forked_from` is refused by genesis-form validation.
+    `forked_from` decodes to its inputs; a malformed `forked_from` (wrong
+    shape, non-hex digest) is refused at decode. (The fork-form versus
+    empty-baseline distinction is Task 7's, with the fork acts.)
+  - `test_cold_existing_store_root_refuses_reinitialization` — a
+    metadata-less copy of an initialized store (genesis present, no
+    bookkeeping) refuses `CorpusRootRefused`: a copied store is restored
+    or forked, never re-initialized into writability.
   - `test_store_surface_excludes_bookkeeping` —
     `registered_surface_paths(root, "store")` excludes the chain leaf
     and engine metadata; every other root-relative entry is included.
@@ -316,10 +321,21 @@ now.
       if store_root.exists() and not store_root.is_dir():
           raise CorpusRootRefused(f"{str(store_root)!r} exists and is not a directory, so it cannot be a store root")
       store_root.mkdir(parents=True, exist_ok=True)
-      existing = _read_existing_store_genesis(store_root)   # the retry path
+      existing = _read_existing_store_genesis(store_root)
       if existing is not None:
-          register_root(...)                                # completes the grant, same genesis
-          return existing
+          # The retry path is gated on RECOGNIZED local state, never on the
+          # genesis alone — a metadata-less copied store must refuse, not
+          # promote (register_root grants only for its own recorded
+          # initialization operation; a completed init reads writable):
+          state = read_lifecycle_state(store_root)
+          if state == "writable":
+              return existing                    # completed init, idempotent
+          if _has_recorded_initialization(store_root):
+              register_root(...)                 # the matching retry completes the grant
+              return existing
+          raise CorpusRootRefused(
+              f"{str(store_root)!r} carries a store genesis this host did not "
+              "initialize; a copied store is restored or forked, never re-initialized")
       populated = registered_surface_paths(store_root, "store")
       if populated:
           raise CorpusRootRefused(f"{str(store_root)!r} holds payload {populated[0]!r}; a store initializes empty")
@@ -451,6 +467,14 @@ now.
     residue; the holdings-read clauses stay deferred by the cut).
   - `test_lifecycle_union_is_closed_at_five` — the re-exported state type
     has exactly the five declared members (cut 9 label 6's closure).
+  - `test_binding_delta_reads_binding_mismatched` — a fabricated
+    single-delta binding edit (host, then path) reads `binding-mismatched`
+    through the Science wrapper, never the state the bytes claim.
+  - `test_migration_authorized_success_reads_writable` — the passthrough
+    over a fabricated pre-lifecycle vintage grants; the root reads
+    writable with a fresh binding.
+  - `test_replicate_refuses_an_existing_destination` — the wrapper's
+    no-clobber refusal, observed from Science.
 - [ ] **Step 2:** Run: `uv run --frozen pytest tests/test_lifecycle_wrappers.py -v`.
   Expected: FAIL at import of the wrappers.
 - [ ] **Step 3: Implement** the wrappers (each a `root.py` function
@@ -464,7 +488,12 @@ now.
 
 **Files:**
 - Create: `python/tests/test_restore_root.py`
-- Modify: `python/src/science/root.py` (`restore_root`)
+- Modify: `python/src/science/root.py` (`restore_root`, the wrapper),
+  `python/src/science/world/verify.py` (factor the evaluation-input
+  assembly out of `_audit_log` into a shared helper —
+  `_assemble_evaluation_inputs(root, subject, …) -> (view, disk, presented, absent)`
+  — called by `_audit_log` unchanged in behavior and by the new restore
+  core; the helper is the exact boundary, and no third assembly exists)
 
 **Interfaces:**
 - Consumes: Tasks 2–5 (query, grant, evaluator store path).
@@ -613,12 +642,27 @@ now.
     `refuted`; the fixture asserts same subject, differing geneses.
 - [ ] **Step 2:** Run: `uv run --frozen pytest tests/test_fork_acts.py -v`.
   Expected: FAIL, `ImportError: cannot import name 'fork_corpus'`.
-- [ ] **Step 3: Implement.** Derivation order inside `fork_corpus`: read
-  the parent's manifest and chain head, compute the corpus-state
-  identity, mint the child id, author the `CorpusManifest`, build the
-  fork genesis payload, then call `fork_root` with the snapshot binding —
-  a source-moved refusal propagates untranslated. Extend genesis-form
-  validation for both fork forms. Run to PASS.
+- [ ] **Step 3: Implement.** `fork_corpus` branches on the destination
+  **before any mint** — the retry path first, so an interrupted fork
+  never re-mints:
+
+  1. **Resume branch:** the destination carries `fork_root`'s recorded
+     fork operation (probed through the mechanism the Task 1 amendment
+     names — the operation record carries the original `genesis_payload`
+     and `dest_overrides`, so atoms completes the fork from its own
+     record). Call the resume entry point; then read the child manifest
+     **from the destination** (it was installed by the recorded
+     overrides) and return it — the same `corpus_id`, never a fresh one.
+  2. **Fresh branch:** the destination is absent. Read the parent's
+     manifest and chain head, compute the corpus-state identity, mint
+     the child id, author the `CorpusManifest`, build the fork genesis
+     payload, then call `fork_root` with the snapshot binding — a
+     source-moved refusal propagates untranslated.
+  3. Anything else at the destination (a foreign root, a completed fork)
+     — `fork_root`'s no-clobber and operation-identity refusals
+     propagate; `fork_corpus` adds no third disposition.
+
+  Extend genesis-form validation for both fork forms. Run to PASS.
 - [ ] **Step 4:** Gate block; then
   `uv run --frozen python tools/cut7_acceptance.py` (still exit 0;
   cut 8's store-refusal residue is Task 4's standing ruling). Commit:
@@ -693,41 +737,47 @@ now.
   fixture assertions of §5 items 2–8) and the three §6 freeze obligations
   as declaration-time checks. Atoms-certified interiors are declared as
   citations to the atoms suite, per the cut's §1 principle. The
-  unit-to-node mapping (`t_` abbreviates `tests/`, `alc` abbreviates the
-  atoms suite's `test_lifecycle_commands.py`):
+  unit-to-node mapping. **Check nodes live under Science's `tests/`
+  only** — the harness resolves every check there and applies sabotage
+  beneath `src/science`, so an atoms test can never be a check node.
+  Where a unit's producing half is atoms-certified, the declaration
+  carries an **atoms citation** as metadata beside its local check —
+  named in the "atoms citation" column, resolved by the harness against
+  nothing (it is recorded provenance, not a collected node). `t_`
+  abbreviates `tests/`.
 
-  | unit | check node(s) |
-  |---|---|
-  | L2 u1 | `t_lifecycle_wrappers::test_metadata_less_copy_refuses_mutation_at_the_writability_gate`, `::test_writable_pending_root_still_refuses_pending_unresolved` |
-  | L4 u1 | `t_store_subjects::test_store_audit_refuted_on_chain_removal_under_registry_anchor` |
-  | L4 u2 | `t_fork_acts::test_two_fork_geneses_same_child_subject_refute` |
-  | L6 u1 | `t_fork_acts::test_l6_anchored_baseline_deletion_refutes` |
-  | L6 u2 | `t_fork_acts::test_l6_anchor_free_rewrite_is_unresolvable` |
-  | L10 u1 | `t_fork_acts::test_fork_genesis_carries_parent_digests_and_nonempty_baseline` |
-  | L10 u2 | `t_fork_acts::test_parent_anchor_never_compared_in_fork_subject_evaluation` |
-  | L10 u3 | `t_lifecycle_wrappers::test_completed_replica_reads_read_only_unserviceable`, `::test_replica_chain_is_byte_identical` |
-  | L10 u4 | `t_lifecycle_wrappers::test_completed_replica_reads_read_only_unserviceable` + the order cited to `alc::test_replicate_interrupted_after_stamp_is_read_only_unserviceable` |
-  | L10 u5 | citation: `alc::test_replicate_interrupted_before_stamp_is_metadata_less` |
-  | L10 u6 | `t_lifecycle_wrappers::test_metadata_less_copy_refuses_mutation_at_the_writability_gate`, `t_lifecycle_wrappers::test_metadata_less_store_copy_reads_metadata_less_and_refuses_mutation` |
-  | L10 u7 | `t_fork_acts::test_fork_retry_reuses_the_original_child_identity` + the order cited to `alc::test_fork_interrupted_before_grant_is_read_only` |
-  | L10 u8 | `t_lifecycle_wrappers::test_metadata_less_store_copy_reads_metadata_less_and_refuses_mutation` (holdings-read clauses deferred, stated in the declaration) |
-  | L10 u9 | `t_restore_root::test_two_copies_both_admit_read_only` |
-  | L10 u10 | `t_restore_root::test_incomplete_copy_never_validates` |
-  | L10 u11 | `t_restore_root::test_empty_observer_set_unresolvable_replay_not_reached` |
-  | L10 u12 | `t_restore_root::test_divergent_copies_assembled_in_one_root_are_sibling_malformed`, `::test_both_divergent_heads_in_one_observer_set_refute`, `::test_divergent_copies_verified_separately_each_validate` |
-  | W13 u1 | `t_fork_acts::test_fork_corpus_mints_a_fresh_id_independent_of_path_and_name` |
-  | W13 u2 | `t_fork_acts::test_fork_manifest_is_complete_before_writability`, `::test_source_moved_between_derivation_and_fork_refuses` |
-  | label 1 | `alc::test_interrupted_registration_matching_retry_grants`, `alc::test_bare_reregistration_over_an_existing_genesis_never_grants`, `t_store_root::test_interrupted_init_retry_returns_the_original_store_id` |
-  | label 2 | `alc::test_host_delta_reads_binding_mismatched`, `alc::test_path_delta_reads_binding_mismatched` (the moved-root consequence is the path delta) |
-  | label 3 | `alc::test_migration_authorized_success_grants_with_a_fresh_binding`, `alc::test_migration_refuses_a_metadata_less_root`, `alc::test_migration_refuses_a_binding_mismatch` |
-  | label 4 | `alc::test_replicate_refuses_an_existing_destination`, `alc::test_fork_pregrant_retry_completes_with_identical_inputs`, `alc::test_fork_pregrant_retry_refuses_different_bytes`, `alc::test_fork_postgrant_retry_returns_success_after_legitimate_writes` |
-  | label 5 | `alc::test_grant_refuses_a_writable_root`, `alc::test_grant_creates_bookkeeping_for_a_metadata_less_root`, `alc::test_grant_is_idempotent_on_read_only_serviceable`; the out-of-band pinning is the declaration's stated negative |
-  | label 6 | `t_lifecycle_wrappers::test_lifecycle_union_is_closed_at_five`, `alc::test_metadata_less_tree_reads_metadata_less` |
-  | label 7 | `t_restore_root::test_malformed_copy_returns_malformed_and_stays_unserviceable`, `::test_validated_with_store_subject_mismatch_does_not_admit`, `::test_validated_with_corpus_manifest_mismatch_does_not_admit`, `::test_restore_never_grants_writability`, `::test_restore_holds_one_boundary_across_evaluate_and_grant` |
-  | label 8 | every `t_arrival_modes` node |
-  | label 9 | `t_store_subjects::test_anchor_refuses_a_store_id_genesis_mismatch_before_registry_mutation`, `::test_export_head_artifact_round_trips_a_store_head`, `::test_store_audit_holds_one_boundary_across_inspect_capture_evaluate` |
-  | label 10 | `t_store_root::test_init_store_root_refuses_a_populated_payload_root`, `::test_store_genesis_payload_round_trips`, `::test_store_surface_excludes_bookkeeping`, `::test_store_surface_does_not_follow_symlinks`, `t_fork_acts::test_nonfork_genesis_still_requires_empty_baseline` |
-  | label 11 | `t_lifecycle_wrappers::test_metadata_less_copy_refuses_mutation_at_the_writability_gate`, `::test_writable_pending_root_still_refuses_pending_unresolved` (cited from L2 u1, single-homed there) |
+  | unit | check node(s) (Science `tests/`) | atoms citation (metadata) |
+  |---|---|---|
+  | L2 u1 | `t_lifecycle_wrappers::test_metadata_less_copy_refuses_mutation_at_the_writability_gate`, `::test_writable_pending_root_still_refuses_pending_unresolved` | — |
+  | L4 u1 | `t_store_subjects::test_store_audit_refuted_on_chain_removal_under_registry_anchor` | — |
+  | L4 u2 | `t_fork_acts::test_two_fork_geneses_same_child_subject_refute` | — |
+  | L6 u1 | `t_fork_acts::test_l6_anchored_baseline_deletion_refutes` | — |
+  | L6 u2 | `t_fork_acts::test_l6_anchor_free_rewrite_is_unresolvable` | — |
+  | L10 u1 | `t_fork_acts::test_fork_genesis_carries_parent_digests_and_nonempty_baseline` | — |
+  | L10 u2 | `t_fork_acts::test_parent_anchor_never_compared_in_fork_subject_evaluation` | — |
+  | L10 u3 | `t_lifecycle_wrappers::test_completed_replica_reads_read_only_unserviceable`, `::test_replica_chain_is_byte_identical` | — |
+  | L10 u4 | `t_lifecycle_wrappers::test_completed_replica_reads_read_only_unserviceable` | `test_replicate_interrupted_after_stamp_is_read_only_unserviceable` (the order) |
+  | L10 u5 | `t_lifecycle_wrappers::test_metadata_less_store_copy_reads_metadata_less_and_refuses_mutation` (the Science-observable residue of the window) | `test_replicate_interrupted_before_stamp_is_metadata_less` |
+  | L10 u6 | `t_lifecycle_wrappers::test_metadata_less_copy_refuses_mutation_at_the_writability_gate`, `::test_metadata_less_store_copy_reads_metadata_less_and_refuses_mutation` | — |
+  | L10 u7 | `t_fork_acts::test_fork_retry_reuses_the_original_child_identity` | `test_fork_interrupted_before_grant_is_read_only` (the order) |
+  | L10 u8 | `t_lifecycle_wrappers::test_metadata_less_store_copy_reads_metadata_less_and_refuses_mutation` (holdings-read clauses deferred, stated in the declaration) | — |
+  | L10 u9 | `t_restore_root::test_two_copies_both_admit_read_only` | — |
+  | L10 u10 | `t_restore_root::test_incomplete_copy_never_validates` | — |
+  | L10 u11 | `t_restore_root::test_empty_observer_set_unresolvable_replay_not_reached` | — |
+  | L10 u12 | `t_restore_root::test_divergent_copies_assembled_in_one_root_are_sibling_malformed`, `::test_both_divergent_heads_in_one_observer_set_refute`, `::test_divergent_copies_verified_separately_each_validate` | — |
+  | W13 u1 | `t_fork_acts::test_fork_corpus_mints_a_fresh_id_independent_of_path_and_name` | — |
+  | W13 u2 | `t_fork_acts::test_fork_manifest_is_complete_before_writability`, `::test_source_moved_between_derivation_and_fork_refuses` | — |
+  | label 1 | `t_store_root::test_interrupted_init_retry_returns_the_original_store_id`, `::test_cold_existing_store_root_refuses_reinitialization` | `test_interrupted_registration_matching_retry_grants`, `test_bare_reregistration_over_an_existing_genesis_never_grants` |
+  | label 2 | `t_lifecycle_wrappers::test_binding_delta_reads_binding_mismatched` (host and path deltas; the moved-root consequence is the path delta) | `test_host_delta_reads_binding_mismatched`, `test_path_delta_reads_binding_mismatched` |
+  | label 3 | `t_lifecycle_wrappers::test_migration_authorized_success_reads_writable`, `::test_migration_refuses_metadata_less_and_mismatched` | `test_migration_authorized_success_grants_with_a_fresh_binding` |
+  | label 4 | `t_lifecycle_wrappers::test_replicate_refuses_an_existing_destination`, `t_fork_acts::test_fork_retry_reuses_the_original_child_identity` | `test_fork_pregrant_retry_completes_with_identical_inputs`, `test_fork_pregrant_retry_refuses_different_bytes`, `test_fork_postgrant_retry_returns_success_after_legitimate_writes` |
+  | label 5 | `t_restore_root::test_validated_store_copy_admits_read_only_serviceable` (the cold-root creation path), `::test_re_restore_is_idempotent`, `::test_restore_never_grants_writability`; the out-of-band pinning is the declaration's stated negative | `test_grant_refuses_a_writable_root`, `test_grant_creates_bookkeeping_for_a_metadata_less_root`, `test_grant_is_idempotent_on_read_only_serviceable` |
+  | label 6 | `t_lifecycle_wrappers::test_lifecycle_union_is_closed_at_five`, `::test_binding_delta_reads_binding_mismatched` | `test_metadata_less_tree_reads_metadata_less` |
+  | label 7 | `t_restore_root::test_malformed_copy_returns_malformed_and_stays_unserviceable`, `::test_validated_with_store_subject_mismatch_does_not_admit`, `::test_validated_with_corpus_manifest_mismatch_does_not_admit`, `::test_restore_never_grants_writability`, `::test_restore_holds_one_boundary_across_evaluate_and_grant` | — |
+  | label 8 | `t_arrival_modes::test_fork_product_admits_through_the_fork_of_path`, `::test_arrival_registered_mode_on_serviceable`, `::test_arrival_detached_on_unserviceable_metadata_less_and_mismatched`, `::test_arrival_refuses_a_writable_root`, `::test_restored_arrival_requires_restore_first`, `::test_store_subject_unspellable_at_arrival` | — |
+  | label 9 | `t_store_subjects::test_anchor_refuses_a_store_id_genesis_mismatch_before_registry_mutation`, `::test_export_head_artifact_round_trips_a_store_head`, `::test_store_audit_holds_one_boundary_across_inspect_capture_evaluate` | — |
+  | label 10 | `t_store_root::test_init_store_root_refuses_a_populated_payload_root`, `::test_store_genesis_payload_round_trips`, `::test_store_surface_excludes_bookkeeping`, `::test_store_surface_does_not_follow_symlinks`, `t_fork_acts::test_nonfork_genesis_still_requires_empty_baseline` | — |
+  | label 11 | `t_lifecycle_wrappers::test_metadata_less_copy_refuses_mutation_at_the_writability_gate`, `::test_writable_pending_root_still_refuses_pending_unresolved` (cited from L2 u1, single-homed there) | — |
 - [ ] **Step 2:** Run the audit:
   `uv run --frozen pytest tests/acceptance/test_n2_cut9.py -v`. Every one
   of the 30 arms resolves `sound`; fix any `vacuous`/`uncollected`/`stale`
