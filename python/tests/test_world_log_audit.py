@@ -28,17 +28,21 @@ import inspect
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 import yaml
 from atoms.chain.errors import ChainStateInvalid
-from atoms.chain.model import GenesisEntry
+from atoms.chain.inspect import STAGING_LEAF
+from atoms.chain.model import GenesisEntry, RegisteredEntry, encode_entry, entry_digest, state_to_json
+from atoms.core.scratch import CHAIN_LEAF
 from fixtures_cut6 import PINS
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.node import Node
 from nodes.core.write_plan import DefaultExecutor
 from test_world_build import ALPHA, BETA, ChainHeads, corpus_at
 from test_world_epoch import admitted_world, publish
+from test_world_log_codecs import populated_root
 from test_world_log_replay import Opaque
 
 from science import root as science_root
@@ -1075,13 +1079,32 @@ class TestThePublicWrappers:
 
 
 def test_one_evaluator_one_inspection_contract(tmp_path, monkeypatch):
-    """D10. One read-only function is the entire judgment surface.
+    """D10, all four clauses of the frozen row (spec §2.1, §4.1, §6.1–§6.2).
 
-    Audit and arrival both call `evaluate_log`, each exactly once, each over the
-    inspection mode it is contracted to consume — registered for a live root
-    under audit, detached for an arriving one — and **no third path evaluates**,
-    which is asserted over the package's own source rather than promised in a
-    docstring.
+    1. **Audit and arrival share the one read-only evaluator, and no third path
+       evaluates.** Each boundary calls `evaluate_log` exactly once, over the
+       inspection mode it is contracted to consume — registered for a live root
+       under audit, detached for an arriving one — and the "no third path" half
+       is asserted over the package's own source rather than promised in a
+       docstring.
+    2. **The staging leaf is never a foreign-leaf defect.** A `.#~stage` holding
+       a readable regular file is bookkeeping: inert when it is not a staged
+       registration, `pending` when it is (§2.1/R3), and never a defect either
+       way. R2's tightening is the other side of the same claim and is shown
+       beside it: the exemption covers regular files only, so a directory
+       squatting on the reserved name *is* a foreign leaf.
+    3. **A malformed chain carries one deterministic first defect.** The Science
+       view holds exactly one `DefectView` — one field, not a list — and it is
+       the sorted-first offending leaf, stable across repeated inspections and
+       independent of which foreign leaf was written when.
+    4. **Detached mode requires no metadata root.** Neither over a root with no
+       chain at all nor over a populated one does any metadata root come into
+       existence.
+
+    Clauses 2–4 are driven through the **production** seam over chains written
+    to disk as real canonical envelopes: `atoms` certifies its own interior, but
+    D10 is a Science declaration, so what is shown here is the Science
+    evaluator's view of each fact.
     """
     root = corpus_root(tmp_path)
     view = surfaced(root, "corpus", science_root.GENESIS_PAYLOAD)
@@ -1134,6 +1157,74 @@ def test_one_evaluator_one_inspection_contract(tmp_path, monkeypatch):
         if path.name != "verify.py" and "evaluate_log(" in path.read_text(encoding="utf-8")
     )
     assert elsewhere == []
+
+    # --- clause 4: detached mode requires no metadata root ----------------------
+    seam = science_root._log_seam()
+    bare = tmp_path / "bare"
+    bare.mkdir()
+    assert seam.inspect_detached(bare) == logmodel.AbsentView()
+    assert not science_root.metadata_root_for(bare).exists()
+
+    (tmp_path / "detached").mkdir()
+    populated, captured, _digests = populated_root(tmp_path / "detached")
+    clean = seam.inspect_detached(populated)
+    assert type(clean) is logmodel.WellFormedView
+    assert not science_root.metadata_root_for(populated).exists()
+
+    # --- clause 2: the staging leaf is never a foreign-leaf defect --------------
+    stage = populated / CHAIN_LEAF / STAGING_LEAF
+    stage.write_bytes(b"bytes that are not an entry envelope")
+    inert = seam.inspect_detached(populated)
+    # Inert: not a defect, not an entry, not pending — and the rest of the view
+    # is untouched, which is what "bookkeeping" means here.
+    assert inert == clean
+
+    staged_registration = encode_entry(
+        clean.tip,
+        RegisteredEntry(
+            txid="tx-staged",
+            intent_digest="sha256:" + "c" * 64,
+            consumer_tag="science-corpus-write-v1",
+            initial=(("f.txt", state_to_json(cast("Any", captured[0][1]))),),
+            final=(("f.txt", state_to_json(cast("Any", captured[0][1]))),),
+            fulfills=None,
+        ),
+    )
+    stage.write_bytes(staged_registration)
+    carried = seam.inspect_detached(populated)
+    # Still well-formed, and now the leaf is read as the evidence it is: §2.1's
+    # detached rule keeps staged registration evidence in `pending`, which is
+    # exactly the state §6.2 refuses an arrival on.
+    assert type(carried) is logmodel.WellFormedView
+    assert carried.pending == (("tx-staged", entry_digest(staged_registration)),)
+
+    # R2's tightening, the other side of the same claim: the exemption is
+    # readable, no-follow **regular** files only, so a directory squatting on the
+    # reserved name is a foreign leaf after all.
+    stage.unlink()
+    stage.mkdir()
+    occupied = seam.inspect_detached(populated)
+    assert type(occupied) is logmodel.MalformedView
+    assert (occupied.defect.kind, occupied.defect.subject) == ("foreign-leaf", STAGING_LEAF)
+    stage.rmdir()
+    assert seam.inspect_detached(populated) == clean
+
+    # --- clause 3: one deterministic first defect -------------------------------
+    # One field, not a list: the Science view cannot carry a second defect, so
+    # "the first" is the whole of what a caller is ever told.
+    assert list(logmodel.MalformedView.__dataclass_fields__) == ["defect"]
+    for name in ("zzz-foreign", "aaa-foreign", "mmm-foreign"):
+        (populated / CHAIN_LEAF / name).write_bytes(b"")
+    damaged = seam.inspect_detached(populated)
+    assert type(damaged) is logmodel.MalformedView
+    # The lowest offending leaf in sorted-name order — not whichever `readdir`
+    # happened to hand back first, and not the last one written.
+    assert damaged.defect.subject == "aaa-foreign"
+    assert seam.inspect_detached(populated) == damaged
+    (populated / CHAIN_LEAF / "aaa-foreign").unlink()
+    next_lowest = seam.inspect_detached(populated)
+    assert type(next_lowest) is logmodel.MalformedView
+    assert next_lowest.defect.subject == "mmm-foreign"
 
 
 # --- §6.4's engine refusal, in the audit's context -------------------------------

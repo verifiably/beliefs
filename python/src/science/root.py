@@ -75,7 +75,7 @@ from nodes.core.errors import ExecutionError, PlanRefusedError
 from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp, WritePlan, validate_plan
 
 from science.corpus import CorpusWriter, _operation_lock_for
-from science.errors import CorpusRootRefused, LogEvidenceRefused, WorldIdMismatch
+from science.errors import CorpusRootRefused, LogEvidenceRefused, WorldIdMismatch, WorldUninitialized
 from science.identity import v1
 from science.world import (
     AdmissionRecord,
@@ -1008,6 +1008,21 @@ def open_world(config: WorldConfig) -> World:
     (`WorldUninitialized`), and a well-formed genesis naming another world says
     the configuration and the chain disagree (`WorldIdMismatch`).
 
+    A root with **no registered chain at all** joins the first of those two.
+    `read_chain` reports it as `PreconditionRefused("the project root is not
+    registered")` — its only `PreconditionRefused`, raised at both of
+    `_registered_root`'s sites and meaning that one thing — and
+    `WorldUninitialized` is already Science's name for the state, the very name
+    the mirror loader raises for a root `init_world_root` never made. The
+    mapping is made **here**, at the boundary that made the read, and not in the
+    seam: §6.4's translation vocabulary is closed at three engine states and this
+    is not one of them.
+
+    **Opening is no longer a cheap read.** `read_chain` takes the atoms project
+    lock and resolves recovery before it answers, so this call can now block on a
+    concurrent build over the same world root, and it requires the certified
+    volume that every other act on an opened `World` already required.
+
     The detection/refusal split is deliberate: `audit_log` **reports** the same
     fact as a subject-mismatch finding and takes the configuration rather than
     an opened `World` precisely so that auditing the worlds this call refuses
@@ -1016,9 +1031,14 @@ def open_world(config: WorldConfig) -> World:
     mirror_id = _load_world_mirror(config.world_root)
     if mirror_id != config.world_id:
         raise WorldIdMismatch(f"{config.world_root / 'world.yaml'}: world_id does not match configuration")
-    _require_world_genesis(
-        config.world_root, _log_seam().read_head(config.world_root).genesis_payload, config.world_id
-    )
+    try:
+        head = _log_seam().read_head(config.world_root)
+    except PreconditionRefused as caught:
+        raise WorldUninitialized(
+            f"{config.world_root}: the world root carries no registered chain, so it was never initialized "
+            "as a world; init_world_root is the act that mints one"
+        ) from caught
+    _require_world_genesis(config.world_root, head.genesis_payload, config.world_id)
     return World(
         config,
         _world_executor_factory(),

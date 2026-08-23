@@ -32,7 +32,9 @@ from pathlib import Path
 
 import pytest
 from atoms.chain.errors import PendingUnresolved
+from atoms.chain.model import GenesisEntry
 from atoms.core.errors import PreconditionRefused
+from fixtures_cut6 import PINS
 from nodes.core.errors import ExecutionError
 from nodes.core.write_plan import CreateOp, DefaultExecutor
 from test_world_build import ALPHA, BETA, ChainHeads, corpus_at
@@ -47,6 +49,7 @@ from test_world_log_audit import (
     surfaced,
     tree,
 )
+from test_world_log_codecs import write_chain
 
 from science import errors as science_errors
 from science import root as science_root
@@ -430,6 +433,34 @@ class TestTheRefusalOrdering:
             arrive(world, root, view, observers=(corpus_anchor(view),))
 
         assert BETA in str(caught.value) and ALPHA in str(caught.value)
+        assert registry_files(world) == {}
+        assert _operation_lock_for(root)._holder is None
+
+    def test_a_fork_manifest_refuses_provenance_through_the_public_arrival(self, tmp_path):
+        # The core's own agreement check, reached end to end: the **public**
+        # `admit_arrival` over the **production** seam, so the refusal is the one
+        # a caller meets rather than one a private predicate can be shown.
+        #
+        # The manifest names the parent, so `SubjectMismatch` has nothing to say;
+        # what disagrees is `forked_from`, which a replica never carries. The
+        # chain is one genesis with the empty baseline §1.3 requires, and with no
+        # observer supplied the report is `unresolvable` and admissible — so the
+        # act reaches the transaction's own gate and refuses there.
+        root = corpus_at(tmp_path / "forked", ALPHA)
+        (root / "corpus.yaml").write_bytes(
+            registry.manifest_bytes(
+                registry.CorpusManifest(2, ALPHA, PINS, registry.ForkedFrom(BETA, "3" * 64))
+            )
+        )
+        write_chain(root, [(None, GenesisEntry(payload=science_root.GENESIS_PAYLOAD, baseline=()))])
+        world = make_world(tmp_path, root)
+        assert type(science_root._log_seam().inspect_detached(root)) is logmodel.WellFormedView
+
+        with pytest.raises(ProvenanceMismatch):
+            science_root.admit_arrival(
+                world, root, registry.ReplicaOf(ALPHA), verify.ObserverSet(()), actor="alice"
+            )
+
         assert registry_files(world) == {}
         assert _operation_lock_for(root)._holder is None
 

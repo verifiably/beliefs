@@ -194,16 +194,17 @@ class TestWorldRoots:
         with pytest.raises(WorldUninitialized):
             root.open_world(config)
 
-    def test_open_world_reads_the_genesis_through_read_chain_and_leaves_setup_errors_alone(
+    def test_open_world_reads_the_genesis_through_read_chain_and_names_an_unregistered_root(
         self, monkeypatch, tmp_path
     ):
-        # Two consequences of §6.3's "read through `read_chain`", pinned
-        # together because they are one decision. Opening a world now touches
-        # the engine, so it is the engine's own contract that answers for a root
-        # that was never registered — a **setup error**, which §6.4 rules stays
-        # untranslated, exactly as `ProtocolError` does. The alternative, a
-        # fourth translation invented here, would put a refusal in the seam's
-        # closed vocabulary that no ruling names.
+        # §6.3's "read through `read_chain`" makes opening touch the engine, and
+        # the engine's answer for a root that was never registered is its only
+        # `PreconditionRefused`. `WorldUninitialized` is already Science's name
+        # for that state — it is what the mirror loader raises for a root
+        # `init_world_root` never made — so the two arms of "never initialized"
+        # meet under one name. The mapping is made in `open_world` and not in
+        # the seam: §6.4's translation vocabulary is closed at three engine
+        # states and this is not one of them.
         calls = []
         patch_world_engine(monkeypatch, calls)
         config = WorldConfig(tmp_path / "world", "1" * 32, ())
@@ -216,10 +217,14 @@ class TestWorldRoots:
 
         monkeypatch.setattr(root, "read_chain", raising)
 
-        with pytest.raises(PreconditionRefused) as caught:
+        with pytest.raises(WorldUninitialized) as caught:
             root.open_world(config)
 
-        assert caught.value is unregistered
+        assert caught.value.__cause__ is unregistered
+        # The seam is untouched: the very same refusal keeps its own contract
+        # for every other reader of a head, because nothing was translated there.
+        with pytest.raises(PreconditionRefused):
+            root._log_seam().read_head(config.world_root)
 
     def test_world_consumer_tag_is_the_world_executor_tag(self):
         assert root.WORLD_CONSUMER_TAG == "science-world-write-v1"

@@ -329,14 +329,17 @@ def _locked_admit(
     across the two routes. Nothing here is amended by verification — the
     observer bound is never a member of an `AdmissionRecord`.
 
-    **The manifest arrives as a thunk**, and the two reasons are one thing said
-    twice. The world's own registry is scanned *before* the candidate's manifest
-    is read, so a malformed registry is reported ahead of a malformed manifest —
-    the world's state is judged before the arriving corpus's claim, and that
-    order is a claim of its own. And the verified arrival has already read that
-    manifest, under the arriving root's lock and before its capture; passing it
-    in rather than re-reading it here is what keeps the record's manifest and
-    the judged manifest the same read.
+    **The manifest arrives as a thunk**, which lets the two callers keep two
+    different — and each correct — readings of it. The core scans the world's
+    own registry before calling the thunk, so `World.admit`, whose thunk *is*
+    the read, keeps its ordering: a malformed registry is reported ahead of a
+    malformed manifest, the world's state judged before the candidate's claim.
+    The arrival's thunk is not a read at all — it has already read the manifest,
+    under the arriving root's own lock and before its capture, because the
+    subject check and the presented identity both need it there — so passing the
+    value in is what keeps the record's manifest and the judged manifest one
+    read. Scan-before-read is therefore the bare-admit caller's ordering rather
+    than a property this core imposes on every caller.
 
     It is `_locked_*` for the reason every helper in this module is: the world
     lock is not reentrant, and the arrival already holds it when it arrives
@@ -352,7 +355,7 @@ def _locked_admit(
             return record
     if any(record.corpus_id == candidate.corpus_id for record in state.registry.admissions):
         raise CorpusIdKnown(f"corpus_id {candidate.corpus_id!r} is already admitted")
-    if isinstance(provenance, ForkOf) and not any(
+    if type(provenance) is ForkOf and not any(
         record.corpus_id == provenance.parent_corpus_id for record in state.registry.admissions
     ):
         raise ForkParentUnknown(f"fork parent {provenance.parent_corpus_id!r} is not admitted")
@@ -568,11 +571,19 @@ def _record_bytes(projection: dict[str, object]) -> bytes:
 
 
 def _validate_provenance(manifest: CorpusManifest, provenance: AdmissionProvenance) -> None:
-    if isinstance(provenance, Fresh):
+    """The provenance/manifest agreement, over **exact** types.
+
+    Exact and not `isinstance`, because `World.admit`'s replica gate is exact
+    (log-verification design §6.2): a `ReplicaOf` subclass that slipped past that
+    gate must not then be accepted *as a replica* here. The two tests are one
+    decision, so they are spelled the same way, and anything outside the three
+    falls to the `TypeError` below rather than being read as its base.
+    """
+    if type(provenance) is Fresh:
         matches = manifest.forked_from is None
-    elif isinstance(provenance, ReplicaOf):
+    elif type(provenance) is ReplicaOf:
         matches = manifest.forked_from is None and provenance.parent_corpus_id == manifest.corpus_id
-    elif isinstance(provenance, ForkOf):
+    elif type(provenance) is ForkOf:
         matches = manifest.forked_from == ForkedFrom(provenance.parent_corpus_id, provenance.parent_corpus_state)
     else:
         raise TypeError("provenance must be Fresh, ReplicaOf, or ForkOf")
