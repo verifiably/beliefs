@@ -61,6 +61,26 @@ Freeze hash: `0977bde`
     reviewed boundary: an atoms `PreconditionRefused` on the existing-genesis
     retry maps to Science's established `CorpusRootRefused`; it is not exposed
     as a new initialization error or treated as permission to re-mint.
+11. **R11 — Task 2 discharged.** The atoms implementation landed on
+    `design/root-lifecycle` (`23019b0` writer state/binding/query, `24b15ce`
+    copy commands/grant/migration) and merged `--no-ff` to atoms `main` at
+    `ff144e7`, pushed. Gates from the atoms worktree's `python/` under
+    `pipefail`: pytest's own summary line read
+    `6205 passed, 7 skipped in 494.23s (0:08:14)`; `ruff check .` reported
+    "All checks passed!"; `pyright` reported "0 errors, 0 warnings,
+    0 informations".
+12. **R12 — completed-retry precedence.** Under the reviewed §8, a completed
+    `register_root` retry answers from its retained operation record without
+    touching the chain, so the pending-registration gate now binds exactly
+    the two chain mutators; the atoms pending-gate test was re-pinned to
+    that reading.
+13. **R13 — carrier-less reads are the detached mode's.** `read_chain` and
+    `inspect_chain` are lifecycle-gated: a metadata-less or binding-mismatched
+    root refuses (a live transaction record without a grant stays
+    `ChainStateInvalid`), non-writable v3 roots are served through the
+    quiescent read-only entry, and the structural taxonomy over carrier-less
+    trees is `inspect_chain_detached`'s alone. Three atoms chain-inspection
+    tests were re-pinned accordingly.
 
 ## Heads
 
@@ -68,3 +88,4 @@ Freeze hash: `0977bde`
 | --- | --- | --- |
 | 0 — tracking setup | — | `7db3e38` |
 | 1 — reviewed atoms design and Science contract amendment | `b1469f4` | this amendment commit |
+| 2 — atoms lifecycle implementation | `ff144e7` (merge of `24b15ce`) | this ledger commit |

@@ -376,7 +376,7 @@ contracts, not sketches.
   `.#~root-claim` and chain-staging residue; an already-serviceable retry exits
   through the read-only path before any writable open.
 
-- [ ] **Step 1: Write the failing lifecycle-state/schema tests** in
+- [x] **Step 1: Write the failing lifecycle-state/schema tests** in
   `python/tests/test_lifecycle_commands.py`:
 
   - `test_fresh_register_root_reads_writable`
@@ -397,11 +397,11 @@ contracts, not sketches.
   replicate serviceability, the legal recorded-operation-first inserts,
   every update-trigger refusal and kind/phase field shape, exact v2
   classification, normal-open v2 refusal, and migration-only transition.
-- [ ] **Step 2:** Run: `uv run --frozen pytest tests/test_lifecycle_commands.py -v`
+- [x] **Step 2:** Run: `uv run --frozen pytest tests/test_lifecycle_commands.py -v`
   (from the atoms worktree's `python/`). Expected: every test FAILS at
   import (`ImportError: cannot import name 'read_lifecycle_state'`).
   Implement the writer state, binding, and query. Run again: PASS.
-- [ ] **Step 3: Write the failing command tests**, same file:
+- [x] **Step 3: Write the failing command tests**, same file:
 
   - `test_replicate_copies_chain_and_payload_byte_identical`
   - `test_replica_reads_read_only_unserviceable`
@@ -455,14 +455,14 @@ contracts, not sketches.
     `test_migration_refuses_a_metadata_less_root`;
     `test_migration_refuses_a_binding_mismatch`;
     `test_migration_is_atomic_at_every_catalog_cut`
-- [ ] **Step 4:** Run: `uv run --frozen pytest tests/test_lifecycle_commands.py -v`.
+- [x] **Step 4:** Run: `uv run --frozen pytest tests/test_lifecycle_commands.py -v`.
   Expected: FAIL for want of each command. Implement. Run again: PASS.
-- [ ] **Step 5:** Run the full atoms suite and gates from the atoms
+- [x] **Step 5:** Run the full atoms suite and gates from the atoms
   `python/`: `uv run --frozen pytest && uv run --frozen ruff check . && uv run --frozen pyright`
   (no explicit `-q` — if the atoms addopts already sets it, doubling
   hides the count)
   — quote the pytest summary line in the ledger.
-- [ ] **Step 6:** Commit on the branch; merge `--no-ff` to local atoms
+- [x] **Step 6:** Commit on the branch; merge `--no-ff` to local atoms
   `main`; **push atoms `main`** (spec §8 step 5 makes the push part of
   the gate). Record the pushed head hash in the Science ledger's
   `## Heads`.
