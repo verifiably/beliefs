@@ -139,8 +139,12 @@ that a count claim quotes pytest's own summary line under `pipefail`, never a
 collect-only count. Every command below was run **after the last edit to the
 tree** — after the banking amendment set of §8, after the spec's promotion,
 after the stale-claim sweep, and after the one code edit the gates forced
-(§3). The only tree changes made afterwards are this section's own text and the
-execution ledger's rulings and final heads. Neither is read by any gate: the
+(§3). It was collected twice for that reason: the correction in §8 item 11 was
+found after the first collection, and every item was **re-collected after it**.
+The two collections agree on every count and every exit code; the run pasted
+below is the later one. The only tree changes made afterwards are this section's
+own text and the execution ledger's rulings and final heads. Neither is read by
+any gate: the
 corpus guard reads `docs/designs/`, `docs/guide/` and `README.md`, and
 `check_guide.py` reads `docs/guide/`. Both resolve *links into* `docs/plans/` —
 this file's own path among them, which is why it was created before the runs —
@@ -168,10 +172,9 @@ claim rests on. The suite excludes `tests/acceptance` by configuration
 durability claim.
 
 ```text
-$ cd python && set -o pipefail && uv run --frozen pytest 2>&1 | tail -3
-........................................................................ [ 98%]
+$ cd python && set -o pipefail && uv run --frozen pytest 2>&1 | tail -2
 ......................                                                   [100%]
-2182 passed in 328.71s (0:05:28)
+2182 passed in 345.53s (0:05:45)
 ```
 
 **2 — the cut-8 acceptance command.** This is the discharge. Four numbers, and
@@ -182,17 +185,17 @@ $ cd python && set -o pipefail && uv run --frozen python tools/cut8_acceptance.p
 [cut8 phase 1/2] cut7_acceptance.py
 [cut7 phase 1/3] cut5_acceptance.py
 .......................................                                  [100%]
-39 passed in 14.47s
+39 passed in 15.01s
 [cut7 phase 2/3] cut6_acceptance.py
 .......................                                                  [100%]
-23 passed in 11.08s
+23 passed in 11.39s
 [cut7 phase 3/3] test_n2_cut7.py
 ..........................................                               [100%]
-42 passed in 42.94s
+42 passed in 42.00s
 [cut8 phase 2/2] test_n2_cut8.py
 ........................................................................ [ 94%]
 ....                                                                     [100%]
-76 passed in 13.09s
+76 passed in 13.57s
 declared units: 53 (pinned by test_the_declared_units_are_unique_and_number_fifty_three, among the tests above; not itself a pytest total)
 ### exit: 0
 ```
@@ -217,8 +220,15 @@ discharge.
 ```text
 $ cd python && set -o pipefail && uv run --frozen pytest tests/test_designs_corpus.py 2>&1 | tail -3
 ............                                                             [100%]
-12 passed in 0.39s
+12 passed in 0.43s
 ```
+
+Twelve guards, all mechanical and all over *documents*: the design corpus's
+`atoms` adoption state, the completeness of every guarantee table against the
+row inventory, the README's design count and its date range, the guide's
+obligation to cite every design, and that every cross-reference resolves.
+Promoting the specification is exactly the act that rots several of them at
+once, which is why this is an evidence item and not an afterthought.
 
 **4 — the contributor-guide check.** It prints nothing on success and has no
 `N passed` line to quote, so the evidence is its exit code.
@@ -286,8 +296,11 @@ Base `cd549aa` on `main`. The commits this discharge measured, in order:
 | `2bad282` | fix(cut8): self-describe the declared-unit count and correct a citation |
 | `4389d2a` | docs(plans): state each acceptance count with what it counts |
 
-Two close-out commits complete the branch: the banking change that carries this
-record and §8's amendments, and the finalized execution ledger. Neither touches
+Three close-out commits complete the branch: the banking change that carries
+this record and §8's amendments (`55b6de7`, the hash the execution ledger's
+`## Heads` records), the finalized execution ledger, and one correction found
+while checking R1's precedent against the sibling repository rather than against
+the sentence describing it (§8 item 11). None of the three touches
 `python/src` or any cut declaration. The banking change makes two Python edits,
 both forced by a gate and neither behavioural: one entry added to the corpus
 guard's design-count spelling table, since promoting the specification takes the
@@ -346,8 +359,16 @@ Science resolves `atoms-core` through an editable path dependency, so that local
 merge is what makes this branch green. **Anyone reproducing this discharge needs
 that `atoms` commit, and it exists only in a local clone.** Pushing it is a
 prerequisite of any integration that expects a fresh checkout to build — exactly
-the treatment `read_chain`'s `2c077ed` already carries in adoption-ledger
-row 4, which this head now joins (execution ledger R1).
+the treatment `read_chain`'s `2c077ed` carries in adoption-ledger row 4, which
+this head now joins (execution ledger R1).
+
+**One correction to that row, found while writing this.** `2c077ed` itself is
+**no longer unpushed**: it was pushed on 2026-08-22, after cut 7's results were
+written, and the `atoms` remote `main` stands at it. Row 4 and cut 7's results
+§4 both said the remote still stood at `7e97e09`, and both are corrected in this
+change. So cut 7's reproduction prerequisite is satisfied, cut 8's is not, and
+the local `atoms` `main` is nine commits ahead of the remote (execution ledger
+R44).
 
 The three commands' own behaviour is **not re-certified here**. Their tests live
 in `atoms`; this cut consumes the seam contract and gates on the landed
@@ -621,7 +642,13 @@ in the banking change.
     merged into `main` on 2026-08-22 at `83744e7`. Corrected in
     `docs/guide/contracts-and-adoption.md` and `docs/guide/foundations.md`,
     which is a stale claim this landing did not create but did surface.
-11. **Cut 8's own frozen text cites the spec at its pre-promotion path**
+11. **`read_chain`'s `2c077ed` is no longer unpushed.** Adoption-ledger row 4
+    and cut 7's results §4 both said the `atoms` remote `main` "still stands at
+    `7e97e09`". It was pushed on 2026-08-22 and the remote stands at `2c077ed`.
+    Both are corrected; cut 7's record keeps its original sentence with a dated
+    correction beneath it, because that record is a claim about its own
+    discharge (§4 above; execution ledger R44).
+12. **Cut 8's own frozen text cites the spec at its pre-promotion path**
     (`docs/superpowers/specs/…`). The frozen text is not edited; the cut's
     status header records the promotion and the new path.
 

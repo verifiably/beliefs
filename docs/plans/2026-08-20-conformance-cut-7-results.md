@@ -198,6 +198,14 @@ The commits are `29674c2` (`docs(coordinator): design public chain read`) and
 (`feat(coordinator): expose validated chain reads`); the `atoms` remote `main`
 still stands at `7e97e09`.
 
+**Corrected 2026-08-23.** `2c077ed` was **pushed on 2026-08-22**, after this
+record was written; the `atoms` remote `main` stands at it now. The paragraph
+above is true of the discharge and false of the present: reproducing cut 7 no
+longer needs a local clone. The two paragraphs below are left as written,
+because their reasoning is what the next slice inherited — cut 8's own atoms
+prerequisite is unpushed today for exactly the same reason and carries exactly
+the same disclosure (`../plans/2026-08-22-conformance-cut-8-results.md` §4).
+
 Science resolves `atoms-core` through an editable path dependency, so that local
 merge is what makes this branch green. **Anyone reproducing this discharge needs
 that `atoms` commit, and it exists only in a local clone.** Pushing it is a

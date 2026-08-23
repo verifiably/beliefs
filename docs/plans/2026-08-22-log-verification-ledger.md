@@ -1,8 +1,9 @@
 # Log Verification and Anchoring Execution Ledger
 
-**Plan:** `docs/superpowers/plans/2026-08-22-log-verification.md`  
-**Spec:** `docs/superpowers/specs/2026-08-22-log-verification-design.md`  
-**Cut:** `docs/designs/2026-08-22-conformance-cut-8.md`
+- **Plan:** `docs/superpowers/plans/2026-08-22-log-verification.md`
+- **Design:** `docs/designs/2026-08-22-log-verification-design.md` (promoted from `docs/superpowers/specs/` in the banking commit; cited throughout as *the spec*, which is what it was during execution)
+- **Cut:** `docs/designs/2026-08-22-conformance-cut-8.md`
+- **Results:** `docs/plans/2026-08-22-conformance-cut-8-results.md`
 
 ## Rulings
 
@@ -557,11 +558,30 @@ after it rather than before. Cost if wrong: a genuinely missing module in that
 one import would be reported at run time instead of by the checker; the runner
 already reports that failure by name without masking the run's own result.
 
+**R44: `read_chain`'s `2c077ed` is no longer unpushed, and both records that
+say otherwise are corrected (Task 12 close-out, 2026-08-23)**
+
+R1 rules that the new atoms head joins row 4's **unpushed** disclosure. Checking
+that precedent against the sibling repository rather than against the sentence
+describing it showed the precedent had moved: `2c077ed` was **pushed on
+2026-08-22**, the `atoms` remote `main` stands at it, and the local `main` is
+nine commits ahead. Adoption-ledger row 4 and cut 7's results §4 both still said
+the remote stood at `7e97e09`. Both are corrected here — row 4 in place, since
+it is the corpus's single live authority for `atoms` state, and cut 7's results
+by a dated note beneath the original sentence, since a results record is a claim
+about its own discharge and rewriting it would erase what was true then. **R1 is
+not weakened:** the slice-3 head `3aa5a76` is genuinely unpushed, its disclosure
+is the one R1 requires, and the treatment it copies is what `2c077ed` carried
+between merge and push. Cost if wrong: the corpus would go on telling a reader
+that reproducing cut 7 needs a local clone it no longer needs — the
+overstating-the-obstacle direction, but wrong all the same.
+
 ## Rulings — completeness
 
-**R1–R43, complete.** R1–R38 were written at their task boundaries and
+**R1–R44, complete.** R1–R38 were written at their task boundaries and
 committed with them, in the commits named beside each task's head below;
-R39–R43 are the banking task's own and are committed with this finalization.
+R39–R44 are the banking task's own; R39–R43 were committed with the first
+finalization and R44 with the correction commit that follows it.
 No ruling was withdrawn, superseded, or rewritten after the fact. This ledger is
 the whole record of controller decisions that departed from the plan text, and
 it lives at a tracked path — the process failure cut 7's results §10 recorded
