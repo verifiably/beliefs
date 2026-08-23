@@ -14,14 +14,31 @@ Two phases, in order, each one a whole command:
 
 Cut 7's runner already chains cuts 5 and 6, so it is cut 8's **sole**
 prior-cut prefix; invoking cut 5 or cut 6 again would run them twice. It is
-historical and is never edited. Cut 8 §5 allows it as a prefix, so it is
-invoked as it stands and told only *where* to work; nothing else about it is
-touched, and its own arguments are not this command's to pass. Extra
-arguments reach phase 2's `pytest` and no other. A prefix that fails stops
-the command, and the phase banners are what let a reader attribute a count or
-a failure to the phase that produced it — the whole point of a prefix is that
-its meaning is unchanged, and a run whose two results are indistinguishable
-would have lost exactly that.
+historical and is never edited. **The frozen cut does not say this** — cut 8
+§5 is its N2 obligations (fabrication well-formedness, count-claim
+discipline), not a permission about prior runners, and no section of the
+frozen cut mentions "prefix", "prior cut", or `cut7_acceptance`. The
+authority for chaining it this way is the implementation plan's Task 11
+(its Interfaces section), not the frozen cut, and that is stated here
+rather than misattributed to it. It is invoked as it stands and told only
+*where* to work; nothing else about it is touched, and its own arguments
+are not this command's to pass. Extra arguments reach phase 2's `pytest`
+and no other. A prefix that fails stops the command, and the phase banners
+are what let a reader attribute a count or a failure to the phase that
+produced it — the whole point of a prefix is that its meaning is unchanged,
+and a run whose two results are indistinguishable would have lost exactly
+that.
+
+**Four numbers matter and only three are pytest summary lines.** Phase 1
+prints cuts 5, 6, and 7's own N2 totals verbatim, unedited. Phase 2 prints
+its own pytest total, which covers the 53-arm sabotage audit *plus* the
+inventory, obligation, freeze, and guard checks made over the same
+declarations — so it is not itself the fourth number. This command prints
+one line after phase 2 naming that fourth number explicitly: the
+**declared unit count** cut 8 §4 fixes (43 selected + 10 labeled), which is
+`len(CUT8_ARMS)` and not a pytest total, pinned separately by
+`test_the_declared_units_are_unique_and_number_fifty_three` among phase 2's
+tests.
 
 Usage::
 
@@ -97,6 +114,23 @@ def probe(run: Path) -> str | None:
             shutil.rmtree(metadata_root_for(root), ignore_errors=True)
 
 
+def declared_unit_count() -> int:
+    """Cut 8's declared unit count: `len(CUT8_ARMS)`, not a pytest total.
+
+    `n2_arms_cut8` lives under `tests/acceptance`, which pytest puts on
+    `sys.path` for its own run but this standalone script does not inherit —
+    so both `tests/` and `tests/acceptance` are added here, for this one
+    import, rather than assumed.
+    """
+    for directory in (PYTHON_ROOT / "tests", ACCEPTANCE):
+        path = str(directory)
+        if path not in sys.path:
+            sys.path.insert(0, path)
+    from n2_arms_cut8 import CUT8_ARMS
+
+    return len(CUT8_ARMS)
+
+
 def run_prefix(runner: str, run: Path) -> int:
     """The prior cut's own command, unedited, working beneath `run`."""
     completed = subprocess.run(
@@ -161,6 +195,17 @@ def main(argv: list[str]) -> int:
                 "SCIENCE_CUT8_ROOT": str(run),
             },
         )
+        try:
+            units = declared_unit_count()
+        except Exception as failure:  # noqa: BLE001 - report, do not mask the run's own result
+            print(f"cut-8 acceptance: could not compute the declared-unit count: {failure}", file=sys.stderr)
+        else:
+            print(
+                f"declared units: {units} (pinned by "
+                "test_the_declared_units_are_unique_and_number_fifty_three, among the tests "
+                "above; not itself a pytest total)",
+                flush=True,
+            )
         return completed.returncode
     finally:
         shutil.rmtree(run, ignore_errors=True)
