@@ -323,17 +323,21 @@ now.
       store_root.mkdir(parents=True, exist_ok=True)
       existing = _read_existing_store_genesis(store_root)
       if existing is not None:
-          # Let register_root recognize its own durable initialization
-          # operation; Science never reads or interprets that bookkeeping.
-          # The matching retry grants, a completed init stays writable, and a
-          # bare copied genesis remains metadata-less.
-          register_root(_PRODUCTION_BACKEND, str(store_root), str(metadata_root_for(store_root)),
-                        PRODUCTION_STORAGE, _store_genesis_payload(existing, None), ())
           if read_lifecycle_state(store_root) == "writable":
-              return existing
-          raise CorpusRootRefused(
-              f"{str(store_root)!r} carries a store genesis this host did not "
-              "initialize; a copied store is restored or forked, never re-initialized")
+              return existing  # completed init (or fork); the postcondition already holds
+          try:
+              # Only register_root can recognize its own recorded initialization
+              # operation; Science never reads or interprets that bookkeeping.
+              # The matching retry completes the interrupted grant; every other
+              # carrier — bare copied genesis, fork/replicate origin, binding
+              # mismatch — is atoms' named refusal, mapped below.
+              register_root(_PRODUCTION_BACKEND, str(store_root), str(metadata_root_for(store_root)),
+                            PRODUCTION_STORAGE, _store_genesis_payload(existing, None), ())
+          except PreconditionRefused as refused:
+              raise CorpusRootRefused(
+                  f"{str(store_root)!r} carries a store genesis this host did not "
+                  "initialize; a copied store is restored or forked, never re-initialized") from refused
+          return existing
       populated = registered_surface_paths(store_root, "store")
       if populated:
           raise CorpusRootRefused(f"{str(store_root)!r} holds payload {populated[0]!r}; a store initializes empty")
