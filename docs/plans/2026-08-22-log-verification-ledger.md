@@ -473,7 +473,119 @@ wrong: a fabrication smuggles in the malformation it claims not to have —
 structurally impossible for the six defect classes a view cannot express,
 which is why the substitute is adequate for what it covers.
 
+**R39: The frozen L rows are amended in place; cut 8's quotes are a freeze
+snapshot (Task 12 banking, 2026-08-23)**
+
+Spec §1.2/§1.3's banking obligations reach the log design's **L4, L6 and L10
+row cells**, which conformance cut 8 quotes byte-exact. The rows are amended in
+place with dated markers — the corpus's own convention for a frozen table
+(`designs extend and amend in place, never renumber`), already visible in L4,
+L7 and L10's 2026-08-10 and 2026-08-11 markers — and the frozen cut is **not**
+edited beyond its status header. The consequence, stated rather than left for a
+later reader to discover: cut 8 §3.1's quotations are byte-exact as of the
+freeze `117f37e` and no longer byte-exact against the live table. Cut 8 §8
+limitation 5 anticipated exactly this ("the cut inherits the spec's dated
+amendments … a future design lifts either, the affected declarations are
+extended by a successor cut, never edited here"). Alternative rejected: keeping
+the amendments out of the row cells and in section prose only, which would have
+left the guarantee table stating a mechanism the code does not implement — the
+failure mode this repository's design-doc rule exists to prevent. Cost if
+wrong: a future second reader's byte-exactness check against cut 8 reports a
+drift that is intentional and dated, and must read this ruling to see why.
+
+**R40: Three live design documents outside the plan's Modify list are corrected
+(Task 12 banking, 2026-08-23)**
+
+The plan's stale-claim sweep covers `README.md`, `docs/guide/` and the adoption
+ledger. Three further **live** (non-frozen) design documents carried claims this
+landing makes false, and the house rule is that drift propagates outward:
+`2026-08-03-world-index-packaging-design.md` limitation 1 ("the registry is
+unanchored … deleting an admission record is undetectable today"),
+`2026-08-20-world-registry-design.md` §8.1 ("full replay/refutation and
+genesis-to-mirror agreement remain the deferred log reader's claim"), and
+`2026-08-20-world-index-slice-2-design.md`'s out-of-scope list ("log
+verification … genesis-to-mirror verification, pending the configuration-mismatch
+audit"). Each gains a dated correction that closes only what actually closed and
+names the bounds that survive. **Frozen conformance cuts 2, 3, 4, 6 and 7 and
+the disposition record carry the same L-row deferral claims and are left
+untouched** — a frozen cut's deferral table states the world at its freeze, and
+editing one to track later work is the error the freeze discipline exists to
+forbid. Cost if wrong: three extra dated paragraphs in documents that were
+already going to need them.
+
+**R41: The corpus guard's count-spelling table is extended (Task 12 banking,
+2026-08-23)**
+
+Promoting the specification takes `docs/designs/` from 31 documents to 32, and
+`test_the_readme_states_how_many_designs_there_are` refuses a count it has no
+spelling for. `python/tests/test_designs_corpus.py` gains one `_COUNT_WORDS`
+entry (`32: "Thirty-two"`). This is the only Python edit in the banking change;
+the file is in no cut's frozen set and no declared arm names a node in it, so
+the cut-8 audit is unaffected. Cost if wrong: the guard would have failed
+closed, which is what it is for.
+
+**R42: The banking commit precedes the ledger commit (Task 12 close-out,
+2026-08-23)**
+
+The plan's Task 12 step 5 names the ledger commit first. It is made **second**
+here, so that the `## Heads` section below can record the banking commit's
+actual hash instead of a forward reference to a commit that did not exist yet.
+No cleanup happens between the two — the constraint the plan's ordering exists
+to enforce (never leave the ledger in a removable worktree) is satisfied either
+way, and this order makes the head record exact rather than approximate. Cost
+if wrong: none identified; the ledger is committed on the branch before anything
+is removed, which is the whole of the requirement.
+
+**R43: The cut-8 runner's deferred import is suppressed for the type checker
+(Task 12 close-out, 2026-08-23)**
+
+Running the project-wide `pyright` gate at banking returned **five**
+diagnostics, not the four baseline ones: `tools/cut8_acceptance.py`'s
+`from n2_arms_cut8 import CUT8_ARMS` is unresolvable to a static checker,
+because the `sys.path` entry it resolves against is inserted three lines above
+it at call time. Task 11 introduced it and the gate caught it here. The line
+gains `# pyright: ignore[reportMissingImports]` with the reason in the
+function's docstring; the gate returns to exactly four. Alternatives rejected:
+adding `tests/acceptance` to a project-wide `extraPaths`, which would teach the
+whole project to resolve a test directory to fix one deferred import, and
+hoisting the import to module scope, which would make the standalone script
+import the declarations on every run including the ones that never print the
+count. **The edit is to cut 8's own runner, which no freeze pins** — cut 8's
+`FROZEN_PRIOR_CUT_FILES` covers cuts 5, 6 and 7's runners and declarations, not
+its own — and it changes no behaviour, so the acceptance run was re-collected
+after it rather than before. Cost if wrong: a genuinely missing module in that
+one import would be reported at run time instead of by the checker; the runner
+already reports that failure by name without masking the run's own result.
+
+## Rulings — completeness
+
+**R1–R43, complete.** R1–R38 were written at their task boundaries and
+committed with them, in the commits named beside each task's head below;
+R39–R43 are the banking task's own and are committed with this finalization.
+No ruling was withdrawn, superseded, or rewritten after the fact. This ledger is
+the whole record of controller decisions that departed from the plan text, and
+it lives at a tracked path — the process failure cut 7's results §10 recorded
+did not recur.
+
+Rulings carrying obligations discharged in Task 12, and where each landed:
+
+| ruling | obligation | discharged in |
+|---|---|---|
+| R1 | the new atoms head joins row 4's **unpushed** disclosure | adoption ledger row 4; results §4 |
+| R13 | cut 7's pinned audit moved under a ruling; its declaration file did not | results §3 |
+| R16 | §5.3 amended; L13's second partiality stated wherever the first is | the promoted design §5.3; results §7.1 |
+| R33 | §7's signature amended before promotion | the promoted design §7 |
+| R34 | cut 6's X5 replica clause named as superseded | world-registry design §5.2; results §7.2 |
+| R37 | 51 full + 2 partial, per unit | results §1.1 |
+| R38 | obligation 1's two grounds, and the three unconverted units | results §1.2 |
+
 ## Heads
 
-Atoms commit hash (Task 2): `3aa5a766efb5275e444de193407992ce33e8edb7` (local atoms `main`, merge of `design/chain-inspection`; unpushed, joining row 4's disclosure per R1)  
-Science commit hash (Task 9): `6b858ab` (`fix(world): condition open_world's unregistered-root mapping on the engine's own wording`, closing the last implementation task)
+- Atoms commit hash (Task 2): `3aa5a766efb5275e444de193407992ce33e8edb7` (local atoms `main`, merge of `design/chain-inspection`; unpushed, joining row 4's disclosure per R1)
+- Science commit hash (Task 9): `6b858ab` (`fix(world): condition open_world's unregistered-root mapping on the engine's own wording`, closing the last implementation task)
+- Science commit hash (Task 11): `4389d2a` (`docs(plans): state each acceptance count with what it counts`, the last commit the cut-8 evidence measured)
+- Science commit hash (Task 12 banking): `55b6de7` (`docs(log): bank log verification and discharge cut 8` — the results record, the amendment set, and the specification's promotion)
+
+Branch: `design/log-verification`, base `cd549aa` on `main`. **Not merged** — the
+`--no-ff` merge is the human partner's act, and it inherits cut 7's reachability
+constraint on `4a7dc19` and `c8c0b12` plus cut 8's own freeze pin `117f37e`.
