@@ -29,8 +29,16 @@ both before any task).
 ## Global Constraints
 
 - The frozen cut is not edited; only its status header may change, at
-  discharge. `uv run --frozen python tools/cut8_acceptance.py` (which
-  chains cuts 5–7) must stay exit 0 after every Science task.
+  discharge. `uv run --frozen python tools/cut7_acceptance.py` (which
+  chains cuts 5–6) must stay exit 0 after every Science task.
+  **Cut 8's runner is a current-tree prefix only through Task 3:** Task
+  4 removes the store refusal cut 8's declarations sabotage against and
+  assert, so from Task 4 on those declarations fail **by design** — a
+  ledger ruling records it there, and cut 8's discharge stands as its
+  frozen results record
+  (`docs/plans/2026-08-22-conformance-cut-8-results.md`), not as a
+  current-tree invariant. Cut 9 runs against the successor tree with no
+  current-tree cut-8 prefix (Task 10).
 - `science/root.py` stays the only module importing `atoms`;
   `tests/test_capability_boundary.py` enforces this and its
   `test_the_composition_root_names_every_engine_command` node must be
@@ -45,8 +53,10 @@ both before any task).
   genesis bytes; Science owns `corpus`/`world`/`store` payload
   construction and validation. No Science vocabulary (verdicts, subjects)
   enters atoms.
-- The Science gate block, run from `python/` after every green step:
-  `uv run --frozen pytest -q && uv run --frozen ruff check . && uv run --frozen pyright`
+- The Science gate block, run from `python/` after every green step
+  (addopts already supplies `-q` and `--ignore=tests/acceptance`;
+  acceptance files run only by explicit node id):
+  `uv run --frozen pytest && uv run --frozen ruff check . && uv run --frozen pyright`
 - Conventional commits; no AI-attribution trailers. After every task:
   append the execution ledger (rulings + the task's head commit) and
   commit it with the task.
@@ -78,8 +88,9 @@ both before any task).
 **Files:**
 - Create (in `~/d/atoms`): `docs/2026-08-23-root-lifecycle-commands-design.md`
   on branch `design/root-lifecycle` in a fresh atoms worktree.
-- Modify (after the review): **this plan's Task 2**, amended with the
-  reviewed design's exact contracts.
+- Modify (after the review): **this plan's Tasks 2–7**, amended with the
+  reviewed design's exact contracts wherever they name a callback,
+  command, error, or token.
 
 **Interfaces:**
 - Produces: the reviewed atoms design Task 2 implements and Tasks 3–8
@@ -139,6 +150,13 @@ both before any task).
     (non-writable; unserviceable, or already read-only serviceable →
     success without another write); no verdict channel; atoms spells no
     `restore_root`; out-of-band outside Science's restore orchestration.
+    **The cold-root admission path:** spec §4's "currently unserviceable"
+    includes the metadata-less root — the grant **creates** matching
+    read-only-serviceable bookkeeping (with a fresh binding) for a
+    validated cold root, since a metadata-less copy is exactly what
+    restore admits (spec §7.2, cut 9 L10 u9); it refuses a writable root
+    and a binding-mismatched one (a mismatched carrier is discarded by
+    the operator, never overwritten by the grant).
   - **`read_lifecycle_state`** (spec §4): the closed five-value union —
     writable / read-only serviceable / read-only unserviceable /
     metadata-less / binding-mismatched — binding validated as part of the
@@ -147,12 +165,14 @@ both before any task).
 - [ ] **Step 4: STOP.** Hand the design to the human partner for the
   atoms-side review. Do not proceed until the review closes; fold its
   findings into the design first.
-- [ ] **Step 5: Amend this plan's Task 2** with the reviewed design's
-  finalized contract: exact file paths, the bookkeeping schema transition,
-  the migration command's name, every public signature, the
+- [ ] **Step 5: Amend every downstream contract the reviewed API
+  touches** — Task 2's exact file paths, the bookkeeping schema
+  transition, the migration command's name, every public signature, the
   operation-identity token type, and the source-moved and retry-mismatch
-  error names. Replace Task 2's bracketed deferred items; do not start
-  Task 2 before this amendment is committed.
+  error names; **and** Tasks 3, 5, 6, and 7 wherever they name a callback,
+  command, error, or token the review renamed or reshaped. Replace every
+  bracketed deferred item; do not start Task 2 before this amendment is
+  committed.
 - [ ] **Step 6:** Commit the amendment:
   `git add docs/superpowers/plans/2026-08-23-root-lifecycle.md docs/plans/2026-08-23-root-lifecycle-ledger.md && git commit -m "docs(plans): pin Task 2 to the reviewed atoms lifecycle design"`
   — recording the review's rulings in the ledger in the same commit.
@@ -178,36 +198,54 @@ now.
   error names]` — signatures exactly as the Task 1 amendment pins them.
 
 - [ ] **Step 1: Write the failing lifecycle-state tests** in
-  `python/tests/test_lifecycle_commands.py`: fresh `register_root` →
-  writable; interrupted-registration fabrication (recorded operation,
-  durable genesis, no grant) → the matching retry grants, a bare
-  re-registration never grants; metadata-less tree → metadata-less; a
-  binding delta (host, then path, one edit at a time) →
-  binding-mismatched; each state read back through
-  `read_lifecycle_state`.
+  `python/tests/test_lifecycle_commands.py`:
+
+  - `test_fresh_register_root_reads_writable`
+  - `test_interrupted_registration_matching_retry_grants` (fabricated:
+    recorded operation, durable genesis, no grant)
+  - `test_bare_reregistration_over_an_existing_genesis_never_grants`
+  - `test_metadata_less_tree_reads_metadata_less`
+  - `test_host_delta_reads_binding_mismatched`
+  - `test_path_delta_reads_binding_mismatched`
+
+  each state read back through `read_lifecycle_state`.
 - [ ] **Step 2:** Run: `uv run --frozen pytest tests/test_lifecycle_commands.py -v`
   (from the atoms worktree's `python/`). Expected: every test FAILS at
   import (`ImportError: cannot import name 'read_lifecycle_state'`).
   Implement the writer state, binding, and query. Run again: PASS.
-- [ ] **Step 3: Write the failing command tests**: `replicate_root`
-  (chain and payload byte-identical; destination reads read-only
-  unserviceable; no-clobber refusal on an existing destination;
-  interrupted-copy fabrications in both windows; exact-retry converges);
-  `fork_root` (overrides applied before baseline; baseline = destination
-  surface after overrides; new chain with the supplied genesis bytes;
-  source-moved refusal when the bound snapshot no longer matches under
-  the lease; kill-between fabrication → read-only, pre-grant retry
-  completes the grant with byte-identical inputs and **refuses different
-  bytes**; post-grant retry returns success after a legitimate write
-  changed the tree); `grant_read_serviceability` (refuses a writable
-  root; refuses a metadata-less root; idempotent success on read-only
-  serviceable); the migration (authorized success on a fabricated
-  pre-lifecycle vintage → writable with a fresh binding; refusals:
-  metadata-less, binding-mismatched).
-- [ ] **Step 4:** Run; FAIL for want of each command. Implement. Run to
-  PASS.
+- [ ] **Step 3: Write the failing command tests**, same file:
+
+  - `test_replicate_copies_chain_and_payload_byte_identical`
+  - `test_replica_reads_read_only_unserviceable`
+  - `test_replicate_refuses_an_existing_destination` (no-clobber)
+  - `test_replicate_interrupted_before_stamp_is_metadata_less` and
+    `test_replicate_interrupted_after_stamp_is_read_only_unserviceable`
+    (fabricated windows); `test_replicate_retry_converges`
+  - `test_fork_applies_overrides_before_baseline` (baseline = destination
+    surface after overrides)
+  - `test_fork_appends_a_new_chain_with_the_supplied_genesis_bytes`
+  - `test_fork_refuses_a_moved_source` (the bound snapshot no longer
+    matches under the lease)
+  - `test_fork_interrupted_before_grant_is_read_only`;
+    `test_fork_pregrant_retry_completes_with_identical_inputs`;
+    `test_fork_pregrant_retry_refuses_different_bytes`;
+    `test_fork_postgrant_retry_returns_success_after_legitimate_writes`
+  - `test_grant_refuses_a_writable_root`;
+    `test_grant_refuses_a_binding_mismatched_root`;
+    `test_grant_creates_bookkeeping_for_a_metadata_less_root` (the
+    cold-root admission path: after it, `read_lifecycle_state` is
+    read-only serviceable with a fresh binding);
+    `test_grant_is_idempotent_on_read_only_serviceable` (no second write)
+  - `test_migration_authorized_success_grants_with_a_fresh_binding`
+    (fabricated pre-lifecycle vintage);
+    `test_migration_refuses_a_metadata_less_root`;
+    `test_migration_refuses_a_binding_mismatch`
+- [ ] **Step 4:** Run: `uv run --frozen pytest tests/test_lifecycle_commands.py -v`.
+  Expected: FAIL for want of each command. Implement. Run again: PASS.
 - [ ] **Step 5:** Run the full atoms suite and gates from the atoms
-  `python/`: `uv run --frozen pytest -q && uv run --frozen ruff check . && uv run --frozen pyright`
+  `python/`: `uv run --frozen pytest && uv run --frozen ruff check . && uv run --frozen pyright`
+  (no explicit `-q` — if the atoms addopts already sets it, doubling
+  hides the count)
   — quote the pytest summary line in the ledger.
 - [ ] **Step 6:** Commit on the branch; merge `--no-ff` to local atoms
   `main`; **push atoms `main`** (spec §8 step 5 makes the push part of
@@ -219,22 +257,25 @@ now.
 **Files:**
 - Create: `python/tests/test_store_root.py`
 - Modify: `python/src/science/root.py` (`init_store_root`,
-  `_store_genesis_payload`, `store_surface_paths`, the five new atoms
-  callbacks), `python/src/science/world/verify.py` (`RootKind` gains
-  `"store"`; `registered_surface_paths` gains the store projection),
+  `_store_genesis_payload`, the five new atoms callbacks),
+  `python/src/science/world/verify.py` (`RootKind` gains `"store"`;
+  `registered_surface_paths` gains the `"store"` arm — **the one
+  projection function, no second walker**),
   `python/tests/test_capability_boundary.py`
   (`test_the_composition_root_names_every_engine_command` gains the five
   new command names)
 
 **Interfaces:**
 - Consumes: Task 2's commands, via new `root.py` callbacks on the
-  `chain_head_reader`/`_capture` pattern.
+  `chain_head_reader`/`_capture` pattern; `verify.registered_surface_paths`.
 - Produces: `init_store_root(store_root: Path) -> str` (the minted
-  32-lowercase-hex `store_id`; refuses a populated payload root);
-  `store_surface_paths(store_root: Path) -> tuple[str, ...]` (every
-  non-bookkeeping root-relative entry, symlinks not followed);
+  32-lowercase-hex `store_id`; refuses a populated payload root with
+  `CorpusRootRefused`, the established init refusal; exact-retry — a
+  re-run over an interrupted init returns the **original** id);
+  `registered_surface_paths(root, "store")` (every non-bookkeeping
+  root-relative entry, symlinks not followed);
   `_store_genesis_payload(store_id: str, forked_from: tuple[str, str] | None) -> bytes`
-  under `science.store-root.v1`.
+  under the store genesis domain.
 
 - [ ] **Step 1: Write the failing tests** in `tests/test_store_root.py`:
 
@@ -242,42 +283,56 @@ now.
     directories mint distinct 32-lowercase-hex ids; renaming the root
     directory changes nothing the genesis carries.
   - `test_init_store_root_refuses_a_populated_payload_root` — a root
-    holding one payload file refuses; nothing is registered (no chain
-    leaf appears).
+    holding one payload file refuses `CorpusRootRefused`; nothing is
+    registered (no chain leaf appears).
+  - `test_interrupted_init_retry_returns_the_original_store_id` —
+    fabricate the interrupt per Task 2's pattern (durable genesis, no
+    grant); a re-run of `init_store_root` completes the grant and
+    returns the id decoded from the existing genesis, never a re-mint.
   - `test_store_genesis_payload_round_trips` — payload with and without
     `forked_from` decodes to its inputs; a non-fork payload carrying
     `forked_from` is refused by genesis-form validation.
-  - `test_store_surface_excludes_bookkeeping` — the chain leaf and
-    engine metadata are excluded; every other root-relative entry is
-    included.
+  - `test_store_surface_excludes_bookkeeping` —
+    `registered_surface_paths(root, "store")` excludes the chain leaf
+    and engine metadata; every other root-relative entry is included.
   - `test_store_surface_does_not_follow_symlinks` — a symlink is an
     entry, never traversed.
 - [ ] **Step 2:** Run: `uv run --frozen pytest tests/test_store_root.py -v`.
   Expected: FAIL, `ImportError: cannot import name 'init_store_root' from 'science.root'`.
 - [ ] **Step 3: Implement**, following `_world_genesis_payload` and
-  `init_world_root` as the pattern. Sketch:
+  `init_world_root` as the pattern (directory handling and refusal
+  included). Sketch:
 
   ```python
+  STORE_GENESIS_DOMAIN = "science.store-root.v1"
+
   def _store_genesis_payload(store_id: str, forked_from: tuple[str, str] | None) -> bytes:
-      doc: dict[str, object] = {"kind": "science.store-root.v1", "store_id": store_id}
+      doc: dict[str, object] = {"domain": STORE_GENESIS_DOMAIN, "store_id": store_id}
       if forked_from is not None:
           doc["forked_from"] = {"genesis": forked_from[0], "head": forked_from[1]}
-      return _canonical_payload_bytes(doc)   # the world payload's encoder, reused
+      return v1.encode(doc)
 
   def init_store_root(store_root: Path) -> str:
-      entries = store_surface_paths(store_root)
-      if entries:
-          raise StorePayloadRootPopulated(store_root, entries[0])
+      if store_root.exists() and not store_root.is_dir():
+          raise CorpusRootRefused(f"{str(store_root)!r} exists and is not a directory, so it cannot be a store root")
+      store_root.mkdir(parents=True, exist_ok=True)
+      existing = _read_existing_store_genesis(store_root)   # the retry path
+      if existing is not None:
+          register_root(...)                                # completes the grant, same genesis
+          return existing
+      populated = registered_surface_paths(store_root, "store")
+      if populated:
+          raise CorpusRootRefused(f"{str(store_root)!r} holds payload {populated[0]!r}; a store initializes empty")
       store_id = secrets.token_hex(16)
-      register_root(..., genesis_payload=_store_genesis_payload(store_id, None),
-                    registered_surface=())
+      register_root(_PRODUCTION_BACKEND, str(store_root), str(metadata_root_for(store_root)),
+                    PRODUCTION_STORAGE, _store_genesis_payload(store_id, None), ())
       return store_id
   ```
 
-  `store_surface_paths` walks with `Path.iterdir` recursion, skipping the
-  chain leaf and metadata names `root.py` already knows, using
-  `entry.is_symlink()` before any `is_dir()` traversal. Extend the
-  boundary test's engine-command list with the five new names.
+  The `"store"` arm of `registered_surface_paths` is the whole-namespace
+  projection: every root-relative entry minus the chain leaf and engine
+  metadata, `entry.is_symlink()` checked before any `is_dir()` traversal.
+  Extend the boundary test's engine-command list with the five new names.
 - [ ] **Step 4:** Run to PASS, then the gate block. Commit:
   `feat(root): store roots and the canonical store projection`. Append
   and commit the ledger.
@@ -289,8 +344,14 @@ now.
 - Modify: `python/src/science/world/verify.py` (delete
   `_refuse_store_subject` and both call sites — the `evaluate_log` path
   and `_audit_log` path; widen `_subject_hold` and the audit target
-  rule), `python/src/science/root.py` (`anchor_heads` store widening,
-  `export_head_artifact` store arm, `audit_log` store path)
+  rule), `python/src/science/errors.py` (delete `StoreSubjectUnsupported`
+  and every import of it), `python/src/science/root.py` (`anchor_heads`
+  store widening, `export_head_artifact` store arm, `audit_log` store
+  path), and the existing store-refusal assertions in
+  `python/tests/test_world_log_codecs.py`,
+  `python/tests/test_world_log_audit.py`, and
+  `python/tests/test_world_log_evaluator.py` — each updated to the new
+  store behavior, never deleted without a replacement assertion.
 
 **Interfaces:**
 - Consumes: Task 3's projection and genesis codec.
@@ -313,26 +374,40 @@ now.
   - `test_export_head_artifact_round_trips_a_store_head` — the returned
     bytes decode under `science.head-artifact.v1` with the store subject.
   - `test_store_audit_validated` / `test_store_audit_refuted_on_truncation`
-    (valid-prefix truncation behind the store-subject registry anchor —
-    cut 9 L4 u1's mechanism) / `test_store_audit_malformed_on_interior_damage`
-    / `test_store_audit_unresolvable_on_empty_observers` — the four
+    (valid-prefix truncation behind the store-subject registry anchor) /
+    `test_store_audit_refuted_on_chain_removal_under_registry_anchor`
+    (delete the chain outright, the store-subject record in the observer
+    set — cut 9 L4 u1, the anchor bound by `store_id`) /
+    `test_store_audit_malformed_on_interior_damage` /
+    `test_store_audit_unresolvable_on_empty_observers` — the four
     verdicts over fabricated store states.
   - `test_store_audit_holds_one_boundary_across_inspect_capture_evaluate`
     — the hold spans the three (assert via the lock-probe pattern
     `test_capability_boundary.py::test_the_check_would_see_a_second_holder`
     uses).
-  - `test_store_subject_unsupported_is_deleted` — the name is gone from
-    `science.world` (an `ImportError` assertion, not a mere not-raised).
+  - `test_store_subject_unsupported_is_deleted` — the class is gone from
+    its defining module (`assert not hasattr(science.errors, "StoreSubjectUnsupported")`)
+    **and** the helper is gone from the source
+    (`"_refuse_store_subject" not in Path(verify.__file__).read_text()`,
+    the capability-boundary tests' source-scan pattern) — not a mere
+    not-raised.
 - [ ] **Step 2:** Run: `uv run --frozen pytest tests/test_store_subjects.py -v`.
   Expected: FAIL — `TypeError: anchor_heads() got an unexpected keyword argument 'store_roots'`
   and `StoreSubjectUnsupported` raised where verdicts are expected.
 - [ ] **Step 3: Implement** — the widening only: codecs already carry
-  stores; touch acts, wrappers, and the reachable evaluator path. The
-  genesis check decodes the supplied root's genesis payload and compares
-  `store_id` before any registry transaction is planned.
+  stores; touch acts, wrappers, and the reachable evaluator path, and
+  update the three existing test files' store-refusal assertions to the
+  new behavior. The genesis check decodes the supplied root's genesis
+  payload and compares `store_id` before any registry transaction is
+  planned.
 - [ ] **Step 4:** Run to PASS; gate block; then
-  `uv run --frozen python tools/cut8_acceptance.py` (the evaluator
-  surface moved). Commit:
+  `uv run --frozen python tools/cut7_acceptance.py` (still exit 0).
+  **Ledger ruling, written now:** cut 8's store-refusal declarations
+  (its label 6 and the refusal assertions its arms exercise) fail on the
+  current tree from this task on, **by design** — the refusal they
+  certify is the shape-only state this slice removes; cut 8's discharge
+  stands as its frozen results record, and cut 9's store units are the
+  successor certification. Commit:
   `feat(world): store subjects through anchor, export, and audit`. Append
   and commit the ledger.
 
@@ -371,6 +446,11 @@ now.
     asserts the grant through `read_lifecycle_state`).
   - `test_migration_refuses_metadata_less_and_mismatched` — the
     passthrough's two structural refusals.
+  - `test_metadata_less_store_copy_reads_metadata_less_and_refuses_mutation`
+    — the store half of the cold bootstrap (cut 9 L10 u8's structural
+    residue; the holdings-read clauses stay deferred by the cut).
+  - `test_lifecycle_union_is_closed_at_five` — the re-exported state type
+    has exactly the five declared members (cut 9 label 6's closure).
 - [ ] **Step 2:** Run: `uv run --frozen pytest tests/test_lifecycle_wrappers.py -v`.
   Expected: FAIL at import of the wrappers.
 - [ ] **Step 3: Implement** the wrappers (each a `root.py` function
@@ -408,12 +488,21 @@ now.
   - `test_re_restore_is_idempotent` — a second restore returns
     `validated` again and the state is unchanged.
   - `test_validated_with_store_subject_mismatch_does_not_admit` — the
-    genesis carries another `store_id`; whatever the report, the root
-    stays unserviceable (subject agreement is a separate lifecycle
-    precondition).
-  - `test_validated_with_corpus_manifest_mismatch_does_not_admit` — for
-    a corpus copy, `corpus.yaml` names another `corpus_id` while the
-    genesis passes form validation; no admission.
+    fixture raw-authors an exported head artifact naming the presented
+    chain's genesis and head digests under the **selected, different**
+    `store_id` (the raw-write license); evaluation over that observer
+    set returns `outcome == "validated"` — asserted, so replay
+    refutation cannot discharge the test vacuously — and the root stays
+    unserviceable: subject agreement is a separate lifecycle
+    precondition.
+  - `test_validated_with_corpus_manifest_mismatch_does_not_admit` — the
+    corpus fixture rewrites `corpus.yaml` to another `corpus_id`
+    **cooperatively, through the logged mutation path**, so the rewrite
+    is in history and replay validates (the slice-3 §1.2 case: "a
+    cooperatively logged `corpus.yaml` identity rewrite replays
+    consistently, so replay alone is not the guard"); then replicate and
+    restore selecting the original subject — `outcome == "validated"`
+    asserted, and no admission.
   - `test_empty_observer_set_unresolvable_replay_not_reached` — cut 9
     L10 u11; the report's `observer_bound` is empty and the root
     unserviceable.
@@ -430,21 +519,36 @@ now.
   - `test_restore_holds_one_boundary_across_evaluate_and_grant` — the
     lock-probe pattern again: a second holder is refused for the whole
     span.
+  - The divergence triple (cut 9 L10 u12):
+    `test_divergent_copies_assembled_in_one_root_are_sibling_malformed`;
+    `test_both_divergent_heads_in_one_observer_set_refute`;
+    `test_divergent_copies_verified_separately_each_validate` — the last
+    asserting the pinned surviving-observer negative as the claim.
 - [ ] **Step 2:** Run: `uv run --frozen pytest tests/test_restore_root.py -v`.
   Expected: FAIL, `ImportError: cannot import name 'restore_root'`.
-- [ ] **Step 3: Implement.** Sketch of the orchestration (all under one
-  held destination boundary):
+- [ ] **Step 3: Implement.** The evaluation assembly is `audit_log`'s
+  own, reused — `restore_root` mirrors how `audit_log` builds the
+  `ChainView`, disk capture, `PresentedIdentity`, and `absent_state`
+  arguments, then adds the gate and grant. Sketch (all under one held
+  destination boundary; `evaluate_log`'s real signature is
+  `evaluate_log(subject, view, observers, disk, presented, absent_state, history=None)`):
 
   ```python
-  def restore_root(dest_root, subject, observers) -> LogReport:
-      with _root_boundary(dest_root):
-          view = _inspect_for_restore(dest_root)        # detached or registered by state
-          presented = _capture_presented_identity(dest_root, subject)  # genesis (+ manifest)
-          report = evaluate_log(subject, view, _capture_surface(dest_root, subject), observers)
-          if report.outcome == "validated" and _subject_agrees(subject, presented):
-              _grant_read_serviceability(dest_root)
+  def restore_root(dest_root: Path, subject: CorpusSubject | StoreSubject, observers) -> LogReport:
+      with _restore_boundary(dest_root):
+          view, disk, presented, absent = _assemble_evaluation_inputs(dest_root, subject)
+          # ^ the same assembly audit_log performs today, factored so both call it;
+          #   inspection mode by lifecycle state, malformed views flowing into evaluate_log
+          report = evaluate_log(subject, view, observers, disk, presented, absent)
+          if report.outcome == "validated" and _subject_agrees(subject, presented, dest_root):
+              _grant_read_serviceability_callback(dest_root)
           return report
   ```
+
+  `_subject_agrees` implements spec §7.2 step 4: store — the presented
+  genesis's `store_id` equals the subject's; corpus — the presented
+  manifest's `corpus_id` equals the subject's, the genesis form-validated
+  only.
 - [ ] **Step 4:** Run to PASS; gate block. Commit:
   `feat(root): restore_root under one held boundary`. Append and commit
   the ledger.
@@ -516,8 +620,8 @@ now.
   a source-moved refusal propagates untranslated. Extend genesis-form
   validation for both fork forms. Run to PASS.
 - [ ] **Step 4:** Gate block; then
-  `uv run --frozen python tools/cut8_acceptance.py` (genesis-form
-  validation moved). Commit:
+  `uv run --frozen python tools/cut7_acceptance.py` (still exit 0;
+  cut 8's store-refusal residue is Task 4's standing ruling). Commit:
   `feat(root): fork acts, fork geneses, and the L6 lift in code`. Append
   and commit the ledger.
 
@@ -560,8 +664,7 @@ now.
 - [ ] **Step 3: Implement** the mode selection in `admit_arrival`
   (branch on `read_lifecycle_state`; writable → a typed refusal). Run to
   PASS; gate block; then
-  `uv run --frozen python tools/cut8_acceptance.py` (the arrival surface
-  moved). Commit:
+  `uv run --frozen python tools/cut7_acceptance.py` (still exit 0). Commit:
   `feat(world): act-minted fork admission and lifecycle-aware arrival`.
   Append and commit the ledger.
 
@@ -589,7 +692,42 @@ now.
   L6, L4, L10 u9, migration-vintage, single-binding-delta, and L2 u1
   fixture assertions of §5 items 2–8) and the three §6 freeze obligations
   as declaration-time checks. Atoms-certified interiors are declared as
-  citations to the atoms suite, per the cut's §1 principle.
+  citations to the atoms suite, per the cut's §1 principle. The
+  unit-to-node mapping (`t_` abbreviates `tests/`, `alc` abbreviates the
+  atoms suite's `test_lifecycle_commands.py`):
+
+  | unit | check node(s) |
+  |---|---|
+  | L2 u1 | `t_lifecycle_wrappers::test_metadata_less_copy_refuses_mutation_at_the_writability_gate`, `::test_writable_pending_root_still_refuses_pending_unresolved` |
+  | L4 u1 | `t_store_subjects::test_store_audit_refuted_on_chain_removal_under_registry_anchor` |
+  | L4 u2 | `t_fork_acts::test_two_fork_geneses_same_child_subject_refute` |
+  | L6 u1 | `t_fork_acts::test_l6_anchored_baseline_deletion_refutes` |
+  | L6 u2 | `t_fork_acts::test_l6_anchor_free_rewrite_is_unresolvable` |
+  | L10 u1 | `t_fork_acts::test_fork_genesis_carries_parent_digests_and_nonempty_baseline` |
+  | L10 u2 | `t_fork_acts::test_parent_anchor_never_compared_in_fork_subject_evaluation` |
+  | L10 u3 | `t_lifecycle_wrappers::test_completed_replica_reads_read_only_unserviceable`, `::test_replica_chain_is_byte_identical` |
+  | L10 u4 | `t_lifecycle_wrappers::test_completed_replica_reads_read_only_unserviceable` + the order cited to `alc::test_replicate_interrupted_after_stamp_is_read_only_unserviceable` |
+  | L10 u5 | citation: `alc::test_replicate_interrupted_before_stamp_is_metadata_less` |
+  | L10 u6 | `t_lifecycle_wrappers::test_metadata_less_copy_refuses_mutation_at_the_writability_gate`, `t_lifecycle_wrappers::test_metadata_less_store_copy_reads_metadata_less_and_refuses_mutation` |
+  | L10 u7 | `t_fork_acts::test_fork_retry_reuses_the_original_child_identity` + the order cited to `alc::test_fork_interrupted_before_grant_is_read_only` |
+  | L10 u8 | `t_lifecycle_wrappers::test_metadata_less_store_copy_reads_metadata_less_and_refuses_mutation` (holdings-read clauses deferred, stated in the declaration) |
+  | L10 u9 | `t_restore_root::test_two_copies_both_admit_read_only` |
+  | L10 u10 | `t_restore_root::test_incomplete_copy_never_validates` |
+  | L10 u11 | `t_restore_root::test_empty_observer_set_unresolvable_replay_not_reached` |
+  | L10 u12 | `t_restore_root::test_divergent_copies_assembled_in_one_root_are_sibling_malformed`, `::test_both_divergent_heads_in_one_observer_set_refute`, `::test_divergent_copies_verified_separately_each_validate` |
+  | W13 u1 | `t_fork_acts::test_fork_corpus_mints_a_fresh_id_independent_of_path_and_name` |
+  | W13 u2 | `t_fork_acts::test_fork_manifest_is_complete_before_writability`, `::test_source_moved_between_derivation_and_fork_refuses` |
+  | label 1 | `alc::test_interrupted_registration_matching_retry_grants`, `alc::test_bare_reregistration_over_an_existing_genesis_never_grants`, `t_store_root::test_interrupted_init_retry_returns_the_original_store_id` |
+  | label 2 | `alc::test_host_delta_reads_binding_mismatched`, `alc::test_path_delta_reads_binding_mismatched` (the moved-root consequence is the path delta) |
+  | label 3 | `alc::test_migration_authorized_success_grants_with_a_fresh_binding`, `alc::test_migration_refuses_a_metadata_less_root`, `alc::test_migration_refuses_a_binding_mismatch` |
+  | label 4 | `alc::test_replicate_refuses_an_existing_destination`, `alc::test_fork_pregrant_retry_completes_with_identical_inputs`, `alc::test_fork_pregrant_retry_refuses_different_bytes`, `alc::test_fork_postgrant_retry_returns_success_after_legitimate_writes` |
+  | label 5 | `alc::test_grant_refuses_a_writable_root`, `alc::test_grant_creates_bookkeeping_for_a_metadata_less_root`, `alc::test_grant_is_idempotent_on_read_only_serviceable`; the out-of-band pinning is the declaration's stated negative |
+  | label 6 | `t_lifecycle_wrappers::test_lifecycle_union_is_closed_at_five`, `alc::test_metadata_less_tree_reads_metadata_less` |
+  | label 7 | `t_restore_root::test_malformed_copy_returns_malformed_and_stays_unserviceable`, `::test_validated_with_store_subject_mismatch_does_not_admit`, `::test_validated_with_corpus_manifest_mismatch_does_not_admit`, `::test_restore_never_grants_writability`, `::test_restore_holds_one_boundary_across_evaluate_and_grant` |
+  | label 8 | every `t_arrival_modes` node |
+  | label 9 | `t_store_subjects::test_anchor_refuses_a_store_id_genesis_mismatch_before_registry_mutation`, `::test_export_head_artifact_round_trips_a_store_head`, `::test_store_audit_holds_one_boundary_across_inspect_capture_evaluate` |
+  | label 10 | `t_store_root::test_init_store_root_refuses_a_populated_payload_root`, `::test_store_genesis_payload_round_trips`, `::test_store_surface_excludes_bookkeeping`, `::test_store_surface_does_not_follow_symlinks`, `t_fork_acts::test_nonfork_genesis_still_requires_empty_baseline` |
+  | label 11 | `t_lifecycle_wrappers::test_metadata_less_copy_refuses_mutation_at_the_writability_gate`, `::test_writable_pending_root_still_refuses_pending_unresolved` (cited from L2 u1, single-homed there) |
 - [ ] **Step 2:** Run the audit:
   `uv run --frozen pytest tests/acceptance/test_n2_cut9.py -v`. Every one
   of the 30 arms resolves `sound`; fix any `vacuous`/`uncollected`/`stale`
@@ -603,19 +741,24 @@ now.
 - Create: `python/tools/cut9_acceptance.py`
 
 **Interfaces:**
-- Consumes: Task 9's declarations; `tools/cut8_acceptance.py` unedited.
-- Produces: the certified acceptance runner. Its **sole prior-cut prefix
-  is `tools/cut8_acceptance.py`** (which already chains cuts 5–7;
-  invoking any earlier runner directly would run them twice — the
-  authority for this chaining is this task, stated in the runner's
-  docstring exactly as cut 8's states its own).
+- Consumes: Task 9's declarations; `tools/cut7_acceptance.py` unedited.
+- Produces: the certified acceptance runner. Its **sole prior-cut
+  current-tree prefix is `tools/cut7_acceptance.py`** (which already
+  chains cuts 5–6). **Cut 8 is cited, not run:** Task 4's ruling made its
+  store-refusal declarations deliberately stale on the successor tree,
+  so its discharge stands as the frozen results record
+  (`docs/plans/2026-08-22-conformance-cut-8-results.md`) and cut 9's
+  store units are the successor certification — the runner's docstring
+  states this ruling and its ledger number exactly as cut 8's docstring
+  states its own chaining authority.
 
 - [ ] **Step 1:** Implement the runner mirroring `tools/cut8_acceptance.py`
-  (the certified-tuple probe first, erroring never skipping; phase 1 =
-  `tools/cut8_acceptance.py` unedited; phase 2 =
+  structurally (the certified-tuple probe first, erroring never
+  skipping; phase 1 = `tools/cut7_acceptance.py` unedited; phase 2 =
   `tests/acceptance/test_n2_cut9.py`; the closing line naming the
   declared unit count 30 = `len(CUT9_ARMS)`, pinned separately by
-  `test_the_declared_units_are_unique_and_number_thirty`).
+  `test_the_declared_units_are_unique_and_number_thirty`; the docstring
+  carrying the cut-8 citation ruling above).
 - [ ] **Step 2:** Run on the certified volume:
   `uv run --frozen python tools/cut9_acceptance.py`. Expected: exit 0,
   each phase's counts quoted verbatim, the closing line naming 30.
@@ -650,7 +793,10 @@ now.
   shrinks to intent qualification, event-level L8, and L13's preimage
   resolver); close or narrow log-verification limitations 2, 3, 6;
   narrow packaging limitation 5 (act-minted forks' `forked_from`
-  act-derived); run the stale-claim grep
+  act-derived); record the cut-8 successor ruling in the results record's
+  amendment enumeration (its store-refusal declarations deliberately
+  stale, discharge standing as the frozen record, cut 9 the successor —
+  Task 4's ledger ruling cited by number); run the stale-claim grep
   (`rg -n "fork construction remains|store subjects are shape-only|row 4's|wait on row 4" docs/ README.md`)
   and correct what it finds.
 - [ ] **Step 3:** Re-run `uv run --frozen python tools/cut9_acceptance.py`
