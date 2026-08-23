@@ -364,7 +364,75 @@ refuses). The code is right and the spec sentence is stale. Obligation:
 `docs/designs/`, or a design document banks a false claim. Cost if wrong:
 the promoted spec describes an API that does not exist.
 
+**R34: Cut 6's X5 replica clause is superseded, not satisfied (Task 9
+review, 2026-08-22)**
+
+Cut 6's declared arm X5 asserts that *a known id* refuses both `Fresh` and
+`ReplicaOf` admission provenance
+(`test_known_id_refuses_fresh_and_replica_provenance`). Slice 3 makes a
+bare admit of a replica refuse `ReplicaAdmissionRequiresVerification`
+**before the lock and before any known-id consideration**, so the arm's
+replica half no longer demonstrates the row's claim, though its name and
+both refusals survive and no frozen file was edited (`test_world_registry.py`
+is not in `FROZEN_PRIOR_CUT_FILES`, and `n2_arms_cut6.py` is untouched). The
+sabotage direction is unaffected — cut 6's harness mutates the tree
+materialized at `CUT6_SOURCE_COMMIT`. But cut 6's own module docstring
+states that weakening a live check while leaving its name and green result
+in place is outside the harness's reach, which is exactly this case, so the
+supersession is recorded here rather than left for the harness to miss.
+There is no way to preserve the claim: a bare admit can no longer reach the
+known-id check for a replica. Obligation: the cut-8 results record names
+this supersession (Task 12). Cost if wrong: a frozen cut scores green over
+a claim its declaration no longer covers.
+
+**R35: `PendingUnresolved` maps to `ExecutionError(applied=0)` (Task 9
+review, 2026-08-22)**
+
+The atoms pending gate runs before `_append_entry`/`_run_under_lease`, so
+the submitted plan applied nothing and `applied=0` is the honest value —
+the catch-all's unproved `None` was not. It is not a `LogEvidenceRefused`:
+§6.4's vocabulary is exactly three literals and the executor is not a seam
+adapter. Both executor mappings are kept in step. Cost if wrong: an arrival
+or build refusal reports an unknown application state where a proven zero
+was available.
+
+**R36: `open_world` reads the chain — spec-mandated, with two disclosed
+consequences (Task 9 review, 2026-08-22)**
+
+§6.3 requires it verbatim ("The genesis payload's `world_id` is read
+through `read_chain` in both"), and nothing already read at open could
+supply the genesis claim. Consequences, both disclosed rather than
+discovered later: opening a world now requires the certified volume
+(`read_chain` → `_recovery_lease` → `_project_lease`, the one production
+call site naming the certified allowlist), and it now takes the atoms
+project lock and resolves recovery, so opening can block on a concurrent
+build and is no longer a cheap read. Blast radius verified as confined: no
+`tools/`, CLI, or `src/` caller opens a world; every suite caller either
+stubs the engine or runs on the certified volume, so today's narrowing is
+zero. An unregistered-but-mirrored root now refuses at open rather than at
+first write, mapped to the existing `WorldUninitialized` **in `open_world`
+itself** — not a seam translation, so §6.4's closed three-literal
+vocabulary is untouched, and `_log_seam().read_head` still surfaces the raw
+engine refusal. That mapping is conditioned on the unregistered-root case
+alone, because `read_chain` can also raise `PreconditionRefused` out of
+recovery resolution (observation and create-effect sites), and relabelling
+one of those as "never initialized as a world" would be a false statement
+about a registered root. Cost if wrong: a mid-recovery refusal reads as an
+uninitialized world, or a legitimate open refuses on a volume the rules
+allow.
+
+The mapping turns on the engine's **exact wording**
+(`root.UNREGISTERED_ROOT`), not on the exception class and not on a
+chain-leaf probe: `_registered_root` raises the unregistered refusal at two
+sites, and only one of them means "chain directory missing" — the other is
+"present but holding no entries", which a leaf-existence probe would miss
+and which would mean re-deriving the engine's registration predicate after
+its lease is released. The string is pinned against the engine's own source
+by a test (R27's treatment of `CORPUS_GENESIS_DOMAIN`), and drift fails
+safe: the mapping stops firing and the raw engine refusal reaches the
+caller, never a false statement.
+
 ## Heads
 
 Atoms commit hash (Task 2): `3aa5a766efb5275e444de193407992ce33e8edb7` (local atoms `main`, merge of `design/chain-inspection`; unpushed, joining row 4's disclosure per R1)  
-Science commit hash (Task 9): *(recorded at Task 9)*
+Science commit hash (Task 9): `6b858ab` (`fix(world): condition open_world's unregistered-root mapping on the engine's own wording`, closing the last implementation task)
