@@ -7,8 +7,64 @@ Freeze hash: `0977bde`
 
 ## Rulings
 
+1. **R1 — reviewed authority.** Atoms-side human review closed on 2026-08-23.
+   Findings landed through `6555e46`; the approved status head is `b1469f4`.
+   That document's DDL, public signatures, serialization, durability order,
+   and retry/error dispositions are Task 2's binding contract.
+2. **R2 — carrier and transition.** Lifecycle/binding and retained
+   root-creation operation evidence live in the existing `atoms.db`. Store
+   schema v3 is exact v2 plus `root_lifecycle`, `root_operation`, and the ten
+   reviewed triggers; exact v2 is read-only unserviceable until the explicit
+   `migrate_root_to_lifecycle_v3` operator transition.
+3. **R3 — closed state and binding.** `LifecycleState` is the closed five-value
+   enum writable / read-only serviceable / read-only unserviceable /
+   metadata-less / binding-mismatched. Every stored grant binds the stable
+   machine identity and canonical root path; mismatch conveys no grant and no
+   writable rebind exists.
+4. **R4 — claim-only pre-stamp refinement.** A mode-`0o700` destination
+   directory containing only the mode-`0o600` reserved `.#~root-claim` may be
+   published before the lifecycle stamp. Its no-clobber rename is the
+   filesystem-level cross-metadata-carrier ownership point. The claim is
+   excluded from surfaces and snapshots; no payload, chain, override,
+   lifecycle stamp or grant, or serviceability exists before the stamp.
+5. **R5 — public API.** Task 2 exports `LifecycleState`, `RootOperationId`,
+   `DestinationOverride`, `replicate_root`, `fork_root`,
+   `read_pending_fork_operation`, `resume_fork_root`,
+   `grant_read_serviceability`, `read_lifecycle_state`, and
+   `migrate_root_to_lifecycle_v3` with the exact Task 1 signatures.
+   `SourceSnapshotMoved` and `RootOperationMismatch` subclass
+   `PreconditionRefused`; `RootOperationInvalid` subclasses `AtomsError`.
+6. **R6 — identity and exact retry.** Canonical request bytes, not a hash
+   alone, bind the retained 32-hex operation ID. Fork request bytes include
+   the expected source head, opaque genesis, surfaces, and overrides. Science
+   queries pending destination evidence before minting and resumes by retained
+   ID, so a retry never re-mints the child; changed input is
+   `RootOperationMismatch` and a required moved source is
+   `SourceSnapshotMoved`.
+7. **R7 — path and lock order.** Source root, source metadata root,
+   destination root, and destination metadata root are pairwise
+   non-overlapping. Fresh copies acquire source blocking then destination
+   nonblocking; busy destination is
+   `PreconditionRefused("copy destination lock is busy")`. Retry begins at
+   the destination and opens the source only for bytes destination proof says
+   are missing.
+8. **R8 — writability and read coherence.** `_existing_read_only_lease`
+   performs no recovery-capable or sidecar-creating write. Cooperative
+   mutation of existing roots requires a validated writable grant before
+   recovery, reclamation, probing, or chain append. Recorded root-creation
+   operations are the sole pre-grant write exception.
+9. **R9 — serviceability.** The serviceability grant is structural and has no
+   verdict/attestation parameter. It refuses writable, binding-mismatched,
+   exact-v2, incomplete-operation, `.#~root-claim`, and chain-staging residue;
+   repeated success on an already-serviceable root uses the no-write path.
+10. **R10 — Science initialization refusal.** Task 3 preserves `b3a965c`'s
+    reviewed boundary: an atoms `PreconditionRefused` on the existing-genesis
+    retry maps to Science's established `CorpusRootRefused`; it is not exposed
+    as a new initialization error or treated as permission to re-mint.
+
 ## Heads
 
 | Task | Atoms head | Science head |
 | --- | --- | --- |
-| 0 — tracking setup |  |  |
+| 0 — tracking setup | — | `7db3e38` |
+| 1 — reviewed atoms design and Science contract amendment | `b1469f4` | this amendment commit |

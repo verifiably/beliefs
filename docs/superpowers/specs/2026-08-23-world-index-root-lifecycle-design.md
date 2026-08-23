@@ -2,7 +2,8 @@
 
 **Date:** 2026-08-23
 **Status:** approved 2026-08-23 — review closed at `56db3f3`, conformance
-cut 9 frozen at `0977bde`; implementation plan
+cut 9 frozen at `0977bde`; the atoms-local §2–§4 contract was approved on
+2026-08-23 at `b1469f4` (review findings through `6555e46`); implementation plan
 `../plans/2026-08-23-root-lifecycle.md`; promotes to `docs/designs/` at
 banking (§8 step 7).
 **Inherits:** `2026-08-10-verified-holdings-record-design.md` §2 (the
@@ -46,9 +47,11 @@ log-verification design's limitations 5, 8, and 9 remain independently.
 
 Writability is a **granted state recorded durably in the host's engine
 bookkeeping** — the metadata root, single-host by construction, never
-traveling with the tree. The coordinator refuses every mutation on a root
-not granted writability. A tree arriving without metadata cold-bootstraps
-**read-only and unserviceable**.
+traveling with the tree. The coordinator refuses every cooperative mutation
+of an existing root not granted writability. Recorded root-creation
+operations are the sole pre-grant write exception: they may construct their
+claimed destination while converging to its recorded lifecycle state. A tree
+arriving without metadata cold-bootstraps **read-only and unserviceable**.
 
 **The grant is host-local by a verifiable root/host binding, not by
 assumption.** Bookkeeping is a directory, and a directory can be copied;
@@ -126,17 +129,23 @@ genesis** is the ruled exception on both counts (§4, §5).
 All three are exact-retry operations; an interrupted invocation is
 resumable, and resumption proves before proceeding. The two copy
 commands are **no-clobber**: the destination must not exist, and
-exclusivity is claimed durably at start by an **operation identity**
-recorded in the destination bookkeeping — the fact a retry recognizes.
+exclusivity is claimed durably at start by a root-local **operation identity**
+claim published atomically with the destination directory — the fact a retry
+recognizes across caller-selected metadata roots. The claim is reserved
+engine bookkeeping, excluded from consumer surfaces and snapshots.
 
 **`replicate_root(source_root, dest_root, dest_metadata_root)`.** Runs
 under the source's held lease, so chain and payload are one coherent view
 (a raw writer defeating the lease is the out-of-band bound, unchanged).
-Destination bookkeeping is created first, its **read-only stamp durable
-before any tree byte is exposable** at the destination; then chain and
-payload copy unchanged. It grants neither writability nor serviceability.
-Interrupted after the stamp: read-only, unserviceable, restorable.
-Interrupted before it: metadata-less, cold-bootstrapping read-only.
+A claim-only destination directory may be published first as the
+filesystem-level cross-carrier no-clobber point. Before the read-only stamp is
+durable it contains only the reserved claim: no payload, chain, destination
+override, lifecycle stamp or grant, or serviceability exists. Destination
+bookkeeping and its read-only stamp become durable next; only then are chain
+and payload exposed and copied unchanged. It grants neither writability nor
+serviceability. Interrupted after the stamp: read-only, unserviceable,
+restorable. Interrupted before it: metadata-less, cold-bootstrapping
+read-only, with only the excluded claim as creation residue.
 
 **`fork_root(source_root, dest_root, dest_metadata_root, genesis_payload,
 surface_paths, dest_overrides)`.** Science constructs `genesis_payload`;

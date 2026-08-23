@@ -2,13 +2,17 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Status:** Task 0 and the reviewed Task 1 design/amendment gate completed on
+2026-08-23. Task 2 is authorized but not started.
+
 **Goal:** Implement world-index slice 4 — the fail-closed writer state, the
 atoms lifecycle commands, store subjects through the verification surface,
 `restore_root`, and the fork acts — discharging frozen conformance cut 9.
 
 **Architecture:** An atoms design gate ships five root-kind-agnostic
 obligations (three mutating lifecycle commands, one state query, one
-migration) plus the fork's source-snapshot binding; Science consumes them
+migration), the fork's source-snapshot binding, and the narrow
+pending-operation query/resume seam; Science consumes them
 through `science.root`'s callback seam (the only atoms importer), widens
 the slice-3 verification surface to store subjects, and builds
 `restore_root` and the fork acts on top. Every claim is certified as one of
@@ -73,13 +77,13 @@ both before any task).
   durable path (slice 2 lost R1–R15 to an untracked one; never relocate
   it).
 
-- [ ] **Step 1:** Write the ledger skeleton: title ("Root lifecycle —
+- [x] **Step 1:** Write the ledger skeleton: title ("Root lifecycle —
   execution ledger, world-index slice 4"), the plan/spec/cut paths with
   the freeze hash `0977bde`, an empty `## Rulings` section (rulings
   numbered R1…, written at task boundaries, never rewritten after the
   fact), and a `## Heads` section for the atoms and Science head commits
   per task.
-- [ ] **Step 2:** Commit (the plan is already committed; this adds only
+- [x] **Step 2:** Commit (the plan is already committed; this adds only
   the ledger):
   `git add docs/plans/2026-08-23-root-lifecycle-ledger.md && git commit -m "docs(plans): root-lifecycle execution ledger"`
 
@@ -88,9 +92,17 @@ both before any task).
 **Files:**
 - Create (in `~/d/atoms`): `docs/2026-08-23-root-lifecycle-commands-design.md`
   on branch `design/root-lifecycle` in a fresh atoms worktree.
-- Modify (after the review): **this plan's Tasks 2–7**, amended with the
+- Modify (after the review):
+  `docs/superpowers/specs/2026-08-23-world-index-root-lifecycle-design.md`
+  (record the approved atoms authority and claim-only refinement), **this
+  plan's Tasks 2–7** (amended with the
   reviewed design's exact contracts wherever they name a callback,
-  command, error, or token.
+  command, error, or token), and
+  `docs/plans/2026-08-23-root-lifecycle-ledger.md` (review rulings and heads),
+  plus the direct pre-stamp wording drift in
+  `docs/designs/2026-08-03-tamper-evident-log-design.md`,
+  `docs/designs/2026-08-10-verified-holdings-record-design.md` and
+  `docs/designs/2026-08-03-redesign-adoption-ledger.md`.
 
 **Interfaces:**
 - Produces: the reviewed atoms design Task 2 implements and Tasks 3–8
@@ -98,14 +110,16 @@ both before any task).
   grant and binding, the migration command's name, every signature, the
   retry/operation-identity token, and the fork's source-snapshot binding.
 
-- [ ] **Step 1:** In the atoms checkout, create the worktree:
+- [x] **Step 1:** In the atoms checkout, create the worktree:
   `cd ~/d/atoms && git worktree add .worktrees/root-lifecycle -b design/root-lifecycle`
-- [ ] **Step 2:** Write the design document covering exactly spec §2–§4,
+- [x] **Step 2:** Write the design document covering exactly spec §2–§4,
   with these contracts pinned verbatim from the spec:
   - **The fail-closed writer state** (spec §2): writability a granted
-    state in host bookkeeping; the coordinator refuses every mutation on
-    a root not granted writability; a metadata-less tree cold-bootstraps
-    read-only and unserviceable. Grantors: `register_root` **only for its
+    state in host bookkeeping; the coordinator refuses every cooperative
+    mutation of an existing root not granted writability, with recorded
+    root-creation operations the sole pre-grant write exception; a
+    metadata-less tree cold-bootstraps read-only and unserviceable. Grantors:
+    `register_root` **only for its
     own recorded local initialization operation** (recorded before
     genesis; the matching retry — and only it — completes a
     crash-interrupted grant; the bare matching-existing-genesis arm never
@@ -122,10 +136,11 @@ both before any task).
     auto-upgrades a metadata-less or restored copy; provenance is
     attested, not proven. This design names the command.
   - **`replicate_root`** (spec §4): source-lease-coherent copy;
-    destination bookkeeping first, read-only stamp durable before any
-    tree byte is exposable; grants neither writability nor
-    serviceability; no-clobber with a durable operation identity;
-    exact-retry.
+    a claim-only destination directory may publish first as reserved,
+    surface-excluded no-clobber bookkeeping; no payload, chain, override,
+    lifecycle stamp or grant, or serviceability exists before the read-only
+    stamp; grants neither writability nor serviceability; exact-retry with a
+    durable operation identity.
   - **`fork_root(…, genesis_payload, surface_paths, dest_overrides)`**
     (spec §4): opaque genesis bytes; `dest_overrides` applied before
     baseline capture, genesis, and grant, interpreted never; baseline
@@ -161,43 +176,202 @@ both before any task).
     writable / read-only serviceable / read-only unserviceable /
     metadata-less / binding-mismatched — binding validated as part of the
     reading.
-- [ ] **Step 3:** Commit the design on the branch.
-- [ ] **Step 4: STOP.** Hand the design to the human partner for the
+- [x] **Step 3:** Commit the design on the branch.
+- [x] **Step 4: STOP.** Hand the design to the human partner for the
   atoms-side review. Do not proceed until the review closes; fold its
   findings into the design first.
-- [ ] **Step 5: Amend every downstream contract the reviewed API
-  touches** — Task 2's exact file paths, the bookkeeping schema
+- [x] **Step 5: Amend the Science authority and every downstream contract
+  the reviewed API touches** — correct the spec's pre-stamp and
+  writability-gate wording and its direct outward drift; pin Task 2's exact file paths, bookkeeping schema
   transition, the migration command's name, every public signature, the
   operation-identity token type, and the source-moved and retry-mismatch
   error names; **and** Tasks 3, 5, 6, and 7 wherever they name a callback,
   command, error, or token the review renamed or reshaped. Replace every
   bracketed deferred item; do not start Task 2 before this amendment is
   committed.
-- [ ] **Step 6:** Commit the amendment:
-  `git add docs/superpowers/plans/2026-08-23-root-lifecycle.md docs/plans/2026-08-23-root-lifecycle-ledger.md && git commit -m "docs(plans): pin Task 2 to the reviewed atoms lifecycle design"`
+- [x] **Step 6:** Commit the amendment:
+  `git add docs/superpowers/specs/2026-08-23-world-index-root-lifecycle-design.md docs/superpowers/plans/2026-08-23-root-lifecycle.md docs/plans/2026-08-23-root-lifecycle-ledger.md docs/designs/2026-08-03-tamper-evident-log-design.md docs/designs/2026-08-10-verified-holdings-record-design.md docs/designs/2026-08-03-redesign-adoption-ledger.md && git commit -m "docs(plans): pin Task 2 to the reviewed atoms lifecycle design"`
   — recording the review's rulings in the ledger in the same commit.
 
 ### Task 2: Atoms implementation — lifecycle commands, state query, migration
 
-**Contract-deferred:** the bracketed items below are finalized by Task 1
-step 5's plan amendment; the red/green structure and obligations are fixed
-now.
+**Contract authority:** the approved atoms design at `b1469f4`, whose review
+findings landed through `6555e46`. Its signatures, DDL, trigger text,
+serialization, durability order, and error taxonomy are implementation
+contracts, not sketches.
 
 **Files (in the atoms worktree):**
-- Create: `[the lifecycle module the reviewed design names]`,
+- Create: `python/src/atoms/coordinator/lifecycle.py`,
   `python/tests/test_lifecycle_commands.py`
-- Modify: `python/src/atoms/coordinator/commands.py` (`register_root`'s
-  initialization operation and grant; the writability gate on
-  `append_intent` and `run_transaction`), the coordinator exports.
+- Modify: `python/src/atoms/store/schema.py` (store schema v2 → v3 and the
+  frozen v2 catalog), `python/src/atoms/store/connection.py` (strict v2
+  read-only recognition, v3 normal open, and migration-only v2 write open),
+  `python/src/atoms/store/records.py` (typed lifecycle/operation row codecs),
+  `python/src/atoms/fs/lock.py` (existing-only and nonblocking lock entries),
+  `python/src/atoms/fs/binding.py` (`ProjectBinding.project_root_path`),
+  `python/src/atoms/coordinator/lease.py` (the common borrowed read-only/store
+  lease shape),
+  `python/src/atoms/coordinator/root.py` (read-only and writable lease
+  composition), `python/src/atoms/coordinator/commands.py` (all public
+  lifecycle names, `register_root`'s initialization operation and grant,
+  copy commands, and the writability gate on `append_intent` and
+  `run_transaction`), `python/tests/test_store_schema.py`,
+  `python/tests/test_store_schema_v2.py`, `python/tests/test_store_open.py`,
+  `python/tests/test_store_records.py`, `python/tests/test_fs_lock.py`,
+  `python/tests/test_fs_binding.py`, `python/tests/test_coordinator_commands.py`,
+  `python/tests/test_coordinator_lease.py`,
+  `python/tests/test_coordinator_architecture.py`, and
+  `python/tests/test_fs_architecture.py`; update
+  `docs/2026-08-23-root-lifecycle-commands-design.md` from approved to
+  implemented when the implementation lands, and correct any direct status
+  drift that its required grep finds.
 
 **Interfaces:**
-- Produces (consumed by Science via `science.root` callbacks):
-  `replicate_root`, `fork_root`, `grant_read_serviceability`,
-  `read_lifecycle_state`, `[the migration command]`, the five-value
-  lifecycle-state union type, and `[the source-moved and retry-mismatch
-  error names]` — signatures exactly as the Task 1 amendment pins them.
+- `LifecycleState(enum.StrEnum)` has exactly `WRITABLE = "writable"`,
+  `READ_ONLY_SERVICEABLE = "read-only-serviceable"`,
+  `READ_ONLY_UNSERVICEABLE = "read-only-unserviceable"`,
+  `METADATA_LESS = "metadata-less"`, and
+  `BINDING_MISMATCHED = "binding-mismatched"`.
+- `RootOperationId = NewType("RootOperationId", str)`; runtime values are
+  exact 32-character lowercase hex. `DestinationOverride` is an exact frozen,
+  slotted dataclass with `path: str`, `payload: bytes`, and `mode: int`.
+- `SourceSnapshotMoved(PreconditionRefused)`,
+  `RootOperationMismatch(PreconditionRefused)`, and
+  `RootOperationInvalid(AtomsError)` are the three new named errors.
+- Public names live in `atoms.coordinator.commands` and have exactly:
 
-- [ ] **Step 1: Write the failing lifecycle-state tests** in
+  ```python
+  def replicate_root(
+      backend: Backend,
+      source_root: str,
+      source_metadata_root: str,
+      dest_root: str,
+      dest_metadata_root: str,
+      storage: StorageProfile,
+  ) -> RootOperationId: ...
+
+  def fork_root(
+      backend: Backend,
+      source_root: str,
+      source_metadata_root: str,
+      dest_root: str,
+      dest_metadata_root: str,
+      storage: StorageProfile,
+      *,
+      expected_source_head: str,
+      genesis_payload: bytes,
+      surface_paths: tuple[str, ...],
+      dest_overrides: tuple[DestinationOverride, ...],
+  ) -> RootOperationId: ...
+
+  def read_pending_fork_operation(
+      backend: Backend,
+      dest_root: str,
+      dest_metadata_root: str,
+      storage: StorageProfile,
+  ) -> RootOperationId | None: ...
+
+  def resume_fork_root(
+      backend: Backend,
+      dest_root: str,
+      dest_metadata_root: str,
+      storage: StorageProfile,
+      operation_id: RootOperationId,
+  ) -> RootOperationId: ...
+
+  def grant_read_serviceability(
+      backend: Backend,
+      root: str,
+      metadata_root: str,
+      storage: StorageProfile,
+  ) -> None: ...
+
+  def read_lifecycle_state(
+      backend: Backend,
+      root: str,
+      metadata_root: str,
+      storage: StorageProfile,
+  ) -> LifecycleState: ...
+
+  def migrate_root_to_lifecycle_v3(
+      backend: Backend,
+      root: str,
+      metadata_root: str,
+      storage: StorageProfile,
+  ) -> None: ...
+
+  def register_root(
+      backend: Backend,
+      project_root: str,
+      metadata_root: str,
+      storage: StorageProfile,
+      genesis_payload: bytes,
+      registered_surface: tuple[str, ...],
+  ) -> str: ...
+  ```
+
+  `register_root` retains that existing signature and digest return.
+- Store schema v3 keeps the current schema bytes and catalog frozen as
+  `V2_SCHEMA_STATEMENTS` and `V2_EXPECTED_CATALOG`; sets
+  `SCHEMA_VERSION = 3`; appends `ROOT_LIFECYCLE_V3_STATEMENTS` containing
+  exactly `root_lifecycle`, `root_operation`, and, in design order, the ten
+  triggers `trg_root_lifecycle_insert_gate`,
+  `trg_root_lifecycle_identity_write_once`,
+  `trg_root_lifecycle_transition`, `trg_root_lifecycle_no_delete`,
+  `trg_root_operation_insert_gate`,
+  `trg_root_operation_identity_write_once`,
+  `trg_root_operation_proof_write_once`,
+  `trg_root_operation_phase_transition`,
+  `trg_root_operation_complete_gate`, and
+  `trg_root_operation_no_delete`. `SCHEMA_STATEMENTS` is the v2 tuple plus
+  that v3 tuple; `EXPECTED_CATALOG` adds only the automatic unique index
+  `sqlite_autoindex_root_operation_1`. The DDL and trigger error strings in
+  the approved design are verbatim. Normal open never migrates v2;
+  `migrate_root_to_lifecycle_v3` is its only transition.
+- `root_lifecycle(singleton, state, machine_id, root_path, origin)` and
+  `root_operation(singleton, operation_id, kind, phase, request_json,
+  request_hash, source_snapshot_json, destination_snapshot_json,
+  genesis_digest)` have exactly the approved checks. Operation phase is
+  `recorded → source-snapshot-durable → tree-durable → complete`, except
+  register's `recorded → tree-durable → complete`; identity/request fields
+  and populated proof fields are write-once, both rows are retained, and the
+  final lifecycle transition precedes `tree-durable → complete` in one
+  transaction.
+- Request, claim, and snapshot bytes use exactly
+  `json.dumps(value, sort_keys=True, separators=(",", ":"),
+  ensure_ascii=False, allow_nan=False).encode("utf-8")` over the approved
+  closed value grammar, with padded RFC 4648 base64 for opaque bytes and
+  `{"profile_id": storage.profile_id}` for `StorageProfile`. Stored text must
+  decode and re-encode byte-identically. The closed register, replicate, fork,
+  root-claim, and root-snapshot objects and their field encodings are exactly
+  design §§5.1–5.2; SHA-256 never substitutes for request-byte comparison.
+- Root creation uses the fixed mode-`0o600` `.#~root-claim` file inside a
+  mode-`0o700` private sibling directory, publishes that directory with
+  `transfer_noclobber`, and flushes the held containing parent. This
+  claim-only directory is the cross-carrier no-clobber point and may be
+  visible before the stamp; the claim is reserved bookkeeping excluded from
+  surfaces and snapshots, and no payload, chain, override, lifecycle stamp or
+  grant, or serviceability exists before the stamp transaction. The claim is
+  removed only after `tree-durable`, followed by a root-directory flush,
+  before lifecycle completion.
+- Canonical source root, source metadata root, destination root, and
+  destination metadata root are pairwise non-overlapping. Fresh copy takes
+  the source lock blocking, then the destination lock with
+  `try_lock_exclusive`; contention raises exactly
+  `PreconditionRefused("copy destination lock is busy")`. Retry starts at the
+  destination: `tree-durable`/`complete`, and any earlier phase fully proved
+  from destination evidence, never opens the source. Only missing source bytes
+  cause release-destination/acquire-source/reacquire-destination-nonblocking;
+  the phase is reread and a moved retained head raises `SourceSnapshotMoved`.
+- `_existing_read_only_lease` performs no creation, repair, probe,
+  reclamation, recovery, writable SQLite open, or sidecar write. Existing-root
+  cooperative mutators cross `_writable_recovery_lease` and require
+  `WRITABLE` before any such action. Recorded register/replicate/fork creation
+  is the sole pre-grant write exception. Serviceability refuses
+  `.#~root-claim` and chain-staging residue; an already-serviceable retry exits
+  through the read-only path before any writable open.
+
+- [ ] **Step 1: Write the failing lifecycle-state/schema tests** in
   `python/tests/test_lifecycle_commands.py`:
 
   - `test_fresh_register_root_reads_writable`
@@ -207,8 +381,17 @@ now.
   - `test_metadata_less_tree_reads_metadata_less`
   - `test_host_delta_reads_binding_mismatched`
   - `test_path_delta_reads_binding_mismatched`
+  - `test_lifecycle_union_has_exactly_five_members`
+  - `test_nonwritable_mutation_refuses_before_recovery`
+  - `test_writable_pending_root_reaches_pending_unresolved`
+  - `test_read_only_lifecycle_open_cannot_write_sqlite_or_sidecars`
 
-  each state read back through `read_lifecycle_state`.
+  Each state is read back through `read_lifecycle_state`. Extend the schema
+  tests to pin schema version 3, the exact two-table/ten-trigger catalog,
+  negative inserts for premature register/fork writable and premature
+  replicate serviceability, the legal recorded-operation-first inserts,
+  every update-trigger refusal and kind/phase field shape, exact v2
+  classification, normal-open v2 refusal, and migration-only transition.
 - [ ] **Step 2:** Run: `uv run --frozen pytest tests/test_lifecycle_commands.py -v`
   (from the atoms worktree's `python/`). Expected: every test FAILS at
   import (`ImportError: cannot import name 'read_lifecycle_state'`).
@@ -218,9 +401,19 @@ now.
   - `test_replicate_copies_chain_and_payload_byte_identical`
   - `test_replica_reads_read_only_unserviceable`
   - `test_replicate_refuses_an_existing_destination` (no-clobber)
-  - `test_replicate_interrupted_before_stamp_is_metadata_less` and
+  - `test_replicate_different_metadata_root_cannot_claim_destination`
+  - `test_replicate_interrupted_before_claim_leaves_destination_absent`;
+    `test_replicate_interrupted_before_stamp_is_metadata_less` (the durable
+    claim-only directory exists); and
     `test_replicate_interrupted_after_stamp_is_read_only_unserviceable`
-    (fabricated windows); `test_replicate_retry_converges`
+    (fabricated claim-only/stamped windows);
+    `test_replicate_interrupted_after_parent_flush_retries`;
+    `test_replicate_retry_converges`;
+    `test_replicate_retry_refuses_different_request`;
+    `test_replicate_retry_after_tree_durable_does_not_open_source`;
+    `test_copy_retry_rereads_phase_after_reacquiring_destination`;
+    `test_copy_retry_moved_source_raises_source_snapshot_moved`;
+    `test_copy_retry_missing_source_preserves_evidence`
   - `test_fork_applies_overrides_before_baseline` (baseline = destination
     surface after overrides)
   - `test_fork_appends_a_new_chain_with_the_supplied_genesis_bytes`
@@ -229,17 +422,34 @@ now.
   - `test_fork_interrupted_before_grant_is_read_only`;
     `test_fork_pregrant_retry_completes_with_identical_inputs`;
     `test_fork_pregrant_retry_refuses_different_bytes`;
-    `test_fork_postgrant_retry_returns_success_after_legitimate_writes`
+    `test_fork_postgrant_retry_returns_success_after_legitimate_writes`;
+    `test_pending_fork_claim_returns_original_operation_id`;
+    `test_pending_fork_row_returns_original_operation_id`;
+    `test_pending_fork_query_refuses_mismatch_malformed_and_nonfork`;
+    `test_resume_fork_uses_retained_bytes`;
+    `test_fork_destination_only_retry_survives_moved_or_missing_source`;
+    `test_fork_tree_contradiction_is_root_operation_invalid`;
+    `test_malformed_root_claim_is_root_operation_invalid`
+  - `test_copy_paths_are_pairwise_nonoverlapping`;
+    `test_opposite_direction_copy_contention_refuses_without_deadlock`;
+    `test_root_claim_request_and_snapshot_encoding_are_canonical`;
+    `test_copy_flushes_destination_root_and_containing_parent`
   - `test_grant_refuses_a_writable_root`;
     `test_grant_refuses_a_binding_mismatched_root`;
+    `test_grant_refuses_a_root_claim_residue`;
+    `test_grant_refuses_a_chain_staging_survivor`;
+    `test_grant_refuses_an_incomplete_operation`;
+    `test_grant_refuses_exact_v2`;
     `test_grant_creates_bookkeeping_for_a_metadata_less_root` (the
     cold-root admission path: after it, `read_lifecycle_state` is
     read-only serviceable with a fresh binding);
-    `test_grant_is_idempotent_on_read_only_serviceable` (no second write)
+    `test_grant_is_idempotent_on_read_only_serviceable` (trap writable
+    SQLite open, sidecar changes, probes, reclamation, and recovery)
   - `test_migration_authorized_success_grants_with_a_fresh_binding`
     (fabricated pre-lifecycle vintage);
     `test_migration_refuses_a_metadata_less_root`;
-    `test_migration_refuses_a_binding_mismatch`
+    `test_migration_refuses_a_binding_mismatch`;
+    `test_migration_is_atomic_at_every_catalog_cut`
 - [ ] **Step 4:** Run: `uv run --frozen pytest tests/test_lifecycle_commands.py -v`.
   Expected: FAIL for want of each command. Implement. Run again: PASS.
 - [ ] **Step 5:** Run the full atoms suite and gates from the atoms
@@ -257,17 +467,33 @@ now.
 **Files:**
 - Create: `python/tests/test_store_root.py`
 - Modify: `python/src/science/root.py` (`init_store_root`,
-  `_store_genesis_payload`, the five new atoms callbacks),
+  `_store_genesis_payload`, and the exact atoms callback/type/error boundary:
+  `LifecycleState`, `RootOperationId`, `DestinationOverride`,
+  `SourceSnapshotMoved`, `RootOperationMismatch`, `RootOperationInvalid`,
+  plus `replicate_root as _replicate_root_callback`,
+  `fork_root as _fork_root_callback`,
+  `read_pending_fork_operation as _read_pending_fork_operation_callback`,
+  `resume_fork_root as _resume_fork_root_callback`,
+  `grant_read_serviceability as _grant_read_serviceability_callback`,
+  `read_lifecycle_state as _read_lifecycle_state_callback`, and
+  `migrate_root_to_lifecycle_v3 as _migrate_root_to_lifecycle_v3_callback`),
   `python/src/science/world/verify.py` (`RootKind` gains `"store"`;
   `registered_surface_paths` gains the `"store"` arm — **the one
   projection function, no second walker**),
   `python/tests/test_capability_boundary.py`
-  (`test_the_composition_root_names_every_engine_command` gains the five
-  new command names)
+  (`test_the_composition_root_names_every_engine_command` gains exactly
+  `replicate_root`, `fork_root`, `read_pending_fork_operation`,
+  `resume_fork_root`, `grant_read_serviceability`, `read_lifecycle_state`,
+  and `migrate_root_to_lifecycle_v3`)
 
 **Interfaces:**
-- Consumes: Task 2's commands, via new `root.py` callbacks on the
-  `chain_head_reader`/`_capture` pattern; `verify.registered_surface_paths`.
+- Consumes: Task 2's commands through `root.py` callbacks on the
+  `chain_head_reader`/`_capture` pattern. Each callback preserves Task 2's
+  exact positional/keyword signature and return type; `science.root` remains
+  the only atoms importer. The command imports stay private callback aliases;
+  the exact state/operation/override types and named errors are the shared
+  boundary values, not Science redefinitions. Also consumes
+  `verify.registered_surface_paths`.
 - Produces: `init_store_root(store_root: Path) -> str` (the minted
   32-lowercase-hex `store_id`; refuses a populated payload root with
   `CorpusRootRefused`, the established init refusal; exact-retry — a
@@ -275,7 +501,8 @@ now.
   `registered_surface_paths(root, "store")` (every non-bookkeeping
   root-relative entry, symlinks not followed);
   `_store_genesis_payload(store_id: str, forked_from: tuple[str, str] | None) -> bytes`
-  under the store genesis domain.
+  under the store genesis domain. Add `init_store_root` to
+  `science.root.__all__`.
 
 - [ ] **Step 1: Write the failing tests** in `tests/test_store_root.py`:
 
@@ -299,7 +526,8 @@ now.
     or forked, never re-initialized into writability.
   - `test_store_surface_excludes_bookkeeping` —
     `registered_surface_paths(root, "store")` excludes the chain leaf
-    and engine metadata; every other root-relative entry is included.
+    and engine metadata, including `.#~root-claim`; every other root-relative
+    entry is included.
   - `test_store_surface_does_not_follow_symlinks` — a symlink is an
     entry, never traversed.
 - [ ] **Step 2:** Run: `uv run --frozen pytest tests/test_store_root.py -v`.
@@ -323,7 +551,12 @@ now.
       store_root.mkdir(parents=True, exist_ok=True)
       existing = _read_existing_store_genesis(store_root)
       if existing is not None:
-          if read_lifecycle_state(store_root) == "writable":
+          if _read_lifecycle_state_callback(
+              _PRODUCTION_BACKEND,
+              str(store_root),
+              str(metadata_root_for(store_root)),
+              PRODUCTION_STORAGE,
+          ) is LifecycleState.WRITABLE:
               return existing  # completed init (or fork); the postcondition already holds
           try:
               # Only register_root can recognize its own recorded initialization
@@ -350,7 +583,8 @@ now.
   The `"store"` arm of `registered_surface_paths` is the whole-namespace
   projection: every root-relative entry minus the chain leaf and engine
   metadata, `entry.is_symlink()` checked before any `is_dir()` traversal.
-  Extend the boundary test's engine-command list with the five new names.
+  Extend the boundary test's engine-command list with the seven exact names
+  listed in this task's file block.
 - [ ] **Step 4:** Run to PASS, then the gate block. Commit:
   `feat(root): store roots and the canonical store projection`. Append
   and commit the ledger.
@@ -434,15 +668,25 @@ now.
 **Files:**
 - Create: `python/tests/test_lifecycle_wrappers.py`
 - Modify: `python/src/science/root.py` (thin wrappers: `replicate_root`,
-  `read_lifecycle_state`, the migration passthrough)
+  `read_lifecycle_state`, `migrate_root_to_lifecycle_v3`)
 
 **Interfaces:**
 - Consumes: Task 2's commands.
-- Produces: `science.root.replicate_root(source_root, dest_root)`
-  (appends nothing — a replica's chain arrives unchanged);
-  `science.root.read_lifecycle_state(root) -> LifecycleState` (the atoms
-  union re-exported); the operator-authorized migration passthrough,
-  refusals included.
+- Produces exactly:
+
+  ```python
+  def replicate_root(source_root: Path, dest_root: Path) -> RootOperationId: ...
+  def read_lifecycle_state(root: Path) -> LifecycleState: ...
+  def migrate_root_to_lifecycle_v3(root: Path) -> None: ...
+  ```
+
+  `replicate_root` derives both metadata roots and passes the one production
+  `StorageProfile`, appends nothing, and returns atoms' retained operation ID;
+  a replica's chain arrives unchanged. The migration wrapper is the
+  operator-authorized v2 → v3 act and preserves all structural refusals.
+  These wrappers call the three corresponding `_..._callback` aliases from
+  Task 3; add `LifecycleState`, `RootOperationId`, and all three functions to
+  `science.root.__all__`.
 
 - [ ] **Step 1: Write the failing tests** in
   `tests/test_lifecycle_wrappers.py`:
@@ -477,6 +721,10 @@ now.
     writable with a fresh binding.
   - `test_replicate_refuses_an_existing_destination` — the wrapper's
     no-clobber refusal, observed from Science.
+  - `test_replicate_returns_the_retained_operation_id` — an exact retry
+    returns the same `RootOperationId`.
+  - `test_replicate_refuses_pairwise_overlapping_root_and_metadata_paths`
+    — the Science wrapper preserves atoms' boundary refusal.
 - [ ] **Step 2:** Run: `uv run --frozen pytest tests/test_lifecycle_wrappers.py -v`.
   Expected: FAIL at import of the wrappers.
 - [ ] **Step 3: Implement** the wrappers (each a `root.py` function
@@ -498,12 +746,17 @@ now.
   core; the helper is the exact boundary, and no third assembly exists)
 
 **Interfaces:**
-- Consumes: Tasks 2–5 (query, grant, evaluator store path).
+- Consumes: Tasks 2–5, including
+  `read_lifecycle_state(backend, root, metadata_root, storage)` and
+  `grant_read_serviceability(backend, root, metadata_root, storage)` with no
+  verdict/attestation parameter, plus the evaluator store path. The Science
+  boundary derives metadata/storage and exposes no general-purpose grant.
 - Produces:
   `restore_root(dest_root: Path, subject: CorpusSubject | StoreSubject, observers) -> LogReport`
   — the existing report type, unwrapped (**no new report type**);
   admission is observed through `read_lifecycle_state(dest_root)`, never
-  through the return value; a world subject is unspellable by type.
+  through the return value; a world subject is unspellable by type. Add
+  `restore_root` to `science.root.__all__`.
 
 - [ ] **Step 1: Write the failing tests** in `tests/test_restore_root.py`,
   one per spec §7.2 step:
@@ -541,6 +794,10 @@ now.
     chain's surface names (never chain damage — the cut §6 obligation);
     the verdict is preserved (refuted/malformed/unresolvable, asserted
     `!= "validated"`), root unserviceable (L10 u10).
+  - `test_validated_root_claim_residue_does_not_admit` and
+    `test_validated_staging_survivor_does_not_admit` — even if evaluation is
+    otherwise validated, atoms' serviceability transition refuses incomplete
+    creation residue and the root remains unserviceable.
   - `test_two_copies_both_admit_read_only` — two metadata-less copies of
     one `store_id`, both restored → both read-only serviceable, a
     cooperative write on either refused (L10 u9; the fixture asserts
@@ -572,7 +829,12 @@ now.
           #   inspection mode by lifecycle state, malformed views flowing into evaluate_log
           report = evaluate_log(subject, view, observers, disk, presented, absent)
           if report.outcome == "validated" and _subject_agrees(subject, presented, dest_root):
-              _grant_read_serviceability_callback(dest_root)
+              _grant_read_serviceability_callback(
+                  _PRODUCTION_BACKEND,
+                  str(dest_root),
+                  str(metadata_root_for(dest_root)),
+                  PRODUCTION_STORAGE,
+              )
           return report
   ```
 
@@ -594,16 +856,36 @@ now.
   non-empty baseline; non-fork forms still require empty)
 
 **Interfaces:**
-- Consumes: Task 2's `fork_root` with its source-snapshot binding and
-  retry contract (names per the Task 1 amendment); Task 3's projection
-  and codecs; `registry.CorpusManifest`.
+- Consumes Task 2's exact fork seam:
+
+  ```python
+  fork_root(
+      backend, source_root, source_metadata_root, dest_root,
+      dest_metadata_root, storage,
+      *, expected_source_head, genesis_payload, surface_paths, dest_overrides,
+  ) -> RootOperationId
+  read_pending_fork_operation(
+      backend, dest_root, dest_metadata_root, storage,
+  ) -> RootOperationId | None
+  resume_fork_root(
+      backend, dest_root, dest_metadata_root, storage, operation_id,
+  ) -> RootOperationId
+  ```
+
+  Overrides are exact `DestinationOverride(path, payload, mode)` values.
+  `SourceSnapshotMoved`, `RootOperationMismatch`, and
+  `RootOperationInvalid` propagate untranslated. Also consumes Task 3's
+  projection/codecs and `registry.CorpusManifest`.
 - Produces: `fork_corpus(source_root, dest_root) -> CorpusManifest` — the
   **existing** manifest type, act-authored, carrying the fresh
   `corpus_id` and `forked_from = (parent corpus_id, parent corpus-state
   identity)`; `fork_store(source_root, dest_root) -> str` (the new
   `store_id`). Fork genesis payloads carry `forked_from = (parent genesis
   digest, parent head digest)`; the manifest travels as a
-  `dest_overrides` entry, installed before the grant.
+  `dest_overrides` entry, installed before the grant. Add `fork_corpus`,
+  `fork_store`, `SourceSnapshotMoved`, `RootOperationMismatch`, and
+  `RootOperationInvalid` to `science.root.__all__`; the error classes are the
+  imported atoms classes, not wrappers.
 
 - [ ] **Step 1: Write the failing tests** in `tests/test_fork_acts.py`:
 
@@ -620,11 +902,18 @@ now.
     validation refuses a non-empty baseline on a non-fork form.
   - `test_source_moved_between_derivation_and_fork_refuses` — mutate the
     parent after deriving the fork facts; the act refuses with the
-    source-moved error and mints nothing.
+    `SourceSnapshotMoved` error and mints nothing.
   - `test_fork_retry_reuses_the_original_child_identity` — interrupt
     between genesis and grant (fabricated per Task 2's pattern); the
     retry completes with the **same** `corpus_id`; a retry resupplying
-    different bytes refuses.
+    different bytes refuses with `RootOperationMismatch`.
+  - `test_fork_resume_reads_pending_claim_before_lifecycle_stamp` and
+    `test_fork_resume_reads_pending_operation_after_lifecycle_stamp` — both
+    return the original child identity and `RootOperationId`.
+  - `test_fork_resume_after_genesis_does_not_need_the_source` — the
+    destination proof completes the grant after the source moves or disappears.
+  - `test_fork_resume_refuses_wrong_or_completed_operation_id` — both are
+    `RootOperationMismatch`, never a re-mint path.
   - `test_l6_anchored_baseline_deletion_refutes` — fork, anchor the fork,
     delete one baseline-covered pre-log member (the only delta — cut §6),
     audit → `refuted`; the fixture asserts the member is in the fork
@@ -648,21 +937,25 @@ now.
   **before any mint** — the retry path first, so an interrupted fork
   never re-mints:
 
-  1. **Resume branch:** the destination carries `fork_root`'s recorded
-     fork operation (probed through the mechanism the Task 1 amendment
-     names — the operation record carries the original `genesis_payload`
-     and `dest_overrides`, so atoms completes the fork from its own
-     record). Call the resume entry point; then read the child manifest
+  1. **Resume branch:** call `read_pending_fork_operation` before any mint.
+     A pre-stamp `.#~root-claim` or a matching incomplete v3 fork row returns
+     the retained `RootOperationId`; call `resume_fork_root` with that ID.
+     The operation record carries the original `genesis_payload` and
+     `dest_overrides`, so atoms completes the fork from its own record. Then
+     read the child manifest
      **from the destination** (it was installed by the recorded
      overrides) and return it — the same `corpus_id`, never a fresh one.
-  2. **Fresh branch:** the destination is absent. Read the parent's
+  2. **Fresh branch:** `read_pending_fork_operation` returned `None` and the
+     destination is absent. Read the parent's
      manifest and chain head, compute the corpus-state identity, mint
      the child id, author the `CorpusManifest`, build the fork genesis
-     payload, then call `fork_root` with the snapshot binding — a
-     source-moved refusal propagates untranslated.
+     payload, form the exact sorted override tuple, then call `fork_root` with
+     `expected_source_head` equal to that derived head —
+     `SourceSnapshotMoved` propagates untranslated.
   3. Anything else at the destination (a foreign root, a completed fork)
-     — `fork_root`'s no-clobber and operation-identity refusals
-     propagate; `fork_corpus` adds no third disposition.
+     — the pending query or `fork_root`'s no-clobber,
+     `RootOperationMismatch`, or `RootOperationInvalid` disposition
+     propagates; `fork_corpus` adds no third disposition.
 
   Extend genesis-form validation for both fork forms. Run to PASS.
 - [ ] **Step 4:** Gate block; then
