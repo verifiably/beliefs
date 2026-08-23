@@ -704,16 +704,21 @@ def test_all_four_state_classes_round_trip(tmp_path):
 def test_log_appends_are_not_recursively_registered(tmp_path):
     """L12u3. Appending the log is not itself registered.
 
-    Four facts, and together they close it: a transaction's registered paths are
-    derived from **the plan's own operation paths** and from nothing else; no
-    cooperative plan can name a path under the engine's reserved sigil, and the
-    chain and staging leaves both live under it; the registered-surface
-    projection never claims them; and a chain over a real root names only the
-    surface paths its transactions touched.
+    Three facts, and together they close the cooperative side: a transaction's
+    registered paths are derived from **the plan's own operation paths** and from
+    nothing else; no cooperative plan can name a path under the engine's
+    reserved sigil, and the chain and staging leaves both live under it; and the
+    registered-surface projection never claims them, over a root that really
+    holds a chain.
 
     The first is the load-bearing link and is read out of the composition root's
     own source: if the registration set were assembled from anywhere but the
     plan, banning the sigil in the plan would ban nothing.
+
+    A fourth reading — that the chain's own entries name only surface paths — is
+    deliberately **not** counted: this fixture authored those entries, so it
+    would be re-reading its own construction. The engine's appending is atoms's
+    certified interior (cut 8 §2), and that is where it is certified.
     """
     submitted = inspect.getsource(science_root.DurableExecutor.execute)
     assert "registered_paths=tuple(dict.fromkeys(operation.path for operation in plan))" in submitted
@@ -726,15 +731,6 @@ def test_log_appends_are_not_recursively_registered(tmp_path):
 
     with pytest.raises(PlanRefusedError, match="engine-reserved leaf"):
         science_root._refuse_malformed([CreateOp(path=f"{CHAIN_LEAF}/{'a' * 64}", content=b"forged")])
-
-    view = cut8_view(chain)
-    named = {
-        path
-        for entry in view.entries
-        if type(entry) is RegisteredEntryView
-        for path, _state in entry.initial + entry.final
-    }
-    assert named == {MANIFEST_PATH}
 
 
 # --- L13: logged is not permitted --------------------------------------------

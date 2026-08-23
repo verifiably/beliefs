@@ -32,6 +32,7 @@ from __future__ import annotations
 import re
 import subprocess
 from collections import Counter
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -63,6 +64,7 @@ from test_world_log_codecs import (
     CUT8_CORPUS_ID,
     CUT8_FABRICATIONS,
     CUT8_SIBLING_ID,
+    CUT8_WORLD_ID,
     IN_ROOT_CARRIERS,
     MANIFEST,
     RECORD,
@@ -75,6 +77,7 @@ from test_world_log_codecs import (
     rewritten_tail,
     rolled_back_creation,
     settled_corpus,
+    settled_world,
 )
 
 from science import root as science_root
@@ -371,6 +374,39 @@ class TestTheFabricationCatalogueIsTheDeclarationsOwn:
 # --- the purpose of obligation 1, over the view-level fabrications ---------------
 
 
+VIEW_EXPRESSIBLE_DEFECTS: tuple[str, ...] = (
+    "genesis-count",
+    "missing-predecessor",
+    "settlement-unregistered",
+    "settlement-txid-mismatch",
+    "duplicate-settlement",
+    "duplicate-registration",
+    "fulfills-invalid",
+    "duplicate-fulfillment",
+)
+"""The eight members of the engine's taxonomy a *linearization* can still get
+wrong — and the whole of what `view_defect` may answer.
+
+The other six (`foreign-leaf`, `name-mismatch`, `undecodable-entry`,
+`sibling-branch`, `cycle`, `orphan-history`) are facts about a directory of
+content-named envelopes: a view has already been linearized past every one of
+them, so a predicate claiming to find one would be claiming more than the value
+in front of it carries."""
+
+
+def test_the_view_predicate_speaks_the_engines_own_vocabulary():
+    assert set(VIEW_EXPRESSIBLE_DEFECTS) <= set(logmodel.DEFECT_KINDS)
+    assert len(set(VIEW_EXPRESSIBLE_DEFECTS)) == 8
+    assert set(logmodel.DEFECT_KINDS) - set(VIEW_EXPRESSIBLE_DEFECTS) == {
+        "foreign-leaf",
+        "name-mismatch",
+        "undecodable-entry",
+        "sibling-branch",
+        "cycle",
+        "orphan-history",
+    }
+
+
 def view_defect(view: logmodel.WellFormedView) -> str | None:
     """The engine's structural taxonomy, over what a *linearization* can express.
 
@@ -379,8 +415,10 @@ def view_defect(view: logmodel.WellFormedView) -> str | None:
     name/bytes mismatch — is unspellable in one by construction. What a view can
     still get wrong is the part this reimplements: the genesis's identity and
     position, the tip, settlement pairing and duplication, and `fulfills`
-    resolution. `test_the_view_predicate_agrees_with_the_engine` pins it against
-    `inspect_chain` on the three classes both can express.
+    resolution. Every value it can return is a member of
+    `VIEW_EXPRESSIBLE_DEFECTS`, which is pinned to the engine's own closed
+    taxonomy; `test_the_view_predicate_agrees_with_the_engine` pins the three
+    classes both sides can express against `inspect_chain` itself.
     """
     entries = view.entries
     if not entries or entries[0] is not view.genesis:
@@ -487,28 +525,65 @@ def test_the_view_predicate_agrees_with_the_engine(tmp_path):
     assert view_defect(doubled) == engine_kind(duplicate_fulfillment, "dup-fulfillment")
 
 
-def test_every_view_level_fabrication_is_structurally_well_formed(tmp_path):
-    """Obligation 1's *purpose*, over the fabrications that cannot meet it
-    literally: none of the views the view-level units hand to a stubbed seam
-    carries a structural defect it claims not to have."""
-    corpus = corpus_root_at(tmp_path, CUT8_CORPUS_ID, name="corpus")
-    world = tmp_path / "world"
-    world.mkdir()
-    (world / "world.yaml").write_bytes(b"world_id: " + b"f" * 32 + b"\n")
+def _corpus_view(base: Path) -> logmodel.WellFormedView:
+    """The view a stand-in corpus inspection hands back — `test_world_log_audit`'s
+    own fabricator over a real corpus root's projection."""
+    root = corpus_root_at(base, CUT8_CORPUS_ID, name="corpus")
+    return surfaced(root, "corpus", science_root.GENESIS_PAYLOAD)
 
-    views = {
-        "surfaced:corpus": surfaced(corpus, "corpus", science_root.GENESIS_PAYLOAD),
-        "surfaced:world": surfaced(world, "world", science_root._world_genesis_payload("f" * 32)),
-        "world_chain": world_chain("1" * 64),
-        "world_chain:rolled-back": world_chain("1" * 64, committed=False),
-        "world_chain:trailing": world_chain("1" * 64, trailing=True),
+
+def _world_view(base: Path) -> logmodel.WellFormedView:
+    root = settled_world(base).root
+    return surfaced(root, "world", science_root._world_genesis_payload(CUT8_WORLD_ID))
+
+
+def _arrival_causes(base: Path) -> tuple[logmodel.WellFormedView, ...]:
+    view = _corpus_view(base)
+    return (view, pending_view(view))
+
+
+VIEW_FACTORIES: dict[str, Callable[[Path], tuple[logmodel.WellFormedView, ...]]] = {
+    "L4u4": lambda base: (_world_view(base),),
+    "L8u1": lambda _base: (world_chain("1" * 64), world_chain("1" * 64, committed=False)),
+    "L8u2": lambda _base: (world_chain("1" * 64), world_chain("2" * 64)),
+    "L10u1": lambda base: (_corpus_view(base),),
+    "D2": _arrival_causes,
+    "D3": lambda base: (_corpus_view(base),),
+    "D4": lambda base: (_corpus_view(base),),
+    "D5": lambda base: (_world_view(base),),
+    "D10": lambda base: (_corpus_view(base),),
+}
+"""One entry per **stand-in inspection** unit: the views that unit's arm hands
+to its stubbed seam.
+
+Keyed by unit rather than by helper, so the substitute is wired to the thing it
+excuses. A future unit added to `VIEW_LEVEL_UNITS` on that ground and left out
+of this table fails the reconciliation below rather than being excused by
+wording and checked by nothing.
+"""
+
+
+def test_the_view_factories_cover_every_stand_in_unit_and_only_those():
+    stand_in = {
+        unit for unit, reason in VIEW_LEVEL_UNITS.items() if reason.startswith("stand-in inspection")
     }
-    views["pending_view"] = pending_view(views["surfaced:corpus"])
+    assert set(VIEW_FACTORIES) == stand_in
+    # The other ground reads no chain at all, so it supplies no view and needs
+    # none: obligation 1 is inapplicable there rather than substituted for.
+    assert set(VIEW_LEVEL_UNITS) - stand_in == {"L2u5", "L11u2", "L13u4", "L13u5", "D6", "D7", "D8"}
 
-    for name, view in views.items():
-        assert view_defect(view) is None, f"{name}: {view_defect(view)}"
-        assert view.genesis is view.entries[0], name
-        assert view.tip == view.entries[-1].digest, name
+
+@pytest.mark.parametrize("unit", sorted(VIEW_FACTORIES), ids=sorted(VIEW_FACTORIES))
+def test_every_stand_in_units_view_is_structurally_well_formed(tmp_path, unit):
+    """Obligation 1's *purpose*, per unit, over the fabrications that cannot meet
+    it literally: no view a stand-in unit hands to its seam carries a structural
+    defect it claims not to have."""
+    views = VIEW_FACTORIES[unit](tmp_path / unit)
+    assert views, unit
+    for index, view in enumerate(views):
+        assert view_defect(view) is None, f"{unit}[{index}]: {view_defect(view)}"
+        assert view.genesis is view.entries[0], unit
+        assert view.tip == view.entries[-1].digest, unit
 
 
 # --- §5's obligations 2–6 and §6's two freeze obligations ------------------------

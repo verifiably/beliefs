@@ -704,18 +704,32 @@ def test_an_unrepresentable_entry_at_a_modeled_path_refuses_with_no_report(tmp_p
 
 
 def test_pending_root_refuses_further_mutation_via_the_gate(tmp_path, monkeypatch):
-    """L2u5. A root carrying an unsettled registration refuses every mutation.
+    """L2u5, **partial**. A root carrying an unsettled registration refuses
+    further mutation through the engine's shared pending gate.
 
-    The refusal is the **engine's** shared pending gate (§2.3), which is why
-    arrival refuses `pending` from the report rather than adopting and then
-    hoping: the registry's status vocabulary is monotone and holds nothing
-    liftable, so the gate is the standing write-refusal authority.
+    The refusal is the **engine's** (§2.3), which is why arrival refuses
+    `pending` from the report rather than adopting and then hoping: the
+    registry's status vocabulary is monotone and holds nothing liftable, so the
+    gate is the standing write-refusal authority. The engine's decision to raise
+    is injected, on the same ground the audit's `ChainStateInvalid` arm is
+    injected: whether that disk state produces `PendingUnresolved` is `atoms`'
+    own certified contract. What is Science's to arm is the **mapping** — and
+    that the gate runs before any mutation, so the seam reports `applied=0`
+    rather than leaving restoration unproved.
 
-    The engine's decision to raise is injected, on the same ground the audit's
-    `ChainStateInvalid` arm is injected: whether that disk state produces
-    `PendingUnresolved` is `atoms`' own certified contract. What is Science's to
-    arm is the mapping — and that the gate runs **before any mutation**, so the
-    seam reports `applied=0` rather than leaving restoration unproved.
+    **Two of the three commands cut 8's L2 bullet enumerates are run here**, and
+    they are the two Science maps: `run_transaction` through the durable
+    executor, and `append_intent` through the operation port. `root.py`'s own
+    comment beside the second says the two mappings "must not drift", so they
+    are asserted **equal** rather than each asserted alone — a claim about one
+    mapping would leave the drift the comment warns about unarmed.
+
+    **Unrun, and named rather than argued around:** `register_root`'s
+    existing-chain arm. Both initializers call `register_root` bare — there is
+    no Science mapping there to arm, so the engine's refusal reaches the caller
+    as it stands, and nothing on this side of the seam can be falsified. The
+    unit is therefore partial: cut 8 §1's rule is that any unrun arm makes the
+    claim partial, never full on an argument for why the arm should not count.
     """
     root = tmp_path / "corpus"
     root.mkdir()
@@ -725,11 +739,36 @@ def test_pending_root_refuses_further_mutation_via_the_gate(tmp_path, monkeypatc
         raise unresolved
 
     monkeypatch.setattr(science_root, "run_transaction", raising)
+    monkeypatch.setattr(science_root, "append_intent", raising)
     executor = science_root._durable_executor(root)
+    port = science_root.DurableOperationPort(
+        root,
+        backend=science_root._PRODUCTION_BACKEND,
+        storage=science_root.PRODUCTION_STORAGE,
+        metadata_root=science_root.metadata_root_for(root),
+    )
 
-    with pytest.raises(ExecutionError) as caught:
+    with pytest.raises(ExecutionError) as submitted:
         executor.execute([CreateOp("verification/v1.md", b"a record")])
+    with pytest.raises(ExecutionError) as appended:
+        port.append_intent(b"an intent this root may not append")
 
-    assert caught.value.__cause__ is unresolved
-    assert caught.value.applied == 0
+    for caught in (submitted, appended):
+        assert caught.value.__cause__ is unresolved
+        assert caught.value.applied == 0
+    # The two mappings state one engine contract, so they are compared rather
+    # than each read on its own: a drift between them is the defect the
+    # production comment names, and one assertion per site could not see it.
+    assert (submitted.value.applied, submitted.value.index) == (
+        appended.value.applied,
+        appended.value.index,
+    )
     assert tree(root) == {}
+    assert not science_root.metadata_root_for(root).exists()
+
+    # The third command's arm, stated as unrun rather than implied: no Science
+    # mapping stands between `register_root` and its caller.
+    registrations = inspect.getsource(science_root.init_corpus_root) + inspect.getsource(
+        science_root.init_world_root
+    )
+    assert "PendingUnresolved" not in registrations

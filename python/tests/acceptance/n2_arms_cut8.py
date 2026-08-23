@@ -20,8 +20,8 @@ cut 7 records. The file and the function name are the frozen ones, verbatim.
 requires every fabricated chain a declared arm rests on to pass `inspect_chain`
 at declaration time. `FABRICATION_BY_UNIT` names, per unit, the on-disk builders
 in `test_world_log_codecs.CUT8_FABRICATIONS` its arm judges;
-`VIEW_LEVEL_UNITS` names the units that cannot meet the obligation literally and
-says why. `test_n2_cut8.py` enforces both halves.
+`VIEW_LEVEL_UNITS` names the units whose arms do not turn on a chain, with the
+ground for each. `test_n2_cut8.py` enforces both halves, the second per unit.
 """
 
 from __future__ import annotations
@@ -442,12 +442,27 @@ _RESERVED_LEAF_ALLOWED = Sabotage(
 """A cooperative plan may name the chain's own leaf, so appending the log
 becomes a registrable act."""
 
-_PENDING_APPLIED_UNPROVED = Sabotage(
+_PENDING_MAPPINGS_DRIFT = Sabotage(
     module="root.py",
-    before="            # one refusal here whose honest answer is available and specific.\n            raise ExecutionError(str(caught), index=None, applied=0) from caught",
-    after="            # one refusal here whose honest answer is available and specific.\n            raise ExecutionError(str(caught), index=None, applied=None) from caught",
+    before=(
+        "            # The same gate, before the intent entry is appended: the two\n"
+        "            # mappings state one engine contract and must not drift.\n"
+        "            raise ExecutionError(str(caught), index=None, applied=0) from caught"
+    ),
+    after=(
+        "            # The same gate, before the intent entry is appended: the two\n"
+        "            # mappings state one engine contract and must not drift.\n"
+        "            raise ExecutionError(str(caught), index=None, applied=None) from caught"
+    ),
 )
-"""The pending gate's refusal stops proving that nothing was applied."""
+"""The **operation port's** pending mapping stops proving that nothing was
+applied, so the two Science maps of one engine contract disagree.
+
+Pointed at the second mapping rather than the executor's: the executor's is the
+one an earlier draft armed, and the production comment beside this one says the
+two "must not drift" — a claim nothing falsified until the arm asserted them
+equal. A mutation of the executor's mapping fails the same check by the same
+assertion."""
 
 _OPEN_WORLD_MIRROR = Sabotage(
     module="root.py",
@@ -513,10 +528,13 @@ CUT8_ARMS: tuple[Arm, ...] = (
     Arm(
         row="L2u5",
         asserts=(
-            "further mutation on a pending root is refused through the engine's shared gate, mapped to a "
-            "refusal that proves nothing was applied"
+            "**partial.** Further mutation on a pending root is refused through the engine's shared gate, "
+            "mapped to a refusal that proves nothing was applied, over two of the three commands the frozen "
+            "clause enumerates — `run_transaction` and `append_intent`, whose two Science mappings are "
+            "asserted equal. Unrun: `register_root`'s existing-chain arm, which both initializers call bare, "
+            "so no Science mapping stands there to falsify"
         ),
-        sabotage=_PENDING_APPLIED_UNPROVED,
+        sabotage=_PENDING_MAPPINGS_DRIFT,
         checks=("test_world_arrival.py::test_pending_root_refuses_further_mutation_via_the_gate",),
     ),
     Arm(
@@ -1054,14 +1072,23 @@ VIEW_LEVEL_UNITS: dict[str, str] = {
     "D10": "stand-in inspection: clause 1 counts evaluator calls; clauses 2-4 are already on disk",
 }
 """The declared units whose arms rest on a chain **view** handed to a stubbed
-seam, rather than on a directory `inspect_chain` can read — with the reason.
+seam, rather than on a directory `inspect_chain` can read — with the ground.
 
-Cut 8 §5's obligation 1 cannot be met literally for these: there is no chain on
-disk to inspect, because the inspection itself is the stand-in that lets the arm
-state lock order, precedence, refusal placement or admission identity without
-one. What `test_n2_cut8.py` does instead is run the obligation's *purpose* over
-them — a structural well-formedness predicate over the fabricated view, pinned
-against the engine on the three defect classes a linearized view can express —
-so a fabrication still cannot smuggle in the malformation it claims not to have.
-This is a stated departure, not a silent one.
+Cut 8 §5's obligation 1 cannot be met literally for these, but the reason is
+narrower than "no directory exists", and the narrower statement is the honest
+one: **the arm's claim does not turn on the chain**. It turns on lock order,
+precedence, refusal placement, admission identity, or the count of evaluator
+calls, and the stand-in inspection is what lets the arm state that without a
+chain standing in the way. Three of them — L10u1, D3, D4 — do run over real
+roots with a real executor and could have been converted the way L4u6, L11u3 and
+L11u4 were; they were not, because the conversion would rewrite Task 9's
+reviewed arrival fixtures without changing what the arms assert. That is a cost,
+recorded here rather than argued away.
+
+What `test_n2_cut8.py` runs over them instead is the obligation's *purpose*,
+**per unit**: each stand-in unit supplies the views its arm hands to the seam,
+and a structural well-formedness predicate reads them — pinned against the
+engine on the three defect classes a linearized view can express. So a
+fabrication still cannot smuggle in the malformation it claims not to have, and
+a unit cannot be excused by wording and checked by nothing.
 """

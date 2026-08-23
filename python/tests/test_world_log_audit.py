@@ -1398,10 +1398,17 @@ def test_coordinated_truncation_without_exported_holder_is_undetected(tmp_path):
 
     Cut 8 §5's obligation 5 is asserted rather than assumed: all three in-root
     carriers really were truncated, so the negative is not a partial truncation
-    refuting for the wrong reason. The verdict is then compared against an
-    untouched world's: the two reports agree on outcome and findings, which is
-    what *undetected* means — the root under audit is indistinguishable from
-    one nothing happened to.
+    refuting for the wrong reason.
+
+    **The negative is bounded by observer survival, not by the audit being
+    blind**, and the arm shows both sides of that bound. The truncated root's
+    verdict is compared against an untouched world's — the two agree on outcome
+    and findings, which is what *undetected* means — and then the same audit is
+    run over the untouched world **with an exported holder supplied**, where it
+    answers `validated` over a bound of one. So the audit does reach a verdict
+    when a holder survives; here the coordinated truncation left none to reach
+    one with. The truncated-root-with-a-holder case is L11u4's and is cited, not
+    re-declared.
     """
     chain = coordinated_truncation(tmp_path)
     assert not (chain.root / "registry").exists()
@@ -1419,11 +1426,24 @@ def test_coordinated_truncation_without_exported_holder_is_undetected(tmp_path):
         anchors.WorldSubject(CUT8_WORLD_ID),
         untouched_chain.root,
     )
+    with_a_holder = real_audit(
+        world_config_at(untouched_chain.root, CUT8_WORLD_ID),
+        anchors.WorldSubject(CUT8_WORLD_ID),
+        untouched_chain.root,
+        observers=(exported_world_epoch(untouched_chain.digests[0], untouched_chain.tip),),
+    )
 
     assert truncated.outcome == "unresolvable"
     assert codes_of(truncated) == ["unanchored"]
     assert truncated.observer_bound == ()
     assert (truncated.outcome, codes_of(truncated)) == (untouched.outcome, codes_of(untouched))
+
+    # The bound: a surviving exported holder is what turns an unresolvable audit
+    # into a verdict, so the negative above is the holder's absence and not the
+    # audit's silence.
+    assert with_a_holder.outcome == "validated"
+    assert len(with_a_holder.observer_bound) == 1
+    assert "provenance=supplied-export" in with_a_holder.observer_bound[0]
 
 
 def test_coordinated_truncation_with_one_exported_epoch_refutes(tmp_path):
