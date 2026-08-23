@@ -32,6 +32,7 @@ from pathlib import Path
 import pytest
 import yaml
 from atoms.chain.errors import ChainStateInvalid
+from atoms.chain.model import GenesisEntry
 from fixtures_cut6 import PINS
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.node import Node
@@ -151,8 +152,16 @@ def unreached_head(root: Path) -> logmodel.ChainHead:
     raise AssertionError(f"{root}: these acts inspect a chain — they do not read a head")
 
 
-def make_seam(inspections: Inspections, captures: Captures) -> verify.LogSeam:
-    """A seam over the production locks, with inspection and capture stubbed."""
+def make_seam(
+    inspections: Inspections, captures: Captures, *, detached: Inspections | None = None
+) -> verify.LogSeam:
+    """A seam over the production locks, with inspection and capture stubbed.
+
+    `detached` is the arrival boundary's mode (§2.1): audit consumes registered
+    mode and leaves the detached slot refusing, and an arm that wires both wires
+    a *different* table into each, so a boundary reaching for the wrong mode
+    reads an empty table rather than a plausible answer.
+    """
 
     @contextmanager
     def world_lock(root: Path) -> Iterator[None]:
@@ -161,13 +170,29 @@ def make_seam(inspections: Inspections, captures: Captures) -> verify.LogSeam:
 
     return verify.LogSeam(
         inspect_registered=inspections,
-        inspect_detached=unreached_detached,
+        inspect_detached=detached if detached is not None else unreached_detached,
         capture=captures,
         read_head=unreached_head,
         absent_state=ABSENT,
         world_lock=world_lock,
         corpus_lock=_operation_lock_for,
     )
+
+
+def stand_in_read_chain(view: logmodel.WellFormedView):
+    """`read_chain`'s answer for a world root, in the shape `_read_head` reads.
+
+    The genesis entry is the engine's own class, because that is what
+    `_read_head` type-checks before handing the payload on; nothing else of the
+    validated view is read at that boundary.
+    """
+
+    class View:
+        genesis_digest = view.genesis.digest
+        tip = view.tip
+        entries = ((view.genesis.digest, GenesisEntry(view.genesis.payload, ())),)
+
+    return lambda *_args: View()
 
 
 # --- chain fabrication over a real projection ----------------------------------
@@ -731,6 +756,41 @@ class TestTheWorldMirrorIsReportedAndNeverRaised:
         assert [(finding.code, finding.ref) for finding in report.findings] == [("subject-mismatch", "genesis")]
         assert report.outcome == "validated"
 
+    def test_edited_world_configuration_mismatch_and_refusal(self, tmp_path, monkeypatch):
+        # L4u4. The configuration's `world_id` edited to another world, and the
+        # mirror edited to agree with it: the two claims a reader crosses now
+        # both say W2, and only the chain genesis still says W1. Both halves of
+        # the §6.3 split, over that one root — `open_world` **refuses** the
+        # disagreement, and the audit of the same world **reports** it.
+        root = world_root(tmp_path, mirrored=OTHER_WORLD_ID)
+        config = config_for(tmp_path, world_id=OTHER_WORLD_ID)
+        view = surfaced(root, "world", science_root._world_genesis_payload(WORLD_ID))
+        monkeypatch.setattr(science_root, "read_chain", stand_in_read_chain(view))
+
+        with pytest.raises(WorldIdMismatch) as caught:
+            science_root.open_world(config)
+
+        # The mirror agrees with the configuration, so the refusal is the
+        # genesis's: it names the id the chain itself was minted under.
+        assert WORLD_ID in str(caught.value)
+        assert registry._load_world_mirror(root) == config.world_id
+
+        inspections, captures = Inspections(), Captures()
+        inspections.set(root, view)
+        report = audit(
+            config,
+            anchors.WorldSubject(OTHER_WORLD_ID),
+            root,
+            inspections,
+            captures,
+            observers=(world_anchor(view, OTHER_WORLD_ID),),
+        )
+
+        assert [(finding.code, finding.ref, finding.detail) for finding in report.findings] == [
+            ("subject-mismatch", "genesis", f"claims={WORLD_ID} subject=world:{OTHER_WORLD_ID}")
+        ]
+        assert report.outcome == "validated"
+
     def test_a_world_root_with_no_mirror_at_all_claims_nothing(self, tmp_path):
         root = world_root(tmp_path)
         (root / "world.yaml").unlink()
@@ -1009,6 +1069,71 @@ class TestThePublicWrappers:
             parameters = inspect.signature(core).parameters
             assert parameters["seam"].kind is inspect.Parameter.KEYWORD_ONLY
             assert parameters["seam"].default is inspect.Parameter.empty
+
+
+# --- one evaluator, two boundaries (§4.1) ----------------------------------------
+
+
+def test_one_evaluator_one_inspection_contract(tmp_path, monkeypatch):
+    """D10. One read-only function is the entire judgment surface.
+
+    Audit and arrival both call `evaluate_log`, each exactly once, each over the
+    inspection mode it is contracted to consume — registered for a live root
+    under audit, detached for an arriving one — and **no third path evaluates**,
+    which is asserted over the package's own source rather than promised in a
+    docstring.
+    """
+    root = corpus_root(tmp_path)
+    view = surfaced(root, "corpus", science_root.GENESIS_PAYLOAD)
+    config = config_for(tmp_path, root)
+    world = registry.World(
+        config, DefaultExecutor, chain_head=ChainHeads(), corpus_executor_factory=DefaultExecutor
+    )
+    observers = verify.ObserverSet((corpus_anchor(view),))
+    seen: list[tuple[object, object]] = []
+    evaluate = verify.evaluate_log
+
+    def recording(subject, chain_view, carriers, disk, presented, absent_state, history=None):
+        seen.append((subject, chain_view))
+        return evaluate(subject, chain_view, carriers, disk, presented, absent_state, history)
+
+    monkeypatch.setattr(verify, "evaluate_log", recording)
+
+    registered, unreached_at_audit = Inspections(), Inspections()
+    registered.set(root, view)
+    verify._audit_log(
+        config,
+        anchors.CorpusSubject(ALPHA),
+        root,
+        observers,
+        actor="alice",
+        seam=make_seam(registered, Captures(), detached=unreached_at_audit),
+    )
+
+    detached, unreached_at_arrival = Inspections(), Inspections()
+    detached.set(root, view)
+    record, report = verify._admit_arrival(
+        world,
+        root,
+        registry.ReplicaOf(ALPHA),
+        observers,
+        actor="alice",
+        seam=make_seam(unreached_at_arrival, Captures(), detached=detached),
+    )
+
+    assert (record.corpus_id, report.outcome) == (ALPHA, "validated")
+    assert [subject for subject, _ in seen] == [anchors.CorpusSubject(ALPHA)] * 2
+    assert [chain_view for _, chain_view in seen] == [view, view]
+    assert registered.roots == [root.resolve()] and detached.roots == [root.resolve()]
+    assert unreached_at_audit.roots == [] and unreached_at_arrival.roots == []
+
+    package = Path(verify.__file__).parent.parent
+    elsewhere = sorted(
+        str(path.relative_to(package))
+        for path in package.rglob("*.py")
+        if path.name != "verify.py" and "evaluate_log(" in path.read_text(encoding="utf-8")
+    )
+    assert elsewhere == []
 
 
 # --- §6.4's engine refusal, in the audit's context -------------------------------

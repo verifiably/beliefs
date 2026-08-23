@@ -7,7 +7,12 @@ sharpest case), and a test that can only assert "something was raised" cannot
 tell a good refusal from a bad one.
 """
 
-from typing import Literal
+from collections.abc import Mapping
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Literal, TypeAlias
+
+if TYPE_CHECKING:  # pragma: no cover - the report type is the verification module's
+    from science.world.verify import LogReport
 
 
 class ScienceError(Exception):
@@ -229,6 +234,94 @@ class LogEvidenceRefused(ScienceError):
         self.phase = phase
         self.engine_error = engine_error
         self.detail = detail
+
+
+class ReplicaAdmissionRequiresVerification(ScienceError):
+    """A bare `World.admit` was handed `ReplicaOf` provenance.
+
+    A replica arrives carrying a chain that was written somewhere else, and
+    admitting it is the one admission that asks a question about evidence:
+    whether the traveled chain is the one its anchors describe. `admit` holds no
+    verdict to report — it inspects nothing, states no surface and consults no
+    observer — so it refuses rather than admitting on trust
+    (log-verification design §6.2). The verified route is
+    `science.root.admit_arrival`, which returns the admission record and the
+    report side by side.
+
+    It is its own name rather than `ProvenanceMismatch`: nothing about the
+    caller's composition is wrong here, and the remedy is a different call
+    rather than a different argument.
+    """
+
+
+ArrivalCause: TypeAlias = Literal["malformed", "refuted", "pending", "chainless"]
+"""§6.2's closed refusal vocabulary for a verified arrival, ranked
+`malformed > refuted > pending > chainless`. The cause is derived from the
+**report's fields**, never from which precedence step produced the outcome."""
+
+_ARRIVAL_REMEDIES: Mapping[ArrivalCause, str] = MappingProxyType(
+    {
+        "malformed": "recopy from the origin; a structurally damaged chain is not repairable by evidence "
+        "supplied here",
+        "refuted": "recopy from the origin, or supply the observers that account for the disagreement",
+        "pending": "settlement evidence from the origin, or recopy",
+        "chainless": "recopy carrying the chain; a replica that did not carry its chain is not an "
+        "unanchored arrival",
+    }
+)
+"""The remedy each cause names, so that "the remedy named" (§6.2) is a property
+of the error rather than of whichever call site raised it. The mapping is also
+what closes the vocabulary at run time: a fifth cause would have no remedy and
+could not be raised."""
+
+
+class ArrivalRefused(ScienceError):
+    """A verified arrival refused on the evidence its own report states.
+
+    Carries the **complete** report — never a summary of it, since the caller's
+    next move depends on the findings, the pending set and the observer bound —
+    plus one closed cause and the remedy that cause names (log-verification
+    design §6.2).
+
+    The cause is read off the report's fields rather than off the precedence
+    step that produced the outcome: a pending chain with an empty observer set
+    is `unresolvable` at the anchor step and never reaches the pending step, and
+    it still refuses arrival with cause `pending`. The four rank
+    `malformed > refuted > pending > chainless`, and admissibility requires none
+    of them.
+
+    It is not `LogEvidenceRefused` and never overlaps it: this act judged and
+    the verdict refused it, where that one never obtained evidence to judge.
+    """
+
+    def __init__(self, cause: ArrivalCause, report: "LogReport", detail: str) -> None:
+        remedy = _ARRIVAL_REMEDIES[cause]
+        super().__init__(f"{detail}: arrival refused on {cause}; remedy: {remedy}")
+        self.cause = cause
+        self.report = report
+        self.remedy = remedy
+
+
+class SubjectMismatch(ScienceError):
+    """A root's manifest claims an identity that is not the selected subject.
+
+    At **arrival** this is a lifecycle-boundary refusal and it fires even on a
+    `validated` report (log-verification design §1.2, §6.3): a copied root whose
+    manifest was re-minted to a fresh id still carries its parent's chain, and
+    that chain judged against the parent validates — a cooperatively logged
+    identity rewrite replays consistently. The chain is not what is wrong; the
+    lifecycle is, and admitting it would enter one corpus into the registry
+    under another's history.
+
+    At **audit** the same disagreement is a finding and never this error: the
+    audit reports, and it must stay usable on exactly the roots the operational
+    surfaces refuse.
+
+    Its placement is pinned: the report-based causes outrank it — a malformed,
+    refuted, pending or chainless chain refuses on that cause first — and it is
+    checked **before** the admission transaction, so no mismatched subject is
+    ever admitted and then reported.
+    """
 
 
 class StoreSubjectUnsupported(ScienceError):

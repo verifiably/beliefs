@@ -13,6 +13,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from atoms.chain.model import GenesisEntry
+from atoms.core.errors import PreconditionRefused
 from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp
 
 from science import root
@@ -21,9 +23,27 @@ from science.identity import v1
 from science.world import WorldConfig, _world_mirror_bytes
 
 
-def patch_world_engine(monkeypatch, calls):
+def patch_world_engine(monkeypatch, calls, world_id="1" * 32):
+    """Stand in for the engine beneath a world root: registration, the world
+    executor, and the chain read `open_world` makes.
+
+    The chain read is here rather than per-arm because `open_world` now checks
+    the genesis payload's `world_id` against the configuration and the mirror
+    (log-verification design §6.3), so every arm that opens a world needs a
+    genesis to read. It is **not** recorded in `calls`: the arms that assert
+    `calls == []` are asserting that opening registers nothing, which is a
+    different claim and still true.
+    """
+
     def record_registration(_backend, _project_root, _metadata_root, _storage, payload, _surface):
         calls.append(("register", payload))
+
+    class ChainView:
+        genesis_digest = "0" * 64
+        tip = "0" * 64
+        entries = (("0" * 64, GenesisEntry(root._world_genesis_payload(world_id), ())),)
+
+    monkeypatch.setattr(root, "read_chain", lambda *_args: ChainView())
 
     class Recorder:
         def __init__(self, world_root):
@@ -134,6 +154,72 @@ class TestWorldRoots:
             root.open_world(config)
 
         assert calls == []
+
+    def test_open_world_refuses_a_genesis_naming_another_world(self, monkeypatch, tmp_path):
+        # The third claim: the configuration and the mirror can agree with each
+        # other and still both be edits. The chain genesis is the one of the
+        # three no operator rewrites in passing, and `open_world` is the surface
+        # every ordinary consumer crosses, so the disagreement is refused here
+        # (log-verification design §6.3).
+        calls = []
+        patch_world_engine(monkeypatch, calls, world_id="2" * 32)
+        config = WorldConfig(tmp_path / "world", "1" * 32, ())
+        config.world_root.mkdir()
+        (config.world_root / "world.yaml").write_bytes(_world_mirror_bytes(config.world_id))
+
+        with pytest.raises(WorldIdMismatch) as caught:
+            root.open_world(config)
+
+        assert "2" * 32 in str(caught.value)
+        assert calls == []
+
+    def test_open_world_refuses_a_root_that_was_never_initialized_as_a_world(self, monkeypatch, tmp_path):
+        # The other half of the single-homed predicate the export act already
+        # used: a payload that is not a Science world genesis at all says the
+        # root was never initialized as one, which is a different fact from a
+        # root that belongs to a different world.
+        calls = []
+        patch_world_engine(monkeypatch, calls)
+        config = WorldConfig(tmp_path / "world", "1" * 32, ())
+        config.world_root.mkdir()
+        (config.world_root / "world.yaml").write_bytes(_world_mirror_bytes(config.world_id))
+
+        class CorpusGenesis:
+            genesis_digest = "0" * 64
+            tip = "0" * 64
+            entries = (("0" * 64, GenesisEntry(root.GENESIS_PAYLOAD, ())),)
+
+        monkeypatch.setattr(root, "read_chain", lambda *_args: CorpusGenesis())
+
+        with pytest.raises(WorldUninitialized):
+            root.open_world(config)
+
+    def test_open_world_reads_the_genesis_through_read_chain_and_leaves_setup_errors_alone(
+        self, monkeypatch, tmp_path
+    ):
+        # Two consequences of §6.3's "read through `read_chain`", pinned
+        # together because they are one decision. Opening a world now touches
+        # the engine, so it is the engine's own contract that answers for a root
+        # that was never registered — a **setup error**, which §6.4 rules stays
+        # untranslated, exactly as `ProtocolError` does. The alternative, a
+        # fourth translation invented here, would put a refusal in the seam's
+        # closed vocabulary that no ruling names.
+        calls = []
+        patch_world_engine(monkeypatch, calls)
+        config = WorldConfig(tmp_path / "world", "1" * 32, ())
+        config.world_root.mkdir()
+        (config.world_root / "world.yaml").write_bytes(_world_mirror_bytes(config.world_id))
+        unregistered = PreconditionRefused("the project root is not registered")
+
+        def raising(*_args):
+            raise unregistered
+
+        monkeypatch.setattr(root, "read_chain", raising)
+
+        with pytest.raises(PreconditionRefused) as caught:
+            root.open_world(config)
+
+        assert caught.value is unregistered
 
     def test_world_consumer_tag_is_the_world_executor_tag(self):
         assert root.WORLD_CONSUMER_TAG == "science-world-write-v1"

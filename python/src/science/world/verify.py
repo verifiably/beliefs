@@ -51,6 +51,8 @@ from yaml import YAMLError
 
 from science.corpus import Finding, OperationLock
 from science.errors import (
+    ArrivalCause,
+    ArrivalRefused,
     AuditTargetUnconfigured,
     EpochMalformed,
     EpochUnknown,
@@ -59,6 +61,7 @@ from science.errors import (
     ManifestMissing,
     ObserverCarrierInvalid,
     StoreSubjectUnsupported,
+    SubjectMismatch,
     WorldUninitialized,
 )
 from science.stored import verification_value
@@ -77,7 +80,7 @@ from science.world.logmodel import (
 
 if TYPE_CHECKING:  # pragma: no cover - the cycle below is real at run time
     from science.world.anchors import HeadArtifact, LogHeadRecord, Subject
-    from science.world.registry import WorldConfig
+    from science.world.registry import AdmissionRecord, ReplicaOf, World, WorldConfig
 
 __all__ = [
     "CHAIN_ABSENT",
@@ -1533,6 +1536,136 @@ def _presented_identity(config: WorldConfig, kind: RootKind, root: Path) -> Pres
     except WorldUninitialized:
         mirrored = None
     return PresentedWorldIds(config.world_id, mirrored)
+
+
+# --- the arrival boundary (design §6.2, §6.3) ---------------------------------
+
+
+def _arrival_cause(report: LogReport) -> ArrivalCause | None:
+    """§6.2's four causes, ranked, **derived from the report's fields**.
+
+    Not from which precedence step produced the outcome, and that is the whole
+    point of the function: a pending chain with an empty observer set is
+    `unresolvable` at step 2 (unanchored) and never reaches step 3, and it still
+    refuses arrival with cause `pending`. Reading the step instead of the fields
+    would admit it.
+
+    `chainless` is the one cause with no outcome of its own — an `AbsentChain`
+    and a fresh chain nobody has anchored are both `unresolvable` — so it is
+    read from the evaluator's own `chain-absent` finding, under the constant the
+    evaluator exports (R24). Arrival keeps no second copy of the view.
+
+    `None` is the admissible state: none of the four, which for `unresolvable`
+    means a well-formed chain with an empty pending set — an arrival at a fresh
+    world must be possible, and the unanchored bound is what the report records.
+    """
+    if report.outcome == "malformed":
+        return "malformed"
+    if report.outcome == "refuted":
+        return "refuted"
+    if report.pending:
+        return "pending"
+    if any(finding.code == CHAIN_ABSENT for finding in report.findings):
+        return "chainless"
+    return None
+
+
+def _admit_arrival(
+    world: World,
+    corpus_root: Path,
+    provenance: ReplicaOf,
+    observers: ObserverSet,
+    *,
+    actor: str,
+    history: Mapping[str, bytes] | None = None,
+    seam: LogSeam,
+) -> tuple[AdmissionRecord, LogReport]:
+    """§6.2: verify an arriving replica's chain, then admit it. Or refuse.
+
+    **The manifest is loaded here, never supplied.** A caller-supplied manifest
+    could disagree with the bytes the lock protects, and the whole act exists to
+    make one coherent statement about one root.
+
+    **The subject comes from the provenance**: `S = Corpus(parent_corpus_id)`.
+    The chain a replica traveled with is the *parent's* chain and its anchors
+    bind by the parent's id, so verifying against the arriving root's own
+    manifest would be verifying against a claim the chain never made.
+
+    **Detached inspection**, because an arriving root is not a live one: there
+    is no metadata root to recover from, and a pending registration the copy
+    carried is honestly unresolved rather than silently settled.
+
+    **One hold, in the existing world→corpus order**, across the manifest read,
+    the inspection, the capture and the admission transaction — so the bytes
+    admitted cannot change after their verdict. Inside it the order is
+    inspection, then the claim, then the capture, which is the audit's pinned
+    order kept for one reason rather than two: the claim and the surface must
+    stand on the same side of whatever the inspection did to the root. Detached
+    inspection does nothing to it today, which is why the order is pinned here
+    rather than rediscovered if the mode ever changes.
+
+    **The refusals, in their ruled order.** The report's own causes first,
+    ranked `malformed > refuted > pending > chainless`; then §6.3's
+    `SubjectMismatch`, which fires even on a `validated` report and fires
+    **before** the transaction, so no mismatched subject is ever admitted; then
+    the admission core's own refusals, which verification does not weaken.
+
+    **It commits through `registry._locked_admit`** — the same core
+    `World.admit` commits through, never a second registration path — so the
+    record and its digest are byte-identical to a bare admission of the same
+    manifest, provenance and actor. The observer bound is returned beside the
+    record and never enters admission identity.
+
+    No `World` method is called under the lock (R12): the world lock the seam
+    hands back *is* the one `World.registry()` takes, so the core reads registry
+    state through its own scan and this act reaches only for attributes.
+
+    A `LogEvidenceRefused` from either seam call propagates untranslated: the
+    act refused to judge, it did not judge, and it is neither an outcome nor an
+    arrival cause (§6.4).
+    """
+    from science.world import anchors, registry
+
+    registry._require_actor(actor)
+    if type(provenance) is not registry.ReplicaOf:
+        raise TypeError(
+            "admit_arrival is the verified route for a replica: fresh and fork provenance are World.admit's"
+        )
+    if history is not None:
+        validate_history(history)
+    subject = anchors.CorpusSubject(provenance.parent_corpus_id)
+    root = Path(corpus_root).resolve()
+    with seam.world_lock(world.config.world_root), seam.corpus_lock(root):
+        view = seam.inspect_detached(root)
+        manifest = registry.load_manifest(root)
+        disk = seam.capture(root, registered_surface_paths(root, "corpus"))
+        report = evaluate_log(
+            subject,
+            view,
+            observers,
+            disk,
+            PresentedManifest(manifest.corpus_id),
+            seam.absent_state,
+            history,
+        )
+        cause = _arrival_cause(report)
+        if cause is not None:
+            raise ArrivalRefused(cause, report, f"{root}: arriving as {_subject_label(subject)}")
+        if manifest.corpus_id != provenance.parent_corpus_id:
+            raise SubjectMismatch(
+                f"{root}: the arriving manifest claims corpus {manifest.corpus_id}, but the chain it traveled "
+                f"with is {_subject_label(subject)}'s — a validated chain under another corpus's identity is a "
+                "lifecycle refusal, not a finding (§6.3)"
+            )
+        record = registry._locked_admit(
+            world._state,
+            world.config.world_root,
+            world._executor_factory,
+            lambda: manifest,
+            provenance,
+            actor,
+        )
+    return record, report
 
 
 # --- the ordered-cuts predicate (design §7) ----------------------------------

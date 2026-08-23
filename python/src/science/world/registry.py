@@ -26,6 +26,7 @@ from science.errors import (
     ManifestMissing,
     ProvenanceMismatch,
     RegistryMalformed,
+    ReplicaAdmissionRequiresVerification,
     StatusTargetUnknown,
     StatusTerminal,
     WorldUninitialized,
@@ -264,26 +265,28 @@ class World:
         provenance: AdmissionProvenance,
         actor: str,
     ) -> AdmissionRecord:
-        with self._state.lock:
-            self._state.registry = _scan_registry(self.config.world_root)
-            manifest = load_manifest(corpus_root)
-            _validate_provenance(manifest, provenance)
-            candidate = AdmissionRecord(manifest, provenance, actor)
-            digest = admission_digest(candidate)
-            for record in self._state.registry.admissions:
-                if admission_digest(record) == digest:
-                    return record
-            if any(record.corpus_id == candidate.corpus_id for record in self._state.registry.admissions):
-                raise CorpusIdKnown(f"corpus_id {candidate.corpus_id!r} is already admitted")
-            if isinstance(provenance, ForkOf) and not any(
-                record.corpus_id == provenance.parent_corpus_id for record in self._state.registry.admissions
-            ):
-                raise ForkParentUnknown(f"fork parent {provenance.parent_corpus_id!r} is not admitted")
-            self._executor_factory(self.config.world_root).execute(
-                [CreateOp(f"registry/{digest}.yaml", _record_bytes(admission_projection(candidate)))]
+        """Admit a corpus root this world holds no verdict about.
+
+        `ReplicaOf` is refused here (log-verification design §6.2): a replica's
+        chain traveled, and admitting it is the one admission that asks a
+        question about evidence. This call inspects nothing, so it has no
+        answer to report — `science.root.admit_arrival` is the route that does,
+        and it commits through the very core below.
+        """
+        if type(provenance) is ReplicaOf:
+            raise ReplicaAdmissionRequiresVerification(
+                f"{Path(corpus_root)}: a replica is admitted through admit_arrival, which verifies the chain "
+                "it traveled with and reports the verdict beside the record"
             )
-            self._state.registry = _scan_registry(self.config.world_root)
-            return next(record for record in self._state.registry.admissions if admission_digest(record) == digest)
+        with self._state.lock:
+            return _locked_admit(
+                self._state,
+                self.config.world_root,
+                self._executor_factory,
+                lambda: load_manifest(corpus_root),
+                provenance,
+                actor,
+            )
 
     def retire(self, corpus_id: str, *, actor: str) -> StatusRecord:
         return self._terminal(corpus_id, "retired", actor)
@@ -308,6 +311,56 @@ class World:
             )
             self._state.registry = _scan_registry(self.config.world_root)
             return next(record for record in self._state.registry.statuses if status_digest(record) == digest)
+
+
+def _locked_admit(
+    state: _WorldState,
+    world_root: Path,
+    executor_factory: Callable[[Path], WritePlanExecutor],
+    manifest_of: Callable[[], CorpusManifest],
+    provenance: AdmissionProvenance,
+    actor: str,
+) -> AdmissionRecord:
+    """The whole of admission, assuming `state.lock` is already held.
+
+    **One core, two callers** (log-verification design §6.2): `World.admit` and
+    the verified arrival both commit through this and there is no second
+    registration path, which is what makes admission identity byte-identical
+    across the two routes. Nothing here is amended by verification — the
+    observer bound is never a member of an `AdmissionRecord`.
+
+    **The manifest arrives as a thunk**, and the two reasons are one thing said
+    twice. The world's own registry is scanned *before* the candidate's manifest
+    is read, so a malformed registry is reported ahead of a malformed manifest —
+    the world's state is judged before the arriving corpus's claim, and that
+    order is a claim of its own. And the verified arrival has already read that
+    manifest, under the arriving root's lock and before its capture; passing it
+    in rather than re-reading it here is what keeps the record's manifest and
+    the judged manifest the same read.
+
+    It is `_locked_*` for the reason every helper in this module is: the world
+    lock is not reentrant, and the arrival already holds it when it arrives
+    here — so this takes no lock and calls no `World` method (R12).
+    """
+    state.registry = _scan_registry(world_root)
+    manifest = manifest_of()
+    _validate_provenance(manifest, provenance)
+    candidate = AdmissionRecord(manifest, provenance, actor)
+    digest = admission_digest(candidate)
+    for record in state.registry.admissions:
+        if admission_digest(record) == digest:
+            return record
+    if any(record.corpus_id == candidate.corpus_id for record in state.registry.admissions):
+        raise CorpusIdKnown(f"corpus_id {candidate.corpus_id!r} is already admitted")
+    if isinstance(provenance, ForkOf) and not any(
+        record.corpus_id == provenance.parent_corpus_id for record in state.registry.admissions
+    ):
+        raise ForkParentUnknown(f"fork parent {provenance.parent_corpus_id!r} is not admitted")
+    executor_factory(world_root).execute(
+        [CreateOp(f"registry/{digest}.yaml", _record_bytes(admission_projection(candidate)))]
+    )
+    state.registry = _scan_registry(world_root)
+    return next(record for record in state.registry.admissions if admission_digest(record) == digest)
 
 
 @contextmanager

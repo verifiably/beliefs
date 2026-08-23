@@ -33,7 +33,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import IO
 
-from atoms.chain.errors import ChainStateInvalid
+from atoms.chain.errors import ChainStateInvalid, PendingUnresolved
 from atoms.chain.inspect import AbsentChain, ChainInspection, DefectKind, MalformedChain, WellFormedChain
 from atoms.chain.model import (
     ChainOutcome,
@@ -78,8 +78,10 @@ from science.corpus import CorpusWriter, _operation_lock_for
 from science.errors import CorpusRootRefused, LogEvidenceRefused, WorldIdMismatch
 from science.identity import v1
 from science.world import (
+    AdmissionRecord,
     CorpusSubject,
     LogHeadRecord,
+    ReplicaOf,
     Subject,
     World,
     WorldConfig,
@@ -88,7 +90,7 @@ from science.world import (
     _world_lock_for,
     _world_mirror_bytes,
 )
-from science.world.anchors import _anchor_heads, _export_head_artifact
+from science.world.anchors import _anchor_heads, _export_head_artifact, _require_world_genesis
 from science.world.logmodel import (
     AbsentView,
     ChainHead,
@@ -104,7 +106,15 @@ from science.world.logmodel import (
 )
 from science.world.logmodel import DefectKind as ViewDefectKind
 from science.world.rules import RuleBinding, install_rule_binding, shipped_rule_bundles
-from science.world.verify import LogReport, LogSeam, ObserverSet, Ordering, _audit_log, _epochs_ordered
+from science.world.verify import (
+    LogReport,
+    LogSeam,
+    ObserverSet,
+    Ordering,
+    _admit_arrival,
+    _audit_log,
+    _epochs_ordered,
+)
 
 __all__ = [
     "CONSUMER_TAG",
@@ -118,6 +128,7 @@ __all__ = [
     "WORLD_GENESIS_DOMAIN",
     "DurableExecutor",
     "DurableOperationPort",
+    "admit_arrival",
     "anchor_heads",
     "audit_log",
     "chain_head_reader",
@@ -483,6 +494,15 @@ class DurableExecutor:
             # capability: each is raised before any project mutation, or refuses
             # cleanly with restoration proven by the engine's own contract.
             raise ExecutionError(str(caught), index=None, applied=0) from caught
+        except PendingUnresolved as caught:
+            # The engine's shared pending gate (log-verification design §2.3)
+            # runs over the validated chain **before** the transaction is taken
+            # under lease, so the engine's own contract proves no mutation was
+            # attempted: `applied=0`, not the catch-all's unproved `None`. It is
+            # a direct `AtomsError` subclass, so without an arm of its own it
+            # falls into the default and reports restoration as unproved — the
+            # one refusal here whose honest answer is available and specific.
+            raise ExecutionError(str(caught), index=None, applied=0) from caught
         except (MetadataStoreInvalid, ChainStateInvalid) as caught:
             # Stop-and-preserve, bypassing rollback.
             raise ExecutionError(str(caught), index=None, applied=None) from caught
@@ -511,6 +531,10 @@ class DurableOperationPort:
                 payload,
             )
         except (ProjectApprovalRefused, PreconditionRefused, CapabilityUnavailable) as caught:
+            raise ExecutionError(str(caught), index=None, applied=0) from caught
+        except PendingUnresolved as caught:
+            # The same gate, before the intent entry is appended: the two
+            # mappings state one engine contract and must not drift.
             raise ExecutionError(str(caught), index=None, applied=0) from caught
         except (MetadataStoreInvalid, ChainStateInvalid) as caught:
             raise ExecutionError(str(caught), index=None, applied=None) from caught
@@ -896,6 +920,34 @@ def audit_log(
     )
 
 
+def admit_arrival(
+    world: World,
+    corpus_root: Path,
+    provenance: ReplicaOf,
+    observers: ObserverSet,
+    *,
+    actor: str,
+    history: Mapping[str, bytes] | None = None,
+) -> tuple[AdmissionRecord, LogReport]:
+    """Admit an arriving replica, its traveled chain verified first.
+
+    The wrapper is the whole of what this module adds — the production seam.
+    The act is `science.world.verify._admit_arrival`, which loads the arriving
+    root's manifest itself under that root's own lock, verifies against
+    `Corpus(provenance.parent_corpus_id)` — the chain a replica carries is its
+    parent's — and commits through the one admission core `World.admit` commits
+    through (log-verification design §6.2).
+
+    Returns the `AdmissionRecord` and the verification report **side by side**:
+    the observer bound is never discarded, and it never enters admission
+    identity, which this design does not amend. `World.admit` refuses
+    `ReplicaOf` outright, since it holds no verdict to report.
+    """
+    return _admit_arrival(
+        world, corpus_root, provenance, observers, actor=actor, history=history, seam=_log_seam()
+    )
+
+
 def epochs_ordered(config: WorldConfig, e1: str, e2: str) -> Ordering:
     """Whether `e2` orders after `e1`, by the world chain's own ancestry.
 
@@ -943,9 +995,30 @@ def install_shipped_world_rules(world: World) -> tuple[RuleBinding, ...]:
 
 
 def open_world(config: WorldConfig) -> World:
+    """Open one configured world root, its three identity claims agreeing.
+
+    A world says who it is in three places — the configuration the caller holds,
+    the `world.yaml` mirror, and the chain genesis the root was minted under —
+    and this is the surface every ordinary consumer crosses, so it is where the
+    disagreement is **refused** (log-verification design §6.3, discharging the
+    slice-1/2 deferral). The genesis payload is read through `read_chain`, and
+    the two refusals it can raise are the export act's own, single-homed in
+    `anchors._require_world_genesis`: a payload that is not a Science world
+    genesis at all says the root was never initialized as one
+    (`WorldUninitialized`), and a well-formed genesis naming another world says
+    the configuration and the chain disagree (`WorldIdMismatch`).
+
+    The detection/refusal split is deliberate: `audit_log` **reports** the same
+    fact as a subject-mismatch finding and takes the configuration rather than
+    an opened `World` precisely so that auditing the worlds this call refuses
+    stays possible (§6.1).
+    """
     mirror_id = _load_world_mirror(config.world_root)
     if mirror_id != config.world_id:
         raise WorldIdMismatch(f"{config.world_root / 'world.yaml'}: world_id does not match configuration")
+    _require_world_genesis(
+        config.world_root, _log_seam().read_head(config.world_root).genesis_payload, config.world_id
+    )
     return World(
         config,
         _world_executor_factory(),
