@@ -140,10 +140,12 @@ verdict, the root stays unserviceable, and every dereference of it is an
 inconclusive attempt (§3), never an `absent`. An empty observer set is
 already ruled, not re-ruled: unresolvable relative to that set, replay
 never reached — the verifier's own L9 bound, needing no new row. The cooperative steps still carry a
-**durability order**: the stamp is durable **before** the copy is exposable
-as a root — and a replica interrupted earlier is metadata-less, hence
-read-only and unresolvable for holdings reads until restored, never a
-writable twin — and the fork act's writability grant is
+**durability order**: a claim-only destination directory may be exposable as
+a root before the stamp, but that reserved claim is excluded from surfaces and
+snapshots, and no payload, chain, override, lifecycle stamp or grant, or
+serviceability exists before the stamp. A replica interrupted there is
+metadata-less, hence read-only and unresolvable for holdings reads until
+restored, never a writable twin — and the fork act's writability grant is
 durable only **after** its new genesis is, so an interrupted fork is still a
 read-only replica. That **fork act** is the one cooperative exit: it mints a
 new `store_id` and a new genesis *before any write is spellable* — the log's

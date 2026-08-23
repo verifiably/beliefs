@@ -101,7 +101,8 @@ both before any task).
   `docs/plans/2026-08-23-root-lifecycle-ledger.md` (review rulings and heads),
   plus the direct pre-stamp wording drift in
   `docs/designs/2026-08-03-tamper-evident-log-design.md`,
-  `docs/designs/2026-08-10-verified-holdings-record-design.md` and
+  `docs/designs/2026-08-10-verified-holdings-record-design.md`,
+  `docs/superpowers/plans/2026-08-10-bank-holdings-record.md`, and
   `docs/designs/2026-08-03-redesign-adoption-ledger.md`.
 
 **Interfaces:**
@@ -190,7 +191,7 @@ both before any task).
   bracketed deferred item; do not start Task 2 before this amendment is
   committed.
 - [x] **Step 6:** Commit the amendment:
-  `git add docs/superpowers/specs/2026-08-23-world-index-root-lifecycle-design.md docs/superpowers/plans/2026-08-23-root-lifecycle.md docs/plans/2026-08-23-root-lifecycle-ledger.md docs/designs/2026-08-03-tamper-evident-log-design.md docs/designs/2026-08-10-verified-holdings-record-design.md docs/designs/2026-08-03-redesign-adoption-ledger.md && git commit -m "docs(plans): pin Task 2 to the reviewed atoms lifecycle design"`
+  `git add docs/superpowers/specs/2026-08-23-world-index-root-lifecycle-design.md docs/superpowers/plans/2026-08-23-root-lifecycle.md docs/plans/2026-08-23-root-lifecycle-ledger.md docs/designs/2026-08-03-tamper-evident-log-design.md docs/designs/2026-08-10-verified-holdings-record-design.md docs/superpowers/plans/2026-08-10-bank-holdings-record.md docs/designs/2026-08-03-redesign-adoption-ledger.md && git commit -m "docs(plans): pin Task 2 to the reviewed atoms lifecycle design"`
   — recording the review's rulings in the ledger in the same commit.
 
 ### Task 2: Atoms implementation — lifecycle commands, state query, migration
@@ -345,15 +346,19 @@ contracts, not sketches.
   decode and re-encode byte-identically. The closed register, replicate, fork,
   root-claim, and root-snapshot objects and their field encodings are exactly
   design §§5.1–5.2; SHA-256 never substitutes for request-byte comparison.
-- Root creation uses the fixed mode-`0o600` `.#~root-claim` file inside a
-  mode-`0o700` private sibling directory, publishes that directory with
-  `transfer_noclobber`, and flushes the held containing parent. This
-  claim-only directory is the cross-carrier no-clobber point and may be
-  visible before the stamp; the claim is reserved bookkeeping excluded from
-  surfaces and snapshots, and no payload, chain, override, lifecycle stamp or
-  grant, or serviceability exists before the stamp transaction. The claim is
-  removed only after `tree-durable`, followed by a root-directory flush,
-  before lifecycle completion.
+- Fresh `replicate_root` and `fork_root` create the fixed mode-`0o600`
+  `.#~root-claim` file inside a mode-`0o700` private sibling directory,
+  publish that directory with `transfer_noclobber`, and flush the held
+  containing parent. This claim-only destination is the cross-carrier
+  no-clobber point and may be visible before the stamp; the claim is reserved
+  bookkeeping excluded from surfaces and snapshots, and no payload, chain,
+  override, lifecycle stamp or grant, or serviceability exists before the
+  stamp transaction.
+- `register_root` instead creates the fixed claim no-clobber directly inside
+  its already-existing root and flushes that claim and root directory before
+  stamping its operation; it never creates or publishes a private sibling.
+  Copy and register remove the claim only after `tree-durable`, followed by a
+  root-directory flush, before lifecycle completion.
 - Canonical source root, source metadata root, destination root, and
   destination metadata root are pairwise non-overlapping. Fresh copy takes
   the source lock blocking, then the destination lock with
