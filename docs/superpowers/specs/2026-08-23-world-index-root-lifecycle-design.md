@@ -59,23 +59,38 @@ distinction and the two-restored-copies arm implementable from available
 state: copied bookkeeping fails the binding on arrival. The binding's
 exact carrier is the atoms gate's to design; the requirement — no grant
 honored without a matching binding — is frozen here. Forging the binding
-in place is a raw bookkeeping edit, already out-of-band.
+in place is a raw bookkeeping edit, already out-of-band. One consequence
+stated rather than implied: **moving or renaming a writable root
+invalidates its grant, and no writable rebind operation exists** — the
+path from a moved root back to writability is the fork, under a new
+identity, exactly as for any other copy.
 
 **Two steady-state grantors, plus the explicit pre-lifecycle migration:**
 
-1. **`register_root`, only when it appends a fresh genesis.** Its
-   matching-existing-genesis retry arm **never grants** — otherwise a
-   metadata-less copy could promote itself by re-registering the chain it
-   carries.
+1. **`register_root`, only for its own initialization operation.**
+   Registration records a **local initialization operation** in the
+   host's bookkeeping **before** the genesis becomes durable; the grant
+   completes that operation. A crash between durable genesis and grant is
+   therefore finishable: **the retry matching the recorded initialization
+   operation — and only that retry — completes the grant.** The bare
+   matching-existing-genesis arm, with no recorded local initialization
+   operation, **never grants** — otherwise a metadata-less copy could
+   promote itself by re-registering the chain it carries.
 2. **`fork_root`** (§4), after its new genesis is durable.
 3. **The migration** — a version-bound, explicit transition for roots
    registered before the lifecycle state existed. It is honestly a third
-   transition, not a case of the two above. Its success case: a root whose
-   bookkeeping this host minted pre-lifecycle acquires the grant its
-   registration would have recorded. Its refusal case: it **never
-   auto-upgrades a metadata-less or restored copy** — those are exactly the
-   roots the fail-closed default exists to hold read-only. Both cases are
-   cut-9 arms (§7).
+   transition, not a case of the two above — and it is honest about what
+   it cannot prove: pre-lifecycle bookkeeping carries **no host binding
+   and no initialization operation**, so a copied pre-lifecycle
+   bookkeeping directory is structurally indistinguishable from the
+   original. The migration is therefore an **explicit operator-authorized
+   exception**: the operator attests this host is the minting host, and
+   the migration records the grant with a fresh §2 binding on that
+   attestation — a cooperative obligation stated as one, never laundered
+   into a structural claim. Structural refusal applies exactly where
+   structure can see: **metadata-less roots and post-lifecycle binding
+   mismatches never migrate**. Both the authorized success and the
+   structural refusals are cut-9 arms (§7).
 
 **Serviceability.** Writable implies serviceable — a root this host
 initialized or forked serves reads by construction (for a fork, only after
@@ -139,7 +154,9 @@ without requiring the original snapshot — it never compares the tree it
 has no right to expect.
 
 **`grant_read_serviceability(root, metadata_root)`.** Rechecks structural
-facts only — the root is non-writable and currently unserviceable — then
+facts only — the root is non-writable, and either currently unserviceable
+or **already read-only serviceable, which returns success idempotently**:
+that is what makes the grant exact-retry like its two siblings — then
 durably records read-only serviceability. It accepts **no verdict and no
 attestation**; atoms cannot authenticate one, so none is offered a channel.
 Calling it outside Science's restore orchestration is explicitly
@@ -148,10 +165,12 @@ exposes a `restore_root`: no atoms name implies verification.
 
 **`read_lifecycle_state(root, metadata_root)`.** The read-only query
 beside the three mutating commands: it reports the root's validated
-lifecycle state — **writable**, **read-only serviceable**, **read-only
-unserviceable**, or **metadata-less** — with the §2 root/host binding
-validated as part of the reading, so binding-mismatched bookkeeping
-reports as no grant, never as the state its bytes claim. It is how
+lifecycle state, a closed **five-value union** — **writable**,
+**read-only serviceable**, **read-only unserviceable**,
+**metadata-less**, or **binding-mismatched** — with the §2 root/host
+binding validated as part of the reading. A binding mismatch is its own
+declared state, never reported as the state the bookkeeping's bytes
+claim, and every consumer treats it as no grant. It is how
 Science selects `admit_arrival`'s inspection mode (§7.2) and how any
 consumer asks a lifecycle question without interpreting bookkeeping.
 
@@ -228,7 +247,7 @@ corpus-only.
 
 ### 7.2 `restore_root`
 
-`restore_root(dest_root, subject, observers, *, actor)`, under **one held
+`restore_root(dest_root, subject, observers)`, under **one held
 boundary on the destination root** across every step — no cooperative act
 can interleave between check and grant:
 
@@ -262,14 +281,17 @@ for it. Ruled here: `admit_arrival` selects its inspection mode by
 **validated lifecycle state, not by filesystem bookkeeping presence** —
 partial or restored bookkeeping may exist while the root is unserviceable,
 and a directory's existence is not a state. Science reads that state
-through the atoms gate's **`read_lifecycle_state`** query (§4): a root
-reading **serviceable read-only** takes registered inspection (such a root
-has no possible pending writer state, so registered inspection is exact);
-every other reading — unserviceable, metadata-less, binding-mismatched —
-takes the detached inspection the act was built for. Consequently a
-**restored corpus arrival must be serviceable before registered-mode
-`admit_arrival`**: run `restore_root` first, or arrive detached. The
-detached staging-leaf ruling is untouched.
+through the atoms gate's **`read_lifecycle_state`** query (§4), branching
+over the full five-value union: **read-only serviceable** takes
+registered inspection (such a root has no possible pending writer state,
+so registered inspection is exact); **read-only unserviceable**,
+**metadata-less**, and **binding-mismatched** take the detached
+inspection the act was built for; and **writable refuses** — a writable
+root is this host's own root, not a replica arrival, and a `ReplicaOf`
+claim over it is a lifecycle contradiction, never a detached read.
+Consequently a **restored corpus arrival must be serviceable before
+registered-mode `admit_arrival`**: run `restore_root` first, or arrive
+detached. The detached staging-leaf ruling is untouched.
 
 The Science `replicate_root` wrapper is thin: it calls the atoms command
 and appends nothing — a replica's chain must arrive unchanged, so there is
@@ -288,7 +310,8 @@ any-unrun-arm rule as in cuts 5–8. Expected shape:
   cold bootstrap read-only and unserviceable; both interrupted-copy and
   interrupted-fork windows; two restored copies of one `store_id` both
   entering service read-only; the out-of-band grant pinned as out-of-band;
-  and the **migration's success and refusal arms** (§2).
+  and the **migration's operator-authorized success and structural-refusal
+  arms** (§2).
 
 Acceptance runs under the certified-tuple discipline; every count claim
 quotes pytest's own summary line under `pipefail`.
