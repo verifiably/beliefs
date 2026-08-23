@@ -594,7 +594,9 @@ overstating-the-obstacle direction, but wrong all the same.
 committed with them, in the commits named beside each task's head below;
 R39–R44 are the banking task's own; R39–R43 were committed with the first
 finalization and R44 with the correction commit that follows it.
-No ruling was withdrawn, superseded, or rewritten after the fact. This ledger is
+No ruling was withdrawn, superseded, or rewritten after the fact; R39 alone
+gained an appended paragraph, recording the measurement the whole-branch
+review made of the drift R39 had ruled on. This ledger is
 the whole record of controller decisions that departed from the plan text, and
 it lives at a tracked path — the process failure cut 7's results §10 recorded
 did not recur.
@@ -610,6 +612,11 @@ Rulings carrying obligations discharged in Task 12, and where each landed:
 | R34 | cut 6's X5 replica clause named as superseded | world-registry design §5.2; results §7.2 |
 | R37 | 51 full + 2 partial, per unit | results §1.1 |
 | R38 | obligation 1's two grounds, and the three unconverted units | results §1.2 |
+| R39 | the L4/L10 quotation drift, its `117f37e` basis, and the missing guard | results §7.5 and §6; cut 8's status header |
+| R40 | the three live designs' dated corrections | results §8.13 |
+| R44 | `2c077ed`'s corrected push state | adoption ledger row 4; cut 7's results §4; results §4 |
+
+Results §9 lists these same ten.
 
 ## Heads
 

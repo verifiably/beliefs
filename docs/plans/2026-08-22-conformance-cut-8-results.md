@@ -8,8 +8,9 @@ frozen selection (`docs/designs/2026-08-22-conformance-cut-8.md`).
 
 **The frozen cut's rows, selected bullets, labeled declarations, obligations
 and accounting are not edited here.** Cut 8 froze on 2026-08-22 at `117f37e`;
-only its status header changed at banking, to record the discharge and point
-at this document. Results are recorded separately, which is what this is.
+only its status header changed — at banking, to record the discharge and
+point at this document, and once more at the whole-branch review, to carry
+§7.5's comparison basis for its own quoted rows. Results are recorded separately, which is what this is.
 
 **Integration state.** Every commit named in §3 was made on the implementation
 branch `design/log-verification`, whose base is `cd549aa` on `main`. **The
@@ -149,13 +150,15 @@ evidence of the final tree:
    `docs/plans/2026-08-20-conformance-cut-7-results.md` (§4) — the first of those
    is under `docs/designs/`, which the corpus guard reads, so a re-collection was
    owed and not optional;
-3. after the whole-branch review's four corrections, of which one — §7.5's
-   clause in cut 8's status header — again edits a file the corpus guard reads.
+3. after the one whole-branch-review correction a gate can see — §7.5's
+   clause in cut 8's status header, a file the corpus guard reads. The
+   review's other three corrections live in this file and were written
+   after this collection.
 
 **All three collections agree on every count and every exit code**; the run
-pasted below is the third. The only tree changes made after it are this
-section's own text, §7.5, §8.13 and §9's ruling count, and the execution
-ledger. None of those is read by any gate: the corpus guard reads
+pasted below is the third. Every tree change made after it is prose in this
+file (§2.1, §2.3, §3, §6, §7.5, §8.12, §8.13 and §9's ruling count) or in the
+execution ledger. None of those is read by any gate: the corpus guard reads
 `docs/designs/`, `docs/guide/` and `README.md`, and `check_guide.py` reads
 `docs/guide/`. Both resolve *links into* `docs/plans/` — this file's own path
 among them, which is why it was created before the runs — but neither reads a
@@ -639,13 +642,15 @@ and stops there will conclude a frozen cut was tampered with.
 Why it was done this way rather than avoided (execution ledger R39): amending
 in place with a dated marker is this corpus's own convention for a frozen
 table — L4, L7 and L10 already carried 2026-08-10 and 2026-08-11 markers before
-this landing — and cut 8's §8 limitation 5 anticipated exactly this case. The
+this landing. Cut 8's §8 limitation 5 anticipated the inheritance and the
+never-edit-here rule, though not this quotation drift: its conditional is
+"if a future design lifts either", and nothing was lifted. The
 alternative, keeping the amendments in section prose and out of the row cells,
 would have left the guarantee table stating a mechanism the shipped code does
 not implement, which is the failure this repository's design-doc rule exists to
-prevent. Neither row's **disposition** changed: L4 and L10 are partial in the
-frozen cut and partial in the amended table, and the amendments state mechanism,
-never verdict.
+prevent. Neither row's **disposition** changed: L4 and L10 are partial in the frozen
+cut, which is the document that assigns dispositions, and the amendments to
+the source table state mechanism, never verdict.
 
 ## 8. Corrections this landing made to the banked and frozen text
 
