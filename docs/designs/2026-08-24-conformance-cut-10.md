@@ -15,8 +15,9 @@ that table's first reading; the live **G9** row of
 `2026-08-02-epistemic-kernel-design.md` §5, quoted verbatim below; the
 live **L7** and **L10** rows of
 `2026-08-03-tamper-evident-log-design.md` §10, quoted verbatim below;
-`2026-08-22-conformance-cut-8.md` and `2026-08-11-conformance-cut-3.md`
-(the standing L7 and G9 dispositions this cut's partials extend);
+`2026-08-22-conformance-cut-8.md`, `2026-08-17-conformance-cut-4.md`
+and `2026-08-11-conformance-cut-3.md` (the standing L7 and G9
+dispositions this cut's partials extend);
 and the approved atoms-local design
 `docs/2026-08-24-holdings-read-and-evidence-commands-design.md` (in the
 atoms repository, approved at atoms `558817b`, implemented and merged —
@@ -162,9 +163,10 @@ construction's, bounded by §1's well-formedness obligation.
 
 | **G9** | A dataset reaches **held** only when **every** resource its declaration names has a byte observation matching the digest recorded for it — declaration does not promote, presence does not promote, a proper subset does not promote (added 2026-08-09, admission ramp §6.3) | **Declaration does not promote:** author a dataset carrying a content identity and no bytes; assert it is **minted** as a world entity (world W3, as narrowed), that it reads **`declared`**, and that G2b refuses it as an assessment input. Assert **no API accepts an authored `held`** and that the state is **derived, never stored** — nothing on the record changes when bytes arrive or leave. **Presence does not promote:** supply bytes whose digest **differs** from the recorded digest for that resource; assert the dataset stays `declared`, that the mismatch is **reported as a mismatch** and not as a failure to retrieve, and that no path promotes on the strength of the bytes existing. **A proper subset does not promote:** over a dataset declaring **three** resources, supply matching bytes for **two** and assert it is still `declared`; supply the third and assert `held`. Then remove one and assert it returns to `declared`. An implementation quantifying **existentially** passes every other arm of this row and fails here, which is the arm's whole job — the declaration is the identity (admission ramp §6.2), so heldness is quantified over the same declaration. **Negative — location is not the discriminator:** hold matching bytes **outside the repository**, content-addressed and retrievable, and assert **`held`** all the same (§2.2), so the row is never read as requiring local storage; then make them unreachable *here* while a controlled copy remains held and assert R5's answer is unchanged. **Negative — absence in one coverage is not absence:** assert that observing no matching bytes across a **declared coverage** yields *no matching observation in that coverage* and **not** `unheld` — the `fb-2026-07-27-010` error the coreference ruling refused, reached from the holding side. **Negative — this row is about the upward transition only:** assert it says nothing about *losing* heldness, which is R5's negative (a). **Sabotage, asserted for independence:** install *the declared path exists* as the promotion predicate; assert **G9 fails while G2b, R5 and R10 all pass** — G2b consumes heldness rather than establishing it, R5 tests the downward transition, and R10 refuses a URL-valued input without saying what acquisition must verify, so an unverified promotion is invisible to every one of them |
 
-- **Partial (this cut reads 1 unit; cuts 2 and 3 stand certified there,
-  cited never re-declared — cut 3 §4.2's arm split, with the
-  minted-as-a-world-entity clause W3's).** Selected: **(u1)** the
+- **Partial (this cut reads 1 unit; cuts 2, 3 and 4 stand certified
+  there, cited never re-declared — cut 3 §4.2's arm split, and the
+  minted-as-a-world-entity clause cut 4 §4.2's selection, discharged
+  there beside W3).** Selected: **(u1)** the
   **independence sabotage**, owed by name to this cut (the holdings
   design §7: "the arm stays owed to the cut that builds it, and is now
   buildable" — the persisted promotion predicate's substrate is this
@@ -370,10 +372,16 @@ adapter seam — the persisted substrate the arm was written for — with
 G2b, R5 and R10 read through that same seam, never by faking an
 admission state downstream of it; and **L7 u1's non-qualifying
 fulfillments** must be genuine committed transactions carrying
-`fulfills` whose registered rows are wrong in exactly the named way
-(wrong location, wrong token, no observation) — chain states
-`inspect_chain` accepts, so each failure is qualification's verdict,
-never a malformed-chain classification reached first.
+`fulfills` — chain states `inspect_chain` accepts, so each failure is
+qualification's verdict, never a malformed-chain classification reached
+first — and each must land in the precedence's **resolved
+non-qualifying** step, never the missing-record `unresolved` branch:
+wrong-location and wrong-token are an **existing decoded captured
+observation** carrying exactly that content mismatch, and
+no-observation is a resolved non-qualifying final row — an absent,
+directory, or symlink row, or a file outside the holdings-observation
+layout — since a holdings-layout file row with **no** captured record
+is the spec's `unresolved`, a different unit's territory (H2 u4).
 
 ## 7. Second reader
 
@@ -407,6 +415,23 @@ dispositions are recorded here before freeze.
    mint-nothing rule is homed in H4 u2; H1 u1/u3, H4 u2, and the L10
    units now cite instead of restating; H4 u3's crash window cites
    L7 u2. Recount: 17 + 12 = 29 → **20 selected + 11 labeled = 31**.
+
+**Second reading (2026-08-24), two findings on the amendments, both
+accepted; the first reading's three findings confirmed closed:**
+
+4. *P2 — L7 u1's no-observation construction not pinned away from
+   `unresolved`.* The freeze obligation called all three cases wrong
+   registered rows, but a holdings-layout file row with no captured
+   record is the precedence's `unresolved`, while the unit requires
+   resolved non-qualifying fulfillments. Disposition: the obligation
+   now pins wrong-location and wrong-token to an existing decoded
+   observation with exactly that content mismatch, and no-observation
+   to a resolved non-qualifying final row (absent, directory, symlink,
+   or outside-layout file), never the missing-record branch.
+5. *P2 — G9's prior-certification citation skipped cut 4.* Cut 3
+   deferred the minted-as-a-world-entity clause and cut 4 §4.2 selected
+   it. Disposition: cut 4 added to the sources and to the G9
+   disposition's prior-certification statement.
 
 ## 8. Limitations
 
