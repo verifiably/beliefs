@@ -14,7 +14,11 @@ post-implementation review's five findings closed by amendment, merged into
 the atoms `main` with `--no-ff` and **pushed — the atoms remote `main`
 stands at `038513f`** (suite `6234 passed, 7 skipped` on the merged head).
 Row 4's holdings remainder is discharged at the seam; the adoption-ledger
-row moves at banking.
+row moves at banking. **Cut 10 is frozen 2026-08-24 at `2186a71`**
+(`../../designs/2026-08-24-conformance-cut-10.md` — 3 full + 4 partial rows,
+20 selected + 11 labeled = 31 units; the second reader's five findings
+across two readings closed), before any Science implementation task, per §8
+step 3.
 **Inherits:** `2026-08-10-verified-holdings-record-design.md` whole — the
 banked authority this slice implements; its §2 (the canonical facet and the
 store-identity/lifecycle contract), §3 (the two act shapes, the dereference
