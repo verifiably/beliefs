@@ -1475,10 +1475,88 @@ def _audit_log(
     _configured_target(config, kind, root)
     root_kind: RootKind = kind
     with _subject_hold(seam, root_kind, root):
-        view = seam.inspect_registered(root)
-        presented = _presented_identity(config, root_kind, root)
-        disk = seam.capture(root, registered_surface_paths(root, root_kind))
+        view, disk, presented = _assemble_evaluation_inputs(
+            seam, root_kind, root, config
+        )
     return evaluate_log(subject, view, observers, disk, presented, seam.absent_state, history)
+
+
+def _assemble_evaluation_inputs(
+    seam: LogSeam, kind: RootKind, root: Path, config: WorldConfig | None
+) -> tuple[ChainView, tuple[tuple[str, object], ...], PresentedIdentity | None]:
+    """The evaluator's inputs, assembled in the one pinned order — inspection,
+    then the presented claim, then the capture — under the caller's hold.
+
+    The exact boundary between the two judging acts: `_audit_log` calls it
+    with the world configuration (its world arm reads the configured id), and
+    the restore core calls it with `None` — a restore's subjects are corpus
+    and store, whose claims live in the root itself. No third assembly
+    exists.
+    """
+    view = seam.inspect_registered(root)
+    presented = _presented_identity(config, kind, root)
+    disk = seam.capture(root, registered_surface_paths(root, kind))
+    return view, disk, presented
+
+
+def _restore_subject_agrees(
+    subject: Subject, kind: SubjectKind, view: ChainView, presented: PresentedIdentity | None
+) -> bool:
+    """Spec §7.2 step 4: the separate lifecycle precondition, never a verdict.
+
+    Store: the validated chain's own genesis names the subject's `store_id`.
+    Corpus: the presented manifest names the subject's `corpus_id` — the
+    genesis is form-validated only, because a corpus genesis names nobody. A
+    `validated` report with a disagreeing identity stays a validated report;
+    what it does not do is admit.
+    """
+    from science.world import anchors
+
+    if kind == "store":
+        if type(view) is not WellFormedView:
+            return False
+        try:
+            named, _forked_from = anchors.parse_store_genesis(view.genesis.payload)
+        except ValueError:
+            return False
+        return named == subject.store_id  # pyright: ignore[reportAttributeAccessIssue]
+    if type(presented) is not PresentedManifest:
+        return False
+    return presented.corpus_id == subject.corpus_id  # pyright: ignore[reportAttributeAccessIssue]
+
+
+def _restore_root(
+    dest_root: Path,
+    subject: Subject,
+    observers: ObserverSet,
+    *,
+    seam: LogSeam,
+    grant: Callable[[Path], None],
+) -> LogReport:
+    """§7.2: the one held restore boundary — inspect, claim, capture,
+    evaluate, gate, grant — and the existing report, unwrapped.
+
+    Admission is observed through the lifecycle state, never the return
+    value: the report is the evaluator's judgment of the copy, and the grant
+    is a separate structural act taken only on `validated` **and** subject
+    agreement. A malformed copy flows into the evaluator and comes back a
+    `malformed` outcome, never a pre-evaluation exception. A world subject
+    has no restore: a world root is reconstructed, not admitted.
+    """
+    kind = _subject_kind(subject)
+    if kind == "world":
+        raise TypeError("a world root is never restored; restore admits corpus and store copies")
+    if type(observers) is not ObserverSet:
+        raise TypeError("observers is an ObserverSet, which is the whole of what the evaluator may consult")
+    root = Path(dest_root).resolve()
+    with _subject_hold(seam, kind, root):
+        view, disk, presented = _assemble_evaluation_inputs(seam, kind, root, None)
+        report = evaluate_log(subject, view, observers, disk, presented, seam.absent_state)
+        if report.outcome == "validated" and _restore_subject_agrees(
+            subject, kind, view, presented
+        ):
+            grant(root)
+    return report
 
 
 def _subject_hold(seam: LogSeam, kind: RootKind, root: Path) -> AbstractContextManager[object]:
@@ -1515,7 +1593,9 @@ def _configured_target(config: WorldConfig, kind: SubjectKind, root: Path) -> No
         )
 
 
-def _presented_identity(config: WorldConfig, kind: RootKind, root: Path) -> PresentedIdentity | None:
+def _presented_identity(
+    config: WorldConfig | None, kind: RootKind, root: Path
+) -> PresentedIdentity | None:
     """What the root under audit *claims* to be, read from where it is written.
 
     Called after the inspection and before the capture, so the claim is the one
@@ -1541,6 +1621,8 @@ def _presented_identity(config: WorldConfig, kind: RootKind, root: Path) -> Pres
             return PresentedManifest(registry.load_manifest(root).corpus_id)
         except (ManifestMissing, ManifestMalformed):
             return None
+    if config is None:
+        raise TypeError("a world root's presented identity reads the configuration")
     try:
         mirrored: str | None = registry._load_world_mirror(root)
     except WorldUninitialized:

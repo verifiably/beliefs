@@ -64,7 +64,7 @@ from atoms.coordinator.commands import (
 from atoms.coordinator.commands import (  # noqa: F401 - the fork/restore acts' callbacks land with their tasks; the names are the declared boundary now
     fork_root as _fork_root_callback,
 )
-from atoms.coordinator.commands import (  # noqa: F401
+from atoms.coordinator.commands import (
     grant_read_serviceability as _grant_read_serviceability_callback,
 )
 
@@ -112,8 +112,10 @@ from science.errors import CorpusRootRefused, LogEvidenceRefused, WorldIdMismatc
 from science.identity import v1
 from science.world import (
     AdmissionRecord,
+    CorpusSubject,
     LogHeadRecord,
     ReplicaOf,
+    StoreSubject,
     Subject,
     World,
     WorldConfig,
@@ -150,6 +152,7 @@ from science.world.verify import (
     _admit_arrival,
     _audit_log,
     _epochs_ordered,
+    _restore_root,
     registered_surface_paths,
 )
 
@@ -192,6 +195,7 @@ __all__ = [
     "open_world",
     "read_lifecycle_state",
     "replicate_root",
+    "restore_root",
     "write_intent_digest",
     "write_intent_projection",
 ]
@@ -469,6 +473,35 @@ def migrate_root_to_lifecycle_v3(root: Path) -> None:
         str(metadata_root_for(target)),
         PRODUCTION_STORAGE,
     )
+
+
+def restore_root(
+    dest_root: Path,
+    subject: CorpusSubject | StoreSubject,
+    observers: ObserverSet,
+) -> LogReport:
+    """Admit a restored copy: verify its chain, then grant read
+    serviceability — one held boundary, the existing report, no new type.
+
+    The wrapper is the whole of what this module adds — the production seam
+    and the engine's structural grant, which takes no verdict and no
+    attestation: what travels from the evaluation to the grant is only the
+    decision to invoke it. Admission is observed through
+    `read_lifecycle_state(dest_root)`, never through the return value, and
+    nothing here ever grants writability.
+    """
+    if type(subject) not in {CorpusSubject, StoreSubject}:
+        raise TypeError("restore admits corpus and store subjects; a world root is reconstructed, not restored")
+
+    def grant(root: Path) -> None:
+        _grant_read_serviceability_callback(
+            _PRODUCTION_BACKEND,
+            str(root),
+            str(metadata_root_for(root)),
+            PRODUCTION_STORAGE,
+        )
+
+    return _restore_root(dest_root, subject, observers, seam=_log_seam(), grant=grant)
 
 
 def write_intent_projection(plan: WritePlan) -> list[dict[str, str]]:

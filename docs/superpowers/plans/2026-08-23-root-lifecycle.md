@@ -763,7 +763,7 @@ contracts, not sketches.
   through the return value; a world subject is unspellable by type. Add
   `restore_root` to `science.root.__all__`.
 
-- [ ] **Step 1: Write the failing tests** in `tests/test_restore_root.py`,
+- [x] **Step 1: Write the failing tests** in `tests/test_restore_root.py`,
   one per spec §7.2 step:
 
   - `test_malformed_copy_returns_malformed_and_stays_unserviceable` — a
@@ -817,9 +817,9 @@ contracts, not sketches.
     `test_both_divergent_heads_in_one_observer_set_refute`;
     `test_divergent_copies_verified_separately_each_validate` — the last
     asserting the pinned surviving-observer negative as the claim.
-- [ ] **Step 2:** Run: `uv run --frozen pytest tests/test_restore_root.py -v`.
+- [x] **Step 2:** Run: `uv run --frozen pytest tests/test_restore_root.py -v`.
   Expected: FAIL, `ImportError: cannot import name 'restore_root'`.
-- [ ] **Step 3: Implement.** The evaluation assembly is `audit_log`'s
+- [x] **Step 3: Implement.** The evaluation assembly is `audit_log`'s
   own, reused — `restore_root` mirrors how `audit_log` builds the
   `ChainView`, disk capture, `PresentedIdentity`, and `absent_state`
   arguments, then adds the gate and grant. Sketch (all under one held
@@ -847,7 +847,7 @@ contracts, not sketches.
   genesis's `store_id` equals the subject's; corpus — the presented
   manifest's `corpus_id` equals the subject's, the genesis form-validated
   only.
-- [ ] **Step 4:** Run to PASS; gate block. Commit:
+- [x] **Step 4:** Run to PASS; gate block. Commit:
   `feat(root): restore_root under one held boundary`. Append and commit
   the ledger.
 

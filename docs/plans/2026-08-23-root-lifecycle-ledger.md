@@ -147,6 +147,26 @@ Freeze hash: `0977bde`
     344.87s (0:05:44)` (the three known Task-11 documentation failures),
     ruff clean, pyright at its four baseline diagnostics, cut-7
     acceptance exit 0.
+19. **R19 — Task 6 discharged.** `restore_root(dest_root, subject,
+    observers) -> LogReport` lands: one held per-root boundary spanning
+    inspection, the presented claim, capture, evaluation, the subject gate,
+    and the grant, with `_assemble_evaluation_inputs` factored out of
+    `_audit_log` as the exact shared boundary (no third assembly). The
+    subject gate is a separate lifecycle precondition: `validated` with a
+    disagreeing store genesis id or corpus manifest id returns the report
+    and admits nothing. A grant refusal over creation residue (root claim,
+    staging survivor) propagates loudly out of the restore — fail-closed,
+    the report forfeited to the refusal. Two slice facts pinned by the
+    fixtures: an empty initialized store validates while raw payload
+    replays as a disagreement (holdings are the next slice's row), and a
+    raw-authored fork-form genesis (payload with `forked_from`, baseline
+    naming the surface) is how a chain names payload before the fork acts
+    land. The divergence triple reads: assembled-in-one-root is sibling
+    malformed, both heads in one observer set refute, and separately each
+    validates — the pinned surviving-observer negative stated as the
+    claim. Gates: `3 failed, 2228 passed in 346.35s (0:05:46)` (the three
+    known Task-11 documentation failures), ruff clean, pyright at its four
+    baseline diagnostics, cut-7 acceptance exit 0.
 
 ## Heads
 
@@ -157,4 +177,5 @@ Freeze hash: `0977bde`
 | 2 — atoms lifecycle implementation | `ff144e7` (merge of `24b15ce`) | this ledger commit |
 | 3 — store roots and the store projection | `ff144e7` | `560c859` |
 | 4 — store subjects through the verification surface | `ff144e7` | `8e14f8a` |
-| 5 — lifecycle wrappers and gate precedence | `bf559c2` (merge of `fb95e1a`) | this task's commit |
+| 5 — lifecycle wrappers and gate precedence | `bf559c2` (merge of `fb95e1a`) | `ee590d2` |
+| 6 — restore_root | `bf559c2` | this task's commit |
