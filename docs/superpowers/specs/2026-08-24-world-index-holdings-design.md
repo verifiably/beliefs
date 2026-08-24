@@ -259,9 +259,10 @@ atoms intent API **as built**; no log machinery changes.
 fulfillment** of a holdings intent is a committed registration whose
 published record is a holdings observation for the intent's canonical
 location carrying the intent's `event_token`. A non-qualifying pointer never
-matches; a pointer whose publication cannot be produced from the captured
-coverage (§5.1) leaves qualification **unresolved — as itself, never
-collapsed** into either resolved state. This is the log §6
+matches; qualification lands unresolved **only** where §5.1's pinned
+precedence says the captured coverage cannot answer — a missing record at a
+holdings-observation file row, or an unsettled registration — and
+**unresolved blocks as itself, never collapsed** into either resolved state. This is the log §6
 reduction instantiated for the holdings shape only; L7's general reduction,
 G4's closure, and the boundary-side arms remain the intent-boundary slice's,
 and this slice's reduction is written so that slice replaces its interior,
@@ -355,17 +356,30 @@ projection, no path carried — and matching it against the registration's
 final path-state rows; then the walk, coalescing, blocking, and
 cycle-refusal below.
 
-- **Qualification** lands matched, unmatched, or **unresolved as itself**
-  — a registration without a committed settlement never qualifies, and a
-  pointer whose publication cannot be produced from the captured coverage
-  never collapses into either resolved state.
-- **Unresolved survives without an unreadable variant.** A committed
-  registration whose final path-state rows name a stored path deriving
-  from **no record in the captured state** leaves its intent's
-  qualification **unresolved — as itself**: the publication may have
-  existed and be gone from this state, which proves nothing either way and
-  blocks rather than settles (H2's fourth arm keeps its soft-collapse
-  sabotage).
+- **Qualification is a pinned three-step precedence**, applied per intent
+  over its registrations' final path-state rows — matched, then
+  unresolved, then non-qualifying, the first step that answers winning:
+  1. **matched** — some committed registration has a final **file** row
+     whose path derives from a captured record that is a holdings
+     observation for the intent's canonical location carrying its
+     `event_token`;
+  2. otherwise **unresolved — as itself** — some committed registration
+     has a final **file** row at a path in the holdings-observation
+     layout (the layout's kind-first derivation makes this decidable from
+     the path alone) with **no captured record deriving to it**: the
+     publication may have existed and be gone from this state, which
+     proves nothing either way and blocks rather than settles (H2's
+     fourth arm keeps its soft-collapse sabotage);
+  3. otherwise **non-qualifying**, contributing to **unmatched** — a
+     final absent, directory, or symlink row published no record, and a
+     final file outside the holdings-observation layout could never be
+     the required observation: each fully resolved, never unresolved.
+- **Settlement gates the rows.** A **rolled-back** registration is fully
+  resolved and non-qualifying — its settlement answered, and its rows are
+  not consulted. A registration with **no settlement entry** in the
+  captured chain is **unresolved as itself**: the transaction's outcome is
+  unestablished, which is exactly the proves-nothing state, never a
+  resolved one.
 - Per-location `supersedes` DAG walk from heads; acyclicity **checked on
   every walk** (ρA9's discipline) — a presented cycle refuses the whole
   projection; a dangling predecessor outside coverage is a head with an
