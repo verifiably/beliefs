@@ -1228,6 +1228,12 @@ def _world_lock(root: Path) -> Iterator[None]:
         yield
 
 
+def _lifecycle_state_value(root: Path) -> str:
+    """The seam's lifecycle reading: the closed union's string value, so the
+    world layer branches on the fact without holding the engine's type."""
+    return read_lifecycle_state(Path(root)).value
+
+
 _LOG_SEAM = LogSeam(
     inspect_registered=_inspect_registered,
     inspect_detached=_inspect_detached,
@@ -1241,6 +1247,7 @@ _LOG_SEAM = LogSeam(
     # The write API's own lock-only lookup, unwrapped: an audit and a writer
     # contending for one corpus root must contend for one object.
     corpus_lock=_operation_lock_for,
+    lifecycle_state=_lifecycle_state_value,
 )
 
 

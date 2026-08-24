@@ -984,7 +984,7 @@ contracts, not sketches.
 - Produces: `admit_arrival` branching over the five-value union; the
   fork-admission integration path proven end-to-end.
 
-- [ ] **Step 1: Write the failing tests** in `tests/test_arrival_modes.py`:
+- [x] **Step 1: Write the failing tests** in `tests/test_arrival_modes.py`:
 
   - `test_fork_product_admits_through_the_fork_of_path` — integration:
     `fork_corpus`'s destination admits through `World.admit` with no
@@ -1001,11 +1001,11 @@ contracts, not sketches.
     arrives detached; after `restore_root`, registered.
   - `test_store_subject_unspellable_at_arrival` — the arrival act's
     signature still cannot name a store (label 8's corpus-only negative).
-- [ ] **Step 2:** Run: `uv run --frozen pytest tests/test_arrival_modes.py -v`.
+- [x] **Step 2:** Run: `uv run --frozen pytest tests/test_arrival_modes.py -v`.
   Expected: the mode tests FAIL (arrival is unconditionally detached
   today); the fork-admission test FAILS only if Task 7 mis-authored the
   manifest — a passing first run there is acceptable and recorded.
-- [ ] **Step 3: Implement** the mode selection in `admit_arrival`
+- [x] **Step 3: Implement** the mode selection in `admit_arrival`
   (branch on `read_lifecycle_state`; writable → a typed refusal). Run to
   PASS; gate block; then
   `uv run --frozen python tools/cut7_acceptance.py` (still exit 0). Commit:

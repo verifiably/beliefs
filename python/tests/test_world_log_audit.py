@@ -188,6 +188,9 @@ def make_seam(
         absent_state=ABSENT,
         world_lock=world_lock,
         corpus_lock=_operation_lock_for,
+        # Audit never reads it; the arrival arms that reuse this seam model
+        # arriving copies, whose state keeps the detached inspection selected.
+        lifecycle_state=lambda _root: "metadata-less",
     )
 
 
@@ -1315,6 +1318,7 @@ def real_seam() -> verify.LogSeam:
         absent_state=production.absent_state,
         world_lock=production.world_lock,
         corpus_lock=production.corpus_lock,
+        lifecycle_state=lambda _root: "metadata-less",
     )
 
 

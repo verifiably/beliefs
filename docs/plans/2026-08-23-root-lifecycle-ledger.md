@@ -184,6 +184,23 @@ Freeze hash: `0977bde`
     in 350.05s (0:05:50)` (the three known Task-11 documentation
     failures), ruff clean, pyright at its four baseline diagnostics, cut-7
     acceptance exit 0.
+21. **R21 — Task 8 discharged.** `admit_arrival` branches its inspection
+    mode over the closed union through the seam's new `lifecycle_state`
+    slot (wired by the composition root; a stand-in seam that never expects
+    an arrival refuses by default): read-only serviceable arrives under the
+    coherent registered read, unserviceable / metadata-less /
+    binding-mismatched arrive detached, and a writable root refuses
+    `CorpusRootRefused` before any lock — this host's own live root is not
+    an arrival. The fork product admits end-to-end through `World.admit`'s
+    existing `ForkOf` validation with no fixture-authored manifest, and the
+    arrival act's signature still cannot spell a store (label 8's
+    corpus-only negative). Sequencing note, recorded as the plan invites:
+    the mode selection was implemented before its failing-test run, so the
+    mode tests' first execution passed; their assertions were verified
+    against the recording seam rather than a red run. Gates: `3 failed,
+    2249 passed in 356.40s (0:05:56)` (the three known Task-11
+    documentation failures), ruff clean, pyright at its four baseline
+    diagnostics, cut-7 acceptance exit 0.
 
 ## Heads
 
@@ -196,4 +213,5 @@ Freeze hash: `0977bde`
 | 4 — store subjects through the verification surface | `ff144e7` | `8e14f8a` |
 | 5 — lifecycle wrappers and gate precedence | `bf559c2` (merge of `fb95e1a`) | `ee590d2` |
 | 6 — restore_root | `bf559c2` | `588fc9e` |
-| 7 — the fork acts | `bf559c2` | this task's commit |
+| 7 — the fork acts | `bf559c2` | `d0d632d` |
+| 8 — fork-of admission and arrival modes | `bf559c2` | this task's commit |

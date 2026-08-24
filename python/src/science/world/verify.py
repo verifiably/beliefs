@@ -54,6 +54,7 @@ from science.errors import (
     ArrivalCause,
     ArrivalRefused,
     AuditTargetUnconfigured,
+    CorpusRootRefused,
     EpochMalformed,
     EpochUnknown,
     MalformedRecord,
@@ -104,6 +105,13 @@ __all__ = [
 ]
 
 
+def _unwired_lifecycle_state(root: Path) -> str:
+    raise AssertionError(
+        f"{root}: this seam wires no lifecycle reading; the arrival boundary "
+        "is the one consumer and its seams wire one explicitly"
+    )
+
+
 @dataclass(frozen=True)
 class LogSeam:
     """One root's worth of engine capability, as callables over `Path`.
@@ -127,6 +135,12 @@ class LogSeam:
     absent_state: object
     world_lock: Callable[[Path], AbstractContextManager[None]]
     corpus_lock: Callable[[Path], OperationLock]
+    lifecycle_state: Callable[[Path], str] = _unwired_lifecycle_state
+    """The root's closed five-value lifecycle reading, as its string value.
+
+    Wired by the composition root; the arrival boundary branches its
+    inspection mode on it. The default refuses loudly so a stand-in seam
+    that never expects an arrival cannot answer one by accident."""
 
 
 @dataclass(frozen=True)
@@ -1727,8 +1741,23 @@ def _admit_arrival(
         validate_history(history)
     subject = anchors.CorpusSubject(provenance.parent_corpus_id)
     root = Path(corpus_root).resolve()
+    state = seam.lifecycle_state(root)
+    if state == "writable":
+        raise CorpusRootRefused(
+            f"{root}: a writable root is this host's own live root, not an "
+            "arrival; nothing arrives at the root it already is"
+        )
     with seam.world_lock(world.config.world_root), seam.corpus_lock(root):
-        view = seam.inspect_detached(root)
+        # The inspection mode follows the lifecycle state: a restored,
+        # read-only-serviceable copy earned the coherent registered read;
+        # every other non-writable state — unserviceable, metadata-less,
+        # binding-mismatched — is detached, its pending honestly unresolved.
+        inspect = (
+            seam.inspect_registered
+            if state == "read-only-serviceable"
+            else seam.inspect_detached
+        )
+        view = inspect(root)
         manifest = registry.load_manifest(root)
         disk = seam.capture(root, registered_surface_paths(root, "corpus"))
         report = evaluate_log(
