@@ -1,9 +1,10 @@
 # Conformance cut 10 — verified holdings, store-side
 
-**Status:** Draft — freezes at the commit closing the second reader's
-findings (§7), before any implementation task (spec §8 step 3, the
-standing discipline). Every quoted row must be byte-exact against its
-source table as of the freeze commit.
+**Status:** **Frozen 2026-08-24 at `2186a71`**, the commit closing the
+second reader's five findings across two readings (§7); no
+implementation preceded the freeze (spec §8 step 3, the standing
+discipline). Every quoted row is byte-exact against its source table as
+of `2186a71`, verified by the reader independently.
 
 **Sources:** `2026-08-23-conformance-cut-9.md` (rule and practice
 inheritances); the holdings specification
