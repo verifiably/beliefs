@@ -31,9 +31,12 @@ class is privileged.
 ## 1. Scope
 
 **Built here (atoms, behind its own design gate — choreography §8):** the
-coordinator **dereference-and-hash read command** and **per-effect
-post-state capture** on `run_transaction` — adoption-ledger row 4's named
-holdings remainder, and nothing else of row 4.
+coordinator **dereference-and-hash read command** and the **post-state
+evidence return** on `run_transaction` (§2.2 — the establishment already
+lives in the engine's commit verification; the ledger's "mutator
+post-state capture" clause is discharged by returning it) —
+adoption-ledger row 4's named holdings remainder, and nothing else of
+row 4.
 
 **Built here (Science, `science/holdings/`):** the `holdings-observation`
 record kind under `science.holdings-observation.v1` with the **store locator
@@ -121,47 +124,52 @@ answer `found(<algorithm>:<lowercase hex>)` or `absent`.
 - The digest is algorithm-qualified in the canonical spelling; sha256 is the
   algorithm shipped, and the accepted set stays the profile's residue.
 
-**2.2 Post-state capture on `run_transaction`.** An opt-in capture,
-returned on `TransactionOutcome` keyed by `effect_id`, each item captured
-**before the lease releases**:
+**2.2 Post-state evidence from `run_transaction`.** *Corrected at the
+atoms design gate (2026-08-24): the first draft specified an opt-in
+per-effect capture, believing establishment was new work. Reading the
+engine found it already built, stronger than asked:* the spec compiler's
+coverage phase requires the transaction's **final surface to name every
+path an effect mutates** with its timeline's last post-state, and commit
+verification **observes every final-surface path on disk under the held
+lease** — content hash streamed from a pinned descriptor — and **refuses
+commit on any mismatch**. A committed registration's final rows are
+therefore already verified reopen-and-hash evidence, carried durably in
+the chain entry. The atoms delta is a **return channel**:
+`TransactionOutcome` gains `final_states`, the committed registration's
+final `(path, PathState)` rows, typed.
 
-| effect | captured post-state |
+The evidence mapping stands as first drafted, now read from those rows:
+
+| act | evidence in `final_states` |
 |---|---|
-| `ReplaceFile` / `CreateFileNoClobber` | the destination **reopened and hashed** — never the source stream's digest (H1, first arm) |
-| `DeletePath` | the post-delete **absence check** — established by a look, never inferred from the return (H1, third arm) |
-| `MoveNoClobber` | the **dual-location result**: source absence plus destination hash, both from the one effect |
+| write | the destination's final `FileState` — its content hash observed on disk, **never the source stream's digest** (H1, first arm) |
+| delete | the path's final `AbsentState` — established by the commit observation, never inferred from the return (H1, third arm) |
+| move | the **dual-location result**: the source's `AbsentState` and the destination's `FileState`, both rows from the one transaction |
 
-A separate read cannot prove a mutation's post-state — it reacquires the
-lease after the mutating command returned — which is why the capture lives
-on the mutating command (holdings design §3). Atoms returns evidence, never
-observations; the two-intent move orchestration over the dual result is the
-Science boundary's (§4 below). Store payload mutations flow as ordinary
-registered transactions against the store root, so the writability gate, the
-pending gate, and `fulfills` admission apply unchanged — the capture is
-additive, and no existing atoms contract moves.
+Consequences, replacing the first draft's pinned semantics:
 
-**Capture semantics, pinned rather than implied:**
+- **No selection parameter.** Every mutated path is present; the consumer
+  ignores rows it does not need, and there is nothing to opt into or get
+  wrong. `CreateDirectory` needs no special case — its row is a
+  `DirectoryState` no holdings act reads.
+- **Establishment precedes commit.** The observation happens at commit
+  verification, under the lease, before release — and a mutation whose
+  observed post-state does not match **never commits** (`EffectMismatch`).
+  The first draft's committed-but-uncaptured disposition is deleted as
+  unconstructible: there is no committed transaction whose post-state went
+  unobserved. A refused or failed transaction raises, no observation is
+  minted, the intent stays unmatched, the location reads unsettled, and a
+  later re-check repairs it (§4).
+- **One authority, two access paths.** `final_states` decodes the same
+  rows the registration entry carries; a consumer can re-derive them via
+  `read_chain`, and the return is a convenience, never a second source.
 
-- **Selection:** the caller requests capture by naming effect ids — a
-  subset of the spec's effects. Naming an unknown id, or a
-  `CreateDirectory` (a directory is not a byte location and no holdings
-  observation reads one), **refuses at preflight**, before any effect runs.
-- **Timing:** capture is taken once, at transaction end — after the final
-  effect's execution and before the lease releases — so each captured
-  result is the **transaction's** post-state at that effect's path(s). If a
-  later effect in the same transaction touches a captured effect's path,
-  the capture reflects the final state, not the intermediate one; the
-  Science boundary sends **one holdings mutation per transaction**, so the
-  distinction never bites there, but the contract states it.
-- **Rollback:** an aborted or refused transaction returns no outcome and no
-  capture — there is no post-state to attest.
-- **Capture failure after commit:** if the committed transaction's capture
-  cannot establish its answer, the command **fails loudly**, naming the
-  committed `txid` — it never fabricates a result and never silently
-  returns without the requested capture. On the Science side the act then
-  established nothing: no observation is minted, the intent stays
-  unmatched, the location reads unsettled, and a later re-check repairs it
-  (§4) — H4's rule, held at the seam where it bites.
+Atoms returns evidence, never observations; the two-intent move
+orchestration over the dual result is the Science boundary's (§4 below).
+Store payload mutations flow as ordinary registered transactions against
+the store root, so the writability gate, the pending gate, and `fulfills`
+admission apply unchanged — the return is additive, and no existing atoms
+contract moves.
 
 ## 3. The record kind (`science/holdings/records.py`)
 
@@ -241,8 +249,8 @@ atoms intent API **as built**; no log machinery changes.
 1. **One intent per canonical location, appended before mutating** — the
    move appends two, each with its own minted token; one intent cannot name
    two locations.
-2. The store-root transaction runs through atoms with §2.2's capture; the
-   returned capture is the **only** evidence the observation records.
+2. The store-root transaction runs through atoms; §2.2's returned
+   `final_states` rows are the **only** evidence the observation records.
 3. Each observation publishes by its own registered transaction fulfilling
    its own intent — the move's **two registrations**, so the crash cases
    split per location. The intents append one at a time (the atoms intent
@@ -474,8 +482,10 @@ designed to landed, exactly the rot those guards watch.
 ## 7. What this changes elsewhere (applied at banking)
 
 - **Adoption-ledger row 4:** the holdings-prerequisite clause closes — the
-  read command and post-state capture landed, the pushed atoms head named.
-  Row 4 stays the single authority for atoms implementation state.
+  read command and the post-state evidence return landed (the capture
+  clause discharged as §2.2 records: established at commit verification,
+  returned on the outcome), the pushed atoms head named. Row 4 stays the
+  single authority for atoms implementation state.
 - **Adoption-ledger row 5:** the remainder re-states as exactly intent
   qualification (G4), event-level L8, and the L13 preimage resolver — the
   holdings arms landed.
