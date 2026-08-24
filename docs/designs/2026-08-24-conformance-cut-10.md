@@ -11,8 +11,12 @@ inheritances); the holdings specification
 (cited as *spec*); the banked verified-holdings record design
 `2026-08-10-verified-holdings-record-design.md` (cited as *holdings
 design*), whose §6 **H table** is quoted verbatim below — this cut is
-that table's first reading; the frozen **L10** row of
+that table's first reading; the live **G9** row of
+`2026-08-02-epistemic-kernel-design.md` §5, quoted verbatim below; the
+live **L7** and **L10** rows of
 `2026-08-03-tamper-evident-log-design.md` §10, quoted verbatim below;
+`2026-08-22-conformance-cut-8.md` and `2026-08-11-conformance-cut-3.md`
+(the standing L7 and G9 dispositions this cut's partials extend);
 and the approved atoms-local design
 `docs/2026-08-24-holdings-read-and-evidence-commands-design.md` (in the
 atoms repository, approved at atoms `558817b`, implemented and merged —
@@ -81,19 +85,19 @@ construction's, bounded by §1's well-formedness obligation.
 | **H1** | creation is reserved to acts, and to established outcomes | back-filling `found` from a listing or a source digest is unmintable / a hash outside the consistent-read boundary established nothing, and raw concurrent mutation stays out-of-band / `absent` comes only from a post-delete look, never a return code |
 
 - **Full.** Selected (3 units): **(u1)** the back-fill arm — a `found`
-  minted from a directory listing's declared digests, or a managed
-  write's observation minted from the **payload's** digest rather than
-  the engine's verified final row, is unconstructible through the
-  boundary, and the sabotaged construction that mints one fails exactly
-  the declared checks; **(u2)** the outside-boundary arm — a digest taken
-  through the detached capture path (no lease) instead of
-  `read_path_state` established nothing: the boundary's act refuses to
-  mint from it, with raw concurrent mutation staying §4's out-of-band
-  bound, asserted as the claim, not tested as detection; **(u3)** the
-  return-code arm — a deletion's `absent` is minted only from the
-  transaction's verified final `AbsentState` row, never from the
-  command's success alone, and a sabotage that mints it from the return
-  fails the declared checks.
+  minted from a directory listing's declared digests, or from the
+  managed write's **payload** digest in place of label 2's evidence rule
+  (cited, never restated), is unconstructible through the boundary, and
+  the sabotaged construction that mints one fails exactly the declared
+  checks; **(u2)** the outside-boundary arm — a digest taken through the
+  detached capture path (no lease) instead of `read_path_state`
+  established nothing: the boundary's act refuses to mint from it, with
+  raw concurrent mutation staying §4's out-of-band bound, asserted as
+  the claim, not tested as detection; **(u3)** the return-code arm — a
+  deletion's `absent` minted from the command's success alone, against
+  label 2's evidence rule (cited), fails the declared checks; the
+  sabotage mints from the return where the rule demands the verified
+  final `AbsentState` row.
 
 | **H2** | supersession is by explicit reference, per location, over a checked DAG, and a contested, incommensurable, or unsettled location is blocked | active-ness is walked per location over a checked DAG, never ordered by `observed_at` / disagreeing heads block the location rather than any outcome winning / acyclicity is validated on every walk / an unmatched or qualification-unresolved mutating intent leaves its location unsettled, blocking as itself / every agreeing head stays active under coalescence / an algorithm-mixed `found` pair blocks as `incommensurable`, forced into neither box |
 
@@ -145,51 +149,99 @@ construction's, bounded by §1's well-formedness obligation.
   the record fails the declared checks; **(u2)** an inconclusive store
   attempt — an unserviceable or metadata-less root, a preflight refusal,
   a boundary-unobtainable read, an established-neither observation —
-  reports through the act's channel under the ramp vocabulary mapped
-  from the command's structured phase (`byte-locator-untested` /
-  `retrieval-failed`), **mints nothing**, and never supersedes the
-  standing observation; the laundering sabotage (a refusal recorded as
+  reports through the act's channel under label 1's mapping (cited,
+  never restated), **mints nothing, and never supersedes the standing
+  observation** — the mint-nothing rule's single home, the L10 units
+  citing it — and the laundering sabotage (a refusal recorded as
   `absent`) fails the declared checks; **(u3)** a managed mutation runs
   inside its intent–fulfillment ordering or fails: the mutate-first
-  sabotage (skip the intent, mutate, publish) fails the declared checks,
-  and a crash between intent and mutation reads
-  attempt-without-recorded-outcome — the unsettled state H2 u4 blocks
-  on, cited never re-declared.
+  sabotage (skip the intent, mutate, publish) fails the declared checks;
+  the crash window between intent and mutation is L7 u2's arm, and its
+  unsettled reading H2 u4's blocked state — both cited, never
+  re-declared.
+
+| **G9** | A dataset reaches **held** only when **every** resource its declaration names has a byte observation matching the digest recorded for it — declaration does not promote, presence does not promote, a proper subset does not promote (added 2026-08-09, admission ramp §6.3) | **Declaration does not promote:** author a dataset carrying a content identity and no bytes; assert it is **minted** as a world entity (world W3, as narrowed), that it reads **`declared`**, and that G2b refuses it as an assessment input. Assert **no API accepts an authored `held`** and that the state is **derived, never stored** — nothing on the record changes when bytes arrive or leave. **Presence does not promote:** supply bytes whose digest **differs** from the recorded digest for that resource; assert the dataset stays `declared`, that the mismatch is **reported as a mismatch** and not as a failure to retrieve, and that no path promotes on the strength of the bytes existing. **A proper subset does not promote:** over a dataset declaring **three** resources, supply matching bytes for **two** and assert it is still `declared`; supply the third and assert `held`. Then remove one and assert it returns to `declared`. An implementation quantifying **existentially** passes every other arm of this row and fails here, which is the arm's whole job — the declaration is the identity (admission ramp §6.2), so heldness is quantified over the same declaration. **Negative — location is not the discriminator:** hold matching bytes **outside the repository**, content-addressed and retrievable, and assert **`held`** all the same (§2.2), so the row is never read as requiring local storage; then make them unreachable *here* while a controlled copy remains held and assert R5's answer is unchanged. **Negative — absence in one coverage is not absence:** assert that observing no matching bytes across a **declared coverage** yields *no matching observation in that coverage* and **not** `unheld` — the `fb-2026-07-27-010` error the coreference ruling refused, reached from the holding side. **Negative — this row is about the upward transition only:** assert it says nothing about *losing* heldness, which is R5's negative (a). **Sabotage, asserted for independence:** install *the declared path exists* as the promotion predicate; assert **G9 fails while G2b, R5 and R10 all pass** — G2b consumes heldness rather than establishing it, R5 tests the downward transition, and R10 refuses a URL-valued input without saying what acquisition must verify, so an unverified promotion is invisible to every one of them |
+
+- **Partial (this cut reads 1 unit; cuts 2 and 3 stand certified there,
+  cited never re-declared — cut 3 §4.2's arm split, with the
+  minted-as-a-world-entity clause W3's).** Selected: **(u1)** the
+  **independence sabotage**, owed by name to this cut (the holdings
+  design §7: "the arm stays owed to the cut that builds it, and is now
+  buildable" — the persisted promotion predicate's substrate is this
+  slice's dataset-scoped adapter): install *the declared path exists* as
+  the promotion predicate at the adapter seam and assert **G9 fails
+  while G2b, R5 and R10 all pass** — G2b consumes heldness rather than
+  establishing it, R5 tests the downward transition, and R10 refuses a
+  URL-valued input without saying what acquisition must verify. The row
+  label stays partial because this cut reads exactly this arm; every
+  other arm stands at its prior certification.
+
+| L7 | Intent claims are exactly as wide as stated | assessment-run intent with **no pointers at all, or every `fulfills` pointer fully resolved and non-qualifying** — §6's exact reduction, never a collapse of an unresolved candidate → attempt-without-recorded-outcome finding, never a refutation; excise the intent entry after anchoring → **malformed** (interior linkage break) or, via truncation to a valid prefix, **refuted** — never silent; a second committed registration fulfilling the same intent, or a `fulfills` naming a missing or non-ancestor intent → **malformed**; mutate the fulfillment itself — a wrong-purpose committed transaction carrying `fulfills = I`, a run publication under another spec, another `event_token`, or a publication creating no run → each **fails qualification** (§3), the intent stays attempt-without-recorded-outcome, and the non-qualifying `fulfills` is named in a finding; make a **genuine** published run's bytes unresolvable → qualification **unresolvable**, and **no** unmatched finding is emitted (§6's reduction); kill between the intent's durable append and execution start → intent present, no execution — attempt-without-recorded-outcome, exactly as stated; race two cooperative intent appends on one root → serialized by the root lease, one linear chain, never a sibling branch (L3); attempt to publish the run through a root other than the intent's → **refused**, placement froze before execution; assert no caller-supplied `fulfills` path exists at the boundary; **negative:** crash, cancellation, and discarded failure are indistinguishable by construction; the guarantee quantifies over **both** intent kinds — instantiated for the holdings shape, a wrong-location observation, a wrong token, or a publication creating no observation each **fails qualification**; a kill between a holdings intent's append and its mutation reads attempt-without-recorded-outcome, exactly as stated *(amended 2026-08-10, the verified-holdings record design §8)*; the guarantee now quantifies over the **operation intent** too — instantiated for its shape, a report carrying another operation's token, a report of the wrong kind, a run publication for a non-run operation, or a registration publishing no terminal record each **fails qualification** (a second fulfilling registration on one intent stays the chain's **malformed**, classified before qualification — T2's arm), and a kill between the operation intent's append and its first act reads attempt-without-recorded-outcome, exactly as stated *(amended 2026-08-11, the act-report design §3)* |
+
+- **Partial (this cut reads 2 units; cut 8's two chain-structural
+  malformed units stand certified there, cited never re-declared).**
+  Cut 8 deferred the qualification reduction and the boundary-side arms
+  to named owners; the **holdings-shape instantiations** are this
+  slice's and are selected here — a cross-cut listing must still not
+  read this cut as L7's closure, since the general reduction, G4's
+  closure, and the run- and operation-shape arms remain the
+  intent-boundary slice's (§8). Selected: **(u1)** the holdings-shape
+  qualification instantiation — a wrong-location observation, a wrong
+  token, or a publication creating no observation each **fails
+  qualification**, the intent stays attempt-without-recorded-outcome,
+  and the non-qualifying `fulfills` is named in a finding; the decision
+  rule is the spec's pinned three-step precedence, declared here as this
+  unit's single home: matched (a committed registration's final file row
+  derives to a qualifying captured observation), then unresolved (a
+  final file row at a holdings-observation path with no captured record
+  deriving to it, and every settlement-less registration as itself),
+  then non-qualifying — a rolled-back registration resolved and
+  non-qualifying with its rows unconsulted, and an unresolved candidate
+  **never collapsed** into either resolved state (spec §4.3, §5.1);
+  **(u2)** the holdings append-before-mutation boundary arm — the
+  intent's durable append precedes the act's read or mutation, no
+  caller-supplied `fulfills` path exists at the boundary (the holdings
+  instantiation), and a kill between the intent's append and its
+  mutation reads attempt-without-recorded-outcome, exactly as stated —
+  the window H4 u3 and label 9's move readings cite.
 
 | L10 | A fork is a new chain; a replica is the same chain | fork act → fresh genesis carrying `(parent genesis, parent head)` and its own baseline; assert parent and fork anchors are never compared; replica/restore → same genesis, chain carried unchanged, comparability intact; a copy presenting the parent genesis under a fresh `corpus_id` manifest without a fork-genesis → its chain refuses to verify under the new identity (genesis names the parent `corpus_id`); the **store instantiation** (the verified-holdings record design §2) — replica act → same genesis, chain carried unchanged, a claim-only destination directory published first as reserved, surface-excluded no-clobber bookkeeping, with no payload, chain, override, lifecycle stamp or grant, or serviceability before the read-only stamp; kill inside that window → the interrupted copy is metadata-less, hence read-only, never a writable twin; cooperative mutation of an existing root **not granted writability** → refused, with recorded root creation the sole pre-grant write exception and the fork act the only writable exit; fork act → the new `store(store_id, forked_from)` genesis durable **before** the writability grant; kill between them → still a read-only replica; **copy any store tree without its engine metadata — replica or original alike — and cold-bootstrap it → read-only and unresolvable for holdings reads**, every mutation refused, the stamp's loss failing closed, never open; **restore two metadata-less copies of one `store_id` on two hosts → both enter service read-only**, a write on either refused — the sole writable exit is a fork under a new `store_id`, so two cooperative writers of one store stay unconstructible; **an interrupted copy carrying genesis and chain with payload files missing → the restore act's verification under a store-anchored observer set never returns `validated`**, the verdict is preserved — refuted, malformed, or unresolvable, never coerced to an admission — the root stays unserviceable and its dereferences mint nothing, in particular never an `absent` for a path the copy failed to carry; **a restore presented with an empty store-anchored observer set → unresolvable, replay not reached** (the verifier's L9 bound), the root unserviceable; raw-written copies of one `store_id` with branches assembled in one root → sibling-malformed (L3); both divergent heads supplied as anchors in one observer set → refuted (L9); the same two copies verified **separately** after their last common anchored head → each validates, the divergent tails L5's unanchored residue — the pinned surviving-observer negative *(amended 2026-08-10, the verified-holdings record design §8)*; *(amended 2026-08-23, the log-verification design §1.2/§6.2 — mechanism, not verdict: the copy presenting the parent genesis under a fresh `corpus_id` manifest **cannot** be caught by a genesis-payload comparison, since a corpus genesis names no `corpus_id`. The arrival act is the mechanism instead — `admit_arrival` selects `S = Corpus(provenance.parent_corpus_id)`, because the chain a replica carries is its parent's, and the fresh manifest then refuses `SubjectMismatch`: its chain refuses to verify under the new identity, exactly the frozen claim. This is the one arm of this row conformance cut 8 reads; every fork, replica-construction, restore and store arm still waits on ledger row 4)* |
 
 - **Partial (this cut reads 2 units; cut 9's twelve and cut 8's one
-  stand certified there, cited never re-declared).** Selected: **(u1)**
-  the cold-bootstrap dereference clause, the successor of cut 9's L10u8
-  remainder — a metadata-less store root is **unresolvable for holdings
-  reads**: every dereference of it is an inconclusive attempt reported
-  as such, **minting nothing**, never an `absent` for a path the copy
-  merely failed to carry — the boundary's mapping of the read command's
-  lifecycle refusal, exercised through the acts; **(u2)** the
-  interrupted-copy dereference clause, the successor of cut 9's L10u10
-  remainder — an unserviceable root that never validated has
-  dereferences that **mint nothing**, in particular never an `absent`
-  for an uncopied payload path. With these two units, the row's
-  clause-by-clause coverage across cuts 8–10 has no named remainder;
-  the row label stays partial because this cut reads exactly two of its
-  clauses.
+  stand certified there, cited never re-declared).** Both units exercise
+  label 1's mapping and H4 u2's mint-nothing rule (cited, never
+  restated) at their specific lifecycle states, through the acts.
+  Selected: **(u1)** the cold-bootstrap dereference clause, the
+  successor of cut 9's L10u8 remainder — a metadata-less store root is
+  **unresolvable for holdings reads**: every dereference of it reports
+  as an inconclusive attempt, never an `absent` for a path the copy
+  merely failed to carry; **(u2)** the interrupted-copy dereference
+  clause, the successor of cut 9's L10u10 remainder — an unserviceable
+  root that never validated, whose dereferences report likewise, in
+  particular never an `absent` for an uncopied payload path. Each unit's
+  distinct claim is its lifecycle-state instantiation and its named
+  never-`absent` path. With these two units, the row's clause-by-clause
+  coverage across cuts 8–10 has no named remainder; the row label stays
+  partial because this cut reads exactly two of its clauses.
 
 ### 3.2 Rows not read
 
-Every other row of every table stands at its prior cut's certification;
-this cut reads exactly the rows its slice's mutations move. **L7 is
-deliberately not read**: the holdings-shape qualification is declared as
-labeled behavior (§3.3 label 9), and L7's general reduction, G4's
-closure, and the boundary-side arms remain the intent-boundary slice's —
-a cross-cut listing must not read this cut as L7's closure. No expected
-row fails construction.
+Every row not quoted in §3.1 stands at its prior cut's certification;
+this cut reads exactly the rows its slice's mutations move — including
+the two rows whose deferred arms this slice's mutation surface reaches:
+G9 (the independence sabotage, owed by name to the cut building the
+promotion predicate's substrate) and L7 (the holdings-shape
+qualification and boundary arms cut 8 deferred). A partial row's unread
+arms stand at their prior certification or with their named owners
+(§3.1's dispositions; §8). No expected row fails construction.
 
 ### 3.3 Labeled declarations
 
-Twelve labeled declarations carry the spec's minted obligations outside
+Eleven labeled declarations carry the spec's minted obligations outside
 the frozen rows, declared as data beside the selected arms:
 
-1. **The read-command consumption and the phase mapping** — the boundary
+1. **The read-command consumption and the phase mapping** — the
+   mapping's single home; H4 u2 and the L10 units cite it. The boundary
    maps the atoms read command's structured result and nothing else:
    `PathObserved(FileState)` → `found` from the content hash,
    `PathObserved(AbsentState)` → `absent`, a final symlink or directory
@@ -200,11 +252,12 @@ the frozen rows, declared as data beside the selected arms:
    types are never classified into the report vocabulary (spec §2.1,
    §4.1). The command's interior is the atoms design's certified
    production, cited.
-2. **The post-state evidence rule** — a managed mutation's observation
-   records only the transaction's returned `final_states` rows (the
-   commit-verified final surface); a refused or failed transaction mints
-   nothing; the committed-but-unobserved window is unconstructible in
-   the engine, cited never re-proven (spec §2.2).
+2. **The post-state evidence rule** — the rule's single home; H1 u1 and
+   u3 exercise its sabotages, citing it. A managed mutation's
+   observation records only the transaction's returned `final_states`
+   rows (the commit-verified final surface); a refused or failed
+   transaction mints nothing; the committed-but-unobserved window is
+   unconstructible in the engine, cited never re-proven (spec §2.2).
 3. **The locator union ships store-only** — `store(store_id,
    relative_path)` with the 32-hex identity and the refuse-never-
    normalize path grammar; constructing a `url` locator refuses with the
@@ -228,26 +281,22 @@ the frozen rows, declared as data beside the selected arms:
    stamping, joining the stored codec/decode surfaces; authored only
    through the acts boundary; a member of **no epoch map** — the
    coverage projection is its read surface this slice (spec §3).
-8. **The holdings intent and its fulfillment** — the intent payload
-   (canonical location, act kind, boundary-minted `event_token`, actor)
-   appended in the observer's corpus before any store-dereferencing act
-   reads or mutates; `fulfills` constructed by the boundary from its own
-   intent, never caller-selected; and the publishing transaction
+8. **The holdings intent payload and the registered path** — the intent
+   payload is the spec's closed shape (canonical location, act kind,
+   boundary-minted `event_token`, actor), and the publishing transaction
    **registers the observation's stored path**, so the chain's
-   registration rows carry the row qualification reads (spec §4).
-9. **Qualification is the pinned three-step precedence, holdings-shape
-   only** — matched, then unresolved (a final file row at a
-   holdings-observation path with no captured record deriving to it),
-   then non-qualifying; a rolled-back registration is resolved and
-   non-qualifying with its rows unconsulted; a registration with no
-   settlement entry is unresolved as itself; **the general L7 reduction
-   and G4 are explicitly not claimed** (spec §4.3, §5.1).
-10. **The move choreography** — two intents appended one at a time, two
-    registrations, and the three crash windows read exactly: between the
-    appends, one location unsettled and the other intent-less and
-    unmutated; after both appends before the mutation, both unsettled;
-    between the publications, one settled and one unsettled (spec §4.2).
-11. **Mechanical capture under the closed schema** — the coverage
+   registration rows carry the row qualification reads; the
+   append-before-mutation ordering and the no-caller-supplied-`fulfills`
+   arm are L7 u2's, cited (spec §4).
+9. **The move choreography** — two intents appended one at a time, two
+   registrations, and the three crash windows read exactly: between the
+   appends, one location unsettled and the other intent-less and
+   unmutated; after both appends before the mutation, both unsettled;
+   between the publications, one settled and one unsettled — each
+   window's readings are L7 u2's attempt-without-recorded-outcome and
+   H2 u4's blocked state, cited; the two-intent choreography itself is
+   this label's declared content (spec §4.2).
+10. **Mechanical capture under the closed schema** — the coverage
     projection carries every stored record's uid and §11.1 canonical
     projection (no kind filter, no storage bytes) and the validated
     chain whole with settlement entries; a record that cannot be read or
@@ -255,7 +304,7 @@ the frozen rows, declared as data beside the selected arms:
     names, orders, and variant tags are the spec's closed schema, one
     capture one byte form (spec §5.1) — the constructions H3's arms
     stand on, declared once here.
-12. **The receipt facet** — `science.holdings-receipt.v1`, closed
+11. **The receipt facet** — `science.holdings-receipt.v1`, closed
     members: `kind` (`holdings-reduction`), `coverage` (sorted
     corpus-id/state/chain-head triples), the rules-store binding pair,
     and the two outputs' canonical-encoding digests — identity digesting
@@ -264,9 +313,9 @@ the frozen rows, declared as data beside the selected arms:
 
 ## 4. Accounting
 
-Five rows read: **3 full** (H1, H2, H3) **+ 2 partial** (H4, L10).
-Selected units by row: H1 3, H2 6, H3 3, H4 3, L10 2 — **17 selected +
-12 labeled = 29 declaration units**.
+Seven rows read: **3 full** (H1, H2, H3) **+ 4 partial** (H4, G9, L7,
+L10). Selected units by row: H1 3, H2 6, H3 3, H4 3, G9 1, L7 2, L10 2
+— **20 selected + 11 labeled = 31 declaration units**.
 
 ## 5. N2 obligations
 
@@ -294,22 +343,37 @@ check-time obligations:
 6. **L10 u1/u2** assert their roots' lifecycle states (metadata-less;
    read-only unserviceable post-failed-restore) through
    `read_lifecycle_state` before any dereference is attempted.
-7. **Count claims** in the results record quote pytest's summary line
+7. **G9 u1** asserts G2b, R5 and R10 pass **against the same sabotaged
+   installation** in which G9 fails — a pass read from an unsabotaged
+   build would make the independence claim vacuous.
+8. **L7 u2's kill construction** produces its intent through the
+   boundary's own append path, never by raw-authoring the chain entry —
+   obligation 3's rule, extended to this unit.
+9. **Count claims** in the results record quote pytest's summary line
    under `pipefail`, never a collect-only count.
 
 ## 6. Freeze obligations
 
-Three, named before the plan exists: **H1 u2's outside-boundary digest**
+Five, named before the plan exists: **H1 u2's outside-boundary digest**
 must be taken through the detached capture path over an undamaged store
 — never by chain or payload damage — so the established-nothing claim is
 the boundary's, not corruption's; **H2 u3's cycle** must be constructed
 by raw-authoring records whose `supersedes` references close a loop
 while each record remains individually well-formed under the stored
 codec — the refusal must be the walk's acyclicity check, not a decode
-failure; and **the L10 units' dereferences** must run through the acts
+failure; **the L10 units' dereferences** must run through the acts
 boundary (the act reporting, minting nothing), never by calling the
 atoms read command directly — the claim is Science's mapping, and the
-command's own refusal is the atoms design's certified territory.
+command's own refusal is the atoms design's certified territory;
+**G9 u1's sabotage** must corrupt the promotion predicate at the
+adapter seam — the persisted substrate the arm was written for — with
+G2b, R5 and R10 read through that same seam, never by faking an
+admission state downstream of it; and **L7 u1's non-qualifying
+fulfillments** must be genuine committed transactions carrying
+`fulfills` whose registered rows are wrong in exactly the named way
+(wrong location, wrong token, no observation) — chain states
+`inspect_chain` accepts, so each failure is qualification's verdict,
+never a malformed-chain classification reached first.
 
 ## 7. Second reader
 
@@ -319,6 +383,30 @@ check single-homing across rows and labeled declarations; test each
 partiality against the any-unrun-arm rule; verify the §4 accounting by
 independent recount; and read §3.2 adversarially. Findings and their
 dispositions are recorded here before freeze.
+
+**First reading (2026-08-24), three findings, all accepted:**
+
+1. *P1 — G9 independence omitted.* §3.2 claimed every other row stood
+   previously certified while the holdings design §7 owes G9's
+   independence sabotage by name to the cut building the promotion
+   predicate's substrate — this slice's adapter, inside §2's mutation
+   surface. Disposition: the G9 row quoted verbatim and selected
+   partial (1 unit, the independence arm); §3.2 corrected.
+2. *P1 — L7 replaced by a label.* §3.2 deliberately excluded L7 while
+   labels declared its holdings-shape qualification and boundary
+   behavior — the arms cut 8 expressly deferred and this slice now
+   runs. Disposition: the L7 row quoted verbatim and selected partial
+   (2 units, the holdings-shape qualification and the
+   append-before-mutation arm); the former qualification label folded
+   into L7 u1; the intent label narrowed to the payload shape and the
+   registered path, citing L7 u2.
+3. *P2 — double-homed assertions.* H1 u1/u3 restated label 2's
+   evidence rule; H4 u2, both L10 units, and label 1 each carried the
+   refusal mapping and the mint-nothing assertion. Disposition: label 2
+   is the evidence rule's single home and label 1 the mapping's; the
+   mint-nothing rule is homed in H4 u2; H1 u1/u3, H4 u2, and the L10
+   units now cite instead of restating; H4 u3's crash window cites
+   L7 u2. Recount: 17 + 12 = 29 → **20 selected + 11 labeled = 31**.
 
 ## 8. Limitations
 
@@ -331,9 +419,12 @@ dispositions are recorded here before freeze.
    slice; label 3's construction refusal is the declared boundary.
 3. **Acquisition orchestration defers** with the act-report design's
    reading of act termini; no acquisition-level state is read here.
-4. **The intent-boundary territory is untouched**: L7's general
-   reduction, G4's closure, and the boundary-side arms — label 9
-   declares the holdings-shape instantiation only.
+4. **The intent-boundary territory beyond the holdings shape is
+   untouched**: L7's general reduction, G4's closure, the run- and
+   operation-shape arms, and the remaining boundary-side arms
+   (placement freeze, the run-shape kill windows) stay the
+   intent-boundary slice's — L7's partial selection here reads exactly
+   its two holdings arms.
 5. **Recency and typed grants defer** as the holdings design's §7 items
    1 and 8; the reducer this cut certifies is the rule a recency
    successor would replace, its binding receipt-pinned for exactly that
