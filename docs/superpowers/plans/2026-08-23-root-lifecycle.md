@@ -1032,7 +1032,7 @@ contracts, not sketches.
   `test_the_declared_units_are_unique_and_number_thirty` pinning the
   count.
 
-- [ ] **Step 1:** Declare all 30 units as data, unit-for-unit against the
+- [x] **Step 1:** Declare all 30 units as data, unit-for-unit against the
   frozen cut's §3.1 dispositions and §3.3 labels, each carrying its §5
   declaration-time obligations (chain fabrications pass `inspect_chain`;
   bookkeeping fabrications read back through `read_lifecycle_state`; the
@@ -1090,11 +1090,11 @@ contracts, not sketches.
   | label 9 | `t_store_subjects::test_anchor_refuses_a_store_id_genesis_mismatch_before_registry_mutation`, `::test_export_head_artifact_round_trips_a_store_head`, `::test_store_audit_holds_one_boundary_across_inspect_capture_evaluate` | — |
   | label 10 | `t_store_root::test_init_store_root_refuses_a_populated_payload_root`, `::test_store_genesis_payload_round_trips`, `::test_store_surface_excludes_bookkeeping`, `::test_store_surface_does_not_follow_symlinks`, `t_fork_acts::test_nonfork_genesis_still_requires_empty_baseline` | — |
   | label 11 | `t_lifecycle_wrappers::test_metadata_less_copy_refuses_mutation_at_the_writability_gate`, `::test_writable_pending_root_still_refuses_pending_unresolved` (cited from L2 u1, single-homed there) | — |
-- [ ] **Step 2:** Run the audit:
+- [x] **Step 2:** Run the audit:
   `uv run --frozen pytest tests/acceptance/test_n2_cut9.py -v`. Every one
   of the 30 arms resolves `sound`; fix any `vacuous`/`uncollected`/`stale`
   as harness or declaration defects, never by weakening a check.
-- [ ] **Step 3:** Gate block; quote the summary line. Commit:
+- [x] **Step 3:** Gate block; quote the summary line. Commit:
   `test(cut9): declare the 30 frozen arms`. Append and commit the ledger.
 
 ### Task 10: Certified acceptance

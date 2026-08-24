@@ -38,8 +38,12 @@ PARENT_ID = "a1" * 16
 
 
 def _parent_corpus(work: Path, name: str = "parent") -> Path:
-    """A registered parent with a manifest and one stored record."""
+    """A registered parent with a manifest, a stored record, and a chain
+    whose head has moved past its genesis — so a fork fact that confused the
+    two digests could never agree with the parent by coincidence."""
+    from nodes.core.frontmatter import node_to_markdown
     from nodes.core.node import Node
+    from nodes.core.write_plan import CreateOp
 
     root = work / name
     init_corpus_root(root)
@@ -56,6 +60,20 @@ def _parent_corpus(work: Path, name: str = "parent") -> Path:
             ),
         ),
     )
+    logged = node_to_markdown(
+        Node(
+            id="note:logged",
+            uid="2" * 32,
+            kind="note",
+            title="the logged record",
+            facets={},
+        )
+    ).encode("utf-8")
+    science_root.durable_executor_factory()(root).execute(
+        [CreateOp("note/logged.md", logged)]
+    )
+    genesis, head = _head_of(root)
+    assert head != genesis
     return root
 
 

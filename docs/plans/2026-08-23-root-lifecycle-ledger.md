@@ -201,6 +201,29 @@ Freeze hash: `0977bde`
     2249 passed in 356.40s (0:05:56)` (the three known Task-11
     documentation failures), ruff clean, pyright at its four baseline
     diagnostics, cut-7 acceptance exit 0.
+22. **R22 — Task 9 discharged: the 30 declarations, every arm sound.**
+    `tests/acceptance/n2_arms_cut9.py` declares cut 9's 19 selected + 11
+    labeled = 30 units with Science-only check nodes and the
+    `ATOMS_CITATIONS_BY_UNIT` metadata map (keys `L10u4`, `L10u5`, `L10u7`,
+    `V1`–`V6`), and `tests/acceptance/test_n2_cut9.py` reconciles the
+    accounting against the frozen cut, audits all 30 arms (every verdict
+    `sound`; `23 passed in 16.62s` for the audit module), pins cuts 5–8's
+    files byte-identical (cut 8 at its banking commit `55b6de7`,
+    deliberately stale per R15), and enforces the §5/§6 obligations as
+    source-borne checks. Three refinements forced by the harness's
+    all-checks-fail physics, recorded as the declarations state them:
+    the labels take the `V` prefix (`D1`–`D10` are cut 8's); the fork-of
+    admission integration node is homed on W13 u2 (label 8's verify-side
+    sabotage cannot reach `World.admit`); label 9 audits the shared
+    genesis-binding refusal pair while the export round-trip and audit-hold
+    nodes stand un-sabotaged in the ordinary suite, and label 10 likewise
+    audits its three surface-borne nodes with the payload-codec and
+    non-fork-baseline clauses suite-enforced. One fixture correction: the
+    fork parent's chain now moves past its genesis (head ≠ genesis
+    asserted), closing the coincidence that made L10 u1's first sabotage
+    vacuous. Full-suite gates: `3 failed, 2249 passed in 354.18s (0:05:54)`
+    (the three known Task-11 documentation failures), ruff clean, pyright
+    at its four baseline diagnostics, cut-7 acceptance exit 0.
 
 ## Heads
 
@@ -214,4 +237,5 @@ Freeze hash: `0977bde`
 | 5 — lifecycle wrappers and gate precedence | `bf559c2` (merge of `fb95e1a`) | `ee590d2` |
 | 6 — restore_root | `bf559c2` | `588fc9e` |
 | 7 — the fork acts | `bf559c2` | `d0d632d` |
-| 8 — fork-of admission and arrival modes | `bf559c2` | this task's commit |
+| 8 — fork-of admission and arrival modes | `bf559c2` | `d28d5ce` |
+| 9 — the 30 N2 declarations | `bf559c2` | this task's commit |
