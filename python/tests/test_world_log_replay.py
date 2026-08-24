@@ -231,8 +231,10 @@ def test_a_non_directory_occupying_a_grammars_name_is_a_claimed_path(tmp_path):
 
 
 def test_an_unclaimed_kind_refuses(tmp_path):
+    # "store" joined the projection with the root-lifecycle slice; "holdings"
+    # is the next planned kind and stays unclaimed until its own slice.
     with pytest.raises(ValueError):
-        verify.registered_surface_paths(tmp_path, "store")  # pyright: ignore[reportArgumentType]
+        verify.registered_surface_paths(tmp_path, "holdings")  # pyright: ignore[reportArgumentType]
 
 
 @pytest.mark.parametrize("kind", ["corpus", "world"])

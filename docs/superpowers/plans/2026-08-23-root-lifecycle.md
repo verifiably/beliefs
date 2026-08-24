@@ -509,7 +509,7 @@ contracts, not sketches.
   under the store genesis domain. Add `init_store_root` to
   `science.root.__all__`.
 
-- [ ] **Step 1: Write the failing tests** in `tests/test_store_root.py`:
+- [x] **Step 1: Write the failing tests** in `tests/test_store_root.py`:
 
   - `test_init_store_root_mints_a_fresh_opaque_id` — two inits in two
     directories mint distinct 32-lowercase-hex ids; renaming the root
@@ -535,9 +535,9 @@ contracts, not sketches.
     entry is included.
   - `test_store_surface_does_not_follow_symlinks` — a symlink is an
     entry, never traversed.
-- [ ] **Step 2:** Run: `uv run --frozen pytest tests/test_store_root.py -v`.
+- [x] **Step 2:** Run: `uv run --frozen pytest tests/test_store_root.py -v`.
   Expected: FAIL, `ImportError: cannot import name 'init_store_root' from 'science.root'`.
-- [ ] **Step 3: Implement**, following `_world_genesis_payload` and
+- [x] **Step 3: Implement**, following `_world_genesis_payload` and
   `init_world_root` as the pattern (directory handling and refusal
   included). Sketch:
 
@@ -590,7 +590,7 @@ contracts, not sketches.
   metadata, `entry.is_symlink()` checked before any `is_dir()` traversal.
   Extend the boundary test's engine-command list with the seven exact names
   listed in this task's file block.
-- [ ] **Step 4:** Run to PASS, then the gate block. Commit:
+- [x] **Step 4:** Run to PASS, then the gate block. Commit:
   `feat(root): store roots and the canonical store projection`. Append
   and commit the ledger.
 

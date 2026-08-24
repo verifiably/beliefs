@@ -81,6 +81,21 @@ Freeze hash: `0977bde`
     quiescent read-only entry, and the structural taxonomy over carrier-less
     trees is `inspect_chain_detached`'s alone. Three atoms chain-inspection
     tests were re-pinned accordingly.
+14. **R14 — Task 3 discharged.** `init_store_root` mints the opaque
+    32-lowercase-hex `store_id`, refuses a populated root, returns the
+    original id over an interrupted init through `register_root`'s own
+    recorded-operation retry, and maps the engine's `PreconditionRefused`
+    on every other existing-genesis carrier to `CorpusRootRefused` (R10's
+    boundary). `registered_surface_paths` gained the `"store"` arm — the
+    whole-namespace projection through the one existing walker. The
+    boundary roster gained the seven lifecycle command names, and
+    `register_root`'s call-site registry records `init_store_root`'s two
+    sites. `test_world_log_replay.py::test_an_unclaimed_kind_refuses`
+    re-pinned to "holdings", the next unclaimed kind. Gates under
+    `pipefail`: `3 failed, 2187 passed in 438.74s (0:07:18)` — the three
+    known pre-banking documentation failures assigned to Task 11 — with
+    ruff "All checks passed!", pyright at its four known baseline
+    diagnostics, and `tools/cut7_acceptance.py` exit 0.
 
 ## Heads
 
@@ -89,3 +104,4 @@ Freeze hash: `0977bde`
 | 0 — tracking setup | — | `7db3e38` |
 | 1 — reviewed atoms design and Science contract amendment | `b1469f4` | this amendment commit |
 | 2 — atoms lifecycle implementation | `ff144e7` (merge of `24b15ce`) | this ledger commit |
+| 3 — store roots and the store projection | `ff144e7` | this task's commit |

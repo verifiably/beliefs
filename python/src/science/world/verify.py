@@ -162,7 +162,7 @@ something the evaluator goes looking for.
 
 # --- the registered-surface projection (design §5.1) ------------------------
 
-RootKind: TypeAlias = Literal["corpus", "world"]
+RootKind: TypeAlias = Literal["corpus", "world", "store"]
 
 CORPUS_MANIFEST = "corpus.yaml"
 WORLD_MANIFEST = "world.yaml"
@@ -221,7 +221,14 @@ def registered_surface_paths(root: Path, kind: RootKind) -> tuple[str, ...]:
         return tuple(sorted(path for path in _files_beneath(root, "") if _claimed_by_the_corpus_layout(path)))
     if kind == "world":
         return _world_surface(root)
-    raise ValueError(f"{kind!r} is not a projected root kind: the projection is instantiated for corpus and world")
+    if kind == "store":
+        # The whole-namespace projection: a store's payload is opaque, so
+        # every non-bookkeeping root-relative entry is claimed. The walker's
+        # own dot-prefix rule already excludes exactly bookkeeping — the
+        # chain leaf, the root claim, engine metadata — and nothing else,
+        # and symlinks stay leaves here as everywhere.
+        return tuple(sorted(_files_beneath(root, "")))
+    raise ValueError(f"{kind!r} is not a projected root kind: the projection is instantiated per root kind")
 
 
 def _claimed_by_the_corpus_layout(path: str) -> bool:

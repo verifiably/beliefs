@@ -58,6 +58,13 @@ ENGINE_COMMANDS = (
     "read_chain",
     "register_root",
     "run_transaction",
+    "replicate_root",
+    "fork_root",
+    "read_pending_fork_operation",
+    "resume_fork_root",
+    "grant_read_serviceability",
+    "read_lifecycle_state",
+    "migrate_root_to_lifecycle_v3",
 )
 """The engine entry points Science calls by name, the log seam's four included.
 
@@ -371,7 +378,12 @@ MUTATING_ENGINE_COMMANDS = ("register_root", "append_intent", "run_transaction")
 
 ENGINE_CALL_SITES = {
     "run_transaction": ["DurableExecutor._submit"],
-    "register_root": ["init_corpus_root", "init_world_root"],
+    "register_root": [
+        "init_corpus_root",
+        "init_world_root",
+        "init_store_root",
+        "init_store_root",
+    ],
     "append_intent": ["DurableOperationPort.append_intent"],
 }
 """Where each mutating command is called, by enclosing definition.
@@ -381,7 +393,9 @@ One `run_transaction` site, and it is the durable executor's submission — so
 only in the two initializers and `append_intent` only in the operation port:
 genesis registration and intent append are protocol entries, not application
 mutations, which is why they are named separately rather than counted as a
-second mutation path.
+second mutation path. `init_store_root` carries two register sites by
+design: the interrupted-initialization retry and the fresh mint are the
+same recorded operation approached from its two durable states.
 """
 
 PORT_METHOD_NAMES = frozenset({"append_intent"})

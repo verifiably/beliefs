@@ -26,6 +26,8 @@ here and nowhere else (log-verification design §2, §6.4).
 from __future__ import annotations
 
 import io
+import json
+import secrets
 import stat as stat_module
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
@@ -46,12 +48,25 @@ from atoms.chain.model import (
     state_from_json,
 )
 from atoms.coordinator.commands import (
+    DestinationOverride,
+    LifecycleState,
+    RootOperationId,
+    RootOperationInvalid,
+    RootOperationMismatch,
+    SourceSnapshotMoved,
     append_intent,
     capture_states,
+    fork_root,
+    grant_read_serviceability,
     inspect_chain,
     inspect_chain_detached,
+    migrate_root_to_lifecycle_v3,
     read_chain,
+    read_lifecycle_state,
+    read_pending_fork_operation,
     register_root,
+    replicate_root,
+    resume_fork_root,
     run_transaction,
 )
 from atoms.core.effects import CreateDirectory, CreateFileNoClobber, DeletePath, Effect, ReplaceFile
@@ -114,6 +129,7 @@ from science.world.verify import (
     _admit_arrival,
     _audit_log,
     _epochs_ordered,
+    registered_surface_paths,
 )
 
 __all__ = [
@@ -124,10 +140,20 @@ __all__ = [
     "GENESIS_PAYLOAD",
     "INTENT_DOMAIN",
     "PRODUCTION_STORAGE",
+    "STORE_GENESIS_DOMAIN",
     "WORLD_CONSUMER_TAG",
     "WORLD_GENESIS_DOMAIN",
+    # The lifecycle boundary values sit in alphabetical order with the rest:
+    # the engine's exact state, operation, and override types and its named
+    # refusals, shared rather than redefined (plan Task 3).
+    "DestinationOverride",
     "DurableExecutor",
     "DurableOperationPort",
+    "LifecycleState",
+    "RootOperationId",
+    "RootOperationInvalid",
+    "RootOperationMismatch",
+    "SourceSnapshotMoved",
     "admit_arrival",
     "anchor_heads",
     "audit_log",
@@ -136,6 +162,7 @@ __all__ = [
     "epochs_ordered",
     "export_head_artifact",
     "init_corpus_root",
+    "init_store_root",
     "init_world_root",
     "install_shipped_world_rules",
     "metadata_root_for",
@@ -164,6 +191,18 @@ them: changing this constant does not migrate a root, it orphans one.
 
 INTENT_DOMAIN = "science.corpus-write-intent.v1"
 WORLD_GENESIS_DOMAIN = "science.world-root.v1"
+STORE_GENESIS_DOMAIN = "science.store-root.v1"
+
+# The seven lifecycle commands, held as the private callback aliases the
+# fork/restore acts consume — same seam discipline as `chain_head_reader`:
+# root.py names every engine command, and nothing above it does.
+_replicate_root_callback = replicate_root
+_fork_root_callback = fork_root
+_read_pending_fork_operation_callback = read_pending_fork_operation
+_resume_fork_root_callback = resume_fork_root
+_grant_read_serviceability_callback = grant_read_serviceability
+_read_lifecycle_state_callback = read_lifecycle_state
+_migrate_root_to_lifecycle_v3_callback = migrate_root_to_lifecycle_v3
 
 PRODUCTION_STORAGE = StorageProfile(profile_id="flush-honoring-disk.v1")
 """The engine's production storage profile, passed through unchanged.
@@ -263,6 +302,149 @@ def init_world_root(config: WorldConfig) -> None:
         return
     if _load_world_mirror(root) != config.world_id:
         raise WorldIdMismatch(f"{mirror}: world_id does not match configuration")
+
+
+def _store_genesis_payload(store_id: str, forked_from: tuple[str, str] | None) -> bytes:
+    doc: dict[str, object] = {"domain": STORE_GENESIS_DOMAIN, "store_id": store_id}
+    if forked_from is not None:
+        doc["forked_from"] = {"genesis": forked_from[0], "head": forked_from[1]}
+    return v1.encode(doc)
+
+
+_HEX_32 = frozenset("0123456789abcdef")
+
+
+def _decode_store_genesis(payload: bytes) -> tuple[str, tuple[str, str] | None]:
+    """Decode a store genesis payload, refusing every non-canonical shape.
+
+    The payload is Science's own minting under `science.identity.v1`, so the
+    decode accepts exactly what `_store_genesis_payload` emits: the domain,
+    a 32-lowercase-hex `store_id`, and optionally the two-field `forked_from`
+    fact — parent genesis digest and the head the fork copied.
+    """
+
+    def refuse(reason: str) -> CorpusRootRefused:
+        return CorpusRootRefused(f"store genesis payload is malformed: {reason}")
+
+    try:
+        document = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as caught:
+        raise refuse("not canonical JSON") from caught
+    if type(document) is not dict:
+        raise refuse("not an object")
+    if document.get("domain") != STORE_GENESIS_DOMAIN:
+        raise refuse(f"domain is not {STORE_GENESIS_DOMAIN}")
+    store_id = document.get("store_id")
+    if (
+        type(store_id) is not str
+        or len(store_id) != 32
+        or not set(store_id) <= _HEX_32
+    ):
+        raise refuse("store_id must be 32 lowercase hexadecimal characters")
+    forked_from: tuple[str, str] | None = None
+    if "forked_from" in document:
+        fact = document["forked_from"]
+        if type(fact) is not dict or set(fact) != {"genesis", "head"}:
+            raise refuse("forked_from must carry exactly genesis and head")
+        genesis, head = fact["genesis"], fact["head"]
+        for label, value in (("genesis", genesis), ("head", head)):
+            if (
+                type(value) is not str
+                or len(value) != 64
+                or not set(value) <= _HEX_32
+            ):
+                raise refuse(
+                    f"forked_from.{label} must be 64 lowercase hexadecimal "
+                    "characters"
+                )
+        forked_from = (genesis, head)
+    if v1.encode(document) != payload:
+        raise refuse("payload bytes are not the canonical encoding")
+    return store_id, forked_from
+
+
+def _read_existing_store_genesis(store_root: Path) -> str | None:
+    """The durable store genesis's id, or None for a chain-less root.
+
+    Detached inspection, deliberately: an arriving or interrupted store has
+    no serviceable carrier to read coherently, and the question here is only
+    whether a durable store genesis already claims this tree.
+    """
+    inspected = inspect_chain_detached(_PRODUCTION_BACKEND, str(store_root))
+    if type(inspected) is not WellFormedChain or not inspected.entries:
+        return None
+    _digest, genesis = inspected.entries[0]
+    if type(genesis) is not GenesisEntry:
+        return None
+    store_id, _forked_from = _decode_store_genesis(genesis.payload)
+    return store_id
+
+
+def init_store_root(store_root: Path) -> str:
+    """Make a store root durable and mint its opaque identity.
+
+    The id is minted, not derived: nothing the genesis carries names the
+    root's path, so moving the tree moves nothing the genesis states. A
+    populated root refuses — a store initializes empty — and an existing
+    genesis is honored only through the engine's own recorded initialization
+    operation: a copied store is restored or forked, never re-initialized.
+    """
+    store_root = Path(store_root)
+    if store_root.exists() and not store_root.is_dir():
+        raise CorpusRootRefused(
+            f"{str(store_root)!r} exists and is not a directory, so it cannot "
+            "be a store root"
+        )
+    store_root.mkdir(parents=True, exist_ok=True)
+    existing = _read_existing_store_genesis(store_root)
+    if existing is not None:
+        if (
+            _read_lifecycle_state_callback(
+                _PRODUCTION_BACKEND,
+                str(store_root),
+                str(metadata_root_for(store_root)),
+                PRODUCTION_STORAGE,
+            )
+            is LifecycleState.WRITABLE
+        ):
+            return existing  # completed init (or fork); the postcondition holds
+        try:
+            # Only register_root can recognize its own recorded initialization
+            # operation; Science never reads or interprets that bookkeeping.
+            # The matching retry completes the interrupted grant; every other
+            # carrier — bare copied genesis, fork/replicate origin, binding
+            # mismatch — is the engine's named refusal, mapped below.
+            register_root(
+                _PRODUCTION_BACKEND,
+                str(store_root),
+                str(metadata_root_for(store_root)),
+                PRODUCTION_STORAGE,
+                _store_genesis_payload(existing, None),
+                (),
+            )
+        except PreconditionRefused as refused:
+            raise CorpusRootRefused(
+                f"{str(store_root)!r} carries a store genesis this host did "
+                "not initialize; a copied store is restored or forked, never "
+                "re-initialized"
+            ) from refused
+        return existing
+    populated = registered_surface_paths(store_root, "store")
+    if populated:
+        raise CorpusRootRefused(
+            f"{str(store_root)!r} holds payload {populated[0]!r}; a store "
+            "initializes empty"
+        )
+    store_id = secrets.token_hex(16)
+    register_root(
+        _PRODUCTION_BACKEND,
+        str(store_root),
+        str(metadata_root_for(store_root)),
+        PRODUCTION_STORAGE,
+        _store_genesis_payload(store_id, None),
+        (),
+    )
+    return store_id
 
 
 def write_intent_projection(plan: WritePlan) -> list[dict[str, str]]:
