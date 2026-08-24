@@ -91,9 +91,27 @@ answer `found(<algorithm>:<lowercase hex>)` or `absent`.
   dereference is an inconclusive attempt at the Science boundary, minting
   nothing — in particular never an `absent` for a path the copy failed to
   carry.
-- **Path preflight:** the relative path validated under the existing
-  project-relative grammar (refuse, never normalize), resolved and compared
-  against the root before any read — symlink escape refused.
+- **Path preflight, then descriptor-anchored traversal:** the relative path
+  is validated under the existing project-relative grammar (refuse, never
+  normalize), and the read then **reuses the engine's guarded capture
+  traversal** — components resolved child-by-child from the root
+  descriptor, never re-walked from a path string — so no post-preflight
+  ancestor swap by a raw writer can redirect the read (a string re-walk
+  would be a check/use race the preflight alone cannot close). A path whose
+  ancestor is a file or a symlink reads **`absent`**, exactly as the
+  capture model already answers for the registered surface. A final entry
+  observed as a symlink or a directory **refuses as established-neither** —
+  never followed, never hashed, never `absent`: a symlink's target bytes
+  live at a different canonical location, and hashing through one would
+  attest bytes the location does not name.
+- **Refusals are structured and phase-bearing.** The command's refusal
+  carries which phase refused: **no read attempted** (lifecycle refusal,
+  path-preflight refusal, boundary unobtainable) versus **read attempted
+  and established neither** (an I/O failure mid-read, a final non-regular
+  entry). Science maps the first to `byte-locator-untested` and the second
+  to `retrieval-failed` (§4.1) — from the structured refusal, never
+  inferred from an exception type or message, which is not a stable
+  contract.
 - **The boundary is the claim:** dereference start through hash completion
   under the one lease, so `found` digests a stable cooperative state and
   `absent` is a completed enumeration answer. Cooperative-write bound, no
@@ -121,6 +139,29 @@ Science boundary's (§4 below). Store payload mutations flow as ordinary
 registered transactions against the store root, so the writability gate, the
 pending gate, and `fulfills` admission apply unchanged — the capture is
 additive, and no existing atoms contract moves.
+
+**Capture semantics, pinned rather than implied:**
+
+- **Selection:** the caller requests capture by naming effect ids — a
+  subset of the spec's effects. Naming an unknown id, or a
+  `CreateDirectory` (a directory is not a byte location and no holdings
+  observation reads one), **refuses at preflight**, before any effect runs.
+- **Timing:** capture is taken once, at transaction end — after the final
+  effect's execution and before the lease releases — so each captured
+  result is the **transaction's** post-state at that effect's path(s). If a
+  later effect in the same transaction touches a captured effect's path,
+  the capture reflects the final state, not the intermediate one; the
+  Science boundary sends **one holdings mutation per transaction**, so the
+  distinction never bites there, but the contract states it.
+- **Rollback:** an aborted or refused transaction returns no outcome and no
+  capture — there is no post-state to attest.
+- **Capture failure after commit:** if the committed transaction's capture
+  cannot establish its answer, the command **fails loudly**, naming the
+  committed `txid` — it never fabricates a result and never silently
+  returns without the requested capture. On the Science side the act then
+  established nothing: no observation is minted, the intent stays
+  unmatched, the location reads unsettled, and a later re-check repairs it
+  (§4) — H4's rule, held at the seam where it bites.
 
 ## 3. The record kind (`science/holdings/records.py`)
 
@@ -180,8 +221,10 @@ atoms intent API **as built**; no log machinery changes.
    answers under §2.1's boundary.
 3. **A refusal is an inconclusive attempt:** unserviceable, metadata-less,
    binding-mismatched, preflight-refused, boundary-unobtainable — reported
-   in the ramp's vocabulary (`byte-locator-untested` before any read was
-   attempted, `retrieval-failed` after), **nothing minted**, the prior
+   in the ramp's vocabulary, **mapped from the read command's structured
+   refusal phase (§2.1)**: no-read-attempted → `byte-locator-untested`,
+   attempted-and-established-neither → `retrieval-failed` — never inferred
+   from an exception type or message. **Nothing minted**, the prior
    observation left standing. The unmatched re-check intent reads as a look
    that never became a finding — the act's failure, not the record's;
    nothing unsettled (the act-kind distinction, H4).
@@ -202,10 +245,15 @@ atoms intent API **as built**; no log machinery changes.
    returned capture is the **only** evidence the observation records.
 3. Each observation publishes by its own registered transaction fulfilling
    its own intent — the move's **two registrations**, so the crash cases
-   split exactly as banked: a crash before mutation leaves both intents
-   unmatched and both locations unsettled; a crash between the publications
-   leaves one location settled and one unsettled, per-location blocking
-   needing nothing new.
+   split per location. The intents append one at a time (the atoms intent
+   API's single append, unchanged), so the windows are: a crash **between
+   the two appends** leaves one intent unmatched — its location unsettled —
+   while the other location carries no intent and saw no mutation, so there
+   is nothing to mark and nothing changed; a crash **after both appends and
+   before the mutation** leaves both intents unmatched and both locations
+   unsettled; a crash **between the publications** leaves one location
+   settled by its observation and the other unsettled. Per-location
+   blocking needs nothing new for any of the three.
 
 **4.3 The holdings-scoped qualification reduction.** A **qualifying
 fulfillment** of a holdings intent is a committed registration whose
@@ -220,15 +268,39 @@ not its callers.
 
 ## 5. Reducer, projection, adapter, receipt
 
-**5.1 The active-set reducer (`science/holdings/reduce.py`)** — one
-nameable, fixture-bound unit: the rule a recency successor would one day
-replace.
+**5.1 Capture, then the pure reducer — the split the rules-store ABI
+forces.** The rules store's ABI is deliberately small: an installed rule
+receives **one immutable projection value and returns one projection
+value** — no world, corpus, path, or executor is reachable from it. So the
+reducer cannot enumerate and cannot read chains; capture and reduction are
+two units with a defined value between them.
 
-- Enumerate every holdings observation across the declared coverage —
-  corpora by stable identity; a declared corpus that cannot be enumerated
-  **refuses the whole projection**. The enumeration carries each covered
-  corpus's holdings intents with their qualification states — matched,
-  unmatched, and unresolved as itself.
+**The capture orchestration (`science/holdings/project.py`, impure).**
+Under cut 7's coherent-capture machinery, per covered corpus — named by
+stable identity; a declared corpus that cannot be enumerated **refuses the
+whole projection** — capture, coherently with that corpus's state:
+
+- every holdings-observation facet enumerated from that corpus state; and
+- every holdings intent in that corpus's chain, **in chain order**, each
+  carrying its payload (canonical location, act kind, `event_token`) and,
+  per fulfillment pointer, either the pointed publication's resolved
+  projection — is it a holdings observation, its canonical location, its
+  `event_token` — or an **`unreadable`** marker. Pointer *resolution* is
+  I/O and happens here; what the pointers *mean* is the rule's.
+
+The result is the **coverage projection**: one immutable canonical value,
+keyed per corpus by the triple (corpus id, corpus-state identity, chain
+head), in one byte form — the exact value the receipt's inputs determine,
+and the exact value supplied to the rule's fixtures.
+
+**The active-set reducer (`science/holdings/reduce.py`, pure,
+fixture-bound)** — the rule a recency successor would one day replace: the
+function from one coverage projection to the pair (active set, blocked
+set).
+
+- **Qualification** is computed inside the rule from the captured pointer
+  data — matched, unmatched, and unresolved as itself (an `unreadable`
+  marker never collapses into either resolved state).
 - Per-location `supersedes` DAG walk from heads; acyclicity **checked on
   every walk** (ρA9's discipline) — a presented cycle refuses the whole
   projection; a dangling predecessor outside coverage is a head with an
@@ -236,7 +308,7 @@ replace.
 - Classification: agreeing heads coalesce in classification only, **every
   head retained**; disagreeing outcomes → `contested`; an algorithm-mixed
   `found` pair → `incommensurable`; an unmatched-or-unresolved **mutating**
-  intent with no later fulfilled re-check intent in that root's chain →
+  intent with no later fulfilled re-check intent in that corpus's chain →
   `unsettled`. One location can carry several reasons at once.
 - **Outputs:** the active set and the blocked set, sharing the one member
   shape — the head join projection: head reference, canonical location,
@@ -247,18 +319,33 @@ replace.
   sorted; projections by head reference bytes; history rows deduplicated
   then sorted). One reduction, one byte form under the receipt.
 
-**5.2 The coverage projection and receipt (`science/holdings/project.py`).**
-The receipt names the **exact corpus-state identities** enumerated and, per
-corpus, the **log chain head captured coherently with that state** —
-reusing cut 7's coherent-capture machinery — plus the **rule binding**: the
-reducer's fixture-bound identity together with the content identity of the
-implementation that ran, on the rules-store pattern cut 7 built. A receipt
-naming corpora rather than states, or a bare version string, is
-`malformed`. Validation is re-running: resolve the binding, re-reduce the
-named states under the named heads — `validated` byte-for-byte, `refuted`,
-`unresolvable` (a computability state, never epistemic), `malformed`. The
-receipt's claim **ends at the reducer's outputs**; the adapter sits outside
-the binding, exactly as banked and for the banked reason.
+**5.2 The receipt.** Cut 7's receipt identity formula digests exactly
+`{kind, subject, corpus_states, rule_identity, implementation_identity}` —
+it has **no chain-heads member**, so reusing it would let two reductions
+under different heads (and therefore different unsettled sets) share one
+receipt identity: H3's third arm defeated at the identity layer. The
+holdings receipt is therefore its **own closed facet under a new domain,
+`science.holdings-receipt.v1`** — deliberately not a member of the epoch
+carrier, which it never joins — with the closed member set:
+
+- `kind` — `holdings-reduction`;
+- `coverage` — the deduplicated triples (corpus id, corpus-state identity,
+  chain head), sorted by corpus-id bytes;
+- `rule_identity` and `implementation_identity` — the rules-store binding
+  pair, exactly as cut 7 defines them;
+- `active_set_digest` and `blocked_set_digest` — sha256 over each output's
+  canonical byte encoding.
+
+Identity digests **every member** (the holdings-observation facet's own
+discipline). A receipt naming corpora rather than states, or a bare version
+string, is `malformed`. Validation is re-running: resolve the binding,
+re-capture the named states under the named heads, re-reduce — `validated`
+when both output digests reproduce byte-for-byte, `refuted` when not,
+`unresolvable` when a named corpus state, chain head, or implementation
+cannot be resolved here (a computability state, never epistemic),
+`malformed` when it could never be checked. The receipt's claim **ends at
+the reducer's outputs**; the adapter sits outside the binding, exactly as
+banked and for the banked reason.
 
 **5.3 The dataset-scoped adapter (`science/holdings/adapter.py`).** Inputs:
 the dataset declarations plus the reducer's two receipt-committed outputs —
