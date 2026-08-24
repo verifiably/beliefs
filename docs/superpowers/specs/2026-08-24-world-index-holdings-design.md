@@ -269,38 +269,85 @@ not its callers.
 ## 5. Reducer, projection, adapter, receipt
 
 **5.1 Capture, then the pure reducer — the split the rules-store ABI
-forces.** The rules store's ABI is deliberately small: an installed rule
-receives **one immutable projection value and returns one projection
-value** — no world, corpus, path, or executor is reachable from it. So the
-reducer cannot enumerate and cannot read chains; capture and reduction are
-two units with a defined value between them.
+forces, drawn where the binding demands.** The rules store's ABI is
+deliberately small: an installed rule receives **one immutable projection
+value and returns one projection value** — no world, corpus, path, or
+executor is reachable from it. But the banked authority binds
+**enumeration into the fixture-bound reducer** (§5 there: "steps 1 and 2
+whole"), and a capture that *selected* holdings material would escape that
+binding — a buggy selective capture could omit evidence, sign the output
+digests, and later validate against the same unbound selection, H3's
+second arm reopened one layer down. So the line is drawn at **mechanism
+versus judgment**: capture is a mechanical transporter with no
+holdings-specific choice in it, and every act of selection, decoding,
+association, and classification is the rule's.
 
-**The capture orchestration (`science/holdings/project.py`, impure).**
-Under cut 7's coherent-capture machinery, per covered corpus — named by
-stable identity; a declared corpus that cannot be enumerated **refuses the
-whole projection** — capture, coherently with that corpus's state:
+**The capture orchestration (`science/holdings/project.py`, impure,
+mechanical).** Under cut 7's coherent-capture machinery, per covered
+corpus — named by stable identity; a corpus whose state or validated chain
+cannot be produced **refuses the whole projection** — capture, coherently
+with that corpus's state:
 
-- every holdings-observation facet enumerated from that corpus state; and
-- every holdings intent in that corpus's chain, **in chain order**, each
-  carrying its payload (canonical location, act kind, `event_token`) and,
-  per fulfillment pointer, either the pointed publication's resolved
-  projection — is it a holdings observation, its canonical location, its
-  `event_token` — or an **`unreadable`** marker. Pointer *resolution* is
-  I/O and happens here; what the pointers *mean* is the rule's.
+- **every stored record document** in the corpus state, no kind filter —
+  path, exact document bytes, or an `unreadable` marker carrying the I/O
+  failure's reason; and
+- **the validated chain whole**, genesis first, in chain order — each
+  entry's digest and its own fields verbatim, the settlement entries
+  included, so the rule can **require** commitment rather than assume it.
 
-The result is the **coverage projection**: one immutable canonical value,
-keyed per corpus by the triple (corpus id, corpus-state identity, chain
-head), in one byte form — the exact value the receipt's inputs determine,
-and the exact value supplied to the rule's fixtures.
+**The coverage projection is a closed schema, not "a value":**
+
+```
+CoverageProjection
+  corpora: one entry per covered corpus, sorted by corpus_id bytes
+    corpus_id:    str — the manifest's opaque id
+    corpus_state: str — the corpus-state identity
+    chain_head:   str — the 64-hex head digest of the captured chain
+    records: sorted by path bytes
+      path:       str — the document's corpus-relative storage path
+      content:    bytes — the exact stored document
+      | unreadable: str — the I/O failure's reason; exactly one of the two
+    chain: chain order, genesis first
+      digest:     str — the entry's 64-hex digest
+      entry:      genesis(payload, baseline)
+                  | intent(payload)
+                  | registered(txid, intent_digest, consumer_tag,
+                               fulfills?, initial, final)
+                  | settled(txid, registration,
+                            outcome: committed | rolled-back)
+```
+
+The field names, member order, and variant tags above are the schema; the
+fixture serialization encodes `bytes` as lowercase hex and an absent
+`fulfills` by omission. One capture, one byte form — the exact value the
+receipt's inputs determine, and the exact value supplied to the rule's
+fixtures.
 
 **The active-set reducer (`science/holdings/reduce.py`, pure,
 fixture-bound)** — the rule a recency successor would one day replace: the
 function from one coverage projection to the pair (active set, blocked
-set).
+set). The **whole of banked §5 steps 1–2 runs inside it**: decode the
+stored documents and **select** the holdings observations; parse the
+intent payloads and select the holdings intents; **associate** each intent
+with the registrations whose `fulfills` names it; **qualify** — a
+qualifying fulfillment is a **committed** registration (its settled
+entry's outcome read from the carried chain, never assumed) whose
+published record — the record row the registration's final path-state rows
+name — is a holdings observation for the intent's canonical location
+carrying its `event_token`; then the walk, coalescing, blocking, and
+cycle-refusal below.
 
-- **Qualification** is computed inside the rule from the captured pointer
-  data — matched, unmatched, and unresolved as itself (an `unreadable`
-  marker never collapses into either resolved state).
+- **Qualification** lands matched, unmatched, or **unresolved as itself**
+  — a registration without a committed settlement never qualifies, and an
+  `unreadable` marker never collapses into either resolved state.
+- **Unreadable rows scope by what can be known.** An `unreadable` record
+  row named by some registration's final path-state rows leaves **that
+  intent's qualification unresolved** — location-scoped, the log
+  reduction's own rule. An `unreadable` row named by no registration could
+  be a holdings head or a supersession edge at a location nothing can
+  determine, so it **refuses the whole projection**: the
+  enumeration-completeness claim H3 signs cannot be made over a record the
+  rule can neither read nor scope.
 - Per-location `supersedes` DAG walk from heads; acyclicity **checked on
   every walk** (ρA9's discipline) — a presented cycle refuses the whole
   projection; a dangling predecessor outside coverage is a head with an
