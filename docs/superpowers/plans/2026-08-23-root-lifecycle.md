@@ -1114,17 +1114,17 @@ contracts, not sketches.
   states this ruling and its ledger number exactly as cut 8's docstring
   states its own chaining authority.
 
-- [ ] **Step 1:** Implement the runner mirroring `tools/cut8_acceptance.py`
+- [x] **Step 1:** Implement the runner mirroring `tools/cut8_acceptance.py`
   structurally (the certified-tuple probe first, erroring never
   skipping; phase 1 = `tools/cut7_acceptance.py` unedited; phase 2 =
   `tests/acceptance/test_n2_cut9.py`; the closing line naming the
   declared unit count 30 = `len(CUT9_ARMS)`, pinned separately by
   `test_the_declared_units_are_unique_and_number_thirty`; the docstring
   carrying the cut-8 citation ruling above).
-- [ ] **Step 2:** Run on the certified volume:
+- [x] **Step 2:** Run on the certified volume:
   `uv run --frozen python tools/cut9_acceptance.py`. Expected: exit 0,
   each phase's counts quoted verbatim, the closing line naming 30.
-- [ ] **Step 3:** Full gate block; quote the summary line. Commit:
+- [x] **Step 3:** Full gate block; quote the summary line. Commit:
   `test(cut9): certified acceptance runner`. Append and commit the
   ledger.
 

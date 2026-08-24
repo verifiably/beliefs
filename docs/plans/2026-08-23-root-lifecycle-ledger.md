@@ -224,6 +224,21 @@ Freeze hash: `0977bde`
     vacuous. Full-suite gates: `3 failed, 2249 passed in 354.18s (0:05:54)`
     (the three known Task-11 documentation failures), ruff clean, pyright
     at its four baseline diagnostics, cut-7 acceptance exit 0.
+23. **R23 — Task 10 discharged: the certified cut-9 acceptance runner.**
+    `python/tools/cut9_acceptance.py` mirrors cut 8's runner structurally:
+    the three-root certified-tuple probe first (world, corpus, and store —
+    erroring, never skipping), phase 1 = `tools/cut7_acceptance.py`
+    unedited as the sole prior-cut current-tree prefix, phase 2 =
+    `tests/acceptance/test_n2_cut9.py`, and the closing line naming the
+    declared unit count 30 = `len(CUT9_ARMS)`. Its docstring states the
+    cut-8 citation ruling (R15) as this chaining's authority. The run on
+    the certified volume exited 0 with each phase's own summary line:
+    phase 1 chained `39 passed in 14.83s` (cut 5), `23 passed in 11.07s`
+    (cut 6), and `42 passed in 41.44s` (cut 7); phase 2 read
+    `23 passed in 16.63s`; the closing line named 30. Full-suite gates:
+    `3 failed, 2249 passed in 352.45s (0:05:52)` (the three known Task-11
+    documentation failures), ruff clean, pyright at its four baseline
+    diagnostics.
 
 ## Heads
 
@@ -238,4 +253,5 @@ Freeze hash: `0977bde`
 | 6 — restore_root | `bf559c2` | `588fc9e` |
 | 7 — the fork acts | `bf559c2` | `d0d632d` |
 | 8 — fork-of admission and arrival modes | `bf559c2` | `d28d5ce` |
-| 9 — the 30 N2 declarations | `bf559c2` | this task's commit |
+| 9 — the 30 N2 declarations | `bf559c2` | `c047be4` |
+| 10 — certified acceptance | `bf559c2` | this task's commit |
