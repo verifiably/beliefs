@@ -21,6 +21,11 @@ prior cuts' reachability constraints (`4a7dc19`, `c8c0b12`, `117f37e`) plus
 cut 9's own freeze pin `0977bde`. Nothing below claims otherwise: where a
 banked document now says this slice landed, it says so about this branch.
 
+**Corrected 2026-08-24.** The merge landed the next day: `--no-ff`
+integration commit `7a9fec8` on `main`, preserving branch history and the four
+reachability constraints named above. The paragraph above is true of the
+discharge and false of the present.
+
 ## 1. The accounting, re-derived
 
 Recounted from the frozen cut's own §3 bullets rather than copied from its §4.

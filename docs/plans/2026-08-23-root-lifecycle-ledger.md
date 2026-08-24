@@ -273,3 +273,11 @@ Freeze hash: `0977bde`
 | 9 — the 30 N2 declarations | `bf559c2` | `c047be4` |
 | 10 — certified acceptance | `bf559c2` | `d29a98f` |
 | 11 — results record and banking | `bf559c2` | this banking commit |
+
+## Close-out — 2026-08-24, after the merge
+
+Recorded after finalization; no ruling above is rewritten. The `--no-ff` merge
+landed as integration commit `7a9fec8` on `main`, so R24's final unmerged state
+is true of finalization and false of the present. The merge preserves the prior
+cuts' reachability constraints (`4a7dc19`, `c8c0b12`, `117f37e`) and cut 9's
+freeze pin `0977bde` in its ancestry.
