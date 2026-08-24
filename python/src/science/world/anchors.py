@@ -385,16 +385,32 @@ def _genesis_document(payload: bytes) -> dict[str, object]:
     return cast("dict[str, object]", document)
 
 
-def parse_corpus_genesis(payload: bytes) -> None:
-    """Refuse anything but the constant corpus genesis payload.
+def parse_corpus_genesis(payload: bytes) -> tuple[str, str] | None:
+    """The corpus genesis's fork fact, or `None` for the non-fork constant.
 
-    There is nothing to return: the payload carries no identity, which is the
-    ruling `CORPUS_GENESIS_DOMAIN` states. An adopted identity binds through a
-    later chain entry, never by rewriting genesis.
+    A corpus genesis still carries no corpus identity — an adopted identity
+    binds through a later chain entry, never by rewriting genesis — and the
+    non-fork form stays the exact constant. The fork form (the root-lifecycle
+    slice's L6 lift) adds exactly `forked_from`: the parent's genesis digest
+    and the head the fork copied.
     """
     document = _genesis_document(payload)
-    if set(document) != {"domain"} or document["domain"] != CORPUS_GENESIS_DOMAIN:
-        raise ValueError(f"a corpus genesis is the constant {CORPUS_GENESIS_DOMAIN} payload")
+    if document.get("domain") != CORPUS_GENESIS_DOMAIN:
+        raise ValueError(f"a corpus genesis is a {CORPUS_GENESIS_DOMAIN} payload")
+    if set(document) == {"domain"}:
+        return None
+    if set(document) != {"domain", "forked_from"}:
+        raise ValueError(
+            f"a corpus genesis is the constant {CORPUS_GENESIS_DOMAIN} payload, "
+            "or the fork form carrying exactly forked_from"
+        )
+    fact = document["forked_from"]
+    if type(fact) is not dict or set(fact) != {"genesis", "head"}:
+        raise ValueError("forked_from carries exactly genesis and head")
+    return (
+        _require_lower_hex(fact["genesis"], 64, "forked_from.genesis"),
+        _require_lower_hex(fact["head"], 64, "forked_from.head"),
+    )
 
 
 def parse_world_genesis(payload: bytes) -> str:

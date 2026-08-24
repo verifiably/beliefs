@@ -167,6 +167,23 @@ Freeze hash: `0977bde`
     claim. Gates: `3 failed, 2228 passed in 346.35s (0:05:46)` (the three
     known Task-11 documentation failures), ruff clean, pyright at its four
     baseline diagnostics, cut-7 acceptance exit 0.
+20. **R20 — Task 7 discharged.** `fork_corpus(source, dest) ->
+    CorpusManifest` and `fork_store(source, dest) -> str` land on Task 2's
+    exact fork seam, the retry branch before any mint: a pending claim or
+    incomplete fork row resumes by retained identity and the child
+    manifest/genesis is read back from the destination — the same child,
+    never a re-mint. The two forked_from facts stay distinct: the fork
+    genesis carries the parent's genesis and head digests, the child
+    manifest carries the parent `corpus_id` and corpus-state identity.
+    `parse_corpus_genesis` gains the fork form (exactly `forked_from`
+    beside the constant domain), and genesis-form validation admits a
+    populated baseline exactly on fork forms — L6's lift in code, with the
+    anchored-deletion refutation and the anchor-free-rewrite unresolvable
+    negative both pinned live, and the parent-anchor filter and
+    two-fork-geneses refutation beside them. Gates: `3 failed, 2243 passed
+    in 350.05s (0:05:50)` (the three known Task-11 documentation
+    failures), ruff clean, pyright at its four baseline diagnostics, cut-7
+    acceptance exit 0.
 
 ## Heads
 
@@ -178,4 +195,5 @@ Freeze hash: `0977bde`
 | 3 — store roots and the store projection | `ff144e7` | `560c859` |
 | 4 — store subjects through the verification surface | `ff144e7` | `8e14f8a` |
 | 5 — lifecycle wrappers and gate precedence | `bf559c2` (merge of `fb95e1a`) | `ee590d2` |
-| 6 — restore_root | `bf559c2` | this task's commit |
+| 6 — restore_root | `bf559c2` | `588fc9e` |
+| 7 — the fork acts | `bf559c2` | this task's commit |

@@ -892,7 +892,7 @@ contracts, not sketches.
   `RootOperationInvalid` to `science.root.__all__`; the error classes are the
   imported atoms classes, not wrappers.
 
-- [ ] **Step 1: Write the failing tests** in `tests/test_fork_acts.py`:
+- [x] **Step 1: Write the failing tests** in `tests/test_fork_acts.py`:
 
   - `test_fork_corpus_mints_a_fresh_id_independent_of_path_and_name` —
     W13 u1; two forks of one parent mint distinct ids.
@@ -936,9 +936,9 @@ contracts, not sketches.
     anchored fork's chain with a self-consistent chain under a different
     fork genesis, same child subject, original anchor supplied →
     `refuted`; the fixture asserts same subject, differing geneses.
-- [ ] **Step 2:** Run: `uv run --frozen pytest tests/test_fork_acts.py -v`.
+- [x] **Step 2:** Run: `uv run --frozen pytest tests/test_fork_acts.py -v`.
   Expected: FAIL, `ImportError: cannot import name 'fork_corpus'`.
-- [ ] **Step 3: Implement.** `fork_corpus` branches on the destination
+- [x] **Step 3: Implement.** `fork_corpus` branches on the destination
   **before any mint** — the retry path first, so an interrupted fork
   never re-mints:
 
@@ -963,7 +963,7 @@ contracts, not sketches.
      propagates; `fork_corpus` adds no third disposition.
 
   Extend genesis-form validation for both fork forms. Run to PASS.
-- [ ] **Step 4:** Gate block; then
+- [x] **Step 4:** Gate block; then
   `uv run --frozen python tools/cut7_acceptance.py` (still exit 0;
   cut 8's store-refusal residue is Task 4's standing ruling). Commit:
   `feat(root): fork acts, fork geneses, and the L6 lift in code`. Append

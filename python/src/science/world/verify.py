@@ -1165,7 +1165,7 @@ def _genesis_form(kind: SubjectKind, genesis: GenesisEntryView) -> tuple[Finding
     forked = False
     try:
         if kind == "corpus":
-            anchors.parse_corpus_genesis(genesis.payload)
+            forked = anchors.parse_corpus_genesis(genesis.payload) is not None
         elif kind == "store":
             identity, forked_from = anchors.parse_store_genesis(genesis.payload)
             forked = forked_from is not None

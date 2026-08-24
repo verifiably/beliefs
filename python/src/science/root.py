@@ -61,7 +61,7 @@ from atoms.coordinator.commands import (
     register_root,
     run_transaction,
 )
-from atoms.coordinator.commands import (  # noqa: F401 - the fork/restore acts' callbacks land with their tasks; the names are the declared boundary now
+from atoms.coordinator.commands import (
     fork_root as _fork_root_callback,
 )
 from atoms.coordinator.commands import (
@@ -80,11 +80,11 @@ from atoms.coordinator.commands import (
 from atoms.coordinator.commands import (
     read_lifecycle_state as _read_lifecycle_state_callback,
 )
-from atoms.coordinator.commands import (  # noqa: F401
+from atoms.coordinator.commands import (
     read_pending_fork_operation as _read_pending_fork_operation_callback,
 )
 from atoms.coordinator.commands import replicate_root as _replicate_root_callback
-from atoms.coordinator.commands import (  # noqa: F401
+from atoms.coordinator.commands import (
     resume_fork_root as _resume_fork_root_callback,
 )
 from atoms.core.effects import CreateDirectory, CreateFileNoClobber, DeletePath, Effect, ReplaceFile
@@ -123,6 +123,7 @@ from science.world import (
     _world_lock_for,
     _world_mirror_bytes,
 )
+from science.world import registry as _registry
 from science.world.anchors import (
     _anchor_heads,
     _export_head_artifact,
@@ -167,9 +168,6 @@ __all__ = [
     "STORE_GENESIS_DOMAIN",
     "WORLD_CONSUMER_TAG",
     "WORLD_GENESIS_DOMAIN",
-    # The lifecycle boundary values sit in alphabetical order with the rest:
-    # the engine's exact state, operation, and override types and its named
-    # refusals, shared rather than redefined (plan Task 3).
     "DestinationOverride",
     "DurableExecutor",
     "DurableOperationPort",
@@ -185,6 +183,8 @@ __all__ = [
     "durable_executor_factory",
     "epochs_ordered",
     "export_head_artifact",
+    "fork_corpus",
+    "fork_store",
     "init_corpus_root",
     "init_store_root",
     "init_world_root",
@@ -502,6 +502,129 @@ def restore_root(
         )
 
     return _restore_root(dest_root, subject, observers, seam=_log_seam(), grant=grant)
+
+
+def _fork_corpus_genesis_payload(forked_from: tuple[str, str]) -> bytes:
+    """The corpus fork genesis: the constant domain, plus exactly where the
+    child came from — the parent's genesis digest and the head the fork
+    copied. The non-fork corpus genesis stays the identity-free constant."""
+    return v1.encode(
+        {
+            "domain": GENESIS_DOMAIN,
+            "forked_from": {"genesis": forked_from[0], "head": forked_from[1]},
+        }
+    )
+
+
+def _fork_pending(dest_root: Path) -> RootOperationId | None:
+    return _read_pending_fork_operation_callback(
+        _PRODUCTION_BACKEND,
+        str(dest_root),
+        str(metadata_root_for(dest_root)),
+        PRODUCTION_STORAGE,
+    )
+
+
+def _fork_resume(dest_root: Path, operation_id: RootOperationId) -> None:
+    _resume_fork_root_callback(
+        _PRODUCTION_BACKEND,
+        str(dest_root),
+        str(metadata_root_for(dest_root)),
+        PRODUCTION_STORAGE,
+        operation_id,
+    )
+
+
+def fork_corpus(source_root: Path, dest_root: Path) -> _registry.CorpusManifest:
+    """Fork a corpus: a new chain, a fresh identity, and the two fork facts.
+
+    The retry branch runs **before any mint**: a pending fork at the
+    destination — the pre-stamp claim or an incomplete recorded operation —
+    resumes by its retained identity, the engine completing from its own
+    record, and the child manifest is read back from the destination where
+    the recorded overrides installed it. Only an absent destination mints:
+    the child `corpus_id` is fresh and opaque, the manifest is act-authored
+    with `forked_from = (parent corpus_id, parent corpus-state identity)`,
+    and the fork genesis carries `forked_from = (parent genesis digest,
+    parent head digest)` at the bound snapshot — `SourceSnapshotMoved`,
+    `RootOperationMismatch`, and `RootOperationInvalid` propagate
+    untranslated, and this act adds no third disposition.
+    """
+    source = Path(source_root)
+    dest = Path(dest_root)
+    pending = _fork_pending(dest)
+    if pending is not None:
+        _fork_resume(dest, pending)
+        return _registry.load_manifest(dest)
+
+    parent_manifest = _registry.load_manifest(source)
+    genesis_digest, head = _chain_head(source)
+    corpus_state = _registry.corpus_state_identity(source)
+    child_id = secrets.token_hex(16)
+    child_manifest = _registry.CorpusManifest(
+        2,
+        child_id,
+        parent_manifest.profile,
+        _registry.ForkedFrom(parent_manifest.corpus_id, corpus_state),
+    )
+    surface = tuple(
+        sorted(set(registered_surface_paths(source, "corpus")) | {"corpus.yaml"})
+    )
+    _fork_root_callback(
+        _PRODUCTION_BACKEND,
+        str(source),
+        str(metadata_root_for(source)),
+        str(dest),
+        str(metadata_root_for(dest)),
+        PRODUCTION_STORAGE,
+        expected_source_head=head,
+        genesis_payload=_fork_corpus_genesis_payload((genesis_digest, head)),
+        surface_paths=surface,
+        dest_overrides=(
+            DestinationOverride(
+                "corpus.yaml", _registry.manifest_bytes(child_manifest), 0o644
+            ),
+        ),
+    )
+    return child_manifest
+
+
+def fork_store(source_root: Path, dest_root: Path) -> str:
+    """Fork a store: the same act over the opaque namespace.
+
+    No manifest travels — a store's only identity is its genesis — so the
+    override tuple is empty and the child's fresh `store_id` rides in the
+    fork genesis beside the two parent digests. The retry branch resumes by
+    retained identity exactly as `fork_corpus` does, the child id read back
+    from the destination genesis.
+    """
+    source = Path(source_root)
+    dest = Path(dest_root)
+    pending = _fork_pending(dest)
+    if pending is not None:
+        _fork_resume(dest, pending)
+        resumed = _read_existing_store_genesis(dest)
+        if resumed is None:
+            raise CorpusRootRefused(
+                f"{str(dest)!r} resumed a fork but carries no store genesis"
+            )
+        return resumed
+
+    genesis_digest, head = _chain_head(source)
+    child_id = secrets.token_hex(16)
+    _fork_root_callback(
+        _PRODUCTION_BACKEND,
+        str(source),
+        str(metadata_root_for(source)),
+        str(dest),
+        str(metadata_root_for(dest)),
+        PRODUCTION_STORAGE,
+        expected_source_head=head,
+        genesis_payload=_store_genesis_payload(child_id, (genesis_digest, head)),
+        surface_paths=registered_surface_paths(source, "store"),
+        dest_overrides=(),
+    )
+    return child_id
 
 
 def write_intent_projection(plan: WritePlan) -> list[dict[str, str]]:
