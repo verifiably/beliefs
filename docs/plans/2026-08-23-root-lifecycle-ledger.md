@@ -96,6 +96,32 @@ Freeze hash: `0977bde`
     known pre-banking documentation failures assigned to Task 11 — with
     ruff "All checks passed!", pyright at its four known baseline
     diagnostics, and `tools/cut7_acceptance.py` exit 0.
+15. **R15 — cut 8's store-refusal declarations are deliberately stale from
+    Task 4 on.** This task deletes `_refuse_store_subject` and
+    `StoreSubjectUnsupported`: the shape-only refusal cut 8's label 6 and its
+    store-refusal arms certify no longer exists on the current tree, so those
+    declarations fail from this commit forward **by design**. Cut 8's
+    discharge stands as its frozen results record
+    (`docs/plans/2026-08-22-conformance-cut-8-results.md`), not as a
+    current-tree invariant; `tools/cut7_acceptance.py` is the standing
+    current-tree prefix (exit 0 after this task), and cut 9's store units are
+    the successor certification.
+16. **R16 — Task 4 discharged.** Store subjects act: `anchor_heads` takes
+    `store_roots` pairs and verifies the genesis carries the named
+    `store_id` before head acceptance or registry mutation;
+    `export_head_artifact` takes a supplied `store_root` under the same
+    binding; the audit path judges a store root through the four-outcome
+    evaluator over the supplied root (a store is configured nowhere), with
+    the corpus/store-shared per-root operation lock as its one hold. The
+    store genesis form lives in `anchors.parse_store_genesis` — the L6
+    fork-baseline lift admits a populated baseline exactly when the payload
+    states `forked_from`. One addition beyond the plan's file list:
+    `StoreIdMismatch` in `science/errors.py`, the store analog of
+    `WorldIdMismatch`, because the acts' binding refusal fits no existing
+    error and `LogEvidenceRefused`'s closed constructor is the engine
+    seam's. Gates: `3 failed, 2200 passed in 394.69s (0:06:34)` (the three
+    known Task-11 documentation failures), ruff clean, pyright at its four
+    baseline diagnostics, cut-7 acceptance exit 0.
 
 ## Heads
 
@@ -104,4 +130,5 @@ Freeze hash: `0977bde`
 | 0 — tracking setup | — | `7db3e38` |
 | 1 — reviewed atoms design and Science contract amendment | `b1469f4` | this amendment commit |
 | 2 — atoms lifecycle implementation | `ff144e7` (merge of `24b15ce`) | this ledger commit |
-| 3 — store roots and the store projection | `ff144e7` | this task's commit |
+| 3 — store roots and the store projection | `ff144e7` | `560c859` |
+| 4 — store subjects through the verification surface | `ff144e7` | this task's commit |

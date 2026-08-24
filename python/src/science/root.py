@@ -26,7 +26,6 @@ here and nowhere else (log-verification design §2, §6.4).
 from __future__ import annotations
 
 import io
-import json
 import secrets
 import stat as stat_module
 from collections.abc import Callable, Iterator, Mapping
@@ -94,18 +93,21 @@ from science.errors import CorpusRootRefused, LogEvidenceRefused, WorldIdMismatc
 from science.identity import v1
 from science.world import (
     AdmissionRecord,
-    CorpusSubject,
     LogHeadRecord,
     ReplicaOf,
     Subject,
     World,
     WorldConfig,
-    WorldSubject,
     _load_world_mirror,
     _world_lock_for,
     _world_mirror_bytes,
 )
-from science.world.anchors import _anchor_heads, _export_head_artifact, _require_world_genesis
+from science.world.anchors import (
+    _anchor_heads,
+    _export_head_artifact,
+    _require_world_genesis,
+    parse_store_genesis,
+)
 from science.world.logmodel import (
     AbsentView,
     ChainHead,
@@ -311,56 +313,19 @@ def _store_genesis_payload(store_id: str, forked_from: tuple[str, str] | None) -
     return v1.encode(doc)
 
 
-_HEX_32 = frozenset("0123456789abcdef")
-
-
 def _decode_store_genesis(payload: bytes) -> tuple[str, tuple[str, str] | None]:
     """Decode a store genesis payload, refusing every non-canonical shape.
 
-    The payload is Science's own minting under `science.identity.v1`, so the
-    decode accepts exactly what `_store_genesis_payload` emits: the domain,
-    a 32-lowercase-hex `store_id`, and optionally the two-field `forked_from`
-    fact — parent genesis digest and the head the fork copied.
+    The form is `anchors.parse_store_genesis`'s — the same predicate the
+    evaluator's genesis-form step and the acts' subject binding read — with
+    the refusal restated in the initializer's own vocabulary.
     """
-
-    def refuse(reason: str) -> CorpusRootRefused:
-        return CorpusRootRefused(f"store genesis payload is malformed: {reason}")
-
     try:
-        document = json.loads(payload.decode("utf-8"))
-    except (UnicodeDecodeError, ValueError) as caught:
-        raise refuse("not canonical JSON") from caught
-    if type(document) is not dict:
-        raise refuse("not an object")
-    if document.get("domain") != STORE_GENESIS_DOMAIN:
-        raise refuse(f"domain is not {STORE_GENESIS_DOMAIN}")
-    store_id = document.get("store_id")
-    if (
-        type(store_id) is not str
-        or len(store_id) != 32
-        or not set(store_id) <= _HEX_32
-    ):
-        raise refuse("store_id must be 32 lowercase hexadecimal characters")
-    forked_from: tuple[str, str] | None = None
-    if "forked_from" in document:
-        fact = document["forked_from"]
-        if type(fact) is not dict or set(fact) != {"genesis", "head"}:
-            raise refuse("forked_from must carry exactly genesis and head")
-        genesis, head = fact["genesis"], fact["head"]
-        for label, value in (("genesis", genesis), ("head", head)):
-            if (
-                type(value) is not str
-                or len(value) != 64
-                or not set(value) <= _HEX_32
-            ):
-                raise refuse(
-                    f"forked_from.{label} must be 64 lowercase hexadecimal "
-                    "characters"
-                )
-        forked_from = (genesis, head)
-    if v1.encode(document) != payload:
-        raise refuse("payload bytes are not the canonical encoding")
-    return store_id, forked_from
+        return parse_store_genesis(payload)
+    except ValueError as caught:
+        raise CorpusRootRefused(
+            f"store genesis payload is malformed: {caught}"
+        ) from caught
 
 
 def _read_existing_store_genesis(store_root: Path) -> str | None:
@@ -1074,25 +1039,38 @@ def _log_seam() -> LogSeam:
     return _LOG_SEAM
 
 
-def anchor_heads(world: World, corpus_ids: frozenset[str], *, actor: str) -> tuple[LogHeadRecord, ...]:
-    """The explicit anchor act: record each named corpus's present chain head.
+def anchor_heads(
+    world: World,
+    corpus_ids: frozenset[str],
+    *,
+    store_roots: tuple[tuple[str, Path], ...] = (),
+    actor: str,
+) -> tuple[LogHeadRecord, ...]:
+    """The explicit anchor act: record each named subject's present chain head.
 
     The wrapper is the whole of what this module adds — the production seam.
     The act itself is `science.world.anchors._anchor_heads`, which holds no
     engine capability of its own and is testable against a stand-in seam
-    (log-verification design §3.3).
+    (log-verification design §3.3). Each `store_roots` pair is
+    `(store_id, root)`: a store resolves through no registry, so the caller
+    supplies the carrier, and the genesis is verified to carry that
+    `store_id` before head acceptance or registry mutation.
     """
-    return _anchor_heads(world, corpus_ids, actor=actor, seam=_log_seam())
+    return _anchor_heads(
+        world, corpus_ids, store_roots=store_roots, actor=actor, seam=_log_seam()
+    )
 
 
-def export_head_artifact(world: World, subject: CorpusSubject | WorldSubject) -> bytes:
+def export_head_artifact(world: World, subject: Subject, *, store_root: Path | None = None) -> bytes:
     """One subject's head, as the canonical bytes of a standalone artifact.
 
     Writes nothing and mints no record: export *is* the return of the value,
     and storing it with an external holder is the holder's job — which is also
     what makes it the one act that can anchor the world chain (§3.2, L11).
+    A store subject supplies its root, under the same binding the anchor act
+    holds: the genesis must carry the subject's own `store_id`.
     """
-    return _export_head_artifact(world, subject, seam=_log_seam())
+    return _export_head_artifact(world, subject, store_root=store_root, seam=_log_seam())
 
 
 def audit_log(

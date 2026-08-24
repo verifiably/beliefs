@@ -620,7 +620,7 @@ contracts, not sketches.
   under the same resolution contract; `audit_log` accepting a
   `StoreSubject` with a supplied root.
 
-- [ ] **Step 1: Write the failing tests** in `tests/test_store_subjects.py`:
+- [x] **Step 1: Write the failing tests** in `tests/test_store_subjects.py`:
 
   - `test_anchor_heads_mints_a_store_subject_record` — anchor an
     initialized store; the registry holds a `LogHeadRecord` with the
@@ -648,16 +648,16 @@ contracts, not sketches.
     (`"_refuse_store_subject" not in Path(verify.__file__).read_text()`,
     the capability-boundary tests' source-scan pattern) — not a mere
     not-raised.
-- [ ] **Step 2:** Run: `uv run --frozen pytest tests/test_store_subjects.py -v`.
+- [x] **Step 2:** Run: `uv run --frozen pytest tests/test_store_subjects.py -v`.
   Expected: FAIL — `TypeError: anchor_heads() got an unexpected keyword argument 'store_roots'`
   and `StoreSubjectUnsupported` raised where verdicts are expected.
-- [ ] **Step 3: Implement** — the widening only: codecs already carry
+- [x] **Step 3: Implement** — the widening only: codecs already carry
   stores; touch acts, wrappers, and the reachable evaluator path, and
   update the three existing test files' store-refusal assertions to the
   new behavior. The genesis check decodes the supplied root's genesis
   payload and compares `store_id` before any registry transaction is
   planned.
-- [ ] **Step 4:** Run to PASS; gate block; then
+- [x] **Step 4:** Run to PASS; gate block; then
   `uv run --frozen python tools/cut7_acceptance.py` (still exit 0).
   **Ledger ruling, written now:** cut 8's store-refusal declarations
   (its label 6 and the refusal assertions its arms exercise) fail on the

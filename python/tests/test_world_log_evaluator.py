@@ -55,7 +55,7 @@ from test_world_log_codecs import MANIFEST as MANIFEST_PATH
 from test_world_log_codecs import RECORD as RECORD_PATH
 
 from science import root as science_root
-from science.errors import ObserverCarrierInvalid, StoreSubjectUnsupported
+from science.errors import ObserverCarrierInvalid
 from science.identity import v1
 from science.world import anchors as anchors_module
 from science.world import verify
@@ -279,19 +279,21 @@ class TestEntry:
                 history={f"sha256:{'0' * 64}": b"held"},
             )
 
-    def test_a_store_subject_is_unsupported(self) -> None:
-        """§4.1: the evaluator's union is the one API that can spell a store, so
-        the refusal lives here and only here."""
-        with pytest.raises(StoreSubjectUnsupported):
-            evaluate(StoreSubject(STORE_ID), corpus_chain(), observers())
+    def test_a_store_subject_is_evaluated(self) -> None:
+        """The root-lifecycle slice's widening: a store subject is judged, and
+        a corpus-domain genesis under one is structural damage — the payload
+        is not a store genesis at all."""
+        report = evaluate(StoreSubject(STORE_ID), corpus_chain(), observers())
+        assert report.outcome == "malformed"
+        assert any(finding.code == "genesis-form-invalid" for finding in report.findings)
 
-    def test_the_store_refusal_outranks_the_chain(self) -> None:
-        with pytest.raises(StoreSubjectUnsupported):
-            evaluate(
-                StoreSubject(STORE_ID),
-                MalformedView(DefectView("cycle", E1, "an entry is its own ancestor")),
-                observers(),
-            )
+    def test_a_malformed_chain_answers_a_store_subject(self) -> None:
+        report = evaluate(
+            StoreSubject(STORE_ID),
+            MalformedView(DefectView("cycle", E1, "an entry is its own ancestor")),
+            observers(),
+        )
+        assert report.outcome == "malformed"
 
 
 # --- step 1: structure -----------------------------------------------------
