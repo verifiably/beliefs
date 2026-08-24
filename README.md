@@ -136,6 +136,21 @@ freeze commit to it.
 Three of kernel §8.7's four recorded-mutation consequences close there; G4 does
 not.
 
+**Conformance cut 9** froze 2026-08-23 and was discharged the same day.
+World-index slice 4 implements the root lifecycle and store substrate: the
+atoms fail-closed writer state and lifecycle commands (replicate, restore
+admission, fork, migrate) behind their own design gate, the store root kind
+with genesis-bound store subjects through the anchor, export, and audit acts,
+`restore_root` as one held boundary, the fork acts with act-derived
+`forked_from`, and lifecycle-aware arrival modes — **19 selected + 11 labeled
+= 30 declarations** across **1 row in full and 4 in part**, with **L6 read for
+the first time** under the fork-baseline lift and cut 8's retired
+store-refusal label succeeded rather than re-run. See the
+[results](docs/plans/2026-08-23-conformance-cut-9-results.md). The work
+**merged into `main` on 2026-08-24 with `--no-ff`** (integration commit
+`7a9fec8`), adding cut 9's freeze commit to the inherited reachability
+constraint.
+
 ```
 python/     the implementation (substrate §11 puts the composition root here)
 ts/         the one shared encoding, and nothing else (formal model lim. 9)

@@ -2,7 +2,7 @@
 title: Open questions
 status: living
 created: 2026-08-08
-updated: 2026-08-23
+updated: 2026-08-24
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-substrate-consolidation-design.md
@@ -120,7 +120,12 @@ implementation**: a guarantee row awaiting code is work, not a question.
   ([ruling question](../designs/2026-08-08-world-address-ruling.md#11-open-questions))
 - **Authority and coordination.** The designs assume one writer and no access
   control; multi-writer semantics, authority to retract, and propagation of
-  cross-project blockers still need concrete rules. ([review writer question](../designs/2026-08-05-review-disposition-and-conformance-cut-1.md#8-open-questions))
+  cross-project blockers still need concrete rules. The root lifecycle
+  (2026-08-23) narrowed the accident half mechanically — a copy fails closed
+  and two cooperative writers of one root are unconstructible, the sole
+  writable exit a fork under a fresh identity — but who *may* write remains
+  the open question. ([review writer question](../designs/2026-08-05-review-disposition-and-conformance-cut-1.md#8-open-questions),
+  [root-lifecycle design](../designs/2026-08-23-world-index-root-lifecycle-design.md))
 - **Storage and retention.** The epoch carrier now fixes closed YAML members
   and explicit whole-epoch GC, but retention policy, redirect growth, and log
   serialization still need measurements before pruning or format rules are
@@ -181,7 +186,7 @@ implementation**: a guarantee row awaiting code is work, not a question.
   certification is unspellable and existing instruments certify only through a
   successor spec. Open is the cadence: sweep, mint on next authored use, or
   never. ([normative-contract questions](../designs/2026-08-03-normative-contract-design.md#11-open-questions))
-- **Cut 8 is discharged; part of cut 3's deferred boundary stays open.** Cut 3
+- **Cut 9 is discharged; part of cut 3's deferred boundary stays open.** Cut 3
   was frozen 2026-08-11 at the run boundary,
   taking run capture — the seam the verified-holdings record (2026-08-10)
   and the act-report design (2026-08-11) finished designing. Its §5
@@ -203,13 +208,23 @@ implementation**: a guarantee row awaiting code is work, not a question.
   2026-08-22 over the L table, reading five rows in full and seven in part with
   L6 unread, and discharged all 53 declarations on the certified tuple on
   2026-08-23 — the anchor act, the one four-outcome evaluator, replay, the
-  audit and replica-arrival boundaries, and the genesis↔mirror check. Cuts 4–8
-  are implemented, discharged, and merged on `main` — cut 8's `--no-ff`
-  integration commit is `10cc84b`, 2026-08-23.
+  audit and replica-arrival boundaries, and the genesis↔mirror check. Cut 9
+  froze and discharged 2026-08-23: the root lifecycle and store substrate —
+  the fail-closed writer state and lifecycle commands, `restore_root`, the
+  fork acts, genesis-bound store subjects, and lifecycle-aware arrival modes —
+  reading one row in full and four in part with L6 read for the first time
+  under the fork-baseline lift, all 30 declarations on the certified tuple.
+  Cuts 4–9 are implemented, discharged, and merged on `main` — cut 9's
+  `--no-ff` integration commit is `7a9fec8`, 2026-08-24.
   What the tamper-log group still owes is named
   and owned: intent qualification with G4, the preimage-backed classification
-  of a removed verification, event-level cross-chain order, and L10's
-  fork/replica/restore arms.
+  of a removed verification, and event-level cross-chain order — L10's
+  fork/replica/restore and store arms closed with cut 9.
+  What the store substrate owes next is the **holdings slice**: the records
+  that make store payload registered surface, the holdings reads L10's
+  cold-bootstrap and incomplete-copy units defer to, and adoption-ledger
+  row 4's remaining coordinator commands (the dereference-and-hash read and
+  mutator post-state capture).
   The separately deferred consolidate/move/deletion cut no longer waits on the
   world index.
   ([conformance cut 3](../designs/2026-08-11-conformance-cut-3.md),
@@ -225,7 +240,10 @@ implementation**: a guarantee row awaiting code is work, not a question.
   [cut 7 results](../plans/2026-08-20-conformance-cut-7-results.md),
   [log-verification design](../designs/2026-08-22-log-verification-design.md),
   [conformance cut 8](../designs/2026-08-22-conformance-cut-8.md),
-  [cut 8 results](../plans/2026-08-22-conformance-cut-8-results.md))
+  [cut 8 results](../plans/2026-08-22-conformance-cut-8-results.md),
+  [root-lifecycle design](../designs/2026-08-23-world-index-root-lifecycle-design.md),
+  [conformance cut 9](../designs/2026-08-23-conformance-cut-9.md),
+  [cut 9 results](../plans/2026-08-23-conformance-cut-9-results.md))
 - **The act-report's residue.** The act-report design (2026-08-11) closed
   the run boundary's report seam: the boundary-minted terminal record of
   an opened operation — or the pre-intent refusal record of a rejected

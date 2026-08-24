@@ -2,7 +2,7 @@
 title: Foundations
 status: living
 created: 2026-08-08
-updated: 2026-08-23
+updated: 2026-08-24
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-substrate-consolidation-design.md
@@ -143,17 +143,21 @@ structural or integrity finding, but it mints nothing and performs no repair.
 
 ## Current state
 
-The adoption ledger records eight landed slices. Cut 6 implements the
+The adoption ledger records nine landed slices. Cut 6 implements the
 authoritative world root, manifest, corpus-state identity, and append-only
 registry core; cut 7 adds epoch publication, the four derived maps and their
 receipts, bounded reads, whole-epoch GC, and anchor carriage, merged into
 `main` on 2026-08-22; cut 8 adds anchor **verification** — the anchor act, the
 four-outcome log evaluator, replay with its removal policy pass, the audit and
 replica-arrival boundaries, and the genesis↔mirror agreement check — discharged
-2026-08-23 and merged into `main` the same day. Global resolution remains designed, and
-so do the log slice's named deferrals: intent qualification, the
-preimage-backed classification of a removed verification, event-level
-cross-chain order, and the fork/replica/restore arms.
+2026-08-23 and merged into `main` the same day; cut 9 adds the **root
+lifecycle and store substrate** — the fail-closed writer state, the lifecycle
+commands, `restore_root`, the fork acts, and genesis-bound store subjects —
+discharged 2026-08-23 and merged into `main` on 2026-08-24. Global resolution
+remains designed, and so do the log slice's named deferrals: intent
+qualification, the preimage-backed classification of a removed verification,
+and event-level cross-chain order — the fork/replica/restore arms closed with
+cut 9, and the store's holdings reads are the next slice's.
 
 ## Open edges
 
