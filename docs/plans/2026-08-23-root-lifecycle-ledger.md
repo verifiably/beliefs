@@ -2,6 +2,7 @@
 
 Plan: `docs/superpowers/plans/2026-08-23-root-lifecycle.md`
 Specification: `docs/superpowers/specs/2026-08-23-world-index-root-lifecycle-design.md`
+(promoted at banking to `docs/designs/2026-08-23-world-index-root-lifecycle-design.md`)
 Frozen cut: `docs/designs/2026-08-23-conformance-cut-9.md`
 Freeze hash: `0977bde`
 
@@ -239,6 +240,22 @@ Freeze hash: `0977bde`
     `3 failed, 2249 passed in 352.45s (0:05:52)` (the three known Task-11
     documentation failures), ruff clean, pyright at its four baseline
     diagnostics.
+24. **R24 — Task 11 discharged: cut 9 banked.** The results record
+    `docs/plans/2026-08-23-conformance-cut-9-results.md` lands on the cut-8
+    pattern; the banking amendment set applies (spec promoted to
+    `docs/designs/`, adoption-ledger rows 2/4/5, log-verification
+    limitations 2/3/6 and its §3.2 store-writer sentence, packaging
+    limitation 5 narrowed, cut 9's status header discharge note, the README
+    count and table, both guide pages, and the stale-claim grep's live
+    hits); the two gate-forced non-behavioural edits are `_COUNT_WORDS`
+    gaining 33 and 34 and `.gitignore` gaining `.cut9-acceptance/`. Evidence
+    collected after the last gate-visible edit, quoted in the results
+    record's §2: the full suite's summary line, the cut-9 acceptance run
+    (exit 0, closing line 30), the corpus guard, `check_guide.py` exit 0,
+    ruff, pyright at its four baseline diagnostics, and a clean
+    `git diff --check`. The branch stops unmerged: the `--no-ff` merge to
+    `main` is the human partner's act, inheriting the reachability
+    constraints plus freeze pin `0977bde`.
 
 ## Heads
 
@@ -254,4 +271,5 @@ Freeze hash: `0977bde`
 | 7 — the fork acts | `bf559c2` | `d0d632d` |
 | 8 — fork-of admission and arrival modes | `bf559c2` | `d28d5ce` |
 | 9 — the 30 N2 declarations | `bf559c2` | `c047be4` |
-| 10 — certified acceptance | `bf559c2` | this task's commit |
+| 10 — certified acceptance | `bf559c2` | `d29a98f` |
+| 11 — results record and banking | `bf559c2` | this banking commit |

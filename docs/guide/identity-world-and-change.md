@@ -17,8 +17,11 @@ sources:
   - ../designs/2026-08-20-conformance-cut-7.md
   - ../designs/2026-08-22-log-verification-design.md
   - ../designs/2026-08-22-conformance-cut-8.md
+  - ../designs/2026-08-23-world-index-root-lifecycle-design.md
+  - ../designs/2026-08-23-conformance-cut-9.md
   - ../plans/2026-08-20-conformance-cut-6-results.md
   - ../plans/2026-08-22-conformance-cut-8-results.md
+  - ../plans/2026-08-23-conformance-cut-9-results.md
 ---
 
 # Identity, world, and change
@@ -156,7 +159,16 @@ genesis↔mirror agreement check, and the ordered-cuts predicate, discharged
 against [conformance cut 8](../designs/2026-08-22-conformance-cut-8.md) on
 2026-08-23 ([results](../plans/2026-08-22-conformance-cut-8-results.md)) and
 merged into `main` the same day — though intent qualification and the
-preimage-backed classification of a removed verification are still deferred. Global resolution
+preimage-backed classification of a removed verification are still deferred.
+**The root lifecycle and store substrate are implemented as well** — the atoms
+fail-closed writer state, the lifecycle commands (replicate, restore
+admission, fork with act-derived `forked_from`, migrate), the store root kind
+with genesis-bound store subjects, and lifecycle-aware arrival modes,
+designed in the
+[root-lifecycle design](../designs/2026-08-23-world-index-root-lifecycle-design.md)
+and discharged against
+[conformance cut 9](../designs/2026-08-23-conformance-cut-9.md) on 2026-08-23
+([results](../plans/2026-08-23-conformance-cut-9-results.md)). Global resolution
 remains designed. The address ruling still governs the eventual derived
 views: labels are computed on read, coreference is graded rather than merged,
 and storage duplication changes no address.

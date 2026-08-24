@@ -1143,13 +1143,13 @@ contracts, not sketches.
 **Interfaces:**
 - Consumes: everything; this task is spec §8 step 7 executed exactly.
 
-- [ ] **Step 1: Write the results record** on the cut-8 pattern: the
+- [x] **Step 1: Write the results record** on the cut-8 pattern: the
   discharge statement, the certified tuple, per-row dispositions (1 full
   + 4 partial, 19 + 11 = 30), the evidence commands with their quoted
   summary lines (each run after the last tree edit), the integration
   state (branch, base, unmerged — the `--no-ff` merge is the human
   partner's act), and the amendment enumeration.
-- [ ] **Step 2: Apply the banking amendment set:** promote the spec;
+- [x] **Step 2: Apply the banking amendment set:** promote the spec;
   correct adoption-ledger row 4 (the five commands as landed, pushed
   atoms head named), row 2 (fork construction closes), row 5 (remainder
   shrinks to intent qualification, event-level L8, and L13's preimage
@@ -1161,7 +1161,7 @@ contracts, not sketches.
   Task 4's ledger ruling cited by number); run the stale-claim grep
   (`rg -n "fork construction remains|store subjects are shape-only|row 4's|wait on row 4" docs/ README.md`)
   and correct what it finds.
-- [ ] **Step 3:** Re-run `uv run --frozen python tools/cut9_acceptance.py`
+- [x] **Step 3:** Re-run `uv run --frozen python tools/cut9_acceptance.py`
   and the full gate block after the last edit; quote the lines in the
   results record. Finalize the execution ledger (rulings complete, heads
   recorded). Commit:

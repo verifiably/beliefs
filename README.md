@@ -17,9 +17,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Thirty-two documents in `docs/designs/`: the banked redesigns, review disposition,
+Thirty-four documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
-2026-08-02 through 2026-08-22. Read them in this order:
+2026-08-02 through 2026-08-23. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -55,6 +55,8 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-08-20-conformance-cut-7.md` | the seventh frozen conformance cut, selecting the epoch carrier: 7 rows full, 4 part, with 38 selected and 10 labeled declarations |
 | `2026-08-22-log-verification-design.md` | world-index slice 3, the Science half of the tamper-evident mutation log: the registry log-head record and exported head artifact, the explicit anchor act, the one four-outcome log evaluator behind an audit act and a verified `ReplicaOf` arrival act, replay with its removal policy pass, the world genesis↔mirror check, and the ordered-cuts predicate |
 | `2026-08-22-conformance-cut-8.md` | the eighth frozen conformance cut, selecting log verification and anchoring: 5 rows full, 7 part, L6 unread, with 43 selected and 10 labeled declarations |
+| `2026-08-23-world-index-root-lifecycle-design.md` | world-index slice 4, the root lifecycle and store substrate: the atoms fail-closed writer state and lifecycle commands (replicate, restore admission, fork, migrate), the store root kind with genesis-bound store subjects, the fork acts with act-derived `forked_from`, and lifecycle-aware arrival modes |
+| `2026-08-23-conformance-cut-9.md` | the ninth frozen conformance cut, selecting the root lifecycle and store substrate: 1 row full, 4 part, with 19 selected and 11 labeled declarations, successor to cut 8's retired store-refusal label |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and

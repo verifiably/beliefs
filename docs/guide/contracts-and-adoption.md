@@ -16,6 +16,7 @@ sources:
   - ../designs/2026-08-20-world-index-slice-2-design.md
   - ../designs/2026-08-20-conformance-cut-7.md
   - ../designs/2026-08-22-conformance-cut-8.md
+  - ../designs/2026-08-23-conformance-cut-9.md
 ---
 
 # Contracts and adoption
@@ -153,16 +154,18 @@ fitted result into independent validation.
 
 ## Current state
 
-Cuts 1–8 have landed their implementation slices. Cut 7 discharged the
-world-index epoch carrier — rules, coherent capture, derived maps and receipts,
-publication, bounded reads, GC, and anchor carriage — and merged into `main` on
-2026-08-22. Cut 8 discharged mutation-log verification on 2026-08-23 — the
-anchor act, the four-outcome evaluator, replay, the audit and arrival
-boundaries, and the genesis↔mirror check — merged into `main` on 2026-08-23.
-The complete normative contract cut and the two governed stored kinds
-remain open, and so do the parts of the log slice that carried named owners:
-intent qualification, the preimage-backed classification, event-level
-cross-chain order, and the fork/replica/restore arms.
+Cuts 1–9 have landed their implementation slices. Cut 8 discharged
+mutation-log verification on 2026-08-23 — the anchor act, the four-outcome
+evaluator, replay, the audit and arrival boundaries, and the genesis↔mirror
+check. [Cut 9](../designs/2026-08-23-conformance-cut-9.md) discharged the
+root lifecycle and store substrate the same day — the fail-closed writer
+state and lifecycle commands, fork and restore, genesis-bound store
+subjects, and lifecycle-aware arrival modes — succeeding cut 8's retired
+store-refusal label. The complete normative contract cut and the two
+governed stored kinds remain open, and so do the parts of the log slice
+that carried named owners: intent qualification, the preimage-backed
+classification, and event-level cross-chain order — the fork, replica,
+restore, and store arms closed with cut 9.
 Consult the ledger for the current state rather than carrying these sentences
 into a status report.
 

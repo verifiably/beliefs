@@ -1,11 +1,17 @@
 # Conformance cut 9 — root lifecycle and the store substrate
 
-**Status:** **Frozen 2026-08-23 at `0977bde`** — the commit closing the
-second reader's sixteen findings (§7.1); no implementation preceded the
-freeze (spec §8 step 3). The L6 source row was amended with the
-fork-baseline lift before drafting, so §3.1's quotation carries the
-lifted ruling; every quoted row is byte-exact against its source table
-as of `0977bde`.
+**Status:** **Frozen 2026-08-23 at `0977bde`; discharged 2026-08-23** —
+results at `../plans/2026-08-23-conformance-cut-9-results.md` (1 full +
+4 partial labels over 19 selected + 11 labeled = 30 units; execution
+rulings in `../plans/2026-08-23-root-lifecycle-ledger.md`). The spec this
+cut cites promoted at banking to
+`2026-08-23-world-index-root-lifecycle-design.md` beside this file; the
+`docs/superpowers/specs/` path below is the frozen citation of its
+pre-banking home. Frozen at `0977bde`, the commit closing the second
+reader's sixteen findings (§7.1); no implementation preceded the freeze
+(spec §8 step 3). The L6 source row was amended with the fork-baseline
+lift before drafting, so §3.1's quotation carries the lifted ruling;
+every quoted row is byte-exact against its source table as of `0977bde`.
 
 **Sources:** `2026-08-22-conformance-cut-8.md` (rule and practice
 inheritances); the root-lifecycle specification

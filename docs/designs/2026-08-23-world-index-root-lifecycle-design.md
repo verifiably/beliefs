@@ -1,11 +1,15 @@
 # Root lifecycle and the store substrate — design (world-index slice 4)
 
 **Date:** 2026-08-23
-**Status:** approved 2026-08-23 — review closed at `56db3f3`, conformance
-cut 9 frozen at `0977bde`; the atoms-local §2–§4 contract was approved on
-2026-08-23 at `b1469f4` (review findings through `6555e46`); implementation plan
-`../plans/2026-08-23-root-lifecycle.md`; promotes to `docs/designs/` at
-banking (§8 step 7).
+**Status:** banked 2026-08-23 — implemented and discharged; conformance
+cut 9 (frozen at `0977bde`) discharged the same day, results at
+`../plans/2026-08-23-conformance-cut-9-results.md`, execution rulings at
+`../plans/2026-08-23-root-lifecycle-ledger.md`. Review closed at `56db3f3`;
+the atoms-local §2–§4 contract was approved at `b1469f4` (findings through
+`6555e46`) and its implementation merged and pushed on the atoms remote
+(`bf559c2`). Promoted from `docs/superpowers/plans`' spec home at banking
+(§8 step 7); the implementation plan is
+`../superpowers/plans/2026-08-23-root-lifecycle.md`.
 **Inherits:** `2026-08-10-verified-holdings-record-design.md` §2 (the
 fail-closed writer state, the durability orders, the restore-as-verification
 ruling, and the store amendments its §8 applied to the log design — the

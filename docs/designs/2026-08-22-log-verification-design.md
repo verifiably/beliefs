@@ -206,7 +206,10 @@ corpus(corpus_id) | world(world_id) | store(store_id), genesis identity,
 head digest)`. The world arm carries `world_id` because the id must survive
 outside the chain; the store arm exists because the holdings authority
 already admits a supplied exported head as a store anchor — **its writer is
-row 4's**; this slice writes corpus and world artifacts only.
+row 4's**; this slice writes corpus and world artifacts only. *(Landed
+2026-08-23: the root-lifecycle slice extended `export_head_artifact` to the
+store subject under the same binding rule —
+`2026-08-23-world-index-root-lifecycle-design.md` §5.)*
 
 The producer is `export_head_artifact(world, subject)` — `subject:
 Corpus(corpus_id) | World(world_id)` — which, under the world lock (and
@@ -571,10 +574,20 @@ authority; the two places this expectation was refined are noted below**:
 2. **Store subjects are shape-only**: codecs closed and complete; the
    anchor act's signature makes a store unspellable and the evaluator
    refuses the one place it can be named; behavior and the store-artifact
-   writer are row 4's.
+   writer are row 4's. *(Closed 2026-08-23 — the root-lifecycle slice
+   spelled the store subject through `anchor_heads`, the evaluator, and
+   `export_head_artifact` under the genesis-binding rule; cut 9's V-labeled
+   store units are the successor certification of cut 8's retired label 6:
+   `2026-08-23-world-index-root-lifecycle-design.md` §5, results at
+   `../plans/2026-08-23-conformance-cut-9-results.md`.)*
 3. **Fork, replica, restore are unbuilt**; the distinct-fork-genesis
    refutation arm and L10's fork, replica-construction, restore, and
    store arms wait on row 4 — the arrival-identity arm is read by cut 8.
+   *(Closed 2026-08-23 — `replicate_root`, `restore_root`, `fork_corpus`,
+   and `fork_store` landed with the root-lifecycle slice on the atoms
+   lifecycle commands, and cut 9 read L10's fork, replica, restore, and
+   store arms plus the distinct-fork-genesis refutation:
+   `2026-08-23-world-index-root-lifecycle-design.md` §6–§7.)*
 4. **The L13 resolver is a named seam, not an orphan:** the public
    preimage/blob-read command joins the atoms obligation ledger at
    banking, and its Science consumption is recorded as row 5's named
@@ -584,7 +597,11 @@ authority; the two places this expectation was refined are noted below**:
    design §3's letter.
 6. **The empty-baseline amendment** (§1.3) leaves L6 wholly unread —
    the pre-log arm unconstructible and the anchor-free negative vacuous —
-   until a registration-surface design act lifts it.
+   until a registration-surface design act lifts it. *(Lifted 2026-08-23 —
+   the root-lifecycle slice's fork-baseline rule populates the baseline
+   for fork-form genesis exactly, `registered_surface_paths` projects the
+   registered store namespace, and cut 9's L6 units read both arms:
+   `2026-08-23-world-index-root-lifecycle-design.md` §5.)*
 7. **Event-level cross-chain order** is deferred; §7's predicate is the
    whole of L8 built here.
 8. **Verification cost** is measurement-gated; no Merkle overlay is built
