@@ -5,7 +5,11 @@
 `docs/designs/2026-08-24-world-index-holdings-design.md` at banking. Nothing
 here is implemented; no conformance arm is claimed. The conformance cut this
 spec anticipates (cut 10) freezes after this spec's review and before any
-implementation task.
+implementation task. **The atoms design gate (§2) is approved 2026-08-24:**
+`docs/2026-08-24-holdings-read-and-evidence-commands-design.md` in the atoms
+repository, approved at atoms `558817b` against this spec's authority pin
+`b231e08` (its branch `design/holdings-commands`); that design's
+implementation is authorized and has not begun.
 **Inherits:** `2026-08-10-verified-holdings-record-design.md` whole — the
 banked authority this slice implements; its §2 (the canonical facet and the
 store-identity/lifecycle contract), §3 (the two act shapes, the dereference
