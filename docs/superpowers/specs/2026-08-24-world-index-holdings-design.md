@@ -114,7 +114,9 @@ answer `found(<algorithm>:<lowercase hex>)` or `absent`.
   entry). Science maps the first to `byte-locator-untested` and the second
   to `retrieval-failed` (§4.1) — from the structured refusal, never
   inferred from an exception type or message, which is not a stable
-  contract.
+  contract. Non-routine failures (programming, environment, alarm-class)
+  **raise** instead of returning a variant; §4.1 owns what a raise means
+  for the act.
 - **The boundary is the claim:** dereference start through hash completion
   under the one lease, so `found` digests a stable cooperative state and
   `absent` is a completed enumeration answer. Cooperative-write bound, no
@@ -240,7 +242,13 @@ atoms intent API **as built**; no log machinery changes.
    refusal phase (§2.1)**: no-read-attempted → `byte-locator-untested`,
    attempted-and-established-neither → `retrieval-failed` — never inferred
    from an exception type or message. **Nothing minted**, the prior
-   observation left standing. The unmatched re-check intent reads as a look
+   observation left standing. A non-routine engine **raise** — the read
+   command's programming, environment, and alarm-class failures (§2.1) —
+   is not a refusal and is never mapped into the report vocabulary: the
+   act **aborts loudly**, minting no observation and filing no report,
+   and the durable unmatched intent marks the attempt — a re-check's as a
+   look that never became a finding, a mutating act's as an unsettled
+   location (§4.3, §5.1) — until a later re-check answers. The unmatched re-check intent reads as a look
    that never became a finding — the act's failure, not the record's;
    nothing unsettled (the act-kind distinction, H4).
 4. **An established finding publishes or the act fails:** the observation is
