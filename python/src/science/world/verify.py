@@ -41,7 +41,7 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Literal, NoReturn, TypeAlias, cast
+from typing import TYPE_CHECKING, Literal, TypeAlias, cast
 
 from nodes.core.errors import NodesError
 from nodes.core.frontmatter import node_from_markdown
@@ -54,13 +54,13 @@ from science.errors import (
     ArrivalCause,
     ArrivalRefused,
     AuditTargetUnconfigured,
+    CorpusRootRefused,
     EpochMalformed,
     EpochUnknown,
     MalformedRecord,
     ManifestMalformed,
     ManifestMissing,
     ObserverCarrierInvalid,
-    StoreSubjectUnsupported,
     SubjectMismatch,
     WorldUninitialized,
 )
@@ -105,6 +105,13 @@ __all__ = [
 ]
 
 
+def _unwired_lifecycle_state(root: Path) -> str:
+    raise AssertionError(
+        f"{root}: this seam wires no lifecycle reading; the arrival boundary "
+        "is the one consumer and its seams wire one explicitly"
+    )
+
+
 @dataclass(frozen=True)
 class LogSeam:
     """One root's worth of engine capability, as callables over `Path`.
@@ -128,6 +135,12 @@ class LogSeam:
     absent_state: object
     world_lock: Callable[[Path], AbstractContextManager[None]]
     corpus_lock: Callable[[Path], OperationLock]
+    lifecycle_state: Callable[[Path], str] = _unwired_lifecycle_state
+    """The root's closed five-value lifecycle reading, as its string value.
+
+    Wired by the composition root; the arrival boundary branches its
+    inspection mode on it. The default refuses loudly so a stand-in seam
+    that never expects an arrival cannot answer one by accident."""
 
 
 @dataclass(frozen=True)
@@ -162,7 +175,7 @@ something the evaluator goes looking for.
 
 # --- the registered-surface projection (design §5.1) ------------------------
 
-RootKind: TypeAlias = Literal["corpus", "world"]
+RootKind: TypeAlias = Literal["corpus", "world", "store"]
 
 CORPUS_MANIFEST = "corpus.yaml"
 WORLD_MANIFEST = "world.yaml"
@@ -221,7 +234,14 @@ def registered_surface_paths(root: Path, kind: RootKind) -> tuple[str, ...]:
         return tuple(sorted(path for path in _files_beneath(root, "") if _claimed_by_the_corpus_layout(path)))
     if kind == "world":
         return _world_surface(root)
-    raise ValueError(f"{kind!r} is not a projected root kind: the projection is instantiated for corpus and world")
+    if kind == "store":
+        # The whole-namespace projection: a store's payload is opaque, so
+        # every non-bookkeeping root-relative entry is claimed. The walker's
+        # own dot-prefix rule already excludes exactly bookkeeping — the
+        # chain leaf, the root claim, engine metadata — and nothing else,
+        # and symlinks stay leaves here as everywhere.
+        return tuple(sorted(_files_beneath(root, "")))
+    raise ValueError(f"{kind!r} is not a projected root kind: the projection is instantiated per root kind")
 
 
 def _claimed_by_the_corpus_layout(path: str) -> bool:
@@ -891,12 +911,12 @@ def evaluate_log(
     presented identity are all supplied, and the act neither opens a root nor
     mints anything.
 
-    **Before the precedence**, two refusals that are not judgments. A `history`
+    **Before the precedence**, one refusal that is not a judgment. A `history`
     that does not validate refuses the act outright (§5.3) — corrupt evidence
     is never silently ignored, and the refusal comes before any outcome is
-    produced, so a malformed chain does not get to answer first. A `Store`
-    subject refuses `StoreSubjectUnsupported` (§4.1): this union is the one API
-    that can spell a store, so the refusal lives here and only here.
+    produced, so a malformed chain does not get to answer first. Store
+    subjects are judged like the other two kinds: the shape-only refusal was
+    the log slice's, and the root-lifecycle slice removed it.
 
     **Then §4.2's four steps, in order, so no state earns two outcomes:**
 
@@ -930,8 +950,6 @@ def evaluate_log(
     if history is not None:
         validate_history(history)
     kind = _subject_kind(subject)
-    if kind == "store":
-        _refuse_store_subject(subject)
     if type(observers) is not ObserverSet:
         raise TypeError("observers is an ObserverSet, which is the whole of what the evaluator may consult")
     if type(disk) is not tuple:
@@ -958,7 +976,7 @@ def evaluate_log(
         raise TypeError(f"{type(view).__name__} is not a chain view")
 
     intents = tuple(entry.digest for entry in view.entries if type(entry) is IntentEntryView)
-    defect, genesis_world_id = _genesis_form(kind, view.genesis)
+    defect, genesis_identity = _genesis_form(kind, view.genesis)
     if defect is not None:
         # The inventory is carried even here: §10.1 asks that the qualification
         # deferral be stated in *every* report, and a chain the engine
@@ -966,7 +984,7 @@ def evaluate_log(
         # The `MalformedView` exit above states none because there are no
         # entries there to inventory, which is a different fact.
         return _report("malformed", intents=intents, bound=labels, findings=tuple(findings) + (defect,))
-    findings.extend(_genesis_findings(subject, kind, genesis_world_id))
+    findings.extend(_genesis_findings(subject, kind, genesis_identity))
 
     pending = view.pending
     digests = tuple(entry.digest for entry in view.entries)
@@ -1022,21 +1040,6 @@ def evaluate_log(
 
 
 SubjectKind: TypeAlias = Literal["corpus", "world", "store"]
-
-
-def _refuse_store_subject(subject: Subject) -> NoReturn:
-    """§4.1's store refusal, stated once and called from both places that can
-    reach a store subject.
-
-    The evaluator's subject union is the one API in this slice that can *spell*
-    a store, and audit spells one only by handing it here — the act has no root
-    rule for a store and no chain to inspect for it, so the refusal is decided
-    before anything is read. One function so the two callers cannot drift into
-    two refusals of one fact.
-    """
-    raise StoreSubjectUnsupported(
-        f"{_subject_label(subject)}: store-subject verification is the holdings row's, not this slice's"
-    )
 
 
 def _subject_kind(subject: Subject) -> SubjectKind:
@@ -1151,12 +1154,12 @@ def _genesis_defect(genesis: GenesisEntryView, reason: str) -> Finding:
 
 
 def _genesis_form(kind: SubjectKind, genesis: GenesisEntryView) -> tuple[Finding | None, str | None]:
-    """§4.2 step 1's genesis-form validation: the defect, and the world id.
+    """§4.2 step 1's genesis-form validation: the defect, and the named identity.
 
-    Returns `(None, world_id)` for a well-formed genesis — the id being the one
-    the payload names, which the subject-mismatch check then compares against
-    the selected subject, and `None` for a corpus genesis, whose payload
-    carries no identity at all (§1.2).
+    Returns `(None, identity)` for a well-formed genesis — the world or store
+    id the payload names, which the subject-mismatch check then compares
+    against the selected subject, and `None` for a corpus genesis, whose
+    payload carries no identity at all (§1.2).
 
     **The form itself is `anchors`'** (`parse_corpus_genesis`,
     `parse_world_genesis`), which is also what the export act's subject binding
@@ -1172,21 +1175,26 @@ def _genesis_form(kind: SubjectKind, genesis: GenesisEntryView) -> tuple[Finding
     """
     from science.world import anchors
 
-    world_id: str | None = None
+    identity: str | None = None
+    forked = False
     try:
         if kind == "corpus":
-            anchors.parse_corpus_genesis(genesis.payload)
+            forked = anchors.parse_corpus_genesis(genesis.payload) is not None
+        elif kind == "store":
+            identity, forked_from = anchors.parse_store_genesis(genesis.payload)
+            forked = forked_from is not None
         else:
-            world_id = anchors.parse_world_genesis(genesis.payload)
+            identity = anchors.parse_world_genesis(genesis.payload)
     except ValueError as caught:
         return _genesis_defect(genesis, str(caught)), None
-    if genesis.baseline != ():
+    if genesis.baseline != () and not forked:
         return _genesis_defect(
             genesis,
-            "a genesis baseline is empty: both Science initializers register the empty surface, so a populated "
-            "baseline is a chain no Science path mints (§1.3)",
+            "a non-fork genesis baseline is empty: the Science initializers register the empty surface, and only "
+            "a fork genesis — whose payload states forked_from — registers the destination surface it copied "
+            "(§1.3, the fork-baseline lift)",
         ), None
-    return None, world_id
+    return None, identity
 
 
 def _mismatch(source: str, claimed: str, subject: Subject) -> Finding:
@@ -1217,6 +1225,8 @@ def _presented_findings(
     """
     if presented is None:
         return ()
+    if kind == "store":
+        raise TypeError("a store subject presents no identity: nothing but its genesis names one")
     if kind == "corpus":
         if type(presented) is not PresentedManifest:
             raise TypeError("a corpus subject's presented identity is a PresentedManifest")
@@ -1234,14 +1244,18 @@ def _presented_findings(
     return tuple(findings)
 
 
-def _genesis_findings(subject: Subject, kind: SubjectKind, genesis_world_id: str | None) -> tuple[Finding, ...]:
+def _genesis_findings(subject: Subject, kind: SubjectKind, genesis_identity: str | None) -> tuple[Finding, ...]:
     """The genesis half of §6.3's comparison. The corpus genesis names nobody,
-    so there is nothing to compare there (§1.2)."""
-    if kind != "world" or genesis_world_id is None:
+    so there is nothing to compare there (§1.2); world and store geneses each
+    name their own id and compare against the selected subject."""
+    if genesis_identity is None or kind == "corpus":
         return ()
-    if genesis_world_id == subject.world_id:  # pyright: ignore[reportAttributeAccessIssue]
+    selected = (
+        subject.store_id if kind == "store" else subject.world_id  # pyright: ignore[reportAttributeAccessIssue]
+    )
+    if genesis_identity == selected:
         return ()
-    return (_mismatch("genesis", genesis_world_id, subject),)
+    return (_mismatch("genesis", genesis_identity, subject),)
 
 
 def _absence_findings(bound: tuple[_ObservedAnchor, ...]) -> tuple[Finding, ...]:
@@ -1471,22 +1485,99 @@ def _audit_log(
     if history is not None:
         validate_history(history)
     kind = _subject_kind(subject)
-    if kind == "store":
-        _refuse_store_subject(subject)
     root = Path(target_root).resolve()
     _configured_target(config, kind, root)
-    root_kind: RootKind = "corpus" if kind == "corpus" else "world"
+    root_kind: RootKind = kind
     with _subject_hold(seam, root_kind, root):
-        view = seam.inspect_registered(root)
-        presented = _presented_identity(config, root_kind, root)
-        disk = seam.capture(root, registered_surface_paths(root, root_kind))
+        view, disk, presented = _assemble_evaluation_inputs(
+            seam, root_kind, root, config
+        )
     return evaluate_log(subject, view, observers, disk, presented, seam.absent_state, history)
 
 
+def _assemble_evaluation_inputs(
+    seam: LogSeam, kind: RootKind, root: Path, config: WorldConfig | None
+) -> tuple[ChainView, tuple[tuple[str, object], ...], PresentedIdentity | None]:
+    """The evaluator's inputs, assembled in the one pinned order — inspection,
+    then the presented claim, then the capture — under the caller's hold.
+
+    The exact boundary between the two judging acts: `_audit_log` calls it
+    with the world configuration (its world arm reads the configured id), and
+    the restore core calls it with `None` — a restore's subjects are corpus
+    and store, whose claims live in the root itself. No third assembly
+    exists.
+    """
+    view = seam.inspect_registered(root)
+    presented = _presented_identity(config, kind, root)
+    disk = seam.capture(root, registered_surface_paths(root, kind))
+    return view, disk, presented
+
+
+def _restore_subject_agrees(
+    subject: Subject, kind: SubjectKind, view: ChainView, presented: PresentedIdentity | None
+) -> bool:
+    """Spec §7.2 step 4: the separate lifecycle precondition, never a verdict.
+
+    Store: the validated chain's own genesis names the subject's `store_id`.
+    Corpus: the presented manifest names the subject's `corpus_id` — the
+    genesis is form-validated only, because a corpus genesis names nobody. A
+    `validated` report with a disagreeing identity stays a validated report;
+    what it does not do is admit.
+    """
+    from science.world import anchors
+
+    if kind == "store":
+        if type(view) is not WellFormedView:
+            return False
+        try:
+            named, _forked_from = anchors.parse_store_genesis(view.genesis.payload)
+        except ValueError:
+            return False
+        return named == subject.store_id  # pyright: ignore[reportAttributeAccessIssue]
+    if type(presented) is not PresentedManifest:
+        return False
+    return presented.corpus_id == subject.corpus_id  # pyright: ignore[reportAttributeAccessIssue]
+
+
+def _restore_root(
+    dest_root: Path,
+    subject: Subject,
+    observers: ObserverSet,
+    *,
+    seam: LogSeam,
+    grant: Callable[[Path], None],
+) -> LogReport:
+    """§7.2: the one held restore boundary — inspect, claim, capture,
+    evaluate, gate, grant — and the existing report, unwrapped.
+
+    Admission is observed through the lifecycle state, never the return
+    value: the report is the evaluator's judgment of the copy, and the grant
+    is a separate structural act taken only on `validated` **and** subject
+    agreement. A malformed copy flows into the evaluator and comes back a
+    `malformed` outcome, never a pre-evaluation exception. A world subject
+    has no restore: a world root is reconstructed, not admitted.
+    """
+    kind = _subject_kind(subject)
+    if kind == "world":
+        raise TypeError("a world root is never restored; restore admits corpus and store copies")
+    if type(observers) is not ObserverSet:
+        raise TypeError("observers is an ObserverSet, which is the whole of what the evaluator may consult")
+    root = Path(dest_root).resolve()
+    with _subject_hold(seam, kind, root):
+        view, disk, presented = _assemble_evaluation_inputs(seam, kind, root, None)
+        report = evaluate_log(subject, view, observers, disk, presented, seam.absent_state)
+        if report.outcome == "validated" and _restore_subject_agrees(
+            subject, kind, view, presented
+        ):
+            grant(root)
+    return report
+
+
 def _subject_hold(seam: LogSeam, kind: RootKind, root: Path) -> AbstractContextManager[object]:
-    """§6.1's one hold, per root kind: the corpus's operation lock through the
-    lock-only lookup, or the world root's own lock."""
-    return seam.corpus_lock(root) if kind == "corpus" else seam.world_lock(root)
+    """§6.1's one hold, per root kind: the world root's own lock, or — for a
+    corpus and a store alike — the root's operation lock through the
+    lock-only lookup, which is per-root state and constructs nothing."""
+    return seam.world_lock(root) if kind == "world" else seam.corpus_lock(root)
 
 
 def _configured_target(config: WorldConfig, kind: SubjectKind, root: Path) -> None:
@@ -1497,6 +1588,12 @@ def _configured_target(config: WorldConfig, kind: SubjectKind, root: Path) -> No
     manifest read: associating the root to the subject by what its manifest
     claims is precisely what this act must not do.
     """
+    if kind == "store":
+        # A store is configured nowhere: the configuration holds corpus and
+        # world roots, and a store subject's audit is over exactly the root
+        # the caller supplied — which is also why the manifest-lookup trap
+        # this rule exists to close cannot arise for one.
+        return
     if kind == "world":
         if root != Path(config.world_root):
             raise AuditTargetUnconfigured(
@@ -1510,7 +1607,9 @@ def _configured_target(config: WorldConfig, kind: SubjectKind, root: Path) -> No
         )
 
 
-def _presented_identity(config: WorldConfig, kind: RootKind, root: Path) -> PresentedIdentity | None:
+def _presented_identity(
+    config: WorldConfig | None, kind: RootKind, root: Path
+) -> PresentedIdentity | None:
     """What the root under audit *claims* to be, read from where it is written.
 
     Called after the inspection and before the capture, so the claim is the one
@@ -1526,11 +1625,18 @@ def _presented_identity(config: WorldConfig, kind: RootKind, root: Path) -> Pres
     """
     from science.world import registry
 
+    if kind == "store":
+        # A store root writes its identity nowhere but its genesis: no
+        # manifest, no mirror, so there is no claim to read and nothing to
+        # put in a root's mouth.
+        return None
     if kind == "corpus":
         try:
             return PresentedManifest(registry.load_manifest(root).corpus_id)
         except (ManifestMissing, ManifestMalformed):
             return None
+    if config is None:
+        raise TypeError("a world root's presented identity reads the configuration")
     try:
         mirrored: str | None = registry._load_world_mirror(root)
     except WorldUninitialized:
@@ -1635,8 +1741,23 @@ def _admit_arrival(
         validate_history(history)
     subject = anchors.CorpusSubject(provenance.parent_corpus_id)
     root = Path(corpus_root).resolve()
+    state = seam.lifecycle_state(root)
+    if state == "writable":
+        raise CorpusRootRefused(
+            f"{root}: a writable root is this host's own live root, not an "
+            "arrival; nothing arrives at the root it already is"
+        )
     with seam.world_lock(world.config.world_root), seam.corpus_lock(root):
-        view = seam.inspect_detached(root)
+        # The inspection mode follows the lifecycle state: a restored,
+        # read-only-serviceable copy earned the coherent registered read;
+        # every other non-writable state — unserviceable, metadata-less,
+        # binding-mismatched — is detached, its pending honestly unresolved.
+        inspect = (
+            seam.inspect_registered
+            if state == "read-only-serviceable"
+            else seam.inspect_detached
+        )
+        view = inspect(root)
         manifest = registry.load_manifest(root)
         disk = seam.capture(root, registered_surface_paths(root, "corpus"))
         report = evaluate_log(

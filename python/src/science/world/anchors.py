@@ -46,6 +46,7 @@ from science.errors import (
     AnchorSubjectUnknown,
     AnchorTargetUnresolvable,
     LogHeadCollision,
+    StoreIdMismatch,
     WorldIdMismatch,
     WorldUninitialized,
 )
@@ -57,6 +58,7 @@ __all__ = [
     "CORPUS_GENESIS_DOMAIN",
     "HEAD_ARTIFACT_DOMAIN",
     "LOG_HEAD_DOMAIN",
+    "STORE_GENESIS_DOMAIN",
     "WORLD_GENESIS_DOMAIN",
     "AnchorActOrigin",
     "BuildOrigin",
@@ -81,6 +83,7 @@ LOG_HEAD_DOMAIN = "science.log-head.v1"
 HEAD_ARTIFACT_DOMAIN = "science.head-artifact.v1"
 
 WORLD_GENESIS_DOMAIN = "science.world-root.v1"
+STORE_GENESIS_DOMAIN = "science.store-root.v1"
 """The world chain's genesis domain, as the composition root mints it.
 
 Restated rather than imported: the world package may not import
@@ -382,16 +385,32 @@ def _genesis_document(payload: bytes) -> dict[str, object]:
     return cast("dict[str, object]", document)
 
 
-def parse_corpus_genesis(payload: bytes) -> None:
-    """Refuse anything but the constant corpus genesis payload.
+def parse_corpus_genesis(payload: bytes) -> tuple[str, str] | None:
+    """The corpus genesis's fork fact, or `None` for the non-fork constant.
 
-    There is nothing to return: the payload carries no identity, which is the
-    ruling `CORPUS_GENESIS_DOMAIN` states. An adopted identity binds through a
-    later chain entry, never by rewriting genesis.
+    A corpus genesis still carries no corpus identity — an adopted identity
+    binds through a later chain entry, never by rewriting genesis — and the
+    non-fork form stays the exact constant. The fork form (the root-lifecycle
+    slice's L6 lift) adds exactly `forked_from`: the parent's genesis digest
+    and the head the fork copied.
     """
     document = _genesis_document(payload)
-    if set(document) != {"domain"} or document["domain"] != CORPUS_GENESIS_DOMAIN:
-        raise ValueError(f"a corpus genesis is the constant {CORPUS_GENESIS_DOMAIN} payload")
+    if document.get("domain") != CORPUS_GENESIS_DOMAIN:
+        raise ValueError(f"a corpus genesis is a {CORPUS_GENESIS_DOMAIN} payload")
+    if set(document) == {"domain"}:
+        return None
+    if set(document) != {"domain", "forked_from"}:
+        raise ValueError(
+            f"a corpus genesis is the constant {CORPUS_GENESIS_DOMAIN} payload, "
+            "or the fork form carrying exactly forked_from"
+        )
+    fact = document["forked_from"]
+    if type(fact) is not dict or set(fact) != {"genesis", "head"}:
+        raise ValueError("forked_from carries exactly genesis and head")
+    return (
+        _require_lower_hex(fact["genesis"], 64, "forked_from.genesis"),
+        _require_lower_hex(fact["head"], 64, "forked_from.head"),
+    )
 
 
 def parse_world_genesis(payload: bytes) -> str:
@@ -408,6 +427,52 @@ def parse_world_genesis(payload: bytes) -> str:
     if set(document) != {"domain", "world_id"} or document["domain"] != WORLD_GENESIS_DOMAIN:
         raise ValueError(f"a world genesis is a {WORLD_GENESIS_DOMAIN} payload naming a world_id")
     return _require_lower_hex(document["world_id"], 32, "world_id")
+
+
+def parse_store_genesis(payload: bytes) -> tuple[str, tuple[str, str] | None]:
+    """The store genesis's identity, or a `ValueError` naming what it is not.
+
+    Returns `(store_id, forked_from)`: the opaque 32-lowercase-hex identity
+    the initializer or fork act minted, and — for a forked store — the
+    `(parent_genesis_digest, copied_head_digest)` fact the fork genesis
+    carries. The two-field shape is closed: a fork states exactly where it
+    came from, and a key beside those is a payload no Science path mints.
+    """
+    document = _genesis_document(payload)
+    if document.get("domain") != STORE_GENESIS_DOMAIN:
+        raise ValueError(f"a store genesis is a {STORE_GENESIS_DOMAIN} payload naming a store_id")
+    if not set(document) <= {"domain", "store_id", "forked_from"}:
+        raise ValueError("a store genesis carries only domain, store_id, and forked_from")
+    store_id = _require_lower_hex(document.get("store_id"), 32, "store_id")
+    if "forked_from" not in document:
+        return store_id, None
+    fact = document["forked_from"]
+    if type(fact) is not dict or set(fact) != {"genesis", "head"}:
+        raise ValueError("forked_from carries exactly genesis and head")
+    return store_id, (
+        _require_lower_hex(fact["genesis"], 64, "forked_from.genesis"),
+        _require_lower_hex(fact["head"], 64, "forked_from.head"),
+    )
+
+
+def _require_store_genesis(store_root: Path, payload: bytes, store_id: str) -> None:
+    """The store acts' binding half: the genesis must carry *this* store_id.
+
+    The refusal is `StoreIdMismatch` in both arms — a payload that is not a
+    store genesis and a well-formed genesis naming another id alike say the
+    supplied root is not the selected subject's, and the act refuses rather
+    than recording or exporting under a name the bytes do not support.
+    """
+    try:
+        named, _forked_from = parse_store_genesis(payload)
+    except ValueError as caught:
+        raise StoreIdMismatch(
+            f"{store_root}: the chain genesis payload is not a {STORE_GENESIS_DOMAIN} genesis: {caught}"
+        ) from caught
+    if named != store_id:
+        raise StoreIdMismatch(
+            f"{store_root}: the chain genesis names store_id {named!r}, not {store_id!r}"
+        )
 
 
 # --- the two acts (§3.2, §3.3) ------------------------------------------------
@@ -466,6 +531,7 @@ def _anchor_heads(
     world: registry.World,
     corpus_ids: frozenset[str],
     *,
+    store_roots: tuple[tuple[str, Path], ...] = (),
     actor: str,
     seam: LogSeam,
 ) -> tuple[LogHeadRecord, ...]:
@@ -491,6 +557,12 @@ def _anchor_heads(
     if type(corpus_ids) is not frozenset:
         raise TypeError("corpus_ids must be an exact frozenset")
     targets = sorted(_require_lower_hex(corpus_id, 32, "corpus_id") for corpus_id in corpus_ids)
+    if type(store_roots) is not tuple:
+        raise TypeError("store_roots must be an exact tuple of (store_id, root) pairs")
+    store_targets = sorted(
+        (_require_lower_hex(store_id, 32, "store_id"), Path(root))
+        for store_id, root in store_roots
+    )
     origin = AnchorActOrigin(actor)
     config = world.config
     with seam.world_lock(config.world_root):
@@ -501,6 +573,18 @@ def _anchor_heads(
             carrier = _resolve_carrier(config, view, corpus_id)
             head = seam.read_head(carrier)
             record = LogHeadRecord(CorpusSubject(corpus_id), head.genesis_digest, head.tip, origin)
+            records.append(record)
+            member = _log_head_member(config.world_root, record)
+            if member is not None:
+                plan.append(member)
+        for store_id, store_root in store_targets:
+            # A store is never admitted and resolves through no registry: the
+            # pair supplies the carrier, and the genesis is verified to carry
+            # exactly the named store_id before any head is accepted or any
+            # registry mutation planned.
+            head = seam.read_head(store_root)
+            _require_store_genesis(store_root, head.genesis_payload, store_id)
+            record = LogHeadRecord(StoreSubject(store_id), head.genesis_digest, head.tip, origin)
             records.append(record)
             member = _log_head_member(config.world_root, record)
             if member is not None:
@@ -536,8 +620,9 @@ def _require_world_genesis(world_root: Path, payload: bytes, world_id: str) -> N
 
 def _export_head_artifact(
     world: registry.World,
-    subject: CorpusSubject | WorldSubject,
+    subject: Subject,
     *,
+    store_root: Path | None = None,
     seam: LogSeam,
 ) -> bytes:
     """§3.2: the canonical bytes of one subject's present head. Writes nothing.
@@ -563,10 +648,19 @@ def _export_head_artifact(
     itself refused `BuildHold`, because a read that waited across a capture
     would return a tip from the far side of it.
     """
-    if type(subject) not in {CorpusSubject, WorldSubject}:
-        raise TypeError("subject must be CorpusSubject or WorldSubject")
+    if type(subject) not in {CorpusSubject, WorldSubject, StoreSubject}:
+        raise TypeError("subject must be CorpusSubject, WorldSubject, or StoreSubject")
+    if (store_root is None) == (type(subject) is StoreSubject):
+        raise TypeError(
+            "store_root accompanies exactly a StoreSubject: a store resolves "
+            "through no registry, so its export supplies the root"
+        )
     config = world.config
     with seam.world_lock(config.world_root):
+        if type(subject) is StoreSubject:
+            head = seam.read_head(cast(Path, store_root))
+            _require_store_genesis(cast(Path, store_root), head.genesis_payload, subject.store_id)
+            return head_artifact_bytes(HeadArtifact(subject, head.genesis_digest, head.tip))
         if type(subject) is WorldSubject:
             if subject.world_id != config.world_id:
                 raise WorldIdMismatch(

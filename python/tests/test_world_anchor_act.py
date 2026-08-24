@@ -597,13 +597,18 @@ class TestThePublicWrappers:
         monkeypatch.setattr(
             science_root,
             "_anchor_heads",
-            lambda world, corpus_ids, *, actor, seam: seen.append(("anchor", world, corpus_ids, actor, seam))
+            lambda world, corpus_ids, *, store_roots, actor, seam: seen.append(
+                ("anchor", world, corpus_ids, store_roots, actor, seam)
+            )
             or (),
         )
         monkeypatch.setattr(
             science_root,
             "_export_head_artifact",
-            lambda world, subject, *, seam: seen.append(("export", world, subject, seam)) or b"",
+            lambda world, subject, *, store_root, seam: seen.append(
+                ("export", world, subject, store_root, seam)
+            )
+            or b"",
         )
         world, _recorder, _heads, _roots = anchorable_world(tmp_path, ALPHA)
 
@@ -611,17 +616,21 @@ class TestThePublicWrappers:
         science_root.export_head_artifact(world, anchors.CorpusSubject(ALPHA))
 
         assert seen == [
-            ("anchor", world, frozenset({ALPHA}), "alice", science_root._log_seam()),
-            ("export", world, anchors.CorpusSubject(ALPHA), science_root._log_seam()),
+            ("anchor", world, frozenset({ALPHA}), (), "alice", science_root._log_seam()),
+            ("export", world, anchors.CorpusSubject(ALPHA), None, science_root._log_seam()),
         ]
 
     def test_the_wrapper_signatures_are_the_ruled_ones(self):
         anchor_parameters = inspect.signature(science_root.anchor_heads).parameters
-        assert list(anchor_parameters) == ["world", "corpus_ids", "actor"]
+        assert list(anchor_parameters) == ["world", "corpus_ids", "store_roots", "actor"]
+        assert anchor_parameters["store_roots"].kind is inspect.Parameter.KEYWORD_ONLY
+        assert anchor_parameters["store_roots"].default == ()
         assert anchor_parameters["actor"].kind is inspect.Parameter.KEYWORD_ONLY
 
         export_parameters = inspect.signature(science_root.export_head_artifact).parameters
-        assert list(export_parameters) == ["world", "subject"]
+        assert list(export_parameters) == ["world", "subject", "store_root"]
+        assert export_parameters["store_root"].kind is inspect.Parameter.KEYWORD_ONLY
+        assert export_parameters["store_root"].default is None
         # No `actor`: the ruled artifact has no member to record one, and the
         # function writes nothing.
         assert "actor" not in export_parameters
@@ -668,7 +677,15 @@ def test_the_act_cores_hold_no_engine_capability():
     parameters = set(inspect.signature(anchors._anchor_heads).parameters) | set(
         inspect.signature(anchors._export_head_artifact).parameters
     )
-    assert parameters == {"world", "corpus_ids", "actor", "seam", "subject"}
+    assert parameters == {
+        "world",
+        "corpus_ids",
+        "store_roots",
+        "store_root",
+        "actor",
+        "seam",
+        "subject",
+    }
 
 
 # --- cut 8's labeled declarations 7 and 8 -------------------------------------

@@ -37,7 +37,6 @@ from science.errors import (
     MalformedDomain,
     ObserverCarrierInvalid,
     RegistryMalformed,
-    StoreSubjectUnsupported,
 )
 from science.identity import v1
 from science.world import anchors, logmodel, verify
@@ -1358,28 +1357,31 @@ def test_no_entry_class_records_preimage_gc():
     assert not [kind for kind in logmodel.DEFECT_KINDS if "blob" in kind or "preimage" in kind]
 
 
-def test_store_subject_shape_only_across_codecs_and_evaluator():
-    """D6. The store arm is carried by both codecs and refused everywhere a
-    store would have to be *acted* on: the evaluator refuses
-    `StoreSubjectUnsupported`, and neither act's signature can spell a store."""
+def test_store_subject_is_carried_by_codecs_and_judged_by_the_evaluator():
+    """D6, as the root-lifecycle slice leaves it: the store arm is carried by
+    both codecs, and the evaluator judges a store subject through the same
+    four-outcome precedence — the shape-only refusal is deleted, not merely
+    un-raised (`test_store_subjects.py` pins the deletion)."""
     record = build_record(subject=anchors.StoreSubject(STORE_ID))
     assert anchors.parse_log_head_record(anchors.log_head_projection(record)) == record
     artifact = anchors.HeadArtifact(anchors.StoreSubject(STORE_ID), GENESIS, HEAD)
     assert anchors.decode_head_artifact(anchors.head_artifact_bytes(artifact)) == artifact
 
-    with pytest.raises(StoreSubjectUnsupported):
-        verify.evaluate_log(
-            anchors.StoreSubject(STORE_ID),
-            logmodel.AbsentView(),
-            verify.ObserverSet(()),
-            (),
-            None,
-            ABSENT,
-            None,
-        )
+    report = verify.evaluate_log(
+        anchors.StoreSubject(STORE_ID),
+        logmodel.AbsentView(),
+        verify.ObserverSet(()),
+        (),
+        None,
+        ABSENT,
+        None,
+    )
+    assert report.outcome == "unresolvable"
 
-    # The anchor act takes corpus ids; the export act's subject union has two
-    # members and refuses a store at run time as well as in the annotation.
+    # Both acts now spell a store: the anchor act through its (store_id, root)
+    # pairs — still never a bare subject parameter — and the export act
+    # through the full subject union with a supplied root.
     assert "subject" not in inspect.signature(anchors._anchor_heads).parameters
+    assert "store_roots" in inspect.signature(anchors._anchor_heads).parameters
     exported = inspect.signature(anchors._export_head_artifact).parameters["subject"]
-    assert str(exported.annotation) == "CorpusSubject | WorldSubject"
+    assert str(exported.annotation) == "Subject"

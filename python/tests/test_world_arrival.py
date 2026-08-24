@@ -104,6 +104,9 @@ def make_seam(inspections: Inspections, captures: Captures) -> verify.LogSeam:
         absent_state=ABSENT,
         world_lock=world_lock,
         corpus_lock=_operation_lock_for,
+        # The arriving copies these arms fabricate are metadata-less, which
+        # is also the state that keeps the detached inspection selected.
+        lifecycle_state=lambda _root: "metadata-less",
     )
 
 

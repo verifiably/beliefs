@@ -504,7 +504,12 @@ writer carries limitation 2 instead of the claim.
    detect; the cold-arrival classification (§2) is the only cross-host story.
 5. **Manifest honesty is authored.** An undeclared fork is caught only when both
    corpora are live in one world (X5); nothing verifies `forked_from` against
-   history.
+   history. *(Narrowed 2026-08-23 — for act-minted forks, `fork_corpus`
+   derives `forked_from` from the parent's bound snapshot and installs it
+   through the engine's recorded overrides, so those manifests are
+   act-derived, not hand-authored; the limitation still holds in full for
+   any hand-authored manifest:
+   `2026-08-23-world-index-root-lifecycle-design.md` §6.)*
 6. **GC policy is unwritten.** Only §9's two hard rules exist; what to retain,
    for whom, on what schedule is future consumer policy.
 7. **A noncooperating ABA writer defeats coherent enumeration.** A raw writer

@@ -26,6 +26,7 @@ here and nowhere else (log-verification design §2, §6.4).
 from __future__ import annotations
 
 import io
+import secrets
 import stat as stat_module
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
@@ -46,6 +47,12 @@ from atoms.chain.model import (
     state_from_json,
 )
 from atoms.coordinator.commands import (
+    DestinationOverride,
+    LifecycleState,
+    RootOperationId,
+    RootOperationInvalid,
+    RootOperationMismatch,
+    SourceSnapshotMoved,
     append_intent,
     capture_states,
     inspect_chain,
@@ -53,6 +60,32 @@ from atoms.coordinator.commands import (
     read_chain,
     register_root,
     run_transaction,
+)
+from atoms.coordinator.commands import (
+    fork_root as _fork_root_callback,
+)
+from atoms.coordinator.commands import (
+    grant_read_serviceability as _grant_read_serviceability_callback,
+)
+
+# The seven lifecycle commands, imported as the private callback aliases the
+# lifecycle wrappers and the fork/restore acts consume — same seam discipline
+# as `chain_head_reader`: root.py names every engine command (the boundary
+# roster reads import sources too), and nothing above it does. Three of the
+# wrappers deliberately re-bind the engine names with Path-taking signatures,
+# which is why the engine's own arrive aliased rather than shadowed.
+from atoms.coordinator.commands import (
+    migrate_root_to_lifecycle_v3 as _migrate_root_to_lifecycle_v3_callback,
+)
+from atoms.coordinator.commands import (
+    read_lifecycle_state as _read_lifecycle_state_callback,
+)
+from atoms.coordinator.commands import (
+    read_pending_fork_operation as _read_pending_fork_operation_callback,
+)
+from atoms.coordinator.commands import replicate_root as _replicate_root_callback
+from atoms.coordinator.commands import (
+    resume_fork_root as _resume_fork_root_callback,
 )
 from atoms.core.effects import CreateDirectory, CreateFileNoClobber, DeletePath, Effect, ReplaceFile
 from atoms.core.errors import (
@@ -82,15 +115,21 @@ from science.world import (
     CorpusSubject,
     LogHeadRecord,
     ReplicaOf,
+    StoreSubject,
     Subject,
     World,
     WorldConfig,
-    WorldSubject,
     _load_world_mirror,
     _world_lock_for,
     _world_mirror_bytes,
 )
-from science.world.anchors import _anchor_heads, _export_head_artifact, _require_world_genesis
+from science.world import registry as _registry
+from science.world.anchors import (
+    _anchor_heads,
+    _export_head_artifact,
+    _require_world_genesis,
+    parse_store_genesis,
+)
 from science.world.logmodel import (
     AbsentView,
     ChainHead,
@@ -114,6 +153,8 @@ from science.world.verify import (
     _admit_arrival,
     _audit_log,
     _epochs_ordered,
+    _restore_root,
+    registered_surface_paths,
 )
 
 __all__ = [
@@ -124,10 +165,17 @@ __all__ = [
     "GENESIS_PAYLOAD",
     "INTENT_DOMAIN",
     "PRODUCTION_STORAGE",
+    "STORE_GENESIS_DOMAIN",
     "WORLD_CONSUMER_TAG",
     "WORLD_GENESIS_DOMAIN",
+    "DestinationOverride",
     "DurableExecutor",
     "DurableOperationPort",
+    "LifecycleState",
+    "RootOperationId",
+    "RootOperationInvalid",
+    "RootOperationMismatch",
+    "SourceSnapshotMoved",
     "admit_arrival",
     "anchor_heads",
     "audit_log",
@@ -135,12 +183,19 @@ __all__ = [
     "durable_executor_factory",
     "epochs_ordered",
     "export_head_artifact",
+    "fork_corpus",
+    "fork_store",
     "init_corpus_root",
+    "init_store_root",
     "init_world_root",
     "install_shipped_world_rules",
     "metadata_root_for",
+    "migrate_root_to_lifecycle_v3",
     "open_corpus",
     "open_world",
+    "read_lifecycle_state",
+    "replicate_root",
+    "restore_root",
     "write_intent_digest",
     "write_intent_projection",
 ]
@@ -164,6 +219,7 @@ them: changing this constant does not migrate a root, it orphans one.
 
 INTENT_DOMAIN = "science.corpus-write-intent.v1"
 WORLD_GENESIS_DOMAIN = "science.world-root.v1"
+STORE_GENESIS_DOMAIN = "science.store-root.v1"
 
 PRODUCTION_STORAGE = StorageProfile(profile_id="flush-honoring-disk.v1")
 """The engine's production storage profile, passed through unchanged.
@@ -263,6 +319,312 @@ def init_world_root(config: WorldConfig) -> None:
         return
     if _load_world_mirror(root) != config.world_id:
         raise WorldIdMismatch(f"{mirror}: world_id does not match configuration")
+
+
+def _store_genesis_payload(store_id: str, forked_from: tuple[str, str] | None) -> bytes:
+    doc: dict[str, object] = {"domain": STORE_GENESIS_DOMAIN, "store_id": store_id}
+    if forked_from is not None:
+        doc["forked_from"] = {"genesis": forked_from[0], "head": forked_from[1]}
+    return v1.encode(doc)
+
+
+def _decode_store_genesis(payload: bytes) -> tuple[str, tuple[str, str] | None]:
+    """Decode a store genesis payload, refusing every non-canonical shape.
+
+    The form is `anchors.parse_store_genesis`'s — the same predicate the
+    evaluator's genesis-form step and the acts' subject binding read — with
+    the refusal restated in the initializer's own vocabulary.
+    """
+    try:
+        return parse_store_genesis(payload)
+    except ValueError as caught:
+        raise CorpusRootRefused(
+            f"store genesis payload is malformed: {caught}"
+        ) from caught
+
+
+def _read_existing_store_genesis(store_root: Path) -> str | None:
+    """The durable store genesis's id, or None for a chain-less root.
+
+    Detached inspection, deliberately: an arriving or interrupted store has
+    no serviceable carrier to read coherently, and the question here is only
+    whether a durable store genesis already claims this tree.
+    """
+    inspected = inspect_chain_detached(_PRODUCTION_BACKEND, str(store_root))
+    if type(inspected) is not WellFormedChain or not inspected.entries:
+        return None
+    _digest, genesis = inspected.entries[0]
+    if type(genesis) is not GenesisEntry:
+        return None
+    store_id, _forked_from = _decode_store_genesis(genesis.payload)
+    return store_id
+
+
+def init_store_root(store_root: Path) -> str:
+    """Make a store root durable and mint its opaque identity.
+
+    The id is minted, not derived: nothing the genesis carries names the
+    root's path, so moving the tree moves nothing the genesis states. A
+    populated root refuses — a store initializes empty — and an existing
+    genesis is honored only through the engine's own recorded initialization
+    operation: a copied store is restored or forked, never re-initialized.
+    """
+    store_root = Path(store_root)
+    if store_root.exists() and not store_root.is_dir():
+        raise CorpusRootRefused(
+            f"{str(store_root)!r} exists and is not a directory, so it cannot "
+            "be a store root"
+        )
+    store_root.mkdir(parents=True, exist_ok=True)
+    existing = _read_existing_store_genesis(store_root)
+    if existing is not None:
+        if (
+            _read_lifecycle_state_callback(
+                _PRODUCTION_BACKEND,
+                str(store_root),
+                str(metadata_root_for(store_root)),
+                PRODUCTION_STORAGE,
+            )
+            is LifecycleState.WRITABLE
+        ):
+            return existing  # completed init (or fork); the postcondition holds
+        try:
+            # Only register_root can recognize its own recorded initialization
+            # operation; Science never reads or interprets that bookkeeping.
+            # The matching retry completes the interrupted grant; every other
+            # carrier — bare copied genesis, fork/replicate origin, binding
+            # mismatch — is the engine's named refusal, mapped below.
+            register_root(
+                _PRODUCTION_BACKEND,
+                str(store_root),
+                str(metadata_root_for(store_root)),
+                PRODUCTION_STORAGE,
+                _store_genesis_payload(existing, None),
+                (),
+            )
+        except PreconditionRefused as refused:
+            raise CorpusRootRefused(
+                f"{str(store_root)!r} carries a store genesis this host did "
+                "not initialize; a copied store is restored or forked, never "
+                "re-initialized"
+            ) from refused
+        return existing
+    populated = registered_surface_paths(store_root, "store")
+    if populated:
+        raise CorpusRootRefused(
+            f"{str(store_root)!r} holds payload {populated[0]!r}; a store "
+            "initializes empty"
+        )
+    store_id = secrets.token_hex(16)
+    register_root(
+        _PRODUCTION_BACKEND,
+        str(store_root),
+        str(metadata_root_for(store_root)),
+        PRODUCTION_STORAGE,
+        _store_genesis_payload(store_id, None),
+        (),
+    )
+    return store_id
+
+
+def replicate_root(source_root: Path, dest_root: Path) -> RootOperationId:
+    """Replicate one registered root byte-for-byte, chain included.
+
+    The thin wrapper over the engine's copy command: both metadata roots
+    derive by the one sibling rule and the one production storage profile
+    travels. It appends nothing — a replica's chain arrives unchanged and
+    its lifecycle is read-only unserviceable — and returns the engine's
+    retained operation id, which an exact retry returns again.
+    """
+    source = Path(source_root)
+    dest = Path(dest_root)
+    return _replicate_root_callback(
+        _PRODUCTION_BACKEND,
+        str(source),
+        str(metadata_root_for(source)),
+        str(dest),
+        str(metadata_root_for(dest)),
+        PRODUCTION_STORAGE,
+    )
+
+
+def read_lifecycle_state(root: Path) -> LifecycleState:
+    """The closed five-value lifecycle union, validated while reading."""
+    target = Path(root)
+    return _read_lifecycle_state_callback(
+        _PRODUCTION_BACKEND,
+        str(target),
+        str(metadata_root_for(target)),
+        PRODUCTION_STORAGE,
+    )
+
+
+def migrate_root_to_lifecycle_v3(root: Path) -> None:
+    """The operator-authorized pre-lifecycle migration, passed through.
+
+    Invoking it is the attestation that this host is the pre-lifecycle
+    minting host; every structural refusal — metadata-less, mismatched
+    binding, anything but the exact version-2 store — is the engine's own.
+    """
+    target = Path(root)
+    _migrate_root_to_lifecycle_v3_callback(
+        _PRODUCTION_BACKEND,
+        str(target),
+        str(metadata_root_for(target)),
+        PRODUCTION_STORAGE,
+    )
+
+
+def restore_root(
+    dest_root: Path,
+    subject: CorpusSubject | StoreSubject,
+    observers: ObserverSet,
+) -> LogReport:
+    """Admit a restored copy: verify its chain, then grant read
+    serviceability — one held boundary, the existing report, no new type.
+
+    The wrapper is the whole of what this module adds — the production seam
+    and the engine's structural grant, which takes no verdict and no
+    attestation: what travels from the evaluation to the grant is only the
+    decision to invoke it. Admission is observed through
+    `read_lifecycle_state(dest_root)`, never through the return value, and
+    nothing here ever grants writability.
+    """
+    if type(subject) not in {CorpusSubject, StoreSubject}:
+        raise TypeError("restore admits corpus and store subjects; a world root is reconstructed, not restored")
+
+    def grant(root: Path) -> None:
+        _grant_read_serviceability_callback(
+            _PRODUCTION_BACKEND,
+            str(root),
+            str(metadata_root_for(root)),
+            PRODUCTION_STORAGE,
+        )
+
+    return _restore_root(dest_root, subject, observers, seam=_log_seam(), grant=grant)
+
+
+def _fork_corpus_genesis_payload(forked_from: tuple[str, str]) -> bytes:
+    """The corpus fork genesis: the constant domain, plus exactly where the
+    child came from — the parent's genesis digest and the head the fork
+    copied. The non-fork corpus genesis stays the identity-free constant."""
+    return v1.encode(
+        {
+            "domain": GENESIS_DOMAIN,
+            "forked_from": {"genesis": forked_from[0], "head": forked_from[1]},
+        }
+    )
+
+
+def _fork_pending(dest_root: Path) -> RootOperationId | None:
+    return _read_pending_fork_operation_callback(
+        _PRODUCTION_BACKEND,
+        str(dest_root),
+        str(metadata_root_for(dest_root)),
+        PRODUCTION_STORAGE,
+    )
+
+
+def _fork_resume(dest_root: Path, operation_id: RootOperationId) -> None:
+    _resume_fork_root_callback(
+        _PRODUCTION_BACKEND,
+        str(dest_root),
+        str(metadata_root_for(dest_root)),
+        PRODUCTION_STORAGE,
+        operation_id,
+    )
+
+
+def fork_corpus(source_root: Path, dest_root: Path) -> _registry.CorpusManifest:
+    """Fork a corpus: a new chain, a fresh identity, and the two fork facts.
+
+    The retry branch runs **before any mint**: a pending fork at the
+    destination — the pre-stamp claim or an incomplete recorded operation —
+    resumes by its retained identity, the engine completing from its own
+    record, and the child manifest is read back from the destination where
+    the recorded overrides installed it. Only an absent destination mints:
+    the child `corpus_id` is fresh and opaque, the manifest is act-authored
+    with `forked_from = (parent corpus_id, parent corpus-state identity)`,
+    and the fork genesis carries `forked_from = (parent genesis digest,
+    parent head digest)` at the bound snapshot — `SourceSnapshotMoved`,
+    `RootOperationMismatch`, and `RootOperationInvalid` propagate
+    untranslated, and this act adds no third disposition.
+    """
+    source = Path(source_root)
+    dest = Path(dest_root)
+    pending = _fork_pending(dest)
+    if pending is not None:
+        _fork_resume(dest, pending)
+        return _registry.load_manifest(dest)
+
+    parent_manifest = _registry.load_manifest(source)
+    genesis_digest, head = _chain_head(source)
+    corpus_state = _registry.corpus_state_identity(source)
+    child_id = secrets.token_hex(16)
+    child_manifest = _registry.CorpusManifest(
+        2,
+        child_id,
+        parent_manifest.profile,
+        _registry.ForkedFrom(parent_manifest.corpus_id, corpus_state),
+    )
+    surface = tuple(
+        sorted(set(registered_surface_paths(source, "corpus")) | {"corpus.yaml"})
+    )
+    _fork_root_callback(
+        _PRODUCTION_BACKEND,
+        str(source),
+        str(metadata_root_for(source)),
+        str(dest),
+        str(metadata_root_for(dest)),
+        PRODUCTION_STORAGE,
+        expected_source_head=head,
+        genesis_payload=_fork_corpus_genesis_payload((genesis_digest, head)),
+        surface_paths=surface,
+        dest_overrides=(
+            DestinationOverride(
+                "corpus.yaml", _registry.manifest_bytes(child_manifest), 0o644
+            ),
+        ),
+    )
+    return child_manifest
+
+
+def fork_store(source_root: Path, dest_root: Path) -> str:
+    """Fork a store: the same act over the opaque namespace.
+
+    No manifest travels — a store's only identity is its genesis — so the
+    override tuple is empty and the child's fresh `store_id` rides in the
+    fork genesis beside the two parent digests. The retry branch resumes by
+    retained identity exactly as `fork_corpus` does, the child id read back
+    from the destination genesis.
+    """
+    source = Path(source_root)
+    dest = Path(dest_root)
+    pending = _fork_pending(dest)
+    if pending is not None:
+        _fork_resume(dest, pending)
+        resumed = _read_existing_store_genesis(dest)
+        if resumed is None:
+            raise CorpusRootRefused(
+                f"{str(dest)!r} resumed a fork but carries no store genesis"
+            )
+        return resumed
+
+    genesis_digest, head = _chain_head(source)
+    child_id = secrets.token_hex(16)
+    _fork_root_callback(
+        _PRODUCTION_BACKEND,
+        str(source),
+        str(metadata_root_for(source)),
+        str(dest),
+        str(metadata_root_for(dest)),
+        PRODUCTION_STORAGE,
+        expected_source_head=head,
+        genesis_payload=_store_genesis_payload(child_id, (genesis_digest, head)),
+        surface_paths=registered_surface_paths(source, "store"),
+        dest_overrides=(),
+    )
+    return child_id
 
 
 def write_intent_projection(plan: WritePlan) -> list[dict[str, str]]:
@@ -866,6 +1228,12 @@ def _world_lock(root: Path) -> Iterator[None]:
         yield
 
 
+def _lifecycle_state_value(root: Path) -> str:
+    """The seam's lifecycle reading: the closed union's string value, so the
+    world layer branches on the fact without holding the engine's type."""
+    return read_lifecycle_state(Path(root)).value
+
+
 _LOG_SEAM = LogSeam(
     inspect_registered=_inspect_registered,
     inspect_detached=_inspect_detached,
@@ -879,6 +1247,7 @@ _LOG_SEAM = LogSeam(
     # The write API's own lock-only lookup, unwrapped: an audit and a writer
     # contending for one corpus root must contend for one object.
     corpus_lock=_operation_lock_for,
+    lifecycle_state=_lifecycle_state_value,
 )
 
 
@@ -892,25 +1261,38 @@ def _log_seam() -> LogSeam:
     return _LOG_SEAM
 
 
-def anchor_heads(world: World, corpus_ids: frozenset[str], *, actor: str) -> tuple[LogHeadRecord, ...]:
-    """The explicit anchor act: record each named corpus's present chain head.
+def anchor_heads(
+    world: World,
+    corpus_ids: frozenset[str],
+    *,
+    store_roots: tuple[tuple[str, Path], ...] = (),
+    actor: str,
+) -> tuple[LogHeadRecord, ...]:
+    """The explicit anchor act: record each named subject's present chain head.
 
     The wrapper is the whole of what this module adds — the production seam.
     The act itself is `science.world.anchors._anchor_heads`, which holds no
     engine capability of its own and is testable against a stand-in seam
-    (log-verification design §3.3).
+    (log-verification design §3.3). Each `store_roots` pair is
+    `(store_id, root)`: a store resolves through no registry, so the caller
+    supplies the carrier, and the genesis is verified to carry that
+    `store_id` before head acceptance or registry mutation.
     """
-    return _anchor_heads(world, corpus_ids, actor=actor, seam=_log_seam())
+    return _anchor_heads(
+        world, corpus_ids, store_roots=store_roots, actor=actor, seam=_log_seam()
+    )
 
 
-def export_head_artifact(world: World, subject: CorpusSubject | WorldSubject) -> bytes:
+def export_head_artifact(world: World, subject: Subject, *, store_root: Path | None = None) -> bytes:
     """One subject's head, as the canonical bytes of a standalone artifact.
 
     Writes nothing and mints no record: export *is* the return of the value,
     and storing it with an external holder is the holder's job — which is also
     what makes it the one act that can anchor the world chain (§3.2, L11).
+    A store subject supplies its root, under the same binding the anchor act
+    holds: the genesis must carry the subject's own `store_id`.
     """
-    return _export_head_artifact(world, subject, seam=_log_seam())
+    return _export_head_artifact(world, subject, store_root=store_root, seam=_log_seam())
 
 
 def audit_log(

@@ -39,6 +39,17 @@ class WorldIdMismatch(ScienceError):
     """A world identifier disagrees with its expected identity."""
 
 
+class StoreIdMismatch(ScienceError):
+    """A store act's supplied root carries a genesis naming another store.
+
+    The store analog of `WorldIdMismatch`, raised by the anchor and export
+    acts' subject binding: a store resolves through no registry, so the
+    caller-supplied root is bound to the subject by its genesis alone, and a
+    genesis naming a different `store_id` — or no store genesis at all — is
+    refused before any head is accepted or any registry mutation planned.
+    """
+
+
 class WorldUninitialized(ScienceError):
     """A world operation needs initialization that has not occurred."""
 
@@ -323,18 +334,6 @@ class SubjectMismatch(ScienceError):
     ever admitted and then reported.
     """
 
-
-class StoreSubjectUnsupported(ScienceError):
-    """A verification named a store subject, whose behavior is unbuilt.
-
-    The evaluator's subject union is the one API in this slice that can spell a
-    store (log-verification design §4.1): the anchor act's signature is
-    corpus-only and carries no such error, and the record and artifact codecs
-    admit the store arm as *shape* alone. So the refusal lives here and only
-    here, and it stays a refusal rather than an outcome — a store subject is
-    not an unresolvable chain, it is a question this slice does not answer.
-    Behavior and the store-artifact writer are the holdings row's (§10.2).
-    """
 
 
 class ObserverCarrierInvalid(ScienceError):

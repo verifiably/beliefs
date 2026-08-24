@@ -61,7 +61,6 @@ from science.errors import (
     BuildContended,
     EpochUnknown,
     LogEvidenceRefused,
-    StoreSubjectUnsupported,
     WorldIdMismatch,
 )
 from science.world import anchors, epoch, logmodel, registry, verify
@@ -189,6 +188,9 @@ def make_seam(
         absent_state=ABSENT,
         world_lock=world_lock,
         corpus_lock=_operation_lock_for,
+        # Audit never reads it; the arrival arms that reuse this seam model
+        # arriving copies, whose state keeps the detached inspection selected.
+        lifecycle_state=lambda _root: "metadata-less",
     )
 
 
@@ -505,14 +507,23 @@ class TestTheAuditAct:
 
         assert inspections.roots == []
 
-    def test_a_store_subject_refuses_rather_than_producing_an_outcome(self, tmp_path):
+    def test_a_store_subject_reaches_the_evaluator(self, tmp_path):
+        # The shape-only refusal was the log slice's; the root-lifecycle slice
+        # judges store subjects through the same four-outcome evaluator, over
+        # exactly the supplied root — a store is configured nowhere, so the
+        # target rule has nothing to check. The verdict arms themselves are
+        # `test_store_subjects.py`'s.
         root = corpus_root(tmp_path)
         inspections, captures = Inspections(), Captures()
+        payload = science_root._store_genesis_payload("5" * 32, None)
+        inspections.set(root, surfaced(root, "store", payload))
 
-        with pytest.raises(StoreSubjectUnsupported):
-            audit(config_for(tmp_path, root), anchors.StoreSubject("5" * 32), root, inspections, captures)
+        report = audit(
+            config_for(tmp_path, root), anchors.StoreSubject("5" * 32), root, inspections, captures
+        )
 
-        assert inspections.roots == []
+        assert report.outcome == "unresolvable"
+        assert inspections.roots == [root]
 
     def test_an_unencodable_actor_refuses_before_any_read(self, tmp_path):
         root = corpus_root(tmp_path)
@@ -1307,6 +1318,7 @@ def real_seam() -> verify.LogSeam:
         absent_state=production.absent_state,
         world_lock=production.world_lock,
         corpus_lock=production.corpus_lock,
+        lifecycle_state=lambda _root: "metadata-less",
     )
 
 
