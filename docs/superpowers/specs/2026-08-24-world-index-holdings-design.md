@@ -132,11 +132,12 @@ coverage phase requires the transaction's **final surface to name every
 path an effect mutates** with its timeline's last post-state, and commit
 verification **observes every final-surface path on disk under the held
 lease** — content hash streamed from a pinned descriptor — and **refuses
-commit on any mismatch**. A committed registration's final rows are
-therefore already verified reopen-and-hash evidence, carried durably in
-the chain entry. The atoms delta is a **return channel**:
-`TransactionOutcome` gains `final_states`, the committed registration's
-final `(path, PathState)` rows, typed.
+commit on any mismatch**. The rows commit verification checked — the
+transaction's **complete canonical final surface** — are therefore already
+verified reopen-and-hash evidence; the chain's registration entry durably
+carries the **`registered_paths` subset** of them, and only that. The
+atoms delta is a **return channel**: `TransactionOutcome` gains
+`final_states` — the complete verified final surface, typed.
 
 The evidence mapping stands as first drafted, now read from those rows:
 
@@ -172,8 +173,10 @@ Atoms returns evidence, never observations; the two-intent move
 orchestration over the dual result is the Science boundary's (§4 below).
 Store payload mutations flow as ordinary registered transactions against
 the store root, so the writability gate, the pending gate, and `fulfills`
-admission apply unchanged — the return is additive, and no existing atoms
-contract moves.
+admission apply unchanged. The widening is **deliberate, not additive**:
+`TransactionOutcome` gains a required field — a stated constructor and
+equality break on the atoms side, with its tests updated in the same
+change — while no chain byte or entry codec moves.
 
 ## 3. The record kind (`science/holdings/records.py`)
 
