@@ -160,9 +160,13 @@ Consequences, replacing the first draft's pinned semantics:
   unobserved. A refused or failed transaction raises, no observation is
   minted, the intent stays unmatched, the location reads unsettled, and a
   later re-check repairs it (§4).
-- **One authority, two access paths.** `final_states` decodes the same
-  rows the registration entry carries; a consumer can re-derive them via
-  `read_chain`, and the return is a convenience, never a second source.
+- **The return and the chain rows are two different sets.** `final_states`
+  is the transaction's **complete verified final surface**; the chain's
+  registration entry durably carries only the **`registered_paths`
+  subset** of it, chosen by the caller's spec. The two agree row-for-row
+  where they overlap. A row this design needs durable in a chain must be
+  registered by the boundary that runs the transaction — see the
+  registration obligation in §4.
 
 Atoms returns evidence, never observations; the two-intent move
 orchestration over the dual result is the Science boundary's (§4 below).
@@ -251,7 +255,14 @@ atoms intent API **as built**; no log machinery changes.
    two locations.
 2. The store-root transaction runs through atoms; §2.2's returned
    `final_states` rows are the **only** evidence the observation records.
-3. Each observation publishes by its own registered transaction fulfilling
+3. **The publishing transaction registers the observation's stored path.**
+   §5.1's qualification precedence reads the captured chain's registration
+   rows, and the chain carries only each transaction's registered subset —
+   so the boundary **must** name the observation record's stored path in
+   the publishing transaction's `registered_paths`, or the precedence's
+   step-1 file row cannot exist. This binds every observation-publishing
+   transaction, pure look and mutation alike.
+4. Each observation publishes by its own registered transaction fulfilling
    its own intent — the move's **two registrations**, so the crash cases
    split per location. The intents append one at a time (the atoms intent
    API's single append, unchanged), so the windows are: a crash **between
