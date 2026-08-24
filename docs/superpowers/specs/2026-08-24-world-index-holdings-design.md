@@ -259,8 +259,9 @@ atoms intent API **as built**; no log machinery changes.
 fulfillment** of a holdings intent is a committed registration whose
 published record is a holdings observation for the intent's canonical
 location carrying the intent's `event_token`. A non-qualifying pointer never
-matches; an unreadable pointer leaves qualification **unresolved — as
-itself, never collapsed** into either resolved state. This is the log §6
+matches; a pointer whose publication cannot be produced from the captured
+coverage (§5.1) leaves qualification **unresolved — as itself, never
+collapsed** into either resolved state. This is the log §6
 reduction instantiated for the holdings shape only; L7's general reduction,
 G4's closure, and the boundary-side arms remain the intent-boundary slice's,
 and this slice's reduction is written so that slice replaces its interior,
@@ -288,12 +289,27 @@ corpus — named by stable identity; a corpus whose state or validated chain
 cannot be produced **refuses the whole projection** — capture, coherently
 with that corpus's state:
 
-- **every stored record document** in the corpus state, no kind filter —
-  path, exact document bytes, or an `unreadable` marker carrying the I/O
-  failure's reason; and
+- **every stored record's canonical node projection**, no kind filter —
+  the node's stable uid and its §11.1 canonical text (`to_canonical_json`,
+  the same per-node projection the corpus-state identity digests); and
 - **the validated chain whole**, genesis first, in chain order — each
   entry's digest and its own fields verbatim, the settlement entries
   included, so the rule can **require** commitment rather than assume it.
+
+**Raw storage bytes are deliberately not carried.** The corpus-state
+identity digests canonical node content, so two lexically different
+documents can share one state identity — a rule handed storage bytes could
+distinguish inputs the receipt names as identical, and "the receipt's
+inputs determine the value" would be false. The canonical projection is
+exactly what the state identity binds.
+
+**A record that cannot be read or generically decoded to its canonical
+projection refuses the whole capture.** This is the same condition under
+which the corpus-state identity itself is unmintable
+(`CorpusStateMalformed`), so a state a receipt can name always has a
+capturable projection. No unreadable variant exists in the schema, and no
+platform error text enters it — refusal diagnostics live outside the
+projection.
 
 **The coverage projection is a closed schema, not "a value":**
 
@@ -303,10 +319,9 @@ CoverageProjection
     corpus_id:    str — the manifest's opaque id
     corpus_state: str — the corpus-state identity
     chain_head:   str — the 64-hex head digest of the captured chain
-    records: sorted by path bytes
-      path:       str — the document's corpus-relative storage path
-      content:    bytes — the exact stored document
-      | unreadable: str — the I/O failure's reason; exactly one of the two
+    records: sorted by uid bytes
+      uid:        str — the node's stable uid
+      canonical:  str — the node's §11.1 canonical projection text
     chain: chain order, genesis first
       digest:     str — the entry's 64-hex digest
       entry:      genesis(payload, baseline)
@@ -318,10 +333,10 @@ CoverageProjection
 ```
 
 The field names, member order, and variant tags above are the schema; the
-fixture serialization encodes `bytes` as lowercase hex and an absent
-`fulfills` by omission. One capture, one byte form — the exact value the
-receipt's inputs determine, and the exact value supplied to the rule's
-fixtures.
+fixture serialization encodes payload `bytes` as lowercase hex and an
+absent `fulfills` by omission. One capture, one byte form — the exact
+value the receipt's inputs determine, and the exact value supplied to the
+rule's fixtures.
 
 **The active-set reducer (`science/holdings/reduce.py`, pure,
 fixture-bound)** — the rule a recency successor would one day replace: the
@@ -332,22 +347,25 @@ intent payloads and select the holdings intents; **associate** each intent
 with the registrations whose `fulfills` names it; **qualify** — a
 qualifying fulfillment is a **committed** registration (its settled
 entry's outcome read from the carried chain, never assumed) whose
-published record — the record row the registration's final path-state rows
-name — is a holdings observation for the intent's canonical location
-carrying its `event_token`; then the walk, coalescing, blocking, and
+published record is a holdings observation for the intent's canonical
+location carrying its `event_token`, the record found by deriving each
+carried record's stored path **inside the rule** — the layout's
+deterministic id→path derivation over the record's own canonical
+projection, no path carried — and matching it against the registration's
+final path-state rows; then the walk, coalescing, blocking, and
 cycle-refusal below.
 
 - **Qualification** lands matched, unmatched, or **unresolved as itself**
-  — a registration without a committed settlement never qualifies, and an
-  `unreadable` marker never collapses into either resolved state.
-- **Unreadable rows scope by what can be known.** An `unreadable` record
-  row named by some registration's final path-state rows leaves **that
-  intent's qualification unresolved** — location-scoped, the log
-  reduction's own rule. An `unreadable` row named by no registration could
-  be a holdings head or a supersession edge at a location nothing can
-  determine, so it **refuses the whole projection**: the
-  enumeration-completeness claim H3 signs cannot be made over a record the
-  rule can neither read nor scope.
+  — a registration without a committed settlement never qualifies, and a
+  pointer whose publication cannot be produced from the captured coverage
+  never collapses into either resolved state.
+- **Unresolved survives without an unreadable variant.** A committed
+  registration whose final path-state rows name a stored path deriving
+  from **no record in the captured state** leaves its intent's
+  qualification **unresolved — as itself**: the publication may have
+  existed and be gone from this state, which proves nothing either way and
+  blocks rather than settles (H2's fourth arm keeps its soft-collapse
+  sabotage).
 - Per-location `supersedes` DAG walk from heads; acyclicity **checked on
   every walk** (ρA9's discipline) — a presented cycle refuses the whole
   projection; a dangling predecessor outside coverage is a head with an
