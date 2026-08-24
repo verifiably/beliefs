@@ -92,13 +92,22 @@ def parsed(path: Path) -> ast.Module:
 
 
 def names_of(tree: ast.Module) -> set[str]:
-    """Every bare name and attribute tail the module mentions."""
+    """Every bare name, attribute tail, and imported source name.
+
+    Import sources count deliberately, on both sides of the confinement: an
+    aliased import IS a naming — `from atoms... import replicate_root as _x`
+    reaches the command exactly as a bare use does — so the composition
+    root's roster is satisfied by its aliased callback imports, and a module
+    elsewhere cannot smuggle a command in behind an alias.
+    """
     found: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Name):
             found.add(node.id)
         elif isinstance(node, ast.Attribute):
             found.add(node.attr)
+        elif isinstance(node, ast.ImportFrom):
+            found.update(alias.name for alias in node.names)
     return found
 
 

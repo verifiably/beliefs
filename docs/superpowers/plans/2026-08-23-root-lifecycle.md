@@ -693,7 +693,7 @@ contracts, not sketches.
   Task 3; add `LifecycleState`, `RootOperationId`, and all three functions to
   `science.root.__all__`.
 
-- [ ] **Step 1: Write the failing tests** in
+- [x] **Step 1: Write the failing tests** in
   `tests/test_lifecycle_wrappers.py`:
 
   - `test_completed_replica_reads_read_only_unserviceable` — replicate an
@@ -730,9 +730,9 @@ contracts, not sketches.
     returns the same `RootOperationId`.
   - `test_replicate_refuses_pairwise_overlapping_root_and_metadata_paths`
     — the Science wrapper preserves atoms' boundary refusal.
-- [ ] **Step 2:** Run: `uv run --frozen pytest tests/test_lifecycle_wrappers.py -v`.
+- [x] **Step 2:** Run: `uv run --frozen pytest tests/test_lifecycle_wrappers.py -v`.
   Expected: FAIL at import of the wrappers.
-- [ ] **Step 3: Implement** the wrappers (each a `root.py` function
+- [x] **Step 3: Implement** the wrappers (each a `root.py` function
   converting paths and re-raising the atoms errors through the existing
   `LogEvidenceRefused` conversion pattern where one applies). Run to
   PASS; gate block. Commit:

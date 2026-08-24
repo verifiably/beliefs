@@ -55,18 +55,37 @@ from atoms.coordinator.commands import (
     SourceSnapshotMoved,
     append_intent,
     capture_states,
-    fork_root,
-    grant_read_serviceability,
     inspect_chain,
     inspect_chain_detached,
-    migrate_root_to_lifecycle_v3,
     read_chain,
-    read_lifecycle_state,
-    read_pending_fork_operation,
     register_root,
-    replicate_root,
-    resume_fork_root,
     run_transaction,
+)
+from atoms.coordinator.commands import (  # noqa: F401 - the fork/restore acts' callbacks land with their tasks; the names are the declared boundary now
+    fork_root as _fork_root_callback,
+)
+from atoms.coordinator.commands import (  # noqa: F401
+    grant_read_serviceability as _grant_read_serviceability_callback,
+)
+
+# The seven lifecycle commands, imported as the private callback aliases the
+# lifecycle wrappers and the fork/restore acts consume — same seam discipline
+# as `chain_head_reader`: root.py names every engine command (the boundary
+# roster reads import sources too), and nothing above it does. Three of the
+# wrappers deliberately re-bind the engine names with Path-taking signatures,
+# which is why the engine's own arrive aliased rather than shadowed.
+from atoms.coordinator.commands import (
+    migrate_root_to_lifecycle_v3 as _migrate_root_to_lifecycle_v3_callback,
+)
+from atoms.coordinator.commands import (
+    read_lifecycle_state as _read_lifecycle_state_callback,
+)
+from atoms.coordinator.commands import (  # noqa: F401
+    read_pending_fork_operation as _read_pending_fork_operation_callback,
+)
+from atoms.coordinator.commands import replicate_root as _replicate_root_callback
+from atoms.coordinator.commands import (  # noqa: F401
+    resume_fork_root as _resume_fork_root_callback,
 )
 from atoms.core.effects import CreateDirectory, CreateFileNoClobber, DeletePath, Effect, ReplaceFile
 from atoms.core.errors import (
@@ -168,8 +187,11 @@ __all__ = [
     "init_world_root",
     "install_shipped_world_rules",
     "metadata_root_for",
+    "migrate_root_to_lifecycle_v3",
     "open_corpus",
     "open_world",
+    "read_lifecycle_state",
+    "replicate_root",
     "write_intent_digest",
     "write_intent_projection",
 ]
@@ -194,17 +216,6 @@ them: changing this constant does not migrate a root, it orphans one.
 INTENT_DOMAIN = "science.corpus-write-intent.v1"
 WORLD_GENESIS_DOMAIN = "science.world-root.v1"
 STORE_GENESIS_DOMAIN = "science.store-root.v1"
-
-# The seven lifecycle commands, held as the private callback aliases the
-# fork/restore acts consume — same seam discipline as `chain_head_reader`:
-# root.py names every engine command, and nothing above it does.
-_replicate_root_callback = replicate_root
-_fork_root_callback = fork_root
-_read_pending_fork_operation_callback = read_pending_fork_operation
-_resume_fork_root_callback = resume_fork_root
-_grant_read_serviceability_callback = grant_read_serviceability
-_read_lifecycle_state_callback = read_lifecycle_state
-_migrate_root_to_lifecycle_v3_callback = migrate_root_to_lifecycle_v3
 
 PRODUCTION_STORAGE = StorageProfile(profile_id="flush-honoring-disk.v1")
 """The engine's production storage profile, passed through unchanged.
@@ -410,6 +421,54 @@ def init_store_root(store_root: Path) -> str:
         (),
     )
     return store_id
+
+
+def replicate_root(source_root: Path, dest_root: Path) -> RootOperationId:
+    """Replicate one registered root byte-for-byte, chain included.
+
+    The thin wrapper over the engine's copy command: both metadata roots
+    derive by the one sibling rule and the one production storage profile
+    travels. It appends nothing — a replica's chain arrives unchanged and
+    its lifecycle is read-only unserviceable — and returns the engine's
+    retained operation id, which an exact retry returns again.
+    """
+    source = Path(source_root)
+    dest = Path(dest_root)
+    return _replicate_root_callback(
+        _PRODUCTION_BACKEND,
+        str(source),
+        str(metadata_root_for(source)),
+        str(dest),
+        str(metadata_root_for(dest)),
+        PRODUCTION_STORAGE,
+    )
+
+
+def read_lifecycle_state(root: Path) -> LifecycleState:
+    """The closed five-value lifecycle union, validated while reading."""
+    target = Path(root)
+    return _read_lifecycle_state_callback(
+        _PRODUCTION_BACKEND,
+        str(target),
+        str(metadata_root_for(target)),
+        PRODUCTION_STORAGE,
+    )
+
+
+def migrate_root_to_lifecycle_v3(root: Path) -> None:
+    """The operator-authorized pre-lifecycle migration, passed through.
+
+    Invoking it is the attestation that this host is the pre-lifecycle
+    minting host; every structural refusal — metadata-less, mismatched
+    binding, anything but the exact version-2 store — is the engine's own.
+    """
+    target = Path(root)
+    _migrate_root_to_lifecycle_v3_callback(
+        _PRODUCTION_BACKEND,
+        str(target),
+        str(metadata_root_for(target)),
+        PRODUCTION_STORAGE,
+    )
 
 
 def write_intent_projection(plan: WritePlan) -> list[dict[str, str]]:

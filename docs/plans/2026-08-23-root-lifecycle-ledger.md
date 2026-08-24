@@ -122,6 +122,31 @@ Freeze hash: `0977bde`
     seam's. Gates: `3 failed, 2200 passed in 394.69s (0:06:34)` (the three
     known Task-11 documentation failures), ruff clean, pyright at its four
     baseline diagnostics, cut-7 acceptance exit 0.
+17. **R17 — carrier-less registered inspection serves the detached
+    classification.** R13's inspect claim is corrected: refusing
+    `inspect_chain` over a metadata-less root made a cold copy's chain
+    unjudgeable through the audit act, which cut 9 L2 u1 requires
+    (`unresolvable at step 3` over the copied root). Atoms `fb95e1a`
+    (merged/pushed at `bf559c2`) answers a carrier-less registered
+    inspection with the detached classification — non-coherent,
+    non-mutating, staging as evidence — while a live record without a
+    grant stays `ChainStateInvalid`, `read_chain` still refuses without a
+    grant, and binding-mismatched roots refuse both.
+18. **R18 — Task 5 discharged.** The Science wrappers `replicate_root`,
+    `read_lifecycle_state`, and `migrate_root_to_lifecycle_v3` land as
+    thin Path-taking passthroughs over the callback aliases; the engine
+    command names arrive as aliased imports (the boundary roster now
+    counts import sources on both sides of the confinement), and the
+    unused fork/restore callbacks are held with the boundary until their
+    tasks. The gate-precedence pair is pinned live: a metadata-less copy
+    refuses mutation at the writability gate while its chain evaluation
+    reads unresolvable with the pending entry named, and a writable
+    pending root still refuses through the pending gate. Real-engine
+    tests run under `certified_work`, a per-test directory on the
+    repository's own certified volume. Gates: `3 failed, 2212 passed in
+    344.87s (0:05:44)` (the three known Task-11 documentation failures),
+    ruff clean, pyright at its four baseline diagnostics, cut-7
+    acceptance exit 0.
 
 ## Heads
 
@@ -131,4 +156,5 @@ Freeze hash: `0977bde`
 | 1 — reviewed atoms design and Science contract amendment | `b1469f4` | this amendment commit |
 | 2 — atoms lifecycle implementation | `ff144e7` (merge of `24b15ce`) | this ledger commit |
 | 3 — store roots and the store projection | `ff144e7` | `560c859` |
-| 4 — store subjects through the verification surface | `ff144e7` | this task's commit |
+| 4 — store subjects through the verification surface | `ff144e7` | `8e14f8a` |
+| 5 — lifecycle wrappers and gate precedence | `bf559c2` (merge of `fb95e1a`) | this task's commit |
