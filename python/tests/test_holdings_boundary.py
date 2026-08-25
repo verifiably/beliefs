@@ -25,7 +25,7 @@ from science.holdings.boundary import (
     write,
 )
 from science.holdings.records import Absent, Found, StoreLocator
-from science.holdings.seam import FileStateView, StoreOutcomeView
+from science.holdings.seam import FileStateView, ReadUnestablishedView, StoreOutcomeView
 from science.root import (
     LifecycleState,
     holdings_seam,
@@ -33,7 +33,9 @@ from science.root import (
     init_store_root,
     read_lifecycle_state,
     replicate_root,
+    restore_root,
 )
+from science.world import anchors, verify
 from science.world.logmodel import IntentEntryView, RegisteredEntryView, WellFormedView
 
 
@@ -121,14 +123,31 @@ def test_recheck_on_a_metadata_less_store_reports_byte_locator_untested_and_mint
     assert len([entry for entry in chain.entries if isinstance(entry, RegisteredEntryView)]) == 1
 
 
-def test_recheck_of_an_unserviceable_root_mints_nothing_never_absent(certified_work):
+def test_recheck_of_an_unserviceable_restored_root_mints_nothing_never_absent(certified_work):
     ctx, store_id = context(certified_work)
     ctx.seam.store_write(ctx.store_root, "held.bin", b"payload")
     replica = certified_work / "replica"
     replicate_root(ctx.store_root, replica)
     (replica / "held.bin").unlink()
-    ctx = replace(ctx, store_root=replica)
+    genesis, head = science_root.chain_head_reader()(ctx.store_root)
+    carrier = verify.RegistryCarrier.from_record(
+        anchors.LogHeadRecord(
+            anchors.StoreSubject(store_id),
+            genesis,
+            head,
+            anchors.AnchorActOrigin("observer"),
+        )
+    )
+
+    report = restore_root(
+        replica,
+        anchors.StoreSubject(store_id),
+        verify.ObserverSet((carrier,)),
+    )
+
+    assert report.outcome == "refuted"
     assert read_lifecycle_state(replica) is LifecycleState.READ_ONLY_UNSERVICEABLE
+    ctx = replace(ctx, store_root=replica)
 
     result = recheck(ctx, StoreLocator(store_id, "held.bin"))
 
@@ -136,6 +155,30 @@ def test_recheck_of_an_unserviceable_root_mints_nothing_never_absent(certified_w
     assert result.report == "byte-locator-untested"
     assert result.reason == "lifecycle-state"
     assert result.detail == ""
+    assert not (ctx.observer_root / "holdings-observation").exists()
+    chain = science_root._log_seam().inspect_registered(ctx.observer_root)
+    assert isinstance(chain, WellFormedView)
+    assert len([entry for entry in chain.entries if isinstance(entry, IntentEntryView)]) == 1
+    assert not [entry for entry in chain.entries if isinstance(entry, RegisteredEntryView)]
+
+
+def test_read_unestablished_reports_retrieval_failed_verbatim_and_mints_nothing(certified_work):
+    ctx, store_id = context(certified_work)
+    ctx = replace(
+        ctx,
+        seam=replace(
+            ctx.seam,
+            read_path=lambda _root, _path: ReadUnestablishedView(
+                "io-failure", "device returned EIO"
+            ),
+        ),
+    )
+
+    result = recheck(ctx, StoreLocator(store_id, "held.bin"))
+
+    assert result == InconclusiveAttempt(
+        "retrieval-failed", "io-failure", "device returned EIO"
+    )
     assert not (ctx.observer_root / "holdings-observation").exists()
     chain = science_root._log_seam().inspect_registered(ctx.observer_root)
     assert isinstance(chain, WellFormedView)
@@ -246,13 +289,40 @@ def test_write_records_the_engine_final_row_not_the_payload_digest(certified_wor
     assert result.record.outcome == Found(doctored)
 
 
-def test_delete_records_absent_from_the_final_row_never_the_return(certified_work):
+@pytest.mark.parametrize(
+    ("final_states", "error"),
+    [
+        ((('held.bin', FileStateView("sha256:" + "d" * 64)),), TypeError),
+        ((), RuntimeError),
+    ],
+)
+def test_delete_records_absent_from_the_final_row_never_the_return(
+    certified_work, final_states, error
+):
     ctx, store_id = context(certified_work)
     ctx.seam.store_write(ctx.store_root, "held.bin", b"payload")
+    original_delete = ctx.seam.store_delete
 
-    result = delete(ctx, StoreLocator(store_id, "held.bin"))
+    def delete_with_adversarial_evidence(root, path):
+        outcome = original_delete(root, path)
+        return StoreOutcomeView(outcome.txid, final_states)
 
-    assert result.record.outcome == Absent()
+    ctx = replace(
+        ctx, seam=replace(ctx.seam, store_delete=delete_with_adversarial_evidence)
+    )
+
+    with pytest.raises(error):
+        delete(ctx, StoreLocator(store_id, "held.bin"))
+
+    assert not (ctx.observer_root / "holdings-observation").exists()
+    chain = science_root._log_seam().inspect_registered(ctx.observer_root)
+    assert isinstance(chain, WellFormedView)
+    intents = [entry for entry in chain.entries if isinstance(entry, IntentEntryView)]
+    registrations = [
+        entry for entry in chain.entries if isinstance(entry, RegisteredEntryView)
+    ]
+    assert len(intents) == 1
+    assert not registrations
 
 
 def test_write_validates_expected_before_its_intent_or_mutation(certified_work):
@@ -277,14 +347,32 @@ def test_move_publishes_two_observations_fulfilling_two_intents(certified_work):
     assert isinstance(destination.record.outcome, Found)
     chain = science_root._log_seam().inspect_registered(ctx.observer_root)
     assert isinstance(chain, WellFormedView)
-    intents = [entry.digest for entry in chain.entries if isinstance(entry, IntentEntryView)]
+    intents = [entry for entry in chain.entries if isinstance(entry, IntentEntryView)]
     registrations = [entry for entry in chain.entries if isinstance(entry, RegisteredEntryView)]
     assert len(intents) == len(registrations) == 2
-    assert [entry.fulfills for entry in registrations] == intents
+    source_payload, destination_payload = [json.loads(entry.payload) for entry in intents]
+    assert source_payload["event_token"] != destination_payload["event_token"]
+    assert source_payload["kind"] == "move-source"
+    assert destination_payload["kind"] == "move-destination"
+    assert source_payload["location"] == {
+        "relative_path": "source.bin",
+        "store_id": store_id,
+        "type": "store",
+    }
+    assert destination_payload["location"] == {
+        "relative_path": "destination.bin",
+        "store_id": store_id,
+        "type": "store",
+    }
+    assert source.record.event_token == source_payload["event_token"]
+    assert destination.record.event_token == destination_payload["event_token"]
+    assert registrations[0].fulfills == intents[0].digest
+    assert registrations[1].fulfills == intents[1].digest
 
 
 def test_a_kill_between_intent_and_mutation_leaves_the_intent_unmatched(certified_work):
     ctx, store_id = context(certified_work)
+    ctx.seam.store_write(ctx.store_root, "held.bin", b"original")
 
     def kill_before_write(_root, _path, _content):
         raise RuntimeError("kill")
@@ -296,12 +384,13 @@ def test_a_kill_between_intent_and_mutation_leaves_the_intent_unmatched(certifie
     assert isinstance(chain, WellFormedView)
     assert len([entry for entry in chain.entries if isinstance(entry, IntentEntryView)]) == 1
     assert not [entry for entry in chain.entries if isinstance(entry, RegisteredEntryView)]
-    assert not (ctx.store_root / "held.bin").exists()
+    assert (ctx.store_root / "held.bin").read_bytes() == b"original"
     assert not (ctx.observer_root / "holdings-observation").exists()
 
 
 def test_a_move_killed_between_the_two_appends(certified_work):
     ctx, store_id = context(certified_work)
+    ctx.seam.store_write(ctx.store_root, "source.bin", b"payload")
     original_append = ctx.seam.append_intent
     calls = 0
 
@@ -319,12 +408,13 @@ def test_a_move_killed_between_the_two_appends(certified_work):
     assert isinstance(chain, WellFormedView)
     assert len([entry for entry in chain.entries if isinstance(entry, IntentEntryView)]) == 1
     assert not [entry for entry in chain.entries if isinstance(entry, RegisteredEntryView)]
-    assert not (ctx.store_root / "source.bin").exists()
+    assert (ctx.store_root / "source.bin").read_bytes() == b"payload"
     assert not (ctx.store_root / "destination.bin").exists()
 
 
 def test_a_move_killed_after_both_appends_before_the_mutation(certified_work):
     ctx, store_id = context(certified_work)
+    ctx.seam.store_write(ctx.store_root, "source.bin", b"payload")
 
     def kill_before_move(_root, _source, _destination):
         raise RuntimeError("kill")
@@ -336,7 +426,7 @@ def test_a_move_killed_after_both_appends_before_the_mutation(certified_work):
     assert isinstance(chain, WellFormedView)
     assert len([entry for entry in chain.entries if isinstance(entry, IntentEntryView)]) == 2
     assert not [entry for entry in chain.entries if isinstance(entry, RegisteredEntryView)]
-    assert not (ctx.store_root / "source.bin").exists()
+    assert (ctx.store_root / "source.bin").read_bytes() == b"payload"
     assert not (ctx.store_root / "destination.bin").exists()
 
 

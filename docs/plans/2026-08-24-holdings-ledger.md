@@ -89,6 +89,18 @@ Rulings are written at task boundaries, never rewritten after the fact.
     the mutation-act batch was red for missing exports, and the later intent
     validation/lifecycle fixtures were red before their targeted changes.
 
+14. **R14 — Task 4 review closed five test-construction gaps.** L10 u2 now
+    performs a real failed restore and asserts its `refuted`, read-only-
+    unserviceable result; the `ReadUnestablishedView` mapping has a direct
+    verbatim-report pin; H1 u3 substitutes both a wrong-kind and a missing
+    final-state row; the move test decodes both intents and pairs their distinct
+    tokens, locations, and fulfillments; and every pre-mutation window starts
+    with state whose preservation is observable. The H1 u3 test was watched
+    fail as two `DID NOT RAISE` cases against a deliberate mint-from-return
+    sabotage, then pass when the existing `_final` lookup and absent-state type
+    guard were restored. The other review amendments pin already-correct
+    production behavior and required no production change.
+
 ## Heads
 
 | Task | Science head |
