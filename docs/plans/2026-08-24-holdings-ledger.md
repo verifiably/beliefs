@@ -35,7 +35,21 @@ Rulings are written at task boundaries, never rewritten after the fact.
    escapes or a non-shadowing local, preserving runtime validation while
    making Pyright pass.
 
+5. **R5 — the store path grammar is an atoms-free mirror with an engine
+   agreement pin.** `science.holdings.records` mirrors the engine's pure
+   relative-path grammar because the capability boundary forbids an atoms
+   import below `science/root.py`; `test_the_path_grammar_agrees_with_the_engine`
+   pins the mirror to `atoms.core.paths.require_rel_path` across accepted and
+   refused spellings.
+
+6. **R6 — Task 1 review pins preceded one review fix.** The exact-facet and
+   direct-constructor refusal tests passed on their first run against the
+   initial Task 1 implementation; they pin that existing contract. The three
+   lone-surrogate construction cases were watched red and drove the shared
+   identity-text validation.
+
 ## Heads
 
 | Task | Science head |
 |---|---|
+| 0 | 178ff77 |
