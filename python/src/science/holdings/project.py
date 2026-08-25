@@ -5,11 +5,10 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-from nodes.core.errors import NodesError
 from nodes.core.projection import to_canonical_json
 
 from science.corpus import ReadView, _root_state_for
-from science.errors import CaptureDrift, CorpusStateMalformed, CoverageUnknown
+from science.errors import CaptureDrift, CorpusStateMalformed, CoverageUnknown, ScienceError
 from science.world import epoch, registry
 from science.world.logmodel import (
     AbsentView,
@@ -73,7 +72,9 @@ def _capture_one(
 ) -> dict[str, object]:
     try:
         state = _root_state_for(carrier, world._corpus_executor_factory)
-    except (NodesError, UnicodeError, OSError) as caught:
+    except ScienceError:
+        raise
+    except Exception as caught:
         raise CorpusStateMalformed(f"{corpus_id}: {carrier}: capture could not open the corpus: {caught}") from caught
     with state.lock.capture():
         chain = chain_view(carrier)

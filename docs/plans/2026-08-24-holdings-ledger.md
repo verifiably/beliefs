@@ -153,6 +153,16 @@ Rulings are written at task boundaries, never rewritten after the fact.
     while replay still interprets nothing. The missing-metadata and two
     exception-propagation tests were watched red before their fixes.
 
+20. **R20 — initial corpus open translates decode failures, not Science
+    refusals.** `_root_state_for` is solely the corpus open/decode boundary:
+    an existing `ScienceError` (including the executor-factory invariant)
+    propagates unchanged, while any other exception arising from that call is
+    translated to `CorpusStateMalformed` naming the corpus. The admitted but
+    never Science-opened corpus carrying malformed YAML was watched leak
+    `yaml.parser.ParserError` before the scoped translation, then pass; the
+    executor-factory regression stayed green. Later chain projection and seam
+    calls remain outside any broad translation.
+
 ## Heads
 
 | Task | Science head |

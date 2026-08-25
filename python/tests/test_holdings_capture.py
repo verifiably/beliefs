@@ -339,6 +339,14 @@ def test_an_undecodable_record_refuses_the_whole_capture(tmp_path):
         capture_coverage(world, frozenset({ALPHA}), chain_view=whole_chain, state_facts=absent_facts)
 
 
+def test_an_initial_open_decode_failure_refuses_the_whole_capture(tmp_path):
+    world, root = admitted(tmp_path)
+    (root / "bad.md").write_bytes(b"---\n[not valid\n---\n")
+
+    with pytest.raises(CorpusStateMalformed, match=ALPHA):
+        capture_coverage(world, frozenset({ALPHA}), chain_view=whole_chain, state_facts=absent_facts)
+
+
 def test_an_unresolvable_corpus_refuses_the_whole_projection(tmp_path):
     world, _root = admitted(tmp_path)
 
