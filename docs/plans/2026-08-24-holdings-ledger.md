@@ -101,6 +101,16 @@ Rulings are written at task boundaries, never rewritten after the fact.
     guard were restored. The other review amendments pin already-correct
     production behavior and required no production change.
 
+15. **R15 — Task 4's second review restored the two omitted success pins.**
+    H1 u3 again exercises a real successful delete and requires the engine's
+    actual `AbsentStateView` final row to publish `Absent()`, alongside the
+    retained wrong-kind and missing-row refusals. J9's successful move now
+    binds each returned record to its corresponding locator and binds each
+    intent-ordered registration to exactly that record's stored path. Both
+    amendments passed first against the existing production behavior; mutation
+    checks then watched the delete test fail when the valid result was discarded
+    and the move test fail when the publication locations were swapped.
+
 ## Heads
 
 | Task | Science head |

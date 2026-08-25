@@ -296,7 +296,7 @@ def test_write_records_the_engine_final_row_not_the_payload_digest(certified_wor
         ((), RuntimeError),
     ],
 )
-def test_delete_records_absent_from_the_final_row_never_the_return(
+def test_delete_refuses_a_wrong_or_missing_final_row(
     certified_work, final_states, error
 ):
     ctx, store_id = context(certified_work)
@@ -325,6 +325,16 @@ def test_delete_records_absent_from_the_final_row_never_the_return(
     assert not registrations
 
 
+def test_delete_records_absent_from_the_final_row_never_the_return(certified_work):
+    ctx, store_id = context(certified_work)
+    ctx.seam.store_write(ctx.store_root, "held.bin", b"payload")
+
+    result = delete(ctx, StoreLocator(store_id, "held.bin"))
+
+    assert isinstance(result, PublishedObservation)
+    assert result.record.outcome == Absent()
+
+
 def test_write_validates_expected_before_its_intent_or_mutation(certified_work):
     ctx, store_id = context(certified_work)
 
@@ -340,11 +350,15 @@ def test_write_validates_expected_before_its_intent_or_mutation(certified_work):
 def test_move_publishes_two_observations_fulfilling_two_intents(certified_work):
     ctx, store_id = context(certified_work)
     ctx.seam.store_write(ctx.store_root, "source.bin", b"payload")
+    source_location = StoreLocator(store_id, "source.bin")
+    destination_location = StoreLocator(store_id, "destination.bin")
 
-    source, destination = move(ctx, StoreLocator(store_id, "source.bin"), StoreLocator(store_id, "destination.bin"))
+    source, destination = move(ctx, source_location, destination_location)
 
     assert source.record.outcome == Absent()
     assert isinstance(destination.record.outcome, Found)
+    assert source.record.location == source_location
+    assert destination.record.location == destination_location
     chain = science_root._log_seam().inspect_registered(ctx.observer_root)
     assert isinstance(chain, WellFormedView)
     intents = [entry for entry in chain.entries if isinstance(entry, IntentEntryView)]
@@ -368,6 +382,12 @@ def test_move_publishes_two_observations_fulfilling_two_intents(certified_work):
     assert destination.record.event_token == destination_payload["event_token"]
     assert registrations[0].fulfills == intents[0].digest
     assert registrations[1].fulfills == intents[1].digest
+    assert tuple(path for path, _state in registrations[0].final) == (
+        f"holdings-observation/{source.record.identity()}.md",
+    )
+    assert tuple(path for path, _state in registrations[1].final) == (
+        f"holdings-observation/{destination.record.identity()}.md",
+    )
 
 
 def test_a_kill_between_intent_and_mutation_leaves_the_intent_unmatched(certified_work):
