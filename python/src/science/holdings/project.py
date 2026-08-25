@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
+from nodes.core.errors import NodesError
 from nodes.core.projection import to_canonical_json
 
 from science.corpus import ReadView, _root_state_for
@@ -40,6 +41,8 @@ def _entry(entry: object, state_facts: StateFacts) -> dict[str, object]:
     if isinstance(entry, IntentEntryView):
         return {"kind": "intent", "payload": entry.payload.hex()}
     if isinstance(entry, RegisteredEntryView):
+        if entry.intent_digest is None or entry.consumer_tag is None:
+            raise CorpusStateMalformed(f"{entry.digest}: a registered entry lacks its engine binding metadata")
         projected: dict[str, object] = {
             "kind": "registered",
             "txid": entry.txid,
@@ -70,7 +73,7 @@ def _capture_one(
 ) -> dict[str, object]:
     try:
         state = _root_state_for(carrier, world._corpus_executor_factory)
-    except Exception as caught:
+    except (NodesError, UnicodeError, OSError) as caught:
         raise CorpusStateMalformed(f"{corpus_id}: {carrier}: capture could not open the corpus: {caught}") from caught
     with state.lock.capture():
         chain = chain_view(carrier)
@@ -78,6 +81,9 @@ def _capture_one(
             raise CorpusStateMalformed(f"{corpus_id}: {carrier}: the corpus chain is not well formed")
         try:
             before = registry.corpus_state_identity(carrier)
+        except CorpusStateMalformed as caught:
+            raise CorpusStateMalformed(f"{corpus_id}: {carrier}: {caught}") from caught
+        try:
             records = sorted(
                 (
                     {"uid": node.uid, "canonical": to_canonical_json(node)}
@@ -85,12 +91,13 @@ def _capture_one(
                 ),
                 key=lambda record: record["uid"],
             )
-            chain_rows = [{"digest": entry.digest, "entry": _entry(entry, state_facts)} for entry in chain.entries]
+        except Exception as caught:
+            raise CorpusStateMalformed(f"{corpus_id}: {carrier}: record capture failed: {caught}") from caught
+        chain_rows = [{"digest": entry.digest, "entry": _entry(entry, state_facts)} for entry in chain.entries]
+        try:
             after = registry.corpus_state_identity(carrier)
         except CorpusStateMalformed as caught:
             raise CorpusStateMalformed(f"{corpus_id}: {carrier}: {caught}") from caught
-        except Exception as caught:
-            raise CorpusStateMalformed(f"{corpus_id}: {carrier}: capture failed: {caught}") from caught
         if before != after:
             raise CaptureDrift(
                 f"{corpus_id}: {carrier}: the corpus state moved inside the capture hold "

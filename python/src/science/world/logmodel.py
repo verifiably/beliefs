@@ -11,9 +11,11 @@ the seam, and every act reads these.
 **One vocabulary, not two.** The conversion is a re-typing of the *shape* and
 never of the *facts*: a state fingerprint is carried as an atoms `PathState`
 object, typed here as `object`, **opaque and compared only by equality**.
-Science never constructs one, never interprets one and never re-encodes one,
-which is what keeps the log design's one-summary-model rule a mechanism rather
-than a promise. The chain's own entries carry the encoded form
+Science never constructs or interprets one. Replay compares it only by
+equality; mechanical holdings projection may ask the composition root to
+delegate its re-encoding to the engine's own codec. That is what keeps the log
+design's one-summary-model rule a mechanism rather than a promise. The chain's
+own entries carry the encoded form
 (`PathStateJSON`) and the capture command returns `PathState`; the composition
 root decodes the former with the engine's own `state_from_json` during this
 conversion, so both sides of every replay comparison are `PathState` values and
@@ -68,11 +70,11 @@ class RegisteredEntryView:
 
     digest: str
     txid: str
-    intent_digest: str
-    consumer_tag: str
     initial: tuple[tuple[str, object], ...]
     final: tuple[tuple[str, object], ...]
     fulfills: str | None
+    intent_digest: str | None = None
+    consumer_tag: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from atoms.chain.model import state_to_json
+from atoms.core.fingerprint import PathState
 from fixtures_cut6 import PINS
 from nodes.core.projection import to_canonical_json
 from nodes.core.write_plan import DefaultExecutor
@@ -14,12 +16,12 @@ from test_world_build import ALPHA, BETA, ChainHeads, corpus_at, make_world
 
 from science import root as science_root
 from science import stored
-from science.corpus import ReadView
-from science.errors import CaptureDrift, CorpusStateMalformed, CoverageUnknown
+from science.corpus import ReadView, _root_state_for
+from science.errors import CaptureDrift, CorpusStateMalformed, CoverageUnknown, ScienceError
 from science.holdings.boundary import ActContext, PublishedObservation, recheck
 from science.holdings.project import capture_coverage
 from science.holdings.records import Absent, StoreLocator, holdings_observation
-from science.world import logmodel, registry
+from science.world import logmodel, registry, verify
 
 OPAQUE_ABSENT = object()
 
@@ -276,8 +278,28 @@ def test_the_projection_matches_the_closed_schema(
         else:
             assert entry["kind"] == "settled"
             assert set(entry) == {"kind", "txid", "registration", "outcome"}
-    assert encoded
-    assert all(type(key) is str and type(value) is str for state in encoded for key, value in seam.state_facts(state))
+    expected_states: list[object] = []
+    for viewed_entry, projected_row in zip(viewed.entries, entries, strict=True):
+        projected_entry = projected_row["entry"]
+        surfaces = (
+            (("baseline", viewed_entry.baseline),)
+            if isinstance(viewed_entry, logmodel.GenesisEntryView)
+            else (
+                (("initial", viewed_entry.initial), ("final", viewed_entry.final))
+                if isinstance(viewed_entry, logmodel.RegisteredEntryView)
+                else ()
+            )
+        )
+        for name, surface in surfaces:
+            expected_states.extend(state for _path, state in surface)
+            assert projected_entry[name] == [
+                [
+                    path,
+                    [list(pair) for pair in state_to_json(cast(PathState, state))],
+                ]
+                for path, state in surface
+            ]
+    assert encoded == expected_states
 
 
 def test_corpora_are_sorted_by_declared_identity(tmp_path):
@@ -352,6 +374,73 @@ def test_an_unvalidated_chain_refuses_the_whole_capture(tmp_path, view):
             chain_view=lambda _root: view,
             state_facts=absent_facts,
         )
+
+
+def test_a_frozen_stand_in_registration_cannot_enter_the_projection(tmp_path):
+    world, _root = admitted(tmp_path)
+    chain = whole_chain(_root)
+    stand_in = logmodel.RegisteredEntryView(
+        digest="8" * 64,
+        txid="frozen",
+        initial=(),
+        final=(),
+        fulfills=None,
+    )
+    view = logmodel.WellFormedView(
+        genesis=chain.genesis,
+        entries=(*chain.entries, stand_in),
+        tip=stand_in.digest,
+        pending=((stand_in.txid, stand_in.digest),),
+    )
+
+    with pytest.raises(CorpusStateMalformed, match="binding metadata"):
+        capture_coverage(
+            world,
+            frozenset({ALPHA}),
+            chain_view=lambda _root: view,
+            state_facts=absent_facts,
+        )
+
+
+def test_an_unwired_state_encoder_propagates_its_refusal(tmp_path):
+    world, _root = admitted(tmp_path)
+    production = science_root._log_seam()
+    unwired = verify.LogSeam(
+        inspect_registered=production.inspect_registered,
+        inspect_detached=production.inspect_detached,
+        capture=production.capture,
+        read_head=production.read_head,
+        absent_state=production.absent_state,
+        world_lock=production.world_lock,
+        corpus_lock=production.corpus_lock,
+    )
+
+    with pytest.raises(AssertionError, match="wires no path-state fact encoder"):
+        capture_coverage(
+            world,
+            frozenset({ALPHA}),
+            chain_view=whole_chain,
+            state_facts=unwired.state_facts,
+        )
+
+
+def test_an_executor_factory_mismatch_propagates_as_the_programming_error(tmp_path):
+    world, root = admitted(tmp_path)
+    _root_state_for(root, DefaultExecutor)
+
+    def another_factory(carrier: Path):
+        return DefaultExecutor(carrier)
+
+    world._corpus_executor_factory = another_factory
+
+    with pytest.raises(ScienceError, match="different executor factory") as refusal:
+        capture_coverage(
+            world,
+            frozenset({ALPHA}),
+            chain_view=whole_chain,
+            state_facts=absent_facts,
+        )
+    assert type(refusal.value) is ScienceError
 
 
 def test_capture_is_coherent_under_the_lock(monkeypatch, tmp_path):

@@ -137,6 +137,22 @@ Rulings are written at task boundaries, never rewritten after the fact.
     once after their extraction from `_preflight`. Both preflight and holdings
     capture execute those same predicates through `_locked_resolve_coverage`.
 
+19. **R19 — Task 5 review closed three defects and one stale claim.** The
+    frozen cut-8 declaration file is restored byte-for-byte to `55b6de7`;
+    `RegisteredEntryView` therefore keeps `None` defaults solely for those
+    frozen stand-in constructors, while the production root supplies both
+    binding fields and capture refuses a missing one before emitting anything.
+    Corpus-open translation is limited to `NodesError`, `UnicodeError`, and
+    `OSError`, record translation spans only record opening/enumeration and
+    canonicalization, and state-fact plus executor-factory failures propagate
+    unchanged. The real-chain schema test now compares every emitted state
+    fact pair byte-for-byte with atoms `state_to_json`; empty and reversed
+    encoder mutations were each watched fail. Finally, the logmodel and root
+    prose now state the one permitted re-encoding precisely: mechanical
+    projection delegates it to the composition root's engine-owned codec,
+    while replay still interprets nothing. The missing-metadata and two
+    exception-propagation tests were watched red before their fixes.
+
 ## Heads
 
 | Task | Science head |

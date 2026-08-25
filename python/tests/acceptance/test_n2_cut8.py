@@ -500,8 +500,6 @@ def test_the_view_predicate_agrees_with_the_engine(tmp_path):
     unresolved = logmodel.RegisteredEntryView(
         digest="8" * 64,
         txid="tx-2",
-        intent_digest="sha256:" + "0" * 64,
-        consumer_tag="science-corpus-write-v1",
         initial=registration.initial,
         final=registration.final,
         fulfills="e" * 64,
@@ -513,22 +511,10 @@ def test_the_view_predicate_agrees_with_the_engine(tmp_path):
 
     intent = logmodel.IntentEntryView(digest="7" * 64, payload=b"an intent")
     first = logmodel.RegisteredEntryView(
-        digest="6" * 64,
-        txid="tx-a",
-        intent_digest="sha256:" + "0" * 64,
-        consumer_tag="science-corpus-write-v1",
-        initial=(),
-        final=(),
-        fulfills=intent.digest,
+        digest="6" * 64, txid="tx-a", initial=(), final=(), fulfills=intent.digest
     )
     second = logmodel.RegisteredEntryView(
-        digest="5" * 64,
-        txid="tx-b",
-        intent_digest="sha256:" + "0" * 64,
-        consumer_tag="science-corpus-write-v1",
-        initial=(),
-        final=(),
-        fulfills=intent.digest,
+        digest="5" * 64, txid="tx-b", initial=(), final=(), fulfills=intent.digest
     )
     doubled = logmodel.WellFormedView(
         genesis=genesis,

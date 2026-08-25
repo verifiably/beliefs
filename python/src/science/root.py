@@ -1326,7 +1326,9 @@ def _surface_view(surface: tuple[tuple[str, PathStateJSON], ...]) -> tuple[tuple
     The two atoms forms meet here: entries carry `PathStateJSON` and capture
     returns `PathState`, so decoding with the engine's own `state_from_json`
     is what lets replay compare a chain fact against a disk fact directly.
-    Science neither builds nor reads the result — it hands it on.
+    Science does not build or interpret the result: replay receives it
+    opaquely, and mechanical projection can return it only to the engine-owned
+    encoder.
     """
     return tuple((path, state_from_json(state)) for path, state in surface)
 
