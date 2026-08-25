@@ -1,0 +1,46 @@
+input:
+  corpora:
+    - corpus_id: corpus-a
+      corpus_state: "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      chain_head: "3333333333333333333333333333333333333333333333333333333333333333"
+      records:
+        - uid: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          canonical: '{"facets":{"holdings-observation":{"event_token":"token","instrument":"instrument","kind":"holdings-observation","location":{"relative_path":"artifact.bin","store_id":"dddddddddddddddddddddddddddddddd","type":"store"},"observed_at":"2026-01-01T00:00:00Z","observer":"observer","outcome":{"digest":"sha256:1111111111111111111111111111111111111111111111111111111111111111","finding":"found"},"supersedes":[]}},"id":"holdings-observation:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","kind":"holdings-observation","uid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}'
+      chain:
+        - digest: "0000000000000000000000000000000000000000000000000000000000000000"
+          entry:
+            kind: genesis
+            payload: "00"
+            baseline: []
+        - digest: "1111111111111111111111111111111111111111111111111111111111111111"
+          entry:
+            kind: intent
+            payload: "7b226163746f72223a226163746f72222c22646f6d61696e223a22736369656e63652e686f6c64696e67732d696e74656e742e7631222c226576656e745f746f6b656e223a22746f6b656e222c226b696e64223a227772697465222c226c6f636174696f6e223a7b2272656c61746976655f70617468223a2261727469666163742e62696e222c2273746f72655f6964223a226464646464646464646464646464646464646464646464646464646464646464222c2274797065223a2273746f7265227d7d"
+        - digest: "2222222222222222222222222222222222222222222222222222222222222222"
+          entry:
+            kind: registered
+            txid: tx-2
+            intent_digest: "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            consumer_tag: science-corpus-write-v1
+            fulfills: "1111111111111111111111111111111111111111111111111111111111111111"
+            initial: []
+            final:
+              - - holdings-observation/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.md
+                - - [content_hash, "sha256:9999999999999999999999999999999999999999999999999999999999999999"]
+                  - [kind, file]
+                  - [mode, "0o100644"]
+        - digest: "3333333333333333333333333333333333333333333333333333333333333333"
+          entry:
+            kind: settled
+            txid: tx-2
+            registration: "2222222222222222222222222222222222222222222222222222222222222222"
+            outcome: committed
+expected:
+  active:
+    - head: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      location: "store:dddddddddddddddddddddddddddddddd:artifact.bin"
+      outcome:
+        finding: found
+        digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      history: []
+  blocked: []

@@ -163,6 +163,28 @@ Rulings are written at task boundaries, never rewritten after the fact.
     executor-factory regression stayed green. Later chain projection and seam
     calls remain outside any broad translation.
 
+21. **R21 — the pure rule imports only JSON through the admitted exec
+    namespace.** `qualify.py` is both the directly checkable helper and the
+    first exact source in the bundle; its one top-level `import json` supplies
+    the reducer source that follows it. The four admission fixtures execute
+    those concatenated bytes, pinning import availability without a Science
+    import in either rule source.
+
+22. **R22 — qualification is corpus-local while head classification spans
+    coverage.** One corpus's intent and registration consult only records
+    captured from that same corpus; observations still aggregate across the
+    declared coverage for supersession and active-head classification.
+    Identical record references imported into multiple corpora contribute one
+    head, while the same reference with different content refuses.
+
+23. **R23 — Task 6's red/green history is explicit.** The reducer suite was
+    first red on the absent pure helper. Its focused cycles then watched the
+    missing-record precedence, fixture admission, corpus-local qualification,
+    duplicate-reference collapse, and combined contested/incommensurable
+    reasons fail before their production changes. The real boundary + capture
+    crash-window tests passed on their first run against the completed reducer;
+    they pin the already-green composition rather than having driven it.
+
 ## Heads
 
 | Task | Science head |
@@ -172,3 +194,4 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 2 | 5e88932 |
 | 3 | 8658789 |
 | 4 | 86cbe29 |
+| 5 | 7003f32 |
