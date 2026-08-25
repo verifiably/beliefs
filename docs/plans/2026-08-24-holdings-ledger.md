@@ -68,6 +68,27 @@ Rulings are written at task boundaries, never rewritten after the fact.
    destination then source. Correcting that literal turned the pin green;
    production remained unchanged.
 
+10. **R10 — recheck reads before binding when it cannot establish a path.**
+    An intent is always appended first. `store_genesis` is a coherent-chain
+    read and therefore refuses metadata-less and unserviceable replicas; the
+    boundary maps those `read_path` results to inconclusive attempts before
+    binding. A `PathObservedView` is bound to the store genesis before it can
+    mint an observation.
+
+11. **R11 — holdings intents use canonical JSON.** The payload is compact,
+    sorted UTF-8 JSON so the later pure rule can use `json.loads`; `v1.encode`
+    is not JSON and cannot support that rule.
+
+12. **R12 — a move names two different intent kinds.** `move-source` and
+    `move-destination` carry independently minted event tokens, so each
+    observation transaction fulfills exactly its own location intent.
+
+13. **R13 — Task 4's first-green pins are not all red-first.** The three
+    original recheck tests were watched red for the missing boundary. The
+    recheck mapping and crash-window additions first passed against that core;
+    the mutation-act batch was red for missing exports, and the later intent
+    validation/lifecycle fixtures were red before their targeted changes.
+
 ## Heads
 
 | Task | Science head |
@@ -75,3 +96,4 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 0 | 178ff77 |
 | 1 | f7df31d |
 | 2 | 5e88932 |
+| 3 | 8658789 |
