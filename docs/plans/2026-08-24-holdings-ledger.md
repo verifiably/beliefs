@@ -48,8 +48,13 @@ Rulings are written at task boundaries, never rewritten after the fact.
    lone-surrogate construction cases were watched red and drove the shared
    identity-text validation.
 
+7. **R7 — Task 2's epoch exclusion is a contract pin.** The declared
+   no-epoch-membership test passed in Task 2's focused red run, pinning the
+   existing epoch inventory rather than claiming a new behavior.
+
 ## Heads
 
 | Task | Science head |
 |---|---|
 | 0 | 178ff77 |
+| 1 | f7df31d |
