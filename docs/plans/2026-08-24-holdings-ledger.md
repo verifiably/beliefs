@@ -197,6 +197,53 @@ Rulings are written at task boundaries, never rewritten after the fact.
     the existing walk; removing either condition made its test fail, confirming
     both exercise their named branch.
 
+25. **R25 — the receipt returns the reducer's two member sequences.** Task 7's
+    illustrative annotation says `tuple[dict, dict, HoldingsReceipt]`, while
+    Task 6's admitted rule returns `active` and `blocked` lists and Task 8's
+    declared adapter consumes each as a `Sequence[Mapping]`. `derive_holdings`
+    therefore returns those two list values directly, not one-key wrapper
+    dictionaries. If the annotation rather than the two adjacent interfaces was
+    intended as authority, Task 8 would need to unwrap a shape its own signature
+    does not accept.
+
+26. **R26 — receipt validation reuses the established lock split.** The exact
+    binding resolves through `_locked_resolve_rule_binding` under
+    `registry._locked_barrier`; that hold is released before `capture_coverage`
+    takes any corpus capture lock and before admitted rule code runs. Validation
+    then selects the inclusive prefix ending at each named digest from the
+    current validated chain projection and requires the freshly captured corpus
+    state to equal the named state. This is the same world-lock/corpus-lock split
+    as the existing epoch receipt validator, with no new lock order.
+
+27. **R27 — mapping-form receipts exist only for the malformed verdict.** A
+    mapping is inspected against the closed receipt shape before any world or
+    corpus read, but even a structurally valid mapping reports `malformed`: only
+    the sealed `HoldingsReceipt` constructor establishes a receipt that may
+    reach availability and re-reduction. This is the narrow reading of Task 7's
+    "accept a Mapping form in validation for exactly this arm."
+
+28. **R28 — Task 7's red/green history is one cohesive batch.** All receipt
+    tests were written before `science.holdings.receipt` existed and the first
+    focused run failed during collection on that missing module. The first
+    implementation made all twelve cases green together; later edits removed a
+    tautological test assertion, made state-facts forwarding observable during
+    validation, narrowed mapping admission, and changed the moved-state fixture
+    to add a valid stored dataset before re-running the same green suite. A
+    later active-writer arm was watched escape `BuildContended` before the
+    validator classified that one computability refusal as `unresolvable`.
+    The production-seam H3 u3 construction passed first against the completed
+    prefix logic: it pins the real root conversion and engine chain ordering
+    rather than claiming to have driven them.
+
+29. **R29 — H3 u3 crosses the production append and chain seams.** The durable
+    arm initializes and admits a real corpus, derives through
+    `_log_seam().inspect_registered` and `.state_facts`, appends the unmatched
+    holdings intent through `holdings_seam().append_intent`, then revalidates
+    the old receipt and derives the new one. It asserts equal corpus-state
+    identities beside different chain heads and receipt identities, plus the
+    changed unsettled output. The smaller mutable-view arm remains as the
+    isolated prefix-selection check.
+
 ## Heads
 
 | Task | Science head |
@@ -207,3 +254,4 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 3 | 8658789 |
 | 4 | 86cbe29 |
 | 5 | 7003f32 |
+| 6 | d6615ca |
