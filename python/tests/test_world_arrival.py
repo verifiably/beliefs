@@ -697,7 +697,7 @@ def test_an_unrepresentable_entry_at_a_modeled_path_refuses_with_no_report(tmp_p
         )
 
     assert (caught.value.phase, caught.value.engine_error) == ("capture", "PreconditionRefused")
-    assert type(caught.value.__cause__) is PreconditionRefused
+    assert isinstance(caught.value.__cause__, PreconditionRefused)
     assert not isinstance(caught.value, ArrivalRefused)
     assert registry_files(world) == {}
     assert _operation_lock_for(root)._holder is None

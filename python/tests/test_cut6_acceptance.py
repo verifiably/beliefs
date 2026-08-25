@@ -69,7 +69,7 @@ def test_pytest_receives_the_certified_run_directory_and_its_result(
 
     assert cut6_acceptance.main(["-q"]) == returncode
     assert len(probe_runs) == 1
-    run = probe_runs[0]
+    run_root = probe_runs[0]
     command = captured["command"]
     assert command == [sys.executable, "-m", "pytest", str(n2), "-q"]
     assert captured["cwd"] == cut6_acceptance.PYTHON_ROOT
@@ -77,7 +77,7 @@ def test_pytest_receives_the_certified_run_directory_and_its_result(
     environment = captured["env"]
     assert isinstance(environment, dict)
     for name in ("SCIENCE_CUT4_ROOT", "SCIENCE_CUT5_ROOT", "SCIENCE_CUT6_ROOT"):
-        assert environment[name] == str(run)
+        assert environment[name] == str(run_root)
     assert not list(tmp_path.glob("run-*"))
 
 
