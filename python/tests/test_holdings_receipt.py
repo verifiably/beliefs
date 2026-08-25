@@ -16,6 +16,7 @@ from test_world_build import ALPHA, BETA, ChainHeads, corpus_at, make_world
 from science import root as science_root
 from science import stored
 from science.corpus import _root_state_for
+from science.holdings import receipt as receipt_module
 from science.holdings.boundary import intent_payload
 from science.holdings.project import capture_coverage
 from science.holdings.receipt import (
@@ -187,6 +188,37 @@ def test_a_wrong_reduction_is_refuted(tmp_path):
     assert outcome.outcome == "refuted"
 
 
+@pytest.mark.parametrize(
+    "replacement",
+    [
+        b'return {"active": [{"bad": object()}], "blocked": []}',
+        b'raise RuntimeError("adversarial reduction")',
+    ],
+)
+def test_an_unencodable_or_raising_reduction_is_refuted(tmp_path, replacement):
+    world, binding, _roots, chains = admitted_world(tmp_path, ALPHA)
+    _active, _blocked, receipt = derive(world, {ALPHA}, binding, chains)
+    shipped = holdings_rule_bundle()
+    source = shipped.implementation + b"\n\n_original_reduce_holdings = reduce_holdings\n" + (
+        b"def reduce_holdings(capture):\n"
+        b'    if capture["corpora"] and capture["corpora"][0]["corpus_id"] == "' + ALPHA.encode() + b'":\n'
+        b"        " + replacement + b"\n"
+        b"    return _original_reduce_holdings(capture)\n"
+    )
+    adversarial = rules.install_rule_binding(
+        world,
+        rules.RuleBundle(shipped.symbol, shipped.fixtures, source),
+    )
+
+    outcome = validate(
+        world,
+        replace(receipt, implementation_identity=adversarial.implementation_identity),
+        chains,
+    )
+
+    assert outcome.outcome == "refuted"
+
+
 def test_an_absent_implementation_is_unresolvable_never_refuted(tmp_path):
     world, binding, _roots, chains = admitted_world(tmp_path, ALPHA)
     _active, _blocked, receipt = derive(world, {ALPHA}, binding, chains)
@@ -211,6 +243,25 @@ def test_corpora_not_states_is_malformed_before_external_reads(tmp_path):
         world,
         document,  # type: ignore[arg-type]
         chain_view=unread,
+        state_facts=lambda _state: (_ for _ in ()).throw(AssertionError("state facts consulted")),
+    )
+
+    assert outcome.outcome == "malformed"
+
+
+def test_an_unchanged_mapping_is_malformed_before_external_reads(monkeypatch, tmp_path):
+    world, binding, _roots, chains = admitted_world(tmp_path, ALPHA)
+    _active, _blocked, receipt = derive(world, {ALPHA}, binding, chains)
+    monkeypatch.setattr(
+        receipt_module,
+        "_held",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("binding store consulted")),
+    )
+
+    outcome = validate_holdings_receipt(
+        world,
+        asdict(receipt),  # type: ignore[arg-type]
+        chain_view=lambda _root: (_ for _ in ()).throw(AssertionError("corpus consulted")),
         state_facts=lambda _state: (_ for _ in ()).throw(AssertionError("state facts consulted")),
     )
 

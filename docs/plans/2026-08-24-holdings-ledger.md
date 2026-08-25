@@ -244,6 +244,16 @@ Rulings are written at task boundaries, never rewritten after the fact.
     changed unsettled output. The smaller mutable-view arm remains as the
     isolated prefix-selection check.
 
+30. **R30 — Task 7 review closes the whole refuted phase and pins R27.** Rule
+    invocation, closed output-shape validation, and both canonical output
+    digests now sit inside one ordinary-`Exception` boundary: a held
+    implementation that raises or returns a nested non-identity value is
+    `refuted`, while `BaseException` still escapes. Both adversarial variants
+    were watched leak before the fix and return `refuted` afterward. An
+    unchanged `asdict(valid_receipt)` mapping with bomb binding and corpus seams
+    passed first against R27's existing malformed-first branch; it is recorded
+    as the missing pin, not a red-first production change.
+
 ## Heads
 
 | Task | Science head |

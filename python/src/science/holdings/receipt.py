@@ -272,11 +272,10 @@ def validate_holdings_receipt(
         )
     try:
         active, blocked = _outputs(held.invoke(selected))
-    except (KeyError, TypeError, ValueError) as caught:
-        return HoldingsReceiptOutcome("refuted", f"the named implementation did not reproduce the output shape: {caught}")
-    if (
-        output_digest(active) != checked.active_set_digest
-        or output_digest(blocked) != checked.blocked_set_digest
-    ):
+        active_digest = output_digest(active)
+        blocked_digest = output_digest(blocked)
+    except Exception as caught:  # noqa: BLE001 — any ordinary rule/output/digest failure refutes
+        return HoldingsReceiptOutcome("refuted", f"the named implementation did not reproduce the outputs: {caught}")
+    if active_digest != checked.active_set_digest or blocked_digest != checked.blocked_set_digest:
         return HoldingsReceiptOutcome("refuted", "the named reduction did not reproduce both output digests")
     return HoldingsReceiptOutcome("validated", "the named reduction reproduced both output digests")
