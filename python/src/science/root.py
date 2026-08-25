@@ -32,7 +32,7 @@ from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from hashlib import sha256
 from pathlib import Path
-from typing import IO
+from typing import IO, cast
 
 from atoms.chain.errors import ChainStateInvalid, PendingUnresolved
 from atoms.chain.inspect import AbsentChain, ChainInspection, DefectKind, MalformedChain, WellFormedChain
@@ -49,15 +49,20 @@ from atoms.chain.model import (
 from atoms.coordinator.commands import (
     DestinationOverride,
     LifecycleState,
+    PathObserved,
+    ReadNotAttempted,
+    ReadUnestablished,
     RootOperationId,
     RootOperationInvalid,
     RootOperationMismatch,
     SourceSnapshotMoved,
+    TransactionOutcome,
     append_intent,
     capture_states,
     inspect_chain,
     inspect_chain_detached,
     read_chain,
+    read_path_state,
     register_root,
     run_transaction,
 )
@@ -87,7 +92,14 @@ from atoms.coordinator.commands import replicate_root as _replicate_root_callbac
 from atoms.coordinator.commands import (
     resume_fork_root as _resume_fork_root_callback,
 )
-from atoms.core.effects import CreateDirectory, CreateFileNoClobber, DeletePath, Effect, ReplaceFile
+from atoms.core.effects import (
+    CreateDirectory,
+    CreateFileNoClobber,
+    DeletePath,
+    Effect,
+    MoveNoClobber,
+    ReplaceFile,
+)
 from atoms.core.errors import (
     AtomsError,
     CapabilityUnavailable,
@@ -97,7 +109,15 @@ from atoms.core.errors import (
     SpecValidationError,
     TransactionHalted,
 )
-from atoms.core.fingerprint import ABSENT, AbsentState, DirectoryState, FileState, PathState
+from atoms.core.fingerprint import (
+    ABSENT,
+    AbsentState,
+    DirectoryState,
+    FileState,
+    PathState,
+    SymlinkState,
+)
+from atoms.core.paths import require_rel_path
 from atoms.core.scratch import SCRATCH_SIGIL
 from atoms.core.spec import TransactionSpec, build_spec
 from atoms.fs.backend import Backend
@@ -109,6 +129,19 @@ from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp, WritePlan, vali
 
 from science.corpus import CorpusWriter, _operation_lock_for
 from science.errors import CorpusRootRefused, LogEvidenceRefused, WorldIdMismatch, WorldUninitialized
+from science.holdings.seam import (
+    AbsentStateView,
+    FileStateView,
+    NonRegularStateView,
+    PathObservedView,
+    PathReadView,
+    PathStateView,
+    ReadNotAttemptedView,
+    ReadUnestablishedView,
+    StoreActSeam,
+    StoreOutcomeView,
+)
+from science.holdings.seam import WritePlan as SeamWritePlan
 from science.identity import v1
 from science.world import (
     AdmissionRecord,
@@ -165,7 +198,9 @@ __all__ = [
     "GENESIS_PAYLOAD",
     "INTENT_DOMAIN",
     "PRODUCTION_STORAGE",
+    "STORE_CONSUMER_TAG",
     "STORE_GENESIS_DOMAIN",
+    "STORE_WRITE_INTENT_DOMAIN",
     "WORLD_CONSUMER_TAG",
     "WORLD_GENESIS_DOMAIN",
     "DestinationOverride",
@@ -185,6 +220,7 @@ __all__ = [
     "export_head_artifact",
     "fork_corpus",
     "fork_store",
+    "holdings_seam",
     "init_corpus_root",
     "init_store_root",
     "init_world_root",
@@ -687,12 +723,95 @@ domain and answers to that grammar, not to the engine's.
 
 WORLD_CONSUMER_TAG = "science-world-write-v1"
 WORLD_INTENT_DOMAIN = "science.world-write-intent.v1"
+STORE_CONSUMER_TAG = "science-store-write-v1"
+STORE_WRITE_INTENT_DOMAIN = "science.store-write-intent.v1"
 
 CREATED_FILE_MODE = 0o644
 """The adapter's one constant, carried by every created and replacement
 **post**-state. Pre-states carry their observed mode, never this."""
 
 CREATED_DIRECTORY_MODE = 0o755
+
+
+def _observe_file(root: Path, path: str, index: int | None = None) -> FileState:
+    """Read one regular-file pre-state with the executor's error mapping."""
+    target = root / path
+    try:
+        observed = target.stat()
+        content = target.read_bytes()
+    except OSError as caught:
+        raise ExecutionError(
+            f"{path!r} could not be read for its pre-state: {caught}",
+            index=index,
+            applied=0,
+        ) from caught
+    if not stat_module.S_ISREG(observed.st_mode):
+        raise ExecutionError(f"{path!r} is not a regular file", index=index, applied=0)
+    return FileState(
+        content_hash="sha256:" + sha256(content).hexdigest(),
+        mode=stat_module.S_IMODE(observed.st_mode),
+        byte_len=observed.st_size,
+    )
+
+
+def _missing_ancestors(
+    root: Path,
+    path: str,
+    index: int,
+    initial: dict[str, PathState],
+    current: dict[str, PathState],
+) -> list[Effect]:
+    """Create the absent parents needed by a file create in the same transaction."""
+    effects: list[Effect] = []
+    components = path.split("/")[:-1]
+    for depth in range(len(components)):
+        prefix = "/".join(components[: depth + 1])
+        if prefix in current or (root / prefix).exists():
+            continue
+        post = DirectoryState(mode=CREATED_DIRECTORY_MODE)
+        initial[prefix] = ABSENT
+        current[prefix] = post
+        effects.append(CreateDirectory(effect_id=f"dir-{index}-{depth}", path=prefix, post=post))
+    return effects
+
+
+def _mapped_submit(
+    *,
+    backend: Backend,
+    root: Path,
+    metadata_root: Path,
+    storage: StorageProfile,
+    spec: TransactionSpec,
+    payloads: _PlanPayloads,
+) -> TransactionOutcome:
+    """Submit through the executor's one conservative engine-error mapping."""
+    def submit() -> TransactionOutcome:
+        try:
+            return run_transaction(
+                backend,
+                str(root),
+                str(metadata_root),
+                storage,
+                spec,
+                payloads,
+            )
+        except (ProjectApprovalRefused, SpecValidationError, PreconditionRefused, CapabilityUnavailable) as caught:
+            # Rooted proof, adapter-built spec, clean refusal, missing
+            # capability: each is raised before any project mutation, or refuses
+            # cleanly with restoration proven by the engine's own contract.
+            raise ExecutionError(str(caught), index=None, applied=0) from caught
+        except PendingUnresolved as caught:
+            raise ExecutionError(str(caught), index=None, applied=0) from caught
+        except (MetadataStoreInvalid, ChainStateInvalid) as caught:
+            raise ExecutionError(str(caught), index=None, applied=None) from caught
+        except (TransactionHalted, ProtocolError) as caught:
+            raise ExecutionError(str(caught), index=None, applied=None) from caught
+        except AtomsError as caught:
+            raise ExecutionError(str(caught), index=None, applied=None) from caught
+        except Exception as caught:
+            raise ExecutionError(str(caught), index=None, applied=None) from caught
+
+    return submit()
 
 
 class DurableExecutor:
@@ -751,7 +870,14 @@ class DurableExecutor:
             fulfills=self._fulfills,
             registered_paths=tuple(dict.fromkeys(operation.path for operation in plan)),
         )
-        self._submit(spec, _PlanPayloads(payloads))
+        _mapped_submit(
+            backend=self._backend,
+            root=self.root,
+            metadata_root=self._metadata_root,
+            storage=self._storage,
+            spec=spec,
+            payloads=_PlanPayloads(payloads),
+        )
 
     # --- the build ----------------------------------------------------------
 
@@ -770,7 +896,7 @@ class DurableExecutor:
                 # A first-occurrence create reads nothing: its pre-state is
                 # `ABSENT` by construction and `CreateFileNoClobber` enforces
                 # absence engine-side.
-                pre = ABSENT if isinstance(op, CreateOp) else self._observe(op.path, index)
+                pre = ABSENT if isinstance(op, CreateOp) else _observe_file(self.root, op.path, index)
                 initial[op.path] = pre
 
             if isinstance(op, CreateOp):
@@ -781,7 +907,7 @@ class DurableExecutor:
                         applied=0,
                     )
                 post = _file_state(op.content)
-                effects.extend(self._missing_ancestors(op.path, index, initial, current))
+                effects.extend(_missing_ancestors(self.root, op.path, index, initial, current))
                 effects.append(CreateFileNoClobber(effect_id=f"op-{index}", path=op.path, post=post))
                 payloads[post.content_hash] = op.content
                 current[op.path] = post
@@ -797,100 +923,6 @@ class DurableExecutor:
                 current[op.path] = ABSENT
 
         return tuple(effects), initial, current, payloads
-
-    def _observe(self, path: str, index: int) -> FileState:
-        """One read per path, at its first occurrence: bytes hashed, mode and
-        byte length from `stat`."""
-        target = self.root / path
-        try:
-            observed = target.stat()
-            content = target.read_bytes()
-        except OSError as caught:
-            raise ExecutionError(
-                f"{path!r} could not be read for its pre-state: {caught}", index=index, applied=0
-            ) from caught
-        if not stat_module.S_ISREG(observed.st_mode):
-            raise ExecutionError(f"{path!r} is not a regular file", index=index, applied=0)
-        return FileState(
-            content_hash="sha256:" + sha256(content).hexdigest(),
-            mode=stat_module.S_IMODE(observed.st_mode),
-            byte_len=observed.st_size,
-        )
-
-    def _missing_ancestors(
-        self,
-        path: str,
-        index: int,
-        initial: dict[str, PathState],
-        current: dict[str, PathState],
-    ) -> list[Effect]:
-        """`CreateDirectory` effects for the parents a created file needs.
-
-        **Design deviation, pending review.** §3 step 3's mapping is three
-        operations to three effects and step 6 says the adapter adds no effect
-        of its own, but `nodes` keeps a node at `<kind>/<slug>.md` and the
-        engine refuses a create whose parent *"neither exists nor is created by
-        this transaction"*. The alternative — an `mkdir` outside the
-        transaction — would put a corpus mutation outside the engine, which is
-        the worse of the two, so the directory is created **inside** the same
-        transaction and all-or-nothing still holds.
-        """
-        effects: list[Effect] = []
-        components = path.split("/")[:-1]
-        for depth in range(len(components)):
-            prefix = "/".join(components[: depth + 1])
-            if prefix in current:
-                continue
-            if (self.root / prefix).exists():
-                continue
-            post = DirectoryState(mode=CREATED_DIRECTORY_MODE)
-            initial[prefix] = ABSENT
-            current[prefix] = post
-            effects.append(CreateDirectory(effect_id=f"dir-{index}-{depth}", path=prefix, post=post))
-        return effects
-
-    # --- submission and §4's mapping ----------------------------------------
-
-    def _submit(self, spec: TransactionSpec, payloads: _PlanPayloads) -> None:
-        """Run the transaction, mapping every engine failure onto the seam's two
-        names. `applied=0` is licensed only where the engine's own contract
-        proves pre-mutation state; everything else is `applied=None`, which says
-        restoration is **unproved**. The default for the unrecognized is
-        conservative, never optimistic, and the engine exception is always
-        chained as `__cause__` — diagnostic, never a discrimination API.
-        """
-        try:
-            run_transaction(
-                self._backend,
-                str(self.root),
-                str(self._metadata_root),
-                self._storage,
-                spec,
-                payloads,
-            )
-        except (ProjectApprovalRefused, SpecValidationError, PreconditionRefused, CapabilityUnavailable) as caught:
-            # Rooted proof, adapter-built spec, clean refusal, missing
-            # capability: each is raised before any project mutation, or refuses
-            # cleanly with restoration proven by the engine's own contract.
-            raise ExecutionError(str(caught), index=None, applied=0) from caught
-        except PendingUnresolved as caught:
-            # The engine's shared pending gate (log-verification design §2.3)
-            # runs over the validated chain **before** the transaction is taken
-            # under lease, so the engine's own contract proves no mutation was
-            # attempted: `applied=0`, not the catch-all's unproved `None`. It is
-            # a direct `AtomsError` subclass, so without an arm of its own it
-            # falls into the default and reports restoration as unproved — the
-            # one refusal here whose honest answer is available and specific.
-            raise ExecutionError(str(caught), index=None, applied=0) from caught
-        except (MetadataStoreInvalid, ChainStateInvalid) as caught:
-            # Stop-and-preserve, bypassing rollback.
-            raise ExecutionError(str(caught), index=None, applied=None) from caught
-        except (TransactionHalted, ProtocolError) as caught:
-            raise ExecutionError(str(caught), index=None, applied=None) from caught
-        except AtomsError as caught:
-            raise ExecutionError(str(caught), index=None, applied=None) from caught
-        except Exception as caught:
-            raise ExecutionError(str(caught), index=None, applied=None) from caught
 
 
 class DurableOperationPort:
@@ -957,6 +989,188 @@ def _file_state(content: bytes) -> FileState:
         mode=CREATED_FILE_MODE,
         byte_len=len(content),
     )
+
+
+def _path_state_view(state: PathState) -> PathStateView:
+    if type(state) is FileState:
+        return FileStateView(state.content_hash)
+    if type(state) is AbsentState:
+        return AbsentStateView()
+    if type(state) is DirectoryState:
+        return NonRegularStateView("directory")
+    if type(state) is SymlinkState:
+        return NonRegularStateView("symlink")
+    raise TypeError(f"unknown path state: {type(state).__name__}")
+
+
+def _path_read_view(result: object) -> PathReadView:
+    if type(result) is PathObserved:
+        return PathObservedView(_path_state_view(result.state))
+    if type(result) is ReadNotAttempted:
+        return ReadNotAttemptedView(
+            str(result.reason),
+            result.lifecycle_state.value if result.lifecycle_state else None,
+            result.detail,
+        )
+    if type(result) is ReadUnestablished:
+        return ReadUnestablishedView(str(result.reason), result.detail)
+    raise TypeError(f"unknown path read result: {type(result).__name__}")
+
+
+def _store_outcome_view(outcome: TransactionOutcome) -> StoreOutcomeView:
+    return StoreOutcomeView(
+        outcome.txid,
+        tuple((path, _path_state_view(state)) for path, state in outcome.final_states),
+    )
+
+
+def _store_write(root: Path, path: str, content: bytes) -> StoreOutcomeView:
+    root = Path(root)
+    require_rel_path("path", path)
+    initial: dict[str, PathState] = {}
+    final: dict[str, PathState] = {}
+    effects: list[Effect] = []
+    post = _file_state(content)
+    target = root / path
+    projection: dict[str, str] = {
+        "op": "write",
+        "path": path,
+        "content_sha256": sha256(content).hexdigest(),
+    }
+    if target.exists() or target.is_symlink():
+        pre = _observe_file(root, path)
+        initial[path] = pre
+        projection["expected_digest"] = pre.content_hash.removeprefix("sha256:")
+        effects.append(ReplaceFile("op-0", path, pre, post))
+    else:
+        initial[path] = ABSENT
+        effects.extend(_missing_ancestors(root, path, 0, initial, final))
+        effects.append(CreateFileNoClobber("op-0", path, post))
+    final[path] = post
+    spec = build_spec(
+        consumer_tag=STORE_CONSUMER_TAG,
+        intent_digest="sha256:" + v1.digest(STORE_WRITE_INTENT_DOMAIN, [projection]),
+        initial_surface=initial,
+        final_surface=final,
+        effects=effects,
+        dependencies=(),
+        fulfills=None,
+        registered_paths=(path,),
+    )
+    return _store_outcome_view(
+        _mapped_submit(
+            backend=_PRODUCTION_BACKEND,
+            root=root,
+            metadata_root=metadata_root_for(root),
+            storage=PRODUCTION_STORAGE,
+            spec=spec,
+            payloads=_PlanPayloads({post.content_hash: content}),
+        )
+    )
+
+
+def _store_delete(root: Path, path: str) -> StoreOutcomeView:
+    root = Path(root)
+    require_rel_path("path", path)
+    pre = _observe_file(root, path)
+    spec = build_spec(
+        consumer_tag=STORE_CONSUMER_TAG,
+        intent_digest="sha256:"
+        + v1.digest(
+            STORE_WRITE_INTENT_DOMAIN,
+            [
+                {
+                    "op": "delete",
+                    "path": path,
+                    "expected_digest": pre.content_hash.removeprefix("sha256:"),
+                }
+            ],
+        ),
+        initial_surface={path: pre},
+        final_surface={path: ABSENT},
+        effects=(DeletePath("op-0", path, pre),),
+        dependencies=(),
+        fulfills=None,
+        registered_paths=(path,),
+    )
+    return _store_outcome_view(
+        _mapped_submit(
+            backend=_PRODUCTION_BACKEND,
+            root=root,
+            metadata_root=metadata_root_for(root),
+            storage=PRODUCTION_STORAGE,
+            spec=spec,
+            payloads=_PlanPayloads({}),
+        )
+    )
+
+
+def _store_move(root: Path, source: str, destination: str) -> StoreOutcomeView:
+    root = Path(root)
+    require_rel_path("source", source)
+    require_rel_path("destination", destination)
+    pre = _observe_file(root, source)
+    spec = build_spec(
+        consumer_tag=STORE_CONSUMER_TAG,
+        intent_digest="sha256:"
+        + v1.digest(
+            STORE_WRITE_INTENT_DOMAIN,
+            [
+                {
+                    "op": "move",
+                    "source": source,
+                    "destination": destination,
+                    "expected_digest": pre.content_hash.removeprefix("sha256:"),
+                }
+            ],
+        ),
+        initial_surface={source: pre, destination: ABSENT},
+        final_surface={source: ABSENT, destination: pre},
+        effects=(MoveNoClobber("op-0", source, destination, pre),),
+        dependencies=(),
+        fulfills=None,
+        registered_paths=(source, destination),
+    )
+    return _store_outcome_view(
+        _mapped_submit(
+            backend=_PRODUCTION_BACKEND,
+            root=root,
+            metadata_root=metadata_root_for(root),
+            storage=PRODUCTION_STORAGE,
+            spec=spec,
+            payloads=_PlanPayloads({}),
+        )
+    )
+
+
+def _store_read_path(root: Path, path: str) -> PathReadView:
+    return _path_read_view(
+        read_path_state(
+            _PRODUCTION_BACKEND,
+            str(root),
+            str(metadata_root_for(root)),
+            PRODUCTION_STORAGE,
+            path,
+        )
+    )
+
+
+def _store_append_intent(root: Path, payload: bytes) -> str:
+    return DurableOperationPort(
+        root,
+        backend=_PRODUCTION_BACKEND,
+        storage=PRODUCTION_STORAGE,
+        metadata_root=metadata_root_for(root),
+    ).append_intent(payload)
+
+
+def _store_publish_fulfilling(root: Path, plan: SeamWritePlan, fulfills: str) -> None:
+    DurableOperationPort(
+        root,
+        backend=_PRODUCTION_BACKEND,
+        storage=PRODUCTION_STORAGE,
+        metadata_root=metadata_root_for(root),
+    ).execute_fulfilling(cast(WritePlan, plan), fulfills)
 
 
 def _require_file(pre: PathState, op: ReplaceOp | DeleteOp, index: int) -> FileState:
@@ -1220,6 +1434,25 @@ def _read_head(root: Path) -> ChainHead:
     if type(genesis) is not GenesisEntry:
         raise ProtocolError("a validated chain's first entry is not its genesis")
     return ChainHead(genesis_digest=view.genesis_digest, genesis_payload=genesis.payload, tip=view.tip)
+
+
+def _store_genesis(root: Path) -> bytes:
+    return _read_head(root).genesis_payload
+
+
+_HOLDINGS_SEAM = StoreActSeam(
+    append_intent=_store_append_intent,
+    publish_fulfilling=_store_publish_fulfilling,
+    read_path=_store_read_path,
+    store_write=_store_write,
+    store_delete=_store_delete,
+    store_move=_store_move,
+    store_genesis=_store_genesis,
+)
+
+
+def holdings_seam() -> StoreActSeam:
+    return _HOLDINGS_SEAM
 
 
 @contextmanager

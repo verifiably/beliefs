@@ -52,9 +52,26 @@ Rulings are written at task boundaries, never rewritten after the fact.
    no-epoch-membership test passed in Task 2's focused red run, pinning the
    existing epoch inventory rather than claiming a new behavior.
 
+8. **R8 — the shared submit keeps cut 9's live mutation site.** Moving the
+   executor's exception ladder directly to module scope made the frozen L2u1/V11
+   sabotage stale by indentation. `_mapped_submit` therefore holds one nested,
+   live `submit` function: every durable executor and holdings store transaction
+   still crosses the one mapping and the one `run_transaction` call, while cut
+   9's behavioral mutation continues to apply exactly once.
+
+9. **R9 — Task 3 review pins preceded no production change.** The create,
+   replace, and delete spec contracts; ordered final-state rows; destination
+   no-clobber behavior; read-unestablished and raise-through mappings; and the
+   three delegated seam callables all passed on their first run. The move spec
+   pin alone was red because its test expected caller order for
+   `registered_paths`; `build_spec` canonically orders the produced spec as
+   destination then source. Correcting that literal turned the pin green;
+   production remained unchanged.
+
 ## Heads
 
 | Task | Science head |
 |---|---|
 | 0 | 178ff77 |
 | 1 | f7df31d |
+| 2 | 5e88932 |

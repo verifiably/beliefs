@@ -49,6 +49,7 @@ vocabulary the seam speaks *instead of* the engine's, so a dependency of its
 own would be a second place engine shape could enter."""
 
 SEAM_MODULE = "world/verify.py"
+HOLDINGS_SEAM_MODULE = "holdings/seam.py"
 
 ENGINE_COMMANDS = (
     "inspect_chain",
@@ -56,6 +57,7 @@ ENGINE_COMMANDS = (
     "capture_states",
     "state_from_json",
     "read_chain",
+    "read_path_state",
     "register_root",
     "run_transaction",
     "replicate_root",
@@ -315,6 +317,11 @@ class TestTheWorldPackageHoldsNoEngineCapability:
         assert not any(name == "atoms" or name.startswith("atoms.") for name in imported)
         assert composition_root_imports(parsed(PACKAGE / SEAM_MODULE)) == []
 
+    def test_the_holdings_seam_module_imports_only_the_standard_library(self):
+        imported = imported_modules(parsed(PACKAGE / HOLDINGS_SEAM_MODULE))
+        foreign = sorted(name for name in imported if name.split(".")[0] not in sys.stdlib_module_names)
+        assert foreign == [], f"{HOLDINGS_SEAM_MODULE} imports {foreign}"
+
     def test_the_check_would_see_a_world_module_reading_the_chain(self, tmp_path):
         offender = tmp_path / "epoch.py"
         offender.write_text(
@@ -386,7 +393,7 @@ MUTATING_ENGINE_COMMANDS = ("register_root", "append_intent", "run_transaction")
 `ENGINE_COMMANDS` reads."""
 
 ENGINE_CALL_SITES = {
-    "run_transaction": ["DurableExecutor._submit"],
+    "run_transaction": ["_mapped_submit.submit"],
     "register_root": [
         "init_corpus_root",
         "init_world_root",
@@ -397,8 +404,9 @@ ENGINE_CALL_SITES = {
 }
 """Where each mutating command is called, by enclosing definition.
 
-One `run_transaction` site, and it is the durable executor's submission — so
-**every registered-surface mutation flows through it**. `register_root` runs
+One `run_transaction` site, the shared mapped submission used by the durable
+executor and store commands — so **every registered-surface mutation flows
+through it**. `register_root` runs
 only in the two initializers and `append_intent` only in the operation port:
 genesis registration and intent append are protocol entries, not application
 mutations, which is why they are named separately rather than counted as a
@@ -465,6 +473,7 @@ STATE_VOCABULARY = (
     "state_from_json",
     "state_to_json",
     "capture_states",
+    "read_path_state",
 )
 """L12's one state vocabulary. Every member is the engine's; Science names them
 in the composition root and nowhere else, and mints none of its own."""
@@ -498,7 +507,7 @@ def test_no_cooperative_mutation_path_skips_registration():
     `science.root` is the only `atoms` importer, so no other module holds
     engine capability at all. Second, the three mutating engine commands are
     named only there, and each is called from exactly the definitions the
-    composition allows: **one** `run_transaction` site, the durable executor's
+    composition allows: **one** `run_transaction` site, the shared mapped
     submission, so every registered-surface mutation flows through it; the two
     initializers' `register_root` and the operation port's `append_intent` are
     protocol entries rather than application mutations. Third, no module in
@@ -538,13 +547,13 @@ def test_no_cooperative_mutation_path_skips_registration():
     assert set(RAW_WRITE_ALLOWLIST) == {"adapter.py", "boundary.py"}
 
 
-def test_science_fingerprints_only_through_the_capture_command():
+def test_science_fingerprints_only_through_the_engine_read_commands():
     """L12u2. No second summary model: Science fingerprints exclusively through
-    the engine's capture command, asserted over the package surface.
+    the engine's capture and single-path read commands, asserted over the package surface.
 
     The state vocabulary is the engine's own union, named in the composition
-    root and nowhere else; `capture_states` — the one call that reads a disk
-    state — has exactly one call site; and the one place Science *constructs* a
+    root and nowhere else; the two commands that read disk state each have
+    exactly one call site; and the one place Science *constructs* a
     state builds the engine's `FileState` over **caller-supplied bytes**, never
     over a path, so it is a projection of a planned write and not a second way
     to observe a root.
@@ -560,8 +569,8 @@ def test_science_fingerprints_only_through_the_capture_command():
         assert elsewhere == [], f"{name} is named or defined outside the composition root by {elsewhere}"
     # The composition root does name the members it uses — the ban above would
     # otherwise pass over a vocabulary nobody speaks. It never names
-    # `state_to_json` or `SymlinkState`: Science decodes states and compares
-    # them, and encodes none.
+    # `state_to_json`: Science decodes states and compares them, and encodes
+    # none.
     named = set(STATE_VOCABULARY) & names_of(composition_root)
     assert named == {
         "AbsentState",
@@ -569,10 +578,13 @@ def test_science_fingerprints_only_through_the_capture_command():
         "FileState",
         "PathState",
         "PathStateJSON",
+        "SymlinkState",
         "capture_states",
+        "read_path_state",
         "state_from_json",
     }
     assert call_sites(composition_root, "capture_states") == ["_capture"]
+    assert call_sites(composition_root, "read_path_state") == ["_store_read_path"]
 
     # Science mints no state class of its own: the vocabulary is exactly the
     # engine's union, and every member Science names is that class.
