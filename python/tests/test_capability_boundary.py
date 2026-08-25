@@ -568,9 +568,8 @@ def test_science_fingerprints_only_through_the_engine_read_commands():
         ]
         assert elsewhere == [], f"{name} is named or defined outside the composition root by {elsewhere}"
     # The composition root does name the members it uses — the ban above would
-    # otherwise pass over a vocabulary nobody speaks. It never names
-    # `state_to_json`: Science decodes states and compares them, and encodes
-    # none.
+    # otherwise pass over a vocabulary nobody speaks. The one encoder call
+    # mechanically carries validated chain facts for the holdings projection.
     named = set(STATE_VOCABULARY) & names_of(composition_root)
     assert named == {
         "AbsentState",
@@ -582,9 +581,11 @@ def test_science_fingerprints_only_through_the_engine_read_commands():
         "capture_states",
         "read_path_state",
         "state_from_json",
+        "state_to_json",
     }
     assert call_sites(composition_root, "capture_states") == ["_capture"]
     assert call_sites(composition_root, "read_path_state") == ["_store_read_path"]
+    assert call_sites(composition_root, "state_to_json") == ["_state_facts"]
 
     # Science mints no state class of its own: the vocabulary is exactly the
     # engine's union, and every member Science names is that class.

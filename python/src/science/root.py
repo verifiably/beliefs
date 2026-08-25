@@ -45,6 +45,7 @@ from atoms.chain.model import (
     RegisteredEntry,
     SettledEntry,
     state_from_json,
+    state_to_json,
 )
 from atoms.coordinator.commands import (
     DestinationOverride,
@@ -1330,6 +1331,10 @@ def _surface_view(surface: tuple[tuple[str, PathStateJSON], ...]) -> tuple[tuple
     return tuple((path, state_from_json(state)) for path, state in surface)
 
 
+def _state_facts(state: object) -> tuple[tuple[str, str], ...]:
+    return state_to_json(cast(PathState, state))
+
+
 def _entry_view(digest: str, entry: Entry) -> EntryView:
     if type(entry) is GenesisEntry:
         return GenesisEntryView(
@@ -1339,6 +1344,8 @@ def _entry_view(digest: str, entry: Entry) -> EntryView:
         return RegisteredEntryView(
             digest=digest,
             txid=entry.txid,
+            intent_digest=entry.intent_digest,
+            consumer_tag=entry.consumer_tag,
             initial=_surface_view(entry.initial),
             final=_surface_view(entry.final),
             fulfills=entry.fulfills,
@@ -1481,6 +1488,7 @@ _LOG_SEAM = LogSeam(
     # contending for one corpus root must contend for one object.
     corpus_lock=_operation_lock_for,
     lifecycle_state=_lifecycle_state_value,
+    state_facts=_state_facts,
 )
 
 

@@ -233,7 +233,13 @@ def registration(
     final: tuple[tuple[str, object], ...],
 ) -> logmodel.RegisteredEntryView:
     return logmodel.RegisteredEntryView(
-        digest=entry_digest, txid=txid, initial=initial, final=final, fulfills=None
+        digest=entry_digest,
+        txid=txid,
+        intent_digest="sha256:" + "0" * 64,
+        consumer_tag="science-corpus-write-v1",
+        initial=initial,
+        final=final,
+        fulfills=None,
     )
 
 

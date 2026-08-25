@@ -62,13 +62,14 @@ class GenesisEntryView:
 class RegisteredEntryView:
     """One transaction's registration: the surface it declared, both ends.
 
-    `intent_digest` and `consumer_tag` are deliberately absent: nothing this
-    slice judges reads them, and a view member nothing consumes is a fact
-    Science would be claiming to carry faithfully for no reason.
+    The holdings coverage projection carries the whole registration entry, so
+    its executor binding joins the two surfaces and optional fulfillment.
     """
 
     digest: str
     txid: str
+    intent_digest: str
+    consumer_tag: str
     initial: tuple[tuple[str, object], ...]
     final: tuple[tuple[str, object], ...]
     fulfills: str | None

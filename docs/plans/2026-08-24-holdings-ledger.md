@@ -111,6 +111,32 @@ Rulings are written at task boundaries, never rewritten after the fact.
     checks then watched the delete test fail when the valid result was discarded
     and the move test fail when the publication locations were swapped.
 
+16. **R16 — canonical path-state facts stay engine-owned.** The chain views
+    continue to carry opaque decoded engine states for replay, with no second
+    Science summary and no representation flip. `LogSeam.state_facts` is the
+    narrow encoder capability: the composition root alone calls atoms
+    `state_to_json`, the default refuses loudly when unwired, and mechanical
+    holdings capture only changes the returned ordered tuples into JSON lists.
+    Task 7's derivation and validation interfaces forward the same required
+    callable.
+
+17. **R17 — Task 5's red/green history is explicit.** The real chain-conversion
+    test was red on the missing registered metadata fields; the preflight test
+    was red on the missing lock-held coverage core; and the capture batch was
+    red on the missing project module. The state-facts boundary pins were red
+    on the absent seam and root encoder. After the first capture green, the
+    garbage-record construction exposed decode during `_root_state_for` before
+    the hold and drove its whole-capture `CorpusStateMalformed` conversion.
+    The real-chain test's first run failed because its dataset fixture omitted
+    the already-required content identity, then passed with a valid dataset;
+    it pin-tested existing production behavior rather than driving it.
+
+18. **R18 — extracted coverage keeps cut 7's live sabotage sites.** The three
+    admission/liveness/carrier predicates remain inside one nested, live
+    `resolve` function so the frozen X5/X7 byte mutations still apply exactly
+    once after their extraction from `_preflight`. Both preflight and holdings
+    capture execute those same predicates through `_locked_resolve_coverage`.
+
 ## Heads
 
 | Task | Science head |
@@ -119,3 +145,4 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 1 | f7df31d |
 | 2 | 5e88932 |
 | 3 | 8658789 |
+| 4 | 86cbe29 |

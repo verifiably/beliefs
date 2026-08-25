@@ -112,6 +112,12 @@ def _unwired_lifecycle_state(root: Path) -> str:
     )
 
 
+def _unwired_state_facts(state: object) -> tuple[tuple[str, str], ...]:
+    raise AssertionError(
+        f"{state!r}: this seam wires no path-state fact encoder; the composition root wires one explicitly"
+    )
+
+
 @dataclass(frozen=True)
 class LogSeam:
     """One root's worth of engine capability, as callables over `Path`.
@@ -141,6 +147,11 @@ class LogSeam:
     Wired by the composition root; the arrival boundary branches its
     inspection mode on it. The default refuses loudly so a stand-in seam
     that never expects an arrival cannot answer one by accident."""
+    state_facts: Callable[[object], tuple[tuple[str, str], ...]] = _unwired_state_facts
+    """The engine's canonical facts for one opaque path state.
+
+    Replay keeps the state opaque. Mechanical projection alone asks the
+    composition root to re-encode it through the engine-owned codec."""
 
 
 @dataclass(frozen=True)
