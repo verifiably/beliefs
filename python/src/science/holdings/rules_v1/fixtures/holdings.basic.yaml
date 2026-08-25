@@ -1,11 +1,11 @@
 input:
   corpora:
     - corpus_id: corpus-a
-      corpus_state: "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      corpus_state: "1111111111111111111111111111111111111111111111111111111111111111"
       chain_head: "3333333333333333333333333333333333333333333333333333333333333333"
       records:
         - uid: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          canonical: '{"facets":{"holdings-observation":{"event_token":"token","instrument":"instrument","kind":"holdings-observation","location":{"relative_path":"artifact.bin","store_id":"dddddddddddddddddddddddddddddddd","type":"store"},"observed_at":"2026-01-01T00:00:00Z","observer":"observer","outcome":{"digest":"sha256:1111111111111111111111111111111111111111111111111111111111111111","finding":"found"},"supersedes":[]}},"id":"holdings-observation:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","kind":"holdings-observation","uid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}'
+          canonical: '{"body":"","deprecated_ids":[],"facets":{"holdings-observation":{"event_token":"token","instrument":"instrument","kind":"holdings-observation","location":{"relative_path":"artifact.bin","store_id":"dddddddddddddddddddddddddddddddd","type":"store"},"observed_at":"2026-01-01T00:00:00Z","observer":"observer","outcome":{"digest":"sha256:1111111111111111111111111111111111111111111111111111111111111111","finding":"found"},"supersedes":[]},"semantic-identity":{"digest":"82f596d76165a7c6b59c2b8e687159a642bf36e1ba7fb2cd406a0d29c4dc58cb"}},"id":"holdings-observation:45bc61b13a95ce30193019b932ba3662372bd0e429957f3dfeaec6edcae0cb37","kind":"holdings-observation","metadata":{"created":null,"updated":null,"version":1},"relations":[],"title":"Holdings observation 45bc61b13a95","uid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}'
       chain:
         - digest: "0000000000000000000000000000000000000000000000000000000000000000"
           entry:
@@ -25,7 +25,7 @@ input:
             fulfills: "1111111111111111111111111111111111111111111111111111111111111111"
             initial: []
             final:
-              - - holdings-observation/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.md
+              - - holdings-observation/45bc61b13a95ce30193019b932ba3662372bd0e429957f3dfeaec6edcae0cb37.md
                 - - [content_hash, "sha256:9999999999999999999999999999999999999999999999999999999999999999"]
                   - [kind, file]
                   - [mode, "0o100644"]
@@ -37,7 +37,7 @@ input:
             outcome: committed
 expected:
   active:
-    - head: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    - head: 45bc61b13a95ce30193019b932ba3662372bd0e429957f3dfeaec6edcae0cb37
       location: "store:dddddddddddddddddddddddddddddddd:artifact.bin"
       outcome:
         finding: found

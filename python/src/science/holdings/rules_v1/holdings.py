@@ -135,6 +135,7 @@ def _unsettled(corpus, observations_by_path):
 
 def reduce_holdings(capture):
     observations = {}
+    canonical_by_ref = {}
     by_location = {}
     paths_by_corpus = []
     for corpus in capture["corpora"]:
@@ -144,10 +145,11 @@ def reduce_holdings(capture):
             if value is None:
                 continue
             previous = observations.get(value["ref"])
-            if previous is not None and previous != value:
+            if previous is not None and canonical_by_ref[value["ref"]] != row["canonical"]:
                 raise ValueError("holdings observation reference collision at " + value["ref"])
             if previous is None:
                 observations[value["ref"]] = value
+                canonical_by_ref[value["ref"]] = row["canonical"]
                 by_location.setdefault(value["location"], []).append(value)
             observations_by_path[value["path"]] = value
         paths_by_corpus.append(observations_by_path)

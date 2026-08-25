@@ -1,13 +1,13 @@
 input:
   corpora:
     - corpus_id: corpus-a
-      corpus_state: "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      corpus_state: "1111111111111111111111111111111111111111111111111111111111111111"
       chain_head: "0000000000000000000000000000000000000000000000000000000000000000"
       records:
         - uid: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          canonical: '{"facets":{"holdings-observation":{"event_token":"one","instrument":"instrument","kind":"holdings-observation","location":{"relative_path":"artifact.bin","store_id":"dddddddddddddddddddddddddddddddd","type":"store"},"observed_at":"2026-01-01T00:00:00Z","observer":"observer","outcome":{"digest":"sha256:1111111111111111111111111111111111111111111111111111111111111111","finding":"found"},"supersedes":[]}},"id":"holdings-observation:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","kind":"holdings-observation","uid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}'
+          canonical: '{"body":"","deprecated_ids":[],"facets":{"holdings-observation":{"event_token":"one","instrument":"instrument","kind":"holdings-observation","location":{"relative_path":"artifact.bin","store_id":"dddddddddddddddddddddddddddddddd","type":"store"},"observed_at":"2026-01-01T00:00:00Z","observer":"observer","outcome":{"digest":"sha256:1111111111111111111111111111111111111111111111111111111111111111","finding":"found"},"supersedes":[]},"semantic-identity":{"digest":"ce4d8e158824e377e001e0e45bf3c3732e850146dfd7f50c44ca5be12764f28c"}},"id":"holdings-observation:7df4e1c57a35e5b78b341886648c9903606bc43c37887a486f5d45d98dbb20c3","kind":"holdings-observation","metadata":{"created":null,"updated":null,"version":1},"relations":[],"title":"Holdings observation 7df4e1c57a35","uid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}'
         - uid: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-          canonical: '{"facets":{"holdings-observation":{"event_token":"two","instrument":"instrument","kind":"holdings-observation","location":{"relative_path":"artifact.bin","store_id":"dddddddddddddddddddddddddddddddd","type":"store"},"observed_at":"2026-01-02T00:00:00Z","observer":"observer","outcome":{"finding":"absent"},"supersedes":[]}},"id":"holdings-observation:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","kind":"holdings-observation","uid":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}'
+          canonical: '{"body":"","deprecated_ids":[],"facets":{"holdings-observation":{"event_token":"two","instrument":"instrument","kind":"holdings-observation","location":{"relative_path":"artifact.bin","store_id":"dddddddddddddddddddddddddddddddd","type":"store"},"observed_at":"2026-01-02T00:00:00Z","observer":"observer","outcome":{"finding":"absent"},"supersedes":[]},"semantic-identity":{"digest":"a0bdc62a8c31747c8fff976b1ec76531a72e35068026a344c6e50c16a0f0428a"}},"id":"holdings-observation:486a2a284bc2835ef1e48503f6bcb7ed49c8dbe90bc9e3f47e54818191cae795","kind":"holdings-observation","metadata":{"created":null,"updated":null,"version":1},"relations":[],"title":"Holdings observation 486a2a284bc2","uid":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}'
       chain:
         - digest: "0000000000000000000000000000000000000000000000000000000000000000"
           entry:
@@ -20,14 +20,14 @@ expected:
     - location: "store:dddddddddddddddddddddddddddddddd:artifact.bin"
       reasons: [contested]
       heads:
-        - head: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        - head: 486a2a284bc2835ef1e48503f6bcb7ed49c8dbe90bc9e3f47e54818191cae795
+          location: "store:dddddddddddddddddddddddddddddddd:artifact.bin"
+          outcome:
+            finding: absent
+          history: []
+        - head: 7df4e1c57a35e5b78b341886648c9903606bc43c37887a486f5d45d98dbb20c3
           location: "store:dddddddddddddddddddddddddddddddd:artifact.bin"
           outcome:
             finding: found
             digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111"
-          history: []
-        - head: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-          location: "store:dddddddddddddddddddddddddddddddd:artifact.bin"
-          outcome:
-            finding: absent
           history: []

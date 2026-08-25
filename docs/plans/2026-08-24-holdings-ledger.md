@@ -185,6 +185,18 @@ Rulings are written at task boundaries, never rewritten after the fact.
     crash-window tests passed on their first run against the completed reducer;
     they pin the already-green composition rather than having driven it.
 
+24. **R24 — Task 6 review closed one alias and two fixture/walk gaps.** Record
+    deduplication now compares the full captured canonical text before handing
+    the narrower parsed value to reduction; an `observed_at`-only collision was
+    watched return one head before the fix and refuse afterward. Every fixture
+    corpus state now has Task 5's bare 64-hex form, and each fixture record is
+    exact `to_canonical_json` output from the production holdings builder; an
+    ordinary test reconstructs the builder value and compares all bytes. The
+    fixture-shape test was watched fail first on the prefixed state. Finally,
+    explicit dangling-tail and cross-location predecessor pins passed against
+    the existing walk; removing either condition made its test fail, confirming
+    both exercise their named branch.
+
 ## Heads
 
 | Task | Science head |

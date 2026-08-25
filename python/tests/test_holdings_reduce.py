@@ -8,8 +8,12 @@ from importlib import resources
 from typing import Any
 
 import pytest
+import yaml
+from nodes.core.node import Node
+from nodes.core.projection import to_canonical_json
 from test_world_rules import make_world
 
+from science import stored
 from science.holdings.qualify import qualify_intent
 from science.holdings.reduce import holdings_rule_bundle
 from science.identity import v1
@@ -315,6 +319,22 @@ def test_the_walk_carries_deduplicated_sorted_history():
     }
 
 
+def test_a_dangling_predecessor_keeps_the_record_as_a_head_with_an_unseen_tail():
+    result = invoke(capture(corpus(records=[observation(REF_A, supersedes=("f" * 64,))])))
+
+    assert result == {"active": [member(REF_A)], "blocked": []}
+
+
+def test_a_cross_location_predecessor_refuses_the_whole_projection():
+    value = capture(corpus(records=[
+        observation(REF_A, supersedes=(REF_B,)),
+        observation(REF_B, location=OTHER_LOCATION),
+    ]))
+
+    with pytest.raises(ValueError, match=f"^supersession crosses locations at {LOCATION}$"):
+        invoke(value)
+
+
 def test_qualification_matched_by_derived_path_and_token():
     result = invoke(capture(corpus(records=[observation(REF_A)], chain=matched_chain())))
 
@@ -340,11 +360,18 @@ def test_an_identical_record_in_two_corpora_is_one_active_head():
     )) == {"active": [member(REF_A)], "blocked": []}
 
 
-def test_the_same_reference_with_different_content_refuses():
+@pytest.mark.parametrize(
+    "changed",
+    [
+        observation(REF_A, location=OTHER_LOCATION),
+        observation(REF_A, observed_at="2026-01-02T00:00:00Z"),
+    ],
+)
+def test_the_same_reference_with_different_canonical_content_refuses(changed):
     with pytest.raises(ValueError, match=f"^holdings observation reference collision at {REF_A}$"):
         invoke(capture(
             corpus(records=[observation(REF_A)], corpus_id="corpus-a"),
-            corpus(records=[observation(REF_A, location=OTHER_LOCATION)], corpus_id="corpus-b"),
+            corpus(records=[changed], corpus_id="corpus-b"),
         ))
 
 
@@ -458,6 +485,20 @@ def test_the_bundle_concatenates_the_helper_source():
     holdings = resources.files("science.holdings.rules_v1").joinpath("holdings.py").read_bytes()
 
     assert holdings_rule_bundle().implementation == qualify + b"\n\n" + holdings
+
+
+def test_fixture_records_are_exact_production_canonical_projections():
+    for _name, content in holdings_rule_bundle().fixtures:
+        supplied = yaml.safe_load(content)["input"]
+        for corpus_value in supplied["corpora"]:
+            state = corpus_value["corpus_state"]
+            assert len(state) == 64 and all(character in "0123456789abcdef" for character in state)
+            for record in corpus_value["records"]:
+                node = Node.model_validate(json.loads(record["canonical"]))
+                rebuilt = stored.holdings_observation_node(stored.holdings_observation_value(node)).model_copy(
+                    update={"uid": node.uid}
+                )
+                assert record == {"uid": node.uid, "canonical": to_canonical_json(rebuilt)}
 
 
 def test_the_outputs_are_byte_deterministic():
