@@ -365,6 +365,23 @@ Rulings are written at task boundaries, never rewritten after the fact.
     reported 35 passed; the closing line named 31. Ruff, Pyright, and
     diff-check are clean.
 
+46. **R46 — cut 10's selected root reaches every nested holdings check.**
+    Review found that phase 2 set `SCIENCE_CUT10_ROOT` only on the N2 harness:
+    cut 1's shared `_run_check` child environment dropped it, and the shared
+    `certified_work` fixture always chose the checkout volume. The harness now
+    forwards cut 10's root and the fixture uses it when present, retaining the
+    repository-relative `.lifecycle-wrappers-test` directory as its exact
+    fallback. These edits to cut 1's harness and the shared fixture are ruled
+    here because they close cut 10's certified-volume boundary rather than
+    changing an earlier declaration. The child regression sets only cut 10 to
+    an available uncertified `/dev/shm` directory, observes the directory was
+    used, and sees a real holdings engine check fail instead of silently
+    passing beside the checkout.
+
+47. **R47 — Task 10's first complete head is recorded as bookkeeping only.**
+    The heads table names `6a8055d`, which introduced the runner. R46 records
+    its review amendment; this row makes no additional conformance claim.
+
 ## Heads
 
 | Task | Science head |
@@ -379,3 +396,4 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 7 | d7a5852 |
 | 8 | e1b0ce3 |
 | 9 | 22461e9 |
+| 10 | 6a8055d |

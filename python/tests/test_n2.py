@@ -137,7 +137,13 @@ def _run_check(check: str, package: Path | None) -> CheckRun:
             f"{check!r} does not name one test function outside {HARNESS}; a check must name the one test it means"
         )
     env = {"PATH": "/usr/bin:/bin", "HOME": str(Path.home())}
-    for name in ("SCIENCE_CUT4_ROOT", "SCIENCE_CUT5_ROOT", "SCIENCE_CUT6_ROOT", "SCIENCE_CUT7_ROOT"):
+    for name in (
+        "SCIENCE_CUT4_ROOT",
+        "SCIENCE_CUT5_ROOT",
+        "SCIENCE_CUT6_ROOT",
+        "SCIENCE_CUT7_ROOT",
+        "SCIENCE_CUT10_ROOT",
+    ):
         if name in os.environ:
             env[name] = os.environ[name]
     if package is not None:
@@ -314,6 +320,25 @@ def test_an_explicit_uncertified_acceptance_root_is_not_silently_replaced(monkey
             None,
         )
         assert cut7.returncode == FAILED
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def test_an_explicit_uncertified_cut10_root_reaches_holdings_engine_checks(monkeypatch):
+    shm = Path("/dev/shm")
+    if not shm.is_dir():
+        raise AssertionError("/dev/shm is required for the N2 child-environment regression")
+    root = shm / f"science-n2-cut10-env-{os.getpid()}"
+    for cut in range(4, 10):
+        monkeypatch.delenv(f"SCIENCE_CUT{cut}_ROOT", raising=False)
+    monkeypatch.setenv("SCIENCE_CUT10_ROOT", str(root))
+    try:
+        run = _run_check(
+            "test_holdings_boundary.py::test_recheck_publishes_found_with_the_hash_the_engine_observed",
+            None,
+        )
+        assert run.returncode == FAILED
+        assert root.is_dir()
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
