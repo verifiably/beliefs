@@ -12,7 +12,10 @@ payloads (§3.2), the concrete `LogReport` contract (§3.3), and the
 (second review round): pending-fulfillment semantics (§2.1), the domainless
 discriminators and the assessment-run wire shape with its durable append
 (§3.2), no-follow capture (§3.1), the corrected evidence constraint
-(header), and pinned finding placement (§3.3).
+(header), and pinned finding placement (§3.3). **Amended a third time
+2026-08-26** (third review round): fd-anchored no-follow capture closing
+the swap race (§3.1), the run boundary's persistence contract (§2.6), and
+the durable run publication's `event_token` (§2.6).
 **Inherits:** `2026-08-03-tamper-evident-log-design.md` §6 as amended — the
 qualification reduction this slice implements at its full stated width: the
 matched / unresolvable / attempt-without-recorded-outcome precedence, the
@@ -46,10 +49,11 @@ source, no science imports, binding by content digest.
 1. **The general qualification reduction** — one pure reducer implementing
    log §6's precedence, parameterized by a closed union of the three
    intent-union shapes (assessment-run, operation, holdings).
-   With it, **the run boundary's durable intent append**: no assessment-run
-   payload is appended anywhere in the tree today, so the
-   append-before-any-member-act consumer rule lands here through the
-   existing `OperationPort`, under the wire shape §3.2 fixes.
+   With it, **the run boundary's persistence contract (§2.6)**: the
+   boundary is in-memory end to end today, so both run entrypoints gain
+   the destination binding, the append-before-any-member-act sequence,
+   durable terminal publication with boundary-constructed `fulfills`,
+   and the run facet's `event_token`.
 2. **The captured-record evidence input** — the evaluator gains an explicit
    published-record surface, captured under the same hold that captures
    `disk`, because a registration exposes paths and opaque states only and
@@ -178,6 +182,48 @@ the re-base, and a cut-11 arm pins it. After this slice, the reducer's
 shape predicates are the only implementation of qualification anywhere in
 Science — the verifier, the holdings rule, and `completion` are callers.
 
+**2.6 The run boundary's persistence contract.** The run boundary today
+is in-memory end to end: `execute_assessment_run` and
+`execute_production_run` receive no destination, and `_execute_run`
+returns `RunMinted` carrying a `Registration` value that nothing appends
+or publishes durably. The consumer rules banked with the act-report
+design — freeze the observer-corpus root, append the intent before any
+member act, construct `fulfills` for the closing terminal record — have
+no mechanism without a destination, so this slice changes the boundary
+contract, for **both** run shapes:
+
+1. **Both entrypoints gain the destination binding** — the
+   observer-corpus root's `OperationPort`, a required parameter, no
+   defaulted in-memory mode: a run boundary without a destination is the
+   pre-slice boundary, and it does not survive this slice.
+2. **The sequence is fixed**: freeze the root; durably append the intent
+   through the port — the assessment-run wire shape (§3.2) for an
+   assessment run, the operation shape for a production run (its
+   `dataset-production` opening is the act-report design's rule as
+   banked); only then any member act; then publish the closing terminal
+   record — the run publication, or the act-report for a post-intent
+   attempt that minted no run — through **the same port**, in a
+   registration whose `fulfills` the boundary constructs from its own
+   appended intent digest, never from a caller-supplied path.
+3. **A pre-intent refusal publishes an unfulfilling report** and fulfills
+   nothing; a crash there leaves no trace — the frozen negative, now
+   constructible.
+4. **The durable run publication carries its qualification evidence**:
+   the stored run document's facet gains `event_token` beside `spec` —
+   the attribution precedent the holdings-observation and retraction
+   facets already set. Without it, captured run bytes establish neither
+   the intent's token nor the closure, and the assessment-run `qualifies`
+   predicate would have nothing to read. The act-report codec already
+   serializes its full record — kind and token included — and is
+   unchanged. No qualification pair predates this slice — no
+   assessment-run or production intent has ever been durably appended —
+   so the field is required from the first appended intent onward, with
+   no legacy-run reading to preserve.
+
+The kill-between-append-and-start, cross-root-publication, and
+no-caller-supplied-`fulfills` arms all read this contract; they were
+unconstructible against the in-memory boundary.
+
 ## 3. Verifier integration (`science/world/verify.py`)
 
 **3.1 The captured-record evidence input.** A registration entry exposes
@@ -194,15 +240,23 @@ published, so `evaluate_log` gains one explicit input:
   caller — audit, arrival, restore — assembles and supplies it; there is
   no defaulted-empty overload, because an accidentally empty surface
   reading as universal unresolvable would be a silent fallback.
-- **Capture never follows symlinks** — the registered-surface
-  enumeration's own rule, kept at the byte layer: a leaf is read only
-  after an `lstat` shows a regular file, so a symlink at a record path
-  (into the root or out of it) contributes no byte payload and no bytes
-  from outside the root ever enter the report, and a non-regular leaf (a
-  fifo, a device) is never opened — capture cannot be made to block or
-  to traverse. A leaf whose read fails (permission, disappearance between
-  enumeration and read) likewise contributes no payload; none of these
-  raises out of capture, and none is a chain verdict.
+- **Capture never follows symlinks, closed by construction, not by
+  ordering** — a pre-read `lstat` would leave the classic race: the leaf
+  swapped for a symlink between check and read. The capture therefore
+  never touches a path twice: it opens a descriptor on the root, descends
+  **per component** with `O_DIRECTORY | O_NOFOLLOW` relative to the
+  previous descriptor, opens the leaf with
+  `O_RDONLY | O_NOFOLLOW | O_NONBLOCK` — `O_NONBLOCK` because a fifo
+  blocks at `open`, not at `read`, and is harmless on a regular file —
+  and only then `fstat`s **the opened descriptor** — regular file or the
+  payload is withheld — and reads from that descriptor. A symlink
+  anywhere in the descent (into the root or out of it) fails the open
+  with `ELOOP` and contributes no byte payload, so no bytes from outside
+  the root ever enter the report; a non-regular leaf fails the
+  `fstat` gate without a blocking open or read ever issued against it; a
+  failed open or read (permission, disappearance) likewise withholds the
+  payload. None of these raises out of capture, and none is a chain
+  verdict.
 - A path a fulfilling registration's final surface names that is **absent
   from `records` — including absent because the no-follow rule withheld
   it — or present and undecodable** → that pointer is a pointer whose
@@ -221,12 +275,9 @@ built: the operation payload is the canonical encoding of
 `{kind, event_token, actor}` (the import boundary's append), and the
 assessment-run payload **is fixed here** as the canonical encoding of the
 record type's own fields, `{spec_identity, event_token, actor}` — no
-durable append of it exists in the tree today (the boundary constructs
-the intent object and threads it into minted and refused records only),
-so the run boundary's append-before-any-member-act lands in this slice
-through the existing `OperationPort`, which the run-shape
-kill-between-append-and-start arm requires anyway. The discriminators
-are exact and disjoint by construction:
+durable append of it exists in the tree today; the boundary contract
+that appends it, and publishes what fulfills it, is §2.6's. The
+discriminators are exact and disjoint by construction:
 
 - an object carrying `domain` naming `science.holdings-intent.v1` →
   the holdings shape's schema;
@@ -383,8 +434,17 @@ fresh:
   whose captured bytes do not decode, each read qualification
   `unresolvable` with no unmatched finding; a record path replaced by a
   **symlink out of the root** reads `unresolvable` with no bytes from
-  outside the root anywhere in the report — the no-follow arm; `history`
-  remains L13's and is untouched by any of these.
+  outside the root anywhere in the report — and the arm runs the **swap
+  race**, not only the static link: the leaf becomes a symlink between
+  enumeration and read (constructed deterministically at the capture
+  seam), and the fd-anchored open refuses it — `ELOOP`, payload
+  withheld, never outside bytes; `history` remains L13's and is
+  untouched by any of these.
+- **the run boundary's persistence (§2.6)** — the published run's
+  captured bytes round-trip: append, execute, publish, capture,
+  decode, match — the facet's `event_token` and `spec` establish the
+  qualifying pair; the kill-between-append-and-start, cross-root, and
+  pre-intent-refusal arms run against the durable boundary, per shape.
 - **pending fulfillment (§2.1)** — an unsettled fulfilling registration
   with its published bytes present on disk reads qualification
   `unresolvable`, never `matched`: settlement is never inferred from
