@@ -305,6 +305,18 @@ def test_chain_heads_are_committed_inputs(tmp_path):
     ]
 
 
+def test_chain_head_alone_participates_in_receipt_identity(tmp_path):
+    world, binding, _roots, chains = admitted_world(tmp_path, ALPHA)
+    _active, _blocked, receipt = derive(world, {ALPHA}, binding, chains)
+    corpus_id, state, head = receipt.coverage[0]
+
+    changed = replace(receipt, coverage=((corpus_id, state, "f" * 64),))
+
+    assert changed.coverage[0][:2] == receipt.coverage[0][:2]
+    assert changed.coverage[0][2] != head
+    assert changed.identity() != receipt.identity()
+
+
 def test_chain_heads_are_committed_inputs_through_the_production_seam(certified_work):
     corpus_root = certified_work / "corpus"
     science_root.init_corpus_root(corpus_root)

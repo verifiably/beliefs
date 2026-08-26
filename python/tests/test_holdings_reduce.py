@@ -11,13 +11,14 @@ import pytest
 import yaml
 from nodes.core.node import Node
 from nodes.core.projection import to_canonical_json
+from test_world_log_codecs import Chain, inspected
 from test_world_rules import make_world
 
 from science import stored
 from science.holdings.qualify import qualify_intent
 from science.holdings.reduce import holdings_rule_bundle
 from science.identity import v1
-from science.world import rules
+from science.world import logmodel, rules
 
 REF_A = "a" * 64
 REF_B = "b" * 64
@@ -59,11 +60,13 @@ def observation(
             "id": f"holdings-observation:{ref}",
             "uid": ref[:32],
             "kind": "holdings-observation",
+            "title": "Fabricated holdings observation",
             "facets": {"holdings-observation": facet},
         },
         sort_keys=True,
         separators=(",", ":"),
     )
+    assert stored.holdings_observation_value(Node.model_validate(json.loads(canonical))).facet() == facet
     return {"uid": ref[:32], "canonical": canonical}
 
 
@@ -207,6 +210,7 @@ def test_no_timestamp_ordering():
         row["canonical"] = json.dumps(document, sort_keys=True, separators=(",", ":"))
 
     assert first_facets[0]["observed_at"] != first_facets[1]["observed_at"]
+    assert all(not facet["supersedes"] for facet in (*first_facets, *swapped_facets))
     normalized_first = deepcopy(first)
     normalized_swapped = deepcopy(swapped)
     for value in (normalized_first, normalized_swapped):
@@ -427,6 +431,24 @@ def test_qualify_intent_never_collapses_unresolved():
         [{"settlement": "committed", "final": [file_row(f"holdings-observation/{REF_A}.md")]}],
         deriving,
     ) == "matched"
+
+
+def test_a_settlement_less_registration_is_an_inspected_well_formed_chain(tmp_path):
+    root = tmp_path / "pending-chain"
+    root.mkdir()
+    chain = Chain(root)
+    chain.genesis()
+    intent_ref = chain.intent(b"holdings intent")
+    registration_ref = chain.registration("tx-pending", (), (), fulfills=intent_ref)
+
+    view = inspected(root)
+
+    assert isinstance(view, logmodel.WellFormedView)
+    assert view.pending == (("tx-pending", registration_ref),)
+    assert any(
+        isinstance(entry, logmodel.RegisteredEntryView) and entry.fulfills == intent_ref
+        for entry in view.entries
+    )
 
 
 def test_a_rolled_back_registration_is_resolved_with_rows_unconsulted():

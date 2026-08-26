@@ -8,15 +8,17 @@ from typing import Any, cast
 
 import pytest
 from fixtures_cut6 import PINS
-from nodes.core.write_plan import DefaultExecutor
+from nodes.core.frontmatter import node_to_markdown
+from nodes.core.write_plan import CreateOp, DefaultExecutor
 from test_world_build import ChainHeads
 
 from science import root as science_root
-from science.holdings.boundary import ActContext, move, recheck, write
+from science import stored
+from science.holdings.boundary import ActContext, intent_payload, move, recheck, write
 from science.holdings.project import capture_coverage
-from science.holdings.records import StoreLocator
+from science.holdings.records import Found, StoreLocator, holdings_observation
 from science.holdings.reduce import holdings_rule_bundle
-from science.world import registry, rules
+from science.world import logmodel, registry, rules
 
 
 def setup(root: Path):
@@ -83,6 +85,49 @@ def test_the_kill_window_reads_unsettled_until_a_fulfilled_recheck_lifts_it(cert
     ]
     assert intents[0] not in fulfillments
     assert intents[1] in fulfillments
+
+
+@pytest.mark.parametrize("case", ["wrong-location", "wrong-token", "no-observation"])
+def test_nonqualifying_fulfillments_are_committed_and_leave_the_intent_unsettled(
+    certified_work, case
+):
+    context, store_id, corpus_id, world, binding = setup(certified_work)
+    location = StoreLocator(store_id, "held.bin")
+    token = "intended-token"
+    intent = context.seam.append_intent(
+        context.observer_root,
+        intent_payload(location=location, act_kind="write", event_token=token, actor=context.actor),
+    )
+    if case == "no-observation":
+        node = stored.dataset_node("outside", title="Outside the holdings layout")
+        path = "outside.md"
+    else:
+        record = holdings_observation(
+            location=StoreLocator(store_id, "other.bin") if case == "wrong-location" else location,
+            outcome=Found("sha256:" + "1" * 64),
+            observer=context.observer,
+            instrument=context.instrument,
+            event_token="wrong-token" if case == "wrong-token" else token,
+            observed_at="2026-08-24T12:00:00Z",
+        )
+        node = stored.holdings_observation_node(record)
+        path = f"holdings-observation/{record.identity()}.md"
+    context.seam.publish_fulfilling(
+        context.observer_root,
+        (CreateOp(path, node_to_markdown(node).encode("utf-8")),),
+        intent,
+    )
+
+    viewed = science_root._log_seam().inspect_registered(context.observer_root)
+    assert isinstance(viewed, logmodel.WellFormedView)
+    assert any(
+        isinstance(entry, logmodel.RegisteredEntryView) and entry.fulfills == intent
+        for entry in viewed.entries
+    )
+    blocked = reduce(context, corpus_id, world, binding)["blocked"]
+    assert len(blocked) == 1
+    assert blocked[0]["location"] == location.canonical()
+    assert blocked[0]["reasons"] == ["unsettled"]
 
 
 def test_the_three_move_windows_read_exactly(certified_work):

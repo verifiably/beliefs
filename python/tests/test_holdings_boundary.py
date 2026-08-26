@@ -86,6 +86,26 @@ def test_recheck_appends_its_intent_before_reading(certified_work):
     recheck(ctx, StoreLocator(store_id, "missing.bin"))
 
 
+def test_recheck_refuses_to_mint_from_a_detached_capture(certified_work):
+    ctx, store_id = context(certified_work)
+    location = StoreLocator(store_id, "held.bin")
+    ctx.seam.store_write(ctx.store_root, location.relative_path, b"undamaged")
+
+    def detached(root, path):
+        captured = science_root._log_seam().capture(root, (path,))
+        assert tuple(name for name, _state in captured) == (path,)
+        raise RuntimeError("a detached capture established nothing for this act")
+
+    ctx = replace(ctx, seam=replace(ctx.seam, read_path=detached))
+    with pytest.raises(RuntimeError, match="detached capture established nothing"):
+        recheck(ctx, location)
+
+    # Raw concurrent mutation is the cooperative-boundary limit, not a
+    # detection claim: this construction keeps the store undamaged throughout.
+    assert (ctx.store_root / location.relative_path).read_bytes() == b"undamaged"
+    assert not (ctx.observer_root / "holdings-observation").exists()
+
+
 def test_intent_payload_is_the_exact_canonical_json_shape():
     payload = intent_payload(location=StoreLocator("a" * 32, "held.bin"), act_kind="re-check", event_token="token", actor="actor")
 

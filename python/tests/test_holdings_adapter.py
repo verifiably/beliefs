@@ -72,6 +72,14 @@ def test_a_different_digest_never_promotes_on_presence():
     assert any(finding.outcome == "mismatch" and finding.observed == (D2,) for finding in state.findings)
 
 
+def test_an_active_absent_ends_promotion():
+    answer = dataset_observations(declaration(), [member(None)], [])
+
+    assert answer == DatasetAnswer(())
+    assert isinstance(answer, DatasetAnswer)
+    assert isinstance(admission_state(declaration(), answer.observations), Declared)
+
+
 def test_expectation_join_surfaces_a_first_contact_mismatch():
     answer = dataset_observations(declaration(), [member(D2, expected=D)], [])
 

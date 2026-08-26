@@ -293,6 +293,38 @@ Rulings are written at task boundaries, never rewritten after the fact.
     byte observations still produce the same digest set and `Held` answer; only
     the test construction changed.
 
+37. **R37 — Task 8's reviewed head is recorded as bookkeeping only.** The
+    heads table now names `e1b0ce3`, the final reviewed adapter amendment. This
+    row changes no production or conformance claim; Task 8's claims remain
+    R31–R36.
+
+38. **R38 — cut 10's labels use the J prefix and atoms evidence remains
+    citation metadata.** D and V already name cuts 8 and 9; J names no frozen
+    prior table. The seven units whose interior is the certified atoms seam
+    cite the atoms holdings design sections and exact atoms test nodes in a
+    parallel map. Those strings never enter an `Arm.checks` tuple and are
+    resolved or collected by no Science audit.
+
+39. **R39 — declaration-time constructions close the plan's latent fixture
+    gaps.** Task 9 adds the two focused nodes its plan described but Tasks 1–8
+    did not yet contain: detached capture over an undamaged store refuses to
+    mint, and an active absent head ends promotion for G9's R5 co-read. The L7
+    non-qualifying cases now publish genuine fulfilling transactions and pass
+    the production chain inspector; the settlement-less registration has a
+    canonical raw-chain inspector pin; every reducer observation helper call
+    decodes through the production stored reader. H3 u3 gains a head-only
+    identity delta because the earlier old/new receipt comparison also changed
+    output digests and therefore survived a dropped-head identity sabotage.
+
+40. **R40 — Task 9's mutation history is explicit.** The audit skeleton first
+    failed collection because `n2_arms_cut10` did not exist. The first complete
+    mutation run returned 22 sound arms, six uncollected H2 arms because the
+    newly added stored-decoder assertion omitted `Node.title`, and one vacuous
+    H3 u3 arm because its check changed output digests as well as the head.
+    Adding the required title and the head-only identity pin made the focused
+    H2/H3 batch 9/9 sound; the full audit then passed all 31 arms. No production
+    module changed.
+
 ## Heads
 
 | Task | Science head |
@@ -305,3 +337,4 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 5 | 7003f32 |
 | 6 | d6615ca |
 | 7 | d7a5852 |
+| 8 | e1b0ce3 |
