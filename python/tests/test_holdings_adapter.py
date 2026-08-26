@@ -34,12 +34,13 @@ def member(
     digest: str | None,
     *,
     location: str = LOCATION,
+    head: str = "f" * 64,
     expected: str | None = None,
     history: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     outcome = {"finding": "absent"} if digest is None else {"finding": "found", "digest": digest}
     value: dict[str, Any] = {
-        "head": "f" * 64,
+        "head": head,
         "location": location,
         "outcome": outcome,
         "history": history or [],
@@ -80,9 +81,16 @@ def test_expectation_join_surfaces_a_first_contact_mismatch():
 def test_an_expectation_overlap_is_an_ordinary_declared_match():
     declared = DatasetDeclaration((ResourceDeclaration("one", D), ResourceDeclaration("two", D2)))
 
-    answer = dataset_observations(declared, [member(D2, expected=D), member(D)], [])
+    answer = dataset_observations(
+        declared,
+        [
+            member(D2, expected=D, head="e" * 64),
+            member(D, location=OTHER_LOCATION, head="d" * 64),
+        ],
+        [],
+    )
 
-    assert answer == DatasetAnswer((ByteObservation(D, LOCATION), ByteObservation(D2, LOCATION)))
+    assert answer == DatasetAnswer((ByteObservation(D, OTHER_LOCATION), ByteObservation(D2, LOCATION)))
     assert isinstance(answer, DatasetAnswer)
     assert isinstance(admission_state(declared, answer.observations), Held)
 

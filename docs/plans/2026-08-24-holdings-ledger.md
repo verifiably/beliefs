@@ -287,6 +287,12 @@ Rulings are written at task boundaries, never rewritten after the fact.
     The two-resource overlap arm passed first against the existing adapter and
     `admission_state`, pinning authority rather than driving production.
 
+36. **R36 — the overlap arm is reducer-reachable.** Review replaces the two
+    synthetic same-location heads — which the reducer would block as contested
+    — with distinct head references at distinct locations. Their corresponding
+    byte observations still produce the same digest set and `Held` answer; only
+    the test construction changed.
+
 ## Heads
 
 | Task | Science head |
