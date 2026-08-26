@@ -254,6 +254,25 @@ Rulings are written at task boundaries, never rewritten after the fact.
     passed first against R27's existing malformed-first branch; it is recorded
     as the missing pin, not a red-first production change.
 
+31. **R31 — adapter observations have the existing value identity.** Task 8
+    deduplicates exact `(digest, location)` pairs, retains the same digest at
+    distinct reporting locations, and byte-wise sorts by `(digest, location)`.
+    This is `ByteObservation`'s complete existing value surface; no second
+    identity or precedence rule is introduced.
+
+32. **R32 — the adapter trusts the receipt-committed projection shape.** Its
+    input values are Task 6's active and blocked members after Task 7 committed
+    both canonical output digests. The adapter interprets that declared shape
+    and does not add a second schema validator or any ambient resolution seam.
+
+33. **R33 — Task 8's red/green history is one cohesive module batch.** The
+    nine named adapter tests plus the exact result types and output ordering
+    were written before `science.holdings.adapter` existed; the first focused
+    run failed during collection on that missing module. After the minimal
+    implementation made them green, the history-by-expectation, all-three-
+    blocked-join, and empty-blocked-head assertions were added as pins of the
+    same already-green join function and required no production change.
+
 ## Heads
 
 | Task | Science head |
@@ -265,3 +284,4 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 4 | 86cbe29 |
 | 5 | 7003f32 |
 | 6 | d6615ca |
+| 7 | d7a5852 |
