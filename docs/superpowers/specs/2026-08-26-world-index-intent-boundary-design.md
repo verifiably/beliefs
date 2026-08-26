@@ -27,7 +27,13 @@ identity is the closure address and the facet is its preimage projection
 dataset edge (§2.6 item 5), the `SHAPES` vocabulary reused verbatim
 (§2.2, §2.6), the corrected leaf-symlink classification path (§3.1, §6),
 and the executor's two-error contract preserved on `execute` (§2.6
-item 2a).
+item 2a). **Amended a sixth time 2026-08-26** (sixth review round): the
+closure facet carries the projection as v1-canonical text — the
+type-preserving wire the address already digests (§2.6 item 5); the
+bare-address/typed-ref bridge with field-by-field assignment (§2.6
+item 5); and the two accepted stored shapes — the `run` facet preserved
+for every reader, the closure facet only on boundary-published runs
+(§2.6 item 5).
 **Inherits:** `2026-08-03-tamper-evident-log-design.md` §6 as amended — the
 qualification reduction this slice implements at its full stated width: the
 matched / unresolvable / attempt-without-recorded-outcome precedence, the
@@ -65,9 +71,10 @@ source, no science imports, binding by content digest.
    boundary is in-memory end to end today, so both run entrypoints gain
    the destination binding, the append-before-any-member-act sequence,
    the port's non-fulfilling publication, the closure-to-stored encoder
-   — identity `run:<closure address>`, facet the address's own preimage
-   projection — and durable terminal publication with
-   boundary-constructed `fulfills`.
+   — identity `run:<closure address>`, the closure facet carrying the
+   address's preimage as v1-canonical text beside the preserved `run`
+   facet — and durable terminal publication with boundary-constructed
+   `fulfills`.
 2. **The captured-record evidence input** — the evaluator gains an explicit
    published-record surface, captured under the same hold that captures
    `disk`, because a registration exposes paths and opaque states only and
@@ -254,7 +261,9 @@ contract, for **both** run shapes:
    the projection is what makes the mapping injective. The qualification
    evidence — `shape`, the spec identity, `event_token` — is read from
    **within** the projection (the recipe's shape and spec, the
-   occurrence's token), never duplicated beside it, and `shape` is the
+   occurrence's token); the one reader-facing duplicate is the preserved
+   `run` facet's `spec` (item 5), checked for agreement on decode, and
+   `shape` is the
    existing closed vocabulary `("assessment", "dataset-production")`
    verbatim — no persistence-only synonym. Both run shapes' intents can
    share one token space, so a token match alone never qualifies: the
@@ -273,12 +282,46 @@ contract, for **both** run shapes:
      `RunClosure.address()` — never caller-selected, never a second
      digest; the record lands at the run kind's declared layout path for
      that id. Decode **verifies** the identity: the address is
-     recomputed from the captured facet, and a mismatch means the bytes
-     are not the named publication — the pointer's record cannot be
-     read, qualification `unresolvable`, §6's decayed-bytes rule;
-   - **facet**: exactly the projection the address hashes — the recipe
-     projection, the result's output pairs, the occurrence projection —
-     and nothing beside it;
+     recomputed from the captured closure facet, and a mismatch means
+     the bytes are not the named publication — the pointer's record
+     cannot be read, qualification `unresolvable`, §6's decayed-bytes
+     rule;
+   - **the bare-address/typed-ref bridge is explicit**: the bare closure
+     address and the corpus ref `run:<address>` are two spellings with
+     one injective bridge — prepend the kind, strip the kind — and each
+     field's spelling is assigned, not inferred. **Bare closure
+     identity**: `RunClosure.address()`, `Registration.pointer`,
+     `StampedBasis.run`. **Typed corpus references**: the stored record
+     id, an assessment facet's `run` field, the `PRODUCED_BY` relation
+     target, every relation endpoint. Stored assessments already
+     require `run` to be a resolvable corpus ref, and the published
+     record is what makes that ref resolve;
+   - **facet — two keys, two readers, both shapes accepted**: the
+     existing `run` facet is **preserved exactly as built**
+     (`{"spec": ...}` for an assessment run; a production run carries
+     no `spec`), so `run_spec()` and every current reader keep working
+     unchanged on old and new records alike. Beside it, a
+     boundary-published run carries the **closure facet**, a separate
+     key holding the projection as its **v1-canonical text** — one
+     string field. The canonical text is the type-preserving wire the
+     address already digests: `Decimal` keeps its mandatory fractional
+     part (`1` and `Decimal("1.0")` differ; `Decimal("0.5")` and
+     `"0.5"` differ), floats are refused at the boundary, and
+     `yaml.safe_dump` always represents a string — the projection's raw
+     typed values would raise `RepresenterError` on `Decimal` or be
+     lossily coerced. Decode parses the canonical text back to typed
+     values, re-encodes, and requires the re-encoding to equal the
+     embedded bytes; the address is the digest of exactly those bytes
+     under `science.run.v1`. Consistency across the two keys is
+     checked: an assessment-shaped closure's spec equals the `run`
+     facet's `spec`;
+   - **legacy records are the absent-closure-facet shape**: an existing
+     `stored.run_node` record has no closure facet — it stays readable
+     through the `run` facet, resolves as a reference target, undergoes
+     no address recomputation, and never qualifies. The tokenless-legacy
+     scoping below is this rule; the legacy arm constructs its record
+     with the **actual current `stored.run_node`**, not a new
+     projection with fields removed;
    - **relations, role-preserving**: each `RecipeInput` projects to the
      predicate its own `role` names — `observes` and `reads` for an
      assessment recipe, `transforms` and `reads` for a production
@@ -293,13 +336,14 @@ contract, for **both** run shapes:
    - **plan**: the encoder emits the stored document bytes and the
      `WritePlan` the port executes; no second write path.
 
-   **Tokenless stored runs remain readable and never qualify.** The
-   `event_token` requirement is scoped to boundary-published runs: a
-   stored run without a token decodes as what it is — a publication
-   that qualifies nothing — with no compatibility shim and no schema
-   rejection of existing records. "No qualification pair predates this
-   slice" scopes the *qualification* claim only; it was never a license
-   to break the reading of existing tokenless runs.
+   **Legacy stored runs remain readable and never qualify.** The
+   closure facet is scoped to boundary-published runs: a stored run
+   without one decodes as what it is — a readable publication and a
+   resolvable reference target that qualifies nothing — with no
+   compatibility shim and no schema rejection of existing records. "No
+   qualification pair predates this slice" scopes the *qualification*
+   claim only; it was never a license to break the reading of existing
+   records.
 
 The kill-between-append-and-start, cross-root-publication, and
 no-caller-supplied-`fulfills` arms all read this contract; they were
@@ -547,10 +591,19 @@ fresh:
   nothing, and `execute` keeps the executor's two-error contract — a
   malformed plan refuses as `PlanRefusedError` before any write, an
   execution failure surfaces as `ExecutionError`, neither a
-  fulfillment; the **tokenless-legacy arm**: a stored run without
-  `event_token` decodes, reads, and never qualifies — no schema
-  rejection; the kill-between-append-and-start, cross-root, and
-  pre-intent-refusal arms run against the durable boundary, per shape.
+  fulfillment; the **type-preserving wire arms**: a recipe parameter of
+  `Decimal("0.5")` round-trips distinctly from `"0.5"`, and `1`
+  distinctly from `Decimal("1.0")` — publish, capture, decode,
+  recompute — with the address agreeing in each case and the four never
+  colliding; the **reference-resolution arm**: an assessment referencing
+  the published run and a `StampedBasis.run` carrying its bare address
+  both resolve, through the stated bridge, to exactly the published
+  record; the **legacy arm**: a record built by the *actual current*
+  `stored.run_node` — not a stripped projection — reads through the
+  `run` facet, resolves as a reference target, and never qualifies, with
+  no schema rejection; the kill-between-append-and-start, cross-root,
+  and pre-intent-refusal arms run against the durable boundary, per
+  shape.
 - **capture classification (§3.1)** — a non-regular leaf (a fifo) at a
   record path is classified through the `O_PATH` descriptor and never
   opened readable: capture completes without blocking, the payload is
