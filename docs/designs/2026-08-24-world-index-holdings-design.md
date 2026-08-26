@@ -4,8 +4,9 @@
 **Status:** banked 2026-08-25 — implemented and discharged on
 `design/holdings`; conformance cut 10 results are at
 `../plans/2026-08-24-conformance-cut-10-results.md`, with execution rulings at
-`../plans/2026-08-24-holdings-ledger.md`. The branch is not merged. Promoted
-from `docs/superpowers/specs/` in the banking change. The conformance cut froze
+`../plans/2026-08-24-holdings-ledger.md`. Merged into local `main` with
+`--no-ff` as `35be6ff` on 2026-08-25; not pushed. Promoted from
+`docs/superpowers/specs/` in the banking change. The conformance cut froze
 before implementation. **The atoms design gate (§2) was approved 2026-08-24:**
 `docs/2026-08-24-holdings-read-and-evidence-commands-design.md` in the atoms
 repository, approved at atoms `558817b` against this spec's authority pin
@@ -19,7 +20,7 @@ row moved at banking. **Cut 10 froze 2026-08-24 at `2186a71`**
 (`2026-08-24-conformance-cut-10.md` — 3 full + 4 partial rows,
 20 selected + 11 labeled = 31 units; the second reader's five findings
 across two readings closed), before any Science implementation task, per §8
-step 3, and discharged 2026-08-25 on the unmerged implementation branch.
+step 3, discharged 2026-08-25, and merged as `35be6ff` the same day.
 **Inherits:** `2026-08-10-verified-holdings-record-design.md` whole — the
 banked authority this slice implements; its §2 (the canonical facet and the
 store-identity/lifecycle contract), §3 (the two act shapes, the dereference

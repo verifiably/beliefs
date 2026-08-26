@@ -222,8 +222,8 @@ implementation**: a guarantee row awaiting code is work, not a question.
   2026-08-24 and discharged verified store-side holdings on 2026-08-25 — the
   governed observation kind, intent-bearing acts, mechanical coverage,
   fixture-bound reduction and receipt, and dataset admission adapter — with
-  20 selected + 11 labeled declarations. Its `design/holdings` branch is not
-  merged.
+  20 selected + 11 labeled declarations. Its `--no-ff` merge landed on local
+  `main` as `35be6ff` on 2026-08-25 and has not been pushed.
   What the tamper-log group still owes is named
   and owned: general intent qualification with G4, the preimage-backed
   classification of a removed verification, and event-level cross-chain order.

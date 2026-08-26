@@ -168,9 +168,10 @@ store-refusal label. [Cut 10](../designs/2026-08-24-conformance-cut-10.md)
 discharged verified store-side holdings on 2026-08-25: the governed
 observation kind, intent-bearing acts, mechanical coverage, fixture-bound
 reduction and receipt, and the dataset admission adapter
-([results](../plans/2026-08-24-conformance-cut-10-results.md)). Its branch is
-not merged. The complete normative contract cut and the second governed
-stored kind remain open. The log slice still owes general intent qualification
+([results](../plans/2026-08-24-conformance-cut-10-results.md)); its `--no-ff`
+merge landed on local `main` as `35be6ff` on 2026-08-25 and has not been
+pushed. The complete normative contract cut and the second governed stored
+kind remain open. The log slice still owes general intent qualification
 with G4, the preimage-backed classification, and event-level cross-chain order;
 the holdings-shaped L7 arms and L10's two holdings-read arms closed with cut 10.
 Consult the ledger for the current state rather than carrying these sentences

@@ -153,15 +153,16 @@ store-refusal label succeeded rather than re-run. See the
 `7a9fec8`), adding cut 9's freeze commit to the inherited reachability
 constraint.
 
-**Conformance cut 10** froze 2026-08-24 and was discharged 2026-08-25 on
-the unmerged `design/holdings` branch. World-index slice 5 implements verified
+**Conformance cut 10** froze 2026-08-24 and was discharged 2026-08-25.
+World-index slice 5 implements verified
 store-side holdings: the governed `holdings-observation` record, intent-bearing
 read/write/delete/move acts, mechanical coverage capture, the fixture-bound
 active-set reduction and receipt, and the dataset admission adapter — **20
 selected + 11 labeled = 31 declarations** across **3 rows in full and 4 in
 part**. See the
 [results](docs/plans/2026-08-24-conformance-cut-10-results.md). The `--no-ff`
-merge remains the human partner's act.
+merge landed on local `main` as `35be6ff` on 2026-08-25; it has not been
+pushed.
 
 ```
 python/     the implementation (substrate §11 puts the composition root here)

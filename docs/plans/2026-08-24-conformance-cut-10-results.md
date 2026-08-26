@@ -18,6 +18,12 @@ pushed by this discharge.** The `--no-ff` merge is the human partner's act and
 must preserve the inherited reachability constraints (`4a7dc19`, `c8c0b12`,
 `117f37e`, `0977bde`) plus cut 10's freeze pin `2186a71`.
 
+**Integration correction, 2026-08-25.** The human-partner merge subsequently
+landed on local `main` as `35be6ff` with `--no-ff`, preserving every named
+reachability constraint. The merge has not been pushed. The paragraph above
+records the discharge-time state; it is no longer the current integration
+state.
+
 ## 1. Accounting, independently re-derived
 
 Recounted from the frozen cut's §3 selected bullets, not copied from §4:
@@ -366,7 +372,8 @@ honest observations, or resistance to out-of-band raw writers.
 
 1. The implementation spec promoted to
    `docs/designs/2026-08-24-world-index-holdings-design.md` and now records the
-   discharge, results, execution ledger, atoms prerequisite, and unmerged state.
+   discharge, results, execution ledger, atoms prerequisite, and current local
+   integration state.
 2. Cut 10's status header alone records discharge and explains its frozen
    pre-banking spec citation; §1–§8 remain frozen.
 3. Adoption-ledger row 4 closes the holdings prerequisite at pushed atoms
@@ -375,7 +382,7 @@ honest observations, or resistance to out-of-band raw writers.
 4. README gains the promoted spec and cut 10, the count becomes thirty-six,
    and the date range ends 2026-08-24. The corpus spelling table gains only 35
    and 36.
-5. The live guide records cut 10's discharge and unmerged state, points
+5. The live guide records cut 10's discharge and local merge state, points
    derived heldness at the executable design, and removes the two cut-9
    holdings-read units and row-4 coordinator seam from its open remainder.
    Frozen cut and prior-results records are untouched.

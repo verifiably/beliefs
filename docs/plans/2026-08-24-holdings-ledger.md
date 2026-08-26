@@ -424,6 +424,14 @@ Rulings are written at task boundaries, never rewritten after the fact.
     5 names only general intent qualification with G4, event-level L8, and the
     L13 preimage resolver.
 
+55. **R55 — the human-partner merge landed locally.** The reviewed banking
+    head `5262c39` merged into `main` with `--no-ff` as `35be6ff` on
+    2026-08-25. The merge preserves `4a7dc19`, `c8c0b12`, `117f37e`,
+    `0977bde`, and cut 10's `2186a71` freeze pin as ancestors. Post-merge
+    portable verification reported `2513 passed`. The local branch and
+    worktree were removed after their ignored SDD records were preserved;
+    the merge has not been pushed.
+
 ## Heads
 
 | Task | Science head |
@@ -439,4 +447,4 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 8 | e1b0ce3 |
 | 9 | 22461e9 |
 | 10 | 04748e7 |
-| 11 | banking commit (this change) |
+| 11 | 5262c39 |

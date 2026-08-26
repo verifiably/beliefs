@@ -160,8 +160,10 @@ commands, `restore_root`, the fork acts, and genesis-bound store subjects —
 discharged 2026-08-23 and merged into `main` on 2026-08-24; cut 10 adds the
 **verified store-side holdings slice** — the governed observation kind, the
 intent-bearing acts, mechanical coverage, active-set reduction and receipt,
-and dataset admission adapter — discharged 2026-08-25 on the unmerged
-`design/holdings` branch ([results](../plans/2026-08-24-conformance-cut-10-results.md)).
+and dataset admission adapter — discharged 2026-08-25 on
+`design/holdings` and merged into local `main` with `--no-ff` as
+`35be6ff` the same day; not pushed
+([results](../plans/2026-08-24-conformance-cut-10-results.md)).
 Global resolution remains designed. The log slice still owes general intent
 qualification with G4, the preimage-backed classification of a removed
 verification, and event-level cross-chain order; its holdings-shaped
