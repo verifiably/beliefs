@@ -21,6 +21,13 @@ publication operation (§2.6 item 2a), the frozen `run-attempt` kind with
 the run-shape discriminator and its arm (§2.6 item 4, §3.2), the
 closure-to-stored encoder contract with tokenless-legacy scoping (§2.6
 item 5), and `O_PATH` classification before any readable open (§3.1).
+**Amended a fifth time 2026-08-26** (fifth review round): stored-run
+identity is the closure address and the facet is its preimage projection
+(§2.6 items 4–5), role-preserving relation projection with the production
+dataset edge (§2.6 item 5), the `SHAPES` vocabulary reused verbatim
+(§2.2, §2.6), the corrected leaf-symlink classification path (§3.1, §6),
+and the executor's two-error contract preserved on `execute` (§2.6
+item 2a).
 **Inherits:** `2026-08-03-tamper-evident-log-design.md` §6 as amended — the
 qualification reduction this slice implements at its full stated width: the
 matched / unresolvable / attempt-without-recorded-outcome precedence, the
@@ -57,9 +64,10 @@ source, no science imports, binding by content digest.
    With it, **the run boundary's persistence contract (§2.6)**: the
    boundary is in-memory end to end today, so both run entrypoints gain
    the destination binding, the append-before-any-member-act sequence,
-   the port's non-fulfilling publication, the closure-to-stored encoder,
-   and durable terminal publication with boundary-constructed `fulfills`
-   under the run facet's `shape` and `event_token`.
+   the port's non-fulfilling publication, the closure-to-stored encoder
+   — identity `run:<closure address>`, facet the address's own preimage
+   projection — and durable terminal publication with
+   boundary-constructed `fulfills`.
 2. **The captured-record evidence input** — the evaluator gains an explicit
    published-record surface, captured under the same hold that captures
    `disk`, because a registration exposes paths and opaque states only and
@@ -145,8 +153,9 @@ construction. Each shape contributes two pure functions:
   a cut-11 arm:
   - **assessment-run**: a `run` publication of shape `assessment` under
     the intent's `spec_identity` carrying the intent's `event_token` — a
-    run under another spec, another token, a run of shape `production`
-    (§2.6 item 4's discriminator), or a publication creating no run each
+    run under another spec, another token, a run of shape
+    `dataset-production` (§2.6 item 4's discriminator), or a publication
+    creating no run each
     fails qualification — or an act-report of kind `run-attempt` carrying
     the intent's `event_token`, for a post-intent attempt that minted no
     run. A pre-intent refusal publishes an *unfulfilling* report and
@@ -157,9 +166,9 @@ construction. Each shape contributes two pure functions:
     publication for a non-run operation, or a registration publishing no
     terminal record each fails qualification; for the production-run
     operation — wire kind `run-attempt`, the correspondence §2.6 item 2
-    records — the minted `run` of shape `production` carrying the token
-    or, when none is minted, that act-report; an assessment-shaped run
-    never qualifies it.
+    records — the minted `run` of shape `dataset-production` carrying
+    the token or, when none is minted, that act-report; an
+    assessment-shaped run never qualifies it.
   - **holdings**: a holdings observation for the intent's canonical
     location carrying the intent's `event_token` — a wrong-location
     observation, a wrong token, or a publication creating no observation
@@ -225,40 +234,62 @@ contract, for **both** run shapes:
    report item 3 requires cannot be spelled through it. The port gains
    `execute(plan)` — a publication fulfilling nothing — implemented on
    the existing executor path, which already accepts `fulfills=None`,
-   under exactly `execute_fulfilling`'s failure translation. A failed
-   unfulfilling publication surfaces as the boundary's `ExecutionError`,
-   never silently, and never converts into a fulfillment of anything.
+   preserving the executor's **two-error contract as built**: a
+   malformed plan refuses as `PlanRefusedError` before any write — the
+   lexical validation the executor already runs — and a failure
+   executing an encoder-validated plan surfaces as `ExecutionError`.
+   Neither is silent, and neither converts into a fulfillment of
+   anything.
 3. **A pre-intent refusal publishes an unfulfilling report** through
    `execute` and fulfills nothing; a crash before the publication leaves
    no trace — the frozen negative, now constructible.
-4. **The durable run publication carries its qualification evidence,
-   including its shape**: the facet carries `event_token` — the
-   attribution precedent the holdings-observation and retraction facets
-   already set — **and the exact discriminator
-   `shape: "assessment" | "production"`**, because both run shapes'
-   intents can share one token space and a token match alone would let
-   an assessment-shaped run qualify a production intent. The
-   assessment-run predicate reads `shape = "assessment"` plus the
-   intent's `spec_identity` plus its token; the operation predicate's
-   minted-run alternative reads `shape = "production"` plus its token;
-   a shape mismatch fails qualification (reason class `wrong-shape`,
-   joining §3.3's reason list). The act-report codec already serializes
-   its full record — kind and token included — and is unchanged.
+4. **The durable run publication is the closure itself, and its identity
+   is the closure's address.** `RunClosure.address()` digests the
+   complete `{recipe, result, occurrence}` projection under
+   `science.run.v1`, the boundary's `Registration.pointer` already *is*
+   that address, and assessments and production lineage
+   (`StampedBasis.run`) already reference it — so the stored record must
+   answer to it, not to a second identity. A facet hashing only a
+   summary would let two different closures collide under one stored id;
+   the projection is what makes the mapping injective. The qualification
+   evidence — `shape`, the spec identity, `event_token` — is read from
+   **within** the projection (the recipe's shape and spec, the
+   occurrence's token), never duplicated beside it, and `shape` is the
+   existing closed vocabulary `("assessment", "dataset-production")`
+   verbatim — no persistence-only synonym. Both run shapes' intents can
+   share one token space, so a token match alone never qualifies: the
+   assessment-run predicate reads shape `assessment` plus the intent's
+   `spec_identity` plus its token; the operation predicate's minted-run
+   alternative reads shape `dataset-production` plus its token; a shape
+   mismatch fails qualification (reason class `wrong-shape`, §3.3's
+   list). The act-report codec already serializes its full record —
+   kind and token included — and is unchanged.
 5. **The closure-to-stored encoder is this slice's contract, not an
    incidental**: nothing in the tree bridges a minted `RunClosure` to a
    stored publication, and the one stored constructor takes
    caller-selected slug, title, spec, and relations. The boundary's
    encoder is fixed as:
-   - **identity**: the slug is digest-derived over the facet under the
-     run kind's governed domain — the retraction constructor's
-     precedent — never caller-selected at this boundary; the record
-     lands at the run kind's declared layout path for that id;
-   - **facet**: `shape`, `event_token`, and — exactly when the shape is
-     `assessment` — `spec`, the frozen spec identity; a production
-     facet carries no `spec` at all rather than an empty one;
-   - **relations**: projected from the closure — input addresses to
-     `reads`, declared outputs to `produces` — with the exact
-     projection pinned by the round-trip arm, not by prose;
+   - **identity**: the record id is `run:<address>` where the address is
+     `RunClosure.address()` — never caller-selected, never a second
+     digest; the record lands at the run kind's declared layout path for
+     that id. Decode **verifies** the identity: the address is
+     recomputed from the captured facet, and a mismatch means the bytes
+     are not the named publication — the pointer's record cannot be
+     read, qualification `unresolvable`, §6's decayed-bytes rule;
+   - **facet**: exactly the projection the address hashes — the recipe
+     projection, the result's output pairs, the occurrence projection —
+     and nothing beside it;
+   - **relations, role-preserving**: each `RecipeInput` projects to the
+     predicate its own `role` names — `observes` and `reads` for an
+     assessment recipe, `transforms` and `reads` for a production
+     recipe, the two closed role vocabularies as built — targeting that
+     input's dataset; collapsing every input to `reads` would destroy
+     `observes` eligibility and `transforms` lineage. An assessment run
+     emits no `produces`; a `dataset-production` run emits **exactly
+     one** `produces` edge, to the dataset address `mint_dataset`
+     derives from the result manifest's resource declarations — the
+     declared outputs themselves are logical-name/digest pairs, not
+     dataset references, and never become edges;
    - **plan**: the encoder emits the stored document bytes and the
      `WritePlan` the port executes; no second write path.
 
@@ -303,12 +334,18 @@ published, so `evaluate_log` gains one explicit input:
   descriptor** (the descriptor's own re-open route, no path
   re-traversal), so a fifo, device, or other non-regular leaf is never
   opened for reading at all. The certified tuple is Linux; the
-  descriptor re-open route is available there. A symlink anywhere in
-  the descent (into the root or out of it) fails with `ELOOP` and
-  contributes no byte payload, so no bytes from outside the root ever
-  enter the report; a failed open, classification, or read (permission,
-  disappearance) likewise withholds the payload. None of these raises
-  out of capture, and none is a chain verdict.
+  descriptor re-open route is available there. The two symlink
+  positions classify differently and both withhold: a symlink at an
+  **intermediate component** fails the `O_DIRECTORY | O_NOFOLLOW` step
+  (`ELOOP`, or `ENOTDIR` for a non-directory), while a symlink **at the
+  leaf** is opened *as itself* by `O_PATH | O_NOFOLLOW` — that flag
+  pair opens the link, it does not error — and is rejected by the
+  `fstat` classification showing a symlink, never followed and never
+  reopened readable. Either way the payload is withheld and no bytes
+  from outside the root ever enter the report; a failed open,
+  classification, or read (permission, disappearance) likewise
+  withholds the payload. None of these raises out of capture, and none
+  is a chain verdict.
 - A path a fulfilling registration's final surface names that is **absent
   from `records` — including absent because the no-follow rule withheld
   it — or present and undecodable** → that pointer is a pointer whose
@@ -489,18 +526,27 @@ fresh:
   outside the root anywhere in the report — and the arm runs the **swap
   race**, not only the static link: the leaf becomes a symlink between
   enumeration and read (constructed deterministically at the capture
-  seam), and the fd-anchored open refuses it — `ELOOP`, payload
-  withheld, never outside bytes; `history` remains L13's and is
-  untouched by any of these.
+  seam), and the fd-anchored capture classifies the opened `O_PATH`
+  descriptor as a symlink and withholds the payload — never followed,
+  never outside bytes; `history` remains L13's and is untouched by any
+  of these.
 - **the run boundary's persistence (§2.6)** — the published run's
   captured bytes round-trip: append, execute, publish, capture, decode,
-  match — the facet's `shape`, `event_token`, and `spec` establish the
-  qualifying pair, and the relation projection is pinned by the same
-  round-trip; the **wrong-run-shape arm**: an assessment-shaped run
+  match — the projection's shape, token, and spec establish the
+  qualifying pair, the recomputed address agrees with the record id,
+  and the role-preserving relations and the production `produces` edge
+  are read back exactly; the **closure-member mutation arm**: mutate
+  any single member of the captured projection — a recipe field, a
+  result pair, an occurrence field — and the recomputed address
+  diverges from the id, the bytes are not the named publication, and
+  qualification reads `unresolvable`, never a silent match; the
+  **wrong-run-shape arm**: an assessment-shaped run
   carrying a production intent's token fails qualification with reason
   `wrong-shape`, and conversely; the **unfulfilling-publication arm**:
   a pre-intent refusal's report lands through `execute`, fulfills
-  nothing, and a failed `execute` surfaces as `ExecutionError`, never a
+  nothing, and `execute` keeps the executor's two-error contract — a
+  malformed plan refuses as `PlanRefusedError` before any write, an
+  execution failure surfaces as `ExecutionError`, neither a
   fulfillment; the **tokenless-legacy arm**: a stored run without
   `event_token` decodes, reads, and never qualifies — no schema
   rejection; the kill-between-append-and-start, cross-root, and
