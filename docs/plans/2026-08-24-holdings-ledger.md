@@ -273,6 +273,12 @@ Rulings are written at task boundaries, never rewritten after the fact.
     blocked-join, and empty-blocked-head assertions were added as pins of the
     same already-green join function and required no production change.
 
+34. **R34 — Task 8 review pins both result seals.** The first implementation
+    directly exercised `DatasetAnswer`'s runtime seal but only inspected
+    `DatasetBlocked`'s final marker. The review amendment parametrizes the
+    `SubclassRefused` construction over both types. It passed first against the
+    existing decorators and required no production change.
+
 ## Heads
 
 | Task | Science head |

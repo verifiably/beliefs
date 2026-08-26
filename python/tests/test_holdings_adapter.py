@@ -189,9 +189,13 @@ def test_the_adapter_reads_only_its_inputs():
     )
 
 
-def test_the_result_types_are_closed_and_exact():
+def test_the_result_types_have_exact_fields_and_are_final():
     assert [field.name for field in dataclasses.fields(DatasetAnswer)] == ["observations"]
     assert [field.name for field in dataclasses.fields(DatasetBlocked)] == ["locations", "reasons"]
     assert getattr(DatasetAnswer, "__final__", False) and getattr(DatasetBlocked, "__final__", False)
+
+
+@pytest.mark.parametrize("result_type", [DatasetAnswer, DatasetBlocked])
+def test_the_result_types_are_sealed_at_runtime(result_type: type[object]):
     with pytest.raises(SubclassRefused):
-        type("InvalidAnswer", (DatasetAnswer,), {})
+        type("InvalidResult", (result_type,), {})
