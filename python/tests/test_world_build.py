@@ -390,6 +390,26 @@ def test_build_refuses_duplicate_carrier_coverage(tmp_path):
 
 
 class TestPreflightOrder:
+    def test_preflight_uses_the_lock_held_coverage_core_inside_its_outer_hold(
+        self, monkeypatch, tmp_path
+    ):
+        world, bindings, _roots = admitted_world(tmp_path)
+        original = epoch._locked_resolve_coverage
+        calls = 0
+
+        def watched(held_world, coverage):
+            nonlocal calls
+            calls += 1
+            assert held_world is world
+            assert world._state.lock.locked()
+            return original(held_world, coverage)
+
+        monkeypatch.setattr(epoch, "_locked_resolve_coverage", watched)
+
+        build(world, (ALPHA,), bindings)
+
+        assert calls == 1
+
     def test_the_chain_head_is_read_under_the_world_lock_before_any_world_file(self, monkeypatch, tmp_path):
         order: list[str] = []
         heads = ChainHeads()

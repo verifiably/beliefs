@@ -7,6 +7,7 @@ checkout, and a contract loader that guessed its own path would have the same
 defect one layer down.
 """
 
+import os
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -17,19 +18,20 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 @pytest.fixture()
 def certified_work() -> "Iterator[Path]":
-    """A fresh directory on the repository's own volume, removed afterwards.
+    """A fresh directory on the selected certified volume, removed afterwards.
 
     The lifecycle-wrapper tests run the real engine, whose durability
-    allowlist certifies the repo volume's exact configuration tuple — the
-    platform temporary directory's feature masks differ, so `tmp_path`
-    cannot host a registered root. Every root a test creates lives inside
-    this directory, which keeps the derived metadata siblings inside it too.
+    allowlist requires an exact configuration tuple. Cut 10 supplies its run
+    root; ordinary tests use the repository-relative fallback. Every root a
+    test creates lives inside this directory, which keeps the derived metadata
+    siblings inside it too.
     """
     import shutil
     import tempfile
 
-    base = REPO_ROOT / ".lifecycle-wrappers-test"
-    base.mkdir(exist_ok=True)
+    configured = os.environ.get("SCIENCE_CUT10_ROOT")
+    base = Path(configured) if configured else REPO_ROOT / ".lifecycle-wrappers-test"
+    base.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="t-", dir=base))
     yield work
     shutil.rmtree(work, ignore_errors=True)

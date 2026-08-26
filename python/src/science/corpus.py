@@ -1508,6 +1508,8 @@ class CorpusWriter:
 
     @staticmethod
     def _refuse_family_kinds(node: Node) -> None:
+        if node.kind == "holdings-observation":
+            raise WriteRefused("a holdings observation is minted only by the acts boundary")
         if node.kind == "retraction":
             raise WriteRefused("a retraction enters through retract")
         if node.kind == "act-report":

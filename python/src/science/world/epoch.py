@@ -151,6 +151,7 @@ __all__ = [
     "delete_epoch",
     "packaging_identity_of",
     "receipt_identity",
+    "resolve_coverage",
 ]
 
 EPOCH_MEMBERS: tuple[str, ...] = (
@@ -1048,6 +1049,49 @@ def _declared_bindings(bindings: Mapping[str, rules.RuleBinding]) -> Mapping[str
     return MappingProxyType(dict(bindings))
 
 
+def _locked_resolve_coverage(
+    world: registry.World,
+    coverage: frozenset[str],
+) -> Mapping[str, Path]:
+    """Resolve already-validated corpus ids while the caller holds the world barrier."""
+    covered = tuple(sorted(coverage))
+    config = world.config
+    world._state.registry = registry._scan_registry(config.world_root)
+    view = world._state.registry
+
+    def resolve() -> dict[str, Path]:
+        carriers: dict[str, Path] = {}
+        for corpus_id in covered:
+            if not any(record.corpus_id == corpus_id for record in view.admissions):
+                raise CoverageUnknown(
+                    f"{corpus_id}: declared coverage names a corpus this world has not admitted"
+                )
+            if any(record.corpus_id == corpus_id for record in view.statuses):
+                raise CoverageNotLive(
+                    f"{corpus_id}: declared coverage names a corpus with terminal status"
+                )
+            roots = registry._carrier_roots(config, corpus_id)
+            if len(roots) != 1:
+                detail = ",".join(sorted(str(root) for root in roots)) or "none"
+                raise CoverageUnresolvable(
+                    f"{corpus_id}: exactly one configured carrier root is required; carriers={detail}"
+                )
+            carriers[corpus_id] = roots[0]
+        return carriers
+
+    return MappingProxyType(resolve())
+
+
+def resolve_coverage(
+    world: registry.World,
+    coverage: frozenset[str],
+) -> Mapping[str, Path]:
+    """Resolve coverage under the world barrier, releasing it before return."""
+    _declared_coverage(coverage)
+    with registry._locked_barrier(world):
+        return _locked_resolve_coverage(world, coverage)
+
+
 def _preflight(
     world: registry.World,
     *,
@@ -1075,23 +1119,7 @@ def _preflight(
     config = world.config
     with world._state.lock:
         genesis_digest, head_digest = world._chain_head(config.world_root)
-        world._state.registry = registry._scan_registry(config.world_root)
-        view = world._state.registry
-        carriers: dict[str, Path] = {}
-        for corpus_id in covered:
-            if not any(record.corpus_id == corpus_id for record in view.admissions):
-                raise CoverageUnknown(
-                    f"{corpus_id}: declared coverage names a corpus this world has not admitted"
-                )
-            if any(record.corpus_id == corpus_id for record in view.statuses):
-                raise CoverageNotLive(f"{corpus_id}: declared coverage names a corpus with terminal status")
-            roots = registry._carrier_roots(config, corpus_id)
-            if len(roots) != 1:
-                detail = ",".join(sorted(str(root) for root in roots)) or "none"
-                raise CoverageUnresolvable(
-                    f"{corpus_id}: exactly one configured carrier root is required; carriers={detail}"
-                )
-            carriers[corpus_id] = roots[0]
+        carriers = _locked_resolve_coverage(world, coverage)
         held = rules._locked_resolve_rule_bindings(config.world_root, declared)
     return _Preflight(covered, carriers, _Anchor(config.world_id, genesis_digest, head_digest), held)
 

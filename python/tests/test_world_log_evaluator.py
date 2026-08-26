@@ -143,6 +143,8 @@ def registration(digest: str, txid: str) -> RegisteredEntryView:
     return RegisteredEntryView(
         digest=digest,
         txid=txid,
+        intent_digest="sha256:" + "0" * 64,
+        consumer_tag="science-corpus-write-v1",
         initial=(("corpus.yaml", ABSENT),),
         final=(("corpus.yaml", MANIFEST),),
         fulfills=None,
@@ -678,6 +680,8 @@ class TestReplay:
         removal = RegisteredEntryView(
             digest=E3,
             txid="tx-2",
+            intent_digest="sha256:" + "0" * 64,
+            consumer_tag="science-corpus-write-v1",
             initial=(("corpus.yaml", MANIFEST),),
             final=(("corpus.yaml", ABSENT),),
             fulfills=None,

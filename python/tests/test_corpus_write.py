@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 import threading
 import time
-from typing import ClassVar
+from typing import Any, ClassVar, cast
 
 import pytest
 from fixtures_cut6 import PINS
@@ -104,7 +104,7 @@ class TestTheAddPathIsAddOnly:
     def test_adopt_manifest_refuses_malformed_profile_before_execution(self, writer):
         malformed = type(PINS)(
             science_contract=PINS.science_contract,
-            domains={**PINS.domains, 1: "biology:" + "b" * 64},
+            domains=cast(Any, {**PINS.domains, 1: "biology:" + "b" * 64}),
         )
 
         with pytest.raises(ManifestMalformed):

@@ -96,7 +96,15 @@ def registration(
     initial: tuple[tuple[str, object], ...],
     final: tuple[tuple[str, object], ...],
 ) -> RegisteredEntryView:
-    return RegisteredEntryView(digest=digest, txid=txid, initial=initial, final=final, fulfills=None)
+    return RegisteredEntryView(
+        digest=digest,
+        txid=txid,
+        intent_digest="sha256:" + "0" * 64,
+        consumer_tag="science-corpus-write-v1",
+        initial=initial,
+        final=final,
+        fulfills=None,
+    )
 
 
 def settlement(registration_digest: str, txid: str, *, committed: bool) -> SettledEntryView:

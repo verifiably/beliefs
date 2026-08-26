@@ -55,6 +55,14 @@ from nodes.core.relations import Relation
 from science import report as report_values
 from science.dataset import DatasetDeclaration, ResourceDeclaration
 from science.errors import LoneSurrogate, MalformedRecord
+from science.holdings.records import (
+    HOLDINGS_OBSERVATION_DOMAIN,
+    HOLDINGS_OBSERVATION_KIND,
+    Absent,
+    Found,
+    HoldingsObservation,
+    StoreLocator,
+)
 from science.identity import v1
 from science.record import AssessmentValue
 from science.verification import Verification
@@ -67,6 +75,7 @@ __all__ = [
     "DISPLAY_FACET",
     "EMPIRICAL_OBSERVATION_FACET",
     "GROUNDED_IN",
+    "HOLDINGS_OBSERVATION_FACET",
     "LINEAGE_BASIS_FACET",
     "PROPOSITION_FACET",
     "RETRACTION_FACET",
@@ -87,6 +96,8 @@ __all__ = [
     "display_facet_malformed",
     "display_statement",
     "external_identifiers",
+    "holdings_observation_node",
+    "holdings_observation_value",
     "is_empirical_observation",
     "lineage_basis",
     "recompute_semantic_hash",
@@ -113,6 +124,7 @@ LINEAGE_BASIS_FACET = "lineage-basis"
 SOURCE_FACET = "source"
 VERIFICATION_FACET = "verification"
 RETRACTION_FACET = "retraction"
+HOLDINGS_OBSERVATION_FACET = "holdings-observation"
 
 # --- kernel §4.1's closed relation signatures --------------------------------
 
@@ -155,6 +167,7 @@ SEMANTIC_DOMAINS: Mapping[str, str] = {
     "analysis-spec": "science.analysis-spec.v1",
     "assessment": "science.assessment.v1",
     "dataset": "science.dataset.v1",
+    HOLDINGS_OBSERVATION_KIND: HOLDINGS_OBSERVATION_DOMAIN,
     "proposition": "science.proposition.v1",
     "retraction": "science.retraction.v1",
     "run": "science.run.v1",
@@ -168,6 +181,7 @@ COVERED_FACETS: Mapping[str, tuple[str, ...]] = {
     "analysis-spec": ("analysis-spec",),
     "assessment": (ASSESSMENT_FACET,),
     "dataset": (DATASET_FACET, EMPIRICAL_OBSERVATION_FACET, LINEAGE_BASIS_FACET),
+    HOLDINGS_OBSERVATION_KIND: (HOLDINGS_OBSERVATION_FACET,),
     "proposition": (PROPOSITION_FACET,),
     "retraction": (RETRACTION_FACET,),
     "run": (RUN_FACET,),
@@ -371,6 +385,42 @@ def basis_routes(node: Node) -> tuple[Mapping[str, Any], ...]:
     if not isinstance(routes, list):
         return ()
     return tuple(route for route in routes if isinstance(route, dict))
+
+
+def holdings_observation_value(node: Node) -> HoldingsObservation:
+    facet = _facet(node, HOLDINGS_OBSERVATION_FACET)
+    if facet is None:
+        raise MalformedRecord(f"{node.id}: a holdings observation carries a {HOLDINGS_OBSERVATION_FACET!r} facet")
+    try:
+        location = facet["location"]
+        outcome = facet["outcome"]
+        if not isinstance(location, dict) or set(location) != {"type", "store_id", "relative_path"}:
+            raise MalformedRecord("a holdings observation location is a store locator")
+        if location["type"] != "store":
+            raise MalformedRecord("a holdings observation location is a store locator")
+        if not isinstance(outcome, dict):
+            raise MalformedRecord("a holdings observation outcome is a finding")
+        if outcome.get("finding") == "found" and set(outcome) == {"finding", "digest"}:
+            finding = Found(outcome["digest"])
+        elif outcome.get("finding") == "absent" and set(outcome) == {"finding"}:
+            finding = Absent()
+        else:
+            raise MalformedRecord("a holdings observation outcome is a finding")
+        value = HoldingsObservation(
+            location=StoreLocator(location["store_id"], location["relative_path"]),
+            outcome=finding,
+            expected=facet.get("expected"),
+            observer=facet["observer"],
+            instrument=facet["instrument"],
+            event_token=facet["event_token"],
+            observed_at=facet["observed_at"],
+            supersedes=tuple(facet["supersedes"]),
+        )
+    except (KeyError, TypeError) as exc:
+        raise MalformedRecord(f"{node.id}: a holdings observation facet is malformed") from exc
+    if value.facet() != facet:
+        raise MalformedRecord(f"{node.id}: a holdings observation facet is malformed")
+    return value
 
 
 # --- constructing stored documents -------------------------------------------
@@ -587,3 +637,16 @@ def retraction_node(
     if successor is not None:
         relations.append(Relation(source=node_id, predicate=SUCCEEDED_BY, target=successor))
     return _node("retraction", slug, title, {RETRACTION_FACET: facet}, relations)
+
+
+def holdings_observation_node(observation: HoldingsObservation) -> Node:
+    if type(observation) is not HoldingsObservation:
+        raise MalformedRecord("holdings_observation_node requires a HoldingsObservation")
+    slug = observation.identity()
+    return _node(
+        HOLDINGS_OBSERVATION_KIND,
+        slug,
+        f"Holdings observation {slug[:12]}",
+        {HOLDINGS_OBSERVATION_FACET: observation.facet()},
+        (),
+    )

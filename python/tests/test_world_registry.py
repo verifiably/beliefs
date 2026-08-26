@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 import yaml
@@ -119,8 +120,8 @@ def test_all_provenance_projections_are_exact():
         lambda: world_module.ForkOf("1" * 32, "x"),
         lambda: world_module.AdmissionRecord(world_module.CorpusManifest(2, "x", PINS), world_module.Fresh(), "alice"),
         lambda: world_module.StatusRecord("x", "retired", "alice"),
-        lambda: world_module.StatusRecord("1" * 32, "other", "alice"),
-        lambda: world_module.StatusRecord("1" * 32, "retired", True),
+        lambda: world_module.StatusRecord("1" * 32, cast(Any, "other"), "alice"),
+        lambda: world_module.StatusRecord("1" * 32, "retired", cast(Any, True)),
         lambda: world_module.StatusRecord("1" * 32, "retired", "\ud800"),
     ),
 )

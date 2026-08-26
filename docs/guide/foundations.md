@@ -14,7 +14,10 @@ sources:
   - ../designs/2026-08-11-act-report-design.md
   - ../designs/2026-08-20-world-registry-design.md
   - ../designs/2026-08-20-conformance-cut-6.md
+  - ../designs/2026-08-24-world-index-holdings-design.md
+  - ../designs/2026-08-24-conformance-cut-10.md
   - ../plans/2026-08-20-conformance-cut-6-results.md
+  - ../plans/2026-08-24-conformance-cut-10-results.md
 ---
 
 # Foundations
@@ -49,7 +52,8 @@ accession alone is not. Since 2026-08-10, heldness is derived: an artifact is
 held under a declared coverage when an active **holdings observation** — a
 world record minted by an act that dereferenced and hashed — matches its
 declared digest. The record is superseded, never expired; no age or clock
-participates in the derivation.
+participates in the derivation. The executable derivation and its receipt are
+specified by the [store-side holdings design](../designs/2026-08-24-world-index-holdings-design.md).
 
 A dataset that records **which bytes it is** without those bytes being in hand is
 **declared**: a real world entity, addressable and referenceable, and never
@@ -143,7 +147,7 @@ structural or integrity finding, but it mints nothing and performs no repair.
 
 ## Current state
 
-The adoption ledger records nine landed slices. Cut 6 implements the
+The adoption ledger records ten implemented slices. Cut 6 implements the
 authoritative world root, manifest, corpus-state identity, and append-only
 registry core; cut 7 adds epoch publication, the four derived maps and their
 receipts, bounded reads, whole-epoch GC, and anchor carriage, merged into
@@ -153,11 +157,15 @@ replica-arrival boundaries, and the genesis↔mirror agreement check — dischar
 2026-08-23 and merged into `main` the same day; cut 9 adds the **root
 lifecycle and store substrate** — the fail-closed writer state, the lifecycle
 commands, `restore_root`, the fork acts, and genesis-bound store subjects —
-discharged 2026-08-23 and merged into `main` on 2026-08-24. Global resolution
-remains designed, and so do the log slice's named deferrals: intent
-qualification, the preimage-backed classification of a removed verification,
-and event-level cross-chain order — the fork/replica/restore arms closed with
-cut 9, and the store's holdings reads are the next slice's.
+discharged 2026-08-23 and merged into `main` on 2026-08-24; cut 10 adds the
+**verified store-side holdings slice** — the governed observation kind, the
+intent-bearing acts, mechanical coverage, active-set reduction and receipt,
+and dataset admission adapter — discharged 2026-08-25 on the unmerged
+`design/holdings` branch ([results](../plans/2026-08-24-conformance-cut-10-results.md)).
+Global resolution remains designed. The log slice still owes general intent
+qualification with G4, the preimage-backed classification of a removed
+verification, and event-level cross-chain order; its holdings-shaped
+qualification and the two deferred L10 holdings-read arms closed with cut 10.
 
 ## Open edges
 
