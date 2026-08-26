@@ -349,6 +349,22 @@ Rulings are written at task boundaries, never rewritten after the fact.
     declarations and their audit. R41–R42 record the subsequent review
     amendment; this row makes no new production claim.
 
+44. **R44 — Task 9's reviewed head is recorded as bookkeeping only.** The
+    heads table advances Task 9 to `22461e9`, whose two review amendments make
+    G9 reach the admission gate and H4 u3 use the frozen mutate-first sabotage.
+    R41–R42 state those claims; this row adds none.
+
+45. **R45 — Task 10 discharged: the certified cut-10 acceptance runner.**
+    `python/tools/cut10_acceptance.py` mirrors cut 9's runner structurally:
+    the three-root certified-tuple probe first (world, corpus, and store —
+    erroring, never skipping), phase 1 = `tools/cut9_acceptance.py` unedited as
+    the sole prior-cut current-tree prefix, phase 2 =
+    `tests/acceptance/test_n2_cut10.py` with cut roots 4 through 10 sharing one
+    run root, and the closing line naming 31 = `len(CUT10_ARMS)`. The certified
+    run exited 0: the prefix reported 39, 23, 42, and 23 passed; phase 2
+    reported 35 passed; the closing line named 31. Ruff, Pyright, and
+    diff-check are clean.
+
 ## Heads
 
 | Task | Science head |
@@ -362,4 +378,4 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 6 | d6615ca |
 | 7 | d7a5852 |
 | 8 | e1b0ce3 |
-| 9 | 4eb7fd9 |
+| 9 | 22461e9 |
