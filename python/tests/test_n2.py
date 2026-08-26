@@ -343,6 +343,12 @@ def test_an_explicit_uncertified_cut10_root_reaches_holdings_engine_checks(monke
         shutil.rmtree(root, ignore_errors=True)
 
 
+def test_an_empty_cut10_root_uses_the_repository_relative_fallback(monkeypatch, request):
+    monkeypatch.setenv("SCIENCE_CUT10_ROOT", "")
+    work = request.getfixturevalue("certified_work")
+    assert work.parent.resolve() == (TESTS.parent.parent / ".lifecycle-wrappers-test").resolve()
+
+
 class TestTheHarnessCanSeeAVacuousArm:
     """N2's second clause, and the reason this file is not just a test runner.
 

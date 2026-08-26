@@ -382,6 +382,18 @@ Rulings are written at task boundaries, never rewritten after the fact.
     The heads table names `6a8055d`, which introduced the runner. R46 records
     its review amendment; this row makes no additional conformance claim.
 
+48. **R48 — an empty cut-10 root means the same fallback at both layers.**
+    The runner treats an empty `SCIENCE_CUT10_ROOT` as unset. The shared fixture
+    now uses the same truth-value selection, so an empty value chooses the
+    exact repository-relative `.lifecycle-wrappers-test` fallback rather than
+    Python's current directory. A dynamic fixture regression watched the old
+    selection place work directly under `python/` before pinning the fallback.
+
+49. **R49 — Task 10's reviewed head is recorded as bookkeeping only.** The
+    heads table advances Task 10 to `ef749bd`, the certified-root forwarding
+    amendment. R48 records the final empty-value correction; this row adds no
+    conformance claim.
+
 ## Heads
 
 | Task | Science head |
@@ -396,4 +408,4 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 7 | d7a5852 |
 | 8 | e1b0ce3 |
 | 9 | 22461e9 |
-| 10 | 6a8055d |
+| 10 | ef749bd |

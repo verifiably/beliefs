@@ -30,7 +30,7 @@ def certified_work() -> "Iterator[Path]":
     import tempfile
 
     configured = os.environ.get("SCIENCE_CUT10_ROOT")
-    base = Path(configured) if configured is not None else REPO_ROOT / ".lifecycle-wrappers-test"
+    base = Path(configured) if configured else REPO_ROOT / ".lifecycle-wrappers-test"
     base.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="t-", dir=base))
     yield work
