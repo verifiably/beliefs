@@ -37,7 +37,11 @@ for every reader, the closure facet only on boundary-published runs
 round): the closure facet joins semantic-hash coverage (§2.6 item 5),
 the production `run` facet frozen as exactly `{}` with both-ways decode
 agreement (§2.6 item 5), and the frozen facet key, inner field, and
-inverse parse rules (§2.6 item 5).
+inverse parse rules (§2.6 item 5). **Amended an eighth time 2026-08-26**
+(eighth review round): typed-closure reconstruction before any evidence
+read — canonical syntax is not schema validation (§2.6 item 5); the
+concrete `v1.decode` contract (§2.6 item 5); and the bounded record
+capture ceiling (§3.1).
 **Inherits:** `2026-08-03-tamper-evident-log-design.md` §6 as amended — the
 qualification reduction this slice implements at its full stated width: the
 matched / unresolvable / attempt-without-recorded-outcome precedence, the
@@ -324,17 +328,36 @@ contract, for **both** run shapes:
      `Decimal` or be lossily coerced. The **inverse codec is specified,
      not implied** — `v1` exports `encode` and `digest` only, and
      default JSON parsing would mint the floats the codec refuses — so
-     `science.identity.v1` gains the exported inverse with exactly
-     these rules: `json.loads` with `parse_int=int`,
-     `parse_float=Decimal`, and `parse_constant` refusing (`NaN`,
-     `Infinity`, `-Infinity` never parse); validity is **canonical
-     re-encoding equality** — `v1.encode` of the parsed value must
-     equal the embedded text byte-for-byte, which also refuses
-     non-canonical ordering and collapsed duplicate keys — and the
-     address is the digest of exactly those bytes under
-     `science.run.v1`. The encoder constructs the node through the
-     same construction-and-stamp path the stored constructors use;
-     `stored.run_node` itself is unchanged for its existing callers;
+     `science.identity.v1` gains the exported inverse with a concrete
+     contract: **`decode(data: bytes) -> object`**, joining `__all__`
+     beside `encode` and `digest`. Its parse rules: UTF-8 decode, then
+     `json.loads` with `parse_int=int`, `parse_float=Decimal`, and
+     `parse_constant` refusing (`NaN`, `Infinity`, `-Infinity` never
+     parse); validity is **canonical re-encoding equality** —
+     `v1.encode` of the parsed value must equal the input
+     byte-for-byte, which also refuses non-canonical ordering and
+     collapsed duplicate keys. Every failure — malformed UTF-8,
+     malformed JSON, a refused constant, re-encoding inequality —
+     raises one new named refusal, **`CanonicalTextRefused`**, joining
+     the existing `science.errors` refusal family, with the failure
+     class in its message; `decode` never returns a partial or coerced
+     value. The address is the digest of exactly the input bytes under
+     `science.run.v1`.
+
+     **Canonical syntax is not schema validation.** A canonical object
+     carrying only shape, spec, and token digests self-consistently
+     under `science.run.v1` without being a closure, so decode
+     **reconstructs the typed `RunClosure`** from the parsed value —
+     `Recipe`, `ResultManifest`, and `Occurrence` through their own
+     constructors, whose invariants (`MalformedClosure`) are the schema
+     — requires the reconstructed closure's `address()` to equal the
+     record id's address, and only then reads shape, spec, and token
+     **from the typed closure**, never from the raw parsed mapping. Any
+     reconstruction failure means the bytes are not the named
+     publication: qualification `unresolvable`. The encoder constructs
+     the node through the same construction-and-stamp path the stored
+     constructors use; `stored.run_node` itself is unchanged for its
+     existing callers;
    - **the closure facet enters semantic-hash coverage**:
      `COVERED_FACETS["run"]` gains `run-closure` beside the `run`
      facet — the dataset entry is the existing multi-facet precedent —
@@ -419,6 +442,15 @@ published, so `evaluate_log` gains one explicit input:
   classification, or read (permission, disappearance) likewise
   withholds the payload. None of these raises out of capture, and none
   is a chain verdict.
+- **Capture is bounded**: the FIFO and device protections do not bound
+  a regular file, and an unbounded read under the shared hold is a
+  memory-exhaustion and hold-duration lever. The ceiling is frozen at
+  **`RECORD_CAPTURE_CEILING = 8 MiB` (2^23 bytes)** — an order of
+  magnitude above any legitimate stored record — and the capture reads
+  **ceiling + 1** bytes from the descriptor: a read returning more than
+  the ceiling withholds the payload (the record is not captured
+  partially, and the reader is never handed a truncation that could
+  decode), landing in the absent-from-`records` rule below.
 - A path a fulfilling registration's final surface names that is **absent
   from `records` — including absent because the no-follow rule withheld
   it — or present and undecodable** → that pointer is a pointer whose
@@ -613,6 +645,14 @@ fresh:
   result pair, an occurrence field — and the recomputed address
   diverges from the id, the bytes are not the named publication, and
   qualification reads `unresolvable`, never a silent match; the
+  **incomplete-closure arm**: a canonical, self-addressed object
+  carrying only shape, spec, and token — a valid `science.run.v1`
+  digest preimage that is not a closure — fails typed reconstruction
+  and reads `unresolvable`, never a match on its matching fields; the
+  **capture-ceiling arm**: a regular file at a record path exceeding
+  `RECORD_CAPTURE_CEILING` is withheld by the bounded read —
+  qualification `unresolvable`, capture completes, and no
+  ceiling-plus-one buffer is ever handed to a decoder; the
   **wrong-run-shape arm**: an assessment-shaped run
   carrying a production intent's token fails qualification with reason
   `wrong-shape`, and conversely; the **unfulfilling-publication arm**:
