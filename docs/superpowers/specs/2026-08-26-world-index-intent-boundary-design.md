@@ -46,7 +46,13 @@ review round): the typed projection view replaces impossible closure
 reconstruction (§2.6 item 5); the ceiling becomes a shared
 writer/reader invariant with the encoder's refusal (§3.1, §2.6); and
 `CanonicalTextRefused` wraps every re-encoding `IdentityError` as an
-`IdentityError` subclass (§2.6 item 5).
+`IdentityError` subclass (§2.6 item 5). **Amended a tenth time
+2026-08-26** (tenth review round): canonical reprojection equality —
+the view enforces the projection's ordering rules, not only its field
+schema (§2.6 item 5); `RECORD_CEILING` moves to the shared executor
+plan validation covering every record kind (§3.1); and the oversize
+refusal is `PlanRefusedError`, pre-write, in the existing two-error
+contract (§3.1).
 **Inherits:** `2026-08-03-tamper-evident-log-design.md` §6 as amended — the
 qualification reduction this slice implements at its full stated width: the
 matched / unresolvable / attempt-without-recorded-outcome precedence, the
@@ -365,10 +371,21 @@ contract, for **both** run shapes:
      closed key set at every depth with nothing extra, `shape` in
      `SHAPES`, spec presence exactly per shape, input roles in the
      shape's closed role vocabulary, the result pairs' and occurrence
-     fields' forms — yielding a frozen view. The view is validated,
-     its recomputed address must equal the record id's, and shape,
-     spec, and token are read **from the validated view**, never from
-     the raw parsed mapping. A canonical object carrying only shape,
+     fields' forms — yielding a frozen view. **Field schema alone is
+     not enough**: the projection sorts its arrays — inputs, result
+     pairs, rule bindings, wildcards, rendered config, capabilities —
+     and canonical JSON preserves array order rather than sorting it,
+     so a self-addressed projection with reversed result pairs would
+     satisfy every field rule while being impossible for
+     `RunClosure.address()` to produce. The view therefore requires
+     **canonical reprojection equality**: it rebuilds the projection
+     mapping from its own validated fields under the projection's
+     ordering rules and requires the rebuild to equal the parsed
+     mapping — any ordering the projection sorts is thereby enforced,
+     current and future, without restating each rule. The view is
+     validated, its recomputed address must equal the record id's, and
+     shape, spec, and token are read **from the validated view**,
+     never from the raw parsed mapping. A canonical object carrying only shape,
      spec, and token digests self-consistently without being a
      projection; the view's schema rejects it. Any view failure means
      the bytes are not the named publication: qualification
@@ -468,12 +485,16 @@ published, so `evaluate_log` gains one explicit input:
   **ceiling + 1** bytes from the descriptor; a read returning more
   withholds the payload (no partial capture, no truncation ever handed
   to a decoder), landing in the absent-from-`records` rule below.
-  **Writer**: the §2.6 encoder refuses, **before any write**, a stored
-  document whose encoded bytes exceed the same constant — closure
-  members carry no size or cardinality ceiling of their own
-  (parameters, inputs, trace), so without this check the official
-  boundary could publish a record its own verifier automatically
-  withholds. The refusal is a named error on the publication path; no
+  **Writer**: enforcement lives at the **shared executor plan
+  validation** — the lexically decidable pre-write checks every
+  qualifying publication already passes — not per encoder: a run
+  encoder check alone would leave act-reports (`entries` is unbounded)
+  and holdings observations (`supersedes` is unbounded) free to
+  publish what capture withholds. Any planned postimage whose bytes
+  exceed `RECORD_CEILING` refuses as **`PlanRefusedError`**, the
+  existing malformed-plan class, **before any write** — squarely
+  inside the two-error contract item 2a preserves, covering every
+  record kind that flows through the port, current and future. No
   partial record lands, and the already-appended intent then reads
   attempt-without-recorded-outcome — the truthful state for an attempt
   whose terminal record could not be published.
@@ -680,10 +701,15 @@ fresh:
   tampered regular file at a record path exceeding `RECORD_CEILING` is
   withheld by the bounded read — qualification `unresolvable`, capture
   completes, and no ceiling-plus-one buffer is ever handed to a
-  decoder — while the boundary-side arm drives the encoder past the
-  same constant and asserts the pre-write refusal: the official
-  boundary **cannot** publish a record its verifier would withhold,
-  and the appended intent reads attempt-without-recorded-outcome; the
+  decoder — while the boundary-side arms drive an oversized **run**
+  and an oversized **act-report** (unbounded `entries`) into the plan
+  validation and assert the `PlanRefusedError` refusal before any
+  write: the official boundary **cannot** publish a record its
+  verifier would withhold, whatever the record kind, and the appended
+  intent reads attempt-without-recorded-outcome; the
+  **reversed-pairs arm**: a self-addressed projection with its result
+  pairs reversed satisfies every field rule, fails canonical
+  reprojection equality, and reads `unresolvable`, never a match; the
   **wrong-run-shape arm**: an assessment-shaped run
   carrying a production intent's token fails qualification with reason
   `wrong-shape`, and conversely; the **unfulfilling-publication arm**:
