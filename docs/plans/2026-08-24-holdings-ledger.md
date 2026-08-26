@@ -325,6 +325,30 @@ Rulings are written at task boundaries, never rewritten after the fact.
     H2/H3 batch 9/9 sound; the full audit then passed all 31 arms. No production
     module changed.
 
+41. **R41 — G9's G2b co-pass reaches the admission gate.** Review found that
+    the first same-installation node stopped after deriving
+    `admission_state`, so it did not establish the frozen claim that G2b
+    consumes that state. The replacement passes the adapter's active-absent
+    observations into `science.admission.admit` with a real observes input and
+    admitting verification, then asserts the gate's `input-not-held` refusal.
+    It passes under G9's sabotaged adapter alongside the distinct active-absent
+    R5 node and URL-refusal R10 node; G9's mismatch node alone fails.
+
+42. **R42 — H4 u3 uses the frozen mutate-first sabotage.** The first arm
+    reordered the mixed-store binding checks, which proved a useful boundary
+    property but not H4 u3's selected unit. The reviewed arm now skips both
+    move intent appends, performs the managed move, and reaches publication.
+    Its ordinary check injects an append failure and asserts the source and
+    destination remain unchanged; the sabotage bypasses that failure, mutates,
+    then reaches an injected publication failure, so the unchanged-path check
+    fails for the selected ordering rule. The mixed-store test remains in the
+    ordinary suite and is no longer claimed by H4 u3.
+
+43. **R43 — Task 9's first complete head is recorded as bookkeeping only.**
+    The heads table names `4eb7fd9`, the commit that introduced all 31
+    declarations and their audit. R41–R42 record the subsequent review
+    amendment; this row makes no new production claim.
+
 ## Heads
 
 | Task | Science head |
@@ -338,3 +362,4 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 6 | d6615ca |
 | 7 | d7a5852 |
 | 8 | e1b0ce3 |
+| 9 | 4eb7fd9 |

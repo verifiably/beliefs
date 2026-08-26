@@ -470,6 +470,35 @@ def test_a_move_killed_after_both_appends_before_the_mutation(certified_work):
     assert not (ctx.store_root / "destination.bin").exists()
 
 
+def test_a_move_never_mutates_when_its_intent_append_fails(certified_work):
+    ctx, store_id = context(certified_work)
+    ctx.seam.store_write(ctx.store_root, "source.bin", b"payload")
+
+    def append_fails(_root, _payload):
+        raise RuntimeError("append failed")
+
+    def publication_fails(_root, _plan, _fulfills):
+        raise RuntimeError("publication failed")
+
+    ctx = replace(
+        ctx,
+        seam=replace(
+            ctx.seam,
+            append_intent=append_fails,
+            publish_fulfilling=publication_fails,
+        ),
+    )
+    failure = None
+    try:
+        move(ctx, StoreLocator(store_id, "source.bin"), StoreLocator(store_id, "destination.bin"))
+    except RuntimeError as exc:
+        failure = exc
+
+    assert (ctx.store_root / "source.bin").read_bytes() == b"payload"
+    assert not (ctx.store_root / "destination.bin").exists()
+    assert str(failure) == "append failed"
+
+
 def test_a_move_killed_between_the_publications(certified_work):
     ctx, store_id = context(certified_work)
     ctx.seam.store_write(ctx.store_root, "source.bin", b"payload")

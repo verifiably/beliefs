@@ -9,7 +9,7 @@ Unit-to-check map:
 * H1u1/u2/u3: payload back-fill / detached capture / delete return
 * H2u1..u6: timestamp / disagreement / cycle / unresolved / coalescence / algorithms
 * H3u1/u2/u3: coverage / receipt reproduction / committed heads
-* H4u1/u2/u3: publish-or-fail / mint nothing / mutation ordering
+* H4u1/u2/u3: publish-or-fail / mint nothing / intent before mutation
 * G9u1: presence never promotes; L7u1/u2: qualification / append first
 * L10u1/u2: metadata-less / unserviceable dereference
 * J1..J11: the eleven labels in frozen §3.3 order
@@ -322,25 +322,29 @@ CUT10_ARMS: tuple[Arm, ...] = (
     ),
     Arm(
         row="H4u3",
-        asserts="a managed move validates both store bindings before mutation; failure cannot leave a silent mutation",
+        asserts="a managed move appends its intents before mutation; append failure leaves both paths unchanged",
         sabotage=Sabotage(
             module="holdings/boundary.py",
             before=(
+                "    source_token, source_intent = _append(ctx, source, \"move-source\")\n"
+                "    destination_token, destination_intent = _append(ctx, destination, \"move-destination\")\n"
                 "    _bind(ctx, source)\n"
                 "    _bind(ctx, destination)\n"
                 "    outcome = ctx.seam.store_move(ctx.store_root, source.relative_path, destination.relative_path)"
             ),
             after=(
-                "    outcome = ctx.seam.store_move(ctx.store_root, source.relative_path, destination.relative_path)\n"
+                "    source_token, source_intent = \"sabotaged-source\", \"0\" * 64\n"
+                "    destination_token, destination_intent = \"sabotaged-destination\", \"1\" * 64\n"
                 "    _bind(ctx, source)\n"
-                "    _bind(ctx, destination)"
+                "    _bind(ctx, destination)\n"
+                "    outcome = ctx.seam.store_move(ctx.store_root, source.relative_path, destination.relative_path)"
             ),
         ),
-        checks=("test_holdings_boundary.py::test_a_mixed_store_move_refuses_before_mutating",),
+        checks=("test_holdings_boundary.py::test_a_move_never_mutates_when_its_intent_append_fails",),
     ),
     Arm(
         row="G9u1",
-        asserts="presence never substitutes the declaration's digest; G2b, R5, and R10 co-pass against this same sabotage",
+        asserts="presence never substitutes the declaration's digest; the G2b admission gate, R5, and R10 co-pass against this same sabotage",
         sabotage=Sabotage(
             module="holdings/adapter.py",
             before=(

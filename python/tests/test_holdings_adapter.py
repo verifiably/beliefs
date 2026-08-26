@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from science.admission import AdmissionRefused, admit
 from science.dataset import (
     ByteObservation,
     DatasetDeclaration,
@@ -14,9 +15,12 @@ from science.dataset import (
     Held,
     ResourceDeclaration,
     admission_state,
+    dataset_address,
 )
 from science.errors import SubclassRefused
 from science.holdings.adapter import DatasetAnswer, DatasetBlocked, dataset_observations
+from science.record import AssessmentValue, RunInput, RunValue
+from science.verification import Verification
 
 D = "sha256:" + "1" * 64
 D2 = "sha256:" + "2" * 64
@@ -78,6 +82,21 @@ def test_an_active_absent_ends_promotion():
     assert answer == DatasetAnswer(())
     assert isinstance(answer, DatasetAnswer)
     assert isinstance(admission_state(declaration(), answer.observations), Declared)
+
+
+def test_adapter_absence_is_refused_by_the_g2b_admission_gate():
+    declared = declaration()
+    answer = dataset_observations(declared, [member(None)], [])
+    assessment = AssessmentValue("spec-1", "run-1", "prop-1", "supported", "rule-1")
+    run = RunValue("run-1", "spec-1", (RunInput("observes", declared),))
+    verification = Verification("v1", assessment.identity(), "clean-environment", "passed")
+    address = dataset_address(declared)
+    assert isinstance(answer, DatasetAnswer) and address is not None
+
+    result = admit(assessment, run, {address: answer.observations}, (verification,))
+
+    assert isinstance(result, AdmissionRefused)
+    assert result.reason.startswith("input-not-held")
 
 
 def test_expectation_join_surfaces_a_first_contact_mismatch():

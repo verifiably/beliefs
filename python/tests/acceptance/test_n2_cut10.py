@@ -201,7 +201,7 @@ class TestNoPriorCutDeclarationIsRehomedOrEdited:
 
 G9_CHECK = "test_holdings_adapter.py::test_a_different_digest_never_promotes_on_presence"
 G9_COPASSING = (
-    "test_holdings_adapter.py::test_outcome_join_promotes_a_matching_found",
+    "test_holdings_adapter.py::test_adapter_absence_is_refused_by_the_g2b_admission_gate",
     "test_holdings_adapter.py::test_an_active_absent_ends_promotion",
     "test_holdings_records.py::test_url_locator_refuses_with_the_named_deferral",
 )
@@ -235,6 +235,7 @@ _OBLIGATION_SOURCES: tuple[tuple[str, str, str], ...] = (
     ("§5.6 L10u1 lifecycle", "test_holdings_boundary.py", "read_lifecycle_state(cold) is LifecycleState.METADATA_LESS"),
     ("§5.6 L10u2 lifecycle", "test_holdings_boundary.py", "read_lifecycle_state(replica) is LifecycleState.READ_ONLY_UNSERVICEABLE"),
     ("§5.7 G9 same installation", "acceptance/test_n2_cut10.py", "co_passing == (PASSED, PASSED, PASSED)"),
+    ("§5.7 G9 G2b gate", "test_holdings_adapter.py", "result = admit(assessment, run, {address: answer.observations}, (verification,))"),
     ("§5.8 L7u2 boundary append", "test_holdings_boundary.py", "test_a_kill_between_intent_and_mutation_leaves_the_intent_unmatched"),
     ("§5.9 count claims", "acceptance/test_n2_cut10.py", "results record quote pytest's summary under pipefail"),
     ("§6 H1u2 undamaged", "test_holdings_boundary.py", "this construction keeps the store undamaged throughout"),
