@@ -8,7 +8,11 @@ to `docs/designs/` happens in the banking change, per the slice-5 precedent.
 cut draft: the captured-record evidence input (§3.1), the per-shape matching
 requirements (§2.2), decode-gate semantics for unknown and malformed intent
 payloads (§3.2), the concrete `LogReport` contract (§3.3), and the
-`science.report.completion` re-base (§2.5).
+`science.report.completion` re-base (§2.5). **Amended again 2026-08-26**
+(second review round): pending-fulfillment semantics (§2.1), the domainless
+discriminators and the assessment-run wire shape with its durable append
+(§3.2), no-follow capture (§3.1), the corrected evidence constraint
+(header), and pinned finding placement (§3.3).
 **Inherits:** `2026-08-03-tamper-evident-log-design.md` §6 as amended — the
 qualification reduction this slice implements at its full stated width: the
 matched / unresolvable / attempt-without-recorded-outcome precedence, the
@@ -26,8 +30,10 @@ discharges; cut 8's frozen L7 row is this slice's arm inventory);
 `2026-08-02-epistemic-kernel-design.md` §3.2 and §8.7 (G4 narrowed, the
 recorded-history completeness table, the G-table's G4 row with its negative
 half); adoption-ledger row 5 (the intent-boundary remainder named there).
-**Constraints:** no `atoms` change — the intent API is unchanged, and
-`read_chain`/`inspect_chain` supply everything the reducer reads. Frozen cut
+**Constraints:** no `atoms` change — the intent API is unchanged;
+`read_chain`/`inspect_chain` supply the chain the reducer walks, and the
+captured-record surface §3.1 defines supplies the published bytes it
+decodes — both Science-side captures over existing seams. Frozen cut
 bodies stay frozen under their identifiers. Qualification is report-field
 status, never the chain verdict (log §6). No compatibility alias for any
 retired field. The rules-store dialect's constraints hold as built: pure
@@ -40,6 +46,10 @@ source, no science imports, binding by content digest.
 1. **The general qualification reduction** — one pure reducer implementing
    log §6's precedence, parameterized by a closed union of the three
    intent-union shapes (assessment-run, operation, holdings).
+   With it, **the run boundary's durable intent append**: no assessment-run
+   payload is appended anywhere in the tree today, so the
+   append-before-any-member-act consumer rule lands here through the
+   existing `OperationPort`, under the wire shape §3.2 fixes.
 2. **The captured-record evidence input** — the evaluator gains an explicit
    published-record surface, captured under the same hold that captures
    `disk`, because a registration exposes paths and opaque states only and
@@ -94,6 +104,20 @@ precedence, verbatim from §6:
 - only when every pointer fully resolves and none qualifies → the
   **attempt-without-recorded-outcome** finding, with each non-qualifying
   `fulfills` named in its own finding.
+
+Two pointer-state rules complete the precedence, both the holdings
+interior's as written, now general:
+
+- **An unsettled fulfilling registration is an unresolvable pointer,
+  regardless of any bytes captured at its published paths** — settlement
+  is never inferred from disk state (log §6's rule for pending, applied
+  inside qualification too). The report carries qualification on the
+  pending exit like every other well-formed exit, so this rule is
+  reachable, and copied-after-apply bytes on a copied root never read as
+  a settled fulfillment.
+- **A rolled-back registration is fully resolved and never qualifying** —
+  it contributes nothing toward unresolvable, and an intent whose only
+  pointers rolled back reads attempt-without-recorded-outcome.
 
 Unresolved never collapses into either resolved state — the holdings
 slice's rule, now general.
@@ -170,11 +194,20 @@ published, so `evaluate_log` gains one explicit input:
   caller — audit, arrival, restore — assembles and supplies it; there is
   no defaulted-empty overload, because an accidentally empty surface
   reading as universal unresolvable would be a silent fallback.
+- **Capture never follows symlinks** — the registered-surface
+  enumeration's own rule, kept at the byte layer: a leaf is read only
+  after an `lstat` shows a regular file, so a symlink at a record path
+  (into the root or out of it) contributes no byte payload and no bytes
+  from outside the root ever enter the report, and a non-regular leaf (a
+  fifo, a device) is never opened — capture cannot be made to block or
+  to traverse. A leaf whose read fails (permission, disappearance between
+  enumeration and read) likewise contributes no payload; none of these
+  raises out of capture, and none is a chain verdict.
 - A path a fulfilling registration's final surface names that is **absent
-  from `records`, or present and undecodable** → that pointer is a
-  pointer whose published record cannot be read: qualification
-  **unresolvable**, no unmatched finding — §6's rule, now with its
-  evidence path stated. Undecodable bytes here are a qualification state,
+  from `records` — including absent because the no-follow rule withheld
+  it — or present and undecodable** → that pointer is a pointer whose
+  published record cannot be read: qualification **unresolvable**, no
+  unmatched finding — §6's rule, now with its evidence path stated. Undecodable bytes here are a qualification state,
   never a refusal: this surface is captured live evidence, unlike
   `history`, which remains the caller-held historical copy input for L13
   classification, validated and refused on corruption exactly as today.
@@ -182,26 +215,46 @@ published, so `evaluate_log` gains one explicit input:
   root publish now", `history` answers "what did the caller retain".
 
 **3.2 The decode gate — unknown and malformed intent payloads.** The
-engine accepts arbitrary intent bytes, and the union's three decoders
-answer for three domains. The gate in front of the reduction is total
-over every `IntentEntryView`:
+engine accepts arbitrary intent bytes, and only the holdings shape names
+a domain on the wire. The other two are **domainless field shapes**, as
+built: the operation payload is the canonical encoding of
+`{kind, event_token, actor}` (the import boundary's append), and the
+assessment-run payload **is fixed here** as the canonical encoding of the
+record type's own fields, `{spec_identity, event_token, actor}` — no
+durable append of it exists in the tree today (the boundary constructs
+the intent object and threads it into minted and refused records only),
+so the run boundary's append-before-any-member-act lands in this slice
+through the existing `OperationPort`, which the run-shape
+kill-between-append-and-start arm requires anyway. The discriminators
+are exact and disjoint by construction:
 
-- payload decodes and names one of the three domains, schema valid →
-  into the reduction (§2.1);
-- payload does not decode as canonical JSON, or decodes to a domain the
-  union does not name → status **`unrecognized`**, with one
-  `intent-domain-unrecognized` finding (severity `warning`, `ref` the
-  intent digest, `detail` the foreign domain or `undecodable`); the
-  reduction is not entered, and no fulfillment judgment is made or
-  implied;
-- payload names a union domain and fails that shape's schema → status
-  **`unrecognized`**, with one `intent-payload-malformed` finding
-  (severity `error`, `ref` the intent digest) — a cooperative boundary
-  wrote garbage under a claimed domain, which is louder than a foreign
-  domain but still **never the chain verdict**: a rewritten payload on a
-  tampered chain already broke linkage and answered `malformed` at
-  structure, so what reaches this gate on a well-formed chain was written
-  this way.
+- an object carrying `domain` naming `science.holdings-intent.v1` →
+  the holdings shape's schema;
+- an object with **exactly** the field set `{kind, event_token, actor}`
+  and `kind` in the closed `OPERATION_KINDS` vocabulary → the operation
+  shape's schema;
+- an object with **exactly** the field set
+  `{spec_identity, event_token, actor}` → the assessment-run shape's
+  schema (`spec_identity` presence versus `kind` presence is what makes
+  the two domainless shapes unconfusable);
+- a discriminator match whose value then fails the shape's schema (a
+  type violation, an empty required string) → status **`unrecognized`**,
+  with one `intent-payload-malformed` finding (severity `error`, `ref`
+  the intent digest) — a cooperative boundary wrote garbage under a
+  claimed shape, which is louder than a foreign payload but still
+  **never the chain verdict**: a rewritten payload on a tampered chain
+  already broke linkage and answered `malformed` at structure, so what
+  reaches this gate on a well-formed chain was written this way;
+- everything else — bytes that are not canonical JSON, a non-object, an
+  object fitting no discriminator (`{}`, a foreign `domain`, an unknown
+  field set, an out-of-vocabulary `kind`) → status **`unrecognized`**,
+  with one `intent-domain-unrecognized` finding (severity `warning`,
+  `ref` the intent digest, `detail` the foreign domain,
+  `domainless-unrecognized` for a parseable object fitting no shape, or
+  `undecodable`); the reduction is not entered, and no fulfillment
+  judgment is made or implied.
+
+The gate is total: every `IntentEntryView` lands in exactly one bullet.
 
 **3.3 The report contract.** `LogReport.intents_unevaluated` retires, and
 the report gains exactly one field in its place:
@@ -241,8 +294,19 @@ class IntentQualification:
   `warning`, `ref` the non-qualifying registration's digest, `detail`
   naming the intent digest and the reason class — wrong-purpose,
   wrong-spec, wrong-token, wrong-kind, wrong-location, no-record); and
-  §3.2's two gate codes. Ordering within `findings` follows the existing
-  sort discipline; nothing about qualification reorders other findings.
+  §3.2's two gate codes.
+- **Placement is pinned, not "existing discipline"** — the evaluator
+  appends findings by phase and tests observe positions, so the rule is
+  stated: qualification findings are appended **last**, after every
+  finding the exit's own phase produced, on every exit that carries
+  `qualification`. Within the block, intents in inventory (chain) order;
+  per intent, the gate finding (§3.2), or the
+  attempt-without-recorded-outcome finding followed by that intent's
+  `intent-fulfillment-non-qualifying` findings in registration chain
+  order. A `matched` or `unresolvable` intent emits no finding — the
+  frozen text ties the non-qualifying findings to the attempt case, and
+  unresolvable emits nothing by rule. Nothing about qualification
+  reorders any other phase's findings.
 
 Qualification remains **report-field status, never the chain verdict**:
 no qualification state changes `outcome`, and no outcome suppresses
@@ -309,14 +373,23 @@ fresh:
 - **the kernel G-table G4 row** — both halves (§5).
 - **the decode gate (§3.2)** — a foreign-domain intent reads
   `unrecognized` with its `intent-domain-unrecognized` finding and enters
-  no reduction; an in-domain schema-invalid payload reads `unrecognized`
-  with `intent-payload-malformed`; neither moves the chain verdict, and
-  both rows appear in `qualification` — the total-accounting assertion.
+  no reduction; a discriminator-matched schema-invalid payload reads
+  `unrecognized` with `intent-payload-malformed`; a parseable object
+  fitting no shape (`{}`) reads `unrecognized` with
+  `domainless-unrecognized` detail; none moves the chain verdict, and
+  every row appears in `qualification` — the total-accounting assertion.
 - **the evidence path (§3.1)** — a fulfilling registration whose named
   record path is absent from the captured `records` surface, and one
   whose captured bytes do not decode, each read qualification
-  `unresolvable` with no unmatched finding; `history` remains L13's and
-  is untouched by either.
+  `unresolvable` with no unmatched finding; a record path replaced by a
+  **symlink out of the root** reads `unresolvable` with no bytes from
+  outside the root anywhere in the report — the no-follow arm; `history`
+  remains L13's and is untouched by any of these.
+- **pending fulfillment (§2.1)** — an unsettled fulfilling registration
+  with its published bytes present on disk reads qualification
+  `unresolvable`, never `matched`: settlement is never inferred from
+  disk state, asserted on the pending exit where qualification is
+  carried.
 - **the completion re-base (§2.5)** — the wrong-spec run closure that
   reads `CLOSED` today reads `UNFINISHED` after the re-base; and
   **consumer agreement at three sites**: the verifier, the regenerated
