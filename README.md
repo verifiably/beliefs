@@ -17,9 +17,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Thirty-four documents in `docs/designs/`: the banked redesigns, review disposition,
+Thirty-six documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
-2026-08-02 through 2026-08-23. Read them in this order:
+2026-08-02 through 2026-08-24. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -57,6 +57,8 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-08-22-conformance-cut-8.md` | the eighth frozen conformance cut, selecting log verification and anchoring: 5 rows full, 7 part, L6 unread, with 43 selected and 10 labeled declarations |
 | `2026-08-23-world-index-root-lifecycle-design.md` | world-index slice 4, the root lifecycle and store substrate: the atoms fail-closed writer state and lifecycle commands (replicate, restore admission, fork, migrate), the store root kind with genesis-bound store subjects, the fork acts with act-derived `forked_from`, and lifecycle-aware arrival modes |
 | `2026-08-23-conformance-cut-9.md` | the ninth frozen conformance cut, selecting the root lifecycle and store substrate: 1 row full, 4 part, with 19 selected and 11 labeled declarations, successor to cut 8's retired store-refusal label |
+| `2026-08-24-world-index-holdings-design.md` | world-index slice 5, verified store-side holdings: the governed observation kind, intent-bearing store acts, mechanical coverage, fixture-bound reduction and receipt, and dataset admission adapter |
+| `2026-08-24-conformance-cut-10.md` | the tenth frozen conformance cut, selecting verified store-side holdings: 3 rows full, 4 part, with 20 selected and 11 labeled declarations |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -150,6 +152,16 @@ store-refusal label succeeded rather than re-run. See the
 **merged into `main` on 2026-08-24 with `--no-ff`** (integration commit
 `7a9fec8`), adding cut 9's freeze commit to the inherited reachability
 constraint.
+
+**Conformance cut 10** froze 2026-08-24 and was discharged 2026-08-25 on
+the unmerged `design/holdings` branch. World-index slice 5 implements verified
+store-side holdings: the governed `holdings-observation` record, intent-bearing
+read/write/delete/move acts, mechanical coverage capture, the fixture-bound
+active-set reduction and receipt, and the dataset admission adapter — **20
+selected + 11 labeled = 31 declarations** across **3 rows in full and 4 in
+part**. See the
+[results](docs/plans/2026-08-24-conformance-cut-10-results.md). The `--no-ff`
+merge remains the human partner's act.
 
 ```
 python/     the implementation (substrate §11 puts the composition root here)

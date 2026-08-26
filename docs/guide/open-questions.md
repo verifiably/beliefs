@@ -29,7 +29,10 @@ sources:
   - ../designs/2026-08-20-conformance-cut-6.md
   - ../designs/2026-08-20-world-index-slice-2-design.md
   - ../designs/2026-08-20-conformance-cut-7.md
+  - ../designs/2026-08-24-world-index-holdings-design.md
+  - ../designs/2026-08-24-conformance-cut-10.md
   - ../plans/2026-08-20-conformance-cut-6-results.md
+  - ../plans/2026-08-24-conformance-cut-10-results.md
 ---
 
 # Open questions
@@ -186,7 +189,7 @@ implementation**: a guarantee row awaiting code is work, not a question.
   certification is unspellable and existing instruments certify only through a
   successor spec. Open is the cadence: sweep, mint on next authored use, or
   never. ([normative-contract questions](../designs/2026-08-03-normative-contract-design.md#11-open-questions))
-- **Cut 9 is discharged; part of cut 3's deferred boundary stays open.** Cut 3
+- **Cut 10 is discharged; part of cut 3's deferred boundary stays open.** Cut 3
   was frozen 2026-08-11 at the run boundary,
   taking run capture — the seam the verified-holdings record (2026-08-10)
   and the act-report design (2026-08-11) finished designing. Its §5
@@ -215,16 +218,20 @@ implementation**: a guarantee row awaiting code is work, not a question.
   reading one row in full and four in part with L6 read for the first time
   under the fork-baseline lift, all 30 declarations on the certified tuple.
   Cuts 4–9 are implemented, discharged, and merged on `main` — cut 9's
-  `--no-ff` integration commit is `7a9fec8`, 2026-08-24.
+  `--no-ff` integration commit is `7a9fec8`, 2026-08-24. Cut 10 froze
+  2026-08-24 and discharged verified store-side holdings on 2026-08-25 — the
+  governed observation kind, intent-bearing acts, mechanical coverage,
+  fixture-bound reduction and receipt, and dataset admission adapter — with
+  20 selected + 11 labeled declarations. Its `design/holdings` branch is not
+  merged.
   What the tamper-log group still owes is named
-  and owned: intent qualification with G4, the preimage-backed classification
-  of a removed verification, and event-level cross-chain order — L10's
-  fork/replica/restore and store arms closed with cut 9.
-  What the store substrate owes next is the **holdings slice**: the records
-  that make store payload registered surface, the holdings reads L10's
-  cold-bootstrap and incomplete-copy units defer to, and adoption-ledger
-  row 4's remaining coordinator commands (the dereference-and-hash read and
-  mutator post-state capture).
+  and owned: general intent qualification with G4, the preimage-backed
+  classification of a removed verification, and event-level cross-chain order.
+  L10's fork/replica/restore and store arms closed with cut 9; its two deferred
+  holdings-read arms and L7's holdings-shaped qualification/boundary arms
+  closed with cut 10. The store substrate's holdings prerequisite is complete,
+  including the atoms read command and returned final-state evidence at remote
+  atoms `main` `038513f`.
   The separately deferred consolidate/move/deletion cut no longer waits on the
   world index.
   ([conformance cut 3](../designs/2026-08-11-conformance-cut-3.md),
@@ -243,7 +250,10 @@ implementation**: a guarantee row awaiting code is work, not a question.
   [cut 8 results](../plans/2026-08-22-conformance-cut-8-results.md),
   [root-lifecycle design](../designs/2026-08-23-world-index-root-lifecycle-design.md),
   [conformance cut 9](../designs/2026-08-23-conformance-cut-9.md),
-  [cut 9 results](../plans/2026-08-23-conformance-cut-9-results.md))
+  [cut 9 results](../plans/2026-08-23-conformance-cut-9-results.md),
+  [holdings design](../designs/2026-08-24-world-index-holdings-design.md),
+  [conformance cut 10](../designs/2026-08-24-conformance-cut-10.md),
+  [cut 10 results](../plans/2026-08-24-conformance-cut-10-results.md))
 - **The act-report's residue.** The act-report design (2026-08-11) closed
   the run boundary's report seam: the boundary-minted terminal record of
   an opened operation — or the pre-intent refusal record of a rejected

@@ -1,7 +1,7 @@
 # Holdings slice — execution ledger
 
 Plan: `docs/superpowers/plans/2026-08-24-holdings.md`
-Specification: `docs/superpowers/specs/2026-08-24-world-index-holdings-design.md`
+Specification: `docs/designs/2026-08-24-world-index-holdings-design.md` (promoted at banking)
 Frozen cut: `docs/designs/2026-08-24-conformance-cut-10.md`
 Freeze hash: `2186a71`
 
@@ -394,6 +394,36 @@ Rulings are written at task boundaries, never rewritten after the fact.
     amendment. R48 records the final empty-value correction; this row adds no
     conformance claim.
 
+50. **R50 — Task 10's final reviewed head includes the empty-root correction.**
+    The heads table advances Task 10 to `04748e7`; R48 records the behavior.
+    R49's `ef749bd` was the preceding review amendment and remains historical.
+
+51. **R51 — cut 10 discharges without relabeling partial rows.** Independent
+    recount from the frozen §3 gives H1/H2/H3 full and H4/G9/L7/L10 partial;
+    their selected partition is 3/6/3/3/1/2/2 = 20, beside J1–J11 = 11.
+    Every one of the 31 declared units runs its complete stated sabotage arm,
+    while the four source rows remain partial under the any-unrun-arm rule.
+
+52. **R52 — banking changes status, not frozen authority.** The spec promotes,
+    cut 10's status header alone changes, adoption-ledger rows 4 and 5 move,
+    and README/guide live claims move. The frozen cut body and prior cut/results
+    records remain untouched. The branch stays unmerged and unpushed by this
+    task; the `--no-ff` merge is the human partner's act.
+
+53. **R53 — final evidence was collected sequentially after the last
+    gate-relevant edit.** The certified runner exited 0 with pytest summaries
+    39/23/42/23/35 and 31 declared cut-10 units. The portable suite reported
+    `2513 passed`; Ruff reported `All checks passed!`; Pyright reported 0
+    errors; the design corpus reported `12 passed`; the guide checker and
+    diff-check exited 0. Exact transcripts are in the cut-10 results record.
+
+54. **R54 — stale grep preserves history and closes live claims.** Its matches
+    are frozen records, historical plans/ledgers, the promoted spec's built and
+    closed statements, and live text saying the slice landed. No current guide
+    calls the holdings work open. Row 4 has the dated `038513f` closure and row
+    5 names only general intent qualification with G4, event-level L8, and the
+    L13 preimage resolver.
+
 ## Heads
 
 | Task | Science head |
@@ -408,4 +438,5 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 7 | d7a5852 |
 | 8 | e1b0ce3 |
 | 9 | 22461e9 |
-| 10 | ef749bd |
+| 10 | 04748e7 |
+| 11 | banking commit (this change) |

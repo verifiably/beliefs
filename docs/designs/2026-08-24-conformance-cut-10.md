@@ -1,10 +1,15 @@
 # Conformance cut 10 — verified holdings, store-side
 
-**Status:** **Frozen 2026-08-24 at `2186a71`**, the commit closing the
-second reader's five findings across two readings (§7); no
-implementation preceded the freeze (spec §8 step 3, the standing
-discipline). Every quoted row is byte-exact against its source table as
-of `2186a71`, verified by the reader independently.
+**Status:** **Frozen 2026-08-24 at `2186a71`; discharged 2026-08-25** —
+results at `../plans/2026-08-24-conformance-cut-10-results.md` (3 full +
+4 partial rows over 20 selected + 11 labeled = 31 units; execution rulings
+at `../plans/2026-08-24-holdings-ledger.md`). The spec this cut cites promoted
+at banking to `2026-08-24-world-index-holdings-design.md` beside this file; the
+`docs/superpowers/specs/` path below is the frozen citation of its pre-banking
+home. Frozen at `2186a71`, the commit closing the second reader's five findings
+across two readings (§7); no implementation preceded the freeze (spec §8 step
+3). Every quoted row is byte-exact against its source table as of `2186a71`,
+verified by the reader independently.
 
 **Sources:** `2026-08-23-conformance-cut-9.md` (rule and practice
 inheritances); the holdings specification

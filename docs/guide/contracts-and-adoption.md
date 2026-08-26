@@ -2,7 +2,7 @@
 title: Contracts and adoption
 status: living
 created: 2026-08-08
-updated: 2026-08-23
+updated: 2026-08-25
 sources:
   - ../designs/2026-08-03-normative-contract-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -17,6 +17,9 @@ sources:
   - ../designs/2026-08-20-conformance-cut-7.md
   - ../designs/2026-08-22-conformance-cut-8.md
   - ../designs/2026-08-23-conformance-cut-9.md
+  - ../designs/2026-08-24-world-index-holdings-design.md
+  - ../designs/2026-08-24-conformance-cut-10.md
+  - ../plans/2026-08-24-conformance-cut-10-results.md
 ---
 
 # Contracts and adoption
@@ -154,18 +157,22 @@ fitted result into independent validation.
 
 ## Current state
 
-Cuts 1–9 have landed their implementation slices. Cut 8 discharged
+Cuts 1–10 have implemented and discharged their selected slices. Cut 8 discharged
 mutation-log verification on 2026-08-23 — the anchor act, the four-outcome
 evaluator, replay, the audit and arrival boundaries, and the genesis↔mirror
 check. [Cut 9](../designs/2026-08-23-conformance-cut-9.md) discharged the
 root lifecycle and store substrate the same day — the fail-closed writer
 state and lifecycle commands, fork and restore, genesis-bound store
 subjects, and lifecycle-aware arrival modes — succeeding cut 8's retired
-store-refusal label. The complete normative contract cut and the two
-governed stored kinds remain open, and so do the parts of the log slice
-that carried named owners: intent qualification, the preimage-backed
-classification, and event-level cross-chain order — the fork, replica,
-restore, and store arms closed with cut 9.
+store-refusal label. [Cut 10](../designs/2026-08-24-conformance-cut-10.md)
+discharged verified store-side holdings on 2026-08-25: the governed
+observation kind, intent-bearing acts, mechanical coverage, fixture-bound
+reduction and receipt, and the dataset admission adapter
+([results](../plans/2026-08-24-conformance-cut-10-results.md)). Its branch is
+not merged. The complete normative contract cut and the second governed
+stored kind remain open. The log slice still owes general intent qualification
+with G4, the preimage-backed classification, and event-level cross-chain order;
+the holdings-shaped L7 arms and L10's two holdings-read arms closed with cut 10.
 Consult the ledger for the current state rather than carrying these sentences
 into a status report.
 
