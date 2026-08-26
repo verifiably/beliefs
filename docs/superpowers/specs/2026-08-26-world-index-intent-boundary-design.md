@@ -33,7 +33,11 @@ type-preserving wire the address already digests (§2.6 item 5); the
 bare-address/typed-ref bridge with field-by-field assignment (§2.6
 item 5); and the two accepted stored shapes — the `run` facet preserved
 for every reader, the closure facet only on boundary-published runs
-(§2.6 item 5).
+(§2.6 item 5). **Amended a seventh time 2026-08-26** (seventh review
+round): the closure facet joins semantic-hash coverage (§2.6 item 5),
+the production `run` facet frozen as exactly `{}` with both-ways decode
+agreement (§2.6 item 5), and the frozen facet key, inner field, and
+inverse parse rules (§2.6 item 5).
 **Inherits:** `2026-08-03-tamper-evident-log-design.md` §6 as amended — the
 qualification reduction this slice implements at its full stated width: the
 matched / unresolvable / attempt-without-recorded-outcome precedence, the
@@ -297,24 +301,49 @@ contract, for **both** run shapes:
      require `run` to be a resolvable corpus ref, and the published
      record is what makes that ref resolve;
    - **facet — two keys, two readers, both shapes accepted**: the
-     existing `run` facet is **preserved exactly as built**
-     (`{"spec": ...}` for an assessment run; a production run carries
-     no `spec`), so `run_spec()` and every current reader keep working
-     unchanged on old and new records alike. Beside it, a
-     boundary-published run carries the **closure facet**, a separate
-     key holding the projection as its **v1-canonical text** — one
-     string field. The canonical text is the type-preserving wire the
-     address already digests: `Decimal` keeps its mandatory fractional
-     part (`1` and `Decimal("1.0")` differ; `Decimal("0.5")` and
-     `"0.5"` differ), floats are refused at the boundary, and
-     `yaml.safe_dump` always represents a string — the projection's raw
-     typed values would raise `RepresenterError` on `Decimal` or be
-     lossily coerced. Decode parses the canonical text back to typed
-     values, re-encodes, and requires the re-encoding to equal the
-     embedded bytes; the address is the digest of exactly those bytes
-     under `science.run.v1`. Consistency across the two keys is
-     checked: an assessment-shaped closure's spec equals the `run`
-     facet's `spec`;
+     existing `run` facet stays the readers' facet — `{"spec": <spec>}`
+     for an assessment run, exactly as built, and **exactly `{}` for a
+     production run**: no built production shape exists today
+     (`stored.run_node` requires `spec` unconditionally), so the empty
+     mapping is frozen here as the production shape — the facet key
+     present, no `spec` key — and its construction is this slice's.
+     `run_spec()` and every current reader keep working unchanged on
+     old and new records alike (`facet.get("spec")` reads `None` on the
+     production shape). Decode agreement runs **both ways**: an
+     assessment-shaped closure requires the `run` facet's `spec` equal
+     to its own; a production-shaped closure requires the `run` facet
+     to carry **no** `spec` key. Beside it, a boundary-published run
+     carries the **closure facet**, whose names are frozen: facet key
+     **`run-closure`**, one inner field **`projection`**, holding the
+     projection as its **v1-canonical text**. The canonical text is the
+     type-preserving wire the address already digests: `Decimal` keeps
+     its mandatory fractional part (`1` and `Decimal("1.0")` differ;
+     `Decimal("0.5")` and `"0.5"` differ), floats are refused at the
+     boundary, and `yaml.safe_dump` always represents a string — the
+     projection's raw typed values would raise `RepresenterError` on
+     `Decimal` or be lossily coerced. The **inverse codec is specified,
+     not implied** — `v1` exports `encode` and `digest` only, and
+     default JSON parsing would mint the floats the codec refuses — so
+     `science.identity.v1` gains the exported inverse with exactly
+     these rules: `json.loads` with `parse_int=int`,
+     `parse_float=Decimal`, and `parse_constant` refusing (`NaN`,
+     `Infinity`, `-Infinity` never parse); validity is **canonical
+     re-encoding equality** — `v1.encode` of the parsed value must
+     equal the embedded text byte-for-byte, which also refuses
+     non-canonical ordering and collapsed duplicate keys — and the
+     address is the digest of exactly those bytes under
+     `science.run.v1`. The encoder constructs the node through the
+     same construction-and-stamp path the stored constructors use;
+     `stored.run_node` itself is unchanged for its existing callers;
+   - **the closure facet enters semantic-hash coverage**:
+     `COVERED_FACETS["run"]` gains `run-closure` beside the `run`
+     facet — the dataset entry is the existing multi-facet precedent —
+     so adding, removing, or editing a closure facet makes the stored
+     semantic stamp stale and the read refuses, instead of the stamp
+     staying valid over an uncovered mutation. Legacy records remain
+     valid untouched: an absent facet does not enter the coverage
+     projection, exactly as the dataset kind's optional facets behave
+     today;
    - **legacy records are the absent-closure-facet shape**: an existing
      `stored.run_node` record has no closure facet — it stays readable
      through the `run` facet, resolves as a reference target, undergoes
@@ -595,7 +624,16 @@ fresh:
   `Decimal("0.5")` round-trips distinctly from `"0.5"`, and `1`
   distinctly from `Decimal("1.0")` — publish, capture, decode,
   recompute — with the address agreeing in each case and the four never
-  colliding; the **reference-resolution arm**: an assessment referencing
+  colliding; the **coverage arm**: mutate the published record's
+  `run-closure` facet in place and the semantic stamp is stale — the
+  read refuses under the existing semantic-hash rule — while an
+  untouched legacy record's stamp stays valid, absent facets never
+  entering the projection; the **shape-agreement arms, both ways**: an
+  assessment publication whose `run` facet `spec` disagrees with its
+  closure's refuses decode, and a production publication whose `run`
+  facet carries any `spec` key refuses decode — the frozen shapes are
+  `{"spec": <spec>}` and exactly `{}`; the
+  **reference-resolution arm**: an assessment referencing
   the published run and a `StampedBasis.run` carrying its bare address
   both resolve, through the stated bridge, to exactly the published
   record; the **legacy arm**: a record built by the *actual current*
