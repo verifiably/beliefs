@@ -41,7 +41,12 @@ inverse parse rules (§2.6 item 5). **Amended an eighth time 2026-08-26**
 (eighth review round): typed-closure reconstruction before any evidence
 read — canonical syntax is not schema validation (§2.6 item 5); the
 concrete `v1.decode` contract (§2.6 item 5); and the bounded record
-capture ceiling (§3.1).
+capture ceiling (§3.1). **Amended a ninth time 2026-08-26** (ninth
+review round): the typed projection view replaces impossible closure
+reconstruction (§2.6 item 5); the ceiling becomes a shared
+writer/reader invariant with the encoder's refusal (§3.1, §2.6); and
+`CanonicalTextRefused` wraps every re-encoding `IdentityError` as an
+`IdentityError` subclass (§2.6 item 5).
 **Inherits:** `2026-08-03-tamper-evident-log-design.md` §6 as amended — the
 qualification reduction this slice implements at its full stated width: the
 matched / unresolvable / attempt-without-recorded-outcome precedence, the
@@ -336,28 +341,40 @@ contract, for **both** run shapes:
      parse); validity is **canonical re-encoding equality** —
      `v1.encode` of the parsed value must equal the input
      byte-for-byte, which also refuses non-canonical ordering and
-     collapsed duplicate keys. Every failure — malformed UTF-8,
-     malformed JSON, a refused constant, re-encoding inequality —
-     raises one new named refusal, **`CanonicalTextRefused`**, joining
-     the existing `science.errors` refusal family, with the failure
-     class in its message; `decode` never returns a partial or coerced
-     value. The address is the digest of exactly the input bytes under
-     `science.run.v1`.
+     collapsed duplicate keys. Every failure raises one new named
+     refusal, **`CanonicalTextRefused`**, defined as an
+     **`IdentityError` subclass** in `science.errors`: malformed
+     UTF-8, malformed JSON, and a refused constant directly, and
+     **every `IdentityError` the re-encoding itself raises** —
+     `NullRefused` on a parsed `null`, `LoneSurrogate`, `KeyCollision`
+     on NFC-colliding keys, and their siblings surface *before* any
+     equality comparison and are **wrapped**, cause preserved, so a
+     `decode` caller catches exactly one refusal type — with the
+     failure class in its message; `decode` never returns a partial or
+     coerced value. The address is the digest of exactly the input
+     bytes under `science.run.v1`.
 
-     **Canonical syntax is not schema validation.** A canonical object
-     carrying only shape, spec, and token digests self-consistently
-     under `science.run.v1` without being a closure, so decode
-     **reconstructs the typed `RunClosure`** from the parsed value —
-     `Recipe`, `ResultManifest`, and `Occurrence` through their own
-     constructors, whose invariants (`MalformedClosure`) are the schema
-     — requires the reconstructed closure's `address()` to equal the
-     record id's address, and only then reads shape, spec, and token
-     **from the typed closure**, never from the raw parsed mapping. Any
-     reconstruction failure means the bytes are not the named
-     publication: qualification `unresolvable`. The encoder constructs
-     the node through the same construction-and-stamp path the stored
-     constructors use; `stored.run_node` itself is unchanged for its
-     existing callers;
+     **Canonical syntax is not schema validation — and the address
+     preimage cannot rebuild the closure.** The projection stores
+     `EnvironmentManifest.identity()`, a digest, where `Recipe`
+     requires the manifest itself, so reconstruction through the
+     constructors is impossible by design and is not claimed. Decode
+     instead validates through a **typed projection view**: an
+     exact-schema validator over the parsed mapping that mirrors the
+     closure invariants at the projection's own level — the complete
+     closed key set at every depth with nothing extra, `shape` in
+     `SHAPES`, spec presence exactly per shape, input roles in the
+     shape's closed role vocabulary, the result pairs' and occurrence
+     fields' forms — yielding a frozen view. The view is validated,
+     its recomputed address must equal the record id's, and shape,
+     spec, and token are read **from the validated view**, never from
+     the raw parsed mapping. A canonical object carrying only shape,
+     spec, and token digests self-consistently without being a
+     projection; the view's schema rejects it. Any view failure means
+     the bytes are not the named publication: qualification
+     `unresolvable`. The encoder constructs the node through the same
+     construction-and-stamp path the stored constructors use;
+     `stored.run_node` itself is unchanged for its existing callers;
    - **the closure facet enters semantic-hash coverage**:
      `COVERED_FACETS["run"]` gains `run-closure` beside the `run`
      facet — the dataset entry is the existing multi-facet precedent —
@@ -442,15 +459,24 @@ published, so `evaluate_log` gains one explicit input:
   classification, or read (permission, disappearance) likewise
   withholds the payload. None of these raises out of capture, and none
   is a chain verdict.
-- **Capture is bounded**: the FIFO and device protections do not bound
-  a regular file, and an unbounded read under the shared hold is a
-  memory-exhaustion and hold-duration lever. The ceiling is frozen at
-  **`RECORD_CAPTURE_CEILING = 8 MiB` (2^23 bytes)** — an order of
-  magnitude above any legitimate stored record — and the capture reads
-  **ceiling + 1** bytes from the descriptor: a read returning more than
-  the ceiling withholds the payload (the record is not captured
-  partially, and the reader is never handed a truncation that could
-  decode), landing in the absent-from-`records` rule below.
+- **Capture is bounded, and the bound is a shared writer/reader
+  invariant, not a reader-only trap**: the FIFO and device protections
+  do not bound a regular file, and an unbounded read under the shared
+  hold is a memory-exhaustion and hold-duration lever. The ceiling is
+  frozen at **`RECORD_CEILING = 8 MiB` (2^23 bytes)**, one constant
+  with two enforcement points. **Reader**: the capture reads
+  **ceiling + 1** bytes from the descriptor; a read returning more
+  withholds the payload (no partial capture, no truncation ever handed
+  to a decoder), landing in the absent-from-`records` rule below.
+  **Writer**: the §2.6 encoder refuses, **before any write**, a stored
+  document whose encoded bytes exceed the same constant — closure
+  members carry no size or cardinality ceiling of their own
+  (parameters, inputs, trace), so without this check the official
+  boundary could publish a record its own verifier automatically
+  withholds. The refusal is a named error on the publication path; no
+  partial record lands, and the already-appended intent then reads
+  attempt-without-recorded-outcome — the truthful state for an attempt
+  whose terminal record could not be published.
 - A path a fulfilling registration's final surface names that is **absent
   from `records` — including absent because the no-follow rule withheld
   it — or present and undecodable** → that pointer is a pointer whose
@@ -647,12 +673,17 @@ fresh:
   qualification reads `unresolvable`, never a silent match; the
   **incomplete-closure arm**: a canonical, self-addressed object
   carrying only shape, spec, and token — a valid `science.run.v1`
-  digest preimage that is not a closure — fails typed reconstruction
-  and reads `unresolvable`, never a match on its matching fields; the
-  **capture-ceiling arm**: a regular file at a record path exceeding
-  `RECORD_CAPTURE_CEILING` is withheld by the bounded read —
-  qualification `unresolvable`, capture completes, and no
-  ceiling-plus-one buffer is ever handed to a decoder; the
+  digest preimage that is not a projection — fails the typed projection
+  view's schema and reads `unresolvable`, never a match on its matching
+  fields; the
+  **capture-ceiling arms, both sides of the shared invariant**: a
+  tampered regular file at a record path exceeding `RECORD_CEILING` is
+  withheld by the bounded read — qualification `unresolvable`, capture
+  completes, and no ceiling-plus-one buffer is ever handed to a
+  decoder — while the boundary-side arm drives the encoder past the
+  same constant and asserts the pre-write refusal: the official
+  boundary **cannot** publish a record its verifier would withhold,
+  and the appended intent reads attempt-without-recorded-outcome; the
   **wrong-run-shape arm**: an assessment-shaped run
   carrying a production intent's token fails qualification with reason
   `wrong-shape`, and conversely; the **unfulfilling-publication arm**:
