@@ -279,6 +279,14 @@ Rulings are written at task boundaries, never rewritten after the fact.
     `SubclassRefused` construction over both types. It passed first against the
     existing decorators and required no production change.
 
+35. **R35 — dataset admission remains digest-set based.** The adapter supplies
+    cut 2's unchanged `ByteObservation(digest, location)` values, which carry no
+    association to the declaration reached by expectation or history. A joined
+    found digest is therefore a mismatch only when it differs from every
+    declared digest; if it is another declared digest, it is an ordinary match.
+    The two-resource overlap arm passed first against the existing adapter and
+    `admission_state`, pinning authority rather than driving production.
+
 ## Heads
 
 | Task | Science head |

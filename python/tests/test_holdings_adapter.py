@@ -77,6 +77,16 @@ def test_expectation_join_surfaces_a_first_contact_mismatch():
     assert answer == DatasetAnswer((ByteObservation(D2, LOCATION),))
 
 
+def test_an_expectation_overlap_is_an_ordinary_declared_match():
+    declared = DatasetDeclaration((ResourceDeclaration("one", D), ResourceDeclaration("two", D2)))
+
+    answer = dataset_observations(declared, [member(D2, expected=D), member(D)], [])
+
+    assert answer == DatasetAnswer((ByteObservation(D, LOCATION), ByteObservation(D2, LOCATION)))
+    assert isinstance(answer, DatasetAnswer)
+    assert isinstance(admission_state(declared, answer.observations), Held)
+
+
 def test_history_join_reaches_a_superseded_match():
     history = [{"ref": "e" * 64, "outcome": {"finding": "found", "digest": D}}]
     expected_history = [
