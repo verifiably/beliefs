@@ -80,7 +80,11 @@ reading): the callable `admit_spec_successor` contract — signature,
 module, binding, return union, declared refusal; source decoding
 through `verification_value` with its failure mapped; and the
 evidence gate's scope — failing-verdict sources only, incoherence
-refusing globally as unattributable (§5).
+refusing globally as unattributable (§5). **Amended an eighteenth time
+2026-08-27** (cut 11's eighth reading): the u3 mislabel corrected in
+this spec's own text; the composition's record reads bound to
+`ReadView` in the signature; and the admission read's size bound with
+its stated consequence (§5).
 **Inherits:** `2026-08-03-tamper-evident-log-design.md` §6 as amended — the
 qualification reduction this slice implements at its full stated width: the
 matched / unresolvable / attempt-without-recorded-outcome precedence, the
@@ -764,19 +768,41 @@ def admit_spec_successor(
     superseded: FrozenSpec,
     *,
     seam: LogSeam,
+    view: ReadView,
     root: Path,
 ) -> SuccessorAdmitted | SuccessorRefused: ...
 ```
 
 exported from `science.spec` beside the core, joining its `__all__`;
 the return union is the core's existing pair, unchanged; the one
-declared exception is `AdmissionEvidenceRefused`. Under the root's
+declared exception is `AdmissionEvidenceRefused`. The two bindings
+carry the two evidence kinds and neither reaches around its seam:
+`seam` supplies the chain view and the captured surface the reduction
+reads — `LogSeam` exposes chain inspection, path-state capture, heads,
+and locks, and nothing about stored records — and `view`, the
+corpus's existing read-only facade, supplies the verification and
+assessment records through the typed readers
+(`verification_value`, `assessment_value`). Under the root's
 operation lock — the §6.1 hold, **held through the admission
 decision** so nothing resolves or decays between derivation and
-verdict — it assembles the chain view and the stored-surface capture
-in **one read**, runs the qualification reduction, composes the two
-classes, and calls `admit_successor` with the derived sets. No second
-boundary exists to invent. **The verification evidence gate, complete and scoped.** Every
+verdict — it assembles the chain view, the captured surface, and the
+stored evidence in **one read**, runs the qualification reduction,
+composes the two classes, and calls `admit_successor` with the
+derived sets. No second boundary exists to invent.
+
+**The admission read is bounded, reader-side, at the same constant.**
+Verification and assessment records are ordinary corpus writes,
+deliberately outside the port's `RECORD_CEILING` (§3.1's non-port
+scope is unchanged). The admission composition still cannot read
+unbounded under its hold, so the bound is the reader's: a verification
+or assessment record whose stored bytes exceed `RECORD_CEILING`
+refuses the admission act as `AdmissionEvidenceRefused` naming the
+record. The consequence is stated, not hidden: the official writer can
+store a record this act then refuses to read — the admission blocks,
+loudly and by name, until the record is corrected or superseded —
+which is the fail-closed direction; silently skipping oversized
+failure evidence would be the erasure this boundary exists to
+prevent. **The verification evidence gate, complete and scoped.** Every
 verification record consulted decodes through the existing typed
 reader, `verification_value` — generic corpus storage does not
 guarantee it succeeds, and a reader failure is a source whose verdict
@@ -794,8 +820,10 @@ the silent skip this design refuses. The refusal — one named type,
 **names the offending record in the error**, so the repair is directed,
 and the act is retried after correction, never around it. **Unresolved qualification refuses too**:
 an assessment-run intent carrying the superseded `spec_identity` whose
-qualification reads `unresolvable` — a published refusal report whose
-bytes decayed, L7 u3's construction — is evidence that cannot be read,
+qualification reads `unresolvable` — a genuine published run whose
+bytes decayed (L7 u3's construction), or equally a published refusal
+report decayed, the cut's separately named arm — is evidence that
+cannot be read,
 not evidence of absence; it enters neither class, and admitting over it
 would erase a possibly-recorded failure, so the boundary refuses with
 the same named refusal, the reason distinct ("qualification unresolved

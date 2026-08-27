@@ -193,8 +193,13 @@ worktree removal.
     admission — the global scope, unattributable evidence exempting
     nothing — while a **passing** verification with zero or two
     `verifies` edges refuses **nothing**, the gate scoped to
-    failing-verdict sources. This is kernel §8.7's fourth
-    recorded-mutation consequence, closed through the reduction;
+    failing-verdict sources; and an **oversized verification — and
+    separately an oversized assessment — beyond `RECORD_CEILING`
+    refuses the admission act by name**, the reader-side bound, while
+    the same oversized record still lands as an ordinary corpus
+    write, label 3's non-port regression scope preserved. This is
+    kernel §8.7's fourth recorded-mutation consequence, closed
+    through the reduction;
   - **(u2)** the **negative half, pinning the limit**: discard the
     failed attempt *entirely* — no intent appended, nothing durable —
     and the system **cannot** detect it: crash, cancellation, and
