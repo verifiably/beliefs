@@ -62,7 +62,11 @@ reduction (§5). **Amended a thirteenth time 2026-08-27** (cut 11's
 third reading): the derivation corrected to derive from **recorded
 failure evidence** — the failing verification and the retained refusal
 report — with attempt-without-recorded-outcome contributing nothing,
-its exclusion stated as G4's own bound (§5).
+its exclusion stated as G4's own bound (§5). **Amended a fourteenth
+time 2026-08-27** (cut 11's fourth reading): the two-class blocker —
+the unfinished recorded attempt blocks as a must-reference class
+beside, never inside, the recorded failures; and the verification join
+frozen over the stored surfaces that exist (§5).
 **Inherits:** `2026-08-03-tamper-evident-log-design.md` §6 as amended — the
 qualification reduction this slice implements at its full stated width: the
 matched / unresolvable / attempt-without-recorded-outcome precedence, the
@@ -666,30 +670,49 @@ together with every anchor holding it is not detectable from nothing.
 slice's value state", certified at that width by cut 3 — so without a
 frozen derivation the durable reduction and the refusal would never
 compose, and G4's closure could be claimed over a hand-built set. The
-derivation is fixed here, and it derives from **recorded failure
-evidence, never from the absence of an outcome**: the boundary
-composes `recorded_failures` from the chain's qualified fulfillments —
+derivation is fixed here as **two blocker classes, distinct in
+derivation and in refusal reason** — because a single recorded-failures
+set faces a dilemma: deriving from attempt-without-recorded-outcome
+mints failure evidence from the very absence G4's negative pins, while
+excluding it outright reopens the discarded-terminal-record loophole
+intent-before-execution exists to close (intent appends, replay fails,
+the terminal record is discarded, the intent survives — and an
+unreferenced successor would sail through).
 
-- a **verification record with a failing verdict** (kernel §3.3's
-  artifact: original run, replay run, equivalence rule, differences,
-  `(scope, verdict)`), joined through its referenced replay run to
-  that run's `spec_identity`; and
+**Class 1 — recorded failures**, from failure evidence actually
+recorded:
+
+- a **verification record with a failing verdict**, joined over the
+  stored surfaces that exist: the verification's `verifies` edge to
+  the assessment record, and that assessment facet's `spec` — the
+  stored verification facet is `{assessment, scope, verdict,
+  supersedes?}` and names no replay run, so the run-side join is not
+  constructible and is not claimed; and
 - a qualifying **`run-attempt` act-report** — the retained record of a
   post-intent attempt that minted no run, an execution refusal
-  included — joined to its fulfilled intent's `spec_identity`
+  included — joined to its fulfilled intent's `spec_identity`.
 
-— and supplies that set, never a caller-invented one, to
-`admit_successor`. **Attempt-without-recorded-outcome contributes
-nothing**: that status deliberately conflates crash, cancellation, and
-discarded outcome, and treating it as failure evidence would mint a
-recorded failure from the very absence G4's negative pins. The
-consequence is stated as G4's own bound, not hidden: an attempt whose
-failure was never recorded never blocks a successor — recorded-history
-completeness, applied to this rule itself. Production intents carry no
-spec and contribute nothing; the existing value-state sources are
-unchanged beside the derived members. Cut 11's G4 positive arm
-exercises the composition end to end — the recorded failure evidence,
-the derived member, `admit_successor`'s refusal, one path —
+**Class 2 — unfinished recorded attempts**, the must-reference
+blocker: every **assessment-run** intent whose qualification reads
+attempt-without-recorded-outcome contributes its `spec_identity` — not
+as a recorded failure, which it is not, but as a durable attempt whose
+resolution is unrecorded: the intent's survival is exactly what
+intent-before-execution made visible, and it blocks an unreferenced
+successor until referenced or resolved.
+
+The successor gate consumes the two classes **distinctly** and refuses
+with distinct reasons — "an unreferenced successor to a recorded
+failed replay" and "an unreferenced successor to an unfinished
+recorded attempt" — a widening of `admit_successor`'s surface that is
+this slice's, with a referencing successor lifting either class. Both
+compositions are the boundary's read over the corpus stored surface
+and the chain's qualification report — never the evaluator's `records`
+capture, whose namespaces are unchanged — and never a caller-invented
+set. Production intents carry no spec and contribute nothing; the
+existing value-state sources are unchanged beside the derived members.
+G4's negative bound survives untouched: discard the attempt *and* its
+intent — nothing durable — and no class holds a trace. Cut 11's G4
+positive arm exercises all three refusal paths end to end,
 acknowledging cut 3's full disposition as the value-width
 certification this re-reads at persistence width.
 

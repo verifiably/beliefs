@@ -148,18 +148,22 @@ worktree removal.
     attempt-without-recorded-outcome in every report over the chain,
     and discarding the failed *fulfillment* while the intent survives
     moves qualification, never erases the attempt. The unreferenced
-    successor is refused **through the spec §5 derivation, exercised
-    end to end from recorded failure evidence**: a qualifying
-    `run-attempt` refusal report — and, separately, a failing
-    verification joined through its replay run — yields the derived
-    `spec_identity` member, and `admit_successor` refuses, one path,
-    never a hand-built set, so the arm cannot pass by re-running
-    cut 3's value-width test (§1's acknowledgment). The arm also
-    asserts the exclusion: an intent reading
-    attempt-without-recorded-outcome contributes **no** derived
-    member — the absence of an outcome is not failure evidence, the
-    spec §5 bound. This is kernel §8.7's fourth recorded-mutation
-    consequence, closed through the reduction;
+    successor is refused **through the spec §5 two-class derivation,
+    all three paths exercised end to end**: a qualifying `run-attempt`
+    refusal report joined to its intent's `spec_identity`, and a
+    failing verification joined through its `verifies` edge to the
+    assessment record's `spec` — each a **recorded-failure** member
+    with that refusal reason — and, separately, the
+    discarded-terminal-record sequence itself: intent appends, replay
+    fails, the terminal record is discarded, the intent survives
+    reading attempt-without-recorded-outcome, and the unreferenced
+    successor is **still refused**, as an **unfinished recorded
+    attempt** with that distinct reason, never labeled a recorded
+    failure. Never a hand-built set, so the arm cannot pass by
+    re-running cut 3's value-width test (§1's acknowledgment); a
+    referencing successor is asserted to lift each class. This is
+    kernel §8.7's fourth recorded-mutation consequence, closed through
+    the reduction;
   - **(u2)** the **negative half, pinning the limit**: discard the
     failed attempt *entirely* — no intent appended, nothing durable —
     and the system **cannot** detect it: crash, cancellation, and
