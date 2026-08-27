@@ -53,8 +53,10 @@ change ships with this slice); this cut certifies Science's reduction,
 report, capture, boundary sequence, codec, and consumers over the chains
 and results those productions return.** Every fabricated chain must pass
 `inspect_chain` — or present exactly its one intended defect — and every
-fabricated stored record must decode through the stored surface,
-asserted at declaration time (§5).
+fabricated stored record must decode through the stored surface **or be
+rejected at exactly its intended layer with no earlier defect** — one
+rule, stated with its per-arm layers in §5 — asserted at declaration
+time.
 
 Single-homing governs two prior certifications this cut touches but
 never re-reads: the L7 **chain-structural** units are cut 8's (its §3.1
@@ -88,8 +90,10 @@ worktree removal.
 | L7 | Intent claims are exactly as wide as stated | assessment-run intent with **no pointers at all, or every `fulfills` pointer fully resolved and non-qualifying** — §6's exact reduction, never a collapse of an unresolved candidate → attempt-without-recorded-outcome finding, never a refutation; excise the intent entry after anchoring → **malformed** (interior linkage break) or, via truncation to a valid prefix, **refuted** — never silent; a second committed registration fulfilling the same intent, or a `fulfills` naming a missing or non-ancestor intent → **malformed**; mutate the fulfillment itself — a wrong-purpose committed transaction carrying `fulfills = I`, a run publication under another spec, another `event_token`, or a publication creating no run → each **fails qualification** (§3), the intent stays attempt-without-recorded-outcome, and the non-qualifying `fulfills` is named in a finding; make a **genuine** published run's bytes unresolvable → qualification **unresolvable**, and **no** unmatched finding is emitted (§6's reduction); kill between the intent's durable append and execution start → intent present, no execution — attempt-without-recorded-outcome, exactly as stated; race two cooperative intent appends on one root → serialized by the root lease, one linear chain, never a sibling branch (L3); attempt to publish the run through a root other than the intent's → **refused**, placement froze before execution; assert no caller-supplied `fulfills` path exists at the boundary; **negative:** crash, cancellation, and discarded failure are indistinguishable by construction; the guarantee quantifies over **both** intent kinds — instantiated for the holdings shape, a wrong-location observation, a wrong token, or a publication creating no observation each **fails qualification**; a kill between a holdings intent's append and its mutation reads attempt-without-recorded-outcome, exactly as stated *(amended 2026-08-10, the verified-holdings record design §8)*; the guarantee now quantifies over the **operation intent** too — instantiated for its shape, a report carrying another operation's token, a report of the wrong kind, a run publication for a non-run operation, or a registration publishing no terminal record each **fails qualification** (a second fulfilling registration on one intent stays the chain's **malformed**, classified before qualification — T2's arm), and a kill between the operation intent's append and its first act reads attempt-without-recorded-outcome, exactly as stated *(amended 2026-08-11, the act-report design §3)* |
 
 - **Partial.** Selected (13 units), the row's entire remaining width —
-  the chain-structural arms stay cut 8's and the holdings-shape arms
-  stay cut 10's (§1's single-homing), and **L7u1's partial remainder
+  the chain-structural arms stay cut 8's (§1's single-homing), the
+  holdings-shape arms re-run through label 12's matrix over the
+  regenerated interior (§1's corrected ownership), and **L7u1's partial
+  remainder
   persists**: the non-ancestor `fulfills` spelling remains
   directory-unconstructible, unchanged by anything this slice builds,
   its reason restated from cut 8's §3.1 refinement. The units:
@@ -145,13 +149,17 @@ worktree removal.
     and discarding the failed *fulfillment* while the intent survives
     moves qualification, never erases the attempt. The unreferenced
     successor is refused **through the spec §5 derivation, exercised
-    end to end**: the boundary composes `recorded_failures` from the
-    qualification reduction over the chain — the durable append, the
-    non-qualifying fulfillment, the derived `spec_identity` member,
-    and `admit_successor`'s refusal, one path — never a hand-built
-    set, so the arm cannot pass by re-running cut 3's value-width
-    test (§1's acknowledgment). This is kernel §8.7's fourth
-    recorded-mutation consequence, closed through the reduction;
+    end to end from recorded failure evidence**: a qualifying
+    `run-attempt` refusal report — and, separately, a failing
+    verification joined through its replay run — yields the derived
+    `spec_identity` member, and `admit_successor` refuses, one path,
+    never a hand-built set, so the arm cannot pass by re-running
+    cut 3's value-width test (§1's acknowledgment). The arm also
+    asserts the exclusion: an intent reading
+    attempt-without-recorded-outcome contributes **no** derived
+    member — the absence of an outcome is not failure evidence, the
+    spec §5 bound. This is kernel §8.7's fourth recorded-mutation
+    consequence, closed through the reduction;
   - **(u2)** the **negative half, pinning the limit**: discard the
     failed attempt *entirely* — no intent appended, nothing durable —
     and the system **cannot** detect it: crash, cancellation, and
@@ -280,10 +288,13 @@ outside the frozen rows, declared as data beside the selected arms:
     shape each reads; and, because cut 10 certified the hand-maintained
     interior this slice replaces (§1), **cut 10's holdings
     qualification matrix re-runs through both holdings consumers over
-    the regenerated interior**: matched, unresolved (the unsettled
-    registration), rolled-back, wrong-location, wrong-token, and
-    no-observation, each answering identically to the certified
-    behavior (spec §2.5, §4).
+    the regenerated interior**: matched; **both unresolved
+    constructions** — the unsettled registration, and the settled
+    final holdings-layout file row with no captured record (cut 10's
+    precedence distinguishes them, and a regenerated rule mishandling
+    missing-record evidence must fail here); rolled-back;
+    wrong-location; wrong-token; and no-observation, each answering
+    identically to the certified behavior (spec §2.5, §4).
 13. **Positive qualification — the reducer can match.** Every §2.2
     alternative is read to `matched` with `fulfilled_by` set, each
     through the full round trip — append, execute, publish, capture,
@@ -293,6 +304,9 @@ outside the frozen rows, declared as data beside the selected arms:
     that minted no run; a non-run operation intent matched by its
     **act-report** of the intent's kind; a production-run operation
     intent matched by its **minted run** of shape `dataset-production`;
+    a production-run operation intent whose attempt minted no run,
+    matched by its **`run-attempt` act-report** — the §2.2
+    when-none-is-minted alternative;
     and the holdings matched case running inside label 12's matrix. A
     reducer that never matches fails this label before any negative arm
     is reached (spec §2.2, §6).

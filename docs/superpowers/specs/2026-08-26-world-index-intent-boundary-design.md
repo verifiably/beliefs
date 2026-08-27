@@ -58,7 +58,11 @@ into the port's two publication methods — the executor is broader than
 the qualifying-publication boundary (§3.1). **Amended a twelfth time
 2026-08-27** (cut 11's second reading): the durable derivation of
 `admit_successor`'s `recorded_failures` from the qualification
-reduction (§5).
+reduction (§5). **Amended a thirteenth time 2026-08-27** (cut 11's
+third reading): the derivation corrected to derive from **recorded
+failure evidence** — the failing verification and the retained refusal
+report — with attempt-without-recorded-outcome contributing nothing,
+its exclusion stated as G4's own bound (§5).
 **Inherits:** `2026-08-03-tamper-evident-log-design.md` §6 as amended — the
 qualification reduction this slice implements at its full stated width: the
 matched / unresolvable / attempt-without-recorded-outcome precedence, the
@@ -662,16 +666,31 @@ together with every anchor holding it is not detectable from nothing.
 slice's value state", certified at that width by cut 3 — so without a
 frozen derivation the durable reduction and the refusal would never
 compose, and G4's closure could be claimed over a hand-built set. The
-derivation is fixed here: the boundary composes `recorded_failures`
-from the qualification reduction over the observer-corpus chain —
-every **assessment-run** intent whose qualification reads
-attempt-without-recorded-outcome contributes its `spec_identity` — and
-supplies that set, never a caller-invented one, to
-`admit_successor`. Production intents carry no spec and contribute
-nothing; the existing value-state sources are unchanged beside the
-derived members. Cut 11's G4 positive arm exercises the composition
-end to end — durable append, no qualifying fulfillment, derivation,
-refusal — acknowledging cut 3's full disposition as the value-width
+derivation is fixed here, and it derives from **recorded failure
+evidence, never from the absence of an outcome**: the boundary
+composes `recorded_failures` from the chain's qualified fulfillments —
+
+- a **verification record with a failing verdict** (kernel §3.3's
+  artifact: original run, replay run, equivalence rule, differences,
+  `(scope, verdict)`), joined through its referenced replay run to
+  that run's `spec_identity`; and
+- a qualifying **`run-attempt` act-report** — the retained record of a
+  post-intent attempt that minted no run, an execution refusal
+  included — joined to its fulfilled intent's `spec_identity`
+
+— and supplies that set, never a caller-invented one, to
+`admit_successor`. **Attempt-without-recorded-outcome contributes
+nothing**: that status deliberately conflates crash, cancellation, and
+discarded outcome, and treating it as failure evidence would mint a
+recorded failure from the very absence G4's negative pins. The
+consequence is stated as G4's own bound, not hidden: an attempt whose
+failure was never recorded never blocks a successor — recorded-history
+completeness, applied to this rule itself. Production intents carry no
+spec and contribute nothing; the existing value-state sources are
+unchanged beside the derived members. Cut 11's G4 positive arm
+exercises the composition end to end — the recorded failure evidence,
+the derived member, `admit_successor`'s refusal, one path —
+acknowledging cut 3's full disposition as the value-width
 certification this re-reads at persistence width.
 
 G4 closes at this slice's discharge; the G2a-ordering row is untouched.
