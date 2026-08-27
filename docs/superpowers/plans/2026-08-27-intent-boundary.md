@@ -104,6 +104,21 @@ validator-established casts; Task 2's commit carries
 the u13 kill twin's full body, with `test_run_persistence.py` in its
 Files list and commit (the Task 4 kill test also drops its unused
 `digest` binding).
+**Revised an eighth time 2026-08-27** (eighth plan review): the
+verifier's matrix observation lives under its own identity-derived
+path (`decode_record`'s path↔id binding refuses any other), and Task
+12's `holdings_wire`/`observation_record`/`agreement_case` helpers are
+literal code in one complete ruff-clean file; the arm count states 32
+(the lettered arms) everywhere while the units stay 26; the run
+decoder spells its expected id through `run_ref` — the consumers' one
+authority — and J8b's mutation rebases onto that line; the durable
+sequence test narrows `decode_run_record`'s optional return; and every
+full-file snippet now passes the repo's exact `ruff check` gate
+(verified by extracting each block into the tree and running the
+gate): import sections ordered first-party-last, `IdentityError`
+imported and unused names dropped in `evidence.py`, `n2_arms_cut11.py`
+gains its docstring and `from n2_arms import Arm, Sabotage` header,
+and `world/records.py` is spelled once in full at Task 7.
 
 **Goal:** Land the general qualification reduction over the closed
 three-shape intent union, the verifier's `qualification` report contract,
@@ -433,8 +448,15 @@ git commit -m "feat(identity): export v1.decode with CanonicalTextRefused"
   from pathlib import PurePosixPath  # noqa: F401 — builders below
 
   from science.recipe import (
-      BoundaryPolicy, BoundaryReceipt, EnvironmentManifest, Invocation,
-      Occurrence, Recipe, RecipeInput, ResultManifest, RunClosure,
+      BoundaryPolicy,
+      BoundaryReceipt,
+      EnvironmentManifest,
+      Invocation,
+      Occurrence,
+      Recipe,
+      RecipeInput,
+      ResultManifest,
+      RunClosure,
   )
   from science.report import ActReport, Entry, RunAttemptEntry, RunRefusal, _mint_report
   from science.spec import Deterministic, RealizedSeeds
@@ -551,11 +573,11 @@ from decimal import Decimal
 from typing import cast
 
 import pytest
-
 from closure_fixtures import make_closure as build_closure
 from nodes.core.frontmatter import node_from_markdown
+
 from science import runrecord, stored
-from science.errors import CanonicalTextRefused, MalformedRecord
+from science.errors import MalformedRecord
 from science.identity import v1
 from science.recipe import RunClosure
 
@@ -581,7 +603,7 @@ def test_projection_text_digests_to_the_address(assessment_closure) -> None:
 
 
 def test_decode_round_trip_reads_shape_spec_and_token(assessment_closure) -> None:
-    _, path, (op,) = runrecord.publication_plan(assessment_closure, produces=None)
+    _, _, (op,) = runrecord.publication_plan(assessment_closure, produces=None)
     node = node_from_markdown(op.content.decode("utf-8"))
     publication = runrecord.decode_run_record(node)
     assert publication == runrecord.RunPublication(
@@ -1214,7 +1236,9 @@ def decode_run_record(node: Node) -> RunPublication | None:
     data = facet["projection"].encode("utf-8")
     parsed = decode_projection(data)
     address = v1.digest(RUN_DOMAIN, parsed)
-    if node.id != f"run:{address}":
+    # The bridge is the consumers' one spelling authority — the decoder
+    # spells the expected id through it, never by hand.
+    if node.id != run_ref(address):
         raise MalformedRecord(f"{node.id}: the recomputed address {address} is not the record id")
     recipe = cast(dict[str, object], parsed["recipe"])
     shape = cast(str, recipe["shape"])
@@ -1565,18 +1589,18 @@ In `test_run_persistence.py`:
 
 ```python
 import pytest
-
 from fixtures_cut3 import run_assessment, run_production
 from nodes.core.errors import ExecutionError
 from nodes.core.frontmatter import node_from_markdown
 from nodes.core.write_plan import CreateOp
+from test_operation_port import durable_port
+
 from science import root as science_root
 from science import runrecord, stored
 from science.boundary import RunMinted, RunRefused
 from science.production import mint_dataset
-from science.world.logmodel import IntentEntryView, RegisteredEntryView, WellFormedView
-from test_operation_port import durable_port
 from science.root import init_corpus_root
+from science.world.logmodel import IntentEntryView, RegisteredEntryView, WellFormedView
 
 
 def _observer_port(tmp_path):
@@ -1604,6 +1628,7 @@ def test_assessment_sequence_appends_intent_then_publishes_fulfilling(tmp_path) 
     address = result.run.address()
     record = (root / "run" / f"{address}.md").read_bytes()
     publication = runrecord.decode_run_record(node_from_markdown(record.decode("utf-8")))
+    assert publication is not None  # decode returns None for legacy records; narrow it
     assert publication.address == address
     assert publication.spec_identity == result.run.recipe.spec_identity
     assert publication.event_token == result.intent.event_token
@@ -2136,10 +2161,10 @@ def test_the_built_holdings_boundary_payload_decodes_unicode_included() -> None:
     # The official writer emits json.dumps(..., ensure_ascii=True): actor
     # "é" arrives as é — valid holdings intent, not v1-canonical text.
     # The dialect owns holdings parsing, so it decodes (never "undecodable").
+    from collections.abc import Mapping
+
     from science.holdings.boundary import intent_payload
     from science.holdings.records import StoreLocator
-
-    from collections.abc import Mapping
 
     payload = intent_payload(
         location=StoreLocator(store_id="0" * 32, relative_path="a/b"),
@@ -2534,9 +2559,17 @@ def test_ceiling_boundary_exact_captures_one_over_withholds(certified_work) -> N
 
 - [ ] **Step 2: Run to verify failure** (`AttributeError: capture_records`).
 
-- [ ] **Step 3: Implement**
+- [ ] **Step 3: Implement** — `world/records.py` in full (this replaces
+  Task 3's slice wholesale; the docstring widens and `RECORD_CEILING`
+  carries over byte-identical, so the writer-side import and J3a's
+  sabotage anchor are undisturbed):
 
 ```python
+"""The published-record evidence surface: the shared ceiling and the
+fd-anchored, classified, bounded capture."""
+
+from __future__ import annotations
+
 import os
 import stat
 from pathlib import Path
@@ -2544,6 +2577,11 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from science.world.verify import RootKind
+
+RECORD_CEILING = 8 * 1024 * 1024
+"""2^23 bytes — one constant, two enforcement points: the reader's
+ceiling-plus-one bounded capture and the port's pre-construction check
+(spec §3.1). A payload of exactly the ceiling passes both."""
 
 RECORD_NAMESPACES = ("run", "act-report", "holdings-observation")
 """The published-record namespaces the shapes read (spec §3.1): run
@@ -2556,7 +2594,7 @@ def _leaf_seam(path: str) -> None:
     in production; never remove the call sites."""
 
 
-def capture_records(root: Path, kind: "RootKind") -> tuple[tuple[str, bytes], ...]:
+def capture_records(root: Path, kind: RootKind) -> tuple[tuple[str, bytes], ...]:
     if kind != "corpus":
         return ()
     captured: list[tuple[str, bytes]] = []
@@ -2701,9 +2739,9 @@ git commit -m "feat(records): fd-anchored classified bounded record capture"
 """Captured bytes -> qualification evidence (spec §3.1)."""
 
 import pytest
-
 from closure_fixtures import make_closure, sample_report
 from nodes.core.frontmatter import node_to_markdown
+
 from science import stored
 from science.errors import RecordUndecodable
 from science.holdings.records import Found, StoreLocator, holdings_observation
@@ -2753,6 +2791,7 @@ def test_legacy_run_is_inert_not_undecodable() -> None:
 
 def test_stale_stamp_is_undecodable(assessment_closure) -> None:
     from nodes.core.frontmatter import node_from_markdown
+
     from science.runrecord import publication_plan
 
     _, path, (op,) = publication_plan(assessment_closure, produces=None)
@@ -2790,8 +2829,6 @@ def test_a_record_under_the_wrong_path_or_name_is_undecodable(sample_act_report)
 
 
 def test_a_malformed_act_report_entry_is_undecodable(sample_act_report) -> None:
-    from nodes.core.frontmatter import node_from_markdown
-
     node = stored.act_report_node(sample_act_report)
     node.facets["act-report"]["entries"].append({"kind": "not-an-entry"})
     node.facets["semantic-identity"] = {"digest": stored.recompute_semantic_hash(node)}
@@ -2839,11 +2876,15 @@ from __future__ import annotations
 
 from nodes.core.errors import NodesError
 from nodes.core.frontmatter import node_from_markdown
-from nodes.core.node import Node
 from yaml import YAMLError
 
 from science import runrecord, stored
-from science.errors import CanonicalTextRefused, MalformedRecord, RecordUndecodable
+from science.errors import (
+    CanonicalTextRefused,
+    IdentityError,
+    MalformedRecord,
+    RecordUndecodable,
+)
 from science.intents.shapes import (
     InertRecord,
     ObservationEvidence,
@@ -2917,7 +2958,7 @@ def decode_record(path: str, payload: bytes) -> RunEvidence | ReportEvidence | O
 `_location`; assert equality against
 `decode_holdings_intent`'s output in a test. Check `StoreLocator`'s
 field names against `science/holdings/records.py` before writing the
-last block. `IdentityError` joins the imports from `science.errors`.)
+last block.)
 
 The `stored.py` extraction: move `_REPORT_ENTRY_OUTCOMES`,
 `_valid_report_entry`, and the body of
@@ -3008,7 +3049,11 @@ from science.holdings.records import Found, StoreLocator, holdings_observation
 from science.identity import v1
 from science.intents.reduce import IntentQualification, qualify_chain
 from science.recipe import RunClosure
-from science.world.logmodel import IntentEntryView, RegisteredEntryView, SettledEntryView
+from science.world.logmodel import (
+    IntentEntryView,
+    RegisteredEntryView,
+    SettledEntryView,
+)
 
 
 def _publication(closure: RunClosure) -> tuple[str, bytes]:
@@ -3161,7 +3206,7 @@ def test_every_resolved_non_qualifying_pointer_is_named_with_its_reason(
     assert "reason=wrong-spec" in findings[2].detail
     assert "reason=wrong-token" in findings[3].detail
     assert "reason=no-record" in findings[4].detail
-    assert all(f"intent=i1" in f.detail for f in findings[1:])
+    assert all("intent=i1" in f.detail for f in findings[1:])
 
 
 def test_unresolvable_wins_over_non_qualifying_and_emits_nothing(run_path) -> None:
@@ -3759,35 +3804,101 @@ constants — import them); its blocked projection reports a
 non-qualified intent's location with reason `"unsettled"` (the
 certified `test_unmatched_and_unresolved_intents_block_distinctly`
 behavior). The verifier side runs `qualify_chain` over entry views and
-records built to state the same facts:
+records built to state the same facts. The complete file — note the
+verifier's captured record lives under its **own identity-derived
+path** (`holdings-observation/<value.identity()>.md`): `decode_record`
+binds path↔kind↔id, so bytes stored under any other name read as a
+wrongly-named publication and never match. The rule side keeps its own
+`REF_A` spelling — each consumer states the facts in its own
+vocabulary:
 
 ```python
+"""Three-site consumer agreement: the rule, the verifier, completion (label 12)."""
+
 import pytest
+from closure_fixtures import make_closure, sample_report
+from nodes.core.frontmatter import node_to_markdown
 from test_holdings_reduce import (
-    LOCATION, OTHER_LOCATION, REF_A,
-    capture, corpus, file_row, intent, invoke, observation, registration, settlement,
+    LOCATION,
+    OTHER_LOCATION,
+    REF_A,
+    capture,
+    corpus,
+    file_row,
+    intent,
+    invoke,
+    observation,
+    registration,
+    settlement,
 )
 from test_intent_reduce import FakeFile, _facts
+
+from science import stored
+from science.holdings.boundary import intent_payload
+from science.holdings.records import Found, StoreLocator, holdings_observation
 from science.identity import v1
 from science.intents.reduce import qualify_chain
-from science.world.logmodel import IntentEntryView, RegisteredEntryView, SettledEntryView
+from science.report import (
+    CLOSED,
+    UNFINISHED,
+    AssessmentRunIntent,
+    OperationIntent,
+    Registration,
+    completion,
+)
+from science.runrecord import publication_plan
+from science.world.logmodel import (
+    IntentEntryView,
+    RegisteredEntryView,
+    SettledEntryView,
+)
 
-OBSERVATION_PATH = f"holdings-observation/{REF_A}.md"
+OBSERVATION_PATH = f"holdings-observation/{REF_A}.md"  # the RULE side's spelling
+ABSENT_RECORD_PATH = "holdings-observation/" + "0" * 64 + ".md"  # named, never captured
 
-# case -> (observation kwargs | None, registration/settlement shape, verifier status, rule blocks the location?)
+
+def _locator(location: str) -> StoreLocator:
+    _, store_id, relative_path = location.split(":", 2)
+    return StoreLocator(store_id, relative_path)
+
+
+def holdings_wire(*, location: str, token: str) -> bytes:
+    # The real writer's bytes (holdings/boundary.py:39) — ensure_ascii,
+    # sorted keys, the dialect's own canonical spelling.
+    return intent_payload(location=_locator(location), act_kind="write", event_token=token, actor="actor")
+
+
+def observation_record(*, location: str, token: str) -> tuple[str, bytes]:
+    # The stored observation under its own identity-derived path — the only
+    # path decode_record accepts (the path↔id binding); a hard-coded path
+    # would read as a wrongly-named publication and never match.
+    value = holdings_observation(
+        location=_locator(location),
+        outcome=Found("sha256:" + "1" * 64),
+        observer="observer",
+        instrument="instrument",
+        event_token=token,
+        observed_at="2026-01-01T00:00:00Z",
+    )
+    node = stored.holdings_observation_node(value)
+    return f"holdings-observation/{value.identity()}.md", node_to_markdown(node).encode("utf-8")
+
+
+# case -> (observation location/token | None, registration/settlement shape,
+#          verifier status, rule blocks the location?)
 MATRIX = {
-    "matched": (dict(location=LOCATION, token="tok"), "settled-file", "matched", False),
-    "unresolved-unsettled-registration": (dict(location=LOCATION, token="tok"), "unsettled", "unresolvable", True),
+    "matched": ({"location": LOCATION, "token": "tok"}, "settled-file", "matched", False),
+    "unresolved-unsettled-registration": ({"location": LOCATION, "token": "tok"}, "unsettled", "unresolvable", True),
     "unresolved-settled-file-row-no-captured-record": (None, "settled-file", "unresolvable", True),
-    "rolled-back": (dict(location=LOCATION, token="tok"), "rolled-back", "attempt-without-recorded-outcome", True),
-    "wrong-location": (dict(location=OTHER_LOCATION, token="tok"), "settled-file", "attempt-without-recorded-outcome", True),
-    "wrong-token": (dict(location=LOCATION, token="other"), "settled-file", "attempt-without-recorded-outcome", True),
+    "rolled-back": ({"location": LOCATION, "token": "tok"}, "rolled-back", "attempt-without-recorded-outcome", True),
+    "wrong-location": ({"location": OTHER_LOCATION, "token": "tok"}, "settled-file", "attempt-without-recorded-outcome", True),
+    "wrong-token": ({"location": LOCATION, "token": "other"}, "settled-file", "attempt-without-recorded-outcome", True),
     "no-observation": (None, "settled-no-record", "attempt-without-recorded-outcome", True),
 }
 
 
 @pytest.mark.parametrize("case", sorted(MATRIX))
-def test_holdings_matrix_agrees_across_both_consumers(case, holdings_intent_payload) -> None:
+def test_holdings_matrix_agrees_across_both_consumers(case) -> None:
     observation_kwargs, shape, verifier_status, rule_blocks = MATRIX[case]
 
     # --- the rule, over the regenerated interior -------------------------
@@ -3803,43 +3914,25 @@ def test_holdings_matrix_agrees_across_both_consumers(case, holdings_intent_payl
     assert (LOCATION in blocked_locations) is rule_blocks
 
     # --- the verifier, over the same facts -------------------------------
-    entries = [IntentEntryView(digest="i1", payload=holdings_intent_payload(location=LOCATION, token="tok"))]
-    records = {}
+    entries = [IntentEntryView(digest="i1", payload=holdings_wire(location=LOCATION, token="tok"))]
+    records: dict[str, bytes] = {}
     if observation_kwargs:
-        records[OBSERVATION_PATH] = observation_record_bytes(REF_A, **observation_kwargs)
-    final = ((OBSERVATION_PATH, FakeFile("f")),) if shape.startswith("settled-file") else ()
-    entries.append(RegisteredEntryView(digest="r1", txid="t1", initial=(), final=final, fulfills="i1"))
+        record_path, record_bytes = observation_record(**observation_kwargs)
+        records[record_path] = record_bytes
+    else:
+        record_path = ABSENT_RECORD_PATH
+    final_rows = ((record_path, FakeFile("f")),) if shape.startswith("settled-file") else ()
+    entries.append(RegisteredEntryView(digest="r1", txid="t1", initial=(), final=final_rows, fulfills="i1"))
     if shape != "unsettled":
         entries.append(SettledEntryView(digest="s1", txid="t1", registration="r1",
                                         committed=shape != "rolled-back"))
     verifier_rows, _ = qualify_chain(tuple(entries), records, state_facts=_facts)
     assert verifier_rows[0].status == verifier_status
-```
-
-`holdings_intent_payload` builds the wire payload through
-`science.holdings.boundary.intent_payload` (the real writer);
-`observation_record_bytes` builds the stored record through
-`science.holdings.records.holdings_observation` +
-`stored.holdings_observation_node` + `node_to_markdown` with the same
-location/token — both small fixtures written in this file, mapping
-`LOCATION`'s `store:<id>:<path>` spelling back to its
-store-id/relative-path parts with `LOCATION.split(":", 2)`. A
-regenerated rule mishandling missing-record evidence fails the
-`unresolved-settled-file-row-no-captured-record` row on the rule side;
-a verifier diverging on any row fails the same test on its side.
-
-And the run/operation agreement between verifier and `completion` — one
-table, every §2.2 alternative and every sabotage:
-
-```python
-from science.report import (
-    CLOSED, UNFINISHED, AssessmentRunIntent, OperationIntent, Registration, completion,
-)
 
 
-def _verifier_status(intent_payload, record_path, record_bytes):
+def _verifier_status(wire_payload: bytes, record_path: str, record_bytes: bytes) -> str:
     entries = (
-        IntentEntryView(digest="i1", payload=intent_payload),
+        IntentEntryView(digest="i1", payload=wire_payload),
         RegisteredEntryView(digest="r1", txid="t1", initial=(),
                             final=((record_path, FakeFile("f")),), fulfills="i1"),
         SettledEntryView(digest="s1", txid="t1", registration="r1", committed=True),
@@ -3848,7 +3941,48 @@ def _verifier_status(intent_payload, record_path, record_bytes):
     return rows[0].status
 
 
-@pytest.mark.parametrize("held_intent,closure_fixture,expected", [
+_INTENTS = {
+    "matching-assessment": AssessmentRunIntent("s" * 64, "tok", "actor"),
+    "wrong-spec-assessment": AssessmentRunIntent("x" * 64, "tok", "actor"),
+    "wrong-token-assessment": AssessmentRunIntent("s" * 64, "other", "actor"),
+    "production-run-attempt": OperationIntent("run-attempt", "tok", "actor"),
+    "non-run-import": OperationIntent("import", "tok", "actor"),
+}
+
+
+def _wire(value: AssessmentRunIntent | OperationIntent) -> bytes:
+    if type(value) is AssessmentRunIntent:
+        return v1.encode(
+            {"spec_identity": value.spec_identity, "event_token": value.event_token, "actor": value.actor}
+        )
+    return v1.encode({"kind": value.kind, "event_token": value.event_token, "actor": value.actor})
+
+
+def _held(name: str) -> tuple[object, str, bytes]:
+    if name == "assessment":
+        closure = make_closure()
+        _, path, (op,) = publication_plan(closure, produces=None)
+        return closure, path, op.content
+    if name == "production":
+        closure = make_closure(shape="dataset-production")
+        _, path, (op,) = publication_plan(closure, produces="dataset:" + "d" * 64)
+        return closure, path, op.content
+    operation = {"run-attempt-report": "run-attempt", "import-report": "import", "audit-report": "audit"}[name]
+    report = sample_report(operation=operation, token="tok")
+    node = stored.act_report_node(report)
+    return report, f"act-report/{report.identity()}.md", node_to_markdown(node).encode("utf-8")
+
+
+def agreement_case(held_intent: str, closure_fixture: str) -> tuple:
+    # The five aligned values per pair: the in-memory intent, its wire
+    # payload, the held value completion reads, and the published bytes
+    # under their record path for the verifier.
+    value = _INTENTS[held_intent]
+    held_value, record_path, record_bytes = _held(closure_fixture)
+    return value, _wire(value), held_value, record_path, record_bytes
+
+
+@pytest.mark.parametrize(("held_intent", "closure_fixture", "expected"), [
     # (the in-memory intent, which published closure/report fulfills it, CLOSED?)
     ("matching-assessment", "assessment", CLOSED),
     ("wrong-spec-assessment", "assessment", UNFINISHED),          # the §2.5 pin
@@ -3859,12 +3993,8 @@ def _verifier_status(intent_payload, record_path, record_bytes):
     ("non-run-import", "import-report", CLOSED),
     ("non-run-import", "audit-report", UNFINISHED),                # wrong-kind
 ])
-def test_run_shapes_agree_between_verifier_and_completion(
-    held_intent, closure_fixture, expected, agreement_case
-) -> None:
-    intent_value, wire_payload, held_value, record_path, record_bytes = agreement_case(
-        held_intent, closure_fixture
-    )
+def test_run_shapes_agree_between_verifier_and_completion(held_intent, closure_fixture, expected) -> None:
+    intent_value, wire_payload, held_value, record_path, record_bytes = agreement_case(held_intent, closure_fixture)
     held_answer = completion(
         intent_value, (Registration(intent_value.event_token, "pointer"),), {"pointer": held_value}
     )
@@ -3873,14 +4003,12 @@ def test_run_shapes_agree_between_verifier_and_completion(
     assert (status == "matched") is (expected == CLOSED)  # the two consumers agree
 ```
 
-`agreement_case` is one fixture returning the five aligned values per
-pair: the in-memory intent (`AssessmentRunIntent`/`OperationIntent`
-with token `"tok"`, spec `"s" * 64` or `"x" * 64` per the sabotage),
-its wire payload (`v1.encode` of its fields), the held value
-(`closure_fixtures.make_closure` / `closure_fixtures.sample_report`
-with the named operation), and the published bytes
-(`runrecord.publication_plan` / `stored.act_report_node` +
-`node_to_markdown`).
+A regenerated rule mishandling missing-record evidence fails the
+`unresolved-settled-file-row-no-captured-record` row on the rule side;
+a verifier diverging on any row fails the same test on its side. The
+`agreement_case` helper returns the five aligned values per pair; a
+divergence between `completion` and the verifier fails the agreement
+assertion on the exact row that diverged.
 
 - [ ] **Step 2–4: Run, implement any divergence surfaced (a divergence
   is a bug in Tasks 5–11 — fix it there, never by widening the test),
@@ -3928,6 +4056,14 @@ git commit -m "test(intents): three-site consumer agreement and the label-12 mat
   partition:
 
 ```python
+"""Cut 11's declared arms and citations: 13 selected + 13 labeled = 26 units.
+
+L7u12's second-fulfilling-registration classification stays cut 8's —
+cited here, never an arm of this cut.
+"""
+
+from n2_arms import Arm, Sabotage
+
 CUT11_ARMS = (
     Arm("L7u1", "no pointers reads the attempt finding, never a refutation",
         Sabotage("intents/reduce.py",
@@ -4093,7 +4229,7 @@ CUT11_ARMS = (
         ("test_runrecord.py::test_reversed_result_pairs_fail_canonical_reprojection",)),
     Arm("J8b", "decode verifies the recomputed address against the record id",
         Sabotage("runrecord.py",
-                 before='if node.id != f"run:{address}":',
+                 before="if node.id != run_ref(address):",
                  after="if False:"),
         ("test_runrecord.py::test_closure_member_mutation_diverges_from_the_id",)),
     Arm("J9a", "the closure facet is semantic-hash covered",
@@ -4284,9 +4420,11 @@ def declared_rows() -> tuple[str, ...]:
 
 
 class TestTheDeclarationTable:
-    def test_the_declared_arms_are_unique_and_number_twenty_nine(self):
+    def test_the_declared_arms_are_unique_and_number_thirty_two(self):
+        # 12 armed L7 units (u5 is a citation) + 3 extra L7u2 members
+        # + 13 J units + 4 extra paired-J members = 32 lettered arms.
         rows = declared_rows()
-        assert len(rows) == len(set(rows)) == len(CUT11_ARMS) == 29
+        assert len(rows) == len(set(rows)) == len(CUT11_ARMS) == 32
 
     def test_the_labeled_units_appear_in_declaration_order(self):
         labeled = [unit_of(row) for row in declared_rows() if row.startswith("J")]
@@ -4442,6 +4580,7 @@ import pytest
 from closure_fixtures import make_closure, sample_report
 from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.write_plan import CreateOp
+from test_operation_port import durable_port
 
 from science import root as science_root
 from science import stored
@@ -4453,7 +4592,6 @@ from science.root import init_corpus_root
 from science.runrecord import bare_address, decode_run_record, publication_plan, run_ref
 from science.world.logmodel import IntentEntryView, WellFormedView
 from science.world.records import capture_records
-from test_operation_port import durable_port
 
 
 def _port(base, name):
@@ -4787,10 +4925,10 @@ Three phases, in order, each one a whole command:
 3. `tests/acceptance/test_n2_cut11.py` — cut 11's declaration accounting,
    its N2 audit, and the lettered-arm partition.
 
-Phase 3's pytest total covers the 29-arm sabotage audit plus the
+Phase 3's pytest total covers the 32-arm sabotage audit plus the
 accounting, partition, citation, and freeze checks over the same
 declarations. The command then prints the declared-arm count explicitly as
-`len(CUT11_ARMS)` — 29 arms normalizing to the 26 frozen units, pinned by
+`len(CUT11_ARMS)` — 32 lettered arms normalizing to the 26 frozen units, pinned by
 `test_the_partition_accounts_exactly_the_26_frozen_units` — never as
 another pytest total.
 
