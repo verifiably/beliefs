@@ -93,6 +93,17 @@ narrows `result.report` before dereferencing; and the durable test
 file's literal code imports `pytest` and `CreateOp`, drops the unused
 `stage` import, and discards the unused root binding in both mismatch
 tests.
+**Revised a seventh time 2026-08-27** (seventh plan review): every
+pytest fixture the tests name is literal code — the Task 2 closure
+fixtures, Task 8's three evidence wrappers, and Task 9's eight
+path/byte module fixtures; Task 2's tests narrow `v1.decode`'s object
+and index `decode_projection`'s nested views through
+validator-established casts; Task 2's commit carries
+`tests/closure_fixtures.py`; and Task 13 spells the complete
+`test_n2_cut11.py` harness and `tools/cut11_acceptance.py` runner and
+the u13 kill twin's full body, with `test_run_persistence.py` in its
+Files list and commit (the Task 4 kill test also drops its unused
+`digest` binding).
 
 **Goal:** Land the general qualification reduction over the closed
 three-shape intent union, the verifier's `qualification` report contract,
@@ -478,9 +489,9 @@ git commit -m "feat(identity): export v1.decode with CanonicalTextRefused"
   `COVERED_FACETS["run"]` gains it (line 187), new constructor
   `run_publication_node` beside `run_node` (line 492); `run_node` itself
   unchanged.
-- Test: `python/tests/test_runrecord.py` (new; its `assessment_closure`
-  / `production_closure` / `make_closure` fixtures are thin pytest
-  wrappers over `closure_fixtures.make_closure`)
+- Test: `python/tests/test_runrecord.py` (new; the `assessment_closure`
+  / `production_closure` / `make_closure` fixture definitions are
+  spelled in Step 1's code)
 
 **Interfaces:**
 - Consumes: `RunClosure.address()` (`recipe.py:495`),
@@ -537,13 +548,31 @@ way `tests/test_closure.py` does; copy its fixture idiom):
 """The closure-to-stored codec (spec §2.6 items 4–5)."""
 
 from decimal import Decimal
+from typing import cast
 
 import pytest
 
+from closure_fixtures import make_closure as build_closure
 from nodes.core.frontmatter import node_from_markdown
 from science import runrecord, stored
 from science.errors import CanonicalTextRefused, MalformedRecord
 from science.identity import v1
+from science.recipe import RunClosure
+
+
+@pytest.fixture
+def assessment_closure() -> RunClosure:
+    return build_closure()
+
+
+@pytest.fixture
+def production_closure() -> RunClosure:
+    return build_closure(shape="dataset-production")
+
+
+@pytest.fixture
+def make_closure():
+    return build_closure  # tests needing variants call the builder directly
 
 
 def test_projection_text_digests_to_the_address(assessment_closure) -> None:
@@ -590,9 +619,13 @@ def test_incomplete_closure_fails_the_view_not_the_codec() -> None:
 def test_reversed_result_pairs_fail_canonical_reprojection(production_closure) -> None:
     data = runrecord.projection_text(production_closure)
     parsed = v1.decode(data)
-    assert len(parsed["result"]) == 2  # the two-pair fixture: reversal is a real mutation
-    parsed["result"] = list(reversed(parsed["result"]))
-    assert parsed["result"] != sorted(parsed["result"])  # actually out of order now
+    assert isinstance(parsed, dict)  # v1.decode returns object; narrow it
+    # `result` is `_pairs(...)` — list[list[str]] by construction (recipe.py:124).
+    pairs = cast("list[list[str]]", parsed["result"])
+    assert len(pairs) == 2  # the two-pair fixture: reversal is a real mutation
+    reordered = list(reversed(pairs))
+    assert reordered != sorted(reordered)  # actually out of order now
+    parsed["result"] = reordered
     reversed_bytes = v1.encode(parsed)
     assert v1.decode(reversed_bytes) == parsed  # canonical (freeze obligation 3)
     assert len(v1.digest("science.run.v1", parsed)) == 64  # self-addressable
@@ -618,7 +651,11 @@ def test_decimal_wire_arms_project_decode_recompute(make_closure) -> None:
     for closure, data, address in zip(closures, texts, addresses):
         parsed = runrecord.decode_projection(data)  # capture -> decode
         assert v1.digest("science.run.v1", parsed) == address  # recompute agrees
-        threshold = parsed["recipe"]["parameters"]["threshold"]
+        # decode_projection established the exact schema at every depth, so
+        # these casts are validator-established, not assumptions:
+        recipe_view = cast("dict[str, object]", parsed["recipe"])
+        parameters = cast("dict[str, object]", recipe_view["parameters"])
+        threshold = parameters["threshold"]
         original = closure.recipe.parameters["threshold"]
         assert threshold == original and type(threshold) is type(original)
 
@@ -716,16 +753,17 @@ def test_closure_facet_is_semantic_hash_covered(assessment_closure) -> None:
     assert not stored.semantic_hash_disagrees(legacy)  # absent facet never enters
 ```
 
-Fixtures `assessment_closure` / `production_closure` are thin pytest
-wrappers over `closure_fixtures.make_closure` (the shared module in
-this task's Files) — two declared outputs so pair reversal is a real
-mutation, a `reads` input beside each shape's eligible role so the
-relation round-trip pins every member of both closed role
-vocabularies, and a `Decimal("0.5")` parameter so every round-trip
-crosses the type-preserving wire. `make_closure` is importable by
+The `assessment_closure` / `production_closure` / `make_closure`
+fixtures are defined at the top of this file (Step 1's code) over
+`closure_fixtures.make_closure` (the shared module in this task's
+Files) — two declared outputs so pair reversal is a real mutation, a
+`reads` input beside each shape's eligible role so the relation
+round-trip pins every member of both closed role vocabularies, and a
+`Decimal("0.5")` parameter so every round-trip crosses the
+type-preserving wire. The builder itself is importable by
 `test_report.py`, `test_intent_reduce.py`, `test_consumer_agreement.py`
 and the acceptance file — module-level fixtures do not cross test
-files; this module does.
+files; the shared module does.
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -1241,7 +1279,8 @@ facet).
 
 ```bash
 git add python/src/science/runrecord.py python/src/science/stored.py \
-        python/tests/test_runrecord.py docs/plans/2026-08-27-intent-boundary-ledger.md
+        python/tests/test_runrecord.py python/tests/closure_fixtures.py \
+        docs/plans/2026-08-27-intent-boundary-ledger.md
 git commit -m "feat(runrecord): closure-to-stored codec with typed projection view"
 ```
 
@@ -1613,7 +1652,7 @@ def test_kill_between_append_and_start_leaves_intent_only(tmp_path, monkeypatch)
 
     class KilledAfterAppend:
         def append_intent(self, payload):
-            digest = inner.append_intent(payload)
+            inner.append_intent(payload)
             raise _Killed()  # the process dies with the intent durable
 
         def execute(self, plan):
@@ -2663,10 +2702,36 @@ git commit -m "feat(records): fd-anchored classified bounded record capture"
 
 import pytest
 
+from closure_fixtures import make_closure, sample_report
 from nodes.core.frontmatter import node_to_markdown
 from science import stored
 from science.errors import RecordUndecodable
+from science.holdings.records import Found, StoreLocator, holdings_observation
 from science.intents import evidence, shapes
+
+
+@pytest.fixture
+def assessment_closure():
+    return make_closure()
+
+
+@pytest.fixture
+def sample_act_report():
+    return sample_report()
+
+
+@pytest.fixture
+def sample_observation_node():
+    # The tests/test_holdings_stored.py `observation()` member values.
+    value = holdings_observation(
+        location=StoreLocator("a" * 32, "payload/data.csv"),
+        outcome=Found("sha256:" + "ab" * 32),
+        observer="observer-1",
+        instrument="instrument-1",
+        event_token="event-1",
+        observed_at="2026-08-24T12:00:00Z",
+    )
+    return stored.holdings_observation_node(value)
 
 
 def test_run_publication_decodes_to_run_evidence(assessment_closure) -> None:
@@ -2749,12 +2814,8 @@ def test_record_layout_path_matches_exactly_the_three_namespaces() -> None:
     assert not evidence.record_layout_path("run/x.txt")
 ```
 
-(`sample_act_report` is a pytest wrapper over
-`closure_fixtures.sample_report()`; `assessment_closure` over
-`closure_fixtures.make_closure()`; the observation node builds through
-`stored.holdings_observation_node` with a
-`records.holdings_observation` value — reuse the value builders in
-`tests/test_holdings_stored.py`.)
+(The three fixtures are defined at the top of the file above — no
+fixture lives outside this module.)
 
 - [ ] **Step 2: Run to verify failure.**
 
@@ -2938,9 +2999,82 @@ class IntentQualification:
 ```python
 from dataclasses import dataclass
 
+import pytest
+from closure_fixtures import make_closure
+from nodes.core.frontmatter import node_to_markdown
+
+from science import runrecord, stored
+from science.holdings.records import Found, StoreLocator, holdings_observation
 from science.identity import v1
 from science.intents.reduce import IntentQualification, qualify_chain
+from science.recipe import RunClosure
 from science.world.logmodel import IntentEntryView, RegisteredEntryView, SettledEntryView
+
+
+def _publication(closure: RunClosure) -> tuple[str, bytes]:
+    produces = None if closure.recipe.shape == "assessment" else "dataset:" + "d" * 64
+    _, path, (op,) = runrecord.publication_plan(closure, produces=produces)
+    return path, op.content
+
+
+# Built once at import: pure construction, no engine, no scratch. The
+# closures carry spec "s"*64 and token "tok" (make_closure's defaults),
+# which is what the payload builders below emit.
+_RUN = _publication(make_closure())
+_WRONG_SPEC_RUN = _publication(make_closure(spec="x" * 64))
+_PRODUCTION_RUN = _publication(make_closure(shape="dataset-production"))
+_OBSERVATION_VALUE = holdings_observation(
+    location=StoreLocator("a" * 32, "payload/data.csv"),
+    outcome=Found("sha256:" + "ab" * 32),
+    observer="observer-1",
+    instrument="instrument-1",
+    event_token="tok",
+    observed_at="2026-08-24T12:00:00Z",
+)
+_OBSERVATION = (
+    f"holdings-observation/{_OBSERVATION_VALUE.identity()}.md",
+    node_to_markdown(stored.holdings_observation_node(_OBSERVATION_VALUE)).encode("utf-8"),
+)
+
+
+@pytest.fixture(scope="module")
+def run_path() -> str:
+    return _RUN[0]
+
+
+@pytest.fixture(scope="module")
+def run_bytes() -> bytes:
+    return _RUN[1]
+
+
+@pytest.fixture(scope="module")
+def wrong_spec_run_path() -> str:
+    return _WRONG_SPEC_RUN[0]
+
+
+@pytest.fixture(scope="module")
+def wrong_spec_run_bytes() -> bytes:
+    return _WRONG_SPEC_RUN[1]
+
+
+@pytest.fixture(scope="module")
+def production_run_path() -> str:
+    return _PRODUCTION_RUN[0]
+
+
+@pytest.fixture(scope="module")
+def production_run_bytes() -> bytes:
+    return _PRODUCTION_RUN[1]
+
+
+@pytest.fixture(scope="module")
+def observation_path() -> str:
+    return _OBSERVATION[0]
+
+
+@pytest.fixture(scope="module")
+def observation_bytes() -> bytes:
+    return _OBSERVATION[1]
 
 
 @dataclass(frozen=True)
@@ -2981,10 +3115,7 @@ def _qualify(entries, records):
     return qualify_chain(tuple(entries), records, state_facts=_facts)
 ```
 
-and the bodies (`run_path`/`run_bytes` come from a Task 2 closure
-fixture whose intent token is `"tok"` and spec is `"s" * 64` — i.e.
-`_, run_path, (op,) = runrecord.publication_plan(closure, produces=None)`
-with `run_bytes = op.content`):
+and the bodies:
 
 ```python
 def test_no_pointers_reads_attempt_without_recorded_outcome() -> None:
@@ -3107,14 +3238,10 @@ def test_wrong_shape_both_directions(run_path, run_bytes, production_run_path, p
     assert "reason=wrong-shape" in findings[1].detail
 ```
 
-The fixtures `run_path`/`run_bytes`, `wrong_spec_run_path`/…,
-`production_run_path`/…, `observation_path`/`observation_bytes` are
-module fixtures built once from `closure_fixtures.make_closure` (spec
-`"s"*64` vs `"x"*64`, token `"tok"`, shape per name) and from
-`stored.holdings_observation_node` over a `holdings_observation` value
-with token `"tok"` — each returning
-`(path, op.content)` from `publication_plan` /
-`(f"holdings-observation/{identity}.md", node_to_markdown(node).encode())`.
+(The `run_path`/`run_bytes`, `wrong_spec_run_path`/…,
+`production_run_path`/…, `observation_path`/`observation_bytes` module
+fixtures are defined in the builders block above — no fixture lives
+outside this module.)
 
 - [ ] **Step 2: Run to verify failure.**
 
@@ -3772,12 +3899,14 @@ git commit -m "test(intents): three-site consumer agreement and the label-12 mat
 
 **Files:**
 - Create: `python/tests/acceptance/n2_arms_cut11.py`
-- Create: `python/tests/acceptance/test_n2_cut11.py` (copy the cut-10
-  harness's structure)
+- Create: `python/tests/acceptance/test_n2_cut11.py` (full content in
+  Step 1a)
 - Create: `python/tests/acceptance/test_intent_boundary_acceptance.py`
   (the durable end-to-end arms that need the certified volume)
-- Create: `python/tools/cut11_acceptance.py` (copy `cut10_acceptance.py`,
-  point it at the cut-11 node ids)
+- Create: `python/tools/cut11_acceptance.py` (full content in Step 4)
+- Modify: `python/tests/test_run_persistence.py` — gains the u13 kill
+  twin `test_kill_between_append_and_start_leaves_intent_only_operation_kind`
+  (full body in Step 2), the declared check node of the L7u13 arm.
 
 **Interfaces:**
 - Consumes: the whole slice. Every declared check must fail under its
@@ -4051,18 +4180,200 @@ LABELED_UNITS: tuple[str, ...] = tuple(f"J{n}" for n in range(1, 14))
   L7u12's T2 second-fulfilling-registration classification stays
   cut 8's — cited in the module docstring, no arm.
 
-- [ ] **Step 1a: The harness** — `test_n2_cut11.py` mirrors
-  `test_n2_cut10.py`: the same imports (`from test_n2 import FAILED,
-  PASSED, MalformedArm, _run_check, _sabotage, audit, baseline`), the
-  same session-scoped `findings` fixture applying every arm through
-  `audit`/`baseline` on an isolated copy, the same
-  `TestEveryCutArmAssertsSomething` loop. Its cut-11 additions, in
-  full:
+- [ ] **Step 1a: The harness** — the complete
+  `tests/acceptance/test_n2_cut11.py` (`test_n2_cut10.py`'s structure,
+  adapted for the lettered-arm normalization):
 
 ```python
-def test_the_partition_accounts_exactly_the_26_frozen_units() -> None:
-    from n2_arms_cut11 import ATOMS_CITATIONS_BY_UNIT, CUT11_ARMS, LABELED_UNITS, ROW_UNITS, unit_of
+"""Cut 11's declaration accounting, N2 audit, and lettered-arm partition."""
 
+from __future__ import annotations
+
+import re
+import subprocess
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+import pytest
+from n2_arms import Arm
+from n2_arms_cut5 import CUT5_ARMS
+from n2_arms_cut6 import CUT6_ARMS
+from n2_arms_cut7 import CUT7_ARMS
+from n2_arms_cut8 import CUT8_ARMS
+from n2_arms_cut9 import CUT9_ARMS
+from n2_arms_cut10 import CUT10_ARMS
+from n2_arms_cut11 import (
+    ATOMS_CITATIONS_BY_UNIT,
+    CO_PASSING_INDEPENDENCE,
+    CUT11_ARMS,
+    LABELED_UNITS,
+    ROW_UNITS,
+    unit_of,
+)
+from test_n2 import FAILED, PASSED, MalformedArm, _run_check, _sabotage, audit, baseline
+
+import science.root as science_root
+
+WORKERS = 8
+REPO_ROOT = Path(__file__).resolve().parents[3]
+FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-08-27-conformance-cut-11.md"
+CUT11_FREEZE_COMMIT = "9711886"
+
+FROZEN_PRIOR_CUT_FILES = {
+    "python/tests/n2_arms_cut5.py": "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e",
+    "python/tests/n2_arms_cut6.py": "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e",
+    "python/tests/n2_arms_cut7.py": "117f37e",
+    "python/tests/acceptance/n2_arms_cut8.py": "55b6de7",
+    "python/tests/acceptance/n2_arms_cut9.py": "7a9fec8",
+    "python/tests/acceptance/n2_arms_cut10.py": "22461e9",
+}
+# n2_arms_cut3.py is deliberately absent: Task 4 rebased its T2 replay arm
+# onto the boundary gate, and the ordinary tests/test_n2.py audits it live.
+
+
+@pytest.fixture(scope="session")
+def findings(tmp_path_factory) -> tuple:
+    root = tmp_path_factory.mktemp("n2-cut11")
+    with ThreadPoolExecutor(max_workers=WORKERS) as pool:
+        return tuple(
+            pool.map(
+                lambda pair: audit(pair[1], root / f"arm{pair[0]}"),
+                enumerate(CUT11_ARMS),
+            )
+        )
+
+
+def _report(reason: str, findings: tuple, verdict: str) -> None:
+    offending = [finding for finding in findings if finding.verdict == verdict]
+    if offending:
+        raise MalformedArm(
+            reason
+            + "\n"
+            + "\n".join(
+                f"  {finding.arm.label}\n    {finding.detail}" for finding in offending
+            )
+        )
+
+
+class TestEveryCut11ArmAssertsSomething:
+    def test_no_arm_survives_its_own_sabotage(self, findings):
+        _report("these cut-11 arms survive their own sabotage:", findings, "vacuous")
+
+    def test_no_arm_mixes_a_passing_check_with_a_failing_one(self, findings):
+        _report("these cut-11 arms mix passing and failing checks:", findings, "mixed")
+
+    def test_no_sabotage_stops_a_check_from_running(self, findings):
+        _report("these cut-11 sabotages prevent a check from running:", findings, "uncollected")
+
+    def test_no_sabotage_has_gone_stale(self, findings):
+        _report("these cut-11 sabotages no longer match exactly once:", findings, "stale")
+
+    def test_every_check_resolves_and_passes_without_the_sabotage(self):
+        every = Arm(
+            row="N2",
+            asserts="every declared cut-11 check passes on the real package",
+            sabotage=CUT11_ARMS[0].sabotage,
+            checks=tuple(dict.fromkeys(check for arm in CUT11_ARMS for check in arm.checks)),
+        )
+        finding = baseline(every)
+        assert finding.verdict == "resolved", finding.detail
+
+
+def declared_rows() -> tuple[str, ...]:
+    return tuple(arm.row for arm in CUT11_ARMS)
+
+
+class TestTheDeclarationTable:
+    def test_the_declared_arms_are_unique_and_number_twenty_nine(self):
+        rows = declared_rows()
+        assert len(rows) == len(set(rows)) == len(CUT11_ARMS) == 29
+
+    def test_the_labeled_units_appear_in_declaration_order(self):
+        labeled = [unit_of(row) for row in declared_rows() if row.startswith("J")]
+        assert tuple(dict.fromkeys(labeled)) == LABELED_UNITS
+
+    def test_the_frozen_cut_states_the_same_accounting(self):
+        flattened = re.sub(r"\s+", " ", FROZEN_CUT.read_text(encoding="utf-8"))
+        total = re.search(
+            r"\*\*(\d+) selected \+ (\d+) labeled = (\d+) declaration units\*\*",
+            flattened,
+        )
+        assert total is not None
+        assert tuple(map(int, total.groups())) == (13, 13, 26)
+        pairs = re.search(r"Selected units: ((?:[A-Z]+\d+ \d+(?:, )?)+)", flattened)
+        assert pairs is not None
+        assert {
+            row: int(count)
+            for row, count in re.findall(r"([A-Z]+\d+) (\d+)", pairs.group(1))
+        } == ROW_UNITS
+
+    def test_the_frozen_cut_names_the_commit_this_audit_reads(self):
+        completed = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "merge-base", "--is-ancestor", CUT11_FREEZE_COMMIT, "HEAD"],
+            check=False,
+        )
+        assert completed.returncode == 0
+
+    def test_every_arm_has_one_source_mutation_and_exact_check_nodes(self):
+        package = Path(science_root.__file__).resolve().parent
+        for arm in CUT11_ARMS:
+            assert arm.checks, arm.row
+            assert len(arm.checks) == len(set(arm.checks)), arm.row
+            assert arm.sabotage.before != arm.sabotage.after, arm.row
+            assert arm.asserts.strip(), arm.row
+            target = package / arm.sabotage.module
+            assert target.is_file(), f"{arm.row}: missing {arm.sabotage.module}"
+            assert target.read_text(encoding="utf-8").count(arm.sabotage.before) == 1, arm.row
+            for check in arm.checks:
+                parts = check.split("::")
+                assert len(parts) >= 2 and parts[-1].startswith("test_"), check
+
+    def test_every_check_lives_in_a_cut11_file(self):
+        assert {check.split("::")[0] for arm in CUT11_ARMS for check in arm.checks} == {
+            "acceptance/test_intent_boundary_acceptance.py",
+            "test_consumer_agreement.py",
+            "test_intent_evidence.py",
+            "test_intent_gate.py",
+            "test_intent_reduce.py",
+            "test_operation_port.py",
+            "test_record_capture.py",
+            "test_report.py",
+            "test_run_persistence.py",
+            "test_runrecord.py",
+            "test_world_log_evaluator.py",
+        }
+
+
+class TestNoPriorCutDeclarationIsRehomedOrEdited:
+    def test_the_frozen_prior_declaration_files_are_byte_identical(self):
+        for path, pin in FROZEN_PRIOR_CUT_FILES.items():
+            completed = subprocess.run(
+                ["git", "-C", str(REPO_ROOT), "diff", "--quiet", pin, "HEAD", "--", path],
+                check=False,
+            )
+            assert completed.returncode == 0, f"{path} moved since {pin}"
+
+    def test_no_cut11_arm_claims_a_check_a_prior_cut_declared(self):
+        prior = {
+            check
+            for arm in (*CUT5_ARMS, *CUT6_ARMS, *CUT7_ARMS, *CUT8_ARMS, *CUT9_ARMS, *CUT10_ARMS)
+            for check in arm.checks
+        }
+        ours = {check for arm in CUT11_ARMS for check in arm.checks}
+        assert not prior & ours
+
+    def test_the_j_prefix_names_no_frozen_prior_guarantee_unit(self):
+        # J labels are cut-local (cut 10 spent its own J1–J11); the collision
+        # that must never happen is with a prior cut's guarantee-named unit.
+        prior = {
+            arm.row
+            for arm in (*CUT5_ARMS, *CUT6_ARMS, *CUT7_ARMS, *CUT8_ARMS, *CUT9_ARMS, *CUT10_ARMS)
+            if not arm.row.startswith("J")
+        }
+        assert not prior.intersection(LABELED_UNITS)
+
+
+def test_the_partition_accounts_exactly_the_26_frozen_units() -> None:
     # Pin the declared accounting to the frozen cut FIRST — a partition
     # edited alongside its declarations must fail here, so the expected
     # identities below derive from the cut's literals, never from the
@@ -4104,8 +4415,6 @@ def _j3a_independence(arm: Arm, workspace: Path) -> tuple[int, int]:
 
 
 def test_j3a_writer_ceiling_fails_while_the_non_port_write_passes(tmp_path):
-    from n2_arms_cut11 import CO_PASSING_INDEPENDENCE, CUT11_ARMS
-
     arm = next(arm for arm in CUT11_ARMS if arm.row == "J3a")
     assert CO_PASSING_INDEPENDENCE["J3a"] == (
         "test_operation_port.py::test_non_port_writes_are_unaffected_by_the_ceiling",
@@ -4411,10 +4720,40 @@ def test_decimal_round_trip_publishes_and_captures(certified_work):
     assert len(addresses) == 4  # the four never collide
 ```
 
-  Also added, to `python/tests/test_run_persistence.py`:
-  `test_kill_between_append_and_start_leaves_intent_only_operation_kind`
-  — u13's twin of Task 4's kill arm, identical body with
-  `run_production` in place of `run_assessment`.
+  Also added, to `python/tests/test_run_persistence.py` — u13's twin of
+  Task 4's kill arm, reusing that file's own `_Killed`, `_observer_port`,
+  and `_entries` helpers:
+
+```python
+def test_kill_between_append_and_start_leaves_intent_only_operation_kind(
+    tmp_path, monkeypatch
+) -> None:
+    # L7u13: the operation intent (frozen kind run-attempt) is durably
+    # appended before its first member act — the production entrypoint's
+    # twin of the u4 arm, same interposition at the port seam.
+    root, inner = _observer_port(tmp_path)
+
+    class KilledAfterAppend:
+        def append_intent(self, payload):
+            inner.append_intent(payload)
+            raise _Killed()  # the process dies with the intent durable
+
+        def execute(self, plan):
+            raise AssertionError("no publication may run")
+
+        def execute_fulfilling(self, plan, fulfills):
+            raise AssertionError("no publication may run")
+
+    engine_calls: list[object] = []
+    monkeypatch.setattr("science.boundary.run_engine", lambda *a, **k: engine_calls.append(a))
+    with pytest.raises(_Killed):
+        run_production(tmp_path, port=KilledAfterAppend())
+    entries = _entries(root)
+    assert all(type(e) is not RegisteredEntryView for e in entries)  # nothing published
+    assert len([e for e in entries if type(e) is IntentEntryView]) == 1  # durably present
+    assert engine_calls == []  # no member act began
+    assert not (root / "run").exists() and not (root / "act-report").exists()
+```
 
 - [ ] **Step 3: Run the N2 harness**
 
@@ -4423,13 +4762,219 @@ Every arm must be sound — no `vacuous`, `stale`, or `uncollected` —
 and every fabricated construction must pass its declared-layer
 assertion (cut §5 item 1).
 
-- [ ] **Step 4: Write and run `tools/cut11_acceptance.py` on the
-  certified volume; quote its pytest summary lines into the ledger.**
+- [ ] **Step 4: Write `tools/cut11_acceptance.py`, run it on the
+  certified volume, and quote its pytest summary lines into the
+  ledger.** The complete file (`cut10_acceptance.py`'s shape: the same
+  fail-closed probe, the prior cut's own runner as the sole prefix; the
+  work directory is `<repo>/.cut11-acceptance` — already ignored by
+  Task 0's `.gitignore` line — unless `SCIENCE_CUT11_ROOT` names
+  another; extra arguments reach the final phase's pytest and no
+  other):
+
+```python
+"""The cut-11 acceptance command — the intent boundary, on the certified tuple.
+
+**It errors off the certified tuple. It never skips.** The tuple is probed
+first, once, and a refusal ends the command with the engine's own words.
+
+Three phases, in order, each one a whole command:
+
+1. `tools/cut10_acceptance.py`, unedited — it already chains the whole
+   prior-cut current-tree prefix on its own;
+2. `tests/acceptance/test_intent_boundary_acceptance.py` — the durable
+   cut-11 arms and L7u5's corroborating serialization check, on the
+   certified volume; and
+3. `tests/acceptance/test_n2_cut11.py` — cut 11's declaration accounting,
+   its N2 audit, and the lettered-arm partition.
+
+Phase 3's pytest total covers the 29-arm sabotage audit plus the
+accounting, partition, citation, and freeze checks over the same
+declarations. The command then prints the declared-arm count explicitly as
+`len(CUT11_ARMS)` — 29 arms normalizing to the 26 frozen units, pinned by
+`test_the_partition_accounts_exactly_the_26_frozen_units` — never as
+another pytest total.
+
+Usage::
+
+    python tools/cut11_acceptance.py                # all phases
+    python tools/cut11_acceptance.py -k partition   # arguments reach phase 3
+
+The work directory is `<repo>/.cut11-acceptance` unless `SCIENCE_CUT11_ROOT`
+names another one.
+
+**Never run beside another acceptance command or the ordinary suite.** All
+cut roots are environment-scoped and two runs would delete each other's
+roots mid-transaction, which reads as an engine failure and is not one.
+"""
+
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+PYTHON_ROOT = Path(__file__).resolve().parents[1]
+TOOLS = PYTHON_ROOT / "tools"
+ACCEPTANCE = PYTHON_ROOT / "tests" / "acceptance"
+DEFAULT_WORK = PYTHON_ROOT.parent / ".cut11-acceptance"
+
+PREFIX_RUNNERS = ("cut10_acceptance.py",)
+"""The prior cut's own command, run as it stands. It already chains the whole
+prior-cut current-tree prefix on its own."""
+
+PHASE_MODULES = ("test_intent_boundary_acceptance.py", "test_n2_cut11.py")
+"""Cut 11's own phases, in order; argv reaches the last one only."""
+
+PROBE_REFUSED = 2
+"""*The arms did not run* is not *an arm failed*; this command's own stderr
+names the refusal before returning it, and that message is the signal."""
+
+
+def work_directory() -> Path:
+    configured = os.environ.get("SCIENCE_CUT11_ROOT")
+    work = Path(configured) if configured else DEFAULT_WORK
+    work.mkdir(parents=True, exist_ok=True)
+    return work
+
+
+def probe(run: Path) -> str | None:
+    """Register and drop one throwaway world root, corpus root, and store root."""
+    from science.root import (
+        init_corpus_root,
+        init_store_root,
+        init_world_root,
+        metadata_root_for,
+    )
+    from science.world import WorldConfig
+
+    world_root = run / "probe-world"
+    corpus_root = run / "probe-corpus"
+    store_root = run / "probe-store"
+    try:
+        init_world_root(WorldConfig(world_root, "0" * 32, ()))
+        init_corpus_root(corpus_root)
+        init_store_root(store_root)
+        return None
+    except Exception as refused:  # noqa: BLE001 - report the engine's own refusal
+        return f"{type(refused).__name__}: {refused}"
+    finally:
+        for root in (world_root, corpus_root, store_root):
+            shutil.rmtree(root, ignore_errors=True)
+            shutil.rmtree(metadata_root_for(root), ignore_errors=True)
+
+
+def declared_arm_count() -> int:
+    """Return cut 11's declared arm count, `len(CUT11_ARMS)`."""
+    for directory in (PYTHON_ROOT / "tests", ACCEPTANCE):
+        path = str(directory)
+        if path not in sys.path:
+            sys.path.insert(0, path)
+    from n2_arms_cut11 import CUT11_ARMS  # pyright: ignore[reportMissingImports]
+
+    return len(CUT11_ARMS)
+
+
+def cut_environment(run: Path) -> dict[str, str]:
+    return {
+        **os.environ,
+        **{f"SCIENCE_CUT{n}_ROOT": str(run) for n in range(4, 12)},
+    }
+
+
+def run_prefix(runner: str, run: Path) -> int:
+    """The prior cut's own command, unedited, working beneath `run`."""
+    completed = subprocess.run(
+        [sys.executable, str(TOOLS / runner)],
+        cwd=PYTHON_ROOT,
+        check=False,
+        env={**os.environ, "SCIENCE_CUT10_ROOT": str(run)},
+    )
+    return completed.returncode
+
+
+def main(argv: list[str]) -> int:
+    phases = len(PREFIX_RUNNERS) + len(PHASE_MODULES)
+    for module in PHASE_MODULES:
+        if not (ACCEPTANCE / module).is_file():
+            print(f"cut-11 required acceptance module is missing: {ACCEPTANCE / module}", file=sys.stderr)
+            return 1
+    for runner in PREFIX_RUNNERS:
+        if not (TOOLS / runner).is_file():
+            print(f"cut-11 required prefix runner is missing: {TOOLS / runner}", file=sys.stderr)
+            return 1
+
+    work = work_directory()
+    run = Path(tempfile.mkdtemp(prefix="run-", dir=work))
+    try:
+        refusal = probe(run)
+        if refusal is not None:
+            print(
+                "cut-11 acceptance cannot run here: the volume beneath "
+                f"{work} is not on the engine's certified allowlist.\n"
+                f"  the engine refused with {refusal}\n"
+                "  set SCIENCE_CUT11_ROOT to a directory on a certified volume, or recertify with\n"
+                "  the engine's own tooling. This is an error, not a skip: an environment that\n"
+                "  cannot exercise durability must not be able to report cut-11 discharge.",
+                file=sys.stderr,
+            )
+            return PROBE_REFUSED
+
+        phase = 0
+        for runner in PREFIX_RUNNERS:
+            phase += 1
+            print(f"[cut11 phase {phase}/{phases}] {runner}", flush=True)
+            returncode = run_prefix(runner, run)
+            if returncode != 0:
+                print(
+                    f"cut-11 acceptance stopped: the {runner} prefix exited {returncode}.\n"
+                    "  A prior cut's arms are its own claim and cut 11 runs them unchanged, so this\n"
+                    "  is that cut's failure and not a cut-11 one. Cut 11's arms did not run and cut\n"
+                    "  11 is not discharged.",
+                    file=sys.stderr,
+                )
+                return returncode
+
+        for index, module in enumerate(PHASE_MODULES):
+            phase += 1
+            last = index == len(PHASE_MODULES) - 1
+            print(f"[cut11 phase {phase}/{phases}] {module}", flush=True)
+            completed = subprocess.run(
+                [sys.executable, "-m", "pytest", str(ACCEPTANCE / module), *(argv if last else [])],
+                cwd=PYTHON_ROOT,
+                check=False,
+                env=cut_environment(run),
+            )
+            if completed.returncode != 0:
+                return completed.returncode
+
+        try:
+            arms = declared_arm_count()
+        except Exception as failure:  # noqa: BLE001 - report, do not mask run result
+            print(f"cut-11 acceptance: could not compute declared-arm count: {failure}", file=sys.stderr)
+        else:
+            print(
+                f"declared arms: {arms} (= len(CUT11_ARMS), normalizing to the 26 frozen "
+                "units pinned by test_the_partition_accounts_exactly_the_26_frozen_units, "
+                "among the tests above; not itself a pytest total)",
+                flush=True,
+            )
+        return 0
+    finally:
+        shutil.rmtree(run, ignore_errors=True)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))
+```
 
 - [ ] **Step 5: Ledger + commit**
 
 ```bash
 git add python/tests/acceptance/ python/tools/cut11_acceptance.py \
+        python/tests/test_run_persistence.py \
         docs/plans/2026-08-27-intent-boundary-ledger.md
 git commit -m "test(cut11): the 26 N2 declarations and the acceptance runner"
 ```
