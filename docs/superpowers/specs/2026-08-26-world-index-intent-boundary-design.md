@@ -80,7 +80,12 @@ reading): the callable `admit_spec_successor` contract — signature,
 module, binding, return union, declared refusal; source decoding
 through `verification_value` with its failure mapped; and the
 evidence gate's scope — failing-verdict sources only, incoherence
-refusing globally as unattributable (§5). **Amended an eighteenth time
+refusing globally as unattributable (§5). **Amended a nineteenth time
+2026-08-27** (cut 11's ninth reading): `ReadView` withdrawn from the
+contract — the boundary performs its own bounded raw-byte evidence
+read under the hold, root-bound and fresh by construction; and
+Class 1 selects among **active** failing verifications under the
+existing supersession rule (§5). **Amended an eighteenth time
 2026-08-27** (cut 11's eighth reading): the u3 mislabel corrected in
 this spec's own text; the composition's record reads bound to
 `ReadView` in the signature; and the admission read's size bound with
@@ -768,41 +773,57 @@ def admit_spec_successor(
     superseded: FrozenSpec,
     *,
     seam: LogSeam,
-    view: ReadView,
     root: Path,
 ) -> SuccessorAdmitted | SuccessorRefused: ...
 ```
 
 exported from `science.spec` beside the core, joining its `__all__`;
 the return union is the core's existing pair, unchanged; the one
-declared exception is `AdmissionEvidenceRefused`. The two bindings
-carry the two evidence kinds and neither reaches around its seam:
-`seam` supplies the chain view and the captured surface the reduction
-reads — `LogSeam` exposes chain inspection, path-state capture, heads,
-and locks, and nothing about stored records — and `view`, the
-corpus's existing read-only facade, supplies the verification and
-assessment records through the typed readers
-(`verification_value`, `assessment_value`). Under the root's
-operation lock — the §6.1 hold, **held through the admission
-decision** so nothing resolves or decays between derivation and
-verdict — it assembles the chain view, the captured surface, and the
-stored evidence in **one read**, runs the qualification reduction,
-composes the two classes, and calls `admit_successor` with the
-derived sets. No second boundary exists to invent.
+declared exception is `AdmissionEvidenceRefused`. **No `ReadView`
+binding, deliberately**: a caller-supplied view is not bound to `root`
+or to the held lock — `root=A` with a view opened at `B` would mix
+one root's chain with another's stored evidence, and even a same-root
+view predates reconstruction and stays stale under a
+later-acquired lock — and `ReadView.opened_at` constructs a `Corpus`
+whose loader has **already read and decoded every complete file,
+unbounded**, before this act could bound anything, exposing Nodes
+rather than stored bytes afterward. The boundary therefore reads its
+own evidence: under the root's operation lock — the §6.1 hold, **held
+through the admission decision** — it assembles the chain view and
+captured surface through `seam`, and reads the **verification and
+assessment record namespaces beneath `root` itself**, with §3.1's
+capture mechanics — fd-anchored no-follow descent, `O_PATH`
+classification, and the **ceiling-plus-one bounded read on the raw
+stored bytes, before any decoding**: a record file exceeding
+`RECORD_CEILING` refuses the act as `AdmissionEvidenceRefused` naming
+the path, with I/O, allocation, and parsing all bounded. The surviving
+raw bytes decode through the stored decode surface and the typed
+readers (`verification_value`, `assessment_value`), every failure
+mapped as already frozen. Root-binding and freshness hold **by
+construction**: there is no view parameter to point elsewhere, and the
+read happens inside the hold, so a blocker recorded immediately before
+the act is consulted and nothing predates reconstruction.
+Verification and assessment records remain ordinary corpus writes,
+deliberately outside the port's writer-side ceiling (§3.1's non-port
+scope unchanged); the stated consequence stands — the official writer
+can store a record this act then refuses to read, and the admission
+blocks loudly by name until the record is corrected or superseded —
+fail-closed, because silently skipping oversized failure evidence
+would be the erasure this boundary exists to prevent. It then runs the
+qualification reduction, composes the two classes, and calls
+`admit_successor` with the derived sets. No second boundary exists to
+invent.
 
-**The admission read is bounded, reader-side, at the same constant.**
-Verification and assessment records are ordinary corpus writes,
-deliberately outside the port's `RECORD_CEILING` (§3.1's non-port
-scope is unchanged). The admission composition still cannot read
-unbounded under its hold, so the bound is the reader's: a verification
-or assessment record whose stored bytes exceed `RECORD_CEILING`
-refuses the admission act as `AdmissionEvidenceRefused` naming the
-record. The consequence is stated, not hidden: the official writer can
-store a record this act then refuses to read — the admission blocks,
-loudly and by name, until the record is corrected or superseded —
-which is the fail-closed direction; silently skipping oversized
-failure evidence would be the erasure this boundary exists to
-prevent. **The verification evidence gate, complete and scoped.** Every
+**Class 1 selects among active verifications, not all of them.** A
+failing verification superseded by a later one is not the record's
+live claim — the tree's existing supersession rule,
+`active_verifications`, already selects the unsuperseded set, and the
+composition uses exactly it. A failing verification whose active
+superseder **passes** contributes no member — the block lifts; a
+failing verification superseded by another **failing** one blocks
+through the active member. Without this selection, "corrected or
+superseded" would be an empty promise: old records remain stored, and
+a retired failure would block forever. **The verification evidence gate, complete and scoped.** Every
 verification record consulted decodes through the existing typed
 reader, `verification_value` — generic corpus storage does not
 guarantee it succeeds, and a reader failure is a source whose verdict
