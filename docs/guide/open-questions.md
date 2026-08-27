@@ -225,8 +225,11 @@ implementation**: a guarantee row awaiting code is work, not a question.
   20 selected + 11 labeled declarations. Its `--no-ff` merge landed on local
   `main` as `35be6ff` on 2026-08-25 and has not been pushed.
   What the tamper-log group still owes is named
-  and owned: general intent qualification with G4, the preimage-backed
-  classification of a removed verification, and event-level cross-chain order.
+  and owned: general intent qualification (the intent-boundary slice, in
+  design), G4 (**split 2026-08-27 to its own successor-admission
+  slice** — the intent-boundary spec §5 carries the transfer), the
+  preimage-backed classification of a removed verification, and
+  event-level cross-chain order.
   L10's fork/replica/restore and store arms closed with cut 9; its two deferred
   holdings-read arms and L7's holdings-shaped qualification/boundary arms
   closed with cut 10. The store substrate's holdings prerequisite is complete,

@@ -165,8 +165,10 @@ and dataset admission adapter — discharged 2026-08-25 on
 `35be6ff` the same day; not pushed
 ([results](../plans/2026-08-24-conformance-cut-10-results.md)).
 Global resolution remains designed. The log slice still owes general intent
-qualification with G4, the preimage-backed classification of a removed
-verification, and event-level cross-chain order; its holdings-shaped
+qualification (the intent-boundary slice, in design), G4 (**split
+2026-08-27 to its own successor-admission slice**), the preimage-backed
+classification of a removed verification, and event-level cross-chain
+order; its holdings-shaped
 qualification and the two deferred L10 holdings-read arms closed with cut 10.
 
 ## Open edges

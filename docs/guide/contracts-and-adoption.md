@@ -172,8 +172,11 @@ reduction and receipt, and the dataset admission adapter
 merge landed on local `main` as `35be6ff` on 2026-08-25 and has not been
 pushed. The complete normative contract cut and the second governed stored
 kind remain open. The log slice still owes general intent qualification
-with G4, the preimage-backed classification, and event-level cross-chain order;
-the holdings-shaped L7 arms and L10's two holdings-read arms closed with cut 10.
+(the intent-boundary slice, in design), the preimage-backed
+classification, and event-level cross-chain order; **G4 was split out
+2026-08-27 to a successor-admission slice of its own** (the
+intent-boundary spec §5 carries the transfer); the holdings-shaped L7
+arms and L10's two holdings-read arms closed with cut 10.
 Consult the ledger for the current state rather than carrying these sentences
 into a status report.
 

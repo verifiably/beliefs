@@ -80,7 +80,11 @@ reading): the callable `admit_spec_successor` contract — signature,
 module, binding, return union, declared refusal; source decoding
 through `verification_value` with its failure mapped; and the
 evidence gate's scope — failing-verdict sources only, incoherence
-refusing globally as unattributable (§5). **Amended a nineteenth time
+refusing globally as unattributable (§5). **Amended an eighteenth time
+2026-08-27** (cut 11's eighth reading): the u3 mislabel corrected in
+this spec's own text; the composition's record reads bound to
+`ReadView` in the signature; and the admission read's size bound with
+its stated consequence (§5). **Amended a nineteenth time
 2026-08-27** (cut 11's ninth reading): `ReadView` withdrawn from the
 contract — the boundary performs its own bounded raw-byte evidence
 read under the hold, root-bound and fresh by construction; and
@@ -94,11 +98,7 @@ the per-file bound's true scope, the oversized-supersession caveat)
 are recorded in §5 as the successor-admission slice's opening
 obligations. This slice freezes the intent qualification surface; §5's
 transferred text is that successor slice's inherited authority, not
-this cut's territory. **Amended an eighteenth time
-2026-08-27** (cut 11's eighth reading): the u3 mislabel corrected in
-this spec's own text; the composition's record reads bound to
-`ReadView` in the signature; and the admission read's size bound with
-its stated consequence (§5).
+this cut's territory.
 **Inherits:** `2026-08-03-tamper-evident-log-design.md` §6 as amended — the
 qualification reduction this slice implements at its full stated width: the
 matched / unresolvable / attempt-without-recorded-outcome precedence, the
@@ -895,17 +895,19 @@ not evidence of absence; it enters neither class, and admitting over it
 would erase a possibly-recorded failure, so the boundary refuses with
 the same named refusal, the reason distinct ("qualification unresolved
 for the superseded spec"). Unresolvable intents carrying **other**
-specs do not block an unrelated admission. G4's positive arm runs
-through this entrypoint — a test-only composition proves nothing about
-the boundary. Production intents carry no spec and contribute nothing; the
+specs do not block an unrelated admission. The successor-admission
+slice's cut runs its G4 positive arm through this entrypoint — a
+test-only composition proves nothing about the boundary. Production intents carry no spec and contribute nothing; the
 existing value-state sources are unchanged beside the derived members.
 G4's negative bound survives untouched: discard the attempt *and* its
-intent — nothing durable — and no class holds a trace. Cut 11's G4
-positive arm exercises all three refusal paths end to end,
-acknowledging cut 3's full disposition as the value-width
-certification this re-reads at persistence width.
+intent — nothing durable — and no class holds a trace. The
+successor-admission slice's cut exercises the G4 positive arm across
+all three refusal paths end to end, acknowledging cut 3's full
+disposition as the value-width certification that arm re-reads at
+persistence width.
 
-G4 closes at this slice's discharge; the G2a-ordering row is untouched.
+G4 closes at the **successor-admission slice's** discharge, not this
+one's; the G2a-ordering row is untouched by either.
 
 ## 6. Conformance cut 11
 
