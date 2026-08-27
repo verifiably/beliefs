@@ -55,7 +55,10 @@ refusal is `PlanRefusedError`, pre-write, in the existing two-error
 contract (§3.1). **Amended an eleventh time 2026-08-27** (eleventh
 review round): the ceiling check moves from the shared plan validation
 into the port's two publication methods — the executor is broader than
-the qualifying-publication boundary (§3.1).
+the qualifying-publication boundary (§3.1). **Amended a twelfth time
+2026-08-27** (cut 11's second reading): the durable derivation of
+`admit_successor`'s `recorded_failures` from the qualification
+reduction (§5).
 **Inherits:** `2026-08-03-tamper-evident-log-design.md` §6 as amended — the
 qualification reduction this slice implements at its full stated width: the
 matched / unresolvable / attempt-without-recorded-outcome precedence, the
@@ -653,6 +656,23 @@ indistinguishable by construction. The arm asserts the limit so no reader
 over-reads G4, exactly as G8's negative pins its own. Detection stays
 quantified over surviving observers throughout — destruction of a root
 together with every anchor holding it is not detectable from nothing.
+
+**The durable bridge to successor refusal.** `admit_successor` consumes
+`recorded_failures` as caller-supplied value state — "G4 over the
+slice's value state", certified at that width by cut 3 — so without a
+frozen derivation the durable reduction and the refusal would never
+compose, and G4's closure could be claimed over a hand-built set. The
+derivation is fixed here: the boundary composes `recorded_failures`
+from the qualification reduction over the observer-corpus chain —
+every **assessment-run** intent whose qualification reads
+attempt-without-recorded-outcome contributes its `spec_identity` — and
+supplies that set, never a caller-invented one, to
+`admit_successor`. Production intents carry no spec and contribute
+nothing; the existing value-state sources are unchanged beside the
+derived members. Cut 11's G4 positive arm exercises the composition
+end to end — durable append, no qualifying fulfillment, derivation,
+refusal — acknowledging cut 3's full disposition as the value-width
+certification this re-reads at persistence width.
 
 G4 closes at this slice's discharge; the G2a-ordering row is untouched.
 

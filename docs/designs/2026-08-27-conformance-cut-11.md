@@ -6,8 +6,10 @@ byte-exact against its source table as of the freeze commit, verified by
 the reader independently.
 
 **Sources:** `2026-08-24-conformance-cut-10.md` (rule and practice
-inheritances, and the standing L7 holdings-shape dispositions this cut
-extends); the intent-boundary specification
+inheritances, and the holdings qualification matrix label 12 re-runs
+over the regenerated interior); `2026-08-11-conformance-cut-3.md` (the
+G4 value-width disposition this cut re-reads at persistence width); the
+intent-boundary specification
 `docs/superpowers/specs/2026-08-26-world-index-intent-boundary-design.md`
 (cited as *spec*); the live **L7** row of
 `2026-08-03-tamper-evident-log-design.md` §10, quoted verbatim below;
@@ -54,13 +56,19 @@ and results those productions return.** Every fabricated chain must pass
 fabricated stored record must decode through the stored surface,
 asserted at declaration time (§5).
 
-Single-homing governs three prior certifications this cut touches but
+Single-homing governs two prior certifications this cut touches but
 never re-reads: the L7 **chain-structural** units are cut 8's (its §3.1
-refinement); the L7 **holdings-shape qualification and
-append-before-mutation** arms are cut 10's; and the **T2
-second-fulfilling-registration** malformed classification is cut 8's
-structural territory, cited by the operation-shape units and never
-re-proven here.
+refinement), and the **T2 second-fulfilling-registration** malformed
+classification is cut 8's structural territory, cited by the
+operation-shape units and never re-proven here. The L7
+**holdings-shape** arms are different: cut 10 certified the
+hand-maintained interior this slice **replaces**, so its certification
+does not transfer to the regenerated one — label 12 re-runs cut 10's
+qualification matrix through both consumers over the regenerated
+interior, and cut 10's disposition stands as the prior interior's
+record, not this one's. Cut 3's **G4** full disposition is likewise
+acknowledged as the value-width certification; this cut's G4 u1 is its
+persistence-width re-read through the spec §5 derivation.
 
 ## 2. The boundary
 
@@ -135,10 +143,15 @@ worktree removal.
     the durable intent whose fulfillment never qualifies — reads
     attempt-without-recorded-outcome in every report over the chain,
     and discarding the failed *fulfillment* while the intent survives
-    moves qualification, never erases the attempt; the unreferenced
-    successor to the recorded failure is refused where the boundary
-    refuses it. This is kernel §8.7's fourth recorded-mutation
-    consequence, closed through the reduction;
+    moves qualification, never erases the attempt. The unreferenced
+    successor is refused **through the spec §5 derivation, exercised
+    end to end**: the boundary composes `recorded_failures` from the
+    qualification reduction over the chain — the durable append, the
+    non-qualifying fulfillment, the derived `spec_identity` member,
+    and `admit_successor`'s refusal, one path — never a hand-built
+    set, so the arm cannot pass by re-running cut 3's value-width
+    test (§1's acknowledgment). This is kernel §8.7's fourth
+    recorded-mutation consequence, closed through the reduction;
   - **(u2)** the **negative half, pinning the limit**: discard the
     failed attempt *entirely* — no intent appended, nothing durable —
     and the system **cannot** detect it: crash, cancellation, and
@@ -160,8 +173,8 @@ rows — G8 and its siblings carry their standing certifications;
 
 ### 3.3 Labeled declarations
 
-Twelve labeled declarations carry the spec's minted obligations outside
-the frozen rows, declared as data beside the selected arms:
+Thirteen labeled declarations carry the spec's minted obligations
+outside the frozen rows, declared as data beside the selected arms:
 
 1. **The captured-record evidence input** — `records`, one
    `(path, payload)` pair per record file present, captured under the
@@ -220,9 +233,13 @@ the frozen rows, declared as data beside the selected arms:
    operation kind frozen as `run-attempt`), member acts, terminal
    publication through the same port with boundary-constructed
    `fulfills`; a pre-intent refusal publishes an unfulfilling report
-   through `execute` — the port's non-fulfilling publication, under the
-   executor's two-error contract as built — and fulfills nothing, a
-   crash before it leaving no trace (spec §2.6 items 1–3).
+   through `execute` — the port's non-fulfilling publication — and
+   fulfills nothing, a crash before it leaving no trace. The two-error
+   contract is **frozen as two arms, not cited**: a malformed plan
+   through `execute` refuses as `PlanRefusedError` before any write,
+   and a failure executing an encoder-validated plan surfaces as
+   `ExecutionError` — neither silent, neither a fulfillment (spec §2.6
+   items 1–3, item 2a).
 8. **The run publication codec** — the `run-closure` facet's
    `projection` field holding the v1-canonical text; `v1.decode` with
    its frozen parse rules and `CanonicalTextRefused` wrapping every
@@ -231,7 +248,14 @@ the frozen rows, declared as data beside the selected arms:
    record id; the **incomplete-closure**, **reversed-pairs**,
    **closure-member mutation**, and **Decimal round-trip** arms
    (`Decimal("0.5")` vs `"0.5"`, `1` vs `Decimal("1.0")`, the four
-   never colliding) (spec §2.6 item 5).
+   never colliding); the **wrong-run-shape sabotage in both
+   directions** — an assessment-shaped run carrying a production
+   intent's token fails with reason `wrong-shape`, and conversely; and
+   the **relation round-trip** — each input's edge read back under the
+   predicate its own `role` names, an assessment publication emitting
+   no `produces`, and a production publication emitting exactly one
+   `produces` edge to the `mint_dataset`-derived address (spec §2.6
+   items 4–5).
 9. **Stored shape agreement and coverage** — the `run` facet
    `{"spec": <spec>}` for assessment and exactly `{}` for production,
    decode agreement both ways; `COVERED_FACETS["run"]` gains
@@ -246,20 +270,38 @@ the frozen rows, declared as data beside the selected arms:
     `stored.run_node` reads through the `run` facet, resolves as a
     reference target, and never qualifies, with no schema rejection
     (spec §2.6 item 5).
-12. **The completion re-base and three-site agreement** — the
-    `science.report.completion` predicate is the shared shape
-    predicates, its vocabulary the stated projection; the wrong-spec
-    run closure reading `CLOSED` today reads `UNFINISHED` after the
-    re-base, pinned; and the three consumers — the verifier, the
+12. **The completion re-base, the regenerated interior, and three-site
+    agreement** — the `science.report.completion` predicate is the
+    shared shape predicates, its vocabulary the stated projection; the
+    wrong-spec run closure reading `CLOSED` today reads `UNFINISHED`
+    after the re-base, pinned; the three consumers — the verifier, the
     regenerated holdings rule under its **new pinned receipt**, and
     `completion` — answer identically over the same evidence for every
-    shape each reads (spec §2.5, §4).
+    shape each reads; and, because cut 10 certified the hand-maintained
+    interior this slice replaces (§1), **cut 10's holdings
+    qualification matrix re-runs through both holdings consumers over
+    the regenerated interior**: matched, unresolved (the unsettled
+    registration), rolled-back, wrong-location, wrong-token, and
+    no-observation, each answering identically to the certified
+    behavior (spec §2.5, §4).
+13. **Positive qualification — the reducer can match.** Every §2.2
+    alternative is read to `matched` with `fulfilled_by` set, each
+    through the full round trip — append, execute, publish, capture,
+    decode, match: an assessment-run intent matched by its **run
+    publication** under its `spec_identity`; an assessment-run intent
+    matched by a **`run-attempt` act-report** for a post-intent attempt
+    that minted no run; a non-run operation intent matched by its
+    **act-report** of the intent's kind; a production-run operation
+    intent matched by its **minted run** of shape `dataset-production`;
+    and the holdings matched case running inside label 12's matrix. A
+    reducer that never matches fails this label before any negative arm
+    is reached (spec §2.2, §6).
 
 ## 4. Accounting
 
 Two rows read: **1 full** (G4) **+ 1 partial** (L7, its L7u1 remainder
-restated). Selected units by row: L7 13, G4 2 — **15 selected + 12
-labeled = 27 declaration units**.
+restated). Selected units by row: L7 13, G4 2 — **15 selected + 13
+labeled = 28 declaration units**.
 
 ## 5. N2 obligations
 
@@ -268,8 +310,15 @@ check-time obligations:
 
 1. **Fabrication well-formedness** (§1): every fabricated chain passes
    `inspect_chain` — or presents exactly its one intended defect — and
-   every fabricated stored record decodes through the stored surface,
-   asserted at declaration time.
+   every fabricated stored record decodes through the stored surface
+   **or is rejected at exactly its intended layer with no earlier
+   defect**: the incomplete projection and reversed pairs fail the
+   typed projection view with `v1.decode` and the digest succeeding;
+   the shape disagreements fail the two-key agreement check with both
+   facets individually well-formed; the stale-coverage mutation fails
+   the semantic stamp with the facet content itself decodable — each
+   asserted at declaration time, so the exercised refusal is the
+   declared layer's verdict, never an upstream accident's.
 2. **The kill arms** (L7 u4, u13) interpose at the port seam between
    the durable append and the first act — deterministic, never a
    timing race — and assert the intent entry is durably present while
