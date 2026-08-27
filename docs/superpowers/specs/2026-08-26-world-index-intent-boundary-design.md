@@ -52,7 +52,7 @@ the view enforces the projection's ordering rules, not only its field
 schema (§2.6 item 5); `RECORD_CEILING` moves to the shared executor
 plan validation covering every record kind (§3.1); and the oversize
 refusal is `PlanRefusedError`, pre-write, in the existing two-error
-contract (§3.1). **Amended an eleventh time 2026-08-26** (eleventh
+contract (§3.1). **Amended an eleventh time 2026-08-27** (eleventh
 review round): the ceiling check moves from the shared plan validation
 into the port's two publication methods — the executor is broader than
 the qualifying-publication boundary (§3.1).
