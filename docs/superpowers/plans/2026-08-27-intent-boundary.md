@@ -81,6 +81,18 @@ is the consumers' authority, the stored node id is `_node`'s, and
 tests; and the partition test pins `ROW_UNITS == {"L7": 13}` and the
 exact `LABELED_UNITS` tuple before comparing the identity set derived
 from the cut's own literals.
+**Revised a sixth time 2026-08-27** (sixth plan review): the production
+mismatch twin replays a comment-only mutation of `SNAKEFILE_PRODUCTION`
+(`SNAKEFILE_SCRATCHY` reads seed configuration a Deterministic
+production never renders, so execution would refuse before the gate);
+the cut-3 T2 replay arm rebases its sabotage onto the boundary gate the
+deleted `replay.py` branch became, keeping its check, with
+`tests/test_n2.py` run in Task 4; `_report_plan` accepts
+`ActReport | None` and fails early on `None`, and the pre-intent test
+narrows `result.report` before dereferencing; and the durable test
+file's literal code imports `pytest` and `CreateOp`, drops the unused
+`stage` import, and discards the unused root binding in both mismatch
+tests.
 
 **Goal:** Land the general qualification reduction over the closed
 three-shape intent union, the verifier's `qualification` report contract,
@@ -1459,6 +1471,9 @@ git commit -m "feat(port): non-fulfilling execute and the writer-side record cei
   `attempt.reason == "recipe-identity-mismatch"` — the frozen gate's
   reason replaces the retired sentence; its report/registration
   assertions stand unchanged.
+- Modify: `python/tests/n2_arms_cut3.py` (line 1658) — the cut-3 T2
+  replay arm's sabotage targets the `replay.py` branch this task
+  deletes; it rebases onto the boundary gate (Step 3).
 - Test: `python/tests/test_boundary.py` (extend), plus a durable test
   file `python/tests/test_run_persistence.py` (new) using the
   `certified_work` fixture and a real `DurableOperationPort`.
@@ -1510,9 +1525,12 @@ through a real `DurableOperationPort` (`durable_port` from
 In `test_run_persistence.py`:
 
 ```python
+import pytest
+
 from fixtures_cut3 import run_assessment, run_production
 from nodes.core.errors import ExecutionError
 from nodes.core.frontmatter import node_from_markdown
+from nodes.core.write_plan import CreateOp
 from science import root as science_root
 from science import runrecord, stored
 from science.boundary import RunMinted, RunRefused
@@ -1560,13 +1578,14 @@ def test_pre_intent_refusal_publishes_unfulfilling_report(tmp_path) -> None:
     assert [type(e) for e in entries if type(e) is IntentEntryView] == []  # no intent
     (registration,) = [e for e in entries if type(e) is RegisteredEntryView]
     assert registration.fulfills is None  # unfulfilling, through execute
+    assert result.report is not None  # RunRefused.report is optional; narrow first
     assert (root / "act-report" / f"{result.report.identity()}.md").exists()
 
 
 def test_post_intent_refusal_publishes_fulfilling_report(tmp_path) -> None:
     # definition-mismatch fires inside _execute_run, after the append: hand
     # run_assessment a snakefile whose bytes differ from the definition's.
-    from fixtures_cut3 import SNAKEFILE_DETERMINISTIC, SNAKEFILE_SCRATCHY, definition, stage
+    from fixtures_cut3 import SNAKEFILE_DETERMINISTIC, SNAKEFILE_SCRATCHY, definition
 
     root, port = _observer_port(tmp_path)
     result = run_assessment(
@@ -1646,7 +1665,7 @@ def test_replay_recipe_mismatch_publishes_refusal_not_run(tmp_path) -> None:
     # report — never a durable run beside an in-memory refusal.
     from fixtures_cut3 import SNAKEFILE_SCRATCHY, replay_of
 
-    root, port = _observer_port(tmp_path)
+    _, port = _observer_port(tmp_path)  # the observer root itself goes unread here
     original = run_assessment(tmp_path, port=port)
     assert type(original) is RunMinted
     replay_root = tmp_path / "replay-observer"
@@ -1669,17 +1688,22 @@ def test_replay_recipe_mismatch_publishes_refusal_not_run(tmp_path) -> None:
 def test_replay_recipe_mismatch_publishes_refusal_not_run_production(tmp_path) -> None:
     # The gate is frozen for BOTH entrypoints — the production twin, through
     # execute_production_run via replay_of over a production original.
-    from fixtures_cut3 import SNAKEFILE_SCRATCHY, replay_of, run_production
+    # NOT SNAKEFILE_SCRATCHY: it reads seed configuration, and a Deterministic
+    # production renders none — execution would refuse before minting and the
+    # gate would never run. A comment-only mutation of SNAKEFILE_PRODUCTION
+    # executes identically and moves only the workflow-definition identity.
+    from fixtures_cut3 import SNAKEFILE_PRODUCTION, replay_of
 
-    root, port = _observer_port(tmp_path)
+    _, port = _observer_port(tmp_path)
     original = run_production(tmp_path, port=port)
     assert type(original) is RunMinted
+    changed = SNAKEFILE_PRODUCTION.replace("import pathlib", "import pathlib  # changed recipe")
     replay_root = tmp_path / "replay-observer"
     init_corpus_root(replay_root)
     replayed_dir = tmp_path / "replayed"
     replayed_dir.mkdir()
     outcome = replay_of(original, replayed_dir, port=durable_port(replay_root),
-                        snakefile=SNAKEFILE_SCRATCHY)  # a different recipe identity
+                        snakefile=changed)  # a different recipe identity, same execution
     assert type(outcome) is RunRefused
     assert outcome.reason == "recipe-identity-mismatch"
     assert outcome.report is not None
@@ -1725,9 +1749,13 @@ In `boundary.py` — import `from science.production import mint_dataset`,
 `from nodes.core.write_plan import CreateOp`. Add helpers:
 
 ```python
-def _report_plan(report: ActReport) -> tuple[CreateOp, ...]:
+def _report_plan(report: ActReport | None) -> tuple[CreateOp, ...]:
+    # RunRefused.report is optional (boundary.py:99); every refusal this
+    # boundary constructs carries one, so a None here is a defect, not a case.
     from science import stored
 
+    if report is None:
+        raise MalformedClosure("a refusal reached publication without a report")
     node = stored.act_report_node(report)
     return (CreateOp(f"act-report/{report.identity()}.md", node_to_markdown(node).encode("utf-8")),)
 
@@ -1824,8 +1852,34 @@ gate**: delete the
 refusal is decided before the terminal publication and the durable
 record agrees with the returned value.
 
-- [ ] **Step 4: Run to verify pass; run cut8–cut10 acceptance (boundary
-  feeds corpus paths), then the gate block.**
+Deleting that branch strands the cut-3 T2 replay arm
+(`tests/n2_arms_cut3.py:1658`): its sabotage's `before` string is the
+retired `return _refused(str(error), ...)` line, and the ordinary N2
+harness (`tests/test_n2.py`) still audits every cut-1–3 arm and rejects
+a stale mutation. Rebase the arm onto the gate the branch became —
+same clause, same check; the sabotage returns the bare refusal before
+the fulfilling publication, so `report` and `registration` stay `None`
+and the check fails at its report/registration and completion
+assertions. The `before` line matches exactly once in `boundary.py`
+(the production gate's twin passes `"absent"`, not `spec.identity`).
+Replace the whole `_clause_arm` entry with:
+
+```python
+    _clause_arm(
+        "T2",
+        "a reconstructed-recipe mismatch closes its intent through a report registration",
+        "boundary.py",
+        '        result = _refused("recipe-identity-mismatch", spec.identity, actor, observer, started_at, intent)',
+        '        return RunRefused("recipe-identity-mismatch", None, intent, None)',
+        "test_replay.py::test_a_replay_refuses_a_reconstructed_recipe_mismatch",
+    ),
+```
+
+- [ ] **Step 4: Run to verify pass; then
+  `uv run --frozen pytest tests/test_n2.py` — the rebased T2 arm must
+  audit sound (the harness rejects it as stale otherwise); then
+  cut8–cut10 acceptance (boundary feeds corpus paths), then the gate
+  block.**
 
 - [ ] **Step 5: Ledger + commit**
 
@@ -1833,6 +1887,7 @@ record agrees with the returned value.
 git add python/src/science/boundary.py python/src/science/replay.py \
         python/tests/fixtures_cut3.py python/tests/test_boundary.py \
         python/tests/test_replay.py python/tests/test_run_persistence.py \
+        python/tests/n2_arms_cut3.py \
         docs/plans/2026-08-27-intent-boundary-ledger.md
 git commit -m "feat(boundary): destination port, append-first sequence, durable terminal publication"
 ```
