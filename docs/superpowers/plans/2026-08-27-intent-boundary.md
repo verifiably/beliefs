@@ -119,6 +119,22 @@ gate): import sections ordered first-party-last, `IdentityError`
 imported and unused names dropped in `evidence.py`, `n2_arms_cut11.py`
 gains its docstring and `from n2_arms import Arm, Sabotage` header,
 and `world/records.py` is spelled once in full at Task 7.
+**Revised a ninth time 2026-08-27** (ninth plan review):
+`publication_plan(closure)` loses its `produces` parameter — the
+production edge is derived internally via
+`mint_dataset(closure, existing_bases={})` (spec §2.6's exact-address
+rule; an invalid target is unspellable), every call site updates, the
+relation test asserts the edge equals the independently recomputed
+minted address, and J7's sabotage re-anchors through the assessment
+gate's refusal line since both minted branches now read identically;
+the exact edits to existing files strand no imports — `Protocol`
+leaves `corpus.py:39` with the deleted protocol, `_refused` and
+`MalformedClosure` leave `replay.py` with the deleted branch, and
+`boundary.py` keeps one `stored` spelling with no function-local
+import; and `intents/__init__.py` is written once in Task 5 as a
+docstring-only package marker — no task modifies it again and no
+package-root export API exists. The full-file snippets were
+re-extracted and re-pass the repo's exact ruff gate.
 
 **Goal:** Land the general qualification reduction over the closed
 three-shape intent union, the verifier's `qualification` report contract,
@@ -540,11 +556,15 @@ git commit -m "feat(identity): export v1.decode with CanonicalTextRefused"
     qualifying); raises `MalformedRecord`/`CanonicalTextRefused` when
     the bytes are not the named publication (schema, reprojection,
     address mismatch, `run`-facet shape disagreement either way).
-  - `runrecord.publication_plan(closure, *, produces: str | None) ->
+  - `runrecord.publication_plan(closure) ->
     tuple[str, str, tuple[CreateOp, ...]]` — `(record_id, path, plan)`,
     id `run:<address>` minted through `run_ref`, path
-    `run/<address>.md`, one `CreateOp` of the markdown bytes;
-    `produces` required exactly for shape `dataset-production`.
+    `run/<address>.md`, one `CreateOp` of the markdown bytes. The
+    `produces` edge is never caller-chosen: for shape
+    `dataset-production` it is derived internally as
+    `mint_dataset(closure, existing_bases={}).address` (the spec's
+    §2.6 exact-address rule — an invalid target is unspellable), and
+    an assessment publishes none.
   - `runrecord.run_ref(address: str) -> str` and
     `runrecord.bare_address(ref: str) -> str` — the frozen
     bare-address/typed-ref bridge, both directions closed over the
@@ -579,6 +599,7 @@ from nodes.core.frontmatter import node_from_markdown
 from science import runrecord, stored
 from science.errors import MalformedRecord
 from science.identity import v1
+from science.production import mint_dataset
 from science.recipe import RunClosure
 
 
@@ -603,7 +624,7 @@ def test_projection_text_digests_to_the_address(assessment_closure) -> None:
 
 
 def test_decode_round_trip_reads_shape_spec_and_token(assessment_closure) -> None:
-    _, _, (op,) = runrecord.publication_plan(assessment_closure, produces=None)
+    _, _, (op,) = runrecord.publication_plan(assessment_closure)
     node = node_from_markdown(op.content.decode("utf-8"))
     publication = runrecord.decode_run_record(node)
     assert publication == runrecord.RunPublication(
@@ -617,7 +638,7 @@ def test_decode_round_trip_reads_shape_spec_and_token(assessment_closure) -> Non
 def test_closure_member_mutation_diverges_from_the_id(assessment_closure) -> None:
     # Mutate one occurrence field inside the canonical text; the recomputed
     # address no longer matches the record id: not the named publication.
-    _, _, (op,) = runrecord.publication_plan(assessment_closure, produces=None)
+    _, _, (op,) = runrecord.publication_plan(assessment_closure)
     text = op.content.decode("utf-8")
     mutated = text.replace(assessment_closure.occurrence.actor, "someone-else", 1)
     node = node_from_markdown(mutated)
@@ -683,14 +704,14 @@ def test_decimal_wire_arms_project_decode_recompute(make_closure) -> None:
 
 
 def test_shape_agreement_both_ways(assessment_closure, production_closure) -> None:
-    _, _, (op,) = runrecord.publication_plan(assessment_closure, produces=None)
+    _, _, (op,) = runrecord.publication_plan(assessment_closure)
     node = node_from_markdown(op.content.decode("utf-8"))
     node.facets["run"]["spec"] = "not-the-closure-spec"
     node.facets["semantic-identity"] = {"digest": stored.recompute_semantic_hash(node)}
     with pytest.raises(MalformedRecord):
         runrecord.decode_run_record(node)
 
-    _, _, (op,) = runrecord.publication_plan(production_closure, produces="dataset:" + "d" * 64)
+    _, _, (op,) = runrecord.publication_plan(production_closure)
     node = node_from_markdown(op.content.decode("utf-8"))
     node.facets["run"]["spec"] = "s" * 64  # a production run facet carries no spec key
     node.facets["semantic-identity"] = {"digest": stored.recompute_semantic_hash(node)}
@@ -701,8 +722,8 @@ def test_shape_agreement_both_ways(assessment_closure, production_closure) -> No
 def test_run_facet_shapes_are_exact_not_get_based(assessment_closure, production_closure) -> None:
     # The frozen shapes are exactly {"spec": <spec>} and exactly {} — an
     # extra key refuses in both directions, never slides past a .get().
-    for closure, produces in ((assessment_closure, None), (production_closure, "dataset:" + "d" * 64)):
-        _, _, (op,) = runrecord.publication_plan(closure, produces=produces)
+    for closure in (assessment_closure, production_closure):
+        _, _, (op,) = runrecord.publication_plan(closure)
         node = node_from_markdown(op.content.decode("utf-8"))
         node.facets["run"]["extra"] = "key"
         node.facets["semantic-identity"] = {"digest": stored.recompute_semantic_hash(node)}
@@ -717,7 +738,7 @@ def test_legacy_run_node_reads_and_never_qualifies() -> None:
 
 
 def test_production_facet_is_exactly_empty_and_run_spec_reads_none(production_closure) -> None:
-    _, _, (op,) = runrecord.publication_plan(production_closure, produces="dataset:" + "d" * 64)
+    _, _, (op,) = runrecord.publication_plan(production_closure)
     node = node_from_markdown(op.content.decode("utf-8"))
     assert node.facets["run"] == {}
     assert stored.run_spec(node) is None
@@ -732,20 +753,22 @@ def test_relations_are_role_preserving(assessment_closure, production_closure) -
         assert expected, f"the fixture must carry a {role} input"
         assert stored.inputs_of(node, role) == expected
 
-    _, _, (op,) = runrecord.publication_plan(assessment_closure, produces=None)
+    _, _, (op,) = runrecord.publication_plan(assessment_closure)
     node = node_from_markdown(op.content.decode("utf-8"))
     edges(node, "observes", assessment_closure)
     edges(node, "reads", assessment_closure)
     assert stored.inputs_of(node, "transforms") == ()
     assert stored.inputs_of(node, "produces") == ()
 
-    dataset = "dataset:" + "d" * 64
-    _, _, (op,) = runrecord.publication_plan(production_closure, produces=dataset)
+    _, _, (op,) = runrecord.publication_plan(production_closure)
     node = node_from_markdown(op.content.decode("utf-8"))
     edges(node, "transforms", production_closure)
     edges(node, "reads", production_closure)
     assert stored.inputs_of(node, "observes") == ()
-    assert stored.inputs_of(node, "produces") == (dataset,)
+    # The one produces edge is the REAL mint_dataset-derived address —
+    # publication_plan derives it; no caller can choose another target.
+    minted = mint_dataset(production_closure, existing_bases={})
+    assert stored.inputs_of(node, "produces") == (minted.address,)
 
 
 def test_the_bridge_is_closed_over_the_closure_address_domain() -> None:
@@ -761,13 +784,13 @@ def test_the_bridge_is_closed_over_the_closure_address_domain() -> None:
 
 
 def test_publication_id_agrees_with_the_stored_node(assessment_closure) -> None:
-    record_id, _, (op,) = runrecord.publication_plan(assessment_closure, produces=None)
+    record_id, _, (op,) = runrecord.publication_plan(assessment_closure)
     node = node_from_markdown(op.content.decode("utf-8"))
     assert node.id == record_id  # the bridge and _node's construction agree
 
 
 def test_closure_facet_is_semantic_hash_covered(assessment_closure) -> None:
-    _, _, (op,) = runrecord.publication_plan(assessment_closure, produces=None)
+    _, _, (op,) = runrecord.publication_plan(assessment_closure)
     node = node_from_markdown(op.content.decode("utf-8"))
     node.facets["run-closure"]["projection"] += " "
     assert stored.semantic_hash_disagrees(node)  # stale stamp: the read refuses
@@ -861,6 +884,7 @@ from nodes.core.write_plan import CreateOp, WritePlan
 from science import stored
 from science.errors import MalformedClosure, MalformedRecord
 from science.identity import v1
+from science.production import mint_dataset
 from science.recipe import (
     ASSESSMENT_ROLES,
     PRODUCTION_ROLES,
@@ -1262,14 +1286,14 @@ def decode_run_record(node: Node) -> RunPublication | None:
     )
 
 
-def publication_plan(
-    closure: RunClosure, *, produces: str | None
-) -> tuple[str, str, tuple[CreateOp, ...]]:
+def publication_plan(closure: RunClosure) -> tuple[str, str, tuple[CreateOp, ...]]:
     shape = closure.recipe.shape
-    if (shape == "dataset-production") != (produces is not None):
-        raise MalformedClosure(
-            "a dataset-production run publishes exactly one produces edge; an assessment run none"
-        )
+    # The produces edge is never caller-chosen (spec §2.6): a production
+    # run publishes exactly the mint_dataset-derived address, an
+    # assessment none — an invalid target is unspellable at this API.
+    produces = (
+        mint_dataset(closure, existing_bases={}).address if shape == "dataset-production" else None
+    )
     address = closure.address()
     inputs = closure.recipe.inputs
     node = stored.run_publication_node(
@@ -1470,7 +1494,11 @@ def _refuse_over_ceiling(plan: WritePlan) -> None:
 **Single-home the protocol.** `runrecord.OperationPort` (Task 2) is the
 one authority — it already carries all three methods. `corpus.py`
 deletes its local `class OperationPort(Protocol)` (line 121) and
-re-exports the single home so every existing importer keeps working:
+re-exports the single home so every existing importer keeps working.
+The deleted class was `Protocol`'s only use, so `Protocol` also leaves
+`corpus.py`'s typing import (line 39 becomes
+`from typing import TYPE_CHECKING, Literal, final`) — a stranded name
+fails the ruff gate:
 
 ```python
 from science.runrecord import OperationPort
@@ -1543,8 +1571,7 @@ git commit -m "feat(port): non-fulfilling execute and the writer-side record cei
 
 **Interfaces:**
 - Consumes: `runrecord.publication_plan`, `runrecord.OperationPort`,
-  `mint_dataset` (`production.py:72`), `v1.encode`,
-  `stored.act_report_node`, `node_to_markdown`.
+  `v1.encode`, `stored.act_report_node`, `node_to_markdown`.
 - Produces: both entrypoints gain the **required** keyword parameter
   `port: OperationPort` — no defaulted in-memory mode. The sequence is
   fixed: freeze root (the port is root-bound at construction), durably
@@ -1558,8 +1585,8 @@ git commit -m "feat(port): non-fulfilling execute and the writer-side record cei
 - Produces: a pre-intent refusal publishes its report through
   `port.execute` (unfulfilling); a post-intent refusal publishes the
   report through `port.execute_fulfilling`; a minted run publishes the
-  closure record through `port.execute_fulfilling`, with `produces` set
-  to the `mint_dataset`-derived address for a production run.
+  closure record through `port.execute_fulfilling`; the production
+  `produces` edge is `publication_plan`'s own internal derivation.
 - Produces: both entrypoints gain
   `expected_recipe_identity: str | None = None` — the frozen replay
   gate (spec §2.6 item 6, the twenty-first amendment): when set, the
@@ -1806,9 +1833,10 @@ keyword argument 'port'`.
 
 - [ ] **Step 3: Implement**
 
-In `boundary.py` — import `from science.production import mint_dataset`,
+In `boundary.py` — import
 `from science.runrecord import OperationPort, publication_plan`,
-`from science.identity import v1`, `from science.stored import act_report_node`,
+`from science.identity import v1`, `from science import stored`
+(one spelling — `stored.act_report_node`, no function-local import),
 `from nodes.core.frontmatter import node_to_markdown`,
 `from nodes.core.write_plan import CreateOp`. Add helpers:
 
@@ -1816,8 +1844,6 @@ In `boundary.py` — import `from science.production import mint_dataset`,
 def _report_plan(report: ActReport | None) -> tuple[CreateOp, ...]:
     # RunRefused.report is optional (boundary.py:99); every refusal this
     # boundary constructs carries one, so a None here is a defect, not a case.
-    from science import stored
-
     if report is None:
         raise MalformedClosure("a refusal reached publication without a report")
     node = stored.act_report_node(report)
@@ -1834,7 +1860,8 @@ def _intent_wire(intent: AssessmentRunIntent | OperationIntent) -> bytes:
 
 `execute_assessment_run` becomes (the production entrypoint's own gate
 and minted branch are spelled in full below, with
-`OperationIntent("run-attempt", ...)` and the `produces` address):
+`OperationIntent("run-attempt", ...)`; both shapes' `produces` handling
+lives inside `publication_plan`):
 
 ```python
 def execute_assessment_run(*, spec: object, port: OperationPort,
@@ -1866,7 +1893,7 @@ def execute_assessment_run(*, spec: object, port: OperationPort,
         # never published; the terminal record is the refusal report.
         result = _refused("recipe-identity-mismatch", spec.identity, actor, observer, started_at, intent)
     if type(result) is RunMinted:
-        _, _, plan = publication_plan(result.run, produces=None)
+        _, _, plan = publication_plan(result.run)
         port.execute_fulfilling(plan, fulfills)
     else:
         port.execute_fulfilling(_report_plan(result.report), fulfills)
@@ -1874,8 +1901,10 @@ def execute_assessment_run(*, spec: object, port: OperationPort,
 ```
 
 The production entrypoint's gate and minted branch, in full — the
-comparison precedes the `mint_dataset` derivation, so a mismatched run
-derives nothing:
+comparison precedes the terminal publication, and `publication_plan`
+derives the `produces` address internally (`mint_dataset`, spec §2.6's
+exact-address rule), so a mismatched run derives and publishes
+nothing:
 
 ```python
     if (
@@ -1885,8 +1914,7 @@ derives nothing:
     ):
         result = _refused("recipe-identity-mismatch", "absent", actor, observer, started_at, intent)
     if type(result) is RunMinted:
-        minted = mint_dataset(result.run, existing_bases={})
-        _, _, plan = publication_plan(result.run, produces=minted.address)
+        _, _, plan = publication_plan(result.run)
         port.execute_fulfilling(plan, fulfills)
     else:
         port.execute_fulfilling(_report_plan(result.report), fulfills)
@@ -1914,7 +1942,12 @@ gate**: delete the
 (replay.py:142) and add
 `"expected_recipe_identity": recipe.identity()` to `common`, so the
 refusal is decided before the terminal publication and the durable
-record agrees with the returned value.
+record agrees with the returned value. The deleted branch was the last
+use of `_refused` and `MalformedClosure` in `replay.py` — both leave
+its imports (line 19 keeps `RunMinted, RunRefused,
+execute_assessment_run, execute_production_run`; line 20 becomes
+`from science.errors import MalformedRecord`), or the stranded names
+fail the ruff gate.
 
 Deleting that branch strands the cut-3 T2 replay arm
 (`tests/n2_arms_cut3.py:1658`): its sabotage's `before` string is the
@@ -1988,8 +2021,10 @@ list — commit exactly what changed.)
   The header changes the rule's implementation bytes → new content
   digest → a new receipt is minted by the existing receipt machinery
   (`implementation_identity` is derived, nothing is hand-pinned).
-- Produces: `intents/__init__.py` exporting the package (fills up over
-  Tasks 6–9).
+- Produces: `intents/__init__.py` — the package marker, docstring only,
+  written once here and never modified again: every consumer imports
+  the submodules (`science.intents.shapes`, `.evidence`, `.reduce`,
+  `.holdings`) directly, and no package-root re-export API exists.
 
 - [ ] **Step 1: Write the failing guard test**
 
@@ -2775,7 +2810,7 @@ def sample_observation_node():
 def test_run_publication_decodes_to_run_evidence(assessment_closure) -> None:
     from science.runrecord import publication_plan
 
-    _, path, (op,) = publication_plan(assessment_closure, produces=None)
+    _, path, (op,) = publication_plan(assessment_closure)
     decoded = evidence.decode_record(path, op.content)
     assert decoded == shapes.RunEvidence(
         "assessment", assessment_closure.recipe.spec_identity,
@@ -2794,7 +2829,7 @@ def test_stale_stamp_is_undecodable(assessment_closure) -> None:
 
     from science.runrecord import publication_plan
 
-    _, path, (op,) = publication_plan(assessment_closure, produces=None)
+    _, path, (op,) = publication_plan(assessment_closure)
     node = node_from_markdown(op.content.decode("utf-8"))
     node.facets["run-closure"]["projection"] += " "  # stamp now stale
     with pytest.raises(RecordUndecodable):
@@ -2994,7 +3029,6 @@ git commit -m "feat(intents): captured-record evidence decoding and the extracte
 
 **Files:**
 - Create: `python/src/science/intents/reduce.py`
-- Modify: `python/src/science/intents/__init__.py` (exports)
 - Test: `python/tests/test_intent_reduce.py` (new)
 
 **Interfaces:**
@@ -3057,8 +3091,7 @@ from science.world.logmodel import (
 
 
 def _publication(closure: RunClosure) -> tuple[str, bytes]:
-    produces = None if closure.recipe.shape == "assessment" else "dataset:" + "d" * 64
-    _, path, (op,) = runrecord.publication_plan(closure, produces=produces)
+    _, path, (op,) = runrecord.publication_plan(closure)
     return path, op.content
 
 
@@ -3470,7 +3503,7 @@ absent here — that is §3.1's rule, by construction.
 - [ ] **Step 5: Ledger + commit**
 
 ```bash
-git add python/src/science/intents/ python/tests/test_intent_reduce.py \
+git add python/src/science/intents/reduce.py python/tests/test_intent_reduce.py \
         docs/plans/2026-08-27-intent-boundary-ledger.md
 git commit -m "feat(intents): the one qualification reduction with pinned findings"
 ```
@@ -3566,7 +3599,7 @@ class TestQualification:
         from closure_fixtures import make_closure
         from science.runrecord import publication_plan
 
-        _, run_path, (op,) = publication_plan(make_closure(), produces=None)
+        _, run_path, (op,) = publication_plan(make_closure())
         pointer = registration("r1", "tx-1", fulfills="i1",
                                final=((run_path, FakeFile("x")),))
         view = chain(genesis(), INTENT, pointer, pending=(("tx-1", "r1"),))
@@ -3961,11 +3994,11 @@ def _wire(value: AssessmentRunIntent | OperationIntent) -> bytes:
 def _held(name: str) -> tuple[object, str, bytes]:
     if name == "assessment":
         closure = make_closure()
-        _, path, (op,) = publication_plan(closure, produces=None)
+        _, path, (op,) = publication_plan(closure)
         return closure, path, op.content
     if name == "production":
         closure = make_closure(shape="dataset-production")
-        _, path, (op,) = publication_plan(closure, produces="dataset:" + "d" * 64)
+        _, path, (op,) = publication_plan(closure)
         return closure, path, op.content
     operation = {"run-attempt-report": "run-attempt", "import-report": "import", "audit-report": "audit"}[name]
     report = sample_report(operation=operation, token="tok")
@@ -4216,10 +4249,18 @@ CUT11_ARMS = (
                  after="qual_findings + findings"),
         ("test_world_log_evaluator.py::TestQualification::test_qualification_findings_are_appended_last",)),
     Arm("J7", "the terminal publication fulfills the boundary's own appended intent",
+        # Both entrypoints' minted branches now read identically, so the
+        # anchor extends up through the assessment gate's refusal line
+        # (`spec.identity` — the production twin passes "absent") to
+        # match exactly once.
         Sabotage("boundary.py",
-                 before="_, _, plan = publication_plan(result.run, produces=None)\n"
+                 before='result = _refused("recipe-identity-mismatch", spec.identity, actor, observer, started_at, intent)\n'
+                        "    if type(result) is RunMinted:\n"
+                        "        _, _, plan = publication_plan(result.run)\n"
                         "        port.execute_fulfilling(plan, fulfills)",
-                 after="_, _, plan = publication_plan(result.run, produces=None)\n"
+                 after='result = _refused("recipe-identity-mismatch", spec.identity, actor, observer, started_at, intent)\n'
+                       "    if type(result) is RunMinted:\n"
+                       "        _, _, plan = publication_plan(result.run)\n"
                        "        port.execute(plan)"),
         ("test_run_persistence.py::test_assessment_sequence_appends_intent_then_publishes_fulfilling",)),
     Arm("J8a", "the view requires canonical reprojection equality",
@@ -4651,7 +4692,7 @@ def test_u2_wrong_purpose_member(certified_work):
 
 def test_u2_wrong_spec_member(certified_work):
     root, port = _port(certified_work, "u2-wrong-spec")
-    _, _, plan = publication_plan(make_closure(spec="x" * 64), produces=None)
+    _, _, plan = publication_plan(make_closure(spec="x" * 64))
     port.execute_fulfilling(plan, _append_assessment(port))
     rows, findings = _qualification(root)
     assert rows[0].status == "attempt-without-recorded-outcome"
@@ -4660,7 +4701,7 @@ def test_u2_wrong_spec_member(certified_work):
 
 def test_u2_wrong_token_member(certified_work):
     root, port = _port(certified_work, "u2-wrong-token")
-    _, _, plan = publication_plan(make_closure(token="other"), produces=None)
+    _, _, plan = publication_plan(make_closure(token="other"))
     port.execute_fulfilling(plan, _append_assessment(port))
     rows, findings = _qualification(root)
     assert rows[0].status == "attempt-without-recorded-outcome"
@@ -4681,7 +4722,7 @@ def test_u2_no_record_member(certified_work):
 def test_u3_decayed_genuine_run_is_unresolvable_silently(certified_work):
     root, port = _port(certified_work, "u3")
     closure = make_closure()
-    _, path, plan = publication_plan(closure, produces=None)
+    _, path, plan = publication_plan(closure)
     port.execute_fulfilling(plan, _append_assessment(port))
     rows, _ = _qualification(root)
     assert rows[0].status == "matched"  # genuine before the decay
@@ -4765,7 +4806,7 @@ def test_u10_wrong_kind_report_fails_qualification(certified_work):
 
 def test_u11_run_for_non_run_operation_fails_qualification(certified_work):
     root, port = _port(certified_work, "u11")
-    _, _, plan = publication_plan(make_closure(), produces=None)
+    _, _, plan = publication_plan(make_closure())
     port.execute_fulfilling(plan, _append_operation(port, kind="import"))
     rows, findings = _qualification(root)
     assert rows[0].status == "attempt-without-recorded-outcome"
@@ -4786,8 +4827,8 @@ def test_u12_no_terminal_record_fails_qualification(certified_work):
 def test_bridge_resolves_assessment_ref_and_stamped_basis(certified_work):
     root, port = _port(certified_work, "bridge")
     closure = make_closure(shape="dataset-production")
-    minted = mint_dataset(closure, existing_bases={})
-    record_id, _, plan = publication_plan(closure, produces=minted.address)
+    minted = mint_dataset(closure, existing_bases={})  # for basis.run below
+    record_id, _, plan = publication_plan(closure)
     port.execute(plan)
     # StampedBasis.run is a BARE closure address — no kind, no colon:
     assert minted.basis.run == closure.address() and ":" not in minted.basis.run
@@ -4824,11 +4865,9 @@ def test_positive_matched_per_alternative(case, certified_work):
         kind = "import" if case == "operation-report" else "run-attempt"
         fulfills = _append_operation(port, kind=kind)
     if case == "assessment-run-publication":
-        _, _, plan = publication_plan(make_closure(), produces=None)
+        _, _, plan = publication_plan(make_closure())
     elif case == "production-run":
-        closure = make_closure(shape="dataset-production")
-        _, _, plan = publication_plan(closure,
-                                      produces=mint_dataset(closure, existing_bases={}).address)
+        _, _, plan = publication_plan(make_closure(shape="dataset-production"))
     else:
         operation = "import" if case == "operation-report" else "run-attempt"
         plan = _report_plan(sample_report(operation=operation, token="tok"))
@@ -4846,7 +4885,7 @@ def test_decimal_round_trip_publishes_and_captures(certified_work):
     published = []
     for value in values:
         closure = make_closure(parameters={"threshold": value})
-        _, path, plan = publication_plan(closure, produces=None)
+        _, path, plan = publication_plan(closure)
         port.execute(plan)
         published.append((closure, path))
     records = dict(capture_records(root, "corpus"))
