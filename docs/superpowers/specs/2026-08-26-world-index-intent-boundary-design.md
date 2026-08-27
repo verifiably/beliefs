@@ -75,7 +75,12 @@ snapshot, overlap precedence (§5). **Amended a sixteenth time
 boundary named — `admit_spec_successor`, its refusal type, and the
 hold through the decision; the exactly-one-`verifies` cardinality
 rule; and the unresolved-qualification refusal composing L7 u3 through
-G4 (§5).
+G4 (§5). **Amended a seventeenth time 2026-08-27** (cut 11's seventh
+reading): the callable `admit_spec_successor` contract — signature,
+module, binding, return union, declared refusal; source decoding
+through `verification_value` with its failure mapped; and the
+evidence gate's scope — failing-verdict sources only, incoherence
+refusing globally as unattributable (§5).
 **Inherits:** `2026-08-03-tamper-evident-log-design.md` §6 as amended — the
 qualification reduction this slice implements at its full stated width: the
 matched / unresolvable / attempt-without-recorded-outcome precedence, the
@@ -748,16 +753,46 @@ and never a caller-invented set.
 `admit_successor` stays the pure two-set core, and the tree has no
 production caller of it — so "never a caller-invented set" would be
 unenforced prose without the boundary that owns the derivation. This
-slice ships **`admit_spec_successor`**: over `(candidate, superseded)`
-and the observer-corpus binding, it acquires the root's hold, assembles
-the chain view and the stored-surface capture in **one read**, runs the
-qualification reduction, composes the two classes, and calls
-`admit_successor` with the derived sets — **holding the hold through
-the admission decision**, so nothing resolves or decays between
-derivation and verdict. Incoherent evidence — the verification rules
-above, cardinality included — refuses with one named refusal,
-**`AdmissionEvidenceRefused`**, joining the `science.errors` family and
-naming the offending record. **Unresolved qualification refuses too**:
+slice ships **`admit_spec_successor`**, with a callable contract, not a
+gesture — the existing `OperationPort` supplies neither reads nor a
+hold, so the binding is the log seam the audit and restore boundaries
+already consume:
+
+```python
+def admit_spec_successor(
+    candidate: FrozenSpec,
+    superseded: FrozenSpec,
+    *,
+    seam: LogSeam,
+    root: Path,
+) -> SuccessorAdmitted | SuccessorRefused: ...
+```
+
+exported from `science.spec` beside the core, joining its `__all__`;
+the return union is the core's existing pair, unchanged; the one
+declared exception is `AdmissionEvidenceRefused`. Under the root's
+operation lock — the §6.1 hold, **held through the admission
+decision** so nothing resolves or decays between derivation and
+verdict — it assembles the chain view and the stored-surface capture
+in **one read**, runs the qualification reduction, composes the two
+classes, and calls `admit_successor` with the derived sets. No second
+boundary exists to invent. **The verification evidence gate, complete and scoped.** Every
+verification record consulted decodes through the existing typed
+reader, `verification_value` — generic corpus storage does not
+guarantee it succeeds, and a reader failure is a source whose verdict
+is unknowable, refused, never skipped. Among decoded sources, **only
+failing-verdict verifications enter the coherence gate** — a passing
+verification is not blocker evidence, and its relations are not this
+gate's business. An incoherent failing verification — reader failure,
+cardinality, target, or identity mismatch — **refuses the admission
+globally, whatever spec it might concern**: incoherence is exactly the
+state in which the evidence cannot be attributed to a spec, so a
+relevance scope is undecidable for precisely the records it would
+exempt, and admitting over unattributable failure evidence would be
+the silent skip this design refuses. The refusal — one named type,
+**`AdmissionEvidenceRefused`**, joining the `science.errors` family —
+**names the offending record in the error**, so the repair is directed,
+and the act is retried after correction, never around it. **Unresolved qualification refuses too**:
 an assessment-run intent carrying the superseded `spec_identity` whose
 qualification reads `unresolvable` — a published refusal report whose
 bytes decayed, L7 u3's construction — is evidence that cannot be read,

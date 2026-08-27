@@ -177,12 +177,23 @@ worktree removal.
     `admit_spec_successor`** — the named deriving boundary, its hold
     held through the decision, refusing as `AdmissionEvidenceRefused`
     — never a test-only composition feeding the pure core directly.
-    And the **unresolved-qualification composition**: L7 u3's
-    construction — a published `run-attempt` refusal report whose
-    bytes decayed — feeds an admission of a successor to that spec,
-    and the boundary refuses with the unresolved reason: evidence
-    that cannot be read is not evidence of absence, and the failure
-    enters neither class silently. This is kernel §8.7's fourth
+    And the **unresolved-qualification compositions, two
+    constructions**: **L7 u3's actual construction** — a genuine
+    published **run** whose bytes decayed — feeds an admission of a
+    successor to that spec and the boundary refuses with the
+    unresolved reason; and, **named as its own arm, not called u3**,
+    a published `run-attempt` refusal report whose bytes decayed
+    feeds the same admission and refuses the same way: in both,
+    evidence that cannot be read is not evidence of absence, and the
+    failure enters neither class silently. The **evidence-gate
+    arms**: a verification whose **source facet** does not decode
+    through `verification_value` refuses via the reader's mapped
+    failure; an incoherent **failing** verification about an
+    assessment **unrelated to the superseded spec** still refuses the
+    admission — the global scope, unattributable evidence exempting
+    nothing — while a **passing** verification with zero or two
+    `verifies` edges refuses **nothing**, the gate scoped to
+    failing-verdict sources. This is kernel §8.7's fourth
     recorded-mutation consequence, closed through the reduction;
   - **(u2)** the **negative half, pinning the limit**: discard the
     failed attempt *entirely* — no intent appended, nothing durable —
