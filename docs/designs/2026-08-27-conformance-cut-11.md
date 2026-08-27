@@ -7,15 +7,11 @@ the reader independently.
 
 **Sources:** `2026-08-24-conformance-cut-10.md` (rule and practice
 inheritances, and the holdings qualification matrix label 12 re-runs
-over the regenerated interior); `2026-08-11-conformance-cut-3.md` (the
-G4 value-width disposition this cut re-reads at persistence width); the
+over the regenerated interior); the
 intent-boundary specification
 `docs/superpowers/specs/2026-08-26-world-index-intent-boundary-design.md`
 (cited as *spec*); the live **L7** row of
 `2026-08-03-tamper-evident-log-design.md` §10, quoted verbatim below;
-the live **G4** row of `2026-08-02-epistemic-kernel-design.md` §5,
-quoted verbatim below, with §3.2 (the narrowing) and §8.7 (the
-recorded-history completeness table this row closes);
 `2026-08-22-conformance-cut-8.md` (the standing L7 chain-structural
 dispositions and the L7u1 partial this cut re-examines);
 `2026-08-11-act-report-design.md` §3 (the operation intent and T2's
@@ -36,8 +32,10 @@ destination port, the append-before-any-member-act sequence, the
 non-fulfilling publication, the closure-to-stored encoder with the
 `run-closure` facet, and the record ceiling at the port; the holdings
 qualification interior regenerated from the general reducer under a new
-pinned receipt; the `science.report.completion` re-base; and G4's
-closure, both halves.
+pinned receipt; and the `science.report.completion` re-base. **G4 and
+the successor-admission boundary are not here** — split out 2026-08-27
+to their own slice (spec §1 item 0, spec §5's transfer note); no arm
+below reads them.
 
 The selection rule is cut 5's rule, unchanged: a clause is selected only
 when its source mutation and every named check run entirely inside §2. A
@@ -68,9 +66,7 @@ hand-maintained interior this slice **replaces**, so its certification
 does not transfer to the regenerated one — label 12 re-runs cut 10's
 qualification matrix through both consumers over the regenerated
 interior, and cut 10's disposition stands as the prior interior's
-record, not this one's. Cut 3's **G4** full disposition is likewise
-acknowledged as the value-width certification; this cut's G4 u1 is its
-persistence-width re-read through the spec §5 derivation.
+record, not this one's.
 
 ## 2. The boundary
 
@@ -124,8 +120,9 @@ worktree removal.
     the boundary constructs the link from its own appended intent
     digest, asserted structurally;
   - **(u8)** the **negative**: crash, cancellation, and discarded
-    failure are indistinguishable by construction — the run-shape pin
-    that G4's negative (below) quantifies at the kernel level;
+    failure are indistinguishable by construction — the row's own
+    negative pin, whose kernel-level G-table closure now belongs to
+    the successor-admission slice;
   - **(u9)** an act-report carrying **another operation's token** fails
     qualification for the operation intent;
   - **(u10)** an act-report of the **wrong kind** fails qualification;
@@ -140,89 +137,18 @@ worktree removal.
     its first act → attempt-without-recorded-outcome, exactly as
     stated.
 
-| **G4** | A **recorded** failed replay cannot be silently orphaned (narrowed — §3.2) | Attempt an unreferenced successor to a recorded failure; assert refusal. **Also assert the negative:** discard the failed attempt entirely and confirm the system *cannot* detect it — the test pins the limit so no reader over-reads G4 |
-
-- **Full.** Selected (2 units):
-  - **(u1)** the **positive half**: a recorded failed replay attempt —
-    the durable intent whose fulfillment never qualifies — reads
-    attempt-without-recorded-outcome in every report over the chain,
-    and discarding the failed *fulfillment* while the intent survives
-    moves qualification, never erases the attempt. The unreferenced
-    successor is refused **through the spec §5 two-class derivation,
-    all three paths exercised end to end**: a qualifying `run-attempt`
-    refusal report joined to its intent's `spec_identity`, and a
-    failing verification joined through its `verifies` edge to the
-    assessment record's `spec` — each a **recorded-failure** member
-    with that refusal reason — and, separately, the
-    discarded-terminal-record sequence itself: intent appends, replay
-    fails, the terminal record is discarded, the intent survives
-    reading attempt-without-recorded-outcome, and the unreferenced
-    successor is **still refused**, as an **unfinished recorded
-    attempt** with that distinct reason, never labeled a recorded
-    failure. Never a hand-built set, so the arm cannot pass by
-    re-running cut 3's value-width test (§1's acknowledgment); a
-    referencing successor is asserted to lift each class. The arm
-    also exercises the **overlap** — one spec present in both classes
-    refuses with the recorded-failure reason, the frozen precedence,
-    never an iteration-order accident — and the **identity-binding
-    sabotage**: a validly stamped failing verification whose facet
-    names assessment identity A while its `verifies` edge resolves to
-    assessment B **refuses the admission act naming that
-    verification** — incoherent evidence never ignored, and never
-    converted into a block against B's spec — beside the
-    **cardinality sabotages**: a validly stamped failing verification
-    with **zero** `verifies` edges, and one with **two**, each
-    refusing as incoherent at the same layer, the stamp covering
-    neither relation count. Every path runs **through
-    `admit_spec_successor`** — the named deriving boundary, its hold
-    held through the decision, refusing as `AdmissionEvidenceRefused`
-    — never a test-only composition feeding the pure core directly.
-    And the **unresolved-qualification compositions, two
-    constructions**: **L7 u3's actual construction** — a genuine
-    published **run** whose bytes decayed — feeds an admission of a
-    successor to that spec and the boundary refuses with the
-    unresolved reason; and, **named as its own arm, not called u3**,
-    a published `run-attempt` refusal report whose bytes decayed
-    feeds the same admission and refuses the same way: in both,
-    evidence that cannot be read is not evidence of absence, and the
-    failure enters neither class silently. The **evidence-gate
-    arms**: a verification whose **source facet** does not decode
-    through `verification_value` refuses via the reader's mapped
-    failure; an incoherent **failing** verification about an
-    assessment **unrelated to the superseded spec** still refuses the
-    admission — the global scope, unattributable evidence exempting
-    nothing — while a **passing** verification with zero or two
-    `verifies` edges refuses **nothing**, the gate scoped to
-    failing-verdict sources; an **oversized verification — and
-    separately an oversized assessment — beyond `RECORD_CEILING`
-    refuses the admission act by name**, the bound applied to the
-    **raw stored bytes before any decoding**, while the same oversized
-    record still lands as an ordinary corpus write, label 3's non-port
-    regression scope preserved; the **freshness arm**: a blocker
-    recorded immediately before the act, inside no prior view, is
-    consulted — the evidence read happens under the hold, and a
-    wrong-root view is **unspellable**, asserted structurally, the
-    signature carrying no view to point elsewhere; and the
-    **supersession arms**: a failing verification whose active
-    superseder **passes** no longer blocks — the admission proceeds —
-    while one superseded by another **failing** verification still
-    refuses through the active member, `active_verifications`'
-    selection frozen into the composition. This is kernel §8.7's
-    fourth recorded-mutation consequence, closed through the
-    reduction;
-  - **(u2)** the **negative half, pinning the limit**: discard the
-    failed attempt *entirely* — no intent appended, nothing durable —
-    and the system **cannot** detect it: crash, cancellation, and
-    discarded failure are indistinguishable by construction, asserted
-    so no reader over-reads G4, with detection quantified over
-    surviving observers exactly as §8.7 states it.
 
 ### 3.2 Rows not read
 
 **L8** (event-level cross-chain order) — the log-verification design's
 own successor work, row 5's named owner; §7's predicate remains the
 whole of L8 built. **L13**'s preimage resolver — waits on the named
-atoms blob-read seam, row 5's other named owner. **L1–L6, L9–L12** —
+atoms blob-read seam, row 5's other named owner. **G4** — the kernel
+G-table row deliberately unread: its closure, the two-class blocker
+derivation, and `admit_spec_successor` are the successor-admission
+slice's (spec §5's transfer note carries its inherited authority and
+opening obligations), and kernel §8.7's fourth consequence stays open
+until that slice discharges. **L1–L6, L9–L12** —
 certified by cuts 8 and 9, untouched by this slice beyond the report
 contract lift, whose conformance is a labeled declaration (§3.3
 item 6), not a re-reading of their rows. The kernel G-table's other
@@ -363,9 +289,9 @@ outside the frozen rows, declared as data beside the selected arms:
 
 ## 4. Accounting
 
-Two rows read: **1 full** (G4) **+ 1 partial** (L7, its L7u1 remainder
-restated). Selected units by row: L7 13, G4 2 — **15 selected + 13
-labeled = 28 declaration units**.
+One row read: **1 partial** (L7, its L7u1 remainder restated).
+Selected units: L7 13 — **13 selected + 13 labeled = 26 declaration
+units**.
 
 ## 5. N2 obligations
 
@@ -402,7 +328,7 @@ check-time obligations:
 
 ## 6. Freeze obligations
 
-Six, named before the plan exists: **L7 u2's non-qualifying
+Five, named before the plan exists: **L7 u2's non-qualifying
 fulfillments** must be genuine committed transactions carrying
 `fulfills` — chain states `inspect_chain` accepts, each failure
 qualification's verdict, never a malformed-chain classification reached
@@ -419,12 +345,7 @@ refusal** must run against two roots both writable and serviceable, so
 the refusal is placement's, never the lifecycle gate's; **the
 non-port regression write** (label 3) must exceed the ceiling through a
 genuine non-port effect path an existing writer uses — never a
-synthetic executor call constructed only for the arm; and **G4 u1's
-identity-binding sabotage** must be a verification that is validly
-stamped, individually well-formed, and whose `verifies` edge resolves
-to a real, well-formed assessment — only the facet identity
-mismatched — so the refusal exercised is the join's binding check, no
-earlier layer's.
+synthetic executor call constructed only for the arm.
 
 ## 7. Second reader
 
@@ -438,11 +359,12 @@ closes the last of them.
 
 ## 8. Limitations
 
-1. **Event-level L8 and the L13 preimage resolver** remain open with
-   their named owners; nothing here reads either.
+1. **Event-level L8, the L13 preimage resolver, and G4 with the
+   successor-admission boundary** remain open with their named owners;
+   nothing here reads any of them, and kernel §8.7's fourth
+   recorded-mutation consequence stays open.
 2. **G2a's out-of-band negative stands** — chronology's strengthening
-   stays boundary-mediated exactly as banked; G4's closure does not
-   touch it.
+   stays boundary-mediated exactly as banked; nothing here touches it.
 3. **Qualification is report-field status, never the chain verdict** —
    this cut certifies the reduction, not any new outcome.
 4. **The URL retrieval boundary, acquisition orchestration, typed
@@ -450,5 +372,5 @@ closes the last of them.
    deferrals, untouched.
 5. **Detection quantifies over surviving observers** throughout —
    destruction of a root together with every anchor holding it is not
-   detectable from nothing, G4's negative being the intent-level pin of
-   the same bound.
+   detectable from nothing; L7 u8's negative is this cut's intent-level
+   pin of the same bound.

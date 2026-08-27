@@ -85,7 +85,16 @@ refusing globally as unattributable (§5). **Amended a nineteenth time
 contract — the boundary performs its own bounded raw-byte evidence
 read under the hold, root-bound and fresh by construction; and
 Class 1 selects among **active** failing verifications under the
-existing supersession rule (§5). **Amended an eighteenth time
+existing supersession rule (§5). **Amended a twentieth time
+2026-08-27** (the split): **G4 and the successor-admission boundary
+leave this slice** — nine readings grew them into their own design,
+and the tenth's findings (stamp validation before the typed readers,
+`Index.build` resolution semantics, the correct supersession helper,
+the per-file bound's true scope, the oversized-supersession caveat)
+are recorded in §5 as the successor-admission slice's opening
+obligations. This slice freezes the intent qualification surface; §5's
+transferred text is that successor slice's inherited authority, not
+this cut's territory. **Amended an eighteenth time
 2026-08-27** (cut 11's eighth reading): the u3 mislabel corrected in
 this spec's own text; the composition's record reads bound to
 `ReadView` in the signature; and the admission read's size bound with
@@ -145,18 +154,23 @@ source, no science imports, binding by content digest.
    reading keeps its designed vocabulary and its signature, and its
    predicate becomes the general reducer's shape predicates (§2.5), so no
    second precedence implementation survives this slice.
-6. **G4's closure** — both halves of the kernel G-table row, read through
-   the reduction.
-
 **Closed here:** L7 from partial to its stated width — the guarantee
 quantifies over all three intent kinds, exactly as cut 8's frozen row
-states it; kernel §8.7's fourth recorded-mutation consequence (G4); the
-"intent qualification is unevaluated" deferral stated in every report
-(log-verification design §10 item 1); adoption-ledger row 5's
-intent-boundary remainder.
+states it; the "intent qualification is unevaluated" deferral stated in
+every report (log-verification design §10 item 1); adoption-ledger
+row 5's intent-boundary remainder, **except G4**, which moves to the
+successor-admission slice below.
 
 **Not here, each staying with its named owner:**
 
+0. **G4's closure and the successor-admission boundary** — split out
+   2026-08-27 after nine cut readings grew them into their own design:
+   `admit_spec_successor`, the two-class blocker derivation, the
+   verification evidence gate, the bounded admission capture, the
+   supersession selection, and both G4 arms belong to the
+   **successor-admission slice**, with §5's transferred text as its
+   inherited authority and its recorded opening obligations. Kernel
+   §8.7's fourth consequence stays open until that slice discharges.
 1. **Event-level L8** — the presence/exclusion relation across captured
    corpus heads; the log-verification design's own successor work.
 2. **The L13 preimage resolver** — waits on the named `atoms` blob-read
@@ -668,7 +682,37 @@ callers," discharged as written. What changes is exactly:
    byte-for-byte concerns of the regeneration, certified by arms that run
    the holdings qualification through both consumers and compare.
 
-## 5. G4's closure
+## 5. G4's closure — transferred to the successor-admission slice
+
+> **Transferred 2026-08-27** (the twentieth amendment). Everything below
+> is the successor-admission slice's inherited authority — designed
+> here across nine cut readings, owned there, read by no cut-11 arm.
+> That slice's **opening obligations**, recorded from the tenth
+> reading before any of its own work begins:
+>
+> 1. **Stamp validation precedes the typed readers** — raw decoding
+>    through `node_from_markdown` and the typed readers bypasses
+>    `ReadView`'s missing/stale semantic-stamp checks, so tampered
+>    facets could invent or erase blocker evidence; freeze the stamp
+>    check before `verification_value`/`assessment_value`, with stale
+>    verification and stale assessment arms.
+> 2. **"Resolves" needs `Index` semantics, not a dictionary** — reuse
+>    `Index.build` over the captured nodes for live/deprecated
+>    reference handling and collision refusal, mapping structural
+>    collisions to `AdmissionEvidenceRefused`, with
+>    deprecated-reference and collision arms.
+> 3. **The supersession helper is `science.verification.active`** —
+>    `science.verify.active_verifications` consumes rich replay
+>    `RunVerification` values, not the stored
+>    `science.verification.Verification` the typed reader returns.
+> 4. **The ceiling bounds each file, not the namespace** — aggregate
+>    I/O and allocation scale with record cardinality; no claim of
+>    totally bounded admission I/O survives without a cardinality
+>    bound.
+> 5. **An oversized record cannot be recognized as superseded** — it
+>    refuses before decoding, so its supersession state is unreadable;
+>    "corrected or superseded" is too broad for that case and needs a
+>    narrower rule.
 
 **The positive half.** A **recorded** failed replay attempt cannot be
 silently orphaned. Through the reduction: an intent whose fulfillment
@@ -817,7 +861,9 @@ invent.
 **Class 1 selects among active verifications, not all of them.** A
 failing verification superseded by a later one is not the record's
 live claim — the tree's existing supersession rule,
-`active_verifications`, already selects the unsuperseded set, and the
+`science.verification.active` *(corrected by opening obligation 3 —
+the earlier `active_verifications` naming was the replay-value
+helper)*, already selects the unsuperseded set, and the
 composition uses exactly it. A failing verification whose active
 superseder **passes** contributes no member — the block lifts; a
 failing verification superseded by another **failing** one blocks
@@ -876,7 +922,10 @@ fresh:
   root-other-than-the-intent's refusal; no caller-supplied `fulfills`
   path at the boundary; and the row's negative. The two chain-structural
   L7 units stay cut 8's — certified there, not re-read.
-- **the kernel G-table G4 row** — both halves (§5).
+- **the kernel G-table G4 row is deliberately not selected** — split
+  out 2026-08-27 with the successor-admission boundary (§1 item 0,
+  §5's transfer note); the cut records it as a row not read with its
+  named owner.
 - **the decode gate (§3.2)** — a foreign-domain intent reads
   `unrecognized` with its `intent-domain-unrecognized` finding and enters
   no reduction; a discriminator-matched schema-invalid payload reads
@@ -983,12 +1032,14 @@ path before any worktree removal.
 
 ## 7. What this changes elsewhere (applied at banking)
 
-- **Kernel §8.7** — the fourth recorded-mutation consequence closes; the
-  status paragraph gains G4's dated closure with the negative's pin
-  restated.
-- **Adoption-ledger row 5** — the intent-boundary remainder discharges;
-  the row's remainder text shrinks to event-level L8 and the L13
-  preimage resolver.
+- **Kernel §8.7** — unchanged by this slice: the fourth
+  recorded-mutation consequence (G4) stays open, its owner now the
+  successor-admission slice; the status paragraph gains only that dated
+  ownership note.
+- **Adoption-ledger row 5** — the intent-boundary remainder discharges
+  except G4; the row's remainder text shrinks to event-level L8, the
+  L13 preimage resolver, and G4 with the successor-admission slice as
+  its named owner.
 - **Adoption-ledger design-track item 6** — same shrink.
 - **Log-verification design §10 item 1** — closed with a dated note, the
   slice-3 precedent for items 2, 3 and 6.
@@ -1007,7 +1058,8 @@ path before any worktree removal.
 3. **Cut 11 freezes** — before any implementation task.
 4. Implementation on `design/intent-boundary`, TDD throughout, the
    holdings slice's per-task review cadence: the reduction module, the
-   verifier lift, the interior replacement, G4's arms — each task
+   verifier lift, the interior replacement, the run-boundary
+   persistence — each task
    red-then-green with its review findings closed by amendment.
 5. Certified discharge: the acceptance runner on the certified volume;
    results record and rulings ledger committed to tracked paths.
