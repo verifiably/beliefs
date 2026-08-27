@@ -52,7 +52,10 @@ the view enforces the projection's ordering rules, not only its field
 schema (§2.6 item 5); `RECORD_CEILING` moves to the shared executor
 plan validation covering every record kind (§3.1); and the oversize
 refusal is `PlanRefusedError`, pre-write, in the existing two-error
-contract (§3.1).
+contract (§3.1). **Amended an eleventh time 2026-08-26** (eleventh
+review round): the ceiling check moves from the shared plan validation
+into the port's two publication methods — the executor is broader than
+the qualifying-publication boundary (§3.1).
 **Inherits:** `2026-08-03-tamper-evident-log-design.md` §6 as amended — the
 qualification reduction this slice implements at its full stated width: the
 matched / unresolvable / attempt-without-recorded-outcome precedence, the
@@ -485,16 +488,22 @@ published, so `evaluate_log` gains one explicit input:
   **ceiling + 1** bytes from the descriptor; a read returning more
   withholds the payload (no partial capture, no truncation ever handed
   to a decoder), landing in the absent-from-`records` rule below.
-  **Writer**: enforcement lives at the **shared executor plan
-  validation** — the lexically decidable pre-write checks every
-  qualifying publication already passes — not per encoder: a run
+  **Writer**: enforcement lives in **`DurableOperationPort.execute`
+  and `execute_fulfilling`, before the executor is constructed** — the
+  port is the qualifying-publication boundary, and the check binds
+  exactly what flows through it: runs, act-reports, holdings
+  observations, every future qualifying kind. Not per encoder — a run
   encoder check alone would leave act-reports (`entries` is unbounded)
   and holdings observations (`supersedes` is unbounded) free to
-  publish what capture withholds. Any planned postimage whose bytes
-  exceed `RECORD_CEILING` refuses as **`PlanRefusedError`**, the
-  existing malformed-plan class, **before any write** — squarely
-  inside the two-error contract item 2a preserves, covering every
-  record kind that flows through the port, current and future. No
+  publish what capture withholds. And **not in the shared executor
+  plan validation**: `_refuse_malformed` runs inside every executor
+  call, including the corpus, world, and store writers that never
+  publish qualifying records, so a ceiling there would silently bind
+  epoch, registry, and corpus effects capture never reads. Any planned
+  postimage whose bytes exceed `RECORD_CEILING` refuses as
+  **`PlanRefusedError`**, the existing malformed-plan class, **before
+  any write** — squarely inside the two-error contract item 2a
+  preserves. No
   partial record lands, and the already-appended intent then reads
   attempt-without-recorded-outcome — the truthful state for an attempt
   whose terminal record could not be published.
@@ -702,11 +711,15 @@ fresh:
   withheld by the bounded read — qualification `unresolvable`, capture
   completes, and no ceiling-plus-one buffer is ever handed to a
   decoder — while the boundary-side arms drive an oversized **run**
-  and an oversized **act-report** (unbounded `entries`) into the plan
-  validation and assert the `PlanRefusedError` refusal before any
-  write: the official boundary **cannot** publish a record its
-  verifier would withhold, whatever the record kind, and the appended
-  intent reads attempt-without-recorded-outcome; the
+  and an oversized **act-report** (unbounded `entries`) into the
+  port's pre-construction check and assert the `PlanRefusedError`
+  refusal before any write: the official boundary **cannot** publish a
+  record its verifier would withhold, whatever the record kind, and
+  the appended intent reads attempt-without-recorded-outcome — while
+  the **non-port regression arm** drives a large non-port write (an
+  epoch or registry effect above the ceiling) through its own executor
+  and asserts it lands unaffected, the ceiling binding only the
+  qualifying-publication boundary; the
   **reversed-pairs arm**: a self-addressed projection with its result
   pairs reversed satisfies every field rule, fails canonical
   reprojection equality, and reads `unresolvable`, never a match; the
