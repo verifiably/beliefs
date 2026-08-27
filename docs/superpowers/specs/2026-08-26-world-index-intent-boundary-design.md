@@ -66,7 +66,11 @@ its exclusion stated as G4's own bound (§5). **Amended a fourteenth
 time 2026-08-27** (cut 11's fourth reading): the two-class blocker —
 the unfinished recorded attempt blocks as a must-reference class
 beside, never inside, the recorded failures; and the verification join
-frozen over the stored surfaces that exist (§5).
+frozen over the stored surfaces that exist (§5). **Amended a fifteenth
+time 2026-08-27** (cut 11's fifth reading): the verification identity
+bound to the `verifies` target with refusal on incoherence, and the
+widened `admit_successor` surface made concrete — signature, coherent
+snapshot, overlap precedence (§5).
 **Inherits:** `2026-08-03-tamper-evident-log-design.md` §6 as amended — the
 qualification reduction this slice implements at its full stated width: the
 matched / unresolvable / attempt-without-recorded-outcome precedence, the
@@ -687,7 +691,18 @@ recorded:
   the assessment record, and that assessment facet's `spec` — the
   stored verification facet is `{assessment, scope, verdict,
   supersedes?}` and names no replay run, so the run-side join is not
-  constructible and is not claimed; and
+  constructible and is not claimed. The facet's `assessment`
+  **identity** and the edge's **address** are independent stored
+  facts, so the join **binds them**: the facet identity must equal
+  `assessment_value(target).identity()` for the record the edge
+  resolves to. A failing verification whose edge target is missing,
+  not an assessment, malformed, or whose resolved identity mismatches
+  the facet's is **incoherent evidence, and the composition refuses
+  the admission act naming that verification** — corrupt evidence is
+  never silently ignored, and never converted into a block against
+  the edge target's spec: a mismatched verification blocks nothing
+  and refuses loudly, so identity A's evidence can never block
+  assessment B's spec; and
 - a qualifying **`run-attempt` act-report** — the retained record of a
   post-intent attempt that minted no run, an execution refusal
   included — joined to its fulfilled intent's `spec_identity`.
@@ -700,15 +715,24 @@ resolution is unrecorded: the intent's survival is exactly what
 intent-before-execution made visible, and it blocks an unreferenced
 successor until referenced or resolved.
 
-The successor gate consumes the two classes **distinctly** and refuses
-with distinct reasons — "an unreferenced successor to a recorded
-failed replay" and "an unreferenced successor to an unfinished
-recorded attempt" — a widening of `admit_successor`'s surface that is
-this slice's, with a referencing successor lifting either class. Both
-compositions are the boundary's read over the corpus stored surface
-and the chain's qualification report — never the evaluator's `records`
-capture, whose namespaces are unchanged — and never a caller-invented
-set. Production intents carry no spec and contribute nothing; the
+The successor gate consumes the two classes **distinctly**, and the
+widened surface is concrete, not gestured at:
+`admit_successor(candidate, superseded, recorded_failures:
+frozenset[str], unfinished_attempts: frozenset[str])`, this slice's
+change to the existing one-set signature, refusing with distinct
+reasons — "an unreferenced successor to a recorded failed replay" and
+"an unreferenced successor to an unfinished recorded attempt" — and a
+referencing successor lifting either class. **Overlap precedence is
+fixed**: a spec present in both classes refuses with the
+recorded-failure reason — the stronger recorded claim wins, and the
+answer never depends on set iteration order. **The snapshot is
+coherent**: both sets are composed in one read — the same chain view
+and the same stored-surface capture, under the same hold — never two
+reads at different times, so the pair cannot disagree about which
+attempts had resolved. Both compositions are the boundary's read over
+the corpus stored surface and the chain's qualification report — never
+the evaluator's `records` capture, whose namespaces are unchanged —
+and never a caller-invented set. Production intents carry no spec and contribute nothing; the
 existing value-state sources are unchanged beside the derived members.
 G4's negative bound survives untouched: discard the attempt *and* its
 intent — nothing durable — and no class holds a trace. Cut 11's G4

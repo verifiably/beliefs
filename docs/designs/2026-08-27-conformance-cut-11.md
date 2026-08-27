@@ -161,9 +161,17 @@ worktree removal.
     attempt** with that distinct reason, never labeled a recorded
     failure. Never a hand-built set, so the arm cannot pass by
     re-running cut 3's value-width test (§1's acknowledgment); a
-    referencing successor is asserted to lift each class. This is
-    kernel §8.7's fourth recorded-mutation consequence, closed through
-    the reduction;
+    referencing successor is asserted to lift each class. The arm
+    also exercises the **overlap** — one spec present in both classes
+    refuses with the recorded-failure reason, the frozen precedence,
+    never an iteration-order accident — and the **identity-binding
+    sabotage**: a validly stamped failing verification whose facet
+    names assessment identity A while its `verifies` edge resolves to
+    assessment B **refuses the admission act naming that
+    verification** — incoherent evidence never ignored, and never
+    converted into a block against B's spec. This is kernel §8.7's
+    fourth recorded-mutation consequence, closed through the
+    reduction;
   - **(u2)** the **negative half, pinning the limit**: discard the
     failed attempt *entirely* — no intent appended, nothing durable —
     and the system **cannot** detect it: crash, cancellation, and
@@ -356,7 +364,7 @@ check-time obligations:
 
 ## 6. Freeze obligations
 
-Five, named before the plan exists: **L7 u2's non-qualifying
+Six, named before the plan exists: **L7 u2's non-qualifying
 fulfillments** must be genuine committed transactions carrying
 `fulfills` — chain states `inspect_chain` accepts, each failure
 qualification's verdict, never a malformed-chain classification reached
@@ -370,10 +378,15 @@ constructions** (label 8) must be canonical and self-addressed — their
 `v1.decode` and digest steps must succeed — so the refusal exercised is
 the typed projection view's, never an earlier layer's; **u6's cross-root
 refusal** must run against two roots both writable and serviceable, so
-the refusal is placement's, never the lifecycle gate's; and **the
+the refusal is placement's, never the lifecycle gate's; **the
 non-port regression write** (label 3) must exceed the ceiling through a
 genuine non-port effect path an existing writer uses — never a
-synthetic executor call constructed only for the arm.
+synthetic executor call constructed only for the arm; and **G4 u1's
+identity-binding sabotage** must be a verification that is validly
+stamped, individually well-formed, and whose `verifies` edge resolves
+to a real, well-formed assessment — only the facet identity
+mismatched — so the refusal exercised is the join's binding check, no
+earlier layer's.
 
 ## 7. Second reader
 
