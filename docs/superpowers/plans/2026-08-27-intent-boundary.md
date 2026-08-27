@@ -69,6 +69,18 @@ exactly two digests and two intent entries; the partition test asserts
 the frozen unit identities (`L7u1…L7u13` ∪ `J1…J13`), never counts;
 and the speculative `sample_report` and `CreateOp` contingency notes
 are removed.
+**Revised a fifth time 2026-08-27** (fifth plan review): the production
+entrypoint's gate and minted branch are spelled in full with a durable
+production mismatch twin, and `test_replay.py:84`'s reason assertion
+updates to the frozen `recipe-identity-mismatch`; the durable mismatch
+tests narrow `RunRefused.report` before use; the bridge closes both
+directions over the closure-address domain (the inverse accepts exactly
+`run_ref`'s image), the single-authority claim is honest — the bridge
+is the consumers' authority, the stored node id is `_node`'s, and
+`publication_plan` refuses if they disagree, with agreement and domain
+tests; and the partition test pins `ROW_UNITS == {"L7": 13}` and the
+exact `LABELED_UNITS` tuple before comparing the identity set derived
+from the cut's own literals.
 
 **Goal:** Land the general qualification reduction over the closed
 three-shape intent union, the verifier's `qualification` report contract,
@@ -490,9 +502,13 @@ git commit -m "feat(identity): export v1.decode with CanonicalTextRefused"
     `produces` required exactly for shape `dataset-production`.
   - `runrecord.run_ref(address: str) -> str` and
     `runrecord.bare_address(ref: str) -> str` — the frozen
-    bare-address/typed-ref bridge, one implementation for every
-    consumer (label 10's arm resolves a raw `StampedBasis.run` through
-    it).
+    bare-address/typed-ref bridge, both directions closed over the
+    closure-address domain (64 lowercase hex), so the inverse accepts
+    exactly `run_ref`'s image. The bridge is the consumers' one
+    spelling authority; the stored node id remains `_node`'s
+    kind-prefix construction, and `publication_plan` **refuses** if the
+    two ever disagree (label 10's arm resolves a raw `StampedBasis.run`
+    through the bridge).
   - `runrecord.OperationPort` — the protocol's **single home**:
     `append_intent(payload: bytes) -> str`, `execute(plan) -> None`,
     `execute_fulfilling(plan, fulfills: str) -> None`. It cannot live
@@ -661,6 +677,24 @@ def test_relations_are_role_preserving(assessment_closure, production_closure) -
     assert stored.inputs_of(node, "produces") == (dataset,)
 
 
+def test_the_bridge_is_closed_over_the_closure_address_domain() -> None:
+    address = "a1" * 32
+    assert runrecord.run_ref(address) == f"run:{address}"
+    assert runrecord.bare_address(runrecord.run_ref(address)) == address
+    for bad in ("", "run:x", "A" * 64, "a" * 63, "a" * 64 + ":b"):
+        with pytest.raises(MalformedRecord):
+            runrecord.run_ref(bad)
+    for bad in ("run:", "run:a:b", "run:" + "A" * 64, "dataset:" + "a" * 64, "a" * 64):
+        with pytest.raises(MalformedRecord):
+            runrecord.bare_address(bad)
+
+
+def test_publication_id_agrees_with_the_stored_node(assessment_closure) -> None:
+    record_id, _, (op,) = runrecord.publication_plan(assessment_closure, produces=None)
+    node = node_from_markdown(op.content.decode("utf-8"))
+    assert node.id == record_id  # the bridge and _node's construction agree
+
+
 def test_closure_facet_is_semantic_hash_covered(assessment_closure) -> None:
     _, _, (op,) = runrecord.publication_plan(assessment_closure, produces=None)
     node = node_from_markdown(op.content.decode("utf-8"))
@@ -744,6 +778,7 @@ with no closure facet is legacy: readable, resolvable, never qualifying.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import NoReturn, Protocol, cast, final
 
@@ -777,22 +812,32 @@ __all__ = [
 ]
 
 
+_CLOSURE_ADDRESS = re.compile(r"[0-9a-f]{64}")
+"""The bare domain: a `science.run.v1` digest — 64 lowercase hex."""
+
+
 def run_ref(address: str) -> str:
     """The bare-address/typed-ref bridge, bare -> typed: prepend the kind
     (spec §2.6 item 5). Bare spellings: `RunClosure.address()`,
     `Registration.pointer`, `StampedBasis.run`. Typed spellings: the
     stored record id, an assessment facet's `run` field, relation
-    endpoints. One injective bridge, one implementation."""
-    if type(address) is not str or not address or ":" in address:
+    endpoints. Both directions are closed over the closure-address
+    domain, so the inverse accepts exactly this function's image."""
+    if type(address) is not str or not _CLOSURE_ADDRESS.fullmatch(address):
         raise MalformedRecord(f"{address!r} is not a bare closure address")
     return f"run:{address}"
 
 
 def bare_address(ref: str) -> str:
-    """The bridge's inverse, typed -> bare: strip the kind."""
+    """The bridge's inverse, typed -> bare: strip the kind and require
+    the remainder to be in the bare domain — `run:` and `run:a:b` are
+    outside `run_ref`'s image and refuse."""
     if type(ref) is not str or not ref.startswith("run:"):
         raise MalformedRecord(f"{ref!r} is not a typed run reference")
-    return ref.removeprefix("run:")
+    address = ref.removeprefix("run:")
+    if not _CLOSURE_ADDRESS.fullmatch(address):
+        raise MalformedRecord(f"{ref!r} does not name a closure address")
+    return address
 
 
 class OperationPort(Protocol):
@@ -1164,8 +1209,13 @@ def publication_plan(
         produces=(produces,) if produces is not None else (),
     )
     path = f"run/{address}.md"
-    # The returned id goes through the bridge — the one spelling authority.
-    return run_ref(address), path, (CreateOp(path, node_to_markdown(node).encode("utf-8")),)
+    # The bridge is the CONSUMERS' one spelling authority; the stored node's
+    # id is `_node`'s own kind-prefix construction. The two spellings are
+    # required to agree here, so they can never drift apart silently.
+    record_id = run_ref(address)
+    if node.id != record_id:
+        raise MalformedRecord(f"the stored node id {node.id!r} disagrees with the bridge's {record_id!r}")
+    return record_id, path, (CreateOp(path, node_to_markdown(node).encode("utf-8")),)
 ```
 
 - [ ] **Step 5: Run to verify pass, then the gate block**
@@ -1402,7 +1452,13 @@ git commit -m "feat(port): non-fulfilling execute and the writer-side record cei
   `replay_of`/`replay(` caller the grep
   `grep -rln "replay_of(\|replay(" python/tests` surfaces — each
   passes a port (the shared fake where the assertion is not about
-  persistence).
+  persistence). In particular,
+  `test_a_replay_refuses_a_reconstructed_recipe_mismatch`
+  (`test_replay.py:84`) updates its reason assertion from
+  `"reconstructed recipe differs" in attempt.reason` to
+  `attempt.reason == "recipe-identity-mismatch"` — the frozen gate's
+  reason replaces the retired sentence; its report/registration
+  assertions stand unchanged.
 - Test: `python/tests/test_boundary.py` (extend), plus a durable test
   file `python/tests/test_run_persistence.py` (new) using the
   `certified_work` fixture and a real `DurableOperationPort`.
@@ -1601,11 +1657,37 @@ def test_replay_recipe_mismatch_publishes_refusal_not_run(tmp_path) -> None:
                         snakefile=SNAKEFILE_SCRATCHY)  # a different recipe identity
     assert type(outcome) is RunRefused
     assert outcome.reason == "recipe-identity-mismatch"  # the frozen gate's reason
+    assert outcome.report is not None  # RunRefused.report is optional; narrow it
     entries = _entries(replay_root)
     (intent_entry,) = [e for e in entries if type(e) is IntentEntryView]
     (registration,) = [e for e in entries if type(e) is RegisteredEntryView]
     assert registration.fulfills == intent_entry.digest  # the REPORT fulfills the intent
     assert not (replay_root / "run").exists()  # the mismatched run was never published
+    assert (replay_root / "act-report" / f"{outcome.report.identity()}.md").exists()
+
+
+def test_replay_recipe_mismatch_publishes_refusal_not_run_production(tmp_path) -> None:
+    # The gate is frozen for BOTH entrypoints — the production twin, through
+    # execute_production_run via replay_of over a production original.
+    from fixtures_cut3 import SNAKEFILE_SCRATCHY, replay_of, run_production
+
+    root, port = _observer_port(tmp_path)
+    original = run_production(tmp_path, port=port)
+    assert type(original) is RunMinted
+    replay_root = tmp_path / "replay-observer"
+    init_corpus_root(replay_root)
+    replayed_dir = tmp_path / "replayed"
+    replayed_dir.mkdir()
+    outcome = replay_of(original, replayed_dir, port=durable_port(replay_root),
+                        snakefile=SNAKEFILE_SCRATCHY)  # a different recipe identity
+    assert type(outcome) is RunRefused
+    assert outcome.reason == "recipe-identity-mismatch"
+    assert outcome.report is not None
+    entries = _entries(replay_root)
+    (intent_entry,) = [e for e in entries if type(e) is IntentEntryView]
+    (registration,) = [e for e in entries if type(e) is RegisteredEntryView]
+    assert registration.fulfills == intent_entry.digest
+    assert not (replay_root / "run").exists()
     assert (replay_root / "act-report" / f"{outcome.report.identity()}.md").exists()
 
 
@@ -1658,7 +1740,8 @@ def _intent_wire(intent: AssessmentRunIntent | OperationIntent) -> bytes:
     return v1.encode({"kind": intent.kind, "event_token": intent.event_token, "actor": intent.actor})
 ```
 
-`execute_assessment_run` becomes (production mirrors it, with
+`execute_assessment_run` becomes (the production entrypoint's own gate
+and minted branch are spelled in full below, with
 `OperationIntent("run-attempt", ...)` and the `produces` address):
 
 ```python
@@ -1698,16 +1781,24 @@ def execute_assessment_run(*, spec: object, port: OperationPort,
     return result
 ```
 
-The production entrypoint applies the same comparison (subject
-`"absent"`) before its minted branch.
-
-For the production entrypoint the minted branch is:
+The production entrypoint's gate and minted branch, in full — the
+comparison precedes the `mint_dataset` derivation, so a mismatched run
+derives nothing:
 
 ```python
+    if (
+        type(result) is RunMinted
+        and expected_recipe_identity is not None
+        and result.run.recipe.identity() != expected_recipe_identity
+    ):
+        result = _refused("recipe-identity-mismatch", "absent", actor, observer, started_at, intent)
     if type(result) is RunMinted:
         minted = mint_dataset(result.run, existing_bases={})
         _, _, plan = publication_plan(result.run, produces=minted.address)
         port.execute_fulfilling(plan, fulfills)
+    else:
+        port.execute_fulfilling(_report_plan(result.report), fulfills)
+    return result
 ```
 
 The boundary constructs `fulfills` from its own `append_intent` return
@@ -3832,9 +3923,10 @@ CUT11_ARMS = (
                  after='if run_facet.get("spec") != spec_identity:'),
         ("test_runrecord.py::test_run_facet_shapes_are_exact_not_get_based",)),
     Arm("J10", "both ref spellings resolve to exactly the published record",
-        # The sabotage hits the BRIDGE, not the run node's slug: run_ref
-        # minting a foreign kind breaks the bare->typed crossing (and the
-        # id the encoder mints through it), which is label 10's claim.
+        # The sabotage hits the BRIDGE: run_ref minting a foreign kind
+        # breaks the bare->typed crossing. The check fails at
+        # publication_plan's node-id agreement refusal — a broken bridge
+        # cannot even publish, which is the arm's point.
         Sabotage("runrecord.py",
                  before='return f"run:{address}"',
                  after='return f"run-closure:{address}"'),
@@ -3916,14 +4008,17 @@ LABELED_UNITS: tuple[str, ...] = tuple(f"J{n}" for n in range(1, 14))
 def test_the_partition_accounts_exactly_the_26_frozen_units() -> None:
     from n2_arms_cut11 import ATOMS_CITATIONS_BY_UNIT, CUT11_ARMS, LABELED_UNITS, ROW_UNITS, unit_of
 
+    # Pin the declared accounting to the frozen cut FIRST — a partition
+    # edited alongside its declarations must fail here, so the expected
+    # identities below derive from the cut's literals, never from the
+    # mutable declarations.
+    assert ROW_UNITS == {"L7": 13}
+    assert LABELED_UNITS == tuple(f"J{n}" for n in range(1, 14))
     arm_units = {unit_of(arm.row) for arm in CUT11_ARMS}
     citation_units = set(ATOMS_CITATIONS_BY_UNIT)
     assert not arm_units & citation_units  # a unit is an arm XOR a citation
-    # The frozen IDENTITIES, never a count: cut 11 §3.1's thirteen selected
-    # units and §3.3's thirteen labels, exactly.
-    selected = {f"L7u{n}" for n in range(1, ROW_UNITS["L7"] + 1)}
-    assert arm_units | citation_units == selected | set(LABELED_UNITS)
-    assert set(LABELED_UNITS) == {f"J{n}" for n in range(1, 14)}
+    expected = {f"L7u{n}" for n in range(1, 14)} | {f"J{n}" for n in range(1, 14)}
+    assert arm_units | citation_units == expected  # the frozen identities, never a count
     assert citation_units == {"L7u5"}
 
 
