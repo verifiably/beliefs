@@ -1,9 +1,12 @@
 # Conformance cut 11 — general intent qualification, the intent boundary
 
-**Status:** draft for freeze — awaiting the second reader (§7); freezes
-before any implementation task (spec §8 step 3). Every quoted row must be
-byte-exact against its source table as of the freeze commit, verified by
-the reader independently.
+**Status:** **Frozen 2026-08-27 at `9711886`** — the commit closing the
+last of the second reader's findings across eleven readings (the tenth
+ruled the G4/successor-admission split; the eleventh corrected ownership
+authorities and amendment ordering); approved for freeze with no further
+design findings, before any implementation task (spec §8 step 3). The L7
+quotation is byte-exact against its live source table as of `9711886`,
+verified by the reader independently.
 
 **Sources:** `2026-08-24-conformance-cut-10.md` (rule and practice
 inheritances, and the holdings qualification matrix label 12 re-runs

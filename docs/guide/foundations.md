@@ -2,7 +2,7 @@
 title: Foundations
 status: living
 created: 2026-08-08
-updated: 2026-08-24
+updated: 2026-08-27
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-substrate-consolidation-design.md
@@ -16,6 +16,7 @@ sources:
   - ../designs/2026-08-20-conformance-cut-6.md
   - ../designs/2026-08-24-world-index-holdings-design.md
   - ../designs/2026-08-24-conformance-cut-10.md
+  - ../designs/2026-08-27-conformance-cut-11.md
   - ../plans/2026-08-20-conformance-cut-6-results.md
   - ../plans/2026-08-24-conformance-cut-10-results.md
 ---

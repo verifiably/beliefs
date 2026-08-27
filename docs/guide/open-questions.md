@@ -2,7 +2,7 @@
 title: Open questions
 status: living
 created: 2026-08-08
-updated: 2026-08-24
+updated: 2026-08-27
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-substrate-consolidation-design.md
@@ -31,6 +31,7 @@ sources:
   - ../designs/2026-08-20-conformance-cut-7.md
   - ../designs/2026-08-24-world-index-holdings-design.md
   - ../designs/2026-08-24-conformance-cut-10.md
+  - ../designs/2026-08-27-conformance-cut-11.md
   - ../plans/2026-08-20-conformance-cut-6-results.md
   - ../plans/2026-08-24-conformance-cut-10-results.md
 ---
@@ -256,7 +257,8 @@ implementation**: a guarantee row awaiting code is work, not a question.
   [cut 9 results](../plans/2026-08-23-conformance-cut-9-results.md),
   [holdings design](../designs/2026-08-24-world-index-holdings-design.md),
   [conformance cut 10](../designs/2026-08-24-conformance-cut-10.md),
-  [cut 10 results](../plans/2026-08-24-conformance-cut-10-results.md))
+  [cut 10 results](../plans/2026-08-24-conformance-cut-10-results.md),
+  [conformance cut 11](../designs/2026-08-27-conformance-cut-11.md))
 - **The act-report's residue.** The act-report design (2026-08-11) closed
   the run boundary's report seam: the boundary-minted terminal record of
   an opened operation — or the pre-intent refusal record of a rejected

@@ -2,7 +2,7 @@
 title: Contracts and adoption
 status: living
 created: 2026-08-08
-updated: 2026-08-25
+updated: 2026-08-27
 sources:
   - ../designs/2026-08-03-normative-contract-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -19,6 +19,7 @@ sources:
   - ../designs/2026-08-23-conformance-cut-9.md
   - ../designs/2026-08-24-world-index-holdings-design.md
   - ../designs/2026-08-24-conformance-cut-10.md
+  - ../designs/2026-08-27-conformance-cut-11.md
   - ../plans/2026-08-24-conformance-cut-10-results.md
 ---
 
