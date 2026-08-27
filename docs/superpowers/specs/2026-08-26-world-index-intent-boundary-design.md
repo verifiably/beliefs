@@ -70,7 +70,12 @@ frozen over the stored surfaces that exist (§5). **Amended a fifteenth
 time 2026-08-27** (cut 11's fifth reading): the verification identity
 bound to the `verifies` target with refusal on incoherence, and the
 widened `admit_successor` surface made concrete — signature, coherent
-snapshot, overlap precedence (§5).
+snapshot, overlap precedence (§5). **Amended a sixteenth time
+2026-08-27** (cut 11's sixth reading): the durable composition
+boundary named — `admit_spec_successor`, its refusal type, and the
+hold through the decision; the exactly-one-`verifies` cardinality
+rule; and the unresolved-qualification refusal composing L7 u3 through
+G4 (§5).
 **Inherits:** `2026-08-03-tamper-evident-log-design.md` §6 as amended — the
 qualification reduction this slice implements at its full stated width: the
 matched / unresolvable / attempt-without-recorded-outcome precedence, the
@@ -695,13 +700,18 @@ recorded:
   **identity** and the edge's **address** are independent stored
   facts, so the join **binds them**: the facet identity must equal
   `assessment_value(target).identity()` for the record the edge
-  resolves to. A failing verification whose edge target is missing,
-  not an assessment, malformed, or whose resolved identity mismatches
-  the facet's is **incoherent evidence, and the composition refuses
-  the admission act naming that verification** — corrupt evidence is
-  never silently ignored, and never converted into a block against
-  the edge target's spec: a mismatched verification blocks nothing
-  and refuses loudly, so identity A's evidence can never block
+  resolves to. **Edge cardinality is part of the rule**: the semantic
+  stamp covers the facet, not the relations, so a validly stamped
+  verification can carry zero or several `verifies` edges — the join
+  requires **exactly one** outbound `verifies` edge, and zero or
+  multiple are incoherent exactly as a bad target is. A failing
+  verification whose edge count is not one, or whose edge target is
+  missing, not an assessment, malformed, or whose resolved identity
+  mismatches the facet's is **incoherent evidence, and the composition
+  refuses the admission act naming that verification** — corrupt
+  evidence is never silently ignored, and never converted into a block
+  against any spec: a mismatched verification blocks nothing and
+  refuses loudly, so identity A's evidence can never block
   assessment B's spec; and
 - a qualifying **`run-attempt` act-report** — the retained record of a
   post-intent attempt that minted no run, an execution refusal
@@ -732,7 +742,32 @@ reads at different times, so the pair cannot disagree about which
 attempts had resolved. Both compositions are the boundary's read over
 the corpus stored surface and the chain's qualification report — never
 the evaluator's `records` capture, whose namespaces are unchanged —
-and never a caller-invented set. Production intents carry no spec and contribute nothing; the
+and never a caller-invented set.
+
+**The deriving boundary is a named entrypoint, not a convention.**
+`admit_successor` stays the pure two-set core, and the tree has no
+production caller of it — so "never a caller-invented set" would be
+unenforced prose without the boundary that owns the derivation. This
+slice ships **`admit_spec_successor`**: over `(candidate, superseded)`
+and the observer-corpus binding, it acquires the root's hold, assembles
+the chain view and the stored-surface capture in **one read**, runs the
+qualification reduction, composes the two classes, and calls
+`admit_successor` with the derived sets — **holding the hold through
+the admission decision**, so nothing resolves or decays between
+derivation and verdict. Incoherent evidence — the verification rules
+above, cardinality included — refuses with one named refusal,
+**`AdmissionEvidenceRefused`**, joining the `science.errors` family and
+naming the offending record. **Unresolved qualification refuses too**:
+an assessment-run intent carrying the superseded `spec_identity` whose
+qualification reads `unresolvable` — a published refusal report whose
+bytes decayed, L7 u3's construction — is evidence that cannot be read,
+not evidence of absence; it enters neither class, and admitting over it
+would erase a possibly-recorded failure, so the boundary refuses with
+the same named refusal, the reason distinct ("qualification unresolved
+for the superseded spec"). Unresolvable intents carrying **other**
+specs do not block an unrelated admission. G4's positive arm runs
+through this entrypoint — a test-only composition proves nothing about
+the boundary. Production intents carry no spec and contribute nothing; the
 existing value-state sources are unchanged beside the derived members.
 G4's negative bound survives untouched: discard the attempt *and* its
 intent — nothing durable — and no class holds a trace. Cut 11's G4

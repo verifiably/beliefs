@@ -169,9 +169,21 @@ worktree removal.
     names assessment identity A while its `verifies` edge resolves to
     assessment B **refuses the admission act naming that
     verification** — incoherent evidence never ignored, and never
-    converted into a block against B's spec. This is kernel §8.7's
-    fourth recorded-mutation consequence, closed through the
-    reduction;
+    converted into a block against B's spec — beside the
+    **cardinality sabotages**: a validly stamped failing verification
+    with **zero** `verifies` edges, and one with **two**, each
+    refusing as incoherent at the same layer, the stamp covering
+    neither relation count. Every path runs **through
+    `admit_spec_successor`** — the named deriving boundary, its hold
+    held through the decision, refusing as `AdmissionEvidenceRefused`
+    — never a test-only composition feeding the pure core directly.
+    And the **unresolved-qualification composition**: L7 u3's
+    construction — a published `run-attempt` refusal report whose
+    bytes decayed — feeds an admission of a successor to that spec,
+    and the boundary refuses with the unresolved reason: evidence
+    that cannot be read is not evidence of absence, and the failure
+    enters neither class silently. This is kernel §8.7's fourth
+    recorded-mutation consequence, closed through the reduction;
   - **(u2)** the **negative half, pinning the limit**: discard the
     failed attempt *entirely* — no intent appended, nothing durable —
     and the system **cannot** detect it: crash, cancellation, and
