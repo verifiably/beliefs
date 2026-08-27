@@ -19,6 +19,24 @@ the concrete arm/citation partition with a named sabotage per check and
 explicit citation accounting for L7u5. The `OperationPort` protocol is
 single-homed in `science/runrecord.py` (Task 2), re-exported by
 `corpus.py`, and every structural fake gains `execute` (Task 3).
+**Revised again 2026-08-27** (second plan review, seven blockers):
+`replay()` and `replay_of` thread the required port with their callers
+listed and committed (Task 4); every durable builder registers its root
+explicitly (`init_corpus_root`/`init_store_root` — unregistered roots
+refuse every write); Task 13's partition is restated in the harness's
+own `Arm`/`Sabotage` shape — exact once-matching before/after strings,
+exact node ids, one sabotage per arm with J3/J8/J9/J12 split into
+lettered arms, L7u5 as a citation with explicit accounting, and the
+non-port regression as a co-passing independence node under J3a; J2's
+sabotage is a single fail-fast mutation (`O_RDONLY | O_NONBLOCK`, no
+blocking open); label 8 gains the durable
+publish→capture→decode→recompute arm and the relation test pins both
+shapes' `reads` edges; the literal code is pyright-clean (typed
+`DecodedIntent.value` union with isinstance narrowing, `NoReturn`
+imported, validator-established casts, exclusion members non-empty);
+the findings-order test constructs a guaranteed non-qualification
+finding and pins the exact outcome, Task 11's vocabulary test is
+executable, and the Task 3/4/8 commit lists name every modified file.
 
 **Goal:** Land the general qualification reduction over the closed
 three-shape intent union, the verifier's `qualification` report contract,
@@ -452,11 +470,15 @@ def test_reversed_result_pairs_fail_canonical_reprojection(production_closure) -
         runrecord.decode_projection(reversed_bytes)
 
 
-def test_decimal_wire_arms_publish_capture_decode_recompute(make_closure) -> None:
+def test_decimal_wire_arms_project_decode_recompute(make_closure) -> None:
     # Four closures identical except one parameter carrying each of the four
     # values. N2 obligation 3: pairwise distinctness at the canonical-text
     # layer is asserted BEFORE address agreement — a colliding encoding
-    # would make the round trip vacuous.
+    # would make the round trip vacuous. This is the codec half; the frozen
+    # publish→capture→decode→recompute round trip runs durably as
+    # test_intent_boundary_acceptance.py::test_decimal_round_trip_publishes_and_captures
+    # (Task 13), where the four closures go through the port and
+    # capture_records.
     values = [Decimal("0.5"), "0.5", 1, Decimal("1.0")]
     closures = [make_closure(parameters={"threshold": value}) for value in values]
     texts = [runrecord.projection_text(closure) for closure in closures]
@@ -513,19 +535,27 @@ def test_production_facet_is_exactly_empty_and_run_spec_reads_none(production_cl
 
 
 def test_relations_are_role_preserving(assessment_closure, production_closure) -> None:
+    # Both fixture recipes carry a `reads` input beside their eligible role,
+    # so every member of both closed role vocabularies is pinned — a codec
+    # collapsing roles to `reads` (or dropping `reads`) fails here.
+    def edges(node, role, closure):
+        expected = tuple(e.dataset for e in closure.recipe.inputs if e.role == role)
+        assert expected, f"the fixture must carry a {role} input"
+        assert stored.inputs_of(node, role) == expected
+
     _, _, (op,) = runrecord.publication_plan(assessment_closure, produces=None)
     node = node_from_markdown(op.content.decode("utf-8"))
-    assert stored.inputs_of(node, "observes") == tuple(
-        e.dataset for e in assessment_closure.recipe.inputs if e.role == "observes"
-    )
+    edges(node, "observes", assessment_closure)
+    edges(node, "reads", assessment_closure)
+    assert stored.inputs_of(node, "transforms") == ()
     assert stored.inputs_of(node, "produces") == ()
 
     dataset = "dataset:" + "d" * 64
     _, _, (op,) = runrecord.publication_plan(production_closure, produces=dataset)
     node = node_from_markdown(op.content.decode("utf-8"))
-    assert stored.inputs_of(node, "transforms") == tuple(
-        e.dataset for e in production_closure.recipe.inputs if e.role == "transforms"
-    )
+    edges(node, "transforms", production_closure)
+    edges(node, "reads", production_closure)
+    assert stored.inputs_of(node, "observes") == ()
     assert stored.inputs_of(node, "produces") == (dataset,)
 
 
@@ -549,9 +579,11 @@ outputs** (`declared_outputs=("out-a", "out-b")` with a two-pair
 reversed-pairs mutation below is a real mutation, never a no-op on a
 one-pair list. Both are thin wrappers over one parameterized builder,
 `make_closure(*, shape="assessment", parameters=None)`, itself a
-fixture, so the Decimal arms can vary a single parameter. Give the
-assessment recipe a `Decimal("0.5")` parameter so every round-trip
-crosses the type-preserving wire.
+fixture, so the Decimal arms can vary a single parameter. Both recipes
+carry a `reads` input beside their eligible role (`observes` /
+`transforms`), so the relation round-trip pins every member of both
+closed role vocabularies. Give the assessment recipe a `Decimal("0.5")`
+parameter so every round-trip crosses the type-preserving wire.
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -617,7 +649,7 @@ with no closure facet is legacy: readable, resolvable, never qualifying.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol, final
+from typing import NoReturn, Protocol, cast, final
 
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.node import Node
@@ -681,7 +713,7 @@ The typed projection view — the exact-schema validator plus the
 reprojection. Every helper refuses with `MalformedRecord`:
 
 ```python
-def _refuse(path: str, why: str) -> "NoReturn":
+def _refuse(path: str, why: str) -> NoReturn:
     raise MalformedRecord(f"run projection at {path}: {why}")
 
 
@@ -796,8 +828,10 @@ def _validate_recipe(recipe: object) -> str:
             if role != "reads":
                 _refuse(f"{path}.exclusion", "an exclusion certification is carried by a `reads` input only")
             exclusion = _mapping(row["exclusion"], {"rationale", "attribution"}, f"{path}.exclusion")
-            _str_at(exclusion["rationale"], f"{path}.exclusion.rationale")
-            _str_at(exclusion["attribution"], f"{path}.exclusion.attribution")
+            # ExclusionCertification.__post_init__ refuses empty members.
+            for member in ("rationale", "attribution"):
+                if not _str_at(exclusion[member], f"{path}.exclusion.{member}"):
+                    _refuse(f"{path}.exclusion.{member}", "an exclusion member is never empty")
     if not isinstance(recipe["parameters"], dict):
         _refuse("$.recipe.parameters", "not an object")
     _validate_nondeterminism(recipe["nondeterminism"])
@@ -899,9 +933,10 @@ def _validate_occurrence(value: object) -> str:
 
 def _input_sort_key(row: dict[str, object]) -> tuple[str, str, str, str, str]:
     exclusion = row.get("exclusion")
-    rationale = exclusion["rationale"] if isinstance(exclusion, dict) else ""
-    attribution = exclusion["attribution"] if isinstance(exclusion, dict) else ""
-    return (row["role"], row["dataset"], row["content"], rationale, attribution)
+    rationale = cast(str, exclusion["rationale"]) if isinstance(exclusion, dict) else ""
+    attribution = cast(str, exclusion["attribution"]) if isinstance(exclusion, dict) else ""
+    return (cast(str, row["role"]), cast(str, row["dataset"]), cast(str, row["content"]),
+            rationale, attribution)
 
 
 def _reproject(parsed: dict[str, object]) -> dict[str, object]:
@@ -911,21 +946,25 @@ def _reproject(parsed: dict[str, object]) -> dict[str, object]:
     mapping is what enforces the orderings, current and future."""
     import copy
 
-    rebuilt = copy.deepcopy(parsed)
-    recipe = rebuilt["recipe"]
-    recipe["inputs"] = sorted(recipe["inputs"], key=_input_sort_key)
-    recipe["rule_bindings"] = sorted(recipe["rule_bindings"])
-    recipe["boundary_policy"]["capabilities"] = sorted(recipe["boundary_policy"]["capabilities"])
-    if recipe["nondeterminism"].get("variant") == "seeded":
-        recipe["nondeterminism"]["plan"]["streams"] = sorted(
-            recipe["nondeterminism"]["plan"]["streams"]
-        )
-    rebuilt["result"] = sorted(rebuilt["result"])
-    for job in rebuilt["occurrence"]["trace"]:
-        job["wildcards"] = sorted(job["wildcards"])
-    receipt = rebuilt["occurrence"]["receipt"]
-    receipt["rendered_config"] = sorted(receipt["rendered_config"])
-    receipt["capabilities"] = sorted(receipt["capabilities"])
+    # Validation already proved every shape below; the casts restate what
+    # the validator established, for pyright — never a runtime assumption.
+    rebuilt = cast(dict[str, object], copy.deepcopy(parsed))
+    recipe = cast(dict[str, object], rebuilt["recipe"])
+    recipe["inputs"] = sorted(cast("list[dict[str, object]]", recipe["inputs"]), key=_input_sort_key)
+    recipe["rule_bindings"] = sorted(cast("list[list[str]]", recipe["rule_bindings"]))
+    policy = cast(dict[str, object], recipe["boundary_policy"])
+    policy["capabilities"] = sorted(cast("list[str]", policy["capabilities"]))
+    nondeterminism = cast(dict[str, object], recipe["nondeterminism"])
+    if nondeterminism.get("variant") == "seeded":
+        plan = cast(dict[str, object], nondeterminism["plan"])
+        plan["streams"] = sorted(cast("list[str]", plan["streams"]))
+    rebuilt["result"] = sorted(cast("list[list[str]]", rebuilt["result"]))
+    occurrence = cast(dict[str, object], rebuilt["occurrence"])
+    for job in cast("list[dict[str, object]]", occurrence["trace"]):
+        job["wildcards"] = sorted(cast("list[list[str]]", job["wildcards"]))
+    receipt = cast(dict[str, object], occurrence["receipt"])
+    receipt["rendered_config"] = sorted(cast("list[list[str]]", receipt["rendered_config"]))
+    receipt["capabilities"] = sorted(cast("list[str]", receipt["capabilities"]))
     return rebuilt
 
 
@@ -941,7 +980,9 @@ def decode_projection(data: bytes) -> dict[str, object]:
     names = [name for name, _ in result]
     if len(set(names)) != len(names):
         _refuse("$.result", "duplicate logical names")
-    if set(names) != set(parsed["recipe"]["invocation"]["declared_outputs"]):
+    recipe = cast(dict[str, object], parsed["recipe"])
+    invocation = cast(dict[str, object], recipe["invocation"])
+    if set(names) != set(cast("list[str]", invocation["declared_outputs"])):
         _refuse("$.result", "result names disagree with the declared outputs")
     _validate_occurrence(parsed["occurrence"])
     if _reproject(parsed) != parsed:
@@ -962,9 +1003,9 @@ def decode_run_record(node: Node) -> RunPublication | None:
     address = v1.digest(RUN_DOMAIN, parsed)
     if node.id != f"run:{address}":
         raise MalformedRecord(f"{node.id}: the recomputed address {address} is not the record id")
-    recipe = parsed["recipe"]
-    shape = recipe["shape"]
-    spec_identity = recipe.get("spec_identity")
+    recipe = cast(dict[str, object], parsed["recipe"])
+    shape = cast(str, recipe["shape"])
+    spec_identity = cast("str | None", recipe.get("spec_identity"))
     run_facet = node.facets.get(stored.RUN_FACET)
     if not isinstance(run_facet, dict):
         raise MalformedRecord(f"{node.id}: a boundary-published run carries the run facet")
@@ -975,11 +1016,12 @@ def decode_run_record(node: Node) -> RunPublication | None:
             raise MalformedRecord(f"{node.id}: the run facet is exactly {{'spec': <the closure's spec>}}")
     elif run_facet != {}:
         raise MalformedRecord(f"{node.id}: a production run facet is exactly {{}}")
+    occurrence = cast(dict[str, object], parsed["occurrence"])
     return RunPublication(
         address=address,
         shape=shape,
         spec_identity=spec_identity,
-        event_token=parsed["occurrence"]["event_token"],
+        event_token=cast(str, occurrence["event_token"]),
     )
 
 
@@ -1060,8 +1102,16 @@ git commit -m "feat(runrecord): closure-to-stored codec with typed projection vi
 
 ```python
 from science import root as science_root
+from science.root import init_corpus_root, init_store_root
 from science.world.logmodel import RegisteredEntryView, WellFormedView
 from science.world.records import RECORD_CEILING
+
+
+def _registered_port(root):
+    # Every write against an unregistered root refuses (root.py:308's
+    # explicit act) — registration is part of every durable builder.
+    init_corpus_root(root)
+    return durable_port(root)
 
 
 def _registrations(root):
@@ -1071,7 +1121,7 @@ def _registrations(root):
 
 
 def test_execute_publishes_fulfilling_nothing(tmp_path) -> None:
-    port = durable_port(tmp_path)
+    port = _registered_port(tmp_path)
     port.execute([CreateOp(path="act-report/" + "a" * 64 + ".md", content=b"content")])
     (registration,) = _registrations(tmp_path)
     assert registration.fulfills is None
@@ -1079,14 +1129,14 @@ def test_execute_publishes_fulfilling_nothing(tmp_path) -> None:
 
 
 def test_execute_refuses_a_malformed_plan_before_any_write(tmp_path) -> None:
-    port = durable_port(tmp_path)
+    port = _registered_port(tmp_path)
     with pytest.raises(PlanRefusedError):
         port.execute([CreateOp(path="../escape.md", content=b"x")])  # lexical, pre-write
     assert _registrations(tmp_path) == []  # nothing reached the chain
 
 
 def test_execute_surfaces_an_execution_failure_as_execution_error(tmp_path) -> None:
-    port = durable_port(tmp_path)
+    port = _registered_port(tmp_path)
     plan = [CreateOp(path="act-report/" + "b" * 64 + ".md", content=b"x")]
     port.execute(plan)
     with pytest.raises(ExecutionError):
@@ -1094,7 +1144,7 @@ def test_execute_surfaces_an_execution_failure_as_execution_error(tmp_path) -> N
 
 
 def test_oversized_postimage_refuses_before_any_write(tmp_path) -> None:
-    port = durable_port(tmp_path)
+    port = _registered_port(tmp_path)
     boundary = b"x" * RECORD_CEILING
     port.execute([CreateOp(path="act-report/" + "c" * 64 + ".md", content=boundary)])  # exactly the ceiling publishes
     with pytest.raises(PlanRefusedError):
@@ -1110,16 +1160,12 @@ def test_non_port_writes_are_unaffected_by_the_ceiling(tmp_path) -> None:
     # Cut label 3's non-port regression, freeze obligation 5: a genuine
     # non-port effect path an existing writer uses — the store writer —
     # never a synthetic executor call constructed only for the arm.
+    init_store_root(tmp_path)  # the store writer's own explicit registration act
     big = b"x" * (RECORD_CEILING + 1)
     outcome = science_root._store_write(tmp_path, "payload.bin", big)
     assert (tmp_path / "payload.bin").read_bytes() == big
     assert outcome.txid  # the effect landed through its own executor
 ```
-
-(If `_store_write` refuses a bare root, initialize the store root first
-with the genesis helper `tests/test_holdings_seam.py` uses — the arm's
-requirement is only that the write travels a genuine existing non-port
-path.)
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -1217,6 +1263,8 @@ addition at each).
 git add python/src/science/world/records.py python/src/science/root.py \
         python/src/science/corpus.py python/tests/test_operation_port.py \
         docs/plans/2026-08-27-intent-boundary-ledger.md
+# plus every test file whose structural port fake gained `execute`
+# (the Step 3 grep's list) — commit exactly what changed.
 git commit -m "feat(port): non-fulfilling execute and the writer-side record ceiling"
 ```
 
@@ -1227,6 +1275,18 @@ git commit -m "feat(port): non-fulfilling execute and the writer-side record cei
 **Files:**
 - Modify: `python/src/science/boundary.py` (`execute_assessment_run`
   line 359, `execute_production_run` line 403, `_refused` line 138)
+- Modify: `python/src/science/replay.py` — `replay()` (line 99) calls
+  both entrypoints and breaks the moment the port is required:
+  `replay(original, *, port: OperationPort, spec, ...)` gains the
+  required parameter and adds `"port": port` to its `common` dict.
+- Modify: `python/tests/fixtures_cut3.py` — `run_assessment`,
+  `run_production` (gain `port` + `definition_override`), and
+  `replay_of` (line 416, gains `port`, passed through to `replay`).
+- Modify: `python/tests/test_replay.py` and every other
+  `replay_of`/`replay(` caller the grep
+  `grep -rln "replay_of(\|replay(" python/tests` surfaces — each
+  passes a port (the shared fake where the assertion is not about
+  persistence).
 - Test: `python/tests/test_boundary.py` (extend), plus a durable test
   file `python/tests/test_run_persistence.py` (new) using the
   `certified_work` fixture and a real `DurableOperationPort`.
@@ -1274,6 +1334,13 @@ from science.boundary import RunMinted, RunRefused
 from science.production import mint_dataset
 from science.world.logmodel import IntentEntryView, RegisteredEntryView, WellFormedView
 from test_operation_port import durable_port
+from science.root import init_corpus_root
+
+
+def _observer_port(tmp_path):
+    root = tmp_path / "observer"
+    init_corpus_root(root)  # unregistered roots refuse every write (root.py:308)
+    return root, durable_port(root)
 
 
 def _entries(root):
@@ -1283,9 +1350,8 @@ def _entries(root):
 
 
 def test_assessment_sequence_appends_intent_then_publishes_fulfilling(tmp_path) -> None:
-    root = tmp_path / "observer"
-    root.mkdir()
-    result = run_assessment(tmp_path, port=durable_port(root))
+    root, port = _observer_port(tmp_path)
+    result = run_assessment(tmp_path, port=port)
     assert type(result) is RunMinted
     entries = _entries(root)
     intents = [e for e in entries if type(e) is IntentEntryView]
@@ -1302,9 +1368,8 @@ def test_assessment_sequence_appends_intent_then_publishes_fulfilling(tmp_path) 
 
 
 def test_pre_intent_refusal_publishes_unfulfilling_report(tmp_path) -> None:
-    root = tmp_path / "observer"
-    root.mkdir()
-    result = run_assessment(tmp_path, port=durable_port(root), spec="not-a-spec")
+    root, port = _observer_port(tmp_path)
+    result = run_assessment(tmp_path, port=port, spec="not-a-spec")
     assert type(result) is RunRefused and result.registration is None
     entries = _entries(root)
     assert [type(e) for e in entries if type(e) is IntentEntryView] == []  # no intent
@@ -1318,10 +1383,9 @@ def test_post_intent_refusal_publishes_fulfilling_report(tmp_path) -> None:
     # run_assessment a snakefile whose bytes differ from the definition's.
     from fixtures_cut3 import SNAKEFILE_DETERMINISTIC, SNAKEFILE_SCRATCHY, definition, stage
 
-    root = tmp_path / "observer"
-    root.mkdir()
+    root, port = _observer_port(tmp_path)
     result = run_assessment(
-        tmp_path, port=durable_port(root), snakefile=SNAKEFILE_DETERMINISTIC,
+        tmp_path, port=port, snakefile=SNAKEFILE_DETERMINISTIC,
         # override inside the helper: pass definition(snakefile=SNAKEFILE_SCRATCHY)
         # via the helper's new `definition_override` parameter (Step 3 adds it
         # beside `port` for exactly this arm).
@@ -1341,9 +1405,7 @@ class _Killed(BaseException):
 def test_kill_between_append_and_start_leaves_intent_only(tmp_path, monkeypatch) -> None:
     # N2 obligation 2: deterministic interposition at the port seam — the
     # kill lands after the durable append and before any member act.
-    root = tmp_path / "observer"
-    root.mkdir()
-    inner = durable_port(root)
+    root, inner = _observer_port(tmp_path)
 
     class KilledAfterAppend:
         def append_intent(self, payload):
@@ -1371,7 +1433,7 @@ def test_cross_root_publication_refuses(tmp_path) -> None:
     # u6, freeze obligation 4: both roots writable and serviceable — the
     # refusal is placement's (the fulfills binding), not a lifecycle gate's.
     root_a, root_b = tmp_path / "a", tmp_path / "b"
-    root_a.mkdir(); root_b.mkdir()
+    init_corpus_root(root_a); init_corpus_root(root_b)  # both writable and serviceable
     port_a, port_b = durable_port(root_a), durable_port(root_b)
     port_b.execute([CreateOp(path="act-report/" + "0" * 64 + ".md", content=b"serviceable")])
     digest_on_a = port_a.append_intent(b'{"actor":"a","event_token":"t","kind":"import"}')
@@ -1383,9 +1445,8 @@ def test_cross_root_publication_refuses(tmp_path) -> None:
 
 
 def test_production_run_publishes_exactly_one_produces_edge(tmp_path) -> None:
-    root = tmp_path / "observer"
-    root.mkdir()
-    result = run_production(tmp_path, port=durable_port(root))
+    root, port = _observer_port(tmp_path)
+    result = run_production(tmp_path, port=port)
     assert type(result) is RunMinted
     address = result.run.address()
     node = node_from_markdown((root / "run" / f"{address}.md").read_text())
@@ -1490,7 +1551,14 @@ In `fixtures_cut3.py`: `run_assessment` and `run_production` gain
 `port` (required) and `definition_override=None` (when set, passed as
 `definition=` in place of `definition(snakefile=snakefile)` — the
 post-intent definition-mismatch arm's hook), threading both to the
-entrypoints unchanged.
+entrypoints unchanged; `replay_of` gains `port` and passes it to
+`replay`.
+
+In `replay.py`: `replay()` gains the required `port: OperationPort`
+keyword (import the protocol from `science.runrecord`) and adds
+`"port": port` to the `common` mapping both entrypoint calls unpack —
+a replay is a run and persists like one; no portless mode survives
+here either.
 
 - [ ] **Step 4: Run to verify pass; run cut8–cut10 acceptance (boundary
   feeds corpus paths), then the gate block.**
@@ -1498,10 +1566,15 @@ entrypoints unchanged.
 - [ ] **Step 5: Ledger + commit**
 
 ```bash
-git add python/src/science/boundary.py python/tests/test_boundary.py \
-        python/tests/test_run_persistence.py docs/plans/2026-08-27-intent-boundary-ledger.md
+git add python/src/science/boundary.py python/src/science/replay.py \
+        python/tests/fixtures_cut3.py python/tests/test_boundary.py \
+        python/tests/test_replay.py python/tests/test_run_persistence.py \
+        docs/plans/2026-08-27-intent-boundary-ledger.md
 git commit -m "feat(boundary): destination port, append-first sequence, durable terminal publication"
 ```
+
+(Any further test file the `replay_of` grep touched joins the `git add`
+list — commit exactly what changed.)
 
 ---
 
@@ -1776,6 +1849,7 @@ never forks of it; the holdings schema is the dialect's, wrapped."""
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal, final
 
@@ -1809,7 +1883,9 @@ REASON_PRIORITY = (
 class DecodedIntent:
     digest: str
     shape: Literal["assessment-run", "operation", "holdings"]
-    value: object
+    value: AssessmentRunIntent | OperationIntent | Mapping[str, str]
+    """The typed union pyright narrows on: the two report values, or the
+    holdings dialect's decoded mapping (string-valued)."""
 
 
 @sealed
@@ -1917,11 +1993,12 @@ def _require_fields(value: dict[str, object], names: tuple[str, ...]) -> None:
 def mismatch(intent: DecodedIntent, evidence: object) -> str | None:
     """`None` when the evidence qualifies the intent, else the reason class —
     the frozen §2.2 matching requirements, one implementation for every
-    consumer."""
+    consumer. Branches narrow on the VALUE's type (pyright-clean), which
+    the gate made equivalent to branching on `shape`."""
     if type(evidence) is InertRecord:
         return "wrong-purpose"
-    if intent.shape == "assessment-run":
-        value = intent.value
+    value = intent.value
+    if isinstance(value, AssessmentRunIntent):
         if type(evidence) is RunEvidence:
             if evidence.shape != "assessment":
                 return "wrong-shape"
@@ -1933,8 +2010,7 @@ def mismatch(intent: DecodedIntent, evidence: object) -> str | None:
                 return "wrong-kind"
             return None if evidence.event_token == value.event_token else "wrong-token"
         return "wrong-purpose"
-    if intent.shape == "operation":
-        value = intent.value
+    if isinstance(value, OperationIntent):
         if value.kind == "run-attempt":
             if type(evidence) is RunEvidence:
                 if evidence.shape != "dataset-production":
@@ -1950,8 +2026,7 @@ def mismatch(intent: DecodedIntent, evidence: object) -> str | None:
                 return "wrong-kind"
             return None if evidence.event_token == value.event_token else "wrong-token"
         return "wrong-purpose"  # a run publication never fulfills a non-run operation
-    # holdings
-    value = intent.value  # the dialect's dict: {"digest", "event_token", "kind", "location"}
+    # holdings: the dialect's mapping, string-valued by construction
     if type(evidence) is ObservationEvidence:
         if evidence.location != value["location"]:
             return "wrong-location"
@@ -2471,8 +2546,9 @@ class name).
 
 ```bash
 git add python/src/science/intents/evidence.py python/src/science/errors.py \
+        python/src/science/stored.py python/src/science/corpus.py \
         python/tests/test_intent_evidence.py docs/plans/2026-08-27-intent-boundary-ledger.md
-git commit -m "feat(intents): captured-record evidence decoding"
+git commit -m "feat(intents): captured-record evidence decoding and the extracted act-report validator"
 ```
 
 ---
@@ -2951,16 +3027,24 @@ class TestQualification:
         assert [row.digest for row in report.qualification] == ["i1", "i2"]
         assert report.qualification[0].status == "attempt-without-recorded-outcome"
         assert report.qualification[1].status == "unrecognized"
-        assert report.outcome in ("validated", "refuted")  # never moved by qualification
+        assert report.outcome == "validated"  # never moved by qualification
 
     def test_qualification_findings_are_appended_last(self) -> None:
+        # A presented manifest naming another corpus id yields a
+        # subject-mismatch finding on the validated exit (the file's
+        # TestSubjectMismatch construction) — a guaranteed non-qualification
+        # finding, so the ordering claim is never vacuous.
         view = chain(genesis(), INTENT, FOREIGN)
-        report = evaluate(view=view, observer_set=observers(record_carrier(view.tip)))
+        report = evaluate(view=view, observer_set=observers(record_carrier(view.tip)),
+                          presented=PresentedManifest(corpus_id="someone-else"))
+        assert report.outcome == "validated"  # qualification moved nothing
         qual_codes = {"intent-attempt-without-recorded-outcome", "intent-domain-unrecognized",
                       "intent-fulfillment-non-qualifying", "intent-payload-malformed"}
         positions = [index for index, f in enumerate(report.findings) if f.code in qual_codes]
         others = [index for index, f in enumerate(report.findings) if f.code not in qual_codes]
-        assert positions and all(p > o for p in positions for o in others)
+        assert positions, "the two intents must produce qualification findings"
+        assert others, "the presented mismatch must produce a non-qualification finding"
+        assert all(p > o for p in positions for o in others)
         assert positions == sorted(positions)  # inventory order within the block
 
     def test_pending_exit_carries_qualification(self) -> None:
@@ -3014,8 +3098,10 @@ constant differs, reuse the file's existing genesis-defect fixture from
   qualification **is** made, one row per intent, total.
 - `_report`: parameter `intents` becomes
   `qualification: tuple[IntentQualification, ...] = ()`, and gains
-  `qual_findings: tuple[Finding, ...] = ()` appended after `findings`
-  in the constructed report.
+  `qual_findings: tuple[Finding, ...] = ()`; the constructed report's
+  findings member is spelled exactly `findings + qual_findings` (once —
+  it is J6's sabotage anchor), so qualification findings land last on
+  every exit that carries them.
 - `evaluate_log`: signature gains `records` after `disk` and
   `state_facts` after `absent_state`, with
 
@@ -3108,9 +3194,15 @@ def test_assessment_shaped_closure_never_closes_a_production_intent(sample_closu
     assert completion(intent, registrations, {sample_closure.address(): sample_closure}) == UNFINISHED
 
 
-def test_existing_vocabulary_is_preserved(...) -> None:
-    # matched act-report -> CLOSED; absent held pointer -> INDETERMINATE;
-    # nothing matching -> UNFINISHED — the existing tests keep passing.
+def test_existing_vocabulary_is_preserved(sample_closure, sample_act_report) -> None:
+    # The projection: CLOSED is matched, INDETERMINATE is a pointer whose
+    # held value is absent, UNFINISHED is every-pointer-resolved-none-qualifying.
+    intent = OperationIntent(sample_act_report.operation, sample_act_report.event_token, "actor")
+    registrations = (Registration(intent.event_token, "pointer"),)
+    assert completion(intent, registrations, {"pointer": sample_act_report}) == CLOSED
+    assert completion(intent, registrations, {}) == INDETERMINATE
+    other = OperationIntent("audit", sample_act_report.event_token, "actor")
+    assert completion(other, registrations, {"pointer": sample_act_report}) == UNFINISHED
 ```
 
 - [ ] **Step 2: Run to verify failure** (the wrong-spec case currently
@@ -3344,59 +3436,266 @@ git commit -m "test(intents): three-site consumer agreement and the label-12 mat
   item 1).
 
 - [ ] **Step 1: Author the declarations** — `13 selected + 13 labeled
-  = 26 declaration units`, single-homed. The declaration file's shape
-  follows `n2_arms_cut10.py` exactly: `ROW_UNITS` /
-  `LABELED_UNITS` for the accounting, `CUT11_ARMS` as `Arm(unit,
-  check, Sabotage(file, mutation))` rows, and
-  `ATOMS_CITATIONS_BY_UNIT` for the certified atoms productions a unit
-  **cites instead of mutating** — a citation is explicit accounting,
-  never a silent gap, and its corroborating Science check is listed
-  beside it. The complete partition (checks are test node ids from
-  Tasks 2–12 or this task's acceptance file; every sabotage names its
-  file and one concrete mutation; every check must fail under its
-  mutation and pass on the real tree):
+  = 26 declaration units`, single-homed, in the harness's own shape
+  (`n2_arms.py:50`): each `Arm(row, asserts, Sabotage(module, before,
+  after), checks)` names exact test-function node ids that **all fail**
+  under its one sabotage and pass without it; `before` must match its
+  module **exactly once** (the strings below quote this plan's own
+  implementation blocks — adjust only if the landed code differs, and
+  record the adjustment in the ledger). A unit whose claim is an atoms
+  production is a **citation**, not an arm; a check that must KEEP
+  passing under a sabotage is a **co-passing independence node**, run
+  by the harness audit, never listed in `checks`. The complete
+  partition:
 
-  | Unit | Check node(s) | Sabotage (file — mutation) |
-  |---|---|---|
-  | L7u1 | `test_intent_reduce.py::test_no_pointers_reads_attempt_without_recorded_outcome` | `intents/reduce.py` — replace the attempt-finding list `findings = [Finding(...)]` with `findings = []` |
-  | L7u2 | `test_intent_boundary_acceptance.py::test_u2_mutated_fulfillment_family` (durable; freeze obligation 1: genuine committed transactions, each landing resolved-non-qualifying) | `intents/reduce.py` — delete the `findings.extend(...)` block naming non-qualifying pointers |
-  | L7u3 | `test_intent_boundary_acceptance.py::test_u3_decayed_genuine_run_is_unresolvable_silently` (freeze obligation 2: truncate the boundary-published `run/<address>.md` in place) | `intents/reduce.py` — in the `RecordUndecodable` handler, replace `pointer_unresolved = True` with `reasons.append("no-record")` |
-  | L7u4 | `test_run_persistence.py::test_kill_between_append_and_start_leaves_intent_only` | `boundary.py` — move the `port.append_intent` call after `_execute_run` returns |
-  | L7u5 | `test_intent_boundary_acceptance.py::test_u5_raced_appends_serialize_into_one_chain` (two threads through one root's port; asserts one linear chain, no sibling branch) | **citation**: the root lease is the atoms suite's production (`ATOMS_CITATIONS_BY_UNIT["L7u5"]`, atoms `main` `038513f`); the Science check corroborates and is collected, the serialization claim is cited, not re-proven |
-  | L7u6 | `test_run_persistence.py::test_cross_root_publication_refuses` | `root.py` — in `DurableExecutor.execute`, pass `fulfills=None` to `build_spec` in place of `self._fulfills` |
-  | L7u7 | `test_run_persistence.py::test_no_caller_supplied_fulfills_path_exists` | `boundary.py` — add a `fulfills: str \| None = None` keyword parameter to `execute_assessment_run` |
-  | L7u8 | `test_intent_boundary_acceptance.py::test_u8_negative_discarded_attempt_is_indistinguishable` (no intent appended, nothing durable; the report over the untouched chain carries zero qualification rows and no finding) | `boundary.py` — make the pre-intent refusal path call `port.append_intent(_intent_wire(...))` before publishing its report (a durable trace appears; the negative's no-intent assertion fails) |
-  | L7u9 | `test_intent_reduce.py::test_every_resolved_non_qualifying_pointer_is_named_with_its_reason` + the acceptance family's wrong-operation-token member | `intents/shapes.py` — in the non-run operation branch, return `None` in place of `"wrong-token"` |
-  | L7u10 | same family, wrong-kind member | `intents/shapes.py` — delete the `evidence.operation != value.kind` check in the non-run operation branch |
-  | L7u11 | same family, run-for-non-run member | `intents/shapes.py` — in the non-run operation branch, route `RunEvidence` to the token comparison instead of returning `"wrong-purpose"` |
-  | L7u12 | same family, no-terminal-record member (T2's second-fulfilling-registration stays cut 8's — cited in the docstring, no arm) | `intents/reduce.py` — when `record_paths` is empty, `return` a `matched` row instead of appending `no-record` |
-  | L7u13 | the u4 twin for the operation intent (`run_production` through `KilledAfterAppend`) | `boundary.py` — same reorder as u4, in `execute_production_run` |
-  | J1 | `test_intent_reduce.py::test_unresolvable_wins_over_non_qualifying_and_emits_nothing`, `::test_undecodable_bytes_are_unresolvable` | `intents/reduce.py` — replace `payload is None` handling (`pointer_unresolved = True`) with `continue` |
-  | J2 | `test_record_capture.py::test_swap_race_is_lost_by_the_attacker`, `::test_fifo_is_classified_never_opened_readable` (N2 obligation 4: the hook records both orderings) | `world/records.py` — in `_read_leaf`, replace the `O_PATH` classification with a direct `os.open(name, os.O_RDONLY, dir_fd=dir_fd)` |
-  | J3 | `test_operation_port.py::test_oversized_postimage_refuses_before_any_write`, `::test_non_port_writes_are_unaffected_by_the_ceiling`, `test_record_capture.py::test_ceiling_boundary_exact_captures_one_over_withholds` (N2 obligation 5: exact-boundary payloads) | writer arm: `root.py` — delete `_refuse_over_ceiling(plan)` from `execute_fulfilling`; reader arm: `world/records.py` — read without the `+ 1` bound and return the truncated buffer |
-  | J4 | `test_intent_gate.py` (all), `test_world_log_evaluator.py::TestQualification::test_qualification_is_total_and_in_chain_order` | `intents/shapes.py` — delete the `value.get("kind") in OPERATION_KINDS` guard on the operation discriminator |
-  | J5 | `TestQualification::test_pending_exit_carries_qualification`, `test_intent_reduce.py::test_unsettled_pointer_is_unresolvable_regardless_of_disk`, `::test_rolled_back_only_pointers_read_attempt_without_recorded_outcome` | `intents/reduce.py` — treat `settlement.get(...) is None` as `committed = True` |
-  | J6 | `TestQualification::test_qualification_findings_are_appended_last`, `::test_genesis_malformed_exit_carries_qualification`, `::test_malformed_view_exit_carries_empty_qualification`, `::test_intents_unevaluated_is_retired_with_no_alias` + a grep check asserting `intents_unevaluated` appears nowhere under `src/` | `world/verify.py` — append `qual_findings` before the exit's own findings instead of after |
-  | J7 | `test_run_persistence.py::test_assessment_sequence_appends_intent_then_publishes_fulfilling`, `::test_pre_intent_refusal_publishes_unfulfilling_report`, `::test_post_intent_refusal_publishes_fulfilling_report`, `test_operation_port.py::test_execute_refuses_a_malformed_plan_before_any_write`, `::test_execute_surfaces_an_execution_failure_as_execution_error` | `boundary.py` — in the minted branch, call `port.execute(plan)` in place of `port.execute_fulfilling(plan, fulfills)` |
-  | J8 | `test_runrecord.py::test_incomplete_closure_fails_the_view_not_the_codec`, `::test_reversed_result_pairs_fail_canonical_reprojection`, `::test_closure_member_mutation_diverges_from_the_id`, `::test_decimal_wire_arms_publish_capture_decode_recompute` (N2 obligation 3), `::test_relations_are_role_preserving`, `test_intent_reduce.py::test_wrong_shape_both_directions` | reprojection arm: `runrecord.py` — delete the `_reproject(parsed) != parsed` check; mutation arm: `runrecord.py` — delete the recomputed-address-vs-id comparison in `decode_run_record` |
-  | J9 | `test_runrecord.py::test_shape_agreement_both_ways`, `::test_run_facet_shapes_are_exact_not_get_based`, `::test_closure_facet_is_semantic_hash_covered` | `stored.py` — remove `RUN_CLOSURE_FACET` from `COVERED_FACETS["run"]` |
-  | J10 | `test_intent_boundary_acceptance.py::test_bridge_resolves_assessment_ref_and_stamped_basis` (a `ReadView` over the published corpus resolves both spellings to the one record) | `runrecord.py` — prepend `"x"` to the slug in `publication_plan`'s record id and path |
-  | J11 | `test_runrecord.py::test_legacy_run_node_reads_and_never_qualifies`, `test_intent_evidence.py::test_legacy_run_is_inert_not_undecodable` | `runrecord.py` — raise `MalformedRecord` when the closure facet is absent instead of returning `None` |
-  | J12 | `test_consumer_agreement.py::test_holdings_matrix_agrees_across_both_consumers` (all rows), `::test_run_shapes_agree_between_verifier_and_completion`, `test_report.py`'s wrong-spec pin | `report.py` — restore the pre-re-base comparison (token match without the spec/shape predicate) in `completion` |
-  | J13 | `test_intent_boundary_acceptance.py::test_positive_matched_per_alternative` (five durable round trips: assessment run-matched, assessment report-matched, non-run operation report, production minted-run, production report; holdings runs inside J12's matrix) | `intents/shapes.py` — in `mismatch`, return `"wrong-purpose"` unconditionally (a reducer that never matches must fail this label before any negative arm) |
+```python
+CUT11_ARMS = (
+    Arm("L7u1", "no pointers reads the attempt finding, never a refutation",
+        Sabotage("intents/reduce.py",
+                 before='code="intent-attempt-without-recorded-outcome",',
+                 after='code="intent-attempt-withheld",'),
+        ("test_intent_reduce.py::test_no_pointers_reads_attempt_without_recorded_outcome",)),
+    Arm("L7u2", "each resolved non-qualifying fulfillment is named with its reason",
+        Sabotage("intents/reduce.py",
+                 before="findings.extend(", after="_ = list("),
+        ("acceptance/test_intent_boundary_acceptance.py::test_u2_mutated_fulfillment_family",
+         "test_intent_reduce.py::test_every_resolved_non_qualifying_pointer_is_named_with_its_reason")),
+    Arm("L7u3", "decayed genuine bytes read unresolvable with no unmatched finding",
+        Sabotage("intents/reduce.py",
+                 before="except RecordUndecodable:\n                pointer_unresolved = True",
+                 after='except RecordUndecodable:\n                reasons.append("no-record")'),
+        ("acceptance/test_intent_boundary_acceptance.py::test_u3_decayed_genuine_run_is_unresolvable_silently",
+         "test_intent_reduce.py::test_undecodable_bytes_are_unresolvable")),
+    Arm("L7u4", "the assessment intent is durably appended before any member act",
+        Sabotage("boundary.py",
+                 before="intent = AssessmentRunIntent(spec.identity, secrets.token_hex(16), actor)\n"
+                        "    fulfills = port.append_intent(_intent_wire(intent))",
+                 after="intent = AssessmentRunIntent(spec.identity, secrets.token_hex(16), actor)\n"
+                       '    fulfills = "0" * 64  # append deferred'),
+        ("test_run_persistence.py::test_kill_between_append_and_start_leaves_intent_only",)),
+    Arm("L7u6", "publication through a root other than the intent's refuses",
+        Sabotage("root.py", before="fulfills=self._fulfills,", after="fulfills=None,"),
+        ("test_run_persistence.py::test_cross_root_publication_refuses",
+         "test_run_persistence.py::test_assessment_sequence_appends_intent_then_publishes_fulfilling")),
+    Arm("L7u7", "no caller-supplied fulfills path exists at the boundary",
+        Sabotage("boundary.py",
+                 before="def execute_assessment_run(\n    *,\n    spec: object,\n    port: OperationPort,",
+                 after="def execute_assessment_run(\n    *,\n    fulfills: str | None = None,\n"
+                       "    spec: object,\n    port: OperationPort,"),
+        ("test_run_persistence.py::test_no_caller_supplied_fulfills_path_exists",)),
+    Arm("L7u8", "a wholly discarded attempt is indistinguishable by construction",
+        Sabotage("boundary.py",
+                 before='refused = _refused("no-frozen-spec", subject, actor, observer, started_at)\n'
+                        "        port.execute(_report_plan(refused.report))",
+                 after='refused = _refused("no-frozen-spec", subject, actor, observer, started_at)\n'
+                       '        port.append_intent(_intent_wire(AssessmentRunIntent("0" * 64, '
+                       "refused.report.event_token, actor)))\n"
+                       "        port.execute(_report_plan(refused.report))"),
+        ("acceptance/test_intent_boundary_acceptance.py::test_u8_negative_discarded_attempt_is_indistinguishable",)),
+    Arm("L7u9", "a report carrying another operation's token fails qualification",
+        Sabotage("intents/shapes.py",
+                 before='if evidence.operation != value.kind:\n                return "wrong-kind"\n'
+                        '            return None if evidence.event_token == value.event_token else "wrong-token"',
+                 after='if evidence.operation != value.kind:\n                return "wrong-kind"\n'
+                       "            return None"),
+        ("acceptance/test_intent_boundary_acceptance.py::test_u9_wrong_operation_token_fails_qualification",)),
+    Arm("L7u10", "a report of the wrong kind fails qualification",
+        Sabotage("intents/shapes.py",
+                 before='if evidence.operation != value.kind:\n                return "wrong-kind"',
+                 after='if False:\n                return "wrong-kind"'),
+        ("acceptance/test_intent_boundary_acceptance.py::test_u10_wrong_kind_report_fails_qualification",
+         "test_intent_gate.py::test_matching_requirements_per_shape")),
+    Arm("L7u11", "a run publication never fulfills a non-run operation",
+        Sabotage("intents/shapes.py",
+                 before='return "wrong-purpose"  # a run publication never fulfills a non-run operation',
+                 after="return (None if evidence.event_token == value.event_token else \"wrong-token\") "
+                       "if type(evidence) is RunEvidence else \"wrong-purpose\""),
+        ("acceptance/test_intent_boundary_acceptance.py::test_u11_run_for_non_run_operation_fails_qualification",
+         "test_intent_gate.py::test_matching_requirements_per_shape")),
+    Arm("L7u12", "a registration publishing no terminal record fails qualification",
+        Sabotage("intents/reduce.py",
+                 before='non_qualifying.append((registration.digest, "no-record"))\n            continue',
+                 after="return (\n                IntentQualification(intent.digest, intent.shape, "
+                       '"matched", registration.digest),\n                (),\n            )'),
+        ("acceptance/test_intent_boundary_acceptance.py::test_u12_no_terminal_record_fails_qualification",
+         "test_intent_reduce.py::test_every_resolved_non_qualifying_pointer_is_named_with_its_reason")),
+    Arm("L7u13", "the operation intent is durably appended before its first act",
+        Sabotage("boundary.py",
+                 before='intent = OperationIntent("run-attempt", secrets.token_hex(16), actor)\n'
+                        "    fulfills = port.append_intent(_intent_wire(intent))",
+                 after='intent = OperationIntent("run-attempt", secrets.token_hex(16), actor)\n'
+                       '    fulfills = "0" * 64  # append deferred'),
+        ("test_run_persistence.py::test_kill_between_append_and_start_leaves_intent_only_operation_kind",)),
+    Arm("J1", "an absent record path is unresolvable, never silently resolved",
+        Sabotage("intents/reduce.py",
+                 before="if payload is None:\n                pointer_unresolved = True  "
+                        "# absent — including withheld by capture\n                continue",
+                 after="if payload is None:\n                continue"),
+        ("test_intent_reduce.py::test_unresolvable_wins_over_non_qualifying_and_emits_nothing",)),
+    Arm("J2", "the leaf is classified before any readable open, never followed",
+        Sabotage("world/records.py",
+                 before='if not stat.S_ISREG(os.fstat(path_fd).st_mode):\n'
+                        "                return None  # a symlink or fifo at the leaf: opened as itself, never read\n"
+                        '            read_fd = os.open(f"/proc/self/fd/{path_fd}", os.O_RDONLY)',
+                 after='read_fd = os.open(f"/proc/self/fd/{path_fd}", os.O_RDONLY | os.O_NONBLOCK)'),
+        ("test_record_capture.py::test_swap_race_is_lost_by_the_attacker",
+         "test_record_capture.py::test_leaf_symlink_is_classified_and_withheld",
+         "test_record_capture.py::test_fifo_is_classified_never_opened_readable")),
+    Arm("J3a", "the writer refuses an over-ceiling postimage before any write",
+        Sabotage("root.py",
+                 before="if isinstance(content, bytes) and len(content) > RECORD_CEILING:",
+                 after="if isinstance(content, bytes) and len(content) > RECORD_CEILING * 1024:"),
+        ("test_operation_port.py::test_oversized_postimage_refuses_before_any_write",)),
+    Arm("J3b", "the reader withholds wholly, never hands a truncation to a decoder",
+        Sabotage("world/records.py",
+                 before="remaining = RECORD_CEILING + 1",
+                 after="remaining = RECORD_CEILING"),
+        ("test_record_capture.py::test_ceiling_boundary_exact_captures_one_over_withholds",)),
+    Arm("J4", "the operation discriminator is closed over OPERATION_KINDS",
+        Sabotage("intents/shapes.py",
+                 before='if set(value) == {"kind", "event_token", "actor"} and value.get("kind") in OPERATION_KINDS:',
+                 after='if set(value) == {"kind", "event_token", "actor"}:'),
+        ("test_intent_gate.py::test_out_of_vocabulary_kind_is_domainless_unrecognized",)),
+    Arm("J5", "settlement is never inferred from disk",
+        Sabotage("intents/reduce.py",
+                 before="committed = settlement.get(registration.digest)",
+                 after="committed = settlement.get(registration.digest, True)"),
+        ("test_intent_reduce.py::test_unsettled_pointer_is_unresolvable_regardless_of_disk",
+         "test_world_log_evaluator.py::TestQualification::test_pending_exit_carries_qualification")),
+    Arm("J6", "qualification findings are appended last, inventory order",
+        Sabotage("world/verify.py",
+                 before="findings + qual_findings",
+                 after="qual_findings + findings"),
+        ("test_world_log_evaluator.py::TestQualification::test_qualification_findings_are_appended_last",)),
+    Arm("J7", "the terminal publication fulfills the boundary's own appended intent",
+        Sabotage("boundary.py",
+                 before="_, _, plan = publication_plan(result.run, produces=None)\n"
+                        "        port.execute_fulfilling(plan, fulfills)",
+                 after="_, _, plan = publication_plan(result.run, produces=None)\n"
+                       "        port.execute(plan)"),
+        ("test_run_persistence.py::test_assessment_sequence_appends_intent_then_publishes_fulfilling",)),
+    Arm("J8a", "the view requires canonical reprojection equality",
+        Sabotage("runrecord.py",
+                 before='if _reproject(parsed) != parsed:\n        _refuse("$", "an array the projection sorts is out of its canonical order")',
+                 after='if False:\n        _refuse("$", "an array the projection sorts is out of its canonical order")'),
+        ("test_runrecord.py::test_reversed_result_pairs_fail_canonical_reprojection",)),
+    Arm("J8b", "decode verifies the recomputed address against the record id",
+        Sabotage("runrecord.py",
+                 before='if node.id != f"run:{address}":',
+                 after="if False:"),
+        ("test_runrecord.py::test_closure_member_mutation_diverges_from_the_id",)),
+    Arm("J9a", "the closure facet is semantic-hash covered",
+        Sabotage("stored.py",
+                 before='"run": (RUN_FACET, RUN_CLOSURE_FACET),',
+                 after='"run": (RUN_FACET,),'),
+        ("test_runrecord.py::test_closure_facet_is_semantic_hash_covered",)),
+    Arm("J9b", "the run-facet shapes are exact, never .get()-based",
+        Sabotage("runrecord.py",
+                 before='if run_facet != {"spec": spec_identity}:',
+                 after='if run_facet.get("spec") != spec_identity:'),
+        ("test_runrecord.py::test_run_facet_shapes_are_exact_not_get_based",)),
+    Arm("J10", "both ref spellings resolve to exactly the published record",
+        Sabotage("runrecord.py",
+                 before="node = stored.run_publication_node(\n        address,",
+                 after='node = stored.run_publication_node(\n        "x" + address,'),
+        ("acceptance/test_intent_boundary_acceptance.py::test_bridge_resolves_assessment_ref_and_stamped_basis",)),
+    Arm("J11", "a legacy record reads through the run facet with no schema rejection",
+        Sabotage("runrecord.py",
+                 before="if facet is None:\n        return None  # legacy: readable, resolvable, never qualifying",
+                 after='if facet is None:\n        raise MalformedRecord(f"{node.id}: a run record carries the closure facet")'),
+        ("test_runrecord.py::test_legacy_run_node_reads_and_never_qualifies",
+         "test_intent_evidence.py::test_legacy_run_is_inert_not_undecodable")),
+    Arm("J12a", "completion's predicate is the shared shape predicates",
+        Sabotage("report.py",
+                 before="if shapes.mismatch(decoded, held_evidence) is None:",
+                 after='if getattr(held_evidence, "event_token", None) == intent.event_token:'),
+        ("test_report.py::test_wrong_spec_run_closure_reads_unfinished",
+         "test_report.py::test_assessment_shaped_closure_never_closes_a_production_intent")),
+    Arm("J12b", "the regenerated rule interior keeps the certified matrix answers",
+        Sabotage("holdings/qualify.py",
+                 before='if observation["location"] == intent["location"] and '
+                        'observation["event_token"] == intent["event_token"]:',
+                 after='if observation["location"] == intent["location"]:'),
+        ("test_consumer_agreement.py::test_holdings_matrix_agrees_across_both_consumers[wrong-token]",)),
+    Arm("J13", "the reducer can match — every alternative reads matched",
+        Sabotage("intents/shapes.py",
+                 before='if type(evidence) is InertRecord:\n        return "wrong-purpose"',
+                 after='if True:\n        return "wrong-purpose"'),
+        ("acceptance/test_intent_boundary_acceptance.py::test_positive_matched_per_alternative",
+         "test_intent_reduce.py::test_matched_by_run_publication_sets_fulfilled_by")),
+)
+
+ATOMS_CITATIONS_BY_UNIT = {
+    # L7u5's serialization claim is the root lease's — an atoms production
+    # (suite at 038513f), cited, never mutated from Science. The
+    # corroborating Science check runs in the ordinary acceptance pass
+    # (never as an Arm): test_u5_raced_appends_serialize_into_one_chain.
+    "L7u5": "atoms root-lease serialization, remote main 038513f",
+}
+
+CO_PASSING_INDEPENDENCE = {
+    # Under J3a's writer sabotage the non-port path must KEEP passing —
+    # the ceiling binds only the qualifying-publication boundary (cut-10's
+    # G9 audit pattern: the harness applies the sabotage once and requires
+    # the arm's checks to fail while this node passes).
+    "J3a": ("test_operation_port.py::test_non_port_writes_are_unaffected_by_the_ceiling",),
+}
+```
+
+  Unit accounting: L7u5 appears only in `ATOMS_CITATIONS_BY_UNIT`;
+  J3, J8, J9, J12 each split into lettered arms of one unit;
+  `ROW_UNITS`/`LABELED_UNITS` count 13 + 13 with the harness asserting
+  every unit appears in exactly one of the arm list or the citation
+  map. L7u12's T2 second-fulfilling-registration classification stays
+  cut 8's — cited in the module docstring, no arm.
 
 - [ ] **Step 1a: The harness** — `test_n2_cut11.py` copies the cut-10
   harness's loop: apply each `Sabotage` to an isolated copy, run the
-  arm's check nodes, require failure under mutation and a pass on the
-  real tree, and classify `vacuous`/`stale`/`uncollected` as defects;
-  citations in `ATOMS_CITATIONS_BY_UNIT` are asserted present and
-  their corroborating checks collected, never mutated.
+  arm's checks, require every one to fail under the mutation and pass
+  on the real tree, and classify `vacuous`/`stale`/`uncollected` as
+  defects. Two additions beyond the plain loop: for each
+  `CO_PASSING_INDEPENDENCE` entry, the named node runs under that
+  arm's sabotage and must **pass** (an independence claim, cut-10's G9
+  audit pattern); `ATOMS_CITATIONS_BY_UNIT` entries are asserted
+  present and their corroborating checks collected in the ordinary
+  pass, never mutated.
 
 - [ ] **Step 2: Write the durable acceptance arms**
-  (`test_intent_boundary_acceptance.py`) for every unit above marked
-  durable: real `DurableOperationPort`, real chain, `_audit_log` or
+  (`test_intent_boundary_acceptance.py`): real `DurableOperationPort`
+  over `init_corpus_root`-registered roots, real chain, `_audit_log` or
   `evaluate_log` over `_assemble_evaluation_inputs` output, on the
-  certified volume via `durable_fixture.py`.
+  certified volume via `durable_fixture.py`. The named nodes the arms
+  above require, all in this file:
+  `test_u2_mutated_fulfillment_family` (freeze obligation 1: each
+  member a genuine committed transaction, `inspect_chain`-clean,
+  landing resolved-non-qualifying);
+  `test_u3_decayed_genuine_run_is_unresolvable_silently` (freeze
+  obligation 2: truncate the boundary-published `run/<address>.md` in
+  place); `test_u5_raced_appends_serialize_into_one_chain` (two
+  threads through one root's port; one linear chain, both intents
+  present — the citation's corroborating check);
+  `test_u8_negative_discarded_attempt_is_indistinguishable` (a port
+  whose `execute` discards the refusal report over a real
+  `append_intent`; the untouched chain carries zero qualification rows
+  and no intent entry);
+  `test_u9_wrong_operation_token_fails_qualification`,
+  `test_u10_wrong_kind_report_fails_qualification`,
+  `test_u11_run_for_non_run_operation_fails_qualification`,
+  `test_u12_no_terminal_record_fails_qualification` (the operation
+  family, each sabotaged fulfillment a genuine committed transaction);
+  `test_bridge_resolves_assessment_ref_and_stamped_basis` (a
+  `ReadView` over the published corpus resolves both spellings to the
+  one record); `test_positive_matched_per_alternative` (label 13's
+  five round trips: assessment run-matched, assessment report-matched,
+  non-run operation report, production minted-run, production report;
+  holdings runs inside label 12's matrix); and
+  `test_decimal_round_trip_publishes_and_captures` (label 8's frozen
+  round trip: the four Decimal-arm closures published through the
+  port, read back via `capture_records`, decoded, addresses
+  recomputed and agreeing — the durable half of Task 2's codec test).
+  Also added here, to `test_run_persistence.py`:
+  `test_kill_between_append_and_start_leaves_intent_only_operation_kind`
+  — u13's twin of Task 4's kill arm, through `run_production`.
 
 - [ ] **Step 3: Run the N2 harness**
 
