@@ -56,6 +56,19 @@ validator returns typed lists and a cast token; and
 `make_closure`/`sample_report` builders while
 `_REPORT_ENTRY_OUTCOMES` moves with the extracted act-report
 validator.
+**Revised a fourth time 2026-08-27** (fourth plan review): the replay
+gate narrows to the frozen `expected_recipe_identity: str | None`
+value — one comparison, no caller-supplied code inside the boundary —
+recorded as the spec's twenty-first amendment (§2.6 item 6) before any
+implementation; J10 ships and sabotages the actual bridge
+(`runrecord.run_ref`/`bare_address`, the one spelling authority the
+encoder's record id also mints through), with the arm resolving a raw
+`StampedBasis.run` and a stored assessment `run` field; the u5 race
+uses futures whose `result()` propagates append failures, asserting
+exactly two digests and two intent entries; the partition test asserts
+the frozen unit identities (`L7u1…L7u13` ∪ `J1…J13`), never counts;
+and the speculative `sample_report` and `CreateOp` contingency notes
+are removed.
 
 **Goal:** Land the general qualification reduction over the closed
 three-shape intent union, the verifier's `qualification` report contract,
@@ -437,11 +450,6 @@ git commit -m "feat(identity): export v1.decode with CanonicalTextRefused"
                           entries=entries)
   ```
 
-  (`_mint_report` validates the operation against `OPERATION_KINDS`, so
-  `sample_report` only mints real kinds; adjust the entry member if a
-  non-run-attempt operation refuses `RunAttemptEntry` — use
-  `SubjectEvaluationEntry("subject", EvaluationFinding("ok"))` for
-  those, per `_ALLOWED_OUTCOMES`.)
 - Modify: `python/src/science/stored.py` — `RUN_CLOSURE_FACET` constant,
   `COVERED_FACETS["run"]` gains it (line 187), new constructor
   `run_publication_node` beside `run_node` (line 492); `run_node` itself
@@ -477,9 +485,14 @@ git commit -m "feat(identity): export v1.decode with CanonicalTextRefused"
     address mismatch, `run`-facet shape disagreement either way).
   - `runrecord.publication_plan(closure, *, produces: str | None) ->
     tuple[str, str, tuple[CreateOp, ...]]` — `(record_id, path, plan)`,
-    id `run:<address>`, path `run/<address>.md`, one `CreateOp` of the
-    markdown bytes; `produces` required exactly for shape
-    `dataset-production`.
+    id `run:<address>` minted through `run_ref`, path
+    `run/<address>.md`, one `CreateOp` of the markdown bytes;
+    `produces` required exactly for shape `dataset-production`.
+  - `runrecord.run_ref(address: str) -> str` and
+    `runrecord.bare_address(ref: str) -> str` — the frozen
+    bare-address/typed-ref bridge, one implementation for every
+    consumer (label 10's arm resolves a raw `StampedBasis.run` through
+    it).
   - `runrecord.OperationPort` — the protocol's **single home**:
     `append_intent(payload: bytes) -> str`, `execute(plan) -> None`,
     `execute_fulfilling(plan, fulfills: str) -> None`. It cannot live
@@ -755,11 +768,31 @@ from science.sealed import sealed
 __all__ = [
     "OperationPort",
     "RunPublication",
+    "bare_address",
     "decode_projection",
     "decode_run_record",
     "projection_text",
     "publication_plan",
+    "run_ref",
 ]
+
+
+def run_ref(address: str) -> str:
+    """The bare-address/typed-ref bridge, bare -> typed: prepend the kind
+    (spec §2.6 item 5). Bare spellings: `RunClosure.address()`,
+    `Registration.pointer`, `StampedBasis.run`. Typed spellings: the
+    stored record id, an assessment facet's `run` field, relation
+    endpoints. One injective bridge, one implementation."""
+    if type(address) is not str or not address or ":" in address:
+        raise MalformedRecord(f"{address!r} is not a bare closure address")
+    return f"run:{address}"
+
+
+def bare_address(ref: str) -> str:
+    """The bridge's inverse, typed -> bare: strip the kind."""
+    if type(ref) is not str or not ref.startswith("run:"):
+        raise MalformedRecord(f"{ref!r} is not a typed run reference")
+    return ref.removeprefix("run:")
 
 
 class OperationPort(Protocol):
@@ -1131,11 +1164,9 @@ def publication_plan(
         produces=(produces,) if produces is not None else (),
     )
     path = f"run/{address}.md"
-    return f"run:{address}", path, (CreateOp(path, node_to_markdown(node).encode("utf-8")),)
+    # The returned id goes through the bridge — the one spelling authority.
+    return run_ref(address), path, (CreateOp(path, node_to_markdown(node).encode("utf-8")),)
 ```
-
-(If `CreateOp`'s constructor signature differs — check
-`nodes.core.write_plan` — match it exactly; `corpus.py:48` imports it.)
 
 - [ ] **Step 5: Run to verify pass, then the gate block**
 
@@ -1396,17 +1427,18 @@ git commit -m "feat(port): non-fulfilling execute and the writer-side record cei
   closure record through `port.execute_fulfilling`, with `produces` set
   to the `mint_dataset`-derived address for a production run.
 - Produces: both entrypoints gain
-  `conformance: Callable[[RunClosure], str | None] | None = None` — a
-  caller-supplied gate run on the minted closure **after the mint and
-  before the terminal publication**. A non-`None` reason converts the
-  outcome to a post-intent `RunRefused` whose report is what gets
-  published fulfilling the intent — so the durable terminal record
-  always states the returned result, and no consumer can end up with a
-  durable "fulfilled by the run" beside an in-memory refusal.
-  `replay()` is the one caller: its recipe-conformance check
-  (`replay.py:142`) moves into this gate, because its old post-hoc
-  branch would otherwise refuse a run the boundary had already
-  published.
+  `expected_recipe_identity: str | None = None` — the frozen replay
+  gate (spec §2.6 item 6, the twenty-first amendment): when set, the
+  boundary compares the minted run's `recipe.identity()` against it
+  exactly once, **after the mint and before the terminal publication**;
+  on mismatch the outcome is the standard post-intent refusal (reason
+  `recipe-identity-mismatch`) whose report is what publishes fulfilling
+  the intent — the durable terminal record always states the returned
+  result, and the mismatched run is never published. Deliberately a
+  value, not a callback: `replay()` is the sole consumer, and no
+  caller-supplied code runs inside the boundary between mint and
+  publication (so there is no undefined exception or return-value
+  surface to specify).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1553,9 +1585,9 @@ def test_production_run_publishes_exactly_one_produces_edge(tmp_path) -> None:
 
 
 def test_replay_recipe_mismatch_publishes_refusal_not_run(tmp_path) -> None:
-    # The conformance gate: replay's recipe check runs BEFORE the terminal
-    # publication, so a mismatch publishes the refusal report — never a
-    # durable run beside an in-memory refusal.
+    # The frozen replay gate (spec §2.6 item 6): the recipe comparison runs
+    # BEFORE the terminal publication, so a mismatch publishes the refusal
+    # report — never a durable run beside an in-memory refusal.
     from fixtures_cut3 import SNAKEFILE_SCRATCHY, replay_of
 
     root, port = _observer_port(tmp_path)
@@ -1568,7 +1600,7 @@ def test_replay_recipe_mismatch_publishes_refusal_not_run(tmp_path) -> None:
     outcome = replay_of(original, replayed_dir, port=durable_port(replay_root),
                         snakefile=SNAKEFILE_SCRATCHY)  # a different recipe identity
     assert type(outcome) is RunRefused
-    assert outcome.reason == "reconstructed recipe differs from the original recipe"
+    assert outcome.reason == "recipe-identity-mismatch"  # the frozen gate's reason
     entries = _entries(replay_root)
     (intent_entry,) = [e for e in entries if type(e) is IntentEntryView]
     (registration,) = [e for e in entries if type(e) is RegisteredEntryView]
@@ -1631,7 +1663,7 @@ def _intent_wire(intent: AssessmentRunIntent | OperationIntent) -> bytes:
 
 ```python
 def execute_assessment_run(*, spec: object, port: OperationPort,
-                           conformance: Callable[[RunClosure], str | None] | None = None,
+                           expected_recipe_identity: str | None = None,
                            definition, ...) -> RunMinted | RunRefused:
     if type(spec) is not FrozenSpec:
         subject = spec if type(spec) is str else "absent"
@@ -1650,11 +1682,14 @@ def execute_assessment_run(*, spec: object, port: OperationPort,
                           declared_outputs=declared_outputs, actor=actor, observer=observer,
                           started_at=started_at, host_realization=host_realization,
                           scratch_base=scratch_base, cores=cores)  # the existing call, verbatim
-    if type(result) is RunMinted and conformance is not None:
-        if (reason := conformance(result.run)) is not None:
-            # The gate refuses the minted run before anything durable
-            # exists for it: the terminal record is the refusal report.
-            result = _refused(reason, spec.identity, actor, observer, started_at, intent)
+    if (
+        type(result) is RunMinted
+        and expected_recipe_identity is not None
+        and result.run.recipe.identity() != expected_recipe_identity
+    ):
+        # The frozen replay gate (spec §2.6 item 6): the mismatched run is
+        # never published; the terminal record is the refusal report.
+        result = _refused("recipe-identity-mismatch", spec.identity, actor, observer, started_at, intent)
     if type(result) is RunMinted:
         _, _, plan = publication_plan(result.run, produces=None)
         port.execute_fulfilling(plan, fulfills)
@@ -1663,8 +1698,8 @@ def execute_assessment_run(*, spec: object, port: OperationPort,
     return result
 ```
 
-The production entrypoint applies the same gate (subject `"absent"`)
-before its minted branch.
+The production entrypoint applies the same comparison (subject
+`"absent"`) before its minted branch.
 
 For the production entrypoint the minted branch is:
 
@@ -1690,23 +1725,13 @@ In `replay.py`: `replay()` gains the required `port: OperationPort`
 keyword (import the protocol from `science.runrecord`), adds
 `"port": port` to the `common` mapping both entrypoint calls unpack —
 a replay is a run and persists like one; no portless mode survives
-here either — and its post-hoc recipe check **moves into the
-conformance gate**: delete the
+here either — and its post-hoc recipe check **becomes the frozen
+gate**: delete the
 `if outcome.run.recipe.identity() != recipe.identity():` branch
-(replay.py:142) and pass
-
-```python
-    expected = recipe.identity()
-
-    def _conforms(run: RunClosure) -> str | None:
-        if run.recipe.identity() == expected:
-            return None
-        return "reconstructed recipe differs from the original recipe"
-```
-
-as `conformance=_conforms` in both entrypoint calls, so the refusal is
-decided before the terminal publication and the durable record agrees
-with the returned value.
+(replay.py:142) and add
+`"expected_recipe_identity": recipe.identity()` to `common`, so the
+refusal is decided before the terminal publication and the durable
+record agrees with the returned value.
 
 - [ ] **Step 4: Run to verify pass; run cut8–cut10 acceptance (boundary
   feeds corpus paths), then the gate block.**
@@ -3807,9 +3832,12 @@ CUT11_ARMS = (
                  after='if run_facet.get("spec") != spec_identity:'),
         ("test_runrecord.py::test_run_facet_shapes_are_exact_not_get_based",)),
     Arm("J10", "both ref spellings resolve to exactly the published record",
+        # The sabotage hits the BRIDGE, not the run node's slug: run_ref
+        # minting a foreign kind breaks the bare->typed crossing (and the
+        # id the encoder mints through it), which is label 10's claim.
         Sabotage("runrecord.py",
-                 before="node = stored.run_publication_node(\n        address,",
-                 after='node = stored.run_publication_node(\n        "x" + address,'),
+                 before='return f"run:{address}"',
+                 after='return f"run-closure:{address}"'),
         ("acceptance/test_intent_boundary_acceptance.py::test_bridge_resolves_assessment_ref_and_stamped_basis",)),
     Arm("J11", "a legacy record reads through the run facet with no schema rejection",
         Sabotage("runrecord.py",
@@ -3886,14 +3914,16 @@ LABELED_UNITS: tuple[str, ...] = tuple(f"J{n}" for n in range(1, 14))
 
 ```python
 def test_the_partition_accounts_exactly_the_26_frozen_units() -> None:
-    from n2_arms_cut11 import ATOMS_CITATIONS_BY_UNIT, CUT11_ARMS, unit_of
+    from n2_arms_cut11 import ATOMS_CITATIONS_BY_UNIT, CUT11_ARMS, LABELED_UNITS, ROW_UNITS, unit_of
 
     arm_units = {unit_of(arm.row) for arm in CUT11_ARMS}
     citation_units = set(ATOMS_CITATIONS_BY_UNIT)
     assert not arm_units & citation_units  # a unit is an arm XOR a citation
-    selected = {unit for unit in arm_units | citation_units if unit.startswith("L7")}
-    labeled = {unit for unit in arm_units | citation_units if unit.startswith("J")}
-    assert len(selected) == 13 and len(labeled) == 13  # 26, per the frozen cut
+    # The frozen IDENTITIES, never a count: cut 11 §3.1's thirteen selected
+    # units and §3.3's thirteen labels, exactly.
+    selected = {f"L7u{n}" for n in range(1, ROW_UNITS["L7"] + 1)}
+    assert arm_units | citation_units == selected | set(LABELED_UNITS)
+    assert set(LABELED_UNITS) == {f"J{n}" for n in range(1, 14)}
     assert citation_units == {"L7u5"}
 
 
@@ -3946,6 +3976,7 @@ def test_j3a_writer_ceiling_fails_while_the_non_port_write_passes(tmp_path):
 from __future__ import annotations
 
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 
 import pytest
@@ -3960,7 +3991,7 @@ from science.identity import v1
 from science.intents.reduce import qualify_chain
 from science.production import mint_dataset
 from science.root import init_corpus_root
-from science.runrecord import decode_run_record, publication_plan
+from science.runrecord import bare_address, decode_run_record, publication_plan, run_ref
 from science.world.logmodel import IntentEntryView, WellFormedView
 from science.world.records import capture_records
 from test_operation_port import durable_port
@@ -4069,21 +4100,19 @@ def test_u3_decayed_genuine_run_is_unresolvable_silently(certified_work):
 def test_u5_raced_appends_serialize_into_one_chain(certified_work):
     root, port = _port(certified_work, "u5")
     barrier = threading.Barrier(2)
-    digests: list[str] = []
 
-    def append(token: str) -> None:
+    def append(token: str) -> str:
         barrier.wait()
-        digests.append(_append_operation(port, kind="audit", token=token))
+        return _append_operation(port, kind="audit", token=token)
 
-    threads = [threading.Thread(target=append, args=(token,)) for token in ("t1", "t2")]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join()
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(append, token) for token in ("t1", "t2")]
+        digests = [future.result() for future in futures]  # an append failure raises HERE
+    assert len(digests) == 2 and len(set(digests)) == 2  # both appends actually landed
     view = science_root._log_seam().inspect_registered(root)
     assert type(view) is WellFormedView  # one linear chain, never a sibling branch
     chained = sorted(e.digest for e in view.entries if type(e) is IntentEntryView)
-    assert chained == sorted(digests)
+    assert len(chained) == 2 and chained == sorted(digests)
 
 
 # --- L7u8: the negative --------------------------------------------------
@@ -4163,9 +4192,25 @@ def test_bridge_resolves_assessment_ref_and_stamped_basis(certified_work):
     minted = mint_dataset(closure, existing_bases={})
     record_id, _, plan = publication_plan(closure, produces=minted.address)
     port.execute(plan)
+    # StampedBasis.run is a BARE closure address — no kind, no colon:
+    assert minted.basis.run == closure.address() and ":" not in minted.basis.run
+    # bare -> typed through the bridge, then resolution to the one record:
+    assert run_ref(minted.basis.run) == record_id
     view = ReadView.opened_at(root)
-    assert view.resolve(record_id) == record_id            # the typed corpus ref
-    assert view.resolve(f"run:{minted.basis.run}") == record_id  # the bare address, bridged
+    assert view.resolve(run_ref(minted.basis.run)) == record_id
+    # an assessment's stored `run` field is the typed spelling, and resolves:
+    assessment = stored.assessment_node(
+        "a" * 64, title="assessment", spec="s" * 64, run=record_id,
+        proposition="proposition:" + "p" * 64, outcome="supports",
+        interpretation_rule="rule:interpretation",
+    )
+    port.execute((CreateOp(f"assessment/{'a' * 64}.md",
+                           node_to_markdown(assessment).encode("utf-8")),))
+    view = ReadView.opened_at(root)
+    stored_run_field = stored.assessment_value(view.get("assessment:" + "a" * 64)).run
+    assert view.resolve(stored_run_field) == record_id
+    # and the inverse round-trips, field-by-field as frozen:
+    assert bare_address(record_id) == minted.basis.run
 
 
 # --- J13: positive qualification, every §2.2 alternative -----------------

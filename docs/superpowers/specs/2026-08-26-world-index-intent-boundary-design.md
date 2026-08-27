@@ -98,7 +98,14 @@ the per-file bound's true scope, the oversized-supersession caveat)
 are recorded in §5 as the successor-admission slice's opening
 obligations. This slice freezes the intent qualification surface; §5's
 transferred text is that successor slice's inherited authority, not
-this cut's territory.
+this cut's territory. **Amended a twenty-first time 2026-08-27** (the
+implementation-plan review, §8's gap-upgrade rule): the run
+entrypoints' `expected_recipe_identity` gate (§2.6 item 6) — one
+comparison after the mint and before the terminal publication, a
+mismatch publishing the standard post-intent refusal — because
+`science.replay.replay`'s post-hoc recipe check would otherwise refuse
+in memory a run the boundary had already durably published, and the
+terminal record must state the returned result.
 **Inherits:** `2026-08-03-tamper-evident-log-design.md` §6 as amended — the
 qualification reduction this slice implements at its full stated width: the
 matched / unresolvable / attempt-without-recorded-outcome precedence, the
@@ -481,6 +488,22 @@ contract, for **both** run shapes:
    qualification pair predates this slice" scopes the *qualification*
    claim only; it was never a license to break the reading of existing
    records.
+
+6. **The replay gate is a frozen parameter, never a callback.** Both
+   entrypoints accept `expected_recipe_identity: str | None = None`.
+   When set, the boundary compares the minted run's
+   `recipe.identity()` against it exactly once — after the mint,
+   before the terminal publication — and on mismatch the outcome is
+   the standard post-intent refusal (reason
+   `recipe-identity-mismatch`): the refusal report is the terminal
+   record published fulfilling the intent, and the mismatched run is
+   never published. `science.replay.replay` is the one consumer,
+   passing the original recipe's identity in place of its former
+   post-hoc check, which would have refused in memory a run the
+   boundary had already durably published. A general conformance
+   callback is deliberately refused: one consumer, one comparison, and
+   no caller-supplied code runs inside the boundary between the mint
+   and the publication.
 
 The kill-between-append-and-start, cross-root-publication, and
 no-caller-supplied-`fulfills` arms all read this contract; they were
