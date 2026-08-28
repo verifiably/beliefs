@@ -1,0 +1,184 @@
+"""The one log qualification reduction (spec §2.1, §3.3)."""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from typing import Literal, final
+
+from science.corpus import Finding
+from science.errors import RecordUndecodable
+from science.intents import evidence as evidence_module
+from science.intents import shapes
+from science.sealed import sealed
+from science.world.logmodel import (
+    EntryView,
+    IntentEntryView,
+    RegisteredEntryView,
+    SettledEntryView,
+)
+
+__all__ = ["IntentQualification", "qualify_chain"]
+
+
+@sealed
+@final
+@dataclass(frozen=True, slots=True)
+class IntentQualification:
+    digest: str
+    shape: Literal["assessment-run", "operation", "holdings"] | None
+    status: Literal[
+        "matched",
+        "unresolvable",
+        "attempt-without-recorded-outcome",
+        "unrecognized",
+    ]
+    fulfilled_by: str | None
+
+
+StateFacts = Callable[[object], tuple[tuple[str, str], ...]]
+
+
+def _is_file(facts: tuple[tuple[str, str], ...]) -> bool:
+    return any(pair[0] == "kind" and pair[1] == "file" for pair in facts)
+
+
+def qualify_chain(
+    entries: tuple[EntryView, ...],
+    records: Mapping[str, bytes],
+    *,
+    state_facts: StateFacts,
+) -> tuple[tuple[IntentQualification, ...], tuple[Finding, ...]]:
+    settlement = {
+        entry.registration: entry.committed
+        for entry in entries
+        if type(entry) is SettledEntryView
+    }
+    pointers: dict[str, list[RegisteredEntryView]] = {}
+    for entry in entries:
+        if type(entry) is RegisteredEntryView and entry.fulfills is not None:
+            pointers.setdefault(entry.fulfills, []).append(entry)
+
+    rows: list[IntentQualification] = []
+    findings: list[Finding] = []
+    for entry in entries:
+        if type(entry) is not IntentEntryView:
+            continue
+        gate = shapes.decode_intent(entry.digest, entry.payload)
+        if type(gate) is shapes.Unrecognized:
+            rows.append(IntentQualification(entry.digest, None, "unrecognized", None))
+            findings.append(
+                Finding(
+                    severity=gate.severity,
+                    code=gate.code,
+                    ref=entry.digest,
+                    detail=gate.detail,
+                    message=(
+                        "the intent payload fits no shape of the closed union"
+                        if gate.code == "intent-domain-unrecognized"
+                        else "a discriminator-matched payload fails its shape's schema"
+                    ),
+                )
+            )
+            continue
+        row, intent_findings = _qualify_one(
+            gate,
+            pointers.get(entry.digest, []),
+            settlement,
+            records,
+            state_facts,
+        )
+        rows.append(row)
+        findings.extend(intent_findings)
+    return tuple(rows), tuple(findings)
+
+
+def _qualify_one(
+    intent: shapes.DecodedIntent,
+    registrations: list[RegisteredEntryView],
+    settlement: Mapping[str, bool],
+    records: Mapping[str, bytes],
+    state_facts: StateFacts,
+) -> tuple[IntentQualification, tuple[Finding, ...]]:
+    unresolved = False
+    non_qualifying: list[tuple[str, str]] = []
+    for registration in registrations:
+        committed = settlement.get(registration.digest)
+        if committed is None:
+            unresolved = True
+            continue
+        if not committed:
+            non_qualifying.append((registration.digest, "no-record"))
+            continue
+        record_paths = [
+            path
+            for path, state in registration.final
+            if evidence_module.record_layout_path(path) and _is_file(state_facts(state))
+        ]
+        if not record_paths:
+            non_qualifying.append((registration.digest, "no-record"))
+            continue
+        reasons: list[str] = []
+        pointer_unresolved = False
+        for path in record_paths:
+            payload = records.get(path)
+            if payload is None:
+                pointer_unresolved = True
+                continue
+            try:
+                record_evidence = evidence_module.decode_record(path, payload)
+            except RecordUndecodable:
+                pointer_unresolved = True
+                continue
+            reason = shapes.mismatch(intent, record_evidence)
+            if reason is None:
+                return (
+                    IntentQualification(
+                        intent.digest,
+                        intent.shape,
+                        "matched",
+                        registration.digest,
+                    ),
+                    (),
+                )
+            reasons.append(reason)
+        if pointer_unresolved:
+            unresolved = True
+            continue
+        chosen = (
+            min(reasons, key=shapes.REASON_PRIORITY.index)
+            if reasons
+            else "no-record"
+        )
+        non_qualifying.append((registration.digest, chosen))
+    if unresolved:
+        return (
+            IntentQualification(intent.digest, intent.shape, "unresolvable", None),
+            (),
+        )
+    row = IntentQualification(
+        intent.digest,
+        intent.shape,
+        "attempt-without-recorded-outcome",
+        None,
+    )
+    findings = [
+        Finding(
+            severity="warning",
+            code="intent-attempt-without-recorded-outcome",
+            ref=intent.digest,
+            detail="",
+            message="a durable intent whose every pointer fully resolves and none qualifies",
+        )
+    ]
+    findings.extend(
+        Finding(
+            severity="warning",
+            code="intent-fulfillment-non-qualifying",
+            ref=registration_digest,
+            detail=f"intent={intent.digest} reason={reason}",
+            message="a committed fulfillment that does not qualify its intent",
+        )
+        for registration_digest, reason in non_qualifying
+    )
+    return row, tuple(findings)

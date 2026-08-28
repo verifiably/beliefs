@@ -72,6 +72,12 @@ Rulings are written at task boundaries, never rewritten after the fact.
     `MalformedRecord` to `ValidationRefused`, while qualification maps the
     same refusal to `RecordUndecodable`. Identity encoding failures are also
     normalized at that shared boundary.
+14. **R14 — qualification has one precedence implementation.** The reducer
+    returns immediately on a match, otherwise suppresses every qualification
+    finding when any pointer is unresolved, and emits the attempt plus
+    per-registration reasons only after all pointers resolve non-qualifying.
+    Final-state facts, never captured bytes alone, decide whether a pointer
+    published a record.
 
 ## Heads
 
@@ -85,5 +91,6 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 5 | 6ed0c8f |
 | 6 | e7338a3 |
 | 7 | 2a8ed87 |
+| 8 | 3d267e0 |
 
 (Appended at every task boundary.)
