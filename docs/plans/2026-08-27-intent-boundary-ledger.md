@@ -106,6 +106,17 @@ Rulings are written at task boundaries, never rewritten after the fact.
     with their original checks unchanged. `n2_arms_cut3.py` was already a
     successor-rebased declaration under R8 and is deliberately absent from
     cut 11's frozen prior-file pins.
+19. **R19 — the agreement matrix is a first-run-green lock.** Task 12 adds
+    no behavior: it composes the regenerated holdings rule, verifier reducer,
+    and completion projection already landed by Tasks 5–11. All fifteen rows
+    passed on first execution, so the matrix records agreement rather than
+    repairing a divergence.
+20. **R20 — holdings agreement is asserted at the rule's exported width.**
+    The regenerated rule deliberately projects both unresolved and unmatched
+    intents to the same blocked row with reason `unsettled`; no hidden status
+    is available to assert. The matrix therefore pins each case's complete
+    exported `active`/`blocked` value (including heads) while the verifier side
+    separately pins the finer qualification status.
 
 ## Heads
 
@@ -122,5 +133,6 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 8 | 3d267e0 |
 | 9 | aefcbb0 |
 | 10 | c7817ba |
+| 11 | 3c77a5b |
 
 (Appended at every task boundary.)
