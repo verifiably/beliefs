@@ -36,7 +36,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from itertools import pairwise
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, Protocol, final
+from typing import TYPE_CHECKING, Literal, final
 
 from nodes.core.corpus import Corpus
 from nodes.core.errors import CollisionError, ExecutionError
@@ -45,7 +45,7 @@ from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 from nodes.core.structural_index import Index, ResolvedEdge
-from nodes.core.write_plan import CreateOp, WritePlan, WritePlanExecutor
+from nodes.core.write_plan import CreateOp, WritePlanExecutor
 from pydantic import ValidationError as PydanticValidationError
 from pydantic_core import PydanticSerializationError
 from yaml import YAMLError
@@ -89,6 +89,7 @@ from science.identity import v1
 from science.lineage import Basis, LineageSnapshot, Producer, Route
 from science.record import RunInput, RunValue
 from science.report import OperationIntent
+from science.runrecord import OperationPort
 from science.sealed import sealed
 from science.spec import BITWISE_EQUIVALENCE_RULES
 from science.traversal import LineageEntry, Reach, RelationEntry, Step, closure
@@ -116,12 +117,6 @@ __all__ = [
 
 DIRECTIONS = ("inbound", "outbound")
 ELIGIBLE_RETRACTION_TARGET_KINDS = ("assessment", "retraction", "verification")
-
-
-class OperationPort(Protocol):
-    def append_intent(self, payload: bytes) -> str: ...
-
-    def execute_fulfilling(self, plan: WritePlan, fulfills: str) -> None: ...
 
 
 @sealed

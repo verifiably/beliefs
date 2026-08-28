@@ -178,6 +178,7 @@ from science.world.logmodel import (
     WellFormedView,
 )
 from science.world.logmodel import DefectKind as ViewDefectKind
+from science.world.records import RECORD_CEILING
 from science.world.rules import RuleBinding, install_rule_binding, shipped_rule_bundles
 from science.world.verify import (
     LogReport,
@@ -957,7 +958,21 @@ class DurableOperationPort:
         except Exception as caught:
             raise ExecutionError(str(caught), index=None, applied=None) from caught
 
+    def execute(self, plan: WritePlan) -> None:
+        """Publish a record that fulfills no intent."""
+        _refuse_over_ceiling(plan)
+        DurableExecutor(
+            self.root,
+            backend=self._backend,
+            storage=self._storage,
+            metadata_root=self._metadata_root,
+            consumer_tag=CONSUMER_TAG,
+            intent_domain=INTENT_DOMAIN,
+            fulfills=None,
+        ).execute(plan)
+
     def execute_fulfilling(self, plan: WritePlan, fulfills: str) -> None:
+        _refuse_over_ceiling(plan)
         DurableExecutor(
             self.root,
             backend=self._backend,
@@ -1211,6 +1226,17 @@ def _refuse_malformed(plan: WritePlan) -> None:
         for component in op.path.split("/"):
             if component.startswith(SCRATCH_SIGIL):
                 raise PlanRefusedError(f"path names an engine-reserved leaf: {op.path!r}")
+
+
+def _refuse_over_ceiling(plan: WritePlan) -> None:
+    """Refuse oversized qualifying publications before executor construction."""
+    for op in plan:
+        content = getattr(op, "content", None)
+        if isinstance(content, bytes) and len(content) > RECORD_CEILING:
+            raise PlanRefusedError(
+                f"planned postimage at {op.path!r} is {len(content)} bytes, "
+                f"over the {RECORD_CEILING}-byte record ceiling"
+            )
 
 
 def _durable_executor(root: Path) -> DurableExecutor:

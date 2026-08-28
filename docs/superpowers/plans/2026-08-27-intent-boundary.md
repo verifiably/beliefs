@@ -135,6 +135,13 @@ import; and `intents/__init__.py` is written once in Task 5 as a
 docstring-only package marker — no task modifies it again and no
 package-root export API exists. The full-file snippets were
 re-extracted and re-pass the repo's exact ruff gate.
+**Revised a tenth time 2026-08-28** (execution ruling): the instruction
+to run cut 8 on the current tree contradicted root-lifecycle ledger R15,
+which deliberately made cut 8's store-refusal declarations stale and
+made cut 9 the successor certification. Current-tree regression gates
+therefore run cuts 9 onward; cut 8 remains cited through its frozen
+results record and is never rewritten to certify the later store
+semantics.
 
 **Goal:** Land the general qualification reduction over the closed
 three-shape intent union, the verifier's `qualification` report contract,
@@ -203,8 +210,8 @@ slice replaces).
   `science/intents/holdings.py` and the regenerated
   `science/holdings/qualify.py`: pure source, exactly one top-level
   import (`json`), no science imports.
-- `python/tools/cut8_acceptance.py`, `cut9_acceptance.py`, and
-  `cut10_acceptance.py` stay exit 0. Run them on the certified volume
+- `python/tools/cut9_acceptance.py` and `cut10_acceptance.py` stay exit
+  0. Run them on the certified volume
   before claiming done any task that touched `science/root.py`,
   `science/world/verify.py`, `science/world/logmodel.py`,
   `science/corpus.py`, `science/report.py`, or `science/holdings/`;
@@ -1522,7 +1529,7 @@ fake the grep surfaces (`tests/test_import_bundle.py` and the corpus
 write tests construct ports for the import boundary — same one-method
 addition at each).
 
-- [ ] **Step 4: Run to verify pass; run cut8–cut10 acceptance on the
+- [ ] **Step 4: Run to verify pass; run cut9–cut10 acceptance on the
   certified volume** (root.py and corpus.py were touched), then the
   gate block.
 
@@ -1975,7 +1982,7 @@ Replace the whole `_clause_arm` entry with:
 - [ ] **Step 4: Run to verify pass; then
   `uv run --frozen pytest tests/test_n2.py` — the rebased T2 arm must
   audit sound (the harness rejects it as stale otherwise); then
-  cut8–cut10 acceptance (boundary feeds corpus paths), then the gate
+  cut9–cut10 acceptance (boundary feeds corpus paths), then the gate
   block.**
 
 - [ ] **Step 5: Ledger + commit**
@@ -3695,7 +3702,7 @@ construction from `TestStructure` — the assertion stays as written.)
   where the test fabricates states.
 
 - [ ] **Step 4: Run the evaluator/audit/arrival/replay/restore test
-  files, then cut8–cut10 acceptance on the certified volume, then the
+  files, then cut9–cut10 acceptance on the certified volume, then the
   gate block.**
 
 - [ ] **Step 5: Ledger + commit**
@@ -3798,7 +3805,7 @@ After this task the shape predicates are the only implementation of
 qualification anywhere in Science; the verifier, the holdings rule, and
 `completion` are callers.
 
-- [ ] **Step 4: Run to verify pass; run cut8–cut10 acceptance
+- [ ] **Step 4: Run to verify pass; run cut9–cut10 acceptance
   (report.py is act-report authority), then the gate block.**
 
 - [ ] **Step 5: Ledger + commit**
@@ -5183,7 +5190,7 @@ git commit -m "test(cut11): the 26 N2 declarations and the acceptance runner"
   2026-08-27), `python/tests/test_designs_corpus.py` (`_COUNT_WORDS`
   gains `38: "Thirty-eight"`), guide pages per the stale-claim grep.
 
-- [ ] **Step 1: Discharge** — run the full suite, cut8–cut11 acceptance
+- [ ] **Step 1: Discharge** — run the full suite, cut9–cut11 acceptance
   runners, and the N2 harness on the certified volume; quote every
   pytest summary line in the results record; commit the execution
   ledger's final rulings **before any worktree removal** (the ledger is

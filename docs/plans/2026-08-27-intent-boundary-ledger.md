@@ -24,6 +24,17 @@ Rulings are written at task boundaries, never rewritten after the fact.
    full gate showed that importing the `copy` module collides with the
    capability audit's raw-write vocabulary. Importing `deepcopy` directly
    preserves the projection rebuild and the audit's unspellability claim.
+5. **R5 — durable Task 3 tests use the certified-volume fixture.** The
+   plan's literal `tmp_path` examples would place engine-backed writes on
+   the scratch volume. The implemented tests use `certified_work`, as the
+   plan's own global durable-arm rule requires.
+6. **R6 — cut 8 is historical, not a current-tree gate.** The plan's
+   instruction to keep cut 8 exit 0 contradicted root-lifecycle ledger R15:
+   that slice deliberately deleted the store refusal cut 8 certified and
+   made cut 9 the successor certification. Cut 8 therefore remains cited by
+   its frozen results record; current-tree tasks run cuts 9 onward. The plan
+   was corrected at this boundary rather than weakening or rewriting a
+   historical cut.
 
 ## Heads
 
@@ -31,5 +42,6 @@ Rulings are written at task boundaries, never rewritten after the fact.
 |---|---|
 | 0 | 76e76d8 |
 | 1 | fac2c80 |
+| 2 | 1d25baf |
 
 (Appended at every task boundary.)
