@@ -56,6 +56,11 @@ Rulings are written at task boundaries, never rewritten after the fact.
     header plus those bytes. The changed implementation identity therefore
     names the generated artifact rather than a hand-authored behavioral
     change.
+11. **R11 — holdings parsing stays owned by its dialect.** The gate uses a
+    tolerant JSON sniff only to select the domain-bearing branch, then calls
+    the shared holdings decoder. Canonical v1 decoding governs the two
+    domainless shapes. This preserves official holdings payloads containing
+    escaped non-ASCII text without creating a second holdings schema.
 
 ## Heads
 
@@ -66,5 +71,6 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 2 | 1d25baf |
 | 3 | e05c60c |
 | 4 | 4b7e1df |
+| 5 | 6ed0c8f |
 
 (Appended at every task boundary.)
