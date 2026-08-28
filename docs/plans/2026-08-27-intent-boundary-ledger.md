@@ -1,7 +1,7 @@
 # Intent-boundary slice — execution ledger
 
 Plan: `docs/superpowers/plans/2026-08-27-intent-boundary.md`
-Specification: `docs/superpowers/specs/2026-08-26-world-index-intent-boundary-design.md`
+Specification: `docs/designs/2026-08-26-world-index-intent-boundary-design.md`
 Frozen cut: `docs/designs/2026-08-27-conformance-cut-11.md`
 Freeze hash: `9711886`
 
@@ -174,6 +174,11 @@ Rulings are written at task boundaries, never rewritten after the fact.
     reported `18 passed` for its durable arms and `17 passed` for its N2
     harness. The runner printed 66 declared lettered arms normalizing to the 26
     frozen units.
+30. **R30 — banking changes documentation only.** The reviewed implementation
+    head is `806444e`. The promoted design, discharged cut status, results
+    record, adoption corrections, guide updates, README count, and corpus count
+    guard change no runtime or acceptance declaration. G4 remains open under
+    the successor-admission slice.
 
 ## Heads
 
@@ -192,5 +197,6 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 10 | c7817ba |
 | 11 | 3c77a5b |
 | 12 | 8472939 |
+| 13 | 806444e |
 
 (Appended at every task boundary.)

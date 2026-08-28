@@ -2,7 +2,7 @@
 title: Open questions
 status: living
 created: 2026-08-08
-updated: 2026-08-27
+updated: 2026-08-28
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-substrate-consolidation-design.md
@@ -31,9 +31,11 @@ sources:
   - ../designs/2026-08-20-conformance-cut-7.md
   - ../designs/2026-08-24-world-index-holdings-design.md
   - ../designs/2026-08-24-conformance-cut-10.md
+  - ../designs/2026-08-26-world-index-intent-boundary-design.md
   - ../designs/2026-08-27-conformance-cut-11.md
   - ../plans/2026-08-20-conformance-cut-6-results.md
   - ../plans/2026-08-24-conformance-cut-10-results.md
+  - ../plans/2026-08-27-conformance-cut-11-results.md
 ---
 
 # Open questions
@@ -225,10 +227,12 @@ implementation**: a guarantee row awaiting code is work, not a question.
   fixture-bound reduction and receipt, and dataset admission adapter — with
   20 selected + 11 labeled declarations. Its `--no-ff` merge landed on local
   `main` as `35be6ff` on 2026-08-25 and has not been pushed.
-  What the tamper-log group still owes is named
-  and owned: general intent qualification (the intent-boundary slice, in
-  design), G4 (**split 2026-08-27 to its own successor-admission
-  slice** — the intent-boundary spec §5 carries the transfer), the
+  Cut 11 discharged general intent qualification on 2026-08-28: the
+  three-shape reduction, bounded evidence capture, durable run publication,
+  verifier lift, regenerated holdings interior, and completion re-base.
+  What the tamper-log group still owes is named and owned: G4 (**split
+  2026-08-27 to its own successor-admission
+  slice** — the intent-boundary design §5 carries the transfer), the
   preimage-backed classification of a removed verification, and
   event-level cross-chain order.
   L10's fork/replica/restore and store arms closed with cut 9; its two deferred

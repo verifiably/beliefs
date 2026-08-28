@@ -17,7 +17,7 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Thirty-seven documents in `docs/designs/`: the banked redesigns, review disposition,
+Thirty-eight documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
 2026-08-02 through 2026-08-27. Read them in this order:
 
@@ -59,6 +59,7 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-08-23-conformance-cut-9.md` | the ninth frozen conformance cut, selecting the root lifecycle and store substrate: 1 row full, 4 part, with 19 selected and 11 labeled declarations, successor to cut 8's retired store-refusal label |
 | `2026-08-24-world-index-holdings-design.md` | world-index slice 5, verified store-side holdings: the governed observation kind, intent-bearing store acts, mechanical coverage, fixture-bound reduction and receipt, and dataset admission adapter |
 | `2026-08-24-conformance-cut-10.md` | the tenth frozen conformance cut, selecting verified store-side holdings: 3 rows full, 4 part, with 20 selected and 11 labeled declarations |
+| `2026-08-26-world-index-intent-boundary-design.md` | world-index slice 6, general intent qualification: the three-shape reduction, bounded captured evidence, durable run publication, verifier lift, regenerated holdings interior, and completion re-base |
 | `2026-08-27-conformance-cut-11.md` | the eleventh frozen conformance cut, selecting general intent qualification: 1 row part, with 13 selected and 13 labeled declarations; G4 deliberately unread, owned by the successor-admission slice |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
@@ -164,6 +165,15 @@ part**. See the
 [results](docs/plans/2026-08-24-conformance-cut-10-results.md). The `--no-ff`
 merge landed on local `main` as `35be6ff` on 2026-08-25; it has not been
 pushed.
+
+**Conformance cut 11** froze 2026-08-27 and was discharged 2026-08-28.
+World-index slice 6 implements general intent qualification: the closed
+three-shape reduction, bounded captured-record evidence, durable run
+publication and codec, the verifier report lift, the regenerated holdings
+interior, and the completion re-base — **13 selected + 13 labeled = 26
+declaration units** across **1 row in part**. See the
+[results](docs/plans/2026-08-27-conformance-cut-11-results.md). G4 remains
+open under the successor-admission slice; this branch is not merged or pushed.
 
 ```
 python/     the implementation (substrate §11 puts the composition root here)

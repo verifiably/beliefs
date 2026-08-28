@@ -54,6 +54,13 @@ decomposition rulings that follow from it.
 | 10 | **Belief policy** — what a belief *value* is, and the identity under which it is pinned | `2026-08-05-belief-policy-design.md` | the four terms kernel §4.2.1 cites as versioned policy members and never defines; `belief policy version` as the last bare rule reference in the G3 digest; the review-disposition record's F3 and its §5.5 stop rule, which place this ahead of the vertical slice | **Design banked 2026-08-05** (exact `PolicyBinding = (rule identity, implementation content identity)` as a required per-computation argument; `science.belief.v1` with `V = ℤ` and unit weight, so a value is a signed evidence balance and never odds; `Belief \| NoBelief(reason) \| Refused(reason)`; `inconclusive` excluded from the graph — kernel §4.2.1/§5/§5.1/lim. 5, formal model §3.3, D §8, substrate S6(h), 5b §4, and this ledger and the README amended in the banking commit); P2–P9 and part of P1 **landed 2026-08-09, conformance cut 2's slice** (`2026-08-09-conformance-cut-2.md` §4.1/§4.2); P1's resolver-negative arm awaits the rules store and 5b §6's deterministic resolution. Weighting by study design or precision is **blocked on ρO3**, not deferred by choice, and conformance cut 1 is **unchanged** — this discharges its prerequisite without widening it |
 | 11 | **Pinned authority snapshot** — which external authorities are accepted, and how a snapshot of one is pinned, versioned, distributed and bumped | `2026-08-08-world-address-ruling.md` §4.2, limitation 5; the vocabulary-admission design (2026-08-07) is the nearest precedent and may be the right home rather than a new document | **every rendered label** (§4.1 there), the ambiguous-search-term refusal (W9, restated), and the authority-evidence arm of coreference normalization — CI can decide none of them without a pinned snapshot to decide against | **Owed, undesigned.** The ruling states the discipline — **pinned local snapshot, never a live network lookup**, so builds stay reproducible and an authority update is an explicit amendment — and does **not** design the artifact. Nothing banked waits on it *for identity*, since no basis is authority-label-derived; what waits is the **display and search** surface, which is why this is owed rather than blocking. **W14** asserts the renderer's invariance; nothing yet asserts the snapshot's own lifecycle |
 
+> **Row 5 current-state correction (2026-08-28).** General intent
+> qualification is implemented by world-index slice 6 and discharged by cut
+> 11. Row 5 remains partial only for event-level L8, the L13 preimage resolver,
+> and G4 with the successor-admission slice as its named owner. This dated note
+> supersedes row 5's earlier intent-boundary remainder without rewriting its
+> historical state.
+
 > **Plan B gate update (2026-08-20).** Row 1's composition-root-adoption gate is
 > satisfied and world-index slice 1 is merged on `science/main` through
 > `567ebb4`, after its `nodes` prerequisite merged through `5a00bba`. Slice 2's
@@ -155,10 +162,10 @@ Two standing constraints on 5b:
    L3, L5, L9, L11 and L12 read in full, L1/L2/L4/L7/L8/L10/L13 in part, and
    L6 unread. The later slices closed L10's fork, replica, restore, store and
    holdings-read arms plus L7's holdings-shaped qualification and boundary
-   arms. General intent qualification (the intent-boundary slice, in
-   design), G4 *(corrected 2026-08-27: split to its own
-   successor-admission slice)*, the preimage resolver behind
-   L13's classification, and event-level L8 remain, each with a named owner in
+   arms. **General intent qualification closed 2026-08-28** with the
+   intent-boundary slice and cut 11. G4 *(corrected 2026-08-27: split to its
+   own successor-admission slice)*, the preimage resolver behind L13's
+   classification, and event-level L8 remain, each with a named owner in
    artifact 5's row.
 7. **Domain extension boundary** — where domain-specific material lives, and how
    `science` is organized so a later decomposition into packs is a move rather

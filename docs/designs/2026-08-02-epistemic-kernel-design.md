@@ -1323,10 +1323,11 @@ ordinary terms.
    inside the registered surface, and the log's replay refutes each against a
    surviving anchor — the removal itself additionally named in a policy finding,
    with the *failing*-verification classification resolving only where the
-   caller supplies the historical bytes. **G4 has not closed**: discarding a
-   failed replay attempt is an intent-qualification question, qualification is
-   marked unevaluated in every report that slice produces, and it waits on the
-   intent-boundary slice. **The G2a-ordering row is unchanged** — its
+   caller supplies the historical bytes. **G4 has not closed. Updated
+   2026-08-28:** general intent qualification is implemented by the
+   intent-boundary slice, but G4 and the successor-admission boundary were
+   deliberately split to their own slice on 2026-08-27; that slice owns the
+   remaining closure. **The G2a-ordering row is unchanged** — its
    strengthening stays boundary-mediated, exactly as banked, and the
    out-of-band negative stands. Detection is quantified over surviving
    observers throughout: destruction of a root together with every anchor

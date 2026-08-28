@@ -1,12 +1,14 @@
 # Conformance cut 11 — general intent qualification, the intent boundary
 
-**Status:** **Frozen 2026-08-27 at `9711886`** — the commit closing the
-last of the second reader's findings across eleven readings (the tenth
-ruled the G4/successor-admission split; the eleventh corrected ownership
-authorities and amendment ordering); approved for freeze with no further
-design findings, before any implementation task (spec §8 step 3). The L7
-quotation is byte-exact against its live source table as of `9711886`,
-verified by the reader independently.
+**Status:** **Discharged 2026-08-28 at `806444e`** — all 26 frozen units
+passed through 66 lettered sabotage arms on the certified tuple; the portable
+suite reported 2,635 passing tests, Ruff and Pyright were clean, and the
+post-implementation review found no findings. Results:
+`../plans/2026-08-27-conformance-cut-11-results.md`. The cut remains frozen
+byte-exact at `9711886`; its pre-banking source path below records the path at
+freeze, and the specification was promoted to
+`2026-08-26-world-index-intent-boundary-design.md` at banking. G4 remains
+unread and owned by the successor-admission slice.
 
 **Sources:** `2026-08-24-conformance-cut-10.md` (rule and practice
 inheritances, and the holdings qualification matrix label 12 re-runs

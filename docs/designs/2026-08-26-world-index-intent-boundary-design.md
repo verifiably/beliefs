@@ -1,9 +1,13 @@
 # General intent qualification — design (world-index slice 6, the intent boundary)
 
 **Date:** 2026-08-26
-**Status:** draft — spec under review; conformance cut 11 freezes before any
-implementation task, per §8 step 3. Promotion from `docs/superpowers/specs/`
-to `docs/designs/` happens in the banking change, per the slice-5 precedent.
+**Status:** implemented and discharged 2026-08-28 at `806444e`; conformance
+cut 11 froze before implementation at `9711886` and its 26 units passed
+through 66 lettered sabotage arms on the certified tuple. Results:
+`../plans/2026-08-27-conformance-cut-11-results.md`; execution rulings:
+`../plans/2026-08-27-intent-boundary-ledger.md`. Promoted from
+`docs/superpowers/specs/` in the banking change. G4 and successor admission
+remain transferred to their own slice under §1 item 0 and §5.
 **Amended 2026-08-26**, closing the design review's five findings before any
 cut draft: the captured-record evidence input (§3.1), the per-shape matching
 requirements (§2.2), decode-gate semantics for unknown and malformed intent
