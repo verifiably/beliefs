@@ -110,6 +110,33 @@ def test_kill_between_append_and_start_leaves_intent_only(certified_work, monkey
     assert not (root / "run").exists() and not (root / "act-report").exists()
 
 
+def test_kill_between_append_and_start_leaves_intent_only_operation_kind(
+    certified_work, monkeypatch
+) -> None:
+    root, inner = _observer_port(certified_work)
+
+    class KilledAfterAppend:
+        def append_intent(self, payload):
+            inner.append_intent(payload)
+            raise _Killed()
+
+        def execute(self, plan):
+            raise AssertionError("no publication may run")
+
+        def execute_fulfilling(self, plan, fulfills):
+            raise AssertionError("no publication may run")
+
+    engine_calls: list[object] = []
+    monkeypatch.setattr("science.boundary.run_engine", lambda *args, **kwargs: engine_calls.append(args))
+    with pytest.raises(_Killed):
+        run_production(certified_work / "work", port=KilledAfterAppend())
+    entries = _entries(root)
+    assert all(type(entry) is not RegisteredEntryView for entry in entries)
+    assert len([entry for entry in entries if type(entry) is IntentEntryView]) == 1
+    assert engine_calls == []
+    assert not (root / "run").exists() and not (root / "act-report").exists()
+
+
 def test_cross_root_publication_refuses(certified_work) -> None:
     root_a, root_b = certified_work / "a", certified_work / "b"
     init_corpus_root(root_a)
@@ -125,10 +152,16 @@ def test_cross_root_publication_refuses(certified_work) -> None:
     assert not (root_a / "run").exists() and not (root_b / "run").exists()
 
 
-def test_production_run_publishes_exactly_one_produces_edge(certified_work) -> None:
+def test_production_sequence_publishes_fulfilling_with_one_produces_edge(
+    certified_work,
+) -> None:
     root, port = _observer_port(certified_work)
     result = run_production(certified_work / "work", port=port)
     assert type(result) is RunMinted
+    entries = _entries(root)
+    (intent,) = [entry for entry in entries if type(entry) is IntentEntryView]
+    (registration,) = [entry for entry in entries if type(entry) is RegisteredEntryView]
+    assert registration.fulfills == intent.digest
     address = result.run.address()
     node = node_from_markdown((root / "run" / f"{address}.md").read_text())
     minted = mint_dataset(result.run, existing_bases={})

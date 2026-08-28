@@ -117,6 +117,63 @@ Rulings are written at task boundaries, never rewritten after the fact.
     is available to assert. The matrix therefore pins each case's complete
     exported `active`/`blocked` value (including heads) while the verifier side
     separately pins the finer qualification status.
+21. **R21 — cut 11 pins the rebased cut-9 declarations.** Task 10 necessarily
+    changed `n2_arms_cut9.py` under R15, so cut 11's predecessor guard reads
+    that file at Task 10 head `c7817ba`, not at its pre-lift freeze commit.
+    The exact-content pin in cut 10 and the live cut-9 mutation audit both
+    passed before cut 11's own arms ran.
+22. **R22 — the cut-11 acceptance chain is green on the certified volume.**
+    The unchanged prefix reported `39 passed`, `23 passed`, `42 passed`,
+    `23 passed`, and `36 passed`; cut 11 then reported `18 passed` for its
+    durable arms and `17 passed` for its N2 harness. The runner printed 32
+    declared lettered arms normalizing to the 26 frozen units.
+23. **R23 — Task 13 declarations follow the landed source anchors.** The
+    prescribed plan strings for L7u2d/L7u12, L7u11, J1, J2, and J11 retained
+    comments or widths absent from the landed implementation; J12a names the
+    landed `evidence` local. Their mutations were narrowed to the exact
+    implemented branch each frozen claim describes. No predicate or expected
+    verdict changed, and the structural audit requires each adjusted source
+    string to match exactly once.
+24. **R24 — declaration units do not cap their sub-arms.** Independent review
+    found that the first Task 13 table normalized 32 lettered arms to all 26
+    unit names while omitting label 7's two explicit error arms and label 8's
+    named codec arms. The table now declares 44 lettered arms while preserving
+    the frozen 26-unit partition: both terminal boundaries, both error classes,
+    incomplete projection, Decimal injectivity, both wrong-shape directions,
+    relation projection, v1 inverse behavior, and run-facet agreement each
+    have a source mutation and exact check.
+25. **R25 — the expanded cut-11 acceptance chain supersedes R22's run.** The
+    unchanged prefix again reported `39 passed`, `23 passed`, `42 passed`,
+    `23 passed`, and `36 passed`; cut 11 again reported `18 passed` for its
+    durable arms and `17 passed` for its N2 harness. The corrected runner
+    printed 44 declared lettered arms normalizing to the 26 frozen units.
+26. **R26 — parametrized matrices are armed at their full function width.**
+    The N2 harness defines a parametrized test function as one check whose
+    parameters are its data. J12 therefore names the complete eight-row run
+    agreement function and seven-row holdings function, not one selected node;
+    every row executes under each sabotage. J5 separately arms rollback, and
+    J6 separately arms total order, both malformed carriage exits, and retired
+    field absence. The declaration table is 49 lettered arms over 26 units.
+27. **R27 — caller capture and report exactness are independently armed.**
+    Audit/restore's shared assembly and arrival's separate assembly each have a
+    held-capture omission sabotage; cut 11 observes the shared branch through
+    audit while cut 9 retains ownership of restore's held-boundary check. The
+    evaluator's required typed input is separate. Gate outcomes cover foreign,
+    domainless, malformed, undecodable, and the real Unicode holdings writer.
+    Report rows separately pin shape and `fulfilled_by` absence for every
+    nonmatched status. The resulting table is 61 lettered arms over the same 26
+    frozen units, with no prior check rehomed.
+28. **R28 — captured content and every finding severity are observable.** The
+    capture itself is armed for complete sorted output, the shared assembly is
+    armed for forwarding that exact value, and intermediate namespace descent
+    has its own no-follow mutation. The two reduction findings each assert and
+    arm warning severity. The complete table is 66 lettered arms over 26 units.
+29. **R29 — the definitive cut-11 acceptance chain is green.** After the
+    exhaustive review reported no findings, the unchanged prefix reported
+    `39 passed`, `23 passed`, `42 passed`, `23 passed`, and `36 passed`; cut 11
+    reported `18 passed` for its durable arms and `17 passed` for its N2
+    harness. The runner printed 66 declared lettered arms normalizing to the 26
+    frozen units.
 
 ## Heads
 
@@ -134,5 +191,6 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 9 | aefcbb0 |
 | 10 | c7817ba |
 | 11 | 3c77a5b |
+| 12 | 8472939 |
 
 (Appended at every task boundary.)

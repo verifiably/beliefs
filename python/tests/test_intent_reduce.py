@@ -150,6 +150,7 @@ def test_no_pointers_reads_attempt_without_recorded_outcome() -> None:
     assert [finding.code for finding in findings] == [
         "intent-attempt-without-recorded-outcome"
     ]
+    assert findings[0].severity == "warning"
     assert findings[0].ref == "i1"
 
 
@@ -197,6 +198,7 @@ def test_every_resolved_non_qualifying_pointer_is_named_with_its_reason(
         ("intent-fulfillment-non-qualifying", "r3"),
         ("intent-fulfillment-non-qualifying", "r4"),
     ]
+    assert all(finding.severity == "warning" for finding in findings)
     assert "reason=wrong-purpose" in findings[1].detail
     assert "reason=wrong-spec" in findings[2].detail
     assert "reason=wrong-token" in findings[3].detail
@@ -282,6 +284,7 @@ def test_unrecognized_rows_carry_the_gate_finding_and_none_reduce() -> None:
     rows, findings = _qualify(entries, {})
     assert [row.status for row in rows] == ["unrecognized"] * 3
     assert [row.shape for row in rows] == [None] * 3
+    assert [row.fulfilled_by for row in rows] == [None] * 3
     assert [(finding.code, finding.severity) for finding in findings] == [
         ("intent-domain-unrecognized", "warning"),
         ("intent-domain-unrecognized", "warning"),

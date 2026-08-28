@@ -370,6 +370,24 @@ def tree(*roots: Path) -> dict[str, bytes]:
 
 
 class TestTheAuditAct:
+    def test_the_shared_assembly_forwards_the_captured_records(
+        self, tmp_path, monkeypatch
+    ):
+        root = corpus_root(tmp_path)
+        inspections, captures = Inspections(), Captures()
+        inspections.set(root, surfaced(root, "corpus", science_root.GENESIS_PAYLOAD))
+        captured = (("run/a.md", b"record"),)
+        monkeypatch.setattr(verify, "capture_records", lambda _root, _kind: captured)
+
+        _, _, records, _ = verify._assemble_evaluation_inputs(
+            make_seam(inspections, captures),
+            "corpus",
+            root,
+            config_for(tmp_path, root),
+        )
+
+        assert records is captured
+
     def test_a_corpus_with_damaged_node_bytes_is_lockable_and_judged(self, tmp_path):
         # The lock-only lookup is the whole point: `_root_state_for` constructs
         # and parses a `Corpus`, so on exactly the damaged root an audit exists
