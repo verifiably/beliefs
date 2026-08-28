@@ -94,6 +94,18 @@ Rulings are written at task boundaries, never rewritten after the fact.
     and `evaluate_log` loads the reducer after it has established a
     well-formed view; there is still one reducer implementation and no
     fallback path.
+17. **R17 — completion is a projection of the shared shape predicates.**
+    `CLOSED`, `INDETERMINATE`, and `UNFINISHED` remain the exported reading,
+    but report/run evidence now passes through `science.intents.shapes` like
+    verifier qualification. The import stays local because the intent layer
+    already names report values; this is cycle placement, not a second
+    predicate implementation.
+18. **R18 — cut 3's T3 sabotages move with completion.** Replacing the
+    report-specific predicate made cut 3's matching and non-qualifying source
+    strings stale. Both arms now sabotage the shared `shapes.mismatch` decision
+    with their original checks unchanged. `n2_arms_cut3.py` was already a
+    successor-rebased declaration under R8 and is deliberately absent from
+    cut 11's frozen prior-file pins.
 
 ## Heads
 
@@ -109,5 +121,6 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 7 | 2a8ed87 |
 | 8 | 3d267e0 |
 | 9 | aefcbb0 |
+| 10 | c7817ba |
 
 (Appended at every task boundary.)

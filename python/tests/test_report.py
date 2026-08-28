@@ -8,6 +8,7 @@ import dataclasses
 from collections import defaultdict
 
 import pytest
+from closure_fixtures import make_closure, sample_report
 from fixtures_cut3 import report
 
 from science.errors import CitationRefused, MalformedRecord, OutcomeRefused
@@ -106,6 +107,30 @@ def test_t3_deleting_a_report_moves_closed_to_indeterminate_not_unfinished():
     registrations = (Registration(intent_token=published.event_token, pointer=published.identity()),)
     assert completion(intent, registrations, held={published.identity(): published}) == CLOSED
     assert completion(intent, registrations, held={}) == INDETERMINATE  # §4's retention cost, checkable
+
+
+def test_wrong_spec_run_closure_reads_unfinished() -> None:
+    closure = make_closure()
+    intent = AssessmentRunIntent("b" * 64, closure.occurrence.event_token, "actor")
+    registrations = (Registration(intent.event_token, closure.address()),)
+    assert completion(intent, registrations, {closure.address(): closure}) == UNFINISHED
+
+
+def test_assessment_shaped_closure_never_closes_a_production_intent() -> None:
+    closure = make_closure()
+    intent = OperationIntent("run-attempt", closure.occurrence.event_token, "actor")
+    registrations = (Registration(intent.event_token, closure.address()),)
+    assert completion(intent, registrations, {closure.address(): closure}) == UNFINISHED
+
+
+def test_existing_completion_vocabulary_is_preserved() -> None:
+    published = sample_report(operation="run-attempt", token="tok")
+    intent = OperationIntent("run-attempt", "tok", "actor")
+    registrations = (Registration("tok", "pointer"),)
+    assert completion(intent, registrations, {"pointer": published}) == CLOSED
+    assert completion(intent, registrations, {}) == INDETERMINATE
+    other = OperationIntent("audit", "tok", "actor")
+    assert completion(other, registrations, {"pointer": published}) == UNFINISHED
 
 
 # --- T6 (the citation half; the R18 arm is Task 10's) -------------------------
