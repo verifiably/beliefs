@@ -2,8 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status:** Draft — awaiting the human partner's review before execution
-(spec §8 step 4 begins only after this plan is approved).
+**Status:** Approved for execution by the human partner on 2026-08-28,
+after review of commit `a3b15c0` (spec §8 step 4).
 **Revised 2026-08-27**, closing the plan review's six findings: executable
 assertions replace comment-body tests (Tasks 3, 4, 9, 10, 12); the
 projection view mirrors the built closure invariants exactly — type-only
