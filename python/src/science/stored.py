@@ -54,7 +54,7 @@ from nodes.core.relations import Relation
 
 from science import report as report_values
 from science.dataset import DatasetDeclaration, ResourceDeclaration
-from science.errors import LoneSurrogate, MalformedRecord
+from science.errors import IdentityError, LoneSurrogate, MalformedRecord
 from science.holdings.records import (
     HOLDINGS_OBSERVATION_DOMAIN,
     HOLDINGS_OBSERVATION_KIND,
@@ -90,6 +90,7 @@ __all__ = [
     "VERIFICATION_FACET",
     "NodeTarget",
     "RouteTarget",
+    "act_report_facet",
     "act_report_node",
     "assessment_value",
     "dataset_declaration",
@@ -422,6 +423,101 @@ def holdings_observation_value(node: Node) -> HoldingsObservation:
     if value.facet() != facet:
         raise MalformedRecord(f"{node.id}: a holdings observation facet is malformed")
     return value
+
+
+_REPORT_ENTRY_OUTCOMES: dict[str, dict[str, tuple[str, ...]]] = {
+    "pure-look": {
+        "published-observation": ("ref",),
+        "byte-locator-untested": ("reason",),
+        "retrieval-failed": ("reason",),
+    },
+    "managed-mutation": {"published-observation": ("ref",)},
+    "declaration-pin": {"pinned-declaration": ("ref",)},
+    "subject-evaluation": {"evaluation-finding": ("payload",)},
+    "record-import": {"imported-records": ("refs", "findings")},
+    "run-attempt": {"run-refusal": ("missing_member",)},
+}
+
+
+def _valid_report_entry(entry: object) -> bool:
+    if not isinstance(entry, dict):
+        return False
+    kind = entry.get("kind")
+    if type(kind) is not str:
+        return False
+    expected_entry_fields = {
+        "kind",
+        "subject",
+        "outcome",
+        *(("instrument_inputs",) if kind == "pure-look" else ()),
+    }
+    if set(entry) != expected_entry_fields or type(entry.get("subject")) is not str:
+        return False
+    if kind == "pure-look":
+        inputs = entry["instrument_inputs"]
+        if not isinstance(inputs, list) or any(
+            not isinstance(pair, list)
+            or len(pair) != 2
+            or any(type(member) is not str for member in pair)
+            for pair in inputs
+        ):
+            return False
+    outcomes = _REPORT_ENTRY_OUTCOMES.get(kind)
+    outcome = entry.get("outcome")
+    if outcomes is None or not isinstance(outcome, dict):
+        return False
+    outcome_type = outcome.get("type")
+    if type(outcome_type) is not str:
+        return False
+    fields = outcomes.get(outcome_type)
+    if fields is None or set(outcome) != {"type", *fields}:
+        return False
+    for field in fields:
+        value = outcome[field]
+        if outcome_type == "imported-records":
+            if not isinstance(value, list) or any(
+                type(member) is not str for member in value
+            ):
+                return False
+        elif type(value) is not str:
+            return False
+    return True
+
+
+def act_report_facet(node: Node) -> Mapping[str, Any]:
+    """Validate and return the one stored act-report facet."""
+    facet = node.facets.get("act-report")
+    required = {
+        "operation",
+        "event_token",
+        "actor",
+        "observer",
+        "instrument",
+        "opened_at",
+        "closed_at",
+        "entries",
+    }
+    if (
+        not isinstance(facet, dict)
+        or set(node.facets) != {"act-report", SEMANTIC_IDENTITY_FACET}
+        or set(facet) != required
+        or facet.get("operation") not in report_values.OPERATION_KINDS
+        or any(type(facet.get(name)) is not str for name in required - {"entries"})
+        or not isinstance(facet.get("entries"), list)
+        or node.relations
+    ):
+        raise MalformedRecord(f"{node.id}: malformed act-report facet")
+    if any(not _valid_report_entry(entry) for entry in facet["entries"]):
+        raise MalformedRecord(f"{node.id}: malformed act-report entry")
+    try:
+        expected = v1.digest(report_values.ACT_REPORT_DOMAIN, facet)
+    except IdentityError as caught:
+        raise MalformedRecord(f"{node.id}: malformed act-report facet") from caught
+    if node.id != f"act-report:{expected}":
+        raise MalformedRecord(
+            f"{node.id}: act-report address disagrees with its identity"
+        )
+    return facet
 
 
 # --- constructing stored documents -------------------------------------------

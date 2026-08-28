@@ -66,6 +66,12 @@ Rulings are written at task boundaries, never rewritten after the fact.
     with `O_DIRECTORY | O_NOFOLLOW`; leaves are classified through
     `O_PATH | O_NOFOLLOW` and reopened only through their held descriptor.
     Non-regular, failed, and over-ceiling leaves are withheld whole.
+13. **R13 — act-report validation is one stored-record authority.** The
+    writer's exact facet, entry-outcome, relation, and identity checks moved
+    intact to `stored.act_report_facet`; the writer maps its
+    `MalformedRecord` to `ValidationRefused`, while qualification maps the
+    same refusal to `RecordUndecodable`. Identity encoding failures are also
+    normalized at that shared boundary.
 
 ## Heads
 
@@ -78,5 +84,6 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 4 | 4b7e1df |
 | 5 | 6ed0c8f |
 | 6 | e7338a3 |
+| 7 | 2a8ed87 |
 
 (Appended at every task boundary.)

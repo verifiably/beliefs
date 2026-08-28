@@ -681,6 +681,10 @@ class MalformedRecord(RecordError):
     set, a role outside ``observes | reads | transforms``."""
 
 
+class RecordUndecodable(RecordError):
+    """Captured bytes cannot be read as the named published record."""
+
+
 class UrlLocatorDeferred(RecordError):
     """A ``url`` locator was constructed before the URL slice exists.
 
