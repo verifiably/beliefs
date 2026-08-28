@@ -8,7 +8,8 @@ import dataclasses
 import inspect
 
 import pytest
-from fixtures_cut3 import D_IN, SNAKEFILE_TWO_NAMES, closure, recipe, run_production
+from fixtures_cut3 import D_IN, SNAKEFILE_TWO_NAMES, closure, recipe
+from fixtures_cut3 import memory_production as run_production
 
 from science.boundary import RunMinted
 from science.dataset import DatasetDeclaration, ResourceDeclaration, dataset_address

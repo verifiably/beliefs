@@ -20,11 +20,17 @@ from fixtures_cut3 import (
     SNAKEFILE_PRODUCTION,
     SNAKEFILE_SEED_VIOLATING,
     closure_kwargs,
-    replay_of,
-    run_assessment,
-    run_production,
     spec_draft,
     spec_rules,
+)
+from fixtures_cut3 import (
+    memory_assessment as run_assessment,
+)
+from fixtures_cut3 import (
+    memory_production as run_production,
+)
+from fixtures_cut3 import (
+    memory_replay as replay_of,
 )
 
 from science.admission import admit
@@ -89,7 +95,7 @@ def test_a_replay_refuses_a_reconstructed_recipe_mismatch(tmp_path):
     )
     attempt = replay_of(original, tmp_path / "changed", snakefile=changed)
     assert isinstance(attempt, RunRefused)
-    assert "reconstructed recipe differs" in attempt.reason
+    assert attempt.reason == "recipe-identity-mismatch"
     assert attempt.report is not None and attempt.intent is not None and attempt.registration is not None
     assert attempt.registration.intent_token == attempt.intent.event_token
     assert attempt.registration.pointer == attempt.report.identity()

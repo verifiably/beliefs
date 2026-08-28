@@ -35,6 +35,21 @@ Rulings are written at task boundaries, never rewritten after the fact.
    its frozen results record; current-tree tasks run cuts 9 onward. The plan
    was corrected at this boundary rather than weakening or rewriting a
    historical cut.
+7. **R7 — value-width run tests cross an explicit test port.** The
+   production entrypoints and the `fixtures_cut3` run/replay helpers all keep
+   the required port. Existing value-only tests bind those helpers through
+   three small wrappers over one no-I/O `MemoryPort`; no default or portless
+   production path was added.
+8. **R8 — every signature-anchored cut-3 arm moves with the port.** Besides
+   the planned T2 replay rebase, the required parameter made R17's assessment
+   and production signature mutations and R21's supplied-manifest mutation
+   stale. Each was rebased onto the widened signature with its original check
+   unchanged; the cut-1–3 audit then passed all 37 checks.
+9. **R9 — an unpublishable refusal fails at the publication boundary.** A
+   pre-intent report with an unencodable identity field previously existed
+   only in memory for a stored-codec test. With terminal publication required,
+   the same construction raises `MalformedRecord` before returning; the test
+   now pins that fail-early behavior.
 
 ## Heads
 
@@ -43,5 +58,6 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 0 | 76e76d8 |
 | 1 | fac2c80 |
 | 2 | 1d25baf |
+| 3 | e05c60c |
 
 (Appended at every task boundary.)

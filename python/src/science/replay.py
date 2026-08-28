@@ -16,9 +16,10 @@ from pathlib import Path
 from typing import final
 
 from science.adapter import WorkflowDefinition
-from science.boundary import RunMinted, RunRefused, _refused, execute_assessment_run, execute_production_run
-from science.errors import MalformedClosure, MalformedRecord
+from science.boundary import RunMinted, RunRefused, execute_assessment_run, execute_production_run
+from science.errors import MalformedRecord
 from science.recipe import ResultManifest, RunClosure
+from science.runrecord import OperationPort
 from science.sealed import sealed
 from science.spec import (
     SEED_DERIVATION_V1,
@@ -99,6 +100,7 @@ def replay_eligibility(
 def replay(
     original: RunMinted,
     *,
+    port: OperationPort,
     spec: FrozenSpec | None,
     definition: WorkflowDefinition,
     code_roots: tuple[Path, ...],
@@ -126,8 +128,10 @@ def replay(
         "host_realization": host_realization,
         "scratch_base": scratch_base,
         "cores": cores,
+        "port": port,
     }
     recipe = original.run.recipe
+    common["expected_recipe_identity"] = recipe.identity()
     if recipe.shape == "assessment":
         outcome = execute_assessment_run(spec=spec, **common)
     else:
@@ -137,11 +141,6 @@ def replay(
             nondeterminism=recipe.nondeterminism,
             **common,
         )
-    if isinstance(outcome, RunRefused):
-        return outcome
-    if outcome.run.recipe.identity() != recipe.identity():
-        error = MalformedClosure("reconstructed recipe differs from the original recipe")
-        return _refused(str(error), recipe.spec_identity or "absent", actor, observer, started_at, outcome.intent)
     return outcome
 
 

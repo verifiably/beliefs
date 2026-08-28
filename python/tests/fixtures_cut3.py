@@ -305,6 +305,34 @@ def definition(snakefile: str = SNAKEFILE_DETERMINISTIC, family_streams=None):
     return WorkflowDefinition(snakefile=snakefile.encode("utf-8"), family_streams=streams)
 
 
+class MemoryPort:
+    """The shared no-I/O port for value-width unit tests."""
+
+    def append_intent(self, payload: bytes) -> str:
+        return sha256(payload).hexdigest()
+
+    def execute(self, plan) -> None:
+        pass
+
+    def execute_fulfilling(self, plan, fulfills: str) -> None:
+        pass
+
+
+MEMORY_PORT = MemoryPort()
+
+
+def memory_assessment(*args, **kwargs):
+    return run_assessment(*args, port=MEMORY_PORT, **kwargs)
+
+
+def memory_production(*args, **kwargs):
+    return run_production(*args, port=MEMORY_PORT, **kwargs)
+
+
+def memory_replay(*args, **kwargs):
+    return replay_of(*args, port=MEMORY_PORT, **kwargs)
+
+
 def stage(tmp_path, *, snakefile=SNAKEFILE_DETERMINISTIC, data="hello"):
     code = tmp_path / "code"
     (code / "workflow").mkdir(parents=True)
@@ -320,8 +348,10 @@ def stage(tmp_path, *, snakefile=SNAKEFILE_DETERMINISTIC, data="hello"):
 def run_assessment(
     tmp_path,
     *,
+    port,
     snakefile=SNAKEFILE_DETERMINISTIC,
     spec=None,
+    definition_override=None,
     started_at="2026-08-12T00:00:00Z",
     host_realization="host-a",
     cores=1,
@@ -342,7 +372,10 @@ def run_assessment(
         }
     return execute_assessment_run(
         spec=spec,
-        definition=definition(snakefile=snakefile),
+        port=port,
+        definition=(
+            definition_override if definition_override is not None else definition(snakefile=snakefile)
+        ),
         code_roots=(code,),
         held_inputs=supplied,
         entrypoint="code/workflow/Snakefile",
@@ -360,6 +393,7 @@ def run_assessment(
 def run_production(
     tmp_path,
     *,
+    port,
     snakefile=SNAKEFILE_PRODUCTION,
     inputs=None,
     parameters=None,
@@ -371,6 +405,7 @@ def run_production(
     host_realization="host-a",
     cores=1,
     data="hello",
+    definition_override=None,
 ):
     code, held = stage(tmp_path, snakefile=snakefile, data=data)
     supplied = (
@@ -398,7 +433,12 @@ def run_production(
         inputs=authored,
         parameters=parameters if parameters is not None else {},
         nondeterminism=contract,
-        definition=definition(snakefile=snakefile, family_streams=family_streams),
+        port=port,
+        definition=(
+            definition_override
+            if definition_override is not None
+            else definition(snakefile=snakefile, family_streams=family_streams)
+        ),
         code_roots=(code,),
         held_inputs=supplied,
         entrypoint="code/workflow/Snakefile",
@@ -417,6 +457,7 @@ def replay_of(
     original,
     tmp_path,
     *,
+    port,
     snakefile=SNAKEFILE_DETERMINISTIC,
     host_realization="host-a",
     held_inputs=None,
@@ -448,6 +489,7 @@ def replay_of(
     )
     return replay(
         original,
+        port=port,
         spec=spec,
         definition=definition(
             snakefile=snakefile,
