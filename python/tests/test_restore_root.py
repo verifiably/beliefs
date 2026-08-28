@@ -342,7 +342,9 @@ class TestCorpusRestore:
 
 
 class TestTheHeldBoundary:
-    def test_restore_holds_one_boundary_across_evaluate_and_grant(self, tmp_path):
+    def test_restore_holds_one_boundary_across_evaluate_and_grant(
+        self, tmp_path, monkeypatch
+    ):
         root = tmp_path / "store"
         (root / "artifacts").mkdir(parents=True)
         (root / "artifacts" / "head.json").write_bytes(b"{}")
@@ -351,19 +353,29 @@ class TestTheHeldBoundary:
         inspections, captures = Inspections(), Captures()
         inspections.set(root, view)
         held = _operation_lock_for(root)
-        observed: list[str] = []
+        observed: list[tuple[str, str]] = []
 
-        def probe(_root: Path) -> None:
-            with pytest.raises(BuildContended), held.capture():
-                pass
-            observed.append(str(held._holder))
+        def probe(label: str):
+            def record(_root: Path) -> None:
+                with pytest.raises(BuildContended), held.capture():
+                    pass
+                observed.append((label, str(held._holder)))
 
-        inspections.probe = probe
-        captures.probe = probe
+            return record
+
+        inspections.probe = probe("inspect")
+        captures.probe = probe("disk")
+        real_records = verify.capture_records
+
+        def capture_records(target: Path, kind: verify.RootKind):
+            probe("records")(target)
+            return real_records(target, kind)
+
+        monkeypatch.setattr(verify, "capture_records", capture_records)
         granted: list[Path] = []
 
         def grant(target: Path) -> None:
-            probe(target)
+            probe("grant")(target)
             granted.append(target)
 
         report = verify._restore_root(
@@ -377,7 +389,12 @@ class TestTheHeldBoundary:
         )
 
         assert report.outcome == "validated"
-        assert observed == ["writer", "writer", "writer"]
+        assert observed == [
+            ("inspect", "writer"),
+            ("disk", "writer"),
+            ("records", "writer"),
+            ("grant", "writer"),
+        ]
         assert granted == [root.resolve()]
         assert held._holder is None
 

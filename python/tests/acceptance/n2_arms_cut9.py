@@ -510,8 +510,8 @@ CUT9_ARMS: tuple[Arm, ...] = (
         ),
         sabotage=Sabotage(
             module="world/verify.py",
-            before="    return LogReport(outcome, anchored_through, unanchored_tail, pending, intents, bound, findings)",
-            after='    return LogReport("unresolvable", anchored_through, unanchored_tail, pending, intents, bound, findings)',
+            before="    return LogReport(\n        outcome,\n        anchored_through,",
+            after='    return LogReport(\n        "unresolvable",\n        anchored_through,',
         ),
         checks=(
             "test_restore_root.py::TestDivergentCopies::test_divergent_copies_assembled_in_one_root_are_sibling_malformed",
@@ -691,14 +691,24 @@ CUT9_ARMS: tuple[Arm, ...] = (
             before=(
                 "    root = Path(dest_root).resolve()\n"
                 "    with _subject_hold(seam, kind, root):\n"
-                "        view, disk, presented = _assemble_evaluation_inputs(seam, kind, root, None)"
+                "        view, disk, records, presented = _assemble_evaluation_inputs(\n"
+                "            seam,\n"
+                "            kind,\n"
+                "            root,\n"
+                "            None,\n"
+                "        )"
             ),
             after=(
                 "    root = Path(dest_root).resolve()\n"
                 "    if root:\n"
                 '        return _report("unresolvable", findings=(_unanchored_finding(subject),))\n'
                 "    with _subject_hold(seam, kind, root):\n"
-                "        view, disk, presented = _assemble_evaluation_inputs(seam, kind, root, None)"
+                "        view, disk, records, presented = _assemble_evaluation_inputs(\n"
+                "            seam,\n"
+                "            kind,\n"
+                "            root,\n"
+                "            None,\n"
+                "        )"
             ),
         ),
         checks=(

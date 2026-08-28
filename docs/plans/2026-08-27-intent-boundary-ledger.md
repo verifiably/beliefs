@@ -78,6 +78,22 @@ Rulings are written at task boundaries, never rewritten after the fact.
     per-registration reasons only after all pointers resolve non-qualifying.
     Final-state facts, never captured bytes alone, decide whether a pointer
     published a record.
+15. **R15 — verifier-shape cut-9 sabotages move with the verifier lift.**
+    Task 10 replaces the report constructor and widens restore's captured
+    input tuple, making cut 9's L10u12 and V7 source strings stale while
+    leaving both guarantees unchanged. Their sabotages are rebased onto the
+    new constructor and assembly shape with their original checks unchanged.
+    Cut 10's predecessor guard pins the rebased file by exact SHA-256 content,
+    while the live cut-9 mutation audit proves the successor sabotages remain
+    sound.
+16. **R16 — qualification loads after world-package initialization.** A
+    top-level verifier import of the reducer closes a cycle when callers
+    import `science.intents.reduce` first: the reducer names the world log
+    model while the world package re-exports anchors, which import the
+    verifier. The report's qualification type is therefore type-checking-only
+    and `evaluate_log` loads the reducer after it has established a
+    well-formed view; there is still one reducer implementation and no
+    fallback path.
 
 ## Heads
 
@@ -92,5 +108,6 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 6 | e7338a3 |
 | 7 | 2a8ed87 |
 | 8 | 3d267e0 |
+| 9 | aefcbb0 |
 
 (Appended at every task boundary.)

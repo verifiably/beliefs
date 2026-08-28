@@ -244,9 +244,9 @@ class TestTheArrivalCauses:
 
         report = caught.value.report
         assert type(report) is verify.LogReport
-        # The whole report, not a summary of it: the pending set, the intent
-        # inventory §10.1 defers, and the findings all travel with the refusal.
-        assert report.pending and report.intents_unevaluated == ()
+        # The whole report, not a summary of it: the pending set,
+        # qualification, and findings all travel with the refusal.
+        assert report.pending and report.qualification == ()
         # And the pending set is the **field** the cause was read from, not a
         # finding: with no observer bound this report stopped at step 2, so it
         # states `unanchored` and never reaches step 3's pending finding at all.
@@ -426,8 +426,10 @@ class TestTheRefusalOrdering:
             view,
             verify.ObserverSet((corpus_anchor(view),)),
             tuple((path, state(path)) for path in verify.registered_surface_paths(root, "corpus")),
+            (),
             verify.PresentedManifest(BETA),
             ABSENT,
+            science_root._log_seam().state_facts,
         )
         assert report.outcome == "validated"
         assert [finding.code for finding in report.findings] == ["subject-mismatch"]
@@ -486,7 +488,9 @@ class TestTheRefusalOrdering:
 
 
 class TestTheHold:
-    def test_it_holds_both_locks_across_inspection_capture_and_the_transaction(self, tmp_path):
+    def test_it_holds_both_locks_across_inspection_capture_and_the_transaction(
+        self, tmp_path, monkeypatch
+    ):
         root = replica_root(tmp_path)
         world_lock = registry._world_lock_for(tmp_path / "world")
         corpus_lock = _operation_lock_for(root)
@@ -519,6 +523,13 @@ class TestTheHold:
         inspections, captures = Inspections(), Captures()
         inspections.probe = probe("inspect")
         captures.probe = probe("capture")
+        real_records = verify.capture_records
+
+        def capture_records(target: Path, kind: verify.RootKind):
+            probe("records")(target)
+            return real_records(target, kind)
+
+        monkeypatch.setattr(verify, "capture_records", capture_records)
         view = surfaced(root, "corpus", science_root.GENESIS_PAYLOAD)
 
         arrive(world, root, view, inspections=inspections, captures=captures)
@@ -526,6 +537,7 @@ class TestTheHold:
         assert observed == [
             ("inspect", False, "writer"),
             ("capture", False, "writer"),
+            ("records", False, "writer"),
             ("transaction", False, "writer"),
         ]
         assert corpus_lock._holder is None
@@ -548,6 +560,13 @@ class TestTheHold:
             return real(target)
 
         monkeypatch.setattr(registry, "load_manifest", watched)
+        real_records = verify.capture_records
+
+        def capture_records(target: Path, kind: verify.RootKind):
+            events.append("records")
+            return real_records(target, kind)
+
+        monkeypatch.setattr(verify, "capture_records", capture_records)
         inspections, captures = Inspections(), Captures()
         inspections.probe = lambda _root: events.append("inspect")
         captures.probe = lambda _root: events.append("capture")
@@ -560,7 +579,7 @@ class TestTheHold:
             captures=captures,
         )
 
-        assert events == ["inspect", "manifest", "capture"]
+        assert events == ["inspect", "manifest", "capture", "records"]
 
     def test_the_manifest_is_never_supplied_and_the_subject_comes_from_the_provenance(self):
         parameters = inspect.signature(verify._admit_arrival).parameters

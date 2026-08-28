@@ -71,14 +71,15 @@ from science.world.logmodel import (
     ChainView,
     DefectView,
     GenesisEntryView,
-    IntentEntryView,
     MalformedView,
     RegisteredEntryView,
     SettledEntryView,
     WellFormedView,
 )
+from science.world.records import capture_records
 
 if TYPE_CHECKING:  # pragma: no cover - the cycle below is real at run time
+    from science.intents.reduce import IntentQualification
     from science.world.anchors import HeadArtifact, LogHeadRecord, Subject
     from science.world.registry import AdmissionRecord, ReplicaOf, World, WorldConfig
 
@@ -875,9 +876,8 @@ class LogReport:
     outcome doubles as an error. `anchored_through` is the maximal anchored
     head by chain ancestry — never by record order — and `unanchored_tail` is
     L5's residue after it, which is the whole chain where nothing anchors it.
-    `intents_unevaluated` states §10.1's deferral in the report itself rather
-    than in a document beside it: the inventory is carried, the qualification
-    is not made. `observer_bound` names every anchor the subject filter and the
+    `qualification` carries one total row per intent in chain order.
+    `observer_bound` names every anchor the subject filter and the
     eligibility rule admitted, with its provenance, and is never discarded.
     """
 
@@ -885,7 +885,7 @@ class LogReport:
     anchored_through: str | None
     unanchored_tail: tuple[str, ...]
     pending: tuple[tuple[str, str], ...]
-    intents_unevaluated: tuple[str, ...]
+    qualification: tuple[IntentQualification, ...]
     observer_bound: tuple[str, ...]
     findings: tuple[Finding, ...]
 
@@ -896,11 +896,20 @@ def _report(
     anchored_through: str | None = None,
     unanchored_tail: tuple[str, ...] = (),
     pending: tuple[tuple[str, str], ...] = (),
-    intents: tuple[str, ...] = (),
+    qualification: tuple[IntentQualification, ...] = (),
     bound: tuple[str, ...] = (),
     findings: tuple[Finding, ...] = (),
+    qual_findings: tuple[Finding, ...] = (),
 ) -> LogReport:
-    return LogReport(outcome, anchored_through, unanchored_tail, pending, intents, bound, findings)
+    return LogReport(
+        outcome,
+        anchored_through,
+        unanchored_tail,
+        pending,
+        qualification,
+        bound,
+        findings + qual_findings,
+    )
 
 
 # --- the evaluator (design §4.2) --------------------------------------------
@@ -911,8 +920,10 @@ def evaluate_log(
     view: ChainView,
     observers: ObserverSet,
     disk: tuple[tuple[str, object], ...],
+    records: tuple[tuple[str, bytes], ...],
     presented: PresentedIdentity | None,
     absent_state: object,
+    state_facts: Callable[[object], tuple[tuple[str, str], ...]],
     history: Mapping[str, bytes] | None = None,
 ) -> LogReport:
     """§4's one read-only judgment surface: four steps, four outcomes.
@@ -965,6 +976,12 @@ def evaluate_log(
         raise TypeError("observers is an ObserverSet, which is the whole of what the evaluator may consult")
     if type(disk) is not tuple:
         raise TypeError("disk is the captured surface as a tuple of (path, state) pairs")
+    if type(records) is not tuple:
+        raise TypeError(
+            "records is the captured published-record surface as a tuple of (path, payload) pairs"
+        )
+    if not callable(state_facts):
+        raise TypeError("state_facts is the seam's engine-owned state codec")
 
     bound, ineligible = _bound_anchors(subject, observers, kind)
     labels = tuple(_bound_entry(anchor) for anchor in bound)
@@ -986,15 +1003,25 @@ def evaluate_log(
     if type(view) is not WellFormedView:
         raise TypeError(f"{type(view).__name__} is not a chain view")
 
-    intents = tuple(entry.digest for entry in view.entries if type(entry) is IntentEntryView)
+    from science.intents.reduce import qualify_chain
+
+    qualification, qual_findings = qualify_chain(
+        view.entries,
+        dict(records),
+        state_facts=state_facts,
+    )
     defect, genesis_identity = _genesis_form(kind, view.genesis)
     if defect is not None:
-        # The inventory is carried even here: §10.1 asks that the qualification
-        # deferral be stated in *every* report, and a chain the engine
-        # linearized has an intent inventory whatever its genesis payload says.
-        # The `MalformedView` exit above states none because there are no
-        # entries there to inventory, which is a different fact.
-        return _report("malformed", intents=intents, bound=labels, findings=tuple(findings) + (defect,))
+        # Qualification is carried even here: a chain the engine linearized
+        # has intents whatever its genesis payload says. A `MalformedView`
+        # carries none because it exposes no entries.
+        return _report(
+            "malformed",
+            qualification=qualification,
+            bound=labels,
+            findings=tuple(findings) + (defect,),
+            qual_findings=qual_findings,
+        )
     findings.extend(_genesis_findings(subject, kind, genesis_identity))
 
     pending = view.pending
@@ -1007,8 +1034,9 @@ def evaluate_log(
             "unresolvable",
             unanchored_tail=digests,
             pending=pending,
-            intents=intents,
+            qualification=qualification,
             findings=tuple(findings) + (_unanchored_finding(subject),),
+            qual_findings=qual_findings,
         )
     anchored_through, tail = _extent(bound, view.genesis.digest, positions, digests)
     refutations = _anchor_refutations(bound, view.genesis.digest, positions)
@@ -1018,9 +1046,10 @@ def evaluate_log(
             anchored_through=anchored_through,
             unanchored_tail=tail,
             pending=pending,
-            intents=intents,
+            qualification=qualification,
             bound=labels,
             findings=tuple(findings) + refutations,
+            qual_findings=qual_findings,
         )
 
     # Step 3 — pending.
@@ -1030,9 +1059,10 @@ def evaluate_log(
             anchored_through=anchored_through,
             unanchored_tail=tail,
             pending=pending,
-            intents=intents,
+            qualification=qualification,
             bound=labels,
             findings=tuple(findings) + tuple(_pending_finding(txid, digest) for txid, digest in pending),
+            qual_findings=qual_findings,
         )
 
     # Step 4 — replay.
@@ -1044,9 +1074,10 @@ def evaluate_log(
         anchored_through=anchored_through,
         unanchored_tail=tail,
         pending=pending,
-        intents=intents,
+        qualification=qualification,
         bound=labels,
         findings=tuple(findings),
+        qual_findings=qual_findings,
     )
 
 
@@ -1500,17 +1531,32 @@ def _audit_log(
     _configured_target(config, kind, root)
     root_kind: RootKind = kind
     with _subject_hold(seam, root_kind, root):
-        view, disk, presented = _assemble_evaluation_inputs(
+        view, disk, records, presented = _assemble_evaluation_inputs(
             seam, root_kind, root, config
         )
-    return evaluate_log(subject, view, observers, disk, presented, seam.absent_state, history)
+    return evaluate_log(
+        subject,
+        view,
+        observers,
+        disk,
+        records,
+        presented,
+        seam.absent_state,
+        seam.state_facts,
+        history,
+    )
 
 
 def _assemble_evaluation_inputs(
     seam: LogSeam, kind: RootKind, root: Path, config: WorldConfig | None
-) -> tuple[ChainView, tuple[tuple[str, object], ...], PresentedIdentity | None]:
+) -> tuple[
+    ChainView,
+    tuple[tuple[str, object], ...],
+    tuple[tuple[str, bytes], ...],
+    PresentedIdentity | None,
+]:
     """The evaluator's inputs, assembled in the one pinned order — inspection,
-    then the presented claim, then the capture — under the caller's hold.
+    then the presented claim, then both captures — under the caller's hold.
 
     The exact boundary between the two judging acts: `_audit_log` calls it
     with the world configuration (its world arm reads the configured id), and
@@ -1521,7 +1567,8 @@ def _assemble_evaluation_inputs(
     view = seam.inspect_registered(root)
     presented = _presented_identity(config, kind, root)
     disk = seam.capture(root, registered_surface_paths(root, kind))
-    return view, disk, presented
+    records = capture_records(root, kind)
+    return view, disk, records, presented
 
 
 def _restore_subject_agrees(
@@ -1575,8 +1622,22 @@ def _restore_root(
         raise TypeError("observers is an ObserverSet, which is the whole of what the evaluator may consult")
     root = Path(dest_root).resolve()
     with _subject_hold(seam, kind, root):
-        view, disk, presented = _assemble_evaluation_inputs(seam, kind, root, None)
-        report = evaluate_log(subject, view, observers, disk, presented, seam.absent_state)
+        view, disk, records, presented = _assemble_evaluation_inputs(
+            seam,
+            kind,
+            root,
+            None,
+        )
+        report = evaluate_log(
+            subject,
+            view,
+            observers,
+            disk,
+            records,
+            presented,
+            seam.absent_state,
+            seam.state_facts,
+        )
         if report.outcome == "validated" and _restore_subject_agrees(
             subject, kind, view, presented
         ):
@@ -1771,13 +1832,16 @@ def _admit_arrival(
         view = inspect(root)
         manifest = registry.load_manifest(root)
         disk = seam.capture(root, registered_surface_paths(root, "corpus"))
+        records = capture_records(root, "corpus")
         report = evaluate_log(
             subject,
             view,
             observers,
             disk,
+            records,
             PresentedManifest(manifest.corpus_id),
             seam.absent_state,
+            seam.state_facts,
             history,
         )
         cause = _arrival_cause(report)
