@@ -118,6 +118,7 @@ EMPIRICAL_OBSERVATION_FACET = "empirical-observation"
 PROPOSITION_FACET = "proposition"
 ASSESSMENT_FACET = "assessment"
 RUN_FACET = "run"
+RUN_CLOSURE_FACET = "run-closure"
 DATASET_FACET = "dataset"
 DISPLAY_FACET = "display"
 LINEAGE_BASIS_FACET = "lineage-basis"
@@ -184,7 +185,7 @@ COVERED_FACETS: Mapping[str, tuple[str, ...]] = {
     HOLDINGS_OBSERVATION_KIND: (HOLDINGS_OBSERVATION_FACET,),
     "proposition": (PROPOSITION_FACET,),
     "retraction": (RETRACTION_FACET,),
-    "run": (RUN_FACET,),
+    "run": (RUN_FACET, RUN_CLOSURE_FACET),
     "source": (SOURCE_FACET,),
     "source-assertion": ("source-assertion",),
     "verification": (VERIFICATION_FACET,),
@@ -511,6 +512,37 @@ def run_node(
         for target in targets
     ]
     return _node("run", slug, title, {RUN_FACET: {"spec": spec}}, relations)
+
+
+def run_publication_node(
+    slug: str,
+    *,
+    title: str,
+    projection: str,
+    spec: str | None,
+    observes: Sequence[str] = (),
+    reads: Sequence[str] = (),
+    transforms: Sequence[str] = (),
+    produces: Sequence[str] = (),
+) -> Node:
+    """A boundary-published run with its canonical address preimage."""
+    node_id = f"run:{slug}"
+    relations = [
+        Relation(source=node_id, predicate=predicate, target=target)
+        for predicate, targets in (
+            (OBSERVES, observes),
+            (READS, reads),
+            (TRANSFORMS, transforms),
+            (PRODUCES, produces),
+        )
+        for target in targets
+    ]
+    run_facet: dict[str, Any] = {} if spec is None else {"spec": spec}
+    facets = {
+        RUN_FACET: run_facet,
+        RUN_CLOSURE_FACET: {"projection": projection},
+    }
+    return _node("run", slug, title, facets, relations)
 
 
 def assessment_node(
