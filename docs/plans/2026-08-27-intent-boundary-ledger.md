@@ -61,6 +61,11 @@ Rulings are written at task boundaries, never rewritten after the fact.
     the shared holdings decoder. Canonical v1 decoding governs the two
     domainless shapes. This preserves official holdings payloads containing
     escaped non-ASCII text without creating a second holdings schema.
+12. **R12 — record capture is descriptor-bound on the certified Linux
+    tuple.** Namespace descent opens each component relative to its parent
+    with `O_DIRECTORY | O_NOFOLLOW`; leaves are classified through
+    `O_PATH | O_NOFOLLOW` and reopened only through their held descriptor.
+    Non-regular, failed, and over-ceiling leaves are withheld whole.
 
 ## Heads
 
@@ -72,5 +77,6 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 3 | e05c60c |
 | 4 | 4b7e1df |
 | 5 | 6ed0c8f |
+| 6 | e7338a3 |
 
 (Appended at every task boundary.)
