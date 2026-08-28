@@ -12,12 +12,18 @@ import pytest
 from fixtures_cut3 import (
     SNAKEFILE_NONDETERMINISTIC,
     interp,
-    replay_of,
     report,
-    run_assessment,
-    run_production,
     spec_draft,
     spec_rules,
+)
+from fixtures_cut3 import (
+    memory_assessment as run_assessment,
+)
+from fixtures_cut3 import (
+    memory_production as run_production,
+)
+from fixtures_cut3 import (
+    memory_replay as replay_of,
 )
 
 from science.assess import build_assessment

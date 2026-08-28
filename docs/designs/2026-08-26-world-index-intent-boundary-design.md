@@ -1,0 +1,1103 @@
+# General intent qualification — design (world-index slice 6, the intent boundary)
+
+**Date:** 2026-08-26
+**Status:** implemented and discharged 2026-08-28 at `806444e`; conformance
+cut 11 froze before implementation at `9711886` and its 26 units passed
+through 66 lettered sabotage arms on the certified tuple. Results:
+`../plans/2026-08-27-conformance-cut-11-results.md`; execution rulings:
+`../plans/2026-08-27-intent-boundary-ledger.md`. Promoted from
+`docs/superpowers/specs/` in the banking change. G4 and successor admission
+remain transferred to their own slice under §1 item 0 and §5.
+Merged into local `main` with `--no-ff` on 2026-08-28 in the integration
+commit carrying this correction; not pushed.
+**Amended 2026-08-26**, closing the design review's five findings before any
+cut draft: the captured-record evidence input (§3.1), the per-shape matching
+requirements (§2.2), decode-gate semantics for unknown and malformed intent
+payloads (§3.2), the concrete `LogReport` contract (§3.3), and the
+`science.report.completion` re-base (§2.5). **Amended again 2026-08-26**
+(second review round): pending-fulfillment semantics (§2.1), the domainless
+discriminators and the assessment-run wire shape with its durable append
+(§3.2), no-follow capture (§3.1), the corrected evidence constraint
+(header), and pinned finding placement (§3.3). **Amended a third time
+2026-08-26** (third review round): fd-anchored no-follow capture closing
+the swap race (§3.1), the run boundary's persistence contract (§2.6), and
+the durable run publication's `event_token` (§2.6). **Amended a fourth
+time 2026-08-26** (fourth review round): the port's non-fulfilling
+publication operation (§2.6 item 2a), the frozen `run-attempt` kind with
+the run-shape discriminator and its arm (§2.6 item 4, §3.2), the
+closure-to-stored encoder contract with tokenless-legacy scoping (§2.6
+item 5), and `O_PATH` classification before any readable open (§3.1).
+**Amended a fifth time 2026-08-26** (fifth review round): stored-run
+identity is the closure address and the facet is its preimage projection
+(§2.6 items 4–5), role-preserving relation projection with the production
+dataset edge (§2.6 item 5), the `SHAPES` vocabulary reused verbatim
+(§2.2, §2.6), the corrected leaf-symlink classification path (§3.1, §6),
+and the executor's two-error contract preserved on `execute` (§2.6
+item 2a). **Amended a sixth time 2026-08-26** (sixth review round): the
+closure facet carries the projection as v1-canonical text — the
+type-preserving wire the address already digests (§2.6 item 5); the
+bare-address/typed-ref bridge with field-by-field assignment (§2.6
+item 5); and the two accepted stored shapes — the `run` facet preserved
+for every reader, the closure facet only on boundary-published runs
+(§2.6 item 5). **Amended a seventh time 2026-08-26** (seventh review
+round): the closure facet joins semantic-hash coverage (§2.6 item 5),
+the production `run` facet frozen as exactly `{}` with both-ways decode
+agreement (§2.6 item 5), and the frozen facet key, inner field, and
+inverse parse rules (§2.6 item 5). **Amended an eighth time 2026-08-26**
+(eighth review round): typed-closure reconstruction before any evidence
+read — canonical syntax is not schema validation (§2.6 item 5); the
+concrete `v1.decode` contract (§2.6 item 5); and the bounded record
+capture ceiling (§3.1). **Amended a ninth time 2026-08-26** (ninth
+review round): the typed projection view replaces impossible closure
+reconstruction (§2.6 item 5); the ceiling becomes a shared
+writer/reader invariant with the encoder's refusal (§3.1, §2.6); and
+`CanonicalTextRefused` wraps every re-encoding `IdentityError` as an
+`IdentityError` subclass (§2.6 item 5). **Amended a tenth time
+2026-08-26** (tenth review round): canonical reprojection equality —
+the view enforces the projection's ordering rules, not only its field
+schema (§2.6 item 5); `RECORD_CEILING` moves to the shared executor
+plan validation covering every record kind (§3.1); and the oversize
+refusal is `PlanRefusedError`, pre-write, in the existing two-error
+contract (§3.1). **Amended an eleventh time 2026-08-27** (eleventh
+review round): the ceiling check moves from the shared plan validation
+into the port's two publication methods — the executor is broader than
+the qualifying-publication boundary (§3.1). **Amended a twelfth time
+2026-08-27** (cut 11's second reading): the durable derivation of
+`admit_successor`'s `recorded_failures` from the qualification
+reduction (§5). **Amended a thirteenth time 2026-08-27** (cut 11's
+third reading): the derivation corrected to derive from **recorded
+failure evidence** — the failing verification and the retained refusal
+report — with attempt-without-recorded-outcome contributing nothing,
+its exclusion stated as G4's own bound (§5). **Amended a fourteenth
+time 2026-08-27** (cut 11's fourth reading): the two-class blocker —
+the unfinished recorded attempt blocks as a must-reference class
+beside, never inside, the recorded failures; and the verification join
+frozen over the stored surfaces that exist (§5). **Amended a fifteenth
+time 2026-08-27** (cut 11's fifth reading): the verification identity
+bound to the `verifies` target with refusal on incoherence, and the
+widened `admit_successor` surface made concrete — signature, coherent
+snapshot, overlap precedence (§5). **Amended a sixteenth time
+2026-08-27** (cut 11's sixth reading): the durable composition
+boundary named — `admit_spec_successor`, its refusal type, and the
+hold through the decision; the exactly-one-`verifies` cardinality
+rule; and the unresolved-qualification refusal composing L7 u3 through
+G4 (§5). **Amended a seventeenth time 2026-08-27** (cut 11's seventh
+reading): the callable `admit_spec_successor` contract — signature,
+module, binding, return union, declared refusal; source decoding
+through `verification_value` with its failure mapped; and the
+evidence gate's scope — failing-verdict sources only, incoherence
+refusing globally as unattributable (§5). **Amended an eighteenth time
+2026-08-27** (cut 11's eighth reading): the u3 mislabel corrected in
+this spec's own text; the composition's record reads bound to
+`ReadView` in the signature; and the admission read's size bound with
+its stated consequence (§5). **Amended a nineteenth time
+2026-08-27** (cut 11's ninth reading): `ReadView` withdrawn from the
+contract — the boundary performs its own bounded raw-byte evidence
+read under the hold, root-bound and fresh by construction; and
+Class 1 selects among **active** failing verifications under the
+existing supersession rule (§5). **Amended a twentieth time
+2026-08-27** (the split): **G4 and the successor-admission boundary
+leave this slice** — nine readings grew them into their own design,
+and the tenth's findings (stamp validation before the typed readers,
+`Index.build` resolution semantics, the correct supersession helper,
+the per-file bound's true scope, the oversized-supersession caveat)
+are recorded in §5 as the successor-admission slice's opening
+obligations. This slice freezes the intent qualification surface; §5's
+transferred text is that successor slice's inherited authority, not
+this cut's territory. **Amended a twenty-first time 2026-08-27** (the
+implementation-plan review, §8's gap-upgrade rule): the run
+entrypoints' `expected_recipe_identity` gate (§2.6 item 6) — one
+comparison after the mint and before the terminal publication, a
+mismatch publishing the standard post-intent refusal — because
+`science.replay.replay`'s post-hoc recipe check would otherwise refuse
+in memory a run the boundary had already durably published, and the
+terminal record must state the returned result.
+**Inherits:** `2026-08-03-tamper-evident-log-design.md` §6 as amended — the
+qualification reduction this slice implements at its full stated width: the
+matched / unresolvable / attempt-without-recorded-outcome precedence, the
+assessment-run shape *(amended 2026-08-11, the act-report design §3 — the
+widening to a `run-attempt` act-report)*, the holdings shape *(amended
+2026-08-10, the verified-holdings record design §8)*, and the operation
+shape *(amended 2026-08-11)*; `2026-08-11-act-report-design.md` §3 (the
+operation intent, the completion discipline, T2's malformed-before-
+qualification rule); `2026-08-24-world-index-holdings-design.md` §4.3 (the
+holdings-shaped interior, written so this slice replaces its interior, not
+its callers) and its deferral 5 (this slice's named territory);
+`2026-08-22-log-verification-design.md` (the evaluator, the report that
+states the qualification deferral, §10 item 1 — the owner row this slice
+discharges; cut 8's frozen L7 row is this slice's arm inventory);
+`2026-08-02-epistemic-kernel-design.md` §3.2 and §8.7 (G4 narrowed, the
+recorded-history completeness table, the G-table's G4 row with its negative
+half); adoption-ledger row 5 (the intent-boundary remainder named there).
+**Constraints:** no `atoms` change — the intent API is unchanged;
+`read_chain`/`inspect_chain` supply the chain the reducer walks, and the
+captured-record surface §3.1 defines supplies the published bytes it
+decodes — both Science-side captures over existing seams. Frozen cut
+bodies stay frozen under their identifiers. Qualification is report-field
+status, never the chain verdict (log §6). No compatibility alias for any
+retired field. The rules-store dialect's constraints hold as built: pure
+source, no science imports, binding by content digest.
+
+## 1. Scope
+
+**Built here (Science only):**
+
+1. **The general qualification reduction** — one pure reducer implementing
+   log §6's precedence, parameterized by a closed union of the three
+   intent-union shapes (assessment-run, operation, holdings).
+   With it, **the run boundary's persistence contract (§2.6)**: the
+   boundary is in-memory end to end today, so both run entrypoints gain
+   the destination binding, the append-before-any-member-act sequence,
+   the port's non-fulfilling publication, the closure-to-stored encoder
+   — identity `run:<closure address>`, the closure facet carrying the
+   address's preimage as v1-canonical text beside the preserved `run`
+   facet — and durable terminal publication with boundary-constructed
+   `fulfills`.
+2. **The captured-record evidence input** — the evaluator gains an explicit
+   published-record surface, captured under the same hold that captures
+   `disk`, because a registration exposes paths and opaque states only and
+   the reducer must decode what a fulfilling registration published (§3.1).
+3. **The verifier's lift** — `LogReport.intents_unevaluated` retires;
+   evaluated qualification takes its place under the concrete contract §3.3
+   states.
+4. **The holdings interior replacement** — the installed holdings rule's
+   qualification source is regenerated from the general reducer's holdings
+   shape; new content digest, new pinned receipt, callers untouched.
+5. **The `science.report.completion` re-base** — the act-report design §4
+   reading keeps its designed vocabulary and its signature, and its
+   predicate becomes the general reducer's shape predicates (§2.5), so no
+   second precedence implementation survives this slice.
+**Closed here:** L7 from partial to its stated width — the guarantee
+quantifies over all three intent kinds, exactly as cut 8's frozen row
+states it; the "intent qualification is unevaluated" deferral stated in
+every report (log-verification design §10 item 1); adoption-ledger
+row 5's intent-boundary remainder, **except G4**, which moves to the
+successor-admission slice below.
+
+**Not here, each staying with its named owner:**
+
+0. **G4's closure and the successor-admission boundary** — split out
+   2026-08-27 after nine cut readings grew them into their own design:
+   `admit_spec_successor`, the two-class blocker derivation, the
+   verification evidence gate, the bounded admission capture, the
+   supersession selection, and both G4 arms belong to the
+   **successor-admission slice**, with §5's transferred text as its
+   inherited authority and its recorded opening obligations. Kernel
+   §8.7's fourth consequence stays open until that slice discharges.
+1. **Event-level L8** — the presence/exclusion relation across captured
+   corpus heads; the log-verification design's own successor work.
+2. **The L13 preimage resolver** — waits on the named `atoms` blob-read
+   seam; row 5's other named remainder.
+3. **The URL retrieval boundary, acquisition orchestration, typed
+   retrieval grants, recency as a successor projection rule** — the
+   holdings design's deferrals 1–4, untouched.
+4. **Out-of-band chronology** (G2a's negative) — stays open exactly as
+   banked; nothing here strengthens it.
+5. **The derived-answer negatives** — a discarded replay stops being
+   consulted; neither §8.7 nor this slice claims to change how belief is
+   computed from what remains.
+
+## 2. The reduction module (`science/intents/`)
+
+**2.1 One reducer, one precedence.** The module ships a single pure
+function implementing log §6's reduction, and the three shapes are data to
+it, never forks of it — the same no-second-taxonomy rule that put
+`inspect_chain`'s validation core behind one shared implementation. The
+precedence, verbatim from §6:
+
+- any qualifying pointer → **matched**;
+- no qualifier, but any pointer whose published record cannot be read →
+  qualification **unresolvable** — decayed bytes are not evidence of no
+  outcome, and **no** unmatched finding is emitted;
+- only when every pointer fully resolves and none qualifies → the
+  **attempt-without-recorded-outcome** finding, with each non-qualifying
+  `fulfills` named in its own finding.
+
+Two pointer-state rules complete the precedence, both the holdings
+interior's as written, now general:
+
+- **An unsettled fulfilling registration is an unresolvable pointer,
+  regardless of any bytes captured at its published paths** — settlement
+  is never inferred from disk state (log §6's rule for pending, applied
+  inside qualification too). The report carries qualification on the
+  pending exit like every other well-formed exit, so this rule is
+  reachable, and copied-after-apply bytes on a copied root never read as
+  a settled fulfillment.
+- **A rolled-back registration is fully resolved and never qualifying** —
+  it contributes nothing toward unresolvable, and an intent whose only
+  pointers rolled back reads attempt-without-recorded-outcome.
+
+Unresolved never collapses into either resolved state — the holdings
+slice's rule, now general.
+
+**2.2 The closed shape union.** Exactly three members, closed by
+construction. Each shape contributes two pure functions:
+
+- **decode**: entry payload → a validated intent of this shape, `None` for
+  another domain, or a raised malformation for a payload that names this
+  shape's domain and fails its schema — the holdings decoder's contract,
+  now the union's.
+- **qualifies**: a committed registration's published record × a decoded
+  intent → qualifying or not, at the shape's stated width. The matching
+  requirements are frozen text, restated here in full because each carries
+  a cut-11 arm:
+  - **assessment-run**: a `run` publication of shape `assessment` under
+    the intent's `spec_identity` carrying the intent's `event_token` — a
+    run under another spec, another token, a run of shape
+    `dataset-production` (§2.6 item 4's discriminator), or a publication
+    creating no run each
+    fails qualification — or an act-report of kind `run-attempt` carrying
+    the intent's `event_token`, for a post-intent attempt that minted no
+    run. A pre-intent refusal publishes an *unfulfilling* report and
+    fulfills nothing.
+  - **operation**: for a non-run operation, an act-report of the intent's
+    operation kind carrying the intent's `event_token` — a report carrying
+    another operation's token, a report of the wrong kind, a run
+    publication for a non-run operation, or a registration publishing no
+    terminal record each fails qualification; for the production-run
+    operation — wire kind `run-attempt`, the correspondence §2.6 item 2
+    records — the minted `run` of shape `dataset-production` carrying
+    the token or, when none is minted, that act-report; an
+    assessment-shaped run never qualifies it.
+  - **holdings**: a holdings observation for the intent's canonical
+    location carrying the intent's `event_token` — a wrong-location
+    observation, a wrong token, or a publication creating no observation
+    each fails qualification; the interior as written today, relocated,
+    not rewritten.
+
+**2.3 Malformation stays the chain's.** A second committed registration
+fulfilling one intent, a `fulfills` naming a missing or non-ancestor
+intent — structure, classified before qualification ever runs (T2's rule).
+The reducer never re-litigates what the chain already ruled malformed.
+
+**2.4 The dialect constraint is a design input.** The shape functions are
+pure and single-module so the rules-store concatenation can consume the
+holdings shape unchanged (§4). Purity is not an implementation nicety
+here; it is what makes one interior servable to every consumer.
+
+**2.5 The third consumer: `science.report.completion`.** The act-report
+design §4 reading already implements this precedence a second time —
+`CLOSED` / `INDETERMINATE` / `UNFINISHED` over held records by pointer —
+and its current predicate is looser than the frozen width (no
+`spec_identity` comparison on a run closure). It is a designed, exported
+surface, so it is re-based, not retired: its signature and vocabulary
+stay, and its per-pointer judgment becomes a call into the shape
+predicates §2.2 defines, with the vocabulary stated as a projection —
+`CLOSED` is matched, `INDETERMINATE` is unresolvable (a pointer whose held
+value is absent), `UNFINISHED` is every-pointer-resolved-none-qualifying.
+The tightening to the frozen width is deliberate and cut-visible: the
+wrong-spec run closure that reads `CLOSED` today reads `UNFINISHED` after
+the re-base, and a cut-11 arm pins it. After this slice, the reducer's
+shape predicates are the only implementation of qualification anywhere in
+Science — the verifier, the holdings rule, and `completion` are callers.
+
+**2.6 The run boundary's persistence contract.** The run boundary today
+is in-memory end to end: `execute_assessment_run` and
+`execute_production_run` receive no destination, and `_execute_run`
+returns `RunMinted` carrying a `Registration` value that nothing appends
+or publishes durably. The consumer rules banked with the act-report
+design — freeze the observer-corpus root, append the intent before any
+member act, construct `fulfills` for the closing terminal record — have
+no mechanism without a destination, so this slice changes the boundary
+contract, for **both** run shapes:
+
+1. **Both entrypoints gain the destination binding** — the
+   observer-corpus root's `OperationPort`, a required parameter, no
+   defaulted in-memory mode: a run boundary without a destination is the
+   pre-slice boundary, and it does not survive this slice.
+2. **The sequence is fixed**: freeze the root; durably append the intent
+   through the port — the assessment-run wire shape (§3.2) for an
+   assessment run, the operation shape for a production run, whose
+   operation kind **is frozen as `run-attempt`**: `OPERATION_KINDS` is
+   closed and names no `dataset-production`, the built boundary already
+   opens `OperationIntent("run-attempt", ...)`, and the log §6 phrase
+   "a `dataset-production` operation" **denotes** this wire kind — the
+   correspondence is recorded here so no fourth vocabulary entry is
+   invented; only then any member act; then publish the closing terminal
+   record — the run publication, or the act-report for a post-intent
+   attempt that minted no run — through **the same port**, in a
+   registration whose `fulfills` the boundary constructs from its own
+   appended intent digest, never from a caller-supplied path.
+
+   **2a. The port gains the non-fulfilling publication.** `OperationPort`
+   is `append_intent` and `execute_fulfilling` today, so the unfulfilling
+   report item 3 requires cannot be spelled through it. The port gains
+   `execute(plan)` — a publication fulfilling nothing — implemented on
+   the existing executor path, which already accepts `fulfills=None`,
+   preserving the executor's **two-error contract as built**: a
+   malformed plan refuses as `PlanRefusedError` before any write — the
+   lexical validation the executor already runs — and a failure
+   executing an encoder-validated plan surfaces as `ExecutionError`.
+   Neither is silent, and neither converts into a fulfillment of
+   anything.
+3. **A pre-intent refusal publishes an unfulfilling report** through
+   `execute` and fulfills nothing; a crash before the publication leaves
+   no trace — the frozen negative, now constructible.
+4. **The durable run publication is the closure itself, and its identity
+   is the closure's address.** `RunClosure.address()` digests the
+   complete `{recipe, result, occurrence}` projection under
+   `science.run.v1`, the boundary's `Registration.pointer` already *is*
+   that address, and assessments and production lineage
+   (`StampedBasis.run`) already reference it — so the stored record must
+   answer to it, not to a second identity. A facet hashing only a
+   summary would let two different closures collide under one stored id;
+   the projection is what makes the mapping injective. The qualification
+   evidence — `shape`, the spec identity, `event_token` — is read from
+   **within** the projection (the recipe's shape and spec, the
+   occurrence's token); the one reader-facing duplicate is the preserved
+   `run` facet's `spec` (item 5), checked for agreement on decode, and
+   `shape` is the
+   existing closed vocabulary `("assessment", "dataset-production")`
+   verbatim — no persistence-only synonym. Both run shapes' intents can
+   share one token space, so a token match alone never qualifies: the
+   assessment-run predicate reads shape `assessment` plus the intent's
+   `spec_identity` plus its token; the operation predicate's minted-run
+   alternative reads shape `dataset-production` plus its token; a shape
+   mismatch fails qualification (reason class `wrong-shape`, §3.3's
+   list). The act-report codec already serializes its full record —
+   kind and token included — and is unchanged.
+5. **The closure-to-stored encoder is this slice's contract, not an
+   incidental**: nothing in the tree bridges a minted `RunClosure` to a
+   stored publication, and the one stored constructor takes
+   caller-selected slug, title, spec, and relations. The boundary's
+   encoder is fixed as:
+   - **identity**: the record id is `run:<address>` where the address is
+     `RunClosure.address()` — never caller-selected, never a second
+     digest; the record lands at the run kind's declared layout path for
+     that id. Decode **verifies** the identity: the address is
+     recomputed from the captured closure facet, and a mismatch means
+     the bytes are not the named publication — the pointer's record
+     cannot be read, qualification `unresolvable`, §6's decayed-bytes
+     rule;
+   - **the bare-address/typed-ref bridge is explicit**: the bare closure
+     address and the corpus ref `run:<address>` are two spellings with
+     one injective bridge — prepend the kind, strip the kind — and each
+     field's spelling is assigned, not inferred. **Bare closure
+     identity**: `RunClosure.address()`, `Registration.pointer`,
+     `StampedBasis.run`. **Typed corpus references**: the stored record
+     id, an assessment facet's `run` field, the `PRODUCED_BY` relation
+     target, every relation endpoint. Stored assessments already
+     require `run` to be a resolvable corpus ref, and the published
+     record is what makes that ref resolve;
+   - **facet — two keys, two readers, both shapes accepted**: the
+     existing `run` facet stays the readers' facet — `{"spec": <spec>}`
+     for an assessment run, exactly as built, and **exactly `{}` for a
+     production run**: no built production shape exists today
+     (`stored.run_node` requires `spec` unconditionally), so the empty
+     mapping is frozen here as the production shape — the facet key
+     present, no `spec` key — and its construction is this slice's.
+     `run_spec()` and every current reader keep working unchanged on
+     old and new records alike (`facet.get("spec")` reads `None` on the
+     production shape). Decode agreement runs **both ways**: an
+     assessment-shaped closure requires the `run` facet's `spec` equal
+     to its own; a production-shaped closure requires the `run` facet
+     to carry **no** `spec` key. Beside it, a boundary-published run
+     carries the **closure facet**, whose names are frozen: facet key
+     **`run-closure`**, one inner field **`projection`**, holding the
+     projection as its **v1-canonical text**. The canonical text is the
+     type-preserving wire the address already digests: `Decimal` keeps
+     its mandatory fractional part (`1` and `Decimal("1.0")` differ;
+     `Decimal("0.5")` and `"0.5"` differ), floats are refused at the
+     boundary, and `yaml.safe_dump` always represents a string — the
+     projection's raw typed values would raise `RepresenterError` on
+     `Decimal` or be lossily coerced. The **inverse codec is specified,
+     not implied** — `v1` exports `encode` and `digest` only, and
+     default JSON parsing would mint the floats the codec refuses — so
+     `science.identity.v1` gains the exported inverse with a concrete
+     contract: **`decode(data: bytes) -> object`**, joining `__all__`
+     beside `encode` and `digest`. Its parse rules: UTF-8 decode, then
+     `json.loads` with `parse_int=int`, `parse_float=Decimal`, and
+     `parse_constant` refusing (`NaN`, `Infinity`, `-Infinity` never
+     parse); validity is **canonical re-encoding equality** —
+     `v1.encode` of the parsed value must equal the input
+     byte-for-byte, which also refuses non-canonical ordering and
+     collapsed duplicate keys. Every failure raises one new named
+     refusal, **`CanonicalTextRefused`**, defined as an
+     **`IdentityError` subclass** in `science.errors`: malformed
+     UTF-8, malformed JSON, and a refused constant directly, and
+     **every `IdentityError` the re-encoding itself raises** —
+     `NullRefused` on a parsed `null`, `LoneSurrogate`, `KeyCollision`
+     on NFC-colliding keys, and their siblings surface *before* any
+     equality comparison and are **wrapped**, cause preserved, so a
+     `decode` caller catches exactly one refusal type — with the
+     failure class in its message; `decode` never returns a partial or
+     coerced value. The address is the digest of exactly the input
+     bytes under `science.run.v1`.
+
+     **Canonical syntax is not schema validation — and the address
+     preimage cannot rebuild the closure.** The projection stores
+     `EnvironmentManifest.identity()`, a digest, where `Recipe`
+     requires the manifest itself, so reconstruction through the
+     constructors is impossible by design and is not claimed. Decode
+     instead validates through a **typed projection view**: an
+     exact-schema validator over the parsed mapping that mirrors the
+     closure invariants at the projection's own level — the complete
+     closed key set at every depth with nothing extra, `shape` in
+     `SHAPES`, spec presence exactly per shape, input roles in the
+     shape's closed role vocabulary, the result pairs' and occurrence
+     fields' forms — yielding a frozen view. **Field schema alone is
+     not enough**: the projection sorts its arrays — inputs, result
+     pairs, rule bindings, wildcards, rendered config, capabilities —
+     and canonical JSON preserves array order rather than sorting it,
+     so a self-addressed projection with reversed result pairs would
+     satisfy every field rule while being impossible for
+     `RunClosure.address()` to produce. The view therefore requires
+     **canonical reprojection equality**: it rebuilds the projection
+     mapping from its own validated fields under the projection's
+     ordering rules and requires the rebuild to equal the parsed
+     mapping — any ordering the projection sorts is thereby enforced,
+     current and future, without restating each rule. The view is
+     validated, its recomputed address must equal the record id's, and
+     shape, spec, and token are read **from the validated view**,
+     never from the raw parsed mapping. A canonical object carrying only shape,
+     spec, and token digests self-consistently without being a
+     projection; the view's schema rejects it. Any view failure means
+     the bytes are not the named publication: qualification
+     `unresolvable`. The encoder constructs the node through the same
+     construction-and-stamp path the stored constructors use;
+     `stored.run_node` itself is unchanged for its existing callers;
+   - **the closure facet enters semantic-hash coverage**:
+     `COVERED_FACETS["run"]` gains `run-closure` beside the `run`
+     facet — the dataset entry is the existing multi-facet precedent —
+     so adding, removing, or editing a closure facet makes the stored
+     semantic stamp stale and the read refuses, instead of the stamp
+     staying valid over an uncovered mutation. Legacy records remain
+     valid untouched: an absent facet does not enter the coverage
+     projection, exactly as the dataset kind's optional facets behave
+     today;
+   - **legacy records are the absent-closure-facet shape**: an existing
+     `stored.run_node` record has no closure facet — it stays readable
+     through the `run` facet, resolves as a reference target, undergoes
+     no address recomputation, and never qualifies. The tokenless-legacy
+     scoping below is this rule; the legacy arm constructs its record
+     with the **actual current `stored.run_node`**, not a new
+     projection with fields removed;
+   - **relations, role-preserving**: each `RecipeInput` projects to the
+     predicate its own `role` names — `observes` and `reads` for an
+     assessment recipe, `transforms` and `reads` for a production
+     recipe, the two closed role vocabularies as built — targeting that
+     input's dataset; collapsing every input to `reads` would destroy
+     `observes` eligibility and `transforms` lineage. An assessment run
+     emits no `produces`; a `dataset-production` run emits **exactly
+     one** `produces` edge, to the dataset address `mint_dataset`
+     derives from the result manifest's resource declarations — the
+     declared outputs themselves are logical-name/digest pairs, not
+     dataset references, and never become edges;
+   - **plan**: the encoder emits the stored document bytes and the
+     `WritePlan` the port executes; no second write path.
+
+   **Legacy stored runs remain readable and never qualify.** The
+   closure facet is scoped to boundary-published runs: a stored run
+   without one decodes as what it is — a readable publication and a
+   resolvable reference target that qualifies nothing — with no
+   compatibility shim and no schema rejection of existing records. "No
+   qualification pair predates this slice" scopes the *qualification*
+   claim only; it was never a license to break the reading of existing
+   records.
+
+6. **The replay gate is a frozen parameter, never a callback.** Both
+   entrypoints accept `expected_recipe_identity: str | None = None`.
+   When set, the boundary compares the minted run's
+   `recipe.identity()` against it exactly once — after the mint,
+   before the terminal publication — and on mismatch the outcome is
+   the standard post-intent refusal (reason
+   `recipe-identity-mismatch`): the refusal report is the terminal
+   record published fulfilling the intent, and the mismatched run is
+   never published. `science.replay.replay` is the one consumer,
+   passing the original recipe's identity in place of its former
+   post-hoc check, which would have refused in memory a run the
+   boundary had already durably published. A general conformance
+   callback is deliberately refused: one consumer, one comparison, and
+   no caller-supplied code runs inside the boundary between the mint
+   and the publication.
+
+The kill-between-append-and-start, cross-root-publication, and
+no-caller-supplied-`fulfills` arms all read this contract; they were
+unconstructible against the in-memory boundary.
+
+## 3. Verifier integration (`science/world/verify.py`)
+
+**3.1 The captured-record evidence input.** A registration entry exposes
+its surfaces as `(path, opaque state)` pairs — no bytes — and the
+evaluator consults exactly what the caller supplies, searching for
+nothing. Qualification must decode what a fulfilling registration
+published, so `evaluate_log` gains one explicit input:
+
+- `records: tuple[tuple[str, bytes], ...]` — the published-record
+  surface, one `(path, payload)` pair per record file present, captured
+  by `_assemble_evaluation_inputs` **under the same hold that captures
+  `disk`**, over the published-record namespaces the shapes read (run
+  publications, act-reports, `holdings-observation/`). Every evaluator
+  caller — audit, arrival, restore — assembles and supplies it; there is
+  no defaulted-empty overload, because an accidentally empty surface
+  reading as universal unresolvable would be a silent fallback.
+- **Capture never follows symlinks, closed by construction, not by
+  ordering** — a pre-read `lstat` would leave the classic race: the leaf
+  swapped for a symlink between check and read. The capture therefore
+  never touches a path twice: it opens a descriptor on the root, descends
+  **per component** with `O_DIRECTORY | O_NOFOLLOW` relative to the
+  previous descriptor, and **classifies the leaf before any readable
+  open exists**: the leaf is first opened `O_PATH | O_NOFOLLOW` — a
+  descriptor that can be `fstat`ed but performs no device I/O and
+  triggers no open side effect — and only a leaf whose `fstat` shows a
+  regular file is then reopened readable **through that same
+  descriptor** (the descriptor's own re-open route, no path
+  re-traversal), so a fifo, device, or other non-regular leaf is never
+  opened for reading at all. The certified tuple is Linux; the
+  descriptor re-open route is available there. The two symlink
+  positions classify differently and both withhold: a symlink at an
+  **intermediate component** fails the `O_DIRECTORY | O_NOFOLLOW` step
+  (`ELOOP`, or `ENOTDIR` for a non-directory), while a symlink **at the
+  leaf** is opened *as itself* by `O_PATH | O_NOFOLLOW` — that flag
+  pair opens the link, it does not error — and is rejected by the
+  `fstat` classification showing a symlink, never followed and never
+  reopened readable. Either way the payload is withheld and no bytes
+  from outside the root ever enter the report; a failed open,
+  classification, or read (permission, disappearance) likewise
+  withholds the payload. None of these raises out of capture, and none
+  is a chain verdict.
+- **Capture is bounded, and the bound is a shared writer/reader
+  invariant, not a reader-only trap**: the FIFO and device protections
+  do not bound a regular file, and an unbounded read under the shared
+  hold is a memory-exhaustion and hold-duration lever. The ceiling is
+  frozen at **`RECORD_CEILING = 8 MiB` (2^23 bytes)**, one constant
+  with two enforcement points. **Reader**: the capture reads
+  **ceiling + 1** bytes from the descriptor; a read returning more
+  withholds the payload (no partial capture, no truncation ever handed
+  to a decoder), landing in the absent-from-`records` rule below.
+  **Writer**: enforcement lives in **`DurableOperationPort.execute`
+  and `execute_fulfilling`, before the executor is constructed** — the
+  port is the qualifying-publication boundary, and the check binds
+  exactly what flows through it: runs, act-reports, holdings
+  observations, every future qualifying kind. Not per encoder — a run
+  encoder check alone would leave act-reports (`entries` is unbounded)
+  and holdings observations (`supersedes` is unbounded) free to
+  publish what capture withholds. And **not in the shared executor
+  plan validation**: `_refuse_malformed` runs inside every executor
+  call, including the corpus, world, and store writers that never
+  publish qualifying records, so a ceiling there would silently bind
+  epoch, registry, and corpus effects capture never reads. Any planned
+  postimage whose bytes exceed `RECORD_CEILING` refuses as
+  **`PlanRefusedError`**, the existing malformed-plan class, **before
+  any write** — squarely inside the two-error contract item 2a
+  preserves. No
+  partial record lands, and the already-appended intent then reads
+  attempt-without-recorded-outcome — the truthful state for an attempt
+  whose terminal record could not be published.
+- A path a fulfilling registration's final surface names that is **absent
+  from `records` — including absent because the no-follow rule withheld
+  it — or present and undecodable** → that pointer is a pointer whose
+  published record cannot be read: qualification **unresolvable**, no
+  unmatched finding — §6's rule, now with its evidence path stated. Undecodable bytes here are a qualification state,
+  never a refusal: this surface is captured live evidence, unlike
+  `history`, which remains the caller-held historical copy input for L13
+  classification, validated and refused on corruption exactly as today.
+  The two inputs never mix: `records` answers "what does the chain's own
+  root publish now", `history` answers "what did the caller retain".
+
+**3.2 The decode gate — unknown and malformed intent payloads.** The
+engine accepts arbitrary intent bytes, and only the holdings shape names
+a domain on the wire. The other two are **domainless field shapes**, as
+built: the operation payload is the canonical encoding of
+`{kind, event_token, actor}` (the import boundary's append), and the
+assessment-run payload **is fixed here** as the canonical encoding of the
+record type's own fields, `{spec_identity, event_token, actor}` — no
+durable append of it exists in the tree today; the boundary contract
+that appends it, and publishes what fulfills it, is §2.6's. The
+discriminators are exact and disjoint by construction:
+
+- an object carrying `domain` naming `science.holdings-intent.v1` →
+  the holdings shape's schema;
+- an object with **exactly** the field set `{kind, event_token, actor}`
+  and `kind` in the closed `OPERATION_KINDS` vocabulary → the operation
+  shape's schema;
+- an object with **exactly** the field set
+  `{spec_identity, event_token, actor}` → the assessment-run shape's
+  schema (`spec_identity` presence versus `kind` presence is what makes
+  the two domainless shapes unconfusable);
+- a discriminator match whose value then fails the shape's schema (a
+  type violation, an empty required string) → status **`unrecognized`**,
+  with one `intent-payload-malformed` finding (severity `error`, `ref`
+  the intent digest) — a cooperative boundary wrote garbage under a
+  claimed shape, which is louder than a foreign payload but still
+  **never the chain verdict**: a rewritten payload on a tampered chain
+  already broke linkage and answered `malformed` at structure, so what
+  reaches this gate on a well-formed chain was written this way;
+- everything else — bytes that are not canonical JSON, a non-object, an
+  object fitting no discriminator (`{}`, a foreign `domain`, an unknown
+  field set, an out-of-vocabulary `kind`) → status **`unrecognized`**,
+  with one `intent-domain-unrecognized` finding (severity `warning`,
+  `ref` the intent digest, `detail` the foreign domain,
+  `domainless-unrecognized` for a parseable object fitting no shape, or
+  `undecodable`); the reduction is not entered, and no fulfillment
+  judgment is made or implied.
+
+The gate is total: every `IntentEntryView` lands in exactly one bullet.
+
+**3.3 The report contract.** `LogReport.intents_unevaluated` retires, and
+the report gains exactly one field in its place:
+
+```python
+@sealed
+@final
+@dataclass(frozen=True, slots=True)
+class IntentQualification:
+    digest: str          # the intent entry's digest
+    shape: Literal["assessment-run", "operation", "holdings"] | None
+    status: Literal[
+        "matched",
+        "unresolvable",
+        "attempt-without-recorded-outcome",
+        "unrecognized",
+    ]
+    fulfilled_by: str | None  # the qualifying registration's digest
+```
+
+- `LogReport.qualification: tuple[IntentQualification, ...]` — one row
+  per `IntentEntryView`, in chain order by entry position, always a
+  total accounting of the inventory: no intent is silently dropped.
+- `shape` is `None` exactly when `status` is `unrecognized`, and named
+  otherwise. `fulfilled_by` is set exactly when `status` is `matched`,
+  and `None` otherwise.
+- `status` is `attempt-without-recorded-outcome` exactly when §6's
+  finding of that name is emitted for that intent.
+- Carriage keeps the inventory's rules: the field is populated even on a
+  genesis-form `malformed` exit — a chain the engine linearized has an
+  intent inventory whatever its genesis payload says — and empty on the
+  `MalformedView` exit, where there are no entries to inventory.
+- Finding codes, under the existing Science envelope
+  (`Finding(severity, code, ref, detail, message)`):
+  `intent-attempt-without-recorded-outcome` (severity `warning`, `ref`
+  the intent digest); `intent-fulfillment-non-qualifying` (severity
+  `warning`, `ref` the non-qualifying registration's digest, `detail`
+  naming the intent digest and the reason class — wrong-purpose,
+  wrong-spec, wrong-token, wrong-kind, wrong-shape, wrong-location,
+  no-record); and §3.2's two gate codes.
+- **Placement is pinned, not "existing discipline"** — the evaluator
+  appends findings by phase and tests observe positions, so the rule is
+  stated: qualification findings are appended **last**, after every
+  finding the exit's own phase produced, on every exit that carries
+  `qualification`. Within the block, intents in inventory (chain) order;
+  per intent, the gate finding (§3.2), or the
+  attempt-without-recorded-outcome finding followed by that intent's
+  `intent-fulfillment-non-qualifying` findings in registration chain
+  order. A `matched` or `unresolvable` intent emits no finding — the
+  frozen text ties the non-qualifying findings to the attempt case, and
+  unresolvable emits nothing by rule. Nothing about qualification
+  reorders any other phase's findings.
+
+Qualification remains **report-field status, never the chain verdict**:
+no qualification state changes `outcome`, and no outcome suppresses
+qualification's findings. Callers and tests naming the retired field
+update in the same task; no alias, no deprecation shim.
+
+## 4. The holdings interior replacement (`science/holdings/`)
+
+The installed rule's qualification source (`qualify.py`, concatenated into
+the `rules_v1` fixture) is regenerated from the general reducer's holdings
+shape, so the rule and the verifier share one interior. The rule's
+callers — the capture split, the active-set reducer, the three blocking
+classes, the coverage projection, the adapter, the receipt *machinery* —
+are untouched: holdings §4.3's contract, "replaces its interior, not its
+callers," discharged as written. What changes is exactly:
+
+1. the rule source's qualification section, now generated from the shared
+   shape rather than hand-maintained beside it;
+2. the rule's content digest, and therefore the pinned receipt — a new
+   receipt is minted under the existing receipt discipline, and the old
+   one remains what it always was, a value with a content identity;
+3. nothing else. Blocking semantics, per-location precedence (§5.1's
+   pinned capture precedence), and the reducer's fixture binding are
+   byte-for-byte concerns of the regeneration, certified by arms that run
+   the holdings qualification through both consumers and compare.
+
+## 5. G4's closure — transferred to the successor-admission slice
+
+> **Transferred 2026-08-27** (the twentieth amendment). Everything below
+> is the successor-admission slice's inherited authority — designed
+> here across nine cut readings, owned there, read by no cut-11 arm.
+> That slice's **opening obligations**, recorded from the tenth
+> reading before any of its own work begins:
+>
+> 1. **Stamp validation precedes the typed readers** — raw decoding
+>    through `node_from_markdown` and the typed readers bypasses
+>    `ReadView`'s missing/stale semantic-stamp checks, so tampered
+>    facets could invent or erase blocker evidence; freeze the stamp
+>    check before `verification_value`/`assessment_value`, with stale
+>    verification and stale assessment arms.
+> 2. **"Resolves" needs `Index` semantics, not a dictionary** — reuse
+>    `Index.build` over the captured nodes for live/deprecated
+>    reference handling and collision refusal, mapping structural
+>    collisions to `AdmissionEvidenceRefused`, with
+>    deprecated-reference and collision arms.
+> 3. **The supersession helper is `science.verification.active`** —
+>    `science.verify.active_verifications` consumes rich replay
+>    `RunVerification` values, not the stored
+>    `science.verification.Verification` the typed reader returns.
+> 4. **The ceiling bounds each file, not the namespace** — aggregate
+>    I/O and allocation scale with record cardinality; no claim of
+>    totally bounded admission I/O survives without a cardinality
+>    bound.
+> 5. **An oversized record cannot be recognized as superseded** — it
+>    refuses before decoding, so its supersession state is unreadable;
+>    "corrected or superseded" is too broad for that case and needs a
+>    narrower rule.
+
+**The positive half.** A **recorded** failed replay attempt cannot be
+silently orphaned. Through the reduction: an intent whose fulfillment
+never qualifies — a kill between the durable intent append and execution
+start, a wrong-purpose committed transaction, a publication creating no
+run — reads **attempt-without-recorded-outcome** in every report over the
+chain, and discarding the failed *fulfillment* while the intent survives
+moves qualification, never erases the attempt. The kernel G-table row's
+refusal arm — an unreferenced successor to a recorded failure — is read
+where the boundary already refuses it.
+
+**The negative half, pinning the limit.** Discard the failed attempt
+*entirely* — no intent appended, nothing durable — and confirm the system
+**cannot** detect it: crash, cancellation, and discarded failure are
+indistinguishable by construction. The arm asserts the limit so no reader
+over-reads G4, exactly as G8's negative pins its own. Detection stays
+quantified over surviving observers throughout — destruction of a root
+together with every anchor holding it is not detectable from nothing.
+
+**The durable bridge to successor refusal.** `admit_successor` consumes
+`recorded_failures` as caller-supplied value state — "G4 over the
+slice's value state", certified at that width by cut 3 — so without a
+frozen derivation the durable reduction and the refusal would never
+compose, and G4's closure could be claimed over a hand-built set. The
+derivation is fixed here as **two blocker classes, distinct in
+derivation and in refusal reason** — because a single recorded-failures
+set faces a dilemma: deriving from attempt-without-recorded-outcome
+mints failure evidence from the very absence G4's negative pins, while
+excluding it outright reopens the discarded-terminal-record loophole
+intent-before-execution exists to close (intent appends, replay fails,
+the terminal record is discarded, the intent survives — and an
+unreferenced successor would sail through).
+
+**Class 1 — recorded failures**, from failure evidence actually
+recorded:
+
+- a **verification record with a failing verdict**, joined over the
+  stored surfaces that exist: the verification's `verifies` edge to
+  the assessment record, and that assessment facet's `spec` — the
+  stored verification facet is `{assessment, scope, verdict,
+  supersedes?}` and names no replay run, so the run-side join is not
+  constructible and is not claimed. The facet's `assessment`
+  **identity** and the edge's **address** are independent stored
+  facts, so the join **binds them**: the facet identity must equal
+  `assessment_value(target).identity()` for the record the edge
+  resolves to. **Edge cardinality is part of the rule**: the semantic
+  stamp covers the facet, not the relations, so a validly stamped
+  verification can carry zero or several `verifies` edges — the join
+  requires **exactly one** outbound `verifies` edge, and zero or
+  multiple are incoherent exactly as a bad target is. A failing
+  verification whose edge count is not one, or whose edge target is
+  missing, not an assessment, malformed, or whose resolved identity
+  mismatches the facet's is **incoherent evidence, and the composition
+  refuses the admission act naming that verification** — corrupt
+  evidence is never silently ignored, and never converted into a block
+  against any spec: a mismatched verification blocks nothing and
+  refuses loudly, so identity A's evidence can never block
+  assessment B's spec; and
+- a qualifying **`run-attempt` act-report** — the retained record of a
+  post-intent attempt that minted no run, an execution refusal
+  included — joined to its fulfilled intent's `spec_identity`.
+
+**Class 2 — unfinished recorded attempts**, the must-reference
+blocker: every **assessment-run** intent whose qualification reads
+attempt-without-recorded-outcome contributes its `spec_identity` — not
+as a recorded failure, which it is not, but as a durable attempt whose
+resolution is unrecorded: the intent's survival is exactly what
+intent-before-execution made visible, and it blocks an unreferenced
+successor until referenced or resolved.
+
+The successor gate consumes the two classes **distinctly**, and the
+widened surface is concrete, not gestured at:
+`admit_successor(candidate, superseded, recorded_failures:
+frozenset[str], unfinished_attempts: frozenset[str])`, this slice's
+change to the existing one-set signature, refusing with distinct
+reasons — "an unreferenced successor to a recorded failed replay" and
+"an unreferenced successor to an unfinished recorded attempt" — and a
+referencing successor lifting either class. **Overlap precedence is
+fixed**: a spec present in both classes refuses with the
+recorded-failure reason — the stronger recorded claim wins, and the
+answer never depends on set iteration order. **The snapshot is
+coherent**: both sets are composed in one read — the same chain view
+and the same stored-surface capture, under the same hold — never two
+reads at different times, so the pair cannot disagree about which
+attempts had resolved. Both compositions are the boundary's read over
+the corpus stored surface and the chain's qualification report — never
+the evaluator's `records` capture, whose namespaces are unchanged —
+and never a caller-invented set.
+
+**The deriving boundary is a named entrypoint, not a convention.**
+`admit_successor` stays the pure two-set core, and the tree has no
+production caller of it — so "never a caller-invented set" would be
+unenforced prose without the boundary that owns the derivation. This
+slice ships **`admit_spec_successor`**, with a callable contract, not a
+gesture — the existing `OperationPort` supplies neither reads nor a
+hold, so the binding is the log seam the audit and restore boundaries
+already consume:
+
+```python
+def admit_spec_successor(
+    candidate: FrozenSpec,
+    superseded: FrozenSpec,
+    *,
+    seam: LogSeam,
+    root: Path,
+) -> SuccessorAdmitted | SuccessorRefused: ...
+```
+
+exported from `science.spec` beside the core, joining its `__all__`;
+the return union is the core's existing pair, unchanged; the one
+declared exception is `AdmissionEvidenceRefused`. **No `ReadView`
+binding, deliberately**: a caller-supplied view is not bound to `root`
+or to the held lock — `root=A` with a view opened at `B` would mix
+one root's chain with another's stored evidence, and even a same-root
+view predates reconstruction and stays stale under a
+later-acquired lock — and `ReadView.opened_at` constructs a `Corpus`
+whose loader has **already read and decoded every complete file,
+unbounded**, before this act could bound anything, exposing Nodes
+rather than stored bytes afterward. The boundary therefore reads its
+own evidence: under the root's operation lock — the §6.1 hold, **held
+through the admission decision** — it assembles the chain view and
+captured surface through `seam`, and reads the **verification and
+assessment record namespaces beneath `root` itself**, with §3.1's
+capture mechanics — fd-anchored no-follow descent, `O_PATH`
+classification, and the **ceiling-plus-one bounded read on the raw
+stored bytes, before any decoding**: a record file exceeding
+`RECORD_CEILING` refuses the act as `AdmissionEvidenceRefused` naming
+the path, with I/O, allocation, and parsing all bounded. The surviving
+raw bytes decode through the stored decode surface and the typed
+readers (`verification_value`, `assessment_value`), every failure
+mapped as already frozen. Root-binding and freshness hold **by
+construction**: there is no view parameter to point elsewhere, and the
+read happens inside the hold, so a blocker recorded immediately before
+the act is consulted and nothing predates reconstruction.
+Verification and assessment records remain ordinary corpus writes,
+deliberately outside the port's writer-side ceiling (§3.1's non-port
+scope unchanged); the stated consequence stands — the official writer
+can store a record this act then refuses to read, and the admission
+blocks loudly by name until the record is corrected or superseded —
+fail-closed, because silently skipping oversized failure evidence
+would be the erasure this boundary exists to prevent. It then runs the
+qualification reduction, composes the two classes, and calls
+`admit_successor` with the derived sets. No second boundary exists to
+invent.
+
+**Class 1 selects among active verifications, not all of them.** A
+failing verification superseded by a later one is not the record's
+live claim — the tree's existing supersession rule,
+`science.verification.active` *(corrected by opening obligation 3 —
+the earlier `active_verifications` naming was the replay-value
+helper)*, already selects the unsuperseded set, and the
+composition uses exactly it. A failing verification whose active
+superseder **passes** contributes no member — the block lifts; a
+failing verification superseded by another **failing** one blocks
+through the active member. Without this selection, "corrected or
+superseded" would be an empty promise: old records remain stored, and
+a retired failure would block forever. **The verification evidence gate, complete and scoped.** Every
+verification record consulted decodes through the existing typed
+reader, `verification_value` — generic corpus storage does not
+guarantee it succeeds, and a reader failure is a source whose verdict
+is unknowable, refused, never skipped. Among decoded sources, **only
+failing-verdict verifications enter the coherence gate** — a passing
+verification is not blocker evidence, and its relations are not this
+gate's business. An incoherent failing verification — reader failure,
+cardinality, target, or identity mismatch — **refuses the admission
+globally, whatever spec it might concern**: incoherence is exactly the
+state in which the evidence cannot be attributed to a spec, so a
+relevance scope is undecidable for precisely the records it would
+exempt, and admitting over unattributable failure evidence would be
+the silent skip this design refuses. The refusal — one named type,
+**`AdmissionEvidenceRefused`**, joining the `science.errors` family —
+**names the offending record in the error**, so the repair is directed,
+and the act is retried after correction, never around it. **Unresolved qualification refuses too**:
+an assessment-run intent carrying the superseded `spec_identity` whose
+qualification reads `unresolvable` — a genuine published run whose
+bytes decayed (L7 u3's construction), or equally a published refusal
+report decayed, the cut's separately named arm — is evidence that
+cannot be read,
+not evidence of absence; it enters neither class, and admitting over it
+would erase a possibly-recorded failure, so the boundary refuses with
+the same named refusal, the reason distinct ("qualification unresolved
+for the superseded spec"). Unresolvable intents carrying **other**
+specs do not block an unrelated admission. The successor-admission
+slice's cut runs its G4 positive arm through this entrypoint — a
+test-only composition proves nothing about the boundary. Production intents carry no spec and contribute nothing; the
+existing value-state sources are unchanged beside the derived members.
+G4's negative bound survives untouched: discard the attempt *and* its
+intent — nothing durable — and no class holds a trace. The
+successor-admission slice's cut exercises the G4 positive arm across
+all three refusal paths end to end, acknowledging cut 3's full
+disposition as the value-width certification that arm re-reads at
+persistence width.
+
+G4 closes at the **successor-admission slice's** discharge, not this
+one's; the G2a-ordering row is untouched by either.
+
+## 6. Conformance cut 11
+
+The cut document (`conformance-cut-11`, dated at drafting) freezes before
+any implementation task. Its selection is drawn from frozen text, not written
+fresh:
+
+- **cut 8's L7 row** — the qualification arms at all three widths:
+  no-pointers and all-resolved-non-qualifying; the mutated fulfillment
+  family per shape (wrong purpose, wrong spec, wrong token, no record
+  created; wrong location for holdings; wrong kind and wrong-operation
+  token for operation); unresolvable published bytes with no unmatched
+  finding; kill-between-append-and-start per shape; the
+  root-other-than-the-intent's refusal; no caller-supplied `fulfills`
+  path at the boundary; and the row's negative. The two chain-structural
+  L7 units stay cut 8's — certified there, not re-read.
+- **the kernel G-table G4 row is deliberately not selected** — split
+  out 2026-08-27 with the successor-admission boundary (§1 item 0,
+  §5's transfer note); the cut records it as a row not read with its
+  named owner.
+- **the decode gate (§3.2)** — a foreign-domain intent reads
+  `unrecognized` with its `intent-domain-unrecognized` finding and enters
+  no reduction; a discriminator-matched schema-invalid payload reads
+  `unrecognized` with `intent-payload-malformed`; a parseable object
+  fitting no shape (`{}`) reads `unrecognized` with
+  `domainless-unrecognized` detail; none moves the chain verdict, and
+  every row appears in `qualification` — the total-accounting assertion.
+- **the evidence path (§3.1)** — a fulfilling registration whose named
+  record path is absent from the captured `records` surface, and one
+  whose captured bytes do not decode, each read qualification
+  `unresolvable` with no unmatched finding; a record path replaced by a
+  **symlink out of the root** reads `unresolvable` with no bytes from
+  outside the root anywhere in the report — and the arm runs the **swap
+  race**, not only the static link: the leaf becomes a symlink between
+  enumeration and read (constructed deterministically at the capture
+  seam), and the fd-anchored capture classifies the opened `O_PATH`
+  descriptor as a symlink and withholds the payload — never followed,
+  never outside bytes; `history` remains L13's and is untouched by any
+  of these.
+- **the run boundary's persistence (§2.6)** — the published run's
+  captured bytes round-trip: append, execute, publish, capture, decode,
+  match — the projection's shape, token, and spec establish the
+  qualifying pair, the recomputed address agrees with the record id,
+  and the role-preserving relations and the production `produces` edge
+  are read back exactly; the **closure-member mutation arm**: mutate
+  any single member of the captured projection — a recipe field, a
+  result pair, an occurrence field — and the recomputed address
+  diverges from the id, the bytes are not the named publication, and
+  qualification reads `unresolvable`, never a silent match; the
+  **incomplete-closure arm**: a canonical, self-addressed object
+  carrying only shape, spec, and token — a valid `science.run.v1`
+  digest preimage that is not a projection — fails the typed projection
+  view's schema and reads `unresolvable`, never a match on its matching
+  fields; the
+  **capture-ceiling arms, both sides of the shared invariant**: a
+  tampered regular file at a record path exceeding `RECORD_CEILING` is
+  withheld by the bounded read — qualification `unresolvable`, capture
+  completes, and no ceiling-plus-one buffer is ever handed to a
+  decoder — while the boundary-side arms drive an oversized **run**
+  and an oversized **act-report** (unbounded `entries`) into the
+  port's pre-construction check and assert the `PlanRefusedError`
+  refusal before any write: the official boundary **cannot** publish a
+  record its verifier would withhold, whatever the record kind, and
+  the appended intent reads attempt-without-recorded-outcome — while
+  the **non-port regression arm** drives a large non-port write (an
+  epoch or registry effect above the ceiling) through its own executor
+  and asserts it lands unaffected, the ceiling binding only the
+  qualifying-publication boundary; the
+  **reversed-pairs arm**: a self-addressed projection with its result
+  pairs reversed satisfies every field rule, fails canonical
+  reprojection equality, and reads `unresolvable`, never a match; the
+  **wrong-run-shape arm**: an assessment-shaped run
+  carrying a production intent's token fails qualification with reason
+  `wrong-shape`, and conversely; the **unfulfilling-publication arm**:
+  a pre-intent refusal's report lands through `execute`, fulfills
+  nothing, and `execute` keeps the executor's two-error contract — a
+  malformed plan refuses as `PlanRefusedError` before any write, an
+  execution failure surfaces as `ExecutionError`, neither a
+  fulfillment; the **type-preserving wire arms**: a recipe parameter of
+  `Decimal("0.5")` round-trips distinctly from `"0.5"`, and `1`
+  distinctly from `Decimal("1.0")` — publish, capture, decode,
+  recompute — with the address agreeing in each case and the four never
+  colliding; the **coverage arm**: mutate the published record's
+  `run-closure` facet in place and the semantic stamp is stale — the
+  read refuses under the existing semantic-hash rule — while an
+  untouched legacy record's stamp stays valid, absent facets never
+  entering the projection; the **shape-agreement arms, both ways**: an
+  assessment publication whose `run` facet `spec` disagrees with its
+  closure's refuses decode, and a production publication whose `run`
+  facet carries any `spec` key refuses decode — the frozen shapes are
+  `{"spec": <spec>}` and exactly `{}`; the
+  **reference-resolution arm**: an assessment referencing
+  the published run and a `StampedBasis.run` carrying its bare address
+  both resolve, through the stated bridge, to exactly the published
+  record; the **legacy arm**: a record built by the *actual current*
+  `stored.run_node` — not a stripped projection — reads through the
+  `run` facet, resolves as a reference target, and never qualifies, with
+  no schema rejection; the kill-between-append-and-start, cross-root,
+  and pre-intent-refusal arms run against the durable boundary, per
+  shape.
+- **capture classification (§3.1)** — a non-regular leaf (a fifo) at a
+  record path is classified through the `O_PATH` descriptor and never
+  opened readable: capture completes without blocking, the payload is
+  withheld, qualification reads `unresolvable`.
+- **pending fulfillment (§2.1)** — an unsettled fulfilling registration
+  with its published bytes present on disk reads qualification
+  `unresolvable`, never `matched`: settlement is never inferred from
+  disk state, asserted on the pending exit where qualification is
+  carried.
+- **the completion re-base (§2.5)** — the wrong-spec run closure that
+  reads `CLOSED` today reads `UNFINISHED` after the re-base; and
+  **consumer agreement at three sites**: the verifier, the regenerated
+  holdings rule, and `completion` answer identically over the same
+  evidence for every shape each consumer reads (§4 item 3, widened).
+- **L7u1's partial remainder** — re-examined at the new width; selected
+  if constructible, its partiality re-stated with the same reason if not.
+
+Classification follows the any-unrun-arm rule: any arm not run keeps its
+row partial, and no argument for why an arm shouldn't count earns a
+"full." Discharge is on the certified volume, through the certified
+acceptance-runner cadence, with pytest summary lines quoted in the
+results record and the execution rulings ledger committed to a tracked
+path before any worktree removal.
+
+## 7. What this changes elsewhere (applied at banking)
+
+- **Kernel §8.7** — unchanged by this slice: the fourth
+  recorded-mutation consequence (G4) stays open, its owner now the
+  successor-admission slice; the status paragraph gains only that dated
+  ownership note.
+- **Adoption-ledger row 5** — the intent-boundary remainder discharges
+  except G4; the row's remainder text shrinks to event-level L8, the
+  L13 preimage resolver, and G4 with the successor-admission slice as
+  its named owner.
+- **Adoption-ledger design-track item 6** — same shrink.
+- **Log-verification design §10 item 1** — closed with a dated note, the
+  slice-3 precedent for items 2, 3 and 6.
+- **`2026-08-22-log-verification-design.md` deferral texts and the
+  holdings design's deferral 5** — dated closure notes; frozen cut bodies
+  untouched.
+- **README/guide live claims** — the stale-claim grep
+  (`intent qualification|intents_unevaluated|G4`) runs at banking; live
+  text saying qualification is unevaluated updates, frozen records stay.
+
+## 8. Choreography (order of work)
+
+1. This spec's review closes.
+2. The conformance cut 11 document is drafted from the frozen sources §6
+   names and reviewed by a second reader.
+3. **Cut 11 freezes** — before any implementation task.
+4. Implementation on `design/intent-boundary`, TDD throughout, the
+   holdings slice's per-task review cadence: the reduction module, the
+   verifier lift, the interior replacement, the run-boundary
+   persistence — each task
+   red-then-green with its review findings closed by amendment.
+5. Certified discharge: the acceptance runner on the certified volume;
+   results record and rulings ledger committed to tracked paths.
+6. Banking: §7's changes, status header here, promotion to
+   `docs/designs/`; the `--no-ff` merge is the human partner's act.
+
+Any gap discovered mid-task between a frozen arm and built boundary
+behavior (a refusal the boundary does not yet make, a record it does not
+yet publish) upgrades scope by a dated amendment here before the task
+proceeds — never a silent narrowing of the arm.

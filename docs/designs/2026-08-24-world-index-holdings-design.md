@@ -78,9 +78,11 @@ adoption-ledger row 4's holdings-prerequisite remainder.
 4. **Recency as a successor projection rule** (§7 item 1) — the reducer this
    slice ships is the rule such a successor would replace, which is why its
    binding is fixture-bound and receipt-pinned.
-5. **The intent-boundary slice's territory**: L7's general reduction, G4's
-   closure, and every boundary-side arm. This slice instantiates
-   qualification for the holdings shape only (§4 below).
+5. **The intent-boundary slice's territory, closed 2026-08-28:** L7's general
+   reduction and every intent-boundary arm landed with world-index slice 6 and
+   cut 11. G4 did not: it split 2026-08-27 with successor admission to its own
+   named slice. This holdings slice still instantiated qualification for the
+   holdings shape only (§4 below).
 6. **Event-level L8 and the L13 preimage resolver** — row 5's other named
    owners, untouched.
 7. **Whether the derivation receipt joins the belief-input closure** (§7
@@ -313,6 +315,10 @@ G4's closure, and the boundary-side arms remain the intent-boundary slice's,
 and this slice's reduction is written so that slice replaces its interior,
 not its callers.
 
+**Current-state correction, 2026-08-28:** cut 11 replaced this interior with
+the maintained shared predicate and discharged the general L7 reduction. G4
+remains outside it under the successor-admission slice.
+
 ## 5. Reducer, projection, adapter, receipt
 
 **5.1 Capture, then the pure reducer — the split the rules-store ABI
@@ -504,9 +510,11 @@ certification of cut 9's two partial units, and the fulfills/qualification
 behavior **as the holdings-shape instantiation only**, declared so a
 cross-cut listing cannot read it as L7's closure.
 
-**Labeled deferrals:** the `url` arm (construction refusal is the labeled
-behavior), acquisition orchestration, recency, typed grants, the general L7
-reduction and G4.
+**Labeled deferrals at this slice's discharge:** the `url` arm (construction
+refusal is the labeled behavior), acquisition orchestration, recency, typed
+grants, the general L7 reduction and G4. **Dated correction 2026-08-28:** the
+general L7 reduction closed with cut 11; G4 remains with the separately named
+successor-admission slice.
 
 **Evidence discipline, as established:** count claims quote pytest's own
 summary line under `pipefail`, never a doubled `-q`, never a collect-only
@@ -526,6 +534,9 @@ designed to landed, exactly the rot those guards watch.
 - **Adoption-ledger row 5:** the remainder re-states as exactly intent
   qualification (G4), event-level L8, and the L13 preimage resolver — the
   holdings arms landed.
+  **Current-state correction, 2026-08-28:** intent qualification closed with
+  cut 11; the remainder is event-level L8, the L13 preimage resolver, and G4
+  under the successor-admission slice.
 - **Cut 9's results record is not edited** (frozen); the live docs that
   carry its two partial units as open — the guide's current-state pages —
   gain the closure with dated markers.

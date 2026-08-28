@@ -1359,8 +1359,8 @@ _CLAUSE_ARMS = [
         "R17",
         "assessment execution has no caller path for inputs, parameters, or nondeterminism",
         "boundary.py",
-        "    spec: object,\n    definition: WorkflowDefinition,",
-        "    spec: object,\n    inputs: tuple[RecipeInput, ...] = (),\n    definition: WorkflowDefinition,",
+        "    spec: object,\n    port: OperationPort,",
+        "    spec: object,\n    inputs: tuple[RecipeInput, ...] = (),\n    port: OperationPort,",
         "test_boundary.py::test_r17_no_path_supplies_inputs_parameters_or_contract_on_an_assessment_run",
     ),
     _clause_arm(
@@ -1386,10 +1386,8 @@ _CLAUSE_ARMS = [
         "R17",
         "dataset-production recipe members are authored directly at that boundary",
         "boundary.py",
-        "def execute_production_run(\n    *,\n    inputs: tuple[RecipeInput, ...],\n"
-        "    parameters: Mapping[str, object],",
-        "def execute_production_run(\n    *,\n    _inputs: tuple[RecipeInput, ...],\n"
-        "    parameters: Mapping[str, object],",
+        "def execute_production_run(\n    *,\n    inputs: tuple[RecipeInput, ...],\n    port: OperationPort,",
+        "def execute_production_run(\n    *,\n    _inputs: tuple[RecipeInput, ...],\n    port: OperationPort,",
         "test_boundary.py::test_r17_negative_b_a_dataset_production_recipe_is_authored_directly",
     ),
     _clause_arm(
@@ -1485,8 +1483,8 @@ _CLAUSE_ARMS = [
         "R21",
         "the manifest is boundary-constructed with no supplied-manifest path",
         "boundary.py",
-        "    spec: object,\n    definition: WorkflowDefinition,",
-        "    spec: object,\n    manifest: ResultManifest | None = None,\n    definition: WorkflowDefinition,",
+        "    spec: object,\n    port: OperationPort,",
+        "    spec: object,\n    manifest: ResultManifest | None = None,\n    port: OperationPort,",
         "test_boundary.py::test_r21_the_manifest_is_constructed_by_the_boundary_and_no_supplied_path_exists",
     ),
     _clause_arm(
@@ -1658,9 +1656,9 @@ _CLAUSE_ARMS = [
     _clause_arm(
         "T2",
         "a reconstructed-recipe mismatch closes its intent through a report registration",
-        "replay.py",
-        '        return _refused(str(error), recipe.spec_identity or "absent", actor, observer, started_at, outcome.intent)',
-        "        return RunRefused(str(error), None, outcome.intent, None)",
+        "boundary.py",
+        '        result = _refused("recipe-identity-mismatch", spec.identity, actor, observer, started_at, intent)',
+        '        return RunRefused("recipe-identity-mismatch", None, intent, None)',
         "test_replay.py::test_a_replay_refuses_a_reconstructed_recipe_mismatch",
     ),
     _clause_arm(
@@ -1691,7 +1689,7 @@ _CLAUSE_ARMS = [
         "T3",
         "a fulfilled intent reads closed",
         "report.py",
-        "        if type(value) is ActReport and value.event_token == intent.event_token:",
+        "        if shapes.mismatch(decoded, evidence) is None:",
         "        if False:",
         "test_report.py::test_t3_a_fulfilled_intent_reads_closed",
     ),
@@ -1699,8 +1697,8 @@ _CLAUSE_ARMS = [
         "T3",
         "a nonqualifying pointer never matches an intent",
         "report.py",
-        "        if type(value) is ActReport and value.event_token == intent.event_token:",
-        "        if type(value) is ActReport:",
+        "        if shapes.mismatch(decoded, evidence) is None:",
+        "        if True:",
         "test_report.py::test_t3_a_non_qualifying_pointer_never_matches",
     ),
     _clause_arm(

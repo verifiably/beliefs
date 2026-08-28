@@ -30,6 +30,7 @@ class Recorder:
 
 class FakePort:
     intents: ClassVar[list[bytes]] = []
+    executed: ClassVar[list[list]] = []
     fulfilling: ClassVar[list[tuple[list, str]]] = []
     intent_digest = "ab" * 32
 
@@ -39,6 +40,10 @@ class FakePort:
     def append_intent(self, payload: bytes) -> str:
         FakePort.intents.append(payload)
         return self.intent_digest
+
+    def execute(self, plan) -> None:
+        FakePort.executed.append(list(plan))
+        self._inner.execute(plan)
 
     def execute_fulfilling(self, plan, fulfills: str) -> None:
         FakePort.fulfilling.append((list(plan), fulfills))

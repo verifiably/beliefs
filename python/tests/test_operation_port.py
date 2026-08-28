@@ -16,12 +16,20 @@ from atoms.core.errors import (
 )
 from atoms.fs.platform import select_backend
 from atoms.store.errors import MetadataStoreInvalid
-from nodes.core.errors import ExecutionError
+from nodes.core.errors import ExecutionError, PlanRefusedError
 from nodes.core.write_plan import CreateOp, WritePlan
 
 from science import root as science_root
 from science.corpus import CorpusWriter, OperationPort
-from science.root import PRODUCTION_STORAGE, DurableOperationPort, open_corpus
+from science.root import (
+    PRODUCTION_STORAGE,
+    DurableOperationPort,
+    init_corpus_root,
+    init_store_root,
+    open_corpus,
+)
+from science.world.logmodel import RegisteredEntryView, WellFormedView
+from science.world.records import RECORD_CEILING
 
 FULFILLS = "ab" * 32
 PAYLOAD = b"\x00opaque intent\xff"
@@ -37,11 +45,15 @@ class Recorder:
 
 class FakePort:
     intents: ClassVar[list[bytes]] = []
+    executed: ClassVar[list[WritePlan]] = []
     fulfilling: ClassVar[list[tuple[WritePlan, str]]] = []
 
     def append_intent(self, payload: bytes) -> str:
         self.intents.append(payload)
         return FULFILLS
+
+    def execute(self, plan: WritePlan) -> None:
+        self.executed.append(plan)
 
     def execute_fulfilling(self, plan: WritePlan, fulfills: str) -> None:
         self.fulfilling.append((plan, fulfills))
@@ -54,6 +66,19 @@ def durable_port(tmp_path) -> DurableOperationPort:
         storage=PRODUCTION_STORAGE,
         metadata_root=tmp_path.with_name(tmp_path.name + ".metadata"),
     )
+
+
+def _registered_port(root):
+    init_corpus_root(root)
+    return durable_port(root)
+
+
+def _registrations(root):
+    chain = science_root._log_seam().inspect_registered(root)
+    assert type(chain) is WellFormedView
+    return [
+        entry for entry in chain.entries if type(entry) is RegisteredEntryView
+    ]
 
 
 class TestTheStructuralPort:
@@ -145,3 +170,56 @@ class TestTheDurablePort:
 
         assert (mapped.value.index, mapped.value.applied) == (None, applied)
         assert mapped.value.__cause__ is raised
+
+
+def test_execute_publishes_fulfilling_nothing(certified_work) -> None:
+    port = _registered_port(certified_work)
+    port.execute(
+        [CreateOp(path="act-report/" + "a" * 64 + ".md", content=b"content")]
+    )
+    (registration,) = _registrations(certified_work)
+    assert registration.fulfills is None
+    assert (certified_work / "act-report" / ("a" * 64 + ".md")).read_bytes() == b"content"
+
+
+def test_execute_refuses_a_malformed_plan_before_any_write(certified_work) -> None:
+    port = _registered_port(certified_work)
+    with pytest.raises(PlanRefusedError):
+        port.execute([CreateOp(path="../escape.md", content=b"x")])
+    assert _registrations(certified_work) == []
+
+
+def test_execute_surfaces_an_execution_failure_as_execution_error(certified_work) -> None:
+    port = _registered_port(certified_work)
+    plan = [CreateOp(path="act-report/" + "b" * 64 + ".md", content=b"x")]
+    port.execute(plan)
+    with pytest.raises(ExecutionError):
+        port.execute(plan)
+
+
+def test_oversized_postimage_refuses_before_any_write(certified_work) -> None:
+    port = _registered_port(certified_work)
+    boundary = b"x" * RECORD_CEILING
+    port.execute(
+        [CreateOp(path="act-report/" + "c" * 64 + ".md", content=boundary)]
+    )
+    with pytest.raises(PlanRefusedError):
+        port.execute(
+            [CreateOp(path="act-report/" + "d" * 64 + ".md", content=boundary + b"x")]
+        )
+    with pytest.raises(PlanRefusedError):
+        port.execute_fulfilling(
+            [CreateOp(path="run/" + "e" * 64 + ".md", content=boundary + b"x")],
+            "f" * 64,
+        )
+    assert not (certified_work / "act-report" / ("d" * 64 + ".md")).exists()
+    assert not (certified_work / "run").exists()
+    assert len(_registrations(certified_work)) == 1
+
+
+def test_non_port_writes_are_unaffected_by_the_ceiling(certified_work) -> None:
+    init_store_root(certified_work)
+    big = b"x" * (RECORD_CEILING + 1)
+    outcome = science_root._store_write(certified_work, "payload.bin", big)
+    assert (certified_work / "payload.bin").read_bytes() == big
+    assert outcome.txid

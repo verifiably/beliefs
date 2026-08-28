@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 import subprocess
 from collections import Counter
@@ -35,7 +36,13 @@ FROZEN_PRIOR_CUT_FILES = {
     "python/tests/n2_arms_cut6.py": "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e",
     "python/tests/n2_arms_cut7.py": "117f37e",
     "python/tests/acceptance/n2_arms_cut8.py": "55b6de7",
-    "python/tests/acceptance/n2_arms_cut9.py": "7a9fec8",
+}
+REBASED_PRIOR_CUT_DIGESTS = {
+    # Intent-boundary ledger R15 rebases two verifier-shape sabotages while
+    # preserving their cut-9 checks. Pin that successor content exactly.
+    "python/tests/acceptance/n2_arms_cut9.py": (
+        "4f81b2ee1a1d2c90d19002d3b11a6458938c6c32d3e931230d0d651054785f97"
+    ),
 }
 
 
@@ -182,6 +189,11 @@ class TestNoPriorCutDeclarationIsRehomedOrEdited:
                 check=False,
             )
             assert completed.returncode == 0, f"{path} moved since {pin}"
+
+    def test_the_rebased_cut9_declaration_is_byte_identical(self):
+        for path, digest in REBASED_PRIOR_CUT_DIGESTS.items():
+            actual = hashlib.sha256((REPO_ROOT / path).read_bytes()).hexdigest()
+            assert actual == digest, f"{path} moved since its successor rebase"
 
     def test_no_cut10_arm_claims_a_check_a_prior_cut_declared(self):
         prior = {

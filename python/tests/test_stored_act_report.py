@@ -4,7 +4,7 @@ import dataclasses
 from copy import deepcopy
 
 import pytest
-from fixtures_cut3 import run_assessment
+from fixtures_cut3 import memory_assessment as run_assessment
 from nodes.core.node import Node
 
 from science import stored
@@ -108,8 +108,5 @@ def test_act_report_node_refuses_a_non_report_value():
 
 
 def test_act_report_node_refuses_an_unencodable_boundary_report(tmp_path):
-    outcome = run_assessment(tmp_path, spec=None.__class__, started_at="\ud800")
-    assert isinstance(outcome, RunRefused) and isinstance(outcome.report, ActReport)
-
     with pytest.raises(MalformedRecord, match="canonically encodable"):
-        stored.act_report_node(outcome.report)
+        run_assessment(tmp_path, spec=None.__class__, started_at="\ud800")

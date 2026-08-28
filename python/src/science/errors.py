@@ -447,6 +447,12 @@ class MalformedDomain(IdentityError):
     """A digest domain that is not a well-formed, versioned domain name."""
 
 
+class CanonicalTextRefused(IdentityError):
+    """Bytes presented as v1-canonical text are not: malformed UTF-8 or
+    JSON, a refused constant, a re-encoding refusal (wrapped, cause
+    preserved), or re-encoded bytes that differ from the input."""
+
+
 class ContractError(ScienceError):
     """A contract was refused at load."""
 
@@ -673,6 +679,10 @@ class MalformedRecord(RecordError):
     """A field that is not what the kernel's tables declare — a digest that is
     not ``<algorithm>:<lowercase hex>``, an outcome or scope outside its closed
     set, a role outside ``observes | reads | transforms``."""
+
+
+class RecordUndecodable(RecordError):
+    """Captured bytes cannot be read as the named published record."""
 
 
 class UrlLocatorDeferred(RecordError):

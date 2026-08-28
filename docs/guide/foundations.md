@@ -2,7 +2,7 @@
 title: Foundations
 status: living
 created: 2026-08-08
-updated: 2026-08-24
+updated: 2026-08-28
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-substrate-consolidation-design.md
@@ -16,8 +16,11 @@ sources:
   - ../designs/2026-08-20-conformance-cut-6.md
   - ../designs/2026-08-24-world-index-holdings-design.md
   - ../designs/2026-08-24-conformance-cut-10.md
+  - ../designs/2026-08-26-world-index-intent-boundary-design.md
+  - ../designs/2026-08-27-conformance-cut-11.md
   - ../plans/2026-08-20-conformance-cut-6-results.md
   - ../plans/2026-08-24-conformance-cut-10-results.md
+  - ../plans/2026-08-27-conformance-cut-11-results.md
 ---
 
 # Foundations
@@ -147,7 +150,7 @@ structural or integrity finding, but it mints nothing and performs no repair.
 
 ## Current state
 
-The adoption ledger records ten implemented slices. Cut 6 implements the
+The adoption ledger records eleven implemented slices. Cut 6 implements the
 authoritative world root, manifest, corpus-state identity, and append-only
 registry core; cut 7 adds epoch publication, the four derived maps and their
 receipts, bounded reads, whole-epoch GC, and anchor carriage, merged into
@@ -163,10 +166,15 @@ intent-bearing acts, mechanical coverage, active-set reduction and receipt,
 and dataset admission adapter — discharged 2026-08-25 on
 `design/holdings` and merged into local `main` with `--no-ff` as
 `35be6ff` the same day; not pushed
-([results](../plans/2026-08-24-conformance-cut-10-results.md)).
-Global resolution remains designed. The log slice still owes general intent
-qualification with G4, the preimage-backed classification of a removed
-verification, and event-level cross-chain order; its holdings-shaped
+([results](../plans/2026-08-24-conformance-cut-10-results.md)); cut 11 adds
+**general intent qualification** — the three-shape reduction, bounded evidence
+capture, durable run publication, verifier lift, regenerated holdings interior,
+and completion re-base — discharged 2026-08-28
+([results](../plans/2026-08-27-conformance-cut-11-results.md)).
+Global resolution remains designed. The log slice still owes G4 (**split
+2026-08-27 to its own successor-admission slice**), the preimage-backed
+classification of a removed verification, and event-level cross-chain order;
+its holdings-shaped
 qualification and the two deferred L10 holdings-read arms closed with cut 10.
 
 ## Open edges

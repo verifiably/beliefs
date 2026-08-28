@@ -370,6 +370,24 @@ def tree(*roots: Path) -> dict[str, bytes]:
 
 
 class TestTheAuditAct:
+    def test_the_shared_assembly_forwards_the_captured_records(
+        self, tmp_path, monkeypatch
+    ):
+        root = corpus_root(tmp_path)
+        inspections, captures = Inspections(), Captures()
+        inspections.set(root, surfaced(root, "corpus", science_root.GENESIS_PAYLOAD))
+        captured = (("run/a.md", b"record"),)
+        monkeypatch.setattr(verify, "capture_records", lambda _root, _kind: captured)
+
+        _, _, records, _ = verify._assemble_evaluation_inputs(
+            make_seam(inspections, captures),
+            "corpus",
+            root,
+            config_for(tmp_path, root),
+        )
+
+        assert records is captured
+
     def test_a_corpus_with_damaged_node_bytes_is_lockable_and_judged(self, tmp_path):
         # The lock-only lookup is the whole point: `_root_state_for` constructs
         # and parses a `Corpus`, so on exactly the damaged root an audit exists
@@ -561,44 +579,76 @@ class TestTheAuditAct:
 
         assert tree(root, world) == before
 
-    def test_it_holds_the_corpus_operation_lock_across_inspection_and_capture(self, tmp_path):
+    def test_it_holds_the_corpus_operation_lock_across_inspection_and_capture(
+        self, tmp_path, monkeypatch
+    ):
         root = corpus_root(tmp_path)
         inspections, captures = Inspections(), Captures()
         inspections.set(root, surfaced(root, "corpus", science_root.GENESIS_PAYLOAD))
         held = _operation_lock_for(root)
-        observed: list[str] = []
+        observed: list[tuple[str, str]] = []
 
-        def probe(_root: Path) -> None:
-            # A build's capture arriving to any holder refuses at once, so this
-            # is the writer hold observed from outside rather than inferred.
-            with pytest.raises(BuildContended), held.capture():
-                pass
-            observed.append(str(held._holder))
+        def probe(label: str):
+            def record(_root: Path) -> None:
+                # A build's capture arriving to any holder refuses at once, so
+                # this observes the writer hold rather than inferring it.
+                with pytest.raises(BuildContended), held.capture():
+                    pass
+                observed.append((label, str(held._holder)))
 
-        inspections.probe = probe
-        captures.probe = probe
+            return record
+
+        inspections.probe = probe("inspect")
+        captures.probe = probe("disk")
+        real_records = verify.capture_records
+
+        def capture_records(target: Path, kind: verify.RootKind):
+            probe("records")(target)
+            return real_records(target, kind)
+
+        monkeypatch.setattr(verify, "capture_records", capture_records)
 
         audit(config_for(tmp_path, root), anchors.CorpusSubject(ALPHA), root, inspections, captures)
 
-        assert observed == ["writer", "writer"]
+        assert observed == [
+            ("inspect", "writer"),
+            ("disk", "writer"),
+            ("records", "writer"),
+        ]
         assert held._holder is None
 
-    def test_it_holds_the_world_lock_across_inspection_and_capture(self, tmp_path):
+    def test_it_holds_the_world_lock_across_inspection_and_capture(
+        self, tmp_path, monkeypatch
+    ):
         root = world_root(tmp_path)
         inspections, captures = Inspections(), Captures()
         inspections.set(root, surfaced(root, "world", science_root._world_genesis_payload(WORLD_ID)))
         held = registry._world_lock_for(root)
-        observed: list[bool] = []
+        observed: list[tuple[str, bool]] = []
 
-        def probe(_root: Path) -> None:
-            observed.append(held.acquire(blocking=False))
+        def probe(label: str):
+            def record(_root: Path) -> None:
+                observed.append((label, held.acquire(blocking=False)))
 
-        inspections.probe = probe
-        captures.probe = probe
+            return record
+
+        inspections.probe = probe("inspect")
+        captures.probe = probe("disk")
+        real_records = verify.capture_records
+
+        def capture_records(target: Path, kind: verify.RootKind):
+            probe("records")(target)
+            return real_records(target, kind)
+
+        monkeypatch.setattr(verify, "capture_records", capture_records)
 
         audit(config_for(tmp_path, world_id=WORLD_ID), anchors.WorldSubject(WORLD_ID), root, inspections, captures)
 
-        assert observed == [False, False]
+        assert observed == [
+            ("inspect", False),
+            ("disk", False),
+            ("records", False),
+        ]
         assert held.acquire(blocking=False) is True
         held.release()
 
@@ -715,22 +765,55 @@ class TestTheAuditAct:
         seen: list[tuple[object, ...]] = []
         evaluate = verify.evaluate_log
 
-        def recording(subject, chain_view, observers, disk, presented, absent_state, history=None):
-            seen.append((subject, chain_view, disk, presented, absent_state, history))
-            return evaluate(subject, chain_view, observers, disk, presented, absent_state, history)
+        def recording(
+            subject,
+            chain_view,
+            observers,
+            disk,
+            records,
+            presented,
+            absent_state,
+            state_facts,
+            history=None,
+        ):
+            seen.append(
+                (
+                    subject,
+                    chain_view,
+                    disk,
+                    records,
+                    presented,
+                    absent_state,
+                    state_facts,
+                    history,
+                )
+            )
+            return evaluate(
+                subject,
+                chain_view,
+                observers,
+                disk,
+                records,
+                presented,
+                absent_state,
+                state_facts,
+                history,
+            )
 
         monkeypatch.setattr(verify, "evaluate_log", recording)
 
         report = audit(config_for(tmp_path, root), anchors.CorpusSubject(ALPHA), root, inspections, captures)
 
         assert len(seen) == 1
-        subject, chain_view, disk, presented, absent_state, history = seen[0]
+        subject, chain_view, disk, records, presented, absent_state, state_facts, history = seen[0]
         assert (subject, chain_view, presented) == (
             anchors.CorpusSubject(ALPHA),
             view,
             verify.PresentedManifest(ALPHA),
         )
         assert disk == tuple((path, state(path)) for path in verify.registered_surface_paths(root, "corpus"))
+        assert records == ()
+        assert state_facts is make_seam(inspections, captures).state_facts
         assert (absent_state, history) == (ABSENT, None)
         assert report.outcome == "unresolvable"
 
@@ -1142,9 +1225,29 @@ def test_one_evaluator_one_inspection_contract(tmp_path, monkeypatch):
     seen: list[tuple[object, object]] = []
     evaluate = verify.evaluate_log
 
-    def recording(subject, chain_view, carriers, disk, presented, absent_state, history=None):
+    def recording(
+        subject,
+        chain_view,
+        carriers,
+        disk,
+        records,
+        presented,
+        absent_state,
+        state_facts,
+        history=None,
+    ):
         seen.append((subject, chain_view))
-        return evaluate(subject, chain_view, carriers, disk, presented, absent_state, history)
+        return evaluate(
+            subject,
+            chain_view,
+            carriers,
+            disk,
+            records,
+            presented,
+            absent_state,
+            state_facts,
+            history,
+        )
 
     monkeypatch.setattr(verify, "evaluate_log", recording)
 

@@ -16,11 +16,15 @@ from fixtures_cut3 import (
     interp,
     recipe,
     result_sensitive,
-    run_assessment,
-    run_production,
     runs_for,
     spec_draft,
     spec_rules,
+)
+from fixtures_cut3 import (
+    memory_assessment as run_assessment,
+)
+from fixtures_cut3 import (
+    memory_production as run_production,
 )
 
 from science.admission import AdmissionRefused, admit

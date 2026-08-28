@@ -548,8 +548,10 @@ def cut8_judge(chain: Chain, *carriers: verify.ObserverCarrier) -> verify.LogRep
         cut8_view(chain),
         verify.ObserverSet(carriers),
         cut8_disk(chain),
+        (),
         None,
         ENGINE_ABSENT,
+        science_root._log_seam().state_facts,
         None,
     )
 

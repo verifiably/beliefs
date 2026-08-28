@@ -12,6 +12,7 @@ import os
 import pytest
 from fixtures_cut3 import (
     DATA_ADDRESS,
+    MEMORY_PORT,
     READS_ADDRESS,
     SNAKEFILE_DETERMINISTIC,
     SNAKEFILE_NONDETERMINISTIC,
@@ -20,12 +21,16 @@ from fixtures_cut3 import (
     closure,
     definition,
     recipe,
-    run_assessment,
-    run_production,
     seeded,
     spec_draft,
     spec_rules,
     stage,
+)
+from fixtures_cut3 import (
+    memory_assessment as run_assessment,
+)
+from fixtures_cut3 import (
+    memory_production as run_production,
 )
 
 from science.adapter import (
@@ -72,6 +77,7 @@ def test_the_boundary_refuses_a_definition_the_entrypoint_does_not_embody(tmp_pa
     code, held = stage(tmp_path, snakefile=SNAKEFILE_DETERMINISTIC)
     mismatched = execute_assessment_run(
         spec=freeze(spec_draft(), held_rules=spec_rules()),
+        port=MEMORY_PORT,
         definition=definition(snakefile=SNAKEFILE_NONDETERMINISTIC),
         code_roots=(code,),
         held_inputs={
@@ -239,6 +245,7 @@ def test_r21_manifest_missing_output_mints_no_run(tmp_path):
     spec = freeze(spec_draft(), held_rules=spec_rules())
     outcome = execute_assessment_run(
         spec=spec,
+        port=MEMORY_PORT,
         definition=definition(),
         code_roots=(code,),
         held_inputs={

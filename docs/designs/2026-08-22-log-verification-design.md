@@ -25,6 +25,10 @@ X5 replica clause); ledger rows 4 and 5; kernel §8.7's status line (three
 of the four recorded-mutation consequences closed at this slice's
 discharge; G4 waits on the intent boundary).
 
+**Current-state correction, 2026-08-28:** intent qualification closed with
+world-index slice 6 and cut 11. G4 remains open under the successor-admission
+slice, its owner since the 2026-08-27 split.
+
 ## 1. Scope and the two dated amendments
 
 ### 1.1 In and out
@@ -43,11 +47,12 @@ deferral — reading was impossible then, `read_chain` exists now); and
 the batch path-state capture command, and the shared post-recovery pending
 gate.
 
-**Deferred, each with an owner (§10):** intent qualification and G4's
-closure (the intent-boundary slice); store-subject behavior, fork, replica,
+**Deferred, each with an owner (§10):** G4 and successor admission (split
+2026-08-27 to the successor-admission slice); store-subject behavior, fork, replica,
 and restore (row 4); the preimage-backed L13 classification (the atoms
 blob-read seam, named in §10); event-level L8 (this design's own successor
-work); verification-cost optimization (measurement-gated).
+work); verification-cost optimization (measurement-gated). **Intent
+qualification closed 2026-08-28** with world-index slice 6 and cut 11.
 
 ### 1.2 The genesis-subject amendment
 
@@ -551,7 +556,7 @@ authority; the two places this expectation was refined are noted below**:
   same populated-baseline start for the omission to be the baseline's
   claim, collapsing otherwise into L5's homed residue; L7's remainder (its
   structural half is selected as chain-structural inspection arms;
-  qualification with the intent boundary).
+  qualification with the intent boundary, **closed 2026-08-28 by cut 11**).
 
 > **Refinements at the freeze, recorded 2026-08-23.** Two. **L7 is
 > partial**, not deferred: its two chain-structural units are selected
@@ -569,8 +574,10 @@ authority; the two places this expectation was refined are noted below**:
 
 ## 10. Limitations and the deferral ledger
 
-1. **Intent qualification is unevaluated**, stated in every report; L7 and
-   G4's closure wait on the intent-boundary slice.
+1. **Intent qualification closed 2026-08-28.** World-index slice 6 replaces
+   `intents_unevaluated` with the total qualification inventory and discharges
+   cut 11's general L7 reduction. G4 remains open: it and successor admission
+   split 2026-08-27 to the successor-admission slice.
 2. **Store subjects are shape-only**: codecs closed and complete; the
    anchor act's signature makes a store unspellable and the evaluator
    refuses the one place it can be named; behavior and the store-artifact
@@ -591,8 +598,9 @@ authority; the two places this expectation was refined are noted below**:
 4. **The L13 resolver is a named seam, not an orphan:** the public
    preimage/blob-read command joins the atoms obligation ledger at
    banking, and its Science consumption is recorded as row 5's named
-   remainder. Row 5 stays **partial** while it and intent qualification
-   are outstanding.
+   remainder. Row 5 stays **partial** while the preimage resolver, event-level
+   L8, and G4 under the successor-admission slice are outstanding; intent
+   qualification closed 2026-08-28.
 5. **The refuse-don't-arrest narrowing** (§6.2) is dated against the log
    design §3's letter.
 6. **The empty-baseline amendment** (§1.3) leaves L6 wholly unread —
@@ -614,6 +622,9 @@ consequences close** — G8, semantic identity, and 5a's standing
 subtraction, all replay-witnessed; G4's closure waits on the intent
 boundary, and chronology's strengthening stays boundary-mediated-only as
 banked.
+
+**Current-state correction, 2026-08-28:** the intent boundary is implemented;
+G4 now waits on the separately owned successor-admission slice.
 
 ## 11. Choreography
 

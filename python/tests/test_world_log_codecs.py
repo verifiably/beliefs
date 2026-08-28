@@ -1390,8 +1390,10 @@ def test_store_subject_is_carried_by_codecs_and_judged_by_the_evaluator():
         logmodel.AbsentView(),
         verify.ObserverSet(()),
         (),
+        (),
         None,
         ABSENT,
+        science_root._log_seam().state_facts,
         None,
     )
     assert report.outcome == "unresolvable"

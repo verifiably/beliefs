@@ -20,6 +20,10 @@ from hashlib import sha256
 from pathlib import Path
 from typing import final
 
+from nodes.core.frontmatter import node_to_markdown
+from nodes.core.write_plan import CreateOp
+
+from science import stored
 from science.adapter import (
     LOG_HANDLER_SCRIPT,
     WorkflowDefinition,
@@ -34,6 +38,7 @@ from science.adapter import (
     validate_entrypoint,
 )
 from science.errors import MalformedClosure, MalformedRecord, ScienceError
+from science.identity import v1
 from science.recipe import (
     BoundaryPolicy,
     BoundaryReceipt,
@@ -56,6 +61,7 @@ from science.report import (
     RunRefusal,
     _mint_report,
 )
+from science.runrecord import OperationPort, publication_plan
 from science.sealed import sealed
 from science.spec import (
     DATASET_EQUIVALENCE_RULE,
@@ -156,6 +162,36 @@ def _refused(
     )
     registration = Registration(token, report.identity()) if intent is not None else None
     return RunRefused(reason, report, intent, registration)
+
+
+def _report_plan(report: ActReport | None) -> tuple[CreateOp, ...]:
+    if report is None:
+        raise MalformedClosure("a refusal reached publication without a report")
+    node = stored.act_report_node(report)
+    return (
+        CreateOp(
+            path=f"act-report/{report.identity()}.md",
+            content=node_to_markdown(node).encode("utf-8"),
+        ),
+    )
+
+
+def _intent_wire(intent: AssessmentRunIntent | OperationIntent) -> bytes:
+    if type(intent) is AssessmentRunIntent:
+        return v1.encode(
+            {
+                "spec_identity": intent.spec_identity,
+                "event_token": intent.event_token,
+                "actor": intent.actor,
+            }
+        )
+    return v1.encode(
+        {
+            "kind": intent.kind,
+            "event_token": intent.event_token,
+            "actor": intent.actor,
+        }
+    )
 
 
 def _mint_import_report(
@@ -359,6 +395,8 @@ def _execute_run(
 def execute_assessment_run(
     *,
     spec: object,
+    port: OperationPort,
+    expected_recipe_identity: str | None = None,
     definition: WorkflowDefinition,
     code_roots: tuple[Path, ...],
     held_inputs: Mapping[str, Path],
@@ -374,11 +412,16 @@ def execute_assessment_run(
 ) -> RunMinted | RunRefused:
     if type(spec) is not FrozenSpec:
         subject = spec if type(spec) is str else "absent"
-        return _refused("no-frozen-spec", subject, actor, observer, started_at)
+        refused = _refused("no-frozen-spec", subject, actor, observer, started_at)
+        port.execute(_report_plan(refused.report))
+        return refused
     if reason := _preflight(tuple(entry.dataset for entry in spec.input_roles), held_inputs):
-        return _refused(reason, spec.identity, actor, observer, started_at)
+        refused = _refused(reason, spec.identity, actor, observer, started_at)
+        port.execute(_report_plan(refused.report))
+        return refused
     intent = AssessmentRunIntent(spec.identity, secrets.token_hex(16), actor)
-    return _execute_run(
+    fulfills = port.append_intent(_intent_wire(intent))
+    result = _execute_run(
         intent=intent,
         subject=spec.identity,
         spec=spec,
@@ -398,11 +441,25 @@ def execute_assessment_run(
         scratch_base=scratch_base,
         cores=cores,
     )
+    if (
+        type(result) is RunMinted
+        and expected_recipe_identity is not None
+        and result.run.recipe.identity() != expected_recipe_identity
+    ):
+        result = _refused("recipe-identity-mismatch", spec.identity, actor, observer, started_at, intent)
+    if type(result) is RunMinted:
+        _, _, plan = publication_plan(result.run)
+        port.execute_fulfilling(plan, fulfills)
+    else:
+        port.execute_fulfilling(_report_plan(result.report), fulfills)
+    return result
 
 
 def execute_production_run(
     *,
     inputs: tuple[RecipeInput, ...],
+    port: OperationPort,
+    expected_recipe_identity: str | None = None,
     parameters: Mapping[str, object],
     nondeterminism: NondeterminismContract,
     definition: WorkflowDefinition,
@@ -419,11 +476,16 @@ def execute_production_run(
     cores: int = 1,
 ) -> RunMinted | RunRefused:
     if type(inputs) is not tuple or any(type(entry) is not RecipeInput for entry in inputs):
-        return _refused("malformed-inputs", "absent", actor, observer, started_at)
+        refused = _refused("malformed-inputs", "absent", actor, observer, started_at)
+        port.execute(_report_plan(refused.report))
+        return refused
     if reason := _preflight(tuple(entry.dataset for entry in inputs), held_inputs):
-        return _refused(reason, "absent", actor, observer, started_at)
+        refused = _refused(reason, "absent", actor, observer, started_at)
+        port.execute(_report_plan(refused.report))
+        return refused
     intent = OperationIntent("run-attempt", secrets.token_hex(16), actor)
-    return _execute_run(
+    fulfills = port.append_intent(_intent_wire(intent))
+    result = _execute_run(
         intent=intent,
         subject="absent",
         spec=None,
@@ -443,3 +505,15 @@ def execute_production_run(
         scratch_base=scratch_base,
         cores=cores,
     )
+    if (
+        type(result) is RunMinted
+        and expected_recipe_identity is not None
+        and result.run.recipe.identity() != expected_recipe_identity
+    ):
+        result = _refused("recipe-identity-mismatch", "absent", actor, observer, started_at, intent)
+    if type(result) is RunMinted:
+        _, _, plan = publication_plan(result.run)
+        port.execute_fulfilling(plan, fulfills)
+    else:
+        port.execute_fulfilling(_report_plan(result.report), fulfills)
+    return result

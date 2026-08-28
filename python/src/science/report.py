@@ -411,6 +411,13 @@ def completion(intent: Intent, registrations: tuple[Registration, ...], held: Ma
         raise MalformedRecord("completion registrations must be Registration values")
     if not isinstance(held, Mapping):
         raise MalformedRecord("completion held values must be a mapping")
+    from science.intents import shapes
+
+    decoded = shapes.DecodedIntent(
+        "held",
+        "assessment-run" if type(intent) is AssessmentRunIntent else "operation",
+        intent,
+    )
     unresolved = False
     for registration in registrations:
         if registration.intent_token != intent.event_token:
@@ -419,13 +426,17 @@ def completion(intent: Intent, registrations: tuple[Registration, ...], held: Ma
             unresolved = True
             continue
         value = held[registration.pointer]
-        if type(value) is ActReport and value.event_token == intent.event_token:
-            return CLOSED
-        if (
-            type(value) is RunClosure
-            and (type(intent) is AssessmentRunIntent or intent.kind == "run-attempt")
-            and value.occurrence.event_token == intent.event_token
-        ):
+        if type(value) is ActReport:
+            evidence: object = shapes.ReportEvidence(value.operation, value.event_token)
+        elif type(value) is RunClosure:
+            evidence = shapes.RunEvidence(
+                value.recipe.shape,
+                value.recipe.spec_identity,
+                value.occurrence.event_token,
+            )
+        else:
+            evidence = shapes.InertRecord()
+        if shapes.mismatch(decoded, evidence) is None:
             return CLOSED
     return INDETERMINATE if unresolved else UNFINISHED
 

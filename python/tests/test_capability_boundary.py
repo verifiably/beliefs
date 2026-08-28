@@ -416,7 +416,7 @@ same recorded operation approached from its two durable states.
 """
 
 PORT_METHOD_NAMES = frozenset({"append_intent"})
-"""`science.corpus` declares an `OperationPort` method of this name, so the bare
+"""`science.runrecord` declares an `OperationPort` method of this name, so the bare
 name is not evidence of an engine call and the name ban above cannot cover it —
 exactly the carve-out `ENGINE_COMMANDS` already records. The *call sites* are
 still counted: a port method is an `Attribute`, and the composition root's own

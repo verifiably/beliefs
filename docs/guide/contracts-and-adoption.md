@@ -2,7 +2,7 @@
 title: Contracts and adoption
 status: living
 created: 2026-08-08
-updated: 2026-08-25
+updated: 2026-08-28
 sources:
   - ../designs/2026-08-03-normative-contract-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -19,7 +19,10 @@ sources:
   - ../designs/2026-08-23-conformance-cut-9.md
   - ../designs/2026-08-24-world-index-holdings-design.md
   - ../designs/2026-08-24-conformance-cut-10.md
+  - ../designs/2026-08-26-world-index-intent-boundary-design.md
+  - ../designs/2026-08-27-conformance-cut-11.md
   - ../plans/2026-08-24-conformance-cut-10-results.md
+  - ../plans/2026-08-27-conformance-cut-11-results.md
 ---
 
 # Contracts and adoption
@@ -157,7 +160,7 @@ fitted result into independent validation.
 
 ## Current state
 
-Cuts 1–10 have implemented and discharged their selected slices. Cut 8 discharged
+Cuts 1–11 have implemented and discharged their selected slices. Cut 8 discharged
 mutation-log verification on 2026-08-23 — the anchor act, the four-outcome
 evaluator, replay, the audit and arrival boundaries, and the genesis↔mirror
 check. [Cut 9](../designs/2026-08-23-conformance-cut-9.md) discharged the
@@ -171,9 +174,16 @@ reduction and receipt, and the dataset admission adapter
 ([results](../plans/2026-08-24-conformance-cut-10-results.md)); its `--no-ff`
 merge landed on local `main` as `35be6ff` on 2026-08-25 and has not been
 pushed. The complete normative contract cut and the second governed stored
-kind remain open. The log slice still owes general intent qualification
-with G4, the preimage-backed classification, and event-level cross-chain order;
-the holdings-shaped L7 arms and L10's two holdings-read arms closed with cut 10.
+kind remain open. [Cut 11](../designs/2026-08-27-conformance-cut-11.md)
+discharged general intent qualification on 2026-08-28: the three-shape
+reduction, bounded evidence capture, durable run publication, verifier lift,
+regenerated holdings interior, and completion re-base
+([results](../plans/2026-08-27-conformance-cut-11-results.md)). The log slice
+still owes the preimage-backed classification and event-level cross-chain
+order; **G4 was split out
+2026-08-27 to a successor-admission slice of its own** (the
+intent-boundary design §5 carries the transfer); the holdings-shaped L7
+arms and L10's two holdings-read arms closed with cut 10.
 Consult the ledger for the current state rather than carrying these sentences
 into a status report.
 

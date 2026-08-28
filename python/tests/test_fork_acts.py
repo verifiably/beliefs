@@ -170,8 +170,10 @@ class TestForkCorpus:
             view,
             verify.ObserverSet(()),
             (),
+            (),
             None,
             object(),
+            science_root._log_seam().state_facts,
         )
         assert report.outcome == "malformed"
         assert any(

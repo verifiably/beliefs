@@ -14,12 +14,14 @@ inside one would fail rather than pass quietly.
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 import yaml
 from atoms.core.fingerprint import ABSENT as ENGINE_ABSENT
 from atoms.core.scratch import CHAIN_LEAF
+from test_intent_reduce import FakeFile, _assessment_payload, _facts
 from test_world_log_codecs import (
     CUT8_CORPUS_ID,
     CUT8_REMINTED_ID,
@@ -107,6 +109,11 @@ FOREIGN = "88" * 32
 CORPUS_GENESIS_PAYLOAD = v1.encode({"domain": "science.corpus-root.v1"})
 WORLD_GENESIS_PAYLOAD = v1.encode({"domain": "science.world-root.v1", "world_id": WORLD_ID})
 OTHER_WORLD_GENESIS_PAYLOAD = v1.encode({"domain": "science.world-root.v1", "world_id": OTHER_WORLD_ID})
+INTENT = IntentEntryView(digest=E3, payload=_assessment_payload())
+FOREIGN_INTENT = IntentEntryView(
+    digest=FOREIGN,
+    payload=v1.encode({"domain": "science.other.v1"}),
+)
 
 
 # --- the opaque state stand-in -------------------------------------------
@@ -139,15 +146,21 @@ def genesis(payload: bytes = CORPUS_GENESIS_PAYLOAD, *baseline: tuple[str, objec
     return GenesisEntryView(digest=CORPUS_GENESIS, payload=payload, baseline=baseline)
 
 
-def registration(digest: str, txid: str) -> RegisteredEntryView:
+def registration(
+    digest: str,
+    txid: str,
+    *,
+    fulfills: str | None = None,
+    final: tuple[tuple[str, object], ...] = (("corpus.yaml", MANIFEST),),
+) -> RegisteredEntryView:
     return RegisteredEntryView(
         digest=digest,
         txid=txid,
         intent_digest="sha256:" + "0" * 64,
         consumer_tag="science-corpus-write-v1",
         initial=(("corpus.yaml", ABSENT),),
-        final=(("corpus.yaml", MANIFEST),),
-        fulfills=None,
+        final=final,
+        fulfills=fulfills,
     )
 
 
@@ -251,10 +264,22 @@ def evaluate(
     observer_set: ObserverSet,
     *,
     disk: tuple[tuple[str, object], ...] = MATCHING_DISK,
+    records: tuple[tuple[str, bytes], ...] = (),
     presented: verify.PresentedIdentity | None = None,
+    state_facts: Callable[[object], tuple[tuple[str, str], ...]] = _facts,
     history: dict[str, bytes] | None = None,
 ) -> verify.LogReport:
-    return evaluate_log(subject, view, observer_set, disk, presented, ABSENT, history)
+    return evaluate_log(
+        subject,
+        view,
+        observer_set,
+        disk,
+        records,
+        presented,
+        ABSENT,
+        state_facts,
+        history,
+    )
 
 
 # --- entry: the typed history and the store subject ------------------------
@@ -714,18 +739,119 @@ class TestReplay:
         assert report.anchored_through == E2
         assert report.unanchored_tail == ()
 
-    def test_the_intent_inventory_is_reported_unevaluated(self) -> None:
-        """§10.1: intent qualification is deferred, and the deferral is stated in
-        the report itself rather than in a document beside it."""
+
+class TestQualification:
+    def test_qualification_is_total_and_in_chain_order(self) -> None:
+        view = chain(genesis(), INTENT, FOREIGN_INTENT)
+        report = evaluate(
+            CorpusSubject(CORPUS_ID),
+            view,
+            observers(record_carrier(view.tip)),
+            disk=(),
+        )
+        assert [row.digest for row in report.qualification] == [E3, FOREIGN]
+        assert report.qualification[0].status == "attempt-without-recorded-outcome"
+        assert report.qualification[1].status == "unrecognized"
+        assert report.outcome == "validated"
+
+    def test_qualification_findings_are_appended_last(self) -> None:
+        view = chain(genesis(), INTENT, FOREIGN_INTENT)
+        report = evaluate(
+            CorpusSubject(CORPUS_ID),
+            view,
+            observers(record_carrier(view.tip)),
+            disk=(),
+            presented=verify.PresentedManifest(corpus_id="someone-else"),
+        )
+        assert report.outcome == "validated"
+        qual_codes = {
+            "intent-attempt-without-recorded-outcome",
+            "intent-domain-unrecognized",
+            "intent-fulfillment-non-qualifying",
+            "intent-payload-malformed",
+        }
+        positions = [
+            index
+            for index, finding in enumerate(report.findings)
+            if finding.code in qual_codes
+        ]
+        others = [
+            index
+            for index, finding in enumerate(report.findings)
+            if finding.code not in qual_codes
+        ]
+        assert positions
+        assert others
+        assert all(position > other for position in positions for other in others)
+        assert positions == sorted(positions)
+
+    def test_pending_exit_carries_qualification(self) -> None:
+        from closure_fixtures import make_closure
+
+        from science.runrecord import publication_plan
+
+        _, run_path, (operation,) = publication_plan(make_closure())
+        pointer = registration(
+            E1,
+            "tx-1",
+            fulfills=E3,
+            final=((run_path, FakeFile("x")),),
+        )
         view = chain(
             genesis(),
-            IntentEntryView(digest=E3, payload=b"an intent"),
-            registration(E1, "tx-1"),
-            settlement(E2, E1, "tx-1"),
+            INTENT,
+            pointer,
+            pending=(("tx-1", E1),),
         )
-        report = evaluate(CorpusSubject(CORPUS_ID), view, observers(record_carrier(E2)))
-        assert report.outcome == "validated"
-        assert report.intents_unevaluated == (E3,)
+        report = evaluate(
+            CorpusSubject(CORPUS_ID),
+            view,
+            observers(record_carrier(view.tip)),
+            records=((run_path, operation.content),),
+        )
+        assert report.outcome == "unresolvable"
+        assert report.qualification[0].status == "unresolvable"
+        assert not [
+            finding
+            for finding in report.findings
+            if finding.code.startswith("intent-fulfillment")
+        ]
+
+    def test_genesis_malformed_exit_carries_qualification(self) -> None:
+        view = chain(genesis(payload=b"not the corpus genesis payload"), INTENT)
+        report = evaluate(
+            CorpusSubject(CORPUS_ID),
+            view,
+            observers(record_carrier(view.tip)),
+        )
+        assert report.outcome == "malformed"
+        assert [row.digest for row in report.qualification] == [E3]
+
+    def test_malformed_view_exit_carries_empty_qualification(self) -> None:
+        report = evaluate(
+            CorpusSubject(CORPUS_ID),
+            MalformedView(DefectView("cycle", "d1", "detail")),
+            observers(),
+        )
+        assert report.outcome == "malformed"
+        assert report.qualification == ()
+
+    def test_records_is_required_and_typed(self) -> None:
+        with pytest.raises(TypeError):
+            evaluate_log(
+                CorpusSubject(CORPUS_ID),
+                corpus_chain(),
+                observers(),
+                (),
+                "not-a-tuple",  # type: ignore[arg-type]
+                None,
+                ABSENT,
+                _facts,
+            )
+
+    def test_intents_unevaluated_is_retired_with_no_alias(self) -> None:
+        report = evaluate(CorpusSubject(CORPUS_ID), corpus_chain(), observers())
+        assert not hasattr(report, "intents_unevaluated")
 
 
 # --- the carriers ----------------------------------------------------------
@@ -869,8 +995,10 @@ def judge(
         inspected(chain.root),
         ObserverSet(carriers),
         capture_at(chain.root, *chain.paths) if disk is None else disk,
+        (),
         presented,
         ENGINE_ABSENT,
+        science_root._log_seam().state_facts,
         history,
     )
 
@@ -1211,7 +1339,7 @@ def test_duplicate_committed_fulfillment_is_malformed(tmp_path: Path) -> None:
 
     assert report.outcome == "malformed"
     assert codes(report) == ["chain-malformed"]
-    assert report.intents_unevaluated == ()
+    assert report.qualification == ()
 
 
 # --- L9 ---------------------------------------------------------------------
@@ -1399,7 +1527,8 @@ def test_valid_raw_append_beyond_anchor_passes_as_the_residue(tmp_path: Path) ->
     assert report.outcome == "validated"
     assert report.anchored_through == chain.anchor
     assert report.unanchored_tail == (forged.digest,)
-    assert report.intents_unevaluated == (forged.digest,)
+    assert [row.digest for row in report.qualification] == [forged.digest]
+    assert report.qualification[0].status == "unrecognized"
 
 
 # --- D1 ---------------------------------------------------------------------

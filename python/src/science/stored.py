@@ -54,7 +54,7 @@ from nodes.core.relations import Relation
 
 from science import report as report_values
 from science.dataset import DatasetDeclaration, ResourceDeclaration
-from science.errors import LoneSurrogate, MalformedRecord
+from science.errors import IdentityError, LoneSurrogate, MalformedRecord
 from science.holdings.records import (
     HOLDINGS_OBSERVATION_DOMAIN,
     HOLDINGS_OBSERVATION_KIND,
@@ -90,6 +90,7 @@ __all__ = [
     "VERIFICATION_FACET",
     "NodeTarget",
     "RouteTarget",
+    "act_report_facet",
     "act_report_node",
     "assessment_value",
     "dataset_declaration",
@@ -118,6 +119,7 @@ EMPIRICAL_OBSERVATION_FACET = "empirical-observation"
 PROPOSITION_FACET = "proposition"
 ASSESSMENT_FACET = "assessment"
 RUN_FACET = "run"
+RUN_CLOSURE_FACET = "run-closure"
 DATASET_FACET = "dataset"
 DISPLAY_FACET = "display"
 LINEAGE_BASIS_FACET = "lineage-basis"
@@ -184,7 +186,7 @@ COVERED_FACETS: Mapping[str, tuple[str, ...]] = {
     HOLDINGS_OBSERVATION_KIND: (HOLDINGS_OBSERVATION_FACET,),
     "proposition": (PROPOSITION_FACET,),
     "retraction": (RETRACTION_FACET,),
-    "run": (RUN_FACET,),
+    "run": (RUN_FACET, RUN_CLOSURE_FACET),
     "source": (SOURCE_FACET,),
     "source-assertion": ("source-assertion",),
     "verification": (VERIFICATION_FACET,),
@@ -423,6 +425,101 @@ def holdings_observation_value(node: Node) -> HoldingsObservation:
     return value
 
 
+_REPORT_ENTRY_OUTCOMES: dict[str, dict[str, tuple[str, ...]]] = {
+    "pure-look": {
+        "published-observation": ("ref",),
+        "byte-locator-untested": ("reason",),
+        "retrieval-failed": ("reason",),
+    },
+    "managed-mutation": {"published-observation": ("ref",)},
+    "declaration-pin": {"pinned-declaration": ("ref",)},
+    "subject-evaluation": {"evaluation-finding": ("payload",)},
+    "record-import": {"imported-records": ("refs", "findings")},
+    "run-attempt": {"run-refusal": ("missing_member",)},
+}
+
+
+def _valid_report_entry(entry: object) -> bool:
+    if not isinstance(entry, dict):
+        return False
+    kind = entry.get("kind")
+    if type(kind) is not str:
+        return False
+    expected_entry_fields = {
+        "kind",
+        "subject",
+        "outcome",
+        *(("instrument_inputs",) if kind == "pure-look" else ()),
+    }
+    if set(entry) != expected_entry_fields or type(entry.get("subject")) is not str:
+        return False
+    if kind == "pure-look":
+        inputs = entry["instrument_inputs"]
+        if not isinstance(inputs, list) or any(
+            not isinstance(pair, list)
+            or len(pair) != 2
+            or any(type(member) is not str for member in pair)
+            for pair in inputs
+        ):
+            return False
+    outcomes = _REPORT_ENTRY_OUTCOMES.get(kind)
+    outcome = entry.get("outcome")
+    if outcomes is None or not isinstance(outcome, dict):
+        return False
+    outcome_type = outcome.get("type")
+    if type(outcome_type) is not str:
+        return False
+    fields = outcomes.get(outcome_type)
+    if fields is None or set(outcome) != {"type", *fields}:
+        return False
+    for field in fields:
+        value = outcome[field]
+        if outcome_type == "imported-records":
+            if not isinstance(value, list) or any(
+                type(member) is not str for member in value
+            ):
+                return False
+        elif type(value) is not str:
+            return False
+    return True
+
+
+def act_report_facet(node: Node) -> Mapping[str, Any]:
+    """Validate and return the one stored act-report facet."""
+    facet = node.facets.get("act-report")
+    required = {
+        "operation",
+        "event_token",
+        "actor",
+        "observer",
+        "instrument",
+        "opened_at",
+        "closed_at",
+        "entries",
+    }
+    if (
+        not isinstance(facet, dict)
+        or set(node.facets) != {"act-report", SEMANTIC_IDENTITY_FACET}
+        or set(facet) != required
+        or facet.get("operation") not in report_values.OPERATION_KINDS
+        or any(type(facet.get(name)) is not str for name in required - {"entries"})
+        or not isinstance(facet.get("entries"), list)
+        or node.relations
+    ):
+        raise MalformedRecord(f"{node.id}: malformed act-report facet")
+    if any(not _valid_report_entry(entry) for entry in facet["entries"]):
+        raise MalformedRecord(f"{node.id}: malformed act-report entry")
+    try:
+        expected = v1.digest(report_values.ACT_REPORT_DOMAIN, facet)
+    except IdentityError as caught:
+        raise MalformedRecord(f"{node.id}: malformed act-report facet") from caught
+    if node.id != f"act-report:{expected}":
+        raise MalformedRecord(
+            f"{node.id}: act-report address disagrees with its identity"
+        )
+    return facet
+
+
 # --- constructing stored documents -------------------------------------------
 
 
@@ -511,6 +608,37 @@ def run_node(
         for target in targets
     ]
     return _node("run", slug, title, {RUN_FACET: {"spec": spec}}, relations)
+
+
+def run_publication_node(
+    slug: str,
+    *,
+    title: str,
+    projection: str,
+    spec: str | None,
+    observes: Sequence[str] = (),
+    reads: Sequence[str] = (),
+    transforms: Sequence[str] = (),
+    produces: Sequence[str] = (),
+) -> Node:
+    """A boundary-published run with its canonical address preimage."""
+    node_id = f"run:{slug}"
+    relations = [
+        Relation(source=node_id, predicate=predicate, target=target)
+        for predicate, targets in (
+            (OBSERVES, observes),
+            (READS, reads),
+            (TRANSFORMS, transforms),
+            (PRODUCES, produces),
+        )
+        for target in targets
+    ]
+    run_facet: dict[str, Any] = {} if spec is None else {"spec": spec}
+    facets = {
+        RUN_FACET: run_facet,
+        RUN_CLOSURE_FACET: {"projection": projection},
+    }
+    return _node("run", slug, title, facets, relations)
 
 
 def assessment_node(
