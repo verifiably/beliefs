@@ -1,5 +1,3 @@
-# GENERATED from science/intents/holdings.py by tools/regen_holdings_interior.py.
-# Edit the source and regenerate; hand edits here are discarded.
 # ruff: noqa: I001 -- this source permits exactly one top-level import in the rule dialect
 """Pure holdings-intent qualification helpers shipped with the rule."""
 

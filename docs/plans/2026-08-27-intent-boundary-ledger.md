@@ -50,6 +50,12 @@ Rulings are written at task boundaries, never rewritten after the fact.
    only in memory for a stored-codec test. With terminal publication required,
    the same construction raises `MalformedRecord` before returning; the test
    now pins that fail-early behavior.
+10. **R10 — the holdings interior moved without a semantic rewrite.** The
+    maintained `science.intents.holdings` bytes were copied exactly from the
+    prior rule body, and the generated file is only the two-line provenance
+    header plus those bytes. The changed implementation identity therefore
+    names the generated artifact rather than a hand-authored behavioral
+    change.
 
 ## Heads
 
@@ -59,5 +65,6 @@ Rulings are written at task boundaries, never rewritten after the fact.
 | 1 | fac2c80 |
 | 2 | 1d25baf |
 | 3 | e05c60c |
+| 4 | 4b7e1df |
 
 (Appended at every task boundary.)
