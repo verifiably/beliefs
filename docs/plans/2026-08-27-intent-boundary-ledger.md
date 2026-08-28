@@ -21,5 +21,6 @@ Rulings are written at task boundaries, never rewritten after the fact.
 
 | Task | Science head |
 |---|---|
+| 0 | 76e76d8 |
 
 (Appended at every task boundary.)

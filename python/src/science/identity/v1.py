@@ -26,6 +26,7 @@ here because a reader comparing the code to §4.3 will not find them there:
 
 from __future__ import annotations
 
+import json
 import re
 import unicodedata
 from decimal import Decimal
@@ -33,6 +34,8 @@ from hashlib import sha256
 
 from science.errors import (
     BinaryFloatRefused,
+    CanonicalTextRefused,
+    IdentityError,
     KeyCollision,
     LoneSurrogate,
     MalformedDomain,
@@ -42,7 +45,7 @@ from science.errors import (
     UnsupportedValueType,
 )
 
-__all__ = ["check_domain", "digest", "encode"]
+__all__ = ["check_domain", "decode", "digest", "encode"]
 
 # `science.<kind>.v<n>`, with at least one kind segment and a positive version.
 # The grammar is enforced rather than assumed for two reasons. A domain carrying
@@ -154,6 +157,48 @@ def _encode_object(value: dict[object, object], path: str) -> str:
 def encode(value: object) -> bytes:
     """Canonical bytes for an identity value, or a refusal."""
     return _encode_value(value, "$").encode("utf-8")
+
+
+def _refuse_constant(token: str) -> object:
+    raise CanonicalTextRefused(f"refused constant {token!r}: NaN and Infinity never parse")
+
+
+def decode(data: bytes) -> object:
+    """The exported inverse: parse canonical bytes back to the typed value.
+
+    Validity is canonical re-encoding equality — `encode(parsed)` must equal
+    `data` byte-for-byte — which also refuses non-canonical ordering and
+    collapsed duplicate keys. Every failure is `CanonicalTextRefused`; a
+    re-encoding `IdentityError` is wrapped with its cause preserved.
+    """
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError as caught:
+        raise CanonicalTextRefused(f"malformed UTF-8: {caught}") from caught
+    try:
+        parsed: object = json.loads(
+            text,
+            parse_int=int,
+            parse_float=Decimal,
+            parse_constant=_refuse_constant,
+        )
+    except CanonicalTextRefused:
+        raise
+    except ValueError as caught:
+        raise CanonicalTextRefused(f"malformed JSON: {caught}") from caught
+    try:
+        reencoded = encode(parsed)
+    except CanonicalTextRefused:
+        raise
+    except IdentityError as caught:
+        raise CanonicalTextRefused(
+            f"re-encoding refused ({type(caught).__name__}): {caught}"
+        ) from caught
+    if reencoded != data:
+        raise CanonicalTextRefused(
+            "bytes are not canonical: re-encoding differs from the input"
+        )
+    return parsed
 
 
 def digest(domain: str, value: object) -> str:

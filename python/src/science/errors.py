@@ -447,6 +447,12 @@ class MalformedDomain(IdentityError):
     """A digest domain that is not a well-formed, versioned domain name."""
 
 
+class CanonicalTextRefused(IdentityError):
+    """Bytes presented as v1-canonical text are not: malformed UTF-8 or
+    JSON, a refused constant, a re-encoding refusal (wrapped, cause
+    preserved), or re-encoded bytes that differ from the input."""
+
+
 class ContractError(ScienceError):
     """A contract was refused at load."""
 
