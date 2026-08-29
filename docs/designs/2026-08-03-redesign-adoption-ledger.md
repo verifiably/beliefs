@@ -72,22 +72,46 @@ ancestry and the surfaces they built
   holdings with their intent-bearing acts (cuts 6–10).
 
 **Remaining implementation boundaries with named owners.** One row per
-boundary: what it is, who owns it, and what it blocks. Row order carries no
-priority. A boundary enters this table only when §1's rows prove it still open;
-unresolved design areas are not boundaries and are not listed.
+boundary: a stable id, what it is, who owns it, and what it blocks. Row order
+carries no priority; ordering over these rows lives in
+`../plans/2026-08-29-implementation-roadmap.md`. A boundary enters this
+table only when a cut's accounting, a results record, or §1's rows prove it
+still open; unresolved design areas are not boundaries and are not listed.
 
-| boundary | owner | what it blocks |
-|---|---|---|
-| **G4** — successor admission | the successor-admission slice; `2026-08-26-world-index-intent-boundary-design.md` §5 carries the transferred design and its opening obligations | the fourth of kernel §8.7's recorded-mutation consequences; rows 5 and 7 reading G4 in full |
-| **Event-level L8** — the presence/exclusion relation across captured corpus heads | the tamper-evident-log design's own successor work (row 5) | row 5 reading L8 in full |
-| **L13 preimage resolver** — preimage-backed classification of a removed verification | the named `atoms` blob-read seam (`2026-08-03-tamper-evident-log-design.md` §5.3) | row 5 reading L13 in full; until then the held-copy match is a path match |
-| **The first full contract cut, its executable suite, and N1–N10** | sub-problem 5b (row 7) | the normative contract's own guarantees; disposition of the legacy check modules |
+| id | boundary | owner | what it blocks |
+|---|---|---|---|
+| `successor-admission` | **G4** — successor admission; with it R12's boundary-mediated strengthening arm and L7's relabel | the successor-admission slice; `2026-08-26-world-index-intent-boundary-design.md` §5 carries the transferred design and its opening obligations | the fourth of kernel §8.7's recorded-mutation consequences; rows 5 and 7 reading G4 in full |
+| `run-confinement` | **R15** and the `clean-environment` arms of R4, R9, R13, R16, R21 | the confinement-capable boundary policy, `2026-08-02-computation-reproducibility-design.md` §4.4b | a real verification reaching `clean-environment`, so admission to belief runs end to end rather than over supplied values |
+| `workflow-surface` | the full workflow surface: R2, R16, R20, R21's workflow arms; R23's second-production arm | `2026-08-02-computation-reproducibility-design.md` §6.4 | multi-rule, family, wildcard and definition-equality workflows |
+| `consolidate-family` | consolidate, move/rename and deletion: W5, W16; G3, D7; the deletion negatives of G2c, G8, C6, R5; S5's deletion half; R23 and C3's move clauses; M3's replica arm | `2026-08-19-family-adapters-design.md`, which deferred them to their own cut | C7's consolidate surface; the last mutation family |
+| `url-retrieval` | the URL retrieval boundary, acquisition orchestration and typed retrieval grants: H4, G9, R10, T5, T7's same-root case | `2026-08-24-world-index-holdings-design.md` §1–§3 | the first acquisition of a dataset from outside the system |
+| `world-resolution` | the read side of the world: W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 less its two-projects negative; W8a's coreference arms; S1, S1a and S5's cross-corpus reach; D3; X12 and M3's coreference arms; R23's snapshot clauses | `2026-08-02-world-addressing-design.md` and `2026-08-08-world-address-ruling.md` | resolution states, cross-corpus edges, views, the coreference balance |
+| `domain-boundary` | D1, D2, D4, D5, D6, D8, D9, D10; G5 | `2026-08-04-domain-extension-boundary-design.md` | the first domain pack |
+| `event-level-l8` | **Event-level L8** — the presence/exclusion relation across captured corpus heads | the tamper-evident-log design's own successor work (row 5) | row 5 reading L8 in full |
+| `contract-cut` | **The first full contract cut, its executable suite, and N1–N10**; N2's closing doctrine; P1's resolver-negative arm; R22's resolver arm; the `instrument-certification` arms of W8a, X12 and C10; R23's rules-store clauses | sub-problem 5b (row 7) | the normative contract's own guarantees; disposition of the legacy check modules; the conformance-package split (§5) |
+| `run-boundary-remainder` | R19; R22's explicit-import and audit arms | `2026-08-02-computation-reproducibility-design.md` | explicit-import derivation validation |
+| `formal-model-remainder` | M1; M3's audit and admission-order arms; M5 | `2026-08-04-formal-model-and-claim-calculus-design.md` | refinement evidence for M\* |
+| `log-remainder` | L1, L4; L10's relabel | `2026-08-22-log-verification-design.md` | row 5's L rows read in full |
+| `act-report-remainder` | T1, T2, T4 | `2026-08-11-act-report-design.md` | the T table in full |
+| `packaging-remainder` | X5's relabel; W8a's import-boundary and audit arms | `2026-08-03-world-index-packaging-design.md`; `2026-08-20-world-index-slice-2-design.md` | X5 and W8a read in full |
+| `parity-fixture-2` | the second `science.identity.v1` parity fixture, numeric and escape arms | `2026-08-04-formal-model-and-claim-calculus-design.md` §8 (§3 item 8) | cross-language parity of the identity arms tested twice and compared never |
+| `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | sub-problem 5a, `2026-08-03-correction-lifecycle-design.md` | the correction lifecycle in full |
+| `l13-preimage` | **L13 preimage resolver** — preimage-backed classification of a removed verification | the named `atoms` blob-read seam (`2026-08-03-tamper-evident-log-design.md` §5.3) | row 5 reading L13 in full; until then the held-copy match is a path match |
+| `persistence-cut` | X2's persistence-cut arm | the `atoms` A8 certification extended to the publication path, a cross-repo seam `atoms`' own design owns | X2 in full |
+| `nodes-remainder` | the reserved-path contract, recoverable construction, digest-id hazards | `nodes` `2026-08-03-nodes-under-the-system-redesign-design.md` (row 3) | audits over damaged corpora; manifest safety |
+| `authority-labels` | W9, W14 | artifact 11, the pinned authority snapshot — owed, undesigned | every rendered label; the ambiguous-search refusal |
+| `coordination-addressing` | W11, W12; W13's two-projects negative | the project/coordination surface, which no slice has built and whose minting path is undetermined (cut 4 §5) | coordination references |
+| `weighted-belief` | S6 arm (h) | the first successor belief policy admitting unequal weights, blocked on ρO3 | weighted belief |
+| `extraction-path` | M12 | the extraction step, kernel limitation 3 | an untypeable span minting nothing, end to end |
+| `cross-root-publication` | T7's cross-root case | the act-report design's cross-root publication residue | cross-root publication of a provenance reference and its report |
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-08-27-conformance-cut-11-results.md` §5) names this table's
-first three rows, and `test_the_ledger_summary_names_the_newest_remaining_boundary`
-holds this section to whichever record is newest.
+(`../plans/2026-08-27-conformance-cut-11-results.md` §5) names G4, L8 and
+L13, and `test_the_ledger_summary_names_the_newest_remaining_boundary` holds
+this section to whichever record is newest;
+`test_the_roadmap_and_ledger_name_the_same_boundaries` holds this table and
+the roadmap to one set of ids.
 
 ## 1. Unbuilt artifacts and what waits on them
 

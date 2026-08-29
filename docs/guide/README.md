@@ -2,7 +2,7 @@
 title: Science contributor guide
 status: living
 created: 2026-08-08
-updated: 2026-08-28
+updated: 2026-08-29
 sources:
   - ../designs/2026-08-08-contributor-guide-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -81,3 +81,11 @@ A commit that banks or amends a design, or changes implementation state in the
 ledger, must update the affected guide pages and their `updated` dates in the
 same commit. Use inline Markdown links rather than reference-style definitions
 so `python/tools/check_guide.py` can inspect every local target.
+
+A commit that adds a conformance-cut results record also re-ranks the
+[implementation roadmap](../plans/2026-08-29-implementation-roadmap.md) in
+the same change: the discharged boundary leaves both the ledger's `Current
+state` table and the roadmap, any newly named remainder enters both, and the
+roadmap's `Ranked at` line advances to the new cut.
+`test_the_roadmap_and_ledger_name_the_same_boundaries` fails until both are
+done.
