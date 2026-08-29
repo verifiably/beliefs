@@ -221,7 +221,10 @@ the frozen rows, declared as data beside the selected arms:
    ceiling is in `withheld`; **(b)** a regular file whose readable open
    fails is in `unreadable`; **(c)** a namespace directory whose open
    fails with anything other than `ENOENT` is in `uninspectable`;
-   **(d)** an absent namespace appears in none of the three (spec §4.2).
+   **(d)** an absent namespace appears in none of the three; **(e)** a
+   `scandir` failure is `uninspectable` unless it is `ENOENT`; **(f)** a
+   directory entry whose classification raises is `unreadable`, never a
+   leaked exception (spec §4.2).
 3. **The registration reduction is factored, not repeated** —
    `record_paths_of` and `reduce_registration` are `_qualify_one`'s
    filter and inner loop as values; `_qualify_one`'s verdicts are
@@ -561,13 +564,13 @@ grep -c 'if superseded.identity in recorded_failures and candidate.supersedes !=
 uv run ruff check src/science/spec.py tests/test_spec.py && uv run pyright src/science/spec.py | tail -1
 ```
 
-Expected: all passed; `1`; clean. Then confirm cut 3's arms still fail under their sabotage and pass without it:
+Expected: all passed; `1`; clean. Then confirm cut 3's arms still fail under their sabotage and pass without it — `test_n2.py` audits every declared arm as one session fixture, so it runs whole (`-k` cannot select a row):
 
 ```bash
-cd python && set -o pipefail && uv run pytest tests/test_n2.py -k "G4" | tail -1
+cd python && set -o pipefail && uv run pytest tests/test_n2.py | tail -1
 ```
 
-Expected: passed (the arm audit runs a subprocess pytest per arm; allow a few minutes). If `test_n2.py` selects nothing under `-k G4`, run `uv run pytest tests/test_n2.py | tail -1` in full.
+Expected: passed (the audit runs a subprocess pytest per arm; allow several minutes).
 
 - [ ] **Step 5: Commit**
 
@@ -2236,7 +2239,7 @@ uv run ruff check src/science/succession.py tests/test_succession.py tests/succe
 uv run pytest tests/test_capability_boundary.py | tail -1
 ```
 
-Expected: all passed; clean; passed. If the capability audit reports `succession.py` importing a name it polices, reach that surface through the seam or an exported facade and record the ruling in the ledger — never weaken the audit.
+Expected: all passed; clean; passed. The capability audit polices three things — naming `Corpus` outside the write API, importing `atoms` outside the composition root, and naming an engine command outside it — and `succession.py` does none: its engine access is the `LogSeam` value it is handed, and its `nodes.core` imports are `Node`, `Index` and `CollisionError`.
 
 - [ ] **Step 6: Commit**
 
@@ -2423,7 +2426,7 @@ Expected: `4 passed`.
 `python/tests/acceptance/n2_arms_cut12.py`:
 
 ```python
-"""Cut 12's declared arms: 19 selected + 5 labeled = 24 units, 52 lettered arms."""
+"""Cut 12's declared arms: 19 selected + 5 labeled = 24 units, 50 lettered arms."""
 
 from n2_arms import Arm, Sabotage
 
@@ -2753,7 +2756,7 @@ print(len(CUT12_ARMS), "arms; every anchor matches once")
 EOF
 ```
 
-Expected: `52 arms; every anchor matches once`. Where a `before` does not match because the implemented line differs, correct the **arm** to the source — never the source to the arm — and keep each sabotage a single exact replacement.
+Expected: `50 arms; every anchor matches once`. Every `before` string is a verbatim substring of the code Tasks 2–6 give, so any other count is a transcription error in this file; the source is not edited to fit an arm.
 
 - [ ] **Step 5: The N2 harness**
 
@@ -2855,9 +2858,9 @@ def declared_rows() -> tuple[str, ...]:
 
 
 class TestTheDeclarationTable:
-    def test_the_declared_arms_are_unique_and_number_fifty_two(self):
+    def test_the_declared_arms_are_unique_and_number_fifty(self):
         rows = declared_rows()
-        assert len(rows) == len(set(rows)) == len(CUT12_ARMS) == 52
+        assert len(rows) == len(set(rows)) == len(CUT12_ARMS) == 50
 
     def test_the_labeled_units_appear_in_declaration_order(self):
         labeled = [unit_of(row) for row in declared_rows() if row.startswith("K")]
@@ -3173,7 +3176,7 @@ Expected: clean; `0 errors`; every test passed. Record the pytest summary line.
 cd python && set -o pipefail && uv run python tools/cut12_acceptance.py 2>&1 | tee ../.cut12-run.log | tail -20
 ```
 
-Expected: `[cut12 phase 1/3] cut11_acceptance.py` … exit 0; `[cut12 phase 2/3] test_successor_admission_acceptance.py` `4 passed`; `[cut12 phase 3/3] test_n2_cut12.py` all passed; `declared arms: 52 …`; exit 0. A non-zero exit at phase 1 is cut 11's failure, not cut 12's — stop and investigate; the results record cannot be written on a red prefix.
+Expected: `[cut12 phase 1/3] cut11_acceptance.py` … exit 0; `[cut12 phase 2/3] test_successor_admission_acceptance.py` `4 passed`; `[cut12 phase 3/3] test_n2_cut12.py` all passed; `declared arms: 50 …`; exit 0. A non-zero exit at phase 1 is cut 11's failure, not cut 12's — stop and investigate; the results record cannot be written on a red prefix.
 
 - [ ] **Step 3: Write the results record**
 
@@ -3203,7 +3206,7 @@ Cut 12 reads three rows: G4 and R12 in full, L7 in part. Its 19 selected units
 and labels K1–K5 give **19 selected + 5 labeled = 24 declaration units**. L7
 stays partial on exactly its banked limitation, L7u1.
 
-The executable declaration table expands compound requirements into **52
+The executable declaration table expands compound requirements into **50
 lettered sabotage arms** normalized back to those 24 frozen units. Every armed
 claim has one exact once-matching source mutation and at least one check that
 fails under it. G4u12 cites cut 3's discarded-attempt check beside its own
@@ -3257,12 +3260,15 @@ certified volume at `<SCIENCE_CUT12_ROOT or the default beside the checkout>`.
 
 ## 3. Review and implementation rulings
 
-<one paragraph: what the post-implementation review found, and how the
-declaration review expanded the lettered arms; the exact rationale lives in
-`2026-08-29-successor-admission-ledger.md`>
+The post-implementation review reported <N> findings, each closed before this
+record (ledger rulings R<a>–R<b>). The declaration review expanded the 24
+frozen units into 50 lettered arms; the frozen partition never changed. The
+two cut-11 anchors that moved with `reduce_registration` moved in whitespace
+only (ledger R4); cut 3's three G4 sabotages match the unchanged anchor line
+(ledger R2). The exact rationale, task heads, and definitive runner summaries
+live in `2026-08-29-successor-admission-ledger.md`.
 
-There is no frozen-cut deviation. <or: name it, and the ledger ruling that
-records it>
+There is no frozen-cut deviation.
 
 ## 4. Commit identities
 
@@ -3310,9 +3316,9 @@ git commit -m "docs(plans): record conformance cut 12's discharge"
 git mv docs/superpowers/specs/2026-08-29-successor-admission-design.md docs/designs/2026-08-29-successor-admission-design.md
 ```
 
-Set the promoted design's `**Status:**` to: `implemented and discharged <today> at `<impl head>`; conformance cut 12 froze before implementation at `<freeze hash>` and its 24 units passed through 52 lettered sabotage arms on the certified tuple. Results: `../plans/<today>-conformance-cut-12-results.md`; execution rulings: `../plans/2026-08-29-successor-admission-ledger.md`. Promoted from `docs/superpowers/specs/` in this banking change.` Update its relative links (`../../plans/…` → `../plans/…`).
+Set the promoted design's `**Status:**` to: `implemented and discharged <today> at `<impl head>`; conformance cut 12 froze before implementation at `<freeze hash>` and its 24 units passed through 50 lettered sabotage arms on the certified tuple. Results: `../plans/<today>-conformance-cut-12-results.md`; execution rulings: `../plans/2026-08-29-successor-admission-ledger.md`. Promoted from `docs/superpowers/specs/` in this banking change.` Update its relative links (`../../plans/…` → `../plans/…`).
 
-Set the cut's `**Status:**` to: `**Discharged <today> at `<impl head>`** — all 24 frozen units passed through 52 lettered sabotage arms on the certified tuple; the portable suite reported <N> passing tests, Ruff and Pyright were clean. Results: `../plans/<today>-conformance-cut-12-results.md`. The cut remains frozen byte-exact at `<freeze hash>`; the specification was promoted to `2026-08-29-successor-admission-design.md` at banking.` Nothing below the status line changes.
+Set the cut's `**Status:**` to: `**Discharged <today> at `<impl head>`** — all 24 frozen units passed through 50 lettered sabotage arms on the certified tuple; the portable suite reported <N> passing tests, Ruff and Pyright were clean. Results: `../plans/<today>-conformance-cut-12-results.md`. The cut remains frozen byte-exact at `<freeze hash>`; the specification was promoted to `2026-08-29-successor-admission-design.md` at banking.` Nothing below the status line changes.
 
 Add the README design-table row for the promoted design (after the cut-12 row):
 
