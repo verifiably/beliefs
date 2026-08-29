@@ -4,38 +4,23 @@ status: living
 created: 2026-08-08
 updated: 2026-08-28
 sources:
+  - ../designs/2026-08-02-computation-reproducibility-design.md
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-substrate-consolidation-design.md
-  - ../designs/2026-08-02-world-addressing-design.md
-  - ../designs/2026-08-02-computation-reproducibility-design.md
   - ../designs/2026-08-03-correction-lifecycle-design.md
-  - ../designs/2026-08-03-world-index-packaging-design.md
   - ../designs/2026-08-03-normative-contract-design.md
   - ../designs/2026-08-03-tamper-evident-log-design.md
+  - ../designs/2026-08-03-world-index-packaging-design.md
   - ../designs/2026-08-04-domain-extension-boundary-design.md
   - ../designs/2026-08-04-formal-model-and-claim-calculus-design.md
   - ../designs/2026-08-05-belief-policy-design.md
   - ../designs/2026-08-05-review-disposition-and-conformance-cut-1.md
-  - ../designs/2026-08-09-admission-ramp-design.md
-  - ../designs/2026-08-09-conformance-cut-2.md
+  - ../designs/2026-08-07-corpus-survey-and-vocabulary-admission-design.md
+  - ../designs/2026-08-08-world-address-ruling.md
   - ../designs/2026-08-10-verified-holdings-record-design.md
   - ../designs/2026-08-11-act-report-design.md
-  - ../designs/2026-08-11-conformance-cut-3.md
-  - ../designs/2026-08-17-conformance-cut-4.md
-  - ../designs/2026-08-18-composition-root-adapter-design.md
-  - ../designs/2026-08-19-family-adapters-design.md
-  - ../designs/2026-08-19-conformance-cut-5.md
-  - ../designs/2026-08-20-world-registry-design.md
-  - ../designs/2026-08-20-conformance-cut-6.md
   - ../designs/2026-08-20-world-index-slice-2-design.md
-  - ../designs/2026-08-20-conformance-cut-7.md
-  - ../designs/2026-08-24-world-index-holdings-design.md
-  - ../designs/2026-08-24-conformance-cut-10.md
-  - ../designs/2026-08-26-world-index-intent-boundary-design.md
-  - ../designs/2026-08-27-conformance-cut-11.md
-  - ../plans/2026-08-20-conformance-cut-6-results.md
-  - ../plans/2026-08-24-conformance-cut-10-results.md
-  - ../plans/2026-08-27-conformance-cut-11-results.md
+  - ../designs/2026-08-23-world-index-root-lifecycle-design.md
 ---
 
 # Open questions
@@ -192,77 +177,6 @@ implementation**: a guarantee row awaiting code is work, not a question.
   certification is unspellable and existing instruments certify only through a
   successor spec. Open is the cadence: sweep, mint on next authored use, or
   never. ([normative-contract questions](../designs/2026-08-03-normative-contract-design.md#11-open-questions))
-- **Cut 10 is discharged; part of cut 3's deferred boundary stays open.** Cut 3
-  was frozen 2026-08-11 at the run boundary,
-  taking run capture — the seam the verified-holdings record (2026-08-10)
-  and the act-report design (2026-08-11) finished designing. Its §5
-  deferred the persistence seam (the holdings store, H1–H4, T7, the tamper
-  log), world persistence, and the `nodes` contract deltas, noting that the
-  first cut to cross a persistence boundary would take several of those
-  groups at once — whether as one cut or two, not ruled there. The cut-4
-  `nodes` write-plan/executor seam dependency was frozen and satisfied
-  2026-08-17, its failure-attribution amendment landed 2026-08-18, and the
-  Science composition-root adapter design banked that day. Cut 4 is drawn
-  against the certified
-  `atoms` engine adopted at Science's composition root, add-only,
-  corpus-write minting alone, with no L row selected because registration
-  is engine-supplied. Cut 6 lands the authoritative world root, manifest,
-  corpus-state identity, registry, lifecycle, and presence core. Cut 7 froze
-  the epoch build, four maps and receipts, rules store, bounded reads,
-  GC, and anchor carrier, and discharged all 48 declarations on the certified
-  tuple; anchor verification was outside it. Cut 8 closed that: it froze
-  2026-08-22 over the L table, reading five rows in full and seven in part with
-  L6 unread, and discharged all 53 declarations on the certified tuple on
-  2026-08-23 — the anchor act, the one four-outcome evaluator, replay, the
-  audit and replica-arrival boundaries, and the genesis↔mirror check. Cut 9
-  froze and discharged 2026-08-23: the root lifecycle and store substrate —
-  the fail-closed writer state and lifecycle commands, `restore_root`, the
-  fork acts, genesis-bound store subjects, and lifecycle-aware arrival modes —
-  reading one row in full and four in part with L6 read for the first time
-  under the fork-baseline lift, all 30 declarations on the certified tuple.
-  Cuts 4–9 are implemented, discharged, and merged on `main` — cut 9's
-  `--no-ff` integration commit is `7a9fec8`, 2026-08-24. Cut 10 froze
-  2026-08-24 and discharged verified store-side holdings on 2026-08-25 — the
-  governed observation kind, intent-bearing acts, mechanical coverage,
-  fixture-bound reduction and receipt, and dataset admission adapter — with
-  20 selected + 11 labeled declarations. Its `--no-ff` merge landed on local
-  `main` as `35be6ff` on 2026-08-25 and has not been pushed.
-  Cut 11 discharged general intent qualification on 2026-08-28: the
-  three-shape reduction, bounded evidence capture, durable run publication,
-  verifier lift, regenerated holdings interior, and completion re-base.
-  What the tamper-log group still owes is named and owned: G4 (**split
-  2026-08-27 to its own successor-admission
-  slice** — the intent-boundary design §5 carries the transfer), the
-  preimage-backed classification of a removed verification, and
-  event-level cross-chain order.
-  L10's fork/replica/restore and store arms closed with cut 9; its two deferred
-  holdings-read arms and L7's holdings-shaped qualification/boundary arms
-  closed with cut 10. The store substrate's holdings prerequisite is complete,
-  including the atoms read command and returned final-state evidence at remote
-  atoms `main` `038513f`.
-  The separately deferred consolidate/move/deletion cut no longer waits on the
-  world index.
-  ([conformance cut 3](../designs/2026-08-11-conformance-cut-3.md),
-  [its deferrals](../designs/2026-08-11-conformance-cut-3.md#5-step-3--fully-deferred-rows-grouped-by-unblocking-subsystem),
-  [conformance cut 4](../designs/2026-08-17-conformance-cut-4.md),
-  [composition-root adapter design](../designs/2026-08-18-composition-root-adapter-design.md),
-  [conformance cut 5](../designs/2026-08-19-conformance-cut-5.md),
-  [cut 5 results](../plans/2026-08-19-conformance-cut-5-results.md),
-  [conformance cut 6](../designs/2026-08-20-conformance-cut-6.md),
-  [cut 6 results](../plans/2026-08-20-conformance-cut-6-results.md),
-  [epoch-carrier design](../designs/2026-08-20-world-index-slice-2-design.md),
-  [conformance cut 7](../designs/2026-08-20-conformance-cut-7.md),
-  [cut 7 results](../plans/2026-08-20-conformance-cut-7-results.md),
-  [log-verification design](../designs/2026-08-22-log-verification-design.md),
-  [conformance cut 8](../designs/2026-08-22-conformance-cut-8.md),
-  [cut 8 results](../plans/2026-08-22-conformance-cut-8-results.md),
-  [root-lifecycle design](../designs/2026-08-23-world-index-root-lifecycle-design.md),
-  [conformance cut 9](../designs/2026-08-23-conformance-cut-9.md),
-  [cut 9 results](../plans/2026-08-23-conformance-cut-9-results.md),
-  [holdings design](../designs/2026-08-24-world-index-holdings-design.md),
-  [conformance cut 10](../designs/2026-08-24-conformance-cut-10.md),
-  [cut 10 results](../plans/2026-08-24-conformance-cut-10-results.md),
-  [conformance cut 11](../designs/2026-08-27-conformance-cut-11.md))
 - **The act-report's residue.** The act-report design (2026-08-11) closed
   the run boundary's report seam: the boundary-minted terminal record of
   an opened operation — or the pre-intent refusal record of a rejected
@@ -273,9 +187,6 @@ implementation**: a guarantee row awaiting code is work, not a question.
   today); a compaction protocol that must preserve intent-qualification
   resolvability and fulfillment evidence (the rule today is retain); new
   operation kinds (the enum is closed at five); the agentic surface —
-  audit scheduling and liveness, kernel sub-problem 6. Science-side anchor
-  carriage and a durable-log consumer are **no longer among them**: carriage
-  landed with cut 7 and the consumer — the explicit anchor act, the evaluator,
-  and the audit and arrival boundaries — with cut 8 on 2026-08-23.
+  audit scheduling and liveness, kernel sub-problem 6.
   ([act-report design](../designs/2026-08-11-act-report-design.md),
   [what stays open](../designs/2026-08-11-act-report-design.md#6-what-this-unblocks-and-what-stays-open))
