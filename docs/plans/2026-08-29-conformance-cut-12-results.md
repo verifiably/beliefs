@@ -59,6 +59,14 @@ certified volume at `../.cut12-acceptance`, the default beside the checkout;
 - durability features `compat=0x3c`, `incompat=0x246`, `ro_compat=0x46b`
 - certification record
   `docs/certification/2026-08-28-ext4-linux-7.1.10-arch1-1.json`
+- execution authority: the editable Atoms dependency loaded local `main` at
+  `dd658ac`, a descendant of remote contract head `038513f`; between them the
+  only Atoms production diff is the four-line allowlist/certification-reference
+  replacement in `atoms/fs/volume.py`
+- that local head is cut 11 execution-ledger R3's separate host-recertification
+  prerequisite: the Linux 7.1.10 record reports 3,281 crash prefixes with zero
+  violations; remote `038513f` remains the binding transaction-engine contract,
+  and no Atoms change ships in this Science branch (ledger R6)
 
 ### 2.2 Certified cut-12 runner
 
@@ -120,7 +128,18 @@ whitespace only (ledger R4); cut 3's three G4 sabotages match the unchanged
 anchor line (ledger R2). The exact rationale, task heads, and definitive runner
 summaries live in `2026-08-29-successor-admission-ledger.md`.
 
-There is no frozen-cut deviation.
+The Task 8 discharge-record review separately reported 1 Critical finding: the
+record named the certified tuple but did not disclose that the editable Atoms
+dependency loaded local `dd658ac`, so the unconditional deviation claim
+overstated the literal frozen execution boundary. This correction and ledger
+ruling R6 close that one historical-claim defect; it is not part of the 3
+post-implementation findings above.
+
+The frozen selection, declaration partition, and cut body did not change;
+Science runtime behavior did not change. The literal execution-boundary engine
+head differed exactly by ledger R6's separate certified-host prerequisite:
+local Atoms `dd658ac` descended from remote contract head `038513f` with only
+the four-line allowlist/certification-reference production delta.
 
 ## 4. Commit identities
 
