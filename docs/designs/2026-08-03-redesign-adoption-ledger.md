@@ -242,9 +242,10 @@ Two standing constraints on 5b:
    L6 unread. The later slices closed L10's fork, replica, restore, store and
    holdings-read arms plus L7's holdings-shaped qualification and boundary
    arms. **General intent qualification closed 2026-08-28** with the
-   intent-boundary slice and cut 11. G4 *(corrected 2026-08-27: split to its
-   own successor-admission slice)*, the preimage resolver behind L13's
-   classification, and event-level L8 remain, each with a named owner in
+   intent-boundary slice and cut 11. **G4 closed 2026-08-29** with the
+   successor-admission slice and conformance cut 12
+   (`2026-08-29-successor-admission-design.md`). The preimage resolver behind
+   L13's classification and event-level L8 remain, each with a named owner in
    artifact 5's row.
 7. **Domain extension boundary** — where domain-specific material lives, and how
    `science` is organized so a later decomposition into packs is a move rather
