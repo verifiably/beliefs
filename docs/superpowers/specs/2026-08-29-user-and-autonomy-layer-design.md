@@ -120,7 +120,10 @@ documentation cites remains true.
 **Banked designs are not edited.** They use "Science" as the system's name,
 which now names the stack rather than the kernel repository. The adoption
 ledger gains one dated ruling in §5 saying so; the guide's glossary gains
-the four layer names.
+the four layer names. `docs/guide/foundations.md`'s statement that views
+and coordination "are not additional kernel kinds" remains true under §4.1
+and is extended, with sub-project 1, to say where they live: corpus
+records under a coordination contract, coordination-scoped, belief-inert.
 
 ### 3.2 What is not a repository
 
@@ -141,18 +144,36 @@ belief; three rules follow.
 
 ### 4.1 Views and coordination are governed kinds minted in `beliefs`
 
-World-addressing §3's tiers become contracts. **View** kinds — `project`,
-`question`, `hypothesis`, `topic`, `theme` — are a stored, content-addressed
-world query plus a label: "a project-scoped name over a world query," never
-a container. **Coordination** kinds — `task`, `decision`, `note` — are
-attributed acts addressed by `(project identity, local id)` per W11/W12. A
-project's identity is opaque and minted the way a `corpus_id` is, so
-renaming a project breaks no coordination reference (W12).
+World-addressing §3's tiers become a contract. **View** kinds — `project`,
+`question`, `hypothesis`, `topic`, `theme` — are a stored world query plus a
+label: "a project-scoped name over a world query," never a container.
+**Coordination** kinds — `task`, `decision`, `note` — are attributed acts.
+Neither tier is a world fact (world §3: "the world contains what is true or
+done… not what is planned or organised"), so neither carries a world
+address. Both are stored in a corpus and minted through the corpus-write
+adapter like every other record — that is what makes them governed: they
+carry provenance and enter the log and epochs — but they are declared by a
+**coordination contract** compiled into `ProfileSpec`, not added to the
+kernel's kinds, and they are never belief inputs. The guide's sentence that
+views "are not additional kernel kinds" stays true.
 
-This is the roadmap's tier-3 `coordination-addressing` boundary, and this
-design answers its question: coordination records **are** minted through the
-corpus-write adapter, like every other record, so they carry provenance and
-enter the log and epochs. The boundary moves to the roadmap's `mutation`
+**Identity is coordination-scoped, and a project's is opaque.** Every view
+and coordination record is addressed by `(project identity, local id)` per
+world §6.1 and W11 — never by a world address, and never by a hash of its
+content. A `project` carries an opaque durable identity minted the way a
+`corpus_id` is (fresh, act-authored at creation, recorded in the manifest
+of the corpus that holds it); its name and its query are content. Editing a
+view's query or label mints a new **revision** — an immutable record
+superseding the previous one under the same address, through the existing
+supersede family — and the current revision of an address is its latest
+standing revision (unsuperseded, unretracted). W12 holds because a
+coordination reference binds the project identity and the local id, both
+of which survive every rename and every re-query; a reference to a view
+therefore reads the current revision unless it names a revision
+explicitly.
+
+This is the roadmap's tier-3 `coordination-addressing` boundary, and the
+above answers its question. The boundary moves to the roadmap's `mutation`
 lane at the next re-rank. No kind is minted anywhere else — `science`
 cannot declare one, and a kind a command wants is a request to `beliefs`.
 
@@ -218,6 +239,19 @@ around a refusal. This is the entire guardrail story on the interactive
 path, and it is the one autonomy inherits (§7): there is no second write
 path to gate.
 
+**Write classes are enforced by the kernel writer, not by the declaration.**
+A declaration is metadata; a body could invoke a broader writer than it
+declares. So every `beliefs` write entry point — `CorpusWriter.add`, the
+family adapters, the run boundary, `publish` — takes a **write permit**: a
+closed set of permitted kinds and act families, checked against the kind or
+act actually emitted, with anything outside it `Refused(permit-exceeded)`
+before any effect. A session opens under one permit; `science` threads it
+to every act and has no way to widen it; a command's declared write class
+is additionally checked against the permit before the body runs, so a
+mismatch is a refusal at declaration time and, if the body lies, again at
+the act. The interactive path runs under a full permit through the same
+mechanism, so the permit is exercised every day and not only unattended.
+
 ### 5.3 Output budget is enforced by the renderer
 
 Every result passes through one budgeted renderer: a declared cap in bytes,
@@ -249,21 +283,34 @@ the committed tree against a fresh build.
 `publish(view, destination)` in `beliefs`: resolve the view's query at the
 current epoch; mint a fresh corpus at the destination — own `corpus_id`,
 manifest, genesis; write the selected records with their identities
-unchanged; stamp the manifest `published_from = (source corpus_id, source
-epoch identity, view record identity)`. A selected record whose closure
-names an unselected one — an assessment whose run closure names a dataset
-outside the selection — makes the publish `Refused(closure-incomplete)`
-with the missing identities listed; the user widens the view or drops the
-record. A published corpus is a valid corpus or it does not exist.
+unchanged; stamp the manifest `published_from = (world_id, the epoch's
+packaging identity, the view's address, the view revision's identity)`. A
+view's query runs over the whole world, so a publication may draw from
+several source corpora; which ones is carried by the cited epoch's
+coverage, and no single source `corpus_id` is named. A selected record
+whose closure names an unselected one — an assessment whose run closure
+names a dataset outside the selection — makes the publish
+`Refused(closure-incomplete)` with the missing identities listed; the user
+widens the view or drops the record. A published corpus is a valid corpus
+or it does not exist: a publish that fails mid-way leaves a destination
+that fails validation and is never admitted anywhere, and a retry is a new
+publish operation with its own act-report.
 
 ### 6.2 One operation, three destinations
 
 A destination is a directory the user controls (private), a git remote or
 Zenodo deposit whose content is the corpus (shared), or a community world's
-inbox. Republishing a view is a second `publish` from a later epoch to the
-same destination: the destination corpus advances by explicit import
-through the mutation log, never by overwrite, so a recipient's replica sees
-an ordinary history.
+inbox. The **first** publish of a view to a destination mints the corpus
+(§6.1) and records a `publication` coordination record under the view's
+project binding `(view address, destination, destination corpus_id)`.
+**Every later** publish of that view to that destination is an update: the
+new selection is written into the bound corpus by the explicit-import
+family through its mutation log — added records imported, records no
+longer selected retracted, never deleted — and the manifest's
+`published_from` is superseded to the new epoch and revision. A recipient's
+replica therefore sees an ordinary history. Two publishers cannot race: the
+destination corpus has one fail-closed writer under the root lifecycle,
+and a publish that cannot obtain it is `Refused`.
 
 ### 6.3 A commons is a world
 
@@ -295,20 +342,32 @@ spec after the interactive dogfood exists (§8, item 7).
 
 ### 7.1 The envelope, not overridable by construction
 
-A run is opened by capturing the world head and the belief basis to a
-baseline outside any corpus the actor can write. Every act inside the run
-carries the run identity as its operation intent (act-report §3). The run
-closes by re-reading the basis and classifying `clean`, `quarantined`, or
-`unwired`; `unwired` — "a guard that cannot see must not report clean" — is
-the disposition whenever the baseline, the log evaluator, or the intent
-chain is unavailable.
+A run is opened by capturing the world head, every writable corpus's log
+head, and the belief basis to a baseline outside any corpus the actor can
+write. The run closes by re-reading the heads and the basis and classifying
+`clean`, `quarantined`, or `unwired`; `unwired` — "a guard that cannot see
+must not report clean" — is the disposition whenever the baseline, the log
+evaluator, or a chain is unavailable.
 
-The predecessor's path gate is replaced by something stronger. The actor
-has only `science`'s commands, so what it can write is exactly the write
-classes those commands declare, and an envelope **tier** is a set of
-permitted write classes: `report-only` ⊂ `coordination` ⊂ `mints` ⊂
+**Membership is by chain interval, and the intent contract is unchanged.**
+The kernel's `OperationIntent` is closed over `(kind, event_token, actor)`
+with a closed operation-kind set (act-report §3), and this design does not
+reinterpret or extend it: a run's member acts are exactly the log entries
+between the opening heads and the closing heads of the corpora the run may
+write, and every intent in that interval must carry the run's actor
+identity — an entry in the interval under another actor is a `quarantined`
+finding. Nothing can write inside the interval without being a member, which
+is stronger than a per-act stamp. If a later need — two concurrent runs on
+one corpus — outgrows interval membership, the remedy is a versioned
+additive parent-run member on the intent, banked as an act-report design
+amendment; it is not taken now.
+
+The predecessor's path gate is replaced by the write permit (§5.2). An
+envelope **tier** is a permit: `report-only` ⊂ `coordination` ⊂ `mints` ⊂
 `publishes`, with `publishes` never granted unattended. A tier is a
-constant in `autonomy`; no project, profile, or command can widen one.
+constant in `autonomy`, minted into the permit when the run opens; the
+kernel writer enforces it at every act, so no project, profile, command, or
+body can widen one.
 
 ### 7.2 The loop is a sampler over the derived queue
 
@@ -349,12 +408,12 @@ column says so.
 | # | sub-project | repository | depends on | starts |
 |---|---|---|---|---|
 | 0 | **Rename and seed** — `science` → `beliefs`; ledger §5 ruling; glossary; create `science` and `autonomy` with a README pointing here | kernel, new | nothing | now, between lane merges |
-| 1 | **Coordination and view kinds** — project identity minting, `(project, local id)` addressing, the view-query record, W11, W12, W13's two-projects negative; a coordination contract in `beliefs` | `beliefs` | none — it is the tier-3 answer and joins the `mutation` lane | now |
-| 2 | **Command framework** — declaration schema, write classes, budgeted renderer, preamble, adapter generator with the Claude Code target, CLI and MCP over `beliefs` reads | `science` | 0 | now, against today's kernel reads |
+| 1 | **Coordination and view kinds** — opaque project identity minting, `(project, local id)` addressing, view revisions under the supersede family, W11, W12, W13's two-projects negative; the coordination contract in `beliefs`; the `foundations.md` extension | `beliefs` | none — it is the tier-3 answer and joins the `mutation` lane | now |
+| 2 | **Command framework** — declaration schema, write classes, budgeted renderer, preamble, adapter generator with the Claude Code target, CLI and MCP over `beliefs` reads; the write permit on every `beliefs` write entry point | `science`, `beliefs` | 0 | now, against today's kernel reads |
 | 3 | **Biology domain pack** — GO, HP, EFO, MONDO bindings; mm30's operator vocabulary | `beliefs/domains/biology` | the `domain-boundary` lane | with that lane |
 | 4 | **The dogfood command set** — the dozen commands over a real world root; mm30 reproduced, not migrated, as the first corpus | `science` | 1, 2, 3; `run-confinement` and `workflow-surface` for a real assessment | after 2; grows as lanes land |
 | 5 | **Publish** — the act in `beliefs`; hosting glue and dry run in `science` | both | 1; the `world-read` lane (view queries resolve through it) | after that lane |
-| 6 | **Envelope** — baseline, tiers as write-class sets, dispositions, lease | `autonomy` | 2 | after 2 |
+| 6 | **Envelope** — baseline with log heads, tiers as permits, interval membership, dispositions, lease | `autonomy` | 2 | after 2 |
 | 7 | **Loop and `science.priority.v1`** — its own spec | `autonomy` | 4, 6 | last |
 
 **Success criterion** — item 4 complete: a coding-agent session over a
