@@ -150,12 +150,18 @@ one its writers take and the one the audit takes for a corpus subject —
 **held through the admission decision**, the order is:
 
 1. `view = seam.inspect_registered(root)` — registered mode, so recovery
-   runs first and everything after is the post-recovery surface;
-2. `records, withheld = capture_surface(root, RECORD_NAMESPACES + ("verification", "assessment"))`
+   runs first and everything after is the post-recovery surface.
+   `ChainView` is a union: only a `WellFormedView` has entries to qualify.
+   A `MalformedView` or `AbsentView` refuses
+   `AdmissionEvidenceRefused("chain not well-formed", root)` — the chain
+   is the only source of class 2, and a chain that cannot be read is
+   evidence that cannot be read, not evidence of absence;
+2. `records, withheld, unreadable = capture_surface(root, RECORD_NAMESPACES + ("verification", "assessment"))`
    — one capture, fd-anchored, no-follow, `O_PATH`-classified,
    ceiling-plus-one per file, exactly cut 11's mechanics over five
    namespaces instead of three;
-3. the derivation (§4.3–§4.5), pure over `view` and `records`;
+3. the derivation (§4.3–§4.5), pure over `view`, `records`, `withheld`
+   and `unreadable`;
 4. `admit_successor(candidate, superseded, recorded_failures, unfinished_attempts)`.
 
 Steps 3 and 4 are pure over captured values and could run outside the
@@ -170,18 +176,21 @@ The snapshot is coherent by construction — both classes come from the one
 ```python
 def capture_surface(
     root: Path, namespaces: tuple[str, ...]
-) -> tuple[tuple[tuple[str, bytes], ...], tuple[str, ...]]: ...
+) -> tuple[tuple[tuple[str, bytes], ...], tuple[str, ...], tuple[str, ...]]: ...
 ```
 
-returning the captured `(path, payload)` pairs and, second, the paths of
-every leaf classified as a regular file and then **withheld for size**
-(§4.5 needs those paths). Both functions share the one private descent;
-`capture_records`' signature, return and behaviour are untouched, so the
-log evaluator's two callers and its certified captured surface are
-byte-for-byte what they were. `RECORD_NAMESPACES` is unchanged, so
-`record_layout_path` and the reducer's record lookup are unchanged too.
-Symlinks, fifos and unreadable leaves stay silent in both: they are not
-records and never were.
+returning the captured `(path, payload)` pairs; the paths of every leaf
+classified as a regular file and then **withheld for size**; and the paths
+of every leaf classified as a regular file whose readable open, `fstat`
+re-check or read then **failed** — a permission refusal, a vanished
+descriptor target, an I/O error. The two path lists are what §4.5 reads.
+Both functions share the one private descent; `capture_records`'
+signature, return and behaviour are untouched, so the log evaluator's two
+callers and its certified captured surface are byte-for-byte what they
+were. `RECORD_NAMESPACES` is unchanged, so `record_layout_path` and the
+reducer's record lookup are unchanged too. Symlinks, fifos and every leaf
+that fails `O_PATH` classification stay silent in both: they are not
+records and never were, and cut 11 certified exactly that silence.
 
 ### 4.3 Class 2 and the unresolved gate, from the chain
 
@@ -194,7 +203,12 @@ is read back from its decoded shape:
 
 - `unresolvable` and `spec_identity == superseded.identity` →
   `AdmissionEvidenceRefused("qualification unresolved for the superseded spec", intent digest)`.
-  An unresolvable intent carrying another spec blocks nothing.
+  An unresolvable intent carrying another spec blocks nothing. A run or
+  act-report file in `unreadable` reaches this gate the same way an
+  oversized one does today — no payload in `records`, the pointer
+  unresolved — so an unreadable *fulfillment* record already refuses when
+  it concerns the superseded spec and is inert otherwise; no separate
+  rule is needed for those three namespaces.
 - `attempt-without-recorded-outcome` → `spec_identity` joins
   `unfinished_attempts`.
 - `matched` → see class 1b.
@@ -202,63 +216,97 @@ is read back from its decoded shape:
 
 ### 4.4 Class 1, from recorded failure evidence
 
-**1a — failing verifications.** Every captured `verification/*.md`:
+**1a — failing verifications.** Over the two namespaces this class reads:
 
-1. decodes through the **same gate `science.intents.evidence` applies to
-   every captured record** — frontmatter parse, semantic stamp present and
+1. **Every** captured `verification/*.md` and `assessment/*.md` decodes
+   through the **same gate `science.intents.evidence` applies to every
+   captured record** — frontmatter parse, semantic stamp present and
    agreeing, id names the path, kind agrees with the id — then through
-   `verification_value`. Any failure refuses
-   `("verification unreadable", path)`. This is opening obligation 1: the
-   stamp check runs before the typed reader, on every record, so a
-   tampered facet cannot invent or erase blocker evidence.
-2. `science.verification.active` selects the unsuperseded set over all
+   its typed reader (`verification_value`, `assessment_value`). Any
+   failure refuses `("verification unreadable", path)` or
+   `("assessment unreadable", path)`. A path in `unreadable` (§4.2) is
+   the same refusal: a regular file the act could not read is evidence it
+   could not read. This is opening obligation 1, applied to the whole
+   consulted surface rather than to the records some later step happens
+   to touch: a tampered or unreadable record in a namespace the act reads
+   can neither invent nor erase blocker evidence, and an index built over
+   a subset of the namespace (step 3) would otherwise have no honest
+   collision semantics.
+2. **The index.** `Index.build` over every decoded verification and
+   assessment node — live and deprecated ids, the library's collision
+   refusal mapped to `("record collision", id)` — opening obligation 2.
+   A withheld path's determined id (`verification:<slug>` /
+   `assessment:<slug>`, §4.5) is also checked against the index: a decoded
+   node claiming that id, live or deprecated, is a collision with a record
+   the act cannot see, and refuses the same way.
+3. **The coherence gate**, over a verification `v`: exactly one outbound
+   `verifies` relation, else `("verification edge cardinality", path)`;
+   its target resolves through the index to a decoded assessment, else
+   `("verification target unreadable", path)` — a withheld or unreadable
+   target included; `assessment_value(target).identity() == v.assessment`,
+   else `("verification target mismatch", path)`. The gate runs over
+   **every failing verification, and every verification whose
+   `supersedes` names a failing or withheld verification**. §5 scoped it
+   to failing verdicts alone, on the ground that a passing verification is
+   not blocker evidence; a passing verification that *supersedes* blocker
+   evidence acts on it, and an incoherent one would lift a valid block by
+   its bare existence. That is a widening of §5's gate and is recorded as
+   a dated correction at banking (§8). A passing verification that
+   supersedes nothing failing stays outside the gate, as §5 says.
+4. `science.verification.active` selects the unsuperseded set over all
    decoded verifications (opening obligation 3 — the stored-value helper,
-   not the replay-value `active_verifications`).
-3. Among the active set, **only `verdict == "failed"` enter the coherence
-   gate**; a passing verification is not blocker evidence and its
-   relations are not this gate's business. For each failing one:
-   - exactly one outbound `verifies` relation, else
-     `("verification edge cardinality", path)`;
-   - the edge target resolves through `Index.build` over the captured
-     verification and assessment nodes — live and deprecated ids, the
-     library's collision refusal mapped to `("record collision", id)` —
-     opening obligation 2;
-   - the target is a captured, decodable (same gate) assessment, else
-     `("verification target unreadable", path)`;
-   - `assessment_value(target).identity() == facet.assessment`, else
-     `("verification target mismatch", path)`;
-   - coherent → `assessment_value(target).spec` joins `recorded_failures`.
+   not the replay-value `active_verifications`). Because step 3 already
+   refused every incoherent superseder of a failing record, a failing
+   verification is superseded here only by a coherent one. The
+   supersession relation itself is the tree's — `active` does not require
+   the superseder to verify the same assessment, and `lifecycle_state`
+   relies on the same rule; this act inherits it and does not tighten it.
+5. Every **active failing** verification, coherent by step 3, contributes
+   `assessment_value(target).spec` to `recorded_failures`.
 
 Every refusal here is **global**: incoherent failing evidence cannot be
 attributed to a spec, so a relevance scope is undecidable for exactly the
 records it would exempt (§5).
 
 **1b — qualifying `run-attempt` act-reports.** A `matched` assessment-run
-row names its fulfilling registration in `fulfilled_by`; that
-registration's record paths (`final`, filtered by `record_layout_path`)
-are decoded again through `decode_record`. When the qualifying record is
+row names its fulfilling registration in `fulfilled_by`, not the record
+that matched — a registration can carry a qualifying run *and* a
+`run-attempt` report beside undecodable siblings, and the reducer returns
+the first qualifying path in `final` order without reporting which. So
+the choice is factored, not repeated: `intents.reduce` gains
+`qualifying_record(intent, registration, records, state_facts) -> tuple[str, RecordEvidence] | None`,
+the exact loop `_qualify_one` runs today over one registration — same
+path order, same `decode_record`, same `shapes.mismatch`, first match
+wins — and `_qualify_one` calls it. Its behaviour is byte-for-byte cut
+11's (a labeled declaration, §7.3). The admission act calls the same
+helper for each matched assessment-run row: when the evidence is
 `ReportEvidence` with `operation == "run-attempt"`, the attempt minted no
 run — an execution refusal included — and the intent's `spec_identity`
-joins `recorded_failures`. When it is `RunEvidence`, a run was minted and
-nothing joins. The re-decode cannot fail: the reducer already decoded that
-record to call it matched, and the bytes are the same capture.
+joins `recorded_failures`; when it is `RunEvidence`, a run was minted and
+nothing joins. There is no re-decode and nothing to fail: the helper
+returns the decoded evidence the reducer's own verdict rested on.
 
 ### 4.5 Oversized records, the superseder-side rule
 
 A file withheld by the ceiling has no payload in `records`; its path is in
-`withheld` (§4.2), and the path alone decides what follows:
+`withheld` (§4.2), and the path alone decides what follows. (A path in
+`unreadable` is different: it refuses outright, §4.4 step 1 — size is the
+one withholding the design bounds by construction; a read that fails is
+a state the act cannot characterise.)
 
 - `verification/<slug>.md` withheld: skipped iff some decoded verification
   (active or not — the fact needed is that a superseder exists) carries
-  `supersedes == "verification:<slug>"`; otherwise
+  `supersedes == "verification:<slug>"` **and passes the coherence gate**
+  (§4.4 step 3 — it supersedes something the act cannot read, and the
+  ruling in §2 says "decoded, coherent"); otherwise
   `("verification oversized", path)`. The layout rule
   `path == f"{kind}/{slug}.md"` is enforced on every decoded record, so
   the id of the withheld file is determined by its path without reading
   its bytes.
 - `assessment/<slug>.md` withheld: refuses `("verification target
-  unreadable", verification path)` iff a live failing verification's edge
+  unreadable", verification path)` iff a failing verification's edge
   targets `assessment:<slug>`; untargeted, it is not evidence and is
-  ignored.
+  ignored, subject only to the collision check of §4.4 step 2.
 
 This is narrower than §5's "until the record is corrected or superseded"
 in exactly the way opening obligation 5 asked: supersession is readable
@@ -301,12 +349,14 @@ refusal of the *successor*, and the return union stays the core's pair.
 | gate | `reason` | `ref` |
 |---|---|---|
 | root not an openable directory | `root unreadable` | root path |
-| verification undecodable, stamp missing or stale, id–path mismatch | `verification unreadable` | path |
-| oversized verification with no decoded superseder | `verification oversized` | path |
-| failing verification with ≠ 1 `verifies` edge | `verification edge cardinality` | path |
-| edge target missing, not an assessment, undecodable, or oversized | `verification target unreadable` | verification path |
+| `inspect_registered` returns a `MalformedView` or `AbsentView` | `chain not well-formed` | root path |
+| verification undecodable, stamp missing or stale, id–path mismatch, or its read failed | `verification unreadable` | path |
+| assessment undecodable, stamp missing or stale, id–path mismatch, or its read failed | `assessment unreadable` | path |
+| oversized verification with no decoded, coherent superseder | `verification oversized` | path |
+| gated verification with ≠ 1 `verifies` edge | `verification edge cardinality` | path |
+| edge target missing, not an assessment, withheld, or unreadable | `verification target unreadable` | verification path |
 | resolved target's identity ≠ facet `assessment` | `verification target mismatch` | verification path |
-| `Index.build` collision over the captured nodes | `record collision` | colliding id |
+| `Index.build` collision over the decoded nodes, or a decoded node claiming a withheld path's id | `record collision` | colliding id |
 | assessment-run intent for the superseded spec reads `unresolvable` | `qualification unresolved for the superseded spec` | intent digest |
 
 The caller corrects the named record and retries the act; nothing routes
@@ -325,11 +375,20 @@ unchanged and are cited, not re-proven.
 
 **R12 → full.** The boundary-mediated strengthening arm: a run started
 through the boundary appends its intent before any member act (cut 11);
-excise that entry after anchoring and the evaluator reads **malformed**,
-truncate to a valid prefix and it reads **refuted** (cut 8's chain
-classification). This cut composes the two through the successor-admission
-read — the excised witness is exactly the entry class 2 would have derived
-from — and the out-of-band negative stands unchanged (cut 3's arm,
+excise that entry after anchoring and `inspect_registered` returns a
+`MalformedView`, which the log evaluator reports as **malformed**;
+truncate to a valid prefix and the evaluator — over the anchored observer
+set, cut 8's four-outcome precedence — reports **refuted**. Those two
+readings are `evaluate_log`'s, certified by cut 8 and cited here, not
+re-proven. What this cut adds is the successor-admission consequence of
+the same witness: over the excised chain the act refuses
+`chain not well-formed` rather than deriving an empty class 2 and
+admitting; over the truncated chain the intent is gone from the entries,
+the act derives no unfinished attempt, and the successor is admitted —
+which is exactly what the evaluator's **refuted** makes detectable
+alongside. The intent entry is the removal-detectable witness because its
+removal is read by the evaluator; the admission act never pretends to
+read it itself. The out-of-band negative stands unchanged (cut 3's arm,
 computation limitation 5).
 
 **L7 → part, limitation-only.** The roadmap names "L7's relabel" for this
@@ -398,41 +457,56 @@ fails under it. The selection, to be fixed exactly in the cut document:
    `run-attempt` act-report is refused with the recorded-failure reason;
 4. a referencing successor lifts each of 1–3;
 5. overlap: a spec in both classes refuses with the recorded-failure reason;
-6. a failing verification whose active superseder passes contributes no
-   member; superseded by another failing one, the block holds through the
-   active member;
+6. a failing verification whose coherent active superseder passes
+   contributes no member; superseded by another failing one, the block
+   holds through the active member; **superseded by an incoherent
+   passing one** (zero edges, or a mismatched target), the act refuses
+   naming the superseder — the block is never lifted by bare existence;
 7. the evidence gate: a verification with a missing stamp, a stale stamp,
    an id naming another path, or an undecodable body refuses naming the
-   path; the same for the targeted assessment;
+   path; the same for an assessment, **targeted or not**; a regular file
+   made unreadable (permission withdrawn after classification) refuses
+   naming the path — in either namespace;
 8. the coherence gate: zero edges, two edges, a target that is not an
    assessment, a deprecated-id target that resolves (admitted), a
    collision (refused), an identity mismatch (refused);
-9. oversized: a withheld verification with a decoded superseder is skipped;
-   without one, refused; a withheld assessment targeted by a live failing
-   verification refuses; untargeted, ignored;
+9. oversized: a withheld verification with a decoded, coherent superseder
+   is skipped; without one, refused; a withheld assessment targeted by a
+   failing verification refuses; untargeted, ignored; a decoded node
+   claiming a withheld path's id refuses as a collision;
 10. unresolved: a decayed run under the superseded spec refuses; a decayed
-    run under another spec does not block;
+    run under another spec does not block; an unreadable run record is the
+    same two ways;
 11. snapshot coherence: a blocker written before the act is consulted; one
     written after the act's verdict is not — under the lock, the second
     writer waits;
 12. the negative at persistence width: discard the attempt and its intent;
     no class holds a trace; the successor is admitted;
-13. `root unreadable` refuses before any lock is taken.
+13. `root unreadable` refuses before any lock is taken; a `MalformedView`
+    or `AbsentView` refuses `chain not well-formed` under it;
+14. class 1b selection: a registration carrying an undecodable sibling
+    before its qualifying `run-attempt` report still joins the spec; one
+    carrying a qualifying run first joins nothing — the helper's order is
+    the reducer's.
 
-**R12:** 14. excise a boundary-started run's intent entry after anchoring →
-malformed; 15. truncate to a valid prefix → refuted; both read through the
-successor-admission composition over the same root.
+**R12:** 15. excise a boundary-started run's intent entry after anchoring →
+the evaluator reads malformed and the act refuses `chain not well-formed`;
+16. truncate to a valid prefix → the evaluator reads refuted over the
+anchored observers, and the act — its witness gone — admits; the pair is
+the arm.
 
-**L7:** 16. kill between intent append and execution → the intent blocks an
-unreferenced successor; 17. a wrong-spec run publication fails
-qualification and the intent still blocks; 18. a qualifying publication
+**L7:** 17. kill between intent append and execution → the intent blocks an
+unreferenced successor; 18. a wrong-spec run publication fails
+qualification and the intent still blocks; 19. a qualifying publication
 lifts the block.
 
 **Labeled declarations** (outside the frozen rows, declared as data):
 `capture_surface` sharing `capture_records`' descent with the log
-evaluator's surface unchanged; the `withheld` paths; the closed `reason`
-set of `AdmissionEvidenceRefused`; the core's byte-identical first line
-under cut 3's arms.
+evaluator's surface unchanged; the `withheld` and `unreadable` paths;
+`qualifying_record` factored from `_qualify_one` with the reducer's
+verdicts unchanged over cut 11's arms; the closed `reason` set of
+`AdmissionEvidenceRefused`; the core's byte-identical first line under
+cut 3's arms.
 
 ### 7.4 Accounting
 
@@ -457,7 +531,8 @@ negative of G2a/R12 stands.
 - **This spec** is promoted to `docs/designs/2026-08-29-successor-admission-design.md`.
 - **Intent-boundary design §5** gains a dated correction: closed at cut 12;
   the entrypoint's home is `science.succession`, not `science.spec` (§2
-  item 4). The frozen body is otherwise untouched.
+  item 4); the coherence gate also covers a verification that supersedes
+  a failing one (§4.4 step 3). The frozen body is otherwise untouched.
 - **Adoption ledger:** row 5's remainder loses G4; row 7's parenthetical
   notes G4 read in full at cut 12; the `Current state` table drops
   `successor-admission`; the "Implemented through" line advances to cut 12.
@@ -503,9 +578,25 @@ negative of G2a/R12 stands.
 - **A second capture pass for the new namespaces.** Two reads under one
   hold are still one snapshot, but one call is one snapshot by
   construction rather than by argument.
-- **Deriving class 1b from `IntentQualification` alone.** `matched` does
-  not say what matched; the re-decode of the fulfilling record is the
-  honest read and cannot fail on bytes the reducer already decoded.
+- **Deriving class 1b from `IntentQualification` alone.** `matched` names
+  the registration, not the record; a registration can hold a run and a
+  `run-attempt` report. Adding a `fulfilled_path` member to
+  `IntentQualification` would widen cut 11's report contract; repeating
+  the reducer's loop in the admission act would be a second copy of one
+  selection. Factoring the loop keeps one selection and cut 11's verdicts.
+- **Refusing on a non-well-formed chain only when it concerns the
+  superseded spec.** A malformed chain has no readable entries, so
+  "concerns" is undecidable; the refusal is global.
+- **Treating an unreadable regular file like an oversized one.** Size is
+  bounded by the design and known from the path; a failed read is a
+  state the act cannot characterise, and a failing verification whose
+  bytes became unreadable would otherwise leave both derived sets and
+  admit the successor.
+- **Gating only failing verdicts, as §5 says.** A passing verification
+  that supersedes a failing one acts on blocker evidence; an incoherent
+  one would lift a valid block by existing. The widening is minimal —
+  superseders of failing or withheld records — and recorded as a
+  correction.
 
 ## 10. Verification
 
@@ -524,7 +615,8 @@ file changed.
 2. Errors: `AdmissionEvidenceRefused`.
 3. Core: widen `admit_successor`; update `test_spec.py`'s callers.
 4. Capture: `capture_surface` over the shared descent; `capture_records`
-   pinned unchanged by test.
+   pinned unchanged by test. Reducer: `qualifying_record` factored out;
+   `_qualify_one`'s verdicts pinned unchanged over cut 11's arms.
 5. `science/succession.py`: the boundary, gate by gate, TDD over
    fabricated roots.
 6. `n2_arms_cut12.py`, `test_successor_admission_acceptance.py`,
