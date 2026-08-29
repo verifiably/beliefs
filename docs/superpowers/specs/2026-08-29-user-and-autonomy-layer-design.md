@@ -61,7 +61,7 @@ agents actually use, without reopening any of those doors.
 
 Recorded as rulings so they are not re-derived.
 
-1. **Four layers, one repository and one distribution each.** `atoms`,
+1. **Five layers, one repository and one distribution each.** `atoms`,
    `nodes`, `beliefs` (today's kernel repository, renamed), `science` (the
    daily surface, new), `autonomy` (the envelope and orchestrator, new).
    Dependencies run one way: `autonomy → science → beliefs → nodes/atoms`.
@@ -157,27 +157,34 @@ carry provenance and enter the log and epochs — but they are declared by a
 kernel's kinds, and they are never belief inputs. The guide's sentence that
 views "are not additional kernel kinds" stays true.
 
-**Identity is coordination-scoped, and a project's is opaque.** Every view
-and coordination record is addressed by `(project identity, local id)` per
-world §6.1 and W11 — never by a world address, and never by a hash of its
-content. A `project` carries an opaque durable identity minted the way a
-`corpus_id` is — fresh and act-authored at creation — and **the identity
-lives in the project record itself**, as that record's own address; it is
-never written into a corpus manifest, because several projects may share a
-corpus and a project may change which corpus holds it (world §6, which
-rejects coupling the two identities). Its name and its query are content.
+**Identity is coordination-scoped, and a project's is opaque.** The
+`project` record is the root of its own address space and the one
+exemption from the qualified form: its address **is** its opaque durable
+identity, minted the way a `corpus_id` is — fresh and act-authored at
+creation — and carried by the record itself. It is never written into a
+corpus manifest, because several projects may share a corpus and a project
+may change which corpus holds it (world §6, which rejects coupling the two
+identities). Every **other** view and coordination record is addressed by
+`(project identity, local id)` per world §6.1 and W11 — never by a world
+address, and never by a hash of its content. A project's name and query,
+and every subordinate record's content, are content.
+
 Editing a view's query or label mints a new **revision** — an immutable
-record superseding the previous one under the same address, through the
-existing supersede family. The current revision of an address is its
-**one standing tip**: the single revision that no other revision
-supersedes. Two corpora or replicas can mint sibling successors, so
-resolution requires exactly one tip and otherwise returns
-`Refused(divergent-view)` naming every tip; it never chooses by recency,
-arrival, or iteration order, and the divergence is repaired by minting a
-revision that supersedes all of them. W12 holds because a coordination
-reference binds the project identity and the local id, both of which
-survive every rename and every re-query; a reference to a view reads the
-current tip unless it names a revision explicitly.
+record superseding the previous one under the same address — through a
+**coordination revision family** that sub-project 1 designs. The existing
+`supersede` is not reused: it operates on propositions only and takes
+exactly one predecessor (`CorpusWriter.supersede`), and revisions need
+neither restriction. The new family takes **one or more predecessor
+tips**, which is what repair needs. The current revision of an address is
+its **one standing tip**: the single revision no other revision supersedes.
+Two corpora or replicas can mint sibling successors, so resolution
+requires exactly one tip and otherwise returns `Refused(divergent-view)`
+naming every tip; it never chooses by recency, arrival, or iteration
+order, and the divergence is repaired by minting one revision that
+supersedes all of them. W12 holds because a coordination reference binds
+the project identity and the local id, both of which survive every rename
+and every re-query; a reference to a view reads the current tip unless it
+names a revision explicitly.
 
 This is the roadmap's tier-3 `coordination-addressing` boundary, and the
 above answers its question. The boundary moves to the roadmap's `mutation`
@@ -252,27 +259,41 @@ declares. So every `beliefs` write entry point — `CorpusWriter.add`, the
 family adapters, the run boundary, `publish` — takes a **write permit**: a
 closed set of permitted kinds and act families, checked against the kind or
 act actually emitted, with anything outside it `Refused(permit-exceeded)`
-before any effect. A session opens under one permit; `science` threads it
-to every act and has no way to widen it; a command's declared write class
-is additionally checked against the permit before the body runs, so a
-mismatch is a refusal at declaration time and, if the body lies, again at
-the act. The interactive path runs under a full permit through the same
-mechanism, so the permit is exercised every day and not only unattended.
+before any effect. A command's declared write class is additionally
+checked against the session's permit before the body runs, so a mismatch
+is a refusal at declaration time and, if the body lies, again at the act.
+The interactive path runs under a full permit through the same mechanism,
+so the permit is exercised every day and not only unattended.
 
-**Who mints a permit is a process boundary, not a convention.** A
-caller-supplied permit is only as good as the caller, and any code in the
-same process as `beliefs` can construct one; so the actor never shares a
-process with the writer. A **launcher** — the interactive launcher a person
-starts, or `autonomy` for a run — opens a `beliefs` **writer session**: it
-starts the writer endpoint (the MCP server, or the CLI's service process)
-with the permit fixed at launch, and the endpoint is the only route by
-which commands reach a write. The actor process — the agent harness
-running the command bodies — holds no permit, imports no `beliefs` writer,
-and can neither widen the session's permit nor open a second session on the
-same corpora (§7.1's exclusivity). Forging a permit therefore requires
-controlling the launcher's process, which is the boundary this design
-claims and nothing weaker. Using `science` as an in-process library gets a
-full permit by construction and is not an autonomy configuration.
+**The permit is bound inside the writer endpoint, and no request carries
+one.** A **launcher** — the interactive launcher a person starts, or
+`autonomy` for a run — opens a `beliefs` **writer session**: it starts the
+writer endpoint (the MCP server, or the CLI's service process) with the
+permit and a fresh session identity fixed at launch. Requests to the
+endpoint name a command and its inputs and nothing else; the endpoint
+supplies the permit, and it sets every intent's `actor` itself from the
+session — `actor` is a caller-supplied string in the kernel's intent
+(act-report §3), so the endpoint is where it stops being caller-supplied.
+`science` never sees, threads, or constructs a permit.
+
+**The boundary is mechanical or the run is `unwired`.** "The actor imports
+no writer" is an arrangement, not a boundary. The enforced boundary is:
+the actor process — the agent harness running the command bodies — is
+spawned by the launcher in a sandbox that **denies filesystem access to
+every corpus root, the world root, and the baseline**, and is handed one
+**private endpoint handle** (a launcher-owned socket plus a per-session
+token that exists only in the actor's environment). A process that can
+reach the corpora on disk can write around any endpoint, which is why the
+denial is the boundary and the handle is only the channel. The endpoint
+keeps a **session ledger** outside every corpus — each log entry it
+appended, by corpus and entry digest — which is the evidence §7.1's
+closing check compares against the chains. If the launcher cannot
+establish the sandbox on this platform, an unattended run is `unwired`
+from the moment it opens; it never runs on the arrangement alone. The
+interactive path uses the same endpoint and ledger under a full permit;
+its sandbox is a person's choice, because it is attended. Using `science`
+as an in-process library gets a full permit by construction and is not an
+autonomy configuration.
 
 ### 5.3 Output budget is enforced by the renderer
 
@@ -318,39 +339,57 @@ unselected one — an assessment whose run closure names a dataset outside
 the selection — makes the publish `Refused(closure-incomplete)` with the
 missing identities listed; the user widens the view or drops the record.
 
-**A published corpus is a valid corpus or it does not exist**, by the fork
-protocol the root lifecycle already runs (root-lifecycle design §2–§4):
-the destination is first published as a claim-only, surface-excluded
-reservation; payload, chain and genesis are written durably under it; and
-only then is the read-only lifecycle stamp written, which is the single
-step that makes the destination serviceable. Before the stamp nothing can
-admit it. A retry finds either a stamped corpus — an existing publication,
-and the operation is an update (§6.2) — or an unstamped reservation, which
-it resumes or abandons at the fork's own retry split; it never guesses.
-Each attempt is its own operation with its own act-report.
+**Constructing the corpus needs a primitive the root lifecycle does not
+have.** `replicate_root` copies one root and stamps read-only before it
+exposes payload; `fork_root` copies one source tree and ends in a
+writability grant (root-lifecycle design §2–§4). Neither builds a corpus
+from a selection over several roots. Sub-project 5 therefore specifies
+**`publish_root`**, a populated-root publication command behind `atoms`'
+own design gate, in the lifecycle's existing shape: a claim-only,
+surface-excluded reservation at the destination directory; payload, chain
+and genesis written durably under it from the selection; then the
+read-only lifecycle stamp as the single step that makes the directory
+serviceable, granting no writability. A retry finds a stamped corpus or an
+unstamped reservation and resumes or abandons at the same split the fork
+uses; it never guesses. Each attempt is its own operation with its own
+act-report.
+
+**The atomicity claim is exactly this wide.** For a local directory,
+`publish_root`'s stamp is the reveal, and a published corpus is a valid
+corpus or it does not exist. For a git remote, a Zenodo deposit, or an
+inbox, the reveal is destination-specific and **not** atomic — an upload
+can stop half-way — so the guarantee moves to the consumer: a corpus is
+admitted (§6.3) only if its validation passes and its `publication` record
+is present and well-formed, and anything less is refused whole, never
+adopted in part. Publishing to a remote is `publish_root` locally followed
+by a transport, and the transport's partial states are the recipient's to
+refuse.
 
 ### 6.2 One operation, three destinations
 
 A destination is a directory the user controls (private), a git remote or
 Zenodo deposit whose content is the corpus (shared), or a community world's
-inbox. The **first** publish of a view to a destination mints the corpus
-(§6.1) and records a `publication` coordination record under the view's
-project binding `(view address, destination, destination corpus_id)`.
-**Every later** publish of that view to that destination is an update:
-records newly selected are written into the bound corpus by the
-explicit-import family through its mutation log, and a new `publication`
-record is minted superseding the previous one, carrying the new
-`published_from` and the new full selection. A record that is no longer
-selected is **not retracted and not deleted** — retraction changes
-epistemic standing and is legal only for the readable inputs (correction
-lifecycle §4), which sources, datasets, propositions and coordination
-records are not — it simply falls outside the current publication's
-selection, and a consumer reads the destination through that selection.
-Publication records follow §4.1's tip rule: one standing tip or
-`Refused(divergent-publication)`. A recipient's replica therefore sees an
-ordinary history. Two publishers cannot race: the destination corpus has
-one fail-closed writer under the root lifecycle, and a publish that cannot
-obtain it is `Refused`.
+inbox. **Every publish mints a fresh, immutable corpus** (§6.1); there is
+no destination corpus that is advanced in place. The reason is
+mechanical: a world adopts a corpus whole, and epoch capture enumerates
+every stored record (`iter_stored`, no selection applied), so a shared
+corpus that kept dropped records could never unpublish one. A fresh corpus
+per revision contains exactly the current selection and nothing else.
+
+Revisions are linked by their `publication` records: the new corpus's
+record names `supersedes = (predecessor corpus_id, predecessor publication
+record identity)`, and the source project holds a `publication`
+coordination record binding `(view address, destination)` to the ordered
+list of published corpus ids. A record dropped from the selection is
+**neither retracted nor deleted** — retraction is legal only for the
+readable inputs (correction lifecycle §4), which sources, datasets,
+propositions and coordination records are not — it is simply absent from
+the new corpus. What was already shared cannot be unshared: a recipient
+who adopted the predecessor keeps it, and the successor's `supersedes` is
+what lets them retire the predecessor through their registry's lifecycle
+status. Two publishers racing on one view produce two corpora naming the
+same predecessor; the recipient's tip rule (§4.1) refuses that as
+`divergent-publication` until one revision supersedes both.
 
 ### 6.3 A commons is a world
 
@@ -406,13 +445,17 @@ finding. Two conditions make the interval mean what it claims:
   run opens one `beliefs` writer session (§5.2) holding every corpus the
   run may write for the run's duration; no second session — interactive or
   another run — can be opened on those corpora until the run closes, and a
-  write attempted around it is refused at the endpoint. In-process this is
-  the existing operation lock; cross-process it rides on the single-writer
-  deployment obligation the ledger already records for the composition
-  root (row 4), and interval membership is exactly as strong as that
-  obligation. Until the obligation is mechanical, the closing check treats
-  any entry in the interval it cannot attribute to the session as
-  `quarantined`, never as a member.
+  write attempted around it is refused at the endpoint. Exclusivity is
+  enforced by §5.2's boundary, not assumed: the actor cannot reach the
+  corpora on disk, so its only writes are the session's, and the closing
+  check compares the chain interval against the session ledger entry by
+  entry — an entry in the interval the ledger did not append is a foreign
+  write and the run is `quarantined`, whatever actor string it carries.
+  Cross-process writers other than the actor (a person's editor, another
+  launcher) are still bounded only by the single-writer deployment
+  obligation the ledger records for the composition root (row 4); the
+  ledger comparison is what turns a violation of it into a `quarantined`
+  finding rather than a silent member.
 
 Nothing can write inside the interval without being a member, which is
 stronger than a per-act stamp. If concurrent runs on one corpus are ever
@@ -465,12 +508,12 @@ column says so.
 | # | sub-project | repository | depends on | starts |
 |---|---|---|---|---|
 | 0 | **Rename and seed** — `science` → `beliefs`; ledger §5 ruling; glossary; create `science` and `autonomy` with a README pointing here | kernel, new | nothing | now, between lane merges |
-| 1 | **Coordination and view kinds** — opaque project identity minting, `(project, local id)` addressing, view revisions under the supersede family, W11, W12, W13's two-projects negative; the coordination contract in `beliefs`; the `foundations.md` extension | `beliefs` | none — it is the tier-3 answer and joins the `mutation` lane | now |
-| 2 | **Command framework** — declaration schema, write classes, budgeted renderer, preamble, adapter generator with the Claude Code target, CLI and MCP over `beliefs` reads; the write permit on every `beliefs` write entry point | `science`, `beliefs` | 0 | now, against today's kernel reads |
+| 1 | **Coordination and view kinds** — opaque project identity minting, `(project, local id)` addressing, the coordination revision family (one or more predecessor tips, the tip rule), W11, W12, W13's two-projects negative; the coordination contract in `beliefs`; the `foundations.md` extension | `beliefs` | none — it is the tier-3 answer and joins the `mutation` lane | now |
+| 2 | **Command framework** — declaration schema, write classes, budgeted renderer, preamble, adapter generator with the Claude Code target, CLI and MCP over `beliefs` reads; the writer endpoint with its bound permit, endpoint-set actor and session ledger; the write permit on every `beliefs` write entry point | `science`, `beliefs` | 0 | now, against today's kernel reads |
 | 3 | **Biology domain pack** — GO, HP, EFO, MONDO bindings; mm30's operator vocabulary | `beliefs/domains/biology` | the `domain-boundary` lane | with that lane |
 | 4 | **The dogfood command set** — the dozen commands over a real world root; mm30 reproduced, not migrated, as the first corpus | `science` | 1, 2, 3; `run-confinement` and `workflow-surface` for a real assessment | after 2; grows as lanes land |
-| 5 | **Publish** — the act in `beliefs`; hosting glue and dry run in `science` | both | 1; the `world-read` lane (view queries resolve through it) | after that lane |
-| 6 | **Envelope** — baseline with log heads, tiers as permits, interval membership, dispositions, lease | `autonomy` | 2 | after 2 |
+| 5 | **Publish** — `publish_root` behind `atoms`' design gate; the act and `publication` record in `beliefs`; transports, admission-side refusal and dry run in `science` | `atoms`, `beliefs`, `science` | 1; the `world-read` lane (view queries resolve through it) | after that lane |
+| 6 | **Envelope** — the actor sandbox and private endpoint handle, baseline with log heads, tiers as permits, ledger-checked interval membership, dispositions, lease | `autonomy` | 2 | after 2 |
 | 7 | **Loop and `science.priority.v1`** — its own spec | `autonomy` | 4, 6 | last |
 
 **Success criterion** — item 4 complete: a coding-agent session over a
@@ -520,3 +563,13 @@ the same commit.
   touch.
 - **Renaming the rule identities with the repository.** A contract
   succession that re-identifies every claim, for no gain.
+- **A shared destination corpus advanced by import.** A world adopts a
+  corpus whole and epoch capture enumerates every stored record, so a
+  dropped record could never be unpublished; and the destination would need
+  a writer of its own, which is what the fresh-corpus model avoids.
+- **Reusing the proposition `supersede` family for revisions.** It is
+  proposition-only with one predecessor; repairing a divergent view needs
+  a successor of several tips.
+- **A permit threaded by the caller.** Any code in the writer's process can
+  mint one; only a process boundary with filesystem denial makes the tier a
+  fact rather than a convention.
