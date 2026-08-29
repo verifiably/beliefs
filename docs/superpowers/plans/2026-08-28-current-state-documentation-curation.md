@@ -329,7 +329,7 @@ Expected: all pass, including the new guard. If `test_every_cross_reference_reso
 
 ```bash
 git diff --stat docs/designs/2026-08-03-redesign-adoption-ledger.md
-git diff docs/designs/2026-08-03-redesign-adoption-ledger.md | grep -E '^[-+]' | grep -v '^+++\|^---' | grep '^-' 
+git diff docs/designs/2026-08-03-redesign-adoption-ledger.md | grep -E '^[-+]' | grep -v '^+++\|^---' | grep '^-'
 ```
 
 Expected: the second command prints nothing — the change is pure insertion.
@@ -762,7 +762,7 @@ git commit -m "docs(designs): correct the four stale headers rule 3 allows"
 
 ```bash
 grep -rn -E 'outside that cut|current conformance cut|Nothing here is implemented|Design complete|Approved for implementation' README.md docs/guide docs/designs/2026-08-11-act-report-design.md docs/designs/2026-08-10-verified-holdings-record-design.md docs/designs/2026-08-08-contributor-guide-design.md
-grep -n -i -E '\bcut [0-9]+\b' docs/guide/*.md | grep -v -E 'open-questions.md|/References|\]\(\.\./' 
+grep -n -i -E '\bcut [0-9]+\b' docs/guide/*.md | grep -v -E 'open-questions.md|/References|\]\(\.\./'
 ```
 
 Expected: the first grep hits only the two original `Nothing here is implemented` sentences (rule 2 keeps them; each now has its superseded line beneath). The second prints only the topic pages' own `cut 2`/`cut 11` mentions inside their current-state paragraphs and nothing in a chronology form ("froze", "landed", "merged", "discharged … on"). Fix any stray chronology sentence and re-run.
