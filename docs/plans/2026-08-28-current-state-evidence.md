@@ -86,4 +86,26 @@ for want of evidence.
 
 ## 7. Gates
 
-_Filled in by the final task._
+Run at `90fc4c9`, the last content commit of the pass:
+
+- `python/tools/check_guide.py`: no errors.
+- `pytest tests/test_designs_corpus.py tests/test_check_guide.py`:
+  `21 passed in 0.74s` — including the new
+  `test_the_ledger_summary_names_the_newest_remaining_boundary`, which was
+  watched failing (`the ledger has no `Current state` section`) at `a139f82`
+  before the summary landed at `5714ebd`.
+- `git diff --check main..HEAD`: clean.
+- `git diff main..HEAD --name-only -- docs/plans docs/designs`: this record
+  (new); the adoption ledger (pure insertion, no removed line); the act-report,
+  verified-holdings-record and contributor-guide design headers; and
+  `2026-08-17-conformance-cut-4.md`, changed in its status header only — one
+  line removed, two added, body byte-identical. No frozen cut body, plan,
+  execution ledger or results record changed.
+- Superseded-phrase sweep over README, the guide and the corrected headers:
+  the only hits are the two original "Nothing here is implemented" sentences,
+  which rule 2 keeps and which now each carry a dated superseded line beneath.
+- Roadmap-language sweep: no hit in any curated surface; the one pre-existing
+  heading `### Measurements constrain the next slice` in
+  `docs/guide/contracts-and-adoption.md` is about measurement discipline, not
+  an ordering over remaining work, and was left alone.
+- Glossary: no definition found stale; untouched, per the design's §4.3.
