@@ -209,11 +209,16 @@ act could classify and rejected is the former; one it could not open at
 all is the latter.
 
 Both functions share the one private descent, which now reports rather
-than returns on failure; `capture_records` keeps its signature and
-returns `capture_surface(root, RECORD_NAMESPACES).records`, so the log
+than returns on failure; `capture_records(root, kind)` keeps its
+signature **and its `RootKind` guard** — it still returns `()` for every
+`kind != "corpus"` before any descent, and only for a corpus returns
+`capture_surface(root, RECORD_NAMESPACES).records` — so the log
 evaluator's two callers and its certified captured surface are
-byte-for-byte what they were — the evaluator never saw the failures
-before and does not see them now. `RECORD_NAMESPACES` is unchanged, so
+byte-for-byte what they were: a world or store root that happens to
+contain a `run/*.md` yields no records, exactly as today, and the
+evaluator never saw the descent's failures before and does not see them
+now. `capture_surface` takes no `kind`: its one caller is the admission
+act, which is defined over a corpus root only. `RECORD_NAMESPACES` is unchanged, so
 `record_layout_path` and the reducer's record lookup are unchanged too.
 
 In the admission act, **any `uninspectable` path refuses**
@@ -563,7 +568,8 @@ lifts the block.
 
 **Labeled declarations** (outside the frozen rows, declared as data):
 `capture_surface` sharing `capture_records`' descent with the log
-evaluator's surface unchanged; the `withheld`, `unreadable` and
+evaluator's surface unchanged — a non-corpus root holding `run/*.md`
+still capturing nothing; the `withheld`, `unreadable` and
 `uninspectable` paths, with `ENOENT` the one silent directory failure;
 `reduce_registration` factored from `_qualify_one` with the reducer's
 verdicts unchanged over cut 11's arms and no second scan; the closed `reason` set of
@@ -665,7 +671,8 @@ negative of G2a/R12 stands.
 Unit tests, portable: the widened core (signature, both reasons,
 precedence, the lift); `capture_surface`'s records, withheld, unreadable
 and uninspectable paths — an absent namespace silent, an unenumerable one
-named — with `capture_records`' surface unchanged;
+named — with `capture_records`' surface unchanged, including its `()`
+for a world or store root that contains `run/*.md`;
 `reduce_registration`'s three members against `_qualify_one`'s verdicts; every gate in §5's table over
 fabricated roots, positive and negative. The cut's durable arms on the
 certified tuple (§7). At banking: `check_guide.py`, `test_designs_corpus.py`,
