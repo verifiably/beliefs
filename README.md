@@ -68,114 +68,27 @@ amend in place, never renumber.
 
 ## Status
 
-Design complete. The **conformance cut 1 vertical slice** (ledger §3, item 10)
-landed 2026-08-07 — typed claim construction, canonical projection, identity,
-decode and cross-language parity. It crosses no persistence boundary and
-computes no belief, which is where the disposition record's §5.5 stop rule puts
-its edge. Cut 1 itself built nothing beyond that edge.
+Every conformance cut through **cut 11** is implemented and discharged. What
+runs today: typed claims, admission and belief computation; run closure,
+execution, replay, act reports and general intent qualification; certified
+persistence through the composition root, with the supersede, revise,
+retraction and import families; and the world registry with epochs,
+mutation-log anchoring and verification, root lifecycle, and verified
+store-side holdings. The latest discharged boundary is cut 11, general intent
+qualification ([results](docs/plans/2026-08-27-conformance-cut-11-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
 test before it is a passing one. There are **151 rows** across **thirteen frozen
-tables** (G, S, W, R, C, X, N, L, D, M, P, H, T). Cut 1 selects **11 of the 126 rows**
-across the ten tables that existed when it was drawn, frozen *before* any code
-existed so that a row which fails is a failure rather than a redefinition.
-**Conformance cut 2** was frozen 2026-08-09 on the same discipline, before its
-slice existed: it is drawn at the **belief seam** — the derived admission state,
-the assessment admission gate, the belief input closure digest, and
-`science.belief.v1` under an exact binding — selecting **13 rows in full and 11
-in part**, including the belief policy's P1–P9 and the admission ramp's G9,
-whose verified-holdings observations enter as supplied arguments because where
-they are recorded was, at the freeze, an open design — closed 2026-08-10 by the
-verified-holdings record design. Its slice landed 2026-08-09: derived admission
-state, the assessment admission gate, the belief input closure digest, and
-`science.belief.v1` under an exact binding now compute.
+tables** (G, S, W, R, C, X, N, L, D, M, P, H, T), and every cut is frozen
+*before* its code exists so that a row which fails is a failure rather than a
+redefinition.
 
-**Conformance cut 3** was frozen 2026-08-11, before any of its implementation
-existed, at the **run boundary**: spec freezing and closure construction, the
-execution boundary through the minimal Snakemake adapter, dataset production,
-replay and verification-as-value, and the completion and report layer —
-selecting **15 rows in full and 19 in part**, with every H arm and T7 deferred
-to the persistence seam. Its slice landed 2026-08-12: spec freezing, the execution closure, the
-minimal Snakemake adapter's boundary, dataset production, replay,
-verification-as-value, and the report layer's completion reading now run as
-real subprocess executions over held fixtures.
-
-**Conformance cut 4** froze 2026-08-18 when the composition-root adapter
-design banked, selecting **3 rows in full and 8 in part**. Its implementation
-landed and the cut was discharged on the certified volume that day.
-
-**Conformance cut 5** froze and was discharged 2026-08-19. The family adapters
-now implement supersede, revise, retraction, and explicit import through the
-certified composition root, with **28 selected declarations** across **8 rows
-in full and 10 in part**; 6 rows remain fully deferred.
-
-**Conformance cut 6** froze and was discharged 2026-08-20. The authoritative
-world root, corpus manifest and fresh adoption, corpus-state identity, registry
-admission, lifecycle status, and presence core now run, with **14 selected + 8
-labeled = 22 declarations** across **2 rows in full and 2 in part**; X7 remains
-fully deferred. See the [results](docs/plans/2026-08-20-conformance-cut-6-results.md).
-
-**Conformance cut 7** froze 2026-08-20 and was discharged 2026-08-22. The
-world-index epoch carrier — the rules store, coherent capture, four derived maps
-and their receipts, epoch publication with `current`, bounded reads, whole-epoch
-GC, and anchor carriage — now runs, with **38 selected + 10 labeled = 48
-declarations** across **7 rows in full and 4 in part**. See the
-[results](docs/plans/2026-08-20-conformance-cut-7-results.md). The work **merged
-into `main` on 2026-08-22 preserving history**; the results record's §7 names a
-history constraint that outlives that merge.
-
-**Conformance cut 8** froze 2026-08-22 and was discharged 2026-08-23.
-World-index slice 3 implements the Science half of the
-tamper-evident mutation log: the registry log-head record and the exported head
-artifact, the explicit anchor act, the one read-only four-outcome evaluator
-behind an audit act and a verified `ReplicaOf` arrival act, registered-surface
-replay with its removal policy pass, the world genesis↔mirror agreement check,
-and the ordered-cuts predicate — **43 selected + 10 labeled = 53 declarations**
-across **5 rows in full and 7 in part**, with L6 unread and 51 of the 53 units
-certified in full. See the
-[results](docs/plans/2026-08-22-conformance-cut-8-results.md). The work
-**merged into `main` on 2026-08-23 with `--no-ff`** (integration commit
-`10cc84b`), inheriting cut 7's reachability constraint and adding cut 8's
-freeze commit to it.
-Three of kernel §8.7's four recorded-mutation consequences close there; G4 does
-not.
-
-**Conformance cut 9** froze 2026-08-23 and was discharged the same day.
-World-index slice 4 implements the root lifecycle and store substrate: the
-atoms fail-closed writer state and lifecycle commands (replicate, restore
-admission, fork, migrate) behind their own design gate, the store root kind
-with genesis-bound store subjects through the anchor, export, and audit acts,
-`restore_root` as one held boundary, the fork acts with act-derived
-`forked_from`, and lifecycle-aware arrival modes — **19 selected + 11 labeled
-= 30 declarations** across **1 row in full and 4 in part**, with **L6 read for
-the first time** under the fork-baseline lift and cut 8's retired
-store-refusal label succeeded rather than re-run. See the
-[results](docs/plans/2026-08-23-conformance-cut-9-results.md). The work
-**merged into `main` on 2026-08-24 with `--no-ff`** (integration commit
-`7a9fec8`), adding cut 9's freeze commit to the inherited reachability
-constraint.
-
-**Conformance cut 10** froze 2026-08-24 and was discharged 2026-08-25.
-World-index slice 5 implements verified
-store-side holdings: the governed `holdings-observation` record, intent-bearing
-read/write/delete/move acts, mechanical coverage capture, the fixture-bound
-active-set reduction and receipt, and the dataset admission adapter — **20
-selected + 11 labeled = 31 declarations** across **3 rows in full and 4 in
-part**. See the
-[results](docs/plans/2026-08-24-conformance-cut-10-results.md). The `--no-ff`
-merge landed on local `main` as `35be6ff` on 2026-08-25; it has not been
-pushed.
-
-**Conformance cut 11** froze 2026-08-27 and was discharged 2026-08-28.
-World-index slice 6 implements general intent qualification: the closed
-three-shape reduction, bounded captured-record evidence, durable run
-publication and codec, the verifier report lift, the regenerated holdings
-interior, and the completion re-base — **13 selected + 13 labeled = 26
-declaration units** across **1 row in part**. See the
-[results](docs/plans/2026-08-27-conformance-cut-11-results.md). G4 remains
-open under the successor-admission slice. The work merged into local `main`
-with `--no-ff` on 2026-08-28 in the integration commit carrying this
-correction; it has not been pushed.
+What is built and what remains to build, each remainder with its named owner,
+is stated once, in the
+[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-08-28).
+The per-cut results records under [`docs/plans/`](docs/plans/) are the
+evidence trail, and unresolved design questions live in the guide's
+[open questions](docs/guide/open-questions.md).
 
 ```
 python/     the implementation (substrate §11 puts the composition root here)
