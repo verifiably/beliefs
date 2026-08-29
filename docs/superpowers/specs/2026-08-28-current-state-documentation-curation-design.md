@@ -21,8 +21,9 @@ forms of drift:
 4. Design headers carry implementation status, so each landing slice appends
    another dated correction to them. The tamper-evident-log design's header and
    body now hold 28 such corrections, world addressing 25, computation and
-   reproducibility 14. Two headers — act-report and verified-holdings-record —
-   still say "Nothing here is implemented", which is false.
+   reproducibility 14, and the epistemic kernel 12 — 79 across four designs.
+   Two headers — act-report and verified-holdings-record — still say "Nothing
+   here is implemented", which is false.
 
 The result is not broken navigation. It is unnecessary duplication: a reader
 must reconcile several current-state narratives before learning what exists.
@@ -138,10 +139,15 @@ The summary lists no unresolved design areas. It links once to
 
 ### 4.2 README
 
-Keep the complete design catalog. Keep the guarantee-table paragraph that
-states the corpus row total and table count — it is acceptance criteria, not
-chronology, and `test_the_readme_states_the_corpus_row_total` pins its exact
-wording. Replace the cut 1–11 narrative under `Status` with:
+Keep the complete design catalog. Keep the two phrases
+`test_the_readme_states_the_corpus_row_total` pins — **151 rows** and
+**thirteen frozen tables** — which are acceptance criteria, not chronology. The
+test pins nothing else, and the rest of that paragraph is fair game: it
+continues into cut-1 chronology ("Cut 1 selects 11 of the 126 rows across the
+ten tables that existed when it was drawn"), which goes with the rest. Keeping
+the paragraph whole would carry chronology straight through the pass.
+
+Replace the cut 1–11 narrative under `Status` with:
 
 - a concise implemented-capability summary;
 - the latest discharged boundary, cut 11;
@@ -206,12 +212,15 @@ rather than by another round of edits.
   already carries implementation history: leave untouched. Rule 2 governs what
   is written; rule 3 stops the accretion going forward.
 
-The four designs whose headers read a bare `**Status:** design` —
-computation and reproducibility, world addressing, substrate consolidation, and
-the epistemic kernel — are out of scope. A bare lifecycle label makes no
-implementation claim, so rule 3 does not reach it, and correcting one of the
-four while leaving three would be an arbitrary asymmetry. If that label is
-itself wrong, it is a design-lifecycle question for its own pass.
+Four designs carry a bare lifecycle label and are out of scope. Two read
+exactly `**Status:** design` — world addressing and computation and
+reproducibility — and two read `**Status:** design, approved in session`:
+substrate consolidation and the epistemic kernel, the latter followed by its
+own dated amendment. Grep for the short form alone and you will find two, not
+four. A bare lifecycle label makes no implementation claim, so rule 3 does not
+reach any of them, and correcting one while leaving three would be an arbitrary
+asymmetry. If the label is itself wrong, it is a design-lifecycle question for
+its own pass.
 
 ## 5. Alternatives rejected
 
@@ -261,17 +270,31 @@ named implementation surfaces, and results records.
 to `python/tests/test_designs_corpus.py`. It:
 
 1. selects the newest `docs/plans/*-conformance-cut-N-results.md` by cut number;
-2. reads that record's `Remaining boundary` section;
-3. collects the guarantee-row labels it names, with the row pattern
-   `test_designs_corpus.py` already uses;
+2. reads that record's `Remaining boundary` section, and **fails if the heading
+   is absent**;
+3. collects the guarantee-row labels it names with a *prose* label pattern,
+   `\b([GSWRCXNLDMPHT][0-9]+[a-z]?)\b`, and **fails if that collects nothing**;
 4. asserts the ledger's `Current state` section names that cut number and every
    one of those labels.
 
-For cut 11 that is G4, L8 and L13 — exactly the three §4.1 requires. The guard
-is deliberately minimal: it reads one section of one file, so it cannot catch
-every disagreement, only the one that actually happened — a cut lands, names its
-remainder, and the summary is never updated. It constrains what the summary must
-name, never what else it may say.
+Steps 2 and 3 must fail closed, and this is the part to get right. The corpus's
+existing row patterns cannot be reused here: `_ROW` anchors on a table cell
+(`^| **G4** |`) and `_ROW_RANGE` matches only ranges, so both return the empty
+list against cut 11's Remaining boundary, which is prose. A guard that collects
+nothing and then asserts over the empty set passes vacuously — it would report
+green on exactly the drift it exists to catch.
+
+The heading is a convention this guard establishes, not one it inherits. Cut 11
+is the only results record of the eight that carries a `Remaining boundary`
+section; the other seven have none. So the guard binds the newest record only,
+and a future record that omits or renames the section fails rather than
+silently satisfying it (rule 4).
+
+For cut 11 the prose pattern collects G4, L8 and L13 — exactly the three §4.1
+requires. The guard is otherwise deliberately minimal: it reads one section of
+one file, so it cannot catch every disagreement, only the one that actually
+happened — a cut lands, names its remainder, and the summary is never updated.
+It constrains what the summary must name, never what else it may say.
 
 After editing:
 
