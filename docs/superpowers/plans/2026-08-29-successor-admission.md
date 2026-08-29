@@ -15,7 +15,7 @@
 - Work in this worktree on branch `design/successor-admission`; paths are relative to the worktree root unless a command says `cd python`.
 - **No atoms change.** The engine is consumed at remote `main` `038513f`; nothing under the atoms checkout is edited.
 - **The core's first body line stays byte-identical:** `    if superseded.identity in recorded_failures and candidate.supersedes != superseded.identity:` — cut 3's `n2_arms_cut3.py` sabotages it three times.
-- **Cut 11's frozen anchors:** every `Sabotage.before` string in `python/tests/acceptance/n2_arms_cut11.py` must still occur exactly once in its module after every task. The one permitted edit is Task 5's whitespace-only re-indent of the two anchors that move into `reduce_registration`, with the pin advanced in Task 8.
+- **Cut 11's frozen anchors:** every `Sabotage.before` string in `python/tests/acceptance/n2_arms_cut11.py` must still occur exactly once in its module after every task. The one permitted edit is Task 5's whitespace-only re-indent of the two anchors that move into `reduce_registration`, with the pin advanced in Task 7.
 - **`capture_records` is unchanged** in signature, return, and behaviour, including `()` for `kind != "corpus"`.
 - **Durable tests** (anything touching the real engine) use the `certified_work` fixture from `python/tests/conftest.py` — never `tmp_path` — and run on the certified volume beside the checkout.
 - **Reason strings** of `AdmissionEvidenceRefused` are exactly spec §5's eleven: `root unreadable`, `chain not well-formed`, `namespace uninspectable`, `verification unreadable`, `assessment unreadable`, `verification oversized`, `verification edge cardinality`, `verification target unreadable`, `verification target mismatch`, `record collision`, `qualification unresolved for the superseded spec`.
@@ -35,7 +35,7 @@
 - Modify: `docs/guide/contracts-and-adoption.md` (front matter `sources:`, `updated`)
 
 **Interfaces:**
-- Produces: the frozen unit ids Tasks 6–8 declare arms against (`G4u1`–`G4u14`, `R12u1`–`R12u2`, `L7u14`–`L7u16`, `K1`–`K5`); the freeze commit hash Task 8 pins as `CUT12_FREEZE_COMMIT`.
+- Produces: the frozen unit ids Tasks 6–7 declare arms against (`G4u1`–`G4u14`, `R12u1`–`R12u2`, `L7u14`–`L7u16`, `K1`–`K5`); the freeze commit hash Task 7 pins as `CUT12_FREEZE_COMMIT`.
 
 - [ ] **Step 1: Write the cut document**
 
@@ -137,7 +137,9 @@ committed to its tracked path before any worktree removal.
     either namespace;
   - **(u8)** the coherence gate: zero edges, two edges, a target that is
     not an assessment, a deprecated-id target that resolves (admitted),
-    a uid collision (refused), an identity mismatch (refused);
+    a uid collision (refused, naming the colliding id), an identity
+    mismatch (refused), and a stored `verifies` relation whose `source`
+    names another node — not this record's edge, so its count is zero;
   - **(u9)** oversized: a withheld verification with a decoded, coherent
     superseder is skipped; without one, refused; a withheld assessment
     targeted by a failing verification refuses; untargeted, ignored; a
@@ -228,9 +230,9 @@ the frozen rows, declared as data beside the selected arms:
    `unresolved` set beside a later match; **(c)** every decoded
    non-qualifying record's reason is returned in order (spec §4.4).
 4. **The closed reason set** — `AdmissionEvidenceRefused(reason, ref)`
-   carries both as attributes, `reason` drawn from spec §5's eleven and
-   nothing else, `ref` a string naming the record, directory, root or
-   intent digest.
+   carries both as real attributes, assigned by its initializer; `reason`
+   is drawn from spec §5's eleven and nothing else; `ref` is a string
+   naming the record, directory, root, colliding id or intent digest.
 5. **The core's anchor line** — `admit_successor`'s first body line is
    byte-identical to the line cut 3's three G4 sabotages name, so those
    arms keep running against the same source.
@@ -358,7 +360,7 @@ Rulings are written at task boundaries, never rewritten after the fact.
 3. **R3 — two cut-11 anchors move in whitespace only.** Task 5's
    factoring re-indents `if payload is None:` / `pointer_unresolved`
    and `except RecordUndecodable:` / `pointer_unresolved` by the loop's
-   new depth; replacement text and checks are untouched; Task 8 pins
+   new depth; replacement text and checks are untouched; Task 7 pins
    `n2_arms_cut11.py` at that commit.
 ```
 
@@ -692,6 +694,7 @@ cd python && set -o pipefail && uv run pytest tests/test_record_capture.py | tai
 
 Expected: `AttributeError: module 'science.world.records' has no attribute 'capture_surface'` (and `CapturedSurface`).
 
+
 - [ ] **Step 3: Rewrite `records.py`**
 
 ```python
@@ -729,8 +732,9 @@ class CapturedSurface:
     withheld: tuple[str, ...]
     """Regular files withheld for size."""
     unreadable: tuple[str, ...]
-    """Leaves the descent could not characterise: `O_PATH` classification,
-    readable open, `fstat` re-check or read failed."""
+    """Leaves the descent could not characterise: directory-entry
+    classification, `O_PATH` open, readable open, `fstat` re-check or read
+    failed."""
     uninspectable: tuple[str, ...]
     """Directories that exist but could not be opened or enumerated — every
     failure but `ENOENT`, which is an absent namespace and is silent."""
@@ -798,14 +802,20 @@ def _capture_directory(
         try:
             with os.scandir(dir_fd) as scan:
                 children = sorted(scan, key=lambda child: child.name)
-        except OSError:
-            into.uninspectable.append(prefix)
+        except OSError as failure:
+            if failure.errno != errno.ENOENT:
+                into.uninspectable.append(prefix)
             return
         for child in children:
             if child.name.startswith("."):
                 continue
             path = f"{prefix}/{child.name}"
-            if child.is_dir(follow_symlinks=False):
+            try:
+                is_directory = child.is_dir(follow_symlinks=False)
+            except OSError:
+                into.unreadable.append(path)
+                continue
+            if is_directory:
                 _capture_directory(dir_fd, child.name, path, into)
                 continue
             _leaf_seam(path)
@@ -859,9 +869,9 @@ def _read_leaf(dir_fd: int, name: str) -> bytes | _LeafFailure:
         os.close(path_fd)
 ```
 
-Note the one behavioural nuance preserved for `capture_records`: it used to return `()` when the root itself could not be opened; it still does, because `_finish` yields empty records and `capture_records` reads only `.records`.
+Every failure the descent can meet is named: a directory open or `scandir` failing with anything but `ENOENT` is `uninspectable`; a directory entry whose classification raises, or a leaf whose `O_PATH` open, `fstat`, readable open or read fails, is `unreadable`; nothing escapes as a raw exception. `capture_records` still returns `()` when the root itself cannot be opened, because `_finish` yields empty records and `capture_records` reads only `.records`.
 
-- [ ] **Step 4: Run the capture tests, cut 11's swap-race arm file, and lint**
+- [ ] **Step 4: Run the capture tests, the audit and evaluator suites, and lint**
 
 ```bash
 cd python && set -o pipefail && uv run pytest tests/test_record_capture.py tests/test_world_log_audit.py tests/test_world_log_evaluator.py | tail -1
@@ -892,7 +902,7 @@ git commit -m "feat(records): name the descent's failures beside the unchanged r
 
 - [ ] **Step 1: Write the failing tests**
 
-Append to `python/tests/test_intent_evidence.py` (it already imports `evidence`-side helpers; add `from science.intents.evidence import decode_node` and `from science.errors import RecordUndecodable` if absent, and `from nodes.core.frontmatter import node_to_markdown`, `from science import stored`):
+Append to `python/tests/test_intent_evidence.py` (add `from science.intents.evidence import decode_node`, `from science.errors import RecordUndecodable`, `from nodes.core.frontmatter import node_to_markdown`, and `from science import stored` where absent):
 
 ```python
 def _verification_bytes(slug: str = "v1") -> bytes:
@@ -965,7 +975,9 @@ def test_record_paths_of_keeps_record_layout_files_in_final_order(run_path) -> N
     assert record_paths_of(registration, _facts) == [run_path]
 
 
-def test_reduce_registration_first_match_in_order_wins(run_path, run_bytes, wrong_spec_run_path, wrong_spec_run_bytes) -> None:
+def test_reduce_registration_first_match_in_order_wins(
+    run_path, run_bytes, wrong_spec_run_path, wrong_spec_run_bytes
+) -> None:
     records = {run_path: run_bytes, wrong_spec_run_path: wrong_spec_run_bytes}
     reduction = reduce_registration(_decoded(), [wrong_spec_run_path, run_path], records)
     assert reduction.match is not None
@@ -982,7 +994,9 @@ def test_reduce_registration_names_an_undecodable_sibling_beside_a_later_match(r
     assert reduction.unresolved is True
 
 
-def test_reduce_registration_with_no_match_returns_every_reason_in_order(wrong_spec_run_path, wrong_spec_run_bytes, production_run_path, production_run_bytes) -> None:
+def test_reduce_registration_with_no_match_returns_every_reason_in_order(
+    wrong_spec_run_path, wrong_spec_run_bytes, production_run_path, production_run_bytes
+) -> None:
     records = {wrong_spec_run_path: wrong_spec_run_bytes, production_run_path: production_run_bytes}
     reduction = reduce_registration(_decoded(), [production_run_path, wrong_spec_run_path], records)
     assert reduction == RegistrationReduction(None, False, ("wrong-shape", "wrong-spec"))
@@ -1003,7 +1017,7 @@ Expected: `ImportError` for `decode_node` / `reduce_registration`.
 
 - [ ] **Step 3: Factor `decode_node` out of `decode_record`**
 
-In `python/src/science/intents/evidence.py`, add `"decode_node"` to `__all__`, add `from nodes.core.node import Node` to the imports, and replace the head of `decode_record` — everything from `try:\n        node = node_from_markdown(...)` through the `if node.kind != kind:` refusal — with a call, so the two functions read:
+In `python/src/science/intents/evidence.py`, set `__all__ = ["decode_node", "decode_record", "record_layout_path"]`, add `from nodes.core.node import Node` to the imports, and replace `decode_record` in full with these two functions:
 
 ```python
 def decode_node(path: str, payload: bytes) -> Node:
@@ -1042,10 +1056,40 @@ def decode_record(
 ) -> RunEvidence | ReportEvidence | ObservationEvidence | InertRecord:
     node = decode_node(path, payload)
     if node.kind == "run":
-        ...  # the existing body from here down, unchanged
+        try:
+            publication = runrecord.decode_run_record(node)
+        except (MalformedRecord, CanonicalTextRefused) as caught:
+            raise RecordUndecodable(f"{path}: {caught}") from caught
+        if publication is None:
+            return InertRecord()
+        return RunEvidence(
+            publication.shape,
+            publication.spec_identity,
+            publication.event_token,
+        )
+    if node.kind == "act-report":
+        try:
+            facet = stored.act_report_facet(node)
+        except MalformedRecord as caught:
+            raise RecordUndecodable(f"{path}: {caught}") from caught
+        return ReportEvidence(str(facet["operation"]), str(facet["event_token"]))
+    if node.kind == "holdings-observation":
+        try:
+            value = stored.holdings_observation_value(node)
+        except MalformedRecord as caught:
+            raise RecordUndecodable(f"{path}: {caught}") from caught
+        if node.id != f"holdings-observation:{value.identity()}":
+            raise RecordUndecodable(
+                f"{path}: the observation id disagrees with its identity"
+            )
+        return ObservationEvidence(
+            f"store:{value.location.store_id}:{value.location.relative_path}",
+            value.event_token,
+        )
+    return InertRecord()
 ```
 
-Keep everything from `if node.kind == "run":` to the end of `decode_record` exactly as it is.
+The three typed branches are today's text verbatim; only the gate moved.
 
 - [ ] **Step 4: Factor the two helpers out of `_qualify_one`**
 
@@ -1186,11 +1230,13 @@ git commit -m "refactor(intents): factor the record gate and the registration re
 git rev-parse --short HEAD
 ```
 
-Append to the ledger's rulings: `4. **R4 — cut 11's arm file moved at <hash>.** The two re-indented anchors are the only diff; Task 8 pins this hash.` and commit the ledger: `git commit -am "docs(plans): record the cut-11 anchor move"`.
+Append to the ledger's rulings: `4. **R4 — cut 11's arm file moved at <hash>.** The two re-indented anchors are the only diff; Task 7 pins this hash.` and commit the ledger: `git commit -am "docs(plans): record the cut-11 anchor move"`.
 
 ---
 
-### Task 6: `admit_spec_successor` — the refusals before derivation and class 2
+### Task 6: `admit_spec_successor`, complete
+
+The public boundary lands in one commit, every gate present. A committed `admit_spec_successor` that admits over live failing evidence would be exactly the silent fallback this repo forbids, so the class-1a derivation is not split into a later task.
 
 **Files:**
 - Create: `python/src/science/succession.py`
@@ -1198,8 +1244,8 @@ Append to the ledger's rulings: `4. **R4 — cut 11's arm file moved at <hash>.*
 - Test: `python/tests/test_succession.py`
 
 **Interfaces:**
-- Consumes: Task 2's `AdmissionEvidenceRefused`; Task 3's `admit_successor`; Task 4's `capture_surface`; Task 5's `decode_node`, `record_paths_of`, `reduce_registration`.
-- Produces: `science.succession.admit_spec_successor(candidate, superseded, *, seam, root)`; `science.succession.REASONS`; `science.succession.EVIDENCE_NAMESPACES`. Task 7 completes `_recorded_failures`.
+- Consumes: Task 2's `AdmissionEvidenceRefused`; Task 3's `admit_successor`; Task 4's `capture_surface`; Task 5's `decode_node`, `record_paths_of`, `reduce_registration`; `nodes.core.structural_index.Index` (`assert_addable`, `upsert`, `resolve_uid`, `outbound_edges(uid) -> list[ResolvedEdge]`, `ResolvedEdge.relation`, `.target_uid`).
+- Produces: `science.succession.admit_spec_successor(candidate, superseded, *, seam, root)`; `science.succession.REASONS`; `science.succession.EVIDENCE_NAMESPACES`.
 
 - [ ] **Step 1: Write the fixture module**
 
@@ -1305,7 +1351,7 @@ def admit(root: Path, candidate: FrozenSpec, superseded: FrozenSpec) -> Successo
     return admit_spec_successor(candidate, superseded, seam=seam(), root=root)
 ```
 
-- [ ] **Step 2: Write the failing tests for this task's gates**
+- [ ] **Step 2: Write the failing tests**
 
 `python/tests/test_succession.py`:
 
@@ -1319,6 +1365,7 @@ import os
 import pytest
 from closure_fixtures import make_closure, sample_report
 from nodes.core.frontmatter import node_to_markdown
+from nodes.core.relations import Relation
 from nodes.core.write_plan import CreateOp
 from succession_fixtures import (
     admit,
@@ -1335,6 +1382,7 @@ from science.errors import AdmissionEvidenceRefused
 from science.runrecord import publication_plan
 from science.spec import SuccessorAdmitted, SuccessorRefused
 from science.succession import REASONS
+from science.world.records import RECORD_CEILING
 
 
 def _refuses(root, candidate, superseded, reason: str) -> AdmissionEvidenceRefused:
@@ -1349,7 +1397,23 @@ def _report_plan(report):
     return (CreateOp(f"act-report/{report.identity()}.md", node_to_markdown(node).encode("utf-8")),)
 
 
-# --- G4u13: before the derivation ---------------------------------------------
+def _raw(port, path: str, payload: bytes) -> None:
+    port.execute((CreateOp(path, payload),))
+
+
+def _oversized(root, path: str) -> None:
+    (root / path).parent.mkdir(exist_ok=True)
+    (root / path).write_bytes(b"x" * (RECORD_CEILING + 1))
+
+
+def _failing_pair(port, spec_identity: str, slug: str = "v1"):
+    target = assessment(spec_identity)
+    failing = verification(slug, target, "failed")
+    publish(port, target, failing)
+    return target, failing
+
+
+# --- G4u13, K4: before the derivation ---------------------------------------------
 
 
 def test_the_reason_set_is_exactly_the_specs_eleven() -> None:
@@ -1411,7 +1475,7 @@ def test_an_absent_verification_namespace_admits(certified_work) -> None:
     assert isinstance(admit(root, unreferenced, original), SuccessorAdmitted)
 
 
-# --- G4u2, G4u12, G4u10: class 2 from the chain ---------------------------------
+# --- G4u2, G4u12, G4u10, L7u15, L7u16: class 2 from the chain -------------------------
 
 
 def test_an_unfinished_attempt_blocks_an_unreferenced_successor(certified_work) -> None:
@@ -1443,8 +1507,7 @@ def test_the_negative_nothing_durable_admits(certified_work) -> None:
 def test_a_decayed_run_under_the_superseded_spec_refuses(certified_work) -> None:
     root, port = corpus(certified_work, "decayed")
     original, unreferenced, _ = specs()
-    closure = make_closure(spec=original.identity)
-    _, path, plan = publication_plan(closure)
+    _, path, plan = publication_plan(make_closure(spec=original.identity))
     intent = append_assessment_intent(port, original.identity)
     port.execute_fulfilling(plan, intent)
     assert isinstance(admit(root, unreferenced, original), SuccessorAdmitted)
@@ -1485,7 +1548,7 @@ def test_a_wrong_spec_publication_fails_qualification_and_the_intent_still_block
     assert verdict.reason == "an unreferenced successor to an unfinished recorded attempt"
 
 
-# --- G4u3, G4u14: class 1b from run-attempt reports -----------------------------
+# --- G4u3, G4u14: class 1b from run-attempt reports ------------------------------------
 
 
 def test_a_run_attempt_report_is_a_recorded_failure(certified_work) -> None:
@@ -1517,211 +1580,38 @@ def test_an_undecodable_sibling_before_the_qualifying_report_still_joins(certifi
 
 
 def test_a_qualifying_run_beside_a_report_joins_nothing(certified_work) -> None:
-    # G4u14, the other half: the run sorts before the report under `run/`
-    # only by namespace order in `final`; whichever qualifies first is the
-    # match, and a `RunEvidence` match is a minted run, not a failure.
+    # G4u14, the other half: one registration carries both a qualifying run and
+    # a qualifying run-attempt report. `final` is path-ordered and
+    # `act-report/` sorts before `run/`, so the report would match first — the
+    # arm therefore publishes the report under a token that does not qualify,
+    # leaving the run the first (and only) qualifying record, and asserts a
+    # `RunEvidence` match is a minted run, not a failure.
     root, port = corpus(certified_work, "run-and-report")
     original, unreferenced, _ = specs()
     intent = append_assessment_intent(port, original.identity, token="tok")
     _, _, run_plan = publication_plan(make_closure(spec=original.identity, token="tok"))
-    port.execute_fulfilling(run_plan, intent)
+    stray = _report_plan(sample_report(operation="run-attempt", token="other"))
+    port.execute_fulfilling((*stray, *run_plan), intent)
     assert isinstance(admit(root, unreferenced, original), SuccessorAdmitted)
-```
-
-- [ ] **Step 3: Run to verify they fail**
-
-```bash
-cd python && set -o pipefail && uv run pytest tests/test_succession.py | tail -2
-```
-
-Expected: `ModuleNotFoundError: No module named 'science.succession'`.
-
-- [ ] **Step 4: Write the module — everything but class 1a**
-
-`python/src/science/succession.py`:
-
-```python
-"""Successor admission over the durable evidence (successor-admission design §4).
-
-`admit_spec_successor` is the deriving boundary: under the root's own
-operation lock it reads the chain's qualification and the corpus's
-verification and assessment records, composes G4's two blocker classes,
-and calls the pure core with the derived sets — never a caller-invented
-one. It lives here and not in `science.spec` because the derivation needs
-the log seam, which imports `corpus`, which imports `spec` (design §2).
-"""
-
-from __future__ import annotations
-
-import os
-from collections.abc import Mapping
-from pathlib import Path
-
-from science.errors import AdmissionEvidenceRefused
-from science.intents import shapes
-from science.intents.reduce import (
-    IntentQualification,
-    StateFacts,
-    qualify_chain,
-    record_paths_of,
-    reduce_registration,
-)
-from science.spec import FrozenSpec, SuccessorAdmitted, SuccessorRefused, admit_successor
-from science.world.logmodel import IntentEntryView, RegisteredEntryView, WellFormedView
-from science.world.records import RECORD_NAMESPACES, CapturedSurface, capture_surface
-from science.world.verify import LogSeam
-
-__all__ = ["EVIDENCE_NAMESPACES", "REASONS", "admit_spec_successor"]
-
-EVIDENCE_NAMESPACES = ("verification", "assessment")
-
-REASONS = (
-    "root unreadable",
-    "chain not well-formed",
-    "namespace uninspectable",
-    "verification unreadable",
-    "assessment unreadable",
-    "verification oversized",
-    "verification edge cardinality",
-    "verification target unreadable",
-    "verification target mismatch",
-    "record collision",
-    "qualification unresolved for the superseded spec",
-)
-"""The closed reason set of `AdmissionEvidenceRefused` (design §5)."""
 
 
-def admit_spec_successor(
-    candidate: FrozenSpec,
-    superseded: FrozenSpec,
-    *,
-    seam: LogSeam,
-    root: Path,
-) -> SuccessorAdmitted | SuccessorRefused:
-    """Admit or refuse `candidate` as a successor to `superseded`, over the
-    evidence beneath `root` — one hold, one pinned order (design §4.2)."""
-    root = Path(root).resolve()
-    _require_openable_directory(root)
-    with seam.corpus_lock(root):
-        view = seam.inspect_registered(root)
-        if type(view) is not WellFormedView:
-            raise AdmissionEvidenceRefused("chain not well-formed", str(root))
-        surface = capture_surface(root, RECORD_NAMESPACES + EVIDENCE_NAMESPACES)
-        if surface.uninspectable:
-            raise AdmissionEvidenceRefused("namespace uninspectable", surface.uninspectable[0])
-        records = dict(surface.records)
-        unfinished, report_failures = _chain_classes(
-            superseded.identity, view, records, seam.state_facts
-        )
-        recorded_failures = _recorded_failures(surface, records) | report_failures
-        return admit_successor(candidate, superseded, recorded_failures, unfinished)
+def test_a_qualifying_report_before_a_qualifying_run_is_the_match(certified_work) -> None:
+    # G4u14, the mixed registration proper: both records qualify; the report
+    # sorts first in `final`, so the reducer's first match is the report and
+    # the spec joins class 1 — the act reads the record that matched, in the
+    # reducer's order, never "whichever is a run".
+    root, port = corpus(certified_work, "report-then-run")
+    original, unreferenced, _ = specs()
+    intent = append_assessment_intent(port, original.identity, token="tok")
+    _, _, run_plan = publication_plan(make_closure(spec=original.identity, token="tok"))
+    report = _report_plan(sample_report(operation="run-attempt", token="tok"))
+    port.execute_fulfilling((*report, *run_plan), intent)
+    verdict = admit(root, unreferenced, original)
+    assert isinstance(verdict, SuccessorRefused)
+    assert verdict.reason == "an unreferenced successor to a recorded failed replay"
 
 
-def _require_openable_directory(root: Path) -> None:
-    try:
-        fd = os.open(root, os.O_DIRECTORY | os.O_NOFOLLOW)
-    except OSError as failure:
-        raise AdmissionEvidenceRefused("root unreadable", str(root)) from failure
-    os.close(fd)
-
-
-def _chain_classes(
-    superseded_identity: str,
-    view: WellFormedView,
-    records: Mapping[str, bytes],
-    state_facts: StateFacts,
-) -> tuple[frozenset[str], frozenset[str]]:
-    """Class 2 (unfinished attempts) and class 1b (run-attempt reports) from
-    the chain's qualification, with the unresolved gate (design §4.3, §4.4)."""
-    rows, _ = qualify_chain(view.entries, records, state_facts=state_facts)
-    intents = {entry.digest: entry for entry in view.entries if type(entry) is IntentEntryView}
-    registrations = {
-        entry.digest: entry for entry in view.entries if type(entry) is RegisteredEntryView
-    }
-    unfinished: set[str] = set()
-    failures: set[str] = set()
-    for row in rows:
-        if row.shape != "assessment-run":
-            continue
-        spec_identity = _spec_of(row, intents[row.digest])
-        if row.status == "unresolvable":
-            if spec_identity == superseded_identity:
-                raise AdmissionEvidenceRefused(
-                    "qualification unresolved for the superseded spec", row.digest
-                )
-        elif row.status == "attempt-without-recorded-outcome":
-            unfinished.add(spec_identity)
-        elif row.status == "matched":
-            assert row.fulfilled_by is not None
-            decoded = shapes.decode_intent(row.digest, intents[row.digest].payload)
-            assert type(decoded) is shapes.DecodedIntent
-            registration = registrations[row.fulfilled_by]
-            reduction = reduce_registration(
-                decoded, record_paths_of(registration, state_facts), records
-            )
-            assert reduction.match is not None, "the reducer called this registration matched"
-            _, evidence = reduction.match
-            if type(evidence) is shapes.ReportEvidence and evidence.operation == "run-attempt":
-                failures.add(spec_identity)
-    return frozenset(unfinished), frozenset(failures)
-
-
-def _spec_of(row: IntentQualification, entry: IntentEntryView) -> str:
-    decoded = shapes.decode_intent(row.digest, entry.payload)
-    assert type(decoded) is shapes.DecodedIntent, "an assessment-run row decodes"
-    value = decoded.value
-    assert isinstance(value, shapes.AssessmentRunIntent)
-    return value.spec_identity
-
-
-def _recorded_failures(surface: CapturedSurface, records: Mapping[str, bytes]) -> frozenset[str]:
-    """Class 1a: completed in the next task; until then no verification blocks."""
-    return frozenset()
-```
-
-`AssessmentRunIntent` is defined in `science/report.py` and imported by `shapes.py`; import it in `succession.py` as `from science.report import AssessmentRunIntent` and write `isinstance(value, AssessmentRunIntent)`. The three `assert`s state invariants of values the reducer just produced; they are not input validation.
-
-- [ ] **Step 5: Run and lint**
-
-```bash
-cd python && set -o pipefail && uv run pytest tests/test_succession.py | tail -1
-uv run ruff check src/science/succession.py tests/test_succession.py tests/succession_fixtures.py && uv run pyright src/science/succession.py | tail -1
-```
-
-Expected: all passed (every test in this task avoids class 1a); clean.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add python/src/science/succession.py python/tests/succession_fixtures.py python/tests/test_succession.py
-git commit -m "feat(succession): derive G4's unfinished and report-recorded blockers under one hold"
-```
-
----
-
-### Task 7: Class 1a — the evidence gate, the index, the coherence gate, oversized and unreadable records
-
-**Files:**
-- Modify: `python/src/science/succession.py` (`_recorded_failures` and its helpers)
-- Test: `python/tests/test_succession.py` (append)
-
-**Interfaces:**
-- Consumes: Task 5's `decode_node`; `stored.verification_value`, `stored.assessment_value`, `stored.VERIFIES`; `science.verification.active`; `nodes.core.structural_index.Index`.
-- Produces: the complete `admit_spec_successor`.
-
-- [ ] **Step 1: Write the failing tests**
-
-Append to `python/tests/test_succession.py` (add `from science.world.records import RECORD_CEILING` to the imports):
-
-```python
-# --- G4u1, G4u4, G4u5, G4u6: class 1a ---------------------------------------------
-
-
-def _failing_pair(port, spec_identity: str, slug: str = "v1"):
-    target = assessment(spec_identity)
-    failing = verification(slug, target, "failed")
-    publish(port, target, failing)
-    return target, failing
+# --- G4u1, G4u4, G4u5, G4u6: class 1a ---------------------------------------------------
 
 
 def test_a_live_failing_verification_blocks_an_unreferenced_successor(certified_work) -> None:
@@ -1781,17 +1671,13 @@ def test_an_incoherent_passing_superseder_refuses_naming_itself(certified_work) 
     original, unreferenced, _ = specs()
     target, failing = _failing_pair(port, original.identity)
     superseder = verification("v2", target, "passed", supersedes=failing.id)
-    superseder.relations = []  # zero `verifies` edges, stamp still agrees
+    superseder.relations = []  # zero `verifies` edges; the stamp covers the facet, not relations
     publish(port, superseder)
     refused = _refuses(root, unreferenced, original, "verification edge cardinality")
     assert refused.ref == "verification/v2.md"
 
 
-# --- G4u7: the evidence gate ---------------------------------------------------------
-
-
-def _raw(port, path: str, payload: bytes) -> None:
-    port.execute((CreateOp(path, payload),))
+# --- G4u7: the evidence gate -------------------------------------------------------------
 
 
 def test_a_stale_stamp_refuses_naming_the_path(certified_work) -> None:
@@ -1840,7 +1726,10 @@ def test_an_undecodable_untargeted_assessment_refuses(certified_work) -> None:
 def test_an_unreadable_regular_file_refuses_in_either_namespace(certified_work) -> None:
     assert os.geteuid() != 0, "this arm needs a non-root user"
     original, unreferenced, _ = specs()
-    for namespace, reason in (("verification", "verification unreadable"), ("assessment", "assessment unreadable")):
+    for namespace, reason in (
+        ("verification", "verification unreadable"),
+        ("assessment", "assessment unreadable"),
+    ):
         root, port = corpus(certified_work, f"locked-file-{namespace}")
         target = assessment(original.identity)
         publish(port, target, verification("v1", target, "failed"))
@@ -1853,7 +1742,7 @@ def test_an_unreadable_regular_file_refuses_in_either_namespace(certified_work) 
         assert refused.ref == f"{namespace}/{locked.name}"
 
 
-# --- G4u8: the coherence gate ---------------------------------------------------------
+# --- G4u8: the coherence gate -------------------------------------------------------------
 
 
 def test_two_verifies_edges_refuse(certified_work) -> None:
@@ -1862,11 +1751,21 @@ def test_two_verifies_edges_refuse(certified_work) -> None:
     target = assessment(original.identity)
     other = assessment(original.identity, slug="a2")
     doubled = verification("v1", target, "failed")
-    doubled.relations.append(
-        type(doubled.relations[0])(source=doubled.id, predicate=stored.VERIFIES, target=other.id)
-    )
+    doubled.relations.append(Relation(source=doubled.id, predicate=stored.VERIFIES, target=other.id))
     publish(port, target, other, doubled)
     _refuses(root, unreferenced, original, "verification edge cardinality")
+
+
+def test_a_relation_sourced_elsewhere_is_not_this_verifications_edge(certified_work) -> None:
+    # The gate counts outbound edges, not stored relations: a `verifies`
+    # relation whose `source` names another node is not this record's edge.
+    root, port = corpus(certified_work, "foreign-source")
+    original, unreferenced, _ = specs()
+    target = assessment(original.identity)
+    mislabeled = verification("v1", target, "failed")
+    mislabeled.relations[0].source = "verification:someone-else"
+    publish(port, target, mislabeled)
+    assert _refuses(root, unreferenced, original, "verification edge cardinality").ref == "verification/v1.md"
 
 
 def test_a_target_that_is_not_an_assessment_refuses(certified_work) -> None:
@@ -1899,7 +1798,7 @@ def test_a_deprecated_id_target_resolves_and_blocks(certified_work) -> None:
     assert isinstance(admit(root, unreferenced, original), SuccessorRefused)
 
 
-def test_a_uid_collision_refuses(certified_work) -> None:
+def test_a_uid_collision_refuses_naming_the_colliding_id(certified_work) -> None:
     root, port = corpus(certified_work, "collision")
     original, unreferenced, _ = specs()
     first = assessment(original.identity, slug="a1")
@@ -1907,7 +1806,9 @@ def test_a_uid_collision_refuses(certified_work) -> None:
     second.uid = first.uid
     stored.stamp_semantic_identity(second)
     publish(port, first, second)
-    _refuses(root, unreferenced, original, "record collision")
+    # Paths are read in sorted order, so `assessment/a2.md` is the node whose
+    # admission to the index collides; its id is the ref.
+    assert _refuses(root, unreferenced, original, "record collision").ref == "assessment:a2"
 
 
 def test_an_identity_mismatch_refuses(certified_work) -> None:
@@ -1922,12 +1823,7 @@ def test_an_identity_mismatch_refuses(certified_work) -> None:
     assert _refuses(root, unreferenced, original, "verification target mismatch").ref == "verification/v1.md"
 
 
-# --- G4u9: oversized records -------------------------------------------------------------
-
-
-def _oversized(root, path: str) -> None:
-    (root / path).parent.mkdir(exist_ok=True)
-    (root / path).write_bytes(b"x" * (RECORD_CEILING + 1))
+# --- G4u9: oversized records ------------------------------------------------------------------
 
 
 def test_a_withheld_verification_without_a_superseder_refuses(certified_work) -> None:
@@ -1982,47 +1878,173 @@ def test_a_decoded_node_claiming_a_withheld_paths_id_is_a_collision(certified_wo
     publish(port, target)
     _oversized(root, "assessment/big.md")
     assert _refuses(root, unreferenced, original, "record collision").ref == "assessment:big"
-
-
-def test_a_record_of_exactly_the_ceiling_is_read(certified_work) -> None:
-    root, port = corpus(certified_work, "exact")
-    original, unreferenced, _ = specs()
-    target = assessment(original.identity)
-    failing = verification("v1", target, "failed")
-    payload = node_to_markdown(failing).encode("utf-8")
-    padded = payload + b"\n" + b"#" * (RECORD_CEILING - len(payload) - 1)
-    assert len(padded) == RECORD_CEILING
-    publish(port, target)
-    (root / "verification").mkdir(exist_ok=True)
-    (root / "verification" / "v1.md").write_bytes(padded)
-    # A trailing comment line is outside the frontmatter and the body the
-    # stamp covers only if the markdown codec ignores it; if the codec refuses
-    # the padded body, this arm instead asserts the refusal is `verification
-    # unreadable` at the decode layer, not a withholding at capture.
-    try:
-        verdict = admit(root, unreferenced, original)
-    except AdmissionEvidenceRefused as refused:
-        assert refused.reason == "verification unreadable"
-    else:
-        assert isinstance(verdict, SuccessorRefused)
 ```
 
-- [ ] **Step 2: Run to verify the new tests fail**
+- [ ] **Step 3: Run to verify they fail**
 
 ```bash
 cd python && set -o pipefail && uv run pytest tests/test_succession.py | tail -2
 ```
 
-Expected: the class-1a tests fail (`SuccessorAdmitted` where a refusal or block was expected).
+Expected: `ModuleNotFoundError: No module named 'science.succession'`.
 
-- [ ] **Step 3: Complete `_recorded_failures`**
+- [ ] **Step 4: Write the module**
 
-Replace the stub in `python/src/science/succession.py` with the following, adding the imports `from nodes.core.errors import CollisionError`, `from nodes.core.node import Node`, `from nodes.core.structural_index import Index`, `from science import stored`, `from science import verification as verification_module`, `from science.errors import MalformedRecord, RecordUndecodable`, `from science.intents.evidence import decode_node`, `from science.record import AssessmentValue`, `from science.verification import Verification`:
+`python/src/science/succession.py`:
 
 ```python
+"""Successor admission over the durable evidence (successor-admission design §4).
+
+`admit_spec_successor` is the deriving boundary: under the root's own
+operation lock it reads the chain's qualification and the corpus's
+verification and assessment records, composes G4's two blocker classes,
+and calls the pure core with the derived sets — never a caller-invented
+one. It lives here and not in `science.spec` because the derivation needs
+the log seam, which imports `corpus`, which imports `spec` (design §2).
+"""
+
+from __future__ import annotations
+
+import os
+from collections.abc import Mapping
+from pathlib import Path
+
+from nodes.core.errors import CollisionError
+from nodes.core.node import Node
+from nodes.core.structural_index import Index
+
+from science import stored
+from science import verification as verification_module
+from science.errors import AdmissionEvidenceRefused, MalformedRecord, RecordUndecodable
+from science.intents import shapes
+from science.intents.evidence import decode_node
+from science.intents.reduce import (
+    IntentQualification,
+    StateFacts,
+    qualify_chain,
+    record_paths_of,
+    reduce_registration,
+)
+from science.record import AssessmentValue
+from science.report import AssessmentRunIntent
+from science.spec import FrozenSpec, SuccessorAdmitted, SuccessorRefused, admit_successor
+from science.verification import Verification
+from science.world.logmodel import IntentEntryView, RegisteredEntryView, WellFormedView
+from science.world.records import RECORD_NAMESPACES, CapturedSurface, capture_surface
+from science.world.verify import LogSeam
+
+__all__ = ["EVIDENCE_NAMESPACES", "REASONS", "admit_spec_successor"]
+
+EVIDENCE_NAMESPACES = ("verification", "assessment")
+
+REASONS = (
+    "root unreadable",
+    "chain not well-formed",
+    "namespace uninspectable",
+    "verification unreadable",
+    "assessment unreadable",
+    "verification oversized",
+    "verification edge cardinality",
+    "verification target unreadable",
+    "verification target mismatch",
+    "record collision",
+    "qualification unresolved for the superseded spec",
+)
+"""The closed reason set of `AdmissionEvidenceRefused` (design §5)."""
+
+
+def admit_spec_successor(
+    candidate: FrozenSpec,
+    superseded: FrozenSpec,
+    *,
+    seam: LogSeam,
+    root: Path,
+) -> SuccessorAdmitted | SuccessorRefused:
+    """Admit or refuse `candidate` as a successor to `superseded`, over the
+    evidence beneath `root` — one hold, one pinned order (design §4.2)."""
+    root = Path(root).resolve()
+    _require_openable_directory(root)
+    with seam.corpus_lock(root):
+        view = seam.inspect_registered(root)
+        if type(view) is not WellFormedView:
+            raise AdmissionEvidenceRefused("chain not well-formed", str(root))
+        surface = capture_surface(root, RECORD_NAMESPACES + EVIDENCE_NAMESPACES)
+        if surface.uninspectable:
+            raise AdmissionEvidenceRefused("namespace uninspectable", surface.uninspectable[0])
+        records = dict(surface.records)
+        unfinished, report_failures = _chain_classes(
+            superseded.identity, view, records, seam.state_facts
+        )
+        recorded_failures = _recorded_failures(surface, records) | report_failures
+        return admit_successor(candidate, superseded, recorded_failures, unfinished)
+
+
+def _require_openable_directory(root: Path) -> None:
+    try:
+        fd = os.open(root, os.O_DIRECTORY | os.O_NOFOLLOW)
+    except OSError as failure:
+        raise AdmissionEvidenceRefused("root unreadable", str(root)) from failure
+    os.close(fd)
+
+
+# --- class 2 and class 1b, from the chain ----------------------------------------
+
+
+def _chain_classes(
+    superseded_identity: str,
+    view: WellFormedView,
+    records: Mapping[str, bytes],
+    state_facts: StateFacts,
+) -> tuple[frozenset[str], frozenset[str]]:
+    """Unfinished attempts and run-attempt-recorded failures from the chain's
+    qualification, with the unresolved gate (design §4.3, §4.4 1b)."""
+    rows, _ = qualify_chain(view.entries, records, state_facts=state_facts)
+    intents = {entry.digest: entry for entry in view.entries if type(entry) is IntentEntryView}
+    registrations = {
+        entry.digest: entry for entry in view.entries if type(entry) is RegisteredEntryView
+    }
+    unfinished: set[str] = set()
+    failures: set[str] = set()
+    for row in rows:
+        if row.shape != "assessment-run":
+            continue
+        decoded, spec_identity = _decoded_intent(row, intents[row.digest])
+        if row.status == "unresolvable":
+            if spec_identity == superseded_identity:
+                raise AdmissionEvidenceRefused(
+                    "qualification unresolved for the superseded spec", row.digest
+                )
+        elif row.status == "attempt-without-recorded-outcome":
+            unfinished.add(spec_identity)
+        elif row.status == "matched":
+            assert row.fulfilled_by is not None, "a matched row names its registration"
+            registration = registrations[row.fulfilled_by]
+            reduction = reduce_registration(
+                decoded, record_paths_of(registration, state_facts), records
+            )
+            assert reduction.match is not None, "the reducer called this registration matched"
+            _, evidence = reduction.match
+            if type(evidence) is shapes.ReportEvidence and evidence.operation == "run-attempt":
+                failures.add(spec_identity)
+    return frozenset(unfinished), frozenset(failures)
+
+
+def _decoded_intent(
+    row: IntentQualification, entry: IntentEntryView
+) -> tuple[shapes.DecodedIntent, str]:
+    decoded = shapes.decode_intent(row.digest, entry.payload)
+    assert type(decoded) is shapes.DecodedIntent, "an assessment-run row decodes"
+    value = decoded.value
+    assert isinstance(value, AssessmentRunIntent), "an assessment-run row carries a spec"
+    return decoded, value.spec_identity
+
+
+# --- class 1a, from the verification evidence ---------------------------------------
+
+
 def _recorded_failures(surface: CapturedSurface, records: Mapping[str, bytes]) -> frozenset[str]:
-    """Class 1a: the specs of every active, coherent, failing verification
-    (design §4.4 steps 1–5, §4.5)."""
+    """The specs of every active, coherent, failing verification (design
+    §4.4 steps 1–5, §4.5)."""
     _refuse_unreadable(surface)
     nodes = _decoded_evidence(records)
     verifications, assessments = _typed(nodes)
@@ -2041,17 +2063,20 @@ def _recorded_failures(surface: CapturedSurface, records: Mapping[str, bytes]) -
         for path, value in verifications.items()
         if path in failing or value.supersedes in blockers
     }
-    targets: dict[str, AssessmentValue] = {}
     by_uid = {node.uid: path for path, node in nodes.items()}
+    targets: dict[str, AssessmentValue] = {}
     for path, value in gated.items():
-        edges = [relation for relation in nodes[path].relations if relation.predicate == stored.VERIFIES]
+        edges = [
+            edge
+            for edge in index.outbound_edges(nodes[path].uid)
+            if edge.relation.predicate == stored.VERIFIES
+        ]
         if len(edges) != 1:
             raise AdmissionEvidenceRefused("verification edge cardinality", path)
-        target_ref = edges[0].target
-        if target_ref in withheld:
+        edge = edges[0]
+        if edge.relation.target in withheld:
             raise AdmissionEvidenceRefused("verification target unreadable", path)
-        uid = index.resolve_uid(target_ref)
-        target_path = by_uid.get(uid) if uid is not None else None
+        target_path = by_uid.get(edge.target_uid) if edge.target_uid is not None else None
         if target_path is None or target_path not in assessments:
             raise AdmissionEvidenceRefused("verification target unreadable", path)
         target = assessments[target_path]
@@ -2078,12 +2103,12 @@ def _refuse_unreadable(surface: CapturedSurface) -> None:
 
 def _decoded_evidence(records: Mapping[str, bytes]) -> dict[str, Node]:
     nodes: dict[str, Node] = {}
-    for path, payload in records.items():
+    for path in sorted(records):
         kind = path.partition("/")[0]
         if kind not in EVIDENCE_NAMESPACES:
             continue
         try:
-            nodes[path] = decode_node(path, payload)
+            nodes[path] = decode_node(path, records[path])
         except RecordUndecodable as caught:
             raise AdmissionEvidenceRefused(f"{kind} unreadable", path) from caught
     return nodes
@@ -2104,10 +2129,17 @@ def _typed(nodes: Mapping[str, Node]) -> tuple[dict[str, Verification], dict[str
 
 
 def _index(nodes: Mapping[str, Node]) -> Index:
-    try:
-        return Index.build(nodes.values())
-    except CollisionError as caught:
-        raise AdmissionEvidenceRefused("record collision", str(caught)) from caught
+    """`Index.build`'s loop, admitting nodes in path order so the colliding
+    record is the one named (design §5: the ref is the colliding id)."""
+    index = Index()
+    for path in sorted(nodes):
+        node = nodes[path]
+        try:
+            index.assert_addable(node)
+        except CollisionError as caught:
+            raise AdmissionEvidenceRefused("record collision", node.id) from caught
+        index.upsert(node)
+    return index
 
 
 def _withheld_ids(surface: CapturedSurface) -> dict[str, str]:
@@ -2121,48 +2153,43 @@ def _withheld_ids(surface: CapturedSurface) -> dict[str, str]:
     return ids
 ```
 
-Import facts: `AssessmentValue` lives in `science/record.py`; `Verification` in `science/verification.py`; `Index.resolve_uid(ref) -> str | None` resolves a live or deprecated id to a uid, and `Index.id_to_uid` is the live-only mapping G4u8d's sabotage swaps in.
+The coherence gate reads `index.outbound_edges(uid)` — edges whose **source** is this node — and filters by predicate, so a stored `verifies` relation whose `source` names another node is not this verification's edge. `_index` runs `Index.build`'s own `assert_addable`/`upsert` loop in path order so the offending node's id is in hand for the refusal; `Index.build` itself would raise with only the uid in its message. The four `assert`s state invariants of values the reducer just produced; they are not input validation.
 
-- [ ] **Step 4: Run the whole succession suite and lint**
+- [ ] **Step 5: Run the suite, lint, and the capability-boundary audit**
 
 ```bash
 cd python && set -o pipefail && uv run pytest tests/test_succession.py | tail -1
-uv run ruff check src/science/succession.py tests/test_succession.py && uv run pyright src/science/succession.py | tail -1
+uv run ruff check src/science/succession.py tests/test_succession.py tests/succession_fixtures.py && uv run pyright src/science/succession.py | tail -1
+uv run pytest tests/test_capability_boundary.py | tail -1
 ```
 
-Expected: all passed; clean. Then the capability-boundary audit, which polices what modules may import:
+Expected: all passed; clean; passed. If the capability audit reports `succession.py` importing a name it polices, reach that surface through the seam or an exported facade and record the ruling in the ledger — never weaken the audit.
+
+- [ ] **Step 6: Commit**
 
 ```bash
-cd python && set -o pipefail && uv run pytest tests/test_capability_boundary.py | tail -1
-```
-
-Expected: passed. If it reports `succession.py` importing a forbidden name, the module must reach that surface through the seam or an exported facade — record the ruling in the ledger and adjust; never weaken the audit.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add python/src/science/succession.py python/tests/test_succession.py
-git commit -m "feat(succession): derive recorded failures from active, coherent failing verifications"
+git add python/src/science/succession.py python/tests/succession_fixtures.py python/tests/test_succession.py
+git commit -m "feat(succession): admit a spec successor over the chain's qualification and the corpus's failing evidence"
 ```
 
 ---
 
-### Task 8: The acceptance layer — arms, durable tests, N2 harness, runner
+### Task 7: The acceptance layer — durable tests, arms, N2 harness, runner
 
 **Files:**
-- Create: `python/tests/acceptance/n2_arms_cut12.py`
 - Create: `python/tests/acceptance/test_successor_admission_acceptance.py`
+- Create: `python/tests/acceptance/n2_arms_cut12.py`
 - Create: `python/tests/acceptance/test_n2_cut12.py`
 - Create: `python/tools/cut12_acceptance.py`
-- Modify: `python/tests/conftest.py` (`certified_work` honours `SCIENCE_CUT12_ROOT` beside `SCIENCE_CUT10_ROOT`)
+- Modify: `python/tests/conftest.py` (`certified_work` honours `SCIENCE_CUT12_ROOT`)
 
 **Interfaces:**
-- Consumes: every unit id from the frozen cut; the freeze hash from the ledger; Task 5's cut-11 anchor-move hash.
-- Produces: `CUT12_ARMS`, `ROW_UNITS`, `LABELED_UNITS`, `unit_of`; the runner Task 9 executes.
+- Consumes: every unit id from the frozen cut; the freeze hash (ledger, Task 1); the cut-11 anchor-move hash (ledger R4, Task 5).
+- Produces: `CUT12_ARMS`, `ROW_UNITS`, `LABELED_UNITS`, `CO_CITED`, `unit_of`; the runner Task 8 executes.
 
 - [ ] **Step 1: Let the durable fixture take cut 12's root**
 
-In `python/tests/conftest.py`, change the `certified_work` line `configured = os.environ.get("SCIENCE_CUT10_ROOT")` to `configured = os.environ.get("SCIENCE_CUT12_ROOT") or os.environ.get("SCIENCE_CUT10_ROOT")`.
+In `python/tests/conftest.py`, change `configured = os.environ.get("SCIENCE_CUT10_ROOT")` inside `certified_work` to `configured = os.environ.get("SCIENCE_CUT12_ROOT") or os.environ.get("SCIENCE_CUT10_ROOT")`.
 
 - [ ] **Step 2: Write the durable acceptance tests**
 
@@ -2174,7 +2201,9 @@ second writer: G4u11 (snapshot coherence), R12u1–u2, L7u14."""
 
 from __future__ import annotations
 
+import dataclasses
 import threading
+import time
 
 import pytest
 from closure_fixtures import make_closure
@@ -2190,10 +2219,10 @@ from succession_fixtures import (
 )
 from test_world_log_audit import corpus_anchor, real_audit
 
-from science import root as science_root
 from science.errors import AdmissionEvidenceRefused
 from science.runrecord import publication_plan
 from science.spec import SuccessorAdmitted, SuccessorRefused
+from science.succession import admit_spec_successor
 from science.world import anchors, registry
 from science.world.logmodel import MalformedView, WellFormedView
 
@@ -2202,31 +2231,42 @@ CORPUS_ID = "a" * 32
 
 
 def test_u11_a_writer_arriving_during_the_act_waits_and_is_not_consulted(certified_work) -> None:
+    """The writer starts only once the act holds the root's operation lock —
+    the seam's `inspect_registered` runs inside that hold, and the interposed
+    seam starts the writer there. The writer queues behind the act (the lock
+    admits one holder); the act's derivation never sees the blocker; the
+    writer lands after the verdict; the next act consults it."""
     root, port = corpus(certified_work, "snapshot")
     original, unreferenced, _ = specs()
     target = assessment(original.identity)
     blocker = verification("v1", target, "failed")
     order: list[str] = []
-    lock = science_root._log_seam().corpus_lock(root)
 
     def write_blocker() -> None:
-        order.append("writer-waiting")
+        order.append("writer-started")
         publish(port, target, blocker)  # takes the same operation lock
         order.append("writer-done")
 
     writer = threading.Thread(target=write_blocker)
-    with lock:
+    production = seam()
+
+    def inspect_then_start_writer(path):
+        view = production.inspect_registered(path)  # we are inside the act's hold
         writer.start()
-        while "writer-waiting" not in order:
-            pass
-        # The act's own hold is re-entrant for this thread only through the
-        # seam; drive the act on this thread while the writer queues.
-        verdict = admit(root, unreferenced, original)
-        order.append("act-done")
-    writer.join()
+        while "writer-started" not in order:
+            time.sleep(0.01)
+        time.sleep(0.5)  # the writer has had every chance to publish; the hold denies it
+        assert "writer-done" not in order, "the writer published while the act held the lock"
+        order.append("act-read")
+        return view
+
+    interposed = dataclasses.replace(production, inspect_registered=inspect_then_start_writer)
+    verdict = admit_spec_successor(unreferenced, original, seam=interposed, root=root)
+    order.append("act-done")
+    writer.join(timeout=60)
+    assert not writer.is_alive(), "the writer never got the lock after the act released it"
     assert isinstance(verdict, SuccessorAdmitted)
-    assert order.index("act-done") < order.index("writer-done")
-    # The blocker the writer published is consulted by the next act.
+    assert order.index("act-read") < order.index("act-done") < order.index("writer-done")
     assert isinstance(admit(root, unreferenced, original), SuccessorRefused)
 
 
@@ -2237,7 +2277,7 @@ def test_u14_a_kill_between_append_and_execution_blocks_the_successor(certified_
     intent = append_assessment_intent(port, original.identity)
     view = seam().inspect_registered(root)
     assert type(view) is WellFormedView
-    assert any(getattr(entry, "digest", None) == intent for entry in view.entries)
+    assert view.tip == intent
     assert not (root / "run").exists()
     verdict = admit(root, unreferenced, original)
     assert isinstance(verdict, SuccessorRefused)
@@ -2281,7 +2321,7 @@ def test_r12u2_a_truncated_chain_reads_refuted_under_an_anchor_and_the_act_admit
     assert isinstance(admit(root, unreferenced, original), SuccessorAdmitted)
 ```
 
-`WellFormedView.tip` and `.genesis` are real attributes (`logmodel.py:152-170`). `real_audit(config, subject, root, observers=...)` is `test_world_log_audit.py:1434`; a corpus subject needs only its root in `WorldConfig.corpus_roots` and a `CorpusSubject(corpus_id)` — the manifest may be absent (the audit reads "no claim supplied", never a mismatch), and the anchor-unreachable step precedes the surface replay, so the verdict is `refuted` on the anchor alone.
+`LogSeam` is a frozen dataclass, so `dataclasses.replace` yields a seam identical in every member but one. `WellFormedView.tip` and `.genesis` are real attributes (`logmodel.py:152-170`). `real_audit(config, subject, root, observers=...)` is `test_world_log_audit.py:1434`; a corpus subject needs only its root in `WorldConfig.corpus_roots` and a `CorpusSubject(corpus_id)` — the manifest may be absent (the audit reads "no claim supplied", never a mismatch), and the anchor-unreachable step precedes the surface replay, so the verdict is `refuted` on the anchor alone.
 
 - [ ] **Step 3: Run the durable tests**
 
@@ -2289,14 +2329,14 @@ def test_r12u2_a_truncated_chain_reads_refuted_under_an_anchor_and_the_act_admit
 cd python && set -o pipefail && uv run pytest tests/acceptance/test_successor_admission_acceptance.py | tail -1
 ```
 
-Expected: `4 passed`. If u11's spin-wait deadlocks because the operation lock is not re-entrant on the same thread, restructure: hold the lock on a *helper* thread that starts the writer and releases only after the main thread's act returns — the assertion set is unchanged.
+Expected: `4 passed`.
 
 - [ ] **Step 4: Declare the arms**
 
-`python/tests/acceptance/n2_arms_cut12.py` — one `Arm` per unit, each with a sabotage that occurs exactly once in its module and the checks that must fail under it. The units and their anchors:
+`python/tests/acceptance/n2_arms_cut12.py`:
 
 ```python
-"""Cut 12's declared arms and citations: 19 selected + 5 labeled = 24 units."""
+"""Cut 12's declared arms: 19 selected + 5 labeled = 24 units, 50 lettered arms."""
 
 from n2_arms import Arm, Sabotage
 
@@ -2306,6 +2346,9 @@ _RECORDS = "world/records.py"
 _REDUCE = "intents/reduce.py"
 _EVIDENCE = "intents/evidence.py"
 _ERRORS = "errors.py"
+_SHAPES = "intents/shapes.py"
+
+_ACCEPT = "acceptance/test_successor_admission_acceptance.py"
 
 CUT12_ARMS = (
     Arm("G4u1", "a live failing verification blocks an unreferenced successor",
@@ -2318,7 +2361,7 @@ CUT12_ARMS = (
             before='elif row.status == "attempt-without-recorded-outcome":\n            unfinished.add(spec_identity)',
             after='elif row.status == "attempt-without-recorded-outcome":\n            pass'),
         ("test_succession.py::test_an_unfinished_attempt_blocks_an_unreferenced_successor",
-         "acceptance/test_successor_admission_acceptance.py::test_u14_a_kill_between_append_and_execution_blocks_the_successor")),
+         f"{_ACCEPT}::test_u14_a_kill_between_append_and_execution_blocks_the_successor")),
     Arm("G4u3", "a qualifying run-attempt report is a recorded failure",
         Sabotage(_SUCC,
             before='if type(evidence) is shapes.ReportEvidence and evidence.operation == "run-attempt":',
@@ -2389,24 +2432,29 @@ CUT12_ARMS = (
         ("test_succession.py::test_a_target_that_is_not_an_assessment_refuses",)),
     Arm("G4u8c", "a missing target refuses",
         Sabotage(_SUCC,
-            before='uid = index.resolve_uid(target_ref)\n        target_path = by_uid.get(uid) if uid is not None else None',
-            after='uid = index.resolve_uid(target_ref)\n        target_path = by_uid.get(uid) if uid is not None else next(iter(assessments), None)'),
+            before='target_path = by_uid.get(edge.target_uid) if edge.target_uid is not None else None',
+            after='target_path = by_uid.get(edge.target_uid) if edge.target_uid is not None else next(iter(assessments), None)'),
         ("test_succession.py::test_a_missing_target_refuses",)),
     Arm("G4u8d", "a deprecated-id target resolves",
         Sabotage(_SUCC,
-            before='uid = index.resolve_uid(target_ref)',
-            after='uid = index.id_to_uid.get(target_ref)'),
+            before='if edge.relation.target in withheld:',
+            after='if edge.relation.target in withheld or edge.relation.target not in index.id_to_uid:'),
         ("test_succession.py::test_a_deprecated_id_target_resolves_and_blocks",)),
-    Arm("G4u8e", "a uid collision refuses",
+    Arm("G4u8e", "a uid collision refuses naming the colliding id",
         Sabotage(_SUCC,
-            before='except CollisionError as caught:\n        raise AdmissionEvidenceRefused("record collision", str(caught)) from caught',
-            after='except CollisionError:\n        return Index.build(())'),
-        ("test_succession.py::test_a_uid_collision_refuses",)),
+            before='except CollisionError as caught:\n            raise AdmissionEvidenceRefused("record collision", node.id) from caught',
+            after='except CollisionError:\n            continue'),
+        ("test_succession.py::test_a_uid_collision_refuses_naming_the_colliding_id",)),
     Arm("G4u8f", "an identity mismatch refuses",
         Sabotage(_SUCC,
             before='if target.identity() != value.assessment:',
             after='if False:'),
         ("test_succession.py::test_an_identity_mismatch_refuses",)),
+    Arm("G4u8g", "the gate counts outbound edges, not stored relations",
+        Sabotage(_SUCC,
+            before='for edge in index.outbound_edges(nodes[path].uid)',
+            after='for edge in index.outbound_edges(nodes[path].uid) + index.inbound_edges(nodes[path].uid)'),
+        ("test_succession.py::test_a_relation_sourced_elsewhere_is_not_this_verifications_edge",)),
     Arm("G4u9a", "a withheld verification without a coherent superseder refuses",
         Sabotage(_SUCC,
             before='raise AdmissionEvidenceRefused("verification oversized", path)',
@@ -2420,8 +2468,8 @@ CUT12_ARMS = (
          "test_succession.py::test_a_withheld_verification_without_a_superseder_refuses")),
     Arm("G4u9c", "a withheld assessment targeted by a failing verification refuses",
         Sabotage(_SUCC,
-            before='if target_ref in withheld:\n            raise AdmissionEvidenceRefused("verification target unreadable", path)',
-            after='if target_ref in withheld:\n            continue'),
+            before='if edge.relation.target in withheld:\n            raise AdmissionEvidenceRefused("verification target unreadable", path)',
+            after='if edge.relation.target in withheld:\n            continue'),
         ("test_succession.py::test_a_withheld_assessment_targeted_by_a_failing_verification_refuses",)),
     Arm("G4u9d", "a decoded node claiming a withheld path's id is a collision",
         Sabotage(_SUCC,
@@ -2442,7 +2490,7 @@ CUT12_ARMS = (
         Sabotage(_SUCC,
             before='with seam.corpus_lock(root):\n        view = seam.inspect_registered(root)',
             after='if True:\n        view = seam.inspect_registered(root)'),
-        ("acceptance/test_successor_admission_acceptance.py::test_u11_a_writer_arriving_during_the_act_waits_and_is_not_consulted",)),
+        (f"{_ACCEPT}::test_u11_a_writer_arriving_during_the_act_waits_and_is_not_consulted",)),
     Arm("G4u12", "nothing durable leaves no trace: the successor is admitted",
         Sabotage(_SPEC,
             before='    return SuccessorAdmitted(candidate.identity)\n\n\ndef _facet_projection',
@@ -2460,36 +2508,43 @@ CUT12_ARMS = (
             before='if type(view) is not WellFormedView:',
             after='if False:'),
         ("test_succession.py::test_an_unregistered_directory_is_an_absent_chain_and_refuses",
-         "acceptance/test_successor_admission_acceptance.py::test_r12u1_an_excised_intent_entry_reads_malformed_and_the_act_refuses")),
+         f"{_ACCEPT}::test_r12u1_an_excised_intent_entry_reads_malformed_and_the_act_refuses")),
     Arm("G4u13c", "an unenumerable namespace refuses; an absent one admits",
         Sabotage(_SUCC,
             before='if surface.uninspectable:',
             after='if False:'),
         ("test_succession.py::test_an_unenumerable_namespace_refuses_for_verification_and_for_run",)),
-    Arm("G4u14", "class 1b reads the record that matched, in the reducer's order",
+    Arm("G4u14a", "class 1b reads the record that matched",
         Sabotage(_REDUCE,
             before='return RegistrationReduction((path, record_evidence), pointer_unresolved, tuple(reasons))',
             after='return RegistrationReduction((path, shapes.InertRecord()), pointer_unresolved, tuple(reasons))'),
         ("test_succession.py::test_an_undecodable_sibling_before_the_qualifying_report_still_joins",
+         "test_succession.py::test_a_qualifying_report_before_a_qualifying_run_is_the_match",
          "test_intent_reduce.py::test_reduce_registration_first_match_in_order_wins")),
+    Arm("G4u14b", "a matched run is a minted run, never a failure",
+        Sabotage(_SUCC,
+            before='if type(evidence) is shapes.ReportEvidence and evidence.operation == "run-attempt":\n                failures.add(spec_identity)',
+            after='if True:\n                failures.add(spec_identity)'),
+        ("test_succession.py::test_a_qualifying_run_beside_a_report_joins_nothing",
+         "test_succession.py::test_a_qualifying_run_lifts_the_block")),
     Arm("R12u1", "an excised intent entry reads malformed and the act refuses",
         Sabotage(_SUCC,
             before='raise AdmissionEvidenceRefused("chain not well-formed", str(root))',
-            after='view = WellFormedView.__new__(WellFormedView); raise AdmissionEvidenceRefused("root unreadable", str(root))'),
-        ("acceptance/test_successor_admission_acceptance.py::test_r12u1_an_excised_intent_entry_reads_malformed_and_the_act_refuses",)),
+            after='raise AdmissionEvidenceRefused("root unreadable", str(root))'),
+        (f"{_ACCEPT}::test_r12u1_an_excised_intent_entry_reads_malformed_and_the_act_refuses",)),
     Arm("R12u2", "a truncated chain reads refuted under an anchor and the act admits",
         Sabotage(_SUCC,
             before='return admit_successor(candidate, superseded, recorded_failures, unfinished)',
             after='return admit_successor(candidate, superseded, recorded_failures | {superseded.identity}, unfinished)'),
-        ("acceptance/test_successor_admission_acceptance.py::test_r12u2_a_truncated_chain_reads_refuted_under_an_anchor_and_the_act_admits",
+        (f"{_ACCEPT}::test_r12u2_a_truncated_chain_reads_refuted_under_an_anchor_and_the_act_admits",
          "test_succession.py::test_the_negative_nothing_durable_admits")),
     Arm("L7u14", "a kill between append and execution blocks the successor",
         Sabotage(_SUCC,
             before='if row.shape != "assessment-run":\n            continue',
             after='if row.shape != "assessment-run" or row.status == "attempt-without-recorded-outcome":\n            continue'),
-        ("acceptance/test_successor_admission_acceptance.py::test_u14_a_kill_between_append_and_execution_blocks_the_successor",)),
+        (f"{_ACCEPT}::test_u14_a_kill_between_append_and_execution_blocks_the_successor",)),
     Arm("L7u15", "a wrong-spec publication fails qualification and the intent still blocks",
-        Sabotage("intents/shapes.py",
+        Sabotage(_SHAPES,
             before='if evidence.spec_identity != value.spec_identity:\n                return "wrong-spec"',
             after='if evidence.spec_identity != value.spec_identity:\n                return None'),
         ("test_succession.py::test_a_wrong_spec_publication_fails_qualification_and_the_intent_still_blocks",)),
@@ -2521,8 +2576,8 @@ CUT12_ARMS = (
         ("test_record_capture.py::test_an_unreadable_regular_file_is_named_not_dropped",)),
     Arm("K2c", "an unenumerable namespace is uninspectable; ENOENT is silent",
         Sabotage(_RECORDS,
-            before='if failure.errno != errno.ENOENT:\n            into.uninspectable.append(prefix)',
-            after='if False:\n            into.uninspectable.append(prefix)'),
+            before='except OSError as failure:\n        if failure.errno != errno.ENOENT:\n            into.uninspectable.append(prefix)\n        return\n    try:',
+            after='except OSError:\n        return\n    try:'),
         ("test_record_capture.py::test_an_unenumerable_namespace_is_uninspectable_and_an_absent_one_is_silent",)),
     Arm("K3a", "the first match in final order wins",
         Sabotage(_REDUCE,
@@ -2539,10 +2594,16 @@ CUT12_ARMS = (
             before='reasons.append(reason)\n    return RegistrationReduction(None, pointer_unresolved, tuple(reasons))',
             after='reasons.insert(0, reason)\n    return RegistrationReduction(None, pointer_unresolved, tuple(reasons))'),
         ("test_intent_reduce.py::test_reduce_registration_with_no_match_returns_every_reason_in_order",)),
-    Arm("K4", "the refusal carries reason and ref, from the closed set",
+    Arm("K4a", "the refusal carries reason and ref as attributes",
+        Sabotage(_ERRORS,
+            before='        self.reason = reason\n        self.ref = ref',
+            after='        self.reason = ref\n        self.ref = reason'),
+        ("test_succession_errors.py::test_it_is_a_science_error_carrying_reason_and_ref",
+         "test_succession.py::test_an_absent_root_refuses_before_any_lock")),
+    Arm("K4b", "the reason set is closed at the spec's eleven",
         Sabotage(_SUCC,
-            before='"qualification unresolved for the superseded spec",\n)',
-            after='"qualification unresolved",\n)'),
+            before='    "qualification unresolved for the superseded spec",\n)',
+            after='    "qualification unresolved for the superseded spec",\n    "phantom",\n)'),
         ("test_succession.py::test_the_reason_set_is_exactly_the_specs_eleven",)),
     Arm("K5", "the core's first body line is cut 3's anchor line",
         Sabotage(_SPEC,
@@ -2554,12 +2615,15 @@ CUT12_ARMS = (
 _UNIT_OF_LETTERED = {
     "G4u6a": "G4u6", "G4u6b": "G4u6", "G4u6c": "G4u6",
     "G4u7a": "G4u7", "G4u7b": "G4u7", "G4u7c": "G4u7", "G4u7d": "G4u7",
-    "G4u8a": "G4u8", "G4u8b": "G4u8", "G4u8c": "G4u8", "G4u8d": "G4u8", "G4u8e": "G4u8", "G4u8f": "G4u8",
+    "G4u8a": "G4u8", "G4u8b": "G4u8", "G4u8c": "G4u8", "G4u8d": "G4u8",
+    "G4u8e": "G4u8", "G4u8f": "G4u8", "G4u8g": "G4u8",
     "G4u9a": "G4u9", "G4u9b": "G4u9", "G4u9c": "G4u9", "G4u9d": "G4u9", "G4u9e": "G4u9",
     "G4u13a": "G4u13", "G4u13b": "G4u13", "G4u13c": "G4u13",
+    "G4u14a": "G4u14", "G4u14b": "G4u14",
     "K1a": "K1", "K1b": "K1",
     "K2a": "K2", "K2b": "K2", "K2c": "K2",
     "K3a": "K3", "K3b": "K3", "K3c": "K3",
+    "K4a": "K4", "K4b": "K4",
 }
 
 
@@ -2569,9 +2633,15 @@ def unit_of(row: str) -> str:
 
 ROW_UNITS: dict[str, int] = {"G4": 14, "R12": 2, "L7": 3}
 LABELED_UNITS: tuple[str, ...] = tuple(f"K{number}" for number in range(1, 6))
+
+#: Cut-3 checks a cut-12 arm cites beside its own durable check — the one
+#: permitted overlap with a prior cut's declared checks, and exactly which.
+CO_CITED: dict[str, tuple[str, ...]] = {
+    "G4u12": ("test_spec.py::test_g4_a_discarded_failed_attempt_is_undetectable",),
+}
 ```
 
-Every `before` string must match the implemented source exactly once; after writing the arms, verify:
+Every `before` string must match the implemented source exactly once. Verify:
 
 ```bash
 cd python && uv run python - <<'EOF'
@@ -2579,20 +2649,46 @@ import sys
 sys.path[:0] = ["tests", "tests/acceptance"]
 from pathlib import Path
 from n2_arms_cut12 import CUT12_ARMS
-bad = [(a.row, Path("src/science", a.sabotage.module).read_text().count(a.sabotage.before)) for a in CUT12_ARMS]
-bad = [b for b in bad if b[1] != 1]
+counts = [(a.row, Path("src/science", a.sabotage.module).read_text().count(a.sabotage.before)) for a in CUT12_ARMS]
+bad = [c for c in counts if c[1] != 1]
 assert not bad, f"anchors not matching exactly once: {bad}"
 print(len(CUT12_ARMS), "arms; every anchor matches once")
 EOF
 ```
 
-Expected: `48 arms; every anchor matches once`. Where a `before` does not match because the implemented line differs, correct the **arm** to the source — never the source to the arm — and keep each sabotage a single exact replacement.
+Expected: `50 arms; every anchor matches once`. Where a `before` does not match because the implemented line differs, correct the **arm** to the source — never the source to the arm — and keep each sabotage a single exact replacement.
 
 - [ ] **Step 5: The N2 harness**
 
-`python/tests/acceptance/test_n2_cut12.py`, modelled on `test_n2_cut11.py` — the same class and test names with `11`→`12`, importing `CUT12_ARMS, LABELED_UNITS, ROW_UNITS, unit_of` from `n2_arms_cut12`, and:
+`python/tests/acceptance/test_n2_cut12.py`:
 
 ```python
+"""Cut 12's declaration accounting, N2 audit, and lettered-arm partition."""
+
+from __future__ import annotations
+
+import re
+import subprocess
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+import pytest
+from n2_arms import Arm
+from n2_arms_cut3 import ARMS as CUT3_ARMS
+from n2_arms_cut5 import CUT5_ARMS
+from n2_arms_cut6 import CUT6_ARMS
+from n2_arms_cut7 import CUT7_ARMS
+from n2_arms_cut8 import CUT8_ARMS
+from n2_arms_cut9 import CUT9_ARMS
+from n2_arms_cut10 import CUT10_ARMS
+from n2_arms_cut11 import CUT11_ARMS
+from n2_arms_cut12 import CO_CITED, CUT12_ARMS, LABELED_UNITS, ROW_UNITS, unit_of
+from test_n2 import MalformedArm, audit, baseline
+
+import science.root as science_root
+
+WORKERS = 8
+REPO_ROOT = Path(__file__).resolve().parents[3]
 FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-08-29-conformance-cut-12.md"
 CUT12_FREEZE_COMMIT = "<the ledger's freeze hash>"
 
@@ -2603,32 +2699,350 @@ FROZEN_PRIOR_CUT_FILES = {
     "python/tests/acceptance/n2_arms_cut8.py": "55b6de7",
     "python/tests/acceptance/n2_arms_cut9.py": "c7817ba",
     "python/tests/acceptance/n2_arms_cut10.py": "22461e9",
-    "python/tests/acceptance/n2_arms_cut11.py": "<Task 5's anchor-move hash from ledger R4>",
+    "python/tests/acceptance/n2_arms_cut11.py": "<ledger R4's anchor-move hash>",
 }
+# n2_arms_cut3.py stays unpinned, as cut 11 left it: tests/test_n2.py audits
+# it live, and cut 12's K5 arm holds its G4 anchor line byte-identical.
+
+PRIOR_ARMS = (*CUT5_ARMS, *CUT6_ARMS, *CUT7_ARMS, *CUT8_ARMS, *CUT9_ARMS, *CUT10_ARMS, *CUT11_ARMS)
+
+
+@pytest.fixture(scope="session")
+def findings(tmp_path_factory) -> tuple:
+    root = tmp_path_factory.mktemp("n2-cut12")
+    with ThreadPoolExecutor(max_workers=WORKERS) as pool:
+        return tuple(
+            pool.map(
+                lambda pair: audit(pair[1], root / f"arm{pair[0]}"),
+                enumerate(CUT12_ARMS),
+            )
+        )
+
+
+def _report(reason: str, findings: tuple, verdict: str) -> None:
+    offending = [finding for finding in findings if finding.verdict == verdict]
+    if offending:
+        raise MalformedArm(
+            reason
+            + "\n"
+            + "\n".join(f"  {finding.arm.label}\n    {finding.detail}" for finding in offending)
+        )
+
+
+class TestEveryCut12ArmAssertsSomething:
+    def test_no_arm_survives_its_own_sabotage(self, findings):
+        _report("these cut-12 arms survive their own sabotage:", findings, "vacuous")
+
+    def test_no_arm_mixes_a_passing_check_with_a_failing_one(self, findings):
+        _report("these cut-12 arms mix passing and failing checks:", findings, "mixed")
+
+    def test_no_sabotage_stops_a_check_from_running(self, findings):
+        _report("these cut-12 sabotages prevent a check from running:", findings, "uncollected")
+
+    def test_no_sabotage_has_gone_stale(self, findings):
+        _report("these cut-12 sabotages no longer match exactly once:", findings, "stale")
+
+    def test_every_check_resolves_and_passes_without_the_sabotage(self):
+        every = Arm(
+            row="N2",
+            asserts="every declared cut-12 check passes on the real package",
+            sabotage=CUT12_ARMS[0].sabotage,
+            checks=tuple(dict.fromkeys(check for arm in CUT12_ARMS for check in arm.checks)),
+        )
+        finding = baseline(every)
+        assert finding.verdict == "resolved", finding.detail
+
+
+def declared_rows() -> tuple[str, ...]:
+    return tuple(arm.row for arm in CUT12_ARMS)
+
+
+class TestTheDeclarationTable:
+    def test_the_declared_arms_are_unique_and_number_fifty(self):
+        rows = declared_rows()
+        assert len(rows) == len(set(rows)) == len(CUT12_ARMS) == 50
+
+    def test_the_labeled_units_appear_in_declaration_order(self):
+        labeled = [unit_of(row) for row in declared_rows() if row.startswith("K")]
+        assert tuple(dict.fromkeys(labeled)) == LABELED_UNITS
+
+    def test_the_frozen_cut_states_the_same_accounting(self):
+        flattened = re.sub(r"\s+", " ", FROZEN_CUT.read_text(encoding="utf-8"))
+        total = re.search(
+            r"\*\*(\d+) selected \+ (\d+) labeled = (\d+) declaration units\*\*",
+            flattened,
+        )
+        assert total is not None
+        assert tuple(map(int, total.groups())) == (19, 5, 24)
+        pairs = re.search(r"Selected units: ((?:[A-Z]+\d+ \d+(?:, )?)+)", flattened)
+        assert pairs is not None
+        assert {
+            row: int(count) for row, count in re.findall(r"([A-Z]+\d+) (\d+)", pairs.group(1))
+        } == ROW_UNITS
+
+    def test_the_frozen_cut_names_the_commit_this_audit_reads(self):
+        completed = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "merge-base", "--is-ancestor", CUT12_FREEZE_COMMIT, "HEAD"],
+            check=False,
+        )
+        assert completed.returncode == 0
+
+    def test_every_arm_has_one_source_mutation_and_exact_check_nodes(self):
+        package = Path(science_root.__file__).resolve().parent
+        for arm in CUT12_ARMS:
+            assert arm.checks, arm.row
+            assert len(arm.checks) == len(set(arm.checks)), arm.row
+            assert arm.sabotage.before != arm.sabotage.after, arm.row
+            assert arm.asserts.strip(), arm.row
+            target = package / arm.sabotage.module
+            assert target.is_file(), f"{arm.row}: missing {arm.sabotage.module}"
+            assert target.read_text(encoding="utf-8").count(arm.sabotage.before) == 1, arm.row
+            for check in arm.checks:
+                parts = check.split("::")
+                assert len(parts) >= 2 and parts[-1].startswith("test_"), check
+
+    def test_every_check_lives_in_a_cut12_file(self):
+        assert {check.split("::")[0] for arm in CUT12_ARMS for check in arm.checks} == {
+            "acceptance/test_successor_admission_acceptance.py",
+            "test_intent_evidence.py",
+            "test_intent_reduce.py",
+            "test_record_capture.py",
+            "test_spec.py",
+            "test_succession.py",
+            "test_succession_errors.py",
+        }
+
+
+class TestNoPriorCutDeclarationIsRehomedOrEdited:
+    def test_the_frozen_prior_declaration_files_are_byte_identical(self):
+        for path, pin in FROZEN_PRIOR_CUT_FILES.items():
+            completed = subprocess.run(
+                ["git", "-C", str(REPO_ROOT), "diff", "--quiet", pin, "HEAD", "--", path],
+                check=False,
+            )
+            assert completed.returncode == 0, f"{path} moved since {pin}"
+
+    def test_no_cut12_arm_claims_a_check_a_prior_cut_declared(self):
+        prior = {check for arm in (*PRIOR_ARMS, *CUT3_ARMS) for check in arm.checks}
+        for arm in CUT12_ARMS:
+            allowed = set(CO_CITED.get(arm.row, ()))
+            claimed = set(arm.checks) & prior
+            assert claimed <= allowed, f"{arm.row} claims a prior cut's check: {sorted(claimed - allowed)}"
+
+    def test_the_co_cited_checks_are_cut_3s_and_stand_beside_a_cut12_check(self):
+        cut3_checks = {check for arm in CUT3_ARMS for check in arm.checks}
+        for row, cited in CO_CITED.items():
+            arm = next(arm for arm in CUT12_ARMS if arm.row == row)
+            assert set(cited) <= cut3_checks
+            assert set(arm.checks) - set(cited), f"{row} cites only prior checks"
+
+    def test_the_k_prefix_names_no_frozen_prior_guarantee_unit(self):
+        prior = {arm.row for arm in PRIOR_ARMS if not arm.row.startswith(("J", "K"))}
+        assert not prior.intersection(LABELED_UNITS)
+
+
+def test_the_partition_accounts_exactly_the_24_frozen_units() -> None:
+    assert ROW_UNITS == {"G4": 14, "R12": 2, "L7": 3}
+    assert LABELED_UNITS == tuple(f"K{number}" for number in range(1, 6))
+    expected = (
+        {f"G4u{number}" for number in range(1, 15)}
+        | {"R12u1", "R12u2", "L7u14", "L7u15", "L7u16"}
+        | set(LABELED_UNITS)
+    )
+    assert {unit_of(arm.row) for arm in CUT12_ARMS} == expected
 ```
 
-with these cut-12 specifics:
-
-- `test_the_declared_arms_are_unique_and_number_forty_eight` asserts `len(rows) == len(set(rows)) == len(CUT12_ARMS) == 48`;
-- `test_the_frozen_cut_states_the_same_accounting` expects `(19, 5, 24)` and `ROW_UNITS == {"G4": 14, "R12": 2, "L7": 3}` from the `Selected units: G4 14, R12 2, L7 3` sentence;
-- `test_every_check_lives_in_a_cut12_file` expects `{"acceptance/test_successor_admission_acceptance.py", "test_intent_evidence.py", "test_intent_reduce.py", "test_record_capture.py", "test_spec.py", "test_succession.py"}`;
-- `test_no_cut12_arm_claims_a_check_a_prior_cut_declared` includes `CUT11_ARMS` in the prior set (import it from `n2_arms_cut11`), and also `n2_arms_cut3.ARMS`-style cut-3 G4 checks: assert none of cut 3's three G4 check ids (`test_spec.py::test_g4_an_unreferenced_successor_to_a_recorded_failed_replay_is_refused`, `…::test_g4_a_referencing_successor_is_admitted`, `…::test_g4_a_discarded_failed_attempt_is_undetectable`) appears in a cut-12 arm **except** `G4u12`, which cites `test_g4_a_discarded_failed_attempt_is_undetectable` beside its own durable check — declare that one exception explicitly as `CO_CITED = {"G4u12": ("test_spec.py::test_g4_a_discarded_failed_attempt_is_undetectable",)}` and exclude it from the assertion;
-- `test_the_partition_accounts_exactly_the_24_frozen_units` asserts `{unit_of(arm.row) for arm in CUT12_ARMS} == {f"G4u{n}" for n in range(1, 15)} | {"R12u1", "R12u2", "L7u14", "L7u15", "L7u16"} | set(LABELED_UNITS)`; there are no citation-only units, so no `ATOMS_CITATIONS_BY_UNIT`.
-
-Run it:
+`n2_arms_cut3.py` exports its table as `ARMS` (it is cut 1's module form); confirm with `grep -n '^ARMS\|^CUT3_ARMS' python/tests/n2_arms_cut3.py` and use whichever name it defines. Replace the two `<…>` hashes with the ledger's values. Run it:
 
 ```bash
-cd python && set -o pipefail && uv run pytest tests/acceptance/test_n2_cut12.py | tail -1
+cd python && set -o pipefail && SCIENCE_CUT12_ROOT="$(pwd)/../.cut12-acceptance" uv run pytest tests/acceptance/test_n2_cut12.py | tail -1
 ```
 
-Expected: all passed (the session fixture audits every arm in a subprocess pytest — allow several minutes; run it under `SCIENCE_CUT12_ROOT` pointing at the certified volume if the default beside the checkout is not certified).
+Expected: all passed (the session fixture audits every arm in a subprocess pytest — allow several minutes).
 
 - [ ] **Step 6: The runner**
 
-`python/tools/cut12_acceptance.py` — copy `cut11_acceptance.py` and change: the docstring and messages `cut-11`→`cut-12`, `DEFAULT_WORK = PYTHON_ROOT.parent / ".cut12-acceptance"`, `SCIENCE_CUT11_ROOT`→`SCIENCE_CUT12_ROOT`, `PREFIX_RUNNERS = ("cut11_acceptance.py",)`, `PHASE_MODULES = ("test_successor_admission_acceptance.py", "test_n2_cut12.py")`, `from n2_arms_cut12 import CUT12_ARMS`, `range(4, 13)` in `cut_environment`, `run_prefix`'s env key `SCIENCE_CUT11_ROOT`, and the closing message to name the 24 frozen units and `test_the_partition_accounts_exactly_the_24_frozen_units`.
+`python/tools/cut12_acceptance.py`:
+
+```python
+"""The cut-12 acceptance command — successor admission, on the certified tuple.
+
+It errors off the certified tuple. It never skips. Three phases run in order:
+the unedited cut-11 prefix, durable cut-12 arms, then cut-12's N2 audit.
+
+Never run beside another acceptance command or the ordinary suite. All cut
+roots are environment-scoped and concurrent runs would delete shared roots.
+"""
+
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+PYTHON_ROOT = Path(__file__).resolve().parents[1]
+TOOLS = PYTHON_ROOT / "tools"
+ACCEPTANCE = PYTHON_ROOT / "tests" / "acceptance"
+DEFAULT_WORK = PYTHON_ROOT.parent / ".cut12-acceptance"
+
+PREFIX_RUNNERS = ("cut11_acceptance.py",)
+PHASE_MODULES = ("test_successor_admission_acceptance.py", "test_n2_cut12.py")
+PROBE_REFUSED = 2
+
+
+def work_directory() -> Path:
+    configured = os.environ.get("SCIENCE_CUT12_ROOT")
+    work = Path(configured) if configured else DEFAULT_WORK
+    work.mkdir(parents=True, exist_ok=True)
+    return work
+
+
+def probe(run: Path) -> str | None:
+    """Register and drop one throwaway world root, corpus root, and store root."""
+    from science.root import (
+        init_corpus_root,
+        init_store_root,
+        init_world_root,
+        metadata_root_for,
+    )
+    from science.world import WorldConfig
+
+    world_root = run / "probe-world"
+    corpus_root = run / "probe-corpus"
+    store_root = run / "probe-store"
+    try:
+        init_world_root(WorldConfig(world_root, "0" * 32, ()))
+        init_corpus_root(corpus_root)
+        init_store_root(store_root)
+        return None
+    except Exception as refused:  # noqa: BLE001 - report the engine's own refusal
+        return f"{type(refused).__name__}: {refused}"
+    finally:
+        for root in (world_root, corpus_root, store_root):
+            shutil.rmtree(root, ignore_errors=True)
+            shutil.rmtree(metadata_root_for(root), ignore_errors=True)
+
+
+def declared_arm_count() -> int:
+    """Return cut 12's declared arm count, ``len(CUT12_ARMS)``."""
+    for directory in (PYTHON_ROOT / "tests", ACCEPTANCE):
+        path = str(directory)
+        if path not in sys.path:
+            sys.path.insert(0, path)
+    from n2_arms_cut12 import CUT12_ARMS  # pyright: ignore[reportMissingImports]
+
+    return len(CUT12_ARMS)
+
+
+def cut_environment(run: Path) -> dict[str, str]:
+    return {
+        **os.environ,
+        **{f"SCIENCE_CUT{number}_ROOT": str(run) for number in range(4, 13)},
+    }
+
+
+def run_prefix(runner: str, run: Path) -> int:
+    """Run the prior cut's command unchanged beneath ``run``."""
+    completed = subprocess.run(
+        [sys.executable, str(TOOLS / runner)],
+        cwd=PYTHON_ROOT,
+        check=False,
+        env={**os.environ, "SCIENCE_CUT11_ROOT": str(run)},
+    )
+    return completed.returncode
+
+
+def main(argv: list[str]) -> int:
+    phases = len(PREFIX_RUNNERS) + len(PHASE_MODULES)
+    for module in PHASE_MODULES:
+        path = ACCEPTANCE / module
+        if not path.is_file():
+            print(f"cut-12 required acceptance module is missing: {path}", file=sys.stderr)
+            return 1
+    for runner in PREFIX_RUNNERS:
+        path = TOOLS / runner
+        if not path.is_file():
+            print(f"cut-12 required prefix runner is missing: {path}", file=sys.stderr)
+            return 1
+
+    work = work_directory()
+    run = Path(tempfile.mkdtemp(prefix="run-", dir=work))
+    try:
+        refusal = probe(run)
+        if refusal is not None:
+            print(
+                "cut-12 acceptance cannot run here: the volume beneath "
+                f"{work} is not on the engine's certified allowlist.\n"
+                f"  the engine refused with {refusal}\n"
+                "  set SCIENCE_CUT12_ROOT to a directory on a certified volume, or recertify with\n"
+                "  the engine's own tooling. This is an error, not a skip: an environment that\n"
+                "  cannot exercise durability must not be able to report cut-12 discharge.",
+                file=sys.stderr,
+            )
+            return PROBE_REFUSED
+
+        phase = 0
+        for runner in PREFIX_RUNNERS:
+            phase += 1
+            print(f"[cut12 phase {phase}/{phases}] {runner}", flush=True)
+            returncode = run_prefix(runner, run)
+            if returncode != 0:
+                print(
+                    f"cut-12 acceptance stopped: the {runner} prefix exited {returncode}.\n"
+                    "  A prior cut's arms are its own claim and cut 12 runs them unchanged, so this\n"
+                    "  is that cut's failure and not a cut-12 one. Cut 12's arms did not run and cut\n"
+                    "  12 is not discharged.",
+                    file=sys.stderr,
+                )
+                return returncode
+
+        for index, module in enumerate(PHASE_MODULES):
+            phase += 1
+            last = index == len(PHASE_MODULES) - 1
+            print(f"[cut12 phase {phase}/{phases}] {module}", flush=True)
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    str(ACCEPTANCE / module),
+                    *(argv if last else []),
+                ],
+                cwd=PYTHON_ROOT,
+                check=False,
+                env=cut_environment(run),
+            )
+            if completed.returncode != 0:
+                return completed.returncode
+
+        try:
+            arms = declared_arm_count()
+        except Exception as failure:  # noqa: BLE001 - report, do not mask run result
+            print(
+                f"cut-12 acceptance: could not compute declared-arm count: {failure}",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f"declared arms: {arms} (= len(CUT12_ARMS), normalizing to the 24 frozen "
+                "units pinned by test_the_partition_accounts_exactly_the_24_frozen_units, "
+                "among the tests above; not itself a pytest total)",
+                flush=True,
+            )
+        return 0
+    finally:
+        shutil.rmtree(run, ignore_errors=True)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))
+```
 
 ```bash
-cd python && uv run ruff check tools/cut12_acceptance.py tests/acceptance/n2_arms_cut12.py tests/acceptance/test_n2_cut12.py tests/acceptance/test_successor_admission_acceptance.py && uv run pyright tools/cut12_acceptance.py | tail -1
+cd python && uv run ruff check tools/cut12_acceptance.py tests/acceptance/n2_arms_cut12.py tests/acceptance/test_n2_cut12.py tests/acceptance/test_successor_admission_acceptance.py tests/conftest.py && uv run pyright tools/cut12_acceptance.py | tail -1
 ```
 
 Expected: clean.
@@ -2642,7 +3056,7 @@ git commit -m "test(cut12): declare successor-admission arms, durable checks, an
 
 ---
 
-### Task 9: Discharge
+### Task 8: Discharge
 
 **Files:**
 - Create: `docs/plans/<today>-conformance-cut-12-results.md`
@@ -2662,13 +3076,105 @@ Expected: clean; `0 errors`; every test passed. Record the pytest summary line.
 cd python && set -o pipefail && uv run python tools/cut12_acceptance.py 2>&1 | tee ../.cut12-run.log | tail -20
 ```
 
-Expected: `[cut12 phase 1/3] cut11_acceptance.py` … exit 0; `[cut12 phase 2/3] test_successor_admission_acceptance.py` `4 passed`; `[cut12 phase 3/3] test_n2_cut12.py` all passed; `declared arms: 48 …`; exit 0. A non-zero exit at phase 1 is cut 11's failure, not cut 12's — stop and investigate; the results record cannot be written on a red prefix.
+Expected: `[cut12 phase 1/3] cut11_acceptance.py` … exit 0; `[cut12 phase 2/3] test_successor_admission_acceptance.py` `4 passed`; `[cut12 phase 3/3] test_n2_cut12.py` all passed; `declared arms: 50 …`; exit 0. A non-zero exit at phase 1 is cut 11's failure, not cut 12's — stop and investigate; the results record cannot be written on a red prefix.
 
 - [ ] **Step 3: Write the results record**
 
-`docs/plans/<today>-conformance-cut-12-results.md`, following cut 11's record section for section — `## 1. Accounting` (with `### 1.1 What the discharge establishes`), `## 2. What ran` (host tuple, the three phases with their exact pytest summary lines and `### exit: 0`, then the portable gates), `## 3. Review and implementation rulings` (pointing at the ledger), `## 4. Commit identities` (every implementation commit on the branch, `git log --oneline main..HEAD`), and:
+`docs/plans/<today>-conformance-cut-12-results.md`, with every `<…>` filled from the run just made (they are measured values, not decisions):
 
 ```markdown
+# Conformance cut 12 — discharge results
+
+**Date:** <today>
+**Subject:** successor admission, G4's closure
+(`../superpowers/specs/2026-08-29-successor-admission-design.md`, promoted to
+`../designs/2026-08-29-successor-admission-design.md` at banking), measured
+against conformance cut 12's frozen selection
+(`../designs/2026-08-29-conformance-cut-12.md`).
+
+The frozen cut remains byte-exact at `<freeze hash>`. Only its status header
+changes at banking.
+
+**Integration state.** Every implementation commit was made on
+`design/successor-admission`. The reviewed pre-banking head is `<impl head>`.
+The branch is not merged or pushed by this discharge; the human partner owns
+the history-preserving `--no-ff` merge.
+
+## 1. Accounting
+
+Cut 12 reads three rows: G4 and R12 in full, L7 in part. Its 19 selected units
+and labels K1–K5 give **19 selected + 5 labeled = 24 declaration units**. L7
+stays partial on exactly its banked limitation, L7u1.
+
+The executable declaration table expands compound requirements into **50
+lettered sabotage arms** normalized back to those 24 frozen units. Every armed
+claim has one exact once-matching source mutation and at least one check that
+fails under it. G4u12 cites cut 3's discarded-attempt check beside its own
+durable one (`CO_CITED`); no other prior check is claimed.
+
+### 1.1 What the discharge establishes
+
+- `admit_spec_successor` derives both blocker classes from durable state under
+  the root's operation lock and never from a caller-supplied set; a writer
+  arriving during the act waits and is not consulted.
+- Class 1a reads only active, coherent, failing verifications; an incoherent
+  failing verification or an incoherent superseder of one refuses the act
+  globally, naming the record.
+- Class 2 and class 1b come from cut 11's reducer unchanged; an unresolvable
+  intent for the superseded spec refuses; another spec's does not block.
+- Oversized records lift only through a coherent superseder; unreadable and
+  uninspectable surfaces refuse; nothing durable leaves no trace.
+- `capture_records`' certified surface, cut 11's reducer verdicts, and the
+  core's cut-3 anchor line are byte-for-byte unchanged.
+
+## 2. What ran
+
+All commands ran sequentially from `python/`. Durable work ran on the
+certified volume at `<SCIENCE_CUT12_ROOT or the default beside the checkout>`.
+
+### 2.1 Host and certified tuple
+
+<kernel, filesystem and mount tuple, as `cut11_acceptance.py`'s probe reports it>
+
+### 2.2 Certified cut-12 runner
+
+`uv run python tools/cut12_acceptance.py`
+
+<the three phase lines with their pytest summary lines, verbatim>
+
+### exit: 0
+
+### 2.3 Portable and static gates
+
+`uv run pytest` — <summary line>
+
+### exit: 0
+
+`uv run ruff check .` — All checks passed!
+
+### exit: 0
+
+`uv run pyright` — 0 errors, 0 warnings, 0 informations
+
+### exit: 0
+
+## 3. Review and implementation rulings
+
+<one paragraph: what the post-implementation review found, and how the
+declaration review expanded the lettered arms; the exact rationale lives in
+`2026-08-29-successor-admission-ledger.md`>
+
+There is no frozen-cut deviation. <or: name it, and the ledger ruling that
+records it>
+
+## 4. Commit identities
+
+| commit | subject |
+|---|---|
+<one row per commit from `git log --oneline main..HEAD`, oldest first>
+
+The banking commit following this record changes no runtime behavior.
+
 ## 5. Remaining boundary
 
 Cut 12 closes G4 at persistence width and reads R12 in full. L7 stays partial
@@ -2691,7 +3197,7 @@ git commit -m "docs(plans): record conformance cut 12's discharge"
 
 ---
 
-### Task 10: Banking
+### Task 9: Banking
 
 **Files:**
 - Move: `docs/superpowers/specs/2026-08-29-successor-admission-design.md` → `docs/designs/2026-08-29-successor-admission-design.md`
@@ -2699,7 +3205,7 @@ git commit -m "docs(plans): record conformance cut 12's discharge"
 - Modify: `docs/designs/2026-08-26-world-index-intent-boundary-design.md` (one dated correction at the head of §5)
 - Modify: `docs/designs/2026-08-03-redesign-adoption-ledger.md` (`Current state`; rows 5 and 7)
 - Modify: `docs/plans/2026-08-29-implementation-roadmap.md`, `python/tools/roadmap_status.py`
-- Modify: `README.md`, `docs/guide/README.md`, `docs/guide/contracts-and-adoption.md`, `docs/guide/computation-and-reproducibility.md` (as the citation guard requires)
+- Modify: `README.md`, `docs/guide/README.md`, `docs/guide/contracts-and-adoption.md`, `docs/guide/computation-and-reproducibility.md`
 
 - [ ] **Step 1: Promote the spec and close both status lines**
 
@@ -2707,9 +3213,9 @@ git commit -m "docs(plans): record conformance cut 12's discharge"
 git mv docs/superpowers/specs/2026-08-29-successor-admission-design.md docs/designs/2026-08-29-successor-admission-design.md
 ```
 
-Set the promoted design's `**Status:**` to: `implemented and discharged <today> at `<impl head>`; conformance cut 12 froze before implementation at `<freeze hash>` and its 24 units passed through 48 lettered sabotage arms on the certified tuple. Results: `../plans/<today>-conformance-cut-12-results.md`; execution rulings: `../plans/2026-08-29-successor-admission-ledger.md`. Promoted from `docs/superpowers/specs/` in this banking change.` Update its relative links (`../../plans/…` → `../plans/…`).
+Set the promoted design's `**Status:**` to: `implemented and discharged <today> at `<impl head>`; conformance cut 12 froze before implementation at `<freeze hash>` and its 24 units passed through 50 lettered sabotage arms on the certified tuple. Results: `../plans/<today>-conformance-cut-12-results.md`; execution rulings: `../plans/2026-08-29-successor-admission-ledger.md`. Promoted from `docs/superpowers/specs/` in this banking change.` Update its relative links (`../../plans/…` → `../plans/…`).
 
-Set the cut's `**Status:**` to: `**Discharged <today> at `<impl head>`** — all 24 frozen units passed through 48 lettered sabotage arms on the certified tuple; the portable suite reported <N> passing tests, Ruff and Pyright were clean. Results: `../plans/<today>-conformance-cut-12-results.md`. The cut remains frozen byte-exact at `<freeze hash>`; the specification was promoted to `2026-08-29-successor-admission-design.md` at banking.` Nothing below the status line changes.
+Set the cut's `**Status:**` to: `**Discharged <today> at `<impl head>`** — all 24 frozen units passed through 50 lettered sabotage arms on the certified tuple; the portable suite reported <N> passing tests, Ruff and Pyright were clean. Results: `../plans/<today>-conformance-cut-12-results.md`. The cut remains frozen byte-exact at `<freeze hash>`; the specification was promoted to `2026-08-29-successor-admission-design.md` at banking.` Nothing below the status line changes.
 
 Add the README design-table row for the promoted design (after the cut-12 row):
 
@@ -2737,7 +3243,7 @@ Directly under the `## 5. G4's closure — transferred to the successor-admissio
 
 - [ ] **Step 3: The adoption ledger**
 
-In `## Current state (2026-08-28)` → rename the heading to `## Current state (<today>)` and update the ledger's own anchor references to it (grep `current-state-2026-08-28` across `docs/` and `README.md` and update every hit); change `**Implemented through conformance cut 11.**` to `**Implemented through conformance cut 12.**` and add to the bullet list:
+Rename `## Current state (2026-08-28)` to `## Current state (<today>)` and update every anchor that names it (`grep -rn 'current-state-2026-08-28' docs README.md`); change `**Implemented through conformance cut 11.**` to `**Implemented through conformance cut 12.**` and add to the bullet list:
 
 ```markdown
 - **Successor admission** — G4 closed at persistence width: `admit_spec_successor`
@@ -2746,31 +3252,23 @@ In `## Current state (2026-08-28)` → rename the heading to `## Current state (
   successor by class (cut 12).
 ```
 
-Remove the `successor-admission` row from the boundaries table; change the `log-remainder`'s neighbour text nowhere; change the last paragraph's `names G4, L8 and L13` to name what the new results record's `## 5. Remaining boundary` names (`L8 and L13`, plus L7's limitation if the guard's label regex reads it). In row 5, replace `**and G4's closure** *(corrected 2026-08-27: …)*` with `*(G4 closed at cut 12, <today>: `2026-08-29-successor-admission-design.md`)*`. In row 7, after `landed 2026-08-12, conformance cut 3's slice (…)`, add `; G4 read in full at persistence width by cut 12 (<today>)`.
-
-Run the ledger's guard:
-
-```bash
-cd python && set -o pipefail && uv run pytest tests/test_designs_corpus.py -k "newest_remaining_boundary or same_boundaries" | tail -1
-```
-
-Expected: `2 passed` — the second will fail until Step 4 removes the id from the roadmap; run it again after Step 4.
+Remove the `successor-admission` row from the boundaries table. Change the closing paragraph's `names G4, L8 and L13` to `names L8 and L13`. In row 5, replace `**and G4's closure** *(corrected 2026-08-27: …)*` — the whole parenthetical — with `*(G4 closed at cut 12, <today>: `2026-08-29-successor-admission-design.md`)*`. In row 7, after `landed 2026-08-12, conformance cut 3's slice (…)`, add `; G4 read in full at persistence width by cut 12 (<today>)`.
 
 - [ ] **Step 4: Re-rank the roadmap**
 
 In `python/tools/roadmap_status.py`: add `12: ("conformance-cut-12-results §1", "G4, R12", "L7"),` to `ACCOUNTING` and delete the `"G4"` entry from `REOPENED` (leave the dict, now empty, with its comment). Run `cd python && uv run python tools/roadmap_status.py` — expected last line `Closed 64 of 151; open 87.`
 
-Rewrite `docs/plans/2026-08-29-implementation-roadmap.md` whole (it is a current claim): `**Ranked at:** cut 12, against the ledger's Current state (<today>)`; remove `successor-admission` from the Boundary index and from tier 1, renumbering tier 1 so `run-confinement` is row 1 and `contract-cut` row 8; delete the index's mention of L7's relabel (the id is gone); replace Appendix A with the script's new output; in Appendix B drop the G4 and R12 rows and change L7's row to `| L7 | u1's non-ancestor spelling (cut 8 results §1.1) → limitation; every other arm read by cuts 10–12 | limitation only — ranked nowhere |`; Appendix C is unchanged. Then:
+Rewrite `docs/plans/2026-08-29-implementation-roadmap.md` whole (it is a current claim): `**Ranked at:** cut 12, against the ledger's Current state (<today>)`; remove `successor-admission` from the Boundary index and from tier 1, renumbering tier 1 so `run-confinement` is row 1 and `contract-cut` row 8; replace Appendix A with the script's new output; in Appendix B drop the G4 and R12 rows and change L7's row to `| L7 | u1's non-ancestor spelling (cut 8 results §1.1) → limitation; every other arm read by cuts 10–12 | limitation only — ranked nowhere |`; Appendix C is unchanged. Then:
 
 ```bash
 cd python && set -o pipefail && uv run pytest tests/test_designs_corpus.py | tail -1
 ```
 
-Expected: all passed.
+Expected: all passed — the join guard now sees 23 ids on both sides.
 
 - [ ] **Step 5: The guide**
 
-Add `../designs/2026-08-29-successor-admission-design.md` to the `sources:` of `docs/guide/contracts-and-adoption.md` and `docs/guide/computation-and-reproducibility.md`, add the new results record beside cut 11's in `contracts-and-adoption.md`'s sources and its "newest results record" link, set both pages' `updated: <today>`, and set `docs/guide/README.md`'s `updated: <today>` if its status text names cut 11 (grep `cut 11` in `docs/guide/*.md` and correct every "implemented through cut 11" style claim to cut 12).
+Add `../designs/2026-08-29-successor-admission-design.md` to the `sources:` of `docs/guide/contracts-and-adoption.md` and `docs/guide/computation-and-reproducibility.md`; add the new results record beside cut 11's in `contracts-and-adoption.md`'s sources and point its "newest results record" link at it; set both pages' `updated: <today>`; grep `cut 11` across `docs/guide/*.md` and correct every "implemented through cut 11" style claim to cut 12, bumping `updated` on each page touched.
 
 - [ ] **Step 6: Full gates and diff review**
 
@@ -2779,7 +3277,7 @@ cd python && set -o pipefail && uv run python tools/check_guide.py && echo CHECK
 cd .. && git diff --check main && echo DIFF_CHECK_CLEAN && git diff main --name-status
 ```
 
-Expected: `CHECK_GUIDE_OK`; all passed; `DIFF_CHECK_CLEAN`; the file list contains only: the promoted design (R), the cut, the intent-boundary design, the adoption ledger, the roadmap, `roadmap_status.py`, `README.md`, the three guide pages, the results record and ledger under `docs/plans/`, this plan, and under `python/`: `src/science/{errors,spec,succession}.py`, `src/science/world/records.py`, `src/science/intents/{evidence,reduce}.py`, `tests/{conftest,test_designs_corpus,test_spec,test_record_capture,test_intent_evidence,test_intent_reduce,test_succession,test_succession_errors,succession_fixtures}.py`, `tests/acceptance/{n2_arms_cut11,n2_arms_cut12,test_n2_cut12,test_successor_admission_acceptance}.py`, `tools/cut12_acceptance.py`. Anything else is out of scope — revert it.
+Expected: `CHECK_GUIDE_OK`; all passed; `DIFF_CHECK_CLEAN`; the file list contains only: the promoted design (R), the cut, the intent-boundary design, the adoption ledger, the roadmap, `roadmap_status.py`, `README.md`, the guide pages touched, the results record and ledger under `docs/plans/`, this plan, and under `python/`: `src/science/{errors,spec,succession}.py`, `src/science/world/records.py`, `src/science/intents/{evidence,reduce}.py`, `tests/{conftest,test_designs_corpus,test_spec,test_record_capture,test_intent_evidence,test_intent_reduce,test_succession,test_succession_errors,succession_fixtures}.py`, `tests/acceptance/{n2_arms_cut11,n2_arms_cut12,test_n2_cut12,test_successor_admission_acceptance}.py`, `tools/cut12_acceptance.py`. Anything else is out of scope — revert it.
 
 - [ ] **Step 7: Commit**
 
