@@ -59,6 +59,11 @@ class GatedLock:
             self.parked.set()
         self._lock.release()
 
+    def locked(self) -> bool:
+        # `threading.Condition` asks its mutex this from Python 3.14 on; a lock
+        # that cannot answer fails the condition's ownership check outright.
+        return self._lock.locked()
+
     def __enter__(self) -> bool:
         return self.acquire()
 
