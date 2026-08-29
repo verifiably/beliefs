@@ -29,7 +29,7 @@ def certified_work() -> "Iterator[Path]":
     import shutil
     import tempfile
 
-    configured = os.environ.get("SCIENCE_CUT10_ROOT")
+    configured = os.environ.get("SCIENCE_CUT10_ROOT") or os.environ.get("SCIENCE_CUT12_ROOT")
     base = Path(configured) if configured else REPO_ROOT / ".lifecycle-wrappers-test"
     base.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="t-", dir=base))
