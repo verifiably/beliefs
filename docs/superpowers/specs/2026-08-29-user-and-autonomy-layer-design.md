@@ -355,21 +355,52 @@ the selection — makes the publish `Refused(closure-incomplete)` with the
 missing identities listed; the user widens the view or drops the record.
 
 **Constructing the corpus composes lifecycle commands that exist; no new
-`atoms` primitive is needed.** The sequence is: `init_corpus_root` on a
-private staging directory the actor cannot reach; write the selection and
-the `publication` record into it through `beliefs`' ordinary writer;
-`replicate_root` from the staging root to the destination — which
-publishes a claim-only reservation, stamps read-only before it exposes
-payload, and grants neither writability nor serviceability
-(root-lifecycle design §2–§4); then `restore_root` on the destination,
-which inspects, captures the presented identity, evaluates against an
-explicit observer set, and admits the copy to read-only service on a
-`validated` verdict and nothing else. The staging root is then discarded.
+`atoms` primitive is needed.** The sequence is:
+
+1. `init_corpus_root` on a private **staging root** the actor cannot
+   reach, and `init_world_root` on a private **staging world** beside it —
+   a throwaway world whose only purpose is to make the staging corpus
+   eligible for a head export.
+2. Write the selection and the `publication` record into the staging
+   corpus through `beliefs`' ordinary writer.
+3. `World.admit` the staging corpus into the staging world, then
+   `export_head_artifact(staging world, corpus(corpus_id))` — the existing
+   act, which requires an admitted corpus (log-verification design §3.2).
+   The artifact, `(subject, genesis identity, head digest)` under
+   `science.head-artifact.v1`, is the observer `restore_root` needs; it is
+   **retained outside the corpus** as a held artifact in the publisher's
+   world, its content identity recorded in the source project's
+   `publication` coordination record, before anything is discarded.
+4. `replicate_root` from the staging root to the destination — which
+   publishes a claim-only reservation, stamps read-only before it exposes
+   payload, and grants neither writability nor serviceability
+   (root-lifecycle design §2–§4).
+5. `restore_root(destination, corpus(corpus_id), observers = {the exported
+   head artifact})`, which inspects, captures the presented identity,
+   evaluates against that explicit observer set, and admits the copy to
+   read-only service on a `validated` verdict and nothing else. An empty
+   observer set is `unresolvable`, which is why step 3 is not optional.
+6. Discard the staging corpus and the staging world.
+
 `atoms` stays ignorant of root kinds, and the reveal is `restore_root`'s
-existing grant. A retry finds a serviceable corpus, a stamped but
-unserviceable copy (re-run `restore_root`), or a bare reservation
-(abandon and re-replicate) — the lifecycle's own states; it never guesses.
-Each attempt is its own operation with its own act-report.
+existing grant. The head artifact **travels with the corpus** to every
+destination as a sibling file, so a recipient constructs the same observer
+set for their own `restore_root` (§6.3). All three lifecycle commands are
+exact-retry (root-lifecycle design §2): a retry finds a serviceable corpus
+(done), a stamped but unserviceable copy (re-run step 5), or a bare
+reservation (**retry the exact same replication**, which adopts the
+retained claim and converges; a different request refuses). No abandon
+operation exists, and cleanup of a reservation nobody will retry is an
+explicit out-of-band operator action, never something a publish does.
+
+**Each attempt is an operation with its own act-report**, and that is an
+amendment, not a given: the kernel's operation-kind set is closed at five
+and contains no `publish` (act-report §3). Sub-project 5 carries the
+**versioned act-report amendment** adding the `publish` operation kind
+with its entry and outcome vocabulary — staging, head export, replication,
+restore, and transport entries, each with its outcome — banked in the
+act-report design before any publish runs. Without it there is no
+act-report, and the claim would be false.
 
 **The atomicity claim is exactly this wide.** For a local directory,
 `restore_root`'s grant is the reveal, and a published corpus is a valid,
@@ -377,9 +408,9 @@ serviceable corpus or it is not serviceable. For a git remote, a Zenodo
 deposit, or an inbox, the reveal is destination-specific and **not**
 atomic — an upload can stop half-way — so the guarantee moves to the
 consumer: a corpus is admitted (§6.3) only if `restore_root`'s validation
-passes on the recipient's copy and its `publication` record is present
-and well-formed, and anything less is refused whole, never adopted in
-part. Publishing to a remote is the local sequence followed by a
+passes on the recipient's copy against the transported head artifact and
+its `publication` record is present and well-formed, and anything less is
+refused whole, never adopted in part. Publishing to a remote is the local sequence followed by a
 transport, and the transport's partial states are the recipient's to
 refuse.
 
@@ -534,7 +565,7 @@ column says so.
 | 2 | **Command framework** — declaration schema, write classes, budgeted renderer, preamble, adapter generator with the Claude Code target, CLI and MCP over `beliefs` reads; the writer endpoint with its bound permit, endpoint-set actor and session ledger; the write permit on every `beliefs` write entry point | `science`, `beliefs` | 0 | now, against today's kernel reads |
 | 3 | **Biology domain pack** — GO, HP, EFO, MONDO bindings; mm30's operator vocabulary | `beliefs/domains/biology` | the `domain-boundary` lane | with that lane |
 | 4 | **The dogfood command set** — the dozen commands over a real world root; mm30 reproduced, not migrated, as the first corpus | `science` | 1, 2, 3; `run-confinement` and `workflow-surface` for a real assessment | after 2; grows as lanes land |
-| 5 | **Publish** — the act and `publication` record in `beliefs`, composed over `init_corpus_root`, `replicate_root` and `restore_root`; transports, admission-side refusal and dry run in `science` | `beliefs`, `science` | 1; the `world-read` lane (view queries resolve through it) | after that lane |
+| 5 | **Publish** — the act and `publication` record in `beliefs`, composed over `init_corpus_root`, a staging world, `export_head_artifact`, `replicate_root` and `restore_root`; the versioned act-report amendment adding the `publish` operation kind; transports carrying the head artifact, admission-side refusal and dry run in `science` | `beliefs`, `science` | 1; the `world-read` lane (view queries resolve through it) | after that lane |
 | 6 | **Envelope** — the actor sandbox and private endpoint handle, baseline with log heads, tiers as permits, ledger-checked interval membership, dispositions, lease | `autonomy` | 2 | after 2 |
 | 7 | **Loop and `science.priority.v1`** — its own spec | `autonomy` | 4, 6 | last |
 
