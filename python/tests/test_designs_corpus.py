@@ -117,6 +117,12 @@ _PROSE_LABEL = re.compile(r"\b([GSWRCXNLDMPHT][0-9]+[a-z]?)\b")
 #: A level-two heading with its optional `N.` numbering stripped.
 _H2 = re.compile(r"^## (?:\d+\.\s+)?(.*)$")
 
+ROADMAP = PLANS / "2026-08-29-implementation-roadmap.md"
+
+#: A boundary id in the first column of a table row — the join key between the
+#: ledger's Current state table and the roadmap's Boundary index.
+_BOUNDARY_ID = re.compile(r"^\|\s*`([a-z0-9-]+)`\s*\|", re.MULTILINE)
+
 
 def _h2_section(text: str, prefix: str) -> str | None:
     """The body under the first `##` heading whose title starts with `prefix`.
@@ -330,6 +336,16 @@ def test_every_cross_reference_resolves() -> None:
     assert not broken, "unresolvable references:\n  " + "\n  ".join(sorted(broken))
 
 
+def _newest_results_record() -> tuple[int, Path]:
+    records = {
+        int(m.group(1)): path
+        for path in PLANS.glob("*.md")
+        if (m := _RESULTS_RECORD.match(path.name))
+    }
+    assert records, f"no conformance-cut results record under {PLANS}"
+    return max(records.items())
+
+
 def test_the_ledger_summary_names_the_newest_remaining_boundary() -> None:
     """A cut lands, names its remainder, and the summary is never updated.
 
@@ -343,13 +359,7 @@ def test_the_ledger_summary_names_the_newest_remaining_boundary() -> None:
     an empty label collection is a failure — a guard asserting over the empty
     set would pass on exactly the drift it exists to catch.
     """
-    records = {
-        int(m.group(1)): path
-        for path in PLANS.glob("*.md")
-        if (m := _RESULTS_RECORD.match(path.name))
-    }
-    assert records, f"no conformance-cut results record under {PLANS}"
-    cut, newest = max(records.items())
+    cut, newest = _newest_results_record()
 
     remaining = _h2_section(_text(newest), "Remaining boundary")
     assert remaining is not None, f"{newest.name} has no `Remaining boundary` section"
@@ -364,6 +374,45 @@ def test_the_ledger_summary_names_the_newest_remaining_boundary() -> None:
     assert not missing, (
         f"the ledger's Current state does not name {', '.join(missing)}, "
         f"which {newest.name} leaves open"
+    )
+
+
+def test_the_roadmap_and_ledger_name_the_same_boundaries() -> None:
+    """The ledger's table says what is open; the roadmap says in what order.
+
+    They are joined on backticked ids, never on prose, so rewording a boundary
+    breaks nothing. Uniqueness is checked before equality so a duplicated id
+    cannot collapse into a passing set, and both differences are reported so
+    a boundary that leaves one document cannot linger in the other. Fails
+    closed on a missing file, a missing section, or an empty collection.
+    """
+    ledger = _h2_section(_text(DESIGNS / "2026-08-03-redesign-adoption-ledger.md"), "Current state")
+    assert ledger is not None, "the ledger has no `Current state` section"
+    ledger_ids = _BOUNDARY_ID.findall(ledger)
+    assert ledger_ids, "the ledger's Current state table carries no boundary ids"
+    assert len(ledger_ids) == len(set(ledger_ids)), (
+        "duplicate ids in the ledger: " + ", ".join(sorted({i for i in ledger_ids if ledger_ids.count(i) > 1}))
+    )
+
+    assert ROADMAP.exists(), f"{ROADMAP.name} is absent"
+    index = _h2_section(_text(ROADMAP), "Boundary index")
+    assert index is not None, f"{ROADMAP.name} has no `Boundary index` section"
+    roadmap_ids = _BOUNDARY_ID.findall(index)
+    assert roadmap_ids, f"{ROADMAP.name}'s Boundary index carries no ids"
+    assert len(roadmap_ids) == len(set(roadmap_ids)), (
+        "duplicate ids in the roadmap: " + ", ".join(sorted({i for i in roadmap_ids if roadmap_ids.count(i) > 1}))
+    )
+
+    only_ledger = sorted(set(ledger_ids) - set(roadmap_ids))
+    only_roadmap = sorted(set(roadmap_ids) - set(ledger_ids))
+    assert not only_ledger and not only_roadmap, (
+        f"in the ledger but not the roadmap: {only_ledger}; "
+        f"in the roadmap but not the ledger: {only_roadmap}"
+    )
+
+    cut, newest = _newest_results_record()
+    assert f"**Ranked at:** cut {cut}" in _text(ROADMAP), (
+        f"the roadmap is not ranked at cut {cut}, the newest results record ({newest.name})"
     )
 
 
