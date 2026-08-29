@@ -2,7 +2,7 @@
 title: Claims and belief
 status: living
 created: 2026-08-08
-updated: 2026-08-09
+updated: 2026-08-28
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-04-domain-extension-boundary-design.md
@@ -11,6 +11,10 @@ sources:
   - ../designs/2026-08-05-review-disposition-and-conformance-cut-1.md
   - ../designs/2026-08-07-corpus-survey-and-vocabulary-admission-design.md
   - ../designs/2026-08-07-multi-corpus-typing-exercise.md
+  - ../designs/2026-08-09-admission-ramp-design.md
+  - ../designs/2026-08-09-conformance-cut-2.md
+  - ../designs/2026-08-10-verified-holdings-record-design.md
+  - ../designs/2026-08-24-world-index-holdings-design.md
 ---
 
 # Claims and belief
@@ -166,10 +170,17 @@ a corpus records a structured proposition carrying it.
 ## Current state
 
 Typed claim construction, profile compilation, canonical projection, identity,
-decode, and Python/TypeScript parity are implemented in conformance cut 1. The
-belief policy is banked but belief computation, assessment eligibility, and
-persistence are outside that cut. The survey and typing exercise are hand-run
-measurements, not conformance oracles.
+decode, and Python/TypeScript parity are implemented. So is the belief seam:
+the derived admission state, the assessment admission gate, the belief-input
+closure digest, and `science.belief.v1` computed under an exact binding, with
+the belief policy's P1–P9 and the admission ramp's G9 in cut 2's selection.
+Verified holdings are a governed stored kind — recorded per location by
+intent-bearing acts and projected under a declared coverage — so an
+observation's admission input is a system record rather than a supplied
+argument. The survey and typing exercise remain hand-run measurements, not
+conformance oracles. The
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-08-28)
+states what remains.
 
 ## Open edges
 
