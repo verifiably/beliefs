@@ -2,6 +2,11 @@
 
 **Status:** banked 2026-08-11; §7's amendment set applied in the banking change. Nothing here is implemented, and no conformance arm is claimed.
 
+**Superseded 2026-08-28.** The sentence above claiming nothing is implemented
+no longer holds. This header records design facts only; what has been built is
+stated in the adoption ledger's current-state summary
+(`2026-08-03-redesign-adoption-ledger.md`).
+
 ## 1. The gap, and the box already drawn around it
 
 The verified-holdings record design closed where verified holdings are

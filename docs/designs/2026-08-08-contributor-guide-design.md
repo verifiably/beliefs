@@ -1,7 +1,8 @@
 # Contributor guide — design
 
 **Date:** 2026-08-08
-**Status:** Approved for implementation
+**Status:** Approved 2026-08-08; implemented as `docs/guide/` and maintained
+under §6's rule.
 **Scope:** A concise, topic-first companion to the redesign documents for new
 contributors. The guide summarizes decisions; it does not replace or amend
 them.

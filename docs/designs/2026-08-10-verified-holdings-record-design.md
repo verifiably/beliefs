@@ -5,6 +5,12 @@
 Nothing here is implemented, and no conformance arm is claimed —
 the G9 independence arm and the record's code stay owed to the cut that draws
 the persistence seam (§7).
+
+**Superseded 2026-08-28.** The claim above that nothing here is implemented no
+longer holds. This header records design facts only; what has been built is
+stated in the adoption ledger's current-state summary
+(`2026-08-03-redesign-adoption-ledger.md`).
+
 **Inherits:** the admission ramp (`2026-08-09-admission-ramp-design.md`) §6.1
 (state derived from declaration plus the system's record of verified holdings),
 §6.2 (the dataset basis projection), §6.3 (`G9` and its arms), §6.7 and §8
