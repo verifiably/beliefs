@@ -333,12 +333,20 @@ class SuccessorRefused:
 
 
 def admit_successor(
-    candidate: FrozenSpec, superseded: FrozenSpec, recorded_failures: frozenset[str]
+    candidate: FrozenSpec,
+    superseded: FrozenSpec,
+    recorded_failures: frozenset[str],
+    unfinished_attempts: frozenset[str],
 ) -> SuccessorAdmitted | SuccessorRefused:
-    """G4 over the slice's value state — the recorded-failure set the boundary
-    holds. A failure absent from the set never happened: undetectable."""
+    """G4 over the slice's value state — the two blocker classes the boundary
+    derives (successor-admission design §3). The first check is byte-identical
+    to cut 3's line, so a spec in both classes refuses with the recorded-failure
+    reason by statement order, never by set iteration. A failure absent from
+    both sets never happened: undetectable."""
     if superseded.identity in recorded_failures and candidate.supersedes != superseded.identity:
         return SuccessorRefused(candidate.identity, "an unreferenced successor to a recorded failed replay")
+    if superseded.identity in unfinished_attempts and candidate.supersedes != superseded.identity:
+        return SuccessorRefused(candidate.identity, "an unreferenced successor to an unfinished recorded attempt")
     return SuccessorAdmitted(candidate.identity)
 
 

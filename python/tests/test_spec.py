@@ -280,7 +280,7 @@ def test_r8_changing_a_root_seed_mints_a_successor_spec():
 def test_g4_an_unreferenced_successor_to_a_recorded_failed_replay_is_refused():
     original = freeze(draft(), held_rules=held_rules())
     unreferenced = freeze(draft(estimand="revised"), held_rules=held_rules())  # supersedes=None
-    verdict = admit_successor(unreferenced, original, recorded_failures=frozenset({original.identity}))
+    verdict = admit_successor(unreferenced, original, frozenset({original.identity}), frozenset())
     assert isinstance(verdict, SuccessorRefused)
 
 
@@ -292,7 +292,7 @@ def test_g4_a_referencing_successor_is_admitted():
         held_rules=held_rules(),
         recorded_failures=frozenset({original.identity}),
     )
-    assert isinstance(admit_successor(successor, original, frozenset({original.identity})), SuccessorAdmitted)
+    assert isinstance(admit_successor(successor, original, frozenset({original.identity}), frozenset()), SuccessorAdmitted)
 
 
 def test_g4_a_discarded_failed_attempt_is_undetectable():
@@ -301,7 +301,50 @@ def test_g4_a_discarded_failed_attempt_is_undetectable():
     # tell (kernel G4's bound, pinned rather than papered over).
     original = freeze(draft(), held_rules=held_rules())
     unreferenced = freeze(draft(estimand="revised"), held_rules=held_rules())
-    assert isinstance(admit_successor(unreferenced, original, frozenset()), SuccessorAdmitted)
+    assert isinstance(admit_successor(unreferenced, original, frozenset(), frozenset()), SuccessorAdmitted)
+
+
+def test_g4_an_unreferenced_successor_to_an_unfinished_recorded_attempt_is_refused():
+    original = freeze(draft(), held_rules=held_rules())
+    unreferenced = freeze(draft(estimand="revised"), held_rules=held_rules())
+    verdict = admit_successor(unreferenced, original, frozenset(), frozenset({original.identity}))
+    assert isinstance(verdict, SuccessorRefused)
+    assert verdict.reason == "an unreferenced successor to an unfinished recorded attempt"
+
+
+def test_g4_a_spec_in_both_classes_refuses_with_the_recorded_failure_reason():
+    original = freeze(draft(), held_rules=held_rules())
+    unreferenced = freeze(draft(estimand="revised"), held_rules=held_rules())
+    both = frozenset({original.identity})
+    verdict = admit_successor(unreferenced, original, both, both)
+    assert isinstance(verdict, SuccessorRefused)
+    assert verdict.reason == "an unreferenced successor to a recorded failed replay"
+
+
+def test_g4_a_referencing_successor_lifts_both_classes():
+    original = freeze(draft(), held_rules=held_rules())
+    successor = revise(
+        original, edits={"estimand": "revised"}, held_rules=held_rules(), recorded_failures=frozenset()
+    )
+    both = frozenset({original.identity})
+    assert isinstance(admit_successor(successor, original, both, both), SuccessorAdmitted)
+
+
+def test_g4_the_core_keeps_cut_3s_anchor_line():
+    # K5: cut 3's three G4 sabotages name this exact line; it must occur once.
+    from pathlib import Path
+
+    import science.spec as spec_module
+
+    source = Path(spec_module.__file__).read_text(encoding="utf-8")
+    anchor = "    if superseded.identity in recorded_failures and candidate.supersedes != superseded.identity:"
+    assert source.count(anchor) == 1
+    assert list(inspect.signature(admit_successor).parameters) == [
+        "candidate",
+        "superseded",
+        "recorded_failures",
+        "unfinished_attempts",
+    ]
 
 
 def test_the_derivation_rule_is_a_pure_function_of_its_three_arguments():
