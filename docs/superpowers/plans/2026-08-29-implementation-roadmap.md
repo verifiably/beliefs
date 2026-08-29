@@ -100,8 +100,20 @@ def _expand(cell: str) -> set[str]:
     return rows
 
 
+KNOWN_ROWS: frozenset[str] = frozenset(r for t in GUARANTEE_TABLES.values() for r in t)
+
+
+def _check_known(rows: set[str], where: str) -> None:
+    unknown = sorted(rows - KNOWN_ROWS)
+    if unknown:
+        raise SystemExit(f"{where} names rows that are not guarantee rows: {unknown}")
+
+
 def live_status() -> dict[str, tuple[str, int]]:
     status: dict[str, tuple[str, int]] = {}
+    for _, (source, full, part) in ACCOUNTING.items():
+        _check_known(_expand(full) | _expand(part), source)
+    _check_known(set(REOPENED), "REOPENED")
     for cut, (_, full, part) in ACCOUNTING.items():
         for row in _expand(full):
             status[row] = ("full", cut)
@@ -138,15 +150,15 @@ if __name__ == "__main__":
 - [ ] **Step 2: Run it and check the counts against the spec**
 
 ```bash
-cd python && uv run python tools/roadmap_status.py | tail -1
+cd python && set -o pipefail && uv run python tools/roadmap_status.py | tail -1
 ```
 
-Expected: `Closed 62 of 151; open 89.` If the number differs, the accounting data disagrees with spec §3.1 — compare table by table against the spec's §3.1 table and fix whichever is wrong against the cut document it cites; record any spec correction in the commit message.
+Expected: `Closed 62 of 151; open 89.` Then prove the check fails closed: change `M4` to `BAD` in cut 1's entry, rerun, and expect a non-zero exit with `review-disposition-and-conformance-cut-1 §5 names rows that are not guarantee rows: ['BAD']`; revert the change. If the count differs, the accounting data disagrees with spec §3.1 — compare table by table against the spec's §3.1 table and fix whichever is wrong against the cut document it cites; record any spec correction in the commit message.
 
 - [ ] **Step 3: Lint and commit**
 
 ```bash
-cd python && uv run ruff check tools/roadmap_status.py && uv run pyright tools/roadmap_status.py | tail -1
+cd python && set -o pipefail && uv run ruff check tools/roadmap_status.py && uv run pyright tools/roadmap_status.py | tail -1
 cd .. && git add python/tools/roadmap_status.py && git commit -m "tools: compute every guarantee row's live status from the cuts' accounting"
 ```
 
@@ -311,13 +323,13 @@ cd python && set -o pipefail && uv run pytest tests/test_designs_corpus.py -k sa
 
 Expected: `AssertionError: 2026-08-29-implementation-roadmap.md is absent` and `1 failed`. Any earlier assertion firing means Task 2's table is wrong.
 
-- [ ] **Step 5: Confirm the refactored existing guard still passes, then commit**
+- [ ] **Step 5: Confirm the refactored existing guard still passes**
 
 ```bash
 cd python && set -o pipefail && uv run pytest tests/test_designs_corpus.py -k newest_remaining_boundary | tail -1
-cd .. && git add python/tests/test_designs_corpus.py
-git commit -m "test(docs): hold the roadmap and the ledger table to one set of boundary ids"
 ```
+
+Expected: `1 passed`. Do **not** commit yet: a commit whose suite is red is not a checkpoint. Task 4 commits this test together with the roadmap that turns it green.
 
 ---
 
@@ -478,17 +490,18 @@ for target in re.findall(r"\]\(([^)]+)\)", text):
     f = (p.parent / path) if path else p
     if not f.exists(): bad.append(target); continue
     if frag and frag not in cg.heading_slugs(f.read_text()): bad.append(target)
-print("unresolved:", bad)
+assert not bad, f"unresolved: {bad}"
+print("every roadmap link resolves")
 EOF
 ```
 
-Expected: `unresolved: []`. (The roadmap lives under `docs/plans/`, which `check_guide.py` does not sweep, so this is the one place its links are checked.)
+Expected: `every roadmap link resolves` and exit 0; a broken link or anchor raises `AssertionError: unresolved: [...]` with a non-zero exit. (The roadmap lives under `docs/plans/`, which `check_guide.py` does not sweep, so this is the one place its links are checked.)
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Commit the roadmap with the guard that reads it**
 
 ```bash
-git add docs/plans/2026-08-29-implementation-roadmap.md
-git commit -m "docs(plans): rank the remaining implementation boundaries at cut 11"
+git add python/tests/test_designs_corpus.py docs/plans/2026-08-29-implementation-roadmap.md
+git commit -m "docs(plans): rank the remaining implementation boundaries at cut 11 and guard the join"
 ```
 
 ---
@@ -558,7 +571,15 @@ git commit -m "docs(guide): name the roadmap re-ranking obligation and the coord
 **Files:**
 - Modify: `docs/superpowers/specs/2026-08-29-implementation-roadmap-design.md:4` (the `**Status:**` line)
 
-- [ ] **Step 1: Full documentation gates**
+- [ ] **Step 1: Close the design's status**
+
+Replace line 4 of the spec with:
+
+```markdown
+**Status:** approved in session; revised 2026-08-29 across four written-spec review rounds; delivered 2026-08-29 on `docs/roadmap` (roadmap at `docs/plans/2026-08-29-implementation-roadmap.md`, ranked at cut 11)
+```
+
+- [ ] **Step 2: Full documentation gates, on the tree that will be committed**
 
 ```bash
 cd python && set -o pipefail && uv run python tools/check_guide.py && echo CHECK_GUIDE_OK && uv run pytest tests/test_designs_corpus.py tests/test_check_guide.py | tail -1
@@ -567,7 +588,7 @@ cd .. && git diff --check main..HEAD && echo DIFF_CHECK_CLEAN
 
 Expected: `CHECK_GUIDE_OK`; every test passed; `DIFF_CHECK_CLEAN`.
 
-- [ ] **Step 2: Diff review against the allowlist**
+- [ ] **Step 3: Diff review against the allowlist**
 
 ```bash
 git diff main..HEAD --name-only
@@ -576,18 +597,10 @@ git diff main..HEAD --name-only
 Expected exactly: `docs/designs/2026-08-03-redesign-adoption-ledger.md`, `docs/guide/README.md`, `docs/guide/open-questions.md`, `docs/plans/2026-08-29-implementation-roadmap.md`, `docs/superpowers/plans/2026-08-29-implementation-roadmap.md`, `docs/superpowers/specs/2026-08-29-implementation-roadmap-design.md`, `python/tests/test_designs_corpus.py`, `python/tools/roadmap_status.py`. Anything else is out of scope — revert it. Then confirm the ledger changed only inside its `Current state` section:
 
 ```bash
-git diff main..HEAD -- docs/designs/2026-08-03-redesign-adoption-ledger.md | grep -E '^@@' 
+git diff main..HEAD -- docs/designs/2026-08-03-redesign-adoption-ledger.md | grep -E '^@@'
 ```
 
 Expected: one hunk, inside lines 41–90.
-
-- [ ] **Step 3: Close the design's status**
-
-Replace line 4 of the spec with:
-
-```markdown
-**Status:** approved in session; revised 2026-08-29 across four written-spec review rounds; delivered 2026-08-29 on `docs/roadmap` (roadmap at `docs/plans/2026-08-29-implementation-roadmap.md`, ranked at cut 11)
-```
 
 - [ ] **Step 4: Commit**
 
