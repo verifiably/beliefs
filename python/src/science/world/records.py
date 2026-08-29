@@ -5,6 +5,7 @@ from __future__ import annotations
 import errno
 import os
 import stat
+from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
@@ -20,6 +21,12 @@ RECORD_NAMESPACES = ("run", "act-report", "holdings-observation")
 
 def _leaf_seam(path: str) -> None:
     """Interpose after enumeration and before the no-follow leaf open."""
+
+
+def _close(fd: int) -> None:
+    """Close once; cleanup failures are outside the capture surface."""
+    with suppress(OSError):
+        os.close(fd)
 
 
 @dataclass(frozen=True)
@@ -73,7 +80,7 @@ def capture_surface(root: Path, namespaces: tuple[str, ...]) -> CapturedSurface:
         for namespace in namespaces:
             _capture_directory(root_fd, namespace, namespace, into)
     finally:
-        os.close(root_fd)
+        _close(root_fd)
     return _finish(into)
 
 
@@ -127,7 +134,7 @@ def _capture_directory(
             elif payload == "unreadable":
                 into.unreadable.append(path)
     finally:
-        os.close(dir_fd)
+        _close(dir_fd)
 
 
 def _read_leaf(dir_fd: int, name: str) -> bytes | _LeafFailure:
@@ -164,6 +171,6 @@ def _read_leaf(dir_fd: int, name: str) -> bytes | _LeafFailure:
         except OSError:
             return "unreadable"
         finally:
-            os.close(read_fd)
+            _close(read_fd)
     finally:
-        os.close(path_fd)
+        _close(path_fd)

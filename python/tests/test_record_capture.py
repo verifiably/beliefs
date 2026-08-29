@@ -226,6 +226,27 @@ def test_a_scandir_failure_is_uninspectable_unless_it_is_enoent(certified_work, 
         assert surface.uninspectable == expected, code
 
 
+def test_close_failures_are_silent_without_retries(certified_work, monkeypatch) -> None:
+    root = _five(certified_work / "root")
+    (root / "verification" / "v.md").write_bytes(b"v")
+    real_close = os.close
+    for failure_at in range(4):
+        calls = 0
+
+        def close(fd: int, failure_at: int = failure_at) -> None:
+            nonlocal calls
+            calls += 1
+            real_close(fd)
+            if calls == failure_at + 1:
+                raise OSError(errno.EIO, "injected close failure")
+
+        monkeypatch.setattr(records.os, "close", close)
+        assert records.capture_surface(root, ("verification",)) == records.CapturedSurface(
+            (("verification/v.md", b"v"),), (), (), ()
+        )
+        assert calls == 4
+
+
 def test_the_log_evaluator_surface_is_pinned(certified_work) -> None:
     # cut 11's captured surface: the three namespaces, silent on every failure.
     root = _five(certified_work / "root")
