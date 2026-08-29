@@ -139,6 +139,28 @@ def test_a_free_writer_holds_it_and_frees_it() -> None:
     take_as_capture(lock)  # nor is a later capture: the release left nothing
 
 
+def test_same_thread_writer_acquisition_is_reentrant_and_balanced() -> None:
+    lock = OperationLock()
+    order: list[str] = []
+
+    def nested_writer() -> None:
+        with lock:
+            order.append("outer")
+            with lock:
+                order.append("inner")
+            with pytest.raises(BuildContended), lock.capture():
+                pass
+        order.append("released")
+
+    writer = threading.Thread(target=nested_writer, daemon=True)
+    writer.start()
+    writer.join(timeout=WAIT)
+
+    assert not writer.is_alive(), "same-thread nested writer acquisition deadlocked"
+    assert order == ["outer", "inner", "released"]
+    take_as_capture(lock)
+
+
 def test_an_unbalanced_writer_release_raises_and_clears_nothing() -> None:
     """The bare lock raised on an unbalanced release; losing that would let a
     writer's `__exit__` quietly hand away a capture's hold."""

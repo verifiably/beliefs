@@ -713,6 +713,16 @@ callers," discharged as written. What changes is exactly:
 
 ## 5. G4's closure — transferred to the successor-admission slice
 
+> **Closed 2026-08-29, conformance cut 12** (`2026-08-29-successor-admission-design.md`;
+> results `../plans/2026-08-29-conformance-cut-12-results.md`). Two corrections to
+> the text below, recorded rather than rewritten: the deriving entrypoint lives
+> in `science.succession`, not `science.spec` — `corpus` imports `spec` and the
+> log seam imports `corpus`, so a top-level definition in `spec.py` is an import
+> cycle (design §2 item 4); and the coherence gate also covers a verification
+> whose `supersedes` names a failing or withheld one, since an incoherent
+> superseder would otherwise lift a block by bare existence (design §4.4 step
+> 3). Everything else below was implemented as written.
+
 > **Transferred 2026-08-27** (the twentieth amendment). Everything below
 > is the successor-admission slice's inherited authority — designed
 > here across nine cut readings, owned there, read by no cut-11 arm.

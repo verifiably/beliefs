@@ -2,7 +2,7 @@
 title: Computation and reproducibility
 status: living
 created: 2026-08-08
-updated: 2026-08-28
+updated: 2026-08-29
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -14,6 +14,7 @@ sources:
   - ../designs/2026-08-11-conformance-cut-3.md
   - ../designs/2026-08-26-world-index-intent-boundary-design.md
   - ../designs/2026-08-27-conformance-cut-11.md
+  - ../designs/2026-08-29-successor-admission-design.md
 ---
 
 # Computation and reproducibility
@@ -131,12 +132,14 @@ dataset production, replay, verification-as-value, and the act-report layer's
 completion reading, running as real subprocess executions over held fixtures.
 Runs publish durably with their closure preimage and typed identity bridge, and
 general intent qualification reads every boundary operation through one
-three-shape reducer. Assessment admission is gated on the verification reading
-rather than on a claim that code ran. What is not built here is owned
-elsewhere — the mutation log's event-level order (L8) and the preimage-backed
+three-shape reducer. `admit_spec_successor` now composes that qualification with
+active, coherent failing-verification evidence under one hold, closing G4 at
+persistence width. Assessment admission is gated on the verification reading
+rather than on a claim that code ran. What is not built here is owned elsewhere
+— the mutation log's event-level order (L8) and the preimage-backed
 classification of a removed verification (L13) — and listed with those owners
 in the
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-08-28).
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-08-29).
 
 ## Open edges
 

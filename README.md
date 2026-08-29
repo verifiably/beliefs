@@ -17,9 +17,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Thirty-eight documents in `docs/designs/`: the banked redesigns, review disposition,
+Forty documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
-2026-08-02 through 2026-08-27. Read them in this order:
+2026-08-02 through 2026-08-29. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -61,6 +61,8 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-08-24-conformance-cut-10.md` | the tenth frozen conformance cut, selecting verified store-side holdings: 3 rows full, 4 part, with 20 selected and 11 labeled declarations |
 | `2026-08-26-world-index-intent-boundary-design.md` | world-index slice 6, general intent qualification: the three-shape reduction, bounded captured evidence, durable run publication, verifier lift, regenerated holdings interior, and completion re-base |
 | `2026-08-27-conformance-cut-11.md` | the eleventh frozen conformance cut, selecting general intent qualification: 1 row part, with 13 selected and 13 labeled declarations; G4 deliberately unread, owned by the successor-admission slice |
+| `2026-08-29-conformance-cut-12.md` | the twelfth frozen conformance cut, selecting successor admission: 2 rows full, 1 part, with 19 selected and 5 labeled declarations; G4 read at persistence width |
+| `2026-08-29-successor-admission-design.md` | the successor-admission slice: the two-set core, the deriving boundary `admit_spec_successor` over the chain's qualification and the corpus's verification evidence under one hold, the superseder-side oversized rule, and the named evidence refusal |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -68,14 +70,14 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 11** is implemented and discharged. What
+Every conformance cut through **cut 12** is implemented and discharged. What
 runs today: typed claims, admission and belief computation; run closure,
-execution, replay, act reports and general intent qualification; certified
-persistence through the composition root, with the supersede, revise,
-retraction and import families; and the world registry with epochs,
-mutation-log anchoring and verification, root lifecycle, and verified
-store-side holdings. The latest discharged boundary is cut 11, general intent
-qualification ([results](docs/plans/2026-08-27-conformance-cut-11-results.md)).
+execution, replay, act reports, general intent qualification and successor
+admission; certified persistence through the composition root, with the
+supersede, revise, retraction and import families; and the world registry with
+epochs, mutation-log anchoring and verification, root lifecycle, and verified
+store-side holdings. The latest discharged boundary is cut 12, successor
+admission ([results](docs/plans/2026-08-29-conformance-cut-12-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
 test before it is a passing one. There are **151 rows** across **thirteen frozen
@@ -85,7 +87,7 @@ redefinition.
 
 What is built and what remains to build, each remainder with its named owner,
 is stated once, in the
-[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-08-28).
+[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-08-29).
 The per-cut results records under [`docs/plans/`](docs/plans/) are the
 evidence trail, and unresolved design questions live in the guide's
 [open questions](docs/guide/open-questions.md).

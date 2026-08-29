@@ -20,7 +20,9 @@ from nodes.core.errors import ExecutionError, PlanRefusedError
 from nodes.core.write_plan import CreateOp, WritePlan
 
 from science import root as science_root
-from science.corpus import CorpusWriter, OperationPort
+from science import stored
+from science.corpus import CorpusWriter, OperationPort, _operation_lock_for
+from science.errors import BuildHold
 from science.root import (
     PRODUCTION_STORAGE,
     DurableOperationPort,
@@ -171,6 +173,23 @@ class TestTheDurablePort:
         assert (mapped.value.index, mapped.value.applied) == (None, applied)
         assert mapped.value.__cause__ is raised
 
+    @pytest.mark.parametrize("mutation", ["append_intent", "execute", "execute_fulfilling"])
+    def test_every_mutation_takes_the_roots_operation_lock(
+        self, tmp_path, monkeypatch, mutation
+    ) -> None:
+        monkeypatch.setattr(science_root, "append_intent", lambda *_args: FULFILLS)
+        monkeypatch.setattr(science_root.DurableExecutor, "execute", lambda *_args: None)
+        port = durable_port(tmp_path)
+        plan = [CreateOp(path="p.md", content=b"record")]
+
+        with _operation_lock_for(tmp_path).capture(), pytest.raises(BuildHold):
+            if mutation == "append_intent":
+                port.append_intent(PAYLOAD)
+            elif mutation == "execute":
+                port.execute(plan)
+            else:
+                port.execute_fulfilling(plan, FULFILLS)
+
 
 def test_execute_publishes_fulfilling_nothing(certified_work) -> None:
     port = _registered_port(certified_work)
@@ -180,6 +199,23 @@ def test_execute_publishes_fulfilling_nothing(certified_work) -> None:
     (registration,) = _registrations(certified_work)
     assert registration.fulfills is None
     assert (certified_work / "act-report" / ("a" * 64 + ".md")).read_bytes() == b"content"
+
+
+def test_corpus_writer_reenters_its_durable_ports_shared_lock(certified_work) -> None:
+    init_corpus_root(certified_work)
+    writer = open_corpus(certified_work)
+    node = stored.proposition_node("p", title="p", claim={"operator": "affects"})
+
+    writer.import_bundle(
+        [node],
+        actor="actor",
+        observer="observer",
+        instrument="instrument",
+        opened_at="T0",
+        closed_at="T1",
+    )
+
+    assert writer.read_view.holds(node.id)
 
 
 def test_execute_refuses_a_malformed_plan_before_any_write(certified_work) -> None:

@@ -40,12 +40,11 @@ ACCOUNTING: dict[int, tuple[str, str, str]] = {
     9: ("conformance-cut-9-results §1", "L6", "L2, L4, L10, W13"),
     10: ("conformance-cut-10-results §1", "H1, H2, H3", "H4, G9, L7, L10"),
     11: ("conformance-cut-11-results §1", "", "L7"),
+    12: ("conformance-cut-12-results §1", "G4, R12", "L7"),
 }
 
 #: Rows a later source names open at a widened obligation, overriding a full read.
-REOPENED: dict[str, tuple[str, int]] = {
-    "G4": ("conformance-cut-11 §3.2; ledger row 5's note of 2026-08-28", 11),
-}
+REOPENED: dict[str, tuple[str, int]] = {}
 
 _RANGE = re.compile(r"([GSWRCXNLDMPHT])([0-9]+[a-z]?)–\1?([0-9]+[a-z]?)")
 

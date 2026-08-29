@@ -18,7 +18,15 @@ from science.world.logmodel import (
     SettledEntryView,
 )
 
-__all__ = ["IntentQualification", "qualify_chain"]
+__all__ = [
+    "IntentQualification",
+    "QualificationPass",
+    "RegistrationReduction",
+    "qualify_chain",
+    "record_paths_of",
+    "reduce_chain",
+    "reduce_registration",
+]
 
 
 @sealed
@@ -43,12 +51,84 @@ def _is_file(facts: tuple[tuple[str, str], ...]) -> bool:
     return any(pair[0] == "kind" and pair[1] == "file" for pair in facts)
 
 
+@sealed
+@final
+@dataclass(frozen=True, slots=True)
+class RegistrationReduction:
+    """One registration's whole reduction (successor-admission design §4.4):
+    the first qualifying `(path, evidence)` in `final` order, whether any
+    record path had no payload or failed to decode, and every decoded
+    non-qualifying record's reason in order."""
+
+    match: tuple[str, evidence_module.RecordEvidence] | None
+    unresolved: bool
+    reasons: tuple[str, ...]
+
+
+@sealed
+@final
+@dataclass(frozen=True, slots=True)
+class QualificationPass:
+    """One chain pass, including the exact matched registration reductions.
+
+    `qualify_chain` projects this value to its established public pair; the
+    succession boundary consumes `matched_reductions` without scanning or
+    decoding a matched registration again.
+    """
+
+    rows: tuple[IntentQualification, ...]
+    findings: tuple[Finding, ...]
+    matched_reductions: tuple[tuple[str, RegistrationReduction], ...]
+
+
+def record_paths_of(registration: RegisteredEntryView, state_facts: StateFacts) -> list[str]:
+    return [
+        path
+        for path, state in registration.final
+        if evidence_module.record_layout_path(path) and _is_file(state_facts(state))
+    ]
+
+
+def reduce_registration(
+    intent: shapes.DecodedIntent,
+    record_paths: list[str],
+    records: Mapping[str, bytes],
+) -> RegistrationReduction:
+    reasons: list[str] = []
+    pointer_unresolved = False
+    for path in record_paths:
+        payload = records.get(path)
+        if payload is None:
+            pointer_unresolved = True
+            continue
+        try:
+            record_evidence = evidence_module.decode_record(path, payload)
+        except RecordUndecodable:
+            pointer_unresolved = True
+            continue
+        reason = shapes.mismatch(intent, record_evidence)
+        if reason is None:
+            return RegistrationReduction((path, record_evidence), pointer_unresolved, tuple(reasons))
+        reasons.append(reason)
+    return RegistrationReduction(None, pointer_unresolved, tuple(reasons))
+
+
 def qualify_chain(
     entries: tuple[EntryView, ...],
     records: Mapping[str, bytes],
     *,
     state_facts: StateFacts,
 ) -> tuple[tuple[IntentQualification, ...], tuple[Finding, ...]]:
+    reduced = reduce_chain(entries, records, state_facts=state_facts)
+    return reduced.rows, reduced.findings
+
+
+def reduce_chain(
+    entries: tuple[EntryView, ...],
+    records: Mapping[str, bytes],
+    *,
+    state_facts: StateFacts,
+) -> QualificationPass:
     settlement = {
         entry.registration: entry.committed
         for entry in entries
@@ -61,6 +141,7 @@ def qualify_chain(
 
     rows: list[IntentQualification] = []
     findings: list[Finding] = []
+    matched_reductions: list[tuple[str, RegistrationReduction]] = []
     for entry in entries:
         if type(entry) is not IntentEntryView:
             continue
@@ -87,10 +168,15 @@ def qualify_chain(
             settlement,
             records,
             state_facts,
+            matched_reductions,
         )
         rows.append(row)
         findings.extend(intent_findings)
-    return tuple(rows), tuple(findings)
+    return QualificationPass(
+        tuple(rows),
+        tuple(findings),
+        tuple(matched_reductions),
+    )
 
 
 def _qualify_one(
@@ -99,6 +185,7 @@ def _qualify_one(
     settlement: Mapping[str, bool],
     records: Mapping[str, bytes],
     state_facts: StateFacts,
+    matched_reductions: list[tuple[str, RegistrationReduction]],
 ) -> tuple[IntentQualification, tuple[Finding, ...]]:
     unresolved = False
     non_qualifying: list[tuple[str, str]] = []
@@ -110,44 +197,28 @@ def _qualify_one(
         if not committed:
             non_qualifying.append((registration.digest, "no-record"))
             continue
-        record_paths = [
-            path
-            for path, state in registration.final
-            if evidence_module.record_layout_path(path) and _is_file(state_facts(state))
-        ]
+        record_paths = record_paths_of(registration, state_facts)
         if not record_paths:
             non_qualifying.append((registration.digest, "no-record"))
             continue
-        reasons: list[str] = []
-        pointer_unresolved = False
-        for path in record_paths:
-            payload = records.get(path)
-            if payload is None:
-                pointer_unresolved = True
-                continue
-            try:
-                record_evidence = evidence_module.decode_record(path, payload)
-            except RecordUndecodable:
-                pointer_unresolved = True
-                continue
-            reason = shapes.mismatch(intent, record_evidence)
-            if reason is None:
-                return (
-                    IntentQualification(
-                        intent.digest,
-                        intent.shape,
-                        "matched",
-                        registration.digest,
-                    ),
-                    (),
-                )
-            reasons.append(reason)
-        if pointer_unresolved:
+        reduction = reduce_registration(intent, record_paths, records)
+        if reduction.match is not None:
+            matched_reductions.append((registration.digest, reduction))
+            return (
+                IntentQualification(
+                    intent.digest,
+                    intent.shape,
+                    "matched",
+                    registration.digest,
+                ),
+                (),
+            )
+        if reduction.unresolved:
             unresolved = True
             continue
         chosen = (
-            min(reasons, key=shapes.REASON_PRIORITY.index)
-            if reasons
+            min(reduction.reasons, key=shapes.REASON_PRIORITY.index)
+            if reduction.reasons
             else "no-record"
         )
         non_qualifying.append((registration.digest, chosen))

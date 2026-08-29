@@ -1,6 +1,6 @@
 # Implementation roadmap
 
-**Ranked at:** cut 11, against the ledger's Current state (2026-08-28)
+**Ranked at:** cut 12, against the ledger's Current state (2026-08-29)
 **Method:** `../superpowers/specs/2026-08-29-implementation-roadmap-design.md`
 **Recomputed by:** the commit that adds each conformance-cut results record.
 This document is a current claim: it is rewritten whole at every re-ranking,
@@ -8,7 +8,7 @@ carries no dated corrections, and the previous ranking survives only in git
 history.
 
 The adoption ledger's `Current state` table
-(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-08-28`)
+(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-08-29`)
 is the authority for *what* is open; this document is the authority for *in
 what order*. The two name the same boundaries by id, and
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds them to it.
@@ -29,7 +29,6 @@ join key and nothing else; the tiers below carry the ranking.
 
 | id | rows it closes | tier |
 |---|---|---|
-| `successor-admission` | G4; R12's strengthening arm; L7's relabel | 1 |
 | `run-confinement` | R15; R4, R9, R13, R16, R21's confinement arms | 1 |
 | `workflow-surface` | R2, R16, R20, R21's workflow arms; R23's second-production arm | 1 |
 | `consolidate-family` | W5, W16; G3, D7; G2c, G8, C6, R5's deletion negatives; S5's deletion half; R23 and C3's move clauses; M3's replica arm | 1 |
@@ -60,15 +59,14 @@ Strict order. Row 1 is the next cut.
 
 | # | id | rows | unblocks | placement |
 |---|---|---|---|---|
-| 1 | `successor-admission` | G4; R12's strengthening arm and L7's relabel, both read off the intent chain this cut qualifies | kernel §8.7's fourth recorded-mutation consequence — the kernel's invariant story closes; rows 5 and 7 read G4 in full | designed across nine readings with five opening obligations written (intent-boundary §5); Science-only; smallest of the tier |
-| 2 | `run-confinement` | R15; R4, R9, R13, R16, R21's confinement arms | `clean-environment` becomes reachable, so a real verification can admit a real assessment to belief — the invariant operable end to end rather than over supplied values; every `clean-environment` arm in the R table | the confinement-capable boundary policy is computation §4.4b's, designed; cut 3 §3 states exactly what a scratch root is not |
-| 3 | `workflow-surface` | R2, R16, R20, R21's workflow arms; R23's second-production arm | multi-rule, family, wildcard and definition-equality workflows — real analyses rather than fixture-held single-rule definitions | cut 3 §3 built "the minimal adapter only" and deferred every such arm to the full workflow surface, computation §6.4's, designed; with `run-confinement` it completes the execution boundary |
-| 4 | `consolidate-family` | W5, W16; G3, D7; the deletion negatives of G2c, G8, C6, R5; S5's deletion half; R23 and C3's move clauses; M3's replica arm | C7's surface; the last mutation family; six rows' last arms | family-adapters design deferred it "to its own cut with the world index", which now exists |
-| 5 | `url-retrieval` | H4, G9, R10, T5, T7's same-root case | the first acquisition of a dataset from outside the system; H4 in full | holdings design §2–§3 specify the canonicalization profile and network discipline |
-| 6 | `world-resolution` | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 (less one arm), W8a's coreference arms; S1, S1a, S5's cross-corpus reach; D3; X12 and M3's coreference arms; R23's snapshot clauses | the read side of the world: resolution states, cross-corpus edges, views, the coreference balance over the map cut 7 published | cut 4 §5 deferred the group on "the write boundary and the index" — both landed; the address ruling supplies the oracles. W11/W12 are not here (§3.3) |
-| 7 | `domain-boundary` | D1, D2, D4, D5, D6, D8, D9, D10; G5 | the first domain pack; D8's composition | cut 3 §5 deferred the group on "facets, manifests, and the registry compile"; `ProfileSpec` and the `nodes` registry exist |
-| 8 | `event-level-l8` | L8 | row 5 reads L8 in full; the log's last Science-only remainder | §7's ordered-cuts predicate is built; the event-level relation is its successor |
-| 9 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a, X12 and C10's `instrument-certification` arms; R23's rules-store clauses | the widest set: the conformance-package split (ledger §5), instrument-certification cadence, legacy-check disposition (N10), P1 | last in the tier although it unblocks the most: N1 mints a successor contract identity for every oracle amended after the freeze, and rows 1–8 are Science-only closures that would each force one. Freeze after them |
+| 1 | `run-confinement` | R15; R4, R9, R13, R16, R21's confinement arms | `clean-environment` becomes reachable, so a real verification can admit a real assessment to belief — the invariant operable end to end rather than over supplied values; every `clean-environment` arm in the R table | the confinement-capable boundary policy is computation §4.4b's, designed; cut 3 §3 states exactly what a scratch root is not |
+| 2 | `workflow-surface` | R2, R16, R20, R21's workflow arms; R23's second-production arm | multi-rule, family, wildcard and definition-equality workflows — real analyses rather than fixture-held single-rule definitions | cut 3 §3 built "the minimal adapter only" and deferred every such arm to the full workflow surface, computation §6.4's, designed; with `run-confinement` it completes the execution boundary |
+| 3 | `consolidate-family` | W5, W16; G3, D7; the deletion negatives of G2c, G8, C6, R5; S5's deletion half; R23 and C3's move clauses; M3's replica arm | C7's surface; the last mutation family; six rows' last arms | family-adapters design deferred it "to its own cut with the world index", which now exists |
+| 4 | `url-retrieval` | H4, G9, R10, T5, T7's same-root case | the first acquisition of a dataset from outside the system; H4 in full | holdings design §2–§3 specify the canonicalization profile and network discipline |
+| 5 | `world-resolution` | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 (less one arm), W8a's coreference arms; S1, S1a, S5's cross-corpus reach; D3; X12 and M3's coreference arms; R23's snapshot clauses | the read side of the world: resolution states, cross-corpus edges, views, the coreference balance over the map cut 7 published | cut 4 §5 deferred the group on "the write boundary and the index" — both landed; the address ruling supplies the oracles. W11/W12 are not here (§3.3) |
+| 6 | `domain-boundary` | D1, D2, D4, D5, D6, D8, D9, D10; G5 | the first domain pack; D8's composition | cut 3 §5 deferred the group on "facets, manifests, and the registry compile"; `ProfileSpec` and the `nodes` registry exist |
+| 7 | `event-level-l8` | L8 | row 5 reads L8 in full; the log's last Science-only remainder | §7's ordered-cuts predicate is built; the event-level relation is its successor |
+| 8 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a, X12 and C10's `instrument-certification` arms; R23's rules-store clauses | the widest set: the conformance-package split (ledger §5), instrument-certification cadence, legacy-check disposition (N10), P1 | last in the tier although it unblocks the most: N1 mints a successor contract identity for every oracle amended after the freeze, and rows 1–7 are Science-only closures that would each force one. Freeze after them |
 
 **Ride-along closures**, tier 1 by the rule and unblocking no capability of
 their own, each named to the cut that takes it:
@@ -105,28 +103,28 @@ Unordered. Each row links its `open-questions.md` anchor.
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 — [higher-order records and extraction](../guide/open-questions.md#claims-and-belief) |
 | `cross-root-publication` | T7's cross-root case | [the act-report's residue](../guide/open-questions.md#contracts-and-adoption) |
 
-## Appendix A — live status of every guarantee row at cut 11
+## Appendix A — live status of every guarantee row at cut 12
 
 Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
 (spec §3.1); a row is closed only when no later source reopens it.
 
 | table | never selected | part — last cut that read it | reopened |
 |---|---|---|---|
-| G | G5 | G2c (cut 5), G3 (cut 2), G8 (cut 5), G9 (cut 10) | G4 (cut 11) |
+| G | G5 | G2c (cut 5), G3 (cut 2), G8 (cut 5), G9 (cut 10) | — |
 | S | — | S1 (cut 4), S1a (cut 4), S5 (cut 4), S6 (cut 2) | — |
 | W | W1, W2, W4, W5, W6, W7, W8, W9, W10, W11, W12, W14, W15, W16, W5a, W8b | W13 (cut 9), W8a (cut 7) | — |
-| R | R15 | R2 (cut 3), R4 (cut 3), R5 (cut 3), R9 (cut 3), R10 (cut 3), R12 (cut 3), R13 (cut 3), R16 (cut 3), R19 (cut 4), R20 (cut 5), R21 (cut 3), R22 (cut 4), R23 (cut 4) | — |
+| R | R15 | R2 (cut 3), R4 (cut 3), R5 (cut 3), R9 (cut 3), R10 (cut 3), R13 (cut 3), R16 (cut 3), R19 (cut 4), R20 (cut 5), R21 (cut 3), R22 (cut 4), R23 (cut 4) | — |
 | C | C7, C8, C9 | C3 (cut 5), C6 (cut 5), C10 (cut 5) | — |
 | X | — | X2 (cut 7), X5 (cut 7), X12 (cut 7) | — |
 | N | N1, N3, N4, N5, N6, N7, N8, N9, N10 | N2 (cut 4) | — |
-| L | — | L1 (cut 8), L2 (cut 9), L4 (cut 9), L7 (cut 11), L8 (cut 8), L10 (cut 10), L13 (cut 8) | — |
+| L | — | L1 (cut 8), L2 (cut 9), L4 (cut 9), L7 (cut 12), L8 (cut 8), L10 (cut 10), L13 (cut 8) | — |
 | D | D1, D2, D4, D5, D8, D9, D10 | D3 (cut 2), D6 (cut 2), D7 (cut 2) | — |
 | M | M1, M12 | M3 (cut 5), M5 (cut 5) | — |
 | P | — | P1 (cut 2) | — |
 | H | — | H4 (cut 10) | — |
 | T | T7 | T1 (cut 5), T2 (cut 5), T4 (cut 3), T5 (cut 3) | — |
 
-Closed 62 of 151; open 89.
+Closed 64 of 151; open 87.
 
 ## Appendix B — classification of every open row
 
@@ -135,7 +133,6 @@ Each open row, its remainder as the last cut states it, and where it goes
 
 | row | remainder (source) | classification → boundary |
 |---|---|---|
-| G4 | successor admission, the two-class blocker derivation, `admit_spec_successor` (intent-boundary §5; cut 11 §3.2) | `successor-admission` |
 | G5 | "no such kind exists" checkable only at the registry compile (cut 4 §5) | rides with `domain-boundary` |
 | G2c | the standing-retraction clause of "active" (cut 2 §4.2); raw-deletion negative (cut 5) | `consolidate-family` (deletion) |
 | G8 | raw-deletion negative, the deletion/history limit (cut 5) | `consolidate-family` (deletion) |
@@ -155,7 +152,6 @@ Each open row, its remainder as the last cut states it, and where it goes
 | R5 | negative (a), destroying the last held copy through a managed deletion recording an `absent` observation (cut 3 §4.2; holdings §3) — the intent-bearing delete act landed with cut 10 | `consolidate-family` (deletion) |
 | R2, R16, R20, R21 | their full-workflow-surface arms: trace/job-ID components, per-family obligations, the two-target arm (cut 3 §4.2; cut 5) | `workflow-surface` |
 | R10 | "the acquisition path records dataset provenance instead" (cut 3 §4.2) | `url-retrieval` |
-| R12 | the boundary-mediated strengthening, an intent entry as removal-detectable witness (cut 3 §4.2) — built by cut 11's intent-before-execution, unread → relabel | `successor-admission` |
 | R19 | explicit-import derivation validation over complete closure evidence; cross-corpus recomputation; contradiction discovery under audit; log-backed raw-write detection (cut 5) — every named dependency has landed | `run-boundary-remainder`, rides with `consolidate-family` (the import family dialect) |
 | R22 | the unresolvable-interpretation-rule refusal → `contract-cut` (the rules store and resolver, 5b §6); explicit-import recomputation and the raw-written assessment under audit (cut 4 §4.2; cut 5) → `run-boundary-remainder` | split as stated |
 | R23 | the second dataset-production run → `workflow-surface`; producer snapshots and receipts, coverage, cross-corpus divergence → `world-resolution`; move/consolidate/deletion clauses → `consolidate-family`; rules-store clauses → `contract-cut` (cut 5) | split as stated |
@@ -171,7 +167,7 @@ Each open row, its remainder as the last cut states it, and where it goes
 | N2 | the doctrine over the rows no cut selects (cut 4 §4.2) — closes with the contract cut | `contract-cut` |
 | L1, L4 | the partial units cuts 8 and 9 record in their row entries | `log-remainder`, rides with `event-level-l8` |
 | L2 | u5's `register_root` arm, no Science mapping (cut 8 results §1.1) | limitation |
-| L7 | u1's non-ancestor spelling (cut 8 results §1.1) → limitation; every other arm read by cuts 10–11 → relabel | `successor-admission` |
+| L7 | u1's non-ancestor spelling (cut 8 results §1.1) → limitation; every other arm read by cuts 10–12 | limitation only — ranked nowhere |
 | L8 | event-level cross-chain order (cut 11 §3.2) | `event-level-l8` |
 | L10 | "no named cross-cut remainder … row label remains partial" (cut 10 results §1) → relabel | rides with `event-level-l8` |
 | L13 | the preimage resolver over the `atoms` blob-read seam (cut 11 §3.2; log design §5.3) | `l13-preimage` — tier 2 |

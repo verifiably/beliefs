@@ -2,7 +2,7 @@
 title: Foundations
 status: living
 created: 2026-08-08
-updated: 2026-08-28
+updated: 2026-08-29
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-substrate-consolidation-design.md
@@ -146,11 +146,10 @@ structural or integrity finding, but it mints nothing and performs no repair.
 The kernel's typed records, admission and belief computation run: claim
 construction and identity, the derived admission state, the assessment
 admission gate, and `science.belief.v1` under an exact binding. Kernel §8.7's
-recorded-mutation consequences close through the mutation log's anchor carriage
-and verification, except G4, whose successor admission remains open under a
-named owner. The agentic surface and salvage — the two sub-problems with no
-design — remain that way. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-08-28)
+recorded-mutation consequences now close through the mutation log's anchor
+carriage and verification and cut 12's successor admission. The agentic surface
+and salvage — the two sub-problems with no design — remain that way. The
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-08-29)
 is the complete statement of what is built and what remains.
 
 ## Open edges

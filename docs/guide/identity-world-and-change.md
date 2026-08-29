@@ -2,7 +2,7 @@
 title: Identity, world, and change
 status: living
 created: 2026-08-08
-updated: 2026-08-28
+updated: 2026-08-29
 sources:
   - ../designs/2026-08-02-substrate-consolidation-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -163,9 +163,9 @@ genesis-bound store subjects; and verified store-side holdings with their
 intent-bearing acts. Global resolution remains designed, and the address ruling
 still governs the eventual derived views: labels are computed on read,
 coreference is graded rather than merged, and storage duplication changes no
-address. What the log still owes — G4's successor admission, event-level L8,
-and the L13 preimage resolver — is listed with its owners in the
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-08-28).
+address. What the log still owes — event-level L8 and the L13 preimage resolver
+— is listed with its owners in the
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-08-29).
 
 ## Open edges
 

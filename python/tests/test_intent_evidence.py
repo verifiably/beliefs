@@ -8,6 +8,7 @@ from science import stored
 from science.errors import RecordUndecodable
 from science.holdings.records import Found, StoreLocator, holdings_observation
 from science.intents import evidence, shapes
+from science.intents.evidence import decode_node
 from science.intents.holdings import decode_holdings_intent
 
 
@@ -144,3 +145,73 @@ def test_record_layout_path_matches_exactly_the_three_namespaces() -> None:
     assert not evidence.record_layout_path("corpus.yaml")
     assert not evidence.record_layout_path("proposition/x.md")
     assert not evidence.record_layout_path("run/x.txt")
+
+
+def _verification_bytes(slug: str = "v1") -> bytes:
+    node = stored.verification_node(
+        slug,
+        title=slug,
+        assessment="sha256:" + "a" * 64,
+        assessment_ref="assessment:a1",
+        scope="clean-environment",
+        verdict="failed",
+    )
+    return node_to_markdown(node).encode("utf-8")
+
+
+def test_decode_node_returns_the_stamped_node_for_its_own_path() -> None:
+    node = decode_node("verification/v1.md", _verification_bytes())
+    assert node.id == "verification:v1"
+    assert node.kind == "verification"
+
+
+def test_decode_node_refuses_an_id_that_names_another_path() -> None:
+    with pytest.raises(RecordUndecodable, match="does not name this path"):
+        decode_node("verification/other.md", _verification_bytes())
+
+
+def test_decode_node_refuses_a_stale_stamp() -> None:
+    node = stored.verification_node(
+        "v1",
+        title="v1",
+        assessment="sha256:" + "a" * 64,
+        assessment_ref="assessment:a1",
+        scope="clean-environment",
+        verdict="failed",
+    )
+    node.facets["verification"]["verdict"] = "passed"  # after the stamp
+    with pytest.raises(RecordUndecodable, match="semantic stamp"):
+        decode_node("verification/v1.md", node_to_markdown(node).encode("utf-8"))
+
+
+def test_decode_node_refuses_a_missing_stamp() -> None:
+    node = stored.verification_node(
+        "v1",
+        title="v1",
+        assessment="sha256:" + "a" * 64,
+        assessment_ref="assessment:a1",
+        scope="clean-environment",
+        verdict="failed",
+    )
+    del node.facets[stored.SEMANTIC_IDENTITY_FACET]
+    with pytest.raises(RecordUndecodable, match="semantic stamp"):
+        decode_node("verification/v1.md", node_to_markdown(node).encode("utf-8"))
+
+
+def test_decode_node_refuses_bytes_that_are_not_a_record() -> None:
+    with pytest.raises(RecordUndecodable):
+        decode_node("verification/v1.md", b"---\nnot: [a record\n---\n")
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b"---\nid: verification:v1\nuid: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nkind: verification\ntitle: v1\nrelated: 1\n---\n",
+        b"---\nid: verification:v1\nuid: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nkind: verification\ntitle: v1\nrelations: [nope]\n---\n",
+    ],
+)
+def test_decode_node_translates_yaml_valid_malformed_relation_shapes(
+    payload: bytes,
+) -> None:
+    with pytest.raises(RecordUndecodable):
+        decode_node("verification/v1.md", payload)

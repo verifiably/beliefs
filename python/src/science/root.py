@@ -935,31 +935,36 @@ class DurableOperationPort:
         self._metadata_root = Path(metadata_root)
 
     def append_intent(self, payload: bytes) -> str:
-        try:
-            return append_intent(
-                self._backend,
-                str(self.root),
-                str(self._metadata_root),
-                self._storage,
-                payload,
-            )
-        except (ProjectApprovalRefused, PreconditionRefused, CapabilityUnavailable) as caught:
-            raise ExecutionError(str(caught), index=None, applied=0) from caught
-        except PendingUnresolved as caught:
-            # The same gate, before the intent entry is appended: the two
-            # mappings state one engine contract and must not drift.
-            raise ExecutionError(str(caught), index=None, applied=0) from caught
-        except (MetadataStoreInvalid, ChainStateInvalid) as caught:
-            raise ExecutionError(str(caught), index=None, applied=None) from caught
-        except (TransactionHalted, ProtocolError) as caught:
-            raise ExecutionError(str(caught), index=None, applied=None) from caught
-        except AtomsError as caught:
-            raise ExecutionError(str(caught), index=None, applied=None) from caught
-        except Exception as caught:
-            raise ExecutionError(str(caught), index=None, applied=None) from caught
+        with _operation_lock_for(self.root):
+            try:
+                return append_intent(
+                    self._backend,
+                    str(self.root),
+                    str(self._metadata_root),
+                    self._storage,
+                    payload,
+                )
+            except (ProjectApprovalRefused, PreconditionRefused, CapabilityUnavailable) as caught:
+                raise ExecutionError(str(caught), index=None, applied=0) from caught
+            except PendingUnresolved as caught:
+                # The same gate, before the intent entry is appended: the two
+                # mappings state one engine contract and must not drift.
+                raise ExecutionError(str(caught), index=None, applied=0) from caught
+            except (MetadataStoreInvalid, ChainStateInvalid) as caught:
+                raise ExecutionError(str(caught), index=None, applied=None) from caught
+            except (TransactionHalted, ProtocolError) as caught:
+                raise ExecutionError(str(caught), index=None, applied=None) from caught
+            except AtomsError as caught:
+                raise ExecutionError(str(caught), index=None, applied=None) from caught
+            except Exception as caught:
+                raise ExecutionError(str(caught), index=None, applied=None) from caught
 
     def execute(self, plan: WritePlan) -> None:
         """Publish a record that fulfills no intent."""
+        with _operation_lock_for(self.root):
+            self._execute(plan)
+
+    def _execute(self, plan: WritePlan) -> None:
         _refuse_over_ceiling(plan)
         DurableExecutor(
             self.root,
@@ -972,6 +977,10 @@ class DurableOperationPort:
         ).execute(plan)
 
     def execute_fulfilling(self, plan: WritePlan, fulfills: str) -> None:
+        with _operation_lock_for(self.root):
+            self._execute_fulfilling(plan, fulfills)
+
+    def _execute_fulfilling(self, plan: WritePlan, fulfills: str) -> None:
         _refuse_over_ceiling(plan)
         DurableExecutor(
             self.root,

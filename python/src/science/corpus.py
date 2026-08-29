@@ -241,17 +241,31 @@ class OperationLock:
     a stated obligation; no file lock here would make it otherwise.
     """
 
-    __slots__ = ("_capture_generation", "_condition", "_holder")
+    __slots__ = (
+        "_capture_generation",
+        "_condition",
+        "_holder",
+        "_writer_depth",
+        "_writer_owner",
+    )
 
     def __init__(self) -> None:
         self._condition = threading.Condition()
         self._holder: Literal["writer", "capture"] | None = None
         self._capture_generation = 0
+        self._writer_depth = 0
+        self._writer_owner: int | None = None
 
     def __enter__(self) -> OperationLock:
         """Take it as a writer, queueing behind another writer but never
-        behind — or across — a capture."""
+        behind — or across — a capture. A writer may nest on its own thread so
+        a `CorpusWriter` can keep its end-to-end hold while its durable port
+        takes the same root lock."""
+        owner = threading.get_ident()
         with self._condition:
+            if self._holder == "writer" and self._writer_owner == owner:
+                self._writer_depth += 1
+                return self
             if self._holder == "capture":
                 raise BuildHold(
                     "a corpus operation cannot proceed: an epoch build holds this root's "
@@ -266,6 +280,8 @@ class OperationLock:
                         "ran while it waited for this root's operation lock (build-hold)"
                     )
             self._holder = "writer"
+            self._writer_owner = owner
+            self._writer_depth = 1
         return self
 
     def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
@@ -275,15 +291,19 @@ class OperationLock:
         release, and losing that would be a regression: a writer's `__exit__`
         clearing a *capture's* hold is precisely the corruption the capture
         exists to prevent, and it would leave two holders believing they had
-        the root. Only the pairing is checked, because only the pairing can be
-        got wrong from outside.
+        the root. Nested holds release one level at a time, and only their
+        owning thread may release them.
         """
         with self._condition:
-            if self._holder != "writer":
+            if self._holder != "writer" or self._writer_owner != threading.get_ident():
                 raise RuntimeError(
                     f"operation lock released as a writer while held as {self._holder!r}: "
                     "an unbalanced release, not a state this lock can repair"
                 )
+            self._writer_depth -= 1
+            if self._writer_depth:
+                return
+            self._writer_owner = None
             self._holder = None
             self._condition.notify_all()
 
