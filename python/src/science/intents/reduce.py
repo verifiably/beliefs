@@ -18,7 +18,13 @@ from science.world.logmodel import (
     SettledEntryView,
 )
 
-__all__ = ["IntentQualification", "qualify_chain"]
+__all__ = [
+    "IntentQualification",
+    "RegistrationReduction",
+    "qualify_chain",
+    "record_paths_of",
+    "reduce_registration",
+]
 
 
 @sealed
@@ -41,6 +47,52 @@ StateFacts = Callable[[object], tuple[tuple[str, str], ...]]
 
 def _is_file(facts: tuple[tuple[str, str], ...]) -> bool:
     return any(pair[0] == "kind" and pair[1] == "file" for pair in facts)
+
+
+@sealed
+@final
+@dataclass(frozen=True, slots=True)
+class RegistrationReduction:
+    """One registration's whole reduction (successor-admission design §4.4):
+    the first qualifying `(path, evidence)` in `final` order, whether any
+    record path had no payload or failed to decode, and every decoded
+    non-qualifying record's reason in order."""
+
+    match: tuple[str, evidence_module.RecordEvidence] | None
+    unresolved: bool
+    reasons: tuple[str, ...]
+
+
+def record_paths_of(registration: RegisteredEntryView, state_facts: StateFacts) -> list[str]:
+    return [
+        path
+        for path, state in registration.final
+        if evidence_module.record_layout_path(path) and _is_file(state_facts(state))
+    ]
+
+
+def reduce_registration(
+    intent: shapes.DecodedIntent,
+    record_paths: list[str],
+    records: Mapping[str, bytes],
+) -> RegistrationReduction:
+    reasons: list[str] = []
+    pointer_unresolved = False
+    for path in record_paths:
+        payload = records.get(path)
+        if payload is None:
+            pointer_unresolved = True
+            continue
+        try:
+            record_evidence = evidence_module.decode_record(path, payload)
+        except RecordUndecodable:
+            pointer_unresolved = True
+            continue
+        reason = shapes.mismatch(intent, record_evidence)
+        if reason is None:
+            return RegistrationReduction((path, record_evidence), pointer_unresolved, tuple(reasons))
+        reasons.append(reason)
+    return RegistrationReduction(None, pointer_unresolved, tuple(reasons))
 
 
 def qualify_chain(
@@ -110,44 +162,27 @@ def _qualify_one(
         if not committed:
             non_qualifying.append((registration.digest, "no-record"))
             continue
-        record_paths = [
-            path
-            for path, state in registration.final
-            if evidence_module.record_layout_path(path) and _is_file(state_facts(state))
-        ]
+        record_paths = record_paths_of(registration, state_facts)
         if not record_paths:
             non_qualifying.append((registration.digest, "no-record"))
             continue
-        reasons: list[str] = []
-        pointer_unresolved = False
-        for path in record_paths:
-            payload = records.get(path)
-            if payload is None:
-                pointer_unresolved = True
-                continue
-            try:
-                record_evidence = evidence_module.decode_record(path, payload)
-            except RecordUndecodable:
-                pointer_unresolved = True
-                continue
-            reason = shapes.mismatch(intent, record_evidence)
-            if reason is None:
-                return (
-                    IntentQualification(
-                        intent.digest,
-                        intent.shape,
-                        "matched",
-                        registration.digest,
-                    ),
-                    (),
-                )
-            reasons.append(reason)
-        if pointer_unresolved:
+        reduction = reduce_registration(intent, record_paths, records)
+        if reduction.match is not None:
+            return (
+                IntentQualification(
+                    intent.digest,
+                    intent.shape,
+                    "matched",
+                    registration.digest,
+                ),
+                (),
+            )
+        if reduction.unresolved:
             unresolved = True
             continue
         chosen = (
-            min(reasons, key=shapes.REASON_PRIORITY.index)
-            if reasons
+            min(reduction.reasons, key=shapes.REASON_PRIORITY.index)
+            if reduction.reasons
             else "no-record"
         )
         non_qualifying.append((registration.digest, chosen))

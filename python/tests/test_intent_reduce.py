@@ -9,7 +9,14 @@ from nodes.core.frontmatter import node_to_markdown
 from science import runrecord, stored
 from science.holdings.records import Found, StoreLocator, holdings_observation
 from science.identity import v1
-from science.intents.reduce import IntentQualification, qualify_chain
+from science.intents import shapes
+from science.intents.reduce import (
+    IntentQualification,
+    RegistrationReduction,
+    qualify_chain,
+    record_paths_of,
+    reduce_registration,
+)
 from science.recipe import RunClosure
 from science.world.logmodel import IntentEntryView, RegisteredEntryView, SettledEntryView
 
@@ -315,3 +322,60 @@ def test_wrong_shape_both_directions(
         {production_run_path: production_run_bytes},
     )
     assert "reason=wrong-shape" in findings[1].detail
+
+
+def _decoded(payload: bytes = _assessment_payload()) -> shapes.DecodedIntent:
+    gate = shapes.decode_intent("i1", payload)
+    assert type(gate) is shapes.DecodedIntent
+    return gate
+
+
+def test_record_paths_of_keeps_record_layout_files_in_final_order(run_path) -> None:
+    registration = _registration(
+        "r1", "i1", "notes/memo.md", run_path, absent=("run/gone.md",)
+    )
+    assert record_paths_of(registration, _facts) == [run_path]
+
+
+def test_reduce_registration_first_match_in_order_wins(
+    run_path, run_bytes, wrong_spec_run_path, wrong_spec_run_bytes
+) -> None:
+    records = {run_path: run_bytes, wrong_spec_run_path: wrong_spec_run_bytes}
+    reduction = reduce_registration(_decoded(), [wrong_spec_run_path, run_path], records)
+    assert reduction.match is not None
+    assert reduction.match[0] == run_path
+    assert type(reduction.match[1]) is shapes.RunEvidence
+    assert reduction.reasons == ("wrong-spec",)
+    assert reduction.unresolved is False
+
+
+def test_reduce_registration_names_an_undecodable_sibling_beside_a_later_match(
+    run_path, run_bytes
+) -> None:
+    records = {"run/bad.md": b"not a record", run_path: run_bytes}
+    reduction = reduce_registration(_decoded(), ["run/bad.md", run_path], records)
+    assert reduction.match is not None and reduction.match[0] == run_path
+    assert reduction.unresolved is True
+
+
+def test_reduce_registration_with_no_match_returns_every_reason_in_order(
+    wrong_spec_run_path,
+    wrong_spec_run_bytes,
+    production_run_path,
+    production_run_bytes,
+) -> None:
+    records = {
+        wrong_spec_run_path: wrong_spec_run_bytes,
+        production_run_path: production_run_bytes,
+    }
+    reduction = reduce_registration(
+        _decoded(), [production_run_path, wrong_spec_run_path], records
+    )
+    assert reduction == RegistrationReduction(
+        None, False, ("wrong-shape", "wrong-spec")
+    )
+
+
+def test_reduce_registration_marks_a_missing_payload_unresolved() -> None:
+    reduction = reduce_registration(_decoded(), ["run/missing.md"], {})
+    assert reduction == RegistrationReduction(None, True, ())

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from typing import TypeAlias
+
 from nodes.core.errors import NodesError
 from nodes.core.frontmatter import node_from_markdown
+from nodes.core.node import Node
 from yaml import YAMLError
 
 from science import runrecord, stored
@@ -21,7 +24,12 @@ from science.intents.shapes import (
 )
 from science.world.records import RECORD_NAMESPACES
 
-__all__ = ["decode_record", "record_layout_path"]
+__all__ = ["RecordEvidence", "decode_node", "decode_record", "record_layout_path"]
+
+
+RecordEvidence: TypeAlias = RunEvidence | ReportEvidence | ObservationEvidence | InertRecord
+"""What one captured record decodes to — the closed union `reduce_registration`
+carries as its match (successor-admission design §4.4)."""
 
 
 def record_layout_path(path: str) -> bool:
@@ -30,10 +38,11 @@ def record_layout_path(path: str) -> bool:
     )
 
 
-def decode_record(
-    path: str,
-    payload: bytes,
-) -> RunEvidence | ReportEvidence | ObservationEvidence | InertRecord:
+def decode_node(path: str, payload: bytes) -> Node:
+    """The gate every captured record passes before any typed reader: the
+    frontmatter parses, the semantic stamp is present and agrees, the id
+    names this path, and the kind agrees with the id (spec §3.1;
+    successor-admission design §4.4 step 1)."""
     try:
         node = node_from_markdown(payload.decode("utf-8"))
     except (UnicodeDecodeError, NodesError, YAMLError, ValueError) as caught:
@@ -56,6 +65,11 @@ def decode_record(
         raise RecordUndecodable(
             f"{path}: the record kind {node.kind!r} disagrees with its id"
         )
+    return node
+
+
+def decode_record(path: str, payload: bytes) -> RecordEvidence:
+    node = decode_node(path, payload)
     if node.kind == "run":
         try:
             publication = runrecord.decode_run_record(node)

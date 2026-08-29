@@ -81,8 +81,8 @@ CUT11_ARMS = (
         "decayed genuine bytes read unresolvable with no unmatched finding",
         Sabotage(
             "intents/reduce.py",
-            before="except RecordUndecodable:\n                pointer_unresolved = True",
-            after='except RecordUndecodable:\n                reasons.append("no-record")',
+            before="except RecordUndecodable:\n            pointer_unresolved = True",
+            after='except RecordUndecodable:\n            reasons.append("no-record")',
         ),
         (
             "acceptance/test_intent_boundary_acceptance.py::test_u3_decayed_genuine_run_is_unresolvable_silently",
@@ -248,9 +248,9 @@ CUT11_ARMS = (
         Sabotage(
             "intents/reduce.py",
             before=(
-                "if payload is None:\n                pointer_unresolved = True\n                continue"
+                "if payload is None:\n            pointer_unresolved = True\n            continue"
             ),
-            after="if payload is None:\n                continue",
+            after="if payload is None:\n            continue",
         ),
         ("test_intent_reduce.py::test_unresolvable_wins_over_non_qualifying_and_emits_nothing",),
     ),
@@ -306,8 +306,8 @@ CUT11_ARMS = (
         "capture returns every present record in sorted path order",
         Sabotage(
             "world/records.py",
-            before="captured.append((path, payload))",
-            after="captured[:] = [(path, payload)]",
+            before="into.records.append((path, payload))",
+            after="into.records[:] = [(path, payload)]",
         ),
         ("test_record_capture.py::test_captures_each_record_file_sorted",),
     ),
@@ -329,9 +329,15 @@ CUT11_ARMS = (
         Sabotage(
             "world/records.py",
             before=(
-                "if not stat.S_ISREG(os.fstat(path_fd).st_mode):\n"
-                "                return None\n"
-                '            read_fd = os.open(f"/proc/self/fd/{path_fd}", os.O_RDONLY)'
+                "try:\n"
+                "            if not stat.S_ISREG(os.fstat(path_fd).st_mode):\n"
+                '                return "silent"\n'
+                "        except OSError:\n"
+                '            return "unreadable"\n'
+                "        try:\n"
+                '            read_fd = os.open(f"/proc/self/fd/{path_fd}", os.O_RDONLY)\n'
+                "        except OSError:\n"
+                '            return "unreadable"'
             ),
             after="read_fd = os.open(name, os.O_RDONLY | os.O_NONBLOCK, dir_fd=dir_fd)",
         ),
