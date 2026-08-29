@@ -1,7 +1,9 @@
 # Current-state documentation curation — design
 
 **Date:** 2026-08-28
-**Status:** approved in session; revised 2026-08-28 after written-spec review
+**Status:** approved in session; revised 2026-08-28 after written-spec review;
+delivered 2026-08-28 on `docs/current-state-curation` (evidence at
+`docs/plans/2026-08-28-current-state-evidence.md`)
 **Scope:** live navigation and status surfaces only. A ranked roadmap and choice
 of the next implementation slice are explicitly deferred to a separate
 brainstorming session.
