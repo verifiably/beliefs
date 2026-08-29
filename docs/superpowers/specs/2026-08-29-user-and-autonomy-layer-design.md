@@ -358,40 +358,59 @@ missing identities listed; the user widens the view or drops the record.
 `atoms` primitive is needed.** The sequence is:
 
 1. `init_corpus_root` on a private **staging root** the actor cannot
-   reach, and `init_world_root` on a private **staging world** beside it —
-   a throwaway world whose only purpose is to make the staging corpus
+   reach, and a private **staging world** beside it, opened under
+   `WorldConfig(world_root = staging world, world_id = fresh,
+   corpus_roots = (staging_root,))` **before** `init_world_root` — the
+   staging corpus must be the world's one configured carrier, because
+   `_resolve_carrier` requires exactly one configured carrier for a
+   `corpus_id` and admission alone does not configure one. The staging
+   world is throwaway; its only purpose is to make the staging corpus
    eligible for a head export.
 2. Write the selection and the `publication` record into the staging
    corpus through `beliefs`' ordinary writer.
-3. `World.admit` the staging corpus into the staging world, then
-   `export_head_artifact(staging world, corpus(corpus_id))` — the existing
-   act, which requires an admitted corpus (log-verification design §3.2).
-   The artifact, `(subject, genesis identity, head digest)` under
-   `science.head-artifact.v1`, is the observer `restore_root` needs; it is
-   **retained outside the corpus** as a held artifact in the publisher's
-   world, its content identity recorded in the source project's
-   `publication` coordination record, before anything is discarded.
-4. `replicate_root` from the staging root to the destination — which
+3. `World.admit` the staging corpus into the staging world (a fresh
+   adoption, not a replica), then `export_head_artifact(staging world,
+   corpus(corpus_id))` — the existing act, which requires an admitted
+   corpus on a configured carrier (log-verification design §3.2). It
+   returns the canonical bytes of `(subject, genesis identity, head
+   digest)` under `science.head-artifact.v1` and **stores nothing**.
+4. **Retain the artifact durably on the publisher's side.** The bytes are
+   written into the publisher's managed payload store through the
+   intent-bearing store act (holdings design §2), which mints a
+   `holdings-observation` for them; the source project's `publication`
+   coordination record carries that observation's identity and the
+   artifact's content identity. This step precedes every discard and every
+   reveal: the observer exists in the publisher's world before the
+   destination does.
+5. `replicate_root` from the staging root to the destination — which
    publishes a claim-only reservation, stamps read-only before it exposes
    payload, and grants neither writability nor serviceability
    (root-lifecycle design §2–§4).
-5. `restore_root(destination, corpus(corpus_id), observers = {the exported
-   head artifact})`, which inspects, captures the presented identity,
-   evaluates against that explicit observer set, and admits the copy to
-   read-only service on a `validated` verdict and nothing else. An empty
-   observer set is `unresolvable`, which is why step 3 is not optional.
-6. Discard the staging corpus and the staging world.
+6. **Copy the artifact to its canonical sibling locator** —
+   `<destination parent>/<corpus_id>.head-artifact.v1`, outside the root
+   so the corpus bytes are untouched — under the rules-store idempotency
+   discipline (log-verification design §3.1): an existing file with
+   byte-identical content is success, a same-name file with different
+   bytes refuses as a collision. For a remote destination the transport
+   uploads root and sibling together (§6.2), and the sibling is what the
+   recipient's step 8 reads.
+7. `restore_root(destination, corpus(corpus_id), observers = {the artifact
+   read back from its sibling locator})`, which inspects, captures the
+   presented identity, evaluates against that explicit observer set, and
+   admits the copy to read-only service on a `validated` verdict and
+   nothing else. An empty observer set is `unresolvable`, which is why
+   steps 3–6 are not optional. This is the reveal.
+8. Discard the staging corpus and the staging world.
 
 `atoms` stays ignorant of root kinds, and the reveal is `restore_root`'s
-existing grant. The head artifact **travels with the corpus** to every
-destination as a sibling file, so a recipient constructs the same observer
-set for their own `restore_root` (§6.3). All three lifecycle commands are
-exact-retry (root-lifecycle design §2): a retry finds a serviceable corpus
-(done), a stamped but unserviceable copy (re-run step 5), or a bare
-reservation (**retry the exact same replication**, which adopts the
-retained claim and converges; a different request refuses). No abandon
-operation exists, and cleanup of a reservation nobody will retry is an
-explicit out-of-band operator action, never something a publish does.
+existing grant. Every step is exact-retry: a retry finds a serviceable
+corpus (done); a stamped copy with its sibling present but unserviceable
+(re-run step 7); a stamped copy without its sibling (re-run step 6 from
+the retained observation, then 7); or a bare reservation (**retry the
+exact same replication**, which adopts the retained claim and converges;
+a different request refuses). No abandon operation exists, and cleanup of
+a reservation nobody will retry is an explicit out-of-band operator
+action, never something a publish does.
 
 **Each attempt is an operation with its own act-report**, and that is an
 amendment, not a given: the kernel's operation-kind set is closed at five
@@ -446,9 +465,15 @@ same predecessor; the recipient's tip rule (§4.1) refuses that as
 
 ### 6.3 A commons is a world
 
-Consuming a published corpus is `World.admit` of a replica — cut 8's
-arrival act — so any world can adopt any publication, and a community
-commons is a world whose operator adopts many. Coreference between a local
+Consuming a published corpus is two existing acts on the recipient's
+side: `restore_root` on their copy with the transported head artifact as
+the observer set, admitting it to read-only service; then `admit_arrival`
+with `ReplicaOf` provenance and the same observers — cut 8's arrival act,
+which verifies the traveled chain and returns the admission record beside
+its verification report. `World.admit` is not the entry point: it refuses
+`ReplicaOf` outright, holding no verdict to report. Any world can adopt
+any publication this way, and a community commons is a world whose
+operator adopts many. Coreference between a local
 record and an adopted one is the existing graded `coreference-attestation`.
 Nothing promotes, overlays, or rewrites; the predecessor's peers, registry
 and overlay collapse into adopt, attest, query.
