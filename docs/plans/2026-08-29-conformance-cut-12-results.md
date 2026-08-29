@@ -2,16 +2,17 @@
 
 **Date:** 2026-08-29
 **Subject:** successor admission, G4's closure
-(`../superpowers/specs/2026-08-29-successor-admission-design.md`, promoted to
-`../designs/2026-08-29-successor-admission-design.md` at banking), measured
-against conformance cut 12's frozen selection
+(`../designs/2026-08-29-successor-admission-design.md`), measured against
+conformance cut 12's frozen selection
 (`../designs/2026-08-29-conformance-cut-12.md`).
 
-The frozen cut remains byte-exact at `b2f9593`. Only its status header changes
-at banking.
+The frozen cut body from `**Sources:**` onward remains byte-exact at `b2f9593`;
+only its status header has evolved through banking and discharge correction.
 
 **Integration state.** Every implementation commit was made on
-`design/successor-admission`. The reviewed pre-banking head is `2b9245e`.
+`design/successor-admission`. The reviewed implementation head is `d958c64`.
+Banking at `c4efa9b` and its ordering correction at `66717fa` preceded the
+final whole-branch review and fix.
 The branch is not merged or pushed by this discharge; the human partner owns
 the history-preserving `--no-ff` merge.
 
@@ -30,8 +31,8 @@ durable one (`CO_CITED`); no other prior check is claimed.
 ### 1.1 What the discharge establishes
 
 - `admit_spec_successor` derives both blocker classes from durable state under
-  the root's operation lock and never from a caller-supplied set; a writer
-  arriving during the act waits and is not consulted.
+  the root's operation lock and never from a caller-supplied set; even a writer
+  using the exported raw `DurableOperationPort` waits and is not consulted.
 - Class 1a reads only active, coherent, failing verifications; an incoherent
   failing verification or an incoherent superseder of one refuses the act
   globally, naming the record.
@@ -39,6 +40,8 @@ durable one (`CO_CITED`); no other prior check is claimed.
   intent for the superseded spec refuses; another spec's does not block.
 - Oversized records lift only through a coherent superseder; unreadable and
   uninspectable surfaces refuse; nothing durable leaves no trace.
+- The real mode-based unreadability arms withdraw mode at the exact file or
+  directory open seam and assert both non-root execution and actual mode `000`.
 - `capture_records`' certified surface, cut 11's reducer verdicts, and the
   core's cut-3 anchor line are byte-for-byte unchanged.
 
@@ -78,26 +81,26 @@ certified volume at `../.cut12-acceptance`, the default beside the checkout;
 [cut10 phase 1/2] cut9_acceptance.py
 [cut9 phase 1/2] cut7_acceptance.py
 [cut7 phase 1/3] cut5_acceptance.py
-39 passed in 15.81s
+39 passed in 15.52s
 [cut7 phase 2/3] cut6_acceptance.py
-23 passed in 11.38s
+23 passed in 11.68s
 [cut7 phase 3/3] test_n2_cut7.py
-42 passed in 45.51s
+42 passed in 60.15s (0:01:00)
 [cut9 phase 2/2] test_n2_cut9.py
-23 passed in 17.72s
+23 passed in 18.38s
 declared units: 30 (pinned by test_the_declared_units_are_unique_and_number_thirty, among the tests above; not itself a pytest total)
 [cut10 phase 2/2] test_n2_cut10.py
-36 passed in 10.84s
+36 passed in 10.93s
 declared units: 31 (= len(CUT10_ARMS); pinned by test_the_declared_units_are_unique_and_number_thirty_one, among the tests above; not itself a pytest total)
 [cut11 phase 2/3] test_intent_boundary_acceptance.py
-18 passed in 5.55s
+18 passed in 5.56s
 [cut11 phase 3/3] test_n2_cut11.py
-17 passed in 23.49s
+17 passed in 22.86s
 declared arms: 66 (= len(CUT11_ARMS), normalizing to the 26 frozen units pinned by test_the_partition_accounts_exactly_the_26_frozen_units, among the tests above; not itself a pytest total)
 [cut12 phase 2/3] test_successor_admission_acceptance.py
-4 passed in 2.43s
+4 passed in 1.97s
 [cut12 phase 3/3] test_n2_cut12.py
-16 passed in 16.86s
+16 passed in 15.19s
 declared arms: 50 (= len(CUT12_ARMS), normalizing to the 24 frozen units pinned by test_the_partition_accounts_exactly_the_24_frozen_units, among the tests above; not itself a pytest total)
 ```
 
@@ -105,7 +108,7 @@ declared arms: 50 (= len(CUT12_ARMS), normalizing to the 24 frozen units pinned 
 
 ### 2.3 Portable and static gates
 
-`uv run pytest` — 2719 passed in 427.60s (0:07:07)
+`uv run pytest` — 2724 passed in 477.42s (0:07:57)
 
 ### exit: 0
 
@@ -119,14 +122,13 @@ declared arms: 50 (= len(CUT12_ARMS), normalizing to the 24 frozen units pinned 
 
 ## 3. Review and implementation rulings
 
-The post-implementation review reported 3 findings (0 Critical, 2 Important,
-1 Minor). Commit `2b9245e` closed all three, and the scoped re-review was clean,
-reporting 0 new findings (ledger ruling R5). The declaration review expanded
-the 24 frozen units into 50 lettered arms; the frozen partition never changed.
-The two cut-11 anchors that moved with `reduce_registration` moved in
-whitespace only (ledger R4); cut 3's three G4 sabotages match the unchanged
-anchor line (ledger R2). The exact rationale, task heads, and definitive runner
-summaries live in `2026-08-29-successor-admission-ledger.md`.
+The earlier post-implementation review reported 3 findings (0 Critical,
+2 Important, 1 Minor). Commit `2b9245e` closed all three, and its scoped
+re-review was clean (ledger R5). The declaration review expanded the 24 frozen
+units into 50 lettered arms; the frozen partition never changed. The two
+cut-11 anchors that moved with `reduce_registration` moved in whitespace only
+(ledger R4); cut 3's three G4 sabotages match the unchanged anchor line
+(ledger R2).
 
 The Task 8 discharge-record review separately reported 1 Critical finding: the
 record named the certified tuple but did not disclose that the editable Atoms
@@ -135,11 +137,26 @@ overstated the literal frozen execution boundary. This correction and ledger
 ruling R6 close that one historical-claim defect; it is not part of the 3
 post-implementation findings above.
 
-The frozen selection, declaration partition, and cut body did not change;
-Science runtime behavior did not change. The literal execution-boundary engine
-head differed exactly by ledger R6's separate certified-host prerequisite:
-local Atoms `dd658ac` descended from remote contract head `038513f` with only
-the four-line allowlist/certification-reference production delta.
+The final whole-branch review at `66717fa` reported **3 (0 Critical,
+2 Important, 1 Minor)** findings: the exported durable port bypassed the
+admission lock; mode `000` was applied too early for a synchronized
+certified-volume test path; and live execution records retained the
+specification's pre-promotion path. Commit `d958c64` closes all three: each durable-port
+mutation takes the shared per-root lock, whose same-thread writer acquisition
+is now owner/depth reentrant for `CorpusWriter`; G4u11 uses the raw port; all
+four mode arms drive and assert mode at their exact open seam; and the tracked
+and ignored live ledgers name the promoted design. The fresh portable and
+certified gates above passed after that commit (ledger R7).
+
+The frozen selection, declaration partition, and cut body did not change.
+Science runtime behavior changed only to serialize the three exported
+durable-port mutations on the already authoritative operation lock. The
+literal execution-boundary engine head still differs exactly by ledger R6's
+separate certified-host prerequisite: local Atoms `dd658ac` descends from
+remote contract head `038513f` with only the four-line
+allowlist/certification-reference production delta. The exact rationale and
+definitive runner summaries live in
+`2026-08-29-successor-admission-ledger.md`.
 
 ## 4. Commit identities
 
@@ -167,8 +184,14 @@ the four-line allowlist/certification-reference production delta.
 | `9f42ce0` | fix(succession): close the root probe exception boundary |
 | `5dff360` | test(cut12): declare successor-admission arms, durable checks, and the acceptance runner |
 | `2b9245e` | fix(succession): reuse qualified evidence and normalize input failures |
+| `94d3c9a` | docs(plans): record conformance cut 12's discharge |
+| `e15e51a` | docs(plans): correct cut 12's execution authority |
+| `c4efa9b` | docs: bank the successor-admission slice, close G4, and re-rank the roadmap at cut 12 |
+| `66717fa` | docs: close G4 in the adoption ledger's order of work |
+| `d958c64` | fix(root): serialize durable operation port mutations |
 
-The banking commit following this record changes no runtime behavior.
+The banking and status-ordering commits preceded the final whole-branch review;
+`d958c64` is the final reviewed implementation head measured above.
 
 ## 5. Remaining boundary
 
