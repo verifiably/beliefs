@@ -27,15 +27,13 @@ from science.intents.evidence import decode_node
 from science.intents.reduce import (
     IntentQualification,
     StateFacts,
-    qualify_chain,
-    record_paths_of,
-    reduce_registration,
+    reduce_chain,
 )
 from science.record import AssessmentValue
 from science.report import AssessmentRunIntent
 from science.spec import FrozenSpec, SuccessorAdmitted, SuccessorRefused, admit_successor
 from science.verification import Verification
-from science.world.logmodel import IntentEntryView, RegisteredEntryView, WellFormedView
+from science.world.logmodel import IntentEntryView, WellFormedView
 from science.world.records import RECORD_NAMESPACES, CapturedSurface, capture_surface
 from science.world.verify import LogSeam
 
@@ -74,7 +72,7 @@ def admit_spec_successor(
     root = Path(root)
     try:
         root = root.resolve()
-    except (OSError, RuntimeError) as failure:
+    except (OSError, RuntimeError, ValueError) as failure:
         raise AdmissionEvidenceRefused("root unreadable", str(root)) from failure
     _require_openable_directory(root)
     with seam.corpus_lock(root):
@@ -112,17 +110,16 @@ def _chain_classes(
 ) -> tuple[frozenset[str], frozenset[str]]:
     """Unfinished attempts and run-attempt-recorded failures from the chain's
     qualification, with the unresolved gate (design §4.3, §4.4 1b)."""
-    rows, _ = qualify_chain(view.entries, records, state_facts=state_facts)
+    qualified = reduce_chain(view.entries, records, state_facts=state_facts)
+    rows = qualified.rows
+    matched_reductions = dict(qualified.matched_reductions)
     intents = {entry.digest: entry for entry in view.entries if type(entry) is IntentEntryView}
-    registrations = {
-        entry.digest: entry for entry in view.entries if type(entry) is RegisteredEntryView
-    }
     unfinished: set[str] = set()
     failures: set[str] = set()
     for row in rows:
         if row.shape != "assessment-run":
             continue
-        decoded, spec_identity = _decoded_intent(row, intents[row.digest])
+        spec_identity = _spec_identity(row, intents[row.digest])
         if row.status == "unresolvable":
             if spec_identity == superseded_identity:
                 raise AdmissionEvidenceRefused(
@@ -132,10 +129,7 @@ def _chain_classes(
             unfinished.add(spec_identity)
         elif row.status == "matched":
             assert row.fulfilled_by is not None, "a matched row names its registration"
-            registration = registrations[row.fulfilled_by]
-            reduction = reduce_registration(
-                decoded, record_paths_of(registration, state_facts), records
-            )
+            reduction = matched_reductions[row.fulfilled_by]
             assert reduction.match is not None, "the reducer called this registration matched"
             _, evidence = reduction.match
             if type(evidence) is shapes.ReportEvidence and evidence.operation == "run-attempt":
@@ -143,14 +137,12 @@ def _chain_classes(
     return frozenset(unfinished), frozenset(failures)
 
 
-def _decoded_intent(
-    row: IntentQualification, entry: IntentEntryView
-) -> tuple[shapes.DecodedIntent, str]:
+def _spec_identity(row: IntentQualification, entry: IntentEntryView) -> str:
     decoded = shapes.decode_intent(row.digest, entry.payload)
     assert type(decoded) is shapes.DecodedIntent, "an assessment-run row decodes"
     value = decoded.value
     assert isinstance(value, AssessmentRunIntent), "an assessment-run row carries a spec"
-    return decoded, value.spec_identity
+    return value.spec_identity
 
 
 # --- class 1a, from the verification evidence ---------------------------------------

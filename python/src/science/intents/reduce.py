@@ -20,9 +20,11 @@ from science.world.logmodel import (
 
 __all__ = [
     "IntentQualification",
+    "QualificationPass",
     "RegistrationReduction",
     "qualify_chain",
     "record_paths_of",
+    "reduce_chain",
     "reduce_registration",
 ]
 
@@ -63,6 +65,22 @@ class RegistrationReduction:
     reasons: tuple[str, ...]
 
 
+@sealed
+@final
+@dataclass(frozen=True, slots=True)
+class QualificationPass:
+    """One chain pass, including the exact matched registration reductions.
+
+    `qualify_chain` projects this value to its established public pair; the
+    succession boundary consumes `matched_reductions` without scanning or
+    decoding a matched registration again.
+    """
+
+    rows: tuple[IntentQualification, ...]
+    findings: tuple[Finding, ...]
+    matched_reductions: tuple[tuple[str, RegistrationReduction], ...]
+
+
 def record_paths_of(registration: RegisteredEntryView, state_facts: StateFacts) -> list[str]:
     return [
         path
@@ -101,6 +119,16 @@ def qualify_chain(
     *,
     state_facts: StateFacts,
 ) -> tuple[tuple[IntentQualification, ...], tuple[Finding, ...]]:
+    reduced = reduce_chain(entries, records, state_facts=state_facts)
+    return reduced.rows, reduced.findings
+
+
+def reduce_chain(
+    entries: tuple[EntryView, ...],
+    records: Mapping[str, bytes],
+    *,
+    state_facts: StateFacts,
+) -> QualificationPass:
     settlement = {
         entry.registration: entry.committed
         for entry in entries
@@ -113,6 +141,7 @@ def qualify_chain(
 
     rows: list[IntentQualification] = []
     findings: list[Finding] = []
+    matched_reductions: list[tuple[str, RegistrationReduction]] = []
     for entry in entries:
         if type(entry) is not IntentEntryView:
             continue
@@ -139,10 +168,15 @@ def qualify_chain(
             settlement,
             records,
             state_facts,
+            matched_reductions,
         )
         rows.append(row)
         findings.extend(intent_findings)
-    return tuple(rows), tuple(findings)
+    return QualificationPass(
+        tuple(rows),
+        tuple(findings),
+        tuple(matched_reductions),
+    )
 
 
 def _qualify_one(
@@ -151,6 +185,7 @@ def _qualify_one(
     settlement: Mapping[str, bool],
     records: Mapping[str, bytes],
     state_facts: StateFacts,
+    matched_reductions: list[tuple[str, RegistrationReduction]],
 ) -> tuple[IntentQualification, tuple[Finding, ...]]:
     unresolved = False
     non_qualifying: list[tuple[str, str]] = []
@@ -168,6 +203,7 @@ def _qualify_one(
             continue
         reduction = reduce_registration(intent, record_paths, records)
         if reduction.match is not None:
+            matched_reductions.append((registration.digest, reduction))
             return (
                 IntentQualification(
                     intent.digest,

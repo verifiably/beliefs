@@ -15,6 +15,7 @@ from science.intents.reduce import (
     RegistrationReduction,
     qualify_chain,
     record_paths_of,
+    reduce_chain,
     reduce_registration,
 )
 from science.recipe import RunClosure
@@ -170,6 +171,28 @@ def test_matched_by_run_publication_sets_fulfilled_by(run_path, run_bytes) -> No
     rows, findings = _qualify(entries, {run_path: run_bytes})
     assert rows == (IntentQualification("i1", "assessment-run", "matched", "r1"),)
     assert findings == ()
+
+
+def test_reduce_chain_exposes_the_matched_registration_reduction(
+    run_path,
+    run_bytes,
+) -> None:
+    entries = (
+        _intent("i1", _assessment_payload()),
+        _registration("r1", "i1", run_path),
+        _settled("r1"),
+    )
+    reduced = reduce_chain(entries, {run_path: run_bytes}, state_facts=_facts)
+    assert reduced.rows == (
+        IntentQualification("i1", "assessment-run", "matched", "r1"),
+    )
+    assert reduced.findings == ()
+    assert len(reduced.matched_reductions) == 1
+    registration, registration_reduction = reduced.matched_reductions[0]
+    assert registration == "r1"
+    assert registration_reduction.match is not None
+    assert registration_reduction.match[0] == run_path
+    assert type(registration_reduction.match[1]) is shapes.RunEvidence
 
 
 def test_every_resolved_non_qualifying_pointer_is_named_with_its_reason(

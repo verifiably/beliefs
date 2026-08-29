@@ -45,7 +45,14 @@ def decode_node(path: str, payload: bytes) -> Node:
     successor-admission design §4.4 step 1)."""
     try:
         node = node_from_markdown(payload.decode("utf-8"))
-    except (UnicodeDecodeError, NodesError, YAMLError, ValueError) as caught:
+    except (
+        AttributeError,
+        TypeError,
+        UnicodeDecodeError,
+        NodesError,
+        YAMLError,
+        ValueError,
+    ) as caught:
         raise RecordUndecodable(f"{path}: {caught}") from caught
     try:
         if stored.semantic_hash_missing(node) or stored.semantic_hash_disagrees(node):

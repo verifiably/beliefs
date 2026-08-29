@@ -23,6 +23,7 @@ from succession_fixtures import (
 
 from science import stored, succession
 from science.errors import AdmissionEvidenceRefused
+from science.intents import reduce as intent_reduce
 from science.runrecord import publication_plan
 from science.spec import SuccessorAdmitted, SuccessorRefused
 from science.succession import REASONS, admit_spec_successor
@@ -82,12 +83,17 @@ def test_an_absent_root_refuses_before_any_lock(certified_work) -> None:
     assert refused.ref == str((certified_work / "nowhere").resolve())
 
 
-def test_a_resolution_failure_refuses_before_any_lock(certified_work, monkeypatch) -> None:
+@pytest.mark.parametrize("failure_type", [RuntimeError, ValueError])
+def test_a_resolution_failure_refuses_before_any_lock(
+    certified_work,
+    monkeypatch,
+    failure_type: type[Exception],
+) -> None:
     root = certified_work / "loop"
     original, unreferenced, _ = specs()
 
     def fail_resolution(*_args, **_kwargs):
-        raise RuntimeError("injected symlink loop")
+        raise failure_type("injected resolution failure")
 
     def fail_lock(_root):
         pytest.fail("a root-resolution refusal must happen before the operation lock")
@@ -240,6 +246,32 @@ def test_a_run_attempt_report_is_a_recorded_failure(certified_work) -> None:
     assert isinstance(verdict, SuccessorRefused)
     assert verdict.reason == "an unreferenced successor to a recorded failed replay"
     assert isinstance(admit(root, referencing, original), SuccessorAdmitted)
+
+
+def test_a_matched_registration_is_decoded_once_for_qualification_and_admission(
+    certified_work,
+    monkeypatch,
+) -> None:
+    root, port = corpus(certified_work, "single-pass")
+    original, unreferenced, _ = specs()
+    intent = append_assessment_intent(port, original.identity, token="tok")
+    port.execute_fulfilling(
+        _report_plan(sample_report(operation="run-attempt", token="tok")),
+        intent,
+    )
+    decoded: set[str] = set()
+    real_decode = intent_reduce.evidence_module.decode_record
+
+    def decode_once(path: str, payload: bytes):
+        if path in decoded:
+            raise AssertionError(f"{path} was decoded twice")
+        decoded.add(path)
+        return real_decode(path, payload)
+
+    monkeypatch.setattr(intent_reduce.evidence_module, "decode_record", decode_once)
+    verdict = admit(root, unreferenced, original)
+    assert isinstance(verdict, SuccessorRefused)
+    assert verdict.reason == "an unreferenced successor to a recorded failed replay"
 
 
 def test_an_undecodable_sibling_before_the_qualifying_report_still_joins(certified_work) -> None:
@@ -401,6 +433,48 @@ def test_an_undecodable_untargeted_assessment_refuses(certified_work) -> None:
     original, unreferenced, _ = specs()
     _raw(port, "assessment/a9.md", b"---\nnot: [a record\n---\n")
     assert _refuses(root, unreferenced, original, "assessment unreadable").ref == "assessment/a9.md"
+
+
+@pytest.mark.parametrize(
+    ("path", "node_id", "kind", "relation_shape", "reason"),
+    [
+        (
+            "verification/v1.md",
+            "verification:v1",
+            "verification",
+            "related: 1",
+            "verification unreadable",
+        ),
+        (
+            "assessment/a1.md",
+            "assessment:a1",
+            "assessment",
+            "relations: [nope]",
+            "assessment unreadable",
+        ),
+    ],
+)
+def test_yaml_valid_malformed_relation_shapes_refuse_in_either_namespace(
+    certified_work,
+    path: str,
+    node_id: str,
+    kind: str,
+    relation_shape: str,
+    reason: str,
+) -> None:
+    root, port = corpus(certified_work, "malformed-" + kind)
+    original, unreferenced, _ = specs()
+    payload = (
+        "---\n"
+        f"id: {node_id}\n"
+        "uid: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
+        f"kind: {kind}\n"
+        "title: malformed\n"
+        f"{relation_shape}\n"
+        "---\n"
+    ).encode()
+    _raw(port, path, payload)
+    assert _refuses(root, unreferenced, original, reason).ref == path
 
 
 def test_an_unreadable_regular_file_refuses_in_either_namespace(certified_work) -> None:

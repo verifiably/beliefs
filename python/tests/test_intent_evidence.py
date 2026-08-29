@@ -201,3 +201,17 @@ def test_decode_node_refuses_a_missing_stamp() -> None:
 def test_decode_node_refuses_bytes_that_are_not_a_record() -> None:
     with pytest.raises(RecordUndecodable):
         decode_node("verification/v1.md", b"---\nnot: [a record\n---\n")
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b"---\nid: verification:v1\nuid: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nkind: verification\ntitle: v1\nrelated: 1\n---\n",
+        b"---\nid: verification:v1\nuid: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nkind: verification\ntitle: v1\nrelations: [nope]\n---\n",
+    ],
+)
+def test_decode_node_translates_yaml_valid_malformed_relation_shapes(
+    payload: bytes,
+) -> None:
+    with pytest.raises(RecordUndecodable):
+        decode_node("verification/v1.md", payload)
