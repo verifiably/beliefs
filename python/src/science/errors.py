@@ -247,6 +247,18 @@ class LogEvidenceRefused(ScienceError):
         self.detail = detail
 
 
+class AdmissionEvidenceRefused(ScienceError):
+    """The successor-admission act refused to judge: evidence it must read
+    is unreadable, incoherent, or unresolved. Names the offending record
+    so the repair is directed; the act is retried after correction, never
+    around it (successor-admission design §5)."""
+
+    def __init__(self, reason: str, ref: str) -> None:
+        super().__init__(f"{reason}: {ref}")
+        self.reason = reason
+        self.ref = ref
+
+
 class ReplicaAdmissionRequiresVerification(ScienceError):
     """A bare `World.admit` was handed `ReplicaOf` provenance.
 
