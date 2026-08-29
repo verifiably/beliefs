@@ -38,6 +38,57 @@ organization rather than a personal account, so governance and long-term
 stewardship are not tied to one individual. §5 records the namespace and
 decomposition rulings that follow from it.
 
+## Current state (2026-08-28)
+
+This section is the one place that states what is built and what remains to
+build. Every other live surface — the README and the contributor guide — links
+here rather than restating it. It lists no unresolved design question:
+`../guide/open-questions.md` owns those. Nothing below orders the remaining
+work.
+
+**Implemented through conformance cut 11.** Every cut from 4 onward has a
+discharge results record under `../plans/`; cuts 1–3 are proved by their merge
+ancestry and the surfaces they built
+(`../plans/2026-08-28-current-state-evidence.md`).
+
+- **Typed claims, admission and belief computation** — claim construction,
+  canonical projection and identity, cross-language decode parity, the derived
+  admission state, the assessment admission gate, the belief-input closure
+  digest, and `science.belief.v1` under an exact binding (cuts 1–2).
+- **Run closure, execution, replay, reports and qualification** — spec
+  freezing and closure construction, the execution boundary through the minimal
+  Snakemake adapter, dataset production, replay, verification-as-value, the
+  act-report layer's completion reading, and general intent qualification with
+  durable run publication (cuts 3 and 11).
+- **Certified persistence and the mutation families** — the composition root
+  over the certified `atoms` engine, the add-only write boundary and read
+  capability boundary, and supersede, revise, retraction and explicit import
+  through it (cuts 4–5).
+- **World registry, epochs, anchoring, lifecycle and verified holdings** — the
+  authoritative world root, corpus manifests and corpus-state identity, the
+  append-only registry with lifecycle status and presence, epoch publication
+  with its derived maps and receipts, mutation-log anchor carriage and
+  verification, the root lifecycle and store substrate, and store-side verified
+  holdings with their intent-bearing acts (cuts 6–10).
+
+**Remaining implementation boundaries with named owners.** One row per
+boundary: what it is, who owns it, and what it blocks. Row order carries no
+priority. A boundary enters this table only when §1's rows prove it still open;
+unresolved design areas are not boundaries and are not listed.
+
+| boundary | owner | what it blocks |
+|---|---|---|
+| **G4** — successor admission | the successor-admission slice; `2026-08-26-world-index-intent-boundary-design.md` §5 carries the transferred design and its opening obligations | the fourth of kernel §8.7's recorded-mutation consequences; rows 5 and 7 reading G4 in full |
+| **Event-level L8** — the presence/exclusion relation across captured corpus heads | the tamper-evident-log design's own successor work (row 5) | row 5 reading L8 in full |
+| **L13 preimage resolver** — preimage-backed classification of a removed verification | the named `atoms` blob-read seam (`2026-08-03-tamper-evident-log-design.md` §5.3) | row 5 reading L13 in full; until then the held-copy match is a path match |
+| **The first full contract cut, its executable suite, and N1–N10** | sub-problem 5b (row 7) | the normative contract's own guarantees; disposition of the legacy check modules |
+
+Detailed state, with every dated correction, stays in §1's rows and §3's order
+of work. The newest results record
+(`../plans/2026-08-27-conformance-cut-11-results.md` §5) names this table's
+first three rows, and `test_the_ledger_summary_names_the_newest_remaining_boundary`
+holds this section to whichever record is newest.
+
 ## 1. Unbuilt artifacts and what waits on them
 
 | # | artifact | owner | waits on it | state |

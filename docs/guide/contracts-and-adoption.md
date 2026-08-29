@@ -13,6 +13,10 @@ sources:
   - ../designs/2026-08-09-conformance-cut-2.md
   - ../designs/2026-08-11-act-report-design.md
   - ../designs/2026-08-11-conformance-cut-3.md
+  - ../designs/2026-08-17-conformance-cut-4.md
+  - ../designs/2026-08-18-composition-root-adapter-design.md
+  - ../designs/2026-08-19-conformance-cut-5.md
+  - ../designs/2026-08-19-family-adapters-design.md
   - ../designs/2026-08-20-world-index-slice-2-design.md
   - ../designs/2026-08-20-conformance-cut-7.md
   - ../designs/2026-08-22-conformance-cut-8.md
@@ -21,7 +25,6 @@ sources:
   - ../designs/2026-08-24-conformance-cut-10.md
   - ../designs/2026-08-26-world-index-intent-boundary-design.md
   - ../designs/2026-08-27-conformance-cut-11.md
-  - ../plans/2026-08-24-conformance-cut-10-results.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
 ---
 
@@ -107,8 +110,8 @@ boundary and no belief computation.
 
 [Conformance cut 2](../designs/2026-08-09-conformance-cut-2.md) was frozen
 2026-08-09 on the same discipline, before its slice was built, and gives the
-ten post-cut-1 rows their owner. Its slice landed the same day, and the
-selection required no amendment. It is drawn at the belief seam — the derived
+ten post-cut-1 rows their owner. The selection required no amendment after
+the freeze. It is drawn at the belief seam — the derived
 admission state, the assessment admission gate, the belief input closure digest,
 and `science.belief.v1` under an exact binding — selecting 13 rows in full and
 11 at named assertion arms, and classifying the remaining 108 deferred rows by the
@@ -132,8 +135,8 @@ the completion and report layer. Of the twelve rows banked after cut 2, seven
 persistence seam: the holdings design's own assignment. The selection was
 amended across three adversarial readings before merge, with the frozen text
 preserved verbatim, and a scratch root is staging by location, not
-confinement — no arm of this cut reaches `clean-environment`. Its slice landed
-2026-08-12, and the selection required no amendment.
+confinement — no arm of this cut reaches `clean-environment`. The selection
+required no amendment after the freeze.
 
 ### Measurements constrain the next slice
 
@@ -160,32 +163,16 @@ fitted result into independent validation.
 
 ## Current state
 
-Cuts 1–11 have implemented and discharged their selected slices. Cut 8 discharged
-mutation-log verification on 2026-08-23 — the anchor act, the four-outcome
-evaluator, replay, the audit and arrival boundaries, and the genesis↔mirror
-check. [Cut 9](../designs/2026-08-23-conformance-cut-9.md) discharged the
-root lifecycle and store substrate the same day — the fail-closed writer
-state and lifecycle commands, fork and restore, genesis-bound store
-subjects, and lifecycle-aware arrival modes — succeeding cut 8's retired
-store-refusal label. [Cut 10](../designs/2026-08-24-conformance-cut-10.md)
-discharged verified store-side holdings on 2026-08-25: the governed
-observation kind, intent-bearing acts, mechanical coverage, fixture-bound
-reduction and receipt, and the dataset admission adapter
-([results](../plans/2026-08-24-conformance-cut-10-results.md)); its `--no-ff`
-merge landed on local `main` as `35be6ff` on 2026-08-25 and has not been
-pushed. The complete normative contract cut and the second governed stored
-kind remain open. [Cut 11](../designs/2026-08-27-conformance-cut-11.md)
-discharged general intent qualification on 2026-08-28: the three-shape
-reduction, bounded evidence capture, durable run publication, verifier lift,
-regenerated holdings interior, and completion re-base
-([results](../plans/2026-08-27-conformance-cut-11-results.md)). The log slice
-still owes the preimage-backed classification and event-level cross-chain
-order; **G4 was split out
-2026-08-27 to a successor-admission slice of its own** (the
-intent-boundary design §5 carries the transfer); the holdings-shaped L7
-arms and L10's two holdings-read arms closed with cut 10.
-Consult the ledger for the current state rather than carrying these sentences
-into a status report.
+Eleven conformance cuts have been frozen and discharged, each frozen before its
+code existed and each from cut 4 onward discharged on the certified tuple with
+a results record under `../plans/`. The cut discipline is what this page owns:
+a cut selects rows, the acceptance runner arms each selected unit with an exact
+sabotage mutation, and a discharge is a results record, never a re-reading of
+the frozen text. The complete normative contract cut, its executable suite and
+N1–N10 are not yet implemented. The
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-08-28)
+states what is built and which remaining boundaries have named owners; the cut
+documents and results records in the references below are the evidence.
 
 The contributor guide has no ledger artifact of its own. That is deliberate:
 it documents the system, does not implement a system boundary, and no adoption
@@ -195,9 +182,9 @@ item waits on it.
 
 See [Contracts and adoption](open-questions.md#contracts-and-adoption) for
 contract governance, the normative artifact's shape, certifying instruments that
-already exist, how the next cut is selected, and the residue the admission ramp
-left behind when it closed. The writer
-model sits with the other authority questions under
+already exist, and the residues the verified-holdings record and the act-report
+design deliberately left open. The writer model sits with the other authority
+questions under
 [Identity, world, and change](open-questions.md#identity-world-and-change).
 
 ## References
@@ -209,3 +196,8 @@ model sits with the other authority questions under
 - [Conformance cut 2 and its boundary conditions](../designs/2026-08-09-conformance-cut-2.md#21-the-admission-ramps-three-open-questions-as-boundary-conditions)
 - [Vocabulary admission decision](../designs/2026-08-07-corpus-survey-and-vocabulary-admission-design.md#4-ruling-admission-by-agreement-and-exercise)
 - [Typing exercise results and limits](../designs/2026-08-07-multi-corpus-typing-exercise.md#3-results)
+- [Conformance cut 4 — the first persistence slice](../designs/2026-08-17-conformance-cut-4.md)
+- [Composition-root adapter design](../designs/2026-08-18-composition-root-adapter-design.md)
+- [Conformance cut 5 — the family adapters](../designs/2026-08-19-conformance-cut-5.md)
+- [Family adapters design](../designs/2026-08-19-family-adapters-design.md)
+- [Cut 11 discharge results, the newest results record](../plans/2026-08-27-conformance-cut-11-results.md)

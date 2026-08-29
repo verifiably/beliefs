@@ -1,7 +1,8 @@
 # Conformance cut 4 — the first persistence slice
 
 **Status:** Frozen 2026-08-18 — the composition-root adapter design banked
-after §7's independent second reading.
+after §7's independent second reading. Discharged 2026-08-18 on the certified
+volume (`../plans/2026-08-18-conformance-cut-4-results.md`).
 
 **Sources:** the cut-4 scope spec
 (`docs/superpowers/specs/2026-08-17-conformance-cut-4-scope-design.md`);
