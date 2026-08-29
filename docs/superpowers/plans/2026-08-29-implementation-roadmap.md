@@ -111,7 +111,7 @@ def _check_known(rows: set[str], where: str) -> None:
 
 def live_status() -> dict[str, tuple[str, int]]:
     status: dict[str, tuple[str, int]] = {}
-    for _, (source, full, part) in ACCOUNTING.items():
+    for source, full, part in ACCOUNTING.values():
         _check_known(_expand(full) | _expand(part), source)
     _check_known(set(REOPENED), "REOPENED")
     for cut, (_, full, part) in ACCOUNTING.items():
@@ -583,7 +583,7 @@ Replace line 4 of the spec with:
 
 ```bash
 cd python && set -o pipefail && uv run python tools/check_guide.py && echo CHECK_GUIDE_OK && uv run pytest tests/test_designs_corpus.py tests/test_check_guide.py | tail -1
-cd .. && git diff --check main..HEAD && echo DIFF_CHECK_CLEAN
+cd .. && git diff --check main && echo DIFF_CHECK_CLEAN
 ```
 
 Expected: `CHECK_GUIDE_OK`; every test passed; `DIFF_CHECK_CLEAN`.
@@ -591,13 +591,13 @@ Expected: `CHECK_GUIDE_OK`; every test passed; `DIFF_CHECK_CLEAN`.
 - [ ] **Step 3: Diff review against the allowlist**
 
 ```bash
-git diff main..HEAD --name-only
+git diff main --name-only
 ```
 
 Expected exactly: `docs/designs/2026-08-03-redesign-adoption-ledger.md`, `docs/guide/README.md`, `docs/guide/open-questions.md`, `docs/plans/2026-08-29-implementation-roadmap.md`, `docs/superpowers/plans/2026-08-29-implementation-roadmap.md`, `docs/superpowers/specs/2026-08-29-implementation-roadmap-design.md`, `python/tests/test_designs_corpus.py`, `python/tools/roadmap_status.py`. Anything else is out of scope — revert it. Then confirm the ledger changed only inside its `Current state` section:
 
 ```bash
-git diff main..HEAD -- docs/designs/2026-08-03-redesign-adoption-ledger.md | grep -E '^@@'
+git diff main -- docs/designs/2026-08-03-redesign-adoption-ledger.md | grep -E '^@@'
 ```
 
 Expected: one hunk, inside lines 41–90.
