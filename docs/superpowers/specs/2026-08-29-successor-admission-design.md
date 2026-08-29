@@ -156,12 +156,12 @@ one its writers take and the one the audit takes for a corpus subject —
    `AdmissionEvidenceRefused("chain not well-formed", root)` — the chain
    is the only source of class 2, and a chain that cannot be read is
    evidence that cannot be read, not evidence of absence;
-2. `records, withheld, unreadable = capture_surface(root, RECORD_NAMESPACES + ("verification", "assessment"))`
+2. `surface = capture_surface(root, RECORD_NAMESPACES + ("verification", "assessment"))`
    — one capture, fd-anchored, no-follow, `O_PATH`-classified,
    ceiling-plus-one per file, exactly cut 11's mechanics over five
-   namespaces instead of three;
-3. the derivation (§4.3–§4.5), pure over `view`, `records`, `withheld`
-   and `unreadable`;
+   namespaces instead of three; `surface.uninspectable` non-empty refuses
+   here;
+3. the derivation (§4.3–§4.5), pure over `view` and `surface`;
 4. `admit_successor(candidate, superseded, recorded_failures, unfinished_attempts)`.
 
 Steps 3 and 4 are pure over captured values and could run outside the
@@ -174,23 +174,53 @@ The snapshot is coherent by construction — both classes come from the one
 `science.world.records` gains one public function beside `capture_records`:
 
 ```python
-def capture_surface(
-    root: Path, namespaces: tuple[str, ...]
-) -> tuple[tuple[tuple[str, bytes], ...], tuple[str, ...], tuple[str, ...]]: ...
+@dataclass(frozen=True)
+class CapturedSurface:
+    records: tuple[tuple[str, bytes], ...]
+    withheld: tuple[str, ...]      # regular files withheld for size
+    unreadable: tuple[str, ...]    # leaves the act could not characterise
+    uninspectable: tuple[str, ...] # directories that exist but could not be enumerated
+
+def capture_surface(root: Path, namespaces: tuple[str, ...]) -> CapturedSurface: ...
 ```
 
-returning the captured `(path, payload)` pairs; the paths of every leaf
-classified as a regular file and then **withheld for size**; and the paths
-of every leaf classified as a regular file whose readable open, `fstat`
-re-check or read then **failed** — a permission refusal, a vanished
-descriptor target, an I/O error. The two path lists are what §4.5 reads.
-Both functions share the one private descent; `capture_records`'
-signature, return and behaviour are untouched, so the log evaluator's two
-callers and its certified captured surface are byte-for-byte what they
-were. `RECORD_NAMESPACES` is unchanged, so `record_layout_path` and the
-reducer's record lookup are unchanged too. Symlinks, fifos and every leaf
-that fails `O_PATH` classification stay silent in both: they are not
-records and never were, and cut 11 certified exactly that silence.
+`records` is exactly what `capture_records` would return over the same
+namespaces. The three path lists are the descent's failures, named rather
+than swallowed:
+
+- **`withheld`** — a leaf classified as a regular file whose bounded read
+  exceeded the ceiling;
+- **`unreadable`** — a leaf whose `O_PATH | O_NOFOLLOW` open failed
+  (classification impossible, so the act cannot even say it is not a
+  record), or one classified regular whose readable open, `fstat`
+  re-check or read then failed — a permission refusal, a vanished
+  descriptor target, an I/O error;
+- **`uninspectable`** — a namespace directory, or a subdirectory beneath
+  one, whose `O_DIRECTORY | O_NOFOLLOW` open or `scandir` failed with
+  anything **other than `ENOENT`**. An absent namespace is a namespace
+  with no records and appears nowhere; a namespace that exists and cannot
+  be enumerated is a surface the act did not see.
+
+Leaves that classify as something other than a regular file — symlinks,
+fifos, sockets — appear in none of the three: they are not records and
+never were, and cut 11 certified exactly that silence. The line between
+"not a record" and "could not be read" is the `O_PATH` open: a leaf the
+act could classify and rejected is the former; one it could not open at
+all is the latter.
+
+Both functions share the one private descent, which now reports rather
+than returns on failure; `capture_records` keeps its signature and
+returns `capture_surface(root, RECORD_NAMESPACES).records`, so the log
+evaluator's two callers and its certified captured surface are
+byte-for-byte what they were — the evaluator never saw the failures
+before and does not see them now. `RECORD_NAMESPACES` is unchanged, so
+`record_layout_path` and the reducer's record lookup are unchanged too.
+
+In the admission act, **any `uninspectable` path refuses**
+`("namespace uninspectable", path)` **before the derivation** — over all
+five namespaces, not two: an unenumerable `run/` hides the fulfillments
+class 2 reads and `act-report/` hides class 1b's, and "concerns the
+superseded spec" is undecidable over records that were never listed.
 
 ### 4.3 Class 2 and the unresolved gate, from the chain
 
@@ -273,18 +303,35 @@ row names its fulfilling registration in `fulfilled_by`, not the record
 that matched — a registration can carry a qualifying run *and* a
 `run-attempt` report beside undecodable siblings, and the reducer returns
 the first qualifying path in `final` order without reporting which. So
-the choice is factored, not repeated: `intents.reduce` gains
-`qualifying_record(intent, registration, records, state_facts) -> tuple[str, RecordEvidence] | None`,
-the exact loop `_qualify_one` runs today over one registration — same
-path order, same `decode_record`, same `shapes.mismatch`, first match
-wins — and `_qualify_one` calls it. Its behaviour is byte-for-byte cut
-11's (a labeled declaration, §7.3). The admission act calls the same
-helper for each matched assessment-run row: when the evidence is
-`ReportEvidence` with `operation == "run-attempt"`, the attempt minted no
-run — an execution refusal included — and the intent's `spec_identity`
-joins `recorded_failures`; when it is `RunEvidence`, a run was minted and
-nothing joins. There is no re-decode and nothing to fail: the helper
-returns the decoded evidence the reducer's own verdict rested on.
+the choice is factored, not repeated. `intents.reduce` gains the
+complete per-registration reduction as a value:
+
+```python
+@dataclass(frozen=True)
+class RegistrationReduction:
+    match: tuple[str, RecordEvidence] | None  # first qualifying (path, evidence) in `final` order
+    unresolved: bool                           # a record path had no payload or failed to decode
+    reasons: tuple[str, ...]                   # every decoded record's mismatch reason, in order
+
+def reduce_registration(intent, registration, settlement, records, state_facts) -> RegistrationReduction: ...
+```
+
+It is the exact body of `_qualify_one`'s inner loop over one
+registration — settlement lookup, `record_layout_path` filter,
+`records.get`, `decode_record`, `shapes.mismatch`, first match wins,
+the same path order — returning everything that loop derives, so
+`_qualify_one` becomes the outer fold over registrations with **no
+second scan and no second decode**: `match` set → `matched`;
+otherwise `unresolved` accumulates and `reasons` feeds the same
+`REASON_PRIORITY` choice as today. Its verdicts are byte-for-byte cut
+11's over cut 11's arms (a labeled declaration, §7.3). The admission act
+calls the same function for each matched assessment-run row's
+registration and reads `match`: when the evidence is `ReportEvidence`
+with `operation == "run-attempt"`, the attempt minted no run — an
+execution refusal included — and the intent's `spec_identity` joins
+`recorded_failures`; when it is `RunEvidence`, a run was minted and
+nothing joins. There is no re-decode and nothing to fail: the value
+carries the decoded evidence the reducer's own verdict rested on.
 
 ### 4.5 Oversized records, the superseder-side rule
 
@@ -317,9 +364,9 @@ record that cannot be decoded.
 
 | # | obligation | where |
 |---|---|---|
-| 1 | stamp validation precedes the typed readers | §4.4 step 1 — the evidence gate, with stale-verification and stale-assessment arms in the cut |
-| 2 | "resolves" has `Index` semantics | §4.4 step 3 — `Index.build` over the captured nodes; deprecated-reference and collision arms |
-| 3 | the supersession helper is `science.verification.active` | §4.4 step 2 |
+| 1 | stamp validation precedes the typed readers | §4.4 step 1 — the evidence gate over the whole consulted surface, with stale-verification and stale-assessment arms in the cut |
+| 2 | "resolves" has `Index` semantics | §4.4 step 2 — `Index.build` over every decoded node; deprecated-reference and collision arms |
+| 3 | the supersession helper is `science.verification.active` | §4.4 step 4 |
 | 4 | the ceiling bounds each file, not the namespace | §4.7 — linearity stated; no total bound claimed |
 | 5 | an oversized record cannot be recognized as superseded | §4.5 — the superseder-side rule |
 
@@ -338,9 +385,18 @@ were archived. The cut states this as a limitation (§7.6).
 class AdmissionEvidenceRefused(ScienceError):
     """The successor-admission act refused to judge: evidence it must read
     is unreadable, incoherent, or unresolved. Names the offending record."""
-    reason: str
-    ref: str
+
+    def __init__(self, reason: str, ref: str) -> None:
+        super().__init__(f"{reason}: {ref}")
+        self.reason = reason
+        self.ref = ref
 ```
+
+Following `ImportRefused`'s form — an explicit initializer that builds the
+message and assigns the fields, so `reason` and `ref` are real attributes
+and not annotations `Exception` never fills. `ref` is always a `str`: the
+boundary passes `str(root)` for the two root-level reasons and the
+captured relative path or intent digest otherwise.
 
 Raised, never returned: a refusal of the *act* is a different thing from a
 refusal of the *successor*, and the return union stays the core's pair.
@@ -350,8 +406,9 @@ refusal of the *successor*, and the return union stays the core's pair.
 |---|---|---|
 | root not an openable directory | `root unreadable` | root path |
 | `inspect_registered` returns a `MalformedView` or `AbsentView` | `chain not well-formed` | root path |
-| verification undecodable, stamp missing or stale, id–path mismatch, or its read failed | `verification unreadable` | path |
-| assessment undecodable, stamp missing or stale, id–path mismatch, or its read failed | `assessment unreadable` | path |
+| a namespace directory, or one beneath it, exists but could not be enumerated | `namespace uninspectable` | directory path |
+| verification undecodable, stamp missing or stale, id–path mismatch, or its classification or read failed | `verification unreadable` | path |
+| assessment undecodable, stamp missing or stale, id–path mismatch, or its classification or read failed | `assessment unreadable` | path |
 | oversized verification with no decoded, coherent superseder | `verification oversized` | path |
 | gated verification with ≠ 1 `verifies` edge | `verification edge cardinality` | path |
 | edge target missing, not an assessment, withheld, or unreadable | `verification target unreadable` | verification path |
@@ -483,7 +540,11 @@ fails under it. The selection, to be fixed exactly in the cut document:
 12. the negative at persistence width: discard the attempt and its intent;
     no class holds a trace; the successor is admitted;
 13. `root unreadable` refuses before any lock is taken; a `MalformedView`
-    or `AbsentView` refuses `chain not well-formed` under it;
+    or `AbsentView` refuses `chain not well-formed` under it; a
+    `verification/` made unenumerable (mode 000) refuses
+    `namespace uninspectable`, and so does an unenumerable `run/`; an
+    absent `verification/` is a surface with no failing evidence and
+    admits;
 14. class 1b selection: a registration carrying an undecodable sibling
     before its qualifying `run-attempt` report still joins the spec; one
     carrying a qualifying run first joins nothing — the helper's order is
@@ -502,9 +563,10 @@ lifts the block.
 
 **Labeled declarations** (outside the frozen rows, declared as data):
 `capture_surface` sharing `capture_records`' descent with the log
-evaluator's surface unchanged; the `withheld` and `unreadable` paths;
-`qualifying_record` factored from `_qualify_one` with the reducer's
-verdicts unchanged over cut 11's arms; the closed `reason` set of
+evaluator's surface unchanged; the `withheld`, `unreadable` and
+`uninspectable` paths, with `ENOENT` the one silent directory failure;
+`reduce_registration` factored from `_qualify_one` with the reducer's
+verdicts unchanged over cut 11's arms and no second scan; the closed `reason` set of
 `AdmissionEvidenceRefused`; the core's byte-identical first line under
 cut 3's arms.
 
@@ -601,8 +663,10 @@ negative of G2a/R12 stands.
 ## 10. Verification
 
 Unit tests, portable: the widened core (signature, both reasons,
-precedence, the lift); `capture_surface`'s records and withheld paths,
-with `capture_records`' surface unchanged; every gate in §5's table over
+precedence, the lift); `capture_surface`'s records, withheld, unreadable
+and uninspectable paths — an absent namespace silent, an unenumerable one
+named — with `capture_records`' surface unchanged;
+`reduce_registration`'s three members against `_qualify_one`'s verdicts; every gate in §5's table over
 fabricated roots, positive and negative. The cut's durable arms on the
 certified tuple (§7). At banking: `check_guide.py`, `test_designs_corpus.py`,
 `test_check_guide.py`, `git diff --check`, and the diff review naming every
@@ -615,8 +679,8 @@ file changed.
 2. Errors: `AdmissionEvidenceRefused`.
 3. Core: widen `admit_successor`; update `test_spec.py`'s callers.
 4. Capture: `capture_surface` over the shared descent; `capture_records`
-   pinned unchanged by test. Reducer: `qualifying_record` factored out;
-   `_qualify_one`'s verdicts pinned unchanged over cut 11's arms.
+   pinned unchanged by test. Reducer: `reduce_registration` factored
+   out; `_qualify_one`'s verdicts pinned unchanged over cut 11's arms.
 5. `science/succession.py`: the boundary, gate by gate, TDD over
    fabricated roots.
 6. `n2_arms_cut12.py`, `test_successor_admission_acceptance.py`,
