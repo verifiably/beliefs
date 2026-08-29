@@ -2,7 +2,7 @@
 title: Science contributor guide
 status: living
 created: 2026-08-08
-updated: 2026-08-08
+updated: 2026-08-28
 sources:
   - ../designs/2026-08-08-contributor-guide-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -56,10 +56,13 @@ Use the [glossary](glossary.md) for quick definitions and the consolidated
 ## Status and authority
 
 The guide deliberately does not copy a changing implementation tally. The
-[adoption ledger](../designs/2026-08-03-redesign-adoption-ledger.md#3-order-of-work)
-is the sole authority for what is built, what remains design-only, and what
-waits on another artifact. If this guide disagrees with a source design, the
-source wins.
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-08-28)
+is the sole authority for what is built and what remains to build, each
+remainder with its named owner; the consolidated
+[open questions](open-questions.md) page is the sole authority for what is
+undecided. Each topic page below states only the facts specific to its topic
+and links to those two for the rest. If this guide disagrees with a source
+design, the source wins.
 
 One boundary is worth knowing before you read further, because no page below
 covers it. The redesign was cut into seven sub-problems, and **two of them have

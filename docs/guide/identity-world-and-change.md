@@ -23,11 +23,6 @@ sources:
   - ../designs/2026-08-24-conformance-cut-10.md
   - ../designs/2026-08-26-world-index-intent-boundary-design.md
   - ../designs/2026-08-27-conformance-cut-11.md
-  - ../plans/2026-08-20-conformance-cut-6-results.md
-  - ../plans/2026-08-22-conformance-cut-8-results.md
-  - ../plans/2026-08-23-conformance-cut-9-results.md
-  - ../plans/2026-08-24-conformance-cut-10-results.md
-  - ../plans/2026-08-27-conformance-cut-11-results.md
 ---
 
 # Identity, world, and change
@@ -154,32 +149,23 @@ that the operation was scientifically or administratively authorized.
 
 ## Current state
 
-The authoritative world root, manifest, corpus-state identity, and append-only
-registry core are implemented, including fresh adoption, lifecycle status, and
-configured presence. Epoch publication, the four derived maps and their
-fixture-bound receipts, bounded reads, whole-epoch GC, and anchor carriage are
-implemented too, merged on `main` since 2026-08-22. **Anchor verification is
-implemented as well** — the log-head record and head artifact, the explicit
-anchor act, the four-outcome evaluator, replay with its removal policy pass, the
-genesis↔mirror agreement check, and the ordered-cuts predicate, discharged
-against [conformance cut 8](../designs/2026-08-22-conformance-cut-8.md) on
-2026-08-23 ([results](../plans/2026-08-22-conformance-cut-8-results.md)) and
-merged into `main` the same day. General intent qualification is implemented
-by the intent-boundary slice and discharged by cut 11 on 2026-08-28; the
-preimage-backed classification of a removed verification remains deferred,
-and G4 remains owned by the successor-admission slice.
-**The root lifecycle and store substrate are implemented as well** — the atoms
-fail-closed writer state, the lifecycle commands (replicate, restore
-admission, fork with act-derived `forked_from`, migrate), the store root kind
-with genesis-bound store subjects, and lifecycle-aware arrival modes,
-designed in the
-[root-lifecycle design](../designs/2026-08-23-world-index-root-lifecycle-design.md)
-and discharged against
-[conformance cut 9](../designs/2026-08-23-conformance-cut-9.md) on 2026-08-23
-([results](../plans/2026-08-23-conformance-cut-9-results.md)). Global resolution
-remains designed. The address ruling still governs the eventual derived
-views: labels are computed on read, coreference is graded rather than merged,
-and storage duplication changes no address.
+The world side runs end to end at the registry level: the authoritative world
+root, corpus manifests and corpus-state identity, and the append-only registry
+with lifecycle status and configured presence; epoch publication with its four
+derived maps, fixture-bound receipts, bounded reads and whole-epoch GC; the
+mutation log's anchor carriage and its verification — the log-head record and
+head artifact, the explicit anchor act, the four-outcome evaluator, replay with
+its removal policy pass, the audit and replica-arrival boundaries, the
+genesis↔mirror agreement check, and the ordered-cuts predicate; the root
+lifecycle and store substrate — the fail-closed writer state, the lifecycle
+commands, `restore_root`, the fork acts with act-derived `forked_from`, and
+genesis-bound store subjects; and verified store-side holdings with their
+intent-bearing acts. Global resolution remains designed, and the address ruling
+still governs the eventual derived views: labels are computed on read,
+coreference is graded rather than merged, and storage duplication changes no
+address. What the log still owes — G4's successor admission, event-level L8,
+and the L13 preimage resolver — is listed with its owners in the
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-08-28).
 
 ## Open edges
 
