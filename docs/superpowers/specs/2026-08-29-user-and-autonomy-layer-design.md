@@ -86,8 +86,8 @@ Recorded as rulings so they are not re-derived.
    second harness is used.
 7. **The kernel repository is renamed `beliefs`; the surface takes
    `science`.** The stack then reads as layer names — effects, graph,
-   beliefs, science — and the name users say is the thing they open a
-   session in.
+   beliefs, science, autonomy — and the name users say is the thing they
+   open a session in.
 
 ## 3. Repositories and names
 
@@ -120,7 +120,7 @@ documentation cites remains true.
 **Banked designs are not edited.** They use "Science" as the system's name,
 which now names the stack rather than the kernel repository. The adoption
 ledger gains one dated ruling in §5 saying so; the guide's glossary gains
-the four layer names. `docs/guide/foundations.md`'s statement that views
+the five layer names. `docs/guide/foundations.md`'s statement that views
 and coordination "are not additional kernel kinds" remains true under §4.1
 and is extended, with sub-project 1, to say where they live: corpus
 records under a coordination contract, coordination-scoped, belief-inert.
@@ -195,11 +195,26 @@ cannot declare one, and a kind a command wants is a request to `beliefs`.
 
 A user's collection is one world root with N corpora. "Which project am I
 in" is a selected `project` record, and every command reads the world
-through that view's query. Records carry no project field; a question
-belongs to a project because the project's query selects it, so a boundary
-moves by editing a query, not by moving files. Overlap is free — one
-hypothesis under two projects — and W13's two-projects negative stays a
-negative, since the two projects share the entity and not an identity.
+through that view's query. Two membership rules, one per tier, and they
+must not be confused:
+
+- **World facts belong to views by query, and may overlap.** A
+  proposition, dataset, run or assessment carries no project field; it is
+  in a project because the project's query selects it, so a boundary moves
+  by editing a query, not by moving files. One proposition under two
+  projects is ordinary, and W13's two-projects negative stays a negative,
+  since the two projects share the entity and not an identity.
+- **Views and coordination belong to projects by address.** A `question`,
+  `hypothesis`, `task` or `decision` is `(project identity, local id)`
+  (§4.1) and belongs to exactly that project. A second project that wants
+  the same hypothesis does not share the record: it mints its own view
+  record whose query is the same — sharing a view *definition* is reuse,
+  not co-ownership (world §3) — and the two views select the same world
+  facts.
+
+So "one hypothesis under two projects" means two project-scoped view
+records over one world query, never one project-scoped record under two
+addresses.
 
 ### 4.3 Vocabulary and ontology posture is the banked one
 
@@ -339,30 +354,33 @@ unselected one — an assessment whose run closure names a dataset outside
 the selection — makes the publish `Refused(closure-incomplete)` with the
 missing identities listed; the user widens the view or drops the record.
 
-**Constructing the corpus needs a primitive the root lifecycle does not
-have.** `replicate_root` copies one root and stamps read-only before it
-exposes payload; `fork_root` copies one source tree and ends in a
-writability grant (root-lifecycle design §2–§4). Neither builds a corpus
-from a selection over several roots. Sub-project 5 therefore specifies
-**`publish_root`**, a populated-root publication command behind `atoms`'
-own design gate, in the lifecycle's existing shape: a claim-only,
-surface-excluded reservation at the destination directory; payload, chain
-and genesis written durably under it from the selection; then the
-read-only lifecycle stamp as the single step that makes the directory
-serviceable, granting no writability. A retry finds a stamped corpus or an
-unstamped reservation and resumes or abandons at the same split the fork
-uses; it never guesses. Each attempt is its own operation with its own
-act-report.
+**Constructing the corpus composes lifecycle commands that exist; no new
+`atoms` primitive is needed.** The sequence is: `init_corpus_root` on a
+private staging directory the actor cannot reach; write the selection and
+the `publication` record into it through `beliefs`' ordinary writer;
+`replicate_root` from the staging root to the destination — which
+publishes a claim-only reservation, stamps read-only before it exposes
+payload, and grants neither writability nor serviceability
+(root-lifecycle design §2–§4); then `restore_root` on the destination,
+which inspects, captures the presented identity, evaluates against an
+explicit observer set, and admits the copy to read-only service on a
+`validated` verdict and nothing else. The staging root is then discarded.
+`atoms` stays ignorant of root kinds, and the reveal is `restore_root`'s
+existing grant. A retry finds a serviceable corpus, a stamped but
+unserviceable copy (re-run `restore_root`), or a bare reservation
+(abandon and re-replicate) — the lifecycle's own states; it never guesses.
+Each attempt is its own operation with its own act-report.
 
 **The atomicity claim is exactly this wide.** For a local directory,
-`publish_root`'s stamp is the reveal, and a published corpus is a valid
-corpus or it does not exist. For a git remote, a Zenodo deposit, or an
-inbox, the reveal is destination-specific and **not** atomic — an upload
-can stop half-way — so the guarantee moves to the consumer: a corpus is
-admitted (§6.3) only if its validation passes and its `publication` record
-is present and well-formed, and anything less is refused whole, never
-adopted in part. Publishing to a remote is `publish_root` locally followed
-by a transport, and the transport's partial states are the recipient's to
+`restore_root`'s grant is the reveal, and a published corpus is a valid,
+serviceable corpus or it is not serviceable. For a git remote, a Zenodo
+deposit, or an inbox, the reveal is destination-specific and **not**
+atomic — an upload can stop half-way — so the guarantee moves to the
+consumer: a corpus is admitted (§6.3) only if `restore_root`'s validation
+passes on the recipient's copy and its `publication` record is present
+and well-formed, and anything less is refused whole, never adopted in
+part. Publishing to a remote is the local sequence followed by a
+transport, and the transport's partial states are the recipient's to
 refuse.
 
 ### 6.2 One operation, three destinations
@@ -376,11 +394,15 @@ every stored record (`iter_stored`, no selection applied), so a shared
 corpus that kept dropped records could never unpublish one. A fresh corpus
 per revision contains exactly the current selection and nothing else.
 
-Revisions are linked by their `publication` records: the new corpus's
-record names `supersedes = (predecessor corpus_id, predecessor publication
-record identity)`, and the source project holds a `publication`
-coordination record binding `(view address, destination)` to the ordered
-list of published corpus ids. A record dropped from the selection is
+Revisions are linked by their `publication` records. Each record carries
+`supersedes`: **zero or more** `(corpus_id, publication record identity)`
+pairs — none for the first publication of a view to a destination, one in
+the ordinary case, several when a revision repairs a divergence by
+superseding every tip. The source project holds a `publication`
+coordination record binding `(view address, destination)` to the current
+corpus and its predecessor tips only; history is derived by walking
+`supersedes`, never stored as a list that could disagree with it. A
+record dropped from the selection is
 **neither retracted nor deleted** — retraction is legal only for the
 readable inputs (correction lifecycle §4), which sources, datasets,
 propositions and coordination records are not — it is simply absent from
@@ -512,7 +534,7 @@ column says so.
 | 2 | **Command framework** — declaration schema, write classes, budgeted renderer, preamble, adapter generator with the Claude Code target, CLI and MCP over `beliefs` reads; the writer endpoint with its bound permit, endpoint-set actor and session ledger; the write permit on every `beliefs` write entry point | `science`, `beliefs` | 0 | now, against today's kernel reads |
 | 3 | **Biology domain pack** — GO, HP, EFO, MONDO bindings; mm30's operator vocabulary | `beliefs/domains/biology` | the `domain-boundary` lane | with that lane |
 | 4 | **The dogfood command set** — the dozen commands over a real world root; mm30 reproduced, not migrated, as the first corpus | `science` | 1, 2, 3; `run-confinement` and `workflow-surface` for a real assessment | after 2; grows as lanes land |
-| 5 | **Publish** — `publish_root` behind `atoms`' design gate; the act and `publication` record in `beliefs`; transports, admission-side refusal and dry run in `science` | `atoms`, `beliefs`, `science` | 1; the `world-read` lane (view queries resolve through it) | after that lane |
+| 5 | **Publish** — the act and `publication` record in `beliefs`, composed over `init_corpus_root`, `replicate_root` and `restore_root`; transports, admission-side refusal and dry run in `science` | `beliefs`, `science` | 1; the `world-read` lane (view queries resolve through it) | after that lane |
 | 6 | **Envelope** — the actor sandbox and private endpoint handle, baseline with log heads, tiers as permits, ledger-checked interval membership, dispositions, lease | `autonomy` | 2 | after 2 |
 | 7 | **Loop and `science.priority.v1`** — its own spec | `autonomy` | 4, 6 | last |
 
@@ -570,6 +592,10 @@ the same commit.
 - **Reusing the proposition `supersede` family for revisions.** It is
   proposition-only with one predecessor; repairing a divergent view needs
   a successor of several tips.
+- **A new `publish_root` lifecycle command in `atoms`.** Staging plus
+  `replicate_root` plus `restore_root` already yields claim, stamp,
+  validation and reveal; a new command would add a design gate and teach
+  `atoms` a root kind for nothing.
 - **A permit threaded by the caller.** Any code in the writer's process can
   mint one; only a process boundary with filesystem denial makes the tier a
   fact rather than a convention.
