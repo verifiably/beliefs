@@ -256,7 +256,7 @@ prerequisite.
 Strict order. Row 1 is the next cut.
 
 > **Amended 2026-08-29.** Strict order across all of tier 1 was more than
-> the dependencies support. Rows 1–8 are Science-only closures on mostly
+> the dependencies support. The Science-only tier-1 rows are closures on mostly
 > disjoint surfaces, so the roadmap now groups tier 1 into **lanes** — sets
 > of boundaries sharing a code surface, serial within a lane and concurrent
 > across lanes — and adds concurrency rules (cut numbers claimed at freeze;

@@ -98,7 +98,7 @@ boundary sits in the lane of its prerequisite and waits there.
 
 | lane | boundaries, in order | shared surface | touches another lane at |
 |---|---|---|---|
-| `execution` | `successor-admission` → `run-confinement` → `workflow-surface` | `intents/`, `boundary.py`, `verify.py`, `recipe.py`, `production.py` | `boundary.py`, where `acquisition`'s T5 preflight refusals also land |
+| `execution` | `run-confinement` → `workflow-surface` | `boundary.py`, `verify.py`, `recipe.py`, `production.py`, `adapter.py` | `boundary.py`, where `acquisition`'s T5 preflight refusals also land |
 | `acquisition` | `url-retrieval` (+ `act-report-remainder`) | `holdings/`, `report.py` | `boundary.py` (above) |
 | `mutation` | `consolidate-family` (+ `run-boundary-remainder`, `formal-model-remainder`) → `correction-remainder` (tier 2, unblocked by the first) | `adapter.py`, `stored.py`, `corpus.py`, `world/registry.py` | `world/registry.py`, which `world-read` reads and this lane's move/consolidate rewrite |
 | `world-read` | `world-resolution` (+ `packaging-remainder`) → `event-level-l8` (+ `log-remainder`) | `world/read.py`, `resolution.py`, `world/verify.py` | `world/registry.py` (above) |

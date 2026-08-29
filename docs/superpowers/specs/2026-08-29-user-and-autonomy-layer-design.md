@@ -21,7 +21,7 @@ roadmap and its lanes (`../../plans/2026-08-29-implementation-roadmap.md`).
 
 ## 1. Problem
 
-The kernel is implemented through conformance cut 11 and its remaining
+The kernel is implemented through conformance cut 12 and its remaining
 boundaries are ranked. Nothing above it exists: no command, no CLI entry
 point, no agent surface, no project, no way to publish, no autonomous run.
 The kernel's own designs name this gap — the agentic surface is "the
@@ -161,16 +161,23 @@ views "are not additional kernel kinds" stays true.
 and coordination record is addressed by `(project identity, local id)` per
 world §6.1 and W11 — never by a world address, and never by a hash of its
 content. A `project` carries an opaque durable identity minted the way a
-`corpus_id` is (fresh, act-authored at creation, recorded in the manifest
-of the corpus that holds it); its name and its query are content. Editing a
-view's query or label mints a new **revision** — an immutable record
-superseding the previous one under the same address, through the existing
-supersede family — and the current revision of an address is its latest
-standing revision (unsuperseded, unretracted). W12 holds because a
-coordination reference binds the project identity and the local id, both
-of which survive every rename and every re-query; a reference to a view
-therefore reads the current revision unless it names a revision
-explicitly.
+`corpus_id` is — fresh and act-authored at creation — and **the identity
+lives in the project record itself**, as that record's own address; it is
+never written into a corpus manifest, because several projects may share a
+corpus and a project may change which corpus holds it (world §6, which
+rejects coupling the two identities). Its name and its query are content.
+Editing a view's query or label mints a new **revision** — an immutable
+record superseding the previous one under the same address, through the
+existing supersede family. The current revision of an address is its
+**one standing tip**: the single revision that no other revision
+supersedes. Two corpora or replicas can mint sibling successors, so
+resolution requires exactly one tip and otherwise returns
+`Refused(divergent-view)` naming every tip; it never chooses by recency,
+arrival, or iteration order, and the divergence is repaired by minting a
+revision that supersedes all of them. W12 holds because a coordination
+reference binds the project identity and the local id, both of which
+survive every rename and every re-query; a reference to a view reads the
+current tip unless it names a revision explicitly.
 
 This is the roadmap's tier-3 `coordination-addressing` boundary, and the
 above answers its question. The boundary moves to the roadmap's `mutation`
@@ -252,6 +259,21 @@ mismatch is a refusal at declaration time and, if the body lies, again at
 the act. The interactive path runs under a full permit through the same
 mechanism, so the permit is exercised every day and not only unattended.
 
+**Who mints a permit is a process boundary, not a convention.** A
+caller-supplied permit is only as good as the caller, and any code in the
+same process as `beliefs` can construct one; so the actor never shares a
+process with the writer. A **launcher** — the interactive launcher a person
+starts, or `autonomy` for a run — opens a `beliefs` **writer session**: it
+starts the writer endpoint (the MCP server, or the CLI's service process)
+with the permit fixed at launch, and the endpoint is the only route by
+which commands reach a write. The actor process — the agent harness
+running the command bodies — holds no permit, imports no `beliefs` writer,
+and can neither widen the session's permit nor open a second session on the
+same corpora (§7.1's exclusivity). Forging a permit therefore requires
+controlling the launcher's process, which is the boundary this design
+claims and nothing weaker. Using `science` as an in-process library gets a
+full permit by construction and is not an autonomy configuration.
+
 ### 5.3 Output budget is enforced by the renderer
 
 Every result passes through one budgeted renderer: a declared cap in bytes,
@@ -283,18 +305,29 @@ the committed tree against a fresh build.
 `publish(view, destination)` in `beliefs`: resolve the view's query at the
 current epoch; mint a fresh corpus at the destination — own `corpus_id`,
 manifest, genesis; write the selected records with their identities
-unchanged; stamp the manifest `published_from = (world_id, the epoch's
-packaging identity, the view's address, the view revision's identity)`. A
-view's query runs over the whole world, so a publication may draw from
-several source corpora; which ones is carried by the cited epoch's
-coverage, and no single source `corpus_id` is named. A selected record
-whose closure names an unselected one — an assessment whose run closure
-names a dataset outside the selection — makes the publish
-`Refused(closure-incomplete)` with the missing identities listed; the user
-widens the view or drops the record. A published corpus is a valid corpus
-or it does not exist: a publish that fails mid-way leaves a destination
-that fails validation and is never admitted anywhere, and a retry is a new
-publish operation with its own act-report.
+unchanged; and mint one immutable **`publication` record** in the new
+corpus carrying `published_from = (world_id, the epoch's packaging
+identity, the view's address, the view revision's identity)` and the full
+selection it publishes. The corpus manifest is not touched: manifests are
+a closed version that is never reminted (registry design §4), so
+provenance lives in records, where it can be succeeded. A view's query
+runs over the whole world, so a publication may draw from several source
+corpora; which ones is carried by the cited epoch's coverage, and no single
+source `corpus_id` is named. A selected record whose closure names an
+unselected one — an assessment whose run closure names a dataset outside
+the selection — makes the publish `Refused(closure-incomplete)` with the
+missing identities listed; the user widens the view or drops the record.
+
+**A published corpus is a valid corpus or it does not exist**, by the fork
+protocol the root lifecycle already runs (root-lifecycle design §2–§4):
+the destination is first published as a claim-only, surface-excluded
+reservation; payload, chain and genesis are written durably under it; and
+only then is the read-only lifecycle stamp written, which is the single
+step that makes the destination serviceable. Before the stamp nothing can
+admit it. A retry finds either a stamped corpus — an existing publication,
+and the operation is an update (§6.2) — or an unstamped reservation, which
+it resumes or abandons at the fork's own retry split; it never guesses.
+Each attempt is its own operation with its own act-report.
 
 ### 6.2 One operation, three destinations
 
@@ -303,14 +336,21 @@ Zenodo deposit whose content is the corpus (shared), or a community world's
 inbox. The **first** publish of a view to a destination mints the corpus
 (§6.1) and records a `publication` coordination record under the view's
 project binding `(view address, destination, destination corpus_id)`.
-**Every later** publish of that view to that destination is an update: the
-new selection is written into the bound corpus by the explicit-import
-family through its mutation log — added records imported, records no
-longer selected retracted, never deleted — and the manifest's
-`published_from` is superseded to the new epoch and revision. A recipient's
-replica therefore sees an ordinary history. Two publishers cannot race: the
-destination corpus has one fail-closed writer under the root lifecycle,
-and a publish that cannot obtain it is `Refused`.
+**Every later** publish of that view to that destination is an update:
+records newly selected are written into the bound corpus by the
+explicit-import family through its mutation log, and a new `publication`
+record is minted superseding the previous one, carrying the new
+`published_from` and the new full selection. A record that is no longer
+selected is **not retracted and not deleted** — retraction changes
+epistemic standing and is legal only for the readable inputs (correction
+lifecycle §4), which sources, datasets, propositions and coordination
+records are not — it simply falls outside the current publication's
+selection, and a consumer reads the destination through that selection.
+Publication records follow §4.1's tip rule: one standing tip or
+`Refused(divergent-publication)`. A recipient's replica therefore sees an
+ordinary history. Two publishers cannot race: the destination corpus has
+one fail-closed writer under the root lifecycle, and a publish that cannot
+obtain it is `Refused`.
 
 ### 6.3 A commons is a world
 
@@ -356,11 +396,28 @@ reinterpret or extend it: a run's member acts are exactly the log entries
 between the opening heads and the closing heads of the corpora the run may
 write, and every intent in that interval must carry the run's actor
 identity — an entry in the interval under another actor is a `quarantined`
-finding. Nothing can write inside the interval without being a member, which
-is stronger than a per-act stamp. If a later need — two concurrent runs on
-one corpus — outgrows interval membership, the remedy is a versioned
-additive parent-run member on the intent, banked as an act-report design
-amendment; it is not taken now.
+finding. Two conditions make the interval mean what it claims:
+
+- **Every run mints a fresh actor identity.** The actor of a run is a
+  run-unique identity, not the person or profile behind it, so an
+  interactive write by the same person during the run carries a different
+  actor and cannot pass the actor test.
+- **The run's writer session is exclusive over its corpora.** Opening a
+  run opens one `beliefs` writer session (§5.2) holding every corpus the
+  run may write for the run's duration; no second session — interactive or
+  another run — can be opened on those corpora until the run closes, and a
+  write attempted around it is refused at the endpoint. In-process this is
+  the existing operation lock; cross-process it rides on the single-writer
+  deployment obligation the ledger already records for the composition
+  root (row 4), and interval membership is exactly as strong as that
+  obligation. Until the obligation is mechanical, the closing check treats
+  any entry in the interval it cannot attribute to the session as
+  `quarantined`, never as a member.
+
+Nothing can write inside the interval without being a member, which is
+stronger than a per-act stamp. If concurrent runs on one corpus are ever
+wanted, the remedy is a versioned additive parent-run member on the
+intent, banked as an act-report design amendment; it is not taken now.
 
 The predecessor's path gate is replaced by the write permit (§5.2). An
 envelope **tier** is a permit: `report-only` ⊂ `coordination` ⊂ `mints` ⊂
