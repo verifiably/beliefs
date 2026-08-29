@@ -31,7 +31,7 @@
 **Interfaces:**
 - Produces: `uv run python tools/roadmap_status.py` prints the per-table live-status table and the closed/open counts; Task 4 pins its output in the roadmap's Appendix A. Exposes `live_status() -> dict[str, tuple[str, int]]` mapping every row to `("full"|"part"|"never"|"reopened", cut)`.
 
-- [ ] **Step 1: Write the script**
+- [x] **Step 1: Write the script**
 
 ```python
 """Live status of every guarantee row, from the cuts' own accounting.
@@ -147,7 +147,7 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 2: Run it and check the counts against the spec**
+- [x] **Step 2: Run it and check the counts against the spec**
 
 ```bash
 cd python && set -o pipefail && uv run python tools/roadmap_status.py | tail -1
@@ -155,7 +155,7 @@ cd python && set -o pipefail && uv run python tools/roadmap_status.py | tail -1
 
 Expected: `Closed 62 of 151; open 89.` Then prove the check fails closed: change `M4` to `BAD` in cut 1's entry, rerun, and expect a non-zero exit with `review-disposition-and-conformance-cut-1 §5 names rows that are not guarantee rows: ['BAD']`; revert the change. If the count differs, the accounting data disagrees with spec §3.1 — compare table by table against the spec's §3.1 table and fix whichever is wrong against the cut document it cites; record any spec correction in the commit message.
 
-- [ ] **Step 3: Lint and commit**
+- [x] **Step 3: Lint and commit**
 
 ```bash
 cd python && set -o pipefail && uv run ruff check tools/roadmap_status.py && uv run pyright tools/roadmap_status.py | tail -1
@@ -172,7 +172,7 @@ cd .. && git add python/tools/roadmap_status.py && git commit -m "tools: compute
 **Interfaces:**
 - Produces: the 24 backticked ids in the table's first column that Task 3's guard collects and Task 4's roadmap must match.
 
-- [ ] **Step 1: Replace the paragraph, table, and closing paragraph**
+- [x] **Step 1: Replace the paragraph, table, and closing paragraph**
 
 Replace from `**Remaining implementation boundaries with named owners.**` through the paragraph ending `holds this section to whichever record is newest.` with:
 
@@ -220,7 +220,7 @@ this section to whichever record is newest;
 the roadmap to one set of ids.
 ```
 
-- [ ] **Step 2: Confirm the existing guard still passes and the id count is 24**
+- [x] **Step 2: Confirm the existing guard still passes and the id count is 24**
 
 ```bash
 cd python && set -o pipefail && uv run pytest tests/test_designs_corpus.py | tail -2
@@ -229,7 +229,7 @@ cd .. && grep -c -E '^\| `[a-z0-9-]+` \|' docs/designs/2026-08-03-redesign-adopt
 
 Expected: all pass (the prose-label guard still finds `G4`, `L8`, `L13` and `cut 11`); count `24`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add docs/designs/2026-08-03-redesign-adoption-ledger.md
@@ -246,7 +246,7 @@ git commit -m "docs(ledger): key the remaining boundaries by stable id and promo
 **Interfaces:**
 - Produces: `ROADMAP`, `_BOUNDARY_ID`, `_newest_results_record() -> tuple[int, Path]`, `test_the_roadmap_and_ledger_name_the_same_boundaries`.
 
-- [ ] **Step 1: Add the constants after `_H2`**
+- [x] **Step 1: Add the constants after `_H2`**
 
 ```python
 ROADMAP = PLANS / "2026-08-29-implementation-roadmap.md"
@@ -256,7 +256,7 @@ ROADMAP = PLANS / "2026-08-29-implementation-roadmap.md"
 _BOUNDARY_ID = re.compile(r"^\|\s*`([a-z0-9-]+)`\s*\|", re.M)
 ```
 
-- [ ] **Step 2: Factor the newest-record selection into a helper**
+- [x] **Step 2: Factor the newest-record selection into a helper**
 
 Add before `test_the_ledger_summary_names_the_newest_remaining_boundary`:
 
@@ -273,7 +273,7 @@ def _newest_results_record() -> tuple[int, Path]:
 
 and inside that existing test replace the `records = {...}` / `assert records` / `cut, newest = max(records.items())` lines with `cut, newest = _newest_results_record()`.
 
-- [ ] **Step 3: Add the failing test**
+- [x] **Step 3: Add the failing test**
 
 ```python
 def test_the_roadmap_and_ledger_name_the_same_boundaries() -> None:
@@ -315,7 +315,7 @@ def test_the_roadmap_and_ledger_name_the_same_boundaries() -> None:
     )
 ```
 
-- [ ] **Step 4: Run and watch it fail on the absent roadmap**
+- [x] **Step 4: Run and watch it fail on the absent roadmap**
 
 ```bash
 cd python && set -o pipefail && uv run pytest tests/test_designs_corpus.py -k same_boundaries 2>&1 | grep -E 'AssertionError: |passed|failed' | head -3
@@ -323,7 +323,7 @@ cd python && set -o pipefail && uv run pytest tests/test_designs_corpus.py -k sa
 
 Expected: `AssertionError: 2026-08-29-implementation-roadmap.md is absent` and `1 failed`. Any earlier assertion firing means Task 2's table is wrong.
 
-- [ ] **Step 5: Confirm the refactored existing guard still passes**
+- [x] **Step 5: Confirm the refactored existing guard still passes**
 
 ```bash
 cd python && set -o pipefail && uv run pytest tests/test_designs_corpus.py -k newest_remaining_boundary | tail -1
@@ -342,7 +342,7 @@ Expected: `1 passed`. Do **not** commit yet: a commit whose suite is red is not 
 - Consumes: Task 1's script output; the 24 ids of Task 2; spec §3.3, §4.1–§4.3.
 - Produces: the file Task 3's guard reads; the `## Boundary index` section; the `**Ranked at:**` line.
 
-- [ ] **Step 1: Capture the script output**
+- [x] **Step 1: Capture the script output**
 
 ```bash
 cd python && uv run python tools/roadmap_status.py
@@ -350,7 +350,7 @@ cd python && uv run python tools/roadmap_status.py
 
 Keep the printed table; it is pasted into Appendix A in step 2.
 
-- [ ] **Step 2: Write the document**
+- [x] **Step 2: Write the document**
 
 The header, the index, and the three tier sections are given in full below. Where a step says *copy from the spec*, copy the named table verbatim from `docs/superpowers/specs/2026-08-29-implementation-roadmap-design.md` — the spec's tables already use ids and cite sources, and the roadmap must not paraphrase them.
 
@@ -468,7 +468,7 @@ Arms banked as unrun by design. The any-unrun-arm rule keeps their rows
 | M3 | the concrete-cycle arms needing a circular fixed point in a controlled identity | cut 5, M3's entry — a limitation unless a construction is found |
 ```
 
-- [ ] **Step 3: Run the guard and watch it pass**
+- [x] **Step 3: Run the guard and watch it pass**
 
 ```bash
 cd python && set -o pipefail && uv run pytest tests/test_designs_corpus.py | tail -2
@@ -476,7 +476,7 @@ cd python && set -o pipefail && uv run pytest tests/test_designs_corpus.py | tai
 
 Expected: all pass, the new guard included. If it reports ids on one side only, the roadmap's index and the ledger table disagree — the ledger (Task 2) is authoritative; fix the index.
 
-- [ ] **Step 4: Verify every link target and anchor in the roadmap resolves**
+- [x] **Step 4: Verify every link target and anchor in the roadmap resolves**
 
 ```bash
 cd python && uv run python - <<'EOF'
@@ -497,7 +497,7 @@ EOF
 
 Expected: `every roadmap link resolves` and exit 0; a broken link or anchor raises `AssertionError: unresolved: [...]` with a non-zero exit. (The roadmap lives under `docs/plans/`, which `check_guide.py` does not sweep, so this is the one place its links are checked.)
 
-- [ ] **Step 5: Commit the roadmap with the guard that reads it**
+- [x] **Step 5: Commit the roadmap with the guard that reads it**
 
 ```bash
 git add python/tests/test_designs_corpus.py docs/plans/2026-08-29-implementation-roadmap.md
@@ -512,7 +512,7 @@ git commit -m "docs(plans): rank the remaining implementation boundaries at cut 
 - Modify: `docs/guide/README.md` (front matter `updated`; `## Maintaining the guide`)
 - Modify: `docs/guide/open-questions.md` (front matter `updated`; the end of `## Identity, world, and change`, after the `Chain verification cost` bullet)
 
-- [ ] **Step 1: `docs/guide/README.md`**
+- [x] **Step 1: `docs/guide/README.md`**
 
 Set `updated: 2026-08-29`. Append to `## Maintaining the guide`, after "…can inspect every local target.":
 
@@ -527,7 +527,7 @@ roadmap's `Ranked at` line advances to the new cut.
 done.
 ```
 
-- [ ] **Step 2: `docs/guide/open-questions.md`**
+- [x] **Step 2: `docs/guide/open-questions.md`**
 
 Set `updated: 2026-08-29`. After the `Chain verification cost` bullet (the last one under `## Identity, world, and change`), add (the two anchors were computed with `check_guide.heading_slugs` against `## 5. Step 3 — fully deferred rows, grouped by unblocking subsystem` and `### 3.2 W13 — the identity row`):
 
@@ -549,7 +549,7 @@ Add both cut documents to the page's `sources:` list, in date order among the ex
   - ../designs/2026-08-20-conformance-cut-6.md
 ```
 
-- [ ] **Step 3: Run the guide gates**
+- [x] **Step 3: Run the guide gates**
 
 ```bash
 cd python && set -o pipefail && uv run python tools/check_guide.py && echo CHECK_GUIDE_OK && uv run pytest tests/test_designs_corpus.py tests/test_check_guide.py | tail -1
@@ -557,7 +557,7 @@ cd python && set -o pipefail && uv run python tools/check_guide.py && echo CHECK
 
 Expected: `CHECK_GUIDE_OK` (a wrong slug fails here as "link resolves but its anchor does not"); all tests pass.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/guide/README.md docs/guide/open-questions.md
@@ -571,7 +571,7 @@ git commit -m "docs(guide): name the roadmap re-ranking obligation and the coord
 **Files:**
 - Modify: `docs/superpowers/specs/2026-08-29-implementation-roadmap-design.md:4` (the `**Status:**` line)
 
-- [ ] **Step 1: Close the design's status**
+- [x] **Step 1: Close the design's status**
 
 Replace line 4 of the spec with:
 
@@ -579,7 +579,7 @@ Replace line 4 of the spec with:
 **Status:** approved in session; revised 2026-08-29 across four written-spec review rounds; delivered 2026-08-29 on `docs/roadmap` (roadmap at `docs/plans/2026-08-29-implementation-roadmap.md`, ranked at cut 11)
 ```
 
-- [ ] **Step 2: Full documentation gates, on the tree that will be committed**
+- [x] **Step 2: Full documentation gates, on the tree that will be committed**
 
 ```bash
 cd python && set -o pipefail && uv run python tools/check_guide.py && echo CHECK_GUIDE_OK && uv run pytest tests/test_designs_corpus.py tests/test_check_guide.py | tail -1
@@ -588,7 +588,7 @@ cd .. && git diff --check main && echo DIFF_CHECK_CLEAN
 
 Expected: `CHECK_GUIDE_OK`; every test passed; `DIFF_CHECK_CLEAN`.
 
-- [ ] **Step 3: Diff review against the allowlist**
+- [x] **Step 3: Diff review against the allowlist**
 
 ```bash
 git diff main --name-only
@@ -602,7 +602,7 @@ git diff main -- docs/designs/2026-08-03-redesign-adoption-ledger.md | grep -E '
 
 Expected: one hunk, inside lines 41–90.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/superpowers/specs/2026-08-29-implementation-roadmap-design.md

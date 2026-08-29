@@ -1,7 +1,7 @@
 # Implementation roadmap — design
 
 **Date:** 2026-08-29
-**Status:** approved in session; revised 2026-08-29 across four written-spec review rounds
+**Status:** approved in session; revised 2026-08-29 across four written-spec review rounds; delivered 2026-08-29 on `docs/roadmap` (roadmap at `docs/plans/2026-08-29-implementation-roadmap.md`, ranked at cut 11)
 **Scope:** an ordered statement of the remaining implementation boundaries and
 the discipline that keeps it current. It selects no cut scope, freezes no row,
 and ranks no design question. The next cut's own design is a separate
