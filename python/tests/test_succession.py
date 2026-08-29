@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from dataclasses import replace
 
 import pytest
 from closure_fixtures import make_closure, sample_report
@@ -15,15 +16,16 @@ from succession_fixtures import (
     assessment,
     corpus,
     publish,
+    seam,
     specs,
     verification,
 )
 
-from science import stored
+from science import stored, succession
 from science.errors import AdmissionEvidenceRefused
 from science.runrecord import publication_plan
 from science.spec import SuccessorAdmitted, SuccessorRefused
-from science.succession import REASONS
+from science.succession import REASONS, admit_spec_successor
 from science.world.records import RECORD_CEILING
 
 
@@ -80,6 +82,23 @@ def test_an_absent_root_refuses_before_any_lock(certified_work) -> None:
     assert refused.ref == str((certified_work / "nowhere").resolve())
 
 
+def test_a_resolution_failure_refuses_before_any_lock(certified_work, monkeypatch) -> None:
+    root = certified_work / "loop"
+    original, unreferenced, _ = specs()
+
+    def fail_resolution(*_args, **_kwargs):
+        raise RuntimeError("injected symlink loop")
+
+    def fail_lock(_root):
+        pytest.fail("a root-resolution refusal must happen before the operation lock")
+
+    guarded_seam = replace(seam(), corpus_lock=fail_lock)
+    monkeypatch.setattr(succession.Path, "resolve", fail_resolution)
+    with pytest.raises(AdmissionEvidenceRefused) as caught:
+        admit_spec_successor(unreferenced, original, seam=guarded_seam, root=root)
+    assert (caught.value.reason, caught.value.ref) == ("root unreadable", str(root))
+
+
 def test_a_file_where_the_root_should_be_refuses_as_unreadable(certified_work) -> None:
     # `root` is resolved before the `O_DIRECTORY | O_NOFOLLOW` open (design
     # §4.1), so a symlink to a real corpus admits through its target; what
@@ -88,6 +107,23 @@ def test_a_file_where_the_root_should_be_refuses_as_unreadable(certified_work) -
     not_a_directory.write_bytes(b"")
     original, unreferenced, _ = specs()
     assert _refuses(not_a_directory, unreferenced, original, "root unreadable").ref == str(not_a_directory.resolve())
+
+
+def test_a_close_only_root_probe_failure_does_not_change_admission(certified_work, monkeypatch) -> None:
+    root, _ = corpus(certified_work, "close-failure")
+    original, unreferenced, _ = specs()
+    real_close = os.close
+    injected = False
+
+    def fail_once(fd: int) -> None:
+        nonlocal injected
+        real_close(fd)
+        if not injected:
+            injected = True
+            raise OSError("injected close failure")
+
+    monkeypatch.setattr(succession.os, "close", fail_once)
+    assert isinstance(admit(root, unreferenced, original), SuccessorAdmitted)
 
 
 def test_an_unregistered_directory_is_an_absent_chain_and_refuses(certified_work) -> None:

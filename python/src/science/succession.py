@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
+from contextlib import suppress
 from pathlib import Path
 
 from nodes.core.errors import CollisionError
@@ -70,7 +71,11 @@ def admit_spec_successor(
 ) -> SuccessorAdmitted | SuccessorRefused:
     """Admit or refuse `candidate` as a successor to `superseded`, over the
     evidence beneath `root` — one hold, one pinned order (design §4.2)."""
-    root = Path(root).resolve()
+    root = Path(root)
+    try:
+        root = root.resolve()
+    except (OSError, RuntimeError) as failure:
+        raise AdmissionEvidenceRefused("root unreadable", str(root)) from failure
     _require_openable_directory(root)
     with seam.corpus_lock(root):
         view = seam.inspect_registered(root)
@@ -92,7 +97,8 @@ def _require_openable_directory(root: Path) -> None:
         fd = os.open(root, os.O_DIRECTORY | os.O_NOFOLLOW)
     except OSError as failure:
         raise AdmissionEvidenceRefused("root unreadable", str(root)) from failure
-    os.close(fd)
+    with suppress(OSError):
+        os.close(fd)
 
 
 # --- class 2 and class 1b, from the chain ----------------------------------------
