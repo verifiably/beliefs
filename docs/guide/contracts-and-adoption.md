@@ -26,7 +26,9 @@ sources:
   - ../designs/2026-08-26-world-index-intent-boundary-design.md
   - ../designs/2026-08-27-conformance-cut-11.md
   - ../designs/2026-08-29-conformance-cut-12.md
+  - ../designs/2026-08-29-successor-admission-design.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
+  - ../plans/2026-08-29-conformance-cut-12-results.md
 ---
 
 # Contracts and adoption
@@ -164,14 +166,14 @@ fitted result into independent validation.
 
 ## Current state
 
-Eleven conformance cuts have been frozen and discharged, each frozen before its
+Twelve conformance cuts have been frozen and discharged, each frozen before its
 code existed and each from cut 4 onward discharged on the certified tuple with
 a results record under `../plans/`. The cut discipline is what this page owns:
 a cut selects rows, the acceptance runner arms each selected unit with an exact
 sabotage mutation, and a discharge is a results record, never a re-reading of
 the frozen text. The complete normative contract cut, its executable suite and
 N1–N10 are not yet implemented. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-08-28)
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-08-29)
 states what is built and which remaining boundaries have named owners; the cut
 documents and results records in the references below are the evidence.
 
@@ -201,4 +203,4 @@ questions under
 - [Composition-root adapter design](../designs/2026-08-18-composition-root-adapter-design.md)
 - [Conformance cut 5 — the family adapters](../designs/2026-08-19-conformance-cut-5.md)
 - [Family adapters design](../designs/2026-08-19-family-adapters-design.md)
-- [Cut 11 discharge results, the newest results record](../plans/2026-08-27-conformance-cut-11-results.md)
+- [Cut 12 discharge results, the newest results record](../plans/2026-08-29-conformance-cut-12-results.md)

@@ -1,7 +1,14 @@
 # Successor admission — design (the successor-admission slice)
 
 **Date:** 2026-08-29
-**Status:** approved in session
+**Status:** implemented and discharged 2026-08-29 at `2b9245e`; conformance
+cut 12 froze before implementation at `b2f9593` and its 24 units passed through
+50 lettered sabotage arms on the certified tuple. The certified run used local
+Atoms `dd658ac` as ledger R6's host-recertification prerequisite over binding
+contract `038513f`; no Atoms change ships in this Science branch. Results:
+`../plans/2026-08-29-conformance-cut-12-results.md`; execution rulings:
+`../plans/2026-08-29-successor-admission-ledger.md`. Promoted from
+`docs/superpowers/specs/` in this banking change.
 **Scope:** G4's closure. The two-class blocker derivation, the deriving
 boundary `admit_spec_successor`, the widened pure core, the one named
 refusal, and conformance cut 12 — the frozen acceptance boundary that reads
@@ -13,7 +20,7 @@ change.
 transferred design, read across nine cut readings, whose text is this
 slice's authority and whose five **opening obligations** this document
 discharges (§4.6). The implementation roadmap
-(`../../plans/2026-08-29-implementation-roadmap.md`) ranks this slice first
+(`../plans/2026-08-29-implementation-roadmap.md`) ranks this slice first
 in tier 1; the adoption ledger's `Current state` table carries it as
 `successor-admission`.
 

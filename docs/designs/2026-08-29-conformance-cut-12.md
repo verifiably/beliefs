@@ -1,8 +1,14 @@
 # Conformance cut 12 — successor admission, G4's closure
 
-**Status:** frozen 2026-08-29, before implementation. Source specification:
-`docs/superpowers/specs/2026-08-29-successor-admission-design.md` (cited as
-*spec*), promoted to `docs/designs/` at banking.
+**Status:** **Discharged 2026-08-29 at `2b9245e`** — all 24 frozen units passed
+through 50 lettered sabotage arms on the certified tuple; the portable suite
+reported 2719 passing tests, Ruff and Pyright were clean. Results:
+`../plans/2026-08-29-conformance-cut-12-results.md`. The certified run used
+local Atoms `dd658ac` as execution-ledger R6's host-recertification prerequisite
+(`../plans/2026-08-29-successor-admission-ledger.md`) over binding contract
+`038513f`; no Atoms change ships in this Science branch. The cut remains frozen
+byte-exact at `b2f9593`; the specification was promoted to
+`2026-08-29-successor-admission-design.md` at banking.
 
 **Sources:** `2026-08-27-conformance-cut-11.md` (rule and practice
 inheritances; the reducer, captured-record evidence input and record
