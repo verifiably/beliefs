@@ -120,8 +120,8 @@ def main() -> None:
     status = live_status()
     total = sum(len(t) for t in GUARANTEE_TABLES.values())
     closed = sum(1 for s, _ in status.values() if s == "full")
-    print(f"| table | never selected | part — last cut that read it | reopened |")
-    print(f"|---|---|---|---|")
+    print("| table | never selected | part — last cut that read it | reopened |")
+    print("|---|---|---|---|")
     for prefix, table in GUARANTEE_TABLES.items():
         never = ", ".join(r for r in table if status[r][0] == "never") or "—"
         part = ", ".join(f"{r} (cut {status[r][1]})" for r in table if status[r][0] == "part") or "—"
@@ -499,16 +499,7 @@ git commit -m "docs(plans): rank the remaining implementation boundaries at cut 
 - Modify: `docs/guide/README.md` (front matter `updated`; `## Maintaining the guide`)
 - Modify: `docs/guide/open-questions.md` (front matter `updated`; the end of `## Identity, world, and change`, after the `Chain verification cost` bullet)
 
-- [ ] **Step 1: Find the two cut-document anchors the bullet links**
-
-```bash
-grep -n -E '^## 5\.' docs/designs/2026-08-17-conformance-cut-4.md
-grep -n -E '^### 3\.2' docs/designs/2026-08-20-conformance-cut-6.md
-```
-
-Slug rule (from `check_guide.py`): lowercase the heading, drop everything that is not a word character, space or hyphen, replace each space with a hyphen. So `## 5. Fully deferred rows, grouped by unblocking subsystem` becomes `#5-fully-deferred-rows-grouped-by-unblocking-subsystem`. Compute both slugs from the headings the greps print.
-
-- [ ] **Step 2: `docs/guide/README.md`**
+- [ ] **Step 1: `docs/guide/README.md`**
 
 Set `updated: 2026-08-29`. Append to `## Maintaining the guide`, after "…can inspect every local target.":
 
@@ -523,9 +514,9 @@ roadmap's `Ranked at` line advances to the new cut.
 done.
 ```
 
-- [ ] **Step 3: `docs/guide/open-questions.md`**
+- [ ] **Step 2: `docs/guide/open-questions.md`**
 
-Set `updated: 2026-08-29`. After the `Chain verification cost` bullet (the last one under `## Identity, world, and change`), add — substituting the two slugs from step 1:
+Set `updated: 2026-08-29`. After the `Chain verification cost` bullet (the last one under `## Identity, world, and change`), add (the two anchors were computed with `check_guide.heading_slugs` against `## 5. Step 3 — fully deferred rows, grouped by unblocking subsystem` and `### 3.2 W13 — the identity row`):
 
 ```markdown
 - **Coordination records.** W11 and W12 assert that a world entity is never
@@ -534,13 +525,18 @@ Set `updated: 2026-08-29`. After the `Chain verification cost` bullet (the last 
   built the project/coordination surface, and whether coordination records
   are minted through the corpus-write adapter at all is undetermined, which
   is why both rows defer rather than gaining a vacuous arm.
-  ([cut 4 §5](../designs/2026-08-17-conformance-cut-4.md#<slug>),
-  [cut 6 §3.2](../designs/2026-08-20-conformance-cut-6.md#<slug>))
+  ([cut 4 §5](../designs/2026-08-17-conformance-cut-4.md#5-step-3--fully-deferred-rows-grouped-by-unblocking-subsystem),
+  [cut 6 §3.2](../designs/2026-08-20-conformance-cut-6.md#32-w13--the-identity-row))
 ```
 
-Add the two cut documents to the page's `sources:` list if they are not already there (cut 4 is not; check cut 6).
+Add both cut documents to the page's `sources:` list, in date order among the existing entries — neither is there today:
 
-- [ ] **Step 4: Run the guide gates**
+```yaml
+  - ../designs/2026-08-17-conformance-cut-4.md
+  - ../designs/2026-08-20-conformance-cut-6.md
+```
+
+- [ ] **Step 3: Run the guide gates**
 
 ```bash
 cd python && set -o pipefail && uv run python tools/check_guide.py && echo CHECK_GUIDE_OK && uv run pytest tests/test_designs_corpus.py tests/test_check_guide.py | tail -1
@@ -548,7 +544,7 @@ cd python && set -o pipefail && uv run python tools/check_guide.py && echo CHECK
 
 Expected: `CHECK_GUIDE_OK` (a wrong slug fails here as "link resolves but its anchor does not"); all tests pass.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add docs/guide/README.md docs/guide/open-questions.md
