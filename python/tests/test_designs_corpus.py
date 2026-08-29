@@ -104,6 +104,39 @@ EXTERNAL_DOCUMENTS = {
 #: world group `W1–W16`, and there has never been a `W14`.
 _ROW_RANGE = re.compile(r"\b([GSWRCXNLDMPHT])([0-9]+[a-z]?)–\1?([0-9]+[a-z]?)\b")
 
+PLANS = ROOT / "docs" / "plans"
+
+#: A discharge results record, keyed by the cut number in its name.
+_RESULTS_RECORD = re.compile(r"\A\d{4}-\d\d-\d\d-conformance-cut-(\d+)-results\.md\Z")
+
+#: A guarantee-row label as prose names it — `G4`, `L13`, `S1a` — with no table
+#: cell around it. `_ROW` anchors on `| **G4** |` and finds nothing in a prose
+#: paragraph, which is why this exists separately.
+_PROSE_LABEL = re.compile(r"\b([GSWRCXNLDMPHT][0-9]+[a-z]?)\b")
+
+#: A level-two heading with its optional `N.` numbering stripped.
+_H2 = re.compile(r"^## (?:\d+\.\s+)?(.*)$")
+
+
+def _h2_section(text: str, prefix: str) -> str | None:
+    """The body under the first `##` heading whose title starts with `prefix`.
+
+    Runs to the next `##` heading. None when no heading matches, so a caller
+    can fail on the heading's absence rather than on an empty body.
+    """
+    body: list[str] | None = None
+    for line in text.splitlines():
+        heading = _H2.match(line)
+        if heading:
+            if body is not None:
+                break
+            if heading.group(1).startswith(prefix):
+                body = []
+            continue
+        if body is not None:
+            body.append(line)
+    return None if body is None else "\n".join(body)
+
 
 def design_documents() -> list[Path]:
     docs = sorted(DESIGNS.glob("*.md"))
@@ -295,6 +328,43 @@ def test_every_cross_reference_resolves() -> None:
             if not (path.parent / target).resolve().exists():
                 broken.append(f"{path.name} → {target}")
     assert not broken, "unresolvable references:\n  " + "\n  ".join(sorted(broken))
+
+
+def test_the_ledger_summary_names_the_newest_remaining_boundary() -> None:
+    """A cut lands, names its remainder, and the summary is never updated.
+
+    That is the one disagreement that actually happened, and the only one this
+    guard reads for: the newest results record's `Remaining boundary` section
+    constrains what the ledger's `Current state` section must name, never what
+    else it may say.
+
+    Both reads fail closed. The heading is a convention this guard establishes
+    (cut 11 is the first record to carry it), so its absence is a failure, and
+    an empty label collection is a failure — a guard asserting over the empty
+    set would pass on exactly the drift it exists to catch.
+    """
+    records = {
+        int(m.group(1)): path
+        for path in PLANS.glob("*.md")
+        if (m := _RESULTS_RECORD.match(path.name))
+    }
+    assert records, f"no conformance-cut results record under {PLANS}"
+    cut, newest = max(records.items())
+
+    remaining = _h2_section(_text(newest), "Remaining boundary")
+    assert remaining is not None, f"{newest.name} has no `Remaining boundary` section"
+    labels = set(_PROSE_LABEL.findall(remaining))
+    assert labels, f"{newest.name}'s Remaining boundary names no guarantee row"
+
+    ledger = _text(DESIGNS / "2026-08-03-redesign-adoption-ledger.md")
+    summary = _h2_section(ledger, "Current state")
+    assert summary is not None, "the ledger has no `Current state` section"
+    assert f"cut {cut}" in summary, f"the ledger's Current state does not name cut {cut}"
+    missing = sorted(labels - set(_PROSE_LABEL.findall(summary)))
+    assert not missing, (
+        f"the ledger's Current state does not name {', '.join(missing)}, "
+        f"which {newest.name} leaves open"
+    )
 
 
 def test_the_frozen_survey_artifact_keeps_every_digest_algorithm_qualified() -> None:
