@@ -318,18 +318,30 @@ class RegistrationReduction:
     unresolved: bool                           # a record path had no payload or failed to decode
     reasons: tuple[str, ...]                   # every decoded record's mismatch reason, in order
 
-def reduce_registration(intent, registration, settlement, records, state_facts) -> RegistrationReduction: ...
+def record_paths_of(registration, state_facts) -> list[str]: ...
+def reduce_registration(intent, record_paths, records) -> RegistrationReduction: ...
 ```
 
-It is the exact body of `_qualify_one`'s inner loop over one
-registration — settlement lookup, `record_layout_path` filter,
-`records.get`, `decode_record`, `shapes.mismatch`, first match wins,
-the same path order — returning everything that loop derives, so
-`_qualify_one` becomes the outer fold over registrations with **no
-second scan and no second decode**: `match` set → `matched`;
-otherwise `unresolved` accumulates and `reasons` feeds the same
-`REASON_PRIORITY` choice as today. Its verdicts are byte-for-byte cut
-11's over cut 11's arms (a labeled declaration, §7.3). The admission act
+`record_paths_of` is `_qualify_one`'s `record_layout_path`-and-file
+filter over `registration.final`; `reduce_registration` is the exact
+body of its inner loop over those paths — `records.get`,
+`decode_record`, `shapes.mismatch`, first match wins, the same path
+order — returning everything that loop derives, so `_qualify_one`
+becomes the outer fold over registrations with **no second scan and no
+second decode**: `match` set → `matched`; otherwise `unresolved`
+accumulates and `reasons` feeds the same `REASON_PRIORITY` choice as
+today. The settlement lookup and the two `no-record` classifications
+**stay in `_qualify_one`**: cut 11's frozen sabotages anchor on those
+lines and their replacement text names `non_qualifying`, which a helper
+would not have in scope — moving them would turn a prior cut's verdict
+arms into `NameError`s. Two cut-11 anchors *do* sit inside the moved
+loop (`if payload is None:` and `except RecordUndecodable:`); they
+re-indent by exactly the loop's new depth, whitespace only, checks and
+replacement text unchanged, and cut 12's harness pins
+`n2_arms_cut11.py` at the commit that carries that re-indent — cut 11's
+own precedent for "signature-anchored prior-cut sabotages moved with the
+production boundary while preserving their checks". Its verdicts are
+byte-for-byte cut 11's over cut 11's arms (a labeled declaration, §7.3). The admission act
 calls the same function for each matched assessment-run row's
 registration and reads `match`: when the evidence is `ReportEvidence`
 with `operation == "run-attempt"`, the attempt minted no run — an
