@@ -3,7 +3,7 @@
 Plan: `docs/superpowers/plans/2026-08-29-successor-admission.md`
 Specification: `docs/superpowers/specs/2026-08-29-successor-admission-design.md`
 Frozen cut: `docs/designs/2026-08-29-conformance-cut-12.md`
-Freeze hash: (recorded in the commit after the freeze)
+Freeze hash: b2f9593
 
 Rulings are written at task boundaries, never rewritten after the fact.
 
