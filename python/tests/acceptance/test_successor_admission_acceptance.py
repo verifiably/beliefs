@@ -45,12 +45,10 @@ def test_u11_a_writer_arriving_during_the_act_waits_and_is_not_consulted(certifi
     order: list[str] = []
 
     def write_blocker() -> None:
-        # `DurableOperationPort.execute` takes no lock of its own — the
-        # production writers (`CorpusWriter`) do, through the very object
-        # `corpus_lock` returns — so this writer takes it the way they do.
+        # The exported durable port is itself a production writer. Its raw
+        # mutation must queue on the exact lock the admission act holds.
         order.append("writer-started")
-        with production.corpus_lock(root):
-            publish(port, target, blocker)
+        publish(port, target, blocker)
         order.append("writer-done")
 
     production = seam()

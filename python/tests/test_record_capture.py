@@ -4,6 +4,11 @@ import errno
 import os
 from pathlib import Path
 
+from capture_mode_fixtures import (
+    unopenable_directory_at_open,
+    unreadable_leaf_at_open,
+)
+
 from science.world import records
 
 
@@ -128,32 +133,28 @@ def test_an_oversized_regular_file_is_withheld_and_named(certified_work) -> None
     assert surface.unreadable == surface.uninspectable == ()
 
 
-def test_an_unreadable_regular_file_is_named_not_dropped(certified_work) -> None:
+def test_an_unreadable_regular_file_is_named_not_dropped(certified_work, monkeypatch) -> None:
     assert os.geteuid() != 0, "this arm needs a non-root user: root ignores file modes"
     root = _five(certified_work / "root")
     target = root / "verification" / "locked.md"
     target.write_bytes(b"secret")
-    target.chmod(0)
-    try:
+    with unreadable_leaf_at_open(monkeypatch, target, "verification/locked.md"):
         surface = records.capture_surface(root, ("verification",))
-    finally:
-        target.chmod(0o644)
     assert surface.records == ()
     assert surface.unreadable == ("verification/locked.md",)
     assert surface.withheld == surface.uninspectable == ()
 
 
-def test_an_unenumerable_namespace_is_uninspectable_and_an_absent_one_is_silent(certified_work) -> None:
+def test_an_unenumerable_namespace_is_uninspectable_and_an_absent_one_is_silent(
+    certified_work, monkeypatch
+) -> None:
     assert os.geteuid() != 0, "this arm needs a non-root user: root ignores directory modes"
     root = _five(certified_work / "root")
     (root / "assessment").rmdir()
     locked = root / "verification"
     (locked / "v.md").write_bytes(b"v")
-    locked.chmod(0)
-    try:
+    with unopenable_directory_at_open(monkeypatch, locked):
         surface = records.capture_surface(root, ("verification", "assessment"))
-    finally:
-        locked.chmod(0o755)
     assert surface.records == ()
     assert surface.uninspectable == ("verification",)
     assert surface.withheld == surface.unreadable == ()

@@ -6,6 +6,10 @@ import os
 from dataclasses import replace
 
 import pytest
+from capture_mode_fixtures import (
+    unopenable_directory_at_open,
+    unreadable_leaf_at_open,
+)
 from closure_fixtures import make_closure, sample_report
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.relations import Relation
@@ -139,18 +143,17 @@ def test_an_unregistered_directory_is_an_absent_chain_and_refuses(certified_work
     _refuses(root, unreferenced, original, "chain not well-formed")
 
 
-def test_an_unenumerable_namespace_refuses_for_verification_and_for_run(certified_work) -> None:
+def test_an_unenumerable_namespace_refuses_for_verification_and_for_run(
+    certified_work, monkeypatch
+) -> None:
     assert os.geteuid() != 0, "this arm needs a non-root user"
     original, unreferenced, _ = specs()
     for namespace in ("verification", "run"):
         root, _ = corpus(certified_work, f"locked-{namespace}")
         locked = root / namespace
         locked.mkdir()
-        locked.chmod(0)
-        try:
+        with unopenable_directory_at_open(monkeypatch, locked):
             refused = _refuses(root, unreferenced, original, "namespace uninspectable")
-        finally:
-            locked.chmod(0o755)
         assert refused.ref == namespace
 
 
@@ -477,7 +480,9 @@ def test_yaml_valid_malformed_relation_shapes_refuse_in_either_namespace(
     assert _refuses(root, unreferenced, original, reason).ref == path
 
 
-def test_an_unreadable_regular_file_refuses_in_either_namespace(certified_work) -> None:
+def test_an_unreadable_regular_file_refuses_in_either_namespace(
+    certified_work, monkeypatch
+) -> None:
     assert os.geteuid() != 0, "this arm needs a non-root user"
     original, unreferenced, _ = specs()
     for namespace, reason in (
@@ -488,12 +493,10 @@ def test_an_unreadable_regular_file_refuses_in_either_namespace(certified_work) 
         target = assessment(original.identity)
         publish(port, target, verification("v1", target, "failed"))
         locked = root / namespace / ("v1.md" if namespace == "verification" else "a1.md")
-        locked.chmod(0)
-        try:
+        relative_path = f"{namespace}/{locked.name}"
+        with unreadable_leaf_at_open(monkeypatch, locked, relative_path):
             refused = _refuses(root, unreferenced, original, reason)
-        finally:
-            locked.chmod(0o644)
-        assert refused.ref == f"{namespace}/{locked.name}"
+        assert refused.ref == relative_path
 
 
 # --- G4u8: the coherence gate -------------------------------------------------------------

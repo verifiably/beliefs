@@ -1,7 +1,7 @@
 # Successor-admission slice — execution ledger
 
 Plan: `docs/superpowers/plans/2026-08-29-successor-admission.md`
-Specification: `docs/superpowers/specs/2026-08-29-successor-admission-design.md`
+Specification: `docs/designs/2026-08-29-successor-admission-design.md`
 Frozen cut: `docs/designs/2026-08-29-conformance-cut-12.md`
 Freeze hash: b2f9593
 
