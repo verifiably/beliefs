@@ -375,52 +375,79 @@ missing identities listed; the user widens the view or drops the record.
    corpus on a configured carrier (log-verification design §3.2). It
    returns the canonical bytes of `(subject, genesis identity, head
    digest)` under `science.head-artifact.v1` and **stores nothing**.
-4. **Write the artifact to its canonical sibling locator** —
-   `<destination parent>/<corpus_id>.head-artifact.v1`, outside the root
+4. **Name the export root.** Lifecycle commands take paths, so every
+   publish has a local **export root**: for a local destination it *is*
+   the destination directory; for a Git remote, a Zenodo deposit, or an
+   inbox it is a durable, publisher-owned directory that step 7 later
+   transports. The actor cannot reach it.
+5. **Write the artifact to its canonical sibling locator** —
+   `<export root parent>/<corpus_id>.head-artifact.v1`, outside the root
    so the corpus bytes are untouched — under the rules-store idempotency
    discipline (log-verification design §3.1): an existing file with
    byte-identical content is success, a same-name file with different
    bytes refuses as a collision. The sibling **is** the durable external
    retention of the observer, and the staging root is **retained until
-   step 8** so that any retry re-exports from it; the export is a pure
+   step 9** so that any retry re-exports from it; the export is a pure
    function of the staged chain, so a re-export is byte-identical and the
-   idempotent write converges. For a remote destination the transport
-   uploads root and sibling together (§6.2); the sibling is what step 6
-   reads locally and what the recipient's `restore_root` reads in §6.3.
-5. `replicate_root` from the staging root to the destination — which
+   idempotent write converges.
+6. `replicate_root` from the staging root to the export root — which
    publishes a claim-only reservation, stamps read-only before it exposes
    payload, and grants neither writability nor serviceability
-   (root-lifecycle design §2–§4).
-6. `restore_root(destination, corpus(corpus_id), observers = {the artifact
-   read back from its sibling locator})`, which inspects, captures the
-   presented identity, evaluates against that explicit observer set, and
-   admits the copy to read-only service on a `validated` verdict and
-   nothing else. An empty observer set is `unresolvable`, which is why
-   steps 3–4 are not optional. **This is the reveal.**
-7. **Commit the source binding, after the reveal and never before.** In
+   (root-lifecycle design §2–§4). Then `restore_root(export root,
+   corpus(corpus_id), observers = {the artifact read back from its sibling
+   locator})`, which inspects, captures the presented identity, evaluates
+   against that explicit observer set, and admits the copy to read-only
+   service on a `validated` verdict and nothing else. An empty observer
+   set is `unresolvable`, which is why steps 3 and 5 are not optional.
+   For a local destination **this is the reveal**.
+7. **Transport, for a remote destination only.** Upload the export root
+   and its sibling to the remote address, and verify the upload by
+   reading the remote back — its listing and digests against the export
+   root's. Transport is destination-specific: its unit of atomicity,
+   partial states, and verification are sub-project 5's to specify per
+   destination kind, and nothing here claims more than "verified complete
+   or not complete." For a remote destination **this is the reveal**, and
+   the recipient's own `restore_root` + `admit_arrival` (§6.3) is the
+   admission.
+8. **Commit the source binding, after the reveal and never before.** In
    the source root, mint the revision of the source project's
-   `publication` coordination record (§6.2) — naming the now-serviceable
-   corpus as current, its predecessor tips, and the artifact's content
-   identity — in the same operation as the publish's terminal act-report.
-   Written earlier, a crash before step 6 would make an unserviceable
-   corpus current; written here, the binding can only ever name a corpus
-   that has been revealed. The revision is determined by `(view address,
-   destination, corpus_id)`, so a retry that finds the binding already
-   naming this corpus has nothing to mint.
-8. Discard the staging corpus and the staging world.
+   `publication` coordination record (§6.2) — naming the revealed corpus
+   as current, its predecessor tips, and the artifact's content identity
+   — **and** the publish's terminal act-report **in one registered
+   transaction** (`run_transaction`), so neither can exist without the
+   other. "Same operation" is not enough: a coordination revision
+   committed with the act-report still unpublished would leave the
+   operation intent unmatched while a retry read "done". Written earlier,
+   a crash before the reveal would make an unrevealed corpus current;
+   written here, the binding can only name a corpus that has been
+   revealed — locally by step 6, remotely by step 7. The revision is
+   determined by `(view address, destination, corpus_id)`.
+9. Discard the staging corpus and the staging world.
 
-`atoms` stays ignorant of root kinds, and the reveal is `restore_root`'s
-existing grant. Every step is exact-retry, and the staging root's
-retention through step 7 is what makes them so. A retry finds one of:
-a serviceable corpus whose source binding names it (done); a serviceable
-corpus the binding does not yet name (re-run step 7 — the crash between
-reveal and commit); a stamped copy without its sibling (re-run step 4
-from the retained staging root, then 6, then 7); a stamped copy with its
-sibling but unserviceable (re-run 6, then 7); or a bare reservation
-(**retry the exact same replication**, which adopts the retained claim and
-converges; a different request refuses). No abandon operation exists, and
-cleanup of a reservation nobody will retry is an explicit out-of-band
-operator action, never something a publish does.
+**Done** means exactly: the source binding names this corpus **and** the
+publish intent has a qualifying terminal fulfillment — the act-report's
+completion reading is `closed` (act-report §3). Either alone is not done.
+
+`atoms` stays ignorant of root kinds. **The local lifecycle steps are
+exact-retry**, and the staging root's retention through step 8 is what
+makes them so; transport is retried under its own semantics. A retry
+classifies the state it finds and resumes there:
+
+| state found | resume at |
+|---|---|
+| no export root, no sibling (crash before step 5) | step 5, from the retained staging root |
+| sibling present, no reservation (crash after step 5) | step 6 |
+| bare reservation at the export root | step 6 — **retry the exact same replication**, which adopts the retained claim and converges; a different request refuses |
+| stamped copy, sibling missing | step 5 from staging, then step 6's `restore_root` |
+| stamped copy with sibling, unserviceable | step 6's `restore_root` |
+| serviceable export root; remote destination not verified complete | step 7, under that destination's retry semantics |
+| revealed; source binding absent | step 8 |
+| revealed; binding present without a `closed` fulfillment | not a resumable state — step 8 is all-or-nothing, so this is a foreign write, refused and reported, never resumed |
+| revealed; binding present and fulfillment `closed` | done |
+
+No abandon operation exists, and cleanup of a reservation nobody will
+retry is an explicit out-of-band operator action, never something a
+publish does.
 
 **Each attempt is an operation with its own act-report**, and that is an
 amendment, not a given: the kernel's operation-kind set is closed at five
@@ -439,9 +466,9 @@ atomic — an upload can stop half-way — so the guarantee moves to the
 consumer: a corpus is admitted (§6.3) only if `restore_root`'s validation
 passes on the recipient's copy against the transported head artifact and
 its `publication` record is present and well-formed, and anything less is
-refused whole, never adopted in part. Publishing to a remote is the local sequence followed by a
-transport, and the transport's partial states are the recipient's to
-refuse.
+refused whole, never adopted in part. Publishing to a remote is the local
+sequence through step 6 followed by step 7's transport; the transport's
+partial states are the publisher's to retry and the recipient's to refuse.
 
 ### 6.2 One operation, three destinations
 
