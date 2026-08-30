@@ -1,5 +1,5 @@
 ---
-id: bel-c88566
+id: beliefs-c88566
 title: "Design coordination and view kinds (sub-project 1, coordination-addressing)"
 status: todo
 priority: 1
