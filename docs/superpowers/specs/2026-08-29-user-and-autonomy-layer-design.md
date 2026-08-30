@@ -189,14 +189,20 @@ tips**, which is what repair needs, and has two admission rules, by how
 the revision is minted:
 
 - **The general rule, for revisions minted by the ordinary write path**
-  — every `question`, `hypothesis`, `task`, `decision` and `note`
-  revision, which is one registered transaction under the root's
-  per-root operation lock and carries no operation intent (the
+  — every revision of a view kind (`project`, `question`, `hypothesis`,
+  `topic`, `theme`) or of an ordinary coordination kind (`task`,
+  `decision`, `note`), which is one registered transaction under the
+  root's per-root operation lock and carries no operation intent (the
   operation-kind set is closed and names none for these): every named
   predecessor must be a standing tip **at commit**, judged under that
-  lock. Within one root the lock serializes revisions, so no sibling can
-  arise there; siblings arise only across corpora or replicas, and the
-  tip rule below handles them.
+  lock. A `project` revision changes its name or query, never its
+  identity (§4.1 above), and is admitted by this same rule. Within one
+  root the lock serializes revisions, so no sibling can arise there —
+  the lock being in-process, that holds across processes only under the
+  single-writer deployment obligation the ledger records for the
+  composition root (row 4), the same dependence §7.1 names; siblings
+  otherwise arise across corpora or replicas, and the tip rule below
+  handles them.
 - **The intent-position rule, for revisions minted inside a registered
   operation** — today exactly one, the `publication-binding` revision of
   a `publish` (§6.1 step 8), whose intent kind is the operation's own:
@@ -395,7 +401,14 @@ missing identities listed; the user widens the view or drops the record.
 0. **Read the tips and append the intent under one lock, then write the
    request, before any side effect.** Under the source root's per-root
    operation lock, held across both actions so no binding revision can
-   commit between them: read the standing tips of the source project's
+   commit between them from this process — the lock is in-process
+   (`OperationLock`), so across processes the guarantee rests on the
+   single-writer deployment obligation the ledger records for the
+   composition root (row 4), exactly as §7.1's exclusivity does; a second
+   launcher on the same source root is that obligation's violation, and
+   the retry's re-derivation from the chain prefix (below) is what turns
+   an interleaved commit into a refusal rather than a wrong tip set:
+   read the standing tips of the source project's
    `publication-binding` (below), then append the publish's
    `OperationIntent(kind = publish, event_token, actor)` to the source
    root's log, as every boundary operation already does (act-report §3).
