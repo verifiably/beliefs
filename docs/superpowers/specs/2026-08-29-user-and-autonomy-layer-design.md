@@ -185,8 +185,18 @@ record superseding the previous one under the same address — through a
 `supersede` is not reused: it operates on propositions only and takes
 exactly one predecessor (`CorpusWriter.supersede`), and revisions need
 neither restriction. The new family takes **one or more predecessor
-tips**, which is what repair needs. The current revision of an address is
-its **one standing tip**: the single revision no other revision supersedes.
+tips**, which is what repair needs, and its admission rule judges them
+**as of the minting operation's intent, not as of its commit**: a
+revision is admitted iff every predecessor it names was a standing tip
+at the position in the source root's log where the operation's intent
+was appended — provable from the chain, since a sibling that superseded
+one of them later has a later position — and refused
+(`Refused(predecessor-not-standing)`) if any predecessor was already
+superseded at that position. A predecessor superseded *between* intent
+and commit is therefore still a valid predecessor; the result is two
+standing tips, which is exactly the sibling state below, not a
+violation of it. The current revision of an address is its **one
+standing tip**: the single revision no other revision supersedes.
 Two corpora or replicas can mint sibling successors, so resolution
 requires exactly one tip and otherwise returns `Refused(divergent-view)`
 naming every tip; it never chooses by recency, arrival, or iteration
@@ -427,11 +437,17 @@ missing identities listed; the user widens the view or drops the record.
    Its semantic payload is determined by what the request freezes:
    `published_from` from the world, the frozen epoch and the view
    revision; the selection list from that epoch; and `supersedes` from
-   the **predecessor tip set**, read at step 0 as the standing tips of
-   the source project's `publication-binding` for `(view address,
-   destination)` (§6.2) — every unsuperseded revision, several if
-   siblings stand; none for a first publication — and frozen in the
-   request. Payload alone does not
+   the **predecessor tips**, which are two projections of one reading and
+   are frozen separately because they live in two identity domains. At
+   step 0 the standing tips of the source project's `publication-binding`
+   for `(view address, destination)` (§6.2) are read — every unsuperseded
+   revision, several if siblings stand; none for a first publication.
+   From them the request freezes **`binding_tips`**, the binding revision
+   identities themselves, which step 8's binding revision supersedes; and
+   **`marker_tips`**, the `(corpus_id, publication marker identity)` pair
+   each of those revisions binds (§6.2's binding shape), which the
+   marker's `supersedes` carries. Neither is ever derived from the other
+   at retry time. Payload alone does not
    fix bytes: the record model assigns a random `uid` by default
    (`nodes` `Node.uid`), and Science's node factories leave it to that
    default. So the `publication` record is minted by a **deterministic
@@ -574,12 +590,19 @@ missing identities listed; the user widens the view or drops the record.
    unmatched while a retry read "done". Written earlier, a crash before
    the reveal would bind an unrevealed corpus; written here, the binding
    can only name a corpus that has been revealed — locally by step 6,
-   remotely by step 7. The revision supersedes the **frozen** predecessor
-   tips and nothing else: if a concurrent attempt from the same frozen
-   tips committed first, this attempt still commits, and the binding then
-   has two standing tips — the sibling publications §6.2 permits, refused
-   at resolution by the tip rule until a revision supersedes both. A
-   retry never re-reads the binding to decide what to supersede.
+   remotely by step 7. The revision supersedes the frozen
+   **`binding_tips`** and nothing else, and the family admits it by
+   §4.1's rule — predecessors judged as of this operation's intent
+   position, not its commit: if a concurrent attempt from the same
+   frozen tips committed first, those tips were still standing when this
+   attempt's intent was appended, so this attempt still commits, and the
+   binding then has two standing tips — the sibling publications §6.2
+   permits, refused at resolution by the tip rule until a revision
+   supersedes both. An attempt whose intent was appended *after* a
+   sibling superseded its tips is refused at step 8
+   (`predecessor-not-standing`) and reports so; it cannot silently
+   re-target. A retry never re-reads the binding to decide what to
+   supersede.
 9. Discard the staging corpus and the staging world.
 
 **Done** means exactly: **this attempt's binding revision exists** in
@@ -660,11 +683,15 @@ Revisions are linked by their `publication` records. Each record carries
 `supersedes`: **zero or more** `(corpus_id, publication record identity)`
 pairs — none for the first publication of a view to a destination, one in
 the ordinary case, several when a revision repairs a divergence by
-superseding every tip. The source project holds a `publication-binding`
-record — a distinct coordination kind (§4.1) — whose revisions bind
-`(view address, destination)` to a published corpus and the predecessor
-tips that revision supersedes; history is derived by walking
-`supersedes`, never stored as a list that could disagree with it. A
+superseding every tip; the pairs are **marker** identities, one identity
+domain. The source project holds a `publication-binding` record — a
+distinct coordination kind (§4.1) — whose revisions bind `(view address,
+destination)` to `(corpus_id, publication marker identity, head artifact
+content identity)` and carry their own `supersedes` of **binding
+revision** identities, the other domain; a binding revision therefore
+always identifies the marker it bound, which is how step 0 projects one
+reading into both. History is derived by walking either chain, never
+stored as a list that could disagree with it. A
 record dropped from the selection is
 **neither retracted nor deleted** — retraction is legal only for the
 readable inputs (correction lifecycle §4), which sources, datasets,
@@ -801,7 +828,7 @@ column says so.
 | # | sub-project | repository | depends on | starts |
 |---|---|---|---|---|
 | 0 | **Rename and seed** — `science` → `beliefs`; ledger §5 ruling; glossary; create `science` and `autonomy` with a README pointing here | kernel, new | nothing | now, between lane merges |
-| 1 | **Coordination and view kinds** — opaque project identity minting, `(project, local id)` addressing, the coordination revision family (one or more predecessor tips, the tip rule), W11, W12, W13's two-projects negative; the coordination contract in `beliefs`; the `foundations.md` extension | `beliefs` | none — it is the tier-3 answer and joins the `mutation` lane | now |
+| 1 | **Coordination and view kinds** — opaque project identity minting, `(project, local id)` addressing, the coordination revision family (one or more predecessor tips judged as of the intent position, the tip rule), W11, W12, W13's two-projects negative; the coordination contract in `beliefs`; the `foundations.md` extension | `beliefs` | none — it is the tier-3 answer and joins the `mutation` lane | now |
 | 2 | **Command framework** — declaration schema, write classes, budgeted renderer, preamble, adapter generator with the Claude Code target, CLI and MCP over `beliefs` reads; the writer endpoint with its bound permit, endpoint-set actor and session ledger; the write permit on every `beliefs` write entry point | `science`, `beliefs` | 0 | now, against today's kernel reads |
 | 3 | **Biology domain pack** — GO, HP, EFO, MONDO bindings; mm30's operator vocabulary | `beliefs/domains/biology` | the `domain-boundary` lane | with that lane |
 | 4 | **The dogfood command set** — the dozen commands over a real world root; mm30 reproduced, not migrated, as the first corpus | `science` | 1, 2, 3; `run-confinement` and `workflow-surface` for a real assessment | after 2; grows as lanes land |
