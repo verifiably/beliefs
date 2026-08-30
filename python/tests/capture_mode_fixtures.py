@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from science.world import records
+from beliefs.world import records
 
 
 def _mode(path: Path) -> int:

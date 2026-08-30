@@ -1,7 +1,7 @@
 """The total decode gate and per-shape matching requirements (spec §2.2, §3.2)."""
 
-from science.identity import v1
-from science.intents import shapes
+from beliefs.identity import v1
+from beliefs.intents import shapes
 
 
 def decoded(digest: str, payload: bytes) -> shapes.DecodedIntent:
@@ -47,8 +47,8 @@ def test_the_three_discriminators_are_exact_and_disjoint() -> None:
 def test_the_built_holdings_boundary_payload_decodes_unicode_included() -> None:
     from collections.abc import Mapping
 
-    from science.holdings.boundary import intent_payload
-    from science.holdings.records import StoreLocator
+    from beliefs.holdings.boundary import intent_payload
+    from beliefs.holdings.records import StoreLocator
 
     payload = intent_payload(
         location=StoreLocator(store_id="0" * 32, relative_path="a/b"),

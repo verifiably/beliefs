@@ -19,11 +19,11 @@ from nodes.core.corpus import Corpus
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 
-from science import stored
-from science.corpus import LineageAdjacency, RelationAdjacency, corpus_check, derived_from, lineage_snapshot
-from science.errors import SemanticHashMissing, SemanticHashStale
-from science.lineage import certify
-from science.traversal import LineageEntry, RelationEntry, closure
+from beliefs import stored
+from beliefs.corpus import LineageAdjacency, RelationAdjacency, corpus_check, derived_from, lineage_snapshot
+from beliefs.errors import SemanticHashMissing, SemanticHashStale
+from beliefs.lineage import certify
+from beliefs.traversal import LineageEntry, RelationEntry, closure
 
 CITES = "cites"
 

@@ -19,11 +19,11 @@ import inspect
 
 import pytest
 
-from science.claim import Qualifier, Referent, build_claim
-from science.contract import base, domain
-from science.identity import v1
-from science.profile import compile_profile
-from science.projection import CLAIM_DOMAIN, claim_identity, project_claim
+from beliefs.claim import Qualifier, Referent, build_claim
+from beliefs.contract import base, domain
+from beliefs.identity import v1
+from beliefs.profile import compile_profile
+from beliefs.projection import CLAIM_DOMAIN, claim_identity, project_claim
 
 AFFECTS = "testing/affects"
 SUBTYPE_OF = "testing/subtype-of"

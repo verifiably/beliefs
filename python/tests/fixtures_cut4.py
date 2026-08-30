@@ -5,7 +5,7 @@ Three acts do this cut's construction work, and only the first is portable:
 * the **raw filesystem write** — §4.2.1's untrusted import. A fixture act and
   never a slice operation: it is how S7's corpus-check half, S8's negative,
   R19(d)/(e)'s read-side nondetection, R22's at-the-address forgery and R23's
-  basis/composition disagreement are built at all. Nothing in `science` writes
+  basis/composition disagreement are built at all. Nothing in `beliefs` writes
   this way;
 * the **durable mint** through the add path on the certified tuple, walked back
   out through the read surface after reload — the acceptance command's;
@@ -25,7 +25,7 @@ from nodes.core.frontmatter import node_to_markdown
 from nodes.core.ids import NodeId
 from nodes.core.node import Node
 
-from science.corpus import ReadView
+from beliefs.corpus import ReadView
 
 __all__ = ["path_for", "raw_write", "reopen"]
 

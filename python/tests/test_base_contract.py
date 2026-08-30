@@ -10,8 +10,8 @@ import copy
 import pytest
 import yaml
 
-from science.contract import base
-from science.errors import MalformedContract, TagCollision
+from beliefs.contract import base
+from beliefs.errors import MalformedContract, TagCollision
 
 SOURCE = "<test>"
 
@@ -74,7 +74,7 @@ class TestContentIdentity:
         assert parse(yaml.safe_load(commented)).content_identity == parse(yaml.safe_load(original)).content_identity
 
     def test_it_is_domain_separated(self, document):
-        from science.identity import v1
+        from beliefs.identity import v1
 
         assert parse(document).content_identity == v1.digest("science.contract.v1", document)
         assert parse(document).content_identity != v1.digest("science.dataset.v1", document)

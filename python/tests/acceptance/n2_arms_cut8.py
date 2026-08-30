@@ -488,7 +488,7 @@ CUT8_ARMS: tuple[Arm, ...] = (
         row="L1u1",
         asserts=(
             "no cooperative mutation path skips registration, asserted over the composition surface: "
-            "`science.root` is the only atoms importer, every registered-surface mutation flows through "
+            "`beliefs.root` is the only atoms importer, every registered-surface mutation flows through "
             "`run_transaction`, and genesis registration and intent append are protocol entries rather "
             "than application mutations"
         ),

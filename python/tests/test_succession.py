@@ -25,13 +25,13 @@ from succession_fixtures import (
     verification,
 )
 
-from science import stored, succession
-from science.errors import AdmissionEvidenceRefused
-from science.intents import reduce as intent_reduce
-from science.runrecord import publication_plan
-from science.spec import SuccessorAdmitted, SuccessorRefused
-from science.succession import REASONS, admit_spec_successor
-from science.world.records import RECORD_CEILING
+from beliefs import stored, succession
+from beliefs.errors import AdmissionEvidenceRefused
+from beliefs.intents import reduce as intent_reduce
+from beliefs.runrecord import publication_plan
+from beliefs.spec import SuccessorAdmitted, SuccessorRefused
+from beliefs.succession import REASONS, admit_spec_successor
+from beliefs.world.records import RECORD_CEILING
 
 
 def _refuses(root, candidate, superseded, reason: str) -> AdmissionEvidenceRefused:

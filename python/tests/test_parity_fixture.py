@@ -3,7 +3,7 @@
 The fixture is a **frozen conformance oracle**. It is generated once by
 `tools/generate_claim_identity_fixture.py`, reviewed, and committed; nothing here
 regenerates it, and the generator lives outside the installed package so that
-`science` cannot reach it. A fixture recomputed during a test run asserts only
+`beliefs` cannot reach it. A fixture recomputed during a test run asserts only
 that the implementation agrees with itself, which is the one thing a parity test
 must not be satisfied by.
 
@@ -30,12 +30,12 @@ import json
 import pytest
 from conftest import REPO_ROOT
 
-from science.claim import Qualifier, Referent, build_claim
-from science.contract import load_domain_contract
-from science.contract.base import TAG_ENCODING
-from science.identity import v1
-from science.profile import compile_profile
-from science.projection import CLAIM_DOMAIN, claim_identity, project_claim
+from beliefs.claim import Qualifier, Referent, build_claim
+from beliefs.contract import load_domain_contract
+from beliefs.contract.base import TAG_ENCODING
+from beliefs.identity import v1
+from beliefs.profile import compile_profile
+from beliefs.projection import CLAIM_DOMAIN, claim_identity, project_claim
 
 # Loaded at import time so the vector can drive parametrization: a row added to
 # the artifact is then tested by construction, rather than by a hand-kept list

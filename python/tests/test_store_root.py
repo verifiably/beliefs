@@ -16,10 +16,10 @@ import pytest
 from atoms.chain.model import GenesisEntry, encode_entry, entry_digest
 from atoms.core.errors import PreconditionRefused
 
-from science import root as science_root
-from science.errors import CorpusRootRefused
-from science.root import LifecycleState, init_store_root
-from science.world.verify import registered_surface_paths
+from beliefs import root as science_root
+from beliefs.errors import CorpusRootRefused
+from beliefs.root import LifecycleState, init_store_root
+from beliefs.world.verify import registered_surface_paths
 
 _HEX32 = re.compile(r"^[0-9a-f]{32}$")
 
@@ -154,7 +154,7 @@ class TestStoreGenesisPayload:
         lifted = science_root._store_genesis_payload(store_id, forked)
         assert science_root._decode_store_genesis(lifted) == (store_id, forked)
 
-        from science.identity import v1
+        from beliefs.identity import v1
 
         malformed = (
             v1.encode({"domain": science_root.STORE_GENESIS_DOMAIN}),

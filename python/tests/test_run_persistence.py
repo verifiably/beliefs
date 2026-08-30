@@ -15,12 +15,12 @@ from nodes.core.frontmatter import node_from_markdown
 from nodes.core.write_plan import CreateOp
 from test_operation_port import durable_port
 
-from science import root as science_root
-from science import runrecord, stored
-from science.boundary import RunMinted, RunRefused
-from science.production import mint_dataset
-from science.root import init_corpus_root
-from science.world.logmodel import IntentEntryView, RegisteredEntryView, WellFormedView
+from beliefs import root as science_root
+from beliefs import runrecord, stored
+from beliefs.boundary import RunMinted, RunRefused
+from beliefs.production import mint_dataset
+from beliefs.root import init_corpus_root
+from beliefs.world.logmodel import IntentEntryView, RegisteredEntryView, WellFormedView
 
 
 def _observer_port(base):
@@ -100,7 +100,7 @@ def test_kill_between_append_and_start_leaves_intent_only(certified_work, monkey
             raise AssertionError("no publication may run")
 
     engine_calls: list[object] = []
-    monkeypatch.setattr("science.boundary.run_engine", lambda *args, **kwargs: engine_calls.append(args))
+    monkeypatch.setattr("beliefs.boundary.run_engine", lambda *args, **kwargs: engine_calls.append(args))
     with pytest.raises(_Killed):
         run_assessment(certified_work / "work", port=KilledAfterAppend())
     entries = _entries(root)
@@ -127,7 +127,7 @@ def test_kill_between_append_and_start_leaves_intent_only_operation_kind(
             raise AssertionError("no publication may run")
 
     engine_calls: list[object] = []
-    monkeypatch.setattr("science.boundary.run_engine", lambda *args, **kwargs: engine_calls.append(args))
+    monkeypatch.setattr("beliefs.boundary.run_engine", lambda *args, **kwargs: engine_calls.append(args))
     with pytest.raises(_Killed):
         run_production(certified_work / "work", port=KilledAfterAppend())
     entries = _entries(root)
@@ -220,7 +220,7 @@ def test_replay_recipe_mismatch_publishes_refusal_not_run_production(certified_w
 
 
 def test_no_caller_supplied_fulfills_path_exists() -> None:
-    from science.boundary import execute_assessment_run, execute_production_run
+    from beliefs.boundary import execute_assessment_run, execute_production_run
 
     for entrypoint in (execute_assessment_run, execute_production_run):
         assert "fulfills" not in inspect.signature(entrypoint).parameters

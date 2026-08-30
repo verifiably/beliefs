@@ -8,8 +8,8 @@ be constructed (cut 2 §4.2). What binds v1 today is P5, below.
 
 import pytest
 
-from science.errors import MalformedRecord
-from science.policy import (
+from beliefs.errors import MalformedRecord
+from beliefs.policy import (
     BELIEF_V1,
     BELIEF_V1_FIXTURES,
     AggregationInput,

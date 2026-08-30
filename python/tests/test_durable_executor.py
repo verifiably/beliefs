@@ -31,9 +31,9 @@ from atoms.store.errors import MetadataStoreInvalid
 from nodes.core.errors import ExecutionError, PlanRefusedError
 from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp, WritePlan
 
-from science import root as science_root
-from science.identity import v1
-from science.root import CONSUMER_TAG, CREATED_FILE_MODE, PRODUCTION_STORAGE, DurableExecutor
+from beliefs import root as science_root
+from beliefs.identity import v1
+from beliefs.root import CONSUMER_TAG, CREATED_FILE_MODE, PRODUCTION_STORAGE, DurableExecutor
 
 CONTENT = b"# a node\n"
 DIGEST = sha256(CONTENT).hexdigest()

@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from science.root import init_corpus_root, metadata_root_for, open_corpus
+from beliefs.root import init_corpus_root, metadata_root_for, open_corpus
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_WORK = REPO_ROOT / ".cut4-acceptance"

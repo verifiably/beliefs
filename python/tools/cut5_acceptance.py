@@ -28,7 +28,7 @@ def work_directory() -> Path:
 
 
 def probe(run: Path) -> str | None:
-    from science.root import init_corpus_root, metadata_root_for
+    from beliefs.root import init_corpus_root, metadata_root_for
 
     root = run / "probe"
     try:

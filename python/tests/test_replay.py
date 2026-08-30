@@ -33,15 +33,15 @@ from fixtures_cut3 import (
     memory_replay as replay_of,
 )
 
-from science.admission import admit
-from science.belief import Belief
-from science.boundary import RunMinted, RunRefused, execute_assessment_run
-from science.closure import build_closure
-from science.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
-from science.errors import MalformedRecord
-from science.recipe import ResultManifest, TraceJob
-from science.record import AssessmentValue, RunInput, RunValue
-from science.replay import (
+from beliefs.admission import admit
+from beliefs.belief import Belief
+from beliefs.boundary import RunMinted, RunRefused, execute_assessment_run
+from beliefs.closure import build_closure
+from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
+from beliefs.errors import MalformedRecord
+from beliefs.recipe import ResultManifest, TraceJob
+from beliefs.record import AssessmentValue, RunInput, RunValue
+from beliefs.replay import (
     AVAILABLE,
     CONFORMING,
     CONTENT_EQUALITY,
@@ -54,9 +54,9 @@ from science.replay import (
     derive_scope,
     replay_eligibility,
 )
-from science.report import CLOSED, completion
-from science.spec import Deterministic, RealizedSeeds, Seeded, SeedPlan, StochasticUnseeded, derive_seed, freeze
-from science.verification import Verification, lifecycle_state
+from beliefs.report import CLOSED, completion
+from beliefs.spec import Deterministic, RealizedSeeds, Seeded, SeedPlan, StochasticUnseeded, derive_seed, freeze
+from beliefs.verification import Verification, lifecycle_state
 
 
 @pytest.fixture(scope="module")

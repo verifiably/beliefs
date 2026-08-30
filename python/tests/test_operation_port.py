@@ -19,19 +19,19 @@ from atoms.store.errors import MetadataStoreInvalid
 from nodes.core.errors import ExecutionError, PlanRefusedError
 from nodes.core.write_plan import CreateOp, WritePlan
 
-from science import root as science_root
-from science import stored
-from science.corpus import CorpusWriter, OperationPort, _operation_lock_for
-from science.errors import BuildHold
-from science.root import (
+from beliefs import root as science_root
+from beliefs import stored
+from beliefs.corpus import CorpusWriter, OperationPort, _operation_lock_for
+from beliefs.errors import BuildHold
+from beliefs.root import (
     PRODUCTION_STORAGE,
     DurableOperationPort,
     init_corpus_root,
     init_store_root,
     open_corpus,
 )
-from science.world.logmodel import RegisteredEntryView, WellFormedView
-from science.world.records import RECORD_CEILING
+from beliefs.world.logmodel import RegisteredEntryView, WellFormedView
+from beliefs.world.records import RECORD_CEILING
 
 FULFILLS = "ab" * 32
 PAYLOAD = b"\x00opaque intent\xff"

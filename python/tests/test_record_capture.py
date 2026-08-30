@@ -9,7 +9,7 @@ from capture_mode_fixtures import (
     unreadable_leaf_at_open,
 )
 
-from science.world import records
+from beliefs.world import records
 
 
 def _corpus(root: Path) -> Path:

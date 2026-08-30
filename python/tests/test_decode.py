@@ -21,11 +21,11 @@ from typing import ClassVar
 
 import pytest
 
-from science import resolution
-from science.claim import Claim, Referent, build_claim
-from science.contract.domain import VocabularyBinding
-from science.decode import WireClaim, decode_claim
-from science.errors import (
+from beliefs import resolution
+from beliefs.claim import Claim, Referent, build_claim
+from beliefs.contract.domain import VocabularyBinding
+from beliefs.decode import WireClaim, decode_claim
+from beliefs.errors import (
     ArityMismatch,
     ClaimError,
     DecodeError,
@@ -39,11 +39,11 @@ from science.errors import (
     UnboundReferent,
     UndeclaredDimension,
 )
-from science.identifiers import canonical
-from science.identity import v1
-from science.profile import compile_profile
-from science.projection import claim_identity
-from science.resolution import BindingCheckReceipt, ReferentPosition, ResolutionSnapshot, TermOutcome, build_snapshot
+from beliefs.identifiers import canonical
+from beliefs.identity import v1
+from beliefs.profile import compile_profile
+from beliefs.projection import claim_identity
+from beliefs.resolution import BindingCheckReceipt, ReferentPosition, ResolutionSnapshot, TermOutcome, build_snapshot
 
 EX = VocabularyBinding(namespace="EX", release="2026-01-01", dataset_identity=None)
 COHORT_DATASET = VocabularyBinding(namespace=None, release=None, dataset_identity="0" * 64)
@@ -57,7 +57,7 @@ ABSENT = "EX:not-in-the-vocabulary"
 
 @pytest.fixture()
 def profile(base_contract, testing_contract_path):
-    from science.contract import load_domain_contract
+    from beliefs.contract import load_domain_contract
 
     testing = load_domain_contract(testing_contract_path, base=base_contract, predecessor=None)
     return compile_profile(base_contract, [testing])
@@ -186,12 +186,12 @@ class TestM11DecodeIsAFunctionOfItsArguments:
         claim, receipt = decode_claim(affects(), profile=profile, snapshot=readable)
         script = textwrap.dedent(f"""
             from pathlib import Path
-            from science.contract import load_base_contract, load_domain_contract
-            from science.contract.domain import VocabularyBinding
-            from science.profile import compile_profile
-            from science.decode import WireClaim, decode_claim
-            from science.projection import claim_identity
-            from science.resolution import build_snapshot
+            from beliefs.contract import load_base_contract, load_domain_contract
+            from beliefs.contract.domain import VocabularyBinding
+            from beliefs.profile import compile_profile
+            from beliefs.decode import WireClaim, decode_claim
+            from beliefs.projection import claim_identity
+            from beliefs.resolution import build_snapshot
 
             base = load_base_contract(Path({str(base_contract_path)!r}))
             testing = load_domain_contract(Path({str(testing_contract_path)!r}), base=base, predecessor=None)
@@ -365,8 +365,8 @@ class TestM11DecodeIsAFunctionOfItsArguments:
         """
         import copy
 
-        from science.contract import domain
-        from science.errors import WithdrawnFromAuthoring
+        from beliefs.contract import domain
+        from beliefs.errors import WithdrawnFromAuthoring
 
         document = copy.deepcopy(testing_document)
         document["operators"]["affects"]["retired"] = True
@@ -487,9 +487,9 @@ class TestM13TheWireTypeIsConfinedToTheDecodeModule:
         import importlib
         import pkgutil
 
-        import science
+        import beliefs
 
-        for info in pkgutil.walk_packages(science.__path__, prefix="science."):
+        for info in pkgutil.walk_packages(beliefs.__path__, prefix="beliefs."):
             module = importlib.import_module(info.name)
             for name, value in vars(module).items():
                 if name.startswith("_") or not callable(value):
@@ -503,7 +503,7 @@ class TestM13TheWireTypeIsConfinedToTheDecodeModule:
 
         offenders = []
         for module_name, name, value in self._public_callables():
-            if module_name == "science.decode":
+            if module_name == "beliefs.decode":
                 continue
             try:
                 signature = inspect.signature(value)
@@ -612,7 +612,7 @@ class TestDecodeInvertsTheProjection:
         # The wire may carry it; an author may not. Decode maps the tag back to
         # the unit inhabitant, which is a different act from accepting it as a
         # sign — and `build_claim` still refuses it.
-        from science.errors import PolarityRefused
+        from beliefs.errors import PolarityRefused
 
         with pytest.raises(PolarityRefused):
             build_claim(

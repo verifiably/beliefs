@@ -14,8 +14,8 @@ from __future__ import annotations
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 
-from science import stored
-from science.corpus import CorpusWriter
+from beliefs import stored
+from beliefs.corpus import CorpusWriter
 
 SPEC = "analysis-spec:s1"
 RULE = "rule:threshold"

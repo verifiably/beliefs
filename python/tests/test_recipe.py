@@ -22,7 +22,7 @@ from fixtures_cut3 import (
     spec_rules,
 )
 
-from science.errors import (
+from beliefs.errors import (
     BinaryFloatRefused,
     KeyCollision,
     MalformedClosure,
@@ -30,8 +30,8 @@ from science.errors import (
     NullRefused,
     UnsafeInvocation,
 )
-from science.identity import v1
-from science.recipe import (
+from beliefs.identity import v1
+from beliefs.recipe import (
     BOUNDARY_RECEIPT_DOMAIN,
     BoundaryPolicy,
     BoundaryReceipt,
@@ -44,8 +44,8 @@ from science.recipe import (
     TraceJob,
     project_recipe,
 )
-from science.record import AssessmentValue, SourceAssertion
-from science.spec import (
+from beliefs.record import AssessmentValue, SourceAssertion
+from beliefs.spec import (
     Deterministic,
     ExclusionCertification,
     RealizedSeeds,

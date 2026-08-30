@@ -6,16 +6,16 @@ import pytest
 from nodes.core.store import Store
 from nodes.core.write_plan import DefaultExecutor
 
-from science import stored
-from science.corpus import CorpusWriter
-from science.errors import MalformedRecord, WriteRefused
-from science.holdings.records import (
+from beliefs import stored
+from beliefs.corpus import CorpusWriter
+from beliefs.errors import MalformedRecord, WriteRefused
+from beliefs.holdings.records import (
     HOLDINGS_OBSERVATION_DOMAIN,
     Found,
     StoreLocator,
     holdings_observation,
 )
-from science.world import epoch
+from beliefs.world import epoch
 
 
 def observation(**changes: object):

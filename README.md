@@ -1,9 +1,19 @@
-# science
+# beliefs
 
-A system for recording scientific belief and the evidence it rests on, built on
-two substrates: [`nodes`](https://github.com/khughitt/nodes) (the logical
-entity/relation kernel) and [`atoms`](https://github.com/khughitt/atoms)
-(durable atomic filesystem effects).
+The epistemic kernel of **Science** — a system for recording scientific belief
+and the evidence it rests on. This repository is the `beliefs` layer: the
+typed kernel kinds, the world, runs and their verification, the mutation log,
+holdings, the correction lifecycle, and the conformance cuts that certify
+them. It is built on two substrates, [`nodes`](https://github.com/khughitt/nodes)
+(the logical entity/relation kernel) and [`atoms`](https://github.com/khughitt/atoms)
+(durable atomic filesystem effects), and it is consumed by the two layers above
+it — `science`, the daily surface people and agents use, and `autonomy`, the
+envelope and orchestrator — whose design is
+`docs/superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md`.
+"Science" names the whole stack; the rename of this repository from `science`
+to `beliefs` is that design's §3.1 (2026-08-30), and its contract and rule
+identities (`contract: science`, `science.identity.v1`, …) are the names of
+rules, not of this repository, and did not change.
 
 This repository is a clean start. Its predecessor is preserved, public and
 unchanged, as [`proto-science`](https://github.com/khughitt/proto-science) —
@@ -93,7 +103,7 @@ evidence trail, and unresolved design questions live in the guide's
 [open questions](docs/guide/open-questions.md).
 
 ```
-python/     the implementation (substrate §11 puts the composition root here)
+python/     the implementation, package `beliefs` (substrate §11 puts the composition root here)
 ts/         the one shared encoding, and nothing else (formal model lim. 9)
 fixtures/   the cross-language parity corpus, owned by neither
 contracts/  the science base contract

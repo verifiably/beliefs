@@ -6,13 +6,13 @@ from pathlib import Path
 
 from fixtures_cut3 import D_IN, closure_kwargs, report
 
-import science
-from science.admission import admit
-from science.closure import build_closure
-from science.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, admission_state, dataset_address
-from science.record import AssessmentValue, RunInput, RunValue
-from science.report import ActReport
-from science.verification import Verification
+import beliefs
+from beliefs.admission import admit
+from beliefs.closure import build_closure
+from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, admission_state, dataset_address
+from beliefs.record import AssessmentValue, RunInput, RunValue
+from beliefs.report import ActReport
+from beliefs.verification import Verification
 
 
 def admitted_scenario():
@@ -55,7 +55,7 @@ def test_t4_adding_and_removing_reports_leaves_belief_admission_and_eligibility_
 def test_t4_no_belief_bearing_signature_names_a_report():
     for fn in (build_closure, admit, admission_state):
         assert not {"report", "reports", "act_report"} & set(inspect.signature(fn).parameters)
-    from science.belief import Records
+    from beliefs.belief import Records
 
     assert "reports" not in {field.name for field in dataclasses.fields(Records)}
 
@@ -63,19 +63,19 @@ def test_t4_no_belief_bearing_signature_names_a_report():
 def test_t4_the_belief_modules_never_import_the_report_layer():
     # Inert BY TYPE: the reference conveys neither protection nor force, and
     # the derivations cannot even see the layer (act-report §2.3).
-    import science.admission
-    import science.belief
-    import science.closure
-    import science.dataset
+    import beliefs.admission
+    import beliefs.belief
+    import beliefs.closure
+    import beliefs.dataset
 
-    for module in (science.admission, science.belief, science.closure, science.dataset):
+    for module in (beliefs.admission, beliefs.belief, beliefs.closure, beliefs.dataset):
         source = inspect.getsource(module)
-        assert "science.report" not in source and "science.boundary" not in source
+        assert "beliefs.report" not in source and "beliefs.boundary" not in source
 
 
 def test_t1_no_construction_path_authors_an_act_report():
-    import science.boundary as boundary_module
-    import science.report as report_module
+    import beliefs.boundary as boundary_module
+    import beliefs.report as report_module
 
     assert "_mint_report" not in report_module.__all__
     report_fields = {field.name for field in dataclasses.fields(ActReport)}
@@ -93,6 +93,6 @@ def test_t1_no_construction_path_authors_an_act_report():
 def test_t1_the_constructor_is_reachable_only_from_the_boundary():
     # The one src caller of the private constructor is the boundary — the
     # in-slice form of "minted only by the boundary" (cut 3 §9 item 2).
-    src = Path(science.__file__).parent
+    src = Path(beliefs.__file__).parent
     callers = [path.name for path in src.rglob("*.py") if "_mint_report" in path.read_text(encoding="utf-8")]
     assert sorted(callers) == ["boundary.py", "report.py"]

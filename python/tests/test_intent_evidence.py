@@ -4,12 +4,12 @@ import pytest
 from closure_fixtures import make_closure, sample_report
 from nodes.core.frontmatter import node_to_markdown
 
-from science import stored
-from science.errors import RecordUndecodable
-from science.holdings.records import Found, StoreLocator, holdings_observation
-from science.intents import evidence, shapes
-from science.intents.evidence import decode_node
-from science.intents.holdings import decode_holdings_intent
+from beliefs import stored
+from beliefs.errors import RecordUndecodable
+from beliefs.holdings.records import Found, StoreLocator, holdings_observation
+from beliefs.intents import evidence, shapes
+from beliefs.intents.evidence import decode_node
+from beliefs.intents.holdings import decode_holdings_intent
 
 
 @pytest.fixture
@@ -36,7 +36,7 @@ def sample_observation_node():
 
 
 def test_run_publication_decodes_to_run_evidence(assessment_closure) -> None:
-    from science.runrecord import publication_plan
+    from beliefs.runrecord import publication_plan
 
     _, path, (op,) = publication_plan(assessment_closure)
     decoded = evidence.decode_record(path, op.content)
@@ -56,7 +56,7 @@ def test_legacy_run_is_inert_not_undecodable() -> None:
 def test_stale_stamp_is_undecodable(assessment_closure) -> None:
     from nodes.core.frontmatter import node_from_markdown
 
-    from science.runrecord import publication_plan
+    from beliefs.runrecord import publication_plan
 
     _, path, (op,) = publication_plan(assessment_closure)
     node = node_from_markdown(op.content.decode("utf-8"))

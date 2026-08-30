@@ -3,7 +3,7 @@
 **Two boundaries, two checks, neither standing in for the other.** S8 is about
 who holds a **mutable corpus handle**: the write API is its only holder, every
 other module receives a `ReadView`, and constructing or receiving a `Corpus`
-outside `science.corpus` is a static violation. The `atoms`-import confinement
+outside `beliefs.corpus` is a static violation. The `atoms`-import confinement
 is about engine capability and is architecture, not an S8 arm — it is asserted
 here because it belongs beside S8, not inside it.
 
@@ -25,9 +25,9 @@ from typing import get_args
 
 import pytest
 
-import science
+import beliefs
 
-PACKAGE = Path(science.__file__).resolve().parent
+PACKAGE = Path(beliefs.__file__).resolve().parent
 """The package as **imported**, not as checked out.
 
 The sabotage harness runs a check against a copy of the package on
@@ -70,7 +70,7 @@ ENGINE_COMMANDS = (
 )
 """The engine entry points Science calls by name, the log seam's four included.
 
-`append_intent` is deliberately absent: `science.corpus` declares a port method
+`append_intent` is deliberately absent: `beliefs.corpus` declares a port method
 of that name, so the bare name is not evidence of an engine call. Every name
 here is one only `root.py` may write — the confinement asserted over imports
 above, restated over *use* so a module reaching one through an alias or a
@@ -137,13 +137,13 @@ def imported_modules(tree: ast.Module) -> set[str]:
 
 
 def composition_root_imports(tree: ast.Module) -> list[str]:
-    """Every statement that binds `science.root`, in all four spellings.
+    """Every statement that binds `beliefs.root`, in all four spellings.
 
-    `imported_modules` records an `ImportFrom`'s *module*, so `from science
-    import root` shows up there as plain `"science"` — a module-name predicate
+    `imported_modules` records an `ImportFrom`'s *module*, so `from beliefs
+    import root` shows up there as plain `"beliefs"` — a module-name predicate
     reading that set would miss the shortest evasion there is. The submodule
     can be bound four ways and each one is checked here: `import
-    science.root`, `from science.root import …`, `from science import root`,
+    beliefs.root`, `from beliefs.root import …`, `from beliefs import root`,
     and the package-relative `from .. import root` a module inside the package
     can write. The last two are recognized by the *alias* rather than the
     module, which is exactly what a set of module names cannot express.
@@ -154,19 +154,19 @@ def composition_root_imports(tree: ast.Module) -> list[str]:
             offending.extend(
                 alias.name
                 for alias in node.names
-                if alias.name == "science.root" or alias.name.startswith("science.root.")
+                if alias.name == "beliefs.root" or alias.name.startswith("beliefs.root.")
             )
             continue
         if not isinstance(node, ast.ImportFrom):
             continue
         module = node.module or ""
         statement = f"from {'.' * node.level}{module}"
-        # Inside the package the leading dots stand in for `science`, so a
+        # Inside the package the leading dots stand in for `beliefs`, so a
         # relative import's module part is measured against `root` and an
-        # absolute one's against `science.root`; `package` is what each
+        # absolute one's against `beliefs.root`; `package` is what each
         # spelling calls the package whose `root` submodule an alias may name.
-        submodule = "root" if node.level else "science.root"
-        package = "" if node.level else "science"
+        submodule = "root" if node.level else "beliefs.root"
+        package = "" if node.level else "beliefs"
         if module == submodule or module.startswith(submodule + "."):
             offending.append(statement)
         elif module == package:
@@ -205,7 +205,7 @@ class TestS8TheMutableCorpusHandleHasOneHolder:
 
     def test_a_read_view_is_what_every_other_module_receives(self):
         # The positive half: the facade is exported, and the handle is not.
-        from science.corpus import ReadView
+        from beliefs.corpus import ReadView
 
         assert not hasattr(ReadView, "add")
         assert not any(name.startswith(("add", "delete")) for name in vars(ReadView))
@@ -250,10 +250,10 @@ class TestTheWorldPackageHoldsNoEngineCapability:
     build's anchors are chain digests, preflight completes recovery before it
     inspects a single world file, and the log seam hands verification a whole
     chain. It gets there through injected callables and never through `atoms`
-    — the chain arrives already re-typed into `science.world.logmodel`'s own
+    — the chain arrives already re-typed into `beliefs.world.logmodel`'s own
     unions, and the only engine-derived *values* above the composition root
     are chain digests and path-state fingerprints the layer holds opaquely and
-    compares only by equality. Asserting it here, over `science/world/` by
+    compares only by equality. Asserting it here, over `beliefs/world/` by
     name, means a future module in that package cannot pass by being one of
     many.
     """
@@ -277,13 +277,13 @@ class TestTheWorldPackageHoldsNoEngineCapability:
         """The second half of the same confinement.
 
         Banning `atoms` alone would leave the world layer one hop away from
-        every engine type: `science.root` holds them all, so importing it is
+        every engine type: `beliefs.root` holds them all, so importing it is
         importing the engine with extra steps. The seam types the world layer
         does hold are handed to it as values, never fetched from the module
         that builds them.
 
         Checked over statements rather than over module names, because `from
-        science import root` binds the module while naming only the package.
+        beliefs import root` binds the module while naming only the package.
         """
         offending = composition_root_imports(parsed(module))
         assert offending == [], f"{relative(module)} imports {offending}"
@@ -296,14 +296,14 @@ class TestTheWorldPackageHoldsNoEngineCapability:
         """`ChainView` is now a name in both vocabularies, so the bare name is
         no longer the check — the object is.
 
-        `science.world.logmodel` mints its own closed union under that name
+        `beliefs.world.logmodel` mints its own closed union under that name
         because the seam speaks Science's vocabulary; the engine's `ChainView`
         is a different class, reachable only through an `atoms` import the arms
         above forbid.
         """
         from atoms.coordinator.commands import ChainView as EngineChainView
 
-        from science.world.logmodel import ChainView as ScienceChainView
+        from beliefs.world.logmodel import ChainView as ScienceChainView
 
         assert ScienceChainView is not EngineChainView
 
@@ -326,26 +326,26 @@ class TestTheWorldPackageHoldsNoEngineCapability:
         offender = tmp_path / "epoch.py"
         offender.write_text(
             "from atoms.coordinator.commands import read_chain\n"
-            "from science.root import _log_seam\n\n\n"
+            "from beliefs.root import _log_seam\n\n\n"
             "def head(root, backend, storage):\n"
             "    return read_chain(backend, str(root), str(root), storage)\n",
             encoding="utf-8",
         )
         tree = parsed(offender)
         assert any(name.startswith("atoms") for name in imported_modules(tree))
-        assert composition_root_imports(tree) == ["from science.root"]
+        assert composition_root_imports(tree) == ["from beliefs.root"]
         assert "read_chain" in names_of(tree)
 
     @pytest.mark.parametrize(
         "statement",
         [
-            "import science.root",
-            "import science.root as science_root",
-            "from science.root import _log_seam",
+            "import beliefs.root",
+            "import beliefs.root as beliefs_root",
+            "from beliefs.root import _log_seam",
             # The evasion the module-name predicate this replaced could not
-            # see: `imported_modules` records only `science` for this form.
-            "from science import root",
-            "from science import root as science_root",
+            # see: `imported_modules` records only `beliefs` for this form.
+            "from beliefs import root",
+            "from beliefs import root as beliefs_root",
             "from .. import root",
             "from ..root import _log_seam",
         ],
@@ -359,17 +359,17 @@ class TestTheWorldPackageHoldsNoEngineCapability:
     @pytest.mark.parametrize(
         "statement",
         [
-            "import science",
-            "from science import stored",
-            "from science.world.anchors import LogHeadRecord",
-            "from science.corpus import ReadView",
+            "import beliefs",
+            "from beliefs import stored",
+            "from beliefs.world.anchors import LogHeadRecord",
+            "from beliefs.corpus import ReadView",
             "from .anchors import LogHeadRecord",
             "from .. import corpus",
             "from ..corpus import ReadView",
         ],
     )
     def test_the_check_does_not_see_the_imports_the_world_layer_may_write(self, tmp_path, statement):
-        # The other half: a ban that also caught `from science import stored`
+        # The other half: a ban that also caught `from beliefs import stored`
         # would be an assertion nobody could satisfy, and would be deleted
         # rather than obeyed.
         offender = tmp_path / "epoch.py"
@@ -416,7 +416,7 @@ same recorded operation approached from its two durable states.
 """
 
 PORT_METHOD_NAMES = frozenset({"append_intent"})
-"""`science.runrecord` declares an `OperationPort` method of this name, so the bare
+"""`beliefs.runrecord` declares an `OperationPort` method of this name, so the bare
 name is not evidence of an engine call and the name ban above cannot cover it —
 exactly the carve-out `ENGINE_COMMANDS` already records. The *call sites* are
 still counted: a port method is an `Attribute`, and the composition root's own
@@ -504,7 +504,7 @@ def test_no_cooperative_mutation_path_skips_registration():
     """L1u1. The unspellability arm, over the composition surface.
 
     Three facts, and no cooperative mutation path survives all three. First,
-    `science.root` is the only `atoms` importer, so no other module holds
+    `beliefs.root` is the only `atoms` importer, so no other module holds
     engine capability at all. Second, the three mutating engine commands are
     named only there, and each is called from exactly the definitions the
     composition allows: **one** `run_transaction` site, the shared mapped
@@ -591,7 +591,7 @@ def test_science_fingerprints_only_through_the_engine_read_commands():
     # engine's union, and every member Science names is that class.
     from atoms.core.fingerprint import AbsentState, DirectoryState, FileState, PathState, SymlinkState
 
-    import science.root as composition
+    import beliefs.root as composition
 
     assert set(get_args(PathState)) == {AbsentState, DirectoryState, FileState, SymlinkState}
     assert composition.FileState is FileState

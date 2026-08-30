@@ -19,15 +19,15 @@ from fixtures_cut3 import D_OUT, recipe, spec_draft, spec_rules
 from fixtures_cut3 import closure as run_closure
 from fixtures_cut4 import raw_write, reopen
 
-from science import stored
-from science.admission import admit
-from science.closure import RetractionEnumeration, build_closure
-from science.corpus import corpus_check, lineage_snapshot, run_value
-from science.dataset import ByteObservation, dataset_address
-from science.lineage import LineageSnapshot
-from science.replay import byte_tolerance_rule
-from science.spec import freeze
-from science.verify import build_verification
+from beliefs import stored
+from beliefs.admission import admit
+from beliefs.closure import RetractionEnumeration, build_closure
+from beliefs.corpus import corpus_check, lineage_snapshot, run_value
+from beliefs.dataset import ByteObservation, dataset_address
+from beliefs.lineage import LineageSnapshot
+from beliefs.replay import byte_tolerance_rule
+from beliefs.spec import freeze
+from beliefs.verify import build_verification
 
 OBSERVED_DIGEST = "sha256:" + "1a" * 32
 ASSESSMENT = "assessment:a1"

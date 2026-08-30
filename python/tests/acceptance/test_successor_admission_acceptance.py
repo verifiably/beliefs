@@ -21,12 +21,12 @@ from succession_fixtures import (
 )
 from test_world_log_audit import corpus_anchor, real_audit
 
-from science.errors import AdmissionEvidenceRefused
-from science.runrecord import publication_plan
-from science.spec import SuccessorAdmitted, SuccessorRefused
-from science.succession import admit_spec_successor
-from science.world import anchors, registry
-from science.world.logmodel import MalformedView, RegisteredEntryView, WellFormedView
+from beliefs.errors import AdmissionEvidenceRefused
+from beliefs.runrecord import publication_plan
+from beliefs.spec import SuccessorAdmitted, SuccessorRefused
+from beliefs.succession import admit_spec_successor
+from beliefs.world import anchors, registry
+from beliefs.world.logmodel import MalformedView, RegisteredEntryView, WellFormedView
 
 CHAIN_LEAF = ".#~chain"
 CORPUS_ID = "a" * 32

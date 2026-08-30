@@ -20,11 +20,11 @@ from dataclasses import dataclass, fields
 
 import pytest
 
-from science.closure import RetractionEnumeration, build_closure
-from science.errors import RuleNonconformant
-from science.identity import v1
-from science.lineage import LineageSnapshot
-from science.world import derive, epoch, rules
+from beliefs.closure import RetractionEnumeration, build_closure
+from beliefs.errors import RuleNonconformant
+from beliefs.identity import v1
+from beliefs.lineage import LineageSnapshot
+from beliefs.world import derive, epoch, rules
 
 # --- building captures -------------------------------------------------------
 
@@ -1020,7 +1020,7 @@ class TestShippedFixtures:
     def test_each_packaged_bundle_installs_and_evaluates_to_the_same_expected_bytes(self, tmp_path):
         from nodes.core.write_plan import DefaultExecutor
 
-        from science.world.registry import World, WorldConfig
+        from beliefs.world.registry import World, WorldConfig
 
         world = World(
             WorldConfig(tmp_path / "world", "f" * 32, ()),

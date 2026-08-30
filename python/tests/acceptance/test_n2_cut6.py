@@ -64,8 +64,8 @@ from n2_arms_cut6 import CUT6_ARMS
 from test_durable_families import chain_entries
 from test_n2 import MalformedArm, audit, baseline
 
-from science import root
-from science.world import Fresh, WorldConfig, admission_digest, status_digest
+from beliefs import root
+from beliefs.world import Fresh, WorldConfig, admission_digest, status_digest
 
 WORKERS = 8
 _COUNTER = count()
@@ -112,7 +112,7 @@ def _pinned(historical: Path):
 
     `test_n2.PACKAGE` is what `_sabotage` copies and mutates; `test_n2.TESTS` is
     where `_run_check` resolves node ids from. Both have to move together: a
-    check taken from the live suite imports `science.world.registry`, which the
+    check taken from the live suite imports `beliefs.world.registry`, which the
     pre-promotion package does not have, and would exit 4 against it.
     """
     with pytest.MonkeyPatch.context() as patch:

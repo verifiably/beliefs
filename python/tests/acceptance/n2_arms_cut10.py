@@ -112,7 +112,7 @@ CUT10_ARMS: tuple[Arm, ...] = (
             module="holdings/boundary.py",
             before="    view = ctx.seam.read_path(ctx.store_root, location.relative_path)",
             after=(
-                "    detached = __import__(\"science.root\", fromlist=[\"_log_seam\", \"_path_state_view\"])\n"
+                "    detached = __import__(\"beliefs.root\", fromlist=[\"_log_seam\", \"_path_state_view\"])\n"
                 "    captured = detached._log_seam().capture(ctx.store_root, (location.relative_path,))\n"
                 "    view = type(\"DetachedView\", (), {\"state\": detached._path_state_view(captured[0][1])})()"
             ),

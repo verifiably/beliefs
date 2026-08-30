@@ -9,8 +9,8 @@ supersession half.
 
 import pytest
 
-from science.errors import MalformedRecord
-from science.verification import (
+from beliefs.errors import MalformedRecord
+from beliefs.verification import (
     ADMITTED,
     INVALIDATED,
     NOT_ADMITTED,

@@ -9,8 +9,8 @@ import yaml
 from fixtures_cut6 import PINS
 from nodes.core.write_plan import CreateOp, DefaultExecutor
 
-import science.world.registry as world_module
-from science.errors import (
+import beliefs.world.registry as world_module
+from beliefs.errors import (
     CorpusIdKnown,
     ForkParentUnknown,
     ManifestMalformed,
@@ -20,7 +20,7 @@ from science.errors import (
     StatusTargetUnknown,
     StatusTerminal,
 )
-from science.identity import v1
+from beliefs.identity import v1
 
 
 def write_manifest(root: Path, corpus_id: str, forked_from: tuple[str, str] | None = None) -> None:

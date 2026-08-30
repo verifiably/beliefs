@@ -12,13 +12,13 @@ from nodes.core.frontmatter import node_to_markdown
 from nodes.core.write_plan import CreateOp, DefaultExecutor
 from test_world_build import ChainHeads
 
-from science import root as science_root
-from science import stored
-from science.holdings.boundary import ActContext, intent_payload, move, recheck, write
-from science.holdings.project import capture_coverage
-from science.holdings.records import Found, StoreLocator, holdings_observation
-from science.holdings.reduce import holdings_rule_bundle
-from science.world import logmodel, registry, rules
+from beliefs import root as science_root
+from beliefs import stored
+from beliefs.holdings.boundary import ActContext, intent_payload, move, recheck, write
+from beliefs.holdings.project import capture_coverage
+from beliefs.holdings.records import Found, StoreLocator, holdings_observation
+from beliefs.holdings.reduce import holdings_rule_bundle
+from beliefs.world import logmodel, registry, rules
 
 
 def setup(root: Path):

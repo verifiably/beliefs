@@ -3,9 +3,9 @@ from __future__ import annotations
 import pytest
 from nodes.core.write_plan import DefaultExecutor
 
-from science import stored
-from science.corpus import CorpusWriter
-from science.errors import ValidationRefused
+from beliefs import stored
+from beliefs.corpus import CorpusWriter
+from beliefs.errors import ValidationRefused
 
 
 def test_display_statement_stored_uncovered():

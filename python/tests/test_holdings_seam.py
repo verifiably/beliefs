@@ -14,8 +14,8 @@ from atoms.core.fingerprint import ABSENT, DirectoryState, FileState
 from nodes.core.errors import ExecutionError
 from nodes.core.write_plan import CreateOp
 
-from science import root as science_root
-from science.holdings.seam import (
+from beliefs import root as science_root
+from beliefs.holdings.seam import (
     AbsentStateView,
     FileStateView,
     NonRegularStateView,
@@ -23,8 +23,8 @@ from science.holdings.seam import (
     ReadNotAttemptedView,
     ReadUnestablishedView,
 )
-from science.identity import v1
-from science.root import (
+from beliefs.identity import v1
+from beliefs.root import (
     CREATED_DIRECTORY_MODE,
     CREATED_FILE_MODE,
     STORE_CONSUMER_TAG,

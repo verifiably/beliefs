@@ -89,9 +89,9 @@ from test_world_build import ALPHA, BETA, corpus_at, genesis_of, sample_nodes, t
 from test_world_read import RETIRED, coreference_successor, linked_nodes
 from test_world_receipts import corpora, document, publish, world_over
 
-from science import root, stored
-from science.errors import EpochCurrent, EpochUnknown
-from science.world import derive, epoch, read, registry, rules
+from beliefs import root, stored
+from beliefs.errors import EpochCurrent, EpochUnknown
+from beliefs.world import derive, epoch, read, registry, rules
 
 WORKERS = 8
 _COUNTER = count()

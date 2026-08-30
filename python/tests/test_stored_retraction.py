@@ -4,8 +4,8 @@ import dataclasses
 
 import pytest
 
-from science import stored
-from science.errors import MalformedRecord
+from beliefs import stored
+from beliefs.errors import MalformedRecord
 
 TARGET = stored.NodeTarget(
     ref="assessment:a1",

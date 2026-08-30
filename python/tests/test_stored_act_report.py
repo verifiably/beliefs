@@ -7,10 +7,10 @@ import pytest
 from fixtures_cut3 import memory_assessment as run_assessment
 from nodes.core.node import Node
 
-from science import stored
-from science.boundary import RunRefused
-from science.errors import MalformedRecord
-from science.report import ACT_REPORT_DOMAIN, ActReport, RunAttemptEntry, RunRefusal
+from beliefs import stored
+from beliefs.boundary import RunRefused
+from beliefs.errors import MalformedRecord
+from beliefs.report import ACT_REPORT_DOMAIN, ActReport, RunAttemptEntry, RunRefusal
 
 
 @pytest.fixture
@@ -39,7 +39,7 @@ def test_boundary_minted_report_round_trips_as_one_covered_stamped_facet(act_rep
         "event_token": act_report.event_token,
         "actor": "tester",
         "observer": "observer-1",
-        "instrument": "science.boundary/v1",
+        "instrument": "beliefs.boundary/v1",
         "opened_at": "2026-08-12T00:00:00Z",
         "closed_at": "2026-08-12T00:00:00Z",
         "entries": [

@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 from fixtures_cut3 import SNAKEFILE_DETERMINISTIC, SNAKEFILE_NONDETERMINISTIC, definition
 
-from science.adapter import (
+from beliefs.adapter import (
     LOG_HANDLER_SCRIPT,
     WorkflowDefinition,
     _canonical_distribution_name,
@@ -30,8 +30,8 @@ from science.adapter import (
     tree_digest,
     validate_entrypoint,
 )
-from science.errors import MalformedClosure, UnsafeInvocation
-from science.recipe import EnvironmentManifest
+from beliefs.errors import MalformedClosure, UnsafeInvocation
+from beliefs.recipe import EnvironmentManifest
 
 
 def make_code_root(tmp_path: Path) -> Path:

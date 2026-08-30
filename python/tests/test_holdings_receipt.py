@@ -13,22 +13,22 @@ from nodes.core.corpus import Corpus
 from nodes.core.write_plan import DefaultExecutor
 from test_world_build import ALPHA, BETA, ChainHeads, corpus_at, make_world
 
-from science import root as science_root
-from science import stored
-from science.corpus import _root_state_for
-from science.holdings import receipt as receipt_module
-from science.holdings.boundary import intent_payload
-from science.holdings.project import capture_coverage
-from science.holdings.receipt import (
+from beliefs import root as science_root
+from beliefs import stored
+from beliefs.corpus import _root_state_for
+from beliefs.holdings import receipt as receipt_module
+from beliefs.holdings.boundary import intent_payload
+from beliefs.holdings.project import capture_coverage
+from beliefs.holdings.receipt import (
     HOLDINGS_RECEIPT_DOMAIN,
     derive_holdings,
     output_digest,
     validate_holdings_receipt,
 )
-from science.holdings.records import StoreLocator
-from science.holdings.reduce import holdings_rule_bundle
-from science.identity import v1
-from science.world import logmodel, registry, rules
+from beliefs.holdings.records import StoreLocator
+from beliefs.holdings.reduce import holdings_rule_bundle
+from beliefs.identity import v1
+from beliefs.world import logmodel, registry, rules
 
 GENESIS = "1" * 64
 NEXT = "2" * 64

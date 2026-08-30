@@ -945,13 +945,13 @@ _T4 = [
             before="    projection: dict[str, object] = {\n",
             after=(
                 "    import gc\n"
-                "    import science.report\n"
+                "    import beliefs.report\n"
                 "\n"
                 "    projection: dict[str, object] = {\n"
                 '        "reports": [\n'
                 "            value.identity()\n"
                 "            for value in gc.get_objects()\n"
-                "            if type(value) is science.report.ActReport\n"
+                "            if type(value) is beliefs.report.ActReport\n"
                 "        ],\n"
             ),
         ),
@@ -1294,7 +1294,7 @@ _CLAUSE_ARMS = [
         "verify.py",
         '    _require_str(epoch, "verification epoch")',
         '    _require_str(epoch, "verification epoch")\n'
-        "    import science.belief as belief_module\n"
+        "    import beliefs.belief as belief_module\n"
         '    belief_module.OUTCOME_SIGNS = {"supported": -1, "refuted": 1, "inconclusive": 0}',
         "test_verify.py::test_r11_a_nondeterministic_transform_yields_all_four",
     ),
@@ -1640,8 +1640,8 @@ _CLAUSE_ARMS = [
         "T1",
         "the private report constructor is reachable only from boundary and report modules",
         "assess.py",
-        "from science.recipe import RunClosure",
-        "from science.recipe import RunClosure\nfrom science.report import _mint_report",
+        "from beliefs.recipe import RunClosure",
+        "from beliefs.recipe import RunClosure\nfrom beliefs.report import _mint_report",
         "test_inertness.py::test_t1_the_constructor_is_reachable_only_from_the_boundary",
     ),
     _clause_arm(

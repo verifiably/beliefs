@@ -25,7 +25,7 @@ from n2_arms_cut11 import (
 )
 from test_n2 import FAILED, PASSED, MalformedArm, _run_check, _sabotage, audit, baseline
 
-import science.root as science_root
+import beliefs.root as science_root
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]

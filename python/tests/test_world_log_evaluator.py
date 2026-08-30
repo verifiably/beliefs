@@ -56,12 +56,12 @@ from test_world_log_codecs import (
 from test_world_log_codecs import MANIFEST as MANIFEST_PATH
 from test_world_log_codecs import RECORD as RECORD_PATH
 
-from science import root as science_root
-from science.errors import ObserverCarrierInvalid
-from science.identity import v1
-from science.world import anchors as anchors_module
-from science.world import verify
-from science.world.anchors import (
+from beliefs import root as science_root
+from beliefs.errors import ObserverCarrierInvalid
+from beliefs.identity import v1
+from beliefs.world import anchors as anchors_module
+from beliefs.world import verify
+from beliefs.world.anchors import (
     AnchorActOrigin,
     CorpusSubject,
     HeadArtifact,
@@ -70,8 +70,8 @@ from science.world.anchors import (
     WorldSubject,
     head_artifact_bytes,
 )
-from science.world.epoch import EPOCH_MEMBERS, packaging_identity_of
-from science.world.logmodel import (
+from beliefs.world.epoch import EPOCH_MEMBERS, packaging_identity_of
+from beliefs.world.logmodel import (
     AbsentView,
     DefectView,
     GenesisEntryView,
@@ -81,7 +81,7 @@ from science.world.logmodel import (
     SettledEntryView,
     WellFormedView,
 )
-from science.world.verify import (
+from beliefs.world.verify import (
     ArtifactCarrier,
     EpochCarrier,
     ObserverSet,
@@ -399,8 +399,8 @@ class TestStructure:
         assert codes(report) == ["genesis-form-invalid"]
 
     def test_the_corpus_genesis_domain_is_the_composition_root_s(self) -> None:
-        """The constant is restated in `anchors` because `science.world` may not
-        import `science.root`; the two spellings are pinned equal so the
+        """The constant is restated in `anchors` because `beliefs.world` may not
+        import `beliefs.root`; the two spellings are pinned equal so the
         restatement cannot drift into a second definition."""
         assert anchors_module.CORPUS_GENESIS_DOMAIN == science_root.GENESIS_DOMAIN
 
@@ -788,7 +788,7 @@ class TestQualification:
     def test_pending_exit_carries_qualification(self) -> None:
         from closure_fixtures import make_closure
 
-        from science.runrecord import publication_plan
+        from beliefs.runrecord import publication_plan
 
         _, run_path, (operation,) = publication_plan(make_closure())
         pointer = registration(

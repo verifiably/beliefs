@@ -25,15 +25,15 @@ from nodes.core.node import Node
 from test_durable_families import chain_entries, proposition
 from test_n2 import MalformedArm, audit, baseline
 
-from science import stored
-from science.belief import Belief, evaluate
-from science.closure import RetractionEnumeration, build_closure
-from science.corpus import CorpusWriter, _cycle_edges, run_value, standing_in_local_view
-from science.dataset import ByteObservation, dataset_address
-from science.errors import BundleMemberHeld, ImportRefused, MalformedRecord, RetractionTargetIneligible
-from science.lineage import LineageSnapshot
-from science.report import ImportedRecords, RecordImportEntry, _mint_report
-from science.verification import ADMITTED, INVALIDATED, NOT_ADMITTED, Verification, lifecycle_state
+from beliefs import stored
+from beliefs.belief import Belief, evaluate
+from beliefs.closure import RetractionEnumeration, build_closure
+from beliefs.corpus import CorpusWriter, _cycle_edges, run_value, standing_in_local_view
+from beliefs.dataset import ByteObservation, dataset_address
+from beliefs.errors import BundleMemberHeld, ImportRefused, MalformedRecord, RetractionTargetIneligible
+from beliefs.lineage import LineageSnapshot
+from beliefs.report import ImportedRecords, RecordImportEntry, _mint_report
+from beliefs.verification import ADMITTED, INVALIDATED, NOT_ADMITTED, Verification, lifecycle_state
 
 WORKERS = 8
 

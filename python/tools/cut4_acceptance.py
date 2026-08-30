@@ -64,7 +64,7 @@ def probe(run: Path) -> str | None:
     then fails an arm has failed the arm — which is the discrimination the
     command exists to keep.
     """
-    from science.root import init_corpus_root, metadata_root_for
+    from beliefs.root import init_corpus_root, metadata_root_for
 
     root = run / "probe"
     try:

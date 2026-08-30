@@ -10,9 +10,9 @@ import copy
 import pytest
 import yaml
 
-from science.contract import domain
-from science.errors import MalformedContract, SubclassRefused, SuccessionViolation
-from science.identity import v1
+from beliefs.contract import domain
+from beliefs.errors import MalformedContract, SubclassRefused, SuccessionViolation
+from beliefs.identity import v1
 
 
 @pytest.fixture()

@@ -11,14 +11,14 @@ from dataclasses import replace
 
 import pytest
 
-from science.closure import Closure, RetractionEnumeration, build_closure
-from science.consulted import CorpusPins, consulted_contracts
-from science.contract import domain
-from science.dataset import DatasetDeclaration, ResourceDeclaration
-from science.lineage import Basis, LineageSnapshot, Producer, Route
-from science.profile import compile_profile
-from science.record import AssessmentValue, RunInput, RunValue
-from science.verification import Verification
+from beliefs.closure import Closure, RetractionEnumeration, build_closure
+from beliefs.consulted import CorpusPins, consulted_contracts
+from beliefs.contract import domain
+from beliefs.dataset import DatasetDeclaration, ResourceDeclaration
+from beliefs.lineage import Basis, LineageSnapshot, Producer, Route
+from beliefs.profile import compile_profile
+from beliefs.record import AssessmentValue, RunInput, RunValue
+from beliefs.verification import Verification
 
 
 def closure_kwargs() -> dict:
@@ -391,7 +391,7 @@ def test_reinterpretation_without_byte_changes_still_moves():
 
 
 def test_closure_is_sealed_against_subclassing():
-    from science.errors import SubclassRefused
+    from beliefs.errors import SubclassRefused
 
     with pytest.raises(SubclassRefused):
 

@@ -17,9 +17,9 @@ from atoms.chain.model import (
 from fixtures_cut4 import path_for, reopen
 from nodes.core.errors import ExecutionError
 
-from science import stored
-from science.corpus import standing_in_local_view, superseded_by
-from science.root import init_corpus_root, metadata_root_for, open_corpus
+from beliefs import stored
+from beliefs.corpus import standing_in_local_view, superseded_by
+from beliefs.root import init_corpus_root, metadata_root_for, open_corpus
 
 
 def proposition(slug: str, operator: str = "affects"):

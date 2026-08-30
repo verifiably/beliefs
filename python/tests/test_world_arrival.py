@@ -51,10 +51,10 @@ from test_world_log_audit import (
 )
 from test_world_log_codecs import write_chain
 
-from science import errors as science_errors
-from science import root as science_root
-from science.corpus import _operation_lock_for
-from science.errors import (
+from beliefs import errors as science_errors
+from beliefs import root as science_root
+from beliefs.corpus import _operation_lock_for
+from beliefs.errors import (
     ArrivalRefused,
     BuildContended,
     CorpusIdKnown,
@@ -63,7 +63,7 @@ from science.errors import (
     ReplicaAdmissionRequiresVerification,
     SubjectMismatch,
 )
-from science.world import anchors, logmodel, registry, verify
+from beliefs.world import anchors, logmodel, registry, verify
 
 WORLD_ID = "f" * 32
 

@@ -87,8 +87,8 @@ from test_world_log_codecs import (
     settled_corpus,
 )
 
-from science import root as science_root
-from science.world import logmodel
+from beliefs import root as science_root
+from beliefs.world import logmodel
 
 WORKERS = 8
 

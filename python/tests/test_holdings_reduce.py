@@ -14,11 +14,11 @@ from nodes.core.projection import to_canonical_json
 from test_world_log_codecs import Chain, inspected
 from test_world_rules import make_world
 
-from science import stored
-from science.holdings.qualify import qualify_intent
-from science.holdings.reduce import holdings_rule_bundle
-from science.identity import v1
-from science.world import logmodel, rules
+from beliefs import stored
+from beliefs.holdings.qualify import qualify_intent
+from beliefs.holdings.reduce import holdings_rule_bundle
+from beliefs.identity import v1
+from beliefs.world import logmodel, rules
 
 REF_A = "a" * 64
 REF_B = "b" * 64
@@ -503,8 +503,8 @@ def test_payloads_that_do_not_select_the_holdings_domain_are_ignored(payload):
 
 
 def test_the_bundle_concatenates_the_helper_source():
-    qualify = resources.files("science.holdings").joinpath("qualify.py").read_bytes()
-    holdings = resources.files("science.holdings.rules_v1").joinpath("holdings.py").read_bytes()
+    qualify = resources.files("beliefs.holdings").joinpath("qualify.py").read_bytes()
+    holdings = resources.files("beliefs.holdings.rules_v1").joinpath("holdings.py").read_bytes()
 
     assert holdings_rule_bundle().implementation == qualify + b"\n\n" + holdings
 

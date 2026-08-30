@@ -28,10 +28,10 @@ from durable_fixture import (
 from fixtures_cut4 import path_for, raw_write, reopen
 from nodes.core.errors import ExecutionError
 
-from science import stored
-from science.corpus import corpus_check
-from science.errors import BasisMissing, EligibilityUnmet, SemanticHashStale
-from science.root import GENESIS_PAYLOAD, init_corpus_root, metadata_root_for, open_corpus
+from beliefs import stored
+from beliefs.corpus import corpus_check
+from beliefs.errors import BasisMissing, EligibilityUnmet, SemanticHashStale
+from beliefs.root import GENESIS_PAYLOAD, init_corpus_root, metadata_root_for, open_corpus
 
 
 class TestTheInitAct:
@@ -233,7 +233,7 @@ class TestTheUncertifiedTupleFailsClosed:
             shutil.rmtree(metadata_root_for(root), ignore_errors=True)
 
     def test_science_holds_no_tuple_data_of_its_own(self):
-        import science.root as composition_root
+        import beliefs.root as composition_root
 
         source = Path(composition_root.__file__).read_text(encoding="utf-8")
         for forbidden in ("CERTIFIED_ALLOWLIST", "DurabilityAllowlist", "AllowlistEntry", "ext4"):

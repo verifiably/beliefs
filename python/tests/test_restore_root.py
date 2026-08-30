@@ -21,10 +21,10 @@ from fixtures_cut6 import PINS
 from nodes.core.write_plan import CreateOp, ReplaceOp
 from test_world_log_audit import Captures, Inspections, make_seam, surfaced
 
-from science import root as science_root
-from science.corpus import _operation_lock_for
-from science.errors import BuildContended
-from science.root import (
+from beliefs import root as science_root
+from beliefs.corpus import _operation_lock_for
+from beliefs.errors import BuildContended
+from beliefs.root import (
     LifecycleState,
     init_corpus_root,
     init_store_root,
@@ -33,7 +33,7 @@ from science.root import (
     replicate_root,
     restore_root,
 )
-from science.world import anchors, registry, verify
+from beliefs.world import anchors, registry, verify
 
 OTHER_STORE_ID = "6" * 32
 CORPUS_A = "a1" * 16

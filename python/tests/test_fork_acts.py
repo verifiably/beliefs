@@ -21,8 +21,8 @@ from atoms.coordinator.commands import (
 from atoms.fs.linux import LinuxBackend
 from test_world_build import corpus_at
 
-from science import root as science_root
-from science.root import (
+from beliefs import root as science_root
+from beliefs.root import (
     LifecycleState,
     SourceSnapshotMoved,
     fork_corpus,
@@ -32,7 +32,7 @@ from science.root import (
     metadata_root_for,
     read_lifecycle_state,
 )
-from science.world import anchors, registry, verify
+from beliefs.world import anchors, registry, verify
 
 PARENT_ID = "a1" * 16
 
@@ -155,7 +155,7 @@ class TestForkCorpus:
         assert any(path.endswith(".md") for path in baseline_paths)
 
     def test_nonfork_genesis_still_requires_empty_baseline(self):
-        from science.world import logmodel
+        from beliefs.world import logmodel
 
         genesis = logmodel.GenesisEntryView(
             digest="g" * 64,

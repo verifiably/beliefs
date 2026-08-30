@@ -40,10 +40,10 @@ from nodes.core.corpus import Corpus
 from nodes.core.node import Node
 from nodes.core.write_plan import DefaultExecutor
 
-from science import root as composition_root
-from science import stored
-from science.corpus import CorpusWriter, ReadView, _root_state_for, standing_in_local_view
-from science.errors import (
+from beliefs import root as composition_root
+from beliefs import stored
+from beliefs.corpus import CorpusWriter, ReadView, _root_state_for, standing_in_local_view
+from beliefs.errors import (
     BuildContended,
     BuildHold,
     CaptureDrift,
@@ -56,7 +56,7 @@ from science.errors import (
     RetractionTargetUnresolvable,
     RuleNotHeld,
 )
-from science.world import derive, epoch, registry, rules
+from beliefs.world import derive, epoch, registry, rules
 
 JOIN_TIMEOUT = 20.0
 """Every bounded join and event wait in this module. Long enough that a loaded
@@ -331,7 +331,7 @@ def test_each_world_module_imports_first_without_a_cycle(module):
     only at call time.
     """
     completed = subprocess.run(
-        [sys.executable, "-c", f"import science.world.{module}"],
+        [sys.executable, "-c", f"import beliefs.world.{module}"],
         capture_output=True,
         text=True,
         check=False,

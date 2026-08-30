@@ -50,9 +50,9 @@ from test_world_receipts import (
 )
 from yaml import YAMLError
 
-from science import stored
-from science.errors import ResolutionRefused, SemanticHashMissing, SemanticHashStale
-from science.world import epoch, read, registry
+from beliefs import stored
+from beliefs.errors import ResolutionRefused, SemanticHashMissing, SemanticHashStale
+from beliefs.world import epoch, read, registry
 
 # --- the harness -------------------------------------------------------------
 #
@@ -374,7 +374,7 @@ class TestTheBoundStamp:
         whichever epoch this world last published, which is a fact about this
         world's operations and not about what anyone should believe.
         """
-        from science import belief, closure
+        from beliefs import belief, closure
 
         for entry_point in (belief.evaluate, closure.build_closure):
             parameters = inspect.signature(entry_point).parameters
@@ -391,7 +391,7 @@ class TestTheBoundStamp:
         #
         # The **source grep** catches an import this module's own text
         # performs, *including one inside a function body*. A function-local
-        # `from science.world import read` binds a local at call time and never
+        # `from beliefs.world import read` binds a local at call time and never
         # enters module globals, so the namespace walk below cannot see it; the
         # text can. It is also the only one of the two that can say anything
         # about the word `current_epoch`, which is not a name either module
@@ -401,22 +401,22 @@ class TestTheBoundStamp:
         # The **namespace walk** catches what the grep cannot: a name
         # re-exported into `belief` or `closure` through a third module whose
         # own source never mentions the world package. It is non-vacuous — the
-        # origin sets are populated (`science.lineage`, `science.record` and
-        # `science.verification` are in both; `belief` carries a dozen more),
+        # origin sets are populated (`beliefs.lineage`, `beliefs.record` and
+        # `beliefs.verification` are in both; `belief` carries a dozen more),
         # which the count below pins so a walk that silently started reading
         # nothing would fail rather than pass.
         for module in (belief, closure):
             source_file = inspect.getsourcefile(module)
             assert source_file is not None, module
             source = Path(source_file).read_text(encoding="utf-8")
-            assert "science.world" not in source, module
+            assert "beliefs.world" not in source, module
             assert "current_epoch" not in source, module
             origins = {
                 value.__name__ if isinstance(value, ModuleType) else getattr(value, "__module__", "")
                 for value in vars(module).values()
             }
-            assert len([name for name in origins if name.startswith("science.")]) >= 3, module
-            assert not [name for name in origins if name.startswith("science.world")], module
+            assert len([name for name in origins if name.startswith("beliefs.")]) >= 3, module
+            assert not [name for name in origins if name.startswith("beliefs.world")], module
 
     def test_belief_is_invariant_to_availability_and_requires_snapshot(self, tmp_path):
         """The belief input an epoch contributes does not move with
@@ -431,8 +431,8 @@ class TestTheBoundStamp:
         """
         from test_world_receipts import extra_node, outcomes
 
-        from science import closure
-        from science.world import derive, rules
+        from beliefs import closure
+        from beliefs.world import derive, rules
 
         world, bindings, roots, published = published_world(tmp_path)
         draft = epoch._capture_build_inputs(world, coverage=frozenset({ALPHA}), bindings=bindings.by_kind())
@@ -484,7 +484,7 @@ COREFERENCE_ARM = (
 
 
 def coreference_successor():
-    from science.world import rules
+    from beliefs.world import rules
 
     bundle = next(
         candidate for candidate in rules.shipped_rule_bundles() if candidate.symbol == "reduce_coreference"
@@ -516,7 +516,7 @@ def coreference_world(
     also_configured: tuple[Path, ...] = (),
 ):
     """A world publishing a non-empty, validating coreference reduction."""
-    from science.world import rules
+    from beliefs.world import rules
 
     roots = corpora(tmp_path, placement)
     world = world_over(tmp_path, roots, also_configured=also_configured)
@@ -543,7 +543,7 @@ class TestCoreferenceEdges:
         than ``validated`` leaves every edge the map covers `indeterminate`,
         and an expansion through one refuses.
         """
-        from science.world import rules
+        from beliefs.world import rules
 
         world, bindings, _roots, published = coreference_world(
             tmp_path, {ALPHA: linked_nodes("a")}, (ALPHA,)
@@ -556,7 +556,7 @@ class TestCoreferenceEdges:
         assert read.coreference_edge(world, published, "run:a", "run:a-two").state == "inactive"
         assert read.expand_coreference(world, published, "run:a") == ("dataset:a", "run:a-two")
 
-        from science.world import derive
+        from beliefs.world import derive
 
         carriers: dict[str, epoch.Epoch] = {}
         # refuted: a pair the covered corpus does not support, with a receipt
@@ -620,7 +620,7 @@ class TestCoreferenceEdges:
         producer snapshot; and §8.4 gives a non-validated receipt no partial
         edge reading, so it cannot answer either.
         """
-        from science.world import derive
+        from beliefs.world import derive
 
         world, _bindings, _roots, published = coreference_world(
             tmp_path, {ALPHA: linked_nodes("a")}, (ALPHA,)
@@ -697,7 +697,7 @@ class TestCoreferenceEdges:
         has been retired leaves it, which is what makes wider epoch coverage
         acceptable rather than merely tolerated.
         """
-        from science.world import rules
+        from beliefs.world import rules
 
         gamma_root = corpus_at(tmp_path / "configured-gamma", GAMMA, sample_nodes("g"))
         world, bindings, _roots, published = coreference_world(

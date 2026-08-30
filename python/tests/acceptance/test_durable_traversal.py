@@ -38,10 +38,10 @@ from durable_fixture import (
 )
 from fixtures_cut4 import raw_write, reopen
 
-from science import stored
-from science.corpus import LineageAdjacency, RelationAdjacency, derived_from, lineage_snapshot
-from science.lineage import certify
-from science.traversal import LineageEntry, RelationEntry, closure
+from beliefs import stored
+from beliefs.corpus import LineageAdjacency, RelationAdjacency, derived_from, lineage_snapshot
+from beliefs.lineage import certify
+from beliefs.traversal import LineageEntry, RelationEntry, closure
 
 
 def relation_walk(view, start, predicate=CITES, direction="outbound"):
@@ -199,7 +199,7 @@ class TestR23DerivedFromIsAView:
     def test_no_ordinary_api_accepts_an_authored_ancestry_list(self):
         import inspect
 
-        from science.corpus import CorpusWriter
+        from beliefs.corpus import CorpusWriter
 
         assert set(inspect.signature(CorpusWriter.add).parameters) == {"self", "node"}
         assert "derived_from" not in inspect.getsource(CorpusWriter)

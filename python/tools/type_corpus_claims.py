@@ -73,11 +73,11 @@ from pathlib import Path
 
 import yaml
 
-from science.claim import Referent, build_claim
-from science.contract import load_base_contract
-from science.contract.domain import parse_domain_contract
-from science.errors import ClaimError
-from science.profile import compile_profile
+from beliefs.claim import Referent, build_claim
+from beliefs.contract import load_base_contract
+from beliefs.contract.domain import parse_domain_contract
+from beliefs.errors import ClaimError
+from beliefs.profile import compile_profile
 
 FRONTMATTER = "---"
 

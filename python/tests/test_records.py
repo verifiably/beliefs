@@ -7,9 +7,9 @@ to refuse at (cut 2 §4.1). The value/digest halves are `test_belief.py`'s.
 
 import pytest
 
-from science.dataset import DatasetDeclaration, ResourceDeclaration
-from science.errors import MalformedRecord, SignatureRefused
-from science.record import (
+from beliefs.dataset import DatasetDeclaration, ResourceDeclaration
+from beliefs.errors import MalformedRecord, SignatureRefused
+from beliefs.record import (
     AssessmentValue,
     RunInput,
     RunValue,

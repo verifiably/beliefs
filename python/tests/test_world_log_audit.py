@@ -54,16 +54,16 @@ from test_world_log_codecs import (
 from test_world_log_evaluator import epoch_members
 from test_world_log_replay import Opaque
 
-from science import root as science_root
-from science.corpus import _operation_lock_for, _root_state_for
-from science.errors import (
+from beliefs import root as science_root
+from beliefs.corpus import _operation_lock_for, _root_state_for
+from beliefs.errors import (
     AuditTargetUnconfigured,
     BuildContended,
     EpochUnknown,
     LogEvidenceRefused,
     WorldIdMismatch,
 )
-from science.world import anchors, epoch, logmodel, registry, verify
+from beliefs.world import anchors, epoch, logmodel, registry, verify
 
 WORLD_ID = "f" * 32
 OTHER_WORLD_ID = "e" * 32
