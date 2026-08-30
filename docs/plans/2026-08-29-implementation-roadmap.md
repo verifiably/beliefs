@@ -55,7 +55,10 @@ join key and nothing else; the tiers below carry the ranking.
 
 ## Tier 1 — buildable now
 
-Strict order. Row 1 is the next cut.
+Ordered by what a boundary unblocks, and grouped into **lanes** (§Lanes
+below). A boundary's rank says how much it unblocks; its lane says what it
+must wait for. Within a lane the order is strict; across lanes there is no
+order, and lanes may run concurrently in separate worktrees.
 
 | # | id | rows | unblocks | placement |
 |---|---|---|---|---|
@@ -81,6 +84,58 @@ their own, each named to the cut that takes it:
 | `parity-fixture-2` | formal model §8's second fixture | `domain-boundary` — D4's own parity arm exercises the same Python/TypeScript projection machinery |
 
 A ride-along is named in the cut that takes it and never stands alone.
+
+## Lanes — what may run concurrently
+
+A **lane** is a set of boundaries that share a code surface and therefore
+land serially; two lanes share no surface they both rewrite and may run at
+the same time. Lanes are dependency- and surface-based, never goal-based:
+the roadmap design rejected goal tracks (its §5) because one boundary would
+sit under several goals, and no boundary below sits in two lanes. The
+ranking above still holds within a lane — a lane's first boundary is its
+highest-ranked one — and tier membership is unchanged by lanes: a tier-2
+boundary sits in the lane of its prerequisite and waits there.
+
+| lane | boundaries, in order | shared surface | touches another lane at |
+|---|---|---|---|
+| `execution` | `run-confinement` → `workflow-surface` | `boundary.py`, `verify.py`, `recipe.py`, `production.py`, `adapter.py` | `boundary.py`, where `acquisition`'s T5 preflight refusals also land |
+| `acquisition` | `url-retrieval` (+ `act-report-remainder`) | `holdings/`, `report.py` | `boundary.py` (above) |
+| `mutation` | `consolidate-family` (+ `run-boundary-remainder`, `formal-model-remainder`) → `correction-remainder` (tier 2, unblocked by the first) | `adapter.py`, `stored.py`, `corpus.py`, `world/registry.py` | `world/registry.py`, which `world-read` reads and this lane's move/consolidate rewrite |
+| `world-read` | `world-resolution` (+ `packaging-remainder`) → `event-level-l8` (+ `log-remainder`) | `world/read.py`, `resolution.py`, `world/verify.py` | `world/registry.py` (above) |
+| `domain` | `domain-boundary` (+ `parity-fixture-2`) | `profile.py`, `contract/`, `ts/`, `fixtures/`, the `nodes` registry | none in `python/src/science/` |
+| `cross-repo` | `l13-preimage`, `persistence-cut`, `nodes-remainder`, in any order | the `atoms` and `nodes` repositories, each behind its own design gate | none; Science consumes each seam after it lands |
+
+`contract-cut` is in no lane. It is a **join**: it freezes after every lane
+that amends an oracle has merged, for the reason tier 1's row 9 gives — N1
+mints a successor contract identity for every oracle amended after the
+freeze, and each lane above amends at least one. Tier 3 boundaries are in no
+lane either; a design answer moves one into the lane of the surface it
+lands on.
+
+### Concurrency rules
+
+Every rule the corpus already has stays in force when lanes run at once —
+a cut is frozen before its code exists, discharged on the certified volume,
+and merged `--no-ff`. Four rules are added by concurrency itself:
+
+1. **A cut number is claimed at freeze, not at discharge.** Two lanes that
+   freeze on the same day take consecutive numbers in freeze order, and a
+   lane that discharges first does not renumber. Results records may
+   therefore land out of numeric order; the guard selects the newest by
+   number, so a re-rank is against the highest-numbered discharged cut.
+2. **Results record and re-rank land one at a time.** The commit that adds
+   a results record rewrites the ledger's `Current state` table and this
+   roadmap, and `test_the_roadmap_and_ledger_name_the_same_boundaries`
+   holds `Ranked at` to the newest record — so a second lane's discharge
+   commit rebases onto the first's and re-ranks again. A lane's code may
+   merge before its results record does; the record is what re-ranks.
+3. **Shared files are named, not discovered in the merge.** `errors.py`,
+   `python/tests/test_designs_corpus.py`, the ledger, this roadmap, and the
+   guide index are rewritten by every lane; a lane's design names any other
+   file it will rewrite that another lane's shared-surface column lists,
+   and the later merge resolves toward the earlier one.
+4. **A lane holds one worktree under `.worktrees/`**, named for its first
+   open boundary, and a lane's boundaries are not split across worktrees.
 
 ## Tier 2 — after a named prerequisite lands
 

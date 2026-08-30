@@ -1,7 +1,7 @@
 # Implementation roadmap — design
 
 **Date:** 2026-08-29
-**Status:** approved in session; revised 2026-08-29 across four written-spec review rounds; delivered 2026-08-29 on `docs/roadmap` (roadmap at `docs/plans/2026-08-29-implementation-roadmap.md`, ranked at cut 11)
+**Status:** approved in session; revised 2026-08-29 across four written-spec review rounds; delivered 2026-08-29 on `docs/roadmap` (roadmap at `docs/plans/2026-08-29-implementation-roadmap.md`, ranked at cut 11); amended 2026-08-29 (§4.1, §5) to group tier 1 into concurrent lanes
 **Scope:** an ordered statement of the remaining implementation boundaries and
 the discipline that keeps it current. It selects no cut scope, freezes no row,
 and ranks no design question. The next cut's own design is a separate
@@ -255,6 +255,18 @@ prerequisite.
 
 Strict order. Row 1 is the next cut.
 
+> **Amended 2026-08-29.** Strict order across all of tier 1 was more than
+> the dependencies support. The Science-only tier-1 rows are closures on mostly
+> disjoint surfaces, so the roadmap now groups tier 1 into **lanes** — sets
+> of boundaries sharing a code surface, serial within a lane and concurrent
+> across lanes — and adds concurrency rules (cut numbers claimed at freeze;
+> results records and re-ranks landing one at a time; shared files named;
+> one worktree per lane). The rank within tier 1 is unchanged and still
+> orders each lane; `contract-cut` becomes the join after every lane, for
+> the reason row 9 already gives. Lanes are surface-based, which is not the
+> goal-track alternative §5 rejects. The guard (§6) asserts nothing about
+> tiers or order, so it is unchanged.
+
 | # | id | rows | unblocks | placement |
 |---|---|---|---|---|
 | 1 | `successor-admission` | G4; R12's strengthening arm and L7's relabel, both read off the intent chain this cut qualifies | kernel §8.7's fourth recorded-mutation consequence — the kernel's invariant story closes; rows 5 and 7 read G4 in full | designed across nine readings with five opening obligations written (intent-boundary §5); Science-only; smallest of the tier |
@@ -309,7 +321,9 @@ Unordered. Each row links its `open-questions.md` anchor.
   stale the moment a scope shifts.
 - **Goal tracks** ("first external installation", "first domain pack"). The
   same boundary appears under several goals, and cross-track ranking needs
-  the dependency logic underneath anyway.
+  the dependency logic underneath anyway. *(2026-08-29: the lanes the amended
+  §4.1 adds are not goal tracks — a lane is a shared code surface, and no
+  boundary sits in two.)*
 - **Ranking inside the ledger.** Rule 5 of the curation design exists to keep
   ordering out of the guarded summary; a ranking next to it would be an
   unguarded restatement of the guarded rows.
