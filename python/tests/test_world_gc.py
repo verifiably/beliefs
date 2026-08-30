@@ -51,9 +51,9 @@ from test_world_epoch import (
 )
 from test_world_receipts import producer_successor
 
-import science
-from science.errors import EpochCurrent, EpochMalformed, EpochUnknown
-from science.world import epoch, read, registry, rules
+import beliefs
+from beliefs.errors import EpochCurrent, EpochMalformed, EpochUnknown
+from beliefs.world import epoch, read, registry, rules
 
 # --- the harness -------------------------------------------------------------
 #
@@ -421,7 +421,7 @@ class TestNoOtherDeletionSurface:
         automatic*: no module of the package calls `delete_epoch`, so the only
         way an epoch is removed is a consumer deciding to remove it.
         """
-        import science.world as facade
+        import beliefs.world as facade
 
         assert set(inspect.signature(epoch.delete_epoch).parameters) == {
             "world",
@@ -443,7 +443,7 @@ class TestNoOtherDeletionSurface:
                     "epoch_member",
                 }, name
 
-        package = Path(science.__file__).parent
+        package = Path(beliefs.__file__).parent
         callers = sorted(
             path.relative_to(package).as_posix()
             for path in package.rglob("*.py")
@@ -483,7 +483,7 @@ class TestTheLockedBarrier:
         the lock, then cross the barrier" and the order between those two lines
         is the whole of §8.1's guarantee — a copy that drifted would be a
         reader crossing a barrier a publication then invalidated."""
-        package = Path(science.__file__).parent / "world"
+        package = Path(beliefs.__file__).parent / "world"
         for path in sorted(package.glob("*.py")):
             assert not BARRIER_PREAMBLE.search(path.read_text(encoding="utf-8")), path.name
         assert "world._state.lock" not in Path(read.__file__ or "").read_text(encoding="utf-8")

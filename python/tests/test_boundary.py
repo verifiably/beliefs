@@ -33,7 +33,7 @@ from fixtures_cut3 import (
     memory_production as run_production,
 )
 
-from science.adapter import (
+from beliefs.adapter import (
     LOG_HANDLER_SCRIPT,
     build_argv,
     capture_bundle,
@@ -42,7 +42,7 @@ from science.adapter import (
     run_engine,
     validate_entrypoint,
 )
-from science.boundary import (
+from beliefs.boundary import (
     RunMinted,
     RunRefused,
     build_manifest,
@@ -50,10 +50,10 @@ from science.boundary import (
     execute_production_run,
     mint_run,
 )
-from science.errors import MalformedClosure
-from science.recipe import Occurrence, RunClosure
-from science.report import ActReport, OperationIntent, RunAttemptEntry
-from science.spec import Seeded, SeedPlan, SpecInput, derive_seed, freeze, revise
+from beliefs.errors import MalformedClosure
+from beliefs.recipe import Occurrence, RunClosure
+from beliefs.report import ActReport, OperationIntent, RunAttemptEntry
+from beliefs.spec import Seeded, SeedPlan, SpecInput, derive_seed, freeze, revise
 
 
 @pytest.fixture(scope="module")

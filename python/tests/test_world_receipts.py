@@ -43,8 +43,8 @@ from test_world_build import (
     slug_for,
 )
 
-from science import stored
-from science.world import derive, epoch, read, registry, rules
+from beliefs import stored
+from beliefs.world import derive, epoch, read, registry, rules
 
 # --- the harness -------------------------------------------------------------
 #

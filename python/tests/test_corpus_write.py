@@ -19,9 +19,9 @@ from nodes.core.errors import CollisionError, ExecutionError, ValidationError
 from nodes.core.node import Node, NodeMetadata
 from nodes.core.write_plan import CreateOp, DefaultExecutor, DeleteOp, ReplaceOp
 
-from science import stored
-from science.corpus import CorpusWriter, OperationLock, _operation_lock_for
-from science.errors import (
+from beliefs import stored
+from beliefs.corpus import CorpusWriter, OperationLock, _operation_lock_for
+from beliefs.errors import (
     BasisMissing,
     BuildHold,
     CollisionRefused,
@@ -33,8 +33,8 @@ from science.errors import (
     ValidationRefused,
     WriteRefused,
 )
-from science.root import open_corpus
-from science.world import load_manifest, manifest_bytes
+from beliefs.root import open_corpus
+from beliefs.world import load_manifest, manifest_bytes
 
 PINNED = [{"name": "matrix", "digest": "sha256:" + "ab" * 32}]
 

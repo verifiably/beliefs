@@ -59,7 +59,7 @@ def parity_fixture_path() -> Path:
 
 @pytest.fixture(scope="session")
 def base_contract(base_contract_path):
-    from science.contract import load_base_contract
+    from beliefs.contract import load_base_contract
 
     return load_base_contract(base_contract_path)
 

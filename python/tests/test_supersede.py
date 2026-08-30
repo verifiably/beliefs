@@ -8,9 +8,9 @@ import pytest
 from nodes.core.node import Node
 from nodes.core.write_plan import CreateOp, DefaultExecutor
 
-from science import stored
-from science.corpus import CorpusWriter
-from science.errors import (
+from beliefs import stored
+from beliefs.corpus import CorpusWriter
+from beliefs.errors import (
     FamilyKindUnsupported,
     RecordAlreadyMinted,
     SupersedeIdentityUnchanged,

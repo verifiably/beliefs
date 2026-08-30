@@ -7,11 +7,11 @@ import pytest
 from closure_fixtures import make_closure as build_closure
 from nodes.core.frontmatter import node_from_markdown
 
-from science import runrecord, stored
-from science.errors import MalformedRecord
-from science.identity import v1
-from science.production import mint_dataset
-from science.recipe import RunClosure
+from beliefs import runrecord, stored
+from beliefs.errors import MalformedRecord
+from beliefs.identity import v1
+from beliefs.production import mint_dataset
+from beliefs.recipe import RunClosure
 
 
 @pytest.fixture

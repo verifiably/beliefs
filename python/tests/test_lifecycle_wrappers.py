@@ -21,8 +21,8 @@ from atoms.fs.linux import LinuxBackend
 from nodes.core.errors import ExecutionError
 from nodes.core.write_plan import CreateOp
 
-from science import root as science_root
-from science.root import (
+from beliefs import root as science_root
+from beliefs.root import (
     LifecycleState,
     init_corpus_root,
     init_store_root,
@@ -31,7 +31,7 @@ from science.root import (
     read_lifecycle_state,
     replicate_root,
 )
-from science.world import anchors, verify
+from beliefs.world import anchors, verify
 
 _OTHER_MACHINE = "f" * 32
 CORPUS_ID = "a1" * 16

@@ -33,9 +33,9 @@ from nodes.core.write_plan import DefaultExecutor
 from test_world_build import ALPHA, BETA, corpus_at
 from test_world_epoch import Recorder, admitted_world, publish
 
-from science import root as science_root
-from science.corpus import _operation_lock_for
-from science.errors import (
+from beliefs import root as science_root
+from beliefs.corpus import _operation_lock_for
+from beliefs.errors import (
     AnchorSubjectUnknown,
     AnchorTargetUnresolvable,
     BuildContended,
@@ -45,8 +45,8 @@ from science.errors import (
     WorldIdMismatch,
     WorldUninitialized,
 )
-from science.identity import v1
-from science.world import anchors, epoch, logmodel, registry, verify
+from beliefs.identity import v1
+from beliefs.world import anchors, epoch, logmodel, registry, verify
 
 WORLD_ID = "f" * 32
 OTHER_WORLD_ID = "e" * 32
@@ -645,7 +645,7 @@ class TestThePublicWrappers:
 def test_the_world_genesis_domain_is_the_composition_roots_own():
     # The world export validates a genesis the composition root mints. The
     # constant is restated in `anchors` because the world package may not
-    # import `science.root`; this arm is what keeps the restatement honest.
+    # import `beliefs.root`; this arm is what keeps the restatement honest.
     assert anchors.WORLD_GENESIS_DOMAIN == science_root.WORLD_GENESIS_DOMAIN
 
 

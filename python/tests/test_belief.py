@@ -17,7 +17,7 @@ from typing import TypedDict, cast
 import pytest
 import yaml
 
-from science.belief import (
+from beliefs.belief import (
     NO_BELIEF_REASONS,
     Availability,
     Belief,
@@ -27,18 +27,18 @@ from science.belief import (
     SuppliedContext,
     evaluate,
 )
-from science.claim import Referent, build_claim
-from science.closure import RetractionEnumeration
-from science.consulted import CorpusPins
-from science.contract import domain, load_base_contract
-from science.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
-from science.errors import MalformedRecord
-from science.lineage import LineageSnapshot
-from science.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding, PolicyImplementation
-from science.profile import ProfileSpec, compile_profile
-from science.projection import claim_identity
-from science.record import AssessmentValue, RunInput, RunValue, SourceAssertion
-from science.verification import Verification
+from beliefs.claim import Referent, build_claim
+from beliefs.closure import RetractionEnumeration
+from beliefs.consulted import CorpusPins
+from beliefs.contract import domain, load_base_contract
+from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
+from beliefs.errors import MalformedRecord
+from beliefs.lineage import LineageSnapshot
+from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding, PolicyImplementation
+from beliefs.profile import ProfileSpec, compile_profile
+from beliefs.projection import claim_identity
+from beliefs.record import AssessmentValue, RunInput, RunValue, SourceAssertion
+from beliefs.verification import Verification
 
 # --- module-level fixtures: a compiled profile and one claim, loaded once ---
 
@@ -282,7 +282,7 @@ class TestP6NoMagnitudeBearingRead:
         assert mutated.belief_input_digest != baseline.belief_input_digest
 
     def test_no_mismatch_finding_exists_to_be_emitted(self):
-        import science.belief as belief_module
+        import beliefs.belief as belief_module
 
         assert not any("mismatch" in name.lower() for name in vars(belief_module))
 
@@ -302,7 +302,7 @@ class TestP7BeliefIsAComputedView:
         assert first.belief_input_digest == second.belief_input_digest
 
     def test_no_belief_record_and_no_selector_is_minted(self):
-        import science.belief as belief_module
+        import beliefs.belief as belief_module
 
         public = {name: value for name, value in vars(belief_module).items() if not name.startswith("_")}
         assert not any(isinstance(value, dict | list) for value in public.values())

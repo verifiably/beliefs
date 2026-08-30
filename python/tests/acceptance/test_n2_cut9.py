@@ -37,7 +37,7 @@ from n2_arms_cut9 import (
 )
 from test_n2 import MalformedArm, audit, baseline
 
-import science.root as science_root
+import beliefs.root as science_root
 
 WORKERS = 8
 

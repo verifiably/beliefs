@@ -1,4 +1,4 @@
-# `@science-dev/claim-identity`
+# `@verifiably/beliefs`
 
 The **shared-encoding path**, and nothing else.
 

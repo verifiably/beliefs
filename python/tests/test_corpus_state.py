@@ -13,22 +13,22 @@ from nodes.core.errors import CollisionError, ValidationError
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.relations import Relation
 
-from science import stored
-from science.consulted import CorpusPins
-from science.errors import (
+from beliefs import stored
+from beliefs.consulted import CorpusPins
+from beliefs.errors import (
     CorpusStateMalformed,
     IdentityError,
     KeyCollision,
     ManifestMalformed,
     ManifestMissing,
 )
-from science.identity import v1
-from science.world import CorpusManifest, ForkedFrom, _lift_json, corpus_state_identity, manifest_bytes
+from beliefs.identity import v1
+from beliefs.world import CorpusManifest, ForkedFrom, _lift_json, corpus_state_identity, manifest_bytes
 
 # The monkeypatched globals below are the implementation's own bindings, so the
 # patches have to land on the implementation module rather than on the package
 # facade that re-exports it.
-from science.world import registry as world
+from beliefs.world import registry as world
 
 
 def _state_root(tmp_path, node):

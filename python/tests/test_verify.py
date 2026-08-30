@@ -26,19 +26,19 @@ from fixtures_cut3 import (
     memory_replay as replay_of,
 )
 
-from science.assess import build_assessment
-from science.boundary import RunMinted
-from science.errors import CitationRefused, MixedShapes
-from science.identity import v1
-from science.production import mint_dataset
-from science.replay import (
+from beliefs.assess import build_assessment
+from beliefs.boundary import RunMinted
+from beliefs.errors import CitationRefused, MixedShapes
+from beliefs.identity import v1
+from beliefs.production import mint_dataset
+from beliefs.replay import (
     CONTENT_EQUALITY,
     DATASET_CONTENT_EQUALITY,
     CodeLineageCertification,
     EquivalenceImplementation,
 )
-from science.spec import Deterministic, SpecInput, StochasticUnseeded, freeze, revise
-from science.verify import (
+from beliefs.spec import Deterministic, SpecInput, StochasticUnseeded, freeze, revise
+from beliefs.verify import (
     AssessmentVerification,
     ComparisonReport,
     DatasetProductionVerification,
@@ -197,7 +197,7 @@ def test_r18_the_report_carries_the_evidence_inline_and_the_basis_names_it_once(
 
 
 def test_r18_mutating_any_receipt_field_moves_receipt_report_and_verification(pair):
-    from science.verify import _mint_comparison_report, _mint_verification
+    from beliefs.verify import _mint_comparison_report, _mint_verification
 
     # Locked carriers refuse dataclasses.replace; these private mints are the
     # test scalpel, as fixtures use report._mint_report for ActReport values.
@@ -240,8 +240,8 @@ def test_r18_mutating_any_receipt_field_moves_receipt_report_and_verification(pa
 
 
 def test_r19_only_build_verification_mints_the_carriers():
-    import science
-    import science.verify as verify_module
+    import beliefs
+    import beliefs.verify as verify_module
 
     assert "_mint_comparison_report" not in verify_module.__all__
     assert "_mint_verification" not in verify_module.__all__
@@ -255,7 +255,7 @@ def test_r19_only_build_verification_mints_the_carriers():
         if callable(value) and not isinstance(value, type) and name != "build_verification":
             params = set(inspect.signature(value).parameters)
             assert not (carrier_fields & params), name
-    src = Path(science.__file__).parent
+    src = Path(beliefs.__file__).parent
     callers = [
         path.name for path in sorted(src.rglob("*.py")) if "_mint_verification" in path.read_text(encoding="utf-8")
     ]
@@ -334,7 +334,7 @@ def test_r11_a_tolerance_on_a_dataset_production_replay_is_refused(production_pa
 def test_r11_a_nondeterministic_transform_yields_all_four(tmp_path):
     from test_belief import scenario as belief_scenario
 
-    from science.belief import evaluate
+    from beliefs.belief import evaluate
 
     belief_inputs = belief_scenario()
     prior_belief = evaluate(**belief_inputs)

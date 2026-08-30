@@ -18,10 +18,10 @@ from atoms.chain.model import GenesisEntry
 from atoms.core.errors import PreconditionRefused
 from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp
 
-from science import root
-from science.errors import CorpusRootRefused, WorldIdMismatch, WorldUninitialized
-from science.identity import v1
-from science.world import WorldConfig, _world_mirror_bytes
+from beliefs import root
+from beliefs.errors import CorpusRootRefused, WorldIdMismatch, WorldUninitialized
+from beliefs.identity import v1
+from beliefs.world import WorldConfig, _world_mirror_bytes
 
 
 def patch_world_engine(monkeypatch, calls, world_id="1" * 32):

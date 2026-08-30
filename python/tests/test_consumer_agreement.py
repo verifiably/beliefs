@@ -19,12 +19,12 @@ from test_holdings_reduce import (
 )
 from test_intent_reduce import FakeFile, _facts
 
-from science import stored
-from science.holdings.boundary import intent_payload
-from science.holdings.records import Found, StoreLocator, holdings_observation
-from science.identity import v1
-from science.intents.reduce import qualify_chain
-from science.report import (
+from beliefs import stored
+from beliefs.holdings.boundary import intent_payload
+from beliefs.holdings.records import Found, StoreLocator, holdings_observation
+from beliefs.identity import v1
+from beliefs.intents.reduce import qualify_chain
+from beliefs.report import (
     CLOSED,
     UNFINISHED,
     AssessmentRunIntent,
@@ -32,8 +32,8 @@ from science.report import (
     Registration,
     completion,
 )
-from science.runrecord import publication_plan
-from science.world.logmodel import (
+from beliefs.runrecord import publication_plan
+from beliefs.world.logmodel import (
     EntryView,
     IntentEntryView,
     RegisteredEntryView,

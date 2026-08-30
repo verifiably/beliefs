@@ -33,12 +33,12 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from science.claim import Qualifier, Referent, build_claim
-from science.contract import load_base_contract, load_domain_contract
-from science.contract.base import TAG_ENCODING
-from science.identity import v1
-from science.profile import compile_profile
-from science.projection import CLAIM_DOMAIN, claim_identity, project_claim
+from beliefs.claim import Qualifier, Referent, build_claim
+from beliefs.contract import load_base_contract, load_domain_contract
+from beliefs.contract.base import TAG_ENCODING
+from beliefs.identity import v1
+from beliefs.profile import compile_profile
+from beliefs.projection import CLAIM_DOMAIN, claim_identity, project_claim
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BASE_CONTRACT = REPO_ROOT / "contracts" / "science" / "CONTRACT.yaml"

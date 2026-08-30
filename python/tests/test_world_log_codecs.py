@@ -29,17 +29,17 @@ from atoms.core.scratch import CHAIN_LEAF
 from fixtures_cut6 import PINS
 from nodes.core.write_plan import DefaultExecutor
 
-import science.world.registry as world_module
-from science import corpus as corpus_module
-from science import root as science_root
-from science.errors import (
+import beliefs.world.registry as world_module
+from beliefs import corpus as corpus_module
+from beliefs import root as science_root
+from beliefs.errors import (
     LogEvidenceRefused,
     MalformedDomain,
     ObserverCarrierInvalid,
     RegistryMalformed,
 )
-from science.identity import v1
-from science.world import anchors, logmodel, verify
+from beliefs.identity import v1
+from beliefs.world import anchors, logmodel, verify
 
 # --- shared fixtures -----------------------------------------------------
 
@@ -371,7 +371,7 @@ def test_registry_scan_refuses_a_log_head_file_with_a_wrong_content_name(tmp_pat
 # --- the log seam: chain views, capture pass-through, locks ----------------
 #
 # The conversion is exercised two ways on purpose. The parametrized arms drive
-# `science.root`'s converter with fabricated `atoms` inspection results, which
+# `beliefs.root`'s converter with fabricated `atoms` inspection results, which
 # is the only way to reach all fourteen defect kinds without fourteen damaged
 # chains; the end-to-end arms drive the seam's own callables over a chain
 # written to disk as real canonical envelopes, so the fabrications are not the

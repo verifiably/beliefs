@@ -2,7 +2,7 @@
 title: Open questions
 status: living
 created: 2026-08-08
-updated: 2026-08-29
+updated: 2026-08-30
 sources:
   - ../designs/2026-08-02-computation-reproducibility-design.md
   - ../designs/2026-08-02-epistemic-kernel-design.md
@@ -50,7 +50,7 @@ implementation**: a guarantee row awaiting code is work, not a question.
   chains, and coverage searches new kinds or derived views over existing kinds?
   ([kernel question](../designs/2026-08-02-epistemic-kernel-design.md#11-open-questions))
 - **Science profile distribution.** Does the downstream profile live inside
-  the `science` distribution or in its own package? The durability composition
+  the `beliefs` distribution or in its own package? The durability composition
   route is closed: Science's Python composition root combines portable `nodes`
   with `atoms`; `nodes` does not adopt the Python-only engine.
   ([substrate question](../designs/2026-08-02-substrate-consolidation-design.md#12-open-questions))

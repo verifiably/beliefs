@@ -18,8 +18,8 @@ from typing import cast
 
 import pytest
 
-from science.corpus import OperationLock
-from science.errors import BuildContended, BuildHold
+from beliefs.corpus import OperationLock
+from beliefs.errors import BuildContended, BuildHold
 
 WAIT = 5.0  # seconds: the bound on every wait and join in this file
 

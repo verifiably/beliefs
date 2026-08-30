@@ -5,8 +5,8 @@ import pytest
 from atoms.core.errors import SpecValidationError
 from atoms.core.paths import require_rel_path
 
-from science.errors import MalformedRecord, UrlLocatorDeferred
-from science.holdings.records import (
+from beliefs.errors import MalformedRecord, UrlLocatorDeferred
+from beliefs.holdings.records import (
     Absent,
     Found,
     HoldingsObservation,

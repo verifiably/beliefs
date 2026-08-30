@@ -10,11 +10,11 @@ from nodes.core.node import Node
 from nodes.core.relations import Relation
 from nodes.core.write_plan import CreateOp, DefaultExecutor
 
-from science import stored
-from science.corpus import CorpusWriter
-from science.errors import BundleMemberHeld, ImportRefused
-from science.identity import v1
-from science.report import ImportedRecords, RecordImportEntry, _mint_report
+from beliefs import stored
+from beliefs.corpus import CorpusWriter
+from beliefs.errors import BundleMemberHeld, ImportRefused
+from beliefs.identity import v1
+from beliefs.report import ImportedRecords, RecordImportEntry, _mint_report
 
 
 class Recorder:

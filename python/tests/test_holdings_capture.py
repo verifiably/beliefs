@@ -14,14 +14,14 @@ from nodes.core.projection import to_canonical_json
 from nodes.core.write_plan import DefaultExecutor
 from test_world_build import ALPHA, BETA, ChainHeads, corpus_at, make_world
 
-from science import root as science_root
-from science import stored
-from science.corpus import ReadView, _root_state_for
-from science.errors import CaptureDrift, CorpusStateMalformed, CoverageUnknown, ScienceError
-from science.holdings.boundary import ActContext, PublishedObservation, recheck
-from science.holdings.project import capture_coverage
-from science.holdings.records import Absent, StoreLocator, holdings_observation
-from science.world import logmodel, registry, verify
+from beliefs import root as science_root
+from beliefs import stored
+from beliefs.corpus import ReadView, _root_state_for
+from beliefs.errors import CaptureDrift, CorpusStateMalformed, CoverageUnknown, ScienceError
+from beliefs.holdings.boundary import ActContext, PublishedObservation, recheck
+from beliefs.holdings.project import capture_coverage
+from beliefs.holdings.records import Absent, StoreLocator, holdings_observation
+from beliefs.world import logmodel, registry, verify
 
 OPAQUE_ABSENT = object()
 
@@ -472,7 +472,7 @@ def test_the_world_barrier_is_released_before_a_corpus_lock_is_taken(monkeypatch
     class State:
         lock = Lock()
 
-    from science.holdings import project
+    from beliefs.holdings import project
 
     monkeypatch.setattr(project, "_root_state_for", lambda *_args: State())
 

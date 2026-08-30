@@ -13,10 +13,10 @@ from typing import ClassVar
 import pytest
 import yaml
 
-import science.profile as profile_module
-from science.claim import Referent, build_claim
-from science.contract import base, domain
-from science.errors import (
+import beliefs.profile as profile_module
+from beliefs.claim import Referent, build_claim
+from beliefs.contract import base, domain
+from beliefs.errors import (
     ContractMismatch,
     DuplicateContribution,
     ProfileError,
@@ -25,7 +25,7 @@ from science.errors import (
     UnparsedContract,
     WithdrawnFromAuthoring,
 )
-from science.profile import ProfileSpec, compile_profile
+from beliefs.profile import ProfileSpec, compile_profile
 
 
 @pytest.fixture()
@@ -692,7 +692,7 @@ class TestTheClaimConstructorAuthenticatesItsProfile:
             return ()
 
         def operator(self, term):
-            from science.profile import CompiledOperator
+            from beliefs.profile import CompiledOperator
 
             return CompiledOperator(
                 term="forged/op",
@@ -718,7 +718,7 @@ class TestTheClaimConstructorAuthenticatesItsProfile:
     def test_the_decode_route_refuses_it_too(self):
         # `Claim._checked` is the other entry point, and decode will call it
         # directly. A check on one of two entry points is a check on neither.
-        from science.claim import Claim
+        from beliefs.claim import Claim
 
         with pytest.raises(ProfileError, match="compile_profile"):
             Claim._checked(

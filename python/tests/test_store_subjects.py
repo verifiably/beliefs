@@ -28,11 +28,11 @@ from test_world_log_audit import (
     surfaced,
 )
 
-from science import errors as science_errors
-from science import root as science_root
-from science.corpus import _operation_lock_for
-from science.errors import BuildContended, StoreIdMismatch
-from science.world import anchors, logmodel, verify
+from beliefs import errors as science_errors
+from beliefs import root as science_root
+from beliefs.corpus import _operation_lock_for
+from beliefs.errors import BuildContended, StoreIdMismatch
+from beliefs.world import anchors, logmodel, verify
 
 STORE_ID = "5" * 32
 OTHER_STORE_ID = "6" * 32

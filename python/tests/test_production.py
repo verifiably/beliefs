@@ -11,12 +11,12 @@ import pytest
 from fixtures_cut3 import D_IN, SNAKEFILE_TWO_NAMES, closure, recipe
 from fixtures_cut3 import memory_production as run_production
 
-from science.boundary import RunMinted
-from science.dataset import DatasetDeclaration, ResourceDeclaration, dataset_address
-from science.errors import MalformedClosure
-from science.production import ProducesEdge, StampedBasis, mint_dataset
-from science.recipe import RecipeInput
-from science.spec import ExclusionCertification
+from beliefs.boundary import RunMinted
+from beliefs.dataset import DatasetDeclaration, ResourceDeclaration, dataset_address
+from beliefs.errors import MalformedClosure
+from beliefs.production import ProducesEdge, StampedBasis, mint_dataset
+from beliefs.recipe import RecipeInput
+from beliefs.spec import ExclusionCertification
 
 
 @pytest.fixture(scope="module")
@@ -71,7 +71,7 @@ def test_r23_production_values_are_strict_and_immutable(produced):
 
 
 def test_r23_no_produced_by_edge_is_reachable_in_either_direction(produced):
-    import science.production as production_module
+    import beliefs.production as production_module
 
     assert not any("produced_by" in name for name in production_module.__all__)
     minted = mint_dataset(produced.run, existing_bases={})

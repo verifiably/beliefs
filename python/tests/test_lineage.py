@@ -7,8 +7,8 @@ where that run never existed" clause, a store property (cut 2 §4.2).
 
 import pytest
 
-from science.errors import BasisTagMismatch, MalformedSnapshot
-from science.lineage import (
+from beliefs.errors import BasisTagMismatch, MalformedSnapshot
+from beliefs.lineage import (
     Basis,
     Certification,
     LineageSnapshot,

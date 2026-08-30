@@ -517,3 +517,20 @@ the code exists to split, not at organization-creation time.
 One dependency is open: the conformance package cannot be scoped until the
 **first contract cut** (§1, artifact 7) names what the contract is a contract
 *for*. The package boundary and the contract's scope are decided together.
+
+> **Layer names ruled 2026-08-30**
+> (`../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md` §3).
+> The stack is five layers, one repository and one distribution each:
+> `atoms`, `nodes`, **`beliefs`** — this repository, renamed from `science`,
+> import name `beliefs`, distribution `verifiably-beliefs` /
+> `@verifiably/beliefs` — **`science`**, the daily surface (commands, skills,
+> generated harness adapters, CLI and MCP, the derived work queue, publish),
+> and **`autonomy`**, the envelope and orchestrator, split from `science` on
+> the same code-lineage-independence ground that split the conformance
+> package above. "Science" in every banked design names the whole stack.
+> The contract and rule identities — `contract: science`,
+> `science.identity.v1`, `science.belief.v1` and the `science.<kind>.v<n>`
+> grammar — are the names of rules, not of a repository, and are unchanged;
+> renaming them would be a contract succession under N1. `contracts/science/`
+> stays with them. The agent surface named above is now `science`'s and the
+> autonomous arm is `autonomy`'s; no ruling above is otherwise altered.

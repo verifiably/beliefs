@@ -8,8 +8,8 @@ import pytest
 from nodes.core.node import Node
 from nodes.core.write_plan import CreateOp, DefaultExecutor
 
-from science import errors, stored
-from science.corpus import ELIGIBLE_RETRACTION_TARGET_KINDS, CorpusWriter
+from beliefs import errors, stored
+from beliefs.corpus import ELIGIBLE_RETRACTION_TARGET_KINDS, CorpusWriter
 
 PINNED = [{"name": "matrix", "digest": "sha256:" + "ab" * 32}]
 

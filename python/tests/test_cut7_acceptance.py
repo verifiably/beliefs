@@ -173,8 +173,8 @@ def test_the_commands_result_is_cut_sevens_own_result(tmp_path: Path, monkeypatc
 
 
 def test_probe_initializes_both_roots_and_removes_them_with_their_metadata(tmp_path: Path, monkeypatch):
-    from science import root
-    from science.world import WorldConfig
+    from beliefs import root
+    from beliefs.world import WorldConfig
 
     worlds: list[WorldConfig] = []
     corpora: list[Path] = []
@@ -207,7 +207,7 @@ def test_a_refusing_corpus_registration_is_reported_even_when_the_world_register
     tmp_path: Path, monkeypatch
 ):
     """A host can certify one act and refuse the other, and cut 7 writes to both."""
-    from science import root
+    from beliefs import root
 
     monkeypatch.setattr(root, "init_world_root", lambda config: config.world_root.mkdir())
 

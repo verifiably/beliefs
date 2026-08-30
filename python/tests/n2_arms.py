@@ -58,7 +58,7 @@ class Sabotage:
     """
 
     module: str
-    """Path under `src/science`, e.g. `resolution.py` or `contract/domain.py`."""
+    """Path under `src/beliefs`, e.g. `resolution.py` or `contract/domain.py`."""
 
     before: str
     after: str

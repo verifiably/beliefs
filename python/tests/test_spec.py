@@ -9,9 +9,9 @@ from fixtures_cut3 import seed_plan as plan
 from fixtures_cut3 import spec_draft as draft
 from fixtures_cut3 import spec_rules as held_rules
 
-from science.errors import MalformedRecord, MalformedSpec, RuleUnbound, UnfreezableSpec
-from science.identity import v1
-from science.spec import (
+from beliefs.errors import MalformedRecord, MalformedSpec, RuleUnbound, UnfreezableSpec
+from beliefs.identity import v1
+from beliefs.spec import (
     SPEC_DOMAIN,
     Deterministic,
     ExclusionCertification,
@@ -334,7 +334,7 @@ def test_g4_the_core_keeps_cut_3s_anchor_line():
     # K5: cut 3's three G4 sabotages name this exact line; it must occur once.
     from pathlib import Path
 
-    import science.spec as spec_module
+    import beliefs.spec as spec_module
 
     source = Path(spec_module.__file__).read_text(encoding="utf-8")
     anchor = "    if superseded.identity in recorded_failures and candidate.supersedes != superseded.identity:"

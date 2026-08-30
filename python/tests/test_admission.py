@@ -6,12 +6,12 @@ reported as `not-present` (world-index territory) nor as `not-member` (a
 finding nobody's look supports).
 """
 
-from science.admission import AdmissionRefused, Admitted, admit, vocabulary_availability
-from science.contract.domain import VocabularyBinding
-from science.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
-from science.record import AssessmentValue, RunInput, RunValue
-from science.resolution import TermOutcome, build_snapshot
-from science.verification import Verification
+from beliefs.admission import AdmissionRefused, Admitted, admit, vocabulary_availability
+from beliefs.contract.domain import VocabularyBinding
+from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
+from beliefs.record import AssessmentValue, RunInput, RunValue
+from beliefs.resolution import TermOutcome, build_snapshot
+from beliefs.verification import Verification
 
 D1 = "sha256:" + "11" * 32
 D2 = "sha256:" + "22" * 32

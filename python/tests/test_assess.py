@@ -27,15 +27,15 @@ from fixtures_cut3 import (
     memory_production as run_production,
 )
 
-from science.admission import AdmissionRefused, admit
-from science.assess import AssessmentFinding, build_assessment, run_record
-from science.boundary import RunMinted
-from science.closure import build_closure
-from science.dataset import ByteObservation, dataset_address
-from science.errors import SignatureRefused
-from science.recipe import RecipeInput, project_recipe
-from science.record import AssessmentValue, RunValue
-from science.spec import (
+from beliefs.admission import AdmissionRefused, admit
+from beliefs.assess import AssessmentFinding, build_assessment, run_record
+from beliefs.boundary import RunMinted
+from beliefs.closure import build_closure
+from beliefs.dataset import ByteObservation, dataset_address
+from beliefs.errors import SignatureRefused
+from beliefs.recipe import RecipeInput, project_recipe
+from beliefs.record import AssessmentValue, RunValue
+from beliefs.spec import (
     ExclusionCertification,
     RuleFixture,
     RuleImplementation,
@@ -43,7 +43,7 @@ from science.spec import (
     freeze,
     revise,
 )
-from science.verification import Verification
+from beliefs.verification import Verification
 
 
 def assessment_over(run: RunValue) -> AssessmentValue:

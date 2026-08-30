@@ -12,9 +12,9 @@ from pathlib import Path
 import pytest
 from nodes.core.errors import ExecutionError
 
-from science import root as science_root
-from science.errors import MalformedRecord, StoreIdMismatch
-from science.holdings.boundary import (
+from beliefs import root as science_root
+from beliefs.errors import MalformedRecord, StoreIdMismatch
+from beliefs.holdings.boundary import (
     ActContext,
     InconclusiveAttempt,
     PublishedObservation,
@@ -24,9 +24,9 @@ from science.holdings.boundary import (
     recheck,
     write,
 )
-from science.holdings.records import Absent, Found, StoreLocator
-from science.holdings.seam import FileStateView, ReadUnestablishedView, StoreOutcomeView
-from science.root import (
+from beliefs.holdings.records import Absent, Found, StoreLocator
+from beliefs.holdings.seam import FileStateView, ReadUnestablishedView, StoreOutcomeView
+from beliefs.root import (
     LifecycleState,
     holdings_seam,
     init_corpus_root,
@@ -35,8 +35,8 @@ from science.root import (
     replicate_root,
     restore_root,
 )
-from science.world import anchors, verify
-from science.world.logmodel import IntentEntryView, RegisteredEntryView, WellFormedView
+from beliefs.world import anchors, verify
+from beliefs.world.logmodel import IntentEntryView, RegisteredEntryView, WellFormedView
 
 
 def context(certified_work):

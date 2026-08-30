@@ -5,8 +5,8 @@ from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 
-from science import corpus, errors, stored
-from science.errors import (
+from beliefs import corpus, errors, stored
+from beliefs.errors import (
     MalformedRecord,
     SemanticHashMissing,
     SemanticHashStale,

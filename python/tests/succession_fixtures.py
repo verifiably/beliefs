@@ -15,12 +15,12 @@ from nodes.core.node import Node
 from nodes.core.write_plan import CreateOp
 from test_operation_port import durable_port
 
-from science import root as science_root
-from science import stored
-from science.identity import v1
-from science.root import init_corpus_root
-from science.spec import FrozenSpec, SuccessorAdmitted, SuccessorRefused, freeze, revise
-from science.succession import admit_spec_successor
+from beliefs import root as science_root
+from beliefs import stored
+from beliefs.identity import v1
+from beliefs.root import init_corpus_root
+from beliefs.spec import FrozenSpec, SuccessorAdmitted, SuccessorRefused, freeze, revise
+from beliefs.succession import admit_spec_successor
 
 RUN = "run:r1"
 PROPOSITION = "proposition:p1"

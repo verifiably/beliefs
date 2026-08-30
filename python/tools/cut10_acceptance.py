@@ -73,13 +73,13 @@ def work_directory() -> Path:
 
 def probe(run: Path) -> str | None:
     """Register and drop one throwaway world root, corpus root, and store root."""
-    from science.root import (
+    from beliefs.root import (
         init_corpus_root,
         init_store_root,
         init_world_root,
         metadata_root_for,
     )
-    from science.world import WorldConfig
+    from beliefs.world import WorldConfig
 
     world_root = run / "probe-world"
     corpus_root = run / "probe-corpus"

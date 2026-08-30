@@ -4,8 +4,8 @@ from decimal import Decimal
 
 import pytest
 
-from science.errors import CanonicalTextRefused, IdentityError
-from science.identity import v1
+from beliefs.errors import CanonicalTextRefused, IdentityError
+from beliefs.identity import v1
 
 
 def test_decode_round_trips_a_canonical_object() -> None:

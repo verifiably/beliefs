@@ -110,8 +110,8 @@ _S8 = [
         asserts="no module outside the write API constructs or receives a mutable `Corpus`",
         sabotage=Sabotage(
             module="root.py",
-            before="from science.corpus import CorpusWriter",
-            after="from nodes.core.corpus import Corpus\nfrom science.corpus import CorpusWriter",
+            before="from beliefs.corpus import CorpusWriter",
+            after="from nodes.core.corpus import Corpus\nfrom beliefs.corpus import CorpusWriter",
         ),
         checks=(
             "test_capability_boundary.py::TestS8TheMutableCorpusHandleHasOneHolder" +

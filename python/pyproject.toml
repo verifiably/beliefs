@@ -2,9 +2,9 @@
 # The published distribution name is not yet ruled; `nodes` is mid-rename into the
 # `verifiably` namespace and nothing here is published. `science` is the import name
 # fixed by the domain-extension design §9.
-name = "science"
+name = "beliefs"
 version = "0.0.0"
-description = "Science: recording scientific belief and the evidence it rests on"
+description = "beliefs, the Science kernel: recording scientific belief and the evidence it rests on"
 readme = "README.md"
 license = "MIT"
 authors = [{ name = "Keith Hughitt", email = "keith.hughitt@gmail.com" }]
@@ -13,7 +13,7 @@ classifiers = ["Typing :: Typed"]
 dependencies = [
   "atoms-core",
   "nodes-core",
-  # Declared because `science.corpus` names `pydantic.ValidationError` when it
+  # Declared because `beliefs.corpus` names `pydantic.ValidationError` when it
   # wraps a document-validation refusal. It arrives with `nodes-core` either
   # way; an undeclared import is a dependency nobody can see going stale.
   "pydantic>=2.0",
@@ -33,7 +33,7 @@ requires = ["hatchling>=1.30"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/science"]
+packages = ["src/beliefs"]
 
 [tool.pytest.ini_options]
 # The acceptance arms are excluded from the ordinary run rather than skipped

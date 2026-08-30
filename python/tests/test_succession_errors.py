@@ -2,7 +2,7 @@
 
 import pytest
 
-from science.errors import AdmissionEvidenceRefused, ScienceError
+from beliefs.errors import AdmissionEvidenceRefused, ScienceError
 
 
 def test_it_is_a_science_error_carrying_reason_and_ref() -> None:

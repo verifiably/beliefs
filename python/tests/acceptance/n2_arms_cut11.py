@@ -572,7 +572,7 @@ CUT11_ARMS = (
                 "findings=tuple(findings) + (_defect_finding(view.defect),))"
             ),
             after=(
-                "from science.intents.reduce import IntentQualification\n"
+                "from beliefs.intents.reduce import IntentQualification\n"
                 "        return _report(\n"
                 '            "malformed",\n'
                 "            qualification=(IntentQualification(view.defect.digest, None, "

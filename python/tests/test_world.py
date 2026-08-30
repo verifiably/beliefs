@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from science.errors import WorldUninitialized
-from science.world import WorldConfig, _load_world_mirror, _world_mirror_bytes
+from beliefs.errors import WorldUninitialized
+from beliefs.world import WorldConfig, _load_world_mirror, _world_mirror_bytes
 
 
 def test_world_config_resolves_paths_without_deduplicating_corpus_roots(tmp_path):

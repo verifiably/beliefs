@@ -1,4 +1,4 @@
-from science.consulted import CorpusPins
+from beliefs.consulted import CorpusPins
 
 SCIENCE_ID = "science:" + "a" * 64
 BIOLOGY_ID = "biology:" + "b" * 64

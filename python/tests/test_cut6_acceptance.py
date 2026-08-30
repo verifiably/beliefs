@@ -82,8 +82,8 @@ def test_pytest_receives_the_certified_run_directory_and_its_result(
 
 
 def test_probe_initializes_a_world_and_removes_its_root_and_metadata(tmp_path: Path, monkeypatch):
-    from science import root
-    from science.world import WorldConfig
+    from beliefs import root
+    from beliefs.world import WorldConfig
 
     seen: list[WorldConfig] = []
 

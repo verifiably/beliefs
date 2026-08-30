@@ -2,7 +2,7 @@
 title: Glossary
 status: living
 created: 2026-08-08
-updated: 2026-08-11
+updated: 2026-08-30
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -41,11 +41,22 @@ context and the linked design references for normative detail.
   contract is unchanged: it inspects any configuration, returns
   validation or findings, and mints nothing.
   ([act-report design](../designs/2026-08-11-act-report-design.md))
+- **Atoms** — The bottom layer of the stack: durable atomic filesystem
+  effects, including the pre-mutation registration boundary. Its own
+  repository. ([foundations](foundations.md#ownership-follows-the-nature-of-the-rule))
+- **Autonomy** — The top layer of the stack: the envelope, orchestrator,
+  behavioral profiles and priority function that run the daily surface
+  unattended. A separate repository, split from `science` on code-lineage
+  independence. ([user and autonomy layer design](../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md))
 - **Belief** — A policy-bound computed view over a complete set of eligible,
   directional, independence-filtered assessments; v1 returns a signed integer.
   ([claims](claims-and-belief.md#a-belief-is-a-reproducible-view))
 - **Belief input digest** — The identity of the exact world, records, standing,
   rules, and bindings consulted by a belief computation. ([claims](claims-and-belief.md#a-belief-is-a-reproducible-view))
+- **Beliefs** — The epistemic kernel: this repository and its `beliefs`
+  package — kernel kinds, world, runs, log, holdings, correction, conformance
+  cuts, and the `domains/` and `practices/` packs. Named `science` until
+  2026-08-30. ([foundations](foundations.md#ownership-follows-the-nature-of-the-rule))
 - **Canonical projection** — The prescribed meaning-bearing representation
   hashed for an identity, excluding presentation and location fields.
   ([foundations](foundations.md#contracts-compile-into-profiles))
@@ -130,6 +141,9 @@ context and the linked design references for normative detail.
 - **Mutation log** — A per-root hash-linked chain registering boundary
   transactions and destructive intent, with heads observed outside their own
   deletable set. ([identity](identity-world-and-change.md#mutation-history-is-detectable-relative-to-observers))
+- **Nodes** — The entity/relation substrate beneath `beliefs`: generic
+  storage, relation closure, traversal and mechanism, knowing no scientific
+  semantics. Its own repository. ([foundations](foundations.md#ownership-follows-the-nature-of-the-rule))
 - **NoBelief** — A successful answer saying belief cannot be produced because
   inputs are unavailable, no assessment is eligible, or only non-directional
   outcomes remain. ([claims](claims-and-belief.md#a-belief-is-a-reproducible-view))
@@ -167,6 +181,12 @@ context and the linked design references for normative detail.
   held implementation content identity that executed it. ([contracts](contracts-and-adoption.md#rules-bind-meaning-to-the-code-that-ran))
 - **Run** — A complete immutable execution closure consisting of a recipe,
   result, and occurrence. ([computation](computation-and-reproducibility.md#a-run-has-three-complete-parts))
+- **Science** — Two senses, deliberately: the name of the whole stack
+  (`atoms`, `nodes`, `beliefs`, `science`, `autonomy`), which is how the
+  banked designs use it; and the daily-surface layer above `beliefs` —
+  harness-neutral commands and skills, generated adapters, the CLI and MCP,
+  the derived work queue and publish — which is its own repository.
+  ([user and autonomy layer design](../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md))
 - **Sort** — The type of referent a slot admits. Operators declare a sort per
   argument position and per qualifier dimension, so a term of one sort cannot
   fill a slot of another. ([claims](claims-and-belief.md#a-claim-is-typed-by-its-operator))

@@ -20,7 +20,7 @@ from n2_arms_cut11 import CUT11_ARMS
 from n2_arms_cut12 import CO_CITED, CUT12_ARMS, LABELED_UNITS, ROW_UNITS, unit_of
 from test_n2 import MalformedArm, audit, baseline
 
-import science.root as science_root
+import beliefs.root as science_root
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]

@@ -7,11 +7,11 @@ node→corpus attributions plus per-corpus pins (cut 2 §4.2, D7 row).
 
 import pytest
 
-from science.claim import Referent, build_claim
-from science.consulted import CorpusPins, consulted_contracts
-from science.contract import domain
-from science.errors import ContractDisagreement, MalformedRecord
-from science.profile import compile_profile
+from beliefs.claim import Referent, build_claim
+from beliefs.consulted import CorpusPins, consulted_contracts
+from beliefs.contract import domain
+from beliefs.errors import ContractDisagreement, MalformedRecord
+from beliefs.profile import compile_profile
 
 
 @pytest.fixture()
@@ -47,7 +47,7 @@ class TestTheWalk:
         assert ("science", BASE) in consulted
 
     def test_a_claim_reaches_its_contract_through_the_operator(self, profile, claim):
-        from science.projection import claim_identity
+        from beliefs.projection import claim_identity
 
         consulted = consulted_contracts(
             claims={claim_identity(claim): claim},
@@ -78,7 +78,7 @@ class TestTheWalk:
 
 class TestAgreement:
     def test_two_corpora_pinning_different_identities_for_one_namespace_refuse(self, profile, claim):
-        from science.projection import claim_identity
+        from beliefs.projection import claim_identity
 
         uid = claim_identity(claim)
         with pytest.raises(ContractDisagreement):
@@ -91,7 +91,7 @@ class TestAgreement:
             )
 
     def test_a_namespace_pinned_by_no_corpus_refuses_with_a_distinct_message(self, profile, claim):
-        from science.projection import claim_identity
+        from beliefs.projection import claim_identity
 
         uid = claim_identity(claim)
         unpinned = CorpusPins(science_contract=BASE, domains={})

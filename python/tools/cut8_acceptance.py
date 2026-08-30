@@ -97,8 +97,8 @@ def probe(run: Path) -> str | None:
     pass on a host where the other refuses, which is the failure this command
     exists to make loud.
     """
-    from science.root import init_corpus_root, init_world_root, metadata_root_for
-    from science.world import WorldConfig
+    from beliefs.root import init_corpus_root, init_world_root, metadata_root_for
+    from beliefs.world import WorldConfig
 
     world_root = run / "probe-world"
     corpus_root = run / "probe-corpus"

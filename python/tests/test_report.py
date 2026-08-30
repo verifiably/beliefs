@@ -11,9 +11,9 @@ import pytest
 from closure_fixtures import make_closure, sample_report
 from fixtures_cut3 import report
 
-from science.errors import CitationRefused, MalformedRecord, OutcomeRefused
-from science.recipe import RunClosure
-from science.report import (
+from beliefs.errors import CitationRefused, MalformedRecord, OutcomeRefused
+from beliefs.recipe import RunClosure
+from beliefs.report import (
     CLOSED,
     INDETERMINATE,
     UNFINISHED,
@@ -177,7 +177,7 @@ def test_t8_every_facet_member_moves_the_identity():
 
 
 def test_t8_no_ordinary_api_edits_supersedes_or_deletes_a_report():
-    import science.report as report_module
+    import beliefs.report as report_module
 
     assert not any(
         name.startswith(("edit", "supersede", "delete", "update", "retract")) for name in report_module.__all__

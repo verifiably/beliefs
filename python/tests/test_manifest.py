@@ -6,9 +6,9 @@ import pytest
 from fixtures_cut6 import BIOLOGY_ID, PINS, SCIENCE_ID, manifest_document
 from nodes.core.write_plan import DefaultExecutor
 
-from science.corpus import CorpusWriter, corpus_check
-from science.errors import ManifestAlreadyPresent, ManifestMalformed, ManifestMissing
-from science.world import CorpusManifest, ForkedFrom, load_manifest, manifest_bytes, manifest_projection
+from beliefs.corpus import CorpusWriter, corpus_check
+from beliefs.errors import ManifestAlreadyPresent, ManifestMalformed, ManifestMissing
+from beliefs.world import CorpusManifest, ForkedFrom, load_manifest, manifest_bytes, manifest_projection
 
 
 def write_manifest(root, document: str) -> None:

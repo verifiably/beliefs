@@ -3,7 +3,7 @@
 from decimal import Decimal
 from pathlib import PurePosixPath  # noqa: F401 — builders below
 
-from science.recipe import (
+from beliefs.recipe import (
     BoundaryPolicy,
     BoundaryReceipt,
     EnvironmentManifest,
@@ -14,8 +14,8 @@ from science.recipe import (
     ResultManifest,
     RunClosure,
 )
-from science.report import ActReport, Entry, RunAttemptEntry, RunRefusal, _mint_report
-from science.spec import Deterministic, RealizedSeeds
+from beliefs.report import ActReport, Entry, RunAttemptEntry, RunRefusal, _mint_report
+from beliefs.spec import Deterministic, RealizedSeeds
 
 
 def make_closure(
@@ -90,7 +90,7 @@ def sample_report(*, operation: str = "run-attempt", token: str = "tok") -> ActR
         event_token=token,
         actor="tester",
         observer="observer-1",
-        instrument="science.boundary/v1",
+        instrument="beliefs.boundary/v1",
         opened_at="2026-08-27T00:00:00Z",
         closed_at="2026-08-27T00:00:00Z",
         entries=entries,

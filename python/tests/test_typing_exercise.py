@@ -70,9 +70,9 @@ class TestPlanFiles:
     def test_every_plan_parses_and_compiles(self, name: str) -> None:
         import yaml
 
-        from science.contract import load_base_contract
-        from science.contract.domain import parse_domain_contract
-        from science.profile import compile_profile
+        from beliefs.contract import load_base_contract
+        from beliefs.contract.domain import parse_domain_contract
+        from beliefs.profile import compile_profile
 
         document = yaml.safe_load((_TOOLS / "vocabularies" / f"{name}.yaml").read_text(encoding="utf-8"))
         base = load_base_contract(exercise.BASE_CONTRACT)
@@ -123,9 +123,9 @@ class TestTypeRecord:
     def typed(cls):
         import yaml
 
-        from science.contract import load_base_contract
-        from science.contract.domain import parse_domain_contract
-        from science.profile import compile_profile
+        from beliefs.contract import load_base_contract
+        from beliefs.contract.domain import parse_domain_contract
+        from beliefs.profile import compile_profile
 
         document = yaml.safe_load((_TOOLS / "vocabularies" / "mm30-modal-sorted.yaml").read_text(encoding="utf-8"))
         base = load_base_contract(exercise.BASE_CONTRACT)

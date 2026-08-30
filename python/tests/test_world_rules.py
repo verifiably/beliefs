@@ -23,17 +23,17 @@ import yaml
 from nodes.core.write_plan import CreateOp, DefaultExecutor, DeleteOp, WriteOp, WritePlan
 from test_root import patch_world_engine
 
-import science.world.registry as world_module
-from science import root
-from science.errors import (
+import beliefs.world.registry as world_module
+from beliefs import root
+from beliefs.errors import (
     EpochMalformed,
     RuleBindingUnknown,
     RuleCollision,
     RuleNonconformant,
     RuleNotHeld,
 )
-from science.identity import v1
-from science.world import epoch, rules
+from beliefs.identity import v1
+from beliefs.world import epoch, rules
 
 SYMBOL = "sort_members"
 
@@ -460,8 +460,8 @@ def test_shipped_rules_install_from_a_built_wheel(tmp_path):
 
         from nodes.core.write_plan import DefaultExecutor
 
-        from science.world import rules
-        from science.world.registry import World, WorldConfig
+        from beliefs.world import rules
+        from beliefs.world.registry import World, WorldConfig
 
         unpacked, world_root = sys.argv[1], sys.argv[2]
         assert Path(rules.__file__).is_relative_to(unpacked), rules.__file__
@@ -1226,7 +1226,7 @@ class TestExplicitRemoval:
         assert len(rules.remove_rule_binding(world, binding).severed_receipts) == 4
 
     def test_removal_is_reachable_through_the_package_facade(self):
-        import science.world as facade
+        import beliefs.world as facade
 
         assert facade.remove_rule_binding is rules.remove_rule_binding
         assert facade.RuleRemovalReport is rules.RuleRemovalReport

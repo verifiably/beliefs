@@ -11,7 +11,7 @@ import inspect
 
 import pytest
 
-from science.dataset import (
+from beliefs.dataset import (
     ByteObservation,
     CurationNote,
     DatasetDeclaration,
@@ -21,7 +21,7 @@ from science.dataset import (
     admission_state,
     dataset_address,
 )
-from science.errors import MalformedRecord
+from beliefs.errors import MalformedRecord
 
 D1 = "sha256:" + "11" * 32
 D2 = "sha256:" + "22" * 32

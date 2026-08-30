@@ -15,9 +15,9 @@ from pathlib import Path
 
 import pytest
 
-from science import root as science_root
-from science.errors import CorpusRootRefused
-from science.root import (
+from beliefs import root as science_root
+from beliefs.errors import CorpusRootRefused
+from beliefs.root import (
     LifecycleState,
     admit_arrival,
     fork_corpus,
@@ -29,7 +29,7 @@ from science.root import (
     replicate_root,
     restore_root,
 )
-from science.world import anchors, registry, verify
+from beliefs.world import anchors, registry, verify
 
 WORLD_ID = "f" * 32
 PARENT_ID = "a1" * 16

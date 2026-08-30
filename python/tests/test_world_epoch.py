@@ -49,10 +49,10 @@ from test_world_build import (
     tip_of,
 )
 
-from science import stored
-from science.errors import EpochMalformed, EpochUnknown
-from science.identity import v1
-from science.world import derive, epoch, read, registry
+from beliefs import stored
+from beliefs.errors import EpochMalformed, EpochUnknown
+from beliefs.identity import v1
+from beliefs.world import derive, epoch, read, registry
 
 # --- the harness -------------------------------------------------------------
 
@@ -669,7 +669,7 @@ class TestOpening:
         transaction this package can submit ever rewrites or removes a member
         of a carrier that already stands.
         """
-        import science.world as facade
+        import beliefs.world as facade
 
         world, recorder, bindings, _roots = admitted_world(tmp_path, (ALPHA, BETA))
         first = publish(world, (ALPHA,), bindings)

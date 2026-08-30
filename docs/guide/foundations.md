@@ -2,7 +2,7 @@
 title: Foundations
 status: living
 created: 2026-08-08
-updated: 2026-08-29
+updated: 2026-08-30
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-substrate-consolidation-design.md
@@ -102,7 +102,7 @@ function of named records and configuration.
 | Owner | Owns |
 |---|---|
 | `nodes` | Generic entity/relation storage, relation closure, traversal, and mechanism. It knows no scientific semantics. |
-| `science` | Kernel kinds, closed relation signatures, identity rules, eligibility, belief policy, and cross-node scientific invariants. |
+| `beliefs` | Kernel kinds, closed relation signatures, identity rules, eligibility, belief policy, and cross-node scientific invariants — this repository (named `science` until 2026-08-30; the designs' "Science" names the whole stack). |
 | `domains` | Namespaced sorts, operators, dimensions, facets, and vocabulary bindings. A domain may extend interpretation, not redefine kernel relations. |
 | `practices` | Procedures and workflows that use the model without owning scientific vocabulary. |
 | `atoms` | Durable atomic filesystem effects, including the pre-mutation registration boundary. |

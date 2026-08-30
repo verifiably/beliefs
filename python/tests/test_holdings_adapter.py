@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from science.admission import AdmissionRefused, admit
-from science.dataset import (
+from beliefs.admission import AdmissionRefused, admit
+from beliefs.dataset import (
     ByteObservation,
     DatasetDeclaration,
     Declared,
@@ -17,10 +17,10 @@ from science.dataset import (
     admission_state,
     dataset_address,
 )
-from science.errors import SubclassRefused
-from science.holdings.adapter import DatasetAnswer, DatasetBlocked, dataset_observations
-from science.record import AssessmentValue, RunInput, RunValue
-from science.verification import Verification
+from beliefs.errors import SubclassRefused
+from beliefs.holdings.adapter import DatasetAnswer, DatasetBlocked, dataset_observations
+from beliefs.record import AssessmentValue, RunInput, RunValue
+from beliefs.verification import Verification
 
 D = "sha256:" + "1" * 64
 D2 = "sha256:" + "2" * 64
@@ -230,7 +230,7 @@ def test_the_adapter_reads_only_its_inputs():
     source = Path(inspect.getfile(dataset_observations)).read_text(encoding="utf-8")
     assert all(
         forbidden not in source
-        for forbidden in ("science.world", "science.root", "science.corpus", "pathlib", "Path(")
+        for forbidden in ("beliefs.world", "beliefs.root", "beliefs.corpus", "pathlib", "Path(")
     )
 
 

@@ -12,16 +12,16 @@ from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.write_plan import CreateOp
 from test_operation_port import durable_port
 
-from science import root as science_root
-from science import stored
-from science.corpus import ReadView
-from science.identity import v1
-from science.intents.reduce import qualify_chain
-from science.production import mint_dataset
-from science.root import init_corpus_root
-from science.runrecord import bare_address, decode_run_record, publication_plan, run_ref
-from science.world.logmodel import IntentEntryView, WellFormedView
-from science.world.records import capture_records
+from beliefs import root as science_root
+from beliefs import stored
+from beliefs.corpus import ReadView
+from beliefs.identity import v1
+from beliefs.intents.reduce import qualify_chain
+from beliefs.production import mint_dataset
+from beliefs.root import init_corpus_root
+from beliefs.runrecord import bare_address, decode_run_record, publication_plan, run_ref
+from beliefs.world.logmodel import IntentEntryView, WellFormedView
+from beliefs.world.records import capture_records
 
 
 def _port(base, name):
@@ -62,7 +62,7 @@ def _report_plan(report):
 
 
 def _observation_plan(token="tok"):
-    from science.holdings.records import Found, StoreLocator, holdings_observation
+    from beliefs.holdings.records import Found, StoreLocator, holdings_observation
 
     value = holdings_observation(
         location=StoreLocator(store_id="0" * 32, relative_path="a/b"),

@@ -24,8 +24,8 @@ def work_directory() -> Path:
 
 
 def probe(run: Path) -> str | None:
-    from science.root import init_world_root, metadata_root_for
-    from science.world import WorldConfig
+    from beliefs.root import init_world_root, metadata_root_for
+    from beliefs.world import WorldConfig
 
     root = run / "probe-world"
     try:

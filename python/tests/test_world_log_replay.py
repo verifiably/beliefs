@@ -41,18 +41,18 @@ from test_world_log_codecs import (
 from test_world_log_codecs import MANIFEST as MANIFEST_PATH
 from test_world_log_codecs import RECORD as RECORD_PATH
 
-from science import root as science_root
-from science.world import verify
-from science.world.anchors import AnchorActOrigin, CorpusSubject, LogHeadRecord
-from science.world.epoch import CURRENT_POINTER, EPOCH_MEMBERS
-from science.world.logmodel import (
+from beliefs import root as science_root
+from beliefs.world import verify
+from beliefs.world.anchors import AnchorActOrigin, CorpusSubject, LogHeadRecord
+from beliefs.world.epoch import CURRENT_POINTER, EPOCH_MEMBERS
+from beliefs.world.logmodel import (
     GenesisEntryView,
     IntentEntryView,
     RegisteredEntryView,
     SettledEntryView,
     WellFormedView,
 )
-from science.world.rules import _MEMBER_NAME
+from beliefs.world.rules import _MEMBER_NAME
 
 # --- the opaque state stand-in ------------------------------------------
 

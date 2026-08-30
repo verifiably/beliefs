@@ -64,7 +64,7 @@ from n2_arms import (
 from n2_arms_cut2 import CUT2_ARMS
 from n2_arms_cut3 import CUT3_ARMS
 
-PACKAGE = Path(__file__).resolve().parent.parent / "src" / "science"
+PACKAGE = Path(__file__).resolve().parent.parent / "src" / "beliefs"
 TESTS = Path(__file__).resolve().parent
 HARNESS = Path(__file__).name
 
@@ -164,7 +164,7 @@ def _run_check(check: str, package: Path | None) -> CheckRun:
 
 def _sabotage(arm: Arm, into: Path) -> Path | None:
     """Copy the package into `into` and apply the arm's mutation. `None` if it does not apply."""
-    package = into / "science"
+    package = into / "beliefs"
     shutil.copytree(PACKAGE, package)
     target = package / arm.sabotage.module
     source = target.read_text(encoding="utf-8")

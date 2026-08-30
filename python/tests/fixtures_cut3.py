@@ -4,11 +4,11 @@ from decimal import Decimal
 from hashlib import sha256
 from typing import cast
 
-from science.assess import run_record
-from science.boundary import execute_assessment_run, execute_production_run
-from science.closure import RetractionEnumeration
-from science.lineage import LineageSnapshot
-from science.recipe import (
+from beliefs.assess import run_record
+from beliefs.boundary import execute_assessment_run, execute_production_run
+from beliefs.closure import RetractionEnumeration
+from beliefs.lineage import LineageSnapshot
+from beliefs.recipe import (
     BoundaryPolicy,
     BoundaryReceipt,
     EnvironmentManifest,
@@ -23,8 +23,8 @@ from science.recipe import (
 
 # Tests build fixture values through the private constructor deliberately —
 # the public surface must not offer one, and Task 11 pins that (T1).
-from science.report import Entry, LocatorEntry, PublishedObservation, RunAttemptEntry, RunRefusal, _mint_report
-from science.spec import (
+from beliefs.report import Entry, LocatorEntry, PublishedObservation, RunAttemptEntry, RunRefusal, _mint_report
+from beliefs.spec import (
     Deterministic,
     RealizedSeeds,
     RuleFixture,
@@ -299,7 +299,7 @@ SNAKEFILE_SCRATCHY = SNAKEFILE_DETERMINISTIC.replace(
 
 
 def definition(snakefile: str = SNAKEFILE_DETERMINISTIC, family_streams=None):
-    from science.adapter import WorkflowDefinition
+    from beliefs.adapter import WorkflowDefinition
 
     streams = family_streams if family_streams is not None else {"transform": ("model-initialization",)}
     return WorkflowDefinition(snakefile=snakefile.encode("utf-8"), family_streams=streams)
@@ -463,7 +463,7 @@ def replay_of(
     held_inputs=None,
     scratch_base=None,
 ):
-    from science.replay import replay
+    from beliefs.replay import replay
 
     code, held = stage(tmp_path, snakefile=snakefile)
     supplied = (

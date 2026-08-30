@@ -6,11 +6,11 @@ import pytest
 from closure_fixtures import make_closure
 from nodes.core.frontmatter import node_to_markdown
 
-from science import runrecord, stored
-from science.holdings.records import Found, StoreLocator, holdings_observation
-from science.identity import v1
-from science.intents import shapes
-from science.intents.reduce import (
+from beliefs import runrecord, stored
+from beliefs.holdings.records import Found, StoreLocator, holdings_observation
+from beliefs.identity import v1
+from beliefs.intents import shapes
+from beliefs.intents.reduce import (
     IntentQualification,
     RegistrationReduction,
     qualify_chain,
@@ -18,8 +18,8 @@ from science.intents.reduce import (
     reduce_chain,
     reduce_registration,
 )
-from science.recipe import RunClosure
-from science.world.logmodel import IntentEntryView, RegisteredEntryView, SettledEntryView
+from beliefs.recipe import RunClosure
+from beliefs.world.logmodel import IntentEntryView, RegisteredEntryView, SettledEntryView
 
 
 def _publication(closure: RunClosure) -> tuple[str, bytes]:

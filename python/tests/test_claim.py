@@ -17,10 +17,10 @@ import dataclasses
 
 import pytest
 
-import science.claim as claim_module
-from science.claim import Claim, Qualifier, Referent, build_claim
-from science.contract import domain
-from science.errors import (
+import beliefs.claim as claim_module
+from beliefs.claim import Claim, Qualifier, Referent, build_claim
+from beliefs.contract import domain
+from beliefs.errors import (
     ArgumentSortMismatch,
     ArityMismatch,
     ClaimError,
@@ -36,7 +36,7 @@ from science.errors import (
     UntypedReferent,
     WithdrawnFromAuthoring,
 )
-from science.profile import compile_profile
+from beliefs.profile import compile_profile
 
 AFFECTS = "testing/affects"
 SUBTYPE_OF = "testing/subtype-of"

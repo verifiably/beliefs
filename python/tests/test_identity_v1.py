@@ -14,7 +14,7 @@ from decimal import Decimal
 
 import pytest
 
-from science.errors import (
+from beliefs.errors import (
     BinaryFloatRefused,
     KeyCollision,
     LoneSurrogate,
@@ -24,7 +24,7 @@ from science.errors import (
     NullRefused,
     UnsupportedValueType,
 )
-from science.identity import v1
+from beliefs.identity import v1
 
 E_ACUTE = "é"  # é, one code point
 E_COMBINING = "é"  # e + U+0301 COMBINING ACUTE ACCENT
