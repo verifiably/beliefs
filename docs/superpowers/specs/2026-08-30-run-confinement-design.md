@@ -69,8 +69,9 @@ Three constraints follow and govern every section below:
 
 1. **§7.3 is conjunctive.** The receipt must attest the fresh instance as its
    own observed fact; the three capability strings do not imply it.
-2. **A read-only bind is sufficient only over immutable, verified closure
-   bytes.** The closure is enumerated per file, snapshotted into a
+2. **A read-only bind is sufficient only over verified closure bytes that
+   are immutable to the sandbox.** (The trusted host can still modify them;
+   §4.4.) The closure is enumerated per file, snapshotted into a
    boundary-owned directory, verified against the manifest before the bind
    and again after the process exits. Host-side mutation cannot be prevented
    by a namespace; a mutation present at either observation is caught, and
@@ -111,8 +112,9 @@ strings.
 `execute_assessment_run` and `execute_production_run` gain a keyword-only
 `boundary_policy: BoundaryPolicy` with **no default**; the module constant
 `_POLICY` is removed. Before intent the boundary matches the supplied policy
-against the two known definitions on **identity and capability set
-together**; any mismatch is `BoundaryPolicyUnsupported`, a request failure.
+against the two known definitions on **the entire definition — identity,
+scope rule, and unique capability set together**; any mismatch is
+`BoundaryPolicyUnsupported`, a request failure.
 Execution never trusts caller-claimed capabilities: the definition it
 recognizes decides what it will construct and observe.
 
@@ -331,9 +333,11 @@ process:
 
 1. bwrap starts with `--info-fd`; its command is the held `science.probe`,
    run from `/science/env/path/<n>` like any held module, with two inherited
-   descriptors: `READY` (probe → boundary) and `GO` (boundary → probe).
+   descriptors: `REPORT` (probe → boundary: the probe's JSON report followed
+   by the `READY` line, one pipe) and `GO` (boundary → probe).
 2. After bubblewrap completes the layout, the probe performs its checks
-   (§6.2), writes its report and `READY`, and waits on `GO`.
+   (§6.2), writes its report and then `READY` on `REPORT`, and waits on
+   `GO`.
 3. The boundary reads the child pid from the info fd and inspects **that
    child** from its own `/proc`: `/proc/<child>/ns/{mnt,pid,net,ipc,uts,
    user,cgroup}` — each must differ from `/proc/self/ns/*` — and
@@ -341,8 +345,8 @@ process:
    `(mountpoint, role, ro|rw)` where role names a planned bind, the implicit
    root, or a declared device exception. The canonical set must **equal** the
    planned mount table: no extra, no missing, no `rw` where `ro` was planned.
-4. On success the boundary writes `GO`; the probe **closes its `READY`,
-   `GO` and report descriptors** and then `execve`s the engine — same pid,
+4. On success the boundary writes `GO`; the probe **closes both `REPORT`
+   and `GO`** and then `execve`s the engine — same pid,
    namespaces, mounts and environment, and no gate authority inherited. On
    any failure the boundary closes `GO`, the probe exits, and the run is
    refused `ConfinementNotEstablished`.
@@ -384,6 +388,14 @@ Previously persisted run addresses remain stable. A newly executed
 minimal-policy run does **not** keep its cut-3 address, because its
 environment identity has moved to `v2` (§4.1); what stays byte-stable is
 the minimal receipt projection alone.
+
+**And a run domain.** `RunClosure.address()` embeds the full receipt
+projection (`recipe.py:495`), so a confined receipt reshapes the run
+projection too. Minimal runs stay under `science.run.v1`; a confined run
+takes **`science.run.v2`**. The dispatch is by **exact receipt shape** — a
+`v2` receipt makes a `v2` run — in both `RunClosure.address()` and
+`runrecord.py`'s wire recomputation, so a decoded record recomputes under
+the domain its receipt shape names and no other.
 
 **Validation.** `BoundaryReceipt.__post_init__` and `runrecord.py`'s wire
 validator accept the two spellings by domain: minimal (`v1`, four members)
@@ -466,7 +478,7 @@ exactly one non-conforming execution. Nothing is mutated after minting.
 | error | stage | when | `RunRefused.reason` |
 |---|---|---|---|
 | `ConfinementUnavailable` | pre-intent | `bwrap` absent or without `--info-fd`; user namespaces disabled; `ld.so --list` not callable | `confinement-unavailable` |
-| `BoundaryPolicyUnsupported` | pre-intent | the supplied policy matches neither known definition on identity and capability set | `boundary-policy-unsupported` |
+| `BoundaryPolicyUnsupported` | pre-intent | the supplied policy matches neither known definition on the entire definition — identity, scope rule, and unique capability set | `boundary-policy-unsupported` |
 | `ClosureUnsupported` | post-intent | SONAME collision; symlink escaping the closure; unfollowable `.pth` line; non-ELF `PT_INTERP`; unlistable artifact | `closure-unsupported` |
 | `SnapshotMismatch` | post-intent | an existing or freshly built snapshot disagrees with the manifest; a concurrent winner disagrees | `snapshot-mismatch` |
 | `ClosureMutated` | post-intent | bundle, snapshot or staged inputs differ between the pre-bind and post-exit digests | `closure-mutated` |
@@ -480,8 +492,12 @@ mint no run — cut 3's T2 shape.
 preserves nothing stable. Each new exception therefore carries a **`reason`
 attribute** holding the fixed string in the table's last column, with its
 message free to carry the diagnostic detail; `_execute_run` maps that
-attribute into `RunRefused.reason` and keeps the message as the refusal's
-detail. Errors without the attribute keep today's `str(error)` path.
+attribute into `RunRefused.reason` and the message into a new
+**in-memory-only `RunRefused.detail`** member. The durable `RunRefusal` and
+the act-report retain **only the stable reason**: a durable detail member
+would reshape the act-report and force an identity successor for a
+diagnostic string. Errors without the attribute keep today's `str(error)`
+path, with `detail` empty.
 `OSError`s raised inside `confinement.py` — a failed copy, rename, bind, or
 descriptor read — are **wrapped at that boundary** into the named error
 whose stage they belong to, so no raw `OSError` reaches `_execute_run` from
@@ -556,8 +572,9 @@ with `PREFIX_RUNNERS = ("cut12_acceptance.py",)`.
   not to need is removed from the entry, never left as slack.
 - `adapter.py`: `capture_environment` becomes the closure walk; `build_argv`
   takes interpreter and paths explicitly; `run_engine` remains the only
-  subprocess site for the minimal policy, and the gated confined launch is
-  `confinement.py`'s.
+  **Snakemake engine-launch** subprocess for the minimal policy (the `v2`
+  environment capture invokes `ld.so --list`, a second subprocess site in
+  `adapter.py`), and the gated confined launch is `confinement.py`'s.
 - `fixtures_cut3.py`: every `run_*` helper passes `boundary_policy=MINIMAL`
   explicitly.
 - `science.environment.v2` is minted; `v1` is retired with its shape.
@@ -565,10 +582,12 @@ with `PREFIX_RUNNERS = ("cut12_acceptance.py",)`.
   **verification publication** crosses the persistence seam and no boundary
   names it; the roadmap is re-ranked at cut 13 with `workflow-surface` as
   row 1, and Appendix A regenerated by `roadmap_status.py`.
-- The host: cut 13's acceptance runner needs bubblewrap and user
-  namespaces, not a certified volume. The ext4 recertification on kernel
-  7.1.11 is a separate prerequisite for the durable prefix runners
-  (`cut4`–`cut12`) and is not this slice's.
+- The host: the confined-arm tests need only the confinement gate —
+  bubblewrap, user namespaces, `ld.so --list`. The aggregate
+  `tools/cut13_acceptance.py` runner also needs the recertified
+  durable-prefix host, because it executes the cut-12 prefix; the ext4
+  recertification on kernel 7.1.11 is therefore a discharge prerequisite
+  and not this slice's implementation dependency (§9.2).
 
 ## 11. Alternatives rejected
 
@@ -598,8 +617,10 @@ with `PREFIX_RUNNERS = ("cut12_acceptance.py",)`.
 ## 12. Verification
 
 The slice is done when: the portable suite passes with its count reported
-from the summary line; `tools/cut13_acceptance.py` exits 0 on a host with
-bubblewrap, running the cut-12 prefix, the confined arms and the N2 audit in
-order, never skipping; every arm in `n2_arms_cut13.py` audits `sound`; Ruff
+from the summary line; the confined-arm tests pass on a host meeting the
+confinement gate alone; `tools/cut13_acceptance.py` exits 0 on a host that
+meets the confinement gate **and** carries the recertified durable prefix,
+running the cut-12 prefix, the confined arms and the N2 audit in order,
+never skipping; every arm in `n2_arms_cut13.py` audits `sound`; Ruff
 and Pyright are clean; and the results record, the ledger row, and the
 roadmap re-ranking land in the banking change.
