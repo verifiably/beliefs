@@ -483,9 +483,17 @@ missing identities listed; the user widens the view or drops the record.
    From them the request freezes **`binding_tips`**, the binding revision
    identities themselves, which step 8's binding revision supersedes; and
    **`marker_tips`**, the `(corpus_id, publication marker identity)` pair
-   each of those revisions binds (§6.2's binding shape), which the
-   marker's `supersedes` carries. Neither is ever derived from the other
-   at retry time. Payload alone does not
+   each of those revisions binds (§6.2's binding shape) **plus every
+   standing orphan** for `(view address, destination)` — the markers
+   step 8's refusal reports name that no later marker has superseded and
+   no cleanup report has recorded as removed, read from the source root's
+   act-reports under the same lock, at the same position — which the
+   marker's `supersedes` carries. An orphan is therefore superseded by
+   the next publication of that view to that destination, whichever
+   attempt makes it, and stops being a tip in every recipient's reading;
+   without this, a repair could never name it and every later publish
+   would be its sibling forever. Neither projection is ever derived from
+   the other at retry time. Payload alone does not
    fix bytes: the record model assigns a random `uid` by default
    (`nodes` `Node.uid`), and Science's node factories leave it to that
    default. So the `publication` record is minted by a **deterministic
@@ -657,10 +665,20 @@ missing identities listed; the user widens the view or drops the record.
    unpublished Zenodo draft, withdrawing from an inbox — each transport's
    own operation, specified per destination kind in sub-project 5), and
    where removal is impossible or has already been consumed the orphan
-   is **accepted as permanent**: an unbound published corpus carrying a
-   valid marker that no source binding names, which any recipient's tip
-   rule treats as an ordinary unreferenced publication. A retry never
-   re-reads the binding to decide what to supersede.
+   is **accepted as permanent** — but not unrepairable. The refusal
+   report's `(corpus_id, marker identity)` is a **standing orphan** of
+   `(view address, destination)`, and step 0 folds standing orphans into
+   the next publication's `marker_tips` (above), so the next marker
+   supersedes the orphan and a recipient holding both resolves to one
+   tip. Until then a recipient's tip rule sees the orphan as an ordinary
+   standing publication — correctly, since it is valid and shared — and
+   a recipient holding it beside a sibling reports `divergent-publication`
+   until the superseding marker arrives. A cleanup that succeeds records
+   removal in its own report, and a removed orphan leaves the standing
+   set; one that fails leaves it standing to be superseded. The orphan
+   set is derived from the source root's act-reports at a log position,
+   never stored, so it is recomputable like every other tip set. A retry
+   never re-reads the binding to decide what to supersede.
 9. Discard the staging corpus and the staging world.
 
 **Done** means exactly: **this attempt's binding revision exists** in
