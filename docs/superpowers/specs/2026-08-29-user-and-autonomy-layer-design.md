@@ -485,10 +485,11 @@ missing identities listed; the user widens the view or drops the record.
    **`marker_tips`**, the `(corpus_id, publication marker identity)` pair
    each of those revisions binds (§6.2's binding shape) **plus every
    standing orphan** for `(view address, destination)` — the markers
-   step 8's refusal reports name that no later marker has superseded and
-   no cleanup report has recorded as removed, read from the source root's
-   act-reports under the same lock, at the same position — which the
-   marker's `supersedes` carries. An orphan is therefore superseded by
+   step 8's refusal reports name as **remotely revealed** that no later
+   marker has superseded, read from the source root's publish act-reports
+   under the same lock, at the same position; nothing else retires one —
+   which the marker's `supersedes` carries. An orphan is therefore
+   superseded by
    the next publication of that view to that destination, whichever
    attempt makes it, and stops being a tip in every recipient's reading;
    without this, a repair could never name it and every later publish
@@ -660,25 +661,35 @@ missing identities listed; the user widens the view or drops the record.
    adopted: an operator's to discard. A **remote** reveal (step 7) has
    already been shared, and §6.2's rule holds — what was shared cannot be
    unshared — so the refusal report names the orphan `corpus_id` and the
-   destination, **destination-specific cleanup** is attempted where the
-   destination supports removal (deleting the pushed ref, discarding an
-   unpublished Zenodo draft, withdrawing from an inbox — each transport's
-   own operation, specified per destination kind in sub-project 5), and
-   where removal is impossible or has already been consumed the orphan
+   destination and marks it **remotely revealed**; **destination-specific
+   cleanup** may be attempted where the destination supports removal
+   (deleting the pushed ref, discarding an unpublished Zenodo draft,
+   withdrawing from an inbox — each transport's own operation, specified
+   per destination kind in sub-project 5) as hygiene that reduces further
+   spread; and whether or not removal succeeds the orphan
    is **accepted as permanent** — but not unrepairable. The refusal
-   report's `(corpus_id, marker identity)` is a **standing orphan** of
-   `(view address, destination)`, and step 0 folds standing orphans into
-   the next publication's `marker_tips` (above), so the next marker
-   supersedes the orphan and a recipient holding both resolves to one
-   tip. Until then a recipient's tip rule sees the orphan as an ordinary
-   standing publication — correctly, since it is valid and shared — and
-   a recipient holding it beside a sibling reports `divergent-publication`
-   until the superseding marker arrives. A cleanup that succeeds records
-   removal in its own report, and a removed orphan leaves the standing
-   set; one that fails leaves it standing to be superseded. The orphan
-   set is derived from the source root's act-reports at a log position,
-   never stored, so it is recomputable like every other tip set. A retry
-   never re-reads the binding to decide what to supersede.
+   report's `(corpus_id, marker identity)`, flagged as remotely revealed,
+   is a **standing orphan** of `(view address, destination)`, and step 0
+   folds standing orphans into the next publication's `marker_tips`
+   (above), so the next marker supersedes the orphan and a recipient
+   holding both resolves to one tip. Until then a recipient's tip rule
+   sees the orphan as an ordinary standing publication — correctly, since
+   it is valid and shared — and a recipient holding it beside a sibling
+   reports `divergent-publication` until the superseding marker arrives.
+   **Cleanup never retires an orphan.** A recipient may have taken the
+   corpus before the ref, draft or inbox entry was removed, and the
+   publisher cannot know; dropping the orphan from the tip set on a
+   cleanup would leave every such recipient divergent forever. So a
+   remotely revealed orphan stands until a later marker supersedes it,
+   without exception, and cleanup is transport hygiene with **no record
+   in the source root and no effect on any tip set** — which is also why
+   it needs no operation kind: the only act-report amendment remains
+   `publish`. A locally revealed refusal (step 6) is different in kind:
+   nothing was shared, the directory is discarded, and it never enters
+   `marker_tips`. The orphan set is derived from the source root's
+   publish act-reports at a log position, never stored, so it is
+   recomputable like every other tip set. A retry never re-reads the
+   binding to decide what to supersede.
 9. Discard the staging corpus and the staging world.
 
 **Done** means exactly: **this attempt's binding revision exists** in
