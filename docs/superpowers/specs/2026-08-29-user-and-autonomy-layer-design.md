@@ -364,39 +364,76 @@ missing identities listed; the user widens the view or drops the record.
    written at the canonical, event-token-keyed path
    `<operations root>/publish/<event_token>/request.v1` — the operations
    root being a durable, launcher-owned directory outside every corpus
-   that the actor cannot reach — under the rules-store idempotency
-   discipline. It carries the **request identity** `(view address, view
-   revision identity, destination)` and everything recovery needs: the
-   minted `corpus_id`, and the canonical paths derived from the token —
+   that the actor cannot reach — by the **durable create-only write**
+   defined below. It **freezes every identity-bearing input** of the
+   publish, so a retry can never select differently: the **request
+   identity** `(view address, view revision identity, destination)`; the
+   **source epoch's packaging identity**, which every retry reopens
+   explicitly with `open_epoch` rather than reading `current`; the minted
+   `corpus_id`; the **staging `world_id`**, derived deterministically as
+   a domain-separated digest of `(publish, event_token)` so that no retry
+   can mint a second one; and the canonical paths derived from the token —
    `…/<event_token>/staging` (staging root), `…/<event_token>/world`
    (staging world), and, for a remote destination, `…/<event_token>/export`
    (export root). Nothing about a publish is minted or placed anywhere
    else. Recovery therefore enumerates `<operations root>/publish/*/
    request.v1`, matches each to an unfulfilled `publish` intent by event
    token, and resumes that one; several crashed publishes cannot be
-   confused. An intent with no request record means no side effect
-   occurred, and the retry writes the request (minting the `corpus_id`
-   then); a request record is never rewritten, so a `corpus_id` is never
-   minted twice for one token.
+   confused. A request record is never rewritten, so nothing it freezes
+   is ever minted twice for one token. **An intent with no request record
+   is left `unfinished` and never resumed**: the intent carries only
+   `(kind, event_token, actor)`, so the view, destination and request
+   identity cannot be reconstructed from it — and since no side effect
+   occurred, the honest rule is to begin a new attempt under a new token.
+
+   **The durable create-only write.** The rules-store idempotency
+   discipline runs under the world lock (log-verification design §3.1);
+   the operations root and the artifact sibling (step 5) are outside
+   every corpus and have no such boundary, so both use one mechanism
+   defined here: write the bytes to a temporary name in the target
+   directory, `fsync` it, publish it at the final name with a
+   **create-only** link (`O_EXCL` semantics — fails if the name exists),
+   and `fsync` the directory. Partial bytes therefore never appear at the
+   final name. A retry that finds the final name compares bytes —
+   identical is success, different is a collision and refuses — and
+   discards any leftover temporary name.
 1. Construct `WorldConfig(world_root = the staging world path from the
-   request, world_id = fresh, corpus_roots = (staging_root,))` — the
-   staging corpus must be
+   request, world_id = the request's staging world id, corpus_roots =
+   (staging_root,))` — the staging corpus must be
    the world's one configured carrier, because `_resolve_carrier`
    requires exactly one configured carrier for a `corpus_id` and
-   admission alone configures none. Then, in this order: `init_corpus_root
-   (staging_root)`, `init_world_root(config)`, `open_world(config)` —
-   `open_world` refuses an uninitialized world (`WorldUninitialized`).
+   admission alone configures none. Then, in this order:
+   `init_corpus_root(staging_root)` unless the root is already
+   initialized; `init_world_root(config)` unless the world is, since
+   reinitializing raises `WorldIdMismatch` rather than converging; then
+   `open_world(config)`, which refuses an uninitialized world
+   (`WorldUninitialized`). The deterministic `world_id` is what makes
+   "unless already" safe: an initialized staging world can only be this
+   request's.
    Both roots are private; the actor cannot reach them. The staging world
    is throwaway; its only purpose is to make the staging corpus eligible
    for a head export.
-2. Write the selection and the `publication` record into the staging
-   corpus through `beliefs`' ordinary writer.
-3. `World.admit` the staging corpus into the staging world (a fresh
-   adoption, not a replica), then `export_head_artifact(staging world,
-   corpus(corpus_id))` — the existing act, which requires an admitted
-   corpus on a configured carrier (log-verification design §3.2). It
-   returns the canonical bytes of `(subject, genesis identity, head
-   digest)` under `science.head-artifact.v1` and **stores nothing**.
+2. **Populate, with the `publication` record as the completion mark.**
+   Resolve the selection at the request's frozen epoch, and write the
+   selected records into the staging corpus through `beliefs`' ordinary
+   writer — each write its own registered transaction, a retry skipping
+   any identity the writer refuses as `RecordAlreadyMinted`. Write the
+   `publication` record **last**: it lists the full selection, so its
+   presence is the durable mark that population finished, and a staging
+   corpus without it is by definition incomplete. Population is
+   **complete** iff the `publication` record is present, every identity
+   it lists resolves in the staging corpus, and the corpus holds no record
+   outside that list plus the `publication` record itself.
+3. **Validate, then admit, then export.** Re-check completeness as
+   defined in step 2 — refusing `Refused(staging-incomplete)` if it
+   fails, which sends the retry back to step 2 — then `World.admit` the
+   staging corpus into the staging world (a fresh adoption, not a replica)
+   unless the staging world's registry already carries this `corpus_id`,
+   then `export_head_artifact(staging world, corpus(corpus_id))` — the
+   existing act, which requires an admitted corpus on a configured carrier
+   (log-verification design §3.2). It returns the canonical bytes of
+   `(subject, genesis identity, head digest)` under
+   `science.head-artifact.v1` and **stores nothing**.
 4. **Name the export root.** Lifecycle commands take paths, so every
    publish has a local **export root**: for a local destination it *is*
    the destination directory; for a Git remote, a Zenodo deposit, or an
@@ -404,10 +441,10 @@ missing identities listed; the user widens the view or drops the record.
    directory that step 7 later transports. The actor cannot reach it.
 5. **Write the artifact to its canonical sibling locator** —
    `<export root parent>/<corpus_id>.head-artifact.v1`, outside the root
-   so the corpus bytes are untouched — under the rules-store idempotency
-   discipline (log-verification design §3.1): an existing file with
-   byte-identical content is success, a same-name file with different
-   bytes refuses as a collision. The sibling **is** the durable external
+   so the corpus bytes are untouched — by the durable create-only write
+   of step 0: an existing file with byte-identical content is success, a
+   same-name file with different bytes refuses as a collision, and
+   partial bytes never appear. The sibling **is** the durable external
    retention of the observer, and the staging root is **retained until
    step 9** so that any retry re-exports from it; the export is a pure
    function of the staged chain, so a re-export is byte-identical and the
@@ -460,10 +497,13 @@ reading, classifies the state it finds, and resumes there:
 
 | state found | resume at |
 |---|---|
-| no export root, no sibling (crash before step 5) | step 5, from the retained staging root |
+| request present; staging root or staging world uninitialized | step 1 |
+| staging initialized; population incomplete (no `publication` record, or step 3's check fails) | step 2 — add-only writes make resumption idempotent |
+| population complete; `corpus_id` not in the staging world's registry | step 3's admission, then export |
+| population complete and admitted; no sibling, no export root | step 3's export, then step 5 |
 | sibling present, no reservation (crash after step 5) | step 6 |
 | bare reservation at the export root | step 6 — **retry the exact same replication**, which adopts the retained claim and converges; a different request refuses |
-| stamped copy, sibling missing | step 5 from staging, then step 6's `restore_root` |
+| stamped copy, sibling missing | step 3's export from the retained staging root, step 5, then step 6's `restore_root` |
 | stamped copy with sibling, unserviceable | step 6's `restore_root` |
 | serviceable export root; remote destination not verified complete | step 7, under that destination's retry semantics |
 | revealed; source binding absent; intent `unfinished` | step 8 |
