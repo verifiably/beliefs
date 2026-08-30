@@ -357,8 +357,30 @@ missing identities listed; the user widens the view or drops the record.
 **Constructing the corpus composes lifecycle commands that exist; no new
 `atoms` primitive is needed.** The sequence is:
 
-1. Construct `WorldConfig(world_root = a private staging world, world_id
-   = fresh, corpus_roots = (staging_root,))` — the staging corpus must be
+0. **Append the intent, then write the request, before any side effect.**
+   The publish's `OperationIntent(kind = publish, event_token, actor)` is
+   appended to the source root's log first, as every boundary operation
+   already does (act-report §3); then a **publish request record** is
+   written at the canonical, event-token-keyed path
+   `<operations root>/publish/<event_token>/request.v1` — the operations
+   root being a durable, launcher-owned directory outside every corpus
+   that the actor cannot reach — under the rules-store idempotency
+   discipline. It carries the **request identity** `(view address, view
+   revision identity, destination)` and everything recovery needs: the
+   minted `corpus_id`, and the canonical paths derived from the token —
+   `…/<event_token>/staging` (staging root), `…/<event_token>/world`
+   (staging world), and, for a remote destination, `…/<event_token>/export`
+   (export root). Nothing about a publish is minted or placed anywhere
+   else. Recovery therefore enumerates `<operations root>/publish/*/
+   request.v1`, matches each to an unfulfilled `publish` intent by event
+   token, and resumes that one; several crashed publishes cannot be
+   confused. An intent with no request record means no side effect
+   occurred, and the retry writes the request (minting the `corpus_id`
+   then); a request record is never rewritten, so a `corpus_id` is never
+   minted twice for one token.
+1. Construct `WorldConfig(world_root = the staging world path from the
+   request, world_id = fresh, corpus_roots = (staging_root,))` — the
+   staging corpus must be
    the world's one configured carrier, because `_resolve_carrier`
    requires exactly one configured carrier for a `corpus_id` and
    admission alone configures none. Then, in this order: `init_corpus_root
@@ -378,8 +400,8 @@ missing identities listed; the user widens the view or drops the record.
 4. **Name the export root.** Lifecycle commands take paths, so every
    publish has a local **export root**: for a local destination it *is*
    the destination directory; for a Git remote, a Zenodo deposit, or an
-   inbox it is a durable, publisher-owned directory that step 7 later
-   transports. The actor cannot reach it.
+   inbox it is the request's `export` path, a durable, publisher-owned
+   directory that step 7 later transports. The actor cannot reach it.
 5. **Write the artifact to its canonical sibling locator** —
    `<export root parent>/<corpus_id>.head-artifact.v1`, outside the root
    so the corpus bytes are untouched — under the rules-store idempotency
@@ -425,13 +447,16 @@ missing identities listed; the user widens the view or drops the record.
 9. Discard the staging corpus and the staging world.
 
 **Done** means exactly: the source binding names this corpus **and** the
-publish intent has a qualifying terminal fulfillment — the act-report's
-completion reading is `closed` (act-report §3). Either alone is not done.
+publish intent's completion reading is `closed` (act-report §3.3). Either
+alone is not done, and the reading's other two values are kept apart:
+`unfinished` is an unmatched intent, `indeterminate` is a qualification
+that did not resolve, and the design never collapses one into the other.
 
 `atoms` stays ignorant of root kinds. **The local lifecycle steps are
 exact-retry**, and the staging root's retention through step 8 is what
 makes them so; transport is retried under its own semantics. A retry
-classifies the state it finds and resumes there:
+starts from the request record (step 0), reads the intent's completion
+reading, classifies the state it finds, and resumes there:
 
 | state found | resume at |
 |---|---|
@@ -441,9 +466,10 @@ classifies the state it finds and resumes there:
 | stamped copy, sibling missing | step 5 from staging, then step 6's `restore_root` |
 | stamped copy with sibling, unserviceable | step 6's `restore_root` |
 | serviceable export root; remote destination not verified complete | step 7, under that destination's retry semantics |
-| revealed; source binding absent | step 8 |
-| revealed; binding present without a `closed` fulfillment | not a resumable state — step 8 is all-or-nothing, so this is a foreign write, refused and reported, never resumed |
-| revealed; binding present and fulfillment `closed` | done |
+| revealed; source binding absent; intent `unfinished` | step 8 |
+| revealed; binding present; intent `unfinished` | not a resumable state — step 8 is all-or-nothing, so a binding with an unmatched intent is a foreign write, refused and reported, never resumed |
+| revealed; binding present or absent; intent `indeterminate` | **fail closed**: not done, not resumed, not relabeled. The qualification did not resolve (act-report §3.3), and neither a retry nor a person may turn that into `closed` by re-running; it is surfaced as an audit finding and the publish stays open until the qualification resolves |
+| revealed; binding present; intent `closed` | done |
 
 No abandon operation exists, and cleanup of a reservation nobody will
 retry is an explicit out-of-band operator action, never something a
