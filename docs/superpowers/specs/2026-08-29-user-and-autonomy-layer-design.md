@@ -622,8 +622,13 @@ missing identities listed; the user widens the view or drops the record.
    content identity, and minted by the same deterministic factory rule as
    the marker, so its identity is a function of the request and intent —
    **and** the publish's terminal act-report **in one registered
-   transaction** (`run_transaction`), so neither can exist without the
-   other. "Same operation" is not enough: a revision committed with the
+   transaction** (`run_transaction`). The atomic pair is the guarantee
+   of **successful admission**: a binding revision never exists without
+   its report, and a *success* report never exists without its revision.
+   A **refusal** at this step is the other case, and is not paired: it
+   mints no revision and writes its terminal refusal report alone, in its
+   own transaction, which is what fulfills the intent. "Same operation"
+   is not enough for the success case: a revision committed with the
    act-report still unpublished would leave the operation intent
    unmatched while a retry read "done". Written earlier, a crash before
    the reveal would bind an unrevealed corpus; written here, the binding
@@ -639,11 +644,23 @@ missing identities listed; the user widens the view or drops the record.
    permits, refused at resolution by the tip rule until a revision
    supersedes both. An attempt whose intent was appended *after* a
    sibling superseded its tips is refused at step 8
-   (`predecessor-not-standing`) and reports so — its terminal act-report
-   records the refusal, which fulfills the intent (`closed`) without
-   minting this attempt's binding revision; it cannot silently re-target,
-   and the revealed corpus stands unbound, an operator's to discard. A retry never re-reads the binding to decide what to
-   supersede.
+   (`predecessor-not-standing`) and reports so — its terminal refusal
+   report, written alone as above, fulfills the intent (`closed`) without
+   minting this attempt's binding revision; it cannot silently re-target.
+   What the refusal leaves behind depends on where the reveal happened.
+   A **local** reveal (step 6) is a serviceable directory nobody has
+   adopted: an operator's to discard. A **remote** reveal (step 7) has
+   already been shared, and §6.2's rule holds — what was shared cannot be
+   unshared — so the refusal report names the orphan `corpus_id` and the
+   destination, **destination-specific cleanup** is attempted where the
+   destination supports removal (deleting the pushed ref, discarding an
+   unpublished Zenodo draft, withdrawing from an inbox — each transport's
+   own operation, specified per destination kind in sub-project 5), and
+   where removal is impossible or has already been consumed the orphan
+   is **accepted as permanent**: an unbound published corpus carrying a
+   valid marker that no source binding names, which any recipient's tip
+   rule treats as an ordinary unreferenced publication. A retry never
+   re-reads the binding to decide what to supersede.
 9. Discard the staging corpus and the staging world.
 
 **Done** means exactly: **this attempt's binding revision exists** in
@@ -681,7 +698,7 @@ reading, classifies the state it finds, and resumes there:
 | revealed; this attempt's binding revision absent — whatever other revisions exist: the predecessor's, none (a first publication), or a concurrent sibling's; intent `unfinished` | step 8 |
 | revealed; this attempt's binding revision present; intent `unfinished` | not a resumable state — step 8 is all-or-nothing, so this attempt's revision beside an unmatched intent is a foreign write, refused and reported, never resumed |
 | revealed; either binding state; intent `indeterminate` | **fail closed**: not done, not resumed, not relabeled. The qualification did not resolve (act-report §3.3), and neither a retry nor a person may turn that into `closed` by re-running; it is surfaced as an audit finding and the publish stays open until the qualification resolves |
-| revealed; this attempt's binding revision **absent**; intent `closed` | **terminally refused**, not done and never resumed: `closed` means fulfilled, not successful, and a fulfillment without this attempt's revision is step 8's `predecessor-not-standing` refusal on record — the revealed corpus is unbound and an operator's to discard, and a new attempt begins under a new token |
+| revealed; this attempt's binding revision **absent**; intent `closed` | **terminally refused**, not done and never resumed: `closed` means fulfilled, not successful, and a fulfillment without this attempt's revision is step 8's `predecessor-not-standing` refusal on record — the revealed corpus is unbound: discarded if local, cleaned up per destination or accepted as a permanent orphan if remote (step 8), and a new attempt begins under a new token |
 | revealed; this attempt's binding revision present; intent `closed` | done |
 
 No abandon operation exists, and cleanup of a reservation nobody will
