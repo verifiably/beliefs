@@ -23,7 +23,7 @@
   - `runrecord.py`: `if node.id != run_ref(address):`, `_mapping(parsed, {"recipe", "result", "occurrence"}, "$")`, `if _reproject(parsed) != parsed:\n        _refuse("$", "an array the projection sorts is out of its canonical order")`.
   - `errors.py`: `        self.reason = reason\n        self.ref = ref` (only `AdmissionEvidenceRefused` — the new errors carry `reason` as a class attribute).
   After every task: `cd python && set -o pipefail && uv run pytest tests/test_n2.py -k "stale" | tail -1` must pass (it audits cuts 1–3 live).
-- **Byte-mutation primitives** (`tests/test_capability_boundary.py`): `confinement.py` may name exactly `copy2`, `write_text`, `symlink_to`, `rename`, `rmtree`; `probe.py` names none of `BYTE_MUTATION_PRIMITIVES` (it creates its probe file with `os.open`). `adapter.py` stays at `{copy2}`, `boundary.py` at `{copy2, write_text}`.
+- **Byte-mutation primitives** (`tests/test_capability_boundary.py`): `confinement.py` may name exactly `copy2`, `write_text`, `symlink_to`, `rename`, `rmtree`; `probe.py` exactly `touch`, `unlink` — its one write check uses inventoried operations so the equality allowlist weighs it as the fourth surface, never a raw `os.open` the inventory cannot see. `adapter.py` stays at `{copy2}`, `boundary.py` at `{copy2, write_text}`.
 - **Stable reasons**: `confinement-unavailable`, `boundary-policy-unsupported`, `closure-unsupported`, `snapshot-mismatch`, `closure-mutated`, `confinement-not-established`, plus the unchanged `execution-failed`.
 - **Sandbox constants**: `/science/env`, `/science/env/python`, `/science/env/site`, `/science/env/path`, `/science/env/lib`, `/science/env/venv`, `/science/bundle`, `/science/out`, `/science/out/inputs`; hostname `science`; devices `/dev/null`, `/dev/urandom`.
 - **Explicit sandbox environment**, exactly: `PATH=/science/env/venv/bin`, `LD_LIBRARY_PATH=/science/env/lib`, `HOME=/science/out/.home`, `PWD=/science/out`, `LC_CTYPE=C.UTF-8`, `PYTHONDONTWRITEBYTECODE=1`, `PYTHONHASHSEED=0`, `PYTHONNOUSERSITE=1`, `PYTHONSAFEPATH=1`, `SCIENCE_TRACE_FILE=/science/out/.trace/events.jsonl`.
@@ -59,6 +59,12 @@ The spike (bubblewrap 0.12, Snakemake 8.11.4, this host) established five facts 
 6. In §6.1 step 1, replace "with two inherited descriptors" by "with two inherited descriptors named on its own argv (`--report-fd`, `--go-fd`, never the environment)".
 7. In §6.2's network row, replace the check text with: `an IPv4 connect to a non-loopback documentation address (192.0.2.1) fails with ENETUNREACH; an IPv6 socket either cannot be created (EAFNOSUPPORT) or its connect to 2001:db8::1 fails unreachable. Loopback is not evidence — the sandbox owns its own lo. DNS failure is not evidence and is not checked.`
 8. In §9.3, add: `- An N2 sabotage of probe.py does not reach the sandbox, whose science tree is the closure's own copy; every cut-13 arm sabotages host-side code.` and `- PYTHONPATH is not captured (§5.1).`
+9. In §4.2, after the sentence beginning "`PT_INTERP`, the Python version directory name", add: `Every symlink row's target is itself part of the closure — a file row, a symlink row, or a directory some row lies under — and is captured when the link is; a relative target that stays under the link's own root keeps its relative text, any other in-closure target is rewritten to the target's sandbox path, and a target outside every root is ClosureUnsupported. sys.executable is followed link by link (add_chain): each link a symlink row, the terminal binary the interpreter row. Every sandbox path is normalized — absolute, no ., .. or empty components — and the manifest refuses any other spelling, so a snapshot join can never leave the snapshot.` In §5.2's first bullet, replace "`/science/env/venv/bin/python` → the base interpreter;" with "`/science/env/venv/bin/python` → the base interpreter, rendered only when the interpreter's symlink chain did not already capture that path as a manifest row;".
+10. In §5.3, append: `The host listing runs the loader under an empty environment — no ambient LD_LIBRARY_PATH or LD_PRELOAD — and the capture retains the expected map as rows (ELF sandbox path, SONAME, resolved sandbox path) over every loadable ELF (ET_EXEC or ET_DYN) under /science/env, closed to a fixpoint over the libraries it adds. The probe lists the same set in-layout and the boundary requires its report to equal the map exactly: the same ELFs, the same SONAMEs per ELF, the same resolved path, the manifest's digest; a nonzero loader exit, an unresolved or unparsable line, an omitted or extra entry each refuse.` Replace §6.2's loader row check text with: `the in-layout ld.so --list of every loadable ELF under /science/env reports, per ELF, its exit status and each SONAME's resolved path and digest; the boundary requires equality with the captured map (§5.3)`.
+11. In §6.1 step 3, after "no `rw` where `ro` was planned", add: `Canonical rows preserve multiplicity — a stacked or duplicate mount is a row of its own and fails equality — and each observed mountpoint is classified into its planned role, an unplanned one taking the role unplanned; the receipt's instance carries these observed rows, never the plan's.` In §8, replace the `ConfinementUnavailable` row's stage text "pre-intent" with "pre-intent only", and append to the `ConfinementNotEstablished` row's "when" cell: `; any launch or protocol failure after intent — bubblewrap gone, an unstartable process, malformed info or report, a closed descriptor — with the child terminated and reaped and every descriptor closed on every failure path`.
+12. In §10, add a bullet after the `RAW_WRITE_ALLOWLIST` one: `science/probe.py is the fourth raw-write surface, {touch, unlink}: its one write check touches and removes a file under the output root with inventoried operations, so the equality allowlist weighs it rather than a raw os.open escaping the inventory.` In §6.2's filesystem row, replace "succeeds and is removed" with "succeeds (Path.touch) and is removed (unlink)".
+13. In §4.4's cost paragraph, replace the first sentence with: `A cache hit costs three full digest passes over the closure — the host capture, the snapshot verification materialize_snapshot performs (the pre-bind observation), and the post-exit check — against today's two (capture and require_executing_environment); the confined path does not call require_executing_environment, because the recipe's manifest is that single capture by construction, and no other pass over the snapshot exists.` In §5.6 step 3, replace "pre-bind integrity (§4.4)" with "pre-bind integrity (§4.4: the bundle's fold and the staged inputs' fingerprint; the snapshot's pass is the get-or-build verification)".
+14. In §3, after the sentence stating the match is over the entire definition, add: `The capability member is compared as a set — frozenset(capabilities) — and the boundary carries on with the canonical known value, so a reordered spelling of a known set is recorded as the definition it names.`
 
 ```bash
 git add docs/superpowers/specs/2026-08-30-run-confinement-design.md
@@ -163,8 +169,8 @@ that verification refuses — admission does not follow.
 | … |
 
 **R13 — full**, one unit: a workflow whose import resolves outside the
-bundle and the held environment is refused under `confined-v1`
-(`execution-failed`) and minted under `minimal-v1`.
+bundle and the held environment is refused under `confined-v1` and minted
+under `minimal-v1` — a refusal, and nothing about its diagnostic (spec §8).
 
 | … |
 
@@ -208,7 +214,7 @@ Seven, for the spec's own rules, none a guarantee row:
   carries `supersedes`, and refuses a `DatasetProductionVerification`.
 - **K6** — the gate refuses a namespace equal to the parent's, a canonical
   mount table unequal to the plan, an environment unequal to the declared
-  set, and a routable network.
+  set, a routable network, and a loader map unequal to the capture.
 - **K7** — a SONAME collision, a symlink escaping the closure, and a mixed
   `.pth` are each `ClosureUnsupported`.
 
@@ -228,9 +234,11 @@ R13 1, R16 1, R21 2 — **15 selected + 7 labeled = 22 declaration units**.
    `science.boundary.capture_bundle` and `science.boundary.launch_confined`
    — deterministically; u1 additionally asserts the launch seam was never
    entered.
-3. **The fail-closed arms** (R15u3, u4, R13u1, R21u1) assert the reason is
+3. **The fail-closed arms** (R15u3, u4, R21u1) assert the reason is
    exactly `execution-failed`, so a sabotage that widens the sandbox is
    caught by the gate's `confinement-not-established` rather than passing.
+   R13u1 asserts a refusal only (spec §8); its sabotage makes the boundary
+   mint a failed execution.
 4. **The network arm** (R15u4) listens on the host's loopback in the test
    process; the workflow connects to that port.
 5. **R16u1** executes at `cores=1` and replays at `cores=2`; the fixture
@@ -501,16 +509,15 @@ git commit -m "feat(errors): name the confined boundary's refusals with stable r
 
 ---
 
-### Task 3: The values — vocabulary, policies, `environment.v2`, the instance attestation, receipt and run domains
+### Task 3: The values — vocabulary, policies, the instance attestation, receipt and run domains
 
 **Files:**
-- Modify: `python/src/science/recipe.py` (constants at 46–53; `EnvironmentManifest` 187–195; `BoundaryPolicy` 197–208; `BoundaryReceipt` 390–406; `_receipt_projection` 452–458; `RunClosure.address` 495–503; `__all__`)
-- Modify: `python/tests/fixtures_cut3.py:118` and every other `EnvironmentManifest(` construction under `python/tests/`
+- Modify: `python/src/science/recipe.py` (constants at 46–53; `BoundaryPolicy` 197–208; `BoundaryReceipt` 390–406; `_receipt_projection` 452–458; `RunClosure.address` 495–503; `__all__`). **Not** `EnvironmentManifest`: its v2 row shape lands with the capture that produces it, in Task 5, so every commit boundary stays green.
 - Create: `python/tests/confinement_fixtures.py`
 - Test: `python/tests/test_confinement_values.py`
 
 **Interfaces:**
-- Produces (all in `science.recipe`): `CAPABILITIES`, `REQUIRED_FOR_CLEAN_ENVIRONMENT`, `ARTIFACT_KINDS`, `RENDERED_KINDS`, `NAMESPACES`, `MOUNT_ACCESS`, `ENVIRONMENT_DOMAIN = "science.environment.v2"`, `CONFINED_RECEIPT_DOMAIN`, `CONFINED_RUN_DOMAIN`, `MOUNT_PLAN_DOMAIN`; `EnvironmentManifest(artifacts: tuple[tuple[str, str, str], ...])` rows `(sandbox path, kind, digest | link target)`; `MINIMAL_POLICY`, `CONFINED_POLICY`, `SUPPORTED_POLICIES`, `supported_policy(policy) -> BoundaryPolicy`; `mount_plan_identity(mounts) -> str`; `InstanceAttestation(namespaces, mounts, mount_plan_identity, environment_identity)`; `BoundaryReceipt(..., instance=None, rendered_environment=None, mounts=None)` with `.confined`; `run_domain_for(confined: bool) -> str`; `_triples(rows)`.
+- Produces (all in `science.recipe`): `CAPABILITIES`, `REQUIRED_FOR_CLEAN_ENVIRONMENT`, `RENDERED_KINDS`, `NAMESPACES`, `MOUNT_ACCESS`, `CONFINED_RECEIPT_DOMAIN`, `CONFINED_RUN_DOMAIN`, `MOUNT_PLAN_DOMAIN`; `MINIMAL_POLICY`, `CONFINED_POLICY`, `SUPPORTED_POLICIES`, `supported_policy(policy) -> BoundaryPolicy` (the canonical known value, matched on identity, scope rule and capability *set*); `mount_plan_identity(mounts) -> str`; `InstanceAttestation(namespaces, mounts, mount_plan_identity, environment_identity)`; `BoundaryReceipt(..., instance=None, rendered_environment=None, mounts=None)` with `.confined`; `run_domain_for(confined: bool) -> str`; `_triples(rows)`.
 - Consumes: `BoundaryPolicyUnsupported` (Task 2).
 
 - [ ] **Step 1: Write the failing tests**
@@ -594,7 +601,6 @@ from science.recipe import (
     CONFINED_POLICY,
     CONFINED_RECEIPT_DOMAIN,
     CONFINED_RUN_DOMAIN,
-    ENVIRONMENT_DOMAIN,
     MINIMAL_POLICY,
     NAMESPACES,
     REQUIRED_FOR_CLEAN_ENVIRONMENT,
@@ -602,7 +608,6 @@ from science.recipe import (
     SUPPORTED_POLICIES,
     BoundaryPolicy,
     BoundaryReceipt,
-    EnvironmentManifest,
     InstanceAttestation,
     _occurrence_projection,
     _receipt_projection,
@@ -639,6 +644,16 @@ def test_k1_a_known_identity_with_another_scope_rule_is_unsupported():
         supported_policy(dataclasses.replace(CONFINED_POLICY, scope_rule="scope-derivation/v2"))
 
 
+def test_k1_a_reordered_spelling_of_a_known_capability_set_is_that_definition():
+    reordered = BoundaryPolicy(
+        identity=CONFINED_POLICY.identity,
+        scope_rule=CONFINED_POLICY.scope_rule,
+        capabilities=tuple(reversed(CAPABILITIES)),
+    )
+    assert reordered != CONFINED_POLICY
+    assert supported_policy(reordered) is CONFINED_POLICY
+
+
 def test_k1_a_known_identity_with_fewer_capabilities_is_unsupported():
     with pytest.raises(BoundaryPolicyUnsupported):
         supported_policy(dataclasses.replace(CONFINED_POLICY, capabilities=CAPABILITIES[:2]))
@@ -646,41 +661,6 @@ def test_k1_a_known_identity_with_fewer_capabilities_is_unsupported():
         supported_policy(dataclasses.replace(MINIMAL_POLICY, capabilities=("network-denied",)))
     with pytest.raises(BoundaryPolicyUnsupported):
         supported_policy("boundary-policy/confined-v1")
-
-
-# --- science.environment.v2 ---------------------------------------------------
-def test_the_manifest_is_per_file_under_the_v2_domain():
-    manifest = EnvironmentManifest(
-        artifacts=(
-            ("/science/env/python/bin/python3.13", "file", "sha256:" + "dd" * 32),
-            ("/science/env/python/lib/libpython3.13.so", "symlink", "libpython3.13.so.1.0"),
-        )
-    )
-    assert ENVIRONMENT_DOMAIN == "science.environment.v2"
-    assert manifest.identity() == v1.digest(
-        ENVIRONMENT_DOMAIN,
-        {
-            "artifacts": [
-                ["/science/env/python/bin/python3.13", "file", "sha256:" + "dd" * 32],
-                ["/science/env/python/lib/libpython3.13.so", "symlink", "libpython3.13.so.1.0"],
-            ]
-        },
-    )
-
-
-@pytest.mark.parametrize(
-    "rows",
-    [
-        (("python", "sha256:" + "dd" * 32),),  # the v1 pair shape
-        (("science/env/x", "file", "sha256:" + "dd" * 32),),  # not absolute
-        (("/science/env/x", "directory", "sha256:" + "dd" * 32),),  # kind outside the closed set
-        (("/science/env/x", "file", "sha256:" + "dd" * 32), ("/science/env/x", "file", "sha256:" + "ee" * 32)),
-        (("/science/env/x", "file", ""),),
-    ],
-)
-def test_a_malformed_manifest_row_is_unspellable(rows):
-    with pytest.raises(MalformedClosure):
-        EnvironmentManifest(artifacts=rows)
 
 
 # --- K3: the instance attestation ---------------------------------------------
@@ -772,7 +752,7 @@ Replace the four domain constants (lines 46–49) with:
 RECIPE_DOMAIN = "science.recipe.v1"
 RUN_DOMAIN = "science.run.v1"
 CONFINED_RUN_DOMAIN = "science.run.v2"
-ENVIRONMENT_DOMAIN = "science.environment.v2"
+ENVIRONMENT_DOMAIN = "science.environment.v1"
 BOUNDARY_RECEIPT_DOMAIN = "science.boundary-receipt.v1"
 CONFINED_RECEIPT_DOMAIN = "science.boundary-receipt.v2"
 MOUNT_PLAN_DOMAIN = "science.mount-plan.v1"
@@ -782,7 +762,6 @@ CAPABILITIES = ("from-bundle", "closure-confined-filesystem", "network-denied")
 #: What `clean-environment` requires — spelled separately, never derived from
 #: CAPABILITIES, so a capability added later does not become a requirement.
 REQUIRED_FOR_CLEAN_ENVIRONMENT = ("from-bundle", "closure-confined-filesystem", "network-denied")
-ARTIFACT_KINDS = ("file", "symlink")
 RENDERED_KINDS = ("file", "symlink", "value")
 NAMESPACES = ("cgroup", "ipc", "mnt", "net", "pid", "user", "uts")
 MOUNT_ACCESS = ("ro", "rw")
@@ -804,34 +783,7 @@ def _triples(rows: tuple[tuple[str, str, str], ...]) -> list[list[str]]:
     return [list(row) for row in sorted(rows)]
 ```
 
-Replace `EnvironmentManifest` with:
-
-```python
-@sealed
-@final
-@dataclass(frozen=True)
-class EnvironmentManifest:
-    """The runtime artifact closure, one row per file: (sandbox path, kind,
-    digest or link target). Host paths never enter it (design §4.1)."""
-
-    artifacts: tuple[tuple[str, str, str], ...]
-
-    def __post_init__(self) -> None:
-        _require_triples(self.artifacts, "environment artifacts")
-        paths = [path for path, _, _ in self.artifacts]
-        if len(set(paths)) != len(paths):
-            raise MalformedClosure("environment artifacts name each sandbox path once")
-        for path, kind, content in self.artifacts:
-            if not path.startswith("/"):
-                raise MalformedClosure(f"environment artifact {path!r} is not an absolute sandbox path")
-            if kind not in ARTIFACT_KINDS:
-                raise MalformedClosure(f"environment artifact {path!r} has kind {kind!r}, outside {ARTIFACT_KINDS}")
-            if not content:
-                raise MalformedClosure(f"environment artifact {path!r} carries no content")
-
-    def identity(self) -> str:
-        return v1.digest(ENVIRONMENT_DOMAIN, {"artifacts": _triples(self.artifacts)})
-```
+`EnvironmentManifest` is untouched here (Task 5 reshapes it together with the capture that produces the new rows).
 
 Extend `BoundaryPolicy.__post_init__` with, after the existing three lines:
 
@@ -855,12 +807,15 @@ SUPPORTED_POLICIES = (MINIMAL_POLICY, CONFINED_POLICY)
 
 
 def supported_policy(policy: object) -> BoundaryPolicy:
-    """The entire definition — identity, scope rule and unique capability set —
-    must equal one of the two the boundary knows (design §3)."""
+    """The entire definition — identity, scope rule and capability *set* —
+    must equal one of the two the boundary knows; the canonical known value is
+    returned, so a reordered spelling of a known set carries on as the
+    definition it names (design §3)."""
     if type(policy) is not BoundaryPolicy:
         raise BoundaryPolicyUnsupported("the boundary policy must be a BoundaryPolicy value")
-    if policy in SUPPORTED_POLICIES:
-        return policy
+    for known in SUPPORTED_POLICIES:
+        if (policy.identity, policy.scope_rule, frozenset(policy.capabilities)) == (known.identity, known.scope_rule, frozenset(known.capabilities)):
+            return known
     raise BoundaryPolicyUnsupported(
         f"{policy.identity!r} with scope rule {policy.scope_rule!r} and capabilities "
         f"{policy.capabilities} matches no known definition"
@@ -989,24 +944,16 @@ In `RunClosure.address`, change `RUN_DOMAIN,` to `run_domain_for(self.occurrence
 
 Add to `__all__`: `"CAPABILITIES"`, `"CONFINED_POLICY"`, `"CONFINED_RECEIPT_DOMAIN"`, `"CONFINED_RUN_DOMAIN"`, `"InstanceAttestation"`, `"MINIMAL_POLICY"`, `"MOUNT_PLAN_DOMAIN"`, `"NAMESPACES"`, `"REQUIRED_FOR_CLEAN_ENVIRONMENT"`, `"SUPPORTED_POLICIES"`, `"mount_plan_identity"`, `"run_domain_for"`, `"supported_policy"` (keep the list sorted as it is).
 
-- [ ] **Step 4: Move every fixture manifest to the v2 row shape**
-
-```bash
-grep -rn "EnvironmentManifest(" python/tests python/src | grep -v "type(self.environment)"
-```
-
-For each construction that passes `(label, digest)` pairs, rewrite the row as `("/science/env/" + label, "file", digest)`. Known sites: `python/tests/fixtures_cut3.py:118` becomes `"environment": EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)),`; `python/tests/closure_fixtures.py` and `python/tests/test_recipe.py` carry the same shape — apply the same rewrite. A test that asserts the v1 domain string `science.environment.v1` or a pair row's refusal is rewritten to the v2 equivalent, not deleted.
-
-- [ ] **Step 5: Run to verify pass, and the anchor audit**
+- [ ] **Step 4: Run to verify pass, and the anchor audit**
 
 Run: `cd python && set -o pipefail && uv run pytest tests/test_confinement_values.py tests/test_recipe.py tests/test_boundary.py tests/test_replay.py tests/test_verify.py tests/test_run_persistence.py tests/test_assess.py tests/test_production.py tests/test_decode.py | tail -1 && uv run pytest tests/test_n2.py -k stale | tail -1 && uv run ruff check src/science/recipe.py tests && uv run pyright src/science/recipe.py | tail -1`
-Expected: all passed (the durable `test_run_persistence.py` tests fail only with the host's allowlist refusal — confirm every failure message is `CapabilityUnavailable: volume configuration is not on the supplied durability allowlist`, and nothing else); no stale anchors; clean; `0 errors`.
+Expected: all passed (the durable `test_run_persistence.py` tests fail only with the host's allowlist refusal — confirm every failure message is `CapabilityUnavailable: volume configuration is not on the supplied durability allowlist`, and nothing else); no stale anchors; clean; `0 errors`. Nothing in this task changes the environment manifest, so the boundary tests execute exactly as before.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add python/src/science/recipe.py python/tests
-git commit -m "feat(recipe): close the capability vocabulary, mint environment.v2, and attest the confined instance"
+git commit -m "feat(recipe): close the capability vocabulary and attest the confined instance"
 ```
 
 ---
@@ -1018,8 +965,8 @@ git commit -m "feat(recipe): close the capability vocabulary, mint environment.v
 - Test: `python/tests/test_runrecord_confined.py`
 
 **Interfaces:**
-- Consumes: `run_domain_for`, `mount_plan_identity`, `CAPABILITIES`, `NAMESPACES` (Task 3).
-- Produces: `decode_projection` accepting both receipt spellings; `decode_run_record` recomputing under the domain the receipt shape names.
+- Consumes: `run_domain_for`, `mount_plan_identity`, `CAPABILITIES`, `NAMESPACES`, `MOUNT_ACCESS`, `RENDERED_KINDS` (Task 3).
+- Produces: `decode_projection` accepting both receipt spellings and mirroring every value invariant (unique capabilities, unique mountpoints, closed access and rendered-kind sets); `decode_run_record` recomputing under the domain the receipt shape names.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1098,7 +1045,38 @@ def test_the_run_closure_facet_survives_the_confined_shape():
     run = confined_closure()
     node = _node_of(run)
     assert set(node.facets[RUN_CLOSURE_FACET]) == {"projection"}
+
+
+def _with_recomputed_mount_identity(receipt: dict) -> dict:
+    instance = receipt["instance"]
+    instance["mount_plan_identity"] = mount_plan_identity(tuple(tuple(row) for row in instance["mounts"]))
+    return receipt
+
+
+@pytest.mark.parametrize(
+    "mutate, match",
+    [
+        (lambda r: r["capabilities"].insert(0, r["capabilities"][0]), "capabilities"),
+        (lambda r: _with_recomputed_mount_identity(r)["instance"]["mounts"].insert(0, list(r["instance"]["mounts"][0])), "mounts"),
+        (lambda r: _with_recomputed_mount_identity(r)["instance"]["mounts"][0].__setitem__(2, "rx"), "mounts"),
+        (lambda r: r["rendered_environment"][0].__setitem__(1, "directory"), "rendered_environment"),
+    ],
+)
+def test_the_wire_refuses_what_the_values_refuse(mutate, match):
+    """Parity: a projection the value types could not construct is refused on
+    the wire too — a duplicate capability, a duplicate mountpoint, an access
+    outside MOUNT_ACCESS, a rendered kind outside RENDERED_KINDS."""
+    run = confined_closure()
+    text = json.loads(projection_text(run))
+    receipt = text["occurrence"]["receipt"]
+    mutate(receipt)
+    if "mounts" in match:
+        _with_recomputed_mount_identity(receipt)
+    with pytest.raises(MalformedRecord, match=match):
+        decode_projection(v1.encode(text))
 ```
+
+(add `from science.recipe import CONFINED_RUN_DOMAIN, RUN_DOMAIN, mount_plan_identity` — the mutations that touch `mounts` recompute the identity so the parity check, not the identity check, is what refuses.)
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -1107,7 +1085,7 @@ Expected: FAIL — `MalformedRecord: run projection at $.occurrence.receipt: key
 
 - [ ] **Step 3: Implement**
 
-In `python/src/science/runrecord.py`, extend the `science.recipe` import with `CAPABILITIES`, `NAMESPACES`, `mount_plan_identity`, `run_domain_for`, and drop `RUN_DOMAIN` from it. Add a helper after `_pair_list`:
+In `python/src/science/runrecord.py`, extend the `science.recipe` import with `CAPABILITIES`, `MOUNT_ACCESS`, `NAMESPACES`, `RENDERED_KINDS`, `mount_plan_identity`, `run_domain_for`, and drop `RUN_DOMAIN` from it. Add a helper after `_pair_list`:
 
 ```python
 def _triple_list(value: object, path: str) -> list[list[str]]:
@@ -1146,6 +1124,8 @@ Replace the receipt block at the end of `_validate_occurrence` (from `receipt = 
     capabilities = _str_list(receipt["capabilities"], "$.occurrence.receipt.capabilities")
     if any(capability not in CAPABILITIES for capability in capabilities):
         _refuse("$.occurrence.receipt.capabilities", f"outside the closed vocabulary {CAPABILITIES}")
+    if len(set(capabilities)) != len(capabilities):
+        _refuse("$.occurrence.receipt.capabilities", "names a capability more than once")
     if confined:
         instance = _mapping(
             receipt["instance"],
@@ -1156,11 +1136,18 @@ Replace the receipt block at the end of `_validate_occurrence` (from `receipt = 
         if sorted(namespaces) != list(NAMESPACES):
             _refuse("$.occurrence.receipt.instance.namespaces", f"not exactly {NAMESPACES}")
         mounts = _triple_list(instance["mounts"], "$.occurrence.receipt.instance.mounts")
+        points = [point for point, _, _ in mounts]
+        if len(set(points)) != len(points):
+            _refuse("$.occurrence.receipt.instance.mounts", "names a mountpoint more than once")
+        if any(access not in MOUNT_ACCESS for _, _, access in mounts):
+            _refuse("$.occurrence.receipt.instance.mounts", f"access is not one of {MOUNT_ACCESS}")
         recomputed = mount_plan_identity(tuple((point, role, access) for point, role, access in mounts))
         if _str_at(instance["mount_plan_identity"], "$.occurrence.receipt.instance.mount_plan_identity") != recomputed:
             _refuse("$.occurrence.receipt.instance.mount_plan_identity", "is not the digest of its own mounts")
         _component_at(instance["environment_identity"], "$.occurrence.receipt.instance.environment_identity")
-        _triple_list(receipt["rendered_environment"], "$.occurrence.receipt.rendered_environment")
+        rendered = _triple_list(receipt["rendered_environment"], "$.occurrence.receipt.rendered_environment")
+        if any(kind not in RENDERED_KINDS for _, kind, _ in rendered):
+            _refuse("$.occurrence.receipt.rendered_environment", f"kind is not one of {RENDERED_KINDS}")
         _pair_list(receipt["mounts"], "$.occurrence.receipt.mounts")
 ```
 
@@ -1201,13 +1188,16 @@ git commit -m "feat(runrecord): accept both receipt spellings and recompute a co
 ### Task 5: The runtime artifact closure — the per-file walk and the policy-neutral argv
 
 **Files:**
+- Modify: `python/src/science/recipe.py` (`ENVIRONMENT_DOMAIN` at 48; `EnvironmentManifest` 187–195; new `ARTIFACT_KINDS`) — the v2 row shape lands **in this task**, atomically with the capture that produces it
 - Modify: `python/src/science/adapter.py` (imports; `capture_environment` 157–165; `build_argv` 184–221; new closure walk)
 - Modify: `python/src/science/boundary.py:357-364` (the one `build_argv` call — keyword renames only)
+- Modify: `python/tests/fixtures_cut3.py:118` and every other `EnvironmentManifest(` construction under `python/tests/`
 - Test: `python/tests/test_closure_capture.py`; `python/tests/test_adapter.py` (the existing `build_argv` tests take the new keywords)
 
 **Interfaces:**
-- Produces (`science.adapter`): `SANDBOX_ENV`, `SANDBOX_PYTHON`, `SANDBOX_SITE`, `SANDBOX_PATH`, `SANDBOX_LIB`, `SANDBOX_VENV`; `CapturedEnvironment(manifest, plan, rendered, loader, interpreter)`; `capture_closure() -> CapturedEnvironment`; `capture_environment() -> EnvironmentManifest` (unchanged name, `capture_closure().manifest`); `elf_interpreter(path) -> str`; `loader_listing(loader, path) -> dict[str, Path]`; `_Closure` (the walker, test-visible); `build_argv(*, interpreter, snakefile, directory, targets, config, log_handler, cores, in_process_jobs)`.
-- Consumes: `EnvironmentManifest` v2 rows (Task 3); `ClosureUnsupported` (Task 2).
+- Produces (`science.recipe`): `ENVIRONMENT_DOMAIN = "science.environment.v2"`, `ARTIFACT_KINDS`, `EnvironmentManifest(artifacts: tuple[tuple[str, str, str], ...])` rows `(normalized absolute sandbox path, kind, digest | link target)`.
+- Produces (`science.adapter`): `SANDBOX_ENV`, `SANDBOX_PYTHON`, `SANDBOX_SITE`, `SANDBOX_PATH`, `SANDBOX_LIB`, `SANDBOX_VENV`; `CapturedEnvironment(manifest, plan, rendered, loader, interpreter, loader_map)` where `loader_map` rows are `(ELF sandbox path, SONAME, resolved sandbox path)`; `capture_closure() -> CapturedEnvironment`; `capture_environment() -> EnvironmentManifest` (unchanged name, `capture_closure().manifest`); `elf_interpreter(path) -> str`; `loader_listing(loader, path) -> dict[str, Path]` (run under an empty environment); `_is_loadable_elf(path) -> bool`; `_Closure` (the walker, test-visible: `register`, `root_of`, `sandbox_of`, `add`, `add_chain`, `add_tree`, `add_records`, `add_pth`, `add_native`, `elves`, `check_links`); `build_argv(*, interpreter, snakefile, directory, targets, config, log_handler, cores, in_process_jobs)`.
+- Consumes: `_triples` (Task 3); `ClosureUnsupported` (Task 2).
 - `distribution_digest`, `tree_digest` and `_stdlib_digest` stay as they are — the walk does not call them, and cut 3's tests may.
 
 - [ ] **Step 1: Write the failing tests**
@@ -1219,12 +1209,15 @@ git commit -m "feat(runrecord): accept both receipt spellings and recompute a co
 interpreter, one row per file, host paths ephemeral; K7's three refusals."""
 
 import os
+import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
+import science.adapter as adapter_module
 from science.adapter import (
+    SANDBOX_ENV,
     SANDBOX_LIB,
     SANDBOX_PATH,
     SANDBOX_PYTHON,
@@ -1237,10 +1230,61 @@ from science.adapter import (
     capture_closure,
     capture_environment,
     elf_interpreter,
+    loader_listing,
     require_executing_environment,
 )
-from science.errors import ClosureUnsupported, UnsafeInvocation
-from science.recipe import ENVIRONMENT_DOMAIN
+from science.errors import ClosureUnsupported, MalformedClosure, UnsafeInvocation
+from science.identity import v1
+from science.recipe import ENVIRONMENT_DOMAIN, EnvironmentManifest
+
+LOADABLE_ELF = b"\x7fELF" + bytes(12) + b"\x03\x00"  # ET_DYN, enough header for the type check
+
+
+def _terminal(rows: dict[str, tuple[str, str]], path: str) -> str:
+    while rows[path][0] == "symlink":
+        target = rows[path][1]
+        path = target if target.startswith("/") else os.path.normpath(os.path.join(os.path.dirname(path), target))
+    return path
+
+
+# --- science.environment.v2 (moved here with the capture that produces it) ----
+def test_the_manifest_is_per_file_under_the_v2_domain():
+    manifest = EnvironmentManifest(
+        artifacts=(
+            ("/science/env/python/bin/python3.13", "file", "sha256:" + "dd" * 32),
+            ("/science/env/python/lib/libpython3.13.so", "symlink", "libpython3.13.so.1.0"),
+        )
+    )
+    assert ENVIRONMENT_DOMAIN == "science.environment.v2"
+    assert manifest.identity() == v1.digest(
+        ENVIRONMENT_DOMAIN,
+        {
+            "artifacts": [
+                ["/science/env/python/bin/python3.13", "file", "sha256:" + "dd" * 32],
+                ["/science/env/python/lib/libpython3.13.so", "symlink", "libpython3.13.so.1.0"],
+            ]
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        (("python", "sha256:" + "dd" * 32),),  # the v1 pair shape
+        (("science/env/x", "file", "sha256:" + "dd" * 32),),  # not absolute
+        (("/science/env/../../outside", "file", "sha256:" + "dd" * 32),),  # not normalized: escapes a snapshot join
+        (("/science/env//x", "file", "sha256:" + "dd" * 32),),  # empty component
+        (("/science/env/./x", "file", "sha256:" + "dd" * 32),),  # dot component
+        (("/science/env/x/", "file", "sha256:" + "dd" * 32),),  # trailing slash
+        (("//science/env/x", "file", "sha256:" + "dd" * 32),),  # POSIX double root
+        (("/science/env/x", "directory", "sha256:" + "dd" * 32),),  # kind outside the closed set
+        (("/science/env/x", "file", "sha256:" + "dd" * 32), ("/science/env/x", "file", "sha256:" + "ee" * 32)),
+        (("/science/env/x", "file", ""),),
+    ],
+)
+def test_a_malformed_manifest_row_is_unspellable(rows):
+    with pytest.raises(MalformedClosure):
+        EnvironmentManifest(artifacts=rows)
 
 
 @pytest.fixture(scope="module")
@@ -1266,10 +1310,40 @@ def test_the_interpreter_its_libraries_and_the_loader_are_rows(captured):
     assert any(path.startswith(f"{SANDBOX_PATH}/") and path.endswith("/science/adapter.py") for path in rows)
 
 
+def test_the_loader_map_covers_every_loadable_elf_and_names_rows_only(captured):
+    rows = {path: (kind, content) for path, kind, content in captured.manifest.artifacts}
+    listed = {elf for elf, _, _ in captured.loader_map}
+    assert captured.interpreter in listed
+    assert all(elf.startswith(f"{SANDBOX_ENV}/") and rows[elf][0] == "file" for elf in listed)
+    assert all(resolved in rows for _, _, resolved in captured.loader_map)
+    assert all(rows[_terminal(rows, resolved)][0] == "file" for _, _, resolved in captured.loader_map)
+    assert any(soname.startswith("libc.so") for _, soname, _ in captured.loader_map)
+
+
+def test_the_interpreter_symlink_chain_is_captured_link_by_link(captured):
+    rows = {path: (kind, content) for path, kind, content in captured.manifest.artifacts}
+    rendered = {path for path, _, _ in captured.rendered}
+    venv_python = f"{SANDBOX_VENV}/bin/python"
+    if Path(sys.executable).is_symlink() and sys.prefix != sys.base_prefix:
+        assert rows[venv_python][0] == "symlink" and venv_python not in rendered
+        assert _terminal(rows, venv_python) == captured.interpreter
+    else:
+        assert venv_python in rendered and venv_python not in rows
+    assert rows[captured.interpreter][0] == "file"
+
+
+def test_every_symlink_row_resolves_to_a_closure_row(captured):
+    rows = {path: (kind, content) for path, kind, content in captured.manifest.artifacts}
+    for path, (kind, content) in rows.items():
+        if kind != "symlink":
+            continue
+        resolved = content if content.startswith("/") else os.path.normpath(os.path.join(os.path.dirname(path), content))
+        assert resolved in rows or any(row.startswith(resolved + "/") for row in rows), (path, content)
+
+
 def test_the_rendered_venv_and_pth_files_are_functions_of_the_layout(captured):
     rendered = {path: (kind, content) for path, kind, content in captured.rendered}
     assert rendered[f"{SANDBOX_VENV}/pyvenv.cfg"] == ("file", f"home = {SANDBOX_PYTHON}/bin\ninclude-system-site-packages = false\n")
-    assert rendered[f"{SANDBOX_VENV}/bin/python"] == ("symlink", captured.interpreter)
     version_dir = f"python{sys.version_info[0]}.{sys.version_info[1]}"
     assert rendered[f"{SANDBOX_VENV}/lib/{version_dir}/site-packages"] == ("symlink", SANDBOX_SITE)
     science_pth = next(path for path in rendered if path.endswith("_science.pth"))
@@ -1299,6 +1373,29 @@ def test_parse_listing_keeps_sonames_and_drops_the_vdso_and_the_loader():
     assert _parse_listing(text) == {"libm.so.6": Path("/usr/lib/libm.so.6")}
     with pytest.raises(ClosureUnsupported):
         _parse_listing("\tlibmissing.so.1 => not found\n")
+
+
+def test_loader_listing_runs_the_loader_under_an_empty_environment(monkeypatch):
+    seen: dict = {}
+
+    def fake_run(argv, **kwargs):
+        seen.update(kwargs)
+        return subprocess.CompletedProcess(argv, 0, stdout="\tlibm.so.6 => /usr/lib/libm.so.6 (0x1)\n", stderr="")
+
+    monkeypatch.setattr(adapter_module.subprocess, "run", fake_run)
+    monkeypatch.setenv("LD_LIBRARY_PATH", "/ambient")
+    monkeypatch.setenv("LD_PRELOAD", "/ambient/libx.so")
+    assert loader_listing("/lib64/ld.so", Path("/x")) == {"libm.so.6": Path("/usr/lib/libm.so.6")}
+    assert seen["env"] == {}
+
+
+def test_a_nonzero_loader_exit_is_closure_unsupported(monkeypatch):
+    def failing_run(argv, **kwargs):
+        return subprocess.CompletedProcess(argv, 127, stdout="", stderr="cannot list")
+
+    monkeypatch.setattr(adapter_module.subprocess, "run", failing_run)
+    with pytest.raises(ClosureUnsupported, match="cannot list"):
+        loader_listing("/lib64/ld.so", Path("/x"))
 
 
 # --- K7: the three refusals, over synthetic closures --------------------------
@@ -1360,16 +1457,63 @@ def test_k7_a_symlink_escaping_the_closure_is_refused(tmp_path):
     with pytest.raises(ClosureUnsupported, match="escapes"):
         walker.add(purelib / "escape")
     (purelib / "absolute").symlink_to("/etc/hostname")
-    with pytest.raises(ClosureUnsupported):
+    with pytest.raises(ClosureUnsupported, match="escapes"):
         walker.add(purelib / "absolute")
 
 
-def test_a_symlink_inside_the_closure_is_a_symlink_row(tmp_path):
+def test_a_symlink_row_captures_its_target_and_a_dangling_link_is_refused(tmp_path):
     walker, purelib = _site(tmp_path)
     (purelib / "real.so.1").write_bytes(b"x")
     (purelib / "real.so").symlink_to("real.so.1")
     walker.add(purelib / "real.so")
     assert walker.rows[f"{SANDBOX_SITE}/real.so"] == ("symlink", "real.so.1")
+    assert walker.rows[f"{SANDBOX_SITE}/real.so.1"][0] == "file"
+    walker.check_links()
+    (purelib / "dangling").symlink_to("missing")
+    with pytest.raises(ClosureUnsupported, match="names nothing"):
+        walker.add(purelib / "dangling")
+
+
+def test_check_links_refuses_a_symlink_row_whose_target_is_no_row(tmp_path):
+    walker, _ = _site(tmp_path)
+    walker.rows[f"{SANDBOX_SITE}/orphan"] = ("symlink", "../elsewhere")
+    with pytest.raises(ClosureUnsupported, match="not a closure row"):
+        walker.check_links()
+
+
+def test_a_relative_link_into_another_root_is_rewritten_to_its_sandbox_path(tmp_path):
+    walker, purelib = _site(tmp_path)
+    base = tmp_path / "base"
+    (base / "lib").mkdir(parents=True)
+    (base / "lib" / "libq.so.1").write_bytes(b"q")
+    walker.register(base, SANDBOX_PYTHON)
+    (purelib / "libq.so").symlink_to("../base/lib/libq.so.1")
+    walker.add(purelib / "libq.so")
+    assert walker.rows[f"{SANDBOX_SITE}/libq.so"] == ("symlink", f"{SANDBOX_PYTHON}/lib/libq.so.1")
+    assert walker.rows[f"{SANDBOX_PYTHON}/lib/libq.so.1"][0] == "file"
+    walker.check_links()
+
+
+def test_a_link_to_a_directory_inside_the_closure_is_a_symlink_row(tmp_path):
+    walker, purelib = _site(tmp_path)
+    (purelib / "pkg").mkdir()
+    (purelib / "pkg" / "__init__.py").write_text("")
+    (purelib / "alias").symlink_to("pkg")
+    walker.add(purelib / "pkg" / "__init__.py")
+    walker.add(purelib / "alias")
+    assert walker.rows[f"{SANDBOX_SITE}/alias"] == ("symlink", "pkg")
+    walker.check_links()
+
+
+def test_add_chain_captures_every_link_and_returns_the_terminal(tmp_path):
+    walker, purelib = _site(tmp_path)
+    (purelib / "python3.13").write_bytes(b"bin")
+    (purelib / "python3").symlink_to("python3.13")
+    (purelib / "python").symlink_to("python3")
+    assert walker.add_chain(purelib / "python") == f"{SANDBOX_SITE}/python3.13"
+    assert walker.rows[f"{SANDBOX_SITE}/python"] == ("symlink", "python3")
+    assert walker.rows[f"{SANDBOX_SITE}/python3"] == ("symlink", "python3.13")
+    assert walker.rows[f"{SANDBOX_SITE}/python3.13"][0] == "file"
 
 
 def test_k7_a_soname_collision_is_refused(tmp_path):
@@ -1379,13 +1523,40 @@ def test_k7_a_soname_collision_is_refused(tmp_path):
     b.mkdir()
     (a / "libz.so.1").write_bytes(b"a")
     (b / "libz.so.1").write_bytes(b"b")
-    listings = {purelib / "one.so": {"libz.so.1": a / "libz.so.1"}, purelib / "two.so": {"libz.so.1": b / "libz.so.1"}}
+    (purelib / "one.so").write_bytes(LOADABLE_ELF)
+    (purelib / "two.so").write_bytes(LOADABLE_ELF)
+    listings = {"one.so": {"libz.so.1": a / "libz.so.1"}, "two.so": {"libz.so.1": b / "libz.so.1"}}
+    walker.add(purelib / "one.so")
+    walker.add(purelib / "two.so")
     with pytest.raises(ClosureUnsupported, match="SONAME"):
-        walker.add_native([purelib / "one.so", purelib / "two.so"], listing=lambda elf: listings[elf])
+        walker.add_native(listing=lambda elf: listings[elf.name])
     single = _Closure()
     single.register(purelib, SANDBOX_SITE)
-    single.add_native([purelib / "one.so"], listing=lambda elf: listings[elf])
+    single.add(purelib / "one.so")
+    single.add_native(listing=lambda elf: listings[elf.name])
     assert single.rows[f"{SANDBOX_LIB}/libz.so.1"][0] == "file"
+    assert single.loader_map == [(f"{SANDBOX_SITE}/one.so", "libz.so.1", f"{SANDBOX_LIB}/libz.so.1")]
+
+
+def test_add_native_closes_over_the_libraries_it_adds_and_maps_in_root_targets_to_their_rows(tmp_path):
+    walker, purelib = _site(tmp_path)
+    (purelib / "ext.so").write_bytes(LOADABLE_ELF)
+    (purelib / "libinner.so.1").write_bytes(LOADABLE_ELF)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "libouter.so.1").write_bytes(LOADABLE_ELF)
+    listings = {
+        "ext.so": {"libinner.so.1": purelib / "libinner.so.1"},
+        "libinner.so.1": {"libouter.so.1": outside / "libouter.so.1"},
+        "libouter.so.1": {},
+    }
+    walker.add(purelib / "ext.so")
+    walker.add_native(listing=lambda elf: listings[elf.name])
+    assert sorted(walker.loader_map) == [
+        (f"{SANDBOX_SITE}/ext.so", "libinner.so.1", f"{SANDBOX_SITE}/libinner.so.1"),
+        (f"{SANDBOX_SITE}/libinner.so.1", "libouter.so.1", f"{SANDBOX_LIB}/libouter.so.1"),
+    ]
+    assert walker.rows[f"{SANDBOX_LIB}/libouter.so.1"][0] == "file"
 
 
 # --- the policy-neutral argv --------------------------------------------------
@@ -1429,9 +1600,42 @@ def test_build_argv_is_policy_neutral_and_the_minimal_spelling_is_unchanged():
 Run: `cd python && uv run pytest tests/test_closure_capture.py | tail -3`
 Expected: FAIL — `ImportError: cannot import name 'SANDBOX_LIB'`.
 
-- [ ] **Step 3: Implement the walk**
+- [ ] **Step 3: Implement the manifest and the walk**
 
-In `python/src/science/adapter.py`: add `import os`, `import struct`, `from collections.abc import Callable, Mapping`; import `ClosureUnsupported` from `science.errors`; import `sealed` is already there. Add the constants after `_PEP_503_RUN`:
+In `python/src/science/recipe.py`: change `ENVIRONMENT_DOMAIN = "science.environment.v1"` to `ENVIRONMENT_DOMAIN = "science.environment.v2"`; add `ARTIFACT_KINDS = ("file", "symlink")` directly after `REQUIRED_FOR_CLEAN_ENVIRONMENT`; add `import posixpath`; and replace `EnvironmentManifest` with:
+
+```python
+@sealed
+@final
+@dataclass(frozen=True)
+class EnvironmentManifest:
+    """The runtime artifact closure, one row per file: (sandbox path, kind,
+    digest or link target). Host paths never enter it (design §4.1). Every
+    path is normalized — absolute, no `.`, `..` or empty components — so a
+    join under a snapshot root can never leave it."""
+
+    artifacts: tuple[tuple[str, str, str], ...]
+
+    def __post_init__(self) -> None:
+        _require_triples(self.artifacts, "environment artifacts")
+        paths = [path for path, _, _ in self.artifacts]
+        if len(set(paths)) != len(paths):
+            raise MalformedClosure("environment artifacts name each sandbox path once")
+        for path, kind, content in self.artifacts:
+            if not path.startswith("/") or path.startswith("//") or posixpath.normpath(path) != path:
+                raise MalformedClosure(f"environment artifact {path!r} is not a normalized absolute sandbox path")
+            if kind not in ARTIFACT_KINDS:
+                raise MalformedClosure(f"environment artifact {path!r} has kind {kind!r}, outside {ARTIFACT_KINDS}")
+            if not content:
+                raise MalformedClosure(f"environment artifact {path!r} carries no content")
+
+    def identity(self) -> str:
+        return v1.digest(ENVIRONMENT_DOMAIN, {"artifacts": _triples(self.artifacts)})
+```
+
+Add `"ARTIFACT_KINDS"` to `__all__`. The `        if type(self.environment) is not EnvironmentManifest:` anchor in `Recipe.__post_init__` is untouched.
+
+In `python/src/science/adapter.py`: add `import os`, `import posixpath`, `import struct`, `from collections.abc import Callable, Mapping`; import `ClosureUnsupported` from `science.errors`; import `sealed` is already there. Add the constants after `_PEP_503_RUN`:
 
 ```python
 SANDBOX_ENV = "/science/env"
@@ -1452,14 +1656,17 @@ Replace `capture_environment` (keep `require_executing_environment` as it is) wi
 @dataclass(frozen=True)
 class CapturedEnvironment:
     """The closure as captured: the manifest, the ephemeral host plan for
-    materializing it, the rendered rows, the loader path, and the interpreter's
-    sandbox path (design §4.1–§4.2, §5.2)."""
+    materializing it, the rendered rows, the loader path, the interpreter's
+    sandbox path, and the loader map — (ELF, SONAME, resolved sandbox path)
+    for every loadable ELF under the environment root — which the probe's
+    in-layout listing must reproduce exactly (design §4.1–§4.2, §5.2–§5.3)."""
 
     manifest: EnvironmentManifest
     plan: Mapping[str, Path]
     rendered: tuple[tuple[str, str, str], ...]
     loader: str
     interpreter: str
+    loader_map: tuple[tuple[str, str, str], ...]
 
     def __post_init__(self) -> None:
         if type(self.manifest) is not EnvironmentManifest:
@@ -1469,10 +1676,16 @@ class CapturedEnvironment:
             raise MalformedClosure("the capture plan covers exactly the manifest's rows")
         if not self.loader.startswith("/") or self.loader not in paths:
             raise MalformedClosure("the loader is an absolute path and a manifest row")
+        for path in paths:
+            if not (path.startswith(f"{SANDBOX_ENV}/") or path == self.loader):
+                raise MalformedClosure(f"manifest row {path!r} lies outside {SANDBOX_ENV} and is not the loader")
         if self.interpreter not in paths:
             raise MalformedClosure("the interpreter is a manifest row")
         if set(rendered for rendered, _, _ in self.rendered) & paths:
             raise MalformedClosure("a rendered row may not shadow a manifest row")
+        for elf, _, resolved in self.loader_map:
+            if elf not in paths or resolved not in paths:
+                raise MalformedClosure("the loader map names manifest rows only")
         object.__setattr__(self, "plan", MappingProxyType(dict(self.plan)))
 
 
@@ -1499,6 +1712,7 @@ class _Closure:
         self.rows: dict[str, tuple[str, str]] = {}
         self.plan: dict[str, Path] = {}
         self.rendered: dict[str, tuple[str, str]] = {}
+        self.loader_map: list[tuple[str, str, str]] = []
         self._roots: list[tuple[Path, str]] = []
 
     def register(self, host_root: Path, sandbox_root: str) -> None:
@@ -1519,27 +1733,59 @@ class _Closure:
         return f"{sandbox_root}/{located.relative_to(host_root).as_posix()}"
 
     def add(self, host: Path) -> str:
+        """One row. A symlink's target is captured with it: a relative target
+        staying under the link's own root keeps its relative text, any other
+        in-closure target is rewritten to its sandbox path, a target outside
+        every root escapes, and a target that names nothing is dangling."""
         located = _located(host)
         sandbox = self.sandbox_of(located)
         if sandbox in self.rows:
             return sandbox
         if located.is_symlink():
             target = os.readlink(located)
-            if os.path.isabs(target):
-                content = self.sandbox_of(_located(Path(target)))
-            else:
-                host_root, _ = self.root_of(located) or (None, None)
-                resolved = (located.parent / target).resolve()
-                if host_root is None or not resolved.is_relative_to(host_root):
-                    raise ClosureUnsupported(f"symlink {located} -> {target!r} escapes the closure")
-                content = target
-            self.rows[sandbox] = ("symlink", content)
-        elif located.is_file():
+            target_host = _located(Path(os.path.normpath(target if os.path.isabs(target) else located.parent / target)))
+            root = self.root_of(located)
+            target_root = self.root_of(target_host)
+            if target_root is None:
+                raise ClosureUnsupported(f"symlink {located} -> {target!r} escapes the closure")
+            same_root = not os.path.isabs(target) and root == target_root
+            self.rows[sandbox] = ("symlink", target if same_root else self.sandbox_of(target_host))
+            self.plan[sandbox] = located
+            if target_host.is_symlink() or target_host.is_file():
+                self.add(target_host)
+            elif not target_host.is_dir():
+                raise ClosureUnsupported(f"symlink {located} -> {target!r} names nothing")
+            return sandbox
+        if located.is_file():
             self.rows[sandbox] = ("file", _file_digest(located))
-        else:
-            raise ClosureUnsupported(f"{located} is neither a regular file nor a symlink")
-        self.plan[sandbox] = located
-        return sandbox
+            self.plan[sandbox] = located
+            return sandbox
+        raise ClosureUnsupported(f"{located} is neither a regular file nor a symlink")
+
+    def add_chain(self, host: Path) -> str:
+        """Every link of a symlink chain as a symlink row and its terminal file
+        as a file row; returns the terminal's sandbox path (design §4.2)."""
+        located = _located(host)
+        seen: set[Path] = set()
+        while located.is_symlink():
+            if located in seen:
+                raise ClosureUnsupported(f"{host} is a symlink cycle")
+            seen.add(located)
+            self.add(located)
+            target = os.readlink(located)
+            located = _located(Path(os.path.normpath(target if os.path.isabs(target) else located.parent / target)))
+        return self.add(located)
+
+    def check_links(self) -> None:
+        """Every symlink row resolves, within the sandbox layout, to a row or
+        to a directory some row lies under — never to nothing."""
+        for sandbox, (kind, content) in sorted(self.rows.items()):
+            if kind != "symlink":
+                continue
+            resolved = content if content.startswith("/") else posixpath.normpath(posixpath.join(posixpath.dirname(sandbox), content))
+            if resolved in self.rows or any(row.startswith(resolved + "/") for row in self.rows):
+                continue
+            raise ClosureUnsupported(f"symlink {sandbox} -> {content!r} resolves to {resolved}, which is not a closure row")
 
     def add_tree(self, root: Path, *, excluded: Callable[[tuple[str, ...]], bool]) -> None:
         for path in sorted(root.rglob("*")):
@@ -1595,31 +1841,43 @@ class _Closure:
                         continue
                     raise ClosureUnsupported(f"{pth.name} imports {module!r}, which is not a closure member")
 
-    def add_native(self, elves: list[Path], *, listing: Callable[[Path], Mapping[str, Path]]) -> None:
-        for elf in elves:
-            for soname, host in listing(elf).items():
-                located = _located(host)
-                if self.root_of(located) is not None:
-                    self.add(located)
-                    continue
-                sandbox = f"{SANDBOX_LIB}/{soname}"
-                existing = self.plan.get(sandbox)
-                if existing is not None and existing != located:
-                    raise ClosureUnsupported(f"SONAME {soname!r} resolves to both {existing} and {located}")
-                self.rows[sandbox] = ("file", _file_digest(located))
-                self.plan[sandbox] = located
+    def add_native(self, *, listing: Callable[[Path], Mapping[str, Path]]) -> None:
+        """The loader's own resolution for every loadable ELF under the
+        environment root, closed to a fixpoint over the libraries it adds, and
+        the expected map row for each — what the probe must reproduce."""
+        listed: set[str] = set()
+        while pending := [(sandbox, host) for sandbox, host in self.elves() if sandbox not in listed]:
+            for elf_sandbox, elf in pending:
+                listed.add(elf_sandbox)
+                for soname, host in sorted(listing(elf).items()):
+                    located = _located(host)
+                    if self.root_of(located) is not None:
+                        resolved = self.add(located)
+                    else:
+                        resolved = f"{SANDBOX_LIB}/{soname}"
+                        existing = self.plan.get(resolved)
+                        if existing is not None and existing != located:
+                            raise ClosureUnsupported(f"SONAME {soname!r} resolves to both {existing} and {located}")
+                        self.rows[resolved] = ("file", _file_digest(located))
+                        self.plan[resolved] = located
+                    self.loader_map.append((elf_sandbox, soname, resolved))
 
-    def elves(self) -> list[Path]:
+    def elves(self) -> list[tuple[str, Path]]:
+        """Every loadable ELF file row under the environment root, by sandbox
+        path — the same set the probe enumerates in-layout."""
         return [
-            self.plan[path]
+            (path, self.plan[path])
             for path, (kind, _) in sorted(self.rows.items())
-            if kind == "file" and ".so" in Path(path).name and _is_elf(self.plan[path])
+            if kind == "file" and path.startswith(f"{SANDBOX_ENV}/") and _is_loadable_elf(self.plan[path])
         ]
 
 
-def _is_elf(path: Path) -> bool:
+def _is_loadable_elf(path: Path) -> bool:
+    """ELF of type ET_EXEC or ET_DYN — what `ld.so --list` can list; a
+    relocatable object is not."""
     with path.open("rb") as handle:
-        return handle.read(4) == _ELF_MAGIC
+        header = handle.read(18)
+    return len(header) == 18 and header[:4] == _ELF_MAGIC and struct.unpack_from("<H", header, 16)[0] in (2, 3)
 
 
 def elf_interpreter(path: Path) -> str:
@@ -1669,8 +1927,10 @@ def _parse_listing(text: str) -> dict[str, Path]:
 
 
 def loader_listing(loader: str, path: Path) -> dict[str, Path]:
-    """What `execve` will map for `path`, as the loader itself reports it."""
-    completed = subprocess.run([loader, "--list", str(path)], capture_output=True, text=True, check=False)
+    """What `execve` will map for `path`, as the loader itself reports it —
+    under an empty environment, so no ambient LD_LIBRARY_PATH or LD_PRELOAD
+    shapes the capture (design §5.3)."""
+    completed = subprocess.run([loader, "--list", str(path)], capture_output=True, text=True, check=False, env={})
     if completed.returncode != 0:
         raise ClosureUnsupported(f"the loader cannot list {path}: {completed.stderr.strip()}")
     return _parse_listing(completed.stdout)
@@ -1685,21 +1945,23 @@ def capture_closure() -> CapturedEnvironment:
     if prefix != base:
         walker.register(prefix, SANDBOX_VENV)
     walker.register(purelib, SANDBOX_SITE)
-    interpreter_host = Path(os.path.realpath(sys.executable))
+    interpreter = walker.add_chain(Path(sys.executable))
+    interpreter_host = walker.plan[interpreter]
     if not interpreter_host.is_relative_to(base):
         raise ClosureUnsupported(f"the interpreter {interpreter_host} is outside its base prefix {base}")
-    interpreter = walker.add(interpreter_host)
     for name in ("stdlib", "platstdlib"):
         walker.add_tree(Path(os.path.realpath(sysconfig.get_path(name))), excluded=_stdlib_excluded)
     walker.add_records()
     walker.add_pth(purelib)
     loader = elf_interpreter(interpreter_host)
-    walker.add_native([interpreter_host, *walker.elves()], listing=lambda elf: loader_listing(loader, elf))
+    walker.add_native(listing=lambda elf: loader_listing(loader, elf))
     walker.rows[loader] = ("file", _file_digest(Path(loader)))
     walker.plan[loader] = Path(loader)
+    walker.check_links()
     version_dir = f"python{sys.version_info[0]}.{sys.version_info[1]}"
     walker.rendered[f"{SANDBOX_VENV}/pyvenv.cfg"] = ("file", f"home = {SANDBOX_PYTHON}/bin\ninclude-system-site-packages = false\n")
-    walker.rendered[f"{SANDBOX_VENV}/bin/python"] = ("symlink", interpreter)
+    if f"{SANDBOX_VENV}/bin/python" not in walker.rows:
+        walker.rendered[f"{SANDBOX_VENV}/bin/python"] = ("symlink", interpreter)
     walker.rendered[f"{SANDBOX_VENV}/lib/{version_dir}/site-packages"] = ("symlink", SANDBOX_SITE)
     return CapturedEnvironment(
         manifest=EnvironmentManifest(artifacts=tuple(sorted((path, kind, content) for path, (kind, content) in walker.rows.items()))),
@@ -1707,6 +1969,7 @@ def capture_closure() -> CapturedEnvironment:
         rendered=tuple(sorted((path, kind, content) for path, (kind, content) in walker.rendered.items())),
         loader=loader,
         interpreter=interpreter,
+        loader_map=tuple(sorted(walker.loader_map)),
     )
 
 
@@ -1783,16 +2046,24 @@ In `python/src/science/boundary.py` the minimal call becomes:
 
 (add `import sys` to `boundary.py`). Update the `build_argv` calls in `python/tests/test_adapter.py` and any other test to the new keywords (`grep -rn "build_argv(" python/tests`), passing `interpreter=sys.executable`, `str(...)` paths, and `in_process_jobs=False`.
 
-- [ ] **Step 4: Run to verify pass**
-
-Run: `cd python && set -o pipefail && uv run pytest tests/test_closure_capture.py tests/test_adapter.py tests/test_boundary.py tests/test_replay.py tests/test_verify.py | tail -1 && uv run pytest tests/test_n2.py -k stale | tail -1 && uv run ruff check src/science/adapter.py src/science/boundary.py tests && uv run pyright src/science/adapter.py | tail -1`
-Expected: all passed; no stale anchors; clean; `0 errors`. The closure walk digests the whole runtime, so the boundary tests get slower — a run is now roughly three digest passes (design §4.4); note the time in the ledger if it exceeds 2× cut 3's.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Move every fixture manifest to the v2 row shape**
 
 ```bash
-git add python/src/science/adapter.py python/src/science/boundary.py python/tests
-git commit -m "feat(adapter): capture the runtime artifact closure per file and make the engine argv policy-neutral"
+grep -rn "EnvironmentManifest(" python/tests python/src | grep -v "type(self.environment)"
+```
+
+For each construction that passes `(label, digest)` pairs, rewrite the row as `("/science/env/" + label, "file", digest)`. Known sites: `python/tests/fixtures_cut3.py:118` becomes `"environment": EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)),`; `python/tests/closure_fixtures.py` and `python/tests/test_recipe.py` carry the same shape — apply the same rewrite. A test that asserts the v1 domain string `science.environment.v1` or a pair row's refusal is rewritten to the v2 equivalent, not deleted. This step and Step 3 land in one commit: the production capture and every consumer of its shape move together.
+
+- [ ] **Step 5: Run to verify pass**
+
+Run: `cd python && set -o pipefail && uv run pytest tests/test_closure_capture.py tests/test_adapter.py tests/test_recipe.py tests/test_confinement_values.py tests/test_boundary.py tests/test_replay.py tests/test_verify.py tests/test_run_persistence.py tests/test_assess.py tests/test_production.py tests/test_decode.py | tail -1 && uv run pytest tests/test_n2.py -k stale | tail -1 && uv run ruff check src/science/recipe.py src/science/adapter.py src/science/boundary.py tests && uv run pyright src/science/recipe.py src/science/adapter.py | tail -1`
+Expected: all passed (the durable `test_run_persistence.py` tests fail only with the host's allowlist refusal — confirm every failure message is `CapabilityUnavailable: volume configuration is not on the supplied durability allowlist`, and nothing else); no stale anchors; clean; `0 errors`. The closure walk digests the whole runtime, so the boundary tests get slower — a run is now roughly three digest passes (design §4.4); note the time in the ledger if it exceeds 2× cut 3's.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add python/src/science/recipe.py python/src/science/adapter.py python/src/science/boundary.py python/tests
+git commit -m "feat(adapter): capture the runtime artifact closure per file under environment.v2 and make the engine argv policy-neutral"
 ```
 
 ---
@@ -1806,9 +2077,9 @@ git commit -m "feat(adapter): capture the runtime artifact closure per file and 
 - Test: `python/tests/test_confinement.py`
 
 **Interfaces:**
-- Produces (`science.confinement`): constants `HOSTNAME`, `BUNDLE_ROOT`, `OUTPUT_ROOT`, `INPUTS_ROOT`, `TRACE_DIR`, `HOME_DIR`, `DEVICES`; `sandbox_environment(trace_file) -> tuple[tuple[str, str], ...]`; `host_prerequisites() -> str | None`, `require_host()`; `materialize_snapshot(captured, environments) -> Path`, `verify_snapshot(root, captured)`; `bundle_identity(bundle) -> str`, `fingerprint(root) -> str`, `ClosureFingerprints`, `closure_fingerprints(bundle, snapshot, inputs)`, `check_closure_intact(*, bundle, code_identity, snapshot, captured)`; `MountPlan` (`binds`, `loader`, `rows`, `expected`, `identity()`, `host_mapping()`), `mount_plan(*, snapshot, loader, bundle, output_root)`; `bwrap_argv(...)`; `canonical_mounts(mountinfo) -> frozenset[tuple[str, str]]`; `InstanceFacts`, `observe_instance(pid)`; `judge_instance(facts, plan)`, `judge_report(report, *, environment, captured, inner_argv) -> tuple[str, ...]`; `Launch`, `launch_confined(*, plan, environment, inner_argv, captured) -> Launch`.
-- Produces (`science.probe`): `main(argv) -> int`, run as `python -m science.probe --report-fd R --go-fd G --loader L -- <engine argv>`.
-- Consumes: Task 2's errors; Task 3's `CAPABILITIES`, `NAMESPACES`, `mount_plan_identity`; Task 5's `CapturedEnvironment`, sandbox constants, `elf_interpreter`, `loader_listing`, `_fold`.
+- Produces (`science.confinement`): constants `HOSTNAME`, `BUNDLE_ROOT`, `OUTPUT_ROOT`, `INPUTS_ROOT`, `TRACE_DIR`, `HOME_DIR`, `DEVICES`, `UNPLANNED`; `sandbox_environment(trace_file) -> tuple[tuple[str, str], ...]`; `host_prerequisites() -> str | None`, `require_host()`; `materialize_snapshot(captured, environments) -> Path` (its verification of an existing or fresh snapshot **is** the pre-bind snapshot observation), `verify_snapshot(root, captured)`; `bundle_identity(bundle) -> str`, `fingerprint(root) -> str`, `check_bundle_intact(bundle, code_identity)`, `check_closure_intact(*, bundle, code_identity, snapshot, captured, inputs, inputs_fingerprint)` (the post-exit observation: one pass each); `MountPlan` (`binds`, `roles`, `loader`, `rows`, `expected` — the sorted rows —, `role_of(mountpoint)`, `identity()`, `host_mapping()`), `mount_plan(*, snapshot, loader, bundle, output_root)`; `bwrap_argv(...)`; `canonical_mounts(mountinfo, plan) -> tuple[tuple[str, str, str], ...]` (every row kept, classified by planned role); `InstanceFacts(distinct, mounts)`, `observe_instance(pid, plan)`; `judge_instance(facts, plan)`, `judge_report(report, *, environment, captured, inner_argv) -> tuple[str, ...]`; `Launch`, `launch_confined(*, plan, environment, inner_argv, captured) -> Launch` — every launch or protocol failure is `ConfinementNotEstablished`, with the child terminated and reaped and every descriptor closed.
+- Produces (`science.probe`): `main(argv) -> int`, run as `python -m science.probe --report-fd R --go-fd G --loader L -- <engine argv>`; its report's `loader` member is `{elf: {"returncode": int, "resolved": {soname: [path, digest]}, "unresolved": [line, ...]}}` over every loadable ELF under `/science/env`.
+- Consumes: Task 2's errors; Task 3's `CAPABILITIES`, `NAMESPACES`, `mount_plan_identity`; Task 5's `CapturedEnvironment` (with `loader_map`), sandbox constants, `elf_interpreter`, `loader_listing`, `_fold`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1826,21 +2097,24 @@ from pathlib import Path
 import pytest
 
 from science.adapter import SANDBOX_ENV, SANDBOX_LIB, SANDBOX_VENV, CapturedEnvironment, capture_bundle
+import science.confinement as confinement_module
 from science.confinement import (
     BUNDLE_ROOT,
     HOSTNAME,
     INPUTS_ROOT,
     OUTPUT_ROOT,
+    UNPLANNED,
     InstanceFacts,
     MountPlan,
     bundle_identity,
     bwrap_argv,
     canonical_mounts,
+    check_bundle_intact,
     check_closure_intact,
-    closure_fingerprints,
     fingerprint,
     judge_instance,
     judge_report,
+    launch_confined,
     materialize_snapshot,
     mount_plan,
     sandbox_environment,
@@ -1884,7 +2158,8 @@ def synthetic(tmp_path: Path) -> CapturedEnvironment:
         (f"{SANDBOX_VENV}/bin/python", "symlink", interpreter),
         (f"{SANDBOX_VENV}/pyvenv.cfg", "file", "home = /science/env/python/bin\ninclude-system-site-packages = false\n"),
     )
-    return CapturedEnvironment(manifest=manifest, plan=plan, rendered=rendered, loader=LOADER, interpreter=interpreter)
+    loader_map = ((interpreter, "libc.so.6", f"{SANDBOX_LIB}/libc.so.6"),)
+    return CapturedEnvironment(manifest=manifest, plan=plan, rendered=rendered, loader=LOADER, interpreter=interpreter, loader_map=loader_map)
 
 
 # --- K2: the snapshot ---------------------------------------------------------
@@ -1971,7 +2246,19 @@ def test_bundle_identity_recomputes_capture_bundles_fold_and_moves_on_an_edit(tm
     assert bundle_identity(bundle) != code_identity
 
 
-def test_check_closure_intact_refuses_an_edited_bundle_and_a_moved_snapshot(tmp_path):
+def test_check_bundle_intact_refuses_an_edited_bundle(tmp_path):
+    root = tmp_path / "code"
+    root.mkdir()
+    (root / "a.py").write_text("A = 1\n")
+    bundle = tmp_path / "bundle"
+    code_identity = capture_bundle((root,), bundle)
+    check_bundle_intact(bundle, code_identity)
+    (bundle / "code" / "a.py").write_text("A = 2\n")
+    with pytest.raises(ClosureMutated, match="bundle"):
+        check_bundle_intact(bundle, code_identity)
+
+
+def test_check_closure_intact_refuses_an_edited_bundle_a_moved_snapshot_and_changed_inputs(tmp_path):
     captured = synthetic(tmp_path)
     snapshot = materialize_snapshot(captured, tmp_path / "environments")
     root = tmp_path / "code"
@@ -1979,14 +2266,28 @@ def test_check_closure_intact_refuses_an_edited_bundle_and_a_moved_snapshot(tmp_
     (root / "a.py").write_text("A = 1\n")
     bundle = tmp_path / "bundle"
     code_identity = capture_bundle((root,), bundle)
-    check_closure_intact(bundle=bundle, code_identity=code_identity, snapshot=snapshot, captured=captured)
+    inputs = tmp_path / "inputs"
+    inputs.mkdir()
+    (inputs / "data.txt").write_text("x\n")
+    before = fingerprint(inputs)
+
+    def check() -> None:
+        check_closure_intact(
+            bundle=bundle, code_identity=code_identity, snapshot=snapshot, captured=captured, inputs=inputs, inputs_fingerprint=before
+        )
+
+    check()
     (bundle / "code" / "a.py").write_text("A = 2\n")
-    with pytest.raises(ClosureMutated):
-        check_closure_intact(bundle=bundle, code_identity=code_identity, snapshot=snapshot, captured=captured)
+    with pytest.raises(ClosureMutated, match="bundle"):
+        check()
     (bundle / "code" / "a.py").write_text("A = 1\n")
     (snapshot / "science/env/lib/libc.so.6").write_bytes(b"MOVED")
-    with pytest.raises(ClosureMutated):
-        check_closure_intact(bundle=bundle, code_identity=code_identity, snapshot=snapshot, captured=captured)
+    with pytest.raises(ClosureMutated, match="snapshot"):
+        check()
+    (snapshot / "science/env/lib/libc.so.6").write_bytes(b"libc")
+    (inputs / "data.txt").write_text("y\n")
+    with pytest.raises(ClosureMutated, match="inputs"):
+        check()
 
 
 def test_fingerprints_move_with_content_and_symlink_targets(tmp_path):
@@ -2002,8 +2303,6 @@ def test_fingerprints_move_with_content_and_symlink_targets(tmp_path):
     (tree / "link").unlink()
     (tree / "link").symlink_to("b")
     assert fingerprint(tree) != before
-    prints = closure_fingerprints(tree, tree, tree)
-    assert prints.bundle == prints.snapshot == prints.inputs == fingerprint(tree)
 
 
 # --- the mount plan and the canonical comparison (K6) -------------------------
@@ -2024,21 +2323,28 @@ def test_the_mount_plan_rows_are_canonical_and_identity_bearing(tmp_path):
         ("/dev/urandom", "device", "rw"),
     )
     assert plan.identity() == mount_plan_identity(plan.rows)
-    assert plan.expected == frozenset((point, access) for point, _, access in plan.rows)
+    assert plan.expected == tuple(sorted(plan.rows))
+    assert plan.role_of(BUNDLE_ROOT) == "bundle" and plan.role_of("/dev/null") == "device" and plan.role_of("/etc") == UNPLANNED
     assert dict(plan.host_mapping())[BUNDLE_ROOT] == str(tmp_path / "bundle")
     assert dict(plan.host_mapping())[SANDBOX_ENV] == str(tmp_path / "snap" / "science" / "env")
     assert dict(plan.host_mapping())[LOADER] == str(tmp_path / "snap" / LOADER.lstrip("/"))
 
 
-def test_canonical_mounts_reads_mountpoint_and_access_and_unescapes():
+def test_canonical_mounts_keeps_every_row_classifies_by_planned_role_and_unescapes(tmp_path):
+    plan = _plan(tmp_path)
     text = (
         "1 0 0:1 / / ro,nosuid - tmpfs tmpfs rw\n"
         "2 1 8:1 /scratch/out /science/out rw,relatime - ext4 /dev/sda1 rw\n"
         "3 2 8:1 /scratch/out/in /science/out/inputs ro,relatime - ext4 /dev/sda1 rw\n"
-        "4 1 8:1 /x/with\\040space /science/with\\040space ro - ext4 /dev/sda1 rw\n"
+        "4 2 8:1 /scratch/out/in /science/out/inputs ro,relatime - ext4 /dev/sda1 rw\n"
+        "5 1 8:1 /x/with\\040space /science/with\\040space ro - ext4 /dev/sda1 rw\n"
     )
-    assert canonical_mounts(text) == frozenset(
-        {("/", "ro"), ("/science/out", "rw"), ("/science/out/inputs", "ro"), ("/science/with space", "ro")}
+    assert canonical_mounts(text, plan) == (
+        ("/", "root", "ro"),
+        ("/science/out", "output", "rw"),
+        ("/science/out/inputs", "inputs", "ro"),
+        ("/science/out/inputs", "inputs", "ro"),
+        ("/science/with space", UNPLANNED, "ro"),
     )
 
 
@@ -2052,10 +2358,18 @@ def test_k6_a_namespace_equal_to_the_parents_refuses(tmp_path):
 
 def test_k6_a_mount_table_unequal_to_the_plan_refuses(tmp_path):
     plan = _plan(tmp_path)
-    extra = InstanceFacts(distinct=NAMESPACES, mounts=plan.expected | {("/etc", "ro")})
+    extra = InstanceFacts(distinct=NAMESPACES, mounts=tuple(sorted((*plan.expected, ("/etc", UNPLANNED, "ro")))))
     with pytest.raises(ConfinementNotEstablished, match="/etc"):
         judge_instance(extra, plan)
-    writable_root = InstanceFacts(distinct=NAMESPACES, mounts=(plan.expected - {("/", "ro")}) | {("/", "rw")})
+    stacked = InstanceFacts(distinct=NAMESPACES, mounts=tuple(sorted((*plan.expected, (INPUTS_ROOT, "inputs", "ro")))))
+    with pytest.raises(ConfinementNotEstablished, match="observed rows"):
+        judge_instance(stacked, plan)
+    missing = InstanceFacts(distinct=NAMESPACES, mounts=tuple(row for row in plan.expected if row[0] != INPUTS_ROOT))
+    with pytest.raises(ConfinementNotEstablished, match="inputs"):
+        judge_instance(missing, plan)
+    writable_root = InstanceFacts(
+        distinct=NAMESPACES, mounts=tuple(sorted(("/", "root", "rw") if row[0] == "/" else row for row in plan.expected))
+    )
     with pytest.raises(ConfinementNotEstablished):
         judge_instance(writable_root, plan)
 
@@ -2075,8 +2389,18 @@ def good_report(captured: CapturedEnvironment, environment) -> dict:
             f"write:{OUTPUT_ROOT}": "OK",
         },
         "network": {"ipv4": "ENETUNREACH", "ipv6": "EAFNOSUPPORT"},
-        "loader": {captured.interpreter: {"libc.so.6": [f"{SANDBOX_LIB}/libc.so.6", _digest(b"libc")]}},
+        "loader": {
+            captured.interpreter: {
+                "returncode": 0,
+                "resolved": {"libc.so.6": [f"{SANDBOX_LIB}/libc.so.6", _digest(b"libc")]},
+                "unresolved": [],
+            }
+        },
     }
+
+
+def _entry(report: dict) -> dict:
+    return report["loader"][next(iter(report["loader"]))]
 
 
 INNER = ("/science/env/venv/bin/python", "-m", "snakemake", "--snakefile", f"{BUNDLE_ROOT}/code/workflow/Snakefile", "--", "outputs/result.txt")
@@ -2098,7 +2422,14 @@ def test_a_good_report_yields_every_capability(tmp_path):
         (lambda r: r["filesystem"].update({f"write:{BUNDLE_ROOT}": "OK"}), "filesystem"),
         (lambda r: r["network"].update({"ipv4": "ECONNREFUSED"}), "network"),
         (lambda r: r["network"].update({"ipv6": "CONNECTED"}), "network"),
-        (lambda r: r["loader"][next(iter(r["loader"]))].update({"libc.so.6": [f"{SANDBOX_LIB}/libc.so.6", _digest(b"other")]}), "loader"),
+        (lambda r: _entry(r)["resolved"].update({"libc.so.6": [f"{SANDBOX_LIB}/libc.so.6", _digest(b"other")]}), "loader"),
+        (lambda r: _entry(r)["resolved"].update({"libc.so.6": ["/science/env/python/lib/libc.so.6", _digest(b"libc")]}), "loader"),
+        (lambda r: r["loader"].clear(), "loader"),  # an omitted ELF
+        (lambda r: _entry(r)["resolved"].clear(), "loader"),  # an omitted SONAME
+        (lambda r: _entry(r)["resolved"].update({"libm.so.6": [f"{SANDBOX_LIB}/libm.so.6", _digest(b"m")]}), "loader"),  # an extra SONAME
+        (lambda r: _entry(r)["unresolved"].append("libm.so.6 => not found"), "loader"),  # not found
+        (lambda r: _entry(r).update({"returncode": 127}), "loader"),  # a nonzero loader exit
+        (lambda r: r["loader"].update({"/science/env/site/extra.so": dict(_entry(r))}), "loader"),  # an extra ELF
     ],
 )
 def test_k6_each_report_deviation_refuses(tmp_path, mutate, match):
@@ -2116,6 +2447,56 @@ def test_an_engine_argv_whose_snakefile_is_outside_the_bundle_refuses(tmp_path):
     outside = tuple("/science/out/Snakefile" if part.startswith(BUNDLE_ROOT) else part for part in INNER)
     with pytest.raises(ConfinementNotEstablished, match="bundle"):
         judge_report(good_report(captured, environment), environment=environment, captured=captured, inner_argv=outside)
+
+
+@pytest.mark.parametrize("broken", [lambda r: r.pop("network"), lambda r: r.update({"environ": "not a mapping"}), lambda r: r.update({"loader": None})])
+def test_a_malformed_report_shape_is_not_a_traceback_of_its_own(tmp_path, broken):
+    """judge_report may raise KeyError or TypeError on a malformed shape; the
+    launch wraps those (below). Here: it never returns capabilities for one."""
+    captured = synthetic(tmp_path)
+    environment = sandbox_environment(f"{OUTPUT_ROOT}/.trace/events.jsonl")
+    report = good_report(captured, environment)
+    broken(report)
+    with pytest.raises((ConfinementNotEstablished, KeyError, TypeError, AttributeError)):
+        judge_report(report, environment=environment, captured=captured, inner_argv=INNER)
+
+
+# --- the launch's failure boundary --------------------------------------------
+def test_a_launch_protocol_failure_is_confinement_not_established_and_the_child_is_reaped(tmp_path, monkeypatch):
+    """A stand-in bubblewrap that writes garbage on the info descriptor and then
+    sleeps: the launch refuses with the stable reason, terminates and reaps the
+    child, and leaves no descriptor open (design §8)."""
+    import sys
+
+    pid_file = tmp_path / "pid"
+    fake = tmp_path / "bwrap"
+    fake.write_text(
+        f"#!{sys.executable}\n"
+        "import os, sys, time\n"
+        "info = int(sys.argv[sys.argv.index('--info-fd') + 1])\n"
+        "os.write(info, b'not json at all')\n"
+        "os.close(info)\n"
+        f"open({str(pid_file)!r}, 'w').write(str(os.getpid()))\n"
+        "time.sleep(60)\n"
+    )
+    fake.chmod(0o755)
+    monkeypatch.setattr(confinement_module, "_BWRAP", str(fake))
+    captured = synthetic(tmp_path)
+    environment = sandbox_environment(f"{OUTPUT_ROOT}/.trace/events.jsonl")
+    open_before = set(os.listdir("/proc/self/fd"))
+    with pytest.raises(ConfinementNotEstablished, match="info descriptor"):
+        launch_confined(plan=_plan(tmp_path), environment=environment, inner_argv=INNER, captured=captured)
+    assert set(os.listdir("/proc/self/fd")) <= open_before
+    with pytest.raises(ProcessLookupError):
+        os.kill(int(pid_file.read_text()), 0)
+
+
+def test_bubblewrap_gone_after_intent_is_confinement_not_established_not_unavailable(tmp_path, monkeypatch):
+    monkeypatch.setattr(confinement_module, "_BWRAP", str(tmp_path / "no-such-bwrap"))
+    captured = synthetic(tmp_path)
+    environment = sandbox_environment(f"{OUTPUT_ROOT}/.trace/events.jsonl")
+    with pytest.raises(ConfinementNotEstablished, match="PATH"):
+        launch_confined(plan=_plan(tmp_path), environment=environment, inner_argv=INNER, captured=captured)
 
 
 # --- the declared environment and the bwrap argv -----------------------------
@@ -2179,6 +2560,7 @@ from __future__ import annotations
 
 import json
 import os
+import posixpath
 import shutil
 import subprocess
 import sys
@@ -2216,15 +2598,15 @@ __all__ = [
     "INPUTS_ROOT",
     "OUTPUT_ROOT",
     "TRACE_DIR",
-    "ClosureFingerprints",
+    "UNPLANNED",
     "InstanceFacts",
     "Launch",
     "MountPlan",
     "bundle_identity",
     "bwrap_argv",
     "canonical_mounts",
+    "check_bundle_intact",
     "check_closure_intact",
-    "closure_fingerprints",
     "fingerprint",
     "host_prerequisites",
     "judge_instance",
@@ -2245,6 +2627,7 @@ INPUTS_ROOT = "/science/out/inputs"
 TRACE_DIR = ".trace"
 HOME_DIR = ".home"
 DEVICES = ("/dev/null", "/dev/urandom")
+UNPLANNED = "unplanned"
 PROBE_MODULE = "science.probe"
 _BWRAP = "bwrap"
 _NETWORK_UNREACHABLE = ("EAFNOSUPPORT", "ENETUNREACH", "EADDRNOTAVAIL")
@@ -2387,27 +2770,33 @@ def fingerprint(root: Path) -> str:
     return "sha256:" + sha256("".join(rows).encode()).hexdigest()
 
 
-@sealed
-@final
-@dataclass(frozen=True)
-class ClosureFingerprints:
-    bundle: str
-    snapshot: str
-    inputs: str
-
-
-def closure_fingerprints(bundle: Path, snapshot: Path, inputs: Path) -> ClosureFingerprints:
-    return ClosureFingerprints(fingerprint(bundle), fingerprint(snapshot), fingerprint(inputs))
-
-
-def check_closure_intact(*, bundle: Path, code_identity: str, snapshot: Path, captured: CapturedEnvironment) -> None:
-    """The pre-bind observation, against the recorded identities."""
+def check_bundle_intact(bundle: Path, code_identity: str) -> None:
+    """The bundle's pre-bind observation: its fold still equals the recorded
+    code identity. The snapshot's pre-bind pass is `materialize_snapshot`'s
+    verification; the staged inputs' is the fingerprint the caller keeps."""
     if bundle_identity(bundle) != code_identity:
         raise ClosureMutated("the captured bundle no longer folds to its code identity")
+
+
+def check_closure_intact(
+    *,
+    bundle: Path,
+    code_identity: str,
+    snapshot: Path,
+    captured: CapturedEnvironment,
+    inputs: Path,
+    inputs_fingerprint: str,
+) -> None:
+    """The post-exit observation: one pass each over the bundle, the snapshot
+    and the staged inputs, against what was recorded before the bind
+    (design §4.4). Runs before the trace, the seeds or any output is read."""
+    check_bundle_intact(bundle, code_identity)
     try:
         verify_snapshot(snapshot, captured)
     except SnapshotMismatch as error:
         raise ClosureMutated(f"the snapshot no longer matches its manifest: {error}") from error
+    if fingerprint(inputs) != inputs_fingerprint:
+        raise ClosureMutated("the staged inputs changed between the bind and exit")
 
 
 # --- the mount plan -----------------------------------------------------------------
@@ -2430,8 +2819,15 @@ class MountPlan:
         return (("/", "root", "ro"), *((sandbox, role, _ROLES[access]) for (sandbox, _, access), role in zip(self.binds, self.roles)))
 
     @property
-    def expected(self) -> frozenset[tuple[str, str]]:
-        return frozenset((point, access) for point, _, access in self.rows)
+    def expected(self) -> tuple[tuple[str, str, str], ...]:
+        """The canonical planned table: the rows, sorted, one per mount."""
+        return tuple(sorted(self.rows))
+
+    def role_of(self, mountpoint: str) -> str:
+        for point, role, _ in self.rows:
+            if point == mountpoint:
+                return role
+        return UNPLANNED
 
     def identity(self) -> str:
         return mount_plan_identity(self.rows)
@@ -2496,14 +2892,18 @@ def _unescape(field: str) -> str:
     return field.replace("\\040", " ").replace("\\011", "\t").replace("\\012", "\n").replace("\\134", "\\")
 
 
-def canonical_mounts(mountinfo: str) -> frozenset[tuple[str, str]]:
-    observed: set[tuple[str, str]] = set()
+def canonical_mounts(mountinfo: str, plan: MountPlan) -> tuple[tuple[str, str, str], ...]:
+    """Every mount, one row each — a stacked or duplicate mount stays a row of
+    its own — as (mountpoint, planned role or UNPLANNED, ro|rw), sorted. This
+    is what the receipt's instance carries (design §6.1 step 3)."""
+    observed: list[tuple[str, str, str]] = []
     for line in mountinfo.splitlines():
         fields = line.split()
         if len(fields) < 6:
             raise ConfinementNotEstablished(f"unparseable mountinfo line {line!r}")
-        observed.add((_unescape(fields[4]), "ro" if "ro" in fields[5].split(",") else "rw"))
-    return frozenset(observed)
+        point = _unescape(fields[4])
+        observed.append((point, plan.role_of(point), "ro" if "ro" in fields[5].split(",") else "rw"))
+    return tuple(sorted(observed))
 
 
 @sealed
@@ -2511,19 +2911,22 @@ def canonical_mounts(mountinfo: str) -> frozenset[tuple[str, str]]:
 @dataclass(frozen=True)
 class InstanceFacts:
     distinct: tuple[str, ...]
-    mounts: frozenset[tuple[str, str]]
+    mounts: tuple[tuple[str, str, str], ...]
 
 
-def observe_instance(pid: int) -> InstanceFacts:
+def observe_instance(pid: int, plan: MountPlan) -> InstanceFacts:
     distinct = tuple(name for name in NAMESPACES if os.readlink(f"/proc/{pid}/ns/{name}") != os.readlink(f"/proc/self/ns/{name}"))
-    return InstanceFacts(distinct, canonical_mounts(Path(f"/proc/{pid}/mountinfo").read_text(encoding="utf-8")))
+    return InstanceFacts(distinct, canonical_mounts(Path(f"/proc/{pid}/mountinfo").read_text(encoding="utf-8"), plan))
 
 
 def judge_instance(facts: InstanceFacts, plan: MountPlan) -> None:
     if missing := [name for name in NAMESPACES if name not in facts.distinct]:
         raise ConfinementNotEstablished(f"namespaces equal to the parent's: {missing}")
     if facts.mounts != plan.expected:
-        raise ConfinementNotEstablished(f"observed mounts differ from the plan: {sorted(facts.mounts ^ plan.expected)}")
+        differences = sorted(set(facts.mounts) ^ set(plan.expected)) or [
+            f"{len(facts.mounts)} observed rows against {len(plan.expected)} planned"
+        ]
+        raise ConfinementNotEstablished(f"observed mounts differ from the plan: {differences}")
 
 
 def _expected_filesystem() -> dict[str, str]:
@@ -2538,6 +2941,21 @@ def _expected_filesystem() -> dict[str, str]:
     }
 
 
+def _terminal_digest(captured: CapturedEnvironment, path: str) -> str | None:
+    """The digest of the file row a sandbox path reaches through the manifest's
+    own symlink rows; None when it reaches no file row."""
+    rows = {row_path: (kind, content) for row_path, kind, content in captured.manifest.artifacts}
+    for _ in range(len(rows) + 1):
+        row = rows.get(path)
+        if row is None:
+            return None
+        kind, content = row
+        if kind == "file":
+            return content
+        path = content if content.startswith("/") else posixpath.normpath(posixpath.join(posixpath.dirname(path), content))
+    return None
+
+
 def judge_report(
     report: Mapping[str, object],
     *,
@@ -2546,7 +2964,8 @@ def judge_report(
     inner_argv: tuple[str, ...],
 ) -> tuple[str, ...]:
     """The probe's report against what was declared. Every failure is a refusal;
-    the graded case is reached by selecting the minimal policy, not here."""
+    the graded case is reached by selecting the minimal policy, not here. A
+    malformed shape raises KeyError or TypeError, which the launch wraps."""
     environ = cast(Mapping[str, str], report["environ"])
     if dict(environ) != dict(environment):
         raise ConfinementNotEstablished(f"environment differs from the declared set: {sorted(set(environ.items()) ^ set(environment))}")
@@ -2562,11 +2981,21 @@ def judge_report(
         raise ConfinementNotEstablished(f"network: IPv4 connect reported {network['ipv4']!r}, not ENETUNREACH")
     if network["ipv6"] not in _NETWORK_UNREACHABLE:
         raise ConfinementNotEstablished(f"network: IPv6 reported {network['ipv6']!r}, not one of {_NETWORK_UNREACHABLE}")
-    manifested = {path: content for path, kind, content in captured.manifest.artifacts if kind == "file"}
-    for elf, sonames in cast(Mapping[str, Mapping[str, list[str]]], report["loader"]).items():
-        for soname, (resolved, digest) in sonames.items():
-            if manifested.get(resolved) != digest:
-                raise ConfinementNotEstablished(f"loader: {elf} resolves {soname} to {resolved}, not a manifested file with that digest")
+    expected: dict[str, dict[str, str]] = {}
+    for elf, soname, resolved in captured.loader_map:
+        expected.setdefault(elf, {})[soname] = resolved
+    reported = cast(Mapping[str, Mapping[str, object]], report["loader"])
+    if set(reported) != set(expected):
+        raise ConfinementNotEstablished(f"loader: the listed ELFs differ from the captured set: {sorted(set(reported) ^ set(expected))}")
+    for elf, entry in reported.items():
+        if entry["returncode"] != 0 or entry["unresolved"]:
+            raise ConfinementNotEstablished(f"loader: {elf} exited {entry['returncode']} with unresolved {entry['unresolved']}")
+        resolved_map = cast(Mapping[str, list[str]], entry["resolved"])
+        if set(resolved_map) != set(expected[elf]):
+            raise ConfinementNotEstablished(f"loader: {elf} lists {sorted(set(resolved_map) ^ set(expected[elf]))} differently from the capture")
+        for soname, (path, digest) in resolved_map.items():
+            if path != expected[elf][soname] or _terminal_digest(captured, path) != digest:
+                raise ConfinementNotEstablished(f"loader: {elf} maps {soname} to {path} ({digest}), not the manifested {expected[elf][soname]}")
     snakefile = inner_argv[inner_argv.index("--snakefile") + 1]
     if not snakefile.startswith(f"{BUNDLE_ROOT}/"):
         raise ConfinementNotEstablished(f"the engine's snakefile {snakefile!r} is not under the bundle")
@@ -2585,7 +3014,8 @@ class Launch:
     report: Mapping[str, object]
 
 
-def _read_info(fd: int) -> Mapping[str, object]:
+def _read_info(fd: int) -> int:
+    """bubblewrap's info JSON, read until it parses; the child pid, or a refusal."""
     buffer = b""
     while True:
         chunk = os.read(fd, 4096)
@@ -2593,19 +3023,52 @@ def _read_info(fd: int) -> Mapping[str, object]:
             raise ConfinementNotEstablished("bubblewrap closed its info descriptor without reporting the child")
         buffer += chunk
         try:
-            return cast(Mapping[str, object], json.loads(buffer))
+            info = json.loads(buffer)
         except json.JSONDecodeError:
             continue
+        child = info.get("child-pid") if isinstance(info, dict) else None
+        if type(child) is not int:
+            raise ConfinementNotEstablished("bubblewrap's info report names no integer child-pid")
+        return child
 
 
 def _read_report(fd: int) -> Mapping[str, object]:
-    lines: list[str] = []
-    with os.fdopen(fd, "r", encoding="utf-8") as stream:
-        for line in stream:
-            if line.rstrip("\n") == "READY":
-                return cast(Mapping[str, object], json.loads("".join(lines)))
-            lines.append(line)
-    raise ConfinementNotEstablished("the probe exited before reporting READY")
+    """The probe's JSON report followed by the READY line, read raw so the
+    descriptor's ownership stays with the caller."""
+    terminator = b"\nREADY\n"
+    buffer = b""
+    while terminator not in buffer:
+        chunk = os.read(fd, 65536)
+        if not chunk:
+            raise ConfinementNotEstablished("the probe exited before reporting READY")
+        buffer += chunk
+    body, _, _ = buffer.partition(terminator)
+    report = json.loads(body)
+    if not isinstance(report, dict):
+        raise ConfinementNotEstablished("the probe's report is not a JSON object")
+    return cast(Mapping[str, object], report)
+
+
+def _close(open_fds: set[int], *fds: int) -> None:
+    """Close each descriptor exactly once."""
+    for fd in fds:
+        if fd in open_fds:
+            open_fds.remove(fd)
+            os.close(fd)
+
+
+def _reap(process: subprocess.Popen[str]) -> str:
+    """Terminate and reap a child whose gate failed; its output, for the detail."""
+    process.terminate()
+    try:
+        output, _ = process.communicate(timeout=10)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        output, _ = process.communicate()
+    return output or ""
+
+
+_PROTOCOL_FAILURES = (ConfinementNotEstablished, OSError, ValueError, TypeError, KeyError, AttributeError)
 
 
 def launch_confined(
@@ -2617,45 +3080,53 @@ def launch_confined(
 ) -> Launch:
     """Start bubblewrap with the held probe as its command; read the child pid;
     wait for the probe's report and READY; inspect that child's namespaces and
-    mounts from this process's /proc; judge; then GO or close (design §6.1)."""
+    mounts from this process's /proc; judge; then GO or close (design §6.1).
+
+    Every failure between the start and GO — a refusal, a closed pipe,
+    malformed info or report, a missing key, an unstartable process — is
+    `ConfinementNotEstablished` (design §8: post-intent, never the pre-intent
+    `ConfinementUnavailable`); the child is terminated and reaped and every
+    descriptor closed on every path."""
     bwrap = shutil.which(_BWRAP)
     if bwrap is None:
-        raise ConfinementUnavailable("bubblewrap (bwrap) is not on PATH")
+        raise ConfinementNotEstablished("bubblewrap (bwrap) left PATH after intent")
     info_r, info_w = os.pipe()
     report_r, report_w = os.pipe()
     go_r, go_w = os.pipe()
+    open_fds = {info_r, info_w, report_r, report_w, go_r, go_w}
     argv = bwrap_argv(plan, environment, inner_argv, bwrap=bwrap, info_fd=info_w, report_fd=report_w, go_fd=go_r)
-    process = subprocess.Popen(
-        list(argv),
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        pass_fds=(info_w, report_w, go_r),
-        env={},
-    )
-    os.close(info_w)
-    os.close(report_w)
-    os.close(go_r)
     try:
-        info = _read_info(info_r)
+        process = subprocess.Popen(
+            list(argv),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            pass_fds=(info_w, report_w, go_r),
+            env={},
+        )
+    except OSError as failure:
+        _close(open_fds, *tuple(open_fds))
+        raise ConfinementNotEstablished(f"bubblewrap could not be started: {failure}") from failure
+    try:
+        _close(open_fds, info_w, report_w, go_r)
+        child = _read_info(info_r)
         report = _read_report(report_r)
-        facts = observe_instance(int(cast(int, info["child-pid"])))
+        facts = observe_instance(child, plan)
         judge_instance(facts, plan)
         capabilities = judge_report(report, environment=environment, captured=captured, inner_argv=inner_argv)
-    except ConfinementNotEstablished as refusal:
-        os.close(go_w)
-        output, _ = process.communicate()
-        raise ConfinementNotEstablished(f"{refusal}; sandbox output: {output.strip()[-2000:]}") from refusal
+        os.write(go_w, b"GO\n")
+    except _PROTOCOL_FAILURES as failure:
+        _close(open_fds, *tuple(open_fds))  # closing GO tells the probe to exit
+        output = _reap(process)
+        raise ConfinementNotEstablished(f"{failure}; sandbox output: {output.strip()[-2000:]}") from failure
     finally:
-        os.close(info_r)
-    os.write(go_w, b"GO\n")
-    os.close(go_w)
+        _close(open_fds, *tuple(open_fds))
     output, _ = process.communicate()
     return Launch(process.returncode, output, capabilities, facts, report)
 ```
 
-Note `_read_report` owns and closes `report_r` through `os.fdopen`; on the `ConfinementNotEstablished` path raised *before* `_read_report` ran, `report_r` is still open — close it in the `except` branch with `os.close(report_r)` guarded by a flag `report_consumed`. Implement that with a local boolean set true immediately before calling `_read_report`.
+`ConfinementUnavailable` is no longer imported by `confinement.py` except in `require_host` — the only pre-intent site.
 
 - [ ] **Step 4: Write `probe.py`**
 
@@ -2667,8 +3138,10 @@ Note `_read_report` owns and closes `report_r` through `os.fdopen`; on the `Conf
 It runs inside the sandbox as the engine's own process: performs its checks,
 writes the report and READY on the report descriptor, waits for GO on the go
 descriptor, closes both, and ``execve``s the engine. It decides nothing — the
-boundary judges the report from outside — and it names no byte-mutation
-primitive: its one write probe uses ``os.open``.
+boundary judges the report from outside. Its one write check touches and
+removes a file with inventoried operations (``Path.touch``, ``unlink``), so
+``test_capability_boundary.py`` weighs this module as the fourth raw-write
+surface rather than a raw ``os.open`` escaping the inventory.
 """
 
 from __future__ import annotations
@@ -2677,7 +3150,9 @@ import errno
 import hashlib
 import json
 import os
+import pathlib
 import socket
+import struct
 import subprocess
 import sys
 
@@ -2704,11 +3179,12 @@ def _read_probe(path: str) -> str:
 
 
 def _write_probe(directory: str) -> str:
+    probe = pathlib.Path(directory) / ".probe"
     try:
-        descriptor = os.open(f"{directory.rstrip('/')}/.probe", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        probe.touch(mode=0o600, exist_ok=False)
     except OSError as error:
         return _errno_name(error)
-    os.close(descriptor)
+    probe.unlink()
     return "OK"
 
 
@@ -2732,30 +3208,41 @@ def _digest(path: str) -> str:
         return "sha256:" + hashlib.sha256(handle.read()).hexdigest()
 
 
-def _is_elf(path: str) -> bool:
+def _is_loadable_elf(path: str) -> bool:
+    """The same predicate as adapter._is_loadable_elf: ELF of type ET_EXEC or ET_DYN."""
     with open(path, "rb") as handle:
-        return handle.read(4) == _ELF_MAGIC
+        header = handle.read(18)
+    return len(header) == 18 and header[:4] == _ELF_MAGIC and struct.unpack_from("<H", header, 16)[0] in (2, 3)
 
 
 def _elves() -> list[str]:
-    found = [os.path.realpath(sys.executable)]
+    """Every loadable ELF regular file under the environment root — the set the
+    boundary's loader map covers; symlinked directories are not followed."""
+    found: list[str] = []
     for directory, _, names in os.walk(_ENV_ROOT):
-        for name in sorted(names):
+        for name in names:
             path = os.path.join(directory, name)
-            if ".so" in name and os.path.isfile(path) and not os.path.islink(path) and _is_elf(path):
+            if os.path.isfile(path) and not os.path.islink(path) and _is_loadable_elf(path):
                 found.append(path)
-    return found
+    return sorted(found)
 
 
-def _listing(loader: str, path: str) -> dict[str, list[str]]:
+def _listing(loader: str, path: str) -> dict[str, object]:
+    """The loader's own in-layout resolution, reported whole: exit status, every
+    resolved SONAME with the path as listed and its digest, every line that did
+    not resolve. The boundary requires equality with its captured map."""
     completed = subprocess.run([loader, "--list", path], capture_output=True, text=True, check=False)
     resolved: dict[str, list[str]] = {}
+    unresolved: list[str] = []
     for line in completed.stdout.splitlines():
         parts = line.split()
-        if len(parts) >= 3 and parts[1] == "=>" and not parts[0].startswith("/") and parts[2] != "not":
-            real = os.path.realpath(parts[2])
-            resolved[parts[0]] = [real, _digest(real)]
-    return resolved
+        if not parts or parts[0].startswith(("linux-vdso", "linux-gate")) or parts[0].startswith("/"):
+            continue
+        if len(parts) >= 3 and parts[1] == "=>" and parts[2] != "not":
+            resolved[parts[0]] = [parts[2], _digest(parts[2])]
+        else:
+            unresolved.append(line.strip())
+    return {"returncode": completed.returncode, "resolved": resolved, "unresolved": unresolved}
 
 
 def report(loader: str) -> dict[str, object]:
@@ -2805,14 +3292,18 @@ In `python/tests/test_capability_boundary.py`, extend `RAW_WRITE_ALLOWLIST`:
     # by rename, a losing build discarded — under a boundary-owned directory
     # registered by nothing (run-confinement design §4.3, §10).
     "confinement.py": {"copy2", "write_text", "symlink_to", "rename", "rmtree"},
+    # The held probe's one write check: a file touched and removed under the
+    # output root, with inventoried operations so this table weighs it
+    # (run-confinement design §6.2, §10).
+    "probe.py": {"touch", "unlink"},
 ```
 
-change its docstring's "The two surfaces" to "The three surfaces", and the assertion to `assert set(RAW_WRITE_ALLOWLIST) == {"adapter.py", "boundary.py", "confinement.py"}`.
+change its docstring's "The two surfaces" to "The four surfaces", and the assertion to `assert set(RAW_WRITE_ALLOWLIST) == {"adapter.py", "boundary.py", "confinement.py", "probe.py"}`.
 
 - [ ] **Step 6: Run to verify pass**
 
 Run: `cd python && set -o pipefail && uv run pytest tests/test_confinement.py tests/test_capability_boundary.py | tail -1 && uv run ruff check src/science/confinement.py src/science/probe.py tests/test_confinement.py && uv run pyright src/science/confinement.py src/science/probe.py | tail -1`
-Expected: all passed; clean; `0 errors`. If `test_capability_boundary` reports a primitive named in `confinement.py` beyond the five, rename the use — never widen the entry.
+Expected: all passed; clean; `0 errors`. If `test_capability_boundary` reports a primitive named in `confinement.py` beyond the five, or in `probe.py` beyond the two, rename the use — never widen the entry.
 
 - [ ] **Step 7: A live smoke of the gate, recorded in the ledger**
 
@@ -2957,15 +3448,16 @@ from science.confinement import (
     HOSTNAME,
     OUTPUT_ROOT,
     TRACE_DIR,
+    check_bundle_intact,
     check_closure_intact,
-    closure_fingerprints,
+    fingerprint,
     launch_confined,
     materialize_snapshot,
     mount_plan,
     require_host,
     sandbox_environment,
 )
-from science.errors import ClosureMutated, ConfinementRefusal, MalformedClosure, MalformedRecord, ScienceError
+from science.errors import ConfinementRefusal, MalformedClosure, MalformedRecord, ScienceError
 from science.recipe import (
     CONFINED_POLICY,
     BoundaryPolicy,
@@ -3220,7 +3712,10 @@ def _execute_confined(
     """Design §5.6 steps 3–5: the scratch root's ``out/`` is the host side of
     the output root; the closure is snapshotted, verified, bound and observed;
     the engine runs only after the gate; the post-exit check precedes every
-    read. Raises ConfinementRefusal for the caller's except clause."""
+    read. One capture (the caller's), one pre-bind observation (the bundle's
+    fold, the snapshot verification ``materialize_snapshot`` performs, the
+    inputs' fingerprint), one post-exit observation — no other pass over the
+    closure. Raises ConfinementRefusal for the caller's except clause."""
     output_root = scratch / "out"
     output_root.mkdir()
     (output_root / TRACE_DIR).mkdir()
@@ -3245,8 +3740,6 @@ def _execute_confined(
         boundary_policy=CONFINED_POLICY,
     )
     config = _render_config(recipe, definition)
-    require_executing_environment(recipe.environment)
-    snapshot = materialize_snapshot(captured, scratch_base / "environments")
     handler = output_root / TRACE_DIR / "handler.py"
     handler.write_text(LOG_HANDLER_SCRIPT)
     trace_file = f"{OUTPUT_ROOT}/{TRACE_DIR}/events.jsonl"
@@ -3262,13 +3755,12 @@ def _execute_confined(
         in_process_jobs=True,
     )
     environment = sandbox_environment(trace_file)
+    snapshot = materialize_snapshot(captured, scratch_base / "environments")
     plan = mount_plan(snapshot=snapshot, loader=captured.loader, bundle=bundle, output_root=output_root)
-    check_closure_intact(bundle=bundle, code_identity=code_identity, snapshot=snapshot, captured=captured)
-    before = closure_fingerprints(bundle, snapshot, output_root / "inputs")
+    check_bundle_intact(bundle, code_identity)
+    inputs_before = fingerprint(output_root / "inputs")
     launched = launch_confined(plan=plan, environment=environment, inner_argv=inner_argv, captured=captured)
-    after = closure_fingerprints(bundle, snapshot, output_root / "inputs")
-    if after != before:
-        raise ClosureMutated("the bundle, snapshot or staged inputs changed between the bind and exit")
+    check_closure_intact(bundle=bundle, code_identity=code_identity, snapshot=snapshot, captured=captured, inputs=output_root / "inputs", inputs_fingerprint=inputs_before)
     if launched.returncode != 0:
         return _refused("execution-failed", subject, actor, observer, started_at, intent, detail=launched.output[-2000:])
     trace = read_trace(output_root / TRACE_DIR / "events.jsonl")
@@ -3280,7 +3772,7 @@ def _execute_confined(
         capabilities=launched.capabilities,
         instance=InstanceAttestation(
             namespaces=launched.facts.distinct,
-            mounts=plan.rows,
+            mounts=launched.facts.mounts,
             mount_plan_identity=plan.identity(),
             environment_identity=snapshot.name,
         ),
@@ -3305,7 +3797,7 @@ def _execute_confined(
     return RunMinted(run, intent, Registration(intent.event_token, run.address()))
 ```
 
-`environment_identity=snapshot.name` is the verified snapshot's key — the directory `materialize_snapshot` published or verified — not the recipe's copy (design §6.3); `qualifies` compares the two in Task 8.
+`environment_identity=snapshot.name` is the verified snapshot's key — the directory `materialize_snapshot` published or verified — not the recipe's copy (design §6.3); `qualifies` compares the two in Task 8. `mounts=launched.facts.mounts` is the **observed** canonical table, which `judge_instance` has already found equal to the plan — the receipt records what was seen, never what was planned. The confined path does not call `require_executing_environment`: `recipe.environment` *is* `captured.manifest`, the single capture, and `materialize_snapshot`'s verification is the snapshot's only pre-bind pass.
 
 In `execute_assessment_run`: add `boundary_policy: BoundaryPolicy,` directly after `port: OperationPort,`; after the `_preflight` block and before `intent = AssessmentRunIntent(...)` insert:
 
@@ -3316,7 +3808,7 @@ In `execute_assessment_run`: add `boundary_policy: BoundaryPolicy,` directly aft
         return refused
 ```
 
-and pass `boundary_policy=boundary_policy` to `_execute_run`. Same in `execute_production_run` with subject `"absent"`.
+and pass `boundary_policy=supported_policy(boundary_policy)` to `_execute_run` — the canonical known definition (it cannot raise after the refusal check), so a reordered spelling of a known capability set is recorded as the definition it names. Same in `execute_production_run` with subject `"absent"`.
 
 In `python/src/science/replay.py`'s `replay`, add `"boundary_policy": original.run.recipe.boundary_policy,` to `common` (after `"port": port,`).
 
@@ -3852,9 +4344,7 @@ def test_r13u1_an_import_outside_the_closure_is_refused_under_confinement_and_mi
     snakefile = snakefile_importing_from(outside)
     assert isinstance(minimal(tmp_path / "host", snakefile=snakefile), RunMinted)
     outcome = confined(tmp_path / "confined", shared_scratch, snakefile=snakefile)
-    assert isinstance(outcome, RunRefused), outcome
-    assert outcome.reason == "execution-failed", (outcome.reason, outcome.detail)
-    assert "secret" in outcome.detail
+    assert isinstance(outcome, RunRefused), outcome  # a refusal, and nothing about its diagnostic (spec §8)
 
 
 def test_r16u1_a_not_certified_pair_admits_nothing(tmp_path, shared_scratch):
@@ -3902,7 +4392,7 @@ Expected: all 13 passed on a host meeting the gate. Every assertion on `outcome.
 `python/tests/acceptance/n2_arms_cut13.py`:
 
 ```python
-"""Cut 13's declared arms: 15 selected + 7 labeled = 22 units, 34 lettered arms.
+"""Cut 13's declared arms: 15 selected + 7 labeled = 22 units, 35 lettered arms.
 
 Every sabotage is host-side (cut 13 §5 item 1): the sandbox's science tree is
 the closure's own copy, so probe.py is never sabotaged."""
@@ -3926,13 +4416,13 @@ CUT13_ARMS = (
     # --- R15 ---
     Arm("R15u1", "a bundled file edited after capture yields no run and the engine never starts",
         Sabotage(_BOUNDARY,
-            before='    check_closure_intact(bundle=bundle, code_identity=code_identity, snapshot=snapshot, captured=captured)\n    before = closure_fingerprints(bundle, snapshot, output_root / "inputs")',
-            after='    before = closure_fingerprints(bundle, snapshot, output_root / "inputs")'),
+            before='    check_bundle_intact(bundle, code_identity)\n    inputs_before = fingerprint(output_root / "inputs")',
+            after='    inputs_before = fingerprint(output_root / "inputs")'),
         (f"{_ACCEPT}::test_r15u1_a_bundled_file_edited_after_capture_yields_no_run_and_the_engine_never_starts",)),
     Arm("R15u2", "a bundled file edited after exit yields no run",
         Sabotage(_BOUNDARY,
-            before='    if after != before:\n        raise ClosureMutated(',
-            after='    if False:\n        raise ClosureMutated('),
+            before='    check_closure_intact(bundle=bundle, code_identity=code_identity, snapshot=snapshot, captured=captured, inputs=output_root / "inputs", inputs_fingerprint=inputs_before)',
+            after='    pass'),
         (f"{_ACCEPT}::test_r15u2_a_bundled_file_edited_after_exit_yields_no_run",)),
     Arm("R15u3", "an undeclared file read fails closed",
         Sabotage(_CONFINEMENT,
@@ -3977,9 +4467,8 @@ CUT13_ARMS = (
         Sabotage(_VERIFY, before='        verdict=derived.verdict,', after='        verdict="passed",'),
         (f"{_ACCEPT}::test_r9u1_an_inconclusive_verification_admits_nothing",)),
     Arm("R13u1", "an import outside the bundle and the held environment is refused",
-        Sabotage(_BOUNDARY,
-            before='    if launched.returncode != 0:\n        return _refused("execution-failed", subject, actor, observer, started_at, intent, detail=launched.output[-2000:])',
-            after='    if False:\n        return _refused("execution-failed", subject, actor, observer, started_at, intent, detail=launched.output[-2000:])'),
+        # The boundary ceases refusing: a failed confined execution is minted.
+        Sabotage(_BOUNDARY, before='    if launched.returncode != 0:', after='    if False:'),
         (f"{_ACCEPT}::test_r13u1_an_import_outside_the_closure_is_refused_under_confinement_and_minted_under_minimal",)),
     Arm("R16u1", "a not-certified pair with qualifying receipts admits nothing",
         Sabotage(_VERIFY, before='        scope=derived.scope,', after='        scope="clean-environment",'),
@@ -3996,8 +4485,8 @@ CUT13_ARMS = (
     # --- K1: the policy match ---
     Arm("K1a", "the policy match is the entire definition",
         Sabotage(_RECIPE,
-            before='    if policy in SUPPORTED_POLICIES:\n        return policy',
-            after='    if any(policy.identity == known.identity and policy.capabilities == known.capabilities for known in SUPPORTED_POLICIES):\n        return policy'),
+            before='        if (policy.identity, policy.scope_rule, frozenset(policy.capabilities)) == (known.identity, known.scope_rule, frozenset(known.capabilities)):',
+            after='        if (policy.identity, frozenset(policy.capabilities)) == (known.identity, frozenset(known.capabilities)):'),
         ("test_confinement_values.py::test_k1_a_known_identity_with_another_scope_rule_is_unsupported",
          "test_boundary.py::test_k1_an_unsupported_policy_refuses_before_intent")),
     Arm("K1b", "a duplicate capability is unspellable",
@@ -4071,6 +4560,9 @@ CUT13_ARMS = (
     Arm("K6d", "a routable network refuses",
         Sabotage(_CONFINEMENT, before='    if network["ipv4"] != "ENETUNREACH":', after='    if False:'),
         ("test_confinement.py::test_k6_each_report_deviation_refuses",)),
+    Arm("K6e", "a loader map unequal to the capture refuses",
+        Sabotage(_CONFINEMENT, before='    if set(reported) != set(expected):', after='    if False:'),
+        ("test_confinement.py::test_k6_each_report_deviation_refuses",)),
     # --- K7: closure refusals ---
     Arm("K7a", "a SONAME collision is refused",
         Sabotage(_ADAPTER,
@@ -4079,8 +4571,8 @@ CUT13_ARMS = (
         ("test_closure_capture.py::test_k7_a_soname_collision_is_refused",)),
     Arm("K7b", "a symlink escaping the closure is refused",
         Sabotage(_ADAPTER,
-            before='                if host_root is None or not resolved.is_relative_to(host_root):',
-            after='                if host_root is None:'),
+            before='            if target_root is None:\n                raise ClosureUnsupported(f"symlink {located} -> {target!r} escapes the closure")',
+            after='            if target_root is None:\n                target_root = root'),
         ("test_closure_capture.py::test_k7_a_symlink_escaping_the_closure_is_refused",)),
     Arm("K7c", "a mixed .pth is refused",
         Sabotage(_ADAPTER, before='            if imports and paths:', after='            if False:'),
@@ -4093,7 +4585,7 @@ _UNIT_OF_LETTERED = {
     "K3a": "K3", "K3b": "K3", "K3c": "K3",
     "K4a": "K4", "K4b": "K4", "K4c": "K4",
     "K5a": "K5", "K5b": "K5",
-    "K6a": "K6", "K6b": "K6", "K6c": "K6", "K6d": "K6",
+    "K6a": "K6", "K6b": "K6", "K6c": "K6", "K6d": "K6", "K6e": "K6",
     "K7a": "K7", "K7b": "K7", "K7c": "K7",
 }
 
@@ -4113,7 +4605,7 @@ Before committing, verify every `before` occurs exactly once: `cd python && uv r
 
 - [ ] **Step 4: The N2 harness**
 
-`python/tests/acceptance/test_n2_cut13.py` — copy `test_n2_cut12.py` and change: the docstring to `"""Cut 13's declaration accounting, N2 audit, and lettered-arm partition."""`; import `CUT12_ARMS` from `n2_arms_cut12` and `CO_CITED, CUT13_ARMS, LABELED_UNITS, ROW_UNITS, unit_of` from `n2_arms_cut13`; `FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-08-30-conformance-cut-13.md"`; `CUT13_FREEZE_COMMIT = "<the Task 1 freeze hash>"`; add to `FROZEN_PRIOR_CUT_FILES` the line `"python/tests/acceptance/n2_arms_cut12.py": "<git log -1 --format=%h -- python/tests/acceptance/n2_arms_cut12.py>",`; `PRIOR_ARMS = (*CUT5_ARMS, …, *CUT11_ARMS, *CUT12_ARMS)`; every `CUT12_ARMS` in the audit and table tests becomes `CUT13_ARMS`, `cut-12` in messages becomes `cut-13`, the class names `TestEveryCut13ArmAssertsSomething`; `test_the_declared_arms_are_unique_and_number_fifty` becomes `..._number_thirty_four` asserting `== 34`; `test_the_frozen_cut_states_the_same_accounting` asserts `(15, 7, 22)` and `ROW_UNITS`; `test_every_check_lives_in_a_cut13_file` asserts the set
+`python/tests/acceptance/test_n2_cut13.py` — copy `test_n2_cut12.py` and change: the docstring to `"""Cut 13's declaration accounting, N2 audit, and lettered-arm partition."""`; import `CUT12_ARMS` from `n2_arms_cut12` and `CO_CITED, CUT13_ARMS, LABELED_UNITS, ROW_UNITS, unit_of` from `n2_arms_cut13`; `FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-08-30-conformance-cut-13.md"`; `CUT13_FREEZE_COMMIT = "<the Task 1 freeze hash>"`; add to `FROZEN_PRIOR_CUT_FILES` the line `"python/tests/acceptance/n2_arms_cut12.py": "<git log -1 --format=%h -- python/tests/acceptance/n2_arms_cut12.py>",`; `PRIOR_ARMS = (*CUT5_ARMS, …, *CUT11_ARMS, *CUT12_ARMS)`; every `CUT12_ARMS` in the audit and table tests becomes `CUT13_ARMS`, `cut-12` in messages becomes `cut-13`, the class names `TestEveryCut13ArmAssertsSomething`; `test_the_declared_arms_are_unique_and_number_fifty` becomes `..._number_thirty_five` asserting `== 35`; `test_the_frozen_cut_states_the_same_accounting` asserts `(15, 7, 22)` and `ROW_UNITS`; `test_every_check_lives_in_a_cut13_file` asserts the set
 
 ```python
 {
@@ -4145,7 +4637,7 @@ def test_the_partition_accounts_exactly_the_22_frozen_units() -> None:
 
 - [ ] **Step 5: The runner**
 
-`python/tools/cut13_acceptance.py` — copy `cut12_acceptance.py` and change: the docstring to name cut 13 and its three phases (`the unedited cut-12 prefix, the confined cut-13 arms, then cut-13's N2 audit`) and add `The confined arms need no durable root; the prefix does — both prerequisites are probed first.`; `DEFAULT_WORK = PYTHON_ROOT.parent / ".cut13-acceptance"`; `PREFIX_RUNNERS = ("cut12_acceptance.py",)`; `PHASE_MODULES = ("test_confinement_acceptance.py", "test_n2_cut13.py")`; `work_directory` reads `SCIENCE_CUT13_ROOT`; `declared_arm_count` imports `CUT13_ARMS`; `cut_environment` ranges `range(4, 14)`; `run_prefix` sets `SCIENCE_CUT12_ROOT`; every `cut-12`/`cut12` in messages becomes `cut-13`/`cut13`; the final print names `34`, `CUT13_ARMS`, `22 frozen units`, `test_the_partition_accounts_exactly_the_22_frozen_units`. Extend `probe` so that after the durable probe returns `None` it also checks confinement:
+`python/tools/cut13_acceptance.py` — copy `cut12_acceptance.py` and change: the docstring to name cut 13 and its three phases (`the unedited cut-12 prefix, the confined cut-13 arms, then cut-13's N2 audit`) and add `The confined arms need no durable root; the prefix does — both prerequisites are probed first.`; `DEFAULT_WORK = PYTHON_ROOT.parent / ".cut13-acceptance"`; `PREFIX_RUNNERS = ("cut12_acceptance.py",)`; `PHASE_MODULES = ("test_confinement_acceptance.py", "test_n2_cut13.py")`; `work_directory` reads `SCIENCE_CUT13_ROOT`; `declared_arm_count` imports `CUT13_ARMS`; `cut_environment` ranges `range(4, 14)`; `run_prefix` sets `SCIENCE_CUT12_ROOT`; every `cut-12`/`cut12` in messages becomes `cut-13`/`cut13`; the final print names `35`, `CUT13_ARMS`, `22 frozen units`, `test_the_partition_accounts_exactly_the_22_frozen_units`. Extend `probe` so that after the durable probe returns `None` it also checks confinement:
 
 ```python
     from science.confinement import host_prerequisites
@@ -4194,7 +4686,7 @@ Expected: clean; `0 errors`; the summary line. On this host the durable tests fa
 cd python && set -o pipefail && uv run python tools/cut13_acceptance.py 2>&1 | tee ../.cut13-run.log | tail -20
 ```
 
-Expected: `[cut13 phase 1/3] cut12_acceptance.py` … exit 0; `[cut13 phase 2/3] test_confinement_acceptance.py` `13 passed`; `[cut13 phase 3/3] test_n2_cut13.py` all passed; `declared arms: 34 …`; exit 0. A `PROBE_REFUSED` exit naming the durability allowlist is the recertification prerequisite (ledger R2), not a cut-13 failure: the confined arms can still be run alone with `uv run pytest tests/acceptance/test_confinement_acceptance.py tests/acceptance/test_n2_cut13.py`, and their summary lines recorded, but the cut is **not discharged** until the aggregate runner exits 0.
+Expected: `[cut13 phase 1/3] cut12_acceptance.py` … exit 0; `[cut13 phase 2/3] test_confinement_acceptance.py` `13 passed`; `[cut13 phase 3/3] test_n2_cut13.py` all passed; `declared arms: 35 …`; exit 0. A `PROBE_REFUSED` exit naming the durability allowlist is the recertification prerequisite (ledger R2), not a cut-13 failure: the confined arms can still be run alone with `uv run pytest tests/acceptance/test_confinement_acceptance.py tests/acceptance/test_n2_cut13.py`, and their summary lines recorded, but the cut is **not discharged** until the aggregate runner exits 0.
 
 - [ ] **Step 3: Write the results record**
 
@@ -4225,7 +4717,7 @@ Cut 13 reads six rows: R15, R4, R9 and R13 in full, R16 and R21 in part. Its
 declaration units**. R16 and R21 stay partial on exactly their
 `workflow-surface` arms.
 
-The executable declaration table expands compound requirements into **34
+The executable declaration table expands compound requirements into **35
 lettered sabotage arms** normalized back to those 22 frozen units. Every armed
 claim has one exact once-matching host-side source mutation and at least one
 check that fails under it. No prior cut's check is claimed.
@@ -4307,9 +4799,9 @@ git commit -m "docs(plans): record conformance cut 13's discharge"
 git mv docs/superpowers/specs/2026-08-30-run-confinement-design.md docs/designs/2026-08-30-run-confinement-design.md
 ```
 
-Set the promoted design's `**Status:**` to: `implemented and discharged <today> at `<impl head>`; conformance cut 13 froze before implementation at `<freeze hash>` and its 22 units passed through 34 lettered sabotage arms on a host meeting the confinement gate and carrying the certified tuple. Results: `../plans/<today>-conformance-cut-13-results.md`; execution rulings: `../plans/2026-08-30-run-confinement-ledger.md`. Promoted from `docs/superpowers/specs/` in this banking change.` Update its relative links (`../../designs/…` → `.`-relative, `../../plans/…` → `../plans/…`).
+Set the promoted design's `**Status:**` to: `implemented and discharged <today> at `<impl head>`; conformance cut 13 froze before implementation at `<freeze hash>` and its 22 units passed through 35 lettered sabotage arms on a host meeting the confinement gate and carrying the certified tuple. Results: `../plans/<today>-conformance-cut-13-results.md`; execution rulings: `../plans/2026-08-30-run-confinement-ledger.md`. Promoted from `docs/superpowers/specs/` in this banking change.` Update its relative links (`../../designs/…` → `.`-relative, `../../plans/…` → `../plans/…`).
 
-Set the cut's `**Status:**` to: `**Discharged <today> at `<impl head>`** — all 22 frozen units passed through 34 lettered sabotage arms; the confined arms ran under the confinement gate, the cut-12 prefix on the certified tuple; the portable suite reported <N> passing tests, Ruff and Pyright were clean. Results: `../plans/<today>-conformance-cut-13-results.md`. The cut remains frozen byte-exact at `<freeze hash>`; the specification was promoted to `2026-08-30-run-confinement-design.md` at banking.` Nothing below the status line changes.
+Set the cut's `**Status:**` to: `**Discharged <today> at `<impl head>`** — all 22 frozen units passed through 35 lettered sabotage arms; the confined arms ran under the confinement gate, the cut-12 prefix on the certified tuple; the portable suite reported <N> passing tests, Ruff and Pyright were clean. Results: `../plans/<today>-conformance-cut-13-results.md`. The cut remains frozen byte-exact at `<freeze hash>`; the specification was promoted to `2026-08-30-run-confinement-design.md` at banking.` Nothing below the status line changes.
 
 Add the README design-table row after the cut-13 row:
 
