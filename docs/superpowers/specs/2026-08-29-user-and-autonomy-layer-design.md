@@ -1,7 +1,7 @@
 # User and autonomy layers — design
 
 **Date:** 2026-08-29
-**Status:** approved in session 2026-08-29; sub-project 0's in-repository rename (`science` → `beliefs`) delivered 2026-08-30; the `science` and `autonomy` repositories, and the repository/remote rename, remain owed
+**Status:** approved in session 2026-08-29; sub-project 0 delivered 2026-08-30: the rename (`science` → `beliefs`, repository and remote included) and the seeded `science` and `autonomy` repositories
 **Scope:** the division of the stack above the epistemic kernel into a daily
 surface and an autonomy layer, the rename that makes the division nameable,
 and the sub-projects that build it. It selects no cut scope and freezes no
