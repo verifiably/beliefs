@@ -661,12 +661,8 @@ missing identities listed; the user widens the view or drops the record.
    adopted: an operator's to discard. A **remote** reveal (step 7) has
    already been shared, and §6.2's rule holds — what was shared cannot be
    unshared — so the refusal report names the orphan `corpus_id` and the
-   destination and marks it **remotely revealed**; **destination-specific
-   cleanup** may be attempted where the destination supports removal
-   (deleting the pushed ref, discarding an unpublished Zenodo draft,
-   withdrawing from an inbox — each transport's own operation, specified
-   per destination kind in sub-project 5) as hygiene that reduces further
-   spread; and whether or not removal succeeds the orphan
+   destination and marks it **remotely revealed**; **no cleanup is
+   performed**, and the orphan
    is **accepted as permanent** — but not unrepairable. The refusal
    report's `(corpus_id, marker identity)`, flagged as remotely revealed,
    is a **standing orphan** of `(view address, destination)`, and step 0
@@ -676,15 +672,18 @@ missing identities listed; the user widens the view or drops the record.
    sees the orphan as an ordinary standing publication — correctly, since
    it is valid and shared — and a recipient holding it beside a sibling
    reports `divergent-publication` until the superseding marker arrives.
-   **Cleanup never retires an orphan.** A recipient may have taken the
-   corpus before the ref, draft or inbox entry was removed, and the
-   publisher cannot know; dropping the orphan from the tip set on a
-   cleanup would leave every such recipient divergent forever. So a
-   remotely revealed orphan stands until a later marker supersedes it,
-   without exception, and cleanup is transport hygiene with **no record
-   in the source root and no effect on any tip set** — which is also why
-   it needs no operation kind: the only act-report amendment remains
-   `publish`. A locally revealed refusal (step 6) is different in kind:
+   **Nothing but a later marker retires an orphan, and the product
+   performs no cleanup.** Removing a pushed ref, discarding a Zenodo
+   draft or withdrawing from an inbox would be a write outside §5.2's one
+   guarded path — unpermitted, unintended, unreported — and so it is not
+   something `science` or `autonomy` does; it is **out-of-band operator
+   work**, exactly as reservation cleanup already is, and it changes
+   nothing here: a recipient may have taken the corpus before any
+   removal, the publisher cannot know, so a remotely revealed orphan
+   stands until a later marker supersedes it without exception, whatever
+   an operator later does at the destination. The only act-report
+   amendment therefore remains `publish`. A locally revealed refusal
+   (step 6) is different in kind:
    nothing was shared, the directory is discarded, and it never enters
    `marker_tips`. The orphan set is derived from the source root's
    publish act-reports at a log position, never stored, so it is
@@ -727,7 +726,7 @@ reading, classifies the state it finds, and resumes there:
 | revealed; this attempt's binding revision absent — whatever other revisions exist: the predecessor's, none (a first publication), or a concurrent sibling's; intent `unfinished` | step 8 |
 | revealed; this attempt's binding revision present; intent `unfinished` | not a resumable state — step 8 is all-or-nothing, so this attempt's revision beside an unmatched intent is a foreign write, refused and reported, never resumed |
 | revealed; either binding state; intent `indeterminate` | **fail closed**: not done, not resumed, not relabeled. The qualification did not resolve (act-report §3.3), and neither a retry nor a person may turn that into `closed` by re-running; it is surfaced as an audit finding and the publish stays open until the qualification resolves |
-| revealed; this attempt's binding revision **absent**; intent `closed` | **terminally refused**, not done and never resumed: `closed` means fulfilled, not successful, and a fulfillment without this attempt's revision is step 8's `predecessor-not-standing` refusal on record — the revealed corpus is unbound: discarded if local, cleaned up per destination or accepted as a permanent orphan if remote (step 8), and a new attempt begins under a new token |
+| revealed; this attempt's binding revision **absent**; intent `closed` | **terminally refused**, not done and never resumed: `closed` means fulfilled, not successful, and a fulfillment without this attempt's revision is step 8's `predecessor-not-standing` refusal on record — the revealed corpus is unbound: discarded if local, a standing orphan superseded by the next publication if remote (step 8), and a new attempt begins under a new token |
 | revealed; this attempt's binding revision present; intent `closed` | done |
 
 No abandon operation exists, and cleanup of a reservation nobody will
