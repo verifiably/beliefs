@@ -73,7 +73,8 @@ Three constraints follow and govern every section below:
    bytes.** The closure is enumerated per file, snapshotted into a
    boundary-owned directory, verified against the manifest before the bind
    and again after the process exits. Host-side mutation cannot be prevented
-   by a namespace; it is caught, and the run is not minted.
+   by a namespace; a mutation present at either observation is caught, and
+   the run is not minted (§4.4 states the threat model exactly).
 3. **The receipt reports observed enforcement.** Capabilities are never
    copied from the requested policy; the fresh-instance attestation is
    observed by the boundary from its own `/proc`.
@@ -115,6 +116,14 @@ together**; any mismatch is `BoundaryPolicyUnsupported`, a request failure.
 Execution never trusts caller-claimed capabilities: the definition it
 recognizes decides what it will construct and observe.
 
+The match covers **`identity`, `scope_rule` and the capability set
+together**. `scope_rule` enters verification evidence (`verify.py` copies it
+from the original run's policy into every verification), so an arbitrary
+value under a known identity would mislabel the derivation. `capabilities`
+must be **unique** at construction — a duplicate entry is unspellable — so
+that no set comparison can be satisfied by a tuple that is not the set it
+names.
+
 ## 4. The runtime artifact closure (`adapter.py`, `recipe.py`)
 
 ### 4.1 The manifest
@@ -128,11 +137,15 @@ reshaping rows under `v1`. Previously persisted runs retain their addresses;
 newly captured recipes move. Nothing pins a real environment identity in any
 fixture or contract.
 
-**Host paths are ephemeral.** The capture produces, beside the manifest, a
-*capture plan* mapping each sandbox path to its host source; the plan lives
-only in the boundary for the duration of one run and never enters a
-manifest, a recipe, or a receipt's identity-bearing members. Otherwise the
-installation location of Python on this host would be part of every recipe.
+**The capture plan is ephemeral.** The capture produces, beside the
+manifest, a *capture plan* mapping each sandbox path to its host source; the
+plan lives only in the boundary for the duration of one run and never enters
+a manifest or a recipe. Otherwise the installation location of Python on
+this host would be part of every recipe identity. Host paths do enter the
+**occurrence** through the receipt's `scratch_mapping` and `mounts` members
+(§6.3), which are identity-bearing for the run address — that is §4.2c's
+rule: the host mapping is an observation of this execution, never a member
+of what a replay must reconstruct.
 
 ### 4.2 Enumeration
 
@@ -144,7 +157,7 @@ interpreter:
 | interpreter | `sys.executable` resolved through its symlink chain; each link a `symlink` row, the final binary a `file` row | `/science/env/python/bin/…` |
 | `libpython`, stdlib, platstdlib | every regular file under the prefix's `lib/`, individually; `__pycache__` excluded | `/science/env/python/lib/…` |
 | distributions | every RECORD entry, individually, as today; derived caches excluded | `/science/env/site/…` |
-| `.pth` path lines | each path-extending line of every `.pth` in site-packages is followed and its tree captured (regular files; `__pycache__`, `.git` excluded). This checkout's editable `science`, `nodes-core` and `atoms-core` are captured this way. The `.pth` file's own host bytes are **not** copied — its sandbox form is rendered (§5.2). `import`-line `.pth` files are ordinary artifacts | `/science/env/path/<n>/…` |
+| `.pth` path lines | each path-extending line of every `.pth` in site-packages is followed and its tree captured (regular files; `__pycache__`, `.git` excluded). This checkout's editable `science`, `nodes-core` and `atoms-core` are captured this way. The `.pth` file's own host bytes are **not** copied — its sandbox form is rendered (§5.2). A `.pth` containing only `import` lines is an ordinary artifact. A **mixed** file, with both `import` and path lines, is **refused** (`ClosureUnsupported`): rendering it would turn executable import lines into rendered, non-held code | `/science/env/path/<n>/…`, where `<n>` is canonical — the `.pth` file's sandbox path under `/science/env/site` joined to the line's ordinal within the file, e.g. `/science/env/path/_science.pth/0` — so the same closure lays out identically on every host |
 | native closure | for the interpreter, `libpython`, every `.so` under `lib-dynload` and every `.so` a RECORD lists: `PT_INTERP` (read from the ELF header) and the transitive `DT_NEEDED` set, resolved by **the loader itself** (`ld.so --list`) so that what is manifested is what `execve` maps; `linux-vdso` excluded by name | loader at its `PT_INTERP` path; libraries at `/science/env/lib/<soname>` |
 
 `PT_INTERP`, the Python version directory name, and every ABI-specific path
@@ -189,8 +202,18 @@ Immediately before the bind, the boundary digests the **bundle**, the
 Immediately after the sandboxed process exits — **before the trace, the
 realized seeds or any output is read** — it digests all three again. Any
 difference at either point is `ClosureMutated`: no run is minted. This is
-R15's mutation-after-capture arm; the pre-bind check catches an edit made
-before execution, the post-exit check closes the window during it.
+R15's mutation-after-capture arm.
+
+**Threat model, stated exactly.** The boundary **trusts the host and the
+boundary owner**. Detection covers a mutation **present at either
+observation** — an edit made after capture and before the bind, or one left
+in place at exit. It does not cover a host writer that modifies a file, lets
+the child read it, and restores it before the post-exit check; both
+observations pass. Closing that window would require genuinely immutable
+materialization — a different and substantially larger piece of work — and
+this slice does not claim it. The two observations are what R15's arm asks
+for: a bundled file edited after capture yields no run under the unchanged
+`code_identity`.
 
 **Cost, stated.** A cache hit costs three full digest passes — the host
 capture, the snapshot pre-bind check, the snapshot post-exit check — against
@@ -318,10 +341,11 @@ process:
    `(mountpoint, role, ro|rw)` where role names a planned bind, the implicit
    root, or a declared device exception. The canonical set must **equal** the
    planned mount table: no extra, no missing, no `rw` where `ro` was planned.
-4. On success the boundary writes `GO`; the probe `execve`s the engine —
-   same pid, namespaces, mounts and environment. On any failure the boundary
-   closes `GO`, the probe exits, and the run is refused
-   `ConfinementNotEstablished`.
+4. On success the boundary writes `GO`; the probe **closes its `READY`,
+   `GO` and report descriptors** and then `execve`s the engine — same pid,
+   namespaces, mounts and environment, and no gate authority inherited. On
+   any failure the boundary closes `GO`, the probe exits, and the run is
+   refused `ConfinementNotEstablished`.
 
 ### 6.2 The probe's checks
 
@@ -339,7 +363,7 @@ process:
 | member | content | source |
 |---|---|---|
 | `capabilities` | the subset of §3's vocabulary whose evidence all passed | `closure-confined-filesystem` and `network-denied` from the probe report plus the namespace inspection; `from-bundle` from the observed `/science/bundle` mount, the canonical inner argv naming an entrypoint under it, and `validate_entrypoint`'s existing check — never from the policy |
-| `instance` | the seven namespace facts (each `distinct`), the canonical observed mount table, `mount_plan_identity` (digest of the canonical plan), and `environment_identity` (the recipe's) | boundary-side inspection |
+| `instance` | the seven namespace facts (each `distinct`), the canonical observed mount table, `mount_plan_identity` (digest of the canonical plan), and `environment_identity` — the identity of the **verified snapshot** whose directory the observed mount plan binds at `/science/env`, read from the snapshot's own key, not copied from the recipe; §7.1 then compares it to the recipe's | boundary-side inspection |
 | `rendered_environment` | §5.2's rendered facts and the explicit environment | rendering |
 | `argv` | the canonical **inner** engine argv, sandbox paths only | rendering |
 | `rendered_config` | the engine config, as today | rendering |
@@ -351,10 +375,19 @@ graded case — a valid run that cannot reach `clean-environment` — is reached
 by **selecting `minimal-v1`**, whose receipt carries `capabilities=()` and no
 `instance`.
 
+**Two receipt domains.** The minimal receipt keeps cut 3's four members and
+its identity under `science.boundary-receipt.v1`, projection byte-unchanged.
+The confined receipt is a different shape and takes a successor domain,
+**`science.boundary-receipt.v2`** — the same identity-version rule that
+minted `science.environment.v2`; adding members under `v1` would reshape it.
+Previously persisted run addresses remain stable. A newly executed
+minimal-policy run does **not** keep its cut-3 address, because its
+environment identity has moved to `v2` (§4.1); what stays byte-stable is
+the minimal receipt projection alone.
+
 **Validation.** `BoundaryReceipt.__post_init__` and `runrecord.py`'s wire
-validator accept two spellings: minimal (cut 3's four members, projection
-byte-unchanged, so every cut-3 run address is stable) and confined (all
-members present). A confined receipt whose `instance.mount_plan_identity`
+validator accept the two spellings by domain: minimal (`v1`, four members)
+and confined (`v2`, all members present). A confined receipt whose `instance.mount_plan_identity`
 does not equal the digest recomputed from its own canonical observed mounts
 is malformed — the field is evidence, and evidence that cannot be checked
 is dead. `runrecord.py` changes only for the receipt variants and canonical
@@ -441,10 +474,18 @@ exactly one non-conforming execution. Nothing is mutated after minting.
 | `NotAnAssessmentVerification` | `admission_record` | a production verification offered to the join | — (not a run refusal) |
 
 Post-intent refusals fulfil the intent with an unfulfilling act-report and
-mint no run — cut 3's T2 shape. `_execute_run`'s `except (ScienceError,
-OSError)` currently reduces every error to `str(error)`; each named error
-above carries a stable `reason` that survives that conversion, so the
-taxonomy is readable from the refusal. `execution-failed` is unchanged; an
+mint no run — cut 3's T2 shape.
+
+**The stable-reason mechanism.** `str(error)` carries diagnostics and
+preserves nothing stable. Each new exception therefore carries a **`reason`
+attribute** holding the fixed string in the table's last column, with its
+message free to carry the diagnostic detail; `_execute_run` maps that
+attribute into `RunRefused.reason` and keeps the message as the refusal's
+detail. Errors without the attribute keep today's `str(error)` path.
+`OSError`s raised inside `confinement.py` — a failed copy, rename, bind, or
+descriptor read — are **wrapped at that boundary** into the named error
+whose stage they belong to, so no raw `OSError` reaches `_execute_run` from
+the confined path. `execution-failed` is unchanged; an
 in-sandbox `ImportError` from a module outside the closure surfaces through
 it, and R13's negative asserts a refusal — not an absent member, and not the
 engine's stderr, which would widen `RunRefusal` for nothing.
@@ -483,8 +524,11 @@ that errors and never skips, on the certified-tuple gate's pattern: `bwrap`
 with `--info-fd`, user namespaces enabled, `ld.so --list` callable. Every arm
 that executes under `confined-v1` lives here: R15's arms, R4's live
 derivation and graded run, R9 and R16 end to end, R13's out-of-closure
-import, R21(b) and (c). These arms need **no durable root**; the runner
-states that it is independent of the ext4 host recertification.
+import, R21(b) and (c). These arms need **no durable root**. The aggregate
+runner `tools/cut13_acceptance.py` does, because it executes the cut-12
+prefix first — so the ext4 recertification on kernel 7.1.11 is a
+**discharge prerequisite** for cut 13, though not an implementation
+dependency of anything in this slice.
 
 **N2**: `n2_arms_cut13.py` declares every selected arm with its sabotage in
 `boundary.py`, `confinement.py`, `replay.py`, `verify.py` or `recipe.py`;
@@ -496,16 +540,20 @@ with `PREFIX_RUNNERS = ("cut12_acceptance.py",)`.
 - `shell:` rules under `confined-v1`: no shell is in the closure.
 - Two confined runs racing to publish one snapshot: covered by §4.3's
   atomic publish and loser rule, not by a test that races them.
-- Host-side mutation during execution is detected after exit, not
-  prevented; a process may have read the mutated bytes before the run was
-  refused. The run is never minted, which is the guarantee R15 states.
+- Host-side mutation is detected at two observations, not prevented (§4.4's
+  threat model): a modify-read-restore sequence between them passes both
+  checks. The host and boundary owner are trusted; R15's arm — a mutation
+  present at an observation yields no run — is what is claimed.
 
 ## 10. What changes elsewhere
 
 - `test_capability_boundary.py`'s `RAW_WRITE_ALLOWLIST` is compared for
   equality. `science/confinement.py` is the third byte-writing module —
-  `copy2`, `write_text`, `rename` — and the allowlist gains exactly that
-  entry in the same change, a claim weighed as its docstring asks.
+  `copy2`, `write_text`, `symlink_to` (manifested and rendered symlinks),
+  `rename` (publication), and `rmtree` (discarding a losing temporary build)
+  — and the allowlist gains exactly that entry in the same change, a claim
+  weighed as its docstring asks. A primitive the implementation turns out
+  not to need is removed from the entry, never left as slack.
 - `adapter.py`: `capture_environment` becomes the closure walk; `build_argv`
   takes interpreter and paths explicitly; `run_engine` remains the only
   subprocess site for the minimal policy, and the gated confined launch is
@@ -537,6 +585,11 @@ with `PREFIX_RUNNERS = ("cut12_acceptance.py",)`.
   optional capability would become an admission requirement silently.
 - **Deleting and rebuilding a mismatching snapshot** — destroys evidence and
   races concurrent runs.
+- **Immutable materialization** to close the modify-read-restore window —
+  substantially different work; the slice trusts the host owner and says so
+  (§4.4).
+- **Extending `science.boundary-receipt.v1` with the confined members** —
+  reshapes a versioned identity; `v2` is minted instead (§6.3).
 - **R16 by post-built fixture mutation** — the arm would then not be about a
   boundary-produced execution.
 - **Durable verification publication in this slice** — crosses the
