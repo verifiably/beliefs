@@ -357,15 +357,16 @@ missing identities listed; the user widens the view or drops the record.
 **Constructing the corpus composes lifecycle commands that exist; no new
 `atoms` primitive is needed.** The sequence is:
 
-1. `init_corpus_root` on a private **staging root** the actor cannot
-   reach, and a private **staging world** beside it, opened under
-   `WorldConfig(world_root = staging world, world_id = fresh,
-   corpus_roots = (staging_root,))` **before** `init_world_root` — the
-   staging corpus must be the world's one configured carrier, because
-   `_resolve_carrier` requires exactly one configured carrier for a
-   `corpus_id` and admission alone does not configure one. The staging
-   world is throwaway; its only purpose is to make the staging corpus
-   eligible for a head export.
+1. Construct `WorldConfig(world_root = a private staging world, world_id
+   = fresh, corpus_roots = (staging_root,))` — the staging corpus must be
+   the world's one configured carrier, because `_resolve_carrier`
+   requires exactly one configured carrier for a `corpus_id` and
+   admission alone configures none. Then, in this order: `init_corpus_root
+   (staging_root)`, `init_world_root(config)`, `open_world(config)` —
+   `open_world` refuses an uninitialized world (`WorldUninitialized`).
+   Both roots are private; the actor cannot reach them. The staging world
+   is throwaway; its only purpose is to make the staging corpus eligible
+   for a head export.
 2. Write the selection and the `publication` record into the staging
    corpus through `beliefs`' ordinary writer.
 3. `World.admit` the staging corpus into the staging world (a fresh
@@ -374,43 +375,52 @@ missing identities listed; the user widens the view or drops the record.
    corpus on a configured carrier (log-verification design §3.2). It
    returns the canonical bytes of `(subject, genesis identity, head
    digest)` under `science.head-artifact.v1` and **stores nothing**.
-4. **Retain the artifact durably on the publisher's side.** The bytes are
-   written into the publisher's managed payload store through the
-   intent-bearing store act (holdings design §2), which mints a
-   `holdings-observation` for them; the source project's `publication`
-   coordination record carries that observation's identity and the
-   artifact's content identity. This step precedes every discard and every
-   reveal: the observer exists in the publisher's world before the
-   destination does.
-5. `replicate_root` from the staging root to the destination — which
-   publishes a claim-only reservation, stamps read-only before it exposes
-   payload, and grants neither writability nor serviceability
-   (root-lifecycle design §2–§4).
-6. **Copy the artifact to its canonical sibling locator** —
+4. **Write the artifact to its canonical sibling locator** —
    `<destination parent>/<corpus_id>.head-artifact.v1`, outside the root
    so the corpus bytes are untouched — under the rules-store idempotency
    discipline (log-verification design §3.1): an existing file with
    byte-identical content is success, a same-name file with different
-   bytes refuses as a collision. For a remote destination the transport
-   uploads root and sibling together (§6.2), and the sibling is what the
-   recipient's step 8 reads.
-7. `restore_root(destination, corpus(corpus_id), observers = {the artifact
+   bytes refuses as a collision. The sibling **is** the durable external
+   retention of the observer, and the staging root is **retained until
+   step 8** so that any retry re-exports from it; the export is a pure
+   function of the staged chain, so a re-export is byte-identical and the
+   idempotent write converges. For a remote destination the transport
+   uploads root and sibling together (§6.2); the sibling is what step 6
+   reads locally and what the recipient's `restore_root` reads in §6.3.
+5. `replicate_root` from the staging root to the destination — which
+   publishes a claim-only reservation, stamps read-only before it exposes
+   payload, and grants neither writability nor serviceability
+   (root-lifecycle design §2–§4).
+6. `restore_root(destination, corpus(corpus_id), observers = {the artifact
    read back from its sibling locator})`, which inspects, captures the
    presented identity, evaluates against that explicit observer set, and
    admits the copy to read-only service on a `validated` verdict and
    nothing else. An empty observer set is `unresolvable`, which is why
-   steps 3–6 are not optional. This is the reveal.
+   steps 3–4 are not optional. **This is the reveal.**
+7. **Commit the source binding, after the reveal and never before.** In
+   the source root, mint the revision of the source project's
+   `publication` coordination record (§6.2) — naming the now-serviceable
+   corpus as current, its predecessor tips, and the artifact's content
+   identity — in the same operation as the publish's terminal act-report.
+   Written earlier, a crash before step 6 would make an unserviceable
+   corpus current; written here, the binding can only ever name a corpus
+   that has been revealed. The revision is determined by `(view address,
+   destination, corpus_id)`, so a retry that finds the binding already
+   naming this corpus has nothing to mint.
 8. Discard the staging corpus and the staging world.
 
 `atoms` stays ignorant of root kinds, and the reveal is `restore_root`'s
-existing grant. Every step is exact-retry: a retry finds a serviceable
-corpus (done); a stamped copy with its sibling present but unserviceable
-(re-run step 7); a stamped copy without its sibling (re-run step 6 from
-the retained observation, then 7); or a bare reservation (**retry the
-exact same replication**, which adopts the retained claim and converges;
-a different request refuses). No abandon operation exists, and cleanup of
-a reservation nobody will retry is an explicit out-of-band operator
-action, never something a publish does.
+existing grant. Every step is exact-retry, and the staging root's
+retention through step 7 is what makes them so. A retry finds one of:
+a serviceable corpus whose source binding names it (done); a serviceable
+corpus the binding does not yet name (re-run step 7 — the crash between
+reveal and commit); a stamped copy without its sibling (re-run step 4
+from the retained staging root, then 6, then 7); a stamped copy with its
+sibling but unserviceable (re-run 6, then 7); or a bare reservation
+(**retry the exact same replication**, which adopts the retained claim and
+converges; a different request refuses). No abandon operation exists, and
+cleanup of a reservation nobody will retry is an explicit out-of-band
+operator action, never something a publish does.
 
 **Each attempt is an operation with its own act-report**, and that is an
 amendment, not a given: the kernel's operation-kind set is closed at five
@@ -648,6 +658,12 @@ the same commit.
 - **Reusing the proposition `supersede` family for revisions.** It is
   proposition-only with one predecessor; repairing a divergent view needs
   a successor of several tips.
+- **Retaining the head artifact as a holdings observation.** An
+  observation carries a digest and a locator, the store reader returns
+  path state rather than payload bytes, and the store write mints a fresh
+  token per call — so it could neither rebuild the sibling on retry nor be
+  exact-retry itself. The retained staging root and the idempotent sibling
+  write do both.
 - **A new `publish_root` lifecycle command in `atoms`.** Staging plus
   `replicate_root` plus `restore_root` already yields claim, stamp,
   validation and reveal; a new command would add a design gate and teach
