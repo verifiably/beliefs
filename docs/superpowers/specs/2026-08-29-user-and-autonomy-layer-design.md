@@ -185,18 +185,33 @@ record superseding the previous one under the same address — through a
 `supersede` is not reused: it operates on propositions only and takes
 exactly one predecessor (`CorpusWriter.supersede`), and revisions need
 neither restriction. The new family takes **one or more predecessor
-tips**, which is what repair needs, and its admission rule judges them
-**as of the minting operation's intent, not as of its commit**: a
-revision is admitted iff every predecessor it names was a standing tip
-at the position in the source root's log where the operation's intent
-was appended — provable from the chain, since a sibling that superseded
-one of them later has a later position — and refused
-(`Refused(predecessor-not-standing)`) if any predecessor was already
-superseded at that position. A predecessor superseded *between* intent
-and commit is therefore still a valid predecessor; the result is two
-standing tips, which is exactly the sibling state below, not a
-violation of it. The current revision of an address is its **one
-standing tip**: the single revision no other revision supersedes.
+tips**, which is what repair needs, and has two admission rules, by how
+the revision is minted:
+
+- **The general rule, for revisions minted by the ordinary write path**
+  — every `question`, `hypothesis`, `task`, `decision` and `note`
+  revision, which is one registered transaction under the root's
+  per-root operation lock and carries no operation intent (the
+  operation-kind set is closed and names none for these): every named
+  predecessor must be a standing tip **at commit**, judged under that
+  lock. Within one root the lock serializes revisions, so no sibling can
+  arise there; siblings arise only across corpora or replicas, and the
+  tip rule below handles them.
+- **The intent-position rule, for revisions minted inside a registered
+  operation** — today exactly one, the `publication-binding` revision of
+  a `publish` (§6.1 step 8), whose intent kind is the operation's own:
+  every named predecessor must have been a standing tip at the position
+  in the source root's log where the operation's intent was appended,
+  which is a pure function of the chain prefix ending at that intent and
+  provable by anyone holding the chain; a predecessor already superseded
+  at that position refuses (`Refused(predecessor-not-standing)`). A
+  predecessor superseded *between* intent and commit is therefore still
+  valid, and the result is two standing tips — the sibling state below,
+  not a violation of it. A future operation that mints revisions inherits
+  this rule with its own intent kind, by amendment.
+
+The current revision of an address is its **one standing tip**: the
+single revision no other revision supersedes.
 Two corpora or replicas can mint sibling successors, so resolution
 requires exactly one tip and otherwise returns `Refused(divergent-view)`
 naming every tip; it never chooses by recency, arrival, or iteration
@@ -377,10 +392,19 @@ missing identities listed; the user widens the view or drops the record.
 **Constructing the corpus composes lifecycle commands that exist; no new
 `atoms` primitive is needed.** The sequence is:
 
-0. **Append the intent, then write the request, before any side effect.**
-   The publish's `OperationIntent(kind = publish, event_token, actor)` is
-   appended to the source root's log first, as every boundary operation
-   already does (act-report §3); then a **publish request record** is
+0. **Read the tips and append the intent under one lock, then write the
+   request, before any side effect.** Under the source root's per-root
+   operation lock, held across both actions so no binding revision can
+   commit between them: read the standing tips of the source project's
+   `publication-binding` (below), then append the publish's
+   `OperationIntent(kind = publish, event_token, actor)` to the source
+   root's log, as every boundary operation already does (act-report §3).
+   The frozen tips are thereby **exactly** the standing set at the
+   intent's log position — the set §4.1's intent-position rule will judge
+   — and, being a pure function of the chain prefix ending at that
+   intent, they are recomputable by anyone: a retry re-derives them from
+   the prefix and refuses a request whose cached tips disagree
+   (`Refused(request-corrupt)`). Then a **publish request record** is
    written at the canonical, event-token-keyed path
    `<operations root>/publish/<event_token>/request.v1` — the operations
    root being a durable, launcher-owned directory outside every corpus
@@ -438,10 +462,11 @@ missing identities listed; the user widens the view or drops the record.
    `published_from` from the world, the frozen epoch and the view
    revision; the selection list from that epoch; and `supersedes` from
    the **predecessor tips**, which are two projections of one reading and
-   are frozen separately because they live in two identity domains. At
-   step 0 the standing tips of the source project's `publication-binding`
-   for `(view address, destination)` (§6.2) are read — every unsuperseded
-   revision, several if siblings stand; none for a first publication.
+   are frozen separately because they live in two identity domains. The
+   standing tips of the source project's `publication-binding` for
+   `(view address, destination)` (§6.2) are the set read under the lock
+   above — every unsuperseded revision at the intent's position, several
+   if siblings stand; none for a first publication.
    From them the request freezes **`binding_tips`**, the binding revision
    identities themselves, which step 8's binding revision supersedes; and
    **`marker_tips`**, the `(corpus_id, publication marker identity)` pair
@@ -592,8 +617,9 @@ missing identities listed; the user widens the view or drops the record.
    can only name a corpus that has been revealed — locally by step 6,
    remotely by step 7. The revision supersedes the frozen
    **`binding_tips`** and nothing else, and the family admits it by
-   §4.1's rule — predecessors judged as of this operation's intent
-   position, not its commit: if a concurrent attempt from the same
+   §4.1's intent-position rule — the one that applies to revisions minted
+   inside a registered operation, predecessors judged as of this
+   operation's intent position, not its commit: if a concurrent attempt from the same
    frozen tips committed first, those tips were still standing when this
    attempt's intent was appended, so this attempt still commits, and the
    binding then has two standing tips — the sibling publications §6.2
@@ -828,11 +854,11 @@ column says so.
 | # | sub-project | repository | depends on | starts |
 |---|---|---|---|---|
 | 0 | **Rename and seed** — `science` → `beliefs`; ledger §5 ruling; glossary; create `science` and `autonomy` with a README pointing here | kernel, new | nothing | now, between lane merges |
-| 1 | **Coordination and view kinds** — opaque project identity minting, `(project, local id)` addressing, the coordination revision family (one or more predecessor tips judged as of the intent position, the tip rule), W11, W12, W13's two-projects negative; the coordination contract in `beliefs`; the `foundations.md` extension | `beliefs` | none — it is the tier-3 answer and joins the `mutation` lane | now |
+| 1 | **Coordination and view kinds** — opaque project identity minting, `(project, local id)` addressing, the coordination revision family (one or more predecessor tips; the general at-commit rule under the root lock; the tip rule), W11, W12, W13's two-projects negative; the coordination contract in `beliefs`; the `foundations.md` extension | `beliefs` | none — it is the tier-3 answer and joins the `mutation` lane | now |
 | 2 | **Command framework** — declaration schema, write classes, budgeted renderer, preamble, adapter generator with the Claude Code target, CLI and MCP over `beliefs` reads; the writer endpoint with its bound permit, endpoint-set actor and session ledger; the write permit on every `beliefs` write entry point | `science`, `beliefs` | 0 | now, against today's kernel reads |
 | 3 | **Biology domain pack** — GO, HP, EFO, MONDO bindings; mm30's operator vocabulary | `beliefs/domains/biology` | the `domain-boundary` lane | with that lane |
 | 4 | **The dogfood command set** — the dozen commands over a real world root; mm30 reproduced, not migrated, as the first corpus | `science` | 1, 2, 3; `run-confinement` and `workflow-surface` for a real assessment | after 2; grows as lanes land |
-| 5 | **Publish** — the act and `publication` record in `beliefs`, composed over `init_corpus_root`, a staging world, `export_head_artifact`, `replicate_root` and `restore_root`; the versioned act-report amendment adding the `publish` operation kind and the versioned coordination-contract amendment declaring `publication` and `publication-binding`, with their deterministic record factories; transports carrying the head artifact, admission-side refusal and dry run in `science` | `beliefs`, `science` | 1; the `world-read` lane (view queries resolve through it) | after that lane |
+| 5 | **Publish** — the act and `publication` record in `beliefs`, composed over `init_corpus_root`, a staging world, `export_head_artifact`, `replicate_root` and `restore_root`; the versioned act-report amendment adding the `publish` operation kind and the versioned coordination-contract amendment declaring `publication` and `publication-binding`, with their deterministic record factories and the family's intent-position rule for operation-minted revisions; transports carrying the head artifact, admission-side refusal and dry run in `science` | `beliefs`, `science` | 1; the `world-read` lane (view queries resolve through it) | after that lane |
 | 6 | **Envelope** — the actor sandbox and private endpoint handle, baseline with log heads, tiers as permits, ledger-checked interval membership, dispositions, lease | `autonomy` | 2 | after 2 |
 | 7 | **Loop and `science.priority.v1`** — its own spec | `autonomy` | 4, 6 | last |
 
