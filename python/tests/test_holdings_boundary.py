@@ -543,4 +543,4 @@ def test_a_mixed_store_move_refuses_before_mutating(certified_work):
 
 
 def test_boundary_never_hashes_payloads_it_did_not_observe():
-    assert "sha256(" not in (Path(__file__).parents[1] / "src/science/holdings/boundary.py").read_text()
+    assert "sha256(" not in (Path(__file__).parents[1] / "src/beliefs/holdings/boundary.py").read_text()
