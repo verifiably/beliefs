@@ -639,8 +639,10 @@ missing identities listed; the user widens the view or drops the record.
    permits, refused at resolution by the tip rule until a revision
    supersedes both. An attempt whose intent was appended *after* a
    sibling superseded its tips is refused at step 8
-   (`predecessor-not-standing`) and reports so; it cannot silently
-   re-target. A retry never re-reads the binding to decide what to
+   (`predecessor-not-standing`) and reports so — its terminal act-report
+   records the refusal, which fulfills the intent (`closed`) without
+   minting this attempt's binding revision; it cannot silently re-target,
+   and the revealed corpus stands unbound, an operator's to discard. A retry never re-reads the binding to decide what to
    supersede.
 9. Discard the staging corpus and the staging world.
 
@@ -679,6 +681,7 @@ reading, classifies the state it finds, and resumes there:
 | revealed; this attempt's binding revision absent — whatever other revisions exist: the predecessor's, none (a first publication), or a concurrent sibling's; intent `unfinished` | step 8 |
 | revealed; this attempt's binding revision present; intent `unfinished` | not a resumable state — step 8 is all-or-nothing, so this attempt's revision beside an unmatched intent is a foreign write, refused and reported, never resumed |
 | revealed; either binding state; intent `indeterminate` | **fail closed**: not done, not resumed, not relabeled. The qualification did not resolve (act-report §3.3), and neither a retry nor a person may turn that into `closed` by re-running; it is surfaced as an audit finding and the publish stays open until the qualification resolves |
+| revealed; this attempt's binding revision **absent**; intent `closed` | **terminally refused**, not done and never resumed: `closed` means fulfilled, not successful, and a fulfillment without this attempt's revision is step 8's `predecessor-not-standing` refusal on record — the revealed corpus is unbound and an operator's to discard, and a new attempt begins under a new token |
 | revealed; this attempt's binding revision present; intent `closed` | done |
 
 No abandon operation exists, and cleanup of a reservation nobody will
