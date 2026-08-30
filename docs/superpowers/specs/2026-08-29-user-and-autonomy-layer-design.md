@@ -398,8 +398,27 @@ missing identities listed; the user widens the view or drops the record.
    at the frozen epoch: `science_contract` must be identical across them,
    and `domains` is their union, refused if any domain name is pinned to
    two values — `Refused(pins-disagree)` naming the corpora and the
-   field. The derived pins are frozen in the request; they are what
+   field. The destination also mints one record the sources did not
+   select: the `publication` record, whose governing contract is the
+   **coordination contract** of §4.1. That contract's pin is therefore
+   required in the derived `domains`, taken from the source corpus that
+   holds the publishing project's own records, and must agree with any
+   other source that pins it — a destination whose pins do not authorize
+   `publication` cannot be written, so this is checked at step 0 and not
+   discovered at step 2. An **empty selection is refused**
+   (`Refused(empty-selection)`): it has no contributing manifest to derive
+   from, and a corpus holding only a `publication` record publishes
+   nothing. The derived pins are frozen in the request; they are what
    step 1's `adopt_manifest` receives, and a retry never re-derives them.
+
+   **The expected `publication` record is fixed at step 0.** Its every
+   member is determined by what the request freezes: `published_from`
+   from the world, the frozen epoch and the view revision; the selection
+   list from that epoch; and `supersedes` from the **predecessor tip
+   set**, read at step 0 from the source project's current binding for
+   `(view address, destination)` (§6.2) and frozen in the request. So the
+   record's bytes are derivable from the request alone, and step 2
+   compares the marker it finds against exactly those bytes.
 
    **The durable create-only write.** The rules-store idempotency
    discipline runs under the world lock (log-verification design §3.1);
@@ -444,21 +463,27 @@ missing identities listed; the user widens the view or drops the record.
    duplicate refusal (`RecordAlreadyMinted`) proves only a shared
    `(uid, id)`, not identical bytes, so a retry compares every record it
    finds present **byte for byte** with the frozen-epoch record it would
-   have written. The only resumable state is an **exact prefix**: the
-   `publication` record absent, every present record byte-equal to its
-   frozen counterpart, and the present set a subset of the selection. A
-   retry continues the prefix. Anything else — an extra record, a byte
-   mismatch, or a `publication` record present with a listed member
-   missing — is corruption or a foreign write: `Refused(staging-corrupt)`
-   naming the record, reported, never resumed, and never a trip back to
-   step 2; the staging root is then an operator's to discard.
+   have written. The only resumable state is a **true prefix**: the
+   `publication` record absent, and the present records, taken in the
+   selection's canonical order, equal to the first *n* records of the
+   selection byte for byte — no holes, since writes are ordered, and no
+   extras. A retry continues from record *n + 1*. Anything else — a
+   hole, an extra record, a byte mismatch, or a `publication` record
+   present that is not byte-equal to the expected record — is corruption
+   or a foreign write: `Refused(staging-corrupt)` naming the record,
+   reported, never resumed, and never a trip back to step 2; the staging
+   root is then an operator's to discard.
 
-   Population is **complete** iff the `publication` record is present,
-   every identity it lists is present **and byte-equal** to the
-   frozen-epoch record, and the corpus holds no record outside that list
-   plus the `publication` record itself.
+   Population is **complete** iff the `publication` record is present
+   **and byte-equal to the expected record fixed at step 0** — which
+   entails its selection list, provenance and `supersedes` are the frozen
+   ones — every identity that record lists is present and byte-equal to
+   the frozen-epoch record, and the corpus holds no record outside that
+   list plus the `publication` record itself. Checking the members named
+   by whatever marker is found would let a marker that omits a member or
+   carries other provenance pass; comparing the marker whole does not.
 3. **Validate, then admit, then export.** Re-check completeness as
-   defined in step 2 — an exact prefix sends the retry back to step 2,
+   defined in step 2 — a true prefix sends the retry back to step 2,
    and any other failure is `Refused(staging-corrupt)` — then
    `World.admit` the staging corpus into the staging world (a fresh
    adoption, not a replica) **under the original intent's actor**,
@@ -520,8 +545,12 @@ missing identities listed; the user widens the view or drops the record.
    determined by `(view address, destination, corpus_id)`.
 9. Discard the staging corpus and the staging world.
 
-**Done** means exactly: the source binding names this corpus **and** the
-publish intent's completion reading is `closed` (act-report §3.3). Either
+**Done** means exactly: the source binding's current revision names
+**this attempt's** `corpus_id` **and** the publish intent's completion
+reading is `closed` (act-report §3.3). A binding that names the
+predecessor is the ordinary state of every update before step 8 and means
+this attempt's revision is **absent**; "present" below always means a
+revision naming this attempt's corpus. Either
 alone is not done, and the reading's other two values are kept apart:
 `unfinished` is an unmatched intent, `indeterminate` is a qualification
 that did not resolve, and the design never collapses one into the other.
@@ -535,7 +564,7 @@ reading, classifies the state it finds, and resumes there:
 | state found | resume at |
 |---|---|
 | request present; any of step 1's operations not yet converged | step 1, reinvoking each — their own predicates decide |
-| staging initialized; exact prefix (marker absent, present records byte-equal, present ⊆ selection) | step 2, continuing the prefix |
+| staging initialized; true prefix (marker absent, ordered present records equal the selection's first *n* byte for byte) | step 2, continuing from *n + 1* |
 | staging initialized; not an exact prefix and not complete (extra record, byte mismatch, marker with a missing member) | not resumable — `Refused(staging-corrupt)`, reported; the staging root is an operator's to discard |
 | population complete; admission not yet converged | step 3's `World.admit` under the original actor — its predicate decides, and a differing admission refuses |
 | population complete and admitted; no sibling, no export root | step 3's export, then step 5 |
@@ -544,10 +573,10 @@ reading, classifies the state it finds, and resumes there:
 | stamped copy, sibling missing | step 3's export from the retained staging root, step 5, then step 6's `restore_root` |
 | stamped copy with sibling, unserviceable | step 6's `restore_root` |
 | serviceable export root; remote destination not verified complete | step 7, under that destination's retry semantics |
-| revealed; source binding absent; intent `unfinished` | step 8 |
-| revealed; binding present; intent `unfinished` | not a resumable state — step 8 is all-or-nothing, so a binding with an unmatched intent is a foreign write, refused and reported, never resumed |
-| revealed; binding present or absent; intent `indeterminate` | **fail closed**: not done, not resumed, not relabeled. The qualification did not resolve (act-report §3.3), and neither a retry nor a person may turn that into `closed` by re-running; it is surfaced as an audit finding and the publish stays open until the qualification resolves |
-| revealed; binding present; intent `closed` | done |
+| revealed; binding names the predecessor (this attempt's revision absent); intent `unfinished` | step 8 |
+| revealed; binding names this attempt's corpus; intent `unfinished` | not a resumable state — step 8 is all-or-nothing, so this attempt's revision beside an unmatched intent is a foreign write, refused and reported, never resumed |
+| revealed; either binding state; intent `indeterminate` | **fail closed**: not done, not resumed, not relabeled. The qualification did not resolve (act-report §3.3), and neither a retry nor a person may turn that into `closed` by re-running; it is surfaced as an audit finding and the publish stays open until the qualification resolves |
+| revealed; binding names this attempt's corpus; intent `closed` | done |
 
 No abandon operation exists, and cleanup of a reservation nobody will
 retry is an explicit out-of-band operator action, never something a
