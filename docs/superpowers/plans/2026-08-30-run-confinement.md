@@ -2380,7 +2380,10 @@ def test_no_raw_oserror_leaves_the_snapshot_or_integrity_seams(tmp_path, monkeyp
             bundle_identity(tree)
     finally:
         (tree / "a").chmod(0o644)
-    monkeypatch.setattr(confinement_module, "_BWRAP", str(tmp_path))  # a directory: which() accepts it, invoking it fails
+    unexecutable = tmp_path / "bwrap"
+    unexecutable.write_bytes(b"\x00not an executable image\x00")
+    unexecutable.chmod(0o755)  # which() accepts an executable regular file; execve refuses it with ENOEXEC
+    monkeypatch.setattr(confinement_module, "_BWRAP", str(unexecutable))
     reason = confinement_module.host_prerequisites()
     assert reason is not None and "could not be invoked" in reason
 
