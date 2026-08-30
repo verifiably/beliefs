@@ -147,11 +147,17 @@ belief; three rules follow.
 World-addressing §3's tiers become a contract. **View** kinds — `project`,
 `question`, `hypothesis`, `topic`, `theme` — are a stored world query plus a
 label: "a project-scoped name over a world query," never a container.
-**Coordination** kinds — `task`, `decision`, `note` — are attributed acts;
-a fourth, `publication` (§6.2), joins them by a **versioned amendment of
-the coordination contract** that sub-project 5 banks before any publish
-runs, since sub-project 1 mints the contract first and a pinned contract
-can authorize only the kinds it declares.
+**Coordination** kinds — `task`, `decision`, `note` — are attributed acts.
+Two more, **`publication`** and **`publication-binding`** (§6.2), join
+them by a **versioned amendment of the coordination contract** that
+sub-project 5 banks before any publish runs, since sub-project 1 mints
+the contract first and a pinned contract can authorize only the kinds it
+declares. They are distinct kinds, not one kind in two roles: a
+`publication` is the **marker** minted in a published corpus (provenance,
+selection, `supersedes`, attribution), and a `publication-binding` is the
+source project's record binding a view and destination to what it has
+published. Recipient admission requires a `publication`; a binding is
+never admissible as one.
 Neither tier is a world fact (world §3: "the world contains what is true or
 done… not what is planned or organised"), so neither carries a world
 address. Both are stored in a corpus and minted through the corpus-write
@@ -421,21 +427,29 @@ missing identities listed; the user widens the view or drops the record.
    Its semantic payload is determined by what the request freezes:
    `published_from` from the world, the frozen epoch and the view
    revision; the selection list from that epoch; and `supersedes` from
-   the **predecessor tip set**, read at step 0 from the source project's
-   current binding for `(view address, destination)` (§6.2) — empty for a
-   first publication — and frozen in the request. Payload alone does not
+   the **predecessor tip set**, read at step 0 as the standing tips of
+   the source project's `publication-binding` for `(view address,
+   destination)` (§6.2) — every unsuperseded revision, several if
+   siblings stand; none for a first publication — and frozen in the
+   request. Payload alone does not
    fix bytes: the record model assigns a random `uid` by default
    (`nodes` `Node.uid`), and Science's node factories leave it to that
    default. So the `publication` record is minted by a **deterministic
    factory** that takes the request and the matching intent and nothing
    else: its slug and its `uid` are domain-separated digests of
-   `(publication, event_token)`, its facets and relations are the frozen
-   payload, and it reads no clock and draws no randomness. Every byte of
-   the expected record — and therefore its semantic identity, which
-   later publications cite in `supersedes` — is then a function of the
-   request record, and step 2 compares the marker it finds against
-   exactly those bytes. The factory is sub-project 5's, beside the
-   contract amendment that declares the kind.
+   `(publication, event_token)`, its facets are the frozen payload
+   **plus the intent's `actor` and `event_token`** — the marker is a
+   coordination record and therefore an attributed act (§4.1), so its
+   attribution is in its closed shape, not implied by the log it happens
+   to sit in — its relations are the selection, and it reads no clock and
+   draws no randomness. Every byte of the expected record — and therefore
+   its semantic identity, which later publications cite in `supersedes` —
+   is then a function of the request record **and the matching intent**,
+   never of the request alone; step 2 compares the marker it finds
+   against exactly those bytes, and a recipient can recompute the slug
+   and `uid` from the marker's own `event_token` and refuse a marker
+   whose identity does not match its attribution. The factory is
+   sub-project 5's, beside the contract amendment that declares the kind.
 
    **The durable create-only write.** The rules-store idempotency
    discipline runs under the world lock (log-verification design §3.1);
@@ -548,27 +562,36 @@ missing identities listed; the user widens the view or drops the record.
    the recipient's own `restore_root` + `admit_arrival` (§6.3) is the
    admission.
 8. **Commit the source binding, after the reveal and never before.** In
-   the source root, mint the revision of the source project's
-   `publication` coordination record (§6.2) — naming the revealed corpus
-   as current, its predecessor tips, and the artifact's content identity
-   — **and** the publish's terminal act-report **in one registered
+   the source root, mint **this attempt's revision** of the source
+   project's `publication-binding` record (§6.2) — naming the revealed
+   corpus, the frozen predecessor tips it supersedes, and the artifact's
+   content identity, and minted by the same deterministic factory rule as
+   the marker, so its identity is a function of the request and intent —
+   **and** the publish's terminal act-report **in one registered
    transaction** (`run_transaction`), so neither can exist without the
-   other. "Same operation" is not enough: a coordination revision
-   committed with the act-report still unpublished would leave the
-   operation intent unmatched while a retry read "done". Written earlier,
-   a crash before the reveal would make an unrevealed corpus current;
-   written here, the binding can only name a corpus that has been
-   revealed — locally by step 6, remotely by step 7. The revision is
-   determined by `(view address, destination, corpus_id)`.
+   other. "Same operation" is not enough: a revision committed with the
+   act-report still unpublished would leave the operation intent
+   unmatched while a retry read "done". Written earlier, a crash before
+   the reveal would bind an unrevealed corpus; written here, the binding
+   can only name a corpus that has been revealed — locally by step 6,
+   remotely by step 7. The revision supersedes the **frozen** predecessor
+   tips and nothing else: if a concurrent attempt from the same frozen
+   tips committed first, this attempt still commits, and the binding then
+   has two standing tips — the sibling publications §6.2 permits, refused
+   at resolution by the tip rule until a revision supersedes both. A
+   retry never re-reads the binding to decide what to supersede.
 9. Discard the staging corpus and the staging world.
 
-**Done** means exactly: the source binding's current revision names
-**this attempt's** `corpus_id` **and** the publish intent's completion
-reading is `closed` (act-report §3.3). A binding that names the
-predecessor is the ordinary state of every update before step 8, and no
-binding at all is the ordinary state of a first publication; both mean
-this attempt's revision is **absent**, and "present" below always means
-a revision naming this attempt's corpus. Either
+**Done** means exactly: **this attempt's binding revision exists** in
+the source root — looked up by its deterministic identity, never by
+resolving a current binding, since revisions are immutable and a
+concurrent sibling or a later repair may already have superseded it —
+**and** the publish intent's completion reading is `closed` (act-report
+§3.3). Whatever else the binding holds — a predecessor revision, no
+revision at all (a first publication), or a sibling that committed first
+from the same frozen tips — says nothing about this attempt; only the
+existence of its own revision does. "Present" below means exactly that.
+Either
 alone is not done, and the reading's other two values are kept apart:
 `unfinished` is an unmatched intent, `indeterminate` is a qualification
 that did not resolve, and the design never collapses one into the other.
@@ -591,10 +614,10 @@ reading, classifies the state it finds, and resumes there:
 | stamped copy, sibling missing | step 3's export from the retained staging root, step 5, then step 6's `restore_root` |
 | stamped copy with sibling, unserviceable | step 6's `restore_root` |
 | serviceable export root; remote destination not verified complete | step 7, under that destination's retry semantics |
-| revealed; this attempt's revision absent — the binding names the predecessor, or is absent altogether (a first publication); intent `unfinished` | step 8 |
-| revealed; binding names this attempt's corpus; intent `unfinished` | not a resumable state — step 8 is all-or-nothing, so this attempt's revision beside an unmatched intent is a foreign write, refused and reported, never resumed |
+| revealed; this attempt's binding revision absent — whatever other revisions exist: the predecessor's, none (a first publication), or a concurrent sibling's; intent `unfinished` | step 8 |
+| revealed; this attempt's binding revision present; intent `unfinished` | not a resumable state — step 8 is all-or-nothing, so this attempt's revision beside an unmatched intent is a foreign write, refused and reported, never resumed |
 | revealed; either binding state; intent `indeterminate` | **fail closed**: not done, not resumed, not relabeled. The qualification did not resolve (act-report §3.3), and neither a retry nor a person may turn that into `closed` by re-running; it is surfaced as an audit finding and the publish stays open until the qualification resolves |
-| revealed; binding names this attempt's corpus; intent `closed` | done |
+| revealed; this attempt's binding revision present; intent `closed` | done |
 
 No abandon operation exists, and cleanup of a reservation nobody will
 retry is an explicit out-of-band operator action, never something a
@@ -616,8 +639,9 @@ deposit, or an inbox, the reveal is destination-specific and **not**
 atomic — an upload can stop half-way — so the guarantee moves to the
 consumer: a corpus is admitted (§6.3) only if `restore_root`'s validation
 passes on the recipient's copy against the transported head artifact and
-its `publication` record is present and well-formed, and anything less is
-refused whole, never adopted in part. Publishing to a remote is the local
+its `publication` **marker** — that kind, not a `publication-binding` —
+is present, well-formed, and identity-consistent with its own
+attribution, and anything less is refused whole, never adopted in part. Publishing to a remote is the local
 sequence through step 6 followed by step 7's transport; the transport's
 partial states are the publisher's to retry and the recipient's to refuse.
 
@@ -636,9 +660,10 @@ Revisions are linked by their `publication` records. Each record carries
 `supersedes`: **zero or more** `(corpus_id, publication record identity)`
 pairs — none for the first publication of a view to a destination, one in
 the ordinary case, several when a revision repairs a divergence by
-superseding every tip. The source project holds a `publication`
-coordination record binding `(view address, destination)` to the current
-corpus and its predecessor tips only; history is derived by walking
+superseding every tip. The source project holds a `publication-binding`
+record — a distinct coordination kind (§4.1) — whose revisions bind
+`(view address, destination)` to a published corpus and the predecessor
+tips that revision supersedes; history is derived by walking
 `supersedes`, never stored as a list that could disagree with it. A
 record dropped from the selection is
 **neither retracted nor deleted** — retraction is legal only for the
@@ -658,8 +683,10 @@ side: `restore_root` on their copy with the transported head artifact as
 the observer set, admitting it to read-only service; then `admit_arrival`
 with `ReplicaOf` provenance and the same observers — cut 8's arrival act,
 which verifies the traveled chain and returns the admission record beside
-its verification report. `World.admit` is not the entry point: it refuses
-`ReplicaOf` outright, holding no verdict to report. Any world can adopt
+its verification report, and admission additionally requires the
+corpus's `publication` marker (§6.1) — the marker kind specifically, a
+`publication-binding` never qualifying. `World.admit` is not the entry
+point: it refuses `ReplicaOf` outright, holding no verdict to report. Any world can adopt
 any publication this way, and a community commons is a world whose
 operator adopts many. Coreference between a local
 record and an adopted one is the existing graded `coreference-attestation`.
@@ -778,7 +805,7 @@ column says so.
 | 2 | **Command framework** — declaration schema, write classes, budgeted renderer, preamble, adapter generator with the Claude Code target, CLI and MCP over `beliefs` reads; the writer endpoint with its bound permit, endpoint-set actor and session ledger; the write permit on every `beliefs` write entry point | `science`, `beliefs` | 0 | now, against today's kernel reads |
 | 3 | **Biology domain pack** — GO, HP, EFO, MONDO bindings; mm30's operator vocabulary | `beliefs/domains/biology` | the `domain-boundary` lane | with that lane |
 | 4 | **The dogfood command set** — the dozen commands over a real world root; mm30 reproduced, not migrated, as the first corpus | `science` | 1, 2, 3; `run-confinement` and `workflow-surface` for a real assessment | after 2; grows as lanes land |
-| 5 | **Publish** — the act and `publication` record in `beliefs`, composed over `init_corpus_root`, a staging world, `export_head_artifact`, `replicate_root` and `restore_root`; the versioned act-report amendment adding the `publish` operation kind and the versioned coordination-contract amendment declaring `publication`, with its deterministic record factory; transports carrying the head artifact, admission-side refusal and dry run in `science` | `beliefs`, `science` | 1; the `world-read` lane (view queries resolve through it) | after that lane |
+| 5 | **Publish** — the act and `publication` record in `beliefs`, composed over `init_corpus_root`, a staging world, `export_head_artifact`, `replicate_root` and `restore_root`; the versioned act-report amendment adding the `publish` operation kind and the versioned coordination-contract amendment declaring `publication` and `publication-binding`, with their deterministic record factories; transports carrying the head artifact, admission-side refusal and dry run in `science` | `beliefs`, `science` | 1; the `world-read` lane (view queries resolve through it) | after that lane |
 | 6 | **Envelope** — the actor sandbox and private endpoint handle, baseline with log heads, tiers as permits, ledger-checked interval membership, dispositions, lease | `autonomy` | 2 | after 2 |
 | 7 | **Loop and `science.priority.v1`** — its own spec | `autonomy` | 4, 6 | last |
 
