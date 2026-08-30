@@ -147,7 +147,11 @@ belief; three rules follow.
 World-addressing §3's tiers become a contract. **View** kinds — `project`,
 `question`, `hypothesis`, `topic`, `theme` — are a stored world query plus a
 label: "a project-scoped name over a world query," never a container.
-**Coordination** kinds — `task`, `decision`, `note` — are attributed acts.
+**Coordination** kinds — `task`, `decision`, `note` — are attributed acts;
+a fourth, `publication` (§6.2), joins them by a **versioned amendment of
+the coordination contract** that sub-project 5 banks before any publish
+runs, since sub-project 1 mints the contract first and a pinned contract
+can authorize only the kinds it declares.
 Neither tier is a world fact (world §3: "the world contains what is true or
 done… not what is planned or organised"), so neither carries a world
 address. Both are stored in a corpus and minted through the corpus-write
@@ -400,7 +404,9 @@ missing identities listed; the user widens the view or drops the record.
    two values — `Refused(pins-disagree)` naming the corpora and the
    field. The destination also mints one record the sources did not
    select: the `publication` record, whose governing contract is the
-   **coordination contract** of §4.1. That contract's pin is therefore
+   **coordination contract** of §4.1 — at the version that declares
+   `publication`, the amendment §4.1 assigns to sub-project 5; an earlier
+   version's pin authorizes nothing. That contract's pin is therefore
    required in the derived `domains`, taken from the source corpus that
    holds the publishing project's own records, and must agree with any
    other source that pins it — a destination whose pins do not authorize
@@ -411,14 +417,25 @@ missing identities listed; the user widens the view or drops the record.
    nothing. The derived pins are frozen in the request; they are what
    step 1's `adopt_manifest` receives, and a retry never re-derives them.
 
-   **The expected `publication` record is fixed at step 0.** Its every
-   member is determined by what the request freezes: `published_from`
-   from the world, the frozen epoch and the view revision; the selection
-   list from that epoch; and `supersedes` from the **predecessor tip
-   set**, read at step 0 from the source project's current binding for
-   `(view address, destination)` (§6.2) and frozen in the request. So the
-   record's bytes are derivable from the request alone, and step 2
-   compares the marker it finds against exactly those bytes.
+   **The expected `publication` record is fixed at step 0, to the byte.**
+   Its semantic payload is determined by what the request freezes:
+   `published_from` from the world, the frozen epoch and the view
+   revision; the selection list from that epoch; and `supersedes` from
+   the **predecessor tip set**, read at step 0 from the source project's
+   current binding for `(view address, destination)` (§6.2) — empty for a
+   first publication — and frozen in the request. Payload alone does not
+   fix bytes: the record model assigns a random `uid` by default
+   (`nodes` `Node.uid`), and Science's node factories leave it to that
+   default. So the `publication` record is minted by a **deterministic
+   factory** that takes the request and the matching intent and nothing
+   else: its slug and its `uid` are domain-separated digests of
+   `(publication, event_token)`, its facets and relations are the frozen
+   payload, and it reads no clock and draws no randomness. Every byte of
+   the expected record — and therefore its semantic identity, which
+   later publications cite in `supersedes` — is then a function of the
+   request record, and step 2 compares the marker it finds against
+   exactly those bytes. The factory is sub-project 5's, beside the
+   contract amendment that declares the kind.
 
    **The durable create-only write.** The rules-store idempotency
    discipline runs under the world lock (log-verification design §3.1);
@@ -548,9 +565,10 @@ missing identities listed; the user widens the view or drops the record.
 **Done** means exactly: the source binding's current revision names
 **this attempt's** `corpus_id` **and** the publish intent's completion
 reading is `closed` (act-report §3.3). A binding that names the
-predecessor is the ordinary state of every update before step 8 and means
-this attempt's revision is **absent**; "present" below always means a
-revision naming this attempt's corpus. Either
+predecessor is the ordinary state of every update before step 8, and no
+binding at all is the ordinary state of a first publication; both mean
+this attempt's revision is **absent**, and "present" below always means
+a revision naming this attempt's corpus. Either
 alone is not done, and the reading's other two values are kept apart:
 `unfinished` is an unmatched intent, `indeterminate` is a qualification
 that did not resolve, and the design never collapses one into the other.
@@ -573,7 +591,7 @@ reading, classifies the state it finds, and resumes there:
 | stamped copy, sibling missing | step 3's export from the retained staging root, step 5, then step 6's `restore_root` |
 | stamped copy with sibling, unserviceable | step 6's `restore_root` |
 | serviceable export root; remote destination not verified complete | step 7, under that destination's retry semantics |
-| revealed; binding names the predecessor (this attempt's revision absent); intent `unfinished` | step 8 |
+| revealed; this attempt's revision absent — the binding names the predecessor, or is absent altogether (a first publication); intent `unfinished` | step 8 |
 | revealed; binding names this attempt's corpus; intent `unfinished` | not a resumable state — step 8 is all-or-nothing, so this attempt's revision beside an unmatched intent is a foreign write, refused and reported, never resumed |
 | revealed; either binding state; intent `indeterminate` | **fail closed**: not done, not resumed, not relabeled. The qualification did not resolve (act-report §3.3), and neither a retry nor a person may turn that into `closed` by re-running; it is surfaced as an audit finding and the publish stays open until the qualification resolves |
 | revealed; binding names this attempt's corpus; intent `closed` | done |
@@ -760,7 +778,7 @@ column says so.
 | 2 | **Command framework** — declaration schema, write classes, budgeted renderer, preamble, adapter generator with the Claude Code target, CLI and MCP over `beliefs` reads; the writer endpoint with its bound permit, endpoint-set actor and session ledger; the write permit on every `beliefs` write entry point | `science`, `beliefs` | 0 | now, against today's kernel reads |
 | 3 | **Biology domain pack** — GO, HP, EFO, MONDO bindings; mm30's operator vocabulary | `beliefs/domains/biology` | the `domain-boundary` lane | with that lane |
 | 4 | **The dogfood command set** — the dozen commands over a real world root; mm30 reproduced, not migrated, as the first corpus | `science` | 1, 2, 3; `run-confinement` and `workflow-surface` for a real assessment | after 2; grows as lanes land |
-| 5 | **Publish** — the act and `publication` record in `beliefs`, composed over `init_corpus_root`, a staging world, `export_head_artifact`, `replicate_root` and `restore_root`; the versioned act-report amendment adding the `publish` operation kind; transports carrying the head artifact, admission-side refusal and dry run in `science` | `beliefs`, `science` | 1; the `world-read` lane (view queries resolve through it) | after that lane |
+| 5 | **Publish** — the act and `publication` record in `beliefs`, composed over `init_corpus_root`, a staging world, `export_head_artifact`, `replicate_root` and `restore_root`; the versioned act-report amendment adding the `publish` operation kind and the versioned coordination-contract amendment declaring `publication`, with its deterministic record factory; transports carrying the head artifact, admission-side refusal and dry run in `science` | `beliefs`, `science` | 1; the `world-read` lane (view queries resolve through it) | after that lane |
 | 6 | **Envelope** — the actor sandbox and private endpoint handle, baseline with log heads, tiers as permits, ledger-checked interval membership, dispositions, lease | `autonomy` | 2 | after 2 |
 | 7 | **Loop and `science.priority.v1`** — its own spec | `autonomy` | 4, 6 | last |
 
