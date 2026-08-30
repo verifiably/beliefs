@@ -369,13 +369,18 @@ missing identities listed; the user widens the view or drops the record.
    publish, so a retry can never select differently: the **request
    identity** `(view address, view revision identity, destination)`; the
    **source epoch's packaging identity**, which every retry reopens
-   explicitly with `open_epoch` rather than reading `current`; the minted
-   `corpus_id`; the **staging `world_id`**, derived deterministically as
-   a domain-separated digest of `(publish, event_token)` so that no retry
-   can mint a second one; and the canonical paths derived from the token —
-   `…/<event_token>/staging` (staging root), `…/<event_token>/world`
-   (staging world), and, for a remote destination, `…/<event_token>/export`
-   (export root). Nothing about a publish is minted or placed anywhere
+   explicitly with `open_epoch` rather than reading `current`; the
+   **destination pins** (below); the **staging `world_id`**, derived
+   deterministically as a domain-separated digest of `(publish,
+   event_token)` so that no retry can mint a second one; and the
+   canonical paths derived from the token — `…/<event_token>/staging`
+   (staging root), `…/<event_token>/world` (staging world), and, for a
+   remote destination, `…/<event_token>/export` (export root). The
+   `corpus_id` is **not** in the request: `adopt_manifest` mints it
+   itself and refuses a second manifest (`ManifestAlreadyPresent`), so
+   the manifest is its durable record and a retry recovers it with
+   `load_manifest(staging_root)` (step 1). Nothing about a publish is
+   minted or placed anywhere
    else. Recovery therefore enumerates `<operations root>/publish/*/
    request.v1`, matches each to an unfulfilled `publish` intent by event
    token, and resumes that one; several crashed publishes cannot be
@@ -385,6 +390,16 @@ missing identities listed; the user widens the view or drops the record.
    `(kind, event_token, actor)`, so the view, destination and request
    identity cannot be reconstructed from it — and since no side effect
    occurred, the honest rule is to begin a new attempt under a new token.
+
+   **The destination pins.** A destination corpus carries exactly one
+   `CorpusPins = (science_contract, domains)`, and a selection may span
+   several source corpora. The pins are derived at step 0 from the
+   manifests of every source corpus that contributes a selected record,
+   at the frozen epoch: `science_contract` must be identical across them,
+   and `domains` is their union, refused if any domain name is pinned to
+   two values — `Refused(pins-disagree)` naming the corpora and the
+   field. The derived pins are frozen in the request; they are what
+   step 1's `adopt_manifest` receives, and a retry never re-derives them.
 
    **The durable create-only write.** The rules-store idempotency
    discipline runs under the world lock (log-verification design §3.1);
@@ -402,34 +417,56 @@ missing identities listed; the user widens the view or drops the record.
    (staging_root,))` — the staging corpus must be
    the world's one configured carrier, because `_resolve_carrier`
    requires exactly one configured carrier for a `corpus_id` and
-   admission alone configures none. Then, in this order:
-   `init_corpus_root(staging_root)` unless the root is already
-   initialized; `init_world_root(config)` unless the world is, since
-   reinitializing raises `WorldIdMismatch` rather than converging; then
-   `open_world(config)`, which refuses an uninitialized world
-   (`WorldUninitialized`). The deterministic `world_id` is what makes
-   "unless already" safe: an initialized staging world can only be this
-   request's.
-   Both roots are private; the actor cannot reach them. The staging world
-   is throwaway; its only purpose is to make the staging corpus eligible
-   for a head export.
+   admission alone configures none. Then, in this order, **reinvoking
+   each operation on retry rather than testing for its result** — both
+   initializers are exact-retry and converge on identical input, and
+   their own predicates are what decide whether a prior attempt was this
+   one: `init_corpus_root(staging_root)`; `adopt_manifest(profile = the
+   request's pins)` on the staging corpus, which mints the `corpus_id`
+   the first time and refuses `ManifestAlreadyPresent` after, whereupon
+   `load_manifest(staging_root)` recovers the id and its pins are
+   compared to the request's — a mismatch is a foreign write, refused;
+   `init_world_root(config)`, converging on the deterministic `world_id`
+   and raising `WorldIdMismatch` for any other; then `open_world(config)`,
+   which refuses an uninitialized world (`WorldUninitialized`). Both roots
+   are private; the actor cannot reach them. The staging world is
+   throwaway; its only purpose is to make the staging corpus eligible for
+   a head export.
 2. **Populate, with the `publication` record as the completion mark.**
    Resolve the selection at the request's frozen epoch, and write the
    selected records into the staging corpus through `beliefs`' ordinary
-   writer — each write its own registered transaction, a retry skipping
-   any identity the writer refuses as `RecordAlreadyMinted`. Write the
-   `publication` record **last**: it lists the full selection, so its
-   presence is the durable mark that population finished, and a staging
-   corpus without it is by definition incomplete. Population is
-   **complete** iff the `publication` record is present, every identity
-   it lists resolves in the staging corpus, and the corpus holds no record
-   outside that list plus the `publication` record itself.
+   writer, each write its own registered transaction, in the selection's
+   canonical order. Write the `publication` record **last**: it lists the
+   full selection, so its presence is the durable mark that population
+   finished, and a staging corpus without it is by definition incomplete.
+
+   **Resumption is exact, and identity is not enough.** The writer's
+   duplicate refusal (`RecordAlreadyMinted`) proves only a shared
+   `(uid, id)`, not identical bytes, so a retry compares every record it
+   finds present **byte for byte** with the frozen-epoch record it would
+   have written. The only resumable state is an **exact prefix**: the
+   `publication` record absent, every present record byte-equal to its
+   frozen counterpart, and the present set a subset of the selection. A
+   retry continues the prefix. Anything else — an extra record, a byte
+   mismatch, or a `publication` record present with a listed member
+   missing — is corruption or a foreign write: `Refused(staging-corrupt)`
+   naming the record, reported, never resumed, and never a trip back to
+   step 2; the staging root is then an operator's to discard.
+
+   Population is **complete** iff the `publication` record is present,
+   every identity it lists is present **and byte-equal** to the
+   frozen-epoch record, and the corpus holds no record outside that list
+   plus the `publication` record itself.
 3. **Validate, then admit, then export.** Re-check completeness as
-   defined in step 2 — refusing `Refused(staging-incomplete)` if it
-   fails, which sends the retry back to step 2 — then `World.admit` the
-   staging corpus into the staging world (a fresh adoption, not a replica)
-   unless the staging world's registry already carries this `corpus_id`,
-   then `export_head_artifact(staging world, corpus(corpus_id))` — the
+   defined in step 2 — an exact prefix sends the retry back to step 2,
+   and any other failure is `Refused(staging-corrupt)` — then
+   `World.admit` the staging corpus into the staging world (a fresh
+   adoption, not a replica) **under the original intent's actor**,
+   reinvoked on every retry: `World.admit` succeeds only for the exact
+   admission record it would mint, so a prior admission by this attempt
+   converges and one with different provenance or actor refuses — the
+   registry is never merely inspected for the `corpus_id`. Then
+   `export_head_artifact(staging world, corpus(corpus_id))` — the
    existing act, which requires an admitted corpus on a configured carrier
    (log-verification design §3.2). It returns the canonical bytes of
    `(subject, genesis identity, head digest)` under
@@ -497,9 +534,10 @@ reading, classifies the state it finds, and resumes there:
 
 | state found | resume at |
 |---|---|
-| request present; staging root or staging world uninitialized | step 1 |
-| staging initialized; population incomplete (no `publication` record, or step 3's check fails) | step 2 — add-only writes make resumption idempotent |
-| population complete; `corpus_id` not in the staging world's registry | step 3's admission, then export |
+| request present; any of step 1's operations not yet converged | step 1, reinvoking each — their own predicates decide |
+| staging initialized; exact prefix (marker absent, present records byte-equal, present ⊆ selection) | step 2, continuing the prefix |
+| staging initialized; not an exact prefix and not complete (extra record, byte mismatch, marker with a missing member) | not resumable — `Refused(staging-corrupt)`, reported; the staging root is an operator's to discard |
+| population complete; admission not yet converged | step 3's `World.admit` under the original actor — its predicate decides, and a differing admission refuses |
 | population complete and admitted; no sibling, no export root | step 3's export, then step 5 |
 | sibling present, no reservation (crash after step 5) | step 6 |
 | bare reservation at the export root | step 6 — **retry the exact same replication**, which adopts the retained claim and converges; a different request refuses |
