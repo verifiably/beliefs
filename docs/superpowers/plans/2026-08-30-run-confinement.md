@@ -237,8 +237,9 @@ R13 1, R16 1, R21 2 — **15 selected + 7 labeled = 22 declaration units**.
 3. **The fail-closed arms** (R15u3, u4, R21u1) assert the reason is
    exactly `execution-failed`, so a sabotage that widens the sandbox is
    caught by the gate's `confinement-not-established` rather than passing.
-   R13u1 asserts a refusal only (spec §8); its sabotage makes the boundary
-   mint a failed execution.
+   R13u1 asserts a refusal only (spec §8); its sabotage routes the confined
+   request through the minimal path, where the outside module is reachable
+   and the run mints.
 4. **The network arm** (R15u4) listens on the host's loopback in the test
    process; the workflow connects to that port.
 5. **R16u1** executes at `cores=1` and replays at `cores=2`; the fixture
@@ -1398,6 +1399,20 @@ def test_a_nonzero_loader_exit_is_closure_unsupported(monkeypatch):
         loader_listing("/lib64/ld.so", Path("/x"))
 
 
+def test_a_loader_that_cannot_be_invoked_is_closure_unsupported_not_oserror(tmp_path):
+    with pytest.raises(ClosureUnsupported, match="could not be invoked"):
+        loader_listing(str(tmp_path / "no-such-loader"), Path("/x"))
+
+
+def test_a_failing_host_read_during_the_walk_is_closure_unsupported(monkeypatch):
+    def unreadable() -> CapturedEnvironment:
+        raise PermissionError("synthetic: a closure file is unreadable")
+
+    monkeypatch.setattr(adapter_module, "_walk_closure", unreadable)
+    with pytest.raises(ClosureUnsupported, match="unreadable"):
+        capture_closure()
+
+
 # --- K7: the three refusals, over synthetic closures --------------------------
 def _site(tmp_path: Path) -> tuple[_Closure, Path]:
     purelib = tmp_path / "site"
@@ -1536,6 +1551,37 @@ def test_k7_a_soname_collision_is_refused(tmp_path):
     single.add_native(listing=lambda elf: listings[elf.name])
     assert single.rows[f"{SANDBOX_LIB}/libz.so.1"][0] == "file"
     assert single.loader_map == [(f"{SANDBOX_SITE}/one.so", "libz.so.1", f"{SANDBOX_LIB}/libz.so.1")]
+
+
+def test_k7_a_soname_collision_between_two_registered_roots_is_refused(tmp_path):
+    walker, purelib = _site(tmp_path)
+    base = tmp_path / "base"
+    (base / "lib").mkdir(parents=True)
+    walker.register(base, SANDBOX_PYTHON)
+    (base / "lib" / "libz.so.1").write_bytes(b"base")
+    (purelib / "libz.so.1").write_bytes(b"site")
+    (purelib / "one.so").write_bytes(LOADABLE_ELF)
+    (purelib / "two.so").write_bytes(LOADABLE_ELF)
+    listings = {"one.so": {"libz.so.1": base / "lib" / "libz.so.1"}, "two.so": {"libz.so.1": purelib / "libz.so.1"}}
+    walker.add(purelib / "one.so")
+    walker.add(purelib / "two.so")
+    with pytest.raises(ClosureUnsupported, match="SONAME"):
+        walker.add_native(listing=lambda elf: listings[elf.name])
+
+
+def test_two_names_for_one_artifact_are_not_a_soname_collision(tmp_path):
+    walker, purelib = _site(tmp_path)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "libz.so.1.3").write_bytes(b"z")
+    (outside / "libz.so.1").symlink_to("libz.so.1.3")
+    (purelib / "one.so").write_bytes(LOADABLE_ELF)
+    (purelib / "two.so").write_bytes(LOADABLE_ELF)
+    listings = {"one.so": {"libz.so.1": outside / "libz.so.1"}, "two.so": {"libz.so.1": outside / "libz.so.1.3"}}
+    walker.add(purelib / "one.so")
+    walker.add(purelib / "two.so")
+    walker.add_native(listing=lambda elf: listings[elf.name])
+    assert walker.rows[f"{SANDBOX_LIB}/libz.so.1"][0] == "file"
 
 
 def test_add_native_closes_over_the_libraries_it_adds_and_maps_in_root_targets_to_their_rows(tmp_path):
@@ -1713,6 +1759,7 @@ class _Closure:
         self.plan: dict[str, Path] = {}
         self.rendered: dict[str, tuple[str, str]] = {}
         self.loader_map: list[tuple[str, str, str]] = []
+        self._sonames: dict[str, Path] = {}
         self._roots: list[tuple[Path, str]] = []
 
     def register(self, host_root: Path, sandbox_root: str) -> None:
@@ -1851,13 +1898,14 @@ class _Closure:
                 listed.add(elf_sandbox)
                 for soname, host in sorted(listing(elf).items()):
                     located = _located(host)
+                    canonical = Path(os.path.realpath(located))
+                    known = self._sonames.setdefault(soname, canonical)
+                    if known != canonical:
+                        raise ClosureUnsupported(f"SONAME {soname!r} resolves to both {known} and {canonical}")
                     if self.root_of(located) is not None:
                         resolved = self.add(located)
                     else:
                         resolved = f"{SANDBOX_LIB}/{soname}"
-                        existing = self.plan.get(resolved)
-                        if existing is not None and existing != located:
-                            raise ClosureUnsupported(f"SONAME {soname!r} resolves to both {existing} and {located}")
                         self.rows[resolved] = ("file", _file_digest(located))
                         self.plan[resolved] = located
                     self.loader_map.append((elf_sandbox, soname, resolved))
@@ -1930,13 +1978,25 @@ def loader_listing(loader: str, path: Path) -> dict[str, Path]:
     """What `execve` will map for `path`, as the loader itself reports it —
     under an empty environment, so no ambient LD_LIBRARY_PATH or LD_PRELOAD
     shapes the capture (design §5.3)."""
-    completed = subprocess.run([loader, "--list", str(path)], capture_output=True, text=True, check=False, env={})
+    try:
+        completed = subprocess.run([loader, "--list", str(path)], capture_output=True, text=True, check=False, env={})
+    except OSError as error:
+        raise ClosureUnsupported(f"the loader {loader} could not be invoked: {error}") from error
     if completed.returncode != 0:
         raise ClosureUnsupported(f"the loader cannot list {path}: {completed.stderr.strip()}")
     return _parse_listing(completed.stdout)
 
 
 def capture_closure() -> CapturedEnvironment:
+    """The closure walk; a host read that fails mid-walk is ClosureUnsupported,
+    never a raw OSError reaching the run boundary (design §8)."""
+    try:
+        return _walk_closure()
+    except OSError as error:
+        raise ClosureUnsupported(f"the runtime closure could not be read: {error}") from error
+
+
+def _walk_closure() -> CapturedEnvironment:
     walker = _Closure()
     base = Path(os.path.realpath(sys.base_prefix))
     prefix = Path(os.path.realpath(sys.prefix))
@@ -2288,6 +2348,41 @@ def test_check_closure_intact_refuses_an_edited_bundle_a_moved_snapshot_and_chan
     (inputs / "data.txt").write_text("y\n")
     with pytest.raises(ClosureMutated, match="inputs"):
         check()
+
+
+def test_no_raw_oserror_leaves_the_snapshot_or_integrity_seams(tmp_path, monkeypatch):
+    """Design §8: a failed read, copy or invocation is the named refusal of its
+    stage, never a raw OSError reaching _execute_run as a string reason."""
+    import dataclasses
+
+    captured = synthetic(tmp_path)
+    environments = tmp_path / "environments"
+    missing_source = dataclasses.replace(captured, plan={**captured.plan, captured.interpreter: tmp_path / "missing"})
+    with pytest.raises(SnapshotMismatch, match="materialized"):
+        materialize_snapshot(missing_source, environments)
+    assert not [entry for entry in environments.iterdir() if ".build-" in entry.name]
+    snapshot = materialize_snapshot(captured, environments)
+    unreadable = snapshot / "science/env/lib/libc.so.6"
+    unreadable.chmod(0o000)
+    try:
+        with pytest.raises(SnapshotMismatch, match="unreadable"):
+            verify_snapshot(snapshot, captured)
+    finally:
+        unreadable.chmod(0o644)
+    tree = tmp_path / "tree"
+    tree.mkdir()
+    (tree / "a").write_bytes(b"a")
+    (tree / "a").chmod(0o000)
+    try:
+        with pytest.raises(ClosureMutated, match="could not be read"):
+            fingerprint(tree)
+        with pytest.raises(ClosureMutated, match="could not be read"):
+            bundle_identity(tree)
+    finally:
+        (tree / "a").chmod(0o644)
+    monkeypatch.setattr(confinement_module, "_BWRAP", str(tmp_path))  # a directory: which() accepts it, invoking it fails
+    reason = confinement_module.host_prerequisites()
+    assert reason is not None and "could not be invoked" in reason
 
 
 def test_fingerprints_move_with_content_and_symlink_targets(tmp_path):
@@ -2655,15 +2750,18 @@ def host_prerequisites() -> str | None:
     bwrap = shutil.which(_BWRAP)
     if bwrap is None:
         return "bubblewrap (bwrap) is not on PATH"
-    usage = subprocess.run([bwrap, "--help"], capture_output=True, text=True, check=False)
-    if "--info-fd" not in usage.stdout + usage.stderr:
-        return "bubblewrap lacks --info-fd"
-    namespaces = subprocess.run(
-        [bwrap, "--unshare-all", "--ro-bind", "/", "/", "--", "/bin/true"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        usage = subprocess.run([bwrap, "--help"], capture_output=True, text=True, check=False)
+        if "--info-fd" not in usage.stdout + usage.stderr:
+            return "bubblewrap lacks --info-fd"
+        namespaces = subprocess.run(
+            [bwrap, "--unshare-all", "--ro-bind", "/", "/", "--", "/bin/true"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as error:
+        return f"bubblewrap could not be invoked: {error}"
     if namespaces.returncode != 0:
         return f"unprivileged user namespaces are unavailable: {namespaces.stderr.strip()}"
     interpreter = Path(os.path.realpath(sys.executable))
@@ -2691,7 +2789,15 @@ def _within(root: Path, sandbox: str) -> Path:
 
 def verify_snapshot(root: Path, captured: CapturedEnvironment) -> None:
     """Every manifested row by digest, every rendered row by content, and
-    nothing else (design §4.3)."""
+    nothing else (design §4.3). A read that fails is a mismatch — no raw
+    OSError leaves this module (design §8)."""
+    try:
+        _verify_rows(root, captured)
+    except OSError as error:
+        raise SnapshotMismatch(f"{root.name}: unreadable while verifying: {error}") from error
+
+
+def _verify_rows(root: Path, captured: CapturedEnvironment) -> None:
     manifested = {path: (kind, content) for path, kind, content in captured.manifest.artifacts}
     rendered = {path: (kind, content) for path, kind, content in captured.rendered if kind != "value"}
     seen: set[str] = set()
@@ -2717,32 +2823,41 @@ def verify_snapshot(root: Path, captured: CapturedEnvironment) -> None:
 
 def materialize_snapshot(captured: CapturedEnvironment, environments: Path) -> Path:
     """Get-or-build, keyed by environment identity; atomic publication with the
-    loser rule; an existing mismatching snapshot refuses and is never rebuilt."""
+    loser rule; an existing mismatching snapshot refuses and is never rebuilt.
+    A copy, link, write or directory operation that fails is SnapshotMismatch
+    — no raw OSError leaves this module (design §8)."""
+    try:
+        return _materialize(captured, environments)
+    except OSError as error:
+        raise SnapshotMismatch(f"the snapshot under {environments} could not be materialized: {error}") from error
+
+
+def _materialize(captured: CapturedEnvironment, environments: Path) -> Path:
     environments.mkdir(parents=True, exist_ok=True)
     target = environments / captured.manifest.identity()
     if target.exists():
         verify_snapshot(target, captured)
         return target
     build = Path(tempfile.mkdtemp(prefix=f"{target.name}.build-", dir=environments))
-    for path, kind, content in captured.manifest.artifacts:
-        destination = _within(build, path)
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        if kind == "symlink":
-            destination.symlink_to(content)
-        else:
-            shutil.copy2(captured.plan[path], destination)
-    for path, kind, content in captured.rendered:
-        if kind == "value":
-            continue
-        destination = _within(build, path)
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        if kind == "symlink":
-            destination.symlink_to(content)
-        else:
-            destination.write_text(content, encoding="utf-8")
     try:
+        for path, kind, content in captured.manifest.artifacts:
+            destination = _within(build, path)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            if kind == "symlink":
+                destination.symlink_to(content)
+            else:
+                shutil.copy2(captured.plan[path], destination)
+        for path, kind, content in captured.rendered:
+            if kind == "value":
+                continue
+            destination = _within(build, path)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            if kind == "symlink":
+                destination.symlink_to(content)
+            else:
+                destination.write_text(content, encoding="utf-8")
         verify_snapshot(build, captured)
-    except SnapshotMismatch:
+    except (OSError, SnapshotMismatch):
         shutil.rmtree(build, ignore_errors=True)
         raise
     try:
@@ -2755,18 +2870,27 @@ def materialize_snapshot(captured: CapturedEnvironment, environments: Path) -> P
 
 # --- integrity: two observations (design §4.4) ---------------------------------
 def bundle_identity(bundle: Path) -> str:
-    """`capture_bundle`'s fold, recomputed over the copied tree."""
-    return _fold([(path.relative_to(bundle).as_posix(), _digest(path)) for path in sorted(bundle.rglob("*")) if path.is_file()])
+    """`capture_bundle`'s fold, recomputed over the copied tree. A read that
+    fails is ClosureMutated: the observation could not be made."""
+    try:
+        return _fold([(path.relative_to(bundle).as_posix(), _digest(path)) for path in sorted(bundle.rglob("*")) if path.is_file()])
+    except OSError as error:
+        raise ClosureMutated(f"the bundle could not be read: {error}") from error
 
 
 def fingerprint(root: Path) -> str:
+    """Content and link-target fingerprint of a tree. A read that fails is
+    ClosureMutated: the observation could not be made."""
     rows = []
-    for path in sorted(root.rglob("*")):
-        relative = path.relative_to(root).as_posix()
-        if path.is_symlink():
-            rows.append(f"{relative}\nsymlink\n{os.readlink(path)}\n")
-        elif path.is_file():
-            rows.append(f"{relative}\nfile\n{_digest(path)}\n")
+    try:
+        for path in sorted(root.rglob("*")):
+            relative = path.relative_to(root).as_posix()
+            if path.is_symlink():
+                rows.append(f"{relative}\nsymlink\n{os.readlink(path)}\n")
+            elif path.is_file():
+                rows.append(f"{relative}\nfile\n{_digest(path)}\n")
+    except OSError as error:
+        raise ClosureMutated(f"{root} could not be read: {error}") from error
     return "sha256:" + sha256("".join(rows).encode()).hexdigest()
 
 
@@ -4467,8 +4591,9 @@ CUT13_ARMS = (
         Sabotage(_VERIFY, before='        verdict=derived.verdict,', after='        verdict="passed",'),
         (f"{_ACCEPT}::test_r9u1_an_inconclusive_verification_admits_nothing",)),
     Arm("R13u1", "an import outside the bundle and the held environment is refused",
-        # The boundary ceases refusing: a failed confined execution is minted.
-        Sabotage(_BOUNDARY, before='    if launched.returncode != 0:', after='    if False:'),
+        # The confined request is routed through the minimal path, where the
+        # outside module is reachable: the run mints instead of refusing.
+        Sabotage(_BOUNDARY, before='        if boundary_policy == CONFINED_POLICY:', after='        if False:'),
         (f"{_ACCEPT}::test_r13u1_an_import_outside_the_closure_is_refused_under_confinement_and_minted_under_minimal",)),
     Arm("R16u1", "a not-certified pair with qualifying receipts admits nothing",
         Sabotage(_VERIFY, before='        scope=derived.scope,', after='        scope="clean-environment",'),
@@ -4566,9 +4691,10 @@ CUT13_ARMS = (
     # --- K7: closure refusals ---
     Arm("K7a", "a SONAME collision is refused",
         Sabotage(_ADAPTER,
-            before='                if existing is not None and existing != located:',
-            after='                if False:'),
-        ("test_closure_capture.py::test_k7_a_soname_collision_is_refused",)),
+            before='                    if known != canonical:',
+            after='                    if False:'),
+        ("test_closure_capture.py::test_k7_a_soname_collision_is_refused",
+         "test_closure_capture.py::test_k7_a_soname_collision_between_two_registered_roots_is_refused")),
     Arm("K7b", "a symlink escaping the closure is refused",
         Sabotage(_ADAPTER,
             before='            if target_root is None:\n                raise ClosureUnsupported(f"symlink {located} -> {target!r} escapes the closure")',
