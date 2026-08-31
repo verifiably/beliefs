@@ -105,7 +105,9 @@ RECIPE_MUTATIONS = [
     ("code_identity", lambda: recipe(code_identity="sha256:" + "ab" * 32)),
     (
         "environment",
-        lambda: recipe(environment=EnvironmentManifest(artifacts=(("python", "sha256:" + "ba" * 32),))),
+        lambda: recipe(
+            environment=EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "ba" * 32),))
+        ),
     ),
     (
         "workflow_definition_identity",
@@ -239,8 +241,8 @@ INVALID_CLOSURE_VALUES = [
         lambda: invocation(bindings=([],)),
     ),
     (
-        "environment-pair",
-        lambda: EnvironmentManifest(artifacts=(("python", []),)),  # type: ignore[arg-type]
+        "environment-triple",
+        lambda: EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", []),)),  # type: ignore[arg-type]
     ),
     (
         "boundary-policy-member",
@@ -383,7 +385,7 @@ def test_r17_the_projected_recipe_carries_the_spec_whole():
         spec,
         held={DATA_ADDRESS: D_IN},
         code_identity="sha256:" + "cc" * 32,
-        environment=EnvironmentManifest(artifacts=(("python", "sha256:" + "dd" * 32),)),
+        environment=EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)),
         workflow_definition_identity="sha256:" + "ee" * 32,
         invocation=invocation(),
         boundary_policy=POLICY,
@@ -409,7 +411,7 @@ def test_r17_the_projected_recipe_carries_the_spec_whole():
         certified,
         held={DATA_ADDRESS: D_IN, READS_ADDRESS: "sha256:" + "34" * 32},
         code_identity="sha256:" + "cc" * 32,
-        environment=EnvironmentManifest(artifacts=(("python", "sha256:" + "dd" * 32),)),
+        environment=EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)),
         workflow_definition_identity="sha256:" + "ee" * 32,
         invocation=invocation(),
         boundary_policy=POLICY,
@@ -424,7 +426,7 @@ def test_r17_projection_refuses_a_declared_input_that_is_not_held():
             spec,
             held={},
             code_identity="sha256:" + "cc" * 32,
-            environment=EnvironmentManifest(artifacts=(("python", "sha256:" + "dd" * 32),)),
+            environment=EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)),
             workflow_definition_identity="sha256:" + "ee" * 32,
             invocation=invocation(),
             boundary_policy=POLICY,

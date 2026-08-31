@@ -8,6 +8,7 @@ negative (c)'s clean-environment reachability (confinement)."""
 import dataclasses
 import inspect
 import os
+import sys
 
 import pytest
 from fixtures_cut3 import (
@@ -132,12 +133,14 @@ def test_g2a_r12_an_out_of_band_run_with_a_spec_frozen_afterwards_is_undetectabl
     handler = trace_dir / "handler.py"
     handler.write_text(LOG_HANDLER_SCRIPT)
     argv = build_argv(
-        snakefile=entry,
-        scratch=scratch,
+        interpreter=sys.executable,
+        snakefile=str(entry),
+        directory=str(scratch),
         targets=("outputs/result.txt",),
         config={"seed_model_initialization": "7"},
-        log_handler=handler,
+        log_handler=str(handler),
         cores=1,
+        in_process_jobs=False,
     )
     returncode, _ = run_engine(
         argv,

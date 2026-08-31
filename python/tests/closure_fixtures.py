@@ -40,7 +40,7 @@ def make_closure(
         spec_identity=spec if shape == "assessment" else None,
         code_identity="sha256:" + "5" * 64,
         environment=EnvironmentManifest(
-            artifacts=(("python", "sha256:" + "6" * 64),)
+            artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "6" * 64),)
         ),
         workflow_definition_identity="sha256:" + "7" * 64,
         invocation=Invocation(

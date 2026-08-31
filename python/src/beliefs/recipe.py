@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import posixpath
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import PurePosixPath
@@ -22,6 +23,7 @@ from beliefs.spec import (
 )
 
 __all__ = [
+    "ARTIFACT_KINDS",
     "ASSESSMENT_ROLES",
     "BOUNDARY_RECEIPT_DOMAIN",
     "CAPABILITIES",
@@ -59,7 +61,7 @@ __all__ = [
 RECIPE_DOMAIN = "science.recipe.v1"
 RUN_DOMAIN = "science.run.v1"
 CONFINED_RUN_DOMAIN = "science.run.v2"
-ENVIRONMENT_DOMAIN = "science.environment.v1"
+ENVIRONMENT_DOMAIN = "science.environment.v2"
 BOUNDARY_RECEIPT_DOMAIN = "science.boundary-receipt.v1"
 CONFINED_RECEIPT_DOMAIN = "science.boundary-receipt.v2"
 MOUNT_PLAN_DOMAIN = "science.mount-plan.v1"
@@ -69,6 +71,7 @@ CAPABILITIES = ("from-bundle", "closure-confined-filesystem", "network-denied")
 #: What `clean-environment` requires — spelled separately, never derived from
 #: CAPABILITIES, so a capability added later does not become a requirement.
 REQUIRED_FOR_CLEAN_ENVIRONMENT = tuple(["from-bundle", "closure-confined-filesystem", "network-denied"])  # noqa: C409
+ARTIFACT_KINDS = ("file", "symlink")
 RENDERED_KINDS = ("file", "symlink", "value")
 NAMESPACES = ("cgroup", "ipc", "mnt", "net", "pid", "user", "uts")
 MOUNT_ACCESS = ("ro", "rw")
@@ -223,13 +226,28 @@ class Invocation:
 @final
 @dataclass(frozen=True)
 class EnvironmentManifest:
-    artifacts: tuple[tuple[str, str], ...]
+    """The runtime artifact closure, one row per file: (sandbox path, kind,
+    digest or link target). Host paths never enter it (design §4.1). Every
+    path is normalized — absolute, no `.`, `..` or empty components — so a
+    join under a snapshot root can never leave it."""
+
+    artifacts: tuple[tuple[str, str, str], ...]
 
     def __post_init__(self) -> None:
-        _require_pairs(self.artifacts, "environment artifacts")
+        _require_triples(self.artifacts, "environment artifacts")
+        paths = [path for path, _, _ in self.artifacts]
+        if len(set(paths)) != len(paths):
+            raise MalformedClosure("environment artifacts name each sandbox path once")
+        for path, kind, content in self.artifacts:
+            if not path.startswith("/") or path.startswith("//") or posixpath.normpath(path) != path:
+                raise MalformedClosure(f"environment artifact {path!r} is not a normalized absolute sandbox path")
+            if kind not in ARTIFACT_KINDS:
+                raise MalformedClosure(f"environment artifact {path!r} has kind {kind!r}, outside {ARTIFACT_KINDS}")
+            if not content:
+                raise MalformedClosure(f"environment artifact {path!r} carries no content")
 
     def identity(self) -> str:
-        return v1.digest(ENVIRONMENT_DOMAIN, {"artifacts": _pairs(self.artifacts)})
+        return v1.digest(ENVIRONMENT_DOMAIN, {"artifacts": _triples(self.artifacts)})
 
 
 @sealed

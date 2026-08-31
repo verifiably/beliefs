@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 import secrets
 import shutil
+import sys
 import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -358,12 +359,14 @@ def _execute_run(
         events = trace_dir / "events.jsonl"
         handler.write_text(LOG_HANDLER_SCRIPT)
         argv = build_argv(
-            snakefile=captured_entrypoint,
-            scratch=scratch,
+            interpreter=sys.executable,
+            snakefile=str(captured_entrypoint),
+            directory=str(scratch),
             targets=targets,
             config=config,
-            log_handler=handler,
+            log_handler=str(handler),
             cores=cores,
+            in_process_jobs=False,
         )
         env = {**os.environ, "SCIENCE_TRACE_FILE": str(events)}
         require_executing_environment(recipe.environment)
