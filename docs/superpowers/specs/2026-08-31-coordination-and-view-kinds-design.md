@@ -264,10 +264,12 @@ fixtures. That stopgap is **retired by this design**: `note` is the
 coordination kind everywhere, world §3's Notes tier is project-scoped as
 banked, and ordinary `add` refuses it like every other coordination kind —
 no pin-conditional semantics, no second prose kind. The collision with
-cut 5's frozen evidence is handled by **succession, banked in cut 14**
-(§9.2): cut 5's document stays verbatim, and the suite substitution and
-fixture moves land with cut 14's implementation, when the refusal turns
-on.
+cut 5's frozen evidence is handled by **citation, banked in cut 14**
+(§9.2, cut 9's mechanism): the entire cut-5 surface stays byte-identical
+and is cited rather than run from cut 14's tree onward, its discharge
+standing as its frozen results record, with W17 carrying the successor
+coverage; the unscoped-note fixtures outside that surface move with
+cut 14's implementation, when the refusal turns on.
 
 Two mechanical inheritances from the substrate, stated so they are built
 rather than discovered: the door carries the **pre-plan already-minted
@@ -404,14 +406,21 @@ tier-specific top-level fields, so the mapping uses what exists.
   subordinates, `local` (the 32-lower-hex local id) — plus the kind's
   remaining §5.2 fields (`author`, `at`, and per kind `query`, `status`,
   `depends`, `about`); §5.2's `name` and `body` map to the substrate's
-  own `Node.title` and `Node.body`. All shape-validated at the door;
-  `COVERED_FACETS`
-  gains the coordination kinds so a revision missing its facet is
-  malformed everywhere world records already are. The `coord:` address is
-  derived from the facet's two halves and stored nowhere as a third
-  value. No other facet is permitted: no semantic-identity stamp, no
-  empirical-observation facet, no kernel facet of any kind — the
-  governed-stamp refusal applies unchanged.
+  own `Node.title` and `Node.body`. Enforcement is a **dedicated
+  validator**, `coordination_facet_malformed`, on the
+  `display_facet_malformed` precedent — deliberately *not* an entry in
+  `COVERED_FACETS`, which is the semantic-hash projection's table and is
+  enforced only for `SEMANTIC_DOMAINS` kinds, a path this unstamped tier
+  never takes. The one function is shared by the three readers of the
+  shape: the **mint door** refuses on it; the **audit** emits a malformed
+  finding naming a raw-written revision that fails it; and the
+  **resolver** excludes what fails it from tip computation — a record
+  that cannot state its address claims no address, so vandalism cannot
+  flip a tip, while the finding persists and exclusion is never repair.
+  The `coord:` address is derived from the facet's two halves and stored
+  nowhere as a third value. No other facet is permitted: no
+  semantic-identity stamp, no empirical-observation facet, no kernel
+  facet of any kind — the governed-stamp refusal applies unchanged.
 - **The revision id is `Node.uid`**, minted opaquely at the door —
   `secrets.token_hex(16)`, one per revision, never reused and never
   content-derived: two replicas independently authoring byte-identical
@@ -639,7 +648,7 @@ frozen like any cut's.
 | **W11** | a qualified `coord:` reference where a world entity is required → refused by kind; a world address where a coordination reference is required → refused by kind; both before any lookup, off the address form alone | **closes** |
 | **W12** | rename a project by ordinary revision; every stored `(project identity, local id)` reference resolves unchanged; resolution consults no name, handle, or label — the old name survives only in superseded revisions' content | **closes** |
 | **W13** | the two-projects negative only: point two projects at one corpus → one `corpus_id`; repoint one project to another corpus → no corpus identity changed | remains **part** — every other arm is `world-resolution`'s |
-| **W17** | genesis arity zero; every edit a new whole revision; `add`/`revise`/`supersede`/`retract` refuse coordination kinds — `note` included, its unscoped predecessor use retired by the §9.2 succession — and `import_bundle` refuses a bundle carrying one, naming the member; the family door refuses world kinds; the pre-plan already-minted guard holds at the new door, keyed on §4.7's per-revision `Node.id`; general rule: a named predecessor superseded before commit → `PredecessorNotStanding`, judged through the resolver under the written root's lock; **continuity**: a revision naming a standing tip of another kind, or of another address, → `PredecessorMismatch` even though the predecessor stands; siblings minted in two corpora → `Refused(divergent-view)` naming every tip, and swapping the resolver's corpus-set order changes nothing; one repair revision superseding all tips restores resolution, with the siblings retained immutable; the intent-position rule judged as a pure function of a constructed chain prefix, including the superseded-between-intent-and-commit case that lawfully yields two tips; a raw-written `supersedes` cycle → audit finding naming the cycle, zero tips, no repair; a subordinate mint under a missing or divergent project → `ProjectNotResolvable`, naming the project's tips when divergence is the cause | **closes** — the rule's operational instance (`publish`) is sub-project 5's, banked unrun in §9.3 |
+| **W17** | genesis arity zero; every edit a new whole revision; `add`/`revise`/`supersede`/`retract` refuse coordination kinds — `note` included, its unscoped predecessor use retired, with cut 5 cited rather than run per the §9.2 succession — and `import_bundle` refuses a bundle carrying one, naming the member; the family door refuses world kinds; the pre-plan already-minted guard holds at the new door, keyed on §4.7's per-revision `Node.id`; general rule: a named predecessor superseded before commit → `PredecessorNotStanding`, judged through the resolver under the written root's lock; **continuity**: a revision naming a standing tip of another kind, or of another address, → `PredecessorMismatch` even though the predecessor stands; siblings minted in two corpora → `Refused(divergent-view)` naming every tip, and swapping the resolver's corpus-set order changes nothing; one repair revision superseding all tips restores resolution, with the siblings retained immutable; the intent-position rule judged as a pure function of a constructed chain prefix, including the superseded-between-intent-and-commit case that lawfully yields two tips; a raw-written `supersedes` cycle → audit finding naming the cycle, zero tips, no repair; a raw-written revision failing `coordination_facet_malformed` → audit finding, excluded from tip computation with the address still resolving, no repair; a subordinate mint under a missing or divergent project → `ProjectNotResolvable`, naming the project's tips when divergence is the cause | **closes** — the rule's operational instance (`publish`) is sub-project 5's, banked unrun in §9.3 |
 | **W18** | a kind the pinned coordination-contract version does not declare → refused (no pin, no mints; an earlier version authorizes nothing an amendment added); an ill-formed query, or one naming a kind or closure relation outside the contract's literal query vocabulary → refused at mint, while a well-formed query whose anchor does not resolve is **accepted** — the malformed/unresolvable split at the mint boundary; a contract whose query vocabulary names a kind or relation the kernel inventories do not know → refused at `compile_profile`; an editorial or lineage-only contract edit moves the contract identity and **not** `compiled_identity`, while a kind-schema edit moves both; coordination mints appear in no world-index map and move no `belief_input_digest`; a domain contract claiming the `coordination` namespace → refused | **closes** |
 
 ### 9.2 Where the arms live
@@ -660,7 +669,8 @@ wrong-door refusals both directions including `import_bundle`'s
 member-naming refusal and the ordinary path refusing `note`, the
 already-minted guard; two-corpus sibling minting through the resolver and
 `divergent-view` with the corpus-set order swapped; repair;
-the raw-written cycle audit finding; the subordinate-needs-project
+the raw-written cycle audit finding; the raw-written malformed-facet
+finding with its tip-computation exclusion; the subordinate-needs-project
 refusals; W12's rename walk; W13's two-projects negative; W18's index-map
 absence and `belief_input_digest` stability, asserted over a packaged
 epoch.
@@ -672,21 +682,25 @@ compiler, or the manifest pin validation; `test_n2_cut14.py` and
 `PREFIX_RUNNERS` naming the newest discharged prefix chain as it stands at
 discharge time.
 
-**One discharge obligation is a succession, banked here prospectively.**
-Turning on the ordinary path's `note` refusal (§4.2) collides with cut 5's
-ineligible-kind arm, whose suite constructs an unscoped `note` as its
-ineligible exemplar, and with the fixtures that mint unscoped notes.
-Cut 5's frozen document is **not rewritten** — its text stays verbatim.
-Instead this cut owns the succession, the mechanism cut 9 already used
-for cut 8's retired store-refusal label: cut 14 declares, in advance,
-that the `note` case of cut 5's arm is superseded by W17's wrong-door
-refusal, whose coverage is strictly stronger (the kind now refuses at
-`add` rather than merely being retraction-ineligible); the implementation
-commit substitutes another ineligible exemplar in the cut-5 suite —
-exactly and only the substitution named here, marked in code as executed
-under cut 14 §9.2 — and moves the unscoped-note fixtures; and cut 14's
-results record reports the succession. Refusal, substitution and fixture
-moves land in one commit, so no suite is red between them.
+**One discharge obligation is a succession, banked here prospectively —
+on cut 9's exact mechanism.** Turning on the ordinary path's `note`
+refusal (§4.2) makes cut 5's ineligible-kind arm fail on the new tree
+**by design**: its suite constructs an unscoped `note` as an ineligible
+exemplar, which the family door now refuses at `add`. Cut 9 faced
+precisely this when the root-lifecycle work deleted what cut 8's
+store-refusal arms certified, and its answer is the precedent followed
+verbatim: **the entire cut-5 surface is left untouched** — its document,
+its declaration file and its acceptance suite, all byte-identical, pinned
+so by cut 14's own checks exactly as every prior cut's declarations are
+pinned; **cut 5 is cited, not run, from cut 14's tree onward** — its
+discharge stands as its frozen results record
+(`2026-08-19-conformance-cut-5-results.md`); and the successor coverage
+for the note case is carried **solely by W17**, whose wrong-door arm is
+strictly stronger — the kind now refuses at `add` rather than merely
+being retraction-ineligible. The unscoped-note import, arrival and read
+fixtures outside the cut-5 surface move in the implementation commit that
+turns the refusal on, so no suite is red between the two, and cut 14's
+results record reports the citation.
 
 ### 9.3 Limitations, banked as unrun by design
 

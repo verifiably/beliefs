@@ -5,7 +5,7 @@ status: todo
 priority: 1
 size: l
 created: 2026-08-30T20:21:43Z
-updated: 2026-08-31T15:06:31Z
+updated: 2026-08-31T21:17:27Z
 depends: []
 tags: [mutation-lane, coordination]
 ---
@@ -17,3 +17,4 @@ Brainstorm and spec the tier-3 coordination-addressing answer per the user/auton
 - 2026-08-31T10:20:15Z (coordination-and-view-kinds): Design brainstormed and banked: opaque local ids ruled; science.view-query.v1 closed grammar; family door on CorpusWriter; coordination contract pinned as coordination:<hex> in domains; W17/W18 added; cut 14 frozen in spec §9
 - 2026-08-31T14:41:01Z (coordination-and-view-kinds): Review round 1: import-bundle refusal, coordination resolver over explicit corpus set, stored identity model (uid revisions, @ pins), contract-carried query vocabulary, kind-schema projection into compiled_identity, unscoped note retired (cut-5 amendment at discharge)
 - 2026-08-31T15:06:31Z (coordination-and-view-kinds): Review round 2: facet-based Node mapping with dot-slug ids, kind/address continuity (PredecessorMismatch), cut 14 unfrozen until review ends with cut-5 handled by prospective succession, 13 kinds enumerated as stored.WORLD_KINDS, mint raises / read returns unified
+- 2026-08-31T21:17:27Z (coordination-and-view-kinds): Review round 3: dedicated coordination_facet_malformed validator shared by door/audit/resolver (COVERED_FACETS not overloaded); cut-5 collision handled by cut-9 citation mechanism, entire cut-5 surface byte-identical, W17 sole successor coverage
