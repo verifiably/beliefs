@@ -90,7 +90,7 @@ store-side holdings. The latest discharged boundary is cut 12, successor
 admission ([results](docs/plans/2026-08-29-conformance-cut-12-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
-test before it is a passing one. There are **151 rows** across **thirteen frozen
+test before it is a passing one. There are **153 rows** across **thirteen frozen
 tables** (G, S, W, R, C, X, N, L, D, M, P, H, T), and every cut is frozen
 *before* its code exists so that a row which fails is a failure rather than a
 redefinition.

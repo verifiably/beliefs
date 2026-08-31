@@ -2,7 +2,7 @@
 title: Foundations
 status: living
 created: 2026-08-08
-updated: 2026-08-30
+updated: 2026-08-31
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-substrate-consolidation-design.md
@@ -14,6 +14,7 @@ sources:
   - ../designs/2026-08-10-verified-holdings-record-design.md
   - ../designs/2026-08-11-act-report-design.md
   - ../designs/2026-08-24-world-index-holdings-design.md
+  - ../superpowers/specs/2026-08-31-coordination-and-view-kinds-design.md
 ---
 
 # Foundations
@@ -96,6 +97,33 @@ The formal inventory contains thirteen kernel kinds:
 Computed beliefs, world indexes, hypotheses, questions, tasks, and other views
 are not additional kernel kinds. A view has no independent authority: it is a
 function of named records and configuration.
+
+### Views and coordination are governed, not kernel
+
+Two further tiers of record exist without joining the kernel: **views**
+(`project`, `question`, `hypothesis`, `topic`, `theme`) — each a stored world
+query plus a label, never a container — and **coordination** records (`task`,
+`decision`, `note`), which are attributed acts. Both are minted through the
+corpus-write adapter, so they carry provenance, enter the log, and are captured
+by epochs; but they are declared by a **coordination contract** compiled into
+`ProfileSpec` and versioned independently of the base contract, not by the
+kernel. They are never world facts — no world address, no world-index map
+membership — and never belief inputs: no coordination kind declares a
+belief-bearing edge, and the contract declares no operator the consulted set
+could name.
+
+Identity at this tier is coordination-scoped. A `project` carries an opaque
+durable identity minted the way a `corpus_id` is, and every other record is
+addressed `(project identity, local id)` — both halves opaque, with names and
+handles as content that lookup never consults, so renaming breaks no
+reference. Editing mints an immutable **revision** through a family that takes
+one or more predecessor tips; an address resolves to its one standing tip or
+refuses naming every tip, and divergence is repaired by one revision
+superseding them all. The query a view stores is `science.view-query.v1` — a
+small, closed selector grammar evaluated at a named epoch, deliberately not a
+query engine. The [coordination-and-view-kinds
+design](../superpowers/specs/2026-08-31-coordination-and-view-kinds-design.md)
+specifies all of this and freezes conformance cut 14 over it.
 
 ### Ownership follows the nature of the rule
 

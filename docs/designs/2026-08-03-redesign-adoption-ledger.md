@@ -104,7 +104,7 @@ still open; unresolved design areas are not boundaries and are not listed.
 | `persistence-cut` | X2's persistence-cut arm | the `atoms` A8 certification extended to the publication path, a cross-repo seam `atoms`' own design owns | X2 in full |
 | `nodes-remainder` | the reserved-path contract, recoverable construction, digest-id hazards | `nodes` `2026-08-03-nodes-under-the-system-redesign-design.md` (row 3) | audits over damaged corpora; manifest safety |
 | `authority-labels` | W9, W14 | artifact 11, the pinned authority snapshot — owed, undesigned | every rendered label; the ambiguous-search refusal |
-| `coordination-addressing` | W11, W12; W13's two-projects negative | the project/coordination surface, which no slice has built and whose minting path is undetermined (cut 4 §5) | coordination references |
+| `coordination-addressing` | W11, W12, W17, W18; W13's two-projects negative | designed 2026-08-31 (`../superpowers/specs/2026-08-31-coordination-and-view-kinds-design.md`, cut 14 frozen): minted through the adapter by a dedicated family door; awaits the `mutation` lane | coordination references |
 | `weighted-belief` | S6 arm (h) | the first successor belief policy admitting unequal weights, blocked on ρO3 | weighted belief |
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 | an untypeable span minting nothing, end to end |
 | `cross-root-publication` | T7's cross-root case | the act-report design's cross-root publication residue | cross-root publication of a provenance reference and its report |
