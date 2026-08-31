@@ -265,6 +265,7 @@ _COUNT_WORDS = {
     38: "Thirty-eight",
     39: "Thirty-nine",
     40: "Forty",
+    41: "Forty-one",
 }
 
 
