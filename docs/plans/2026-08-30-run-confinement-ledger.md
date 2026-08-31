@@ -3,7 +3,7 @@
 Plan: `docs/superpowers/plans/2026-08-30-run-confinement.md`
 Specification: `docs/superpowers/specs/2026-08-30-run-confinement-design.md`
 Frozen cut: `docs/designs/2026-08-30-conformance-cut-13.md`
-Freeze hash: <filled in Step 5>
+Freeze hash: fa89241
 
 Rulings are written at task boundaries, never rewritten after the fact.
 
