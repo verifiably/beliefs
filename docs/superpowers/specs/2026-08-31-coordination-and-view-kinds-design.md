@@ -678,9 +678,20 @@ epoch.
 **N2**: `n2_arms_cut14.py` declares every selected arm with its sabotage in
 the family door, the tip resolver, the query parser, the contract
 compiler, or the manifest pin validation; `test_n2_cut14.py` and
-`tools/cut14_acceptance.py` follow the cut-12 pattern, with
-`PREFIX_RUNNERS` naming the newest discharged prefix chain as it stands at
-discharge time.
+`tools/cut14_acceptance.py` follow the cut-12 pattern — with one deliberate
+departure, forced by the citation below. The aggregate runners nest by
+`PREFIX_RUNNERS`, and today's chain reaches cut 5 transitively
+(`cut12 → cut11 → cut10 → cut9 → cut7 → cut5`), so once `note` refuses at
+`add`, every aggregate from cut 7 upward fails in its prefix before cut 14
+would run. `cut14_acceptance.py` therefore names **no aggregate runner**.
+It defines the **current-tree prefix** explicitly: the *phase modules* —
+each cut's own suites, not its aggregate — of every discharged cut, in cut
+order, excepting cut 5 (cited here, §9.2) and cut 8 (already cited by
+cut 9), invoked directly. The bypassed aggregate runners are left
+**unchanged and pinned byte-identical** by cut 14's checks, exactly as the
+cut-5 surface is: they remain the frozen commands of the trees they
+discharged on. Cuts after 14 name `cut14_acceptance.py` and inherit the
+bypass.
 
 **One discharge obligation is a succession, banked here prospectively —
 on cut 9's exact mechanism.** Turning on the ordinary path's `note`
