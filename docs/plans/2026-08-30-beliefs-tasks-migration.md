@@ -1,19 +1,26 @@
 # Beliefs Tasks migration ledger
 
-**Status:** pre-integration checkpoint complete; documentation, task creation, and exact repository gates passed. Integration and canonical registration remain pending.
+**Status:** initial Tasks migration integrated and canonically registered on 2026-08-31; cross-project reconciliation remains pending for the future Nodes `nodes-remainder` dependency.
 
 ## Scope and evidence
 
 | Field | Audited value |
 |---|---|
-| Stable HEAD | `b1e8d5d73383f4ff306db8fa7be8c19d59e57eda` |
+| Stable HEAD at audit | `b1e8d5d73383f4ff306db8fa7be8c19d59e57eda` |
 | Tasks source commit | `e04d6a0347a95f22324e81b79d07821cf34a83c5` |
 | Audit date | 2026-08-30 |
+| Integrated documentation commit | `755029b748e1e2990d4548f30588a7cf2a356187` |
+| Integrated Tasks commit and stable verification HEAD | `1ee81bb13d03da42bce78e1fc80e0d050636ce36` |
+| Atoms Linux 7.1.11 certification | `914acb66e796f8691b7cc10bb7c28daa54dddfbf` |
+| Intervening post-integration user commit | `0415208b1a747697fa3961ad2ebad6a3919ceb70` |
+| Integration and canonical registration date | 2026-08-31 |
 | Prefix | `beliefs` (pre-existing and preserved) |
 | Authority read | Root README; every tracked document under `docs/`; code, tests, schemas, and package configuration; all local branches and linked worktrees; current history; existing task `beliefs-c88566`; integrated Atoms task records used below |
 | Forward-only rule | Completed cuts 1–12 remain Git/document history. Only evidence-backed unfinished outcomes are candidates. |
 
 The adoption ledger's Current state table is authoritative for what remains open, and the cut-12 roadmap is authoritative for order. The approved user/autonomy design adds repository-owned work without reopening closed guarantee rows. Claims were checked against the base tree before any correction.
+
+The exact 2,580-pass/144-fail results from Steps 1, 3, and 6 remain historical evidence from before Atoms certified the host Linux 7.1.11 tuple. After Atoms commit `914acb66e796f8691b7cc10bb7c28daa54dddfbf` was integrated, the same Beliefs stable tree passed all 2,724 tests. The earlier fail-closed result was neither waived nor rewritten.
 
 ## Git state inspected
 
@@ -24,6 +31,9 @@ The adoption ledger's Current state table is authoritative for what remains open
 | Local `feat/composition-root-adapter` | `794ee05` | Fully merged: the branch tip is an ancestor of `main`, with no branch-only commit and no linked worktree. No active ownership inferred. |
 | Linked stable worktree | `main` | Clean and read only. |
 | Linked migration worktree | `chore/tasks-migration-beliefs` | The only writable checkout for this migration. |
+| Stable `main` after initial integration | `1ee81bb13d03da42bce78e1fc80e0d050636ce36` | The documentation and Tasks commits were fast-forwarded and the stable gates and canonical registration passed. The later user start of `beliefs-c88566` was outside the migration and was not touched by it. |
+| Stable `main` after the intervening user commit | `0415208b1a747697fa3961ad2ebad6a3919ceb70` | Clean. The user commit added `beliefs-5f2752` and `beliefs-abf8e8`, updated `beliefs-bc3aff`, and committed the previously separate `beliefs-c88566` start. Those task changes are outside the migration. |
+| Atoms stable `main` | `914acb66e796f8691b7cc10bb7c28daa54dddfbf` | Clean; certified for the host Linux 7.1.11 tuple used by the final Beliefs stable gates. |
 
 History confirms that conformance cut 12, successor admission, current-state curation, the package rename, and the holdings-boundary rename correction are ancestors of the audited base. No unmerged branch or dirty path carries unfinished implementation.
 
@@ -99,7 +109,7 @@ History confirms that conformance cut 12, successor admission, current-state cur
 | `docs/plans/2026-08-29-conformance-cut-12-results.md` | historical/superseded | Dated discharge evidence. |
 | `docs/plans/2026-08-29-implementation-roadmap.md` | authority/current | Authoritative cut-12 ordering and candidate boundaries. |
 | `docs/plans/2026-08-29-successor-admission-ledger.md` | historical/superseded | Delivered boundary ledger. |
-| `docs/plans/2026-08-30-beliefs-tasks-migration.md` | active delivery | This pre-integration migration ledger. |
+| `docs/plans/2026-08-30-beliefs-tasks-migration.md` | active delivery | Initial migration is integrated; the future Nodes dependency remains pending reconciliation. |
 | `docs/superpowers/plans/2026-08-09-cut-2-slice.md` | historical/superseded | Delivered implementation plan. |
 | `docs/superpowers/plans/2026-08-10-bank-holdings-record.md` | historical/superseded | Delivered implementation plan. |
 | `docs/superpowers/plans/2026-08-11-bank-act-report.md` | historical/superseded | Delivered implementation plan. |
@@ -162,6 +172,8 @@ The open coordination question, cut-12 ranking, and Current state table remain i
 | Build the autonomy envelope and loop | The approved design assigns sandbox, lease, tiers, trajectory, and priority loop to the Autonomy repository. | User/autonomy design §7 and §8 items 6 and 7 | No Beliefs-owned state | n/a | n/a | Science command outcomes are consumer dependencies | no task: Autonomy-owned | n/a |
 
 Every `create` row uses the `migration` tag plus one stable lane or concern tag. Each body states the outcome, acceptance evidence, sources, and uncertainty. The four tier-3 design decisions are `idea`; unfinished designed delivery is `todo`; no `doing` or `blocked` state is inferred from branch names or dependencies.
+
+The candidate table remains the 2026-08-30 audit and creation record. After initial integration, separate user activity on 2026-08-31 started `beliefs-c88566` in stable `main` (`doing`, owner `main`, updated `2026-08-31T09:25:24Z`). Canonical registry commands preserved working-tree blob `9abf319cfb58704a5bee937d3193831c79ff4972` byte-for-byte; the later user commit `0415208b1a747697fa3961ad2ebad6a3919ceb70` then tracked that exact blob alongside three other user-owned task changes. Both activities are outside the migration, and this ledger finalization neither copies nor rewrites them.
 
 ### Reviewed task body: Deliver run confinement and discharge cut 13
 
@@ -397,15 +409,27 @@ Initial fields: priority `2`; status `todo`; size `xl`; tags `migration`, `publi
 | `npm run typecheck` | Passed with no TypeScript error. | Base tree |
 | `npm run check` | Passed: Biome checked 13 files with no fixes. | Base tree |
 | `python/tools/check_guide.py` and `pytest -q tests/test_designs_corpus.py tests/test_check_guide.py` | Passed; focused documentation guards reported 22 passing tests. | Base tree plus documentation reconciliation |
-| Required outward status search, exact document coverage comparison, seven-section count, and `git diff --check` | Outward matches reviewed; all 91 denominator documents are classified exactly once; exactly seven required sections exist; coverage and whitespace checks produced no output. | Documentation reconciliation commit (this commit) |
-| Exact Python helper in `check` mode | Passed: exactly 2,580 passed and the identical 144 failed nodes, with 144 exception lines and 144 exact ext4 `CapabilityUnavailable` signatures. | Documentation reconciliation commit (this commit) |
-| `uv run --frozen ruff check .` and `uv run --frozen pyright` after reconciliation | Ruff passed; Pyright reported 0 errors, 0 warnings, and 0 information messages. | Documentation reconciliation commit (this commit) |
-| `npm test`, `npm run typecheck`, and `npm run check` after reconciliation | Passed: 5 files and 101 tests; TypeScript reported no error; Biome checked 13 files with no fix. | Documentation reconciliation commit (this commit) |
-| Temporary-registry Familiar, Atoms, and Beliefs `tasks init`, with Beliefs initialized twice | All returned their exact prefixes and empty warning arrays; the second Beliefs initialization was idempotent. | Tasks initialization commit (this commit) |
-| Pre-mutation full `tasks show beliefs-c88566` snapshot and post-mutation sorted JSON comparison | Byte-identical; the existing task's ID, timestamps, body, state, priority, size, tags, owner, dependencies, structured fields, and notes were not changed. | Tasks initialization commit (this commit) |
-| Eighteen reviewed `tasks add` calls, verified through `tasks show`, plus reviewed `tasks dep` calls | All emitted IDs are recorded above; all stored fields and bodies match the reviewed ledger; every dependency resolves. The store has 19 tasks: 4 idea and 15 todo, with no inferred owner. | Tasks initialization commit (this commit) |
-| Temporary-registry `tasks check`, `tasks prime`, and complete field/dependency audit | Passed with empty error and warning arrays, prefix `beliefs`, and exact stored bodies/dependency sets. | Tasks initialization commit (this commit) |
-| Temporary-registry `tasks ready` | Passed with seven ready tasks and an empty warning array. | Tasks initialization commit (this commit) |
-| Exact Python helper in `check` mode after task creation | Passed: exactly 2,580 passed and the identical 144 failed nodes, with 144 exception lines and 144 exact ext4 `CapabilityUnavailable` signatures. | Tasks initialization commit (this commit) |
-| `uv run --frozen ruff check .` and `uv run --frozen pyright` after task creation | Ruff passed; Pyright reported 0 errors, 0 warnings, and 0 information messages. | Tasks initialization commit (this commit) |
-| `npm test`, `npm run typecheck`, and `npm run check` after task creation | Passed: 5 files and 101 tests; TypeScript reported no error; Biome checked 13 files with no fix. | Tasks initialization commit (this commit) |
+| Required outward status search, exact document coverage comparison, seven-section count, and `git diff --check` | Outward matches reviewed; all 91 denominator documents are classified exactly once; exactly seven required sections exist; coverage and whitespace checks produced no output. | Documentation reconciliation commit `755029b748e1e2990d4548f30588a7cf2a356187` |
+| Exact Python helper in `check` mode | Passed: exactly 2,580 passed and the identical 144 failed nodes, with 144 exception lines and 144 exact ext4 `CapabilityUnavailable` signatures. | Documentation reconciliation commit `755029b748e1e2990d4548f30588a7cf2a356187` |
+| `uv run --frozen ruff check .` and `uv run --frozen pyright` after reconciliation | Ruff passed; Pyright reported 0 errors, 0 warnings, and 0 information messages. | Documentation reconciliation commit `755029b748e1e2990d4548f30588a7cf2a356187` |
+| `npm test`, `npm run typecheck`, and `npm run check` after reconciliation | Passed: 5 files and 101 tests; TypeScript reported no error; Biome checked 13 files with no fix. | Documentation reconciliation commit `755029b748e1e2990d4548f30588a7cf2a356187` |
+| Temporary-registry Familiar, Atoms, and Beliefs `tasks init`, with Beliefs initialized twice | All returned their exact prefixes and empty warning arrays; the second Beliefs initialization was idempotent. | Tasks initialization commit `1ee81bb13d03da42bce78e1fc80e0d050636ce36` |
+| Pre-mutation full `tasks show beliefs-c88566` snapshot and post-mutation sorted JSON comparison | Byte-identical; the existing task's ID, timestamps, body, state, priority, size, tags, owner, dependencies, structured fields, and notes were not changed. | Tasks initialization commit `1ee81bb13d03da42bce78e1fc80e0d050636ce36` |
+| Eighteen reviewed `tasks add` calls, verified through `tasks show`, plus reviewed `tasks dep` calls | All emitted IDs are recorded above; all stored fields and bodies match the reviewed ledger; every dependency resolves. At creation, the store had 19 tasks: 4 idea and 15 todo, with no inferred owner. The pending Nodes dependency is recorded separately rather than as a dangling CLI edge. | Tasks initialization commit `1ee81bb13d03da42bce78e1fc80e0d050636ce36` |
+| Temporary-registry `tasks check`, `tasks prime`, and complete field/dependency audit | Passed with empty error and warning arrays, prefix `beliefs`, and exact stored bodies/dependency sets. | Tasks initialization commit `1ee81bb13d03da42bce78e1fc80e0d050636ce36` |
+| Temporary-registry `tasks ready` | Passed with seven ready tasks and an empty warning array. | Tasks initialization commit `1ee81bb13d03da42bce78e1fc80e0d050636ce36` |
+| Exact Python helper in `check` mode after task creation | Passed: exactly 2,580 passed and the identical 144 failed nodes, with 144 exception lines and 144 exact ext4 `CapabilityUnavailable` signatures. | Tasks initialization commit `1ee81bb13d03da42bce78e1fc80e0d050636ce36` |
+| `uv run --frozen ruff check .` and `uv run --frozen pyright` after task creation | Ruff passed; Pyright reported 0 errors, 0 warnings, and 0 information messages. | Tasks initialization commit `1ee81bb13d03da42bce78e1fc80e0d050636ce36` |
+| `npm test`, `npm run typecheck`, and `npm run check` after task creation | Passed: 5 files and 101 tests; TypeScript reported no error; Biome checked 13 files with no fix. | Tasks initialization commit `1ee81bb13d03da42bce78e1fc80e0d050636ce36` |
+| Initial integration | Stable `main` was fast-forwarded through the documentation and Tasks commits to `1ee81bb13d03da42bce78e1fc80e0d050636ce36`. | Stable `main` |
+| Atoms stable inspection | Clean at `914acb66e796f8691b7cc10bb7c28daa54dddfbf`, with the host Linux 7.1.11 tuple certified. | Atoms stable `main` |
+| Stable `uv run --frozen pytest -q` after Atoms certification | Passed: exactly 2,724 tests in 413.46 seconds. This all-green result follows the committed Atoms recertification; it preserves the earlier 2,580-pass/144-fail evidence as the prior fail-closed state. | Stable `main` at `1ee81bb13d03da42bce78e1fc80e0d050636ce36` |
+| Stable `uv run --frozen ruff check .` and `uv run --frozen pyright` | Ruff passed with `All checks passed!`; Pyright reported 0 errors and 0 warnings. | Stable `main` at `1ee81bb13d03da42bce78e1fc80e0d050636ce36` |
+| Stable `npm test`, `npm run typecheck`, and `npm run check` | Passed: 5 files and 101 tests; TypeScript reported no error; Biome passed. | Stable `main` at `1ee81bb13d03da42bce78e1fc80e0d050636ce36` |
+| Canonical Beliefs registration from the stable repository root, repeated twice | Both normal `tasks init` calls returned prefix `beliefs`; the second registration was idempotent. | Canonical Tasks registry |
+| Original canonical `tasks check`, `tasks prime`, and `tasks ready` snapshot | Check returned no errors or warnings; prime reported prefix `beliefs`, 4 idea, 14 todo, and 1 doing; ready returned six tasks and no warnings. | Canonical Tasks registry immediately after registration |
+| Stable `beliefs-c88566` preservation | Post-integration user activity changed the task to `doing`, owner `main`, updated `2026-08-31T09:25:24Z`; canonical commands preserved working-tree blob `9abf319cfb58704a5bee937d3193831c79ff4972` byte-for-byte. User commit `0415208b1a747697fa3961ad2ebad6a3919ceb70` now tracks that same blob. This activity is not part of the migration. | Stable `main` after the intervening user commit |
+| Intervening post-integration user commit | Added `beliefs-5f2752` and `beliefs-abf8e8`, updated `beliefs-bc3aff`, and committed the prior `beliefs-c88566` start. The migration did not modify those task records. | Stable `main` at `0415208b1a747697fa3961ad2ebad6a3919ceb70` |
+| Fresh canonical `tasks check`, `tasks prime`, and `tasks ready` after the user commit | Check returned no errors or warnings; prime reported prefix `beliefs`, 5 idea, 15 todo, and 1 doing; ready returned seven tasks and no warnings. | Canonical Tasks registry at stable `main` `0415208b1a747697fa3961ad2ebad6a3919ceb70` |
+| Stable working-tree inspection after the user commit and fresh Tasks checks | Clean. | Stable `main` at `0415208b1a747697fa3961ad2ebad6a3919ceb70` |
+| Finalization exact document coverage comparison, seven-section count, and `git diff --check` | All 91 denominator documents remained classified exactly once; exactly seven required sections remained; coverage and whitespace checks produced no output. | Ledger-finalization commit (this commit) |
