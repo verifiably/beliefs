@@ -118,9 +118,13 @@ query is *well-formed* is a property of the record; whether its addresses
 
 A view revision carrying a query refuses (`ValidationRefused` lineage,
 §4.6) unless: the query parses against the grammar; its `version` is one
-the pinned coordination contract declares; every `kinds` value is a world
-kind the contract's vocabulary names; and every clause is a non-empty
-conjunction. Mint-time admission checks **form and vocabulary only**. It
+the pinned coordination contract declares; every `kinds` value and every
+`closure` relation predicate is in the contract's **literal query
+vocabulary** (§5.1) — the vocabulary's authority is the pinned contract,
+checked at contract compile against the kernel inventories `beliefs` owns,
+so admission never consults a deferred `KindSpec` compilation; and every
+clause is a non-empty conjunction. Mint-time admission checks **form and
+vocabulary only**. It
 never checks that an anchor resolves: the record is immutable while the
 world moves, and a query whose anchor has not yet been minted — or whose
 corpus is elsewhere — is a well-formed query that today evaluates to a
@@ -201,8 +205,11 @@ shorthand, and no default scope in storage; brevity is the renderer's job.
 A `task` names blockers in a `depends` field of `coord:` addresses,
 including addresses under another project's identity — the `t018`/`t043`
 case world §6.1 exists to keep expressible. A reference resolves to the
-address's current standing tip (§4.4) unless it names a revision identity
-explicitly, in which case it reads that immutable revision.
+address's current standing tip (§4.4) unless it pins a revision with the
+`@` form — `coord:<project-identity>/<local-id>@<revision-id>`, or
+`coord:<project-identity>@<revision-id>` for the project record — in which
+case it reads that immutable revision, standing or superseded. The
+revision id is §4.7's.
 
 ### 3.5 `addressing.py`, discharged
 
@@ -240,7 +247,24 @@ relation refuses, exactly as it does today. Conversely `add`, `revise`,
 `supersede` and `retract` all **refuse coordination kinds**, the way
 `_refuse_family_kinds` already refuses `act-report`, `retraction` and
 `holdings-observation`: these kinds have their own door, and no ordinary
-path can mint or mutate them.
+path can mint or mutate them. **`import_bundle` refuses them too, naming
+the member**: a bundle member of a coordination kind would arrive with no
+predecessor judgment, no project resolution, no contract authorization and
+no cycle guard, so the import boundary — which deliberately admits
+`act-report` — is closed to this tier. Coordination records move between
+checkouts by replicating the corpus that holds them, never by bundle.
+
+One kind this closes deserves its own sentence. The repository already
+mints an **unscoped `note`** through ordinary `add` — the predecessor-era
+curation stub, frozen into cut 5's evidence
+(`test_n2_cut5.py`'s ineligible-kind arm) and several import and read
+fixtures. That stopgap is **retired by this design**: `note` is the
+coordination kind everywhere, world §3's Notes tier is project-scoped as
+banked, and ordinary `add` refuses it like every other coordination kind —
+no pin-conditional semantics, no second prose kind. Cut 5's arm
+re-parametrizes over another ineligible kind under a dated amendment note
+in the cut document, and the affected fixtures move with it; both land
+with cut 14's implementation, when the refusal turns on (§9.2).
 
 Two mechanical inheritances from the substrate, stated so they are built
 rather than discovered: the door carries the **pre-plan already-minted
@@ -256,13 +280,17 @@ transaction** — one revision, one commit — since the batched-plan path is
   revisions included.** One transaction under the root's per-root operation
   lock, carrying **no** operation intent: `OPERATION_KINDS` stays closed
   and names nothing for these. Every named predecessor must be a standing
-  tip **at commit**, judged under that lock over the root's read view;
-  otherwise `Refused(predecessor-not-standing)`. Within one root the lock
-  serializes revisions, so no sibling can arise there — the lock being
-  in-process, that holds across processes only under the single-writer
-  deployment obligation the ledger records for the composition root (its
-  row 4); siblings otherwise arise across corpora or replicas, and §4.4
-  handles them.
+  tip **at commit**, judged under that lock through the coordination
+  resolver (§4.4a) over its explicit corpus set; otherwise
+  `Refused(predecessor-not-standing)`. The judgment's exactness is scoped
+  honestly: for revisions held in the **written root** it is exact, since
+  the lock serializes that root's writes (in-process; across processes
+  only under the single-writer deployment obligation the ledger records
+  for the composition root, its row 4). For revisions held in **other**
+  corpora of the set it is a point-in-time read of immutable records — a
+  supersession committed concurrently in another root is not observed, and
+  the mint then creates a lawful sibling, which is §4.4's refusal at the
+  next resolution, not a violation of this rule.
 - **The intent-position rule — revisions minted inside a registered
   operation.** Every named predecessor must have been a standing tip **at
   the position in the source root's log where the operation's intent was
@@ -276,12 +304,30 @@ transaction** — one revision, one commit — since the batched-plan path is
   which sub-project 5 lands with its own intent kind, and a future
   operation that mints revisions inherits the rule by amendment.
 
+### 4.4a The coordination resolver
+
+`CorpusWriter.read_view` is one root's view, and tip judgment, project
+resolution and read-time resolution all need more than one root — a
+project moves corpora by minting its next revision elsewhere, so even the
+mint path must read across. The design therefore names a **coordination
+resolver**: a read-only component constructed over an **explicit corpus
+set** — the composition root supplies the checkout's mounted set, exactly
+the set world reads mount; there is no default and no discovery, and a
+single-corpus caller passes a one-element set knowingly. It gathers the
+revisions of an address across its set and computes standing tips. The
+family door holds it for §4.3's judgment and §4.5's project check;
+read-time resolution is the same computation, so the two can never
+disagree about what a tip is. It takes no lock on any root but the one
+being written: everything it reads is an immutable revision, and the only
+concurrency hazard — a supersession landing elsewhere mid-judgment — is
+the lawful-sibling case §4.3 states.
+
 ### 4.4 One standing tip, or refuse
 
 The current revision of an address is its **one standing tip**: the single
-revision of that address that no other revision supersedes. Resolution
-gathers every revision of the address across the checkout's mounted
-corpora — **live**, never epoch-bound (§6.2) — and:
+revision of that address that no other revision supersedes. Resolution —
+the coordination resolver over its corpus set — is **live**, never
+epoch-bound (§6.2), and:
 
 - exactly one tip: that revision is the current record;
 - two or more tips — minted across corpora or replicas, or lawfully by the
@@ -323,6 +369,36 @@ are closed at two: `divergent-view` (resolution),
 `predecessor-not-standing` (the intent-position judgment; the general
 rule's mint-time counterpart is the `PredecessorNotStanding` exception).
 
+### 4.7 The stored identity model
+
+How a revision maps onto the substrate's `Node`, stated so every earlier
+promise has a mechanism:
+
+- **`Node.kind`** is the kind name (`project`, `task`, …).
+- **The address halves are structured fields**: every revision carries
+  `project` (the 32-lower-hex project identity — for the `project` kind,
+  its own), and every subordinate revision carries `local` (the
+  32-lower-hex local id). Both are shape-validated at the door; the
+  `coord:` address is derived from them and stored nowhere as a third
+  field.
+- **The revision id is `Node.uid`**, minted opaquely at the door —
+  `secrets.token_hex(16)`, one per revision, never reused and never
+  content-derived: two replicas independently authoring byte-identical
+  repair content mint two distinct sibling revisions, and the tip rule
+  says so rather than a digest coincidence merging them silently.
+- **`Node.id`** — the substrate's storable identity, from which the
+  storage path derives — is `<kind>:<project>/<local>@<uid>` (the
+  `project` kind: `project:<project>@<uid>`). It is unique per revision by
+  the `uid` component, so the pre-plan already-minted guard has a real
+  key, and it is what a **`supersedes` relation targets**: the predecessor
+  set names predecessor *revisions*, exactly, never addresses.
+- **The `@` reference form** (§3.4) pins `Node.uid`; an unpinned `coord:`
+  reference is resolved by the coordination resolver to the standing tip's
+  node.
+- **Facets: none.** No coordination revision carries a semantic-identity
+  stamp, an empirical-observation facet, or any other kernel facet; the
+  governed-stamp refusal applies unchanged.
+
 ## 5. The coordination contract
 
 ### 5.1 A new contract type
@@ -337,6 +413,22 @@ kinds are members of §4's revision family. Version 1 declares exactly the
 eight kinds of §1; `publication` and `publication-binding` arrive by the
 versioned amendment sub-project 5 banks, and an earlier version's pin
 authorizes nothing an amendment added.
+
+The contract also carries the **query vocabulary** as two literal lists:
+the world-kind names a `kinds` predicate may use, and the relation names a
+`closure` predicate may traverse. Their authority is the pinned contract;
+their honesty is checked once, at `compile_profile`, against the closed
+inventories `beliefs` already owns — the kernel kind set (made an explicit
+exported constant if the registry does not already expose one) and
+stored.py's closed relation signatures. A contract naming a kind or
+relation the kernel does not know refuses at compile, so a pinned corpus
+can never admit a query the world cannot mean, and nothing waits on the
+deferred `KindSpec` compilation (D4). Version 1's lists: the world kinds,
+and the role-typed and lineage relations (`assesses`, `observes`, `reads`,
+`transforms`, `produces`, `produced_by`, `executes`, `targets`,
+`verifies`, `member_of`, `grounded-in`) — deliberately excluding
+`supersedes`, `retracts`, `anchored_in` and `succeeded-by`, whose
+traversal is lifecycle machinery, not selection.
 
 It has its own parser with a closed field set; a hand-built contract
 object refuses at compile, on the `UnparsedContract` pattern; an unknown
@@ -355,7 +447,9 @@ what the note comments on — the "project commentary on a world entity" of
 world §3, and the one sanctioned place a coordination record references the
 world tier; the reference is inert, like everything here. No other kind
 carries a cross-tier reference field, and no field anywhere at this tier is
-consulted by lookup.
+consulted by lookup. `note` here **replaces** the predecessor-era unscoped
+note outright (§4.2): there is one note kind, it is this one, and the
+ordinary `add` path refuses it.
 
 ### 5.3 Independently versioned, by the existing succession mechanism
 
@@ -378,8 +472,14 @@ where that ban already lives (manifest parse and pin validation).
 ### 5.5 Compilation and authorization
 
 `compile_profile` accepts the coordination contract alongside the base and
-domains; `ProfileSpec` carries the compiled kind specs and folds the
-contract identity into `compiled_identity` and `activated_contracts`. The
+domains; `ProfileSpec` carries the compiled kind specs. What moves
+`compiled_identity` is the coordination contract's **kind-schema
+projection** — the declared kinds, their field sets, the query vocabulary
+and admissible query versions — never its raw content identity, preserving
+`ProfileSpec`'s existing invariant that semantic-schema edits recompile
+while editorial and lineage-only edits do not (M7's split). The contract's
+content identity enters `activated_contracts`, exactly as a domain's does.
+The
 family door (§4.2) authorizes a mint **only** for a kind the pinned
 contract version declares: a corpus pinning no coordination contract mints
 no coordination records, and a kind an amendment added is unauthorized
@@ -497,8 +597,8 @@ exists.
 | **W11** | a qualified `coord:` reference where a world entity is required → refused by kind; a world address where a coordination reference is required → refused by kind; both before any lookup, off the address form alone | **closes** |
 | **W12** | rename a project by ordinary revision; every stored `(project identity, local id)` reference resolves unchanged; resolution consults no name, handle, or label — the old name survives only in superseded revisions' content | **closes** |
 | **W13** | the two-projects negative only: point two projects at one corpus → one `corpus_id`; repoint one project to another corpus → no corpus identity changed | remains **part** — every other arm is `world-resolution`'s |
-| **W17** | genesis arity zero; every edit a new whole revision; `add`/`revise`/`supersede`/`retract` refuse coordination kinds (no other door), and the family door refuses world kinds; the pre-plan already-minted guard holds at the new door; general rule: a named predecessor superseded before commit → `predecessor-not-standing` under the lock; siblings minted in two corpora → `Refused(divergent-view)` naming every tip, and swapping mount order changes nothing; one repair revision superseding all tips restores resolution, with the siblings retained immutable; the intent-position rule judged as a pure function of a constructed chain prefix, including the superseded-between-intent-and-commit case that lawfully yields two tips; a raw-written `supersedes` cycle → audit finding naming the cycle, zero tips, no repair; a subordinate mint under a missing or divergent project → refused | **closes** — the rule's operational instance (`publish`) is sub-project 5's, banked unrun in §9.3 |
-| **W18** | a kind the pinned coordination-contract version does not declare → refused (no pin, no mints; an earlier version authorizes nothing an amendment added); an ill-formed or out-of-vocabulary query → refused at mint, while a well-formed query whose anchor does not resolve is **accepted** — the malformed/unresolvable split at the mint boundary; coordination mints appear in no world-index map and move no `belief_input_digest`; a domain contract claiming the `coordination` namespace → refused | **closes** |
+| **W17** | genesis arity zero; every edit a new whole revision; `add`/`revise`/`supersede`/`retract` refuse coordination kinds — `note` included, its unscoped predecessor use retired (§4.2) — and `import_bundle` refuses a bundle carrying one, naming the member; the family door refuses world kinds; the pre-plan already-minted guard holds at the new door, keyed on §4.7's per-revision `Node.id`; general rule: a named predecessor superseded before commit → `predecessor-not-standing`, judged through the resolver under the written root's lock; siblings minted in two corpora → `Refused(divergent-view)` naming every tip, and swapping the resolver's corpus-set order changes nothing; one repair revision superseding all tips restores resolution, with the siblings retained immutable; the intent-position rule judged as a pure function of a constructed chain prefix, including the superseded-between-intent-and-commit case that lawfully yields two tips; a raw-written `supersedes` cycle → audit finding naming the cycle, zero tips, no repair; a subordinate mint under a missing or divergent project → refused | **closes** — the rule's operational instance (`publish`) is sub-project 5's, banked unrun in §9.3 |
+| **W18** | a kind the pinned coordination-contract version does not declare → refused (no pin, no mints; an earlier version authorizes nothing an amendment added); an ill-formed query, or one naming a kind or closure relation outside the contract's literal query vocabulary → refused at mint, while a well-formed query whose anchor does not resolve is **accepted** — the malformed/unresolvable split at the mint boundary; a contract whose query vocabulary names a kind or relation the kernel inventories do not know → refused at `compile_profile`; an editorial or lineage-only contract edit moves the contract identity and **not** `compiled_identity`, while a kind-schema edit moves both; coordination mints appear in no world-index map and move no `belief_input_digest`; a domain contract claiming the `coordination` namespace → refused | **closes** |
 
 ### 9.2 Where the arms live
 
@@ -514,8 +614,10 @@ intent-position judgment over constructed chain prefixes; the
 **Durable suite**, on the certified volume beside the checkout (the
 composition-root pattern every corpus-write cut since 4 uses): the family
 door end to end — genesis, revision, the at-commit refusal under the lock,
-wrong-door refusals both directions, the already-minted guard; two-corpus
-sibling minting and `divergent-view` with mount-order swap; repair;
+wrong-door refusals both directions including `import_bundle`'s
+member-naming refusal and the ordinary path refusing `note`, the
+already-minted guard; two-corpus sibling minting through the resolver and
+`divergent-view` with the corpus-set order swapped; repair;
 the raw-written cycle audit finding; the subordinate-needs-project
 refusals; W12's rename walk; W13's two-projects negative; W18's index-map
 absence and `belief_input_digest` stability, asserted over a packaged
@@ -527,6 +629,14 @@ compiler, or the manifest pin validation; `test_n2_cut14.py` and
 `tools/cut14_acceptance.py` follow the cut-12 pattern, with
 `PREFIX_RUNNERS` naming the newest discharged prefix chain as it stands at
 discharge time.
+
+**One discharge obligation is a predecessor amendment.** Turning on the
+ordinary path's `note` refusal (§4.2) breaks cut 5's frozen
+ineligible-kind arm and the fixtures that mint unscoped notes. The same
+implementation commit re-parametrizes that arm over another ineligible
+kind, adds a dated amendment note to cut 5's document, and moves the
+import, arrival and read fixtures — refusal and amendments together, so
+no suite is red between them.
 
 ### 9.3 Limitations, banked as unrun by design
 
