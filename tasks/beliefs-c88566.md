@@ -1,11 +1,12 @@
 ---
 id: beliefs-c88566
 title: "Design coordination and view kinds (sub-project 1, coordination-addressing)"
-status: todo
+status: doing
 priority: 1
 size: l
+owner: main
 created: 2026-08-30T20:21:43Z
-updated: 2026-08-30T20:21:43Z
+updated: 2026-08-31T09:25:24Z
 depends: []
 tags: [mutation-lane, coordination]
 ---

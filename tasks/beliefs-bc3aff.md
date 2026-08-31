@@ -5,7 +5,7 @@ status: todo
 priority: 2
 size: xl
 created: 2026-08-31T00:38:27Z
-updated: 2026-08-31T00:38:27Z
+updated: 2026-08-31T10:04:46Z
 depends: []
 tags: [migration, domain, parity]
 ---
@@ -17,3 +17,7 @@ Acceptance evidence: Design and freeze the domain cut; implement domain-pack com
 Sources: `docs/plans/2026-08-29-implementation-roadmap.md` `domain-boundary` and `parity-fixture-2`; `docs/designs/2026-08-04-domain-extension-boundary-design.md`; and `docs/superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md` §4.3 and §8 item 3.
 
 Uncertainty: The domain contract is banked, but distribution/governance details and the exact biology bindings require the boundary's design cycle.
+
+## Notes
+
+- 2026-08-31T10:04:46Z (main): Rule 2.6 freezes the base profile until a second separately-evolved corpus exists, so the biology pack will carry fields that are really base-profile candidates. Mark each such field as a base-profile candidate when it lands (agreement/exercise met, reader present, second corpus absent) so later admission is a lookup, not an excavation.
