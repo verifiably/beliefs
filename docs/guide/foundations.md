@@ -148,8 +148,10 @@ construction and identity, the derived admission state, the assessment
 admission gate, and `science.belief.v1` under an exact binding. Kernel §8.7's
 recorded-mutation consequences now close through the mutation log's anchor
 carriage and verification and cut 12's successor admission. The agentic surface
-and salvage — the two sub-problems with no design — remain that way. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-08-29)
+has an approved [user and autonomy layer design](../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md),
+but its daily surface and autonomy sub-projects are not implemented; salvage
+remains undesigned. The [adoption ledger's current-state
+summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-08-29)
 is the complete statement of what is built and what remains.
 
 ## Open edges

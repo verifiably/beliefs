@@ -58,11 +58,11 @@ The spike (bubblewrap 0.12, Snakemake 8.11.4, this host) established five facts 
 5. In §5.5, after `--cores <n>`, insert `--force-use-threads`, with: `Snakemake 8's local executor otherwise spawns every run: job as a fresh python -m snakemake through /bin/sh (shell=True); in-process execution keeps the closure shell-free. The minimal policy's argv is byte-unchanged.`
 6. In §6.1 step 1, replace "with two inherited descriptors" by "with two inherited descriptors named on its own argv (`--report-fd`, `--go-fd`, never the environment)".
 7. In §6.2's network row, replace the check text with: `an IPv4 connect to a non-loopback documentation address (192.0.2.1) fails with ENETUNREACH; an IPv6 socket either cannot be created (EAFNOSUPPORT) or its connect to 2001:db8::1 fails unreachable. Loopback is not evidence — the sandbox owns its own lo. DNS failure is not evidence and is not checked.`
-8. In §9.3, add: `- An N2 sabotage of probe.py does not reach the sandbox, whose science tree is the closure's own copy; every cut-13 arm sabotages host-side code.` and `- PYTHONPATH is not captured (§5.1).`
+8. In §9.3, add: `- An N2 sabotage of probe.py does not reach the sandbox, whose beliefs tree is the closure's own copy; every cut-13 arm sabotages host-side code.` and `- PYTHONPATH is not captured (§5.1).`
 9. In §4.2, after the sentence beginning "`PT_INTERP`, the Python version directory name", add: `Every symlink row's target is itself part of the closure — a file row, a symlink row, or a directory some row lies under — and is captured when the link is; a relative target that stays under the link's own root keeps its relative text, any other in-closure target is rewritten to the target's sandbox path, and a target outside every root is ClosureUnsupported. sys.executable is followed link by link (add_chain): each link a symlink row, the terminal binary the interpreter row. Every sandbox path is normalized — absolute, no ., .. or empty components — and the manifest refuses any other spelling, so a snapshot join can never leave the snapshot.` In §5.2's first bullet, replace "`/science/env/venv/bin/python` → the base interpreter;" with "`/science/env/venv/bin/python` → the base interpreter, rendered only when the interpreter's symlink chain did not already capture that path as a manifest row;".
 10. In §5.3, append: `The host listing runs the loader under an empty environment — no ambient LD_LIBRARY_PATH or LD_PRELOAD — and the capture retains the expected map as rows (ELF sandbox path, SONAME, resolved sandbox path) over every loadable ELF (ET_EXEC or ET_DYN) under /science/env, closed to a fixpoint over the libraries it adds. The probe lists the same set in-layout and the boundary requires its report to equal the map exactly: the same ELFs, the same SONAMEs per ELF, the same resolved path, the manifest's digest; a nonzero loader exit, an unresolved or unparsable line, an omitted or extra entry each refuse.` Replace §6.2's loader row check text with: `the in-layout ld.so --list of every loadable ELF under /science/env reports, per ELF, its exit status and each SONAME's resolved path and digest; the boundary requires equality with the captured map (§5.3)`.
 11. In §6.1 step 3, after "no `rw` where `ro` was planned", add: `Canonical rows preserve multiplicity — a stacked or duplicate mount is a row of its own and fails equality — and each observed mountpoint is classified into its planned role, an unplanned one taking the role unplanned; the receipt's instance carries these observed rows, never the plan's.` In §8, replace the `ConfinementUnavailable` row's stage text "pre-intent" with "pre-intent only", and append to the `ConfinementNotEstablished` row's "when" cell: `; any launch or protocol failure after intent — bubblewrap gone, an unstartable process, malformed info or report, a closed descriptor — with the child terminated and reaped and every descriptor closed on every failure path`.
-12. In §10, add a bullet after the `RAW_WRITE_ALLOWLIST` one: `science/probe.py is the fourth raw-write surface, {touch, unlink}: its one write check touches and removes a file under the output root with inventoried operations, so the equality allowlist weighs it rather than a raw os.open escaping the inventory.` In §6.2's filesystem row, replace "succeeds and is removed" with "succeeds (Path.touch) and is removed (unlink)".
+12. In §10, add a bullet after the `RAW_WRITE_ALLOWLIST` one: `beliefs/probe.py is the fourth raw-write surface, {touch, unlink}: its one write check touches and removes a file under the output root with inventoried operations, so the equality allowlist weighs it rather than a raw os.open escaping the inventory.` In §6.2's filesystem row, replace "succeeds and is removed" with "succeeds (Path.touch) and is removed (unlink)".
 13. In §4.4's cost paragraph, replace the first sentence with: `A cache hit costs three full digest passes over the closure — the host capture, the snapshot verification materialize_snapshot performs (the pre-bind observation), and the post-exit check — against today's two (capture and require_executing_environment); the confined path does not call require_executing_environment, because the recipe's manifest is that single capture by construction, and no other pass over the snapshot exists.` In §5.6 step 3, replace "pre-bind integrity (§4.4)" with "pre-bind integrity (§4.4: the bundle's fold and the staged inputs' fingerprint; the snapshot's pass is the get-or-build verification)".
 14. In §3, after the sentence stating the match is over the entire definition, add: `The capability member is compared as a set — frozenset(capabilities) — and the boundary carries on with the canonical known value, so a reordered spelling of a known set is recorded as the definition it names.`
 
@@ -115,12 +115,12 @@ sabotage per arm, checks naming one test function each.
 
 ## 2. The boundary
 
-Inside: everything the spec builds — `science/confinement.py`,
-`science/probe.py`, the confined path of `science/boundary.py`, the
-closure walk in `science/adapter.py`, the values in `science/recipe.py`,
-the receipt variants in `science/runrecord.py`, `qualifies` and the fourth
-row in `science/replay.py`, `admission_record` in `science/verify.py`, the
-named refusals in `science/errors.py`. The confined arms run under
+Inside: everything the spec builds — `beliefs/confinement.py`,
+`beliefs/probe.py`, the confined path of `beliefs/boundary.py`, the
+closure walk in `beliefs/adapter.py`, the values in `beliefs/recipe.py`,
+the receipt variants in `beliefs/runrecord.py`, `qualifies` and the fourth
+row in `beliefs/replay.py`, `admission_record` in `beliefs/verify.py`, the
+named refusals in `beliefs/errors.py`. The confined arms run under
 `tests/acceptance/` behind a **confinement gate** — bubblewrap with
 `--info-fd`, user namespaces, the loader's `--list` — that errors and never
 skips, and need no durable root. The aggregate runner
@@ -226,12 +226,12 @@ R13 1, R16 1, R21 2 — **15 selected + 7 labeled = 22 declaration units**.
 
 ## 5. N2 obligations
 
-1. **Host-side sabotage only**: the sandbox's `science` tree is the
+1. **Host-side sabotage only**: the sandbox's `beliefs` tree is the
    closure's own copy, so a sabotage of `probe.py` would not reach it;
    every arm mutates `boundary.py`, `confinement.py`, `adapter.py`,
    `recipe.py`, `replay.py`, `verify.py` or `runrecord.py`.
 2. **The mutation arms** (R15u1, u2) interpose at named seams —
-   `science.boundary.capture_bundle` and `science.boundary.launch_confined`
+   `beliefs.boundary.capture_bundle` and `beliefs.boundary.launch_confined`
    — deterministically; u1 additionally asserts the launch seam was never
    entered.
 3. **The fail-closed arms** (R15u3, u4, R21u1) assert the reason is
@@ -341,8 +341,8 @@ Then write the short hash into the ledger's `Freeze hash:` line and commit `docs
 ### Task 2: The named refusals and `RunRefused.detail`
 
 **Files:**
-- Modify: `python/src/science/errors.py` (append after `UnsafeInvocation`)
-- Modify: `python/src/science/boundary.py:100-107` (`RunRefused`)
+- Modify: `python/src/beliefs/errors.py` (append after `UnsafeInvocation`)
+- Modify: `python/src/beliefs/boundary.py:100-107` (`RunRefused`)
 - Test: `python/tests/test_confinement_errors.py`
 
 **Interfaces:**
@@ -355,8 +355,8 @@ Then write the short hash into the ledger's `Freeze hash:` line and commit `docs
 ```python
 """The confined boundary's refusals carry stable reasons; the message is diagnostic."""
 
-from science.boundary import RunRefused
-from science.errors import (
+from beliefs.boundary import RunRefused
+from beliefs.errors import (
     BoundaryPolicyUnsupported,
     ClosureMutated,
     ClosureUnsupported,
@@ -417,7 +417,7 @@ Expected: FAIL — `ImportError: cannot import name 'ConfinementRefusal'`.
 
 - [ ] **Step 3: Implement**
 
-Append to `python/src/science/errors.py` directly after the `UnsafeInvocation` class:
+Append to `python/src/beliefs/errors.py` directly after the `UnsafeInvocation` class:
 
 ```python
 class ConfinementRefusal(ScienceError):
@@ -480,7 +480,7 @@ class NotAnAssessmentVerification(RecordError):
     which has no assessment to admit (design §7.2)."""
 ```
 
-In `python/src/science/boundary.py`, change `RunRefused` to:
+In `python/src/beliefs/boundary.py`, change `RunRefused` to:
 
 ```python
 @sealed
@@ -498,13 +498,13 @@ class RunRefused:
 
 - [ ] **Step 4: Run to verify pass**
 
-Run: `cd python && set -o pipefail && uv run pytest tests/test_confinement_errors.py tests/test_boundary.py | tail -1 && uv run ruff check src/science/errors.py src/science/boundary.py && uv run pyright src/science/errors.py | tail -1`
+Run: `cd python && set -o pipefail && uv run pytest tests/test_confinement_errors.py tests/test_boundary.py | tail -1 && uv run ruff check src/beliefs/errors.py src/beliefs/boundary.py && uv run pyright src/beliefs/errors.py | tail -1`
 Expected: all passed; clean; `0 errors`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add python/src/science/errors.py python/src/science/boundary.py python/tests/test_confinement_errors.py
+git add python/src/beliefs/errors.py python/src/beliefs/boundary.py python/tests/test_confinement_errors.py
 git commit -m "feat(errors): name the confined boundary's refusals with stable reasons"
 ```
 
@@ -513,12 +513,12 @@ git commit -m "feat(errors): name the confined boundary's refusals with stable r
 ### Task 3: The values — vocabulary, policies, the instance attestation, receipt and run domains
 
 **Files:**
-- Modify: `python/src/science/recipe.py` (constants at 46–53; `BoundaryPolicy` 197–208; `BoundaryReceipt` 390–406; `_receipt_projection` 452–458; `RunClosure.address` 495–503; `__all__`). **Not** `EnvironmentManifest`: its v2 row shape lands with the capture that produces it, in Task 5, so every commit boundary stays green.
+- Modify: `python/src/beliefs/recipe.py` (constants at 46–53; `BoundaryPolicy` 197–208; `BoundaryReceipt` 390–406; `_receipt_projection` 452–458; `RunClosure.address` 495–503; `__all__`). **Not** `EnvironmentManifest`: its v2 row shape lands with the capture that produces it, in Task 5, so every commit boundary stays green.
 - Create: `python/tests/confinement_fixtures.py`
 - Test: `python/tests/test_confinement_values.py`
 
 **Interfaces:**
-- Produces (all in `science.recipe`): `CAPABILITIES`, `REQUIRED_FOR_CLEAN_ENVIRONMENT`, `RENDERED_KINDS`, `NAMESPACES`, `MOUNT_ACCESS`, `CONFINED_RECEIPT_DOMAIN`, `CONFINED_RUN_DOMAIN`, `MOUNT_PLAN_DOMAIN`; `MINIMAL_POLICY`, `CONFINED_POLICY`, `SUPPORTED_POLICIES`, `supported_policy(policy) -> BoundaryPolicy` (the canonical known value, matched on identity, scope rule and capability *set*); `mount_plan_identity(mounts) -> str`; `InstanceAttestation(namespaces, mounts, mount_plan_identity, environment_identity)`; `BoundaryReceipt(..., instance=None, rendered_environment=None, mounts=None)` with `.confined`; `run_domain_for(confined: bool) -> str`; `_triples(rows)`.
+- Produces (all in `beliefs.recipe`): `CAPABILITIES`, `REQUIRED_FOR_CLEAN_ENVIRONMENT`, `RENDERED_KINDS`, `NAMESPACES`, `MOUNT_ACCESS`, `CONFINED_RECEIPT_DOMAIN`, `CONFINED_RUN_DOMAIN`, `MOUNT_PLAN_DOMAIN`; `MINIMAL_POLICY`, `CONFINED_POLICY`, `SUPPORTED_POLICIES`, `supported_policy(policy) -> BoundaryPolicy` (the canonical known value, matched on identity, scope rule and capability *set*); `mount_plan_identity(mounts) -> str`; `InstanceAttestation(namespaces, mounts, mount_plan_identity, environment_identity)`; `BoundaryReceipt(..., instance=None, rendered_environment=None, mounts=None)` with `.confined`; `run_domain_for(confined: bool) -> str`; `_triples(rows)`.
 - Consumes: `BoundaryPolicyUnsupported` (Task 2).
 
 - [ ] **Step 1: Write the failing tests**
@@ -530,7 +530,7 @@ git commit -m "feat(errors): name the confined boundary's refusals with stable r
 
 from fixtures_cut3 import closure, occurrence
 
-from science.recipe import (
+from beliefs.recipe import (
     CAPABILITIES,
     NAMESPACES,
     BoundaryReceipt,
@@ -594,9 +594,9 @@ import pytest
 from confinement_fixtures import ENV_IDENTITY, MOUNTS, confined_closure, confined_receipt, instance
 from fixtures_cut3 import closure, occurrence
 
-from science.errors import BoundaryPolicyUnsupported, MalformedClosure
-from science.identity import v1
-from science.recipe import (
+from beliefs.errors import BoundaryPolicyUnsupported, MalformedClosure
+from beliefs.identity import v1
+from beliefs.recipe import (
     BOUNDARY_RECEIPT_DOMAIN,
     CAPABILITIES,
     CONFINED_POLICY,
@@ -745,7 +745,7 @@ Expected: FAIL — `ImportError: cannot import name 'CAPABILITIES'`.
 
 - [ ] **Step 3: Implement the values**
 
-In `python/src/science/recipe.py`:
+In `python/src/beliefs/recipe.py`:
 
 Replace the four domain constants (lines 46–49) with:
 
@@ -768,7 +768,7 @@ NAMESPACES = ("cgroup", "ipc", "mnt", "net", "pid", "user", "uts")
 MOUNT_ACCESS = ("ro", "rw")
 ```
 
-Add `BoundaryPolicyUnsupported` to the `from science.errors import` line. Add after `_require_pairs`:
+Add `BoundaryPolicyUnsupported` to the `from beliefs.errors import` line. Add after `_require_pairs`:
 
 ```python
 def _require_triples(value: object, where: str) -> None:
@@ -947,13 +947,13 @@ Add to `__all__`: `"CAPABILITIES"`, `"CONFINED_POLICY"`, `"CONFINED_RECEIPT_DOMA
 
 - [ ] **Step 4: Run to verify pass, and the anchor audit**
 
-Run: `cd python && set -o pipefail && uv run pytest tests/test_confinement_values.py tests/test_recipe.py tests/test_boundary.py tests/test_replay.py tests/test_verify.py tests/test_run_persistence.py tests/test_assess.py tests/test_production.py tests/test_decode.py | tail -1 && uv run pytest tests/test_n2.py -k stale | tail -1 && uv run ruff check src/science/recipe.py tests && uv run pyright src/science/recipe.py | tail -1`
+Run: `cd python && set -o pipefail && uv run pytest tests/test_confinement_values.py tests/test_recipe.py tests/test_boundary.py tests/test_replay.py tests/test_verify.py tests/test_run_persistence.py tests/test_assess.py tests/test_production.py tests/test_decode.py | tail -1 && uv run pytest tests/test_n2.py -k stale | tail -1 && uv run ruff check src/beliefs/recipe.py tests && uv run pyright src/beliefs/recipe.py | tail -1`
 Expected: all passed (the durable `test_run_persistence.py` tests fail only with the host's allowlist refusal — confirm every failure message is `CapabilityUnavailable: volume configuration is not on the supplied durability allowlist`, and nothing else); no stale anchors; clean; `0 errors`. Nothing in this task changes the environment manifest, so the boundary tests execute exactly as before.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add python/src/science/recipe.py python/tests
+git add python/src/beliefs/recipe.py python/tests
 git commit -m "feat(recipe): close the capability vocabulary and attest the confined instance"
 ```
 
@@ -962,7 +962,7 @@ git commit -m "feat(recipe): close the capability vocabulary and attest the conf
 ### Task 4: The wire codec — receipt variants and the run-domain dispatch
 
 **Files:**
-- Modify: `python/src/science/runrecord.py` (`_validate_occurrence` 318–371; `_reproject` 391–420; `decode_run_record` 458; imports 23–31)
+- Modify: `python/src/beliefs/runrecord.py` (`_validate_occurrence` 318–371; `_reproject` 391–420; `decode_run_record` 458; imports 23–31)
 - Test: `python/tests/test_runrecord_confined.py`
 
 **Interfaces:**
@@ -985,11 +985,11 @@ from confinement_fixtures import confined_closure
 from fixtures_cut3 import closure
 from nodes.core.frontmatter import node_from_markdown
 
-from science.errors import MalformedRecord
-from science.identity import v1
-from science.recipe import CONFINED_RUN_DOMAIN, RUN_DOMAIN
-from science.runrecord import decode_projection, decode_run_record, projection_text, publication_plan
-from science.stored import RUN_CLOSURE_FACET
+from beliefs.errors import MalformedRecord
+from beliefs.identity import v1
+from beliefs.recipe import CONFINED_RUN_DOMAIN, RUN_DOMAIN
+from beliefs.runrecord import decode_projection, decode_run_record, projection_text, publication_plan
+from beliefs.stored import RUN_CLOSURE_FACET
 
 
 def _node_of(run):
@@ -1077,7 +1077,7 @@ def test_the_wire_refuses_what_the_values_refuse(mutate, match):
         decode_projection(v1.encode(text))
 ```
 
-(add `from science.recipe import CONFINED_RUN_DOMAIN, RUN_DOMAIN, mount_plan_identity` — the mutations that touch `mounts` recompute the identity so the parity check, not the identity check, is what refuses.)
+(add `from beliefs.recipe import CONFINED_RUN_DOMAIN, RUN_DOMAIN, mount_plan_identity` — the mutations that touch `mounts` recompute the identity so the parity check, not the identity check, is what refuses.)
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -1086,7 +1086,7 @@ Expected: FAIL — `MalformedRecord: run projection at $.occurrence.receipt: key
 
 - [ ] **Step 3: Implement**
 
-In `python/src/science/runrecord.py`, extend the `science.recipe` import with `CAPABILITIES`, `MOUNT_ACCESS`, `NAMESPACES`, `RENDERED_KINDS`, `mount_plan_identity`, `run_domain_for`, and drop `RUN_DOMAIN` from it. Add a helper after `_pair_list`:
+In `python/src/beliefs/runrecord.py`, extend the `beliefs.recipe` import with `CAPABILITIES`, `MOUNT_ACCESS`, `NAMESPACES`, `RENDERED_KINDS`, `mount_plan_identity`, `run_domain_for`, and drop `RUN_DOMAIN` from it. Add a helper after `_pair_list`:
 
 ```python
 def _triple_list(value: object, path: str) -> list[list[str]]:
@@ -1174,13 +1174,13 @@ In `decode_run_record`, replace `address = v1.digest(RUN_DOMAIN, parsed)` with:
 
 - [ ] **Step 4: Run to verify pass**
 
-Run: `cd python && set -o pipefail && uv run pytest tests/test_runrecord_confined.py tests/test_decode.py tests/test_run_persistence.py | tail -1 && uv run pytest tests/test_n2.py -k stale | tail -1 && uv run ruff check src/science/runrecord.py && uv run pyright src/science/runrecord.py | tail -1`
+Run: `cd python && set -o pipefail && uv run pytest tests/test_runrecord_confined.py tests/test_decode.py tests/test_run_persistence.py | tail -1 && uv run pytest tests/test_n2.py -k stale | tail -1 && uv run ruff check src/beliefs/runrecord.py && uv run pyright src/beliefs/runrecord.py | tail -1`
 Expected: the new tests pass; `test_run_persistence.py` fails only with the allowlist refusal; no stale anchors; clean; `0 errors`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add python/src/science/runrecord.py python/tests/test_runrecord_confined.py
+git add python/src/beliefs/runrecord.py python/tests/test_runrecord_confined.py
 git commit -m "feat(runrecord): accept both receipt spellings and recompute a confined run under run.v2"
 ```
 
@@ -1189,15 +1189,15 @@ git commit -m "feat(runrecord): accept both receipt spellings and recompute a co
 ### Task 5: The runtime artifact closure — the per-file walk and the policy-neutral argv
 
 **Files:**
-- Modify: `python/src/science/recipe.py` (`ENVIRONMENT_DOMAIN` at 48; `EnvironmentManifest` 187–195; new `ARTIFACT_KINDS`) — the v2 row shape lands **in this task**, atomically with the capture that produces it
-- Modify: `python/src/science/adapter.py` (imports; `capture_environment` 157–165; `build_argv` 184–221; new closure walk)
-- Modify: `python/src/science/boundary.py:357-364` (the one `build_argv` call — keyword renames only)
+- Modify: `python/src/beliefs/recipe.py` (`ENVIRONMENT_DOMAIN` at 48; `EnvironmentManifest` 187–195; new `ARTIFACT_KINDS`) — the v2 row shape lands **in this task**, atomically with the capture that produces it
+- Modify: `python/src/beliefs/adapter.py` (imports; `capture_environment` 157–165; `build_argv` 184–221; new closure walk)
+- Modify: `python/src/beliefs/boundary.py:357-364` (the one `build_argv` call — keyword renames only)
 - Modify: `python/tests/fixtures_cut3.py:118` and every other `EnvironmentManifest(` construction under `python/tests/`
 - Test: `python/tests/test_closure_capture.py`; `python/tests/test_adapter.py` (the existing `build_argv` tests take the new keywords)
 
 **Interfaces:**
-- Produces (`science.recipe`): `ENVIRONMENT_DOMAIN = "science.environment.v2"`, `ARTIFACT_KINDS`, `EnvironmentManifest(artifacts: tuple[tuple[str, str, str], ...])` rows `(normalized absolute sandbox path, kind, digest | link target)`.
-- Produces (`science.adapter`): `SANDBOX_ENV`, `SANDBOX_PYTHON`, `SANDBOX_SITE`, `SANDBOX_PATH`, `SANDBOX_LIB`, `SANDBOX_VENV`; `CapturedEnvironment(manifest, plan, rendered, loader, interpreter, loader_map)` where `loader_map` rows are `(ELF sandbox path, SONAME, resolved sandbox path)`; `capture_closure() -> CapturedEnvironment`; `capture_environment() -> EnvironmentManifest` (unchanged name, `capture_closure().manifest`); `elf_interpreter(path) -> str`; `loader_listing(loader, path) -> dict[str, Path]` (run under an empty environment); `_is_loadable_elf(path) -> bool`; `_Closure` (the walker, test-visible: `register`, `root_of`, `sandbox_of`, `add`, `add_chain`, `add_tree`, `add_records`, `add_pth`, `add_native`, `elves`, `check_links`); `build_argv(*, interpreter, snakefile, directory, targets, config, log_handler, cores, in_process_jobs)`.
+- Produces (`beliefs.recipe`): `ENVIRONMENT_DOMAIN = "science.environment.v2"`, `ARTIFACT_KINDS`, `EnvironmentManifest(artifacts: tuple[tuple[str, str, str], ...])` rows `(normalized absolute sandbox path, kind, digest | link target)`.
+- Produces (`beliefs.adapter`): `SANDBOX_ENV`, `SANDBOX_PYTHON`, `SANDBOX_SITE`, `SANDBOX_PATH`, `SANDBOX_LIB`, `SANDBOX_VENV`; `CapturedEnvironment(manifest, plan, rendered, loader, interpreter, loader_map)` where `loader_map` rows are `(ELF sandbox path, SONAME, resolved sandbox path)`; `capture_closure() -> CapturedEnvironment`; `capture_environment() -> EnvironmentManifest` (unchanged name, `capture_closure().manifest`); `elf_interpreter(path) -> str`; `loader_listing(loader, path) -> dict[str, Path]` (run under an empty environment); `_is_loadable_elf(path) -> bool`; `_Closure` (the walker, test-visible: `register`, `root_of`, `sandbox_of`, `add`, `add_chain`, `add_tree`, `add_records`, `add_pth`, `add_native`, `elves`, `check_links`); `build_argv(*, interpreter, snakefile, directory, targets, config, log_handler, cores, in_process_jobs)`.
 - Consumes: `_triples` (Task 3); `ClosureUnsupported` (Task 2).
 - `distribution_digest`, `tree_digest` and `_stdlib_digest` stay as they are — the walk does not call them, and cut 3's tests may.
 
@@ -1216,8 +1216,8 @@ from pathlib import Path
 
 import pytest
 
-import science.adapter as adapter_module
-from science.adapter import (
+import beliefs.adapter as adapter_module
+from beliefs.adapter import (
     SANDBOX_ENV,
     SANDBOX_LIB,
     SANDBOX_PATH,
@@ -1234,9 +1234,9 @@ from science.adapter import (
     loader_listing,
     require_executing_environment,
 )
-from science.errors import ClosureUnsupported, MalformedClosure, UnsafeInvocation
-from science.identity import v1
-from science.recipe import ENVIRONMENT_DOMAIN, EnvironmentManifest
+from beliefs.errors import ClosureUnsupported, MalformedClosure, UnsafeInvocation
+from beliefs.identity import v1
+from beliefs.recipe import ENVIRONMENT_DOMAIN, EnvironmentManifest
 
 LOADABLE_ELF = b"\x7fELF" + bytes(12) + b"\x03\x00"  # ET_DYN, enough header for the type check
 
@@ -1308,7 +1308,7 @@ def test_the_interpreter_its_libraries_and_the_loader_are_rows(captured):
     assert captured.loader.startswith("/")
     assert any(path.startswith(f"{SANDBOX_LIB}/libc.so") for path in rows)
     assert any(path.startswith(f"{SANDBOX_SITE}/snakemake/") for path in rows)
-    assert any(path.startswith(f"{SANDBOX_PATH}/") and path.endswith("/science/adapter.py") for path in rows)
+    assert any(path.startswith(f"{SANDBOX_PATH}/") and path.endswith("/beliefs/adapter.py") for path in rows)
 
 
 def test_the_loader_map_covers_every_loadable_elf_and_names_rows_only(captured):
@@ -1648,7 +1648,7 @@ Expected: FAIL — `ImportError: cannot import name 'SANDBOX_LIB'`.
 
 - [ ] **Step 3: Implement the manifest and the walk**
 
-In `python/src/science/recipe.py`: change `ENVIRONMENT_DOMAIN = "science.environment.v1"` to `ENVIRONMENT_DOMAIN = "science.environment.v2"`; add `ARTIFACT_KINDS = ("file", "symlink")` directly after `REQUIRED_FOR_CLEAN_ENVIRONMENT`; add `import posixpath`; and replace `EnvironmentManifest` with:
+In `python/src/beliefs/recipe.py`: change `ENVIRONMENT_DOMAIN = "science.environment.v1"` to `ENVIRONMENT_DOMAIN = "science.environment.v2"`; add `ARTIFACT_KINDS = ("file", "symlink")` directly after `REQUIRED_FOR_CLEAN_ENVIRONMENT`; add `import posixpath`; and replace `EnvironmentManifest` with:
 
 ```python
 @sealed
@@ -1681,7 +1681,7 @@ class EnvironmentManifest:
 
 Add `"ARTIFACT_KINDS"` to `__all__`. The `        if type(self.environment) is not EnvironmentManifest:` anchor in `Recipe.__post_init__` is untouched.
 
-In `python/src/science/adapter.py`: add `import os`, `import posixpath`, `import struct`, `from collections.abc import Callable, Mapping`; import `ClosureUnsupported` from `science.errors`; import `sealed` is already there. Add the constants after `_PEP_503_RUN`:
+In `python/src/beliefs/adapter.py`: add `import os`, `import posixpath`, `import struct`, `from collections.abc import Callable, Mapping`; import `ClosureUnsupported` from `beliefs.errors`; import `sealed` is already there. Add the constants after `_PEP_503_RUN`:
 
 ```python
 SANDBOX_ENV = "/science/env"
@@ -2089,7 +2089,7 @@ def build_argv(
     return tuple(argv)
 ```
 
-In `python/src/science/boundary.py` the minimal call becomes:
+In `python/src/beliefs/boundary.py` the minimal call becomes:
 
 ```python
         argv = build_argv(
@@ -2116,13 +2116,13 @@ For each construction that passes `(label, digest)` pairs, rewrite the row as `(
 
 - [ ] **Step 5: Run to verify pass**
 
-Run: `cd python && set -o pipefail && uv run pytest tests/test_closure_capture.py tests/test_adapter.py tests/test_recipe.py tests/test_confinement_values.py tests/test_boundary.py tests/test_replay.py tests/test_verify.py tests/test_run_persistence.py tests/test_assess.py tests/test_production.py tests/test_decode.py | tail -1 && uv run pytest tests/test_n2.py -k stale | tail -1 && uv run ruff check src/science/recipe.py src/science/adapter.py src/science/boundary.py tests && uv run pyright src/science/recipe.py src/science/adapter.py | tail -1`
+Run: `cd python && set -o pipefail && uv run pytest tests/test_closure_capture.py tests/test_adapter.py tests/test_recipe.py tests/test_confinement_values.py tests/test_boundary.py tests/test_replay.py tests/test_verify.py tests/test_run_persistence.py tests/test_assess.py tests/test_production.py tests/test_decode.py | tail -1 && uv run pytest tests/test_n2.py -k stale | tail -1 && uv run ruff check src/beliefs/recipe.py src/beliefs/adapter.py src/beliefs/boundary.py tests && uv run pyright src/beliefs/recipe.py src/beliefs/adapter.py | tail -1`
 Expected: all passed (the durable `test_run_persistence.py` tests fail only with the host's allowlist refusal — confirm every failure message is `CapabilityUnavailable: volume configuration is not on the supplied durability allowlist`, and nothing else); no stale anchors; clean; `0 errors`. The closure walk digests the whole runtime, so the boundary tests get slower — a run is now roughly three digest passes (design §4.4); note the time in the ledger if it exceeds 2× cut 3's.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add python/src/science/recipe.py python/src/science/adapter.py python/src/science/boundary.py python/tests
+git add python/src/beliefs/recipe.py python/src/beliefs/adapter.py python/src/beliefs/boundary.py python/tests
 git commit -m "feat(adapter): capture the runtime artifact closure per file under environment.v2 and make the engine argv policy-neutral"
 ```
 
@@ -2131,14 +2131,14 @@ git commit -m "feat(adapter): capture the runtime artifact closure per file unde
 ### Task 6: `confinement.py` and `probe.py` — snapshot, mount plan, the gated launch, the observation
 
 **Files:**
-- Create: `python/src/science/confinement.py`
-- Create: `python/src/science/probe.py`
+- Create: `python/src/beliefs/confinement.py`
+- Create: `python/src/beliefs/probe.py`
 - Modify: `python/tests/test_capability_boundary.py:453-464` (`RAW_WRITE_ALLOWLIST`) and `:547` (its equality assertion)
 - Test: `python/tests/test_confinement.py`
 
 **Interfaces:**
-- Produces (`science.confinement`): constants `HOSTNAME`, `BUNDLE_ROOT`, `OUTPUT_ROOT`, `INPUTS_ROOT`, `TRACE_DIR`, `HOME_DIR`, `DEVICES`, `UNPLANNED`; `sandbox_environment(trace_file) -> tuple[tuple[str, str], ...]`; `host_prerequisites() -> str | None`, `require_host()`; `materialize_snapshot(captured, environments) -> Path` (its verification of an existing or fresh snapshot **is** the pre-bind snapshot observation), `verify_snapshot(root, captured)`; `bundle_identity(bundle) -> str`, `fingerprint(root) -> str`, `check_bundle_intact(bundle, code_identity)`, `check_closure_intact(*, bundle, code_identity, snapshot, captured, inputs, inputs_fingerprint)` (the post-exit observation: one pass each); `MountPlan` (`binds`, `roles`, `loader`, `rows`, `expected` — the sorted rows —, `role_of(mountpoint)`, `identity()`, `host_mapping()`), `mount_plan(*, snapshot, loader, bundle, output_root)`; `bwrap_argv(...)`; `canonical_mounts(mountinfo, plan) -> tuple[tuple[str, str, str], ...]` (every row kept, classified by planned role); `InstanceFacts(distinct, mounts)`, `observe_instance(pid, plan)`; `judge_instance(facts, plan)`, `judge_report(report, *, environment, captured, inner_argv) -> tuple[str, ...]`; `Launch`, `launch_confined(*, plan, environment, inner_argv, captured) -> Launch` — every launch or protocol failure is `ConfinementNotEstablished`, with the child terminated and reaped and every descriptor closed.
-- Produces (`science.probe`): `main(argv) -> int`, run as `python -m science.probe --report-fd R --go-fd G --loader L -- <engine argv>`; its report's `loader` member is `{elf: {"returncode": int, "resolved": {soname: [path, digest]}, "unresolved": [line, ...]}}` over every loadable ELF under `/science/env`.
+- Produces (`beliefs.confinement`): constants `HOSTNAME`, `BUNDLE_ROOT`, `OUTPUT_ROOT`, `INPUTS_ROOT`, `TRACE_DIR`, `HOME_DIR`, `DEVICES`, `UNPLANNED`; `sandbox_environment(trace_file) -> tuple[tuple[str, str], ...]`; `host_prerequisites() -> str | None`, `require_host()`; `materialize_snapshot(captured, environments) -> Path` (its verification of an existing or fresh snapshot **is** the pre-bind snapshot observation), `verify_snapshot(root, captured)`; `bundle_identity(bundle) -> str`, `fingerprint(root) -> str`, `check_bundle_intact(bundle, code_identity)`, `check_closure_intact(*, bundle, code_identity, snapshot, captured, inputs, inputs_fingerprint)` (the post-exit observation: one pass each); `MountPlan` (`binds`, `roles`, `loader`, `rows`, `expected` — the sorted rows —, `role_of(mountpoint)`, `identity()`, `host_mapping()`), `mount_plan(*, snapshot, loader, bundle, output_root)`; `bwrap_argv(...)`; `canonical_mounts(mountinfo, plan) -> tuple[tuple[str, str, str], ...]` (every row kept, classified by planned role); `InstanceFacts(distinct, mounts)`, `observe_instance(pid, plan)`; `judge_instance(facts, plan)`, `judge_report(report, *, environment, captured, inner_argv) -> tuple[str, ...]`; `Launch`, `launch_confined(*, plan, environment, inner_argv, captured) -> Launch` — every launch or protocol failure is `ConfinementNotEstablished`, with the child terminated and reaped and every descriptor closed.
+- Produces (`beliefs.probe`): `main(argv) -> int`, run as `python -m beliefs.probe --report-fd R --go-fd G --loader L -- <engine argv>`; its report's `loader` member is `{elf: {"returncode": int, "resolved": {soname: [path, digest]}, "unresolved": [line, ...]}}` over every loadable ELF under `/science/env`.
 - Consumes: Task 2's errors; Task 3's `CAPABILITIES`, `NAMESPACES`, `mount_plan_identity`; Task 5's `CapturedEnvironment` (with `loader_map`), sandbox constants, `elf_interpreter`, `loader_listing`, `_fold`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -2156,9 +2156,9 @@ from pathlib import Path
 
 import pytest
 
-from science.adapter import SANDBOX_ENV, SANDBOX_LIB, SANDBOX_VENV, CapturedEnvironment, capture_bundle
-import science.confinement as confinement_module
-from science.confinement import (
+from beliefs.adapter import SANDBOX_ENV, SANDBOX_LIB, SANDBOX_VENV, CapturedEnvironment, capture_bundle
+import beliefs.confinement as confinement_module
+from beliefs.confinement import (
     BUNDLE_ROOT,
     HOSTNAME,
     INPUTS_ROOT,
@@ -2180,8 +2180,8 @@ from science.confinement import (
     sandbox_environment,
     verify_snapshot,
 )
-from science.errors import ClosureMutated, ConfinementNotEstablished, SnapshotMismatch
-from science.recipe import CAPABILITIES, NAMESPACES, EnvironmentManifest, mount_plan_identity
+from beliefs.errors import ClosureMutated, ConfinementNotEstablished, SnapshotMismatch
+from beliefs.recipe import CAPABILITIES, NAMESPACES, EnvironmentManifest, mount_plan_identity
 
 LOADER = "/lib64/ld-linux-x86-64.so.2"
 
@@ -2627,7 +2627,7 @@ def test_the_bwrap_argv_binds_then_remounts_the_root_read_only_and_gates_through
     assert argv[argv.index("--chdir") + 1] == OUTPUT_ROOT
     assert ("--setenv", "PYTHONSAFEPATH", "1") == argv[argv.index("PYTHONSAFEPATH") - 1 : argv.index("PYTHONSAFEPATH") + 2]
     separator = argv.index("--")
-    assert argv[separator + 1 : separator + 4] == (f"{SANDBOX_VENV}/bin/python", "-m", "science.probe")
+    assert argv[separator + 1 : separator + 4] == (f"{SANDBOX_VENV}/bin/python", "-m", "beliefs.probe")
     assert argv[-len(INNER):] == INNER
     assert ("--report-fd", "8") == argv[argv.index("--report-fd") : argv.index("--report-fd") + 2]
     assert ("--go-fd", "9") == argv[argv.index("--go-fd") : argv.index("--go-fd") + 2]
@@ -2637,11 +2637,11 @@ def test_the_bwrap_argv_binds_then_remounts_the_root_read_only_and_gates_through
 - [ ] **Step 2: Run to verify failure**
 
 Run: `cd python && uv run pytest tests/test_confinement.py | tail -3`
-Expected: FAIL — `ModuleNotFoundError: No module named 'science.confinement'`.
+Expected: FAIL — `ModuleNotFoundError: No module named 'beliefs.confinement'`.
 
 - [ ] **Step 3: Write `confinement.py`**
 
-`python/src/science/confinement.py`:
+`python/src/beliefs/confinement.py`:
 
 ```python
 """The confined boundary policy's machinery (run-confinement design §4.3–§6).
@@ -2669,7 +2669,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import cast, final
 
-from science.adapter import (
+from beliefs.adapter import (
     SANDBOX_ENV,
     SANDBOX_LIB,
     SANDBOX_VENV,
@@ -2678,15 +2678,15 @@ from science.adapter import (
     elf_interpreter,
     loader_listing,
 )
-from science.errors import (
+from beliefs.errors import (
     ClosureMutated,
     ClosureUnsupported,
     ConfinementNotEstablished,
     ConfinementUnavailable,
     SnapshotMismatch,
 )
-from science.recipe import CAPABILITIES, NAMESPACES, mount_plan_identity
-from science.sealed import sealed
+from beliefs.recipe import CAPABILITIES, NAMESPACES, mount_plan_identity
+from beliefs.sealed import sealed
 
 __all__ = [
     "BUNDLE_ROOT",
@@ -2726,7 +2726,7 @@ TRACE_DIR = ".trace"
 HOME_DIR = ".home"
 DEVICES = ("/dev/null", "/dev/urandom")
 UNPLANNED = "unplanned"
-PROBE_MODULE = "science.probe"
+PROBE_MODULE = "beliefs.probe"
 _BWRAP = "bwrap"
 _NETWORK_UNREACHABLE = ("EAFNOSUPPORT", "ENETUNREACH", "EADDRNOTAVAIL")
 
@@ -3257,7 +3257,7 @@ def launch_confined(
 
 - [ ] **Step 4: Write `probe.py`**
 
-`python/src/science/probe.py`:
+`python/src/beliefs/probe.py`:
 
 ```python
 """The held probe that gates the confined engine (design §6.1–§6.2).
@@ -3429,7 +3429,7 @@ change its docstring's "The two surfaces" to "The four surfaces", and the assert
 
 - [ ] **Step 6: Run to verify pass**
 
-Run: `cd python && set -o pipefail && uv run pytest tests/test_confinement.py tests/test_capability_boundary.py | tail -1 && uv run ruff check src/science/confinement.py src/science/probe.py tests/test_confinement.py && uv run pyright src/science/confinement.py src/science/probe.py | tail -1`
+Run: `cd python && set -o pipefail && uv run pytest tests/test_confinement.py tests/test_capability_boundary.py | tail -1 && uv run ruff check src/beliefs/confinement.py src/beliefs/probe.py tests/test_confinement.py && uv run pyright src/beliefs/confinement.py src/beliefs/probe.py | tail -1`
 Expected: all passed; clean; `0 errors`. If `test_capability_boundary` reports a primitive named in `confinement.py` beyond the five, or in `probe.py` beyond the two, rename the use — never widen the entry.
 
 - [ ] **Step 7: A live smoke of the gate, recorded in the ledger**
@@ -3439,8 +3439,8 @@ Before wiring the boundary, exercise the launch once by hand from `python/` to l
 ```bash
 cd python && uv run python - <<'EOF'
 import tempfile, pathlib
-from science.adapter import capture_closure
-from science.confinement import *
+from beliefs.adapter import capture_closure
+from beliefs.confinement import *
 captured = capture_closure()
 work = pathlib.Path(tempfile.mkdtemp())
 snapshot = materialize_snapshot(captured, work / "environments")
@@ -3463,7 +3463,7 @@ Expected: `returncode 0 capabilities ('from-bundle', 'closure-confined-filesyste
 - [ ] **Step 8: Commit**
 
 ```bash
-git add python/src/science/confinement.py python/src/science/probe.py python/tests/test_confinement.py python/tests/test_capability_boundary.py docs/plans/2026-08-30-run-confinement-ledger.md
+git add python/src/beliefs/confinement.py python/src/beliefs/probe.py python/tests/test_confinement.py python/tests/test_capability_boundary.py docs/plans/2026-08-30-run-confinement-ledger.md
 git commit -m "feat(confinement): materialize the closure snapshot and gate the bubblewrap launch through the held probe"
 ```
 
@@ -3472,8 +3472,8 @@ git commit -m "feat(confinement): materialize the closure snapshot and gate the 
 ### Task 7: The boundary's confined path
 
 **Files:**
-- Modify: `python/src/science/boundary.py` (imports; `_refused` 144–164; `_execute_run` 281–392; `execute_assessment_run` 395–455; `execute_production_run` 458–519; new `_project`, `_policy_refusal`, `_execute_confined`)
-- Modify: `python/src/science/replay.py:100-145` (`replay` passes the original's policy)
+- Modify: `python/src/beliefs/boundary.py` (imports; `_refused` 144–164; `_execute_run` 281–392; `execute_assessment_run` 395–455; `execute_production_run` 458–519; new `_project`, `_policy_refusal`, `_execute_confined`)
+- Modify: `python/src/beliefs/replay.py:100-145` (`replay` passes the original's policy)
 - Modify: `python/tests/fixtures_cut3.py` (`run_assessment`, `run_production` take `boundary_policy`); every direct `execute_*_run(` call under `python/tests/`
 - Test: `python/tests/test_boundary.py` (appended tests)
 
@@ -3491,10 +3491,10 @@ import dataclasses as _dc
 
 from fixtures_cut3 import replay_of as _replay_of
 
-import science.boundary as _boundary
-from science.errors import ClosureUnsupported
-from science.recipe import CONFINED_POLICY, MINIMAL_POLICY
-from science.replay import replay as _replay
+import beliefs.boundary as _boundary
+from beliefs.errors import ClosureUnsupported
+from beliefs.recipe import CONFINED_POLICY, MINIMAL_POLICY
+from beliefs.replay import replay as _replay
 
 
 def test_the_boundary_policy_has_no_default_and_no_ambient_constant():
@@ -3549,12 +3549,12 @@ Expected: FAIL — `KeyError: 'boundary_policy'`.
 
 - [ ] **Step 3: Implement**
 
-In `python/src/science/boundary.py`:
+In `python/src/beliefs/boundary.py`:
 
-Imports: replace `capture_environment` in the `science.adapter` import with `capture_closure`, and add `SANDBOX_VENV`, `BUNDLE_ROOT`-style names from `science.confinement`:
+Imports: replace `capture_environment` in the `beliefs.adapter` import with `capture_closure`, and add `SANDBOX_VENV`, `BUNDLE_ROOT`-style names from `beliefs.confinement`:
 
 ```python
-from science.adapter import (
+from beliefs.adapter import (
     LOG_HANDLER_SCRIPT,
     SANDBOX_VENV,
     CapturedEnvironment,
@@ -3569,7 +3569,7 @@ from science.adapter import (
     run_engine,
     validate_entrypoint,
 )
-from science.confinement import (
+from beliefs.confinement import (
     BUNDLE_ROOT,
     HOME_DIR,
     HOSTNAME,
@@ -3584,8 +3584,8 @@ from science.confinement import (
     require_host,
     sandbox_environment,
 )
-from science.errors import ConfinementRefusal, MalformedClosure, MalformedRecord, ScienceError
-from science.recipe import (
+from beliefs.errors import ConfinementRefusal, MalformedClosure, MalformedRecord, ScienceError
+from beliefs.recipe import (
     CONFINED_POLICY,
     BoundaryPolicy,
     BoundaryReceipt,
@@ -3677,7 +3677,7 @@ def _project(
     )
 ```
 
-(import `EnvironmentManifest` from `science.recipe`). Replace `_execute_run` with:
+(import `EnvironmentManifest` from `beliefs.recipe`). Replace `_execute_run` with:
 
 ```python
 def _execute_run(
@@ -3937,9 +3937,9 @@ In `execute_assessment_run`: add `boundary_policy: BoundaryPolicy,` directly aft
 
 and pass `boundary_policy=supported_policy(boundary_policy)` to `_execute_run` — the canonical known definition (it cannot raise after the refusal check), so a reordered spelling of a known capability set is recorded as the definition it names. Same in `execute_production_run` with subject `"absent"`.
 
-In `python/src/science/replay.py`'s `replay`, add `"boundary_policy": original.run.recipe.boundary_policy,` to `common` (after `"port": port,`).
+In `python/src/beliefs/replay.py`'s `replay`, add `"boundary_policy": original.run.recipe.boundary_policy,` to `common` (after `"port": port,`).
 
-In `python/tests/fixtures_cut3.py`: `run_assessment` and `run_production` gain `boundary_policy=MINIMAL_POLICY` keyword parameters (import `MINIMAL_POLICY` from `science.recipe`) and pass `boundary_policy=boundary_policy` through. Then:
+In `python/tests/fixtures_cut3.py`: `run_assessment` and `run_production` gain `boundary_policy=MINIMAL_POLICY` keyword parameters (import `MINIMAL_POLICY` from `beliefs.recipe`) and pass `boundary_policy=boundary_policy` through. Then:
 
 ```bash
 grep -rn "execute_assessment_run(\|execute_production_run(" python/tests | grep -v "def \|import"
@@ -3949,13 +3949,13 @@ and add `boundary_policy=MINIMAL_POLICY,` after `port=...` in every direct call 
 
 - [ ] **Step 4: Run to verify pass**
 
-Run: `cd python && set -o pipefail && uv run pytest tests/test_boundary.py tests/test_replay.py tests/test_verify.py tests/test_production.py tests/test_assess.py tests/test_adapter.py tests/test_capability_boundary.py | tail -1 && uv run pytest tests/test_n2.py -k stale | tail -1 && uv run ruff check src/science tests && uv run pyright src/science/boundary.py src/science/replay.py | tail -1`
+Run: `cd python && set -o pipefail && uv run pytest tests/test_boundary.py tests/test_replay.py tests/test_verify.py tests/test_production.py tests/test_assess.py tests/test_adapter.py tests/test_capability_boundary.py | tail -1 && uv run pytest tests/test_n2.py -k stale | tail -1 && uv run ruff check src/beliefs tests && uv run pyright src/beliefs/boundary.py src/beliefs/replay.py | tail -1`
 Expected: all passed; no stale anchors; clean; `0 errors`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add python/src/science/boundary.py python/src/science/replay.py python/tests
+git add python/src/beliefs/boundary.py python/src/beliefs/replay.py python/tests
 git commit -m "feat(boundary): execute a run under the confined policy, gated, observed, and never downgraded"
 ```
 
@@ -3964,8 +3964,8 @@ git commit -m "feat(boundary): execute a run under the confined policy, gated, o
 ### Task 8: The fourth scope row and the admission join
 
 **Files:**
-- Modify: `python/src/science/replay.py:202-234` (`derive_scope`, its docstring; new `qualifies`)
-- Modify: `python/src/science/verify.py` (`__all__`; new `admission_record`)
+- Modify: `python/src/beliefs/replay.py:202-234` (`derive_scope`, its docstring; new `qualifies`)
+- Modify: `python/src/beliefs/verify.py` (`__all__`; new `admission_record`)
 - Modify: `python/tests/test_replay.py:386-388` (retire `test_clean_environment_has_no_reachable_branch`; new R4/R15 value-level arms)
 - Test: `python/tests/test_verify.py` (appended K5 tests)
 
@@ -3975,7 +3975,7 @@ git commit -m "feat(boundary): execute a run under the confined policy, gated, o
 
 - [ ] **Step 1: Write the failing tests**
 
-In `python/tests/test_replay.py`, delete `test_clean_environment_has_no_reachable_branch` and, in its place, add (imports at the top: `from confinement_fixtures import confined_receipt, instance`; `from science.recipe import CAPABILITIES, BoundaryPolicy`; `from science.replay import qualifies`):
+In `python/tests/test_replay.py`, delete `test_clean_environment_has_no_reachable_branch` and, in its place, add (imports at the top: `from confinement_fixtures import confined_receipt, instance`; `from beliefs.recipe import CAPABILITIES, BoundaryPolicy`; `from beliefs.replay import qualifies`):
 
 ```python
 def _confined(minted, *, capabilities=CAPABILITIES, environment_identity=None):
@@ -4028,7 +4028,7 @@ def test_r15_negative_a_minimal_pair_never_derives_clean_environment(pair):
     assert not qualifies(replayed.run.occurrence.receipt, replayed.run.recipe.environment.identity())
 ```
 
-Append to `python/tests/test_verify.py` (imports: `from science.errors import NotAnAssessmentVerification`; `from science.verification import Verification`; `from science.verify import _mint_verification, admission_record`):
+Append to `python/tests/test_verify.py` (imports: `from beliefs.errors import NotAnAssessmentVerification`; `from beliefs.verification import Verification`; `from beliefs.verify import _mint_verification, admission_record`):
 
 ```python
 # --- K5: the admission join ---------------------------------------------------
@@ -4084,7 +4084,7 @@ Expected: FAIL — `ImportError: cannot import name 'qualifies'`.
 
 - [ ] **Step 3: Implement**
 
-In `python/src/science/replay.py`: extend the `science.recipe` import to `from science.recipe import REQUIRED_FOR_CLEAN_ENVIRONMENT, BoundaryReceipt, ResultManifest, RunClosure`. Add before `derive_scope`:
+In `python/src/beliefs/replay.py`: extend the `beliefs.recipe` import to `from beliefs.recipe import REQUIRED_FOR_CLEAN_ENVIRONMENT, BoundaryReceipt, ResultManifest, RunClosure`. Add before `derive_scope`:
 
 ```python
 def qualifies(receipt: BoundaryReceipt, environment_identity: str) -> bool:
@@ -4127,7 +4127,7 @@ not read, because the requirement is that the replay ran through the boundary.
 """
 ```
 
-In `python/src/science/verify.py`: import `NotAnAssessmentVerification` from `science.errors` and `Verification` from `science.verification`; add `"admission_record",` to `__all__` immediately before `"build_verification",`; add after `active_verifications`:
+In `python/src/beliefs/verify.py`: import `NotAnAssessmentVerification` from `beliefs.errors` and `Verification` from `beliefs.verification`; add `"admission_record",` to `__all__` immediately before `"build_verification",`; add after `active_verifications`:
 
 ```python
 def admission_record(derived: AssessmentVerification) -> Verification:
@@ -4148,13 +4148,13 @@ def admission_record(derived: AssessmentVerification) -> Verification:
 
 - [ ] **Step 4: Run to verify pass**
 
-Run: `cd python && set -o pipefail && uv run pytest tests/test_replay.py tests/test_verify.py tests/test_assess.py | tail -1 && uv run pytest tests/test_n2.py -k stale | tail -1 && uv run ruff check src/science/replay.py src/science/verify.py tests && uv run pyright src/science/replay.py src/science/verify.py | tail -1`
+Run: `cd python && set -o pipefail && uv run pytest tests/test_replay.py tests/test_verify.py tests/test_assess.py | tail -1 && uv run pytest tests/test_n2.py -k stale | tail -1 && uv run ruff check src/beliefs/replay.py src/beliefs/verify.py tests && uv run pyright src/beliefs/replay.py src/beliefs/verify.py | tail -1`
 Expected: all passed; no stale anchors (cut 3's R4 arm still finds `        return "same-environment"` once); clean; `0 errors`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add python/src/science/replay.py python/src/science/verify.py python/tests/test_replay.py python/tests/test_verify.py
+git add python/src/beliefs/replay.py python/src/beliefs/verify.py python/tests/test_replay.py python/tests/test_verify.py
 git commit -m "feat(replay): derive clean-environment through a qualifying receipt and join a derived verification to admission"
 ```
 
@@ -4190,7 +4190,7 @@ def confined_host() -> None:
     namespaces, and the loader's --list. It errors and never skips — an
     environment that cannot exercise confinement must not be able to report
     cut-13 discharge. No durable root is involved."""
-    from science.confinement import host_prerequisites
+    from beliefs.confinement import host_prerequisites
 
     reason = host_prerequisites()
     if reason is not None:
@@ -4234,20 +4234,20 @@ from test_assess import observations_for
 from test_belief import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PROFILE
 from test_verify import verification_of
 
-import science.boundary as boundary_module
-from science.admission import Admitted, AdmissionRefused, admit
-from science.assess import build_assessment, run_record
-from science.belief import Availability, Belief, NoBelief, Records, SuppliedContext, evaluate
-from science.boundary import RunMinted, RunRefused
-from science.closure import RetractionEnumeration
-from science.consulted import CorpusPins
-from science.dataset import dataset_address
-from science.lineage import LineageSnapshot
-from science.policy import PolicyBinding
-from science.recipe import CAPABILITIES, CONFINED_POLICY, MINIMAL_POLICY, NAMESPACES
-from science.replay import CONFORMING, EquivalenceImplementation, conformance, derive_scope
-from science.spec import freeze
-from science.verify import admission_record
+import beliefs.boundary as boundary_module
+from beliefs.admission import Admitted, AdmissionRefused, admit
+from beliefs.assess import build_assessment, run_record
+from beliefs.belief import Availability, Belief, NoBelief, Records, SuppliedContext, evaluate
+from beliefs.boundary import RunMinted, RunRefused
+from beliefs.closure import RetractionEnumeration
+from beliefs.consulted import CorpusPins
+from beliefs.dataset import dataset_address
+from beliefs.lineage import LineageSnapshot
+from beliefs.policy import PolicyBinding
+from beliefs.recipe import CAPABILITIES, CONFINED_POLICY, MINIMAL_POLICY, NAMESPACES
+from beliefs.replay import CONFORMING, EquivalenceImplementation, conformance, derive_scope
+from beliefs.spec import freeze
+from beliefs.verify import admission_record
 
 pytestmark = pytest.mark.usefixtures("confined_host")
 
@@ -4521,7 +4521,7 @@ Expected: all 13 passed on a host meeting the gate. Every assertion on `outcome.
 ```python
 """Cut 13's declared arms: 15 selected + 7 labeled = 22 units, 35 lettered arms.
 
-Every sabotage is host-side (cut 13 §5 item 1): the sandbox's science tree is
+Every sabotage is host-side (cut 13 §5 item 1): the sandbox's beliefs tree is
 the closure's own copy, so probe.py is never sabotaged."""
 
 from n2_arms import Arm, Sabotage
@@ -4730,7 +4730,7 @@ LABELED_UNITS: tuple[str, ...] = tuple(f"K{number}" for number in range(1, 8))
 CO_CITED: dict[str, tuple[str, ...]] = {}
 ```
 
-Before committing, verify every `before` occurs exactly once: `cd python && uv run python -c "import sys; sys.path[:0]=['tests','tests/acceptance']; from n2_arms_cut13 import CUT13_ARMS; from pathlib import Path; p=Path('src/science'); bad=[(a.row,(p/a.sabotage.module).read_text().count(a.sabotage.before)) for a in CUT13_ARMS if (p/a.sabotage.module).read_text().count(a.sabotage.before)!=1]; print('anchors ok' if not bad else bad)"` — expected `anchors ok`. A miscount means a Task 3–8 line was spelled differently from this plan; fix the **arm** to the code as written, never the code to the arm, and note it in the ledger.
+Before committing, verify every `before` occurs exactly once: `cd python && uv run python -c "import sys; sys.path[:0]=['tests','tests/acceptance']; from n2_arms_cut13 import CUT13_ARMS; from pathlib import Path; p=Path('src/beliefs'); bad=[(a.row,(p/a.sabotage.module).read_text().count(a.sabotage.before)) for a in CUT13_ARMS if (p/a.sabotage.module).read_text().count(a.sabotage.before)!=1]; print('anchors ok' if not bad else bad)"` — expected `anchors ok`. A miscount means a Task 3–8 line was spelled differently from this plan; fix the **arm** to the code as written, never the code to the arm, and note it in the ledger.
 
 - [ ] **Step 4: The N2 harness**
 
@@ -4769,7 +4769,7 @@ def test_the_partition_accounts_exactly_the_22_frozen_units() -> None:
 `python/tools/cut13_acceptance.py` — copy `cut12_acceptance.py` and change: the docstring to name cut 13 and its three phases (`the unedited cut-12 prefix, the confined cut-13 arms, then cut-13's N2 audit`) and add `The confined arms need no durable root; the prefix does — both prerequisites are probed first.`; `DEFAULT_WORK = PYTHON_ROOT.parent / ".cut13-acceptance"`; `PREFIX_RUNNERS = ("cut12_acceptance.py",)`; `PHASE_MODULES = ("test_confinement_acceptance.py", "test_n2_cut13.py")`; `work_directory` reads `SCIENCE_CUT13_ROOT`; `declared_arm_count` imports `CUT13_ARMS`; `cut_environment` ranges `range(4, 14)`; `run_prefix` sets `SCIENCE_CUT12_ROOT`; every `cut-12`/`cut12` in messages becomes `cut-13`/`cut13`; the final print names `35`, `CUT13_ARMS`, `22 frozen units`, `test_the_partition_accounts_exactly_the_22_frozen_units`. Extend `probe` so that after the durable probe returns `None` it also checks confinement:
 
 ```python
-    from science.confinement import host_prerequisites
+    from beliefs.confinement import host_prerequisites
 
     reason = host_prerequisites()
     if reason is not None:
@@ -4997,7 +4997,7 @@ cd python && set -o pipefail && uv run python tools/check_guide.py && echo CHECK
 cd .. && git diff --check main && echo DIFF_CHECK_CLEAN && git diff main --name-status
 ```
 
-Expected: `CHECK_GUIDE_OK`; all passed; `DIFF_CHECK_CLEAN`; the file list contains only: the promoted design (R), the cut, cut 3, the adoption ledger, the roadmap, `roadmap_status.py`, `README.md`, the guide pages touched, the results record and ledger under `docs/plans/`, this plan, and under `python/`: `src/science/{adapter,boundary,confinement,errors,probe,recipe,replay,runrecord,verify}.py`, `tests/{conftest,fixtures_cut3,closure_fixtures,confinement_fixtures,test_adapter,test_boundary,test_capability_boundary,test_closure_capture,test_confinement,test_confinement_errors,test_confinement_values,test_designs_corpus,test_recipe,test_replay,test_runrecord_confined,test_verify}.py` plus any test file Task 3 step 4 or Task 7 step 3 touched, `tests/acceptance/{conftest,n2_arms_cut13,test_n2_cut13,test_confinement_acceptance}.py`, `tools/cut13_acceptance.py`. Anything else is out of scope — revert it.
+Expected: `CHECK_GUIDE_OK`; all passed; `DIFF_CHECK_CLEAN`; the file list contains only: the promoted design (R), the cut, cut 3, the adoption ledger, the roadmap, `roadmap_status.py`, `README.md`, the guide pages touched, the results record and ledger under `docs/plans/`, this plan, and under `python/`: `src/beliefs/{adapter,boundary,confinement,errors,probe,recipe,replay,runrecord,verify}.py`, `tests/{conftest,fixtures_cut3,closure_fixtures,confinement_fixtures,test_adapter,test_boundary,test_capability_boundary,test_closure_capture,test_confinement,test_confinement_errors,test_confinement_values,test_designs_corpus,test_recipe,test_replay,test_runrecord_confined,test_verify}.py` plus any test file Task 3 step 4 or Task 7 step 3 touched, `tests/acceptance/{conftest,n2_arms_cut13,test_n2_cut13,test_confinement_acceptance}.py`, `tools/cut13_acceptance.py`. Anything else is out of scope — revert it.
 
 - [ ] **Step 7: Commit**
 

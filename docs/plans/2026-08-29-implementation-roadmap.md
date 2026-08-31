@@ -102,7 +102,7 @@ boundary sits in the lane of its prerequisite and waits there.
 | `acquisition` | `url-retrieval` (+ `act-report-remainder`) | `holdings/`, `report.py` | `boundary.py` (above) |
 | `mutation` | `consolidate-family` (+ `run-boundary-remainder`, `formal-model-remainder`) → `correction-remainder` (tier 2, unblocked by the first) | `adapter.py`, `stored.py`, `corpus.py`, `world/registry.py` | `world/registry.py`, which `world-read` reads and this lane's move/consolidate rewrite |
 | `world-read` | `world-resolution` (+ `packaging-remainder`) → `event-level-l8` (+ `log-remainder`) | `world/read.py`, `resolution.py`, `world/verify.py` | `world/registry.py` (above) |
-| `domain` | `domain-boundary` (+ `parity-fixture-2`) | `profile.py`, `contract/`, `ts/`, `fixtures/`, the `nodes` registry | none in `python/src/science/` |
+| `domain` | `domain-boundary` (+ `parity-fixture-2`) | `profile.py`, `contract/`, `ts/`, `fixtures/`, the `nodes` registry | none in `python/src/beliefs/` |
 | `cross-repo` | `l13-preimage`, `persistence-cut`, `nodes-remainder`, in any order | the `atoms` and `nodes` repositories, each behind its own design gate | none; Science consumes each seam after it lands |
 
 `contract-cut` is in no lane. It is a **join**: it freezes after every lane

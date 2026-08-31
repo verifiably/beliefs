@@ -1,8 +1,9 @@
 # Run confinement — design (the `run-confinement` slice)
 
 **Date:** 2026-08-30
-**Status:** designed; not yet planned or implemented. Conformance cut 13 is
-specified in §9 and freezes before implementation.
+**Status:** designed and planned; not yet implemented. Conformance cut 13 is
+specified in §9 and freezes before implementation. The implementation plan is
+`../plans/2026-08-30-run-confinement.md`.
 **Scope:** the confinement-capable boundary policy of computation §4.4b and
 §7.3a — `boundary-policy/confined-v1` — executing a run inside a fresh
 namespaced materialization of a digest-verified runtime artifact closure; the
@@ -21,7 +22,7 @@ ranks this slice first in tier 1; the adoption ledger's `Current state` table
 carries it as `run-confinement`.
 
 **Sources, read at design time:** the R4, R9, R13, R15, R16 and R21 rows of
-computation §10; `python/src/science/boundary.py`, `adapter.py`, `recipe.py`,
+computation §10; `python/src/beliefs/boundary.py`, `adapter.py`, `recipe.py`,
 `replay.py`, `verify.py`, `verification.py`, `admission.py`, `runrecord.py`;
 the host at `4d29bc2` — Snakemake 8.11.4, a uv-managed CPython 3.13 with
 `Py_ENABLE_SHARED=1`, bubblewrap and glibc's loader present.
@@ -331,7 +332,7 @@ A separate "identical" sandbox proves nothing about the engine's. And
 still sees the host mount table. So the probe gates the engine's **own**
 process:
 
-1. bwrap starts with `--info-fd`; its command is the held `science.probe`,
+1. bwrap starts with `--info-fd`; its command is the held `beliefs.probe`,
    run from `/science/env/path/<n>` like any held module, with two inherited
    descriptors: `REPORT` (probe → boundary: the probe's JSON report followed
    by the `READY` line, one pipe) and `GO` (boundary → probe).
@@ -564,7 +565,7 @@ with `PREFIX_RUNNERS = ("cut12_acceptance.py",)`.
 ## 10. What changes elsewhere
 
 - `test_capability_boundary.py`'s `RAW_WRITE_ALLOWLIST` is compared for
-  equality. `science/confinement.py` is the third byte-writing module —
+  equality. `beliefs/confinement.py` is the third byte-writing module —
   `copy2`, `write_text`, `symlink_to` (manifested and rendered symlinks),
   `rename` (publication), and `rmtree` (discarding a losing temporary build)
   — and the allowlist gains exactly that entry in the same change, a claim
