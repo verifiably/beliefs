@@ -5,7 +5,7 @@ status: todo
 priority: 1
 size: l
 created: 2026-08-30T20:21:43Z
-updated: 2026-08-31T21:35:08Z
+updated: 2026-08-31T21:49:59Z
 depends: []
 tags: [mutation-lane, coordination]
 ---
@@ -19,3 +19,4 @@ Brainstorm and spec the tier-3 coordination-addressing answer per the user/auton
 - 2026-08-31T15:06:31Z (coordination-and-view-kinds): Review round 2: facet-based Node mapping with dot-slug ids, kind/address continuity (PredecessorMismatch), cut 14 unfrozen until review ends with cut-5 handled by prospective succession, 13 kinds enumerated as stored.WORLD_KINDS, mint raises / read returns unified
 - 2026-08-31T21:17:27Z (coordination-and-view-kinds): Review round 3: dedicated coordination_facet_malformed validator shared by door/audit/resolver (COVERED_FACETS not overloaded); cut-5 collision handled by cut-9 citation mechanism, entire cut-5 surface byte-identical, W17 sole successor coverage
 - 2026-08-31T21:35:08Z (coordination-and-view-kinds): Review round 4: cut14_acceptance names no aggregate runner; explicit current-tree prefix of phase modules (all discharged cuts except cited 5 and 8), poisoned aggregates left unchanged and pinned; later cuts inherit via cut14_acceptance
+- 2026-08-31T21:49:59Z (coordination-and-view-kinds): Review round 5: cut-14 prefix frozen as exact ordered module inventory (n2 cuts 6/7/9/10, module pairs for 11/12/13); cut 4 excluded (directory-collection would re-collect cut 5); certified-root env and confinement gate stated

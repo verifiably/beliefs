@@ -684,14 +684,34 @@ departure, forced by the citation below. The aggregate runners nest by
 (`cut12 → cut11 → cut10 → cut9 → cut7 → cut5`), so once `note` refuses at
 `add`, every aggregate from cut 7 upward fails in its prefix before cut 14
 would run. `cut14_acceptance.py` therefore names **no aggregate runner**.
-It defines the **current-tree prefix** explicitly: the *phase modules* —
-each cut's own suites, not its aggregate — of every discharged cut, in cut
-order, excepting cut 5 (cited here, §9.2) and cut 8 (already cited by
-cut 9), invoked directly. The bypassed aggregate runners are left
-**unchanged and pinned byte-identical** by cut 14's checks, exactly as the
-cut-5 surface is: they remain the frozen commands of the trees they
-discharged on. Cuts after 14 name `cut14_acceptance.py` and inherit the
-bypass.
+It defines the **current-tree prefix** as this exact ordered module
+inventory, frozen here — each module is a cut's own phase suite, invoked
+directly, never through an aggregate:
+
+1. `test_n2_cut6.py`
+2. `test_n2_cut7.py`
+3. `test_n2_cut9.py`
+4. `test_n2_cut10.py`
+5. `test_intent_boundary_acceptance.py`, then `test_n2_cut11.py`
+6. `test_successor_admission_acceptance.py`, then `test_n2_cut12.py`
+7. `test_confinement_acceptance.py`, then `test_n2_cut13.py` — the pair
+   cut 13's banked plan names; if its discharge lands them under other
+   names, the freeze binds to cut 13's discharged phase modules and the
+   results record says so.
+
+Cut 4 is deliberately **not** in the inventory: its phase is the entire
+acceptance directory by collection, which would re-collect the cut-5
+surface and defeat the bypass; its coverage on the current tree rides the
+same modules above, which exercise the same composition root, and its
+discharge stands as its frozen results record. Cut 5 is cited (§9.2);
+cut 8 is cited by cut 9. Each listed module runs under cut 14's own
+probed environment — the certified durable work root with the per-cut
+`SCIENCE_CUT<N>_ROOT` variables the modules expect, and the confinement
+gate for cut 13's pair — so no module's prerequisites degrade to a skip.
+The bypassed aggregate runners are left **unchanged and pinned
+byte-identical** by cut 14's checks, exactly as the cut-5 surface is:
+they remain the frozen commands of the trees they discharged on. Cuts
+after 14 name `cut14_acceptance.py` and inherit the bypass.
 
 **One discharge obligation is a succession, banked here prospectively —
 on cut 9's exact mechanism.** Turning on the ordinary path's `note`
