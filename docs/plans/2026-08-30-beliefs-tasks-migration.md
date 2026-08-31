@@ -1,6 +1,6 @@
 # Beliefs Tasks migration ledger
 
-**Status:** initial Tasks migration integrated and canonically registered on 2026-08-31; cross-project reconciliation remains pending for the future Nodes `nodes-remainder` dependency.
+**Status:** Tasks migration complete on 2026-08-31; the deferred Nodes dependency is reconciled as `beliefs-eacbe2` → `nodes-ce28b8`.
 
 ## Scope and evidence
 
@@ -109,7 +109,7 @@ History confirms that conformance cut 12, successor admission, current-state cur
 | `docs/plans/2026-08-29-conformance-cut-12-results.md` | historical/superseded | Dated discharge evidence. |
 | `docs/plans/2026-08-29-implementation-roadmap.md` | authority/current | Authoritative cut-12 ordering and candidate boundaries. |
 | `docs/plans/2026-08-29-successor-admission-ledger.md` | historical/superseded | Delivered boundary ledger. |
-| `docs/plans/2026-08-30-beliefs-tasks-migration.md` | active delivery | Initial migration is integrated; the future Nodes dependency remains pending reconciliation. |
+| `docs/plans/2026-08-30-beliefs-tasks-migration.md` | historical/superseded | Migration and deferred cross-project dependency reconciliation are complete. |
 | `docs/superpowers/plans/2026-08-09-cut-2-slice.md` | historical/superseded | Delivered implementation plan. |
 | `docs/superpowers/plans/2026-08-10-bank-holdings-record.md` | historical/superseded | Delivered implementation plan. |
 | `docs/superpowers/plans/2026-08-11-bank-act-report.md` | historical/superseded | Delivered implementation plan. |
@@ -132,6 +132,7 @@ History confirms that conformance cut 12, successor admission, current-state cur
 | `docs/superpowers/specs/2026-08-29-implementation-roadmap-design.md` | historical/superseded | Delivered ranking-method design. |
 | `docs/superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md` | active delivery | Approved umbrella design with unfinished Beliefs sub-projects. |
 | `docs/superpowers/specs/2026-08-30-run-confinement-design.md` | active delivery | Current, planned, not-yet-implemented cut-13 design. |
+| `docs/superpowers/specs/2026-08-31-coordination-and-view-kinds-design.md` | active delivery | Design and review are cleared and cut 14 is frozen before implementation; explicitly not implemented. |
 
 ## Drift corrections
 
@@ -263,11 +264,11 @@ Initial fields: priority `2`; status `todo`; size `l`; tags `migration`, `world-
 
 Outcome: Beliefs freezes and implements the first full successor contract after every oracle-amending lane, including certification cadence, conformance-package split, rules-store resolution, and legacy-check disposition.
 
-Acceptance evidence: Wait for the execution (`beliefs-73be28`), acquisition (`beliefs-d13fe8`), mutation (`beliefs-aa27da`), world-read (`beliefs-b34652`), domain (`beliefs-bc3aff`), L13 (`beliefs-a7df71`), and persistence (`beliefs-3ea822`) endpoints, plus the future Nodes `nodes-remainder`; design the successor identities and governance decisions; freeze before implementation; discharge N1–N10, P1 and the assigned certification/resolver/rules-store arms; update the authority artifacts and roadmap; and pass all Python, TypeScript, corpus, and parity gates.
+Acceptance evidence: Wait for the execution (`beliefs-73be28`), acquisition (`beliefs-d13fe8`), mutation (`beliefs-aa27da`), world-read (`beliefs-b34652`), domain (`beliefs-bc3aff`), L13 (`beliefs-a7df71`), and persistence (`beliefs-3ea822`) endpoints, plus the resolved Nodes producer `nodes-ce28b8` (`nodes-remainder`); design the successor identities and governance decisions; freeze before implementation; discharge N1–N10, P1 and the assigned certification/resolver/rules-store arms; update the authority artifacts and roadmap; and pass all Python, TypeScript, corpus, and parity gates.
 
 Sources: `docs/plans/2026-08-29-implementation-roadmap.md` `contract-cut` and join rule; `docs/designs/2026-08-03-normative-contract-design.md`; and `docs/guide/open-questions.md` Contracts and adoption.
 
-Uncertainty: The roadmap fixes the join point, but successor identities, certification cadence, normative artifact shape, and legacy-check ruling need their design cycle. The Nodes producer task does not exist yet, so its verified blocker remains pending in the migration ledger rather than becoming a dangling CLI edge.
+Uncertainty: The roadmap fixes the join point, but successor identities, certification cadence, normative artifact shape, and legacy-check ruling need their design cycle. The Nodes producer `nodes-ce28b8` is resolved but unfinished and remains a blocker.
 
 Initial fields: priority `2`; status `todo`; size `xl`; tags `migration`, `contract`, `conformance`.
 
@@ -395,12 +396,15 @@ Initial fields: priority `2`; status `todo`; size `xl`; tags `migration`, `publi
 
 | Local task | Future project/outcome | Evidence | Status |
 |---|---|---|---|
-| `beliefs-eacbe2` | Nodes `nodes-remainder` | The roadmap makes `contract-cut` a join after every oracle-amending lane; the cross-repo lane includes `nodes-remainder`, whose Nodes design gate and migration-owned task have not landed. | pending |
+| `beliefs-eacbe2` | Nodes `nodes-ce28b8` (`nodes-remainder`) | The roadmap makes `contract-cut` a join after every oracle-amending lane; integrated Nodes task `nodes-ce28b8` delivers the reserved-path, recoverable-construction, and digest-ID remainder. The CLI edge resolves against the six-project portfolio registry. | reconciled |
 
 ## Verification
 
 | Command or inspection | Result | Commit containing result |
 |---|---|---|
+| Portfolio-registry `tasks dep beliefs-eacbe2 --on nodes-ce28b8`, `tasks show beliefs-eacbe2`, and `tasks check` | The CLI added the verified Nodes producer as a resolved dependency; show reported the exact edge and no warnings; check returned empty errors and warnings. | Reconciliation commit (this commit) |
+| Reconciliation `uv run --frozen pytest -q`, `uv run --frozen ruff check .`, `uv run --frozen pyright`, `npm test`, `npm run typecheck`, and `npm run check` | Passed: 2,724 Python tests; Ruff passed; Pyright reported 0 errors, 0 warnings, and 0 information messages; 5 TypeScript files and 101 tests passed; typecheck and Biome passed. | Reconciliation commit (this commit) |
+| Reconciliation exact document coverage comparison, duplicate check, seven-section count, and `git diff --check` | All 92 denominator documents are classified exactly once; no duplicate classification exists; exactly seven required sections exist; coverage and whitespace checks produced no output. | Reconciliation commit (this commit) |
 | Exact Python baseline helper in `record` mode | Kernel `7.1.11-arch1-1`: exactly 2,580 passed, 144 failed, 144 exception lines, 144 exact ext4 `CapabilityUnavailable` signatures, and 144 unique failed nodes. Control file preserved for identical-set comparison. | Base tree; control artifact outside Git |
 | `uv run --frozen ruff check .` | Passed with `All checks passed!` before edits. | Base tree |
 | `uv run --frozen pyright` | Passed with 0 errors, 0 warnings, 0 information messages before edits. | Base tree |
@@ -432,4 +436,4 @@ Initial fields: priority `2`; status `todo`; size `xl`; tags `migration`, `publi
 | Intervening post-integration user commit | Added `beliefs-5f2752` and `beliefs-abf8e8`, updated `beliefs-bc3aff`, and committed the prior `beliefs-c88566` start. The migration did not modify those task records. | Stable `main` at `0415208b1a747697fa3961ad2ebad6a3919ceb70` |
 | Fresh canonical `tasks check`, `tasks prime`, and `tasks ready` after the user commit | Check returned no errors or warnings; prime reported prefix `beliefs`, 5 idea, 15 todo, and 1 doing; ready returned seven tasks and no warnings. | Canonical Tasks registry at stable `main` `0415208b1a747697fa3961ad2ebad6a3919ceb70` |
 | Stable working-tree inspection after the user commit and fresh Tasks checks | Clean. | Stable `main` at `0415208b1a747697fa3961ad2ebad6a3919ceb70` |
-| Finalization exact document coverage comparison, seven-section count, and `git diff --check` | All 91 denominator documents remained classified exactly once; exactly seven required sections remained; coverage and whitespace checks produced no output. | Ledger-finalization commit (this commit) |
+| Finalization exact document coverage comparison, seven-section count, and `git diff --check` | All 91 denominator documents remained classified exactly once; exactly seven required sections remained; coverage and whitespace checks produced no output. | Ledger-finalization commit `737d0b245bc77e8b78775ea821b776a17c90d29b` |
