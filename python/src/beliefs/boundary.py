@@ -105,6 +105,9 @@ class RunRefused:
     report: ActReport | None
     intent: AssessmentRunIntent | OperationIntent | None
     registration: Registration | None
+    detail: str = ""
+    """In-memory only: the refusing error's message. The durable ``RunRefusal``
+    and the act-report carry the stable reason alone (design §8)."""
 
 
 def _digest(path: Path) -> str:

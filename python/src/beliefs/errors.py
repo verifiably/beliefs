@@ -791,6 +791,66 @@ class UnsafeInvocation(RecordError):
     declared output."""
 
 
+class ConfinementRefusal(ScienceError):
+    """Base of the confined boundary's refusals (run-confinement design §8).
+
+    Each subclass carries a stable ``reason`` as a class attribute; the run
+    boundary maps it into ``RunRefused.reason`` and keeps the message as the
+    in-memory diagnostic. The base carries no reason: a refusal without one is
+    not a confinement refusal."""
+
+
+class ConfinementUnavailable(ConfinementRefusal):
+    """Pre-intent: bubblewrap absent or without ``--info-fd``, user namespaces
+    disabled, or the loader's ``--list`` not callable on this host."""
+
+    reason = "confinement-unavailable"
+
+
+class BoundaryPolicyUnsupported(ConfinementRefusal):
+    """Pre-intent: the supplied policy matches neither known definition on
+    identity, scope rule and unique capability set together — a request
+    failure, not an unavailable host."""
+
+    reason = "boundary-policy-unsupported"
+
+
+class ClosureUnsupported(ConfinementRefusal):
+    """Post-intent: the runtime closure cannot be laid out — a SONAME
+    collision, a symlink escaping the closure, an unfollowable or mixed
+    ``.pth`` line, a non-ELF program interpreter, an unlistable artifact."""
+
+    reason = "closure-unsupported"
+
+
+class SnapshotMismatch(ConfinementRefusal):
+    """Post-intent: an existing, freshly built, or concurrently published
+    snapshot disagrees with the manifest. Never rebuilt — a corrupt shared
+    snapshot is evidence, not a cache miss."""
+
+    reason = "snapshot-mismatch"
+
+
+class ClosureMutated(ConfinementRefusal):
+    """Post-intent: the bundle, the snapshot or the staged inputs differ
+    between the pre-bind and post-exit observations (design §4.4)."""
+
+    reason = "closure-mutated"
+
+
+class ConfinementNotEstablished(ConfinementRefusal):
+    """Post-intent: a namespace equal to the parent's, a canonical mount
+    table unequal to the plan, a probe check that failed, or a probe that
+    never reported READY. The requested policy cannot be honestly executed."""
+
+    reason = "confinement-not-established"
+
+
+class NotAnAssessmentVerification(RecordError):
+    """``admission_record`` was offered a dataset-production verification,
+    which has no assessment to admit (design §7.2)."""
+
+
 class CorpusRootRefused(ScienceError):
     """A path that cannot be a corpus root — an existing non-directory. The
     composition root creates the directory when it is absent and refuses
