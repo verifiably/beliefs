@@ -23,12 +23,17 @@ from beliefs.identity import v1
 from beliefs.production import mint_dataset
 from beliefs.recipe import (
     ASSESSMENT_ROLES,
+    CAPABILITIES,
+    MOUNT_ACCESS,
+    NAMESPACES,
     PRODUCTION_ROLES,
-    RUN_DOMAIN,
+    RENDERED_KINDS,
     SHAPES,
     RunClosure,
     _occurrence_projection,
     _pairs,
+    mount_plan_identity,
+    run_domain_for,
 )
 from beliefs.sealed import sealed
 
@@ -136,6 +141,25 @@ def _pair_list(value: object, path: str) -> list[list[str]]:
     ):
         _refuse(path, "not a list of [string, string] pairs")
     return value
+
+
+def _triple_list(value: object, path: str) -> list[list[str]]:
+    if not isinstance(value, list) or any(
+        not isinstance(row, list)
+        or len(row) != 3
+        or any(type(member) is not str for member in row)
+        for row in value
+    ):
+        _refuse(path, "not a list of [string, string, string] triples")
+    return value
+
+
+_RECEIPT_KEYS = {"scratch_mapping", "argv", "rendered_config", "capabilities"}
+_CONFINED_RECEIPT_KEYS = _RECEIPT_KEYS | {"instance", "rendered_environment", "mounts"}
+
+
+def _is_confined_receipt(receipt: object) -> bool:
+    return isinstance(receipt, dict) and "instance" in receipt
 
 
 _RECIPE_KEYS = {
@@ -357,9 +381,10 @@ def _validate_occurrence(value: object) -> str:
         _refuse(
             "$.occurrence.realized_seeds", "not a [job][stream] -> int object"
         )
+    confined = _is_confined_receipt(occurrence["receipt"])
     receipt = _mapping(
         occurrence["receipt"],
-        {"scratch_mapping", "argv", "rendered_config", "capabilities"},
+        _CONFINED_RECEIPT_KEYS if confined else _RECEIPT_KEYS,
         "$.occurrence.receipt",
     )
     _str_at(receipt["scratch_mapping"], "$.occurrence.receipt.scratch_mapping")
@@ -367,7 +392,34 @@ def _validate_occurrence(value: object) -> str:
     _pair_list(
         receipt["rendered_config"], "$.occurrence.receipt.rendered_config"
     )
-    _str_list(receipt["capabilities"], "$.occurrence.receipt.capabilities")
+    capabilities = _str_list(receipt["capabilities"], "$.occurrence.receipt.capabilities")
+    if any(capability not in CAPABILITIES for capability in capabilities):
+        _refuse("$.occurrence.receipt.capabilities", f"outside the closed vocabulary {CAPABILITIES}")
+    if len(set(capabilities)) != len(capabilities):
+        _refuse("$.occurrence.receipt.capabilities", "names a capability more than once")
+    if confined:
+        instance = _mapping(
+            receipt["instance"],
+            {"namespaces", "mounts", "mount_plan_identity", "environment_identity"},
+            "$.occurrence.receipt.instance",
+        )
+        namespaces = _str_list(instance["namespaces"], "$.occurrence.receipt.instance.namespaces")
+        if sorted(namespaces) != list(NAMESPACES):
+            _refuse("$.occurrence.receipt.instance.namespaces", f"not exactly {NAMESPACES}")
+        mounts = _triple_list(instance["mounts"], "$.occurrence.receipt.instance.mounts")
+        points = [point for point, _, _ in mounts]
+        if len(set(points)) != len(points):
+            _refuse("$.occurrence.receipt.instance.mounts", "names a mountpoint more than once")
+        if any(access not in MOUNT_ACCESS for _, _, access in mounts):
+            _refuse("$.occurrence.receipt.instance.mounts", f"access is not one of {MOUNT_ACCESS}")
+        recomputed = mount_plan_identity(tuple((point, role, access) for point, role, access in mounts))
+        if _str_at(instance["mount_plan_identity"], "$.occurrence.receipt.instance.mount_plan_identity") != recomputed:
+            _refuse("$.occurrence.receipt.instance.mount_plan_identity", "is not the digest of its own mounts")
+        _component_at(instance["environment_identity"], "$.occurrence.receipt.instance.environment_identity")
+        rendered = _triple_list(receipt["rendered_environment"], "$.occurrence.receipt.rendered_environment")
+        if any(kind not in RENDERED_KINDS for _, kind, _ in rendered):
+            _refuse("$.occurrence.receipt.rendered_environment", f"kind is not one of {RENDERED_KINDS}")
+        _pair_list(receipt["mounts"], "$.occurrence.receipt.mounts")
     return cast(str, occurrence["event_token"])
 
 
@@ -416,6 +468,12 @@ def _reproject(parsed: dict[str, object]) -> dict[str, object]:
     receipt["capabilities"] = sorted(
         cast("list[str]", receipt["capabilities"])
     )
+    if _is_confined_receipt(receipt):
+        instance = cast(dict[str, object], receipt["instance"])
+        instance["namespaces"] = sorted(cast("list[str]", instance["namespaces"]))
+        instance["mounts"] = sorted(cast("list[list[str]]", instance["mounts"]))
+        receipt["rendered_environment"] = sorted(cast("list[list[str]]", receipt["rendered_environment"]))
+        receipt["mounts"] = sorted(cast("list[list[str]]", receipt["mounts"]))
     return rebuilt
 
 
@@ -455,7 +513,8 @@ def decode_run_record(node: Node) -> RunPublication | None:
         )
     data = facet["projection"].encode("utf-8")
     parsed = decode_projection(data)
-    address = v1.digest(RUN_DOMAIN, parsed)
+    occurrence_view = cast(dict[str, object], parsed["occurrence"])
+    address = v1.digest(run_domain_for(_is_confined_receipt(occurrence_view["receipt"])), parsed)
     if node.id != run_ref(address):
         raise MalformedRecord(
             f"{node.id}: the recomputed address {address} is not the record id"
