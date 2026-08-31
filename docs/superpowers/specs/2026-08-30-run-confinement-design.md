@@ -115,7 +115,10 @@ strings.
 `_POLICY` is removed. Before intent the boundary matches the supplied policy
 against the two known definitions on **the entire definition — identity,
 scope rule, and unique capability set together**; any mismatch is
-`BoundaryPolicyUnsupported`, a request failure.
+`BoundaryPolicyUnsupported`, a request failure. The capability member is
+compared as a set — frozenset(capabilities) — and the boundary carries on
+with the canonical known value, so a reordered spelling of a known set is
+recorded as the definition it names.
 Execution never trusts caller-claimed capabilities: the definition it
 recognizes decides what it will construct and observe.
 
@@ -160,12 +163,21 @@ interpreter:
 | interpreter | `sys.executable` resolved through its symlink chain; each link a `symlink` row, the final binary a `file` row | `/science/env/python/bin/…` |
 | `libpython`, stdlib, platstdlib | every regular file under the prefix's `lib/`, individually; `__pycache__` excluded | `/science/env/python/lib/…` |
 | distributions | every RECORD entry, individually, as today; derived caches excluded | `/science/env/site/…` |
-| `.pth` path lines | each path-extending line of every `.pth` in site-packages is followed and its tree captured (regular files; `__pycache__`, `.git` excluded). This checkout's editable `science`, `nodes-core` and `atoms-core` are captured this way. The `.pth` file's own host bytes are **not** copied — its sandbox form is rendered (§5.2). A `.pth` containing only `import` lines is an ordinary artifact. A **mixed** file, with both `import` and path lines, is **refused** (`ClosureUnsupported`): rendering it would turn executable import lines into rendered, non-held code | `/science/env/path/<n>/…`, where `<n>` is canonical — the `.pth` file's sandbox path under `/science/env/site` joined to the line's ordinal within the file, e.g. `/science/env/path/_science.pth/0` — so the same closure lays out identically on every host |
+| `.pth` path lines | each path-extending line of every `.pth` in site-packages is followed and its tree captured (regular files; `__pycache__`, `.git` excluded). This checkout's editable `science`, `nodes-core` and `atoms-core` are captured this way. The `.pth` file's own host bytes are **not** copied — its sandbox form is rendered (§5.2). A `.pth` containing only `import` lines is an ordinary artifact. A **mixed** file, with both `import` and path lines, is **refused** (`ClosureUnsupported`): rendering it would turn executable import lines into rendered, non-held code. A RECORD entry ending in .pth is skipped by the RECORD walk and handled here. For an import-only .pth, each imported top-level module must be a closure member; a site-packages module the file names that no RECORD lists (this host's _virtualenv.py, written by uv) is captured as /science/env/site/<name>.py; a named module absent from site-packages is ClosureUnsupported | `/science/env/path/<n>/…`, where `<n>` is canonical — the `.pth` file's sandbox path under `/science/env/site` joined to the line's ordinal within the file, e.g. `/science/env/path/_science.pth/0` — so the same closure lays out identically on every host |
 | native closure | for the interpreter, `libpython`, every `.so` under `lib-dynload` and every `.so` a RECORD lists: `PT_INTERP` (read from the ELF header) and the transitive `DT_NEEDED` set, resolved by **the loader itself** (`ld.so --list`) so that what is manifested is what `execve` maps; `linux-vdso` excluded by name | loader at its `PT_INTERP` path; libraries at `/science/env/lib/<soname>` |
 
 `PT_INTERP`, the Python version directory name, and every ABI-specific path
 are **read from the captured artifacts**; nothing in the boundary spells an
-architecture or a Python version.
+architecture or a Python version. Every symlink row's target is itself part
+of the closure — a file row, a symlink row, or a directory some row lies
+under — and is captured when the link is; a relative target that stays
+under the link's own root keeps its relative text, any other in-closure
+target is rewritten to the target's sandbox path, and a target outside
+every root is ClosureUnsupported. sys.executable is followed link by link
+(add_chain): each link a symlink row, the terminal binary the interpreter
+row. Every sandbox path is normalized — absolute, no ., .. or empty
+components — and the manifest refuses any other spelling, so a snapshot
+join can never leave the snapshot.
 
 **Refusals discovered during capture** are post-intent, `ClosureUnsupported`:
 two libraries with one SONAME; a symlink whose target resolves outside the
@@ -186,7 +198,12 @@ into a boundary-owned **snapshot** keyed by environment identity,
 `<scratch_base>/environments/<environment_identity>/`, laid out as the
 sandbox paths (so `/science/env/lib/libc.so.6` is
 `<snapshot>/science/env/lib/libc.so.6`), by copying exactly the manifested
-files and creating exactly the manifested symlinks.
+files and creating exactly the manifested symlinks. The snapshot also
+holds the rendered rows of §5.2 — pyvenv.cfg, the venv symlinks, the
+rewritten .pth files — because each is a pure function of the manifest, so
+the whole of /science/env is one read-only bind. Verification checks
+manifested rows by digest and rendered rows by expected content, and
+refuses any other file.
 
 **Publication is atomic and the loser is specified.** The snapshot is built
 into a sibling temporary directory, verified file by file against the
@@ -218,11 +235,14 @@ this slice does not claim it. The two observations are what R15's arm asks
 for: a bundled file edited after capture yields no run under the unchanged
 `code_identity`.
 
-**Cost, stated.** A cache hit costs three full digest passes — the host
-capture, the snapshot pre-bind check, the snapshot post-exit check — against
-today's two (capture and `require_executing_environment`). A cache miss adds
-one copy of the closure. The bundle and inputs were already digested at
-capture and are digested twice more.
+**Cost, stated.** A cache hit costs three full digest passes over the
+closure — the host capture, the snapshot verification materialize_snapshot
+performs (the pre-bind observation), and the post-exit check — against
+today's two (capture and require_executing_environment); the confined path
+does not call require_executing_environment, because the recipe's manifest
+is that single capture by construction, and no other pass over the
+snapshot exists. A cache miss adds one copy of the closure. The bundle and
+inputs were already digested at capture and are digested twice more.
 
 ## 5. The confined execution (`confinement.py`, `boundary.py`)
 
@@ -230,16 +250,16 @@ capture and are digested twice more.
 
 | sandbox path | content | mount |
 |---|---|---|
-| `<PT_INTERP>` | the loader, at the path the interpreter's ELF header names | ro-bind |
-| `/science/env/lib/<soname>` | every resolved native library | ro-bind |
-| `/science/env/python/` | the base interpreter prefix | ro-bind |
-| `/science/env/site/` | site-packages | ro-bind |
-| `/science/env/path/<n>/` | one tree per followed `.pth` line | ro-bind |
-| `/science/env/venv/` | the rendered venv (§5.2) | ro-bind |
+| <PT_INTERP> | the loader, at the path the interpreter's ELF header names, from the snapshot | ro-bind |
+| /science/env/ | the snapshot: interpreter prefix, site-packages, .pth trees, native libraries under lib/, and the rendered venv | ro-bind |
 | `/science/bundle/` | the captured code bundle | ro-bind |
 | `/science/out/` | the boundary-owned output root: the scratch root's `out/` | bind, rw |
 | `/science/out/inputs/` | the staged held inputs, where cut 3's workflows already resolve them | ro-bind over the rw root |
 | `/dev/null`, `/dev/urandom` | kernel substrate, declared by name — Snakemake imports `multiprocessing`, which needs `urandom` | dev-bind |
+
+PYTHONPATH is not part of the closure and is cleared; a module reachable on
+the host only through it is not reachable in the sandbox (a limitation,
+§9.3).
 
 After the layout, `--remount-ro /`: bubblewrap's implicit root tmpfs is
 otherwise writable. No `/proc`, no `/tmp`, no `/etc`, no home, no
@@ -251,8 +271,9 @@ Three things exist only in the sandbox and are configuration the boundary
 renders from the layout — the rule cut 3 set for engine configuration:
 
 - `/science/env/venv/pyvenv.cfg` with `home = /science/env/python/bin`;
-  `/science/env/venv/bin/python` → the base interpreter; the venv's
-  `site-packages` → `/science/env/site`;
+  `/science/env/venv/bin/python` → the base interpreter, rendered only
+  when the interpreter's symlink chain did not already capture that path
+  as a manifest row; the venv's `site-packages` → `/science/env/site`;
 - every path-extending `.pth` file, rewritten to its `/science/env/path/<n>`
   target;
 - the explicit environment and the fixed hostname (§5.4).
@@ -269,7 +290,15 @@ directory is valid only when SONAMEs are collision-free (§4.2 refuses
 otherwise) **and** an in-layout `ld.so --list` of the interpreter and every
 extension resolves each SONAME to the sandbox file whose digest the manifest
 records; the probe (§6.2) performs that check and refuses the layout when it
-fails.
+fails. The host listing runs the loader under an empty environment — no
+ambient LD_LIBRARY_PATH or LD_PRELOAD — and the capture retains the
+expected map as rows (ELF sandbox path, SONAME, resolved sandbox path)
+over every loadable ELF (ET_EXEC or ET_DYN) under /science/env, closed to
+a fixpoint over the libraries it adds. The probe lists the same set
+in-layout and the boundary requires its report to equal the map exactly:
+the same ELFs, the same SONAMEs per ELF, the same resolved path, the
+manifest's digest; a nonzero loader exit, an unresolved or unparsable
+line, an omitted or extra entry each refuse.
 
 ### 5.4 Process discipline
 
@@ -285,7 +314,15 @@ PYTHONHASHSEED=0
 PYTHONNOUSERSITE=1
 PYTHONSAFEPATH=1
 SCIENCE_TRACE_FILE=/science/out/.trace/events
+HOME=/science/out/.home
+PWD=/science/out
+LC_CTYPE=C.UTF-8
 ```
+
+bubblewrap sets PWD to the --chdir target and CPython's locale coercion
+sets LC_CTYPE=C.UTF-8 when it is unset, so both are declared explicitly
+and exact equality holds; HOME is declared because with it unset Snakemake
+expands ~ to a literal directory under the working directory.
 
 `stdin` is `DEVNULL`. The trace directory moves inside the output root —
 today it is `mkdtemp(dir=scratch.parent)`, outside every bind — and `.trace/`
@@ -299,9 +336,13 @@ closes by exact environment equality, which the probe checks.
 snakefile path and the directory explicitly, and the minimal policy supplies
 host paths while the confined policy supplies sandbox paths. The confined
 inner argv is `/science/env/venv/bin/python -m snakemake --snakefile
-/science/bundle/<entrypoint> --directory /science/out --cores <n> …` with
-sandbox paths only, so R21(c)'s two differently mounted scratch roots produce
-byte-equal inner argv and differ only in the receipt's host mapping.
+/science/bundle/<entrypoint> --directory /science/out --cores <n>
+--force-use-threads …` with sandbox paths only, so R21(c)'s two differently
+mounted scratch roots produce byte-equal inner argv and differ only in the
+receipt's host mapping. Snakemake 8's local executor otherwise spawns
+every run: job as a fresh python -m snakemake through /bin/sh
+(shell=True); in-process execution keeps the closure shell-free. The
+minimal policy's argv is byte-unchanged.
 
 Rules stay `run:`. There is no shell in the closure; a `shell:` rule fails
 closed as an undeclared read of `/bin/sh`. That is a stated limitation of
@@ -317,7 +358,9 @@ For `confined-v1`, `_execute_run` proceeds:
 2. **intent appended** — from here every exit either mints the run or
    fulfils the intent with a refusal;
 3. scratch root; bundle capture; environment capture (§4.2); snapshot
-   get-or-build and publish (§4.3); input staging; pre-bind integrity (§4.4);
+   get-or-build and publish (§4.3); input staging; pre-bind integrity
+   (§4.4: the bundle's fold and the staged inputs' fingerprint; the
+   snapshot's pass is the get-or-build verification);
 4. the gated launch (§6): probe, boundary-side inspection, `GO`, engine;
 5. post-exit integrity (§4.4); then trace, realized seeds, manifest, mint.
 
@@ -334,8 +377,9 @@ process:
 
 1. bwrap starts with `--info-fd`; its command is the held `beliefs.probe`,
    run from `/science/env/path/<n>` like any held module, with two inherited
-   descriptors: `REPORT` (probe → boundary: the probe's JSON report followed
-   by the `READY` line, one pipe) and `GO` (boundary → probe).
+   descriptors named on its own argv (`--report-fd`, `--go-fd`, never the
+   environment): `REPORT` (probe → boundary: the probe's JSON report
+   followed by the `READY` line, one pipe) and `GO` (boundary → probe).
 2. After bubblewrap completes the layout, the probe performs its checks
    (§6.2), writes its report and then `READY` on `REPORT`, and waits on
    `GO`.
@@ -346,6 +390,11 @@ process:
    `(mountpoint, role, ro|rw)` where role names a planned bind, the implicit
    root, or a declared device exception. The canonical set must **equal** the
    planned mount table: no extra, no missing, no `rw` where `ro` was planned.
+   Canonical rows preserve multiplicity — a stacked or duplicate mount is a
+   row of its own and fails equality — and each observed mountpoint is
+   classified into its planned role, an unplanned one taking the role
+   unplanned; the receipt's instance carries these observed rows, never the
+   plan's.
 4. On success the boundary writes `GO`; the probe **closes both `REPORT`
    and `GO`** and then `execve`s the engine — same pid,
    namespaces, mounts and environment, and no gate authority inherited. On
@@ -356,10 +405,10 @@ process:
 
 | what | checks |
 |---|---|
-| filesystem | opening `/etc/passwd` and `/tmp` raises `ENOENT`; creating a file under `/`, `/science/bundle`, `/science/env` and `/science/out/inputs` raises `EROFS`; creating one under `/science/out` succeeds and is removed |
+| filesystem | opening `/etc/passwd` and `/tmp` raises `ENOENT`; creating a file under `/`, `/science/bundle`, `/science/env` and `/science/out/inputs` raises `EROFS`; creating one under `/science/out` succeeds (Path.touch) and is removed (unlink) |
 | environment | `os.environ` equals the declared set exactly; `os.uname().nodename == "science"`; `os.getcwd() == "/science/out"` |
-| network | IPv4 and IPv6 `connect` to loopback and to a non-loopback address each fail with `ENETUNREACH` or `EADDRNOTAVAIL`. DNS failure is not evidence — it proves only missing resolver configuration — and is not checked |
-| loader plan | `ld.so --list` in-layout for the interpreter and every extension resolves each SONAME to a sandbox file whose digest matches the manifest (§5.3) |
+| network | an IPv4 connect to a non-loopback documentation address (192.0.2.1) fails with ENETUNREACH; an IPv6 socket either cannot be created (EAFNOSUPPORT) or its connect to 2001:db8::1 fails unreachable. Loopback is not evidence — the sandbox owns its own lo. DNS failure is not evidence and is not checked. |
+| loader plan | the in-layout ld.so --list of every loadable ELF under /science/env reports, per ELF, its exit status and each SONAME's resolved path and digest; the boundary requires equality with the captured map (§5.3) |
 
 ### 6.3 What the receipt attests
 
@@ -478,12 +527,12 @@ exactly one non-conforming execution. Nothing is mutated after minting.
 
 | error | stage | when | `RunRefused.reason` |
 |---|---|---|---|
-| `ConfinementUnavailable` | pre-intent | `bwrap` absent or without `--info-fd`; user namespaces disabled; `ld.so --list` not callable | `confinement-unavailable` |
+| `ConfinementUnavailable` | pre-intent only | `bwrap` absent or without `--info-fd`; user namespaces disabled; `ld.so --list` not callable | `confinement-unavailable` |
 | `BoundaryPolicyUnsupported` | pre-intent | the supplied policy matches neither known definition on the entire definition — identity, scope rule, and unique capability set | `boundary-policy-unsupported` |
 | `ClosureUnsupported` | post-intent | SONAME collision; symlink escaping the closure; unfollowable `.pth` line; non-ELF `PT_INTERP`; unlistable artifact | `closure-unsupported` |
 | `SnapshotMismatch` | post-intent | an existing or freshly built snapshot disagrees with the manifest; a concurrent winner disagrees | `snapshot-mismatch` |
 | `ClosureMutated` | post-intent | bundle, snapshot or staged inputs differ between the pre-bind and post-exit digests | `closure-mutated` |
-| `ConfinementNotEstablished` | post-intent | a namespace equal to the parent's; canonical mounts ≠ plan; any probe check failed; the probe did not report `READY` | `confinement-not-established` |
+| `ConfinementNotEstablished` | post-intent | a namespace equal to the parent's; canonical mounts ≠ plan; any probe check failed; the probe did not report `READY`; any launch or protocol failure after intent — bubblewrap gone, an unstartable process, malformed info or report, a closed descriptor — with the child terminated and reaped and every descriptor closed on every failure path | `confinement-not-established` |
 | `NotAnAssessmentVerification` | `admission_record` | a production verification offered to the join | — (not a run refusal) |
 
 Post-intent refusals fulfil the intent with an unfulfilling act-report and
@@ -561,6 +610,10 @@ with `PREFIX_RUNNERS = ("cut12_acceptance.py",)`.
   threat model): a modify-read-restore sequence between them passes both
   checks. The host and boundary owner are trusted; R15's arm — a mutation
   present at an observation yields no run — is what is claimed.
+- An N2 sabotage of probe.py does not reach the sandbox, whose beliefs
+  tree is the closure's own copy; every cut-13 arm sabotages host-side
+  code.
+- PYTHONPATH is not captured (§5.1).
 
 ## 10. What changes elsewhere
 
@@ -571,6 +624,10 @@ with `PREFIX_RUNNERS = ("cut12_acceptance.py",)`.
   — and the allowlist gains exactly that entry in the same change, a claim
   weighed as its docstring asks. A primitive the implementation turns out
   not to need is removed from the entry, never left as slack.
+- beliefs/probe.py is the fourth raw-write surface, {touch, unlink}: its
+  one write check touches and removes a file under the output root with
+  inventoried operations, so the equality allowlist weighs it rather than
+  a raw os.open escaping the inventory.
 - `adapter.py`: `capture_environment` becomes the closure walk; `build_argv`
   takes interpreter and paths explicitly; `run_engine` remains the only
   **Snakemake engine-launch** subprocess for the minimal policy (the `v2`
