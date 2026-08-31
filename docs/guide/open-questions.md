@@ -135,15 +135,6 @@ implementation**: a guarantee row awaiting code is work, not a question.
   the ledger's measurement gate. A Merkle overlay is the known upgrade path and
   is deliberately not built on speculation.
   ([log question](../designs/2026-08-03-tamper-evident-log-design.md#12-open-questions))
-- **Coordination records.** W11 and W12 assert that a world entity is never
-  addressed by a `(project identity, local id)` coordination address, and
-  that renaming a project breaks no coordination reference. No slice has
-  built the project/coordination surface, and whether coordination records
-  are minted through the corpus-write adapter at all is undetermined, which
-  is why both rows defer rather than gaining a vacuous arm.
-  ([cut 4 §5](../designs/2026-08-17-conformance-cut-4.md#5-step-3--fully-deferred-rows-grouped-by-unblocking-subsystem),
-  [cut 6 §3.2](../designs/2026-08-20-conformance-cut-6.md#32-w13--the-identity-row))
-
 ## Computation and reproducibility
 
 - **Artifact lifetime.** Held code, environments, inputs, and outputs accumulate;

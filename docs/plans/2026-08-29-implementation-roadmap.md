@@ -48,7 +48,7 @@ join key and nothing else; the tiers below carry the ranking.
 | `persistence-cut` | X2 | 2 |
 | `nodes-remainder` | `nodes` row 3's three items | 2 |
 | `authority-labels` | W9, W14 | 3 |
-| `coordination-addressing` | W11, W12; W13's two-projects negative | 3 |
+| `coordination-addressing` | W11, W12, W17, W18; W13's two-projects negative | 3 — answered 2026-08-31, joins `mutation` at the next re-rank |
 | `weighted-belief` | S6 (h) | 3 |
 | `extraction-path` | M12 | 3 |
 | `cross-root-publication` | T7's cross-root case | 3 |
@@ -153,7 +153,7 @@ Unordered. Each row links its `open-questions.md` anchor.
 | id | rows | blocked on |
 |---|---|---|
 | `authority-labels` | W9, W14 | artifact 11, the pinned authority snapshot — [which external authorities are accepted](../guide/open-questions.md#identity-world-and-change) |
-| `coordination-addressing` | W11, W12; W13's two-projects negative | whether coordination records are minted through the corpus-write adapter (cut 4 §5; cut 6 §3.2) — [coordination records](../guide/open-questions.md#identity-world-and-change) |
+| `coordination-addressing` | W11, W12, W17, W18; W13's two-projects negative | **answered 2026-08-31** — minted through the adapter by a dedicated family door ([coordination-and-view-kinds design](../superpowers/specs/2026-08-31-coordination-and-view-kinds-design.md), cut 14 frozen); joins the `mutation` lane at the next re-rank |
 | `weighted-belief` | S6 (h) | ρO3, estimand typing — [weighted belief](../guide/open-questions.md#claims-and-belief) |
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 — [higher-order records and extraction](../guide/open-questions.md#claims-and-belief) |
 | `cross-root-publication` | T7's cross-root case | [the act-report's residue](../guide/open-questions.md#contracts-and-adoption) |
@@ -167,7 +167,7 @@ Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
 |---|---|---|---|
 | G | G5 | G2c (cut 5), G3 (cut 2), G8 (cut 5), G9 (cut 10) | — |
 | S | — | S1 (cut 4), S1a (cut 4), S5 (cut 4), S6 (cut 2) | — |
-| W | W1, W2, W4, W5, W6, W7, W8, W9, W10, W11, W12, W14, W15, W16, W5a, W8b | W13 (cut 9), W8a (cut 7) | — |
+| W | W1, W2, W4, W5, W6, W7, W8, W9, W10, W11, W12, W14, W15, W16, W17, W18, W5a, W8b | W13 (cut 9), W8a (cut 7) | — |
 | R | R15 | R2 (cut 3), R4 (cut 3), R5 (cut 3), R9 (cut 3), R10 (cut 3), R13 (cut 3), R16 (cut 3), R19 (cut 4), R20 (cut 5), R21 (cut 3), R22 (cut 4), R23 (cut 4) | — |
 | C | C7, C8, C9 | C3 (cut 5), C6 (cut 5), C10 (cut 5) | — |
 | X | — | X2 (cut 7), X5 (cut 7), X12 (cut 7) | — |
@@ -179,7 +179,7 @@ Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
 | H | — | H4 (cut 10) | — |
 | T | T7 | T1 (cut 5), T2 (cut 5), T4 (cut 3), T5 (cut 3) | — |
 
-Closed 64 of 151; open 87.
+Closed 64 of 153; open 89.
 
 ## Appendix B — classification of every open row
 
@@ -199,7 +199,8 @@ Each open row, its remainder as the last cut states it, and where it goes
 | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15 | the world resolver over the write boundary and the index (cut 4 §5); W4 to be adjudicated against the merge retirement (address ruling §5) | `world-resolution` |
 | W5, W16 | move and consolidate over stored records (cut 4 §5) | `consolidate-family` |
 | W9, W14 | rendered labels and the ambiguous-search refusal against a pinned authority snapshot (ledger artifact 11) | `authority-labels` — tier 3 |
-| W11, W12 | the project/coordination surface, "whether coordination records are minted through the corpus-write adapter at all is underdetermined" (cut 4 §5) | `coordination-addressing` — tier 3 |
+| W11, W12 | the project/coordination surface (cut 4 §5) — the minting question is answered 2026-08-31: through the adapter, by a dedicated family door | `coordination-addressing` — cut 14 frozen, joins `mutation` at the next re-rank |
+| W17, W18 | banked 2026-08-31 with the coordination-and-view-kinds design; never selected before cut 14 | `coordination-addressing` — cut 14 frozen, joins `mutation` at the next re-rank |
 | W13 | coverage-declaration and digest-invariance clauses; manifest-only re-mint detection and the forgery variants; replica-restore's declaration half; the fork copy act (cut 6 §3.2) — every named dependency has since landed → relabel candidates; the two-projects negative → `coordination-addressing` | `world-resolution`, less the two-projects negative |
 | W8a | coreference omission-refutes and coverage arms → `world-resolution` (the `coreference-attestation` kind); certification omission-refutes → `contract-cut` (the `instrument-certification` kind); import-boundary and audit arms (cut 7 §3.2) → `packaging-remainder` | split as stated |
 | R15 | the confinement-capable boundary policy (cut 3 §3, §5) | `run-confinement` |

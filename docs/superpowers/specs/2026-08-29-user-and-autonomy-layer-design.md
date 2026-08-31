@@ -1,7 +1,7 @@
 # User and autonomy layers — design
 
 **Date:** 2026-08-29
-**Status:** approved in session 2026-08-29; sub-project 0 delivered 2026-08-30: the rename (`science` → `beliefs`, repository and remote included) and the seeded `science` and `autonomy` repositories
+**Status:** approved in session 2026-08-29; sub-project 0 delivered 2026-08-30: the rename (`science` → `beliefs`, repository and remote included) and the seeded `science` and `autonomy` repositories. Sub-project 1 designed 2026-08-31: `2026-08-31-coordination-and-view-kinds-design.md` beside this document elaborates §4.1–§4.2, adds W17/W18, and froze conformance cut 14 at `c07bf72`; not implemented
 **Scope:** the division of the stack above the epistemic kernel into a daily
 surface and an autonomy layer, the rename that makes the division nameable,
 and the sub-projects that build it. It selects no cut scope and freezes no
