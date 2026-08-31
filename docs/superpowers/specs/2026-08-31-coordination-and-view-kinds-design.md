@@ -1,10 +1,11 @@
 # Coordination and view kinds — design (the `coordination-addressing` slice)
 
 **Date:** 2026-08-31
-**Status:** designed; under review. Conformance cut 14 is specified in §9
-and is **not yet frozen**: it freezes by a dated freeze commit when design
-review ends — before any of its code exists — and until that commit the §9
-arms and the W17/W18 row texts may move with review. Not implemented.
+**Status:** designed and review-cleared. Conformance cut 14 (§9) is
+**frozen 2026-08-31**, by the dated freeze commit that lands this line —
+before any of its code exists; from that commit onward the §9 arms and the
+W17/W18 row texts are frozen text, amendable only the way any frozen cut's
+is. Not implemented.
 **Scope:** the tier-3 `coordination-addressing` answer, per the user and
 autonomy layer design (`2026-08-29-user-and-autonomy-layer-design.md`) §4.1,
 §4.2 and §8 item 1: the view query language `science.view-query.v1`; opaque
@@ -636,10 +637,8 @@ the extended inventory.
 
 Cut 13 is claimed by the banked run-confinement design (its §9) and does
 not renumber; this cut takes 14 regardless of freeze order, so no banked
-document moves. The cut is specified here and **freezes by a dated freeze
-commit at the end of design review**, before any code exists; amendments
-during review are ordinary edits, and after the freeze the text below is
-frozen like any cut's.
+document moves. **Frozen 2026-08-31** at the end of design review, before
+any code exists; the text below is frozen like any cut's.
 
 ### 9.1 Selection
 
