@@ -55,3 +55,11 @@ Rulings are written at task boundaries, never rewritten after the fact.
    not evidence against this ruling: it was reached only after
    `judge_instance` above had already passed, from the probe's later,
    separate loader-listing check.
+6. **R6 — the two loader listings model the same inheritance.** The live
+   smoke run showed the declared LD_LIBRARY_PATH cannot stand in for the
+   interpreter's DT_RPATH in-layout (libtcl9 resolves at registered-root
+   paths), and that a zero-dependency ELF vanished from the host map while
+   the probe listed it. Both sides now supply the interpreter binary's
+   $ORIGIN-expanded RPATH directories as an explicit --library-path, and
+   map equality ranges over every architecture-matched loadable ELF, an
+   empty resolution map being an attested observation, not an omission.
