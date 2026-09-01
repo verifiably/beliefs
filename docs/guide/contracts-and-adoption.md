@@ -2,7 +2,7 @@
 title: Contracts and adoption
 status: living
 created: 2026-08-08
-updated: 2026-08-31
+updated: 2026-09-01
 sources:
   - ../designs/2026-08-03-normative-contract-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -27,9 +27,11 @@ sources:
   - ../designs/2026-08-27-conformance-cut-11.md
   - ../designs/2026-08-29-conformance-cut-12.md
   - ../designs/2026-08-30-conformance-cut-13.md
+  - ../designs/2026-08-30-run-confinement-design.md
   - ../designs/2026-08-29-successor-admission-design.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
   - ../plans/2026-08-29-conformance-cut-12-results.md
+  - ../plans/2026-09-01-conformance-cut-13-results.md
 ---
 
 # Contracts and adoption
@@ -168,14 +170,17 @@ fitted result into independent validation.
 
 ## Current state
 
-Twelve conformance cuts have been frozen and discharged, each frozen before its
-code existed and each from cut 4 onward discharged on the certified tuple with
-a results record under `../plans/`. The cut discipline is what this page owns:
-a cut selects rows, the acceptance runner arms each selected unit with an exact
-sabotage mutation, and a discharge is a results record, never a re-reading of
-the frozen text. The complete normative contract cut, its executable suite and
-N1–N10 are not yet implemented. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-08-29)
+Thirteen conformance cuts have been frozen and discharged, each frozen before
+its code existed and each from cut 4 onward discharged on the certified tuple
+with a results record under `../plans/`. The cut discipline is what this page
+owns: a cut selects rows, the acceptance runner arms each selected unit with
+an exact sabotage mutation, and a discharge is a results record, never a
+re-reading of the frozen text. Cut 13 closed the run boundary's confinement
+arms — R15, R4, R9 and R13 in full, R16 and R21 at their confinement arms —
+so a real verification can reach `clean-environment`
+(`../designs/2026-08-30-run-confinement-design.md`). The complete normative
+contract cut, its executable suite and N1–N10 are not yet implemented. The
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-01)
 states what is built and which remaining boundaries have named owners; the cut
 documents and results records in the references below are the evidence.
 
@@ -205,4 +210,5 @@ questions under
 - [Composition-root adapter design](../designs/2026-08-18-composition-root-adapter-design.md)
 - [Conformance cut 5 — the family adapters](../designs/2026-08-19-conformance-cut-5.md)
 - [Family adapters design](../designs/2026-08-19-family-adapters-design.md)
-- [Cut 12 discharge results, the newest results record](../plans/2026-08-29-conformance-cut-12-results.md)
+- [Cut 12 discharge results](../plans/2026-08-29-conformance-cut-12-results.md)
+- [Cut 13 discharge results, the newest results record](../plans/2026-09-01-conformance-cut-13-results.md)

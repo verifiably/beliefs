@@ -1,8 +1,13 @@
 # Conformance cut 13 — run confinement, `clean-environment` reachable
 
-**Status:** frozen 2026-08-31, before implementation. Source specification:
-`docs/superpowers/specs/2026-08-30-run-confinement-design.md` (cited as
-*spec*), promoted to `docs/designs/` at banking.
+**Status:** **Discharged 2026-09-01 at `2f0cedb`** — all 22 frozen units
+passed through 35 lettered sabotage arms; the confined arms ran under the
+confinement gate, the cut-12 prefix on the certified tuple; the portable
+suite reported 2850 passing tests, Ruff was clean and Pyright reported 31
+errors confined to test files, disclosed and not corrected (results §2.3).
+Results: `../plans/2026-09-01-conformance-cut-13-results.md`. The cut
+remains frozen byte-exact at `fa89241`; the specification was promoted to
+`2026-08-30-run-confinement-design.md` at banking.
 
 **Sources:** `2026-08-11-conformance-cut-3.md` (§3's "a scratch root is
 staging, not confinement"; §4.2's arm split naming every arm deferred to

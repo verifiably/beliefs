@@ -2,7 +2,7 @@
 title: Computation and reproducibility
 status: living
 created: 2026-08-08
-updated: 2026-08-29
+updated: 2026-09-01
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -15,6 +15,8 @@ sources:
   - ../designs/2026-08-26-world-index-intent-boundary-design.md
   - ../designs/2026-08-27-conformance-cut-11.md
   - ../designs/2026-08-29-successor-admission-design.md
+  - ../designs/2026-08-30-conformance-cut-13.md
+  - ../designs/2026-08-30-run-confinement-design.md
 ---
 
 # Computation and reproducibility
@@ -135,11 +137,21 @@ general intent qualification reads every boundary operation through one
 three-shape reducer. `admit_spec_successor` now composes that qualification with
 active, coherent failing-verification evidence under one hold, closing G4 at
 persistence width. Assessment admission is gated on the verification reading
-rather than on a claim that code ran. What is not built here is owned elsewhere
-— the mutation log's event-level order (L8) and the preimage-backed
-classification of a removed verification (L13) — and listed with those owners
-in the
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-08-29).
+rather than on a claim that code ran.
+
+**The boundary is confined, and `clean-environment` is reachable** (cut 13,
+[run confinement](../designs/2026-08-30-run-confinement-design.md)). A run
+under `boundary-policy/confined-v1` executes inside a fresh namespaced
+materialization of a digest-verified runtime closure, observed by the
+boundary from its own `/proc` before the engine starts; the receipt names the
+capabilities the launch actually observed. `derive_scope` reaches
+`clean-environment` only through a qualifying pair of such receipts —
+`boundary-policy/minimal-v1`'s scratch root stays `same-environment` at best.
+What is not built here is owned elsewhere — the workflow surface beyond cut
+3's single-rule adapter, durable verification publication, the mutation
+log's event-level order (L8), and the preimage-backed classification of a
+removed verification (L13) — and listed with those owners in the
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-01).
 
 ## Open edges
 
@@ -155,3 +167,4 @@ versioned.
 - [Kernel reproduction gate and G5](../designs/2026-08-02-epistemic-kernel-design.md#3-reproduction-is-an-eligibility-gate-not-a-ceiling)
 - [World identity bases for runs](../designs/2026-08-02-world-addressing-design.md#42-the-basis-ruled-per-kind)
 - [Mutation registration and intent entries](../designs/2026-08-03-tamper-evident-log-design.md#3-the-chain)
+- [Scope derivation and the admission join, confined](../designs/2026-08-30-run-confinement-design.md#7-scope-derivation-and-the-admission-join-replaypy-verifypy)

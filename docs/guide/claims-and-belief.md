@@ -179,7 +179,7 @@ intent-bearing acts and projected under a declared coverage — so an
 observation's admission input is a system record rather than a supplied
 argument. The survey and typing exercise remain hand-run measurements, not
 conformance oracles. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-08-29)
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-01)
 states what remains.
 
 ## Open edges

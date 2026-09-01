@@ -1,9 +1,12 @@
 # Run confinement — design (the `run-confinement` slice)
 
 **Date:** 2026-08-30
-**Status:** designed and planned; not yet implemented. Conformance cut 13 is
-specified in §9 and freezes before implementation. The implementation plan is
-`../plans/2026-08-30-run-confinement.md`.
+**Status:** implemented and discharged 2026-09-01 at `2f0cedb`; conformance
+cut 13 froze before implementation at `fa89241` and its 22 units passed
+through 35 lettered sabotage arms on a host meeting the confinement gate and
+carrying the certified tuple. Results: `../plans/2026-09-01-conformance-cut-13-results.md`;
+execution rulings: `../plans/2026-08-30-run-confinement-ledger.md`. Promoted
+from `docs/superpowers/specs/` in this banking change.
 **Scope:** the confinement-capable boundary policy of computation §4.4b and
 §7.3a — `boundary-policy/confined-v1` — executing a run inside a fresh
 namespaced materialization of a digest-verified runtime artifact closure; the
@@ -13,11 +16,11 @@ record admission reads. Closes R15 in full and the confinement arms of R4, R9,
 R13, R16 and R21. No store change, no `atoms` or `nodes` change, no workflow
 surface beyond cut 3's single-rule adapter.
 
-**Inherits:** computation (`../../designs/2026-08-02-computation-reproducibility-design.md`)
+**Inherits:** computation (`2026-08-02-computation-reproducibility-design.md`)
 §4.2, §4.2c, §4.4b, §4.5, §7.3, §7.3a — the rule text this document
-implements without amending. Cut 3 (`../../designs/2026-08-11-conformance-cut-3.md`)
+implements without amending. Cut 3 (`2026-08-11-conformance-cut-3.md`)
 §3 states what a scratch root is not and §4.2 names every arm deferred here.
-The implementation roadmap (`../../plans/2026-08-29-implementation-roadmap.md`)
+The implementation roadmap (`../plans/2026-08-29-implementation-roadmap.md`)
 ranks this slice first in tier 1; the adoption ledger's `Current state` table
 carries it as `run-confinement`.
 
