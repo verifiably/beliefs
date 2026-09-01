@@ -52,7 +52,7 @@ from beliefs.boundary import (
     mint_run,
 )
 from beliefs.errors import MalformedClosure
-from beliefs.recipe import Occurrence, RunClosure
+from beliefs.recipe import MINIMAL_POLICY, Occurrence, RunClosure
 from beliefs.report import ActReport, OperationIntent, RunAttemptEntry
 from beliefs.spec import Seeded, SeedPlan, SpecInput, derive_seed, freeze, revise
 
@@ -79,6 +79,7 @@ def test_the_boundary_refuses_a_definition_the_entrypoint_does_not_embody(tmp_pa
     mismatched = execute_assessment_run(
         spec=freeze(spec_draft(), held_rules=spec_rules()),
         port=MEMORY_PORT,
+        boundary_policy=MINIMAL_POLICY,
         definition=definition(snakefile=SNAKEFILE_NONDETERMINISTIC),
         code_roots=(code,),
         held_inputs={
@@ -249,6 +250,7 @@ def test_r21_manifest_missing_output_mints_no_run(tmp_path):
     outcome = execute_assessment_run(
         spec=spec,
         port=MEMORY_PORT,
+        boundary_policy=MINIMAL_POLICY,
         definition=definition(),
         code_roots=(code,),
         held_inputs={
@@ -394,3 +396,59 @@ def test_r17_negative_b_a_dataset_production_recipe_is_authored_directly(tmp_pat
     outcome = run_production(tmp_path, nondeterminism=seeded())
     assert isinstance(outcome, RunMinted)
     assert outcome.run.recipe.nondeterminism == seeded()
+
+
+# --- cut 13: the policy parameter, pre-intent refusals, stable reasons ---------
+import dataclasses as _dc
+
+from fixtures_cut3 import replay_of as _replay_of
+
+import beliefs.boundary as _boundary
+from beliefs.errors import ClosureUnsupported
+from beliefs.recipe import CONFINED_POLICY
+from beliefs.replay import replay as _replay
+
+
+def test_the_boundary_policy_has_no_default_and_no_ambient_constant():
+    for fn in (execute_assessment_run, execute_production_run):
+        parameter = inspect.signature(fn).parameters["boundary_policy"]
+        assert parameter.default is inspect.Parameter.empty
+        assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+    assert not hasattr(_boundary, "_POLICY")
+
+
+def test_k1_an_unsupported_policy_refuses_before_intent(tmp_path):
+    outcome = run_assessment(tmp_path, boundary_policy=_dc.replace(CONFINED_POLICY, scope_rule="scope-derivation/v2"))
+    assert isinstance(outcome, RunRefused)
+    assert outcome.reason == "boundary-policy-unsupported"
+    assert outcome.intent is None and outcome.registration is None and outcome.report is not None
+    assert "scope-derivation/v2" in outcome.detail
+
+
+def test_a_minimal_run_carries_a_v1_receipt_and_no_instance(tmp_path):
+    outcome = run_assessment(tmp_path, boundary_policy=MINIMAL_POLICY)
+    assert isinstance(outcome, RunMinted)
+    receipt = outcome.run.occurrence.receipt
+    assert not receipt.confined and receipt.capabilities == () and receipt.instance is None
+    assert outcome.run.recipe.boundary_policy == MINIMAL_POLICY
+
+
+def test_replay_carries_the_originals_policy_and_takes_none_of_its_own(tmp_path):
+    assert "boundary_policy" not in inspect.signature(_replay).parameters
+    original = run_assessment(tmp_path / "a")
+    replayed = _replay_of(original, tmp_path / "b", port=MEMORY_PORT)
+    assert isinstance(replayed, RunMinted)
+    assert replayed.run.recipe.boundary_policy == original.run.recipe.boundary_policy == MINIMAL_POLICY
+
+
+def test_a_confinement_refusal_keeps_its_stable_reason_and_its_detail(tmp_path, monkeypatch):
+    def unsupported():
+        raise ClosureUnsupported("synthetic: SONAME collision")
+
+    monkeypatch.setattr(_boundary, "capture_closure", unsupported)
+    outcome = run_assessment(tmp_path)
+    assert isinstance(outcome, RunRefused)
+    assert outcome.reason == "closure-unsupported"
+    assert outcome.detail == "synthetic: SONAME collision"
+    assert outcome.intent is not None  # post-intent: the intent was fulfilled by a refusal
+    assert outcome.report is not None and outcome.report.entries[0].outcome.missing_member == "closure-unsupported"

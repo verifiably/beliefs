@@ -1,11 +1,14 @@
-"""Begin, execute, capture, and mint runs through the minimal adapter.
+"""Begin, execute, capture, and mint runs through the minimal adapter, or
+through the confined policy's snapshot-and-sandbox path (run-confinement
+design §5).
 
-The scratch root is staging, not confinement. The boundary renders
-configuration, environment, and argv, never the workflow definition. The
-``.seeds`` channel is cooperative job reporting whose claims conformance
-evaluates later. Cut 3 §3's input-safety rules are enforced here: assessment
-runs require a frozen spec, URL/accession inputs are acquisition rather than a
-run, and every declared input must already be held.
+The scratch root is staging under the minimal policy and the host side of the
+output root under the confined one. The boundary renders configuration,
+environment, and argv, never the workflow definition. The ``.seeds`` channel
+is cooperative job reporting whose claims conformance evaluates later. Cut 3
+§3's input-safety rules are enforced here: assessment runs require a frozen
+spec, URL/accession inputs are acquisition rather than a run, and every
+declared input must already be held.
 """
 
 from __future__ import annotations
@@ -27,10 +30,12 @@ from nodes.core.write_plan import CreateOp
 from beliefs import stored
 from beliefs.adapter import (
     LOG_HANDLER_SCRIPT,
+    SANDBOX_VENV,
+    CapturedEnvironment,
     WorkflowDefinition,
     build_argv,
     capture_bundle,
-    capture_environment,
+    capture_closure,
     create_scratch_root,
     read_realized_seeds,
     read_trace,
@@ -38,11 +43,29 @@ from beliefs.adapter import (
     run_engine,
     validate_entrypoint,
 )
-from beliefs.errors import MalformedClosure, MalformedRecord, ScienceError
+from beliefs.confinement import (
+    BUNDLE_ROOT,
+    HOME_DIR,
+    HOSTNAME,
+    OUTPUT_ROOT,
+    TRACE_DIR,
+    check_bundle_intact,
+    check_closure_intact,
+    fingerprint,
+    launch_confined,
+    materialize_snapshot,
+    mount_plan,
+    require_host,
+    sandbox_environment,
+)
+from beliefs.errors import ConfinementRefusal, MalformedClosure, MalformedRecord, ScienceError
 from beliefs.identity import v1
 from beliefs.recipe import (
+    CONFINED_POLICY,
     BoundaryPolicy,
     BoundaryReceipt,
+    EnvironmentManifest,
+    InstanceAttestation,
     Invocation,
     Occurrence,
     Recipe,
@@ -50,6 +73,7 @@ from beliefs.recipe import (
     ResultManifest,
     RunClosure,
     project_recipe,
+    supported_policy,
 )
 from beliefs.report import (
     ActReport,
@@ -82,10 +106,6 @@ __all__ = [
     "mint_run",
 ]
 
-_POLICY = BoundaryPolicy(
-    identity="boundary-policy/minimal-v1",
-    scope_rule="scope-derivation/v1",
-)
 _INSTRUMENT = "beliefs.boundary/v1"
 
 
@@ -152,6 +172,8 @@ def _refused(
     observer: str,
     started_at: str,
     intent: AssessmentRunIntent | OperationIntent | None = None,
+    *,
+    detail: str = "",
 ) -> RunRefused:
     token = intent.event_token if intent is not None else secrets.token_hex(16)
     report = _mint_report(
@@ -165,7 +187,7 @@ def _refused(
         entries=(RunAttemptEntry(subject, RunRefusal(reason)),),
     )
     registration = Registration(token, report.identity()) if intent is not None else None
-    return RunRefused(reason, report, intent, registration)
+    return RunRefused(reason, report, intent, registration, detail)
 
 
 def _report_plan(report: ActReport | None) -> tuple[CreateOp, ...]:
@@ -282,6 +304,59 @@ def _render_config(recipe: Recipe, definition: WorkflowDefinition) -> dict[str, 
     return config
 
 
+def _policy_refusal(policy: BoundaryPolicy) -> ConfinementRefusal | None:
+    """Pre-intent: the whole definition must be known, and a confined request
+    needs the host's substrate. Never a downgrade."""
+    try:
+        if supported_policy(policy) == CONFINED_POLICY:
+            require_host()
+    except ConfinementRefusal as refusal:
+        return refusal
+    return None
+
+
+def _project(
+    *,
+    spec: FrozenSpec | None,
+    inputs: tuple[RecipeInput, ...],
+    parameters: Mapping[str, object],
+    nondeterminism: NondeterminismContract | None,
+    held: Mapping[str, str],
+    code_identity: str,
+    environment: EnvironmentManifest,
+    definition: WorkflowDefinition,
+    invocation: Invocation,
+    boundary_policy: BoundaryPolicy,
+) -> Recipe:
+    if spec is not None:
+        return project_recipe(
+            spec,
+            held=held,
+            code_identity=code_identity,
+            environment=environment,
+            workflow_definition_identity=definition.identity(),
+            invocation=invocation,
+            boundary_policy=boundary_policy,
+        )
+    if nondeterminism is None:
+        raise MalformedClosure("a production recipe requires a nondeterminism contract")
+    if any(entry.content != held[entry.dataset] for entry in inputs):
+        raise MalformedClosure("a production input content identity does not match held bytes")
+    return Recipe(
+        shape="dataset-production",
+        spec_identity=None,
+        code_identity=code_identity,
+        environment=environment,
+        workflow_definition_identity=definition.identity(),
+        invocation=invocation,
+        inputs=inputs,
+        parameters=parameters,
+        nondeterminism=nondeterminism,
+        boundary_policy=boundary_policy,
+        rule_bindings=((DATASET_EQUIVALENCE_RULE, "impl-dataset-eq-1"),),
+    )
+
+
 def _execute_run(
     *,
     intent: AssessmentRunIntent | OperationIntent,
@@ -302,12 +377,14 @@ def _execute_run(
     host_realization: str,
     scratch_base: Path,
     cores: int,
+    boundary_policy: BoundaryPolicy,
 ) -> RunMinted | RunRefused:
     try:
         scratch = create_scratch_root(scratch_base)
         bundle = scratch / "bundle"
         code_identity = capture_bundle(code_roots, bundle)
-        environment = capture_environment()
+        captured = capture_closure()
+        environment = captured.manifest
         captured_entrypoint = validate_entrypoint(bundle, entrypoint)
         if captured_entrypoint.read_bytes() != definition.snakefile:
             return _refused("definition-mismatch", subject, actor, observer, started_at, intent)
@@ -317,6 +394,32 @@ def _execute_run(
             if spec is not None
             else tuple(entry.dataset for entry in inputs)
         )
+        if boundary_policy == CONFINED_POLICY:
+            return _execute_confined(
+                intent=intent,
+                subject=subject,
+                spec=spec,
+                inputs=inputs,
+                parameters=parameters,
+                nondeterminism=nondeterminism,
+                definition=definition,
+                addresses=addresses,
+                held_inputs=held_inputs,
+                captured=captured,
+                scratch=scratch,
+                bundle=bundle,
+                code_identity=code_identity,
+                captured_entrypoint=captured_entrypoint,
+                entrypoint=entrypoint,
+                targets=targets,
+                declared_outputs=declared_outputs,
+                actor=actor,
+                observer=observer,
+                started_at=started_at,
+                host_realization=host_realization,
+                scratch_base=scratch_base,
+                cores=cores,
+            )
         held = _stage_inputs(addresses, held_inputs, scratch)
         invocation = Invocation(
             entrypoint=entrypoint,
@@ -324,34 +427,18 @@ def _execute_run(
             bindings=("inputs", "parameters", "nondeterminism"),
             declared_outputs=declared_outputs,
         )
-        if spec is not None:
-            recipe = project_recipe(
-                spec,
-                held=held,
-                code_identity=code_identity,
-                environment=environment,
-                workflow_definition_identity=definition.identity(),
-                invocation=invocation,
-                boundary_policy=_POLICY,
-            )
-        else:
-            if nondeterminism is None:
-                raise MalformedClosure("a production recipe requires a nondeterminism contract")
-            if any(entry.content != held[entry.dataset] for entry in inputs):
-                raise MalformedClosure("a production input content identity does not match held bytes")
-            recipe = Recipe(
-                shape="dataset-production",
-                spec_identity=None,
-                code_identity=code_identity,
-                environment=environment,
-                workflow_definition_identity=definition.identity(),
-                invocation=invocation,
-                inputs=inputs,
-                parameters=parameters,
-                nondeterminism=nondeterminism,
-                boundary_policy=_POLICY,
-                rule_bindings=((DATASET_EQUIVALENCE_RULE, "impl-dataset-eq-1"),),
-            )
+        recipe = _project(
+            spec=spec,
+            inputs=inputs,
+            parameters=parameters,
+            nondeterminism=nondeterminism,
+            held=held,
+            code_identity=code_identity,
+            environment=environment,
+            definition=definition,
+            invocation=invocation,
+            boundary_policy=boundary_policy,
+        )
 
         config = _render_config(recipe, definition)
         trace_dir = Path(tempfile.mkdtemp(prefix="trace-", dir=scratch.parent))
@@ -394,14 +481,131 @@ def _execute_run(
         manifest = build_manifest(declared_outputs, scratch)
         run = mint_run(recipe, manifest, occurrence, scratch)
         return RunMinted(run, intent, Registration(intent.event_token, run.address()))
+    except ConfinementRefusal as error:
+        return _refused(getattr(error, "reason"), subject, actor, observer, started_at, intent, detail=str(error))  # noqa: B009 — ConfinementRefusal's base deliberately carries no `reason` (design §8); every raised instance is a named subclass that does
     except (ScienceError, OSError) as error:
         return _refused(str(error), subject, actor, observer, started_at, intent)
+
+
+def _execute_confined(
+    *,
+    intent: AssessmentRunIntent | OperationIntent,
+    subject: str,
+    spec: FrozenSpec | None,
+    inputs: tuple[RecipeInput, ...],
+    parameters: Mapping[str, object],
+    nondeterminism: NondeterminismContract | None,
+    definition: WorkflowDefinition,
+    addresses: tuple[str, ...],
+    held_inputs: Mapping[str, Path],
+    captured: CapturedEnvironment,
+    scratch: Path,
+    bundle: Path,
+    code_identity: str,
+    captured_entrypoint: Path,
+    entrypoint: str,
+    targets: tuple[str, ...],
+    declared_outputs: tuple[str, ...],
+    actor: str,
+    observer: str,
+    started_at: str,
+    host_realization: str,
+    scratch_base: Path,
+    cores: int,
+) -> RunMinted | RunRefused:
+    """Design §5.6 steps 3–5: the scratch root's ``out/`` is the host side of
+    the output root; the closure is snapshotted, verified, bound and observed;
+    the engine runs only after the gate; the post-exit check precedes every
+    read. One capture (the caller's), one pre-bind observation (the bundle's
+    fold, the snapshot verification ``materialize_snapshot`` performs, the
+    inputs' fingerprint), one post-exit observation — no other pass over the
+    closure. Raises ConfinementRefusal for the caller's except clause."""
+    output_root = scratch / "out"
+    output_root.mkdir()
+    (output_root / TRACE_DIR).mkdir()
+    (output_root / HOME_DIR).mkdir()
+    held = _stage_inputs(addresses, held_inputs, output_root)
+    invocation = Invocation(
+        entrypoint=entrypoint,
+        targets=targets,
+        bindings=("inputs", "parameters", "nondeterminism"),
+        declared_outputs=declared_outputs,
+    )
+    recipe = _project(
+        spec=spec,
+        inputs=inputs,
+        parameters=parameters,
+        nondeterminism=nondeterminism,
+        held=held,
+        code_identity=code_identity,
+        environment=captured.manifest,
+        definition=definition,
+        invocation=invocation,
+        boundary_policy=CONFINED_POLICY,
+    )
+    config = _render_config(recipe, definition)
+    handler = output_root / TRACE_DIR / "handler.py"
+    handler.write_text(LOG_HANDLER_SCRIPT)
+    trace_file = f"{OUTPUT_ROOT}/{TRACE_DIR}/events.jsonl"
+    relative_entrypoint = captured_entrypoint.relative_to(bundle.resolve()).as_posix()
+    inner_argv = build_argv(
+        interpreter=f"{SANDBOX_VENV}/bin/python",
+        snakefile=f"{BUNDLE_ROOT}/{relative_entrypoint}",
+        directory=OUTPUT_ROOT,
+        targets=targets,
+        config=config,
+        log_handler=f"{OUTPUT_ROOT}/{TRACE_DIR}/handler.py",
+        cores=cores,
+        in_process_jobs=True,
+    )
+    environment = sandbox_environment(trace_file)
+    snapshot = materialize_snapshot(captured, scratch_base / "environments")
+    plan = mount_plan(snapshot=snapshot, loader=captured.loader, bundle=bundle, output_root=output_root)
+    check_bundle_intact(bundle, code_identity)
+    inputs_before = fingerprint(output_root / "inputs")
+    launched = launch_confined(plan=plan, environment=environment, inner_argv=inner_argv, captured=captured)
+    check_closure_intact(bundle=bundle, code_identity=code_identity, snapshot=snapshot, captured=captured, inputs=output_root / "inputs", inputs_fingerprint=inputs_before)
+    if launched.returncode != 0:
+        return _refused("execution-failed", subject, actor, observer, started_at, intent, detail=launched.output[-2000:])
+    trace = read_trace(output_root / TRACE_DIR / "events.jsonl")
+    realized_seeds = read_realized_seeds(output_root)
+    receipt = BoundaryReceipt(
+        scratch_mapping=str(scratch),
+        argv=inner_argv,
+        rendered_config=tuple(sorted(config.items())),
+        capabilities=launched.capabilities,
+        instance=InstanceAttestation(
+            namespaces=launched.facts.distinct,
+            mounts=launched.facts.mounts,
+            mount_plan_identity=plan.identity(),
+            environment_identity=snapshot.name,
+        ),
+        rendered_environment=(
+            *captured.rendered,
+            *((f"env:{name}", "value", value) for name, value in environment),
+            ("hostname", "value", HOSTNAME),
+        ),
+        mounts=plan.host_mapping(),
+    )
+    occurrence = Occurrence(
+        event_token=intent.event_token,
+        started_at=started_at,
+        actor=actor,
+        host_realization=host_realization,
+        trace=trace,
+        realized_seeds=realized_seeds,
+        receipt=receipt,
+    )
+    manifest = build_manifest(declared_outputs, output_root)
+    run = mint_run(recipe, manifest, occurrence, output_root)
+    return RunMinted(run, intent, Registration(intent.event_token, run.address()))
 
 
 def execute_assessment_run(
     *,
     spec: object,
     port: OperationPort,
+    boundary_policy: BoundaryPolicy,
     expected_recipe_identity: str | None = None,
     definition: WorkflowDefinition,
     code_roots: tuple[Path, ...],
@@ -425,6 +629,10 @@ def execute_assessment_run(
         refused = _refused(reason, spec.identity, actor, observer, started_at)
         port.execute(_report_plan(refused.report))
         return refused
+    if refusal := _policy_refusal(boundary_policy):
+        refused = _refused(getattr(refusal, "reason"), spec.identity, actor, observer, started_at, detail=str(refusal))  # noqa: B009
+        port.execute(_report_plan(refused.report))
+        return refused
     intent = AssessmentRunIntent(spec.identity, secrets.token_hex(16), actor)
     fulfills = port.append_intent(_intent_wire(intent))
     result = _execute_run(
@@ -446,6 +654,7 @@ def execute_assessment_run(
         host_realization=host_realization,
         scratch_base=scratch_base,
         cores=cores,
+        boundary_policy=supported_policy(boundary_policy),
     )
     if (
         type(result) is RunMinted
@@ -465,6 +674,7 @@ def execute_production_run(
     *,
     inputs: tuple[RecipeInput, ...],
     port: OperationPort,
+    boundary_policy: BoundaryPolicy,
     expected_recipe_identity: str | None = None,
     parameters: Mapping[str, object],
     nondeterminism: NondeterminismContract,
@@ -489,6 +699,10 @@ def execute_production_run(
         refused = _refused(reason, "absent", actor, observer, started_at)
         port.execute(_report_plan(refused.report))
         return refused
+    if refusal := _policy_refusal(boundary_policy):
+        refused = _refused(getattr(refusal, "reason"), "absent", actor, observer, started_at, detail=str(refusal))  # noqa: B009
+        port.execute(_report_plan(refused.report))
+        return refused
     intent = OperationIntent("run-attempt", secrets.token_hex(16), actor)
     fulfills = port.append_intent(_intent_wire(intent))
     result = _execute_run(
@@ -510,6 +724,7 @@ def execute_production_run(
         host_realization=host_realization,
         scratch_base=scratch_base,
         cores=cores,
+        boundary_policy=supported_policy(boundary_policy),
     )
     if (
         type(result) is RunMinted

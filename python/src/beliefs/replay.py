@@ -129,6 +129,7 @@ def replay(
         "scratch_base": scratch_base,
         "cores": cores,
         "port": port,
+        "boundary_policy": original.run.recipe.boundary_policy,
     }
     recipe = original.run.recipe
     common["expected_recipe_identity"] = recipe.identity()

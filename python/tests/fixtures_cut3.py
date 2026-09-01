@@ -9,6 +9,7 @@ from beliefs.boundary import execute_assessment_run, execute_production_run
 from beliefs.closure import RetractionEnumeration
 from beliefs.lineage import LineageSnapshot
 from beliefs.recipe import (
+    MINIMAL_POLICY,
     BoundaryPolicy,
     BoundaryReceipt,
     EnvironmentManifest,
@@ -349,6 +350,7 @@ def run_assessment(
     tmp_path,
     *,
     port,
+    boundary_policy=MINIMAL_POLICY,
     snakefile=SNAKEFILE_DETERMINISTIC,
     spec=None,
     definition_override=None,
@@ -373,6 +375,7 @@ def run_assessment(
     return execute_assessment_run(
         spec=spec,
         port=port,
+        boundary_policy=boundary_policy,
         definition=(
             definition_override if definition_override is not None else definition(snakefile=snakefile)
         ),
@@ -394,6 +397,7 @@ def run_production(
     tmp_path,
     *,
     port,
+    boundary_policy=MINIMAL_POLICY,
     snakefile=SNAKEFILE_PRODUCTION,
     inputs=None,
     parameters=None,
@@ -434,6 +438,7 @@ def run_production(
         parameters=parameters if parameters is not None else {},
         nondeterminism=contract,
         port=port,
+        boundary_policy=boundary_policy,
         definition=(
             definition_override
             if definition_override is not None
