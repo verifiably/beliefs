@@ -298,10 +298,15 @@ against the binary's real location, deduplicated in order, are passed to
 the loader as its --library-path argument — the main executable's RPATH is
 inherited process-wide at runtime, so a listing that predicts runtime
 resolution must model exactly that inheritance and nothing more. The
-libraries it resolves join the closure under /science/env/lib as ordinary
-captured rows, so the sandbox's declared LD_LIBRARY_PATH=/science/env/lib
-resolves the same names to the same artifacts and the probe's in-layout
-map equality (§6.2) is preserved. The capture retains the
+libraries it resolves join the closure as ordinary captured rows, wherever
+their own registered root places them — not always the flat
+/science/env/lib. Because of that, the declared LD_LIBRARY_PATH=/science/env/lib
+alone cannot stand in for the interpreter's RPATH in-layout: the probe's
+listing supplies the same explicit --library-path the host capture does,
+the interpreter binary's own $ORIGIN-expanded RPATH/RUNPATH directories —
+the host against the host's own paths, the probe against the in-layout
+copy under /science/env — so both listings model the one RPATH
+inheritance the runtime actually has (ruling R6). The capture retains the
 expected map as rows (ELF sandbox path, SONAME, resolved sandbox path)
 over every loadable ELF (ET_EXEC or ET_DYN) under /science/env of the
 closure's own architecture — an ELF is listed only when its class, data
@@ -309,8 +314,12 @@ encoding and machine equal the capturing interpreter binary's; a
 foreign-architecture file (a vendored solver for another platform, say)
 stays an ordinary digest-verified row outside the map, and could not
 execute in the sandbox regardless, its program interpreter being outside
-the closure — closed to a fixpoint over the libraries it adds. The probe lists the same set
-in-layout and the boundary requires its report to equal the map exactly:
+the closure — closed to a fixpoint over the libraries it adds. Per-ELF
+equality ranges over every such architecture-matched loadable ELF, not
+only ones with a dependency of their own: an ELF that resolves zero
+further NEEDED entries stays a key of the map with an empty resolution —
+an attested observation, not an omission (ruling R6). The probe lists the
+same set in-layout and the boundary requires its report to equal the map exactly:
 the same ELFs, the same SONAMEs per ELF, the same resolved path, the
 manifest's digest; a nonzero loader exit, an unresolved or unparsable
 line, an omitted or extra entry each refuse.
