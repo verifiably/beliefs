@@ -63,3 +63,12 @@ Rulings are written at task boundaries, never rewritten after the fact.
    $ORIGIN-expanded RPATH directories as an explicit --library-path, and
    map equality ranges over every architecture-matched loadable ELF, an
    empty resolution map being an attested observation, not an omission.
+7. **R7 — the frozen-file pins are re-pinned across the rename.** Commit
+   5a02ca2 renamed the package science→beliefs after cuts 8–12 froze,
+   rewriting the frozen arms files' import strings without maintaining the
+   FROZEN_PRIOR_CUT_FILES digests; test_n2_cut12.py has failed identically
+   since, latent because acceptance modules are excluded from the ordinary
+   run. Every pinned file was diffed against its own freeze commit and shows
+   only the mechanical rename; the pins now name the post-rename bytes. The
+   guard is restored, no frozen cut body was edited, and the drift and its
+   cause are recorded here rather than papered over.
