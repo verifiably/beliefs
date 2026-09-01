@@ -36,3 +36,22 @@ Rulings are written at task boundaries, never rewritten after the fact.
    data encoding and machine equal the capturing interpreter's own; foreign
    files stay ordinary digest-verified rows. The probe applies the same
    predicate in-layout, so map equality still binds everything that can run.
+5. **R5 — the real bwrap mount table equals the plan exactly; no amendment.**
+   A live launch of the gated boundary on this host (bubblewrap 0.12,
+   unprivileged user namespaces) against the executing interpreter's own
+   captured closure observed, from the child's own `/proc`: every declared
+   namespace (`cgroup`, `ipc`, `mnt`, `net`, `pid`, `user`, `uts`) distinct
+   from the parent's, and a canonical mount table equal — row for row, in
+   sorted order — to `mount_plan`'s eight planned rows (the implicit root,
+   the loader, the environment, the bundle, the output, the inputs, and the
+   two device exceptions). bubblewrap adds no mount the plan does not
+   declare — no second root entry for its own pivot, no incidental
+   `/proc` or `/dev` row. `mount_plan`'s rows and `judge_instance` need no
+   amendment on this host.
+
+   The same run's `judge_report` refused on this closure's loader map, for
+   reasons outside K6's mount/namespace judgement and outside this task's
+   file scope — see task 6's report for the full diagnosis. That refusal is
+   not evidence against this ruling: it was reached only after
+   `judge_instance` above had already passed, from the probe's later,
+   separate loader-listing check.

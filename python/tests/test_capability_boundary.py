@@ -457,9 +457,18 @@ RAW_WRITE_ALLOWLIST = {
     # The execution sandbox: an inputs tree and the log-handler script, minted
     # per run under a scratch directory the substrate owns.
     "boundary.py": {"copy2", "write_text"},
+    # The environment snapshot: manifested files copied, manifested and
+    # rendered symlinks created, rendered files written, the build published
+    # by rename, a losing build discarded — under a boundary-owned directory
+    # registered by nothing (run-confinement design §4.3, §10).
+    "confinement.py": {"copy2", "write_text", "symlink_to", "rename", "rmtree"},
+    # The held probe's one write check: a file touched and removed under the
+    # output root, with inventoried operations so this table weighs it
+    # (run-confinement design §6.2, §10).
+    "probe.py": {"touch", "unlink"},
 }
-"""The two surfaces Science writes with its own hands, both stated. Neither is
-a registered surface; a third entry appearing here would be a claim to weigh,
+"""The four surfaces Science writes with its own hands, all stated. None is
+a registered surface; a fifth entry appearing here would be a claim to weigh,
 which is why the allowlist is compared for equality and never for containment.
 """
 
@@ -544,7 +553,7 @@ def test_no_cooperative_mutation_path_skips_registration():
         assert named == RAW_WRITE_ALLOWLIST.get(relative(module), set()), (
             f"{relative(module)} writes bytes itself: {sorted(named)}"
         )
-    assert set(RAW_WRITE_ALLOWLIST) == {"adapter.py", "boundary.py"}
+    assert set(RAW_WRITE_ALLOWLIST) == {"adapter.py", "boundary.py", "confinement.py", "probe.py"}
 
 
 def test_science_fingerprints_only_through_the_engine_read_commands():
