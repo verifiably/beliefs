@@ -101,18 +101,21 @@ earlier cuts' frozen set here, pinned at this commit rather than at cut 6's,
 because slice 3 begins with them exactly as the freeze left them."""
 
 CUT6_SOURCE_COMMIT = "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e"
+RENAME_COMMIT = "5a02ca2"
+"""The whole-repo science→beliefs mechanical rename (ledger R7). Re-pins a
+file whose only post-freeze edit was that rename's import strings."""
 
 FROZEN_PRIOR_CUT_FILES = {
     "python/tests/n2_arms_cut5.py": CUT6_SOURCE_COMMIT,
     "python/tests/n2_arms_cut6.py": CUT6_SOURCE_COMMIT,
-    "python/tools/cut5_acceptance.py": CUT6_SOURCE_COMMIT,
-    "python/tools/cut6_acceptance.py": CUT6_SOURCE_COMMIT,
-    "python/tests/acceptance/test_n2_cut6.py": "c8c0b12",
+    "python/tools/cut5_acceptance.py": RENAME_COMMIT,
+    "python/tools/cut6_acceptance.py": RENAME_COMMIT,
+    "python/tests/acceptance/test_n2_cut6.py": RENAME_COMMIT,
     # Cut 7's own declarations and runner. R13 froze `n2_arms_cut7.py` "ever";
     # the runner is frozen on the same footing, and cut 8 chains it as its sole
     # prior-cut prefix rather than editing it.
     "python/tests/n2_arms_cut7.py": CUT8_FREEZE_COMMIT,
-    "python/tools/cut7_acceptance.py": CUT8_FREEZE_COMMIT,
+    "python/tools/cut7_acceptance.py": RENAME_COMMIT,
 }
 """Each prior-cut surface and the commit whose content it must still hold."""
 
