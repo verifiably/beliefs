@@ -80,3 +80,12 @@ Rulings are written at task boundaries, never rewritten after the fact.
    exclusion. The helper now derives the name from PACKAGE.name — the
    contract it had before the rename — changing nothing for audits of the
    current package. No frozen declaration file was edited.
+9. **R9 — R7's re-pin ran to its transitive fixpoint.** Rounds 3 and 4 of
+   task 9 extended R7's re-pin beyond its first report-derived scope: every
+   FROZEN_PRIOR_CUT_FILES table (cuts 7-13) was swept, and the one
+   transitive pin (test_n2_cut9.py's pin on test_n2_cut8.py's own bytes,
+   moved by the audited table edit d0206c8) was re-pinned as
+   CUT8_AUDIT_REPIN_COMMIT. Per-file drift verification and the pin graph
+   are recorded in the task-9 report and the commits e38ac40, d0206c8,
+   e053211; the graph terminates in one hop, nothing pins test_n2_cut9.py
+   or later.
