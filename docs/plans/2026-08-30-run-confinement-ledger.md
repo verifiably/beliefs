@@ -28,3 +28,11 @@ Rulings are written at task boundaries, never rewritten after the fact.
    the environment stays empty, and the resolved libraries are ordinary closure
    rows under /science/env/lib. Wrongness is caught closed: a row the sandbox
    cannot resolve fails the probe's map-equality gate.
+4. **R4 — the loader map is architecture-matched.** `pulp` vendors CBC solver
+   binaries for foreign architectures (ELFCLASS32 and EM_AARCH64 on this
+   x86-64 host) that are loadable-typed but unlistable by the native loader
+   and unexecutable in the sandbox, whose closure holds no matching program
+   interpreter. An ELF joins the loader listing and map only when its class,
+   data encoding and machine equal the capturing interpreter's own; foreign
+   files stay ordinary digest-verified rows. The probe applies the same
+   predicate in-layout, so map equality still binds everything that can run.
