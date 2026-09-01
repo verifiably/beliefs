@@ -2,6 +2,7 @@
 interpreter, one row per file, host paths ephemeral; K7's three refusals."""
 
 import os
+import struct
 import subprocess
 import sys
 from pathlib import Path
@@ -18,6 +19,7 @@ from beliefs.adapter import (
     SANDBOX_VENV,
     CapturedEnvironment,
     _Closure,
+    _elf_library_path,
     _parse_listing,
     build_argv,
     capture_closure,
@@ -172,6 +174,7 @@ def test_loader_listing_runs_the_loader_under_an_empty_environment(monkeypatch):
     seen: dict = {}
 
     def fake_run(argv, **kwargs):
+        seen["argv"] = argv
         seen.update(kwargs)
         return subprocess.CompletedProcess(argv, 0, stdout="\tlibm.so.6 => /usr/lib/libm.so.6 (0x1)\n", stderr="")
 
@@ -180,6 +183,51 @@ def test_loader_listing_runs_the_loader_under_an_empty_environment(monkeypatch):
     monkeypatch.setenv("LD_PRELOAD", "/ambient/libx.so")
     assert loader_listing("/lib64/ld.so", Path("/x")) == {"libm.so.6": Path("/usr/lib/libm.so.6")}
     assert seen["env"] == {}
+    assert "--library-path" not in seen["argv"]
+    assert loader_listing("/lib64/ld.so", Path("/x"), library_path=("/a", "/b")) == {
+        "libm.so.6": Path("/usr/lib/libm.so.6")
+    }
+    assert seen["env"] == {}  # the explicit --library-path never widens into an ambient env
+    assert seen["argv"] == ["/lib64/ld.so", "--library-path", "/a:/b", "--list", "/x"]
+
+
+def test_elf_library_path_expands_origin_against_the_binarys_own_directory(tmp_path):
+    """A synthetic ELF64 whose DT_RPATH names `$ORIGIN/../lib`: the walker
+    reads it from the dynamic section directly, no loader invocation
+    involved, and expands `$ORIGIN` against the file's real location."""
+    elf = tmp_path / "synthetic.so"
+    phoff, phentsize, phnum = 64, 56, 2
+    dyn_offset = phoff + phentsize * phnum
+    dyn_size = 16 * 3
+    strtab_offset = dyn_offset + dyn_size
+    strtab = b"\x00$ORIGIN/../lib\x00"
+
+    header = bytearray(64)
+    header[0:4] = b"\x7fELF"
+    header[4], header[5], header[6] = 2, 1, 1  # ELFCLASS64, little-endian, EV_CURRENT
+    struct.pack_into("<Q", header, 0x20, phoff)
+    struct.pack_into("<HH", header, 0x36, phentsize, phnum)
+
+    load_phdr = bytearray(phentsize)
+    struct.pack_into("<I", load_phdr, 0, 1)  # PT_LOAD
+    struct.pack_into("<Q", load_phdr, 8, 0)  # p_offset
+    struct.pack_into("<Q", load_phdr, 16, 0)  # p_vaddr — identity-mapped to file offset
+    struct.pack_into("<Q", load_phdr, 32, strtab_offset + len(strtab))  # p_filesz — the whole file
+
+    dynamic_phdr = bytearray(phentsize)
+    struct.pack_into("<I", dynamic_phdr, 0, 2)  # PT_DYNAMIC
+    struct.pack_into("<Q", dynamic_phdr, 8, dyn_offset)
+    struct.pack_into("<Q", dynamic_phdr, 16, dyn_offset)  # vaddr == offset under the identity mapping above
+    struct.pack_into("<Q", dynamic_phdr, 32, dyn_size)
+
+    dynamic = bytearray(dyn_size)
+    struct.pack_into("<qQ", dynamic, 0, 5, strtab_offset)  # DT_STRTAB
+    struct.pack_into("<qQ", dynamic, 16, 15, 1)  # DT_RPATH -> "$ORIGIN/../lib" (past the leading NUL)
+    struct.pack_into("<qQ", dynamic, 32, 0, 0)  # DT_NULL
+
+    elf.write_bytes(bytes(header) + bytes(load_phdr) + bytes(dynamic_phdr) + bytes(dynamic) + strtab)
+    origin = str(Path(os.path.realpath(elf)).parent)
+    assert _elf_library_path(elf) == (f"{origin}/../lib",)
 
 
 def test_a_nonzero_loader_exit_is_closure_unsupported(monkeypatch):

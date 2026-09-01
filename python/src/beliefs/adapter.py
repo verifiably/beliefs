@@ -38,6 +38,12 @@ SANDBOX_LIB = "/science/env/lib"
 SANDBOX_VENV = "/science/env/venv"
 _ELF_MAGIC = b"\x7fELF"
 _PT_INTERP = 3
+_PT_LOAD = 1
+_PT_DYNAMIC = 2
+_DT_NULL = 0
+_DT_STRTAB = 5
+_DT_RPATH = 15
+_DT_RUNPATH = 29
 
 LOG_HANDLER_SCRIPT = """\
 import json
@@ -428,6 +434,111 @@ def elf_interpreter(path: Path) -> str:
     raise ClosureUnsupported(f"{path} names no program interpreter")
 
 
+def _elf_library_path(path: Path) -> tuple[str, ...]:
+    """DT_RUNPATH if present, else DT_RPATH, read from the ELF dynamic
+    section and $ORIGIN-expanded against the binary's own real location,
+    deduplicated in order — the one resolution context a process inherits
+    process-wide from its own main executable at runtime, supplied to the
+    host listing explicitly rather than left to the ambient environment
+    (design §5.3)."""
+    with path.open("rb") as handle:
+        header = handle.read(64)
+        if header[:4] != _ELF_MAGIC:
+            raise ClosureUnsupported(f"{path} is not an ELF file")
+        if header[5] != 1:
+            raise ClosureUnsupported(f"{path} is not little-endian")
+        is64 = header[4] == 2
+        if is64:
+            (phoff,) = struct.unpack_from("<Q", header, 0x20)
+            phentsize, phnum = struct.unpack_from("<HH", header, 0x36)
+        elif header[4] == 1:
+            (phoff,) = struct.unpack_from("<I", header, 0x1C)
+            phentsize, phnum = struct.unpack_from("<HH", header, 0x2A)
+        else:
+            raise ClosureUnsupported(f"{path} has an unknown ELF class")
+        loads: list[tuple[int, int, int]] = []
+        dynamic: tuple[int, int] | None = None
+        for index in range(phnum):
+            handle.seek(phoff + index * phentsize)
+            phdr = handle.read(phentsize)
+            p_type = struct.unpack_from("<I", phdr, 0)[0]
+            if is64:
+                if p_type == _PT_LOAD:
+                    p_offset, p_vaddr = struct.unpack_from("<QQ", phdr, 8)
+                    (p_filesz,) = struct.unpack_from("<Q", phdr, 32)
+                    loads.append((p_vaddr, p_offset, p_filesz))
+                elif p_type == _PT_DYNAMIC:
+                    (p_offset,) = struct.unpack_from("<Q", phdr, 8)
+                    (p_filesz,) = struct.unpack_from("<Q", phdr, 32)
+                    dynamic = (p_offset, p_filesz)
+            else:
+                if p_type == _PT_LOAD:
+                    (p_offset,) = struct.unpack_from("<I", phdr, 4)
+                    (p_vaddr,) = struct.unpack_from("<I", phdr, 8)
+                    (p_filesz,) = struct.unpack_from("<I", phdr, 16)
+                    loads.append((p_vaddr, p_offset, p_filesz))
+                elif p_type == _PT_DYNAMIC:
+                    (p_offset,) = struct.unpack_from("<I", phdr, 4)
+                    (p_filesz,) = struct.unpack_from("<I", phdr, 16)
+                    dynamic = (p_offset, p_filesz)
+        if dynamic is None:
+            return ()
+        dyn_offset, dyn_size = dynamic
+
+        def to_file_offset(vaddr: int) -> int:
+            for seg_vaddr, seg_offset, seg_filesz in loads:
+                if seg_vaddr <= vaddr < seg_vaddr + seg_filesz:
+                    return seg_offset + (vaddr - seg_vaddr)
+            raise ClosureUnsupported(f"{path} names a dynamic-section address outside its load segments")
+
+        entry_size = 16 if is64 else 8
+        strtab_vaddr: int | None = None
+        rpath_val: int | None = None
+        runpath_val: int | None = None
+        handle.seek(dyn_offset)
+        for _ in range(dyn_size // entry_size):
+            entry = handle.read(entry_size)
+            if is64:
+                tag, val = struct.unpack_from("<qQ", entry, 0)
+            else:
+                tag, val = struct.unpack_from("<iI", entry, 0)
+            if tag == _DT_NULL:
+                break
+            if tag == _DT_STRTAB:
+                strtab_vaddr = val
+            elif tag == _DT_RPATH:
+                rpath_val = val
+            elif tag == _DT_RUNPATH:
+                runpath_val = val
+        selected = runpath_val if runpath_val is not None else rpath_val
+        if selected is None:
+            return ()
+        if strtab_vaddr is None:
+            raise ClosureUnsupported(f"{path} has an RPATH or RUNPATH entry but no DT_STRTAB")
+        strtab_offset = to_file_offset(strtab_vaddr)
+        handle.seek(strtab_offset + selected)
+        text = b""
+        while True:
+            block = handle.read(256)
+            if not block:
+                break
+            text += block
+            if b"\0" in block:
+                break
+        raw = text.split(b"\0", 1)[0].decode("ascii")
+    origin = str(Path(os.path.realpath(path)).parent)
+    directories: list[str] = []
+    seen: set[str] = set()
+    for part in raw.split(":"):
+        if not part:
+            continue
+        expanded = part.replace("$ORIGIN", origin).replace("${ORIGIN}", origin)
+        if expanded not in seen:
+            seen.add(expanded)
+            directories.append(expanded)
+    return tuple(directories)
+
+
 def _parse_listing(text: str) -> dict[str, Path]:
     listing: dict[str, Path] = {}
     for line in text.splitlines():
@@ -442,12 +553,18 @@ def _parse_listing(text: str) -> dict[str, Path]:
     return listing
 
 
-def loader_listing(loader: str, path: Path) -> dict[str, Path]:
+def loader_listing(loader: str, path: Path, library_path: tuple[str, ...] = ()) -> dict[str, Path]:
     """What `execve` will map for `path`, as the loader itself reports it —
     under an empty environment, so no ambient LD_LIBRARY_PATH or LD_PRELOAD
-    shapes the capture (design §5.3)."""
+    shapes the capture. `library_path`, when supplied, is passed as the
+    loader's own `--library-path` argument — the one resolution context
+    supplied explicitly rather than ambiently (design §5.3)."""
+    argv = [loader]
+    if library_path:
+        argv.extend(["--library-path", ":".join(library_path)])
+    argv.extend(["--list", str(path)])
     try:
-        completed = subprocess.run([loader, "--list", str(path)], capture_output=True, text=True, check=False, env={})
+        completed = subprocess.run(argv, capture_output=True, text=True, check=False, env={})
     except OSError as error:
         raise ClosureUnsupported(f"the loader {loader} could not be invoked: {error}") from error
     if completed.returncode != 0:
@@ -482,7 +599,8 @@ def _walk_closure() -> CapturedEnvironment:
     walker.add_records()
     walker.add_pth(purelib)
     loader = elf_interpreter(interpreter_host)
-    walker.add_native(listing=lambda elf: loader_listing(loader, elf))
+    library_path = _elf_library_path(interpreter_host)
+    walker.add_native(listing=lambda elf: loader_listing(loader, elf, library_path=library_path))
     walker.rows[loader] = ("file", _file_digest(Path(loader)))
     walker.plan[loader] = Path(loader)
     walker.check_links()
