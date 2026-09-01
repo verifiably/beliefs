@@ -89,3 +89,14 @@ Rulings are written at task boundaries, never rewritten after the fact.
    are recorded in the task-9 report and the commits e38ac40, d0206c8,
    e053211; the graph terminates in one hop, nothing pins test_n2_cut9.py
    or later.
+10. **R10 — discharged at `ef118c5` on linux/linux-4, kernel 7.1.11-arch1-1,
+    ext4 device 259:2 at `/mnt/ssd`, `flush-honoring-disk.v1`, bubblewrap
+    0.12.0.** The certified cut-13 runner exited 0 across all eleven pytest
+    phases in the cut5→cut13 chain, 247 passed, 0 failed. The portable suite
+    exited 0 at 2850 passed in 864.15s (0:14:24); Ruff reported all checks
+    passed. Pyright reported 31 errors, all confined to this branch's own
+    added or modified test files and none in `src/beliefs/` — the same
+    slice-wide test-typing debt task 9's review flagged (Finding 1),
+    disclosed here rather than fixed, since it bears on no declared unit's
+    correctness. The three phase summaries and the complete host tuple are
+    in `2026-09-01-conformance-cut-13-results.md`.
