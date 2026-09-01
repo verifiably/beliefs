@@ -165,8 +165,14 @@ def test_the_rendered_venv_and_pth_files_are_functions_of_the_layout(captured):
     assert rendered[f"{SANDBOX_VENV}/pyvenv.cfg"] == ("file", f"home = {SANDBOX_PYTHON}/bin\ninclude-system-site-packages = false\n")
     version_dir = f"python{sys.version_info[0]}.{sys.version_info[1]}"
     assert rendered[f"{SANDBOX_VENV}/lib/{version_dir}/site-packages"] == ("symlink", SANDBOX_SITE)
-    science_pth = next(path for path in rendered if path.endswith("_science.pth"))
-    assert rendered[science_pth][1].startswith(f"{SANDBOX_PATH}/")
+    editable_pths = [
+        path
+        for path, (kind, content) in rendered.items()
+        if path.endswith(".pth")
+        and kind == "file"
+        and all(line.startswith(f"{SANDBOX_PATH}/") for line in content.splitlines() if line)
+    ]
+    assert editable_pths
     assert not set(rendered) & {path for path, _, _ in captured.manifest.artifacts}
 
 
