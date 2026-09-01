@@ -1,6 +1,6 @@
 """R13's capture arms and the boundary's three input-safety rules.
-Confinement is not here: R13's import-resolution negative and R15 defer whole
-to the confinement-capable boundary policy (cut 3 §3)."""
+R13's import-resolution negative and R15's arms live in
+acceptance/test_confinement_acceptance.py (cut 13)."""
 
 import importlib.metadata
 import inspect

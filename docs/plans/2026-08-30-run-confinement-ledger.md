@@ -1,7 +1,7 @@
 # Run-confinement slice — execution ledger
 
 Plan: `docs/superpowers/plans/2026-08-30-run-confinement.md`
-Specification: `docs/superpowers/specs/2026-08-30-run-confinement-design.md`
+Specification: `docs/designs/2026-08-30-run-confinement-design.md`
 Frozen cut: `docs/designs/2026-08-30-conformance-cut-13.md`
 Freeze hash: fa89241
 

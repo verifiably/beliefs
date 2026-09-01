@@ -14,7 +14,7 @@ Outcome: Beliefs executes the confinement-capable boundary policy inside a fresh
 
 Acceptance evidence: Freeze cut 13 before implementation; deliver the runtime closure, snapshot, sandbox, probe, receipt, run-domain dispatch, fourth scope row, and admission join specified by the approved plan; pass its negative harnesses and complete Python and TypeScript gates on the certified kernel/volume tuple; discharge the selected rows, update the adoption ledger and roadmap, and bank the results.
 
-Sources: `docs/plans/2026-08-29-implementation-roadmap.md` `run-confinement`; `docs/superpowers/specs/2026-08-30-run-confinement-design.md`; and `docs/superpowers/plans/2026-08-30-run-confinement.md`.
+Sources: `docs/plans/2026-08-29-implementation-roadmap.md` `run-confinement`; `docs/designs/2026-08-30-run-confinement-design.md`; and `docs/superpowers/plans/2026-08-30-run-confinement.md`.
 
 Uncertainty: The implementation is fully planned but absent. Capability admission remains kernel- and volume-specific and must fail closed on uncertified tuples.
 
