@@ -126,7 +126,8 @@ def test_k4_a_confined_receipt_projects_its_three_members_under_v2():
     receipt = confined_receipt()
     projection = _receipt_projection(receipt)
     assert set(projection) == {"scratch_mapping", "argv", "rendered_config", "capabilities", "instance", "rendered_environment", "mounts"}
-    assert projection["instance"]["environment_identity"] == ENV_IDENTITY
+    instance = projection["instance"]
+    assert isinstance(instance, dict) and instance["environment_identity"] == ENV_IDENTITY
     assert receipt.identity() == v1.digest(CONFINED_RECEIPT_DOMAIN, projection)
     assert CONFINED_RECEIPT_DOMAIN == "science.boundary-receipt.v2"
 

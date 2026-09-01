@@ -436,6 +436,7 @@ def test_a_minimal_run_carries_a_v1_receipt_and_no_instance(tmp_path):
 def test_replay_carries_the_originals_policy_and_takes_none_of_its_own(tmp_path):
     assert "boundary_policy" not in inspect.signature(_replay).parameters
     original = run_assessment(tmp_path / "a")
+    assert isinstance(original, RunMinted)
     replayed = _replay_of(original, tmp_path / "b", port=MEMORY_PORT)
     assert isinstance(replayed, RunMinted)
     assert replayed.run.recipe.boundary_policy == original.run.recipe.boundary_policy == MINIMAL_POLICY
@@ -451,4 +452,6 @@ def test_a_confinement_refusal_keeps_its_stable_reason_and_its_detail(tmp_path, 
     assert outcome.reason == "closure-unsupported"
     assert outcome.detail == "synthetic: SONAME collision"
     assert outcome.intent is not None  # post-intent: the intent was fulfilled by a refusal
-    assert outcome.report is not None and outcome.report.entries[0].outcome.missing_member == "closure-unsupported"
+    assert outcome.report is not None
+    entry = outcome.report.entries[0]
+    assert isinstance(entry, RunAttemptEntry) and entry.outcome.missing_member == "closure-unsupported"

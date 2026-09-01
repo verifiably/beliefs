@@ -86,7 +86,9 @@ def verification_of(pair, **overrides):
         "epoch": "epoch-1",
     }
     kwargs.update(overrides)
-    return build_verification(original.run, replayed.run, **kwargs)
+    verification = build_verification(original.run, replayed.run, **kwargs)
+    assert isinstance(verification, AssessmentVerification)
+    return verification
 
 
 # --- R19 ----------------------------------------------------------------------
@@ -464,6 +466,7 @@ def test_k5_admission_record_carries_supersedes(pair):
         verdict=base.verdict,
         supersedes=base.identity(),
     )
+    assert isinstance(superseding, AssessmentVerification)
     assert admission_record(superseding).supersedes == base.identity()
 
 
@@ -477,5 +480,6 @@ def test_k5_a_production_verification_is_refused_by_the_join(production_pair):
         contract_identity="contract-1",
         epoch="epoch-1",
     )
+    assert isinstance(verification, DatasetProductionVerification)
     with pytest.raises(NotAnAssessmentVerification):
-        admission_record(verification)
+        admission_record(verification)  # pyright: ignore[reportArgumentType] — invalid type is under test

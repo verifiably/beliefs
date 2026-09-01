@@ -21,13 +21,21 @@ def _node_of(run):
 
 def test_k4_a_minimal_projection_carries_exactly_the_v1_receipt_keys():
     parsed = decode_projection(projection_text(closure()))
-    assert set(parsed["occurrence"]["receipt"]) == {"scratch_mapping", "argv", "rendered_config", "capabilities"}
+    occurrence = parsed["occurrence"]
+    assert isinstance(occurrence, dict)
+    receipt = occurrence["receipt"]
+    assert isinstance(receipt, dict)
+    assert set(receipt) == {"scratch_mapping", "argv", "rendered_config", "capabilities"}
 
 
 def test_k4_a_confined_projection_round_trips_and_recomputes_under_run_v2():
     run = confined_closure()
     parsed = decode_projection(projection_text(run))
-    assert set(parsed["occurrence"]["receipt"]) >= {"instance", "rendered_environment", "mounts"}
+    occurrence = parsed["occurrence"]
+    assert isinstance(occurrence, dict)
+    receipt = occurrence["receipt"]
+    assert isinstance(receipt, dict)
+    assert set(receipt) >= {"instance", "rendered_environment", "mounts"}
     assert v1.digest(CONFINED_RUN_DOMAIN, parsed) == run.address()
     assert v1.digest(RUN_DOMAIN, parsed) != run.address()
     published = decode_run_record(_node_of(run))
@@ -43,6 +51,7 @@ def test_k4_a_minimal_run_still_recomputes_under_run_v1():
 def test_k3_a_wire_mount_plan_identity_disagreeing_with_its_mounts_is_refused():
     run = confined_closure()
     text = v1.decode(projection_text(run))
+    assert isinstance(text, dict)
     text["occurrence"]["receipt"]["instance"]["mount_plan_identity"] = "sha256:" + "00" * 32
     with pytest.raises(MalformedRecord, match="mount_plan_identity"):
         decode_projection(v1.encode(text))
@@ -51,6 +60,7 @@ def test_k3_a_wire_mount_plan_identity_disagreeing_with_its_mounts_is_refused():
 def test_a_partial_confined_receipt_is_refused_on_the_wire():
     run = confined_closure()
     text = v1.decode(projection_text(run))
+    assert isinstance(text, dict)
     del text["occurrence"]["receipt"]["mounts"]
     with pytest.raises(MalformedRecord):
         decode_projection(v1.encode(text))
@@ -59,6 +69,7 @@ def test_a_partial_confined_receipt_is_refused_on_the_wire():
 def test_a_reordered_confined_list_is_out_of_canonical_order():
     run = confined_closure()
     text = v1.decode(projection_text(run))
+    assert isinstance(text, dict)
     text["occurrence"]["receipt"]["instance"]["namespaces"].reverse()
     with pytest.raises(MalformedRecord, match="canonical order"):
         decode_projection(v1.encode(text))
@@ -91,6 +102,7 @@ def test_the_wire_refuses_what_the_values_refuse(mutate, match):
     outside MOUNT_ACCESS, a rendered kind outside RENDERED_KINDS."""
     run = confined_closure()
     text = v1.decode(projection_text(run))
+    assert isinstance(text, dict)
     receipt = text["occurrence"]["receipt"]
     mutate(receipt)
     if "mounts" in match:

@@ -34,6 +34,7 @@ from beliefs.identity import v1
 from beliefs.lineage import LineageSnapshot
 from beliefs.policy import PolicyBinding
 from beliefs.recipe import CAPABILITIES, CONFINED_POLICY, MINIMAL_POLICY, NAMESPACES
+from beliefs.record import AssessmentValue
 from beliefs.replay import CONFORMING, EquivalenceImplementation, conformance, derive_scope
 from beliefs.spec import freeze
 from beliefs.verify import admission_record
@@ -103,6 +104,7 @@ def confined_pair(tmp_path: Path, shared_scratch: Path, *, snakefile=SNAKEFILE_D
 def belief_over(minted: RunMinted, verification) -> Belief | NoBelief:
     spec = freeze(spec_draft(), held_rules=spec_rules())
     assessment = build_assessment(minted.run, specs={spec.identity: spec}, implementations=interp())
+    assert isinstance(assessment, AssessmentValue), assessment
     run_value = run_record(minted.run)
     observed = tuple(dataset_address(entry.dataset) for entry in run_value.inputs if entry.role == "observes")
     records = Records(
@@ -139,6 +141,7 @@ def belief_over(minted: RunMinted, verification) -> Belief | NoBelief:
 def admission_of(minted: RunMinted, verification):
     spec = freeze(spec_draft(), held_rules=spec_rules())
     assessment = build_assessment(minted.run, specs={spec.identity: spec}, implementations=interp())
+    assert isinstance(assessment, AssessmentValue), assessment
     run_value = run_record(minted.run)
     return admit(assessment, run_value, observations_for(run_value), (verification,))
 
@@ -209,6 +212,7 @@ def test_r15u5_the_receipt_names_the_capabilities_observed_in_force(tmp_path, sh
     receipt = outcome.run.occurrence.receipt
     assert receipt.confined and receipt.capabilities == CAPABILITIES
     assert receipt.instance is not None
+    assert receipt.mounts is not None and receipt.rendered_environment is not None
     assert tuple(sorted(receipt.instance.namespaces)) == NAMESPACES
     assert receipt.instance.environment_identity == outcome.run.recipe.environment.identity()
     assert all(part.startswith("/science/") or not part.startswith("/") for part in receipt.argv)
