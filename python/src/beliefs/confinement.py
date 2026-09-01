@@ -446,7 +446,9 @@ def judge_report(
 ) -> tuple[str, ...]:
     """The probe's report against what was declared. Every failure is a refusal;
     the graded case is reached by selecting the minimal policy, not here. A
-    malformed shape raises KeyError or TypeError, which the launch wraps."""
+    malformed report shape raises KeyError or TypeError, and a truncated
+    `inner_argv` (a `--snakefile` flag with no following value) raises
+    IndexError; the launch wraps all three the same way."""
     raw_environ = report["environ"]
     if not isinstance(raw_environ, Mapping):
         raise TypeError(f"malformed report: environ is {type(raw_environ).__name__!r}, not a mapping")
@@ -552,7 +554,7 @@ def _reap(process: subprocess.Popen[str]) -> str:
     return output or ""
 
 
-_PROTOCOL_FAILURES = (ConfinementNotEstablished, OSError, ValueError, TypeError, KeyError, AttributeError)
+_PROTOCOL_FAILURES = (ConfinementNotEstablished, OSError, ValueError, TypeError, KeyError, AttributeError, IndexError)
 
 
 def launch_confined(

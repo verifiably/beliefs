@@ -479,6 +479,47 @@ def test_a_launch_protocol_failure_is_confinement_not_established_and_the_child_
         os.kill(int(pid_file.read_text()), 0)
 
 
+def test_a_truncated_inner_argv_refuses_with_the_child_reaped(tmp_path, monkeypatch):
+    """F1: a `--snakefile` flag with no following value must not escape
+    `judge_report` as a raw IndexError — the launch still refuses with the
+    stable reason, terminates and reaps the child, and leaves no descriptor
+    open (design §8). A stand-in bubblewrap reports a real (unnamespaced)
+    child and a good report, so the launch reaches `judge_report` itself;
+    `judge_instance` is stubbed out since this fake child holds none of the
+    real namespaces or mounts a real bwrap launch would."""
+    import json
+    import sys
+
+    captured = synthetic(tmp_path)
+    environment = sandbox_environment(f"{OUTPUT_ROOT}/.trace/events.jsonl")
+    monkeypatch.setattr(confinement_module, "judge_instance", lambda facts, plan: None)
+    pid_file = tmp_path / "pid"
+    fake = tmp_path / "bwrap"
+    fake.write_text(
+        f"#!{sys.executable}\n"
+        "import json, os, sys, time\n"
+        "argv = sys.argv\n"
+        "info = int(argv[argv.index('--info-fd') + 1])\n"
+        "report_fd = int(argv[argv.index('--report-fd') + 1])\n"
+        f"open({str(pid_file)!r}, 'w').write(str(os.getpid()))\n"
+        f"report = {json.dumps(good_report(captured, environment))!r}\n"
+        "os.write(info, json.dumps({'child-pid': os.getpid()}).encode())\n"
+        "os.close(info)\n"
+        "os.write(report_fd, (report + '\\nREADY\\n').encode())\n"
+        "os.close(report_fd)\n"
+        "time.sleep(60)\n"
+    )
+    fake.chmod(0o755)
+    monkeypatch.setattr(confinement_module, "_BWRAP", str(fake))
+    truncated = INNER[: INNER.index("--snakefile") + 1]
+    open_before = set(os.listdir("/proc/self/fd"))
+    with pytest.raises(ConfinementNotEstablished):
+        launch_confined(plan=_plan(tmp_path), environment=environment, inner_argv=truncated, captured=captured)
+    assert set(os.listdir("/proc/self/fd")) <= open_before
+    with pytest.raises(ProcessLookupError):
+        os.kill(int(pid_file.read_text()), 0)
+
+
 def test_bubblewrap_gone_after_intent_is_confinement_not_established_not_unavailable(tmp_path, monkeypatch):
     monkeypatch.setattr(confinement_module, "_BWRAP", str(tmp_path / "no-such-bwrap"))
     captured = synthetic(tmp_path)
