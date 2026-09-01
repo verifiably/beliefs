@@ -19,6 +19,7 @@ from beliefs.adapter import (
     SANDBOX_VENV,
     CapturedEnvironment,
     _Closure,
+    _elf_architecture,
     _elf_library_path,
     _parse_listing,
     build_argv,
@@ -32,7 +33,30 @@ from beliefs.errors import ClosureUnsupported, MalformedClosure, UnsafeInvocatio
 from beliefs.identity import v1
 from beliefs.recipe import ENVIRONMENT_DOMAIN, EnvironmentManifest
 
-LOADABLE_ELF = b"\x7fELF" + bytes(12) + b"\x03\x00"  # ET_DYN, enough header for the type check
+# The K7 fixtures below build synthetic .so files that must be treated as
+# loadable ELVES of *this* host's own architecture (ruling R4) — derived from
+# the interpreter actually running the suite, never a hardcoded literal, so
+# the same fixtures hold on whatever host runs these tests.
+_NATIVE_CLASS, _NATIVE_DATA, _NATIVE_MACHINE = _elf_architecture(Path(os.path.realpath(sys.executable)))
+_NATIVE_ENDIAN = "<" if _NATIVE_DATA == 1 else ">"
+_FOREIGN_CLASS = 1 if _NATIVE_CLASS == 2 else 2
+_FOREIGN_MACHINE = 183 if _NATIVE_MACHINE != 183 else 62  # EM_AARCH64 vs EM_X86_64
+
+
+def _synthetic_elf(*, e_class: int = _NATIVE_CLASS, e_machine: int = _NATIVE_MACHINE) -> bytes:
+    """A minimal, structurally-valid (never-executed) ET_DYN header: magic,
+    class/data/version, padding to e_ident[16], then e_type and e_machine —
+    exactly the 20 bytes `_is_loadable_elf`/`_elf_architecture` read."""
+    return (
+        b"\x7fELF"
+        + bytes([e_class, _NATIVE_DATA, 1])
+        + bytes(9)
+        + struct.pack(f"{_NATIVE_ENDIAN}H", 3)  # ET_DYN
+        + struct.pack(f"{_NATIVE_ENDIAN}H", e_machine)
+    )
+
+
+LOADABLE_ELF = _synthetic_elf()  # this host's own architecture — always loadable and listable
 
 
 def _terminal(rows: dict[str, tuple[str, str]], path: str) -> str:
@@ -443,6 +467,25 @@ def test_add_native_closes_over_the_libraries_it_adds_and_maps_in_root_targets_t
         (f"{SANDBOX_SITE}/libinner.so.1", "libouter.so.1", f"{SANDBOX_LIB}/libouter.so.1"),
     ]
     assert walker.rows[f"{SANDBOX_LIB}/libouter.so.1"][0] == "file"
+
+
+def test_r4_a_foreign_class_or_machine_elf_is_a_row_but_never_listed_or_mapped(tmp_path):
+    """Ruling R4: an ELF joins the loader listing and map only when its
+    class, data encoding and machine equal the capturing interpreter's own —
+    a foreign-architecture file stays an ordinary digest-verified row."""
+    walker, purelib = _site(tmp_path)
+    (purelib / "wrong-class.so").write_bytes(_synthetic_elf(e_class=_FOREIGN_CLASS))
+    (purelib / "wrong-machine.so").write_bytes(_synthetic_elf(e_machine=_FOREIGN_MACHINE))
+    walker.add(purelib / "wrong-class.so")
+    walker.add(purelib / "wrong-machine.so")
+
+    def never(elf: Path) -> dict[str, Path]:
+        raise AssertionError(f"{elf} is off-architecture and must never be listed")
+
+    walker.add_native(listing=never)
+    assert walker.rows[f"{SANDBOX_SITE}/wrong-class.so"][0] == "file"
+    assert walker.rows[f"{SANDBOX_SITE}/wrong-machine.so"][0] == "file"
+    assert walker.loader_map == []
 
 
 # --- the policy-neutral argv --------------------------------------------------

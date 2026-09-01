@@ -233,6 +233,7 @@ class _Closure:
         self.plan: dict[str, Path] = {}
         self.rendered: dict[str, tuple[str, str]] = {}
         self.loader_map: list[tuple[str, str, str]] = []
+        self.native_arch: tuple[int, int, int] | None = None
         self._sonames: dict[str, Path] = {}
         self._roots: list[tuple[Path, str]] = []
 
@@ -385,12 +386,20 @@ class _Closure:
                     self.loader_map.append((elf_sandbox, soname, resolved))
 
     def elves(self) -> list[tuple[str, Path]]:
-        """Every loadable ELF file row under the environment root, by sandbox
-        path — the same set the probe enumerates in-layout."""
+        """Every loadable ELF file row under the environment root, of the
+        closure's own architecture, by sandbox path — the same set the probe
+        enumerates in-layout (design §5.3, ruling R4). A foreign-class,
+        foreign-encoding or foreign-machine file stays an ordinary row: it
+        cannot execute in the sandbox regardless, its program interpreter
+        being outside the closure."""
+        reference = self.native_arch if self.native_arch is not None else _elf_architecture(Path(os.path.realpath(sys.executable)))
         return [
             (path, self.plan[path])
             for path, (kind, _) in sorted(self.rows.items())
-            if kind == "file" and path.startswith(f"{SANDBOX_ENV}/") and _is_loadable_elf(self.plan[path])
+            if kind == "file"
+            and path.startswith(f"{SANDBOX_ENV}/")
+            and _is_loadable_elf(self.plan[path])
+            and _elf_architecture(self.plan[path]) == reference
         ]
 
 
@@ -400,6 +409,19 @@ def _is_loadable_elf(path: Path) -> bool:
     with path.open("rb") as handle:
         header = handle.read(18)
     return len(header) == 18 and header[:4] == _ELF_MAGIC and struct.unpack_from("<H", header, 16)[0] in (2, 3)
+
+
+def _elf_architecture(path: Path) -> tuple[int, int, int]:
+    """(EI_CLASS, EI_DATA, e_machine) — the identity triple a loadable ELF
+    must share with the capturing interpreter's own before the host loader
+    is asked to list it (design §5.3, ruling R4): a foreign-architecture
+    file is neither listable by this host's native loader nor executable in
+    the sandbox, whose closure holds no matching program interpreter for it."""
+    with path.open("rb") as handle:
+        header = handle.read(20)
+    endian = "<" if header[5] == 1 else ">"
+    (e_machine,) = struct.unpack_from(f"{endian}H", header, 18)
+    return (header[4], header[5], e_machine)
 
 
 def elf_interpreter(path: Path) -> str:
@@ -600,6 +622,7 @@ def _walk_closure() -> CapturedEnvironment:
     walker.add_pth(purelib)
     loader = elf_interpreter(interpreter_host)
     library_path = _elf_library_path(interpreter_host)
+    walker.native_arch = _elf_architecture(interpreter_host)
     walker.add_native(listing=lambda elf: loader_listing(loader, elf, library_path=library_path))
     walker.rows[loader] = ("file", _file_digest(Path(loader)))
     walker.plan[loader] = Path(loader)
