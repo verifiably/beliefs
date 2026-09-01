@@ -72,3 +72,11 @@ Rulings are written at task boundaries, never rewritten after the fact.
    only the mechanical rename; the pins now name the post-rename bytes. The
    guard is restored, no frozen cut body was edited, and the drift and its
    cause are recorded here rather than papered over.
+8. **R8 — the N2 harness names the audited package, not this package.**
+   Cut 6's audit runs the arms against a pre-rename historical archive by
+   monkeypatching test_n2.PACKAGE; 5a02ca2 hardcoded the sabotage copy's
+   destination to the literal "beliefs", so that audit collection-failed
+   (exit 4) with every check uncollected, latent behind the acceptance
+   exclusion. The helper now derives the name from PACKAGE.name — the
+   contract it had before the rename — changing nothing for audits of the
+   current package. No frozen declaration file was edited.
