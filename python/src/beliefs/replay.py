@@ -18,7 +18,7 @@ from typing import final
 from beliefs.adapter import WorkflowDefinition
 from beliefs.boundary import RunMinted, RunRefused, execute_assessment_run, execute_production_run
 from beliefs.errors import MalformedRecord
-from beliefs.recipe import ResultManifest, RunClosure
+from beliefs.recipe import REQUIRED_FOR_CLEAN_ENVIRONMENT, BoundaryReceipt, ResultManifest, RunClosure
 from beliefs.runrecord import OperationPort
 from beliefs.sealed import sealed
 from beliefs.spec import (
@@ -200,16 +200,32 @@ def conformance(run: RunClosure) -> str:
     return CONFORMING
 
 
+def qualifies(receipt: BoundaryReceipt, environment_identity: str) -> bool:
+    """§7.3a over the closed vocabulary — containment, never an ordering — plus
+    the fresh-instance conjunct, bound to the replayed recipe's environment
+    (design §7.1). Reads the receipt only; a policy's identity string is
+    nothing here."""
+    if type(receipt) is not BoundaryReceipt:
+        raise MalformedRecord("qualification reads a BoundaryReceipt")
+    if receipt.instance is None:
+        return False
+    if not set(REQUIRED_FOR_CLEAN_ENVIRONMENT) <= set(receipt.capabilities):
+        return False
+    return receipt.instance.environment_identity == environment_identity
+
+
 def derive_scope(
     original: RunClosure,
     replayed: RunClosure,
     *,
     certification: CodeLineageCertification | None,
 ) -> str:
-    """Walk only the scope rows this boundary can attest."""
+    """Walk every row of §7.3."""
     if conformance(original) != CONFORMING or conformance(replayed) != CONFORMING:
         return "not-certified"
     if original.recipe.identity() == replayed.recipe.identity():
+        if qualifies(replayed.occurrence.receipt, replayed.recipe.environment.identity()):
+            return "clean-environment"
         return "same-environment"
     left = original.recipe
     right = replayed.recipe
@@ -226,10 +242,8 @@ def derive_scope(
     return "not-certified"
 
 
-derive_scope.__doc__ = """Derive verification scope from two conforming closures.
-
-The `clean-environment` row of §7.3's table needs a receipt attesting
-reconstruction and confinement capabilities; no receipt this boundary emits
-can attest one, so the row is not spelled here — deferred with the
-confinement-capable boundary policy (cut 3 §4.2, R4 row).
+derive_scope.__doc__ = """Derive verification scope from two conforming closures — every row of
+§7.3. The `clean-environment` row is reached only through the replay's
+receipt qualifying under §7.3a (conformance cut 13); the original's receipt is
+not read, because the requirement is that the replay ran through the boundary.
 """

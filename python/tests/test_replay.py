@@ -12,6 +12,7 @@ import inspect
 from pathlib import Path
 
 import pytest
+from confinement_fixtures import confined_receipt, instance
 from fixtures_cut3 import (
     D_IN,
     DATA_ADDRESS,
@@ -39,7 +40,7 @@ from beliefs.boundary import RunMinted, RunRefused, execute_assessment_run
 from beliefs.closure import build_closure
 from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
 from beliefs.errors import MalformedRecord
-from beliefs.recipe import ResultManifest, TraceJob
+from beliefs.recipe import CAPABILITIES, BoundaryPolicy, ResultManifest, TraceJob
 from beliefs.record import AssessmentValue, RunInput, RunValue
 from beliefs.replay import (
     AVAILABLE,
@@ -52,6 +53,7 @@ from beliefs.replay import (
     byte_tolerance_rule,
     conformance,
     derive_scope,
+    qualifies,
     replay_eligibility,
 )
 from beliefs.report import CLOSED, completion
@@ -383,9 +385,54 @@ def test_code_lineage_certification_is_strict_and_immutable():
         CodeLineageCertification(rationale="", attribution="tester")
 
 
-def test_clean_environment_has_no_reachable_branch():
-    source = inspect.getsource(derive_scope)
-    assert "clean-environment" not in source
+def _confined(minted, *, capabilities=CAPABILITIES, environment_identity=None):
+    run = minted.run
+    identity = environment_identity if environment_identity is not None else run.recipe.environment.identity()
+    receipt = confined_receipt(capabilities=capabilities, instance=instance(environment_identity=identity))
+    return dataclasses.replace(run, occurrence=dataclasses.replace(run.occurrence, receipt=receipt))
+
+
+def test_r4_the_clean_environment_row_is_reached_only_through_a_qualifying_receipt(pair):
+    original, replayed = pair
+    assert derive_scope(original.run, _confined(replayed), certification=None) == "clean-environment"
+    assert derive_scope(original.run, replayed.run, certification=None) == "same-environment"
+    foreign = _confined(replayed, environment_identity="sha256:" + "00" * 32)
+    assert derive_scope(original.run, foreign, certification=None) == "same-environment"
+
+
+def test_r4_negative_d_a_receipt_missing_a_required_capability_derives_same_environment(pair):
+    original, replayed = pair
+    for missing in CAPABILITIES:
+        fewer = tuple(capability for capability in CAPABILITIES if capability != missing)
+        assert derive_scope(original.run, _confined(replayed, capabilities=fewer), certification=None) == "same-environment"
+
+
+def test_r4_negative_d_a_policy_qualifies_whatever_its_version_string(pair):
+    original, replayed = pair
+    v99 = BoundaryPolicy(identity="boundary-policy/confined-v99", scope_rule="scope-derivation/v1", capabilities=CAPABILITIES)
+    left = dataclasses.replace(original.run, recipe=dataclasses.replace(original.run.recipe, boundary_policy=v99))
+    right = _confined(replayed)
+    right = dataclasses.replace(right, recipe=dataclasses.replace(right.recipe, boundary_policy=v99))
+    assert left.recipe.identity() == right.recipe.identity()
+    assert derive_scope(left, right, certification=None) == "clean-environment"
+
+
+def test_r4_negative_d_two_incomparable_policies_are_not_ranked(pair):
+    original, replayed = pair
+    one = _confined(replayed, capabilities=("from-bundle", "closure-confined-filesystem"))
+    other = _confined(replayed, capabilities=("from-bundle", "network-denied"))
+    assert derive_scope(original.run, one, certification=None) == "same-environment"
+    assert derive_scope(original.run, other, certification=None) == "same-environment"
+    identity = replayed.run.recipe.environment.identity()
+    assert qualifies(confined_receipt(instance=instance(environment_identity=identity)), identity)
+    assert not qualifies(one.occurrence.receipt, identity) and not qualifies(other.occurrence.receipt, identity)
+
+
+def test_r15_negative_a_minimal_pair_never_derives_clean_environment(pair):
+    original, replayed = pair
+    assert replayed.run.occurrence.receipt.capabilities == () and replayed.run.occurrence.receipt.instance is None
+    assert derive_scope(original.run, replayed.run, certification=None) == "same-environment"
+    assert not qualifies(replayed.run.occurrence.receipt, replayed.run.recipe.environment.identity())
 
 
 # --- R5 / G9 ------------------------------------------------------------------
