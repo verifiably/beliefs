@@ -1,11 +1,11 @@
 ---
 id: beliefs-acc2e9
 title: Deliver coordination and view kinds
-status: todo
+status: dropped
 priority: 2
 size: xl
 created: 2026-08-31T00:38:28Z
-updated: 2026-08-31T00:38:28Z
+updated: 2026-08-31T22:10:28Z
 depends: [beliefs-c88566]
 tags: [migration, mutation, coordination]
 ---
@@ -17,3 +17,7 @@ Acceptance evidence: Begin only after `beliefs-c88566` approves the dedicated de
 Sources: `docs/superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md` §§4.1–4.2 and §8 item 1; `docs/plans/2026-08-29-implementation-roadmap.md` `coordination-addressing`; and existing task `beliefs-c88566`.
 
 Uncertainty: The approved umbrella design fixes the outcome, but `beliefs-c88566` still owns the dedicated design decisions, including the closed view-query language.
+
+## Notes
+
+- 2026-08-31T22:10:28Z (main): superseded by beliefs-1f7400, opened at design close with the concrete cut-14 scope
