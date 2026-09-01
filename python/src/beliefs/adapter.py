@@ -177,9 +177,13 @@ def _canonical_distribution_name(name: str) -> str:
 class CapturedEnvironment:
     """The closure as captured: the manifest, the ephemeral host plan for
     materializing it, the rendered rows, the loader path, the interpreter's
-    sandbox path, and the loader map — (ELF, SONAME, resolved sandbox path)
-    for every loadable ELF under the environment root — which the probe's
-    in-layout listing must reproduce exactly (design §4.1–§4.2, §5.2–§5.3)."""
+    sandbox path, the loader map — (ELF, SONAME, resolved sandbox path) for
+    every dependency a loadable ELF under the environment root has — and
+    `loader_elves`, every architecture-matched loadable ELF under the
+    environment root, whether or not it has a dependency of its own. The
+    probe's in-layout listing must reproduce both exactly: a zero-dependency
+    ELF is a key with an empty map, not an omission (design §4.1–§4.2,
+    §5.2–§5.3, ruling R6)."""
 
     manifest: EnvironmentManifest
     plan: Mapping[str, Path]
@@ -187,6 +191,7 @@ class CapturedEnvironment:
     loader: str
     interpreter: str
     loader_map: tuple[tuple[str, str, str], ...]
+    loader_elves: tuple[str, ...]
 
     def __post_init__(self) -> None:
         if type(self.manifest) is not EnvironmentManifest:
@@ -206,6 +211,10 @@ class CapturedEnvironment:
         for elf, _, resolved in self.loader_map:
             if elf not in paths or resolved not in paths:
                 raise MalformedClosure("the loader map names manifest rows only")
+        if not all(elf in paths for elf in self.loader_elves):
+            raise MalformedClosure("the loader elves are manifest rows")
+        if not {elf for elf, _, _ in self.loader_map} <= set(self.loader_elves):
+            raise MalformedClosure("every loader map ELF is a loader elf")
         object.__setattr__(self, "plan", MappingProxyType(dict(self.plan)))
 
 
@@ -233,6 +242,7 @@ class _Closure:
         self.plan: dict[str, Path] = {}
         self.rendered: dict[str, tuple[str, str]] = {}
         self.loader_map: list[tuple[str, str, str]] = []
+        self.loader_elves: list[str] = []
         self.native_arch: tuple[int, int, int] | None = None
         self._sonames: dict[str, Path] = {}
         self._roots: list[tuple[Path, str]] = []
@@ -366,7 +376,10 @@ class _Closure:
     def add_native(self, *, listing: Callable[[Path], Mapping[str, Path]]) -> None:
         """The loader's own resolution for every loadable ELF under the
         environment root, closed to a fixpoint over the libraries it adds, and
-        the expected map row for each — what the probe must reproduce."""
+        the expected map row for each — what the probe must reproduce. An ELF
+        that resolves zero dependencies of its own still ends up in
+        `loader_elves` — every ELF the walk ever listed — so it stays a key
+        with an empty map rather than vanishing (design §5.3, ruling R6)."""
         listed: set[str] = set()
         while pending := [(sandbox, host) for sandbox, host in self.elves() if sandbox not in listed]:
             for elf_sandbox, elf in pending:
@@ -384,6 +397,7 @@ class _Closure:
                         self.rows[resolved] = ("file", _file_digest(located))
                         self.plan[resolved] = located
                     self.loader_map.append((elf_sandbox, soname, resolved))
+        self.loader_elves = sorted(listed)
 
     def elves(self) -> list[tuple[str, Path]]:
         """Every loadable ELF file row under the environment root, of the
@@ -639,6 +653,7 @@ def _walk_closure() -> CapturedEnvironment:
         loader=loader,
         interpreter=interpreter,
         loader_map=tuple(sorted(walker.loader_map)),
+        loader_elves=tuple(walker.loader_elves),
     )
 
 

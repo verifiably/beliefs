@@ -71,7 +71,15 @@ def synthetic(tmp_path: Path) -> CapturedEnvironment:
         (f"{SANDBOX_VENV}/pyvenv.cfg", "file", "home = /science/env/python/bin\ninclude-system-site-packages = false\n"),
     )
     loader_map = ((interpreter, "libc.so.6", f"{SANDBOX_LIB}/libc.so.6"),)
-    return CapturedEnvironment(manifest=manifest, plan=plan, rendered=rendered, loader=LOADER, interpreter=interpreter, loader_map=loader_map)
+    return CapturedEnvironment(
+        manifest=manifest,
+        plan=plan,
+        rendered=rendered,
+        loader=LOADER,
+        interpreter=interpreter,
+        loader_map=loader_map,
+        loader_elves=(interpreter,),
+    )
 
 
 # --- K2: the snapshot ---------------------------------------------------------
@@ -411,6 +419,36 @@ def test_a_malformed_report_shape_is_not_a_traceback_of_its_own(tmp_path, broken
         judge_report(report, environment=environment, captured=captured, inner_argv=INNER)
 
 
+def test_k6_a_zero_dependency_elf_is_an_attested_empty_map_not_an_omission(tmp_path):
+    """Ruling R6: an architecture-matched loadable ELF that resolves zero
+    dependencies of its own (a modern libc.so.6, say) stays a key in
+    `loader_elves` with an empty map — the probe's equally empty entry for
+    it is accepted, never an extra or a missing ELF."""
+    import dataclasses
+
+    captured = synthetic(tmp_path)
+    leaf = f"{SANDBOX_LIB}/leaf.so"
+    (tmp_path / "host" / "leaf.so").write_bytes(b"leaf")
+    captured = dataclasses.replace(
+        captured,
+        manifest=EnvironmentManifest(artifacts=(*captured.manifest.artifacts, (leaf, "file", _digest(b"leaf")))),
+        plan={**captured.plan, leaf: tmp_path / "host" / "leaf.so"},
+        loader_elves=(*captured.loader_elves, leaf),
+    )
+    environment = sandbox_environment(f"{OUTPUT_ROOT}/.trace/events.jsonl")
+    report = good_report(captured, environment)
+    report["loader"][leaf] = {"returncode": 0, "resolved": {}, "unresolved": []}
+    assert judge_report(report, environment=environment, captured=captured, inner_argv=INNER) == CAPABILITIES
+
+    omitted = {**report, "loader": {elf: entry for elf, entry in report["loader"].items() if elf != leaf}}
+    with pytest.raises(ConfinementNotEstablished, match="loader"):
+        judge_report(omitted, environment=environment, captured=captured, inner_argv=INNER)
+
+    extra = {**report, "loader": {**report["loader"], leaf: {"returncode": 0, "resolved": {"libx.so.1": ["/x", "sha256:00"]}, "unresolved": []}}}
+    with pytest.raises(ConfinementNotEstablished, match="loader"):
+        judge_report(extra, environment=environment, captured=captured, inner_argv=INNER)
+
+
 # --- the launch's failure boundary --------------------------------------------
 def test_a_launch_protocol_failure_is_confinement_not_established_and_the_child_is_reaped(tmp_path, monkeypatch):
     """A stand-in bubblewrap that writes garbage on the info descriptor and then
@@ -424,9 +462,9 @@ def test_a_launch_protocol_failure_is_confinement_not_established_and_the_child_
         f"#!{sys.executable}\n"
         "import os, sys, time\n"
         "info = int(sys.argv[sys.argv.index('--info-fd') + 1])\n"
+        f"open({str(pid_file)!r}, 'w').write(str(os.getpid()))\n"
         "os.write(info, b'not json at all')\n"
         "os.close(info)\n"
-        f"open({str(pid_file)!r}, 'w').write(str(os.getpid()))\n"
         "time.sleep(60)\n"
     )
     fake.chmod(0o755)

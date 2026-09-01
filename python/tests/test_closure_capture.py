@@ -137,6 +137,11 @@ def test_the_loader_map_covers_every_loadable_elf_and_names_rows_only(captured):
     assert all(resolved in rows for _, _, resolved in captured.loader_map)
     assert all(rows[_terminal(rows, resolved)][0] == "file" for _, _, resolved in captured.loader_map)
     assert any(soname.startswith("libc.so") for _, soname, _ in captured.loader_map)
+    # ruling R6: every mapped ELF is a loader elf too, but a loader elf need
+    # not be mapped — a zero-dependency ELF stays a key with an empty map,
+    # never silently omitted from loader_elves.
+    assert listed <= set(captured.loader_elves)
+    assert all(elf.startswith(f"{SANDBOX_ENV}/") and rows[elf][0] == "file" for elf in captured.loader_elves)
 
 
 def test_the_interpreter_symlink_chain_is_captured_link_by_link(captured):
@@ -473,6 +478,10 @@ def test_add_native_closes_over_the_libraries_it_adds_and_maps_in_root_targets_t
         (f"{SANDBOX_SITE}/libinner.so.1", "libouter.so.1", f"{SANDBOX_LIB}/libouter.so.1"),
     ]
     assert walker.rows[f"{SANDBOX_LIB}/libouter.so.1"][0] == "file"
+    # ruling R6: libouter.so.1 resolves zero dependencies of its own but is
+    # still a loadable ELF under the environment root — a key in
+    # loader_elves, even though it never gains a loader_map row.
+    assert walker.loader_elves == sorted([f"{SANDBOX_SITE}/ext.so", f"{SANDBOX_SITE}/libinner.so.1", f"{SANDBOX_LIB}/libouter.so.1"])
 
 
 def test_r4_a_foreign_class_or_machine_elf_is_a_row_but_never_listed_or_mapped(tmp_path):
@@ -492,6 +501,7 @@ def test_r4_a_foreign_class_or_machine_elf_is_a_row_but_never_listed_or_mapped(t
     assert walker.rows[f"{SANDBOX_SITE}/wrong-class.so"][0] == "file"
     assert walker.rows[f"{SANDBOX_SITE}/wrong-machine.so"][0] == "file"
     assert walker.loader_map == []
+    assert walker.loader_elves == []
 
 
 # --- the policy-neutral argv --------------------------------------------------

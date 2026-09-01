@@ -23,6 +23,13 @@ import sys
 
 _ELF_MAGIC = b"\x7fELF"
 _ENV_ROOT = "/science/env"
+_ENV_LIB = f"{_ENV_ROOT}/lib"
+_PT_LOAD = 1
+_PT_DYNAMIC = 2
+_DT_NULL = 0
+_DT_STRTAB = 5
+_DT_RPATH = 15
+_DT_RUNPATH = 29
 _READ_PROBES = ("/etc/passwd", "/tmp")
 _WRITE_PROBES = ("/", "/science/bundle", "/science/env", "/science/out/inputs", "/science/out")
 _IPV4 = ("192.0.2.1", 9)
@@ -114,11 +121,127 @@ def _elves() -> list[str]:
     return sorted(found)
 
 
-def _listing(loader: str, path: str) -> dict[str, object]:
+def _elf_library_path(path: str) -> tuple[str, ...]:
+    """DT_RUNPATH if present, else DT_RPATH, $ORIGIN-expanded against the
+    binary's own real location, deduplicated in order — the interpreter's
+    own resolution context, read fresh from the in-layout copy rather than
+    imported from `adapter.py` (design §5.3, ruling R6: the probe's listing
+    supplies the same explicit `--library-path` the host capture does, so
+    both model the one RPATH inheritance the runtime actually has)."""
+    with open(path, "rb") as handle:
+        header = handle.read(64)
+        is64 = header[4] == 2
+        if is64:
+            (phoff,) = struct.unpack_from("<Q", header, 0x20)
+            phentsize, phnum = struct.unpack_from("<HH", header, 0x36)
+        else:
+            (phoff,) = struct.unpack_from("<I", header, 0x1C)
+            phentsize, phnum = struct.unpack_from("<HH", header, 0x2A)
+        loads: list[tuple[int, int, int]] = []
+        dynamic: tuple[int, int] | None = None
+        for index in range(phnum):
+            handle.seek(phoff + index * phentsize)
+            phdr = handle.read(phentsize)
+            p_type = struct.unpack_from("<I", phdr, 0)[0]
+            if is64:
+                if p_type == _PT_LOAD:
+                    p_offset, p_vaddr = struct.unpack_from("<QQ", phdr, 8)
+                    (p_filesz,) = struct.unpack_from("<Q", phdr, 32)
+                    loads.append((p_vaddr, p_offset, p_filesz))
+                elif p_type == _PT_DYNAMIC:
+                    (p_offset,) = struct.unpack_from("<Q", phdr, 8)
+                    (p_filesz,) = struct.unpack_from("<Q", phdr, 32)
+                    dynamic = (p_offset, p_filesz)
+            else:
+                if p_type == _PT_LOAD:
+                    (p_offset,) = struct.unpack_from("<I", phdr, 4)
+                    (p_vaddr,) = struct.unpack_from("<I", phdr, 8)
+                    (p_filesz,) = struct.unpack_from("<I", phdr, 16)
+                    loads.append((p_vaddr, p_offset, p_filesz))
+                elif p_type == _PT_DYNAMIC:
+                    (p_offset,) = struct.unpack_from("<I", phdr, 4)
+                    (p_filesz,) = struct.unpack_from("<I", phdr, 16)
+                    dynamic = (p_offset, p_filesz)
+        if dynamic is None:
+            return ()
+        dyn_offset, dyn_size = dynamic
+
+        def to_file_offset(vaddr: int) -> int:
+            for seg_vaddr, seg_offset, seg_filesz in loads:
+                if seg_vaddr <= vaddr < seg_vaddr + seg_filesz:
+                    return seg_offset + (vaddr - seg_vaddr)
+            raise ValueError(f"{path} names a dynamic-section address outside its load segments")
+
+        entry_size = 16 if is64 else 8
+        strtab_vaddr: int | None = None
+        rpath_val: int | None = None
+        runpath_val: int | None = None
+        handle.seek(dyn_offset)
+        for _ in range(dyn_size // entry_size):
+            entry = handle.read(entry_size)
+            if is64:
+                tag, val = struct.unpack_from("<qQ", entry, 0)
+            else:
+                tag, val = struct.unpack_from("<iI", entry, 0)
+            if tag == _DT_NULL:
+                break
+            if tag == _DT_STRTAB:
+                strtab_vaddr = val
+            elif tag == _DT_RPATH:
+                rpath_val = val
+            elif tag == _DT_RUNPATH:
+                runpath_val = val
+        selected = runpath_val if runpath_val is not None else rpath_val
+        if selected is None:
+            return ()
+        if strtab_vaddr is None:
+            raise ValueError(f"{path} has an RPATH or RUNPATH entry but no DT_STRTAB")
+        strtab_offset = to_file_offset(strtab_vaddr)
+        handle.seek(strtab_offset + selected)
+        text = b""
+        while True:
+            block = handle.read(256)
+            if not block:
+                break
+            text += block
+            if b"\0" in block:
+                break
+        raw = text.split(b"\0", 1)[0].decode("ascii")
+    origin = os.path.dirname(os.path.realpath(path))
+    directories: list[str] = []
+    seen: set[str] = set()
+    for part in raw.split(":"):
+        if not part:
+            continue
+        # normpath here, not just $ORIGIN-substitution: the host side leaves
+        # a literal ".." in place too, but re-derives a clean sandbox path
+        # from wherever the loader points before ever recording it; the
+        # probe has no such second pass and reports the loader's own listed
+        # path verbatim, so an un-normalized directory here would make the
+        # loader echo a "resolved" string the captured map never recorded,
+        # even though both name the identical file (ruling R6).
+        expanded = os.path.normpath(part.replace("$ORIGIN", origin).replace("${ORIGIN}", origin))
+        if expanded not in seen:
+            seen.add(expanded)
+            directories.append(expanded)
+    return tuple(directories)
+
+
+def _listing(loader: str, path: str, library_path: tuple[str, ...]) -> dict[str, object]:
     """The loader's own in-layout resolution, reported whole: exit status, every
     resolved SONAME with the path as listed and its digest, every line that did
-    not resolve. The boundary requires equality with its captured map."""
-    completed = subprocess.run([loader, "--list", path], capture_output=True, text=True, check=False)
+    not resolve. The boundary requires equality with its captured map.
+
+    `--library-path` replaces `LD_LIBRARY_PATH` for the invocation rather than
+    supplementing it, so `library_path` carries the declared
+    `LD_LIBRARY_PATH` (`_ENV_LIB`) alongside the interpreter's own RPATH
+    directories — otherwise a plain flat-lib dependency no longer resolves
+    once `--library-path` is given at all (ruling R6)."""
+    argv = [loader]
+    if library_path:
+        argv.extend(["--library-path", ":".join(library_path)])
+    argv.extend(["--list", path])
+    completed = subprocess.run(argv, capture_output=True, text=True, check=False)
     resolved: dict[str, list[str]] = {}
     unresolved: list[str] = []
     for line in completed.stdout.splitlines():
@@ -133,6 +256,7 @@ def _listing(loader: str, path: str) -> dict[str, object]:
 
 
 def report(loader: str) -> dict[str, object]:
+    library_path = (_ENV_LIB, *_elf_library_path(os.path.realpath(sys.executable)))
     return {
         "environ": dict(os.environ),
         "hostname": os.uname().nodename,
@@ -142,7 +266,7 @@ def report(loader: str) -> dict[str, object]:
             **{f"write:{path}": _write_probe(path) for path in _WRITE_PROBES},
         },
         "network": {"ipv4": _connect(socket.AF_INET, _IPV4), "ipv6": _connect(socket.AF_INET6, _IPV6)},
-        "loader": {elf: _listing(loader, elf) for elf in _elves()},
+        "loader": {elf: _listing(loader, elf, library_path) for elf in _elves()},
     }
 
 

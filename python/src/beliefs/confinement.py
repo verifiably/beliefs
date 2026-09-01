@@ -465,7 +465,7 @@ def judge_report(
         raise ConfinementNotEstablished(f"network: IPv4 connect reported {network['ipv4']!r}, not ENETUNREACH")
     if network["ipv6"] not in _NETWORK_UNREACHABLE:
         raise ConfinementNotEstablished(f"network: IPv6 reported {network['ipv6']!r}, not one of {_NETWORK_UNREACHABLE}")
-    expected: dict[str, dict[str, str]] = {}
+    expected: dict[str, dict[str, str]] = {elf: {} for elf in captured.loader_elves}
     for elf, soname, resolved in captured.loader_map:
         expected.setdefault(elf, {})[soname] = resolved
     reported = cast(Mapping[str, Mapping[str, object]], report["loader"])
