@@ -13,7 +13,7 @@ from types import MappingProxyType
 from typing import TypeAlias, cast, final
 
 from beliefs import record
-from beliefs.errors import MalformedClosure, MalformedRecord, MixedShapes, RuleUnbound
+from beliefs.errors import MalformedClosure, MalformedRecord, MixedShapes, NotAnAssessmentVerification, RuleUnbound
 from beliefs.identity import v1
 from beliefs.recipe import RunClosure
 from beliefs.replay import (
@@ -25,7 +25,7 @@ from beliefs.replay import (
 from beliefs.report import ActReport, _entry_facet, cite
 from beliefs.sealed import sealed
 from beliefs.spec import DATASET_EQUIVALENCE_RULE, FrozenSpec
-from beliefs.verification import SCOPES, VERDICTS
+from beliefs.verification import SCOPES, VERDICTS, Verification
 
 __all__ = [
     "COMPARISON_REPORT_DOMAIN",
@@ -36,6 +36,7 @@ __all__ = [
     "EmbeddedCitation",
     "RunVerification",
     "active_verifications",
+    "admission_record",
     "build_verification",
 ]
 
@@ -299,6 +300,22 @@ def _mint_verification(
 def active_verifications(verifications: tuple[RunVerification, ...]) -> tuple[RunVerification, ...]:
     superseded = {verification.supersedes for verification in verifications if verification.supersedes is not None}
     return tuple(verification for verification in verifications if verification.identity() not in superseded)
+
+
+def admission_record(derived: AssessmentVerification) -> Verification:
+    """The total projection from a derived assessment verification to the
+    record `admit()` and belief evaluation read (design §7.2). No
+    caller-supplied field. A production verification has no assessment to
+    admit and is refused early."""
+    if type(derived) is not AssessmentVerification:
+        raise NotAnAssessmentVerification(f"{type(derived).__name__} has no assessment to admit")
+    return Verification(
+        ref=derived.identity(),
+        assessment=derived.assessment,
+        scope=derived.scope,
+        verdict=derived.verdict,
+        supersedes=derived.supersedes,
+    )
 
 
 def _job_diagnostics(original: RunClosure, replayed: RunClosure) -> tuple[str, ...]:

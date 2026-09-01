@@ -9,6 +9,7 @@ from beliefs.boundary import execute_assessment_run, execute_production_run
 from beliefs.closure import RetractionEnumeration
 from beliefs.lineage import LineageSnapshot
 from beliefs.recipe import (
+    MINIMAL_POLICY,
     BoundaryPolicy,
     BoundaryReceipt,
     EnvironmentManifest,
@@ -109,7 +110,7 @@ def recipe(**overrides) -> Recipe:
         "shape": "assessment",
         "spec_identity": "spec-" + "11" * 8,
         "code_identity": "sha256:" + "cc" * 32,
-        "environment": EnvironmentManifest(artifacts=(("python", "sha256:" + "dd" * 32),)),
+        "environment": EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)),
         "workflow_definition_identity": "sha256:" + "ee" * 32,
         "invocation": invocation(),
         "inputs": (RecipeInput(role="observes", dataset="dataset:sha256:" + "ff" * 32, content=D_IN),),
@@ -349,6 +350,7 @@ def run_assessment(
     tmp_path,
     *,
     port,
+    boundary_policy=MINIMAL_POLICY,
     snakefile=SNAKEFILE_DETERMINISTIC,
     spec=None,
     definition_override=None,
@@ -373,6 +375,7 @@ def run_assessment(
     return execute_assessment_run(
         spec=spec,
         port=port,
+        boundary_policy=boundary_policy,
         definition=(
             definition_override if definition_override is not None else definition(snakefile=snakefile)
         ),
@@ -394,6 +397,7 @@ def run_production(
     tmp_path,
     *,
     port,
+    boundary_policy=MINIMAL_POLICY,
     snakefile=SNAKEFILE_PRODUCTION,
     inputs=None,
     parameters=None,
@@ -434,6 +438,7 @@ def run_production(
         parameters=parameters if parameters is not None else {},
         nondeterminism=contract,
         port=port,
+        boundary_policy=boundary_policy,
         definition=(
             definition_override
             if definition_override is not None
@@ -462,6 +467,7 @@ def replay_of(
     host_realization="host-a",
     held_inputs=None,
     scratch_base=None,
+    cores=1,
 ):
     from beliefs.replay import replay
 
@@ -505,4 +511,5 @@ def replay_of(
         started_at="2026-08-12T00:00:00Z",
         host_realization=host_realization,
         scratch_base=scratch_base if scratch_base is not None else tmp_path / "scratch",
+        cores=cores,
     )

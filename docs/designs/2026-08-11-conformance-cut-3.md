@@ -153,6 +153,14 @@ slice restricts what an execution can observe, so **R15 defers whole and
 this slice can produce qualifies, and every scope walk stops at the
 branches genuine unconfined replays can derive.
 
+> **Confinement landed 2026-09-01, conformance cut 13**
+> (`2026-08-30-run-confinement-design.md`; results
+> `../plans/2026-09-01-conformance-cut-13-results.md`). `boundary-policy/confined-v1`
+> executes inside a fresh namespaced materialization of the digest-verified
+> runtime closure, and `clean-environment` is reachable through its receipt.
+> `boundary-policy/minimal-v1` is unchanged and remains the scratch root this
+> paragraph describes.
+
 It crosses **no** persistence boundary. Its **fixtures** perform no
 network access and no IO outside the scratch roots and fixture inputs — a
 property of what this cut's suite runs, which the **boundary does not

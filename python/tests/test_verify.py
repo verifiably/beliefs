@@ -28,7 +28,7 @@ from fixtures_cut3 import (
 
 from beliefs.assess import build_assessment
 from beliefs.boundary import RunMinted
-from beliefs.errors import CitationRefused, MixedShapes
+from beliefs.errors import CitationRefused, MixedShapes, NotAnAssessmentVerification
 from beliefs.identity import v1
 from beliefs.production import mint_dataset
 from beliefs.replay import (
@@ -38,11 +38,14 @@ from beliefs.replay import (
     EquivalenceImplementation,
 )
 from beliefs.spec import Deterministic, SpecInput, StochasticUnseeded, freeze, revise
+from beliefs.verification import Verification
 from beliefs.verify import (
     AssessmentVerification,
     ComparisonReport,
     DatasetProductionVerification,
+    _mint_verification,
     active_verifications,
+    admission_record,
     build_verification,
 )
 
@@ -432,3 +435,47 @@ def test_r8_the_rule_cannot_be_chosen_after_the_outputs_are_seen(tmp_path):
     assert original.run.recipe.spec_identity == spec.identity
     assert successor.supersedes == spec.identity
     assert active_verifications((failing,)) == (failing,)
+
+
+# --- K5: the admission join ---------------------------------------------------
+def test_k5_admission_record_is_the_total_projection_of_a_derived_verification(pair):
+    verification = verification_of(pair)
+    record = admission_record(verification)
+    assert record == Verification(
+        ref=verification.identity(),
+        assessment=verification.assessment,
+        scope=verification.scope,
+        verdict=verification.verdict,
+        supersedes=None,
+    )
+    assert set(inspect.signature(admission_record).parameters) == {"derived"}
+
+
+def test_k5_admission_record_carries_supersedes(pair):
+    base = verification_of(pair)
+    superseding = _mint_verification(
+        original=base.original,
+        replayed=base.replayed,
+        assessment=base.assessment,
+        rule=base.rule,
+        report=base.report,
+        scope_rule=base.scope_rule,
+        scope=base.scope,
+        verdict=base.verdict,
+        supersedes=base.identity(),
+    )
+    assert admission_record(superseding).supersedes == base.identity()
+
+
+def test_k5_a_production_verification_is_refused_by_the_join(production_pair):
+    first, second = production_pair
+    verification = build_verification(
+        first.run,
+        second.run,
+        specs={},
+        held_rules={"impl-dataset-eq-1": DATASET_CONTENT_EQUALITY},
+        contract_identity="contract-1",
+        epoch="epoch-1",
+    )
+    with pytest.raises(NotAnAssessmentVerification):
+        admission_record(verification)

@@ -106,18 +106,22 @@ Cut 7 touches none of cut 5's or cut 6's surfaces; this pin is used here only
 to assert that, byte for byte.
 """
 
+RENAME_COMMIT = "5a02ca2"
+"""The whole-repo science→beliefs mechanical rename (ledger R7). Re-pins a
+file whose only post-freeze edit was that rename's import strings."""
+
 FROZEN_PRIOR_CUT_FILES = {
     "python/tests/n2_arms_cut5.py": CUT6_SOURCE_COMMIT,
     "python/tests/n2_arms_cut6.py": CUT6_SOURCE_COMMIT,
-    "python/tools/cut5_acceptance.py": CUT6_SOURCE_COMMIT,
-    "python/tools/cut6_acceptance.py": CUT6_SOURCE_COMMIT,
+    "python/tools/cut5_acceptance.py": RENAME_COMMIT,
+    "python/tools/cut6_acceptance.py": RENAME_COMMIT,
     # Cut 6's *acceptance module* is not frozen in the same sense — slice 2
     # rewrote it, at `c8c0b12`, to audit the pre-move tree — but it is pinned by
     # that ruling and no later task may drift it either. So it is guarded
     # against the commit that gave it its present content rather than against
     # the pre-move tree it audits, which it has legitimately differed from since
-    # `f703913`.
-    "python/tests/acceptance/test_n2_cut6.py": "c8c0b12",
+    # `f703913`. Re-pinned again across the rename (ledger R7).
+    "python/tests/acceptance/test_n2_cut6.py": RENAME_COMMIT,
 }
 """Each prior-cut surface and the commit whose content it must still hold."""
 

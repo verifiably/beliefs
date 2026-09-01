@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import posixpath
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 from types import MappingProxyType
 from typing import cast, final
 
-from beliefs.errors import MalformedClosure, UnsafeInvocation
+from beliefs.errors import BoundaryPolicyUnsupported, MalformedClosure, UnsafeInvocation
 from beliefs.identity import v1
 from beliefs.sealed import sealed
 from beliefs.spec import (
@@ -22,17 +23,28 @@ from beliefs.spec import (
 )
 
 __all__ = [
+    "ARTIFACT_KINDS",
     "ASSESSMENT_ROLES",
     "BOUNDARY_RECEIPT_DOMAIN",
+    "CAPABILITIES",
+    "CONFINED_POLICY",
+    "CONFINED_RECEIPT_DOMAIN",
+    "CONFINED_RUN_DOMAIN",
     "ENVIRONMENT_DOMAIN",
+    "MINIMAL_POLICY",
+    "MOUNT_PLAN_DOMAIN",
+    "NAMESPACES",
     "PRODUCTION_ROLES",
     "RECIPE_DOMAIN",
+    "REQUIRED_FOR_CLEAN_ENVIRONMENT",
     "RUN_DOMAIN",
     "SHAPES",
+    "SUPPORTED_POLICIES",
     "BoundaryPolicy",
     "BoundaryReceipt",
     "EnvironmentManifest",
     "ExclusionCertification",
+    "InstanceAttestation",
     "Invocation",
     "Occurrence",
     "Recipe",
@@ -40,13 +52,29 @@ __all__ = [
     "ResultManifest",
     "RunClosure",
     "TraceJob",
+    "mount_plan_identity",
     "project_recipe",
+    "run_domain_for",
+    "supported_policy",
 ]
 
 RECIPE_DOMAIN = "science.recipe.v1"
 RUN_DOMAIN = "science.run.v1"
-ENVIRONMENT_DOMAIN = "science.environment.v1"
+CONFINED_RUN_DOMAIN = "science.run.v2"
+ENVIRONMENT_DOMAIN = "science.environment.v2"
 BOUNDARY_RECEIPT_DOMAIN = "science.boundary-receipt.v1"
+CONFINED_RECEIPT_DOMAIN = "science.boundary-receipt.v2"
+MOUNT_PLAN_DOMAIN = "science.mount-plan.v1"
+
+#: §7.3a's three capabilities — the closed vocabulary a policy may name.
+CAPABILITIES = ("from-bundle", "closure-confined-filesystem", "network-denied")
+#: What `clean-environment` requires — spelled separately, never derived from
+#: CAPABILITIES, so a capability added later does not become a requirement.
+REQUIRED_FOR_CLEAN_ENVIRONMENT = tuple(["from-bundle", "closure-confined-filesystem", "network-denied"])  # noqa: C409
+ARTIFACT_KINDS = ("file", "symlink")
+RENDERED_KINDS = ("file", "symlink", "value")
+NAMESPACES = ("cgroup", "ipc", "mnt", "net", "pid", "user", "uts")
+MOUNT_ACCESS = ("ro", "rw")
 
 SHAPES = ("assessment", "dataset-production")
 ASSESSMENT_ROLES = ("observes", "reads")
@@ -98,6 +126,19 @@ def _require_pairs(value: object, where: str) -> None:
         for row in cast(tuple[object, ...], value)
     ):
         raise MalformedClosure(f"{where} must contain (string, string) pairs only")
+
+
+def _require_triples(value: object, where: str) -> None:
+    _require_tuple(value, where)
+    if not all(
+        type(row) is tuple and len(row) == 3 and all(type(member) is str for member in row)
+        for row in cast(tuple[object, ...], value)
+    ):
+        raise MalformedClosure(f"{where} must contain (string, string, string) triples only")
+
+
+def _triples(rows: tuple[tuple[str, str, str], ...]) -> list[list[str]]:
+    return [list(row) for row in sorted(rows)]
 
 
 def _require_nondeterminism(value: object) -> None:
@@ -185,13 +226,28 @@ class Invocation:
 @final
 @dataclass(frozen=True)
 class EnvironmentManifest:
-    artifacts: tuple[tuple[str, str], ...]
+    """The runtime artifact closure, one row per file: (sandbox path, kind,
+    digest or link target). Host paths never enter it (design §4.1). Every
+    path is normalized — absolute, no `.`, `..` or empty components — so a
+    join under a snapshot root can never leave it."""
+
+    artifacts: tuple[tuple[str, str, str], ...]
 
     def __post_init__(self) -> None:
-        _require_pairs(self.artifacts, "environment artifacts")
+        _require_triples(self.artifacts, "environment artifacts")
+        paths = [path for path, _, _ in self.artifacts]
+        if len(set(paths)) != len(paths):
+            raise MalformedClosure("environment artifacts name each sandbox path once")
+        for path, kind, content in self.artifacts:
+            if not path.startswith("/") or path.startswith("//") or posixpath.normpath(path) != path:
+                raise MalformedClosure(f"environment artifact {path!r} is not a normalized absolute sandbox path")
+            if kind not in ARTIFACT_KINDS:
+                raise MalformedClosure(f"environment artifact {path!r} has kind {kind!r}, outside {ARTIFACT_KINDS}")
+            if not content:
+                raise MalformedClosure(f"environment artifact {path!r} carries no content")
 
     def identity(self) -> str:
-        return v1.digest(ENVIRONMENT_DOMAIN, {"artifacts": _pairs(self.artifacts)})
+        return v1.digest(ENVIRONMENT_DOMAIN, {"artifacts": _triples(self.artifacts)})
 
 
 @sealed
@@ -206,6 +262,35 @@ class BoundaryPolicy:
         _require_str(self.identity, "boundary policy identity")
         _require_str(self.scope_rule, "boundary policy scope rule")
         _require_strings(self.capabilities, "boundary policy capabilities")
+        if any(capability not in CAPABILITIES for capability in self.capabilities):
+            raise MalformedClosure(f"boundary policy capabilities are outside the closed vocabulary {CAPABILITIES}")
+        if len(set(self.capabilities)) != len(self.capabilities):
+            raise MalformedClosure("boundary policy capabilities name each capability once")
+
+
+MINIMAL_POLICY = BoundaryPolicy(identity="boundary-policy/minimal-v1", scope_rule="scope-derivation/v1")
+CONFINED_POLICY = BoundaryPolicy(
+    identity="boundary-policy/confined-v1",
+    scope_rule="scope-derivation/v1",
+    capabilities=CAPABILITIES,
+)
+SUPPORTED_POLICIES = (MINIMAL_POLICY, CONFINED_POLICY)
+
+
+def supported_policy(policy: object) -> BoundaryPolicy:
+    """The entire definition — identity, scope rule and capability *set* —
+    must equal one of the two the boundary knows; the canonical known value is
+    returned, so a reordered spelling of a known set carries on as the
+    definition it names (design §3)."""
+    if type(policy) is not BoundaryPolicy:
+        raise BoundaryPolicyUnsupported("the boundary policy must be a BoundaryPolicy value")
+    for known in SUPPORTED_POLICIES:
+        if (policy.identity, policy.scope_rule, frozenset(policy.capabilities)) == (known.identity, known.scope_rule, frozenset(known.capabilities)):
+            return known
+    raise BoundaryPolicyUnsupported(
+        f"{policy.identity!r} with scope rule {policy.scope_rule!r} and capabilities "
+        f"{policy.capabilities} matches no known definition"
+    )
 
 
 @sealed
@@ -387,6 +472,41 @@ class TraceJob:
         _require_strings(self.outputs, "trace job outputs")
 
 
+def mount_plan_identity(mounts: tuple[tuple[str, str, str], ...]) -> str:
+    """Digest of a canonical mount table: rows of (mountpoint, role, access)."""
+    _require_triples(mounts, "mount plan rows")
+    return v1.digest(MOUNT_PLAN_DOMAIN, {"mounts": _triples(mounts)})
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class InstanceAttestation:
+    """What the boundary observed of the fresh instance from its own /proc:
+    every namespace distinct from the parent's, the canonical mount table, its
+    identity, and the verified snapshot's environment identity (design §6.3)."""
+
+    namespaces: tuple[str, ...]
+    mounts: tuple[tuple[str, str, str], ...]
+    mount_plan_identity: str
+    environment_identity: str
+
+    def __post_init__(self) -> None:
+        _require_strings(self.namespaces, "instance namespaces")
+        if tuple(sorted(self.namespaces)) != NAMESPACES:
+            raise MalformedClosure(f"an instance attests every namespace in {NAMESPACES} as distinct, and no other")
+        _require_triples(self.mounts, "instance mounts")
+        points = [point for point, _, _ in self.mounts]
+        if len(set(points)) != len(points):
+            raise MalformedClosure("instance mounts name each mountpoint once")
+        if any(access not in MOUNT_ACCESS for _, _, access in self.mounts):
+            raise MalformedClosure(f"instance mount access is one of {MOUNT_ACCESS}")
+        _require_str(self.mount_plan_identity, "instance mount plan identity")
+        if self.mount_plan_identity != mount_plan_identity(self.mounts):
+            raise MalformedClosure("an instance's mount plan identity is the digest of its own canonical mounts")
+        _require_component(self.environment_identity, "instance environment identity")
+
+
 @sealed
 @final
 @dataclass(frozen=True)
@@ -395,15 +515,40 @@ class BoundaryReceipt:
     argv: tuple[str, ...]
     rendered_config: tuple[tuple[str, str], ...]
     capabilities: tuple[str, ...] = ()
+    instance: InstanceAttestation | None = None
+    rendered_environment: tuple[tuple[str, str, str], ...] | None = None
+    mounts: tuple[tuple[str, str], ...] | None = None
 
     def __post_init__(self) -> None:
         _require_str(self.scratch_mapping, "boundary receipt scratch mapping")
         _require_strings(self.argv, "boundary receipt argv")
         _require_pairs(self.rendered_config, "boundary receipt rendered config")
         _require_strings(self.capabilities, "boundary receipt capabilities")
+        if any(capability not in CAPABILITIES for capability in self.capabilities):
+            raise MalformedClosure(f"boundary receipt capabilities are outside the closed vocabulary {CAPABILITIES}")
+        if len(set(self.capabilities)) != len(self.capabilities):
+            raise MalformedClosure("boundary receipt capabilities name each capability once")
+        present = sum(member is not None for member in (self.instance, self.rendered_environment, self.mounts))
+        if present not in (0, 3):
+            raise MalformedClosure(
+                "a confined receipt carries instance, rendered_environment and mounts together; a minimal receipt carries none"
+            )
+        if self.instance is None:
+            return
+        if type(self.instance) is not InstanceAttestation:
+            raise MalformedClosure("a confined receipt's instance is an InstanceAttestation")
+        _require_triples(self.rendered_environment, "boundary receipt rendered environment")
+        if any(kind not in RENDERED_KINDS for _, kind, _ in cast(tuple[tuple[str, str, str], ...], self.rendered_environment)):
+            raise MalformedClosure(f"a rendered environment row's kind is one of {RENDERED_KINDS}")
+        _require_pairs(self.mounts, "boundary receipt mounts")
+
+    @property
+    def confined(self) -> bool:
+        return self.instance is not None
 
     def identity(self) -> str:
-        return v1.digest(BOUNDARY_RECEIPT_DOMAIN, _receipt_projection(self))
+        domain = CONFINED_RECEIPT_DOMAIN if self.confined else BOUNDARY_RECEIPT_DOMAIN
+        return v1.digest(domain, _receipt_projection(self))
 
 
 @sealed
@@ -450,12 +595,24 @@ def _trace_projection(job: TraceJob) -> dict[str, object]:
 
 
 def _receipt_projection(receipt: BoundaryReceipt) -> dict[str, object]:
-    return {
+    projection: dict[str, object] = {
         "scratch_mapping": receipt.scratch_mapping,
         "argv": list(receipt.argv),
         "rendered_config": _pairs(receipt.rendered_config),
         "capabilities": sorted(receipt.capabilities),
     }
+    if not receipt.confined:
+        return projection
+    instance = cast(InstanceAttestation, receipt.instance)
+    projection["instance"] = {
+        "namespaces": sorted(instance.namespaces),
+        "mounts": _triples(instance.mounts),
+        "mount_plan_identity": instance.mount_plan_identity,
+        "environment_identity": instance.environment_identity,
+    }
+    projection["rendered_environment"] = _triples(cast(tuple[tuple[str, str, str], ...], receipt.rendered_environment))
+    projection["mounts"] = _pairs(cast(tuple[tuple[str, str], ...], receipt.mounts))
+    return projection
 
 
 def _occurrence_projection(occurrence: Occurrence) -> dict[str, object]:
@@ -468,6 +625,12 @@ def _occurrence_projection(occurrence: Occurrence) -> dict[str, object]:
         "realized_seeds": occurrence.realized_seeds.projection(),
         "receipt": _receipt_projection(occurrence.receipt),
     }
+
+
+def run_domain_for(confined: bool) -> str:
+    """A confined receipt reshapes the run projection, so it takes the
+    successor run domain; the dispatch is by exact receipt shape (design §6.3)."""
+    return CONFINED_RUN_DOMAIN if confined else RUN_DOMAIN
 
 
 @sealed
@@ -494,7 +657,7 @@ class RunClosure:
 
     def address(self) -> str:
         return v1.digest(
-            RUN_DOMAIN,
+            run_domain_for(self.occurrence.receipt.confined),
             {
                 "recipe": self.recipe._projection(),
                 "result": _pairs(self.result.outputs),

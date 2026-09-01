@@ -164,7 +164,7 @@ def _run_check(check: str, package: Path | None) -> CheckRun:
 
 def _sabotage(arm: Arm, into: Path) -> Path | None:
     """Copy the package into `into` and apply the arm's mutation. `None` if it does not apply."""
-    package = into / "beliefs"
+    package = into / PACKAGE.name
     shutil.copytree(PACKAGE, package)
     target = package / arm.sabotage.module
     source = target.read_text(encoding="utf-8")

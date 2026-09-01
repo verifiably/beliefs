@@ -1,6 +1,6 @@
 """R13's capture arms and the boundary's three input-safety rules.
-Confinement is not here: R13's import-resolution negative and R15 defer whole
-to the confinement-capable boundary policy (cut 3 §3)."""
+R13's import-resolution negative and R15's arms live in
+acceptance/test_confinement_acceptance.py (cut 13)."""
 
 import importlib.metadata
 import inspect
@@ -20,18 +20,15 @@ from beliefs.adapter import (
     _canonical_distribution_name,
     build_argv,
     capture_bundle,
-    capture_environment,
     create_scratch_root,
     distribution_digest,
     read_realized_seeds,
     read_trace,
-    require_executing_environment,
     run_engine,
     tree_digest,
     validate_entrypoint,
 )
 from beliefs.errors import MalformedClosure, UnsafeInvocation
-from beliefs.recipe import EnvironmentManifest
 
 
 def make_code_root(tmp_path: Path) -> Path:
@@ -77,33 +74,39 @@ def test_duplicate_bundle_destinations_are_refused_before_overwrite(tmp_path):
 def test_an_option_like_target_is_rejected_before_any_argv_is_built(tmp_path):
     with pytest.raises(UnsafeInvocation):
         build_argv(
-            snakefile=tmp_path / "Snakefile",
-            scratch=tmp_path,
+            interpreter=sys.executable,
+            snakefile=str(tmp_path / "Snakefile"),
+            directory=str(tmp_path),
             targets=("--unlock",),
             config={},
-            log_handler=tmp_path / "h.py",
+            log_handler=str(tmp_path / "h.py"),
             cores=1,
+            in_process_jobs=False,
         )
 
 
 def test_a_config_key_cannot_become_an_option_shaped_argument(tmp_path):
     with pytest.raises(UnsafeInvocation):
         build_argv(
-            snakefile=tmp_path / "Snakefile",
-            scratch=tmp_path,
+            interpreter=sys.executable,
+            snakefile=str(tmp_path / "Snakefile"),
+            directory=str(tmp_path),
             targets=(),
             config={"--config-injection": "1"},
-            log_handler=tmp_path / "h.py",
+            log_handler=str(tmp_path / "h.py"),
             cores=1,
+            in_process_jobs=False,
         )
     with pytest.raises(UnsafeInvocation):
         build_argv(
-            snakefile=tmp_path / "Snakefile",
-            scratch=tmp_path,
+            interpreter=sys.executable,
+            snakefile=str(tmp_path / "Snakefile"),
+            directory=str(tmp_path),
             targets=(),
             config={"seed=extra": "1"},
-            log_handler=tmp_path / "h.py",
+            log_handler=str(tmp_path / "h.py"),
             cores=1,
+            in_process_jobs=False,
         )
 
 
@@ -120,12 +123,14 @@ def test_the_entrypoint_must_be_a_regular_file_inside_the_bundle(tmp_path):
 
 def test_execution_is_direct_argv_with_shell_false(tmp_path):
     argv = build_argv(
-        snakefile=tmp_path / "Snakefile",
-        scratch=tmp_path,
+        interpreter=sys.executable,
+        snakefile=str(tmp_path / "Snakefile"),
+        directory=str(tmp_path),
         targets=("outputs/result.txt",),
         config={"seed_model_initialization": "7"},
-        log_handler=tmp_path / "handler.py",
+        log_handler=str(tmp_path / "handler.py"),
         cores=1,
+        in_process_jobs=False,
     )
     assert argv[0] == sys.executable and argv[1:3] == ("-m", "snakemake")
     assert "--log-handler-script" in argv
@@ -144,7 +149,14 @@ def engine_run(scratch, entry, trace_dir, *, config):
     handler.write_text(LOG_HANDLER_SCRIPT)
     events = trace_dir / "events.jsonl"
     argv = build_argv(
-        snakefile=entry, scratch=scratch, targets=("outputs/result.txt",), config=config, log_handler=handler, cores=1
+        interpreter=sys.executable,
+        snakefile=str(entry),
+        directory=str(scratch),
+        targets=("outputs/result.txt",),
+        config=config,
+        log_handler=str(handler),
+        cores=1,
+        in_process_jobs=False,
     )
     code, log = run_engine(argv, cwd=scratch, env={**os.environ, "SCIENCE_TRACE_FILE": str(events)})
     return code, log, events
@@ -272,22 +284,6 @@ def test_a_dangling_seed_report_symlink_is_refused(tmp_path):
     (scratch / ".seeds").symlink_to(tmp_path / "missing", target_is_directory=True)
     with pytest.raises(MalformedClosure):
         read_realized_seeds(scratch)
-
-
-def test_the_environment_manifest_records_the_executing_interpreter():
-    manifest = capture_environment()
-    assert manifest == capture_environment()  # stable within one environment
-    names = dict(manifest.artifacts)
-    assert "python" in names
-    assert "stdlib" in names  # the runtime that executes the fixtures is held content too
-    assert "dist:snakemake" in names
-    assert all("/" not in name and "\\" not in name for name, _ in manifest.artifacts)
-    # …logical names only: no absolute path, no version string, is what makes
-    # the manifest held content rather than a lockfile (§4.5)
-    require_executing_environment(manifest)  # what is recorded is what execs
-    doctored = EnvironmentManifest(artifacts=(("python", "sha256:" + "00" * 32),))
-    with pytest.raises(MalformedClosure):
-        require_executing_environment(doctored)
 
 
 def make_fixture_distribution(root: Path) -> Path:
