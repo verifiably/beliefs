@@ -48,10 +48,20 @@ CUT9_FREEZE_COMMIT = "0977bde"
 """The commit the frozen cut names for itself; §2's boundary is stated there."""
 
 CUT8_BANK_COMMIT = "5a02ca2"
-"""Where cut 8's declarations, runner, and audit last moved: the banking
-commit that discharged it, re-pinned across the science→beliefs rename
-(ledger R7) — the content is cut 8's frozen declarations verbatim, corrected
-only for the package rename's import strings."""
+"""Where cut 8's declarations and runner last moved: the banking commit that
+discharged it, re-pinned across the science→beliefs rename (ledger R7) — the
+content is cut 8's frozen declarations verbatim, corrected only for the
+package rename's import strings. `test_n2_cut8.py` no longer shares this
+pin: R7's transitive fixpoint sweep (fix round 4) further edited it — to
+carry that same fixpoint into cut 8's own table — after this commit, so it
+needs its own, later pin below."""
+
+CUT8_AUDIT_REPIN_COMMIT = "d0206c8"
+"""Where `test_n2_cut8.py` itself last moved: fix round 3's completion of
+R7's re-pin sweep, correcting *its own* `FROZEN_PRIOR_CUT_FILES` table for
+the same rename. An authorized, disclosed edit, not a drift to chase — but
+this table pins the file's bytes, so the pin has to follow to the commit
+that made them (ledger R7's transitive-fixpoint principle, fix round 4)."""
 
 CUT6_SOURCE_COMMIT = "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e"
 CUT8_FREEZE_COMMIT = "117f37e"
@@ -70,7 +80,7 @@ FROZEN_PRIOR_CUT_FILES = {
     # tree (ledger R15) and exactly as frozen — staleness is a fact about the
     # tree, never a license to edit the declaration.
     "python/tests/acceptance/n2_arms_cut8.py": CUT8_BANK_COMMIT,
-    "python/tests/acceptance/test_n2_cut8.py": CUT8_BANK_COMMIT,
+    "python/tests/acceptance/test_n2_cut8.py": CUT8_AUDIT_REPIN_COMMIT,
     "python/tools/cut8_acceptance.py": CUT8_BANK_COMMIT,
 }
 """Each prior-cut surface and the commit whose content it must still hold."""
