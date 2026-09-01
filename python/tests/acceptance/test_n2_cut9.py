@@ -47,20 +47,25 @@ FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-08-23-conformance-cut-9.md"
 CUT9_FREEZE_COMMIT = "0977bde"
 """The commit the frozen cut names for itself; §2's boundary is stated there."""
 
-CUT8_BANK_COMMIT = "55b6de7"
+CUT8_BANK_COMMIT = "5a02ca2"
 """Where cut 8's declarations, runner, and audit last moved: the banking
-commit that discharged it. Everything of cut 8's is frozen at that content."""
+commit that discharged it, re-pinned across the science→beliefs rename
+(ledger R7) — the content is cut 8's frozen declarations verbatim, corrected
+only for the package rename's import strings."""
 
 CUT6_SOURCE_COMMIT = "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e"
 CUT8_FREEZE_COMMIT = "117f37e"
+RENAME_COMMIT = "5a02ca2"
+"""The whole-repo science→beliefs mechanical rename (ledger R7). Re-pins a
+file whose only post-freeze edit was that rename's import strings."""
 
 FROZEN_PRIOR_CUT_FILES = {
     "python/tests/n2_arms_cut5.py": CUT6_SOURCE_COMMIT,
     "python/tests/n2_arms_cut6.py": CUT6_SOURCE_COMMIT,
-    "python/tools/cut5_acceptance.py": CUT6_SOURCE_COMMIT,
-    "python/tools/cut6_acceptance.py": CUT6_SOURCE_COMMIT,
+    "python/tools/cut5_acceptance.py": RENAME_COMMIT,
+    "python/tools/cut6_acceptance.py": RENAME_COMMIT,
     "python/tests/n2_arms_cut7.py": CUT8_FREEZE_COMMIT,
-    "python/tools/cut7_acceptance.py": CUT8_FREEZE_COMMIT,
+    "python/tools/cut7_acceptance.py": RENAME_COMMIT,
     # Cut 8's own declarations, audit, and runner: deliberately stale on this
     # tree (ledger R15) and exactly as frozen — staleness is a fact about the
     # tree, never a license to edit the declaration.

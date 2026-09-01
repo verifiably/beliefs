@@ -30,12 +30,15 @@ WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-08-24-conformance-cut-10.md"
 CUT10_FREEZE_COMMIT = "5e0266f"
+RENAME_COMMIT = "5a02ca2"
+"""The whole-repo science→beliefs mechanical rename (ledger R7). Re-pins a
+file whose only post-freeze edit was that rename's import strings."""
 
 FROZEN_PRIOR_CUT_FILES = {
     "python/tests/n2_arms_cut5.py": "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e",
     "python/tests/n2_arms_cut6.py": "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e",
     "python/tests/n2_arms_cut7.py": "117f37e",
-    "python/tests/acceptance/n2_arms_cut8.py": "55b6de7",
+    "python/tests/acceptance/n2_arms_cut8.py": RENAME_COMMIT,
 }
 REBASED_PRIOR_CUT_DIGESTS = {
     # Intent-boundary ledger R15 rebases two verifier-shape sabotages while

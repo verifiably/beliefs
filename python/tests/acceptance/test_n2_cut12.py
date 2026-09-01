@@ -26,15 +26,18 @@ WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-08-29-conformance-cut-12.md"
 CUT12_FREEZE_COMMIT = "b2f9593"
+RENAME_COMMIT = "5a02ca2"
+"""The whole-repo science→beliefs mechanical rename (ledger R7). Re-pins a
+file whose only post-freeze edit was that rename's import strings."""
 
 FROZEN_PRIOR_CUT_FILES = {
     "python/tests/n2_arms_cut5.py": "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e",
     "python/tests/n2_arms_cut6.py": "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e",
     "python/tests/n2_arms_cut7.py": "117f37e",
-    "python/tests/acceptance/n2_arms_cut8.py": "55b6de7",
+    "python/tests/acceptance/n2_arms_cut8.py": RENAME_COMMIT,
     "python/tests/acceptance/n2_arms_cut9.py": "c7817ba",
-    "python/tests/acceptance/n2_arms_cut10.py": "22461e9",
-    "python/tests/acceptance/n2_arms_cut11.py": "f0e65a6",
+    "python/tests/acceptance/n2_arms_cut10.py": RENAME_COMMIT,
+    "python/tests/acceptance/n2_arms_cut11.py": RENAME_COMMIT,
 }
 # n2_arms_cut3.py stays unpinned, as cut 11 left it: tests/test_n2.py audits
 # it live, and cut 12's K5 arm holds its G4 anchor line byte-identical.

@@ -27,15 +27,23 @@ WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-08-30-conformance-cut-13.md"
 CUT13_FREEZE_COMMIT = "fa89241"
+RENAME_COMMIT = "5a02ca2"
+"""The whole-repo science→beliefs mechanical rename (ledger R7), landed after
+cuts 8, 10 and 11 froze. It rewrote those cuts' own arms files' embedded
+sabotage import strings (`science.root` / `science.intents.reduce` →
+`beliefs.*`) — a necessary correction, since those sabotages exec against the
+real package and would otherwise raise ImportError. Each pin below was
+verified to differ from its prior value by exactly that rename before being
+updated; no other drift was found."""
 
 FROZEN_PRIOR_CUT_FILES = {
     "python/tests/n2_arms_cut5.py": "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e",
     "python/tests/n2_arms_cut6.py": "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e",
     "python/tests/n2_arms_cut7.py": "117f37e",
-    "python/tests/acceptance/n2_arms_cut8.py": "55b6de7",
+    "python/tests/acceptance/n2_arms_cut8.py": RENAME_COMMIT,
     "python/tests/acceptance/n2_arms_cut9.py": "c7817ba",
-    "python/tests/acceptance/n2_arms_cut10.py": "22461e9",
-    "python/tests/acceptance/n2_arms_cut11.py": "f0e65a6",
+    "python/tests/acceptance/n2_arms_cut10.py": RENAME_COMMIT,
+    "python/tests/acceptance/n2_arms_cut11.py": RENAME_COMMIT,
     "python/tests/acceptance/n2_arms_cut12.py": "5dff360",
 }
 # n2_arms_cut3.py stays unpinned, as cut 11 left it: tests/test_n2.py audits
