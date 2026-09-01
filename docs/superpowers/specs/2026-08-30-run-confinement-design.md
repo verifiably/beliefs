@@ -291,7 +291,17 @@ otherwise) **and** an in-layout `ld.so --list` of the interpreter and every
 extension resolves each SONAME to the sandbox file whose digest the manifest
 records; the probe (§6.2) performs that check and refuses the layout when it
 fails. The host listing runs the loader under an empty environment — no
-ambient LD_LIBRARY_PATH or LD_PRELOAD — and the capture retains the
+ambient LD_LIBRARY_PATH or LD_PRELOAD. One resolution context is supplied
+explicitly, never ambiently: the directories named by the capturing
+interpreter binary's own DT_RPATH or DT_RUNPATH entries, $ORIGIN-expanded
+against the binary's real location, deduplicated in order, are passed to
+the loader as its --library-path argument — the main executable's RPATH is
+inherited process-wide at runtime, so a listing that predicts runtime
+resolution must model exactly that inheritance and nothing more. The
+libraries it resolves join the closure under /science/env/lib as ordinary
+captured rows, so the sandbox's declared LD_LIBRARY_PATH=/science/env/lib
+resolves the same names to the same artifacts and the probe's in-layout
+map equality (§6.2) is preserved. The capture retains the
 expected map as rows (ELF sandbox path, SONAME, resolved sandbox path)
 over every loadable ELF (ET_EXEC or ET_DYN) under /science/env, closed to
 a fixpoint over the libraries it adds. The probe lists the same set
