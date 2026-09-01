@@ -301,12 +301,16 @@ resolution must model exactly that inheritance and nothing more. The
 libraries it resolves join the closure as ordinary captured rows, wherever
 their own registered root places them — not always the flat
 /science/env/lib. Because of that, the declared LD_LIBRARY_PATH=/science/env/lib
-alone cannot stand in for the interpreter's RPATH in-layout: the probe's
-listing supplies the same explicit --library-path the host capture does,
-the interpreter binary's own $ORIGIN-expanded RPATH/RUNPATH directories —
-the host against the host's own paths, the probe against the in-layout
-copy under /science/env — so both listings model the one RPATH
-inheritance the runtime actually has (ruling R6). The capture retains the
+alone cannot stand in for the interpreter's RPATH in-layout: `ld.so --list`'s
+--library-path replaces LD_LIBRARY_PATH for that invocation rather than
+supplementing it, and echoes back whatever
+directory string it was given verbatim, the probe's listing supplies
+--library-path as /science/env/lib followed by the in-layout interpreter's
+own $ORIGIN-expanded RPATH/RUNPATH directories, each normalized so the
+loader's echo matches the host's own realpath-derived record — the host
+against the host's own paths, the probe against the in-layout copy under
+/science/env — so both listings model the one RPATH inheritance the
+runtime actually has (ruling R6). The capture retains the
 expected map as rows (ELF sandbox path, SONAME, resolved sandbox path)
 over every loadable ELF (ET_EXEC or ET_DYN) under /science/env of the
 closure's own architecture — an ELF is listed only when its class, data
