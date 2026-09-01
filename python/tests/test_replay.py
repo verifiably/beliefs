@@ -1,8 +1,8 @@
-"""R4's partial walk, R5's retained arms, R6, R9's three inconclusive
+"""R4's full walk, R5's retained arms, R6, R9's three inconclusive
 checks, R16's evaluator and scope arms, G9's replay-eligibility third.
-Deferred: R4's clean-environment row and negative (d), R9's admission
-conjunct, R16's nothing-is-admitted conjunct (confinement-capable boundary
-policy); R5 negative (a) (persistence seam) — cut 3 §4.2/§7.1.
+Deferred: R9's admission conjunct, R16's nothing-is-admitted conjunct
+(confinement-capable boundary policy); R5 negative (a) (persistence seam)
+— cut 3 §4.2/§7.1.
 R16's missing family/job/stream completeness remains deferred with the full
 workflow surface because RunClosure retains only the definition identity.
 """

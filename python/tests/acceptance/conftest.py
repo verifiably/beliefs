@@ -105,3 +105,23 @@ def minted_corpus(work_directory) -> Iterator[Path]:
     yield root
     shutil.rmtree(root, ignore_errors=True)
     shutil.rmtree(metadata_root_for(root), ignore_errors=True)
+
+
+class ConfinementUnavailableHost(Exception):
+    """The confined arms' own error, raised rather than skipped."""
+
+
+@pytest.fixture()
+def confined_host() -> None:
+    """The confinement gate: bubblewrap with --info-fd, unprivileged user
+    namespaces, and the loader's --list. It errors and never skips — an
+    environment that cannot exercise confinement must not be able to report
+    cut-13 discharge. No durable root is involved."""
+    from beliefs.confinement import host_prerequisites
+
+    reason = host_prerequisites()
+    if reason is not None:
+        raise ConfinementUnavailableHost(
+            f"the confined acceptance arms need bubblewrap and user namespaces on this host; {reason}. "
+            "This is an error and not a skip."
+        )

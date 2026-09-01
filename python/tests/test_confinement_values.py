@@ -98,6 +98,8 @@ def test_k3_the_confined_members_are_all_present_or_all_absent():
         confined_receipt(mounts=None)
     with pytest.raises(MalformedClosure):
         BoundaryReceipt(scratch_mapping="s", argv=("a",), rendered_config=(), instance=instance())
+    with pytest.raises(MalformedClosure):
+        BoundaryReceipt(scratch_mapping="s", argv=("a",), rendered_config=(), rendered_environment=(), mounts=())
     minimal = BoundaryReceipt(scratch_mapping="s", argv=("a",), rendered_config=())
     assert not minimal.confined and confined_receipt().confined
 

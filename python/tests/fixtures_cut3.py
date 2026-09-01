@@ -467,6 +467,7 @@ def replay_of(
     host_realization="host-a",
     held_inputs=None,
     scratch_base=None,
+    cores=1,
 ):
     from beliefs.replay import replay
 
@@ -510,4 +511,5 @@ def replay_of(
         started_at="2026-08-12T00:00:00Z",
         host_realization=host_realization,
         scratch_base=scratch_base if scratch_base is not None else tmp_path / "scratch",
+        cores=cores,
     )
