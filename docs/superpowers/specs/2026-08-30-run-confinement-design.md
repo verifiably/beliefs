@@ -303,8 +303,13 @@ captured rows, so the sandbox's declared LD_LIBRARY_PATH=/science/env/lib
 resolves the same names to the same artifacts and the probe's in-layout
 map equality (§6.2) is preserved. The capture retains the
 expected map as rows (ELF sandbox path, SONAME, resolved sandbox path)
-over every loadable ELF (ET_EXEC or ET_DYN) under /science/env, closed to
-a fixpoint over the libraries it adds. The probe lists the same set
+over every loadable ELF (ET_EXEC or ET_DYN) under /science/env of the
+closure's own architecture — an ELF is listed only when its class, data
+encoding and machine equal the capturing interpreter binary's; a
+foreign-architecture file (a vendored solver for another platform, say)
+stays an ordinary digest-verified row outside the map, and could not
+execute in the sandbox regardless, its program interpreter being outside
+the closure — closed to a fixpoint over the libraries it adds. The probe lists the same set
 in-layout and the boundary requires its report to equal the map exactly:
 the same ELFs, the same SONAMEs per ELF, the same resolved path, the
 manifest's digest; a nonzero loader exit, an unresolved or unparsable
