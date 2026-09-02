@@ -40,6 +40,7 @@ __all__ = [
     "RUN_DOMAIN",
     "SHAPES",
     "SUPPORTED_POLICIES",
+    "WORKFLOW_DEFINITION_DOMAIN",
     "BoundaryPolicy",
     "BoundaryReceipt",
     "EnvironmentManifest",
@@ -52,6 +53,7 @@ __all__ = [
     "ResultManifest",
     "RunClosure",
     "TraceJob",
+    "WorkflowDefinitionSnapshot",
     "job_key",
     "mount_plan_identity",
     "project_recipe",
@@ -66,6 +68,7 @@ ENVIRONMENT_DOMAIN = "science.environment.v2"
 BOUNDARY_RECEIPT_DOMAIN = "science.boundary-receipt.v1"
 CONFINED_RECEIPT_DOMAIN = "science.boundary-receipt.v2"
 MOUNT_PLAN_DOMAIN = "science.mount-plan.v1"
+WORKFLOW_DEFINITION_DOMAIN = "science.workflow-definition.v2"
 
 #: §7.3a's three capabilities — the closed vocabulary a policy may name.
 CAPABILITIES = ("from-bundle", "closure-confined-filesystem", "network-denied")
@@ -453,6 +456,39 @@ class ResultManifest:
         names = [name for name, _ in self.outputs]
         if len(set(names)) != len(names):
             raise MalformedClosure("duplicate logical names in result manifest")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class WorkflowDefinitionSnapshot:
+    snakefile_digest: str
+    family_streams: Mapping[str, tuple[str, ...]]
+    checkpoint_expanded_families: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if type(self.snakefile_digest) is not str or not self.snakefile_digest.startswith("sha256:"):
+            raise MalformedClosure("a workflow definition snapshot carries a sha256 snakefile digest")
+        if not isinstance(self.family_streams, Mapping) or not all(
+            type(family) is str and type(streams) is tuple and all(type(stream) is str for stream in streams)
+            for family, streams in self.family_streams.items()
+        ):
+            raise MalformedClosure("workflow family streams must map strings to tuples of strings")
+        if type(self.checkpoint_expanded_families) is not tuple or any(
+            type(family) is not str for family in self.checkpoint_expanded_families
+        ):
+            raise MalformedClosure("checkpoint-expanded families are a tuple of strings")
+        object.__setattr__(self, "family_streams", MappingProxyType(dict(self.family_streams)))
+
+    def projection(self) -> dict[str, object]:
+        return {
+            "snakefile": self.snakefile_digest,
+            "family_streams": {family: sorted(streams) for family, streams in self.family_streams.items()},
+            "checkpoint_expanded_families": sorted(self.checkpoint_expanded_families),
+        }
+
+    def identity(self) -> str:
+        return v1.digest(WORKFLOW_DEFINITION_DOMAIN, self.projection())
 
 
 def job_key(rule: str, wildcards: tuple[tuple[str, str], ...]) -> str:

@@ -299,11 +299,19 @@ SNAKEFILE_SCRATCHY = SNAKEFILE_DETERMINISTIC.replace(
 )
 
 
-def definition(snakefile: str = SNAKEFILE_DETERMINISTIC, family_streams=None):
+def definition(
+    snakefile: str = SNAKEFILE_DETERMINISTIC,
+    family_streams=None,
+    checkpoint_expanded_families=(),
+):
     from beliefs.adapter import WorkflowDefinition
 
     streams = family_streams if family_streams is not None else {"transform": ("model-initialization",)}
-    return WorkflowDefinition(snakefile=snakefile.encode("utf-8"), family_streams=streams)
+    return WorkflowDefinition(
+        snakefile=snakefile.encode("utf-8"),
+        family_streams=streams,
+        checkpoint_expanded_families=checkpoint_expanded_families,
+    )
 
 
 class MemoryPort:

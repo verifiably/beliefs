@@ -22,13 +22,13 @@ from types import MappingProxyType
 from typing import cast, final
 
 from beliefs.errors import ClosureUnsupported, MalformedClosure, UnsafeInvocation
-from beliefs.identity import v1
-from beliefs.recipe import EnvironmentManifest, TraceJob
+from beliefs.recipe import WORKFLOW_DEFINITION_DOMAIN as _WORKFLOW_DEFINITION_DOMAIN
+from beliefs.recipe import EnvironmentManifest, TraceJob, WorkflowDefinitionSnapshot
 from beliefs.sealed import sealed
 from beliefs.spec import RealizedSeeds
 
-WORKFLOW_DEFINITION_DOMAIN = "science.workflow-definition.v1"
 _CONFIG_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+WORKFLOW_DEFINITION_DOMAIN = _WORKFLOW_DEFINITION_DOMAIN
 _PEP_503_RUN = re.compile(r"[-_.]+")
 SANDBOX_ENV = "/science/env"
 SANDBOX_PYTHON = "/science/env/python"
@@ -65,6 +65,7 @@ def log_handler(msg):
 class WorkflowDefinition:
     snakefile: bytes
     family_streams: Mapping[str, tuple[str, ...]]
+    checkpoint_expanded_families: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if type(self.snakefile) is not bytes:
@@ -74,15 +75,20 @@ class WorkflowDefinition:
             for family, streams in self.family_streams.items()
         ):
             raise MalformedClosure("workflow family streams must map strings to tuples of strings")
+        if type(self.checkpoint_expanded_families) is not tuple or any(
+            type(family) is not str for family in self.checkpoint_expanded_families
+        ):
+            raise MalformedClosure("checkpoint-expanded families are a tuple of strings")
         object.__setattr__(self, "family_streams", MappingProxyType(dict(self.family_streams)))
 
     def identity(self) -> str:
-        return v1.digest(
-            WORKFLOW_DEFINITION_DOMAIN,
-            {
-                "snakefile": "sha256:" + sha256(self.snakefile).hexdigest(),
-                "family_streams": {family: sorted(streams) for family, streams in self.family_streams.items()},
-            },
+        return self.snapshot().identity()
+
+    def snapshot(self) -> WorkflowDefinitionSnapshot:
+        return WorkflowDefinitionSnapshot(
+            snakefile_digest="sha256:" + sha256(self.snakefile).hexdigest(),
+            family_streams=self.family_streams,
+            checkpoint_expanded_families=self.checkpoint_expanded_families,
         )
 
 

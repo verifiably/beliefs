@@ -16,6 +16,7 @@ from fixtures_cut3 import SNAKEFILE_DETERMINISTIC, SNAKEFILE_NONDETERMINISTIC, d
 
 from beliefs.adapter import (
     LOG_HANDLER_SCRIPT,
+    WORKFLOW_DEFINITION_DOMAIN,
     WorkflowDefinition,
     _canonical_distribution_name,
     build_argv,
@@ -29,6 +30,42 @@ from beliefs.adapter import (
     validate_entrypoint,
 )
 from beliefs.errors import MalformedClosure, UnsafeInvocation
+
+
+def _definition(**overrides):
+    fields = {
+        "snakefile": b"rule fit:\n    output: 'out.txt'\n",
+        "family_streams": {"fit": ("model-initialization",)},
+        "checkpoint_expanded_families": (),
+    }
+    return WorkflowDefinition(**{**fields, **overrides})
+
+
+def test_the_domain_is_v2_because_the_projection_gained_a_member():
+    assert WORKFLOW_DEFINITION_DOMAIN == "science.workflow-definition.v2"
+
+
+def test_the_snapshot_carries_the_declaration_not_the_bytes():
+    snapshot = _definition().snapshot()
+    assert snapshot.family_streams == {"fit": ("model-initialization",)}
+    assert snapshot.snakefile_digest.startswith("sha256:")
+    assert snapshot.checkpoint_expanded_families == ()
+
+
+def test_declaring_a_checkpoint_expanded_family_moves_the_identity():
+    plain = _definition().snapshot().identity()
+    declared = _definition(checkpoint_expanded_families=("fit",)).snapshot().identity()
+    assert plain != declared
+
+
+def test_the_snapshot_identity_is_the_definition_identity():
+    definition = _definition()
+    assert definition.identity() == definition.snapshot().identity()
+
+
+def test_a_malformed_checkpoint_declaration_is_refused():
+    with pytest.raises(MalformedClosure):
+        _definition(checkpoint_expanded_families=("fit", 3))
 
 
 def make_code_root(tmp_path: Path) -> Path:
