@@ -109,11 +109,23 @@ def _family_run(*, families, plan, seeds):
 
 
 def test_a_job_realizing_a_stream_its_family_does_not_declare_is_non_conforming() -> None:
-    run = _family_run(
-        families={"fit": ("model-initialization",)},
-        plan=seed_plan(streams=("model-initialization",)),
-        seeds={FIT_A: {"model-initialization": 1, "resample-draws": 2}},
+    plan = seed_plan(
+        streams=("model-initialization", "resample-draws"),
+        roots={"r": 11},
+        stream_roots={"model-initialization": "r", "resample-draws": "r"},
     )
+    seeds = {
+        FIT_A: {
+            stream: correct_seed(11, FIT_A, stream)
+            for stream in ("model-initialization", "resample-draws")
+        }
+    }
+    run = _family_run(
+        families={"fit": ("model-initialization",), "other": ("resample-draws",)},
+        plan=plan,
+        seeds=seeds,
+    )
+    assert {stream for claims in seeds.values() for stream in claims} == set(plan.streams)
     assert conformance(run).startswith("non-conforming")
 
 
@@ -205,7 +217,7 @@ def test_a_constructed_closure_whose_definition_disagrees_is_non_conforming() ->
     run = closure_with(
         family_streams={"fit": ("model-initialization",)},
         nondeterminism=Deterministic(),
-        trace=(traced("fit", {}),),
+        trace=(),
     )
     assert conformance(run).startswith("non-conforming")
 

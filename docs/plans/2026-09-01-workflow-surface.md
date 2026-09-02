@@ -601,8 +601,10 @@ def test_every_cross_pair_is_malformed(recipe_key, receipt):
 
 
 def test_the_recipe_shape_is_read_from_its_own_key_never_inferred_from_the_receipt():
-    assert run_domain_for_projection(_projection(recipe_key="workflow_definition", receipt=_V3_RECEIPT)) == "science.run.v3"
-    assert run_domain_for_projection(_projection(recipe_key="workflow_definition_identity", receipt=_V1_RECEIPT)) == "science.run.v1"
+    with pytest.raises(MalformedRecord):
+        run_domain_for_projection(_projection(recipe_key="workflow_definition", receipt=_V1_RECEIPT))
+    with pytest.raises(MalformedRecord):
+        run_domain_for_projection(_projection(recipe_key="workflow_definition_identity", receipt=_V3_RECEIPT))
 ```
 
 - [ ] **Step 2: Run the tests and watch them fail**
@@ -1342,11 +1344,18 @@ def _run(*, families, plan, seeds):
 
 
 def test_a_job_realizing_a_stream_its_family_does_not_declare_is_non_conforming():
+    # Keep the occurrence union complete, so only the per-job family check can
+    # catch the over-claim.
+    plan = seed_plan(streams=("model-initialization", "resample-draws"), roots={"r": 11},
+                     stream_roots={"model-initialization": "r", "resample-draws": "r"})
+    seeds = {FIT_A: {stream: correct_seed(11, FIT_A, stream)
+                     for stream in ("model-initialization", "resample-draws")}}
     run = _run(
-        families={"fit": ("model-initialization",)},
-        plan=seed_plan(streams=("model-initialization",)),
-        seeds={FIT_A: {"model-initialization": 1, "resample-draws": 2}},
+        families={"fit": ("model-initialization",), "other": ("resample-draws",)},
+        plan=plan,
+        seeds=seeds,
     )
+    assert {stream for claims in seeds.values() for stream in claims} == set(plan.streams)
     assert conformance(run).startswith("non-conforming")
 
 
@@ -1414,7 +1423,7 @@ def test_a_constructed_closure_whose_definition_disagrees_is_non_conforming():
     # design §5's SECOND disposition: no boundary refused this one, because no
     # boundary ever saw it — it was constructed, as a decoded record is
     run = closure_with(family_streams={"fit": ("model-initialization",)}, nondeterminism=Deterministic(),
-                       trace=(traced("fit", {}),))
+                       trace=())
     assert conformance(run).startswith("non-conforming")
 
 
@@ -2270,7 +2279,7 @@ def test_two_targets_over_one_definition_are_two_recipes(tmp_path):
     analysis = run_workflow(tmp_path / "a", snakefile=SNAKEFILE_TWO_TARGETS,
                             targets=("outputs/analysis.txt",), declared_outputs=("outputs/analysis.txt",))
     report = run_workflow(tmp_path / "b", snakefile=SNAKEFILE_TWO_TARGETS,
-                          targets=("outputs/report.txt",), declared_outputs=("outputs/report.txt",))
+                          targets=("outputs/report.txt",), declared_outputs=("outputs/analysis.txt",))
     assert isinstance(analysis, RunMinted) and isinstance(report, RunMinted)
     assert analysis.run.recipe.workflow_definition == report.run.recipe.workflow_definition
     assert analysis.run.recipe.identity() != report.run.recipe.identity()
@@ -3014,7 +3023,7 @@ CUT15_ARMS = (
         sabotage=Sabotage(module=_BOUNDARY,
             before="    if reason := definition_agrees_with_plan(definition.snapshot(), plan):",
             after="    if False:"),
-        checks=(f"{_B}::test_a_definition_disagreeing_with_its_plan_refuses_before_any_workflow_effect",)),
+        checks=(f"{_B}::test_a_definition_disagreement_refuses_before_a_planning_effect",)),
     Arm(row="R16g", asserts="the same predicate states the disagreement about a constructed closure",
         sabotage=Sabotage(module=_REPLAY,
             before="    if reason := definition_agrees_with_plan(snapshot, plan):", after="    if False:"),
@@ -3036,7 +3045,7 @@ CUT15_ARMS = (
             before="        if job.job_key() not in planned_keys and job.rule not in expanded:",
             after="        if False:"),
         checks=(f"{_R}::test_an_executed_job_outside_the_plan_is_non_conforming",
-                f"{_R}::test_an_unexpanded_family_gets_no_such_admission")),
+                f"{_R}::test_an_unexpanded_family_gets_no_checkpoint_admission")),
     Arm(row="R16k", asserts="target satisfaction over the resolved target job keys",
         sabotage=Sabotage(module=_REPLAY,
             before="    if missing := sorted(set(run.occurrence.target_keys) - executed):",
@@ -3069,7 +3078,8 @@ CUT15_ARMS = (
     # --- R21 --------------------------------------------------------------
     Arm(row="R21a", asserts="two targets over one definition are two recipes",
         sabotage=Sabotage(module=_RECIPE,
-            before='                "invocation": _invocation_projection(self.invocation),\n', after=""),
+            before='                "targets": list(self.invocation.targets),',
+            after='                "targets": [],'),
         checks=(f"{_W}::test_two_targets_over_one_definition_are_two_recipes",)),
     Arm(row="R21b", asserts="the manifest is constructed across the outputs of several rules",
         # `build_manifest` is a comprehension, not a loop, and no task in this
@@ -3077,12 +3087,12 @@ CUT15_ARMS = (
         sabotage=Sabotage(module=_BOUNDARY,
             before="    return ResultManifest(outputs=tuple((name, _digest(_output_path(scratch, name))) for name in declared_outputs))",
             after="    return ResultManifest(outputs=tuple((name, _digest(_output_path(scratch, name))) for name in declared_outputs[:1]))"),
-        checks=(f"{_W}::test_a_manifest_is_built_across_the_outputs_of_several_rules",)),
+        checks=(f"{_W}::test_a_manifest_is_built_across_outputs_of_several_rules",)),
     Arm(row="R21c", asserts="`invocation` enumerates no jobs a target implies",
         sabotage=Sabotage(module=_RECIPE,
             before="    declared_outputs: tuple[str, ...]\n",
             after="    declared_outputs: tuple[str, ...]\n    jobs: tuple[str, ...] = ()\n"),
-        checks=(f"{_W}::test_the_invocation_does_not_enumerate_the_jobs_a_target_implies",)),
+        checks=(f"{_W}::test_the_invocation_does_not_enumerate_jobs_a_target_implies",)),
 
     # --- R23 --------------------------------------------------------------
     Arm(row="R23", asserts="independence walks the stamped basis, not the composition",
@@ -3100,7 +3110,10 @@ CUT15_ARMS = (
         # that the pairing is checked at all, K2 that the shapes are read
         # separately. `composed` is bound first (Task 5) so this mutation runs
         sabotage=Sabotage(module=_RECIPE,
-            before='    recipe_v2 = "workflow_definition" in recipe', after="    recipe_v2 = composed"),
+            before=('    recipe_v2 = "workflow_definition" in recipe\n'
+                    '    if recipe_v2 == ("workflow_definition_identity" in recipe):'),
+            after=('    recipe_v2 = composed\n'
+                   '    if ("workflow_definition" in recipe) == ("workflow_definition_identity" in recipe):')),
         checks=(f"{_RUN}::test_every_cross_pair_is_malformed",
                 f"{_RUN}::test_the_recipe_shape_is_read_from_its_own_key_never_inferred_from_the_receipt")),
     Arm(row="K3", asserts="a v1 recipe is refused rather than given an invented declaration",
@@ -3108,11 +3121,11 @@ CUT15_ARMS = (
         # arguments and the module stops importing, which proves nothing
         sabotage=Sabotage(module=_RUNRECORD,
             before='    if "workflow_definition_identity" in recipe:', after="    if False:"),
-        checks=(f"{_RUN}::test_a_v1_identity_only_recipe_is_refused_rather_than_given_an_invented_declaration",)),
+        checks=(f"{_RUN}::test_decode_run_closure_refuses_a_v1_identity_only_recipe",)),
     Arm(row="K4", asserts="the job key is canonical text, so no wildcard value can collide",
         sabotage=Sabotage(module=_RECIPE,
             before='    return v1.encode({"rule": rule, "wildcards": {name: value for name, value in wildcards}}).decode("utf-8")',
-            after='    return rule + "|" + ",".join(f"{name}={value}" for name, value in wildcards)'),
+            after='    return rule + "|" + "|".join(f"{name}={value}" for name, value in wildcards)'),
         checks=(f"{_REC}::test_a_wildcard_value_containing_a_separator_cannot_collide",)),
     Arm(row="K5", asserts="a repeated (job, stream) claim fails inside the job",
         sabotage=Sabotage(module=_SEEDS,

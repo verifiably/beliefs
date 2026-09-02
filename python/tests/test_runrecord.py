@@ -48,11 +48,10 @@ def test_every_cross_pair_is_malformed(recipe_key, receipt):
 
 
 def test_the_recipe_shape_is_read_from_its_own_key_never_inferred_from_the_receipt():
-    assert run_domain_for_projection(_projection(recipe_key="workflow_definition", receipt=_V3_RECEIPT)) == "science.run.v3"
-    assert (
-        run_domain_for_projection(_projection(recipe_key="workflow_definition_identity", receipt=_V1_RECEIPT))
-        == "science.run.v1"
-    )
+    with pytest.raises(MalformedRecord):
+        run_domain_for_projection(_projection(recipe_key="workflow_definition", receipt=_V1_RECEIPT))
+    with pytest.raises(MalformedRecord):
+        run_domain_for_projection(_projection(recipe_key="workflow_definition_identity", receipt=_V3_RECEIPT))
 
 
 @pytest.fixture

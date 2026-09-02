@@ -113,7 +113,7 @@ def test_two_targets_over_one_definition_are_two_recipes(tmp_path) -> None:
         tmp_path / "b",
         snakefile=SNAKEFILE_TWO_TARGETS,
         targets=("outputs/report.txt",),
-        declared_outputs=("outputs/report.txt",),
+        declared_outputs=("outputs/analysis.txt",),
     )
     assert isinstance(analysis, RunMinted) and isinstance(report, RunMinted)
     assert analysis.run.recipe.workflow_definition == report.run.recipe.workflow_definition
