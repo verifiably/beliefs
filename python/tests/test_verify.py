@@ -11,10 +11,14 @@ from pathlib import Path
 import pytest
 from fixtures_cut3 import (
     SNAKEFILE_NONDETERMINISTIC,
+    closure_with,
+    definition,
     interp,
+    planned,
     report,
     spec_draft,
     spec_rules,
+    traced,
 )
 from fixtures_cut3 import (
     memory_assessment as run_assessment,
@@ -25,17 +29,22 @@ from fixtures_cut3 import (
 from fixtures_cut3 import (
     memory_replay as replay_of,
 )
+from fixtures_cut15 import data_dependent_pair
 
 from beliefs.assess import build_assessment
 from beliefs.boundary import RunMinted
 from beliefs.errors import CitationRefused, MixedShapes, NotAnAssessmentVerification
 from beliefs.identity import v1
 from beliefs.production import mint_dataset
+from beliefs.recipe import job_key
 from beliefs.replay import (
+    CONFORMING,
     CONTENT_EQUALITY,
     DATASET_CONTENT_EQUALITY,
     CodeLineageCertification,
     EquivalenceImplementation,
+    conformance,
+    derive_scope,
 )
 from beliefs.spec import Deterministic, SpecInput, StochasticUnseeded, freeze, revise
 from beliefs.verification import Verification
@@ -43,11 +52,46 @@ from beliefs.verify import (
     AssessmentVerification,
     ComparisonReport,
     DatasetProductionVerification,
+    _job_diagnostics,
     _mint_verification,
     active_verifications,
     admission_record,
     build_verification,
 )
+
+
+def test_a_differing_job_set_is_reported_by_job_key() -> None:
+    original = closure_with(trace=(traced("fit", {"s": "a"}),))
+    replayed = closure_with(trace=(traced("fit", {"s": "a"}), traced("fit", {"s": "b"})))
+    (message,) = _job_diagnostics(original, replayed)
+    assert job_key("fit", (("s", "b"),)) in message
+
+
+def test_a_data_dependent_replay_over_different_inputs_is_conforming(tmp_path) -> None:
+    original, replayed = data_dependent_pair(tmp_path)
+    assert conformance(original) == CONFORMING and conformance(replayed) == CONFORMING
+    assert _job_diagnostics(original, replayed) != ()
+
+
+def test_a_differing_job_set_alone_costs_no_scope() -> None:
+    narrow = closure_with(
+        trace=(traced("fit", {"n": "a"}),),
+        planned=(planned("fit", ("outputs/a.done",), wildcards=(("n", "a"),)),),
+        target_keys=(job_key("fit", (("n", "a"),)),),
+        targets=("outputs/a.done",),
+    )
+    wide = closure_with(
+        trace=(traced("fit", {"n": "a"}), traced("fit", {"n": "b"})),
+        planned=(
+            planned("fit", ("outputs/a.done",), wildcards=(("n", "a"),)),
+            planned("fit", ("outputs/b.done",), wildcards=(("n", "b"),)),
+        ),
+        target_keys=(job_key("fit", (("n", "a"),)),),
+        targets=("outputs/a.done",),
+    )
+    assert narrow.recipe.identity() == wide.recipe.identity()
+    assert conformance(narrow) == CONFORMING and conformance(wide) == CONFORMING
+    assert derive_scope(narrow, wide, certification=None) == "same-environment"
 
 
 @pytest.fixture(scope="module")
@@ -73,7 +117,7 @@ def production_pair(tmp_path_factory):
     return first, second
 
 
-def verification_of(pair, **overrides):
+def verification_of(pair, **overrides) -> AssessmentVerification:
     original, replayed = pair
     spec = freeze(spec_draft(), held_rules=spec_rules())
     kwargs = {
@@ -212,36 +256,39 @@ def test_r18_mutating_any_receipt_field_moves_receipt_report_and_verification(pa
     verification = verification_of(pair)
     assert isinstance(verification, AssessmentVerification)
     report = verification.report
-    for field, value in [
-        ("scratch_mapping", "some-other-mount"),
-        ("argv", ("snakemake", "--other")),
-        ("rendered_config", (("alpha", "0.5"),)),
-        ("capabilities", ("network-denied",)),
-    ]:
-        moved_receipt = dataclasses.replace(receipt, **{field: value}).identity()
-        assert moved_receipt != baseline
-        moved_report = _mint_comparison_report(
-            original_conformance=report.original_conformance,
-            replay_conformance=report.replay_conformance,
-            receipts=(moved_receipt, report.receipts[1]),
-            rule_bindings=report.rule_bindings,
-            certification=report.certification,
-            citation=report.citation,
-            diagnostics=report.diagnostics,
-        )
-        assert moved_report.identity() != report.identity()
-        moved_verification = _mint_verification(
-            original=verification.original,
-            replayed=verification.replayed,
-            assessment=verification.assessment,
-            rule=verification.rule,
-            report=moved_report,
-            scope_rule=verification.scope_rule,
-            scope=verification.scope,
-            verdict=verification.verdict,
-            supersedes=verification.supersedes,
-        )
-        assert moved_verification.identity() != verification.identity()
+    for launch_name in ("planning", "execution"):
+        launch = getattr(receipt, launch_name)
+        for field, value in [
+            ("scratch_mapping", "some-other-mount"),
+            ("argv", ("snakemake", "--other")),
+            ("rendered_config", (("alpha", "0.5"),)),
+            ("capabilities", ("network-denied",)),
+        ]:
+            moved_launch = dataclasses.replace(launch, **{field: value})
+            moved_receipt = dataclasses.replace(receipt, **{launch_name: moved_launch}).identity()
+            assert moved_receipt != baseline
+            moved_report = _mint_comparison_report(
+                original_conformance=report.original_conformance,
+                replay_conformance=report.replay_conformance,
+                receipts=(moved_receipt, report.receipts[1]),
+                rule_bindings=report.rule_bindings,
+                certification=report.certification,
+                citation=report.citation,
+                diagnostics=report.diagnostics,
+            )
+            assert moved_report.identity() != report.identity()
+            moved_verification = _mint_verification(
+                original=verification.original,
+                replayed=verification.replayed,
+                assessment=verification.assessment,
+                rule=verification.rule,
+                report=moved_report,
+                scope_rule=verification.scope_rule,
+                scope=verification.scope,
+                verdict=verification.verdict,
+                supersedes=verification.supersedes,
+            )
+            assert moved_verification.identity() != verification.identity()
 
 
 def test_r19_only_build_verification_mints_the_carriers():
@@ -352,7 +399,7 @@ def test_r11_a_nondeterministic_transform_yields_all_four(tmp_path):
     first_dataset = mint_dataset(first.run, existing_bases={})
     # A separate ASSESSMENT run observes the first produced dataset — the
     # belief that must not move is a belief about THIS evidence:
-    produced = Path(first.run.occurrence.receipt.scratch_mapping) / "outputs" / "result.txt"
+    produced = Path(first.run.occurrence.receipt.execution.scratch_mapping) / "outputs" / "result.txt"
     observing_spec = freeze(
         spec_draft(input_roles=(SpecInput(role="observes", dataset=first_dataset.address),)),
         held_rules=spec_rules(),
@@ -411,7 +458,12 @@ def test_r8_the_rule_cannot_be_chosen_after_the_outputs_are_seen(tmp_path):
     # A deterministic-declared spec over a byte-nondeterministic definition is
     # the honest way to obtain a failing replay on the minimal surface.
     spec = freeze(spec_draft(nondeterminism=Deterministic()), held_rules=spec_rules())
-    original = run_assessment(tmp_path / "a", snakefile=SNAKEFILE_NONDETERMINISTIC, spec=spec)
+    original = run_assessment(
+        tmp_path / "a",
+        snakefile=SNAKEFILE_NONDETERMINISTIC,
+        spec=spec,
+        definition_override=definition(snakefile=SNAKEFILE_NONDETERMINISTIC, family_streams={}),
+    )
     replayed = replay_of(original, tmp_path / "b", snakefile=SNAKEFILE_NONDETERMINISTIC)
     assert isinstance(original, RunMinted) and isinstance(replayed, RunMinted)
     failing = build_verification(

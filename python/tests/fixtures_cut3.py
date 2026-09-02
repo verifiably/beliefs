@@ -1,5 +1,6 @@
 """Shared cut-3 fixtures: value builders and held Snakefile definitions."""
 
+import json
 from decimal import Decimal
 from hashlib import sha256
 from typing import cast
@@ -14,12 +15,16 @@ from beliefs.recipe import (
     BoundaryReceipt,
     EnvironmentManifest,
     Invocation,
+    LaunchAttestation,
     Occurrence,
+    PlannedJob,
     Recipe,
     RecipeInput,
     ResultManifest,
     RunClosure,
     TraceJob,
+    WorkflowDefinitionSnapshot,
+    job_key,
 )
 
 # Tests build fixture values through the private constructor deliberately —
@@ -111,7 +116,7 @@ def recipe(**overrides) -> Recipe:
         "spec_identity": "spec-" + "11" * 8,
         "code_identity": "sha256:" + "cc" * 32,
         "environment": EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)),
-        "workflow_definition_identity": "sha256:" + "ee" * 32,
+        "workflow_definition": definition().snapshot(),
         "invocation": invocation(),
         "inputs": (RecipeInput(role="observes", dataset="dataset:sha256:" + "ff" * 32, content=D_IN),),
         "parameters": {"alpha": Decimal("0.05")},
@@ -127,6 +132,13 @@ def recipe(**overrides) -> Recipe:
 
 
 def occurrence(**overrides) -> Occurrence:
+    transform_key = TraceJob(
+        job_id="0",
+        rule="transform",
+        wildcards=(),
+        inputs=("inputs/data.txt",),
+        outputs=("outputs/result.txt",),
+    ).job_key()
     fields = {
         "event_token": "tok-1",
         "started_at": "2026-08-12T00:00:00Z",
@@ -141,8 +153,20 @@ def occurrence(**overrides) -> Occurrence:
                 outputs=("outputs/result.txt",),
             ),
         ),
-        "realized_seeds": RealizedSeeds(seeds={"transform": {"model-initialization": 7}}),
-        "receipt": BoundaryReceipt(scratch_mapping="scratch-mount-a", argv=("snakemake",), rendered_config=()),
+        "planned": (
+            PlannedJob(
+                job_key=transform_key,
+                family="transform",
+                outputs=("outputs/result.txt",),
+                is_checkpoint=False,
+            ),
+        ),
+        "target_keys": (transform_key,),
+        "realized_seeds": RealizedSeeds(seeds={transform_key: {"model-initialization": 7}}),
+        "receipt": BoundaryReceipt(
+            planning=LaunchAttestation(scratch_mapping="scratch-mount-a", argv=("snakemake",), rendered_config=()),
+            execution=LaunchAttestation(scratch_mapping="scratch-mount-a", argv=("snakemake",), rendered_config=()),
+        ),
     }
     fields.update(overrides)
     return Occurrence(**fields)
@@ -156,6 +180,87 @@ def closure(**overrides) -> RunClosure:
     }
     fields.update(overrides)
     return RunClosure(**fields)
+
+
+def traced(family, wildcards, job_id=None):
+    pairs = tuple(sorted(wildcards.items()))
+    return TraceJob(
+        job_id=job_id or f"{family}-{len(pairs)}",
+        rule=family,
+        wildcards=pairs,
+        inputs=(),
+        outputs=(),
+    )
+
+
+def traced_from_key(key):
+    parsed = json.loads(key)
+    return traced(parsed["rule"], parsed["wildcards"])
+
+
+def closure_with(
+    *,
+    nondeterminism=None,
+    family_streams=None,
+    realized=None,
+    trace=None,
+    planned=None,
+    expanded=(),
+    target_keys=None,
+    targets=None,
+    outputs=(("out.txt", D_OUT),),
+):
+    """Build a closure from record parts for arms that need no engine."""
+    families = family_streams if family_streams is not None else {}
+    jobs = trace if trace is not None else (traced("transform", {}),)
+    snapshot = WorkflowDefinitionSnapshot(
+        snakefile_digest=D_IN,
+        family_streams=families,
+        checkpoint_expanded_families=expanded,
+    )
+    built = recipe(
+        nondeterminism=nondeterminism or Deterministic(),
+        workflow_definition=snapshot,
+        invocation=invocation(
+            targets=targets or (),
+            declared_outputs=tuple(name for name, _ in outputs),
+        ),
+    )
+    return RunClosure(
+        recipe=built,
+        result=ResultManifest(outputs=tuple(outputs)),
+        occurrence=occurrence(
+            trace=jobs,
+            planned=(
+                planned
+                if planned is not None
+                else tuple(
+                    PlannedJob(
+                        job_key=job.job_key(),
+                        family=job.rule,
+                        outputs=job.outputs,
+                        is_checkpoint=False,
+                    )
+                    for job in jobs
+                )
+            ),
+            target_keys=(
+                target_keys
+                if target_keys is not None
+                else ()
+            ),
+            realized_seeds=RealizedSeeds(seeds=realized or {}),
+        ),
+    )
+
+
+def planned(family, outputs=(), is_checkpoint=False, wildcards=()):
+    return PlannedJob(
+        job_key=job_key(family, tuple(wildcards)),
+        family=family,
+        outputs=tuple(outputs),
+        is_checkpoint=is_checkpoint,
+    )
 
 
 def closure_kwargs(assessments, runs):
@@ -228,27 +333,38 @@ def report(**overrides):
 
 
 SNAKEFILE_DETERMINISTIC = """\
-import json, pathlib, random
+import pathlib, random
+from beliefs.seeds import bind
+
+seed = bind(config)
 
 rule transform:
     input: "inputs/data.txt"
     output: "outputs/result.txt"
     run:
-        seed = int(config["seed_model_initialization"])
-        rng = random.Random(seed)  # the computation USES the seed it reports
+        value = seed(rule, wildcards, "model-initialization")
+        rng = random.Random(value)  # the computation USES the seed it reports
         salt = "".join(rng.choice("0123456789abcdef") for _ in range(8))
-        pathlib.Path(".seeds").mkdir(exist_ok=True)
-        pathlib.Path(".seeds/transform.json").write_text(
-            json.dumps({"transform": {"model-initialization": seed}}))
         text = pathlib.Path(input[0]).read_text()
         pathlib.Path(output[0]).write_text(text.upper() + ":" + salt)
 """
 
-# Disobeys its rendered configuration: USES and REPORTS seed+1 — the honest
-# record of a genuinely violating execution, not a doctored sidecar. A
-# complete closure the execution violated — R16's mint arm, R21 negative (e).
+# Disobeys its rendered configuration: the workflow itself uses and rewrites
+# its claim to seed+1 during execution. This is a genuinely violating closure,
+# not fixture post-processing — R16's mint arm and R21 negative (e).
 SNAKEFILE_SEED_VIOLATING = SNAKEFILE_DETERMINISTIC.replace(
-    'seed = int(config["seed_model_initialization"])', 'seed = int(config["seed_model_initialization"]) + 1'
+    "from beliefs.seeds import bind",
+    "import json\nfrom beliefs.seeds import bind, record_digest_of",
+).replace(
+    '        value = seed(rule, wildcards, "model-initialization")',
+    '''        value = seed(rule, wildcards, "model-initialization")
+        claim = next(pathlib.Path(".seeds").glob("*.json"))
+        record = json.loads(claim.read_text())
+        claim.unlink()
+        value += 1
+        record["seed"] = value
+        (claim.parent / f"{record_digest_of(record)}.json").write_text(
+            json.dumps(record, sort_keys=True, separators=(",", ":")))''',
 )
 
 # Byte-nondeterministic output, urandom staying inside the scratch root. Used
@@ -299,11 +415,19 @@ SNAKEFILE_SCRATCHY = SNAKEFILE_DETERMINISTIC.replace(
 )
 
 
-def definition(snakefile: str = SNAKEFILE_DETERMINISTIC, family_streams=None):
+def definition(
+    snakefile: str = SNAKEFILE_DETERMINISTIC,
+    family_streams=None,
+    checkpoint_expanded_families=(),
+):
     from beliefs.adapter import WorkflowDefinition
 
     streams = family_streams if family_streams is not None else {"transform": ("model-initialization",)}
-    return WorkflowDefinition(snakefile=snakefile.encode("utf-8"), family_streams=streams)
+    return WorkflowDefinition(
+        snakefile=snakefile.encode("utf-8"),
+        family_streams=streams,
+        checkpoint_expanded_families=checkpoint_expanded_families,
+    )
 
 
 class MemoryPort:
@@ -376,9 +500,7 @@ def run_assessment(
         spec=spec,
         port=port,
         boundary_policy=boundary_policy,
-        definition=(
-            definition_override if definition_override is not None else definition(snakefile=snakefile)
-        ),
+        definition=(definition_override if definition_override is not None else definition(snakefile=snakefile)),
         code_roots=(code,),
         held_inputs=supplied,
         entrypoint="code/workflow/Snakefile",
@@ -489,8 +611,6 @@ def replay_of(
     family_streams = (
         {"transform": original.run.recipe.nondeterminism.plan.streams}
         if isinstance(original.run.recipe.nondeterminism, Seeded)
-        else None
-        if original.run.recipe.shape == "assessment"
         else {}
     )
     return replay(

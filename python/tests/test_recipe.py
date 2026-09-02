@@ -14,7 +14,9 @@ from fixtures_cut3 import (
     DATA_ADDRESS,
     POLICY,
     READS_ADDRESS,
+    SNAKEFILE_NONDETERMINISTIC,
     closure,
+    definition,
     invocation,
     occurrence,
     recipe,
@@ -33,15 +35,19 @@ from beliefs.errors import (
 from beliefs.identity import v1
 from beliefs.recipe import (
     BOUNDARY_RECEIPT_DOMAIN,
+    RECIPE_DOMAIN,
     BoundaryPolicy,
     BoundaryReceipt,
     EnvironmentManifest,
     Invocation,
+    LaunchAttestation,
     Occurrence,
+    PlannedJob,
     RecipeInput,
     ResultManifest,
     RunClosure,
     TraceJob,
+    job_key,
     project_recipe,
 )
 from beliefs.record import AssessmentValue, SourceAssertion
@@ -54,6 +60,90 @@ from beliefs.spec import (
     SpecInput,
     freeze,
 )
+
+
+def test_the_recipe_domain_is_v2():
+    assert RECIPE_DOMAIN == "science.recipe.v2"
+
+
+def test_the_recipe_carries_the_declaration_a_closure_can_read():
+    value = recipe()
+    assert value.workflow_definition.family_streams == {"transform": ("model-initialization",)}
+
+
+def test_the_projection_emits_the_snapshot_not_only_its_digest():
+    projected = recipe()._projection()
+    workflow_definition = projected["workflow_definition"]
+    assert isinstance(workflow_definition, dict)
+    assert workflow_definition["family_streams"] == {"transform": ["model-initialization"]}
+    assert "workflow_definition_identity" not in projected
+
+
+def test_changing_a_family_declaration_moves_the_recipe_identity():
+    from beliefs.adapter import WorkflowDefinitionSnapshot
+
+    left = recipe()
+    right = recipe(
+        workflow_definition=WorkflowDefinitionSnapshot(
+            snakefile_digest=left.workflow_definition.snakefile_digest,
+            family_streams={"transform": ("model-initialization", "resample-draws")},
+            checkpoint_expanded_families=(),
+        )
+    )
+    assert left.identity() != right.identity()
+
+
+def _launch(**overrides):
+    fields = {"scratch_mapping": "/scratch/x", "argv": ("snakemake",), "rendered_config": (), "capabilities": ()}
+    return LaunchAttestation(**{**fields, **overrides})
+
+
+def test_the_minimal_receipt_domain_is_v3():
+    assert BOUNDARY_RECEIPT_DOMAIN == "science.boundary-receipt.v3"
+
+
+def test_a_receipt_composes_one_attestation_per_launch():
+    receipt = BoundaryReceipt(planning=_launch(), execution=_launch(scratch_mapping="/scratch/y"))
+    assert receipt.planning.scratch_mapping != receipt.execution.scratch_mapping
+    assert receipt.confined is False
+
+
+def test_two_launches_must_agree_about_confinement(confined_launch):
+    with pytest.raises(MalformedClosure):
+        BoundaryReceipt(planning=_launch(), execution=confined_launch())
+
+
+def test_the_job_key_is_canonical_text_over_rule_and_wildcards():
+    key = job_key("fit", (("sample", "a"),))
+    assert key == '{"rule":"fit","wildcards":{"sample":"a"}}'
+
+
+def test_the_job_key_orders_wildcards_canonically_whatever_the_input_order():
+    assert job_key("fit", (("b", "2"), ("a", "1"))) == job_key("fit", (("a", "1"), ("b", "2")))
+
+
+def test_a_wildcard_value_containing_a_separator_cannot_collide():
+    # a hand-rolled "rule|k=v" join would map these two to one string
+    left = job_key("fit", (("a", "1|b=2"),))
+    right = job_key("fit", (("a", "1"), ("b", "2")))
+    assert left != right
+
+
+def test_a_job_key_refuses_duplicate_wildcard_names():
+    with pytest.raises(MalformedClosure):
+        job_key("fit", (("sample", "a"), ("sample", "b")))
+    with pytest.raises(MalformedClosure):
+        TraceJob("1", "fit", (("sample", "a"), ("sample", "b")), (), ())
+
+
+def test_a_trace_job_reports_its_own_key():
+    job = TraceJob(job_id="1", rule="fit", wildcards=(("sample", "a"),), inputs=(), outputs=())
+    assert job.job_key() == job_key("fit", (("sample", "a"),))
+
+
+def test_a_planned_job_key_must_name_its_family():
+    with pytest.raises(MalformedClosure):
+        PlannedJob(job_key("fit", ()), "other", (), False)
 
 
 # --- R1 ----------------------------------------------------------------------
@@ -78,7 +168,7 @@ def test_r1_the_note_is_a_separate_act_and_the_member_is_then_supplied():
 
 
 def test_r1_no_unknown_or_attested_component_is_representable():
-    for field in ("code_identity", "workflow_definition_identity"):
+    for field in ("code_identity", "workflow_definition"):
         for value in ("unknown", "attested", ""):
             with pytest.raises(MalformedClosure):
                 recipe(**{field: value})
@@ -110,8 +200,8 @@ RECIPE_MUTATIONS = [
         ),
     ),
     (
-        "workflow_definition_identity",
-        lambda: recipe(workflow_definition_identity="sha256:" + "cd" * 32),
+        "workflow_definition",
+        lambda: recipe(workflow_definition=definition(snakefile=SNAKEFILE_NONDETERMINISTIC).snapshot()),
     ),
     (
         "invocation",
@@ -180,7 +270,10 @@ def test_r2_the_result_and_each_occurrence_member_move_the_address():
     assert (
         closure(
             occurrence=occurrence(
-                receipt=BoundaryReceipt(scratch_mapping="scratch-mount-b", argv=("snakemake",), rendered_config=())
+                receipt=BoundaryReceipt(
+                    planning=_launch(scratch_mapping="scratch-mount-b"),
+                    execution=_launch(scratch_mapping="scratch-mount-b"),
+                )
             )
         ).address()
         != baseline
@@ -294,9 +387,8 @@ INVALID_CLOSURE_VALUES = [
     (
         "receipt-pair",
         lambda: BoundaryReceipt(
-            scratch_mapping="scratch",
-            argv=("snakemake",),
-            rendered_config=(("alpha", []),),  # type: ignore[arg-type]
+            planning=_launch(rendered_config=(("alpha", []),)),  # type: ignore[arg-type]
+            execution=_launch(),
         ),
     ),
     (
@@ -313,6 +405,8 @@ INVALID_CLOSURE_VALUES = [
             actor="tester",
             host_realization="host",
             trace=(),
+            planned=(),
+            target_keys=(),
             realized_seeds=RealizedSeeds(seeds={}),
             receipt=[],  # type: ignore[arg-type]
         ),
@@ -359,7 +453,7 @@ def test_r14_nan_and_infinity_are_refused_in_every_position():
 def test_r14_kind_domains_separate_and_v2_never_equals_v1():
     payload = {"same": "bytes"}
     assert v1.digest("science.recipe.v1", payload) != v1.digest("science.run.v1", payload)
-    assert BOUNDARY_RECEIPT_DOMAIN == "science.boundary-receipt.v1"
+    assert BOUNDARY_RECEIPT_DOMAIN == "science.boundary-receipt.v3"
     assert v1.digest(BOUNDARY_RECEIPT_DOMAIN, payload) != v1.digest("science.run.v1", payload)
     assert v1.digest("science.recipe.v1", payload) != v1.digest("science.recipe.v2", payload)
 
@@ -372,7 +466,7 @@ def test_r17_projection_offers_no_caller_path_for_the_projected_members():
         "held",
         "code_identity",
         "environment",
-        "workflow_definition_identity",
+        "workflow_definition",
         "invocation",
         "boundary_policy",
     ]
@@ -386,7 +480,7 @@ def test_r17_the_projected_recipe_carries_the_spec_whole():
         held={DATA_ADDRESS: D_IN},
         code_identity="sha256:" + "cc" * 32,
         environment=EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)),
-        workflow_definition_identity="sha256:" + "ee" * 32,
+        workflow_definition=definition().snapshot(),
         invocation=invocation(),
         boundary_policy=POLICY,
     )
@@ -412,7 +506,7 @@ def test_r17_the_projected_recipe_carries_the_spec_whole():
         held={DATA_ADDRESS: D_IN, READS_ADDRESS: "sha256:" + "34" * 32},
         code_identity="sha256:" + "cc" * 32,
         environment=EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)),
-        workflow_definition_identity="sha256:" + "ee" * 32,
+        workflow_definition=definition().snapshot(),
         invocation=invocation(),
         boundary_policy=POLICY,
     )
@@ -427,7 +521,7 @@ def test_r17_projection_refuses_a_declared_input_that_is_not_held():
             held={},
             code_identity="sha256:" + "cc" * 32,
             environment=EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)),
-            workflow_definition_identity="sha256:" + "ee" * 32,
+            workflow_definition=definition().snapshot(),
             invocation=invocation(),
             boundary_policy=POLICY,
         )

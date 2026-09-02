@@ -13,6 +13,7 @@ declared input must already be held.
 
 from __future__ import annotations
 
+import json
 import os
 import secrets
 import shutil
@@ -37,6 +38,7 @@ from beliefs.adapter import (
     capture_bundle,
     capture_closure,
     create_scratch_root,
+    read_plan,
     read_realized_seeds,
     read_trace,
     require_executing_environment,
@@ -49,6 +51,8 @@ from beliefs.confinement import (
     HOSTNAME,
     OUTPUT_ROOT,
     TRACE_DIR,
+    Launch,
+    MountPlan,
     check_bundle_intact,
     check_closure_intact,
     fingerprint,
@@ -58,7 +62,17 @@ from beliefs.confinement import (
     require_host,
     sandbox_environment,
 )
-from beliefs.errors import ConfinementRefusal, MalformedClosure, MalformedRecord, ScienceError
+from beliefs.errors import (
+    CheckpointDeclarationUnmet,
+    ConfinementRefusal,
+    DefinitionPlanMismatch,
+    MalformedClosure,
+    MalformedRecord,
+    PlanUnavailable,
+    ScienceError,
+    TargetAmbiguous,
+    TargetUnresolvable,
+)
 from beliefs.identity import v1
 from beliefs.recipe import (
     CONFINED_POLICY,
@@ -67,11 +81,15 @@ from beliefs.recipe import (
     EnvironmentManifest,
     InstanceAttestation,
     Invocation,
+    LaunchAttestation,
     Occurrence,
+    PlannedJob,
     Recipe,
     RecipeInput,
     ResultManifest,
     RunClosure,
+    WorkflowDefinitionSnapshot,
+    job_key,
     project_recipe,
     supported_policy,
 )
@@ -88,22 +106,17 @@ from beliefs.report import (
 )
 from beliefs.runrecord import OperationPort, publication_plan
 from beliefs.sealed import sealed
-from beliefs.spec import (
-    DATASET_EQUIVALENCE_RULE,
-    SEED_DERIVATION_V1,
-    FrozenSpec,
-    NondeterminismContract,
-    Seeded,
-    derive_seed,
-)
+from beliefs.spec import DATASET_EQUIVALENCE_RULE, SEED_DERIVATION_V1, FrozenSpec, NondeterminismContract, Seeded
 
 __all__ = [
     "RunMinted",
     "RunRefused",
     "build_manifest",
+    "check_checkpoint_declaration",
     "execute_assessment_run",
     "execute_production_run",
     "mint_run",
+    "resolve_targets",
 ]
 
 _INSTRUMENT = "beliefs.boundary/v1"
@@ -277,31 +290,100 @@ def _stage_inputs(addresses: tuple[str, ...], held_inputs: Mapping[str, Path], s
     return identities
 
 
-def _render_config(recipe: Recipe, definition: WorkflowDefinition) -> dict[str, str]:
+def _render_config(recipe: Recipe, _definition: WorkflowDefinition | WorkflowDefinitionSnapshot) -> dict[str, str]:
     config = {key: str(value) for key, value in recipe.parameters.items()}
+    reserved = {"seed_roots", "seed_derivation_rule"}
+    if collisions := sorted(reserved & set(config)):
+        raise MalformedClosure(f"recipe parameters collide with boundary seed config: {collisions}")
     if type(recipe.nondeterminism) is not Seeded:
         return config
 
     plan = recipe.nondeterminism.plan
-    declared_streams = {stream for streams in definition.family_streams.values() for stream in streams}
-    if declared_streams != set(plan.streams):
-        raise MalformedClosure("workflow family streams do not match the seed plan")
     if plan.derivation_rule != SEED_DERIVATION_V1:
         raise MalformedClosure(f"unsupported seed derivation rule {plan.derivation_rule!r}")
-    for family, streams in definition.family_streams.items():
-        for stream in streams:
-            key = "seed_" + stream.replace("-", "_")
-            value = str(
-                derive_seed(
-                    plan.roots[plan.stream_roots[stream]],
-                    family,
-                    stream,
-                )
-            )
-            if key in config and config[key] != value:
-                raise MalformedClosure(f"rendered config key {key!r} has conflicting values")
-            config[key] = value
+    config["seed_roots"] = json.dumps(
+        {stream: str(plan.roots[plan.stream_roots[stream]]) for stream in sorted(plan.streams)},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    config["seed_derivation_rule"] = plan.derivation_rule
     return config
+
+
+def check_checkpoint_declaration(
+    snapshot: WorkflowDefinitionSnapshot,
+    planned: tuple[PlannedJob, ...],
+) -> None:
+    declared = set(snapshot.checkpoint_expanded_families)
+    if unknown := sorted(declared - set(snapshot.family_streams)):
+        raise CheckpointDeclarationUnmet(
+            f"checkpoint-expanded families the definition does not contain: {unknown}"
+        )
+    if declared and not any(job.is_checkpoint for job in planned):
+        raise CheckpointDeclarationUnmet(
+            f"checkpoint-expanded families {sorted(declared)} declared, but the plan contains no checkpoint"
+        )
+
+
+def resolve_targets(
+    targets: tuple[str, ...],
+    planned: tuple[PlannedJob, ...],
+) -> tuple[str, ...]:
+    resolved: list[str] = []
+    for target in targets:
+        matches = [
+            job
+            for job in planned
+            if job.job_key == job_key(target, ()) or target in job.outputs
+        ]
+        if not matches:
+            raise TargetUnresolvable(f"the plan names no job for target {target!r}")
+        if len(matches) > 1:
+            raise TargetAmbiguous(f"target {target!r} matches {len(matches)} planned jobs")
+        resolved.append(matches[0].job_key)
+    return tuple(resolved)
+
+
+def _check_definition_plan(
+    definition: WorkflowDefinition,
+    nondeterminism: NondeterminismContract,
+) -> None:
+    from beliefs.replay import definition_agrees_with_plan
+
+    plan = nondeterminism.plan if type(nondeterminism) is Seeded else None
+    if reason := definition_agrees_with_plan(definition.snapshot(), plan):
+        raise DefinitionPlanMismatch(f"definition/plan mismatch: {reason}")
+
+
+def _confined_attestation(
+    *,
+    scratch_mapping: Path,
+    argv: tuple[str, ...],
+    config: Mapping[str, str],
+    launched: Launch,
+    plan: MountPlan,
+    snapshot: Path,
+    captured: CapturedEnvironment,
+    environment: tuple[tuple[str, str], ...],
+) -> LaunchAttestation:
+    return LaunchAttestation(
+        scratch_mapping=str(scratch_mapping),
+        argv=argv,
+        rendered_config=tuple(sorted(config.items())),
+        capabilities=launched.capabilities,
+        instance=InstanceAttestation(
+            namespaces=launched.facts.distinct,
+            mounts=launched.facts.mounts,
+            mount_plan_identity=plan.identity(),
+            environment_identity=snapshot.name,
+        ),
+        rendered_environment=(
+            *captured.rendered,
+            *((f"env:{name}", "value", value) for name, value in environment),
+            ("hostname", "value", HOSTNAME),
+        ),
+        mounts=plan.host_mapping(),
+    )
 
 
 def _policy_refusal(policy: BoundaryPolicy) -> ConfinementRefusal | None:
@@ -334,7 +416,7 @@ def _project(
             held=held,
             code_identity=code_identity,
             environment=environment,
-            workflow_definition_identity=definition.identity(),
+            workflow_definition=definition.snapshot(),
             invocation=invocation,
             boundary_policy=boundary_policy,
         )
@@ -347,7 +429,7 @@ def _project(
         spec_identity=None,
         code_identity=code_identity,
         environment=environment,
-        workflow_definition_identity=definition.identity(),
+        workflow_definition=definition.snapshot(),
         invocation=invocation,
         inputs=inputs,
         parameters=parameters,
@@ -441,6 +523,44 @@ def _execute_run(
         )
 
         config = _render_config(recipe, definition)
+        _check_definition_plan(definition, recipe.nondeterminism)
+
+        planning_dir = Path(tempfile.mkdtemp(prefix="planning-", dir=scratch_base))
+        planning_handler = planning_dir / "handler.py"
+        planning_events = planning_dir / "events.jsonl"
+        planning_handler.write_text(LOG_HANDLER_SCRIPT)
+        _stage_inputs(addresses, held_inputs, planning_dir)
+        planning_argv = build_argv(
+            interpreter=sys.executable,
+            snakefile=str(captured_entrypoint),
+            directory=str(planning_dir),
+            targets=targets,
+            config=config,
+            log_handler=str(planning_handler),
+            cores=cores,
+            in_process_jobs=False,
+            dry_run=True,
+        )
+        try:
+            planning_returncode, _ = run_engine(
+                planning_argv,
+                cwd=planning_dir,
+                env={**os.environ, "SCIENCE_TRACE_FILE": str(planning_events)},
+            )
+            if planning_returncode != 0:
+                raise PlanUnavailable(f"the planning launch exited {planning_returncode}")
+            planned_jobs = read_plan(planning_events)
+            check_checkpoint_declaration(definition.snapshot(), planned_jobs)
+            target_keys = resolve_targets(targets, planned_jobs)
+        finally:
+            shutil.rmtree(planning_dir, ignore_errors=True)
+        planning_launch = LaunchAttestation(
+            scratch_mapping=str(planning_dir),
+            argv=planning_argv,
+            rendered_config=tuple(sorted(config.items())),
+            capabilities=(),
+        )
+
         trace_dir = Path(tempfile.mkdtemp(prefix="trace-", dir=scratch.parent))
         handler = trace_dir / "handler.py"
         events = trace_dir / "events.jsonl"
@@ -463,18 +583,21 @@ def _execute_run(
 
         trace = read_trace(events)
         realized_seeds = read_realized_seeds(scratch)
-        receipt = BoundaryReceipt(
+        execution_launch = LaunchAttestation(
             scratch_mapping=str(scratch),
             argv=argv,
             rendered_config=tuple(sorted(config.items())),
             capabilities=(),
         )
+        receipt = BoundaryReceipt(planning=planning_launch, execution=execution_launch)
         occurrence = Occurrence(
             event_token=intent.event_token,
             started_at=started_at,
             actor=actor,
             host_realization=host_realization,
             trace=trace,
+            planned=planned_jobs,
+            target_keys=target_keys,
             realized_seeds=realized_seeds,
             receipt=receipt,
         )
@@ -543,12 +666,74 @@ def _execute_confined(
         invocation=invocation,
         boundary_policy=CONFINED_POLICY,
     )
-    config = _render_config(recipe, definition)
-    handler = output_root / TRACE_DIR / "handler.py"
-    handler.write_text(LOG_HANDLER_SCRIPT)
+    config = _render_config(recipe, definition.snapshot())
+    _check_definition_plan(definition, recipe.nondeterminism)
     trace_file = f"{OUTPUT_ROOT}/{TRACE_DIR}/events.jsonl"
     relative_entrypoint = captured_entrypoint.relative_to(bundle.resolve()).as_posix()
-    inner_argv = build_argv(
+    environment = sandbox_environment(trace_file)
+    snapshot = materialize_snapshot(captured, scratch_base / "environments")
+    check_bundle_intact(bundle, code_identity)
+    inputs_before = fingerprint(output_root / "inputs")
+
+    planning_root = Path(tempfile.mkdtemp(prefix="planning-", dir=scratch_base))
+    try:
+        (planning_root / TRACE_DIR).mkdir()
+        (planning_root / HOME_DIR).mkdir()
+        _stage_inputs(addresses, held_inputs, planning_root)
+        (planning_root / TRACE_DIR / "handler.py").write_text(LOG_HANDLER_SCRIPT)
+        planning_argv = build_argv(
+            interpreter=f"{SANDBOX_VENV}/bin/python",
+            snakefile=f"{BUNDLE_ROOT}/{relative_entrypoint}",
+            directory=OUTPUT_ROOT,
+            targets=targets,
+            config=config,
+            log_handler=f"{OUTPUT_ROOT}/{TRACE_DIR}/handler.py",
+            cores=cores,
+            in_process_jobs=True,
+            dry_run=True,
+        )
+        planning_plan = mount_plan(
+            snapshot=snapshot,
+            loader=captured.loader,
+            bundle=bundle,
+            output_root=planning_root,
+        )
+        planning_inputs_before = fingerprint(planning_root / "inputs")
+        planning_result = launch_confined(
+            plan=planning_plan,
+            environment=environment,
+            inner_argv=planning_argv,
+            captured=captured,
+        )
+        check_closure_intact(
+            bundle=bundle,
+            code_identity=code_identity,
+            snapshot=snapshot,
+            captured=captured,
+            inputs=planning_root / "inputs",
+            inputs_fingerprint=planning_inputs_before,
+        )
+        if planning_result.returncode != 0:
+            raise PlanUnavailable(f"the confined planning launch exited {planning_result.returncode}")
+        planned_jobs = read_plan(planning_root / TRACE_DIR / "events.jsonl")
+        check_checkpoint_declaration(definition.snapshot(), planned_jobs)
+        target_keys = resolve_targets(targets, planned_jobs)
+        planning_launch = _confined_attestation(
+            scratch_mapping=planning_root,
+            argv=planning_argv,
+            config=config,
+            launched=planning_result,
+            plan=planning_plan,
+            snapshot=snapshot,
+            captured=captured,
+            environment=environment,
+        )
+    finally:
+        shutil.rmtree(planning_root, ignore_errors=True)
+
+    handler = output_root / TRACE_DIR / "handler.py"
+    handler.write_text(LOG_HANDLER_SCRIPT)
+    execution_argv = build_argv(
         interpreter=f"{SANDBOX_VENV}/bin/python",
         snakefile=f"{BUNDLE_ROOT}/{relative_entrypoint}",
         directory=OUTPUT_ROOT,
@@ -558,41 +743,42 @@ def _execute_confined(
         cores=cores,
         in_process_jobs=True,
     )
-    environment = sandbox_environment(trace_file)
-    snapshot = materialize_snapshot(captured, scratch_base / "environments")
-    plan = mount_plan(snapshot=snapshot, loader=captured.loader, bundle=bundle, output_root=output_root)
-    check_bundle_intact(bundle, code_identity)
-    inputs_before = fingerprint(output_root / "inputs")
-    launched = launch_confined(plan=plan, environment=environment, inner_argv=inner_argv, captured=captured)
+    execution_plan = mount_plan(
+        snapshot=snapshot,
+        loader=captured.loader,
+        bundle=bundle,
+        output_root=output_root,
+    )
+    launched = launch_confined(
+        plan=execution_plan,
+        environment=environment,
+        inner_argv=execution_argv,
+        captured=captured,
+    )
     check_closure_intact(bundle=bundle, code_identity=code_identity, snapshot=snapshot, captured=captured, inputs=output_root / "inputs", inputs_fingerprint=inputs_before)
     if launched.returncode != 0:
         return _refused("execution-failed", subject, actor, observer, started_at, intent, detail=launched.output[-2000:])
     trace = read_trace(output_root / TRACE_DIR / "events.jsonl")
     realized_seeds = read_realized_seeds(output_root)
-    receipt = BoundaryReceipt(
-        scratch_mapping=str(scratch),
-        argv=inner_argv,
-        rendered_config=tuple(sorted(config.items())),
-        capabilities=launched.capabilities,
-        instance=InstanceAttestation(
-            namespaces=launched.facts.distinct,
-            mounts=launched.facts.mounts,
-            mount_plan_identity=plan.identity(),
-            environment_identity=snapshot.name,
-        ),
-        rendered_environment=(
-            *captured.rendered,
-            *((f"env:{name}", "value", value) for name, value in environment),
-            ("hostname", "value", HOSTNAME),
-        ),
-        mounts=plan.host_mapping(),
+    execution_launch = _confined_attestation(
+        scratch_mapping=scratch,
+        argv=execution_argv,
+        config=config,
+        launched=launched,
+        plan=execution_plan,
+        snapshot=snapshot,
+        captured=captured,
+        environment=environment,
     )
+    receipt = BoundaryReceipt(planning=planning_launch, execution=execution_launch)
     occurrence = Occurrence(
         event_token=intent.event_token,
         started_at=started_at,
         actor=actor,
         host_realization=host_realization,
         trace=trace,
+        planned=planned_jobs,
+        target_keys=target_keys,
         realized_seeds=realized_seeds,
         receipt=receipt,
     )

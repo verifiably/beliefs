@@ -1,5 +1,8 @@
 """Confined-receipt value builders for the portable suite."""
 
+from conftest import CONFINED_MOUNTS as MOUNTS
+from conftest import ENVIRONMENT as ENV_IDENTITY
+from conftest import RENDERED_ENVIRONMENT, SANDBOX_MOUNTS
 from fixtures_cut3 import closure, occurrence
 
 from beliefs.recipe import (
@@ -7,20 +10,8 @@ from beliefs.recipe import (
     NAMESPACES,
     BoundaryReceipt,
     InstanceAttestation,
+    LaunchAttestation,
     mount_plan_identity,
-)
-
-ENV_IDENTITY = "sha256:" + "ab" * 32
-
-MOUNTS = (
-    ("/", "root", "ro"),
-    ("/lib64/ld-linux-x86-64.so.2", "loader", "ro"),
-    ("/science/env", "env", "ro"),
-    ("/science/bundle", "bundle", "ro"),
-    ("/science/out", "output", "rw"),
-    ("/science/out/inputs", "inputs", "ro"),
-    ("/dev/null", "device", "rw"),
-    ("/dev/urandom", "device", "rw"),
 )
 
 
@@ -35,18 +26,26 @@ def instance(**overrides) -> InstanceAttestation:
     return InstanceAttestation(**fields)
 
 
-def confined_receipt(**overrides) -> BoundaryReceipt:
+def confined_launch(**overrides) -> LaunchAttestation:
     fields = {
         "scratch_mapping": "/host/scratch/run-1",
         "argv": ("/science/env/venv/bin/python", "-m", "snakemake"),
-        "rendered_config": (("seed_model_initialization", "7"),),
+        "rendered_config": (
+            ("seed_derivation_rule", "seed-derivation/v1"),
+            ("seed_roots", '{"model-initialization":"7"}'),
+        ),
         "capabilities": CAPABILITIES,
         "instance": instance(),
-        "rendered_environment": (("env:PATH", "value", "/science/env/venv/bin"), ("hostname", "value", "science")),
-        "mounts": (("/science/bundle", "/host/scratch/run-1/bundle"), ("/science/out", "/host/scratch/run-1/out")),
+        "rendered_environment": RENDERED_ENVIRONMENT,
+        "mounts": SANDBOX_MOUNTS,
     }
     fields.update(overrides)
-    return BoundaryReceipt(**fields)
+    return LaunchAttestation(**fields)
+
+
+def confined_receipt(**overrides) -> BoundaryReceipt:
+    launch = confined_launch(**overrides)
+    return BoundaryReceipt(planning=launch, execution=launch)
 
 
 def confined_closure(**overrides):

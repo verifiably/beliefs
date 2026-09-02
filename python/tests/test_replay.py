@@ -3,8 +3,7 @@ checks, R16's evaluator and scope arms, G9's replay-eligibility third.
 R9's admission conjunct and R16's nothing-is-admitted conjunct live in
 acceptance/test_confinement_acceptance.py (cut 13); R5 negative (a) (persistence seam)
 — cut 3 §4.2/§7.1.
-R16's missing family/job/stream completeness remains deferred with the full
-workflow surface because RunClosure retains only the definition identity.
+R16's family/job/stream completeness is checked from the workflow snapshot.
 """
 
 import dataclasses
@@ -21,8 +20,13 @@ from fixtures_cut3 import (
     SNAKEFILE_PRODUCTION,
     SNAKEFILE_SEED_VIOLATING,
     closure_kwargs,
+    closure_with,
+    planned,
+    seed_plan,
     spec_draft,
     spec_rules,
+    traced,
+    traced_from_key,
 )
 from fixtures_cut3 import (
     memory_assessment as run_assessment,
@@ -40,7 +44,7 @@ from beliefs.boundary import RunMinted, RunRefused, execute_assessment_run
 from beliefs.closure import build_closure
 from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
 from beliefs.errors import MalformedRecord
-from beliefs.recipe import CAPABILITIES, BoundaryPolicy, ResultManifest, TraceJob
+from beliefs.recipe import CAPABILITIES, BoundaryPolicy, ResultManifest, TraceJob, WorkflowDefinitionSnapshot, job_key
 from beliefs.record import AssessmentValue, RunInput, RunValue
 from beliefs.replay import (
     AVAILABLE,
@@ -52,6 +56,7 @@ from beliefs.replay import (
     EquivalenceImplementation,
     byte_tolerance_rule,
     conformance,
+    definition_agrees_with_plan,
     derive_scope,
     qualifies,
     replay_eligibility,
@@ -59,6 +64,246 @@ from beliefs.replay import (
 from beliefs.report import CLOSED, completion
 from beliefs.spec import Deterministic, RealizedSeeds, Seeded, SeedPlan, StochasticUnseeded, derive_seed, freeze
 from beliefs.verification import Verification, lifecycle_state
+
+DIGEST = "sha256:" + "11" * 32
+FIT_A = job_key("fit", (("sample", "a"),))
+FIT_B = job_key("fit", (("sample", "b"),))
+SPLIT_FIT = job_key("fit", ())
+SPLIT_RESAMPLE = job_key("resample", ())
+correct_seed = derive_seed
+
+
+def _snapshot(family_streams):
+    return WorkflowDefinitionSnapshot(
+        snakefile_digest=DIGEST,
+        family_streams=family_streams,
+        checkpoint_expanded_families=(),
+    )
+
+
+def test_definition_agreement_is_none() -> None:
+    assert definition_agrees_with_plan(_snapshot({"fit": ("model-initialization",)}), seed_plan()) is None
+
+
+def test_a_family_stream_no_logical_stream_matches_disagrees() -> None:
+    reason = definition_agrees_with_plan(_snapshot({"fit": ("resample-draws",)}), seed_plan())
+    assert reason is not None and "resample-draws" in reason
+
+
+def test_a_logical_stream_no_family_claims_disagrees() -> None:
+    plan = seed_plan(streams=("model-initialization", "resample-draws"))
+    reason = definition_agrees_with_plan(_snapshot({"fit": ("model-initialization",)}), plan)
+    assert reason is not None and "resample-draws" in reason
+
+
+def test_a_deterministic_definition_expects_no_streams() -> None:
+    assert definition_agrees_with_plan(_snapshot({}), None) is None
+    assert definition_agrees_with_plan(_snapshot({"fit": ("model-initialization",)}), None) is not None
+
+
+def _family_run(*, families, plan, seeds):
+    return closure_with(
+        nondeterminism=Seeded(plan=plan),
+        family_streams=families,
+        realized={key: dict(streams) for key, streams in seeds.items()},
+        trace=tuple(traced_from_key(key) for key in seeds),
+    )
+
+
+def test_a_job_realizing_a_stream_its_family_does_not_declare_is_non_conforming() -> None:
+    plan = seed_plan(
+        streams=("model-initialization", "resample-draws"),
+        roots={"r": 11},
+        stream_roots={"model-initialization": "r", "resample-draws": "r"},
+    )
+    seeds = {
+        FIT_A: {
+            stream: correct_seed(11, FIT_A, stream)
+            for stream in ("model-initialization", "resample-draws")
+        }
+    }
+    run = _family_run(
+        families={"fit": ("model-initialization",), "other": ("resample-draws",)},
+        plan=plan,
+        seeds=seeds,
+    )
+    assert {stream for claims in seeds.values() for stream in claims} == set(plan.streams)
+    assert conformance(run).startswith("non-conforming")
+
+
+def test_a_job_omitting_a_stream_its_family_declares_is_non_conforming() -> None:
+    plan = seed_plan(
+        streams=("model-initialization", "resample-draws"),
+        roots={"r": 11},
+        stream_roots={"model-initialization": "r", "resample-draws": "r"},
+    )
+    other = job_key("other", ())
+    seeds = {
+        FIT_A: {"model-initialization": correct_seed(11, FIT_A, "model-initialization")},
+        other: {"resample-draws": correct_seed(11, other, "resample-draws")},
+    }
+    families = {
+        "fit": ("model-initialization", "resample-draws"),
+        "other": ("resample-draws",),
+    }
+    run = _family_run(families=families, plan=plan, seeds=seeds)
+    assert {stream for claims in seeds.values() for stream in claims} == set(plan.streams)
+    assert conformance(run).startswith("non-conforming")
+
+
+def test_a_wildcard_instance_is_judged_against_its_family() -> None:
+    plan = seed_plan(streams=("model-initialization",))
+    seeds = {
+        key: {"model-initialization": correct_seed(11, key, "model-initialization")}
+        for key in (FIT_A, FIT_B)
+    }
+    assert conformance(
+        _family_run(families={"fit": ("model-initialization",)}, plan=plan, seeds=seeds)
+    ) == CONFORMING
+
+
+def test_different_families_realizing_different_streams_conforms() -> None:
+    plan = seed_plan(
+        streams=("model-initialization", "resample-draws"),
+        roots={"r": 11},
+        stream_roots={"model-initialization": "r", "resample-draws": "r"},
+    )
+    a, b = job_key("a", ()), job_key("b", ())
+    seeds = {
+        a: {"model-initialization": correct_seed(11, a, "model-initialization")},
+        b: {"resample-draws": correct_seed(11, b, "resample-draws")},
+    }
+    families = {"a": ("model-initialization",), "b": ("resample-draws",)}
+    assert conformance(_family_run(families=families, plan=plan, seeds=seeds)) == CONFORMING
+
+
+def test_an_over_claiming_record_does_not_conform() -> None:
+    plan = seed_plan(
+        streams=("model-initialization", "resample-draws"),
+        roots={"r": 11},
+        stream_roots={"model-initialization": "r", "resample-draws": "r"},
+    )
+    a, b = job_key("a", ()), job_key("b", ())
+    seeds = {
+        key: {
+            stream: correct_seed(11, key, stream)
+            for stream in ("model-initialization", "resample-draws")
+        }
+        for key in (a, b)
+    }
+    families = {"a": ("model-initialization",), "b": ("resample-draws",)}
+    assert conformance(_family_run(families=families, plan=plan, seeds=seeds)).startswith("non-conforming")
+
+
+def test_two_streams_in_one_job_are_both_checked() -> None:
+    plan = seed_plan(
+        streams=("model-initialization", "resample-draws"),
+        roots={"r": 11},
+        stream_roots={"model-initialization": "r", "resample-draws": "r"},
+    )
+    seeds = {
+        FIT_A: {
+            stream: correct_seed(11, FIT_A, stream)
+            for stream in ("model-initialization", "resample-draws")
+        }
+    }
+    run = _family_run(
+        families={"fit": ("model-initialization", "resample-draws")},
+        plan=plan,
+        seeds=seeds,
+    )
+    assert conformance(run) == CONFORMING
+
+
+def test_a_constructed_closure_whose_definition_disagrees_is_non_conforming() -> None:
+    run = closure_with(
+        family_streams={"fit": ("model-initialization",)},
+        nondeterminism=Deterministic(),
+        trace=(),
+    )
+    assert conformance(run).startswith("non-conforming")
+
+
+def test_a_declared_stream_no_executed_job_realized_is_non_conforming() -> None:
+    plan = seed_plan(
+        streams=("model-initialization", "resample-draws"),
+        roots={"r": 11},
+        stream_roots={"model-initialization": "r", "resample-draws": "r"},
+    )
+    a = job_key("a", ())
+    seeds = {a: {"model-initialization": correct_seed(11, a, "model-initialization")}}
+    families = {"a": ("model-initialization",), "b": ("resample-draws",)}
+    assert conformance(_family_run(families=families, plan=plan, seeds=seeds)).startswith("non-conforming")
+
+
+def test_a_seed_claim_for_a_job_absent_from_the_trace_is_non_conforming() -> None:
+    plan = seed_plan(streams=("model-initialization",))
+    orphan = job_key("fit", (("sample", "b"),))
+    realized = {
+        FIT_A: {"model-initialization": correct_seed(11, FIT_A, "model-initialization")},
+        orphan: {"model-initialization": correct_seed(11, orphan, "model-initialization")},
+    }
+    run = closure_with(
+        nondeterminism=Seeded(plan=plan),
+        family_streams={"fit": ("model-initialization",)},
+        realized=realized,
+        trace=(traced_from_key(FIT_A),),
+    )
+    assert {stream for claims in realized.values() for stream in claims} == set(plan.streams)
+    assert conformance(run).startswith("non-conforming: seed claims for jobs absent")
+
+
+def test_an_executed_job_outside_the_plan_is_non_conforming() -> None:
+    run = closure_with(
+        planned=(planned("fit", ("outputs/a.done",)),),
+        trace=(traced("fit", {"s": "a"}), traced("stowaway", {})),
+        target_keys=(job_key("fit", (("s", "a"),)),),
+    )
+    assert "not in the plan" in conformance(run)
+
+
+def test_a_checkpoint_expanded_family_is_admitted_though_unplannable() -> None:
+    run = closure_with(
+        planned=(planned("split", ("splits",), is_checkpoint=True),),
+        trace=(traced("split", {}), traced("fit", {"n": "a"})),
+        expanded=("fit",),
+        target_keys=(job_key("split", ()),),
+        targets=("split",),
+    )
+    assert conformance(run) == CONFORMING
+
+
+def test_an_unexpanded_family_gets_no_checkpoint_admission() -> None:
+    run = closure_with(
+        planned=(planned("split", ("splits",), is_checkpoint=True),),
+        trace=(traced("split", {}), traced("fit", {"n": "a"})),
+        expanded=(),
+        target_keys=(job_key("split", ()),),
+    )
+    assert "not in the plan" in conformance(run)
+
+
+def test_a_resolved_target_missing_from_the_trace_is_non_conforming() -> None:
+    run = closure_with(
+        planned=(
+            planned("fit", ("outputs/a.done",)),
+            planned("report", ("outputs/r.txt",)),
+        ),
+        trace=(traced("fit", {}),),
+        target_keys=(job_key("report", ()),),
+        targets=("report",),
+    )
+    assert "target" in conformance(run)
+
+
+def test_recorded_target_keys_must_be_the_invocation_targets_resolution() -> None:
+    run = closure_with(
+        planned=(planned("report", ("outputs/r.txt",)),),
+        trace=(),
+        target_keys=(),
+        targets=("report",),
+    )
+    assert "recorded target keys" in conformance(run)
 
 
 @pytest.fixture(scope="module")
@@ -74,10 +319,10 @@ def pair(tmp_path_factory):
 def test_a_replay_runs_in_a_fresh_scratch_root_with_an_equal_recipe(pair):
     original, replayed = pair
     assert original.run.recipe.identity() == replayed.run.recipe.identity()
-    assert original.run.occurrence.receipt.scratch_mapping != replayed.run.occurrence.receipt.scratch_mapping
+    assert original.run.occurrence.receipt.execution.scratch_mapping != replayed.run.occurrence.receipt.execution.scratch_mapping
     assert (
-        Path(original.run.occurrence.receipt.scratch_mapping).parent
-        == Path(replayed.run.occurrence.receipt.scratch_mapping).parent
+        Path(original.run.occurrence.receipt.execution.scratch_mapping).parent
+        == Path(replayed.run.occurrence.receipt.execution.scratch_mapping).parent
     )
 
 
@@ -86,14 +331,14 @@ def test_a_production_replay_runs_through_the_boundary_with_an_equal_recipe(tmp_
     replayed = replay_of(original, tmp_path / "replayed", snakefile=SNAKEFILE_PRODUCTION)
     assert isinstance(original, RunMinted) and isinstance(replayed, RunMinted)
     assert original.run.recipe.identity() == replayed.run.recipe.identity()
-    assert original.run.occurrence.receipt.scratch_mapping != replayed.run.occurrence.receipt.scratch_mapping
+    assert original.run.occurrence.receipt.execution.scratch_mapping != replayed.run.occurrence.receipt.execution.scratch_mapping
 
 
 def test_a_replay_refuses_a_reconstructed_recipe_mismatch(tmp_path):
     original = run_assessment(tmp_path / "original")
     changed = SNAKEFILE_DETERMINISTIC.replace(
-        "import json, pathlib, random",
-        "import json, pathlib, random  # changed recipe",
+        "import pathlib, random",
+        "import pathlib, random  # changed recipe",
     )
     attempt = replay_of(original, tmp_path / "changed", snakefile=changed)
     assert isinstance(attempt, RunRefused)
@@ -156,7 +401,7 @@ def test_r6_restoring_availability_changes_nothing_until_a_replay_actually_runs(
         {
             original.run.recipe.code_identity,
             original.run.recipe.environment.identity(),
-            original.run.recipe.workflow_definition_identity,
+            original.run.recipe.workflow_definition.identity(),
             *(i.content for i in original.run.recipe.inputs),
         }
     )
@@ -247,7 +492,11 @@ def test_conformance_enforces_each_nondeterminism_contract(pair):
     original, _ = pair
     assert conformance(original.run) == CONFORMING
 
-    deterministic_recipe = dataclasses.replace(original.run.recipe, nondeterminism=Deterministic())
+    deterministic_recipe = dataclasses.replace(
+        original.run.recipe,
+        nondeterminism=Deterministic(),
+        workflow_definition=dataclasses.replace(original.run.recipe.workflow_definition, family_streams={}),
+    )
     no_seeds = dataclasses.replace(
         original.run,
         recipe=deterministic_recipe,
@@ -260,9 +509,9 @@ def test_conformance_enforces_each_nondeterminism_contract(pair):
     assert conformance(dataclasses.replace(no_seeds, occurrence=original.run.occurrence)).startswith("non-conforming")
 
     unconstrained = dataclasses.replace(
-        original.run,
+        no_seeds,
         recipe=dataclasses.replace(
-            original.run.recipe,
+            deterministic_recipe,
             nondeterminism=StochasticUnseeded(rationale="external entropy"),
         ),
     )
@@ -282,14 +531,31 @@ def split_family_run(run):
     )
     realized = RealizedSeeds(
         seeds={
-            "fit": {"initialization": derive_seed(11, "fit", "initialization")},
-            "resample": {"draws": derive_seed(22, "resample", "draws")},
+            SPLIT_FIT: {"initialization": derive_seed(11, SPLIT_FIT, "initialization")},
+            SPLIT_RESAMPLE: {"draws": derive_seed(22, SPLIT_RESAMPLE, "draws")},
         }
     )
     return dataclasses.replace(
         run,
-        recipe=dataclasses.replace(run.recipe, nondeterminism=Seeded(plan)),
-        occurrence=dataclasses.replace(run.occurrence, trace=trace, realized_seeds=realized),
+        recipe=dataclasses.replace(
+            run.recipe,
+            workflow_definition=WorkflowDefinitionSnapshot(
+                snakefile_digest=run.recipe.workflow_definition.snakefile_digest,
+                family_streams={"fit": ("initialization",), "resample": ("draws",)},
+                checkpoint_expanded_families=(),
+            ),
+            nondeterminism=Seeded(plan),
+        ),
+        occurrence=dataclasses.replace(
+            run.occurrence,
+            trace=trace,
+            planned=(
+                planned("fit", ("outputs/fit.txt",)),
+                planned("resample", ("outputs/result.txt",)),
+            ),
+            target_keys=(SPLIT_RESAMPLE,),
+            realized_seeds=realized,
+        ),
     )
 
 
@@ -302,7 +568,12 @@ def test_seeded_conformance_refuses_an_undeclared_reported_stream(pair):
     original, _ = pair
     split = split_family_run(original.run)
     realized = split.occurrence.realized_seeds
-    extra = RealizedSeeds(seeds={**realized.seeds, "fit": {**realized.seeds["fit"], "undeclared": 1}})
+    extra = RealizedSeeds(
+        seeds={
+            **realized.seeds,
+            SPLIT_FIT: {**realized.seeds[SPLIT_FIT], "undeclared": 1},
+        }
+    )
     changed = dataclasses.replace(
         split,
         occurrence=dataclasses.replace(split.occurrence, realized_seeds=extra),
@@ -317,7 +588,7 @@ def test_seeded_conformance_refuses_a_wrong_reported_seed(pair):
     wrong = RealizedSeeds(
         seeds={
             **realized.seeds,
-            "resample": {"draws": realized.seeds["resample"]["draws"] + 1},
+            SPLIT_RESAMPLE: {"draws": realized.seeds[SPLIT_RESAMPLE]["draws"] + 1},
         }
     )
     changed = dataclasses.replace(
@@ -343,14 +614,14 @@ def test_r4_negative_a_a_hostname_change_stays_same_environment(tmp_path):
     b = replay_of(a, tmp_path / "b", host_realization="host-y")
     assert isinstance(a, RunMinted) and isinstance(b, RunMinted)
     assert derive_scope(a.run, b.run, certification=None) == "same-environment"
-    assert a.run.occurrence.receipt.capabilities == ()
+    assert a.run.occurrence.receipt.execution.capabilities == ()
 
 
 def test_r4_negative_b_a_comment_change_is_not_certified_never_independent(tmp_path):
     a = run_assessment(tmp_path / "a")
     commented = SNAKEFILE_DETERMINISTIC.replace(
-        "import json, pathlib, random",
-        "import json, pathlib, random  # a comment",
+        "import pathlib, random",
+        "import pathlib, random  # a comment",
     )
     b = run_assessment(tmp_path / "b", snakefile=commented)
     assert isinstance(a, RunMinted) and isinstance(b, RunMinted)
@@ -430,7 +701,8 @@ def test_r4_negative_d_two_incomparable_policies_are_not_ranked(pair):
 
 def test_r15_negative_a_minimal_pair_never_derives_clean_environment(pair):
     original, replayed = pair
-    assert replayed.run.occurrence.receipt.capabilities == () and replayed.run.occurrence.receipt.instance is None
+    execution = replayed.run.occurrence.receipt.execution
+    assert execution.capabilities == () and execution.instance is None
     assert derive_scope(original.run, replayed.run, certification=None) == "same-environment"
     assert not qualifies(replayed.run.occurrence.receipt, replayed.run.recipe.environment.identity())
 
@@ -482,7 +754,7 @@ def test_r5_negative_b_removing_the_corpus_attribution_reads_not_available_never
         {
             original.run.recipe.code_identity,
             original.run.recipe.environment.identity(),
-            original.run.recipe.workflow_definition_identity,
+            original.run.recipe.workflow_definition.identity(),
             *(i.content for i in original.run.recipe.inputs),
         }
     )

@@ -693,6 +693,34 @@ class MalformedRecord(RecordError):
     set, a role outside ``observes | reads | transforms``."""
 
 
+class RecipeVersionUnsupported(RecordError):
+    """A v1 recipe lacks the workflow snapshot required by typed decode."""
+
+
+class DefinitionPlanMismatch(RecordError):
+    """A workflow definition's declared streams disagree with its seed plan."""
+
+
+class SeedClaimMalformed(RecordError):
+    """A job cannot write one unambiguous seed claim."""
+
+
+class PlanUnavailable(RecordError):
+    """The planning launch did not yield one complete, consistent job set."""
+
+
+class CheckpointDeclarationUnmet(RecordError):
+    """A checkpoint-expansion declaration disagrees with the definition or plan."""
+
+
+class TargetUnresolvable(RecordError):
+    """A requested target matches no planned job."""
+
+
+class TargetAmbiguous(RecordError):
+    """A requested target matches more than one planned job."""
+
+
 class RecordUndecodable(RecordError):
     """Captured bytes cannot be read as the named published record."""
 

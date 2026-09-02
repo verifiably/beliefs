@@ -1,10 +1,4 @@
-"""Replay eligibility, execution, conformance, equivalence, and scope.
-
-Seed conformance validates recorded claims against the global SeedPlan. Family
-coverage is deferred: RunClosure retains the workflow-definition identity, not
-its family-to-stream mapping, so missing family/job/stream claims cannot be
-derived from this value alone.
-"""
+"""Replay eligibility, execution, conformance, equivalence, and scope."""
 
 from __future__ import annotations
 
@@ -16,18 +10,24 @@ from pathlib import Path
 from typing import final
 
 from beliefs.adapter import WorkflowDefinition
-from beliefs.boundary import RunMinted, RunRefused, execute_assessment_run, execute_production_run
-from beliefs.errors import MalformedRecord
-from beliefs.recipe import REQUIRED_FOR_CLEAN_ENVIRONMENT, BoundaryReceipt, ResultManifest, RunClosure
+from beliefs.boundary import RunMinted, RunRefused, execute_assessment_run, execute_production_run, resolve_targets
+from beliefs.errors import MalformedRecord, TargetAmbiguous, TargetUnresolvable
+from beliefs.recipe import (
+    REQUIRED_FOR_CLEAN_ENVIRONMENT,
+    BoundaryReceipt,
+    LaunchAttestation,
+    ResultManifest,
+    RunClosure,
+    WorkflowDefinitionSnapshot,
+)
 from beliefs.runrecord import OperationPort
 from beliefs.sealed import sealed
 from beliefs.spec import (
     SEED_DERIVATION_V1,
-    Deterministic,
     FrozenSpec,
     RuleFixture,
     Seeded,
-    StochasticUnseeded,
+    SeedPlan,
     derive_seed,
 )
 
@@ -69,6 +69,17 @@ CONTENT_EQUALITY = EquivalenceImplementation("impl-eq-1", _manifest_equality, ()
 DATASET_CONTENT_EQUALITY = EquivalenceImplementation("impl-dataset-eq-1", _manifest_equality, ())
 
 
+def definition_agrees_with_plan(snapshot: WorkflowDefinitionSnapshot, plan: SeedPlan | None) -> str | None:
+    """Return why the definition and seed plan disagree, or None."""
+    declared = {stream for streams in snapshot.family_streams.values() for stream in streams}
+    expected = set(plan.streams) if plan is not None else set()
+    if unmatched := sorted(declared - expected):
+        return f"family streams no logical stream matches: {unmatched}"
+    if unclaimed := sorted(expected - declared):
+        return f"logical streams no family claims: {unclaimed}"
+    return None
+
+
 @sealed
 @final
 @dataclass(frozen=True)
@@ -91,7 +102,7 @@ def replay_eligibility(
     required = {
         recipe.code_identity,
         recipe.environment.identity(),
-        recipe.workflow_definition_identity,
+        recipe.workflow_definition.identity(),
         *(entry.content for entry in recipe.inputs),
     }
     return AVAILABLE if required <= resolvable_here and run.address() in attributions else NOT_AVAILABLE
@@ -173,31 +184,67 @@ def byte_tolerance_rule(store: Mapping[str, bytes]) -> EquivalenceImplementation
 
 
 def conformance(run: RunClosure) -> str:
-    """Validate every recorded seed claim; do not infer unrecorded family coverage."""
+    """Check definition agreement and both job and occurrence seed levels."""
     contract = run.recipe.nondeterminism
-    realized = run.occurrence.realized_seeds.seeds
-    if type(contract) is StochasticUnseeded:
-        return CONFORMING
-    if type(contract) is Deterministic:
-        if realized:
-            return f"non-conforming: deterministic recipe reported seeds for {min(realized)!r}"
-        return CONFORMING
-
-    if type(contract) is not Seeded:
-        return "non-conforming: unknown nondeterminism contract"
-    plan = contract.plan
-    if plan.derivation_rule != SEED_DERIVATION_V1:
+    snapshot = run.recipe.workflow_definition
+    plan = contract.plan if type(contract) is Seeded else None
+    if reason := definition_agrees_with_plan(snapshot, plan):
+        return f"non-conforming: {reason}"
+    if plan is not None and plan.derivation_rule != SEED_DERIVATION_V1:
         return f"non-conforming: unsupported seed derivation rule {plan.derivation_rule!r}"
 
-    streams = set(plan.streams)
-    for job, claims in sorted(realized.items()):
+    realized = run.occurrence.realized_seeds.seeds
+    for job in run.occurrence.trace:
+        key = job.job_key()
+        declared = set(snapshot.family_streams.get(job.rule, ()))
+        claims = realized.get(key, {})
+        if set(claims) != declared:
+            return (
+                f"non-conforming: job {key!r} realized {sorted(claims)} against "
+                f"its family's declaration {sorted(declared)}"
+            )
+        if plan is None:
+            continue
         for stream, actual in sorted(claims.items()):
-            if stream not in streams:
-                return f"non-conforming: job {job!r} names undeclared stream {stream!r}"
-            expected = derive_seed(plan.roots[plan.stream_roots[stream]], job, stream)
+            expected = derive_seed(plan.roots[plan.stream_roots[stream]], key, stream)
             if actual != expected:
-                return f"non-conforming: job {job!r} stream {stream!r} realized {actual}, expected {expected}"
+                return f"non-conforming: job {key!r} stream {stream!r} realized {actual}, expected {expected}"
+
+    executed_keys = {job.job_key() for job in run.occurrence.trace}
+    if orphans := sorted(set(realized) - executed_keys):
+        return f"non-conforming: seed claims for jobs absent from the trace: {orphans}"
+
+    union = {stream for claims in realized.values() for stream in claims}
+    expected_streams = set(plan.streams) if plan is not None else set()
+    if union != expected_streams:
+        return f"non-conforming: realized streams {sorted(union)} against plan {sorted(expected_streams)}"
+
+    planned_keys = {job.job_key for job in run.occurrence.planned}
+    expanded = set(run.recipe.workflow_definition.checkpoint_expanded_families)
+    for job in run.occurrence.trace:
+        if job.job_key() not in planned_keys and job.rule not in expanded:
+            return f"non-conforming: executed job {job.job_key()!r} is not in the plan"
+    try:
+        resolved_targets = resolve_targets(run.recipe.invocation.targets, run.occurrence.planned)
+    except (TargetUnresolvable, TargetAmbiguous) as error:
+        return f"non-conforming: recorded plan cannot resolve invocation targets: {error}"
+    if run.occurrence.target_keys != resolved_targets:
+        return (
+            f"non-conforming: recorded target keys {run.occurrence.target_keys!r} "
+            f"do not equal the plan's resolution {resolved_targets!r}"
+        )
+    executed = {job.job_key() for job in run.occurrence.trace}
+    if missing := sorted(set(run.occurrence.target_keys) - executed):
+        return f"non-conforming: resolved target {missing[0]!r} was not executed"
     return CONFORMING
+
+
+def _launch_qualifies(receipt: LaunchAttestation, environment_identity: str) -> bool:
+    if receipt.instance is None:
+        return False
+    if not set(REQUIRED_FOR_CLEAN_ENVIRONMENT) <= set(receipt.capabilities):
+        return False
+    return receipt.instance.environment_identity == environment_identity
 
 
 def qualifies(receipt: BoundaryReceipt, environment_identity: str) -> bool:
@@ -207,11 +254,13 @@ def qualifies(receipt: BoundaryReceipt, environment_identity: str) -> bool:
     nothing here."""
     if type(receipt) is not BoundaryReceipt:
         raise MalformedRecord("qualification reads a BoundaryReceipt")
-    if receipt.instance is None:
+    if receipt.planning is receipt.execution:
+        return _launch_qualifies(receipt.execution, environment_identity)
+    if receipt.execution.instance is None:
         return False
-    if not set(REQUIRED_FOR_CLEAN_ENVIRONMENT) <= set(receipt.capabilities):
+    if not set(REQUIRED_FOR_CLEAN_ENVIRONMENT) <= set(receipt.execution.capabilities):
         return False
-    return receipt.instance.environment_identity == environment_identity
+    return receipt.execution.instance.environment_identity == environment_identity
 
 
 def derive_scope(

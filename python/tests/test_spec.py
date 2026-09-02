@@ -11,6 +11,7 @@ from fixtures_cut3 import spec_rules as held_rules
 
 from beliefs.errors import MalformedRecord, MalformedSpec, RuleUnbound, UnfreezableSpec
 from beliefs.identity import v1
+from beliefs.recipe import job_key
 from beliefs.spec import (
     SPEC_DOMAIN,
     Deterministic,
@@ -348,10 +349,12 @@ def test_g4_the_core_keeps_cut_3s_anchor_line():
 
 
 def test_the_derivation_rule_is_a_pure_function_of_its_three_arguments():
-    assert derive_seed(11, "transform", "model-initialization") == derive_seed(11, "transform", "model-initialization")
-    assert derive_seed(11, "transform", "model-initialization") != derive_seed(11, "transform", "resample-draws")
-    assert derive_seed(11, "transform", "model-initialization") != derive_seed(12, "transform", "model-initialization")
-    assert derive_seed(11, "transform", "model-initialization") != derive_seed(11, "resample", "model-initialization")
+    transform = job_key("transform", ())
+    resample = job_key("resample", ())
+    assert derive_seed(11, transform, "model-initialization") == derive_seed(11, transform, "model-initialization")
+    assert derive_seed(11, transform, "model-initialization") != derive_seed(11, transform, "resample-draws")
+    assert derive_seed(11, transform, "model-initialization") != derive_seed(12, transform, "model-initialization")
+    assert derive_seed(11, transform, "model-initialization") != derive_seed(11, resample, "model-initialization")
 
 
 def test_revise_is_the_only_edit_path_and_freeze_takes_drafts_only():

@@ -21,14 +21,22 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import cast, final
 
-from beliefs.errors import ClosureUnsupported, MalformedClosure, UnsafeInvocation
-from beliefs.identity import v1
-from beliefs.recipe import EnvironmentManifest, TraceJob
+from beliefs.errors import ClosureUnsupported, MalformedClosure, PlanUnavailable, SeedClaimMalformed, UnsafeInvocation
+from beliefs.recipe import WORKFLOW_DEFINITION_DOMAIN as _WORKFLOW_DEFINITION_DOMAIN
+from beliefs.recipe import (
+    EnvironmentManifest,
+    EnvironmentReference,
+    PlannedJob,
+    TraceJob,
+    WorkflowDefinitionSnapshot,
+    job_key,
+)
 from beliefs.sealed import sealed
+from beliefs.seeds import record_digest_of
 from beliefs.spec import RealizedSeeds
 
-WORKFLOW_DEFINITION_DOMAIN = "science.workflow-definition.v1"
 _CONFIG_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+WORKFLOW_DEFINITION_DOMAIN = _WORKFLOW_DEFINITION_DOMAIN
 _PEP_503_RUN = re.compile(r"[-_.]+")
 SANDBOX_ENV = "/science/env"
 SANDBOX_PYTHON = "/science/env/python"
@@ -65,6 +73,7 @@ def log_handler(msg):
 class WorkflowDefinition:
     snakefile: bytes
     family_streams: Mapping[str, tuple[str, ...]]
+    checkpoint_expanded_families: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if type(self.snakefile) is not bytes:
@@ -74,15 +83,20 @@ class WorkflowDefinition:
             for family, streams in self.family_streams.items()
         ):
             raise MalformedClosure("workflow family streams must map strings to tuples of strings")
+        if type(self.checkpoint_expanded_families) is not tuple or any(
+            type(family) is not str for family in self.checkpoint_expanded_families
+        ):
+            raise MalformedClosure("checkpoint-expanded families are a tuple of strings")
         object.__setattr__(self, "family_streams", MappingProxyType(dict(self.family_streams)))
 
     def identity(self) -> str:
-        return v1.digest(
-            WORKFLOW_DEFINITION_DOMAIN,
-            {
-                "snakefile": "sha256:" + sha256(self.snakefile).hexdigest(),
-                "family_streams": {family: sorted(streams) for family, streams in self.family_streams.items()},
-            },
+        return self.snapshot().identity()
+
+    def snapshot(self) -> WorkflowDefinitionSnapshot:
+        return WorkflowDefinitionSnapshot(
+            snakefile_digest="sha256:" + sha256(self.snakefile).hexdigest(),
+            family_streams=self.family_streams,
+            checkpoint_expanded_families=self.checkpoint_expanded_families,
         )
 
 
@@ -666,7 +680,9 @@ def capture_environment() -> EnvironmentManifest:
     return capture_closure().manifest
 
 
-def require_executing_environment(manifest: EnvironmentManifest) -> None:
+def require_executing_environment(manifest: EnvironmentManifest | EnvironmentReference) -> None:
+    if type(manifest) is not EnvironmentManifest:
+        raise MalformedClosure("execution requires the full EnvironmentManifest, not a decoded environment reference")
     if manifest != capture_environment():
         raise MalformedClosure(
             "the recorded environment is not the executing environment — a recipe claiming "
@@ -692,6 +708,7 @@ def build_argv(
     log_handler: str,
     cores: int,
     in_process_jobs: bool,
+    dry_run: bool = False,
 ) -> tuple[str, ...]:
     """Policy-neutral: the minimal policy supplies host paths, the confined
     policy sandbox paths. `in_process_jobs` adds `--force-use-threads`, under
@@ -720,6 +737,8 @@ def build_argv(
     ]
     if in_process_jobs:
         argv.append("--force-use-threads")
+    if dry_run:
+        argv.append("--dryrun")
     argv.extend(["--log-handler-script", log_handler])
     if config:
         argv.append("--config")
@@ -787,6 +806,45 @@ def read_trace(events_file: Path) -> tuple[TraceJob, ...]:
     return tuple(trace)
 
 
+def read_plan(events_file: Path) -> tuple[PlannedJob, ...]:
+    try:
+        lines = events_file.read_text().splitlines()
+    except (OSError, UnicodeError) as error:
+        raise PlanUnavailable("the engine plan is missing or unreadable") from error
+    if not lines:
+        raise PlanUnavailable("the engine plan contains no jobs")
+
+    jobs: dict[str, PlannedJob] = {}
+    for line in lines:
+        try:
+            record = json.loads(line)
+        except (json.JSONDecodeError, UnicodeError) as error:
+            raise PlanUnavailable("the engine plan contains an unparseable record") from error
+        required = {"level", "jobid", "name", "input", "output", "wildcards", "is_checkpoint"}
+        if not isinstance(record, dict) or record.get("level") != "job_info" or not required <= set(record):
+            raise PlanUnavailable("the engine plan contains an incomplete job_info record")
+        family, outputs = record["name"], record["output"]
+        wildcards, is_checkpoint = record["wildcards"], record["is_checkpoint"]
+        if (
+            type(family) is not str
+            or not isinstance(outputs, list)
+            or any(type(output) is not str for output in outputs)
+            or not isinstance(wildcards, dict)
+            or any(type(name) is not str or type(value) is not str for name, value in wildcards.items())
+            or type(is_checkpoint) is not bool
+        ):
+            raise PlanUnavailable("the engine plan contains a malformed job_info record")
+        key = job_key(family, tuple(sorted(cast(dict[str, str], wildcards).items())))
+        planned = PlannedJob(key, family, tuple(outputs), is_checkpoint)
+        previous = jobs.get(key)
+        if previous is not None and previous != planned:
+            raise PlanUnavailable(f"planned job {key!r} has conflicting observations")
+        jobs[key] = planned
+    if not jobs:
+        raise PlanUnavailable("the engine plan contains no jobs")
+    return tuple(jobs[key] for key in sorted(jobs))
+
+
 def read_realized_seeds(scratch: Path) -> RealizedSeeds:
     reports = scratch / ".seeds"
     if reports.is_symlink():
@@ -803,19 +861,29 @@ def read_realized_seeds(scratch: Path) -> RealizedSeeds:
             record = json.loads(report.read_text(), object_pairs_hook=_object_without_duplicate_keys)
         except (OSError, UnicodeError, json.JSONDecodeError) as error:
             raise MalformedClosure(f"seed report {report.name!r} is unreadable") from error
-        if not isinstance(record, dict):
-            raise MalformedClosure(f"seed report {report.name!r} is not nested by job and stream")
-        for job, per_stream in record.items():
-            if type(job) is not str or not isinstance(per_stream, dict):
-                raise MalformedClosure(f"seed report {report.name!r} is not nested by job and stream")
-            for stream, seed in per_stream.items():
-                if type(stream) is not str or type(seed) is not int:
-                    raise MalformedClosure(f"seed report {report.name!r} has a malformed claim")
-                key = (job, stream)
-                if key in seen:
-                    raise MalformedClosure(f"seed report repeats claim {job!r}/{stream!r}")
-                seen.add(key)
-                merged.setdefault(job, {})[stream] = seed
+        if not isinstance(record, dict) or set(record) != {"rule", "wildcards", "job_key", "stream", "seed"}:
+            raise SeedClaimMalformed(f"seed report {report.name!r} is not one exact claim")
+        rule, wildcards = record["rule"], record["wildcards"]
+        claimed_key, stream, seed = record["job_key"], record["stream"], record["seed"]
+        if (
+            type(rule) is not str
+            or not isinstance(wildcards, dict)
+            or any(type(name) is not str or type(value) is not str for name, value in wildcards.items())
+            or type(claimed_key) is not str
+            or type(stream) is not str
+            or type(seed) is not int
+        ):
+            raise SeedClaimMalformed(f"seed report {report.name!r} has a malformed claim")
+        if report.stem != record_digest_of(record):
+            raise SeedClaimMalformed(f"seed report {report.name!r} disagrees with its content digest")
+        expected_key = job_key(rule, tuple(sorted(cast(dict[str, str], wildcards).items())))
+        if claimed_key != expected_key:
+            raise SeedClaimMalformed(f"seed report {report.name!r} disagrees with its rule and wildcards")
+        key = (claimed_key, stream)
+        if key in seen:
+            raise SeedClaimMalformed(f"seed report repeats claim {claimed_key!r}/{stream!r}")
+        seen.add(key)
+        merged.setdefault(claimed_key, {})[stream] = seed
     return RealizedSeeds(seeds=merged)
 
 

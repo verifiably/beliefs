@@ -33,7 +33,7 @@ from beliefs.boundary import RunMinted
 from beliefs.closure import build_closure
 from beliefs.dataset import ByteObservation, dataset_address
 from beliefs.errors import SignatureRefused
-from beliefs.recipe import RecipeInput, project_recipe
+from beliefs.recipe import EnvironmentManifest, RecipeInput, project_recipe
 from beliefs.record import AssessmentValue, RunValue
 from beliefs.spec import (
     ExclusionCertification,
@@ -385,12 +385,13 @@ def test_r22_the_reach_arm_an_inline_exclusion_moves_the_digest_with_identical_f
     )
     # Editing the certification alone re-projects to exactly the other spec's
     # recipe — a different description, and no run until executed:
+    assert isinstance(certified_run.run.recipe.environment, EnvironmentManifest)
     reprojected = project_recipe(
         plain_spec,
         held={entry.dataset: entry.content for entry in plain_run.run.recipe.inputs},
         code_identity=certified_run.run.recipe.code_identity,
         environment=certified_run.run.recipe.environment,
-        workflow_definition_identity=certified_run.run.recipe.workflow_definition_identity,
+        workflow_definition=certified_run.run.recipe.workflow_definition,
         invocation=certified_run.run.recipe.invocation,
         boundary_policy=certified_run.run.recipe.boundary_policy,
     )

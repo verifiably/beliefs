@@ -2919,3 +2919,48 @@ either direction.
 **World and addressing gains one obligation from this**, recorded in the table above:
 the world resolver and composed traversal world §5 specifies are what §7.3c's
 predicate runs on. It is a consumer of that capability, not a new requirement on it.
+
+## 15. Workflow-surface amendments (2026-09-02)
+
+These amendments landed with conformance cut 15. They narrow or widen the
+specific statements below; the surrounding rules remain in force.
+
+### 15.1 §6.2 job-set conformance has a prior enumeration except at checkpoints
+
+Section 6.2's statement that no prior job enumeration exists is narrowed.
+The boundary now performs a planning launch for every run and records its
+non-checkpoint jobs. Single-run conformance requires every ordinary executed
+job to belong to that planned set and requires every resolved target job to
+execute. A checkpoint-expanded job still cannot be enumerated before the
+checkpoint runs, so it is admitted by the workflow definition's explicit
+`checkpoint_expanded_families` declaration and then checked by family.
+
+The adjacent rule is unchanged: a job-set difference between two runs is a
+comparison-report diagnostic and contributes to no verdict and no scope.
+
+### 15.2 R16's definition/plan predicate has two dispositions
+
+The equality between the workflow definition's union of family streams and
+the recipe's logical streams remains a pre-effect boundary check. A mismatch
+there is refused before planning or execution. The same predicate is now also
+statable about a constructed or decoded closure; a mismatch found there is
+`non-conforming`. This is a widening of R16's evidence surface, not a
+replacement of its primary refusal disposition.
+
+### 15.3 Versioned workflow and run-record shapes
+
+The workflow definition is `science.workflow-definition.v2`, and a recipe
+carrying its snapshot is `science.recipe.v2`. A receipt now composes planning
+and execution launch attestations under `science.boundary-receipt.v3`
+(minimal) or `.v4` (confined). The matching run domains are:
+
+| recipe shape | receipt shape | run domain |
+|---|---|---|
+| v1 identity-only | boundary receipt v1 | `science.run.v1` |
+| v1 identity-only | confined receipt v2 | `science.run.v2` |
+| v2 snapshot | composed receipt v3 | `science.run.v3` |
+| v2 snapshot | confined composed receipt v4 | `science.run.v4` |
+
+Every recipe/receipt cross-pair outside this matrix is malformed. Existing
+v1/v2 records decode and recompute untranslated; typed closure decode requires
+the v2 snapshot and refuses to invent one for a v1 record.

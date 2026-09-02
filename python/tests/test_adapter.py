@@ -16,19 +16,172 @@ from fixtures_cut3 import SNAKEFILE_DETERMINISTIC, SNAKEFILE_NONDETERMINISTIC, d
 
 from beliefs.adapter import (
     LOG_HANDLER_SCRIPT,
+    WORKFLOW_DEFINITION_DOMAIN,
     WorkflowDefinition,
     _canonical_distribution_name,
     build_argv,
     capture_bundle,
     create_scratch_root,
     distribution_digest,
+    read_plan,
     read_realized_seeds,
     read_trace,
     run_engine,
     tree_digest,
     validate_entrypoint,
 )
-from beliefs.errors import MalformedClosure, UnsafeInvocation
+from beliefs.errors import MalformedClosure, PlanUnavailable, SeedClaimMalformed, UnsafeInvocation
+from beliefs.recipe import PlannedJob, job_key
+from beliefs.seeds import record_digest_of
+from beliefs.spec import derive_seed
+
+
+def _write_claim(directory: Path, record: dict[str, object]) -> None:
+    directory.mkdir(exist_ok=True)
+    (directory / f"{record_digest_of(record)}.json").write_text(
+        json.dumps(record, sort_keys=True, separators=(",", ":"))
+    )
+
+
+def _claim(stream: str = "model-initialization", seed: int = 7) -> dict[str, object]:
+    key = job_key("fit", (("sample", "a"),))
+    return {
+        "rule": "fit",
+        "wildcards": {"sample": "a"},
+        "job_key": key,
+        "stream": stream,
+        "seed": seed,
+    }
+
+
+def _seed_config(root: str) -> dict[str, str]:
+    return {
+        "seed_derivation_rule": "seed-derivation/v1",
+        "seed_roots": json.dumps({"model-initialization": root}, separators=(",", ":")),
+    }
+
+
+def _plan_event(jobid, name, wildcards, output, is_checkpoint=False):
+    return json.dumps(
+        {
+            "level": "job_info",
+            "jobid": jobid,
+            "name": name,
+            "wildcards": wildcards,
+            "input": [],
+            "output": output,
+            "is_checkpoint": is_checkpoint,
+        }
+    )
+
+
+def test_a_job_emitted_twice_yields_one_planned_job(tmp_path) -> None:
+    events = tmp_path / "dry.jsonl"
+    event = _plan_event(1, "fit", {"sample": "a"}, ["outputs/a.txt"])
+    events.write_text(f"{event}\n{event}\n")
+    assert read_plan(events) == (
+        PlannedJob(
+            job_key=job_key("fit", (("sample", "a"),)),
+            family="fit",
+            outputs=("outputs/a.txt",),
+            is_checkpoint=False,
+        ),
+    )
+
+
+def test_two_records_for_one_key_that_disagree_are_a_planning_refusal(tmp_path) -> None:
+    events = tmp_path / "dry.jsonl"
+    events.write_text(
+        _plan_event(1, "split", {}, ["splits"], is_checkpoint=True)
+        + "\n"
+        + _plan_event(1, "split", {}, ["splits"], is_checkpoint=False)
+        + "\n"
+    )
+    with pytest.raises(PlanUnavailable):
+        read_plan(events)
+
+
+def test_a_plan_with_no_job_is_a_planning_refusal(tmp_path) -> None:
+    events = tmp_path / "dry.jsonl"
+    events.write_text("")
+    with pytest.raises(PlanUnavailable):
+        read_plan(events)
+
+
+def test_the_planned_job_has_no_engine_job_id(tmp_path) -> None:
+    events = tmp_path / "dry.jsonl"
+    events.write_text(_plan_event(7, "fit", {"sample": "a"}, ["outputs/a.txt"]) + "\n")
+    assert not hasattr(read_plan(events)[0], "job_id")
+
+
+def test_claims_are_read_into_the_two_level_map(tmp_path) -> None:
+    _write_claim(tmp_path / ".seeds", _claim())
+    _write_claim(tmp_path / ".seeds", _claim(stream="resample-draws", seed=9))
+    key = job_key("fit", (("sample", "a"),))
+    assert read_realized_seeds(tmp_path).seeds == {
+        key: {"model-initialization": 7, "resample-draws": 9}
+    }
+
+
+def test_a_claim_whose_name_disagrees_with_its_content_is_refused(tmp_path) -> None:
+    directory = tmp_path / ".seeds"
+    directory.mkdir()
+    (directory / ("00" * 32 + ".json")).write_text(
+        json.dumps(_claim(), sort_keys=True, separators=(",", ":"))
+    )
+    with pytest.raises(SeedClaimMalformed):
+        read_realized_seeds(tmp_path)
+
+
+def test_a_claim_key_is_checked_against_its_rule_and_wildcards(tmp_path) -> None:
+    record = _claim()
+    record["job_key"] = job_key("fit", (("sample", "b"),))
+    _write_claim(tmp_path / ".seeds", record)
+    with pytest.raises(SeedClaimMalformed):
+        read_realized_seeds(tmp_path)
+
+
+def test_a_symlinked_claim_directory_is_still_refused(tmp_path) -> None:
+    (tmp_path / "elsewhere").mkdir()
+    (tmp_path / ".seeds").symlink_to(tmp_path / "elsewhere")
+    with pytest.raises(MalformedClosure):
+        read_realized_seeds(tmp_path)
+
+
+def _definition(**overrides):
+    fields = {
+        "snakefile": b"rule fit:\n    output: 'out.txt'\n",
+        "family_streams": {"fit": ("model-initialization",)},
+        "checkpoint_expanded_families": (),
+    }
+    return WorkflowDefinition(**{**fields, **overrides})
+
+
+def test_the_domain_is_v2_because_the_projection_gained_a_member():
+    assert WORKFLOW_DEFINITION_DOMAIN == "science.workflow-definition.v2"
+
+
+def test_the_snapshot_carries_the_declaration_not_the_bytes():
+    snapshot = _definition().snapshot()
+    assert snapshot.family_streams == {"fit": ("model-initialization",)}
+    assert snapshot.snakefile_digest.startswith("sha256:")
+    assert snapshot.checkpoint_expanded_families == ()
+
+
+def test_declaring_a_checkpoint_expanded_family_moves_the_identity():
+    plain = _definition().snapshot().identity()
+    declared = _definition(checkpoint_expanded_families=("fit",)).snapshot().identity()
+    assert plain != declared
+
+
+def test_the_snapshot_identity_is_the_definition_identity():
+    definition = _definition()
+    assert definition.identity() == definition.snapshot().identity()
+
+
+def test_a_malformed_checkpoint_declaration_is_refused():
+    with pytest.raises(MalformedClosure):
+        _definition(checkpoint_expanded_families=("fit", 3))
 
 
 def make_code_root(tmp_path: Path) -> Path:
@@ -127,7 +280,7 @@ def test_execution_is_direct_argv_with_shell_false(tmp_path):
         snakefile=str(tmp_path / "Snakefile"),
         directory=str(tmp_path),
         targets=("outputs/result.txt",),
-        config={"seed_model_initialization": "7"},
+        config=_seed_config("7"),
         log_handler=str(tmp_path / "handler.py"),
         cores=1,
         in_process_jobs=False,
@@ -170,14 +323,15 @@ def test_the_adapter_executes_the_held_definition_and_observes_the_trace(tmp_pat
     (scratch / "inputs").mkdir()
     (scratch / "inputs" / "data.txt").write_text("hello")
     entry = validate_entrypoint(bundle, "code/workflow/Snakefile")
-    code, log, events = engine_run(scratch, entry, tmp_path / "trace", config={"seed_model_initialization": "7"})
+    code, log, events = engine_run(scratch, entry, tmp_path / "trace", config=_seed_config("7"))
     assert code == 0, log
     assert (scratch / "outputs" / "result.txt").read_text().startswith("HELLO:")
     trace = read_trace(events)
     assert [job.rule for job in trace] == ["transform"]
     assert all(job.job_id for job in trace)  # engine-reported, never an ordinal
     seeds = read_realized_seeds(scratch)
-    assert seeds.seeds["transform"]["model-initialization"] == 7
+    key = job_key("transform", ())
+    assert seeds.seeds[key]["model-initialization"] == derive_seed(7, key, "model-initialization")
 
 
 def test_the_computation_derives_from_the_seed_it_reports(tmp_path):
@@ -193,9 +347,7 @@ def test_the_computation_derives_from_the_seed_it_reports(tmp_path):
         (scratch / "inputs").mkdir()
         (scratch / "inputs" / "data.txt").write_text("hello")
         entry = validate_entrypoint(bundle, "code/workflow/Snakefile")
-        code, log, _ = engine_run(
-            scratch, entry, tmp_path / f"trace-{seed}", config={"seed_model_initialization": seed}
-        )
+        code, log, _ = engine_run(scratch, entry, tmp_path / f"trace-{seed}", config=_seed_config(seed))
         assert code == 0, log
         outputs[seed] = (scratch / "outputs" / "result.txt").read_text()
     assert outputs["7"] != outputs["8"]
@@ -213,15 +365,12 @@ def test_a_malformed_trace_or_seed_report_refuses_capture(tmp_path):
     with pytest.raises(MalformedClosure):
         read_trace(events)  # input/output/wildcards required too — never silently defaulted
     scratch = create_scratch_root(tmp_path / "s")
-    (scratch / ".seeds").mkdir()
-    (scratch / ".seeds" / "a.json").write_text('{"transform": {"model-initialization": 7}}')
-    (scratch / ".seeds" / "b.json").write_text('{"transform": {"model-initialization": 7}}')
-    with pytest.raises(MalformedClosure):
-        read_realized_seeds(scratch)  # ANY second claim for one (job, stream) — agreement included
-    (scratch / ".seeds" / "b.json").write_text('{"transform": {"model-initialization": 9}}')
-    with pytest.raises(MalformedClosure):
-        read_realized_seeds(scratch)  # …and disagreeing, likewise
-    (scratch / ".seeds" / "b.json").write_text("garbage")
+    _write_claim(scratch / ".seeds", _claim())
+    second = _claim(seed=9)
+    _write_claim(scratch / ".seeds", second)
+    with pytest.raises(SeedClaimMalformed):
+        read_realized_seeds(scratch)  # two different files claim the same (job, stream)
+    (scratch / ".seeds" / f"{record_digest_of(second)}.json").write_text("garbage")
     with pytest.raises(MalformedClosure):
         read_realized_seeds(scratch)
 
@@ -260,14 +409,14 @@ def test_trace_refuses_conflicting_required_fields_for_one_engine_job_id(tmp_pat
 @pytest.mark.parametrize(
     "report",
     [
-        '{"transform": {"model-initialization": 7}, "transform": {"resample-draws": 8}}',
-        '{"transform": {"model-initialization": 7, "model-initialization": 8}}',
+        '{"rule":"fit","rule":"other","wildcards":{},"job_key":"x","stream":"s","seed":1}',
+        '{"rule":"fit","wildcards":{"s":"a","s":"b"},"job_key":"x","stream":"s","seed":1}',
     ],
 )
 def test_duplicate_keys_inside_one_seed_report_are_refused(tmp_path, report):
     scratch = create_scratch_root(tmp_path / "scratch")
     (scratch / ".seeds").mkdir()
-    (scratch / ".seeds" / "transform.json").write_text(report)
+    (scratch / ".seeds" / ("00" * 32 + ".json")).write_text(report)
     with pytest.raises(MalformedClosure):
         read_realized_seeds(scratch)
 

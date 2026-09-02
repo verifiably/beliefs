@@ -7,21 +7,26 @@ negative (c)'s clean-environment reachability (confinement)."""
 
 import dataclasses
 import inspect
+import json
 import os
 import sys
+from pathlib import Path
 
 import pytest
+from config_probe import run_config_probe
 from fixtures_cut3 import (
     DATA_ADDRESS,
     MEMORY_PORT,
     READS_ADDRESS,
     SNAKEFILE_DETERMINISTIC,
     SNAKEFILE_NONDETERMINISTIC,
+    SNAKEFILE_PRODUCTION,
     SNAKEFILE_SCRATCHY,
     SNAKEFILE_SEED_VIOLATING,
     closure,
     definition,
     recipe,
+    seed_plan,
     seeded,
     spec_draft,
     spec_rules,
@@ -46,15 +51,215 @@ from beliefs.adapter import (
 from beliefs.boundary import (
     RunMinted,
     RunRefused,
+    _render_config,
     build_manifest,
+    check_checkpoint_declaration,
     execute_assessment_run,
     execute_production_run,
     mint_run,
+    resolve_targets,
 )
-from beliefs.errors import MalformedClosure
-from beliefs.recipe import MINIMAL_POLICY, Occurrence, RunClosure
-from beliefs.report import ActReport, OperationIntent, RunAttemptEntry
-from beliefs.spec import Seeded, SeedPlan, SpecInput, derive_seed, freeze, revise
+from beliefs.errors import (
+    CheckpointDeclarationUnmet,
+    MalformedClosure,
+    TargetAmbiguous,
+    TargetUnresolvable,
+)
+from beliefs.recipe import MINIMAL_POLICY, Occurrence, PlannedJob, RunClosure, WorkflowDefinitionSnapshot, job_key
+from beliefs.report import ActReport, OperationIntent, RunAttemptEntry, RunRefusal
+from beliefs.spec import Deterministic, Seeded, SeedPlan, SpecInput, derive_seed, freeze, revise
+
+CHECKPOINT_DIGEST = "sha256:" + "22" * 32
+TARGET_ALL = PlannedJob(job_key("all", ()), "all", (), False)
+TARGET_FIT_A = PlannedJob(
+    job_key("fit", (("s", "a"),)),
+    "fit",
+    ("outputs/a.done",),
+    False,
+)
+TARGET_FIT_B = PlannedJob(
+    job_key("fit", (("s", "b"),)),
+    "fit",
+    ("outputs/b.done",),
+    False,
+)
+
+
+def test_a_rule_target_resolves_to_the_job_with_no_wildcards() -> None:
+    assert resolve_targets(("all",), (TARGET_ALL, TARGET_FIT_A)) == (TARGET_ALL.job_key,)
+
+
+def test_a_file_target_resolves_to_the_job_that_produces_it() -> None:
+    assert resolve_targets(
+        ("outputs/a.done",),
+        (TARGET_ALL, TARGET_FIT_A, TARGET_FIT_B),
+    ) == (TARGET_FIT_A.job_key,)
+
+
+def test_two_targets_resolve_in_request_order() -> None:
+    assert resolve_targets(
+        ("outputs/b.done", "outputs/a.done"),
+        (TARGET_FIT_A, TARGET_FIT_B),
+    ) == (TARGET_FIT_B.job_key, TARGET_FIT_A.job_key)
+
+
+def test_a_target_the_plan_does_not_name_is_unresolvable() -> None:
+    with pytest.raises(TargetUnresolvable):
+        resolve_targets(("outputs/zzz.done",), (TARGET_ALL, TARGET_FIT_A))
+
+
+def test_a_target_matching_two_planned_jobs_is_ambiguous() -> None:
+    twin = PlannedJob(
+        job_key("copy", ()),
+        "copy",
+        ("outputs/a.done",),
+        False,
+    )
+    with pytest.raises(TargetAmbiguous):
+        resolve_targets(("outputs/a.done",), (TARGET_FIT_A, twin))
+
+
+def _checkpoint_snapshot(families, expanded):
+    return WorkflowDefinitionSnapshot(
+        snakefile_digest=CHECKPOINT_DIGEST,
+        family_streams=families,
+        checkpoint_expanded_families=expanded,
+    )
+
+
+def _planned_checkpoint(family, is_checkpoint=False):
+    return PlannedJob(
+        job_key=job_key(family, ()),
+        family=family,
+        outputs=(),
+        is_checkpoint=is_checkpoint,
+    )
+
+
+def test_a_checkpoint_declaration_with_no_checkpoint_in_the_plan_is_refused() -> None:
+    with pytest.raises(CheckpointDeclarationUnmet):
+        check_checkpoint_declaration(
+            _checkpoint_snapshot({"fit": ()}, ("fit",)),
+            (_planned_checkpoint("fit"),),
+        )
+
+
+def test_a_checkpoint_declaration_for_an_absent_family_is_refused() -> None:
+    with pytest.raises(CheckpointDeclarationUnmet):
+        check_checkpoint_declaration(
+            _checkpoint_snapshot({"fit": ()}, ("absent",)),
+            (_planned_checkpoint("split", is_checkpoint=True),),
+        )
+
+
+def test_an_empty_checkpoint_declaration_permits_a_planned_checkpoint() -> None:
+    check_checkpoint_declaration(
+        _checkpoint_snapshot({"split": ()}, ()),
+        (_planned_checkpoint("split", is_checkpoint=True),),
+    )
+
+
+@pytest.mark.parametrize("reserved", ("seed_roots", "seed_derivation_rule"))
+@pytest.mark.parametrize("contract", (seeded(), Deterministic()))
+def test_seed_config_members_cannot_be_shadowed_by_recipe_parameters(reserved, contract) -> None:
+    value = recipe(parameters={reserved: "caller supplied"}, nondeterminism=contract)
+    with pytest.raises(MalformedClosure):
+        _render_config(value, value.workflow_definition)
+
+
+def test_an_unsupported_seed_derivation_rule_is_refused_before_launch() -> None:
+    value = recipe(
+        nondeterminism=Seeded(
+            plan=SeedPlan(
+                derivation_rule="seed-derivation/future",
+                streams=("model-initialization",),
+                roots={"root-a": 11},
+                stream_roots={"model-initialization": "root-a"},
+            )
+        )
+    )
+    with pytest.raises(MalformedClosure):
+        _render_config(value, value.workflow_definition)
+
+
+def test_a_checkpoint_declaration_with_a_planned_checkpoint_is_permitted() -> None:
+    check_checkpoint_declaration(
+        _checkpoint_snapshot({"split": (), "fit": ()}, ("fit",)),
+        (
+            _planned_checkpoint("split", is_checkpoint=True),
+            _planned_checkpoint("fit"),
+        ),
+    )
+
+
+def test_the_roots_are_rendered_as_one_mapping_never_per_stream_keys() -> None:
+    config = _render_config(recipe(nondeterminism=seeded()), definition().snapshot())
+    assert json.loads(config["seed_roots"]) == {"model-initialization": "11"}
+    assert config["seed_derivation_rule"] == "seed-derivation/v1"
+    assert not any(key.startswith("seed_model") for key in config)
+
+
+def test_two_streams_differing_only_in_punctuation_do_not_collide() -> None:
+    plan = seed_plan(
+        streams=("a-b", "a_b"),
+        roots={"r": 11},
+        stream_roots={"a-b": "r", "a_b": "r"},
+    )
+    snapshot = definition(family_streams={"transform": ("a-b", "a_b")}).snapshot()
+    config = _render_config(recipe(nondeterminism=Seeded(plan=plan)), snapshot)
+    assert json.loads(config["seed_roots"]) == {"a-b": "11", "a_b": "11"}
+
+
+def test_a_deterministic_recipe_renders_no_seed_material() -> None:
+    config = _render_config(
+        recipe(nondeterminism=Deterministic()),
+        definition(family_streams={}).snapshot(),
+    )
+    assert "seed_roots" not in config and "seed_derivation_rule" not in config
+
+
+def test_the_engine_coerces_a_structured_config_value_to_strings(tmp_path) -> None:
+    observed = run_config_probe(tmp_path, {"seed_roots": '{"a": 11}', "plain": "11"})
+    assert observed["seed_roots"] == ["dict", {"a": "11"}]
+    assert observed["plain"] == ["int", 11]
+
+
+def test_the_planning_launch_writes_nothing_into_the_execution_scratch(tmp_path) -> None:
+    outcome = run_production(tmp_path, snakefile=SNAKEFILE_PRODUCTION)
+    assert isinstance(outcome, RunMinted)
+    scratch = Path(outcome.run.occurrence.receipt.execution.scratch_mapping)
+    planning = Path(outcome.run.occurrence.receipt.planning.scratch_mapping)
+    assert scratch.exists() and planning != scratch and not planning.exists()
+
+
+def test_the_plan_is_carried_by_the_occurrence(tmp_path) -> None:
+    outcome = run_production(tmp_path, snakefile=SNAKEFILE_PRODUCTION)
+    assert isinstance(outcome, RunMinted)
+    assert {job.family for job in outcome.run.occurrence.planned} == {"transform"}
+
+
+def test_an_unknown_target_is_a_planning_refusal_not_a_resolution_one(tmp_path) -> None:
+    outcome = run_production(
+        tmp_path,
+        snakefile=SNAKEFILE_PRODUCTION,
+        targets=("outputs/zzz.txt",),
+    )
+    assert isinstance(outcome, RunRefused)
+    assert "plan" in outcome.reason and "target" not in outcome.reason
+
+
+def test_a_definition_disagreement_refuses_before_a_planning_effect(tmp_path) -> None:
+    outcome = run_production(
+        tmp_path,
+        snakefile=SNAKEFILE_PRODUCTION,
+        definition_override=definition(
+            snakefile=SNAKEFILE_PRODUCTION,
+            family_streams={"transform": ("model-initialization",)},
+        ),
+    )
+    assert isinstance(outcome, RunRefused)
+    assert "definition" in outcome.reason
+    assert not list((tmp_path / "scratch").glob("planning-*"))
 
 
 @pytest.fixture(scope="module")
@@ -138,7 +343,10 @@ def test_g2a_r12_an_out_of_band_run_with_a_spec_frozen_afterwards_is_undetectabl
         snakefile=str(entry),
         directory=str(scratch),
         targets=("outputs/result.txt",),
-        config={"seed_model_initialization": "7"},
+        config={
+            "seed_derivation_rule": "seed-derivation/v1",
+            "seed_roots": '{"model-initialization":"7"}',
+        },
         log_handler=str(handler),
         cores=1,
         in_process_jobs=False,
@@ -307,10 +515,10 @@ def test_r21_negative_c_two_differently_mounted_scratch_roots_yield_equal_recipe
     b = run_assessment(tmp_path / "mount-b")
     assert isinstance(a, RunMinted) and isinstance(b, RunMinted)
     assert a.run.recipe.identity() == b.run.recipe.identity()
-    assert a.run.occurrence.receipt.scratch_mapping != b.run.occurrence.receipt.scratch_mapping
+    assert a.run.occurrence.receipt.execution.scratch_mapping != b.run.occurrence.receipt.execution.scratch_mapping
     import json
 
-    assert a.run.occurrence.receipt.scratch_mapping not in json.dumps(a.run.recipe.identity())
+    assert a.run.occurrence.receipt.execution.scratch_mapping not in json.dumps(a.run.recipe.identity())
 
 
 def test_r21_negative_e_the_two_failure_states_are_distinct(tmp_path):
@@ -330,8 +538,9 @@ def test_r21_negative_e_the_two_failure_states_are_distinct(tmp_path):
 def test_r16_a_seed_violating_execution_still_mints_a_run(tmp_path):
     outcome = run_assessment(tmp_path, snakefile=SNAKEFILE_SEED_VIOLATING)
     assert isinstance(outcome, RunMinted)
-    realized = outcome.run.occurrence.realized_seeds.seeds["transform"]["model-initialization"]
-    assert realized != derive_seed(11, "transform", "model-initialization")
+    key = job_key("transform", ())
+    realized = outcome.run.occurrence.realized_seeds.seeds[key]["model-initialization"]
+    assert realized != derive_seed(11, key, "model-initialization")
 
 
 # --- R17's execution halves ----------------------------------------------------
@@ -356,9 +565,10 @@ def test_r17_no_path_supplies_inputs_parameters_or_contract_on_an_assessment_run
 
 
 def test_r17_the_boundary_renders_the_configuration_from_the_projected_members(minted):
-    rendered = dict(minted.run.occurrence.receipt.rendered_config)
+    rendered = dict(minted.run.occurrence.receipt.execution.rendered_config)
     assert rendered["alpha"] == "0.05"
-    assert rendered["seed_model_initialization"] == str(derive_seed(11, "transform", "model-initialization"))
+    assert json.loads(rendered["seed_roots"]) == {"model-initialization": "11"}
+    assert rendered["seed_derivation_rule"] == "seed-derivation/v1"
 
 
 def test_r17_seed_shopping_cannot_occur_at_all(minted):
@@ -425,20 +635,19 @@ def test_k1_an_unsupported_policy_refuses_before_intent(tmp_path):
     assert "scope-derivation/v2" in outcome.detail
 
 
-def test_a_minimal_run_carries_a_v1_receipt_and_no_instance(tmp_path):
+def test_a_minimal_run_carries_a_composed_unconfined_receipt(tmp_path):
     outcome = run_assessment(tmp_path, boundary_policy=MINIMAL_POLICY)
     assert isinstance(outcome, RunMinted)
     receipt = outcome.run.occurrence.receipt
-    assert not receipt.confined and receipt.capabilities == () and receipt.instance is None
+    assert not receipt.confined and receipt.execution.capabilities == () and receipt.execution.instance is None
     assert outcome.run.recipe.boundary_policy == MINIMAL_POLICY
 
 
 def test_replay_carries_the_originals_policy_and_takes_none_of_its_own(tmp_path):
     assert "boundary_policy" not in inspect.signature(_replay).parameters
     original = run_assessment(tmp_path / "a")
-    assert isinstance(original, RunMinted)
     replayed = _replay_of(original, tmp_path / "b", port=MEMORY_PORT)
-    assert isinstance(replayed, RunMinted)
+    assert isinstance(original, RunMinted) and isinstance(replayed, RunMinted)
     assert replayed.run.recipe.boundary_policy == original.run.recipe.boundary_policy == MINIMAL_POLICY
 
 
@@ -453,5 +662,5 @@ def test_a_confinement_refusal_keeps_its_stable_reason_and_its_detail(tmp_path, 
     assert outcome.detail == "synthetic: SONAME collision"
     assert outcome.intent is not None  # post-intent: the intent was fulfilled by a refusal
     assert outcome.report is not None
-    entry = outcome.report.entries[0]
-    assert isinstance(entry, RunAttemptEntry) and entry.outcome.missing_member == "closure-unsupported"
+    report_outcome = outcome.report.entries[0].outcome
+    assert isinstance(report_outcome, RunRefusal) and report_outcome.missing_member == "closure-unsupported"

@@ -83,7 +83,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 14** is implemented and discharged. What
+Every conformance cut through **cut 15** is implemented and discharged. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -93,8 +93,10 @@ store-side holdings; run confinement, a run executing inside a fresh
 namespaced materialization of a digest-verified runtime closure with
 `clean-environment` reachable; and the coordination/view family with opaque
 addresses, contract authorization, multi-corpus tip resolution, and world-inert
-storage. The latest discharged boundary is cut 14
-([results](docs/plans/2026-09-02-conformance-cut-14-results.md)).
+storage; and the full workflow surface with planning-derived job and target
+sets, semantic wildcard jobs, per-family seed obligations, and composed
+planning/execution launch attestations. The latest discharged boundary is cut
+15 ([results](docs/plans/2026-09-01-conformance-cut-15-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
 test before it is a passing one. There are **153 rows** across **thirteen frozen

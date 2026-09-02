@@ -713,3 +713,20 @@ running the cut-12 prefix, the confined arms and the N2 audit in order,
 never skipping; every arm in `n2_arms_cut13.py` audits `sound`; Ruff
 and Pyright are clean; and the results record, the ledger row, and the
 roadmap re-ranking land in the banking change.
+
+## 13. Workflow-surface receipt amendment (2026-09-02)
+
+Conformance cut 15 replaces the one-launch receipt shape described in §6.3
+with a `BoundaryReceipt` composed from `planning` and `execution`
+`LaunchAttestation` values. Each launch preserves §6.3's complete contents
+and its 0-or-3 rule for `instance`, `rendered_environment`, and `mounts`; the
+two launches must agree about confinement. Minimal and confined composed
+receipts use `science.boundary-receipt.v3` and `.v4`, and their matching v2
+recipe runs use `science.run.v3` and `.v4`. The v1/v2 receipt and run shapes
+remain readable untranslated.
+
+`qualifies()` reads the execution launch only. The planning launch records
+how the job plan was obtained and cannot supply clean-environment evidence
+for execution. The `from-bundle` capability remains derived exactly as §6.3
+states—from the observed bundle mount, the canonical inner argv, and the
+validated entrypoint—because each launch still executes one engine argv.

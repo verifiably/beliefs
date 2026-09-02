@@ -9,7 +9,13 @@ from pathlib import PurePosixPath
 from types import MappingProxyType
 from typing import cast, final
 
-from beliefs.errors import BoundaryPolicyUnsupported, MalformedClosure, UnsafeInvocation
+from beliefs.errors import (
+    BoundaryPolicyUnsupported,
+    CanonicalTextRefused,
+    MalformedClosure,
+    MalformedRecord,
+    UnsafeInvocation,
+)
 from beliefs.identity import v1
 from beliefs.sealed import sealed
 from beliefs.spec import (
@@ -40,31 +46,39 @@ __all__ = [
     "RUN_DOMAIN",
     "SHAPES",
     "SUPPORTED_POLICIES",
+    "WORKFLOW_DEFINITION_DOMAIN",
     "BoundaryPolicy",
     "BoundaryReceipt",
     "EnvironmentManifest",
+    "EnvironmentReference",
     "ExclusionCertification",
     "InstanceAttestation",
     "Invocation",
+    "LaunchAttestation",
     "Occurrence",
+    "PlannedJob",
     "Recipe",
     "RecipeInput",
     "ResultManifest",
     "RunClosure",
     "TraceJob",
+    "WorkflowDefinitionSnapshot",
+    "job_key",
     "mount_plan_identity",
     "project_recipe",
     "run_domain_for",
+    "run_domain_for_projection",
     "supported_policy",
 ]
 
-RECIPE_DOMAIN = "science.recipe.v1"
+RECIPE_DOMAIN = "science.recipe.v2"
 RUN_DOMAIN = "science.run.v1"
 CONFINED_RUN_DOMAIN = "science.run.v2"
 ENVIRONMENT_DOMAIN = "science.environment.v2"
-BOUNDARY_RECEIPT_DOMAIN = "science.boundary-receipt.v1"
-CONFINED_RECEIPT_DOMAIN = "science.boundary-receipt.v2"
+BOUNDARY_RECEIPT_DOMAIN = "science.boundary-receipt.v3"
+CONFINED_RECEIPT_DOMAIN = "science.boundary-receipt.v4"
 MOUNT_PLAN_DOMAIN = "science.mount-plan.v1"
+WORKFLOW_DEFINITION_DOMAIN = "science.workflow-definition.v2"
 
 #: §7.3a's three capabilities — the closed vocabulary a policy may name.
 CAPABILITIES = ("from-bundle", "closure-confined-filesystem", "network-denied")
@@ -253,6 +267,21 @@ class EnvironmentManifest:
 @sealed
 @final
 @dataclass(frozen=True)
+class EnvironmentReference:
+    """The identity-only environment evidence available in a decoded recipe."""
+
+    identity_value: str
+
+    def __post_init__(self) -> None:
+        _require_component(self.identity_value, "environment identity")
+
+    def identity(self) -> str:
+        return self.identity_value
+
+
+@sealed
+@final
+@dataclass(frozen=True)
 class BoundaryPolicy:
     identity: str
     scope_rule: str
@@ -300,8 +329,8 @@ class Recipe:
     shape: str
     spec_identity: str | None
     code_identity: str
-    environment: EnvironmentManifest
-    workflow_definition_identity: str
+    environment: EnvironmentManifest | EnvironmentReference
+    workflow_definition: WorkflowDefinitionSnapshot
     invocation: Invocation
     inputs: tuple[RecipeInput, ...]
     parameters: Mapping[str, object]
@@ -319,8 +348,9 @@ class Recipe:
             raise MalformedClosure("an assessment recipe carries its frozen spec identity")
         if self.shape == "dataset-production" and self.spec_identity is not None:
             raise MalformedClosure("a dataset-production recipe has no assessment spec identity")
-        if type(self.environment) is not EnvironmentManifest:
-            raise MalformedClosure("environment must be an EnvironmentManifest, not a lockfile digest")
+        if type(self.environment) is not EnvironmentManifest:  # noqa: SIM102 - frozen cut-3 mutation seam
+            if type(self.environment) is not EnvironmentReference:
+                raise MalformedClosure("environment must be an EnvironmentManifest or decoded EnvironmentReference")
         if type(self.invocation) is not Invocation:
             raise MalformedClosure("invocation must be an Invocation")
         if type(self.boundary_policy) is not BoundaryPolicy:
@@ -339,7 +369,8 @@ class Recipe:
             raise MalformedClosure("recipe parameters must be a mapping")
         _require_nondeterminism(self.nondeterminism)
         _require_component(self.code_identity, "code identity")
-        _require_component(self.workflow_definition_identity, "workflow definition identity")
+        if type(self.workflow_definition) is not WorkflowDefinitionSnapshot:
+            raise MalformedClosure("workflow definition must be a WorkflowDefinitionSnapshot")
         parameters = MappingProxyType({key: _freeze_parameter_value(value) for key, value in self.parameters.items()})
         v1.encode(_project_parameter_value(parameters))
         object.__setattr__(
@@ -375,7 +406,7 @@ class Recipe:
             "shape": self.shape,
             "code_identity": self.code_identity,
             "environment": self.environment.identity(),
-            "workflow_definition_identity": self.workflow_definition_identity,
+            "workflow_definition": self.workflow_definition.projection(),
             "invocation": {
                 "entrypoint": self.invocation.entrypoint,
                 "targets": list(self.invocation.targets),
@@ -408,7 +439,7 @@ def project_recipe(
     held: Mapping[str, str],
     code_identity: str,
     environment: EnvironmentManifest,
-    workflow_definition_identity: str,
+    workflow_definition: WorkflowDefinitionSnapshot,
     invocation: Invocation,
     boundary_policy: BoundaryPolicy,
 ) -> Recipe:
@@ -431,7 +462,7 @@ def project_recipe(
         spec_identity=spec.identity,
         code_identity=code_identity,
         environment=environment,
-        workflow_definition_identity=workflow_definition_identity,
+        workflow_definition=workflow_definition,
         invocation=invocation,
         inputs=inputs,
         parameters=spec.parameters,
@@ -457,6 +488,49 @@ class ResultManifest:
 @sealed
 @final
 @dataclass(frozen=True)
+class WorkflowDefinitionSnapshot:
+    snakefile_digest: str
+    family_streams: Mapping[str, tuple[str, ...]]
+    checkpoint_expanded_families: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if type(self.snakefile_digest) is not str or not self.snakefile_digest.startswith("sha256:"):
+            raise MalformedClosure("a workflow definition snapshot carries a sha256 snakefile digest")
+        if not isinstance(self.family_streams, Mapping) or not all(
+            type(family) is str and type(streams) is tuple and all(type(stream) is str for stream in streams)
+            for family, streams in self.family_streams.items()
+        ):
+            raise MalformedClosure("workflow family streams must map strings to tuples of strings")
+        if type(self.checkpoint_expanded_families) is not tuple or any(
+            type(family) is not str for family in self.checkpoint_expanded_families
+        ):
+            raise MalformedClosure("checkpoint-expanded families are a tuple of strings")
+        object.__setattr__(self, "family_streams", MappingProxyType(dict(self.family_streams)))
+
+    def projection(self) -> dict[str, object]:
+        return {
+            "snakefile": self.snakefile_digest,
+            "family_streams": {family: sorted(streams) for family, streams in self.family_streams.items()},
+            "checkpoint_expanded_families": sorted(self.checkpoint_expanded_families),
+        }
+
+    def identity(self) -> str:
+        return v1.digest(WORKFLOW_DEFINITION_DOMAIN, self.projection())
+
+
+def job_key(rule: str, wildcards: tuple[tuple[str, str], ...]) -> str:
+    """Return canonical text over a rule name and its wildcard binding."""
+    _require_str(rule, "job key rule")
+    _require_pairs(wildcards, "job key wildcards")
+    names = [name for name, _ in wildcards]
+    if len(names) != len(set(names)):
+        raise MalformedClosure("job key wildcards name each binding once")
+    return v1.encode({"rule": rule, "wildcards": {name: value for name, value in wildcards}}).decode("utf-8")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
 class TraceJob:
     job_id: str
     rule: str
@@ -468,8 +542,51 @@ class TraceJob:
         _require_str(self.job_id, "trace job id")
         _require_str(self.rule, "trace rule")
         _require_pairs(self.wildcards, "trace job wildcards")
+        job_key(self.rule, self.wildcards)
         _require_strings(self.inputs, "trace job inputs")
         _require_strings(self.outputs, "trace job outputs")
+
+    def job_key(self) -> str:
+        return job_key(self.rule, self.wildcards)
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class PlannedJob:
+    job_key: str
+    family: str
+    outputs: tuple[str, ...]
+    is_checkpoint: bool
+
+    def __post_init__(self) -> None:
+        _require_str(self.job_key, "planned job key")
+        _require_str(self.family, "planned job family")
+        _require_strings(self.outputs, "planned job outputs")
+        if type(self.is_checkpoint) is not bool:
+            raise MalformedClosure("planned job checkpoint flag must be a boolean")
+        try:
+            parsed = v1.decode(self.job_key.encode("utf-8"))
+        except (CanonicalTextRefused, UnicodeError) as error:
+            raise MalformedClosure("planned job key is not canonical job-key text") from error
+        if not isinstance(parsed, Mapping) or set(parsed) != {"rule", "wildcards"}:
+            raise MalformedClosure("planned job key is not canonical job-key text")
+        wildcards = parsed["wildcards"]
+        if (
+            type(parsed["rule"]) is not str
+            or not isinstance(wildcards, Mapping)
+            or any(type(name) is not str or type(value) is not str for name, value in wildcards.items())
+            or job_key(self.family, tuple(wildcards.items())) != self.job_key
+        ):
+            raise MalformedClosure("planned job key disagrees with its family")
+
+    def projection(self) -> dict[str, object]:
+        return {
+            "job_key": self.job_key,
+            "family": self.family,
+            "outputs": list(self.outputs),
+            "is_checkpoint": self.is_checkpoint,
+        }
 
 
 def mount_plan_identity(mounts: tuple[tuple[str, str, str], ...]) -> str:
@@ -510,7 +627,7 @@ class InstanceAttestation:
 @sealed
 @final
 @dataclass(frozen=True)
-class BoundaryReceipt:
+class LaunchAttestation:
     scratch_mapping: str
     argv: tuple[str, ...]
     rendered_config: tuple[tuple[str, str], ...]
@@ -520,31 +637,49 @@ class BoundaryReceipt:
     mounts: tuple[tuple[str, str], ...] | None = None
 
     def __post_init__(self) -> None:
-        _require_str(self.scratch_mapping, "boundary receipt scratch mapping")
-        _require_strings(self.argv, "boundary receipt argv")
-        _require_pairs(self.rendered_config, "boundary receipt rendered config")
-        _require_strings(self.capabilities, "boundary receipt capabilities")
+        _require_str(self.scratch_mapping, "launch scratch mapping")
+        _require_strings(self.argv, "launch argv")
+        _require_pairs(self.rendered_config, "launch rendered config")
+        _require_strings(self.capabilities, "launch capabilities")
         if any(capability not in CAPABILITIES for capability in self.capabilities):
-            raise MalformedClosure(f"boundary receipt capabilities are outside the closed vocabulary {CAPABILITIES}")
+            raise MalformedClosure(f"launch capabilities are outside the closed vocabulary {CAPABILITIES}")
         if len(set(self.capabilities)) != len(self.capabilities):
-            raise MalformedClosure("boundary receipt capabilities name each capability once")
+            raise MalformedClosure("launch capabilities name each capability once")
         present = sum(member is not None for member in (self.instance, self.rendered_environment, self.mounts))
         if present not in (0, 3):
             raise MalformedClosure(
-                "a confined receipt carries instance, rendered_environment and mounts together; a minimal receipt carries none"
+                "a confined launch carries instance, rendered_environment and mounts together; a minimal launch carries none"
             )
         if self.instance is None:
             return
         if type(self.instance) is not InstanceAttestation:
-            raise MalformedClosure("a confined receipt's instance is an InstanceAttestation")
-        _require_triples(self.rendered_environment, "boundary receipt rendered environment")
+            raise MalformedClosure("a confined launch's instance is an InstanceAttestation")
+        _require_triples(self.rendered_environment, "launch rendered environment")
         if any(kind not in RENDERED_KINDS for _, kind, _ in cast(tuple[tuple[str, str, str], ...], self.rendered_environment)):
             raise MalformedClosure(f"a rendered environment row's kind is one of {RENDERED_KINDS}")
-        _require_pairs(self.mounts, "boundary receipt mounts")
+        _require_pairs(self.mounts, "launch mounts")
 
     @property
     def confined(self) -> bool:
         return self.instance is not None
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class BoundaryReceipt:
+    planning: LaunchAttestation
+    execution: LaunchAttestation
+
+    def __post_init__(self) -> None:
+        if type(self.planning) is not LaunchAttestation or type(self.execution) is not LaunchAttestation:
+            raise MalformedClosure("a boundary receipt carries planning and execution launch attestations")
+        if self.planning.confined != self.execution.confined:
+            raise MalformedClosure("planning and execution launches must agree about confinement")
+
+    @property
+    def confined(self) -> bool:
+        return self.execution.confined
 
     def identity(self) -> str:
         domain = CONFINED_RECEIPT_DOMAIN if self.confined else BOUNDARY_RECEIPT_DOMAIN
@@ -560,6 +695,8 @@ class Occurrence:
     actor: str
     host_realization: str
     trace: tuple[TraceJob, ...]
+    planned: tuple[PlannedJob, ...]
+    target_keys: tuple[str, ...]
     realized_seeds: RealizedSeeds
     receipt: BoundaryReceipt
 
@@ -571,6 +708,13 @@ class Occurrence:
         _require_tuple(self.trace, "occurrence trace")
         if not all(type(job) is TraceJob for job in self.trace):
             raise MalformedClosure("occurrence trace holds TraceJob values only")
+        _require_tuple(self.planned, "occurrence planned jobs")
+        if not all(type(job) is PlannedJob for job in self.planned):
+            raise MalformedClosure("occurrence planned jobs hold PlannedJob values only")
+        keys = [job.job_key for job in self.planned]
+        if len(keys) != len(set(keys)):
+            raise MalformedClosure("occurrence planned jobs name each job key once")
+        _require_strings(self.target_keys, "occurrence target keys")
         if type(self.realized_seeds) is not RealizedSeeds:
             raise MalformedClosure("occurrence realized_seeds must be RealizedSeeds")
         if not all(
@@ -594,7 +738,7 @@ def _trace_projection(job: TraceJob) -> dict[str, object]:
     }
 
 
-def _receipt_projection(receipt: BoundaryReceipt) -> dict[str, object]:
+def _launch_projection(receipt: LaunchAttestation) -> dict[str, object]:
     projection: dict[str, object] = {
         "scratch_mapping": receipt.scratch_mapping,
         "argv": list(receipt.argv),
@@ -615,6 +759,10 @@ def _receipt_projection(receipt: BoundaryReceipt) -> dict[str, object]:
     return projection
 
 
+def _receipt_projection(receipt: BoundaryReceipt) -> dict[str, object]:
+    return {"planning": _launch_projection(receipt.planning), "execution": _launch_projection(receipt.execution)}
+
+
 def _occurrence_projection(occurrence: Occurrence) -> dict[str, object]:
     return {
         "event_token": occurrence.event_token,
@@ -622,15 +770,41 @@ def _occurrence_projection(occurrence: Occurrence) -> dict[str, object]:
         "actor": occurrence.actor,
         "host_realization": occurrence.host_realization,
         "trace": [_trace_projection(job) for job in occurrence.trace],
+        "planned": [job.projection() for job in sorted(occurrence.planned, key=lambda job: job.job_key)],
+        "target_keys": list(occurrence.target_keys),
         "realized_seeds": occurrence.realized_seeds.projection(),
         "receipt": _receipt_projection(occurrence.receipt),
     }
 
 
-def run_domain_for(confined: bool) -> str:
-    """A confined receipt reshapes the run projection, so it takes the
-    successor run domain; the dispatch is by exact receipt shape (design §6.3)."""
+RUN_DOMAINS = {
+    (False, False): "science.run.v1",
+    (False, True): "science.run.v2",
+    (True, False): "science.run.v3",
+    (True, True): "science.run.v4",
+}
+
+
+def _v1_run_domain(confined: bool) -> str:
     return CONFINED_RUN_DOMAIN if confined else RUN_DOMAIN
+
+
+def run_domain_for(*, recipe_v2: bool, confined: bool) -> str:
+    is_confined = _v1_run_domain(confined) == CONFINED_RUN_DOMAIN
+    return RUN_DOMAINS[(recipe_v2, is_confined)]
+
+
+def run_domain_for_projection(parsed: Mapping[str, object]) -> str:
+    recipe = cast(Mapping[str, object], parsed["recipe"])
+    receipt = cast(Mapping[str, object], cast(Mapping[str, object], parsed["occurrence"])["receipt"])
+    composed = set(receipt) == {"planning", "execution"}
+    recipe_v2 = "workflow_definition" in recipe
+    if recipe_v2 == ("workflow_definition_identity" in recipe):
+        raise MalformedRecord("a recipe projection carries exactly one workflow member")
+    if recipe_v2 != composed:
+        raise MalformedRecord(f"recipe shape v{2 if recipe_v2 else 1} does not pair with this receipt shape (§3.5)")
+    launch = cast(Mapping[str, object], receipt["execution"]) if composed else receipt
+    return run_domain_for(recipe_v2=recipe_v2, confined="instance" in launch)
 
 
 @sealed
@@ -657,7 +831,7 @@ class RunClosure:
 
     def address(self) -> str:
         return v1.digest(
-            run_domain_for(self.occurrence.receipt.confined),
+            run_domain_for(recipe_v2=True, confined=self.occurrence.receipt.confined),
             {
                 "recipe": self.recipe._projection(),
                 "result": _pairs(self.result.outputs),
