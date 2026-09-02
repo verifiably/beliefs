@@ -11,7 +11,46 @@ from beliefs import runrecord, stored
 from beliefs.errors import MalformedRecord
 from beliefs.identity import v1
 from beliefs.production import mint_dataset
-from beliefs.recipe import RunClosure
+from beliefs.recipe import RunClosure, run_domain_for, run_domain_for_projection
+
+
+def _projection(*, recipe_key, receipt):
+    return {"recipe": {recipe_key: "x"}, "occurrence": {"receipt": receipt}}
+
+
+_V1_RECEIPT = {"scratch_mapping": "/s", "argv": [], "rendered_config": [], "capabilities": []}
+_V2_RECEIPT = {**_V1_RECEIPT, "instance": {}, "rendered_environment": [], "mounts": []}
+_V3_RECEIPT = {"planning": _V1_RECEIPT, "execution": _V1_RECEIPT}
+_V4_RECEIPT = {"planning": _V2_RECEIPT, "execution": _V2_RECEIPT}
+
+
+def test_each_of_the_four_pairs_mints_its_own_domain():
+    assert run_domain_for(recipe_v2=False, confined=False) == "science.run.v1"
+    assert run_domain_for(recipe_v2=False, confined=True) == "science.run.v2"
+    assert run_domain_for(recipe_v2=True, confined=False) == "science.run.v3"
+    assert run_domain_for(recipe_v2=True, confined=True) == "science.run.v4"
+
+
+@pytest.mark.parametrize(
+    "recipe_key,receipt",
+    [
+        ("workflow_definition", _V1_RECEIPT),
+        ("workflow_definition", _V2_RECEIPT),
+        ("workflow_definition_identity", _V3_RECEIPT),
+        ("workflow_definition_identity", _V4_RECEIPT),
+    ],
+)
+def test_every_cross_pair_is_malformed(recipe_key, receipt):
+    with pytest.raises(MalformedRecord):
+        run_domain_for_projection(_projection(recipe_key=recipe_key, receipt=receipt))
+
+
+def test_the_recipe_shape_is_read_from_its_own_key_never_inferred_from_the_receipt():
+    assert run_domain_for_projection(_projection(recipe_key="workflow_definition", receipt=_V3_RECEIPT)) == "science.run.v3"
+    assert (
+        run_domain_for_projection(_projection(recipe_key="workflow_definition_identity", receipt=_V1_RECEIPT))
+        == "science.run.v1"
+    )
 
 
 @pytest.fixture
@@ -31,7 +70,7 @@ def make_closure():
 
 def test_projection_text_digests_to_the_address(assessment_closure) -> None:
     data = runrecord.projection_text(assessment_closure)
-    assert v1.digest("science.run.v1", v1.decode(data)) == assessment_closure.address()
+    assert v1.digest("science.run.v3", v1.decode(data)) == assessment_closure.address()
 
 
 def test_decode_round_trip_reads_shape_spec_and_token(assessment_closure) -> None:
@@ -98,7 +137,7 @@ def test_decimal_wire_arms_project_decode_recompute(make_closure) -> None:
     assert len(set(addresses)) == 4
     for closure, data, address in zip(closures, texts, addresses):
         parsed = runrecord.decode_projection(data)
-        assert v1.digest("science.run.v1", parsed) == address
+        assert v1.digest("science.run.v3", parsed) == address
         recipe_view = cast("dict[str, object]", parsed["recipe"])
         parameters = cast("dict[str, object]", recipe_view["parameters"])
         threshold = parameters["threshold"]

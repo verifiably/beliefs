@@ -9,7 +9,7 @@ from pathlib import PurePosixPath
 from types import MappingProxyType
 from typing import cast, final
 
-from beliefs.errors import BoundaryPolicyUnsupported, MalformedClosure, UnsafeInvocation
+from beliefs.errors import BoundaryPolicyUnsupported, MalformedClosure, MalformedRecord, UnsafeInvocation
 from beliefs.identity import v1
 from beliefs.sealed import sealed
 from beliefs.spec import (
@@ -59,6 +59,7 @@ __all__ = [
     "mount_plan_identity",
     "project_recipe",
     "run_domain_for",
+    "run_domain_for_projection",
     "supported_policy",
 ]
 
@@ -698,10 +699,29 @@ def _occurrence_projection(occurrence: Occurrence) -> dict[str, object]:
     }
 
 
-def run_domain_for(confined: bool) -> str:
-    """A confined receipt reshapes the run projection, so it takes the
-    successor run domain; the dispatch is by exact receipt shape (design §6.3)."""
-    return CONFINED_RUN_DOMAIN if confined else RUN_DOMAIN
+RUN_DOMAINS = {
+    (False, False): "science.run.v1",
+    (False, True): "science.run.v2",
+    (True, False): "science.run.v3",
+    (True, True): "science.run.v4",
+}
+
+
+def run_domain_for(*, recipe_v2: bool, confined: bool) -> str:
+    return RUN_DOMAINS[(recipe_v2, confined)]
+
+
+def run_domain_for_projection(parsed: Mapping[str, object]) -> str:
+    recipe = cast(Mapping[str, object], parsed["recipe"])
+    receipt = cast(Mapping[str, object], cast(Mapping[str, object], parsed["occurrence"])["receipt"])
+    composed = set(receipt) == {"planning", "execution"}
+    recipe_v2 = "workflow_definition" in recipe
+    if recipe_v2 == ("workflow_definition_identity" in recipe):
+        raise MalformedRecord("a recipe projection carries exactly one workflow member")
+    if recipe_v2 != composed:
+        raise MalformedRecord(f"recipe shape v{2 if recipe_v2 else 1} does not pair with this receipt shape (§3.5)")
+    launch = cast(Mapping[str, object], receipt["execution"]) if composed else receipt
+    return run_domain_for(recipe_v2=recipe_v2, confined="instance" in launch)
 
 
 @sealed
@@ -728,7 +748,7 @@ class RunClosure:
 
     def address(self) -> str:
         return v1.digest(
-            run_domain_for(self.occurrence.receipt.confined),
+            run_domain_for(recipe_v2=True, confined=self.occurrence.receipt.confined),
             {
                 "recipe": self.recipe._projection(),
                 "result": _pairs(self.result.outputs),

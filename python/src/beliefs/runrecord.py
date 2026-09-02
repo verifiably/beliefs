@@ -33,7 +33,7 @@ from beliefs.recipe import (
     _occurrence_projection,
     _pairs,
     mount_plan_identity,
-    run_domain_for,
+    run_domain_for_projection,
 )
 from beliefs.sealed import sealed
 
@@ -166,7 +166,6 @@ _RECIPE_KEYS = {
     "shape",
     "code_identity",
     "environment",
-    "workflow_definition_identity",
     "invocation",
     "inputs",
     "parameters",
@@ -182,16 +181,37 @@ def _validate_recipe(recipe: object) -> str:
     shape = _str_at(recipe.get("shape"), "$.recipe.shape")
     if shape not in SHAPES:
         _refuse("$.recipe.shape", f"{shape!r} is outside {SHAPES}")
-    expected = _RECIPE_KEYS | ({"spec_identity"} if shape == "assessment" else set())
+    recipe_v2 = "workflow_definition" in recipe
+    if recipe_v2 == ("workflow_definition_identity" in recipe):
+        _refuse("$.recipe", "carries exactly one workflow member")
+    workflow_member = "workflow_definition" if recipe_v2 else "workflow_definition_identity"
+    expected = _RECIPE_KEYS | {workflow_member} | ({"spec_identity"} if shape == "assessment" else set())
     _mapping(recipe, expected, "$.recipe")
     if shape == "assessment":
         _str_at(recipe["spec_identity"], "$.recipe.spec_identity")
     _component_at(recipe["code_identity"], "$.recipe.code_identity")
     _str_at(recipe["environment"], "$.recipe.environment")
-    _component_at(
-        recipe["workflow_definition_identity"],
-        "$.recipe.workflow_definition_identity",
-    )
+    if recipe_v2:
+        definition = _mapping(
+            recipe["workflow_definition"],
+            {"snakefile", "family_streams", "checkpoint_expanded_families"},
+            "$.recipe.workflow_definition",
+        )
+        _component_at(definition["snakefile"], "$.recipe.workflow_definition.snakefile")
+        family_streams = definition["family_streams"]
+        if not isinstance(family_streams, dict) or any(
+            type(family) is not str
+            or not isinstance(streams, list)
+            or any(type(stream) is not str for stream in streams)
+            for family, streams in family_streams.items()
+        ):
+            _refuse("$.recipe.workflow_definition.family_streams", "not a string to string-list object")
+        _str_list(
+            definition["checkpoint_expanded_families"],
+            "$.recipe.workflow_definition.checkpoint_expanded_families",
+        )
+    else:
+        _component_at(recipe["workflow_definition_identity"], "$.recipe.workflow_definition_identity")
     invocation = _mapping(
         recipe["invocation"],
         {"entrypoint", "targets", "bindings", "declared_outputs"},
@@ -339,6 +359,44 @@ def _validate_nondeterminism(value: object) -> None:
         )
 
 
+def _validate_launch(value: object, path: str) -> bool:
+    confined = _is_confined_receipt(value)
+    launch = _mapping(value, _CONFINED_RECEIPT_KEYS if confined else _RECEIPT_KEYS, path)
+    _str_at(launch["scratch_mapping"], f"{path}.scratch_mapping")
+    _str_list(launch["argv"], f"{path}.argv")
+    _pair_list(launch["rendered_config"], f"{path}.rendered_config")
+    capabilities = _str_list(launch["capabilities"], f"{path}.capabilities")
+    if any(capability not in CAPABILITIES for capability in capabilities):
+        _refuse(f"{path}.capabilities", f"outside the closed vocabulary {CAPABILITIES}")
+    if len(set(capabilities)) != len(capabilities):
+        _refuse(f"{path}.capabilities", "names a capability more than once")
+    if not confined:
+        return False
+    instance = _mapping(
+        launch["instance"],
+        {"namespaces", "mounts", "mount_plan_identity", "environment_identity"},
+        f"{path}.instance",
+    )
+    namespaces = _str_list(instance["namespaces"], f"{path}.instance.namespaces")
+    if sorted(namespaces) != list(NAMESPACES):
+        _refuse(f"{path}.instance.namespaces", f"not exactly {NAMESPACES}")
+    mounts = _triple_list(instance["mounts"], f"{path}.instance.mounts")
+    points = [point for point, _, _ in mounts]
+    if len(set(points)) != len(points):
+        _refuse(f"{path}.instance.mounts", "names a mountpoint more than once")
+    if any(access not in MOUNT_ACCESS for _, _, access in mounts):
+        _refuse(f"{path}.instance.mounts", f"access is not one of {MOUNT_ACCESS}")
+    recomputed = mount_plan_identity(tuple((point, role, access) for point, role, access in mounts))
+    if _str_at(instance["mount_plan_identity"], f"{path}.instance.mount_plan_identity") != recomputed:
+        _refuse(f"{path}.instance.mount_plan_identity", "is not the digest of its own mounts")
+    _component_at(instance["environment_identity"], f"{path}.instance.environment_identity")
+    rendered = _triple_list(launch["rendered_environment"], f"{path}.rendered_environment")
+    if any(kind not in RENDERED_KINDS for _, kind, _ in rendered):
+        _refuse(f"{path}.rendered_environment", f"kind is not one of {RENDERED_KINDS}")
+    _pair_list(launch["mounts"], f"{path}.mounts")
+    return True
+
+
 def _validate_occurrence(value: object) -> str:
     occurrence = _mapping(
         value,
@@ -381,45 +439,15 @@ def _validate_occurrence(value: object) -> str:
         _refuse(
             "$.occurrence.realized_seeds", "not a [job][stream] -> int object"
         )
-    confined = _is_confined_receipt(occurrence["receipt"])
-    receipt = _mapping(
-        occurrence["receipt"],
-        _CONFINED_RECEIPT_KEYS if confined else _RECEIPT_KEYS,
-        "$.occurrence.receipt",
-    )
-    _str_at(receipt["scratch_mapping"], "$.occurrence.receipt.scratch_mapping")
-    _str_list(receipt["argv"], "$.occurrence.receipt.argv")
-    _pair_list(
-        receipt["rendered_config"], "$.occurrence.receipt.rendered_config"
-    )
-    capabilities = _str_list(receipt["capabilities"], "$.occurrence.receipt.capabilities")
-    if any(capability not in CAPABILITIES for capability in capabilities):
-        _refuse("$.occurrence.receipt.capabilities", f"outside the closed vocabulary {CAPABILITIES}")
-    if len(set(capabilities)) != len(capabilities):
-        _refuse("$.occurrence.receipt.capabilities", "names a capability more than once")
-    if confined:
-        instance = _mapping(
-            receipt["instance"],
-            {"namespaces", "mounts", "mount_plan_identity", "environment_identity"},
-            "$.occurrence.receipt.instance",
-        )
-        namespaces = _str_list(instance["namespaces"], "$.occurrence.receipt.instance.namespaces")
-        if sorted(namespaces) != list(NAMESPACES):
-            _refuse("$.occurrence.receipt.instance.namespaces", f"not exactly {NAMESPACES}")
-        mounts = _triple_list(instance["mounts"], "$.occurrence.receipt.instance.mounts")
-        points = [point for point, _, _ in mounts]
-        if len(set(points)) != len(points):
-            _refuse("$.occurrence.receipt.instance.mounts", "names a mountpoint more than once")
-        if any(access not in MOUNT_ACCESS for _, _, access in mounts):
-            _refuse("$.occurrence.receipt.instance.mounts", f"access is not one of {MOUNT_ACCESS}")
-        recomputed = mount_plan_identity(tuple((point, role, access) for point, role, access in mounts))
-        if _str_at(instance["mount_plan_identity"], "$.occurrence.receipt.instance.mount_plan_identity") != recomputed:
-            _refuse("$.occurrence.receipt.instance.mount_plan_identity", "is not the digest of its own mounts")
-        _component_at(instance["environment_identity"], "$.occurrence.receipt.instance.environment_identity")
-        rendered = _triple_list(receipt["rendered_environment"], "$.occurrence.receipt.rendered_environment")
-        if any(kind not in RENDERED_KINDS for _, kind, _ in rendered):
-            _refuse("$.occurrence.receipt.rendered_environment", f"kind is not one of {RENDERED_KINDS}")
-        _pair_list(receipt["mounts"], "$.occurrence.receipt.mounts")
+    raw_receipt = occurrence["receipt"]
+    if isinstance(raw_receipt, dict) and set(raw_receipt) == {"planning", "execution"}:
+        receipt = _mapping(raw_receipt, {"planning", "execution"}, "$.occurrence.receipt")
+        planning_confined = _validate_launch(receipt["planning"], "$.occurrence.receipt.planning")
+        execution_confined = _validate_launch(receipt["execution"], "$.occurrence.receipt.execution")
+        if planning_confined != execution_confined:
+            _refuse("$.occurrence.receipt", "planning and execution disagree about confinement")
+    else:
+        _validate_launch(raw_receipt, "$.occurrence.receipt")
     return cast(str, occurrence["event_token"])
 
 
@@ -440,6 +468,17 @@ def _input_sort_key(row: dict[str, object]) -> tuple[str, str, str, str, str]:
     )
 
 
+def _reproject_launch(launch: dict[str, object]) -> None:
+    launch["rendered_config"] = sorted(cast("list[list[str]]", launch["rendered_config"]))
+    launch["capabilities"] = sorted(cast("list[str]", launch["capabilities"]))
+    if _is_confined_receipt(launch):
+        instance = cast(dict[str, object], launch["instance"])
+        instance["namespaces"] = sorted(cast("list[str]", instance["namespaces"]))
+        instance["mounts"] = sorted(cast("list[list[str]]", instance["mounts"]))
+        launch["rendered_environment"] = sorted(cast("list[list[str]]", launch["rendered_environment"]))
+        launch["mounts"] = sorted(cast("list[list[str]]", launch["mounts"]))
+
+
 def _reproject(parsed: dict[str, object]) -> dict[str, object]:
     rebuilt = cast(dict[str, object], deepcopy(parsed))
     recipe = cast(dict[str, object], rebuilt["recipe"])
@@ -453,6 +492,14 @@ def _reproject(parsed: dict[str, object]) -> dict[str, object]:
     policy["capabilities"] = sorted(
         cast("list[str]", policy["capabilities"])
     )
+    if "workflow_definition" in recipe:
+        definition = cast(dict[str, object], recipe["workflow_definition"])
+        family_streams = cast(dict[str, list[str]], definition["family_streams"])
+        for family, streams in family_streams.items():
+            family_streams[family] = sorted(streams)
+        definition["checkpoint_expanded_families"] = sorted(
+            cast("list[str]", definition["checkpoint_expanded_families"])
+        )
     nondeterminism = cast(dict[str, object], recipe["nondeterminism"])
     if nondeterminism.get("variant") == "seeded":
         plan = cast(dict[str, object], nondeterminism["plan"])
@@ -462,18 +509,11 @@ def _reproject(parsed: dict[str, object]) -> dict[str, object]:
     for job in cast("list[dict[str, object]]", occurrence["trace"]):
         job["wildcards"] = sorted(cast("list[list[str]]", job["wildcards"]))
     receipt = cast(dict[str, object], occurrence["receipt"])
-    receipt["rendered_config"] = sorted(
-        cast("list[list[str]]", receipt["rendered_config"])
-    )
-    receipt["capabilities"] = sorted(
-        cast("list[str]", receipt["capabilities"])
-    )
-    if _is_confined_receipt(receipt):
-        instance = cast(dict[str, object], receipt["instance"])
-        instance["namespaces"] = sorted(cast("list[str]", instance["namespaces"]))
-        instance["mounts"] = sorted(cast("list[list[str]]", instance["mounts"]))
-        receipt["rendered_environment"] = sorted(cast("list[list[str]]", receipt["rendered_environment"]))
-        receipt["mounts"] = sorted(cast("list[list[str]]", receipt["mounts"]))
+    if set(receipt) == {"planning", "execution"}:
+        _reproject_launch(cast(dict[str, object], receipt["planning"]))
+        _reproject_launch(cast(dict[str, object], receipt["execution"]))
+    else:
+        _reproject_launch(receipt)
     return rebuilt
 
 
@@ -510,11 +550,10 @@ def decode_run_record(node: Node) -> RunPublication | None:
     ):
         raise MalformedRecord(
             f"{node.id}: the run-closure facet is exactly {{'projection': <text>}}"
-        )
+    )
     data = facet["projection"].encode("utf-8")
     parsed = decode_projection(data)
-    occurrence_view = cast(dict[str, object], parsed["occurrence"])
-    address = v1.digest(run_domain_for(_is_confined_receipt(occurrence_view["receipt"])), parsed)
+    address = v1.digest(run_domain_for_projection(parsed), parsed)
     if node.id != run_ref(address):
         raise MalformedRecord(
             f"{node.id}: the recomputed address {address} is not the record id"

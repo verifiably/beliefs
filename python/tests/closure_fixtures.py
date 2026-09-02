@@ -8,11 +8,13 @@ from beliefs.recipe import (
     BoundaryReceipt,
     EnvironmentManifest,
     Invocation,
+    LaunchAttestation,
     Occurrence,
     Recipe,
     RecipeInput,
     ResultManifest,
     RunClosure,
+    WorkflowDefinitionSnapshot,
 )
 from beliefs.report import ActReport, Entry, RunAttemptEntry, RunRefusal, _mint_report
 from beliefs.spec import Deterministic, RealizedSeeds
@@ -42,7 +44,11 @@ def make_closure(
         environment=EnvironmentManifest(
             artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "6" * 64),)
         ),
-        workflow_definition_identity="sha256:" + "7" * 64,
+        workflow_definition=WorkflowDefinitionSnapshot(
+            snakefile_digest="sha256:" + "7" * 64,
+            family_streams={},
+            checkpoint_expanded_families=(),
+        ),
         invocation=Invocation(
             entrypoint="code/workflow/Snakefile",
             targets=("out-a", "out-b"),
@@ -73,9 +79,12 @@ def make_closure(
         trace=(),
         realized_seeds=RealizedSeeds({}),
         receipt=BoundaryReceipt(
-            scratch_mapping="/scratch",
-            argv=("snakemake",),
-            rendered_config=(("threshold", "0.5"),),
+            planning=LaunchAttestation(
+                scratch_mapping="/scratch", argv=("snakemake",), rendered_config=(("threshold", "0.5"),)
+            ),
+            execution=LaunchAttestation(
+                scratch_mapping="/scratch", argv=("snakemake",), rendered_config=(("threshold", "0.5"),)
+            ),
         ),
     )
     return RunClosure(recipe=recipe, result=result, occurrence=occurrence)
