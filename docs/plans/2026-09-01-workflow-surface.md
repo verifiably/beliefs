@@ -2060,7 +2060,8 @@ def test_a_confined_run_attests_both_launches_over_one_snapshot(tmp_path, confin
     receipt = outcome.run.occurrence.receipt
     assert receipt.planning.instance is not None and receipt.execution.instance is not None
     assert receipt.planning.instance.environment_identity == receipt.execution.instance.environment_identity
-    assert receipt.planning.instance.mount_plan_identity != receipt.execution.instance.mount_plan_identity
+    assert receipt.planning.instance.mount_plan_identity == receipt.execution.instance.mount_plan_identity
+    assert receipt.planning.mounts != receipt.execution.mounts
     assert receipt.confined is True
 
 
@@ -2084,8 +2085,8 @@ existing gated-launch sequence twice: once against the planning directory with
 `dry_run=True`, reading the plan from the events file; once against the
 execution output root as today. Each launch produces its own
 `LaunchAttestation` from the existing probe, and the two are composed into one
-`BoundaryReceipt`. The planning instance's mount plan names the planning
-directory, so the two mount-plan identities differ by construction.
+`BoundaryReceipt`. Their canonical sandbox mount-plan identity is the same;
+their attested host mappings differ because they name distinct directories.
 
 - [ ] **Step 4: Run the tests and watch them pass**
 

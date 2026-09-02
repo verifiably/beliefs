@@ -15,6 +15,7 @@ from fixtures_cut3 import (
     interp,
     replay_of,
     run_assessment,
+    run_production,
     spec_draft,
     spec_rules,
 )
@@ -34,9 +35,10 @@ from beliefs.identity import v1
 from beliefs.lineage import LineageSnapshot
 from beliefs.policy import PolicyBinding
 from beliefs.recipe import CAPABILITIES, CONFINED_POLICY, MINIMAL_POLICY, NAMESPACES
+from beliefs.record import AssessmentValue
 from beliefs.replay import CONFORMING, EquivalenceImplementation, conformance, derive_scope
 from beliefs.spec import freeze
-from beliefs.verify import admission_record
+from beliefs.verify import AssessmentVerification, admission_record
 
 pytestmark = pytest.mark.usefixtures("confined_host")
 
@@ -92,6 +94,35 @@ def minimal(tmp_path: Path, **kwargs):
     return run_assessment(tmp_path, port=MEMORY_PORT, boundary_policy=MINIMAL_POLICY, **kwargs)
 
 
+def test_a_confined_run_attests_both_launches_over_one_snapshot(tmp_path):
+    outcome = run_production(
+        tmp_path,
+        port=MEMORY_PORT,
+        boundary_policy=CONFINED_POLICY,
+    )
+    assert isinstance(outcome, RunMinted)
+    receipt = outcome.run.occurrence.receipt
+    assert receipt.planning.instance is not None and receipt.execution.instance is not None
+    assert receipt.planning.instance.environment_identity == receipt.execution.instance.environment_identity
+    assert receipt.planning.instance.mount_plan_identity == receipt.execution.instance.mount_plan_identity
+    assert receipt.planning.mounts != receipt.execution.mounts
+    assert receipt.confined is True
+
+
+def test_each_confined_launch_executes_exactly_one_engine_argv(tmp_path):
+    outcome = run_production(
+        tmp_path,
+        port=MEMORY_PORT,
+        boundary_policy=CONFINED_POLICY,
+    )
+    assert isinstance(outcome, RunMinted)
+    receipt = outcome.run.occurrence.receipt
+    for launch in (receipt.planning, receipt.execution):
+        assert launch.argv.count("-m") == 1 and "snakemake" in launch.argv
+    assert "--dryrun" in receipt.planning.argv
+    assert "--dryrun" not in receipt.execution.argv
+
+
 def confined_pair(tmp_path: Path, shared_scratch: Path, *, snakefile=SNAKEFILE_DETERMINISTIC, replay_cores=1):
     original = confined(tmp_path / "original", shared_scratch, snakefile=snakefile)
     assert isinstance(original, RunMinted), original
@@ -103,6 +134,7 @@ def confined_pair(tmp_path: Path, shared_scratch: Path, *, snakefile=SNAKEFILE_D
 def belief_over(minted: RunMinted, verification) -> Belief | NoBelief:
     spec = freeze(spec_draft(), held_rules=spec_rules())
     assessment = build_assessment(minted.run, specs={spec.identity: spec}, implementations=interp())
+    assert isinstance(assessment, AssessmentValue)
     run_value = run_record(minted.run)
     observed = tuple(dataset_address(entry.dataset) for entry in run_value.inputs if entry.role == "observes")
     records = Records(
@@ -139,6 +171,7 @@ def belief_over(minted: RunMinted, verification) -> Belief | NoBelief:
 def admission_of(minted: RunMinted, verification):
     spec = freeze(spec_draft(), held_rules=spec_rules())
     assessment = build_assessment(minted.run, specs={spec.identity: spec}, implementations=interp())
+    assert isinstance(assessment, AssessmentValue)
     run_value = run_record(minted.run)
     return admit(assessment, run_value, observations_for(run_value), (verification,))
 
@@ -207,15 +240,21 @@ def test_r15u5_the_receipt_names_the_capabilities_observed_in_force(tmp_path, sh
     outcome = confined(tmp_path / "confined", shared_scratch)
     assert isinstance(outcome, RunMinted), outcome
     receipt = outcome.run.occurrence.receipt
-    assert receipt.confined and receipt.capabilities == CAPABILITIES
-    assert receipt.instance is not None
-    assert tuple(sorted(receipt.instance.namespaces)) == NAMESPACES
-    assert receipt.instance.environment_identity == outcome.run.recipe.environment.identity()
-    assert all(part.startswith("/science/") or not part.startswith("/") for part in receipt.argv)
-    assert dict(receipt.mounts)["/science/bundle"].startswith(str(shared_scratch))
-    assert not any(str(shared_scratch) in value for _, _, value in receipt.rendered_environment)
+    execution = receipt.execution
+    assert receipt.confined and execution.capabilities == CAPABILITIES
+    assert execution.instance is not None
+    assert tuple(sorted(execution.instance.namespaces)) == NAMESPACES
+    assert execution.instance.environment_identity == outcome.run.recipe.environment.identity()
+    assert all(part.startswith("/science/") or not part.startswith("/") for part in execution.argv)
+    assert execution.mounts is not None and execution.rendered_environment is not None
+    assert dict(execution.mounts)["/science/bundle"].startswith(str(shared_scratch))
+    assert not any(str(shared_scratch) in value for _, _, value in execution.rendered_environment)
     plain = minimal(tmp_path / "host")
-    assert isinstance(plain, RunMinted) and plain.run.occurrence.receipt.capabilities == () and plain.run.occurrence.receipt.instance is None
+    assert (
+        isinstance(plain, RunMinted)
+        and plain.run.occurrence.receipt.execution.capabilities == ()
+        and plain.run.occurrence.receipt.execution.instance is None
+    )
 
 
 def test_r15u6_a_minimal_run_is_valid_and_a_minimal_pair_stays_same_environment(tmp_path):
@@ -237,6 +276,7 @@ def test_r4u1_a_confined_pair_derives_clean_environment(tmp_path, shared_scratch
 def test_end_to_end_a_passing_clean_environment_verification_admits_and_yields_belief(tmp_path, shared_scratch):
     original, replayed = confined_pair(tmp_path, shared_scratch)
     verification = verification_of((original, replayed))
+    assert isinstance(verification, AssessmentVerification)
     assert verification.scope == "clean-environment" and verification.verdict == "passed"
     record = admission_record(verification)
     assert isinstance(admission_of(original, record), Admitted)
@@ -248,6 +288,7 @@ def test_r9u1_an_inconclusive_verification_admits_nothing(tmp_path, shared_scrat
     original, replayed = confined_pair(tmp_path, shared_scratch)
     unreadable = EquivalenceImplementation(identity="impl-eq-1", evaluate=lambda left, right: "inconclusive", fixtures=())
     verification = verification_of((original, replayed), held_rules={"impl-eq-1": unreadable})
+    assert isinstance(verification, AssessmentVerification)
     assert verification.verdict == "inconclusive" and verification.scope == "clean-environment"
     verdict = admission_of(original, admission_record(verification))
     assert isinstance(verdict, AdmissionRefused) and verdict.reason.startswith("not-admitted-verification-state")
@@ -270,6 +311,7 @@ def test_r16u1_a_not_certified_pair_admits_nothing(tmp_path, shared_scratch):
     assert original.run.result == replayed.run.result
     assert conformance(original.run) == CONFORMING and conformance(replayed.run) != CONFORMING
     verification = verification_of((original, replayed))
+    assert isinstance(verification, AssessmentVerification)
     assert verification.scope == "not-certified" and verification.verdict == "passed"
     record = admission_record(verification)
     assert isinstance(admission_of(original, record), AdmissionRefused)
@@ -292,7 +334,7 @@ def test_r21u2_two_differently_mounted_scratch_roots_yield_equal_recipes_and_cle
     replayed = replay_of(original, tmp_path / "replayed", port=MEMORY_PORT, scratch_base=other_scratch)
     assert isinstance(replayed, RunMinted), replayed
     assert original.run.recipe.identity() == replayed.run.recipe.identity()
-    assert original.run.occurrence.receipt.scratch_mapping != replayed.run.occurrence.receipt.scratch_mapping
-    assert original.run.occurrence.receipt.argv == replayed.run.occurrence.receipt.argv
+    assert original.run.occurrence.receipt.execution.scratch_mapping != replayed.run.occurrence.receipt.execution.scratch_mapping
+    assert original.run.occurrence.receipt.execution.argv == replayed.run.occurrence.receipt.execution.argv
     assert derive_scope(original.run, replayed.run, certification=None) == "clean-environment"
     assert str(other_scratch) not in v1.encode(replayed.run.recipe._projection()).decode("utf-8")
