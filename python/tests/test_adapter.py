@@ -29,7 +29,61 @@ from beliefs.adapter import (
     tree_digest,
     validate_entrypoint,
 )
-from beliefs.errors import MalformedClosure, UnsafeInvocation
+from beliefs.errors import MalformedClosure, SeedClaimMalformed, UnsafeInvocation
+from beliefs.recipe import job_key
+from beliefs.seeds import record_digest_of
+
+
+def _write_claim(directory: Path, record: dict[str, object]) -> None:
+    directory.mkdir(exist_ok=True)
+    (directory / f"{record_digest_of(record)}.json").write_text(
+        json.dumps(record, sort_keys=True, separators=(",", ":"))
+    )
+
+
+def _claim(stream: str = "model-initialization", seed: int = 7) -> dict[str, object]:
+    key = job_key("fit", (("sample", "a"),))
+    return {
+        "rule": "fit",
+        "wildcards": {"sample": "a"},
+        "job_key": key,
+        "stream": stream,
+        "seed": seed,
+    }
+
+
+def test_claims_are_read_into_the_two_level_map(tmp_path) -> None:
+    _write_claim(tmp_path / ".seeds", _claim())
+    _write_claim(tmp_path / ".seeds", _claim(stream="resample-draws", seed=9))
+    key = job_key("fit", (("sample", "a"),))
+    assert read_realized_seeds(tmp_path).seeds == {
+        key: {"model-initialization": 7, "resample-draws": 9}
+    }
+
+
+def test_a_claim_whose_name_disagrees_with_its_content_is_refused(tmp_path) -> None:
+    directory = tmp_path / ".seeds"
+    directory.mkdir()
+    (directory / ("00" * 32 + ".json")).write_text(
+        json.dumps(_claim(), sort_keys=True, separators=(",", ":"))
+    )
+    with pytest.raises(SeedClaimMalformed):
+        read_realized_seeds(tmp_path)
+
+
+def test_a_claim_key_is_checked_against_its_rule_and_wildcards(tmp_path) -> None:
+    record = _claim()
+    record["job_key"] = job_key("fit", (("sample", "b"),))
+    _write_claim(tmp_path / ".seeds", record)
+    with pytest.raises(SeedClaimMalformed):
+        read_realized_seeds(tmp_path)
+
+
+def test_a_symlinked_claim_directory_is_still_refused(tmp_path) -> None:
+    (tmp_path / "elsewhere").mkdir()
+    (tmp_path / ".seeds").symlink_to(tmp_path / "elsewhere")
+    with pytest.raises(MalformedClosure):
+        read_realized_seeds(tmp_path)
 
 
 def _definition(**overrides):

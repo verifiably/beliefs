@@ -21,10 +21,11 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import cast, final
 
-from beliefs.errors import ClosureUnsupported, MalformedClosure, UnsafeInvocation
+from beliefs.errors import ClosureUnsupported, MalformedClosure, SeedClaimMalformed, UnsafeInvocation
 from beliefs.recipe import WORKFLOW_DEFINITION_DOMAIN as _WORKFLOW_DEFINITION_DOMAIN
-from beliefs.recipe import EnvironmentManifest, EnvironmentReference, TraceJob, WorkflowDefinitionSnapshot
+from beliefs.recipe import EnvironmentManifest, EnvironmentReference, TraceJob, WorkflowDefinitionSnapshot, job_key
 from beliefs.sealed import sealed
+from beliefs.seeds import record_digest_of
 from beliefs.spec import RealizedSeeds
 
 _CONFIG_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -806,19 +807,29 @@ def read_realized_seeds(scratch: Path) -> RealizedSeeds:
             record = json.loads(report.read_text(), object_pairs_hook=_object_without_duplicate_keys)
         except (OSError, UnicodeError, json.JSONDecodeError) as error:
             raise MalformedClosure(f"seed report {report.name!r} is unreadable") from error
-        if not isinstance(record, dict):
-            raise MalformedClosure(f"seed report {report.name!r} is not nested by job and stream")
-        for job, per_stream in record.items():
-            if type(job) is not str or not isinstance(per_stream, dict):
-                raise MalformedClosure(f"seed report {report.name!r} is not nested by job and stream")
-            for stream, seed in per_stream.items():
-                if type(stream) is not str or type(seed) is not int:
-                    raise MalformedClosure(f"seed report {report.name!r} has a malformed claim")
-                key = (job, stream)
-                if key in seen:
-                    raise MalformedClosure(f"seed report repeats claim {job!r}/{stream!r}")
-                seen.add(key)
-                merged.setdefault(job, {})[stream] = seed
+        if not isinstance(record, dict) or set(record) != {"rule", "wildcards", "job_key", "stream", "seed"}:
+            raise SeedClaimMalformed(f"seed report {report.name!r} is not one exact claim")
+        rule, wildcards = record["rule"], record["wildcards"]
+        claimed_key, stream, seed = record["job_key"], record["stream"], record["seed"]
+        if (
+            type(rule) is not str
+            or not isinstance(wildcards, dict)
+            or any(type(name) is not str or type(value) is not str for name, value in wildcards.items())
+            or type(claimed_key) is not str
+            or type(stream) is not str
+            or type(seed) is not int
+        ):
+            raise SeedClaimMalformed(f"seed report {report.name!r} has a malformed claim")
+        if report.stem != record_digest_of(record):
+            raise SeedClaimMalformed(f"seed report {report.name!r} disagrees with its content digest")
+        expected_key = job_key(rule, tuple(sorted(cast(dict[str, str], wildcards).items())))
+        if claimed_key != expected_key:
+            raise SeedClaimMalformed(f"seed report {report.name!r} disagrees with its rule and wildcards")
+        key = (claimed_key, stream)
+        if key in seen:
+            raise SeedClaimMalformed(f"seed report repeats claim {claimed_key!r}/{stream!r}")
+        seen.add(key)
+        merged.setdefault(claimed_key, {})[stream] = seed
     return RealizedSeeds(seeds=merged)
 
 
