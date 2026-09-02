@@ -701,6 +701,10 @@ class DefinitionPlanMismatch(RecordError):
     """A workflow definition's declared streams disagree with its seed plan."""
 
 
+class SeedClaimMalformed(RecordError):
+    """A job cannot write one unambiguous seed claim."""
+
+
 class RecordUndecodable(RecordError):
     """Captured bytes cannot be read as the named published record."""
 
