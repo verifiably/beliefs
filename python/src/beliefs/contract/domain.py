@@ -457,6 +457,8 @@ def parse_domain_contract(
     _fields(root, _CONTRACT_FIELDS, frozenset({"description"}), source)
 
     namespace = _name(root["contract"], f"{source}: contract")
+    if namespace == "coordination":
+        raise MalformedContract(f"{source}: 'coordination' is reserved for the coordination contract")
     if namespace == base.name:
         raise MalformedContract(
             f"{source}: {namespace!r} is the base contract's namespace. Operators are domain-issued without "

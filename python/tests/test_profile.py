@@ -12,6 +12,7 @@ from typing import ClassVar
 
 import pytest
 import yaml
+from coordination_fixtures import COORDINATION_DOCUMENT, coordination_contract
 
 import beliefs.profile as profile_module
 from beliefs.claim import Referent, build_claim
@@ -26,6 +27,68 @@ from beliefs.errors import (
     WithdrawnFromAuthoring,
 )
 from beliefs.profile import ProfileSpec, compile_profile
+
+
+def test_coordination_compiles_into_immutable_authorization(base_contract):
+    contract = coordination_contract()
+    compiled = compile_profile(base_contract, [], coordination=contract)
+    assert set(compiled.coordination_kinds) == set(contract.kinds)
+    assert compiled.coordination_address_root == "project"
+    assert compiled.coordination_query_kinds == frozenset(contract.query_kinds)
+    assert compiled.coordination_query_relations == frozenset(contract.query_relations)
+    assert compiled.activated_contracts["coordination"] == contract.content_identity
+
+
+def test_no_coordination_contract_preserves_the_pre_cut_compiled_identity(base_contract):
+    before = compile_profile(base_contract, [])
+    assert before.compiled_identity == "343e9aecf49a0042962a92921da3d3a9e5416a42638e20e7a906658b806af411"
+    assert compile_profile(base_contract, [], coordination=None).compiled_identity == before.compiled_identity
+    assert before.coordination_kinds == {}
+
+
+def test_coordination_editorial_edits_do_not_recompile(base_contract):
+    genesis = coordination_contract()
+    editorial_document = copy.deepcopy(COORDINATION_DOCUMENT)
+    editorial_document.update(
+        version=2,
+        lineage={"successor": genesis.content_identity},
+        description="new words",
+    )
+    editorial = coordination_contract(editorial_document, genesis)
+    assert editorial.content_identity != genesis.content_identity
+    assert (
+        compile_profile(base_contract, [], coordination=editorial).compiled_identity
+        == compile_profile(base_contract, [], coordination=genesis).compiled_identity
+    )
+
+
+def test_coordination_schema_edits_recompile(base_contract):
+    genesis = coordination_contract()
+    schema_document = copy.deepcopy(COORDINATION_DOCUMENT)
+    schema_document["version"] = 2
+    schema_document["kinds"]["publication"] = {
+        "fields": ["name", "body", "author", "at"],
+        "query_versions": [],
+    }
+    schema = coordination_contract(schema_document)
+    assert (
+        compile_profile(base_contract, [], coordination=schema).compiled_identity
+        != compile_profile(base_contract, [], coordination=genesis).compiled_identity
+    )
+
+
+def test_coordination_compile_refuses_unknown_query_kind(base_contract):
+    document = copy.deepcopy(COORDINATION_DOCUMENT)
+    document["query_vocabulary"]["kinds"].append("not-world")
+    with pytest.raises(ProfileError, match="query vocabulary"):
+        compile_profile(base_contract, [], coordination=coordination_contract(document))
+
+
+def test_coordination_compile_refuses_unknown_query_relation(base_contract):
+    document = copy.deepcopy(COORDINATION_DOCUMENT)
+    document["query_vocabulary"]["relations"].append("not-a-relation")
+    with pytest.raises(ProfileError, match="query vocabulary"):
+        compile_profile(base_contract, [], coordination=coordination_contract(document))
 
 
 @pytest.fixture()

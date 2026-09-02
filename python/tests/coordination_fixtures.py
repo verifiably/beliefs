@@ -1,6 +1,7 @@
 from copy import deepcopy
 
 from beliefs.contract.coordination import parse_coordination_contract
+from beliefs.profile import compile_profile
 
 COORDINATION_DOCUMENT = {
     "contract": "coordination",
@@ -68,3 +69,7 @@ def coordination_contract(document=None, predecessor=None):
         source="<coordination-test>",
         predecessor=predecessor,
     )
+
+
+def coordination_profile(base_contract, *, document=None):
+    return compile_profile(base_contract, [], coordination=coordination_contract(document))
