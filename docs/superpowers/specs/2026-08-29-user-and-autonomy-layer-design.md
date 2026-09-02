@@ -1,7 +1,7 @@
 # User and autonomy layers — design
 
 **Date:** 2026-08-29
-**Status:** approved in session 2026-08-29; sub-project 0 delivered 2026-08-30: the rename (`science` → `beliefs`, repository and remote included) and the seeded `science` and `autonomy` repositories. Sub-project 1 designed 2026-08-31: `2026-08-31-coordination-and-view-kinds-design.md` beside this document elaborates §4.1–§4.2, adds W17/W18, and froze conformance cut 14 at `c07bf72`; not implemented
+**Status:** approved in session 2026-08-29; sub-project 0 delivered 2026-08-30: the rename (`science` → `beliefs`, repository and remote included) and the seeded `science` and `autonomy` repositories. Sub-project 1 delivered 2026-09-02: `../../designs/2026-08-31-coordination-and-view-kinds-design.md` elaborates §4.1–§4.2, adds W17/W18, and is implemented through conformance cut 14, with only W17 intent-position deferred to `publish`
 **Scope:** the division of the stack above the epistemic kernel into a daily
 surface and an autonomy layer, the rename that makes the division nameable,
 and the sub-projects that build it. It selects no cut scope and freezes no
@@ -227,9 +227,8 @@ the project identity and the local id, both of which survive every rename
 and every re-query; a reference to a view reads the current tip unless it
 names a revision explicitly.
 
-This is the roadmap's tier-3 `coordination-addressing` boundary, and the
-above answers its question. The boundary moves to the roadmap's `mutation`
-lane at the next re-rank. No kind is minted anywhere else — `science`
+This was the roadmap's `coordination-addressing` boundary, discharged by cut
+14 on 2026-09-02. No kind is minted anywhere else — `science`
 cannot declare one, and a kind a command wants is a request to `beliefs`.
 
 ### 4.2 A project is a view, and a user has one world
@@ -915,7 +914,7 @@ column says so.
 | # | sub-project | repository | depends on | starts |
 |---|---|---|---|---|
 | 0 | **Rename and seed** — `science` → `beliefs`; ledger §5 ruling; glossary; create `science` and `autonomy` with a README pointing here | kernel, new | nothing | now, between lane merges |
-| 1 | **Coordination and view kinds** — opaque project identity minting, `(project, local id)` addressing, the coordination revision family (one or more predecessor tips; the general at-commit rule under the root lock; the tip rule), W11, W12, W13's two-projects negative; the coordination contract in `beliefs`; the `foundations.md` extension | `beliefs` | none — it is the tier-3 answer and joins the `mutation` lane | now |
+| 1 | **Coordination and view kinds** — opaque project identity minting, `(project, local id)` addressing, the coordination revision family (one or more predecessor tips; the general at-commit rule under the root lock; the tip rule), W11, W12, W13's two-projects negative; the coordination contract in `beliefs`; the `foundations.md` extension | `beliefs` | delivered 2026-09-02 by cut 14; W17 intent-position remains with item 5 | complete |
 | 2 | **Command framework** — declaration schema, write classes, budgeted renderer, preamble, adapter generator with the Claude Code target, CLI and MCP over `beliefs` reads; the writer endpoint with its bound permit, endpoint-set actor and session ledger; the write permit on every `beliefs` write entry point | `science`, `beliefs` | 0 | now, against today's kernel reads |
 | 3 | **Biology domain pack** — GO, HP, EFO, MONDO bindings; mm30's operator vocabulary | `beliefs/domains/biology` | the `domain-boundary` lane | with that lane |
 | 4 | **The dogfood command set** — the dozen commands over a real world root; mm30 reproduced, not migrated, as the first corpus | `science` | 1, 2, 3; `run-confinement` and `workflow-surface` for a real assessment | after 2; grows as lanes land |
@@ -929,11 +928,9 @@ proposition, `run` executes a real Snakemake analysis under confinement,
 `verify` reaches `clean-environment`, and `assess` admits the result to a
 computed belief — every step a governed record.
 
-**What this adds to the ledger.** Nothing new: items 1 and 3 already carry
-ids (`coordination-addressing`, `domain-boundary`). Item 1's answer moves
-`coordination-addressing` from tier 3 to the `mutation` lane at the next
-re-rank, and the coordination-record bullet leaves `open-questions.md` in
-the same commit.
+**What this adds to the ledger.** Item 3 still carries `domain-boundary`.
+Item 1's `coordination-addressing` boundary left the live ledger when cut 14
+discharged; `publish` retains W17 intent-position.
 
 ## 9. Verification posture shared by the three repositories
 
@@ -990,3 +987,15 @@ the same commit.
 - **A permit threaded by the caller.** Any code in the writer's process can
   mint one; only a process boundary with filesystem denial makes the tier a
   fact rather than a convention.
+
+## 11. Intent-position evidence correction — 2026-09-02
+
+The coordination-and-view-kinds design §11.6 supersedes this document's claim
+that standing predecessor tips are derivable from the source chain prefix
+alone. The present intent entry carries only its payload, transaction entries
+carry path-state fingerprints rather than coordination record content, and a
+multi-corpus resolver reads chains other than the source's. Cut 14 therefore
+implements no caller-asserted stand-in. The semantic intent-position rule and
+its proof shape stay with sub-project 5's `publish`, their first operational
+consumer, where the versioned publish intent can bind the evidence it actually
+requires.

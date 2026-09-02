@@ -15,6 +15,7 @@ from beliefs.errors import MalformedRecord, TargetAmbiguous, TargetUnresolvable
 from beliefs.recipe import (
     REQUIRED_FOR_CLEAN_ENVIRONMENT,
     BoundaryReceipt,
+    LaunchAttestation,
     ResultManifest,
     RunClosure,
     WorkflowDefinitionSnapshot,
@@ -238,6 +239,14 @@ def conformance(run: RunClosure) -> str:
     return CONFORMING
 
 
+def _launch_qualifies(receipt: LaunchAttestation, environment_identity: str) -> bool:
+    if receipt.instance is None:
+        return False
+    if not set(REQUIRED_FOR_CLEAN_ENVIRONMENT) <= set(receipt.capabilities):
+        return False
+    return receipt.instance.environment_identity == environment_identity
+
+
 def qualifies(receipt: BoundaryReceipt, environment_identity: str) -> bool:
     """§7.3a over the closed vocabulary — containment, never an ordering — plus
     the fresh-instance conjunct, bound to the replayed recipe's environment
@@ -245,6 +254,8 @@ def qualifies(receipt: BoundaryReceipt, environment_identity: str) -> bool:
     nothing here."""
     if type(receipt) is not BoundaryReceipt:
         raise MalformedRecord("qualification reads a BoundaryReceipt")
+    if receipt.planning is receipt.execution:
+        return _launch_qualifies(receipt.execution, environment_identity)
     if receipt.execution.instance is None:
         return False
     if not set(REQUIRED_FOR_CLEAN_ENVIRONMENT) <= set(receipt.execution.capabilities):

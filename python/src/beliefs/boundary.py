@@ -290,7 +290,7 @@ def _stage_inputs(addresses: tuple[str, ...], held_inputs: Mapping[str, Path], s
     return identities
 
 
-def _render_config(recipe: Recipe, snapshot: WorkflowDefinitionSnapshot) -> dict[str, str]:
+def _render_config(recipe: Recipe, _definition: WorkflowDefinition | WorkflowDefinitionSnapshot) -> dict[str, str]:
     config = {key: str(value) for key, value in recipe.parameters.items()}
     reserved = {"seed_roots", "seed_derivation_rule"}
     if collisions := sorted(reserved & set(config)):
@@ -522,7 +522,7 @@ def _execute_run(
             boundary_policy=boundary_policy,
         )
 
-        config = _render_config(recipe, definition.snapshot())
+        config = _render_config(recipe, definition)
         _check_definition_plan(definition, recipe.nondeterminism)
 
         planning_dir = Path(tempfile.mkdtemp(prefix="planning-", dir=scratch_base))

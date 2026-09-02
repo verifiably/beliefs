@@ -140,7 +140,7 @@ def confined_pair(tmp_path: Path, shared_scratch: Path, *, snakefile=SNAKEFILE_D
 def belief_over(minted: RunMinted, verification) -> Belief | NoBelief:
     spec = freeze(spec_draft(), held_rules=spec_rules())
     assessment = build_assessment(minted.run, specs={spec.identity: spec}, implementations=interp())
-    assert isinstance(assessment, AssessmentValue)
+    assert isinstance(assessment, AssessmentValue), assessment
     run_value = run_record(minted.run)
     observed = tuple(dataset_address(entry.dataset) for entry in run_value.inputs if entry.role == "observes")
     records = Records(
@@ -177,7 +177,7 @@ def belief_over(minted: RunMinted, verification) -> Belief | NoBelief:
 def admission_of(minted: RunMinted, verification):
     spec = freeze(spec_draft(), held_rules=spec_rules())
     assessment = build_assessment(minted.run, specs={spec.identity: spec}, implementations=interp())
-    assert isinstance(assessment, AssessmentValue)
+    assert isinstance(assessment, AssessmentValue), assessment
     run_value = run_record(minted.run)
     return admit(assessment, run_value, observations_for(run_value), (verification,))
 

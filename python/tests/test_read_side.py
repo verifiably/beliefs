@@ -28,11 +28,11 @@ from beliefs.traversal import LineageEntry, RelationEntry, closure
 CITES = "cites"
 
 
-def note(slug: str, *, relations=()) -> Node:
+def memo(slug: str, *, relations=()) -> Node:
     """A prose node with relations and no governed facet — the plain carrier for
     the relation fixtures, which are about edges and not about payload."""
-    node_id = f"note:{slug}"
-    return Node(id=node_id, kind="note", title=slug, relations=list(relations))
+    node_id = f"memo:{slug}"
+    return Node(id=node_id, kind="memo", title=slug, relations=list(relations))
 
 
 def cites(source: str, target: str, *, directed: bool = True, predicate: str = CITES) -> Relation:
@@ -53,47 +53,47 @@ class TestTheOneAlgorithmsSharedBehaviour:
     def test_a_chain_is_walked_transitively(self, tmp_path):
         view = seed(
             tmp_path,
-            note("a", relations=[cites("note:a", "note:b")]),
-            note("b", relations=[cites("note:b", "note:c")]),
-            note("c"),
+            memo("a", relations=[cites("memo:a", "memo:b")]),
+            memo("b", relations=[cites("memo:b", "memo:c")]),
+            memo("c"),
         )
-        assert relation_walk(view, "note:a").reached == ("note:b", "note:c")
+        assert relation_walk(view, "memo:a").reached == ("memo:b", "memo:c")
 
     def test_a_diamond_reaches_each_node_once(self, tmp_path):
         view = seed(
             tmp_path,
-            note("a", relations=[cites("note:a", "note:b"), cites("note:a", "note:c")]),
-            note("b", relations=[cites("note:b", "note:d")]),
-            note("c", relations=[cites("note:c", "note:d")]),
-            note("d"),
+            memo("a", relations=[cites("memo:a", "memo:b"), cites("memo:a", "memo:c")]),
+            memo("b", relations=[cites("memo:b", "memo:d")]),
+            memo("c", relations=[cites("memo:c", "memo:d")]),
+            memo("d"),
         )
-        assert relation_walk(view, "note:a").reached == ("note:b", "note:c", "note:d")
+        assert relation_walk(view, "memo:a").reached == ("memo:b", "memo:c", "memo:d")
 
     def test_a_cycle_terminates_and_does_not_readmit_the_start(self, tmp_path):
         view = seed(
             tmp_path,
-            note("a", relations=[cites("note:a", "note:b")]),
-            note("b", relations=[cites("note:b", "note:a")]),
+            memo("a", relations=[cites("memo:a", "memo:b")]),
+            memo("b", relations=[cites("memo:b", "memo:a")]),
         )
-        assert relation_walk(view, "note:a").reached == ("note:b",)
+        assert relation_walk(view, "memo:a").reached == ("memo:b",)
 
     def test_the_start_is_never_in_the_reached_set(self, tmp_path):
         # Start-excluding: substrate §5's inspected set writes the union out
         # because the walk does not, and a walk that quietly included its start
         # would make `{root} ∪ closure` a no-op nobody could see fail.
-        view = seed(tmp_path, note("a", relations=[cites("note:a", "note:a")]), note("b"))
-        assert relation_walk(view, "note:a").reached == ()
+        view = seed(tmp_path, memo("a", relations=[cites("memo:a", "memo:a")]), memo("b"))
+        assert relation_walk(view, "memo:a").reached == ()
 
     def test_an_unresolvable_step_is_skipped_and_reported_with_its_source_and_position(self, tmp_path):
         view = seed(
             tmp_path,
-            note("a", relations=[cites("note:a", "note:gone"), cites("note:a", "note:b")]),
-            note("b"),
+            memo("a", relations=[cites("memo:a", "memo:gone"), cites("memo:a", "memo:b")]),
+            memo("b"),
         )
-        walk = relation_walk(view, "note:a")
-        assert walk.reached == ("note:b",)  # skipped, not fatal
+        walk = relation_walk(view, "memo:a")
+        assert walk.reached == ("memo:b",)  # skipped, not fatal
         assert walk.unresolved == (
-            RelationEntry(source="note:a", position=0, predicate=CITES, target="note:gone"),
+            RelationEntry(source="memo:a", position=0, predicate=CITES, target="memo:gone"),
         )
 
     def test_two_dangling_edges_from_different_sources_are_two_entries(self, tmp_path):
@@ -101,47 +101,47 @@ class TestTheOneAlgorithmsSharedBehaviour:
         # produce one identical entry and two defects deduplicate into one.
         view = seed(
             tmp_path,
-            note("a", relations=[cites("note:a", "note:b"), cites("note:a", "note:gone")]),
-            note("b", relations=[cites("note:b", "note:gone")]),
+            memo("a", relations=[cites("memo:a", "memo:b"), cites("memo:a", "memo:gone")]),
+            memo("b", relations=[cites("memo:b", "memo:gone")]),
         )
-        walk = relation_walk(view, "note:a")
+        walk = relation_walk(view, "memo:a")
         assert [
             (entry.source, entry.position) for entry in walk.unresolved if isinstance(entry, RelationEntry)
-        ] == [("note:a", 1), ("note:b", 0)]
+        ] == [("memo:a", 1), ("memo:b", 0)]
 
 
 class TestTheRelationAdapter:
     def test_an_unrelated_predicate_is_not_followed(self, tmp_path):
         view = seed(
             tmp_path,
-            note("a", relations=[cites("note:a", "note:b", predicate="mentions")]),
-            note("b"),
+            memo("a", relations=[cites("memo:a", "memo:b", predicate="mentions")]),
+            memo("b"),
         )
-        assert relation_walk(view, "note:a").reached == ()
+        assert relation_walk(view, "memo:a").reached == ()
 
     def test_a_deprecated_ref_resolves_to_the_live_node(self, tmp_path):
-        live = note("b")
-        live.deprecated_ids = ["note:old"]
-        view = seed(tmp_path, note("a", relations=[cites("note:a", "note:old")]), live)
-        assert relation_walk(view, "note:a").reached == ("note:b",)
+        live = memo("b")
+        live.deprecated_ids = ["memo:old"]
+        view = seed(tmp_path, memo("a", relations=[cites("memo:a", "memo:old")]), live)
+        assert relation_walk(view, "memo:a").reached == ("memo:b",)
 
     def test_an_undirected_relation_is_reached_from_its_stored_source(self, tmp_path):
         view = seed(
             tmp_path,
-            note("a", relations=[cites("note:a", "note:b", directed=False)]),
-            note("b"),
+            memo("a", relations=[cites("memo:a", "memo:b", directed=False)]),
+            memo("b"),
         )
-        assert relation_walk(view, "note:a").reached == ("note:b",)
+        assert relation_walk(view, "memo:a").reached == ("memo:b",)
 
     def test_an_undirected_relation_is_not_reached_from_its_stored_target(self, tmp_path):
         # `directed` is read, never reinterpreted: walking an undirected edge
         # backwards invents an edge the author did not write.
         view = seed(
             tmp_path,
-            note("a", relations=[cites("note:a", "note:b", directed=False)]),
-            note("b"),
+            memo("a", relations=[cites("memo:a", "memo:b", directed=False)]),
+            memo("b"),
         )
-        assert relation_walk(view, "note:b").reached == ()
+        assert relation_walk(view, "memo:b").reached == ()
 
     def test_nodes_exposes_no_transitive_operation(self):
         # A static reading of that package's surface, depending on nothing this
@@ -231,11 +231,11 @@ class TestTheLineageAdapter:
         # nothing in either of them decides when to stop.
         view = seed(
             tmp_path,
-            note("a", relations=[cites("note:a", "note:a")]),
+            memo("a", relations=[cites("memo:a", "memo:a")]),
             stored.dataset_node("c", title="c", basis=self.basis(self.route("run:r", "dataset:c"))),
             stored.run_node("r", title="r", spec="analysis-spec:s"),
         )
-        assert closure("note:a", RelationAdjacency(view, CITES, "outbound")).reached == ()
+        assert closure("memo:a", RelationAdjacency(view, CITES, "outbound")).reached == ()
         assert closure("dataset:c", LineageAdjacency(view)).reached == ()
 
 
@@ -275,9 +275,9 @@ class TestTheFacadesNodeReadPath:
     def test_a_stale_semantic_hash_is_refused_when_a_traversal_resolves_the_node(self, tmp_path):
         node = observed_dataset()
         node.facets[stored.DATASET_FACET]["resources"] = []
-        view = seed(tmp_path, node, note("a", relations=[cites("note:a", node.id)]))
+        view = seed(tmp_path, node, memo("a", relations=[cites("memo:a", node.id)]))
         with pytest.raises(SemanticHashStale):
-            relation_walk(view, "note:a")
+            relation_walk(view, "memo:a")
 
     def test_a_self_consistent_raw_write_is_not_refused(self, tmp_path):
         # The recorded-history bound, pinned: the hash agrees because the writer
@@ -300,9 +300,9 @@ class TestTheFacadesNodeReadPath:
 
     def test_an_unstamped_prose_node_is_not_refused(self, tmp_path):
         # Prose kinds carry no semantic domain; requiring a stamp there would
-        # refuse every hand-authored note in the corpus.
-        view = seed(tmp_path, note("a"))
-        assert view.get("note:a").kind == "note"
+        # refuse every hand-authored memo in the corpus.
+        view = seed(tmp_path, memo("a"))
+        assert view.get("memo:a").kind == "memo"
 
     def test_iteration_does_not_refuse_so_the_check_can_report(self, tmp_path):
         node = observed_dataset()
@@ -354,7 +354,7 @@ class TestTheCorpusCheck:
         ]
 
     def test_an_unstamped_prose_node_is_reported_by_nothing(self, tmp_path):
-        assert corpus_check(seed(tmp_path, note("a"))) == ()
+        assert corpus_check(seed(tmp_path, memo("a"))) == ()
 
     def test_a_stale_node_is_reported_rather_than_raised(self, tmp_path):
         node = observed_dataset()

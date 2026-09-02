@@ -29,14 +29,17 @@ this slice does not build.
 
 from __future__ import annotations
 
+import re
 import secrets
 import threading
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import datetime
 from itertools import pairwise
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, final
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Literal, cast, final
 
 from nodes.core.corpus import Corpus
 from nodes.core.errors import CollisionError, ExecutionError
@@ -54,6 +57,15 @@ from beliefs import boundary as boundary_values
 from beliefs import report as report_values
 from beliefs import stored
 from beliefs.consulted import CorpusPins
+from beliefs.coordination import (
+    COORDINATION_KINDS,
+    CoordinationAddress,
+    CoordinationRefused,
+    CoordinationRevision,
+    coordination_facet_malformed,
+    coordination_revision,
+    standing_tips,
+)
 from beliefs.dataset import dataset_address
 from beliefs.errors import (
     BasisMissing,
@@ -61,6 +73,9 @@ from beliefs.errors import (
     BuildHold,
     BundleMemberHeld,
     CollisionRefused,
+    ContractMismatch,
+    CoordinationKindUnsupported,
+    CoordinationUnavailable,
     EligibilityUnmet,
     FamilyKindUnsupported,
     IdentityError,
@@ -69,6 +84,9 @@ from beliefs.errors import (
     MalformedRecord,
     ManifestAlreadyPresent,
     ManifestMalformed,
+    PredecessorMismatch,
+    PredecessorNotStanding,
+    ProjectNotResolvable,
     RecordAlreadyMinted,
     RetractionCycleMalformed,
     RetractionGroundsMissing,
@@ -87,12 +105,14 @@ from beliefs.errors import (
 )
 from beliefs.identity import v1
 from beliefs.lineage import Basis, LineageSnapshot, Producer, Route
+from beliefs.profile import ProfileSpec
 from beliefs.record import RunInput, RunValue
 from beliefs.report import OperationIntent
 from beliefs.runrecord import OperationPort
 from beliefs.sealed import sealed
 from beliefs.spec import BITWISE_EQUIVALENCE_RULES
 from beliefs.traversal import LineageEntry, Reach, RelationEntry, Step, closure
+from beliefs.view_query import _world_address, parse_view_query
 
 if TYPE_CHECKING:
     from beliefs.world import CorpusManifest
@@ -100,6 +120,7 @@ if TYPE_CHECKING:
 __all__ = [
     "DIRECTIONS",
     "ELIGIBLE_RETRACTION_TARGET_KINDS",
+    "CoordinationResolver",
     "CorpusWriter",
     "Finding",
     "LineageAdjacency",
@@ -117,6 +138,19 @@ __all__ = [
 
 DIRECTIONS = ("inbound", "outbound")
 ELIGIBLE_RETRACTION_TARGET_KINDS = ("assessment", "retraction", "verification")
+_COORDINATION_AT = re.compile(
+    r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})"
+)
+
+
+def _coordination_reference(value: object) -> str:
+    if type(value) is not str:
+        raise ValidationRefused("a coordination reference is a string")
+    try:
+        CoordinationAddress.parse(value)
+    except ValueError as caught:
+        raise ValidationRefused(str(caught)) from caught
+    return value
 
 
 @sealed
@@ -826,7 +860,22 @@ def corpus_check(view: ReadView) -> tuple[Finding, ...]:
                 )
             )
     retraction_targets: dict[str, list[str]] = {}
+    coordination_revisions: dict[CoordinationAddress, list[CoordinationRevision]] = {}
     for node in view.iter_stored():
+        if stored.COORDINATION_FACET in node.facets:
+            if coordination_facet_malformed(node):
+                findings.append(
+                    Finding(
+                        severity="error",
+                        code="coordination-facet-malformed",
+                        ref=node.id,
+                        detail=stored.COORDINATION_FACET,
+                        message=f"{node.id}: the coordination facet is malformed",
+                    )
+                )
+                continue
+            revision = coordination_revision(node)
+            coordination_revisions.setdefault(revision.address, []).append(revision)
         base_valid = True
         if stored.semantic_hash_missing(node):
             base_valid = False
@@ -875,7 +924,11 @@ def corpus_check(view: ReadView) -> tuple[Finding, ...]:
                 )
             )
         for relation in node.relations:
-            if relation.predicate == stored.SUPERSEDES and not view.holds(relation.target):
+            if (
+                relation.predicate == stored.SUPERSEDES
+                and stored.COORDINATION_FACET not in node.facets
+                and not view.holds(relation.target)
+            ):
                 findings.append(
                     Finding(
                         severity="error",
@@ -933,7 +986,86 @@ def corpus_check(view: ReadView) -> tuple[Finding, ...]:
                 message=str(refused),
             )
         )
+    for address, revisions in coordination_revisions.items():
+        if revisions and not standing_tips(revisions):
+            findings.append(
+                Finding(
+                    severity="error",
+                    code="coordination-supersession-cycle",
+                    ref=str(address),
+                    detail=",".join(sorted(revision.node.uid for revision in revisions)),
+                    message=f"{address}: coordination supersession graph has no standing tip",
+                )
+            )
     return tuple(sorted(findings, key=lambda finding: finding.sort_key))
+
+
+@final
+class CoordinationResolver:
+    def __init__(self, mounts: Mapping[Path, ProfileSpec]) -> None:
+        checked: dict[Path, ProfileSpec] = {}
+        for root, profile in mounts.items():
+            resolved = Path(root).resolve()
+            if resolved in checked:
+                raise ValueError(f"coordination root {resolved} is mounted more than once")
+            if not isinstance(profile, ProfileSpec):
+                raise TypeError("coordination mounts require compiled ProfileSpec values")
+            from beliefs.world import load_manifest
+
+            manifest = load_manifest(resolved)
+            expected = CorpusPins(
+                "science:" + profile.base_contract_identity,
+                {
+                    namespace: f"{namespace}:{identity}"
+                    for namespace, identity in profile.activated_contracts.items()
+                },
+            )
+            if manifest.profile != expected:
+                raise ContractMismatch(f"{resolved}: mounted manifest pins do not match the supplied profile")
+            checked[resolved] = profile
+        self._mounts = MappingProxyType(dict(sorted(checked.items(), key=lambda item: str(item[0]))))
+
+    def profile(self, root: Path) -> ProfileSpec | None:
+        return self._mounts.get(Path(root).resolve())
+
+    def _revisions(self) -> tuple[CoordinationRevision, ...]:
+        by_uid: dict[str, CoordinationRevision] = {}
+        for root, profile in self._mounts.items():
+            for node in ReadView.opened_at(root).iter_stored():
+                if stored.COORDINATION_FACET not in node.facets or node.kind not in profile.coordination_kinds:
+                    continue
+                if coordination_facet_malformed(node):
+                    continue
+                revision = coordination_revision(node)
+                previous = by_uid.get(node.uid)
+                if previous is not None and previous.node != node:
+                    raise MalformedRecord(f"coordination revision {node.uid} has unequal stored copies")
+                by_uid[node.uid] = revision
+        return tuple(sorted(by_uid.values(), key=lambda revision: (str(revision.address), revision.node.uid)))
+
+    def revision(self, uid: str) -> Node | None:
+        return next((revision.node for revision in self._revisions() if revision.node.uid == uid), None)
+
+    def _at_address(self, address: CoordinationAddress) -> tuple[CoordinationRevision, ...]:
+        revisions = tuple(revision for revision in self._revisions() if revision.address == address.unpinned())
+        return revisions
+
+    def tips(self, address: CoordinationAddress) -> tuple[CoordinationRevision, ...]:
+        return standing_tips(self._at_address(address))
+
+    def resolve(self, address: CoordinationAddress) -> Node | CoordinationRefused | None:
+        revisions = self._at_address(address)
+        if address.revision is not None:
+            return next(
+                (revision.node for revision in revisions if revision.node.uid == address.revision),
+                None,
+            )
+        tips = standing_tips(revisions)
+        if not tips:
+            return None
+        if len(tips) > 1:
+            return CoordinationRefused("divergent-view", tuple(revision.node.uid for revision in tips))
+        return next(iter(tips)).node
 
 
 class CorpusWriter:
@@ -969,10 +1101,12 @@ class CorpusWriter:
         root: Path,
         executor_factory: Callable[[Path], WritePlanExecutor],
         operation_port: OperationPort | None = None,
+        coordination_resolver: CoordinationResolver | None = None,
     ) -> None:
         self._state = _root_state_for(root, executor_factory)
         self._operation = self._state.lock
         self._operation_port = operation_port
+        self._coordination_resolver = coordination_resolver
 
     @property
     def _corpus(self) -> Corpus:
@@ -1000,6 +1134,216 @@ class CorpusWriter:
             self._refuse_family_kinds(node)
             self._refuse(node)
             return self._corpus.add(node)
+
+    def mint_coordination(
+        self,
+        kind: str,
+        *,
+        project: CoordinationAddress | None = None,
+        content: Mapping[str, object],
+    ) -> Node:
+        with self._operation:
+            validated = self._validated_coordination_content(kind, content)
+            if kind == "project":
+                if project is not None:
+                    raise ValidationRefused("project genesis does not take an owning project")
+            elif (
+                not isinstance(project, CoordinationAddress)
+                or project.local is not None
+                or project.revision is not None
+            ):
+                raise ValidationRefused("a subordinate coordination record requires an unpinned project address")
+            else:
+                self._resolve_coordination_project(project)
+
+            if project is None:
+                assert kind == "project"
+                project = CoordinationAddress("0" * 32)
+            project_identity = secrets.token_hex(16) if kind == "project" else project.project
+            local_identity = None if kind == "project" else secrets.token_hex(16)
+            revision_identity = secrets.token_hex(16)
+            address = CoordinationAddress(project_identity, local_identity)
+            candidate = self._coordination_node(kind, address, revision_identity, validated, predecessors=())
+            self._refuse_already_minted(candidate)
+            self._refuse_rendering(candidate)
+            return self._corpus.add(candidate)
+
+    def revise_coordination(
+        self,
+        kind: str,
+        address: CoordinationAddress,
+        *,
+        predecessors: Sequence[str],
+        content: Mapping[str, object],
+    ) -> Node:
+        with self._operation:
+            validated = self._validated_coordination_content(kind, content)
+            if not isinstance(address, CoordinationAddress) or address.revision is not None:
+                raise ValidationRefused("coordination revision requires an unpinned address")
+            if kind == "project" and address.local is not None:
+                raise ValidationRefused("a project revision requires a project-root address")
+            if kind != "project" and address.local is None:
+                raise ValidationRefused("a subordinate revision requires a local address")
+            if isinstance(predecessors, (str, bytes)):
+                raise ValidationRefused("coordination predecessors must be a sequence of revision ids")
+            predecessor_values = tuple(predecessors)
+            if (
+                not predecessor_values
+                or len(predecessor_values) != len(set(predecessor_values))
+                or any(type(uid) is not str or re.fullmatch(r"[0-9a-f]{32}", uid) is None for uid in predecessor_values)
+            ):
+                raise ValidationRefused(
+                    "coordination predecessors must be distinct 32-lower-hex revision ids"
+                )
+            predecessor_ids = set(predecessor_values)
+            assert self._coordination_resolver is not None
+            predecessor_nodes: list[Node] = []
+            for predecessor_id in sorted(predecessor_ids):
+                found = self._coordination_resolver.revision(predecessor_id)
+                if found is None:
+                    raise PredecessorNotStanding(f"revision {predecessor_id} does not resolve")
+                predecessor = coordination_revision(found)
+                if predecessor.node.kind != kind or predecessor.address != address:
+                    raise PredecessorMismatch(f"revision {predecessor.node.uid} belongs to {predecessor.node.kind} {predecessor.address}, not {kind} {address}")
+                predecessor_nodes.append(predecessor.node)
+            standing = self._coordination_resolver.tips(address)
+            if predecessor_ids - {revision.node.uid for revision in standing}:
+                raise PredecessorNotStanding("every supplied predecessor must be a standing tip at commit")
+            if kind != "project":
+                self._resolve_coordination_project(CoordinationAddress(address.project))
+            new_revision_identity = secrets.token_hex(16)
+            candidate = self._coordination_node(
+                kind,
+                address,
+                new_revision_identity,
+                validated,
+                predecessors=predecessor_nodes,
+            )
+            self._refuse_already_minted(candidate)
+            self._refuse_rendering(candidate)
+            return self._corpus.add(candidate)
+
+    def _resolve_coordination_project(self, project: CoordinationAddress) -> Node:
+        assert self._coordination_resolver is not None
+        resolved_project = self._coordination_resolver.resolve(project)
+        if resolved_project is None:
+            raise ProjectNotResolvable(f"{project}: project does not resolve")
+        if isinstance(resolved_project, CoordinationRefused):
+            raise ProjectNotResolvable(f"{project}: project is divergent", tips=resolved_project.tips)
+        if resolved_project.kind != "project":
+            raise ProjectNotResolvable(f"{project}: address does not resolve to a project")
+        return resolved_project
+
+    def _validated_coordination_content(
+        self, kind: str, content: Mapping[str, object]
+    ) -> dict[str, object]:
+        if kind in stored.WORLD_KINDS:
+            raise CoordinationKindUnsupported(f"{kind!r} is a world kind, not a coordination kind")
+        if self._coordination_resolver is None:
+            raise CoordinationUnavailable("the writer has no coordination resolver")
+        profile = self._coordination_resolver.profile(self._corpus.store.root)
+        if profile is None:
+            raise CoordinationUnavailable("the writer's destination is not mounted for coordination")
+        kind_spec = profile.coordination_kinds.get(kind)
+        if kind_spec is None:
+            raise ValidationRefused(f"{kind!r} is not declared by the mounted coordination contract")
+        if not isinstance(content, Mapping):
+            raise ValidationRefused("coordination content must be a mapping")
+        validated = dict(content)
+        expected = set(kind_spec.fields)
+        if kind == "note" and "about" not in validated:
+            expected -= {"about"}
+        if set(validated) != expected:
+            raise ValidationRefused(
+                f"{kind!r} content fields must be exactly {sorted(expected)}"
+            )
+        for name in ("name", "author"):
+            if type(validated[name]) is not str or not validated[name]:
+                raise ValidationRefused(f"coordination {name} must be a non-empty string")
+        if type(validated["body"]) is not str:
+            raise ValidationRefused("coordination body must be a string")
+        at = validated["at"]
+        if type(at) is not str or _COORDINATION_AT.fullmatch(at) is None:
+            raise ValidationRefused("coordination at must be an RFC3339 timestamp")
+        try:
+            datetime.fromisoformat(at)
+        except ValueError as caught:
+            raise ValidationRefused("coordination at must be a calendar timestamp") from caught
+        if kind == "task":
+            if validated["status"] not in {"open", "done", "dropped"}:
+                raise ValidationRefused("task status must be open, done, or dropped")
+            depends = validated["depends"]
+            if type(depends) is not list:
+                raise ValidationRefused("task depends must be a list")
+            references = tuple(_coordination_reference(value) for value in depends)
+            if len(references) != len(set(references)):
+                raise ValidationRefused("task depends must not repeat an address")
+            validated["depends"] = sorted(references)
+        if "about" in validated:
+            about = validated["about"]
+            if type(about) is not list:
+                raise ValidationRefused("note about must be a list")
+            try:
+                addresses = tuple(_world_address(value, "note about") for value in about)
+            except ValueError as caught:
+                raise ValidationRefused(str(caught)) from caught
+            if len(addresses) != len(set(addresses)):
+                raise ValidationRefused("note about must not repeat an address")
+            validated["about"] = sorted(addresses)
+        if "query" in validated:
+            try:
+                query = self._coordination_query(validated, profile, kind_spec.query_versions)
+            except ValueError as caught:
+                raise ValidationRefused(str(caught)) from caught
+            validated["query"] = query.projection()
+        return validated
+
+    @staticmethod
+    def _coordination_query(
+        content: Mapping[str, object], profile: ProfileSpec, query_versions: frozenset[str]
+    ):
+        query = parse_view_query(content["query"])
+        if "science.view-query.v1" not in query_versions:
+            raise ValidationRefused("view query version is not authorized for this coordination kind")
+        if query.world_kinds() - profile.coordination_query_kinds:
+            raise ValidationRefused("view query names a world kind outside the coordination contract vocabulary")
+        if query.relations() - profile.coordination_query_relations:
+            raise ValidationRefused("view query names a relation outside the coordination contract vocabulary")
+        return query
+
+    @staticmethod
+    def _coordination_node(
+        kind: str,
+        address: CoordinationAddress,
+        revision: str,
+        content: Mapping[str, object],
+        *,
+        predecessors: Sequence[Node],
+    ) -> Node:
+        node_id = (
+            f"{kind}:{address.project}.{revision}"
+            if address.local is None
+            else f"{kind}:{address.project}.{address.local}.{revision}"
+        )
+        facet = {
+            "project": address.project,
+            **({} if address.local is None else {"local": address.local}),
+            **{name: value for name, value in content.items() if name not in {"name", "body"}},
+        }
+        node = Node(
+            id=node_id,
+            uid=revision,
+            kind=kind,
+            title=cast(str, content["name"]),
+            body=cast(str, content["body"]),
+            facets={stored.COORDINATION_FACET: facet},
+            relations=[
+                Relation(source=node_id, predicate=stored.SUPERSEDES, target=node.id)
+                for node in sorted(predecessors, key=lambda node: node.id)
+            ],
+        )
+        coordination_revision(node)
+        return node
 
     def adopt_manifest(self, *, profile: CorpusPins) -> CorpusManifest:
         """Create this corpus's first closed manifest."""
@@ -1126,6 +1470,7 @@ class CorpusWriter:
     def retract(self, record: Node) -> Node:
         """Mint one locally resolvable retraction without touching its target."""
         with self._operation:
+            self._refuse_family_kinds(record, admitted_kind="retraction")
             try:
                 self._validated_retraction(record)
             except MalformedRecord as caught:
@@ -1151,6 +1496,7 @@ class CorpusWriter:
     def supersede(self, successor: Node, *, of: str) -> Node:
         """Mint a proposition successor without touching its predecessor."""
         with self._operation:
+            self._refuse_family_kinds(successor)
             predecessor_id = self._view.resolve(of)
             if predecessor_id is None:
                 raise SupersedeTargetMissing(f"{of!r}: predecessor does not resolve locally")
@@ -1183,6 +1529,7 @@ class CorpusWriter:
     def revise(self, node: Node) -> Node:
         """Replace a proposition after changing display prose alone."""
         with self._operation:
+            self._refuse_family_kinds(node)
             self._refuse_invalid(node)
             if not all(isinstance(relation, Relation) for relation in node.relations):
                 raise ValidationRefused(f"{node.id}: refused by document validation: malformed relation")
@@ -1219,6 +1566,8 @@ class CorpusWriter:
         for record in records:
             if type(record) is not Node:
                 raise ImportRefused("an import member must be a Node")
+            if record.kind in COORDINATION_KINDS:
+                raise ImportRefused(f"{record.id}: coordination records are replicated with their corpus, never imported", member=record.id)
             try:
                 self._refuse_invalid(record)
                 path = self._relative_path(record)
@@ -1449,11 +1798,15 @@ class CorpusWriter:
             raise MalformedRecord(f"{record.id}: retraction does not match the controlled stored shape")
         return facet
 
-    @staticmethod
-    def _refuse_family_kinds(node: Node) -> None:
+    def _refuse_family_kinds(self, node: Node, *, admitted_kind: str | None = None) -> None:
+        if node.kind in COORDINATION_KINDS:
+            raise CoordinationKindUnsupported(f"{node.kind!r} enters through the coordination family door")
+        profile = self._coordination_resolver.profile(self._corpus.store.root) if self._coordination_resolver is not None else None
+        if profile is not None and node.kind in profile.coordination_kinds:
+            raise CoordinationKindUnsupported(f"{node.kind!r} enters through the coordination family door")
         if node.kind == "holdings-observation":
             raise WriteRefused("a holdings observation is minted only by the acts boundary")
-        if node.kind == "retraction":
+        if node.kind == "retraction" and admitted_kind != "retraction":
             raise WriteRefused("a retraction enters through retract")
         if node.kind == "act-report":
             raise WriteRefused("an act-report is minted by the boundary and stored by import")

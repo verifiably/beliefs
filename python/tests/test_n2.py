@@ -138,6 +138,7 @@ def _run_check(check: str, package: Path | None) -> CheckRun:
         )
     env = {"PATH": "/usr/bin:/bin", "HOME": str(Path.home())}
     for name in (
+        "XDG_CACHE_HOME",
         "SCIENCE_CUT4_ROOT",
         "SCIENCE_CUT5_ROOT",
         "SCIENCE_CUT6_ROOT",
@@ -160,6 +161,20 @@ def _run_check(check: str, package: Path | None) -> CheckRun:
         check=False,
     )
     return CheckRun(check, result.returncode)
+
+
+def test_an_explicit_cache_root_reaches_n2_children(tmp_path, monkeypatch):
+    cache = tmp_path / "cache"
+    monkeypatch.setenv("XDG_CACHE_HOME", str(cache))
+    calls = []
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda command, **kwargs: calls.append((command, kwargs))
+        or subprocess.CompletedProcess(command, PASSED),
+    )
+    _run_check("test_belief.py::test_w18j_a_coordination_pin_never_enters_the_belief_input_digest", None)
+    assert calls[0][1]["env"]["XDG_CACHE_HOME"] == str(cache)
 
 
 def _sabotage(arm: Arm, into: Path) -> Path | None:

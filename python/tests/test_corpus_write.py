@@ -153,7 +153,7 @@ class TestTheAddPathIsAddOnly:
         assert Recorder.plans == []
 
     def test_an_unrenderable_node_refuses_before_execution(self, writer):
-        node = Node(id="note:surrogate", kind="note", title="surrogate", body="\ud800")
+        node = Node(id="memo:surrogate", kind="memo", title="surrogate", body="\ud800")
 
         with pytest.raises(ValidationRefused, match="losslessly renderable"):
             writer.add(node)

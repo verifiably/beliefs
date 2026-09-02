@@ -401,7 +401,7 @@ def test_r6_restoring_availability_changes_nothing_until_a_replay_actually_runs(
         {
             original.run.recipe.code_identity,
             original.run.recipe.environment.identity(),
-            original.run.recipe.workflow_definition_identity,
+            original.run.recipe.workflow_definition.identity(),
             *(i.content for i in original.run.recipe.inputs),
         }
     )
@@ -492,7 +492,11 @@ def test_conformance_enforces_each_nondeterminism_contract(pair):
     original, _ = pair
     assert conformance(original.run) == CONFORMING
 
-    deterministic_recipe = dataclasses.replace(original.run.recipe, nondeterminism=Deterministic())
+    deterministic_recipe = dataclasses.replace(
+        original.run.recipe,
+        nondeterminism=Deterministic(),
+        workflow_definition=dataclasses.replace(original.run.recipe.workflow_definition, family_streams={}),
+    )
     no_seeds = dataclasses.replace(
         original.run,
         recipe=deterministic_recipe,
@@ -505,9 +509,9 @@ def test_conformance_enforces_each_nondeterminism_contract(pair):
     assert conformance(dataclasses.replace(no_seeds, occurrence=original.run.occurrence)).startswith("non-conforming")
 
     unconstrained = dataclasses.replace(
-        original.run,
+        no_seeds,
         recipe=dataclasses.replace(
-            original.run.recipe,
+            deterministic_recipe,
             nondeterminism=StochasticUnseeded(rationale="external entropy"),
         ),
     )
@@ -616,8 +620,8 @@ def test_r4_negative_a_a_hostname_change_stays_same_environment(tmp_path):
 def test_r4_negative_b_a_comment_change_is_not_certified_never_independent(tmp_path):
     a = run_assessment(tmp_path / "a")
     commented = SNAKEFILE_DETERMINISTIC.replace(
-        "import json, pathlib, random",
-        "import json, pathlib, random  # a comment",
+        "import pathlib, random",
+        "import pathlib, random  # a comment",
     )
     b = run_assessment(tmp_path / "b", snakefile=commented)
     assert isinstance(a, RunMinted) and isinstance(b, RunMinted)
@@ -697,7 +701,8 @@ def test_r4_negative_d_two_incomparable_policies_are_not_ranked(pair):
 
 def test_r15_negative_a_minimal_pair_never_derives_clean_environment(pair):
     original, replayed = pair
-    assert replayed.run.occurrence.receipt.capabilities == () and replayed.run.occurrence.receipt.instance is None
+    execution = replayed.run.occurrence.receipt.execution
+    assert execution.capabilities == () and execution.instance is None
     assert derive_scope(original.run, replayed.run, certification=None) == "same-environment"
     assert not qualifies(replayed.run.occurrence.receipt, replayed.run.recipe.environment.identity())
 
@@ -749,7 +754,7 @@ def test_r5_negative_b_removing_the_corpus_attribution_reads_not_available_never
         {
             original.run.recipe.code_identity,
             original.run.recipe.environment.identity(),
-            original.run.recipe.workflow_definition_identity,
+            original.run.recipe.workflow_definition.identity(),
             *(i.content for i in original.run.recipe.inputs),
         }
     )

@@ -44,7 +44,8 @@ def confined_launch(**overrides) -> LaunchAttestation:
 
 
 def confined_receipt(**overrides) -> BoundaryReceipt:
-    return BoundaryReceipt(planning=confined_launch(), execution=confined_launch(**overrides))
+    launch = confined_launch(**overrides)
+    return BoundaryReceipt(planning=launch, execution=launch)
 
 
 def confined_closure(**overrides):

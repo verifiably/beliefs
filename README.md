@@ -27,9 +27,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Forty-two documents in `docs/designs/`: the banked redesigns, review disposition,
+Forty-three documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
-2026-08-02 through 2026-08-30. Read them in this order:
+2026-08-02 through 2026-08-31. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -75,6 +75,7 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-08-29-successor-admission-design.md` | the successor-admission slice: the two-set core, the deriving boundary `admit_spec_successor` over the chain's qualification and the corpus's verification evidence under one hold, the superseder-side oversized rule, and the named evidence refusal |
 | `2026-08-30-conformance-cut-13.md` | the thirteenth frozen conformance cut, selecting run confinement: 4 rows full, 2 part, with 15 selected and 7 labeled declarations; `clean-environment` reachable |
 | `2026-08-30-run-confinement-design.md` | the run-confinement slice: the confined boundary policy, the per-file runtime closure and its snapshot, the probe-gated bubblewrap launch observed from the boundary's own `/proc`, the confined receipt and run domains, `derive_scope`'s `clean-environment` row, and the value-level admission join |
+| `2026-08-31-coordination-and-view-kinds-design.md` | the coordination tier: closed view-query grammar, versioned coordination contract, opaque project/local addressing, immutable multi-corpus revision family, and world-inert storage; cut 14 discharges it except W17 intent-position |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -82,16 +83,18 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 13** is implemented and discharged. What
+Every conformance cut through **cut 14** is implemented and discharged. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
 supersede, revise, retraction and import families; the world registry with
 epochs, mutation-log anchoring and verification, root lifecycle, and verified
-store-side holdings; and run confinement, a run executing inside a fresh
+store-side holdings; run confinement, a run executing inside a fresh
 namespaced materialization of a digest-verified runtime closure with
-`clean-environment` reachable. The latest discharged boundary is cut 13, run
-confinement ([results](docs/plans/2026-09-01-conformance-cut-13-results.md)).
+`clean-environment` reachable; and the coordination/view family with opaque
+addresses, contract authorization, multi-corpus tip resolution, and world-inert
+storage. The latest discharged boundary is cut 14
+([results](docs/plans/2026-09-02-conformance-cut-14-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
 test before it is a passing one. There are **153 rows** across **thirteen frozen
@@ -101,7 +104,7 @@ redefinition.
 
 What is built and what remains to build, each remainder with its named owner,
 is stated once, in the
-[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-01).
+[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-02).
 The per-cut results records under [`docs/plans/`](docs/plans/) are the
 evidence trail, and unresolved design questions live in the guide's
 [open questions](docs/guide/open-questions.md).

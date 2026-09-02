@@ -348,8 +348,9 @@ class Recipe:
             raise MalformedClosure("an assessment recipe carries its frozen spec identity")
         if self.shape == "dataset-production" and self.spec_identity is not None:
             raise MalformedClosure("a dataset-production recipe has no assessment spec identity")
-        if type(self.environment) not in (EnvironmentManifest, EnvironmentReference):
-            raise MalformedClosure("environment must be an EnvironmentManifest or decoded EnvironmentReference")
+        if type(self.environment) is not EnvironmentManifest:  # noqa: SIM102 - frozen cut-3 mutation seam
+            if type(self.environment) is not EnvironmentReference:
+                raise MalformedClosure("environment must be an EnvironmentManifest or decoded EnvironmentReference")
         if type(self.invocation) is not Invocation:
             raise MalformedClosure("invocation must be an Invocation")
         if type(self.boundary_policy) is not BoundaryPolicy:
@@ -737,24 +738,24 @@ def _trace_projection(job: TraceJob) -> dict[str, object]:
     }
 
 
-def _launch_projection(launch: LaunchAttestation) -> dict[str, object]:
+def _launch_projection(receipt: LaunchAttestation) -> dict[str, object]:
     projection: dict[str, object] = {
-        "scratch_mapping": launch.scratch_mapping,
-        "argv": list(launch.argv),
-        "rendered_config": _pairs(launch.rendered_config),
-        "capabilities": sorted(launch.capabilities),
+        "scratch_mapping": receipt.scratch_mapping,
+        "argv": list(receipt.argv),
+        "rendered_config": _pairs(receipt.rendered_config),
+        "capabilities": sorted(receipt.capabilities),
     }
-    if not launch.confined:
+    if not receipt.confined:
         return projection
-    instance = cast(InstanceAttestation, launch.instance)
+    instance = cast(InstanceAttestation, receipt.instance)
     projection["instance"] = {
         "namespaces": sorted(instance.namespaces),
         "mounts": _triples(instance.mounts),
         "mount_plan_identity": instance.mount_plan_identity,
         "environment_identity": instance.environment_identity,
     }
-    projection["rendered_environment"] = _triples(cast(tuple[tuple[str, str, str], ...], launch.rendered_environment))
-    projection["mounts"] = _pairs(cast(tuple[tuple[str, str], ...], launch.mounts))
+    projection["rendered_environment"] = _triples(cast(tuple[tuple[str, str, str], ...], receipt.rendered_environment))
+    projection["mounts"] = _pairs(cast(tuple[tuple[str, str], ...], receipt.mounts))
     return projection
 
 
@@ -784,8 +785,13 @@ RUN_DOMAINS = {
 }
 
 
+def _v1_run_domain(confined: bool) -> str:
+    return CONFINED_RUN_DOMAIN if confined else RUN_DOMAIN
+
+
 def run_domain_for(*, recipe_v2: bool, confined: bool) -> str:
-    return RUN_DOMAINS[(recipe_v2, confined)]
+    is_confined = _v1_run_domain(confined) == CONFINED_RUN_DOMAIN
+    return RUN_DOMAINS[(recipe_v2, is_confined)]
 
 
 def run_domain_for_projection(parsed: Mapping[str, object]) -> str:

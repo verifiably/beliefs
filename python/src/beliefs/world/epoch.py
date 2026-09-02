@@ -1225,6 +1225,7 @@ def _captured_records(corpus_root: Path) -> tuple[derive.CapturedRecord, ...]:
             ),
         )
         for node in nodes
+        if node.kind in stored.WORLD_KINDS
     )
 
 

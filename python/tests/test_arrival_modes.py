@@ -59,14 +59,14 @@ def _parent_corpus(work: Path, name: str = "parent") -> Path:
     )
     record = node_to_markdown(
         Node(
-            id="note:seed",
+            id="memo:seed",
             uid="1" * 32,
-            kind="note",
+            kind="memo",
             title="the seeded record",
             facets={},
         )
     ).encode("utf-8")
-    executor.execute([CreateOp("note/seed.md", record)])
+    executor.execute([CreateOp("memo/seed.md", record)])
     return root
 
 

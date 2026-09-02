@@ -57,7 +57,12 @@ def test_k4_a_minimal_run_still_recomputes_under_run_v1():
 def test_k3_a_wire_mount_plan_identity_disagreeing_with_its_mounts_is_refused():
     run = confined_closure()
     text = cast(Any, v1.decode(projection_text(run)))
-    text["occurrence"]["receipt"]["execution"]["instance"]["mount_plan_identity"] = "sha256:" + "00" * 32
+    text["recipe"]["workflow_definition_identity"] = run.recipe.workflow_definition.identity()
+    del text["recipe"]["workflow_definition"]
+    text["occurrence"].pop("planned")
+    text["occurrence"].pop("target_keys")
+    text["occurrence"]["receipt"] = text["occurrence"]["receipt"]["execution"]
+    text["occurrence"]["receipt"]["instance"]["mount_plan_identity"] = "sha256:" + "00" * 32
     with pytest.raises(MalformedRecord, match="mount_plan_identity"):
         decode_projection(v1.encode(text))
 

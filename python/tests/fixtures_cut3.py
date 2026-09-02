@@ -501,7 +501,16 @@ def run_assessment(
         port=port,
         boundary_policy=boundary_policy,
         definition=(
-            definition_override if definition_override is not None else definition(snakefile=snakefile)
+            definition_override
+            if definition_override is not None
+            else definition(
+                snakefile=snakefile,
+                family_streams=(
+                    {"transform": spec.nondeterminism.plan.streams}
+                    if isinstance(spec.nondeterminism, Seeded)
+                    else {}
+                ),
+            )
         ),
         code_roots=(code,),
         held_inputs=supplied,
@@ -613,8 +622,6 @@ def replay_of(
     family_streams = (
         {"transform": original.run.recipe.nondeterminism.plan.streams}
         if isinstance(original.run.recipe.nondeterminism, Seeded)
-        else None
-        if original.run.recipe.shape == "assessment"
         else {}
     )
     return replay(

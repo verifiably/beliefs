@@ -173,6 +173,23 @@ def scenario(**overrides: object) -> _Scenario:
     return cast(_Scenario, kwargs)
 
 
+def test_w18j_a_coordination_pin_never_enters_the_belief_input_digest():
+    ordinary = scenario()
+    first = evaluate(**ordinary)
+    pin = ordinary["context"].pins["c1"]
+    with_coordination = {
+        "c1": CorpusPins(
+            science_contract=pin.science_contract,
+            domains={**pin.domains, "coordination": "coordination:" + "c" * 64},
+        )
+    }
+    second = evaluate(
+        **scenario(context=replace(ordinary["context"], pins=with_coordination))
+    )
+    assert isinstance(first, Belief) and isinstance(second, Belief)
+    assert second.belief_input_digest == first.belief_input_digest
+
+
 class TestP1TheBindingIsExact:
     def test_nothing_refuses(self):
         result = evaluate(**scenario(binding=None))

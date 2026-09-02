@@ -48,6 +48,7 @@ from beliefs.recipe import (
     mount_plan_identity,
     run_domain_for_projection,
 )
+from beliefs.recipe import run_domain_for as _run_domain_for
 from beliefs.sealed import sealed
 from beliefs.spec import Deterministic, ExclusionCertification, RealizedSeeds, Seeded, SeedPlan, StochasticUnseeded
 
@@ -174,6 +175,8 @@ _CONFINED_RECEIPT_KEYS = _RECEIPT_KEYS | {"instance", "rendered_environment", "m
 
 
 def _is_confined_receipt(receipt: object) -> bool:
+    if isinstance(receipt, dict) and set(receipt) == {"planning", "execution"}:
+        receipt = receipt["execution"]
     return isinstance(receipt, dict) and "instance" in receipt
 
 
@@ -403,7 +406,10 @@ def _validate_launch(value: object, path: str) -> bool:
         _refuse(f"{path}.instance.mounts", f"access is not one of {MOUNT_ACCESS}")
     recomputed = mount_plan_identity(tuple((point, role, access) for point, role, access in mounts))
     if _str_at(instance["mount_plan_identity"], f"{path}.instance.mount_plan_identity") != recomputed:
-        _refuse(f"{path}.instance.mount_plan_identity", "is not the digest of its own mounts")
+        if path == "$.occurrence.receipt":
+            _refuse("$.occurrence.receipt.instance.mount_plan_identity", "is not the digest of its own mounts")
+        else:
+            _refuse(f"{path}.instance.mount_plan_identity", "is not the digest of its own mounts")
     _component_at(instance["environment_identity"], f"{path}.instance.environment_identity")
     rendered = _triple_list(launch["rendered_environment"], f"{path}.rendered_environment")
     if any(kind not in RENDERED_KINDS for _, kind, _ in rendered):
@@ -598,10 +604,17 @@ def decode_run_record(node: Node) -> RunPublication | None:
     ):
         raise MalformedRecord(
             f"{node.id}: the run-closure facet is exactly {{'projection': <text>}}"
-    )
+        )
     data = facet["projection"].encode("utf-8")
     parsed = decode_projection(data)
-    address = v1.digest(run_domain_for_projection(parsed), parsed)
+    run_domain_for_projection(parsed)
+    recipe_view = cast(dict[str, object], parsed["recipe"])
+
+    def run_domain_for(confined: bool) -> str:
+        return _run_domain_for(recipe_v2="workflow_definition" in recipe_view, confined=confined)
+
+    occurrence_view = cast(dict[str, object], parsed["occurrence"])
+    address = v1.digest(run_domain_for(_is_confined_receipt(occurrence_view["receipt"])), parsed)
     if node.id != run_ref(address):
         raise MalformedRecord(
             f"{node.id}: the recomputed address {address} is not the record id"

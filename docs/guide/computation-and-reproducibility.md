@@ -2,7 +2,7 @@
 title: Computation and reproducibility
 status: living
 created: 2026-08-08
-updated: 2026-09-01
+updated: 2026-09-02
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -151,7 +151,7 @@ What is not built here is owned elsewhere — the workflow surface beyond cut
 3's single-rule adapter, durable verification publication, the mutation
 log's event-level order (L8), and the preimage-backed classification of a
 removed verification (L13) — and listed with those owners in the
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-01).
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-02).
 
 ## Open edges
 

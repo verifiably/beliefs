@@ -255,36 +255,39 @@ def test_r18_mutating_any_receipt_field_moves_receipt_report_and_verification(pa
     verification = verification_of(pair)
     assert isinstance(verification, AssessmentVerification)
     report = verification.report
-    for field, value in [
-        ("scratch_mapping", "some-other-mount"),
-        ("argv", ("snakemake", "--other")),
-        ("rendered_config", (("alpha", "0.5"),)),
-        ("capabilities", ("network-denied",)),
-    ]:
-        moved_receipt = dataclasses.replace(receipt, **{field: value}).identity()
-        assert moved_receipt != baseline
-        moved_report = _mint_comparison_report(
-            original_conformance=report.original_conformance,
-            replay_conformance=report.replay_conformance,
-            receipts=(moved_receipt, report.receipts[1]),
-            rule_bindings=report.rule_bindings,
-            certification=report.certification,
-            citation=report.citation,
-            diagnostics=report.diagnostics,
-        )
-        assert moved_report.identity() != report.identity()
-        moved_verification = _mint_verification(
-            original=verification.original,
-            replayed=verification.replayed,
-            assessment=verification.assessment,
-            rule=verification.rule,
-            report=moved_report,
-            scope_rule=verification.scope_rule,
-            scope=verification.scope,
-            verdict=verification.verdict,
-            supersedes=verification.supersedes,
-        )
-        assert moved_verification.identity() != verification.identity()
+    for launch_name in ("planning", "execution"):
+        launch = getattr(receipt, launch_name)
+        for field, value in [
+            ("scratch_mapping", "some-other-mount"),
+            ("argv", ("snakemake", "--other")),
+            ("rendered_config", (("alpha", "0.5"),)),
+            ("capabilities", ("network-denied",)),
+        ]:
+            moved_launch = dataclasses.replace(launch, **{field: value})
+            moved_receipt = dataclasses.replace(receipt, **{launch_name: moved_launch}).identity()
+            assert moved_receipt != baseline
+            moved_report = _mint_comparison_report(
+                original_conformance=report.original_conformance,
+                replay_conformance=report.replay_conformance,
+                receipts=(moved_receipt, report.receipts[1]),
+                rule_bindings=report.rule_bindings,
+                certification=report.certification,
+                citation=report.citation,
+                diagnostics=report.diagnostics,
+            )
+            assert moved_report.identity() != report.identity()
+            moved_verification = _mint_verification(
+                original=verification.original,
+                replayed=verification.replayed,
+                assessment=verification.assessment,
+                rule=verification.rule,
+                report=moved_report,
+                scope_rule=verification.scope_rule,
+                scope=verification.scope,
+                verdict=verification.verdict,
+                supersedes=verification.supersedes,
+            )
+            assert moved_verification.identity() != verification.identity()
 
 
 def test_r19_only_build_verification_mints_the_carriers():
@@ -523,5 +526,6 @@ def test_k5_a_production_verification_is_refused_by_the_join(production_pair):
         contract_identity="contract-1",
         epoch="epoch-1",
     )
+    assert isinstance(verification, DatasetProductionVerification)
     with pytest.raises(NotAnAssessmentVerification):
-        admission_record(verification)  # pyright: ignore[reportArgumentType]
+        admission_record(verification)  # pyright: ignore[reportArgumentType] — invalid type is under test
