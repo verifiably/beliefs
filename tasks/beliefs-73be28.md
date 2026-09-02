@@ -1,11 +1,12 @@
 ---
 id: beliefs-73be28
 title: Deliver the full workflow surface
-status: todo
+status: doing
 priority: 1
 size: xl
+owner: main
 created: 2026-08-31T00:38:27Z
-updated: 2026-08-31T00:38:27Z
+updated: 2026-09-01T12:15:27Z
 depends: [beliefs-739255]
 tags: [migration, execution, workflow]
 ---
