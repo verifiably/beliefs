@@ -2,6 +2,8 @@
 under the domain its receipt shape names; K3: a mount plan identity that
 disagrees with its mounts is refused on the wire too."""
 
+from typing import Any, cast
+
 import pytest
 from confinement_fixtures import confined_closure
 from fixtures_cut3 import closure
@@ -9,7 +11,7 @@ from nodes.core.frontmatter import node_from_markdown
 
 from beliefs.errors import MalformedRecord
 from beliefs.identity import v1
-from beliefs.recipe import CONFINED_RUN_DOMAIN, RUN_DOMAIN, mount_plan_identity
+from beliefs.recipe import job_key, mount_plan_identity, run_domain_for
 from beliefs.runrecord import decode_projection, decode_run_record, projection_text, publication_plan
 from beliefs.stored import RUN_CLOSURE_FACET
 
@@ -20,16 +22,25 @@ def _node_of(run):
 
 
 def test_k4_a_minimal_projection_carries_exactly_the_v1_receipt_keys():
-    parsed = decode_projection(projection_text(closure()))
-    assert set(parsed["occurrence"]["receipt"]) == {"scratch_mapping", "argv", "rendered_config", "capabilities"}
+    parsed = cast(Any, decode_projection(projection_text(closure())))
+    receipt = parsed["occurrence"]["receipt"]
+    assert set(receipt) == {"planning", "execution"}
+    assert all(
+        set(receipt[launch]) == {"scratch_mapping", "argv", "rendered_config", "capabilities"}
+        for launch in ("planning", "execution")
+    )
 
 
 def test_k4_a_confined_projection_round_trips_and_recomputes_under_run_v2():
     run = confined_closure()
-    parsed = decode_projection(projection_text(run))
-    assert set(parsed["occurrence"]["receipt"]) >= {"instance", "rendered_environment", "mounts"}
-    assert v1.digest(CONFINED_RUN_DOMAIN, parsed) == run.address()
-    assert v1.digest(RUN_DOMAIN, parsed) != run.address()
+    parsed = cast(Any, decode_projection(projection_text(run)))
+    receipt = parsed["occurrence"]["receipt"]
+    assert all(
+        set(receipt[launch]) >= {"instance", "rendered_environment", "mounts"}
+        for launch in ("planning", "execution")
+    )
+    assert v1.digest(run_domain_for(recipe_v2=True, confined=True), parsed) == run.address()
+    assert v1.digest(run_domain_for(recipe_v2=True, confined=False), parsed) != run.address()
     published = decode_run_record(_node_of(run))
     assert published is not None and published.address == run.address()
 
@@ -37,31 +48,46 @@ def test_k4_a_confined_projection_round_trips_and_recomputes_under_run_v2():
 def test_k4_a_minimal_run_still_recomputes_under_run_v1():
     run = closure()
     published = decode_run_record(_node_of(run))
-    assert published is not None and published.address == run.address() == v1.digest(RUN_DOMAIN, decode_projection(projection_text(run)))
+    assert published is not None and published.address == run.address() == v1.digest(
+        run_domain_for(recipe_v2=True, confined=False),
+        decode_projection(projection_text(run)),
+    )
 
 
 def test_k3_a_wire_mount_plan_identity_disagreeing_with_its_mounts_is_refused():
     run = confined_closure()
-    text = v1.decode(projection_text(run))
-    text["occurrence"]["receipt"]["instance"]["mount_plan_identity"] = "sha256:" + "00" * 32
+    text = cast(Any, v1.decode(projection_text(run)))
+    text["occurrence"]["receipt"]["execution"]["instance"]["mount_plan_identity"] = "sha256:" + "00" * 32
     with pytest.raises(MalformedRecord, match="mount_plan_identity"):
         decode_projection(v1.encode(text))
 
 
 def test_a_partial_confined_receipt_is_refused_on_the_wire():
     run = confined_closure()
-    text = v1.decode(projection_text(run))
-    del text["occurrence"]["receipt"]["mounts"]
+    text = cast(Any, v1.decode(projection_text(run)))
+    del text["occurrence"]["receipt"]["execution"]["mounts"]
     with pytest.raises(MalformedRecord):
         decode_projection(v1.encode(text))
 
 
 def test_a_reordered_confined_list_is_out_of_canonical_order():
     run = confined_closure()
-    text = v1.decode(projection_text(run))
-    text["occurrence"]["receipt"]["instance"]["namespaces"].reverse()
+    text = cast(Any, v1.decode(projection_text(run)))
+    text["occurrence"]["receipt"]["execution"]["instance"]["namespaces"].reverse()
     with pytest.raises(MalformedRecord, match="canonical order"):
         decode_projection(v1.encode(text))
+
+
+def test_wire_jobs_refuse_inconsistent_semantic_keys_and_duplicate_wildcards():
+    planned = cast(Any, v1.decode(projection_text(closure())))
+    planned["occurrence"]["planned"][0]["job_key"] = job_key("other", ())
+    with pytest.raises(MalformedRecord, match="disagrees with its family"):
+        decode_projection(v1.encode(planned))
+
+    traced = cast(Any, v1.decode(projection_text(closure())))
+    traced["occurrence"]["trace"][0]["wildcards"] = [["sample", "a"], ["sample", "b"]]
+    with pytest.raises(MalformedRecord, match="name each binding once"):
+        decode_projection(v1.encode(traced))
 
 
 def test_the_run_closure_facet_survives_the_confined_shape():
@@ -90,10 +116,10 @@ def test_the_wire_refuses_what_the_values_refuse(mutate, match):
     the wire too — a duplicate capability, a duplicate mountpoint, an access
     outside MOUNT_ACCESS, a rendered kind outside RENDERED_KINDS."""
     run = confined_closure()
-    text = v1.decode(projection_text(run))
-    receipt = text["occurrence"]["receipt"]
-    mutate(receipt)
+    text = cast(Any, v1.decode(projection_text(run)))
+    launch = text["occurrence"]["receipt"]["execution"]
+    mutate(launch)
     if "mounts" in match:
-        _with_recomputed_mount_identity(receipt)
+        _with_recomputed_mount_identity(launch)
     with pytest.raises(MalformedRecord, match=match):
         decode_projection(v1.encode(text))

@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import final
 
 from beliefs.adapter import WorkflowDefinition
-from beliefs.boundary import RunMinted, RunRefused, execute_assessment_run, execute_production_run
-from beliefs.errors import MalformedRecord
+from beliefs.boundary import RunMinted, RunRefused, execute_assessment_run, execute_production_run, resolve_targets
+from beliefs.errors import MalformedRecord, TargetAmbiguous, TargetUnresolvable
 from beliefs.recipe import (
     REQUIRED_FOR_CLEAN_ENVIRONMENT,
     BoundaryReceipt,
@@ -223,6 +223,15 @@ def conformance(run: RunClosure) -> str:
     for job in run.occurrence.trace:
         if job.job_key() not in planned_keys and job.rule not in expanded:
             return f"non-conforming: executed job {job.job_key()!r} is not in the plan"
+    try:
+        resolved_targets = resolve_targets(run.recipe.invocation.targets, run.occurrence.planned)
+    except (TargetUnresolvable, TargetAmbiguous) as error:
+        return f"non-conforming: recorded plan cannot resolve invocation targets: {error}"
+    if run.occurrence.target_keys != resolved_targets:
+        return (
+            f"non-conforming: recorded target keys {run.occurrence.target_keys!r} "
+            f"do not equal the plan's resolution {resolved_targets!r}"
+        )
     executed = {job.job_key() for job in run.occurrence.trace}
     if missing := sorted(set(run.occurrence.target_keys) - executed):
         return f"non-conforming: resolved target {missing[0]!r} was not executed"

@@ -68,6 +68,8 @@ from beliefs.verification import Verification, lifecycle_state
 DIGEST = "sha256:" + "11" * 32
 FIT_A = job_key("fit", (("sample", "a"),))
 FIT_B = job_key("fit", (("sample", "b"),))
+SPLIT_FIT = job_key("fit", ())
+SPLIT_RESAMPLE = job_key("resample", ())
 correct_seed = derive_seed
 
 
@@ -266,6 +268,7 @@ def test_a_checkpoint_expanded_family_is_admitted_though_unplannable() -> None:
         trace=(traced("split", {}), traced("fit", {"n": "a"})),
         expanded=("fit",),
         target_keys=(job_key("split", ()),),
+        targets=("split",),
     )
     assert conformance(run) == CONFORMING
 
@@ -288,8 +291,19 @@ def test_a_resolved_target_missing_from_the_trace_is_non_conforming() -> None:
         ),
         trace=(traced("fit", {}),),
         target_keys=(job_key("report", ()),),
+        targets=("report",),
     )
     assert "target" in conformance(run)
+
+
+def test_recorded_target_keys_must_be_the_invocation_targets_resolution() -> None:
+    run = closure_with(
+        planned=(planned("report", ("outputs/r.txt",)),),
+        trace=(),
+        target_keys=(),
+        targets=("report",),
+    )
+    assert "recorded target keys" in conformance(run)
 
 
 @pytest.fixture(scope="module")
@@ -323,8 +337,8 @@ def test_a_production_replay_runs_through_the_boundary_with_an_equal_recipe(tmp_
 def test_a_replay_refuses_a_reconstructed_recipe_mismatch(tmp_path):
     original = run_assessment(tmp_path / "original")
     changed = SNAKEFILE_DETERMINISTIC.replace(
-        "import json, pathlib, random",
-        "import json, pathlib, random  # changed recipe",
+        "import pathlib, random",
+        "import pathlib, random  # changed recipe",
     )
     attempt = replay_of(original, tmp_path / "changed", snakefile=changed)
     assert isinstance(attempt, RunRefused)
@@ -513,14 +527,31 @@ def split_family_run(run):
     )
     realized = RealizedSeeds(
         seeds={
-            "fit": {"initialization": derive_seed(11, "fit", "initialization")},
-            "resample": {"draws": derive_seed(22, "resample", "draws")},
+            SPLIT_FIT: {"initialization": derive_seed(11, SPLIT_FIT, "initialization")},
+            SPLIT_RESAMPLE: {"draws": derive_seed(22, SPLIT_RESAMPLE, "draws")},
         }
     )
     return dataclasses.replace(
         run,
-        recipe=dataclasses.replace(run.recipe, nondeterminism=Seeded(plan)),
-        occurrence=dataclasses.replace(run.occurrence, trace=trace, realized_seeds=realized),
+        recipe=dataclasses.replace(
+            run.recipe,
+            workflow_definition=WorkflowDefinitionSnapshot(
+                snakefile_digest=run.recipe.workflow_definition.snakefile_digest,
+                family_streams={"fit": ("initialization",), "resample": ("draws",)},
+                checkpoint_expanded_families=(),
+            ),
+            nondeterminism=Seeded(plan),
+        ),
+        occurrence=dataclasses.replace(
+            run.occurrence,
+            trace=trace,
+            planned=(
+                planned("fit", ("outputs/fit.txt",)),
+                planned("resample", ("outputs/result.txt",)),
+            ),
+            target_keys=(SPLIT_RESAMPLE,),
+            realized_seeds=realized,
+        ),
     )
 
 
@@ -533,7 +564,12 @@ def test_seeded_conformance_refuses_an_undeclared_reported_stream(pair):
     original, _ = pair
     split = split_family_run(original.run)
     realized = split.occurrence.realized_seeds
-    extra = RealizedSeeds(seeds={**realized.seeds, "fit": {**realized.seeds["fit"], "undeclared": 1}})
+    extra = RealizedSeeds(
+        seeds={
+            **realized.seeds,
+            SPLIT_FIT: {**realized.seeds[SPLIT_FIT], "undeclared": 1},
+        }
+    )
     changed = dataclasses.replace(
         split,
         occurrence=dataclasses.replace(split.occurrence, realized_seeds=extra),
@@ -548,7 +584,7 @@ def test_seeded_conformance_refuses_a_wrong_reported_seed(pair):
     wrong = RealizedSeeds(
         seeds={
             **realized.seeds,
-            "resample": {"draws": realized.seeds["resample"]["draws"] + 1},
+            SPLIT_RESAMPLE: {"draws": realized.seeds[SPLIT_RESAMPLE]["draws"] + 1},
         }
     )
     changed = dataclasses.replace(

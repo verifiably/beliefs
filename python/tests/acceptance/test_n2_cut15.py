@@ -27,6 +27,7 @@ FROZEN_CUT = REPO_ROOT / "docs" / "superpowers" / "specs" / "2026-09-01-workflow
 CUT15_FREEZE_COMMIT = "e2f9d71"
 
 FROZEN_PRIOR_CUT_FILES = {
+    "python/tests/n2_arms_cut3.py": "5a02ca2",
     "python/tests/n2_arms_cut5.py": "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e",
     "python/tests/n2_arms_cut6.py": "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e",
     "python/tests/n2_arms_cut7.py": "117f37e",
@@ -99,6 +100,27 @@ def test_the_frozen_cut_and_commit_state_the_same_accounting() -> None:
         check=False,
     )
     assert completed.returncode == 0
+    frozen = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(REPO_ROOT),
+            "show",
+            f"{CUT15_FREEZE_COMMIT}:{FROZEN_CUT.relative_to(REPO_ROOT)}",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert _section(text, "## 11. Conformance cut 15") == _section(
+        frozen, "## 11. Conformance cut 15"
+    )
+
+
+def _section(text: str, heading: str) -> str:
+    start = text.index(heading)
+    end = text.find("\n## ", start + 1)
+    return text[start:] if end == -1 else text[start:end]
 
 
 def test_every_arm_has_one_source_mutation_and_exact_check_nodes() -> None:

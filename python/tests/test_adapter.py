@@ -33,6 +33,7 @@ from beliefs.adapter import (
 from beliefs.errors import MalformedClosure, PlanUnavailable, SeedClaimMalformed, UnsafeInvocation
 from beliefs.recipe import PlannedJob, job_key
 from beliefs.seeds import record_digest_of
+from beliefs.spec import derive_seed
 
 
 def _write_claim(directory: Path, record: dict[str, object]) -> None:
@@ -50,6 +51,13 @@ def _claim(stream: str = "model-initialization", seed: int = 7) -> dict[str, obj
         "job_key": key,
         "stream": stream,
         "seed": seed,
+    }
+
+
+def _seed_config(root: str) -> dict[str, str]:
+    return {
+        "seed_derivation_rule": "seed-derivation/v1",
+        "seed_roots": json.dumps({"model-initialization": root}, separators=(",", ":")),
     }
 
 
@@ -272,7 +280,7 @@ def test_execution_is_direct_argv_with_shell_false(tmp_path):
         snakefile=str(tmp_path / "Snakefile"),
         directory=str(tmp_path),
         targets=("outputs/result.txt",),
-        config={"seed_model_initialization": "7"},
+        config=_seed_config("7"),
         log_handler=str(tmp_path / "handler.py"),
         cores=1,
         in_process_jobs=False,
@@ -315,14 +323,15 @@ def test_the_adapter_executes_the_held_definition_and_observes_the_trace(tmp_pat
     (scratch / "inputs").mkdir()
     (scratch / "inputs" / "data.txt").write_text("hello")
     entry = validate_entrypoint(bundle, "code/workflow/Snakefile")
-    code, log, events = engine_run(scratch, entry, tmp_path / "trace", config={"seed_model_initialization": "7"})
+    code, log, events = engine_run(scratch, entry, tmp_path / "trace", config=_seed_config("7"))
     assert code == 0, log
     assert (scratch / "outputs" / "result.txt").read_text().startswith("HELLO:")
     trace = read_trace(events)
     assert [job.rule for job in trace] == ["transform"]
     assert all(job.job_id for job in trace)  # engine-reported, never an ordinal
     seeds = read_realized_seeds(scratch)
-    assert seeds.seeds["transform"]["model-initialization"] == 7
+    key = job_key("transform", ())
+    assert seeds.seeds[key]["model-initialization"] == derive_seed(7, key, "model-initialization")
 
 
 def test_the_computation_derives_from_the_seed_it_reports(tmp_path):
@@ -338,9 +347,7 @@ def test_the_computation_derives_from_the_seed_it_reports(tmp_path):
         (scratch / "inputs").mkdir()
         (scratch / "inputs" / "data.txt").write_text("hello")
         entry = validate_entrypoint(bundle, "code/workflow/Snakefile")
-        code, log, _ = engine_run(
-            scratch, entry, tmp_path / f"trace-{seed}", config={"seed_model_initialization": seed}
-        )
+        code, log, _ = engine_run(scratch, entry, tmp_path / f"trace-{seed}", config=_seed_config(seed))
         assert code == 0, log
         outputs[seed] = (scratch / "outputs" / "result.txt").read_text()
     assert outputs["7"] != outputs["8"]
@@ -358,15 +365,12 @@ def test_a_malformed_trace_or_seed_report_refuses_capture(tmp_path):
     with pytest.raises(MalformedClosure):
         read_trace(events)  # input/output/wildcards required too — never silently defaulted
     scratch = create_scratch_root(tmp_path / "s")
-    (scratch / ".seeds").mkdir()
-    (scratch / ".seeds" / "a.json").write_text('{"transform": {"model-initialization": 7}}')
-    (scratch / ".seeds" / "b.json").write_text('{"transform": {"model-initialization": 7}}')
-    with pytest.raises(MalformedClosure):
-        read_realized_seeds(scratch)  # ANY second claim for one (job, stream) — agreement included
-    (scratch / ".seeds" / "b.json").write_text('{"transform": {"model-initialization": 9}}')
-    with pytest.raises(MalformedClosure):
-        read_realized_seeds(scratch)  # …and disagreeing, likewise
-    (scratch / ".seeds" / "b.json").write_text("garbage")
+    _write_claim(scratch / ".seeds", _claim())
+    second = _claim(seed=9)
+    _write_claim(scratch / ".seeds", second)
+    with pytest.raises(SeedClaimMalformed):
+        read_realized_seeds(scratch)  # two different files claim the same (job, stream)
+    (scratch / ".seeds" / f"{record_digest_of(second)}.json").write_text("garbage")
     with pytest.raises(MalformedClosure):
         read_realized_seeds(scratch)
 
@@ -405,14 +409,14 @@ def test_trace_refuses_conflicting_required_fields_for_one_engine_job_id(tmp_pat
 @pytest.mark.parametrize(
     "report",
     [
-        '{"transform": {"model-initialization": 7}, "transform": {"resample-draws": 8}}',
-        '{"transform": {"model-initialization": 7, "model-initialization": 8}}',
+        '{"rule":"fit","rule":"other","wildcards":{},"job_key":"x","stream":"s","seed":1}',
+        '{"rule":"fit","wildcards":{"s":"a","s":"b"},"job_key":"x","stream":"s","seed":1}',
     ],
 )
 def test_duplicate_keys_inside_one_seed_report_are_refused(tmp_path, report):
     scratch = create_scratch_root(tmp_path / "scratch")
     (scratch / ".seeds").mkdir()
-    (scratch / ".seeds" / "transform.json").write_text(report)
+    (scratch / ".seeds" / ("00" * 32 + ".json")).write_text(report)
     with pytest.raises(MalformedClosure):
         read_realized_seeds(scratch)
 

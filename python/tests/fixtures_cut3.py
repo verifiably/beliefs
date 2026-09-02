@@ -162,7 +162,7 @@ def occurrence(**overrides) -> Occurrence:
             ),
         ),
         "target_keys": (transform_key,),
-        "realized_seeds": RealizedSeeds(seeds={"transform": {"model-initialization": 7}}),
+        "realized_seeds": RealizedSeeds(seeds={transform_key: {"model-initialization": 7}}),
         "receipt": BoundaryReceipt(
             planning=LaunchAttestation(scratch_mapping="scratch-mount-a", argv=("snakemake",), rendered_config=()),
             execution=LaunchAttestation(scratch_mapping="scratch-mount-a", argv=("snakemake",), rendered_config=()),
@@ -207,6 +207,7 @@ def closure_with(
     planned=None,
     expanded=(),
     target_keys=None,
+    targets=None,
     outputs=(("out.txt", D_OUT),),
 ):
     """Build a closure from record parts for arms that need no engine."""
@@ -220,7 +221,10 @@ def closure_with(
     built = recipe(
         nondeterminism=nondeterminism or Deterministic(),
         workflow_definition=snapshot,
-        invocation=invocation(declared_outputs=tuple(name for name, _ in outputs)),
+        invocation=invocation(
+            targets=targets or (),
+            declared_outputs=tuple(name for name, _ in outputs),
+        ),
     )
     return RunClosure(
         recipe=built,
@@ -243,7 +247,7 @@ def closure_with(
             target_keys=(
                 target_keys
                 if target_keys is not None
-                else ((jobs[-1].job_key(),) if jobs else ())
+                else ()
             ),
             realized_seeds=RealizedSeeds(seeds=realized or {}),
         ),
@@ -329,27 +333,38 @@ def report(**overrides):
 
 
 SNAKEFILE_DETERMINISTIC = """\
-import json, pathlib, random
+import pathlib, random
+from beliefs.seeds import bind
+
+seed = bind(config)
 
 rule transform:
     input: "inputs/data.txt"
     output: "outputs/result.txt"
     run:
-        seed = int(config["seed_model_initialization"])
-        rng = random.Random(seed)  # the computation USES the seed it reports
+        value = seed(rule, wildcards, "model-initialization")
+        rng = random.Random(value)  # the computation USES the seed it reports
         salt = "".join(rng.choice("0123456789abcdef") for _ in range(8))
-        pathlib.Path(".seeds").mkdir(exist_ok=True)
-        pathlib.Path(".seeds/transform.json").write_text(
-            json.dumps({"transform": {"model-initialization": seed}}))
         text = pathlib.Path(input[0]).read_text()
         pathlib.Path(output[0]).write_text(text.upper() + ":" + salt)
 """
 
-# Disobeys its rendered configuration: USES and REPORTS seed+1 — the honest
-# record of a genuinely violating execution, not a doctored sidecar. A
-# complete closure the execution violated — R16's mint arm, R21 negative (e).
+# Disobeys its rendered configuration: the workflow itself uses and rewrites
+# its claim to seed+1 during execution. This is a genuinely violating closure,
+# not fixture post-processing — R16's mint arm and R21 negative (e).
 SNAKEFILE_SEED_VIOLATING = SNAKEFILE_DETERMINISTIC.replace(
-    'seed = int(config["seed_model_initialization"])', 'seed = int(config["seed_model_initialization"]) + 1'
+    "from beliefs.seeds import bind",
+    "import json\nfrom beliefs.seeds import bind, record_digest_of",
+).replace(
+    '        value = seed(rule, wildcards, "model-initialization")',
+    '''        value = seed(rule, wildcards, "model-initialization")
+        claim = next(pathlib.Path(".seeds").glob("*.json"))
+        record = json.loads(claim.read_text())
+        claim.unlink()
+        value += 1
+        record["seed"] = value
+        (claim.parent / f"{record_digest_of(record)}.json").write_text(
+            json.dumps(record, sort_keys=True, separators=(",", ":")))''',
 )
 
 # Byte-nondeterministic output, urandom staying inside the scratch root. Used

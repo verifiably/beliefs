@@ -77,6 +77,7 @@ def test_a_differing_job_set_alone_costs_no_scope() -> None:
         trace=(traced("fit", {"n": "a"}),),
         planned=(planned("fit", ("outputs/a.done",), wildcards=(("n", "a"),)),),
         target_keys=(job_key("fit", (("n", "a"),)),),
+        targets=("outputs/a.done",),
     )
     wide = closure_with(
         trace=(traced("fit", {"n": "a"}), traced("fit", {"n": "b"})),
@@ -85,6 +86,7 @@ def test_a_differing_job_set_alone_costs_no_scope() -> None:
             planned("fit", ("outputs/b.done",), wildcards=(("n", "b"),)),
         ),
         target_keys=(job_key("fit", (("n", "a"),)),),
+        targets=("outputs/a.done",),
     )
     assert narrow.recipe.identity() == wide.recipe.identity()
     assert conformance(narrow) == CONFORMING and conformance(wide) == CONFORMING

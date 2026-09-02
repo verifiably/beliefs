@@ -9,7 +9,13 @@ from pathlib import PurePosixPath
 from types import MappingProxyType
 from typing import cast, final
 
-from beliefs.errors import BoundaryPolicyUnsupported, MalformedClosure, MalformedRecord, UnsafeInvocation
+from beliefs.errors import (
+    BoundaryPolicyUnsupported,
+    CanonicalTextRefused,
+    MalformedClosure,
+    MalformedRecord,
+    UnsafeInvocation,
+)
 from beliefs.identity import v1
 from beliefs.sealed import sealed
 from beliefs.spec import (
@@ -515,6 +521,9 @@ def job_key(rule: str, wildcards: tuple[tuple[str, str], ...]) -> str:
     """Return canonical text over a rule name and its wildcard binding."""
     _require_str(rule, "job key rule")
     _require_pairs(wildcards, "job key wildcards")
+    names = [name for name, _ in wildcards]
+    if len(names) != len(set(names)):
+        raise MalformedClosure("job key wildcards name each binding once")
     return v1.encode({"rule": rule, "wildcards": {name: value for name, value in wildcards}}).decode("utf-8")
 
 
@@ -532,6 +541,7 @@ class TraceJob:
         _require_str(self.job_id, "trace job id")
         _require_str(self.rule, "trace rule")
         _require_pairs(self.wildcards, "trace job wildcards")
+        job_key(self.rule, self.wildcards)
         _require_strings(self.inputs, "trace job inputs")
         _require_strings(self.outputs, "trace job outputs")
 
@@ -554,6 +564,20 @@ class PlannedJob:
         _require_strings(self.outputs, "planned job outputs")
         if type(self.is_checkpoint) is not bool:
             raise MalformedClosure("planned job checkpoint flag must be a boolean")
+        try:
+            parsed = v1.decode(self.job_key.encode("utf-8"))
+        except (CanonicalTextRefused, UnicodeError) as error:
+            raise MalformedClosure("planned job key is not canonical job-key text") from error
+        if not isinstance(parsed, Mapping) or set(parsed) != {"rule", "wildcards"}:
+            raise MalformedClosure("planned job key is not canonical job-key text")
+        wildcards = parsed["wildcards"]
+        if (
+            type(parsed["rule"]) is not str
+            or not isinstance(wildcards, Mapping)
+            or any(type(name) is not str or type(value) is not str for name, value in wildcards.items())
+            or job_key(self.family, tuple(wildcards.items())) != self.job_key
+        ):
+            raise MalformedClosure("planned job key disagrees with its family")
 
     def projection(self) -> dict[str, object]:
         return {

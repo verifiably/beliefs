@@ -42,6 +42,7 @@ from beliefs.recipe import (
     Invocation,
     LaunchAttestation,
     Occurrence,
+    PlannedJob,
     RecipeInput,
     ResultManifest,
     RunClosure,
@@ -128,9 +129,21 @@ def test_a_wildcard_value_containing_a_separator_cannot_collide():
     assert left != right
 
 
+def test_a_job_key_refuses_duplicate_wildcard_names():
+    with pytest.raises(MalformedClosure):
+        job_key("fit", (("sample", "a"), ("sample", "b")))
+    with pytest.raises(MalformedClosure):
+        TraceJob("1", "fit", (("sample", "a"), ("sample", "b")), (), ())
+
+
 def test_a_trace_job_reports_its_own_key():
     job = TraceJob(job_id="1", rule="fit", wildcards=(("sample", "a"),), inputs=(), outputs=())
     assert job.job_key() == job_key("fit", (("sample", "a"),))
+
+
+def test_a_planned_job_key_must_name_its_family():
+    with pytest.raises(MalformedClosure):
+        PlannedJob(job_key("fit", ()), "other", (), False)
 
 
 # --- R1 ----------------------------------------------------------------------

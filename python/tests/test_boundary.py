@@ -59,7 +59,12 @@ from beliefs.boundary import (
     mint_run,
     resolve_targets,
 )
-from beliefs.errors import CheckpointDeclarationUnmet, MalformedClosure, TargetAmbiguous, TargetUnresolvable
+from beliefs.errors import (
+    CheckpointDeclarationUnmet,
+    MalformedClosure,
+    TargetAmbiguous,
+    TargetUnresolvable,
+)
 from beliefs.recipe import MINIMAL_POLICY, Occurrence, PlannedJob, RunClosure, WorkflowDefinitionSnapshot, job_key
 from beliefs.report import ActReport, OperationIntent, RunAttemptEntry, RunRefusal
 from beliefs.spec import Deterministic, Seeded, SeedPlan, SpecInput, derive_seed, freeze, revise
@@ -152,6 +157,29 @@ def test_an_empty_checkpoint_declaration_permits_a_planned_checkpoint() -> None:
         _checkpoint_snapshot({"split": ()}, ()),
         (_planned_checkpoint("split", is_checkpoint=True),),
     )
+
+
+@pytest.mark.parametrize("reserved", ("seed_roots", "seed_derivation_rule"))
+@pytest.mark.parametrize("contract", (seeded(), Deterministic()))
+def test_seed_config_members_cannot_be_shadowed_by_recipe_parameters(reserved, contract) -> None:
+    value = recipe(parameters={reserved: "caller supplied"}, nondeterminism=contract)
+    with pytest.raises(MalformedClosure):
+        _render_config(value, value.workflow_definition)
+
+
+def test_an_unsupported_seed_derivation_rule_is_refused_before_launch() -> None:
+    value = recipe(
+        nondeterminism=Seeded(
+            plan=SeedPlan(
+                derivation_rule="seed-derivation/future",
+                streams=("model-initialization",),
+                roots={"root-a": 11},
+                stream_roots={"model-initialization": "root-a"},
+            )
+        )
+    )
+    with pytest.raises(MalformedClosure):
+        _render_config(value, value.workflow_definition)
 
 
 def test_a_checkpoint_declaration_with_a_planned_checkpoint_is_permitted() -> None:
@@ -315,7 +343,10 @@ def test_g2a_r12_an_out_of_band_run_with_a_spec_frozen_afterwards_is_undetectabl
         snakefile=str(entry),
         directory=str(scratch),
         targets=("outputs/result.txt",),
-        config={"seed_model_initialization": "7"},
+        config={
+            "seed_derivation_rule": "seed-derivation/v1",
+            "seed_roots": '{"model-initialization":"7"}',
+        },
         log_handler=str(handler),
         cores=1,
         in_process_jobs=False,
@@ -507,8 +538,9 @@ def test_r21_negative_e_the_two_failure_states_are_distinct(tmp_path):
 def test_r16_a_seed_violating_execution_still_mints_a_run(tmp_path):
     outcome = run_assessment(tmp_path, snakefile=SNAKEFILE_SEED_VIOLATING)
     assert isinstance(outcome, RunMinted)
-    realized = outcome.run.occurrence.realized_seeds.seeds["transform"]["model-initialization"]
-    assert realized != derive_seed(11, "transform", "model-initialization")
+    key = job_key("transform", ())
+    realized = outcome.run.occurrence.realized_seeds.seeds[key]["model-initialization"]
+    assert realized != derive_seed(11, key, "model-initialization")
 
 
 # --- R17's execution halves ----------------------------------------------------
@@ -533,9 +565,10 @@ def test_r17_no_path_supplies_inputs_parameters_or_contract_on_an_assessment_run
 
 
 def test_r17_the_boundary_renders_the_configuration_from_the_projected_members(minted):
-    rendered = dict(minted.run.occurrence.receipt.rendered_config)
+    rendered = dict(minted.run.occurrence.receipt.execution.rendered_config)
     assert rendered["alpha"] == "0.05"
-    assert rendered["seed_model_initialization"] == str(derive_seed(11, "transform", "model-initialization"))
+    assert json.loads(rendered["seed_roots"]) == {"model-initialization": "11"}
+    assert rendered["seed_derivation_rule"] == "seed-derivation/v1"
 
 
 def test_r17_seed_shopping_cannot_occur_at_all(minted):

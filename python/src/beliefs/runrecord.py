@@ -439,11 +439,15 @@ def _validate_occurrence(value: object, *, recipe_v2: bool) -> str:
         row = _mapping(
             job, {"job_id", "rule", "wildcards", "inputs", "outputs"}, path
         )
-        _str_at(row["job_id"], f"{path}.job_id")
-        _str_at(row["rule"], f"{path}.rule")
+        job_id = _str_at(row["job_id"], f"{path}.job_id")
+        rule = _str_at(row["rule"], f"{path}.rule")
         _pair_list(row["wildcards"], f"{path}.wildcards")
-        _str_list(row["inputs"], f"{path}.inputs")
-        _str_list(row["outputs"], f"{path}.outputs")
+        inputs = _str_list(row["inputs"], f"{path}.inputs")
+        outputs = _str_list(row["outputs"], f"{path}.outputs")
+        try:
+            TraceJob(job_id, rule, _decoded_pairs(row["wildcards"]), tuple(inputs), tuple(outputs))
+        except MalformedClosure as error:
+            _refuse(path, str(error))
     if recipe_v2:
         planned = occurrence["planned"]
         if not isinstance(planned, list):
@@ -452,11 +456,16 @@ def _validate_occurrence(value: object, *, recipe_v2: bool) -> str:
         for index, job in enumerate(planned):
             path = f"$.occurrence.planned[{index}]"
             row = _mapping(job, {"job_key", "family", "outputs", "is_checkpoint"}, path)
-            planned_keys.append(_str_at(row["job_key"], f"{path}.job_key"))
-            _str_at(row["family"], f"{path}.family")
-            _str_list(row["outputs"], f"{path}.outputs")
+            key = _str_at(row["job_key"], f"{path}.job_key")
+            family = _str_at(row["family"], f"{path}.family")
+            outputs = _str_list(row["outputs"], f"{path}.outputs")
             if type(row["is_checkpoint"]) is not bool:
                 _refuse(f"{path}.is_checkpoint", "not a boolean")
+            try:
+                PlannedJob(key, family, tuple(outputs), row["is_checkpoint"])
+            except MalformedClosure as error:
+                _refuse(path, str(error))
+            planned_keys.append(key)
         if len(planned_keys) != len(set(planned_keys)):
             _refuse("$.occurrence.planned", "repeats a job key")
         _str_list(occurrence["target_keys"], "$.occurrence.target_keys")

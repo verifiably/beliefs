@@ -52,16 +52,22 @@ SNAKEFILE_WRITE_OUTSIDE = SNAKEFILE_DETERMINISTIC.replace(
 )
 SNAKEFILE_CORES_SENSITIVE = """\
 import json, pathlib
+from beliefs.seeds import bind, record_digest_of
+
+seed = bind(config)
 
 rule transform:
     input: "inputs/data.txt"
     output: "outputs/result.txt"
     run:
-        planned = int(config["seed_model_initialization"])
-        seed = planned if workflow.cores == 1 else planned + 1
-        pathlib.Path(".seeds").mkdir(exist_ok=True)
-        pathlib.Path(".seeds/transform.json").write_text(
-            json.dumps({"transform": {"model-initialization": seed}}))
+        value = seed(rule, wildcards, "model-initialization")
+        if workflow.cores != 1:
+            claim = next(pathlib.Path(".seeds").glob("*.json"))
+            record = json.loads(claim.read_text())
+            claim.unlink()
+            record["seed"] = value + 1
+            (claim.parent / f"{record_digest_of(record)}.json").write_text(
+                json.dumps(record, sort_keys=True, separators=(",", ":")))
         pathlib.Path(output[0]).write_text(pathlib.Path(input[0]).read_text().upper())
 """
 
@@ -76,8 +82,8 @@ def snakefile_connecting_to(port: int) -> str:
 
 def snakefile_importing_from(directory: Path) -> str:
     return SNAKEFILE_DETERMINISTIC.replace(
-        "import json, pathlib, random",
-        f'import sys; sys.path.insert(0, "{directory}"); import secret\nimport json, pathlib, random',
+        "import pathlib, random",
+        f'import sys; sys.path.insert(0, "{directory}"); import secret\nimport pathlib, random',
     )
 
 

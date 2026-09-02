@@ -30,7 +30,10 @@ def confined_launch(**overrides) -> LaunchAttestation:
     fields = {
         "scratch_mapping": "/host/scratch/run-1",
         "argv": ("/science/env/venv/bin/python", "-m", "snakemake"),
-        "rendered_config": (("seed_model_initialization", "7"),),
+        "rendered_config": (
+            ("seed_derivation_rule", "seed-derivation/v1"),
+            ("seed_roots", '{"model-initialization":"7"}'),
+        ),
         "capabilities": CAPABILITIES,
         "instance": instance(),
         "rendered_environment": RENDERED_ENVIRONMENT,

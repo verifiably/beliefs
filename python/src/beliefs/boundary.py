@@ -106,7 +106,7 @@ from beliefs.report import (
 )
 from beliefs.runrecord import OperationPort, publication_plan
 from beliefs.sealed import sealed
-from beliefs.spec import DATASET_EQUIVALENCE_RULE, FrozenSpec, NondeterminismContract, Seeded
+from beliefs.spec import DATASET_EQUIVALENCE_RULE, SEED_DERIVATION_V1, FrozenSpec, NondeterminismContract, Seeded
 
 __all__ = [
     "RunMinted",
@@ -292,10 +292,15 @@ def _stage_inputs(addresses: tuple[str, ...], held_inputs: Mapping[str, Path], s
 
 def _render_config(recipe: Recipe, snapshot: WorkflowDefinitionSnapshot) -> dict[str, str]:
     config = {key: str(value) for key, value in recipe.parameters.items()}
+    reserved = {"seed_roots", "seed_derivation_rule"}
+    if collisions := sorted(reserved & set(config)):
+        raise MalformedClosure(f"recipe parameters collide with boundary seed config: {collisions}")
     if type(recipe.nondeterminism) is not Seeded:
         return config
 
     plan = recipe.nondeterminism.plan
+    if plan.derivation_rule != SEED_DERIVATION_V1:
+        raise MalformedClosure(f"unsupported seed derivation rule {plan.derivation_rule!r}")
     config["seed_roots"] = json.dumps(
         {stream: str(plan.roots[plan.stream_roots[stream]]) for stream in sorted(plan.streams)},
         sort_keys=True,
