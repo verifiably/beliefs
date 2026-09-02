@@ -10,6 +10,7 @@ import inspect
 import json
 import os
 import sys
+from pathlib import Path
 
 import pytest
 from config_probe import run_config_probe
@@ -19,6 +20,7 @@ from fixtures_cut3 import (
     READS_ADDRESS,
     SNAKEFILE_DETERMINISTIC,
     SNAKEFILE_NONDETERMINISTIC,
+    SNAKEFILE_PRODUCTION,
     SNAKEFILE_SCRATCHY,
     SNAKEFILE_SEED_VIOLATING,
     closure,
@@ -57,7 +59,7 @@ from beliefs.boundary import (
 )
 from beliefs.errors import MalformedClosure
 from beliefs.recipe import MINIMAL_POLICY, Occurrence, RunClosure
-from beliefs.report import ActReport, OperationIntent, RunAttemptEntry
+from beliefs.report import ActReport, OperationIntent, RunAttemptEntry, RunRefusal
 from beliefs.spec import Deterministic, Seeded, SeedPlan, SpecInput, derive_seed, freeze, revise
 
 
@@ -91,6 +93,44 @@ def test_the_engine_coerces_a_structured_config_value_to_strings(tmp_path) -> No
     observed = run_config_probe(tmp_path, {"seed_roots": '{"a": 11}', "plain": "11"})
     assert observed["seed_roots"] == ["dict", {"a": "11"}]
     assert observed["plain"] == ["int", 11]
+
+
+def test_the_planning_launch_writes_nothing_into_the_execution_scratch(tmp_path) -> None:
+    outcome = run_production(tmp_path, snakefile=SNAKEFILE_PRODUCTION)
+    assert isinstance(outcome, RunMinted)
+    scratch = Path(outcome.run.occurrence.receipt.execution.scratch_mapping)
+    planning = Path(outcome.run.occurrence.receipt.planning.scratch_mapping)
+    assert scratch.exists() and planning != scratch and not planning.exists()
+
+
+def test_the_plan_is_carried_by_the_occurrence(tmp_path) -> None:
+    outcome = run_production(tmp_path, snakefile=SNAKEFILE_PRODUCTION)
+    assert isinstance(outcome, RunMinted)
+    assert {job.family for job in outcome.run.occurrence.planned} == {"transform"}
+
+
+def test_an_unknown_target_is_a_planning_refusal_not_a_resolution_one(tmp_path) -> None:
+    outcome = run_production(
+        tmp_path,
+        snakefile=SNAKEFILE_PRODUCTION,
+        targets=("outputs/zzz.txt",),
+    )
+    assert isinstance(outcome, RunRefused)
+    assert "plan" in outcome.reason and "target" not in outcome.reason
+
+
+def test_a_definition_disagreement_refuses_before_a_planning_effect(tmp_path) -> None:
+    outcome = run_production(
+        tmp_path,
+        snakefile=SNAKEFILE_PRODUCTION,
+        definition_override=definition(
+            snakefile=SNAKEFILE_PRODUCTION,
+            family_streams={"transform": ("model-initialization",)},
+        ),
+    )
+    assert isinstance(outcome, RunRefused)
+    assert "definition" in outcome.reason
+    assert not list((tmp_path / "scratch").glob("planning-*"))
 
 
 @pytest.fixture(scope="module")
@@ -343,10 +383,10 @@ def test_r21_negative_c_two_differently_mounted_scratch_roots_yield_equal_recipe
     b = run_assessment(tmp_path / "mount-b")
     assert isinstance(a, RunMinted) and isinstance(b, RunMinted)
     assert a.run.recipe.identity() == b.run.recipe.identity()
-    assert a.run.occurrence.receipt.scratch_mapping != b.run.occurrence.receipt.scratch_mapping
+    assert a.run.occurrence.receipt.execution.scratch_mapping != b.run.occurrence.receipt.execution.scratch_mapping
     import json
 
-    assert a.run.occurrence.receipt.scratch_mapping not in json.dumps(a.run.recipe.identity())
+    assert a.run.occurrence.receipt.execution.scratch_mapping not in json.dumps(a.run.recipe.identity())
 
 
 def test_r21_negative_e_the_two_failure_states_are_distinct(tmp_path):
@@ -461,11 +501,11 @@ def test_k1_an_unsupported_policy_refuses_before_intent(tmp_path):
     assert "scope-derivation/v2" in outcome.detail
 
 
-def test_a_minimal_run_carries_a_v1_receipt_and_no_instance(tmp_path):
+def test_a_minimal_run_carries_a_composed_unconfined_receipt(tmp_path):
     outcome = run_assessment(tmp_path, boundary_policy=MINIMAL_POLICY)
     assert isinstance(outcome, RunMinted)
     receipt = outcome.run.occurrence.receipt
-    assert not receipt.confined and receipt.capabilities == () and receipt.instance is None
+    assert not receipt.confined and receipt.execution.capabilities == () and receipt.execution.instance is None
     assert outcome.run.recipe.boundary_policy == MINIMAL_POLICY
 
 
@@ -473,7 +513,7 @@ def test_replay_carries_the_originals_policy_and_takes_none_of_its_own(tmp_path)
     assert "boundary_policy" not in inspect.signature(_replay).parameters
     original = run_assessment(tmp_path / "a")
     replayed = _replay_of(original, tmp_path / "b", port=MEMORY_PORT)
-    assert isinstance(replayed, RunMinted)
+    assert isinstance(original, RunMinted) and isinstance(replayed, RunMinted)
     assert replayed.run.recipe.boundary_policy == original.run.recipe.boundary_policy == MINIMAL_POLICY
 
 
@@ -487,4 +527,6 @@ def test_a_confinement_refusal_keeps_its_stable_reason_and_its_detail(tmp_path, 
     assert outcome.reason == "closure-unsupported"
     assert outcome.detail == "synthetic: SONAME collision"
     assert outcome.intent is not None  # post-intent: the intent was fulfilled by a refusal
-    assert outcome.report is not None and outcome.report.entries[0].outcome.missing_member == "closure-unsupported"
+    assert outcome.report is not None
+    report_outcome = outcome.report.entries[0].outcome
+    assert isinstance(report_outcome, RunRefusal) and report_outcome.missing_member == "closure-unsupported"

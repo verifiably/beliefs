@@ -392,6 +392,7 @@ INVALID_CLOSURE_VALUES = [
             actor="tester",
             host_realization="host",
             trace=(),
+            planned=(),
             realized_seeds=RealizedSeeds(seeds={}),
             receipt=[],  # type: ignore[arg-type]
         ),

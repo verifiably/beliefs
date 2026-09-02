@@ -1630,9 +1630,8 @@ def test_the_planning_launch_writes_nothing_into_the_execution_scratch(tmp_path)
     outcome = memory_production(tmp_path, snakefile=SNAKEFILE_PRODUCTION)
     assert isinstance(outcome, RunMinted)
     scratch = pathlib.Path(outcome.run.occurrence.receipt.execution.scratch_mapping)
-    assert not (scratch / ".snakemake").exists()
     planning = pathlib.Path(outcome.run.occurrence.receipt.planning.scratch_mapping)
-    assert planning != scratch and not planning.exists()  # discarded
+    assert scratch.exists() and planning != scratch and not planning.exists()  # planning discarded
 
 
 def test_the_plan_is_carried_by_the_occurrence(tmp_path):

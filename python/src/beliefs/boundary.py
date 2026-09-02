@@ -38,6 +38,7 @@ from beliefs.adapter import (
     capture_bundle,
     capture_closure,
     create_scratch_root,
+    read_plan,
     read_realized_seeds,
     read_trace,
     require_executing_environment,
@@ -59,7 +60,14 @@ from beliefs.confinement import (
     require_host,
     sandbox_environment,
 )
-from beliefs.errors import ConfinementRefusal, MalformedClosure, MalformedRecord, ScienceError
+from beliefs.errors import (
+    ConfinementRefusal,
+    DefinitionPlanMismatch,
+    MalformedClosure,
+    MalformedRecord,
+    PlanUnavailable,
+    ScienceError,
+)
 from beliefs.identity import v1
 from beliefs.recipe import (
     CONFINED_POLICY,
@@ -70,6 +78,7 @@ from beliefs.recipe import (
     Invocation,
     LaunchAttestation,
     Occurrence,
+    PlannedJob,
     Recipe,
     RecipeInput,
     ResultManifest,
@@ -425,6 +434,46 @@ def _execute_run(
         )
 
         config = _render_config(recipe, definition.snapshot())
+        from beliefs.replay import definition_agrees_with_plan
+
+        plan = recipe.nondeterminism.plan if type(recipe.nondeterminism) is Seeded else None
+        if reason := definition_agrees_with_plan(definition.snapshot(), plan):
+            raise DefinitionPlanMismatch(f"definition/plan mismatch: {reason}")
+
+        planning_dir = Path(tempfile.mkdtemp(prefix="planning-", dir=scratch_base))
+        planning_handler = planning_dir / "handler.py"
+        planning_events = planning_dir / "events.jsonl"
+        planning_handler.write_text(LOG_HANDLER_SCRIPT)
+        _stage_inputs(addresses, held_inputs, planning_dir)
+        planning_argv = build_argv(
+            interpreter=sys.executable,
+            snakefile=str(captured_entrypoint),
+            directory=str(planning_dir),
+            targets=targets,
+            config=config,
+            log_handler=str(planning_handler),
+            cores=cores,
+            in_process_jobs=False,
+            dry_run=True,
+        )
+        try:
+            planning_returncode, _ = run_engine(
+                planning_argv,
+                cwd=planning_dir,
+                env={**os.environ, "SCIENCE_TRACE_FILE": str(planning_events)},
+            )
+            if planning_returncode != 0:
+                raise PlanUnavailable(f"the planning launch exited {planning_returncode}")
+            planned_jobs = read_plan(planning_events)
+        finally:
+            shutil.rmtree(planning_dir, ignore_errors=True)
+        planning_launch = LaunchAttestation(
+            scratch_mapping=str(planning_dir),
+            argv=planning_argv,
+            rendered_config=tuple(sorted(config.items())),
+            capabilities=(),
+        )
+
         trace_dir = Path(tempfile.mkdtemp(prefix="trace-", dir=scratch.parent))
         handler = trace_dir / "handler.py"
         events = trace_dir / "events.jsonl"
@@ -447,19 +496,20 @@ def _execute_run(
 
         trace = read_trace(events)
         realized_seeds = read_realized_seeds(scratch)
-        launch = LaunchAttestation(
+        execution_launch = LaunchAttestation(
             scratch_mapping=str(scratch),
             argv=argv,
             rendered_config=tuple(sorted(config.items())),
             capabilities=(),
         )
-        receipt = BoundaryReceipt(planning=launch, execution=launch)
+        receipt = BoundaryReceipt(planning=planning_launch, execution=execution_launch)
         occurrence = Occurrence(
             event_token=intent.event_token,
             started_at=started_at,
             actor=actor,
             host_realization=host_realization,
             trace=trace,
+            planned=planned_jobs,
             realized_seeds=realized_seeds,
             receipt=receipt,
         )
@@ -554,7 +604,7 @@ def _execute_confined(
         return _refused("execution-failed", subject, actor, observer, started_at, intent, detail=launched.output[-2000:])
     trace = read_trace(output_root / TRACE_DIR / "events.jsonl")
     realized_seeds = read_realized_seeds(output_root)
-    launch = LaunchAttestation(
+    execution_launch = LaunchAttestation(
         scratch_mapping=str(scratch),
         argv=inner_argv,
         rendered_config=tuple(sorted(config.items())),
@@ -572,13 +622,17 @@ def _execute_confined(
         ),
         mounts=plan.host_mapping(),
     )
-    receipt = BoundaryReceipt(planning=launch, execution=launch)
+    receipt = BoundaryReceipt(planning=execution_launch, execution=execution_launch)
     occurrence = Occurrence(
         event_token=intent.event_token,
         started_at=started_at,
         actor=actor,
         host_realization=host_realization,
         trace=trace,
+        planned=tuple(
+            PlannedJob(job.job_key(), job.rule, job.outputs, False)
+            for job in trace
+        ),
         realized_seeds=realized_seeds,
         receipt=receipt,
     )

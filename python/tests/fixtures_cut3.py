@@ -17,12 +17,14 @@ from beliefs.recipe import (
     Invocation,
     LaunchAttestation,
     Occurrence,
+    PlannedJob,
     Recipe,
     RecipeInput,
     ResultManifest,
     RunClosure,
     TraceJob,
     WorkflowDefinitionSnapshot,
+    job_key,
 )
 
 # Tests build fixture values through the private constructor deliberately —
@@ -130,6 +132,13 @@ def recipe(**overrides) -> Recipe:
 
 
 def occurrence(**overrides) -> Occurrence:
+    transform_key = TraceJob(
+        job_id="0",
+        rule="transform",
+        wildcards=(),
+        inputs=("inputs/data.txt",),
+        outputs=("outputs/result.txt",),
+    ).job_key()
     fields = {
         "event_token": "tok-1",
         "started_at": "2026-08-12T00:00:00Z",
@@ -142,6 +151,14 @@ def occurrence(**overrides) -> Occurrence:
                 wildcards=(),
                 inputs=("inputs/data.txt",),
                 outputs=("outputs/result.txt",),
+            ),
+        ),
+        "planned": (
+            PlannedJob(
+                job_key=transform_key,
+                family="transform",
+                outputs=("outputs/result.txt",),
+                is_checkpoint=False,
             ),
         ),
         "realized_seeds": RealizedSeeds(seeds={"transform": {"model-initialization": 7}}),
@@ -186,6 +203,8 @@ def closure_with(
     family_streams=None,
     realized=None,
     trace=None,
+    planned=None,
+    expanded=(),
     outputs=(("out.txt", D_OUT),),
 ):
     """Build a closure from record parts for arms that need no engine."""
@@ -194,7 +213,7 @@ def closure_with(
     snapshot = WorkflowDefinitionSnapshot(
         snakefile_digest=D_IN,
         family_streams=families,
-        checkpoint_expanded_families=(),
+        checkpoint_expanded_families=expanded,
     )
     built = recipe(
         nondeterminism=nondeterminism or Deterministic(),
@@ -206,8 +225,30 @@ def closure_with(
         result=ResultManifest(outputs=tuple(outputs)),
         occurrence=occurrence(
             trace=jobs,
+            planned=(
+                planned
+                if planned is not None
+                else tuple(
+                    PlannedJob(
+                        job_key=job.job_key(),
+                        family=job.rule,
+                        outputs=job.outputs,
+                        is_checkpoint=False,
+                    )
+                    for job in jobs
+                )
+            ),
             realized_seeds=RealizedSeeds(seeds=realized or {}),
         ),
+    )
+
+
+def planned(family, outputs=(), is_checkpoint=False, wildcards=()):
+    return PlannedJob(
+        job_key=job_key(family, tuple(wildcards)),
+        family=family,
+        outputs=tuple(outputs),
+        is_checkpoint=is_checkpoint,
     )
 
 

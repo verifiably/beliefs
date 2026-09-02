@@ -77,6 +77,7 @@ def make_closure(
         actor="tester",
         host_realization="host-a",
         trace=(),
+        planned=(),
         realized_seeds=RealizedSeeds({}),
         receipt=BoundaryReceipt(
             planning=LaunchAttestation(

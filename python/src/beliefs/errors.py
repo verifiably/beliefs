@@ -705,6 +705,10 @@ class SeedClaimMalformed(RecordError):
     """A job cannot write one unambiguous seed claim."""
 
 
+class PlanUnavailable(RecordError):
+    """The planning launch did not yield one complete, consistent job set."""
+
+
 class RecordUndecodable(RecordError):
     """Captured bytes cannot be read as the named published record."""
 

@@ -21,9 +21,16 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import cast, final
 
-from beliefs.errors import ClosureUnsupported, MalformedClosure, SeedClaimMalformed, UnsafeInvocation
+from beliefs.errors import ClosureUnsupported, MalformedClosure, PlanUnavailable, SeedClaimMalformed, UnsafeInvocation
 from beliefs.recipe import WORKFLOW_DEFINITION_DOMAIN as _WORKFLOW_DEFINITION_DOMAIN
-from beliefs.recipe import EnvironmentManifest, EnvironmentReference, TraceJob, WorkflowDefinitionSnapshot, job_key
+from beliefs.recipe import (
+    EnvironmentManifest,
+    EnvironmentReference,
+    PlannedJob,
+    TraceJob,
+    WorkflowDefinitionSnapshot,
+    job_key,
+)
 from beliefs.sealed import sealed
 from beliefs.seeds import record_digest_of
 from beliefs.spec import RealizedSeeds
@@ -696,6 +703,7 @@ def build_argv(
     log_handler: str,
     cores: int,
     in_process_jobs: bool,
+    dry_run: bool = False,
 ) -> tuple[str, ...]:
     """Policy-neutral: the minimal policy supplies host paths, the confined
     policy sandbox paths. `in_process_jobs` adds `--force-use-threads`, under
@@ -724,6 +732,8 @@ def build_argv(
     ]
     if in_process_jobs:
         argv.append("--force-use-threads")
+    if dry_run:
+        argv.append("--dryrun")
     argv.extend(["--log-handler-script", log_handler])
     if config:
         argv.append("--config")
@@ -789,6 +799,45 @@ def read_trace(events_file: Path) -> tuple[TraceJob, ...]:
             jobs_by_id[job.job_id] = job
             trace.append(job)
     return tuple(trace)
+
+
+def read_plan(events_file: Path) -> tuple[PlannedJob, ...]:
+    try:
+        lines = events_file.read_text().splitlines()
+    except (OSError, UnicodeError) as error:
+        raise PlanUnavailable("the engine plan is missing or unreadable") from error
+    if not lines:
+        raise PlanUnavailable("the engine plan contains no jobs")
+
+    jobs: dict[str, PlannedJob] = {}
+    for line in lines:
+        try:
+            record = json.loads(line)
+        except (json.JSONDecodeError, UnicodeError) as error:
+            raise PlanUnavailable("the engine plan contains an unparseable record") from error
+        required = {"level", "jobid", "name", "input", "output", "wildcards", "is_checkpoint"}
+        if not isinstance(record, dict) or record.get("level") != "job_info" or not required <= set(record):
+            raise PlanUnavailable("the engine plan contains an incomplete job_info record")
+        family, outputs = record["name"], record["output"]
+        wildcards, is_checkpoint = record["wildcards"], record["is_checkpoint"]
+        if (
+            type(family) is not str
+            or not isinstance(outputs, list)
+            or any(type(output) is not str for output in outputs)
+            or not isinstance(wildcards, dict)
+            or any(type(name) is not str or type(value) is not str for name, value in wildcards.items())
+            or type(is_checkpoint) is not bool
+        ):
+            raise PlanUnavailable("the engine plan contains a malformed job_info record")
+        key = job_key(family, tuple(sorted(cast(dict[str, str], wildcards).items())))
+        planned = PlannedJob(key, family, tuple(outputs), is_checkpoint)
+        previous = jobs.get(key)
+        if previous is not None and previous != planned:
+            raise PlanUnavailable(f"planned job {key!r} has conflicting observations")
+        jobs[key] = planned
+    if not jobs:
+        raise PlanUnavailable("the engine plan contains no jobs")
+    return tuple(jobs[key] for key in sorted(jobs))
 
 
 def read_realized_seeds(scratch: Path) -> RealizedSeeds:

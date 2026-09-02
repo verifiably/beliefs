@@ -23,14 +23,15 @@ from beliefs.adapter import (
     capture_bundle,
     create_scratch_root,
     distribution_digest,
+    read_plan,
     read_realized_seeds,
     read_trace,
     run_engine,
     tree_digest,
     validate_entrypoint,
 )
-from beliefs.errors import MalformedClosure, SeedClaimMalformed, UnsafeInvocation
-from beliefs.recipe import job_key
+from beliefs.errors import MalformedClosure, PlanUnavailable, SeedClaimMalformed, UnsafeInvocation
+from beliefs.recipe import PlannedJob, job_key
 from beliefs.seeds import record_digest_of
 
 
@@ -50,6 +51,59 @@ def _claim(stream: str = "model-initialization", seed: int = 7) -> dict[str, obj
         "stream": stream,
         "seed": seed,
     }
+
+
+def _plan_event(jobid, name, wildcards, output, is_checkpoint=False):
+    return json.dumps(
+        {
+            "level": "job_info",
+            "jobid": jobid,
+            "name": name,
+            "wildcards": wildcards,
+            "input": [],
+            "output": output,
+            "is_checkpoint": is_checkpoint,
+        }
+    )
+
+
+def test_a_job_emitted_twice_yields_one_planned_job(tmp_path) -> None:
+    events = tmp_path / "dry.jsonl"
+    event = _plan_event(1, "fit", {"sample": "a"}, ["outputs/a.txt"])
+    events.write_text(f"{event}\n{event}\n")
+    assert read_plan(events) == (
+        PlannedJob(
+            job_key=job_key("fit", (("sample", "a"),)),
+            family="fit",
+            outputs=("outputs/a.txt",),
+            is_checkpoint=False,
+        ),
+    )
+
+
+def test_two_records_for_one_key_that_disagree_are_a_planning_refusal(tmp_path) -> None:
+    events = tmp_path / "dry.jsonl"
+    events.write_text(
+        _plan_event(1, "split", {}, ["splits"], is_checkpoint=True)
+        + "\n"
+        + _plan_event(1, "split", {}, ["splits"], is_checkpoint=False)
+        + "\n"
+    )
+    with pytest.raises(PlanUnavailable):
+        read_plan(events)
+
+
+def test_a_plan_with_no_job_is_a_planning_refusal(tmp_path) -> None:
+    events = tmp_path / "dry.jsonl"
+    events.write_text("")
+    with pytest.raises(PlanUnavailable):
+        read_plan(events)
+
+
+def test_the_planned_job_has_no_engine_job_id(tmp_path) -> None:
+    events = tmp_path / "dry.jsonl"
+    events.write_text(_plan_event(7, "fit", {"sample": "a"}, ["outputs/a.txt"]) + "\n")
+    assert not hasattr(read_plan(events)[0], "job_id")
 
 
 def test_claims_are_read_into_the_two_level_map(tmp_path) -> None:

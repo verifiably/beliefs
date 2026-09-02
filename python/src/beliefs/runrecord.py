@@ -36,6 +36,7 @@ from beliefs.recipe import (
     Invocation,
     LaunchAttestation,
     Occurrence,
+    PlannedJob,
     Recipe,
     RecipeInput,
     ResultManifest,
@@ -411,18 +412,21 @@ def _validate_launch(value: object, path: str) -> bool:
     return True
 
 
-def _validate_occurrence(value: object) -> str:
+def _validate_occurrence(value: object, *, recipe_v2: bool) -> str:
+    members = {
+        "event_token",
+        "started_at",
+        "actor",
+        "host_realization",
+        "trace",
+        "realized_seeds",
+        "receipt",
+    }
+    if recipe_v2:
+        members.add("planned")
     occurrence = _mapping(
         value,
-        {
-            "event_token",
-            "started_at",
-            "actor",
-            "host_realization",
-            "trace",
-            "realized_seeds",
-            "receipt",
-        },
+        members,
         "$.occurrence",
     )
     for field in ("event_token", "started_at", "actor", "host_realization"):
@@ -440,6 +444,21 @@ def _validate_occurrence(value: object) -> str:
         _pair_list(row["wildcards"], f"{path}.wildcards")
         _str_list(row["inputs"], f"{path}.inputs")
         _str_list(row["outputs"], f"{path}.outputs")
+    if recipe_v2:
+        planned = occurrence["planned"]
+        if not isinstance(planned, list):
+            _refuse("$.occurrence.planned", "not a list")
+        planned_keys = []
+        for index, job in enumerate(planned):
+            path = f"$.occurrence.planned[{index}]"
+            row = _mapping(job, {"job_key", "family", "outputs", "is_checkpoint"}, path)
+            planned_keys.append(_str_at(row["job_key"], f"{path}.job_key"))
+            _str_at(row["family"], f"{path}.family")
+            _str_list(row["outputs"], f"{path}.outputs")
+            if type(row["is_checkpoint"]) is not bool:
+                _refuse(f"{path}.is_checkpoint", "not a boolean")
+        if len(planned_keys) != len(set(planned_keys)):
+            _refuse("$.occurrence.planned", "repeats a job key")
     seeds = occurrence["realized_seeds"]
     if not isinstance(seeds, dict) or any(
         type(job) is not str
@@ -522,6 +541,11 @@ def _reproject(parsed: dict[str, object]) -> dict[str, object]:
     occurrence = cast(dict[str, object], rebuilt["occurrence"])
     for job in cast("list[dict[str, object]]", occurrence["trace"]):
         job["wildcards"] = sorted(cast("list[list[str]]", job["wildcards"]))
+    if "planned" in occurrence:
+        occurrence["planned"] = sorted(
+            cast("list[dict[str, object]]", occurrence["planned"]),
+            key=lambda job: cast(str, job["job_key"]),
+        )
     receipt = cast(dict[str, object], occurrence["receipt"])
     if set(receipt) == {"planning", "execution"}:
         _reproject_launch(cast(dict[str, object], receipt["planning"]))
@@ -545,7 +569,7 @@ def decode_projection(data: bytes) -> dict[str, object]:
     invocation = cast(dict[str, object], recipe["invocation"])
     if set(names) != set(cast("list[str]", invocation["declared_outputs"])):
         _refuse("$.result", "result names disagree with the declared outputs")
-    _validate_occurrence(parsed["occurrence"])
+    _validate_occurrence(parsed["occurrence"], recipe_v2="workflow_definition" in recipe)
     if _reproject(parsed) != parsed:
         _refuse("$", "an array the projection sorts is out of its canonical order")
     return parsed
@@ -731,6 +755,15 @@ def decode_run_closure(node: Node) -> RunClosure:
                 outputs=tuple(cast("list[str]", job["outputs"])),
             )
             for job in cast("list[dict[str, object]]", raw_occurrence["trace"])
+        ),
+        planned=tuple(
+            PlannedJob(
+                job_key=cast(str, job["job_key"]),
+                family=cast(str, job["family"]),
+                outputs=tuple(cast("list[str]", job["outputs"])),
+                is_checkpoint=cast(bool, job["is_checkpoint"]),
+            )
+            for job in cast("list[dict[str, object]]", raw_occurrence["planned"])
         ),
         realized_seeds=RealizedSeeds(
             cast("dict[str, dict[str, int]]", raw_occurrence["realized_seeds"])

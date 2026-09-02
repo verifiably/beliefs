@@ -50,6 +50,7 @@ __all__ = [
     "Invocation",
     "LaunchAttestation",
     "Occurrence",
+    "PlannedJob",
     "Recipe",
     "RecipeInput",
     "ResultManifest",
@@ -538,6 +539,31 @@ class TraceJob:
         return job_key(self.rule, self.wildcards)
 
 
+@sealed
+@final
+@dataclass(frozen=True)
+class PlannedJob:
+    job_key: str
+    family: str
+    outputs: tuple[str, ...]
+    is_checkpoint: bool
+
+    def __post_init__(self) -> None:
+        _require_str(self.job_key, "planned job key")
+        _require_str(self.family, "planned job family")
+        _require_strings(self.outputs, "planned job outputs")
+        if type(self.is_checkpoint) is not bool:
+            raise MalformedClosure("planned job checkpoint flag must be a boolean")
+
+    def projection(self) -> dict[str, object]:
+        return {
+            "job_key": self.job_key,
+            "family": self.family,
+            "outputs": list(self.outputs),
+            "is_checkpoint": self.is_checkpoint,
+        }
+
+
 def mount_plan_identity(mounts: tuple[tuple[str, str, str], ...]) -> str:
     """Digest of a canonical mount table: rows of (mountpoint, role, access)."""
     _require_triples(mounts, "mount plan rows")
@@ -644,6 +670,7 @@ class Occurrence:
     actor: str
     host_realization: str
     trace: tuple[TraceJob, ...]
+    planned: tuple[PlannedJob, ...]
     realized_seeds: RealizedSeeds
     receipt: BoundaryReceipt
 
@@ -655,6 +682,12 @@ class Occurrence:
         _require_tuple(self.trace, "occurrence trace")
         if not all(type(job) is TraceJob for job in self.trace):
             raise MalformedClosure("occurrence trace holds TraceJob values only")
+        _require_tuple(self.planned, "occurrence planned jobs")
+        if not all(type(job) is PlannedJob for job in self.planned):
+            raise MalformedClosure("occurrence planned jobs hold PlannedJob values only")
+        keys = [job.job_key for job in self.planned]
+        if len(keys) != len(set(keys)):
+            raise MalformedClosure("occurrence planned jobs name each job key once")
         if type(self.realized_seeds) is not RealizedSeeds:
             raise MalformedClosure("occurrence realized_seeds must be RealizedSeeds")
         if not all(
@@ -710,6 +743,7 @@ def _occurrence_projection(occurrence: Occurrence) -> dict[str, object]:
         "actor": occurrence.actor,
         "host_realization": occurrence.host_realization,
         "trace": [_trace_projection(job) for job in occurrence.trace],
+        "planned": [job.projection() for job in sorted(occurrence.planned, key=lambda job: job.job_key)],
         "realized_seeds": occurrence.realized_seeds.projection(),
         "receipt": _receipt_projection(occurrence.receipt),
     }
