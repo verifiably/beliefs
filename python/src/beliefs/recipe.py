@@ -52,6 +52,7 @@ __all__ = [
     "ResultManifest",
     "RunClosure",
     "TraceJob",
+    "job_key",
     "mount_plan_identity",
     "project_recipe",
     "run_domain_for",
@@ -454,6 +455,13 @@ class ResultManifest:
             raise MalformedClosure("duplicate logical names in result manifest")
 
 
+def job_key(rule: str, wildcards: tuple[tuple[str, str], ...]) -> str:
+    """Return canonical text over a rule name and its wildcard binding."""
+    _require_str(rule, "job key rule")
+    _require_pairs(wildcards, "job key wildcards")
+    return v1.encode({"rule": rule, "wildcards": {name: value for name, value in wildcards}}).decode("utf-8")
+
+
 @sealed
 @final
 @dataclass(frozen=True)
@@ -470,6 +478,9 @@ class TraceJob:
         _require_pairs(self.wildcards, "trace job wildcards")
         _require_strings(self.inputs, "trace job inputs")
         _require_strings(self.outputs, "trace job outputs")
+
+    def job_key(self) -> str:
+        return job_key(self.rule, self.wildcards)
 
 
 def mount_plan_identity(mounts: tuple[tuple[str, str, str], ...]) -> str:

@@ -42,6 +42,7 @@ from beliefs.recipe import (
     ResultManifest,
     RunClosure,
     TraceJob,
+    job_key,
     project_recipe,
 )
 from beliefs.record import AssessmentValue, SourceAssertion
@@ -54,6 +55,27 @@ from beliefs.spec import (
     SpecInput,
     freeze,
 )
+
+
+def test_the_job_key_is_canonical_text_over_rule_and_wildcards():
+    key = job_key("fit", (("sample", "a"),))
+    assert key == '{"rule":"fit","wildcards":{"sample":"a"}}'
+
+
+def test_the_job_key_orders_wildcards_canonically_whatever_the_input_order():
+    assert job_key("fit", (("b", "2"), ("a", "1"))) == job_key("fit", (("a", "1"), ("b", "2")))
+
+
+def test_a_wildcard_value_containing_a_separator_cannot_collide():
+    # a hand-rolled "rule|k=v" join would map these two to one string
+    left = job_key("fit", (("a", "1|b=2"),))
+    right = job_key("fit", (("a", "1"), ("b", "2")))
+    assert left != right
+
+
+def test_a_trace_job_reports_its_own_key():
+    job = TraceJob(job_id="1", rule="fit", wildcards=(("sample", "a"),), inputs=(), outputs=())
+    assert job.job_key() == job_key("fit", (("sample", "a"),))
 
 
 # --- R1 ----------------------------------------------------------------------
