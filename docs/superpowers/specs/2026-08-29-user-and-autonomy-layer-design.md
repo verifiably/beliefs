@@ -990,3 +990,15 @@ the same commit.
 - **A permit threaded by the caller.** Any code in the writer's process can
   mint one; only a process boundary with filesystem denial makes the tier a
   fact rather than a convention.
+
+## 11. Intent-position evidence correction — 2026-09-02
+
+The coordination-and-view-kinds design §11.6 supersedes this document's claim
+that standing predecessor tips are derivable from the source chain prefix
+alone. The present intent entry carries only its payload, transaction entries
+carry path-state fingerprints rather than coordination record content, and a
+multi-corpus resolver reads chains other than the source's. Cut 14 therefore
+implements no caller-asserted stand-in. The semantic intent-position rule and
+its proof shape stay with sub-project 5's `publish`, their first operational
+consumer, where the versioned publish intent can bind the evidence it actually
+requires.

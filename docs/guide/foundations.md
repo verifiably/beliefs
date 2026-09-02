@@ -123,7 +123,10 @@ superseding them all. The query a view stores is `science.view-query.v1` — a
 small, closed selector grammar evaluated at a named epoch, deliberately not a
 query engine. The [coordination-and-view-kinds
 design](../superpowers/specs/2026-08-31-coordination-and-view-kinds-design.md)
-specifies all of this and freezes conformance cut 14 over it.
+specifies all of this and freezes conformance cut 14 over it. Its 2026-09-02
+§11 amendment leaves W17's intent-position evidence with `publish`, the first
+operation that can define an honest multi-root proof shape; cut 14 covers the
+ordinary revision family and builds no caller-asserted substitute.
 
 ### Ownership follows the nature of the rule
 

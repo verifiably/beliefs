@@ -43,7 +43,7 @@ join key and nothing else; the tiers below carry the ranking.
 | `packaging-remainder` | X5 (relabel); W8a's import and audit arms | 1, rides with `world-resolution` |
 | `parity-fixture-2` | the second `science.identity.v1` fixture | 1, rides with `domain-boundary` |
 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | 2 |
-| `coordination-addressing` | W11, W12, W17, W18; W13's two-projects negative | 2 |
+| `coordination-addressing` | W11, W12, W18; W17 except its intent-position clause; W13's two-projects negative | 2 |
 | `l13-preimage` | L13 | 2 |
 | `persistence-cut` | X2 | 2 |
 | `verification-publication` | durable publication of verification records | 2 |
@@ -143,7 +143,7 @@ and merged `--no-ff`. Four rules are added by concurrency itself:
 | id | rows | prerequisite | unblocks |
 |---|---|---|---|
 | `correction-remainder` | C7; C8, C9; C3's coverage clauses; C10's audit arm | `consolidate-family` for C7; the stored semantic-snapshot kind and evaluator are the boundary's own work | the correction lifecycle in full |
-| `coordination-addressing` | W11, W12, W17, W18; W13's two-projects negative | `consolidate-family` — the coordination-and-view-kinds design (cut 14, frozen 2026-08-31) mints views and coordination records "through the adapter, by a dedicated family door," the same `CorpusWriter`/`adapter.py` surface `consolidate-family` rewrites; the design names no dependency of its own on that boundary, but the mutation lane's own rule (two boundaries on one surface land serially) is what orders it after, not a design-stated wait | coordination references, minted through the adapter's dedicated family door, with the query evaluator (`world-read`'s) and `publish` (sub-project 5's) still to come |
+| `coordination-addressing` | W11, W12, W18; W17 except its intent-position clause; W13's two-projects negative | `consolidate-family` — the coordination-and-view-kinds design (cut 14, frozen 2026-08-31 and amended at §11 on 2026-09-02) mints views and coordination records "through the adapter, by a dedicated family door," the same `CorpusWriter`/`adapter.py` surface `consolidate-family` rewrites; the design names no dependency of its own on that boundary, but the mutation lane's own rule (two boundaries on one surface land serially) is what orders it after, not a design-stated wait | coordination references and W17's ordinary revision family, with the intent-position evidence, query evaluator (`world-read`'s), and `publish` (sub-project 5's) still to come |
 | `l13-preimage` | L13 | an `atoms` blob-read seam behind its own design gate; `atoms`' deferred-obligation ledger carries no such entry today | row 5 in full; the held-copy match strengthened from path to bytes |
 | `persistence-cut` | X2 | the `atoms` A8 certification extended to the publication path, behind `atoms`' own design gate. Cut 7 admits a Science-side harness as the alternative; it is rejected here (§5), so the prerequisite is cross-repo and the tier is 2 | X2 in full |
 | `verification-publication` | — | the persistence seam — a design for durable verification records behind the store's own gate; cut 13 §7.2 kept the join value-level | admission over stored verifications rather than in-memory records |
@@ -202,7 +202,7 @@ Each open row, its remainder as the last cut states it, and where it goes
 | W5, W16 | move and consolidate over stored records (cut 4 §5) | `consolidate-family` |
 | W9, W14 | rendered labels and the ambiguous-search refusal against a pinned authority snapshot (ledger artifact 11) | `authority-labels` — tier 3 |
 | W11, W12 | the project/coordination surface (cut 4 §5) — the minting question is answered 2026-08-31: through the adapter, by a dedicated family door | `coordination-addressing` — cut 14 frozen, tier 2 in the `mutation` lane, ordered after `consolidate-family` at cut 13's re-rank |
-| W17, W18 | banked 2026-08-31 with the coordination-and-view-kinds design; never selected before cut 14 | `coordination-addressing` — cut 14 frozen, tier 2 in the `mutation` lane, ordered after `consolidate-family` at cut 13's re-rank |
+| W17, W18 | banked 2026-08-31 with the coordination-and-view-kinds design; never selected before cut 14. Its 2026-09-02 §11 amendment removes W17's unverifiable intent-position arm from cut 14 and leaves that clause with `publish` | `coordination-addressing` — cut 14 frozen and amended, tier 2 in the `mutation` lane, ordered after `consolidate-family` at cut 13's re-rank; `publish` retains W17's intent-position evidence |
 | W13 | coverage-declaration and digest-invariance clauses; manifest-only re-mint detection and the forgery variants; replica-restore's declaration half; the fork copy act (cut 6 §3.2) — every named dependency has since landed → relabel candidates; the two-projects negative → `coordination-addressing` | `world-resolution`, less the two-projects negative |
 | W8a | coreference omission-refutes and coverage arms → `world-resolution` (the `coreference-attestation` kind); certification omission-refutes → `contract-cut` (the `instrument-certification` kind); import-boundary and audit arms (cut 7 §3.2) → `packaging-remainder` | split as stated |
 | R2, R16, R20, R21 | their full-workflow-surface arms: trace/job-ID components, per-family obligations, the two-target arm (cut 3 §4.2; cut 5) | `workflow-surface` |

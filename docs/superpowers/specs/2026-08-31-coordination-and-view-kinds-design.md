@@ -1,7 +1,8 @@
 # Coordination and view kinds — design (the `coordination-addressing` slice)
 
 **Date:** 2026-08-31
-**Status:** designed and review-cleared. Conformance cut 14 (§9) is
+**Status:** designed and review-cleared, with the implementation amendment in
+§11 approved 2026-09-02. Conformance cut 14 (§9) is
 **frozen 2026-08-31**, by the dated freeze commit that lands this line —
 before any of its code exists; from that commit onward the §9 arms and the
 W17/W18 row texts are frozen text, amendable only the way any frozen cut's
@@ -753,3 +754,300 @@ open-questions coordination-records bullet leaves, per user-layer §8; and
 `foundations.md` gains its governed-tiers subsection with this document in
 its sources. The boundary itself moves to the `mutation` lane at the next
 re-rank, not in this commit, per the roadmap's tier-3 rule.
+
+## 11. Implementation amendment — 2026-09-02
+
+This section amends the implementation mechanics after checking the frozen
+design against the current tree. It does not rewrite §9's frozen historical
+body. Where this section changes a cut disposition, it is the current ruling
+and the cut-14 results record must cite both the freeze and this amendment.
+
+### 11.1 Public mutation surface and resolver ownership
+
+`CorpusWriter` gains exactly two entry points:
+
+```python
+mint_coordination(kind, *, project=None, content)
+revise_coordination(kind, address, *, predecessors, content)
+```
+
+`content` is the complete replacement record, never a patch. It is a mapping
+validated against the pinned coordination contract because the schema is
+versioned data; per-kind Python draft classes would be a second schema. The
+caller supplies no node id, revision id, address facet, relation or other
+stored shape. The adapter constructs all of them.
+
+`kind` is explicit on revision because the `coord:` address deliberately does
+not encode it. Inferring kind from the predecessor set would make the
+continuity check circular: the values being judged would also define what they
+must agree with. Storing kind in `content` would duplicate `Node.kind`, and a
+wrapper around `(kind, address)` would only hide the same required pair.
+
+The writer optionally receives a path-backed `CoordinationResolver`. Ordinary
+corpus operations need none. A coordination call without a resolver mounting
+the destination refuses before planning; there is no implicit one-root
+fallback. A caller wanting one-root semantics explicitly mounts one root.
+
+The resolver is constructed over an explicit mapping:
+
+```python
+CoordinationResolver({root_a: profile_a, root_b: profile_b})
+```
+
+Construction checks each compiled profile against that root's manifest pins.
+A profile with no coordination contract is a valid mount but authorizes no
+coordination kind. Each public resolution operation reopens every mounted path,
+so another root's committed revision is not hidden behind a stale `ReadView`.
+The destination's entry supplies the writer's authorization; no second profile
+argument or contract compilation path exists in `CorpusWriter`.
+
+The module boundary follows the existing mutable-capability rule:
+
+- `coordination.py` holds address values, facet validation, pure tip
+  computation and coordination refusal values;
+- `contract/coordination.py` holds the parsed coordination contract and its
+  succession check;
+- `view_query.py` holds the closed `science.view-query.v1` parser; and
+- `corpus.py` alone holds the path-opening resolver and the two mutation
+  methods, because it remains the sole module allowed to construct mutable
+  `Corpus` values.
+
+No generic record-family extension framework is introduced.
+
+### 11.2 Contract wire shape, compilation and succession
+
+The coordination contract's smallest complete wire shape is:
+
+```yaml
+contract: coordination
+version: 1
+lineage: genesis
+description: Project coordination records
+address_root: project
+query_vocabulary:
+  kinds:
+    - proposition
+    - source-assertion
+    - assessment
+    - analysis-spec
+    - run
+    - verification
+    - dataset
+    - source
+    - holdings-observation
+    - retraction
+    - instrument-certification
+    - coreference-attestation
+    - act-report
+  relations:
+    - assesses
+    - observes
+    - reads
+    - transforms
+    - produces
+    - produced_by
+    - executes
+    - targets
+    - verifies
+    - member_of
+    - grounded-in
+kinds:
+  project:
+    fields: [name, body, author, at, query]
+    query_versions: [science.view-query.v1]
+  question:
+    fields: [name, body, author, at, query]
+    query_versions: [science.view-query.v1]
+  hypothesis:
+    fields: [name, body, author, at, query]
+    query_versions: [science.view-query.v1]
+  topic:
+    fields: [name, body, author, at, query]
+    query_versions: [science.view-query.v1]
+  theme:
+    fields: [name, body, author, at, query]
+    query_versions: [science.view-query.v1]
+  task:
+    fields: [name, body, author, at, status, depends]
+    query_versions: []
+  decision:
+    fields: [name, body, author, at]
+    query_versions: []
+  note:
+    fields: [name, body, author, at, about]
+    query_versions: []
+```
+
+Version 1 fills the literal query vocabularies and declares all eight §1
+kinds. Every declared kind is inherently a member of this contract's revision
+family; a redundant `family` field is neither parsed nor stored. Field names
+have the fixed semantics in §5.2. This is not a general type-schema language.
+
+Compilation is additive to the existing call:
+
+```python
+compile_profile(base, domains, *, coordination=None) -> ProfileSpec
+```
+
+The compiled profile carries immutable kind specs, the address root and the
+two query vocabularies. With no coordination contract those values are empty.
+With one, its content identity appears at
+`activated_contracts["coordination"]`; only the canonical coordination schema
+projection enters `compiled_identity`.
+
+The parser stays parsed-never-authored and follows domain-contract lineage:
+genesis is compared against nothing; a successor names the exact supplied
+predecessor content identity and remains in the `coordination` namespace. The
+address root cannot change. Existing kinds cannot be dropped or have their
+field sets changed. Existing query-version permissions and query vocabularies
+may only grow, and new kinds may be added. Duplicate fields, versions, world
+kinds and relations refuse at parse.
+
+The contract content identity covers the whole document, including editorial
+description, version and lineage. The compiled projection contains the address
+root, kind field sets, admissible query versions and query vocabularies in
+canonical set order. Editorial and lineage-only edits therefore move content
+identity but not compiled identity; an authoring-surface change moves both.
+
+### 11.3 Address and stored record shape
+
+One immutable `CoordinationAddress(project, local=None, revision=None)` value
+parses and renders all §3.2 and §3.4 forms. Every component is exact lowercase,
+fixed-width hexadecimal; no normalization, shorthand or second address type is
+accepted.
+
+Project genesis requires `project=None` and generates its project identity.
+Every subordinate genesis requires an unpinned project address and generates a
+local identity. Revision takes an unpinned coordination address and a non-empty
+set of predecessor revision ids. The adapter stores:
+
+```text
+Node.uid     = a fresh 32-lower-hex revision identity
+Node.id      = project:<project>.<uid>
+             | <kind>:<project>.<local>.<uid>
+Node.title   = content["name"]
+Node.body    = content["body"]
+facets       = {"coordination": {project, local?, author, at, ...}}
+relations    = adapter-authored supersedes edges
+```
+
+All kinds require `name`, `body`, `author` and an RFC3339 `at`. The five view
+kinds require `query`; `task` requires `status` and `depends`; `note` alone may
+carry optional `about`. No other content member is admitted. Stored
+`supersedes` relations target the resolved predecessor `Node.id`; public and
+refusal surfaces name revisions by `Node.uid`.
+
+### 11.4 Mutation, resolution and refusals
+
+Both mutation methods hold the destination's existing operation lock from
+read through commit. Genesis checks the mounted profile, kind, complete content
+and query form; resolves the project for a subordinate; generates the node;
+runs the existing already-minted and rendering checks; and submits one create.
+
+Revision parses the candidate address and a duplicate-free predecessor set;
+locates each revision over the mounted roots; checks exact kind/address
+continuity before standing; recomputes standing tips while the destination lock
+is held; resolves the owning project; validates the whole new content; and
+submits one create with adapter-authored predecessor edges. Every supplied
+predecessor must stand. Supplying only some standing siblings is lawful and
+leaves divergence; supplying them all is repair. Adapter-authored predecessor
+relations are sorted by resolved `Node.id`, so caller and mount order cannot
+change the stored bytes.
+
+The resolver freshly scans the mounted roots, excludes malformed coordination
+facets, groups valid revisions by address and computes standing tips from their
+`supersedes` edges. One tip returns its node. Several return a sealed
+`CoordinationRefused(reason="divergent-view", tips=...)`, with sorted distinct
+revision ids. A pinned address returns that exact immutable revision whether or
+not it stands. No matching revision returns absence. Mount order is inert.
+
+Write-side refusals are one shape per boundary:
+
+- `CoordinationKindUnsupported` for either wrong-family door;
+- `CoordinationUnavailable` when the destination has no resolver mount;
+- `PredecessorMismatch` before standing for a different kind or address;
+- `PredecessorNotStanding` for a missing or superseded predecessor;
+- `ProjectNotResolvable`, carrying project tips for divergence;
+- `ValidationRefused` for malformed or contract-unauthorized authored values;
+  and
+- `ImportRefused(member=...)` at bundle import.
+
+The resolver accepts a validated `CoordinationAddress`, not raw text, so reads
+do not gain a throwing malformed-text branch. `CoordinationRefused` has the
+closed reasons `divergent-view` and `predecessor-not-standing`; the latter is
+reserved for the intent-position judgment's eventual operation boundary. A raw
+cycle has revisions and no tips, resolves as absent and remains distinguishable
+through the required audit finding. The existing corpus audit reports malformed
+coordination facets and local raw-written supersession cycles.
+
+The view-query parser is sealed and admits exactly §2.1. Unknown members and
+predicate forms refuse; every clause's `all` is non-empty, while the outer
+clause list may be empty. Mint checks the pinned contract's query version and
+literal world-kind/relation vocabularies but never resolves an anchor or
+enumerated address.
+
+### 11.5 World and belief exclusion
+
+`stored.WORLD_KINDS` is the exact thirteen-kind §5.1 inventory. Epoch capture
+still enumerates all stored nodes for corpus-state identity and governance, but
+constructs world `CapturedRecord` values only for kinds in that allowlist.
+Coordination bytes therefore move corpus-state and epoch identity while no
+coordination node enters an address, producer, retraction, certification or
+coreference map. Coordination kinds remain outside `SEMANTIC_DOMAINS` and carry
+no semantic-identity stamp.
+
+The coordination pin remains `CorpusPins.domains["coordination"]`, while a
+domain contract is forbidden to claim that reserved namespace. No claim
+operator can therefore be coordination-issued, `consulted_contracts` can never
+select the pin, and it never enters `belief_input_digest`. A changed
+coordination schema may move `ProfileSpec.compiled_identity`; that compiled
+identity is not itself a belief input.
+
+Query addresses and `note.about` accept only prefixes from `WORLD_KINDS` and
+reject `coord:` before lookup. Coordination-reference fields require `coord:`
+and reject world forms before lookup. Project identity stays in the project
+record, never the manifest, so sharing or changing corpus mounts couples no
+project identity to `corpus_id`.
+
+### 11.6 Intent-position correction
+
+The frozen §4.3 and §9 text says the intent-position judgment is a pure
+function of a source chain prefix and selects a portable test of that helper.
+The current log surface cannot support that claim:
+
+- `IntentEntryView` carries only the appended payload;
+- the current `OperationIntent` payload is closed at `kind`, `event_token` and
+  `actor`;
+- transaction entries carry path-state fingerprints, not record bytes or
+  `supersedes` content; and
+- tips over an explicit multi-corpus resolver require state from chains other
+  than the source chain.
+
+A cut-14 helper could therefore accept only a caller-asserted tip set and call
+it chain-derived. That would certify a failure to look. Cut 14 builds no such
+helper and removes the constructed-chain-prefix portable arm. The semantic
+intent-position rule remains, but its evidence shape and executable coverage
+move together to `publish`, the first operation that uses it. That cut must
+define a versioned intent/evidence shape adequate for its mounted-root proof;
+cut 14 does not pre-empt it with an unverifiable snapshot protocol.
+
+This changes the current cut disposition without rewriting frozen §9: W17
+closes here for the ordinary revision family and remains partial on the
+intent-position clause until the publish cut. W11, W12 and W18 still close;
+W13 remains partial exactly as frozen.
+
+### 11.7 Verification and discharge
+
+Implementation uses targeted portable and durable tests. The durable tier
+covers both family doors, at-commit and continuity checks, multi-root siblings
+and repair, project resolution, malformed/cycle audit, W12/W13, and epoch/world
+and belief exclusion. Portable tests cover addresses, the contract and profile,
+the query grammar, reserved namespaces and closed refusal values. N2 declares
+each executable selected unit and one concrete sabotage; no intent-position
+unit is declared.
+
+`cut14_acceptance.py` retains §9.2's frozen current-tree module inventory and
+no aggregate prefix. Cut 5 remains byte-pinned and cited. Development runs
+targeted checks; discharge runs the cut runner, the new targeted suites, Ruff,
+Pyright, `tasks check`, and one full Python suite on the certified tuple. The
+full suite is not repeated after each implementation task.
