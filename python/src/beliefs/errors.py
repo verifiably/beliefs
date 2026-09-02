@@ -697,6 +697,10 @@ class RecipeVersionUnsupported(RecordError):
     """A v1 recipe lacks the workflow snapshot required by typed decode."""
 
 
+class DefinitionPlanMismatch(RecordError):
+    """A workflow definition's declared streams disagree with its seed plan."""
+
+
 class RecordUndecodable(RecordError):
     """Captured bytes cannot be read as the named published record."""
 

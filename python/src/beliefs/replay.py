@@ -12,7 +12,13 @@ from typing import final
 from beliefs.adapter import WorkflowDefinition
 from beliefs.boundary import RunMinted, RunRefused, execute_assessment_run, execute_production_run
 from beliefs.errors import MalformedRecord
-from beliefs.recipe import REQUIRED_FOR_CLEAN_ENVIRONMENT, BoundaryReceipt, ResultManifest, RunClosure
+from beliefs.recipe import (
+    REQUIRED_FOR_CLEAN_ENVIRONMENT,
+    BoundaryReceipt,
+    ResultManifest,
+    RunClosure,
+    WorkflowDefinitionSnapshot,
+)
 from beliefs.runrecord import OperationPort
 from beliefs.sealed import sealed
 from beliefs.spec import (
@@ -21,6 +27,7 @@ from beliefs.spec import (
     FrozenSpec,
     RuleFixture,
     Seeded,
+    SeedPlan,
     StochasticUnseeded,
     derive_seed,
 )
@@ -61,6 +68,17 @@ def _manifest_equality(original: ResultManifest, replayed: ResultManifest) -> st
 
 CONTENT_EQUALITY = EquivalenceImplementation("impl-eq-1", _manifest_equality, ())
 DATASET_CONTENT_EQUALITY = EquivalenceImplementation("impl-dataset-eq-1", _manifest_equality, ())
+
+
+def definition_agrees_with_plan(snapshot: WorkflowDefinitionSnapshot, plan: SeedPlan | None) -> str | None:
+    """Return why the definition and seed plan disagree, or None."""
+    declared = {stream for streams in snapshot.family_streams.values() for stream in streams}
+    expected = set(plan.streams) if plan is not None else set()
+    if unmatched := sorted(declared - expected):
+        return f"family streams no logical stream matches: {unmatched}"
+    if unclaimed := sorted(expected - declared):
+        return f"logical streams no family claims: {unclaimed}"
+    return None
 
 
 @sealed

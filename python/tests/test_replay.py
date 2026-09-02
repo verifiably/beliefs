@@ -21,6 +21,7 @@ from fixtures_cut3 import (
     SNAKEFILE_PRODUCTION,
     SNAKEFILE_SEED_VIOLATING,
     closure_kwargs,
+    seed_plan,
     spec_draft,
     spec_rules,
 )
@@ -40,7 +41,7 @@ from beliefs.boundary import RunMinted, RunRefused, execute_assessment_run
 from beliefs.closure import build_closure
 from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
 from beliefs.errors import MalformedRecord
-from beliefs.recipe import CAPABILITIES, BoundaryPolicy, ResultManifest, TraceJob
+from beliefs.recipe import CAPABILITIES, BoundaryPolicy, ResultManifest, TraceJob, WorkflowDefinitionSnapshot
 from beliefs.record import AssessmentValue, RunInput, RunValue
 from beliefs.replay import (
     AVAILABLE,
@@ -52,6 +53,7 @@ from beliefs.replay import (
     EquivalenceImplementation,
     byte_tolerance_rule,
     conformance,
+    definition_agrees_with_plan,
     derive_scope,
     qualifies,
     replay_eligibility,
@@ -59,6 +61,36 @@ from beliefs.replay import (
 from beliefs.report import CLOSED, completion
 from beliefs.spec import Deterministic, RealizedSeeds, Seeded, SeedPlan, StochasticUnseeded, derive_seed, freeze
 from beliefs.verification import Verification, lifecycle_state
+
+DIGEST = "sha256:" + "11" * 32
+
+
+def _snapshot(family_streams):
+    return WorkflowDefinitionSnapshot(
+        snakefile_digest=DIGEST,
+        family_streams=family_streams,
+        checkpoint_expanded_families=(),
+    )
+
+
+def test_definition_agreement_is_none() -> None:
+    assert definition_agrees_with_plan(_snapshot({"fit": ("model-initialization",)}), seed_plan()) is None
+
+
+def test_a_family_stream_no_logical_stream_matches_disagrees() -> None:
+    reason = definition_agrees_with_plan(_snapshot({"fit": ("resample-draws",)}), seed_plan())
+    assert reason is not None and "resample-draws" in reason
+
+
+def test_a_logical_stream_no_family_claims_disagrees() -> None:
+    plan = seed_plan(streams=("model-initialization", "resample-draws"))
+    reason = definition_agrees_with_plan(_snapshot({"fit": ("model-initialization",)}), plan)
+    assert reason is not None and "resample-draws" in reason
+
+
+def test_a_deterministic_definition_expects_no_streams() -> None:
+    assert definition_agrees_with_plan(_snapshot({}), None) is None
+    assert definition_agrees_with_plan(_snapshot({"fit": ("model-initialization",)}), None) is not None
 
 
 @pytest.fixture(scope="module")
@@ -74,10 +106,10 @@ def pair(tmp_path_factory):
 def test_a_replay_runs_in_a_fresh_scratch_root_with_an_equal_recipe(pair):
     original, replayed = pair
     assert original.run.recipe.identity() == replayed.run.recipe.identity()
-    assert original.run.occurrence.receipt.scratch_mapping != replayed.run.occurrence.receipt.scratch_mapping
+    assert original.run.occurrence.receipt.execution.scratch_mapping != replayed.run.occurrence.receipt.execution.scratch_mapping
     assert (
-        Path(original.run.occurrence.receipt.scratch_mapping).parent
-        == Path(replayed.run.occurrence.receipt.scratch_mapping).parent
+        Path(original.run.occurrence.receipt.execution.scratch_mapping).parent
+        == Path(replayed.run.occurrence.receipt.execution.scratch_mapping).parent
     )
 
 
@@ -86,7 +118,7 @@ def test_a_production_replay_runs_through_the_boundary_with_an_equal_recipe(tmp_
     replayed = replay_of(original, tmp_path / "replayed", snakefile=SNAKEFILE_PRODUCTION)
     assert isinstance(original, RunMinted) and isinstance(replayed, RunMinted)
     assert original.run.recipe.identity() == replayed.run.recipe.identity()
-    assert original.run.occurrence.receipt.scratch_mapping != replayed.run.occurrence.receipt.scratch_mapping
+    assert original.run.occurrence.receipt.execution.scratch_mapping != replayed.run.occurrence.receipt.execution.scratch_mapping
 
 
 def test_a_replay_refuses_a_reconstructed_recipe_mismatch(tmp_path):
@@ -343,7 +375,7 @@ def test_r4_negative_a_a_hostname_change_stays_same_environment(tmp_path):
     b = replay_of(a, tmp_path / "b", host_realization="host-y")
     assert isinstance(a, RunMinted) and isinstance(b, RunMinted)
     assert derive_scope(a.run, b.run, certification=None) == "same-environment"
-    assert a.run.occurrence.receipt.capabilities == ()
+    assert a.run.occurrence.receipt.execution.capabilities == ()
 
 
 def test_r4_negative_b_a_comment_change_is_not_certified_never_independent(tmp_path):
