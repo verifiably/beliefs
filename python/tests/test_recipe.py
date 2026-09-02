@@ -14,7 +14,9 @@ from fixtures_cut3 import (
     DATA_ADDRESS,
     POLICY,
     READS_ADDRESS,
+    SNAKEFILE_NONDETERMINISTIC,
     closure,
+    definition,
     invocation,
     occurrence,
     recipe,
@@ -33,6 +35,7 @@ from beliefs.errors import (
 from beliefs.identity import v1
 from beliefs.recipe import (
     BOUNDARY_RECEIPT_DOMAIN,
+    RECIPE_DOMAIN,
     BoundaryPolicy,
     BoundaryReceipt,
     EnvironmentManifest,
@@ -55,6 +58,37 @@ from beliefs.spec import (
     SpecInput,
     freeze,
 )
+
+
+def test_the_recipe_domain_is_v2():
+    assert RECIPE_DOMAIN == "science.recipe.v2"
+
+
+def test_the_recipe_carries_the_declaration_a_closure_can_read():
+    value = recipe()
+    assert value.workflow_definition.family_streams == {"transform": ("model-initialization",)}
+
+
+def test_the_projection_emits_the_snapshot_not_only_its_digest():
+    projected = recipe()._projection()
+    workflow_definition = projected["workflow_definition"]
+    assert isinstance(workflow_definition, dict)
+    assert workflow_definition["family_streams"] == {"transform": ["model-initialization"]}
+    assert "workflow_definition_identity" not in projected
+
+
+def test_changing_a_family_declaration_moves_the_recipe_identity():
+    from beliefs.adapter import WorkflowDefinitionSnapshot
+
+    left = recipe()
+    right = recipe(
+        workflow_definition=WorkflowDefinitionSnapshot(
+            snakefile_digest=left.workflow_definition.snakefile_digest,
+            family_streams={"transform": ("model-initialization", "resample-draws")},
+            checkpoint_expanded_families=(),
+        )
+    )
+    assert left.identity() != right.identity()
 
 
 def test_the_job_key_is_canonical_text_over_rule_and_wildcards():
@@ -100,7 +134,7 @@ def test_r1_the_note_is_a_separate_act_and_the_member_is_then_supplied():
 
 
 def test_r1_no_unknown_or_attested_component_is_representable():
-    for field in ("code_identity", "workflow_definition_identity"):
+    for field in ("code_identity", "workflow_definition"):
         for value in ("unknown", "attested", ""):
             with pytest.raises(MalformedClosure):
                 recipe(**{field: value})
@@ -132,8 +166,8 @@ RECIPE_MUTATIONS = [
         ),
     ),
     (
-        "workflow_definition_identity",
-        lambda: recipe(workflow_definition_identity="sha256:" + "cd" * 32),
+        "workflow_definition",
+        lambda: recipe(workflow_definition=definition(snakefile=SNAKEFILE_NONDETERMINISTIC).snapshot()),
     ),
     (
         "invocation",
@@ -394,7 +428,7 @@ def test_r17_projection_offers_no_caller_path_for_the_projected_members():
         "held",
         "code_identity",
         "environment",
-        "workflow_definition_identity",
+        "workflow_definition",
         "invocation",
         "boundary_policy",
     ]
@@ -408,7 +442,7 @@ def test_r17_the_projected_recipe_carries_the_spec_whole():
         held={DATA_ADDRESS: D_IN},
         code_identity="sha256:" + "cc" * 32,
         environment=EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)),
-        workflow_definition_identity="sha256:" + "ee" * 32,
+        workflow_definition=definition().snapshot(),
         invocation=invocation(),
         boundary_policy=POLICY,
     )
@@ -434,7 +468,7 @@ def test_r17_the_projected_recipe_carries_the_spec_whole():
         held={DATA_ADDRESS: D_IN, READS_ADDRESS: "sha256:" + "34" * 32},
         code_identity="sha256:" + "cc" * 32,
         environment=EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)),
-        workflow_definition_identity="sha256:" + "ee" * 32,
+        workflow_definition=definition().snapshot(),
         invocation=invocation(),
         boundary_policy=POLICY,
     )
@@ -449,7 +483,7 @@ def test_r17_projection_refuses_a_declared_input_that_is_not_held():
             held={},
             code_identity="sha256:" + "cc" * 32,
             environment=EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)),
-            workflow_definition_identity="sha256:" + "ee" * 32,
+            workflow_definition=definition().snapshot(),
             invocation=invocation(),
             boundary_policy=POLICY,
         )

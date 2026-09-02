@@ -61,7 +61,7 @@ __all__ = [
     "supported_policy",
 ]
 
-RECIPE_DOMAIN = "science.recipe.v1"
+RECIPE_DOMAIN = "science.recipe.v2"
 RUN_DOMAIN = "science.run.v1"
 CONFINED_RUN_DOMAIN = "science.run.v2"
 ENVIRONMENT_DOMAIN = "science.environment.v2"
@@ -305,7 +305,7 @@ class Recipe:
     spec_identity: str | None
     code_identity: str
     environment: EnvironmentManifest
-    workflow_definition_identity: str
+    workflow_definition: WorkflowDefinitionSnapshot
     invocation: Invocation
     inputs: tuple[RecipeInput, ...]
     parameters: Mapping[str, object]
@@ -343,7 +343,8 @@ class Recipe:
             raise MalformedClosure("recipe parameters must be a mapping")
         _require_nondeterminism(self.nondeterminism)
         _require_component(self.code_identity, "code identity")
-        _require_component(self.workflow_definition_identity, "workflow definition identity")
+        if type(self.workflow_definition) is not WorkflowDefinitionSnapshot:
+            raise MalformedClosure("workflow definition must be a WorkflowDefinitionSnapshot")
         parameters = MappingProxyType({key: _freeze_parameter_value(value) for key, value in self.parameters.items()})
         v1.encode(_project_parameter_value(parameters))
         object.__setattr__(
@@ -379,7 +380,7 @@ class Recipe:
             "shape": self.shape,
             "code_identity": self.code_identity,
             "environment": self.environment.identity(),
-            "workflow_definition_identity": self.workflow_definition_identity,
+            "workflow_definition": self.workflow_definition.projection(),
             "invocation": {
                 "entrypoint": self.invocation.entrypoint,
                 "targets": list(self.invocation.targets),
@@ -412,7 +413,7 @@ def project_recipe(
     held: Mapping[str, str],
     code_identity: str,
     environment: EnvironmentManifest,
-    workflow_definition_identity: str,
+    workflow_definition: WorkflowDefinitionSnapshot,
     invocation: Invocation,
     boundary_policy: BoundaryPolicy,
 ) -> Recipe:
@@ -435,7 +436,7 @@ def project_recipe(
         spec_identity=spec.identity,
         code_identity=code_identity,
         environment=environment,
-        workflow_definition_identity=workflow_definition_identity,
+        workflow_definition=workflow_definition,
         invocation=invocation,
         inputs=inputs,
         parameters=spec.parameters,

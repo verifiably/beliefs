@@ -334,7 +334,7 @@ def _project(
             held=held,
             code_identity=code_identity,
             environment=environment,
-            workflow_definition_identity=definition.identity(),
+            workflow_definition=definition.snapshot(),
             invocation=invocation,
             boundary_policy=boundary_policy,
         )
@@ -347,7 +347,7 @@ def _project(
         spec_identity=None,
         code_identity=code_identity,
         environment=environment,
-        workflow_definition_identity=definition.identity(),
+        workflow_definition=definition.snapshot(),
         invocation=invocation,
         inputs=inputs,
         parameters=parameters,

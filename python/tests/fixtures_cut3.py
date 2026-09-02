@@ -111,7 +111,7 @@ def recipe(**overrides) -> Recipe:
         "spec_identity": "spec-" + "11" * 8,
         "code_identity": "sha256:" + "cc" * 32,
         "environment": EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)),
-        "workflow_definition_identity": "sha256:" + "ee" * 32,
+        "workflow_definition": definition().snapshot(),
         "invocation": invocation(),
         "inputs": (RecipeInput(role="observes", dataset="dataset:sha256:" + "ff" * 32, content=D_IN),),
         "parameters": {"alpha": Decimal("0.05")},
