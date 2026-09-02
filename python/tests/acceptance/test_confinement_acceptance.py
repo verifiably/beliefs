@@ -207,11 +207,15 @@ def test_r15u1_a_bundled_file_edited_after_capture_yields_no_run_and_the_engine_
 
 def test_r15u2_a_bundled_file_edited_after_exit_yields_no_run(tmp_path, shared_scratch, monkeypatch):
     real_launch = boundary_module.launch_confined
+    launches = 0
 
     def launch_then_edit(*, plan, environment, inner_argv, captured):
+        nonlocal launches
         result = real_launch(plan=plan, environment=environment, inner_argv=inner_argv, captured=captured)
-        bundle = Path(dict(plan.host_mapping())["/science/bundle"])
-        (bundle / "code" / "helper.py").write_text("VALUE = 3\n")
+        launches += 1
+        if launches == 2:
+            bundle = Path(dict(plan.host_mapping())["/science/bundle"])
+            (bundle / "code" / "helper.py").write_text("VALUE = 3\n")
         return result
 
     monkeypatch.setattr(boundary_module, "launch_confined", launch_then_edit)

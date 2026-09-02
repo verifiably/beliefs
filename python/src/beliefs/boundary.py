@@ -672,6 +672,8 @@ def _execute_confined(
     relative_entrypoint = captured_entrypoint.relative_to(bundle.resolve()).as_posix()
     environment = sandbox_environment(trace_file)
     snapshot = materialize_snapshot(captured, scratch_base / "environments")
+    check_bundle_intact(bundle, code_identity)
+    inputs_before = fingerprint(output_root / "inputs")
 
     planning_root = Path(tempfile.mkdtemp(prefix="planning-", dir=scratch_base))
     try:
@@ -696,7 +698,6 @@ def _execute_confined(
             bundle=bundle,
             output_root=planning_root,
         )
-        check_bundle_intact(bundle, code_identity)
         planning_inputs_before = fingerprint(planning_root / "inputs")
         planning_result = launch_confined(
             plan=planning_plan,
@@ -748,8 +749,6 @@ def _execute_confined(
         bundle=bundle,
         output_root=output_root,
     )
-    check_bundle_intact(bundle, code_identity)
-    inputs_before = fingerprint(output_root / "inputs")
     launched = launch_confined(
         plan=execution_plan,
         environment=environment,
