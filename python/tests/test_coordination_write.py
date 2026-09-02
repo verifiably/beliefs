@@ -22,6 +22,8 @@ from beliefs.corpus import CoordinationResolver, CorpusWriter, corpus_check
 from beliefs.errors import (
     ContractMismatch,
     CoordinationUnavailable,
+    PredecessorMismatch,
+    PredecessorNotStanding,
     ProjectNotResolvable,
     ValidationRefused,
 )
@@ -258,3 +260,173 @@ def test_an_earlier_contract_version_authorizes_nothing_added_later(tmp_path, ba
             project=coordination_revision(project).address,
             content=content_for("decision"),
         )
+
+
+def test_revision_is_a_new_whole_record_and_the_old_revision_remains_pinnable(
+    tmp_path, base_contract
+):
+    profile = coordination_profile(base_contract)
+    writer, resolver = writer_with_resolver(tmp_path, profile)
+    project = writer.mint_coordination("project", content=content_for("project", name="Old"))
+    address = coordination_revision(project).address
+    revised = writer.revise_coordination(
+        "project",
+        address,
+        predecessors=(project.uid,),
+        content=content_for("project", name="New"),
+    )
+    assert revised.uid != project.uid
+    assert revised.relations[0].target == project.id
+    assert resolver.resolve(address) == revised
+    assert resolver.resolve(address.pinned(project.uid)) == project
+
+
+def test_continuity_is_checked_before_standing(tmp_path, base_contract):
+    profile = coordination_profile(base_contract)
+    writer, _ = writer_with_resolver(tmp_path, profile)
+    project = writer.mint_coordination("project", content=content_for("project"))
+    project_address = coordination_revision(project).address
+    task = writer.mint_coordination("task", project=project_address, content=content_for("task"))
+    with pytest.raises(PredecessorMismatch):
+        writer.revise_coordination(
+            "project",
+            project_address,
+            predecessors=(task.uid,),
+            content=content_for("project"),
+        )
+
+
+def test_a_superseded_predecessor_refuses_at_commit(tmp_path, base_contract):
+    profile = coordination_profile(base_contract)
+    writer, _ = writer_with_resolver(tmp_path, profile)
+    first = writer.mint_coordination("project", content=content_for("project"))
+    address = coordination_revision(first).address
+    writer.revise_coordination(
+        "project",
+        address,
+        predecessors=(first.uid,),
+        content=content_for("project", name="second"),
+    )
+    with pytest.raises(PredecessorNotStanding):
+        writer.revise_coordination(
+            "project",
+            address,
+            predecessors=(first.uid,),
+            content=content_for("project", name="stale"),
+        )
+
+
+def test_revision_requires_an_unpinned_address_and_distinct_nonempty_predecessors(
+    tmp_path, base_contract
+):
+    profile = coordination_profile(base_contract)
+    writer, _ = writer_with_resolver(tmp_path, profile)
+    first = writer.mint_coordination("project", content=content_for("project"))
+    address = coordination_revision(first).address
+    cases = (
+        (address.pinned(first.uid), (first.uid,)),
+        (address, ()),
+        (address, (first.uid, first.uid)),
+    )
+    for candidate, predecessors in cases:
+        with pytest.raises(ValidationRefused):
+            writer.revise_coordination(
+                "project",
+                candidate,
+                predecessors=predecessors,
+                content=content_for("project"),
+            )
+
+
+def test_two_roots_diverge_and_one_all_tip_revision_repairs_without_deleting_siblings(
+    tmp_path, base_contract
+):
+    profile = coordination_profile(base_contract)
+    left = mounted_root(tmp_path / "left", profile)
+    right = mounted_root(tmp_path / "right", profile)
+    left_writer = CorpusWriter(
+        left,
+        DefaultExecutor,
+        coordination_resolver=CoordinationResolver({left: profile}),
+    )
+    project = left_writer.mint_coordination("project", content=content_for("project"))
+    address = coordination_revision(project).address
+    raw_add(right, project.model_copy(deep=True))
+    left_tip = left_writer.revise_coordination(
+        "project",
+        address,
+        predecessors=(project.uid,),
+        content=content_for("project", name="left"),
+    )
+    right_writer = CorpusWriter(
+        right,
+        DefaultExecutor,
+        coordination_resolver=CoordinationResolver({right: profile}),
+    )
+    right_tip = right_writer.revise_coordination(
+        "project",
+        address,
+        predecessors=(project.uid,),
+        content=content_for("project", name="right"),
+    )
+    resolver = CoordinationResolver({left: profile, right: profile})
+    assert resolver.resolve(address) == CoordinationRefused(
+        "divergent-view", (left_tip.uid, right_tip.uid)
+    )
+    repair_writer = CorpusWriter(left, DefaultExecutor, coordination_resolver=resolver)
+    repair = repair_writer.revise_coordination(
+        "project",
+        address,
+        predecessors=(right_tip.uid, left_tip.uid),
+        content=content_for("project", name="repaired"),
+    )
+    assert resolver.resolve(address) == repair
+    assert resolver.resolve(address.pinned(left_tip.uid)) == left_tip
+    assert resolver.resolve(address.pinned(right_tip.uid)) == right_tip
+    assert [relation.target for relation in repair.relations] == sorted((left_tip.id, right_tip.id))
+    assert not any(
+        finding.code == "supersession-target-missing"
+        for finding in corpus_check(CorpusWriter(left, DefaultExecutor).read_view)
+    )
+
+
+def test_superseding_only_one_standing_sibling_is_lawful_and_remains_divergent(
+    tmp_path, base_contract
+):
+    profile = coordination_profile(base_contract)
+    left = mounted_root(tmp_path / "left", profile)
+    right = mounted_root(tmp_path / "right", profile)
+    first = raw_coordination_node("project", A, C)
+    second = raw_coordination_node("project", A, D)
+    raw_add(left, first)
+    raw_add(right, second)
+    resolver = CoordinationResolver({left: profile, right: profile})
+    writer = CorpusWriter(left, DefaultExecutor, coordination_resolver=resolver)
+    successor = writer.revise_coordination(
+        "project",
+        CoordinationAddress(A),
+        predecessors=(first.uid,),
+        content=content_for("project", name="partial"),
+    )
+    assert resolver.resolve(CoordinationAddress(A)) == CoordinationRefused(
+        "divergent-view", (second.uid, successor.uid)
+    )
+
+
+def test_a_subordinate_revision_refuses_while_its_project_is_divergent(
+    tmp_path, base_contract
+):
+    profile = coordination_profile(base_contract)
+    left = mounted_root(tmp_path / "left", profile)
+    right = mounted_root(tmp_path / "right", profile)
+    first = raw_coordination_node("project", A, C)
+    second = raw_coordination_node("project", A, D)
+    raw_add(left, first)
+    raw_add(right, second)
+    resolver = CoordinationResolver({left: profile, right: profile})
+    writer = CorpusWriter(left, DefaultExecutor, coordination_resolver=resolver)
+    with pytest.raises(ProjectNotResolvable) as caught:
+        writer.mint_coordination(
+            "task", project=CoordinationAddress(A), content=content_for("task")
+        )
+    assert caught.value.tips == (C, D)

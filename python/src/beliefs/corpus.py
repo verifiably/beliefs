@@ -83,6 +83,8 @@ from beliefs.errors import (
     MalformedRecord,
     ManifestAlreadyPresent,
     ManifestMalformed,
+    PredecessorMismatch,
+    PredecessorNotStanding,
     ProjectNotResolvable,
     RecordAlreadyMinted,
     RetractionCycleMalformed,
@@ -1171,6 +1173,68 @@ class CorpusWriter:
             revision_identity = secrets.token_hex(16)
             address = CoordinationAddress(project_identity, local_identity)
             candidate = self._coordination_node(kind, address, revision_identity, validated, predecessors=())
+            self._refuse_already_minted(candidate)
+            self._refuse_rendering(candidate)
+            return self._corpus.add(candidate)
+
+    def revise_coordination(
+        self,
+        kind: str,
+        address: CoordinationAddress,
+        *,
+        predecessors: Sequence[str],
+        content: Mapping[str, object],
+    ) -> Node:
+        with self._operation:
+            validated = self._validated_coordination_content(kind, content)
+            if not isinstance(address, CoordinationAddress) or address.revision is not None:
+                raise ValidationRefused("coordination revision requires an unpinned address")
+            if kind == "project" and address.local is not None:
+                raise ValidationRefused("a project revision requires a project-root address")
+            if kind != "project" and address.local is None:
+                raise ValidationRefused("a subordinate revision requires a local address")
+            if isinstance(predecessors, (str, bytes)):
+                raise ValidationRefused("coordination predecessors must be a sequence of revision ids")
+            predecessor_values = tuple(predecessors)
+            if (
+                not predecessor_values
+                or len(predecessor_values) != len(set(predecessor_values))
+                or any(type(uid) is not str or re.fullmatch(r"[0-9a-f]{32}", uid) is None for uid in predecessor_values)
+            ):
+                raise ValidationRefused(
+                    "coordination predecessors must be distinct 32-lower-hex revision ids"
+                )
+            predecessor_ids = set(predecessor_values)
+            assert self._coordination_resolver is not None
+            predecessor_nodes: list[Node] = []
+            for predecessor_id in sorted(predecessor_ids):
+                found = self._coordination_resolver.revision(predecessor_id)
+                if found is None:
+                    raise PredecessorNotStanding(f"revision {predecessor_id} does not resolve")
+                predecessor = coordination_revision(found)
+                if predecessor.node.kind != kind or predecessor.address != address:
+                    raise PredecessorMismatch(f"revision {predecessor.node.uid} belongs to {predecessor.node.kind} {predecessor.address}, not {kind} {address}")
+                predecessor_nodes.append(predecessor.node)
+            standing = self._coordination_resolver.tips(address)
+            if predecessor_ids - {revision.node.uid for revision in standing}:
+                raise PredecessorNotStanding("every supplied predecessor must be a standing tip at commit")
+            if kind != "project":
+                project = CoordinationAddress(address.project)
+                resolved_project = self._coordination_resolver.resolve(project)
+                if resolved_project is None:
+                    raise ProjectNotResolvable(f"{project}: project does not resolve")
+                if isinstance(resolved_project, CoordinationRefused):
+                    raise ProjectNotResolvable(
+                        f"{project}: project is divergent", tips=resolved_project.tips
+                    )
+            new_revision_identity = secrets.token_hex(16)
+            candidate = self._coordination_node(
+                kind,
+                address,
+                new_revision_identity,
+                validated,
+                predecessors=predecessor_nodes,
+            )
             self._refuse_already_minted(candidate)
             self._refuse_rendering(candidate)
             return self._corpus.add(candidate)
