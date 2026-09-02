@@ -53,14 +53,67 @@ from beliefs.boundary import (
     RunRefused,
     _render_config,
     build_manifest,
+    check_checkpoint_declaration,
     execute_assessment_run,
     execute_production_run,
     mint_run,
 )
-from beliefs.errors import MalformedClosure
-from beliefs.recipe import MINIMAL_POLICY, Occurrence, RunClosure
+from beliefs.errors import CheckpointDeclarationUnmet, MalformedClosure
+from beliefs.recipe import MINIMAL_POLICY, Occurrence, PlannedJob, RunClosure, WorkflowDefinitionSnapshot, job_key
 from beliefs.report import ActReport, OperationIntent, RunAttemptEntry, RunRefusal
 from beliefs.spec import Deterministic, Seeded, SeedPlan, SpecInput, derive_seed, freeze, revise
+
+CHECKPOINT_DIGEST = "sha256:" + "22" * 32
+
+
+def _checkpoint_snapshot(families, expanded):
+    return WorkflowDefinitionSnapshot(
+        snakefile_digest=CHECKPOINT_DIGEST,
+        family_streams=families,
+        checkpoint_expanded_families=expanded,
+    )
+
+
+def _planned_checkpoint(family, is_checkpoint=False):
+    return PlannedJob(
+        job_key=job_key(family, ()),
+        family=family,
+        outputs=(),
+        is_checkpoint=is_checkpoint,
+    )
+
+
+def test_a_checkpoint_declaration_with_no_checkpoint_in_the_plan_is_refused() -> None:
+    with pytest.raises(CheckpointDeclarationUnmet):
+        check_checkpoint_declaration(
+            _checkpoint_snapshot({"fit": ()}, ("fit",)),
+            (_planned_checkpoint("fit"),),
+        )
+
+
+def test_a_checkpoint_declaration_for_an_absent_family_is_refused() -> None:
+    with pytest.raises(CheckpointDeclarationUnmet):
+        check_checkpoint_declaration(
+            _checkpoint_snapshot({"fit": ()}, ("absent",)),
+            (_planned_checkpoint("split", is_checkpoint=True),),
+        )
+
+
+def test_an_empty_checkpoint_declaration_permits_a_planned_checkpoint() -> None:
+    check_checkpoint_declaration(
+        _checkpoint_snapshot({"split": ()}, ()),
+        (_planned_checkpoint("split", is_checkpoint=True),),
+    )
+
+
+def test_a_checkpoint_declaration_with_a_planned_checkpoint_is_permitted() -> None:
+    check_checkpoint_declaration(
+        _checkpoint_snapshot({"split": (), "fit": ()}, ("fit",)),
+        (
+            _planned_checkpoint("split", is_checkpoint=True),
+            _planned_checkpoint("fit"),
+        ),
+    )
 
 
 def test_the_roots_are_rendered_as_one_mapping_never_per_stream_keys() -> None:

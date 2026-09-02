@@ -709,6 +709,10 @@ class PlanUnavailable(RecordError):
     """The planning launch did not yield one complete, consistent job set."""
 
 
+class CheckpointDeclarationUnmet(RecordError):
+    """A checkpoint-expansion declaration disagrees with the definition or plan."""
+
+
 class RecordUndecodable(RecordError):
     """Captured bytes cannot be read as the named published record."""
 

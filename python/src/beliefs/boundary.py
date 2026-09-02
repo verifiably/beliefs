@@ -61,6 +61,7 @@ from beliefs.confinement import (
     sandbox_environment,
 )
 from beliefs.errors import (
+    CheckpointDeclarationUnmet,
     ConfinementRefusal,
     DefinitionPlanMismatch,
     MalformedClosure,
@@ -106,6 +107,7 @@ __all__ = [
     "RunMinted",
     "RunRefused",
     "build_manifest",
+    "check_checkpoint_declaration",
     "execute_assessment_run",
     "execute_production_run",
     "mint_run",
@@ -297,6 +299,21 @@ def _render_config(recipe: Recipe, snapshot: WorkflowDefinitionSnapshot) -> dict
     return config
 
 
+def check_checkpoint_declaration(
+    snapshot: WorkflowDefinitionSnapshot,
+    planned: tuple[PlannedJob, ...],
+) -> None:
+    declared = set(snapshot.checkpoint_expanded_families)
+    if unknown := sorted(declared - set(snapshot.family_streams)):
+        raise CheckpointDeclarationUnmet(
+            f"checkpoint-expanded families the definition does not contain: {unknown}"
+        )
+    if declared and not any(job.is_checkpoint for job in planned):
+        raise CheckpointDeclarationUnmet(
+            f"checkpoint-expanded families {sorted(declared)} declared, but the plan contains no checkpoint"
+        )
+
+
 def _policy_refusal(policy: BoundaryPolicy) -> ConfinementRefusal | None:
     """Pre-intent: the whole definition must be known, and a confined request
     needs the host's substrate. Never a downgrade."""
@@ -465,6 +482,7 @@ def _execute_run(
             if planning_returncode != 0:
                 raise PlanUnavailable(f"the planning launch exited {planning_returncode}")
             planned_jobs = read_plan(planning_events)
+            check_checkpoint_declaration(definition.snapshot(), planned_jobs)
         finally:
             shutil.rmtree(planning_dir, ignore_errors=True)
         planning_launch = LaunchAttestation(
