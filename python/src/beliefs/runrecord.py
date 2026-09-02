@@ -18,7 +18,7 @@ from nodes.core.node import Node
 from nodes.core.write_plan import CreateOp, WritePlan
 
 from beliefs import stored
-from beliefs.errors import MalformedClosure, MalformedRecord
+from beliefs.errors import MalformedClosure, MalformedRecord, RecipeVersionUnsupported
 from beliefs.identity import v1
 from beliefs.production import mint_dataset
 from beliefs.recipe import (
@@ -29,19 +29,33 @@ from beliefs.recipe import (
     PRODUCTION_ROLES,
     RENDERED_KINDS,
     SHAPES,
+    BoundaryPolicy,
+    BoundaryReceipt,
+    EnvironmentReference,
+    InstanceAttestation,
+    Invocation,
+    LaunchAttestation,
+    Occurrence,
+    Recipe,
+    RecipeInput,
+    ResultManifest,
     RunClosure,
+    TraceJob,
+    WorkflowDefinitionSnapshot,
     _occurrence_projection,
     _pairs,
     mount_plan_identity,
     run_domain_for_projection,
 )
 from beliefs.sealed import sealed
+from beliefs.spec import Deterministic, ExclusionCertification, RealizedSeeds, Seeded, SeedPlan, StochasticUnseeded
 
 __all__ = [
     "OperationPort",
     "RunPublication",
     "bare_address",
     "decode_projection",
+    "decode_run_closure",
     "decode_run_record",
     "projection_text",
     "publication_plan",
@@ -190,7 +204,7 @@ def _validate_recipe(recipe: object) -> str:
     if shape == "assessment":
         _str_at(recipe["spec_identity"], "$.recipe.spec_identity")
     _component_at(recipe["code_identity"], "$.recipe.code_identity")
-    _str_at(recipe["environment"], "$.recipe.environment")
+    _component_at(recipe["environment"], "$.recipe.environment")
     if recipe_v2:
         definition = _mapping(
             recipe["workflow_definition"],
@@ -580,6 +594,156 @@ def decode_run_record(node: Node) -> RunPublication | None:
         shape=shape,
         spec_identity=spec_identity,
         event_token=cast(str, occurrence["event_token"]),
+    )
+
+
+def _decoded_pairs(value: object) -> tuple[tuple[str, str], ...]:
+    return tuple((cast(str, row[0]), cast(str, row[1])) for row in cast("list[list[object]]", value))
+
+
+def _decoded_triples(value: object) -> tuple[tuple[str, str, str], ...]:
+    return tuple(
+        (cast(str, row[0]), cast(str, row[1]), cast(str, row[2]))
+        for row in cast("list[list[object]]", value)
+    )
+
+
+def _decode_launch(value: object) -> LaunchAttestation:
+    launch = cast(dict[str, object], value)
+    instance = None
+    rendered_environment = None
+    mounts = None
+    if "instance" in launch:
+        raw_instance = cast(dict[str, object], launch["instance"])
+        instance = InstanceAttestation(
+            namespaces=tuple(cast("list[str]", raw_instance["namespaces"])),
+            mounts=_decoded_triples(raw_instance["mounts"]),
+            mount_plan_identity=cast(str, raw_instance["mount_plan_identity"]),
+            environment_identity=cast(str, raw_instance["environment_identity"]),
+        )
+        rendered_environment = _decoded_triples(launch["rendered_environment"])
+        mounts = _decoded_pairs(launch["mounts"])
+    return LaunchAttestation(
+        scratch_mapping=cast(str, launch["scratch_mapping"]),
+        argv=tuple(cast("list[str]", launch["argv"])),
+        rendered_config=_decoded_pairs(launch["rendered_config"]),
+        capabilities=tuple(cast("list[str]", launch["capabilities"])),
+        instance=instance,
+        rendered_environment=rendered_environment,
+        mounts=mounts,
+    )
+
+
+def _decode_nondeterminism(value: object) -> Deterministic | Seeded | StochasticUnseeded:
+    nondeterminism = cast(dict[str, object], value)
+    variant = nondeterminism["variant"]
+    if variant == "deterministic":
+        return Deterministic()
+    if variant == "stochastic-unseeded":
+        return StochasticUnseeded(cast(str, nondeterminism["rationale"]))
+    raw_plan = cast(dict[str, object], nondeterminism["plan"])
+    return Seeded(
+        SeedPlan(
+            derivation_rule=cast(str, raw_plan["derivation_rule"]),
+            streams=tuple(cast("list[str]", raw_plan["streams"])),
+            roots=cast("dict[str, int]", raw_plan["roots"]),
+            stream_roots=cast("dict[str, str]", raw_plan["stream_roots"]),
+        )
+    )
+
+
+def decode_run_closure(node: Node) -> RunClosure:
+    """Rebuild a v2 typed closure from its validated stored projection."""
+    if decode_run_record(node) is None:
+        raise MalformedRecord(f"{node.id}: no run-closure projection to decode")
+    facet = cast(dict[str, str], node.facets[stored.RUN_CLOSURE_FACET])
+    parsed = decode_projection(facet["projection"].encode("utf-8"))
+    recipe = cast(dict[str, object], parsed["recipe"])
+    if "workflow_definition_identity" in recipe:
+        raise RecipeVersionUnsupported(
+            "a v1 recipe carries an identity where the snapshot's members belong"
+        )
+
+    raw_definition = cast(dict[str, object], recipe["workflow_definition"])
+    raw_invocation = cast(dict[str, object], recipe["invocation"])
+    raw_policy = cast(dict[str, object], recipe["boundary_policy"])
+    inputs = []
+    for raw_input in cast("list[dict[str, object]]", recipe["inputs"]):
+        raw_exclusion = cast("dict[str, str] | None", raw_input.get("exclusion"))
+        exclusion = (
+            ExclusionCertification(raw_exclusion["rationale"], raw_exclusion["attribution"])
+            if raw_exclusion is not None
+            else None
+        )
+        inputs.append(
+            RecipeInput(
+                role=cast(str, raw_input["role"]),
+                dataset=cast(str, raw_input["dataset"]),
+                content=cast(str, raw_input["content"]),
+                exclusion=exclusion,
+            )
+        )
+    decoded_recipe = Recipe(
+        shape=cast(str, recipe["shape"]),
+        spec_identity=cast("str | None", recipe.get("spec_identity")),
+        code_identity=cast(str, recipe["code_identity"]),
+        environment=EnvironmentReference(cast(str, recipe["environment"])),
+        workflow_definition=WorkflowDefinitionSnapshot(
+            snakefile_digest=cast(str, raw_definition["snakefile"]),
+            family_streams={
+                family: tuple(streams)
+                for family, streams in cast("dict[str, list[str]]", raw_definition["family_streams"]).items()
+            },
+            checkpoint_expanded_families=tuple(
+                cast("list[str]", raw_definition["checkpoint_expanded_families"])
+            ),
+        ),
+        invocation=Invocation(
+            entrypoint=cast(str, raw_invocation["entrypoint"]),
+            targets=tuple(cast("list[str]", raw_invocation["targets"])),
+            bindings=tuple(cast("list[str]", raw_invocation["bindings"])),
+            declared_outputs=tuple(cast("list[str]", raw_invocation["declared_outputs"])),
+        ),
+        inputs=tuple(inputs),
+        parameters=cast("dict[str, object]", recipe["parameters"]),
+        nondeterminism=_decode_nondeterminism(recipe["nondeterminism"]),
+        boundary_policy=BoundaryPolicy(
+            identity=cast(str, raw_policy["identity"]),
+            scope_rule=cast(str, raw_policy["scope_rule"]),
+            capabilities=tuple(cast("list[str]", raw_policy["capabilities"])),
+        ),
+        rule_bindings=_decoded_pairs(recipe["rule_bindings"]),
+    )
+
+    raw_occurrence = cast(dict[str, object], parsed["occurrence"])
+    raw_receipt = cast(dict[str, object], raw_occurrence["receipt"])
+    occurrence = Occurrence(
+        event_token=cast(str, raw_occurrence["event_token"]),
+        started_at=cast(str, raw_occurrence["started_at"]),
+        actor=cast(str, raw_occurrence["actor"]),
+        host_realization=cast(str, raw_occurrence["host_realization"]),
+        trace=tuple(
+            TraceJob(
+                job_id=cast(str, job["job_id"]),
+                rule=cast(str, job["rule"]),
+                wildcards=_decoded_pairs(job["wildcards"]),
+                inputs=tuple(cast("list[str]", job["inputs"])),
+                outputs=tuple(cast("list[str]", job["outputs"])),
+            )
+            for job in cast("list[dict[str, object]]", raw_occurrence["trace"])
+        ),
+        realized_seeds=RealizedSeeds(
+            cast("dict[str, dict[str, int]]", raw_occurrence["realized_seeds"])
+        ),
+        receipt=BoundaryReceipt(
+            planning=_decode_launch(raw_receipt["planning"]),
+            execution=_decode_launch(raw_receipt["execution"]),
+        ),
+    )
+    return RunClosure(
+        recipe=decoded_recipe,
+        result=ResultManifest(_decoded_pairs(parsed["result"])),
+        occurrence=occurrence,
     )
 
 

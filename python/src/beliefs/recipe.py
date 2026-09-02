@@ -44,6 +44,7 @@ __all__ = [
     "BoundaryPolicy",
     "BoundaryReceipt",
     "EnvironmentManifest",
+    "EnvironmentReference",
     "ExclusionCertification",
     "InstanceAttestation",
     "Invocation",
@@ -259,6 +260,21 @@ class EnvironmentManifest:
 @sealed
 @final
 @dataclass(frozen=True)
+class EnvironmentReference:
+    """The identity-only environment evidence available in a decoded recipe."""
+
+    identity_value: str
+
+    def __post_init__(self) -> None:
+        _require_component(self.identity_value, "environment identity")
+
+    def identity(self) -> str:
+        return self.identity_value
+
+
+@sealed
+@final
+@dataclass(frozen=True)
 class BoundaryPolicy:
     identity: str
     scope_rule: str
@@ -306,7 +322,7 @@ class Recipe:
     shape: str
     spec_identity: str | None
     code_identity: str
-    environment: EnvironmentManifest
+    environment: EnvironmentManifest | EnvironmentReference
     workflow_definition: WorkflowDefinitionSnapshot
     invocation: Invocation
     inputs: tuple[RecipeInput, ...]
@@ -325,8 +341,8 @@ class Recipe:
             raise MalformedClosure("an assessment recipe carries its frozen spec identity")
         if self.shape == "dataset-production" and self.spec_identity is not None:
             raise MalformedClosure("a dataset-production recipe has no assessment spec identity")
-        if type(self.environment) is not EnvironmentManifest:
-            raise MalformedClosure("environment must be an EnvironmentManifest, not a lockfile digest")
+        if type(self.environment) not in (EnvironmentManifest, EnvironmentReference):
+            raise MalformedClosure("environment must be an EnvironmentManifest or decoded EnvironmentReference")
         if type(self.invocation) is not Invocation:
             raise MalformedClosure("invocation must be an Invocation")
         if type(self.boundary_policy) is not BoundaryPolicy:

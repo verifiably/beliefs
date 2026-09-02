@@ -693,6 +693,10 @@ class MalformedRecord(RecordError):
     set, a role outside ``observes | reads | transforms``."""
 
 
+class RecipeVersionUnsupported(RecordError):
+    """A v1 recipe lacks the workflow snapshot required by typed decode."""
+
+
 class RecordUndecodable(RecordError):
     """Captured bytes cannot be read as the named published record."""
 

@@ -187,9 +187,11 @@ in the rule.
 
 `Recipe.workflow_definition` carries the snapshot; the projection emits its
 members rather than only its digest. This is the change that makes a decoded
-closure checkable, and it is why the recipe steps to v2. Nothing else about
-the recipe moves: `invocation`, inputs, parameters, the nondeterminism
-contract, the policy and the rule bindings keep their shapes.
+closure checkable, and it is why the recipe steps to v2. The wire shape of
+every other recipe member stays fixed: `invocation`, inputs, parameters, the
+nondeterminism contract, the policy and the rule bindings keep their shapes.
+The environment member remains its identity string; §3.6 defines the
+read-side value used to reconstruct that deliberately identity-only member.
 
 ### 3.4 The receipt: two composed launch attestations (v3, v4)
 
@@ -256,6 +258,18 @@ reconstructing `Recipe`, `Occurrence` and `ResultManifest` from a validated
 projection. It is feasible because the recipe's rule bindings are identity
 strings rather than callables; it refuses any projection whose recipe and
 receipt shapes fall outside the matrix above.
+
+The environment projection is likewise an identity string, but unlike a rule
+binding it normally corresponds to an in-memory `EnvironmentManifest` whose
+artifact rows are not stored in the recipe. Typed decode therefore uses an
+explicit read-side value, `EnvironmentReference(identity)`. `Recipe.environment`
+accepts `EnvironmentManifest | EnvironmentReference`, both exposing
+`identity()`, so reprojection and the run address are preserved without
+inventing artifact rows. An execution boundary still requires the full
+`EnvironmentManifest` and refuses an `EnvironmentReference` before launching
+the engine. The reference is evidence sufficient to inspect a decoded closure,
+not an executable environment. This changes no record member and steps no
+domain version.
 
 **`decode_run_closure` requires a v2 recipe.** A v1 record carries an
 identity where the snapshot's members belong, so it can neither instantiate
@@ -853,6 +867,11 @@ lane; only the discharge serializes.
    satisfies cut 14's frozen "cuts after 14 name `cut14_acceptance.py`" as
    written; the multi-head prefix frontier that would have required a dated
    amendment to cut 14 is rejected (§14 item 7).
+7. **Typed decode carries an opaque environment reference.** The stored recipe
+   has always projected only `environment.identity()`, so reconstructing a full
+   `EnvironmentManifest` would invent evidence. `EnvironmentReference` is the
+   read-side value described in §3.6; execution remains manifest-only and all
+   record shapes and identities stay unchanged.
 
 ## 14. Alternatives rejected
 
@@ -895,6 +914,11 @@ lane; only the discharge serializes.
    clauses are the producer-snapshot and receipt work waiting on the world
    index and rules store. An earlier revision of §9 made this mistake and it
    is recorded here so the reasoning is not repeated.
+10. **Synthesizing an empty environment manifest during decode.** It would
+    claim the recorded identity was derived from artifact rows the record does
+    not contain. Adding those rows to the recipe projection would instead
+    change the frozen recipe and run identities. The opaque reference preserves
+    the existing evidence and execution refuses it (§3.6).
 
 ## 15. Verification
 

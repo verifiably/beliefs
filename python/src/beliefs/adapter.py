@@ -23,7 +23,7 @@ from typing import cast, final
 
 from beliefs.errors import ClosureUnsupported, MalformedClosure, UnsafeInvocation
 from beliefs.recipe import WORKFLOW_DEFINITION_DOMAIN as _WORKFLOW_DEFINITION_DOMAIN
-from beliefs.recipe import EnvironmentManifest, TraceJob, WorkflowDefinitionSnapshot
+from beliefs.recipe import EnvironmentManifest, EnvironmentReference, TraceJob, WorkflowDefinitionSnapshot
 from beliefs.sealed import sealed
 from beliefs.spec import RealizedSeeds
 
@@ -667,7 +667,9 @@ def capture_environment() -> EnvironmentManifest:
     return capture_closure().manifest
 
 
-def require_executing_environment(manifest: EnvironmentManifest) -> None:
+def require_executing_environment(manifest: EnvironmentManifest | EnvironmentReference) -> None:
+    if type(manifest) is not EnvironmentManifest:
+        raise MalformedClosure("execution requires the full EnvironmentManifest, not a decoded environment reference")
     if manifest != capture_environment():
         raise MalformedClosure(
             "the recorded environment is not the executing environment — a recipe claiming "

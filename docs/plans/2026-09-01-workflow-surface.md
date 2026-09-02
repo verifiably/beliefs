@@ -49,8 +49,8 @@ dependencies.
 
 | file | responsibility | tasks |
 |---|---|---|
-| `python/src/beliefs/recipe.py` | `job_key()` beside `TraceJob`; the snapshot-bearing `Recipe`; `LaunchAttestation`; the receipt; the run-domain matrix | 1, 3, 4, 5 |
-| `python/src/beliefs/adapter.py` | `WorkflowDefinition` → snapshot; the planning launch's plan reader; claim-file reading | 2, 10, 12 |
+| `python/src/beliefs/recipe.py` | `job_key()` beside `TraceJob`; the snapshot-bearing `Recipe`; read-side `EnvironmentReference`; `LaunchAttestation`; the receipt; the run-domain matrix | 1, 3, 4, 5, 6 |
+| `python/src/beliefs/adapter.py` | `WorkflowDefinition` → snapshot; manifest-only execution check; the planning launch's plan reader; claim-file reading | 2, 6, 10, 12 |
 | `python/src/beliefs/seeds.py` (new) | `bind`/`seed`: derivation and claim writing, imported by the workflow | 8 |
 | `python/src/beliefs/boundary.py` | config rendering; the planning launch; checkpoint cross-checks; target resolution; both launches into one receipt | 9, 12, 13, 14, 16 |
 | `python/src/beliefs/replay.py` | `definition_agrees_with_plan`; two-level seed conformance; job-set conformance | 7, 11, 15 |
@@ -671,35 +671,44 @@ git commit -m "feat(recipe): dispatch the run domain on recipe and receipt shape
 **Files:**
 - Modify: `python/src/beliefs/runrecord.py` (after `decode_run_record`)
 - Modify: `python/src/beliefs/errors.py`
+- Modify: `python/src/beliefs/recipe.py`
+- Modify: `python/src/beliefs/adapter.py`
 - Test: `python/tests/test_runrecord.py`
 
 **Interfaces:**
 - Consumes: Tasks 3, 4, 5.
 - Produces: `decode_run_closure(node: Node) -> RunClosure`, raising
   `RecipeVersionUnsupported` for a v1 recipe. Tasks 11 and 15 test
-  conformance over its output.
+  conformance over its output; and
+  `EnvironmentReference(identity_value: str)`, a read-side recipe environment
+  exposing `identity() -> str`. Execution continues to require an
+  `EnvironmentManifest` and refuses a reference before launching the engine.
 
 - [ ] **Step 1: Write the failing test**
 
 ```python
 # python/tests/test_runrecord.py
 import pytest
+from nodes.core.frontmatter import node_from_markdown
 
 from beliefs.errors import RecipeVersionUnsupported
+from beliefs.recipe import EnvironmentReference
 from beliefs.replay import conformance
 from beliefs.runrecord import decode_run_closure, publication_plan
 from fixtures_cut3 import closure
 
 
 def _node_for(run):
-    _, node, _ = publication_plan(run)
-    return node
+    _, _, (op,) = publication_plan(run)
+    return node_from_markdown(op.content.decode("utf-8"))
 
 
 def test_a_minted_closure_round_trips_through_the_typed_decode():
     run = closure()
     decoded = decode_run_closure(_node_for(run))
     assert decoded.address() == run.address()
+    assert type(decoded.recipe.environment) is EnvironmentReference
+    assert decoded.recipe.environment.identity() == run.recipe.environment.identity()
     assert decoded.recipe.workflow_definition.family_streams == run.recipe.workflow_definition.family_streams
 
 
@@ -713,9 +722,10 @@ def test_a_v1_identity_only_recipe_is_refused_rather_than_given_an_invented_decl
         decode_run_closure(v1_run_node)
 ```
 
-`v1_run_node` is a module fixture holding a frozen v1 projection captured
-before this cut — copy one from an existing `test_runrecord.py` fixture and
-keep its bytes verbatim, since its point is that old records still decode.
+`v1_run_node` is a module fixture holding an explicit v1 projection. Keep its
+members literal rather than manufacturing a v1 closure through the v2
+constructors; its point is that old records still decode while typed decode
+refuses to invent the missing declaration.
 
 - [ ] **Step 2: Run the tests and watch them fail**
 
@@ -749,6 +759,28 @@ and otherwise rebuilds `Recipe`,
 `TraceJob`s and `RealizedSeeds` — from the projection. `decode_run_record`
 itself is unchanged and keeps returning `RunPublication | None`.
 
+The recipe projection contains only `environment.identity()`. Add the minimal
+read-side carrier beside `EnvironmentManifest`:
+
+```python
+@dataclass(frozen=True)
+class EnvironmentReference:
+    identity_value: str
+
+    def __post_init__(self) -> None:
+        _require_component(self.identity_value, "environment identity")
+
+    def identity(self) -> str:
+        return self.identity_value
+```
+
+`Recipe.environment` accepts `EnvironmentManifest | EnvironmentReference`.
+Typed decode constructs the reference from the stored identity, preserving the
+recipe projection and closure address without inventing artifacts. Widen
+`require_executing_environment` to the same union and fail early unless the
+value is exactly an `EnvironmentManifest`; decoded evidence is inspectable but
+cannot be executed.
+
 - [ ] **Step 4: Run the tests and watch them pass**
 
 Run: `cd python && uv run --frozen pytest tests/test_runrecord.py -v`
@@ -757,7 +789,7 @@ Expected: PASS, including the untouched v1 decode tests.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add python/src/beliefs/runrecord.py python/src/beliefs/errors.py python/tests/test_runrecord.py
+git add docs/superpowers/specs/2026-09-01-workflow-surface-design.md docs/plans/2026-09-01-workflow-surface.md python/src/beliefs/recipe.py python/src/beliefs/adapter.py python/src/beliefs/runrecord.py python/src/beliefs/errors.py python/tests/test_runrecord.py
 git commit -m "feat(runrecord): decode a typed run closure and refuse v1 recipes"
 ```
 

@@ -8,10 +8,12 @@ from closure_fixtures import make_closure as build_closure
 from nodes.core.frontmatter import node_from_markdown
 
 from beliefs import runrecord, stored
-from beliefs.errors import MalformedRecord
+from beliefs.adapter import require_executing_environment
+from beliefs.errors import MalformedClosure, MalformedRecord, RecipeVersionUnsupported
 from beliefs.identity import v1
 from beliefs.production import mint_dataset
-from beliefs.recipe import RunClosure, run_domain_for, run_domain_for_projection
+from beliefs.recipe import EnvironmentReference, RunClosure, run_domain_for, run_domain_for_projection
+from beliefs.replay import conformance
 
 
 def _projection(*, recipe_key, receipt):
@@ -66,6 +68,94 @@ def production_closure() -> RunClosure:
 @pytest.fixture
 def make_closure():
     return build_closure
+
+
+def _node_for(run: RunClosure):
+    _, _, (op,) = runrecord.publication_plan(run)
+    return node_from_markdown(op.content.decode("utf-8"))
+
+
+@pytest.fixture
+def v1_run_node():
+    projection = {
+        "recipe": {
+            "shape": "assessment",
+            "spec_identity": "s" * 64,
+            "code_identity": "sha256:" + "1" * 64,
+            "environment": "sha256:" + "2" * 64,
+            "workflow_definition_identity": "sha256:" + "3" * 64,
+            "invocation": {
+                "entrypoint": "Snakefile",
+                "targets": ["out"],
+                "bindings": [],
+                "declared_outputs": ["out"],
+            },
+            "inputs": [
+                {
+                    "role": "observes",
+                    "dataset": "dataset:" + "4" * 64,
+                    "content": "sha256:" + "5" * 64,
+                }
+            ],
+            "parameters": {},
+            "nondeterminism": {"variant": "deterministic"},
+            "boundary_policy": {
+                "identity": "boundary-policy/minimal-v1",
+                "scope_rule": "scope-derivation/v1",
+                "capabilities": [],
+            },
+            "rule_bindings": [],
+        },
+        "result": [["out", "sha256:" + "6" * 64]],
+        "occurrence": {
+            "event_token": "tok",
+            "started_at": "2026-08-27T00:00:00Z",
+            "actor": "tester",
+            "host_realization": "host-a",
+            "trace": [],
+            "realized_seeds": {},
+            "receipt": {
+                "scratch_mapping": "/scratch",
+                "argv": ["snakemake"],
+                "rendered_config": [],
+                "capabilities": [],
+            },
+        },
+    }
+    address = v1.digest("science.run.v1", projection)
+    return stored.run_publication_node(
+        address,
+        title="assessment run",
+        projection=v1.encode(projection).decode("utf-8"),
+        spec="s" * 64,
+        observes=("dataset:" + "4" * 64,),
+    )
+
+
+def test_a_minted_closure_round_trips_through_decode_run_closure() -> None:
+    run = build_closure()
+    decoded = runrecord.decode_run_closure(_node_for(run))
+    assert decoded.address() == run.address()
+    assert type(decoded.recipe.environment) is EnvironmentReference
+    assert decoded.recipe.environment.identity() == run.recipe.environment.identity()
+    assert decoded.recipe.workflow_definition.family_streams == run.recipe.workflow_definition.family_streams
+
+
+def test_conformance_over_decode_run_closure_matches_the_minted_closure() -> None:
+    run = build_closure()
+    assert conformance(runrecord.decode_run_closure(_node_for(run))) == conformance(run)
+
+
+def test_a_decoded_environment_reference_cannot_be_executed() -> None:
+    reference = EnvironmentReference("sha256:" + "a" * 64)
+    with pytest.raises(MalformedClosure, match="full EnvironmentManifest"):
+        require_executing_environment(reference)
+
+
+def test_decode_run_closure_refuses_a_v1_identity_only_recipe(v1_run_node) -> None:
+    assert runrecord.decode_run_record(v1_run_node) is not None
+    with pytest.raises(RecipeVersionUnsupported):
+        runrecord.decode_run_closure(v1_run_node)
 
 
 def test_projection_text_digests_to_the_address(assessment_closure) -> None:
