@@ -1,10 +1,14 @@
+import json
+
 from fixtures_cut3 import seed_plan, seeded
 from fixtures_cut15 import (
     SNAKEFILE_ONE_RULE_PIPELINE,
+    SNAKEFILE_SCRATCH_KEYED_FANOUT,
     SNAKEFILE_TWO_FAMILIES,
     SNAKEFILE_TWO_TARGETS,
     SNAKEFILE_WILDCARD,
     SNAKEFILE_ZERO_JOB_FAMILY,
+    fanout_width,
     run_workflow,
 )
 
@@ -12,6 +16,52 @@ from beliefs.boundary import RunMinted
 from beliefs.replay import CONFORMING, conformance
 from beliefs.spec import Seeded
 from beliefs.workflows import same_definition
+
+
+def test_the_fixtures_determinism_is_pinned_not_folklore() -> None:
+    assert fanout_width("base-a") == 1
+    assert fanout_width("base-one") == 3
+    assert fanout_width("base-a") == fanout_width("base-a")
+
+
+def test_two_executions_of_one_recipe_differ_in_trace_and_job_ids(tmp_path) -> None:
+    common = {
+        "snakefile": SNAKEFILE_SCRATCH_KEYED_FANOUT,
+        "targets": ("all",),
+        "declared_outputs": ("outputs/a.done",),
+        "family_streams": {"split": (), "fit": ("model-initialization",), "all": ()},
+        "checkpoint_expanded_families": ("fit",),
+        "nondeterminism": seeded(),
+    }
+    narrow = run_workflow(tmp_path / "narrow", scratch_base=tmp_path / "base-a", **common)
+    wide = run_workflow(tmp_path / "wide", scratch_base=tmp_path / "base-one", **common)
+    assert isinstance(narrow, RunMinted) and isinstance(wide, RunMinted)
+    assert narrow.run.recipe.identity() == wide.run.recipe.identity()
+    assert {job.job_id for job in narrow.run.occurrence.trace} != {
+        job.job_id for job in wide.run.occurrence.trace
+    }
+    assert len(narrow.run.occurrence.trace) < len(wide.run.occurrence.trace)
+    narrow_seeds = narrow.run.occurrence.realized_seeds.seeds
+    wide_seeds = wide.run.occurrence.realized_seeds.seeds
+    assert narrow_seeds != wide_seeds
+    assert set(narrow_seeds) < set(wide_seeds)
+    assert narrow.run.address() != wide.run.address()
+
+
+def test_the_scratch_mapping_is_the_receipts_and_not_the_recipes(tmp_path) -> None:
+    outcome = run_workflow(
+        tmp_path / "narrow",
+        scratch_base=tmp_path / "base-a",
+        snakefile=SNAKEFILE_SCRATCH_KEYED_FANOUT,
+        targets=("all",),
+        declared_outputs=("outputs/a.done",),
+        family_streams={"split": (), "fit": ("model-initialization",), "all": ()},
+        checkpoint_expanded_families=("fit",),
+        nondeterminism=seeded(),
+    )
+    assert isinstance(outcome, RunMinted)
+    assert "base-a" in outcome.run.occurrence.receipt.execution.scratch_mapping
+    assert "base-a" not in json.dumps(outcome.run.recipe._projection())
 
 
 def test_runs_sharing_a_definition_are_the_same_pipeline(tmp_path) -> None:

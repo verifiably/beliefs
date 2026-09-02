@@ -149,6 +149,45 @@ rule transform:
 """
 
 
+def fanout_width(base_name: str) -> int:
+    return 1 + (len(base_name) % 3)
+
+
+SNAKEFILE_SCRATCH_KEYED_FANOUT = """\
+import os, pathlib
+from beliefs.seeds import bind
+
+seed = bind(config)
+
+def _width(base_name):
+    return 1 + (len(base_name) % 3)
+
+checkpoint split:
+    input: "inputs/data.txt"
+    output: directory("splits")
+    run:
+        target = pathlib.Path(output[0]); target.mkdir(parents=True, exist_ok=True)
+        base = pathlib.Path(os.getcwd()).parent.name
+        for index in range(_width(base)):
+            (target / (chr(97 + index) + ".txt")).write_text(str(index))
+
+def parts(wildcards):
+    directory = checkpoints.split.get(**wildcards).output[0]
+    names = sorted(p.stem for p in pathlib.Path(directory).glob("*.txt"))
+    return expand("outputs/{n}.done", n=names)
+
+rule fit:
+    input: "splits/{n}.txt"
+    output: "outputs/{n}.done"
+    run:
+        value = seed(rule, wildcards, "model-initialization")
+        pathlib.Path(output[0]).write_text(f"{wildcards.n}:{value}")
+
+rule all:
+    input: parts
+"""
+
+
 def run_workflow(
     work_dir: Path,
     *,

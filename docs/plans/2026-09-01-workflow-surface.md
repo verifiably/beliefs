@@ -2609,8 +2609,8 @@ def test_two_executions_of_one_recipe_differ_in_trace_and_job_ids(tmp_path):
 def test_the_scratch_mapping_is_the_receipt_s_and_not_the_recipe_s(tmp_path):
     narrow = run_workflow(tmp_path / "narrow", scratch_base=tmp_path / "base-a", snakefile=SNAKEFILE_SCRATCH_KEYED_FANOUT,
                           targets=("all",), declared_outputs=("outputs/a.done",),
-                          family_streams={"split": (), "fit": (), "all": ()},
-                          checkpoint_expanded_families=("fit",))
+                          family_streams={"split": (), "fit": ("model-initialization",), "all": ()},
+                          checkpoint_expanded_families=("fit",), nondeterminism=seeded())
     assert "base-a" in narrow.run.occurrence.receipt.execution.scratch_mapping
     assert "base-a" not in json.dumps(narrow.run.recipe._projection())
 ```
