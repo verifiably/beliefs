@@ -1,0 +1,117 @@
+from fixtures_cut3 import seed_plan, seeded
+from fixtures_cut15 import (
+    SNAKEFILE_TWO_FAMILIES,
+    SNAKEFILE_TWO_TARGETS,
+    SNAKEFILE_WILDCARD,
+    SNAKEFILE_ZERO_JOB_FAMILY,
+    run_workflow,
+)
+
+from beliefs.boundary import RunMinted
+from beliefs.replay import CONFORMING, conformance
+from beliefs.spec import Seeded
+
+
+def test_two_targets_over_one_definition_are_two_recipes(tmp_path) -> None:
+    analysis = run_workflow(
+        tmp_path / "a",
+        snakefile=SNAKEFILE_TWO_TARGETS,
+        targets=("outputs/analysis.txt",),
+        declared_outputs=("outputs/analysis.txt",),
+    )
+    report = run_workflow(
+        tmp_path / "b",
+        snakefile=SNAKEFILE_TWO_TARGETS,
+        targets=("outputs/report.txt",),
+        declared_outputs=("outputs/report.txt",),
+    )
+    assert isinstance(analysis, RunMinted) and isinstance(report, RunMinted)
+    assert analysis.run.recipe.workflow_definition == report.run.recipe.workflow_definition
+    assert analysis.run.recipe.identity() != report.run.recipe.identity()
+
+
+def test_a_manifest_is_built_across_outputs_of_several_rules(tmp_path) -> None:
+    outcome = run_workflow(
+        tmp_path,
+        snakefile=SNAKEFILE_TWO_TARGETS,
+        targets=("outputs/report.txt",),
+        declared_outputs=("outputs/analysis.txt", "outputs/report.txt"),
+    )
+    assert isinstance(outcome, RunMinted)
+    assert {name for name, _ in outcome.run.result.outputs} == {
+        "outputs/analysis.txt",
+        "outputs/report.txt",
+    }
+
+
+def test_a_wildcard_run_records_one_seed_per_instance(tmp_path) -> None:
+    outcome = run_workflow(
+        tmp_path,
+        snakefile=SNAKEFILE_WILDCARD,
+        targets=("all",),
+        declared_outputs=("outputs/a.txt", "outputs/b.txt"),
+        family_streams={"fit": ("model-initialization",), "all": ()},
+        nondeterminism=seeded(),
+    )
+    assert isinstance(outcome, RunMinted)
+    assert len(outcome.run.occurrence.realized_seeds.seeds) == 2
+    assert conformance(outcome.run) == CONFORMING
+
+
+def test_the_family_rule_binds_for_a_production_recipe_with_no_spec(tmp_path) -> None:
+    plan = seed_plan(
+        streams=("model-initialization", "resample-draws"),
+        roots={"r": 11},
+        stream_roots={"model-initialization": "r", "resample-draws": "r"},
+    )
+    outcome = run_workflow(
+        tmp_path,
+        snakefile=SNAKEFILE_TWO_FAMILIES,
+        targets=("all",),
+        declared_outputs=("outputs/a.txt", "outputs/b.txt"),
+        family_streams={
+            "a": ("model-initialization",),
+            "b": ("resample-draws",),
+            "all": (),
+        },
+        nondeterminism=Seeded(plan=plan),
+    )
+    assert isinstance(outcome, RunMinted)
+    assert outcome.run.recipe.spec_identity is None
+    assert conformance(outcome.run) == CONFORMING
+
+
+def test_a_declared_family_producing_zero_jobs_is_non_conforming(tmp_path) -> None:
+    plan = seed_plan(
+        streams=("model-initialization", "resample-draws"),
+        roots={"r": 11},
+        stream_roots={"model-initialization": "r", "resample-draws": "r"},
+    )
+    outcome = run_workflow(
+        tmp_path,
+        snakefile=SNAKEFILE_ZERO_JOB_FAMILY,
+        targets=("outputs/used.txt",),
+        declared_outputs=("outputs/used.txt",),
+        family_streams={
+            "used": ("model-initialization",),
+            "unused": ("resample-draws",),
+        },
+        nondeterminism=Seeded(plan=plan),
+    )
+    assert isinstance(outcome, RunMinted)
+    assert conformance(outcome.run).startswith("non-conforming")
+
+
+def test_the_invocation_does_not_enumerate_jobs_a_target_implies(tmp_path) -> None:
+    outcome = run_workflow(
+        tmp_path,
+        snakefile=SNAKEFILE_WILDCARD,
+        targets=("all",),
+        declared_outputs=("outputs/a.txt", "outputs/b.txt"),
+        family_streams={"fit": ("model-initialization",), "all": ()},
+        nondeterminism=seeded(),
+    )
+    assert isinstance(outcome, RunMinted)
+    assert outcome.run.recipe.invocation.targets == ("all",)
+    assert not hasattr(outcome.run.recipe.invocation, "jobs")
+    assert len(outcome.run.occurrence.planned) > len(outcome.run.recipe.invocation.targets)
