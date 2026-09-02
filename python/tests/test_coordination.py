@@ -1,9 +1,16 @@
 from dataclasses import FrozenInstanceError
 
 import pytest
+from coordination_fixtures import raw_coordination_node
 
 from beliefs import stored
-from beliefs.coordination import CoordinationAddress, CoordinationRefused
+from beliefs.coordination import (
+    CoordinationAddress,
+    CoordinationRefused,
+    coordination_facet_malformed,
+    coordination_revision,
+)
+from beliefs.errors import MalformedRecord
 
 HEX_A = "a" * 32
 HEX_B = "b" * 32
@@ -79,3 +86,20 @@ def test_the_world_inventory_is_exactly_the_thirteen_banked_kinds():
         "decision",
         "note",
     }
+
+
+def test_a_stored_coordination_revision_decodes_its_address_and_predecessors():
+    predecessor = raw_coordination_node("project", HEX_A, HEX_B)
+    node = raw_coordination_node("project", HEX_A, HEX_C, supersedes=(predecessor.id,))
+    revision = coordination_revision(node)
+    assert revision.node == node
+    assert revision.address == CoordinationAddress(HEX_A)
+    assert revision.predecessors == (predecessor.id,)
+
+
+def test_the_stored_coordination_envelope_is_strict():
+    node = raw_coordination_node("project", HEX_A, HEX_C)
+    node.facets["extra"] = {}
+    assert coordination_facet_malformed(node)
+    with pytest.raises(MalformedRecord):
+        coordination_revision(node)

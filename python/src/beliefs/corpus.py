@@ -31,11 +31,12 @@ from __future__ import annotations
 
 import secrets
 import threading
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from itertools import pairwise
 from pathlib import Path
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, final
 
 from nodes.core.corpus import Corpus
@@ -54,6 +55,14 @@ from beliefs import boundary as boundary_values
 from beliefs import report as report_values
 from beliefs import stored
 from beliefs.consulted import CorpusPins
+from beliefs.coordination import (
+    CoordinationAddress,
+    CoordinationRefused,
+    CoordinationRevision,
+    coordination_facet_malformed,
+    coordination_revision,
+    standing_tips,
+)
 from beliefs.dataset import dataset_address
 from beliefs.errors import (
     BasisMissing,
@@ -61,6 +70,7 @@ from beliefs.errors import (
     BuildHold,
     BundleMemberHeld,
     CollisionRefused,
+    ContractMismatch,
     EligibilityUnmet,
     FamilyKindUnsupported,
     IdentityError,
@@ -87,6 +97,7 @@ from beliefs.errors import (
 )
 from beliefs.identity import v1
 from beliefs.lineage import Basis, LineageSnapshot, Producer, Route
+from beliefs.profile import ProfileSpec
 from beliefs.record import RunInput, RunValue
 from beliefs.report import OperationIntent
 from beliefs.runrecord import OperationPort
@@ -100,6 +111,7 @@ if TYPE_CHECKING:
 __all__ = [
     "DIRECTIONS",
     "ELIGIBLE_RETRACTION_TARGET_KINDS",
+    "CoordinationResolver",
     "CorpusWriter",
     "Finding",
     "LineageAdjacency",
@@ -826,7 +838,22 @@ def corpus_check(view: ReadView) -> tuple[Finding, ...]:
                 )
             )
     retraction_targets: dict[str, list[str]] = {}
+    coordination_revisions: dict[CoordinationAddress, list[CoordinationRevision]] = {}
     for node in view.iter_stored():
+        if stored.COORDINATION_FACET in node.facets:
+            if coordination_facet_malformed(node):
+                findings.append(
+                    Finding(
+                        severity="error",
+                        code="coordination-facet-malformed",
+                        ref=node.id,
+                        detail=stored.COORDINATION_FACET,
+                        message=f"{node.id}: the coordination facet is malformed",
+                    )
+                )
+                continue
+            revision = coordination_revision(node)
+            coordination_revisions.setdefault(revision.address, []).append(revision)
         base_valid = True
         if stored.semantic_hash_missing(node):
             base_valid = False
@@ -875,7 +902,11 @@ def corpus_check(view: ReadView) -> tuple[Finding, ...]:
                 )
             )
         for relation in node.relations:
-            if relation.predicate == stored.SUPERSEDES and not view.holds(relation.target):
+            if (
+                relation.predicate == stored.SUPERSEDES
+                and stored.COORDINATION_FACET not in node.facets
+                and not view.holds(relation.target)
+            ):
                 findings.append(
                     Finding(
                         severity="error",
@@ -933,7 +964,87 @@ def corpus_check(view: ReadView) -> tuple[Finding, ...]:
                 message=str(refused),
             )
         )
+    for address, revisions in coordination_revisions.items():
+        if revisions and not standing_tips(revisions):
+            findings.append(
+                Finding(
+                    severity="error",
+                    code="coordination-supersession-cycle",
+                    ref=str(address),
+                    detail=",".join(sorted(revision.node.uid for revision in revisions)),
+                    message=f"{address}: coordination supersession graph has no standing tip",
+                )
+            )
     return tuple(sorted(findings, key=lambda finding: finding.sort_key))
+
+
+@final
+class CoordinationResolver:
+    def __init__(self, mounts: Mapping[Path, ProfileSpec]) -> None:
+        checked: dict[Path, ProfileSpec] = {}
+        for root, profile in mounts.items():
+            resolved = Path(root).resolve()
+            if resolved in checked:
+                raise ValueError(f"coordination root {resolved} is mounted more than once")
+            if not isinstance(profile, ProfileSpec):
+                raise TypeError("coordination mounts require compiled ProfileSpec values")
+            from beliefs.world import load_manifest
+
+            manifest = load_manifest(resolved)
+            expected = CorpusPins(
+                "science:" + profile.base_contract_identity,
+                {
+                    namespace: f"{namespace}:{identity}"
+                    for namespace, identity in profile.activated_contracts.items()
+                },
+            )
+            if manifest.profile != expected:
+                raise ContractMismatch(f"{resolved}: mounted manifest pins do not match the supplied profile")
+            checked[resolved] = profile
+        self._mounts = MappingProxyType(dict(sorted(checked.items(), key=lambda item: str(item[0]))))
+
+    def profile(self, root: Path) -> ProfileSpec | None:
+        return self._mounts.get(Path(root).resolve())
+
+    def _revisions(self) -> tuple[CoordinationRevision, ...]:
+        by_uid: dict[str, CoordinationRevision] = {}
+        for root, profile in self._mounts.items():
+            for node in ReadView.opened_at(root).iter_stored():
+                if stored.COORDINATION_FACET not in node.facets or node.kind not in profile.coordination_kinds:
+                    continue
+                if coordination_facet_malformed(node):
+                    continue
+                revision = coordination_revision(node)
+                previous = by_uid.get(node.uid)
+                if previous is not None and previous.node != node:
+                    raise MalformedRecord(f"coordination revision {node.uid} has unequal stored copies")
+                by_uid[node.uid] = revision
+        return tuple(sorted(by_uid.values(), key=lambda revision: (str(revision.address), revision.node.uid)))
+
+    def revision(self, uid: str) -> Node | None:
+        return next((revision.node for revision in self._revisions() if revision.node.uid == uid), None)
+
+    def tips(self, address: CoordinationAddress) -> tuple[CoordinationRevision, ...]:
+        revisions = tuple(
+            revision for revision in self._revisions() if revision.address == address.unpinned()
+        )
+        return standing_tips(revisions)
+
+    def resolve(self, address: CoordinationAddress) -> Node | CoordinationRefused | None:
+        revisions = tuple(
+            revision for revision in self._revisions() if revision.address == address.unpinned()
+        )
+        if address.revision is not None:
+            return next(
+                (revision.node for revision in revisions if revision.node.uid == address.revision),
+                None,
+            )
+        tips = standing_tips(revisions)
+        if not tips:
+            return None
+        if len(tips) > 1:
+            return CoordinationRefused("divergent-view", tuple(revision.node.uid for revision in tips))
+        return next(iter(tips)).node
 
 
 class CorpusWriter:
