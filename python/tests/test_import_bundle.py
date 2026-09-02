@@ -56,6 +56,20 @@ def writer_with_port(tmp_path):
     return CorpusWriter(tmp_path, Recorder, operation_port=FakePort(tmp_path))
 
 
+def test_import_refuses_a_coordination_member_by_name(writer_with_port):
+    member = Node(id="note:old", kind="note", title="old")
+    with pytest.raises(ImportRefused) as caught:
+        writer_with_port.import_bundle(
+            [member],
+            actor="a",
+            observer="o",
+            instrument="i",
+            opened_at="T0",
+            closed_at="T1",
+        )
+    assert caught.value.member == member.id
+
+
 def prop(slug: str) -> Node:
     return stored.proposition_node(slug, title=slug, claim={"operator": "affects"})
 
@@ -256,12 +270,12 @@ def test_unresolved_foreign_input_admits_with_finding(writer_with_port):
 
 def test_uncanonically_encodable_success_finding_refuses_before_payload(writer_with_port):
     record = Node(
-        id="note:surrogate-finding",
-        kind="note",
+        id="memo:surrogate-finding",
+        kind="memo",
         title="surrogate finding",
         relations=[
             Relation(
-                source="note:surrogate-finding",
+                source="memo:surrogate-finding",
                 predicate="refers-to",
                 target="\ud800",
             )
@@ -385,8 +399,8 @@ def test_malformed_retraction_grounds_close_intent_without_payload(writer_with_p
 
 def test_post_intent_domain_validation_failure_closes_with_import_refused(writer_with_port):
     malformed = Node(
-        id="note:semantic-domain",
-        kind="note",
+        id="memo:semantic-domain",
+        kind="memo",
         title="semantic domain",
         facets={stored.SEMANTIC_IDENTITY_FACET: {"digest": "x"}},
     )
@@ -452,8 +466,8 @@ def test_unrenderable_member_closes_the_intent_without_a_payload(writer_with_por
 
 def test_member_that_cannot_round_trip_refuses_before_payload(writer_with_port):
     lossy = Node(
-        id="note:roundtrip",
-        kind="note",
+        id="memo:roundtrip",
+        kind="memo",
         title="roundtrip",
         facets={"custom": {("a", "b"): "value"}},
     )
@@ -477,7 +491,7 @@ def test_foreign_act_report_enters_inert(writer_with_port):
         instrument="other-tool",
         opened_at="T-2",
         closed_at="T-1",
-        entries=(RecordImportEntry(subject="other", outcome=ImportedRecords(refs=("note:x",), findings=())),),
+        entries=(RecordImportEntry(subject="other", outcome=ImportedRecords(refs=("memo:x",), findings=())),),
     )
     foreign = stored.act_report_node(foreign_report)
 

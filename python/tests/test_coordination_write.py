@@ -12,6 +12,7 @@ from coordination_fixtures import (
     raw_add,
     raw_coordination_node,
 )
+from nodes.core.node import Node
 from nodes.core.relations import Relation
 from nodes.core.write_plan import DefaultExecutor
 
@@ -21,10 +22,12 @@ from beliefs.coordination import CoordinationAddress, CoordinationRefused, coord
 from beliefs.corpus import CoordinationResolver, CorpusWriter, corpus_check
 from beliefs.errors import (
     ContractMismatch,
+    CoordinationKindUnsupported,
     CoordinationUnavailable,
     PredecessorMismatch,
     PredecessorNotStanding,
     ProjectNotResolvable,
+    RecordAlreadyMinted,
     ValidationRefused,
 )
 from beliefs.profile import compile_profile
@@ -430,3 +433,43 @@ def test_a_subordinate_revision_refuses_while_its_project_is_divergent(
             "task", project=CoordinationAddress(A), content=content_for("task")
         )
     assert caught.value.tips == (C, D)
+
+
+@pytest.mark.parametrize("door", ["add", "revise", "supersede", "retract"])
+def test_every_ordinary_family_door_refuses_coordination_kinds(tmp_path, door):
+    writer = CorpusWriter(tmp_path, DefaultExecutor)
+    node = Node(id="note:old", kind="note", title="old")
+    with pytest.raises(CoordinationKindUnsupported):
+        if door == "add":
+            writer.add(node)
+        elif door == "revise":
+            writer.revise(node)
+        elif door == "supersede":
+            writer.supersede(node, of="note:old")
+        else:
+            writer.retract(node)
+
+
+@pytest.mark.parametrize("kind", stored.WORLD_KINDS)
+def test_the_coordination_door_refuses_every_world_kind(tmp_path, base_contract, kind):
+    profile = coordination_profile(base_contract)
+    writer, _ = writer_with_resolver(tmp_path, profile)
+    with pytest.raises(CoordinationKindUnsupported):
+        writer.mint_coordination(kind, content=content_for("project"))
+
+
+def test_w17e_an_already_minted_revision_pair_refuses_before_plan(
+    tmp_path, base_contract, monkeypatch
+):
+    profile = coordination_profile(base_contract)
+    mounted_root(tmp_path, profile, Recorder)
+    resolver = CoordinationResolver({tmp_path: profile})
+    Recorder.plans = []
+    writer = CorpusWriter(tmp_path, Recorder, coordination_resolver=resolver)
+    values = iter(("a" * 32, "b" * 32, "a" * 32, "b" * 32))
+    monkeypatch.setattr("beliefs.corpus.secrets.token_hex", lambda _: next(values))
+    writer.mint_coordination("project", content=content_for("project"))
+    assert len(Recorder.plans) == 1
+    with pytest.raises(RecordAlreadyMinted):
+        writer.mint_coordination("project", content=content_for("project"))
+    assert len(Recorder.plans) == 1

@@ -58,6 +58,7 @@ from beliefs import report as report_values
 from beliefs import stored
 from beliefs.consulted import CorpusPins
 from beliefs.coordination import (
+    COORDINATION_KINDS,
     CoordinationAddress,
     CoordinationRefused,
     CoordinationRevision,
@@ -1475,6 +1476,7 @@ class CorpusWriter:
     def retract(self, record: Node) -> Node:
         """Mint one locally resolvable retraction without touching its target."""
         with self._operation:
+            self._refuse_family_kinds(record)
             try:
                 self._validated_retraction(record)
             except MalformedRecord as caught:
@@ -1500,6 +1502,7 @@ class CorpusWriter:
     def supersede(self, successor: Node, *, of: str) -> Node:
         """Mint a proposition successor without touching its predecessor."""
         with self._operation:
+            self._refuse_family_kinds(successor)
             predecessor_id = self._view.resolve(of)
             if predecessor_id is None:
                 raise SupersedeTargetMissing(f"{of!r}: predecessor does not resolve locally")
@@ -1532,6 +1535,7 @@ class CorpusWriter:
     def revise(self, node: Node) -> Node:
         """Replace a proposition after changing display prose alone."""
         with self._operation:
+            self._refuse_family_kinds(node)
             self._refuse_invalid(node)
             if not all(isinstance(relation, Relation) for relation in node.relations):
                 raise ValidationRefused(f"{node.id}: refused by document validation: malformed relation")
@@ -1568,6 +1572,8 @@ class CorpusWriter:
         for record in records:
             if type(record) is not Node:
                 raise ImportRefused("an import member must be a Node")
+            if record.kind in COORDINATION_KINDS:
+                raise ImportRefused(f"{record.id}: coordination records are replicated with their corpus, never imported", member=record.id)
             try:
                 self._refuse_invalid(record)
                 path = self._relative_path(record)
@@ -1798,8 +1804,12 @@ class CorpusWriter:
             raise MalformedRecord(f"{record.id}: retraction does not match the controlled stored shape")
         return facet
 
-    @staticmethod
-    def _refuse_family_kinds(node: Node) -> None:
+    def _refuse_family_kinds(self, node: Node) -> None:
+        if node.kind in COORDINATION_KINDS:
+            raise CoordinationKindUnsupported(f"{node.kind!r} enters through the coordination family door")
+        profile = self._coordination_resolver.profile(self._corpus.store.root) if self._coordination_resolver is not None else None
+        if profile is not None and node.kind in profile.coordination_kinds:
+            raise CoordinationKindUnsupported(f"{node.kind!r} enters through the coordination family door")
         if node.kind == "holdings-observation":
             raise WriteRefused("a holdings observation is minted only by the acts boundary")
         if node.kind == "retraction":
