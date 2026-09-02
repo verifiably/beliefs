@@ -1,5 +1,6 @@
 from fixtures_cut3 import seed_plan, seeded
 from fixtures_cut15 import (
+    SNAKEFILE_ONE_RULE_PIPELINE,
     SNAKEFILE_TWO_FAMILIES,
     SNAKEFILE_TWO_TARGETS,
     SNAKEFILE_WILDCARD,
@@ -10,6 +11,45 @@ from fixtures_cut15 import (
 from beliefs.boundary import RunMinted
 from beliefs.replay import CONFORMING, conformance
 from beliefs.spec import Seeded
+from beliefs.workflows import same_definition
+
+
+def test_runs_sharing_a_definition_are_the_same_pipeline(tmp_path) -> None:
+    first = run_workflow(
+        tmp_path / "1",
+        snakefile=SNAKEFILE_TWO_TARGETS,
+        targets=("outputs/analysis.txt",),
+        declared_outputs=("outputs/analysis.txt",),
+    )
+    second = run_workflow(
+        tmp_path / "2",
+        snakefile=SNAKEFILE_TWO_TARGETS,
+        targets=("outputs/report.txt",),
+        declared_outputs=("outputs/report.txt",),
+    )
+    assert isinstance(first, RunMinted) and isinstance(second, RunMinted)
+    grouped = same_definition([first.run, second.run])
+    identity = first.run.recipe.workflow_definition.identity()
+    assert list(grouped) == [identity]
+    assert set(grouped[identity]) == {first.run.address(), second.run.address()}
+
+
+def test_two_decompositions_of_one_computation_are_different_definitions(tmp_path) -> None:
+    one_rule = run_workflow(
+        tmp_path / "one",
+        snakefile=SNAKEFILE_ONE_RULE_PIPELINE,
+        targets=("outputs/report.txt",),
+        declared_outputs=("outputs/report.txt",),
+    )
+    two_rules = run_workflow(
+        tmp_path / "two",
+        snakefile=SNAKEFILE_TWO_TARGETS,
+        targets=("outputs/report.txt",),
+        declared_outputs=("outputs/report.txt",),
+    )
+    assert isinstance(one_rule, RunMinted) and isinstance(two_rules, RunMinted)
+    assert one_rule.run.result.outputs == two_rules.run.result.outputs
+    assert len(same_definition([one_rule.run, two_rules.run])) == 2
 
 
 def test_two_targets_over_one_definition_are_two_recipes(tmp_path) -> None:

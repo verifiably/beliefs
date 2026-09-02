@@ -319,8 +319,8 @@ def admission_record(derived: AssessmentVerification) -> Verification:
 
 
 def _job_diagnostics(original: RunClosure, replayed: RunClosure) -> tuple[str, ...]:
-    left = {(job.rule, job.wildcards) for job in original.occurrence.trace}
-    right = {(job.rule, job.wildcards) for job in replayed.occurrence.trace}
+    left = {job.job_key() for job in original.occurrence.trace}
+    right = {job.job_key() for job in replayed.occurrence.trace}
     if left == right:
         return ()
     return (f"job-set differs: original={sorted(left)!r}; replayed={sorted(right)!r}",)

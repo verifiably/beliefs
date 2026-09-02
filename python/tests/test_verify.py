@@ -11,10 +11,13 @@ from pathlib import Path
 import pytest
 from fixtures_cut3 import (
     SNAKEFILE_NONDETERMINISTIC,
+    closure_with,
     interp,
+    planned,
     report,
     spec_draft,
     spec_rules,
+    traced,
 )
 from fixtures_cut3 import (
     memory_assessment as run_assessment,
@@ -25,17 +28,22 @@ from fixtures_cut3 import (
 from fixtures_cut3 import (
     memory_replay as replay_of,
 )
+from fixtures_cut15 import data_dependent_pair
 
 from beliefs.assess import build_assessment
 from beliefs.boundary import RunMinted
 from beliefs.errors import CitationRefused, MixedShapes, NotAnAssessmentVerification
 from beliefs.identity import v1
 from beliefs.production import mint_dataset
+from beliefs.recipe import job_key
 from beliefs.replay import (
+    CONFORMING,
     CONTENT_EQUALITY,
     DATASET_CONTENT_EQUALITY,
     CodeLineageCertification,
     EquivalenceImplementation,
+    conformance,
+    derive_scope,
 )
 from beliefs.spec import Deterministic, SpecInput, StochasticUnseeded, freeze, revise
 from beliefs.verification import Verification
@@ -43,11 +51,44 @@ from beliefs.verify import (
     AssessmentVerification,
     ComparisonReport,
     DatasetProductionVerification,
+    _job_diagnostics,
     _mint_verification,
     active_verifications,
     admission_record,
     build_verification,
 )
+
+
+def test_a_differing_job_set_is_reported_by_job_key() -> None:
+    original = closure_with(trace=(traced("fit", {"s": "a"}),))
+    replayed = closure_with(trace=(traced("fit", {"s": "a"}), traced("fit", {"s": "b"})))
+    (message,) = _job_diagnostics(original, replayed)
+    assert job_key("fit", (("s", "b"),)) in message
+
+
+def test_a_data_dependent_replay_over_different_inputs_is_conforming(tmp_path) -> None:
+    original, replayed = data_dependent_pair(tmp_path)
+    assert conformance(original) == CONFORMING and conformance(replayed) == CONFORMING
+    assert _job_diagnostics(original, replayed) != ()
+
+
+def test_a_differing_job_set_alone_costs_no_scope() -> None:
+    narrow = closure_with(
+        trace=(traced("fit", {"n": "a"}),),
+        planned=(planned("fit", ("outputs/a.done",), wildcards=(("n", "a"),)),),
+        target_keys=(job_key("fit", (("n", "a"),)),),
+    )
+    wide = closure_with(
+        trace=(traced("fit", {"n": "a"}), traced("fit", {"n": "b"})),
+        planned=(
+            planned("fit", ("outputs/a.done",), wildcards=(("n", "a"),)),
+            planned("fit", ("outputs/b.done",), wildcards=(("n", "b"),)),
+        ),
+        target_keys=(job_key("fit", (("n", "a"),)),),
+    )
+    assert narrow.recipe.identity() == wide.recipe.identity()
+    assert conformance(narrow) == CONFORMING and conformance(wide) == CONFORMING
+    assert derive_scope(narrow, wide, certification=None) == "same-environment"
 
 
 @pytest.fixture(scope="module")
@@ -73,7 +114,7 @@ def production_pair(tmp_path_factory):
     return first, second
 
 
-def verification_of(pair, **overrides):
+def verification_of(pair, **overrides) -> AssessmentVerification:
     original, replayed = pair
     spec = freeze(spec_draft(), held_rules=spec_rules())
     kwargs = {
@@ -86,7 +127,9 @@ def verification_of(pair, **overrides):
         "epoch": "epoch-1",
     }
     kwargs.update(overrides)
-    return build_verification(original.run, replayed.run, **kwargs)
+    verification = build_verification(original.run, replayed.run, **kwargs)
+    assert isinstance(verification, AssessmentVerification)
+    return verification
 
 
 # --- R19 ----------------------------------------------------------------------
@@ -350,7 +393,7 @@ def test_r11_a_nondeterministic_transform_yields_all_four(tmp_path):
     first_dataset = mint_dataset(first.run, existing_bases={})
     # A separate ASSESSMENT run observes the first produced dataset — the
     # belief that must not move is a belief about THIS evidence:
-    produced = Path(first.run.occurrence.receipt.scratch_mapping) / "outputs" / "result.txt"
+    produced = Path(first.run.occurrence.receipt.execution.scratch_mapping) / "outputs" / "result.txt"
     observing_spec = freeze(
         spec_draft(input_roles=(SpecInput(role="observes", dataset=first_dataset.address),)),
         held_rules=spec_rules(),
@@ -464,6 +507,7 @@ def test_k5_admission_record_carries_supersedes(pair):
         verdict=base.verdict,
         supersedes=base.identity(),
     )
+    assert isinstance(superseding, AssessmentVerification)
     assert admission_record(superseding).supersedes == base.identity()
 
 
@@ -478,4 +522,4 @@ def test_k5_a_production_verification_is_refused_by_the_join(production_pair):
         epoch="epoch-1",
     )
     with pytest.raises(NotAnAssessmentVerification):
-        admission_record(verification)
+        admission_record(verification)  # pyright: ignore[reportArgumentType]

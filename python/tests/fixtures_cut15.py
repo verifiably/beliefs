@@ -7,7 +7,7 @@ from config_probe import run_config_probe  # noqa: F401 — Task 9's shared engi
 from fixtures_cut3 import DATA_ADDRESS, MEMORY_PORT, READS_ADDRESS, stage
 
 from beliefs.adapter import WorkflowDefinition
-from beliefs.boundary import execute_production_run
+from beliefs.boundary import RunMinted, execute_production_run
 from beliefs.recipe import MINIMAL_POLICY, RecipeInput
 from beliefs.spec import Deterministic
 
@@ -207,3 +207,22 @@ def run_workflow(
         scratch_base=scratch_base if scratch_base is not None else work_dir / "scratch",
         cores=cores,
     )
+
+
+def data_dependent_pair(tmp_path):
+    narrow = run_workflow(
+        tmp_path / "narrow",
+        snakefile=SNAKEFILE_INPUT_DEPENDENT_DAG,
+        data="a b",
+        targets=("all",),
+        declared_outputs=("outputs/a.txt", "outputs/b.txt"),
+    )
+    wide = run_workflow(
+        tmp_path / "wide",
+        snakefile=SNAKEFILE_INPUT_DEPENDENT_DAG,
+        data="a b c",
+        targets=("all",),
+        declared_outputs=("outputs/a.txt", "outputs/b.txt", "outputs/c.txt"),
+    )
+    assert isinstance(narrow, RunMinted) and isinstance(wide, RunMinted)
+    return narrow.run, wide.run
