@@ -118,7 +118,7 @@ def test_the_world_inventory_is_exactly_the_thirteen_banked_kinds():
 
 - [ ] **Step 2: Verify the new module is absent**
 
-Run: `cd python && uv run --frozen pytest tests/test_coordination.py -q`
+Run: `cd python && uv run --frozen pytest tests/test_coordination.py`
 
 Expected: collection fails with `ModuleNotFoundError: No module named 'beliefs.coordination'`.
 
@@ -235,7 +235,7 @@ class ProjectNotResolvable(WriteRefused):
 
 - [ ] **Step 4: Run the focused checks**
 
-Run: `cd python && uv run --frozen pytest tests/test_coordination.py -q && uv run --frozen ruff check src/beliefs/coordination.py src/beliefs/stored.py src/beliefs/errors.py tests/test_coordination.py && uv run --frozen pyright src/beliefs/coordination.py tests/test_coordination.py`
+Run: `cd python && uv run --frozen pytest tests/test_coordination.py && uv run --frozen ruff check src/beliefs/coordination.py src/beliefs/stored.py src/beliefs/errors.py tests/test_coordination.py && uv run --frozen pyright src/beliefs/coordination.py tests/test_coordination.py`
 
 Expected: PASS.
 
@@ -316,7 +316,7 @@ def test_the_v1_grammar_is_closed(value):
 
 - [ ] **Step 2: Verify the parser is absent**
 
-Run: `cd python && uv run --frozen pytest tests/test_view_query.py -q`
+Run: `cd python && uv run --frozen pytest tests/test_view_query.py`
 
 Expected: collection fails on `beliefs.view_query`.
 
@@ -350,7 +350,7 @@ def _distinct_strings(value: object, where: str) -> tuple[str, ...]:
 
 - [ ] **Step 4: Run the focused checks**
 
-Run: `cd python && uv run --frozen pytest tests/test_view_query.py -q && uv run --frozen ruff check src/beliefs/view_query.py tests/test_view_query.py && uv run --frozen pyright src/beliefs/view_query.py tests/test_view_query.py`
+Run: `cd python && uv run --frozen pytest tests/test_view_query.py && uv run --frozen ruff check src/beliefs/view_query.py tests/test_view_query.py && uv run --frozen pyright src/beliefs/view_query.py tests/test_view_query.py`
 
 Expected: PASS.
 
@@ -474,8 +474,12 @@ def test_a_successor_may_add_a_kind_and_query_vocabulary():
     genesis = coordination_contract()
     document = successor(genesis)
     document["kinds"]["publication"] = {"fields": ["name", "body", "author", "at"], "query_versions": []}
+    document["query_vocabulary"]["kinds"].append("future-world-kind")
+    document["query_vocabulary"]["relations"].append("future-relation")
     current = coordination_contract(document, genesis)
     assert "publication" in current.kinds
+    assert "future-world-kind" in current.query_kinds
+    assert "future-relation" in current.query_relations
 
 
 def test_yaml_duplicate_keys_refuse_at_load(tmp_path):
@@ -501,13 +505,33 @@ def test_succession_refuses_every_redefinition(change):
 
 - [ ] **Step 2: Verify the contract module is absent**
 
-Run: `cd python && uv run --frozen pytest tests/test_coordination_contract.py -q`
+Run: `cd python && uv run --frozen pytest tests/test_coordination_contract.py`
 
 Expected: collection fails on `beliefs.contract.coordination`.
 
 - [ ] **Step 3: Implement the parsed-only contract**
 
-Follow `contract/domain.py`'s parsed mint-token and duplicate-YAML-loader pattern. The exact schema projection is:
+Use one local duplicate-detecting `SafeLoader`; neither existing contract loader detects duplicate YAML keys, and the world-registry loader has unrelated scalar coercion. Pin the complete loader rather than relying on `safe_load`'s last-writer-wins behavior:
+
+```python
+class _CoordinationLoader(yaml.SafeLoader):
+    pass
+
+
+def _construct_mapping(loader: _CoordinationLoader, node: yaml.MappingNode, deep: bool = False) -> dict[object, object]:
+    mapping: dict[object, object] = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in mapping:
+            raise yaml.constructor.ConstructorError(None, None, f"duplicate key {key!r}", key_node.start_mark)
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+_CoordinationLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _construct_mapping)
+```
+
+`load_coordination_contract` uses `yaml.load(..., Loader=_CoordinationLoader)` and wraps YAML/shape failures as `MalformedContract`, preserving the duplicate-key text. The exact schema projection is:
 
 ```python
 def schema_projection(self) -> dict[str, object]:
@@ -527,7 +551,7 @@ Re-export only the concrete coordination names from `contract/__init__.py`; keep
 
 - [ ] **Step 4: Run the focused checks**
 
-Run: `cd python && uv run --frozen pytest tests/test_coordination_contract.py -q && uv run --frozen ruff check src/beliefs/contract/coordination.py src/beliefs/contract/__init__.py tests/coordination_fixtures.py tests/test_coordination_contract.py && uv run --frozen pyright src/beliefs/contract/coordination.py tests/test_coordination_contract.py`
+Run: `cd python && uv run --frozen pytest tests/test_coordination_contract.py && uv run --frozen ruff check src/beliefs/contract/coordination.py src/beliefs/contract/__init__.py tests/coordination_fixtures.py tests/test_coordination_contract.py && uv run --frozen pyright src/beliefs/contract/coordination.py tests/test_coordination_contract.py`
 
 Expected: PASS.
 
@@ -555,8 +579,8 @@ git commit -m "feat(coordination): parse coordination contracts"
 - [ ] **Step 1: Add compiler and reserved-namespace tests**
 
 ```python
-# append to python/tests/test_profile.py
-from coordination_fixtures import coordination_contract
+# append to python/tests/test_profile.py; reuse its existing copy, pytest, and ProfileError imports
+from coordination_fixtures import COORDINATION_DOCUMENT, coordination_contract
 
 
 def test_coordination_compiles_into_immutable_authorization(base_contract):
@@ -621,7 +645,7 @@ def test_a_domain_contract_cannot_claim_the_coordination_namespace(base_contract
 
 - [ ] **Step 2: Verify the focused tests fail for missing profile members**
 
-Run: `cd python && uv run --frozen pytest tests/test_profile.py tests/test_domain_contract.py -q`
+Run: `cd python && uv run --frozen pytest tests/test_profile.py tests/test_domain_contract.py`
 
 Expected: FAIL because `compile_profile` has no `coordination` parameter and the reserved namespace is accepted.
 
@@ -670,7 +694,7 @@ def coordination_profile(base_contract, *, document=None):
 
 - [ ] **Step 4: Run the focused checks**
 
-Run: `cd python && uv run --frozen pytest tests/test_profile.py tests/test_domain_contract.py -q && uv run --frozen ruff check src/beliefs/profile.py src/beliefs/contract/domain.py tests/coordination_fixtures.py tests/test_profile.py tests/test_domain_contract.py && uv run --frozen pyright src/beliefs/profile.py src/beliefs/contract/domain.py tests/test_profile.py`
+Run: `cd python && uv run --frozen pytest tests/test_profile.py tests/test_domain_contract.py && uv run --frozen ruff check src/beliefs/profile.py src/beliefs/contract/domain.py tests/coordination_fixtures.py tests/test_profile.py tests/test_domain_contract.py && uv run --frozen pyright src/beliefs/profile.py src/beliefs/contract/domain.py tests/test_profile.py`
 
 Expected: PASS.
 
@@ -693,13 +717,15 @@ git commit -m "feat(coordination): compile coordination profiles"
 
 **Interfaces:**
 - Consumes: `ProfileSpec`, `CorpusPins`, `load_manifest`, `ReadView.opened_at`, `stored.COORDINATION_FACET`, `stored.SUPERSEDES`.
-- Produces: `CoordinationRevision`, `coordination_revision(node: Node) -> CoordinationRevision`, `coordination_facet_malformed(node: Node) -> bool`, `standing_tips(revisions: Sequence[CoordinationRevision]) -> tuple[CoordinationRevision, ...]`, `CoordinationResolver(mounts: Mapping[Path, ProfileSpec])`, `.profile(root: Path)`, `.revision(uid: str)`, `.tips(address: CoordinationAddress)`, `.resolve(address: CoordinationAddress)`, plus audit codes `coordination-facet-malformed` and `coordination-supersession-cycle`.
+- Produces: `CoordinationRevision`, `coordination_revision(node: Node) -> CoordinationRevision`, `coordination_facet_malformed(node: Node) -> bool`, `standing_tips(revisions: Sequence[CoordinationRevision]) -> tuple[CoordinationRevision, ...]`, `CoordinationResolver(mounts: Mapping[Path, ProfileSpec])`, `.profile(root: Path) -> ProfileSpec | None`, `.revision(uid: str)`, `.tips(address: CoordinationAddress)`, `.resolve(address: CoordinationAddress)`, plus audit codes `coordination-facet-malformed` and `coordination-supersession-cycle`.
 
 - [ ] **Step 1: Add raw stored-node helpers and focused resolver tests**
 
 Extend `coordination_fixtures.py` with real corpus construction helpers:
 
 ```python
+from typing import ClassVar
+
 from nodes.core.corpus import Corpus
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -737,8 +763,19 @@ def raw_coordination_node(kind, project, revision, *, local=None, supersedes=(),
     )
 
 
-def mounted_root(root, profile):
-    CorpusWriter(root, DefaultExecutor).adopt_manifest(profile=pins_for(profile))
+class Recorder:
+    plans: ClassVar[list[list]] = []
+
+    def __init__(self, root):
+        self._inner = DefaultExecutor(root)
+
+    def execute(self, plan) -> None:
+        Recorder.plans.append(list(plan))
+        self._inner.execute(plan)
+
+
+def mounted_root(root, profile, executor_factory=DefaultExecutor):
+    CorpusWriter(root, executor_factory).adopt_manifest(profile=pins_for(profile))
     return root
 
 
@@ -751,10 +788,14 @@ def raw_add(root, *nodes):
 Write these tests in `test_coordination_write.py`:
 
 ```python
+import pytest
+from nodes.core.relations import Relation
 from nodes.core.write_plan import DefaultExecutor
+
+from beliefs import stored
 from beliefs.coordination import CoordinationAddress, CoordinationRefused
 from beliefs.corpus import CoordinationResolver, CorpusWriter, corpus_check
-from coordination_fixtures import coordination_profile, mounted_root, raw_add, raw_coordination_node
+from coordination_fixtures import Recorder, coordination_profile, mounted_root, raw_add, raw_coordination_node
 
 A, B, C, D = (character * 32 for character in "abcd")
 
@@ -811,7 +852,7 @@ Also test that resolver construction raises `ContractMismatch` when the supplied
 
 - [ ] **Step 2: Verify the resolver tests fail**
 
-Run: `cd python && uv run --frozen pytest tests/test_coordination.py tests/test_coordination_write.py -q`
+Run: `cd python && uv run --frozen pytest tests/test_coordination.py tests/test_coordination_write.py`
 
 Expected: FAIL because the stored decoder and resolver do not exist.
 
@@ -875,14 +916,11 @@ Pin the exclusion and divergence anchors:
         return tips[0].node
 ```
 
-Pin this public destination lookup for Task 6:
+Pin this tolerant destination lookup. Coordination writes turn absence into `CoordinationUnavailable`; ordinary writes use the same lookup without requiring a mount:
 
 ```python
-    def profile(self, root: Path) -> ProfileSpec:
-        try:
-            return self._mounts[Path(root).resolve()]
-        except KeyError:
-            raise CoordinationUnavailable(f"{root}: destination is not mounted for coordination") from None
+    def profile(self, root: Path) -> ProfileSpec | None:
+        return self._mounts.get(Path(root).resolve())
 ```
 
 - [ ] **Step 5: Integrate the two audit findings**
@@ -907,7 +945,7 @@ The guard above the finding is exactly:
 
 - [ ] **Step 6: Run the focused checks**
 
-Run: `cd python && uv run --frozen pytest tests/test_coordination.py tests/test_coordination_write.py -q && uv run --frozen ruff check src/beliefs/coordination.py src/beliefs/corpus.py tests/coordination_fixtures.py tests/test_coordination_write.py && uv run --frozen pyright src/beliefs/coordination.py src/beliefs/corpus.py tests/test_coordination_write.py`
+Run: `cd python && uv run --frozen pytest tests/test_coordination.py tests/test_coordination_write.py && uv run --frozen ruff check src/beliefs/coordination.py src/beliefs/corpus.py tests/coordination_fixtures.py tests/test_coordination_write.py && uv run --frozen pyright src/beliefs/coordination.py src/beliefs/corpus.py tests/test_coordination_write.py`
 
 Expected: PASS.
 
@@ -951,6 +989,13 @@ def content_for(kind, *, name=None, **changes):
 Add tests:
 
 ```python
+from copy import deepcopy
+
+from beliefs.errors import CoordinationUnavailable, ProjectNotResolvable, ValidationRefused
+from beliefs.profile import compile_profile
+from coordination_fixtures import COORDINATION_DOCUMENT, Recorder, content_for, coordination_contract
+
+
 def writer_with_resolver(root, profile):
     mounted_root(root, profile)
     resolver = CoordinationResolver({root: profile})
@@ -973,7 +1018,8 @@ def test_project_and_subordinate_genesis_have_adapter_owned_shape(tmp_path, base
 
 def test_a_coordination_call_without_a_destination_mount_plans_nothing(tmp_path, base_contract):
     profile = coordination_profile(base_contract)
-    mounted_root(tmp_path, profile)
+    mounted_root(tmp_path, profile, Recorder)
+    Recorder.plans = []
     writer = CorpusWriter(tmp_path, Recorder, coordination_resolver=CoordinationResolver({}))
     with pytest.raises(CoordinationUnavailable):
         writer.mint_coordination("project", content=content_for("project"))
@@ -1036,13 +1082,28 @@ def test_w18d_a_query_relation_outside_the_contract_refuses(tmp_path, base_contr
     writer = writer_with_document(tmp_path, base_contract, document)
     with pytest.raises(ValidationRefused, match="relation"):
         writer.mint_coordination("project", content=content_for("project", query={"version": "science.view-query.v1", "clauses": [{"all": [{"closure": {"anchor": "dataset:not-held", "predicates": ["reads"], "direction": "out"}}]}]}))
+
+
+def test_an_earlier_contract_version_authorizes_nothing_added_later(tmp_path, base_contract):
+    genesis = coordination_contract()
+    document = deepcopy(COORDINATION_DOCUMENT)
+    document.update(version=2, lineage={"successor": genesis.content_identity})
+    document["kinds"]["publication"] = {"fields": ["name", "body", "author", "at"], "query_versions": []}
+    amended = coordination_contract(document, genesis)
+    old_profile = compile_profile(base_contract, [], coordination=genesis)
+    assert "publication" in compile_profile(base_contract, [], coordination=amended).coordination_kinds
+    mounted_root(tmp_path, old_profile)
+    writer = CorpusWriter(tmp_path, DefaultExecutor, coordination_resolver=CoordinationResolver({tmp_path: old_profile}))
+    project = writer.mint_coordination("project", content=content_for("project"))
+    with pytest.raises(ValidationRefused, match="not declared"):
+        writer.mint_coordination("publication", project=coordination_revision(project).address, content=content_for("decision"))
 ```
 
 Wrap `parse_view_query`'s `ValueError` as `ValidationRefused` at this boundary, preserving it as `__cause__`.
 
 - [ ] **Step 2: Verify the public door is absent**
 
-Run: `cd python && uv run --frozen pytest tests/test_coordination_write.py -q`
+Run: `cd python && uv run --frozen pytest tests/test_coordination_write.py`
 
 Expected: FAIL because `CorpusWriter` has no `mint_coordination`.
 
@@ -1050,8 +1111,8 @@ Expected: FAIL because `CorpusWriter` has no `mint_coordination`.
 
 Store the resolver unchanged on the writer. The validator must:
 
-1. get the destination profile before generating identities;
-2. reject a world kind with `CoordinationKindUnsupported`;
+1. reject a world kind with `CoordinationKindUnsupported`, before profile lookup;
+2. get the destination profile with `resolver.profile(root)` and raise `CoordinationUnavailable` when it returns `None`, before generating identities;
 3. use `profile.coordination_kinds.get(kind)` and raise `ValidationRefused` if absent;
 4. require exactly the declared fields, except `note.about` may be omitted;
 5. require non-empty string `name` and `author`, string `body`, and an `at` matching `\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})` whose calendar/timezone value parses through `datetime.fromisoformat(at.replace("Z", "+00:00"))`;
@@ -1132,7 +1193,7 @@ Extend `open_corpus` only by the optional keyword and pass it to `CorpusWriter`;
 
 - [ ] **Step 5: Run the focused checks**
 
-Run: `cd python && uv run --frozen pytest tests/test_coordination_write.py -q && uv run --frozen ruff check src/beliefs/corpus.py src/beliefs/root.py tests/coordination_fixtures.py tests/test_coordination_write.py && uv run --frozen pyright src/beliefs/corpus.py src/beliefs/root.py tests/test_coordination_write.py`
+Run: `cd python && uv run --frozen pytest tests/test_coordination_write.py && uv run --frozen ruff check src/beliefs/corpus.py src/beliefs/root.py tests/coordination_fixtures.py tests/test_coordination_write.py && uv run --frozen pyright src/beliefs/corpus.py src/beliefs/root.py tests/test_coordination_write.py`
 
 Expected: PASS.
 
@@ -1259,7 +1320,7 @@ def test_a_subordinate_revision_refuses_while_its_project_is_divergent(tmp_path,
 
 - [ ] **Step 2: Verify the revision method is absent**
 
-Run: `cd python && uv run --frozen pytest tests/test_coordination_write.py -q`
+Run: `cd python && uv run --frozen pytest tests/test_coordination_write.py`
 
 Expected: FAIL on missing `revise_coordination`.
 
@@ -1279,11 +1340,15 @@ Only after every predecessor passes continuity, recompute `standing = resolver.t
                 raise PredecessorNotStanding("every supplied predecessor must be a standing tip at commit")
 ```
 
-Resolve the owning project for subordinate records; project revisions skip that lookup so divergent project tips can be repaired. Generate one fresh revision uid, build one new node at the same project/local address, sort predecessor nodes by `Node.id`, and store one `supersedes` relation per predecessor. Validate through the shared decoder, already-minted guard, rendering, and one create.
+Resolve the owning project for subordinate records; project revisions skip that lookup so divergent project tips can be repaired. Generate one fresh revision uid, build one new node at the same project/local address, sort predecessor nodes by `Node.id`, and store one `supersedes` relation per predecessor. Validate through the shared decoder, already-minted guard, rendering, and one create. Pin the fresh-revision line for W17's whole-revision unit:
+
+```python
+            new_revision_identity = secrets.token_hex(16)
+```
 
 - [ ] **Step 4: Run the focused checks**
 
-Run: `cd python && uv run --frozen pytest tests/test_coordination_write.py -q && uv run --frozen ruff check src/beliefs/corpus.py tests/test_coordination_write.py && uv run --frozen pyright src/beliefs/corpus.py tests/test_coordination_write.py`
+Run: `cd python && uv run --frozen pytest tests/test_coordination_write.py && uv run --frozen ruff check src/beliefs/corpus.py tests/test_coordination_write.py && uv run --frozen pyright src/beliefs/corpus.py tests/test_coordination_write.py`
 
 Expected: PASS.
 
@@ -1328,10 +1393,11 @@ def test_every_ordinary_family_door_refuses_coordination_kinds(tmp_path, door):
         else: writer.retract(node)
 
 
+# append to python/tests/test_import_bundle.py, where writer_with_port is defined
 def test_import_refuses_a_coordination_member_by_name(writer_with_port):
     member = Node(id="note:old", kind="note", title="old")
     with pytest.raises(ImportRefused) as caught:
-        writer_with_port.import_bundle([member], actor="a", observer="o", instrument="i", opened_at=AT, closed_at=AT)
+        writer_with_port.import_bundle([member], actor="a", observer="o", instrument="i", opened_at="T0", closed_at="T1")
     assert caught.value.member == member.id
 
 
@@ -1348,7 +1414,7 @@ Add the pre-plan guard with the portable recorder:
 ```python
 def test_w17e_an_already_minted_revision_pair_refuses_before_plan(tmp_path, base_contract, monkeypatch):
     profile = coordination_profile(base_contract)
-    mounted_root(tmp_path, profile)
+    mounted_root(tmp_path, profile, Recorder)
     resolver = CoordinationResolver({tmp_path: profile})
     Recorder.plans = []
     writer = CorpusWriter(tmp_path, Recorder, coordination_resolver=resolver)
@@ -1363,21 +1429,21 @@ def test_w17e_an_already_minted_revision_pair_refuses_before_plan(tmp_path, base
 
 - [ ] **Step 2: Verify the tests fail on the still-open doors**
 
-Run: `cd python && uv run --frozen pytest tests/test_coordination_write.py tests/test_import_bundle.py tests/test_read_side.py -q`
+Run: `cd python && uv run --frozen pytest tests/test_coordination_write.py tests/test_import_bundle.py tests/test_read_side.py`
 
 Expected: FAIL because ordinary `note` and coordination import are still admitted.
 
 - [ ] **Step 3: Close the existing doors at their shared boundaries**
 
-Extend `_refuse_family_kinds` to reject the fixed eight coordination kinds everywhere, even when no resolver is configured. When a resolver is configured for the destination, also reject every kind declared by its mounted coordination profile. Call the guard first from `revise`, `supersede`, and `retract`, so their narrower errors cannot mask the family error. At the coordination methods, reject `kind in stored.WORLD_KINDS` before profile lookup.
+Extend `_refuse_family_kinds` to reject the fixed eight coordination kinds everywhere, even when no resolver is configured. When a resolver is configured, use its tolerant `profile(root)` lookup and reject additionally declared kinds only when that destination is mounted; an ordinary write never requires coordination configuration. Call the guard first from `revise`, `supersede`, and `retract`, so their narrower errors cannot mask the family error. At the coordination methods, reject `kind in stored.WORLD_KINDS` before profile lookup.
 
 Pin the shared ordinary-door guard:
 
 ```python
-        if node.kind in COORDINATION_KINDS or (
-            self._coordination_resolver is not None
-            and node.kind in self._coordination_resolver.profile(self._corpus.store.root).coordination_kinds
-        ):
+        if node.kind in COORDINATION_KINDS:
+            raise CoordinationKindUnsupported(f"{node.kind!r} enters through the coordination family door")
+        profile = self._coordination_resolver.profile(self._corpus.store.root) if self._coordination_resolver is not None else None
+        if profile is not None and node.kind in profile.coordination_kinds:
             raise CoordinationKindUnsupported(f"{node.kind!r} enters through the coordination family door")
 ```
 
@@ -1407,7 +1473,7 @@ Expected: matches in the two frozen cut-5 files, coordination fixtures/tests, an
 
 - [ ] **Step 5: Run the focused checks**
 
-Run: `cd python && uv run --frozen pytest tests/test_coordination_write.py tests/test_import_bundle.py tests/test_read_side.py tests/test_arrival_modes.py tests/test_fork_acts.py tests/test_local_standing.py tests/test_corpus_write.py tests/acceptance/test_durable_traversal.py -q && uv run --frozen ruff check src/beliefs/corpus.py tests && uv run --frozen pyright src/beliefs/corpus.py tests/test_coordination_write.py tests/test_import_bundle.py`
+Run: `cd python && uv run --frozen pytest tests/test_coordination_write.py tests/test_import_bundle.py tests/test_read_side.py tests/test_arrival_modes.py tests/test_fork_acts.py tests/test_local_standing.py tests/test_corpus_write.py tests/acceptance/test_durable_traversal.py && uv run --frozen ruff check src/beliefs/corpus.py tests && uv run --frozen pyright src/beliefs/corpus.py tests/test_coordination_write.py tests/test_import_bundle.py`
 
 Expected: PASS. Do not run cut 5 on the new tree; Task 11 pins and cites its unchanged files.
 
@@ -1436,7 +1502,7 @@ git commit -m "feat(coordination): close coordination family doors"
 ```python
 # append to python/tests/test_world_epoch.py
 from nodes.core.corpus import Corpus
-from beliefs.coordination import coordination_revision
+from beliefs.corpus import CoordinationResolver, CorpusWriter
 from coordination_fixtures import content_for, coordination_profile, mounted_root
 
 
@@ -1496,7 +1562,7 @@ def test_w18j_a_coordination_pin_never_enters_the_belief_input_digest():
 
 - [ ] **Step 2: Verify coordination is currently captured**
 
-Run: `cd python && uv run --frozen pytest tests/test_world_epoch.py::test_coordination_bytes_move_corpus_state_but_never_become_captured_world_records tests/test_world_epoch.py::test_world_records_are_still_captured_beside_coordination_records tests/test_consulted.py::test_an_activated_coordination_contract_is_never_a_belief_input tests/test_belief.py::test_w18j_a_coordination_pin_never_enters_the_belief_input_digest -q`
+Run: `cd python && uv run --frozen pytest tests/test_world_epoch.py::test_coordination_bytes_move_corpus_state_but_never_become_captured_world_records tests/test_world_epoch.py::test_world_records_are_still_captured_beside_coordination_records tests/test_consulted.py::test_an_activated_coordination_contract_is_never_a_belief_input tests/test_belief.py::test_w18j_a_coordination_pin_never_enters_the_belief_input_digest`
 
 Expected: the first two tests FAIL because `_captured_records` includes every node; the consulted-set test already passes and becomes the regression pin.
 
@@ -1513,7 +1579,7 @@ This placement is essential: the corpus state and governance checks still see ev
 
 - [ ] **Step 4: Run the focused checks**
 
-Run: `cd python && uv run --frozen pytest tests/test_world_epoch.py::test_coordination_bytes_move_corpus_state_but_never_become_captured_world_records tests/test_world_epoch.py::test_world_records_are_still_captured_beside_coordination_records tests/test_consulted.py tests/test_belief.py::test_w18j_a_coordination_pin_never_enters_the_belief_input_digest -q && uv run --frozen ruff check src/beliefs/world/epoch.py tests/test_world_epoch.py tests/test_consulted.py tests/test_belief.py && uv run --frozen pyright src/beliefs/world/epoch.py tests/test_world_epoch.py tests/test_consulted.py tests/test_belief.py`
+Run: `cd python && uv run --frozen pytest tests/test_world_epoch.py::test_coordination_bytes_move_corpus_state_but_never_become_captured_world_records tests/test_world_epoch.py::test_world_records_are_still_captured_beside_coordination_records tests/test_consulted.py tests/test_belief.py::test_w18j_a_coordination_pin_never_enters_the_belief_input_digest && uv run --frozen ruff check src/beliefs/world/epoch.py tests/test_world_epoch.py tests/test_consulted.py tests/test_belief.py && uv run --frozen pyright src/beliefs/world/epoch.py tests/test_world_epoch.py tests/test_consulted.py tests/test_belief.py`
 
 Expected: PASS.
 
@@ -1533,7 +1599,7 @@ git commit -m "feat(coordination): exclude coordination from world inputs"
 
 **Interfaces:**
 - Consumes: the complete Tasks 1–9 public surface, certified `work_directory`, root lifecycle functions, shipped world derivation bindings, and `belief.evaluate` fixtures.
-- Produces: the exact check nodes referenced by Task 11 for every executable W11, W12, W13, W17, and W18 unit.
+- Produces: the exact durable check nodes referenced by Task 11 for every executable W11, W12, W13, W17, and W18 unit; W18's earlier-version authorization check remains portable beside the writer.
 
 - [ ] **Step 1: Add a two-root certified coordination fixture**
 
@@ -1654,6 +1720,17 @@ def test_w17a_genesis_names_zero_predecessors(durable_coordination_roots):
     _roots, _resolver, (writer, _other) = writers(durable_coordination_roots)
     project = writer.mint_coordination("project", content=content_for("project"))
     assert coordination_revision(project).predecessors == ()
+
+
+def test_w17n_every_edit_is_a_new_whole_revision(durable_coordination_roots):
+    _roots, resolver, (writer, _other) = writers(durable_coordination_roots)
+    project = writer.mint_coordination("project", content=content_for("project", name="old"))
+    address = coordination_revision(project).address
+    revised = writer.revise_coordination("project", address, predecessors=(project.uid,), content=content_for("project", name="new"))
+    assert revised.uid != project.uid
+    assert revised.relations[0].target == project.id
+    assert resolver.resolve(address) == revised
+    assert resolver.resolve(address.pinned(project.uid)) == project
 
 
 def test_w17b_every_ordinary_door_refuses_coordination(durable_coordination_roots):
@@ -1833,7 +1910,7 @@ The W18 contract/compiler checks remain portable and are the exact Task 4 test n
 
 - [ ] **Step 5: Run the new durable module once**
 
-Run: `cd python && uv run --frozen pytest tests/acceptance/test_coordination_acceptance.py -q`
+Run: `cd python && uv run --frozen pytest tests/acceptance/test_coordination_acceptance.py`
 
 Expected: PASS on the certified volume, never skip. If the engine refuses the tuple, report that exact refusal and do not mark this task done.
 
@@ -1859,13 +1936,13 @@ git commit -m "test(coordination): add cut 14 durable acceptance"
 
 **Interfaces:**
 - Consumes: the exact implementation anchors pinned in Tasks 2 and 4–9; `Arm`, `Sabotage`, `audit`, and `baseline`; all prior cut arm tables through cut 13.
-- Produces: 28 selected units and 28 one-mutation lettered arms: W11 2, W12 1, W13 1, W17 13, W18 11. `LABELED_UNITS` is empty and `CO_CITED` is empty. There is no intent-position unit.
+- Produces: 29 selected units and 29 one-mutation lettered arms: W11 2, W12 1, W13 1, W17 14, W18 11. `LABELED_UNITS` is empty and `CO_CITED` is empty. There is no intent-position unit; W17n carries the frozen row's distinct whole-revision clause.
 
 - [ ] **Step 1: Write the complete declaration module**
 
 ```python
 # python/tests/acceptance/n2_arms_cut14.py
-"""Cut 14: 28 selected units, 28 lettered arms; no labeled or intent-position unit."""
+"""Cut 14: 29 selected units, 29 lettered arms; no labeled or intent-position unit."""
 
 from n2_arms import Arm, Sabotage
 
@@ -1879,7 +1956,7 @@ _ACCEPT = "acceptance/test_coordination_acceptance.py"
 
 _UNIT_OF_LETTERED = {
     "W11a": "W11u1", "W11b": "W11u2", "W12a": "W12u1", "W13a": "W13u1",
-    **{f"W17{letter}": f"W17u{number}" for number, letter in enumerate("abcdefghijklm", 1)},
+    **{f"W17{letter}": f"W17u{number}" for number, letter in enumerate("abcdefghijklmn", 1)},
     **{f"W18{letter}": f"W18u{number}" for number, letter in enumerate("abcdefghijk", 1)},
 }
 
@@ -1888,7 +1965,7 @@ def unit_of(row: str) -> str:
     return _UNIT_OF_LETTERED[row]
 
 
-ROW_UNITS = {"W11": 2, "W12": 1, "W13": 1, "W17": 13, "W18": 11}
+ROW_UNITS = {"W11": 2, "W12": 1, "W13": 1, "W17": 14, "W18": 11}
 LABELED_UNITS: tuple[str, ...] = ()
 CO_CITED: dict[str, tuple[str, ...]] = {}
 
@@ -1918,7 +1995,7 @@ CUT14_ARMS = (
         (f"{_ACCEPT}::test_w17a_genesis_names_zero_predecessors",)),
     Arm("W17b", "ordinary family doors refuse coordination kinds including note",
         Sabotage(_CORPUS,
-            before='        if node.kind in COORDINATION_KINDS or (\n            self._coordination_resolver is not None\n            and node.kind in self._coordination_resolver.profile(self._corpus.store.root).coordination_kinds\n        ):\n            raise CoordinationKindUnsupported(f"{node.kind!r} enters through the coordination family door")',
+            before='        if node.kind in COORDINATION_KINDS:\n            raise CoordinationKindUnsupported(f"{node.kind!r} enters through the coordination family door")',
             after='        if False:\n            raise CoordinationKindUnsupported(f"{node.kind!r} enters through the coordination family door")'),
         (f"{_ACCEPT}::test_w17b_every_ordinary_door_refuses_coordination",)),
     Arm("W17c", "import refuses a coordination member and names it",
@@ -1976,11 +2053,16 @@ CUT14_ARMS = (
             before='            if isinstance(resolved_project, CoordinationRefused):\n                raise ProjectNotResolvable(f"{project}: project is divergent", tips=resolved_project.tips)',
             after='            if False:\n                raise ProjectNotResolvable(f"{project}: project is divergent", tips=resolved_project.tips)'),
         (f"{_ACCEPT}::test_w17m_a_subordinate_under_a_divergent_project_names_the_project_tips",)),
+    Arm("W17n", "every edit is a new whole revision and retains the predecessor",
+        Sabotage(_CORPUS,
+            before='            new_revision_identity = secrets.token_hex(16)',
+            after='            new_revision_identity = next(iter(predecessor_ids))'),
+        (f"{_ACCEPT}::test_w17n_every_edit_is_a_new_whole_revision",)),
     Arm("W18a", "an undeclared coordination kind authorizes no mint",
         Sabotage(_CORPUS,
             before='        kind_spec = profile.coordination_kinds.get(kind)\n        if kind_spec is None:\n            raise ValidationRefused(f"{kind!r} is not declared by the mounted coordination contract")',
             after='        kind_spec = profile.coordination_kinds.get(kind) or next(iter(profile.coordination_kinds.values()))'),
-        (f"{_ACCEPT}::test_w18a_an_undeclared_kind_mints_nothing",)),
+        (f"{_ACCEPT}::test_w18a_an_undeclared_kind_mints_nothing", "test_coordination_write.py::test_an_earlier_contract_version_authorizes_nothing_added_later")),
     Arm("W18b", "an ill-formed query refuses at mint",
         Sabotage(_CORPUS,
             before='        query = parse_view_query(content["query"])',
@@ -2046,6 +2128,7 @@ import subprocess
 
 import pytest
 from n2_arms import Arm
+from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
 from n2_arms_cut7 import CUT7_ARMS
@@ -2102,12 +2185,12 @@ def test_every_declared_check_passes_without_sabotage():
     assert finding.verdict == "resolved", finding.detail
 
 
-def test_the_28_arms_are_unique_and_account_for_every_selected_unit():
+def test_the_29_arms_are_unique_and_account_for_every_selected_unit():
     rows = tuple(arm.row for arm in CUT14_ARMS)
-    assert len(rows) == len(set(rows)) == 28
-    assert ROW_UNITS == {"W11": 2, "W12": 1, "W13": 1, "W17": 13, "W18": 11}
-    assert sum(ROW_UNITS.values()) == 28
-    assert {unit_of(row) for row in rows} == {f"W11u{n}" for n in range(1, 3)} | {"W12u1", "W13u1"} | {f"W17u{n}" for n in range(1, 14)} | {f"W18u{n}" for n in range(1, 12)}
+    assert len(rows) == len(set(rows)) == 29
+    assert ROW_UNITS == {"W11": 2, "W12": 1, "W13": 1, "W17": 14, "W18": 11}
+    assert sum(ROW_UNITS.values()) == 29
+    assert {unit_of(row) for row in rows} == {f"W11u{n}" for n in range(1, 3)} | {"W12u1", "W13u1"} | {f"W17u{n}" for n in range(1, 15)} | {f"W18u{n}" for n in range(1, 12)}
     assert LABELED_UNITS == () and CO_CITED == {}
 
 
@@ -2126,7 +2209,7 @@ def test_prior_declarations_and_the_whole_cited_cut5_surface_are_unchanged():
 Import all prior arm tables and form:
 
 ```python
-PRIOR_ARMS = (*CUT5_ARMS, *CUT6_ARMS, *CUT7_ARMS, *CUT8_ARMS, *CUT9_ARMS, *CUT10_ARMS, *CUT11_ARMS, *CUT12_ARMS, *CUT13_ARMS)
+PRIOR_ARMS = (*CUT3_ARMS, *CUT5_ARMS, *CUT6_ARMS, *CUT7_ARMS, *CUT8_ARMS, *CUT9_ARMS, *CUT10_ARMS, *CUT11_ARMS, *CUT12_ARMS, *CUT13_ARMS)
 
 
 def test_every_arm_has_one_source_mutation_and_exact_check_nodes():
@@ -2152,7 +2235,7 @@ No co-citation exception exists.
 
 - [ ] **Step 3: Run the N2 audit**
 
-Run: `cd python && uv run --frozen pytest tests/acceptance/test_n2_cut14.py -q`
+Run: `cd python && uv run --frozen pytest tests/acceptance/test_n2_cut14.py`
 
 Expected: PASS; every sabotage makes all and only its declared checks fail.
 
@@ -2165,7 +2248,7 @@ Expected: PASS.
 - [ ] **Step 5: Close the task and commit**
 
 ```bash
-tasks done beliefs-48c8b6 "Declared and audited all 28 executable cut-14 units with no intent-position arm."
+tasks done beliefs-48c8b6 "Declared and audited all 29 executable cut-14 units with no intent-position arm."
 git add python/tests/acceptance/n2_arms_cut14.py python/tests/acceptance/test_n2_cut14.py tasks
 git commit -m "test(coordination): declare cut 14 arms"
 ```
@@ -2176,6 +2259,7 @@ git commit -m "test(coordination): declare cut 14 arms"
 - Create: `python/tools/cut14_acceptance.py`
 - Create: `python/tests/test_cut14_acceptance.py`
 - Create: `docs/plans/2026-09-02-conformance-cut-14-results.md`
+- Modify: `.gitignore`
 - Modify: `docs/plans/2026-09-02-coordination-view-kinds.md`
 - Move: `docs/superpowers/specs/2026-08-31-coordination-and-view-kinds-design.md` → `docs/designs/2026-08-31-coordination-and-view-kinds-design.md`
 - Modify: `docs/designs/2026-08-03-redesign-adoption-ledger.md`
@@ -2237,9 +2321,10 @@ def cut_environment(run: Path) -> dict[str, str]:
 
 
 def declared_arm_count() -> int:
-    path = str(ACCEPTANCE)
-    if path not in sys.path:
-        sys.path.insert(0, path)
+    for directory in (PYTHON_ROOT / "tests", ACCEPTANCE):
+        path = str(directory)
+        if path not in sys.path:
+            sys.path.insert(0, path)
     from n2_arms_cut14 import CUT14_ARMS  # pyright: ignore[reportMissingImports]
     return len(CUT14_ARMS)
 
@@ -2288,7 +2373,12 @@ def main(argv: list[str]) -> int:
             )
             if completed.returncode != 0:
                 return completed.returncode
-        print(f"declared arms: {declared_arm_count()} (= 28 selected units)", flush=True)
+        try:
+            arms = declared_arm_count()
+        except Exception as failure:  # noqa: BLE001 - report, do not mask a green run
+            print(f"cut-14 acceptance: could not compute declared-arm count: {failure}", file=sys.stderr)
+        else:
+            print(f"declared arms: {arms} (= 29 selected units)", flush=True)
         return 0
     finally:
         shutil.rmtree(run, ignore_errors=True)
@@ -2296,13 +2386,14 @@ def main(argv: list[str]) -> int:
 
 No function invokes `cut5_acceptance.py` or any aggregate runner.
 
+Add `.cut14-acceptance/` to the repository `.gitignore`; the default work root must never appear as an untracked discharge artifact.
+
 - [ ] **Step 2: Write the portable runner-shape check**
 
 ```python
 # python/tests/test_cut14_acceptance.py
 import importlib.util
 import subprocess
-import sys
 from pathlib import Path
 
 _SPEC = importlib.util.spec_from_file_location("cut14_acceptance", Path(__file__).parents[1] / "tools" / "cut14_acceptance.py")
@@ -2334,16 +2425,20 @@ def test_every_phase_receives_one_probed_environment_and_only_n2_receives_argume
     monkeypatch.setattr(cut14, "probe", lambda _run: None)
     calls = []
     monkeypatch.setattr(cut14.subprocess, "run", lambda command, **kwargs: calls.append((command, kwargs)) or subprocess.CompletedProcess(command, 0))
-    monkeypatch.setattr(cut14, "declared_arm_count", lambda: 28)
+    monkeypatch.setattr(cut14, "declared_arm_count", lambda: 29)
     assert cut14.main(["-k", "one"]) == 0
     assert [Path(call[0][3]).name for call in calls] == list(EXPECTED)
     assert calls[-1][0][-2:] == ["-k", "one"]
     assert all(call[1]["env"]["SCIENCE_CUT14_ROOT"] for call in calls)
+
+
+def test_declared_arm_count_imports_both_test_roots():
+    assert cut14.declared_arm_count() == 29
 ```
 
 - [ ] **Step 3: Run the portable runner check**
 
-Run: `cd python && uv run --frozen pytest tests/test_cut14_acceptance.py -q`
+Run: `cd python && uv run --frozen pytest tests/test_cut14_acceptance.py`
 
 Expected: PASS.
 
@@ -2351,7 +2446,7 @@ Expected: PASS.
 
 Run: `cd python && uv run --frozen python tools/cut14_acceptance.py`
 
-Expected: all 12 phases PASS and the runner prints `declared arms: 28 (= 28 selected units)`. Any tuple or confinement refusal is an error, not a waiver.
+Expected: all 12 phases PASS and the runner prints `declared arms: 29 (= 29 selected units)`. Any tuple or confinement refusal is an error, not a waiver.
 
 - [ ] **Step 5: Run the final repository gates, with one full suite**
 
@@ -2368,7 +2463,7 @@ Expected: all PASS. This is the only full-suite invocation in the plan.
 Run from the repository root:
 
 ```bash
-cd python && uv run --frozen pytest tests/test_designs_corpus.py tests/test_check_guide.py -q
+cd python && uv run --frozen pytest tests/test_designs_corpus.py tests/test_check_guide.py
 cd ..
 git diff --check
 tasks check
@@ -2383,7 +2478,7 @@ Move the approved design with `git mv`. Preserve frozen §9 byte-for-byte; compa
 The results record must state the exact observed command outcomes from Steps 4–5 and these fixed facts:
 
 - frozen cut §9: `c07bf72`; approved implementation amendment: `09b0b58`;
-- 28 selected units: W11 2, W12 1, W13 1, W17 13, W18 11; zero labeled units; no intent-position arm;
+- 29 selected units: W11 2, W12 1, W13 1, W17 14, W18 11; zero labeled units; no intent-position arm; W17's whole-revision clause is its own unit, while missing and divergent projects remain separate units;
 - all 12 direct phase modules in their executed order and no aggregate prefix;
 - cut 5 cited from `docs/plans/2026-08-19-conformance-cut-5-results.md`, with all four Task 11 SHA-256 pins unchanged;
 - W11, W12, and W18 closed; W17 closed for the ordinary family and partial on intent-position; W13 still partial beyond the two-project negative;
@@ -2406,7 +2501,7 @@ First close this child, then close the parent, then verify the task graph:
 tasks done beliefs-a03506 "Discharged cut 14, banked the coordination design, and recorded certified results."
 tasks done beliefs-1f7400 "Delivered coordination and view kinds; cut 14 discharged with W17 intent-position deferred to publish."
 tasks check
-git add python/tools/cut14_acceptance.py python/tests/test_cut14_acceptance.py python/tests/acceptance docs tasks README.md
+git add .gitignore python/tools/cut14_acceptance.py python/tests/test_cut14_acceptance.py python/tests/acceptance docs tasks README.md
 git commit -m "docs(coordination): discharge conformance cut 14"
 ```
 
