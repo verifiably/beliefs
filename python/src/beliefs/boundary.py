@@ -13,6 +13,7 @@ declared input must already be held.
 
 from __future__ import annotations
 
+import json
 import os
 import secrets
 import shutil
@@ -67,11 +68,13 @@ from beliefs.recipe import (
     EnvironmentManifest,
     InstanceAttestation,
     Invocation,
+    LaunchAttestation,
     Occurrence,
     Recipe,
     RecipeInput,
     ResultManifest,
     RunClosure,
+    WorkflowDefinitionSnapshot,
     project_recipe,
     supported_policy,
 )
@@ -88,14 +91,7 @@ from beliefs.report import (
 )
 from beliefs.runrecord import OperationPort, publication_plan
 from beliefs.sealed import sealed
-from beliefs.spec import (
-    DATASET_EQUIVALENCE_RULE,
-    SEED_DERIVATION_V1,
-    FrozenSpec,
-    NondeterminismContract,
-    Seeded,
-    derive_seed,
-)
+from beliefs.spec import DATASET_EQUIVALENCE_RULE, FrozenSpec, NondeterminismContract, Seeded
 
 __all__ = [
     "RunMinted",
@@ -277,30 +273,18 @@ def _stage_inputs(addresses: tuple[str, ...], held_inputs: Mapping[str, Path], s
     return identities
 
 
-def _render_config(recipe: Recipe, definition: WorkflowDefinition) -> dict[str, str]:
+def _render_config(recipe: Recipe, snapshot: WorkflowDefinitionSnapshot) -> dict[str, str]:
     config = {key: str(value) for key, value in recipe.parameters.items()}
     if type(recipe.nondeterminism) is not Seeded:
         return config
 
     plan = recipe.nondeterminism.plan
-    declared_streams = {stream for streams in definition.family_streams.values() for stream in streams}
-    if declared_streams != set(plan.streams):
-        raise MalformedClosure("workflow family streams do not match the seed plan")
-    if plan.derivation_rule != SEED_DERIVATION_V1:
-        raise MalformedClosure(f"unsupported seed derivation rule {plan.derivation_rule!r}")
-    for family, streams in definition.family_streams.items():
-        for stream in streams:
-            key = "seed_" + stream.replace("-", "_")
-            value = str(
-                derive_seed(
-                    plan.roots[plan.stream_roots[stream]],
-                    family,
-                    stream,
-                )
-            )
-            if key in config and config[key] != value:
-                raise MalformedClosure(f"rendered config key {key!r} has conflicting values")
-            config[key] = value
+    config["seed_roots"] = json.dumps(
+        {stream: str(plan.roots[plan.stream_roots[stream]]) for stream in sorted(plan.streams)},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    config["seed_derivation_rule"] = plan.derivation_rule
     return config
 
 
@@ -440,7 +424,7 @@ def _execute_run(
             boundary_policy=boundary_policy,
         )
 
-        config = _render_config(recipe, definition)
+        config = _render_config(recipe, definition.snapshot())
         trace_dir = Path(tempfile.mkdtemp(prefix="trace-", dir=scratch.parent))
         handler = trace_dir / "handler.py"
         events = trace_dir / "events.jsonl"
@@ -463,12 +447,13 @@ def _execute_run(
 
         trace = read_trace(events)
         realized_seeds = read_realized_seeds(scratch)
-        receipt = BoundaryReceipt(
+        launch = LaunchAttestation(
             scratch_mapping=str(scratch),
             argv=argv,
             rendered_config=tuple(sorted(config.items())),
             capabilities=(),
         )
+        receipt = BoundaryReceipt(planning=launch, execution=launch)
         occurrence = Occurrence(
             event_token=intent.event_token,
             started_at=started_at,
@@ -543,7 +528,7 @@ def _execute_confined(
         invocation=invocation,
         boundary_policy=CONFINED_POLICY,
     )
-    config = _render_config(recipe, definition)
+    config = _render_config(recipe, definition.snapshot())
     handler = output_root / TRACE_DIR / "handler.py"
     handler.write_text(LOG_HANDLER_SCRIPT)
     trace_file = f"{OUTPUT_ROOT}/{TRACE_DIR}/events.jsonl"
@@ -569,7 +554,7 @@ def _execute_confined(
         return _refused("execution-failed", subject, actor, observer, started_at, intent, detail=launched.output[-2000:])
     trace = read_trace(output_root / TRACE_DIR / "events.jsonl")
     realized_seeds = read_realized_seeds(output_root)
-    receipt = BoundaryReceipt(
+    launch = LaunchAttestation(
         scratch_mapping=str(scratch),
         argv=inner_argv,
         rendered_config=tuple(sorted(config.items())),
@@ -587,6 +572,7 @@ def _execute_confined(
         ),
         mounts=plan.host_mapping(),
     )
+    receipt = BoundaryReceipt(planning=launch, execution=launch)
     occurrence = Occurrence(
         event_token=intent.event_token,
         started_at=started_at,

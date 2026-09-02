@@ -7,10 +7,12 @@ negative (c)'s clean-environment reachability (confinement)."""
 
 import dataclasses
 import inspect
+import json
 import os
 import sys
 
 import pytest
+from config_probe import run_config_probe
 from fixtures_cut3 import (
     DATA_ADDRESS,
     MEMORY_PORT,
@@ -22,6 +24,7 @@ from fixtures_cut3 import (
     closure,
     definition,
     recipe,
+    seed_plan,
     seeded,
     spec_draft,
     spec_rules,
@@ -46,6 +49,7 @@ from beliefs.adapter import (
 from beliefs.boundary import (
     RunMinted,
     RunRefused,
+    _render_config,
     build_manifest,
     execute_assessment_run,
     execute_production_run,
@@ -54,7 +58,39 @@ from beliefs.boundary import (
 from beliefs.errors import MalformedClosure
 from beliefs.recipe import MINIMAL_POLICY, Occurrence, RunClosure
 from beliefs.report import ActReport, OperationIntent, RunAttemptEntry
-from beliefs.spec import Seeded, SeedPlan, SpecInput, derive_seed, freeze, revise
+from beliefs.spec import Deterministic, Seeded, SeedPlan, SpecInput, derive_seed, freeze, revise
+
+
+def test_the_roots_are_rendered_as_one_mapping_never_per_stream_keys() -> None:
+    config = _render_config(recipe(nondeterminism=seeded()), definition().snapshot())
+    assert json.loads(config["seed_roots"]) == {"model-initialization": "11"}
+    assert config["seed_derivation_rule"] == "seed-derivation/v1"
+    assert not any(key.startswith("seed_model") for key in config)
+
+
+def test_two_streams_differing_only_in_punctuation_do_not_collide() -> None:
+    plan = seed_plan(
+        streams=("a-b", "a_b"),
+        roots={"r": 11},
+        stream_roots={"a-b": "r", "a_b": "r"},
+    )
+    snapshot = definition(family_streams={"transform": ("a-b", "a_b")}).snapshot()
+    config = _render_config(recipe(nondeterminism=Seeded(plan=plan)), snapshot)
+    assert json.loads(config["seed_roots"]) == {"a-b": "11", "a_b": "11"}
+
+
+def test_a_deterministic_recipe_renders_no_seed_material() -> None:
+    config = _render_config(
+        recipe(nondeterminism=Deterministic()),
+        definition(family_streams={}).snapshot(),
+    )
+    assert "seed_roots" not in config and "seed_derivation_rule" not in config
+
+
+def test_the_engine_coerces_a_structured_config_value_to_strings(tmp_path) -> None:
+    observed = run_config_probe(tmp_path, {"seed_roots": '{"a": 11}', "plain": "11"})
+    assert observed["seed_roots"] == ["dict", {"a": "11"}]
+    assert observed["plain"] == ["int", 11]
 
 
 @pytest.fixture(scope="module")
