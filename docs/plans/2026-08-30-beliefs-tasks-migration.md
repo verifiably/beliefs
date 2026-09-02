@@ -131,8 +131,8 @@ History confirms that conformance cut 12, successor admission, current-state cur
 | `docs/superpowers/specs/2026-08-28-current-state-documentation-curation-design.md` | historical/superseded | Delivered documentation design. |
 | `docs/superpowers/specs/2026-08-29-implementation-roadmap-design.md` | historical/superseded | Delivered ranking-method design. |
 | `docs/superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md` | active delivery | Approved umbrella design with unfinished Beliefs sub-projects. |
-| `docs/superpowers/specs/2026-08-30-run-confinement-design.md` | active delivery | Current, planned, not-yet-implemented cut-13 design. |
-| `docs/superpowers/specs/2026-08-31-coordination-and-view-kinds-design.md` | active delivery | Design and review are cleared and cut 14 is frozen before implementation; explicitly not implemented. |
+| `docs/designs/2026-08-30-run-confinement-design.md` | delivered | Implemented and discharged by cut 13. |
+| `docs/designs/2026-08-31-coordination-and-view-kinds-design.md` | delivered | Implemented and discharged by cut 14 on 2026-09-02; W17 intent-position remains with `publish`. |
 
 ## Drift corrections
 

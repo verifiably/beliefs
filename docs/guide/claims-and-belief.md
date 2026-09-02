@@ -2,7 +2,7 @@
 title: Claims and belief
 status: living
 created: 2026-08-08
-updated: 2026-08-29
+updated: 2026-09-02
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-04-domain-extension-boundary-design.md
@@ -179,7 +179,7 @@ intent-bearing acts and projected under a declared coverage — so an
 observation's admission input is a system record rather than a supplied
 argument. The survey and typing exercise remain hand-run measurements, not
 conformance oracles. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-01)
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-02)
 states what remains.
 
 ## Open edges

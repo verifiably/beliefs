@@ -2,7 +2,7 @@
 title: Foundations
 status: living
 created: 2026-08-08
-updated: 2026-08-31
+updated: 2026-09-02
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-substrate-consolidation-design.md
@@ -14,7 +14,7 @@ sources:
   - ../designs/2026-08-10-verified-holdings-record-design.md
   - ../designs/2026-08-11-act-report-design.md
   - ../designs/2026-08-24-world-index-holdings-design.md
-  - ../superpowers/specs/2026-08-31-coordination-and-view-kinds-design.md
+  - ../designs/2026-08-31-coordination-and-view-kinds-design.md
 ---
 
 # Foundations
@@ -122,8 +122,8 @@ refuses naming every tip, and divergence is repaired by one revision
 superseding them all. The query a view stores is `science.view-query.v1` — a
 small, closed selector grammar evaluated at a named epoch, deliberately not a
 query engine. The [coordination-and-view-kinds
-design](../superpowers/specs/2026-08-31-coordination-and-view-kinds-design.md)
-specifies all of this and freezes conformance cut 14 over it. Its 2026-09-02
+design](../designs/2026-08-31-coordination-and-view-kinds-design.md)
+specifies all of this and is implemented through conformance cut 14. Its 2026-09-02
 §11 amendment leaves W17's intent-position evidence with `publish`, the first
 operation that can define an honest multi-root proof shape; cut 14 covers the
 ordinary revision family and builds no caller-asserted substitute.
@@ -182,7 +182,7 @@ carriage and verification and cut 12's successor admission. The agentic surface
 has an approved [user and autonomy layer design](../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md),
 but its daily surface and autonomy sub-projects are not implemented; salvage
 remains undesigned. The [adoption ledger's current-state
-summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-01)
+summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-02)
 is the complete statement of what is built and what remains.
 
 ## Open edges

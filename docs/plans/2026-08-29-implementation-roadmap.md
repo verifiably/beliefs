@@ -1,6 +1,6 @@
 # Implementation roadmap
 
-**Ranked at:** cut 13, against the ledger's Current state (2026-09-01)
+**Ranked at:** cut 14, against the ledger's Current state (2026-09-02)
 **Method:** `../superpowers/specs/2026-08-29-implementation-roadmap-design.md`
 **Recomputed by:** the commit that adds each conformance-cut results record.
 This document is a current claim: it is rewritten whole at every re-ranking,
@@ -8,7 +8,7 @@ carries no dated corrections, and the previous ranking survives only in git
 history.
 
 The adoption ledger's `Current state` table
-(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-01`)
+(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-02`)
 is the authority for *what* is open; this document is the authority for *in
 what order*. The two name the same boundaries by id, and
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds them to it.
@@ -43,7 +43,6 @@ join key and nothing else; the tiers below carry the ranking.
 | `packaging-remainder` | X5 (relabel); W8a's import and audit arms | 1, rides with `world-resolution` |
 | `parity-fixture-2` | the second `science.identity.v1` fixture | 1, rides with `domain-boundary` |
 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | 2 |
-| `coordination-addressing` | W11, W12, W18; W17 except its intent-position clause; W13's two-projects negative | 2 |
 | `l13-preimage` | L13 | 2 |
 | `persistence-cut` | X2 | 2 |
 | `verification-publication` | durable publication of verification records | 2 |
@@ -99,7 +98,7 @@ boundary sits in the lane of its prerequisite and waits there.
 |---|---|---|---|
 | `execution` | `workflow-surface` | `boundary.py`, `verify.py`, `recipe.py`, `production.py`, `adapter.py` | `boundary.py`, where `acquisition`'s T5 preflight refusals also land |
 | `acquisition` | `url-retrieval` (+ `act-report-remainder`) | `holdings/`, `report.py` | `boundary.py` (above) |
-| `mutation` | `consolidate-family` (+ `run-boundary-remainder`, `formal-model-remainder`) → `correction-remainder`, `coordination-addressing` (tier 2, both unblocked by the first) | `adapter.py`, `stored.py`, `corpus.py`, `world/registry.py` | `world/registry.py`, which `world-read` reads and this lane's move/consolidate rewrite |
+| `mutation` | `consolidate-family` (+ `run-boundary-remainder`, `formal-model-remainder`) → `correction-remainder` | `adapter.py`, `stored.py`, `corpus.py`, `world/registry.py` | `world/registry.py`, which `world-read` reads and this lane's move/consolidate rewrite |
 | `world-read` | `world-resolution` (+ `packaging-remainder`) → `event-level-l8` (+ `log-remainder`) | `world/read.py`, `resolution.py`, `world/verify.py` | `world/registry.py` (above) |
 | `domain` | `domain-boundary` (+ `parity-fixture-2`) | `profile.py`, `contract/`, `ts/`, `fixtures/`, the `nodes` registry | none in `python/src/beliefs/` |
 | `cross-repo` | `l13-preimage`, `persistence-cut`, `nodes-remainder`, in any order | the `atoms` and `nodes` repositories, each behind its own design gate | none; Science consumes each seam after it lands |
@@ -143,7 +142,6 @@ and merged `--no-ff`. Four rules are added by concurrency itself:
 | id | rows | prerequisite | unblocks |
 |---|---|---|---|
 | `correction-remainder` | C7; C8, C9; C3's coverage clauses; C10's audit arm | `consolidate-family` for C7; the stored semantic-snapshot kind and evaluator are the boundary's own work | the correction lifecycle in full |
-| `coordination-addressing` | W11, W12, W18; W17 except its intent-position clause; W13's two-projects negative | `consolidate-family` — the coordination-and-view-kinds design (cut 14, frozen 2026-08-31 and amended at §11 on 2026-09-02) mints views and coordination records "through the adapter, by a dedicated family door," the same `CorpusWriter`/`adapter.py` surface `consolidate-family` rewrites; the design names no dependency of its own on that boundary, but the mutation lane's own rule (two boundaries on one surface land serially) is what orders it after, not a design-stated wait | coordination references and W17's ordinary revision family, with the intent-position evidence, query evaluator (`world-read`'s), and `publish` (sub-project 5's) still to come |
 | `l13-preimage` | L13 | an `atoms` blob-read seam behind its own design gate; `atoms`' deferred-obligation ledger carries no such entry today | row 5 in full; the held-copy match strengthened from path to bytes |
 | `persistence-cut` | X2 | the `atoms` A8 certification extended to the publication path, behind `atoms`' own design gate. Cut 7 admits a Science-side harness as the alternative; it is rejected here (§5), so the prerequisite is cross-repo and the tier is 2 | X2 in full |
 | `verification-publication` | — | the persistence seam — a design for durable verification records behind the store's own gate; cut 13 §7.2 kept the join value-level | admission over stored verifications rather than in-memory records |
@@ -160,7 +158,7 @@ Unordered. Each row links its `open-questions.md` anchor.
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 — [higher-order records and extraction](../guide/open-questions.md#claims-and-belief) |
 | `cross-root-publication` | T7's cross-root case | [the act-report's residue](../guide/open-questions.md#contracts-and-adoption) |
 
-## Appendix A — live status of every guarantee row at cut 13
+## Appendix A — live status of every guarantee row at cut 14
 
 Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
 (spec §3.1); a row is closed only when no later source reopens it.
@@ -169,7 +167,7 @@ Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
 |---|---|---|---|
 | G | G5 | G2c (cut 5), G3 (cut 2), G8 (cut 5), G9 (cut 10) | — |
 | S | — | S1 (cut 4), S1a (cut 4), S5 (cut 4), S6 (cut 2) | — |
-| W | W1, W2, W4, W5, W6, W7, W8, W9, W10, W11, W12, W14, W15, W16, W17, W18, W5a, W8b | W13 (cut 9), W8a (cut 7) | — |
+| W | W1, W2, W4, W5, W6, W7, W8, W9, W10, W14, W15, W16, W5a, W8b | W13 (cut 14), W17 (cut 14), W8a (cut 7) | — |
 | R | — | R2 (cut 3), R5 (cut 3), R10 (cut 3), R16 (cut 13), R19 (cut 4), R20 (cut 5), R21 (cut 13), R22 (cut 4), R23 (cut 4) | — |
 | C | C7, C8, C9 | C3 (cut 5), C6 (cut 5), C10 (cut 5) | — |
 | X | — | X2 (cut 7), X5 (cut 7), X12 (cut 7) | — |
@@ -181,7 +179,7 @@ Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
 | H | — | H4 (cut 10) | — |
 | T | T7 | T1 (cut 5), T2 (cut 5), T4 (cut 3), T5 (cut 3) | — |
 
-Closed 68 of 153; open 85.
+Closed 71 of 153; open 82.
 
 ## Appendix B — classification of every open row
 
@@ -201,9 +199,8 @@ Each open row, its remainder as the last cut states it, and where it goes
 | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15 | the world resolver over the write boundary and the index (cut 4 §5); W4 to be adjudicated against the merge retirement (address ruling §5) | `world-resolution` |
 | W5, W16 | move and consolidate over stored records (cut 4 §5) | `consolidate-family` |
 | W9, W14 | rendered labels and the ambiguous-search refusal against a pinned authority snapshot (ledger artifact 11) | `authority-labels` — tier 3 |
-| W11, W12 | the project/coordination surface (cut 4 §5) — the minting question is answered 2026-08-31: through the adapter, by a dedicated family door | `coordination-addressing` — cut 14 frozen, tier 2 in the `mutation` lane, ordered after `consolidate-family` at cut 13's re-rank |
-| W17, W18 | banked 2026-08-31 with the coordination-and-view-kinds design; never selected before cut 14. Its 2026-09-02 §11 amendment removes W17's unverifiable intent-position arm from cut 14 and leaves that clause with `publish` | `coordination-addressing` — cut 14 frozen and amended, tier 2 in the `mutation` lane, ordered after `consolidate-family` at cut 13's re-rank; `publish` retains W17's intent-position evidence |
-| W13 | coverage-declaration and digest-invariance clauses; manifest-only re-mint detection and the forgery variants; replica-restore's declaration half; the fork copy act (cut 6 §3.2) — every named dependency has since landed → relabel candidates; the two-projects negative → `coordination-addressing` | `world-resolution`, less the two-projects negative |
+| W17 | intent-position evidence over the publication-binding revision family (cut 14 results §1) | `publish`; the ordinary coordination revision family is closed |
+| W13 | coverage-declaration and digest-invariance clauses; manifest-only re-mint detection and the forgery variants; replica-restore's declaration half; the fork copy act (cut 6 §3.2) — every named dependency has since landed → relabel candidates | `world-resolution`; the two-projects negative is closed by cut 14 |
 | W8a | coreference omission-refutes and coverage arms → `world-resolution` (the `coreference-attestation` kind); certification omission-refutes → `contract-cut` (the `instrument-certification` kind); import-boundary and audit arms (cut 7 §3.2) → `packaging-remainder` | split as stated |
 | R2, R16, R20, R21 | their full-workflow-surface arms: trace/job-ID components, per-family obligations, the two-target arm (cut 3 §4.2; cut 5) | `workflow-surface` |
 | R5 | negative (a), destroying the last held copy through a managed deletion recording an `absent` observation (cut 3 §4.2; holdings §3) — the intent-bearing delete act landed with cut 10 | `consolidate-family` (deletion) |

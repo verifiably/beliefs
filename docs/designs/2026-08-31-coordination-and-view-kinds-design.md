@@ -1,14 +1,13 @@
 # Coordination and view kinds — design (the `coordination-addressing` slice)
 
 **Date:** 2026-08-31
-**Status:** designed and review-cleared, with the implementation amendment in
-§11 approved 2026-09-02. Conformance cut 14 (§9) is
-**frozen 2026-08-31**, by the dated freeze commit that lands this line —
-before any of its code exists; from that commit onward the §9 arms and the
-W17/W18 row texts are frozen text, amendable only the way any frozen cut's
-is. Not implemented.
+**Status:** implemented at `5b1b251` and banked 2026-09-02. Conformance cut
+14 (§9) was **frozen 2026-08-31** at `c07bf72`, before any of its code
+existed; §9 and the W17/W18 row texts remain frozen. Cut 14 discharges W11,
+W12, and W18 in full, W13's two-project negative, and W17's ordinary revision
+family. W17 remains partial only on intent-position, owned by `publish`.
 **Scope:** the tier-3 `coordination-addressing` answer, per the user and
-autonomy layer design (`2026-08-29-user-and-autonomy-layer-design.md`) §4.1,
+autonomy layer design (`../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md`) §4.1,
 §4.2 and §8 item 1: the view query language `science.view-query.v1`; opaque
 project identity minting and `(project identity, local id)` addressing with
 the `project` record as the one exemption; the coordination revision family —
@@ -20,13 +19,13 @@ the cut-14 selection of W11, W12, and W13's two-projects negative; and the
 `foundations.md` extension. These records are never world facts and never
 belief inputs.
 **Inherits:** world-addressing
-(`../../designs/2026-08-02-world-addressing-design.md`) §3 and §6.1 — the
+(`2026-08-02-world-addressing-design.md`) §3 and §6.1 — the
 tier table and the coordination-address rule this document implements without
 amending, save the two added guarantee rows and §6.1's discharge note. The
 user and autonomy layer design §4.1–§4.2 is the ruling this document
 elaborates; where that document already decides a point, this one cites it
 rather than restating the argument. The implementation roadmap
-(`../../plans/2026-08-29-implementation-roadmap.md`) carries the boundary; the
+(`../plans/2026-08-29-implementation-roadmap.md`) carries the boundary; the
 answer moves it to the `mutation` lane at the next re-rank, per its tier-3
 rule.
 **Out of scope:** the query evaluator (the `world-read` lane's, where W7
@@ -606,9 +605,10 @@ rows say nothing about tips or authorization:
   membership and no `belief_input_digest` movement; the reserved-namespace
   refusal. Full arm text in world-addressing §7.
 
-The roadmap's boundary index and appendix B carry the new rows under
-`coordination-addressing`, and appendix A's generated table regenerates over
-the extended inventory.
+Before discharge the roadmap carried these rows under
+`coordination-addressing`. Cut 14 removes that completed boundary; Appendix A
+now records W11, W12, and W18 full, W13 and W17 partial, and Appendix B leaves
+only W17 intent-position with `publish`.
 
 ## 8. Limitations
 
@@ -752,8 +752,8 @@ appendix B carry the new rows and appendix A regenerates; the guarantee-row
 inventory and the README's and guide's row totals move from 151 to 153; the
 open-questions coordination-records bullet leaves, per user-layer §8; and
 `foundations.md` gains its governed-tiers subsection with this document in
-its sources. The boundary itself moves to the `mutation` lane at the next
-re-rank, not in this commit, per the roadmap's tier-3 rule.
+its sources. At cut 14's 2026-09-02 discharge the implemented boundary leaves
+the live ledger and roadmap; it has no remaining lane position.
 
 ## 11. Implementation amendment — 2026-09-02
 

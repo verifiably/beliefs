@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.12, frozen `uv` environment, `nodes` corpus substrate, PyYAML, pytest, Ruff, Pyright, repository `tasks` CLI.
 
-**Spec:** `docs/superpowers/specs/2026-08-31-coordination-and-view-kinds-design.md` at design commit `09b0b58` (frozen cut body §9 at `c07bf72`, approved implementation amendment §11).
+**Spec:** `docs/designs/2026-08-31-coordination-and-view-kinds-design.md` at design commit `09b0b58` (frozen cut body §9 at `c07bf72`, approved implementation amendment §11).
 
 ## Global Constraints
 
