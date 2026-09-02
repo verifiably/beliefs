@@ -40,6 +40,7 @@ from beliefs.recipe import (
     BoundaryReceipt,
     EnvironmentManifest,
     Invocation,
+    LaunchAttestation,
     Occurrence,
     RecipeInput,
     ResultManifest,
@@ -89,6 +90,26 @@ def test_changing_a_family_declaration_moves_the_recipe_identity():
         )
     )
     assert left.identity() != right.identity()
+
+
+def _launch(**overrides):
+    fields = {"scratch_mapping": "/scratch/x", "argv": ("snakemake",), "rendered_config": (), "capabilities": ()}
+    return LaunchAttestation(**{**fields, **overrides})
+
+
+def test_the_minimal_receipt_domain_is_v3():
+    assert BOUNDARY_RECEIPT_DOMAIN == "science.boundary-receipt.v3"
+
+
+def test_a_receipt_composes_one_attestation_per_launch():
+    receipt = BoundaryReceipt(planning=_launch(), execution=_launch(scratch_mapping="/scratch/y"))
+    assert receipt.planning.scratch_mapping != receipt.execution.scratch_mapping
+    assert receipt.confined is False
+
+
+def test_two_launches_must_agree_about_confinement(confined_launch):
+    with pytest.raises(MalformedClosure):
+        BoundaryReceipt(planning=_launch(), execution=confined_launch())
 
 
 def test_the_job_key_is_canonical_text_over_rule_and_wildcards():
@@ -236,7 +257,10 @@ def test_r2_the_result_and_each_occurrence_member_move_the_address():
     assert (
         closure(
             occurrence=occurrence(
-                receipt=BoundaryReceipt(scratch_mapping="scratch-mount-b", argv=("snakemake",), rendered_config=())
+                receipt=BoundaryReceipt(
+                    planning=_launch(scratch_mapping="scratch-mount-b"),
+                    execution=_launch(scratch_mapping="scratch-mount-b"),
+                )
             )
         ).address()
         != baseline
@@ -350,9 +374,8 @@ INVALID_CLOSURE_VALUES = [
     (
         "receipt-pair",
         lambda: BoundaryReceipt(
-            scratch_mapping="scratch",
-            argv=("snakemake",),
-            rendered_config=(("alpha", []),),  # type: ignore[arg-type]
+            planning=_launch(rendered_config=(("alpha", []),)),  # type: ignore[arg-type]
+            execution=_launch(),
         ),
     ),
     (
@@ -415,7 +438,7 @@ def test_r14_nan_and_infinity_are_refused_in_every_position():
 def test_r14_kind_domains_separate_and_v2_never_equals_v1():
     payload = {"same": "bytes"}
     assert v1.digest("science.recipe.v1", payload) != v1.digest("science.run.v1", payload)
-    assert BOUNDARY_RECEIPT_DOMAIN == "science.boundary-receipt.v1"
+    assert BOUNDARY_RECEIPT_DOMAIN == "science.boundary-receipt.v3"
     assert v1.digest(BOUNDARY_RECEIPT_DOMAIN, payload) != v1.digest("science.run.v1", payload)
     assert v1.digest("science.recipe.v1", payload) != v1.digest("science.recipe.v2", payload)
 

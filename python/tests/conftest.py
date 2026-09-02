@@ -13,7 +13,59 @@ from pathlib import Path
 
 import pytest
 
+from beliefs.recipe import (
+    NAMESPACES,
+    REQUIRED_FOR_CLEAN_ENVIRONMENT,
+    InstanceAttestation,
+    LaunchAttestation,
+    mount_plan_identity,
+)
+
+ENVIRONMENT = "sha256:" + "ab" * 32
+OTHER_ENVIRONMENT = "sha256:" + "cd" * 32
+CONFINED_NAMESPACES = NAMESPACES
+CONFINED_MOUNTS = (
+    ("/", "root", "ro"),
+    ("/lib64/ld-linux-x86-64.so.2", "loader", "ro"),
+    ("/science/env", "env", "ro"),
+    ("/science/bundle", "bundle", "ro"),
+    ("/science/out", "output", "rw"),
+    ("/science/out/inputs", "inputs", "ro"),
+    ("/dev/null", "device", "rw"),
+    ("/dev/urandom", "device", "rw"),
+)
+RENDERED_ENVIRONMENT = (("env:PATH", "value", "/science/env/venv/bin"), ("hostname", "value", "science"))
+SANDBOX_MOUNTS = (("/science/bundle", "/host/scratch/run-1/bundle"), ("/science/out", "/host/scratch/run-1/out"))
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+@pytest.fixture()
+def confined_launch():
+    def build(
+        *,
+        capabilities=REQUIRED_FOR_CLEAN_ENVIRONMENT,
+        environment_identity=ENVIRONMENT,
+        scratch_mapping="/science/out",
+        argv=("snakemake",),
+    ):
+        instance = InstanceAttestation(
+            namespaces=CONFINED_NAMESPACES,
+            mounts=CONFINED_MOUNTS,
+            mount_plan_identity=mount_plan_identity(CONFINED_MOUNTS),
+            environment_identity=environment_identity,
+        )
+        return LaunchAttestation(
+            scratch_mapping=scratch_mapping,
+            argv=argv,
+            rendered_config=(),
+            capabilities=tuple(capabilities),
+            instance=instance,
+            rendered_environment=RENDERED_ENVIRONMENT,
+            mounts=SANDBOX_MOUNTS,
+        )
+
+    return build
 
 
 @pytest.fixture()

@@ -1,10 +1,4 @@
-"""Replay eligibility, execution, conformance, equivalence, and scope.
-
-Seed conformance validates recorded claims against the global SeedPlan. Family
-coverage is deferred: RunClosure retains the workflow-definition identity, not
-its family-to-stream mapping, so missing family/job/stream claims cannot be
-derived from this value alone.
-"""
+"""Replay eligibility, execution, conformance, equivalence, and scope."""
 
 from __future__ import annotations
 
@@ -91,7 +85,7 @@ def replay_eligibility(
     required = {
         recipe.code_identity,
         recipe.environment.identity(),
-        recipe.workflow_definition_identity,
+        recipe.workflow_definition.identity(),
         *(entry.content for entry in recipe.inputs),
     }
     return AVAILABLE if required <= resolvable_here and run.address() in attributions else NOT_AVAILABLE
@@ -207,11 +201,11 @@ def qualifies(receipt: BoundaryReceipt, environment_identity: str) -> bool:
     nothing here."""
     if type(receipt) is not BoundaryReceipt:
         raise MalformedRecord("qualification reads a BoundaryReceipt")
-    if receipt.instance is None:
+    if receipt.execution.instance is None:
         return False
-    if not set(REQUIRED_FOR_CLEAN_ENVIRONMENT) <= set(receipt.capabilities):
+    if not set(REQUIRED_FOR_CLEAN_ENVIRONMENT) <= set(receipt.execution.capabilities):
         return False
-    return receipt.instance.environment_identity == environment_identity
+    return receipt.execution.instance.environment_identity == environment_identity
 
 
 def derive_scope(

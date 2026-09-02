@@ -6,6 +6,7 @@ import dataclasses
 
 import pytest
 from confinement_fixtures import ENV_IDENTITY, MOUNTS, confined_closure, confined_receipt, instance
+from conftest import ENVIRONMENT, OTHER_ENVIRONMENT
 from fixtures_cut3 import closure, occurrence
 
 from beliefs.errors import BoundaryPolicyUnsupported, MalformedClosure
@@ -23,12 +24,14 @@ from beliefs.recipe import (
     SUPPORTED_POLICIES,
     BoundaryPolicy,
     BoundaryReceipt,
+    LaunchAttestation,
     _occurrence_projection,
     _receipt_projection,
     mount_plan_identity,
     run_domain_for,
     supported_policy,
 )
+from beliefs.replay import qualifies
 
 
 # --- K1: the vocabulary and the two exact policies ----------------------------
@@ -97,38 +100,54 @@ def test_k3_the_confined_members_are_all_present_or_all_absent():
     with pytest.raises(MalformedClosure):
         confined_receipt(mounts=None)
     with pytest.raises(MalformedClosure):
-        BoundaryReceipt(scratch_mapping="s", argv=("a",), rendered_config=(), instance=instance())
+        LaunchAttestation(scratch_mapping="s", argv=("a",), rendered_config=(), instance=instance())
     with pytest.raises(MalformedClosure):
-        BoundaryReceipt(scratch_mapping="s", argv=("a",), rendered_config=(), rendered_environment=(), mounts=())
-    minimal = BoundaryReceipt(scratch_mapping="s", argv=("a",), rendered_config=())
+        LaunchAttestation(scratch_mapping="s", argv=("a",), rendered_config=(), rendered_environment=(), mounts=())
+    launch = LaunchAttestation(scratch_mapping="s", argv=("a",), rendered_config=())
+    minimal = BoundaryReceipt(planning=launch, execution=launch)
     assert not minimal.confined and confined_receipt().confined
 
 
 def test_a_receipt_capability_outside_the_vocabulary_is_unspellable():
     with pytest.raises(MalformedClosure):
-        BoundaryReceipt(scratch_mapping="s", argv=("a",), rendered_config=(), capabilities=("teleportation",))
+        LaunchAttestation(scratch_mapping="s", argv=("a",), rendered_config=(), capabilities=("teleportation",))
 
 
 # --- K4: the domains ----------------------------------------------------------
 def test_k4_the_minimal_receipt_projection_is_byte_stable_under_v1():
-    receipt = BoundaryReceipt(scratch_mapping="scratch-mount-a", argv=("snakemake",), rendered_config=(("alpha", "0.05"),))
+    launch = LaunchAttestation(
+        scratch_mapping="scratch-mount-a", argv=("snakemake",), rendered_config=(("alpha", "0.05"),)
+    )
+    receipt = BoundaryReceipt(planning=launch, execution=launch)
     assert _receipt_projection(receipt) == {
-        "scratch_mapping": "scratch-mount-a",
-        "argv": ["snakemake"],
-        "rendered_config": [["alpha", "0.05"]],
-        "capabilities": [],
+        "planning": {
+            "scratch_mapping": "scratch-mount-a",
+            "argv": ["snakemake"],
+            "rendered_config": [["alpha", "0.05"]],
+            "capabilities": [],
+        },
+        "execution": {
+            "scratch_mapping": "scratch-mount-a",
+            "argv": ["snakemake"],
+            "rendered_config": [["alpha", "0.05"]],
+            "capabilities": [],
+        },
     }
     assert receipt.identity() == v1.digest(BOUNDARY_RECEIPT_DOMAIN, _receipt_projection(receipt))
-    assert BOUNDARY_RECEIPT_DOMAIN == "science.boundary-receipt.v1"
+    assert BOUNDARY_RECEIPT_DOMAIN == "science.boundary-receipt.v3"
 
 
 def test_k4_a_confined_receipt_projects_its_three_members_under_v2():
     receipt = confined_receipt()
     projection = _receipt_projection(receipt)
-    assert set(projection) == {"scratch_mapping", "argv", "rendered_config", "capabilities", "instance", "rendered_environment", "mounts"}
-    assert projection["instance"]["environment_identity"] == ENV_IDENTITY
+    assert set(projection) == {"planning", "execution"}
+    execution = projection["execution"]
+    assert isinstance(execution, dict)
+    instance_projection = execution["instance"]
+    assert isinstance(instance_projection, dict)
+    assert instance_projection["environment_identity"] == ENV_IDENTITY
     assert receipt.identity() == v1.digest(CONFINED_RECEIPT_DOMAIN, projection)
-    assert CONFINED_RECEIPT_DOMAIN == "science.boundary-receipt.v2"
+    assert CONFINED_RECEIPT_DOMAIN == "science.boundary-receipt.v4"
 
 
 def test_k4_a_confined_receipt_makes_a_v2_run():
@@ -151,3 +170,16 @@ def test_k4_a_confined_receipt_makes_a_v2_run():
 
 def test_the_cut_3_occurrence_fixture_still_spells_a_minimal_receipt():
     assert not occurrence().receipt.confined
+
+
+def test_qualification_reads_the_execution_launch_and_not_the_planning_one(confined_launch):
+    qualifying = confined_launch(capabilities=REQUIRED_FOR_CLEAN_ENVIRONMENT)
+    short = confined_launch(capabilities=("from-bundle",))
+    assert qualifies(BoundaryReceipt(planning=short, execution=qualifying), ENVIRONMENT) is True
+    assert qualifies(BoundaryReceipt(planning=qualifying, execution=short), ENVIRONMENT) is False
+
+
+def test_a_planning_launch_cannot_supply_the_execution_s_environment_agreement(confined_launch):
+    qualifying = confined_launch(environment_identity=ENVIRONMENT)
+    other = confined_launch(environment_identity=OTHER_ENVIRONMENT)
+    assert qualifies(BoundaryReceipt(planning=qualifying, execution=other), ENVIRONMENT) is False

@@ -47,6 +47,7 @@ __all__ = [
     "ExclusionCertification",
     "InstanceAttestation",
     "Invocation",
+    "LaunchAttestation",
     "Occurrence",
     "Recipe",
     "RecipeInput",
@@ -65,8 +66,8 @@ RECIPE_DOMAIN = "science.recipe.v2"
 RUN_DOMAIN = "science.run.v1"
 CONFINED_RUN_DOMAIN = "science.run.v2"
 ENVIRONMENT_DOMAIN = "science.environment.v2"
-BOUNDARY_RECEIPT_DOMAIN = "science.boundary-receipt.v1"
-CONFINED_RECEIPT_DOMAIN = "science.boundary-receipt.v2"
+BOUNDARY_RECEIPT_DOMAIN = "science.boundary-receipt.v3"
+CONFINED_RECEIPT_DOMAIN = "science.boundary-receipt.v4"
 MOUNT_PLAN_DOMAIN = "science.mount-plan.v1"
 WORKFLOW_DEFINITION_DOMAIN = "science.workflow-definition.v2"
 
@@ -558,7 +559,7 @@ class InstanceAttestation:
 @sealed
 @final
 @dataclass(frozen=True)
-class BoundaryReceipt:
+class LaunchAttestation:
     scratch_mapping: str
     argv: tuple[str, ...]
     rendered_config: tuple[tuple[str, str], ...]
@@ -568,31 +569,49 @@ class BoundaryReceipt:
     mounts: tuple[tuple[str, str], ...] | None = None
 
     def __post_init__(self) -> None:
-        _require_str(self.scratch_mapping, "boundary receipt scratch mapping")
-        _require_strings(self.argv, "boundary receipt argv")
-        _require_pairs(self.rendered_config, "boundary receipt rendered config")
-        _require_strings(self.capabilities, "boundary receipt capabilities")
+        _require_str(self.scratch_mapping, "launch scratch mapping")
+        _require_strings(self.argv, "launch argv")
+        _require_pairs(self.rendered_config, "launch rendered config")
+        _require_strings(self.capabilities, "launch capabilities")
         if any(capability not in CAPABILITIES for capability in self.capabilities):
-            raise MalformedClosure(f"boundary receipt capabilities are outside the closed vocabulary {CAPABILITIES}")
+            raise MalformedClosure(f"launch capabilities are outside the closed vocabulary {CAPABILITIES}")
         if len(set(self.capabilities)) != len(self.capabilities):
-            raise MalformedClosure("boundary receipt capabilities name each capability once")
+            raise MalformedClosure("launch capabilities name each capability once")
         present = sum(member is not None for member in (self.instance, self.rendered_environment, self.mounts))
         if present not in (0, 3):
             raise MalformedClosure(
-                "a confined receipt carries instance, rendered_environment and mounts together; a minimal receipt carries none"
+                "a confined launch carries instance, rendered_environment and mounts together; a minimal launch carries none"
             )
         if self.instance is None:
             return
         if type(self.instance) is not InstanceAttestation:
-            raise MalformedClosure("a confined receipt's instance is an InstanceAttestation")
-        _require_triples(self.rendered_environment, "boundary receipt rendered environment")
+            raise MalformedClosure("a confined launch's instance is an InstanceAttestation")
+        _require_triples(self.rendered_environment, "launch rendered environment")
         if any(kind not in RENDERED_KINDS for _, kind, _ in cast(tuple[tuple[str, str, str], ...], self.rendered_environment)):
             raise MalformedClosure(f"a rendered environment row's kind is one of {RENDERED_KINDS}")
-        _require_pairs(self.mounts, "boundary receipt mounts")
+        _require_pairs(self.mounts, "launch mounts")
 
     @property
     def confined(self) -> bool:
         return self.instance is not None
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class BoundaryReceipt:
+    planning: LaunchAttestation
+    execution: LaunchAttestation
+
+    def __post_init__(self) -> None:
+        if type(self.planning) is not LaunchAttestation or type(self.execution) is not LaunchAttestation:
+            raise MalformedClosure("a boundary receipt carries planning and execution launch attestations")
+        if self.planning.confined != self.execution.confined:
+            raise MalformedClosure("planning and execution launches must agree about confinement")
+
+    @property
+    def confined(self) -> bool:
+        return self.execution.confined
 
     def identity(self) -> str:
         domain = CONFINED_RECEIPT_DOMAIN if self.confined else BOUNDARY_RECEIPT_DOMAIN
@@ -642,25 +661,29 @@ def _trace_projection(job: TraceJob) -> dict[str, object]:
     }
 
 
-def _receipt_projection(receipt: BoundaryReceipt) -> dict[str, object]:
+def _launch_projection(launch: LaunchAttestation) -> dict[str, object]:
     projection: dict[str, object] = {
-        "scratch_mapping": receipt.scratch_mapping,
-        "argv": list(receipt.argv),
-        "rendered_config": _pairs(receipt.rendered_config),
-        "capabilities": sorted(receipt.capabilities),
+        "scratch_mapping": launch.scratch_mapping,
+        "argv": list(launch.argv),
+        "rendered_config": _pairs(launch.rendered_config),
+        "capabilities": sorted(launch.capabilities),
     }
-    if not receipt.confined:
+    if not launch.confined:
         return projection
-    instance = cast(InstanceAttestation, receipt.instance)
+    instance = cast(InstanceAttestation, launch.instance)
     projection["instance"] = {
         "namespaces": sorted(instance.namespaces),
         "mounts": _triples(instance.mounts),
         "mount_plan_identity": instance.mount_plan_identity,
         "environment_identity": instance.environment_identity,
     }
-    projection["rendered_environment"] = _triples(cast(tuple[tuple[str, str, str], ...], receipt.rendered_environment))
-    projection["mounts"] = _pairs(cast(tuple[tuple[str, str], ...], receipt.mounts))
+    projection["rendered_environment"] = _triples(cast(tuple[tuple[str, str, str], ...], launch.rendered_environment))
+    projection["mounts"] = _pairs(cast(tuple[tuple[str, str], ...], launch.mounts))
     return projection
+
+
+def _receipt_projection(receipt: BoundaryReceipt) -> dict[str, object]:
+    return {"planning": _launch_projection(receipt.planning), "execution": _launch_projection(receipt.execution)}
 
 
 def _occurrence_projection(occurrence: Occurrence) -> dict[str, object]:

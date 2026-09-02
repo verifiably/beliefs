@@ -14,6 +14,7 @@ from beliefs.recipe import (
     BoundaryReceipt,
     EnvironmentManifest,
     Invocation,
+    LaunchAttestation,
     Occurrence,
     Recipe,
     RecipeInput,
@@ -142,7 +143,10 @@ def occurrence(**overrides) -> Occurrence:
             ),
         ),
         "realized_seeds": RealizedSeeds(seeds={"transform": {"model-initialization": 7}}),
-        "receipt": BoundaryReceipt(scratch_mapping="scratch-mount-a", argv=("snakemake",), rendered_config=()),
+        "receipt": BoundaryReceipt(
+            planning=LaunchAttestation(scratch_mapping="scratch-mount-a", argv=("snakemake",), rendered_config=()),
+            execution=LaunchAttestation(scratch_mapping="scratch-mount-a", argv=("snakemake",), rendered_config=()),
+        ),
     }
     fields.update(overrides)
     return Occurrence(**fields)
