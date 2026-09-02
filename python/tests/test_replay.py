@@ -3,8 +3,7 @@ checks, R16's evaluator and scope arms, G9's replay-eligibility third.
 R9's admission conjunct and R16's nothing-is-admitted conjunct live in
 acceptance/test_confinement_acceptance.py (cut 13); R5 negative (a) (persistence seam)
 — cut 3 §4.2/§7.1.
-R16's missing family/job/stream completeness remains deferred with the full
-workflow surface because RunClosure retains only the definition identity.
+R16's family/job/stream completeness is checked from the workflow snapshot.
 """
 
 import dataclasses
@@ -21,9 +20,12 @@ from fixtures_cut3 import (
     SNAKEFILE_PRODUCTION,
     SNAKEFILE_SEED_VIOLATING,
     closure_kwargs,
+    closure_with,
     seed_plan,
     spec_draft,
     spec_rules,
+    traced,
+    traced_from_key,
 )
 from fixtures_cut3 import (
     memory_assessment as run_assessment,
@@ -41,7 +43,7 @@ from beliefs.boundary import RunMinted, RunRefused, execute_assessment_run
 from beliefs.closure import build_closure
 from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
 from beliefs.errors import MalformedRecord
-from beliefs.recipe import CAPABILITIES, BoundaryPolicy, ResultManifest, TraceJob, WorkflowDefinitionSnapshot
+from beliefs.recipe import CAPABILITIES, BoundaryPolicy, ResultManifest, TraceJob, WorkflowDefinitionSnapshot, job_key
 from beliefs.record import AssessmentValue, RunInput, RunValue
 from beliefs.replay import (
     AVAILABLE,
@@ -63,6 +65,9 @@ from beliefs.spec import Deterministic, RealizedSeeds, Seeded, SeedPlan, Stochas
 from beliefs.verification import Verification, lifecycle_state
 
 DIGEST = "sha256:" + "11" * 32
+FIT_A = job_key("fit", (("sample", "a"),))
+FIT_B = job_key("fit", (("sample", "b"),))
+correct_seed = derive_seed
 
 
 def _snapshot(family_streams):
@@ -91,6 +96,146 @@ def test_a_logical_stream_no_family_claims_disagrees() -> None:
 def test_a_deterministic_definition_expects_no_streams() -> None:
     assert definition_agrees_with_plan(_snapshot({}), None) is None
     assert definition_agrees_with_plan(_snapshot({"fit": ("model-initialization",)}), None) is not None
+
+
+def _family_run(*, families, plan, seeds):
+    return closure_with(
+        nondeterminism=Seeded(plan=plan),
+        family_streams=families,
+        realized={key: dict(streams) for key, streams in seeds.items()},
+        trace=tuple(traced_from_key(key) for key in seeds),
+    )
+
+
+def test_a_job_realizing_a_stream_its_family_does_not_declare_is_non_conforming() -> None:
+    run = _family_run(
+        families={"fit": ("model-initialization",)},
+        plan=seed_plan(streams=("model-initialization",)),
+        seeds={FIT_A: {"model-initialization": 1, "resample-draws": 2}},
+    )
+    assert conformance(run).startswith("non-conforming")
+
+
+def test_a_job_omitting_a_stream_its_family_declares_is_non_conforming() -> None:
+    plan = seed_plan(
+        streams=("model-initialization", "resample-draws"),
+        roots={"r": 11},
+        stream_roots={"model-initialization": "r", "resample-draws": "r"},
+    )
+    other = job_key("other", ())
+    seeds = {
+        FIT_A: {"model-initialization": correct_seed(11, FIT_A, "model-initialization")},
+        other: {"resample-draws": correct_seed(11, other, "resample-draws")},
+    }
+    families = {
+        "fit": ("model-initialization", "resample-draws"),
+        "other": ("resample-draws",),
+    }
+    run = _family_run(families=families, plan=plan, seeds=seeds)
+    assert {stream for claims in seeds.values() for stream in claims} == set(plan.streams)
+    assert conformance(run).startswith("non-conforming")
+
+
+def test_a_wildcard_instance_is_judged_against_its_family() -> None:
+    plan = seed_plan(streams=("model-initialization",))
+    seeds = {
+        key: {"model-initialization": correct_seed(11, key, "model-initialization")}
+        for key in (FIT_A, FIT_B)
+    }
+    assert conformance(
+        _family_run(families={"fit": ("model-initialization",)}, plan=plan, seeds=seeds)
+    ) == CONFORMING
+
+
+def test_different_families_realizing_different_streams_conforms() -> None:
+    plan = seed_plan(
+        streams=("model-initialization", "resample-draws"),
+        roots={"r": 11},
+        stream_roots={"model-initialization": "r", "resample-draws": "r"},
+    )
+    a, b = job_key("a", ()), job_key("b", ())
+    seeds = {
+        a: {"model-initialization": correct_seed(11, a, "model-initialization")},
+        b: {"resample-draws": correct_seed(11, b, "resample-draws")},
+    }
+    families = {"a": ("model-initialization",), "b": ("resample-draws",)}
+    assert conformance(_family_run(families=families, plan=plan, seeds=seeds)) == CONFORMING
+
+
+def test_an_over_claiming_record_does_not_conform() -> None:
+    plan = seed_plan(
+        streams=("model-initialization", "resample-draws"),
+        roots={"r": 11},
+        stream_roots={"model-initialization": "r", "resample-draws": "r"},
+    )
+    a, b = job_key("a", ()), job_key("b", ())
+    seeds = {
+        key: {
+            stream: correct_seed(11, key, stream)
+            for stream in ("model-initialization", "resample-draws")
+        }
+        for key in (a, b)
+    }
+    families = {"a": ("model-initialization",), "b": ("resample-draws",)}
+    assert conformance(_family_run(families=families, plan=plan, seeds=seeds)).startswith("non-conforming")
+
+
+def test_two_streams_in_one_job_are_both_checked() -> None:
+    plan = seed_plan(
+        streams=("model-initialization", "resample-draws"),
+        roots={"r": 11},
+        stream_roots={"model-initialization": "r", "resample-draws": "r"},
+    )
+    seeds = {
+        FIT_A: {
+            stream: correct_seed(11, FIT_A, stream)
+            for stream in ("model-initialization", "resample-draws")
+        }
+    }
+    run = _family_run(
+        families={"fit": ("model-initialization", "resample-draws")},
+        plan=plan,
+        seeds=seeds,
+    )
+    assert conformance(run) == CONFORMING
+
+
+def test_a_constructed_closure_whose_definition_disagrees_is_non_conforming() -> None:
+    run = closure_with(
+        family_streams={"fit": ("model-initialization",)},
+        nondeterminism=Deterministic(),
+        trace=(traced("fit", {}),),
+    )
+    assert conformance(run).startswith("non-conforming")
+
+
+def test_a_declared_stream_no_executed_job_realized_is_non_conforming() -> None:
+    plan = seed_plan(
+        streams=("model-initialization", "resample-draws"),
+        roots={"r": 11},
+        stream_roots={"model-initialization": "r", "resample-draws": "r"},
+    )
+    a = job_key("a", ())
+    seeds = {a: {"model-initialization": correct_seed(11, a, "model-initialization")}}
+    families = {"a": ("model-initialization",), "b": ("resample-draws",)}
+    assert conformance(_family_run(families=families, plan=plan, seeds=seeds)).startswith("non-conforming")
+
+
+def test_a_seed_claim_for_a_job_absent_from_the_trace_is_non_conforming() -> None:
+    plan = seed_plan(streams=("model-initialization",))
+    orphan = job_key("fit", (("sample", "b"),))
+    realized = {
+        FIT_A: {"model-initialization": correct_seed(11, FIT_A, "model-initialization")},
+        orphan: {"model-initialization": correct_seed(11, orphan, "model-initialization")},
+    }
+    run = closure_with(
+        nondeterminism=Seeded(plan=plan),
+        family_streams={"fit": ("model-initialization",)},
+        realized=realized,
+        trace=(traced_from_key(FIT_A),),
+    )
+    assert {stream for claims in realized.values() for stream in claims} == set(plan.streams)
+    assert conformance(run).startswith("non-conforming: seed claims for jobs absent")
 
 
 @pytest.fixture(scope="module")

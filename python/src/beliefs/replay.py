@@ -23,12 +23,10 @@ from beliefs.runrecord import OperationPort
 from beliefs.sealed import sealed
 from beliefs.spec import (
     SEED_DERIVATION_V1,
-    Deterministic,
     FrozenSpec,
     RuleFixture,
     Seeded,
     SeedPlan,
-    StochasticUnseeded,
     derive_seed,
 )
 
@@ -185,30 +183,40 @@ def byte_tolerance_rule(store: Mapping[str, bytes]) -> EquivalenceImplementation
 
 
 def conformance(run: RunClosure) -> str:
-    """Validate every recorded seed claim; do not infer unrecorded family coverage."""
+    """Check definition agreement and both job and occurrence seed levels."""
     contract = run.recipe.nondeterminism
-    realized = run.occurrence.realized_seeds.seeds
-    if type(contract) is StochasticUnseeded:
-        return CONFORMING
-    if type(contract) is Deterministic:
-        if realized:
-            return f"non-conforming: deterministic recipe reported seeds for {min(realized)!r}"
-        return CONFORMING
-
-    if type(contract) is not Seeded:
-        return "non-conforming: unknown nondeterminism contract"
-    plan = contract.plan
-    if plan.derivation_rule != SEED_DERIVATION_V1:
+    snapshot = run.recipe.workflow_definition
+    plan = contract.plan if type(contract) is Seeded else None
+    if reason := definition_agrees_with_plan(snapshot, plan):
+        return f"non-conforming: {reason}"
+    if plan is not None and plan.derivation_rule != SEED_DERIVATION_V1:
         return f"non-conforming: unsupported seed derivation rule {plan.derivation_rule!r}"
 
-    streams = set(plan.streams)
-    for job, claims in sorted(realized.items()):
+    realized = run.occurrence.realized_seeds.seeds
+    for job in run.occurrence.trace:
+        key = job.job_key()
+        declared = set(snapshot.family_streams.get(job.rule, ()))
+        claims = realized.get(key, {})
+        if set(claims) != declared:
+            return (
+                f"non-conforming: job {key!r} realized {sorted(claims)} against "
+                f"its family's declaration {sorted(declared)}"
+            )
+        if plan is None:
+            continue
         for stream, actual in sorted(claims.items()):
-            if stream not in streams:
-                return f"non-conforming: job {job!r} names undeclared stream {stream!r}"
-            expected = derive_seed(plan.roots[plan.stream_roots[stream]], job, stream)
+            expected = derive_seed(plan.roots[plan.stream_roots[stream]], key, stream)
             if actual != expected:
-                return f"non-conforming: job {job!r} stream {stream!r} realized {actual}, expected {expected}"
+                return f"non-conforming: job {key!r} stream {stream!r} realized {actual}, expected {expected}"
+
+    executed_keys = {job.job_key() for job in run.occurrence.trace}
+    if orphans := sorted(set(realized) - executed_keys):
+        return f"non-conforming: seed claims for jobs absent from the trace: {orphans}"
+
+    union = {stream for claims in realized.values() for stream in claims}
+    expected_streams = set(plan.streams) if plan is not None else set()
+    if union != expected_streams:
+        return f"non-conforming: realized streams {sorted(union)} against plan {sorted(expected_streams)}"
     return CONFORMING
 
 

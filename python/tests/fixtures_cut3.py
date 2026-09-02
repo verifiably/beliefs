@@ -1,5 +1,6 @@
 """Shared cut-3 fixtures: value builders and held Snakefile definitions."""
 
+import json
 from decimal import Decimal
 from hashlib import sha256
 from typing import cast
@@ -21,6 +22,7 @@ from beliefs.recipe import (
     ResultManifest,
     RunClosure,
     TraceJob,
+    WorkflowDefinitionSnapshot,
 )
 
 # Tests build fixture values through the private constructor deliberately —
@@ -160,6 +162,53 @@ def closure(**overrides) -> RunClosure:
     }
     fields.update(overrides)
     return RunClosure(**fields)
+
+
+def traced(family, wildcards, job_id=None):
+    pairs = tuple(sorted(wildcards.items()))
+    return TraceJob(
+        job_id=job_id or f"{family}-{len(pairs)}",
+        rule=family,
+        wildcards=pairs,
+        inputs=(),
+        outputs=(),
+    )
+
+
+def traced_from_key(key):
+    parsed = json.loads(key)
+    return traced(parsed["rule"], parsed["wildcards"])
+
+
+def closure_with(
+    *,
+    nondeterminism=None,
+    family_streams=None,
+    realized=None,
+    trace=None,
+    outputs=(("out.txt", D_OUT),),
+):
+    """Build a closure from record parts for arms that need no engine."""
+    families = family_streams if family_streams is not None else {}
+    jobs = trace if trace is not None else (traced("transform", {}),)
+    snapshot = WorkflowDefinitionSnapshot(
+        snakefile_digest=D_IN,
+        family_streams=families,
+        checkpoint_expanded_families=(),
+    )
+    built = recipe(
+        nondeterminism=nondeterminism or Deterministic(),
+        workflow_definition=snapshot,
+        invocation=invocation(declared_outputs=tuple(name for name, _ in outputs)),
+    )
+    return RunClosure(
+        recipe=built,
+        result=ResultManifest(outputs=tuple(outputs)),
+        occurrence=occurrence(
+            trace=jobs,
+            realized_seeds=RealizedSeeds(seeds=realized or {}),
+        ),
+    )
 
 
 def closure_kwargs(assessments, runs):
