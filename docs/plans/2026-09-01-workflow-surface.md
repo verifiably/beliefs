@@ -2773,7 +2773,9 @@ def _held(tmp_path, name, text):
 
 def _produce(durable_root, tmp_path, *, address, name, text):
     """One production run whose single `transforms` input is `address`."""
-    held = _held(tmp_path / "held", f"{name}.txt", text)
+    # staging preserves the held file's basename; the Snakefile reads
+    # inputs/data.txt, so each run gets its own data.txt source directory
+    held = _held(tmp_path / name, "data.txt", text)
     digest = "sha256:" + __import__("hashlib").sha256(held.read_bytes()).hexdigest()
     return run_workflow(
         tmp_path / name,

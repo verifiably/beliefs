@@ -9,6 +9,7 @@ from fixtures_cut3 import DATA_ADDRESS, MEMORY_PORT, READS_ADDRESS, stage
 from beliefs.adapter import WorkflowDefinition
 from beliefs.boundary import RunMinted, execute_production_run
 from beliefs.recipe import MINIMAL_POLICY, RecipeInput
+from beliefs.runrecord import OperationPort
 from beliefs.spec import Deterministic
 
 SNAKEFILE_WILDCARD = """\
@@ -194,7 +195,7 @@ def run_workflow(
     snakefile: str,
     targets,
     declared_outputs,
-    port=MEMORY_PORT,
+    port: OperationPort = MEMORY_PORT,
     family_streams=None,
     checkpoint_expanded_families=(),
     nondeterminism=None,
