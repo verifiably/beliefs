@@ -39,6 +39,26 @@ def pins(domain_id: str = "testing-contract-id-1", science: str = BASE) -> Corpu
     return CorpusPins(science_contract=science, domains={"testing": domain_id})
 
 
+def test_an_activated_coordination_contract_is_never_a_belief_input(profile):
+    ordinary = pins()
+    with_coordination = CorpusPins(
+        science_contract=ordinary.science_contract,
+        domains={**ordinary.domains, "coordination": "coordination:" + "c" * 64},
+    )
+    without = consulted_contracts(
+        claims={}, profile=profile, node_corpus={}, pins={"c1": ordinary}, closure_nodes=()
+    )
+    with_pin = consulted_contracts(
+        claims={},
+        profile=profile,
+        node_corpus={},
+        pins={"c1": with_coordination},
+        closure_nodes=(),
+    )
+    assert with_pin == without
+    assert "coordination" not in dict(with_pin)
+
+
 class TestTheWalk:
     def test_the_base_contract_is_unconditional(self, profile):
         consulted = consulted_contracts(

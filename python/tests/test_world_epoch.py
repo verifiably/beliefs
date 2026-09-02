@@ -34,6 +34,8 @@ from typing import Any, Self
 
 import pytest
 import yaml
+from coordination_fixtures import content_for, coordination_profile, mounted_root
+from nodes.core.corpus import Corpus
 from nodes.core.write_plan import CreateOp, DefaultExecutor, ReplaceOp, WriteOp, WritePlan
 from test_world_build import (
     ALPHA,
@@ -50,9 +52,46 @@ from test_world_build import (
 )
 
 from beliefs import stored
+from beliefs.corpus import CoordinationResolver, CorpusWriter
 from beliefs.errors import EpochMalformed, EpochUnknown
 from beliefs.identity import v1
 from beliefs.world import derive, epoch, read, registry
+
+
+def test_coordination_bytes_move_corpus_state_but_never_become_captured_world_records(
+    tmp_path, base_contract
+):
+    profile = coordination_profile(base_contract)
+    root = mounted_root(tmp_path, profile)
+    writer = CorpusWriter(
+        root,
+        DefaultExecutor,
+        coordination_resolver=CoordinationResolver({root: profile}),
+    )
+    before = registry.corpus_state_identity(root)
+    project = writer.mint_coordination("project", content=content_for("project"))
+    after = registry.corpus_state_identity(root)
+    assert after != before
+    assert project.id not in {record.address for record in epoch._captured_records(root)}
+
+
+def test_world_records_are_still_captured_beside_coordination_records(tmp_path, base_contract):
+    profile = coordination_profile(base_contract)
+    root = mounted_root(tmp_path, profile)
+    Corpus(root).add(
+        stored.dataset_node(
+            "world",
+            title="world",
+            resources=[{"name": "x", "digest": "sha256:" + "a" * 64}],
+        )
+    )
+    writer = CorpusWriter(
+        root,
+        DefaultExecutor,
+        coordination_resolver=CoordinationResolver({root: profile}),
+    )
+    writer.mint_coordination("project", content=content_for("project"))
+    assert {record.address for record in epoch._captured_records(root)} == {"dataset:world"}
 
 # --- the harness -------------------------------------------------------------
 
