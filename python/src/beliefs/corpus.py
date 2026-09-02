@@ -1252,7 +1252,7 @@ class CorpusWriter:
         validated = dict(content)
         expected = set(kind_spec.fields)
         if kind == "note" and "about" not in validated:
-            expected.remove("about")
+            expected -= {"about"}
         if set(validated) != expected:
             raise ValidationRefused(
                 f"{kind!r} content fields must be exactly {sorted(expected)}"
@@ -1470,7 +1470,7 @@ class CorpusWriter:
     def retract(self, record: Node) -> Node:
         """Mint one locally resolvable retraction without touching its target."""
         with self._operation:
-            self._refuse_family_kinds(record)
+            self._refuse_family_kinds(record, admitted_kind="retraction")
             try:
                 self._validated_retraction(record)
             except MalformedRecord as caught:
@@ -1798,7 +1798,7 @@ class CorpusWriter:
             raise MalformedRecord(f"{record.id}: retraction does not match the controlled stored shape")
         return facet
 
-    def _refuse_family_kinds(self, node: Node) -> None:
+    def _refuse_family_kinds(self, node: Node, *, admitted_kind: str | None = None) -> None:
         if node.kind in COORDINATION_KINDS:
             raise CoordinationKindUnsupported(f"{node.kind!r} enters through the coordination family door")
         profile = self._coordination_resolver.profile(self._corpus.store.root) if self._coordination_resolver is not None else None
@@ -1806,7 +1806,7 @@ class CorpusWriter:
             raise CoordinationKindUnsupported(f"{node.kind!r} enters through the coordination family door")
         if node.kind == "holdings-observation":
             raise WriteRefused("a holdings observation is minted only by the acts boundary")
-        if node.kind == "retraction":
+        if node.kind == "retraction" and admitted_kind != "retraction":
             raise WriteRefused("a retraction enters through retract")
         if node.kind == "act-report":
             raise WriteRefused("an act-report is minted by the boundary and stored by import")
