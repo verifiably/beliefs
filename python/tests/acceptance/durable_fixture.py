@@ -26,15 +26,15 @@ RUN = "run:r1"
 PROPOSITION = "proposition:p1"
 ASSESSMENT = "assessment:a1"
 
-CHAIN = ("note:chain-a", "note:chain-b", "note:chain-c")
-DIAMOND_TOP = "note:diamond-top"
-DIAMOND_BOTTOM = "note:diamond-bottom"
-CYCLE = ("note:cycle-a", "note:cycle-b")
-UNDIRECTED = ("note:undirected-source", "note:undirected-target")
-DANGLING_SOURCE = "note:dangling"
-RENAMED = "note:renamed"
-RENAMED_OLD = "note:renamed-old"
-UNRELATED = "note:unrelated"
+CHAIN = ("memo:chain-a", "memo:chain-b", "memo:chain-c")
+DIAMOND_TOP = "memo:diamond-top"
+DIAMOND_BOTTOM = "memo:diamond-bottom"
+CYCLE = ("memo:cycle-a", "memo:cycle-b")
+UNDIRECTED = ("memo:undirected-source", "memo:undirected-target")
+DANGLING_SOURCE = "memo:dangling"
+RENAMED = "memo:renamed"
+RENAMED_OLD = "memo:renamed-old"
+UNRELATED = "memo:unrelated"
 
 LINEAGE_ROOT = "dataset:lineage-root"
 LINEAGE_MIDDLE = "dataset:lineage-middle"
@@ -61,8 +61,8 @@ def slug(ref: str) -> str:
     return ref.split(":", 1)[1]
 
 
-def note(ref: str, *, relations=(), deprecated=()) -> Node:
-    node = Node(id=ref, kind="note", title=slug(ref), relations=list(relations))
+def memo(ref: str, *, relations=(), deprecated=()) -> Node:
+    node = Node(id=ref, kind="memo", title=slug(ref), relations=list(relations))
     node.deprecated_ids = list(deprecated)
     return node
 
@@ -126,30 +126,30 @@ def mint_relation_fixture(writer: CorpusWriter) -> None:
     """S1's fixture: chain, diamond, cycle, unrelated predicate, deprecated
     ref, dangling target, and the undirected relation."""
     first, second, third = CHAIN
-    writer.add(note(first, relations=[cites(first, second), cites(first, UNRELATED, predicate="mentions")]))
-    writer.add(note(second, relations=[cites(second, third)]))
-    writer.add(note(third, relations=[cites(third, RENAMED_OLD)]))
-    writer.add(note(UNRELATED))
-    writer.add(note(RENAMED, deprecated=[RENAMED_OLD]))
+    writer.add(memo(first, relations=[cites(first, second), cites(first, UNRELATED, predicate="mentions")]))
+    writer.add(memo(second, relations=[cites(second, third)]))
+    writer.add(memo(third, relations=[cites(third, RENAMED_OLD)]))
+    writer.add(memo(UNRELATED))
+    writer.add(memo(RENAMED, deprecated=[RENAMED_OLD]))
 
-    left, right = "note:diamond-left", "note:diamond-right"
-    writer.add(note(DIAMOND_TOP, relations=[cites(DIAMOND_TOP, left), cites(DIAMOND_TOP, right)]))
-    writer.add(note(left, relations=[cites(left, DIAMOND_BOTTOM)]))
-    writer.add(note(right, relations=[cites(right, DIAMOND_BOTTOM)]))
-    writer.add(note(DIAMOND_BOTTOM))
+    left, right = "memo:diamond-left", "memo:diamond-right"
+    writer.add(memo(DIAMOND_TOP, relations=[cites(DIAMOND_TOP, left), cites(DIAMOND_TOP, right)]))
+    writer.add(memo(left, relations=[cites(left, DIAMOND_BOTTOM)]))
+    writer.add(memo(right, relations=[cites(right, DIAMOND_BOTTOM)]))
+    writer.add(memo(DIAMOND_BOTTOM))
 
     cycle_a, cycle_b = CYCLE
-    writer.add(note(cycle_a, relations=[cites(cycle_a, cycle_b)]))
-    writer.add(note(cycle_b, relations=[cites(cycle_b, cycle_a)]))
+    writer.add(memo(cycle_a, relations=[cites(cycle_a, cycle_b)]))
+    writer.add(memo(cycle_b, relations=[cites(cycle_b, cycle_a)]))
 
     source, target = UNDIRECTED
-    writer.add(note(source, relations=[cites(source, target, directed=False)]))
-    writer.add(note(target))
+    writer.add(memo(source, relations=[cites(source, target, directed=False)]))
+    writer.add(memo(target))
 
     writer.add(
-        note(
+        memo(
             DANGLING_SOURCE,
-            relations=[cites(DANGLING_SOURCE, UNRELATED), cites(DANGLING_SOURCE, "note:gone")],
+            relations=[cites(DANGLING_SOURCE, UNRELATED), cites(DANGLING_SOURCE, "memo:gone")],
         )
     )
 

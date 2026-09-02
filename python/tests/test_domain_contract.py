@@ -430,3 +430,14 @@ class TestParallelGenesis:
 
         assert first.namespace == second.namespace
         assert first.claim_vocabulary() != second.claim_vocabulary()
+
+
+def test_a_domain_contract_cannot_claim_the_coordination_namespace(base_contract, testing_document):
+    testing_document["contract"] = "coordination"
+    with pytest.raises(MalformedContract, match="reserved"):
+        domain.parse_domain_contract(
+            testing_document,
+            source="<test>",
+            base=base_contract,
+            predecessor=None,
+        )

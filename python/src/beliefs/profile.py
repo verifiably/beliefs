@@ -35,7 +35,9 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import final
 
+from beliefs import stored
 from beliefs.contract.base import BaseContract, ClaimGrammar
+from beliefs.contract.coordination import CoordinationContract
 from beliefs.contract.domain import DomainContract, OperatorDecl, VocabularyBinding
 from beliefs.errors import (
     ContractMismatch,
@@ -47,13 +49,29 @@ from beliefs.errors import (
 from beliefs.identity import v1
 from beliefs.sealed import sealed
 
-__all__ = ["CompiledDimension", "CompiledOperator", "CompiledSort", "ProfileSpec", "compile_profile"]
+__all__ = [
+    "CompiledCoordinationKind",
+    "CompiledDimension",
+    "CompiledOperator",
+    "CompiledSort",
+    "ProfileSpec",
+    "compile_profile",
+]
 
 PROFILE_DOMAIN = "science.profile.v1"
 
 _MINT = object()
 """`compile_profile`'s own token — see `beliefs.contract.base._MINT` for what a
 token achieves in this language and what it cannot."""
+
+
+@dataclass(frozen=True)
+class CompiledCoordinationKind:
+    fields: frozenset[str]
+    query_versions: frozenset[str]
+
+    def projection(self) -> dict[str, object]:
+        return {"fields": sorted(self.fields), "query_versions": sorted(self.query_versions)}
 
 
 @dataclass(frozen=True)
@@ -125,6 +143,10 @@ class ProfileSpec:
     operators: Mapping[str, CompiledOperator]
     dimensions: Mapping[str, CompiledDimension]
     sorts: Mapping[str, CompiledSort]
+    coordination_kinds: Mapping[str, CompiledCoordinationKind]
+    coordination_address_root: str | None
+    coordination_query_kinds: frozenset[str]
+    coordination_query_relations: frozenset[str]
 
     base_contract_identity: str
     """Unconditional. D §8: a derivation reading no base-profile facet at all
@@ -181,7 +203,26 @@ class ProfileSpec:
         a shape change — carrying the operators as a **sequence** rather than a
         map keyed by term — and that is what a test can check.
         """
-        return _projection(self.claim_grammar, self.operators, self.dimensions, self.sorts)
+        coordination = None
+        if self.coordination_address_root is not None:
+            coordination = {
+                "address_root": self.coordination_address_root,
+                "kinds": {
+                    name: self.coordination_kinds[name].projection()
+                    for name in sorted(self.coordination_kinds)
+                },
+                "query_vocabulary": {
+                    "kinds": sorted(self.coordination_query_kinds),
+                    "relations": sorted(self.coordination_query_relations),
+                },
+            }
+        return _projection(
+            self.claim_grammar,
+            self.operators,
+            self.dimensions,
+            self.sorts,
+            coordination=coordination,
+        )
 
     def operator(self, term: str) -> CompiledOperator:
         """Resolve an operator term identifier, or refuse.
@@ -271,7 +312,12 @@ class ProfileSpec:
         return f"its argument sorts {retired} are retired, so its slots cannot be filled"
 
 
-def compile_profile(base: BaseContract, domains: Iterable[DomainContract]) -> ProfileSpec:
+def compile_profile(
+    base: BaseContract,
+    domains: Iterable[DomainContract],
+    *,
+    coordination: CoordinationContract | None = None,
+) -> ProfileSpec:
     """Merge the base contract and the activated domain contracts.
 
     Merging happens **upstream** of any registration, which is why D §6 could
@@ -292,6 +338,16 @@ def compile_profile(base: BaseContract, domains: Iterable[DomainContract]) -> Pr
             "parse_base_contract(document, source=...) or load_base_contract(path). A profile compiled from "
             "an authored grammar would resolve claims against polarities and layers nobody declared."
         )
+    if coordination is not None and not isinstance(coordination, CoordinationContract):
+        raise UnparsedContract(
+            f"the coordination contract is a {type(coordination).__name__}, not a parsed "
+            "CoordinationContract — use parse_coordination_contract or load_coordination_contract."
+        )
+    if coordination is not None:
+        unknown_kinds = set(coordination.query_kinds) - set(stored.WORLD_KINDS)
+        unknown_relations = set(coordination.query_relations) - set(stored.WORLD_RELATIONS)
+        if unknown_kinds or unknown_relations:
+            raise ProfileError("coordination query vocabulary is outside the kernel inventory")
     activated = list(domains)
     for contract in activated:
         if not isinstance(contract, DomainContract):
@@ -351,6 +407,24 @@ def compile_profile(base: BaseContract, domains: Iterable[DomainContract]) -> Pr
         for name, operator in contract.operators.items():
             operators[contract.term(name)] = _compile_operator(contract, operator)
 
+    coordination_kinds = (
+        {
+            name: CompiledCoordinationKind(
+                fields=frozenset(declaration.fields),
+                query_versions=frozenset(declaration.query_versions),
+            )
+            for name, declaration in coordination.kinds.items()
+        }
+        if coordination is not None
+        else {}
+    )
+    coordination_projection = (
+        _coordination_projection(coordination) if coordination is not None else None
+    )
+    activated_contracts = {ns: contract.content_identity for ns, contract in seen.items()}
+    if coordination is not None:
+        activated_contracts["coordination"] = coordination.content_identity
+
     return ProfileSpec._compiled(
         _MINT,
         claim_grammar=base.claim_grammar,
@@ -362,10 +436,29 @@ def compile_profile(base: BaseContract, domains: Iterable[DomainContract]) -> Pr
         operators=MappingProxyType(dict(operators)),
         dimensions=MappingProxyType(dict(dimensions)),
         sorts=MappingProxyType(dict(sorts)),
+        coordination_kinds=MappingProxyType(dict(coordination_kinds)),
+        coordination_address_root=(coordination.address_root if coordination is not None else None),
+        coordination_query_kinds=(frozenset(coordination.query_kinds) if coordination is not None else frozenset()),
+        coordination_query_relations=(
+            frozenset(coordination.query_relations) if coordination is not None else frozenset()
+        ),
         base_contract_identity=base.content_identity,
-        activated_contracts=MappingProxyType({ns: c.content_identity for ns, c in seen.items()}),
-        compiled_identity=v1.digest(PROFILE_DOMAIN, _projection(base.claim_grammar, operators, dimensions, sorts)),
+        activated_contracts=MappingProxyType(activated_contracts),
+        compiled_identity=v1.digest(
+            PROFILE_DOMAIN,
+            _projection(
+                base.claim_grammar,
+                operators,
+                dimensions,
+                sorts,
+                coordination=coordination_projection,
+            ),
+        ),
     )
+
+
+def _coordination_projection(contract: CoordinationContract) -> dict[str, object]:
+    return contract.schema_projection()
 
 
 def _projection(
@@ -373,6 +466,8 @@ def _projection(
     operators: Mapping[str, CompiledOperator],
     dimensions: Mapping[str, CompiledDimension],
     sorts: Mapping[str, CompiledSort],
+    *,
+    coordination: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """Every declaration is keyed **by term identifier**, never held positionally.
 
@@ -382,7 +477,7 @@ def _projection(
     second per-kind source of truth precisely so that a compiled artifact could
     not drift from what it was compiled from.
     """
-    return {
+    projection: dict[str, object] = {
         # Closed *sets*, so sorted here too. The base contract keeps its authored
         # order in memory because that order is what a reader sees; it is not an
         # input to anything, since a kernel tag's bytes are its symbol.
@@ -397,6 +492,9 @@ def _projection(
         "dimensions": {term: decl.schema_projection() for term, decl in dimensions.items()},
         "sorts": {term: decl.schema_projection() for term, decl in sorts.items()},
     }
+    if coordination is not None:
+        projection["coordination"] = dict(coordination)
+    return projection
 
 
 def _compile_operator(contract: DomainContract, operator: OperatorDecl) -> CompiledOperator:

@@ -2,7 +2,7 @@
 title: Contracts and adoption
 status: living
 created: 2026-08-08
-updated: 2026-09-01
+updated: 2026-09-02
 sources:
   - ../designs/2026-08-03-normative-contract-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -180,7 +180,7 @@ arms — R15, R4, R9 and R13 in full, R16 and R21 at their confinement arms —
 so a real verification can reach `clean-environment`
 (`../designs/2026-08-30-run-confinement-design.md`). The complete normative
 contract cut, its executable suite and N1–N10 are not yet implemented. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-01)
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-02)
 states what is built and which remaining boundaries have named owners; the cut
 documents and results records in the references below are the evidence.
 

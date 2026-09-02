@@ -267,6 +267,7 @@ _COUNT_WORDS = {
     40: "Forty",
     41: "Forty-one",
     42: "Forty-two",
+    43: "Forty-three",
 }
 
 
@@ -327,7 +328,7 @@ def test_every_cross_reference_resolves() -> None:
     A name owned by another repository resolves against `EXTERNAL_DOCUMENTS`, which
     is a list and not a pattern: a mistyped science filename cannot pass as foreign.
     """
-    present = {p.name for p in design_documents()}
+    present = {p.name for p in design_documents()} | {p.name for p in PLANS.glob("*.md")}
     broken: list[str] = []
     for path in design_documents():
         text = _text(path)

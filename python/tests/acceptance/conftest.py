@@ -23,7 +23,14 @@ from pathlib import Path
 
 import pytest
 
-from beliefs.root import init_corpus_root, metadata_root_for, open_corpus
+from beliefs.root import (
+    init_corpus_root,
+    init_world_root,
+    metadata_root_for,
+    open_corpus,
+    open_world,
+)
+from beliefs.world import Fresh, WorldConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_WORK = REPO_ROOT / ".cut4-acceptance"
@@ -79,6 +86,41 @@ def durable_root(work_directory) -> Iterator[Path]:
 def durable_writer(durable_root):
     """The composition root's own product, bound to a registered root."""
     return open_corpus(durable_root)
+
+
+@pytest.fixture()
+def durable_coordination_roots(work_directory, base_contract):
+    from coordination_fixtures import coordination_profile, pins_for
+
+    profile = coordination_profile(base_contract)
+    roots = tuple(
+        work_directory / f"coordination-{os.getpid()}-{next(_counter)}-{side}"
+        for side in ("left", "right")
+    )
+    try:
+        for root in roots:
+            init_corpus_root(root)
+            open_corpus(root).adopt_manifest(profile=pins_for(profile))
+        yield roots, profile
+    finally:
+        for root in roots:
+            shutil.rmtree(root, ignore_errors=True)
+            shutil.rmtree(metadata_root_for(root), ignore_errors=True)
+
+
+@pytest.fixture()
+def durable_coordination_world(work_directory, durable_coordination_roots):
+    (corpus_root, _), profile = durable_coordination_roots
+    world_root = work_directory / f"coordination-world-{os.getpid()}-{next(_counter)}"
+    config = WorldConfig(world_root, "e" * 32, (corpus_root,))
+    try:
+        init_world_root(config)
+        world = open_world(config)
+        world.admit(corpus_root, provenance=Fresh(), actor="cut14")
+        yield world, corpus_root, profile
+    finally:
+        shutil.rmtree(world_root, ignore_errors=True)
+        shutil.rmtree(metadata_root_for(world_root), ignore_errors=True)
 
 
 @pytest.fixture(scope="session")

@@ -331,8 +331,29 @@ _M7 = [
         asserts="a semantic schema edit recompiles the profile; a description edit does not",
         sabotage=Sabotage(
             module="profile.py",
-            before="        compiled_identity=v1.digest(PROFILE_DOMAIN, _projection(base.claim_grammar, operators, dimensions, sorts)),",
-            after='        compiled_identity=v1.digest(\n            PROFILE_DOMAIN,\n            {\n                **_projection(base.claim_grammar, operators, dimensions, sorts),\n                "activated": {ns: c.content_identity for ns, c in seen.items()},\n            },\n        ),',
+            before='''        compiled_identity=v1.digest(
+            PROFILE_DOMAIN,
+            _projection(
+                base.claim_grammar,
+                operators,
+                dimensions,
+                sorts,
+                coordination=coordination_projection,
+            ),
+        ),''',
+            after='''        compiled_identity=v1.digest(
+            PROFILE_DOMAIN,
+            {
+                **_projection(
+                    base.claim_grammar,
+                    operators,
+                    dimensions,
+                    sorts,
+                    coordination=coordination_projection,
+                ),
+                "activated": {ns: c.content_identity for ns, c in seen.items()},
+            },
+        ),''',
         ),
         # `test_the_compiler_contributes_no_input` is deliberately **not** named
         # here: its own docstring records that it cannot fail, since the encoder

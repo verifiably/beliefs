@@ -70,6 +70,7 @@ from beliefs.verification import Verification
 __all__ = [
     "ACCEPTED_EXTERNAL_IDENTIFIERS",
     "ASSESSMENT_FACET",
+    "COORDINATION_FACET",
     "COVERED_FACETS",
     "DATASET_FACET",
     "DISPLAY_FACET",
@@ -88,6 +89,8 @@ __all__ = [
     "SUCCEEDED_BY",
     "SUPERSEDES",
     "VERIFICATION_FACET",
+    "WORLD_KINDS",
+    "WORLD_RELATIONS",
     "NodeTarget",
     "RouteTarget",
     "act_report_facet",
@@ -127,6 +130,7 @@ SOURCE_FACET = "source"
 VERIFICATION_FACET = "verification"
 RETRACTION_FACET = "retraction"
 HOLDINGS_OBSERVATION_FACET = "holdings-observation"
+COORDINATION_FACET = "coordination"
 
 # --- kernel §4.1's closed relation signatures --------------------------------
 
@@ -145,6 +149,35 @@ SUPERSEDES = "supersedes"
 RETRACTS = "retracts"
 GROUNDED_IN = "grounded-in"
 SUCCEEDED_BY = "succeeded-by"
+
+WORLD_KINDS = (
+    "proposition",
+    "source-assertion",
+    "assessment",
+    "analysis-spec",
+    "run",
+    "verification",
+    "dataset",
+    "source",
+    "holdings-observation",
+    "retraction",
+    "instrument-certification",
+    "coreference-attestation",
+    "act-report",
+)
+WORLD_RELATIONS = (
+    ASSESSES,
+    OBSERVES,
+    READS,
+    TRANSFORMS,
+    PRODUCES,
+    PRODUCED_BY,
+    EXECUTES,
+    TARGETS,
+    VERIFIES,
+    MEMBER_OF,
+    GROUNDED_IN,
+)
 
 RETRACTION_REASONS = (
     "authored-error",

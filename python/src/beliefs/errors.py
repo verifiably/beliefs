@@ -915,6 +915,30 @@ class FamilyKindUnsupported(WriteRefused):
     """A mutation family does not operate on the supplied node kind."""
 
 
+class CoordinationKindUnsupported(WriteRefused):
+    """A record was supplied through the wrong world or coordination family door."""
+
+
+class CoordinationUnavailable(WriteRefused):
+    """The writer's destination is absent from its coordination resolver."""
+
+
+class PredecessorMismatch(WriteRefused):
+    """A predecessor stands but belongs to another kind or coordination address."""
+
+
+class PredecessorNotStanding(WriteRefused):
+    """A supplied predecessor is absent or superseded at the commit check."""
+
+
+class ProjectNotResolvable(WriteRefused):
+    """The project required by a subordinate coordination record does not resolve."""
+
+    def __init__(self, message: str, *, tips: tuple[str, ...] = ()) -> None:
+        super().__init__(message)
+        self.tips = tuple(sorted(set(tips)))
+
+
 class RetractionTargetIneligible(WriteRefused):
     """A retraction target arm or node kind is not eligible."""
 
