@@ -5,7 +5,7 @@ status: todo
 priority: 1
 size: xl
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-01T21:25:44Z
+updated: 2026-09-02T02:51:09Z
 depends: [beliefs-739255, beliefs-ed3dc8, beliefs-f8bcbf, beliefs-0e6e32, beliefs-e4d001, beliefs-97f740, beliefs-f5bd5d, beliefs-9e5ee1, beliefs-067ac2, beliefs-d52e6c, beliefs-03cafe, beliefs-4dd087, beliefs-d1464c, beliefs-3b9f26, beliefs-f624d4, beliefs-40769d, beliefs-89d663, beliefs-2e7c1a, beliefs-3895aa, beliefs-bbb529, beliefs-59f1e0, beliefs-a45800, beliefs-a8b85e]
 tags: [migration, execution, workflow]
 ---
@@ -24,3 +24,4 @@ Sources: `docs/superpowers/specs/2026-09-01-workflow-surface-design.md`; `docs/p
 - 2026-09-01T15:47:43Z (design/workflow-surface): Correction to the note above: cut 15 selects 16 units (R2 2, R16 10, R20 2, R21 2) + 8 labeled = 24. R23 is not selected -- its replay-cardinality arm discharged at cut 3; the residual local basis/composition clause belongs to run-boundary-remainder, and the ledger/roadmap assignment to workflow-surface is stale. Cut 15 discharges after cut 14 and names cut14_acceptance.py.
 - 2026-09-01T20:53:55Z (design/workflow-surface): Supersedes the two notes above on R23: cut 15 selects 17 units (R2 2, R16 10, R20 2, R21 2, R23 1) + 8 labeled = 25. R23's selected unit is the local basis/composition disagreement, whose owner is workflow-surface as the run-family boundary (cut 5 3.2); the earlier run-boundary-remainder assignment was wrong -- cut 5 refuses respelling it as import behavior. Replay cardinality stays discharged at cut 3 and runs only as regression coverage.
 - 2026-09-01T21:13:16Z (design/workflow-surface): Split into 22 plan tasks (beliefs-ed3dc8 .. beliefs-a8b85e), chained in plan order and joined to this task by depends; plan at docs/plans/2026-09-01-workflow-surface.md
+- 2026-09-02T02:51:09Z (design/workflow-surface): Workflow-surface pause point: Tasks 1-21 landed through 6383a71; Task 22 is deliberately unstarted and now depends on beliefs-1f7400. Resume on design/workflow-surface only after cut 14 discharges, sync main, run the serialized cut-15 acceptance command, then bank and close Task 22 before this parent.
