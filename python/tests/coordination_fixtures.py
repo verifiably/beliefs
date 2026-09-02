@@ -1,10 +1,12 @@
+from collections.abc import Callable
 from copy import deepcopy
+from pathlib import Path
 from typing import ClassVar
 
 from nodes.core.corpus import Corpus
 from nodes.core.node import Node
 from nodes.core.relations import Relation
-from nodes.core.write_plan import DefaultExecutor
+from nodes.core.write_plan import DefaultExecutor, WritePlanExecutor
 
 from beliefs import stored
 from beliefs.consulted import CorpusPins
@@ -13,6 +15,7 @@ from beliefs.corpus import CorpusWriter
 from beliefs.profile import compile_profile
 
 AT = "2026-09-02T12:00:00Z"
+EMPTY_QUERY = {"version": "science.view-query.v1", "clauses": []}
 
 COORDINATION_DOCUMENT = {
     "contract": "coordination",
@@ -86,6 +89,16 @@ def coordination_profile(base_contract, *, document=None):
     return compile_profile(base_contract, [], coordination=coordination_contract(document))
 
 
+def content_for(kind, *, name=None, **changes) -> dict[str, object]:
+    content: dict[str, object] = {"name": name or kind, "body": "", "author": "actor", "at": AT}
+    if kind in {"project", "question", "hypothesis", "topic", "theme"}:
+        content["query"] = EMPTY_QUERY
+    elif kind == "task":
+        content.update(status="open", depends=[])
+    content.update(changes)
+    return content
+
+
 def pins_for(profile):
     return CorpusPins(
         "science:" + profile.base_contract_identity,
@@ -132,7 +145,9 @@ class Recorder:
         self._inner.execute(plan)
 
 
-def mounted_root(root, profile, executor_factory=DefaultExecutor):
+def mounted_root(
+    root, profile, executor_factory: Callable[[Path], WritePlanExecutor] = DefaultExecutor
+):
     CorpusWriter(root, executor_factory).adopt_manifest(profile=pins_for(profile))
     return root
 

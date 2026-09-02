@@ -128,7 +128,7 @@ from atoms.store.errors import MetadataStoreInvalid
 from nodes.core.errors import ExecutionError, PlanRefusedError
 from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp, WritePlan, validate_plan
 
-from beliefs.corpus import CorpusWriter, _operation_lock_for
+from beliefs.corpus import CoordinationResolver, CorpusWriter, _operation_lock_for
 from beliefs.errors import CorpusRootRefused, LogEvidenceRefused, WorldIdMismatch, WorldUninitialized
 from beliefs.holdings.seam import (
     AbsentStateView,
@@ -1637,7 +1637,9 @@ def epochs_ordered(config: WorldConfig, e1: str, e2: str) -> Ordering:
     return _epochs_ordered(config, e1, e2, seam=_log_seam())
 
 
-def open_corpus(corpus_root: Path) -> CorpusWriter:
+def open_corpus(
+    corpus_root: Path, *, coordination_resolver: CoordinationResolver | None = None
+) -> CorpusWriter:
     """The composition root's product: a write API bound to one corpus root,
     writing through the certified engine.
 
@@ -1655,6 +1657,7 @@ def open_corpus(corpus_root: Path) -> CorpusWriter:
             storage=PRODUCTION_STORAGE,
             metadata_root=metadata_root_for(root),
         ),
+        coordination_resolver=coordination_resolver,
     )
 
 
