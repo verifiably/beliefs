@@ -217,6 +217,15 @@ def conformance(run: RunClosure) -> str:
     expected_streams = set(plan.streams) if plan is not None else set()
     if union != expected_streams:
         return f"non-conforming: realized streams {sorted(union)} against plan {sorted(expected_streams)}"
+
+    planned_keys = {job.job_key for job in run.occurrence.planned}
+    expanded = set(run.recipe.workflow_definition.checkpoint_expanded_families)
+    for job in run.occurrence.trace:
+        if job.job_key() not in planned_keys and job.rule not in expanded:
+            return f"non-conforming: executed job {job.job_key()!r} is not in the plan"
+    executed = {job.job_key() for job in run.occurrence.trace}
+    if missing := sorted(set(run.occurrence.target_keys) - executed):
+        return f"non-conforming: resolved target {missing[0]!r} was not executed"
     return CONFORMING
 
 

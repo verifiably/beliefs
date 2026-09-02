@@ -21,6 +21,7 @@ from fixtures_cut3 import (
     SNAKEFILE_SEED_VIOLATING,
     closure_kwargs,
     closure_with,
+    planned,
     seed_plan,
     spec_draft,
     spec_rules,
@@ -236,6 +237,47 @@ def test_a_seed_claim_for_a_job_absent_from_the_trace_is_non_conforming() -> Non
     )
     assert {stream for claims in realized.values() for stream in claims} == set(plan.streams)
     assert conformance(run).startswith("non-conforming: seed claims for jobs absent")
+
+
+def test_an_executed_job_outside_the_plan_is_non_conforming() -> None:
+    run = closure_with(
+        planned=(planned("fit", ("outputs/a.done",)),),
+        trace=(traced("fit", {"s": "a"}), traced("stowaway", {})),
+        target_keys=(job_key("fit", (("s", "a"),)),),
+    )
+    assert "not in the plan" in conformance(run)
+
+
+def test_a_checkpoint_expanded_family_is_admitted_though_unplannable() -> None:
+    run = closure_with(
+        planned=(planned("split", ("splits",), is_checkpoint=True),),
+        trace=(traced("split", {}), traced("fit", {"n": "a"})),
+        expanded=("fit",),
+        target_keys=(job_key("split", ()),),
+    )
+    assert conformance(run) == CONFORMING
+
+
+def test_an_unexpanded_family_gets_no_checkpoint_admission() -> None:
+    run = closure_with(
+        planned=(planned("split", ("splits",), is_checkpoint=True),),
+        trace=(traced("split", {}), traced("fit", {"n": "a"})),
+        expanded=(),
+        target_keys=(job_key("split", ()),),
+    )
+    assert "not in the plan" in conformance(run)
+
+
+def test_a_resolved_target_missing_from_the_trace_is_non_conforming() -> None:
+    run = closure_with(
+        planned=(
+            planned("fit", ("outputs/a.done",)),
+            planned("report", ("outputs/r.txt",)),
+        ),
+        trace=(traced("fit", {}),),
+        target_keys=(job_key("report", ()),),
+    )
+    assert "target" in conformance(run)
 
 
 @pytest.fixture(scope="module")
