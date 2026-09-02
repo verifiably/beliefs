@@ -253,7 +253,11 @@ class _Closure:
 
     def root_of(self, located: Path) -> tuple[Path, str] | None:
         for host_root, sandbox_root in self._roots:
-            if located.is_relative_to(host_root):
+            try:
+                common = os.path.commonpath((host_root, located))
+            except ValueError:
+                continue
+            if common == os.fspath(host_root):
                 return host_root, sandbox_root
         return None
 
@@ -262,7 +266,8 @@ class _Closure:
         if root is None:
             raise ClosureUnsupported(f"{located} lies outside every closure root")
         host_root, sandbox_root = root
-        return f"{sandbox_root}/{located.relative_to(host_root).as_posix()}"
+        relative = os.path.relpath(located, host_root).replace(os.sep, "/")
+        return f"{sandbox_root}/{relative}"
 
     def add(self, host: Path) -> str:
         """One row. A symlink's target is captured with it: a relative target
