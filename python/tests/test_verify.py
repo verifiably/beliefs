@@ -12,6 +12,7 @@ import pytest
 from fixtures_cut3 import (
     SNAKEFILE_NONDETERMINISTIC,
     closure_with,
+    definition,
     interp,
     planned,
     report,
@@ -457,7 +458,12 @@ def test_r8_the_rule_cannot_be_chosen_after_the_outputs_are_seen(tmp_path):
     # A deterministic-declared spec over a byte-nondeterministic definition is
     # the honest way to obtain a failing replay on the minimal surface.
     spec = freeze(spec_draft(nondeterminism=Deterministic()), held_rules=spec_rules())
-    original = run_assessment(tmp_path / "a", snakefile=SNAKEFILE_NONDETERMINISTIC, spec=spec)
+    original = run_assessment(
+        tmp_path / "a",
+        snakefile=SNAKEFILE_NONDETERMINISTIC,
+        spec=spec,
+        definition_override=definition(snakefile=SNAKEFILE_NONDETERMINISTIC, family_streams={}),
+    )
     replayed = replay_of(original, tmp_path / "b", snakefile=SNAKEFILE_NONDETERMINISTIC)
     assert isinstance(original, RunMinted) and isinstance(replayed, RunMinted)
     failing = build_verification(

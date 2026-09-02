@@ -500,18 +500,7 @@ def run_assessment(
         spec=spec,
         port=port,
         boundary_policy=boundary_policy,
-        definition=(
-            definition_override
-            if definition_override is not None
-            else definition(
-                snakefile=snakefile,
-                family_streams=(
-                    {"transform": spec.nondeterminism.plan.streams}
-                    if isinstance(spec.nondeterminism, Seeded)
-                    else {}
-                ),
-            )
-        ),
+        definition=(definition_override if definition_override is not None else definition(snakefile=snakefile)),
         code_roots=(code,),
         held_inputs=supplied,
         entrypoint="code/workflow/Snakefile",
