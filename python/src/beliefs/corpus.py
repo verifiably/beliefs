@@ -1046,16 +1046,15 @@ class CoordinationResolver:
     def revision(self, uid: str) -> Node | None:
         return next((revision.node for revision in self._revisions() if revision.node.uid == uid), None)
 
+    def _at_address(self, address: CoordinationAddress) -> tuple[CoordinationRevision, ...]:
+        revisions = tuple(revision for revision in self._revisions() if revision.address == address.unpinned())
+        return revisions
+
     def tips(self, address: CoordinationAddress) -> tuple[CoordinationRevision, ...]:
-        revisions = tuple(
-            revision for revision in self._revisions() if revision.address == address.unpinned()
-        )
-        return standing_tips(revisions)
+        return standing_tips(self._at_address(address))
 
     def resolve(self, address: CoordinationAddress) -> Node | CoordinationRefused | None:
-        revisions = tuple(
-            revision for revision in self._revisions() if revision.address == address.unpinned()
-        )
+        revisions = self._at_address(address)
         if address.revision is not None:
             return next(
                 (revision.node for revision in revisions if revision.node.uid == address.revision),
@@ -1155,16 +1154,7 @@ class CorpusWriter:
             ):
                 raise ValidationRefused("a subordinate coordination record requires an unpinned project address")
             else:
-                assert self._coordination_resolver is not None
-                resolved_project = self._coordination_resolver.resolve(project)
-                if resolved_project is None:
-                    raise ProjectNotResolvable(f"{project}: project does not resolve")
-                if isinstance(resolved_project, CoordinationRefused):
-                    raise ProjectNotResolvable(
-                        f"{project}: project is divergent", tips=resolved_project.tips
-                    )
-                if resolved_project.kind != "project":
-                    raise ProjectNotResolvable(f"{project}: address does not resolve to a project")
+                self._resolve_coordination_project(project)
 
             if project is None:
                 assert kind == "project"
@@ -1220,14 +1210,7 @@ class CorpusWriter:
             if predecessor_ids - {revision.node.uid for revision in standing}:
                 raise PredecessorNotStanding("every supplied predecessor must be a standing tip at commit")
             if kind != "project":
-                project = CoordinationAddress(address.project)
-                resolved_project = self._coordination_resolver.resolve(project)
-                if resolved_project is None:
-                    raise ProjectNotResolvable(f"{project}: project does not resolve")
-                if isinstance(resolved_project, CoordinationRefused):
-                    raise ProjectNotResolvable(
-                        f"{project}: project is divergent", tips=resolved_project.tips
-                    )
+                self._resolve_coordination_project(CoordinationAddress(address.project))
             new_revision_identity = secrets.token_hex(16)
             candidate = self._coordination_node(
                 kind,
@@ -1239,6 +1222,17 @@ class CorpusWriter:
             self._refuse_already_minted(candidate)
             self._refuse_rendering(candidate)
             return self._corpus.add(candidate)
+
+    def _resolve_coordination_project(self, project: CoordinationAddress) -> Node:
+        assert self._coordination_resolver is not None
+        resolved_project = self._coordination_resolver.resolve(project)
+        if resolved_project is None:
+            raise ProjectNotResolvable(f"{project}: project does not resolve")
+        if isinstance(resolved_project, CoordinationRefused):
+            raise ProjectNotResolvable(f"{project}: project is divergent", tips=resolved_project.tips)
+        if resolved_project.kind != "project":
+            raise ProjectNotResolvable(f"{project}: address does not resolve to a project")
+        return resolved_project
 
     def _validated_coordination_content(
         self, kind: str, content: Mapping[str, object]
