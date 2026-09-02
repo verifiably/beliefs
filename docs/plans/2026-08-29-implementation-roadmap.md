@@ -1,6 +1,6 @@
 # Implementation roadmap
 
-**Ranked at:** cut 14, against the ledger's Current state (2026-09-02)
+**Ranked at:** cut 15, against the ledger's Current state (2026-09-02)
 **Method:** `../superpowers/specs/2026-08-29-implementation-roadmap-design.md`
 **Recomputed by:** the commit that adds each conformance-cut results record.
 This document is a current claim: it is rewritten whole at every re-ranking,
@@ -22,6 +22,11 @@ cross-repo seam must land first; **tier 3** when a design question must be
 answered first. A prerequisite that is the boundary's own work is not a
 prerequisite.
 
+Cut 15 removed `workflow-surface` from the live ranking. While open, its R23
+assignment was the local basis/composition disagreement deferred by cut 5
+§3.2—not the replay-cardinality arm discharged by cut 3. The remaining R23
+clauses keep their existing owners below.
+
 ## Boundary index
 
 Every boundary the ledger table lists, by id. This section is the guard's
@@ -29,7 +34,6 @@ join key and nothing else; the tiers below carry the ranking.
 
 | id | rows it closes | tier |
 |---|---|---|
-| `workflow-surface` | R2, R16, R20, R21's workflow arms; R23's second-production arm | 1 |
 | `consolidate-family` | W5, W16; G3, D7; G2c, G8, C6, R5's deletion negatives; S5's deletion half; R23 and C3's move clauses; M3's replica arm | 1 |
 | `url-retrieval` | H4, G9, R10, T5; T7's same-root case | 1 |
 | `world-resolution` | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 (less one arm); W8a's coreference arms; S1, S1a, S5's cross-corpus reach; D3; X12 and M3's coreference arms; R23's snapshot clauses | 1 |
@@ -61,13 +65,12 @@ order, and lanes may run concurrently in separate worktrees.
 
 | # | id | rows | unblocks | placement |
 |---|---|---|---|---|
-| 1 | `workflow-surface` | R2, R16, R20, R21's workflow arms; R23's second-production arm | multi-rule, family, wildcard and definition-equality workflows — real analyses rather than fixture-held single-rule definitions | cut 3 §3 built "the minimal adapter only" and deferred every such arm to the full workflow surface, computation §6.4's, designed; `run-confinement` closed at cut 13 — R15, R4, R9, R13 in full, R16 and R21 at their confinement arms — so this boundary alone remains and is the execution lane's open head |
-| 2 | `consolidate-family` | W5, W16; G3, D7; the deletion negatives of G2c, G8, C6, R5; S5's deletion half; R23 and C3's move clauses; M3's replica arm | C7's surface; the last mutation family; six rows' last arms | family-adapters design deferred it "to its own cut with the world index", which now exists |
-| 3 | `url-retrieval` | H4, G9, R10, T5, T7's same-root case | the first acquisition of a dataset from outside the system; H4 in full | holdings design §2–§3 specify the canonicalization profile and network discipline |
-| 4 | `world-resolution` | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 (less one arm), W8a's coreference arms; S1, S1a, S5's cross-corpus reach; D3; X12 and M3's coreference arms; R23's snapshot clauses | the read side of the world: resolution states, cross-corpus edges, views, the coreference balance over the map cut 7 published | cut 4 §5 deferred the group on "the write boundary and the index" — both landed; the address ruling supplies the oracles. W11/W12 are not here (§3.3) |
-| 5 | `domain-boundary` | D1, D2, D4, D5, D6, D8, D9, D10; G5 | the first domain pack; D8's composition | cut 3 §5 deferred the group on "facets, manifests, and the registry compile"; `ProfileSpec` and the `nodes` registry exist |
-| 6 | `event-level-l8` | L8 | row 5 reads L8 in full; the log's last Science-only remainder | §7's ordered-cuts predicate is built; the event-level relation is its successor |
-| 7 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a, X12 and C10's `instrument-certification` arms; R23's rules-store clauses | the widest set: the conformance-package split (ledger §5), instrument-certification cadence, legacy-check disposition (N10), P1 | last in the tier although it unblocks the most: N1 mints a successor contract identity for every oracle amended after the freeze, and rows 1–6 are Science-only closures that would each force one. Freeze after them |
+| 1 | `consolidate-family` | W5, W16; G3, D7; the deletion negatives of G2c, G8, C6, R5; S5's deletion half; R23 and C3's move clauses; M3's replica arm | C7's surface; the last mutation family; six rows' last arms | family-adapters design deferred it "to its own cut with the world index", which now exists |
+| 2 | `url-retrieval` | H4, G9, R10, T5, T7's same-root case | the first acquisition of a dataset from outside the system; H4 in full | holdings design §2–§3 specify the canonicalization profile and network discipline |
+| 3 | `world-resolution` | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 (less one arm), W8a's coreference arms; S1, S1a, S5's cross-corpus reach; D3; X12 and M3's coreference arms; R23's snapshot clauses | the read side of the world: resolution states, cross-corpus edges, views, the coreference balance over the map cut 7 published | cut 4 §5 deferred the group on "the write boundary and the index" — both landed; the address ruling supplies the oracles. W11/W12 are not here (§3.3) |
+| 4 | `domain-boundary` | D1, D2, D4, D5, D6, D8, D9, D10; G5 | the first domain pack; D8's composition | cut 3 §5 deferred the group on "facets, manifests, and the registry compile"; `ProfileSpec` and the `nodes` registry exist |
+| 5 | `event-level-l8` | L8 | row 5 reads L8 in full; the log's last Science-only remainder | §7's ordered-cuts predicate is built; the event-level relation is its successor |
+| 6 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a, X12 and C10's `instrument-certification` arms; R23's rules-store clauses | the widest set: the conformance-package split (ledger §5), instrument-certification cadence, legacy-check disposition (N10), P1 | last in the tier although it unblocks the most: N1 mints a successor contract identity for every oracle amended after the freeze, and rows 1–5 are Science-only closures that would each force one. Freeze after them |
 
 **Ride-along closures**, tier 1 by the rule and unblocking no capability of
 their own, each named to the cut that takes it:
@@ -96,15 +99,14 @@ boundary sits in the lane of its prerequisite and waits there.
 
 | lane | boundaries, in order | shared surface | touches another lane at |
 |---|---|---|---|
-| `execution` | `workflow-surface` | `boundary.py`, `verify.py`, `recipe.py`, `production.py`, `adapter.py` | `boundary.py`, where `acquisition`'s T5 preflight refusals also land |
-| `acquisition` | `url-retrieval` (+ `act-report-remainder`) | `holdings/`, `report.py` | `boundary.py` (above) |
+| `acquisition` | `url-retrieval` (+ `act-report-remainder`) | `holdings/`, `report.py` | `boundary.py`, also used by the discharged workflow surface |
 | `mutation` | `consolidate-family` (+ `run-boundary-remainder`, `formal-model-remainder`) → `correction-remainder` | `adapter.py`, `stored.py`, `corpus.py`, `world/registry.py` | `world/registry.py`, which `world-read` reads and this lane's move/consolidate rewrite |
 | `world-read` | `world-resolution` (+ `packaging-remainder`) → `event-level-l8` (+ `log-remainder`) | `world/read.py`, `resolution.py`, `world/verify.py` | `world/registry.py` (above) |
 | `domain` | `domain-boundary` (+ `parity-fixture-2`) | `profile.py`, `contract/`, `ts/`, `fixtures/`, the `nodes` registry | none in `python/src/beliefs/` |
 | `cross-repo` | `l13-preimage`, `persistence-cut`, `nodes-remainder`, in any order | the `atoms` and `nodes` repositories, each behind its own design gate | none; Science consumes each seam after it lands |
 
 `contract-cut` is in no lane. It is a **join**: it freezes after every lane
-that amends an oracle has merged, for the reason tier 1's row 7 gives — N1
+that amends an oracle has merged, for the reason tier 1's row 6 gives — N1
 mints a successor contract identity for every oracle amended after the
 freeze, and each lane above amends at least one. Tier 3 boundaries are in no
 lane either; a design answer moves one into the lane of the surface it
@@ -116,7 +118,7 @@ cross-repo seam was named.
 
 Every rule the corpus already has stays in force when lanes run at once —
 a cut is frozen before its code exists, discharged on the certified volume,
-and merged `--no-ff`. Four rules are added by concurrency itself:
+and merged `--no-ff`. Five rules are added by concurrency itself:
 
 1. **A cut number is claimed at freeze, not at discharge.** Two lanes that
    freeze on the same day take consecutive numbers in freeze order, and a
@@ -136,6 +138,9 @@ and merged `--no-ff`. Four rules are added by concurrency itself:
    and the later merge resolves toward the earlier one.
 4. **A lane holds one worktree under `.worktrees/`**, named for its first
    open boundary, and a lane's boundaries are not split across worktrees.
+5. **A cut names the highest-numbered acceptance runner.** A cut frozen while
+   a lower-numbered cut is undischarged serializes its discharge after that
+   cut's discharge.
 
 ## Tier 2 — after a named prerequisite lands
 
@@ -158,7 +163,7 @@ Unordered. Each row links its `open-questions.md` anchor.
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 — [higher-order records and extraction](../guide/open-questions.md#claims-and-belief) |
 | `cross-root-publication` | T7's cross-root case | [the act-report's residue](../guide/open-questions.md#contracts-and-adoption) |
 
-## Appendix A — live status of every guarantee row at cut 14
+## Appendix A — live status of every guarantee row at cut 15
 
 Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
 (spec §3.1); a row is closed only when no later source reopens it.
@@ -168,7 +173,7 @@ Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
 | G | G5 | G2c (cut 5), G3 (cut 2), G8 (cut 5), G9 (cut 10) | — |
 | S | — | S1 (cut 4), S1a (cut 4), S5 (cut 4), S6 (cut 2) | — |
 | W | W1, W2, W4, W5, W6, W7, W8, W9, W10, W14, W15, W16, W5a, W8b | W13 (cut 14), W17 (cut 14), W8a (cut 7) | — |
-| R | — | R2 (cut 3), R5 (cut 3), R10 (cut 3), R16 (cut 13), R19 (cut 4), R20 (cut 5), R21 (cut 13), R22 (cut 4), R23 (cut 4) | — |
+| R | — | R5 (cut 3), R10 (cut 3), R19 (cut 4), R22 (cut 4), R23 (cut 15) | — |
 | C | C7, C8, C9 | C3 (cut 5), C6 (cut 5), C10 (cut 5) | — |
 | X | — | X2 (cut 7), X5 (cut 7), X12 (cut 7) | — |
 | N | N1, N3, N4, N5, N6, N7, N8, N9, N10 | N2 (cut 4) | — |
@@ -179,7 +184,7 @@ Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
 | H | — | H4 (cut 10) | — |
 | T | T7 | T1 (cut 5), T2 (cut 5), T4 (cut 3), T5 (cut 3) | — |
 
-Closed 71 of 153; open 82.
+Closed 75 of 153; open 78.
 
 ## Appendix B — classification of every open row
 
@@ -202,12 +207,11 @@ Each open row, its remainder as the last cut states it, and where it goes
 | W17 | intent-position evidence over the publication-binding revision family (cut 14 results §1) | `publish`; the ordinary coordination revision family is closed |
 | W13 | coverage-declaration and digest-invariance clauses; manifest-only re-mint detection and the forgery variants; replica-restore's declaration half; the fork copy act (cut 6 §3.2) — every named dependency has since landed → relabel candidates | `world-resolution`; the two-projects negative is closed by cut 14 |
 | W8a | coreference omission-refutes and coverage arms → `world-resolution` (the `coreference-attestation` kind); certification omission-refutes → `contract-cut` (the `instrument-certification` kind); import-boundary and audit arms (cut 7 §3.2) → `packaging-remainder` | split as stated |
-| R2, R16, R20, R21 | their full-workflow-surface arms: trace/job-ID components, per-family obligations, the two-target arm (cut 3 §4.2; cut 5) | `workflow-surface` |
 | R5 | negative (a), destroying the last held copy through a managed deletion recording an `absent` observation (cut 3 §4.2; holdings §3) — the intent-bearing delete act landed with cut 10 | `consolidate-family` (deletion) |
 | R10 | "the acquisition path records dataset provenance instead" (cut 3 §4.2) | `url-retrieval` |
 | R19 | explicit-import derivation validation over complete closure evidence; cross-corpus recomputation; contradiction discovery under audit; log-backed raw-write detection (cut 5) — every named dependency has landed | `run-boundary-remainder`, rides with `consolidate-family` (the import family dialect) |
 | R22 | the unresolvable-interpretation-rule refusal → `contract-cut` (the rules store and resolver, 5b §6); explicit-import recomputation and the raw-written assessment under audit (cut 4 §4.2; cut 5) → `run-boundary-remainder` | split as stated |
-| R23 | the second dataset-production run → `workflow-surface`; producer snapshots and receipts, coverage, cross-corpus divergence → `world-resolution`; move/consolidate/deletion clauses → `consolidate-family`; rules-store clauses → `contract-cut` (cut 5) | split as stated |
+| R23 | the local basis/composition disagreement (cut 5 §3.2) is closed by cut 15, and replay cardinality was closed by cut 3; producer snapshots and receipts, coverage, cross-corpus divergence → `world-resolution`; move/consolidate/deletion clauses → `consolidate-family`; rules-store clauses → `contract-cut` | split as stated |
 | C3 | uncovered-corpus behavior and the coverage declaration over the global retraction map; exact-state receipts and move invariance (cut 5) | `correction-remainder`; the move clause with `consolidate-family` |
 | C6 | raw-deletion negative (cut 5) | `consolidate-family` (deletion) |
 | C7 | route-standing evaluator, conflict semantics, consolidate surface (cut 5) | `correction-remainder`, after `consolidate-family` |

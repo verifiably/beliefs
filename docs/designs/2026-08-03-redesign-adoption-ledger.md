@@ -46,7 +46,7 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Implemented through conformance cut 14.** Every cut from 4 onward has a
+**Implemented through conformance cut 15.** Every cut from 4 onward has a
 discharge results record under `../plans/`; cuts 1–3 are proved by their merge
 ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
@@ -77,11 +77,18 @@ ancestry and the surfaces they built
   holdings with their intent-bearing acts (cuts 6–10).
 - **Run confinement** — the confined boundary policy: a run executes inside
   a fresh namespaced materialization of the digest-verified runtime closure,
-  the receipt attests the observed capabilities and the fresh instance,
+  each planning and execution launch attests the observed capabilities and
+  fresh instance,
   `derive_scope` reaches `clean-environment`, and a derived verification
   admits to belief through `admission_record` — closing R15, R4, R9 and R13
-  in full and reading R16 and R21 at their confinement arms, with their
-  workflow arms remaining `workflow-surface`'s (cut 13).
+  in full (cut 13).
+- **Full workflow surface** — content-addressed workflow-definition snapshots,
+  semantic wildcard job keys, planning-derived job and target sets, per-family
+  seed obligations and execution coverage, definition and job-diagnostic
+  queries, and the composed planning/execution receipt and run-domain matrix.
+  R2, R16, R20, and R21 are closed; R23's local basis/composition disagreement
+  from cut 5 §3.2 is read without reopening its cut-3 replay-cardinality arm
+  (cut 15).
 - **Coordination and view kinds** — the closed `science.view-query.v1`
   grammar, independently versioned coordination contract, opaque project and
   local addressing, dedicated mint/revision family, multi-corpus tip resolver,
@@ -98,7 +105,6 @@ still open; unresolved design areas are not boundaries and are not listed.
 
 | id | boundary | owner | what it blocks |
 |---|---|---|---|
-| `workflow-surface` | the full workflow surface: R2, R16, R20, R21's workflow arms; R23's second-production arm | `2026-08-02-computation-reproducibility-design.md` §6.4 | multi-rule, family, wildcard and definition-equality workflows |
 | `consolidate-family` | consolidate, move/rename and deletion: W5, W16; G3, D7; the deletion negatives of G2c, G8, C6, R5; S5's deletion half; R23 and C3's move clauses; M3's replica arm | `2026-08-19-family-adapters-design.md`, which deferred them to their own cut | C7's consolidate surface; the last mutation family |
 | `url-retrieval` | the URL retrieval boundary, acquisition orchestration and typed retrieval grants: H4, G9, R10, T5, T7's same-root case | `2026-08-24-world-index-holdings-design.md` §1–§3 | the first acquisition of a dataset from outside the system |
 | `world-resolution` | the read side of the world: W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 less its two-projects negative; W8a's coreference arms; S1, S1a and S5's cross-corpus reach; D3; X12 and M3's coreference arms; R23's snapshot clauses | `2026-08-02-world-addressing-design.md` and `2026-08-08-world-address-ruling.md` | resolution states, cross-corpus edges, views, the coreference balance |
@@ -123,10 +129,11 @@ still open; unresolved design areas are not boundaries and are not listed.
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-02-conformance-cut-14-results.md`) closes W11, W12 and W18,
-reads W13's two-project negative, and leaves W17 partial only on intent-position,
-and `test_the_ledger_summary_names_the_newest_remaining_boundary` holds this
-section to whichever record is newest;
+(`../plans/2026-09-01-conformance-cut-15-results.md`) closes R2, R16, R20 and
+R21, reads R23's local basis/composition disagreement, and leaves R23 partial
+only on its separately assigned world-resolution, mutation and rules-store
+clauses. `test_the_ledger_summary_names_the_newest_remaining_boundary` holds
+this section to whichever record is newest;
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds this table and
 the roadmap to one set of ids.
 

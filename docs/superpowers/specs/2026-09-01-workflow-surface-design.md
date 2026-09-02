@@ -1,8 +1,10 @@
 # The full workflow surface — design (the `workflow-surface` slice)
 
 **Date:** 2026-09-01
-**Status:** designed; conformance cut 15 is frozen in §11 below, before its
-code exists. Not implemented.
+**Status:** implemented and discharged 2026-09-02 at `b8c00d4`; conformance
+cut 15 froze before implementation at `e2f9d71`, and its 17 selected + 8
+labeled units passed through 30 sabotage arms after the complete cut-14
+prefix. Results: `../../plans/2026-09-01-conformance-cut-15-results.md`.
 **Scope:** computation §6.2's two-level seed conformance and job-set
 conformance, §6.3's definition-equality query, and §6.4's adapter beyond cut
 3's single-rule minimum: the workflow-definition **snapshot** as a recipe

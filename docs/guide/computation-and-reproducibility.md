@@ -129,9 +129,11 @@ dataset but gates no belief-bearing assessment.
 ## Current state
 
 The run boundary is implemented: analysis-spec freezing and closure
-construction, the execution boundary through the minimal Snakemake adapter,
-dataset production, replay, verification-as-value, and the act-report layer's
-completion reading, running as real subprocess executions over held fixtures.
+construction, content-addressed workflow definitions, semantic wildcard job
+keys, planning-derived job and target sets, per-family seed obligations,
+multi-rule and multi-target execution, dataset production, replay,
+verification-as-value, and the act-report layer's completion reading, running
+as real subprocess executions over held fixtures.
 Runs publish durably with their closure preimage and typed identity bridge, and
 general intent qualification reads every boundary operation through one
 three-shape reducer. `admit_spec_successor` now composes that qualification with
@@ -147,8 +149,9 @@ boundary from its own `/proc` before the engine starts; the receipt names the
 capabilities the launch actually observed. `derive_scope` reaches
 `clean-environment` only through a qualifying pair of such receipts —
 `boundary-policy/minimal-v1`'s scratch root stays `same-environment` at best.
-What is not built here is owned elsewhere — the workflow surface beyond cut
-3's single-rule adapter, durable verification publication, the mutation
+Cut 15 composes separate planning and execution launch attestations and closes
+R2, R16, R20, and R21; `qualifies()` reads the execution launch. What is not
+built here is owned elsewhere — durable verification publication, the mutation
 log's event-level order (L8), and the preimage-backed classification of a
 removed verification (L13) — and listed with those owners in the
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-02).

@@ -1,12 +1,12 @@
 ---
 id: beliefs-73be28
 title: Deliver the full workflow surface
-status: doing
+status: done
 priority: 1
 size: xl
 owner: design/workflow-surface
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-02T15:52:23Z
+updated: 2026-09-02T17:03:45Z
 depends: [beliefs-739255, beliefs-ed3dc8, beliefs-f8bcbf, beliefs-0e6e32, beliefs-e4d001, beliefs-97f740, beliefs-f5bd5d, beliefs-9e5ee1, beliefs-067ac2, beliefs-d52e6c, beliefs-03cafe, beliefs-4dd087, beliefs-d1464c, beliefs-3b9f26, beliefs-f624d4, beliefs-40769d, beliefs-89d663, beliefs-2e7c1a, beliefs-3895aa, beliefs-bbb529, beliefs-59f1e0, beliefs-a45800, beliefs-a8b85e]
 tags: [migration, execution, workflow]
 ---
@@ -28,3 +28,4 @@ Sources: `docs/superpowers/specs/2026-09-01-workflow-surface-design.md`; `docs/p
 - 2026-09-02T02:51:09Z (design/workflow-surface): Workflow-surface pause point: Tasks 1-21 landed through 6383a71; Task 22 is deliberately unstarted and now depends on beliefs-1f7400. Resume on design/workflow-surface only after cut 14 discharges, sync main, run the serialized cut-15 acceptance command, then bank and close Task 22 before this parent.
 - 2026-09-02T15:14:52Z (design/workflow-surface): Resumed after cut 14: merged main 26b248b, resolving the composed-receipt test conflicts before cut-15 discharge and banking.
 - 2026-09-02T15:52:23Z (design/workflow-surface): Merged cut 14 and resolved six conflicts; repaired stale composed-receipt callers plus five frozen cut-13 mutation seams. Focused conflict tests, affected cut-13/cut-15 sabotage audits, ruff, pyright, and tasks check pass.
+- 2026-09-02T17:03:45Z (design/workflow-surface): Workflow surface delivered; cut 15 discharged at 17 selected + 8 labeled units
