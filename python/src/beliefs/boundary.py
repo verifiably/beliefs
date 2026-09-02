@@ -68,6 +68,8 @@ from beliefs.errors import (
     MalformedRecord,
     PlanUnavailable,
     ScienceError,
+    TargetAmbiguous,
+    TargetUnresolvable,
 )
 from beliefs.identity import v1
 from beliefs.recipe import (
@@ -85,6 +87,7 @@ from beliefs.recipe import (
     ResultManifest,
     RunClosure,
     WorkflowDefinitionSnapshot,
+    job_key,
     project_recipe,
     supported_policy,
 )
@@ -111,6 +114,7 @@ __all__ = [
     "execute_assessment_run",
     "execute_production_run",
     "mint_run",
+    "resolve_targets",
 ]
 
 _INSTRUMENT = "beliefs.boundary/v1"
@@ -314,6 +318,25 @@ def check_checkpoint_declaration(
         )
 
 
+def resolve_targets(
+    targets: tuple[str, ...],
+    planned: tuple[PlannedJob, ...],
+) -> tuple[str, ...]:
+    resolved: list[str] = []
+    for target in targets:
+        matches = [
+            job
+            for job in planned
+            if job.job_key == job_key(target, ()) or target in job.outputs
+        ]
+        if not matches:
+            raise TargetUnresolvable(f"the plan names no job for target {target!r}")
+        if len(matches) > 1:
+            raise TargetAmbiguous(f"target {target!r} matches {len(matches)} planned jobs")
+        resolved.append(matches[0].job_key)
+    return tuple(resolved)
+
+
 def _policy_refusal(policy: BoundaryPolicy) -> ConfinementRefusal | None:
     """Pre-intent: the whole definition must be known, and a confined request
     needs the host's substrate. Never a downgrade."""
@@ -483,6 +506,7 @@ def _execute_run(
                 raise PlanUnavailable(f"the planning launch exited {planning_returncode}")
             planned_jobs = read_plan(planning_events)
             check_checkpoint_declaration(definition.snapshot(), planned_jobs)
+            target_keys = resolve_targets(targets, planned_jobs)
         finally:
             shutil.rmtree(planning_dir, ignore_errors=True)
         planning_launch = LaunchAttestation(
@@ -528,6 +552,7 @@ def _execute_run(
             host_realization=host_realization,
             trace=trace,
             planned=planned_jobs,
+            target_keys=target_keys,
             realized_seeds=realized_seeds,
             receipt=receipt,
         )
@@ -651,6 +676,7 @@ def _execute_confined(
             PlannedJob(job.job_key(), job.rule, job.outputs, False)
             for job in trace
         ),
+        target_keys=(trace[-1].job_key(),) if trace else (),
         realized_seeds=realized_seeds,
         receipt=receipt,
     )

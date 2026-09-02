@@ -57,13 +57,61 @@ from beliefs.boundary import (
     execute_assessment_run,
     execute_production_run,
     mint_run,
+    resolve_targets,
 )
-from beliefs.errors import CheckpointDeclarationUnmet, MalformedClosure
+from beliefs.errors import CheckpointDeclarationUnmet, MalformedClosure, TargetAmbiguous, TargetUnresolvable
 from beliefs.recipe import MINIMAL_POLICY, Occurrence, PlannedJob, RunClosure, WorkflowDefinitionSnapshot, job_key
 from beliefs.report import ActReport, OperationIntent, RunAttemptEntry, RunRefusal
 from beliefs.spec import Deterministic, Seeded, SeedPlan, SpecInput, derive_seed, freeze, revise
 
 CHECKPOINT_DIGEST = "sha256:" + "22" * 32
+TARGET_ALL = PlannedJob(job_key("all", ()), "all", (), False)
+TARGET_FIT_A = PlannedJob(
+    job_key("fit", (("s", "a"),)),
+    "fit",
+    ("outputs/a.done",),
+    False,
+)
+TARGET_FIT_B = PlannedJob(
+    job_key("fit", (("s", "b"),)),
+    "fit",
+    ("outputs/b.done",),
+    False,
+)
+
+
+def test_a_rule_target_resolves_to_the_job_with_no_wildcards() -> None:
+    assert resolve_targets(("all",), (TARGET_ALL, TARGET_FIT_A)) == (TARGET_ALL.job_key,)
+
+
+def test_a_file_target_resolves_to_the_job_that_produces_it() -> None:
+    assert resolve_targets(
+        ("outputs/a.done",),
+        (TARGET_ALL, TARGET_FIT_A, TARGET_FIT_B),
+    ) == (TARGET_FIT_A.job_key,)
+
+
+def test_two_targets_resolve_in_request_order() -> None:
+    assert resolve_targets(
+        ("outputs/b.done", "outputs/a.done"),
+        (TARGET_FIT_A, TARGET_FIT_B),
+    ) == (TARGET_FIT_B.job_key, TARGET_FIT_A.job_key)
+
+
+def test_a_target_the_plan_does_not_name_is_unresolvable() -> None:
+    with pytest.raises(TargetUnresolvable):
+        resolve_targets(("outputs/zzz.done",), (TARGET_ALL, TARGET_FIT_A))
+
+
+def test_a_target_matching_two_planned_jobs_is_ambiguous() -> None:
+    twin = PlannedJob(
+        job_key("copy", ()),
+        "copy",
+        ("outputs/a.done",),
+        False,
+    )
+    with pytest.raises(TargetAmbiguous):
+        resolve_targets(("outputs/a.done",), (TARGET_FIT_A, twin))
 
 
 def _checkpoint_snapshot(families, expanded):

@@ -423,7 +423,7 @@ def _validate_occurrence(value: object, *, recipe_v2: bool) -> str:
         "receipt",
     }
     if recipe_v2:
-        members.add("planned")
+        members.update(("planned", "target_keys"))
     occurrence = _mapping(
         value,
         members,
@@ -459,6 +459,7 @@ def _validate_occurrence(value: object, *, recipe_v2: bool) -> str:
                 _refuse(f"{path}.is_checkpoint", "not a boolean")
         if len(planned_keys) != len(set(planned_keys)):
             _refuse("$.occurrence.planned", "repeats a job key")
+        _str_list(occurrence["target_keys"], "$.occurrence.target_keys")
     seeds = occurrence["realized_seeds"]
     if not isinstance(seeds, dict) or any(
         type(job) is not str
@@ -765,6 +766,7 @@ def decode_run_closure(node: Node) -> RunClosure:
             )
             for job in cast("list[dict[str, object]]", raw_occurrence["planned"])
         ),
+        target_keys=tuple(cast("list[str]", raw_occurrence["target_keys"])),
         realized_seeds=RealizedSeeds(
             cast("dict[str, dict[str, int]]", raw_occurrence["realized_seeds"])
         ),

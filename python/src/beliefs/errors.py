@@ -713,6 +713,14 @@ class CheckpointDeclarationUnmet(RecordError):
     """A checkpoint-expansion declaration disagrees with the definition or plan."""
 
 
+class TargetUnresolvable(RecordError):
+    """A requested target matches no planned job."""
+
+
+class TargetAmbiguous(RecordError):
+    """A requested target matches more than one planned job."""
+
+
 class RecordUndecodable(RecordError):
     """Captured bytes cannot be read as the named published record."""
 

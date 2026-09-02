@@ -78,6 +78,7 @@ def make_closure(
         host_realization="host-a",
         trace=(),
         planned=(),
+        target_keys=(),
         realized_seeds=RealizedSeeds({}),
         receipt=BoundaryReceipt(
             planning=LaunchAttestation(

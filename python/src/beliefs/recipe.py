@@ -671,6 +671,7 @@ class Occurrence:
     host_realization: str
     trace: tuple[TraceJob, ...]
     planned: tuple[PlannedJob, ...]
+    target_keys: tuple[str, ...]
     realized_seeds: RealizedSeeds
     receipt: BoundaryReceipt
 
@@ -688,6 +689,7 @@ class Occurrence:
         keys = [job.job_key for job in self.planned]
         if len(keys) != len(set(keys)):
             raise MalformedClosure("occurrence planned jobs name each job key once")
+        _require_strings(self.target_keys, "occurrence target keys")
         if type(self.realized_seeds) is not RealizedSeeds:
             raise MalformedClosure("occurrence realized_seeds must be RealizedSeeds")
         if not all(
@@ -744,6 +746,7 @@ def _occurrence_projection(occurrence: Occurrence) -> dict[str, object]:
         "host_realization": occurrence.host_realization,
         "trace": [_trace_projection(job) for job in occurrence.trace],
         "planned": [job.projection() for job in sorted(occurrence.planned, key=lambda job: job.job_key)],
+        "target_keys": list(occurrence.target_keys),
         "realized_seeds": occurrence.realized_seeds.projection(),
         "receipt": _receipt_projection(occurrence.receipt),
     }

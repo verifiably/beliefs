@@ -161,6 +161,7 @@ def occurrence(**overrides) -> Occurrence:
                 is_checkpoint=False,
             ),
         ),
+        "target_keys": (transform_key,),
         "realized_seeds": RealizedSeeds(seeds={"transform": {"model-initialization": 7}}),
         "receipt": BoundaryReceipt(
             planning=LaunchAttestation(scratch_mapping="scratch-mount-a", argv=("snakemake",), rendered_config=()),
@@ -205,6 +206,7 @@ def closure_with(
     trace=None,
     planned=None,
     expanded=(),
+    target_keys=None,
     outputs=(("out.txt", D_OUT),),
 ):
     """Build a closure from record parts for arms that need no engine."""
@@ -237,6 +239,11 @@ def closure_with(
                     )
                     for job in jobs
                 )
+            ),
+            target_keys=(
+                target_keys
+                if target_keys is not None
+                else ((jobs[-1].job_key(),) if jobs else ())
             ),
             realized_seeds=RealizedSeeds(seeds=realized or {}),
         ),

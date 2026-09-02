@@ -393,6 +393,7 @@ INVALID_CLOSURE_VALUES = [
             host_realization="host",
             trace=(),
             planned=(),
+            target_keys=(),
             realized_seeds=RealizedSeeds(seeds={}),
             receipt=[],  # type: ignore[arg-type]
         ),
