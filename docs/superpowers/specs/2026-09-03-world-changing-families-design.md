@@ -86,14 +86,33 @@ own effects. So `act-report` is an **excluded kind for every one of them**
 This is a re-read, not a reopening: the row's claim is unchanged and still
 holds; what changed is the set of APIs the word "every" quantifies over.
 
-### 2.4 The act-report operation enum gains two kinds
+### 2.4 Four closed act-report grammars are amended
 
-`report.OPERATION_KINDS` is the closed enum
-`("acquisition", "audit", "import", "re-check", "run-attempt")`, extended only
-by amendment (act-report design §2). This design amends it to add
-**`consolidate`** and **`move`** — and *not* `delete`, which mints no report at
-all (§3.1). It adds one entry type, `RecordMutationEntry`, for their outcomes
-(§4).
+The act-report design closes several vocabularies "extended only by amendment"
+(its §2, §2.1, §2.2). This design amends four of them, and §10 carries all four
+as one dated amendment:
+
+1. **The operation enum.** `report.OPERATION_KINDS` —
+   `("acquisition", "audit", "import", "re-check", "run-attempt")` — gains
+   **`consolidate`** and **`move`**, and *not* `delete`, which mints no report
+   at all (§3.1).
+2. **The act-kind enum.** §2.1's closed list — `pure-look` |
+   `managed-mutation` | `declaration-pin` | `subject-evaluation` |
+   `record-import` | `run-attempt` — gains **`record-mutation`**, the entry kind
+   `RecordMutationEntry` carries.
+3. **The subject grammar.** §2.1 admits a canonical location, a record ref, a
+   spec identity, or a recipe identity. A `record-mutation` entry's subject is a
+   **record ref together with the corpus it is read from or written to** — a
+   bare ref cannot name a side of a two-root operation.
+4. **The outcome vocabulary.** §2.2 gives each act kind its own; `record-mutation`
+   gets `moved` and `consolidated` (§4), and nothing is borrowed from another
+   kind.
+
+A fifth clause is widened rather than extended: §2.1's operation model knows
+only single-root operations, and §3.5 needs a **composite root-local
+operation** — one `event_token`, one `opened_at`/`closed_at`, one intent and one
+terminal report **per touched root**. The amendment states that model and T2's
+scope under it.
 
 Two consequences cross into the acquisition lane and are named here rather
 than discovered at merge:
@@ -104,7 +123,7 @@ than discovered at merge:
   `act-report-remainder`, and T2 stays part.
 - **T5** reserves outcome vocabularies per act kind and already names the
   managed-mutation, record-import and subject-evaluation entries.
-  `RecordMutationEntry` is a fourth such entry on which `byte-locator-untested`
+  `record-mutation` is a fourth such kind on which `byte-locator-untested`
   must be unspellable. T5 belongs to `url-retrieval`; this design states the
   reservation and does not select the row.
 
@@ -233,7 +252,8 @@ no address retires. No redirect is written, no inbound reference is rewritten,
 no `coreference-attestation` is written, and no coreference balance moves.
 
 The union is order-independent and idempotent, which is what makes re-running a
-`consolidate` the recovery from every crash prefix (§3.5).
+`consolidate` safe over the prefixes in which both inputs still resolve — steps
+1 through 4 of §3.5, and no further.
 
 On `uid`: shared across the inputs → preserved; distinct → `keep`'s survives,
 the other ceases to be live, and **no third is minted**. The choice of `keep`
@@ -262,9 +282,19 @@ root for the operation as a whole, and the public methods own their own:
 
 | seam | used by | shape |
 |---|---|---|
-| `_add_locked(node, intent_digest)` | `move`'s destination half | the create path, with `_refuse_already_minted` intact |
-| `_delete_locked(ref, intent_digest)` | `move`'s source half, `consolidate`'s non-surviving half | the remove path |
-| `_replace_locked(node, expected_digest, intent_digest)` | `consolidate`'s survivor | replacement at an existing `(uid, id)` |
+| `_add_locked(node)` | `move`'s destination half | the create path, with `_refuse_already_minted` intact |
+| `_delete_locked(ref)` | `move`'s source half, `consolidate`'s non-surviving half | the remove path |
+| `_replace_locked(node, expected_digest)` | `consolidate`'s survivor | replacement at an existing `(uid, id)` |
+
+**No data seam receives an intent digest.** Each executes through the
+operation port's ordinary `execute`, which fulfills nothing; only the report
+transaction calls `execute_fulfilling`. This is not a convenience: the digest's
+sole use is registering a fulfillment, so handing it to a data transaction
+would register that transaction as the operation's first fulfillment and leave
+the report as a forbidden second — the exact state T2's *"attempt a second
+fulfilling registration on one intent"* arm refuses. It is also what makes
+§3.5's tables true: both operations are still **unfinished** after their data
+transactions, and publication is what closes them.
 
 `_replace_locked` is a **distinct path and not a relaxation of `add`**.
 `_refuse_already_minted` deliberately refuses a create at an existing
@@ -283,13 +313,22 @@ accidental second acquisition harmless rather than load-bearing.
 Neither operation is one transaction — `atoms` §12.2 keys an engine root on a
 corpus root, so two corpora are two chains and two operation ports.
 
-**Event tokens are per root, not shared.** Act-report §2.1 makes the token *the
-report occurrence's own*, minted at open; two reports are two occurrences and
-carry two tokens. Correlation is explicit in the entry instead: each root's
-`moved` or `consolidated` entry names both corpora and the ref, so each side
-names its counterpart. This keeps **T2 root-local** — each root sees exactly one
-intent and exactly one terminal record — which is the only reading under which
-a two-root operation satisfies a row written for one.
+**One operation, one event token, two root-local intents and reports.** The
+operation opens once, and its single token is carried in **both** root-local
+intents and **both** reports. This is what makes the two halves uniquely
+correlated: `(source corpus, destination corpus, ref)` does not distinguish two
+identical relocations run in succession, and a token does. It leaves T8 intact —
+that row separates two *operations* with distinct tokens, and the two reports of
+one operation still carry different entries and so different identities (act
+report §2.3).
+
+**T2 is read root-locally**: each root sees exactly one intent and exactly one
+terminal record fulfilling it. That is the only reading under which a two-root
+operation satisfies a row written for one, and it is a genuine widening of the
+banked act-report design, which knows only single-root operations. §10 carries
+the dated amendment defining a **composite root-local operation** — one token,
+one `opened_at`/`closed_at`, one report per touched root — and T2's scope under
+it.
 
 **`move`**, in order:
 
@@ -321,10 +360,26 @@ other — so the prefix set is deterministic and the tables above are exhaustive
 Every `move` prefix is either the pre-state, the duplicate-location state, or a
 complete move with reports outstanding: **a move loses nothing at any
 interruption point**, which is the argument for the two operations sharing a
-cut. Every `consolidate` prefix is repaired by re-running the same call, which
-§3.3's idempotent union makes safe. There is no compensation transaction and no
-automatic resumption; an operation left unfinished stays unfinished and reads
-so under T3.
+cut.
+
+**Re-running repairs the data, and only through step 4.** Both operations
+partition at their second data transaction:
+
+- **interrupted at steps 2–4** — the inputs both still resolve, so re-running
+  the same call passes its preconditions and completes. For `consolidate`,
+  §3.3's idempotent union is what makes a re-run over an already-unioned
+  survivor safe.
+- **interrupted at steps 5–6** — the data is already in its final state, and
+  re-running now **refuses**: `move` no longer finds `ref` in the source, and
+  `consolidate` no longer finds `other`. There is nothing left to repair and
+  nothing that publishes the missing report.
+
+So an operation interrupted at step 5 or 6 leaves the corpora correct and one
+or both intents permanently unmatched, reading **unfinished** under T3. This is
+the residue, stated rather than papered over: there is no compensation
+transaction and no resumption seam here, exactly as family-adapters §5.4 left
+a stranded import — recovery correlation, adopting an open intent and minting
+the report that fulfills it, remains the log-consumer cut's.
 
 ### 3.6 The replacement concurrency ruling
 
@@ -447,29 +502,60 @@ stays with `contract-cut`.
 **M1 — the instrumented resolver, specified as a seam.** `belief.Records` is
 constructed nowhere in the package today, so no corpus→belief gathering layer
 exists to instrument. This cut adds one small module, `beliefs.evaluation`,
-with exactly two public names:
+with this surface:
 
 ```python
+ReadRef: TypeAlias = tuple[str, str]   # (member kind, ref); kinds below
+
 @dataclass(frozen=True)
 class EvaluationInputs:
-    records: belief.Records                       # assessments, runs, verifications, propositions
+    """`build_closure`'s argument set, plus what was read to obtain it."""
+
+    proposition: str
+    assessments: tuple[AssessmentValue, ...]
+    runs: Mapping[str, RunValue]
+    verifications: tuple[Verification, ...]
     snapshot: LineageSnapshot
     producer_snapshot_identity: str
-    pins: tuple[tuple[str, str], ...]             # namespace → contract identity, consulted
-    retractions: RetractionEnumeration            # found pairs and coverage declaration
+    retractions: RetractionEnumeration
+    consulted: tuple[tuple[str, str], ...]
     binding: tuple[str, str]
-    read_trace: tuple[tuple[str, str], ...]       # (member kind, ref), recorded at read time
+    read_trace: tuple[ReadRef, ...]        # recorded at the moment of each read
+
+    def closure(self) -> Closure: ...      # build_closure over the nine fields above
+    def declared_refs(self) -> frozenset[ReadRef]: ...
 
 def gather(view: ReadView, proposition: str, *, snapshot, coverage) -> EvaluationInputs: ...
 ```
 
+The first nine fields are **exactly** `closure.build_closure`'s keyword
+arguments, in its order, so `closure()` is a call over the same typed values and
+not a re-parse of anything. `closure.py` is not modified.
+
 `gather` is **the resolver**: it is the only path by which a belief evaluation
-obtains a value from a corpus, it records every value it hands out in
-`read_trace` at the moment of the read, and its result is exactly the argument
-set `closure.build_closure` already takes. The declared closure is therefore
-`build_closure(**inputs)` over the same object, and **containment is enforced
-by comparing `read_trace` against that closure's members** — every recorded read
-must appear as a closure member.
+obtains a value from a corpus, and it appends to `read_trace` at the moment of
+each read.
+
+**The membership key is `ReadRef`, and both sides derive it from the same typed
+values.** `Closure.projection` is an encoder-ready mapping built for digesting,
+not for set comparison, so containment is *not* computed against it.
+`declared_refs()` derives the pair set from the nine fields directly, over a
+closed kind vocabulary:
+
+| kind | refs |
+|---|---|
+| `assessment` | each matched assessment's identity |
+| `proposition` | the matched assessments' claim identities |
+| `run` | each key of `runs` |
+| `verification` | each verification's ref |
+| `dataset` | each `observes` address, and each address named by `snapshot` |
+| `retraction` | each ref in `retractions.found` |
+| `contract` | each identity in `consulted` |
+| `producer-snapshot` | `producer_snapshot_identity` |
+
+Containment is then `read_trace ⊆ declared_refs()` as sets, and M1's assertion
+is that inclusion. A read of a value in no row above is a read of something the
+closure does not declare, which is precisely the failure the row is for.
 
 Selected: the containment assertion over a corpus exercising every closure
 member, and the sabotage arm — one extra value read **through `gather`**,
@@ -521,10 +607,12 @@ contradiction finding, not the absence of all findings.
 - Ordered, deduplicated two-lock acquisition is **in-process only**.
   Cross-process single-writer operation remains a stated deployment obligation,
   detected loudly rather than prevented.
-- An interrupted `move` is repaired by an explicit `consolidate`, and an
-  interrupted `consolidate` by re-running it. There is no compensation
-  transaction and no automatic resumption, and an unfinished operation stays
-  unfinished.
+- **An operation interrupted after its second data transaction cannot be
+  completed.** Re-running repairs only the prefixes in which both inputs still
+  resolve (§3.5 steps 2–4). From step 5 the data is already correct and the
+  unmatched intents stay unfinished forever: there is no compensation
+  transaction and no resumption seam, and recovery correlation remains the
+  log-consumer cut's, as family-adapters §5.4 left it for a stranded import.
 - `consolidate`'s `keep` selection is a recorded judgement, not a derivation
   (address ruling limitation 4).
 - M1's resolver bound (formal model limitation 1) and M3's concrete-cycle arms
@@ -563,7 +651,10 @@ with the relocation cut's frozen document. In the same change:
 - the dated **C1 amendment** in the correction-lifecycle design (§2.2);
 - the dated **§5.3 amendment** in the family-adapters design, replacing the
   create-only monotonicity ruling with §3.6 and citing this design (§2.1); and
-- the dated **operation-enum amendment** in the act-report design (§2.4).
+- the dated **act-report amendment** (§2.4), carrying all five clauses in one
+  change: the operation enum, the act-kind enum, the `record-mutation` subject
+  grammar, its outcome vocabulary, and the composite root-local operation model
+  with T2's scope under it.
 
 Each cut's results record is a separate commit that rewrites the ledger's
 `Current state` table and the roadmap, one at a time (concurrency rule 2). The
@@ -597,9 +688,11 @@ because the create-path guard is what keeps ordinary `add` from silently
 replacing a minted record. `_replace_locked` is a separate path with its own
 expected-digest precondition.
 
-**A shared event token across the two roots.** Rejected because act-report §2.1
-makes the token the report occurrence's own, and two reports are two
-occurrences. Correlation belongs in the entry, which names both corpora.
+**Distinct event tokens per root, correlated by the entry's corpora and ref.**
+Rejected because that triple cannot distinguish two identical relocations run
+in succession, so the two halves of one operation would not be uniquely
+pairable. One operation carries one token in both root-local intents and both
+reports (§3.5).
 
 **Source-first `move`.** Rejected because its crash prefix is a record present
 in neither corpus — unrecoverable loss — where destination-first's crash prefix
