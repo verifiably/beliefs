@@ -532,12 +532,22 @@ class EvaluationInputs:
 
 def gather(view: ReadView, proposition: str, *,
            context: belief.SuppliedContext, profile: ProfileSpec,
-           binding: PolicyBinding) -> EvaluationInputs: ...
+           resolution: ResolutionSnapshot, binding: PolicyBinding) -> EvaluationInputs: ...
 
 def evaluate_over(view: ReadView, proposition: str, *,
                   availability: belief.Availability, context: belief.SuppliedContext,
-                  profile: ProfileSpec, binding: PolicyBinding) -> Belief | NoBelief | Refused: ...
+                  profile: ProfileSpec, resolution: ResolutionSnapshot,
+                  binding: object) -> Belief | NoBelief | Refused: ...
 ```
+
+**`evaluate_over` guards the binding before it reads anything.** Its `binding`
+is typed `object` and its **first** statement is `evaluate`'s step-1 check: a
+value that is not a `PolicyBinding` returns `Refused("binding-not-exact: …")`
+immediately. Without that guard the wrapper would open the corpus, or crash
+projecting `.rule` off a `None` or a string, before `evaluate` ever got to
+refuse — turning a clean refusal into reads and an exception. `gather` keeps the
+narrow `PolicyBinding` type because the guard has already run by the time it is
+called.
 
 **`profile` and a real `PolicyBinding` are both required, and neither is
 optional.** `consulted` is not derivable from `context` alone:
@@ -557,6 +567,27 @@ is opaque and cannot be rebuilt from its identity, so `records()` populates
 `Records.claims` from this field — `{proposition: claim}` when present, `{}`
 when not — and passes `source_assertions=()`, which G1 makes safe: they are
 never read below and move no output byte.
+
+**Restoring that `Claim` needs a new seam inside `decode.py`, and this design
+adds it.** `ReadView` returns a stored `Node`, not a `Claim`; the only
+public route to a `Claim` is `decode_claim`, which takes a `WireClaim` — and
+M13's second clause is that **no function downstream of the boundary accepts a
+`WireClaim`**, the wire type being confined to the decode module. So `gather`
+may not assemble one, and it may not decode by any other path either. The
+conforming route is one added function, in `decode.py`, beside `decode_claim`
+and sharing its body:
+
+```python
+def claim_from_stored(node: Node, *, profile: ProfileSpec,
+                      snapshot: ResolutionSnapshot) -> tuple[Claim, BindingCheckReceipt]: ...
+```
+
+It builds the `WireClaim` from the node's covered proposition facet **inside the
+module** and delegates, so `WireClaim` still never leaves and M13 is untouched.
+`gather` therefore takes a `ResolutionSnapshot`: the decode design makes
+availability a parameter on purpose (§7.2 — *"a decoder that supplied its own
+would decide by ambient state, and two holders would read the same bytes
+differently"*), so the seam receives one and never builds one.
 
 The three genuinely supplied members — `snapshot`, `producer_snapshot_identity`
 and `retractions` — pass through from `context` unchanged.
@@ -600,7 +631,7 @@ opens with:
 | kind | refs | mirrors |
 |---|---|---|
 | `assessment` | each identity in `ids` | `assessment_facets` |
-| `proposition` | `proposition` itself, the one `claims` key read — declared whether or not a claim resolves, since the read happens either way | `propositions`, and the claim read that feeds `consulted` |
+| `proposition` | `{a.proposition for a in ours}` — the one `claims` key read, when `ours` is non-empty | `propositions` |
 | `run` | `{a.run for a in ours}` — **not** every key of `runs` | the runs `observes` walks |
 | `verification` | `{v.ref for v in verifications if v.assessment in ids}` — **not** every verification | `verifications` |
 | `dataset` | the non-`None` `observes` addresses of those runs' inputs | `observes` |
@@ -618,6 +649,23 @@ through `gather`, so declaring its datasets would open the same hole.
 Containment is then `read_trace ⊆ declared_refs()` as sets, and M1's assertion
 is that inclusion. A read of a value in no row above is a read of something the
 closure does not declare, which is precisely the failure the row is for.
+
+**Containment is asserted on the `Belief` arm only, and the closure is never
+widened to legitimize a read.** G3 makes the closure exist *whenever a belief is
+produced*; `NoBelief` and `Refused` commit no input closure, so on those arms
+there is nothing for a read to be contained in, and asserting containment would
+mean inventing a closure this design does not have. Scoping the claim rather
+than widening the declaration is the whole discipline: an earlier draft declared
+`proposition` unconditionally so that a claim read would pass when no assessment
+matched, which would have let a genuinely out-of-closure read through — the
+exact failure M1 guards. On the `Belief` arm the question does not arise:
+`evaluate` reaches step 8 only with at least one directional eligible
+assessment, so `ours` is non-empty, `propositions` is non-empty, and the claim
+read is declared by the closure itself.
+
+`read_trace` records values **handed out**, not lookups attempted: a key that
+resolves to nothing yields no value and traces nothing, so a proposition
+carrying no claim record needs no declaration for the attempt.
 
 Selected: the containment assertion over a corpus exercising every closure
 member, and the sabotage arm — one extra value read **through `gather`**,
@@ -705,6 +753,7 @@ Named additionally by this lane:
 | `world/verify.py` | the deletion cut's semantic-audit arms | the `world-read` lane |
 | `report.py` | the two new operation kinds and `RecordMutationEntry` | the `acquisition` lane, which owns T1/T2/T4 |
 | `corpus.py`, `stored.py` | `delete`, the three lock-held seams, the rewritten concurrency docstring | none |
+| `decode.py` | `claim_from_stored`, the M13-conforming restore seam (§6.3) | none |
 
 The later merge resolves toward the earlier one.
 
