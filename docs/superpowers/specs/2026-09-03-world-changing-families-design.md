@@ -324,8 +324,8 @@ root for the operation as a whole, and the public methods own their own:
 | seam | used by | shape |
 |---|---|---|
 | `_add_locked(node)` | `move`'s destination half | the create path, with `_refuse_already_minted` intact |
-| `_delete_locked(ref)` | `move`'s source half, `consolidate`'s non-surviving half | the remove path |
-| `_replace_locked(node, expected_digest)` | `consolidate`'s survivor | replacement at an existing `(uid, id)` |
+| `_delete_locked(ref)` | `move`'s source half, `consolidate`'s non-surviving half | the remove path; builds `DeleteOp(path, expected_digest)` |
+| `_replace_locked(node)` | `consolidate`'s survivor | replacement at an existing `(uid, id)`; the digest precondition is the substrate's |
 
 **No data seam receives an intent digest.** Each executes through the
 operation port's ordinary `execute`, which fulfills nothing; only the report
@@ -340,9 +340,19 @@ transactions, and publication is what closes them.
 `_replace_locked` is a **distinct path and not a relaxation of `add`**.
 `_refuse_already_minted` deliberately refuses a create at an existing
 `(uid, id)`, and `revise` reaches replacement only through its display-only
-allowlist; neither is weakened. `_replace_locked` takes an `expected_digest`
-read under the lock immediately before plan construction, and a mismatch
-refuses exactly as family-adapters §5.2 maps a revision digest race.
+allowlist; neither is weakened.
+
+**The digest precondition is the substrate's, not a Science-layer parameter**
+*(corrected 2026-09-03, on inspecting the write API)*. `Corpus.add` selects
+`ReplaceOp` for an existing `(uid, id)` and takes its `expected_digest` from
+the pre-plan read of the current file — `revise` reaches replacement exactly
+this way, and no Science-layer caller supplies a digest anywhere in the
+package. `_replace_locked(node)` therefore takes no digest argument; the race
+refuses through family-adapters §5.2's existing two-observation mapping, which
+is unchanged. `_delete_locked` does need one, because `DeleteOp(path,
+expected_digest)` is constructed directly: it is the bare 64-character
+`member_content_digest` of the record's rendered bytes as read under the lock,
+never a `sha256:`-prefixed identity.
 
 **Lock discipline.** Acquire each **distinct resolved root path exactly once**,
 in sorted order. Sorting makes two opposing relocations deadlock-free;
@@ -450,8 +460,15 @@ in both cuts rather than argued:
 from a vocabulary reserved to the two relocation kinds:
 
 - `moved` — source corpus, destination corpus, ref;
-- `consolidated` — both inputs, the kept position, the retired `uid`, and the
+- `consolidated` — both inputs, the kept position, **`retired_uids`**, and the
   `rationale`; this entry **is** the recorded judgement.
+
+`retired_uids` is a **sequence, empty in the shared-`uid` arm** *(corrected
+2026-09-03)*. §3.3 has two `uid` cases and only one retires anything: where the
+inputs share a `uid` it is preserved and nothing is retired, and where they
+differ exactly one ceases to be live. A mandatory single `retired_uid` could not
+state the first case truthfully, and a sentinel empty string would be a silent
+fallback standing in for a fact. An empty sequence says what happened.
 
 There is no `removed` outcome, because `delete` mints no report (§3.1).
 `byte-locator-untested` is unspellable on the entry (§2.4). No API accepts an
