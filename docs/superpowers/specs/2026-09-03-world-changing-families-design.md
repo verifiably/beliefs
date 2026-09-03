@@ -362,24 +362,24 @@ complete move with reports outstanding: **a move loses nothing at any
 interruption point**, which is the argument for the two operations sharing a
 cut.
 
-**Re-running repairs the data, and only through step 4.** Both operations
-partition at their second data transaction:
+**Recovery per operation, per prefix.** The two operations do not share a
+partition, because `move`'s own precondition 5 refuses once its destination
+create has landed:
 
-- **interrupted at steps 2–4** — the inputs both still resolve, so re-running
-  the same call passes its preconditions and completes. For `consolidate`,
-  §3.3's idempotent union is what makes a re-run over an already-unioned
-  survivor safe.
-- **interrupted at steps 5–6** — the data is already in its final state, and
-  re-running now **refuses**: `move` no longer finds `ref` in the source, and
-  `consolidate` no longer finds `other`. There is nothing left to repair and
-  nothing that publishes the missing report.
+| interrupted after | state | recovery |
+|---|---|---|
+| `move` steps 2–3 | record solely in the source | re-run `move` |
+| `move` step 4 | **duplicate location** | call `consolidate` — `move` itself now refuses at precondition 5, which is correct: the state is no longer a move's pre-state, it is the state `consolidate` exists for |
+| `move` steps 5–6 | data final | nothing completes it; the intents stay unfinished |
+| `consolidate` steps 2–4 | still duplicate location | re-run `consolidate`; §3.3's idempotent union is what makes a re-run over an already-unioned survivor safe |
+| `consolidate` steps 5–6 | data final | nothing completes it; the intents stay unfinished |
 
-So an operation interrupted at step 5 or 6 leaves the corpora correct and one
-or both intents permanently unmatched, reading **unfinished** under T3. This is
-the residue, stated rather than papered over: there is no compensation
-transaction and no resumption seam here, exactly as family-adapters §5.4 left
-a stranded import — recovery correlation, adopting an open intent and minting
-the report that fulfills it, remains the log-consumer cut's.
+The two "data final" rows are the residue, stated rather than papered over: the
+corpora are correct, one or both intents are permanently unmatched, and they
+read **unfinished** under T3. There is no compensation transaction and no
+resumption seam here, exactly as family-adapters §5.4 left a stranded import —
+recovery correlation, adopting an open intent and minting the report that
+fulfills it, remains the log-consumer cut's.
 
 ### 3.6 The replacement concurrency ruling
 
@@ -525,8 +525,26 @@ class EvaluationInputs:
     def closure(self) -> Closure: ...      # build_closure over the nine fields above
     def declared_refs(self) -> frozenset[ReadRef]: ...
 
-def gather(view: ReadView, proposition: str, *, snapshot, coverage) -> EvaluationInputs: ...
+    def records(self) -> belief.Records: ...
+
+def gather(view: ReadView, proposition: str, *,
+           context: belief.SuppliedContext, binding: tuple[str, str]) -> EvaluationInputs: ...
+
+def evaluate_over(view: ReadView, proposition: str, *,
+                  availability: belief.Availability,
+                  context: belief.SuppliedContext, binding: tuple[str, str]) -> ...: ...
 ```
+
+`gather` takes `context` and `binding` because three closure members are
+**supplied, not computed** — `snapshot`, `producer_snapshot_identity` and
+`retractions` come from `belief.SuppliedContext`, and `consulted` is derived
+from that context's `pins` and `node_corpus` exactly as `belief.evaluate`
+derives it today, with no second rule introduced.
+
+`evaluate_over` is the call-site change that makes the seam load-bearing rather
+than merely present: it composes `gather` with `belief.evaluate`, passing
+`inputs.records()`, and is **the only corpus-backed evaluation path in the
+package**. `belief.evaluate` keeps its supplied-value signature unchanged.
 
 The first nine fields are **exactly** `closure.build_closure`'s keyword
 arguments, in its order, so `closure()` is a call over the same typed values and
@@ -536,22 +554,46 @@ not a re-parse of anything. `closure.py` is not modified.
 obtains a value from a corpus, and it appends to `read_trace` at the moment of
 each read.
 
+**`gather` filters at read time, and this is not an optimization.**
+`belief.Records` is deliberately an *unfiltered pool* — its own docstring
+requires that an unrelated claim present in it move neither the value nor the
+digest — so a resolver that read a pool and let `build_closure` filter
+afterwards would record reads that the digest legitimately omits, and M1 would
+fail on correct code. `gather` therefore resolves the matched assessments for
+`proposition` **first**, and then reads exactly and only what they reach: their
+runs, the verifications naming them, their `observes` datasets, and the single
+`claims` entry keyed by `proposition`. The `Records` it returns is already
+proposition-scoped, so `evaluate`'s own filtering is a no-op over it — itself
+an assertable property.
+
 **The membership key is `ReadRef`, and both sides derive it from the same typed
 values.** `Closure.projection` is an encoder-ready mapping built for digesting,
 not for set comparison, so containment is *not* computed against it.
 `declared_refs()` derives the pair set from the nine fields directly, over a
 closed kind vocabulary:
 
-| kind | refs |
-|---|---|
-| `assessment` | each matched assessment's identity |
-| `proposition` | the matched assessments' claim identities |
-| `run` | each key of `runs` |
-| `verification` | each verification's ref |
-| `dataset` | each `observes` address, and each address named by `snapshot` |
-| `retraction` | each ref in `retractions.found` |
-| `contract` | each identity in `consulted` |
-| `producer-snapshot` | `producer_snapshot_identity` |
+**It mirrors `build_closure`'s filtering exactly, member for member.** Let
+`ours` be the matched assessments — those whose `proposition` equals
+`proposition` — and `ids` their identities, the same two lines `build_closure`
+opens with:
+
+| kind | refs | mirrors |
+|---|---|---|
+| `assessment` | each identity in `ids` | `assessment_facets` |
+| `proposition` | `proposition` itself, the one `claims` key read | `propositions` |
+| `run` | `{a.run for a in ours}` — **not** every key of `runs` | the runs `observes` walks |
+| `verification` | `{v.ref for v in verifications if v.assessment in ids}` — **not** every verification | `verifications` |
+| `dataset` | the non-`None` `observes` addresses of those runs' inputs | `observes` |
+| `retraction` | each ref in `retractions.found` | `retractions` |
+| `contract` | each identity in `consulted` | `consulted` |
+| `producer-snapshot` | `producer_snapshot_identity` | `producer_snapshot` |
+
+The two bolded exclusions are the whole point. Declaring every key of `runs`
+or every verification would admit a read of an **unrelated** run or
+verification — one that `build_closure` filters out and the digest therefore
+omits — and M1 would pass on exactly the code it exists to catch. `snapshot`'s
+named addresses are likewise absent: the snapshot is supplied rather than read
+through `gather`, so declaring its datasets would open the same hole.
 
 Containment is then `read_trace ⊆ declared_refs()` as sets, and M1's assertion
 is that inclusion. A read of a value in no row above is a read of something the
@@ -559,7 +601,11 @@ closure does not declare, which is precisely the failure the row is for.
 
 Selected: the containment assertion over a corpus exercising every closure
 member, and the sabotage arm — one extra value read **through `gather`**,
-nothing else changed, and the check must fail. M1's stated scope limitation is
+nothing else changed, and the check must fail. The sabotage is run in the shape
+that would slip past a loose `declared_refs()`: the corpus holds a run and a
+verification belonging to a **different** proposition, `gather` is made to read
+one of them, and the check must fail even though the pool legitimately contains
+both and the digest is unchanged. M1's stated scope limitation is
 preserved verbatim and not closed: a read that never crosses `gather` — a
 module-level constant, an environment lookup, a cached global, a file opened
 directly — is invisible and passes.
@@ -608,11 +654,13 @@ contradiction finding, not the absence of all findings.
   Cross-process single-writer operation remains a stated deployment obligation,
   detected loudly rather than prevented.
 - **An operation interrupted after its second data transaction cannot be
-  completed.** Re-running repairs only the prefixes in which both inputs still
-  resolve (§3.5 steps 2–4). From step 5 the data is already correct and the
-  unmatched intents stay unfinished forever: there is no compensation
-  transaction and no resumption seam, and recovery correlation remains the
-  log-consumer cut's, as family-adapters §5.4 left it for a stranded import.
+  completed.** §3.5's recovery table is per operation and per prefix: a `move`
+  interrupted at its destination create is repaired by `consolidate`, not by
+  re-running `move`, which now refuses. From step 5 either operation's data is
+  already correct and its unmatched intents stay unfinished forever: there is
+  no compensation transaction and no resumption seam, and recovery correlation
+  remains the log-consumer cut's, as family-adapters §5.4 left it for a
+  stranded import.
 - `consolidate`'s `keep` selection is a recorded judgement, not a derivation
   (address ruling limitation 4).
 - M1's resolver bound (formal model limitation 1) and M3's concrete-cycle arms
