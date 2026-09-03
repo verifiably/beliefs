@@ -159,7 +159,7 @@ Create `docs/designs/2026-09-03-conformance-cut-16.md` following `docs/designs/2
 
 **D7's cell must state that both refusals are exercised through the public `move` and `consolidate` entry points**, not only against the predicate — a helper-level test would survive deleting the call from the operation.
 
-§7 carries design §8's relocation limitations verbatim: same-corpus duplicate location unrepaired; `consolidate` two-way only; ordered acquisition in-process only; an operation interrupted after its second data transaction cannot be completed.
+§7 carries design §8's relocation limitations verbatim: same-corpus duplicate location unrepaired; `consolidate` two-way only; ordered acquisition in-process only; no interrupted operation is ever completed — after the first intent append, its intents remain unfinished even when a fresh-token operation repairs the data.
 
 - [ ] **Step 7: Update the guard inputs**
 
