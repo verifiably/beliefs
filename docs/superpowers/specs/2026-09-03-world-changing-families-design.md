@@ -354,6 +354,17 @@ expected_digest)` is constructed directly: it is the bare 64-character
 `member_content_digest` of the record's rendered bytes as read under the lock,
 never a `sha256:`-prefixed identity.
 
+**The seams admit the kind they are relocating** *(added 2026-09-03, on tracing
+M3's replica arm)*. `_refuse_family_kinds` refuses a `retraction` unless its
+`admitted_kind` argument names one — that is the guard keeping retractions
+entering through `retract`. A relocation neither mints nor authors a record: it
+carries an existing one, whose kind was already admitted when it was minted. So
+both seams pass `admitted_kind=node.kind`, without which M3's arm —
+`consolidate` over two equal-basis retraction replicas — is unreachable. This
+opens nothing else: the guard's refusals for coordination kinds,
+`holdings-observation` and `act-report` consult no `admitted_kind` and stay
+absolute, agreeing with §3.0's excluded list.
+
 **Lock discipline.** Acquire each **distinct resolved root path exactly once**,
 in sorted order. Sorting makes two opposing relocations deadlock-free;
 deduplicating on the resolved path is the rule, and reentrancy makes an
@@ -417,20 +428,29 @@ cut.
 partition, because `move`'s own precondition 5 refuses once its destination
 create has landed:
 
-| interrupted after | state | recovery |
+| interrupted after | state | data recovery |
 |---|---|---|
 | `move` steps 2–3 | record solely in the source | re-run `move` |
 | `move` step 4 | **duplicate location** | call `consolidate` — `move` itself now refuses at precondition 5, which is correct: the state is no longer a move's pre-state, it is the state `consolidate` exists for |
-| `move` steps 5–6 | data final | nothing completes it; the intents stay unfinished |
+| `move` steps 5–6 | data final | none needed; nothing to repair |
 | `consolidate` steps 2–4 | still duplicate location | re-run `consolidate`; §3.3's idempotent union is what makes a re-run over an already-unioned survivor safe |
-| `consolidate` steps 5–6 | data final | nothing completes it; the intents stay unfinished |
+| `consolidate` steps 5–6 | data final | none needed; nothing to repair |
 
-The two "data final" rows are the residue, stated rather than papered over: the
-corpora are correct, one or both intents are permanently unmatched, and they
-read **unfinished** under T3. There is no compensation transaction and no
-resumption seam here, exactly as family-adapters §5.4 left a stranded import —
-recovery correlation, adopting an open intent and minting the report that
-fulfills it, remains the log-consumer cut's.
+**Every recovery above repairs data only. None of them closes the interrupted
+operation** *(stated 2026-09-03, on tracing the token)*. A re-run mints a
+**fresh `event_token`** and is therefore a new operation with new intents; it
+cannot adopt the interrupted operation's intents, and nothing else does either.
+So any interruption at or after step 2 — the first intent append — leaves one or
+two intents permanently unmatched, reading **unfinished** under T3, *whether or
+not the data was subsequently repaired*.
+
+That is the residue, and it is exactly the disposition family-adapters §5.4 gave
+a stranded import: *"Retrying creates a new operation with a new intent and
+cannot close the old one."* Recovery correlation — adopting an open intent and
+minting the report that fulfills it — remains the log-consumer cut's, and this
+design adds no compensation transaction and no resumption seam. A cut arm that
+asserted a re-run "recovered the operation" would be false; the arms assert
+repaired data **and** a stranded original intent, together.
 
 ### 3.6 The replacement concurrency ruling
 
@@ -785,14 +805,15 @@ contradiction finding, not the absence of all findings.
 - Ordered, deduplicated two-lock acquisition is **in-process only**.
   Cross-process single-writer operation remains a stated deployment obligation,
   detected loudly rather than prevented.
-- **An operation interrupted after its second data transaction cannot be
-  completed.** §3.5's recovery table is per operation and per prefix: a `move`
-  interrupted at its destination create is repaired by `consolidate`, not by
-  re-running `move`, which now refuses. From step 5 either operation's data is
-  already correct and its unmatched intents stay unfinished forever: there is
-  no compensation transaction and no resumption seam, and recovery correlation
-  remains the log-consumer cut's, as family-adapters §5.4 left it for a
-  stranded import.
+- **No interrupted operation is ever completed; only its data is repaired.**
+  §3.5's recovery table is per operation and per prefix — a `move` interrupted
+  at its destination create is repaired by `consolidate`, not by re-running
+  `move`, which now refuses. But every one of those recoveries mints a fresh
+  `event_token` and is a **new** operation, so an interruption at or after the
+  first intent append strands one or two intents permanently, reading
+  `unfinished` under T3, whether or not the data was repaired. There is no
+  compensation transaction and no resumption seam; recovery correlation remains
+  the log-consumer cut's, as family-adapters §5.4 left it for a stranded import.
 - `consolidate`'s `keep` selection is a recorded judgement, not a derivation
   (address ruling limitation 4).
 - M1's resolver bound (formal model limitation 1) and M3's concrete-cycle arms

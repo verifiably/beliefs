@@ -41,6 +41,8 @@ Do not re-derive these; they were inspected while writing this plan.
 | `stored._REPORT_ENTRY_OUTCOMES` and `_valid_report_entry` are a closed stored grammar | a new entry kind and its `corpus` field must be added there too |
 | `test_inertness.py::test_t1_the_constructor_is_reachable_only_from_the_boundary` asserts `_mint_report` callers are exactly `["boundary.py", "report.py"]` | the mint helper lives in `boundary.py`, as `_mint_import_report` does |
 | `coordination.COORDINATION_KINDS = ("project","question","hypothesis","topic","theme","task","decision","note")` | there is no `"coordination-revision"` kind |
+| `_refuse_family_kinds(node, *, admitted_kind=None)` refuses a `retraction` unless `admitted_kind` names one; its coordination, `holdings-observation` and `act-report` branches ignore the argument | both seams pass `admitted_kind=node.kind`, or M3's replica arm is unreachable |
+| every operation mints its own `secrets.token_hex(16)` | a re-run is a **new** operation and can never close an interrupted one's intent |
 
 ## File Structure
 
@@ -608,6 +610,35 @@ def test_replace_locked_refuses_a_node_that_is_not_already_minted(writer):
             writer._replace_locked(absent)
 
 
+def test_the_seams_carry_a_retraction(writer, second_writer):
+    """`_refuse_family_kinds` refuses a retraction unless `admitted_kind` names
+    one. A relocation carries a record it did not author, so both seams pass it
+    — without this, M3's replica arm (consolidating two retraction replicas) is
+    unreachable."""
+    record = writer.retract(stored.retraction_node(...))  # the module's retraction fixture
+    with second_writer._operation:
+        carried = second_writer._add_locked(record)
+    assert carried.kind == "retraction"
+
+
+def test_the_seams_still_refuse_an_act_report(writer):
+    """`admitted_kind` opens nothing else: that branch consults it, the
+    act-report, holdings and coordination branches do not."""
+    with writer._operation:
+        with pytest.raises(WriteRefused, match="act-report"):
+            writer._add_locked(stored.act_report_node(...))
+
+
+def test_replace_locked_runs_the_eligibility_check(writer):
+    """Consolidation unions outgoing relations, so a survivor can gain an
+    `assesses` edge neither input had. S7's predicate must judge it."""
+    node = writer.add(stored.assessment_node(...))
+    ineligible = node.model_copy(update={"relations": [...]})  # an inadmissible assesses edge
+    with writer._operation:
+        with pytest.raises(EligibilityUnmet):
+            writer._replace_locked(ineligible)
+
+
 def test_delete_locked_removes_the_record_and_checks_no_references(writer):
     target = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
     # An inbound reference exists and must NOT prevent removal.
@@ -637,8 +668,16 @@ Expected: FAIL with `AttributeError: 'CorpusWriter' object has no attribute '_ad
 
         A re-entry point, not a relaxation: every ordinary create check runs,
         `_refuse_already_minted` included.
+
+        `admitted_kind` is passed because a relocation **carries** a record it
+        did not author. `_refuse_family_kinds` refuses a `retraction` unless
+        told one is admitted — the guard that keeps retractions entering
+        through `retract` — and without this, moving or consolidating a
+        retraction is impossible, which is exactly M3's replica arm. The
+        guard's coordination, `holdings-observation` and `act-report` refusals
+        consult no `admitted_kind` and stay absolute.
         """
-        self._refuse_family_kinds(node)
+        self._refuse_family_kinds(node, admitted_kind=node.kind)
         self._refuse(node)
         return self._corpus.add(node)
 
@@ -651,12 +690,21 @@ Expected: FAIL with `AttributeError: 'CorpusWriter' object has no attribute '_ad
         parameter here. A race refuses through family-adapters §5.2's mapping.
 
         Distinct from `add`, whose `_refuse_already_minted` guard stays intact,
-        and from `revise`, whose allowlist is display prose only.
+        and from `revise`, whose allowlist is display prose only. Every other
+        check `_refuse` runs, runs here — basis, eligibility and display facet
+        included. Eligibility is load-bearing rather than incidental:
+        consolidation **unions outgoing relations**, so the survivor can gain an
+        `assesses` edge neither input had alone, and S7's write-boundary
+        predicate is what judges it.
         """
         existing = self._corpus.index.by_uid.get(node.uid)
         if existing is None or existing.id != node.id:
             raise RevisionTargetMissing(f"{node.id}: exact uid and id do not identify a local node")
-        self._refuse_family_kinds(node)
+        self._refuse_family_kinds(node, admitted_kind=node.kind)
+        self._refuse_missing_basis(node)
+        self._refuse_ineligible(node)
+        if stored.display_facet_malformed(node):
+            raise ValidationRefused(f"{node.id}: refused by document validation: malformed display facet")
         self._refuse_invalid(node)
         self._refuse_governed_stamp(node)
         self._refuse_rendering(node)
@@ -686,8 +734,9 @@ this same commit.
 
 `_replace_locked` deliberately does not call the full `_refuse`, because
 `_refuse_already_minted` and `_refuse_collision` would reject the very pair it
-targets. It runs every other check individually. If `_refuse` grows a keyword
-that skips those two, prefer that.
+targets. It runs **every other check `_refuse` runs**, in `_refuse`'s own order —
+compare the two side by side and confirm the only omissions are those two. If
+`_refuse` grows a keyword that skips them, prefer that to this duplication.
 
 - [ ] **Step 4: Run to verify they pass**
 
@@ -1270,15 +1319,30 @@ def test_a_move_interrupted_at_the_destination_create_is_a_duplicate_location(..
         relocation.move(source_writer, destination_writer, ref, ...)
 
 def test_that_duplicate_location_is_repaired_by_consolidate(...):
-    """The recovery table's `move` step-4 row."""
+    """The recovery table's `move` step-4 row — and assert BOTH halves: the
+    data is repaired, AND the interrupted move's intents are still unmatched.
+    The repairing `consolidate` mints its own fresh token, so it is a new
+    operation and closes nothing."""
 
 def test_a_move_interrupted_after_the_source_delete_cannot_be_completed(...):
     """Data final; re-running refuses because the source no longer holds the
     record; the intents stay unmatched and read `unfinished` under T3."""
 
-def test_consolidate_prefixes_two_to_four_are_repaired_by_re_running(...):
+def test_consolidate_prefixes_two_to_four_repair_data_and_strand_the_original(...):
+    """Re-running repairs the duplicate location. It does NOT recover the
+    interrupted operation: assert the re-run's token differs from the first
+    attempt's, and that the first attempt's intents remain unmatched."""
+
 def test_consolidate_after_the_other_delete_cannot_be_completed(...):
     """Re-running refuses: `other` no longer resolves."""
+
+def test_no_recovery_ever_closes_the_interrupted_operation(...):
+    """The design's §3.5 residue, asserted once and directly: for every
+    interrupted prefix at or after the first intent append, the original
+    operation's intents read `unfinished` under T3 forever — whether or not the
+    data was repaired afterwards. A re-run mints a fresh event token and is a
+    new operation; nothing here adopts an open intent. This is family-adapters
+    §5.4's disposition for a stranded import, unchanged."""
 
 def test_a_move_never_loses_the_record_at_any_prefix(...):
     """The argument for the two operations sharing a cut: at every prefix the
@@ -1392,23 +1456,27 @@ cd python && uv run --frozen pytest tests/test_designs_corpus.py
 ```
 Expected: PASS — `test_the_roadmap_and_ledger_name_the_same_boundaries` holds `Ranked at` to the newest results record.
 
-- [ ] **Step 5: Close the task record and check**
+- [ ] **Step 5: Note progress on the task record — do not close it**
+
+`beliefs-676a2c` is *"Deliver consolidate, move, and managed deletion"*. This cut delivers the first two; managed deletion is the next cut's. **The task stays open**, and closing it here would claim work that has not been done.
 
 ```bash
-tasks note beliefs-676a2c "Relocation cut discharged; deletion cut remains."
+tasks note beliefs-676a2c "Relocation cut discharged: move and consolidate land, G3 and D7 close, W5 reads in full. Managed deletion and the ride-alongs remain; the deletion cut follows."
 tasks check
 ```
 Expected: zero errors. Report every warning; registration-only `unreachable_dep` and `cycle_unverifiable` warnings are environmental.
 
 - [ ] **Step 6: Commit and merge from the repository root**
 
-`main` is checked out at the root, so `git checkout main` **inside this worktree will fail**. Commit here, then merge there.
+`tasks note` edits the task record under `tasks/`, so **stage it too** — `git add docs` alone would leave the modified record uncommitted.
+
+`main` is checked out at the repository root, so `git checkout main` **inside this worktree will fail**. Commit here, then merge there. Use your own checkout's root path in place of `<repo-root>` — do not hard-code an absolute path into any committed file.
 
 ```bash
-git add docs
+git add docs tasks
 git commit -m "docs(mutation): discharge conformance cut 16 and re-rank the roadmap"
 
-cd /mnt/ssd/Dropbox/beliefs        # the root worktree, where main is checked out
+cd <repo-root>        # the root worktree, where main is checked out
 git merge --no-ff design/consolidate-family
 ```
 
