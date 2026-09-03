@@ -33,7 +33,7 @@ The boundary discharges across two freezes, in this order:
 | freeze | operations | rows |
 |---|---|---|
 | the **relocation** cut | `move`, `consolidate` | W5, W16 (part), G3, D7, C3's move clause, R23's move and consolidate clauses, M3's replica arm, T2's per-kind arms, T8 (re-read) |
-| the **deletion** cut | `delete` | G2c, G8, C6, R5, S5's deletion half, R23's deletion clauses, W16's remainder, C1 (re-read), T8 (re-read); then R19, R22, M1, M3, M5 |
+| the **deletion** cut | `delete` | G2c, G8, C6, R5, S5's deletion half, R23's deletion clauses, W16's remainder, C1, T8, M11, M13 (re-reads); then R19, R22, M1, M3, M5 |
 
 Cut numbers are claimed at freeze, not here (roadmap concurrency rule 1). The
 relocation cut freezes first and takes the lower number; the deletion cut
@@ -126,6 +126,47 @@ than discovered at merge:
   `record-mutation` is a fourth such kind on which `byte-locator-untested`
   must be unspellable. T5 belongs to `url-retrieval`; this design states the
   reservation and does not select the row.
+
+### 2.5 M11 and M13 are re-read for the claim restore seam
+
+`decode.claim_from_stored` (§6.3) is a **new public route to a `Claim`** and a
+new deserialization entry point. M11 and M13 are both closed, and both were
+closed against a surface that had exactly one such route. Adding a second
+without re-reading them would rest their closure on evidence that predates it —
+the same error §2.3 corrects for T8. The deletion cut therefore re-reads both,
+with these arms:
+
+**M13 — opacity and the confined wire type.**
+
+- `claim_from_stored`'s signature neither accepts nor returns a `WireClaim`: it
+  takes a `Node` and returns `(Claim, BindingCheckReceipt)`. The wire value is
+  constructed and consumed **within** `decode.py`.
+- It **delegates to `decode_claim`** rather than typing the claim itself.
+  Sabotage: give the helper its own typing path and assert the check fails —
+  otherwise "one place, once" has quietly become two places.
+- The brand chain M13's 2026-08-06 extension requires is unbroken through the
+  new route: the returned `Claim` is one the validated constructor minted, so
+  `π_claim` accepts it, and a `Claim` reaching `π_claim` by this route rather
+  than by `decode_claim` directly is not distinguishable from one that did.
+
+**M11 — a function of its arguments, refusing rather than repairing.**
+
+- Determinism across the new route: the same `⟨Node, ProfileSpec,
+  ResolutionSnapshot⟩` restored twice, in different processes and different
+  checkouts, yields an identical result.
+- Availability stays a **parameter**. Sabotage: let `claim_from_stored` build
+  or default its own `ResolutionSnapshot` and assert two holders now restore
+  the same bytes differently.
+- **Refusal before delegation, never repair and never a crash.** Each
+  ill-formed input in turn — a node of the wrong kind, a proposition facet with
+  a missing field, an extra field, or a malformed one — is **refused with
+  nothing minted**, and refused *by the helper before it delegates*, rather
+  than repaired into a well-formed wire value or allowed to raise an unrelated
+  `KeyError`/`AttributeError` on the way into `decode_claim`. This is the arm
+  that matters most: a restore helper is exactly the place where "be liberal in
+  what you accept" would silently defeat M11's whole claim.
+- M11's negative is unchanged and not re-run here: a raw-written malformed
+  claim remains an audit finding, the boundary bypassed rather than defeated.
 
 ## 3. The operations
 
@@ -472,6 +513,8 @@ arm is the move alone.
 | **W16** | its remaining arm from §6.1 | closes W16 |
 | **C1** | re-read under §2.2's narrowing: retraction remains additive and its operation never edits, removes or re-addresses its target | re-read |
 | **T8** | its clause re-read against `delete`: no ordinary API deletes a report — and `delete` mints no report of its own, so it adds no report to delete | re-read |
+| **M13** | §2.5's opacity arms against `claim_from_stored`: no `WireClaim` in or out, delegation to `decode_claim` with the sabotage, and the brand chain intact through the new route | re-read |
+| **M11** | §2.5's decode arms against `claim_from_stored`: determinism across processes and checkouts, availability as a parameter with the ambient sabotage, and refusal before delegation on wrong kind and on missing, extra or malformed facet fields | re-read |
 
 `delete` contributes **no** T2 arm: it opens no operation and mints no terminal
 record (§3.1). The §3.6 re-resolution arm is declared here for a deleted target.
@@ -583,11 +626,15 @@ def claim_from_stored(node: Node, *, profile: ProfileSpec,
 ```
 
 It builds the `WireClaim` from the node's covered proposition facet **inside the
-module** and delegates, so `WireClaim` still never leaves and M13 is untouched.
+module** and delegates to `decode_claim`, so the wire type still never leaves.
 `gather` therefore takes a `ResolutionSnapshot`: the decode design makes
 availability a parameter on purpose (§7.2 — *"a decoder that supplied its own
 would decide by ambient state, and two holders would read the same bytes
 differently"*), so the seam receives one and never builds one.
+
+**This widens the public `Claim`-producing surface, so M11 and M13 are re-read
+(§2.5).** It is not enough to assert the helper was written carefully: both rows
+were closed against evidence that predates it.
 
 The three genuinely supplied members — `snapshot`, `producer_snapshot_identity`
 and `retractions` — pass through from `context` unchanged.
