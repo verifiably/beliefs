@@ -511,6 +511,7 @@ ReadRef: TypeAlias = tuple[str, str]   # (member kind, ref); kinds below
 class EvaluationInputs:
     """`build_closure`'s argument set, plus what was read to obtain it."""
 
+    # build_closure's nine keyword arguments, verbatim and in its order
     proposition: str
     assessments: tuple[AssessmentValue, ...]
     runs: Mapping[str, RunValue]
@@ -519,32 +520,51 @@ class EvaluationInputs:
     producer_snapshot_identity: str
     retractions: RetractionEnumeration
     consulted: tuple[tuple[str, str], ...]
-    binding: tuple[str, str]
+    binding: tuple[str, str]               # the PolicyBinding projected, as evaluate projects it
+
+    # gathered, and not closure arguments
+    claim: Claim | None                    # the one `claims` entry, keyed by `proposition`
     read_trace: tuple[ReadRef, ...]        # recorded at the moment of each read
 
     def closure(self) -> Closure: ...      # build_closure over the nine fields above
     def declared_refs(self) -> frozenset[ReadRef]: ...
-
     def records(self) -> belief.Records: ...
 
 def gather(view: ReadView, proposition: str, *,
-           context: belief.SuppliedContext, binding: tuple[str, str]) -> EvaluationInputs: ...
+           context: belief.SuppliedContext, profile: ProfileSpec,
+           binding: PolicyBinding) -> EvaluationInputs: ...
 
 def evaluate_over(view: ReadView, proposition: str, *,
-                  availability: belief.Availability,
-                  context: belief.SuppliedContext, binding: tuple[str, str]) -> ...: ...
+                  availability: belief.Availability, context: belief.SuppliedContext,
+                  profile: ProfileSpec, binding: PolicyBinding) -> Belief | NoBelief | Refused: ...
 ```
 
-`gather` takes `context` and `binding` because three closure members are
-**supplied, not computed** — `snapshot`, `producer_snapshot_identity` and
-`retractions` come from `belief.SuppliedContext`, and `consulted` is derived
-from that context's `pins` and `node_corpus` exactly as `belief.evaluate`
-derives it today, with no second rule introduced.
+**`profile` and a real `PolicyBinding` are both required, and neither is
+optional.** `consulted` is not derivable from `context` alone:
+`consulted_contracts` takes `claims`, `profile`, `node_corpus`, `pins` and
+`closure_nodes`, so `gather` must receive the `ProfileSpec`. And `evaluate`
+refuses a binding that is not a `PolicyBinding` before anything else runs, so
+passing a bare tuple would make every `evaluate_over` call refuse. The seam
+therefore carries `PolicyBinding` and **projects it to `(rule, implementation)`
+only for `build_closure`**, which is exactly what `evaluate` does at its step 9.
+
+**`claim` is retained because dropping it would move the digest.** `evaluate`
+reads at most one `claims` entry, keyed by `proposition`, and hands it to
+`consulted_contracts`; a proposition with **no** claim record consults only the
+base contract. So an absent claim is not a neutral default — it yields a
+different `consulted`, and `consulted` is a digested closure member. The claim
+is opaque and cannot be rebuilt from its identity, so `records()` populates
+`Records.claims` from this field — `{proposition: claim}` when present, `{}`
+when not — and passes `source_assertions=()`, which G1 makes safe: they are
+never read below and move no output byte.
+
+The three genuinely supplied members — `snapshot`, `producer_snapshot_identity`
+and `retractions` — pass through from `context` unchanged.
 
 `evaluate_over` is the call-site change that makes the seam load-bearing rather
 than merely present: it composes `gather` with `belief.evaluate`, passing
 `inputs.records()`, and is **the only corpus-backed evaluation path in the
-package**. `belief.evaluate` keeps its supplied-value signature unchanged.
+package**. `belief.evaluate` keeps its signature unchanged.
 
 The first nine fields are **exactly** `closure.build_closure`'s keyword
 arguments, in its order, so `closure()` is a call over the same typed values and
@@ -580,7 +600,7 @@ opens with:
 | kind | refs | mirrors |
 |---|---|---|
 | `assessment` | each identity in `ids` | `assessment_facets` |
-| `proposition` | `proposition` itself, the one `claims` key read | `propositions` |
+| `proposition` | `proposition` itself, the one `claims` key read — declared whether or not a claim resolves, since the read happens either way | `propositions`, and the claim read that feeds `consulted` |
 | `run` | `{a.run for a in ours}` — **not** every key of `runs` | the runs `observes` walks |
 | `verification` | `{v.ref for v in verifications if v.assessment in ids}` — **not** every verification | `verifications` |
 | `dataset` | the non-`None` `observes` addresses of those runs' inputs | `observes` |
