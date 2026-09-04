@@ -6,7 +6,7 @@ priority: 2
 size: xl
 owner: design/consolidate-family
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-04T02:25:05Z
+updated: 2026-09-04T03:09:43Z
 depends: []
 tags: [migration, mutation, world]
 ---
@@ -31,3 +31,4 @@ Uncertainty: The outcome is buildable, but the exact cut and interaction between
 - 2026-09-04T01:54:05Z (design/consolidate-family): Task 5 review fix 1/5: source-missing used-domain pin now has direct typed-refusal coverage; 22 tests, Ruff, and Pyright pass.
 - 2026-09-04T02:10:27Z (design/consolidate-family): Task 6 RED: missing relocation mint and writer helpers; GREEN: 117 focused tests plus 43 import regressions passed, Ruff and Pyright clean.
 - 2026-09-04T02:25:05Z (design/consolidate-family): Task 6 review fix 1/5: import now publishes its exact prebuilt report operation; 117 focused tests and 44 import regressions pass, Ruff and Pyright clean.
+- 2026-09-04T03:09:43Z (design/consolidate-family): Task 7: public destination-first move and frozen-row evidence pass 44 focused and 3149 full-suite tests; Ruff and Pyright clean.

@@ -10,16 +10,25 @@ pretending otherwise.
 
 from __future__ import annotations
 
+import secrets
 from collections.abc import Iterator
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
 
 from nodes.core.node import Node
 
-from beliefs import stored
+from beliefs import boundary, stored
 from beliefs.coordination import COORDINATION_KINDS
 from beliefs.corpus import CorpusWriter
-from beliefs.errors import ContractPinDisagreement, RelocationKindExcluded, SameRootRefused
+from beliefs.errors import (
+    ContractPinDisagreement,
+    DuplicateLocation,
+    RelocationKindExcluded,
+    RelocationRefused,
+    RelocationTargetMissing,
+    SameRootRefused,
+)
+from beliefs.report import ActReport, Moved, OperationIntent
 
 EXCLUDED_KINDS = ("act-report", "holdings-observation", *COORDINATION_KINDS)
 
@@ -61,3 +70,76 @@ def _refuse_contract_disagreement(
             raise ContractPinDisagreement(
                 f"{node.id}: source and destination disagree on used namespace {namespace!r}"
             )
+
+
+def move(
+    source: CorpusWriter,
+    destination: CorpusWriter,
+    ref: str,
+    *,
+    actor: str,
+    observer: str,
+    instrument: str,
+    opened_at: str,
+    closed_at: str,
+) -> tuple[Node, ActReport, ActReport]:
+    """Move one record destination-first and report once in each root."""
+    with _both_locks(source, destination):
+        _refuse_same_root(source, destination)
+        resolved = source.read_view.resolve(ref)
+        if resolved is None:
+            raise RelocationTargetMissing(f"{ref!r}: source holds no resolving record")
+        node = source.read_view.get(resolved)
+        _refuse_excluded_kind(node)
+        _refuse_contract_disagreement(node, source, destination)
+        if destination.read_view.holds(node.id):
+            raise DuplicateLocation(
+                f"{node.id}: destination already holds this canonical address"
+            )
+        for position, writer in (("source", source), ("destination", destination)):
+            if writer._operation_port is None:
+                raise RelocationRefused(
+                    f"{position} corpus has no operation port; move is a boundary operation"
+                )
+
+        token = secrets.token_hex(16)
+        intent = OperationIntent("move", token, actor)
+        outcome = Moved(source.corpus_id, destination.corpus_id, node.id)
+        report_fields = {
+            "subject": node.id,
+            "observer": observer,
+            "instrument": instrument,
+            "opened_at": opened_at,
+            "closed_at": closed_at,
+            "outcome": outcome,
+        }
+        destination_report = boundary._mint_relocation_report(
+            intent, corpus=destination.corpus_id, **report_fields
+        )
+        source_report = boundary._mint_relocation_report(
+            intent, corpus=source.corpus_id, **report_fields
+        )
+        destination_report_op = destination._create_op(
+            stored.act_report_node(destination_report)
+        )
+        source_report_op = source._create_op(stored.act_report_node(source_report))
+
+        destination_intent = destination._append_operation_intent(
+            intent.kind, intent.event_token, intent.actor
+        )
+        source_intent = source._append_operation_intent(
+            intent.kind, intent.event_token, intent.actor
+        )
+        moved = destination._add_locked(node)
+        source._delete_locked(node.id)
+        destination._publish_operation_report(
+            destination_report,
+            destination_intent,
+            operation=destination_report_op,
+        )
+        source._publish_operation_report(
+            source_report,
+            source_intent,
+            operation=source_report_op,
+        )
+        return moved, destination_report, source_report
