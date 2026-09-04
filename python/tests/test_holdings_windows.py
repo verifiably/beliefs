@@ -36,7 +36,7 @@ def setup(root: Path):
     )
     world.admit(corpus_root, provenance=registry.Fresh(), actor="alice")
     binding = rules.install_rule_binding(world, holdings_rule_bundle())
-    context = ActContext(corpus_root, store_root, "observer", "instrument", "actor", science_root.holdings_seam())
+    context = ActContext(corpus_root, store_root, "observer", "instrument", FULL, science_root.holdings_seam())
     return context, store_id, manifest.corpus_id, world, binding
 
 

@@ -30,6 +30,7 @@ from beliefs.holdings.seam import (
     StoreActSeam,
     StoreOutcomeView,
 )
+from beliefs.permit import Authority
 from beliefs.world.anchors import parse_store_genesis
 
 HOLDINGS_INTENT_DOMAIN = "science.holdings-intent.v1"
@@ -71,12 +72,22 @@ class ActContext:
     store_root: Path
     observer: str
     instrument: str
-    actor: str
+    authority: Authority
     seam: StoreActSeam
+
+    def __post_init__(self) -> None:
+        if type(self.authority) is not Authority:
+            raise TypeError("an act context binds an Authority")
+
+    @property
+    def actor(self) -> str:
+        """The bound actor — a read, never a field."""
+        return self.authority.actor
 
 
 def _publish(ctx: ActContext, location: StoreLocator, outcome: Found | Absent, token: str, intent: str,
              standing: tuple[HoldingsObservation, ...]) -> PublishedObservation:
+    ctx.authority.require("holdings", ("holdings-observation",))
     record = holdings_observation(location=location, outcome=outcome, observer=ctx.observer, instrument=ctx.instrument,
                                   event_token=token, observed_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
                                   supersedes=standing)
@@ -87,6 +98,7 @@ def _publish(ctx: ActContext, location: StoreLocator, outcome: Found | Absent, t
 
 
 def recheck(ctx: ActContext, location: StoreLocator, *, standing: tuple[HoldingsObservation, ...] = ()) -> ActResult:
+    ctx.authority.require("holdings", ("holdings-observation",))
     token = secrets.token_hex(16)
     intent = ctx.seam.append_intent(ctx.observer_root, intent_payload(location=location, act_kind="re-check",
                                                                         event_token=token, actor=ctx.actor))
@@ -118,6 +130,7 @@ def _bind(ctx: ActContext, location: StoreLocator) -> None:
 
 
 def _append(ctx: ActContext, location: StoreLocator, kind: str) -> tuple[str, str]:
+    ctx.authority.require("holdings", ("holdings-observation",))
     token = secrets.token_hex(16)
     return token, ctx.seam.append_intent(
         ctx.observer_root, intent_payload(location=location, act_kind=kind, event_token=token, actor=ctx.actor)
@@ -126,6 +139,7 @@ def _append(ctx: ActContext, location: StoreLocator, kind: str) -> tuple[str, st
 
 def write(ctx: ActContext, location: StoreLocator, content: bytes, *, expected: str | None = None,
           standing: tuple[HoldingsObservation, ...] = ()) -> PublishedObservation:
+    ctx.authority.require("holdings", ("holdings-observation",))
     if expected is not None:
         require_canonical_digest(expected, "a holdings observation's expected digest")
         if expected.split(":", 1)[0] != "sha256":
@@ -145,6 +159,7 @@ def write(ctx: ActContext, location: StoreLocator, content: bytes, *, expected: 
 
 
 def delete(ctx: ActContext, location: StoreLocator, *, standing: tuple[HoldingsObservation, ...] = ()) -> PublishedObservation:
+    ctx.authority.require("holdings", ("holdings-observation",))
     token, intent = _append(ctx, location, "delete")
     _bind(ctx, location)
     state = _final(ctx.seam.store_delete(ctx.store_root, location.relative_path), location.relative_path)
@@ -156,6 +171,7 @@ def delete(ctx: ActContext, location: StoreLocator, *, standing: tuple[HoldingsO
 def move(ctx: ActContext, source: StoreLocator, destination: StoreLocator, *,
          standing_source: tuple[HoldingsObservation, ...] = (),
          standing_destination: tuple[HoldingsObservation, ...] = ()) -> tuple[PublishedObservation, PublishedObservation]:
+    ctx.authority.require("holdings", ("holdings-observation",))
     source_token, source_intent = _append(ctx, source, "move-source")
     destination_token, destination_intent = _append(ctx, destination, "move-destination")
     _bind(ctx, source)

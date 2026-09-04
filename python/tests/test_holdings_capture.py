@@ -202,7 +202,7 @@ def test_the_projection_matches_the_closed_schema(
             store_root,
             "observer",
             "instrument",
-            "actor",
+            FULL,
             science_root.holdings_seam(),
         ),
         StoreLocator(store_id, "missing.bin"),

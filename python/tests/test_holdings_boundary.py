@@ -10,10 +10,11 @@ from hashlib import sha256
 from pathlib import Path
 
 import pytest
+from authority import ACTOR, FULL, narrowed
 from nodes.core.errors import ExecutionError
 
 from beliefs import root as science_root
-from beliefs.errors import MalformedRecord, StoreIdMismatch
+from beliefs.errors import MalformedRecord, PermitExceeded, PermitFact, StoreIdMismatch
 from beliefs.holdings.boundary import (
     ActContext,
     InconclusiveAttempt,
@@ -44,7 +45,58 @@ def context(certified_work):
     store_root = certified_work / "store"
     init_corpus_root(observer_root)
     store_id = init_store_root(store_root)
-    return ActContext(observer_root, store_root, "observer", "instrument", "actor", holdings_seam()), store_id
+    return ActContext(observer_root, store_root, "observer", "instrument", FULL, holdings_seam()), store_id
+
+
+def _chain_len(root):
+    view = science_root._log_seam().inspect_registered(root)
+    assert type(view) is WellFormedView
+    return len(view.entries)
+
+
+def test_e1_a_permit_lacking_holdings_refuses_recheck_before_the_intent(certified_work):
+    ctx, store_id = context(certified_work)
+    ctx = replace(ctx, authority=narrowed(kinds=("holdings-observation",), families=("corpus-write",)))
+    before = _chain_len(ctx.observer_root)
+    with pytest.raises(PermitExceeded) as caught:
+        recheck(ctx, StoreLocator(store_id, "held.bin"))
+    assert caught.value.requirement == PermitFact("family", "holdings")
+    assert _chain_len(ctx.observer_root) == before
+
+
+def test_e1_a_permit_lacking_the_observation_kind_refuses_write_before_any_store_effect(certified_work):
+    ctx, store_id = context(certified_work)
+    ctx = replace(ctx, authority=narrowed(families=("holdings",)))
+    with pytest.raises(PermitExceeded) as caught:
+        write(ctx, StoreLocator(store_id, "held.bin"), b"bytes")
+    assert caught.value.requirement == PermitFact("kind", "holdings-observation")
+    assert not (ctx.store_root / "held.bin").exists()
+
+
+def test_e1_the_exact_holdings_requirement_publishes(certified_work):
+    ctx, store_id = context(certified_work)
+    ctx = replace(ctx, authority=narrowed(kinds=("holdings-observation",), families=("holdings",)))
+    assert write(ctx, StoreLocator(store_id, "held.bin"), b"bytes").record.outcome is not None
+
+
+def test_e3_the_holdings_intent_carries_the_bound_actor(certified_work):
+    ctx, store_id = context(certified_work)
+    assert ctx.actor == ACTOR
+    ctx = replace(
+        ctx,
+        authority=narrowed(kinds=("holdings-observation",), families=("holdings",), actor="store-actor"),
+    )
+    assert ctx.actor == "store-actor"
+    write(ctx, StoreLocator(store_id, "held.bin"), b"bytes")
+    view = science_root._log_seam().inspect_registered(ctx.observer_root)
+    assert type(view) is WellFormedView
+    intents = [entry for entry in view.entries if type(entry) is IntentEntryView]
+    assert json.loads(intents[-1].payload)["actor"] == "store-actor"
+
+
+def test_act_context_takes_no_actor_field():
+    with pytest.raises(TypeError):
+        ActContext(Path("a"), Path("b"), "observer", "instrument", "actor", holdings_seam())  # type: ignore[arg-type]
 
 
 def test_recheck_publishes_found_with_the_hash_the_engine_observed(certified_work):
