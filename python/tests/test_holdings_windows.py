@@ -24,10 +24,10 @@ from beliefs.world import logmodel, registry, rules
 
 def setup(root: Path):
     corpus_root = root / "corpus"
-    science_root.init_corpus_root(corpus_root)
+    science_root.init_corpus_root(corpus_root, authority=FULL)
     manifest = science_root.open_corpus(corpus_root, authority=FULL).adopt_manifest(profile=PINS)
     store_root = root / "store"
-    store_id = science_root.init_store_root(store_root)
+    store_id = science_root.init_store_root(store_root, authority=FULL)
     world = registry.World(
         registry.WorldConfig(root / "world", "f" * 32, (corpus_root,)),
         DefaultExecutor,

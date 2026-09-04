@@ -307,7 +307,7 @@ def metadata_root_for(corpus_root: Path) -> Path:
     return root.with_name(root.name + METADATA_SUFFIX)
 
 
-def init_corpus_root(corpus_root: Path) -> None:
+def init_corpus_root(corpus_root: Path, *, authority: Authority) -> None:
     """Make a corpus root durable — the explicit act, never a fallback.
 
     Every write against an unregistered root refuses (the engine's
@@ -319,6 +319,7 @@ def init_corpus_root(corpus_root: Path) -> None:
     Re-runnable: `register_root` returns the existing genesis digest when the
     payload and surface match, and refuses when they do not.
     """
+    authority.require("lifecycle")
     root = Path(corpus_root).resolve()
     if root.exists() and not root.is_dir():
         raise CorpusRootRefused(f"{str(root)!r} exists and is not a directory, so it cannot be a corpus root")
@@ -339,7 +340,8 @@ def _world_genesis_payload(world_id: str) -> bytes:
     return v1.encode({"domain": WORLD_GENESIS_DOMAIN, "world_id": world_id})
 
 
-def init_world_root(config: WorldConfig) -> None:
+def init_world_root(config: WorldConfig, *, authority: Authority) -> None:
+    authority.require("lifecycle")
     root = config.world_root
     if root.exists() and not root.is_dir():
         raise CorpusRootRefused(f"{str(root)!r} exists and is not a directory, so it cannot be a world root")
@@ -399,7 +401,7 @@ def _read_existing_store_genesis(store_root: Path) -> str | None:
     return store_id
 
 
-def init_store_root(store_root: Path) -> str:
+def init_store_root(store_root: Path, *, authority: Authority) -> str:
     """Make a store root durable and mint its opaque identity.
 
     The id is minted, not derived: nothing the genesis carries names the
@@ -408,6 +410,7 @@ def init_store_root(store_root: Path) -> str:
     genesis is honored only through the engine's own recorded initialization
     operation: a copied store is restored or forked, never re-initialized.
     """
+    authority.require("lifecycle")
     store_root = Path(store_root)
     if store_root.exists() and not store_root.is_dir():
         raise CorpusRootRefused(
@@ -466,7 +469,7 @@ def init_store_root(store_root: Path) -> str:
     return store_id
 
 
-def replicate_root(source_root: Path, dest_root: Path) -> RootOperationId:
+def replicate_root(source_root: Path, dest_root: Path, *, authority: Authority) -> RootOperationId:
     """Replicate one registered root byte-for-byte, chain included.
 
     The thin wrapper over the engine's copy command: both metadata roots
@@ -475,6 +478,7 @@ def replicate_root(source_root: Path, dest_root: Path) -> RootOperationId:
     its lifecycle is read-only unserviceable — and returns the engine's
     retained operation id, which an exact retry returns again.
     """
+    authority.require("lifecycle")
     source = Path(source_root)
     dest = Path(dest_root)
     return _replicate_root_callback(
@@ -498,13 +502,14 @@ def read_lifecycle_state(root: Path) -> LifecycleState:
     )
 
 
-def migrate_root_to_lifecycle_v3(root: Path) -> None:
+def migrate_root_to_lifecycle_v3(root: Path, *, authority: Authority) -> None:
     """The operator-authorized pre-lifecycle migration, passed through.
 
     Invoking it is the attestation that this host is the pre-lifecycle
     minting host; every structural refusal — metadata-less, mismatched
     binding, anything but the exact version-2 store — is the engine's own.
     """
+    authority.require("lifecycle")
     target = Path(root)
     _migrate_root_to_lifecycle_v3_callback(
         _PRODUCTION_BACKEND,
@@ -518,6 +523,8 @@ def restore_root(
     dest_root: Path,
     subject: CorpusSubject | StoreSubject,
     observers: ObserverSet,
+    *,
+    authority: Authority,
 ) -> LogReport:
     """Admit a restored copy: verify its chain, then grant read
     serviceability — one held boundary, the existing report, no new type.
@@ -533,6 +540,7 @@ def restore_root(
         raise TypeError("restore admits corpus and store subjects; a world root is reconstructed, not restored")
 
     def grant(root: Path) -> None:
+        authority.require("lifecycle")
         _grant_read_serviceability_callback(
             _PRODUCTION_BACKEND,
             str(root),
@@ -565,6 +573,7 @@ def _fork_pending(dest_root: Path) -> RootOperationId | None:
 
 
 def _fork_resume(dest_root: Path, operation_id: RootOperationId) -> None:
+    """The resume primitive's one body; its callers require."""
     _resume_fork_root_callback(
         _PRODUCTION_BACKEND,
         str(dest_root),
@@ -574,7 +583,7 @@ def _fork_resume(dest_root: Path, operation_id: RootOperationId) -> None:
     )
 
 
-def fork_corpus(source_root: Path, dest_root: Path) -> _registry.CorpusManifest:
+def fork_corpus(source_root: Path, dest_root: Path, *, authority: Authority) -> _registry.CorpusManifest:
     """Fork a corpus: a new chain, a fresh identity, and the two fork facts.
 
     The retry branch runs **before any mint**: a pending fork at the
@@ -589,6 +598,7 @@ def fork_corpus(source_root: Path, dest_root: Path) -> _registry.CorpusManifest:
     `RootOperationMismatch`, and `RootOperationInvalid` propagate
     untranslated, and this act adds no third disposition.
     """
+    authority.require("lifecycle")
     source = Path(source_root)
     dest = Path(dest_root)
     pending = _fork_pending(dest)
@@ -628,7 +638,7 @@ def fork_corpus(source_root: Path, dest_root: Path) -> _registry.CorpusManifest:
     return child_manifest
 
 
-def fork_store(source_root: Path, dest_root: Path) -> str:
+def fork_store(source_root: Path, dest_root: Path, *, authority: Authority) -> str:
     """Fork a store: the same act over the opaque namespace.
 
     No manifest travels — a store's only identity is its genesis — so the
@@ -637,6 +647,7 @@ def fork_store(source_root: Path, dest_root: Path) -> str:
     retained identity exactly as `fork_corpus` does, the child id read back
     from the destination genesis.
     """
+    authority.require("lifecycle")
     source = Path(source_root)
     dest = Path(dest_root)
     pending = _fork_pending(dest)

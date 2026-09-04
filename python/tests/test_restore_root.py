@@ -17,6 +17,7 @@ import pytest
 from atoms.chain.model import IntentEntry, encode_entry, entry_digest
 from atoms.core.errors import PreconditionRefused
 from atoms.fs.linux import LinuxBackend
+from authority import FULL
 from fixtures_cut6 import PINS
 from nodes.core.write_plan import CreateOp, ReplaceOp
 from test_world_log_audit import Captures, Inspections, make_seam, surfaced
@@ -50,7 +51,7 @@ def _seeded_store(work: Path, name: str = "store") -> tuple[Path, str]:
     payload replays as a disagreement — exactly what `_forked_form_store`
     exists to model the other way."""
     root = work / name
-    store_id = init_store_root(root)
+    store_id = init_store_root(root, authority=FULL)
     return root, store_id
 
 
@@ -117,7 +118,7 @@ def _corpus_record(corpus_id: str, genesis: str, head: str) -> verify.RegistryCa
 
 
 def _restore_store(root: Path, store_id: str, *carriers) -> verify.LogReport:
-    return restore_root(root, anchors.StoreSubject(store_id), verify.ObserverSet(carriers))
+    return restore_root(root, anchors.StoreSubject(store_id), verify.ObserverSet(carriers), authority=FULL)
 
 
 class TestStoreRestore:
@@ -126,7 +127,7 @@ class TestStoreRestore:
     ):
         source, store_id = _seeded_store(certified_work)
         replica = certified_work / "replica"
-        replicate_root(source, replica)
+        replicate_root(source, replica, authority=FULL)
         # Interior chain damage: one entry's bytes no longer hash to its name.
         chain = replica / ".#~chain"
         victim = min(chain.iterdir())
@@ -142,7 +143,7 @@ class TestStoreRestore:
     def test_validated_store_copy_admits_read_only_serviceable(self, certified_work):
         source, store_id = _seeded_store(certified_work)
         replica = certified_work / "replica"
-        replicate_root(source, replica)
+        replicate_root(source, replica, authority=FULL)
         genesis, head = _head_of(source)
 
         report = _restore_store(replica, store_id, _store_record(store_id, genesis, head))
@@ -153,7 +154,7 @@ class TestStoreRestore:
     def test_re_restore_is_idempotent(self, certified_work):
         source, store_id = _seeded_store(certified_work)
         replica = certified_work / "replica"
-        replicate_root(source, replica)
+        replicate_root(source, replica, authority=FULL)
         genesis, head = _head_of(source)
         carrier = _store_record(store_id, genesis, head)
 
@@ -166,7 +167,7 @@ class TestStoreRestore:
     def test_validated_with_store_subject_mismatch_does_not_admit(self, certified_work):
         source, _store_id = _seeded_store(certified_work)
         replica = certified_work / "replica"
-        replicate_root(source, replica)
+        replicate_root(source, replica, authority=FULL)
         genesis, head = _head_of(source)
         # The raw-write license: an exported head artifact naming the presented
         # chain's digests under the selected, different store_id.
@@ -177,7 +178,7 @@ class TestStoreRestore:
 
         report = restore_root(
             replica, anchors.StoreSubject(OTHER_STORE_ID), verify.ObserverSet((carrier,))
-        )
+        , authority=FULL)
 
         # Asserted, so replay refutation cannot discharge the arm vacuously.
         assert report.outcome == "validated"
@@ -187,7 +188,7 @@ class TestStoreRestore:
     def test_empty_observer_set_unresolvable_replay_not_reached(self, certified_work):
         source, store_id = _seeded_store(certified_work)
         replica = certified_work / "replica"
-        replicate_root(source, replica)
+        replicate_root(source, replica, authority=FULL)
 
         report = _restore_store(replica, store_id)
 
@@ -222,7 +223,7 @@ class TestStoreRestore:
     def test_validated_root_claim_residue_does_not_admit(self, certified_work):
         source, store_id = _seeded_store(certified_work)
         replica = certified_work / "replica"
-        replicate_root(source, replica)
+        replicate_root(source, replica, authority=FULL)
         (replica / ".#~root-claim").write_bytes(b"{}")
         genesis, head = _head_of(source)
 
@@ -233,7 +234,7 @@ class TestStoreRestore:
     def test_validated_staging_survivor_does_not_admit(self, certified_work):
         source, store_id = _seeded_store(certified_work)
         replica = certified_work / "replica"
-        replicate_root(source, replica)
+        replicate_root(source, replica, authority=FULL)
         (replica / ".#~chain" / ".#~stage").write_bytes(b"staged bytes")
         genesis, head = _head_of(source)
 
@@ -249,7 +250,7 @@ class TestStoreRestore:
         copies = []
         for name in ("copy-a", "copy-b"):
             copy = certified_work / name
-            replicate_root(source, copy)
+            replicate_root(source, copy, authority=FULL)
             shutil.rmtree(metadata_root_for(copy))
             # The L10 u9 obligation: both roots are metadata-less first.
             assert read_lifecycle_state(copy) is LifecycleState.METADATA_LESS
@@ -275,7 +276,7 @@ class TestStoreRestore:
     def test_restore_never_grants_writability(self, certified_work):
         source, store_id = _seeded_store(certified_work)
         replica = certified_work / "replica"
-        replicate_root(source, replica)
+        replicate_root(source, replica, authority=FULL)
         genesis, head = _head_of(source)
         _restore_store(replica, store_id, _store_record(store_id, genesis, head))
 
@@ -286,7 +287,7 @@ class TestStoreRestore:
 class TestCorpusRestore:
     def _seeded_corpus(self, work: Path) -> Path:
         root = work / "corpus"
-        init_corpus_root(root)
+        init_corpus_root(root, authority=FULL)
         manifest = registry.manifest_bytes(registry.CorpusManifest(2, CORPUS_A, PINS))
         _executor(root).execute([CreateOp("corpus.yaml", manifest)])
         _executor(root).execute([CreateOp("verification/v1.md", b"# a record\n")])
@@ -312,14 +313,14 @@ class TestCorpusRestore:
             ]
         )
         replica = certified_work / "replica"
-        replicate_root(root, replica)
+        replicate_root(root, replica, authority=FULL)
         genesis, head = _head_of(root)
 
         report = restore_root(
             replica,
             anchors.CorpusSubject(CORPUS_A),
             verify.ObserverSet((_corpus_record(CORPUS_A, genesis, head),)),
-        )
+         authority=FULL)
 
         assert report.outcome == "validated"
         assert any(finding.code == "subject-mismatch" for finding in report.findings)
@@ -328,14 +329,14 @@ class TestCorpusRestore:
     def test_validated_corpus_copy_admits(self, certified_work):
         root = self._seeded_corpus(certified_work)
         replica = certified_work / "replica"
-        replicate_root(root, replica)
+        replicate_root(root, replica, authority=FULL)
         genesis, head = _head_of(root)
 
         report = restore_root(
             replica,
             anchors.CorpusSubject(CORPUS_A),
             verify.ObserverSet((_corpus_record(CORPUS_A, genesis, head),)),
-        )
+         authority=FULL)
 
         assert report.outcome == "validated"
         assert read_lifecycle_state(replica) is LifecycleState.READ_ONLY_SERVICEABLE
@@ -407,8 +408,8 @@ class TestDivergentCopies:
         source, store_id = _seeded_store(work)
         first = work / "copy-one"
         second = work / "copy-two"
-        replicate_root(source, first)
-        replicate_root(source, second)
+        replicate_root(source, first, authority=FULL)
+        replicate_root(source, second, authority=FULL)
         common_genesis, common_tip = _head_of(source)
         for copy, label in ((first, b"intent one"), (second, b"intent two")):
             envelope = encode_entry(common_tip, IntentEntry(label))

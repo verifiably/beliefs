@@ -308,7 +308,7 @@ class TestTheCompositionRootReadsTheChain:
 
         patch_world_engine(monkeypatch, [])
         config = registry.WorldConfig(tmp_path / "world", "1" * 32, ())
-        composition_root.init_world_root(config)
+        composition_root.init_world_root(config, authority=FULL)
 
         world = composition_root.open_world(config, authority=FULL)
 

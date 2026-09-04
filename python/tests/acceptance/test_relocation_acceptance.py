@@ -84,7 +84,7 @@ def durable_factory(work_directory):
 
     def writer(label: str, pins: CorpusPins = PINS):
         corpus_root = work_directory / f"cut16-{os.getpid()}-{next(_COUNTER)}-{label}"
-        root.init_corpus_root(corpus_root)
+        root.init_corpus_root(corpus_root, authority=FULL)
         opened = root.open_corpus(corpus_root, authority=FULL)
         opened.adopt_manifest(profile=pins)
         managed.append(corpus_root)
@@ -93,7 +93,7 @@ def durable_factory(work_directory):
     def world(label: str, *writers):
         world_root = work_directory / f"cut16-{os.getpid()}-{next(_COUNTER)}-{label}-world"
         config = WorldConfig(world_root, f"{next(_COUNTER):032x}"[-32:], tuple(w.root for w in writers))
-        root.init_world_root(config)
+        root.init_world_root(config, authority=FULL)
         opened = root.open_world(config, authority=FULL)
         for corpus in writers:
             opened.admit(corpus.root, provenance=registry.Fresh())

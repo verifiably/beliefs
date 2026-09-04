@@ -69,7 +69,7 @@ class TestWorldRoots:
         patch_world_engine(monkeypatch, calls)
         config = WorldConfig(tmp_path / "world", "1" * 32, ())
 
-        root.init_world_root(config)
+        root.init_world_root(config, authority=FULL)
 
         assert calls[0] == (
             "register",
@@ -81,10 +81,10 @@ class TestWorldRoots:
         calls = []
         patch_world_engine(monkeypatch, calls)
         config = WorldConfig(tmp_path / "world", "1" * 32, ())
-        root.init_world_root(config)
+        root.init_world_root(config, authority=FULL)
         calls.clear()
 
-        root.init_world_root(config)
+        root.init_world_root(config, authority=FULL)
 
         assert [kind for kind, _value in calls] == ["register"]
 
@@ -95,7 +95,7 @@ class TestWorldRoots:
         occupied.write_text("not a world", encoding="utf-8")
 
         with pytest.raises(CorpusRootRefused):
-            root.init_world_root(WorldConfig(occupied, "1" * 32, ()))
+            root.init_world_root(WorldConfig(occupied, "1" * 32, ()), authority=FULL)
 
         assert calls == []
 
@@ -107,7 +107,7 @@ class TestWorldRoots:
         (world_root / "world.yaml").write_text("oops: true\n", encoding="utf-8")
 
         with pytest.raises(WorldUninitialized):
-            root.init_world_root(WorldConfig(world_root, "1" * 32, ()))
+            root.init_world_root(WorldConfig(world_root, "1" * 32, ()), authority=FULL)
 
         assert [kind for kind, _value in calls] == ["register"]
 
@@ -119,7 +119,7 @@ class TestWorldRoots:
         (world_root / "world.yaml").write_bytes(_world_mirror_bytes("2" * 32))
 
         with pytest.raises(WorldIdMismatch):
-            root.init_world_root(WorldConfig(world_root, "1" * 32, ()))
+            root.init_world_root(WorldConfig(world_root, "1" * 32, ()), authority=FULL)
 
         assert [kind for kind, _value in calls] == ["register"]
 
@@ -128,7 +128,7 @@ class TestWorldRoots:
         patch_world_engine(monkeypatch, calls)
         world_root = tmp_path / "world"
 
-        root.init_world_root(WorldConfig(world_root, "1" * 32, ()))
+        root.init_world_root(WorldConfig(world_root, "1" * 32, ()), authority=FULL)
 
         assert (world_root / "world.yaml").is_file()
         assert not any((world_root / name).exists() for name in ("registry", "epochs", "rules"))
@@ -300,7 +300,7 @@ class TestTheInitActRefusesANonDirectory:
         occupied = tmp_path / "corpus"
         occupied.write_text("not a corpus", encoding="utf-8")
         with pytest.raises(CorpusRootRefused):
-            root.init_corpus_root(occupied)
+            root.init_corpus_root(occupied, authority=FULL)
 
     def test_a_symlink_root_is_registered_under_its_resolved_path(self, tmp_path, monkeypatch):
         real = tmp_path / "real"
@@ -310,7 +310,7 @@ class TestTheInitActRefusesANonDirectory:
         calls = []
         monkeypatch.setattr(root, "register_root", lambda *args: calls.append(args))
 
-        root.init_corpus_root(link)
+        root.init_corpus_root(link, authority=FULL)
 
         _, project_root, metadata_root, *_ = calls[0]
         assert project_root == str(real.resolve())

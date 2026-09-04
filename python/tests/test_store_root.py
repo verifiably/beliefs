@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 from atoms.chain.model import GenesisEntry, encode_entry, entry_digest
 from atoms.core.errors import PreconditionRefused
+from authority import FULL
 
 from beliefs import root as science_root
 from beliefs.errors import CorpusRootRefused
@@ -47,8 +48,8 @@ class TestInitStoreRoot:
         calls: list = []
         monkeypatch.setattr(science_root, "register_root", _recording_register(calls))
 
-        first = init_store_root(tmp_path / "store-a")
-        second = init_store_root(tmp_path / "store-b")
+        first = init_store_root(tmp_path / "store-a", authority=FULL)
+        second = init_store_root(tmp_path / "store-b", authority=FULL)
 
         assert _HEX32.fullmatch(first) and _HEX32.fullmatch(second)
         assert first != second
@@ -71,7 +72,7 @@ class TestInitStoreRoot:
         (store_root / "payload.bin").write_bytes(b"already here")
 
         with pytest.raises(CorpusRootRefused, match="initializes empty"):
-            init_store_root(store_root)
+            init_store_root(store_root, authority=FULL)
         assert not (store_root / ".#~chain").exists()
 
     def test_interrupted_init_retry_returns_the_original_store_id(
@@ -91,7 +92,7 @@ class TestInitStoreRoot:
         calls: list = []
         monkeypatch.setattr(science_root, "register_root", _recording_register(calls))
 
-        assert init_store_root(store_root) == original
+        assert init_store_root(store_root, authority=FULL) == original
         # The retry re-registers the durable genesis's own id, never a re-mint.
         assert calls[0][2] == science_root._store_genesis_payload(original, None)
 
@@ -119,7 +120,7 @@ class TestInitStoreRoot:
         with pytest.raises(
             CorpusRootRefused, match="restored or forked, never re-initialized"
         ):
-            init_store_root(store_root)
+            init_store_root(store_root, authority=FULL)
 
     def test_completed_init_is_idempotent_without_reregistering(
         self, tmp_path, monkeypatch
@@ -140,7 +141,7 @@ class TestInitStoreRoot:
             raise AssertionError("a completed init must not re-register")
 
         monkeypatch.setattr(science_root, "register_root", trapped)
-        assert init_store_root(store_root) == original
+        assert init_store_root(store_root, authority=FULL) == original
 
 
 class TestStoreGenesisPayload:

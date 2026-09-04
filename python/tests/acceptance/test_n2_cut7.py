@@ -570,8 +570,8 @@ def durable_world(cut7_work_directory):
     corpus_root = cut7_work_directory / f"corpus-{suffix}"
     config = registry.WorldConfig(world_root, "7" * 32, (corpus_root,))
     try:
-        root.init_world_root(config)
-        root.init_corpus_root(corpus_root)
+        root.init_world_root(config, authority=FULL)
+        root.init_corpus_root(corpus_root, authority=FULL)
         root.open_corpus(corpus_root, authority=FULL).adopt_manifest(profile=PINS)
         # Stored records are placed with the `nodes` handle, exactly as the
         # portable fixtures place them: what these arms assert is committed

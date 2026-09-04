@@ -160,9 +160,9 @@ def world_case(cut6_work_directory):
     corpus_root = cut6_work_directory / f"corpus-{suffix}"
     config = WorldConfig(world_root, "6" * 32, (corpus_root,))
     try:
-        root.init_world_root(config)
+        root.init_world_root(config, authority=FULL)
         assert {path.name for path in world_root.iterdir()} == {".#~chain", "world.yaml"}
-        root.init_corpus_root(corpus_root)
+        root.init_corpus_root(corpus_root, authority=FULL)
         root.open_corpus(corpus_root, authority=FULL).adopt_manifest(profile=PINS)
         assert not any((world_root / name).exists() for name in ("registry", "epochs", "rules"))
         before_admission = chain_entries(world_root)
@@ -206,16 +206,16 @@ def test_world_initialization_recovers_between_genesis_and_mirror(cut6_work_dire
     try:
         monkeypatch.setattr(root.DurableExecutor, "execute", crash_once)
         with pytest.raises(RuntimeError, match="crash before mirror"):
-            root.init_world_root(config)
+            root.init_world_root(config, authority=FULL)
         assert (world_root / ".#~chain").is_dir()
         assert not (world_root / "world.yaml").exists()
         monkeypatch.setattr(root.DurableExecutor, "execute", execute)
-        root.init_world_root(config)
+        root.init_world_root(config, authority=FULL)
         entries = chain_entries(world_root)
-        root.init_world_root(config)
+        root.init_world_root(config, authority=FULL)
         assert chain_entries(world_root) == entries
         with pytest.raises(PreconditionRefused):
-            root.init_world_root(WorldConfig(world_root, "8" * 32, ()))
+            root.init_world_root(WorldConfig(world_root, "8" * 32, ()), authority=FULL)
     finally:
         shutil.rmtree(world_root, ignore_errors=True)
         shutil.rmtree(root.metadata_root_for(world_root), ignore_errors=True)

@@ -43,8 +43,8 @@ from beliefs.world.logmodel import IntentEntryView, RegisteredEntryView, WellFor
 def context(certified_work):
     observer_root = certified_work / "observer"
     store_root = certified_work / "store"
-    init_corpus_root(observer_root)
-    store_id = init_store_root(store_root)
+    init_corpus_root(observer_root, authority=FULL)
+    store_id = init_store_root(store_root, authority=FULL)
     return ActContext(observer_root, store_root, "observer", "instrument", FULL, holdings_seam()), store_id
 
 
@@ -206,7 +206,7 @@ def test_recheck_of_an_unserviceable_restored_root_mints_nothing_never_absent(ce
     ctx, store_id = context(certified_work)
     ctx.seam.store_write(ctx.store_root, "held.bin", b"payload")
     replica = certified_work / "replica"
-    replicate_root(ctx.store_root, replica)
+    replicate_root(ctx.store_root, replica, authority=FULL)
     (replica / "held.bin").unlink()
     genesis, head = science_root.chain_head_reader()(ctx.store_root)
     carrier = verify.RegistryCarrier.from_record(
@@ -222,7 +222,7 @@ def test_recheck_of_an_unserviceable_restored_root_mints_nothing_never_absent(ce
         replica,
         anchors.StoreSubject(store_id),
         verify.ObserverSet((carrier,)),
-    )
+     authority=FULL)
 
     assert report.outcome == "refuted"
     assert read_lifecycle_state(replica) is LifecycleState.READ_ONLY_UNSERVICEABLE
@@ -280,7 +280,7 @@ def test_a_final_directory_is_established_neither(certified_work):
 def test_store_id_mismatch_refuses_after_the_intent(certified_work):
     ctx, store_id = context(certified_work)
     other = certified_work / "other"
-    init_store_root(other)
+    init_store_root(other, authority=FULL)
     ctx = replace(ctx, store_root=other)
 
     with pytest.raises(StoreIdMismatch):

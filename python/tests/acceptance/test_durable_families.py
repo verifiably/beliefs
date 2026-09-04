@@ -153,7 +153,7 @@ def test_import_on_an_uncertified_tuple_refuses():
     root = shm / f"science-cut5-uncertified-{os.getpid()}"
     try:
         with pytest.raises(Exception) as registration:
-            init_corpus_root(root)
+            init_corpus_root(root, authority=FULL)
         assert "allowlist" in str(registration.value) or "barrier-option" in str(registration.value)
 
         with pytest.raises(ExecutionError) as refused:

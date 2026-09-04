@@ -320,7 +320,7 @@ def test_chain_head_alone_participates_in_receipt_identity(tmp_path):
 
 def test_chain_heads_are_committed_inputs_through_the_production_seam(certified_work):
     corpus_root = certified_work / "corpus"
-    science_root.init_corpus_root(corpus_root)
+    science_root.init_corpus_root(corpus_root, authority=FULL)
     manifest = science_root.open_corpus(corpus_root, authority=FULL).adopt_manifest(profile=PINS)
     world = registry.World(
         registry.WorldConfig(certified_work / "world", "f" * 32, (corpus_root,)),

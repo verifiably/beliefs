@@ -44,7 +44,7 @@ class TestTheInitAct:
         assert metadata_root_for(durable_root).parent == durable_root.parent
 
     def test_registering_twice_on_a_matching_payload_is_idempotent(self, durable_root):
-        init_corpus_root(durable_root)  # the act is re-runnable, not a second genesis
+        init_corpus_root(durable_root, authority=FULL)  # the act is re-runnable, not a second genesis
         assert len(list((durable_root / ".#~chain").iterdir())) == 1
 
     def test_the_genesis_payload_is_what_was_registered(self, durable_root):
@@ -227,7 +227,7 @@ class TestTheUncertifiedTupleFailsClosed:
         root = shm / f"science-uncertified-{id(self)}"
         try:
             with pytest.raises(Exception) as refused:
-                init_corpus_root(root)
+                init_corpus_root(root, authority=FULL)
             assert "allowlist" in str(refused.value) or "barrier-option" in str(refused.value)
         finally:
             shutil.rmtree(root, ignore_errors=True)

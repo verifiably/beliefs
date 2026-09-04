@@ -74,7 +74,7 @@ def durable_port(tmp_path, authority=FULL) -> DurableOperationPort:
 
 
 def _registered_port(root):
-    init_corpus_root(root)
+    init_corpus_root(root, authority=FULL)
     return durable_port(root)
 
 
@@ -205,7 +205,7 @@ def test_execute_publishes_fulfilling_nothing(certified_work) -> None:
 
 
 def test_corpus_writer_reenters_its_durable_ports_shared_lock(certified_work) -> None:
-    init_corpus_root(certified_work)
+    init_corpus_root(certified_work, authority=FULL)
     writer = open_corpus(certified_work, authority=FULL)
     node = stored.proposition_node("p", title="p", claim={"operator": "affects"})
 
@@ -256,7 +256,7 @@ def test_oversized_postimage_refuses_before_any_write(certified_work) -> None:
 
 
 def test_non_port_writes_are_unaffected_by_the_ceiling(certified_work) -> None:
-    init_store_root(certified_work)
+    init_store_root(certified_work, authority=FULL)
     big = b"x" * (RECORD_CEILING + 1)
     outcome = science_root._store_write(certified_work, "payload.bin", big)
     assert (certified_work / "payload.bin").read_bytes() == big

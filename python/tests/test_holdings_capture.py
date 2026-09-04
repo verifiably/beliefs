@@ -184,7 +184,7 @@ def test_the_projection_matches_the_closed_schema(
     certified_work,
 ):
     corpus_root = certified_work / "corpus"
-    science_root.init_corpus_root(corpus_root)
+    science_root.init_corpus_root(corpus_root, authority=FULL)
     writer = science_root.open_corpus(corpus_root, authority=FULL)
     manifest = writer.adopt_manifest(profile=PINS)
     dataset = writer.add(
@@ -195,7 +195,7 @@ def test_the_projection_matches_the_closed_schema(
         )
     )
     store_root = certified_work / "store"
-    store_id = science_root.init_store_root(store_root)
+    store_id = science_root.init_store_root(store_root, authority=FULL)
     published = recheck(
         ActContext(
             corpus_root,

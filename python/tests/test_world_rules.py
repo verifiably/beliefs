@@ -313,7 +313,7 @@ class TestInstallation:
         patch_world_engine(monkeypatch, calls)
         config = world_module.WorldConfig(tmp_path / "world", "1" * 32, ())
 
-        root.init_world_root(config)
+        root.init_world_root(config, authority=FULL)
         world = root.open_world(config, authority=FULL)
 
         assert not (config.world_root / "rules").exists()

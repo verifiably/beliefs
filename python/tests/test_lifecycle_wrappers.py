@@ -18,23 +18,52 @@ import pytest
 from atoms.chain.model import SettledEntry, decode_entry
 from atoms.core.errors import PreconditionRefused
 from atoms.fs.linux import LinuxBackend
+from authority import FULL, narrowed
 from nodes.core.errors import ExecutionError
 from nodes.core.write_plan import CreateOp
 
 from beliefs import root as science_root
+from beliefs.errors import PermitExceeded, PermitFact
 from beliefs.root import (
     LifecycleState,
     init_corpus_root,
     init_store_root,
+    init_world_root,
     metadata_root_for,
     migrate_root_to_lifecycle_v3,
     read_lifecycle_state,
     replicate_root,
 )
-from beliefs.world import anchors, verify
+from beliefs.world import WorldConfig, anchors, verify
 
 _OTHER_MACHINE = "f" * 32
 CORPUS_ID = "a1" * 16
+
+
+def test_e1_init_corpus_root_under_a_permit_lacking_lifecycle_creates_nothing(certified_work):
+    root = certified_work / "never"
+    with pytest.raises(PermitExceeded) as caught:
+        init_corpus_root(root, authority=narrowed(families=("corpus-write",)))
+    assert caught.value.requirement == PermitFact("family", "lifecycle")
+    assert not root.exists() and not metadata_root_for(root).exists()
+
+
+def test_e1_init_world_root_refuses_before_its_mkdir(certified_work):
+    root = certified_work / "never-world"
+    with pytest.raises(PermitExceeded):
+        init_world_root(WorldConfig(root, "0" * 32, ()), authority=narrowed(families=("registry",)))
+    assert not root.exists()
+
+
+def test_e1_the_lifecycle_permit_initializes(certified_work):
+    root = certified_work / "corpus"
+    init_corpus_root(root, authority=narrowed(families=("lifecycle",)))
+    assert metadata_root_for(root).exists()
+
+
+def test_the_lifecycle_acts_take_no_default_authority(certified_work):
+    with pytest.raises(TypeError):
+        init_corpus_root(certified_work / "x")  # type: ignore[call-arg]
 
 
 def _executor(root: Path):
@@ -63,7 +92,7 @@ def _unsettle(root: Path) -> tuple[str, str]:
 
 def _seeded_corpus(work: Path, name: str = "corpus") -> Path:
     root = work / name
-    init_corpus_root(root)
+    init_corpus_root(root, authority=FULL)
     _executor(root).execute([CreateOp("verification/v1.md", b"# a record\n")])
     return root
 
@@ -91,53 +120,53 @@ def _fabricate_v2_vintage(root: Path) -> None:
 class TestReplication:
     def test_completed_replica_reads_read_only_unserviceable(self, certified_work):
         source = certified_work / "store"
-        init_store_root(source)
+        init_store_root(source, authority=FULL)
         (source / "payload.bin").write_bytes(b"opaque payload")
         replica = certified_work / "replica"
 
-        replicate_root(source, replica)
+        replicate_root(source, replica, authority=FULL)
 
         assert read_lifecycle_state(replica) is LifecycleState.READ_ONLY_UNSERVICEABLE
         assert read_lifecycle_state(source) is LifecycleState.WRITABLE
 
     def test_replica_chain_is_byte_identical(self, certified_work):
         source = certified_work / "store"
-        init_store_root(source)
+        init_store_root(source, authority=FULL)
         (source / "payload.bin").write_bytes(b"opaque payload")
         replica = certified_work / "replica"
 
-        replicate_root(source, replica)
+        replicate_root(source, replica, authority=FULL)
 
         assert _chain_files(replica) == _chain_files(source)
 
     def test_replicate_refuses_an_existing_destination(self, certified_work):
         source = certified_work / "store"
-        init_store_root(source)
+        init_store_root(source, authority=FULL)
         occupied = certified_work / "occupied"
         occupied.mkdir()
         (occupied / "squatter").write_bytes(b"here first")
 
         with pytest.raises(PreconditionRefused):
-            replicate_root(source, occupied)
+            replicate_root(source, occupied, authority=FULL)
         assert sorted(entry.name for entry in occupied.iterdir()) == ["squatter"]
 
     def test_replicate_returns_the_retained_operation_id(self, certified_work):
         source = certified_work / "store"
-        init_store_root(source)
+        init_store_root(source, authority=FULL)
         replica = certified_work / "replica"
 
-        first = replicate_root(source, replica)
-        second = replicate_root(source, replica)
+        first = replicate_root(source, replica, authority=FULL)
+        second = replicate_root(source, replica, authority=FULL)
         assert first == second
 
     def test_replicate_refuses_pairwise_overlapping_root_and_metadata_paths(
         self, certified_work
     ):
         source = certified_work / "store"
-        init_store_root(source)
+        init_store_root(source, authority=FULL)
 
         with pytest.raises(PreconditionRefused, match="overlap"):
-            replicate_root(source, source / "inside")
+            replicate_root(source, source / "inside", authority=FULL)
 
 
 class TestTheWritabilityGate:
@@ -196,7 +225,7 @@ class TestTheWritabilityGate:
         self, certified_work
     ):
         source = certified_work / "store"
-        init_store_root(source)
+        init_store_root(source, authority=FULL)
         (source / "payload.bin").write_bytes(b"opaque payload")
         copy = certified_work / "cold-store"
         shutil.copytree(source, copy, symlinks=True)
@@ -231,7 +260,7 @@ class TestTheStateRead:
         from atoms.coordinator import lifecycle as atoms_lifecycle
 
         root = certified_work / "store"
-        init_store_root(root)
+        init_store_root(root, authority=FULL)
 
         monkeypatch.setattr(
             atoms_lifecycle, "_read_machine_identity", lambda: _OTHER_MACHINE
@@ -254,21 +283,21 @@ class TestMigration:
         bare = certified_work / "bare"
         bare.mkdir()
         with pytest.raises(PreconditionRefused, match="metadata"):
-            migrate_root_to_lifecycle_v3(bare)
+            migrate_root_to_lifecycle_v3(bare, authority=FULL)
 
         root = certified_work / "store"
-        init_store_root(root)
+        init_store_root(root, authority=FULL)
         monkeypatch.setattr(
             atoms_lifecycle, "_read_machine_identity", lambda: _OTHER_MACHINE
         )
         with pytest.raises(PreconditionRefused, match="mismatch"):
-            migrate_root_to_lifecycle_v3(root)
+            migrate_root_to_lifecycle_v3(root, authority=FULL)
 
     def test_migration_authorized_success_reads_writable(self, certified_work):
         root = _seeded_corpus(certified_work)
         _fabricate_v2_vintage(root)
         assert read_lifecycle_state(root) is LifecycleState.READ_ONLY_UNSERVICEABLE
 
-        migrate_root_to_lifecycle_v3(root)
+        migrate_root_to_lifecycle_v3(root, authority=FULL)
 
         assert read_lifecycle_state(root) is LifecycleState.WRITABLE

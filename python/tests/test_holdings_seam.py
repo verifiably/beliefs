@@ -12,6 +12,7 @@ import pytest
 from atoms.coordinator.commands import ReadUnestablished, UnestablishedReason
 from atoms.core.effects import CreateDirectory, CreateFileNoClobber, DeletePath, MoveNoClobber, ReplaceFile
 from atoms.core.fingerprint import ABSENT, DirectoryState, FileState
+from authority import FULL
 from nodes.core.errors import ExecutionError
 from nodes.core.write_plan import CreateOp
 
@@ -41,7 +42,7 @@ TXID = "1" * 32
 
 def _store(work, name="store"):
     root = work / name
-    init_store_root(root)
+    init_store_root(root, authority=FULL)
     return root
 
 
@@ -122,7 +123,7 @@ def test_store_move_returns_the_dual_location_result(certified_work):
 def test_store_mutation_on_an_ungranted_root_refuses(certified_work):
     source = _store(certified_work)
     replica = certified_work / "replica"
-    replicate_root(source, replica)
+    replicate_root(source, replica, authority=FULL)
 
     with pytest.raises(ExecutionError):
         holdings_seam().store_write(replica, "payload.bin", b"held bytes")

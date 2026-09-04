@@ -70,7 +70,7 @@ def durable_root(work_directory) -> Iterator[Path]:
     """
     root = work_directory / f"corpus-{os.getpid()}-{next(_counter)}"
     try:
-        init_corpus_root(root)
+        init_corpus_root(root, authority=FULL)
     except Exception as refused:
         raise UncertifiedVolume(
             f"the durable acceptance arms need a certified volume under {work_directory}; "
@@ -100,7 +100,7 @@ def durable_coordination_roots(work_directory, base_contract):
     )
     try:
         for root in roots:
-            init_corpus_root(root)
+            init_corpus_root(root, authority=FULL)
             open_corpus(root, authority=FULL).adopt_manifest(profile=pins_for(profile))
         yield roots, profile
     finally:
@@ -115,7 +115,7 @@ def durable_coordination_world(work_directory, durable_coordination_roots):
     world_root = work_directory / f"coordination-world-{os.getpid()}-{next(_counter)}"
     config = WorldConfig(world_root, "e" * 32, (corpus_root,))
     try:
-        init_world_root(config)
+        init_world_root(config, authority=FULL)
         world = open_world(config, authority=FULL)
         world.admit(corpus_root, provenance=Fresh())
         yield world, corpus_root, profile
@@ -138,7 +138,7 @@ def minted_corpus(work_directory) -> Iterator[Path]:
 
     root = work_directory / f"minted-{os.getpid()}"
     try:
-        init_corpus_root(root)
+        init_corpus_root(root, authority=FULL)
     except Exception as refused:
         raise UncertifiedVolume(
             f"the durable acceptance arms need a certified volume under {work_directory}; "
