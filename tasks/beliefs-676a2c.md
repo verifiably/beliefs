@@ -6,7 +6,7 @@ priority: 2
 size: xl
 owner: design/consolidate-family
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-04T20:43:28Z
+updated: 2026-09-04T21:33:23Z
 depends: []
 tags: [migration, mutation, world]
 ---
@@ -49,3 +49,4 @@ Uncertainty: The outcome is buildable, but the exact cut and interaction between
 - 2026-09-04T18:44:10Z (design/consolidate-family): Task 6: beliefs.evaluation lands; M1 containment holds and its sabotage shape fails
 - 2026-09-04T19:42:32Z (design/consolidate-family): Task 7: portable row evidence for G2c, G8, C6, S5, R23, W16, M3 and M5 passes (3329 passed in 922.48s (0:15:22)); ruff and pyright clean
 - 2026-09-04T20:43:28Z (design/consolidate-family): Task 8: durable arms pass on the certified tuple (16 passed)
+- 2026-09-04T21:33:23Z (design/consolidate-family): Task 9: 20 arms normalize to the frozen 17 units; certified runner exited 0
