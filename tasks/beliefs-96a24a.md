@@ -6,7 +6,7 @@ priority: 2
 size: xl
 owner: design/write-permits
 created: 2026-08-31T00:38:28Z
-updated: 2026-09-04T10:09:19Z
+updated: 2026-09-04T10:32:29Z
 depends: []
 tags: [migration, writer, permits]
 spec: docs/designs/2026-09-04-write-permits-design.md
@@ -26,3 +26,4 @@ Uncertainty: The cross-repository endpoint and launcher live partly in Science, 
 - 2026-09-04T09:27:37Z (design/write-permits): Design banked and cut 16 frozen at 895f822 on design/write-permits; awaiting spec review, then writing-plans
 - 2026-09-04T09:57:20Z (design/write-permits): Review findings 1-6 closed at e01e43f; cut 16 text amended before any code, freeze commit 895f822 stands
 - 2026-09-04T10:09:19Z (design/write-permits): Second review pass closed; cut 16 and the E table frozen at ee6af71 (status line names it); awaiting approval to start writing-plans
+- 2026-09-04T10:32:29Z (design/write-permits): Third review pass closed (run-only try shape); cut 16 and the E table frozen at c2f87b3
