@@ -15,6 +15,13 @@ what order*. The two name the same boundaries by id, and
 Design questions are never rows here; they appear only as a boundary's
 *blocked on*, linking `../guide/open-questions.md`.
 
+Ranking is dependency first, then breadth of what a boundary unblocks. A
+boundary is **tier 1** when its entry point is designed and nothing outside
+its own work must land first; **tier 2** when another boundary here or a
+cross-repo seam must land first; **tier 3** when a design question must be
+answered first. A prerequisite that is the boundary's own work is not a
+prerequisite.
+
 Cut 17 delivered managed deletion and the mutation lane's assigned
 ride-alongs: `delete` as an ordinary write, the corpus-local semantic audit,
 explicit-import derivation validation, the claim restore seam, and the
@@ -33,7 +40,7 @@ join key and nothing else; the tiers below carry the ranking.
 | id | rows it closes | tier |
 |---|---|---|
 | `url-retrieval` | H4, G9, R10, T5; T7's same-root case | 1 |
-| `world-resolution` | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 (less one arm); W8a's coreference arms; S1, S1a, S5's cross-corpus reach; D3; X12 and M3's coreference arms; R19's cross-corpus recomputation; R23's snapshot, coverage and divergence clauses | 1 |
+| `world-resolution` | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 (less one arm); W8a's coreference arms; S1, S1a, S5's cross-corpus reach; D3; X12 and M3's coreference arms; R19's cross-corpus recomputation; R23's snapshot, coverage, divergence and explicit-import clauses | 1 |
 | `domain-boundary` | D1, D2, D4, D5, D6, D8, D9, D10; G5 | 1 |
 | `event-level-l8` | L8 | 1 |
 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a, X12, C10's certification arms; R23's rules-store clauses | 1 |
@@ -62,7 +69,7 @@ order, and lanes may run concurrently in separate worktrees.
 |---|---|---|---|---|
 | 1 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | the correction lifecycle in full | C7's consolidate prerequisite landed at cut 16 and the deletion surface it shares landed at cut 17; the stored semantic-snapshot kind and evaluator are this boundary's own work. It is now the mutation lane's only open boundary |
 | 2 | `url-retrieval` | H4, G9, R10, T5, T7's same-root case | the first acquisition of a dataset from outside the system; H4 in full | holdings design §2–§3 specify the canonicalization profile and network discipline |
-| 3 | `world-resolution` | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 (less one arm), W8a's coreference arms; S1, S1a, S5's cross-corpus reach; D3; X12 and M3's coreference arms; R19's cross-corpus recomputation; R23's snapshot, coverage and divergence clauses | the read side of the world: resolution states, cross-corpus edges, views, the coreference balance over the map cut 7 published; and every cross-corpus remainder cut 17 left behind | cut 4 §5 deferred the group on "the write boundary and the index" — both landed; the address ruling supplies the oracles. W11/W12 are not here (§3.3) |
+| 3 | `world-resolution` | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 (less one arm), W8a's coreference arms; S1, S1a, S5's cross-corpus reach; D3; X12 and M3's coreference arms; R19's cross-corpus recomputation; R23's snapshot, coverage, divergence and explicit-import clauses | the read side of the world: resolution states, cross-corpus edges, views, the coreference balance over the map cut 7 published; and every cross-corpus remainder cut 17 left behind | cut 4 §5 deferred the group on "the write boundary and the index" — both landed; the address ruling supplies the oracles. W11/W12 are not here (§3.3) |
 | 4 | `domain-boundary` | D1, D2, D4, D5, D6, D8, D9, D10; G5 | the first domain pack; D8's composition | cut 3 §5 deferred the group on "facets, manifests, and the registry compile"; `ProfileSpec` and the `nodes` registry exist |
 | 5 | `event-level-l8` | L8 | row 5 reads L8 in full; the log's last Science-only remainder | §7's ordered-cuts predicate is built; the event-level relation is its successor |
 | 6 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a, X12 and C10's `instrument-certification` arms; R23's rules-store clauses | the widest set: the conformance-package split (ledger §5), instrument-certification cadence, legacy-check disposition (N10), P1 | last in the tier although it unblocks the most: N1 mints a successor contract identity for every oracle amended after the freeze, and rows 1–5 are Science-only closures that would each force one. Freeze after them |
@@ -198,7 +205,7 @@ Each open row, its remainder as the last cut states it, and where it goes
 | R10 | "the acquisition path records dataset provenance instead" (cut 3 §4.2) | `url-retrieval` |
 | R19 | cross-corpus recomputation through the world resolver (cut 5; cut 17 §6) → `world-resolution`; scope recomputation over a stored verification → limitation (cut 17 §7). Explicit-import derivation validation, transition (b) end to end, and the log-backed raw-write negatives are closed by cut 17 | split as stated |
 | R22 | the unresolvable-interpretation-rule refusal → `contract-cut` (the rules store and resolver, 5b §6); the explicit-import recomputation and raw-written-under-audit arms are closed by cut 17 | `contract-cut` |
-| R23 | producer snapshots and receipts, coverage and cross-corpus divergence → `world-resolution`; rules-store clauses → `contract-cut`. Replay cardinality, local basis/composition disagreement, the move/consolidate clauses and the deletion and audit clauses are closed by cuts 3, 15, 16 and 17 respectively | split as stated |
+| R23 | producer snapshots and receipts, coverage, cross-corpus divergence and the explicit-import clauses → `world-resolution`; rules-store clauses → `contract-cut`. Replay cardinality, local basis/composition disagreement, the move/consolidate clauses and the deletion and audit clauses are closed by cuts 3, 15, 16 and 17 respectively | split as stated |
 | C3 | uncovered-corpus behavior and the coverage declaration over the global retraction map (cut 16 §2); the exact-state move clause is read | `correction-remainder` |
 | C7 | route-standing evaluator and conflict semantics; its consolidate prerequisite landed at cut 16 | `correction-remainder` — tier 1 |
 | C8, C9 | the stored semantic-snapshot kind, its evaluator and succession; world-index-backed digest enumeration; audit reporting; the mount negative on the managed holdings root (cut 5) | `correction-remainder` |

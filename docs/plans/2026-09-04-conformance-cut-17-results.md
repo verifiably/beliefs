@@ -12,10 +12,11 @@ status line.
 ## 1. What ran
 
 All Python commands ran from `python/`. The certified runner executed at
-`71358f06744610f7d9eff6bb0ef8ec6b5b89057d` with its default durable work root
-beside the checkout (`python/../.cut17-acceptance`, on the same volume as the
-repository). It scoped XDG cache state to that disposable work root, probed
-the certified durability tuple through `init_corpus_root`, ran cut 16 as its
+`9973f9f24d95443b8b9811db575bb58a77ce59e4` — the post-discharge audit fix
+recorded in §3 — with its default durable work root beside the checkout
+(`python/../.cut17-acceptance`, on the same volume as the repository). It
+scoped XDG cache state to that disposable work root, probed the certified
+durability tuple through `init_corpus_root`, ran cut 16 as its
 sole prefix — which itself chains cut 15 and cut 14 — and then ran the two
 cut-17 phases.
 
@@ -24,9 +25,9 @@ cut-17 phases.
 ```text
 [cut17 phase 1/3] cut16_acceptance.py
 [cut17 phase 2/3] test_deletion_acceptance.py
-16 passed in 47.55s
+16 passed in 47.47s
 [cut17 phase 3/3] test_n2_cut17.py
-7 passed in 23.71s
+7 passed in 23.84s
 declared arms: 20 (= 17 declaration units; 16 guarantee rows + 1 boundary invariant)
 row accounting: 7 full/closed + 5 partial + 4 closed-row re-reads
 ```
@@ -53,7 +54,7 @@ the aggregate runner exited 0.
 
 ### 1.2 Repository evidence at the certified head
 
-- `uv run --frozen pytest` — **3329 passed in 842.45s (0:14:02)**;
+- `uv run --frozen pytest` — **3330 passed in 866.99s (0:14:26)**;
 - `uv run --frozen ruff check .` — All checks passed;
 - `uv run --frozen pyright` — **0 errors, 0 warnings, 0 informations**;
 - `npm ci && npm test && npm run typecheck && npm run check` in `ts/` —
@@ -131,7 +132,8 @@ sixteen durable checks of `tests/acceptance/test_deletion_acceptance.py`
   deleting `R2` is indistinguishable from a corpus where `R2` never existed.
   The audit detects the forged `single(A)` while `B`'s producing run stands,
   and once `B`'s run is deleted too the **semantic** contradiction finding
-  disappears — the log audit still reports the committed removals.
+  disappears. That arm reads the semantic audit only; that the log still
+  reports the committed removals is established by the G8/C6 arm.
   **Remainder:** producer-snapshot, coverage, cross-corpus-divergence,
   explicit-import and rules-store clauses.
 - **R19 — part.** Explicit-import derivation validation over complete closure
@@ -256,6 +258,16 @@ imports it (ruling R1), and the family-adapters design's frozen
 `import_bundle` signature listing was not edited for the widened `evidence`
 keyword (ruling R17).
 
+One correction landed after the discharge commit. **2026-09-04:**
+`audit_corpus` caught only `MalformedRecord`, so a recomputation refusing
+with a sibling of the same base — `build_assessment`'s `SignatureRefused`
+over an assessment whose stored run decodes to a dataset-production closure
+(R7) — still aborted the audit and discarded the findings already collected;
+`9973f9f` widens the catch to `RecordError`, the base of the family, and
+emits `derivation-malformed` for it as before. This restates ruling R11's
+"never aborting" at the width the error hierarchy actually has; no frozen
+row, arm or accounting phrase changes.
+
 One implementation discovery is banked without changing the frozen
 selection: nothing refuses a divergent `assesses` edge at admission, and M1
 detects it. That is a candidate audit finding for a later cut (ruling R19,
@@ -310,9 +322,13 @@ the ledger's nineteenth ruling), outside this cut's frozen selection.
 | `e7c9e64` | test(cut17): add the durable deletion arms |
 | `00cd3b8` | test(cut17): add the N2 declarations and the acceptance runner |
 | `71358f0` | docs(mutation): record the deletion cut's implementation rulings |
+| `7989d36` | docs(mutation): discharge conformance cut 17 and re-rank the roadmap |
+| `9973f9f` | fix(audit): report any record error instead of aborting the audit |
 
-This results record is committed with the discharge change and therefore does
-not embed its own commit id.
+The discharge commit `7989d36` carries the first version of this record and
+therefore does not embed its own commit id. `9973f9f` is the post-discharge
+fix of §3; the run reported in §1 is the run at that commit, and this
+refresh of §§1, 1.2, 3 and 5 is committed after it.
 
 ## 6. Remaining boundary
 
@@ -325,8 +341,12 @@ M3 audit and admission-order arms are read here. No new boundary is created.
 
 `world-resolution` takes every cross-corpus remainder: R19's cross-corpus
 recomputation through the world resolver, S5's cross-corpus reach, M3's
-coreference arm, and R23's producer-snapshot, coverage and
-cross-corpus-divergence clauses.
+coreference arm, and R23's producer-snapshot, coverage,
+cross-corpus-divergence and explicit-import clauses. The explicit-import
+clauses go there and not to an import boundary of their own: what the frozen
+row asks import to check is producer-snapshot and receipt machinery — its
+"Derivation, not just hashing" sentence — and that machinery is
+`world-resolution`'s to build.
 
 `contract-cut` takes R22's unresolvable-interpretation-rule resolver arm and
 R23's rules-store clauses.
