@@ -41,6 +41,7 @@ from test_evaluation import (
     OTHER_GENE,
     PHENO,
     PROPOSITION_REF,
+    _address,
     _observations,
     _resources,
 )
@@ -52,11 +53,13 @@ from beliefs.audit import NO_EVIDENCE, audit_corpus
 from beliefs.belief import Availability, Belief, SuppliedContext
 from beliefs.closure import RetractionEnumeration
 from beliefs.consulted import CorpusPins
+from beliefs.contract import load_domain_contract
 from beliefs.corpus import CorpusWriter, ReadView, corpus_check, lineage_snapshot, standing_in_local_view
 from beliefs.decode import claim_from_stored
 from beliefs.evaluation import evaluate_over
 from beliefs.lineage import Certification, LineageSnapshot, certify, snapshot_projection
 from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding
+from beliefs.profile import compile_profile
 from beliefs.projection import claim_identity
 from beliefs.record import AssessmentValue
 from beliefs.resolution import build_snapshot
@@ -68,7 +71,21 @@ OBSERVED = ("a", "b")
 """The two observed datasets, one per assessment run — `test_evaluation._seed`'s
 shape, re-homed onto `CorpusWriter.add` so these tests can `delete` from it."""
 
-DATASET_ROOTS = tuple(f"dataset:d-{letter}" for letter in OBSERVED)
+DATASET_ROOTS = tuple(_address(letter) for letter in OBSERVED)
+"""Each observed dataset is minted **at its own content address**: the slug is
+`_address(letter)`'s `sha256:<hex>` half, so the node ref and the address are
+one string — what `production.mint_dataset` mints.
+
+This is load-bearing, not cosmetic. `belief.evaluate` step 7 keys `certify` by
+`_observes_roots`, which is `dataset_address(...)`, while `lineage_snapshot`
+keys its bases by node **ref**. On a corpus where those differ, every lineage
+finding is invisible to the belief value and S5's *belief may rise* cannot be
+run at all. Here they coincide, so a certification decision moves belief."""
+
+DERIVED, SIBLING = DATASET_ROOTS
+"""The first observed dataset carries the stamped basis the lineage rows delete
+from; the second is the independent side `certify` is asked about."""
+
 ASSESSMENTS = ("assessment:a-1", "assessment:a-2")
 
 
@@ -137,34 +154,46 @@ class Scenario:
         return lifecycle_state(live)
 
 
-def _scenario(root, *, extra: tuple[Node, ...] = (), roots: tuple[str, ...] = DATASET_ROOTS) -> Scenario:
-    """Two assessments on one proposition, each over its own run observing its
-    own pinned dataset, each carrying one `clean-environment, passed`
-    verification — `belief().value == 2` before anything is touched."""
-    writer = _writer(root)
-    nodes: list[Node] = [
-        stored.proposition_node("p", title="p", claim=CLAIM_FACET),
-        stored.proposition_node("q", title="q", claim=OTHER_CLAIM_FACET),
-    ]
-    for letter in OBSERVED:
-        nodes.append(
+def _records(
+    *,
+    basis: dict[str, Any] | None = None,
+    extra: tuple[Node, ...] = (),
+    retraction_chain: bool = False,
+) -> dict[str, tuple[str, Node]]:
+    """The one record set every section runs over, each entry tagged with the
+    write it arrives through: `add` for the ordinary kinds and `retract` for a
+    retraction, which C10 refuses unless its target already resolves.
+
+    Two assessments on one proposition, each over its own run observing its own
+    pinned dataset, each carrying one `clean-environment, passed` verification
+    — `belief().value == 2` before anything is touched.
+
+    One builder, two consumers: `_scenario` admits it in its own order and M3's
+    negative admits it in two, so the corpus the digest comparison runs over
+    and the corpus every other row runs over cannot drift apart.
+    """
+    records: dict[str, tuple[str, Node]] = {
+        "p": ("add", stored.proposition_node("p", title="p", claim=CLAIM_FACET)),
+        "q": ("add", stored.proposition_node("q", title="q", claim=OTHER_CLAIM_FACET)),
+    }
+    verifications: dict[str, Node] = {}
+    for index, letter in enumerate(OBSERVED, start=1):
+        address = _address(letter)
+        records[f"d-{letter}"] = (
+            "add",
             stored.dataset_node(
-                f"d-{letter}",
+                address.split(":", 1)[1],  # the address is the ref: see DATASET_ROOTS
                 title=f"d-{letter}",
                 resources=_resources(letter),
                 empirical_observation={"boundary": "instrument"},
-            )
+                basis=basis if address == DERIVED else None,
+            ),
         )
-        nodes.append(
-            stored.run_node(
-                f"run-{letter}",
-                title=f"run-{letter}",
-                spec=f"spec-{letter}",
-                observes=[f"dataset:d-{letter}"],
-            )
+        records[f"run-{letter}"] = (
+            "add",
+            stored.run_node(f"run-{letter}", title=f"run-{letter}", spec=f"spec-{letter}", observes=[address]),
         )
-    assessments = [
-        stored.assessment_node(
+        assessment = stored.assessment_node(
             f"a-{index}",
             title=f"a-{index}",
             spec=f"spec-{letter}",
@@ -173,24 +202,49 @@ def _scenario(root, *, extra: tuple[Node, ...] = (), roots: tuple[str, ...] = DA
             outcome="supported",
             interpretation_rule="rule-1",
         )
-        for index, letter in enumerate(OBSERVED, start=1)
-    ]
-    values = {node.id: stored.assessment_value(node) for node in assessments}
-    nodes.extend(assessments)
-    for index, node in enumerate(assessments, start=1):
-        nodes.append(
-            stored.verification_node(
-                f"v-{index}",
-                title=f"v-{index}",
-                assessment=values[node.id].identity(),
-                assessment_ref=node.id,
-                scope="clean-environment",
-                verdict="passed",
-            )
+        records[f"a-{index}"] = ("add", assessment)
+        verification = stored.verification_node(
+            f"v-{index}",
+            title=f"v-{index}",
+            assessment=stored.assessment_value(assessment).identity(),
+            assessment_ref=assessment.id,
+            scope="clean-environment",
+            verdict="passed",
         )
-    for node in (*nodes, *extra):
-        writer.add(node)
+        verifications[f"v-{index}"] = verification
+        records[f"v-{index}"] = ("add", verification)
+    for node in extra:
+        records[node.id] = ("add", node)
+    if retraction_chain:
+        retraction = retraction_for(verifications["v-2"], "verification:grounds")
+        records["retraction"] = ("retract", retraction)
+        records["counter"] = ("retract", retraction_for(retraction, "verification:counter-grounds"))
+    return records
+
+
+def _admit(
+    root,
+    records: dict[str, tuple[str, Node]],
+    order: tuple[str, ...],
+    *,
+    roots: tuple[str, ...] = DATASET_ROOTS,
+) -> Scenario:
+    """Admit `records` into a fresh corpus in `order`, through the boundary."""
+    assert set(order) == set(records), "the order admits exactly the record set"
+    writer = _writer(root)
+    values: dict[str, AssessmentValue] = {}
+    for name in order:
+        mode, node = records[name]
+        written = writer.add(node) if mode == "add" else writer.retract(node)
+        if written.kind == "assessment":
+            values[written.id] = stored.assessment_value(written)
     return Scenario(writer=writer, values=values, roots=roots)
+
+
+def _scenario(root, *, basis: dict[str, Any] | None = None, extra: tuple[Node, ...] = ()) -> Scenario:
+    """`_records` admitted in its own order."""
+    records = _records(basis=basis, extra=extra)
+    return _admit(root, records, tuple(records))
 
 
 def _verification(scenario: Scenario, slug: str, *, scope: str, verdict: str, supersedes: str | None = None) -> Node:
@@ -353,33 +407,42 @@ def test_g8_c6_managed_delete_reads_identically_to_raw_on_the_corpus(tmp_path):
 
 # --- S5's deletion half -------------------------------------------------------
 
-ANCESTOR = "dataset:a"
-"""The ancestor `dataset:d`'s stamped basis names, through `_basis_route("a")`
-— which spells the producing run `run:a` and the transformed ancestor
-`dataset:a` from the one name, so the fixture is named to match it."""
+ANCESTOR = "dataset:origin"
+PRODUCER = "run:origin"
+"""`_basis_route("origin")` spells the producing run `run:origin` and the
+transformed ancestor `dataset:origin` from one name, so the fixture is named to
+match cut 16's helper rather than copying a route literal."""
 
-DERIVED = "dataset:d"
-PRODUCER = "run:a"
-SECOND_PRODUCER = "run:b"
-LINEAGE_ROOTS = (*DATASET_ROOTS, DERIVED)
+OTHER_ANCESTOR = "dataset:other"
+SECOND_PRODUCER = "run:other"
+"""The divergent producer: it reaches the same content address by transforming
+something the stamped route does not name."""
 
 
 def _lineage_corpus(root, *, second_producer: bool) -> Scenario:
-    """The belief corpus plus a stamped derivation: `run:a` produces
-    `dataset:d` from `dataset:a`, and — optionally — `run:b` produces the same
-    address from `dataset:b` by another route, which is R23 negative (e)'s
-    divergence and S5's *divergent producer*."""
+    """The belief corpus with a stamped derivation on the dataset
+    `assessment:a-1`'s run observes: `run:origin` produced `DERIVED` from
+    `dataset:origin`, and — optionally — `run:other` produced the same address
+    from `dataset:other` by another route, which is R23 negative (e)'s
+    divergence and S5's *divergent producer*.
+
+    The derived dataset is the **observed** one, so it is the address
+    `belief.evaluate` certifies over: the certification decision reaches the
+    belief value, and S5's *belief may rise* is a runnable arm."""
     extra: list[Node] = [
-        stored.dataset_node("a", title="a", resources=_resources("c")),
-        stored.dataset_node("b", title="b", resources=_resources("d")),
-        stored.run_node("a", title="a", spec="spec-a", transforms=[ANCESTOR], produces=[DERIVED]),
-        stored.dataset_node(
-            "d", title="d", resources=_resources("e"), basis={"tag": "single", "routes": [_basis_route("a")]}
+        stored.dataset_node("origin", title="origin", resources=_resources("c")),
+        stored.dataset_node("other", title="other", resources=_resources("d")),
+        stored.run_node(
+            "origin", title="origin", spec="spec-origin", transforms=[ANCESTOR], produces=[DERIVED]
         ),
     ]
     if second_producer:
-        extra.append(stored.run_node("b", title="b", spec="spec-b", transforms=["dataset:b"], produces=[DERIVED]))
-    return _scenario(root, extra=tuple(extra), roots=LINEAGE_ROOTS)
+        extra.append(
+            stored.run_node(
+                "other", title="other", spec="spec-other", transforms=[OTHER_ANCESTOR], produces=[DERIVED]
+            )
+        )
+    return _scenario(root, basis={"tag": "single", "routes": [_basis_route("origin")]}, extra=tuple(extra))
 
 
 def _projected(snapshot: LineageSnapshot, *path: Any) -> Any:
@@ -393,9 +456,11 @@ def _projected(snapshot: LineageSnapshot, *path: Any) -> Any:
 
 
 def _certification(scenario: Scenario) -> Certification:
-    """Independence of the derived dataset against an unrelated observed one:
-    disjoint closures, so the only thing that can decide it is a finding."""
-    return certify(scenario.snapshot(), (DERIVED,), (DATASET_ROOTS[0],))
+    """Exactly the call `belief.evaluate` step 7 makes between the two
+    assessments: `certify` over each run's `observes` addresses. Their closures
+    are disjoint, so the only thing that can decide it is a finding — and the
+    decision is the edge that moves the aggregated belief value."""
+    return certify(scenario.snapshot(), (DERIVED,), (SIBLING,))
 
 
 def _epistemic_readings(scenario: Scenario) -> dict[str, Any]:
@@ -419,7 +484,10 @@ def test_s5_deleting_a_basis_ancestor_yields_incomplete_and_moves_the_digest(tmp
     stops certifying, and kernel §5.1's digest moves without belief rising."""
     scenario = _lineage_corpus(tmp_path / "corpus", second_producer=False)
     before = scenario.belief()
+    # The certify path is reached, not merely present: an `independent`
+    # certification is what lets both supports count, so `value == 2`.
     assert _certification(scenario) == Certification(state="independent", findings=())
+    assert before.value == 2
 
     scenario.writer.delete(ANCESTOR)
 
@@ -431,7 +499,7 @@ def test_s5_deleting_a_basis_ancestor_yields_incomplete_and_moves_the_digest(tmp
     assert "lineage-incomplete" in certification.findings
     after = scenario.belief()
     assert after.belief_input_digest != before.belief_input_digest, "kernel §5.1's digest moves"
-    assert after.value <= before.value, "deleting an ancestor never raises belief"
+    assert after.value < before.value, "deleting an ancestor never raises belief; here it lowers it"
 
 
 def test_s5_deleting_a_divergent_producer_restores_the_certificate_indistinguishably(tmp_path):
@@ -441,10 +509,13 @@ def test_s5_deleting_a_divergent_producer_restores_the_certificate_indistinguish
     diverged = _lineage_corpus(tmp_path / "x", second_producer=True)
     never = _lineage_corpus(tmp_path / "y", second_producer=False)
     assert _certification(diverged) == Certification(state="not-certified", findings=("lineage-divergent",))
+    divergent_belief = diverged.belief()
     assert _epistemic_readings(diverged) != _epistemic_readings(never)
 
     diverged.writer.delete(SECOND_PRODUCER)
 
+    restored = diverged.belief()
+    assert restored.value > divergent_belief.value, "the certificate restored, belief rises"
     assert _certification(diverged) == Certification(state="independent", findings=())
     assert _epistemic_readings(diverged) == _epistemic_readings(never)
 
@@ -510,11 +581,8 @@ def test_r23_the_residue_after_deleting_r2(tmp_path):
     assert _certification(residue).state == "independent"
     assert _epistemic_readings(residue) == _epistemic_readings(never)
     assert residue.belief().belief_input_digest != diverged_digest
-    on_disk = [
-        path.read_bytes()
-        for path in residue.writer.root.rglob("*")
-        if path.is_file() and not path.name.startswith(".")
-    ]
+    on_disk = [path.read_bytes() for path in residue.writer.root.rglob("*") if path.is_file()]
+    assert on_disk, "the scan actually read the corpus"
     assert not any(diverged_digest.encode() in payload for payload in on_disk), "no retained prior digest"
 
 
@@ -599,58 +667,6 @@ def _facet_members(value: Any) -> set[str]:
     return set()
 
 
-def _order_records() -> dict[str, tuple[str, Node]]:
-    """One record set, each entry carrying the write it arrives through: an
-    `add` for the ordinary kinds and a `retract` for the two retractions, which
-    C10 refuses unless their target already resolves. The retraction chain is
-    what makes this M3's negative rather than a generic ordering test."""
-    records: dict[str, tuple[str, Node]] = {
-        "p": ("add", stored.proposition_node("p", title="p", claim=CLAIM_FACET)),
-        "q": ("add", stored.proposition_node("q", title="q", claim=OTHER_CLAIM_FACET)),
-    }
-    verifications: dict[str, Node] = {}
-    for index, letter in enumerate(OBSERVED, start=1):
-        records[f"d-{letter}"] = (
-            "add",
-            stored.dataset_node(
-                f"d-{letter}",
-                title=f"d-{letter}",
-                resources=_resources(letter),
-                empirical_observation={"boundary": "instrument"},
-            ),
-        )
-        records[f"run-{letter}"] = (
-            "add",
-            stored.run_node(
-                f"run-{letter}", title=f"run-{letter}", spec=f"spec-{letter}", observes=[f"dataset:d-{letter}"]
-            ),
-        )
-        assessment = stored.assessment_node(
-            f"a-{index}",
-            title=f"a-{index}",
-            spec=f"spec-{letter}",
-            run=f"run:run-{letter}",
-            proposition=PROPOSITION_REF,
-            outcome="supported",
-            interpretation_rule="rule-1",
-        )
-        records[f"a-{index}"] = ("add", assessment)
-        verification = stored.verification_node(
-            f"v-{index}",
-            title=f"v-{index}",
-            assessment=stored.assessment_value(assessment).identity(),
-            assessment_ref=assessment.id,
-            scope="clean-environment",
-            verdict="passed",
-        )
-        verifications[f"v-{index}"] = verification
-        records[f"v-{index}"] = ("add", verification)
-    retraction = retraction_for(verifications["v-2"], "verification:grounds")
-    records["retraction"] = ("retract", retraction)
-    records["counter"] = ("retract", retraction_for(retraction, "verification:counter-grounds"))
-    return records
-
-
 ORDER_A = (
     "p", "q",
     "d-a", "run-a", "a-1", "v-1",
@@ -663,30 +679,21 @@ ORDER_B = (
     "d-a", "run-a", "a-1", "v-1",
     "counter",
 )
-"""Two admission orders over one record set. Both respect the only orderings
-the write boundary itself demands — an assessment's run resolves first (S7),
-and a retraction's target resolves first (C10) — and agree on nothing else."""
-
-
-def _admit_in_order(root, records: dict[str, tuple[str, Node]], order: tuple[str, ...]) -> Scenario:
-    assert set(order) == set(records), "both orders admit exactly the same records"
-    writer = _writer(root)
-    values: dict[str, AssessmentValue] = {}
-    for name in order:
-        mode, node = records[name]
-        written = writer.add(node) if mode == "add" else writer.retract(node)
-        if written.kind == "assessment":
-            values[written.id] = stored.assessment_value(written)
-    return Scenario(writer=writer, values=values, roots=DATASET_ROOTS)
+"""Two admission orders over `_records(retraction_chain=True)`. Both respect the
+only orderings the write boundary itself demands — an assessment's run resolves
+first (S7), and a retraction's target resolves first (C10) — and agree on
+nothing else. The retraction chain is what makes this M3's negative rather than
+a generic ordering test."""
 
 
 def test_m3_admission_order_leaves_every_identity_and_the_digest_unchanged(tmp_path):
     """M3's negative: no topological rank is stored anywhere, so the same
     records admitted in two orders leave every stored identity and the belief
     digest exactly where they were."""
-    records = _order_records()
-    first = _admit_in_order(tmp_path / "first", records, ORDER_A)
-    second = _admit_in_order(tmp_path / "second", records, ORDER_B)
+    records = _records(retraction_chain=True)
+    assert set(ORDER_A) == set(records), "the declared orders cover the builder's record set"
+    first = _admit(tmp_path / "first", records, ORDER_A)
+    second = _admit(tmp_path / "second", records, ORDER_B)
 
     identities = [
         {node.id: stored.stored_semantic_hash(node) for node in scenario.view.iter_stored()}
@@ -730,10 +737,9 @@ def claim_profile(base_contract, testing_contract_path):
     """The compiled profile the restore seam types a claim against. Built here
     rather than imported from `test_decode`: importing a pytest fixture
     function by name and taking it as a same-named parameter reads to ruff as a
-    redefinition (F811), which `test_claim_restore.py` records at length."""
-    from beliefs.contract import load_domain_contract
-    from beliefs.profile import compile_profile
-
+    redefinition (F811), which `test_claim_restore.py` records at length. That
+    argument is about the fixture name only — its two callees are ordinary
+    module-level imports."""
     testing = load_domain_contract(testing_contract_path, base=base_contract, predecessor=None)
     return compile_profile(base_contract, [testing])
 
