@@ -5,12 +5,20 @@ from copy import deepcopy
 
 import pytest
 from fixtures_cut3 import memory_assessment as run_assessment
+from fixtures_cut3 import report as _mint
 from nodes.core.node import Node
 
 from beliefs import stored
 from beliefs.boundary import RunRefused
 from beliefs.errors import MalformedRecord
-from beliefs.report import ACT_REPORT_DOMAIN, ActReport, RunAttemptEntry, RunRefusal
+from beliefs.report import (
+    ACT_REPORT_DOMAIN,
+    ActReport,
+    Moved,
+    RecordMutationEntry,
+    RunAttemptEntry,
+    RunRefusal,
+)
 
 
 @pytest.fixture
@@ -25,6 +33,46 @@ def changed_report(report: ActReport, **changes: object) -> ActReport:
     for field in dataclasses.fields(report):
         object.__setattr__(changed, field.name, changes.get(field.name, getattr(report, field.name)))
     return changed
+
+
+def _record_mutation_entry() -> RecordMutationEntry:
+    return RecordMutationEntry(
+        subject="dataset:d1",
+        corpus="corpus-a",
+        outcome=Moved(source_corpus="corpus-a", destination_corpus="corpus-b", ref="dataset:d1"),
+    )
+
+
+def test_a_record_mutation_report_round_trips():
+    report_value = _mint(operation="move", entries=(_record_mutation_entry(),))
+    node = stored.act_report_node(report_value)
+    assert stored.act_report_facet(node)["entries"] == [
+        {
+            "kind": "record-mutation",
+            "subject": "dataset:d1",
+            "corpus": "corpus-a",
+            "outcome": {
+                "type": "moved",
+                "source_corpus": "corpus-a",
+                "destination_corpus": "corpus-b",
+                "ref": "dataset:d1",
+            },
+        }
+    ]
+
+
+def test_a_record_mutation_entry_missing_its_corpus_is_malformed():
+    node = stored.act_report_node(_mint(operation="move", entries=(_record_mutation_entry(),)))
+    del node.facets["act-report"]["entries"][0]["corpus"]
+    with pytest.raises(MalformedRecord):
+        stored.act_report_facet(node)
+
+
+def test_a_record_mutation_entry_refuses_a_foreign_outcome_type():
+    node = stored.act_report_node(_mint(operation="move", entries=(_record_mutation_entry(),)))
+    node.facets["act-report"]["entries"][0]["outcome"]["type"] = "published-observation"
+    with pytest.raises(MalformedRecord):
+        stored.act_report_facet(node)
 
 
 def test_boundary_minted_report_round_trips_as_one_covered_stamped_facet(act_report: ActReport):

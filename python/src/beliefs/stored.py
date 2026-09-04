@@ -468,6 +468,17 @@ _REPORT_ENTRY_OUTCOMES: dict[str, dict[str, tuple[str, ...]]] = {
     "declaration-pin": {"pinned-declaration": ("ref",)},
     "subject-evaluation": {"evaluation-finding": ("payload",)},
     "record-import": {"imported-records": ("refs", "findings")},
+    "record-mutation": {
+        "moved": ("source_corpus", "destination_corpus", "ref"),
+        "consolidated": (
+            "kept_corpus",
+            "kept_ref",
+            "other_corpus",
+            "other_ref",
+            "retired_uids",
+            "rationale",
+        ),
+    },
     "run-attempt": {"run-refusal": ("missing_member",)},
 }
 
@@ -483,8 +494,13 @@ def _valid_report_entry(entry: object) -> bool:
         "subject",
         "outcome",
         *(("instrument_inputs",) if kind == "pure-look" else ()),
+        *(("corpus",) if kind == "record-mutation" else ()),
     }
-    if set(entry) != expected_entry_fields or type(entry.get("subject")) is not str:
+    if (
+        set(entry) != expected_entry_fields
+        or type(entry.get("subject")) is not str
+        or (kind == "record-mutation" and type(entry.get("corpus")) is not str)
+    ):
         return False
     if kind == "pure-look":
         inputs = entry["instrument_inputs"]
@@ -507,7 +523,7 @@ def _valid_report_entry(entry: object) -> bool:
         return False
     for field in fields:
         value = outcome[field]
-        if outcome_type == "imported-records":
+        if outcome_type == "imported-records" or field == "retired_uids":
             if not isinstance(value, list) or any(
                 type(member) is not str for member in value
             ):
