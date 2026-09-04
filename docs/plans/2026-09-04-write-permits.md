@@ -193,14 +193,7 @@ flag. E4's completeness claim is unchanged — it is about governed kinds —
 and E5's "both dimensions" reads as "every dimension".
 ```
 
-- [ ] **Step 3: Run the corpus tests and commit**
-
-```bash
-uv run --frozen pytest -q -p no:cacheprovider tests/test_designs_corpus.py
-cd .. && tasks check && git add docs/designs/2026-09-04-write-permits-design.md && git commit -m "docs(designs): rule the cut 16 implementation amendment" && git rev-parse --short HEAD
-```
-
-- [ ] **Step 3b: Amend the companion contract in the `science` repository**
+- [ ] **Step 3: Amend the companion contract in the `science` repository**
 
 The `science` plan's Task 12 rules that a change the implementation forces is a change request against **both** documents before either side codes on. §13.7 changes the permit value's shape, so, in the `science` repository (the sibling checkout, its own `main`), append this paragraph to the end of §4.1 of `docs/specs/2026-08-31-command-framework-design.md`, immediately before the `### 4.2` heading:
 
@@ -226,18 +219,19 @@ Then, from the `science` repository root:
 
 ```bash
 tasks note sci-c3f0bb "Companion contract amended: WritePermit gains the ungoverned dimension (beliefs design §13.7); Consumes names unchanged"
-git add docs/specs/2026-08-31-command-framework-design.md docs/plans/2026-08-31-command-framework.md tasks && git commit -m "docs(specs): amend the permit contract for ungoverned kinds"
+tasks check && git add docs/specs/2026-08-31-command-framework-design.md docs/plans/2026-08-31-command-framework.md tasks && git commit -m "docs(specs): amend the permit contract for ungoverned kinds"
+```
+
+- [ ] **Step 4: Run the corpus tests, close the child, commit once**
+
+```bash
+uv run --frozen pytest -q -p no:cacheprovider tests/test_designs_corpus.py
+cd .. && tasks note beliefs-96a24a "Implementation amendment §13 ruled: cut 10 cited, runner names an inventory, actor locals keep pinned arms matching, ungoverned dimension, _fork_resume as implementation; commit recoverable by git log --grep 'rule the cut 16 implementation amendment'"
+tasks done beliefs-49d549 "Ruled §13: cut 10 cited, runner inventory, actor locals, ungoverned dimension, _fork_resume as implementation; companion contract amended in science"
+tasks check && git add docs/designs/2026-09-04-write-permits-design.md tasks && git commit -m "docs(designs): rule the cut 16 implementation amendment" && git rev-parse --short HEAD
 ```
 
 Expected: 14 passed; the printed short hash is `IMPLEMENTATION_AMENDMENT_COMMIT` in Task 14 (recoverable later with `git log --format=%h -1 --grep 'rule the cut 16 implementation amendment'`).
-
-- [ ] **Step 4: Note the ruling on the task**
-
-```bash
-tasks note beliefs-96a24a "Implementation amendment §13 at <hash>: cut 10 cited, runner names an inventory, actor locals keep pinned arms matching"
-tasks done beliefs-49d549 "Ruled §13: cut 10 cited, runner inventory, actor locals, ungoverned dimension, _fork_resume as implementation"
-git add tasks && git commit -m "chore(tasks): note the cut 16 implementation amendment"
-```
 
 ---
 
@@ -254,10 +248,10 @@ git add tasks && git commit -m "chore(tasks): note the cut 16 implementation ame
 - Produces:
   - `beliefs.permit.ACT_FAMILIES: frozenset[str]`, `COMMAND_REACHABLE_FAMILIES: frozenset[str]`, `KIND_ACTS: Mapping[str, frozenset[str]]` (read-only), `ActFamily` (a `Literal`).
   - `beliefs.permit.require_actor(actor: object) -> str` — raises `TypeError` for a non-`str`, `ValueError` for an empty or non-encodable string.
-  - `beliefs.permit.WritePermit(kinds: frozenset[str], act_families: frozenset[str])`, frozen; `WritePermit.full() -> WritePermit`; `WritePermit.summary() -> PermitSummary`.
+  - `beliefs.permit.WritePermit(kinds: frozenset[str], act_families: frozenset[str], ungoverned: bool = False)`, frozen; `WritePermit.full() -> WritePermit` (every governed kind, every family, `ungoverned=True`); `WritePermit.summary() -> PermitSummary`.
   - `beliefs.permit.Authority(permit: WritePermit, actor: str)`, frozen; `Authority.require(family: str, kinds: Iterable[str] = ()) -> None`.
-  - `beliefs.errors.PermitFact(dimension: str, name: str)`, `beliefs.errors.PermitSummary(kinds: tuple[str, ...], act_families: tuple[str, ...])`, both frozen dataclasses; `beliefs.errors.PermitExceeded(WriteRefused)` with `.requirement: PermitFact` and `.capability: PermitSummary`; `beliefs.errors.ActorMismatch(WriteRefused)`.
-  - `tests/authority.py`: `ACTOR = "test-actor"`, `FULL = Authority(WritePermit.full(), ACTOR)`, `narrowed(*, kinds=(), families=(), actor=ACTOR) -> Authority`.
+  - `beliefs.errors.PermitFact(dimension: str, name: str)`, `beliefs.errors.PermitSummary(kinds: tuple[str, ...], act_families: tuple[str, ...], ungoverned: bool)`, both frozen dataclasses; `beliefs.errors.PermitExceeded(WriteRefused)` with `.requirement: PermitFact` and `.capability: PermitSummary`; `beliefs.errors.ActorMismatch(WriteRefused)`.
+  - `tests/authority.py`: `ACTOR = "test-actor"`, `FULL = Authority(WritePermit.full(), ACTOR)`, `narrowed(*, kinds=(), families=(), actor=ACTOR) -> Authority` (governed-only), `lacking(*, kinds=(), families=(), actor=ACTOR) -> Authority` (full minus the named ones, ungoverned kept).
 
 - [ ] **Step 0: Start the task record** — `tasks start beliefs-a4231c`
 
@@ -620,7 +614,7 @@ def lacking(*, kinds: Iterable[str] = (), families: Iterable[str] = (), actor: s
 uv run --frozen pytest -q -p no:cacheprovider tests/test_permit.py
 uv run --frozen pytest -q -p no:cacheprovider && uv run --frozen ruff check . && uv run --frozen pyright
 tasks done beliefs-a4231c "permit.py values, PermitExceeded and ActorMismatch, the FULL test authority"
-cd .. && tasks check && git add python/src/beliefs/permit.py python/src/beliefs/errors.py python/tests/authority.py python/tests/test_permit.py && git commit -m "feat(permit): closed act families, KIND_ACTS, WritePermit and Authority"
+cd .. && tasks check && git add python tasks && git commit -m "feat(permit): closed act families, KIND_ACTS, WritePermit and Authority"
 ```
 
 Expected: `test_permit.py` all passing; the full suite unchanged.
@@ -1206,7 +1200,11 @@ Add `ActorMismatch` (and `PermitExceeded` is not needed here) to the `from belie
 
 Note the pinned cut-5 blocks around `return self._corpus.add(candidate)` / `return self._corpus.add(record)` and the cut-6 `adopt_manifest` blocks are untouched by these insertions.
 
-- [ ] **Step 4: Run, probe, gate, commit**
+- [ ] **Step 4: Migrate the retraction actors**
+
+Every retraction the existing suites mint under a `FULL` writer must name `ACTOR`, or the new `ActorMismatch` check refuses it: `tests/test_retract.py` (`retraction_for` at line ~61 and the two inline `stored.retraction_node(... actor="tester" ...)` calls at ~122 and ~138), `tests/test_local_standing.py` (three `actor="tester"` retraction constructions at ~43, ~142, ~228), `tests/acceptance/test_durable_families.py` (`actor="acceptance"` at ~87), and any other hit of `grep -rn "retraction_node(" tests` whose writer is `FULL` — replace the literal with `ACTOR` from `authority`. The only retractions naming another actor are the two E3 tests above, which construct their own narrowed writers. Run `uv run --frozen pytest -q -p no:cacheprovider tests/test_retract.py tests/test_local_standing.py` green before moving on.
+
+- [ ] **Step 5: Run, probe, gate, commit**
 
 ```bash
 uv run --frozen pytest -q -p no:cacheprovider
@@ -2482,7 +2480,7 @@ cd .. && tasks check && git add python tasks && git commit -m "test(permit): hol
 
 **Files:**
 - Create: `python/tests/test_permit_entry_points.py`
-- Modify: `python/tests/test_coordination_write.py` (`writer_with_resolver` gains `authority=FULL`), `python/tests/test_world_rules.py` (`make_world` gains `authority=FULL`), `python/tests/test_world_anchor_act.py` (its world-and-heads builder around line 150 becomes `world_with(tmp_path, *, authority=FULL)`)
+- Modify: `python/tests/test_coordination_write.py` (`writer_with_resolver` gains `authority=FULL`), `python/tests/test_world_rules.py` (`make_world` gains `authority=FULL`), `python/tests/test_world_anchor_act.py` (`anchorable_world(tmp_path, *corpus_ids, admitted=None, world_id=WORLD_ID)` at line ~151 gains `authority=FULL`)
 
 **Interfaces:**
 - Consumes: every seam of Tasks 4–10; `test_permit_boundary.WRITE_ENTRY_POINTS`; the sibling test helpers named in the cases.
@@ -2492,7 +2490,7 @@ cd .. && tasks check && git add python tasks && git commit -m "test(permit): hol
 
 - [ ] **Step 1: Give three sibling helpers an authority keyword**
 
-`test_coordination_write.writer_with_resolver(root, profile, *, authority=FULL)`, `test_world_rules.make_world(tmp_path, *, authority=FULL)`, and the world builder in `test_world_anchor_act.py` (line ~150; if it is a nested helper, lift it to a module function `world_with(tmp_path, *, authority=FULL)` returning `world, recorder, heads, roots` exactly as today). Each passes `authority=authority` to the `World(...)` or `CorpusWriter(...)` it constructs. Run the three modules to confirm nothing else changed.
+`test_coordination_write.writer_with_resolver(root, profile, *, authority=FULL)`, `test_world_rules.make_world(tmp_path, *, authority=FULL)`, and `test_world_anchor_act.anchorable_world(tmp_path, *corpus_ids, admitted=None, world_id=WORLD_ID, authority=FULL)`, which passes `authority=authority` to the `RefusingWorld(...)` it constructs (its `world.admit(...)` loop takes no actor after Task 9). Each passes the keyword through to the `World(...)` or `CorpusWriter(...)` it builds. Run the three modules to confirm nothing else changed.
 
 - [ ] **Step 2: Write the coverage module**
 
@@ -2547,8 +2545,18 @@ def _chain(root: Path) -> int:
     return len(view.entries)
 
 
-def _tree(root: Path) -> list[str]:
-    return sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()) if root.exists() else []
+def _tree(root: Path) -> list[tuple[str, str, str]]:
+    """Every entry under `root` with its type and, for files, its content digest —
+    a created directory or a changed byte is an effect (design §6)."""
+    from hashlib import sha256
+
+    if not root.exists():
+        return []
+    return sorted(
+        (p.relative_to(root).as_posix(), "f" if p.is_file() else "d" if p.is_dir() else "o",
+         sha256(p.read_bytes()).hexdigest() if p.is_file() else "")
+        for p in root.rglob("*")
+    )
 
 
 def _nothing(_work: Path) -> None:
@@ -2736,7 +2744,7 @@ def _holdings(act: str):
     return run
 
 
-def _holdings_probe(work: Path) -> tuple[int, list[str]]:
+def _holdings_probe(work: Path):
     return (_chain(work / "observer") if (work / "observer").exists() else 0, _tree(work / "store"))
 
 
@@ -2772,16 +2780,16 @@ def _retire(authority, work):
 
 
 def _prepare_anchor(work: Path) -> None:
-    from test_world_anchor_act import world_with
+    from test_world_anchor_act import ALPHA, anchorable_world
 
-    world, _recorder, heads, roots = world_with(work, authority=lacking())
-    _STATE[work] = {"world": world, "heads": heads, "roots": roots}
+    world, _recorder, heads, _roots = anchorable_world(work, ALPHA, authority=lacking())
+    _STATE[work] = {"world": world, "heads": heads}
 
 
 def _anchor(authority, work):
-    from test_world_anchor_act import anchor
+    from test_world_anchor_act import ALPHA, anchor
 
-    return anchor(_rebind(_STATE[work]["world"], authority), _STATE[work]["heads"], next(iter(_STATE[work]["roots"])))
+    return anchor(_rebind(_STATE[work]["world"], authority), _STATE[work]["heads"], ALPHA)
 
 
 def _build_epoch(authority, work):
@@ -2828,7 +2836,7 @@ def _remove_rule(authority, work):
     return rules.remove_rule_binding(make_world(work, authority=authority), _STATE[work]["binding"])
 
 
-def _world_probe(work: Path) -> list[str]:
+def _world_probe(work: Path):
     return _tree(work / "world")
 
 
@@ -2887,7 +2895,7 @@ def _lifecycle(act: str):
     return run
 
 
-def _lifecycle_probe(work: Path) -> list[str]:
+def _lifecycle_probe(work: Path):
     return _tree(work)
 
 
