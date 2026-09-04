@@ -54,6 +54,19 @@ def _writer(root, *, science=SCIENCE, domains=None, operation_port=True):
     return writer
 
 
+def _writer_for(corpus, **options) -> CorpusWriter:
+    """The writer these builders run over: a path mints the portable one, and
+    an already-open writer is taken as it stands.
+
+    The seam exists for `tests/acceptance/test_deletion_acceptance.py`, which
+    re-runs the same constructions over `open_corpus` writers bound to
+    registered roots on the certified volume. Nothing else about a builder
+    changes: the durable module supplies the writer and the builder supplies
+    the records.
+    """
+    return corpus if isinstance(corpus, CorpusWriter) else _writer(corpus, **options)
+
+
 def _node(*facet_keys: str) -> Node:
     return Node(
         id="memo:relocated",

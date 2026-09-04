@@ -29,7 +29,7 @@ from beliefs.belief import Availability, Belief, NoBelief, Refused, SuppliedCont
 from beliefs.closure import RetractionEnumeration
 from beliefs.consulted import CorpusPins
 from beliefs.contract.domain import VocabularyBinding
-from beliefs.corpus import ReadView, lineage_snapshot
+from beliefs.corpus import CorpusWriter, ReadView, lineage_snapshot
 from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
 from beliefs.evaluation import READ_KINDS, EvaluationInputs, evaluate_over, gather
 from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding, PolicyImplementation
@@ -111,12 +111,21 @@ class CorpusFixture:
 
 
 def _seed(
-    root: Path,
+    corpus: Path | CorpusWriter,
     proposition_ref: str,
     *,
     reads: bool = False,
     assesses_target: str | None = None,
 ) -> tuple[ReadView, dict[str, AssessmentValue]]:
+    """Seed the corpus and hand back a **fresh** view over what is on disk.
+
+    A path takes the raw-write fixture act, which is what the divergent
+    `assesses` edge needs and what these portable rows have always used. An
+    open `CorpusWriter` — Task 8's acceptance module, bound to a registered
+    root — mints the same records through `add` instead, so the durable M1 arm
+    reads bytes the certified engine committed. The two paths must stay
+    interchangeable, so the writer path is offered only where the fixture asks
+    for nothing a raw write alone can build."""
     nodes: list[Node] = [
         stored.proposition_node("p", title="p", claim=CLAIM_FACET),
         stored.proposition_node("q", title="q", claim=OTHER_CLAIM_FACET),
@@ -200,6 +209,8 @@ def _seed(
             for node in assessments[:2]
         ]
 
+    if assesses_target is not None and isinstance(corpus, CorpusWriter):
+        raise AssertionError("the divergent `assesses` edge is a raw write; it has no add path")
     values = {node.id: stored.assessment_value(node) for node in assessments}
     nodes.extend(assessments)
     for index, node in enumerate(assessments, start=1):
@@ -214,20 +225,25 @@ def _seed(
             )
         )
 
+    root = corpus.root if isinstance(corpus, CorpusWriter) else corpus
     for node in nodes:
-        raw_write(root, node)
+        if isinstance(corpus, CorpusWriter):
+            corpus.add(node)
+        else:
+            raw_write(root, node)
     return reopen(root), values
 
 
 def _fixture(
-    tmp_path: Path,
+    corpus: Path | CorpusWriter,
     proposition_ref: str,
     *,
     reads: bool = False,
     assesses_target: str | None = None,
 ) -> CorpusFixture:
-    tmp_path.mkdir(parents=True, exist_ok=True)
-    view, values = _seed(tmp_path, proposition_ref, reads=reads, assesses_target=assesses_target)
+    if isinstance(corpus, Path):
+        corpus.mkdir(parents=True, exist_ok=True)
+    view, values = _seed(corpus, proposition_ref, reads=reads, assesses_target=assesses_target)
     matched = (values["assessment:a-1"], values["assessment:a-2"])
     context = SuppliedContext(
         snapshot=lineage_snapshot(view, ("dataset:d-a", "dataset:d-b")),

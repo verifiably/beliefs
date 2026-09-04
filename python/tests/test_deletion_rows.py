@@ -45,7 +45,7 @@ from test_evaluation import (
     _observations,
     _resources,
 )
-from test_relocation import CONSOLIDATE_FIELDS, _writer
+from test_relocation import CONSOLIDATE_FIELDS, _writer, _writer_for
 from test_relocation_rows import _basis_route, _duplicate_datasets
 
 from beliefs import relocation, stored
@@ -223,15 +223,19 @@ def _records(
 
 
 def _admit(
-    root,
+    corpus,
     records: dict[str, tuple[str, Node]],
     order: tuple[str, ...],
     *,
     roots: tuple[str, ...] = DATASET_ROOTS,
 ) -> Scenario:
-    """Admit `records` into a fresh corpus in `order`, through the boundary."""
+    """Admit `records` into a fresh corpus in `order`, through the boundary.
+
+    `corpus` is a path here and an open durable writer in Task 8's acceptance
+    module (`_writer_for`), so both suites admit the same record set through
+    the same builder."""
     assert set(order) == set(records), "the order admits exactly the record set"
-    writer = _writer(root)
+    writer = _writer_for(corpus)
     values: dict[str, AssessmentValue] = {}
     for name in order:
         mode, node = records[name]
@@ -241,10 +245,10 @@ def _admit(
     return Scenario(writer=writer, values=values, roots=roots)
 
 
-def _scenario(root, *, basis: dict[str, Any] | None = None, extra: tuple[Node, ...] = ()) -> Scenario:
+def _scenario(corpus, *, basis: dict[str, Any] | None = None, extra: tuple[Node, ...] = ()) -> Scenario:
     """`_records` admitted in its own order."""
     records = _records(basis=basis, extra=extra)
-    return _admit(root, records, tuple(records))
+    return _admit(corpus, records, tuple(records))
 
 
 def _verification(scenario: Scenario, slug: str, *, scope: str, verdict: str, supersedes: str | None = None) -> Node:
@@ -419,7 +423,7 @@ SECOND_PRODUCER = "run:other"
 something the stamped route does not name."""
 
 
-def _lineage_corpus(root, *, second_producer: bool) -> Scenario:
+def _lineage_corpus(corpus, *, second_producer: bool) -> Scenario:
     """The belief corpus with a stamped derivation on the dataset
     `assessment:a-1`'s run observes: `run:origin` produced `DERIVED` from
     `dataset:origin`, and — optionally — `run:other` produced the same address
@@ -442,7 +446,7 @@ def _lineage_corpus(root, *, second_producer: bool) -> Scenario:
                 "other", title="other", spec="spec-other", transforms=[OTHER_ANCESTOR], produces=[DERIVED]
             )
         )
-    return _scenario(root, basis={"tag": "single", "routes": [_basis_route("origin")]}, extra=tuple(extra))
+    return _scenario(corpus, basis={"tag": "single", "routes": [_basis_route("origin")]}, extra=tuple(extra))
 
 
 def _projected(snapshot: LineageSnapshot, *path: Any) -> Any:

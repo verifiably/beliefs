@@ -68,9 +68,16 @@ def _basis_route(name):
     }
 
 
-def _duplicate_datasets(tmp_path):
-    keep_writer = _writer(tmp_path / "keep", domains=PINS.domains)
-    other_writer = _writer(tmp_path / "other", domains=PINS.domains)
+def _duplicate_datasets(tmp_path, *, writers=None):
+    """The two one-address records W16 consolidates, in two corpora.
+
+    `writers` lets Task 8's acceptance module supply open writers bound to
+    registered roots on the certified volume; the record construction below is
+    the same either way."""
+    keep_writer, other_writer = writers or (
+        _writer(tmp_path / "keep", domains=PINS.domains),
+        _writer(tmp_path / "other", domains=PINS.domains),
+    )
     keep = stored.dataset_node(
         "duplicate",
         title="kept title",

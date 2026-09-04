@@ -30,7 +30,7 @@ from test_audit import (
     assessment_closure,
     run_publication,
 )
-from test_relocation import _writer
+from test_relocation import _writer, _writer_for
 
 from beliefs import runrecord, stored
 from beliefs.assess import build_assessment
@@ -150,15 +150,18 @@ def _admission(w, identity: str) -> str:
     )
 
 
-def _two_runs(root, *, mount: bool, agreeing: bool) -> SimpleNamespace:
+def _two_runs(corpus, *, mount: bool, agreeing: bool) -> SimpleNamespace:
     """Two assessment-shaped runs of one recipe, a frozen spec, the held
     equivalence and interpretation implementations, and the verification
     `build_verification` derives from them.
 
     `mount=False` leaves the runs out of the corpus but keeps their stored
     records, so a later import is the mount R19 transition (b) asks for.
+
+    `corpus` is a path here and an open durable writer in Task 8's acceptance
+    module, so both suites build the pair through one construction.
     """
-    writer = _writer(root)
+    writer = _writer_for(corpus)
     frozen = freeze(spec_draft(), held_rules=spec_rules())
     evidence = _evidence(frozen)
     original = assessment_closure(frozen, token="tok-original")
