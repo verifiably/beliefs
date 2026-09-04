@@ -557,3 +557,99 @@ package is untouched and its gates are the proof. The cut is discharged by
 `tools/cut16_acceptance.py` on the certified volume beside the checkout with
 the confinement gate satisfied, and its results record lands with the ledger
 and roadmap re-rank in one commit under concurrency rule 2.
+
+## 13. Implementation amendment — 2026-09-04
+
+This section amends the implementation mechanics after checking the frozen
+design against the current tree. It does not rewrite §7's or §9's frozen
+bodies. Where it changes a cut disposition it is the current ruling, and the
+cut-16 results record cites both the freeze (`c2f87b3`) and this amendment.
+
+### 13.1 Cut 10 is cited, not run
+
+Two frozen cut-10 arms, `H4u1` and `J8`, sabotage the **entire body** of
+`holdings.boundary._publish`. E6 requires `_publish` to begin with its
+`require` statement, so from this tree onward those two `before` blocks
+match nothing and cut 10's audit would report them stale. On cut 9's and
+cut 14's exact mechanism: the whole cut-10 surface — its design, its
+declaration file, its acceptance module and its runner — is left
+byte-identical and pinned so by cut 16's checks; cut 10 is **cited, not
+run**, from cut 16's tree onward, its discharge standing as
+`../plans/2026-08-24-conformance-cut-10-results.md`; and the successor
+coverage for the two arms is carried by cut 16's own `E1` and `E7` holdings
+arms plus one labeled unit, `K1`, that re-declares `H4u1`'s sabotage —
+dropping the `publish_fulfilling` call — over the new `_publish` body, with
+`H4u1`'s check co-cited. The eight other cut-10 arms keep matching, because
+`ActContext.actor` survives as a read-only property (§13.3).
+
+### 13.2 The runner names an inventory
+
+§9.3's "names `cut15_acceptance.py` as its prefix runner" cannot hold
+literally: that runner chains `cut14_acceptance.py`, which runs
+`test_n2_cut10.py`, and both runners' probes call the lifecycle acts by
+their pre-permit signatures. `tools/cut16_acceptance.py` therefore names
+**no prefix runner** and defines the current-tree prefix as cut 14's module
+inventory less `test_n2_cut10.py`, followed by cut 15's three phase modules,
+then its own — the exact ordered list Task 13 of the implementation plan
+fixes. The two older runners are left unchanged, the frozen commands of the
+trees they discharged on. Cuts after 16 name `cut16_acceptance.py`.
+
+### 13.3 Names that pinned sabotages spell
+
+Pinned cut-3 and cut-11 arms sabotage `boundary.py` lines that spell the
+name `actor` (`AssessmentRunIntent(spec.identity, secrets.token_hex(16), actor)`,
+`_refused("no-frozen-spec", subject, actor, observer, started_at)`, …), and
+pinned cut-10 arms spell `ctx.actor`. Removing the `actor` *parameter* is
+§4.2's rule; the *name* survives as a local, `actor = port.authority.actor`,
+bound immediately after the run boundary's `try` shape, and as a read-only
+`ActContext.actor` property over `authority.actor`. Neither is a parameter
+and neither is caller-supplied; the pinned blocks keep matching.
+
+### 13.4 E6's inventory-side mutations are inline arms
+
+§9.3 lists sabotages "in `test_permit_boundary.py`'s own inventory". The N2
+harness copies `src/beliefs` alone, so a test file cannot be an N2 sabotage
+target. Those mutations are carried instead as the static test's own
+offender arms (§5 arm 5), run inline in the unit suite; the N2 arms for E6
+sabotage the package (remove or displace a `require`) and are checked by the
+static test.
+
+### 13.5 Two seam details
+
+`world.verify._admit_arrival` drops its `actor` keyword and reads
+`world.authority`; `_audit_log` keeps `actor` as the label its report
+carries (§4.2). `install_shipped_world_rules` needs no signature change: it
+reaches `install_rule_binding`, which requires on `world.authority`.
+
+### 13.6 `_fork_resume` is a primitive implementation
+
+A pinned cut-9 arm spells `fork_corpus`'s retry block verbatim —
+`pending = _fork_pending(dest)` … `_fork_resume(dest, pending)` … — so
+`_fork_resume` can take no authority. It is the one body that invokes the
+engine's `resume_fork_root` callback with the production tuple, exactly as
+`_store_append_intent` is the one body that invokes `append_intent`: §4.3's
+implementation list gains `root.py:_fork_resume`, compared by equality like
+the rest, and §4.2's lifecycle row loses it. Its two callers, `fork_corpus`
+and `fork_store`, are inventoried (each also calls `_fork_root_callback`
+directly) and require `lifecycle` as their first statement, before the
+pinned block. This narrows the second review finding's remedy without
+reopening it: the caller is held, the implementation is named.
+
+### 13.7 Ungoverned kinds are a third permit dimension
+
+§3.2 calls `KIND_ACTS` complete over "every mintable kind". The tree mints
+more: `CorpusWriter.add` accepts any kind outside `stored.SEMANTIC_DOMAINS`
+that carries no semantic-identity facet (`_refuse_governed_stamp`), and the
+durable suites rely on it (`memo` records in `durable_fixture.py`). A permit
+whose `kinds` are drawn from `KIND_ACTS` alone would make the full permit
+refuse them. The permit therefore carries a third, boolean dimension,
+**`ungoverned`**: whether the holder may mint kinds outside `KIND_ACTS`, and
+only through `corpus-write` — an ungoverned kind has no other route.
+`WritePermit.full()` sets it; every `RequiredCapabilities` constructor
+leaves it unset, because a declaration names governed kinds and the
+`science` build refuses an unknown one; `permit_covers` judges it by
+implication (`not required.ungoverned or ceiling.ungoverned`);
+`Authority.require` judges a kind in `KIND_ACTS` against `kinds` and any
+other kind against `ungoverned` plus the family. `PermitSummary` carries the
+flag. E4's completeness claim is unchanged — it is about governed kinds —
+and E5's "both dimensions" reads as "every dimension".

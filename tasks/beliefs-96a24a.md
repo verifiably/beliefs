@@ -6,7 +6,7 @@ priority: 2
 size: xl
 owner: design/write-permits
 created: 2026-08-31T00:38:28Z
-updated: 2026-09-04T11:12:06Z
+updated: 2026-09-04T13:16:18Z
 depends: []
 tags: [migration, writer, permits]
 spec: docs/designs/2026-09-04-write-permits-design.md
@@ -28,3 +28,4 @@ Uncertainty: The cross-repository endpoint and launcher live partly in Science, 
 - 2026-09-04T09:57:20Z (design/write-permits): Review findings 1-6 closed at e01e43f; cut 16 text amended before any code, freeze commit 895f822 stands
 - 2026-09-04T10:09:19Z (design/write-permits): Second review pass closed; cut 16 and the E table frozen at ee6af71 (status line names it); awaiting approval to start writing-plans
 - 2026-09-04T10:32:29Z (design/write-permits): Third review pass closed (run-only try shape); cut 16 and the E table frozen at c2f87b3
+- 2026-09-04T13:16:18Z (design/write-permits): Implementation amendment §13 ruled: cut 10 cited, runner names an inventory, actor locals keep pinned arms matching, ungoverned dimension, _fork_resume as implementation; commit recoverable by git log --grep 'rule the cut 16 implementation amendment'
