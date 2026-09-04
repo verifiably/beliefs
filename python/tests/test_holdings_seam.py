@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 from hashlib import sha256
+from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 
@@ -29,7 +30,7 @@ from beliefs.root import (
     CREATED_FILE_MODE,
     STORE_CONSUMER_TAG,
     STORE_WRITE_INTENT_DOMAIN,
-    DurableOperationPort,
+    DurableExecutor,
     holdings_seam,
     init_store_root,
     replicate_root,
@@ -272,19 +273,19 @@ def test_the_seam_delegates_intent_publication_and_genesis(monkeypatch, tmp_path
     plan = [CreateOp("record.md", b"record")]
     calls = []
 
-    def append(port, value):
-        calls.append(("append", port.root, value))
+    def append(_backend, root, _metadata_root, _storage, value):
+        calls.append(("append", Path(root), value))
         return "2" * 64
 
-    def publish(port, value, fulfills):
-        calls.append(("publish", port.root, value, fulfills))
+    def publish(executor, value):
+        calls.append(("publish", executor.root, value, executor._fulfills))
 
     def head(root):
         calls.append(("genesis", root))
         return SimpleNamespace(genesis_payload=b"genesis")
 
-    monkeypatch.setattr(DurableOperationPort, "append_intent", append)
-    monkeypatch.setattr(DurableOperationPort, "execute_fulfilling", publish)
+    monkeypatch.setattr(science_root, "append_intent", append)
+    monkeypatch.setattr(DurableExecutor, "execute", publish)
     monkeypatch.setattr(science_root, "_read_head", head)
     seam = holdings_seam()
 

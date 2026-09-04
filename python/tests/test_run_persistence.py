@@ -89,6 +89,8 @@ def test_kill_between_append_and_start_leaves_intent_only(certified_work, monkey
     root, inner = _observer_port(certified_work)
 
     class KilledAfterAppend:
+        authority = inner.authority
+
         def append_intent(self, payload):
             inner.append_intent(payload)
             raise _Killed()
@@ -116,6 +118,8 @@ def test_kill_between_append_and_start_leaves_intent_only_operation_kind(
     root, inner = _observer_port(certified_work)
 
     class KilledAfterAppend:
+        authority = inner.authority
+
         def append_intent(self, payload):
             inner.append_intent(payload)
             raise _Killed()

@@ -105,6 +105,7 @@ from beliefs.errors import (
 )
 from beliefs.identity import v1
 from beliefs.lineage import Basis, LineageSnapshot, Producer, Route
+from beliefs.permit import Authority
 from beliefs.profile import ProfileSpec
 from beliefs.record import RunInput, RunValue
 from beliefs.report import OperationIntent
@@ -1096,13 +1097,24 @@ class CorpusWriter:
         self,
         root: Path,
         executor_factory: Callable[[Path], WritePlanExecutor],
+        *,
+        authority: Authority,
         operation_port: OperationPort | None = None,
         coordination_resolver: CoordinationResolver | None = None,
     ) -> None:
+        if type(authority) is not Authority:
+            raise TypeError("a writer binds an Authority")
+        if operation_port is not None and operation_port.authority != authority:
+            raise ValueError("the operation port is bound to another authority than this writer")
+        self._authority = authority
         self._state = _root_state_for(root, executor_factory)
         self._operation = self._state.lock
         self._operation_port = operation_port
         self._coordination_resolver = coordination_resolver
+
+    @property
+    def authority(self) -> Authority:
+        return self._authority
 
     @property
     def _corpus(self) -> Corpus:

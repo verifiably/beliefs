@@ -8,6 +8,7 @@ discharge — that runs on the certified engine, under the acceptance runner.
 from __future__ import annotations
 
 import pytest
+from authority import FULL
 from fixtures_cut3 import report as sample_report
 from fixtures_cut6 import PINS
 from nodes.core.errors import RefError
@@ -49,7 +50,7 @@ CONSOLIDATE_FIELDS = {**MOVE_FIELDS, "rationale": "keep holds the authored recor
 
 def _writer(root, *, science=SCIENCE, domains=None, operation_port=True):
     port = OperationRecorder(root) if operation_port else None
-    writer = CorpusWriter(root, DefaultExecutor, operation_port=port)
+    writer = CorpusWriter(root, DefaultExecutor, authority=FULL, operation_port=port)
     writer.adopt_manifest(profile=CorpusPins(science, domains or {}))
     return writer
 
@@ -160,7 +161,7 @@ def test_move_resolves_a_symlinked_same_root_and_acquires_its_lock_once(
     )
     alias = tmp_path / "alias"
     alias.symlink_to(writer.root, target_is_directory=True)
-    twin = CorpusWriter(alias, DefaultExecutor)
+    twin = CorpusWriter(alias, DefaultExecutor, authority=FULL)
     events = []
 
     class RecordingLock:
@@ -686,8 +687,8 @@ def test_both_locks_acquires_distinct_roots_in_sorted_order(tmp_path, monkeypatc
         def __exit__(self, *_):
             events.append(("exit", self.name))
 
-    later = CorpusWriter(tmp_path / "z", DefaultExecutor)
-    earlier = CorpusWriter(tmp_path / "a", DefaultExecutor)
+    later = CorpusWriter(tmp_path / "z", DefaultExecutor, authority=FULL)
+    earlier = CorpusWriter(tmp_path / "a", DefaultExecutor, authority=FULL)
     monkeypatch.setattr(later, "_operation", RecordingLock("z"))
     monkeypatch.setattr(earlier, "_operation", RecordingLock("a"))
 
@@ -703,8 +704,8 @@ def test_both_locks_acquires_distinct_roots_in_sorted_order(tmp_path, monkeypatc
 
 
 def test_both_locks_acquires_one_distinct_root_once(tmp_path):
-    writer = CorpusWriter(tmp_path, DefaultExecutor)
-    twin = CorpusWriter(tmp_path, DefaultExecutor)
+    writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL)
+    twin = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL)
 
     with relocation._both_locks(writer, twin):
         assert writer._operation._writer_depth == 1
@@ -720,8 +721,8 @@ def test_excluded_kinds_are_reports_observations_and_the_coordination_closed_set
 
 
 def test_same_root_refuses_after_path_resolution(tmp_path):
-    writer = CorpusWriter(tmp_path, DefaultExecutor)
-    twin = CorpusWriter(tmp_path / ".", DefaultExecutor)
+    writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL)
+    twin = CorpusWriter(tmp_path / ".", DefaultExecutor, authority=FULL)
 
     with pytest.raises(SameRootRefused):
         relocation._refuse_same_root(writer, twin)
@@ -791,7 +792,7 @@ def test_contract_agreement_ignores_different_unused_domain_pins(tmp_path):
 
 def test_corpus_writer_exposes_its_root_manifest_identity_and_pins(tmp_path):
     pins = CorpusPins(SCIENCE, {"biology": BIOLOGY})
-    writer = CorpusWriter(tmp_path, DefaultExecutor)
+    writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL)
     manifest = writer.adopt_manifest(profile=pins)
 
     assert writer.root == tmp_path.resolve()

@@ -20,6 +20,7 @@ from nodes.core.write_plan import CreateOp, WritePlan
 from beliefs import stored
 from beliefs.errors import MalformedClosure, MalformedRecord, RecipeVersionUnsupported
 from beliefs.identity import v1
+from beliefs.permit import Authority
 from beliefs.production import mint_dataset
 from beliefs.recipe import (
     ASSESSMENT_ROLES,
@@ -86,6 +87,9 @@ def bare_address(ref: str) -> str:
 
 
 class OperationPort(Protocol):
+    @property
+    def authority(self) -> Authority: ...
+
     def append_intent(self, payload: bytes) -> str: ...
 
     def execute(self, plan: WritePlan) -> None: ...

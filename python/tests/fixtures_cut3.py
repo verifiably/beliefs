@@ -5,6 +5,8 @@ from decimal import Decimal
 from hashlib import sha256
 from typing import cast
 
+from authority import FULL
+
 from beliefs.assess import run_record
 from beliefs.boundary import execute_assessment_run, execute_production_run
 from beliefs.closure import RetractionEnumeration
@@ -432,6 +434,8 @@ def definition(
 
 class MemoryPort:
     """The shared no-I/O port for value-width unit tests."""
+
+    authority = FULL
 
     def append_intent(self, payload: bytes) -> str:
         return sha256(payload).hexdigest()

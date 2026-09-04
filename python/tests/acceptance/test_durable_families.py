@@ -14,6 +14,7 @@ from atoms.chain.model import (
     SettledEntry,
     decode_entry,
 )
+from authority import FULL
 from fixtures_cut4 import path_for, reopen
 from nodes.core.errors import ExecutionError
 
@@ -97,7 +98,7 @@ def test_retract_survives_facade_reload(durable_writer, durable_root):
 
 
 def test_import_bundle_records_the_exact_durable_chain(durable_root):
-    writer = open_corpus(durable_root)
+    writer = open_corpus(durable_root, authority=FULL)
     before = chain_entries(durable_root)
 
     report = writer.import_bundle(
@@ -157,7 +158,7 @@ def test_import_on_an_uncertified_tuple_refuses():
         assert "allowlist" in str(registration.value) or "barrier-option" in str(registration.value)
 
         with pytest.raises(ExecutionError) as refused:
-            open_corpus(root).import_bundle(
+            open_corpus(root, authority=FULL).import_bundle(
                 [proposition("uncertified")],
                 actor="acceptance",
                 observer="corpus",

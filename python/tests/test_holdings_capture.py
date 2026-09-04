@@ -9,6 +9,7 @@ from typing import Any, cast
 import pytest
 from atoms.chain.model import state_to_json
 from atoms.core.fingerprint import PathState
+from authority import FULL
 from fixtures_cut6 import PINS
 from nodes.core.projection import to_canonical_json
 from nodes.core.write_plan import DefaultExecutor
@@ -184,7 +185,7 @@ def test_the_projection_matches_the_closed_schema(
 ):
     corpus_root = certified_work / "corpus"
     science_root.init_corpus_root(corpus_root)
-    writer = science_root.open_corpus(corpus_root)
+    writer = science_root.open_corpus(corpus_root, authority=FULL)
     manifest = writer.adopt_manifest(profile=PINS)
     dataset = writer.add(
         stored.dataset_node(

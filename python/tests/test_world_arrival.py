@@ -34,6 +34,7 @@ import pytest
 from atoms.chain.errors import PendingUnresolved
 from atoms.chain.model import GenesisEntry
 from atoms.core.errors import PreconditionRefused
+from authority import FULL
 from fixtures_cut6 import PINS
 from nodes.core.errors import ExecutionError
 from nodes.core.write_plan import CreateOp, DefaultExecutor
@@ -764,7 +765,7 @@ def test_pending_root_refuses_further_mutation_via_the_gate(tmp_path, monkeypatc
     monkeypatch.setattr(science_root, "append_intent", raising)
     executor = science_root._durable_executor(root)
     port = science_root.DurableOperationPort(
-        root,
+        root, authority=FULL,
         backend=science_root._PRODUCTION_BACKEND,
         storage=science_root.PRODUCTION_STORAGE,
         metadata_root=science_root.metadata_root_for(root),

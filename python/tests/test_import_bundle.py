@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import ClassVar
 
 import pytest
+from authority import FULL
 from nodes.core.errors import ExecutionError
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -20,8 +21,9 @@ from beliefs.report import ImportedRecords, RecordImportEntry, _mint_report
 class Recorder:
     plans: ClassVar[list[list]] = []
 
-    def __init__(self, root):
+    def __init__(self, root, authority=FULL):
         self._inner = DefaultExecutor(root)
+        self.authority = authority
 
     def execute(self, plan) -> None:
         Recorder.plans.append(list(plan))
@@ -34,8 +36,9 @@ class FakePort:
     fulfilling: ClassVar[list[tuple[list, str]]] = []
     intent_digest = "ab" * 32
 
-    def __init__(self, root):
+    def __init__(self, root, authority=FULL):
         self._inner = DefaultExecutor(root)
+        self.authority = authority
 
     def append_intent(self, payload: bytes) -> str:
         FakePort.intents.append(payload)
@@ -53,7 +56,7 @@ class FakePort:
 @pytest.fixture()
 def writer_with_port(tmp_path):
     Recorder.plans, FakePort.intents, FakePort.fulfilling = [], [], []
-    return CorpusWriter(tmp_path, Recorder, operation_port=FakePort(tmp_path))
+    return CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=FakePort(tmp_path))
 
 
 def test_import_refuses_a_coordination_member_by_name(writer_with_port):
@@ -454,7 +457,7 @@ def test_malformed_intent_digest_refuses_before_payload_or_report(tmp_path):
         intent_digest = "bad"
 
     Recorder.plans, FakePort.intents, FakePort.fulfilling = [], [], []
-    writer = CorpusWriter(tmp_path, Recorder, operation_port=MalformedDigestPort(tmp_path))
+    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=MalformedDigestPort(tmp_path))
 
     with pytest.raises(ExecutionError, match="intent digest"):
         import_records(writer, [prop("not-written")])
@@ -631,7 +634,7 @@ def test_uncanonically_encodable_report_fields_refuse_before_intent(writer_with_
 def test_uncanonically_encodable_report_subject_refuses_before_intent(tmp_path):
     Recorder.plans, FakePort.intents, FakePort.fulfilling = [], [], []
     root = tmp_path / "\udcff"
-    writer = CorpusWriter(root, Recorder, operation_port=FakePort(root))
+    writer = CorpusWriter(root, Recorder, authority=FULL, operation_port=FakePort(root))
 
     with pytest.raises(ImportRefused):
         import_records(writer, [prop("a")])
@@ -643,7 +646,7 @@ def test_uncanonically_encodable_report_subject_refuses_before_intent(tmp_path):
 
 def test_no_operation_port_refuses_before_any_act(tmp_path):
     Recorder.plans = []
-    writer = CorpusWriter(tmp_path, Recorder)
+    writer = CorpusWriter(tmp_path, Recorder, authority=FULL)
     with pytest.raises(ImportRefused, match="no operation port"):
         import_records(writer, [prop("a")])
     assert Recorder.plans == []
@@ -658,7 +661,7 @@ def test_refusal_report_failure_leaves_intent_open_and_engine_error_unchanged(tm
             raise ReportFailure
 
     Recorder.plans, FakePort.intents, FakePort.fulfilling = [], [], []
-    writer = CorpusWriter(tmp_path, Recorder, operation_port=FailingPort(tmp_path))
+    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=FailingPort(tmp_path))
     writer.add(prop("held"))
     Recorder.plans = []
 
@@ -679,7 +682,7 @@ def test_success_report_failure_leaves_payload_visible_and_intent_open(tmp_path)
             raise ReportFailure
 
     Recorder.plans, FakePort.intents, FakePort.fulfilling = [], [], []
-    writer = CorpusWriter(tmp_path, Recorder, operation_port=FailingPort(tmp_path))
+    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=FailingPort(tmp_path))
 
     with pytest.raises(ReportFailure) as caught:
         import_records(writer, [prop("admitted")])

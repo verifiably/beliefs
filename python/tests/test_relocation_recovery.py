@@ -7,6 +7,7 @@ from hashlib import sha256
 from pathlib import Path
 
 import pytest
+from authority import FULL
 from fixtures_cut6 import PINS
 from nodes.core.frontmatter import node_from_markdown
 from nodes.core.node import Node
@@ -225,8 +226,9 @@ class _IntentRecord:
 
 
 class _HashingOperationPort:
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, authority=FULL):
         self._inner = DefaultExecutor(root)
+        self.authority = authority
         self.intents: list[_IntentRecord] = []
         self.executed: list[list[object]] = []
         self.fulfilling: list[tuple[list[object], str]] = []
@@ -281,7 +283,7 @@ class _Attempt:
 def _writer(root: Path) -> CorpusWriter:
     writer = CorpusWriter(
         root,
-        DefaultExecutor,
+        DefaultExecutor, authority=FULL,
         operation_port=_HashingOperationPort(root),
     )
     writer.adopt_manifest(profile=PINS)

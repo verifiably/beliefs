@@ -14,6 +14,7 @@ import time
 from typing import Any, ClassVar, cast
 
 import pytest
+from authority import FULL, narrowed
 from fixtures_cut3 import report as mint_report
 from fixtures_cut6 import PINS
 from nodes.core.errors import CollisionError, ExecutionError, RefError, ValidationError
@@ -58,6 +59,8 @@ class Recorder:
 
 
 class OperationRecorder:
+    authority = FULL
+
     def __init__(self, root, *, intent_digest="ab" * 32):
         self._inner = DefaultExecutor(root)
         self.intent_digest = intent_digest
@@ -81,17 +84,66 @@ class OperationRecorder:
 @pytest.fixture()
 def writer(tmp_path) -> CorpusWriter:
     Recorder.plans = []
-    return CorpusWriter(tmp_path, Recorder)
+    return CorpusWriter(tmp_path, Recorder, authority=FULL)
 
 
 @pytest.fixture()
 def second_writer(tmp_path) -> CorpusWriter:
-    return CorpusWriter(tmp_path / "second", Recorder)
+    return CorpusWriter(tmp_path / "second", Recorder, authority=FULL)
+
+
+class TestE2AuthorityBindsOnceAtConstruction:
+    def test_a_writer_requires_an_authority_keyword(self, tmp_path):
+        with pytest.raises(TypeError):
+            CorpusWriter(tmp_path, Recorder)  # type: ignore[call-arg]
+
+    def test_the_bound_authority_is_readable_and_not_settable(self, tmp_path):
+        writer = CorpusWriter(tmp_path, Recorder, authority=FULL)
+        assert writer.authority is FULL
+        with pytest.raises(AttributeError):
+            writer.authority = FULL  # type: ignore[misc]
+
+    def test_a_port_bound_to_another_authority_refuses_construction(self, tmp_path):
+        class Port:
+            authority = narrowed(kinds=("proposition",), families=("corpus-write",))
+
+            def append_intent(self, payload):
+                raise AssertionError("never reached")
+
+            def execute(self, plan):
+                raise AssertionError("never reached")
+
+            def execute_fulfilling(self, plan, fulfills):
+                raise AssertionError("never reached")
+
+        with pytest.raises(ValueError, match="another authority"):
+            CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=Port())
+
+    def test_two_writers_over_one_port_with_its_own_authority_both_construct(self, tmp_path):
+        class Port:
+            authority = FULL
+
+            def append_intent(self, payload):
+                raise AssertionError("never reached")
+
+            def execute(self, plan):
+                raise AssertionError("never reached")
+
+            def execute_fulfilling(self, plan, fulfills):
+                raise AssertionError("never reached")
+
+        port = Port()
+        assert CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port).authority is FULL
+        assert CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port).authority is FULL
+
+    def test_an_authority_must_be_an_authority(self, tmp_path):
+        with pytest.raises(TypeError):
+            CorpusWriter(tmp_path, Recorder, authority="full")  # type: ignore[arg-type]
 
 
 def test_append_operation_intent_returns_the_validated_digest(tmp_path):
     port = OperationRecorder(tmp_path)
-    writer = CorpusWriter(tmp_path, Recorder, operation_port=port)
+    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port)
 
     digest = writer._append_operation_intent("move", "t" * 32, "actor")
 
@@ -102,7 +154,7 @@ def test_append_operation_intent_returns_the_validated_digest(tmp_path):
 @pytest.mark.parametrize("digest", ["bad", "AB" * 32, None])
 def test_append_operation_intent_refuses_a_malformed_digest(tmp_path, digest):
     port = OperationRecorder(tmp_path, intent_digest=digest)
-    writer = CorpusWriter(tmp_path, Recorder, operation_port=port)
+    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port)
 
     with pytest.raises(ExecutionError, match="intent digest"):
         writer._append_operation_intent("move", "t" * 32, "actor")
@@ -110,7 +162,7 @@ def test_append_operation_intent_refuses_a_malformed_digest(tmp_path, digest):
 
 def test_publish_operation_report_fulfills_once_stores_and_reconstructs(tmp_path):
     port = OperationRecorder(tmp_path)
-    writer = CorpusWriter(tmp_path, Recorder, operation_port=port)
+    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port)
     intent = OperationIntent("move", "t" * 32, "actor")
     report = boundary._mint_relocation_report(
         intent,
@@ -505,7 +557,7 @@ class TestTheExecutionLayerCrossesUnwrapped:
             def execute(self, plan):
                 raise ExecutionError("engine said no", index=None, applied=None)
 
-        writer = CorpusWriter(tmp_path, Failing)
+        writer = CorpusWriter(tmp_path, Failing, authority=FULL)
         with pytest.raises(ExecutionError) as raised:
             writer.add(observed_dataset())
         assert not isinstance(raised.value, ScienceError)
@@ -519,24 +571,24 @@ class TestTheOperationLock:
 
     def test_two_writers_one_root_share_lock_and_state(self, tmp_path):
         Recorder.plans = []
-        a = CorpusWriter(tmp_path, Recorder)
-        b = CorpusWriter(tmp_path, Recorder)
+        a = CorpusWriter(tmp_path, Recorder, authority=FULL)
+        b = CorpusWriter(tmp_path, Recorder, authority=FULL)
 
         assert a._operation is b._operation
         minted = a.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
         assert b.read_view.holds(minted.id)
 
-        other = CorpusWriter(tmp_path / "other", Recorder)
+        other = CorpusWriter(tmp_path / "other", Recorder, authority=FULL)
         assert other._operation is not a._operation
 
     def test_second_writer_with_different_factory_refuses(self, tmp_path):
-        CorpusWriter(tmp_path, Recorder)
+        CorpusWriter(tmp_path, Recorder, authority=FULL)
         with pytest.raises(ScienceError):
-            CorpusWriter(tmp_path, DefaultExecutor)
+            CorpusWriter(tmp_path, DefaultExecutor, authority=FULL)
 
     def test_open_corpus_twice_shares_state(self, tmp_path):
-        a = open_corpus(tmp_path)
-        b = open_corpus(tmp_path)
+        a = open_corpus(tmp_path, authority=FULL)
+        b = open_corpus(tmp_path, authority=FULL)
         assert a._operation is b._operation
 
     def test_two_same_uid_adds_are_serialized_end_to_end(self, tmp_path):
@@ -556,8 +608,8 @@ class TestTheOperationLock:
                 assert release.wait(timeout=10)
                 self._inner.execute(plan)
 
-        first_writer = CorpusWriter(tmp_path, Barrier)
-        second_writer = CorpusWriter(tmp_path, Barrier)
+        first_writer = CorpusWriter(tmp_path, Barrier, authority=FULL)
+        second_writer = CorpusWriter(tmp_path, Barrier, authority=FULL)
         first = observed_dataset("first")
         second = observed_dataset("second")
         second.uid = first.uid  # same uid, different id
@@ -603,7 +655,7 @@ class TestTheOperationLock:
         """The build's capture excludes writers without queueing them: the add
         refuses where it stands, and nothing of it reaches the executor."""
         Recorder.plans = []
-        writer = CorpusWriter(tmp_path, Recorder)
+        writer = CorpusWriter(tmp_path, Recorder, authority=FULL)
         node = observed_dataset("captured")
         outcome: list[BaseException | None] = [None]
 
@@ -628,7 +680,7 @@ class TestTheOperationLock:
     def test_cooperating_writers_still_serialize_and_succeed(self, tmp_path):
         """No capture, no refusal: four writers released together all land."""
         Recorder.plans = []
-        writers = [CorpusWriter(tmp_path, Recorder) for _ in range(4)]
+        writers = [CorpusWriter(tmp_path, Recorder, authority=FULL) for _ in range(4)]
         nodes = [observed_dataset(f"co{index}") for index in range(4)]
         together = threading.Barrier(len(writers))
         failures: list[BaseException] = []
@@ -667,20 +719,20 @@ class TestTheLockOnlyLookup:
 
     def test_the_lookup_yields_the_lock_the_write_api_later_holds(self, tmp_path):
         looked_up = _operation_lock_for(tmp_path)
-        writer = CorpusWriter(tmp_path, Recorder)
+        writer = CorpusWriter(tmp_path, Recorder, authority=FULL)
 
         assert writer._operation is looked_up
 
     def test_the_write_apis_lock_is_what_a_later_lookup_yields(self, tmp_path):
         # The other order, because a lookup that constructed a second lock
         # after the writer had one would still pass the arm above.
-        writer = CorpusWriter(tmp_path, Recorder)
+        writer = CorpusWriter(tmp_path, Recorder, authority=FULL)
 
         assert _operation_lock_for(tmp_path) is writer._operation
 
     def test_the_lookup_resolves_the_root_the_way_the_write_api_does(self, tmp_path):
         (tmp_path / "sub").mkdir()
-        writer = CorpusWriter(tmp_path, Recorder)
+        writer = CorpusWriter(tmp_path, Recorder, authority=FULL)
 
         assert _operation_lock_for(tmp_path / "sub" / "..") is writer._operation
 
@@ -695,7 +747,7 @@ class TestTheLockOnlyLookup:
         # The corpus-constructing entry point cannot serve here, which is why
         # the lock-only one exists.
         with pytest.raises(ValidationError):
-            CorpusWriter(tmp_path, Recorder)
+            CorpusWriter(tmp_path, Recorder, authority=FULL)
 
     def test_two_roots_do_not_share_a_lock(self, tmp_path):
         assert _operation_lock_for(tmp_path / "one") is not _operation_lock_for(tmp_path / "two")

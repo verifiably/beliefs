@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 from atoms.chain.model import GenesisEntry
 from atoms.core.errors import PreconditionRefused
+from authority import FULL
 from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp
 
 from beliefs import root
@@ -327,7 +328,7 @@ class TestTheCompositionRoot:
         link = tmp_path / "link"
         link.symlink_to(real, target_is_directory=True)
 
-        writer = root.open_corpus(link)
+        writer = root.open_corpus(link, authority=FULL)
         executor = writer._corpus.executor
         port = writer._operation_port
         assert isinstance(executor, root.DurableExecutor)

@@ -50,6 +50,7 @@ import pytest
 import test_n2
 from atoms.chain.model import RegisteredEntry
 from atoms.core.errors import PreconditionRefused
+from authority import FULL
 from fixtures_cut6 import PINS
 from n2_arms import (
     CLASS_NODE_BY_CONSTRUCTION,
@@ -162,7 +163,7 @@ def world_case(cut6_work_directory):
         root.init_world_root(config)
         assert {path.name for path in world_root.iterdir()} == {".#~chain", "world.yaml"}
         root.init_corpus_root(corpus_root)
-        root.open_corpus(corpus_root).adopt_manifest(profile=PINS)
+        root.open_corpus(corpus_root, authority=FULL).adopt_manifest(profile=PINS)
         assert not any((world_root / name).exists() for name in ("registry", "epochs", "rules"))
         before_admission = chain_entries(world_root)
         world = root.open_world(config)

@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from authority import FULL
 from durable_fixture import basis, route, slug
 from fixtures_cut3 import report as sample_report
 from fixtures_cut6 import PINS
@@ -85,7 +86,7 @@ def durable_factory(work_directory):
     def writer(label: str, pins: CorpusPins = PINS):
         corpus_root = work_directory / f"cut16-{os.getpid()}-{next(_COUNTER)}-{label}"
         root.init_corpus_root(corpus_root)
-        opened = root.open_corpus(corpus_root)
+        opened = root.open_corpus(corpus_root, authority=FULL)
         opened.adopt_manifest(profile=pins)
         managed.append(corpus_root)
         return opened
@@ -811,7 +812,7 @@ def test_boundary_lock_deduplicates_resolved_same_root_before_refusal(durable_fa
     node = corpus.add(stored.source_node("paper", title="paper", identifiers={"doi": "10.1/paper"}))
     alias = tmp_path / "cut16-root-alias"
     alias.symlink_to(corpus.root, target_is_directory=True)
-    twin = root.open_corpus(alias)
+    twin = root.open_corpus(alias, authority=FULL)
     events: list[str] = []
 
     class RecordingLock:

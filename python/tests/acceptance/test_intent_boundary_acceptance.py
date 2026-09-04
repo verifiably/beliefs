@@ -171,6 +171,8 @@ def test_u8_negative_discarded_attempt_is_indistinguishable(certified_work, tmp_
     root, inner = _port(certified_work, "u8")
 
     class CancelledBeforePublication:
+        authority = inner.authority
+
         def append_intent(self, payload: bytes) -> str:
             return inner.append_intent(payload)
 

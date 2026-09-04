@@ -144,6 +144,7 @@ from beliefs.holdings.seam import (
 )
 from beliefs.holdings.seam import WritePlan as SeamWritePlan
 from beliefs.identity import v1
+from beliefs.permit import Authority
 from beliefs.world import (
     AdmissionRecord,
     CorpusSubject,
@@ -928,11 +929,20 @@ class DurableExecutor:
 
 
 class DurableOperationPort:
-    def __init__(self, root: Path, *, backend: Backend, storage: StorageProfile, metadata_root: Path) -> None:
+    def __init__(
+        self, root: Path, *, backend: Backend, storage: StorageProfile, metadata_root: Path, authority: Authority
+    ) -> None:
+        if type(authority) is not Authority:
+            raise TypeError("a port binds an Authority")
         self.root = Path(root)
         self._backend = backend
         self._storage = storage
         self._metadata_root = Path(metadata_root)
+        self._authority = authority
+
+    @property
+    def authority(self) -> Authority:
+        return self._authority
 
     def append_intent(self, payload: bytes) -> str:
         with _operation_lock_for(self.root):
@@ -1181,21 +1191,39 @@ def _store_read_path(root: Path, path: str) -> PathReadView:
 
 
 def _store_append_intent(root: Path, payload: bytes) -> str:
-    return DurableOperationPort(
-        root,
-        backend=_PRODUCTION_BACKEND,
-        storage=PRODUCTION_STORAGE,
-        metadata_root=metadata_root_for(root),
-    ).append_intent(payload)
+    try:
+        return append_intent(
+            _PRODUCTION_BACKEND,
+            str(root),
+            str(metadata_root_for(root)),
+            PRODUCTION_STORAGE,
+            payload,
+        )
+    except (ProjectApprovalRefused, PreconditionRefused, CapabilityUnavailable) as caught:
+        raise ExecutionError(str(caught), index=None, applied=0) from caught
+    except PendingUnresolved as caught:
+        raise ExecutionError(str(caught), index=None, applied=0) from caught
+    except (MetadataStoreInvalid, ChainStateInvalid) as caught:
+        raise ExecutionError(str(caught), index=None, applied=None) from caught
+    except (TransactionHalted, ProtocolError) as caught:
+        raise ExecutionError(str(caught), index=None, applied=None) from caught
+    except AtomsError as caught:
+        raise ExecutionError(str(caught), index=None, applied=None) from caught
+    except Exception as caught:
+        raise ExecutionError(str(caught), index=None, applied=None) from caught
 
 
 def _store_publish_fulfilling(root: Path, plan: SeamWritePlan, fulfills: str) -> None:
-    DurableOperationPort(
+    _refuse_over_ceiling(cast(WritePlan, plan))
+    DurableExecutor(
         root,
         backend=_PRODUCTION_BACKEND,
         storage=PRODUCTION_STORAGE,
         metadata_root=metadata_root_for(root),
-    ).execute_fulfilling(cast(WritePlan, plan), fulfills)
+        consumer_tag=CONSUMER_TAG,
+        intent_domain=INTENT_DOMAIN,
+        fulfills=fulfills,
+    ).execute(cast(WritePlan, plan))
 
 
 def _require_file(pre: PathState, op: ReplaceOp | DeleteOp, index: int) -> FileState:
@@ -1638,7 +1666,7 @@ def epochs_ordered(config: WorldConfig, e1: str, e2: str) -> Ordering:
 
 
 def open_corpus(
-    corpus_root: Path, *, coordination_resolver: CoordinationResolver | None = None
+    corpus_root: Path, *, authority: Authority, coordination_resolver: CoordinationResolver | None = None
 ) -> CorpusWriter:
     """The composition root's product: a write API bound to one corpus root,
     writing through the certified engine.
@@ -1651,11 +1679,13 @@ def open_corpus(
     return CorpusWriter(
         root,
         durable_executor_factory(),
+        authority=authority,
         operation_port=DurableOperationPort(
             root,
             backend=_PRODUCTION_BACKEND,
             storage=PRODUCTION_STORAGE,
             metadata_root=metadata_root_for(root),
+            authority=authority,
         ),
         coordination_resolver=coordination_resolver,
     )

@@ -63,6 +63,7 @@ import pytest
 import test_n2
 import test_world_build
 from atoms.chain.model import RegisteredEntry
+from authority import FULL
 from fixtures_cut6 import PINS
 from n2_arms import (
     CLASS_NODE_BY_CONSTRUCTION,
@@ -572,7 +573,7 @@ def durable_world(cut7_work_directory):
     try:
         root.init_world_root(config)
         root.init_corpus_root(corpus_root)
-        root.open_corpus(corpus_root).adopt_manifest(profile=PINS)
+        root.open_corpus(corpus_root, authority=FULL).adopt_manifest(profile=PINS)
         # Stored records are placed with the `nodes` handle, exactly as the
         # portable fixtures place them: what these arms assert is committed
         # evidence of *world-root* transactions, and the admission gate the

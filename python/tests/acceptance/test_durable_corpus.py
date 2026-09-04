@@ -13,6 +13,7 @@ import shutil
 from pathlib import Path
 
 import pytest
+from authority import FULL
 from durable_fixture import (
     ASSESSMENT,
     PROPOSITION,
@@ -56,7 +57,7 @@ class TestTheInitAct:
         unregistered.mkdir(parents=True, exist_ok=True)
         try:
             with pytest.raises(ExecutionError) as refused:
-                open_corpus(unregistered).add(observed_dataset())
+                open_corpus(unregistered, authority=FULL).add(observed_dataset())
             # Init is an explicit act, not a fallback the add performs.
             assert (refused.value.index, refused.value.applied) == (None, 0)
             assert refused.value.__cause__ is not None

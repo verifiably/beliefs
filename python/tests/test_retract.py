@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import ClassVar
 
 import pytest
+from authority import FULL
 from nodes.core.node import Node
 from nodes.core.write_plan import CreateOp, DefaultExecutor
 
@@ -28,7 +29,7 @@ class Recorder:
 @pytest.fixture()
 def writer(tmp_path) -> CorpusWriter:
     Recorder.plans = []
-    return CorpusWriter(tmp_path, Recorder)
+    return CorpusWriter(tmp_path, Recorder, authority=FULL)
 
 
 def content_identity(node: Node) -> str:
