@@ -1098,7 +1098,7 @@ def test_e3_a_retraction_naming_another_actor_is_refused(tmp_path):
 
 
 def test_e3_a_retraction_under_its_own_actor_mints(tmp_path):
-    writer = CorpusWriter(tmp_path, Recorder, authority=narrowed(kinds=("assessment", "retraction"), families=("corpus-write",), actor="tester"))
+    writer = CorpusWriter(tmp_path, Recorder, authority=narrowed(kinds=("assessment", "retraction"), families=("corpus-write",)))  # actor=ACTOR, which retraction_for names after Step 4
     target = writer.add(admissible_assessment())
     assert writer.retract(retraction(target, "invalid")).kind == "retraction"
 ```
@@ -1202,7 +1202,7 @@ Note the pinned cut-5 blocks around `return self._corpus.add(candidate)` / `retu
 
 - [ ] **Step 4: Migrate the retraction actors**
 
-Every retraction the existing suites mint under a `FULL` writer must name `ACTOR`, or the new `ActorMismatch` check refuses it: `tests/test_retract.py` (`retraction_for` at line ~61 and the two inline `stored.retraction_node(... actor="tester" ...)` calls at ~122 and ~138), `tests/test_local_standing.py` (three `actor="tester"` retraction constructions at ~43, ~142, ~228), `tests/acceptance/test_durable_families.py` (`actor="acceptance"` at ~87), and any other hit of `grep -rn "retraction_node(" tests` whose writer is `FULL` — replace the literal with `ACTOR` from `authority`. The only retractions naming another actor are the two E3 tests above, which construct their own narrowed writers. Run `uv run --frozen pytest -q -p no:cacheprovider tests/test_retract.py tests/test_local_standing.py` green before moving on.
+Every retraction the existing suites mint under a `FULL` writer must name `ACTOR`, or the new `ActorMismatch` check refuses it: `tests/test_retract.py` (`retraction_for` at line ~61 and the six inline `stored.retraction_node(... actor="tester" ...)` calls at ~122, ~138, ~180, ~202, ~225, ~242 — every `actor="tester"` in the file), `tests/test_local_standing.py` (three `actor="tester"` retraction constructions at ~43, ~142, ~228), `tests/acceptance/test_durable_families.py` (`actor="acceptance"` at ~87), and any other hit of `grep -rn "retraction_node(" tests` whose writer is `FULL` — replace the literal with `ACTOR` from `authority`. The only retractions naming another actor are the two E3 tests above, which construct their own narrowed writers. Run `uv run --frozen pytest -q -p no:cacheprovider tests/test_retract.py tests/test_local_standing.py` green before moving on.
 
 - [ ] **Step 5: Run, probe, gate, commit**
 
@@ -2480,7 +2480,7 @@ cd .. && tasks check && git add python tasks && git commit -m "test(permit): hol
 
 **Files:**
 - Create: `python/tests/test_permit_entry_points.py`
-- Modify: `python/tests/test_coordination_write.py` (`writer_with_resolver` gains `authority=FULL`), `python/tests/test_world_rules.py` (`make_world` gains `authority=FULL`), `python/tests/test_world_anchor_act.py` (`anchorable_world(tmp_path, *corpus_ids, admitted=None, world_id=WORLD_ID)` at line ~151 gains `authority=FULL`)
+- Modify: `python/tests/test_coordination_write.py` (`writer_with_resolver(root, profile, *, authority=FULL)` — it mounts the root, builds the resolver and returns `(writer, resolver)`), `python/tests/test_world_rules.py` (`make_world` gains `authority=FULL`), `python/tests/test_world_anchor_act.py` (`anchorable_world(tmp_path, *corpus_ids, admitted=None, world_id=WORLD_ID)` at line ~151 gains `authority=FULL`)
 
 **Interfaces:**
 - Consumes: every seam of Tasks 4–10; `test_permit_boundary.WRITE_ENTRY_POINTS`; the sibling test helpers named in the cases.
@@ -2490,7 +2490,7 @@ cd .. && tasks check && git add python tasks && git commit -m "test(permit): hol
 
 - [ ] **Step 1: Give three sibling helpers an authority keyword**
 
-`test_coordination_write.writer_with_resolver(root, profile, *, authority=FULL)`, `test_world_rules.make_world(tmp_path, *, authority=FULL)`, and `test_world_anchor_act.anchorable_world(tmp_path, *corpus_ids, admitted=None, world_id=WORLD_ID, authority=FULL)`, which passes `authority=authority` to the `RefusingWorld(...)` it constructs (its `world.admit(...)` loop takes no actor after Task 9). Each passes the keyword through to the `World(...)` or `CorpusWriter(...)` it builds. Run the three modules to confirm nothing else changed.
+`test_coordination_write.writer_with_resolver(root, profile, *, authority=FULL)` (keeps returning `(writer, resolver)` and keeps mounting the root — the coverage module calls it only in `prepare`), `test_world_rules.make_world(tmp_path, *, authority=FULL)`, and `test_world_anchor_act.anchorable_world(tmp_path, *corpus_ids, admitted=None, world_id=WORLD_ID, authority=FULL)`, which passes `authority=authority` to the `RefusingWorld(...)` it constructs (its `world.admit(...)` loop takes no actor after Task 9). Each passes the keyword through to the `World(...)` or `CorpusWriter(...)` it builds. Run the three modules to confirm nothing else changed.
 
 - [ ] **Step 2: Write the coverage module**
 
@@ -2528,7 +2528,7 @@ class Case:
     family: str
     kinds: tuple[str, ...]
     needs_volume: bool
-    prepare: Callable[[Path], None]
+    prepare: Callable[[Path, object], None]   # (work, request): setup effects under a full authority
     act: Callable[[Authority, Path], object]
     probe: Callable[[Path], object]
 
@@ -2559,7 +2559,7 @@ def _tree(root: Path) -> list[tuple[str, str, str]]:
     )
 
 
-def _nothing(_work: Path) -> None:
+def _nothing(_work: Path, _request) -> None:
     return None
 
 
@@ -2571,15 +2571,29 @@ def _writer(authority: Authority, work: Path) -> CorpusWriter:
     return CorpusWriter(work / "corpus", Recorder, authority=authority)
 
 
-def _plans(_work: Path) -> list:
+def _reset_recorder() -> None:
     from test_corpus_write import Recorder
 
-    return list(Recorder.plans)
+    Recorder.plans = []
 
 
-def _prepare_target(minter):
-    def prepare(work: Path) -> None:
-        _STATE[work] = {"target": minter(_writer(lacking(), work))}
+def _corpus_probe(work: Path):
+    """Every plan the recorder applied, and the corpus tree itself: a late check
+    that let a plan through shows in both."""
+    from test_corpus_write import Recorder
+
+    return (list(Recorder.plans), _tree(work / "corpus"))
+
+
+def _prepare_corpus(minter=None):
+    """Mint `minter(writer)` under a full authority (or nothing), then reset the recorder."""
+
+    def prepare(work: Path, _request) -> None:
+        state: dict = {}
+        if minter is not None:
+            state["target"] = minter(_writer(lacking(), work))
+        _STATE[work] = state
+        _reset_recorder()
 
     return prepare
 
@@ -2606,39 +2620,74 @@ def _revise(authority, work):
     return _writer(authority, work).revise(_STATE[work]["target"])
 
 
+def _prepare_coordination(with_project: bool):
+    """Mount the corpus under the coordination profile (a `base_contract` session
+    fixture compiles it) and, for revision, mint the project — all in prepare, so
+    `act` constructs a writer over the mounted root and mounts nothing."""
+
+    def prepare(work: Path, request) -> None:
+        from coordination_fixtures import content_for, coordination_profile
+        from test_coordination_write import writer_with_resolver
+
+        profile = coordination_profile(request.getfixturevalue("base_contract"))
+        writer, resolver = writer_with_resolver(work / "corpus", profile, authority=lacking())
+        state: dict = {"resolver": resolver}
+        if with_project:
+            state["project"] = writer.mint_coordination("project", content=content_for("project"))
+        _STATE[work] = state
+
+    return prepare
+
+
+def _coordination_writer(authority: Authority, work: Path) -> CorpusWriter:
+    from test_coordination_write import DefaultExecutor  # the executor `writer_with_resolver` binds; same class, same root state
+
+    return CorpusWriter(work / "corpus", DefaultExecutor, authority=authority, coordination_resolver=_STATE[work]["resolver"])
+
+
 def _mint_coordination(authority, work):
     from coordination_fixtures import content_for
-    from test_coordination_write import writer_with_resolver
 
-    return writer_with_resolver(work / "corpus", None, authority=authority).mint_coordination("project", content=content_for("project"))
-
-
-def _prepare_project(work: Path) -> None:
-    from coordination_fixtures import content_for
-    from test_coordination_write import writer_with_resolver
-
-    _STATE[work] = {"project": writer_with_resolver(work / "corpus", None, authority=lacking()).mint_coordination("project", content=content_for("project"))}
+    return _coordination_writer(authority, work).mint_coordination("project", content=content_for("project"))
 
 
 def _revise_coordination(authority, work):
     from coordination_fixtures import content_for
-    from test_coordination_write import writer_with_resolver
 
     from beliefs.coordination import coordination_revision
 
     project = _STATE[work]["project"]
-    return writer_with_resolver(work / "corpus", None, authority=authority).revise_coordination(
+    return _coordination_writer(authority, work).revise_coordination(
         "project", coordination_revision(project).address, predecessors=(project.id,), content=content_for("project", name="renamed")
     )
+
+
+def _coordination_probe(work: Path):
+    return _tree(work / "corpus")
+
+
+def _prepare_import(work: Path, _request) -> None:
+    from test_import_bundle import FakePort
+
+    _STATE[work] = {}
+    _reset_recorder()
+    FakePort.intents, FakePort.executed, FakePort.fulfilling = [], [], []
 
 
 def _import_bundle(authority, work):
     from test_corpus_write import Recorder
     from test_import_bundle import FakePort, prop
 
-    FakePort.intents, FakePort.executed, FakePort.fulfilling = [], [], []
     writer = CorpusWriter(work / "corpus", Recorder, authority=authority, operation_port=FakePort(work / "corpus", authority=authority))
     return writer.import_bundle([prop("p1")], observer="o", instrument="i", opened_at="T0", closed_at="T1")
+
+
+def _import_probe(work: Path):
+    """The port's three collections — the intent is the first effect import could
+    make — beside the recorder and the corpus tree."""
+    from test_import_bundle import FakePort
+
+    return (list(FakePort.intents), list(FakePort.executed), list(FakePort.fulfilling), _corpus_probe(work))
 
 
 def _adopt_manifest(authority, work):
@@ -2703,7 +2752,7 @@ def _context(authority: Authority, work: Path):
 
 
 def _prepare_holdings(held: tuple[str, ...] = (), *, intent: bool = False):
-    def prepare(work: Path) -> None:
+    def prepare(work: Path, _request) -> None:
         from beliefs.holdings import boundary
         from beliefs.holdings.boundary import StoreLocator
         from beliefs.root import init_corpus_root, init_store_root
@@ -2757,14 +2806,14 @@ def _rebind(world: registry.World, authority: Authority) -> registry.World:
     )
 
 
-def _prepare_admitted(work: Path) -> None:
+def _prepare_admitted(work: Path, _request=None) -> None:
     from test_world_epoch import admitted_world
 
     world, _recorder, bindings, roots = admitted_world(work, ("a" * 32,))
     _STATE[work] = {"world": world, "bindings": bindings, "roots": roots}
 
 
-def _prepare_fresh(work: Path) -> None:
+def _prepare_fresh(work: Path, _request) -> None:
     from test_world_registry import write_manifest
 
     _prepare_admitted(work)
@@ -2779,7 +2828,7 @@ def _retire(authority, work):
     return _rebind(_STATE[work]["world"], authority).retire(next(iter(_STATE[work]["roots"])))
 
 
-def _prepare_anchor(work: Path) -> None:
+def _prepare_anchor(work: Path, _request) -> None:
     from test_world_anchor_act import ALPHA, anchorable_world
 
     world, _recorder, heads, _roots = anchorable_world(work, ALPHA, authority=lacking())
@@ -2799,7 +2848,7 @@ def _build_epoch(authority, work):
     return epoch.build_epoch(_rebind(state["world"], authority), coverage=frozenset(state["roots"]), bindings=state["bindings"])
 
 
-def _prepare_retained(work: Path) -> None:
+def _prepare_retained(work: Path, _request) -> None:
     from test_world_gc import three_retained
 
     world, _recorder, _bindings, (first, _second, _third) = three_retained(work)
@@ -2820,7 +2869,7 @@ def _install_rule(authority, work):
     return rules.install_rule_binding(make_world(work, authority=authority), bundle())
 
 
-def _prepare_installed(work: Path) -> None:
+def _prepare_installed(work: Path, _request) -> None:
     from test_world_rules import bundle, make_world
 
     from beliefs.world import rules
@@ -2843,7 +2892,7 @@ def _world_probe(work: Path):
 # --- lifecycle family, certified volume ----------------------------------------------
 
 def _prepare_lifecycle(act: str):
-    def prepare(work: Path) -> None:
+    def prepare(work: Path, _request) -> None:
         from test_fork_acts import _parent_corpus
         from test_restore_root import _head_of, _seeded_store, _store_record
 
@@ -2922,14 +2971,14 @@ def _mint_proposition(writer):
 
 
 CASES = (
-    Case("corpus.py:CorpusWriter.add", "corpus-write", ("dataset",), False, _nothing, _add, _plans),
-    Case("corpus.py:CorpusWriter.retract", "corpus-write", ("retraction",), False, _prepare_target(_mint_eligible), _retract, _plans),
-    Case("corpus.py:CorpusWriter.supersede", "corpus-write", ("proposition",), False, _prepare_target(_mint_predecessor), _supersede, _plans),
-    Case("corpus.py:CorpusWriter.revise", "corpus-write", ("proposition",), False, _prepare_target(_mint_proposition), _revise, _plans),
-    Case("corpus.py:CorpusWriter.mint_coordination", "corpus-write", ("project",), False, _nothing, _mint_coordination, _plans),
-    Case("corpus.py:CorpusWriter.revise_coordination", "corpus-write", ("project",), False, _prepare_project, _revise_coordination, _plans),
-    Case("corpus.py:CorpusWriter.import_bundle", "corpus-write", ("proposition", "act-report"), False, _nothing, _import_bundle, _plans),
-    Case("corpus.py:CorpusWriter.adopt_manifest", "lifecycle", (), False, _nothing, _adopt_manifest, _plans),
+    Case("corpus.py:CorpusWriter.add", "corpus-write", ("dataset",), False, _prepare_corpus(), _add, _corpus_probe),
+    Case("corpus.py:CorpusWriter.retract", "corpus-write", ("retraction",), False, _prepare_corpus(_mint_eligible), _retract, _corpus_probe),
+    Case("corpus.py:CorpusWriter.supersede", "corpus-write", ("proposition",), False, _prepare_corpus(_mint_predecessor), _supersede, _corpus_probe),
+    Case("corpus.py:CorpusWriter.revise", "corpus-write", ("proposition",), False, _prepare_corpus(_mint_proposition), _revise, _corpus_probe),
+    Case("corpus.py:CorpusWriter.mint_coordination", "corpus-write", ("project",), False, _prepare_coordination(False), _mint_coordination, _coordination_probe),
+    Case("corpus.py:CorpusWriter.revise_coordination", "corpus-write", ("project",), False, _prepare_coordination(True), _revise_coordination, _coordination_probe),
+    Case("corpus.py:CorpusWriter.import_bundle", "corpus-write", ("proposition", "act-report"), False, _prepare_import, _import_bundle, _import_probe),
+    Case("corpus.py:CorpusWriter.adopt_manifest", "lifecycle", (), False, _prepare_corpus(), _adopt_manifest, _corpus_probe),
     Case("boundary.py:execute_assessment_run", "run", ("run", "act-report"), False, _nothing, _run("assessment"), _run_probe),
     Case("boundary.py:execute_production_run", "run", ("run", "act-report"), False, _nothing, _run("production"), _run_probe),
     Case("holdings/boundary.py:recheck", "holdings", ("holdings-observation",), True, _prepare_holdings(("held.bin",)), _holdings("recheck"), _holdings_probe),
@@ -2974,7 +3023,7 @@ def _work(case: Case, tmp_path: Path, request, sub: str) -> Path:
 @pytest.mark.parametrize("case", CASES, ids=[case.id for case in CASES])
 def test_e1_the_family_is_refused_with_no_effect(case, tmp_path, request):
     work = _work(case, tmp_path, request, "-family")
-    case.prepare(work)
+    case.prepare(work, request)
     before = case.probe(work)
     with pytest.raises(PermitExceeded) as caught:
         case.act(lacking(families=(case.family,)), work)
@@ -2986,7 +3035,7 @@ def test_e1_the_family_is_refused_with_no_effect(case, tmp_path, request):
 def test_e1_each_emitted_kind_is_refused_by_name_with_no_effect(case, tmp_path, request):
     for kind in case.kinds:
         work = _work(case, tmp_path, request, f"-{kind}")
-        case.prepare(work)
+        case.prepare(work, request)
         before = case.probe(work)
         with pytest.raises(PermitExceeded) as caught:
             case.act(lacking(kinds=(kind,)), work)
@@ -2997,7 +3046,7 @@ def test_e1_each_emitted_kind_is_refused_by_name_with_no_effect(case, tmp_path, 
 @pytest.mark.parametrize("case", CASES, ids=[case.id for case in CASES])
 def test_e1_the_exact_requirement_is_accepted(case, tmp_path, request):
     work = _work(case, tmp_path, request, "-exact")
-    case.prepare(work)
+    case.prepare(work, request)
     authority = narrowed(kinds=case.kinds, families=(case.family,))
     if case.key == "root.py:migrate_root_to_lifecycle_v3":
         from atoms.core.errors import PreconditionRefused  # the engine's own refusal, past the permit
@@ -3008,7 +3057,7 @@ def test_e1_the_exact_requirement_is_accepted(case, tmp_path, request):
     case.act(authority, work)
 ```
 
-The `PreconditionRefused` import path is the one `test_lifecycle_wrappers.py` uses. The two `_run` cases translate the run boundary's value-style refusal into the exception the shared assertions expect; the probe is the port's appended list, empty on refusal. `_plans` relies on `test_corpus_write.Recorder` recording every plan: reset `Recorder.plans = []` at the top of `_prepare_target`, `_prepare_project` and `_nothing`'s corpus cases if the recorder is shared across tests (it is a class attribute) — do this by making every corpus `prepare` end with `Recorder.plans = []`, and have `_nothing` do the same for the corpus cases (replace `_nothing` with `_reset_plans` on those four cases).
+The `PreconditionRefused` import path is the one `test_lifecycle_wrappers.py` uses. The two `_run` cases translate the run boundary's value-style refusal into the exception the shared assertions expect; the probe is the port's appended list, empty on refusal. Every corpus `prepare` ends by resetting the shared `Recorder.plans` (and `_prepare_import` the three `FakePort` collections), so a probe taken after `prepare` starts empty and any plan or intent a late check let through shows. `DefaultExecutor` is whatever `test_coordination_write.py` imports under that name (check its import line and import from the same module).
 
 - [ ] **Step 3: Run**
 
