@@ -13,8 +13,8 @@ from beliefs.corpus import CorpusWriter
 from beliefs.errors import (
     FamilyKindUnsupported,
     RecordAlreadyMinted,
+    RelocationTargetMissing,
     SupersedeIdentityUnchanged,
-    SupersedeTargetMissing,
     ValidationRefused,
     WriteRefused,
 )
@@ -56,8 +56,8 @@ def test_supersede_mints_a_successor_and_one_owned_edge(writer):
     assert writer.read_view.get(old.id).model_dump(mode="json") == predecessor
 
 
-def test_supersede_refuses_a_missing_predecessor_first(writer):
-    with pytest.raises(SupersedeTargetMissing):
+def test_supersede_uses_relocation_missing_for_an_absent_predecessor(writer):
+    with pytest.raises(RelocationTargetMissing):
         writer.supersede(prop("s"), of="proposition:absent")
 
 
@@ -144,5 +144,5 @@ def test_supersede_refuses_an_equal_semantic_identity(writer):
 
 
 def test_supersede_errors_are_write_refusals():
-    for refusal in (SupersedeTargetMissing, SupersedeIdentityUnchanged, FamilyKindUnsupported):
+    for refusal in (RelocationTargetMissing, SupersedeIdentityUnchanged, FamilyKindUnsupported):
         assert issubclass(refusal, WriteRefused)

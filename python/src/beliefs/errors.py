@@ -991,6 +991,67 @@ class ReviseOutsideAllowlist(WriteRefused):
     """A revision changes something other than proposition display prose."""
 
 
+class RelocationRefused(WriteRefused):
+    """A two-root world-changing operation refused before any transaction.
+
+    Every relocation refusal is one of these: the operation decides in
+    Science's vocabulary under both locks, before an engine lease exists.
+    """
+
+
+class SameRootRefused(RelocationRefused):
+    """Both positions resolved to one corpus root.
+
+    `move` has nowhere to move to, and `consolidate`'s scope is two readable
+    corpora — a single corpus holding two live records at one canonical address
+    needs a recovery scanner this design does not build.
+    """
+
+
+class AddressDisagreement(RelocationRefused):
+    """`consolidate` was given two different canonical addresses.
+
+    That is a coreference question and `consolidate` must not answer it. It is
+    also why `consolidate` is unavailable for one `uid` under two addresses —
+    W8b's corruption case, refused on this precondition rather than by a
+    corruption check.
+    """
+
+
+class DuplicateLocation(RelocationRefused):
+    """`move`'s destination already holds a record at that canonical address.
+
+    Repairing that is `consolidate`'s job, not `move`'s — and it is also the
+    state a `move` interrupted after its destination create leaves behind.
+    """
+
+
+class ContractPinDisagreement(RelocationRefused):
+    """The receiving corpus does not pin what the relocated node needs (D7).
+
+    Raised for a differing `science_contract`, a differing identity for a
+    namespace the node's facets use, and for a namespace the receiving corpus
+    pins nothing for — agreement requires exactly one identity, so a missing pin
+    is a disagreement and not a permission.
+    """
+
+
+class RelocationKindExcluded(RelocationRefused):
+    """The record's kind is excluded from every world-changing operation.
+
+    Act-reports (T8), coordination records, and holdings observations.
+    """
+
+
+class RelocationTargetMissing(RelocationRefused):
+    """A create-only family's target stopped resolving under the lock.
+
+    The replacement for family-adapters §5.3's monotonicity argument: consolidate
+    and move can remove a record another operation resolved, so `retract` and
+    `supersede` re-read their target and refuse rather than assume.
+    """
+
+
 class BasisMissing(WriteRefused):
     """W3 as narrowed: a `source` with no accepted external identifier, or a
     `dataset` with no content identity. Refused, never coerced to a curation

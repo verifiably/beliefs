@@ -2,7 +2,7 @@
 title: Identity, world, and change
 status: living
 created: 2026-08-08
-updated: 2026-09-02
+updated: 2026-09-03
 sources:
   - ../designs/2026-08-02-substrate-consolidation-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -165,7 +165,7 @@ still governs the eventual derived views: labels are computed on read,
 coreference is graded rather than merged, and storage duplication changes no
 address. What the log still owes — event-level L8 and the L13 preimage resolver
 — is listed with its owners in the
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-02).
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-04).
 
 ## Open edges
 
