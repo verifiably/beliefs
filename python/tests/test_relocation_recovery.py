@@ -203,7 +203,6 @@ def test_a_move_never_loses_the_record_at_any_prefix(tmp_path, monkeypatch, stop
 
 
 MOVE_FIELDS = {
-    "actor": "recovery-actor",
     "observer": "recovery-observer",
     "instrument": "recovery-test",
     "opened_at": "2026-09-03T10:00:00Z",

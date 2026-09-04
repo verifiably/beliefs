@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import ClassVar
 
 import pytest
-from authority import FULL
+from authority import ACTOR, FULL
 from nodes.core.errors import ExecutionError
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -64,7 +64,7 @@ def test_import_refuses_a_coordination_member_by_name(writer_with_port):
     with pytest.raises(ImportRefused) as caught:
         writer_with_port.import_bundle(
             [member],
-            actor="a",
+            actor=ACTOR,
             observer="o",
             instrument="i",
             opened_at="T0",
@@ -80,7 +80,7 @@ def prop(slug: str) -> Node:
 def import_records(writer: CorpusWriter, records):
     return writer.import_bundle(
         records,
-        actor="k",
+        actor=ACTOR,
         observer="corpus",
         instrument="test",
         opened_at="T0",
@@ -120,7 +120,7 @@ def retraction(slug: str, target: str) -> Node:
 def test_import_admits_bundle_in_one_payload_plan(writer_with_port):
     report = import_records(writer_with_port, [prop("a"), prop("b")])
 
-    assert FakePort.intents == [v1.encode({"kind": "import", "event_token": report.event_token, "actor": "k"})]
+    assert FakePort.intents == [v1.encode({"kind": "import", "event_token": report.event_token, "actor": ACTOR})]
     (payload,) = Recorder.plans
     assert len(payload) == 2 and all(isinstance(op, CreateOp) for op in payload)
     ((report_plan, fulfills),) = FakePort.fulfilling

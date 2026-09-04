@@ -14,7 +14,7 @@ from atoms.chain.model import (
     SettledEntry,
     decode_entry,
 )
-from authority import FULL
+from authority import ACTOR, FULL
 from fixtures_cut4 import path_for, reopen
 from nodes.core.errors import ExecutionError
 
@@ -85,7 +85,7 @@ def test_retract_survives_facade_reload(durable_writer, durable_root):
         reason="defective-code",
         rationale="the recorded result is invalid",
         grounds=("source:acceptance",),
-        actor="acceptance",
+        actor=ACTOR,
         event_token="durable-retraction",
     )
 

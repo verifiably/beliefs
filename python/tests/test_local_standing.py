@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from authority import ACTOR
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -40,7 +41,7 @@ def retracts(target: Node, token: str) -> Node:
         reason="defective-code",
         rationale="the record is invalid",
         grounds=("verification:v1",),
-        actor="tester",
+        actor=ACTOR,
         event_token=token,
     )
 
@@ -139,7 +140,7 @@ def test_route_retractions_do_not_subtract_node_standing(tmp_path):
         reason="wrong-route",
         rationale="the route is invalid",
         grounds=("verification:v1",),
-        actor="tester",
+        actor=ACTOR,
         event_token="route-r1",
     )
 
@@ -225,7 +226,7 @@ def test_wrong_retraction_target_content_identity_is_invalid_and_not_applied(tmp
         reason="defective-code",
         rationale="wrong target identity",
         grounds=("verification:v1",),
-        actor="tester",
+        actor=ACTOR,
         event_token="wrong-content",
     )
     view = seed(tmp_path, target, retraction)

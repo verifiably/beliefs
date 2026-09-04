@@ -68,6 +68,7 @@ from beliefs.coordination import (
 )
 from beliefs.dataset import dataset_address
 from beliefs.errors import (
+    ActorMismatch,
     BasisMissing,
     BuildContended,
     BuildHold,
@@ -1153,13 +1154,16 @@ class CorpusWriter:
         refusal as cause — init is an explicit act, not a fallback this
         performs.
         """
+        self._authority.require("corpus-write", (node.kind,))
         with self._operation:
             self._refuse_family_kinds(node)
             self._refuse(node)
+            self._refuse_foreign_closure_actor(node)
             return self._corpus.add(node)
 
     def _add_locked(self, node: Node) -> Node:
         """`add`'s body, with the root's operation lock already held."""
+        self.authority.require("corpus-write", (node.kind,))
         self._preflight_add_locked(node)
         return self._corpus.add(node)
 
@@ -1167,9 +1171,11 @@ class CorpusWriter:
         """Run the lock-held add checks without writing."""
         self._refuse_family_kinds(node, admitted_kind=node.kind)
         self._refuse(node)
+        self._refuse_foreign_closure_actor(node)
 
     def _replace_locked(self, node: Node) -> Node:
         """Rewrite an existing `(uid, id)`, with the operation lock held."""
+        self.authority.require("corpus-write", (node.kind,))
         self._preflight_replace_locked(node)
         try:
             return self._corpus.add(node)
@@ -1193,6 +1199,7 @@ class CorpusWriter:
 
     def _delete_locked(self, ref: str) -> None:
         """Remove one record's file, with the operation lock already held."""
+        self.authority.require("corpus-write", (self._view.get(ref).kind,))
         from beliefs.world.rules import member_content_digest
 
         node = self._view.get(ref)
@@ -1209,6 +1216,7 @@ class CorpusWriter:
         project: CoordinationAddress | None = None,
         content: Mapping[str, object],
     ) -> Node:
+        self._authority.require("corpus-write", (kind,))
         with self._operation:
             validated = self._validated_coordination_content(kind, content)
             if kind == "project":
@@ -1243,6 +1251,7 @@ class CorpusWriter:
         predecessors: Sequence[str],
         content: Mapping[str, object],
     ) -> Node:
+        self._authority.require("corpus-write", (kind,))
         with self._operation:
             validated = self._validated_coordination_content(kind, content)
             if not isinstance(address, CoordinationAddress) or address.revision is not None:
@@ -1414,6 +1423,7 @@ class CorpusWriter:
 
     def adopt_manifest(self, *, profile: CorpusPins) -> CorpusManifest:
         """Create this corpus's first closed manifest."""
+        self._authority.require("lifecycle")
         from beliefs.world import CorpusManifest, _parse_manifest, manifest_bytes
 
         with self._operation:
@@ -1436,8 +1446,13 @@ class CorpusWriter:
             )
             return manifest
 
-    def _append_operation_intent(self, kind: str, token: str, actor: str) -> str:
-        intent = OperationIntent(kind, token, actor)
+    def _append_operation_intent(self, kind: str, token: str, intent_actor: str) -> str:
+        self.authority.require("corpus-write", ("act-report",))
+        if intent_actor != self.authority.actor:
+            raise ActorMismatch(
+                f"the operation intent names actor {intent_actor!r}, not the bound {self.authority.actor!r}"
+            )
+        intent = OperationIntent(kind, token, self.authority.actor)
         operation_port = self._operation_port
         assert operation_port is not None
         digest = operation_port.append_intent(
@@ -1462,6 +1477,7 @@ class CorpusWriter:
         *,
         operation: CreateOp | None = None,
     ) -> report_values.ActReport:
+        self.authority.require("corpus-write", ("act-report",))
         operation_port = self._operation_port
         assert operation_port is not None
         if operation is None:
@@ -1556,8 +1572,15 @@ class CorpusWriter:
 
     def retract(self, record: Node) -> Node:
         """Mint one locally resolvable retraction without touching its target."""
+        self._authority.require("corpus-write", ("retraction",))
         with self._operation:
             self._refuse_family_kinds(record, admitted_kind="retraction")
+            facet = record.facets.get(stored.RETRACTION_FACET)
+            if isinstance(facet, dict) and facet.get("actor") != self._authority.actor:
+                raise ActorMismatch(
+                    f"{record.id}: the retraction names actor {facet.get('actor')!r}, "
+                    f"not the bound {self._authority.actor!r}"
+                )
             try:
                 facet = self._validated_retraction(record)
             except MalformedRecord as caught:
@@ -1603,6 +1626,7 @@ class CorpusWriter:
 
     def supersede(self, successor: Node, *, of: str) -> Node:
         """Mint a proposition successor without touching its predecessor."""
+        self._authority.require("corpus-write", ("proposition",))
         with self._operation:
             self._refuse_family_kinds(successor)
             try:
@@ -1647,6 +1671,7 @@ class CorpusWriter:
 
     def revise(self, node: Node) -> Node:
         """Replace a proposition after changing display prose alone."""
+        self._authority.require("corpus-write", ("proposition",))
         with self._operation:
             self._refuse_family_kinds(node)
             self._refuse_invalid(node)
@@ -1938,6 +1963,18 @@ class CorpusWriter:
         if record.id != expected.id or record.facets != expected.facets or record.relations != expected.relations:
             raise MalformedRecord(f"{record.id}: retraction does not match the controlled stored shape")
         return facet
+
+    def _refuse_foreign_closure_actor(self, node: Node) -> None:
+        """A run closure added directly must name the bound actor."""
+        if node.kind != "run" or stored.RUN_CLOSURE_FACET not in node.facets:
+            return
+        from beliefs.runrecord import decode_run_closure
+
+        named = decode_run_closure(node).occurrence.actor
+        if named != self._authority.actor:
+            raise ActorMismatch(
+                f"{node.id}: the run closure names actor {named!r}, not the bound {self._authority.actor!r}"
+            )
 
     def _refuse_family_kinds(self, node: Node, *, admitted_kind: str | None = None) -> None:
         if node.kind in COORDINATION_KINDS:

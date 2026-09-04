@@ -16,7 +16,7 @@ from atoms.core.errors import (
 )
 from atoms.fs.platform import select_backend
 from atoms.store.errors import MetadataStoreInvalid
-from authority import FULL
+from authority import ACTOR, FULL
 from nodes.core.errors import ExecutionError, PlanRefusedError
 from nodes.core.write_plan import CreateOp, WritePlan
 
@@ -211,7 +211,7 @@ def test_corpus_writer_reenters_its_durable_ports_shared_lock(certified_work) ->
 
     writer.import_bundle(
         [node],
-        actor="actor",
+        actor=ACTOR,
         observer="observer",
         instrument="instrument",
         opened_at="T0",

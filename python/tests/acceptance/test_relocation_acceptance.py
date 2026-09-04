@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from authority import FULL
+from authority import ACTOR, FULL
 from durable_fixture import basis, route, slug
 from fixtures_cut3 import report as sample_report
 from fixtures_cut6 import PINS
@@ -46,7 +46,6 @@ from beliefs.world import WorldConfig, derive, epoch, registry, rules
 from beliefs.world.logmodel import IntentEntryView, RegisteredEntryView, WellFormedView
 
 MOVE_FIELDS = {
-    "actor": "cut16",
     "observer": "observer",
     "instrument": "instrument",
     "opened_at": "2026-09-03T10:00:00Z",
@@ -306,7 +305,7 @@ def _produce_single_basis(
     ]
     writer.import_bundle(
         [run_node, candidate],
-        actor="cut16",
+        actor=ACTOR,
         observer="observer",
         instrument="instrument",
         opened_at=MOVE_FIELDS["opened_at"],
@@ -620,7 +619,7 @@ def test_m3_consolidates_retraction_replicas_without_touching_the_counter(durabl
         reason="defective-code",
         rationale="invalid result",
         grounds=("verification:v1",),
-        actor="cut16",
+        actor=ACTOR,
         event_token="event-1",
     )
     first = keep.retract(replica)
@@ -634,7 +633,7 @@ def test_m3_consolidates_retraction_replicas_without_touching_the_counter(durabl
             reason="upstream-retraction",
             rationale="withdrawn",
             grounds=("verification:v2",),
-            actor="cut16",
+            actor=ACTOR,
             event_token="event-2",
         )
     )
@@ -674,7 +673,7 @@ def test_t2_each_root_records_one_intent_before_one_qualifying_report(durable_fa
         intents = [entry for entry in entries if type(entry) is IntentEntryView]
         assert len(intents) == 1
         payload = v1.decode(intents[0].payload)
-        assert payload == {"kind": kind, "event_token": report.event_token, "actor": MOVE_FIELDS["actor"]}
+        assert payload == {"kind": kind, "event_token": report.event_token, "actor": ACTOR}
         data_path = corpus._relative_path(record)
         data_acts = [
             entry
@@ -771,7 +770,7 @@ def test_boundary_reresolution_refuses_both_create_only_calls_after_real_move(du
         reason="defective-code",
         rationale="invalid",
         grounds=("verification:v1",),
-        actor="cut16",
+        actor=ACTOR,
         event_token="reresolve",
     )
     refuse = source._refuse
