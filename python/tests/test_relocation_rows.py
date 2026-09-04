@@ -13,7 +13,7 @@ from nodes.core.node import Node
 from nodes.core.relations import Relation
 from test_belief import scenario as belief_scenario
 from test_corpus_write import OperationRecorder
-from test_relocation import MOVE_FIELDS, _node, _writer
+from test_relocation import CONSOLIDATE_FIELDS, MOVE_FIELDS, _node, _writer
 from test_world_epoch import derivation_bindings, make_world, publish
 
 from beliefs import relocation, stored
@@ -23,6 +23,7 @@ from beliefs.errors import (
     RelocationKindExcluded,
     RelocationTargetMissing,
 )
+from beliefs.identity import v1
 from beliefs.world import derive, registry
 
 
@@ -56,6 +57,51 @@ def _belief_digest(published):
     )
     assert isinstance(result, Belief)
     return result.belief_input_digest
+
+
+def _basis_route(name):
+    return {
+        "identity": f"route:{name}",
+        "run": f"run:{name}",
+        "ancestor": f"dataset:{name}",
+        "transforms": [f"dataset:{name}"],
+    }
+
+
+def _duplicate_datasets(tmp_path):
+    keep_writer = _writer(tmp_path / "keep", domains=PINS.domains)
+    other_writer = _writer(tmp_path / "other", domains=PINS.domains)
+    keep = stored.dataset_node(
+        "duplicate",
+        title="kept title",
+        resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
+        basis={"tag": "single", "routes": [_basis_route("z")]},
+    ).model_copy(update={"deprecated_ids": ["dataset:old-a"]})
+    keep.relations = [
+        Relation(source=keep.id, predicate="derived-from", target="dataset:z"),
+        Relation(
+            source=keep.id,
+            predicate="shared",
+            target="dataset:shared",
+            attrs={"authored": "keep"},
+        ),
+    ]
+    other = stored.dataset_node(
+        "duplicate",
+        title="other title",
+        resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
+        basis={"tag": "single", "routes": [_basis_route("a")]},
+    ).model_copy(update={"deprecated_ids": ["dataset:old-b"]})
+    other.relations = [
+        Relation(source=other.id, predicate="derived-from", target="dataset:a"),
+        Relation(
+            source=other.id,
+            predicate="shared",
+            target="dataset:shared",
+            attrs={"authored": "other"},
+        ),
+    ]
+    return keep_writer, other_writer, keep_writer.add(keep), other_writer.add(other)
 
 
 def _move_published_dataset(tmp_path):
@@ -294,6 +340,258 @@ def test_t8_move_refuses_an_act_report_subject(tmp_path):
     assert source.read_view.holds(f"act-report:{report.identity()}")
     assert not destination.read_view.holds(f"act-report:{report.identity()}")
     assert source_port.intents == []
+
+
+def test_consolidate_unions_relations_and_preserves_both_bases(tmp_path):
+    keep_writer, other_writer, keep, other = _duplicate_datasets(tmp_path)
+    inbound = keep_writer.add(
+        Node(
+            id="memo:inbound",
+            kind="memo",
+            title="inbound",
+            relations=[
+                Relation(source="memo:inbound", predicate="cites", target=keep.id)
+            ],
+        )
+    )
+    inbound_before = keep_writer.read_view.get(inbound.id)
+
+    survivor, _, _ = relocation.consolidate(
+        (keep_writer, keep.id),
+        (other_writer, other.id),
+        **CONSOLIDATE_FIELDS,
+    )
+
+    assert survivor.id == keep.id
+    assert survivor.uid == keep.uid
+    assert survivor.title == keep.title
+    assert survivor.facets[stored.DATASET_FACET] == keep.facets[stored.DATASET_FACET]
+    assert survivor.relations == [
+        Relation(source=keep.id, predicate="derived-from", target="dataset:a"),
+        Relation(source=keep.id, predicate="derived-from", target="dataset:z"),
+        Relation(
+            source=keep.id,
+            predicate="shared",
+            target="dataset:shared",
+            attrs={"authored": "keep"},
+        ),
+    ]
+    assert survivor.facets[stored.LINEAGE_BASIS_FACET] == {
+        "tag": "conflict",
+        "routes": [_basis_route("a"), _basis_route("z")],
+    }
+    assert survivor.deprecated_ids == ["dataset:old-a", "dataset:old-b"]
+    assert keep.id not in survivor.deprecated_ids
+    assert keep_writer.read_view.get(inbound.id) == inbound_before
+    assert not any(
+        node.kind == "coreference-attestation"
+        for writer in (keep_writer, other_writer)
+        for node in writer.read_view.iter_stored()
+    )
+    with pytest.raises(RefError):
+        other_writer.read_view.get(other.id)
+
+
+def test_d7_consolidate_refuses_a_domain_facet_across_identities(tmp_path):
+    keep_writer = _writer(
+        tmp_path / "domain" / "keep",
+        domains={"biology": "biology:" + "c" * 64},
+    )
+    other_writer = _writer(tmp_path / "domain" / "other", domains=PINS.domains)
+    keep = keep_writer.add(_node("biology/gene-axis"))
+    other = other_writer.add(_node("biology/gene-axis"))
+
+    with pytest.raises(ContractPinDisagreement, match="biology"):
+        relocation.consolidate(
+            (keep_writer, keep.id),
+            (other_writer, other.id),
+            **CONSOLIDATE_FIELDS,
+        )
+
+
+def test_d7_consolidate_refuses_a_base_contract_for_a_facetless_node(tmp_path):
+    keep_writer = _writer(
+        tmp_path / "base" / "keep",
+        science="science:" + "c" * 64,
+        domains=PINS.domains,
+    )
+    other_writer = _writer(tmp_path / "base" / "other", domains=PINS.domains)
+    keep = keep_writer.add(
+        stored.source_node("s1", title="kept", identifiers={"doi": "10.1/abc"})
+    )
+    other = other_writer.add(
+        stored.source_node("s1", title="other", identifiers={"doi": "10.1/abc"})
+    )
+
+    with pytest.raises(ContractPinDisagreement, match="science contracts"):
+        relocation.consolidate(
+            (keep_writer, keep.id),
+            (other_writer, other.id),
+            **CONSOLIDATE_FIELDS,
+        )
+
+
+def test_d7_consolidate_refuses_a_missing_pin(tmp_path):
+    keep_writer = _writer(tmp_path / "missing" / "keep")
+    other_writer = _writer(tmp_path / "missing" / "other", domains=PINS.domains)
+    keep = keep_writer.add(_node("biology/gene-axis"))
+    other = other_writer.add(_node("biology/gene-axis"))
+
+    with pytest.raises(ContractPinDisagreement, match="biology"):
+        relocation.consolidate(
+            (keep_writer, keep.id),
+            (other_writer, other.id),
+            **CONSOLIDATE_FIELDS,
+        )
+
+
+def test_m3_consolidating_equal_basis_retraction_replicas_leaves_the_counter_retraction(
+    tmp_path,
+):
+    keep_writer = _writer(tmp_path / "keep", domains=PINS.domains)
+    other_writer = _writer(tmp_path / "other", domains=PINS.domains)
+    targets = []
+    for writer in (keep_writer, other_writer):
+        observed = writer.add(
+            stored.dataset_node(
+                "raw",
+                title="raw",
+                resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
+                empirical_observation={"boundary": "instrument"},
+            )
+        )
+        run = writer.add(
+            stored.run_node(
+                "r1", title="r1", spec="analysis-spec:s1", observes=[observed.id]
+            )
+        )
+        proposition = writer.add(
+            stored.proposition_node("p1", title="p1", claim={"operator": "affects"})
+        )
+        targets.append(
+            writer.add(
+                stored.assessment_node(
+                    "a1",
+                    title="a1",
+                    spec="analysis-spec:s1",
+                    run=run.id,
+                    proposition=proposition.id,
+                    outcome="supported",
+                    interpretation_rule="rule:threshold",
+                )
+            )
+        )
+    target_identity = stored.stored_semantic_hash(targets[0])
+    assert target_identity is not None
+    replica = stored.retraction_node(
+        title="retraction",
+        target=stored.NodeTarget(targets[0].id, targets[0].id, target_identity),
+        reason="defective-code",
+        rationale="invalid result",
+        grounds=("verification:v1",),
+        actor="tester",
+        event_token="event-1",
+    )
+    first = keep_writer.retract(replica)
+    other_writer.retract(replica)
+    first_identity = stored.stored_semantic_hash(first)
+    assert first_identity is not None
+    counter = keep_writer.retract(
+        stored.retraction_node(
+            title="counter",
+            target=stored.NodeTarget(first.id, first.id, first_identity),
+            reason="upstream-retraction",
+            rationale="the retraction was withdrawn",
+            grounds=("verification:v2",),
+            actor="tester",
+            event_token="event-2",
+        )
+    )
+    counter_before = keep_writer.read_view.get(counter.id)
+
+    survivor, _, _ = relocation.consolidate(
+        (keep_writer, first.id),
+        (other_writer, first.id),
+        **CONSOLIDATE_FIELDS,
+    )
+
+    assert stored.stored_semantic_hash(survivor) == first_identity
+    assert keep_writer.read_view.get(counter.id) == counter_before
+    assert counter.relations[0].target == first.id
+
+
+def test_the_survivor_is_readable_after_consolidation(tmp_path):
+    keep_writer, other_writer, keep, other = _duplicate_datasets(tmp_path)
+    before = stored.stored_semantic_hash(keep)
+
+    survivor, _, _ = relocation.consolidate(
+        (keep_writer, keep.id),
+        (other_writer, other.id),
+        **CONSOLIDATE_FIELDS,
+    )
+
+    assert keep_writer.read_view.get(survivor.id) == survivor
+    assert stored.stored_semantic_hash(survivor) != before
+    assert not stored.semantic_hash_disagrees(survivor)
+
+
+def test_consolidate_is_idempotent_over_an_already_unioned_survivor(tmp_path):
+    keep_writer, other_writer, keep, other = _duplicate_datasets(tmp_path)
+    survivor, _, _ = relocation.consolidate(
+        (keep_writer, keep.id),
+        (other_writer, other.id),
+        **CONSOLIDATE_FIELDS,
+    )
+    other_writer.add(other)
+
+    repeated, _, _ = relocation.consolidate(
+        (keep_writer, survivor.id),
+        (other_writer, other.id),
+        **CONSOLIDATE_FIELDS,
+    )
+
+    assert repeated == survivor
+
+
+def test_t2_a_consolidate_is_one_intent_and_one_report_in_each_root(
+    tmp_path, monkeypatch
+):
+    keep_writer, other_writer, keep, other = _duplicate_datasets(tmp_path)
+    report_operations = {}
+    for label, writer in (("keep", keep_writer), ("other", other_writer)):
+        create_op = writer._create_op
+
+        def capture(record, *, _label=label, _create=create_op):
+            operation = _create(record)
+            report_operations[_label] = operation
+            return operation
+
+        monkeypatch.setattr(writer, "_create_op", capture)
+
+    _, keep_report, other_report = relocation.consolidate(
+        (keep_writer, keep.id),
+        (other_writer, other.id),
+        **CONSOLIDATE_FIELDS,
+    )
+
+    assert keep_report.event_token == other_report.event_token
+    assert keep_report.opened_at == other_report.opened_at == CONSOLIDATE_FIELDS["opened_at"]
+    assert keep_report.closed_at == other_report.closed_at == CONSOLIDATE_FIELDS["closed_at"]
+    for label, writer, report in (
+        ("keep", keep_writer, keep_report),
+        ("other", other_writer, other_report),
+    ):
+        port = writer._operation_port
+        assert isinstance(port, OperationRecorder)
+        assert len(port.intents) == len(port.fulfilling) == 1
+        assert v1.decode(port.intents[0]) == {
+            "kind": "consolidate",
+            "event_token": keep_report.event_token,
+            "actor": CONSOLIDATE_FIELDS["actor"],
+        }
+        assert port.fulfilling[0][1] == port.intent_digest
+        assert port.fulfilling[0][0][0] is report_operations[label]
+        assert writer.read_view.holds(f"act-report:{report.identity()}")
 
 
 def test_retract_refuses_a_target_moved_away(tmp_path):

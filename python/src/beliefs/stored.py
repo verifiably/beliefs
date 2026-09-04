@@ -112,6 +112,7 @@ __all__ = [
     "semantic_projection",
     "stamp_semantic_identity",
     "stored_semantic_hash",
+    "union_lineage_bases",
     "used_facet_namespaces",
     "verification_value",
 ]
@@ -414,6 +415,49 @@ def lineage_basis(node: Node) -> Mapping[str, Any] | None:
     """The stamped descendant-side basis, as stored. `None` when the dataset
     carries none — an authored dataset with no producing run."""
     return _facet(node, LINEAGE_BASIS_FACET)
+
+
+def _tagged_basis_routes(node: Node) -> list[dict[str, Any]]:
+    basis = node.facets.get(LINEAGE_BASIS_FACET)
+    if basis is None:
+        return []
+    if not isinstance(basis, dict) or set(basis) != {"tag", "routes"}:
+        raise MalformedRecord(f"{node.id}: malformed tagged lineage basis")
+    tag, routes = basis["tag"], basis["routes"]
+    if tag not in ("single", "conflict") or not isinstance(routes, list) or not all(
+        isinstance(route, dict) for route in routes
+    ):
+        raise MalformedRecord(f"{node.id}: malformed tagged lineage basis")
+    try:
+        keys = [v1.encode(route) for route in routes]
+    except IdentityError as caught:
+        raise MalformedRecord(f"{node.id}: malformed lineage route") from caught
+    if tag == "single" and len(routes) != 1:
+        raise MalformedRecord(f"{node.id}: a single lineage basis holds exactly one route")
+    if tag == "conflict" and (
+        len(routes) < 2 or len(set(keys)) != len(keys) or keys != sorted(keys)
+    ):
+        raise MalformedRecord(
+            f"{node.id}: a conflict lineage basis holds at least two distinct sorted routes"
+        )
+    return routes
+
+
+def union_lineage_bases(survivor: Node, loser: Node) -> dict[str, dict]:
+    """Keep survivor facets and replace only its lineage basis with the union."""
+    routes = {
+        v1.encode(route): route
+        for node in (survivor, loser)
+        for route in _tagged_basis_routes(node)
+    }
+    facets = dict(survivor.facets)
+    if routes:
+        ordered = [routes[key] for key in sorted(routes)]
+        facets[LINEAGE_BASIS_FACET] = {
+            "tag": "single" if len(ordered) == 1 else "conflict",
+            "routes": ordered,
+        }
+    return facets
 
 
 def basis_routes(node: Node) -> tuple[Mapping[str, Any], ...]:

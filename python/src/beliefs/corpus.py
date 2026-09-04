@@ -1158,6 +1158,14 @@ class CorpusWriter:
 
     def _replace_locked(self, node: Node) -> Node:
         """Rewrite an existing `(uid, id)`, with the operation lock held."""
+        self._preflight_replace_locked(node)
+        try:
+            return self._corpus.add(node)
+        except CollisionError as caught:
+            raise CollisionRefused(str(caught)) from caught
+
+    def _preflight_replace_locked(self, node: Node) -> None:
+        """Run the lock-held replacement checks without writing."""
         existing = self._corpus.index.by_uid.get(node.uid)
         if existing is None or existing.id != node.id:
             raise RevisionTargetMissing(f"{node.id}: exact uid and id do not identify a local node")
@@ -1169,10 +1177,6 @@ class CorpusWriter:
         self._refuse_invalid(node)
         self._refuse_governed_stamp(node)
         self._refuse_rendering(node)
-        try:
-            return self._corpus.add(node)
-        except CollisionError as caught:
-            raise CollisionRefused(str(caught)) from caught
 
     def _delete_locked(self, ref: str) -> None:
         """Remove one record's file, with the operation lock already held."""

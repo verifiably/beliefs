@@ -6,7 +6,7 @@ priority: 2
 size: xl
 owner: design/consolidate-family
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-04T04:35:40Z
+updated: 2026-09-04T05:21:33Z
 depends: []
 tags: [migration, mutation, world]
 ---
@@ -34,3 +34,4 @@ Uncertainty: The outcome is buildable, but the exact cut and interaction between
 - 2026-09-04T03:09:43Z (design/consolidate-family): Task 7: public destination-first move and frozen-row evidence pass 44 focused and 3149 full-suite tests; Ruff and Pyright clean.
 - 2026-09-04T03:45:11Z (design/consolidate-family): Task 7 review fix: writer-routed report minting, pre-intent destination add preflight, exact canonical occupancy, real published-snapshot belief evidence, exact report-op and symlink lock coverage; focused 47 and full 3152 pass.
 - 2026-09-04T04:35:40Z (design/consolidate-family): Task 8: retract and supersede now re-resolve create-only targets under the lock; real moved-away rows and canonical local-absence taxonomy pass (3154 Python tests).
+- 2026-09-04T05:21:33Z (design/consolidate-family): Task 9: consolidate now reconciles duplicate locations with tagged-basis, replacement-preflight, root-local report, retraction-replica, and ungoverned-kind coverage; 3180 Python tests pass.

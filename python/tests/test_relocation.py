@@ -12,6 +12,7 @@ from fixtures_cut3 import report as sample_report
 from fixtures_cut6 import PINS
 from nodes.core.errors import RefError
 from nodes.core.node import Node
+from nodes.core.relations import Relation
 from nodes.core.write_plan import DefaultExecutor
 from test_corpus_write import OperationRecorder
 
@@ -23,6 +24,7 @@ from beliefs.errors import (
     CollisionRefused,
     ContractPinDisagreement,
     DuplicateLocation,
+    EligibilityUnmet,
     MalformedRecord,
     RelocationKindExcluded,
     RelocationRefused,
@@ -31,7 +33,7 @@ from beliefs.errors import (
     WriteRefused,
 )
 from beliefs.identity import v1
-from beliefs.report import Moved, RecordMutationEntry
+from beliefs.report import Consolidated, Moved, RecordMutationEntry
 
 SCIENCE = PINS.science_contract
 BIOLOGY = PINS.domains["biology"]
@@ -42,6 +44,7 @@ MOVE_FIELDS = {
     "opened_at": "2026-09-03T10:00:00Z",
     "closed_at": "2026-09-03T10:00:01Z",
 }
+CONSOLIDATE_FIELDS = {**MOVE_FIELDS, "rationale": "keep holds the authored record"}
 
 
 def _writer(root, *, science=SCIENCE, domains=None, operation_port=True):
@@ -341,6 +344,291 @@ def test_move_validates_report_metadata_before_either_intent(source_writer, dest
         assert port.intents == []
     assert source_writer.read_view.holds(node.id)
     assert not destination_writer.read_view.holds(node.id)
+
+
+def test_consolidate_preserves_a_shared_uid_and_retires_nothing(
+    source_writer, destination_writer
+):
+    keep = source_writer.add(
+        stored.source_node("s1", title="kept", identifiers={"doi": "10.1/abc"})
+    )
+    destination_writer.add(keep.model_copy(update={"title": "other"}))
+
+    survivor, keep_report, other_report = relocation.consolidate(
+        (source_writer, keep.id),
+        (destination_writer, keep.id),
+        **CONSOLIDATE_FIELDS,
+    )
+
+    assert survivor.uid == keep.uid
+    assert isinstance(keep_report.entries[0], RecordMutationEntry)
+    outcome = keep_report.entries[0].outcome
+    assert outcome == other_report.entries[0].outcome
+    assert outcome == Consolidated(
+        source_writer.corpus_id,
+        keep.id,
+        destination_writer.corpus_id,
+        keep.id,
+        (),
+        CONSOLIDATE_FIELDS["rationale"],
+    )
+
+
+def test_consolidate_selects_one_of_two_distinct_uids_and_mints_no_third(
+    source_writer, destination_writer
+):
+    keep = source_writer.add(
+        stored.source_node("s1", title="kept", identifiers={"doi": "10.1/abc"})
+    )
+    other = destination_writer.add(
+        stored.source_node("s1", title="other", identifiers={"doi": "10.1/abc"})
+    )
+    assert keep.uid != other.uid
+
+    survivor, keep_report, _ = relocation.consolidate(
+        (source_writer, keep.id),
+        (destination_writer, other.id),
+        **CONSOLIDATE_FIELDS,
+    )
+
+    assert survivor.uid == keep.uid
+    outcome = keep_report.entries[0].outcome
+    assert isinstance(outcome, Consolidated)
+    assert outcome.retired_uids == (other.uid,)
+    assert [
+        node.uid
+        for writer_ in (source_writer, destination_writer)
+        for node in writer_.read_view.iter_stored()
+        if node.kind == "source"
+    ] == [keep.uid]
+
+
+def test_consolidate_keeps_ungoverned_kinds_unstamped(
+    source_writer, destination_writer
+):
+    keep = source_writer.add(Node(id="memo:same", kind="memo", title="kept"))
+    other = destination_writer.add(
+        Node(
+            id="memo:same",
+            kind="memo",
+            title="other",
+            relations=[
+                Relation(source="memo:same", predicate="cites", target="memo:target")
+            ],
+        )
+    )
+
+    survivor, _, _ = relocation.consolidate(
+        (source_writer, keep.id),
+        (destination_writer, other.id),
+        **CONSOLIDATE_FIELDS,
+    )
+
+    assert survivor.kind == "memo"
+    assert stored.SEMANTIC_IDENTITY_FACET not in survivor.facets
+    assert survivor.relations == other.relations
+
+
+def test_consolidate_refuses_two_different_addresses(source_writer, destination_writer):
+    keep = source_writer.add(
+        stored.source_node("kept", title="kept", identifiers={"doi": "10.1/kept"})
+    )
+    other = destination_writer.add(
+        stored.source_node("other", title="other", identifiers={"doi": "10.1/other"})
+    )
+
+    with pytest.raises(AddressDisagreement):
+        relocation.consolidate(
+            (source_writer, keep.id),
+            (destination_writer, other.id),
+            **CONSOLIDATE_FIELDS,
+        )
+
+
+def test_consolidate_is_not_offered_for_one_uid_under_two_addresses(
+    source_writer, destination_writer
+):
+    keep = source_writer.add(
+        stored.source_node("kept", title="kept", identifiers={"doi": "10.1/kept"})
+    )
+    other = stored.source_node(
+        "other", title="other", identifiers={"doi": "10.1/other"}
+    ).model_copy(update={"uid": keep.uid})
+    destination_writer.add(other)
+
+    with pytest.raises(AddressDisagreement):
+        relocation.consolidate(
+            (source_writer, keep.id),
+            (destination_writer, other.id),
+            **CONSOLIDATE_FIELDS,
+        )
+
+
+def test_consolidate_refuses_a_same_root_pair(writer):
+    keep = writer.add(
+        stored.source_node("s1", title="kept", identifiers={"doi": "10.1/abc"})
+    )
+
+    with pytest.raises(SameRootRefused):
+        relocation.consolidate(
+            (writer, keep.id), (writer, keep.id), **CONSOLIDATE_FIELDS
+        )
+
+
+@pytest.mark.parametrize("excluded", ["keep", "other"])
+def test_consolidate_refuses_an_excluded_kind_on_either_input(tmp_path, excluded):
+    keep_writer = _writer(tmp_path / excluded / "keep", domains=PINS.domains)
+    other_writer = _writer(tmp_path / excluded / "other", domains=PINS.domains)
+    report = sample_report()
+    excluded_writer = keep_writer if excluded == "keep" else other_writer
+    ordinary_writer = other_writer if excluded == "keep" else keep_writer
+    excluded_writer._publish_operation_report(report, "ab" * 32)
+    ordinary = ordinary_writer.add(
+        stored.source_node("s1", title="ordinary", identifiers={"doi": "10.1/abc"})
+    )
+    excluded_port = excluded_writer._operation_port
+    assert isinstance(excluded_port, OperationRecorder)
+    excluded_port.intents.clear()
+    excluded_port.fulfilling.clear()
+    positions = {
+        "keep": (
+            (keep_writer, f"act-report:{report.identity()}"),
+            (other_writer, ordinary.id),
+        ),
+        "other": (
+            (keep_writer, ordinary.id),
+            (other_writer, f"act-report:{report.identity()}"),
+        ),
+    }
+
+    with pytest.raises(RelocationKindExcluded, match="act-report"):
+        relocation.consolidate(
+            *positions[excluded],
+            **CONSOLIDATE_FIELDS,
+        )
+
+    assert all(
+        isinstance(writer_._operation_port, OperationRecorder)
+        and writer_._operation_port.intents == []
+        for writer_ in (keep_writer, other_writer)
+    )
+
+
+@pytest.mark.parametrize("missing", ["keep", "other"])
+def test_consolidate_preflights_both_operation_ports_before_either_intent(
+    tmp_path, missing
+):
+    keep_writer = _writer(
+        tmp_path / missing / "keep",
+        domains=PINS.domains,
+        operation_port=missing != "keep",
+    )
+    other_writer = _writer(
+        tmp_path / missing / "other",
+        domains=PINS.domains,
+        operation_port=missing != "other",
+    )
+    keep = keep_writer.add(
+        stored.source_node("s1", title="kept", identifiers={"doi": "10.1/abc"})
+    )
+    other_writer.add(keep.model_copy(update={"title": "other"}))
+    configured = other_writer if missing == "keep" else keep_writer
+    configured_port = configured._operation_port
+    assert isinstance(configured_port, OperationRecorder)
+
+    with pytest.raises(RelocationRefused, match=f"{missing} corpus has no operation port"):
+        relocation.consolidate(
+            (keep_writer, keep.id),
+            (other_writer, keep.id),
+            **CONSOLIDATE_FIELDS,
+        )
+
+    assert configured_port.intents == []
+
+
+@pytest.mark.parametrize("missing", ["keep", "other"])
+def test_consolidate_refuses_a_missing_input_before_intents(tmp_path, missing):
+    keep_writer = _writer(tmp_path / missing / "keep", domains=PINS.domains)
+    other_writer = _writer(tmp_path / missing / "other", domains=PINS.domains)
+    present_writer = other_writer if missing == "keep" else keep_writer
+    present_writer.add(
+        stored.source_node("s1", title="present", identifiers={"doi": "10.1/abc"})
+    )
+
+    with pytest.raises(RelocationTargetMissing, match=f"{missing} corpus"):
+        relocation.consolidate(
+            (keep_writer, "source:s1"),
+            (other_writer, "source:s1"),
+            **CONSOLIDATE_FIELDS,
+        )
+
+    for writer_ in (keep_writer, other_writer):
+        port = writer_._operation_port
+        assert isinstance(port, OperationRecorder)
+        assert port.intents == []
+
+
+def test_consolidate_validates_both_reports_before_either_intent(
+    source_writer, destination_writer
+):
+    keep = source_writer.add(
+        stored.source_node("s1", title="kept", identifiers={"doi": "10.1/abc"})
+    )
+    other = destination_writer.add(keep.model_copy(update={"title": "other"}))
+
+    with pytest.raises(MalformedRecord, match="canonically encodable"):
+        relocation.consolidate(
+            (source_writer, keep.id),
+            (destination_writer, other.id),
+            **{**CONSOLIDATE_FIELDS, "observer": "\ud800"},
+        )
+
+    for writer_ in (source_writer, destination_writer):
+        port = writer_._operation_port
+        assert isinstance(port, OperationRecorder)
+        assert port.intents == []
+        assert writer_.read_view.holds(keep.id)
+
+
+def test_consolidate_preflights_the_replacement_before_either_intent(tmp_path):
+    keep_writer = _writer(tmp_path / "keep", domains=PINS.domains)
+    other_writer = _writer(tmp_path / "other", domains=PINS.domains)
+    keep = keep_writer.add(
+        stored.source_node("s1", title="kept", identifiers={"doi": "10.1/abc"})
+    )
+    observed = other_writer.add(
+        stored.dataset_node(
+            "raw",
+            title="raw",
+            resources=[{"name": "data", "digest": "sha256:" + "ab" * 32}],
+            empirical_observation={"boundary": "instrument"},
+        )
+    )
+    run = other_writer.add(
+        stored.run_node(
+            "r1", title="r1", spec="analysis-spec:s1", observes=[observed.id]
+        )
+    )
+    other = stored.source_node(
+        "s1", title="other", identifiers={"doi": "10.1/abc"}
+    )
+    other.facets[stored.ASSESSMENT_FACET] = {"run": run.id}
+    other.relations = [
+        Relation(source=other.id, predicate=stored.ASSESSES, target="proposition:p1")
+    ]
+    other_writer.add(other)
+
+    with pytest.raises(EligibilityUnmet):
+        relocation.consolidate(
+            (keep_writer, keep.id),
+            (other_writer, keep.id),
+            **CONSOLIDATE_FIELDS,
+        )
+
+    for writer_ in (keep_writer, other_writer):
+        port = writer_._operation_port
+        assert isinstance(port, OperationRecorder)
+        assert port.intents == []
 
 
 def test_every_relocation_refusal_is_a_write_refusal():

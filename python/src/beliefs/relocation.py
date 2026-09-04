@@ -16,11 +16,13 @@ from contextlib import ExitStack, contextmanager
 from pathlib import Path
 
 from nodes.core.node import Node
+from nodes.core.relations import Relation
 
 from beliefs import stored
 from beliefs.coordination import COORDINATION_KINDS
 from beliefs.corpus import CorpusWriter
 from beliefs.errors import (
+    AddressDisagreement,
     ContractPinDisagreement,
     DuplicateLocation,
     RelocationKindExcluded,
@@ -28,7 +30,7 @@ from beliefs.errors import (
     RelocationTargetMissing,
     SameRootRefused,
 )
-from beliefs.report import ActReport, Moved, OperationIntent
+from beliefs.report import ActReport, Consolidated, Moved, OperationIntent
 
 EXCLUDED_KINDS = ("act-report", "holdings-observation", *COORDINATION_KINDS)
 
@@ -140,3 +142,109 @@ def move(
             operation=source_report_op,
         )
         return moved, destination_report, source_report
+
+
+def _relation_key(relation: Relation) -> tuple[str, str, str]:
+    return relation.source, relation.predicate, relation.target
+
+
+def _reconcile(survivor: Node, loser: Node) -> Node:
+    relations: dict[tuple[str, str, str], Relation] = {}
+    for relation in (*survivor.relations, *loser.relations):
+        relations.setdefault(_relation_key(relation), relation)
+    unstamped = survivor.model_copy(
+        update={
+            "relations": [relations[key] for key in sorted(relations)],
+            "deprecated_ids": sorted(
+                {*survivor.deprecated_ids, *loser.deprecated_ids}
+            ),
+            "facets": stored.union_lineage_bases(survivor, loser),
+        }
+    )
+    return (
+        stored.stamp_semantic_identity(unstamped)
+        if unstamped.kind in stored.SEMANTIC_DOMAINS
+        else unstamped
+    )
+
+
+def consolidate(
+    keep: tuple[CorpusWriter, str],
+    other: tuple[CorpusWriter, str],
+    *,
+    rationale: str,
+    actor: str,
+    observer: str,
+    instrument: str,
+    opened_at: str,
+    closed_at: str,
+) -> tuple[Node, ActReport, ActReport]:
+    """Consolidate one duplicate location into `keep` and report in both roots."""
+    keep_writer, keep_ref = keep
+    other_writer, other_ref = other
+    with _both_locks(keep_writer, other_writer):
+        _refuse_same_root(keep_writer, other_writer)
+        keep_id = keep_writer.read_view.resolve(keep_ref)
+        if keep_id is None:
+            raise RelocationTargetMissing(
+                f"{keep_ref!r}: keep corpus holds no resolving record"
+            )
+        other_id = other_writer.read_view.resolve(other_ref)
+        if other_id is None:
+            raise RelocationTargetMissing(
+                f"{other_ref!r}: other corpus holds no resolving record"
+            )
+        keep_node = keep_writer.read_view.get(keep_id)
+        other_node = other_writer.read_view.get(other_id)
+        _refuse_excluded_kind(keep_node)
+        _refuse_excluded_kind(other_node)
+        if keep_node.id != other_node.id:
+            raise AddressDisagreement(
+                f"{keep_node.id} and {other_node.id}: consolidation requires one canonical address"
+            )
+        _refuse_contract_disagreement(other_node, other_writer, keep_writer)
+        merged = _reconcile(keep_node, other_node)
+        keep_writer._preflight_replace_locked(merged)
+        for position, writer in (("keep", keep_writer), ("other", other_writer)):
+            if writer._operation_port is None:
+                raise RelocationRefused(
+                    f"{position} corpus has no operation port; consolidate is a boundary operation"
+                )
+
+        intent = OperationIntent("consolidate", secrets.token_hex(16), actor)
+        outcome = Consolidated(
+            keep_writer.corpus_id,
+            keep_node.id,
+            other_writer.corpus_id,
+            other_node.id,
+            () if keep_node.uid == other_node.uid else (other_node.uid,),
+            rationale,
+        )
+        report_fields = {
+            "subject": keep_node.id,
+            "observer": observer,
+            "instrument": instrument,
+            "opened_at": opened_at,
+            "closed_at": closed_at,
+            "outcome": outcome,
+        }
+        keep_report = keep_writer._relocation_report(intent, **report_fields)
+        other_report = other_writer._relocation_report(intent, **report_fields)
+        keep_report_op = keep_writer._create_op(stored.act_report_node(keep_report))
+        other_report_op = other_writer._create_op(stored.act_report_node(other_report))
+
+        keep_intent = keep_writer._append_operation_intent(
+            intent.kind, intent.event_token, intent.actor
+        )
+        other_intent = other_writer._append_operation_intent(
+            intent.kind, intent.event_token, intent.actor
+        )
+        survivor = keep_writer._replace_locked(merged)
+        other_writer._delete_locked(other_node.id)
+        keep_writer._publish_operation_report(
+            keep_report, keep_intent, operation=keep_report_op
+        )
+        other_writer._publish_operation_report(
+            other_report, other_intent, operation=other_report_op
+        )
+        return survivor, keep_report, other_report
