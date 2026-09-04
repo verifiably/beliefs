@@ -143,6 +143,16 @@ def test_contract_agreement_refuses_a_missing_used_domain_pin(tmp_path):
         )
 
 
+def test_contract_agreement_refuses_a_missing_used_source_domain_pin(tmp_path):
+    source = _writer(tmp_path / "source")
+    destination = _writer(tmp_path / "destination", domains={"biology": BIOLOGY})
+
+    with pytest.raises(ContractPinDisagreement):
+        relocation._refuse_contract_disagreement(
+            _node("biology/gene-axis"), source, destination
+        )
+
+
 def test_contract_agreement_ignores_different_unused_domain_pins(tmp_path):
     source = _writer(
         tmp_path / "source",
