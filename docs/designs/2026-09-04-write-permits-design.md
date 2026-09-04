@@ -129,7 +129,8 @@ either set without a route fails the suite.
 | kind | admissible routes | why |
 |---|---|---|
 | `proposition`, `source-assertion`, `assessment`, `analysis-spec`, `source`, `verification`, `instrument-certification`, `coreference-attestation`, `retraction` | `{corpus-write}` | minted only through `CorpusWriter.add` and the corpus families |
-| `run`, `dataset` | `{run, corpus-write}` | the run boundary publishes them fulfilling a run intent; the add path can mint a `run` record directly (cut 15's R23 arm does) |
+| `run` | `{run, corpus-write}` | the run boundary publishes it fulfilling a run intent; the add path can mint a `run` record directly (cut 15's R23 arm does) |
+| `dataset` | `{corpus-write}` | `publication_plan` mints only the `run` record; the dataset it produces is a relation target, never a record the boundary writes |
 | `act-report` | `{corpus-write, run}` | `import_bundle` and the run boundary each close their intent with one; the holdings acts fulfill theirs with a `holdings-observation` and mint no report |
 | `holdings-observation` | `{holdings}` | minted only by the four holdings acts through the store seam |
 | `project`, `question`, `hypothesis`, `topic`, `theme`, `task`, `decision`, `note` | `{corpus-write}` | the coordination family door is a corpus write (command-framework §3.3) |
@@ -226,8 +227,10 @@ refusal envelope's `data` without reaching into the exception. The message is
 prefix-stable: `permit exceeded: <dimension> <name> is not permitted`.
 
 Beside it, `ActorMismatch(WriteRefused)`: raised by `retract` when the
-retraction facet's `actor` is not the bound one (§4.2). It is not a permit
-refusal — the permit may well cover `retraction` — and so is its own class.
+retraction facet's `actor` is not the bound one, and by `add` when a `run`
+record's closure names another actor in its occurrence (§4.2). It is not a
+permit refusal — the permit may well cover the kind — and so is its own
+class.
 
 ## 4. Binding seams and the entry-point inventory
 
@@ -240,7 +243,7 @@ refusal — the permit may well cover `retraction` — and so is its own class.
 | `root.DurableOperationPort.__init__` | `(root, *, backend, storage, metadata_root, authority)` | the port; `OperationPort` (the protocol in `runrecord.py`) gains a read-only `authority` property, and every test port implements it |
 | `root.open_world` | `(config, *, authority)` | the `World`, as `world.authority` |
 | `holdings.boundary.ActContext` | `(observer_root, store_root, observer, instrument, authority, seam)` | the four holdings acts |
-| `root.init_corpus_root`, `init_world_root`, `init_store_root`, `fork_corpus`, `fork_store`, `replicate_root`, `restore_root` | each gains `*, authority` | the lifecycle acts |
+| `root.init_corpus_root`, `init_world_root`, `init_store_root`, `fork_corpus`, `fork_store`, `replicate_root`, `restore_root`, `migrate_root_to_lifecycle_v3` | each gains `*, authority` | the lifecycle acts |
 
 There is no default at any seam. A caller that has no permit to state has no
 business writing, and a test that wants a full one imports the helper of
@@ -255,20 +258,20 @@ from a declaration.
 
 | enclosing definition | family | kinds required | actor today → after |
 |---|---|---|---|
-| `CorpusWriter.add` | `corpus-write` | `node.kind` | none → none (the record carries no actor) |
+| `CorpusWriter.add` | `corpus-write` | `node.kind` | none → a `run` record carrying the run-closure facet is decoded (`decode_run_closure`) and its `occurrence.actor` must equal the bound actor, else `ActorMismatch`; `add` already refuses every other actor-bearing kind (`act-report`, `retraction`, `holdings-observation`, the coordination kinds), so no other record through `add` names an actor |
 | `CorpusWriter.retract` | `corpus-write` | `retraction` | authored into the retraction facet → the facet's `actor` must equal the bound actor or the write refuses (`ActorMismatch`, a `WriteRefused`) |
 | `CorpusWriter.supersede`, `CorpusWriter.revise` | `corpus-write` | `proposition` | none → none |
 | `CorpusWriter.mint_coordination`, `CorpusWriter.revise_coordination` | `corpus-write` | the coordination kind | none → none |
-| `CorpusWriter.import_bundle` | `corpus-write` | every member's kind, then `act-report` | `actor` keyword → removed; the intent's actor is the bound one |
+| `CorpusWriter.import_bundle` | `corpus-write` | every member's kind, then `act-report` | `actor` keyword → removed; the intent's actor is the bound one. Members are stored verbatim: an imported run closure or retraction naming a foreign actor is **provenance**, attributed to the importer by the intent and never rewritten — the one deliberate route for a record whose actor is not the bound one |
 | `CorpusWriter.adopt_manifest` | `lifecycle` | — | none → none |
 | `boundary.execute_assessment_run` | `run` | `run`, `act-report` | `actor` keyword → removed; read from `port.authority` |
-| `boundary.execute_production_run` | `run` | `run`, `act-report`, and `dataset` for the dataset-production shape | same |
-| `holdings.boundary.recheck`, `write`, `delete`, `move` | `holdings` | `holdings-observation` | `ctx.actor` → `ctx.authority.actor` |
+| `boundary.execute_production_run` | `run` | `run`, `act-report` | same |
+| `holdings.boundary.recheck`, `write`, `delete`, `move`, and the private helpers `_append` and `_publish` they call | `holdings` | `holdings-observation` | `ctx.actor` → `ctx.authority.actor` |
 | `world.registry._locked_admit` (serving `World.admit` and `root.admit_arrival`), `World._terminal` (serving `retire` and `depart`) | `registry` | — | `actor` keywords → removed; `world.authority.actor` |
 | `world.anchors._anchor_heads` (serving `root.anchor_heads`) | `registry` | — | same |
 | `world.epoch.build_epoch`, `world.epoch.delete_epoch` | `epoch` | — | `delete_epoch`'s keyword → removed |
 | `world.rules.install_rule_binding`, `remove_rule_binding` (and `root.install_shipped_world_rules` through the former) | `epoch` | — | none → none |
-| `root.init_corpus_root`, `init_world_root`, `init_store_root`, `fork_corpus`, `fork_store`, `replicate_root`, `restore_root` | `lifecycle` | — | none → none |
+| `root.init_corpus_root`, `init_world_root`, `init_store_root`, `fork_corpus`, `fork_store`, `replicate_root`, `restore_root`, `migrate_root_to_lifecycle_v3` | `lifecycle` | — | none → none; `init_world_root`'s `mkdir` moves after its `require` (§5 arm 2) |
 
 `replay.replay` re-enters the two run entry points and calls no primitive
 itself; it loses its `actor` keyword and is not inventoried. `root.audit_log`
@@ -279,17 +282,34 @@ carries; it is a read and is not inventoried. `Occurrence.actor`,
 record who acted; they keep their fields and are populated from the bound
 authority by the definitions above.
 
-### 4.3 The primitives
+### 4.3 The primitives, and the call graph
 
 The inventory is closed against this set of calls, by attribute name on any
 receiver: `append_intent`, `execute`, `execute_fulfilling`,
-`publish_fulfilling`, `add` on a `_corpus` receiver, `register_root`, and the
-three root-copying engine callbacks `_replicate_root_callback`,
-`_fork_root_callback`, `_resume_fork_root_callback`. The bodies that
-*implement* a primitive are excluded by exact name — `DurableOperationPort.*`,
+`publish_fulfilling`, `store_write`, `store_delete`, `store_move`, `add` on a
+`_corpus` receiver, `register_root`, and the five engine callbacks `root.py`
+binds under private names — `_replicate_root_callback`,
+`_fork_root_callback`, `_resume_fork_root_callback`,
+`_grant_read_serviceability_callback` (restore's grant) and
+`_migrate_root_to_lifecycle_v3_callback`. The bodies that *implement* a
+primitive are excluded by exact name — `DurableOperationPort.*`,
 `DurableExecutor.*`, `_mapped_submit.submit`, and the `_store_*` seam
 implementations in `root.py` — and that exclusion list is compared for
 equality, never containment, so a fifth implementation is a failure.
+
+**The rule attaches to the definition that makes the call, public or
+private.** The inventory is not a list of public names: it is the set of
+enclosing definitions in which a primitive call appears. A private helper
+that calls a primitive — `holdings.boundary._append`, `_publish`,
+`world.registry._locked_admit`, `World._terminal`, `world.anchors._anchor_heads`
+— is inventoried under its own name and requires before its own call; its
+public callers are inventoried only where they call a primitive themselves
+(`write`, `delete` and `move` call `store_*` directly and so appear beside
+their helpers). A definition that only calls other inventoried definitions —
+`replay.replay`, `root.admit_arrival`, `root.anchor_heads`,
+`root.install_shipped_world_rules` — is not inventoried; the authority it
+passes down is required where the write happens. A redundant `require` on a
+path that requires twice is harmless and is not a finding.
 
 ## 5. The static boundary — `tests/test_permit_boundary.py`
 
@@ -304,22 +324,36 @@ proves it can be satisfied; every allowlist is compared by equality.
    the AST finds calling a §4.3 primitive, less the §4.3 implementations. A
    caller missing from the map fails; a map entry that calls no primitive
    fails.
-2. **Every entry point requires before it writes.** Each inventoried
-   definition contains a call spelled `<receiver>.require(<family literal>, …)`
-   whose family equals the map's, and whose source position precedes the
-   definition's first primitive call. A `require` whose family is not a
-   string literal fails: the family is design text, not data.
-3. **No entry point takes an actor.** No inventoried definition, and no
-   public function in the seam modules, has a parameter named `actor`. The
-   record dataclasses that carry an `actor` field are listed by name and are
-   the only `actor` spellings permitted outside `permit.py`.
+2. **Every entry point requires before it writes, unconditionally.** Each
+   inventoried definition contains a call spelled
+   `<receiver>.require(<family literal>, …)` whose family equals the map's,
+   and the statement carrying it is a **top-level statement of the
+   definition's body** — its parent is the body list, not an `if`, `try`,
+   `with`, `for` or `match` — so it cannot be skipped. No statement before it
+   contains a §4.3 primitive call, a call to a `BYTE_MUTATION_PRIMITIVES`
+   name, or `mkdir`; statements before it may validate and compute (parsing
+   the bundle whose kinds `import_bundle` must name is the reason the rule is
+   not "first statement"). Source position alone is not the test: a
+   conditional `require`, or one placed after `init_world_root`'s `mkdir`,
+   fails. A `require` whose family is not a string literal fails: the family
+   is design text, not data.
+3. **No entry point takes an actor.** No inventoried definition has a
+   parameter named `actor`, and no public function in the seam modules
+   (`corpus.py`, `boundary.py`, `replay.py`, `root.py`, `holdings/boundary.py`,
+   `world/registry.py`, `world/epoch.py`, `world/rules.py`, `world/anchors.py`)
+   has one, less an exact read-only exception set compared by equality:
+   `{"root.audit_log"}`, which writes nothing and labels its report (§4.2).
+   The record dataclasses that carry an `actor` field are listed by name and
+   are the only other `actor` spellings permitted outside `permit.py`.
 4. **Authority enters only at the seams.** `Authority(` is constructed in
    `permit.py` and nowhere else in the package; the seams *receive* one.
    Tests construct their own.
 5. **Offender and satisfied arms.** A synthetic module that calls
    `append_intent` without `require`, one that requires after the append, one
+   that requires under an `if`, one that calls `mkdir` before requiring, one
    that requires the wrong family, and one that takes `actor` are each caught;
-   a synthetic module that does everything right passes.
+   a synthetic module that does everything right passes, as does one that
+   parses its input before requiring.
 
 This is what makes a concurrent lane's new act — `consolidate-family`'s
 relocation and deletion acts — fail the suite until it is inventoried and
@@ -356,10 +390,10 @@ The `E` table. Rows are frozen; ids are never renumbered.
 |---|---|---|
 | **E1** | Every write entry point judges the act family and the kinds it actually emits against the bound permit before any effect, and a violation is `PermitExceeded` naming the requirement and the capability | For each inventoried definition: bind a permit lacking its family → refused, chain head and world root unchanged; bind a permit with the family but lacking one emitted kind → refused naming that kind; bind the exact requirement → the act succeeds. **Negative:** a permit naming every kind but not the family is refused on the family, and one naming the family but a superset of the wrong kinds is refused on the first missing kind, in the caller's order |
 | **E2** | Authority binds once at the construction seams, with no default, no per-call permit, and no writer whose port disagrees with it | Every seam signature has `authority` keyword-only with no default (inspected by signature); construct a `CorpusWriter` over a port bound to another authority → `ValueError` before any write; assert no entry point accepts a `permit` or `authority` argument per call. **Negative:** two writers over one port with the port's own authority both construct — the refusal is disagreement, not sharing |
-| **E3** | The actor is bound with the permit; no write entry point takes an actor, and every intent, registration and actor-bearing record a write produces carries the bound actor | Static arm 3 (§5); for each intent-opening entry point, decode the appended intent and assert `actor` equals the bound one; for `retract`, a retraction whose facet names another actor → `ActorMismatch`, nothing written. **Negative:** the same record under an authority whose actor matches the facet is minted |
+| **E3** | The actor is bound with the permit; no write entry point takes an actor, and every intent, registration and actor-bearing record a write produces carries the bound actor — imported members excepted, which are provenance | Static arm 3 (§5); for each intent-opening entry point, decode the appended intent and assert `actor` equals the bound one; for `retract`, a retraction whose facet names another actor → `ActorMismatch`, nothing written; for `add`, a `run` record whose closure occurrence names another actor → `ActorMismatch`, nothing written, while a `run` record without the closure facet is minted. **Negative:** the same records under an authority whose actor matches are minted; the same closure inside an `import_bundle` member is stored verbatim and the import intent carries the bound actor |
 | **E4** | `KIND_ACTS` is closed and complete over the kernel and coordination kinds; a requirement selecting an inadmissible route, an unknown kind, or an ambiguous kind without a selection is refused at construction; `publishes()` is refused while `publish` is not an act family | The key set equals `WORLD_KINDS ∪ COORDINATION_KINDS`; `for_kinds({"run"}, {})` → `ValueError` (ambiguous, unselected); `for_kinds({"run"}, {"run": "holdings"})` → `ValueError` (inadmissible); `for_kinds({"proposition"}, {})` derives `corpus-write`; `for_kinds({"x"}, {})` → `ValueError`; `publishes()` → `ValueError`. **Negative:** a `routes` key outside `kinds` is refused even when its route would be admissible |
 | **E5** | A permit covers a requirement exactly when the requirement's kinds and families are subsets of the permit's; the full permit covers every constructible requirement; an empty requirement is covered by every permit | Enumerate the constructors under `full()` → all covered; a one-kind requirement against a permit with the family but not the kind → not covered, and the converse; `none()` against the empty permit → covered. **Negative:** coverage is judged on the requirement's selected routes, not on `KIND_ACTS`'s union — a `run`-kind requirement routed `corpus-write` is covered by a permit holding `corpus-write` and not `run` |
-| **E6** | The set of write entry points is closed and held statically in both directions: every definition reaching a write primitive is inventoried with its family, requires before its first primitive call, and takes no actor; the check catches a synthetic offender and passes a synthetic satisfied module | §5 arms 1–5, each with its offender and its satisfied counterpart; add a synthetic primitive caller to the imported package → arm 1 fails naming it; remove an inventoried definition's `require` → arm 2 fails; move it after the append → arm 2 fails; add an `actor` parameter → arm 3 fails |
+| **E6** | The set of write entry points is closed and held statically in both directions: every definition reaching a write primitive, public or private, is inventoried with its family, requires unconditionally at the top level of its body before any primitive, byte-mutation or `mkdir` call, and takes no actor; the check catches a synthetic offender and passes a synthetic satisfied module | §5 arms 1–5, each with its offender and its satisfied counterpart; add a synthetic primitive caller to the imported package → arm 1 fails naming it; remove an inventoried definition's `require` → arm 2 fails; move it after the append → arm 2 fails; wrap it in `if` → arm 2 fails; move `init_world_root`'s `mkdir` before it → arm 2 fails; add an `actor` parameter → arm 3 fails; add a second read-only exception → arm 3 fails on equality |
 | **E7** | On the run boundary a permit violation surfaces as `RunRefused` with reason `permit-exceeded`, no intent appended and no report minted; on every other boundary the raised `PermitExceeded`; the corpus chain and the world root are byte-identical before and after in every case | Through a real port: an assessment run under a permit lacking `run` → `RunRefused(permit-exceeded)`, `report is None`, `intent is None`, chain head unchanged; the same over `execute_production_run`; a holdings act under a permit lacking `holdings` → `PermitExceeded`, store chain unchanged; `World.admit` under a permit lacking `registry` → `PermitExceeded`, registry directory unchanged. **Negative:** a run refused for a *non-permit* reason after the check still mints its refusal report exactly as today — the permit changes only what happens before the intent |
 | **E8** | `import_bundle` is judged member by member before its intent; one unpermitted member refuses the bundle whole, naming that member's kind, with no intent appended and no record minted | A bundle of permitted members plus one `source` under a permit lacking `source` → `PermitExceeded(("kind","source"))`, chain head unchanged, no record present; the same bundle under a permit holding every member kind and `act-report` → imported with one fulfilling report. **Negative:** a permit holding every member kind but not `act-report` is refused on `act-report`, before the intent |
 
@@ -426,9 +460,11 @@ with its sabotage in `permit.py` (drop a family from `ACT_FAMILIES`; make
 `require` return instead of raise; make `permit_covers` ignore kinds; derive
 an ambiguous route silently), in `corpus.py` and `boundary.py` (move a
 `require` after its `append_intent`; call `_refused` on `PermitExceeded`),
-in `holdings/boundary.py` and `world/registry.py` (remove a `require`), and
-in `test_permit_boundary.py`'s own inventory (drop an entry; compare the
-implementation exclusions by containment). `test_n2_cut16.py` audits them
+in `holdings/boundary.py` and `world/registry.py` (remove a `require` from a
+private helper), in `root.py` (wrap `init_world_root`'s `require` in `if`;
+move its `mkdir` above it; drop `migrate_root_to_lifecycle_v3`'s), and in
+`test_permit_boundary.py`'s own inventory (drop an entry; compare the
+implementation exclusions or the read-only exception set by containment). `test_n2_cut16.py` audits them
 by the cut-12 pattern, and `tools/cut16_acceptance.py` runs
 `PREFIX_RUNNERS = ("cut15_acceptance.py",)` then its phase modules.
 
