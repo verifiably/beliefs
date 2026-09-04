@@ -1,7 +1,7 @@
 # Write permits — design (the `write-permits` slice)
 
 **Date:** 2026-09-04
-**Status:** implemented and discharged 2026-09-04; conformance cut 17 (16 in
+**Status:** implemented and discharged 2026-09-04 at `16dd415`; conformance cut 17 (16 in
 the frozen text, renumbered by §14) froze before implementation at `c2f87b3`
 and its 8 selected + 1 labeled units passed through 24 sabotage arms after the
 current-tree prefix of §13.2. Results:

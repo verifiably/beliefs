@@ -1,6 +1,7 @@
 # Conformance cut 17 — discharge results
 
-**Date:** 2026-09-04  
+**Date:** 2026-09-04
+**Discharge commit:** `16dd415`
 **Subject:** write permits
 (`../designs/2026-09-04-write-permits-design.md`), measured against frozen
 §7/§9 at `c2f87b3`, the implementation amendment at `a0f2302`, and the
