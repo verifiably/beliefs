@@ -20,6 +20,7 @@ from beliefs.consulted import CorpusPins
 from beliefs.corpus import CorpusWriter
 from beliefs.errors import (
     AddressDisagreement,
+    CollisionRefused,
     ContractPinDisagreement,
     DuplicateLocation,
     MalformedRecord,
@@ -99,6 +100,46 @@ def test_move_refuses_an_occupied_destination(source_writer, destination_writer)
         relocation.move(source_writer, destination_writer, node.id, **MOVE_FIELDS)
 
 
+def test_move_deprecated_alias_collision_refuses_before_intents(
+    source_writer, destination_writer
+):
+    node = source_writer.add(
+        stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"})
+    )
+    claimed = stored.source_node(
+        "other", title="Another paper", identifiers={"doi": "10.1/other"}
+    )
+    destination_writer.add(claimed.model_copy(update={"deprecated_ids": [node.id]}))
+
+    with pytest.raises(CollisionRefused):
+        relocation.move(source_writer, destination_writer, node.id, **MOVE_FIELDS)
+
+    for writer_ in (source_writer, destination_writer):
+        port = writer_._operation_port
+        assert isinstance(port, OperationRecorder)
+        assert port.intents == []
+
+
+def test_move_uid_collision_refuses_before_intents(
+    source_writer, destination_writer
+):
+    node = source_writer.add(
+        stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"})
+    )
+    other = stored.source_node(
+        "other", title="Another paper", identifiers={"doi": "10.1/other"}
+    )
+    destination_writer.add(other.model_copy(update={"uid": node.uid}))
+
+    with pytest.raises(CollisionRefused):
+        relocation.move(source_writer, destination_writer, node.id, **MOVE_FIELDS)
+
+    for writer_ in (source_writer, destination_writer):
+        port = writer_._operation_port
+        assert isinstance(port, OperationRecorder)
+        assert port.intents == []
+
+
 def test_move_refuses_a_same_root_pair(writer):
     node = writer.add(
         stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"})
@@ -106,6 +147,34 @@ def test_move_refuses_a_same_root_pair(writer):
 
     with pytest.raises(SameRootRefused):
         relocation.move(writer, writer, node.id, **MOVE_FIELDS)
+
+
+def test_move_resolves_a_symlinked_same_root_and_acquires_its_lock_once(
+    writer, tmp_path, monkeypatch
+):
+    node = writer.add(
+        stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"})
+    )
+    alias = tmp_path / "alias"
+    alias.symlink_to(writer.root, target_is_directory=True)
+    twin = CorpusWriter(alias, DefaultExecutor)
+    events = []
+
+    class RecordingLock:
+        def __enter__(self):
+            events.append("enter")
+
+        def __exit__(self, *_):
+            events.append("exit")
+
+    lock = RecordingLock()
+    monkeypatch.setattr(writer, "_operation", lock)
+    monkeypatch.setattr(twin, "_operation", lock)
+
+    with pytest.raises(SameRootRefused):
+        relocation.move(writer, twin, node.id, **MOVE_FIELDS)
+
+    assert events == ["enter", "exit"]
 
 
 def test_move_refuses_a_missing_source_before_later_preconditions(
@@ -162,15 +231,38 @@ def test_move_checks_contract_agreement_before_destination_occupancy(tmp_path):
         relocation.move(source, destination, node.id, **MOVE_FIELDS)
 
 
-def test_move_mints_one_report_per_root_under_one_token(source_writer, destination_writer):
+def test_move_mints_one_report_per_root_under_one_token(
+    source_writer, destination_writer, monkeypatch
+):
     node = source_writer.add(
         stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"})
     )
+    minted_by = []
+    report_operations = {}
+    for label, writer_ in (
+        ("destination", destination_writer),
+        ("source", source_writer),
+    ):
+        mint_report = writer_._relocation_report
+        create_op = writer_._create_op
+
+        def capture_mint(intent, *, _label=label, _mint=mint_report, **fields):
+            minted_by.append(_label)
+            return _mint(intent, **fields)
+
+        def capture_operation(record, *, _label=label, _create=create_op):
+            operation = _create(record)
+            report_operations[_label] = operation
+            return operation
+
+        monkeypatch.setattr(writer_, "_relocation_report", capture_mint)
+        monkeypatch.setattr(writer_, "_create_op", capture_operation)
 
     moved, destination_report, source_report = relocation.move(
         source_writer, destination_writer, node.id, **MOVE_FIELDS
     )
 
+    assert minted_by == ["destination", "source"]
     assert moved.id == node.id
     assert destination_report.event_token == source_report.event_token
     assert destination_report.operation == source_report.operation == "move"
@@ -186,9 +278,9 @@ def test_move_mints_one_report_per_root_under_one_token(source_writer, destinati
     assert destination_entry.outcome == source_entry.outcome == Moved(
         source_writer.corpus_id, destination_writer.corpus_id, node.id
     )
-    for writer_, report in (
-        (destination_writer, destination_report),
-        (source_writer, source_report),
+    for label, writer_, report in (
+        ("destination", destination_writer, destination_report),
+        ("source", source_writer, source_report),
     ):
         port = writer_._operation_port
         assert isinstance(port, OperationRecorder)
@@ -199,6 +291,7 @@ def test_move_mints_one_report_per_root_under_one_token(source_writer, destinati
             "actor": MOVE_FIELDS["actor"],
         }
         assert port.fulfilling[0][1] == port.intent_digest
+        assert port.fulfilling[0][0][0] is report_operations[label]
         assert writer_.read_view.holds(f"act-report:{report.identity()}")
 
 

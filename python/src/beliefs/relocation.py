@@ -17,7 +17,7 @@ from pathlib import Path
 
 from nodes.core.node import Node
 
-from beliefs import boundary, stored
+from beliefs import stored
 from beliefs.coordination import COORDINATION_KINDS
 from beliefs.corpus import CorpusWriter
 from beliefs.errors import (
@@ -92,10 +92,11 @@ def move(
         node = source.read_view.get(resolved)
         _refuse_excluded_kind(node)
         _refuse_contract_disagreement(node, source, destination)
-        if destination.read_view.holds(node.id):
+        if destination.read_view.resolve(node.id) == node.id:
             raise DuplicateLocation(
                 f"{node.id}: destination already holds this canonical address"
             )
+        destination._preflight_add_locked(node)
         for position, writer in (("source", source), ("destination", destination)):
             if writer._operation_port is None:
                 raise RelocationRefused(
@@ -113,12 +114,8 @@ def move(
             "closed_at": closed_at,
             "outcome": outcome,
         }
-        destination_report = boundary._mint_relocation_report(
-            intent, corpus=destination.corpus_id, **report_fields
-        )
-        source_report = boundary._mint_relocation_report(
-            intent, corpus=source.corpus_id, **report_fields
-        )
+        destination_report = destination._relocation_report(intent, **report_fields)
+        source_report = source._relocation_report(intent, **report_fields)
         destination_report_op = destination._create_op(
             stored.act_report_node(destination_report)
         )

@@ -1152,9 +1152,13 @@ class CorpusWriter:
 
     def _add_locked(self, node: Node) -> Node:
         """`add`'s body, with the root's operation lock already held."""
+        self._preflight_add_locked(node)
+        return self._corpus.add(node)
+
+    def _preflight_add_locked(self, node: Node) -> None:
+        """Run the lock-held add checks without writing."""
         self._refuse_family_kinds(node, admitted_kind=node.kind)
         self._refuse(node)
-        return self._corpus.add(node)
 
     def _replace_locked(self, node: Node) -> Node:
         """Rewrite an existing `(uid, id)`, with the operation lock held."""
@@ -1806,6 +1810,28 @@ class CorpusWriter:
             closed_at=closed_at,
             refs=refs,
             findings=findings,
+        )
+
+    def _relocation_report(
+        self,
+        intent: OperationIntent,
+        *,
+        subject: str,
+        observer: str,
+        instrument: str,
+        opened_at: str,
+        closed_at: str,
+        outcome: report_values.Moved | report_values.Consolidated,
+    ) -> report_values.ActReport:
+        return boundary_values._mint_relocation_report(  # pyright: ignore[reportPrivateUsage]
+            intent,
+            subject=subject,
+            corpus=self.corpus_id,
+            observer=observer,
+            instrument=instrument,
+            opened_at=opened_at,
+            closed_at=closed_at,
+            outcome=outcome,
         )
 
     def _relative_path(self, record: Node) -> str:

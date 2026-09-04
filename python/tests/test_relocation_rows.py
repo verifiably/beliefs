@@ -2,21 +2,24 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
+import yaml
 from fixtures_cut3 import report as sample_report
 from fixtures_cut6 import PINS
 from nodes.core.errors import RefError
 from nodes.core.node import Node
 from nodes.core.relations import Relation
-from test_closure import closure_kwargs
+from test_belief import scenario as belief_scenario
 from test_corpus_write import OperationRecorder
 from test_relocation import MOVE_FIELDS, _node, _writer
 from test_world_epoch import derivation_bindings, make_world, publish
 
 from beliefs import relocation, stored
-from beliefs.closure import build_closure
+from beliefs.belief import Belief, evaluate
 from beliefs.errors import ContractPinDisagreement, RelocationKindExcluded
-from beliefs.world import registry
+from beliefs.world import derive, registry
 
 
 def _world_for(tmp_path, *writers):
@@ -27,11 +30,28 @@ def _world_for(tmp_path, *writers):
 
 
 def _belief_digest(published):
-    kwargs = closure_kwargs()
-    kwargs["producer_snapshot_identity"] = published.receipts[
-        "producer-receipt.yaml"
-    ].subject_identity
-    return build_closure(**kwargs).digest()
+    snapshot = derive.producer_snapshot(
+        yaml.safe_load(published.members["producer-snapshot.yaml"])
+    )
+    assert yaml.safe_load(published.members["producers-map.yaml"]) == (
+        derive.producers_map_projection(snapshot.producers)
+    )
+    assert (
+        published.receipts["producer-receipt.yaml"].subject_identity
+        == snapshot.identity()
+    )
+    ordinary = belief_scenario()
+    result = evaluate(
+        **{
+            **ordinary,
+            "context": replace(
+                ordinary["context"],
+                producer_snapshot_identity=snapshot.identity(),
+            ),
+        }
+    )
+    assert isinstance(result, Belief)
+    return result.belief_input_digest
 
 
 def _move_published_dataset(tmp_path):
@@ -68,6 +88,15 @@ def _move_published_dataset(tmp_path):
         writer.corpus_id: registry.corpus_state_identity(writer.root)
         for writer in (source, destination)
     }
+    expected_producers = {dataset.id: (run.id,)}
+    for published in (before, after):
+        snapshot = derive.producer_snapshot(
+            yaml.safe_load(published.members["producer-snapshot.yaml"])
+        )
+        assert dict(snapshot.producers) == expected_producers
+        assert yaml.safe_load(published.members["producers-map.yaml"]) == {
+            "producers": [{"dataset": dataset.id, "runs": [run.id]}]
+        }
     return {
         "source": source,
         "destination": destination,

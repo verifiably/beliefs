@@ -250,6 +250,14 @@ Preconditions, in refusal order, all evaluated under both locks:
 5. the destination holds no record at that canonical address — a move into a
    corpus already holding one is a `consolidate`, and refuses here.
 
+Here “holds at that canonical address” means exact canonical resolution:
+`destination.read_view.resolve(node.id) == node.id`. A different record claiming
+`node.id` only as a deprecated alias is not a duplicate location, nor is a
+different canonical record with the same `uid`; the destination's ordinary
+add preflight classifies either identity claim as `CollisionRefused`. That
+no-write preflight runs before either intent, while `_add_locked` repeats the
+same checks at the destination data step.
+
 Then the sequence of §3.5. `uid`, canonical address, `deprecated_ids` and every
 inbound reference are untouched — addresses have been location-free since the
 address ruling — so a move changes only location, both corpus-state identities
