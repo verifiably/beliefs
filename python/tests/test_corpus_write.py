@@ -116,6 +116,17 @@ def test_replace_locked_refuses_a_node_that_is_not_already_minted(writer):
         writer._replace_locked(absent)
 
 
+def test_replace_locked_wraps_a_new_deprecated_id_collision(writer):
+    target = writer.add(stored.source_node("s1", title="One", identifiers={"doi": "10.1/one"}))
+    owned = writer.add(stored.source_node("s2", title="Two", identifiers={"doi": "10.1/two"}))
+    replacement = target.model_copy(update={"deprecated_ids": [owned.id]})
+
+    with writer._operation, pytest.raises(CollisionRefused) as refused:
+        writer._replace_locked(replacement)
+
+    assert isinstance(refused.value.__cause__, CollisionError)
+
+
 def test_the_locked_seams_carry_a_retraction(writer, second_writer):
     target = writer.add(admissible(writer))
     target_identity = stored.stored_semantic_hash(target)

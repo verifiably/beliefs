@@ -6,7 +6,7 @@ priority: 2
 size: xl
 owner: design/consolidate-family
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-04T01:16:26Z
+updated: 2026-09-04T01:28:31Z
 depends: []
 tags: [migration, mutation, world]
 ---
@@ -26,3 +26,4 @@ Uncertainty: The outcome is buildable, but the exact cut and interaction between
 - 2026-09-04T00:53:07Z (design/consolidate-family): Task 2 landed in-memory/stored record-mutation grammar with reviewed storage-reader coverage.
 - 2026-09-04T01:04:04Z (design/consolidate-family): Task 3: added the explicit relocation refusal hierarchy and focused inheritance test; pytest, Ruff, and Pyright pass.
 - 2026-09-04T01:16:26Z (design/consolidate-family): Task 4: lock-held add, replace, and delete seams passed 49 corpus-write tests; Ruff and Pyright clean.
+- 2026-09-04T01:28:31Z (design/consolidate-family): Task 4 review fix 1/5: replacement-time deprecated-ID collisions now map to CollisionRefused; 50 corpus-write tests pass.

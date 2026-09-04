@@ -1154,7 +1154,10 @@ class CorpusWriter:
         self._refuse_invalid(node)
         self._refuse_governed_stamp(node)
         self._refuse_rendering(node)
-        return self._corpus.add(node)
+        try:
+            return self._corpus.add(node)
+        except CollisionError as caught:
+            raise CollisionRefused(str(caught)) from caught
 
     def _delete_locked(self, ref: str) -> None:
         """Remove one record's file, with the operation lock already held."""
