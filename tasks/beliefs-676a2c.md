@@ -6,7 +6,7 @@ priority: 2
 size: xl
 owner: design/consolidate-family
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-04T16:04:18Z
+updated: 2026-09-04T17:14:08Z
 depends: []
 tags: [migration, mutation, world]
 ---
@@ -44,3 +44,4 @@ Uncertainty: The outcome is buildable, but the exact cut and interaction between
 - 2026-09-04T14:21:24Z (design/consolidate-family): claimed by Claude Code (claude-fable-5-1), pid 3996794; resuming for the deletion cut in .worktrees/consolidate-family on design/consolidate-family
 - 2026-09-04T15:30:03Z (design/consolidate-family): Task 2: public delete lands as an ordinary write; T8 and C1 re-read; re-resolution after delete pinned
 - 2026-09-04T16:04:18Z (design/consolidate-family): Task 3: semantic audit lands, Omega-valid first, three contradiction findings, mints nothing
+- 2026-09-04T17:14:08Z (design/consolidate-family): Task 4: explicit import refuses contradicted derivations before any payload write; R19 transition (b) runs end to end

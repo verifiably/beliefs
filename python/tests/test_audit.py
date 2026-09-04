@@ -22,7 +22,7 @@ from beliefs.audit import (
     check_lineage_basis,
 )
 from beliefs.errors import MalformedRecord
-from beliefs.recipe import RunClosure
+from beliefs.recipe import ResultManifest, RunClosure
 from beliefs.record import AssessmentValue
 from beliefs.replay import EquivalenceImplementation
 from beliefs.spec import freeze
@@ -57,11 +57,33 @@ def _derived_run(writer):
     both read the **recipe's** bindings, not the spec's.
     """
     frozen = freeze(spec_draft(), held_rules=spec_rules())
-    base = make_closure(shape="assessment")
+    closure = assessment_closure(frozen)
+    add_observed_datasets(writer, closure)
+    run = writer.add(run_publication(closure))
+    return frozen, closure, run
+
+
+def assessment_closure(frozen, *, token: str = "tok", result: ResultManifest | None = None) -> RunClosure:
+    """One decodable assessment closure run under `frozen`.
+
+    `token` and `result` are what a second closure of the same recipe varies:
+    both are covered by the closure address, so either yields a distinct run —
+    a replay that agrees (same result) or one that does not.
+    """
+    base = make_closure(shape="assessment", token=token)
     recipe = replace(base.recipe, spec_identity=frozen.identity, rule_bindings=frozen.rule_bindings)
-    closure = RunClosure(recipe=recipe, result=base.result, occurrence=base.occurrence)
+    return RunClosure(
+        recipe=recipe,
+        result=base.result if result is None else result,
+        occurrence=base.occurrence,
+    )
+
+
+def add_observed_datasets(writer, closure: RunClosure) -> None:
+    """Mint the empirical dataset each `observes` input names, once. Two runs of
+    one recipe observe the same dataset, and minting it twice collides."""
     for entry in closure.recipe.inputs:
-        if entry.role == "observes":
+        if entry.role == "observes" and not writer.read_view.holds(entry.dataset):
             writer.add(
                 stored.dataset_node(
                     entry.dataset.removeprefix("dataset:"),
@@ -70,17 +92,18 @@ def _derived_run(writer):
                     empirical_observation={"boundary": "instrument"},
                 )
             )
-    run = writer.add(
-        stored.run_publication_node(
-            closure.address(),
-            title="assessment run",
-            projection=runrecord.projection_text(closure).decode("utf-8"),
-            spec=closure.recipe.spec_identity,
-            observes=tuple(e.dataset for e in closure.recipe.inputs if e.role == "observes"),
-            reads=tuple(e.dataset for e in closure.recipe.inputs if e.role == "reads"),
-        )
+
+
+def run_publication(closure: RunClosure) -> Node:
+    """The stored run record a boundary publication of `closure` would write."""
+    return stored.run_publication_node(
+        closure.address(),
+        title="assessment run",
+        projection=runrecord.projection_text(closure).decode("utf-8"),
+        spec=closure.recipe.spec_identity,
+        observes=tuple(e.dataset for e in closure.recipe.inputs if e.role == "observes"),
+        reads=tuple(e.dataset for e in closure.recipe.inputs if e.role == "reads"),
     )
-    return frozen, closure, run
 
 
 def _stated_optionals(derived: AssessmentValue) -> dict[str, str]:

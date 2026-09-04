@@ -281,7 +281,13 @@ def test_unresolved_foreign_input_admits_with_finding(writer_with_port):
     outcome = report.entries[0].outcome
     assert isinstance(outcome, ImportedRecords)
     assert outcome.refs == (foreign.id,)
-    assert outcome.findings == (f"unresolved: {foreign.id} -> assessment:elsewhere",)
+    assert outcome.findings == (
+        # This one names no runs at all, so the boundary recomputes nothing and
+        # says so. "Cannot be checked here" is a reason, never a verdict: the
+        # record admits, and no validation state is written onto it.
+        f"derivation-unchecked: {foreign.id}: no derivation member",
+        f"unresolved: {foreign.id} -> assessment:elsewhere",
+    )
     assert writer_with_port.read_view.holds(foreign.id)
     assert "validated" not in writer_with_port.read_view.get(foreign.id).facets[stored.VERIFICATION_FACET]
 
@@ -333,7 +339,11 @@ def test_ordinary_eligibility_is_evaluated_over_bundle_union(writer_with_port):
     report = import_records(writer_with_port, [assessment, run, proposition, dataset])
 
     outcome = report.entries[0].outcome
-    assert isinstance(outcome, ImportedRecords) and outcome.findings == ()
+    assert isinstance(outcome, ImportedRecords)
+    # The hand-built run carries no closure projection, so the assessment's
+    # derivation is unchecked here — R19's third case, and not this row's
+    # subject. What this row asserts is that nothing is *unresolved*.
+    assert [f for f in outcome.findings if not f.startswith("derivation-unchecked: ")] == []
     assert all(writer_with_port.read_view.holds(record.id) for record in (assessment, run, proposition, dataset))
 
 

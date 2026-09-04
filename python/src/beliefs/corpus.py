@@ -105,6 +105,7 @@ from beliefs.errors import (
     ValidationRefused,
     WriteRefused,
 )
+from beliefs.evidence import NO_EVIDENCE, DerivationEvidence
 from beliefs.identity import v1
 from beliefs.lineage import Basis, LineageSnapshot, Producer, Route
 from beliefs.profile import ProfileSpec
@@ -1500,8 +1501,17 @@ class CorpusWriter:
         instrument: str,
         opened_at: str,
         closed_at: str,
+        evidence: DerivationEvidence = NO_EVIDENCE,
     ) -> report_values.ActReport:
-        """Admit one validated bundle in one payload transaction."""
+        """Admit one validated bundle in one payload transaction.
+
+        `evidence` is what this importer holds — frozen specs and rule
+        implementations — and it is **supplied, never ambient** (M11): a member
+        whose derivation this caller cannot recompute is *unchecked*, which is
+        a finding and never a verdict. The default holds nothing, so an
+        importer that recomputes nothing says so rather than defaulting into an
+        evidence set it never chose.
+        """
         with self._operation:
             try:
                 bundle = tuple(records)
@@ -1537,7 +1547,7 @@ class CorpusWriter:
             intent = OperationIntent("import", secrets.token_hex(16), actor)
             intent_digest = self._append_operation_intent(intent.kind, intent.event_token, intent.actor)
             try:
-                findings, payload = self._validate_import_bundle(bundle)
+                findings, payload = self._validate_import_bundle(bundle, evidence)
                 report = self._import_report(
                     intent,
                     observer=observer,
@@ -1699,7 +1709,9 @@ class CorpusWriter:
             self._refuse_rendering(node)
             return self._corpus.add(node)
 
-    def _validate_import_bundle(self, records: tuple[Node, ...]) -> tuple[tuple[str, ...], list[CreateOp]]:
+    def _validate_import_bundle(
+        self, records: tuple[Node, ...], evidence: DerivationEvidence
+    ) -> tuple[tuple[str, ...], list[CreateOp]]:
         seen_ids: set[str] = set()
         seen_uids: set[str] = set()
         seen_paths: set[str] = set()
@@ -1776,12 +1788,35 @@ class CorpusWriter:
                 cycle_edges=cycle_edges,
             )
 
+        # Local, because `beliefs.audit` imports this module: the audit reads a
+        # corpus, and the import boundary recomputes with the audit's checks.
+        # The three value types the signature names live in `beliefs.evidence`,
+        # which imports neither side.
+        from beliefs.audit import check_assessment, check_verification
+
         findings = {
             f"unresolved: {record.id} -> {relation.target}"
             for record in records
             for relation in record.relations
             if not union.holds(relation.target)
         }
+        for record in records:
+            try:
+                if record.kind == "verification":
+                    outcome = check_verification(union, record, evidence=evidence)
+                elif record.kind == "assessment":
+                    outcome = check_assessment(union, record, evidence=evidence)
+                else:
+                    continue
+            except ScienceError as caught:
+                raise ImportRefused(str(caught), member=record.id) from caught
+            contradiction = outcome.contradiction
+            if contradiction is not None:
+                raise ImportRefused(
+                    f"{contradiction.message}: {contradiction.detail}", member=record.id
+                )
+            if not outcome.checked:
+                findings.add(f"derivation-unchecked: {record.id}: {outcome.reason}")
         payload = [self._validated_import_op(record) for record in records]
         return tuple(sorted(findings)), payload
 
