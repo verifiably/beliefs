@@ -40,7 +40,7 @@ EOF
 
   Before Task 8 the expected output is `stale: []`. From Task 8 on, exactly the two cut-10 `_publish` arms (`H4u1`, `J8`) are stale, by design (§13 cites cut 10). Anything else stale is a defect in the task that introduced it.
 - Test helper for a full authority: `tests/authority.py` (Task 2) exports `FULL`, `ACTOR`, `narrowed(...)`. Every migrated test uses it; no test builds a `WritePermit` literal except the permit tests themselves.
-- Task records: `tasks start <child id>` before each task, `tasks done <child id> "<what landed>"` in the task's final commit, `tasks check` before every commit. Never edit `tasks/*.md` by hand.
+- Task records: every task names its own child id in its first and last steps — `tasks start <id>` before its first edit and `tasks done <id> "<what landed>"` staged into its final commit; `tasks check` before every commit. The children form a dependency chain (Task N depends on Task N−1), so `tasks ready` offers one task at a time. Never edit `tasks/*.md` by hand.
 - Commit messages are conventional commits with no AI attribution trailer.
 
 ---
@@ -60,10 +60,11 @@ EOF
 | `python/tests/authority.py` (new) | the shared full authority |
 | `python/tests/test_permit.py` (new) | E1 (value level), E4, E5 |
 | `python/tests/test_permit_boundary.py` (new) | E6 — the static inventory, five arms, offender and satisfied modules |
+| `python/tests/test_permit_entry_points.py` (new) | E1 over every inventoried definition |
 | `python/tests/acceptance/test_permit_acceptance.py` (new) | E1, E2, E7, E8 over real roots |
 | `python/tests/acceptance/n2_arms_cut16.py`, `test_n2_cut16.py`, `python/tools/cut16_acceptance.py` (new) | the cut |
 | `docs/designs/2026-09-04-write-permits-design.md` §10, §13 | amendment and accounting |
-| `docs/plans/2026-09-04-conformance-cut-16-results.md` (new, Task 14) | discharge |
+| `docs/plans/2026-09-04-conformance-cut-16-results.md` (new, Task 15) | discharge |
 
 ---
 
@@ -75,7 +76,9 @@ EOF
 
 **Interfaces:**
 - Consumes: the frozen design; cut 14 §11 as the amendment precedent; the pinned-arm survey below.
-- Produces: the rulings every later task implements: (a) cut 10 is cited, not run, from cut 16's tree onward; (b) cut 16's runner names an explicit module inventory rather than chaining `cut15_acceptance.py`; (c) the `actor` local and `ActContext.actor` property; (d) E6's inventory-side mutations are inline unit arms, not N2 sabotages; (e) `_admit_arrival` reads `world.authority`, `_audit_log` keeps its label; (f) `dataset` not required by the run boundary is already §3.2's ruling. The commit hash of this task is `IMPLEMENTATION_AMENDMENT_COMMIT` in Task 13.
+- Produces: the rulings every later task implements: (a) cut 10 is cited, not run, from cut 16's tree onward; (b) cut 16's runner names an explicit module inventory rather than chaining `cut15_acceptance.py`; (c) the `actor` local and `ActContext.actor` property; (d) E6's inventory-side mutations are inline unit arms, not N2 sabotages; (e) `_admit_arrival` reads `world.authority`, `_audit_log` keeps its label; (f) `dataset` not required by the run boundary is already §3.2's ruling. The commit hash of this task is `IMPLEMENTATION_AMENDMENT_COMMIT` in Task 14.
+
+- [ ] **Step 0: Start the task record** — `tasks start beliefs-49d549`
 
 - [ ] **Step 1: Verify the survey the amendment rests on**
 
@@ -169,6 +172,25 @@ and `fork_store`, are inventoried (each also calls `_fork_root_callback`
 directly) and require `lifecycle` as their first statement, before the
 pinned block. This narrows the second review finding's remedy without
 reopening it: the caller is held, the implementation is named.
+
+### 13.7 Ungoverned kinds are a third permit dimension
+
+§3.2 calls `KIND_ACTS` complete over "every mintable kind". The tree mints
+more: `CorpusWriter.add` accepts any kind outside `stored.SEMANTIC_DOMAINS`
+that carries no semantic-identity facet (`_refuse_governed_stamp`), and the
+durable suites rely on it (`memo` records in `durable_fixture.py`). A permit
+whose `kinds` are drawn from `KIND_ACTS` alone would make the full permit
+refuse them. The permit therefore carries a third, boolean dimension,
+**`ungoverned`**: whether the holder may mint kinds outside `KIND_ACTS`, and
+only through `corpus-write` — an ungoverned kind has no other route.
+`WritePermit.full()` sets it; every `RequiredCapabilities` constructor
+leaves it unset, because a declaration names governed kinds and the
+`science` build refuses an unknown one; `permit_covers` judges it by
+implication (`not required.ungoverned or ceiling.ungoverned`);
+`Authority.require` judges a kind in `KIND_ACTS` against `kinds` and any
+other kind against `ungoverned` plus the family. `PermitSummary` carries the
+flag. E4's completeness claim is unchanged — it is about governed kinds —
+and E5's "both dimensions" reads as "every dimension".
 ```
 
 - [ ] **Step 3: Run the corpus tests and commit**
@@ -178,12 +200,13 @@ uv run --frozen pytest -q -p no:cacheprovider tests/test_designs_corpus.py
 cd .. && tasks check && git add docs/designs/2026-09-04-write-permits-design.md && git commit -m "docs(designs): rule the cut 16 implementation amendment" && git rev-parse --short HEAD
 ```
 
-Expected: 14 passed; record the printed short hash — it is `IMPLEMENTATION_AMENDMENT_COMMIT` in Task 13.
+Expected: 14 passed; the printed short hash is `IMPLEMENTATION_AMENDMENT_COMMIT` in Task 14 (recoverable later with `git log --format=%h -1 --grep 'rule the cut 16 implementation amendment'`).
 
 - [ ] **Step 4: Note the ruling on the task**
 
 ```bash
 tasks note beliefs-96a24a "Implementation amendment §13 at <hash>: cut 10 cited, runner names an inventory, actor locals keep pinned arms matching"
+tasks done beliefs-49d549 "Ruled §13: cut 10 cited, runner inventory, actor locals, ungoverned dimension, _fork_resume as implementation"
 git add tasks && git commit -m "chore(tasks): note the cut 16 implementation amendment"
 ```
 
@@ -206,6 +229,8 @@ git add tasks && git commit -m "chore(tasks): note the cut 16 implementation ame
   - `beliefs.permit.Authority(permit: WritePermit, actor: str)`, frozen; `Authority.require(family: str, kinds: Iterable[str] = ()) -> None`.
   - `beliefs.errors.PermitFact(dimension: str, name: str)`, `beliefs.errors.PermitSummary(kinds: tuple[str, ...], act_families: tuple[str, ...])`, both frozen dataclasses; `beliefs.errors.PermitExceeded(WriteRefused)` with `.requirement: PermitFact` and `.capability: PermitSummary`; `beliefs.errors.ActorMismatch(WriteRefused)`.
   - `tests/authority.py`: `ACTOR = "test-actor"`, `FULL = Authority(WritePermit.full(), ACTOR)`, `narrowed(*, kinds=(), families=(), actor=ACTOR) -> Authority`.
+
+- [ ] **Step 0: Start the task record** — `tasks start beliefs-a4231c`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -256,10 +281,12 @@ class TestE4KindActsIsClosedAndComplete:
 
 
 class TestWritePermitConstruction:
-    def test_full_holds_every_kind_and_family(self):
+    def test_full_holds_every_kind_and_family_and_the_ungoverned_kinds(self):
         full = WritePermit.full()
         assert full.kinds == frozenset(KIND_ACTS)
         assert full.act_families == ACT_FAMILIES
+        assert full.ungoverned is True
+        assert WritePermit(frozenset(), frozenset()).ungoverned is False
 
     def test_an_unknown_kind_or_family_is_refused(self):
         with pytest.raises(ValueError, match="kind"):
@@ -275,7 +302,7 @@ class TestWritePermitConstruction:
 
     def test_summary_is_sorted_plain_data(self):
         permit = WritePermit(frozenset({"source", "proposition"}), frozenset({"run", "corpus-write"}))
-        assert permit.summary() == PermitSummary(("proposition", "source"), ("corpus-write", "run"))
+        assert permit.summary() == PermitSummary(("proposition", "source"), ("corpus-write", "run"), False)
 
 
 class TestRequireActor:
@@ -313,6 +340,17 @@ class TestE1AuthorityRequire:
         with pytest.raises(ValueError):
             Authority(WritePermit.full(), "a").require("publish")
 
+    def test_an_ungoverned_kind_needs_the_flag_and_the_corpus_write_family(self):
+        governed_only = Authority(WritePermit(frozenset(), frozenset({"corpus-write", "run"})), "a")
+        with pytest.raises(PermitExceeded) as caught:
+            governed_only.require("corpus-write", ("memo",))
+        assert caught.value.requirement == PermitFact("kind", "memo")
+        full = Authority(WritePermit.full(), "a")
+        assert full.require("corpus-write", ("memo",)) is None
+        with pytest.raises(PermitExceeded) as caught:
+            full.require("run", ("memo",))
+        assert caught.value.requirement == PermitFact("kind", "memo")
+
     def test_permit_exceeded_is_a_write_refusal_and_actor_mismatch_too(self):
         assert issubclass(PermitExceeded, WriteRefused)
         assert issubclass(ActorMismatch, WriteRefused)
@@ -349,10 +387,12 @@ class PermitFact:
 
 @dataclass(frozen=True)
 class PermitSummary:
-    """A permit as plain data: sorted kinds, sorted act families."""
+    """A permit as plain data: sorted kinds, sorted act families, and whether
+    kinds outside the route map are permitted through corpus-write (§13.7)."""
 
     kinds: tuple[str, ...]
     act_families: tuple[str, ...]
+    ungoverned: bool
 
 
 class PermitExceeded(WriteRefused):
@@ -466,21 +506,25 @@ def _require_closed(values: object, universe: frozenset[str], dimension: str) ->
 
 @dataclass(frozen=True)
 class WritePermit:
-    """Two closed dimensions (§3.3). `full()` is the only convenience."""
+    """Two closed dimensions (§3.3) and the ungoverned flag (§13.7). `full()`
+    is the only convenience."""
 
     kinds: frozenset[str]
     act_families: frozenset[str]
+    ungoverned: bool = False
 
     def __post_init__(self) -> None:
         _require_closed(self.kinds, frozenset(KIND_ACTS), "kind")
         _require_closed(self.act_families, ACT_FAMILIES, "act family")
+        if type(self.ungoverned) is not bool:
+            raise TypeError("ungoverned must be an exact bool")
 
     @classmethod
     def full(cls) -> WritePermit:
-        return cls(frozenset(KIND_ACTS), ACT_FAMILIES)
+        return cls(frozenset(KIND_ACTS), ACT_FAMILIES, True)
 
     def summary(self) -> PermitSummary:
-        return PermitSummary(tuple(sorted(self.kinds)), tuple(sorted(self.act_families)))
+        return PermitSummary(tuple(sorted(self.kinds)), tuple(sorted(self.act_families)), self.ungoverned)
 
 
 @dataclass(frozen=True)
@@ -503,7 +547,11 @@ class Authority:
         if family not in self.permit.act_families:
             raise PermitExceeded(PermitFact("family", family), self.permit.summary())
         for kind in kinds:
-            if kind not in self.permit.kinds:
+            if kind in KIND_ACTS:
+                permitted = kind in self.permit.kinds
+            else:
+                permitted = self.permit.ungoverned and family == "corpus-write"
+            if not permitted:
                 raise PermitExceeded(PermitFact("kind", kind), self.permit.summary())
 ```
 
@@ -542,6 +590,7 @@ def lacking(*, kinds: Iterable[str] = (), families: Iterable[str] = (), actor: s
 ```bash
 uv run --frozen pytest -q -p no:cacheprovider tests/test_permit.py
 uv run --frozen pytest -q -p no:cacheprovider && uv run --frozen ruff check . && uv run --frozen pyright
+tasks done beliefs-a4231c "permit.py values, PermitExceeded and ActorMismatch, the FULL test authority"
 cd .. && tasks check && git add python/src/beliefs/permit.py python/src/beliefs/errors.py python/tests/authority.py python/tests/test_permit.py && git commit -m "feat(permit): closed act families, KIND_ACTS, WritePermit and Authority"
 ```
 
@@ -558,6 +607,8 @@ Expected: `test_permit.py` all passing; the full suite unchanged.
 **Interfaces:**
 - Consumes: Task 2's values.
 - Produces: `RequiredCapabilities(permit: WritePermit)` frozen, with classmethods `none()`, `coordination()`, `for_kinds(kinds: Iterable[str], routes: Mapping[str, str])`, `publishes()` (raises `ValueError`); `permit_covers(ceiling: WritePermit, required: RequiredCapabilities) -> bool`. These are the names the `science` plan's Task 12 *Consumes* block pins.
+
+- [ ] **Step 0: Start the task record** — `tasks start beliefs-29d389`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -626,6 +677,11 @@ class TestE5Coverage:
         assert not permit_covers(WritePermit(frozenset({"proposition"}), frozenset()), required)
         assert permit_covers(WritePermit(frozenset({"proposition"}), frozenset({"corpus-write"})), required)
 
+    def test_an_ungoverned_requirement_is_never_constructible_and_full_covers_the_flag(self):
+        with pytest.raises(ValueError, match="ungoverned"):
+            RequiredCapabilities(WritePermit(frozenset(), frozenset(), True))
+        assert permit_covers(WritePermit.full(), RequiredCapabilities.none())
+
     def test_coverage_judges_the_selected_route_not_the_union(self):
         required = RequiredCapabilities.for_kinds(["run"], {"run": "corpus-write"})
         assert permit_covers(WritePermit(frozenset({"run"}), frozenset({"corpus-write"})), required)
@@ -657,6 +713,8 @@ class RequiredCapabilities:
             raise TypeError("a requirement carries a WritePermit")
         if not self.permit.act_families <= COMMAND_REACHABLE_FAMILIES:
             raise ValueError("a requirement names only command-reachable families")
+        if self.permit.ungoverned:
+            raise ValueError("a requirement never claims ungoverned kinds; a declaration names governed ones")
 
     @classmethod
     def none(cls) -> RequiredCapabilities:
@@ -698,7 +756,11 @@ def permit_covers(ceiling: WritePermit, required: RequiredCapabilities) -> bool:
     """Subset inclusion on both dimensions and nothing else (E5)."""
     if type(ceiling) is not WritePermit or type(required) is not RequiredCapabilities:
         raise TypeError("permit_covers judges a WritePermit against a RequiredCapabilities")
-    return required.permit.kinds <= ceiling.kinds and required.permit.act_families <= ceiling.act_families
+    return (
+        required.permit.kinds <= ceiling.kinds
+        and required.permit.act_families <= ceiling.act_families
+        and (not required.permit.ungoverned or ceiling.ungoverned)
+    )
 ```
 
 - [ ] **Step 4: Run, gate, commit**
@@ -706,6 +768,7 @@ def permit_covers(ceiling: WritePermit, required: RequiredCapabilities) -> bool:
 ```bash
 uv run --frozen pytest -q -p no:cacheprovider tests/test_permit.py
 uv run --frozen pytest -q -p no:cacheprovider && uv run --frozen ruff check . && uv run --frozen pyright
+tasks done beliefs-29d389 "RequiredCapabilities constructors and permit_covers over three dimensions"
 cd .. && tasks check && git add python && git commit -m "feat(permit): RequiredCapabilities and permit_covers"
 ```
 
@@ -723,6 +786,8 @@ cd .. && tasks check && git add python && git commit -m "feat(permit): RequiredC
 **Interfaces:**
 - Consumes: `beliefs.permit.Authority`; `tests/authority.FULL`.
 - Produces: `OperationPort.authority` (read-only property on the protocol; every port implements it); `DurableOperationPort(root, *, backend, storage, metadata_root, authority)`; `CorpusWriter(root, executor_factory, *, authority, operation_port=None, coordination_resolver=None)` with `CorpusWriter.authority` property; `open_corpus(corpus_root, *, authority, coordination_resolver=None)`. Construction of a writer over a port whose authority differs raises `ValueError`.
+
+- [ ] **Step 0: Start the task record** — `tasks start beliefs-7e1c7e`
 
 - [ ] **Step 1: Write the failing E2 tests**
 
@@ -893,7 +958,7 @@ Mechanical rules, applied file by file (open each and edit; do not regex blindly
 1. Every `CorpusWriter(<root>, <factory>` call gains `, authority=FULL` (keyword, after the factory), and the file gains `from authority import FULL` (tests import sibling modules by bare name, as `from n2_arms import Arm` does).
 2. Every `open_corpus(<root>` call gains `, authority=FULL` — including `tests/acceptance/conftest.py`'s `durable_writer` fixture and `durable_coordination_roots`.
 3. Every `DurableOperationPort(` construction and `durable_port(...)` helper: `test_operation_port.py`'s `durable_port(tmp_path)` becomes `durable_port(tmp_path, authority=FULL)` with `authority=authority` passed through; update its five callers (`succession_fixtures.py`, `test_run_persistence.py`, `acceptance/test_intent_boundary_acceptance.py`, `acceptance/test_cut15_lineage.py`) to pass `authority=FULL`, or give the helper the default `authority: Authority = FULL` so callers stay unchanged — choose the default: it is a test helper, not a seam.
-4. Every fake port class gains `authority = FULL` as a class attribute: `test_operation_port.FakePort`, `test_import_bundle.FakePort`, `fixtures_cut3.MemoryPort`, and any other class in `tests/` defining `append_intent` (find them with `grep -rn "def append_intent" tests`).
+4. Every fake port exposes an authority. `test_operation_port.FakePort` and `fixtures_cut3.MemoryPort` gain the class attribute `authority = FULL`; `test_import_bundle.FakePort`, which is constructed per test, takes it: `def __init__(self, root, authority=FULL): self._inner = DefaultExecutor(root); self.authority = authority`, so a narrowed writer can share its authority with its port. Find any other port class with `grep -rn "def append_intent" tests` and give it one of the two forms.
 5. Do **not** touch `tests/acceptance/test_n2_cut5.py`, `n2_arms_cut5.py`, `n2_arms_cut10.py`, `test_n2_cut10.py` or any `n2_arms_cut*.py` — pinned.
 
 - [ ] **Step 6: Run the suite, the staleness probe, gates, commit**
@@ -906,6 +971,7 @@ uv run --frozen pyright && uv run --frozen ruff check .
 Then the staleness probe from Global Constraints (expected `stale: []`), then:
 
 ```bash
+tasks done beliefs-7e1c7e "Authority bound at CorpusWriter, DurableOperationPort and open_corpus; port/writer agreement refused"
 cd .. && tasks check && git add python && git commit -m "feat(permit): bind Authority at the corpus writer, the port and open_corpus"
 ```
 
@@ -922,6 +988,8 @@ Expected: full suite green (pyright will point at every construction you missed;
 **Interfaces:**
 - Consumes: Task 4's bound writer.
 - Produces: each method's first statement is its `require`; `retract` and run-closure `add` raise `ActorMismatch`.
+
+- [ ] **Step 0: Start the task record** — `tasks start beliefs-65802a`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -990,7 +1058,7 @@ class TestE3TheActorIsBound:
         assert writer.add(node).kind == "run"
 ```
 
-`fixtures_cut3.minted_closure` may not exist under that name: open `tests/fixtures_cut3.py`, find the helper that builds a `RunClosure` with `actor="tester"` (around lines 300–330, the one feeding `closure_fixtures`), and use its real name; if none returns a closure directly, use `closure_fixtures.make_closure()` (imported by `test_intent_boundary_acceptance.py`) — check its occurrence actor with `make_closure().occurrence.actor` and use that value in place of `"tester"`.
+`minted_closure` is a stand-in: use `fixtures_cut3.closure()` (line ~175), whose `occurrence()` carries `actor="tester"`; replace `from fixtures_cut3 import minted_closure` with `from fixtures_cut3 import closure as minted_closure` in both tests.
 
 Append to `python/tests/test_retract.py` (it has a `retraction(...)` helper building `stored.retraction_node(..., actor="tester", ...)` near line 62, and a `writer` fixture):
 
@@ -1012,12 +1080,13 @@ def test_e3_a_retraction_under_its_own_actor_mints(tmp_path):
     assert writer.retract(retraction(target, "invalid")).kind == "retraction"
 ```
 
-Replace `admissible_assessment()` and `retraction(target, "invalid")` with the module's real helper names (read the file's first 120 lines).
+The module's real helpers are `mint_eligible_assessment(writer)` (line ~40) and `retraction_for(target, reason=...)` (line ~61): write `target = mint_eligible_assessment(writer)` and `writer.retract(retraction_for(target))`.
 
 - [ ] **Step 2: Run to verify they fail**
 
 ```bash
-uv run --frozen pytest -q -p no:cacheprovider tests/test_corpus_write.py -k "E1 or E3" tests/test_retract.py -k e3
+uv run --frozen pytest -q -p no:cacheprovider tests/test_corpus_write.py -k "E1 or E3"
+uv run --frozen pytest -q -p no:cacheprovider tests/test_retract.py -k e3
 ```
 
 Expected: the refusal tests fail because no `PermitExceeded`/`ActorMismatch` is raised (the writes succeed).
@@ -1118,6 +1187,7 @@ uv run --frozen ruff check . && uv run --frozen pyright
 Staleness probe: expected `stale: []`. Then:
 
 ```bash
+tasks done beliefs-65802a "corpus-write and lifecycle checks on the six writer families; ActorMismatch on retract and run-closure add"
 cd .. && tasks check && git add python && git commit -m "feat(permit): require the corpus-write and lifecycle permits on the writer's families"
 ```
 
@@ -1133,6 +1203,8 @@ cd .. && tasks check && git add python && git commit -m "feat(permit): require t
 **Interfaces:**
 - Produces: `CorpusWriter.import_bundle(records, *, observer, instrument, opened_at, closed_at)` — no `actor`; the intent's actor is `self.authority.actor`.
 
+- [ ] **Step 0: Start the task record** — `tasks start beliefs-b88767`
+
 - [ ] **Step 1: Write the failing tests**
 
 Append to `python/tests/test_import_bundle.py` (its `writer_with_port` fixture and `FakePort` exist; `member` there is a `source` or `proposition` node — read lines 55–80 for the exact helper):
@@ -1147,12 +1219,13 @@ def _import(writer, members):
     return writer.import_bundle(members, observer="o", instrument="i", opened_at="T0", closed_at="T1")
 
 
-def test_e8_one_unpermitted_member_refuses_the_bundle_before_the_intent(tmp_path):
+def _narrowed_writer(tmp_path, authority):
     FakePort.intents, FakePort.executed, FakePort.fulfilling = [], [], []
-    writer = CorpusWriter(
-        tmp_path, Recorder, authority=narrowed(kinds=("proposition", "act-report"), families=("corpus-write",)),
-        operation_port=FakePort(tmp_path),
-    )
+    return CorpusWriter(tmp_path, Recorder, authority=authority, operation_port=FakePort(tmp_path, authority=authority))
+
+
+def test_e8_one_unpermitted_member_refuses_the_bundle_before_the_intent(tmp_path):
+    writer = _narrowed_writer(tmp_path, narrowed(kinds=("proposition", "act-report"), families=("corpus-write",)))
     with pytest.raises(PermitExceeded) as caught:
         _import(writer, [proposition_member("p1"), stored.source_node("s1", title="s", identifiers={"doi": "10.1/x"})])
     assert caught.value.requirement == PermitFact("kind", "source")
@@ -1160,11 +1233,7 @@ def test_e8_one_unpermitted_member_refuses_the_bundle_before_the_intent(tmp_path
 
 
 def test_e8_a_permit_lacking_act_report_refuses_before_the_intent(tmp_path):
-    FakePort.intents, FakePort.executed, FakePort.fulfilling = [], [], []
-    writer = CorpusWriter(
-        tmp_path, Recorder, authority=narrowed(kinds=("proposition",), families=("corpus-write",)),
-        operation_port=FakePort(tmp_path),
-    )
+    writer = _narrowed_writer(tmp_path, narrowed(kinds=("proposition",), families=("corpus-write",)))
     with pytest.raises(PermitExceeded) as caught:
         _import(writer, [proposition_member("p1")])
     assert caught.value.requirement == PermitFact("kind", "act-report")
@@ -1172,11 +1241,7 @@ def test_e8_a_permit_lacking_act_report_refuses_before_the_intent(tmp_path):
 
 
 def test_e8_every_member_kind_plus_act_report_imports_with_one_fulfilling_report(tmp_path):
-    FakePort.intents, FakePort.executed, FakePort.fulfilling = [], [], []
-    writer = CorpusWriter(
-        tmp_path, Recorder, authority=narrowed(kinds=("proposition", "act-report"), families=("corpus-write",)),
-        operation_port=FakePort(tmp_path),
-    )
+    writer = _narrowed_writer(tmp_path, narrowed(kinds=("proposition", "act-report"), families=("corpus-write",)))
     report = _import(writer, [proposition_member("p1")])
     assert report.actor == ACTOR
     assert len(FakePort.intents) == 1 and len(FakePort.fulfilling) == 1
@@ -1195,13 +1260,12 @@ def test_e3_an_imported_member_naming_a_foreign_actor_is_stored_verbatim(tmp_pat
 
     _, _, (operation,) = publication_plan(minted_closure())
     node = node_from_markdown(operation.content.decode("utf-8"))
-    writer = CorpusWriter(tmp_path, Recorder, authority=narrowed(kinds=("run", "act-report"), families=("corpus-write",), actor="importer"), operation_port=FakePort(tmp_path))
+    writer = _narrowed_writer(tmp_path, narrowed(kinds=("run", "act-report"), families=("corpus-write",), actor="importer"))
     _import(writer, [node])
-    stored_node = writer.read_view.get(node.id)  # use the ReadView's real lookup method (see corpus.ReadView)
-    assert decode_run_closure(stored_node).occurrence.actor == "tester"
+    assert decode_run_closure(writer.read_view.get(node.id)).occurrence.actor == "tester"
 ```
 
-`proposition_member` is the module's existing member helper — use its real name. `v1.decode` exists in `beliefs.identity.v1`; if only `encode` is exported, decode with `json.loads` (the wire is canonical JSON). `ReadView.get` — read `corpus.ReadView` for the lookup by id; use its real method.
+`proposition_member` is this module's `prop(slug)` helper (line ~73) — use `prop`. `v1.decode` exists in `beliefs.identity.v1`; if only `encode` is exported, decode with `json.loads` (the wire is canonical JSON). `ReadView.get(ref)` is the lookup by id.
 
 - [ ] **Step 2: Run to verify they fail**
 
@@ -1268,6 +1332,7 @@ uv run --frozen pytest -q -p no:cacheprovider && uv run --frozen ruff check . &&
 Probe: `stale: []`. Then:
 
 ```bash
+tasks done beliefs-b88767 "import_bundle judged member by member before its intent; actor keyword removed"
 cd .. && tasks check && git add python && git commit -m "feat(permit): judge import bundles member by member before the intent"
 ```
 
@@ -1283,6 +1348,8 @@ cd .. && tasks check && git add python && git commit -m "feat(permit): judge imp
 
 **Interfaces:**
 - Produces: `execute_assessment_run(*, spec, port, boundary_policy, expected_recipe_identity=None, definition, code_roots, held_inputs, entrypoint, targets, declared_outputs, observer, started_at, host_realization, scratch_base, cores=1)`; the same removal of `actor` on `execute_production_run` and `replay.replay`; a `PermitExceeded` becomes `RunRefused("permit-exceeded", None, None, None, detail)`.
+
+- [ ] **Step 0: Start the task record** — `tasks start beliefs-81fdbc`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1345,6 +1412,16 @@ def test_e7_a_permit_lacking_act_report_refuses_before_the_intent(tmp_path):
     outcome = _assessment(tmp_path, port)
     assert isinstance(outcome, RunRefused) and outcome.reason == "permit-exceeded"
     assert "kind act-report" in outcome.detail
+    assert port.appended == []
+
+
+def test_e7_a_production_run_under_a_permit_lacking_run_refuses_with_no_intent(tmp_path):
+    from fixtures_cut3 import run_production
+
+    port = _NarrowPort(narrowed(kinds=("run", "act-report", "dataset"), families=("corpus-write",)))
+    outcome = run_production(tmp_path, port=port)
+    assert isinstance(outcome, RunRefused) and outcome.reason == "permit-exceeded"
+    assert outcome.report is None and outcome.intent is None and outcome.registration is None
     assert port.appended == []
 
 
@@ -1424,6 +1501,7 @@ uv run --frozen pytest -q -p no:cacheprovider && uv run --frozen ruff check . &&
 Probe: `stale: []` (the cut-3 and cut-11 blocks must still match — if any is stale, the `actor` local is missing or a line was reflowed). Then:
 
 ```bash
+tasks done beliefs-81fdbc "run boundary requires run through the exact try shape; RunRefused(permit-exceeded) with no intent; replay drops actor"
 cd .. && tasks check && git add python && git commit -m "feat(permit): run boundary requires the run permit and refuses without an intent"
 ```
 
@@ -1438,6 +1516,8 @@ cd .. && tasks check && git add python && git commit -m "feat(permit): run bound
 
 **Interfaces:**
 - Produces: `ActContext(observer_root, store_root, observer, instrument, authority, seam)` with a read-only `actor` property returning `authority.actor`; each of `recheck`, `write`, `delete`, `move`, `_append`, `_publish` begins with `ctx.authority.require("holdings", ("holdings-observation",))`.
+
+- [ ] **Step 0: Start the task record** — `tasks start beliefs-baeff9`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1558,6 +1638,7 @@ uv run --frozen pytest -q -p no:cacheprovider && uv run --frozen ruff check . &&
 Probe: from here on the expected output is exactly `stale: [(10, 'H4u1', 'holdings/boundary.py', 0), (10, 'J8', 'holdings/boundary.py', 0)]`. Then:
 
 ```bash
+tasks done beliefs-baeff9 "ActContext binds an Authority with an actor property; six holdings checks; cut-10 _publish arms stale by design"
 cd .. && tasks check && git add python && git commit -m "feat(permit): holdings acts require the holdings permit on the bound context"
 ```
 
@@ -1578,6 +1659,8 @@ cd .. && tasks check && git add python && git commit -m "feat(permit): holdings 
 
 **Interfaces:**
 - Produces: `World(config, executor_factory, *, chain_head, corpus_executor_factory, authority)` with `World.authority`; `open_world(config, *, authority)`; `World.admit(corpus_root, *, provenance)`, `World.retire(corpus_id)`, `World.depart(corpus_id)`; `epoch.delete_epoch(world, packaging_identity)`; `anchors._anchor_heads(world, corpus_ids, *, store_roots=(), seam)`; `root.anchor_heads(world, corpus_ids, *, store_roots=())`; `root.admit_arrival(world, corpus_root, provenance, observers, *, history=None)`; `verify._admit_arrival(world, corpus_root, provenance, observers, *, history=None, seam)`; `root.audit_log` unchanged.
+
+- [ ] **Step 0: Start the task record** — `tasks start beliefs-d17d3c`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1634,25 +1717,26 @@ from dataclasses import replace  # noqa: E402
 from beliefs.errors import PermitExceeded  # noqa: E402
 
 
-def test_e1_delete_epoch_under_a_permit_lacking_epoch_refuses_and_keeps_the_members(<the module's retained-epochs fixture>):
-    world, first = <unpack per the fixture>
-    narrowed_world = world_module.World(
+def test_e1_delete_epoch_under_a_permit_lacking_epoch_refuses_and_keeps_the_members(tmp_path):
+    world, _recorder, _bindings, (first, _second, _third) = three_retained(tmp_path)
+    narrowed_world = registry.World(
         world.config, world._executor_factory, chain_head=world._chain_head,
-        corpus_executor_factory=world._corpus_executor_factory,
-        authority=narrowed(families=("registry",)),
+        corpus_executor_factory=world._corpus_executor_factory, authority=narrowed(families=("registry",)),
     )
-    members_before = sorted(p.name for p in (world.config.world_root / "epochs" / first.packaging_identity).iterdir())
+    members = world.config.world_root / "epochs" / first.packaging_identity
+    before = sorted(p.name for p in members.iterdir())
     with pytest.raises(PermitExceeded):
         epoch.delete_epoch(narrowed_world, first.packaging_identity)
-    assert sorted(p.name for p in (world.config.world_root / "epochs" / first.packaging_identity).iterdir()) == members_before
+    assert sorted(p.name for p in members.iterdir()) == before
 ```
 
-Fill the fixture name and unpacking from the file (read its first 160 lines).
+`three_retained(tmp_path)` (line ~68) returns `world, recorder, bindings, (first, second, third)`; `registry` and `epoch` are the module's existing imports. `World.__init__` keeps `chain_head` and `corpus_executor_factory` on `_chain_head` and `_corpus_executor_factory`.
 
 - [ ] **Step 2: Run to verify they fail**
 
 ```bash
-uv run --frozen pytest -q -p no:cacheprovider tests/test_world_registry.py -k "e1 or e2 or e3" tests/test_world_gc.py -k e1
+uv run --frozen pytest -q -p no:cacheprovider tests/test_world_registry.py -k "e1 or e2 or e3"
+uv run --frozen pytest -q -p no:cacheprovider tests/test_world_gc.py -k e1
 ```
 
 Expected: `TypeError: __init__() got an unexpected keyword argument 'authority'`.
@@ -1728,6 +1812,7 @@ uv run --frozen pytest -q -p no:cacheprovider && uv run --frozen ruff check . &&
 Probe: exactly the two cut-10 arms. Then:
 
 ```bash
+tasks done beliefs-d17d3c "World binds an Authority; registry and epoch acts require it; per-call actors removed"
 cd .. && tasks check && git add python && git commit -m "feat(permit): world binds an authority; registry and epoch acts require it"
 ```
 
@@ -1742,6 +1827,8 @@ cd .. && tasks check && git add python && git commit -m "feat(permit): world bin
 
 **Interfaces:**
 - Produces: `init_corpus_root(corpus_root, *, authority)`, `init_world_root(config, *, authority)`, `init_store_root(store_root, *, authority) -> str`, `replicate_root(source_root, dest_root, *, authority)`, `migrate_root_to_lifecycle_v3(root, *, authority)`, `restore_root(dest_root, subject, observers, *, authority)`, `fork_corpus(source_root, dest_root, *, authority)`, `fork_store(source_root, dest_root, *, authority)`, `_fork_resume(dest_root, operation_id)` (unchanged, §13.6).
+
+- [ ] **Step 0: Start the task record** — `tasks start beliefs-9345e4`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1873,6 +1960,7 @@ uv run --frozen pytest -q -p no:cacheprovider && uv run --frozen ruff check . &&
 Probe: the by-design stale set as ruled in Step 3. Then:
 
 ```bash
+tasks done beliefs-9345e4 "root lifecycle acts require the lifecycle permit; _fork_resume kept as the implementation"
 cd .. && tasks check && git add python && git commit -m "feat(permit): root lifecycle acts require the lifecycle permit"
 ```
 
@@ -1885,7 +1973,9 @@ cd .. && tasks check && git add python && git commit -m "feat(permit): root life
 
 **Interfaces:**
 - Consumes: the seams of Tasks 4–10.
-- Produces: `WRITE_ENTRY_POINTS`, `PRIMITIVE_ATTRIBUTES`, `PRIMITIVE_NAMES`, `PRIMITIVE_IMPLEMENTATIONS`, `READ_ONLY_ACTOR_EXCEPTIONS`, `ACTOR_BEARING_RECORDS`, the predicates `primitive_callers(tree, module)`, `requires_before_writing(node, family)`, `actor_parameters(tree)`, `authority_constructions(tree)`, and the five `test_*` arms (names below are the N2 checks of Task 13).
+- Produces: `WRITE_ENTRY_POINTS`, `PRIMITIVE_ATTRIBUTES`, `PRIMITIVE_NAMES`, `PRIMITIVE_IMPLEMENTATIONS`, `READ_ONLY_ACTOR_EXCEPTIONS`, `ACTOR_BEARING_RECORDS`, the predicates `primitive_callers(tree, module)`, `requires_before_writing(node, family)`, `actor_parameters(tree)`, `authority_constructions(tree)`, and the five `test_*` arms (names below are the N2 checks of Task 14).
+
+- [ ] **Step 0: Start the task record** — `tasks start beliefs-413d31`
 
 - [ ] **Step 1: Write the test module**
 
@@ -2091,6 +2181,8 @@ def _run_shape(statement: ast.stmt) -> ast.Call | None:
     handler = statement.handlers[0]
     if call is None or not isinstance(handler.type, ast.Name) or handler.type.id != "PermitExceeded":
         return None
+    if handler.name is None:
+        return None  # `except PermitExceeded as <name>` — the refusal's message is what RunRefused carries
     if len(handler.body) != 1 or not isinstance(handler.body[0], ast.Return):
         return None
     value = handler.body[0].value
@@ -2290,6 +2382,14 @@ def execute(port):
     except PermitExceeded as exceeded:
         return RunRefused("permit-exceeded", None, None, None, str(exceeded))
 '''),
+    "handler without a binding": ("execute", '''
+def execute(port):
+    try:
+        port.authority.require("run")
+    except PermitExceeded:
+        return RunRefused("permit-exceeded", None, None, None, "")
+    port.append_intent(b"x")
+'''),
     "handler does more than return": ("execute", '''
 def execute(port):
     try:
@@ -2343,12 +2443,468 @@ Expected on first run: `test_the_inventory_is_closed_in_both_directions` and `te
 
 ```bash
 uv run --frozen pytest -q -p no:cacheprovider && uv run --frozen ruff check . && uv run --frozen pyright
+tasks done beliefs-413d31 "static entry-point inventory held closed in both directions with offender and satisfied arms"
 cd .. && tasks check && git add python && git commit -m "test(permit): hold the write entry points closed statically (E6)"
 ```
 
 ---
 
-### Task 12: The durable acceptance suite (E1, E2, E7, E8 over real roots)
+### Task 12: Per-entry-point E1 coverage
+
+**Files:**
+- Create: `python/tests/test_permit_entry_points.py`
+- Modify: `python/tests/test_coordination_write.py` (`writer_with_resolver` gains `authority=FULL`), `python/tests/test_world_rules.py` (`make_world` gains `authority=FULL`), `python/tests/test_world_anchor_act.py` (its world-and-heads builder around line 150 gains `authority=FULL`)
+
+**Interfaces:**
+- Consumes: every seam of Tasks 4–10; the sibling test helpers named in the table.
+- Produces: one parameterized test per inventoried definition, asserting E1 in three directions — the family refused, each emitted kind refused by name, the exact requirement accepted — with no effect on refusal. These are the checks Task 14's `E1` arms cite beside the representative tests.
+
+- [ ] **Step 0: Start the task record** — `tasks start beliefs-6ce675`
+
+- [ ] **Step 1: Give three sibling helpers an authority keyword**
+
+`test_coordination_write.writer_with_resolver(root, profile, *, authority=FULL)`, `test_world_rules.make_world(tmp_path, *, authority=FULL)`, and the world builder in `test_world_anchor_act.py` (line ~150; if it is a nested helper, lift it to a module function `world_with(tmp_path, *, authority=FULL)` returning `world, recorder, heads, roots` exactly as today). Each passes `authority=authority` to the `World(...)` or `CorpusWriter(...)` it constructs. Run the three modules to confirm nothing else changed.
+
+- [ ] **Step 2: Write the coverage module**
+
+```python
+"""E1 over every inventoried definition (design §4.2, §7 E1).
+
+One case per entry point. Each case performs the act under an authority and
+observes that nothing happened on refusal. `family` and `kinds` are the
+requirement the definition states; the tests derive the three directions.
+"""
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass
+from pathlib import Path
+
+import pytest
+from authority import lacking, narrowed
+
+from beliefs import root as science_root
+from beliefs.corpus import CorpusWriter
+from beliefs.errors import PermitExceeded, PermitFact
+from beliefs.permit import Authority
+from beliefs.world import registry
+
+
+@dataclass(frozen=True)
+class Case:
+    name: str
+    family: str
+    kinds: tuple[str, ...]
+    needs_volume: bool
+    run: Callable[[Authority, Path], object]
+    probe: Callable[[Path], object]
+
+
+def _chain(root: Path) -> int:
+    from beliefs.world.logmodel import WellFormedView
+
+    view = science_root._log_seam().inspect_registered(root)
+    assert type(view) is WellFormedView
+    return len(view.entries)
+
+
+def _tree(root: Path) -> list[str]:
+    return sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()) if root.exists() else []
+
+
+# --- corpus-write family, in-memory executor -------------------------------------
+
+def _writer(authority: Authority, work: Path) -> CorpusWriter:
+    from test_corpus_write import Recorder
+
+    return CorpusWriter(work / "corpus", Recorder, authority=authority)
+
+
+def _plans(_work: Path) -> list:
+    from test_corpus_write import Recorder
+
+    return list(Recorder.plans)
+
+
+def _reset_plans() -> None:
+    from test_corpus_write import Recorder
+
+    Recorder.plans = []
+
+
+def _add(authority, work):
+    from test_corpus_write import observed_dataset
+
+    _reset_plans()
+    return _writer(authority, work).add(observed_dataset())
+
+
+def _retract(authority, work):
+    from test_retract import mint_eligible_assessment, retraction_for
+
+    target = mint_eligible_assessment(_writer(lacking(), work))
+    _reset_plans()
+    return _writer(authority, work).retract(retraction_for(target))
+
+
+def _supersede(authority, work):
+    from test_supersede import prop
+
+    predecessor = _writer(lacking(), work).add(prop("p1"))
+    _reset_plans()
+    return _writer(authority, work).supersede(prop("p2"), of=predecessor.id)
+
+
+def _revise(authority, work):
+    from test_revise import prop
+
+    node = _writer(lacking(), work).add(prop("p"))
+    _reset_plans()
+    return _writer(authority, work).revise(node)
+
+
+def _mint_coordination(authority, work):
+    from coordination_fixtures import content_for
+    from test_coordination_write import writer_with_resolver
+
+    _reset_plans()
+    return writer_with_resolver(work / "corpus", None, authority=authority).mint_coordination("project", content=content_for("project"))
+
+
+def _revise_coordination(authority, work):
+    from coordination_fixtures import content_for
+    from test_coordination_write import writer_with_resolver
+
+    from beliefs.coordination import coordination_revision
+
+    project = writer_with_resolver(work / "corpus", None, authority=lacking()).mint_coordination("project", content=content_for("project"))
+    _reset_plans()
+    writer = writer_with_resolver(work / "corpus", None, authority=authority)
+    return writer.revise_coordination(
+        "project", coordination_revision(project).address, predecessors=(project.id,), content=content_for("project", name="renamed")
+    )
+
+
+def _import_bundle(authority, work):
+    from test_corpus_write import Recorder
+    from test_import_bundle import FakePort, prop
+
+    _reset_plans()
+    FakePort.intents, FakePort.executed, FakePort.fulfilling = [], [], []
+    writer = CorpusWriter(work / "corpus", Recorder, authority=authority, operation_port=FakePort(work / "corpus", authority=authority))
+    return writer.import_bundle([prop("p1")], observer="o", instrument="i", opened_at="T0", closed_at="T1")
+
+
+def _adopt_manifest(authority, work):
+    from beliefs.consulted import CorpusPins
+
+    _reset_plans()
+    return _writer(authority, work).adopt_manifest(profile=CorpusPins(science_contract="sha256:" + "0" * 64, domains={}))
+
+
+# --- run family, memory port ---------------------------------------------------------
+
+class _Port:
+    def __init__(self, authority: Authority) -> None:
+        from fixtures_cut3 import MemoryPort
+
+        self._inner = MemoryPort()
+        self.authority = authority
+        self.appended: list = []
+
+    def append_intent(self, payload):
+        self.appended.append(payload)
+        return self._inner.append_intent(payload)
+
+    def execute(self, plan):
+        self.appended.append(plan)
+
+    def execute_fulfilling(self, plan, fulfills):
+        self.appended.append(plan)
+
+
+_PORTS: dict[str, _Port] = {}
+
+
+def _fact_from(detail: str) -> PermitFact:
+    words = detail.split()  # "permit exceeded: <dimension> <name> is not permitted"
+    return PermitFact(words[2], words[3])
+
+
+def _run(shape: str):
+    def run(authority, work):
+        from fixtures_cut3 import run_assessment, run_production
+
+        from beliefs.boundary import RunRefused
+
+        _PORTS["run"] = port = _Port(authority)
+        outcome = (run_assessment if shape == "assessment" else run_production)(work, port=port)
+        if isinstance(outcome, RunRefused) and outcome.reason == "permit-exceeded":
+            raise PermitExceeded(_fact_from(outcome.detail), authority.permit.summary())
+        return outcome
+
+    return run
+
+
+def _run_probe(_work: Path) -> list:
+    return list(_PORTS["run"].appended) if "run" in _PORTS else []
+
+
+# --- holdings family, certified volume ----------------------------------------------
+
+def _context(authority: Authority, work: Path):
+    from beliefs.holdings.boundary import ActContext
+    from beliefs.root import holdings_seam, init_corpus_root, init_store_root
+
+    observer_root, store_root, marker = work / "observer", work / "store", work / "store-id"
+    if not marker.exists():
+        init_corpus_root(observer_root, authority=lacking())
+        marker.write_text(init_store_root(store_root, authority=lacking()))
+    return ActContext(observer_root, store_root, "observer", "instrument", authority, holdings_seam()), marker.read_text()
+
+
+def _holdings(act: str):
+    def run(authority, work):
+        from beliefs.holdings import boundary
+        from beliefs.holdings.boundary import StoreLocator
+
+        ctx, store_id = _context(authority, work)
+        if act == "recheck":
+            ctx.seam.store_write(ctx.store_root, "held.bin", b"held")
+            return boundary.recheck(ctx, StoreLocator(store_id, "held.bin"))
+        if act == "write":
+            return boundary.write(ctx, StoreLocator(store_id, "written.bin"), b"bytes")
+        if act == "delete":
+            ctx.seam.store_write(ctx.store_root, "gone.bin", b"held")
+            return boundary.delete(ctx, StoreLocator(store_id, "gone.bin"))
+        ctx.seam.store_write(ctx.store_root, "from.bin", b"held")
+        return boundary.move(ctx, StoreLocator(store_id, "from.bin"), StoreLocator(store_id, "to.bin"))
+
+    return run
+
+
+def _holdings_probe(work: Path) -> int:
+    return _chain(work / "observer") if (work / "observer").exists() else 0
+
+
+# --- registry and epoch families, default executor ----------------------------------
+
+def _rebind(world: registry.World, authority: Authority) -> registry.World:
+    return registry.World(
+        world.config, world._executor_factory, chain_head=world._chain_head,
+        corpus_executor_factory=world._corpus_executor_factory, authority=authority,
+    )
+
+
+def _admitted(work: Path, *corpus_ids: str):
+    from test_world_epoch import admitted_world
+
+    return admitted_world(work, corpus_ids or ("a" * 32,))
+
+
+def _admit(authority, work):
+    from test_world_registry import write_manifest
+
+    world, _recorder, _bindings, _roots = _admitted(work)
+    fresh = work / "fresh"
+    write_manifest(fresh, "b" * 32)
+    return _rebind(world, authority).admit(fresh, provenance=registry.Fresh())
+
+
+def _retire(authority, work):
+    world, _recorder, _bindings, roots = _admitted(work)
+    return _rebind(world, authority).retire(next(iter(roots)))
+
+
+def _anchor(authority, work):
+    from test_world_anchor_act import anchor, world_with
+
+    world, _recorder, heads, roots = world_with(work, authority=authority)
+    return anchor(world, heads, next(iter(roots)))
+
+
+def _build_epoch(authority, work):
+    from beliefs.world import epoch
+
+    world, _recorder, bindings, roots = _admitted(work)
+    return epoch.build_epoch(_rebind(world, authority), coverage=frozenset(roots), bindings=bindings)
+
+
+def _delete_epoch(authority, work):
+    from test_world_gc import three_retained
+
+    from beliefs.world import epoch
+
+    world, _recorder, _bindings, (first, _second, _third) = three_retained(work)
+    return epoch.delete_epoch(_rebind(world, authority), first.packaging_identity)
+
+
+def _install_rule(authority, work):
+    from test_world_rules import bundle, make_world
+
+    from beliefs.world import rules
+
+    return rules.install_rule_binding(make_world(work, authority=authority), bundle())
+
+
+def _remove_rule(authority, work):
+    from test_world_rules import bundle, make_world
+
+    from beliefs.world import rules
+
+    binding = rules.install_rule_binding(make_world(work, authority=lacking()), bundle())
+    return rules.remove_rule_binding(make_world(work, authority=authority), binding)
+
+
+def _world_probe(work: Path) -> list[str]:
+    return _tree(work / "world")
+
+
+# --- lifecycle family, certified volume ----------------------------------------------
+
+def _lifecycle(act: str):
+    def run(authority, work):
+        from beliefs.root import (
+            fork_corpus, fork_store, init_corpus_root, init_store_root, init_world_root,
+            migrate_root_to_lifecycle_v3, replicate_root, restore_root,
+        )
+        from beliefs.world import WorldConfig
+
+        if act == "init_corpus_root":
+            return init_corpus_root(work / "corpus", authority=authority)
+        if act == "init_world_root":
+            return init_world_root(WorldConfig(work / "world", "0" * 32, ()), authority=authority)
+        if act == "init_store_root":
+            return init_store_root(work / "store", authority=authority)
+        if act == "replicate_root":
+            init_corpus_root(work / "source", authority=lacking())
+            return replicate_root(work / "source", work / "replica", authority=authority)
+        if act == "migrate_root_to_lifecycle_v3":
+            (work / "bare").mkdir(exist_ok=True)
+            return migrate_root_to_lifecycle_v3(work / "bare", authority=authority)
+        if act == "fork_corpus":
+            from test_fork_acts import _parent_corpus
+
+            return fork_corpus(_parent_corpus(work), work / "child", authority=authority)
+        if act == "fork_store":
+            init_store_root(work / "parent-store", authority=lacking())
+            return fork_store(work / "parent-store", work / "child-store", authority=authority)
+        from test_restore_root import _head_of, _seeded_store, _store_record
+
+        from beliefs.world import anchors, verify
+
+        root, store_id = _seeded_store(work)
+        genesis, head = _head_of(root)
+        replica = work / "restored"
+        replicate_root(root, replica, authority=lacking())
+        return restore_root(
+            replica, anchors.StoreSubject(store_id), verify.ObserverSet((_store_record(store_id, genesis, head),)), authority=authority
+        )
+
+    return run
+
+
+def _lifecycle_probe(work: Path) -> list[str]:
+    return _tree(work)
+
+
+CASES = (
+    Case("CorpusWriter.add", "corpus-write", ("dataset",), False, _add, _plans),
+    Case("CorpusWriter.retract", "corpus-write", ("retraction",), False, _retract, _plans),
+    Case("CorpusWriter.supersede", "corpus-write", ("proposition",), False, _supersede, _plans),
+    Case("CorpusWriter.revise", "corpus-write", ("proposition",), False, _revise, _plans),
+    Case("CorpusWriter.mint_coordination", "corpus-write", ("project",), False, _mint_coordination, _plans),
+    Case("CorpusWriter.revise_coordination", "corpus-write", ("project",), False, _revise_coordination, _plans),
+    Case("CorpusWriter.import_bundle", "corpus-write", ("proposition", "act-report"), False, _import_bundle, _plans),
+    Case("CorpusWriter.adopt_manifest", "lifecycle", (), False, _adopt_manifest, _plans),
+    Case("execute_assessment_run", "run", ("run", "act-report"), False, _run("assessment"), _run_probe),
+    Case("execute_production_run", "run", ("run", "act-report"), False, _run("production"), _run_probe),
+    Case("holdings.recheck", "holdings", ("holdings-observation",), True, _holdings("recheck"), _holdings_probe),
+    Case("holdings.write", "holdings", ("holdings-observation",), True, _holdings("write"), _holdings_probe),
+    Case("holdings.delete", "holdings", ("holdings-observation",), True, _holdings("delete"), _holdings_probe),
+    Case("holdings.move", "holdings", ("holdings-observation",), True, _holdings("move"), _holdings_probe),
+    Case("World._locked_admit", "registry", (), False, _admit, _world_probe),
+    Case("World._terminal", "registry", (), False, _retire, _world_probe),
+    Case("anchors._anchor_heads", "registry", (), False, _anchor, _world_probe),
+    Case("epoch.build_epoch", "epoch", (), False, _build_epoch, _world_probe),
+    Case("epoch.delete_epoch", "epoch", (), False, _delete_epoch, _world_probe),
+    Case("rules.install_rule_binding", "epoch", (), False, _install_rule, _world_probe),
+    Case("rules.remove_rule_binding", "epoch", (), False, _remove_rule, _world_probe),
+    Case("root.init_corpus_root", "lifecycle", (), True, _lifecycle("init_corpus_root"), _lifecycle_probe),
+    Case("root.init_world_root", "lifecycle", (), True, _lifecycle("init_world_root"), _lifecycle_probe),
+    Case("root.init_store_root", "lifecycle", (), True, _lifecycle("init_store_root"), _lifecycle_probe),
+    Case("root.replicate_root", "lifecycle", (), True, _lifecycle("replicate_root"), _lifecycle_probe),
+    Case("root.migrate_root_to_lifecycle_v3", "lifecycle", (), True, _lifecycle("migrate_root_to_lifecycle_v3"), _lifecycle_probe),
+    Case("root.restore_root.grant", "lifecycle", (), True, _lifecycle("restore_root"), _lifecycle_probe),
+    Case("root.fork_corpus", "lifecycle", (), True, _lifecycle("fork_corpus"), _lifecycle_probe),
+    Case("root.fork_store", "lifecycle", (), True, _lifecycle("fork_store"), _lifecycle_probe),
+)
+"""`test_permit_boundary.WRITE_ENTRY_POINTS` less the private holdings helpers
+`_append` and `_publish`, which every holdings case reaches."""
+
+
+def _work(case: Case, tmp_path: Path, request, sub: str = "") -> Path:
+    base = request.getfixturevalue("certified_work") if case.needs_volume else tmp_path
+    work = base / (case.name.replace(".", "-") + sub)
+    work.mkdir(parents=True, exist_ok=True)
+    return work
+
+
+@pytest.mark.parametrize("case", CASES, ids=[case.name for case in CASES])
+def test_e1_the_family_is_refused_with_no_effect(case, tmp_path, request):
+    work = _work(case, tmp_path, request)
+    before = case.probe(work)
+    with pytest.raises(PermitExceeded) as caught:
+        case.run(lacking(families=(case.family,)), work)
+    assert caught.value.requirement == PermitFact("family", case.family)
+    assert case.probe(work) == before
+
+
+@pytest.mark.parametrize("case", [case for case in CASES if case.kinds], ids=[case.name for case in CASES if case.kinds])
+def test_e1_each_emitted_kind_is_refused_by_name_with_no_effect(case, tmp_path, request):
+    for kind in case.kinds:
+        work = _work(case, tmp_path, request, sub=f"-{kind}")
+        before = case.probe(work)
+        with pytest.raises(PermitExceeded) as caught:
+            case.run(lacking(kinds=(kind,)), work)
+        assert caught.value.requirement == PermitFact("kind", kind)
+        assert case.probe(work) == before
+
+
+@pytest.mark.parametrize("case", CASES, ids=[case.name for case in CASES])
+def test_e1_the_exact_requirement_is_accepted(case, tmp_path, request):
+    work = _work(case, tmp_path, request, sub="-exact")
+    authority = narrowed(kinds=case.kinds, families=(case.family,))
+    if case.name == "root.migrate_root_to_lifecycle_v3":
+        from atoms.core.errors import PreconditionRefused  # the engine's own refusal, past the permit
+
+        with pytest.raises(PreconditionRefused):
+            case.run(authority, work)
+        return
+    case.run(authority, work)
+```
+
+The `PreconditionRefused` import path is the one `test_lifecycle_wrappers.py` uses. The `_run` cases translate the run boundary's value-style refusal back into the exception the shared assertions expect; the probe is the port's appended list, empty on refusal.
+
+- [ ] **Step 3: Run**
+
+```bash
+uv run --frozen pytest -q -p no:cacheprovider tests/test_permit_entry_points.py
+```
+
+Expected: every case passes on the certified host (the `certified_work` fixture errors rather than skips). A case whose act refuses for another reason before the permit check — a setup helper that itself needs a wider permit — is a case bug: widen the **setup** authority with `lacking()`, never the authority under test.
+
+- [ ] **Step 4: Gate and commit**
+
+```bash
+uv run --frozen pytest -q -p no:cacheprovider && uv run --frozen ruff check . && uv run --frozen pyright
+tasks done beliefs-6ce675 "E1 covered over every inventoried definition in three directions"
+cd .. && tasks check && git add python && git commit -m "test(permit): E1 over every inventoried entry point"
+```
+
+---
+
+### Task 13: The durable acceptance suite (E1, E2, E7, E8 over real roots)
 
 **Files:**
 - Create: `python/tests/acceptance/test_permit_acceptance.py`
@@ -2356,7 +2912,9 @@ cd .. && tasks check && git add python && git commit -m "test(permit): hold the 
 
 **Interfaces:**
 - Consumes: `open_corpus`, `open_world`, `init_world_root`, `holdings_seam`, `durable_port`, `science_root._log_seam().inspect_registered(root)`.
-- Produces: the check ids Task 13's arms name.
+- Produces: the check ids Task 14's arms name.
+
+- [ ] **Step 0: Start the task record** — `tasks start beliefs-cfcb65`
 
 - [ ] **Step 1: Write the suite**
 
@@ -2371,7 +2929,7 @@ from pathlib import Path
 
 import pytest
 from authority import ACTOR, FULL, lacking, narrowed
-from durable_fixture import memo
+from test_durable_families import proposition
 from fixtures_cut3 import stage, freeze, spec_draft, spec_rules, definition, MINIMAL_POLICY, DATA_ADDRESS, READS_ADDRESS
 from test_operation_port import durable_port
 
@@ -2400,10 +2958,19 @@ def test_e1_add_through_open_corpus_refuses_before_the_chain_moves(durable_root)
     writer = open_corpus(durable_root, authority=lacking(kinds=("proposition",)))
     before = _head(durable_root)
     with pytest.raises(PermitExceeded) as caught:
-        writer.add(memo("proposition:p1"))  # `memo` mints a memo kind; use durable_fixture's proposition helper if memo is not a `proposition`
-    assert caught.value.requirement == PermitFact("kind", memo("proposition:p1").kind)
+        writer.add(proposition("p1"))
+    assert caught.value.requirement == PermitFact("kind", "proposition")
     assert _head(durable_root) == before
-    assert open_corpus(durable_root, authority=FULL).add(memo("proposition:p1")).id
+    assert open_corpus(durable_root, authority=FULL).add(proposition("p1")).kind == "proposition"
+
+
+def test_e1_an_ungoverned_kind_mints_under_the_full_permit_and_refuses_under_a_governed_one(durable_root):
+    from durable_fixture import memo
+
+    with pytest.raises(PermitExceeded) as caught:
+        open_corpus(durable_root, authority=narrowed(kinds=("proposition",), families=("corpus-write",))).add(memo("memo:m1"))
+    assert caught.value.requirement == PermitFact("kind", "memo")
+    assert open_corpus(durable_root, authority=FULL).add(memo("memo:m1")).kind == "memo"
 
 
 def test_e2_the_composition_root_binds_one_authority_to_writer_and_port(durable_root):
@@ -2460,16 +3027,17 @@ def test_e7_world_admit_refuses_with_the_world_root_unchanged(durable_root, work
 def test_e8_an_unpermitted_member_refuses_the_bundle_with_the_chain_unchanged(durable_root):
     writer = open_corpus(durable_root, authority=lacking(kinds=("source",)))
     before = _head(durable_root)
-    members = [memo("proposition:p2"), stored.source_node("s1", title="s", identifiers={"doi": "10.1/x"})]
+    members = [proposition("p2"), stored.source_node("s1", title="s", identifiers={"doi": "10.1/x"})]
     with pytest.raises(PermitExceeded) as caught:
         writer.import_bundle(members, observer="o", instrument="i", opened_at="T0", closed_at="T1")
     assert caught.value.requirement == PermitFact("kind", "source")
     assert _head(durable_root) == before
     report = open_corpus(durable_root, authority=FULL).import_bundle(members, observer="o", instrument="i", opened_at="T0", closed_at="T1")
-    assert report.actor == ACTOR and len(_head(durable_root)) == len(before) + 3  # intent, payload, fulfilling report — adjust to the observed count
+    assert report.actor == ACTOR
+    assert len(_head(durable_root)) == len(before) + 5  # intent, payload registered+settled, report registered+settled (cut 5's shape)
 ```
 
-`durable_root` requires a corpus manifest for imports in some suites — read `tests/acceptance/test_durable_families.py`'s import test for the setup it performs (adopt a manifest with `writer.adopt_manifest(profile=...)` or the `pinned()` helper) and mirror it. Replace `_head`'s digest attribute and the chain-length delta with what the entry views actually expose.
+`test_durable_families.test_import_bundle_records_the_exact_durable_chain` imports two propositions into a bare `durable_root` with no manifest, so no setup is needed; its `proposition(slug)` helper (line 25) is the governed-kind member used here. `_head` reads `RegisteredEntryView.digest`, `IntentEntryView.digest` and the settled view's digest — every `EntryView` in `world/logmodel.py` carries `digest`; if the genesis view does not, filter it out. If `stored.source_node` refuses the identifier as a basis (`BasisMissing`), use a second `proposition("s1")` and narrow the permit on `proposition` instead, adjusting the expected `PermitFact`.
 
 - [ ] **Step 2: Run on the certified volume**
 
@@ -2482,12 +3050,13 @@ Expected: all passing. If the engine refuses the volume, the conftest raises `Un
 - [ ] **Step 3: Commit**
 
 ```bash
+tasks done beliefs-cfcb65 "durable acceptance arms for E1, E2, E7 and E8 over real roots"
 cd .. && tasks check && git add python && git commit -m "test(permit): durable acceptance arms for E1, E2, E7 and E8"
 ```
 
 ---
 
-### Task 13: N2 arms, the audit test, and the cut 16 runner
+### Task 14: N2 arms, the audit test, and the cut 16 runner
 
 **Files:**
 - Create: `python/tests/acceptance/n2_arms_cut16.py`
@@ -2495,8 +3064,10 @@ cd .. && tasks check && git add python && git commit -m "test(permit): durable a
 - Create: `python/tools/cut16_acceptance.py`
 
 **Interfaces:**
-- Consumes: every check id from Tasks 2–12; `IMPLEMENTATION_AMENDMENT_COMMIT` from Task 1; the pins below.
+- Consumes: every check id from Tasks 2–13; `IMPLEMENTATION_AMENDMENT_COMMIT` from Task 1; the pins below.
 - Produces: `CUT16_ARMS`, `ROW_UNITS = {"E1": 1, ..., "E8": 1}`, `LABELED_UNITS = ("K1",)`, `CO_CITED = {"K1": ("test_holdings_boundary.py::test_write_publishes_found_and_fulfills_its_intent",)}` (use `H4u1`'s real check id from `n2_arms_cut10.py`), `unit_of`.
+
+- [ ] **Step 0: Start the task record** — `tasks start beliefs-c430e0`
 
 - [ ] **Step 1: Declare the arms**
 
@@ -2530,6 +3101,7 @@ CUT16_ARMS = (
         checks=(
             f"{_P}::TestE1AuthorityRequire::test_a_missing_family_is_refused_on_the_family_before_any_kind",
             f"{_C}::TestE1CorpusWriteRequiresBeforeAnyEffect::test_add_under_a_permit_lacking_the_family_refuses_and_writes_nothing",
+            "test_permit_entry_points.py::test_e1_the_family_is_refused_with_no_effect[World._terminal]",
         ),
     ),
     Arm(
@@ -2633,8 +3205,8 @@ CUT16_ARMS = (
         asserts="coverage is subset inclusion on both dimensions",
         sabotage=Sabotage(
             module=_PERMIT,
-            before="    return required.permit.kinds <= ceiling.kinds and required.permit.act_families <= ceiling.act_families",
-            after="    return required.permit.act_families <= ceiling.act_families",
+            before="        required.permit.kinds <= ceiling.kinds\n        and required.permit.act_families <= ceiling.act_families",
+            after="        required.permit.act_families <= ceiling.act_families",
         ),
         checks=(f"{_P}::TestE5Coverage::test_coverage_is_subset_inclusion_on_both_dimensions",),
     ),
@@ -2735,7 +3307,7 @@ CUT16_ARMS = (
             before='    node = stored.holdings_observation_node(record)\n    ctx.seam.publish_fulfilling(ctx.observer_root, (CreateOp(f"holdings-observation/{record.identity()}.md",\n                                                             node_to_markdown(node).encode("utf-8")),), intent)\n    return PublishedObservation(record)\n\n\ndef recheck(',
             after='    node = stored.holdings_observation_node(record)\n    return PublishedObservation(record)\n\n\ndef recheck(',
         ),
-        checks=("<H4u1's check id, copied verbatim from n2_arms_cut10.py>",),
+        checks=("test_holdings_boundary.py::test_publication_failure_after_an_established_outcome_raises",),
     ),
 )
 
@@ -2748,10 +3320,10 @@ def unit_of(row: str) -> str:
 
 ROW_UNITS: dict[str, int] = {f"E{n}": 1 for n in range(1, 9)}
 LABELED_UNITS: tuple[str, ...] = ("K1",)
-CO_CITED: dict[str, tuple[str, ...]] = {"K1": ("<H4u1's check id, copied verbatim from n2_arms_cut10.py>",)}
+CO_CITED: dict[str, tuple[str, ...]] = {"K1": ("test_holdings_boundary.py::test_publication_failure_after_an_established_outcome_raises",)}
 ```
 
-Every `before` above is a **draft of the exact text**: after Tasks 5–11, open each named module and copy the real lines so each `before` occurs exactly once (the `test_every_arm_has_one_source_mutation_and_exact_check_nodes` arm below refuses anything else). Adjust the sabotage of `E6d` if `init_world_root`'s exact lines differ. Fill `K1`'s check id from `n2_arms_cut10.py`'s `H4u1` entry.
+Every `before` above is a **draft of the exact text**: after Tasks 5–11, open each named module and copy the real lines so each `before` occurs exactly once (the `test_every_arm_has_one_source_mutation_and_exact_check_nodes` arm below refuses anything else). Adjust the sabotage of `E6d` if `init_world_root`'s exact lines differ. `K1` re-declares `H4u1` (`n2_arms_cut10.py` line ~290) with its check co-cited.
 
 - [ ] **Step 2: Write the audit test**
 
@@ -2787,7 +3359,7 @@ WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-04-write-permits-design.md"
 CUT16_FREEZE_COMMIT = "c2f87b3"
-IMPLEMENTATION_AMENDMENT_COMMIT = "<Task 1's hash>"
+IMPLEMENTATION_AMENDMENT_COMMIT = "<the short hash Task 1 recorded; `git log --format=%h -1 --grep 'rule the cut 16 implementation amendment'` prints it>"
 FROZEN_PRIOR_CUT_FILES = {
     "python/tests/n2_arms_cut5.py": "7f5b28ec7da5f19db83fe0819c7477c8dbed7e93",
     "python/tests/n2_arms_cut6.py": "fdea7a7e2f8780f8ddfec3a6a700333a28e648cd",
@@ -2805,8 +3377,8 @@ FROZEN_CUT10_SHA256 = {
     "python/tests/acceptance/n2_arms_cut10.py": "e7e3cf02f8d033a9bf507b6eba0f4968bcf702c901ad3a753013f062c02e5ae8",
     "python/tests/acceptance/test_n2_cut10.py": "4058b86679b9a7b17bbfd5115ba3e7c21896e2316c384d700c4af052674dc650",
     "python/tools/cut10_acceptance.py": "39a1e333d8b99bacf0bcdc416e86ef6d68e97be797c6acc3c31c922bab838edf",
-    "docs/designs/2026-08-24-conformance-cut-10.md": "<sha256sum of the file>",
-    "docs/plans/2026-08-24-conformance-cut-10-results.md": "<sha256sum of the file>",
+    "docs/designs/2026-08-24-conformance-cut-10.md": "17dcc49b5a7e2207baeae3990d04f5cb35c499156f9c2cbf1c996b6587cefc64",
+    "docs/plans/2026-08-24-conformance-cut-10-results.md": "83fa5f7cb0ea0abaf82db765162792b2862d6cd9e0feec1eabe2aaaac85d224b",
 }
 PRIOR_ARMS = (*CUT3_ARMS, *CUT5_ARMS, *CUT6_ARMS, *CUT7_ARMS, *CUT8_ARMS, *CUT9_ARMS, *CUT10_ARMS,
               *CUT11_ARMS, *CUT12_ARMS, *CUT13_ARMS, *CUT14_ARMS, *CUT15_ARMS)
@@ -2886,7 +3458,7 @@ def test_prior_declarations_and_the_whole_cited_cut10_surface_are_unchanged() ->
         assert set(arm.checks) & prior <= set(CO_CITED.get(arm.row, ())), arm.row
 ```
 
-Fill the two `<sha256sum>` values with `sha256sum docs/designs/2026-08-24-conformance-cut-10.md docs/plans/2026-08-24-conformance-cut-10-results.md` from the repository root.
+The five cut-10 shas above were taken from the tree at `09c2894`; re-run `sha256sum` on the five paths from the repository root before committing and confirm they are unchanged (they must be — the surface is cited byte-identical).
 
 - [ ] **Step 3: Write the runner**
 
@@ -2927,12 +3499,13 @@ Expected: the portable accounting tests pass; the runner runs every phase green 
 - [ ] **Step 5: Commit**
 
 ```bash
+tasks done beliefs-c430e0 "cut 16 N2 arms, audit test with cut-10 citation pins, and the acceptance runner"
 cd .. && tasks check && git add python && git commit -m "test(cut16): declare the N2 arms, the audit, and the acceptance runner"
 ```
 
 ---
 
-### Task 14: Discharge — results record, ledger, roadmap, guide, banked-design notes, task closure
+### Task 15: Discharge — results record, ledger, roadmap, guide, banked-design notes, task closure
 
 **Files:**
 - Create: `docs/plans/2026-09-04-conformance-cut-16-results.md`
@@ -2943,13 +3516,15 @@ cd .. && tasks check && git add python && git commit -m "test(cut16): declare th
 - Modify: dated amendment notes in `2026-08-11-act-report-design.md` §3, `2026-08-19-family-adapters-design.md`, `2026-08-24-world-index-holdings-design.md`, `2026-08-02-computation-reproducibility-design.md`, `2026-08-30-run-confinement-design.md`, `2026-08-20-world-registry-design.md`, `2026-08-23-world-index-root-lifecycle-design.md` (a "**Amended 2026-09-04 (write permits):** …" note where each describes a caller-supplied actor or an unauthorized seam; frozen cut sections untouched)
 - Modify: `docs/guide/foundations.md` or `identity-world-and-change.md` where the guide says a writer or world is opened without authority
 
+- [ ] **Step 0: Start the task record** — `tasks start beliefs-e35dde`
+
 - [ ] **Step 1: Write the results record**
 
 Mirror `docs/plans/2026-09-01-conformance-cut-15-results.md`'s sections: header (subject, measured against frozen §7/§9 at `c2f87b3` and §13 at Task 1's hash); §1 accounting (8 selected + 1 labeled = 9 units, N arms); the citation of cut 10 with the pinned shas and the succession by `K1`; §2 what ran (the runner's command, its work root, the exact host tuple, every phase); §3 disposition (E1–E8 close); §4 the by-design stale cut-10 arms named.
 
 - [ ] **Step 2: Move the design status and §10**
 
-Status: `implemented and discharged 2026-09-<dd> at <hash>; conformance cut 16 froze before implementation at c2f87b3 and its 8 selected + 1 labeled units passed through <N> sabotage arms after the current-tree prefix of §13.2. Results: ../plans/2026-09-04-conformance-cut-16-results.md.` §10 gains the files the implementation rewrote beyond its list (at least `runrecord.py`, `world/verify.py`, `stored.py`, the acceptance conftest, and the corrections Task 11 Step 2 recorded).
+Status: `implemented and discharged 2026-09-<dd>; conformance cut 16 froze before implementation at c2f87b3 and its 8 selected + 1 labeled units passed through <N> sabotage arms after the current-tree prefix of §13.2. Results: ../plans/2026-09-04-conformance-cut-16-results.md.` — no commit hash in the status yet: a commit cannot name itself. Step 5 pins it. §10 gains the files the implementation rewrote beyond its list (at least `runrecord.py`, `world/verify.py`, `stored.py`, the acceptance conftest, and the corrections Task 11 Step 2 recorded).
 
 - [ ] **Step 3: Ledger, roadmap, README, guide, amendment notes**
 
@@ -2962,11 +3537,18 @@ uv run --frozen python tools/check_guide.py
 
 Expected: both clean (the corpus test holds the ledger's Current state to the newest results record and the roadmap's index to the ledger's rows).
 
-- [ ] **Step 4: Close the task in the same commit**
+- [ ] **Step 4: Close this task and the parent in the discharge commit**
 
 ```bash
-cd .. && tasks done beliefs-96a24a "Write permits landed and cut 16 discharged: Authority bound at every seam, E1-E8 closed, cut 10 cited" && tasks check
-git add -A && git commit -m "docs(permit): discharge conformance cut 16 and re-rank the roadmap"
+cd .. && tasks done beliefs-e35dde "Cut 16 discharged: results record, ledger and roadmap re-ranked, banked designs annotated"
+tasks done beliefs-96a24a "Write permits landed and cut 16 discharged: Authority bound at every seam, E1-E8 closed, cut 10 cited" && tasks check
+git add -A && git commit -m "docs(permit): discharge conformance cut 16 and re-rank the roadmap" && git rev-parse --short HEAD
 ```
+
+`tasks done` on the parent refuses while any child is open; every earlier task closed its own child in its final commit, so this is the last one.
+
+- [ ] **Step 5: Pin the discharge commit**
+
+Edit the design's status line to read `implemented and discharged 2026-09-<dd> at <the hash Step 4 printed>; …`, add the same hash to the results record's header, run `uv run --frozen pytest -q -p no:cacheprovider tests/test_designs_corpus.py`, and commit: `git commit -am "docs(designs): pin the cut 16 discharge commit"`.
 
 Then, per `superpowers:finishing-a-development-branch`, merge `design/write-permits` into `main` with `--no-ff` (the repository's rule for a cut) and note on `beliefs-afbbff` and the science task `sci-c3f0bb` that the permit exports are live.
