@@ -1,15 +1,11 @@
 # Write permits — design (the `write-permits` slice)
 
 **Date:** 2026-09-04
-**Status:** designed; conformance cut 16 (§9) and the `E` table are **frozen
-2026-09-04 at `c2f87b3`**, the commit that closes design review, before any of
-its code exists. The banking commit `895f822` and the three review passes that
-followed it precede the freeze; the text from `c2f87b3` onward is the frozen
-one. §14 (2026-09-04) renumbers the cut to **17** by citation — relocation had
-already claimed 16 at `ca31a04` — and inventories the relocation seams; §9's
-"16" reads 17 from that ruling on. The `E` table (§7) is minted here and is frozen like every other
-guarantee table. Discharge lands a results record under `../plans/` and the
-ledger and roadmap re-rank in the same commit.
+**Status:** implemented and discharged 2026-09-04; conformance cut 17 (16 in
+the frozen text, renumbered by §14) froze before implementation at `c2f87b3`
+and its 8 selected + 1 labeled units passed through 24 sabotage arms after the
+current-tree prefix of §13.2. Results:
+`../plans/2026-09-04-conformance-cut-17-results.md`.
 **Scope:** the `beliefs` half of the command framework's write boundary — the
 user and autonomy layer design
 (`../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md`) §5.2 and
@@ -498,6 +494,14 @@ by the cut-12 pattern, and `tools/cut16_acceptance.py` runs
 
 ## 10. What changes elsewhere
 
+- **Implementation surface.** The landed change adds `permit.py`, rewrites
+  `corpus.py`, `boundary.py`, `root.py`, `report.py`, `runrecord.py`,
+  `stored.py`, `holdings/boundary.py`, `world/registry.py`, `world/epoch.py`,
+  `world/rules.py`, `world/anchors.py`, and `world/verify.py`, and adds the
+  static, per-entry-point, durable, and cut-17 tests plus the acceptance
+  conftest migrations. Task 11 also repins cut 7's audit of the deliberately
+  migrated cut-6 acceptance module; no frozen declaration body moves.
+
 - **The `authority` lane.** The roadmap's lane table gains `authority` with
   `write-permits` as its one boundary and a shared surface of `corpus.py`,
   `boundary.py`, `replay.py`, `root.py`, `runrecord.py`,
@@ -505,10 +509,9 @@ by the cut-12 pattern, and `tools/cut16_acceptance.py` runs
   `world/rules.py`, `world/anchors.py` and `errors.py`. It touches every
   other lane; concurrency rule 3 is satisfied by naming them here, and the
   later merge resolves toward this one.
-- **The ledger's `Current state`** gains the `write-permits` row, owned by
-  this document, blocking `science`'s Task 12 and the writer session; the
-  roadmap's Boundary index and tier-1 table gain the same id. Discharge
-  drops the row and adds a summary bullet.
+- **The ledger's `Current state`** records the implementation in its summary
+  and drops the completed `write-permits` row; the roadmap drops the same id
+  from its boundary index, tier-1 table, and authority lane.
 - **The guarantee inventory.** `GUARANTEE_TABLES` gains `E` with eight rows
   and `TABLE_OWNERS` names this document; the README moves to fourteen
   frozen tables and the new row total, and lists this document.

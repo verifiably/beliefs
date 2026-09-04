@@ -122,6 +122,11 @@ scope rule, and unique capability set together**; any mismatch is
 compared as a set — frozenset(capabilities) — and the boundary carries on
 with the canonical known value, so a reordered spelling of a known set is
 recorded as the definition it names.
+
+> **Amended 2026-09-04 (write permits):** both run entry points now read the
+> actor from `port.authority` and require the run family plus the emitted
+> run/report kinds before any intent. Permit refusal returns `RunRefused`
+> with no intent and no report.
 Execution never trusts caller-claimed capabilities: the definition it
 recognizes decides what it will construct and observe.
 

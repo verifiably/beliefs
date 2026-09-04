@@ -179,10 +179,12 @@ The kernel's typed records, admission and belief computation run: claim
 construction and identity, the derived admission state, the assessment
 admission gate, and `science.belief.v1` under an exact binding. Kernel §8.7's
 recorded-mutation consequences now close through the mutation log's anchor
-carriage and verification and cut 12's successor admission. The agentic surface
-has an approved [user and autonomy layer design](../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md),
-but its daily surface and autonomy sub-projects are not implemented; salvage
-remains undesigned. The [adoption ledger's current-state
+carriage and verification and cut 12's successor admission. Every write entry
+point now receives a bound authority, checks its permit before effects, and
+reads its actor from that authority. The agentic surface has an approved [user
+and autonomy layer design](../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md),
+but its writer session, daily surface, and autonomy sub-projects are not yet
+implemented; salvage remains undesigned. The [adoption ledger's current-state
 summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-04)
 is the complete statement of what is built and what remains.
 

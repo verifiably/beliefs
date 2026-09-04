@@ -1,6 +1,6 @@
 # Implementation roadmap
 
-**Ranked at:** cut 16, against the ledger's Current state (2026-09-04)
+**Ranked at:** cut 17, against the ledger's Current state (2026-09-04)
 **Method:** `../superpowers/specs/2026-08-29-implementation-roadmap-design.md`
 **Recomputed by:** the commit that adds each conformance-cut results record.
 This document is a current claim: it is rewritten whole at every re-ranking,
@@ -27,6 +27,12 @@ and D7 close, and T8 was re-read. `consolidate-family` remains live only for
 managed deletion and the deletion cut's assigned ride-alongs. W16, C3, R23,
 M3 and T2 keep only the remainders named below.
 
+Cut 17 delivered write permits: E1–E8 close, the 36-definition write
+inventory is held statically and dynamically, and the command framework's
+writer session and dispatcher are now unblocked. The completed
+`write-permits` boundary and its one-boundary authority lane leave the live
+ranking.
+
 ## Boundary index
 
 Every boundary the ledger table lists, by id. This section is the guard's
@@ -46,7 +52,6 @@ join key and nothing else; the tiers below carry the ranking.
 | `act-report-remainder` | T1, T2, T4 | 1, rides with `url-retrieval` |
 | `packaging-remainder` | X5 (relabel); W8a's import and audit arms | 1, rides with `world-resolution` |
 | `parity-fixture-2` | the second `science.identity.v1` fixture | 1, rides with `domain-boundary` |
-| `write-permits` | E1–E8 | 1 |
 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | 1 |
 | `l13-preimage` | L13 | 2 |
 | `persistence-cut` | X2 | 2 |
@@ -73,7 +78,6 @@ order, and lanes may run concurrently in separate worktrees.
 | 5 | `domain-boundary` | D1, D2, D4, D5, D6, D8, D9, D10; G5 | the first domain pack; D8's composition | cut 3 §5 deferred the group on "facets, manifests, and the registry compile"; `ProfileSpec` and the `nodes` registry exist |
 | 6 | `event-level-l8` | L8 | row 5 reads L8 in full; the log's last Science-only remainder | §7's ordered-cuts predicate is built; the event-level relation is its successor |
 | 7 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a, X12 and C10's `instrument-certification` arms; R23's rules-store clauses | the widest set: the conformance-package split (ledger §5), instrument-certification cadence, legacy-check disposition (N10), P1 | last in the tier although it unblocks the most: N1 mints a successor contract identity for every oracle amended after the freeze, and rows 1–6 are Science-only closures that would each force one. Freeze after them |
-| 8 | `write-permits` | E1–E8 | the command framework's writer session and write dispatcher; every later act taking a permit by construction | the user and autonomy layer design §8 item 2; its design (`../designs/2026-09-04-write-permits-design.md`) opens the `authority` lane and lands **before** `consolidate-family`, whose new acts the static inventory holds to the same rule |
 
 **Ride-along closures**, tier 1 by the rule and unblocking no capability of
 their own, each named to the cut that takes it:
@@ -107,7 +111,6 @@ boundary sits in the lane of its prerequisite and waits there.
 | `world-read` | `world-resolution` (+ `packaging-remainder`) → `event-level-l8` (+ `log-remainder`) | `world/read.py`, `resolution.py`, `world/verify.py` | `world/registry.py` (above) |
 | `domain` | `domain-boundary` (+ `parity-fixture-2`) | `profile.py`, `contract/`, `ts/`, `fixtures/`, the `nodes` registry | none in `python/src/beliefs/` |
 | `cross-repo` | `l13-preimage`, `persistence-cut`, `nodes-remainder`, in any order | the `atoms` and `nodes` repositories, each behind its own design gate | none; Science consumes each seam after it lands |
-| `authority` | `write-permits` | `permit.py` (new), `corpus.py`, `boundary.py`, `replay.py`, `root.py`, `runrecord.py`, `holdings/boundary.py`, `world/registry.py`, `world/epoch.py`, `world/rules.py`, `world/anchors.py`, `errors.py` | every lane that writes: one additive seam per entry point, named here under rule 3 so the later merge resolves toward it; `consolidate-family` freezes its deletion cut after cut 17 (the permits cut, renumbered by the design's §14) |
 
 `contract-cut` is in no lane. It is a **join**: it freezes after every lane
 that amends an oracle has merged, for the reason tier 1's row 7 gives — N1
@@ -166,7 +169,7 @@ Unordered. Each row links its `open-questions.md` anchor.
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 — [higher-order records and extraction](../guide/open-questions.md#claims-and-belief) |
 | `cross-root-publication` | T7's cross-root case | [the act-report's residue](../guide/open-questions.md#contracts-and-adoption) |
 
-## Appendix A — live status of every guarantee row at cut 16
+## Appendix A — live status of every guarantee row at cut 17
 
 Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
 (spec §3.1); a row is closed only when no later source reopens it.
@@ -186,8 +189,9 @@ Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
 | P | — | P1 (cut 2) | — |
 | H | — | H4 (cut 10) | — |
 | T | T7 | T1 (cut 5), T2 (cut 16), T4 (cut 3), T5 (cut 3) | — |
+| E | — | — | — |
 
-Closed 78 of 153; open 75.
+Closed 86 of 161; open 75.
 
 ## Appendix B — classification of every open row
 

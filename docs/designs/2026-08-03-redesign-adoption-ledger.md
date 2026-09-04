@@ -46,7 +46,7 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Implemented through conformance cut 16.** Every cut from 4 onward has a
+**Implemented through conformance cut 17.** Every cut from 4 onward has a
 discharge results record under `../plans/`; cuts 1–3 are proved by their merge
 ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
@@ -101,6 +101,11 @@ ancestry and the surfaces they built
   re-resolution, and sorted deduplicated locking. W5 reads in full; G3 and D7
   close; W16, C3, R23, M3, and T2 remain partial exactly as the results record
   states; T8 is a closed-row re-read (cut 16).
+- **Write permits** — closed act families and governed-kind routes,
+  `Authority(permit, actor)` bound once at every construction seam, checks
+  before effects across the closed 36-definition inventory, and no
+  caller-supplied actor. E1–E8 close at cut 17; the command framework's
+  writer session and dispatcher are unblocked.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -132,13 +137,12 @@ still open; unresolved design areas are not boundaries and are not listed.
 | `weighted-belief` | S6 arm (h) | the first successor belief policy admitting unequal weights, blocked on ρO3 | weighted belief |
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 | an untypeable span minting nothing, end to end |
 | `cross-root-publication` | T7's cross-root case | the act-report design's cross-root publication residue | cross-root publication of a provenance reference and its report |
-| `write-permits` | **Write permits** — E1–E8: the closed act families and `KIND_ACTS`, `Authority(permit, actor)` bound once at every construction seam, the check at every write entry point before any effect, no caller-supplied actor, the static entry-point inventory | `2026-09-04-write-permits-design.md`; cut 16 frozen there, renumbered to 17 by its §14 after relocation claimed 16 | the command framework's writer session (`beliefs-afbbff`) and the `science` write dispatcher; the interactive path exercising a permit daily |
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-03-conformance-cut-16-results.md`) reads W5 in full, closes
-G3 and D7, re-reads T8, and leaves W16, C3, R23, M3 and T2 partial on their
-assigned remainders. `test_the_ledger_summary_names_the_newest_remaining_boundary` holds
+(`../plans/2026-09-04-conformance-cut-17-results.md`) closes E1–E8 and leaves
+the unrelated W16, C3, R23, M3 and T2 clauses with their existing owners.
+`test_the_ledger_summary_names_the_newest_remaining_boundary` holds
 this section to whichever record is newest;
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds this table and
 the roadmap to one set of ids.

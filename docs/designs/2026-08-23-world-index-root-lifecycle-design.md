@@ -130,6 +130,12 @@ genesis** is the ruled exception on both counts (§4, §5).
 
 ## 4. The lifecycle commands and the state query (atoms)
 
+> **Amended 2026-09-04 (write permits):** Science's lifecycle wrappers
+> (`init_*`, replicate, migrate, restore grant, and fork) take a keyword-only
+> `Authority` and require `lifecycle` before any filesystem or engine effect.
+> `_fork_resume` remains the named primitive implementation behind checked
+> callers.
+
 All three are exact-retry operations; an interrupted invocation is
 resumable, and resumption proves before proceeding. The two copy
 commands are **no-clobber**: the destination must not exist, and
@@ -263,6 +269,10 @@ supplied root plus its store genesis, nothing more. `admit_arrival` stays
 corpus-only.
 
 ### 7.2 `restore_root`
+
+> **Amended 2026-09-04 (write permits):** the public wrapper is now
+> `restore_root(dest_root, subject, observers, *, authority)`; its nested
+> grant callback requires `lifecycle` before invoking the engine grant.
 
 `restore_root(dest_root, subject, observers)`, under **one held
 boundary on the destination root** across every step — no cooperative act
