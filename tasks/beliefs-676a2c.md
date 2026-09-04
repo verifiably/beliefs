@@ -6,7 +6,7 @@ priority: 2
 size: xl
 owner: design/consolidate-family
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-04T09:35:55Z
+updated: 2026-09-04T09:54:50Z
 depends: []
 tags: [migration, mutation, world]
 ---
@@ -39,3 +39,4 @@ Uncertainty: The outcome is buildable, but the exact cut and interaction between
 - 2026-09-04T06:20:35Z (design/consolidate-family): Task 10: test-local run-then-raise seams pin all move/consolidate durable prefixes, data-only recovery, fresh SHA-256 intent digests, and exact T3 residue; 34 focused tests pass, Ruff and Pyright clean.
 - 2026-09-04T07:39:04Z (design/consolidate-family): Task 11: durable cut-16 acceptance and 19 N2 arms normalize to the frozen 11 units; certified runner exited 0, full Python suite passed 3216 tests, Ruff and Pyright clean. Parent remains open for managed deletion and discharge.
 - 2026-09-04T09:35:55Z (design/consolidate-family): Task 11 review fix: six vacuous evidence gaps now have exact durable assertions and eight new sabotages (27 arms normalized to the frozen 11 units); focused 23, full Python 3216, Ruff, Pyright, tasks check, and the actual cut-16 runner pass on the certified tuple. Parent remains open for managed deletion and discharge.
+- 2026-09-04T09:54:50Z (design/consolidate-family): Relocation cut discharged: move and consolidate land, G3 and D7 close, W5 reads in full. Managed deletion and the ride-alongs remain; the deletion cut follows.

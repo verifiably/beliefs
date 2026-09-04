@@ -1,6 +1,7 @@
 # Conformance cut 16 — relocation
 
-**Status:** Frozen 2026-09-03. Not yet discharged.
+**Status:** Frozen 2026-09-03. Discharged 2026-09-04
+(`../plans/2026-09-03-conformance-cut-16-results.md`).
 
 **Sources:** `2026-09-03-world-changing-families-design.md` §6.1 and
 the frozen W, G, D, C, R, M, and T rows quoted below.

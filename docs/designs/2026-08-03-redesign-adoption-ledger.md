@@ -38,7 +38,7 @@ organization rather than a personal account, so governance and long-term
 stewardship are not tied to one individual. §5 records the namespace and
 decomposition rulings that follow from it.
 
-## Current state (2026-09-03)
+## Current state (2026-09-04)
 
 This section is the one place that states what is built and what remains to
 build. Every other live surface — the README and the contributor guide — links
@@ -46,7 +46,7 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Implemented through conformance cut 15.** Every cut from 4 onward has a
+**Implemented through conformance cut 16.** Every cut from 4 onward has a
 discharge results record under `../plans/`; cuts 1–3 are proved by their merge
 ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
@@ -95,6 +95,12 @@ ancestry and the surfaces they built
   and world-inert packaging behavior. W11, W12, and W18 are closed; W13's
   two-project negative is read; W17 is closed for the ordinary revision family
   and remains partial only on intent-position, owned by `publish` (cut 14).
+- **Two-root relocation** — public destination-first `move` and two-record
+  `consolidate`, one shared operation token with root-local intents and reports,
+  contract agreement, tagged lineage-basis reconciliation, target
+  re-resolution, and sorted deduplicated locking. W5 reads in full; G3 and D7
+  close; W16, C3, R23, M3, and T2 remain partial exactly as the results record
+  states; T8 is a closed-row re-read (cut 16).
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -105,7 +111,7 @@ still open; unresolved design areas are not boundaries and are not listed.
 
 | id | boundary | owner | what it blocks |
 |---|---|---|---|
-| `consolidate-family` | consolidate, move/rename and deletion: W5, W16; G3, D7; the deletion negatives of G2c, G8, C6, R5; S5's deletion half; R23 and C3's move clauses; M3's replica arm | designed 2026-09-03 (`2026-09-03-world-changing-families-design.md`; relocation cut 16 frozen, deletion cut not yet frozen) | C7's consolidate surface; the last mutation family |
+| `consolidate-family` | managed deletion and its deletion-cut evidence: G2c, G8, C6, R5; S5's deletion half; W16 and R23's deletion clauses; C1, T8, M11 and M13 re-reads; then R19, R22, M1, M3 and M5 as the assigned ride-alongs | designed 2026-09-03 (`2026-09-03-world-changing-families-design.md`; relocation cut 16 discharged, deletion cut not yet frozen) | the last mutation family and the mutation lane's run-boundary and formal-model ride-alongs |
 | `url-retrieval` | the URL retrieval boundary, acquisition orchestration and typed retrieval grants: H4, G9, R10, T5, T7's same-root case | `2026-08-24-world-index-holdings-design.md` §1–§3 | the first acquisition of a dataset from outside the system |
 | `world-resolution` | the read side of the world: W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 less its two-projects negative; W8a's coreference arms; S1, S1a and S5's cross-corpus reach; D3; X12 and M3's coreference arms; R23's snapshot clauses | `2026-08-02-world-addressing-design.md` and `2026-08-08-world-address-ruling.md` | resolution states, cross-corpus edges, views, the coreference balance |
 | `domain-boundary` | D1, D2, D4, D5, D6, D8, D9, D10; G5 | `2026-08-04-domain-extension-boundary-design.md` | the first domain pack |
@@ -129,10 +135,9 @@ still open; unresolved design areas are not boundaries and are not listed.
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-01-conformance-cut-15-results.md`) closes R2, R16, R20 and
-R21, reads R23's local basis/composition disagreement, and leaves R23 partial
-only on its separately assigned world-resolution, mutation and rules-store
-clauses. `test_the_ledger_summary_names_the_newest_remaining_boundary` holds
+(`../plans/2026-09-03-conformance-cut-16-results.md`) reads W5 in full, closes
+G3 and D7, re-reads T8, and leaves W16, C3, R23, M3 and T2 partial on their
+assigned remainders. `test_the_ledger_summary_names_the_newest_remaining_boundary` holds
 this section to whichever record is newest;
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds this table and
 the roadmap to one set of ids.

@@ -172,7 +172,7 @@ fitted result into independent validation.
 
 ## Current state
 
-Fifteen conformance cuts have been frozen and discharged, each frozen before
+Sixteen conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple
 with a results record under `../plans/`. The cut discipline is what this page
 owns: a cut selects rows, the acceptance runner arms each selected unit with
@@ -183,11 +183,13 @@ so a real verification can reach `clean-environment`
 (`../designs/2026-08-30-run-confinement-design.md`). Cut 15 closes R2, R16,
 R20, and R21 across the full workflow surface and reads R23's local
 basis/composition disagreement without reopening replay cardinality. The
-relocation cut is frozen as cut 16 and awaits implementation; it selects
-`move` and `consolidate`, while managed deletion remains for its later freeze.
+relocation cut is discharged as cut 16: W5 reads in full, G3 and D7 close,
+W16, C3, R23, M3 and T2 remain partial on their named remainders, and T8 is
+re-read against `move` and `consolidate`. Managed deletion remains for its
+later freeze.
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-03)
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-04)
 states what is built and which remaining boundaries have named owners; the cut
 documents and results records in the references below are the evidence.
 
