@@ -6,7 +6,7 @@ priority: 2
 size: xl
 owner: design/write-permits
 created: 2026-08-31T00:38:28Z
-updated: 2026-09-04T13:16:18Z
+updated: 2026-09-04T13:41:50Z
 depends: []
 tags: [migration, writer, permits]
 spec: docs/designs/2026-09-04-write-permits-design.md
@@ -29,3 +29,5 @@ Uncertainty: The cross-repository endpoint and launcher live partly in Science, 
 - 2026-09-04T10:09:19Z (design/write-permits): Second review pass closed; cut 16 and the E table frozen at ee6af71 (status line names it); awaiting approval to start writing-plans
 - 2026-09-04T10:32:29Z (design/write-permits): Third review pass closed (run-only try shape); cut 16 and the E table frozen at c2f87b3
 - 2026-09-04T13:16:18Z (design/write-permits): Implementation amendment §13 ruled: cut 10 cited, runner names an inventory, actor locals keep pinned arms matching, ungoverned dimension, _fork_resume as implementation; commit recoverable by git log --grep 'rule the cut 16 implementation amendment'
+- 2026-09-04T13:20:01Z (design/write-permits): Execution found the plan's global staleness probe includes historical cut-6 world.py arms that do not target the current src/beliefs tree; gates allow that exact pre-existing missing set and reject every new stale arm
+- 2026-09-04T13:41:50Z (design/write-permits): Renumbered the cut to 17 (§14): relocation claimed 16 at ca31a04 before the c2f87b3 freeze; merged main (cut 16) into the branch; §14 inventories the five relocation seams in corpus.py and removes actor from relocation.move/consolidate; plan renumbered and amended (Tasks 5, 11, 13, 14, 15)

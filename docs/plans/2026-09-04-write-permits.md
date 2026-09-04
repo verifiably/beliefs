@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Every `beliefs` write entry point requires a permit bound with an actor at construction, before its first effect, and a static inventory holds that set of entry points closed — conformance cut 16, rows E1–E8.
+**Goal:** Every `beliefs` write entry point requires a permit bound with an actor at construction, before its first effect, and a static inventory holds that set of entry points closed — conformance cut 17, rows E1–E8.
 
-**Architecture:** A new `beliefs/permit.py` owns the closed act families, the `KIND_ACTS` route map, `WritePermit`, `Authority(permit, actor)`, `RequiredCapabilities` and `permit_covers`; `errors.py` gains `PermitExceeded` and `ActorMismatch`. `Authority` enters at five construction seams (`open_corpus`/`CorpusWriter`, the `OperationPort`, `open_world`/`World`, the holdings `ActContext`, the root lifecycle acts) and every definition that calls a write primitive starts with one bare `authority.require(<family>, <kinds>)` statement. A static AST test in the S8 style holds the inventory closed in both directions; a durable acceptance suite, N2 arms and a runner discharge cut 16 on the certified volume.
+**Architecture:** A new `beliefs/permit.py` owns the closed act families, the `KIND_ACTS` route map, `WritePermit`, `Authority(permit, actor)`, `RequiredCapabilities` and `permit_covers`; `errors.py` gains `PermitExceeded` and `ActorMismatch`. `Authority` enters at five construction seams (`open_corpus`/`CorpusWriter`, the `OperationPort`, `open_world`/`World`, the holdings `ActContext`, the root lifecycle acts) and every definition that calls a write primitive starts with one bare `authority.require(<family>, <kinds>)` statement. A static AST test in the S8 style holds the inventory closed in both directions; a durable acceptance suite, N2 arms and a runner discharge cut 17 on the certified volume.
 
 **Tech Stack:** Python 3.11+ under `uv` (`python/`), pytest, ruff, pyright basic; the `atoms` engine on a certified volume for acceptance; git for freeze pins.
 
-**Spec:** `docs/designs/2026-09-04-write-permits-design.md` (frozen at `c2f87b3`: §7 the E table, §9 cut 16). Task 1 adds §13, the implementation amendment, before any code.
+**Spec:** `docs/designs/2026-09-04-write-permits-design.md` (frozen at `c2f87b3`: §7 the E table, §9 the cut — numbered 16 there, **17** by §14). Task 1 added §13, the implementation amendment, before any code; §14 (the renumbering and relocation amendment) followed the merge of relocation cut 16 and rules the cut number, the runner prefix and the five relocation seams.
 
 ## Global Constraints
 
@@ -16,7 +16,8 @@
 - Gates before every commit: `uv run --frozen pytest -q -p no:cacheprovider`, `uv run --frozen ruff check .`, `uv run --frozen pyright` — all clean.
 - **Frozen text stays frozen.** Never edit §7 or §9 of the design. Amendments go in §13 (Task 1) and in §10.
 - **The permit check is one bare statement.** In every inventoried definition the first statement after the docstring that has any effect is `<receiver>.require("<family>", (...))` as an expression statement at the top level of the body — never inside `with`, `if`, `try` (except the run boundary's exact shape, Task 7), `for`, a boolean expression or a comprehension. No `mkdir`, no byte mutation and no primitive call may precede it. Family names are string literals.
-- **No `actor` parameter** on any inventoried definition or public function of `corpus.py`, `boundary.py`, `replay.py`, `root.py`, `holdings/boundary.py`, `world/registry.py`, `world/epoch.py`, `world/rules.py`, `world/anchors.py`, except `root.audit_log` and `holdings.boundary.intent_payload`. Where the removed parameter's *name* appears in a pinned prior-cut sabotage string (`boundary.py` — `actor` in `AssessmentRunIntent(...)`, `OperationIntent(...)`, `_refused(...)`; `holdings/boundary.py` — `ctx.actor`), keep the spelling alive as a local variable `actor = port.authority.actor` or the `ActContext.actor` property so those pinned blocks still match.
+- **No `actor` parameter** on any inventoried definition or public function of `corpus.py`, `boundary.py`, `replay.py`, `root.py`, `holdings/boundary.py`, `world/registry.py`, `world/epoch.py`, `world/rules.py`, `world/anchors.py`, `relocation.py`, except `root.audit_log` and `holdings.boundary.intent_payload`. `CorpusWriter._append_operation_intent` keeps its third positional parameter under the name `intent_actor` (§14.3): cut 16's T2b/T2c pin the call, and the value is judged against the bound actor, never used as it. Where the removed parameter's *name* appears in a pinned prior-cut sabotage string (`boundary.py` — `actor` in `AssessmentRunIntent(...)`, `OperationIntent(...)`, `_refused(...)`; `holdings/boundary.py` — `ctx.actor`), keep the spelling alive as a local variable `actor = port.authority.actor` or the `ActContext.actor` property so those pinned blocks still match.
+- **Cut 16's 27 arms are run, not cited** (§14.2): none may go stale at any task.
 - **Pinned sabotage blocks must keep matching exactly once.** After every task that edits `src/beliefs`, run the staleness probe:
 
 ```bash
@@ -27,7 +28,7 @@ sys.path[:0] = ["tests", "tests/acceptance"]
 import beliefs
 package = Path(beliefs.__file__).resolve().parent
 stale = []
-for cut in (3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15):
+for cut in (3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16):
     arms = getattr(importlib.import_module(f"n2_arms_cut{cut}"), f"CUT{cut}_ARMS")
     for arm in arms:
         n = (package / arm.sabotage.module).read_text(encoding="utf-8").count(arm.sabotage.before)
@@ -38,7 +39,7 @@ assert stale == [(10, "H4u1", "holdings/boundary.py", 0), (10, "J8", "holdings/b
 EOF
 ```
 
-  Before Task 8 the expected output is `stale: []`. From Task 8 on, exactly the two cut-10 `_publish` arms (`H4u1`, `J8`) are stale, by design (§13 cites cut 10). Anything else stale is a defect in the task that introduced it.
+  Before Task 8 the expected output is `stale: []` (cut 16 included). From Task 8 on, exactly the two cut-10 `_publish` arms (`H4u1`, `J8`) are stale, by design (§13 cites cut 10). Anything else stale is a defect in the task that introduced it.
 - Test helper for a full authority: `tests/authority.py` (Task 2) exports `FULL`, `ACTOR`, `narrowed(...)`. Every migrated test uses it; no test builds a `WritePermit` literal except the permit tests themselves.
 - Task records: every task names its own child id in its first and last steps — `tasks start <id>` before its first edit and `tasks done <id> "<what landed>"` staged into its final commit; `tasks check` before every commit. The children form a dependency chain (Task N depends on Task N−1), so `tasks ready` offers one task at a time. Never edit `tasks/*.md` by hand.
 - Commit messages are conventional commits with no AI attribution trailer.
@@ -52,7 +53,7 @@ EOF
 | `python/src/beliefs/permit.py` (new) | `ACT_FAMILIES`, `COMMAND_REACHABLE_FAMILIES`, `KIND_ACTS`, `require_actor`, `WritePermit`, `Authority`, `RequiredCapabilities`, `permit_covers` |
 | `python/src/beliefs/errors.py` | `PermitFact`, `PermitSummary`, `PermitExceeded(WriteRefused)`, `ActorMismatch(WriteRefused)` |
 | `python/src/beliefs/runrecord.py` | `OperationPort.authority` on the protocol |
-| `python/src/beliefs/corpus.py` | `CorpusWriter(authority=)`, the six corpus-write checks, `adopt_manifest`'s lifecycle check, `ActorMismatch` on `retract` and run-closure `add`, `import_bundle` member-by-member |
+| `python/src/beliefs/corpus.py` | `CorpusWriter(authority=)`, the six corpus-write checks, the five relocation seams (§14.3), `adopt_manifest`'s lifecycle check, `ActorMismatch` on `retract` and run-closure `add`, `import_bundle` member-by-member |
 | `python/src/beliefs/root.py` | `DurableOperationPort(authority=)`, `open_corpus`, `open_world`, the lifecycle acts, `anchor_heads`/`admit_arrival` wrappers |
 | `python/src/beliefs/boundary.py`, `replay.py` | run-family checks with the exact `try` shape; `actor` read from the port |
 | `python/src/beliefs/holdings/boundary.py` | `ActContext.authority` (+ `actor` property), holdings checks in `recheck`, `write`, `delete`, `move`, `_append`, `_publish` |
@@ -62,9 +63,10 @@ EOF
 | `python/tests/test_permit_boundary.py` (new) | E6 — the static inventory, five arms, offender and satisfied modules |
 | `python/tests/test_permit_entry_points.py` (new) | E1 over every inventoried definition |
 | `python/tests/acceptance/test_permit_acceptance.py` (new) | E1, E2, E7, E8 over real roots |
-| `python/tests/acceptance/n2_arms_cut16.py`, `test_n2_cut16.py`, `python/tools/cut16_acceptance.py` (new) | the cut |
-| `docs/designs/2026-09-04-write-permits-design.md` §10, §13 | amendment and accounting |
-| `docs/plans/2026-09-04-conformance-cut-16-results.md` (new, Task 15) | discharge |
+| `python/tests/acceptance/n2_arms_cut17.py`, `test_n2_cut17.py`, `python/tools/cut17_acceptance.py` (new) | the cut |
+| `python/src/beliefs/relocation.py` | `move` and `consolidate` lose `actor`; actor agreement and per-root pre-intent `require` (§14.3) |
+| `docs/designs/2026-09-04-write-permits-design.md` §10, §13, §14 | amendments and accounting |
+| `docs/plans/2026-09-04-conformance-cut-17-results.md` (new, Task 15) | discharge |
 
 ---
 
@@ -76,11 +78,11 @@ EOF
 
 **Interfaces:**
 - Consumes: the frozen design; cut 14 §11 as the amendment precedent; the pinned-arm survey below.
-- Produces: the rulings every later task implements: (a) cut 10 is cited, not run, from cut 16's tree onward; (b) cut 16's runner names an explicit module inventory rather than chaining `cut15_acceptance.py`; (c) the `actor` local and `ActContext.actor` property; (d) E6's inventory-side mutations are inline unit arms, not N2 sabotages; (e) `_admit_arrival` reads `world.authority`, `_audit_log` keeps its label; (f) `dataset` not required by the run boundary is already §3.2's ruling. The commit hash of this task is `IMPLEMENTATION_AMENDMENT_COMMIT` in Task 14.
+- Produces: the rulings every later task implements: (a) cut 10 is cited, not run, from cut 16's tree onward; (b) cut 16's runner names an explicit module inventory rather than chaining `cut15_acceptance.py`; (c) the `actor` local and `ActContext.actor` property; (d) E6's inventory-side mutations are inline unit arms, not N2 sabotages; (e) `_admit_arrival` reads `world.authority`, `_audit_log` keeps its label; (f) `dataset` not required by the run boundary is already §3.2's ruling. The commit hash of this task is `IMPLEMENTATION_AMENDMENT_COMMIT` in Task 14: `a0f2302`. **Landed 2026-09-04.** The renumbering and relocation amendment (§14) landed separately after the merge of relocation cut 16; its hash is `RENUMBERING_AMENDMENT_COMMIT` in Task 14.
 
-- [ ] **Step 0: Start the task record** — `tasks start beliefs-49d549`
+- [x] **Step 0: Start the task record** — `tasks start beliefs-49d549`
 
-- [ ] **Step 1: Verify the survey the amendment rests on**
+- [x] **Step 1: Verify the survey the amendment rests on**
 
 Run from `python/`:
 
@@ -91,7 +93,7 @@ grep -n "PREFIX_RUNNERS\|PHASE_MODULES" tools/cut14_acceptance.py tools/cut15_ac
 
 Expected: two cut-10 arms (`H4u1` at about line 290 and `J8` at about line 515) carry `def _publish(...)`'s whole body as their `before`; cut 15 chains `cut14_acceptance.py`, which runs `test_n2_cut10.py` as a phase module.
 
-- [ ] **Step 2: Append §13 to the design**
+- [x] **Step 2: Append §13 to the design**
 
 Append, verbatim, at the end of `docs/designs/2026-09-04-write-permits-design.md`:
 
@@ -193,7 +195,7 @@ flag. E4's completeness claim is unchanged — it is about governed kinds —
 and E5's "both dimensions" reads as "every dimension".
 ```
 
-- [ ] **Step 3: Amend the companion contract in the `science` repository**
+- [x] **Step 3: Amend the companion contract in the `science` repository**
 
 The `science` plan's Task 12 rules that a change the implementation forces is a change request against **both** documents before either side codes on. §13.7 changes the permit value's shape, so, in the `science` repository (the sibling checkout, its own `main`), append this paragraph to the end of §4.1 of `docs/specs/2026-08-31-command-framework-design.md`, immediately before the `### 4.2` heading:
 
@@ -222,7 +224,7 @@ tasks note sci-c3f0bb "Companion contract amended: WritePermit gains the ungover
 tasks check && git add docs/specs/2026-08-31-command-framework-design.md docs/plans/2026-08-31-command-framework.md tasks && git commit -m "docs(specs): amend the permit contract for ungoverned kinds"
 ```
 
-- [ ] **Step 4: Run the corpus tests, close the child, commit once**
+- [x] **Step 4: Run the corpus tests, close the child, commit once**
 
 ```bash
 uv run --frozen pytest -q -p no:cacheprovider tests/test_designs_corpus.py
@@ -1005,12 +1007,13 @@ Expected: full suite green (pyright will point at every construction you missed;
 ### Task 5: The corpus-write checks — `add`, `retract`, `supersede`, `revise`, coordination, `adopt_manifest` (E1, E3)
 
 **Files:**
-- Modify: `python/src/beliefs/corpus.py` (`add` ~1125, `mint_coordination` ~1138, `revise_coordination` ~1171, `adopt_manifest` ~1348, `retract` ~1470, `supersede` ~1496, `revise` ~1529)
-- Test: `python/tests/test_corpus_write.py`, `python/tests/test_retract.py`
+- Modify: `python/src/beliefs/corpus.py` (`add` ~1137, `_add_locked` ~1150, `_replace_locked` ~1156, `_delete_locked` ~1178, `mint_coordination` ~1190, `revise_coordination` ~1240, `adopt_manifest` ~1400, `_append_operation_intent` ~1430, `_publish_operation_report` ~1443, `retract` ~1570, `supersede` ~1610, `revise` ~1650 — line numbers after the cut-16 merge; grep for the names)
+- Modify: `python/src/beliefs/relocation.py` (`move` ~77, `consolidate` ~171)
+- Test: `python/tests/test_corpus_write.py`, `python/tests/test_retract.py`, `python/tests/test_relocation.py`
 
 **Interfaces:**
 - Consumes: Task 4's bound writer.
-- Produces: each method's first statement is its `require`; `retract` and run-closure `add` raise `ActorMismatch`.
+- Produces: each method's first statement is its `require`; `retract` and run-closure `add` raise `ActorMismatch`; the five relocation seams of §14.3 require `corpus-write`; `move` and `consolidate` take no `actor`.
 
 - [ ] **Step 0: Start the task record** — `tasks start beliefs-65802a`
 
@@ -1200,6 +1203,25 @@ Add `ActorMismatch` (and `PermitExceeded` is not needed here) to the `from belie
 
 Note the pinned cut-5 blocks around `return self._corpus.add(candidate)` / `return self._corpus.add(record)` and the cut-6 `adopt_manifest` blocks are untouched by these insertions.
 
+- [ ] **Step 3b: The relocation seams (§14.3)**
+
+In `corpus.py`, give each of the five cut-16 definitions its `require` as the first statement after the docstring:
+
+- `_add_locked(self, node)` and `_replace_locked(self, node)`: `self.authority.require("corpus-write", (node.kind,))`. Move the run-closure `ActorMismatch` check of Step 3 into `_preflight_add_locked` so `add` and `_add_locked` share it (keep `add`'s own `require` first; the pinned cut-16 arm `M3a` spells `self._refuse_family_kinds(node, admitted_kind=node.kind)` / `self._refuse_missing_basis(node)` inside `_preflight_replace_locked` — do not separate those two lines).
+- `_delete_locked(self, ref)`: `self.authority.require("corpus-write", (self._view.get(ref).kind,))` — the read is inside the argument; nothing precedes the statement.
+- `_append_operation_intent(self, kind, token, intent_actor)`: `self.authority.require("corpus-write", ("act-report",))`, then `if intent_actor != self.authority.actor: raise ActorMismatch(...)`, then `intent = OperationIntent(kind, token, self.authority.actor)`. The parameter is renamed, never removed: cut 16's `T2b`/`T2c` pin the three-argument call.
+- `_publish_operation_report(...)`: `self.authority.require("corpus-write", ("act-report",))`.
+
+In `relocation.py`, remove the `actor` keyword from `move` and `consolidate`. Each begins with `_refuse_actor_disagreement(first, second)` — `ActorMismatch` when `first.authority.actor != second.authority.actor` — before `_both_locks`, and builds `OperationIntent(<kind>, token, source.authority.actor)` (resp. `keep_writer.authority.actor`). After the record is resolved and before `token = secrets.token_hex(16)`, add one bare statement per writer: `destination.authority.require("corpus-write", (node.kind, "act-report"))` and `source.authority.require("corpus-write", (node.kind, "act-report"))` in `move`; `keep_writer.authority.require("corpus-write", (merged.kind, "act-report"))` and `other_writer.authority.require("corpus-write", (other_node.kind, "act-report"))` in `consolidate`. Insert between pinned blocks, never inside one — `D7a`, `D7b`, `T8a`–`T8c`, `T2b`, `T2c`, `M3b`, `W5a`, `W16a`–`W16d` and `boundary-lock-dedup` all live in this file; run the staleness probe with cut 16 in its tuple before committing.
+
+Tests, appended to `python/tests/test_relocation.py` (every existing writer there moves to `authority=FULL`; every `actor="..."` keyword on `move`/`consolidate` is removed, and assertions on the report's actor compare to `ACTOR`):
+
+- a `move` whose destination permit lacks the record's kind raises `PermitExceeded(("kind", <kind>))` and **neither** corpus has an intent or a new record — assert both writers' `read_view` and both ports' appended intents are unchanged;
+- a `move` whose source permit lacks `act-report` is refused the same way, naming `act-report`;
+- a `move` between writers bound to different actors raises `ActorMismatch` before any lock is taken;
+- a `consolidate` under two full authorities sharing one actor succeeds and both reports name `ACTOR`;
+- `_append_operation_intent("move", token, "someone-else")` on a `FULL` writer raises `ActorMismatch` and appends nothing.
+
 - [ ] **Step 4: Migrate the retraction actors**
 
 Every retraction the existing suites mint under a `FULL` writer must name `ACTOR`, or the new `ActorMismatch` check refuses it: `tests/test_retract.py` (`retraction_for` at line ~61 and the six inline `stored.retraction_node(... actor="tester" ...)` calls at ~122, ~138, ~180, ~202, ~225, ~242 — every `actor="tester"` in the file), `tests/test_local_standing.py` (three `actor="tester"` retraction constructions at ~43, ~142, ~228), `tests/acceptance/test_durable_families.py` (`actor="acceptance"` at ~87), and any other hit of `grep -rn "retraction_node(" tests` whose writer is `FULL` — replace the literal with `ACTOR` from `authority`. The only retractions naming another actor are the two E3 tests above, which construct their own narrowed writers. Run `uv run --frozen pytest -q -p no:cacheprovider tests/test_retract.py tests/test_local_standing.py` green before moving on.
@@ -1215,7 +1237,7 @@ Staleness probe: expected `stale: []`. Then:
 
 ```bash
 tasks done beliefs-65802a "corpus-write and lifecycle checks on the six writer families; ActorMismatch on retract and run-closure add"
-cd .. && tasks check && git add python tasks && git commit -m "feat(permit): require the corpus-write and lifecycle permits on the writer's families"
+cd .. && tasks check && git add python tasks && git commit -m "feat(permit): require the corpus-write and lifecycle permits on the writer's families and the relocation seams"
 ```
 
 ---
@@ -2101,7 +2123,7 @@ WRITE_ENTRY_POINTS: dict[str, str] = {
 
 SEAM_MODULES = (
     "corpus.py", "boundary.py", "replay.py", "root.py", "holdings/boundary.py",
-    "world/registry.py", "world/epoch.py", "world/rules.py", "world/anchors.py",
+    "world/registry.py", "world/epoch.py", "world/rules.py", "world/anchors.py", "relocation.py",
 )
 READ_ONLY_ACTOR_EXCEPTIONS = frozenset({"root.py:audit_log", "holdings/boundary.py:intent_payload"})
 ACTOR_BEARING_RECORDS = frozenset(
@@ -3092,7 +3114,7 @@ cd .. && tasks check && git add python tasks && git commit -m "test(permit): E1 
 - [ ] **Step 1: Write the suite**
 
 ```python
-"""Cut 16's durable arms: E1, E2, E7 and E8 through the composition root on the
+"""Cut 17's durable arms: E1, E2, E7 and E8 through the composition root on the
 certified volume (design §9.2). Chains and world roots are byte-identical before
 and after every refusal."""
 from __future__ import annotations
@@ -3212,6 +3234,10 @@ def test_e8_an_unpermitted_member_refuses_the_bundle_with_the_chain_unchanged(du
 
 `test_durable_families.test_import_bundle_records_the_exact_durable_chain` imports two propositions into a bare `durable_root` with no manifest, so no setup is needed; its `proposition(slug)` helper (line 25) is the governed-kind member used here. `_head` reads `RegisteredEntryView.digest`, `IntentEntryView.digest` and the settled view's digest — every `EntryView` in `world/logmodel.py` carries `digest`; if the genesis view does not, filter it out. If `stored.source_node` refuses the identifier as a basis (`BasisMissing`), use a second `proposition("s1")` and narrow the permit on `proposition` instead, adjusting the expected `PermitFact`.
 
+- [ ] **Step 1b: The two-root case (§14.4)**
+
+Add to `test_permit_acceptance.py`: register two corpus roots, mint one proposition in the first under `FULL`, then call `beliefs.relocation.move(open_corpus(a, authority=FULL), open_corpus(b, authority=narrowed(kinds=("act-report",), families=("corpus-write",))), <ref>, observer="o", instrument="i", opened_at="T0", closed_at="T1")`. Expected: `PermitExceeded` naming `("kind", "proposition")`, and `_head(a) == before_a`, `_head(b) == before_b` — no intent in either root. Then the same move under two `FULL` writers succeeds and each root's head grew by the cut-16 shape (intent, record op, report).
+
 - [ ] **Step 2: Run on the certified volume**
 
 ```bash
@@ -3229,25 +3255,25 @@ cd .. && tasks check && git add python tasks && git commit -m "test(permit): dur
 
 ---
 
-### Task 14: N2 arms, the audit test, and the cut 16 runner
+### Task 14: N2 arms, the audit test, and the cut 17 runner
 
 **Files:**
-- Create: `python/tests/acceptance/n2_arms_cut16.py`
-- Create: `python/tests/acceptance/test_n2_cut16.py`
-- Create: `python/tools/cut16_acceptance.py`
+- Create: `python/tests/acceptance/n2_arms_cut17.py`
+- Create: `python/tests/acceptance/test_n2_cut17.py`
+- Create: `python/tools/cut17_acceptance.py`
 
 **Interfaces:**
-- Consumes: every check id from Tasks 2–13; `IMPLEMENTATION_AMENDMENT_COMMIT` from Task 1; the pins below.
-- Produces: `CUT16_ARMS`, `ROW_UNITS = {"E1": 1, ..., "E8": 1}`, `LABELED_UNITS = ("K1",)`, `CO_CITED = {"K1": ("test_holdings_boundary.py::test_write_publishes_found_and_fulfills_its_intent",)}` (use `H4u1`'s real check id from `n2_arms_cut10.py`), `unit_of`.
+- Consumes: every check id from Tasks 2–13; `IMPLEMENTATION_AMENDMENT_COMMIT` (`a0f2302`) from Task 1 and `RENUMBERING_AMENDMENT_COMMIT` (the §14 commit) — both pinned by the audit test beside the freeze; the pins below.
+- Produces: `CUT17_ARMS` (including the three relocation arms of §14.4: `E1r` displaces `_add_locked`'s `require` below its `self._corpus.add(node)`; `E3r` drops `_append_operation_intent`'s `ActorMismatch` raise; `E7r` drops `move`'s pre-intent `require` on the destination — each `before` unique in its module and outside every cut-16 pinned block), `ROW_UNITS = {"E1": 1, ..., "E8": 1}`, `LABELED_UNITS = ("K1",)`, `CO_CITED = {"K1": ("test_holdings_boundary.py::test_write_publishes_found_and_fulfills_its_intent",)}` (use `H4u1`'s real check id from `n2_arms_cut10.py`), `unit_of`.
 
 - [ ] **Step 0: Start the task record** — `tasks start beliefs-c430e0`
 
 - [ ] **Step 1: Declare the arms**
 
-`python/tests/acceptance/n2_arms_cut16.py` — one lettered arm per unit at least; every `before` must occur exactly once in the module it names:
+`python/tests/acceptance/n2_arms_cut17.py` — one lettered arm per unit at least; every `before` must occur exactly once in the module it names:
 
 ```python
-"""Cut 16: 8 selected + 1 labeled = 9 units, carried by the arms below."""
+"""Cut 17: 8 selected + 1 labeled = 9 units, carried by the arms below."""
 
 from n2_arms import Arm, Sabotage
 
@@ -3262,7 +3288,7 @@ _B = "test_boundary.py"
 _H = "test_holdings_boundary.py"
 _A = "acceptance/test_permit_acceptance.py"
 
-CUT16_ARMS = (
+CUT17_ARMS = (
     Arm(
         row="E1a",
         asserts="a missing family is refused on the family before any kind",
@@ -3513,10 +3539,10 @@ Every `before` above is a **draft of the exact text**: after Tasks 5–11, open 
 
 - [ ] **Step 2: Write the audit test**
 
-`python/tests/acceptance/test_n2_cut16.py`, on the cut-14/15 pattern:
+`python/tests/acceptance/test_n2_cut17.py`, on the cut-14/15 pattern:
 
 ```python
-"""Cut 16 declaration accounting and N2 audit."""
+"""Cut 17 declaration accounting and N2 audit."""
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from hashlib import sha256
@@ -3536,7 +3562,7 @@ from n2_arms_cut12 import CUT12_ARMS
 from n2_arms_cut13 import CUT13_ARMS
 from n2_arms_cut14 import CUT14_ARMS
 from n2_arms_cut15 import CUT15_ARMS
-from n2_arms_cut16 import CO_CITED, CUT16_ARMS, LABELED_UNITS, ROW_UNITS, unit_of
+from n2_arms_cut17 import CO_CITED, CUT17_ARMS, LABELED_UNITS, ROW_UNITS, unit_of
 from test_n2 import audit, baseline
 
 import beliefs.root as science_root
@@ -3544,8 +3570,9 @@ import beliefs.root as science_root
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-04-write-permits-design.md"
-CUT16_FREEZE_COMMIT = "c2f87b3"
-IMPLEMENTATION_AMENDMENT_COMMIT = "<the short hash Task 1 recorded; `git log --format=%h -1 --grep 'rule the cut 16 implementation amendment'` prints it>"
+CUT17_FREEZE_COMMIT = "c2f87b3"
+IMPLEMENTATION_AMENDMENT_COMMIT = "a0f2302"
+RENUMBERING_AMENDMENT_COMMIT = "<the short hash of the §14 commit; `git log --format=%h -1 --grep 'renumber the write-permits cut'` prints it>"
 FROZEN_PRIOR_CUT_FILES = {
     "python/tests/n2_arms_cut5.py": "7f5b28ec7da5f19db83fe0819c7477c8dbed7e93",
     "python/tests/n2_arms_cut6.py": "fdea7a7e2f8780f8ddfec3a6a700333a28e648cd",
@@ -3572,9 +3599,9 @@ PRIOR_ARMS = (*CUT3_ARMS, *CUT5_ARMS, *CUT6_ARMS, *CUT7_ARMS, *CUT8_ARMS, *CUT9_
 
 @pytest.fixture(scope="session")
 def findings(tmp_path_factory):
-    root = tmp_path_factory.mktemp("n2-cut16")
+    root = tmp_path_factory.mktemp("n2-cut17")
     with ThreadPoolExecutor(max_workers=WORKERS) as pool:
-        return tuple(pool.map(lambda pair: audit(pair[1], root / f"arm{pair[0]}"), enumerate(CUT16_ARMS)))
+        return tuple(pool.map(lambda pair: audit(pair[1], root / f"arm{pair[0]}"), enumerate(CUT17_ARMS)))
 
 
 def test_the_inventory_is_eight_selected_and_one_labeled() -> None:
@@ -3583,19 +3610,19 @@ def test_the_inventory_is_eight_selected_and_one_labeled() -> None:
 
 
 def test_the_arm_rows_are_unique() -> None:
-    rows = [arm.row for arm in CUT16_ARMS]
+    rows = [arm.row for arm in CUT17_ARMS]
     assert len(rows) == len(set(rows))
 
 
 def test_every_declared_unit_is_carried_by_at_least_one_arm() -> None:
-    carried = {unit_of(arm.row) for arm in CUT16_ARMS}
+    carried = {unit_of(arm.row) for arm in CUT17_ARMS}
     assert set(ROW_UNITS) | set(LABELED_UNITS) <= carried
 
 
 def test_every_check_resolves_and_passes_without_sabotage() -> None:
-    every = Arm(row="N2", asserts="every cut-16 check passes against the real package",
-                sabotage=CUT16_ARMS[0].sabotage,
-                checks=tuple(dict.fromkeys(check for arm in CUT16_ARMS for check in arm.checks)))
+    every = Arm(row="N2", asserts="every cut-17 check passes against the real package",
+                sabotage=CUT17_ARMS[0].sabotage,
+                checks=tuple(dict.fromkeys(check for arm in CUT17_ARMS for check in arm.checks)))
     finding = baseline(every)
     assert finding.verdict == "resolved", finding.detail
 
@@ -3612,9 +3639,9 @@ def _section(text: str, heading: str) -> str:
 
 
 def test_the_frozen_cut_and_the_amendment_are_ancestors_and_the_frozen_sections_are_byte_exact() -> None:
-    for commit in (CUT16_FREEZE_COMMIT, IMPLEMENTATION_AMENDMENT_COMMIT):
+    for commit in (CUT17_FREEZE_COMMIT, IMPLEMENTATION_AMENDMENT_COMMIT, RENUMBERING_AMENDMENT_COMMIT):
         assert subprocess.run(["git", "-C", str(REPO_ROOT), "merge-base", "--is-ancestor", commit, "HEAD"], check=False).returncode == 0
-    frozen = subprocess.run(["git", "-C", str(REPO_ROOT), "show", f"{CUT16_FREEZE_COMMIT}:{FROZEN_CUT.relative_to(REPO_ROOT)}"],
+    frozen = subprocess.run(["git", "-C", str(REPO_ROOT), "show", f"{CUT17_FREEZE_COMMIT}:{FROZEN_CUT.relative_to(REPO_ROOT)}"],
                             check=True, capture_output=True, text=True).stdout
     text = FROZEN_CUT.read_text(encoding="utf-8")
     for heading in ("## 7. Guarantees", "## 9. Conformance cut 16"):
@@ -3623,7 +3650,7 @@ def test_the_frozen_cut_and_the_amendment_are_ancestors_and_the_frozen_sections_
 
 def test_every_arm_has_one_source_mutation_and_exact_check_nodes() -> None:
     package = Path(science_root.__file__).resolve().parent
-    for arm in CUT16_ARMS:
+    for arm in CUT17_ARMS:
         assert arm.checks and len(arm.checks) == len(set(arm.checks)), arm.row
         assert arm.sabotage.before != arm.sabotage.after and arm.asserts.strip(), arm.row
         target = package / arm.sabotage.module
@@ -3640,7 +3667,7 @@ def test_prior_declarations_and_the_whole_cited_cut10_surface_are_unchanged() ->
     for path, expected in FROZEN_CUT10_SHA256.items():
         assert sha256((REPO_ROOT / path).read_bytes()).hexdigest() == expected, path
     prior = {check for arm in PRIOR_ARMS for check in arm.checks}
-    for arm in CUT16_ARMS:
+    for arm in CUT17_ARMS:
         assert set(arm.checks) & prior <= set(CO_CITED.get(arm.row, ())), arm.row
 ```
 
@@ -3648,7 +3675,7 @@ The five cut-10 shas above were taken from the tree at `09c2894`; re-run `sha256
 
 - [ ] **Step 3: Write the runner**
 
-`python/tools/cut16_acceptance.py`, from `cut15_acceptance.py` with these differences: `DEFAULT_WORK = PYTHON_ROOT.parent / ".cut16-acceptance"`, `SCIENCE_CUT16_ROOT`, `PREFIX_RUNNERS: tuple[str, ...] = ()`, and
+`python/tools/cut17_acceptance.py`, from `cut15_acceptance.py` with these differences: `DEFAULT_WORK = PYTHON_ROOT.parent / ".cut17-acceptance"`, `SCIENCE_CUT17_ROOT`, `PREFIX_RUNNERS: tuple[str, ...] = ()`, and
 
 ```python
 PHASE_MODULES = (
@@ -3665,20 +3692,22 @@ PHASE_MODULES = (
     "test_n2_cut14.py",
     "test_cut15_lineage.py",
     "test_n2_cut15.py",
+    "test_relocation_acceptance.py",
+    "test_n2_cut16.py",
     "test_permit_acceptance.py",
     "test_permit_boundary.py",  # runs from tests/, not acceptance — see below
     "test_permit_entry_points.py",  # likewise from tests/
-    "test_n2_cut16.py",
+    "test_n2_cut17.py",
 )
 ```
 
-`test_permit_boundary.py` and `test_permit_entry_points.py` live under `tests/`, so the runner resolves each module against `ACCEPTANCE` first and `PYTHON_ROOT / "tests"` second. `probe()` passes `authority=Authority(WritePermit.full(), "cut16-probe")` to the three `init_*` calls (import from `beliefs.permit`). `cut_environment` sets `SCIENCE_CUT{4..16}_ROOT`. `declared_arm_count()` imports `CUT16_ARMS`; the closing line prints `(= 8 selected + 1 labeled units)`. Drop `run_prefix` and the prefix loop.
+`test_permit_boundary.py` and `test_permit_entry_points.py` live under `tests/`, so the runner resolves each module against `ACCEPTANCE` first and `PYTHON_ROOT / "tests"` second. `probe()` passes `authority=Authority(WritePermit.full(), "cut17-probe")` to the three `init_*` calls (import from `beliefs.permit`). `cut_environment` sets `SCIENCE_CUT{4..17}_ROOT`. Cut 16's two phase modules run in the prefix (§14.2): `test_relocation_acceptance.py` constructs its writers with `authority=FULL` (migrated in Task 4), and `test_n2_cut16.py` audits the pinned `n2_arms_cut16.py` unchanged. `declared_arm_count()` imports `CUT17_ARMS`; the closing line prints `(= 8 selected + 1 labeled units)`. Drop `run_prefix` and the prefix loop.
 
 - [ ] **Step 4: Run the portable parts, then the full runner on the certified volume**
 
 ```bash
-uv run --frozen pytest -q -p no:cacheprovider tests/acceptance/test_n2_cut16.py -k "inventory or unique or carried or one_source_mutation or unchanged or frozen"
-uv run --frozen python tools/cut16_acceptance.py
+uv run --frozen pytest -q -p no:cacheprovider tests/acceptance/test_n2_cut17.py -k "inventory or unique or carried or one_source_mutation or unchanged or frozen"
+uv run --frozen python tools/cut17_acceptance.py
 ```
 
 Expected: the portable accounting tests pass; the runner runs every phase green and prints the declared arm count. If the volume or confinement gate refuses, the runner exits 2 with the exact refusal — report it, do not skip.
@@ -3686,8 +3715,8 @@ Expected: the portable accounting tests pass; the runner runs every phase green 
 - [ ] **Step 5: Commit**
 
 ```bash
-tasks done beliefs-c430e0 "cut 16 N2 arms, audit test with cut-10 citation pins, and the acceptance runner"
-cd .. && tasks check && git add python tasks && git commit -m "test(cut16): declare the N2 arms, the audit, and the acceptance runner"
+tasks done beliefs-c430e0 "cut 17 N2 arms, audit test with cut-10 citation pins, and the acceptance runner"
+cd .. && tasks check && git add python tasks && git commit -m "test(cut17): declare the N2 arms, the audit, and the acceptance runner"
 ```
 
 ---
@@ -3695,7 +3724,7 @@ cd .. && tasks check && git add python tasks && git commit -m "test(cut16): decl
 ### Task 15: Discharge — results record, ledger, roadmap, guide, banked-design notes, task closure
 
 **Files:**
-- Create: `docs/plans/2026-09-04-conformance-cut-16-results.md`
+- Create: `docs/plans/2026-09-04-conformance-cut-17-results.md`
 - Modify: `docs/designs/2026-09-04-write-permits-design.md` (status line; §10 file list; nothing in §7/§9)
 - Modify: `docs/designs/2026-08-03-redesign-adoption-ledger.md` (Current state: drop the `write-permits` row, add a summary bullet, update the newest-record sentence)
 - Modify: `docs/plans/2026-08-29-implementation-roadmap.md` (drop `write-permits` from the boundary index, tier 1 and the `authority` lane; re-rank note)
@@ -3707,11 +3736,11 @@ cd .. && tasks check && git add python tasks && git commit -m "test(cut16): decl
 
 - [ ] **Step 1: Write the results record**
 
-Mirror `docs/plans/2026-09-01-conformance-cut-15-results.md`'s sections: header (subject, measured against frozen §7/§9 at `c2f87b3` and §13 at Task 1's hash); §1 accounting (8 selected + 1 labeled = 9 units, N arms); the citation of cut 10 with the pinned shas and the succession by `K1`; §2 what ran (the runner's command, its work root, the exact host tuple, every phase); §3 disposition (E1–E8 close); §4 the by-design stale cut-10 arms named.
+Mirror `docs/plans/2026-09-01-conformance-cut-15-results.md`'s sections: header (subject, measured against frozen §7/§9 at `c2f87b3`, §13 at `a0f2302` and §14 at `RENUMBERING_AMENDMENT_COMMIT`, the cut numbered 17 by §14.1); §1 accounting (8 selected + 1 labeled = 9 units, N arms); the citation of cut 10 with the pinned shas and the succession by `K1`; §2 what ran (the runner's command, its work root, the exact host tuple, every phase); §3 disposition (E1–E8 close); §4 the by-design stale cut-10 arms named.
 
 - [ ] **Step 2: Move the design status and §10**
 
-Status: `implemented and discharged 2026-09-<dd>; conformance cut 16 froze before implementation at c2f87b3 and its 8 selected + 1 labeled units passed through <N> sabotage arms after the current-tree prefix of §13.2. Results: ../plans/2026-09-04-conformance-cut-16-results.md.` — no commit hash in the status yet: a commit cannot name itself. Step 5 pins it. §10 gains the files the implementation rewrote beyond its list (at least `runrecord.py`, `world/verify.py`, `stored.py`, the acceptance conftest, and the corrections Task 11 Step 2 recorded).
+Status: `implemented and discharged 2026-09-<dd>; conformance cut 17 (16 in the frozen text, renumbered by §14) froze before implementation at c2f87b3 and its 8 selected + 1 labeled units passed through <N> sabotage arms after the current-tree prefix of §13.2. Results: ../plans/2026-09-04-conformance-cut-17-results.md.` — no commit hash in the status yet: a commit cannot name itself. Step 5 pins it. §10 gains the files the implementation rewrote beyond its list (at least `runrecord.py`, `world/verify.py`, `stored.py`, the acceptance conftest, and the corrections Task 11 Step 2 recorded).
 
 - [ ] **Step 3: Ledger, roadmap, README, guide, amendment notes**
 
@@ -3727,15 +3756,15 @@ Expected: both clean (the corpus test holds the ledger's Current state to the ne
 - [ ] **Step 4: Close this task and the parent in the discharge commit**
 
 ```bash
-cd .. && tasks done beliefs-e35dde "Cut 16 discharged: results record, ledger and roadmap re-ranked, banked designs annotated"
-tasks done beliefs-96a24a "Write permits landed and cut 16 discharged: Authority bound at every seam, E1-E8 closed, cut 10 cited" && tasks check
-git add -A && git commit -m "docs(permit): discharge conformance cut 16 and re-rank the roadmap" && git rev-parse --short HEAD
+cd .. && tasks done beliefs-e35dde "Cut 17 discharged: results record, ledger and roadmap re-ranked, banked designs annotated"
+tasks done beliefs-96a24a "Write permits landed and cut 17 discharged: Authority bound at every seam, E1-E8 closed, cut 10 cited" && tasks check
+git add -A && git commit -m "docs(permit): discharge conformance cut 17 and re-rank the roadmap" && git rev-parse --short HEAD
 ```
 
 `tasks done` on the parent refuses while any child is open; every earlier task closed its own child in its final commit, so this is the last one.
 
 - [ ] **Step 5: Pin the discharge commit**
 
-Edit the design's status line to read `implemented and discharged 2026-09-<dd> at <the hash Step 4 printed>; …`, add the same hash to the results record's header, run `uv run --frozen pytest -q -p no:cacheprovider tests/test_designs_corpus.py`, and commit: `git commit -am "docs(designs): pin the cut 16 discharge commit"`.
+Edit the design's status line to read `implemented and discharged 2026-09-<dd> at <the hash Step 4 printed>; …`, add the same hash to the results record's header, run `uv run --frozen pytest -q -p no:cacheprovider tests/test_designs_corpus.py`, and commit: `git commit -am "docs(designs): pin the cut 17 discharge commit"`.
 
 Then, per `superpowers:finishing-a-development-branch`, merge `design/write-permits` into `main` with `--no-ff` (the repository's rule for a cut) and note on `beliefs-afbbff` and the science task `sci-c3f0bb` that the permit exports are live.

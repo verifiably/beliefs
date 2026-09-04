@@ -107,7 +107,7 @@ boundary sits in the lane of its prerequisite and waits there.
 | `world-read` | `world-resolution` (+ `packaging-remainder`) → `event-level-l8` (+ `log-remainder`) | `world/read.py`, `resolution.py`, `world/verify.py` | `world/registry.py` (above) |
 | `domain` | `domain-boundary` (+ `parity-fixture-2`) | `profile.py`, `contract/`, `ts/`, `fixtures/`, the `nodes` registry | none in `python/src/beliefs/` |
 | `cross-repo` | `l13-preimage`, `persistence-cut`, `nodes-remainder`, in any order | the `atoms` and `nodes` repositories, each behind its own design gate | none; Science consumes each seam after it lands |
-| `authority` | `write-permits` | `permit.py` (new), `corpus.py`, `boundary.py`, `replay.py`, `root.py`, `runrecord.py`, `holdings/boundary.py`, `world/registry.py`, `world/epoch.py`, `world/rules.py`, `world/anchors.py`, `errors.py` | every lane that writes: one additive seam per entry point, named here under rule 3 so the later merge resolves toward it; `consolidate-family` freezes its cut after cut 16 |
+| `authority` | `write-permits` | `permit.py` (new), `corpus.py`, `boundary.py`, `replay.py`, `root.py`, `runrecord.py`, `holdings/boundary.py`, `world/registry.py`, `world/epoch.py`, `world/rules.py`, `world/anchors.py`, `errors.py` | every lane that writes: one additive seam per entry point, named here under rule 3 so the later merge resolves toward it; `consolidate-family` freezes its deletion cut after cut 17 (the permits cut, renumbered by the design's §14) |
 
 `contract-cut` is in no lane. It is a **join**: it freezes after every lane
 that amends an oracle has merged, for the reason tier 1's row 7 gives — N1

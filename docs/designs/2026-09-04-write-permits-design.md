@@ -5,7 +5,9 @@
 2026-09-04 at `c2f87b3`**, the commit that closes design review, before any of
 its code exists. The banking commit `895f822` and the three review passes that
 followed it precede the freeze; the text from `c2f87b3` onward is the frozen
-one. Nothing is implemented. The `E` table (§7) is minted here and is frozen like every other
+one. §14 (2026-09-04) renumbers the cut to **17** by citation — relocation had
+already claimed 16 at `ca31a04` — and inventories the relocation seams; §9's
+"16" reads 17 from that ruling on. The `E` table (§7) is minted here and is frozen like every other
 guarantee table. Discharge lands a results record under `../plans/` and the
 ledger and roadmap re-rank in the same commit.
 **Scope:** the `beliefs` half of the command framework's write boundary — the
@@ -653,3 +655,114 @@ implication (`not required.ungoverned or ceiling.ungoverned`);
 other kind against `ungoverned` plus the family. `PermitSummary` carries the
 flag. E4's completeness claim is unchanged — it is about governed kinds —
 and E5's "both dimensions" reads as "every dimension".
+
+## 14. Renumbering and relocation amendment — 2026-09-04
+
+This section amends the cut's number and its inventory after the relocation
+half of `consolidate-family` merged into `main` ahead of this slice. Like
+§13 it rewrites nothing in §7 or §9; where it changes a disposition it is
+the current ruling, and the results record cites the freeze (`c2f87b3`),
+§13 (`a0f2302`) and this section.
+
+### 14.1 The cut takes 17
+
+§9 opens "no other cut is frozen; this cut takes 16", and decision 8 has
+`consolidate-family` freezing a later number. Both were false when the
+freeze landed: relocation froze cut 16 at `ca31a04` on 2026-09-03, ten hours
+before `c2f87b3`, and discharged it at `b0882d3`
+(`../plans/2026-09-03-conformance-cut-16-results.md`). Concurrency rule 1
+claims a number at freeze in freeze order and never renumbers a discharged
+cut, so this cut takes **17**, the next unclaimed number. §9's frozen body is
+cited, not edited: every "16" in §9 and §13 that names *this* cut reads 17
+by this ruling. The files are `tests/acceptance/n2_arms_cut17.py`,
+`test_n2_cut17.py` and `tools/cut17_acceptance.py`; the results record is
+`../plans/2026-09-04-conformance-cut-17-results.md`; the runner's work root
+is `.cut17-acceptance` and its environment sets `SCIENCE_CUT{n}_ROOT` for
+`n` in 4–17. Decision 8 keeps its substance: the deletion cut of
+`consolidate-family` freezes after this one and its acts are held to §5's
+inventory.
+
+### 14.2 The prefix runs cut 16
+
+§13.2's inventory extends by one cut. `tools/cut16_acceptance.py` chains
+`cut15_acceptance.py`, and its probe calls `init_corpus_root(corpus_root)`
+by the pre-permit signature, so it cannot be named as a prefix runner either.
+`tools/cut17_acceptance.py` names no prefix runner and defines its prefix
+as cut 14's module inventory less `test_n2_cut10.py`, then cut 15's three
+phase modules, then cut 16's two (`test_relocation_acceptance.py`,
+`test_n2_cut16.py`), then its own. Cut 16 is **run, not cited**: every one
+of its 27 pinned `before` blocks spells a call site this slice preserves —
+`_add_locked(node)`, `_delete_locked(<id>)`,
+`_append_operation_intent(intent.kind, intent.event_token, intent.actor)`,
+`execute_fulfilling([operation], intent_digest)` — and none spells the body
+of a definition §14.3 inventories. The plan's staleness probe adds cut 16 to
+its tuple with an empty expected stale set; a cut-16 arm that stops matching
+is a defect of the task that broke it, never a citation.
+
+### 14.3 The relocation seams
+
+Cut 16 added five definitions in `corpus.py` that reach a §4.3 primitive.
+§4.2's inventory gains them, all under `corpus-write`:
+
+| enclosing definition | kinds required | first statement |
+|---|---|---|
+| `CorpusWriter._add_locked` | `node.kind` | `self.authority.require("corpus-write", (node.kind,))` |
+| `CorpusWriter._replace_locked` | `node.kind` | the same |
+| `CorpusWriter._delete_locked` | the kind of the record removed | `self.authority.require("corpus-write", (self._view.get(ref).kind,))` — a read inside the argument, no effect before the check |
+| `CorpusWriter._append_operation_intent` | `act-report` — the fulfilment the intent opens | `self.authority.require("corpus-write", ("act-report",))` |
+| `CorpusWriter._publish_operation_report` | `act-report` | the same |
+
+`_preflight_add_locked` and `_preflight_replace_locked` call no primitive and
+are not inventoried; the run-closure actor check E3 places on `add` lives in
+`_preflight_add_locked`, so `add` and `_add_locked` share it.
+
+**The intent's actor is judged, not taken.** Cut 16's T2b and T2c pin the
+call `_append_operation_intent(intent.kind, intent.event_token, intent.actor)`,
+so the definition keeps three positional parameters. The third is renamed
+`intent_actor` and is a cross-check, never a source of identity: after the
+`require`, `intent_actor != self.authority.actor` raises `ActorMismatch`
+before anything is appended, and the intent is encoded from
+`self.authority.actor`. This is `retract`'s rule (§4.2) applied to an
+operation intent, and E3's arm 3 holds because the parameter is not named
+`actor`.
+
+**The two-root operations take no actor and judge every root before the
+first intent.** `relocation.move` and `relocation.consolidate` lose their
+`actor` keyword; `relocation.py` joins the seam modules arm 3 inspects. Each
+begins by refusing a pair of writers whose bound actors differ
+(`ActorMismatch`, before the locks), and builds its `OperationIntent` from
+the shared bound actor. Because cut 16's T2b/T2c pin the order *intents,
+then add, then delete*, a refusal at `_add_locked` or `_delete_locked` would
+leave an appended intent in each root; so before its first
+`_append_operation_intent` each operation requires, on every writer it will
+write through, `corpus-write` with the record's kind and `act-report` — one
+bare `require` per writer, explicit statements placed after the record is
+resolved and before the intent token is minted. §4.3's redundant-require
+rule makes the later checks in the inventoried helpers harmless repeats.
+Neither operation is inventoried: neither calls a primitive itself.
+
+### 14.4 Coverage, unchanged rows
+
+No row of §7 changes. E1's "for each inventoried definition" and E6's
+closed inventory reach the five definitions by construction, so
+`test_permit_entry_points.py` and the static test cover them without a new
+row. E3's intent arm gains `_append_operation_intent`. E7's "on every other
+boundary the raised `PermitExceeded`; the corpus chain … byte-identical"
+gains its two-root case in the durable suite: a `move` over registered roots
+under a destination permit lacking the record's kind is refused, and both
+chain heads are unchanged. The cut's N2 declaration adds arms for the
+relocation seams — displace `_add_locked`'s `require` below its add; drop
+`_append_operation_intent`'s `ActorMismatch`; drop `move`'s pre-intent
+`require` on the destination — each named to a check in the unit or durable
+suite. §9.1's accounting (8 selected units, no labeled unit beyond §13.1's
+`K1`) is unchanged; the arm count grows.
+
+### 14.5 What changes elsewhere, by this section
+
+The roadmap's `authority` lane row, the ledger's `write-permits` row and the
+README's design-table row each said "cut 16"; they read 17 from this commit.
+The implementation plan (`../plans/2026-09-04-write-permits.md`) renumbers
+its file names, runner, results record and commit messages to 17 outside
+its verbatim quotation of §13 and its already-executed Task 1, adds the
+relocation seams to Task 5, `relocation.py` to Task 11's seam modules, the
+two-root refusal to Task 13 and the relocation arms to Task 14.
