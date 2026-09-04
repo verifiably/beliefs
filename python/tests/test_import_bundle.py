@@ -340,10 +340,11 @@ def test_ordinary_eligibility_is_evaluated_over_bundle_union(writer_with_port):
 
     outcome = report.entries[0].outcome
     assert isinstance(outcome, ImportedRecords)
-    # The hand-built run carries no closure projection, so the assessment's
-    # derivation is unchecked here — R19's third case, and not this row's
-    # subject. What this row asserts is that nothing is *unresolved*.
-    assert [f for f in outcome.findings if not f.startswith("derivation-unchecked: ")] == []
+    # Exactly one finding, and it is not an unresolved-input one: the hand-built
+    # run carries no closure projection, so the assessment's derivation is
+    # R19's third case — unchecked here, never a verdict.
+    assert len(outcome.findings) == 1
+    assert outcome.findings[0].startswith(f"derivation-unchecked: {assessment.id}: ")
     assert all(writer_with_port.read_view.holds(record.id) for record in (assessment, run, proposition, dataset))
 
 

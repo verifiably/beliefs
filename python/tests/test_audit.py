@@ -24,8 +24,9 @@ from beliefs.audit import (
 from beliefs.errors import MalformedRecord
 from beliefs.recipe import ResultManifest, RunClosure
 from beliefs.record import AssessmentValue
-from beliefs.replay import EquivalenceImplementation
+from beliefs.replay import CONTENT_EQUALITY, EquivalenceImplementation
 from beliefs.spec import freeze
+from beliefs.verify import AssessmentVerification, build_verification
 
 PINNED = [{"name": "matrix", "digest": "sha256:" + "1" * 64}]
 
@@ -123,6 +124,48 @@ def _interpretation_evidence(frozen) -> DerivationEvidence:
         held_rules={},
         implementations={implementation.identity: implementation},
     )
+
+
+def _verification_evidence(frozen) -> DerivationEvidence:
+    """The interpretation evidence above, plus the equivalence implementation
+    the original run's own `rule_bindings` name — what recomputing a *verdict*
+    needs and what recomputing a facet does not."""
+    return replace(
+        _interpretation_evidence(frozen), held_rules={CONTENT_EQUALITY.identity: CONTENT_EQUALITY}
+    )
+
+
+DISAGREEING_RESULT = ResultManifest(
+    outputs=(("out-a", "sha256:" + "a" * 64), ("out-b", "sha256:" + "b" * 64))
+)
+"""A replay manifest the held content-identity rule maps to `failed`. Reaching
+a failing verdict this way needs no second engine: the rule compares the two
+result manifests, and these differ."""
+
+
+def _replayed_pair(writer, *, agreeing: bool = True) -> tuple[DerivationEvidence, AssessmentVerification]:
+    """Two persisted assessment runs of one recipe, and the verification
+    `build_verification` derives from them. Both runs are decodable, so a
+    stored record naming them can actually be recomputed."""
+    frozen = freeze(spec_draft(), held_rules=spec_rules())
+    original = assessment_closure(frozen, token="tok-original")
+    replayed = assessment_closure(
+        frozen, token="tok-replayed", result=None if agreeing else DISAGREEING_RESULT
+    )
+    add_observed_datasets(writer, original)
+    writer.add(run_publication(original))
+    writer.add(run_publication(replayed))
+    evidence = _verification_evidence(frozen)
+    derived = build_verification(
+        original,
+        replayed,
+        specs=evidence.specs,
+        held_rules=evidence.held_rules,
+        contract_identity="science:" + "c" * 64,
+        epoch="epoch:" + "e" * 64,
+    )
+    assert isinstance(derived, AssessmentVerification)
+    return evidence, derived
 
 
 def _eligible_assessment(writer) -> Node:
@@ -506,6 +549,67 @@ class TestOmegaValidIsMalformednessOnly:
             ("display-malformed", dataset.id),
             ("lineage-basis-contradicted", dataset.id),
         }
+
+
+class TestVerificationRecomputation:
+    """R19's audit arm at the value width. `check_verification` compares two
+    members — the verdict and the assessment identity the original run's own
+    derivation yields — and each has to be able to disagree on its own, or a
+    silently *unchecked* outcome would read the same as an agreeing one."""
+
+    @staticmethod
+    def _node(writer, derived: AssessmentVerification, **overrides) -> Node:
+        return writer.add(
+            stored.verification_node(
+                "v",
+                title="v",
+                assessment=overrides.get("assessment", derived.assessment),
+                assessment_ref="assessment:a",
+                scope=derived.scope,
+                verdict=overrides.get("verdict", derived.verdict),
+                derivation=(runrecord.run_ref(derived.original), runrecord.run_ref(derived.replayed)),
+            )
+        )
+
+    def test_a_verification_derived_from_its_own_runs_is_checked_and_agrees(self, writer):
+        evidence, derived = _replayed_pair(writer)
+        assert derived.verdict == "passed"
+        node = self._node(writer, derived)
+        assert audit.check_verification(writer.read_view, node, evidence=evidence) == DerivationOutcome(
+            True, "", None
+        )
+        assert audit_corpus(writer.read_view, evidence=evidence) == ()
+
+    def test_a_failing_replay_is_equally_checked_and_agrees(self, writer):
+        """The agreeing arm is not the passing arm: a stored `failed` over a
+        replay that genuinely differs is derived, not contradicted."""
+        evidence, derived = _replayed_pair(writer, agreeing=False)
+        assert derived.verdict == "failed"
+        node = self._node(writer, derived)
+        assert audit.check_verification(writer.read_view, node, evidence=evidence) == DerivationOutcome(
+            True, "", None
+        )
+
+    def test_a_forged_verdict_is_contradicted_and_names_both_verdicts(self, writer):
+        evidence, derived = _replayed_pair(writer)
+        node = self._node(writer, derived, verdict="failed")
+        outcome = audit.check_verification(writer.read_view, node, evidence=evidence)
+        assert outcome.checked and outcome.contradiction is not None
+        assert outcome.contradiction.code == "verification-derivation-contradicted"
+        assert outcome.contradiction.detail == "verdict stored='failed' recomputed='passed'"
+
+    def test_a_forged_assessment_identity_is_contradicted_on_its_own(self, writer):
+        """The verdict agrees; only the assessment identity is wrong. A stored
+        verification pointing at an assessment the original run's derivation
+        does not yield is a forgery the verdict comparison cannot see."""
+        evidence, derived = _replayed_pair(writer)
+        node = self._node(writer, derived, assessment="f" * 64)
+        outcome = audit.check_verification(writer.read_view, node, evidence=evidence)
+        assert outcome.checked and outcome.contradiction is not None
+        assert (
+            outcome.contradiction.detail
+            == "assessment identity differs from the original run's derivation"
+        )
 
 
 class TestAssessmentComparisonNamespaces:

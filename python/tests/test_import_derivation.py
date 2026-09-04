@@ -293,7 +293,9 @@ class TestR19ExplicitImport:
         node = _stored_from(derived.verification)
         report = derived.writer.import_bundle([node], evidence=derived.evidence, **IMPORT_FIELDS)
         assert any(
-            finding.startswith(f"derivation-unchecked: {node.id}") and run.id in finding
+            finding.startswith(f"derivation-unchecked: {node.id}")
+            and run.id in finding
+            and "is malformed here" in finding
             for finding in _report_findings(report)
         )
         assert derived.writer.read_view.get(node.id).kind == "verification"
@@ -353,7 +355,7 @@ class TestR19TransitionB:
 class TestR19NegativesDAndE:
     def test_a_raw_written_forgery_is_caught_only_under_audit(self, derived):
         forged = _stored_from(derived.verification, slug="forged", verdict=_flip(derived.verification.verdict))
-        raw_write(derived.writer.root, stored.stamp_semantic_identity(forged))
+        raw_write(derived.writer.root, forged)  # `verification_node` already stamps it
         derived.writer._reconstruct()
         assert derived.writer.read_view.get(forged.id).kind == "verification"  # not refused, not detected on read
         assert corpus_check(derived.writer.read_view) == ()  # the corpus check says nothing
