@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-04
 **Status:** designed; conformance cut 16 (§9) is **frozen 2026-09-04** by the
-commit that banks this document, before any of its code exists. Nothing is
+commit that banks this document (`895f822`), before any of its code exists. Nothing is
 implemented. The `E` table (§7) is minted here and is frozen like every other
 guarantee table. Discharge lands a results record under `../plans/` and the
 ledger and roadmap re-rank in the same commit.
