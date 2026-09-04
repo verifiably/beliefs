@@ -6,7 +6,7 @@ priority: 2
 size: xl
 owner: design/consolidate-family
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-04T17:57:57Z
+updated: 2026-09-04T18:44:10Z
 depends: []
 tags: [migration, mutation, world]
 ---
@@ -46,3 +46,4 @@ Uncertainty: The outcome is buildable, but the exact cut and interaction between
 - 2026-09-04T16:04:18Z (design/consolidate-family): Task 3: semantic audit lands, Omega-valid first, three contradiction findings, mints nothing
 - 2026-09-04T17:14:08Z (design/consolidate-family): Task 4: explicit import refuses contradicted derivations before any payload write; R19 transition (b) runs end to end
 - 2026-09-04T17:57:57Z (design/consolidate-family): Task 5: claim_from_stored lands; M11 and M13 re-read against the new route
+- 2026-09-04T18:44:10Z (design/consolidate-family): Task 6: beliefs.evaluation lands; M1 containment holds and its sabotage shape fails
