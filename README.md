@@ -27,9 +27,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Forty-five documents in `docs/designs/`: the banked redesigns, review disposition,
+Forty-six documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
-2026-08-02 through 2026-09-03. Read them in this order:
+2026-08-02 through 2026-09-04. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -78,6 +78,7 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-08-31-coordination-and-view-kinds-design.md` | the coordination tier: closed view-query grammar, versioned coordination contract, opaque project/local addressing, immutable multi-corpus revision family, and world-inert storage; cut 14 discharges it except W17 intent-position |
 | `2026-09-03-world-changing-families-design.md` | the two-root `move` and `consolidate` operations, managed deletion, their lock and crash discipline, and the two cuts that discharge them |
 | `2026-09-03-conformance-cut-16.md` | the discharged relocation cut: W5 in full, G3 and D7 closed, five partial rows, and T8 re-read against both relocation operations |
+| `2026-09-04-conformance-cut-17.md` | the frozen deletion cut: managed `delete` as an ordinary write, the audit and import ride-alongs, 7 rows closing, 5 partial, 4 closed-row re-reads |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
