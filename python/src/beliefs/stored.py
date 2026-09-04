@@ -112,6 +112,7 @@ __all__ = [
     "semantic_projection",
     "stamp_semantic_identity",
     "stored_semantic_hash",
+    "used_facet_namespaces",
     "verification_value",
 ]
 
@@ -131,6 +132,11 @@ VERIFICATION_FACET = "verification"
 RETRACTION_FACET = "retraction"
 HOLDINGS_OBSERVATION_FACET = "holdings-observation"
 COORDINATION_FACET = "coordination"
+
+
+def used_facet_namespaces(node: Node) -> frozenset[str]:
+    """The domain namespaces named by this node's namespaced facet keys."""
+    return frozenset(key.partition("/")[0] for key in node.facets if "/" in key)
 
 # --- kernel §4.1's closed relation signatures --------------------------------
 

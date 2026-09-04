@@ -1117,6 +1117,21 @@ class CorpusWriter:
         return self._state.view
 
     @property
+    def root(self) -> Path:
+        return self._corpus.store.root
+
+    @property
+    def corpus_id(self) -> str:
+        from beliefs.world import load_manifest
+
+        return load_manifest(self.root).corpus_id
+
+    def manifest_pins(self) -> CorpusPins:
+        from beliefs.world import load_manifest
+
+        return load_manifest(self.root).profile
+
+    @property
     def read_view(self) -> ReadView:
         """The facade every other module receives. The mutable handle stays
         here."""
