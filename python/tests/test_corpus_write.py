@@ -14,8 +14,9 @@ import time
 from typing import Any, ClassVar, cast
 
 import pytest
+from fixtures_cut3 import report as mint_report
 from fixtures_cut6 import PINS
-from nodes.core.errors import CollisionError, ExecutionError, ValidationError
+from nodes.core.errors import CollisionError, ExecutionError, RefError, ValidationError
 from nodes.core.node import Node, NodeMetadata
 from nodes.core.write_plan import CreateOp, DefaultExecutor, DeleteOp, ReplaceOp
 
@@ -29,6 +30,7 @@ from beliefs.errors import (
     ManifestAlreadyPresent,
     ManifestMalformed,
     RecordAlreadyMinted,
+    RevisionTargetMissing,
     ScienceError,
     ValidationRefused,
     WriteRefused,
@@ -59,6 +61,11 @@ def writer(tmp_path) -> CorpusWriter:
     return CorpusWriter(tmp_path, Recorder)
 
 
+@pytest.fixture()
+def second_writer(tmp_path) -> CorpusWriter:
+    return CorpusWriter(tmp_path / "second", Recorder)
+
+
 def observed_dataset(slug="raw"):
     return stored.dataset_node(
         slug, title=slug, resources=PINNED, empirical_observation={"boundary": "instrument"}
@@ -82,6 +89,92 @@ def admissible(writer: CorpusWriter, *, observes=True):
         outcome="supported",
         interpretation_rule="rule:threshold",
     )
+
+
+def test_add_locked_applies_every_ordinary_create_check(writer):
+    node = writer.add(stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"}))
+
+    with writer._operation, pytest.raises(RecordAlreadyMinted):
+        writer._add_locked(node)
+
+
+def test_replace_locked_rewrites_at_the_same_uid_and_id(writer):
+    node = writer.add(stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"}))
+    revised = node.model_copy(update={"title": "A paper, consolidated"})
+
+    with writer._operation:
+        result = writer._replace_locked(revised)
+
+    assert (result.uid, result.id) == (node.uid, node.id)
+    assert writer.read_view.get(node.id).title == "A paper, consolidated"
+
+
+def test_replace_locked_refuses_a_node_that_is_not_already_minted(writer):
+    absent = stored.source_node("s2", title="Another", identifiers={"doi": "10.1/xyz"})
+
+    with writer._operation, pytest.raises(RevisionTargetMissing):
+        writer._replace_locked(absent)
+
+
+def test_the_locked_seams_carry_a_retraction(writer, second_writer):
+    target = writer.add(admissible(writer))
+    target_identity = stored.stored_semantic_hash(target)
+    assert target_identity is not None
+    record = writer.retract(
+        stored.retraction_node(
+            title="retraction",
+            target=stored.NodeTarget(target.id, target.id, target_identity),
+            reason="defective-code",
+            rationale="the recorded result is invalid",
+            grounds=("verification:v1",),
+            actor="tester",
+            event_token="event-1",
+        )
+    )
+
+    with second_writer._operation:
+        carried = second_writer._add_locked(record)
+        replaced = second_writer._replace_locked(carried)
+
+    assert carried.kind == replaced.kind == "retraction"
+
+
+def test_the_locked_seams_still_refuse_an_act_report(writer):
+    report = stored.act_report_node(mint_report())
+
+    with writer._operation, pytest.raises(
+        WriteRefused,
+        match="an act-report is minted by the boundary and stored by import",
+    ):
+        writer._add_locked(report)
+
+
+def test_replace_locked_runs_the_eligibility_check(writer):
+    node = writer.add(stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"}))
+    ineligible = node.model_copy(
+        update={
+            "relations": [
+                stored.Relation(source=node.id, predicate=stored.ASSESSES, target="proposition:p1")
+            ]
+        }
+    )
+
+    with writer._operation, pytest.raises(EligibilityUnmet):
+        writer._replace_locked(ineligible)
+
+
+def test_delete_locked_removes_the_record_and_checks_no_references(writer):
+    assessment = admissible(writer)
+    target = writer.read_view.get("proposition:p1")
+    writer.add(assessment)
+    assert writer.read_view.inbound(target.id)
+
+    with writer._operation:
+        writer._delete_locked(target.id)
+
+    assert [type(op) for op in Recorder.plans[-1]] == [DeleteOp]
+    with pytest.raises(RefError):
+        writer.read_view.get(target.id)
 
 
 class TestTheAddPathIsAddOnly:

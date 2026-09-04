@@ -48,7 +48,7 @@ from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 from nodes.core.structural_index import Index, ResolvedEdge
-from nodes.core.write_plan import CreateOp, WritePlanExecutor
+from nodes.core.write_plan import CreateOp, DeleteOp, WritePlanExecutor
 from pydantic import ValidationError as PydanticValidationError
 from pydantic_core import PydanticSerializationError
 from yaml import YAMLError
@@ -1134,6 +1134,38 @@ class CorpusWriter:
             self._refuse_family_kinds(node)
             self._refuse(node)
             return self._corpus.add(node)
+
+    def _add_locked(self, node: Node) -> Node:
+        """`add`'s body, with the root's operation lock already held."""
+        self._refuse_family_kinds(node, admitted_kind=node.kind)
+        self._refuse(node)
+        return self._corpus.add(node)
+
+    def _replace_locked(self, node: Node) -> Node:
+        """Rewrite an existing `(uid, id)`, with the operation lock held."""
+        existing = self._corpus.index.by_uid.get(node.uid)
+        if existing is None or existing.id != node.id:
+            raise RevisionTargetMissing(f"{node.id}: exact uid and id do not identify a local node")
+        self._refuse_family_kinds(node, admitted_kind=node.kind)
+        self._refuse_missing_basis(node)
+        self._refuse_ineligible(node)
+        if stored.display_facet_malformed(node):
+            raise ValidationRefused(f"{node.id}: refused by document validation: malformed display facet")
+        self._refuse_invalid(node)
+        self._refuse_governed_stamp(node)
+        self._refuse_rendering(node)
+        return self._corpus.add(node)
+
+    def _delete_locked(self, ref: str) -> None:
+        """Remove one record's file, with the operation lock already held."""
+        from beliefs.world.rules import member_content_digest
+
+        node = self._view.get(ref)
+        content = node_to_markdown(node).encode("utf-8")
+        self._corpus.executor.execute(
+            [DeleteOp(path=self._relative_path(node), expected_digest=member_content_digest(content))]
+        )
+        self._reconstruct()
 
     def mint_coordination(
         self,
