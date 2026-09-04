@@ -76,6 +76,8 @@ from beliefs.errors import (
     ContractMismatch,
     CoordinationKindUnsupported,
     CoordinationUnavailable,
+    DeletionKindExcluded,
+    DeletionTargetMissing,
     EligibilityUnmet,
     FamilyKindUnsupported,
     IdentityError,
@@ -120,6 +122,7 @@ if TYPE_CHECKING:
 __all__ = [
     "DIRECTIONS",
     "ELIGIBLE_RETRACTION_TARGET_KINDS",
+    "EXCLUDED_MUTATION_KINDS",
     "CoordinationResolver",
     "CorpusWriter",
     "Finding",
@@ -138,6 +141,9 @@ __all__ = [
 
 DIRECTIONS = ("inbound", "outbound")
 ELIGIBLE_RETRACTION_TARGET_KINDS = ("assessment", "retraction", "verification")
+EXCLUDED_MUTATION_KINDS: tuple[str, ...] = ("act-report", "holdings-observation", *COORDINATION_KINDS)
+"""The kinds no world-changing operation accepts (§3.0): as a `delete` target,
+a `move` subject, or a `consolidate` input. `relocation.py` imports this."""
 _COORDINATION_AT = re.compile(
     r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})"
 )
@@ -1145,6 +1151,33 @@ class CorpusWriter:
             self._refuse_family_kinds(node)
             self._refuse(node)
             return self._corpus.add(node)
+
+    def delete(self, ref: str) -> None:
+        """Remove exactly one record's file — an ordinary write, like `add`.
+
+        No intent, no act-report, one engine effect (§3.1): an act-report is a
+        live corpus node, so a delete that minted one would be distinguishable
+        from a raw `unlink` on an ordinary read, and the managed/raw asymmetry
+        would collapse. No referential check: the records naming the target
+        keep naming it, and withdrawing epistemic force is retraction's job.
+        No tombstone: the chain's committed removal is the history.
+        """
+        with self._operation:
+            try:
+                node = self._view.get(ref)
+            except RefError as caught:
+                raise DeletionTargetMissing(f"{ref}: no record resolves in this corpus") from caught
+            self._refuse_excluded_kind(node)
+            self._delete_locked(node.id)
+
+    def _refuse_excluded_kind(self, node: Node) -> None:
+        profile = (
+            self._coordination_resolver.profile(self._corpus.store.root)
+            if self._coordination_resolver is not None
+            else None
+        )
+        if node.kind in EXCLUDED_MUTATION_KINDS or (profile is not None and node.kind in profile.coordination_kinds):
+            raise DeletionKindExcluded(f"{node.id}: kind {node.kind!r} is excluded from every world-changing operation")
 
     def _add_locked(self, node: Node) -> Node:
         """`add`'s body, with the root's operation lock already held."""

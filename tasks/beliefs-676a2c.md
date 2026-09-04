@@ -6,7 +6,7 @@ priority: 2
 size: xl
 owner: design/consolidate-family
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-04T14:21:24Z
+updated: 2026-09-04T15:30:03Z
 depends: []
 tags: [migration, mutation, world]
 ---
@@ -42,3 +42,4 @@ Uncertainty: The outcome is buildable, but the exact cut and interaction between
 - 2026-09-04T09:54:50Z (design/consolidate-family): Relocation cut discharged: move and consolidate land, G3 and D7 close, W5 reads in full. Managed deletion and the ride-alongs remain; the deletion cut follows.
 - 2026-09-04T10:22:24Z (design/consolidate-family): Task 12 review correction: promoted correction-remainder to tier 1 now that cut 16 discharged its consolidate prerequisite; mutation-lane order remains serial.
 - 2026-09-04T14:21:24Z (design/consolidate-family): claimed by Claude Code (claude-fable-5-1), pid 3996794; resuming for the deletion cut in .worktrees/consolidate-family on design/consolidate-family
+- 2026-09-04T15:30:03Z (design/consolidate-family): Task 2: public delete lands as an ordinary write; T8 and C1 re-read; re-resolution after delete pinned
