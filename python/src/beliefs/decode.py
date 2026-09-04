@@ -212,7 +212,6 @@ def _resolve(profile: ProfileSpec, snapshot: ResolutionSnapshot, referent: Refer
 
 
 _STORED_CLAIM_KEYS = frozenset({"operator", "args", "qualifiers", "polarity", "layer"})
-_STORED_QUALIFIER_BODY_KEYS = frozenset({"quantifier", "restriction"})
 
 
 def claim_from_stored(node: Node, *, profile: ProfileSpec, snapshot: ResolutionSnapshot) -> tuple[Claim, BindingCheckReceipt]:
@@ -220,10 +219,14 @@ def claim_from_stored(node: Node, *, profile: ProfileSpec, snapshot: ResolutionS
 
     The wire value is built **here** and consumed **here** — `WireClaim` still
     never leaves this module (M13) — and typing is delegated to `decode_claim`
-    rather than duplicated, so the check still happens once, in one place.
-    Every ill-formed input refuses **before** delegation, with nothing minted
-    and no `KeyError` or `AttributeError` on the way in (M11): a restore helper
-    is exactly where "be liberal in what you accept" would defeat the row.
+    rather than duplicated, so the check still happens once, in one place. The
+    same is true one level down: a qualifier body's own shape (missing or
+    unknown fields) is `_wire_parts`' check, not a second copy of it, so it is
+    called here — its return discarded — before `decode_claim`, rather than
+    left for `decode_claim` to reach on its own. Every ill-formed input
+    refuses **before** delegation, with nothing minted and no `KeyError` or
+    `AttributeError` on the way in (M11): a restore helper is exactly where
+    "be liberal in what you accept" would defeat the row.
     """
     if not isinstance(node, Node) or node.kind != "proposition":
         raise MalformedWireClaim(f"claim_from_stored restores a proposition node, found {type(node).__name__}")
@@ -238,9 +241,6 @@ def claim_from_stored(node: Node, *, profile: ProfileSpec, snapshot: ResolutionS
         raise MalformedWireClaim(f"{node.id}: args is not a sequence")
     if not isinstance(facet["qualifiers"], Mapping):
         raise MalformedWireClaim(f"{node.id}: qualifiers is not a mapping")
-    for dimension, body in facet["qualifiers"].items():
-        if not isinstance(body, Mapping) or set(body) != _STORED_QUALIFIER_BODY_KEYS:
-            raise MalformedWireClaim(f"{node.id}: qualifiers[{dimension!r}] is not a well-formed qualifier body")
     wire = WireClaim(
         operator=facet["operator"],
         args=tuple(facet["args"]),
@@ -248,4 +248,5 @@ def claim_from_stored(node: Node, *, profile: ProfileSpec, snapshot: ResolutionS
         polarity=facet["polarity"],
         layer=facet["layer"],
     )
+    _wire_parts(wire)  # the shared shape check, including a qualifier body's fields — refuse before delegating, not inside it
     return decode_claim(wire, profile=profile, snapshot=snapshot)
