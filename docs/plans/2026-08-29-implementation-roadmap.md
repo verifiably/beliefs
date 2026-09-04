@@ -107,7 +107,7 @@ boundary sits in the lane of its prerequisite and waits there.
 | `cross-repo` | `l13-preimage`, `persistence-cut`, `nodes-remainder`, in any order | the `atoms` and `nodes` repositories, each behind its own design gate | none; Science consumes each seam after it lands |
 
 `contract-cut` is in no lane. It is a **join**: it freezes after every lane
-that amends an oracle has merged, for the reason tier 1's row 6 gives — N1
+that amends an oracle has merged, for the reason tier 1's row 7 gives — N1
 mints a successor contract identity for every oracle amended after the
 freeze, and each lane above amends at least one. Tier 3 boundaries are in no
 lane either; a design answer moves one into the lane of the surface it
