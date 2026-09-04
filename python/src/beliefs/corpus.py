@@ -143,8 +143,12 @@ __all__ = [
 DIRECTIONS = ("inbound", "outbound")
 ELIGIBLE_RETRACTION_TARGET_KINDS = ("assessment", "retraction", "verification")
 EXCLUDED_MUTATION_KINDS: tuple[str, ...] = ("act-report", "holdings-observation", *COORDINATION_KINDS)
-"""The kinds no world-changing operation accepts (§3.0): as a `delete` target,
-a `move` subject, or a `consolidate` input. `relocation.py` imports this."""
+"""The statically excluded kinds no world-changing operation accepts (§3.0):
+as a `delete` target, a `move` subject, or a `consolidate` input.
+`relocation.py` imports this. The table is the whole exclusion for `move` and
+`consolidate`; `delete` refuses on a wider set, because `_refuse_excluded_kind`
+also reads a mounted coordination resolver's profile and refuses every kind
+that profile names."""
 _COORDINATION_AT = re.compile(
     r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})"
 )

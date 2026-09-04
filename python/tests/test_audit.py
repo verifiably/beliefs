@@ -21,7 +21,7 @@ from beliefs.audit import (
     audit_corpus,
     check_lineage_basis,
 )
-from beliefs.errors import MalformedRecord
+from beliefs.errors import MalformedRecord, SignatureRefused
 from beliefs.recipe import ResultManifest, RunClosure
 from beliefs.record import AssessmentValue
 from beliefs.replay import CONTENT_EQUALITY, EquivalenceImplementation
@@ -509,6 +509,65 @@ class TestTheAuditReportsAndNeverRaises:
         findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
         assert {(f.code, f.ref) for f in findings} == {
             ("semantic-hash-missing", bystander),
+            ("derivation-malformed", node.id),
+        }
+
+    def test_an_assessment_naming_a_dataset_production_run(self, writer):
+        """`build_assessment` refuses a dataset-production closure with
+        `SignatureRefused` (R7), not `MalformedRecord`. Catching only the
+        latter let one such assessment abort the whole audit and discard every
+        finding already collected — the failure mode the malformed-record catch
+        was added to close, reopened by a sibling of the same base."""
+        bystander = _bystander(writer)
+        closure = make_closure(shape="dataset-production")
+        dataset = writer.add(
+            stored.dataset_node(
+                "produced", title="produced", resources=PINNED, empirical_observation={"boundary": "i"}
+            )
+        )
+        for entry in closure.recipe.inputs:
+            writer.add(
+                stored.dataset_node(
+                    entry.dataset.removeprefix("dataset:"),
+                    title="input",
+                    resources=PINNED,
+                    empirical_observation={"boundary": "i"},
+                )
+            )
+        run = writer.add(
+            stored.run_publication_node(
+                closure.address(),
+                title="production run",
+                projection=runrecord.projection_text(closure).decode("utf-8"),
+                spec=None,
+                transforms=tuple(
+                    e.dataset for e in closure.recipe.inputs if e.role == "transforms"
+                ),
+                reads=tuple(e.dataset for e in closure.recipe.inputs if e.role == "reads"),
+                produces=(dataset.id,),
+            )
+        )
+        proposition = writer.add(
+            stored.proposition_node("p1", title="p1", claim={"operator": "affects"})
+        )
+        node = stored.assessment_node(
+            "a1",
+            title="a1",
+            spec="analysis-spec:s1",
+            run=run.id,
+            proposition=proposition.id,
+            outcome="supported",
+            interpretation_rule="rule:threshold",
+        )
+        raw_write(writer.root, stored.stamp_semantic_identity(node))
+        writer._reconstruct()
+
+        with pytest.raises(SignatureRefused):
+            audit.check_assessment(writer.read_view, writer.read_view.get(node.id), evidence=NO_EVIDENCE)
+        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        assert {(f.code, f.ref) for f in findings} == {
+            ("semantic-hash-missing", bystander),
+            ("eligibility-unmet", node.id),
             ("derivation-malformed", node.id),
         }
 

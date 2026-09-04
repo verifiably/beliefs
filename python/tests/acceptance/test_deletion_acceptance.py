@@ -609,8 +609,10 @@ def test_r23_deletion_and_audit_clauses_durably(durable_writer):
 
         forged.delete(run_b.id)
 
-        # §7: the **semantic** contradiction is gone, not every finding — the
-        # log audit still reports the removal the transaction committed.
+        # §7: the **semantic** contradiction is gone. This arm reads the
+        # semantic audit only; that the log still reports the removal the
+        # transaction committed is the G8/C6 arm's property, established there
+        # over `root.audit_log`.
         assert "lineage-basis-contradicted" not in {
             finding.code for finding in audit_corpus(reopen(forged.root), evidence=NO_EVIDENCE)
         }

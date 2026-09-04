@@ -35,6 +35,7 @@ from beliefs.corpus import Finding, ReadView, _ImportView, _producers_of, corpus
 from beliefs.errors import (
     IdentityError,
     MalformedRecord,
+    RecordError,
     RuleUnbound,
     SemanticHashMissing,
     SemanticHashStale,
@@ -243,9 +244,13 @@ def check_lineage_basis(view: ReadView, node: Node) -> DerivationOutcome:
 
 def audit_corpus(view: ReadView, *, evidence: DerivationEvidence) -> tuple[Finding, ...]:
     """Ω_valid first, then recomputation over what is well-formed. No standing,
-    no belief, no write, no mint — and, like `corpus_check`, no raise: a record
-    whose members refuse to be read is reported as `derivation-malformed`, so
-    one such record cannot discard the findings collected for every other."""
+    no belief, no write, no mint — and, like `corpus_check`, no raise: any
+    `RecordError` a recomputation raises is reported as `derivation-malformed`,
+    so one such record cannot discard the findings collected for every other.
+    The catch is the base, not `MalformedRecord`: a recomputation refuses on
+    the whole family — a signature that admits no such derivation
+    (`SignatureRefused`), an undecodable closure (`MalformedClosure`) — and a
+    narrower catch lets those siblings abort the audit."""
     findings = list(corpus_check(view))
     malformed = {finding.ref for finding in findings if finding.code in MALFORMEDNESS_CODES}
     for node in view.iter_stored():
@@ -260,7 +265,7 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence) -> tuple[Findi
                 outcome = check_lineage_basis(view, node)
             else:
                 continue
-        except MalformedRecord as refused:
+        except RecordError as refused:
             findings.append(
                 Finding(
                     severity="error",
