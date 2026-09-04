@@ -1490,22 +1490,28 @@ class CorpusWriter:
         self,
         records: Sequence[Node],
         *,
-        actor: str,
         observer: str,
         instrument: str,
         opened_at: str,
         closed_at: str,
     ) -> report_values.ActReport:
-        """Admit one validated bundle in one payload transaction."""
+        """Admit one validated bundle in one payload transaction.
+
+        Every member is judged before the intent. Imported records retain any
+        actor they carry as provenance; the intent names the bound importer.
+        """
+        try:
+            bundle = tuple(records)
+        except TypeError as caught:
+            raise ImportRefused("an import bundle must be a sequence of records") from caught
+        self._authority.require(
+            "corpus-write", (*(record.kind for record in bundle if type(record) is Node), "act-report")
+        )
+        actor = self._authority.actor
         with self._operation:
-            try:
-                bundle = tuple(records)
-            except TypeError as caught:
-                raise ImportRefused("an import bundle must be a sequence of records") from caught
             if not bundle:
                 raise ImportRefused("an import bundle must not be empty")
             for name, value in (
-                ("actor", actor),
                 ("observer", observer),
                 ("instrument", instrument),
                 ("opened_at", opened_at),

@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 import yaml
-from authority import ACTOR, FULL
+from authority import FULL
 from coordination_fixtures import AT, content_for, raw_add, raw_coordination_node
 from nodes.core.corpus import Corpus
 from nodes.core.node import Node
@@ -144,7 +144,7 @@ def test_w17c_import_refuses_and_names_the_coordination_member(durable_coordinat
     member = Node(id="note:old", kind="note", title="old")
     with pytest.raises(ImportRefused) as caught:
         writer.import_bundle(
-            [member], actor=ACTOR, observer="o", instrument="i", opened_at=AT, closed_at=AT
+            [member], observer="o", instrument="i", opened_at=AT, closed_at=AT
         )
     assert caught.value.member == member.id
 

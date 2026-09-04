@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import ClassVar
 
 import pytest
-from authority import ACTOR, FULL
+from authority import ACTOR, FULL, narrowed
 from nodes.core.errors import ExecutionError
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -13,7 +13,7 @@ from nodes.core.write_plan import CreateOp, DefaultExecutor
 
 from beliefs import stored
 from beliefs.corpus import CorpusWriter
-from beliefs.errors import BundleMemberHeld, ImportRefused
+from beliefs.errors import BundleMemberHeld, ImportRefused, PermitExceeded, PermitFact
 from beliefs.identity import v1
 from beliefs.report import ImportedRecords, RecordImportEntry, _mint_report
 
@@ -64,7 +64,6 @@ def test_import_refuses_a_coordination_member_by_name(writer_with_port):
     with pytest.raises(ImportRefused) as caught:
         writer_with_port.import_bundle(
             [member],
-            actor=ACTOR,
             observer="o",
             instrument="i",
             opened_at="T0",
@@ -80,12 +79,75 @@ def prop(slug: str) -> Node:
 def import_records(writer: CorpusWriter, records):
     return writer.import_bundle(
         records,
-        actor=ACTOR,
         observer="corpus",
         instrument="test",
         opened_at="T0",
         closed_at="T1",
     )
+
+
+def _import(writer, members):
+    return writer.import_bundle(members, observer="o", instrument="i", opened_at="T0", closed_at="T1")
+
+
+def _narrowed_writer(tmp_path, authority):
+    FakePort.intents, FakePort.executed, FakePort.fulfilling = [], [], []
+    return CorpusWriter(
+        tmp_path,
+        Recorder,
+        authority=authority,
+        operation_port=FakePort(tmp_path, authority=authority),
+    )
+
+
+def test_e8_one_unpermitted_member_refuses_the_bundle_before_the_intent(tmp_path):
+    writer = _narrowed_writer(
+        tmp_path, narrowed(kinds=("proposition", "act-report"), families=("corpus-write",))
+    )
+    with pytest.raises(PermitExceeded) as caught:
+        _import(writer, [prop("p1"), stored.source_node("s1", title="s", identifiers={"doi": "10.1/x"})])
+    assert caught.value.requirement == PermitFact("kind", "source")
+    assert FakePort.intents == [] and FakePort.executed == [] and FakePort.fulfilling == []
+
+
+def test_e8_a_permit_lacking_act_report_refuses_before_the_intent(tmp_path):
+    writer = _narrowed_writer(tmp_path, narrowed(kinds=("proposition",), families=("corpus-write",)))
+    with pytest.raises(PermitExceeded) as caught:
+        _import(writer, [prop("p1")])
+    assert caught.value.requirement == PermitFact("kind", "act-report")
+    assert FakePort.intents == []
+
+
+def test_e8_every_member_kind_plus_act_report_imports_with_one_fulfilling_report(tmp_path):
+    writer = _narrowed_writer(
+        tmp_path, narrowed(kinds=("proposition", "act-report"), families=("corpus-write",))
+    )
+    report = _import(writer, [prop("p1")])
+    assert report.actor == ACTOR
+    assert len(FakePort.intents) == 1 and len(FakePort.fulfilling) == 1
+
+
+def test_e3_the_import_intent_carries_the_bound_actor(writer_with_port):
+    FakePort.intents = []
+    _import(writer_with_port, [prop("p2")])
+    payload = v1.decode(FakePort.intents[0])
+    assert isinstance(payload, dict) and payload["actor"] == ACTOR
+
+
+def test_e3_an_imported_member_naming_a_foreign_actor_is_stored_verbatim(tmp_path):
+    from fixtures_cut3 import closure as minted_closure
+    from nodes.core.frontmatter import node_from_markdown
+
+    from beliefs.runrecord import decode_run_closure, publication_plan
+
+    _, _, (operation,) = publication_plan(minted_closure())
+    node = node_from_markdown(operation.content.decode("utf-8"))
+    writer = _narrowed_writer(
+        tmp_path,
+        narrowed(kinds=("run", "act-report"), families=("corpus-write",), actor="importer"),
+    )
+    _import(writer, [node])
+    assert decode_run_closure(writer.read_view.get(node.id)).occurrence.actor == "tester"
 
 
 def retraction(slug: str, target: str) -> Node:
@@ -595,10 +657,9 @@ def test_refusal_before_intent_when_request_malformed(writer_with_port, records)
     assert FakePort.fulfilling == []
 
 
-@pytest.mark.parametrize("field", ["actor", "observer", "instrument", "opened_at", "closed_at"])
+@pytest.mark.parametrize("field", ["observer", "instrument", "opened_at", "closed_at"])
 def test_attribution_and_times_refuse_before_intent(writer_with_port, field):
     values = {
-        "actor": "k",
         "observer": "corpus",
         "instrument": "test",
         "opened_at": "T0",
@@ -612,10 +673,9 @@ def test_attribution_and_times_refuse_before_intent(writer_with_port, field):
     assert FakePort.intents == []
 
 
-@pytest.mark.parametrize("field", ["actor", "observer", "instrument", "opened_at", "closed_at"])
+@pytest.mark.parametrize("field", ["observer", "instrument", "opened_at", "closed_at"])
 def test_uncanonically_encodable_report_fields_refuse_before_intent(writer_with_port, field):
     values = {
-        "actor": "k",
         "observer": "corpus",
         "instrument": "test",
         "opened_at": "T0",

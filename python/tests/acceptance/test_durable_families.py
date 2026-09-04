@@ -103,7 +103,6 @@ def test_import_bundle_records_the_exact_durable_chain(durable_root):
 
     report = writer.import_bundle(
         [proposition("imported-a"), proposition("imported-b")],
-        actor="acceptance",
         observer="corpus",
         instrument="cut5",
         opened_at="T0",
@@ -160,7 +159,6 @@ def test_import_on_an_uncertified_tuple_refuses():
         with pytest.raises(ExecutionError) as refused:
             open_corpus(root, authority=FULL).import_bundle(
                 [proposition("uncertified")],
-                actor="acceptance",
                 observer="corpus",
                 instrument="cut5",
                 opened_at="T0",

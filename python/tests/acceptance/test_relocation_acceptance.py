@@ -305,7 +305,6 @@ def _produce_single_basis(
     ]
     writer.import_bundle(
         [run_node, candidate],
-        actor=ACTOR,
         observer="observer",
         instrument="instrument",
         opened_at=MOVE_FIELDS["opened_at"],
@@ -695,7 +694,7 @@ def test_t2_each_root_records_one_intent_before_one_qualifying_report(durable_fa
 
 
 def _store_report(corpus, report) -> None:
-    digest = corpus._append_operation_intent(report.operation, report.event_token, report.actor)
+    digest = corpus._append_operation_intent(report.operation, report.event_token, corpus.authority.actor)
     corpus._publish_operation_report(report, digest)
 
 
