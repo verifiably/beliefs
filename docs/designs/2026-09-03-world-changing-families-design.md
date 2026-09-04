@@ -349,6 +349,15 @@ transactions, and publication is what closes them.
 `(uid, id)`, and `revise` reaches replacement only through its display-only
 allowlist; neither is weakened.
 
+**Replacement collision preflight is safe and required** *(corrected
+2026-09-04, on inspecting `Index.assert_addable`)*. The index explicitly
+permits the existing same `(uid, id)` pair and refuses only an identity claim
+owned by another uid. `_replace_locked` therefore runs `_refuse_collision`
+after rendering, in `_refuse` order; `_refuse_already_minted` is the sole
+ordinary admission check it omits. `consolidate` calls that same no-write
+replacement preflight before either intent, so a deprecated id contributed by
+the other input cannot strand two intents when it collides in the kept root.
+
 **The digest precondition is the substrate's, not a Science-layer parameter**
 *(corrected 2026-09-03, on inspecting the write API)*. `Corpus.add` selects
 `ReplaceOp` for an existing `(uid, id)` and takes its `expected_digest` from

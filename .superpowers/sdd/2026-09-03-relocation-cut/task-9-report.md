@@ -71,3 +71,37 @@ None. No redirect, inbound rewrite, coreference record, balance transfer,
 third uid, N-way API, delete preflight helper, compatibility layer, or later
 task behavior was added. The parent task remains open because managed deletion
 is still outstanding.
+
+## Review fix round 1/5
+
+Two Important findings were reproduced before production changes:
+
+- A loser's deprecated id colliding with an unrelated record in the kept root
+  raised `CollisionRefused` only after both intents.
+- Two canonically equal single routes with different key order and NFC spelling
+  retained different raw operands depending on argument order.
+
+The combined RED summary was `2 failed, 53 deselected in 0.42s`; after the
+fixes the same selector passed `2 passed, 53 deselected in 0.35s`.
+
+`_preflight_replace_locked` now ends with `_refuse_collision`. The substrate
+index permits the existing same `(uid, id)` replacement and refuses claims
+owned by another uid, so the check is safe and keeps deterministic replacement
+collisions ahead of both intents. The banked design §3.4 and the current plan's
+verified-interface row and Task 4 instructions were corrected narrowly; the
+frozen cut was untouched.
+
+Lineage route union now deduplicates canonical bytes, sorts them, decodes each
+retained route, and explicitly refuses a non-object decode. The result no
+longer preserves an arbitrary raw operand and is independent of input order
+for insertion-order and NFC-equivalent mappings.
+
+Final review-fix evidence:
+
+- Three Task 9 focused modules: `77 passed in 3.42s`.
+- Full Python suite: `3182 passed in 943.87s (0:15:43)`.
+- Ruff: `All checks passed!`.
+- Pyright: `0 errors, 0 warnings, 0 informations`.
+- `tasks check`: zero errors and zero warnings.
+- No `CapabilityUnavailable` refusal or certified kernel/volume mismatch
+  occurred.

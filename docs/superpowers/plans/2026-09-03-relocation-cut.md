@@ -35,6 +35,7 @@ Do not re-derive these; they were inspected while writing this plan.
 | no `expected_digest` appears anywhere in `corpus.py`; `revise` replaces via `self._corpus.add(node)` | `_replace_locked` takes no digest — the substrate reads it pre-plan |
 | `CorpusWriter.add` body is `_refuse_family_kinds(node)`, `_refuse(node)`, `self._corpus.add(node)` | `_add_locked` mirrors exactly that, minus the lock acquisition |
 | `_refuse(node, *, document_validated=False, view=None)` centralises already-minted, basis, eligibility, display-facet, validity, governed-stamp, rendering and collision | never hand-roll a subset |
+| `Index.assert_addable` permits an existing same `(uid, id)` replacement and rejects identity claims owned by another uid | `_preflight_replace_locked` safely runs `_refuse_collision`; `_refuse_already_minted` is its only ordinary-check omission |
 | `ReadView.get` propagates `nodes`' `RefError` for an absent ref | catch `RefError`, not `KeyError` |
 | `Relation` is **unhashable**; `Node.relations` is `list[Relation]`, `Node.deprecated_ids` is `list[str]` | no `set()` over relations, and updates must stay lists |
 | `stored.stamp_semantic_identity(node)` restamps; `SEMANTIC_IDENTITY_FACET` is covered | any covered-facet change must restamp |
@@ -708,6 +709,7 @@ Expected: FAIL with `AttributeError: 'CorpusWriter' object has no attribute '_ad
         self._refuse_invalid(node)
         self._refuse_governed_stamp(node)
         self._refuse_rendering(node)
+        self._refuse_collision(node)
         return self._corpus.add(node)
 
     def _delete_locked(self, ref: str) -> None:
@@ -733,10 +735,13 @@ cycle, move the four-line helper into a shared module and update both callers in
 this same commit.
 
 `_replace_locked` deliberately does not call the full `_refuse`, because
-`_refuse_already_minted` and `_refuse_collision` would reject the very pair it
-targets. It runs **every other check `_refuse` runs**, in `_refuse`'s own order —
-compare the two side by side and confirm the only omissions are those two. If
-`_refuse` grows a keyword that skips them, prefer that to this duplication.
+`_refuse_already_minted` would reject the very pair it targets. It runs **every
+other check `_refuse` runs**, in `_refuse`'s own order, including
+`_refuse_collision`: `Index.assert_addable` permits the existing same
+`(uid, id)` replacement and rejects only claims owned by another uid. Compare
+the two side by side and confirm the sole omission is
+`_refuse_already_minted`. If `_refuse` grows a keyword that skips it, prefer
+that to this duplication.
 
 - [ ] **Step 4: Run to verify they pass**
 

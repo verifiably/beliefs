@@ -445,14 +445,19 @@ def _tagged_basis_routes(node: Node) -> list[dict[str, Any]]:
 
 def union_lineage_bases(survivor: Node, loser: Node) -> dict[str, dict]:
     """Keep survivor facets and replace only its lineage basis with the union."""
-    routes = {
-        v1.encode(route): route
+    encoded_routes = {
+        v1.encode(route)
         for node in (survivor, loser)
         for route in _tagged_basis_routes(node)
     }
     facets = dict(survivor.facets)
-    if routes:
-        ordered = [routes[key] for key in sorted(routes)]
+    if encoded_routes:
+        ordered = []
+        for encoded in sorted(encoded_routes):
+            route = v1.decode(encoded)
+            if not isinstance(route, dict):
+                raise MalformedRecord("a canonical lineage route is not an object")
+            ordered.append(route)
         facets[LINEAGE_BASIS_FACET] = {
             "tag": "single" if len(ordered) == 1 else "conflict",
             "routes": ordered,

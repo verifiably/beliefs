@@ -1177,6 +1177,7 @@ class CorpusWriter:
         self._refuse_invalid(node)
         self._refuse_governed_stamp(node)
         self._refuse_rendering(node)
+        self._refuse_collision(node)
 
     def _delete_locked(self, ref: str) -> None:
         """Remove one record's file, with the operation lock already held."""

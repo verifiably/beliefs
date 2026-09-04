@@ -66,3 +66,35 @@ def test_a_conflict_with_fewer_than_two_routes_is_unconstructible():
 
     with pytest.raises(MalformedRecord, match="conflict"):
         stored.union_lineage_bases(_dataset("kept"), malformed)
+
+
+def test_equal_routes_retain_one_canonical_mapping_independent_of_operand_order():
+    composed = {
+        "identity": "route:cafe\u0301",
+        "run": "run:cafe\u0301",
+        "ancestor": "dataset:cafe\u0301",
+        "transforms": ["dataset:cafe\u0301"],
+    }
+    canonical = {
+        "ancestor": "dataset:café",
+        "identity": "route:café",
+        "run": "run:café",
+        "transforms": ["dataset:café"],
+    }
+    first = _dataset("same", {"tag": "single", "routes": [composed]})
+    second = _dataset("same", {"routes": [canonical], "tag": "single"})
+
+    forward = stored.union_lineage_bases(first, second)
+    reverse = stored.union_lineage_bases(second, first)
+
+    assert forward == reverse
+    assert forward[stored.LINEAGE_BASIS_FACET] == {
+        "tag": "single",
+        "routes": [canonical],
+    }
+    assert list(forward[stored.LINEAGE_BASIS_FACET]["routes"][0]) == [
+        "ancestor",
+        "identity",
+        "run",
+        "transforms",
+    ]

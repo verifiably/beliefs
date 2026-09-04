@@ -631,6 +631,40 @@ def test_consolidate_preflights_the_replacement_before_either_intent(tmp_path):
         assert port.intents == []
 
 
+def test_consolidate_preflights_replacement_collisions_before_either_intent(
+    source_writer, destination_writer
+):
+    claimed = source_writer.add(
+        stored.source_node(
+            "claimed", title="claimed", identifiers={"doi": "10.1/claimed"}
+        )
+    )
+    keep = source_writer.add(
+        stored.source_node("s1", title="kept", identifiers={"doi": "10.1/abc"})
+    )
+    other = stored.source_node(
+        "s1", title="other", identifiers={"doi": "10.1/abc"}
+    ).model_copy(update={"deprecated_ids": [claimed.id]})
+    destination_writer.add(other)
+    keep_before = source_writer.read_view.get(keep.id)
+    other_before = destination_writer.read_view.get(other.id)
+
+    with pytest.raises(CollisionRefused):
+        relocation.consolidate(
+            (source_writer, keep.id),
+            (destination_writer, other.id),
+            **CONSOLIDATE_FIELDS,
+        )
+
+    assert source_writer.read_view.get(keep.id) == keep_before
+    assert destination_writer.read_view.get(other.id) == other_before
+    for writer_ in (source_writer, destination_writer):
+        port = writer_._operation_port
+        assert isinstance(port, OperationRecorder)
+        assert port.intents == []
+        assert port.fulfilling == []
+
+
 def test_every_relocation_refusal_is_a_write_refusal():
     for error in (
         RelocationRefused, SameRootRefused, AddressDisagreement, DuplicateLocation,
