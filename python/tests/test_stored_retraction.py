@@ -155,15 +155,21 @@ def test_retraction_non_string_reason_refuses_without_comparison(reason):
         retraction(reason=reason)
 
 
-@pytest.mark.parametrize("change", [{"actor": ""}, {"event_token": ""}])
-def test_retraction_missing_attribution_refuses(change):
-    with pytest.raises(MalformedRecord):
+@pytest.mark.parametrize(
+    ("change", "error"),
+    [({"actor": ""}, ValueError), ({"event_token": ""}, MalformedRecord)],
+)
+def test_retraction_missing_attribution_refuses(change, error):
+    with pytest.raises(error):
         retraction(**change)
 
 
-@pytest.mark.parametrize("change", [{"actor": 1}, {"event_token": 1}])
-def test_retraction_non_string_attribution_refuses(change):
-    with pytest.raises(MalformedRecord):
+@pytest.mark.parametrize(
+    ("change", "error"),
+    [({"actor": 1}, TypeError), ({"event_token": 1}, MalformedRecord)],
+)
+def test_retraction_non_string_attribution_refuses(change, error):
+    with pytest.raises(error):
         retraction(**change)
 
 
@@ -233,7 +239,6 @@ def test_retraction_invalid_successor_refuses(successor):
         {"reason": LONE_SURROGATE},
         {"rationale": LONE_SURROGATE},
         {"grounds": (LONE_SURROGATE,)},
-        {"actor": LONE_SURROGATE},
         {"event_token": LONE_SURROGATE},
         {"successor": LONE_SURROGATE},
     ],
@@ -241,6 +246,11 @@ def test_retraction_invalid_successor_refuses(successor):
 def test_retraction_lone_surrogate_field_refuses_as_malformed(change):
     with pytest.raises(MalformedRecord):
         retraction(**change)
+
+
+def test_retraction_lone_surrogate_actor_refuses_as_unencodable():
+    with pytest.raises(ValueError, match="actor is not encodable"):
+        retraction(actor=LONE_SURROGATE)
 
 
 def test_route_target_carries_route_identity():

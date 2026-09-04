@@ -1572,7 +1572,6 @@ def anchor_heads(
     corpus_ids: frozenset[str],
     *,
     store_roots: tuple[tuple[str, Path], ...] = (),
-    actor: str,
 ) -> tuple[LogHeadRecord, ...]:
     """The explicit anchor act: record each named subject's present chain head.
 
@@ -1584,9 +1583,7 @@ def anchor_heads(
     supplies the carrier, and the genesis is verified to carry that
     `store_id` before head acceptance or registry mutation.
     """
-    return _anchor_heads(
-        world, corpus_ids, store_roots=store_roots, actor=actor, seam=_log_seam()
-    )
+    return _anchor_heads(world, corpus_ids, store_roots=store_roots, seam=_log_seam())
 
 
 def export_head_artifact(world: World, subject: Subject, *, store_root: Path | None = None) -> bytes:
@@ -1631,7 +1628,6 @@ def admit_arrival(
     provenance: ReplicaOf,
     observers: ObserverSet,
     *,
-    actor: str,
     history: Mapping[str, bytes] | None = None,
 ) -> tuple[AdmissionRecord, LogReport]:
     """Admit an arriving replica, its traveled chain verified first.
@@ -1648,9 +1644,7 @@ def admit_arrival(
     identity, which this design does not amend. `World.admit` refuses
     `ReplicaOf` outright, since it holds no verdict to report.
     """
-    return _admit_arrival(
-        world, corpus_root, provenance, observers, actor=actor, history=history, seam=_log_seam()
-    )
+    return _admit_arrival(world, corpus_root, provenance, observers, history=history, seam=_log_seam())
 
 
 def epochs_ordered(config: WorldConfig, e1: str, e2: str) -> Ordering:
@@ -1704,7 +1698,7 @@ def install_shipped_world_rules(world: World) -> tuple[RuleBinding, ...]:
     return tuple(install_rule_binding(world, bundle) for bundle in shipped_rule_bundles())
 
 
-def open_world(config: WorldConfig) -> World:
+def open_world(config: WorldConfig, *, authority: Authority) -> World:
     """Open one configured world root, its three identity claims agreeing.
 
     A world says who it is in three places — the configuration the caller holds,
@@ -1766,4 +1760,5 @@ def open_world(config: WorldConfig) -> World:
         _world_executor_factory(),
         chain_head=chain_head_reader(),
         corpus_executor_factory=durable_executor_factory(),
+        authority=authority,
     )

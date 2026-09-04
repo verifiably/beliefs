@@ -31,7 +31,7 @@ from beliefs.world import derive, registry
 def _world_for(tmp_path, *writers):
     world, _ = make_world(tmp_path, *(writer.root for writer in writers))
     for writer in writers:
-        world.admit(writer.root, provenance=registry.Fresh(), actor="alice")
+        world.admit(writer.root, provenance=registry.Fresh())
     return world, tuple(writer.corpus_id for writer in writers), derivation_bindings(world)
 
 

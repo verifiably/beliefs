@@ -12,6 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from authority import ACTOR
 from test_world_anchor_act import (
     Heads,
     make_seam,
@@ -50,9 +51,9 @@ def store_root(tmp_path: Path, name: str = "store") -> Path:
     return root
 
 
-def store_record(genesis: str, head: str) -> anchors.LogHeadRecord:
+def store_record(genesis: str, head: str, actor: str = "alice") -> anchors.LogHeadRecord:
     return anchors.LogHeadRecord(
-        anchors.StoreSubject(STORE_ID), genesis, head, anchors.AnchorActOrigin("alice")
+        anchors.StoreSubject(STORE_ID), genesis, head, anchors.AnchorActOrigin(actor)
     )
 
 
@@ -75,11 +76,10 @@ def test_anchor_heads_mints_a_store_subject_record(tmp_path):
         world,
         frozenset(),
         store_roots=((STORE_ID, root),),
-        actor="alice",
         seam=make_seam(heads),
     )
 
-    expected = store_record(digest("store-genesis"), digest("store-head"))
+    expected = store_record(digest("store-genesis"), digest("store-head"), ACTOR)
     assert records == (expected,)
     assert expected in stored_log_heads(world)
 
@@ -103,7 +103,6 @@ def test_anchor_refuses_a_store_id_genesis_mismatch_before_registry_mutation(
             world,
             frozenset(),
             store_roots=((STORE_ID, root),),
-            actor="alice",
             seam=make_seam(heads),
         )
     assert registry_tree(world) == before

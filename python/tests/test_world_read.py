@@ -739,7 +739,7 @@ class TestCoreferenceEdges:
         wider = publish(world, (ALPHA, BETA), bindings)
         assert [corpus_id for corpus_id, _state in wider.coverage] == [ALPHA, BETA]
         assert read.coreference_edge(world, wider, "run:a", "dataset:a").state == "active"
-        world.retire(BETA, actor="alice")
+        world.retire(BETA)
         assert registry._live_corpus_ids(world.registry()) == (ALPHA,)
         widest = read.coreference_edge(world, wider, "run:a", "dataset:a")
         assert widest.state == "active"

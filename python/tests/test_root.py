@@ -140,7 +140,7 @@ class TestWorldRoots:
         config.world_root.mkdir()
         (config.world_root / "world.yaml").write_bytes(_world_mirror_bytes(config.world_id))
 
-        world = root.open_world(config)
+        world = root.open_world(config, authority=FULL)
 
         assert world.config is config
         assert calls == []
@@ -153,7 +153,7 @@ class TestWorldRoots:
         (config.world_root / "world.yaml").write_bytes(_world_mirror_bytes("2" * 32))
 
         with pytest.raises(WorldIdMismatch):
-            root.open_world(config)
+            root.open_world(config, authority=FULL)
 
         assert calls == []
 
@@ -170,7 +170,7 @@ class TestWorldRoots:
         (config.world_root / "world.yaml").write_bytes(_world_mirror_bytes(config.world_id))
 
         with pytest.raises(WorldIdMismatch) as caught:
-            root.open_world(config)
+            root.open_world(config, authority=FULL)
 
         assert "2" * 32 in str(caught.value)
         assert calls == []
@@ -194,7 +194,7 @@ class TestWorldRoots:
         monkeypatch.setattr(root, "read_chain", lambda *_args: CorpusGenesis())
 
         with pytest.raises(WorldUninitialized):
-            root.open_world(config)
+            root.open_world(config, authority=FULL)
 
     def test_open_world_reads_the_genesis_through_read_chain_and_names_an_unregistered_root(
         self, monkeypatch, tmp_path
@@ -220,7 +220,7 @@ class TestWorldRoots:
         monkeypatch.setattr(root, "read_chain", raising)
 
         with pytest.raises(WorldUninitialized) as caught:
-            root.open_world(config)
+            root.open_world(config, authority=FULL)
 
         assert caught.value.__cause__ is unregistered
         # The seam is untouched: the very same refusal keeps its own contract
@@ -255,7 +255,7 @@ class TestWorldRoots:
             monkeypatch.setattr(root, "read_chain", raising)
 
             with pytest.raises(PreconditionRefused) as caught:
-                root.open_world(config)
+                root.open_world(config, authority=FULL)
 
             assert caught.value is mid_recovery
 

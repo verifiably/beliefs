@@ -90,7 +90,7 @@ def admitted_world(tmp_path: Path, *corpus_ids: str):
     roots = {corpus_id: corpus_at(tmp_path / corpus_id[0], corpus_id) for corpus_id in corpus_ids}
     world = make_world(tmp_path, *roots.values())
     for root in roots.values():
-        world.admit(root, provenance=registry.Fresh(), actor="alice")
+        world.admit(root, provenance=registry.Fresh())
     binding = rules.install_rule_binding(world, holdings_rule_bundle())
     chains = MutableChains()
     for root in roots.values():
@@ -327,8 +327,9 @@ def test_chain_heads_are_committed_inputs_through_the_production_seam(certified_
         DefaultExecutor,
         chain_head=ChainHeads(),
         corpus_executor_factory=science_root.durable_executor_factory(),
+        authority=FULL,
     )
-    world.admit(corpus_root, provenance=registry.Fresh(), actor="alice")
+    world.admit(corpus_root, provenance=registry.Fresh())
     binding = rules.install_rule_binding(world, holdings_rule_bundle())
     seam = science_root._log_seam()
     old_active, old_blocked, old_receipt = derive_holdings(
@@ -393,6 +394,7 @@ def test_an_absent_corpus_or_named_state_is_unresolvable(tmp_path, failure):
             DefaultExecutor,
             chain_head=lambda root: (GENESIS, GENESIS),
             corpus_executor_factory=DefaultExecutor,
+            authority=FULL,
         )
         rules.install_rule_binding(world, holdings_rule_bundle())
     else:

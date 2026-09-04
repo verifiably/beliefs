@@ -51,6 +51,7 @@ from beliefs.errors import (
     WorldUninitialized,
 )
 from beliefs.identity import v1
+from beliefs.permit import require_actor as _require_actor
 from beliefs.world import registry
 from beliefs.world.verify import LogSeam
 
@@ -107,16 +108,6 @@ def _require_lower_hex(value: object, length: int, location: str) -> str:
     if type(value) is not str or len(value) != length or any(character not in _LOWER_HEX for character in value):
         raise ValueError(f"{location} must be {length} lowercase hexadecimal characters")
     return value
-
-
-def _require_actor(actor: object) -> str:
-    if type(actor) is not str:
-        raise TypeError("actor must be an exact string")
-    try:
-        v1.encode(actor)
-    except Exception as caught:
-        raise ValueError(f"actor is not encodable: {caught}") from caught
-    return actor
 
 
 def _closed_mapping(value: object, expected: set[str], location: str) -> dict[str, object]:
@@ -532,7 +523,6 @@ def _anchor_heads(
     corpus_ids: frozenset[str],
     *,
     store_roots: tuple[tuple[str, Path], ...] = (),
-    actor: str,
     seam: LogSeam,
 ) -> tuple[LogHeadRecord, ...]:
     """§3.3: anchor each named corpus's present chain head, in one transaction.
@@ -553,7 +543,7 @@ def _anchor_heads(
     A `LogEvidenceRefused` from the head read propagates untranslated: it is a
     refusal to judge, not a judgment, and it sits outside every precedence.
     """
-    _require_actor(actor)
+    world.authority.require("registry")
     if type(corpus_ids) is not frozenset:
         raise TypeError("corpus_ids must be an exact frozenset")
     targets = sorted(_require_lower_hex(corpus_id, 32, "corpus_id") for corpus_id in corpus_ids)
@@ -563,7 +553,7 @@ def _anchor_heads(
         (_require_lower_hex(store_id, 32, "store_id"), Path(root))
         for store_id, root in store_roots
     )
-    origin = AnchorActOrigin(actor)
+    origin = AnchorActOrigin(world.authority.actor)
     config = world.config
     with seam.world_lock(config.world_root):
         view = registry._scan_registry(config.world_root)

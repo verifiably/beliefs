@@ -178,6 +178,7 @@ def make_world(
         recorder,
         chain_head=chain_head or ChainHeads(),
         corpus_executor_factory=DefaultExecutor,
+        authority=FULL,
     )
     return world, recorder
 
@@ -205,7 +206,7 @@ def admitted_world(
     }
     world, recorder = make_world(tmp_path, *roots.values(), chain_head=chain_head)
     for corpus_root in roots.values():
-        world.admit(corpus_root, provenance=registry.Fresh(), actor="alice")
+        world.admit(corpus_root, provenance=registry.Fresh())
     return world, recorder, derivation_bindings(world), roots
 
 

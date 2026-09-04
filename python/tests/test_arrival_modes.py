@@ -14,6 +14,7 @@ import shutil
 from pathlib import Path
 
 import pytest
+from authority import FULL
 
 from beliefs import root as science_root
 from beliefs.errors import CorpusRootRefused
@@ -73,7 +74,7 @@ def _parent_corpus(work: Path, name: str = "parent") -> Path:
 def _world_over(work: Path, name: str, *roots: Path):
     config = science_root.WorldConfig(work / name, WORLD_ID, tuple(roots))
     init_world_root(config)
-    return open_world(config)
+    return open_world(config, authority=FULL)
 
 
 def _recording_seam(monkeypatch) -> list[str]:
@@ -108,7 +109,6 @@ def _arrive(world, root: Path):
         root,
         registry.ReplicaOf(PARENT_ID),
         verify.ObserverSet(()),
-        actor="alice",
     )
 
 
@@ -116,7 +116,7 @@ def test_fork_product_admits_through_the_fork_of_path(certified_work):
     parent = _parent_corpus(certified_work)
     child = certified_work / "child"
     world = _world_over(certified_work, "world", parent, child)
-    world.admit(parent, provenance=registry.Fresh(), actor="alice")
+    world.admit(parent, provenance=registry.Fresh())
 
     minted = fork_corpus(parent, child)
     assert minted.forked_from is not None
@@ -125,7 +125,6 @@ def test_fork_product_admits_through_the_fork_of_path(certified_work):
         provenance=registry.ForkOf(
             minted.forked_from.corpus_id, minted.forked_from.corpus_state
         ),
-        actor="alice",
     )
 
     assert record.corpus_id == minted.corpus_id
@@ -256,5 +255,4 @@ def test_store_subject_unspellable_at_arrival():
             Path("nowhere"),
             anchors.StoreSubject("5" * 32),  # type: ignore[arg-type]
             verify.ObserverSet(()),
-            actor="alice",
         )

@@ -33,8 +33,9 @@ def setup(root: Path):
         DefaultExecutor,
         chain_head=ChainHeads(),
         corpus_executor_factory=science_root.durable_executor_factory(),
+        authority=FULL,
     )
-    world.admit(corpus_root, provenance=registry.Fresh(), actor="alice")
+    world.admit(corpus_root, provenance=registry.Fresh())
     binding = rules.install_rule_binding(world, holdings_rule_bundle())
     context = ActContext(corpus_root, store_root, "observer", "instrument", FULL, science_root.holdings_seam())
     return context, store_id, manifest.corpus_id, world, binding

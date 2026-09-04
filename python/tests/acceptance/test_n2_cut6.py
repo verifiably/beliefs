@@ -166,8 +166,8 @@ def world_case(cut6_work_directory):
         root.open_corpus(corpus_root, authority=FULL).adopt_manifest(profile=PINS)
         assert not any((world_root / name).exists() for name in ("registry", "epochs", "rules"))
         before_admission = chain_entries(world_root)
-        world = root.open_world(config)
-        admission = world.admit(corpus_root, provenance=Fresh(), actor="cut6")
+        world = root.open_world(config, authority=FULL)
+        admission = world.admit(corpus_root, provenance=Fresh())
         assert (world_root / "registry").is_dir()
         assert not any((world_root / name).exists() for name in ("epochs", "rules"))
         yield {
@@ -238,7 +238,7 @@ def test_registry_registrations_name_each_record_path(world_case):
     assert set(dict(registration.final)) == {f"registry/{admission_digest(admission)}.yaml"}
 
     before_status = chain_entries(world_case["world_root"])
-    status = world_case["world"].retire(admission.corpus_id, actor="cut6")
+    status = world_case["world"].retire(admission.corpus_id)
     (status_registration,) = _registrations(chain_entries(world_case["world_root"])[len(before_status) :])
     assert set(dict(status_registration.final)) == {f"registry/{status_digest(status)}.yaml"}
 

@@ -166,9 +166,16 @@ def test_intent_payload_is_the_exact_canonical_json_shape():
     assert set(json.loads(payload)["location"]) == {"relative_path", "store_id", "type"}
 
 
-@pytest.mark.parametrize("actor, token, kind", [("", "token", "re-check"), ("actor", "", "re-check"), ("actor", "token", "bad")])
-def test_intent_payload_refuses_malformed_public_values(actor, token, kind):
-    with pytest.raises(MalformedRecord):
+@pytest.mark.parametrize(
+    ("actor", "token", "kind", "error"),
+    [
+        ("", "token", "re-check", ValueError),
+        ("actor", "", "re-check", MalformedRecord),
+        ("actor", "token", "bad", MalformedRecord),
+    ],
+)
+def test_intent_payload_refuses_malformed_public_values(actor, token, kind, error):
+    with pytest.raises(error):
         intent_payload(location=StoreLocator("a" * 32, "held.bin"), act_kind=kind, event_token=token, actor=actor)
 
 

@@ -14,6 +14,7 @@ from typing import TypeAlias, final
 
 from beliefs.errors import CitationRefused, MalformedRecord, OutcomeRefused
 from beliefs.identity import v1
+from beliefs.permit import require_actor
 from beliefs.recipe import RunClosure
 from beliefs.sealed import sealed
 
@@ -83,7 +84,7 @@ class OperationIntent:
     def __post_init__(self) -> None:
         _require_str(self.kind, "operation intent kind")
         _require_str(self.event_token, "operation intent event token")
-        _require_str(self.actor, "operation intent actor")
+        require_actor(self.actor)
         if self.kind not in OPERATION_KINDS:
             raise MalformedRecord(f"operation kind {self.kind!r} is outside the closed set {OPERATION_KINDS}")
 
@@ -99,7 +100,7 @@ class AssessmentRunIntent:
     def __post_init__(self) -> None:
         _require_str(self.spec_identity, "assessment run intent spec identity")
         _require_str(self.event_token, "assessment run intent event token")
-        _require_str(self.actor, "assessment run intent actor")
+        require_actor(self.actor)
         if not self.spec_identity:
             raise MalformedRecord("an assessment run intent requires a frozen spec identity")
 
@@ -424,9 +425,9 @@ def _mint_report(
 ) -> ActReport:
     if type(operation) is not str or operation not in OPERATION_KINDS:
         raise MalformedRecord(f"report operation {operation!r} is outside the closed set {OPERATION_KINDS}")
+    _require_str(event_token, "report event token")
+    actor = require_actor(actor)
     for name, value in (
-        ("report event token", event_token),
-        ("report actor", actor),
         ("report observer", observer),
         ("report instrument", instrument),
         ("report opened at", opened_at),

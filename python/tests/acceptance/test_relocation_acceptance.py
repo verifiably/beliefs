@@ -94,9 +94,9 @@ def durable_factory(work_directory):
         world_root = work_directory / f"cut16-{os.getpid()}-{next(_COUNTER)}-{label}-world"
         config = WorldConfig(world_root, f"{next(_COUNTER):032x}"[-32:], tuple(w.root for w in writers))
         root.init_world_root(config)
-        opened = root.open_world(config)
+        opened = root.open_world(config, authority=FULL)
         for corpus in writers:
-            opened.admit(corpus.root, provenance=registry.Fresh(), actor="cut16")
+            opened.admit(corpus.root, provenance=registry.Fresh())
         bindings = derivation_bindings(opened)
         managed.append(world_root)
         return opened, tuple(corpus.corpus_id for corpus in writers), bindings

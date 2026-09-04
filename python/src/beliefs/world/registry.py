@@ -32,6 +32,8 @@ from beliefs.errors import (
     WorldUninitialized,
 )
 from beliefs.identity import v1
+from beliefs.permit import Authority
+from beliefs.permit import require_actor as _require_actor
 from beliefs.world import anchors
 
 __all__ = [
@@ -205,16 +207,6 @@ def _require_lower_hex(value: object, length: int, location: str) -> str:
     return value
 
 
-def _require_actor(actor: object) -> str:
-    if type(actor) is not str:
-        raise TypeError("actor must be an exact string")
-    try:
-        v1.encode(actor)
-    except Exception as caught:
-        raise ValueError(f"actor is not encodable: {caught}") from caught
-    return actor
-
-
 class World:
     """One world root, its registry, and the two capabilities a build needs.
 
@@ -240,8 +232,12 @@ class World:
         *,
         chain_head: Callable[[Path], tuple[str, str]],
         corpus_executor_factory: Callable[[Path], WritePlanExecutor],
+        authority: Authority,
     ) -> None:
+        if type(authority) is not Authority:
+            raise TypeError("a world binds an Authority")
         self.config = config
+        self.authority = authority
         self._executor_factory = executor_factory
         self._chain_head = chain_head
         self._corpus_executor_factory = corpus_executor_factory
@@ -263,7 +259,6 @@ class World:
         corpus_root: Path,
         *,
         provenance: AdmissionProvenance,
-        actor: str,
     ) -> AdmissionRecord:
         """Admit a corpus root this world holds no verdict about.
 
@@ -285,21 +280,22 @@ class World:
                 self._executor_factory,
                 lambda: load_manifest(corpus_root),
                 provenance,
-                actor,
+                self.authority,
             )
 
-    def retire(self, corpus_id: str, *, actor: str) -> StatusRecord:
-        return self._terminal(corpus_id, "retired", actor)
+    def retire(self, corpus_id: str) -> StatusRecord:
+        return self._terminal(corpus_id, "retired")
 
-    def depart(self, corpus_id: str, *, actor: str) -> StatusRecord:
-        return self._terminal(corpus_id, "departed", actor)
+    def depart(self, corpus_id: str) -> StatusRecord:
+        return self._terminal(corpus_id, "departed")
 
-    def _terminal(self, corpus_id: str, status: Literal["retired", "departed"], actor: str) -> StatusRecord:
+    def _terminal(self, corpus_id: str, status: Literal["retired", "departed"]) -> StatusRecord:
+        self.authority.require("registry")
         with self._state.lock:
             self._state.registry = _scan_registry(self.config.world_root)
             if not any(record.corpus_id == corpus_id for record in self._state.registry.admissions):
                 raise StatusTargetUnknown(f"corpus_id {corpus_id!r} is not admitted")
-            candidate = StatusRecord(corpus_id, status, actor)
+            candidate = StatusRecord(corpus_id, status, self.authority.actor)
             digest = status_digest(candidate)
             for record in self._state.registry.statuses:
                 if status_digest(record) == digest:
@@ -319,7 +315,7 @@ def _locked_admit(
     executor_factory: Callable[[Path], WritePlanExecutor],
     manifest_of: Callable[[], CorpusManifest],
     provenance: AdmissionProvenance,
-    actor: str,
+    authority: Authority,
 ) -> AdmissionRecord:
     """The whole of admission, assuming `state.lock` is already held.
 
@@ -345,10 +341,11 @@ def _locked_admit(
     lock is not reentrant, and the arrival already holds it when it arrives
     here — so this takes no lock and calls no `World` method (R12).
     """
+    authority.require("registry")
     state.registry = _scan_registry(world_root)
     manifest = manifest_of()
     _validate_provenance(manifest, provenance)
-    candidate = AdmissionRecord(manifest, provenance, actor)
+    candidate = AdmissionRecord(manifest, provenance, authority.actor)
     digest = admission_digest(candidate)
     for record in state.registry.admissions:
         if admission_digest(record) == digest:

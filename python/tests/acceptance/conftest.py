@@ -116,8 +116,8 @@ def durable_coordination_world(work_directory, durable_coordination_roots):
     config = WorldConfig(world_root, "e" * 32, (corpus_root,))
     try:
         init_world_root(config)
-        world = open_world(config)
-        world.admit(corpus_root, provenance=Fresh(), actor="cut14")
+        world = open_world(config, authority=FULL)
+        world.admit(corpus_root, provenance=Fresh())
         yield world, corpus_root, profile
     finally:
         shutil.rmtree(world_root, ignore_errors=True)

@@ -20,6 +20,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from authority import FULL
 from nodes.core.write_plan import CreateOp, DefaultExecutor, DeleteOp, WriteOp, WritePlan
 from test_root import patch_world_engine
 
@@ -86,6 +87,7 @@ def make_world(tmp_path: Path) -> world_module.World:
         DefaultExecutor,
         chain_head=unread_chain,
         corpus_executor_factory=DefaultExecutor,
+        authority=FULL,
     )
 
 
@@ -107,6 +109,7 @@ def recording_world(tmp_path: Path) -> tuple[world_module.World, list[tuple[Writ
             Recorder,
             chain_head=unread_chain,
             corpus_executor_factory=DefaultExecutor,
+            authority=FULL,
         ),
         plans,
     )
@@ -311,7 +314,7 @@ class TestInstallation:
         config = world_module.WorldConfig(tmp_path / "world", "1" * 32, ())
 
         root.init_world_root(config)
-        world = root.open_world(config)
+        world = root.open_world(config, authority=FULL)
 
         assert not (config.world_root / "rules").exists()
         with pytest.raises(RuleNotHeld):
@@ -459,6 +462,7 @@ def test_shipped_rules_install_from_a_built_wheel(tmp_path):
         from pathlib import Path
 
         from nodes.core.write_plan import DefaultExecutor
+        from authority import FULL
 
         from beliefs.world import rules
         from beliefs.world.registry import World, WorldConfig
@@ -471,6 +475,7 @@ def test_shipped_rules_install_from_a_built_wheel(tmp_path):
             DefaultExecutor,
             chain_head=lambda root: ("unread", "unread"),
             corpus_executor_factory=DefaultExecutor,
+            authority=FULL,
         )
         bindings = [rules.install_rule_binding(world, shipped) for shipped in rules.shipped_rule_bundles()]
         print(
@@ -486,7 +491,7 @@ def test_shipped_rules_install_from_a_built_wheel(tmp_path):
     )
     completed = subprocess.run(
         [sys.executable, "-c", script, str(unpacked), str(tmp_path / "world")],
-        env={**os.environ, "PYTHONPATH": str(unpacked)},
+        env={**os.environ, "PYTHONPATH": os.pathsep.join((str(unpacked), str(project / "tests")))},
         check=True,
         capture_output=True,
         text=True,

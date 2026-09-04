@@ -30,7 +30,7 @@ from beliefs.holdings.seam import (
     StoreActSeam,
     StoreOutcomeView,
 )
-from beliefs.permit import Authority
+from beliefs.permit import Authority, require_actor
 from beliefs.world.anchors import parse_store_genesis
 
 HOLDINGS_INTENT_DOMAIN = "science.holdings-intent.v1"
@@ -42,8 +42,7 @@ def intent_payload(*, location: StoreLocator, act_kind: str, event_token: str, a
         raise MalformedRecord(f"holdings intent kind {act_kind!r} is not admitted")
     if not isinstance(event_token, str) or not event_token:
         raise MalformedRecord("a holdings intent event_token must be a non-empty string")
-    if not isinstance(actor, str) or not actor:
-        raise MalformedRecord("a holdings intent actor must be a non-empty string")
+    require_actor(actor)
     return json.dumps(
         {"actor": actor, "domain": HOLDINGS_INTENT_DOMAIN, "event_token": event_token, "kind": act_kind,
          "location": {"relative_path": location.relative_path, "store_id": location.store_id, "type": "store"}},

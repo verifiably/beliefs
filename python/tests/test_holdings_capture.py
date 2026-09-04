@@ -52,7 +52,7 @@ def observation_node():
 def admitted(tmp_path: Path, *nodes):
     root = corpus_at(tmp_path / "corpus", ALPHA, tuple(nodes))
     world = make_world(tmp_path, root, chain_head=ChainHeads())
-    world.admit(root, provenance=registry.Fresh(), actor="alice")
+    world.admit(root, provenance=registry.Fresh())
     return world, root
 
 
@@ -216,8 +216,9 @@ def test_the_projection_matches_the_closed_schema(
         DefaultExecutor,
         chain_head=ChainHeads(),
         corpus_executor_factory=science_root.durable_executor_factory(),
+        authority=FULL,
     )
-    world.admit(corpus_root, provenance=registry.Fresh(), actor="alice")
+    world.admit(corpus_root, provenance=registry.Fresh())
     seam = science_root._log_seam()
     viewed = seam.inspect_registered(corpus_root)
     assert isinstance(viewed, logmodel.WellFormedView)
@@ -307,8 +308,8 @@ def test_corpora_are_sorted_by_declared_identity(tmp_path):
     beta = corpus_at(tmp_path / "beta", BETA)
     alpha = corpus_at(tmp_path / "alpha", ALPHA)
     world = make_world(tmp_path, beta, alpha, chain_head=ChainHeads())
-    world.admit(beta, provenance=registry.Fresh(), actor="alice")
-    world.admit(alpha, provenance=registry.Fresh(), actor="alice")
+    world.admit(beta, provenance=registry.Fresh())
+    world.admit(alpha, provenance=registry.Fresh())
 
     captured = capture_coverage(
         world,

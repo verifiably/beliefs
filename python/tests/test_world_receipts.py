@@ -31,6 +31,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from authority import FULL
 from nodes.core.node import Node
 from nodes.core.write_plan import DefaultExecutor
 from test_world_build import (
@@ -93,9 +94,10 @@ def world_over(
         DefaultExecutor,
         chain_head=chain_head or ChainHeads(),
         corpus_executor_factory=DefaultExecutor,
+        authority=FULL,
     )
     for corpus_root in roots.values():
-        world.admit(corpus_root, provenance=registry.Fresh(), actor="alice")
+        world.admit(corpus_root, provenance=registry.Fresh())
     return world
 
 
