@@ -27,9 +27,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Forty-three documents in `docs/designs/`: the banked redesigns, review disposition,
+Forty-five documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
-2026-08-02 through 2026-08-31. Read them in this order:
+2026-08-02 through 2026-09-03. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -76,6 +76,8 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-08-30-conformance-cut-13.md` | the thirteenth frozen conformance cut, selecting run confinement: 4 rows full, 2 part, with 15 selected and 7 labeled declarations; `clean-environment` reachable |
 | `2026-08-30-run-confinement-design.md` | the run-confinement slice: the confined boundary policy, the per-file runtime closure and its snapshot, the probe-gated bubblewrap launch observed from the boundary's own `/proc`, the confined receipt and run domains, `derive_scope`'s `clean-environment` row, and the value-level admission join |
 | `2026-08-31-coordination-and-view-kinds-design.md` | the coordination tier: closed view-query grammar, versioned coordination contract, opaque project/local addressing, immutable multi-corpus revision family, and world-inert storage; cut 14 discharges it except W17 intent-position |
+| `2026-09-03-world-changing-families-design.md` | the two-root `move` and `consolidate` operations, managed deletion, their lock and crash discipline, and the two cuts that discharge them |
+| `2026-09-03-conformance-cut-16.md` | the frozen relocation cut: W5 in full, G3 and D7 closed, five partial rows, and T8 re-read against both relocation operations |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and

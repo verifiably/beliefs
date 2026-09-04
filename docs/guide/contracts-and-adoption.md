@@ -2,7 +2,7 @@
 title: Contracts and adoption
 status: living
 created: 2026-08-08
-updated: 2026-09-02
+updated: 2026-09-03
 sources:
   - ../designs/2026-08-03-normative-contract-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -29,6 +29,8 @@ sources:
   - ../designs/2026-08-30-conformance-cut-13.md
   - ../designs/2026-08-30-run-confinement-design.md
   - ../designs/2026-08-29-successor-admission-design.md
+  - ../designs/2026-09-03-world-changing-families-design.md
+  - ../designs/2026-09-03-conformance-cut-16.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
   - ../plans/2026-08-29-conformance-cut-12-results.md
   - ../plans/2026-09-01-conformance-cut-13-results.md
@@ -181,8 +183,10 @@ so a real verification can reach `clean-environment`
 (`../designs/2026-08-30-run-confinement-design.md`). Cut 15 closes R2, R16,
 R20, and R21 across the full workflow surface and reads R23's local
 basis/composition disagreement without reopening replay cardinality. The
-complete normative contract cut, its executable suite and N1–N10 are not yet
-implemented. The
+relocation cut is frozen as cut 16 and awaits implementation; it selects
+`move` and `consolidate`, while managed deletion remains for its later freeze.
+The complete normative contract cut, its executable suite and N1–N10 are not
+yet implemented. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-02)
 states what is built and which remaining boundaries have named owners; the cut
 documents and results records in the references below are the evidence.

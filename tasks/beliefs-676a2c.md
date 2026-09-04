@@ -1,11 +1,12 @@
 ---
 id: beliefs-676a2c
 title: "Deliver consolidate, move, and managed deletion"
-status: todo
+status: doing
 priority: 2
 size: xl
+owner: design/consolidate-family
 created: 2026-08-31T00:38:27Z
-updated: 2026-08-31T00:38:27Z
+updated: 2026-09-04T00:01:51Z
 depends: []
 tags: [migration, mutation, world]
 ---
@@ -17,3 +18,7 @@ Acceptance evidence: Freeze a mutation-lane cut; implement the family through th
 Sources: `docs/plans/2026-08-29-implementation-roadmap.md` `consolidate-family`, `run-boundary-remainder`, and `formal-model-remainder`; `docs/designs/2026-08-19-family-adapters-design.md`; and `docs/designs/2026-08-03-correction-lifecycle-design.md`.
 
 Uncertainty: The outcome is buildable, but the exact cut and interaction between consolidate and deletion need a dedicated design and plan.
+
+## Notes
+
+- 2026-09-04T00:01:51Z (design/consolidate-family): Banked the world-changing families design and froze relocation cut 16; implementation remains open.

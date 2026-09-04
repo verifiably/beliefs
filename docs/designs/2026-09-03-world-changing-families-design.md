@@ -2,15 +2,14 @@
 
 **Date:** 2026-09-03
 
-**Status:** Review specification. Not banked. Promoted into `docs/designs/`
-with the relocation cut's freeze.
+**Status:** Banked 2026-09-03. Relocation cut frozen as conformance cut 16; the deletion cut is not yet frozen.
 
 **Scope:** The `consolidate-family` boundary of
-[`../../plans/2026-08-29-implementation-roadmap.md`](../../plans/2026-08-29-implementation-roadmap.md),
+[`../plans/2026-08-29-implementation-roadmap.md`](../plans/2026-08-29-implementation-roadmap.md),
 with its `run-boundary-remainder` and `formal-model-remainder` ride-alongs.
 
 **Prerequisite:** The family adapters of
-[`../../designs/2026-08-19-family-adapters-design.md`](../../designs/2026-08-19-family-adapters-design.md),
+[`2026-08-19-family-adapters-design.md`](2026-08-19-family-adapters-design.md),
 whose §2.4 deferred exactly these three families "to their own cut with the
 world index" and whose §5.3 requires this design to replace its concurrency
 ruling.

@@ -125,6 +125,18 @@ is borrowed across kinds.
 - **A run attempt** (§3.2): the refusal, with the missing or malformed
   closure member named.
 
+*(Amended 2026-09-03, `2026-09-03-world-changing-families-design.md` §2.4, five
+clauses. **Operation kinds** gain `consolidate` and `move`. **Act kinds** gain
+`record-mutation`. **Subject:** a `record-mutation` entry's subject is a record
+ref together with the corpus it is read from or written to — a bare ref cannot
+name a side of a two-root operation. **Outcomes:** `record-mutation` takes
+`moved` or `consolidated`, and nothing is borrowed from another kind;
+`consolidated` carries `retired_uids`, a sequence that is **empty** where the
+inputs shared a `uid` and nothing retired. **Composite root-local operations:**
+an operation may span two corpus roots under one `event_token` and one
+`opened_at`/`closed_at`, minting one intent and one terminal report **per
+touched root**; T2 is read root-locally over such an operation.)*
+
 **A finding is an entry outcome, not a separate structure.** Its citation is
 the pair **(act-report ref, entry index)** into the canonical sequence — the
 index **zero-based and unsigned**, index 0 naming the first entry; one entry

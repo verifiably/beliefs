@@ -105,7 +105,7 @@ still open; unresolved design areas are not boundaries and are not listed.
 
 | id | boundary | owner | what it blocks |
 |---|---|---|---|
-| `consolidate-family` | consolidate, move/rename and deletion: W5, W16; G3, D7; the deletion negatives of G2c, G8, C6, R5; S5's deletion half; R23 and C3's move clauses; M3's replica arm | `2026-08-19-family-adapters-design.md`, which deferred them to their own cut | C7's consolidate surface; the last mutation family |
+| `consolidate-family` | consolidate, move/rename and deletion: W5, W16; G3, D7; the deletion negatives of G2c, G8, C6, R5; S5's deletion half; R23 and C3's move clauses; M3's replica arm | designed 2026-09-03 (`2026-09-03-world-changing-families-design.md`; relocation cut 16 frozen, deletion cut not yet frozen) | C7's consolidate surface; the last mutation family |
 | `url-retrieval` | the URL retrieval boundary, acquisition orchestration and typed retrieval grants: H4, G9, R10, T5, T7's same-root case | `2026-08-24-world-index-holdings-design.md` §1–§3 | the first acquisition of a dataset from outside the system |
 | `world-resolution` | the read side of the world: W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 less its two-projects negative; W8a's coreference arms; S1, S1a and S5's cross-corpus reach; D3; X12 and M3's coreference arms; R23's snapshot clauses | `2026-08-02-world-addressing-design.md` and `2026-08-08-world-address-ruling.md` | resolution states, cross-corpus edges, views, the coreference balance |
 | `domain-boundary` | D1, D2, D4, D5, D6, D8, D9, D10; G5 | `2026-08-04-domain-extension-boundary-design.md` | the first domain pack |

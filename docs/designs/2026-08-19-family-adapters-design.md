@@ -341,10 +341,17 @@ not promise the same index for both layers.
 
 ### 5.3 Create-only target predicates
 
-Supersede and retract are create-only. Within this slice, a target that resolved
-under the lock cannot be made missing by another supported mutation: no family
-deletes or moves it. That monotonicity argument ends when consolidate,
-move/rename, or deletion enters the system, and their design must replace it.
+*(Amended 2026-09-03, `2026-09-03-world-changing-families-design.md` §3.6: the
+monotonicity argument below is retired. Consolidate and move now exist, so a
+target that resolved under the lock **can** be made missing. Its replacement:
+`retract` and `supersede` re-resolve their target under the lock immediately
+before plan construction and refuse if it no longer resolves; each distinct
+resolved root is locked exactly once, in sorted order; and the surviving hazard
+is crash, whose prefixes that design enumerates.)*
+
+The superseded argument, preserved: supersede and retract are create-only.
+Within cut 5's slice, a target that resolved under the lock cannot be made
+missing by another supported mutation, because no family deletes or moves it.
 
 ### 5.4 Import crash states
 

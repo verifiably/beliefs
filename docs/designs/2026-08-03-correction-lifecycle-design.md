@@ -349,6 +349,14 @@ certified by mutation, per the estimator doctrine — every check must be able t
 | C9 | Narrowing is snapshot succession plus retraction, never mutation behind an identity | derive the narrowed successor snapshot, retract the old naming it as `successor`; assert the old snapshot's identity and its receipts are byte-unchanged, a computation naming the old hits C8's refusal, one naming the new proceeds, and the digest moves. **Negative:** nothing resolves through the retraction to the successor implicitly |
 | C10 | Ineligible or ill-formed targets are unspellable through the boundary — and, since 2026-08-05, this is also what makes an ordinary write incapable of closing a cycle in the retraction graph (§4; formal model ρA9, M3). **The test below is unchanged**; the row gains a role it always played, not an arm | retraction naming a note, a proposition, a run → refused; **a `route` arm naming a route absent from the named dataset's stamped basis → malformed**; a retraction naming an `instrument-certification` → **eligible** (added 2026-08-03, normative-contract §7.2 — its standing is read by scope derivation); raw-write each refused case and assert the audit reports it |
 
+*(Amended 2026-09-03, `2026-09-03-world-changing-families-design.md` §2.2: C1 is
+a claim about the **retraction family** — retraction is additive, and the
+retraction operation never edits, removes, or re-addresses its target. It is not
+a claim that no operation anywhere can remove a record; the world-changing
+families' `delete` does, and is refused by no referential check. Cut 5's reading
+of C1 stands as a reading of the pre-amendment text and is not edited; the
+deletion cut re-reads C1 against this narrowing.)*
+
 ## 8. Limitations
 
 1. **Not tamper evidence — the fifth §8.7 consequence, stated on arrival.** Deleting a
