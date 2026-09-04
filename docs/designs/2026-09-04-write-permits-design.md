@@ -335,7 +335,15 @@ proves it can be satisfied; every allowlist is compared by equality.
    `with`, `for` or `match` — **and is that call and nothing else**: an
    `Expr` whose value is the `require` `Call` directly, so
    `flag and authority.require(...)`, a `require` inside a conditional
-   expression, a lambda, or a comprehension is not a check. No statement before it
+   expression, a lambda, or a comprehension is not a check. **One exact
+   alternative shape exists, for the two `run`-family entry points only**
+   (§6's translation): a top-level `Try` whose body is exactly the one
+   `Expr(Call(require))` statement, with exactly one handler,
+   `except PermitExceeded as <name>`, whose body is exactly one `return` of a
+   `RunRefused(...)` call, and no `else` or `finally`. Any other `try` around
+   a `require`, a body of more than that statement, a second handler, a
+   handler body that does anything else, or the shape in a definition whose
+   family is not `run`, fails. No statement before it
    contains a §4.3 primitive call, a call to a `BYTE_MUTATION_PRIMITIVES`
    name, or `mkdir`; statements before it may validate and compute (parsing
    the bundle whose kinds `import_bundle` must name is the reason the rule is
@@ -362,9 +370,13 @@ proves it can be satisfied; every allowlist is compared by equality.
    `append_intent` without `require`, one that requires after the append, one
    that requires under an `if`, one that requires behind `flag and …`, one
    that calls `mkdir` before requiring, one that requires the wrong family,
-   and one that takes `actor` are each caught;
+   one that takes `actor`, one that wraps `require` in a `try` with a second
+   statement in its body, one whose handler does more than return a
+   `RunRefused`, and one that uses the run shape under a non-`run` family are
+   each caught;
    a synthetic module that does everything right passes, as does one that
-   parses its input before requiring.
+   parses its input before requiring and a `run`-family module using the
+   exact `try` shape.
 
 This is what makes a concurrent lane's new act — `consolidate-family`'s
 relocation and deletion acts — fail the suite until it is inventoried and
@@ -380,7 +392,9 @@ act, never generated.
 - **The run boundary translates.** `PermitExceeded` inside
   `execute_assessment_run` or `execute_production_run` becomes
   `RunRefused(reason="permit-exceeded", report=None, intent=None,
-  registration=None, detail=<the exception's message>)`. No report is
+  registration=None, detail=<the exception's message>)`, through the one
+  `try` shape §5 arm 2 admits: the `require` is the try body, the handler
+  returns the `RunRefused`, and nothing else sits between them. No report is
   minted: `_refused` is not called, because a refusal report is an
   `act-report` write and the permit that failed may not cover it. The reason
   string joins the run boundary's stable reason vocabulary.
@@ -404,7 +418,7 @@ The `E` table. Rows are frozen; ids are never renumbered.
 | **E3** | The actor is bound with the permit; no write entry point takes an actor, and every intent, registration and actor-bearing record a write produces carries the bound actor — imported members excepted, which are provenance | Static arm 3 (§5); for each intent-opening entry point, decode the appended intent and assert `actor` equals the bound one; for `retract`, a retraction whose facet names another actor → `ActorMismatch`, nothing written; for `add`, a `run` record whose closure occurrence names another actor → `ActorMismatch`, nothing written, while a `run` record without the closure facet is minted. **Negative:** the same records under an authority whose actor matches are minted; the same closure inside an `import_bundle` member is stored verbatim and the import intent carries the bound actor |
 | **E4** | `KIND_ACTS` is closed and complete over the kernel and coordination kinds; a requirement selecting an inadmissible route, an unknown kind, or an ambiguous kind without a selection is refused at construction; `publishes()` is refused while `publish` is not an act family | The key set equals `WORLD_KINDS ∪ COORDINATION_KINDS`; `for_kinds({"run"}, {})` → `ValueError` (ambiguous, unselected); `for_kinds({"run"}, {"run": "holdings"})` → `ValueError` (inadmissible); `for_kinds({"proposition"}, {})` derives `corpus-write`; `for_kinds({"x"}, {})` → `ValueError`; `publishes()` → `ValueError`. **Negative:** a `routes` key outside `kinds` is refused even when its route would be admissible |
 | **E5** | A permit covers a requirement exactly when the requirement's kinds and families are subsets of the permit's; the full permit covers every constructible requirement; an empty requirement is covered by every permit | Enumerate the constructors under `full()` → all covered; a one-kind requirement against a permit with the family but not the kind → not covered, and the converse; `none()` against the empty permit → covered. **Negative:** coverage is judged on the requirement's selected routes, not on `KIND_ACTS`'s union — a `run`-kind requirement routed `corpus-write` is covered by a permit holding `corpus-write` and not `run` |
-| **E6** | The set of write entry points is closed and held statically in both directions: every definition reaching a write primitive, public or private, is inventoried with its family, requires unconditionally at the top level of its body before any primitive, byte-mutation or `mkdir` call, and takes no actor; the check catches a synthetic offender and passes a synthetic satisfied module | §5 arms 1–5, each with its offender and its satisfied counterpart; add a synthetic primitive caller to the imported package → arm 1 fails naming it; remove an inventoried definition's `require` → arm 2 fails; move it after the append → arm 2 fails; wrap it in `if` → arm 2 fails; guard it with `flag and` → arm 2 fails; move `init_world_root`'s `mkdir` before it → arm 2 fails; add an `actor` parameter → arm 3 fails; add a second read-only exception → arm 3 fails on equality |
+| **E6** | The set of write entry points is closed and held statically in both directions: every definition reaching a write primitive, public or private, is inventoried with its family, requires unconditionally at the top level of its body before any primitive, byte-mutation or `mkdir` call, and takes no actor; the check catches a synthetic offender and passes a synthetic satisfied module | §5 arms 1–5, each with its offender and its satisfied counterpart; add a synthetic primitive caller to the imported package → arm 1 fails naming it; remove an inventoried definition's `require` → arm 2 fails; move it after the append → arm 2 fails; wrap it in `if` → arm 2 fails; guard it with `flag and` → arm 2 fails; add a statement to a run entry point's `try` body, or a second handler → arm 2 fails; move `init_world_root`'s `mkdir` before it → arm 2 fails; add an `actor` parameter → arm 3 fails; add a second read-only exception → arm 3 fails on equality |
 | **E7** | On the run boundary a permit violation surfaces as `RunRefused` with reason `permit-exceeded`, no intent appended and no report minted; on every other boundary the raised `PermitExceeded`; the corpus chain and the world root are byte-identical before and after in every case | Through a real port: an assessment run under a permit lacking `run` → `RunRefused(permit-exceeded)`, `report is None`, `intent is None`, chain head unchanged; the same over `execute_production_run`; a holdings act under a permit lacking `holdings` → `PermitExceeded`, store chain unchanged; `World.admit` under a permit lacking `registry` → `PermitExceeded`, registry directory unchanged. **Negative:** a run refused for a *non-permit* reason after the check still mints its refusal report exactly as today — the permit changes only what happens before the intent |
 | **E8** | `import_bundle` is judged member by member before its intent; one unpermitted member refuses the bundle whole, naming that member's kind, with no intent appended and no record minted | A bundle of permitted members plus one `source` under a permit lacking `source` → `PermitExceeded(("kind","source"))`, chain head unchanged, no record present; the same bundle under a permit holding every member kind and `act-report` → imported with one fulfilling report. **Negative:** a permit holding every member kind but not `act-report` is refused on `act-report`, before the intent |
 
@@ -470,7 +484,8 @@ world-root byte-identity assertions, the run boundary through the real
 with its sabotage in `permit.py` (drop a family from `ACT_FAMILIES`; make
 `require` return instead of raise; make `permit_covers` ignore kinds; derive
 an ambiguous route silently), in `corpus.py` and `boundary.py` (move a
-`require` after its `append_intent`; call `_refused` on `PermitExceeded`),
+`require` after its `append_intent`; call `_refused` in the run handler;
+widen the handler to `except WriteRefused`),
 in `holdings/boundary.py` and `world/registry.py` (remove a `require` from a
 private helper), in `root.py` (wrap `init_world_root`'s `require` in `if`;
 guard it with `flag and`; move its `mkdir` above it; drop `migrate_root_to_lifecycle_v3`'s and `restore_root.grant`'s), and in
