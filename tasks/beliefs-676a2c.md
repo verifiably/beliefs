@@ -6,7 +6,7 @@ priority: 2
 size: xl
 owner: design/consolidate-family
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-04T00:01:51Z
+updated: 2026-09-04T00:25:57Z
 depends: []
 tags: [migration, mutation, world]
 ---
@@ -22,3 +22,4 @@ Uncertainty: The outcome is buildable, but the exact cut and interaction between
 ## Notes
 
 - 2026-09-04T00:01:51Z (design/consolidate-family): Banked the world-changing families design and froze relocation cut 16; implementation remains open.
+- 2026-09-04T00:25:57Z (design/consolidate-family): Review round 1 corrected the ledger's current-state date and every inbound dated anchor.

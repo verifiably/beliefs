@@ -2,7 +2,7 @@
 title: Foundations
 status: living
 created: 2026-08-08
-updated: 2026-09-02
+updated: 2026-09-03
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-substrate-consolidation-design.md
@@ -182,7 +182,7 @@ carriage and verification and cut 12's successor admission. The agentic surface
 has an approved [user and autonomy layer design](../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md),
 but its daily surface and autonomy sub-projects are not implemented; salvage
 remains undesigned. The [adoption ledger's current-state
-summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-02)
+summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-03)
 is the complete statement of what is built and what remains.
 
 ## Open edges

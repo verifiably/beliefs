@@ -187,7 +187,7 @@ relocation cut is frozen as cut 16 and awaits implementation; it selects
 `move` and `consolidate`, while managed deletion remains for its later freeze.
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-02)
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-03)
 states what is built and which remaining boundaries have named owners; the cut
 documents and results records in the references below are the evidence.
 

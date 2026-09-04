@@ -38,7 +38,7 @@ organization rather than a personal account, so governance and long-term
 stewardship are not tied to one individual. §5 records the namespace and
 decomposition rulings that follow from it.
 
-## Current state (2026-09-02)
+## Current state (2026-09-03)
 
 This section is the one place that states what is built and what remains to
 build. Every other live surface — the README and the contributor guide — links
