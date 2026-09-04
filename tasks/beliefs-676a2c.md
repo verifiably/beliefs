@@ -6,7 +6,7 @@ priority: 2
 size: xl
 owner: design/consolidate-family
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-04T06:20:35Z
+updated: 2026-09-04T07:39:04Z
 depends: []
 tags: [migration, mutation, world]
 ---
@@ -37,3 +37,4 @@ Uncertainty: The outcome is buildable, but the exact cut and interaction between
 - 2026-09-04T05:21:33Z (design/consolidate-family): Task 9: consolidate now reconciles duplicate locations with tagged-basis, replacement-preflight, root-local report, retraction-replica, and ungoverned-kind coverage; 3180 Python tests pass.
 - 2026-09-04T06:05:56Z (design/consolidate-family): Task 9 review fix: replacement collisions now refuse before intents and canonical-equal lineage routes retain decoded canonical mappings; 3182 Python tests pass.
 - 2026-09-04T06:20:35Z (design/consolidate-family): Task 10: test-local run-then-raise seams pin all move/consolidate durable prefixes, data-only recovery, fresh SHA-256 intent digests, and exact T3 residue; 34 focused tests pass, Ruff and Pyright clean.
+- 2026-09-04T07:39:04Z (design/consolidate-family): Task 11: durable cut-16 acceptance and 19 N2 arms normalize to the frozen 11 units; certified runner exited 0, full Python suite passed 3216 tests, Ruff and Pyright clean. Parent remains open for managed deletion and discharge.
