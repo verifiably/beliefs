@@ -6,10 +6,11 @@ priority: 2
 size: xl
 owner: design/write-permits
 created: 2026-08-31T00:38:28Z
-updated: 2026-09-04T10:32:29Z
+updated: 2026-09-04T11:12:06Z
 depends: []
 tags: [migration, writer, permits]
 spec: docs/designs/2026-09-04-write-permits-design.md
+plan: docs/plans/2026-09-04-write-permits.md
 ---
 
 Outcome: Every Beliefs write entry point enforces a session-bound closed permit against the actual emitted kind or act and fixes actor identity at the trusted writer boundary.
