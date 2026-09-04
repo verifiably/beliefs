@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
+from closure_fixtures import make_closure
+from fixtures_cut3 import spec_draft, spec_rules
 from fixtures_cut4 import raw_write
 from nodes.core.node import Node
 from test_relocation import _writer
 from test_relocation_rows import _basis_route
 
-from beliefs import audit, belief, corpus, stored
+from beliefs import audit, belief, corpus, runrecord, stored
+from beliefs.assess import build_assessment
 from beliefs.audit import (
     NO_EVIDENCE,
     DerivationEvidence,
@@ -17,6 +22,10 @@ from beliefs.audit import (
     check_lineage_basis,
 )
 from beliefs.errors import MalformedRecord
+from beliefs.recipe import RunClosure
+from beliefs.record import AssessmentValue
+from beliefs.replay import EquivalenceImplementation
+from beliefs.spec import freeze
 
 PINNED = [{"name": "matrix", "digest": "sha256:" + "1" * 64}]
 
@@ -29,6 +38,68 @@ def writer(tmp_path):
 def _producing_run(slug: str, dataset_id: str) -> Node:
     """A minimal run node holding a `produces` edge to `dataset_id`."""
     return stored.run_node(slug, title=slug, spec="analysis-spec:s1", produces=[dataset_id])
+
+
+def _bystander(writer) -> str:
+    """A record `corpus_check` flags, minted so a finding already exists by the
+    time the malformed one is reached. Its survival is the assertion."""
+    node = stored.proposition_node("bystander", title="bystander", claim={"operator": "affects"})
+    del node.facets[stored.SEMANTIC_IDENTITY_FACET]
+    raw_write(writer.root, node)
+    return node.id
+
+
+def _derived_run(writer):
+    """A real, decodable assessment run and the frozen spec it was run under.
+
+    The closure fixture's recipe binds one placeholder rule, so its bindings are
+    replaced with the frozen spec's own — `build_assessment` and `_resolve_rule`
+    both read the **recipe's** bindings, not the spec's.
+    """
+    frozen = freeze(spec_draft(), held_rules=spec_rules())
+    base = make_closure(shape="assessment")
+    recipe = replace(base.recipe, spec_identity=frozen.identity, rule_bindings=frozen.rule_bindings)
+    closure = RunClosure(recipe=recipe, result=base.result, occurrence=base.occurrence)
+    for entry in closure.recipe.inputs:
+        if entry.role == "observes":
+            writer.add(
+                stored.dataset_node(
+                    entry.dataset.removeprefix("dataset:"),
+                    title="raw",
+                    resources=PINNED,
+                    empirical_observation={"boundary": "instrument"},
+                )
+            )
+    run = writer.add(
+        stored.run_publication_node(
+            closure.address(),
+            title="assessment run",
+            projection=runrecord.projection_text(closure).decode("utf-8"),
+            spec=closure.recipe.spec_identity,
+            observes=tuple(e.dataset for e in closure.recipe.inputs if e.role == "observes"),
+            reads=tuple(e.dataset for e in closure.recipe.inputs if e.role == "reads"),
+        )
+    )
+    return frozen, closure, run
+
+
+def _stated_optionals(derived: AssessmentValue) -> dict[str, str]:
+    """The optional members the derived value actually states. Absent optionals
+    stay absent — a stored `None` is a different facet from an omitted one."""
+    return {
+        name: value
+        for name in ("estimate", "uncertainty", "estimand", "applicability")
+        if isinstance(value := getattr(derived, name), str)
+    }
+
+
+def _interpretation_evidence(frozen) -> DerivationEvidence:
+    implementation = spec_rules()[frozen.interpretation_rule]
+    return DerivationEvidence(
+        specs={frozen.identity: frozen},
+        held_rules={},
+        implementations={implementation.identity: implementation},
+    )
 
 
 def _eligible_assessment(writer) -> Node:
@@ -296,3 +367,195 @@ class TestUncheckedIsNotContradicted:
         node = _eligible_assessment(writer)
         outcome = audit.check_assessment(writer.read_view, node, evidence=NO_EVIDENCE)
         assert not outcome.checked and "projection" in outcome.reason and outcome.contradiction is None
+
+
+class TestTheAuditReportsAndNeverRaises:
+    """A record whose members refuse to be read is a finding, not an abort:
+    `corpus_check`'s contract is "reported and never raised", and an audit that
+    raised would discard every finding already collected for its neighbours."""
+
+    def test_a_stamp_consistent_verification_with_a_malformed_derivation(self, writer):
+        bystander = _bystander(writer)
+        node = stored.verification_node(
+            "v",
+            title="v",
+            assessment="a" * 64,
+            assessment_ref="assessment:a",
+            scope="clean-environment",
+            verdict="passed",
+        )
+        node.facets[stored.VERIFICATION_FACET] = {
+            **node.facets[stored.VERIFICATION_FACET],
+            "derivation": {"original": "run:o"},
+        }
+        raw_write(writer.root, stored.stamp_semantic_identity(node))
+        writer._reconstruct()
+
+        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        assert {(f.code, f.ref) for f in findings} == {
+            ("semantic-hash-missing", bystander),
+            ("derivation-malformed", node.id),
+        }
+
+    def test_a_verification_kind_node_carrying_no_verification_facet(self, writer):
+        bystander = _bystander(writer)
+        hollow = Node(id="verification:hollow", kind="verification", title="hollow", facets={}, relations=[])
+        raw_write(writer.root, stored.stamp_semantic_identity(hollow))
+        writer._reconstruct()
+
+        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        assert {(f.code, f.ref) for f in findings} == {
+            ("semantic-hash-missing", bystander),
+            ("derivation-malformed", hollow.id),
+        }
+
+    def test_an_assessment_whose_stored_outcome_is_outside_the_closed_set(self, writer):
+        bystander = _bystander(writer)
+        dataset = writer.add(
+            stored.dataset_node("raw", title="raw", resources=PINNED, empirical_observation={"boundary": "i"})
+        )
+        run = writer.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[dataset.id]))
+        proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+        node = writer.add(
+            stored.assessment_node(
+                "a1",
+                title="a1",
+                spec="analysis-spec:s1",
+                run=run.id,
+                proposition=proposition.id,
+                outcome="maybe",
+                interpretation_rule="rule:threshold",
+            )
+        )
+
+        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        assert {(f.code, f.ref) for f in findings} == {
+            ("semantic-hash-missing", bystander),
+            ("derivation-malformed", node.id),
+        }
+
+    def test_a_basis_route_naming_a_non_string_run_is_malformed(self, writer):
+        bystander = _bystander(writer)
+        dataset = writer.add(stored.dataset_node("d", title="d", resources=PINNED))
+        forged = dataset.model_copy(
+            update={
+                "facets": {
+                    **dataset.facets,
+                    stored.LINEAGE_BASIS_FACET: {
+                        "tag": "single",
+                        "routes": [{**_basis_route("a"), "run": ["run:a"]}],
+                    },
+                }
+            }
+        )
+        raw_write(writer.root, stored.stamp_semantic_identity(forged))
+        writer._reconstruct()
+
+        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        assert {(f.code, f.ref) for f in findings} == {
+            ("semantic-hash-missing", bystander),
+            ("derivation-malformed", dataset.id),
+        }
+
+
+class TestOmegaValidIsMalformednessOnly:
+    def test_a_record_flagged_only_for_display_is_still_recomputed(self, writer):
+        """A malformed display facet is not malformedness in Ω_valid's sense —
+        the stamp does not cover prose — so the forged basis is still read."""
+        dataset = writer.add(stored.dataset_node("d", title="d", resources=PINNED))
+        writer.add(_producing_run("a", dataset.id))
+        writer.add(_producing_run("b", dataset.id))
+        forged = dataset.model_copy(
+            update={
+                "facets": {
+                    **dataset.facets,
+                    stored.LINEAGE_BASIS_FACET: {"tag": "single", "routes": [_basis_route("a")]},
+                }
+            }
+        )
+        stored.stamp_semantic_identity(forged)
+        forged.facets[stored.DISPLAY_FACET] = {"display_statement": ["not a string"]}
+        raw_write(writer.root, forged)
+        writer._reconstruct()
+
+        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        assert {(f.code, f.ref) for f in findings} == {
+            ("display-malformed", dataset.id),
+            ("lineage-basis-contradicted", dataset.id),
+        }
+
+
+class TestAssessmentComparisonNamespaces:
+    """R22's comparison compares like with like. The derived value carries the
+    spec's claim target and a bare closure address; the stored facet carries
+    corpus refs. Comparing them whole would contradict on agreement."""
+
+    def test_a_facet_derived_from_its_own_run_is_not_contradicted(self, writer):
+        frozen, closure, _run = _derived_run(writer)
+        evidence = _interpretation_evidence(frozen)
+        derived = build_assessment(closure, specs=evidence.specs, implementations=evidence.implementations)
+        assert isinstance(derived, AssessmentValue)
+        proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+        node = writer.add(
+            stored.assessment_node(
+                "a1",
+                title="a1",
+                spec=derived.spec,
+                run=runrecord.run_ref(derived.run),
+                proposition=proposition.id,
+                outcome=derived.outcome,
+                interpretation_rule=derived.interpretation_rule,
+                **_stated_optionals(derived),
+            )
+        )
+        assert audit.check_assessment(writer.read_view, node, evidence=evidence) == DerivationOutcome(True, "", None)
+        assert audit_corpus(writer.read_view, evidence=evidence) == ()
+
+    def test_a_facet_disagreeing_on_outcome_and_spec_names_both_members(self, writer):
+        frozen, closure, _run = _derived_run(writer)
+        evidence = _interpretation_evidence(frozen)
+        derived = build_assessment(closure, specs=evidence.specs, implementations=evidence.implementations)
+        assert isinstance(derived, AssessmentValue)
+        proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+        node = writer.add(
+            stored.assessment_node(
+                "a1",
+                title="a1",
+                spec="analysis-spec:forged",
+                run=runrecord.run_ref(derived.run),
+                proposition=proposition.id,
+                outcome="refuted",
+                interpretation_rule=derived.interpretation_rule,
+                **_stated_optionals(derived),
+            )
+        )
+        outcome = audit.check_assessment(writer.read_view, node, evidence=evidence)
+        assert outcome.checked and outcome.contradiction is not None
+        assert outcome.contradiction.code == "assessment-derivation-contradicted"
+        assert outcome.contradiction.detail == "outcome,spec"
+
+
+class TestAnEvaluatorOutsideTheClosedSet:
+    def test_a_verdict_outside_VERDICTS_is_malformed_not_contradicted(self, writer):
+        frozen, _closure, run = _derived_run(writer)
+        verification = writer.add(
+            stored.verification_node(
+                "v",
+                title="v",
+                assessment="a" * 64,
+                assessment_ref=run.id,
+                scope="clean-environment",
+                verdict="passed",
+                derivation=(run.id, run.id),
+            )
+        )
+        evidence = DerivationEvidence(
+            specs={frozen.identity: frozen},
+            held_rules={"impl-eq-1": EquivalenceImplementation("impl-eq-1", lambda a, b: "garbage", ())},
+            implementations={},
+        )
+        with pytest.raises(MalformedRecord):
+            audit.check_verification(writer.read_view, verification, evidence=evidence)
+
+        findings = audit_corpus(writer.read_view, evidence=evidence)
+        assert ("derivation-malformed", verification.id) in {(f.code, f.ref) for f in findings}

@@ -1,10 +1,11 @@
 """What a derivation recomputation is handed, and what it answers with.
 
 These three values sit in their own module because both sides of the audit
-seam need them: `beliefs.audit` recomputes with them, and `beliefs.corpus`
-reads them at the import boundary. A module that imported `beliefs.corpus` to
-name `Finding` would close that loop, so the reference is a type-checking one
-and nothing here imports the corpus at run time.
+seam will need them: `beliefs.audit` recomputes with them now, and
+`beliefs.corpus` names them at the import boundary from the explicit-import
+work on. A module that imported `beliefs.corpus` to name `Finding` would close
+that loop, so the reference is a type-checking one and nothing here imports the
+corpus at run time.
 
 Evidence is **supplied**, never ambient (M11's doctrine): a recomputation that
 reached for a registry of held specs would decide by process state, and two
