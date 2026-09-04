@@ -126,6 +126,7 @@ still open; unresolved design areas are not boundaries and are not listed.
 | `weighted-belief` | S6 arm (h) | the first successor belief policy admitting unequal weights, blocked on ρO3 | weighted belief |
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 | an untypeable span minting nothing, end to end |
 | `cross-root-publication` | T7's cross-root case | the act-report design's cross-root publication residue | cross-root publication of a provenance reference and its report |
+| `write-permits` | **Write permits** — E1–E8: the closed act families and `KIND_ACTS`, `Authority(permit, actor)` bound once at every construction seam, the check at every write entry point before any effect, no caller-supplied actor, the static entry-point inventory | `2026-09-04-write-permits-design.md`; cut 16 frozen there | the command framework's writer session (`beliefs-afbbff`) and the `science` write dispatcher; the interactive path exercising a permit daily |
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record

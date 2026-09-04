@@ -46,6 +46,7 @@ join key and nothing else; the tiers below carry the ranking.
 | `act-report-remainder` | T1, T2, T4 | 1, rides with `url-retrieval` |
 | `packaging-remainder` | X5 (relabel); W8a's import and audit arms | 1, rides with `world-resolution` |
 | `parity-fixture-2` | the second `science.identity.v1` fixture | 1, rides with `domain-boundary` |
+| `write-permits` | E1–E8 | 1 |
 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | 2 |
 | `l13-preimage` | L13 | 2 |
 | `persistence-cut` | X2 | 2 |
@@ -71,6 +72,7 @@ order, and lanes may run concurrently in separate worktrees.
 | 4 | `domain-boundary` | D1, D2, D4, D5, D6, D8, D9, D10; G5 | the first domain pack; D8's composition | cut 3 §5 deferred the group on "facets, manifests, and the registry compile"; `ProfileSpec` and the `nodes` registry exist |
 | 5 | `event-level-l8` | L8 | row 5 reads L8 in full; the log's last Science-only remainder | §7's ordered-cuts predicate is built; the event-level relation is its successor |
 | 6 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a, X12 and C10's `instrument-certification` arms; R23's rules-store clauses | the widest set: the conformance-package split (ledger §5), instrument-certification cadence, legacy-check disposition (N10), P1 | last in the tier although it unblocks the most: N1 mints a successor contract identity for every oracle amended after the freeze, and rows 1–5 are Science-only closures that would each force one. Freeze after them |
+| 7 | `write-permits` | E1–E8 | the command framework's writer session and write dispatcher; every later act taking a permit by construction | the user and autonomy layer design §8 item 2; its design (`../designs/2026-09-04-write-permits-design.md`) opens the `authority` lane and lands **before** `consolidate-family`, whose new acts the static inventory holds to the same rule |
 
 **Ride-along closures**, tier 1 by the rule and unblocking no capability of
 their own, each named to the cut that takes it:
@@ -104,6 +106,7 @@ boundary sits in the lane of its prerequisite and waits there.
 | `world-read` | `world-resolution` (+ `packaging-remainder`) → `event-level-l8` (+ `log-remainder`) | `world/read.py`, `resolution.py`, `world/verify.py` | `world/registry.py` (above) |
 | `domain` | `domain-boundary` (+ `parity-fixture-2`) | `profile.py`, `contract/`, `ts/`, `fixtures/`, the `nodes` registry | none in `python/src/beliefs/` |
 | `cross-repo` | `l13-preimage`, `persistence-cut`, `nodes-remainder`, in any order | the `atoms` and `nodes` repositories, each behind its own design gate | none; Science consumes each seam after it lands |
+| `authority` | `write-permits` | `permit.py` (new), `corpus.py`, `boundary.py`, `replay.py`, `root.py`, `runrecord.py`, `holdings/boundary.py`, `world/registry.py`, `world/epoch.py`, `world/rules.py`, `world/anchors.py`, `errors.py` | every lane that writes: one additive seam per entry point, named here under rule 3 so the later merge resolves toward it; `consolidate-family` freezes its cut after cut 16 |
 
 `contract-cut` is in no lane. It is a **join**: it freezes after every lane
 that amends an oracle has merged, for the reason tier 1's row 6 gives — N1

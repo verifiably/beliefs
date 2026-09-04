@@ -27,9 +27,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Forty-three documents in `docs/designs/`: the banked redesigns, review disposition,
+Forty-four documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
-2026-08-02 through 2026-08-31. Read them in this order:
+2026-08-02 through 2026-09-04. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -76,6 +76,7 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-08-30-conformance-cut-13.md` | the thirteenth frozen conformance cut, selecting run confinement: 4 rows full, 2 part, with 15 selected and 7 labeled declarations; `clean-environment` reachable |
 | `2026-08-30-run-confinement-design.md` | the run-confinement slice: the confined boundary policy, the per-file runtime closure and its snapshot, the probe-gated bubblewrap launch observed from the boundary's own `/proc`, the confined receipt and run domains, `derive_scope`'s `clean-environment` row, and the value-level admission join |
 | `2026-08-31-coordination-and-view-kinds-design.md` | the coordination tier: closed view-query grammar, versioned coordination contract, opaque project/local addressing, immutable multi-corpus revision family, and world-inert storage; cut 14 discharges it except W17 intent-position |
+| `2026-09-04-write-permits-design.md` | the write-permits slice: the closed act-family enumeration and `KIND_ACTS` route map, the `WritePermit` and `Authority` values bound once at every construction seam, the `RequiredCapabilities` value the command framework compiles to, the entry-point check before any effect, the removal of every caller-supplied actor, the static entry-point inventory, and guarantee rows E1–E8 frozen as cut 16 |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -99,8 +100,8 @@ planning/execution launch attestations. The latest discharged boundary is cut
 15 ([results](docs/plans/2026-09-01-conformance-cut-15-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
-test before it is a passing one. There are **153 rows** across **thirteen frozen
-tables** (G, S, W, R, C, X, N, L, D, M, P, H, T), and every cut is frozen
+test before it is a passing one. There are **161 rows** across **fourteen frozen
+tables** (G, S, W, R, C, X, N, L, D, M, P, H, T, E), and every cut is frozen
 *before* its code exists so that a row which fails is a failure rather than a
 redefinition.
 

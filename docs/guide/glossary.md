@@ -2,7 +2,7 @@
 title: Glossary
 status: living
 created: 2026-08-08
-updated: 2026-08-30
+updated: 2026-09-04
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -19,6 +19,11 @@ sources:
 Terms are defined in their Science-specific sense. Follow the topic link for
 context and the linked design references for normative detail.
 
+- **Act family** — One of the six closed classes of write in `beliefs` —
+  `corpus-write`, `run`, `holdings`, `registry`, `epoch`, `lifecycle` — that a
+  write permit names. `KIND_ACTS` maps each record kind to the families
+  admissible as its minting route; only the first three are reachable from a
+  command. ([write-permits design](../designs/2026-09-04-write-permits-design.md))
 - **Act report** — The boundary-minted terminal record of one opened
   operation — acquisition, audit, import, re-check, or a run attempt that
   minted no run — or the refusal record of a run request rejected before
@@ -44,6 +49,12 @@ context and the linked design references for normative detail.
 - **Atoms** — The bottom layer of the stack: durable atomic filesystem
   effects, including the pre-mutation registration boundary. Its own
   repository. ([foundations](foundations.md#ownership-follows-the-nature-of-the-rule))
+- **Authority** — The frozen pair of a write permit and an actor, bound once
+  at a construction seam (`open_corpus`, `open_world`, the operation port,
+  the holdings act context, the lifecycle acts) and never per call. Every
+  write entry point requires its act family and emitted kinds of the bound
+  authority before any effect, and reads the actor from it.
+  ([write-permits design](../designs/2026-09-04-write-permits-design.md))
 - **Autonomy** — The top layer of the stack: the envelope, orchestrator,
   behavioral profiles and priority function that run the daily surface
   unattended. A separate repository, split from `science` on code-lineage
@@ -203,5 +214,10 @@ context and the linked design references for normative detail.
   correction, or when duplicate storage is consolidated. ([identity](identity-world-and-change.md#identity-is-not-one-field))
 - **Verification** — An immutable comparison of two runs under a frozen
   equivalence rule, with a derived scope and verdict. ([computation](computation-and-reproducibility.md#replay-verification-and-belief-are-different-decisions))
+- **Write permit** — A closed set of record kinds and a closed set of act
+  families a holder may emit. A launcher binds one inside the writer endpoint;
+  `science` compiles a declaration to a `RequiredCapabilities` value and never
+  holds a permit. Exceeding one is `PermitExceeded`, refused before any effect.
+  ([write-permits design](../designs/2026-09-04-write-permits-design.md))
 - **World** — The union of admitted corpora and world-level records; projects
   are views over it, not separate epistemic universes. ([identity](identity-world-and-change.md#there-is-one-world-projects-are-views))
