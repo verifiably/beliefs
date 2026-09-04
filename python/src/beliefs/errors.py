@@ -8,6 +8,7 @@ tell a good refusal from a bad one.
 """
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, TypeAlias
 
@@ -1091,6 +1092,41 @@ class ImportRefused(WriteRefused):
         self.member = member
         self.cycle_edges = cycle_edges
         self.report_ref = report_ref
+
+
+@dataclass(frozen=True)
+class PermitFact:
+    """One side of a permit refusal: the family or the kind an act needed."""
+
+    dimension: str  # "family" | "kind"
+    name: str
+
+
+@dataclass(frozen=True)
+class PermitSummary:
+    """A permit as plain data: sorted kinds, sorted act families, and whether
+    kinds outside the route map are permitted through corpus-write (§13.7)."""
+
+    kinds: tuple[str, ...]
+    act_families: tuple[str, ...]
+    ungoverned: bool
+
+
+class PermitExceeded(WriteRefused):
+    """An act named a family or a kind the bound permit does not hold
+    (write-permits design §3.6). Raised before any effect; `requirement` and
+    `capability` are the structured fields the refusal envelope carries."""
+
+    def __init__(self, requirement: PermitFact, capability: PermitSummary) -> None:
+        super().__init__(f"permit exceeded: {requirement.dimension} {requirement.name} is not permitted")
+        self.requirement = requirement
+        self.capability = capability
+
+
+class ActorMismatch(WriteRefused):
+    """A record names an actor other than the bound one — a retraction's
+    facet, or a run closure's occurrence through the add path (design §4.2).
+    Not a permit refusal: the permit may well cover the kind."""
 
 
 class BundleMemberHeld(ImportRefused):
