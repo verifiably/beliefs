@@ -354,23 +354,35 @@ class TestTheAuditMintsNothing:
         assert port.intents == [] and port.fulfilling == []
 
 
+def forged_single_over_two_producers(writer) -> Node:
+    """A dataset two runs produce, carrying a raw-written `single(A)` basis —
+    R23's forgery, which the API cannot spell (§11.11). Returns `B`'s run, the
+    record whose deletion leaves nothing to contradict the forgery (§7).
+
+    Module-level rather than inline: `test_deletion_rows.py` builds the same
+    state for the cut-17 R23 row, and one construction serves both.
+    """
+    dataset = writer.add(stored.dataset_node("d", title="d", resources=PINNED))
+    writer.add(_producing_run("a", dataset.id))
+    run_b = writer.add(_producing_run("b", dataset.id))
+    forged = dataset.model_copy(
+        update={
+            "facets": {
+                **dataset.facets,
+                stored.LINEAGE_BASIS_FACET: {"tag": "single", "routes": [_basis_route("a")]},
+            }
+        }
+    )
+    raw_write(writer.root, stored.stamp_semantic_identity(forged))
+    writer._reconstruct()
+    return run_b
+
+
 class TestLineageBasisRecomputation:
     def test_a_forged_single_is_contradicted_while_the_second_producer_stands(self, writer):
         """R23's audit clause: `single(A)` stamped, `B` also produces → finding;
         delete `B`'s run → the semantic finding disappears (§7)."""
-        dataset = writer.add(stored.dataset_node("d", title="d", resources=PINNED))
-        writer.add(_producing_run("a", dataset.id))
-        run_b = writer.add(_producing_run("b", dataset.id))
-        forged = dataset.model_copy(
-            update={
-                "facets": {
-                    **dataset.facets,
-                    stored.LINEAGE_BASIS_FACET: {"tag": "single", "routes": [_basis_route("a")]},
-                }
-            }
-        )
-        raw_write(writer.root, stored.stamp_semantic_identity(forged))
-        writer._reconstruct()
+        run_b = forged_single_over_two_producers(writer)
 
         codes = [f.code for f in audit_corpus(writer.read_view, evidence=NO_EVIDENCE)]
         assert codes == ["lineage-basis-contradicted"]
