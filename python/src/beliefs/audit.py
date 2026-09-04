@@ -14,6 +14,13 @@ an exception that discards every finding already collected for its neighbours.
 The single-record checks keep raising, because their callers — the stored layer
 and the import boundary — refuse rather than report.
 
+A **neighbour** that cannot be read is a third case, and neither of the first
+two: a producing run or a named closure whose own stamp is missing or stale is
+already classified by `corpus_check` under its own ref, so re-reporting it under
+the audited record would double-count it, and refusing the audited record would
+convict it of its neighbour's fault. The audited record's derivation is simply
+**unchecked**, with the neighbour named in the reason.
+
 The three value types live in `beliefs.evidence` and are re-exported here, so
 one import serves a caller that only ever names the audit.
 """
@@ -25,7 +32,13 @@ from nodes.core.node import Node
 from beliefs import stored
 from beliefs.assess import AssessmentValue, build_assessment
 from beliefs.corpus import Finding, ReadView, _ImportView, _producers_of, corpus_check
-from beliefs.errors import MalformedRecord, RuleUnbound
+from beliefs.errors import (
+    IdentityError,
+    MalformedRecord,
+    RuleUnbound,
+    SemanticHashMissing,
+    SemanticHashStale,
+)
 from beliefs.evidence import NO_EVIDENCE, DerivationEvidence, DerivationOutcome
 from beliefs.identity import v1
 from beliefs.recipe import RunClosure
@@ -75,10 +88,19 @@ def _unchecked(reason: str) -> DerivationOutcome:
     return DerivationOutcome(checked=False, reason=reason, contradiction=None)
 
 
+_UNREADABLE_NEIGHBOUR = (IdentityError, SemanticHashMissing, SemanticHashStale)
+"""What `ReadView.get` raises over a node whose own stamp is missing, stale, or
+unrecomputable. Reaching one from a well-formed record leaves that record
+unchecked; the neighbour is `corpus_check`'s to classify, under its own ref."""
+
+
 def _closure(view: ReadView | _ImportView, ref: str) -> tuple[RunClosure | None, str]:
     if not view.holds(ref):
         return None, f"{ref} does not resolve here"
-    node = view.get(ref)
+    try:
+        node = view.get(ref)
+    except _UNREADABLE_NEIGHBOUR as refused:
+        return None, f"{ref} is malformed here: {refused}"
     if node.kind != "run":
         return None, f"{ref} is not a run"
     try:
@@ -199,7 +221,10 @@ def check_lineage_basis(view: ReadView, node: Node) -> DerivationOutcome:
             raise MalformedRecord(f"{node.id}: a stamped basis route names its producing run as a string")
         named.add(run)
     named_resolved = {view.resolve(run) for run in named}
-    producers = {p.resolved_run for p in _producers_of(view, node.id) if p.resolved_run is not None}
+    try:
+        producers = {p.resolved_run for p in _producers_of(view, node.id) if p.resolved_run is not None}
+    except _UNREADABLE_NEIGHBOUR as refused:
+        return _unchecked(f"a producing run of {node.id} is malformed here: {refused}")
     omitted = sorted(producers - named_resolved)
     if not omitted:
         return DerivationOutcome(checked=True, reason="", contradiction=None)

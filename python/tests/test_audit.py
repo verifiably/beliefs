@@ -559,3 +559,73 @@ class TestAnEvaluatorOutsideTheClosedSet:
 
         findings = audit_corpus(writer.read_view, evidence=evidence)
         assert ("derivation-malformed", verification.id) in {(f.code, f.ref) for f in findings}
+
+
+def _tampered_stale(writer, node: Node) -> Node:
+    """Rewrite one node's governed facet without restamping, behind the write
+    boundary: `corpus_check` classifies it `semantic-hash-stale`, and every
+    `view.get` of it raises."""
+    stale = node.model_copy(
+        update={"facets": {**node.facets, stored.RUN_FACET: {"spec": "analysis-spec:tampered"}}}
+    )
+    raw_write(writer.root, stale)
+    writer._reconstruct()
+    return stale
+
+
+class TestAnUnreadableNeighbourLeavesTheRecordUnchecked:
+    """A neighbour whose own stamp is stale is `corpus_check`'s to classify,
+    under its own ref. The record that reached it is neither convicted of its
+    neighbour's fault nor allowed to abort the audit: it is unchecked, and the
+    reason names the neighbour."""
+
+    def test_a_stale_producing_run_leaves_the_dataset_unchecked(self, writer):
+        dataset = writer.add(
+            stored.dataset_node(
+                "d",
+                title="d",
+                resources=PINNED,
+                basis={"tag": "conflict", "routes": [_basis_route("a"), _basis_route("b")]},
+            )
+        )
+        writer.add(_producing_run("a", dataset.id))
+        run_b = writer.add(_producing_run("b", dataset.id))
+        _tampered_stale(writer, run_b)
+
+        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        assert {(f.code, f.ref) for f in findings} == {("semantic-hash-stale", run_b.id)}
+
+        outcome = check_lineage_basis(writer.read_view, writer.read_view.get(dataset.id))
+        assert not outcome.checked and run_b.id in outcome.reason and outcome.contradiction is None
+
+    def test_a_verification_naming_a_stale_run_is_unchecked(self, writer):
+        run = writer.add(stored.run_node("o", title="o", spec="analysis-spec:s1"))
+        verification = writer.add(
+            stored.verification_node(
+                "v",
+                title="v",
+                assessment="a" * 64,
+                assessment_ref=run.id,
+                scope="clean-environment",
+                verdict="passed",
+                derivation=(run.id, run.id),
+            )
+        )
+        _tampered_stale(writer, run)
+
+        outcome = audit.check_verification(writer.read_view, verification, evidence=NO_EVIDENCE)
+        assert not outcome.checked and run.id in outcome.reason and outcome.contradiction is None
+
+        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        assert {(f.code, f.ref) for f in findings} == {("semantic-hash-stale", run.id)}
+
+    def test_an_assessment_naming_a_stale_run_is_unchecked(self, writer):
+        assessment = _eligible_assessment(writer)
+        run = writer.read_view.get(stored.assessment_value(assessment).run)
+        _tampered_stale(writer, run)
+
+        outcome = audit.check_assessment(writer.read_view, assessment, evidence=NO_EVIDENCE)
+        assert not outcome.checked and run.id in outcome.reason and outcome.contradiction is None
+
+        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        assert {(f.code, f.ref) for f in findings} == {("semantic-hash-stale", run.id)}
