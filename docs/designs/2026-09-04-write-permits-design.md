@@ -1,9 +1,11 @@
 # Write permits — design (the `write-permits` slice)
 
 **Date:** 2026-09-04
-**Status:** designed; conformance cut 16 (§9) is **frozen 2026-09-04** by the
-commit that banks this document (`895f822`), before any of its code exists. Nothing is
-implemented. The `E` table (§7) is minted here and is frozen like every other
+**Status:** designed; conformance cut 16 (§9) and the `E` table are **frozen
+2026-09-04 at `ee6af71`**, the commit that closes design review, before any of
+its code exists. The banking commit `895f822` and the two review passes that
+followed it precede the freeze; the text from `ee6af71` onward is the frozen
+one. Nothing is implemented. The `E` table (§7) is minted here and is frozen like every other
 guarantee table. Discharge lands a results record under `../plans/` and the
 ledger and roadmap re-rank in the same commit.
 **Scope:** the `beliefs` half of the command framework's write boundary — the
