@@ -1,6 +1,6 @@
 # Implementation roadmap
 
-**Ranked at:** cut 16, against the ledger's Current state (2026-09-04)
+**Ranked at:** cut 17, against the ledger's Current state (2026-09-04)
 **Method:** `../superpowers/specs/2026-08-29-implementation-roadmap-design.md`
 **Recomputed by:** the commit that adds each conformance-cut results record.
 This document is a current claim: it is rewritten whole at every re-ranking,
@@ -26,6 +26,12 @@ Cut 16 delivered two-root `move` and `consolidate`: W5 now reads in full, G3
 and D7 close, and T8 was re-read. `consolidate-family` remains live only for
 managed deletion and the deletion cut's assigned ride-alongs. W16, C3, R23,
 M3 and T2 keep only the remainders named below.
+
+Cut 17 delivered write permits: E1–E8 close, the 36-definition write
+inventory is held statically and dynamically, and the command framework's
+writer session and dispatcher are now unblocked. The completed
+`write-permits` boundary and its one-boundary authority lane leave the live
+ranking.
 
 ## Boundary index
 
@@ -163,7 +169,7 @@ Unordered. Each row links its `open-questions.md` anchor.
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 — [higher-order records and extraction](../guide/open-questions.md#claims-and-belief) |
 | `cross-root-publication` | T7's cross-root case | [the act-report's residue](../guide/open-questions.md#contracts-and-adoption) |
 
-## Appendix A — live status of every guarantee row at cut 16
+## Appendix A — live status of every guarantee row at cut 17
 
 Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
 (spec §3.1); a row is closed only when no later source reopens it.
@@ -183,8 +189,9 @@ Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
 | P | — | P1 (cut 2) | — |
 | H | — | H4 (cut 10) | — |
 | T | T7 | T1 (cut 5), T2 (cut 16), T4 (cut 3), T5 (cut 3) | — |
+| E | — | — | — |
 
-Closed 78 of 153; open 75.
+Closed 86 of 161; open 75.
 
 ## Appendix B — classification of every open row
 

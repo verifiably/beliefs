@@ -40,6 +40,7 @@ from typing import Any, cast
 
 import pytest
 import yaml
+from authority import ACTOR, narrowed
 from nodes.core.write_plan import DefaultExecutor, DeleteOp
 from test_world_build import ALPHA, BETA, GAMMA, ChainHeads
 from test_world_epoch import (
@@ -52,7 +53,7 @@ from test_world_epoch import (
 from test_world_receipts import producer_successor
 
 import beliefs
-from beliefs.errors import EpochCurrent, EpochMalformed, EpochUnknown
+from beliefs.errors import EpochCurrent, EpochMalformed, EpochUnknown, PermitExceeded
 from beliefs.world import epoch, read, registry, rules
 
 # --- the harness -------------------------------------------------------------
@@ -77,6 +78,22 @@ def three_retained(tmp_path: Path):
     second = publish(world, (ALPHA, BETA), bindings)
     third = publish(world, (ALPHA, BETA, GAMMA), bindings)
     return world, recorder, bindings, (first, second, third)
+
+
+def test_e1_delete_epoch_under_a_permit_lacking_epoch_refuses_and_keeps_the_members(tmp_path):
+    world, _recorder, _bindings, (first, _second, _third) = three_retained(tmp_path)
+    narrowed_world = registry.World(
+        world.config,
+        world._executor_factory,
+        chain_head=world._chain_head,
+        corpus_executor_factory=world._corpus_executor_factory,
+        authority=narrowed(families=("registry",)),
+    )
+    members = world.config.world_root / "epochs" / first.packaging_identity
+    before = sorted(path.name for path in members.iterdir())
+    with pytest.raises(PermitExceeded):
+        epoch.delete_epoch(narrowed_world, first.packaging_identity)
+    assert sorted(path.name for path in members.iterdir()) == before
 
 
 def sibling_published(tmp_path: Path):
@@ -152,7 +169,7 @@ class TestRefusalOrder:
             DefaultExecutor(root).execute(plan),
         )[1]
 
-        epoch.delete_epoch(world, first.packaging_identity, actor="alice")
+        epoch.delete_epoch(world, first.packaging_identity)
 
         assert [stage for stage, _held in order] == ["barrier", "pointer", "open", "open", "execute"]
         assert {held for _stage, held in order} == {True}
@@ -174,7 +191,7 @@ class TestRefusalOrder:
         submitted = len(recorder.epoch_plans)
 
         with pytest.raises(EpochCurrent) as refusal:
-            epoch.delete_epoch(world, third.packaging_identity, actor="alice")
+            epoch.delete_epoch(world, third.packaging_identity)
 
         assert epoch.CURRENT_POINTER in str(refusal.value)
         assert third.packaging_identity in str(refusal.value)
@@ -183,11 +200,11 @@ class TestRefusalOrder:
         assert read.current_epoch(world).packaging_identity == third.packaging_identity
         # A non-current epoch of the same world deletes, so the refusal was
         # about the pointer rather than about deletion.
-        epoch.delete_epoch(world, first.packaging_identity, actor="alice")
+        epoch.delete_epoch(world, first.packaging_identity)
 
         (world.config.world_root / "epochs" / third.packaging_identity / "coverage.yaml").unlink()
         with pytest.raises(EpochCurrent):
-            epoch.delete_epoch(world, third.packaging_identity, actor="alice")
+            epoch.delete_epoch(world, third.packaging_identity)
 
     def test_an_unknown_identity_refuses(self, tmp_path):
         world, recorder, _bindings, _retained = three_retained(tmp_path)
@@ -195,9 +212,9 @@ class TestRefusalOrder:
         submitted = len(recorder.epoch_plans)
 
         with pytest.raises(EpochUnknown):
-            epoch.delete_epoch(world, "0" * 64, actor="alice")
+            epoch.delete_epoch(world, "0" * 64)
         with pytest.raises(EpochUnknown):
-            epoch.delete_epoch(world, "not-a-packaging-identity", actor="alice")
+            epoch.delete_epoch(world, "not-a-packaging-identity")
 
         assert epochs_tree(world) == before
         assert len(recorder.epoch_plans) == submitted
@@ -244,22 +261,10 @@ class TestRefusalOrder:
         before = epochs_tree(world)
         submitted = len(recorder.epoch_plans)
         with pytest.raises(EpochMalformed):
-            epoch.delete_epoch(world, first.packaging_identity, actor="alice")
+            epoch.delete_epoch(world, first.packaging_identity)
 
         assert epochs_tree(world) == before
         assert len(recorder.epoch_plans) == submitted
-
-    def test_the_actor_must_be_encodable_text(self, tmp_path):
-        world, recorder, _bindings, (first, _second, _third) = three_retained(tmp_path)
-        before = epochs_tree(world)
-        submitted = len(recorder.epoch_plans)
-
-        with pytest.raises(TypeError):
-            epoch.delete_epoch(world, first.packaging_identity, actor=None)  # type: ignore[arg-type]
-
-        assert epochs_tree(world) == before
-        assert len(recorder.epoch_plans) == submitted
-
 
 # --- Step 2: the whole epoch, and the sever report ----------------------------
 
@@ -277,7 +282,7 @@ class TestWholeEpochDeletion:
         members = carrier_bytes(world, first.packaging_identity)
         submitted = len(recorder.epoch_plans)
 
-        epoch.delete_epoch(world, first.packaging_identity, actor="alice")
+        epoch.delete_epoch(world, first.packaging_identity)
 
         assert len(recorder.epoch_plans) == submitted + 1
         plan = cast(list[DeleteOp], recorder.epoch_plans[-1])
@@ -306,9 +311,9 @@ class TestWholeEpochDeletion:
         world, _recorder, _bindings, first, second = sibling_published(tmp_path)
         assert read.current_epoch(world).packaging_identity == second.packaging_identity
 
-        report = epoch.delete_epoch(world, first.packaging_identity, actor="alice")
+        report = epoch.delete_epoch(world, first.packaging_identity)
 
-        assert report.actor == "alice"
+        assert report.actor == ACTOR
         assert report.packaging_identity == first.packaging_identity
         assert report.snapshot is not None
         assert report.snapshot.subject == epoch.SNAPSHOT_SUBJECT
@@ -337,9 +342,9 @@ class TestWholeEpochDeletion:
         carries five identities of its own, and deleting it strands all five."""
         world, _recorder, _bindings, (first, _second, _third) = three_retained(tmp_path)
 
-        report = epoch.delete_epoch(world, first.packaging_identity, actor="bob")
+        report = epoch.delete_epoch(world, first.packaging_identity)
 
-        assert report.actor == "bob"
+        assert report.actor == ACTOR
         assert report.snapshot is not None and report.snapshot.retained_elsewhere is False
         assert [entry.retained_elsewhere for entry in report.receipts] == [False] * 4
         assert report.severed == tuple(
@@ -355,12 +360,12 @@ class TestWholeEpochDeletion:
         world, recorder, _bindings, (first, _second, third) = three_retained(tmp_path)
         directory = world.config.world_root / "epochs" / first.packaging_identity
 
-        epoch.delete_epoch(world, first.packaging_identity, actor="alice")
+        epoch.delete_epoch(world, first.packaging_identity)
         submitted = len(recorder.epoch_plans)
 
         assert list(directory.iterdir()) == []
         with pytest.raises(EpochUnknown):
-            epoch.delete_epoch(world, first.packaging_identity, actor="alice")
+            epoch.delete_epoch(world, first.packaging_identity)
         with pytest.raises(EpochUnknown):
             read.open_epoch(world, first.packaging_identity)
         assert len(recorder.epoch_plans) == submitted
@@ -376,7 +381,7 @@ class TestWholeEpochDeletion:
         """
         world, _recorder, bindings, (first, _second, _third) = three_retained(tmp_path)
 
-        epoch.delete_epoch(world, first.packaging_identity, actor="alice")
+        epoch.delete_epoch(world, first.packaging_identity)
         report = rules.remove_rule_binding(world, bindings.coreference)
 
         assert len(report.severed_receipts) == 2
@@ -388,7 +393,7 @@ class TestWholeEpochDeletion:
         world, _recorder, bindings, (first, _second, _third) = three_retained(tmp_path)
         members = carrier_bytes(world, first.packaging_identity)
 
-        epoch.delete_epoch(world, first.packaging_identity, actor="alice")
+        epoch.delete_epoch(world, first.packaging_identity)
         rebuilt = publish(world, (ALPHA,), bindings)
 
         assert rebuilt.packaging_identity == first.packaging_identity
@@ -403,7 +408,7 @@ class TestWholeEpochDeletion:
             for member in epoch.EPOCH_MEMBERS
         }
 
-        epoch.delete_epoch(world, first.packaging_identity, actor="alice")
+        epoch.delete_epoch(world, first.packaging_identity)
 
         assert epochs_tree(world) == {
             name: content for name, content in before.items() if name not in removed
@@ -416,8 +421,8 @@ class TestNoOtherDeletionSurface:
     def test_no_individual_member_or_automatic_deletion_api_exists(self, tmp_path):
         """§9's two closures, asserted rather than described.
 
-        *No individual-member deletion*: the one act takes a packaging identity
-        and an actor, and no exported callable takes a member at all. *Nothing
+        *No individual-member deletion*: the one act takes a packaging identity,
+        and no exported callable takes a member at all. *Nothing
         automatic*: no module of the package calls `delete_epoch`, so the only
         way an epoch is removed is a consumer deciding to remove it.
         """
@@ -426,7 +431,6 @@ class TestNoOtherDeletionSurface:
         assert set(inspect.signature(epoch.delete_epoch).parameters) == {
             "world",
             "packaging_identity",
-            "actor",
         }
         deleting = [
             name
@@ -467,7 +471,7 @@ class TestNoOtherDeletionSurface:
             if isinstance(operation, DeleteOp) and operation.path.startswith("epochs/")
         ] == []
 
-        epoch.delete_epoch(world, first.packaging_identity, actor="alice")
+        epoch.delete_epoch(world, first.packaging_identity)
 
         assert sorted(
             operation.path

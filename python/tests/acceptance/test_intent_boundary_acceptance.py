@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 
 import pytest
+from authority import FULL
 from closure_fixtures import make_closure, sample_report
 from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.write_plan import CreateOp
@@ -26,7 +27,7 @@ from beliefs.world.records import capture_records
 
 def _port(base, name):
     root = base / name
-    init_corpus_root(root)
+    init_corpus_root(root, authority=FULL)
     return root, durable_port(root)
 
 
@@ -171,6 +172,8 @@ def test_u8_negative_discarded_attempt_is_indistinguishable(certified_work, tmp_
     root, inner = _port(certified_work, "u8")
 
     class CancelledBeforePublication:
+        authority = inner.authority
+
         def append_intent(self, payload: bytes) -> str:
             return inner.append_intent(payload)
 

@@ -27,9 +27,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Forty-five documents in `docs/designs/`: the banked redesigns, review disposition,
+Forty-six documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
-2026-08-02 through 2026-09-03. Read them in this order:
+2026-08-02 through 2026-09-04. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -78,6 +78,7 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-08-31-coordination-and-view-kinds-design.md` | the coordination tier: closed view-query grammar, versioned coordination contract, opaque project/local addressing, immutable multi-corpus revision family, and world-inert storage; cut 14 discharges it except W17 intent-position |
 | `2026-09-03-world-changing-families-design.md` | the two-root `move` and `consolidate` operations, managed deletion, their lock and crash discipline, and the two cuts that discharge them |
 | `2026-09-03-conformance-cut-16.md` | the discharged relocation cut: W5 in full, G3 and D7 closed, five partial rows, and T8 re-read against both relocation operations |
+| `2026-09-04-write-permits-design.md` | the discharged write-permits slice: closed act families and kind routes, `Authority` bound once at every construction seam, checks before effects across the static entry-point inventory, and E1–E8 closed at cut 17 |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -97,13 +98,14 @@ namespaced materialization of a digest-verified runtime closure with
 addresses, contract authorization, multi-corpus tip resolution, and world-inert
 storage; the full workflow surface with planning-derived job and target
 sets, semantic wildcard jobs, per-family seed obligations, and composed
-planning/execution launch attestations; and two-root `move` and `consolidate`
-with root-local durable operation evidence. The latest discharged boundary is
-cut 16 ([results](docs/plans/2026-09-03-conformance-cut-16-results.md)).
+planning/execution launch attestations; two-root `move` and `consolidate`
+with root-local durable operation evidence; and write permits bound at every
+write seam, with no caller-supplied actor. The latest discharged boundary is
+cut 17 ([results](docs/plans/2026-09-04-conformance-cut-17-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
-test before it is a passing one. There are **153 rows** across **thirteen frozen
-tables** (G, S, W, R, C, X, N, L, D, M, P, H, T), and every cut is frozen
+test before it is a passing one. There are **161 rows** across **fourteen frozen
+tables** (G, S, W, R, C, X, N, L, D, M, P, H, T, E), and every cut is frozen
 *before* its code exists so that a row which fails is a failure rather than a
 redefinition.
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from authority import FULL
 from fixtures_cut3 import spec_draft, spec_rules
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.node import Node
@@ -29,7 +30,7 @@ RULE = "rule:threshold"
 
 def corpus(work: Path, name: str):
     root = work / name
-    init_corpus_root(root)
+    init_corpus_root(root, authority=FULL)
     return root, durable_port(root)
 
 

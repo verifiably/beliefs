@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from authority import FULL
 from nodes.core.write_plan import DefaultExecutor
 
 from beliefs import stored
@@ -36,4 +37,4 @@ def test_writer_refuses_a_malformed_display_facet(tmp_path):
     raw = node.model_copy(update={"facets": {**node.facets, "display": {"extra": 1}}})
 
     with pytest.raises(ValidationRefused, match="display"):
-        CorpusWriter(tmp_path, DefaultExecutor).add(raw)
+        CorpusWriter(tmp_path, DefaultExecutor, authority=FULL).add(raw)

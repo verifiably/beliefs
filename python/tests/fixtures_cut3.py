@@ -5,6 +5,8 @@ from decimal import Decimal
 from hashlib import sha256
 from typing import cast
 
+from authority import FULL
+
 from beliefs.assess import run_record
 from beliefs.boundary import execute_assessment_run, execute_production_run
 from beliefs.closure import RetractionEnumeration
@@ -433,6 +435,8 @@ def definition(
 class MemoryPort:
     """The shared no-I/O port for value-width unit tests."""
 
+    authority = FULL
+
     def append_intent(self, payload: bytes) -> str:
         return sha256(payload).hexdigest()
 
@@ -506,7 +510,6 @@ def run_assessment(
         entrypoint="code/workflow/Snakefile",
         targets=("outputs/result.txt",),
         declared_outputs=("outputs/result.txt",),
-        actor="tester",
         observer="observer-1",
         started_at=started_at,
         host_realization=host_realization,
@@ -571,7 +574,6 @@ def run_production(
         entrypoint="code/workflow/Snakefile",
         targets=targets if targets is not None else ("outputs/result.txt",),
         declared_outputs=(declared_outputs if declared_outputs is not None else ("outputs/result.txt",)),
-        actor="tester",
         observer="observer-1",
         started_at=started_at,
         host_realization=host_realization,
@@ -626,7 +628,6 @@ def replay_of(
         entrypoint="code/workflow/Snakefile",
         targets=original.run.recipe.invocation.targets,
         declared_outputs=original.run.recipe.invocation.declared_outputs,
-        actor="tester",
         observer="observer-1",
         started_at="2026-08-12T00:00:00Z",
         host_realization=host_realization,

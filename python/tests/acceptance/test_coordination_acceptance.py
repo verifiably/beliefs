@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 import yaml
+from authority import FULL
 from coordination_fixtures import AT, content_for, raw_add, raw_coordination_node
 from nodes.core.corpus import Corpus
 from nodes.core.node import Node
@@ -34,7 +35,7 @@ from beliefs.world import derive, epoch, load_manifest
 def writers(case: tuple[tuple[Path, Path], ProfileSpec]):
     roots, profile = case
     resolver = CoordinationResolver(dict.fromkeys(roots, profile))
-    return roots, resolver, tuple(open_corpus(root, coordination_resolver=resolver) for root in roots)
+    return roots, resolver, tuple(open_corpus(root, authority=FULL, coordination_resolver=resolver) for root in roots)
 
 
 def test_w11a_view_queries_reject_coordination_addresses():
@@ -87,7 +88,7 @@ def test_w13_project_identity_is_independent_of_corpus_identity_and_mount(
 ):
     (left, right), profile = durable_coordination_roots
     left_resolver = CoordinationResolver({left: profile})
-    writer = open_corpus(left, coordination_resolver=left_resolver)
+    writer = open_corpus(left, authority=FULL, coordination_resolver=left_resolver)
     first = writer.mint_coordination("project", content=content_for("project", name="one"))
     second = writer.mint_coordination("project", content=content_for("project", name="two"))
     left_manifest = load_manifest(left)
@@ -124,7 +125,7 @@ def test_w17n_every_edit_is_a_new_whole_revision(durable_coordination_roots):
 
 def test_w17b_every_ordinary_door_refuses_coordination(durable_coordination_roots):
     (root, _), _profile = durable_coordination_roots
-    writer = open_corpus(root)
+    writer = open_corpus(root, authority=FULL)
     node = Node(id="note:old", kind="note", title="old")
     calls = (
         lambda: writer.add(node),
@@ -139,11 +140,11 @@ def test_w17b_every_ordinary_door_refuses_coordination(durable_coordination_root
 
 def test_w17c_import_refuses_and_names_the_coordination_member(durable_coordination_roots):
     (root, _), _profile = durable_coordination_roots
-    writer = open_corpus(root)
+    writer = open_corpus(root, authority=FULL)
     member = Node(id="note:old", kind="note", title="old")
     with pytest.raises(ImportRefused) as caught:
         writer.import_bundle(
-            [member], actor="a", observer="o", instrument="i", opened_at=AT, closed_at=AT
+            [member], observer="o", instrument="i", opened_at=AT, closed_at=AT
         )
     assert caught.value.member == member.id
 
@@ -206,7 +207,7 @@ def test_w17g_continuity_refuses_a_standing_predecessor_of_another_address_or_ki
 
 def divergent(case):
     (left, right), profile = case
-    left_writer = open_corpus(left, coordination_resolver=CoordinationResolver({left: profile}))
+    left_writer = open_corpus(left, authority=FULL, coordination_resolver=CoordinationResolver({left: profile}))
     genesis = left_writer.mint_coordination("project", content=content_for("project"))
     Corpus(right).add(genesis.model_copy(deep=True))
     address = coordination_revision(genesis).address
@@ -216,7 +217,7 @@ def divergent(case):
         predecessors=(genesis.uid,),
         content=content_for("project", name="left"),
     )
-    right_writer = open_corpus(right, coordination_resolver=CoordinationResolver({right: profile}))
+    right_writer = open_corpus(right, authority=FULL, coordination_resolver=CoordinationResolver({right: profile}))
     right_tip = right_writer.revise_coordination(
         "project",
         address,
@@ -224,7 +225,7 @@ def divergent(case):
         content=content_for("project", name="right"),
     )
     resolver = CoordinationResolver({left: profile, right: profile})
-    repair_writer = open_corpus(left, coordination_resolver=resolver)
+    repair_writer = open_corpus(left, authority=FULL, coordination_resolver=resolver)
     return address, resolver, repair_writer, left_tip, right_tip
 
 
@@ -267,7 +268,7 @@ def test_w17j_a_raw_cycle_has_no_tip_and_an_audit_finding(durable_coordination_r
     assert CoordinationResolver({root: profile}).resolve(CoordinationAddress("a" * 32)) is None
     assert any(
         finding.code == "coordination-supersession-cycle"
-        for finding in corpus_check(open_corpus(root).read_view)
+        for finding in corpus_check(open_corpus(root, authority=FULL).read_view)
     )
 
 
@@ -280,7 +281,7 @@ def test_w17k_a_malformed_facet_is_reported_and_excluded(durable_coordination_ro
     assert CoordinationResolver({root: profile}).resolve(CoordinationAddress("a" * 32)) == valid
     assert any(
         finding.code == "coordination-facet-malformed" and finding.ref == malformed.id
-        for finding in corpus_check(open_corpus(root).read_view)
+        for finding in corpus_check(open_corpus(root, authority=FULL).read_view)
     )
 
 
@@ -346,7 +347,7 @@ def test_w18i_coordination_moves_epoch_identity_not_world_maps_or_belief_input(
     corpus_id = load_manifest(corpus_root).corpus_id
     before = epoch.build_epoch(world, coverage=frozenset({corpus_id}), bindings=bindings)
     resolver = CoordinationResolver({corpus_root: profile})
-    open_corpus(corpus_root, coordination_resolver=resolver).mint_coordination(
+    open_corpus(corpus_root, authority=FULL, coordination_resolver=resolver).mint_coordination(
         "project", content=content_for("project")
     )
     after = epoch.build_epoch(world, coverage=frozenset({corpus_id}), bindings=bindings)

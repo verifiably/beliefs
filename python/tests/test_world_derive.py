@@ -1018,6 +1018,7 @@ class TestShippedFixtures:
                     }, name
 
     def test_each_packaged_bundle_installs_and_evaluates_to_the_same_expected_bytes(self, tmp_path):
+        from authority import FULL
         from nodes.core.write_plan import DefaultExecutor
 
         from beliefs.world.registry import World, WorldConfig
@@ -1027,6 +1028,7 @@ class TestShippedFixtures:
             DefaultExecutor,
             chain_head=lambda root: pytest.fail(f"{root}: a derivation arm read a chain"),
             corpus_executor_factory=DefaultExecutor,
+            authority=FULL,
         )
         for bundle in rules.shipped_rule_bundles():
             binding = rules.install_rule_binding(world, bundle)

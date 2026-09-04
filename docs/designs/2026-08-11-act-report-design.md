@@ -171,6 +171,10 @@ is preserved; no attester class is privileged.
 
 ## 3. The completion discipline — the operation intent
 
+> **Amended 2026-09-04 (write permits):** writing boundaries derive every
+> intent actor from their bound `Authority`; the actor remains recorded in
+> the intent but is no longer supplied per call.
+
 Completion is bought with the log's existing machinery: intent, registered
 transaction, `fulfills` constructed by the boundary from its own intent, and
 the §6 qualification reduction. Nothing mutable is introduced; "is this

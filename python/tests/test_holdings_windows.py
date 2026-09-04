@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from authority import FULL
 from fixtures_cut6 import PINS
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.write_plan import CreateOp, DefaultExecutor
@@ -23,19 +24,20 @@ from beliefs.world import logmodel, registry, rules
 
 def setup(root: Path):
     corpus_root = root / "corpus"
-    science_root.init_corpus_root(corpus_root)
-    manifest = science_root.open_corpus(corpus_root).adopt_manifest(profile=PINS)
+    science_root.init_corpus_root(corpus_root, authority=FULL)
+    manifest = science_root.open_corpus(corpus_root, authority=FULL).adopt_manifest(profile=PINS)
     store_root = root / "store"
-    store_id = science_root.init_store_root(store_root)
+    store_id = science_root.init_store_root(store_root, authority=FULL)
     world = registry.World(
         registry.WorldConfig(root / "world", "f" * 32, (corpus_root,)),
         DefaultExecutor,
         chain_head=ChainHeads(),
         corpus_executor_factory=science_root.durable_executor_factory(),
+        authority=FULL,
     )
-    world.admit(corpus_root, provenance=registry.Fresh(), actor="alice")
+    world.admit(corpus_root, provenance=registry.Fresh())
     binding = rules.install_rule_binding(world, holdings_rule_bundle())
-    context = ActContext(corpus_root, store_root, "observer", "instrument", "actor", science_root.holdings_seam())
+    context = ActContext(corpus_root, store_root, "observer", "instrument", FULL, science_root.holdings_seam())
     return context, store_id, manifest.corpus_id, world, binding
 
 

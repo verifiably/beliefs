@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 
 import pytest
+from authority import FULL
 from nodes.core.store import Store
 from nodes.core.write_plan import DefaultExecutor
 
@@ -64,7 +65,7 @@ def test_the_stored_path_is_kind_first(tmp_path):
 
 def test_direct_authoring_through_the_writer_is_refused(tmp_path):
     with pytest.raises(WriteRefused, match="a holdings observation is minted only by the acts boundary"):
-        CorpusWriter(tmp_path, DefaultExecutor).add(stored.holdings_observation_node(observation()))
+        CorpusWriter(tmp_path, DefaultExecutor, authority=FULL).add(stored.holdings_observation_node(observation()))
 
 
 def test_the_kind_joins_no_epoch_map():

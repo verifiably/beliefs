@@ -111,6 +111,10 @@ def init_world_root(config: WorldConfig) -> None: ...
 def open_world(config: WorldConfig) -> World: ...
 ```
 
+> **Amended 2026-09-04 (write permits):** `open_world(config, *, authority)`
+> binds the authority on `World`; initialization takes a lifecycle authority,
+> and registry/epoch acts read their actor from the bound value.
+
 ### 2.2 Genesis and the readable mirror
 
 `science.root` gains:
@@ -535,6 +539,10 @@ known. This is also the registry fact W13 uses to distinguish a declared fork
 from coordinated identity mimicry.
 
 ### 5.3 Terminal status events
+
+> **Amended 2026-09-04 (write permits):** `retire(corpus_id)` and
+> `depart(corpus_id)` take no actor keyword. They require the registry family
+> and mint the status actor from `world.authority`.
 
 The public calls are:
 

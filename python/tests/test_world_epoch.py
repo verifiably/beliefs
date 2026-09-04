@@ -34,6 +34,7 @@ from typing import Any, Self
 
 import pytest
 import yaml
+from authority import FULL
 from coordination_fixtures import content_for, coordination_profile, mounted_root
 from nodes.core.corpus import Corpus
 from nodes.core.write_plan import CreateOp, DefaultExecutor, ReplaceOp, WriteOp, WritePlan
@@ -65,7 +66,7 @@ def test_coordination_bytes_move_corpus_state_but_never_become_captured_world_re
     root = mounted_root(tmp_path, profile)
     writer = CorpusWriter(
         root,
-        DefaultExecutor,
+        DefaultExecutor, authority=FULL,
         coordination_resolver=CoordinationResolver({root: profile}),
     )
     before = registry.corpus_state_identity(root)
@@ -87,7 +88,7 @@ def test_world_records_are_still_captured_beside_coordination_records(tmp_path, 
     )
     writer = CorpusWriter(
         root,
-        DefaultExecutor,
+        DefaultExecutor, authority=FULL,
         coordination_resolver=CoordinationResolver({root: profile}),
     )
     writer.mint_coordination("project", content=content_for("project"))
@@ -177,6 +178,7 @@ def make_world(
         recorder,
         chain_head=chain_head or ChainHeads(),
         corpus_executor_factory=DefaultExecutor,
+        authority=FULL,
     )
     return world, recorder
 
@@ -204,7 +206,7 @@ def admitted_world(
     }
     world, recorder = make_world(tmp_path, *roots.values(), chain_head=chain_head)
     for corpus_root in roots.values():
-        world.admit(corpus_root, provenance=registry.Fresh(), actor="alice")
+        world.admit(corpus_root, provenance=registry.Fresh())
     return world, recorder, derivation_bindings(world), roots
 
 

@@ -1393,6 +1393,7 @@ def build_epoch(
     that were about to be: an `Epoch` a caller holds always means bytes that
     are on disk under the name it carries.
     """
+    world.authority.require("epoch")
     draft = _capture_build_inputs(world, coverage=coverage, bindings=bindings.by_kind())
     members = _derived_members(draft)
     packaging_identity = packaging_identity_of(members)
@@ -1683,7 +1684,7 @@ class EpochDeletionReport:
         return tuple(sorted({entry.identity for entry in entries if not entry.retained_elsewhere}))
 
 
-def delete_epoch(world: registry.World, packaging_identity: str, *, actor: str) -> EpochDeletionReport:
+def delete_epoch(world: registry.World, packaging_identity: str) -> EpochDeletionReport:
     """Delete one whole retained epoch, and report what it severed (§9).
 
     Explicit consumer policy. Nothing in this package calls it, no schedule
@@ -1713,7 +1714,8 @@ def delete_epoch(world: registry.World, packaging_identity: str, *, actor: str) 
     a repeated call raises `EpochUnknown`, and slice 2 claims no exact retry
     after commit.
     """
-    actor = registry._require_actor(actor)
+    world.authority.require("epoch")
+    actor = world.authority.actor
     with registry._locked_barrier(world) as world_root:
         current = _locked_current_identity(world_root)
         if current == packaging_identity:

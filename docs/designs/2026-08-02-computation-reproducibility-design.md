@@ -597,6 +597,11 @@ supplied.
 `[semantic job key][stream key]` (§6.2), and the **boundary receipt** (§4.4b)
 recording what the boundary constructed and enforced.
 
+> **Amended 2026-09-04 (write permits):** the occurrence actor is read from
+> the run port's bound `Authority`. Run entry points take no actor argument
+> and require both the run family and the emitted run/report kinds before an
+> intent.
+
 **Trace conformance is not an identity input — but it is not merely a diagnostic
 either.** After execution the realized seeds are checked against the seed plan and
 the trace against the workflow definition. A mismatch never changes the recipe to

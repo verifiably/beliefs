@@ -6,6 +6,7 @@ from dataclasses import replace
 
 import pytest
 import yaml
+from authority import ACTOR
 from fixtures_cut3 import report as sample_report
 from fixtures_cut6 import PINS
 from nodes.core.errors import RefError
@@ -30,7 +31,7 @@ from beliefs.world import derive, registry
 def _world_for(tmp_path, *writers):
     world, _ = make_world(tmp_path, *(writer.root for writer in writers))
     for writer in writers:
-        world.admit(writer.root, provenance=registry.Fresh(), actor="alice")
+        world.admit(writer.root, provenance=registry.Fresh())
     return world, tuple(writer.corpus_id for writer in writers), derivation_bindings(world)
 
 
@@ -489,7 +490,7 @@ def test_m3_consolidating_equal_basis_retraction_replicas_leaves_the_counter_ret
         reason="defective-code",
         rationale="invalid result",
         grounds=("verification:v1",),
-        actor="tester",
+        actor=ACTOR,
         event_token="event-1",
     )
     first = keep_writer.retract(replica)
@@ -503,7 +504,7 @@ def test_m3_consolidating_equal_basis_retraction_replicas_leaves_the_counter_ret
             reason="upstream-retraction",
             rationale="the retraction was withdrawn",
             grounds=("verification:v2",),
-            actor="tester",
+            actor=ACTOR,
             event_token="event-2",
         )
     )
@@ -587,7 +588,7 @@ def test_t2_a_consolidate_is_one_intent_and_one_report_in_each_root(
         assert v1.decode(port.intents[0]) == {
             "kind": "consolidate",
             "event_token": keep_report.event_token,
-            "actor": CONSOLIDATE_FIELDS["actor"],
+            "actor": ACTOR,
         }
         assert port.fulfilling[0][1] == port.intent_digest
         assert port.fulfilling[0][0][0] is report_operations[label]
@@ -638,7 +639,7 @@ def test_retract_refuses_a_target_moved_away(tmp_path):
         reason="defective-code",
         rationale="the recorded result is invalid",
         grounds=("verification:v1",),
-        actor="tester",
+        actor=ACTOR,
         event_token="event-1",
     )
     relocation.move(source, destination, target.id, **MOVE_FIELDS)

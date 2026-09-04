@@ -140,6 +140,11 @@ arm, unknown reason, missing attribution, or no grounds are malformed.
 
 ## 4. Public write surface
 
+> **Amended 2026-09-04 (write permits):** `CorpusWriter` binds one
+> `Authority`; these methods take no actor and require the relevant family
+> and emitted kinds before any effect. `import_bundle` attributes its intent
+> to the bound actor while preserving imported actors as provenance.
+
 All signatures below are methods on `CorpusWriter`. `Node` remains the public
 stored-node value. The create and replace methods return the node that was
 durably admitted; import returns its boundary-minted act-report.

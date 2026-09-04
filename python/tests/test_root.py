@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 from atoms.chain.model import GenesisEntry
 from atoms.core.errors import PreconditionRefused
+from authority import FULL
 from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp
 
 from beliefs import root
@@ -68,7 +69,7 @@ class TestWorldRoots:
         patch_world_engine(monkeypatch, calls)
         config = WorldConfig(tmp_path / "world", "1" * 32, ())
 
-        root.init_world_root(config)
+        root.init_world_root(config, authority=FULL)
 
         assert calls[0] == (
             "register",
@@ -80,10 +81,10 @@ class TestWorldRoots:
         calls = []
         patch_world_engine(monkeypatch, calls)
         config = WorldConfig(tmp_path / "world", "1" * 32, ())
-        root.init_world_root(config)
+        root.init_world_root(config, authority=FULL)
         calls.clear()
 
-        root.init_world_root(config)
+        root.init_world_root(config, authority=FULL)
 
         assert [kind for kind, _value in calls] == ["register"]
 
@@ -94,7 +95,7 @@ class TestWorldRoots:
         occupied.write_text("not a world", encoding="utf-8")
 
         with pytest.raises(CorpusRootRefused):
-            root.init_world_root(WorldConfig(occupied, "1" * 32, ()))
+            root.init_world_root(WorldConfig(occupied, "1" * 32, ()), authority=FULL)
 
         assert calls == []
 
@@ -106,7 +107,7 @@ class TestWorldRoots:
         (world_root / "world.yaml").write_text("oops: true\n", encoding="utf-8")
 
         with pytest.raises(WorldUninitialized):
-            root.init_world_root(WorldConfig(world_root, "1" * 32, ()))
+            root.init_world_root(WorldConfig(world_root, "1" * 32, ()), authority=FULL)
 
         assert [kind for kind, _value in calls] == ["register"]
 
@@ -118,7 +119,7 @@ class TestWorldRoots:
         (world_root / "world.yaml").write_bytes(_world_mirror_bytes("2" * 32))
 
         with pytest.raises(WorldIdMismatch):
-            root.init_world_root(WorldConfig(world_root, "1" * 32, ()))
+            root.init_world_root(WorldConfig(world_root, "1" * 32, ()), authority=FULL)
 
         assert [kind for kind, _value in calls] == ["register"]
 
@@ -127,7 +128,7 @@ class TestWorldRoots:
         patch_world_engine(monkeypatch, calls)
         world_root = tmp_path / "world"
 
-        root.init_world_root(WorldConfig(world_root, "1" * 32, ()))
+        root.init_world_root(WorldConfig(world_root, "1" * 32, ()), authority=FULL)
 
         assert (world_root / "world.yaml").is_file()
         assert not any((world_root / name).exists() for name in ("registry", "epochs", "rules"))
@@ -139,7 +140,7 @@ class TestWorldRoots:
         config.world_root.mkdir()
         (config.world_root / "world.yaml").write_bytes(_world_mirror_bytes(config.world_id))
 
-        world = root.open_world(config)
+        world = root.open_world(config, authority=FULL)
 
         assert world.config is config
         assert calls == []
@@ -152,7 +153,7 @@ class TestWorldRoots:
         (config.world_root / "world.yaml").write_bytes(_world_mirror_bytes("2" * 32))
 
         with pytest.raises(WorldIdMismatch):
-            root.open_world(config)
+            root.open_world(config, authority=FULL)
 
         assert calls == []
 
@@ -169,7 +170,7 @@ class TestWorldRoots:
         (config.world_root / "world.yaml").write_bytes(_world_mirror_bytes(config.world_id))
 
         with pytest.raises(WorldIdMismatch) as caught:
-            root.open_world(config)
+            root.open_world(config, authority=FULL)
 
         assert "2" * 32 in str(caught.value)
         assert calls == []
@@ -193,7 +194,7 @@ class TestWorldRoots:
         monkeypatch.setattr(root, "read_chain", lambda *_args: CorpusGenesis())
 
         with pytest.raises(WorldUninitialized):
-            root.open_world(config)
+            root.open_world(config, authority=FULL)
 
     def test_open_world_reads_the_genesis_through_read_chain_and_names_an_unregistered_root(
         self, monkeypatch, tmp_path
@@ -219,7 +220,7 @@ class TestWorldRoots:
         monkeypatch.setattr(root, "read_chain", raising)
 
         with pytest.raises(WorldUninitialized) as caught:
-            root.open_world(config)
+            root.open_world(config, authority=FULL)
 
         assert caught.value.__cause__ is unregistered
         # The seam is untouched: the very same refusal keeps its own contract
@@ -254,7 +255,7 @@ class TestWorldRoots:
             monkeypatch.setattr(root, "read_chain", raising)
 
             with pytest.raises(PreconditionRefused) as caught:
-                root.open_world(config)
+                root.open_world(config, authority=FULL)
 
             assert caught.value is mid_recovery
 
@@ -299,7 +300,7 @@ class TestTheInitActRefusesANonDirectory:
         occupied = tmp_path / "corpus"
         occupied.write_text("not a corpus", encoding="utf-8")
         with pytest.raises(CorpusRootRefused):
-            root.init_corpus_root(occupied)
+            root.init_corpus_root(occupied, authority=FULL)
 
     def test_a_symlink_root_is_registered_under_its_resolved_path(self, tmp_path, monkeypatch):
         real = tmp_path / "real"
@@ -309,7 +310,7 @@ class TestTheInitActRefusesANonDirectory:
         calls = []
         monkeypatch.setattr(root, "register_root", lambda *args: calls.append(args))
 
-        root.init_corpus_root(link)
+        root.init_corpus_root(link, authority=FULL)
 
         _, project_root, metadata_root, *_ = calls[0]
         assert project_root == str(real.resolve())
@@ -327,7 +328,7 @@ class TestTheCompositionRoot:
         link = tmp_path / "link"
         link.symlink_to(real, target_is_directory=True)
 
-        writer = root.open_corpus(link)
+        writer = root.open_corpus(link, authority=FULL)
         executor = writer._corpus.executor
         port = writer._operation_port
         assert isinstance(executor, root.DurableExecutor)

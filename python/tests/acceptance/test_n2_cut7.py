@@ -63,6 +63,7 @@ import pytest
 import test_n2
 import test_world_build
 from atoms.chain.model import RegisteredEntry
+from authority import ACTOR, FULL
 from fixtures_cut6 import PINS
 from n2_arms import (
     CLASS_NODE_BY_CONSTRUCTION,
@@ -107,6 +108,7 @@ to assert that, byte for byte.
 """
 
 RENAME_COMMIT = "5a02ca2"
+WRITE_PERMITS_MIGRATION_COMMIT = "659cc6e"
 """The whole-repo science→beliefs mechanical rename (ledger R7). Re-pins a
 file whose only post-freeze edit was that rename's import strings."""
 
@@ -121,7 +123,9 @@ FROZEN_PRIOR_CUT_FILES = {
     # against the commit that gave it its present content rather than against
     # the pre-move tree it audits, which it has legitimately differed from since
     # `f703913`. Re-pinned again across the rename (ledger R7).
-    "python/tests/acceptance/test_n2_cut6.py": RENAME_COMMIT,
+    # Write permits deliberately migrated this audit's lifecycle and world
+    # seam calls; 659cc6e is the first commit holding the complete migration.
+    "python/tests/acceptance/test_n2_cut6.py": WRITE_PERMITS_MIGRATION_COMMIT,
 }
 """Each prior-cut surface and the commit whose content it must still hold."""
 
@@ -218,8 +222,9 @@ def test_anchored_head_describes_the_captured_corpus_view(tmp_path):
         DefaultExecutor,
         chain_head=ContentHeads((corpus_root,)),
         corpus_executor_factory=DefaultExecutor,
+        authority=FULL,
     )
-    world.admit(corpus_root, provenance=registry.Fresh(), actor="alice")
+    world.admit(corpus_root, provenance=registry.Fresh())
     bindings = shipped_bindings(world)
 
     published = epoch.build_epoch(world, coverage=frozenset({ALPHA}), bindings=bindings)
@@ -520,12 +525,10 @@ def test_deleting_a_noncurrent_epoch_reports_the_identities_it_severed(journey: 
     that always said `False` would go unnoticed.
     """
     with pytest.raises(EpochCurrent):
-        epoch.delete_epoch(journey.world, journey.current.packaging_identity, actor="cut7-acceptance")
+        epoch.delete_epoch(journey.world, journey.current.packaging_identity)
 
-    report = epoch.delete_epoch(
-        journey.world, journey.superseded.packaging_identity, actor="cut7-acceptance"
-    )
-    assert report.actor == "cut7-acceptance"
+    report = epoch.delete_epoch(journey.world, journey.superseded.packaging_identity)
+    assert report.actor == ACTOR
     assert report.packaging_identity == journey.superseded.packaging_identity
     assert report.snapshot is not None
     assert report.snapshot.subject == epoch.SNAPSHOT_SUBJECT
@@ -570,9 +573,9 @@ def durable_world(cut7_work_directory):
     corpus_root = cut7_work_directory / f"corpus-{suffix}"
     config = registry.WorldConfig(world_root, "7" * 32, (corpus_root,))
     try:
-        root.init_world_root(config)
-        root.init_corpus_root(corpus_root)
-        root.open_corpus(corpus_root).adopt_manifest(profile=PINS)
+        root.init_world_root(config, authority=FULL)
+        root.init_corpus_root(corpus_root, authority=FULL)
+        root.open_corpus(corpus_root, authority=FULL).adopt_manifest(profile=PINS)
         # Stored records are placed with the `nodes` handle, exactly as the
         # portable fixtures place them: what these arms assert is committed
         # evidence of *world-root* transactions, and the admission gate the
@@ -580,8 +583,8 @@ def durable_world(cut7_work_directory):
         for node in sample_nodes():
             Corpus(corpus_root).add(node)
         corpus_id = registry.load_manifest(corpus_root).corpus_id
-        world = root.open_world(config)
-        world.admit(corpus_root, provenance=registry.Fresh(), actor="cut7")
+        world = root.open_world(config, authority=FULL)
+        world.admit(corpus_root, provenance=registry.Fresh())
         yield {
             "world": world,
             "config": config,
@@ -693,7 +696,7 @@ def _attempt(case, bindings, stage: str, standing: str, attempted: list[str]) ->
     )
     # A fresh world, so the barrier is crossed by an act that did not survive
     # the killed one's process state.
-    selected = read.current_epoch(root.open_world(config))
+    selected = read.current_epoch(root.open_world(config, authority=FULL))
     assert selected.packaging_identity in {standing, target}, stage
     assert set(selected.members) == set(epoch.EPOCH_MEMBERS), stage
     assert epoch.packaging_identity_of(selected.members) == selected.packaging_identity, stage
@@ -888,7 +891,7 @@ def test_world_transactions_register_every_path(durable_world):
     assert read.current_epoch(world).packaging_identity == second.packaging_identity
 
     before = chain_entries(world_root)
-    epoch.delete_epoch(world, first.packaging_identity, actor="cut7")
+    epoch.delete_epoch(world, first.packaging_identity)
     (deleted,) = _registrations(chain_entries(world_root)[len(before) :])
     assert set(dict(deleted.final)) == {
         f"epochs/{first.packaging_identity}/{member}" for member in epoch.EPOCH_MEMBERS

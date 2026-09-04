@@ -344,6 +344,7 @@ def install_rule_binding(world: World, bundle: RuleBundle) -> RuleBinding:
     submits no transaction at all; a content-addressed path holding different
     bytes is a collision, never an overwrite.
     """
+    world.authority.require("epoch")
     binding = binding_for(bundle)
     members = _member_bytes(bundle, binding)
     with world._state.lock:
@@ -529,6 +530,7 @@ def remove_rule_binding(world: World, binding: RuleBinding) -> RuleRemovalReport
     unresolvable, but it may not do so silently, and a scan that quietly
     skipped a damaged epoch would be exactly that.
     """
+    world.authority.require("epoch")
     with world._state.lock:
         world_root = world.config.world_root
         directory = world_root / "rules" / binding.rule_identity

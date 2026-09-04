@@ -144,6 +144,7 @@ from beliefs.holdings.seam import (
 )
 from beliefs.holdings.seam import WritePlan as SeamWritePlan
 from beliefs.identity import v1
+from beliefs.permit import Authority
 from beliefs.world import (
     AdmissionRecord,
     CorpusSubject,
@@ -306,7 +307,7 @@ def metadata_root_for(corpus_root: Path) -> Path:
     return root.with_name(root.name + METADATA_SUFFIX)
 
 
-def init_corpus_root(corpus_root: Path) -> None:
+def init_corpus_root(corpus_root: Path, *, authority: Authority) -> None:
     """Make a corpus root durable — the explicit act, never a fallback.
 
     Every write against an unregistered root refuses (the engine's
@@ -318,6 +319,7 @@ def init_corpus_root(corpus_root: Path) -> None:
     Re-runnable: `register_root` returns the existing genesis digest when the
     payload and surface match, and refuses when they do not.
     """
+    authority.require("lifecycle")
     root = Path(corpus_root).resolve()
     if root.exists() and not root.is_dir():
         raise CorpusRootRefused(f"{str(root)!r} exists and is not a directory, so it cannot be a corpus root")
@@ -338,7 +340,8 @@ def _world_genesis_payload(world_id: str) -> bytes:
     return v1.encode({"domain": WORLD_GENESIS_DOMAIN, "world_id": world_id})
 
 
-def init_world_root(config: WorldConfig) -> None:
+def init_world_root(config: WorldConfig, *, authority: Authority) -> None:
+    authority.require("lifecycle")
     root = config.world_root
     if root.exists() and not root.is_dir():
         raise CorpusRootRefused(f"{str(root)!r} exists and is not a directory, so it cannot be a world root")
@@ -398,7 +401,7 @@ def _read_existing_store_genesis(store_root: Path) -> str | None:
     return store_id
 
 
-def init_store_root(store_root: Path) -> str:
+def init_store_root(store_root: Path, *, authority: Authority) -> str:
     """Make a store root durable and mint its opaque identity.
 
     The id is minted, not derived: nothing the genesis carries names the
@@ -407,6 +410,7 @@ def init_store_root(store_root: Path) -> str:
     genesis is honored only through the engine's own recorded initialization
     operation: a copied store is restored or forked, never re-initialized.
     """
+    authority.require("lifecycle")
     store_root = Path(store_root)
     if store_root.exists() and not store_root.is_dir():
         raise CorpusRootRefused(
@@ -465,7 +469,7 @@ def init_store_root(store_root: Path) -> str:
     return store_id
 
 
-def replicate_root(source_root: Path, dest_root: Path) -> RootOperationId:
+def replicate_root(source_root: Path, dest_root: Path, *, authority: Authority) -> RootOperationId:
     """Replicate one registered root byte-for-byte, chain included.
 
     The thin wrapper over the engine's copy command: both metadata roots
@@ -474,6 +478,7 @@ def replicate_root(source_root: Path, dest_root: Path) -> RootOperationId:
     its lifecycle is read-only unserviceable — and returns the engine's
     retained operation id, which an exact retry returns again.
     """
+    authority.require("lifecycle")
     source = Path(source_root)
     dest = Path(dest_root)
     return _replicate_root_callback(
@@ -497,13 +502,14 @@ def read_lifecycle_state(root: Path) -> LifecycleState:
     )
 
 
-def migrate_root_to_lifecycle_v3(root: Path) -> None:
+def migrate_root_to_lifecycle_v3(root: Path, *, authority: Authority) -> None:
     """The operator-authorized pre-lifecycle migration, passed through.
 
     Invoking it is the attestation that this host is the pre-lifecycle
     minting host; every structural refusal — metadata-less, mismatched
     binding, anything but the exact version-2 store — is the engine's own.
     """
+    authority.require("lifecycle")
     target = Path(root)
     _migrate_root_to_lifecycle_v3_callback(
         _PRODUCTION_BACKEND,
@@ -517,6 +523,8 @@ def restore_root(
     dest_root: Path,
     subject: CorpusSubject | StoreSubject,
     observers: ObserverSet,
+    *,
+    authority: Authority,
 ) -> LogReport:
     """Admit a restored copy: verify its chain, then grant read
     serviceability — one held boundary, the existing report, no new type.
@@ -532,6 +540,7 @@ def restore_root(
         raise TypeError("restore admits corpus and store subjects; a world root is reconstructed, not restored")
 
     def grant(root: Path) -> None:
+        authority.require("lifecycle")
         _grant_read_serviceability_callback(
             _PRODUCTION_BACKEND,
             str(root),
@@ -564,6 +573,7 @@ def _fork_pending(dest_root: Path) -> RootOperationId | None:
 
 
 def _fork_resume(dest_root: Path, operation_id: RootOperationId) -> None:
+    """The resume primitive's one body; its callers require."""
     _resume_fork_root_callback(
         _PRODUCTION_BACKEND,
         str(dest_root),
@@ -573,7 +583,7 @@ def _fork_resume(dest_root: Path, operation_id: RootOperationId) -> None:
     )
 
 
-def fork_corpus(source_root: Path, dest_root: Path) -> _registry.CorpusManifest:
+def fork_corpus(source_root: Path, dest_root: Path, *, authority: Authority) -> _registry.CorpusManifest:
     """Fork a corpus: a new chain, a fresh identity, and the two fork facts.
 
     The retry branch runs **before any mint**: a pending fork at the
@@ -588,6 +598,7 @@ def fork_corpus(source_root: Path, dest_root: Path) -> _registry.CorpusManifest:
     `RootOperationMismatch`, and `RootOperationInvalid` propagate
     untranslated, and this act adds no third disposition.
     """
+    authority.require("lifecycle")
     source = Path(source_root)
     dest = Path(dest_root)
     pending = _fork_pending(dest)
@@ -627,7 +638,7 @@ def fork_corpus(source_root: Path, dest_root: Path) -> _registry.CorpusManifest:
     return child_manifest
 
 
-def fork_store(source_root: Path, dest_root: Path) -> str:
+def fork_store(source_root: Path, dest_root: Path, *, authority: Authority) -> str:
     """Fork a store: the same act over the opaque namespace.
 
     No manifest travels — a store's only identity is its genesis — so the
@@ -636,6 +647,7 @@ def fork_store(source_root: Path, dest_root: Path) -> str:
     retained identity exactly as `fork_corpus` does, the child id read back
     from the destination genesis.
     """
+    authority.require("lifecycle")
     source = Path(source_root)
     dest = Path(dest_root)
     pending = _fork_pending(dest)
@@ -928,11 +940,20 @@ class DurableExecutor:
 
 
 class DurableOperationPort:
-    def __init__(self, root: Path, *, backend: Backend, storage: StorageProfile, metadata_root: Path) -> None:
+    def __init__(
+        self, root: Path, *, backend: Backend, storage: StorageProfile, metadata_root: Path, authority: Authority
+    ) -> None:
+        if type(authority) is not Authority:
+            raise TypeError("a port binds an Authority")
         self.root = Path(root)
         self._backend = backend
         self._storage = storage
         self._metadata_root = Path(metadata_root)
+        self._authority = authority
+
+    @property
+    def authority(self) -> Authority:
+        return self._authority
 
     def append_intent(self, payload: bytes) -> str:
         with _operation_lock_for(self.root):
@@ -1181,21 +1202,39 @@ def _store_read_path(root: Path, path: str) -> PathReadView:
 
 
 def _store_append_intent(root: Path, payload: bytes) -> str:
-    return DurableOperationPort(
-        root,
-        backend=_PRODUCTION_BACKEND,
-        storage=PRODUCTION_STORAGE,
-        metadata_root=metadata_root_for(root),
-    ).append_intent(payload)
+    try:
+        return append_intent(
+            _PRODUCTION_BACKEND,
+            str(root),
+            str(metadata_root_for(root)),
+            PRODUCTION_STORAGE,
+            payload,
+        )
+    except (ProjectApprovalRefused, PreconditionRefused, CapabilityUnavailable) as caught:
+        raise ExecutionError(str(caught), index=None, applied=0) from caught
+    except PendingUnresolved as caught:
+        raise ExecutionError(str(caught), index=None, applied=0) from caught
+    except (MetadataStoreInvalid, ChainStateInvalid) as caught:
+        raise ExecutionError(str(caught), index=None, applied=None) from caught
+    except (TransactionHalted, ProtocolError) as caught:
+        raise ExecutionError(str(caught), index=None, applied=None) from caught
+    except AtomsError as caught:
+        raise ExecutionError(str(caught), index=None, applied=None) from caught
+    except Exception as caught:
+        raise ExecutionError(str(caught), index=None, applied=None) from caught
 
 
 def _store_publish_fulfilling(root: Path, plan: SeamWritePlan, fulfills: str) -> None:
-    DurableOperationPort(
+    _refuse_over_ceiling(cast(WritePlan, plan))
+    DurableExecutor(
         root,
         backend=_PRODUCTION_BACKEND,
         storage=PRODUCTION_STORAGE,
         metadata_root=metadata_root_for(root),
-    ).execute_fulfilling(cast(WritePlan, plan), fulfills)
+        consumer_tag=CONSUMER_TAG,
+        intent_domain=INTENT_DOMAIN,
+        fulfills=fulfills,
+    ).execute(cast(WritePlan, plan))
 
 
 def _require_file(pre: PathState, op: ReplaceOp | DeleteOp, index: int) -> FileState:
@@ -1544,7 +1583,6 @@ def anchor_heads(
     corpus_ids: frozenset[str],
     *,
     store_roots: tuple[tuple[str, Path], ...] = (),
-    actor: str,
 ) -> tuple[LogHeadRecord, ...]:
     """The explicit anchor act: record each named subject's present chain head.
 
@@ -1556,9 +1594,7 @@ def anchor_heads(
     supplies the carrier, and the genesis is verified to carry that
     `store_id` before head acceptance or registry mutation.
     """
-    return _anchor_heads(
-        world, corpus_ids, store_roots=store_roots, actor=actor, seam=_log_seam()
-    )
+    return _anchor_heads(world, corpus_ids, store_roots=store_roots, seam=_log_seam())
 
 
 def export_head_artifact(world: World, subject: Subject, *, store_root: Path | None = None) -> bytes:
@@ -1603,7 +1639,6 @@ def admit_arrival(
     provenance: ReplicaOf,
     observers: ObserverSet,
     *,
-    actor: str,
     history: Mapping[str, bytes] | None = None,
 ) -> tuple[AdmissionRecord, LogReport]:
     """Admit an arriving replica, its traveled chain verified first.
@@ -1620,9 +1655,7 @@ def admit_arrival(
     identity, which this design does not amend. `World.admit` refuses
     `ReplicaOf` outright, since it holds no verdict to report.
     """
-    return _admit_arrival(
-        world, corpus_root, provenance, observers, actor=actor, history=history, seam=_log_seam()
-    )
+    return _admit_arrival(world, corpus_root, provenance, observers, history=history, seam=_log_seam())
 
 
 def epochs_ordered(config: WorldConfig, e1: str, e2: str) -> Ordering:
@@ -1638,7 +1671,7 @@ def epochs_ordered(config: WorldConfig, e1: str, e2: str) -> Ordering:
 
 
 def open_corpus(
-    corpus_root: Path, *, coordination_resolver: CoordinationResolver | None = None
+    corpus_root: Path, *, authority: Authority, coordination_resolver: CoordinationResolver | None = None
 ) -> CorpusWriter:
     """The composition root's product: a write API bound to one corpus root,
     writing through the certified engine.
@@ -1651,11 +1684,13 @@ def open_corpus(
     return CorpusWriter(
         root,
         durable_executor_factory(),
+        authority=authority,
         operation_port=DurableOperationPort(
             root,
             backend=_PRODUCTION_BACKEND,
             storage=PRODUCTION_STORAGE,
             metadata_root=metadata_root_for(root),
+            authority=authority,
         ),
         coordination_resolver=coordination_resolver,
     )
@@ -1674,7 +1709,7 @@ def install_shipped_world_rules(world: World) -> tuple[RuleBinding, ...]:
     return tuple(install_rule_binding(world, bundle) for bundle in shipped_rule_bundles())
 
 
-def open_world(config: WorldConfig) -> World:
+def open_world(config: WorldConfig, *, authority: Authority) -> World:
     """Open one configured world root, its three identity claims agreeing.
 
     A world says who it is in three places — the configuration the caller holds,
@@ -1736,4 +1771,5 @@ def open_world(config: WorldConfig) -> World:
         _world_executor_factory(),
         chain_head=chain_head_reader(),
         corpus_executor_factory=durable_executor_factory(),
+        authority=authority,
     )

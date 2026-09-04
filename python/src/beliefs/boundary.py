@@ -68,6 +68,7 @@ from beliefs.errors import (
     DefinitionPlanMismatch,
     MalformedClosure,
     MalformedRecord,
+    PermitExceeded,
     PlanUnavailable,
     ScienceError,
     TargetAmbiguous,
@@ -827,13 +828,17 @@ def execute_assessment_run(
     entrypoint: str,
     targets: tuple[str, ...],
     declared_outputs: tuple[str, ...],
-    actor: str,
     observer: str,
     started_at: str,
     host_realization: str,
     scratch_base: Path,
     cores: int = 1,
 ) -> RunMinted | RunRefused:
+    try:
+        port.authority.require("run", ("run", "act-report"))
+    except PermitExceeded as exceeded:
+        return RunRefused("permit-exceeded", None, None, None, str(exceeded))
+    actor = port.authority.actor
     if type(spec) is not FrozenSpec:
         subject = spec if type(spec) is str else "absent"
         refused = _refused("no-frozen-spec", subject, actor, observer, started_at)
@@ -898,13 +903,17 @@ def execute_production_run(
     entrypoint: str,
     targets: tuple[str, ...],
     declared_outputs: tuple[str, ...],
-    actor: str,
     observer: str,
     started_at: str,
     host_realization: str,
     scratch_base: Path,
     cores: int = 1,
 ) -> RunMinted | RunRefused:
+    try:
+        port.authority.require("run", ("run", "act-report"))
+    except PermitExceeded as exceeded:
+        return RunRefused("permit-exceeded", None, None, None, str(exceeded))
+    actor = port.authority.actor
     if type(inputs) is not tuple or any(type(entry) is not RecipeInput for entry in inputs):
         refused = _refused("malformed-inputs", "absent", actor, observer, started_at)
         port.execute(_report_plan(refused.report))
