@@ -14,6 +14,7 @@ from beliefs.errors import MalformedRecord
 from beliefs.report import (
     ACT_REPORT_DOMAIN,
     ActReport,
+    Consolidated,
     Moved,
     RecordMutationEntry,
     RunAttemptEntry,
@@ -43,6 +44,21 @@ def _record_mutation_entry() -> RecordMutationEntry:
     )
 
 
+def _consolidated_record_mutation_entry() -> RecordMutationEntry:
+    return RecordMutationEntry(
+        subject="source:s1",
+        corpus="corpus-a",
+        outcome=Consolidated(
+            kept_corpus="corpus-a",
+            kept_ref="source:s1",
+            other_corpus="corpus-b",
+            other_ref="source:s1",
+            retired_uids=("u-2",),
+            rationale="corpus-a holds the authored record",
+        ),
+    )
+
+
 def test_a_record_mutation_report_round_trips():
     report_value = _mint(operation="move", entries=(_record_mutation_entry(),))
     node = stored.act_report_node(report_value)
@@ -64,14 +80,40 @@ def test_a_record_mutation_report_round_trips():
 def test_a_record_mutation_entry_missing_its_corpus_is_malformed():
     node = stored.act_report_node(_mint(operation="move", entries=(_record_mutation_entry(),)))
     del node.facets["act-report"]["entries"][0]["corpus"]
-    with pytest.raises(MalformedRecord):
+    with pytest.raises(MalformedRecord, match="malformed act-report entry"):
         stored.act_report_facet(node)
 
 
 def test_a_record_mutation_entry_refuses_a_foreign_outcome_type():
     node = stored.act_report_node(_mint(operation="move", entries=(_record_mutation_entry(),)))
     node.facets["act-report"]["entries"][0]["outcome"]["type"] = "published-observation"
-    with pytest.raises(MalformedRecord):
+    with pytest.raises(MalformedRecord, match="malformed act-report entry"):
+        stored.act_report_facet(node)
+
+
+def test_a_consolidated_record_mutation_report_round_trips():
+    node = stored.act_report_node(_mint(operation="consolidate", entries=(_consolidated_record_mutation_entry(),)))
+    assert stored.act_report_facet(node)["entries"][0] == {
+        "kind": "record-mutation",
+        "subject": "source:s1",
+        "corpus": "corpus-a",
+        "outcome": {
+            "type": "consolidated",
+            "kept_corpus": "corpus-a",
+            "kept_ref": "source:s1",
+            "other_corpus": "corpus-b",
+            "other_ref": "source:s1",
+            "retired_uids": ["u-2"],
+            "rationale": "corpus-a holds the authored record",
+        },
+    }
+
+
+@pytest.mark.parametrize("retired_uids", [(), ["u-2", 1]])
+def test_a_consolidated_record_mutation_entry_refuses_malformed_retired_uids(retired_uids: object):
+    node = stored.act_report_node(_mint(operation="consolidate", entries=(_consolidated_record_mutation_entry(),)))
+    node.facets["act-report"]["entries"][0]["outcome"]["retired_uids"] = retired_uids
+    with pytest.raises(MalformedRecord, match="malformed act-report entry"):
         stored.act_report_facet(node)
 
 
