@@ -18,6 +18,7 @@
 - **The permit check is one bare statement.** In every inventoried definition the first statement after the docstring that has any effect is `<receiver>.require("<family>", (...))` as an expression statement at the top level of the body — never inside `with`, `if`, `try` (except the run boundary's exact shape, Task 7), `for`, a boolean expression or a comprehension. No `mkdir`, no byte mutation and no primitive call may precede it. Family names are string literals.
 - **No `actor` parameter** on any inventoried definition or public function of `corpus.py`, `boundary.py`, `replay.py`, `root.py`, `holdings/boundary.py`, `world/registry.py`, `world/epoch.py`, `world/rules.py`, `world/anchors.py`, `relocation.py`, except `root.audit_log` and `holdings.boundary.intent_payload`. `CorpusWriter._append_operation_intent` keeps its third positional parameter under the name `intent_actor` (§14.3): cut 16's T2b/T2c pin the call, and the value is judged against the bound actor, never used as it. Where the removed parameter's *name* appears in a pinned prior-cut sabotage string (`boundary.py` — `actor` in `AssessmentRunIntent(...)`, `OperationIntent(...)`, `_refused(...)`; `holdings/boundary.py` — `ctx.actor`), keep the spelling alive as a local variable `actor = port.authority.actor` or the `ActContext.actor` property so those pinned blocks still match.
 - **Cut 16's 27 arms are run, not cited** (§14.2): none may go stale at any task.
+- **Cut 16's test modules migrate with the seam they call**, even where a task's file list omits them: `tests/test_relocation.py` (nine `CorpusWriter(` constructions; its `MOVE_FIELDS` / `CONSOLIDATE_FIELDS` dicts carry an `"actor"` key spread into ~26 calls — drop the key), `tests/test_relocation_recovery.py` (`CorpusWriter(`), `tests/acceptance/test_relocation_acceptance.py` (`init_corpus_root`, `open_corpus`, `.admit(... actor="cut16")`, `move`/`consolidate` `actor="cut16"`), `tests/acceptance/test_durable_corpus.py` (`init_corpus_root`, `open_corpus`). Writers → Task 4; `move`/`consolidate` → Task 5; `admit` → Task 9; lifecycle acts → Task 10.
 - **Pinned sabotage blocks must keep matching exactly once.** After every task that edits `src/beliefs`, run the staleness probe:
 
 ```bash
@@ -78,7 +79,7 @@ EOF
 
 **Interfaces:**
 - Consumes: the frozen design; cut 14 §11 as the amendment precedent; the pinned-arm survey below.
-- Produces: the rulings every later task implements: (a) cut 10 is cited, not run, from cut 16's tree onward; (b) cut 16's runner names an explicit module inventory rather than chaining `cut15_acceptance.py`; (c) the `actor` local and `ActContext.actor` property; (d) E6's inventory-side mutations are inline unit arms, not N2 sabotages; (e) `_admit_arrival` reads `world.authority`, `_audit_log` keeps its label; (f) `dataset` not required by the run boundary is already §3.2's ruling. The commit hash of this task is `IMPLEMENTATION_AMENDMENT_COMMIT` in Task 14: `a0f2302`. **Landed 2026-09-04.** The renumbering and relocation amendment (§14) landed separately after the merge of relocation cut 16; its hash is `RENUMBERING_AMENDMENT_COMMIT` in Task 14.
+- Produces: the rulings every later task implements: (a) cut 10 is cited, not run, from this cut's tree onward; (b) this cut's runner (17 by §14) names an explicit module inventory rather than chaining `cut15_acceptance.py`; (c) the `actor` local and `ActContext.actor` property; (d) E6's inventory-side mutations are inline unit arms, not N2 sabotages; (e) `_admit_arrival` reads `world.authority`, `_audit_log` keeps its label; (f) `dataset` not required by the run boundary is already §3.2's ruling. The commit hash of this task is `IMPLEMENTATION_AMENDMENT_COMMIT` in Task 14: `a0f2302`. **Landed 2026-09-04.** The renumbering and relocation amendment (§14) landed separately after the merge of relocation cut 16; its hash is `RENUMBERING_AMENDMENT_COMMIT` in Task 14.
 
 - [x] **Step 0: Start the task record** — `tasks start beliefs-49d549`
 
@@ -812,6 +813,8 @@ cd .. && tasks check && git add python tasks && git commit -m "feat(permit): Req
 - Consumes: `beliefs.permit.Authority`; `tests/authority.FULL`.
 - Produces: `OperationPort.authority` (read-only property on the protocol; every port implements it); `DurableOperationPort(root, *, backend, storage, metadata_root, authority)`; `CorpusWriter(root, executor_factory, *, authority, operation_port=None, coordination_resolver=None)` with `CorpusWriter.authority` property; `open_corpus(corpus_root, *, authority, coordination_resolver=None)`. Construction of a writer over a port whose authority differs raises `ValueError`.
 
+`operation_port` becomes keyword-only, as design §4.1 spells the signature; `grep -rn "CorpusWriter(" src tests` for any call passing a third positional argument and move it to the keyword — the change is deliberate and is part of this task's *Produces*.
+
 - [ ] **Step 0: Start the task record** — `tasks start beliefs-7e1c7e`
 
 - [ ] **Step 1: Write the failing E2 tests**
@@ -1207,12 +1210,12 @@ Note the pinned cut-5 blocks around `return self._corpus.add(candidate)` / `retu
 
 In `corpus.py`, give each of the five cut-16 definitions its `require` as the first statement after the docstring:
 
-- `_add_locked(self, node)` and `_replace_locked(self, node)`: `self.authority.require("corpus-write", (node.kind,))`. Move the run-closure `ActorMismatch` check of Step 3 into `_preflight_add_locked` so `add` and `_add_locked` share it (keep `add`'s own `require` first; the pinned cut-16 arm `M3a` spells `self._refuse_family_kinds(node, admitted_kind=node.kind)` / `self._refuse_missing_basis(node)` inside `_preflight_replace_locked` — do not separate those two lines).
+- `_add_locked(self, node)` and `_replace_locked(self, node)`: `self.authority.require("corpus-write", (node.kind,))`. `add` keeps its own `_refuse_foreign_closure_actor` call from Step 3 — `add` never calls `_preflight_add_locked` — and `_preflight_add_locked` gains the same one-line call so `_add_locked` shares the check (two call sites of one helper; the pinned cut-16 arm `M3a` spells `self._refuse_family_kinds(node, admitted_kind=node.kind)` / `self._refuse_missing_basis(node)` inside `_preflight_replace_locked` — do not separate those two lines).
 - `_delete_locked(self, ref)`: `self.authority.require("corpus-write", (self._view.get(ref).kind,))` — the read is inside the argument; nothing precedes the statement.
 - `_append_operation_intent(self, kind, token, intent_actor)`: `self.authority.require("corpus-write", ("act-report",))`, then `if intent_actor != self.authority.actor: raise ActorMismatch(...)`, then `intent = OperationIntent(kind, token, self.authority.actor)`. The parameter is renamed, never removed: cut 16's `T2b`/`T2c` pin the three-argument call.
 - `_publish_operation_report(...)`: `self.authority.require("corpus-write", ("act-report",))`.
 
-In `relocation.py`, remove the `actor` keyword from `move` and `consolidate`. Each begins with `_refuse_actor_disagreement(first, second)` — `ActorMismatch` when `first.authority.actor != second.authority.actor` — before `_both_locks`, and builds `OperationIntent(<kind>, token, source.authority.actor)` (resp. `keep_writer.authority.actor`). After the record is resolved and before `token = secrets.token_hex(16)`, add one bare statement per writer: `destination.authority.require("corpus-write", (node.kind, "act-report"))` and `source.authority.require("corpus-write", (node.kind, "act-report"))` in `move`; `keep_writer.authority.require("corpus-write", (merged.kind, "act-report"))` and `other_writer.authority.require("corpus-write", (other_node.kind, "act-report"))` in `consolidate`. Insert between pinned blocks, never inside one — `D7a`, `D7b`, `T8a`–`T8c`, `T2b`, `T2c`, `M3b`, `W5a`, `W16a`–`W16d` and `boundary-lock-dedup` all live in this file; run the staleness probe with cut 16 in its tuple before committing.
+In `relocation.py`, remove the `actor` keyword from `move` and `consolidate`. Each begins with `_refuse_actor_disagreement(first, second)` — `ActorMismatch` when `first.authority.actor != second.authority.actor` — before `_both_locks`, and builds `OperationIntent(<kind>, token, source.authority.actor)` (resp. `keep_writer.authority.actor`). After the record is resolved and the operation-port check, and before the `OperationIntent(...)` is built (`move` binds `token = secrets.token_hex(16)` first; `consolidate` inlines the token in its `OperationIntent("consolidate", ...)` call — insert before that statement), add one bare statement per writer: `destination.authority.require("corpus-write", (node.kind, "act-report"))` and `source.authority.require("corpus-write", (node.kind, "act-report"))` in `move`; `keep_writer.authority.require("corpus-write", (merged.kind, "act-report"))` and `other_writer.authority.require("corpus-write", (other_node.kind, "act-report"))` in `consolidate`. Insert between pinned blocks, never inside one — `D7a`, `D7b`, `T8a`–`T8c`, `T2b`, `T2c`, `M3b`, `W5a`, `W16a`–`W16d` and `boundary-lock-dedup` all live in this file; run the staleness probe with cut 16 in its tuple before committing.
 
 Tests, appended to `python/tests/test_relocation.py` (every existing writer there moves to `authority=FULL`; every `actor="..."` keyword on `move`/`consolidate` is removed, and assertions on the report's actor compare to `ACTOR`):
 
@@ -1702,7 +1705,7 @@ cd .. && tasks check && git add python tasks && git commit -m "feat(permit): hol
 - Modify: `python/src/beliefs/world/rules.py` (`install_rule_binding` ~338, `remove_rule_binding` ~509)
 - Modify: `python/src/beliefs/world/verify.py` (`_admit_arrival` ~1750: drop `actor`)
 - Modify: `python/src/beliefs/root.py` (`open_world` ~1677, `anchor_heads` ~1542, `admit_arrival` ~1600)
-- Modify: `python/src/beliefs/world/registry.py`, `anchors.py`, `holdings/boundary.py`, `stored.py`: their actor validators import `require_actor` from `beliefs.permit`
+- Modify: `python/src/beliefs/world/registry.py`, `anchors.py`, `holdings/boundary.py`, `stored.py`, `report.py` (design §3.4 names all five restatements): their actor validators import `require_actor` from `beliefs.permit`
 - Modify tests: every `World(` construction (`test_world_registry.py`, `test_world_log_codecs.py`, `test_world_anchor_act.py`, `test_world_rules.py`, `test_world_build.py`, `test_world_derive.py`, `test_holdings_receipt.py`, `test_world_receipts.py`, `test_world_epoch.py`, `test_holdings_windows.py`, `test_holdings_capture.py`, `test_world_log_audit.py`, `test_world_arrival.py`, `test_world_read.py`, `test_world_gc.py`, `test_store_subjects.py`, `test_arrival_modes.py`, `test_world_log_evaluator.py`), every `open_world(` (`test_root.py`, `test_world_build.py`, `test_world_rules.py`, `test_arrival_modes.py`, `test_world_log_audit.py`, `acceptance/conftest.py`, `acceptance/test_n2_cut6.py`, `acceptance/test_n2_cut7.py`), every `.admit(... actor=)`, `.retire(... actor=)`, `.depart(... actor=)`, `delete_epoch(... actor=)`, `anchor_heads(... actor=)`, `_anchor_heads(... actor=)`, `admit_arrival(... actor=)`, `_admit_arrival(... actor=)`
 - Test: `python/tests/test_world_registry.py`, `python/tests/test_world_gc.py`
 
@@ -2095,6 +2098,11 @@ WRITE_ENTRY_POINTS: dict[str, str] = {
     "corpus.py:CorpusWriter.revise_coordination": "corpus-write",
     "corpus.py:CorpusWriter.import_bundle": "corpus-write",
     "corpus.py:CorpusWriter.adopt_manifest": "lifecycle",
+    "corpus.py:CorpusWriter._add_locked": "corpus-write",
+    "corpus.py:CorpusWriter._replace_locked": "corpus-write",
+    "corpus.py:CorpusWriter._delete_locked": "corpus-write",
+    "corpus.py:CorpusWriter._append_operation_intent": "corpus-write",
+    "corpus.py:CorpusWriter._publish_operation_report": "corpus-write",
     "boundary.py:execute_assessment_run": "run",
     "boundary.py:execute_production_run": "run",
     "holdings/boundary.py:_publish": "holdings",
@@ -2119,7 +2127,7 @@ WRITE_ENTRY_POINTS: dict[str, str] = {
     "root.py:fork_corpus": "lifecycle",
     "root.py:fork_store": "lifecycle",
 }
-"""The inventory (design §4.2), edited by hand in the design that adds an act."""
+"""The inventory (design §4.2 plus §14.3's five relocation seams — 36 entries), edited by hand in the design that adds an act."""
 
 SEAM_MODULES = (
     "corpus.py", "boundary.py", "replay.py", "root.py", "holdings/boundary.py",
@@ -2506,7 +2514,7 @@ cd .. && tasks check && git add python tasks && git commit -m "test(permit): hol
 
 **Interfaces:**
 - Consumes: every seam of Tasks 4–10; `test_permit_boundary.WRITE_ENTRY_POINTS`; the sibling test helpers named in the cases.
-- Produces: one case per inventoried definition — all 31, the private holdings helpers called directly — each with a **prepare** phase (setup effects under a full authority), an **act** phase (the one protected call under the authority being judged) and a **probe** (state that must be equal before and after a refused act). Three tests per case: the family refused, each emitted kind refused by name, the exact requirement accepted. A fourth test holds the case set equal to the inventory. Task 14's `E1` arms cite these beside the representative tests.
+- Produces: one case per inventoried definition — all 36, the private holdings helpers called directly — each with a **prepare** phase (setup effects under a full authority), an **act** phase (the one protected call under the authority being judged) and a **probe** (state that must be equal before and after a refused act). Three tests per case: the family refused, each emitted kind refused by name, the exact requirement accepted. A fourth test holds the case set equal to the inventory. Task 14's `E1` arms cite these beside the representative tests.
 
 - [ ] **Step 0: Start the task record** — `tasks start beliefs-6ce675`
 
@@ -3001,6 +3009,11 @@ CASES = (
     Case("corpus.py:CorpusWriter.revise_coordination", "corpus-write", ("project",), False, _prepare_coordination(True), _revise_coordination, _coordination_probe),
     Case("corpus.py:CorpusWriter.import_bundle", "corpus-write", ("proposition", "act-report"), False, _prepare_import, _import_bundle, _import_probe),
     Case("corpus.py:CorpusWriter.adopt_manifest", "lifecycle", (), False, _prepare_corpus(), _adopt_manifest, _corpus_probe),
+    Case("corpus.py:CorpusWriter._add_locked", "corpus-write", ("proposition",), False, _prepare_corpus(), _add_locked, _corpus_probe),
+    Case("corpus.py:CorpusWriter._replace_locked", "corpus-write", ("proposition",), False, _prepare_corpus(_mint_proposition), _replace_locked, _corpus_probe),
+    Case("corpus.py:CorpusWriter._delete_locked", "corpus-write", ("proposition",), False, _prepare_corpus(_mint_proposition), _delete_locked, _corpus_probe),
+    Case("corpus.py:CorpusWriter._append_operation_intent", "corpus-write", ("act-report",), False, _prepare_corpus(port=True), _append_operation_intent, _corpus_probe),
+    Case("corpus.py:CorpusWriter._publish_operation_report", "corpus-write", ("act-report",), False, _prepare_corpus(port=True), _publish_operation_report, _corpus_probe),
     Case("boundary.py:execute_assessment_run", "run", ("run", "act-report"), False, _nothing, _run("assessment"), _run_probe),
     Case("boundary.py:execute_production_run", "run", ("run", "act-report"), False, _nothing, _run("production"), _run_probe),
     Case("holdings/boundary.py:recheck", "holdings", ("holdings-observation",), True, _prepare_holdings(("held.bin",)), _holdings("recheck"), _holdings_probe),
@@ -3026,6 +3039,8 @@ CASES = (
     _lifecycle_case("fork_store", "fork_store"),
 )
 
+
+The five relocation cases (design §14.3) act as `relocation.move` does, without its locks: `_add_locked(prop("p"))`; `_replace_locked(<the minted proposition with a changed title, same uid and id>)`; `_delete_locked(<the minted proposition's id>)`; `_append_operation_intent("move", "ab" * 8, ACTOR)`; `_publish_operation_report(<report>, FakePort.intent_digest)` where the report is `writer._relocation_report(OperationIntent("move", "ab" * 8, ACTOR), subject="proposition:p", observer="o", instrument="i", opened_at="T0", closed_at="T1", outcome=Moved(writer.corpus_id, writer.corpus_id, "proposition:p"))` (import `Moved` and `OperationIntent` from where `relocation.py` does). `_prepare_corpus(port=True)` constructs the writer with `operation_port=FakePort(root, authority=<the case's authority>)`; for those two cases the probe also asserts the port recorded no intent and no fulfilment.
 
 def test_the_cases_cover_the_inventory_exactly():
     keys = [case.key for case in CASES]
@@ -3093,7 +3108,7 @@ Expected: 31 cases; every test passes on the certified host (the `certified_work
 
 ```bash
 uv run --frozen pytest -q -p no:cacheprovider && uv run --frozen ruff check . && uv run --frozen pyright
-tasks done beliefs-6ce675 "E1 covered over all 31 inventoried definitions, prepare/act/probe, case set held equal to the inventory"
+tasks done beliefs-6ce675 "E1 covered over all 36 inventoried definitions, prepare/act/probe, case set held equal to the inventory"
 cd .. && tasks check && git add python tasks && git commit -m "test(permit): E1 over every inventoried entry point"
 ```
 
@@ -3264,7 +3279,7 @@ cd .. && tasks check && git add python tasks && git commit -m "test(permit): dur
 
 **Interfaces:**
 - Consumes: every check id from Tasks 2–13; `IMPLEMENTATION_AMENDMENT_COMMIT` (`a0f2302`) from Task 1 and `RENUMBERING_AMENDMENT_COMMIT` (the §14 commit) — both pinned by the audit test beside the freeze; the pins below.
-- Produces: `CUT17_ARMS` (including the three relocation arms of §14.4: `E1r` displaces `_add_locked`'s `require` below its `self._corpus.add(node)`; `E3r` drops `_append_operation_intent`'s `ActorMismatch` raise; `E7r` drops `move`'s pre-intent `require` on the destination — each `before` unique in its module and outside every cut-16 pinned block), `ROW_UNITS = {"E1": 1, ..., "E8": 1}`, `LABELED_UNITS = ("K1",)`, `CO_CITED = {"K1": ("test_holdings_boundary.py::test_write_publishes_found_and_fulfills_its_intent",)}` (use `H4u1`'s real check id from `n2_arms_cut10.py`), `unit_of`.
+- Produces: `CUT17_ARMS` (including the three relocation arms of §14.4, **declared in Step 1 beside the others**: `E1r` displaces `_add_locked`'s `require` below its `self._corpus.add(node)`; `E3r` drops `_append_operation_intent`'s `ActorMismatch` raise; `E7r` drops `move`'s pre-intent `require` on the destination — each `before` unique in its module and outside every cut-16 pinned block, each naming a Task 5 or Task 13 check), `ROW_UNITS = {"E1": 1, ..., "E8": 1}`, `LABELED_UNITS = ("K1",)`, `CO_CITED = {"K1": ("test_holdings_boundary.py::test_publication_failure_after_an_established_outcome_raises",)}` (`H4u1`'s real check id, `n2_arms_cut10.py:312`), `unit_of`.
 
 - [ ] **Step 0: Start the task record** — `tasks start beliefs-c430e0`
 
@@ -3562,6 +3577,7 @@ from n2_arms_cut12 import CUT12_ARMS
 from n2_arms_cut13 import CUT13_ARMS
 from n2_arms_cut14 import CUT14_ARMS
 from n2_arms_cut15 import CUT15_ARMS
+from n2_arms_cut16 import CUT16_ARMS
 from n2_arms_cut17 import CO_CITED, CUT17_ARMS, LABELED_UNITS, ROW_UNITS, unit_of
 from test_n2 import audit, baseline
 
@@ -3572,8 +3588,9 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-04-write-permits-design.md"
 CUT17_FREEZE_COMMIT = "c2f87b3"
 IMPLEMENTATION_AMENDMENT_COMMIT = "a0f2302"
-RENUMBERING_AMENDMENT_COMMIT = "<the short hash of the §14 commit; `git log --format=%h -1 --grep 'renumber the write-permits cut'` prints it>"
+RENUMBERING_AMENDMENT_COMMIT = "398491d"
 FROZEN_PRIOR_CUT_FILES = {
+    "python/tests/n2_arms_cut3.py": "<the sha test_n2_cut16.py pins for it>",
     "python/tests/n2_arms_cut5.py": "7f5b28ec7da5f19db83fe0819c7477c8dbed7e93",
     "python/tests/n2_arms_cut6.py": "fdea7a7e2f8780f8ddfec3a6a700333a28e648cd",
     "python/tests/n2_arms_cut7.py": "8ca085e8cf860efc9b7504f0961523e5e2a0438f",
@@ -3585,6 +3602,7 @@ FROZEN_PRIOR_CUT_FILES = {
     "python/tests/acceptance/n2_arms_cut13.py": "7504d6906a8729f8e04097083396a50afc464f9b",
     "python/tests/acceptance/n2_arms_cut14.py": "f982778",
     "python/tests/acceptance/n2_arms_cut15.py": "8a4d43b",
+    "python/tests/n2_arms_cut16.py": "<`git rev-parse HEAD:python/tests/n2_arms_cut16.py` at Task 14, short>",
 }
 FROZEN_CUT10_SHA256 = {
     "python/tests/acceptance/n2_arms_cut10.py": "e7e3cf02f8d033a9bf507b6eba0f4968bcf702c901ad3a753013f062c02e5ae8",
@@ -3594,7 +3612,7 @@ FROZEN_CUT10_SHA256 = {
     "docs/plans/2026-08-24-conformance-cut-10-results.md": "83fa5f7cb0ea0abaf82db765162792b2862d6cd9e0feec1eabe2aaaac85d224b",
 }
 PRIOR_ARMS = (*CUT3_ARMS, *CUT5_ARMS, *CUT6_ARMS, *CUT7_ARMS, *CUT8_ARMS, *CUT9_ARMS, *CUT10_ARMS,
-              *CUT11_ARMS, *CUT12_ARMS, *CUT13_ARMS, *CUT14_ARMS, *CUT15_ARMS)
+              *CUT11_ARMS, *CUT12_ARMS, *CUT13_ARMS, *CUT14_ARMS, *CUT15_ARMS, *CUT16_ARMS)
 
 
 @pytest.fixture(scope="session")
@@ -3701,7 +3719,7 @@ PHASE_MODULES = (
 )
 ```
 
-`test_permit_boundary.py` and `test_permit_entry_points.py` live under `tests/`, so the runner resolves each module against `ACCEPTANCE` first and `PYTHON_ROOT / "tests"` second. `probe()` passes `authority=Authority(WritePermit.full(), "cut17-probe")` to the three `init_*` calls (import from `beliefs.permit`). `cut_environment` sets `SCIENCE_CUT{4..17}_ROOT`. Cut 16's two phase modules run in the prefix (§14.2): `test_relocation_acceptance.py` constructs its writers with `authority=FULL` (migrated in Task 4), and `test_n2_cut16.py` audits the pinned `n2_arms_cut16.py` unchanged. `declared_arm_count()` imports `CUT17_ARMS`; the closing line prints `(= 8 selected + 1 labeled units)`. Drop `run_prefix` and the prefix loop.
+`test_permit_boundary.py` and `test_permit_entry_points.py` live under `tests/`, so the runner resolves each module against `ACCEPTANCE` first and `PYTHON_ROOT / "tests"` second. `probe()` passes `authority=Authority(WritePermit.full(), "cut17-probe")` to the three `init_*` calls (import from `beliefs.permit`). `cut_environment` sets `SCIENCE_CUT{4..17}_ROOT`. `test_confinement_acceptance.py` is named by both the cut-14 inventory and cut 15's runner; it runs once, in its cut-14 slot. Cut 16's two phase modules run in the prefix (§14.2): `test_relocation_acceptance.py` constructs its writers with `authority=FULL` (migrated in Task 4), and `test_n2_cut16.py` audits the pinned `n2_arms_cut16.py` unchanged. `declared_arm_count()` imports `CUT17_ARMS`; the closing line prints `(= 8 selected + 1 labeled units)`. Drop `run_prefix` and the prefix loop.
 
 - [ ] **Step 4: Run the portable parts, then the full runner on the certified volume**
 
