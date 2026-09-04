@@ -10,7 +10,9 @@ from beliefs.permit import (
     COMMAND_REACHABLE_FAMILIES,
     KIND_ACTS,
     Authority,
+    RequiredCapabilities,
     WritePermit,
+    permit_covers,
     require_actor,
 )
 from beliefs.stored import WORLD_KINDS
@@ -123,3 +125,79 @@ class TestE1AuthorityRequire:
             Authority(WritePermit.full(), "")
         with pytest.raises(TypeError):
             Authority("full", "a")  # type: ignore[arg-type]
+
+
+class TestE4RequirementConstruction:
+    def test_none_requires_nothing(self):
+        assert RequiredCapabilities.none().permit == WritePermit(frozenset(), frozenset())
+
+    def test_coordination_requires_the_coordination_kinds_over_corpus_write(self):
+        required = RequiredCapabilities.coordination().permit
+        assert required.kinds == frozenset(COORDINATION_KINDS)
+        assert required.act_families == {"corpus-write"}
+
+    def test_a_single_route_kind_derives_its_route(self):
+        required = RequiredCapabilities.for_kinds(["proposition"], {}).permit
+        assert required == WritePermit(frozenset({"proposition"}), frozenset({"corpus-write"}))
+
+    def test_an_ambiguous_kind_must_select_a_route(self):
+        with pytest.raises(ValueError, match="route"):
+            RequiredCapabilities.for_kinds(["run"], {})
+
+    def test_a_selected_route_must_be_admissible(self):
+        with pytest.raises(ValueError, match="admit"):
+            RequiredCapabilities.for_kinds(["run"], {"run": "holdings"})
+
+    def test_a_selected_route_is_the_requirement(self):
+        required = RequiredCapabilities.for_kinds(["run", "proposition"], {"run": "run"}).permit
+        assert required == WritePermit(frozenset({"run", "proposition"}), frozenset({"run", "corpus-write"}))
+
+    def test_an_unknown_kind_is_refused(self):
+        with pytest.raises(ValueError, match="unknown"):
+            RequiredCapabilities.for_kinds(["unicorn"], {})
+
+    def test_a_route_key_outside_the_kinds_is_refused_even_when_admissible(self):
+        with pytest.raises(ValueError, match="declared"):
+            RequiredCapabilities.for_kinds(["proposition"], {"run": "run"})
+
+    def test_publishes_is_refused_while_publish_is_not_a_family(self):
+        with pytest.raises(ValueError, match="publish is not an act family"):
+            RequiredCapabilities.publishes()
+
+    def test_a_requirement_never_names_a_non_command_family(self):
+        for required in (
+            RequiredCapabilities.none(),
+            RequiredCapabilities.coordination(),
+            RequiredCapabilities.for_kinds(["run"], {"run": "run"}),
+        ):
+            assert required.permit.act_families <= COMMAND_REACHABLE_FAMILIES
+
+
+class TestE5Coverage:
+    def test_full_covers_every_constructible_requirement(self):
+        full = WritePermit.full()
+        for required in (
+            RequiredCapabilities.none(),
+            RequiredCapabilities.coordination(),
+            RequiredCapabilities.for_kinds(list(KIND_ACTS), {"run": "run", "act-report": "run"}),
+        ):
+            assert permit_covers(full, required)
+
+    def test_an_empty_requirement_is_covered_by_the_empty_permit(self):
+        assert permit_covers(WritePermit(frozenset(), frozenset()), RequiredCapabilities.none())
+
+    def test_coverage_is_subset_inclusion_on_both_dimensions(self):
+        required = RequiredCapabilities.for_kinds(["proposition"], {})
+        assert not permit_covers(WritePermit(frozenset(), frozenset({"corpus-write"})), required)
+        assert not permit_covers(WritePermit(frozenset({"proposition"}), frozenset()), required)
+        assert permit_covers(WritePermit(frozenset({"proposition"}), frozenset({"corpus-write"})), required)
+
+    def test_an_ungoverned_requirement_is_never_constructible_and_full_covers_the_flag(self):
+        with pytest.raises(ValueError, match="ungoverned"):
+            RequiredCapabilities(WritePermit(frozenset(), frozenset(), True))
+        assert permit_covers(WritePermit.full(), RequiredCapabilities.none())
+
+    def test_coverage_judges_the_selected_route_not_the_union(self):
+        required = RequiredCapabilities.for_kinds(["run"], {"run": "corpus-write"})
+        assert permit_covers(WritePermit(frozenset({"run"}), frozenset({"corpus-write"})), required)
+        assert not permit_covers(WritePermit(frozenset({"run"}), frozenset({"run"})), required)

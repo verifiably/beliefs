@@ -6,7 +6,7 @@ priority: 2
 size: xl
 owner: design/write-permits
 created: 2026-08-31T00:38:28Z
-updated: 2026-09-04T13:41:50Z
+updated: 2026-09-04T14:17:42Z
 depends: []
 tags: [migration, writer, permits]
 spec: docs/designs/2026-09-04-write-permits-design.md
@@ -31,3 +31,5 @@ Uncertainty: The cross-repository endpoint and launcher live partly in Science, 
 - 2026-09-04T13:16:18Z (design/write-permits): Implementation amendment §13 ruled: cut 10 cited, runner names an inventory, actor locals keep pinned arms matching, ungoverned dimension, _fork_resume as implementation; commit recoverable by git log --grep 'rule the cut 16 implementation amendment'
 - 2026-09-04T13:20:01Z (design/write-permits): Execution found the plan's global staleness probe includes historical cut-6 world.py arms that do not target the current src/beliefs tree; gates allow that exact pre-existing missing set and reject every new stale arm
 - 2026-09-04T13:41:50Z (design/write-permits): Renumbered the cut to 17 (§14): relocation claimed 16 at ca31a04 before the c2f87b3 freeze; merged main (cut 16) into the branch; §14 inventories the five relocation seams in corpus.py and removes actor from relocation.move/consolidate; plan renumbered and amended (Tasks 5, 11, 13, 14, 15)
+- 2026-09-04T14:16:38Z (design/write-permits): claimed by codex, pid 1
+- 2026-09-04T14:17:42Z (design/write-permits): reviewed Task 2 commit 751f56f: no findings; permit tests, lint, typing, actor encoding refusal and tasks check pass

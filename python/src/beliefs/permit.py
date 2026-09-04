@@ -21,7 +21,9 @@ __all__ = [
     "KIND_ACTS",
     "ActFamily",
     "Authority",
+    "RequiredCapabilities",
     "WritePermit",
+    "permit_covers",
     "require_actor",
 ]
 
@@ -132,3 +134,65 @@ class Authority:
                 permitted = self.permit.ungoverned and family == "corpus-write"
             if not permitted:
                 raise PermitExceeded(PermitFact("kind", kind), self.permit.summary())
+
+
+@dataclass(frozen=True)
+class RequiredCapabilities:
+    """What a declaration needs (§3.5). Compiled to a permit whose families
+    are exactly the selected routes; never a union over `KIND_ACTS`."""
+
+    permit: WritePermit
+
+    def __post_init__(self) -> None:
+        if type(self.permit) is not WritePermit:
+            raise TypeError("a requirement carries a WritePermit")
+        if not self.permit.act_families <= COMMAND_REACHABLE_FAMILIES:
+            raise ValueError("a requirement names only command-reachable families")
+        if self.permit.ungoverned:
+            raise ValueError("a requirement never claims ungoverned kinds; a declaration names governed ones")
+
+    @classmethod
+    def none(cls) -> RequiredCapabilities:
+        return cls(WritePermit(frozenset(), frozenset()))
+
+    @classmethod
+    def coordination(cls) -> RequiredCapabilities:
+        return cls(WritePermit(frozenset(_COORDINATION_KINDS), _CORPUS_WRITE))
+
+    @classmethod
+    def for_kinds(cls, kinds: Iterable[str], routes: Mapping[str, str]) -> RequiredCapabilities:
+        declared = frozenset(kinds)
+        unknown = sorted(declared - frozenset(KIND_ACTS))
+        if unknown:
+            raise ValueError(f"unknown kinds: {unknown}")
+        stray = sorted(frozenset(routes) - declared)
+        if stray:
+            raise ValueError(f"routes name undeclared kinds: {stray}")
+        families: set[str] = set()
+        for kind in sorted(declared):
+            admissible = KIND_ACTS[kind]
+            if kind in routes:
+                route = routes[kind]
+                if route not in admissible:
+                    raise ValueError(f"KIND_ACTS does not admit route {route!r} for {kind!r}")
+            elif len(admissible) == 1:
+                (route,) = admissible
+            else:
+                raise ValueError(f"{kind!r} admits more than one route; the declaration must select one")
+            families.add(route)
+        return cls(WritePermit(declared, frozenset(families)))
+
+    @classmethod
+    def publishes(cls) -> RequiredCapabilities:
+        raise ValueError("publish is not an act family")
+
+
+def permit_covers(ceiling: WritePermit, required: RequiredCapabilities) -> bool:
+    """Subset inclusion on both dimensions and nothing else (E5)."""
+    if type(ceiling) is not WritePermit or type(required) is not RequiredCapabilities:
+        raise TypeError("permit_covers judges a WritePermit against a RequiredCapabilities")
+    return (
+        required.permit.kinds <= ceiling.kinds
+        and required.permit.act_families <= ceiling.act_families
+        and (not required.permit.ungoverned or ceiling.ungoverned)
+    )
