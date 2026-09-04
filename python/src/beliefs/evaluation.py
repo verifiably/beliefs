@@ -16,6 +16,20 @@ proposition carrying no claim record needs no declaration for the attempt.
 **M1's bound is real and stays stated:** the row is bounded by this resolver.
 A read that never crosses it — a module-level constant, an environment
 lookup, a cached global, a file opened directly — is invisible and passes.
+
+One read *does* cross this resolver and is deliberately outside its traced
+set, and it is named here rather than left for a reader to discover.
+`corpus.run_value` builds a `RunValue` whose inputs carry the dataset
+declaration for **every** role — `reads` and `transforms` as well as
+`observes` — so a `reads` declaration is handed out inside a run value
+without a `("dataset", …)` trace entry. That is not a gap in the
+instrumentation but the closure's own shape: the design's `declared_refs`
+table admits dataset refs only under `observes`, mirroring `build_closure`'s
+`observes` member, and no closure member consumes any other role's
+declaration. Tracing one would record a read the digest cannot move for,
+which is the mirror of the failure `declared_refs`' exclusions prevent.
+`test_a_reads_input_declaration_crosses_gather_untraced` pins both halves:
+the untraced hand-out, and the digest that does not move with it.
 """
 
 from __future__ import annotations
@@ -100,6 +114,9 @@ class EvaluationInputs:
         if ours:
             refs.update(("proposition", a.proposition) for a in ours)
         refs.update(("run", a.run) for a in ours)
+        # The predicate is spelled out here rather than calling
+        # `_verification_selected`: the sabotage flips that one predicate, and
+        # a declaration sharing it would widen with the read it must catch.
         refs.update(("verification", v.ref) for v in self.verifications if v.assessment in ids)
         for a in ours:
             run = self.runs.get(a.run)
@@ -177,7 +194,13 @@ def gather(
     for ref in dict.fromkeys(proposition_refs):
         if view.holds(ref):
             claim, _receipt = claim_from_stored(view.get(ref), profile=profile, snapshot=resolution)
-            trace.append(("proposition", proposition))
+            # Traced at the ref actually read, never at the requested
+            # `proposition`. Nothing checks that an assessment's `assesses`
+            # edge agrees with its facet, so a raw-written record can send
+            # this read somewhere the closure never declared — and the claim
+            # it hands back feeds `consulted`, a digested member. Tracing the
+            # request instead of the read would hide exactly that.
+            trace.append(("proposition", ref))
             break
 
     consulted = consulted_contracts(

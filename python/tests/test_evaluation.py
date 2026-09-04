@@ -20,6 +20,8 @@ from typing import Any
 import pytest
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
+from nodes.core.relations import Relation
+from test_belief import CLAIM as EXPECTED_CLAIM
 from test_belief import PROFILE
 
 from beliefs import stored
@@ -30,8 +32,8 @@ from beliefs.contract.domain import VocabularyBinding
 from beliefs.corpus import ReadView, lineage_snapshot
 from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
 from beliefs.evaluation import READ_KINDS, EvaluationInputs, evaluate_over, gather
-from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding
-from beliefs.projection import claim_identity
+from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding, PolicyImplementation
+from beliefs.projection import claim_identity, project_claim
 from beliefs.record import AssessmentValue
 from beliefs.resolution import ResolutionSnapshot, build_snapshot
 
@@ -108,11 +110,26 @@ class CorpusFixture:
         return {"availability": self.availability, **self.gather_kwargs}
 
 
-def _seed(root: Path, proposition_ref: str) -> tuple[ReadView, dict[str, AssessmentValue]]:
+def _seed(
+    root: Path,
+    proposition_ref: str,
+    *,
+    reads: bool = False,
+    assesses_target: str | None = None,
+) -> tuple[ReadView, dict[str, AssessmentValue]]:
     nodes: list[Node] = [
         stored.proposition_node("p", title="p", claim=CLAIM_FACET),
         stored.proposition_node("q", title="q", claim=OTHER_CLAIM_FACET),
     ]
+    if reads:
+        nodes.append(
+            stored.dataset_node(
+                "d-e",
+                title="d-e",
+                resources=_resources("e"),
+                empirical_observation={"boundary": "instrument"},
+            )
+        )
     for letter in ("a", "b", "c"):
         nodes.append(
             stored.dataset_node(
@@ -123,7 +140,16 @@ def _seed(root: Path, proposition_ref: str) -> tuple[ReadView, dict[str, Assessm
             )
         )
         nodes.append(
-            stored.run_node(f"run-{letter}", title=f"run-{letter}", spec=f"spec-{letter}", observes=[f"dataset:d-{letter}"])
+            stored.run_node(
+                f"run-{letter}",
+                title=f"run-{letter}",
+                spec=f"spec-{letter}",
+                observes=[f"dataset:d-{letter}"],
+                # A `reads` input on `run-a` only: `run_value` hands out its
+                # declaration for every role, and the resolver traces none but
+                # `observes`.
+                reads=["dataset:d-e"] if reads and letter == "a" else [],
+            )
         )
 
     assessments = [
@@ -156,6 +182,24 @@ def _seed(root: Path, proposition_ref: str) -> tuple[ReadView, dict[str, Assessm
             interpretation_rule="rule-1",
         ),
     ]
+    if assesses_target is not None:
+        # A raw write nothing downstream checks: the facet still says
+        # `proposition_ref`, so `assessment_value` matches, but the `assesses`
+        # edge points somewhere else entirely.
+        assessments[:2] = [
+            stored.stamp_semantic_identity(
+                node.model_copy(
+                    update={
+                        "relations": [
+                            Relation(source=node.id, predicate=stored.ASSESSES, target=assesses_target),
+                            *(r for r in node.relations if r.predicate != stored.ASSESSES),
+                        ]
+                    }
+                )
+            )
+            for node in assessments[:2]
+        ]
+
     values = {node.id: stored.assessment_value(node) for node in assessments}
     nodes.extend(assessments)
     for index, node in enumerate(assessments, start=1):
@@ -175,8 +219,15 @@ def _seed(root: Path, proposition_ref: str) -> tuple[ReadView, dict[str, Assessm
     return reopen(root), values
 
 
-def _fixture(tmp_path: Path, proposition_ref: str) -> CorpusFixture:
-    view, values = _seed(tmp_path, proposition_ref)
+def _fixture(
+    tmp_path: Path,
+    proposition_ref: str,
+    *,
+    reads: bool = False,
+    assesses_target: str | None = None,
+) -> CorpusFixture:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    view, values = _seed(tmp_path, proposition_ref, reads=reads, assesses_target=assesses_target)
     matched = (values["assessment:a-1"], values["assessment:a-2"])
     context = SuppliedContext(
         snapshot=lineage_snapshot(view, ("dataset:d-a", "dataset:d-b")),
@@ -189,7 +240,9 @@ def _fixture(tmp_path: Path, proposition_ref: str) -> CorpusFixture:
         view=view,
         proposition=proposition_ref,
         availability=Availability(
-            observations=_observations("a", "b"),
+            # A `reads` input must be held too: `admit` quantifies heldness
+            # over every input role, not just the eligibility-conferring one.
+            observations=_observations("a", "b", "e") if reads else _observations("a", "b"),
             implementations={BELIEF_V1.identity: BELIEF_V1},
             fixtures={BELIEF_V1_RULE: BELIEF_V1_FIXTURES},
         ),
@@ -213,6 +266,14 @@ def claimless_fixture(tmp_path) -> CorpusFixture:
     return _fixture(tmp_path, ABSENT_PROPOSITION_REF)
 
 
+@pytest.fixture()
+def divergent_fixture(tmp_path) -> CorpusFixture:
+    """The corpus with the matched assessments' `assesses` edges pointing at
+    `proposition:q` while their facets still say `proposition:p` — a raw write
+    nothing in the read path reconciles."""
+    return _fixture(tmp_path, PROPOSITION_REF, assesses_target=OTHER_PROPOSITION_REF)
+
+
 # --- the rows --------------------------------------------------------------
 
 
@@ -225,7 +286,12 @@ def test_evaluate_over_is_the_corpus_backed_path_and_yields_a_belief(corpus_fixt
 def test_the_restored_claim_is_the_one_the_proposition_node_carries(corpus_fixture):
     inputs = gather(corpus_fixture.view, corpus_fixture.proposition, **corpus_fixture.gather_kwargs)
     assert inputs.claim is not None
-    assert claim_identity(inputs.claim)  # π_claim accepts it: the brand chain survived the restore
+    # π_claim accepts it — the brand chain survived the restore — and it
+    # projects back to exactly the facet the stored proposition carries.
+    assert project_claim(inputs.claim) == CLAIM_FACET
+    # And it is the *same* claim `test_belief` builds through `build_claim`,
+    # restored from stored bytes rather than constructed.
+    assert claim_identity(inputs.claim) == claim_identity(EXPECTED_CLAIM)
     assert inputs.consulted == (("science", "sci-1"), ("testing", "testing-1"))
 
 
@@ -297,21 +363,73 @@ def test_a_proposition_with_no_claim_record_consults_only_the_base_contract(clai
     assert set(inputs.read_trace) <= inputs.declared_refs()
 
 
-def test_no_belief_and_refused_arms_assert_no_containment(corpus_fixture, monkeypatch):
+def test_a_divergent_assesses_edge_is_traced_at_the_ref_the_resolver_read(divergent_fixture):
+    """Nothing reconciles an assessment's `assesses` edge with its facet's
+    `proposition`, so the read can land on a proposition the closure never
+    declared — and the claim it yields feeds `consulted`, a digested member.
+    The trace records the ref actually read, so containment catches it."""
+    inputs = gather(divergent_fixture.view, divergent_fixture.proposition, **divergent_fixture.gather_kwargs)
+
+    assert inputs.claim is not None
+    assert project_claim(inputs.claim) == OTHER_CLAIM_FACET, "q's claim was decoded, not p's"
+    assert ("proposition", OTHER_PROPOSITION_REF) in inputs.read_trace
+    assert ("proposition", OTHER_PROPOSITION_REF) not in inputs.declared_refs()
+    assert ("proposition", PROPOSITION_REF) in inputs.declared_refs()
+    assert not set(inputs.read_trace) <= inputs.declared_refs()
+
+
+def test_a_reads_input_declaration_crosses_gather_untraced(tmp_path):
+    """M1's second bound, pinned rather than hidden: `run_value` hands out the
+    declaration of every input role, and the resolver traces only `observes` —
+    because the closure declares dataset refs only under `observes` and
+    consumes no other role's declaration. Tracing one would record a read the
+    digest cannot move for."""
+    plain = _fixture(tmp_path / "plain", PROPOSITION_REF)
+    with_reads = _fixture(tmp_path / "with-reads", PROPOSITION_REF, reads=True)
+
+    inputs = gather(with_reads.view, with_reads.proposition, **with_reads.gather_kwargs)
+    run_a = inputs.runs["run:run-a"]
+    assert {i.role for i in run_a.inputs} == {"observes", "reads"}, "the declaration really was handed out"
+
+    assert ("dataset", _address("e")) not in inputs.read_trace
+    assert set(inputs.read_trace) <= inputs.declared_refs()
+
+    honest = gather(plain.view, plain.proposition, **plain.gather_kwargs)
+    assert inputs.closure().digest() == honest.closure().digest(), (
+        "the closure consumes no `reads` declaration; if this moves, the untraced hand-out is a real gap"
+    )
+
+
+def test_the_no_belief_and_refused_arms_still_gather_and_assert_no_containment(corpus_fixture, monkeypatch):
+    """G3 makes the closure exist whenever a belief is produced; `NoBelief` and
+    `Refused` commit no input closure, so there is nothing on those arms for a
+    read to be contained in. `gather` still runs — the only guard before it is
+    the binding's."""
     from beliefs import evaluation
 
     calls: list[str] = []
     real = evaluation.gather
-    monkeypatch.setattr(
-        evaluation, "gather", lambda *a, **k: (calls.append("gathered"), real(*a, **k))[1]
-    )
-    result = evaluate_over(
+    monkeypatch.setattr(evaluation, "gather", lambda *a, **k: (calls.append("gathered"), real(*a, **k))[1])
+
+    no_belief = evaluate_over(
         corpus_fixture.view,
         corpus_fixture.proposition,
         **{**corpus_fixture.kwargs, "availability": replace(corpus_fixture.availability, fixtures={})},
     )
-    assert isinstance(result, NoBelief) and result.reason == "unavailable-fixtures-unheld"
-    assert calls == ["gathered"], "the guard is on the Belief arm only; gather still ran once"
+    assert isinstance(no_belief, NoBelief) and no_belief.reason == "unavailable-fixtures-unheld"
+
+    broken = PolicyImplementation(identity=BELIEF_V1.identity, aggregate=lambda problem: 999)
+    refused = evaluate_over(
+        corpus_fixture.view,
+        corpus_fixture.proposition,
+        **{
+            **corpus_fixture.kwargs,
+            "availability": replace(corpus_fixture.availability, implementations={BELIEF_V1.identity: broken}),
+        },
+    )
+    assert isinstance(refused, Refused) and refused.reason.startswith("implementation-fails-fixtures")
+
+    assert calls == ["gathered", "gathered"], "the guard is on the Belief arm only; gather ran on both"
 
 
 def test_the_nine_fields_are_build_closure_s_keywords_in_order():
