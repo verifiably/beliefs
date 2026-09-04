@@ -27,7 +27,7 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Forty-four documents in `docs/designs/`: the banked redesigns, review disposition,
+Forty-six documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
 2026-08-02 through 2026-09-04. Read them in this order:
 
@@ -76,6 +76,8 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-08-30-conformance-cut-13.md` | the thirteenth frozen conformance cut, selecting run confinement: 4 rows full, 2 part, with 15 selected and 7 labeled declarations; `clean-environment` reachable |
 | `2026-08-30-run-confinement-design.md` | the run-confinement slice: the confined boundary policy, the per-file runtime closure and its snapshot, the probe-gated bubblewrap launch observed from the boundary's own `/proc`, the confined receipt and run domains, `derive_scope`'s `clean-environment` row, and the value-level admission join |
 | `2026-08-31-coordination-and-view-kinds-design.md` | the coordination tier: closed view-query grammar, versioned coordination contract, opaque project/local addressing, immutable multi-corpus revision family, and world-inert storage; cut 14 discharges it except W17 intent-position |
+| `2026-09-03-world-changing-families-design.md` | the two-root `move` and `consolidate` operations, managed deletion, their lock and crash discipline, and the two cuts that discharge them |
+| `2026-09-03-conformance-cut-16.md` | the discharged relocation cut: W5 in full, G3 and D7 closed, five partial rows, and T8 re-read against both relocation operations |
 | `2026-09-04-write-permits-design.md` | the write-permits slice: the closed act-family enumeration and `KIND_ACTS` route map, the `WritePermit` and `Authority` values bound once at every construction seam, the `RequiredCapabilities` value the command framework compiles to, the entry-point check before any effect, the removal of every caller-supplied actor, the static entry-point inventory, and guarantee rows E1–E8 frozen as cut 16 |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
@@ -84,7 +86,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 15** is implemented and discharged. What
+Every conformance cut through **cut 16** is implemented and discharged. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -94,10 +96,11 @@ store-side holdings; run confinement, a run executing inside a fresh
 namespaced materialization of a digest-verified runtime closure with
 `clean-environment` reachable; and the coordination/view family with opaque
 addresses, contract authorization, multi-corpus tip resolution, and world-inert
-storage; and the full workflow surface with planning-derived job and target
+storage; the full workflow surface with planning-derived job and target
 sets, semantic wildcard jobs, per-family seed obligations, and composed
-planning/execution launch attestations. The latest discharged boundary is cut
-15 ([results](docs/plans/2026-09-01-conformance-cut-15-results.md)).
+planning/execution launch attestations; and two-root `move` and `consolidate`
+with root-local durable operation evidence. The latest discharged boundary is
+cut 16 ([results](docs/plans/2026-09-03-conformance-cut-16-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
 test before it is a passing one. There are **161 rows** across **fourteen frozen
@@ -107,7 +110,7 @@ redefinition.
 
 What is built and what remains to build, each remainder with its named owner,
 is stated once, in the
-[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-02).
+[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-04).
 The per-cut results records under [`docs/plans/`](docs/plans/) are the
 evidence trail, and unresolved design questions live in the guide's
 [open questions](docs/guide/open-questions.md).

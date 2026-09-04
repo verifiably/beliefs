@@ -133,6 +133,24 @@ def test_import_admits_bundle_in_one_payload_plan(writer_with_port):
     )
 
 
+def test_import_publishes_the_exact_prevalidated_report_operation(writer_with_port, monkeypatch):
+    validated = []
+    validate = writer_with_port._validated_import_op
+
+    def capture(record):
+        operation = validate(record)
+        if record.kind == "act-report":
+            validated.append(operation)
+        return operation
+
+    monkeypatch.setattr(writer_with_port, "_validated_import_op", capture)
+
+    import_records(writer_with_port, [prop("a")])
+
+    assert len(validated) == 1
+    assert FakePort.fulfilling[0][0][0] is validated[0]
+
+
 def test_member_held_refuses_whole_bundle_no_payload_write(writer_with_port):
     writer_with_port.add(prop("a"))
     Recorder.plans = []

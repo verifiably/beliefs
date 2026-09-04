@@ -68,7 +68,7 @@ PACKAGE = Path(__file__).resolve().parent.parent / "src" / "beliefs"
 TESTS = Path(__file__).resolve().parent
 HARNESS = Path(__file__).name
 
-WORKERS = 8
+WORKERS = 24
 
 PASSED = 0
 FAILED = 1

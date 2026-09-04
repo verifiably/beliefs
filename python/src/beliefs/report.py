@@ -26,16 +26,19 @@ __all__ = [
     "ActReport",
     "AssessmentRunIntent",
     "ByteLocatorUntested",
+    "Consolidated",
     "DeclarationPinEntry",
     "Entry",
     "EvaluationFinding",
     "ImportedRecords",
     "LocatorEntry",
     "ManagedMutationEntry",
+    "Moved",
     "OperationIntent",
     "PinnedDeclaration",
     "PublishedObservation",
     "RecordImportEntry",
+    "RecordMutationEntry",
     "Registration",
     "RetrievalFailed",
     "RunAttemptEntry",
@@ -46,7 +49,7 @@ __all__ = [
 ]
 
 ACT_REPORT_DOMAIN = "science.act-report.v1"
-OPERATION_KINDS = ("acquisition", "audit", "import", "re-check", "run-attempt")
+OPERATION_KINDS = ("acquisition", "audit", "consolidate", "import", "move", "re-check", "run-attempt")
 UNFINISHED = "unfinished"
 INDETERMINATE = "indeterminate"
 CLOSED = "closed"
@@ -173,6 +176,43 @@ class RunRefusal:
         _require_str(self.missing_member, "run refusal missing member")
 
 
+@sealed
+@final
+@dataclass(frozen=True)
+class Moved:
+    source_corpus: str
+    destination_corpus: str
+    ref: str
+
+    def __post_init__(self) -> None:
+        _require_str(self.source_corpus, "moved source corpus")
+        _require_str(self.destination_corpus, "moved destination corpus")
+        _require_str(self.ref, "moved ref")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class Consolidated:
+    kept_corpus: str
+    kept_ref: str
+    other_corpus: str
+    other_ref: str
+    retired_uids: tuple[str, ...]
+    rationale: str
+
+    def __post_init__(self) -> None:
+        for name, value in (
+            ("kept corpus", self.kept_corpus),
+            ("kept ref", self.kept_ref),
+            ("other corpus", self.other_corpus),
+            ("other ref", self.other_ref),
+            ("rationale", self.rationale),
+        ):
+            _require_str(value, f"consolidated {name}")
+        _require_strings(self.retired_uids, "consolidated retired uids")
+
+
 Outcome: TypeAlias = (
     PublishedObservation
     | ByteLocatorUntested
@@ -181,6 +221,8 @@ Outcome: TypeAlias = (
     | ImportedRecords
     | PinnedDeclaration
     | RunRefusal
+    | Moved
+    | Consolidated
 )
 
 
@@ -264,12 +306,27 @@ class RunAttemptEntry:
         _require_outcome(self, self.outcome)
 
 
+@sealed
+@final
+@dataclass(frozen=True)
+class RecordMutationEntry:
+    subject: str
+    corpus: str
+    outcome: Moved | Consolidated
+
+    def __post_init__(self) -> None:
+        _require_str(self.subject, "record mutation entry subject")
+        _require_str(self.corpus, "record mutation entry corpus")
+        _require_outcome(self, self.outcome)
+
+
 Entry: TypeAlias = (
     LocatorEntry
     | ManagedMutationEntry
     | DeclarationPinEntry
     | SubjectEvaluationEntry
     | RecordImportEntry
+    | RecordMutationEntry
     | RunAttemptEntry
 )
 
@@ -279,6 +336,7 @@ _ALLOWED_OUTCOMES: dict[type[object], tuple[type[object], ...]] = {
     DeclarationPinEntry: (PinnedDeclaration,),
     SubjectEvaluationEntry: (EvaluationFinding,),
     RecordImportEntry: (ImportedRecords,),
+    RecordMutationEntry: (Moved, Consolidated),
     RunAttemptEntry: (RunRefusal,),
 }
 _ENTRY_KINDS: dict[type[object], str] = {
@@ -287,6 +345,7 @@ _ENTRY_KINDS: dict[type[object], str] = {
     DeclarationPinEntry: "declaration-pin",
     SubjectEvaluationEntry: "subject-evaluation",
     RecordImportEntry: "record-import",
+    RecordMutationEntry: "record-mutation",
     RunAttemptEntry: "run-attempt",
 }
 _OUTCOME_TYPES: dict[type[object], str] = {
@@ -297,6 +356,8 @@ _OUTCOME_TYPES: dict[type[object], str] = {
     ImportedRecords: "imported-records",
     PinnedDeclaration: "pinned-declaration",
     RunRefusal: "run-refusal",
+    Moved: "moved",
+    Consolidated: "consolidated",
 }
 
 
@@ -313,6 +374,8 @@ def _entry_facet(entry: Entry) -> dict[str, object]:
     }
     if type(entry) is LocatorEntry:
         row["instrument_inputs"] = [list(pair) for pair in entry.instrument_inputs]
+    if type(entry) is RecordMutationEntry:
+        row["corpus"] = entry.corpus
     return row
 
 

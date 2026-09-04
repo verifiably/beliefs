@@ -11,6 +11,7 @@ import pytest
 from closure_fixtures import make_closure, sample_report
 from fixtures_cut3 import report
 
+from beliefs import report as report_values
 from beliefs.errors import CitationRefused, MalformedRecord, OutcomeRefused
 from beliefs.recipe import RunClosure
 from beliefs.report import (
@@ -59,6 +60,71 @@ def test_t5_byte_locator_untested_is_unspellable_on_a_subject_evaluation_entry()
 def test_t5_a_locator_entry_can_carry_it():
     entry = LocatorEntry(subject="url://example", outcome=ByteLocatorUntested(reason="cooperative stop"))
     assert entry.outcome.reason == "cooperative stop"  # type: ignore[union-attr]
+
+
+def test_record_mutation_entry_projects_its_corpus_and_outcome():
+    entry = report_values.RecordMutationEntry(
+        subject="dataset:d1",
+        corpus="corpus-a",
+        outcome=report_values.Moved(
+            source_corpus="corpus-a", destination_corpus="corpus-b", ref="dataset:d1"
+        ),
+    )
+    facet = report_values._entry_facet(entry)
+    assert facet["kind"] == "record-mutation"
+    assert facet["subject"] == "dataset:d1"
+    assert facet["corpus"] == "corpus-a"
+    assert facet["outcome"] == {
+        "type": "moved",
+        "source_corpus": "corpus-a",
+        "destination_corpus": "corpus-b",
+        "ref": "dataset:d1",
+    }
+
+
+def test_record_mutation_entry_refuses_a_locator_outcome():
+    with pytest.raises(OutcomeRefused):
+        report_values.RecordMutationEntry(
+            subject="dataset:d1",
+            corpus="corpus-a",
+            outcome=ByteLocatorUntested(reason="preflight-refused"),  # type: ignore[arg-type]
+        )
+
+
+def test_consolidated_retires_nothing_when_the_uid_was_shared():
+    facet = report_values._outcome_facet(
+        report_values.Consolidated(
+            kept_corpus="corpus-a",
+            kept_ref="source:s1",
+            other_corpus="corpus-b",
+            other_ref="source:s1",
+            retired_uids=(),
+            rationale="a copied corpus; one uid throughout",
+        )
+    )
+    assert facet["retired_uids"] == []
+
+
+def test_consolidated_records_the_retired_uid_and_the_judgement():
+    facet = report_values._outcome_facet(
+        report_values.Consolidated(
+            kept_corpus="corpus-a",
+            kept_ref="source:s1",
+            other_corpus="corpus-b",
+            other_ref="source:s1",
+            retired_uids=("u-2",),
+            rationale="corpus-a holds the authored record",
+        )
+    )
+    assert facet["type"] == "consolidated"
+    assert facet["retired_uids"] == ["u-2"]
+    assert facet["rationale"] == "corpus-a holds the authored record"
+
+
+def test_the_two_relocation_operation_kinds_are_admitted():
+    assert "move" in report_values.OPERATION_KINDS
+    assert "consolidate" in report_values.OPERATION_KINDS
+    assert "delete" not in report_values.OPERATION_KINDS
 
 
 # --- T3 ----------------------------------------------------------------------

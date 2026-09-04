@@ -112,6 +112,8 @@ __all__ = [
     "semantic_projection",
     "stamp_semantic_identity",
     "stored_semantic_hash",
+    "union_lineage_bases",
+    "used_facet_namespaces",
     "verification_value",
 ]
 
@@ -131,6 +133,11 @@ VERIFICATION_FACET = "verification"
 RETRACTION_FACET = "retraction"
 HOLDINGS_OBSERVATION_FACET = "holdings-observation"
 COORDINATION_FACET = "coordination"
+
+
+def used_facet_namespaces(node: Node) -> frozenset[str]:
+    """The domain namespaces named by this node's namespaced facet keys."""
+    return frozenset(key.partition("/")[0] for key in node.facets if "/" in key)
 
 # --- kernel §4.1's closed relation signatures --------------------------------
 
@@ -410,6 +417,54 @@ def lineage_basis(node: Node) -> Mapping[str, Any] | None:
     return _facet(node, LINEAGE_BASIS_FACET)
 
 
+def _tagged_basis_routes(node: Node) -> list[dict[str, Any]]:
+    basis = node.facets.get(LINEAGE_BASIS_FACET)
+    if basis is None:
+        return []
+    if not isinstance(basis, dict) or set(basis) != {"tag", "routes"}:
+        raise MalformedRecord(f"{node.id}: malformed tagged lineage basis")
+    tag, routes = basis["tag"], basis["routes"]
+    if tag not in ("single", "conflict") or not isinstance(routes, list) or not all(
+        isinstance(route, dict) for route in routes
+    ):
+        raise MalformedRecord(f"{node.id}: malformed tagged lineage basis")
+    try:
+        keys = [v1.encode(route) for route in routes]
+    except IdentityError as caught:
+        raise MalformedRecord(f"{node.id}: malformed lineage route") from caught
+    if tag == "single" and len(routes) != 1:
+        raise MalformedRecord(f"{node.id}: a single lineage basis holds exactly one route")
+    if tag == "conflict" and (
+        len(routes) < 2 or len(set(keys)) != len(keys) or keys != sorted(keys)
+    ):
+        raise MalformedRecord(
+            f"{node.id}: a conflict lineage basis holds at least two distinct sorted routes"
+        )
+    return routes
+
+
+def union_lineage_bases(survivor: Node, loser: Node) -> dict[str, dict]:
+    """Keep survivor facets and replace only its lineage basis with the union."""
+    encoded_routes = {
+        v1.encode(route)
+        for node in (survivor, loser)
+        for route in _tagged_basis_routes(node)
+    }
+    facets = dict(survivor.facets)
+    if encoded_routes:
+        ordered = []
+        for encoded in sorted(encoded_routes):
+            route = v1.decode(encoded)
+            if not isinstance(route, dict):
+                raise MalformedRecord("a canonical lineage route is not an object")
+            ordered.append(route)
+        facets[LINEAGE_BASIS_FACET] = {
+            "tag": "single" if len(ordered) == 1 else "conflict",
+            "routes": ordered,
+        }
+    return facets
+
+
 def basis_routes(node: Node) -> tuple[Mapping[str, Any], ...]:
     """The basis's routes in stored order, so a route's **position** is stable
     for the traversal's unresolved entries."""
@@ -468,6 +523,17 @@ _REPORT_ENTRY_OUTCOMES: dict[str, dict[str, tuple[str, ...]]] = {
     "declaration-pin": {"pinned-declaration": ("ref",)},
     "subject-evaluation": {"evaluation-finding": ("payload",)},
     "record-import": {"imported-records": ("refs", "findings")},
+    "record-mutation": {
+        "moved": ("source_corpus", "destination_corpus", "ref"),
+        "consolidated": (
+            "kept_corpus",
+            "kept_ref",
+            "other_corpus",
+            "other_ref",
+            "retired_uids",
+            "rationale",
+        ),
+    },
     "run-attempt": {"run-refusal": ("missing_member",)},
 }
 
@@ -483,8 +549,13 @@ def _valid_report_entry(entry: object) -> bool:
         "subject",
         "outcome",
         *(("instrument_inputs",) if kind == "pure-look" else ()),
+        *(("corpus",) if kind == "record-mutation" else ()),
     }
-    if set(entry) != expected_entry_fields or type(entry.get("subject")) is not str:
+    if (
+        set(entry) != expected_entry_fields
+        or type(entry.get("subject")) is not str
+        or (kind == "record-mutation" and type(entry.get("corpus")) is not str)
+    ):
         return False
     if kind == "pure-look":
         inputs = entry["instrument_inputs"]
@@ -507,7 +578,7 @@ def _valid_report_entry(entry: object) -> bool:
         return False
     for field in fields:
         value = outcome[field]
-        if outcome_type == "imported-records":
+        if outcome_type == "imported-records" or field == "retired_uids":
             if not isinstance(value, list) or any(
                 type(member) is not str for member in value
             ):

@@ -39,6 +39,7 @@ from fixtures_cut3 import (
     memory_production as run_production,
 )
 
+from beliefs import boundary
 from beliefs.adapter import (
     LOG_HANDLER_SCRIPT,
     build_argv,
@@ -62,11 +63,20 @@ from beliefs.boundary import (
 from beliefs.errors import (
     CheckpointDeclarationUnmet,
     MalformedClosure,
+    MalformedRecord,
     TargetAmbiguous,
     TargetUnresolvable,
 )
 from beliefs.recipe import MINIMAL_POLICY, Occurrence, PlannedJob, RunClosure, WorkflowDefinitionSnapshot, job_key
-from beliefs.report import ActReport, OperationIntent, RunAttemptEntry, RunRefusal
+from beliefs.report import (
+    ActReport,
+    Consolidated,
+    Moved,
+    OperationIntent,
+    RecordMutationEntry,
+    RunAttemptEntry,
+    RunRefusal,
+)
 from beliefs.spec import Deterministic, Seeded, SeedPlan, SpecInput, derive_seed, freeze, revise
 
 CHECKPOINT_DIGEST = "sha256:" + "22" * 32
@@ -83,6 +93,50 @@ TARGET_FIT_B = PlannedJob(
     ("outputs/b.done",),
     False,
 )
+
+
+@pytest.mark.parametrize(
+    ("kind", "outcome"),
+    [
+        ("move", Moved("corpus-a", "corpus-b", "dataset:d1")),
+        (
+            "consolidate",
+            Consolidated("corpus-a", "dataset:d1", "corpus-b", "dataset:d2", ("u2",), "duplicate"),
+        ),
+    ],
+)
+def test_the_relocation_mint_authors_one_record_mutation(kind, outcome):
+    intent = OperationIntent(kind, "t" * 32, "actor")
+
+    minted = boundary._mint_relocation_report(
+        intent,
+        subject="dataset:d1",
+        corpus="corpus-a",
+        observer="o",
+        instrument="i",
+        opened_at="2026-09-03T10:00:00Z",
+        closed_at="2026-09-03T10:00:01Z",
+        outcome=outcome,
+    )
+
+    assert minted.operation == kind
+    assert minted.event_token == intent.event_token
+    assert minted.actor == intent.actor
+    assert minted.entries == (RecordMutationEntry("dataset:d1", "corpus-a", outcome),)
+
+
+def test_the_relocation_mint_refuses_a_foreign_intent_kind():
+    with pytest.raises(MalformedRecord):
+        boundary._mint_relocation_report(
+            OperationIntent("import", "t" * 32, "actor"),
+            subject="dataset:d1",
+            corpus="corpus-a",
+            observer="o",
+            instrument="i",
+            opened_at="2026-09-03T10:00:00Z",
+            closed_at="2026-09-03T10:00:01Z",
+            outcome=Moved("corpus-a", "corpus-b", "dataset:d1"),
+        )
 
 
 def test_a_rule_target_resolves_to_the_job_with_no_wildcards() -> None:

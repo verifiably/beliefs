@@ -112,7 +112,7 @@ def test_counter_retraction_targets_a_retraction_as_a_new_chain_link(writer):
     assert writer.read_view.holds(first.id)
 
 
-def test_retract_refuses_an_unresolvable_node_target(writer):
+def test_retract_uses_relocation_missing_for_an_absent_node_target(writer):
     absent = stored.retraction_node(
         title="absent",
         target=stored.NodeTarget("assessment:absent", "assessment:absent", "sha256:" + "cd" * 32),
@@ -123,7 +123,7 @@ def test_retract_refuses_an_unresolvable_node_target(writer):
         event_token="event-1",
     )
 
-    with pytest.raises(errors.RetractionTargetUnresolvable):
+    with pytest.raises(errors.RelocationTargetMissing):
         writer.retract(absent)
 
 

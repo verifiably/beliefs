@@ -14,12 +14,13 @@ import time
 from typing import Any, ClassVar, cast
 
 import pytest
+from fixtures_cut3 import report as mint_report
 from fixtures_cut6 import PINS
-from nodes.core.errors import CollisionError, ExecutionError, ValidationError
+from nodes.core.errors import CollisionError, ExecutionError, RefError, ValidationError
 from nodes.core.node import Node, NodeMetadata
 from nodes.core.write_plan import CreateOp, DefaultExecutor, DeleteOp, ReplaceOp
 
-from beliefs import stored
+from beliefs import boundary, stored
 from beliefs.corpus import CorpusWriter, OperationLock, _operation_lock_for
 from beliefs.errors import (
     BasisMissing,
@@ -29,10 +30,13 @@ from beliefs.errors import (
     ManifestAlreadyPresent,
     ManifestMalformed,
     RecordAlreadyMinted,
+    RevisionTargetMissing,
     ScienceError,
     ValidationRefused,
     WriteRefused,
 )
+from beliefs.identity import v1
+from beliefs.report import Moved, OperationIntent
 from beliefs.root import open_corpus
 from beliefs.world import load_manifest, manifest_bytes
 
@@ -53,10 +57,85 @@ class Recorder:
         self._inner.execute(plan)
 
 
+class OperationRecorder:
+    def __init__(self, root, *, intent_digest="ab" * 32):
+        self._inner = DefaultExecutor(root)
+        self.intent_digest = intent_digest
+        self.intents = []
+        self.executed = []
+        self.fulfilling = []
+
+    def append_intent(self, payload: bytes) -> str:
+        self.intents.append(payload)
+        return self.intent_digest
+
+    def execute(self, plan) -> None:
+        self.executed.append(list(plan))
+        self._inner.execute(plan)
+
+    def execute_fulfilling(self, plan, fulfills: str) -> None:
+        self.fulfilling.append((list(plan), fulfills))
+        self._inner.execute(plan)
+
+
 @pytest.fixture()
 def writer(tmp_path) -> CorpusWriter:
     Recorder.plans = []
     return CorpusWriter(tmp_path, Recorder)
+
+
+@pytest.fixture()
+def second_writer(tmp_path) -> CorpusWriter:
+    return CorpusWriter(tmp_path / "second", Recorder)
+
+
+def test_append_operation_intent_returns_the_validated_digest(tmp_path):
+    port = OperationRecorder(tmp_path)
+    writer = CorpusWriter(tmp_path, Recorder, operation_port=port)
+
+    digest = writer._append_operation_intent("move", "t" * 32, "actor")
+
+    assert digest == "ab" * 32
+    assert port.intents == [v1.encode({"kind": "move", "event_token": "t" * 32, "actor": "actor"})]
+
+
+@pytest.mark.parametrize("digest", ["bad", "AB" * 32, None])
+def test_append_operation_intent_refuses_a_malformed_digest(tmp_path, digest):
+    port = OperationRecorder(tmp_path, intent_digest=digest)
+    writer = CorpusWriter(tmp_path, Recorder, operation_port=port)
+
+    with pytest.raises(ExecutionError, match="intent digest"):
+        writer._append_operation_intent("move", "t" * 32, "actor")
+
+
+def test_publish_operation_report_fulfills_once_stores_and_reconstructs(tmp_path):
+    port = OperationRecorder(tmp_path)
+    writer = CorpusWriter(tmp_path, Recorder, operation_port=port)
+    intent = OperationIntent("move", "t" * 32, "actor")
+    report = boundary._mint_relocation_report(
+        intent,
+        subject="dataset:d1",
+        corpus="corpus-a",
+        observer="o",
+        instrument="i",
+        opened_at="2026-09-03T10:00:00Z",
+        closed_at="2026-09-03T10:00:01Z",
+        outcome=Moved("corpus-a", "corpus-b", "dataset:d1"),
+    )
+    original_view = writer.read_view
+
+    published = writer._publish_operation_report(report, "ab" * 32)
+
+    assert published is report
+    assert len(port.fulfilling) == 1
+    plan, fulfills = port.fulfilling[0]
+    assert len(plan) == 1 and isinstance(plan[0], CreateOp)
+    assert fulfills == "ab" * 32
+    assert port.executed == []
+    assert writer.read_view is not original_view
+    held = writer.read_view.get(f"act-report:{report.identity()}")
+    assert held.id == f"act-report:{report.identity()}"
+    assert stored.act_report_facet(held)["event_token"] == intent.event_token
 
 
 def observed_dataset(slug="raw"):
@@ -82,6 +161,103 @@ def admissible(writer: CorpusWriter, *, observes=True):
         outcome="supported",
         interpretation_rule="rule:threshold",
     )
+
+
+def test_add_locked_applies_every_ordinary_create_check(writer):
+    node = writer.add(stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"}))
+
+    with writer._operation, pytest.raises(RecordAlreadyMinted):
+        writer._add_locked(node)
+
+
+def test_replace_locked_rewrites_at_the_same_uid_and_id(writer):
+    node = writer.add(stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"}))
+    revised = node.model_copy(update={"title": "A paper, consolidated"})
+
+    with writer._operation:
+        result = writer._replace_locked(revised)
+
+    assert (result.uid, result.id) == (node.uid, node.id)
+    assert writer.read_view.get(node.id).title == "A paper, consolidated"
+
+
+def test_replace_locked_refuses_a_node_that_is_not_already_minted(writer):
+    absent = stored.source_node("s2", title="Another", identifiers={"doi": "10.1/xyz"})
+
+    with writer._operation, pytest.raises(RevisionTargetMissing):
+        writer._replace_locked(absent)
+
+
+def test_replace_locked_wraps_a_new_deprecated_id_collision(writer):
+    target = writer.add(stored.source_node("s1", title="One", identifiers={"doi": "10.1/one"}))
+    owned = writer.add(stored.source_node("s2", title="Two", identifiers={"doi": "10.1/two"}))
+    replacement = target.model_copy(update={"deprecated_ids": [owned.id]})
+
+    with writer._operation, pytest.raises(CollisionRefused) as refused:
+        writer._replace_locked(replacement)
+
+    assert isinstance(refused.value.__cause__, CollisionError)
+
+
+def test_the_locked_seams_carry_a_retraction(writer, second_writer):
+    target = writer.add(admissible(writer))
+    target_identity = stored.stored_semantic_hash(target)
+    assert target_identity is not None
+    record = writer.retract(
+        stored.retraction_node(
+            title="retraction",
+            target=stored.NodeTarget(target.id, target.id, target_identity),
+            reason="defective-code",
+            rationale="the recorded result is invalid",
+            grounds=("verification:v1",),
+            actor="tester",
+            event_token="event-1",
+        )
+    )
+
+    with second_writer._operation:
+        carried = second_writer._add_locked(record)
+        replaced = second_writer._replace_locked(carried)
+
+    assert carried.kind == replaced.kind == "retraction"
+
+
+def test_the_locked_seams_still_refuse_an_act_report(writer):
+    report = stored.act_report_node(mint_report())
+
+    with writer._operation, pytest.raises(
+        WriteRefused,
+        match="an act-report is minted by the boundary and stored by import",
+    ):
+        writer._add_locked(report)
+
+
+def test_replace_locked_runs_the_eligibility_check(writer):
+    node = writer.add(stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"}))
+    ineligible = node.model_copy(
+        update={
+            "relations": [
+                stored.Relation(source=node.id, predicate=stored.ASSESSES, target="proposition:p1")
+            ]
+        }
+    )
+
+    with writer._operation, pytest.raises(EligibilityUnmet):
+        writer._replace_locked(ineligible)
+
+
+def test_delete_locked_removes_the_record_and_checks_no_references(writer):
+    assessment = admissible(writer)
+    target = writer.read_view.get("proposition:p1")
+    writer.add(assessment)
+    assert writer.read_view.inbound(target.id)
+
+    with writer._operation:
+        writer._delete_locked(target.id)
+
+    assert [type(op) for op in Recorder.plans[-1]] == [DeleteOp]
+    with pytest.raises(RefError):
+        writer.read_view.get(target.id)
 
 
 class TestTheAddPathIsAddOnly:
