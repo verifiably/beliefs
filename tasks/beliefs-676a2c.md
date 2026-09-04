@@ -6,7 +6,7 @@ priority: 2
 size: xl
 owner: design/consolidate-family
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-04T01:54:05Z
+updated: 2026-09-04T02:10:27Z
 depends: []
 tags: [migration, mutation, world]
 ---
@@ -29,3 +29,4 @@ Uncertainty: The outcome is buildable, but the exact cut and interaction between
 - 2026-09-04T01:28:31Z (design/consolidate-family): Task 4 review fix 1/5: replacement-time deprecated-ID collisions now map to CollisionRefused; 50 corpus-write tests pass.
 - 2026-09-04T01:44:06Z (design/consolidate-family): Task 5 RED: missing beliefs.relocation; GREEN: 21 focused relocation/accessor tests, Ruff, and Pyright pass.
 - 2026-09-04T01:54:05Z (design/consolidate-family): Task 5 review fix 1/5: source-missing used-domain pin now has direct typed-refusal coverage; 22 tests, Ruff, and Pyright pass.
+- 2026-09-04T02:10:27Z (design/consolidate-family): Task 6 RED: missing relocation mint and writer helpers; GREEN: 117 focused tests plus 43 import regressions passed, Ruff and Pyright clean.

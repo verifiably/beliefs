@@ -96,9 +96,12 @@ from beliefs.recipe import (
 from beliefs.report import (
     ActReport,
     AssessmentRunIntent,
+    Consolidated,
     ImportedRecords,
+    Moved,
     OperationIntent,
     RecordImportEntry,
+    RecordMutationEntry,
     Registration,
     RunAttemptEntry,
     RunRefusal,
@@ -255,6 +258,31 @@ def _mint_import_report(
         opened_at=opened_at,
         closed_at=closed_at,
         entries=(RecordImportEntry(subject, ImportedRecords(refs, findings)),),
+    )
+
+
+def _mint_relocation_report(
+    intent: OperationIntent,
+    *,
+    subject: str,
+    corpus: str,
+    observer: str,
+    instrument: str,
+    opened_at: str,
+    closed_at: str,
+    outcome: Moved | Consolidated,
+) -> ActReport:
+    if type(intent) is not OperationIntent or intent.kind not in ("move", "consolidate"):
+        raise MalformedRecord("a relocation report requires a move or consolidate operation intent")
+    return _mint_report(
+        operation=intent.kind,
+        event_token=intent.event_token,
+        actor=intent.actor,
+        observer=observer,
+        instrument=instrument,
+        opened_at=opened_at,
+        closed_at=closed_at,
+        entries=(RecordMutationEntry(subject=subject, corpus=corpus, outcome=outcome),),
     )
 
 

@@ -1419,6 +1419,37 @@ class CorpusWriter:
             )
             return manifest
 
+    def _append_operation_intent(self, kind: str, token: str, actor: str) -> str:
+        intent = OperationIntent(kind, token, actor)
+        operation_port = self._operation_port
+        assert operation_port is not None
+        digest = operation_port.append_intent(
+            v1.encode({"kind": intent.kind, "event_token": intent.event_token, "actor": intent.actor})
+        )
+        if (
+            type(digest) is not str
+            or len(digest) != 64
+            or any(character not in "0123456789abcdef" for character in digest)
+        ):
+            raise ExecutionError(
+                "operation port returned a malformed intent digest; expected 64 lowercase hexadecimal characters",
+                index=None,
+                applied=0,
+            )
+        return digest
+
+    def _publish_operation_report(
+        self,
+        report: report_values.ActReport,
+        intent_digest: str,
+    ) -> report_values.ActReport:
+        operation_port = self._operation_port
+        assert operation_port is not None
+        node = stored.act_report_node(report)
+        operation_port.execute_fulfilling([self._create_op(node)], intent_digest)
+        self._reconstruct()
+        return report
+
     def import_bundle(
         self,
         records: Sequence[Node],
@@ -1463,19 +1494,7 @@ class CorpusWriter:
                 raise ImportRefused("this corpus has no operation port; import is a boundary operation")
 
             intent = OperationIntent("import", secrets.token_hex(16), actor)
-            intent_digest = self._operation_port.append_intent(
-                v1.encode({"kind": intent.kind, "event_token": intent.event_token, "actor": intent.actor})
-            )
-            if (
-                type(intent_digest) is not str
-                or len(intent_digest) != 64
-                or any(character not in "0123456789abcdef" for character in intent_digest)
-            ):
-                raise ExecutionError(
-                    "operation port returned a malformed intent digest; expected 64 lowercase hexadecimal characters",
-                    index=None,
-                    applied=0,
-                )
+            intent_digest = self._append_operation_intent(intent.kind, intent.event_token, intent.actor)
             try:
                 findings, payload = self._validate_import_bundle(bundle)
                 report = self._import_report(
@@ -1488,7 +1507,7 @@ class CorpusWriter:
                     findings=findings,
                 )
                 try:
-                    report_op = self._validated_import_op(stored.act_report_node(report))
+                    self._validated_import_op(stored.act_report_node(report))
                 except MalformedRecord as caught:
                     raise ImportRefused("import success report is not canonically storable") from caught
             except ScienceError as caught:
@@ -1504,8 +1523,7 @@ class CorpusWriter:
                     findings=(finding,),
                 )
                 report_node = stored.act_report_node(report)
-                self._operation_port.execute_fulfilling([self._create_op(report_node)], intent_digest)
-                self._reconstruct()
+                self._publish_operation_report(report, intent_digest)
                 refused.report_ref = report_node.id
                 if refused is caught:
                     raise
@@ -1513,9 +1531,7 @@ class CorpusWriter:
 
             self._corpus.executor.execute(payload)
             self._reconstruct()
-            self._operation_port.execute_fulfilling([report_op], intent_digest)
-            self._reconstruct()
-            return report
+            return self._publish_operation_report(report, intent_digest)
 
     def retract(self, record: Node) -> Node:
         """Mint one locally resolvable retraction without touching its target."""
