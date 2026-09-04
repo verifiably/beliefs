@@ -6,12 +6,22 @@ _ACCEPTANCE = "acceptance/test_relocation_acceptance.py"
 
 CUT16_ARMS = (
     Arm(
-        row="W5",
+        row="W5a",
         asserts="a move preserves the carried record's identity and producer semantics",
         sabotage=Sabotage(
             module="relocation.py",
             before="        moved = destination._add_locked(node)\n",
             after=('        moved = destination._add_locked(node.model_copy(update={"uid": "0" * 32}))\n'),
+        ),
+        checks=(f"{_ACCEPTANCE}::test_w5_move_changes_only_location_and_preserves_producer_semantics",),
+    ),
+    Arm(
+        row="W5b",
+        asserts="each producer receipt subjects the actual producer snapshot it accompanies",
+        sabotage=Sabotage(
+            module="world/derive.py",
+            before='        "producer": (snapshot.identity(), None, None),\n',
+            after='        "producer": ("0" * 64, None, None),\n',
         ),
         checks=(f"{_ACCEPTANCE}::test_w5_move_changes_only_location_and_preserves_producer_semantics",),
     ),
@@ -68,6 +78,16 @@ CUT16_ARMS = (
             after=(
                 '    if tag == "conflict" and (\n        len(set(keys)) != len(keys) or keys != sorted(keys)\n    ):\n'
             ),
+        ),
+        checks=(f"{_ACCEPTANCE}::test_w16_consolidates_one_address_without_asserting_identity",),
+    ),
+    Arm(
+        row="W16f",
+        asserts="consolidation leaves a published meaningful coreference balance unchanged",
+        sabotage=Sabotage(
+            module="world/epoch.py",
+            before='    coreference = derive.coreference_map(draft.run("coreference-reduction"))\n',
+            after="    coreference = derive.CoreferenceMap(pairs={})\n",
         ),
         checks=(f"{_ACCEPTANCE}::test_w16_consolidates_one_address_without_asserting_identity",),
     ),
@@ -164,7 +184,17 @@ CUT16_ARMS = (
         checks=(f"{_ACCEPTANCE}::test_w16_consolidates_one_address_without_asserting_identity",),
     ),
     Arm(
-        row="M3",
+        row="R23d",
+        asserts="each divergent basis begins as a single stamped by its certified production boundary",
+        sabotage=Sabotage(
+            module="production.py",
+            before="        stamped=prior is None,\n",
+            after="        stamped=False,\n",
+        ),
+        checks=(f"{_ACCEPTANCE}::test_w16_consolidates_one_address_without_asserting_identity",),
+    ),
+    Arm(
+        row="M3a",
         asserts="consolidation carries an equal-basis retraction replica without rewriting its counter",
         sabotage=Sabotage(
             module="corpus.py",
@@ -177,7 +207,30 @@ CUT16_ARMS = (
         checks=(f"{_ACCEPTANCE}::test_m3_consolidates_retraction_replicas_without_touching_the_counter",),
     ),
     Arm(
-        row="T2",
+        row="M3b",
+        asserts="consolidation registers no identical rewrite or remint of the counter",
+        sabotage=Sabotage(
+            module="relocation.py",
+            before=(
+                "        other_writer._delete_locked(other_node.id)\n"
+                "        keep_writer._publish_operation_report(\n"
+            ),
+            after=(
+                "        other_writer._delete_locked(other_node.id)\n"
+                "        keep_writer._replace_locked(\n"
+                "            next(\n"
+                "                node\n"
+                "                for node in keep_writer.read_view.iter_stored()\n"
+                '                if node.kind == "retraction" and node.id != keep_node.id\n'
+                "            )\n"
+                "        )\n"
+                "        keep_writer._publish_operation_report(\n"
+            ),
+        ),
+        checks=(f"{_ACCEPTANCE}::test_m3_consolidates_retraction_replicas_without_touching_the_counter",),
+    ),
+    Arm(
+        row="T2a",
         asserts="each touched root records one intent and one qualifying report in order",
         sabotage=Sabotage(
             module="corpus.py",
@@ -187,12 +240,98 @@ CUT16_ARMS = (
         checks=(f"{_ACCEPTANCE}::test_t2_each_root_records_one_intent_before_one_qualifying_report",),
     ),
     Arm(
-        row="T8",
+        row="T2b",
+        asserts="each move intent precedes its root-local add or delete data act",
+        sabotage=Sabotage(
+            module="relocation.py",
+            before=(
+                "        destination_intent = destination._append_operation_intent(\n"
+                "            intent.kind, intent.event_token, intent.actor\n"
+                "        )\n"
+                "        source_intent = source._append_operation_intent(\n"
+                "            intent.kind, intent.event_token, intent.actor\n"
+                "        )\n"
+                "        moved = destination._add_locked(node)\n"
+                "        source._delete_locked(node.id)\n"
+            ),
+            after=(
+                "        moved = destination._add_locked(node)\n"
+                "        source._delete_locked(node.id)\n"
+                "        destination_intent = destination._append_operation_intent(\n"
+                "            intent.kind, intent.event_token, intent.actor\n"
+                "        )\n"
+                "        source_intent = source._append_operation_intent(\n"
+                "            intent.kind, intent.event_token, intent.actor\n"
+                "        )\n"
+            ),
+        ),
+        checks=(f"{_ACCEPTANCE}::test_t2_each_root_records_one_intent_before_one_qualifying_report",),
+    ),
+    Arm(
+        row="T2c",
+        asserts="each consolidate intent precedes its root-local replace or delete data act",
+        sabotage=Sabotage(
+            module="relocation.py",
+            before=(
+                "        keep_intent = keep_writer._append_operation_intent(\n"
+                "            intent.kind, intent.event_token, intent.actor\n"
+                "        )\n"
+                "        other_intent = other_writer._append_operation_intent(\n"
+                "            intent.kind, intent.event_token, intent.actor\n"
+                "        )\n"
+                "        survivor = keep_writer._replace_locked(merged)\n"
+                "        other_writer._delete_locked(other_node.id)\n"
+            ),
+            after=(
+                "        survivor = keep_writer._replace_locked(merged)\n"
+                "        other_writer._delete_locked(other_node.id)\n"
+                "        keep_intent = keep_writer._append_operation_intent(\n"
+                "            intent.kind, intent.event_token, intent.actor\n"
+                "        )\n"
+                "        other_intent = other_writer._append_operation_intent(\n"
+                "            intent.kind, intent.event_token, intent.actor\n"
+                "        )\n"
+            ),
+        ),
+        checks=(f"{_ACCEPTANCE}::test_t2_each_root_records_one_intent_before_one_qualifying_report",),
+    ),
+    Arm(
+        row="T8a",
         asserts="both public relocation operations refuse an act-report input",
         sabotage=Sabotage(
             module="relocation.py",
             before="    if node.kind in EXCLUDED_KINDS:\n",
             after="    if False:\n",
+        ),
+        checks=(f"{_ACCEPTANCE}::test_t8_move_and_consolidate_refuse_act_reports",),
+    ),
+    Arm(
+        row="T8b",
+        asserts="a refused consolidate retains its report and changes neither root log",
+        sabotage=Sabotage(
+            module="relocation.py",
+            before=(
+                "        _refuse_excluded_kind(keep_node)\n"
+                "        _refuse_excluded_kind(other_node)\n"
+            ),
+            after=(
+                "        keep_writer._delete_locked(keep_node.id)\n"
+                "        _refuse_excluded_kind(keep_node)\n"
+                "        _refuse_excluded_kind(other_node)\n"
+            ),
+        ),
+        checks=(f"{_ACCEPTANCE}::test_t8_move_and_consolidate_refuse_act_reports",),
+    ),
+    Arm(
+        row="T8c",
+        asserts="a refused move retains its report and changes neither root log",
+        sabotage=Sabotage(
+            module="relocation.py",
+            before="        _refuse_excluded_kind(node)\n",
+            after=(
+                "        source._delete_locked(node.id)\n"
+                "        _refuse_excluded_kind(node)\n"
+            ),
         ),
         checks=(f"{_ACCEPTANCE}::test_t8_move_and_consolidate_refuse_act_reports",),
     ),
@@ -252,12 +391,24 @@ CUT16_ARMS = (
 )
 
 _UNIT_OF = {
+    "W5a": "W5",
+    "W5b": "W5",
     **{f"W16{letter}": "W16" for letter in "abcde"},
+    "W16f": "W16",
     "D7a": "D7",
     "D7b": "D7",
     "R23a": "R23",
     "R23b": "R23",
     "R23c": "R23",
+    "R23d": "R23",
+    "M3a": "M3",
+    "M3b": "M3",
+    "T2a": "T2",
+    "T2b": "T2",
+    "T2c": "T2",
+    "T8a": "T8",
+    "T8b": "T8",
+    "T8c": "T8",
     "boundary-reresolution-a": "boundary-reresolution",
     "boundary-reresolution-b": "boundary-reresolution",
 }

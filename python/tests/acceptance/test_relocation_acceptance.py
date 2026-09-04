@@ -6,21 +6,26 @@ import inspect
 import os
 import shutil
 from dataclasses import replace
+from hashlib import sha256
 from itertools import count
 from pathlib import Path
 
 import pytest
 import yaml
+from durable_fixture import basis, route, slug
 from fixtures_cut3 import report as sample_report
 from fixtures_cut6 import PINS
+from fixtures_cut15 import SNAKEFILE_CONSTANT_PRODUCTION, run_workflow
 from nodes.core.errors import RefError
+from nodes.core.frontmatter import node_from_markdown
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 from test_belief import scenario as belief_scenario
 from test_world_epoch import derivation_bindings
 
-from beliefs import relocation, root, stored
+from beliefs import relocation, root, runrecord, stored
 from beliefs.belief import Belief, evaluate
+from beliefs.boundary import RunMinted
 from beliefs.consulted import CorpusPins
 from beliefs.corpus import lineage_snapshot
 from beliefs.errors import (
@@ -33,7 +38,10 @@ from beliefs.errors import (
 )
 from beliefs.identity import v1
 from beliefs.lineage import certify
-from beliefs.world import WorldConfig, derive, epoch, registry
+from beliefs.production import mint_dataset
+from beliefs.recipe import RecipeInput
+from beliefs.runrecord import run_ref
+from beliefs.world import WorldConfig, derive, epoch, registry, rules
 from beliefs.world.logmodel import IntentEntryView, RegisteredEntryView, WellFormedView
 
 MOVE_FIELDS = {
@@ -46,6 +54,27 @@ MOVE_FIELDS = {
 CONSOLIDATE_FIELDS = {**MOVE_FIELDS, "rationale": "keep the authored record"}
 
 _COUNTER = count()
+
+_COREFERENCE_BALANCE = {
+    "pairs": [
+        {
+            "endpoints": ["dataset:subject-a", "dataset:subject-b"],
+            "balance": 1,
+            "distinct_key_count": 1,
+        }
+    ]
+}
+_COREFERENCE_SOURCE = b'''def reduce_coreference(capture):
+    return {
+        "pairs": [
+            {
+                "endpoints": ["dataset:subject-a", "dataset:subject-b"],
+                "balance": 1,
+                "distinct_key_count": 1,
+            }
+        ]
+    }
+'''
 
 
 @pytest.fixture()
@@ -82,6 +111,23 @@ def durable_factory(work_directory):
 def _publish(case):
     world, coverage, bindings = case
     return epoch.build_epoch(world, coverage=frozenset(coverage), bindings=bindings)
+
+
+def _with_coreference_balance(case):
+    world, coverage, bindings = case
+    fixture = yaml.safe_dump(
+        {"input": {"coverage": [], "records": []}, "expected": _COREFERENCE_BALANCE},
+        sort_keys=False,
+    ).encode()
+    binding = rules.install_rule_binding(
+        world,
+        rules.RuleBundle(
+            symbol="reduce_coreference",
+            fixtures=(("cut16.balance.yaml", fixture),),
+            implementation=_COREFERENCE_SOURCE,
+        ),
+    )
+    return world, coverage, replace(bindings, coreference=binding)
 
 
 def _published_snapshot(published):
@@ -194,6 +240,84 @@ def _entries(corpus_root: Path):
     return view.entries
 
 
+def _registrations_for_path(corpus_root: Path, path: str):
+    return tuple(
+        entry
+        for entry in _entries(corpus_root)
+        if type(entry) is RegisteredEntryView
+        and path in {name for name, _state in (*entry.initial, *entry.final)}
+    )
+
+
+def _produce_single_basis(
+    producer,
+    writer,
+    work_dir: Path,
+    *,
+    input_address: str,
+    text: str,
+    deprecated_ids: tuple[str, ...],
+    relations: tuple[tuple[str, str, dict[str, str]], ...],
+):
+    held = work_dir / "data.txt"
+    work_dir.mkdir(parents=True, exist_ok=True)
+    held.write_text(text)
+    digest = "sha256:" + sha256(held.read_bytes()).hexdigest()
+    writer.add(
+        stored.dataset_node(
+            slug(input_address),
+            title=slug(input_address),
+            resources=[{"name": "data", "digest": digest}],
+        )
+    )
+    assert producer._operation_port is not None
+    outcome = run_workflow(
+        work_dir / "workflow",
+        port=producer._operation_port,
+        snakefile=SNAKEFILE_CONSTANT_PRODUCTION,
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        inputs=(RecipeInput(role="transforms", dataset=input_address, content=digest),),
+        held_inputs={input_address: held},
+    )
+    assert isinstance(outcome, RunMinted)
+    minted = mint_dataset(outcome.run, existing_bases={})
+    assert minted.stamped is True
+    assert minted.basis.run == outcome.run.address()
+    _record_id, _path, (run_operation,) = runrecord.publication_plan(outcome.run)
+    run_node = node_from_markdown(run_operation.content.decode())
+    candidate = stored.dataset_node(
+        slug(minted.address),
+        title="duplicate",
+        resources=[{"name": name, "digest": value} for name, value in outcome.run.result.outputs],
+        basis=basis(
+            route(
+                run_ref(minted.basis.run),
+                input_address,
+                [input_address],
+            )
+        ),
+    )
+    candidate.deprecated_ids = list(deprecated_ids)
+    candidate.relations = [
+        Relation(source=candidate.id, predicate=predicate, target=target, attrs=attrs)
+        for predicate, target, attrs in relations
+    ]
+    writer.import_bundle(
+        [run_node, candidate],
+        actor="cut16",
+        observer="observer",
+        instrument="instrument",
+        opened_at=MOVE_FIELDS["opened_at"],
+        closed_at=MOVE_FIELDS["closed_at"],
+    )
+    record = writer.read_view.get(candidate.id)
+    snapshot = lineage_snapshot(writer.read_view, (record.id,))
+    assert snapshot.bases[record.id].tag == "single"
+    assert all(item.resolved_run and item.resolved_ancestor for item in snapshot.bases[record.id].routes)
+    return record, snapshot.bases[record.id]
+
+
 def test_w5_move_changes_only_location_and_preserves_producer_semantics(durable_factory):
     writer, make_world = durable_factory
     source = writer("w5-source")
@@ -239,6 +363,8 @@ def test_w5_move_changes_only_location_and_preserves_producer_semantics(durable_
     )
     before_receipt = produced["before"].receipts["producer-receipt.yaml"]
     after_receipt = produced["after"].receipts["producer-receipt.yaml"]
+    assert before_receipt.subject_identity == _published_snapshot(produced["before"]).identity()
+    assert after_receipt.subject_identity == _published_snapshot(produced["after"]).identity()
     assert before_receipt.subject_identity == after_receipt.subject_identity
     assert before_receipt.identity != after_receipt.identity
     assert _belief_digest(produced["before"]) == _belief_digest(produced["after"])
@@ -271,10 +397,12 @@ def test_r23_location_and_receipt_identity_are_not_belief_inputs(durable_factory
     assert _belief_digest(moved["before"]) == _belief_digest(moved["after"])
 
 
-def test_w16_consolidates_one_address_without_asserting_identity(durable_factory):
-    writer, _ = durable_factory
+def test_w16_consolidates_one_address_without_asserting_identity(durable_factory, tmp_path):
+    writer, make_world = durable_factory
     keep_writer = writer("w16-keep")
     other_writer = writer("w16-other")
+    keep_producer = writer("w16-keep-producer")
+    other_producer = writer("w16-other-producer")
     for name in ("a", "z", "independent"):
         keep_writer.add(
             stored.dataset_node(
@@ -283,21 +411,36 @@ def test_w16_consolidates_one_address_without_asserting_identity(durable_factory
                 resources=[{"name": "data", "digest": "sha256:" + "a" * 64}],
             )
         )
-    for name in ("a", "z"):
-        keep_writer.add(stored.run_node(name, title=name, spec=f"analysis-spec:{name}"))
-
-    keep = _dataset("duplicate", ["z"]).model_copy(update={"deprecated_ids": ["dataset:old-a"]})
-    keep.relations = [
-        Relation(source=keep.id, predicate="derived-from", target="dataset:z"),
-        Relation(source=keep.id, predicate="shared", target="dataset:shared", attrs={"side": "keep"}),
-    ]
-    other = _dataset("duplicate", ["a"]).model_copy(update={"deprecated_ids": ["dataset:old-b"]})
-    other.relations = [
-        Relation(source=other.id, predicate="derived-from", target="dataset:a"),
-        Relation(source=other.id, predicate="shared", target="dataset:shared", attrs={"side": "other"}),
-    ]
-    keep = keep_writer.add(keep)
-    other = other_writer.add(other)
+    keep, keep_basis = _produce_single_basis(
+        keep_producer,
+        keep_writer,
+        tmp_path / "w16-keep-production",
+        input_address="dataset:input",
+        text="keep input",
+        deprecated_ids=("dataset:old-a",),
+        relations=(
+            ("derived-from", "dataset:a", {}),
+            ("shared", "dataset:shared", {"side": "keep"}),
+        ),
+    )
+    other, other_basis = _produce_single_basis(
+        other_producer,
+        other_writer,
+        tmp_path / "w16-other-production",
+        input_address="dataset:input",
+        text="other input",
+        deprecated_ids=("dataset:old-b",),
+        relations=(
+            ("derived-from", "dataset:z", {}),
+            ("shared", "dataset:shared", {"side": "other"}),
+        ),
+    )
+    assert keep.id == other.id
+    assert keep_basis.tag == other_basis.tag == "single"
+    assert keep_basis.routes != other_basis.routes
+    other_run = other_basis.routes[0].resolved_run
+    assert other_run is not None
+    relocation.move(other_writer, keep_writer, other_run, **MOVE_FIELDS)
     inbound = keep_writer.add(
         Node(
             id="memo:inbound",
@@ -307,8 +450,16 @@ def test_w16_consolidates_one_address_without_asserting_identity(durable_factory
         )
     )
     inbound_before = keep_writer.read_view.get(inbound.id)
+    world, _coverage, bindings = _with_coreference_balance(make_world("w16", keep_writer, other_writer))
+    before = _publish((world, (keep_writer.corpus_id,), bindings))
+    assert yaml.safe_load(before.members["coreference-map.yaml"]) == _COREFERENCE_BALANCE
+    assert all(
+        lineage_snapshot(corpus.read_view, (record.id,)).bases[record.id].tag == "single"
+        for corpus, record in ((keep_writer, keep), (other_writer, other))
+    )
 
     survivor, _, _ = relocation.consolidate((keep_writer, keep.id), (other_writer, other.id), **CONSOLIDATE_FIELDS)
+    after = _publish((world, (keep_writer.corpus_id,), bindings))
 
     assert survivor.uid == keep.uid and survivor.uid != other.uid
     assert survivor.id == keep.id
@@ -321,10 +472,14 @@ def test_w16_consolidates_one_address_without_asserting_identity(durable_factory
     }
     shared = [r for r in survivor.relations if r.predicate == "shared"]
     assert len(shared) == 1 and shared[0].attrs == {"side": "keep"}
-    assert survivor.facets[stored.LINEAGE_BASIS_FACET] == {
-        "tag": "conflict",
-        "routes": [_route("a"), _route("z")],
-    }
+    assert survivor.facets[stored.LINEAGE_BASIS_FACET]["tag"] == "conflict"
+    assert survivor.facets[stored.LINEAGE_BASIS_FACET]["routes"] == sorted(
+        survivor.facets[stored.LINEAGE_BASIS_FACET]["routes"],
+        key=v1.encode,
+    )
+    assert len(survivor.facets[stored.LINEAGE_BASIS_FACET]["routes"]) == 2
+    assert yaml.safe_load(after.members["coreference-map.yaml"]) == _COREFERENCE_BALANCE
+    assert before.members["coreference-map.yaml"] == after.members["coreference-map.yaml"]
     assert keep_writer.read_view.get(inbound.id) == inbound_before
     assert not other_writer.read_view.holds(other.id)
     assert [
@@ -483,11 +638,15 @@ def test_m3_consolidates_retraction_replicas_without_touching_the_counter(durabl
         )
     )
     counter_before = keep.read_view.get(counter.id)
+    counter_path = keep._relative_path(counter)
+    counter_registrations_before = _registrations_for_path(keep.root, counter_path)
+    assert len(counter_registrations_before) == 1
 
     survivor, _, _ = relocation.consolidate((keep, first.id), (other, first.id), **CONSOLIDATE_FIELDS)
 
     assert stored.stored_semantic_hash(survivor) == first_identity
     assert keep.read_view.get(counter.id) == counter_before
+    assert _registrations_for_path(keep.root, counter_path) == counter_registrations_before
     assert counter.relations[0].target == first.id
 
 
@@ -501,12 +660,12 @@ def test_t2_each_root_records_one_intent_before_one_qualifying_report(durable_fa
     starts = {corpus.root: len(_entries(corpus.root)) for corpus in (keep, other)}
     _, keep_report, other_report = relocation.consolidate((keep, kept.id), (other, duplicate.id), **CONSOLIDATE_FIELDS)
     operations = (
-        ("move", moved["destination"], moved["destination_report"]),
-        ("move", moved["source"], moved["source_report"]),
-        ("consolidate", keep, keep_report),
-        ("consolidate", other, other_report),
+        ("move", moved["destination"], moved["destination_report"], moved["dataset"], True),
+        ("move", moved["source"], moved["source_report"], moved["dataset"], False),
+        ("consolidate", keep, keep_report, kept, True),
+        ("consolidate", other, other_report, duplicate, False),
     )
-    for kind, corpus, report in operations:
+    for kind, corpus, report, record, retained in operations:
         assert report.opened_at == MOVE_FIELDS["opened_at"]
         assert report.closed_at == MOVE_FIELDS["closed_at"]
         start = starts[corpus.root] if kind == "consolidate" else moved["entry_starts"][corpus.root]
@@ -515,11 +674,21 @@ def test_t2_each_root_records_one_intent_before_one_qualifying_report(durable_fa
         assert len(intents) == 1
         payload = v1.decode(intents[0].payload)
         assert payload == {"kind": kind, "event_token": report.event_token, "actor": MOVE_FIELDS["actor"]}
+        data_path = corpus._relative_path(record)
+        data_acts = [
+            entry
+            for entry in entries
+            if type(entry) is RegisteredEntryView
+            and entry.fulfills is None
+            and data_path in {name for name, _state in (*entry.initial, *entry.final)}
+        ]
+        assert len(data_acts) == 1
         fulfilling = [
             entry for entry in entries if type(entry) is RegisteredEntryView and entry.fulfills == intents[0].digest
         ]
         assert len(fulfilling) == 1
-        assert entries.index(intents[0]) < entries.index(fulfilling[0])
+        assert entries.index(intents[0]) < entries.index(data_acts[0]) < entries.index(fulfilling[0])
+        assert corpus.read_view.holds(record.id) is retained
         assert corpus.read_view.holds(f"act-report:{report.identity()}")
     assert moved["destination_report"].event_token == moved["source_report"].event_token
     assert keep_report.event_token == other_report.event_token
@@ -536,26 +705,33 @@ def test_t8_move_and_consolidate_refuse_act_reports(durable_factory):
     move_destination = writer("t8-move-destination")
     report = sample_report()
     _store_report(move_source, report)
-    before = len(_entries(move_source.root))
+    move_before = {corpus.root: _entries(corpus.root) for corpus in (move_source, move_destination)}
+    report_id = f"act-report:{report.identity()}"
     with pytest.raises(RelocationKindExcluded):
         relocation.move(
             move_source,
             move_destination,
-            f"act-report:{report.identity()}",
+            report_id,
             **MOVE_FIELDS,
         )
-    assert len(_entries(move_source.root)) == before
+    assert move_source.read_view.holds(report_id)
+    assert not move_destination.read_view.holds(report_id)
+    assert {corpus.root: _entries(corpus.root) for corpus in (move_source, move_destination)} == move_before
 
     keep = writer("t8-consolidate-keep")
     other = writer("t8-consolidate-other")
     _store_report(keep, report)
     ordinary = other.add(stored.source_node("ordinary", title="ordinary", identifiers={"doi": "10.1/ordinary"}))
+    consolidate_before = {corpus.root: _entries(corpus.root) for corpus in (keep, other)}
     with pytest.raises(RelocationKindExcluded):
         relocation.consolidate(
-            (keep, f"act-report:{report.identity()}"),
+            (keep, report_id),
             (other, ordinary.id),
             **CONSOLIDATE_FIELDS,
         )
+    assert keep.read_view.holds(report_id)
+    assert other.read_view.holds(ordinary.id)
+    assert {corpus.root: _entries(corpus.root) for corpus in (keep, other)} == consolidate_before
 
 
 def test_boundary_reresolution_refuses_both_create_only_calls_after_real_move(durable_factory, monkeypatch):
