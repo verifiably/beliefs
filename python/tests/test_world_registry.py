@@ -372,7 +372,7 @@ def test_terminal_target_must_be_known_and_refusal_writes_nothing(tmp_path):
     assert registry_paths(instance) == ()
 
 
-def test_status_retry_is_idempotent_and_a_differing_terminal_act_refuses(tmp_path):
+def test_status_retry_is_idempotent_and_differing_terminal_acts_refuse(tmp_path):
     corpus = tmp_path / "corpus"
     write_manifest(corpus, "1" * 32)
     instance = make_world(tmp_path, corpus)

@@ -108,6 +108,7 @@ to assert that, byte for byte.
 """
 
 RENAME_COMMIT = "5a02ca2"
+WRITE_PERMITS_MIGRATION_COMMIT = "659cc6e"
 """The whole-repo science→beliefs mechanical rename (ledger R7). Re-pins a
 file whose only post-freeze edit was that rename's import strings."""
 
@@ -122,7 +123,9 @@ FROZEN_PRIOR_CUT_FILES = {
     # against the commit that gave it its present content rather than against
     # the pre-move tree it audits, which it has legitimately differed from since
     # `f703913`. Re-pinned again across the rename (ledger R7).
-    "python/tests/acceptance/test_n2_cut6.py": RENAME_COMMIT,
+    # Write permits deliberately migrated this audit's lifecycle and world
+    # seam calls; 659cc6e is the first commit holding the complete migration.
+    "python/tests/acceptance/test_n2_cut6.py": WRITE_PERMITS_MIGRATION_COMMIT,
 }
 """Each prior-cut surface and the commit whose content it must still hold."""
 
