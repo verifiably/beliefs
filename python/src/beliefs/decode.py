@@ -37,6 +37,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
+from nodes.core.node import Node
+
 from beliefs.claim import Claim, Qualifier, Referent
 from beliefs.errors import ArityMismatch, MalformedWireClaim, UnboundReferent, UndeclaredDimension
 from beliefs.profile import ProfileSpec
@@ -49,7 +51,7 @@ from beliefs.resolution import (
     _emit_receipt,
 )
 
-__all__ = ["WireClaim", "decode_claim"]
+__all__ = ["WireClaim", "claim_from_stored", "decode_claim"]
 
 
 @dataclass(frozen=True)
@@ -207,3 +209,43 @@ def decode_claim(
 
 def _resolve(profile: ProfileSpec, snapshot: ResolutionSnapshot, referent: Referent) -> TermOutcome:
     return snapshot.resolve(profile.sorts[referent.sort].vocabulary, referent.term)
+
+
+_STORED_CLAIM_KEYS = frozenset({"operator", "args", "qualifiers", "polarity", "layer"})
+_STORED_QUALIFIER_BODY_KEYS = frozenset({"quantifier", "restriction"})
+
+
+def claim_from_stored(node: Node, *, profile: ProfileSpec, snapshot: ResolutionSnapshot) -> tuple[Claim, BindingCheckReceipt]:
+    """Restore a `Claim` from a stored proposition's covered claim facet.
+
+    The wire value is built **here** and consumed **here** — `WireClaim` still
+    never leaves this module (M13) — and typing is delegated to `decode_claim`
+    rather than duplicated, so the check still happens once, in one place.
+    Every ill-formed input refuses **before** delegation, with nothing minted
+    and no `KeyError` or `AttributeError` on the way in (M11): a restore helper
+    is exactly where "be liberal in what you accept" would defeat the row.
+    """
+    if not isinstance(node, Node) or node.kind != "proposition":
+        raise MalformedWireClaim(f"claim_from_stored restores a proposition node, found {type(node).__name__}")
+    facet = node.facets.get("proposition")  # stored.PROPOSITION_FACET; restated to keep decode.py free of stored.py
+    if not isinstance(facet, Mapping):
+        raise MalformedWireClaim(f"{node.id}: no covered claim facet")
+    keys = set(facet)
+    if keys != _STORED_CLAIM_KEYS:
+        missing, extra = sorted(_STORED_CLAIM_KEYS - keys), sorted(keys - _STORED_CLAIM_KEYS)
+        raise MalformedWireClaim(f"{node.id}: claim facet missing {missing}, extra {extra}; refused, never repaired")
+    if isinstance(facet["args"], str) or not isinstance(facet["args"], Sequence):
+        raise MalformedWireClaim(f"{node.id}: args is not a sequence")
+    if not isinstance(facet["qualifiers"], Mapping):
+        raise MalformedWireClaim(f"{node.id}: qualifiers is not a mapping")
+    for dimension, body in facet["qualifiers"].items():
+        if not isinstance(body, Mapping) or set(body) != _STORED_QUALIFIER_BODY_KEYS:
+            raise MalformedWireClaim(f"{node.id}: qualifiers[{dimension!r}] is not a well-formed qualifier body")
+    wire = WireClaim(
+        operator=facet["operator"],
+        args=tuple(facet["args"]),
+        qualifiers=facet["qualifiers"],
+        polarity=facet["polarity"],
+        layer=facet["layer"],
+    )
+    return decode_claim(wire, profile=profile, snapshot=snapshot)
