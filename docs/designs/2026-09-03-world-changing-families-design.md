@@ -470,7 +470,9 @@ in both cuts rather than argued:
    They may not rely on a resolution taken earlier in the call, and they may not
    infer from "no family removes it" that it is still there. The relocation cut
    declares the arm for a target moved away; the deletion cut declares it for a
-   target deleted.
+   target deleted. Local absence does not reveal whether the target never
+   existed or was removed, so this final under-lock missing-target check uses
+   `RelocationTargetMissing` for either history.
 2. **Each distinct resolved root is locked exactly once, in sorted order.** Two
    opposing relocations therefore cannot deadlock, and a two-root operation
    holds both locks across its whole read-refuse-plan-execute sequence.

@@ -18,7 +18,11 @@ from test_world_epoch import derivation_bindings, make_world, publish
 
 from beliefs import relocation, stored
 from beliefs.belief import Belief, evaluate
-from beliefs.errors import ContractPinDisagreement, RelocationKindExcluded
+from beliefs.errors import (
+    ContractPinDisagreement,
+    RelocationKindExcluded,
+    RelocationTargetMissing,
+)
 from beliefs.world import derive, registry
 
 
@@ -290,3 +294,73 @@ def test_t8_move_refuses_an_act_report_subject(tmp_path):
     assert source.read_view.holds(f"act-report:{report.identity()}")
     assert not destination.read_view.holds(f"act-report:{report.identity()}")
     assert source_port.intents == []
+
+
+def test_retract_refuses_a_target_moved_away(tmp_path):
+    """§3.6 clause 1, through the operation that creates the state."""
+    source = _writer(tmp_path / "source", domains=PINS.domains)
+    destination = _writer(tmp_path / "destination", domains=PINS.domains)
+    observation = source.add(
+        stored.dataset_node(
+            "observation",
+            title="observation",
+            resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
+            empirical_observation={"boundary": "instrument"},
+        )
+    )
+    destination.add(observation)
+    run = source.add(
+        stored.run_node(
+            "producer",
+            title="producer",
+            spec="analysis-spec:producer",
+            observes=[observation.id],
+        )
+    )
+    destination.add(run)
+    proposition = source.add(
+        stored.proposition_node("claim", title="claim", claim={"operator": "affects"})
+    )
+    target = source.add(
+        stored.assessment_node(
+            "target",
+            title="target",
+            spec="analysis-spec:producer",
+            run=run.id,
+            proposition=proposition.id,
+            outcome="supported",
+            interpretation_rule="rule:threshold",
+        )
+    )
+    content_identity = stored.stored_semantic_hash(target)
+    assert content_identity is not None
+    record = stored.retraction_node(
+        title="retraction",
+        target=stored.NodeTarget(target.id, target.id, content_identity),
+        reason="defective-code",
+        rationale="the recorded result is invalid",
+        grounds=("verification:v1",),
+        actor="tester",
+        event_token="event-1",
+    )
+    relocation.move(source, destination, target.id, **MOVE_FIELDS)
+
+    with pytest.raises(RelocationTargetMissing) as caught:
+        source.retract(record)
+    assert isinstance(caught.value.__cause__, RefError)
+
+
+def test_supersede_refuses_a_predecessor_moved_away(tmp_path):
+    source = _writer(tmp_path / "source", domains=PINS.domains)
+    destination = _writer(tmp_path / "destination", domains=PINS.domains)
+    predecessor = source.add(
+        stored.proposition_node("p1", title="p1", claim={"operator": "affects"})
+    )
+    successor = stored.proposition_node(
+        "p2", title="p2", claim={"operator": "inhibits"}
+    )
+    relocation.move(source, destination, predecessor.id, **MOVE_FIELDS)
+
+    with pytest.raises(RelocationTargetMissing) as caught:
+        source.supersede(successor, of=predecessor.id)
+    assert isinstance(caught.value.__cause__, RefError)

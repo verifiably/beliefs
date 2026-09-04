@@ -42,7 +42,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, cast, final
 
 from nodes.core.corpus import Corpus
-from nodes.core.errors import CollisionError, ExecutionError
+from nodes.core.errors import CollisionError, ExecutionError, RefError
 from nodes.core.errors import ValidationError as NodesValidationError
 from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.node import Node
@@ -88,6 +88,7 @@ from beliefs.errors import (
     PredecessorNotStanding,
     ProjectNotResolvable,
     RecordAlreadyMinted,
+    RelocationTargetMissing,
     RetractionCycleMalformed,
     RetractionGroundsMissing,
     RetractionTargetIneligible,
@@ -99,7 +100,6 @@ from beliefs.errors import (
     SemanticHashMissing,
     SemanticHashStale,
     SupersedeIdentityUnchanged,
-    SupersedeTargetMissing,
     ValidationRefused,
     WriteRefused,
 )
@@ -1082,18 +1082,14 @@ class CorpusWriter:
     **Every mutation is serialized end to end under a per-root operation lock** —
     read, refuse, plan, execute. The refusals read corpus state before the
     engine lease exists, and only some of those reads are safe under concurrency:
-    the **monotone** predicates (W3, S7) cannot be invalidated by another
-    admitted mutation, because nothing removes a basis or an `observes` edge, but the
-    **collision** predicates can — two planners can each pass `assert_addable`
-    for one uid under different ids, plan creates at two different paths, and
-    both no-clobber effects succeed. `CreateFileNoClobber` backstops only the
-    same-path race. So the ruling is a single-planner restriction: in-process it
-    is this lock, and cross-process it is a **stated deployment obligation**
-    whose violation is detected loudly rather than prevented — strict
-    construction refuses the duplicate uid with `CollisionError`.
-
-    A future deletion-capable family must re-own this question; neither argument
-    transfers to it.
+    **The world-changing families exist, so no target is monotone.** Consolidate
+    and move can remove a record another operation resolved, so `retract` and
+    `supersede` re-resolve their target under this lock immediately before plan
+    construction and refuse if it has gone (world-changing families §3.6). The
+    collision predicates remain what they were: two planners can each pass
+    `assert_addable` for one uid under different ids, so the single-planner
+    restriction stands — in-process this lock, cross-process a stated deployment
+    obligation whose violation is detected loudly.
     """
 
     def __init__(
@@ -1546,7 +1542,7 @@ class CorpusWriter:
         with self._operation:
             self._refuse_family_kinds(record, admitted_kind="retraction")
             try:
-                self._validated_retraction(record)
+                facet = self._validated_retraction(record)
             except MalformedRecord as caught:
                 facet = record.facets.get(stored.RETRACTION_FACET)
                 if isinstance(facet, dict):
@@ -1562,19 +1558,44 @@ class CorpusWriter:
                             f"{record.id}: a retraction names at least one grounds reference"
                         ) from caught
                 raise ValidationRefused(f"{record.id}: refused by retraction shape validation: {caught}") from caught
-            self._resolve_retraction_target(record, self._view)
+            target = facet["target"]
+            target_ref = target["resolved"]
+            lookup_ref = target["ref"] if target["arm"] == "node" else target["dataset"]
+            try:
+                self._resolve_retraction_target(record, self._view)
+            except RetractionTargetUnresolvable:
+                if self._view.resolve(lookup_ref) is None:
+                    try:
+                        self._view.get(target_ref)
+                    except RefError as caught:
+                        raise RelocationTargetMissing(
+                            f"{target_ref}: the target no longer resolves in this corpus; a concurrent move "
+                            "or deletion removed it (world-changing families §3.6)"
+                        ) from caught
+                raise
 
             self._refuse(record, document_validated=True)
+            try:
+                self._view.get(target_ref)
+            except RefError as caught:
+                raise RelocationTargetMissing(
+                    f"{target_ref}: the target no longer resolves in this corpus; a concurrent move "
+                    "or deletion removed it (world-changing families §3.6)"
+                ) from caught
             return self._corpus.add(record)
 
     def supersede(self, successor: Node, *, of: str) -> Node:
         """Mint a proposition successor without touching its predecessor."""
         with self._operation:
             self._refuse_family_kinds(successor)
-            predecessor_id = self._view.resolve(of)
-            if predecessor_id is None:
-                raise SupersedeTargetMissing(f"{of!r}: predecessor does not resolve locally")
-            predecessor = self._view.get(predecessor_id)
+            try:
+                predecessor = self._view.get(of)
+            except RefError as caught:
+                raise RelocationTargetMissing(
+                    f"{of}: the target no longer resolves in this corpus; a concurrent move "
+                    "or deletion removed it (world-changing families §3.6)"
+                ) from caught
+            predecessor_id = predecessor.id
             if predecessor.kind != "proposition" or successor.kind != "proposition":
                 raise FamilyKindUnsupported("supersede operates on propositions only")
             self._refuse_already_minted(successor)
@@ -1598,6 +1619,13 @@ class CorpusWriter:
                 }
             )
             self._refuse(candidate)
+            try:
+                self._view.get(predecessor_id)
+            except RefError as caught:
+                raise RelocationTargetMissing(
+                    f"{of}: the target no longer resolves in this corpus; a concurrent move "
+                    "or deletion removed it (world-changing families §3.6)"
+                ) from caught
             return self._corpus.add(candidate)
 
     def revise(self, node: Node) -> Node:
