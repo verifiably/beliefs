@@ -46,7 +46,7 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Implemented through conformance cut 16.** Every cut from 4 onward has a
+**Implemented through conformance cut 17.** Every cut from 4 onward has a
 discharge results record under `../plans/`; cuts 1–3 are proved by their merge
 ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
@@ -101,6 +101,19 @@ ancestry and the surfaces they built
   re-resolution, and sorted deduplicated locking. W5 reads in full; G3 and D7
   close; W16, C3, R23, M3, and T2 remain partial exactly as the results record
   states; T8 is a closed-row re-read (cut 16).
+- **Managed deletion and the mutation-lane ride-alongs** — `delete` as an
+  ordinary write under the root's lock, with no operation intent, no
+  act-report, no referential check and no tombstone; the excluded kinds
+  common to every world-changing operation; `retract` and `supersede`
+  re-resolving under the lock after a real deletion; log verification's
+  managed/raw asymmetry; the managed holdings deletion act as the last-held-copy
+  transition; the corpus-local semantic audit, malformed classification first;
+  explicit-import derivation validation refusing a contradicted verification or
+  assessment before any payload write; `decode.claim_from_stored`, the restore
+  seam; and the instrumented resolver behind the only corpus-backed evaluation
+  path. G2c, G8, C6, R5, W16, M1 and M5 close; C1, T8, M11 and M13 are
+  closed-row re-reads; S5, R23, R19, R22 and M3 remain partial exactly as the
+  results record states (cut 17).
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -111,22 +124,19 @@ still open; unresolved design areas are not boundaries and are not listed.
 
 | id | boundary | owner | what it blocks |
 |---|---|---|---|
-| `consolidate-family` | managed deletion and its deletion-cut evidence: G2c, G8, C6, R5; S5's deletion half; W16 and R23's deletion clauses; C1, T8, M11 and M13 re-reads; then R19, R22, M1, M3 and M5 as the assigned ride-alongs | designed 2026-09-03 (`2026-09-03-world-changing-families-design.md`; relocation cut 16 discharged, deletion cut frozen as cut 17) | the last mutation family and the mutation lane's run-boundary and formal-model ride-alongs |
 | `url-retrieval` | the URL retrieval boundary, acquisition orchestration and typed retrieval grants: H4, G9, R10, T5, T7's same-root case | `2026-08-24-world-index-holdings-design.md` §1–§3 | the first acquisition of a dataset from outside the system |
-| `world-resolution` | the read side of the world: W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 less its two-projects negative; W8a's coreference arms; S1, S1a and S5's cross-corpus reach; D3; X12 and M3's coreference arms; R23's snapshot clauses | `2026-08-02-world-addressing-design.md` and `2026-08-08-world-address-ruling.md` | resolution states, cross-corpus edges, views, the coreference balance |
+| `world-resolution` | the read side of the world: W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 less its two-projects negative; W8a's coreference arms; S1, S1a and S5's cross-corpus reach; D3; X12 and M3's coreference arms; R19's cross-corpus recomputation; R23's snapshot, coverage and divergence clauses | `2026-08-02-world-addressing-design.md` and `2026-08-08-world-address-ruling.md` | resolution states, cross-corpus edges, views, the coreference balance |
 | `domain-boundary` | D1, D2, D4, D5, D6, D8, D9, D10; G5 | `2026-08-04-domain-extension-boundary-design.md` | the first domain pack |
 | `event-level-l8` | **Event-level L8** — the presence/exclusion relation across captured corpus heads | the tamper-evident-log design's own successor work (row 5) | row 5 reading L8 in full |
 | `contract-cut` | **The first full contract cut, its executable suite, and N1–N10**; N2's closing doctrine; P1's resolver-negative arm; R22's resolver arm; the `instrument-certification` arms of W8a, X12 and C10; R23's rules-store clauses | sub-problem 5b (row 7) | the normative contract's own guarantees; disposition of the legacy check modules; the conformance-package split (§5) |
-| `run-boundary-remainder` | R19; R22's explicit-import and audit arms | `2026-08-02-computation-reproducibility-design.md` | explicit-import derivation validation |
-| `formal-model-remainder` | M1; M3's audit and admission-order arms; M5 | `2026-08-04-formal-model-and-claim-calculus-design.md` | refinement evidence for M\* |
 | `log-remainder` | L1, L4; L10's relabel | `2026-08-22-log-verification-design.md` | row 5's L rows read in full |
 | `act-report-remainder` | T1, T2, T4 | `2026-08-11-act-report-design.md` | the T table in full |
 | `packaging-remainder` | X5's relabel; W8a's import-boundary and audit arms | `2026-08-03-world-index-packaging-design.md`; `2026-08-20-world-index-slice-2-design.md` | X5 and W8a read in full |
 | `parity-fixture-2` | the second `science.identity.v1` parity fixture, numeric and escape arms | `2026-08-04-formal-model-and-claim-calculus-design.md` §8 (§3 item 8) | cross-language parity of the identity arms tested twice and compared never |
-| `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm; C7's consolidate prerequisite discharged at cut 16 | sub-problem 5a, `2026-08-03-correction-lifecycle-design.md` | the correction lifecycle in full; buildable now, after `consolidate-family` only in the serial mutation lane |
+| `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm; C7's consolidate prerequisite discharged at cut 16 and the deletion surface it shares at cut 17 | sub-problem 5a, `2026-08-03-correction-lifecycle-design.md` | the correction lifecycle in full; buildable now, and the mutation lane's only open boundary |
 | `l13-preimage` | **L13 preimage resolver** — preimage-backed classification of a removed verification | the named `atoms` blob-read seam (`2026-08-03-tamper-evident-log-design.md` §5.3) | row 5 reading L13 in full; until then the held-copy match is a path match |
 | `persistence-cut` | X2's persistence-cut arm | the `atoms` A8 certification extended to the publication path, a cross-repo seam `atoms`' own design owns | X2 in full |
-| `verification-publication` | durable publication of verification records — a derived verification written into a corpus through the operation port, with admission evaluated over records read back | the persistence seam; no design names it yet (cut 13 §2) | admission over stored verifications rather than in-memory records |
+| `verification-publication` | durable publication of verification records — a derived verification written into a corpus through the operation port, with admission evaluated over records read back | the persistence seam; no design names it yet (cut 13 §2) | admission over stored verifications rather than in-memory records; scope recomputation for a stored verification (cut 17 §7) |
 | `nodes-remainder` | the reserved-path contract, recoverable construction, digest-id hazards | `nodes` `2026-08-03-nodes-under-the-system-redesign-design.md` (row 3) | audits over damaged corpora; manifest safety |
 | `authority-labels` | W9, W14 | artifact 11, the pinned authority snapshot — owed, undesigned | every rendered label; the ambiguous-search refusal |
 | `weighted-belief` | S6 arm (h) | the first successor belief policy admitting unequal weights, blocked on ρO3 | weighted belief |
@@ -135,9 +145,9 @@ still open; unresolved design areas are not boundaries and are not listed.
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-03-conformance-cut-16-results.md`) reads W5 in full, closes
-G3 and D7, re-reads T8, and leaves W16, C3, R23, M3 and T2 partial on their
-assigned remainders. `test_the_ledger_summary_names_the_newest_remaining_boundary` holds
+(`../plans/2026-09-04-conformance-cut-17-results.md`) closes G2c, G8, C6, R5,
+W16, M1 and M5, re-reads C1, T8, M11 and M13, and leaves S5, R23, R19, R22 and
+M3 partial on their named remainders. `test_the_ledger_summary_names_the_newest_remaining_boundary` holds
 this section to whichever record is newest;
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds this table and
 the roadmap to one set of ids.

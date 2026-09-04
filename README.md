@@ -78,7 +78,7 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-08-31-coordination-and-view-kinds-design.md` | the coordination tier: closed view-query grammar, versioned coordination contract, opaque project/local addressing, immutable multi-corpus revision family, and world-inert storage; cut 14 discharges it except W17 intent-position |
 | `2026-09-03-world-changing-families-design.md` | the two-root `move` and `consolidate` operations, managed deletion, their lock and crash discipline, and the two cuts that discharge them |
 | `2026-09-03-conformance-cut-16.md` | the discharged relocation cut: W5 in full, G3 and D7 closed, five partial rows, and T8 re-read against both relocation operations |
-| `2026-09-04-conformance-cut-17.md` | the frozen deletion cut: managed `delete` as an ordinary write, the audit and import ride-alongs, 7 rows closing, 5 partial, 4 closed-row re-reads |
+| `2026-09-04-conformance-cut-17.md` | the discharged deletion cut: managed `delete` as an ordinary write, the audit and import ride-alongs, 7 rows closed, 5 partial, 4 closed-row re-reads |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -86,7 +86,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 16** is implemented and discharged. What
+Every conformance cut through **cut 17** is implemented and discharged. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -99,8 +99,11 @@ addresses, contract authorization, multi-corpus tip resolution, and world-inert
 storage; the full workflow surface with planning-derived job and target
 sets, semantic wildcard jobs, per-family seed obligations, and composed
 planning/execution launch attestations; and two-root `move` and `consolidate`
-with root-local durable operation evidence. The latest discharged boundary is
-cut 16 ([results](docs/plans/2026-09-03-conformance-cut-16-results.md)).
+with root-local durable operation evidence; and managed deletion — `delete` as
+an ordinary write under the root's lock, the corpus-local semantic audit,
+explicit-import derivation validation, the claim restore seam, and the
+instrumented belief resolver. The latest discharged boundary is
+cut 17 ([results](docs/plans/2026-09-04-conformance-cut-17-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
 test before it is a passing one. There are **153 rows** across **thirteen frozen

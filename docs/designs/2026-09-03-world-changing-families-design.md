@@ -3,7 +3,7 @@
 **Date:** 2026-09-03
 
 **Status:** Banked 2026-09-03. Relocation cut 16 discharged 2026-09-04;
-deletion cut frozen as conformance cut 17 (2026-09-04).
+deletion cut 17 discharged 2026-09-04.
 
 **Scope:** The `consolidate-family` boundary of
 [`../plans/2026-08-29-implementation-roadmap.md`](../plans/2026-08-29-implementation-roadmap.md),

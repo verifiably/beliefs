@@ -1,6 +1,7 @@
 # Conformance cut 17 — managed deletion
 
-**Status:** Frozen 2026-09-04.
+**Status:** Frozen 2026-09-04. Discharged 2026-09-04
+(`../plans/2026-09-04-conformance-cut-17-results.md`).
 
 **Sources:** `2026-09-03-world-changing-families-design.md` §2.2, §2.3, §2.5,
 §3.0, §3.1, §3.6, §6.2, §6.3 and §7, and the frozen G, C, R, S, W, T and M

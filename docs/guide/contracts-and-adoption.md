@@ -35,6 +35,7 @@ sources:
   - ../plans/2026-08-27-conformance-cut-11-results.md
   - ../plans/2026-08-29-conformance-cut-12-results.md
   - ../plans/2026-09-01-conformance-cut-13-results.md
+  - ../plans/2026-09-04-conformance-cut-17-results.md
 ---
 
 # Contracts and adoption
@@ -173,7 +174,7 @@ fitted result into independent validation.
 
 ## Current state
 
-Sixteen conformance cuts have been frozen and discharged, each frozen before
+Seventeen conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple
 with a results record under `../plans/`. The cut discipline is what this page
 owns: a cut selects rows, the acceptance runner arms each selected unit with
@@ -186,8 +187,9 @@ R20, and R21 across the full workflow surface and reads R23's local
 basis/composition disagreement without reopening replay cardinality. The
 relocation cut is discharged as cut 16: W5 reads in full, G3 and D7 close,
 W16, C3, R23, M3 and T2 remain partial on their named remainders, and T8 is
-re-read against `move` and `consolidate`. The deletion cut is frozen as cut
-17 and not yet discharged.
+re-read against `move` and `consolidate`. The deletion cut is discharged as
+cut 17: G2c, G8, C6, R5, W16, M1 and M5 close; S5, R23, R19, R22 and M3 remain
+partial on their named remainders; C1, T8, M11 and M13 are re-read.
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-04)
