@@ -114,6 +114,7 @@ __all__ = [
     "stored_semantic_hash",
     "union_lineage_bases",
     "used_facet_namespaces",
+    "verification_derivation",
     "verification_value",
 ]
 
@@ -409,6 +410,29 @@ def verification_value(node: Node) -> Verification:
         verdict=str(facet.get("verdict", "")),
         supersedes=supersedes if isinstance(supersedes, str) else None,
     )
+
+
+def verification_derivation(node: Node) -> tuple[str, str] | None:
+    """The two run refs a stored verification names, or `None` when it names
+    none. Refuses a malformed member rather than repairing it (M11): a
+    derivation that cannot be read is not a derivation that reads as absent."""
+    facet = _facet(node, VERIFICATION_FACET)
+    if facet is None:
+        raise MalformedRecord(f"{node.id}: a verification carries a {VERIFICATION_FACET!r} facet")
+    member = facet.get("derivation")
+    if member is None:
+        return None
+    if not isinstance(member, Mapping) or set(member) != {"original", "replayed"}:
+        raise MalformedRecord(f"{node.id}: a derivation member names exactly `original` and `replayed`")
+    original, replayed = member["original"], member["replayed"]
+    if (
+        type(original) is not str
+        or type(replayed) is not str
+        or not original.startswith("run:")
+        or not replayed.startswith("run:")
+    ):
+        raise MalformedRecord(f"{node.id}: derivation runs are `run:` refs")
+    return original, replayed
 
 
 def lineage_basis(node: Node) -> Mapping[str, Any] | None:
@@ -784,14 +808,21 @@ def verification_node(
     scope: str,
     verdict: str,
     supersedes: str | None = None,
+    derivation: tuple[str, str] | None = None,
 ) -> Node:
     """`assessment` is the assessment **identity** the verification is about —
     what cut 2's lifecycle table matches on — and `assessment_ref` is the corpus
     address the `verifies` edge binds. The two are different facts: an identity
-    survives a corpus that never held the record, and an address does not."""
+    survives a corpus that never held the record, and an address does not.
+
+    `derivation` names the two runs the verdict was derived from, so a later
+    audit can recompute it. It is optional because a stored verification that
+    names neither is not malformed — it is simply one the audit cannot check."""
     facet: dict[str, Any] = {"assessment": assessment, "scope": scope, "verdict": verdict}
     if supersedes is not None:
         facet["supersedes"] = supersedes
+    if derivation is not None:
+        facet["derivation"] = {"original": derivation[0], "replayed": derivation[1]}
     return _node(
         "verification",
         slug,
