@@ -6,7 +6,7 @@ priority: 2
 size: xl
 owner: design/consolidate-family
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-04T00:53:07Z
+updated: 2026-09-04T01:04:04Z
 depends: []
 tags: [migration, mutation, world]
 ---
@@ -24,3 +24,4 @@ Uncertainty: The outcome is buildable, but the exact cut and interaction between
 - 2026-09-04T00:01:51Z (design/consolidate-family): Banked the world-changing families design and froze relocation cut 16; implementation remains open.
 - 2026-09-04T00:25:57Z (design/consolidate-family): Review round 1 corrected the ledger's current-state date and every inbound dated anchor.
 - 2026-09-04T00:53:07Z (design/consolidate-family): Task 2 landed in-memory/stored record-mutation grammar with reviewed storage-reader coverage.
+- 2026-09-04T01:04:04Z (design/consolidate-family): Task 3: added the explicit relocation refusal hierarchy and focused inheritance test; pytest, Ruff, and Pyright pass.
