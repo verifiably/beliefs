@@ -6,7 +6,7 @@ priority: 2
 size: xl
 owner: design/consolidate-family
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-04T10:22:24Z
+updated: 2026-09-04T14:21:24Z
 depends: []
 tags: [migration, mutation, world]
 ---
@@ -41,3 +41,4 @@ Uncertainty: The outcome is buildable, but the exact cut and interaction between
 - 2026-09-04T09:35:55Z (design/consolidate-family): Task 11 review fix: six vacuous evidence gaps now have exact durable assertions and eight new sabotages (27 arms normalized to the frozen 11 units); focused 23, full Python 3216, Ruff, Pyright, tasks check, and the actual cut-16 runner pass on the certified tuple. Parent remains open for managed deletion and discharge.
 - 2026-09-04T09:54:50Z (design/consolidate-family): Relocation cut discharged: move and consolidate land, G3 and D7 close, W5 reads in full. Managed deletion and the ride-alongs remain; the deletion cut follows.
 - 2026-09-04T10:22:24Z (design/consolidate-family): Task 12 review correction: promoted correction-remainder to tier 1 now that cut 16 discharged its consolidate prerequisite; mutation-lane order remains serial.
+- 2026-09-04T14:21:24Z (design/consolidate-family): claimed by Claude Code (claude-fable-5-1), pid 3996794; resuming for the deletion cut in .worktrees/consolidate-family on design/consolidate-family
