@@ -154,6 +154,7 @@ def anchorable_world(
     *corpus_ids: str,
     admitted: tuple[str, ...] | None = None,
     world_id: str = WORLD_ID,
+    authority=FULL,
 ) -> tuple[RefusingWorld, Recorder, Heads, dict[str, Path]]:
     """A world configured with one carrier per id, each with a head to read."""
     roots = {corpus_id: corpus_at(tmp_path / corpus_id[:6], corpus_id) for corpus_id in corpus_ids}
@@ -165,7 +166,7 @@ def anchorable_world(
         recorder,
         chain_head=unread_chain,
         corpus_executor_factory=DefaultExecutor,
-        authority=FULL,
+        authority=authority,
     )
     for corpus_id in admitted if admitted is not None else corpus_ids:
         world.admit(roots[corpus_id], provenance=registry.Fresh())

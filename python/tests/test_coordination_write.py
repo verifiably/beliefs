@@ -36,10 +36,10 @@ from beliefs.profile import compile_profile
 A, B, C, D = (character * 32 for character in "abcd")
 
 
-def writer_with_resolver(root, profile):
+def writer_with_resolver(root, profile, *, authority=FULL):
     mounted_root(root, profile)
     resolver = CoordinationResolver({root: profile})
-    return CorpusWriter(root, DefaultExecutor, authority=FULL, coordination_resolver=resolver), resolver
+    return CorpusWriter(root, DefaultExecutor, authority=authority, coordination_resolver=resolver), resolver
 
 
 def writer_with_document(root, base_contract, document):

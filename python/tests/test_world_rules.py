@@ -81,13 +81,13 @@ def unread_chain(root: Path) -> tuple[str, str]:
     raise AssertionError(f"{root}: this arm builds no epoch and reads no chain")
 
 
-def make_world(tmp_path: Path) -> world_module.World:
+def make_world(tmp_path: Path, *, authority=FULL) -> world_module.World:
     return world_module.World(
         world_module.WorldConfig(tmp_path / "world", "f" * 32, ()),
         DefaultExecutor,
         chain_head=unread_chain,
         corpus_executor_factory=DefaultExecutor,
-        authority=FULL,
+        authority=authority,
     )
 
 
