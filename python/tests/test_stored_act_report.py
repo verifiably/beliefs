@@ -4,6 +4,7 @@ import dataclasses
 from copy import deepcopy
 
 import pytest
+from authority import ACTOR
 from fixtures_cut3 import memory_assessment as run_assessment
 from fixtures_cut3 import report as _mint
 from nodes.core.node import Node
@@ -127,7 +128,7 @@ def test_boundary_minted_report_round_trips_as_one_covered_stamped_facet(act_rep
     assert node.facets["act-report"] == {
         "operation": "run-attempt",
         "event_token": act_report.event_token,
-        "actor": "tester",
+        "actor": ACTOR,
         "observer": "observer-1",
         "instrument": "beliefs.boundary/v1",
         "opened_at": "2026-08-12T00:00:00Z",

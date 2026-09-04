@@ -240,7 +240,6 @@ def run_workflow(
         entrypoint="code/workflow/Snakefile",
         targets=tuple(targets),
         declared_outputs=tuple(declared_outputs),
-        actor=port.authority.actor,
         observer="observer-1",
         started_at=started_at,
         host_realization=host_realization,

@@ -11,8 +11,10 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
+from authority import FULL, narrowed
 from config_probe import run_config_probe
 from fixtures_cut3 import (
     DATA_ADDRESS,
@@ -23,6 +25,7 @@ from fixtures_cut3 import (
     SNAKEFILE_PRODUCTION,
     SNAKEFILE_SCRATCHY,
     SNAKEFILE_SEED_VIOLATING,
+    MemoryPort,
     closure,
     definition,
     recipe,
@@ -67,6 +70,7 @@ from beliefs.errors import (
     TargetAmbiguous,
     TargetUnresolvable,
 )
+from beliefs.identity import v1
 from beliefs.recipe import MINIMAL_POLICY, Occurrence, PlannedJob, RunClosure, WorkflowDefinitionSnapshot, job_key
 from beliefs.report import (
     ActReport,
@@ -93,6 +97,109 @@ TARGET_FIT_B = PlannedJob(
     ("outputs/b.done",),
     False,
 )
+
+
+class _NarrowPort(MemoryPort):
+    def __init__(self, authority):
+        self.authority = authority
+        self.appended = []
+
+    def append_intent(self, payload: bytes) -> str:
+        self.appended.append(payload)
+        return super().append_intent(payload)
+
+    def execute(self, plan) -> None:
+        raise AssertionError("a refused run must not write")
+
+    def execute_fulfilling(self, plan, fulfills: str) -> None:
+        raise AssertionError("a refused run must not write")
+
+
+def _assessment(tmp_path, port, **overrides):
+    code, held = stage(tmp_path)
+    kwargs: dict[str, Any] = {
+        "spec": freeze(spec_draft(), held_rules=spec_rules()),
+        "port": port,
+        "boundary_policy": MINIMAL_POLICY,
+        "definition": definition(),
+        "code_roots": (code,),
+        "held_inputs": {DATA_ADDRESS: held / "data.txt", READS_ADDRESS: held / "palette.txt"},
+        "entrypoint": "code/workflow/Snakefile",
+        "targets": ("outputs/result.txt",),
+        "declared_outputs": ("outputs/result.txt",),
+        "observer": "observer-1",
+        "started_at": "2026-08-12T00:00:00Z",
+        "host_realization": "host-a",
+        "scratch_base": tmp_path / "scratch",
+    }
+    kwargs.update(overrides)
+    return execute_assessment_run(**kwargs)
+
+
+def test_e7_a_permit_lacking_run_refuses_with_no_intent_and_no_report(tmp_path):
+    port = _NarrowPort(narrowed(kinds=("run", "act-report"), families=("corpus-write",)))
+    outcome = _assessment(tmp_path, port)
+    assert isinstance(outcome, RunRefused)
+    assert outcome.reason == "permit-exceeded"
+    assert outcome.report is None and outcome.intent is None and outcome.registration is None
+    assert "family run" in outcome.detail
+    assert port.appended == []
+
+
+def test_e7_a_permit_lacking_act_report_refuses_before_the_intent(tmp_path):
+    port = _NarrowPort(narrowed(kinds=("run",), families=("run",)))
+    outcome = _assessment(tmp_path, port)
+    assert isinstance(outcome, RunRefused) and outcome.reason == "permit-exceeded"
+    assert "kind act-report" in outcome.detail
+    assert port.appended == []
+
+
+def test_e7_a_production_run_under_a_permit_lacking_run_refuses_with_no_intent(tmp_path):
+    from fixtures_cut3 import run_production as production_run
+
+    port = _NarrowPort(narrowed(kinds=("run", "act-report", "dataset"), families=("corpus-write",)))
+    outcome = production_run(tmp_path, port=port)
+    assert isinstance(outcome, RunRefused) and outcome.reason == "permit-exceeded"
+    assert outcome.report is None and outcome.intent is None and outcome.registration is None
+    assert port.appended == []
+
+
+def test_e7_a_non_permit_refusal_after_the_check_still_mints_its_report(tmp_path):
+    class Port(MemoryPort):
+        authority = FULL
+
+        def __init__(self):
+            self.executed = []
+
+        def execute(self, plan) -> None:
+            self.executed.append(plan)
+
+    port = Port()
+    outcome = _assessment(tmp_path, port, spec="not-a-frozen-spec")
+    assert isinstance(outcome, RunRefused) and outcome.reason == "no-frozen-spec"
+    assert outcome.report is not None and len(port.executed) == 1
+
+
+def test_e3_the_run_intent_carries_the_ports_actor(tmp_path):
+    class Port(MemoryPort):
+        authority = narrowed(kinds=("run", "act-report"), families=("run",), actor="port-actor")
+
+        def __init__(self):
+            self.appended = []
+
+        def append_intent(self, payload: bytes) -> str:
+            self.appended.append(payload)
+            return super().append_intent(payload)
+
+    port = Port()
+    _assessment(tmp_path, port)
+    payload = v1.decode(port.appended[0])
+    assert isinstance(payload, dict) and payload["actor"] == "port-actor"
+
+
+def test_the_run_entry_points_take_no_actor(tmp_path):
+    with pytest.raises(TypeError):
+        _assessment(tmp_path, MemoryPort(), actor="tester")
 
 
 @pytest.mark.parametrize(
@@ -348,7 +455,6 @@ def test_the_boundary_refuses_a_definition_the_entrypoint_does_not_embody(tmp_pa
         entrypoint="code/workflow/Snakefile",
         targets=("outputs/result.txt",),
         declared_outputs=("outputs/result.txt",),
-        actor="tester",
         observer="observer-1",
         started_at="2026-08-12T00:00:00Z",
         host_realization="host-a",
@@ -522,7 +628,6 @@ def test_r21_manifest_missing_output_mints_no_run(tmp_path):
         entrypoint="code/workflow/Snakefile",
         targets=("outputs/result.txt",),
         declared_outputs=("outputs/result.txt", "outputs/never-written.txt"),
-        actor="tester",
         observer="observer-1",
         started_at="2026-08-12T00:00:00Z",
         host_realization="host-a",
