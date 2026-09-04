@@ -200,6 +200,35 @@ uv run --frozen pytest -q -p no:cacheprovider tests/test_designs_corpus.py
 cd .. && tasks check && git add docs/designs/2026-09-04-write-permits-design.md && git commit -m "docs(designs): rule the cut 16 implementation amendment" && git rev-parse --short HEAD
 ```
 
+- [ ] **Step 3b: Amend the companion contract in the `science` repository**
+
+The `science` plan's Task 12 rules that a change the implementation forces is a change request against **both** documents before either side codes on. §13.7 changes the permit value's shape, so, in the `science` repository (the sibling checkout, its own `main`), append this paragraph to the end of §4.1 of `docs/specs/2026-08-31-command-framework-design.md`, immediately before the `### 4.2` heading:
+
+```markdown
+**Amended 2026-09-04 (`beliefs` write-permits design §13.7).** The kernel
+mints kinds outside `KIND_ACTS` — ungoverned records carrying no
+semantic-identity facet — through `CorpusWriter.add` alone. `WritePermit`
+therefore carries a third, boolean dimension, `ungoverned`, admitting such
+kinds through `corpus-write` only. `KIND_ACTS` is complete over the
+**governed** kinds. Nothing here changes for `science`: no
+`RequiredCapabilities` constructor sets the flag, a `mints` class naming an
+unknown kind remains a build refusal (§3.3), and the names the plan's Task
+12 consumes are unchanged.
+```
+
+and, in `docs/plans/2026-08-31-command-framework.md`, add one bullet at the end of Task 12's *Consumes* block:
+
+```markdown
+  - `beliefs.permit.WritePermit` carries a third dimension, `ungoverned` (spec §4.1 amendment of 2026-09-04); `RequiredCapabilities` never sets it and `science` never reads it
+```
+
+Then, from the `science` repository root:
+
+```bash
+tasks note sci-c3f0bb "Companion contract amended: WritePermit gains the ungoverned dimension (beliefs design §13.7); Consumes names unchanged"
+git add docs/specs/2026-08-31-command-framework-design.md docs/plans/2026-08-31-command-framework.md tasks && git commit -m "docs(specs): amend the permit contract for ungoverned kinds"
+```
+
 Expected: 14 passed; the printed short hash is `IMPLEMENTATION_AMENDMENT_COMMIT` in Task 14 (recoverable later with `git log --format=%h -1 --grep 'rule the cut 16 implementation amendment'`).
 
 - [ ] **Step 4: Note the ruling on the task**
@@ -322,7 +351,7 @@ class TestE1AuthorityRequire:
         with pytest.raises(PermitExceeded) as caught:
             authority.require("run", ("proposition",))
         assert caught.value.requirement == PermitFact("family", "run")
-        assert caught.value.capability == PermitSummary(("proposition",), ("corpus-write",))
+        assert caught.value.capability == PermitSummary(("proposition",), ("corpus-write",), False)
         assert str(caught.value).startswith("permit exceeded: family run is not permitted")
 
     def test_the_first_missing_kind_in_the_callers_order_is_named(self):
@@ -574,14 +603,14 @@ FULL = Authority(WritePermit.full(), ACTOR)
 
 
 def narrowed(*, kinds: Iterable[str] = (), families: Iterable[str] = (), actor: str = ACTOR) -> Authority:
-    """A permit holding exactly these kinds and families."""
+    """A governed-only permit holding exactly these kinds and families (no ungoverned kinds)."""
     return Authority(WritePermit(frozenset(kinds), frozenset(families)), actor)
 
 
 def lacking(*, kinds: Iterable[str] = (), families: Iterable[str] = (), actor: str = ACTOR) -> Authority:
-    """The full permit minus exactly these kinds and families."""
+    """The full permit minus exactly these kinds and families; ungoverned kinds stay permitted."""
     return Authority(
-        WritePermit(frozenset(KIND_ACTS) - frozenset(kinds), ACT_FAMILIES - frozenset(families)), actor
+        WritePermit(frozenset(KIND_ACTS) - frozenset(kinds), ACT_FAMILIES - frozenset(families), True), actor
     )
 ```
 
@@ -769,7 +798,7 @@ def permit_covers(ceiling: WritePermit, required: RequiredCapabilities) -> bool:
 uv run --frozen pytest -q -p no:cacheprovider tests/test_permit.py
 uv run --frozen pytest -q -p no:cacheprovider && uv run --frozen ruff check . && uv run --frozen pyright
 tasks done beliefs-29d389 "RequiredCapabilities constructors and permit_covers over three dimensions"
-cd .. && tasks check && git add python && git commit -m "feat(permit): RequiredCapabilities and permit_covers"
+cd .. && tasks check && git add python tasks && git commit -m "feat(permit): RequiredCapabilities and permit_covers"
 ```
 
 ---
@@ -972,7 +1001,7 @@ Then the staleness probe from Global Constraints (expected `stale: []`), then:
 
 ```bash
 tasks done beliefs-7e1c7e "Authority bound at CorpusWriter, DurableOperationPort and open_corpus; port/writer agreement refused"
-cd .. && tasks check && git add python && git commit -m "feat(permit): bind Authority at the corpus writer, the port and open_corpus"
+cd .. && tasks check && git add python tasks && git commit -m "feat(permit): bind Authority at the corpus writer, the port and open_corpus"
 ```
 
 Expected: full suite green (pyright will point at every construction you missed; fix each by rule 1–4).
@@ -1188,7 +1217,7 @@ Staleness probe: expected `stale: []`. Then:
 
 ```bash
 tasks done beliefs-65802a "corpus-write and lifecycle checks on the six writer families; ActorMismatch on retract and run-closure add"
-cd .. && tasks check && git add python && git commit -m "feat(permit): require the corpus-write and lifecycle permits on the writer's families"
+cd .. && tasks check && git add python tasks && git commit -m "feat(permit): require the corpus-write and lifecycle permits on the writer's families"
 ```
 
 ---
@@ -1333,7 +1362,7 @@ Probe: `stale: []`. Then:
 
 ```bash
 tasks done beliefs-b88767 "import_bundle judged member by member before its intent; actor keyword removed"
-cd .. && tasks check && git add python && git commit -m "feat(permit): judge import bundles member by member before the intent"
+cd .. && tasks check && git add python tasks && git commit -m "feat(permit): judge import bundles member by member before the intent"
 ```
 
 ---
@@ -1502,7 +1531,7 @@ Probe: `stale: []` (the cut-3 and cut-11 blocks must still match — if any is s
 
 ```bash
 tasks done beliefs-81fdbc "run boundary requires run through the exact try shape; RunRefused(permit-exceeded) with no intent; replay drops actor"
-cd .. && tasks check && git add python && git commit -m "feat(permit): run boundary requires the run permit and refuses without an intent"
+cd .. && tasks check && git add python tasks && git commit -m "feat(permit): run boundary requires the run permit and refuses without an intent"
 ```
 
 ---
@@ -1639,7 +1668,7 @@ Probe: from here on the expected output is exactly `stale: [(10, 'H4u1', 'holdin
 
 ```bash
 tasks done beliefs-baeff9 "ActContext binds an Authority with an actor property; six holdings checks; cut-10 _publish arms stale by design"
-cd .. && tasks check && git add python && git commit -m "feat(permit): holdings acts require the holdings permit on the bound context"
+cd .. && tasks check && git add python tasks && git commit -m "feat(permit): holdings acts require the holdings permit on the bound context"
 ```
 
 ---
@@ -1813,7 +1842,7 @@ Probe: exactly the two cut-10 arms. Then:
 
 ```bash
 tasks done beliefs-d17d3c "World binds an Authority; registry and epoch acts require it; per-call actors removed"
-cd .. && tasks check && git add python && git commit -m "feat(permit): world binds an authority; registry and epoch acts require it"
+cd .. && tasks check && git add python tasks && git commit -m "feat(permit): world binds an authority; registry and epoch acts require it"
 ```
 
 ---
@@ -1961,7 +1990,7 @@ Probe: the by-design stale set as ruled in Step 3. Then:
 
 ```bash
 tasks done beliefs-9345e4 "root lifecycle acts require the lifecycle permit; _fork_resume kept as the implementation"
-cd .. && tasks check && git add python && git commit -m "feat(permit): root lifecycle acts require the lifecycle permit"
+cd .. && tasks check && git add python tasks && git commit -m "feat(permit): root lifecycle acts require the lifecycle permit"
 ```
 
 ---
@@ -2444,7 +2473,7 @@ Expected on first run: `test_the_inventory_is_closed_in_both_directions` and `te
 ```bash
 uv run --frozen pytest -q -p no:cacheprovider && uv run --frozen ruff check . && uv run --frozen pyright
 tasks done beliefs-413d31 "static entry-point inventory held closed in both directions with offender and satisfied arms"
-cd .. && tasks check && git add python && git commit -m "test(permit): hold the write entry points closed statically (E6)"
+cd .. && tasks check && git add python tasks && git commit -m "test(permit): hold the write entry points closed statically (E6)"
 ```
 
 ---
@@ -2453,11 +2482,11 @@ cd .. && tasks check && git add python && git commit -m "test(permit): hold the 
 
 **Files:**
 - Create: `python/tests/test_permit_entry_points.py`
-- Modify: `python/tests/test_coordination_write.py` (`writer_with_resolver` gains `authority=FULL`), `python/tests/test_world_rules.py` (`make_world` gains `authority=FULL`), `python/tests/test_world_anchor_act.py` (its world-and-heads builder around line 150 gains `authority=FULL`)
+- Modify: `python/tests/test_coordination_write.py` (`writer_with_resolver` gains `authority=FULL`), `python/tests/test_world_rules.py` (`make_world` gains `authority=FULL`), `python/tests/test_world_anchor_act.py` (its world-and-heads builder around line 150 becomes `world_with(tmp_path, *, authority=FULL)`)
 
 **Interfaces:**
-- Consumes: every seam of Tasks 4–10; the sibling test helpers named in the table.
-- Produces: one parameterized test per inventoried definition, asserting E1 in three directions — the family refused, each emitted kind refused by name, the exact requirement accepted — with no effect on refusal. These are the checks Task 14's `E1` arms cite beside the representative tests.
+- Consumes: every seam of Tasks 4–10; `test_permit_boundary.WRITE_ENTRY_POINTS`; the sibling test helpers named in the cases.
+- Produces: one case per inventoried definition — all 31, the private holdings helpers called directly — each with a **prepare** phase (setup effects under a full authority), an **act** phase (the one protected call under the authority being judged) and a **probe** (state that must be equal before and after a refused act). Three tests per case: the family refused, each emitted kind refused by name, the exact requirement accepted. A fourth test holds the case set equal to the inventory. Task 14's `E1` arms cite these beside the representative tests.
 
 - [ ] **Step 0: Start the task record** — `tasks start beliefs-6ce675`
 
@@ -2470,9 +2499,10 @@ cd .. && tasks check && git add python && git commit -m "test(permit): hold the 
 ```python
 """E1 over every inventoried definition (design §4.2, §7 E1).
 
-One case per entry point. Each case performs the act under an authority and
-observes that nothing happened on refusal. `family` and `kinds` are the
-requirement the definition states; the tests derive the three directions.
+One case per entry point, keyed by its `WRITE_ENTRY_POINTS` name. `prepare`
+performs every setup effect under a full authority; `act` performs exactly the
+protected call under the authority being judged; `probe` reads the state a
+refused act must leave unchanged. The tests derive E1's three directions.
 """
 from __future__ import annotations
 
@@ -2482,6 +2512,7 @@ from pathlib import Path
 
 import pytest
 from authority import lacking, narrowed
+from test_permit_boundary import WRITE_ENTRY_POINTS
 
 from beliefs import root as science_root
 from beliefs.corpus import CorpusWriter
@@ -2489,15 +2520,23 @@ from beliefs.errors import PermitExceeded, PermitFact
 from beliefs.permit import Authority
 from beliefs.world import registry
 
+_STATE: dict[Path, dict] = {}
+"""Per-work-directory handles prepare leaves for act."""
+
 
 @dataclass(frozen=True)
 class Case:
-    name: str
+    key: str
     family: str
     kinds: tuple[str, ...]
     needs_volume: bool
-    run: Callable[[Authority, Path], object]
+    prepare: Callable[[Path], None]
+    act: Callable[[Authority, Path], object]
     probe: Callable[[Path], object]
+
+    @property
+    def id(self) -> str:
+        return self.key.replace("/", ".").replace(":", ".")
 
 
 def _chain(root: Path) -> int:
@@ -2510,6 +2549,10 @@ def _chain(root: Path) -> int:
 
 def _tree(root: Path) -> list[str]:
     return sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()) if root.exists() else []
+
+
+def _nothing(_work: Path) -> None:
+    return None
 
 
 # --- corpus-write family, in-memory executor -------------------------------------
@@ -2526,49 +2569,47 @@ def _plans(_work: Path) -> list:
     return list(Recorder.plans)
 
 
-def _reset_plans() -> None:
-    from test_corpus_write import Recorder
+def _prepare_target(minter):
+    def prepare(work: Path) -> None:
+        _STATE[work] = {"target": minter(_writer(lacking(), work))}
 
-    Recorder.plans = []
+    return prepare
 
 
 def _add(authority, work):
     from test_corpus_write import observed_dataset
 
-    _reset_plans()
     return _writer(authority, work).add(observed_dataset())
 
 
 def _retract(authority, work):
-    from test_retract import mint_eligible_assessment, retraction_for
+    from test_retract import retraction_for
 
-    target = mint_eligible_assessment(_writer(lacking(), work))
-    _reset_plans()
-    return _writer(authority, work).retract(retraction_for(target))
+    return _writer(authority, work).retract(retraction_for(_STATE[work]["target"]))
 
 
 def _supersede(authority, work):
     from test_supersede import prop
 
-    predecessor = _writer(lacking(), work).add(prop("p1"))
-    _reset_plans()
-    return _writer(authority, work).supersede(prop("p2"), of=predecessor.id)
+    return _writer(authority, work).supersede(prop("p2"), of=_STATE[work]["target"].id)
 
 
 def _revise(authority, work):
-    from test_revise import prop
-
-    node = _writer(lacking(), work).add(prop("p"))
-    _reset_plans()
-    return _writer(authority, work).revise(node)
+    return _writer(authority, work).revise(_STATE[work]["target"])
 
 
 def _mint_coordination(authority, work):
     from coordination_fixtures import content_for
     from test_coordination_write import writer_with_resolver
 
-    _reset_plans()
     return writer_with_resolver(work / "corpus", None, authority=authority).mint_coordination("project", content=content_for("project"))
+
+
+def _prepare_project(work: Path) -> None:
+    from coordination_fixtures import content_for
+    from test_coordination_write import writer_with_resolver
+
+    _STATE[work] = {"project": writer_with_resolver(work / "corpus", None, authority=lacking()).mint_coordination("project", content=content_for("project"))}
 
 
 def _revise_coordination(authority, work):
@@ -2577,10 +2618,8 @@ def _revise_coordination(authority, work):
 
     from beliefs.coordination import coordination_revision
 
-    project = writer_with_resolver(work / "corpus", None, authority=lacking()).mint_coordination("project", content=content_for("project"))
-    _reset_plans()
-    writer = writer_with_resolver(work / "corpus", None, authority=authority)
-    return writer.revise_coordination(
+    project = _STATE[work]["project"]
+    return writer_with_resolver(work / "corpus", None, authority=authority).revise_coordination(
         "project", coordination_revision(project).address, predecessors=(project.id,), content=content_for("project", name="renamed")
     )
 
@@ -2589,7 +2628,6 @@ def _import_bundle(authority, work):
     from test_corpus_write import Recorder
     from test_import_bundle import FakePort, prop
 
-    _reset_plans()
     FakePort.intents, FakePort.executed, FakePort.fulfilling = [], [], []
     writer = CorpusWriter(work / "corpus", Recorder, authority=authority, operation_port=FakePort(work / "corpus", authority=authority))
     return writer.import_bundle([prop("p1")], observer="o", instrument="i", opened_at="T0", closed_at="T1")
@@ -2598,7 +2636,6 @@ def _import_bundle(authority, work):
 def _adopt_manifest(authority, work):
     from beliefs.consulted import CorpusPins
 
-    _reset_plans()
     return _writer(authority, work).adopt_manifest(profile=CorpusPins(science_contract="sha256:" + "0" * 64, domains={}))
 
 
@@ -2623,68 +2660,84 @@ class _Port:
         self.appended.append(plan)
 
 
-_PORTS: dict[str, _Port] = {}
-
-
 def _fact_from(detail: str) -> PermitFact:
     words = detail.split()  # "permit exceeded: <dimension> <name> is not permitted"
     return PermitFact(words[2], words[3])
 
 
 def _run(shape: str):
-    def run(authority, work):
+    def act(authority, work):
         from fixtures_cut3 import run_assessment, run_production
 
         from beliefs.boundary import RunRefused
 
-        _PORTS["run"] = port = _Port(authority)
+        _STATE.setdefault(work, {})["port"] = port = _Port(authority)
         outcome = (run_assessment if shape == "assessment" else run_production)(work, port=port)
         if isinstance(outcome, RunRefused) and outcome.reason == "permit-exceeded":
             raise PermitExceeded(_fact_from(outcome.detail), authority.permit.summary())
         return outcome
 
-    return run
+    return act
 
 
-def _run_probe(_work: Path) -> list:
-    return list(_PORTS["run"].appended) if "run" in _PORTS else []
+def _run_probe(work: Path) -> list:
+    port = _STATE.get(work, {}).get("port")
+    return list(port.appended) if port is not None else []
 
 
 # --- holdings family, certified volume ----------------------------------------------
 
 def _context(authority: Authority, work: Path):
     from beliefs.holdings.boundary import ActContext
-    from beliefs.root import holdings_seam, init_corpus_root, init_store_root
+    from beliefs.root import holdings_seam
 
-    observer_root, store_root, marker = work / "observer", work / "store", work / "store-id"
-    if not marker.exists():
-        init_corpus_root(observer_root, authority=lacking())
-        marker.write_text(init_store_root(store_root, authority=lacking()))
-    return ActContext(observer_root, store_root, "observer", "instrument", authority, holdings_seam()), marker.read_text()
+    return ActContext(work / "observer", work / "store", "observer", "instrument", authority, holdings_seam())
+
+
+def _prepare_holdings(held: tuple[str, ...] = (), *, intent: bool = False):
+    def prepare(work: Path) -> None:
+        from beliefs.holdings import boundary
+        from beliefs.holdings.boundary import StoreLocator
+        from beliefs.root import init_corpus_root, init_store_root
+
+        init_corpus_root(work / "observer", authority=lacking())
+        store_id = init_store_root(work / "store", authority=lacking())
+        ctx = _context(lacking(), work)
+        for name in held:
+            ctx.seam.store_write(ctx.store_root, name, b"held")
+        state = {"store_id": store_id}
+        if intent:
+            state["token"], state["intent"] = boundary._append(ctx, StoreLocator(store_id, "held.bin"), "write")
+        _STATE[work] = state
+
+    return prepare
 
 
 def _holdings(act: str):
     def run(authority, work):
         from beliefs.holdings import boundary
         from beliefs.holdings.boundary import StoreLocator
+        from beliefs.holdings.records import Found
 
-        ctx, store_id = _context(authority, work)
+        ctx, store_id = _context(authority, work), _STATE[work]["store_id"]
         if act == "recheck":
-            ctx.seam.store_write(ctx.store_root, "held.bin", b"held")
             return boundary.recheck(ctx, StoreLocator(store_id, "held.bin"))
         if act == "write":
             return boundary.write(ctx, StoreLocator(store_id, "written.bin"), b"bytes")
         if act == "delete":
-            ctx.seam.store_write(ctx.store_root, "gone.bin", b"held")
-            return boundary.delete(ctx, StoreLocator(store_id, "gone.bin"))
-        ctx.seam.store_write(ctx.store_root, "from.bin", b"held")
-        return boundary.move(ctx, StoreLocator(store_id, "from.bin"), StoreLocator(store_id, "to.bin"))
+            return boundary.delete(ctx, StoreLocator(store_id, "held.bin"))
+        if act == "move":
+            return boundary.move(ctx, StoreLocator(store_id, "held.bin"), StoreLocator(store_id, "moved.bin"))
+        if act == "_append":
+            return boundary._append(ctx, StoreLocator(store_id, "held.bin"), "write")
+        return boundary._publish(ctx, StoreLocator(store_id, "held.bin"), Found("sha256:" + "1" * 64),
+                                 _STATE[work]["token"], _STATE[work]["intent"], ())
 
     return run
 
 
-def _holdings_probe(work: Path) -> int:
-    return _chain(work / "observer") if (work / "observer").exists() else 0
+def _holdings_probe(work: Path) -> tuple[int, list[str]]:
+    return (_chain(work / "observer") if (work / "observer").exists() else 0, _tree(work / "store"))
 
 
 # --- registry and epoch families, default executor ----------------------------------
@@ -2696,47 +2749,59 @@ def _rebind(world: registry.World, authority: Authority) -> registry.World:
     )
 
 
-def _admitted(work: Path, *corpus_ids: str):
+def _prepare_admitted(work: Path) -> None:
     from test_world_epoch import admitted_world
 
-    return admitted_world(work, corpus_ids or ("a" * 32,))
+    world, _recorder, bindings, roots = admitted_world(work, ("a" * 32,))
+    _STATE[work] = {"world": world, "bindings": bindings, "roots": roots}
+
+
+def _prepare_fresh(work: Path) -> None:
+    from test_world_registry import write_manifest
+
+    _prepare_admitted(work)
+    write_manifest(work / "fresh", "b" * 32)
 
 
 def _admit(authority, work):
-    from test_world_registry import write_manifest
-
-    world, _recorder, _bindings, _roots = _admitted(work)
-    fresh = work / "fresh"
-    write_manifest(fresh, "b" * 32)
-    return _rebind(world, authority).admit(fresh, provenance=registry.Fresh())
+    return _rebind(_STATE[work]["world"], authority).admit(work / "fresh", provenance=registry.Fresh())
 
 
 def _retire(authority, work):
-    world, _recorder, _bindings, roots = _admitted(work)
-    return _rebind(world, authority).retire(next(iter(roots)))
+    return _rebind(_STATE[work]["world"], authority).retire(next(iter(_STATE[work]["roots"])))
+
+
+def _prepare_anchor(work: Path) -> None:
+    from test_world_anchor_act import world_with
+
+    world, _recorder, heads, roots = world_with(work, authority=lacking())
+    _STATE[work] = {"world": world, "heads": heads, "roots": roots}
 
 
 def _anchor(authority, work):
-    from test_world_anchor_act import anchor, world_with
+    from test_world_anchor_act import anchor
 
-    world, _recorder, heads, roots = world_with(work, authority=authority)
-    return anchor(world, heads, next(iter(roots)))
+    return anchor(_rebind(_STATE[work]["world"], authority), _STATE[work]["heads"], next(iter(_STATE[work]["roots"])))
 
 
 def _build_epoch(authority, work):
     from beliefs.world import epoch
 
-    world, _recorder, bindings, roots = _admitted(work)
-    return epoch.build_epoch(_rebind(world, authority), coverage=frozenset(roots), bindings=bindings)
+    state = _STATE[work]
+    return epoch.build_epoch(_rebind(state["world"], authority), coverage=frozenset(state["roots"]), bindings=state["bindings"])
+
+
+def _prepare_retained(work: Path) -> None:
+    from test_world_gc import three_retained
+
+    world, _recorder, _bindings, (first, _second, _third) = three_retained(work)
+    _STATE[work] = {"world": world, "first": first}
 
 
 def _delete_epoch(authority, work):
-    from test_world_gc import three_retained
-
     from beliefs.world import epoch
 
-    world, _recorder, _bindings, (first, _second, _third) = three_retained(work)
-    return epoch.delete_epoch(_rebind(world, authority), first.packaging_identity)
+    return epoch.delete_epoch(_rebind(_STATE[work]["world"], authority), _STATE[work]["first"].packaging_identity)
 
 
 def _install_rule(authority, work):
@@ -2747,13 +2812,20 @@ def _install_rule(authority, work):
     return rules.install_rule_binding(make_world(work, authority=authority), bundle())
 
 
-def _remove_rule(authority, work):
+def _prepare_installed(work: Path) -> None:
     from test_world_rules import bundle, make_world
 
     from beliefs.world import rules
 
-    binding = rules.install_rule_binding(make_world(work, authority=lacking()), bundle())
-    return rules.remove_rule_binding(make_world(work, authority=authority), binding)
+    _STATE[work] = {"binding": rules.install_rule_binding(make_world(work, authority=lacking()), bundle())}
+
+
+def _remove_rule(authority, work):
+    from test_world_rules import make_world
+
+    from beliefs.world import rules
+
+    return rules.remove_rule_binding(make_world(work, authority=authority), _STATE[work]["binding"])
 
 
 def _world_probe(work: Path) -> list[str]:
@@ -2762,13 +2834,37 @@ def _world_probe(work: Path) -> list[str]:
 
 # --- lifecycle family, certified volume ----------------------------------------------
 
+def _prepare_lifecycle(act: str):
+    def prepare(work: Path) -> None:
+        from test_fork_acts import _parent_corpus
+        from test_restore_root import _head_of, _seeded_store, _store_record
+
+        from beliefs.root import init_corpus_root, init_store_root, replicate_root
+
+        if act == "replicate_root":
+            init_corpus_root(work / "source", authority=lacking())
+        elif act == "migrate_root_to_lifecycle_v3":
+            (work / "bare").mkdir(exist_ok=True)
+        elif act == "fork_corpus":
+            _STATE[work] = {"parent": _parent_corpus(work)}
+        elif act == "fork_store":
+            init_store_root(work / "parent-store", authority=lacking())
+        elif act == "restore_root":
+            root, store_id = _seeded_store(work)
+            genesis, head = _head_of(root)
+            replicate_root(root, work / "restored", authority=lacking())
+            _STATE[work] = {"store_id": store_id, "carrier": _store_record(store_id, genesis, head)}
+
+    return prepare
+
+
 def _lifecycle(act: str):
     def run(authority, work):
         from beliefs.root import (
             fork_corpus, fork_store, init_corpus_root, init_store_root, init_world_root,
             migrate_root_to_lifecycle_v3, replicate_root, restore_root,
         )
-        from beliefs.world import WorldConfig
+        from beliefs.world import WorldConfig, anchors, verify
 
         if act == "init_corpus_root":
             return init_corpus_root(work / "corpus", authority=authority)
@@ -2777,29 +2873,16 @@ def _lifecycle(act: str):
         if act == "init_store_root":
             return init_store_root(work / "store", authority=authority)
         if act == "replicate_root":
-            init_corpus_root(work / "source", authority=lacking())
             return replicate_root(work / "source", work / "replica", authority=authority)
         if act == "migrate_root_to_lifecycle_v3":
-            (work / "bare").mkdir(exist_ok=True)
             return migrate_root_to_lifecycle_v3(work / "bare", authority=authority)
         if act == "fork_corpus":
-            from test_fork_acts import _parent_corpus
-
-            return fork_corpus(_parent_corpus(work), work / "child", authority=authority)
+            return fork_corpus(_STATE[work]["parent"], work / "child", authority=authority)
         if act == "fork_store":
-            init_store_root(work / "parent-store", authority=lacking())
             return fork_store(work / "parent-store", work / "child-store", authority=authority)
-        from test_restore_root import _head_of, _seeded_store, _store_record
-
-        from beliefs.world import anchors, verify
-
-        root, store_id = _seeded_store(work)
-        genesis, head = _head_of(root)
-        replica = work / "restored"
-        replicate_root(root, replica, authority=lacking())
-        return restore_root(
-            replica, anchors.StoreSubject(store_id), verify.ObserverSet((_store_record(store_id, genesis, head),)), authority=authority
-        )
+        state = _STATE[work]
+        return restore_root(work / "restored", anchors.StoreSubject(state["store_id"]),
+                            verify.ObserverSet((state["carrier"],)), authority=authority)
 
     return run
 
@@ -2808,83 +2891,116 @@ def _lifecycle_probe(work: Path) -> list[str]:
     return _tree(work)
 
 
+def _lifecycle_case(name: str, act: str) -> Case:
+    return Case(f"root.py:{name}", "lifecycle", (), True, _prepare_lifecycle(act), _lifecycle(act), _lifecycle_probe)
+
+
+def _mint_eligible(writer):
+    from test_retract import mint_eligible_assessment
+
+    return mint_eligible_assessment(writer)
+
+
+def _mint_predecessor(writer):
+    from test_supersede import prop
+
+    return writer.add(prop("p1"))
+
+
+def _mint_proposition(writer):
+    from test_revise import prop
+
+    return writer.add(prop("p"))
+
+
 CASES = (
-    Case("CorpusWriter.add", "corpus-write", ("dataset",), False, _add, _plans),
-    Case("CorpusWriter.retract", "corpus-write", ("retraction",), False, _retract, _plans),
-    Case("CorpusWriter.supersede", "corpus-write", ("proposition",), False, _supersede, _plans),
-    Case("CorpusWriter.revise", "corpus-write", ("proposition",), False, _revise, _plans),
-    Case("CorpusWriter.mint_coordination", "corpus-write", ("project",), False, _mint_coordination, _plans),
-    Case("CorpusWriter.revise_coordination", "corpus-write", ("project",), False, _revise_coordination, _plans),
-    Case("CorpusWriter.import_bundle", "corpus-write", ("proposition", "act-report"), False, _import_bundle, _plans),
-    Case("CorpusWriter.adopt_manifest", "lifecycle", (), False, _adopt_manifest, _plans),
-    Case("execute_assessment_run", "run", ("run", "act-report"), False, _run("assessment"), _run_probe),
-    Case("execute_production_run", "run", ("run", "act-report"), False, _run("production"), _run_probe),
-    Case("holdings.recheck", "holdings", ("holdings-observation",), True, _holdings("recheck"), _holdings_probe),
-    Case("holdings.write", "holdings", ("holdings-observation",), True, _holdings("write"), _holdings_probe),
-    Case("holdings.delete", "holdings", ("holdings-observation",), True, _holdings("delete"), _holdings_probe),
-    Case("holdings.move", "holdings", ("holdings-observation",), True, _holdings("move"), _holdings_probe),
-    Case("World._locked_admit", "registry", (), False, _admit, _world_probe),
-    Case("World._terminal", "registry", (), False, _retire, _world_probe),
-    Case("anchors._anchor_heads", "registry", (), False, _anchor, _world_probe),
-    Case("epoch.build_epoch", "epoch", (), False, _build_epoch, _world_probe),
-    Case("epoch.delete_epoch", "epoch", (), False, _delete_epoch, _world_probe),
-    Case("rules.install_rule_binding", "epoch", (), False, _install_rule, _world_probe),
-    Case("rules.remove_rule_binding", "epoch", (), False, _remove_rule, _world_probe),
-    Case("root.init_corpus_root", "lifecycle", (), True, _lifecycle("init_corpus_root"), _lifecycle_probe),
-    Case("root.init_world_root", "lifecycle", (), True, _lifecycle("init_world_root"), _lifecycle_probe),
-    Case("root.init_store_root", "lifecycle", (), True, _lifecycle("init_store_root"), _lifecycle_probe),
-    Case("root.replicate_root", "lifecycle", (), True, _lifecycle("replicate_root"), _lifecycle_probe),
-    Case("root.migrate_root_to_lifecycle_v3", "lifecycle", (), True, _lifecycle("migrate_root_to_lifecycle_v3"), _lifecycle_probe),
-    Case("root.restore_root.grant", "lifecycle", (), True, _lifecycle("restore_root"), _lifecycle_probe),
-    Case("root.fork_corpus", "lifecycle", (), True, _lifecycle("fork_corpus"), _lifecycle_probe),
-    Case("root.fork_store", "lifecycle", (), True, _lifecycle("fork_store"), _lifecycle_probe),
+    Case("corpus.py:CorpusWriter.add", "corpus-write", ("dataset",), False, _nothing, _add, _plans),
+    Case("corpus.py:CorpusWriter.retract", "corpus-write", ("retraction",), False, _prepare_target(_mint_eligible), _retract, _plans),
+    Case("corpus.py:CorpusWriter.supersede", "corpus-write", ("proposition",), False, _prepare_target(_mint_predecessor), _supersede, _plans),
+    Case("corpus.py:CorpusWriter.revise", "corpus-write", ("proposition",), False, _prepare_target(_mint_proposition), _revise, _plans),
+    Case("corpus.py:CorpusWriter.mint_coordination", "corpus-write", ("project",), False, _nothing, _mint_coordination, _plans),
+    Case("corpus.py:CorpusWriter.revise_coordination", "corpus-write", ("project",), False, _prepare_project, _revise_coordination, _plans),
+    Case("corpus.py:CorpusWriter.import_bundle", "corpus-write", ("proposition", "act-report"), False, _nothing, _import_bundle, _plans),
+    Case("corpus.py:CorpusWriter.adopt_manifest", "lifecycle", (), False, _nothing, _adopt_manifest, _plans),
+    Case("boundary.py:execute_assessment_run", "run", ("run", "act-report"), False, _nothing, _run("assessment"), _run_probe),
+    Case("boundary.py:execute_production_run", "run", ("run", "act-report"), False, _nothing, _run("production"), _run_probe),
+    Case("holdings/boundary.py:recheck", "holdings", ("holdings-observation",), True, _prepare_holdings(("held.bin",)), _holdings("recheck"), _holdings_probe),
+    Case("holdings/boundary.py:write", "holdings", ("holdings-observation",), True, _prepare_holdings(), _holdings("write"), _holdings_probe),
+    Case("holdings/boundary.py:delete", "holdings", ("holdings-observation",), True, _prepare_holdings(("held.bin",)), _holdings("delete"), _holdings_probe),
+    Case("holdings/boundary.py:move", "holdings", ("holdings-observation",), True, _prepare_holdings(("held.bin",)), _holdings("move"), _holdings_probe),
+    Case("holdings/boundary.py:_append", "holdings", ("holdings-observation",), True, _prepare_holdings(), _holdings("_append"), _holdings_probe),
+    Case("holdings/boundary.py:_publish", "holdings", ("holdings-observation",), True, _prepare_holdings(("held.bin",), intent=True), _holdings("_publish"), _holdings_probe),
+    Case("world/registry.py:_locked_admit", "registry", (), False, _prepare_fresh, _admit, _world_probe),
+    Case("world/registry.py:World._terminal", "registry", (), False, _prepare_admitted, _retire, _world_probe),
+    Case("world/anchors.py:_anchor_heads", "registry", (), False, _prepare_anchor, _anchor, _world_probe),
+    Case("world/epoch.py:build_epoch", "epoch", (), False, _prepare_admitted, _build_epoch, _world_probe),
+    Case("world/epoch.py:delete_epoch", "epoch", (), False, _prepare_retained, _delete_epoch, _world_probe),
+    Case("world/rules.py:install_rule_binding", "epoch", (), False, _nothing, _install_rule, _world_probe),
+    Case("world/rules.py:remove_rule_binding", "epoch", (), False, _prepare_installed, _remove_rule, _world_probe),
+    _lifecycle_case("init_corpus_root", "init_corpus_root"),
+    _lifecycle_case("init_world_root", "init_world_root"),
+    _lifecycle_case("init_store_root", "init_store_root"),
+    _lifecycle_case("replicate_root", "replicate_root"),
+    _lifecycle_case("migrate_root_to_lifecycle_v3", "migrate_root_to_lifecycle_v3"),
+    _lifecycle_case("restore_root.grant", "restore_root"),
+    _lifecycle_case("fork_corpus", "fork_corpus"),
+    _lifecycle_case("fork_store", "fork_store"),
 )
-"""`test_permit_boundary.WRITE_ENTRY_POINTS` less the private holdings helpers
-`_append` and `_publish`, which every holdings case reaches."""
 
 
-def _work(case: Case, tmp_path: Path, request, sub: str = "") -> Path:
+def test_the_cases_cover_the_inventory_exactly():
+    keys = [case.key for case in CASES]
+    assert len(keys) == len(set(keys))
+    assert set(keys) == set(WRITE_ENTRY_POINTS)
+    for case in CASES:
+        assert case.family == WRITE_ENTRY_POINTS[case.key], case.key
+
+
+def _work(case: Case, tmp_path: Path, request, sub: str) -> Path:
     base = request.getfixturevalue("certified_work") if case.needs_volume else tmp_path
-    work = base / (case.name.replace(".", "-") + sub)
+    work = base / (case.id + sub)
     work.mkdir(parents=True, exist_ok=True)
     return work
 
 
-@pytest.mark.parametrize("case", CASES, ids=[case.name for case in CASES])
+@pytest.mark.parametrize("case", CASES, ids=[case.id for case in CASES])
 def test_e1_the_family_is_refused_with_no_effect(case, tmp_path, request):
-    work = _work(case, tmp_path, request)
+    work = _work(case, tmp_path, request, "-family")
+    case.prepare(work)
     before = case.probe(work)
     with pytest.raises(PermitExceeded) as caught:
-        case.run(lacking(families=(case.family,)), work)
+        case.act(lacking(families=(case.family,)), work)
     assert caught.value.requirement == PermitFact("family", case.family)
     assert case.probe(work) == before
 
 
-@pytest.mark.parametrize("case", [case for case in CASES if case.kinds], ids=[case.name for case in CASES if case.kinds])
+@pytest.mark.parametrize("case", [case for case in CASES if case.kinds], ids=[case.id for case in CASES if case.kinds])
 def test_e1_each_emitted_kind_is_refused_by_name_with_no_effect(case, tmp_path, request):
     for kind in case.kinds:
-        work = _work(case, tmp_path, request, sub=f"-{kind}")
+        work = _work(case, tmp_path, request, f"-{kind}")
+        case.prepare(work)
         before = case.probe(work)
         with pytest.raises(PermitExceeded) as caught:
-            case.run(lacking(kinds=(kind,)), work)
+            case.act(lacking(kinds=(kind,)), work)
         assert caught.value.requirement == PermitFact("kind", kind)
         assert case.probe(work) == before
 
 
-@pytest.mark.parametrize("case", CASES, ids=[case.name for case in CASES])
+@pytest.mark.parametrize("case", CASES, ids=[case.id for case in CASES])
 def test_e1_the_exact_requirement_is_accepted(case, tmp_path, request):
-    work = _work(case, tmp_path, request, sub="-exact")
+    work = _work(case, tmp_path, request, "-exact")
+    case.prepare(work)
     authority = narrowed(kinds=case.kinds, families=(case.family,))
-    if case.name == "root.migrate_root_to_lifecycle_v3":
+    if case.key == "root.py:migrate_root_to_lifecycle_v3":
         from atoms.core.errors import PreconditionRefused  # the engine's own refusal, past the permit
 
         with pytest.raises(PreconditionRefused):
-            case.run(authority, work)
+            case.act(authority, work)
         return
-    case.run(authority, work)
+    case.act(authority, work)
 ```
 
-The `PreconditionRefused` import path is the one `test_lifecycle_wrappers.py` uses. The `_run` cases translate the run boundary's value-style refusal back into the exception the shared assertions expect; the probe is the port's appended list, empty on refusal.
+The `PreconditionRefused` import path is the one `test_lifecycle_wrappers.py` uses. The two `_run` cases translate the run boundary's value-style refusal into the exception the shared assertions expect; the probe is the port's appended list, empty on refusal. `_plans` relies on `test_corpus_write.Recorder` recording every plan: reset `Recorder.plans = []` at the top of `_prepare_target`, `_prepare_project` and `_nothing`'s corpus cases if the recorder is shared across tests (it is a class attribute) — do this by making every corpus `prepare` end with `Recorder.plans = []`, and have `_nothing` do the same for the corpus cases (replace `_nothing` with `_reset_plans` on those four cases).
 
 - [ ] **Step 3: Run**
 
@@ -2892,14 +3008,14 @@ The `PreconditionRefused` import path is the one `test_lifecycle_wrappers.py` us
 uv run --frozen pytest -q -p no:cacheprovider tests/test_permit_entry_points.py
 ```
 
-Expected: every case passes on the certified host (the `certified_work` fixture errors rather than skips). A case whose act refuses for another reason before the permit check — a setup helper that itself needs a wider permit — is a case bug: widen the **setup** authority with `lacking()`, never the authority under test.
+Expected: 31 cases; every test passes on the certified host (the `certified_work` fixture errors rather than skips). A case whose act refuses for another reason before the permit check — a setup helper that itself needs a wider permit, a probe that observes an effect `prepare` made — is a case bug: widen the **setup** authority with `lacking()` or move the effect into `prepare`, never the authority under test.
 
 - [ ] **Step 4: Gate and commit**
 
 ```bash
 uv run --frozen pytest -q -p no:cacheprovider && uv run --frozen ruff check . && uv run --frozen pyright
-tasks done beliefs-6ce675 "E1 covered over every inventoried definition in three directions"
-cd .. && tasks check && git add python && git commit -m "test(permit): E1 over every inventoried entry point"
+tasks done beliefs-6ce675 "E1 covered over all 31 inventoried definitions, prepare/act/probe, case set held equal to the inventory"
+cd .. && tasks check && git add python tasks && git commit -m "test(permit): E1 over every inventoried entry point"
 ```
 
 ---
@@ -3051,7 +3167,7 @@ Expected: all passing. If the engine refuses the volume, the conftest raises `Un
 
 ```bash
 tasks done beliefs-cfcb65 "durable acceptance arms for E1, E2, E7 and E8 over real roots"
-cd .. && tasks check && git add python && git commit -m "test(permit): durable acceptance arms for E1, E2, E7 and E8"
+cd .. && tasks check && git add python tasks && git commit -m "test(permit): durable acceptance arms for E1, E2, E7 and E8"
 ```
 
 ---
@@ -3101,20 +3217,33 @@ CUT16_ARMS = (
         checks=(
             f"{_P}::TestE1AuthorityRequire::test_a_missing_family_is_refused_on_the_family_before_any_kind",
             f"{_C}::TestE1CorpusWriteRequiresBeforeAnyEffect::test_add_under_a_permit_lacking_the_family_refuses_and_writes_nothing",
-            "test_permit_entry_points.py::test_e1_the_family_is_refused_with_no_effect[World._terminal]",
+            "test_permit_entry_points.py::test_e1_the_family_is_refused_with_no_effect[world.registry.py.World._terminal]",
         ),
     ),
     Arm(
         row="E1b",
-        asserts="the first missing kind, in the caller's order, is named",
+        asserts="a governed kind the permit lacks is named, in the caller's order",
         sabotage=Sabotage(
             module=_PERMIT,
-            before="        for kind in kinds:\n            if kind not in self.permit.kinds:",
-            after="        for kind in ():\n            if kind not in self.permit.kinds:",
+            before="                permitted = kind in self.permit.kinds",
+            after="                permitted = True",
         ),
         checks=(
             f"{_P}::TestE1AuthorityRequire::test_the_first_missing_kind_in_the_callers_order_is_named",
             f"{_C}::TestE1CorpusWriteRequiresBeforeAnyEffect::test_add_under_a_permit_lacking_the_kind_names_the_kind",
+        ),
+    ),
+    Arm(
+        row="E1d",
+        asserts="an ungoverned kind needs the flag and the corpus-write family",
+        sabotage=Sabotage(
+            module=_PERMIT,
+            before='                permitted = self.permit.ungoverned and family == "corpus-write"',
+            after="                permitted = True",
+        ),
+        checks=(
+            f"{_P}::TestE1AuthorityRequire::test_an_ungoverned_kind_needs_the_flag_and_the_corpus_write_family",
+            f"{_A}::test_e1_an_ungoverned_kind_mints_under_the_full_permit_and_refuses_under_a_governed_one",
         ),
     ),
     Arm(
@@ -3311,7 +3440,7 @@ CUT16_ARMS = (
     ),
 )
 
-_UNIT_OF_LETTERED = {f"E{n}{letter}": f"E{n}" for n in range(1, 9) for letter in "abcde"}
+_UNIT_OF_LETTERED = {f"E{n}{letter}": f"E{n}" for n in range(1, 9) for letter in "abcdef"}
 
 
 def unit_of(row: str) -> str:
@@ -3481,11 +3610,12 @@ PHASE_MODULES = (
     "test_n2_cut15.py",
     "test_permit_acceptance.py",
     "test_permit_boundary.py",  # runs from tests/, not acceptance — see below
+    "test_permit_entry_points.py",  # likewise from tests/
     "test_n2_cut16.py",
 )
 ```
 
-`test_permit_boundary.py` lives under `tests/`, so the runner resolves each module against `ACCEPTANCE` first and `PYTHON_ROOT / "tests"` second. `probe()` passes `authority=Authority(WritePermit.full(), "cut16-probe")` to the three `init_*` calls (import from `beliefs.permit`). `cut_environment` sets `SCIENCE_CUT{4..16}_ROOT`. `declared_arm_count()` imports `CUT16_ARMS`; the closing line prints `(= 8 selected + 1 labeled units)`. Drop `run_prefix` and the prefix loop.
+`test_permit_boundary.py` and `test_permit_entry_points.py` live under `tests/`, so the runner resolves each module against `ACCEPTANCE` first and `PYTHON_ROOT / "tests"` second. `probe()` passes `authority=Authority(WritePermit.full(), "cut16-probe")` to the three `init_*` calls (import from `beliefs.permit`). `cut_environment` sets `SCIENCE_CUT{4..16}_ROOT`. `declared_arm_count()` imports `CUT16_ARMS`; the closing line prints `(= 8 selected + 1 labeled units)`. Drop `run_prefix` and the prefix loop.
 
 - [ ] **Step 4: Run the portable parts, then the full runner on the certified volume**
 
@@ -3500,7 +3630,7 @@ Expected: the portable accounting tests pass; the runner runs every phase green 
 
 ```bash
 tasks done beliefs-c430e0 "cut 16 N2 arms, audit test with cut-10 citation pins, and the acceptance runner"
-cd .. && tasks check && git add python && git commit -m "test(cut16): declare the N2 arms, the audit, and the acceptance runner"
+cd .. && tasks check && git add python tasks && git commit -m "test(cut16): declare the N2 arms, the audit, and the acceptance runner"
 ```
 
 ---
