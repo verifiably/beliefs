@@ -19,6 +19,7 @@ from atoms.coordinator.commands import (
     resume_fork_root,
 )
 from atoms.fs.linux import LinuxBackend
+from authority import FULL
 from test_world_build import corpus_at
 
 from beliefs import root as science_root
@@ -46,7 +47,7 @@ def _parent_corpus(work: Path, name: str = "parent") -> Path:
     from nodes.core.write_plan import CreateOp
 
     root = work / name
-    init_corpus_root(root)
+    init_corpus_root(root, authority=FULL)
     corpus_at(
         root,
         PARENT_ID,
@@ -119,8 +120,8 @@ class TestForkCorpus:
         self, certified_work
     ):
         parent = _parent_corpus(certified_work)
-        first = fork_corpus(parent, certified_work / "child-one")
-        second = fork_corpus(parent, certified_work / "child-two")
+        first = fork_corpus(parent, certified_work / "child-one", authority=FULL)
+        second = fork_corpus(parent, certified_work / "child-two", authority=FULL)
 
         assert first.corpus_id != second.corpus_id
         assert first.corpus_id != PARENT_ID
@@ -132,7 +133,7 @@ class TestForkCorpus:
     def test_fork_manifest_is_complete_before_writability(self, certified_work):
         parent = _parent_corpus(certified_work)
         child = certified_work / "child"
-        minted = fork_corpus(parent, child)
+        minted = fork_corpus(parent, child, authority=FULL)
 
         assert read_lifecycle_state(child) is LifecycleState.WRITABLE
         stored = registry.load_manifest(child)
@@ -145,7 +146,7 @@ class TestForkCorpus:
         parent = _parent_corpus(certified_work)
         parent_genesis, parent_head = _head_of(parent)
         child = certified_work / "child"
-        fork_corpus(parent, child)
+        fork_corpus(parent, child, authority=FULL)
 
         genesis = _genesis_entry(child)
         forked = anchors.parse_corpus_genesis(genesis.payload)
@@ -231,10 +232,10 @@ class TestForkRetry:
         child = certified_work / "child"
         cut, restore = self._interrupt(monkeypatch, "_complete_root_operation")
         with pytest.raises(cut):
-            fork_corpus(parent, child)
+            fork_corpus(parent, child, authority=FULL)
         restore()
 
-        minted = fork_corpus(parent, child)
+        minted = fork_corpus(parent, child, authority=FULL)
         assert registry.load_manifest(child).corpus_id == minted.corpus_id
         assert read_lifecycle_state(child) is LifecycleState.WRITABLE
 
@@ -261,13 +262,13 @@ class TestForkRetry:
         child = certified_work / "child"
         cut, restore = self._interrupt(monkeypatch, "_stamp_copy_destination")
         with pytest.raises(cut):
-            fork_corpus(parent, child)
+            fork_corpus(parent, child, authority=FULL)
         restore()
 
         import json
 
         claimed = json.loads((child / ".#~root-claim").read_bytes())["operation_id"]
-        minted = fork_corpus(parent, child)
+        minted = fork_corpus(parent, child, authority=FULL)
         assert registry.load_manifest(child).corpus_id == minted.corpus_id
         assert science_root._fork_pending(child) is None
         assert claimed is not None
@@ -279,12 +280,12 @@ class TestForkRetry:
         child = certified_work / "child"
         cut, restore = self._interrupt(monkeypatch, "_copy_tree")
         with pytest.raises(cut):
-            fork_corpus(parent, child)
+            fork_corpus(parent, child, authority=FULL)
         restore()
 
         pending = science_root._fork_pending(child)
         assert pending is not None
-        minted = fork_corpus(parent, child)
+        minted = fork_corpus(parent, child, authority=FULL)
         assert registry.load_manifest(child).corpus_id == minted.corpus_id
         assert read_lifecycle_state(child) is LifecycleState.WRITABLE
 
@@ -295,12 +296,12 @@ class TestForkRetry:
         child = certified_work / "child"
         cut, restore = self._interrupt(monkeypatch, "_complete_root_operation")
         with pytest.raises(cut):
-            fork_corpus(parent, child)
+            fork_corpus(parent, child, authority=FULL)
         restore()
 
         shutil.rmtree(parent)
         shutil.rmtree(metadata_root_for(parent))
-        minted = fork_corpus(parent, child)
+        minted = fork_corpus(parent, child, authority=FULL)
         assert registry.load_manifest(child).corpus_id == minted.corpus_id
         assert read_lifecycle_state(child) is LifecycleState.WRITABLE
 
@@ -309,7 +310,7 @@ class TestForkRetry:
     ):
         parent = _parent_corpus(certified_work)
         child = certified_work / "child"
-        fork_corpus(parent, child)
+        fork_corpus(parent, child, authority=FULL)
 
         with pytest.raises(RootOperationMismatch):
             resume_fork_root(
@@ -324,11 +325,11 @@ class TestForkRetry:
 class TestForkStore:
     def test_fork_store_mints_and_carries_the_parent_digests(self, certified_work):
         parent = certified_work / "parent-store"
-        init_store_root(parent)
+        init_store_root(parent, authority=FULL)
         parent_genesis, parent_head = _head_of(parent)
         child = certified_work / "child-store"
 
-        child_id = fork_store(parent, child)
+        child_id = fork_store(parent, child, authority=FULL)
 
         assert read_lifecycle_state(child) is LifecycleState.WRITABLE
         genesis = _genesis_entry(child)
@@ -341,7 +342,7 @@ class TestTheL6Lift:
     def _forked_child(self, work: Path) -> tuple[Path, str, str, str, str]:
         parent = _parent_corpus(work)
         child = work / "child"
-        minted = fork_corpus(parent, child)
+        minted = fork_corpus(parent, child, authority=FULL)
         genesis, head = _head_of(child)
         member = next(
             path
@@ -398,7 +399,7 @@ class TestTheL6Lift:
         parent = _parent_corpus(certified_work)
         parent_genesis, parent_head = _head_of(parent)
         child = certified_work / "child"
-        minted = fork_corpus(parent, child)
+        minted = fork_corpus(parent, child, authority=FULL)
 
         report = _audit(
             certified_work,

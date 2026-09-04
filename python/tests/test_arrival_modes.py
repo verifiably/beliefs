@@ -14,6 +14,7 @@ import shutil
 from pathlib import Path
 
 import pytest
+from authority import FULL
 
 from beliefs import root as science_root
 from beliefs.errors import CorpusRootRefused
@@ -47,7 +48,7 @@ def _parent_corpus(work: Path, name: str = "parent") -> Path:
     from nodes.core.write_plan import CreateOp
 
     root = work / name
-    init_corpus_root(root)
+    init_corpus_root(root, authority=FULL)
     executor = science_root.durable_executor_factory()(root)
     executor.execute(
         [
@@ -72,8 +73,8 @@ def _parent_corpus(work: Path, name: str = "parent") -> Path:
 
 def _world_over(work: Path, name: str, *roots: Path):
     config = science_root.WorldConfig(work / name, WORLD_ID, tuple(roots))
-    init_world_root(config)
-    return open_world(config)
+    init_world_root(config, authority=FULL)
+    return open_world(config, authority=FULL)
 
 
 def _recording_seam(monkeypatch) -> list[str]:
@@ -108,7 +109,6 @@ def _arrive(world, root: Path):
         root,
         registry.ReplicaOf(PARENT_ID),
         verify.ObserverSet(()),
-        actor="alice",
     )
 
 
@@ -116,16 +116,15 @@ def test_fork_product_admits_through_the_fork_of_path(certified_work):
     parent = _parent_corpus(certified_work)
     child = certified_work / "child"
     world = _world_over(certified_work, "world", parent, child)
-    world.admit(parent, provenance=registry.Fresh(), actor="alice")
+    world.admit(parent, provenance=registry.Fresh())
 
-    minted = fork_corpus(parent, child)
+    minted = fork_corpus(parent, child, authority=FULL)
     assert minted.forked_from is not None
     record = world.admit(
         child,
         provenance=registry.ForkOf(
             minted.forked_from.corpus_id, minted.forked_from.corpus_state
         ),
-        actor="alice",
     )
 
     assert record.corpus_id == minted.corpus_id
@@ -137,7 +136,7 @@ def test_fork_product_admits_through_the_fork_of_path(certified_work):
 def test_arrival_registered_mode_on_serviceable(certified_work, monkeypatch):
     parent = _parent_corpus(certified_work)
     replica = certified_work / "replica"
-    replicate_root(parent, replica)
+    replicate_root(parent, replica, authority=FULL)
     genesis, head = science_root.chain_head_reader()(parent)
     restore_root(
         replica,
@@ -154,7 +153,7 @@ def test_arrival_registered_mode_on_serviceable(certified_work, monkeypatch):
                 ),
             )
         ),
-    )
+     authority=FULL)
     assert read_lifecycle_state(replica) is LifecycleState.READ_ONLY_SERVICEABLE
 
     world = _world_over(certified_work, "world", replica)
@@ -173,7 +172,7 @@ def test_arrival_detached_on_unserviceable_metadata_less_and_mismatched(
 
     # Unserviceable: a completed replica, unrestored.
     unserviceable = certified_work / "unserviceable"
-    replicate_root(parent, unserviceable)
+    replicate_root(parent, unserviceable, authority=FULL)
     assert read_lifecycle_state(unserviceable) is LifecycleState.READ_ONLY_UNSERVICEABLE
 
     # Metadata-less: a raw copy without its sibling.
@@ -184,7 +183,7 @@ def test_arrival_detached_on_unserviceable_metadata_less_and_mismatched(
     # Binding-mismatched: a replica moved after its stamp — the path half of
     # the binding delta, so nothing global changes under the other roots.
     placed = certified_work / "placed"
-    replicate_root(parent, placed)
+    replicate_root(parent, placed, authority=FULL)
     mismatched = certified_work / "mismatched"
     shutil.move(placed, mismatched)
     shutil.move(metadata_root_for(placed), metadata_root_for(mismatched))
@@ -235,7 +234,7 @@ def test_restored_arrival_requires_restore_first(certified_work, monkeypatch):
                 ),
             )
         ),
-    )
+     authority=FULL)
     assert read_lifecycle_state(copy) is LifecycleState.READ_ONLY_SERVICEABLE
 
     second_world = _world_over(certified_work, "world-after", copy)
@@ -256,5 +255,4 @@ def test_store_subject_unspellable_at_arrival():
             Path("nowhere"),
             anchors.StoreSubject("5" * 32),  # type: ignore[arg-type]
             verify.ObserverSet(()),
-            actor="alice",
         )

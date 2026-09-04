@@ -2,7 +2,7 @@
 title: Foundations
 status: living
 created: 2026-08-08
-updated: 2026-09-03
+updated: 2026-09-04
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-substrate-consolidation-design.md
@@ -10,6 +10,7 @@ sources:
   - ../designs/2026-08-03-tamper-evident-log-design.md
   - ../designs/2026-08-04-domain-extension-boundary-design.md
   - ../designs/2026-08-04-formal-model-and-claim-calculus-design.md
+  - ../designs/2026-09-04-write-permits-design.md
   - ../designs/2026-08-09-admission-ramp-design.md
   - ../designs/2026-08-10-verified-holdings-record-design.md
   - ../designs/2026-08-11-act-report-design.md
@@ -178,10 +179,12 @@ The kernel's typed records, admission and belief computation run: claim
 construction and identity, the derived admission state, the assessment
 admission gate, and `science.belief.v1` under an exact binding. Kernel §8.7's
 recorded-mutation consequences now close through the mutation log's anchor
-carriage and verification and cut 12's successor admission. The agentic surface
-has an approved [user and autonomy layer design](../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md),
-but its daily surface and autonomy sub-projects are not implemented; salvage
-remains undesigned. The [adoption ledger's current-state
+carriage and verification and cut 12's successor admission. Every write entry
+point now receives a bound authority, checks its permit before effects, and
+reads its actor from that authority. The agentic surface has an approved [user
+and autonomy layer design](../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md),
+but its writer session, daily surface, and autonomy sub-projects are not yet
+implemented; salvage remains undesigned. The [adoption ledger's current-state
 summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-04)
 is the complete statement of what is built and what remains.
 
@@ -196,6 +199,7 @@ pre-run fixation is not pre-registration.
 
 - [Epistemic kernel: invariant, structure, and G1–G9](../designs/2026-08-02-epistemic-kernel-design.md#2-the-invariant)
 - [Substrate consolidation: S1–S8 and ownership](../designs/2026-08-02-substrate-consolidation-design.md#2-the-boundary-ruling--split-by-nature)
+- [Write permits: authority at every write entry point, E1–E8](../designs/2026-09-04-write-permits-design.md#7-guarantees)
 - [Domain extension: D1–D10 and profile compilation](../designs/2026-08-04-domain-extension-boundary-design.md#3-the-ownership-split)
 - [Formal model: the thirteen kinds and M1–M13](../designs/2026-08-04-formal-model-and-claim-calculus-design.md#21-rec--world-records-the-thirteen-kernel-kinds)
 - [Adoption ledger: clean-start ruling](../designs/2026-08-03-redesign-adoption-ledger.md#0-the-clean-start-ruling-2026-08-04)

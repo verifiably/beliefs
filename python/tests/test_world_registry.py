@@ -6,6 +6,7 @@ from typing import Any, cast
 
 import pytest
 import yaml
+from authority import ACTOR, FULL, narrowed
 from fixtures_cut6 import PINS
 from nodes.core.write_plan import CreateOp, DefaultExecutor
 
@@ -14,6 +15,8 @@ from beliefs.errors import (
     CorpusIdKnown,
     ForkParentUnknown,
     ManifestMalformed,
+    PermitExceeded,
+    PermitFact,
     ProvenanceMismatch,
     RegistryMalformed,
     ReplicaAdmissionRequiresVerification,
@@ -45,13 +48,56 @@ def unread_chain(root: Path) -> tuple[str, str]:
     raise AssertionError(f"{root}: this arm builds no epoch and reads no chain")
 
 
-def make_world(tmp_path: Path, *corpus_roots: Path) -> world_module.World:
+def make_world(tmp_path: Path, *corpus_roots: Path, authority=FULL) -> world_module.World:
     return world_module.World(
         world_module.WorldConfig(tmp_path / "world", "f" * 32, corpus_roots),
         DefaultExecutor,
         chain_head=unread_chain,
         corpus_executor_factory=DefaultExecutor,
+        authority=authority,
     )
+
+
+def _registry_files(world_root):
+    directory = world_root / "registry"
+    return sorted(path.name for path in directory.glob("*.yaml")) if directory.exists() else []
+
+
+def test_e1_admit_under_a_permit_lacking_registry_refuses_and_writes_nothing(tmp_path):
+    corpus = tmp_path / "corpus"
+    write_manifest(corpus, "1" * 32)
+    world = world_module.World(
+        world_module.WorldConfig(tmp_path / "world", "f" * 32, (corpus,)),
+        DefaultExecutor,
+        chain_head=unread_chain,
+        corpus_executor_factory=DefaultExecutor,
+        authority=narrowed(families=("epoch",)),
+    )
+    with pytest.raises(PermitExceeded) as caught:
+        world.admit(corpus, provenance=world_module.Fresh())
+    assert caught.value.requirement == PermitFact("family", "registry")
+    assert _registry_files(tmp_path / "world") == []
+
+
+def test_e3_an_admission_carries_the_bound_actor_and_takes_none(tmp_path):
+    corpus = tmp_path / "corpus"
+    write_manifest(corpus, "1" * 32)
+    world = make_world(tmp_path, corpus)
+    record = world.admit(corpus, provenance=world_module.Fresh())
+    assert record.actor == ACTOR
+    with pytest.raises(TypeError):
+        world.retire(record.corpus_id, actor="alice")  # type: ignore[call-arg]
+    assert world.retire(record.corpus_id).actor == ACTOR
+
+
+def test_e2_open_world_and_world_require_an_authority(tmp_path):
+    with pytest.raises(TypeError):
+        world_module.World(
+            world_module.WorldConfig(tmp_path / "world", "f" * 32, ()),
+            DefaultExecutor,
+            chain_head=unread_chain,
+            corpus_executor_factory=DefaultExecutor,
+        )  # type: ignore[call-arg]
 
 
 def registry_paths(instance: world_module.World) -> tuple[Path, ...]:
@@ -134,7 +180,7 @@ def test_registry_accepts_projection_equivalent_yaml(tmp_path):
     corpus = tmp_path / "corpus"
     write_manifest(corpus, "1" * 32)
     instance = make_world(tmp_path, corpus)
-    record = instance.admit(corpus, provenance=world_module.Fresh(), actor="alice")
+    record = instance.admit(corpus, provenance=world_module.Fresh())
     path = registry_paths(instance)[0]
     path.write_text(
         yaml.safe_dump(world_module.admission_projection(record), default_flow_style=True, sort_keys=False),
@@ -149,8 +195,8 @@ def test_exact_admission_retry_is_success_without_second_file(tmp_path):
     write_manifest(corpus, "1" * 32)
     instance = make_world(tmp_path, corpus)
 
-    first = instance.admit(corpus, provenance=world_module.Fresh(), actor="alice")
-    second = instance.admit(corpus, provenance=world_module.Fresh(), actor="alice")
+    first = instance.admit(corpus, provenance=world_module.Fresh())
+    second = instance.admit(corpus, provenance=world_module.Fresh())
 
     assert second == first
     assert len(registry_paths(instance)) == 1
@@ -160,17 +206,18 @@ def test_known_id_refuses_fresh_and_replica_provenance(tmp_path):
     corpus = tmp_path / "corpus"
     write_manifest(corpus, "1" * 32)
     instance = make_world(tmp_path, corpus)
-    instance.admit(corpus, provenance=world_module.Fresh(), actor="alice")
+    instance.admit(corpus, provenance=world_module.Fresh())
+    other_actor = make_world(tmp_path, corpus, authority=narrowed(families=("registry",), actor="bob"))
 
     with pytest.raises(CorpusIdKnown):
-        instance.admit(corpus, provenance=world_module.Fresh(), actor="bob")
+        other_actor.admit(corpus, provenance=world_module.Fresh())
     # A replica refuses too, and now it refuses *sooner*: the log-verification
     # design (§6.2) moved the replica route to `admit_arrival`, so a bare admit
     # never reaches the known-id check for one. The known-id refusal itself
     # still stands on that route, over the same shared core — armed in
     # `test_world_arrival.py::test_an_id_already_admitted_under_another_provenance_still_refuses`.
     with pytest.raises(ReplicaAdmissionRequiresVerification):
-        instance.admit(corpus, provenance=world_module.ReplicaOf("1" * 32), actor="bob")
+        instance.admit(corpus, provenance=world_module.ReplicaOf("1" * 32))
 
     assert len(registry_paths(instance)) == 1
 
@@ -185,7 +232,7 @@ def test_replica_parent_is_the_retained_manifest_id(tmp_path):
     manifest = world_module.load_manifest(corpus)
 
     with pytest.raises(ReplicaAdmissionRequiresVerification):
-        instance.admit(corpus, provenance=world_module.ReplicaOf("1" * 32), actor="alice")
+        instance.admit(corpus, provenance=world_module.ReplicaOf("1" * 32))
 
     with pytest.raises(ProvenanceMismatch):
         world_module._validate_provenance(manifest, world_module.ReplicaOf("2" * 32))
@@ -198,7 +245,7 @@ def test_non_fork_provenance_refuses_a_fork_manifest(tmp_path):
     instance = make_world(tmp_path, corpus)
 
     with pytest.raises(ProvenanceMismatch):
-        instance.admit(corpus, provenance=world_module.Fresh(), actor="alice")
+        instance.admit(corpus, provenance=world_module.Fresh())
     # The replica arm of the same rule: a bare admit refuses a replica first
     # (§6.2), so the fork-manifest refusal is armed over the predicate the
     # shared core applies on either route.
@@ -223,7 +270,7 @@ def test_fork_provenance_must_match_both_manifest_parent_facts(tmp_path, provena
     instance = make_world(tmp_path, corpus)
 
     with pytest.raises(ProvenanceMismatch):
-        instance.admit(corpus, provenance=provenance, actor="alice")
+        instance.admit(corpus, provenance=provenance)
 
     assert registry_paths(instance) == ()
 
@@ -237,22 +284,22 @@ def test_fork_provenance_requires_a_known_parent(tmp_path):
     provenance = world_module.ForkOf("2" * 32, "3" * 64)
 
     with pytest.raises(ForkParentUnknown):
-        instance.admit(fork, provenance=provenance, actor="alice")
+        instance.admit(fork, provenance=provenance)
     assert registry_paths(instance) == ()
 
-    instance.admit(parent, provenance=world_module.Fresh(), actor="alice")
-    assert instance.admit(fork, provenance=provenance, actor="alice").corpus_id == "1" * 32
+    instance.admit(parent, provenance=world_module.Fresh())
+    assert instance.admit(fork, provenance=provenance).corpus_id == "1" * 32
 
 
 def test_malformed_manifest_wins_before_exact_admission_retry(tmp_path):
     corpus = tmp_path / "corpus"
     write_manifest(corpus, "1" * 32)
     instance = make_world(tmp_path, corpus)
-    instance.admit(corpus, provenance=world_module.Fresh(), actor="alice")
+    instance.admit(corpus, provenance=world_module.Fresh())
     (corpus / "corpus.yaml").write_text("manifest_version: broken\n", encoding="utf-8")
 
     with pytest.raises(ManifestMalformed):
-        instance.admit(corpus, provenance=world_module.Fresh(), actor="alice")
+        instance.admit(corpus, provenance=world_module.Fresh())
 
     assert len(registry_paths(instance)) == 1
 
@@ -266,18 +313,18 @@ def test_registry_scan_wins_before_manifest_loading(tmp_path):
     (corpus / "corpus.yaml").write_text("manifest_version: broken\n", encoding="utf-8")
 
     with pytest.raises(RegistryMalformed):
-        instance.admit(corpus, provenance=world_module.Fresh(), actor="alice")
+        instance.admit(corpus, provenance=world_module.Fresh())
 
 
 def test_provenance_mismatch_wins_before_known_id_refusal(tmp_path):
     corpus = tmp_path / "corpus"
     write_manifest(corpus, "1" * 32)
     instance = make_world(tmp_path, corpus)
-    instance.admit(corpus, provenance=world_module.Fresh(), actor="alice")
+    instance.admit(corpus, provenance=world_module.Fresh())
     write_manifest(corpus, "1" * 32, ("2" * 32, "3" * 64))
 
     with pytest.raises(ProvenanceMismatch):
-        instance.admit(corpus, provenance=world_module.Fresh(), actor="bob")
+        instance.admit(corpus, provenance=world_module.Fresh())
 
     assert len(registry_paths(instance)) == 1
 
@@ -300,8 +347,9 @@ def test_admission_uses_one_create_only_plan_through_the_supplied_executor(tmp_p
         Recorder,
         chain_head=unread_chain,
         corpus_executor_factory=DefaultExecutor,
+        authority=FULL,
     )
-    record = instance.admit(corpus, provenance=world_module.Fresh(), actor="alice")
+    record = instance.admit(corpus, provenance=world_module.Fresh())
 
     assert plans == [
         (
@@ -319,7 +367,7 @@ def test_terminal_target_must_be_known_and_refusal_writes_nothing(tmp_path):
     instance = make_world(tmp_path)
 
     with pytest.raises(StatusTargetUnknown):
-        instance.retire("1" * 32, actor="alice")
+        instance.retire("1" * 32)
 
     assert registry_paths(instance) == ()
 
@@ -328,14 +376,12 @@ def test_status_retry_is_idempotent_and_differing_terminal_acts_refuse(tmp_path)
     corpus = tmp_path / "corpus"
     write_manifest(corpus, "1" * 32)
     instance = make_world(tmp_path, corpus)
-    instance.admit(corpus, provenance=world_module.Fresh(), actor="alice")
+    instance.admit(corpus, provenance=world_module.Fresh())
 
-    first = instance.retire("1" * 32, actor="alice")
-    assert instance.retire("1" * 32, actor="alice") == first
+    first = instance.retire("1" * 32)
+    assert instance.retire("1" * 32) == first
     with pytest.raises(StatusTerminal):
-        instance.retire("1" * 32, actor="bob")
-    with pytest.raises(StatusTerminal):
-        instance.depart("1" * 32, actor="alice")
+        instance.depart("1" * 32)
 
     assert len(registry_paths(instance)) == 2
 
@@ -344,11 +390,12 @@ def test_retired_corpus_has_no_return_to_live_act(tmp_path):
     corpus = tmp_path / "corpus"
     write_manifest(corpus, "1" * 32)
     instance = make_world(tmp_path, corpus)
-    instance.admit(corpus, provenance=world_module.Fresh(), actor="alice")
-    instance.retire("1" * 32, actor="alice")
+    instance.admit(corpus, provenance=world_module.Fresh())
+    instance.retire("1" * 32)
+    other_actor = make_world(tmp_path, corpus, authority=narrowed(families=("registry",), actor="bob"))
 
     with pytest.raises(CorpusIdKnown):
-        instance.admit(corpus, provenance=world_module.Fresh(), actor="bob")
+        other_actor.admit(corpus, provenance=world_module.Fresh())
     assert not hasattr(instance, "unretire")
 
 
@@ -356,9 +403,9 @@ def test_depart_appends_the_other_terminal_status(tmp_path):
     corpus = tmp_path / "corpus"
     write_manifest(corpus, "1" * 32)
     instance = make_world(tmp_path, corpus)
-    instance.admit(corpus, provenance=world_module.Fresh(), actor="alice")
+    instance.admit(corpus, provenance=world_module.Fresh())
 
-    assert instance.depart("1" * 32, actor="alice").status == "departed"
+    assert instance.depart("1" * 32).status == "departed"
     assert instance.status("1" * 32).live is False
 
 
@@ -378,9 +425,9 @@ def test_computed_status_facts_are_independent(tmp_path, admitted, terminal, con
     write_manifest(corpus, "1" * 32)
     instance = make_world(tmp_path, *(corpus,) if configured else ())
     if admitted:
-        instance.admit(corpus, provenance=world_module.Fresh(), actor="alice")
+        instance.admit(corpus, provenance=world_module.Fresh())
     if terminal:
-        instance.retire("1" * 32, actor="alice")
+        instance.retire("1" * 32)
 
     status = instance.status("1" * 32)
 
@@ -465,9 +512,13 @@ def test_replica_restoration_recomputes_presence_without_admission(tmp_path):
     write_manifest(original, "1" * 32)
     config = world_module.WorldConfig(tmp_path / "world", "f" * 32, (restoration,))
     instance = world_module.World(
-        config, DefaultExecutor, chain_head=unread_chain, corpus_executor_factory=DefaultExecutor
+        config,
+        DefaultExecutor,
+        chain_head=unread_chain,
+        corpus_executor_factory=DefaultExecutor,
+        authority=FULL,
     )
-    instance.admit(original, provenance=world_module.Fresh(), actor="alice")
+    instance.admit(original, provenance=world_module.Fresh())
     before = instance.registry()
 
     assert instance.status("1" * 32).present is False
@@ -480,7 +531,7 @@ def test_raw_admission_deletion_is_undetected(tmp_path):
     corpus = tmp_path / "corpus"
     write_manifest(corpus, "1" * 32)
     instance = make_world(tmp_path, corpus)
-    instance.admit(corpus, provenance=world_module.Fresh(), actor="alice")
+    instance.admit(corpus, provenance=world_module.Fresh())
     registry_paths(instance)[0].unlink()
 
     status = instance.status("1" * 32)

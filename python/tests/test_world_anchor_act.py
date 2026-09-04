@@ -29,6 +29,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from authority import ACTOR, FULL
 from nodes.core.write_plan import DefaultExecutor
 from test_world_build import ALPHA, BETA, corpus_at
 from test_world_epoch import Recorder, admitted_world, publish
@@ -153,6 +154,7 @@ def anchorable_world(
     *corpus_ids: str,
     admitted: tuple[str, ...] | None = None,
     world_id: str = WORLD_ID,
+    authority=FULL,
 ) -> tuple[RefusingWorld, Recorder, Heads, dict[str, Path]]:
     """A world configured with one carrier per id, each with a head to read."""
     roots = {corpus_id: corpus_at(tmp_path / corpus_id[:6], corpus_id) for corpus_id in corpus_ids}
@@ -164,9 +166,10 @@ def anchorable_world(
         recorder,
         chain_head=unread_chain,
         corpus_executor_factory=DefaultExecutor,
+        authority=authority,
     )
     for corpus_id in admitted if admitted is not None else corpus_ids:
-        world.admit(roots[corpus_id], provenance=registry.Fresh(), actor="alice")
+        world.admit(roots[corpus_id], provenance=registry.Fresh())
     heads = Heads()
     for corpus_id, root in roots.items():
         heads.set(root, GENESIS[corpus_id], TIP[corpus_id])
@@ -174,8 +177,8 @@ def anchorable_world(
     return world, recorder, heads, roots
 
 
-def anchor(world: registry.World, heads: Heads, *corpus_ids: str, actor: str = "alice"):
-    return anchors._anchor_heads(world, frozenset(corpus_ids), actor=actor, seam=make_seam(heads))
+def anchor(world: registry.World, heads: Heads, *corpus_ids: str):
+    return anchors._anchor_heads(world, frozenset(corpus_ids), seam=make_seam(heads))
 
 
 def export(world: registry.World, heads: Heads, subject: anchors.CorpusSubject | anchors.WorldSubject) -> bytes:
@@ -202,14 +205,14 @@ class TestTheAnchorAct:
     def test_it_records_one_head_per_named_corpus(self, tmp_path):
         world, _recorder, heads, _roots = anchorable_world(tmp_path, ALPHA, BETA)
 
-        recorded = anchor(world, heads, BETA, ALPHA, actor="alice")
+        recorded = anchor(world, heads, BETA, ALPHA)
 
         assert recorded == (
             anchors.LogHeadRecord(
-                anchors.CorpusSubject(ALPHA), GENESIS[ALPHA], TIP[ALPHA], anchors.AnchorActOrigin("alice")
+                anchors.CorpusSubject(ALPHA), GENESIS[ALPHA], TIP[ALPHA], anchors.AnchorActOrigin(ACTOR)
             ),
             anchors.LogHeadRecord(
-                anchors.CorpusSubject(BETA), GENESIS[BETA], TIP[BETA], anchors.AnchorActOrigin("alice")
+                anchors.CorpusSubject(BETA), GENESIS[BETA], TIP[BETA], anchors.AnchorActOrigin(ACTOR)
             ),
         )
         assert stored_log_heads(world) == tuple(sorted(recorded, key=anchors.log_head_digest))
@@ -298,7 +301,7 @@ class TestTheAnchorAct:
         # move, which is precisely the case an overwrite would erase.
         world, _recorder, heads, _roots = anchorable_world(tmp_path, ALPHA)
         record = anchors.LogHeadRecord(
-            anchors.CorpusSubject(ALPHA), GENESIS[ALPHA], TIP[ALPHA], anchors.AnchorActOrigin("alice")
+            anchors.CorpusSubject(ALPHA), GENESIS[ALPHA], TIP[ALPHA], anchors.AnchorActOrigin(ACTOR)
         )
         edited = b"# anchored by hand\n" + anchors.log_head_record_bytes(record)
         squatter = world.config.world_root / "registry" / f"{anchors.log_head_digest(record)}.yaml"
@@ -314,8 +317,8 @@ class TestTheAnchorAct:
         # §3.3 rules this in: anchoring immediately before retirement or
         # departure cleanup is the archetypal use of the act.
         world, _recorder, heads, _roots = anchorable_world(tmp_path, ALPHA, BETA)
-        world.retire(ALPHA, actor="alice")
-        world.depart(BETA, actor="alice")
+        world.retire(ALPHA)
+        world.depart(BETA)
 
         recorded = anchor(world, heads, ALPHA, BETA)
 
@@ -380,15 +383,6 @@ class TestTheAnchorAct:
         held = registry._world_lock_for(world.config.world_root)
         assert held.acquire(blocking=False) is True
         held.release()
-
-    def test_an_unencodable_actor_refuses_before_any_read(self, tmp_path):
-        world, _recorder, heads, _roots = anchorable_world(tmp_path, ALPHA)
-
-        with pytest.raises(TypeError):
-            anchor(world, heads, ALPHA, actor=object())  # type: ignore[arg-type]
-
-        assert heads.roots == []
-
 
 # --- the exported head artifact (§3.2) ----------------------------------------
 
@@ -582,7 +576,7 @@ class TestPublicationWritesBuildOriginRecords:
         anchored = published.anchors[0]
         heads.set(roots[ALPHA], anchored.genesis_digest, anchored.head_digest)
 
-        anchor(world, heads, ALPHA, actor="alice")
+        anchor(world, heads, ALPHA)
 
         origins = sorted(type(record.origin).__name__ for record in stored_log_heads(world))
         assert origins == ["AnchorActOrigin", "BuildOrigin"]
@@ -597,8 +591,8 @@ class TestThePublicWrappers:
         monkeypatch.setattr(
             science_root,
             "_anchor_heads",
-            lambda world, corpus_ids, *, store_roots, actor, seam: seen.append(
-                ("anchor", world, corpus_ids, store_roots, actor, seam)
+            lambda world, corpus_ids, *, store_roots, seam: seen.append(
+                ("anchor", world, corpus_ids, store_roots, seam)
             )
             or (),
         )
@@ -612,20 +606,19 @@ class TestThePublicWrappers:
         )
         world, _recorder, _heads, _roots = anchorable_world(tmp_path, ALPHA)
 
-        science_root.anchor_heads(world, frozenset({ALPHA}), actor="alice")
+        science_root.anchor_heads(world, frozenset({ALPHA}))
         science_root.export_head_artifact(world, anchors.CorpusSubject(ALPHA))
 
         assert seen == [
-            ("anchor", world, frozenset({ALPHA}), (), "alice", science_root._log_seam()),
+            ("anchor", world, frozenset({ALPHA}), (), science_root._log_seam()),
             ("export", world, anchors.CorpusSubject(ALPHA), None, science_root._log_seam()),
         ]
 
     def test_the_wrapper_signatures_are_the_ruled_ones(self):
         anchor_parameters = inspect.signature(science_root.anchor_heads).parameters
-        assert list(anchor_parameters) == ["world", "corpus_ids", "store_roots", "actor"]
+        assert list(anchor_parameters) == ["world", "corpus_ids", "store_roots"]
         assert anchor_parameters["store_roots"].kind is inspect.Parameter.KEYWORD_ONLY
         assert anchor_parameters["store_roots"].default == ()
-        assert anchor_parameters["actor"].kind is inspect.Parameter.KEYWORD_ONLY
 
         export_parameters = inspect.signature(science_root.export_head_artifact).parameters
         assert list(export_parameters) == ["world", "subject", "store_root"]
@@ -682,7 +675,6 @@ def test_the_act_cores_hold_no_engine_capability():
         "corpus_ids",
         "store_roots",
         "store_root",
-        "actor",
         "seam",
         "subject",
     }
@@ -706,12 +698,11 @@ def test_export_binds_subject_and_takes_no_actor(tmp_path):
     world, recorder, heads, _roots = anchorable_world(tmp_path / "bound", ALPHA)
     before, submitted = registry_tree(world), len(recorder.plans)
 
-    # Neither act takes an actor: export mints no record, so there is nobody to
-    # attribute — the anchor act beside it does take one, which is the contrast
-    # that makes the absence a choice rather than an oversight.
+    # Neither act takes an actor argument: the anchor binds its world's actor,
+    # while export mints no attributed record.
     assert "actor" not in inspect.signature(anchors._export_head_artifact).parameters
     assert "actor" not in inspect.signature(science_root.export_head_artifact).parameters
-    assert "actor" in inspect.signature(anchors._anchor_heads).parameters
+    assert "actor" not in inspect.signature(anchors._anchor_heads).parameters
 
     exported = export(world, heads, anchors.WorldSubject(WORLD_ID))
     assert json.loads(exported.decode("utf-8"))["domain"] == anchors.HEAD_ARTIFACT_DOMAIN
@@ -812,8 +803,8 @@ def test_anchor_act_refusals_idempotency_and_terminal_corpora(tmp_path):
 
     # Terminal corpora are anchorable.
     terminal, _recorder, terminal_heads, _roots = anchorable_world(tmp_path / "terminal", ALPHA, BETA)
-    terminal.retire(ALPHA, actor="alice")
-    terminal.depart(BETA, actor="alice")
+    terminal.retire(ALPHA)
+    terminal.depart(BETA)
     recorded = anchor(terminal, terminal_heads, ALPHA, BETA)
     assert [entry.subject for entry in recorded] == [
         anchors.CorpusSubject(ALPHA),

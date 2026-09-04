@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 from hashlib import sha256
+from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 
@@ -11,6 +12,7 @@ import pytest
 from atoms.coordinator.commands import ReadUnestablished, UnestablishedReason
 from atoms.core.effects import CreateDirectory, CreateFileNoClobber, DeletePath, MoveNoClobber, ReplaceFile
 from atoms.core.fingerprint import ABSENT, DirectoryState, FileState
+from authority import FULL
 from nodes.core.errors import ExecutionError
 from nodes.core.write_plan import CreateOp
 
@@ -29,7 +31,7 @@ from beliefs.root import (
     CREATED_FILE_MODE,
     STORE_CONSUMER_TAG,
     STORE_WRITE_INTENT_DOMAIN,
-    DurableOperationPort,
+    DurableExecutor,
     holdings_seam,
     init_store_root,
     replicate_root,
@@ -40,7 +42,7 @@ TXID = "1" * 32
 
 def _store(work, name="store"):
     root = work / name
-    init_store_root(root)
+    init_store_root(root, authority=FULL)
     return root
 
 
@@ -121,7 +123,7 @@ def test_store_move_returns_the_dual_location_result(certified_work):
 def test_store_mutation_on_an_ungranted_root_refuses(certified_work):
     source = _store(certified_work)
     replica = certified_work / "replica"
-    replicate_root(source, replica)
+    replicate_root(source, replica, authority=FULL)
 
     with pytest.raises(ExecutionError):
         holdings_seam().store_write(replica, "payload.bin", b"held bytes")
@@ -272,19 +274,19 @@ def test_the_seam_delegates_intent_publication_and_genesis(monkeypatch, tmp_path
     plan = [CreateOp("record.md", b"record")]
     calls = []
 
-    def append(port, value):
-        calls.append(("append", port.root, value))
+    def append(_backend, root, _metadata_root, _storage, value):
+        calls.append(("append", Path(root), value))
         return "2" * 64
 
-    def publish(port, value, fulfills):
-        calls.append(("publish", port.root, value, fulfills))
+    def publish(executor, value):
+        calls.append(("publish", executor.root, value, executor._fulfills))
 
     def head(root):
         calls.append(("genesis", root))
         return SimpleNamespace(genesis_payload=b"genesis")
 
-    monkeypatch.setattr(DurableOperationPort, "append_intent", append)
-    monkeypatch.setattr(DurableOperationPort, "execute_fulfilling", publish)
+    monkeypatch.setattr(science_root, "append_intent", append)
+    monkeypatch.setattr(DurableExecutor, "execute", publish)
     monkeypatch.setattr(science_root, "_read_head", head)
     seam = holdings_seam()
 

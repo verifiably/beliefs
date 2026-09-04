@@ -26,6 +26,7 @@ from atoms.coordinator.commands import ChainView as EngineChainView
 from atoms.core.errors import PreconditionRefused, ProtocolError, TransactionHalted
 from atoms.core.fingerprint import ABSENT, AbsentState, FileState
 from atoms.core.scratch import CHAIN_LEAF
+from authority import FULL
 from fixtures_cut6 import PINS
 from nodes.core.write_plan import DefaultExecutor
 
@@ -54,6 +55,7 @@ def make_world(tmp_path: Path) -> world_module.World:
         DefaultExecutor,
         chain_head=unread_chain,
         corpus_executor_factory=DefaultExecutor,
+        authority=FULL,
     )
 
 

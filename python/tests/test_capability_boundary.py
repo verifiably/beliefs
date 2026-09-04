@@ -400,14 +400,15 @@ ENGINE_CALL_SITES = {
         "init_store_root",
         "init_store_root",
     ],
-    "append_intent": ["DurableOperationPort.append_intent"],
+    "append_intent": ["DurableOperationPort.append_intent", "_store_append_intent"],
 }
 """Where each mutating command is called, by enclosing definition.
 
 One `run_transaction` site, the shared mapped submission used by the durable
 executor and store commands — so **every registered-surface mutation flows
 through it**. `register_root` runs
-only in the two initializers and `append_intent` only in the operation port:
+only in the two initializers and `append_intent` only in the operation port
+and the holdings adapter implementation:
 genesis registration and intent append are protocol entries, not application
 mutations, which is why they are named separately rather than counted as a
 second mutation path. `init_store_root` carries two register sites by
@@ -519,8 +520,9 @@ def test_no_cooperative_mutation_path_skips_registration():
     named only there, and each is called from exactly the definitions the
     composition allows: **one** `run_transaction` site, the shared mapped
     submission, so every registered-surface mutation flows through it; the two
-    initializers' `register_root` and the operation port's `append_intent` are
-    protocol entries rather than application mutations. Third, no module in
+    initializers' `register_root`, the operation port's `append_intent`, and
+    the holdings adapter's intent append are protocol entries rather than
+    application mutations. Third, no module in
     Science reaches a byte of a file itself outside the two stated non-registered
     surfaces — so there is no path that mutates a registered root *without* the
     engine, and no engine mutation that is not a registration.

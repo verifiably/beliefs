@@ -14,6 +14,7 @@ from atoms.chain.model import (
     SettledEntry,
     decode_entry,
 )
+from authority import ACTOR, FULL
 from fixtures_cut4 import path_for, reopen
 from nodes.core.errors import ExecutionError
 
@@ -84,7 +85,7 @@ def test_retract_survives_facade_reload(durable_writer, durable_root):
         reason="defective-code",
         rationale="the recorded result is invalid",
         grounds=("source:acceptance",),
-        actor="acceptance",
+        actor=ACTOR,
         event_token="durable-retraction",
     )
 
@@ -97,12 +98,11 @@ def test_retract_survives_facade_reload(durable_writer, durable_root):
 
 
 def test_import_bundle_records_the_exact_durable_chain(durable_root):
-    writer = open_corpus(durable_root)
+    writer = open_corpus(durable_root, authority=FULL)
     before = chain_entries(durable_root)
 
     report = writer.import_bundle(
         [proposition("imported-a"), proposition("imported-b")],
-        actor="acceptance",
         observer="corpus",
         instrument="cut5",
         opened_at="T0",
@@ -153,13 +153,12 @@ def test_import_on_an_uncertified_tuple_refuses():
     root = shm / f"science-cut5-uncertified-{os.getpid()}"
     try:
         with pytest.raises(Exception) as registration:
-            init_corpus_root(root)
+            init_corpus_root(root, authority=FULL)
         assert "allowlist" in str(registration.value) or "barrier-option" in str(registration.value)
 
         with pytest.raises(ExecutionError) as refused:
-            open_corpus(root).import_bundle(
+            open_corpus(root, authority=FULL).import_bundle(
                 [proposition("uncertified")],
-                actor="acceptance",
                 observer="corpus",
                 instrument="cut5",
                 opened_at="T0",

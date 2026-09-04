@@ -3,6 +3,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import ClassVar
 
+from authority import FULL
 from nodes.core.corpus import Corpus
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -148,7 +149,7 @@ class Recorder:
 def mounted_root(
     root, profile, executor_factory: Callable[[Path], WritePlanExecutor] = DefaultExecutor
 ):
-    CorpusWriter(root, executor_factory).adopt_manifest(profile=pins_for(profile))
+    CorpusWriter(root, executor_factory, authority=FULL).adopt_manifest(profile=pins_for(profile))
     return root
 
 

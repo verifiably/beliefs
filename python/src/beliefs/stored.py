@@ -64,6 +64,7 @@ from beliefs.holdings.records import (
     StoreLocator,
 )
 from beliefs.identity import v1
+from beliefs.permit import require_actor
 from beliefs.record import AssessmentValue
 from beliefs.verification import Verification
 
@@ -875,6 +876,7 @@ def retraction_node(
     grounds_list = list(grounds)
     if not grounds_list or not all(type(ground) is str and ground for ground in grounds_list):
         raise MalformedRecord("a retraction names at least one string ground reference")
+    actor = require_actor(actor)
     if type(actor) is not str or not actor or type(event_token) is not str or not event_token:
         raise MalformedRecord("a retraction carries actor and event attribution")
     if successor is not None and (type(successor) is not str or not successor):

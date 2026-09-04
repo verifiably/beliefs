@@ -35,6 +35,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from authority import FULL
 from fixtures_cut6 import PINS
 from nodes.core.corpus import Corpus
 from nodes.core.node import Node
@@ -142,6 +143,7 @@ def make_world(tmp_path: Path, *corpus_roots: Path, chain_head: ChainHeads | Non
         DefaultExecutor,
         chain_head=chain_head or ChainHeads(),
         corpus_executor_factory=DefaultExecutor,
+        authority=FULL,
     )
 
 
@@ -236,7 +238,7 @@ def admitted_world(
     }
     world = make_world(tmp_path, *roots.values(), chain_head=chain_head)
     for corpus_root in roots.values():
-        world.admit(corpus_root, provenance=registry.Fresh(), actor="alice")
+        world.admit(corpus_root, provenance=registry.Fresh())
     return world, install_bindings(world), roots
 
 
@@ -306,9 +308,9 @@ class TestTheCompositionRootReadsTheChain:
 
         patch_world_engine(monkeypatch, [])
         config = registry.WorldConfig(tmp_path / "world", "1" * 32, ())
-        composition_root.init_world_root(config)
+        composition_root.init_world_root(config, authority=FULL)
 
-        world = composition_root.open_world(config)
+        world = composition_root.open_world(config, authority=FULL)
 
         assert world._chain_head is composition_root.chain_head_reader()
         assert world._corpus_executor_factory is composition_root.durable_executor_factory()
@@ -368,7 +370,7 @@ def test_admission_allows_same_build_preflight(tmp_path):
     with pytest.raises(CoverageUnknown):
         build(world, (ALPHA,), bindings)
 
-    world.admit(corpus_root, provenance=registry.Fresh(), actor="alice")
+    world.admit(corpus_root, provenance=registry.Fresh())
     draft = build(world, (ALPHA,), bindings)
 
     assert draft.coverage == (ALPHA,)
@@ -380,7 +382,7 @@ def test_build_refuses_duplicate_carrier_coverage(tmp_path):
     first = corpus_at(tmp_path / "first", ALPHA, sample_nodes())
     second = corpus_at(tmp_path / "second", ALPHA, sample_nodes())
     world = make_world(tmp_path, first, second)
-    world.admit(first, provenance=registry.Fresh(), actor="alice")
+    world.admit(first, provenance=registry.Fresh())
     bindings = install_bindings(world)
 
     with pytest.raises(CoverageUnresolvable) as refusal:
@@ -455,8 +457,8 @@ class TestPreflightOrder:
         # reported: ALPHA is retired, BETA has no carrier at all.
         alpha_root = corpus_at(tmp_path / "alpha", ALPHA, sample_nodes())
         world = make_world(tmp_path, alpha_root)
-        world.admit(alpha_root, provenance=registry.Fresh(), actor="alice")
-        world.retire(ALPHA, actor="alice")
+        world.admit(alpha_root, provenance=registry.Fresh())
+        world.retire(ALPHA)
         bindings = install_bindings(world)
 
         with pytest.raises(CoverageNotLive) as refusal:
@@ -467,8 +469,8 @@ class TestPreflightOrder:
     def test_a_retired_id_refuses_even_with_a_single_present_carrier(self, tmp_path):
         corpus_root = corpus_at(tmp_path / "alpha", ALPHA, sample_nodes())
         world = make_world(tmp_path, corpus_root)
-        world.admit(corpus_root, provenance=registry.Fresh(), actor="alice")
-        world.depart(ALPHA, actor="alice")
+        world.admit(corpus_root, provenance=registry.Fresh())
+        world.depart(ALPHA)
         bindings = install_bindings(world)
 
         with pytest.raises(CoverageNotLive):
@@ -477,11 +479,11 @@ class TestPreflightOrder:
     def test_an_admitted_live_id_with_no_carrier_is_unresolvable(self, tmp_path):
         alpha_root = corpus_at(tmp_path / "alpha", ALPHA, sample_nodes())
         world = make_world(tmp_path, alpha_root)
-        world.admit(alpha_root, provenance=registry.Fresh(), actor="alice")
+        world.admit(alpha_root, provenance=registry.Fresh())
         registry._scan_registry(world.config.world_root)
         # BETA is admitted through a carrier the world then stops configuring.
         beta_root = corpus_at(tmp_path / "beta", BETA, sample_nodes())
-        world.admit(beta_root, provenance=registry.Fresh(), actor="alice")
+        world.admit(beta_root, provenance=registry.Fresh())
         bindings = install_bindings(world)
 
         with pytest.raises(CoverageUnresolvable) as refusal:
@@ -502,8 +504,8 @@ class TestPreflightOrder:
         first = corpus_at(tmp_path / "first", ALPHA, sample_nodes())
         second = corpus_at(tmp_path / "second", ALPHA, sample_nodes())
         duplicated = make_world(tmp_path / "duplicated", first, second)
-        duplicated.admit(first, provenance=registry.Fresh(), actor="alice")
-        duplicated.retire(ALPHA, actor="alice")
+        duplicated.admit(first, provenance=registry.Fresh())
+        duplicated.retire(ALPHA)
 
         with pytest.raises(CoverageNotLive) as retired_duplicate:
             build(duplicated, (ALPHA,), install_bindings(duplicated))
@@ -511,8 +513,8 @@ class TestPreflightOrder:
         # No carrier at all for a retired id.
         beta_root = corpus_at(tmp_path / "beta", BETA, sample_nodes())
         absent = make_world(tmp_path / "absent", first)
-        absent.admit(beta_root, provenance=registry.Fresh(), actor="alice")
-        absent.depart(BETA, actor="alice")
+        absent.admit(beta_root, provenance=registry.Fresh())
+        absent.depart(BETA)
 
         with pytest.raises(CoverageNotLive) as departed_absent:
             build(absent, (BETA,), install_bindings(absent))
@@ -553,7 +555,7 @@ class TestPreflightOrder:
         broken.mkdir()
         (broken / "corpus.yaml").write_text("manifest_version: 9\n", encoding="utf-8")
         world = make_world(tmp_path, alpha_root, broken)
-        world.admit(alpha_root, provenance=registry.Fresh(), actor="alice")
+        world.admit(alpha_root, provenance=registry.Fresh())
         bindings = install_bindings(world)
 
         with pytest.raises(ManifestMalformed):
@@ -665,7 +667,7 @@ def test_api_write_refuses_during_capture(tmp_path):
     builder.start()
     try:
         assert heads.entered.wait(JOIN_TIMEOUT), "the capture never entered its hold"
-        writer = CorpusWriter(roots[ALPHA], DefaultExecutor)
+        writer = CorpusWriter(roots[ALPHA], DefaultExecutor, authority=FULL)
         with pytest.raises(BuildHold):
             writer.add(stored.dataset_node("blocked", title="blocked"))
     finally:
@@ -885,7 +887,7 @@ class TestSerialCapture:
         )
         corpus_root = corpus_at(tmp_path / "alpha", ALPHA, (dataset, run, verification, first, counter))
         world = make_world(tmp_path, corpus_root)
-        world.admit(corpus_root, provenance=registry.Fresh(), actor="alice")
+        world.admit(corpus_root, provenance=registry.Fresh())
         bindings = install_bindings(world)
 
         draft = build(world, (ALPHA,), bindings)
@@ -938,7 +940,7 @@ class TestSerialCapture:
         with pytest.raises(RetractionTargetUnresolvable):
             standing_in_local_view(ReadView.opened_at(corpus_root), verification.id)
         world = make_world(tmp_path, corpus_root)
-        world.admit(corpus_root, provenance=registry.Fresh(), actor="alice")
+        world.admit(corpus_root, provenance=registry.Fresh())
         bindings = install_bindings(world)
 
         draft = build(world, (ALPHA,), bindings)
@@ -985,7 +987,7 @@ def test_build_refuses_ungoverned_enumerated_record(tmp_path, kind):
     corpus_root = corpus_at(tmp_path / "alpha", ALPHA, sample_nodes())
     Corpus(corpus_root).add(claimant)
     world = make_world(tmp_path, corpus_root)
-    world.admit(corpus_root, provenance=registry.Fresh(), actor="alice")
+    world.admit(corpus_root, provenance=registry.Fresh())
     bindings = install_bindings(world)
 
     with pytest.raises(EnumeratedKindUngoverned) as refusal:
@@ -1003,7 +1005,7 @@ class TestUngovernedKindsAreRefusedNotAssumed:
         corpus_root = corpus_at(tmp_path / "alpha", ALPHA, sample_nodes())
         Corpus(corpus_root).add(Node(id="coreference-attestation:c", kind="coreference-attestation", title="c"))
         world = make_world(tmp_path, corpus_root)
-        world.admit(corpus_root, provenance=registry.Fresh(), actor="alice")
+        world.admit(corpus_root, provenance=registry.Fresh())
         bindings = install_bindings(world)
         # `CapturedRecord`, not `Capture`: the latter is built only after every
         # corpus is captured, so patching it would pass even if the pass had

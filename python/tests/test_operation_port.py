@@ -16,6 +16,7 @@ from atoms.core.errors import (
 )
 from atoms.fs.platform import select_backend
 from atoms.store.errors import MetadataStoreInvalid
+from authority import FULL
 from nodes.core.errors import ExecutionError, PlanRefusedError
 from nodes.core.write_plan import CreateOp, WritePlan
 
@@ -46,6 +47,7 @@ class Recorder:
 
 
 class FakePort:
+    authority = FULL
     intents: ClassVar[list[bytes]] = []
     executed: ClassVar[list[WritePlan]] = []
     fulfilling: ClassVar[list[tuple[WritePlan, str]]] = []
@@ -61,17 +63,18 @@ class FakePort:
         self.fulfilling.append((plan, fulfills))
 
 
-def durable_port(tmp_path) -> DurableOperationPort:
+def durable_port(tmp_path, authority=FULL) -> DurableOperationPort:
     return DurableOperationPort(
         tmp_path,
         backend=select_backend(),
         storage=PRODUCTION_STORAGE,
         metadata_root=tmp_path.with_name(tmp_path.name + ".metadata"),
+        authority=authority,
     )
 
 
 def _registered_port(root):
-    init_corpus_root(root)
+    init_corpus_root(root, authority=FULL)
     return durable_port(root)
 
 
@@ -88,7 +91,7 @@ class TestTheStructuralPort:
         FakePort.intents = []
         FakePort.fulfilling = []
         port: OperationPort = FakePort()
-        writer = CorpusWriter(tmp_path, Recorder, operation_port=port)
+        writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port)
         plan = [CreateOp(path="p.md", content=b"record")]
 
         configured = writer._operation_port
@@ -101,18 +104,18 @@ class TestTheStructuralPort:
         assert FakePort.fulfilling == [(plan, FULFILLS)]
 
     def test_the_port_defaults_to_none_without_changing_portable_construction(self, tmp_path):
-        assert CorpusWriter(tmp_path, Recorder)._operation_port is None
+        assert CorpusWriter(tmp_path, Recorder, authority=FULL)._operation_port is None
 
     def test_ports_do_not_change_the_stable_shared_executor_factory(self, tmp_path):
-        with_port = CorpusWriter(tmp_path, Recorder, operation_port=FakePort())
-        without_port = CorpusWriter(tmp_path, Recorder)
+        with_port = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=FakePort())
+        without_port = CorpusWriter(tmp_path, Recorder, authority=FULL)
 
         assert with_port._state is without_port._state
 
 
 class TestTheDurablePort:
     def test_open_corpus_wires_the_durable_port(self, tmp_path):
-        assert isinstance(open_corpus(tmp_path)._operation_port, DurableOperationPort)
+        assert isinstance(open_corpus(tmp_path, authority=FULL)._operation_port, DurableOperationPort)
 
     def test_append_intent_forwards_the_opaque_payload_unchanged(self, tmp_path, monkeypatch):
         calls: list[tuple] = []
@@ -202,13 +205,12 @@ def test_execute_publishes_fulfilling_nothing(certified_work) -> None:
 
 
 def test_corpus_writer_reenters_its_durable_ports_shared_lock(certified_work) -> None:
-    init_corpus_root(certified_work)
-    writer = open_corpus(certified_work)
+    init_corpus_root(certified_work, authority=FULL)
+    writer = open_corpus(certified_work, authority=FULL)
     node = stored.proposition_node("p", title="p", claim={"operator": "affects"})
 
     writer.import_bundle(
         [node],
-        actor="actor",
         observer="observer",
         instrument="instrument",
         opened_at="T0",
@@ -254,7 +256,7 @@ def test_oversized_postimage_refuses_before_any_write(certified_work) -> None:
 
 
 def test_non_port_writes_are_unaffected_by_the_ceiling(certified_work) -> None:
-    init_store_root(certified_work)
+    init_store_root(certified_work, authority=FULL)
     big = b"x" * (RECORD_CEILING + 1)
     outcome = science_root._store_write(certified_work, "payload.bin", big)
     assert (certified_work / "payload.bin").read_bytes() == big

@@ -1,6 +1,7 @@
 import inspect
 
 import pytest
+from authority import FULL
 from fixtures_cut3 import (
     SNAKEFILE_DETERMINISTIC,
     SNAKEFILE_PRODUCTION,
@@ -25,7 +26,7 @@ from beliefs.world.logmodel import IntentEntryView, RegisteredEntryView, WellFor
 
 def _observer_port(base):
     root = base / "observer"
-    init_corpus_root(root)
+    init_corpus_root(root, authority=FULL)
     return root, durable_port(root)
 
 
@@ -89,6 +90,8 @@ def test_kill_between_append_and_start_leaves_intent_only(certified_work, monkey
     root, inner = _observer_port(certified_work)
 
     class KilledAfterAppend:
+        authority = inner.authority
+
         def append_intent(self, payload):
             inner.append_intent(payload)
             raise _Killed()
@@ -116,6 +119,8 @@ def test_kill_between_append_and_start_leaves_intent_only_operation_kind(
     root, inner = _observer_port(certified_work)
 
     class KilledAfterAppend:
+        authority = inner.authority
+
         def append_intent(self, payload):
             inner.append_intent(payload)
             raise _Killed()
@@ -139,8 +144,8 @@ def test_kill_between_append_and_start_leaves_intent_only_operation_kind(
 
 def test_cross_root_publication_refuses(certified_work) -> None:
     root_a, root_b = certified_work / "a", certified_work / "b"
-    init_corpus_root(root_a)
-    init_corpus_root(root_b)
+    init_corpus_root(root_a, authority=FULL)
+    init_corpus_root(root_b, authority=FULL)
     port_a, port_b = durable_port(root_a), durable_port(root_b)
     port_b.execute([CreateOp(path="act-report/" + "0" * 64 + ".md", content=b"serviceable")])
     digest_on_a = port_a.append_intent(b'{"actor":"a","event_token":"t","kind":"import"}')
@@ -174,7 +179,7 @@ def test_replay_recipe_mismatch_publishes_refusal_not_run(certified_work) -> Non
     original = run_assessment(certified_work / "original", port=port)
     assert type(original) is RunMinted
     replay_root = certified_work / "replay-observer"
-    init_corpus_root(replay_root)
+    init_corpus_root(replay_root, authority=FULL)
     outcome = replay_of(
         original,
         certified_work / "replayed",
@@ -201,7 +206,7 @@ def test_replay_recipe_mismatch_publishes_refusal_not_run_production(certified_w
         "import pathlib  # changed recipe",
     )
     replay_root = certified_work / "replay-observer"
-    init_corpus_root(replay_root)
+    init_corpus_root(replay_root, authority=FULL)
     outcome = replay_of(
         original,
         certified_work / "replayed",

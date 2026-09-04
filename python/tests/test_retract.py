@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import ClassVar
 
 import pytest
+from authority import ACTOR, FULL, narrowed
 from nodes.core.node import Node
 from nodes.core.write_plan import CreateOp, DefaultExecutor
 
@@ -28,7 +29,7 @@ class Recorder:
 @pytest.fixture()
 def writer(tmp_path) -> CorpusWriter:
     Recorder.plans = []
-    return CorpusWriter(tmp_path, Recorder)
+    return CorpusWriter(tmp_path, Recorder, authority=FULL)
 
 
 def content_identity(node: Node) -> str:
@@ -65,9 +66,32 @@ def retraction_for(target: Node, *, reason: str = "defective-code") -> Node:
         reason=reason,
         rationale="the recorded result is invalid",
         grounds=("verification:v1",),
-        actor="tester",
+        actor=ACTOR,
         event_token="event-1",
     )
+
+
+def test_e3_a_retraction_naming_another_actor_is_refused(tmp_path):
+    writer = CorpusWriter(
+        tmp_path,
+        Recorder,
+        authority=narrowed(kinds=("assessment", "dataset", "proposition", "retraction", "run"),
+                           families=("corpus-write",), actor="not-tester"),
+    )
+    target = mint_eligible_assessment(writer)
+    with pytest.raises(errors.ActorMismatch):
+        writer.retract(retraction_for(target))
+
+
+def test_e3_a_retraction_under_its_own_actor_mints(tmp_path):
+    writer = CorpusWriter(
+        tmp_path,
+        Recorder,
+        authority=narrowed(kinds=("assessment", "dataset", "proposition", "retraction", "run"),
+                           families=("corpus-write",)),
+    )
+    target = mint_eligible_assessment(writer)
+    assert writer.retract(retraction_for(target)).kind == "retraction"
 
 
 def without_grounds(record: Node) -> Node:
@@ -119,7 +143,7 @@ def test_retract_uses_relocation_missing_for_an_absent_node_target(writer):
         reason="defective-code",
         rationale="missing",
         grounds=("verification:v1",),
-        actor="tester",
+        actor=ACTOR,
         event_token="event-1",
     )
 
@@ -135,7 +159,7 @@ def test_retract_refuses_a_node_target_with_the_wrong_content_identity(writer):
         reason="defective-code",
         rationale="wrong tuple",
         grounds=("verification:v1",),
-        actor="tester",
+        actor=ACTOR,
         event_token="event-1",
     )
 
@@ -177,7 +201,7 @@ def test_retract_accepts_an_exact_route_identity(writer):
         reason="wrong-route",
         rationale="the selected route was wrong",
         grounds=("verification:v1",),
-        actor="tester",
+        actor=ACTOR,
         event_token="event-1",
     )
 
@@ -199,7 +223,7 @@ def test_retract_refuses_a_route_absent_from_the_stamped_basis(writer):
         reason="wrong-route",
         rationale="the selected route was wrong",
         grounds=("verification:v1",),
-        actor="tester",
+        actor=ACTOR,
         event_token="event-1",
     )
 
@@ -222,7 +246,7 @@ def test_retract_refuses_a_route_dataset_with_the_wrong_content_identity(writer)
         reason="wrong-route",
         rationale="the dataset identity is wrong",
         grounds=("verification:v1",),
-        actor="tester",
+        actor=ACTOR,
         event_token="event-1",
     )
 
@@ -239,7 +263,7 @@ def test_malformed_grounds_refuse_before_target_resolution(writer):
         reason="defective-code",
         rationale="missing",
         grounds=("verification:v1",),
-        actor="tester",
+        actor=ACTOR,
         event_token="event-1",
     )
 

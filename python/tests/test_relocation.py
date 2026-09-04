@@ -8,6 +8,7 @@ discharge — that runs on the certified engine, under the acceptance runner.
 from __future__ import annotations
 
 import pytest
+from authority import ACTOR, FULL, lacking
 from fixtures_cut3 import report as sample_report
 from fixtures_cut6 import PINS
 from nodes.core.errors import RefError
@@ -20,12 +21,15 @@ from beliefs import coordination, relocation, stored
 from beliefs.consulted import CorpusPins
 from beliefs.corpus import CorpusWriter
 from beliefs.errors import (
+    ActorMismatch,
     AddressDisagreement,
     CollisionRefused,
     ContractPinDisagreement,
     DuplicateLocation,
     EligibilityUnmet,
     MalformedRecord,
+    PermitExceeded,
+    PermitFact,
     RelocationKindExcluded,
     RelocationRefused,
     RelocationTargetMissing,
@@ -38,7 +42,6 @@ from beliefs.report import Consolidated, Moved, RecordMutationEntry
 SCIENCE = PINS.science_contract
 BIOLOGY = PINS.domains["biology"]
 MOVE_FIELDS = {
-    "actor": "a",
     "observer": "o",
     "instrument": "i",
     "opened_at": "2026-09-03T10:00:00Z",
@@ -47,11 +50,26 @@ MOVE_FIELDS = {
 CONSOLIDATE_FIELDS = {**MOVE_FIELDS, "rationale": "keep holds the authored record"}
 
 
-def _writer(root, *, science=SCIENCE, domains=None, operation_port=True):
-    port = OperationRecorder(root) if operation_port else None
-    writer = CorpusWriter(root, DefaultExecutor, operation_port=port)
+def _writer(root, *, science=SCIENCE, domains=None, operation_port=True, authority=FULL):
+    port = OperationRecorder(root, authority=authority) if operation_port else None
+    writer = CorpusWriter(root, DefaultExecutor, authority=authority, operation_port=port)
     writer.adopt_manifest(profile=CorpusPins(science, domains or {}))
     return writer
+
+
+def _rebind(writer, authority):
+    return CorpusWriter(
+        writer.root,
+        DefaultExecutor,
+        authority=authority,
+        operation_port=OperationRecorder(writer.root, authority=authority),
+    )
+
+
+def _recording_port(writer):
+    port = writer._operation_port
+    assert isinstance(port, OperationRecorder)
+    return port
 
 
 def _writer_for(corpus, **options) -> CorpusWriter:
@@ -102,6 +120,57 @@ def test_move_relocates_without_touching_identity(source_writer, destination_wri
     assert destination_writer.read_view.get(node.id).uid == node.uid
     with pytest.raises(RefError):
         source_writer.read_view.get(node.id)
+
+
+def test_move_refuses_a_destination_lacking_the_kind_before_either_intent(source_writer, destination_writer):
+    node = source_writer.add(stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"}))
+    source = _rebind(source_writer, FULL)
+    destination = _rebind(destination_writer, lacking(kinds=("source",)))
+    before = tuple(member.id for member in source.read_view.iter_stored()), tuple(
+        member.id for member in destination.read_view.iter_stored()
+    )
+
+    with pytest.raises(PermitExceeded) as caught:
+        relocation.move(source, destination, node.id, **MOVE_FIELDS)
+
+    assert caught.value.requirement == PermitFact("kind", "source")
+    assert before == (
+        tuple(member.id for member in source.read_view.iter_stored()),
+        tuple(member.id for member in destination.read_view.iter_stored()),
+    )
+    assert _recording_port(source).intents == _recording_port(destination).intents == []
+
+
+def test_move_refuses_a_source_lacking_act_report_before_either_intent(source_writer, destination_writer):
+    node = source_writer.add(stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"}))
+    source = _rebind(source_writer, lacking(kinds=("act-report",)))
+    destination = _rebind(destination_writer, FULL)
+
+    with pytest.raises(PermitExceeded) as caught:
+        relocation.move(source, destination, node.id, **MOVE_FIELDS)
+
+    assert caught.value.requirement == PermitFact("kind", "act-report")
+    assert source.read_view.holds(node.id) and not destination.read_view.holds(node.id)
+    assert _recording_port(source).intents == _recording_port(destination).intents == []
+
+
+def test_move_refuses_different_bound_actors_before_taking_a_lock(
+    source_writer, destination_writer, monkeypatch
+):
+    source = _rebind(source_writer, lacking(actor="source-actor"))
+    destination = _rebind(destination_writer, lacking(actor="destination-actor"))
+    monkeypatch.setattr(relocation, "_both_locks", lambda *_args: (_ for _ in ()).throw(AssertionError("lock")))
+
+    with pytest.raises(ActorMismatch):
+        relocation.move(source, destination, "source:missing", **MOVE_FIELDS)
+
+
+def test_append_operation_intent_refuses_a_foreign_actor_before_append(writer):
+    port = writer._operation_port
+    assert isinstance(port, OperationRecorder)
+    with pytest.raises(ActorMismatch):
+        writer._append_operation_intent("move", "t" * 32, "someone-else")
+    assert port.intents == []
 
 
 def test_move_refuses_an_occupied_destination(source_writer, destination_writer):
@@ -173,7 +242,7 @@ def test_move_resolves_a_symlinked_same_root_and_acquires_its_lock_once(
     )
     alias = tmp_path / "alias"
     alias.symlink_to(writer.root, target_is_directory=True)
-    twin = CorpusWriter(alias, DefaultExecutor)
+    twin = CorpusWriter(alias, DefaultExecutor, authority=FULL)
     events = []
 
     class RecordingLock:
@@ -304,7 +373,7 @@ def test_move_mints_one_report_per_root_under_one_token(
         assert v1.decode(port.intents[0]) == {
             "kind": "move",
             "event_token": destination_report.event_token,
-            "actor": MOVE_FIELDS["actor"],
+            "actor": ACTOR,
         }
         assert port.fulfilling[0][1] == port.intent_digest
         assert port.fulfilling[0][0][0] is report_operations[label]
@@ -385,6 +454,7 @@ def test_consolidate_preserves_a_shared_uid_and_retires_nothing(
         (),
         CONSOLIDATE_FIELDS["rationale"],
     )
+    assert keep_report.actor == other_report.actor == ACTOR
 
 
 def test_consolidate_selects_one_of_two_distinct_uids_and_mints_no_third(
@@ -699,8 +769,8 @@ def test_both_locks_acquires_distinct_roots_in_sorted_order(tmp_path, monkeypatc
         def __exit__(self, *_):
             events.append(("exit", self.name))
 
-    later = CorpusWriter(tmp_path / "z", DefaultExecutor)
-    earlier = CorpusWriter(tmp_path / "a", DefaultExecutor)
+    later = CorpusWriter(tmp_path / "z", DefaultExecutor, authority=FULL)
+    earlier = CorpusWriter(tmp_path / "a", DefaultExecutor, authority=FULL)
     monkeypatch.setattr(later, "_operation", RecordingLock("z"))
     monkeypatch.setattr(earlier, "_operation", RecordingLock("a"))
 
@@ -716,8 +786,8 @@ def test_both_locks_acquires_distinct_roots_in_sorted_order(tmp_path, monkeypatc
 
 
 def test_both_locks_acquires_one_distinct_root_once(tmp_path):
-    writer = CorpusWriter(tmp_path, DefaultExecutor)
-    twin = CorpusWriter(tmp_path, DefaultExecutor)
+    writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL)
+    twin = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL)
 
     with relocation._both_locks(writer, twin):
         assert writer._operation._writer_depth == 1
@@ -733,8 +803,8 @@ def test_excluded_kinds_are_reports_observations_and_the_coordination_closed_set
 
 
 def test_same_root_refuses_after_path_resolution(tmp_path):
-    writer = CorpusWriter(tmp_path, DefaultExecutor)
-    twin = CorpusWriter(tmp_path / ".", DefaultExecutor)
+    writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL)
+    twin = CorpusWriter(tmp_path / ".", DefaultExecutor, authority=FULL)
 
     with pytest.raises(SameRootRefused):
         relocation._refuse_same_root(writer, twin)
@@ -804,7 +874,7 @@ def test_contract_agreement_ignores_different_unused_domain_pins(tmp_path):
 
 def test_corpus_writer_exposes_its_root_manifest_identity_and_pins(tmp_path):
     pins = CorpusPins(SCIENCE, {"biology": BIOLOGY})
-    writer = CorpusWriter(tmp_path, DefaultExecutor)
+    writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL)
     manifest = writer.adopt_manifest(profile=pins)
 
     assert writer.root == tmp_path.resolve()

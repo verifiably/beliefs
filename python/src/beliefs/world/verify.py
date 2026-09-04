@@ -1754,7 +1754,6 @@ def _admit_arrival(
     provenance: ReplicaOf,
     observers: ObserverSet,
     *,
-    actor: str,
     history: Mapping[str, bytes] | None = None,
     seam: LogSeam,
 ) -> tuple[AdmissionRecord, LogReport]:
@@ -1804,7 +1803,6 @@ def _admit_arrival(
     """
     from beliefs.world import anchors, registry
 
-    registry._require_actor(actor)
     if type(provenance) is not registry.ReplicaOf:
         raise TypeError(
             "admit_arrival is the verified route for a replica: fresh and fork provenance are World.admit's"
@@ -1859,7 +1857,7 @@ def _admit_arrival(
             world._executor_factory,
             lambda: manifest,
             provenance,
-            actor,
+            world.authority,
         )
     return record, report
 

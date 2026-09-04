@@ -34,6 +34,7 @@ import pytest
 from atoms.chain.errors import PendingUnresolved
 from atoms.chain.model import GenesisEntry
 from atoms.core.errors import PreconditionRefused
+from authority import ACTOR, FULL
 from fixtures_cut6 import PINS
 from nodes.core.errors import ExecutionError
 from nodes.core.write_plan import CreateOp, DefaultExecutor
@@ -79,6 +80,7 @@ def make_world(tmp_path: Path, *corpus_roots: Path) -> registry.World:
         DefaultExecutor,
         chain_head=ChainHeads(),
         corpus_executor_factory=DefaultExecutor,
+        authority=FULL,
     )
 
 
@@ -117,7 +119,6 @@ def arrive(
     *,
     parent: str = ALPHA,
     observers: tuple[verify.ObserverCarrier, ...] = (),
-    actor: str = "alice",
     history: Mapping[str, bytes] | None = None,
     inspections: Inspections | None = None,
     captures: Captures | None = None,
@@ -130,7 +131,6 @@ def arrive(
         corpus_root_path,
         registry.ReplicaOf(parent),
         verify.ObserverSet(observers),
-        actor=actor,
         history=history,
         seam=make_seam(inspections, captures),
     )
@@ -142,10 +142,10 @@ def replica_root(tmp_path: Path, corpus_id: str = ALPHA, *, name: str = "arrivin
     return corpus_root(tmp_path, corpus_id, name=name)
 
 
-def fixture_admission(root: Path, parent: str = ALPHA, actor: str = "alice") -> registry.AdmissionRecord:
+def fixture_admission(root: Path, parent: str = ALPHA) -> registry.AdmissionRecord:
     """The record `World.admit` would mint from the same three inputs — the
     fixture arrival's identity is compared against, never derived from."""
-    return registry.AdmissionRecord(registry.load_manifest(root), registry.ReplicaOf(parent), actor)
+    return registry.AdmissionRecord(registry.load_manifest(root), registry.ReplicaOf(parent), ACTOR)
 
 
 def pending_view(view: logmodel.WellFormedView) -> logmodel.WellFormedView:
@@ -307,7 +307,7 @@ class TestWhatIsAdmitted:
         world = make_world(tmp_path, root)
 
         with pytest.raises(ReplicaAdmissionRequiresVerification):
-            world.admit(root, provenance=registry.ReplicaOf(ALPHA), actor="alice")
+            world.admit(root, provenance=registry.ReplicaOf(ALPHA))
         assert registry_files(world) == {}
 
         view = surfaced(root, "corpus", science_root.GENESIS_PAYLOAD)
@@ -329,13 +329,13 @@ class TestWhatIsAdmitted:
         monkeypatch.setattr(
             registry,
             "_locked_admit",
-            lambda state_, world_root, factory, manifest_of, provenance, actor: seen.append(
+            lambda state_, world_root, factory, manifest_of, provenance, authority: seen.append(
                 type(provenance).__name__
             )
-            or real(state_, world_root, factory, manifest_of, provenance, actor),
+            or real(state_, world_root, factory, manifest_of, provenance, authority),
         )
         fresh = corpus_at(tmp_path / "fresh", BETA)
-        world.admit(fresh, provenance=registry.Fresh(), actor="alice")
+        world.admit(fresh, provenance=registry.Fresh())
         arrive(make_world(tmp_path / "second", root), root, view, observers=(corpus_anchor(view),))
 
         assert seen == ["Fresh", "ReplicaOf"]
@@ -356,7 +356,7 @@ class TestWhatIsAdmitted:
         # The core's own refusals are not weakened by the verified route.
         root = replica_root(tmp_path)
         world = make_world(tmp_path, root)
-        world.admit(root, provenance=registry.Fresh(), actor="alice")
+        world.admit(root, provenance=registry.Fresh())
         view = surfaced(root, "corpus", science_root.GENESIS_PAYLOAD)
 
         with pytest.raises(CorpusIdKnown):
@@ -371,7 +371,7 @@ class TestWhatIsAdmitted:
         record, _ = arrive(world, root, view, observers=(corpus_anchor(view),))
         admitted = registry_files(world)
 
-        status = world.retire(record.corpus_id, actor="alice")
+        status = world.retire(record.corpus_id)
 
         after = registry_files(world)
         assert set(admitted) < set(after)
@@ -463,7 +463,7 @@ class TestTheRefusalOrdering:
 
         with pytest.raises(ProvenanceMismatch):
             science_root.admit_arrival(
-                world, root, registry.ReplicaOf(ALPHA), verify.ObserverSet(()), actor="alice"
+                world, root, registry.ReplicaOf(ALPHA), verify.ObserverSet(())
             )
 
         assert registry_files(world) == {}
@@ -519,6 +519,7 @@ class TestTheHold:
             Watching,
             chain_head=ChainHeads(),
             corpus_executor_factory=DefaultExecutor,
+            authority=FULL,
         )
         inspections, captures = Inspections(), Captures()
         inspections.probe = probe("inspect")
@@ -588,7 +589,6 @@ class TestTheHold:
             "corpus_root",
             "provenance",
             "observers",
-            "actor",
             "history",
             "seam",
         ]
@@ -632,18 +632,8 @@ class TestTheHold:
             verify._admit_arrival(
                 world,
                 root,
-                registry.ReplicaOf(ALPHA),
-                verify.ObserverSet(()),
-                actor=object(),  # type: ignore[arg-type]
-                seam=make_seam(inspections, captures),
-            )
-        with pytest.raises(TypeError):
-            verify._admit_arrival(
-                world,
-                root,
                 registry.Fresh(),  # type: ignore[arg-type]
                 verify.ObserverSet(()),
-                actor="alice",
                 seam=make_seam(inspections, captures),
             )
         with pytest.raises(ValueError):
@@ -652,7 +642,6 @@ class TestTheHold:
                 root,
                 registry.ReplicaOf(ALPHA),
                 verify.ObserverSet(()),
-                actor="alice",
                 history={"sha256:nope": b"a record"},
                 seam=make_seam(inspections, captures),
             )
@@ -670,8 +659,8 @@ class TestThePublicWrapper:
         monkeypatch.setattr(
             science_root,
             "_admit_arrival",
-            lambda world, corpus_root, provenance, observers, *, actor, history, seam: seen.append(
-                (world, corpus_root, provenance, observers, actor, history, seam)
+            lambda world, corpus_root, provenance, observers, *, history, seam: seen.append(
+                (world, corpus_root, provenance, observers, history, seam)
             ),
         )
         root = replica_root(tmp_path)
@@ -679,14 +668,13 @@ class TestThePublicWrapper:
         observers = verify.ObserverSet(())
         provenance = registry.ReplicaOf(ALPHA)
 
-        science_root.admit_arrival(world, root, provenance, observers, actor="alice")
+        science_root.admit_arrival(world, root, provenance, observers)
 
-        assert seen == [(world, root, provenance, observers, "alice", None, science_root._log_seam())]
+        assert seen == [(world, root, provenance, observers, None, science_root._log_seam())]
 
     def test_the_wrapper_signature_is_the_ruled_one(self):
         parameters = inspect.signature(science_root.admit_arrival).parameters
-        assert list(parameters) == ["world", "corpus_root", "provenance", "observers", "actor", "history"]
-        assert parameters["actor"].kind is inspect.Parameter.KEYWORD_ONLY
+        assert list(parameters) == ["world", "corpus_root", "provenance", "observers", "history"]
         assert parameters["history"].default is None
         assert "admit_arrival" in science_root.__all__
 
@@ -712,7 +700,7 @@ def test_an_unrepresentable_entry_at_a_modeled_path_refuses_with_no_report(tmp_p
 
     with pytest.raises(LogEvidenceRefused) as caught:
         science_root.admit_arrival(
-            world, root, registry.ReplicaOf(ALPHA), verify.ObserverSet(()), actor="alice"
+            world, root, registry.ReplicaOf(ALPHA), verify.ObserverSet(())
         )
 
     assert (caught.value.phase, caught.value.engine_error) == ("capture", "PreconditionRefused")
@@ -764,7 +752,7 @@ def test_pending_root_refuses_further_mutation_via_the_gate(tmp_path, monkeypatc
     monkeypatch.setattr(science_root, "append_intent", raising)
     executor = science_root._durable_executor(root)
     port = science_root.DurableOperationPort(
-        root,
+        root, authority=FULL,
         backend=science_root._PRODUCTION_BACKEND,
         storage=science_root.PRODUCTION_STORAGE,
         metadata_root=science_root.metadata_root_for(root),

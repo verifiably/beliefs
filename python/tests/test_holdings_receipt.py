@@ -8,6 +8,7 @@ from hashlib import sha256
 from pathlib import Path
 
 import pytest
+from authority import FULL
 from fixtures_cut6 import PINS
 from nodes.core.corpus import Corpus
 from nodes.core.write_plan import DefaultExecutor
@@ -89,7 +90,7 @@ def admitted_world(tmp_path: Path, *corpus_ids: str):
     roots = {corpus_id: corpus_at(tmp_path / corpus_id[0], corpus_id) for corpus_id in corpus_ids}
     world = make_world(tmp_path, *roots.values())
     for root in roots.values():
-        world.admit(root, provenance=registry.Fresh(), actor="alice")
+        world.admit(root, provenance=registry.Fresh())
     binding = rules.install_rule_binding(world, holdings_rule_bundle())
     chains = MutableChains()
     for root in roots.values():
@@ -319,15 +320,16 @@ def test_chain_head_alone_participates_in_receipt_identity(tmp_path):
 
 def test_chain_heads_are_committed_inputs_through_the_production_seam(certified_work):
     corpus_root = certified_work / "corpus"
-    science_root.init_corpus_root(corpus_root)
-    manifest = science_root.open_corpus(corpus_root).adopt_manifest(profile=PINS)
+    science_root.init_corpus_root(corpus_root, authority=FULL)
+    manifest = science_root.open_corpus(corpus_root, authority=FULL).adopt_manifest(profile=PINS)
     world = registry.World(
         registry.WorldConfig(certified_work / "world", "f" * 32, (corpus_root,)),
         DefaultExecutor,
         chain_head=ChainHeads(),
         corpus_executor_factory=science_root.durable_executor_factory(),
+        authority=FULL,
     )
-    world.admit(corpus_root, provenance=registry.Fresh(), actor="alice")
+    world.admit(corpus_root, provenance=registry.Fresh())
     binding = rules.install_rule_binding(world, holdings_rule_bundle())
     seam = science_root._log_seam()
     old_active, old_blocked, old_receipt = derive_holdings(
@@ -392,6 +394,7 @@ def test_an_absent_corpus_or_named_state_is_unresolvable(tmp_path, failure):
             DefaultExecutor,
             chain_head=lambda root: (GENESIS, GENESIS),
             corpus_executor_factory=DefaultExecutor,
+            authority=FULL,
         )
         rules.install_rule_binding(world, holdings_rule_bundle())
     else:

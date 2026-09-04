@@ -48,6 +48,9 @@ line-length = 120
 [tool.pyright]
 pythonVersion = "3.11"
 typeCheckingMode = "basic"
+include = ["src", "tests"]
+# Cut 5 is hash-pinned and cited, not run; its pre-permit call signatures are frozen.
+exclude = ["tests/acceptance/test_n2_cut5.py"]
 
 [dependency-groups]
 dev = [

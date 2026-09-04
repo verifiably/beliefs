@@ -1,6 +1,6 @@
 # Implementation roadmap
 
-**Ranked at:** cut 17, against the ledger's Current state (2026-09-04)
+**Ranked at:** cut 18, against the ledger's Current state (2026-09-04)
 **Method:** `../superpowers/specs/2026-08-29-implementation-roadmap-design.md`
 **Recomputed by:** the commit that adds each conformance-cut results record.
 This document is a current claim: it is rewritten whole at every re-ranking,
@@ -22,7 +22,13 @@ cross-repo seam must land first; **tier 3** when a design question must be
 answered first. A prerequisite that is the boundary's own work is not a
 prerequisite.
 
-Cut 17 delivered managed deletion and the mutation lane's assigned
+Cut 17 delivered write permits: E1–E8 close, the 37-definition write
+inventory is held statically and dynamically, and the command framework's
+writer session and dispatcher are now unblocked. The completed
+`write-permits` boundary and its one-boundary authority lane leave the live
+ranking.
+
+Cut 18 delivered managed deletion and the mutation lane's assigned
 ride-alongs: `delete` as an ordinary write, the corpus-local semantic audit,
 explicit-import derivation validation, the claim restore seam, and the
 instrumented belief resolver. G2c, G8, C6, R5, W16, M1 and M5 close; C1, T8,
@@ -67,9 +73,9 @@ order, and lanes may run concurrently in separate worktrees.
 
 | # | id | rows | unblocks | placement |
 |---|---|---|---|---|
-| 1 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | the correction lifecycle in full | C7's consolidate prerequisite landed at cut 16 and the deletion surface it shares landed at cut 17; the stored semantic-snapshot kind and evaluator are this boundary's own work. It is now the mutation lane's only open boundary |
+| 1 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | the correction lifecycle in full | C7's consolidate prerequisite landed at cut 16 and the deletion surface it shares landed at cut 18; the stored semantic-snapshot kind and evaluator are this boundary's own work. It is now the mutation lane's only open boundary |
 | 2 | `url-retrieval` | H4, G9, R10, T5, T7's same-root case | the first acquisition of a dataset from outside the system; H4 in full | holdings design §2–§3 specify the canonicalization profile and network discipline |
-| 3 | `world-resolution` | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 (less one arm), W8a's coreference arms; S1, S1a, S5's cross-corpus reach; D3; X12 and M3's coreference arms; R19's cross-corpus recomputation; R23's snapshot, coverage, divergence and explicit-import clauses | the read side of the world: resolution states, cross-corpus edges, views, the coreference balance over the map cut 7 published; and every cross-corpus remainder cut 17 left behind | cut 4 §5 deferred the group on "the write boundary and the index" — both landed; the address ruling supplies the oracles. W11/W12 are not here (§3.3) |
+| 3 | `world-resolution` | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 (less one arm), W8a's coreference arms; S1, S1a, S5's cross-corpus reach; D3; X12 and M3's coreference arms; R19's cross-corpus recomputation; R23's snapshot, coverage, divergence and explicit-import clauses | the read side of the world: resolution states, cross-corpus edges, views, the coreference balance over the map cut 7 published; and every cross-corpus remainder cut 18 left behind | cut 4 §5 deferred the group on "the write boundary and the index" — both landed; the address ruling supplies the oracles. W11/W12 are not here (§3.3) |
 | 4 | `domain-boundary` | D1, D2, D4, D5, D6, D8, D9, D10; G5 | the first domain pack; D8's composition | cut 3 §5 deferred the group on "facets, manifests, and the registry compile"; `ProfileSpec` and the `nodes` registry exist |
 | 5 | `event-level-l8` | L8 | row 5 reads L8 in full; the log's last Science-only remainder | §7's ordered-cuts predicate is built; the event-level relation is its successor |
 | 6 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a, X12 and C10's `instrument-certification` arms; R23's rules-store clauses | the widest set: the conformance-package split (ledger §5), instrument-certification cadence, legacy-check disposition (N10), P1 | last in the tier although it unblocks the most: N1 mints a successor contract identity for every oracle amended after the freeze, and rows 1–5 are Science-only closures that would each force one. Freeze after them |
@@ -148,7 +154,7 @@ and merged `--no-ff`. Five rules are added by concurrency itself:
 |---|---|---|---|
 | `l13-preimage` | L13 | an `atoms` blob-read seam behind its own design gate; `atoms`' deferred-obligation ledger carries no such entry today | row 5 in full; the held-copy match strengthened from path to bytes |
 | `persistence-cut` | X2 | the `atoms` A8 certification extended to the publication path, behind `atoms`' own design gate. Cut 7 admits a Science-side harness as the alternative; it is rejected here (§5), so the prerequisite is cross-repo and the tier is 2 | X2 in full |
-| `verification-publication` | — | the persistence seam — a design for durable verification records behind the store's own gate; cut 13 §7.2 kept the join value-level | admission over stored verifications rather than in-memory records; scope recomputation for a stored verification (cut 17 §7) |
+| `verification-publication` | — | the persistence seam — a design for durable verification records behind the store's own gate; cut 13 §7.2 kept the join value-level | admission over stored verifications rather than in-memory records; scope recomputation for a stored verification (cut 18 §7) |
 | `nodes-remainder` | — | `nodes`' own design gate | audits over damaged corpora; manifest safety |
 
 ## Tier 3 — blocked on a design question
@@ -162,7 +168,7 @@ Unordered. Each row links its `open-questions.md` anchor.
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 — [higher-order records and extraction](../guide/open-questions.md#claims-and-belief) |
 | `cross-root-publication` | T7's cross-root case | [the act-report's residue](../guide/open-questions.md#contracts-and-adoption) |
 
-## Appendix A — live status of every guarantee row at cut 17
+## Appendix A — live status of every guarantee row at cut 18
 
 Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
 (spec §3.1); a row is closed only when no later source reopens it.
@@ -170,20 +176,21 @@ Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
 | table | never selected | part — last cut that read it | reopened |
 |---|---|---|---|
 | G | G5 | G9 (cut 10) | — |
-| S | — | S1 (cut 4), S1a (cut 4), S5 (cut 17), S6 (cut 2) | — |
+| S | — | S1 (cut 4), S1a (cut 4), S5 (cut 18), S6 (cut 2) | — |
 | W | W1, W2, W4, W6, W7, W8, W9, W10, W14, W15, W5a, W8b | W13 (cut 14), W17 (cut 14), W8a (cut 7) | — |
-| R | — | R10 (cut 3), R19 (cut 17), R22 (cut 17), R23 (cut 17) | — |
+| R | — | R10 (cut 3), R19 (cut 18), R22 (cut 18), R23 (cut 18) | — |
 | C | C7, C8, C9 | C3 (cut 16), C10 (cut 5) | — |
 | X | — | X2 (cut 7), X5 (cut 7), X12 (cut 7) | — |
 | N | N1, N3, N4, N5, N6, N7, N8, N9, N10 | N2 (cut 4) | — |
 | L | — | L1 (cut 8), L2 (cut 9), L4 (cut 9), L7 (cut 12), L8 (cut 8), L10 (cut 10), L13 (cut 8) | — |
 | D | D1, D2, D4, D5, D8, D9, D10 | D3 (cut 2), D6 (cut 2) | — |
-| M | M12 | M3 (cut 17) | — |
+| M | M12 | M3 (cut 18) | — |
 | P | — | P1 (cut 2) | — |
 | H | — | H4 (cut 10) | — |
 | T | T7 | T1 (cut 5), T2 (cut 16), T4 (cut 3), T5 (cut 3) | — |
+| E | — | — | — |
 
-Closed 85 of 153; open 68.
+Closed 93 of 161; open 68.
 
 ## Appendix B — classification of every open row
 
@@ -195,7 +202,7 @@ Each open row, its remainder as the last cut states it, and where it goes
 | G5 | "no such kind exists" checkable only at the registry compile (cut 4 §5) | rides with `domain-boundary` |
 | G9 | the `url` locator arm beside H4's remote arm (cut 10 results §1) | `url-retrieval` |
 | S1, S1a | the chain crossing corpora, resolvable only through the world index (cut 4 §4.2) | `world-resolution` |
-| S5 | cross-corpus reach (cut 4 §4.2; cut 17 §6) — the deletion half, including the "never existed" clause, is closed by cut 17 | `world-resolution` |
+| S5 | cross-corpus reach (cut 4 §4.2; cut 18 §6) — the deletion half, including the "never existed" clause, is closed by cut 18 | `world-resolution` |
 | S6 | arm (h), "the first successor policy admitting unequal weights" (cut 2 §4.2; cut 4 §5) | `weighted-belief` — tier 3 |
 | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15 | the world resolver over the write boundary and the index (cut 4 §5); W4 to be adjudicated against the merge retirement (address ruling §5) | `world-resolution` |
 | W9, W14 | rendered labels and the ambiguous-search refusal against a pinned authority snapshot (ledger artifact 11) | `authority-labels` — tier 3 |
@@ -203,8 +210,8 @@ Each open row, its remainder as the last cut states it, and where it goes
 | W13 | coverage-declaration and digest-invariance clauses; manifest-only re-mint detection and the forgery variants; replica-restore's declaration half; the fork copy act (cut 6 §3.2) — every named dependency has since landed → relabel candidates | `world-resolution`; the two-projects negative is closed by cut 14 |
 | W8a | coreference omission-refutes and coverage arms → `world-resolution` (the `coreference-attestation` kind); certification omission-refutes → `contract-cut` (the `instrument-certification` kind); import-boundary and audit arms (cut 7 §3.2) → `packaging-remainder` | split as stated |
 | R10 | "the acquisition path records dataset provenance instead" (cut 3 §4.2) | `url-retrieval` |
-| R19 | cross-corpus recomputation through the world resolver (cut 5; cut 17 §6) → `world-resolution`; scope recomputation over a stored verification → limitation (cut 17 §7). Explicit-import derivation validation, transition (b) end to end, and the log-backed raw-write negatives are closed by cut 17 | split as stated |
-| R22 | the unresolvable-interpretation-rule refusal → `contract-cut` (the rules store and resolver, 5b §6); the explicit-import recomputation and raw-written-under-audit arms are closed by cut 17 | `contract-cut` |
+| R19 | cross-corpus recomputation through the world resolver (cut 5; cut 18 §6) → `world-resolution`; scope recomputation over a stored verification → limitation (cut 18 §7). Explicit-import derivation validation, transition (b) end to end, and the log-backed raw-write negatives are closed by cut 18 | split as stated |
+| R22 | the unresolvable-interpretation-rule refusal → `contract-cut` (the rules store and resolver, 5b §6); the explicit-import recomputation and raw-written-under-audit arms are closed by cut 18 | `contract-cut` |
 | R23 | producer snapshots and receipts, coverage, cross-corpus divergence and the explicit-import clauses → `world-resolution`; rules-store clauses → `contract-cut`. Replay cardinality, local basis/composition disagreement, the move/consolidate clauses and the deletion and audit clauses are closed by cuts 3, 15, 16 and 17 respectively | split as stated |
 | C3 | uncovered-corpus behavior and the coverage declaration over the global retraction map (cut 16 §2); the exact-state move clause is read | `correction-remainder` |
 | C7 | route-standing evaluator and conflict semantics; its consolidate prerequisite landed at cut 16 | `correction-remainder` — tier 1 |
@@ -220,16 +227,16 @@ Each open row, its remainder as the last cut states it, and where it goes
 | L7 | u1's non-ancestor spelling (cut 8 results §1.1) → limitation; every other arm read by cuts 10–12 | limitation only — ranked nowhere |
 | L8 | event-level cross-chain order (cut 11 §3.2) | `event-level-l8` |
 | L10 | "no named cross-cut remainder … row label remains partial" (cut 10 results §1) → relabel | rides with `event-level-l8` |
-| L13 | the preimage resolver over the `atoms` blob-read seam (cut 11 §3.2; log design §5.3); cut 17 closes nothing here — removal classification stays a path match | `l13-preimage` — tier 2 |
+| L13 | the preimage resolver over the `atoms` blob-read seam (cut 11 §3.2; log design §5.3); cut 18 closes nothing here — removal classification stays a path match | `l13-preimage` — tier 2 |
 | D1, D2, D4, D5, D8, D9, D10 | facets, manifests, practices, the registry compile (cut 3 §5) | `domain-boundary` |
 | D3 | `not-present` and the five-way non-collapse over the world index (cut 2 §4.2) | `world-resolution` |
 | D6 | the domain-facet derivation over the compiled registry (cut 2 §4.2) | `domain-boundary` |
-| M3 | coreference-attestation arm → `world-resolution`; the concrete-cycle arms needing "a spellable controlled identity construction … a circular fixed point" (cut 5) → limitation unless a construction is found. The equal-basis replica arm is read by cut 16; the raw-written-cycle classification and the admission-order negative are closed by cut 17 | split as stated |
+| M3 | coreference-attestation arm → `world-resolution`; the concrete-cycle arms needing "a spellable controlled identity construction … a circular fixed point" (cut 5) → limitation unless a construction is found. The equal-basis replica arm is read by cut 16; the raw-written-cycle classification and the admission-order negative are closed by cut 18 | split as stated |
 | M12 | the extraction path (cut 3 §5; kernel limitation 3) | `extraction-path` — tier 3 |
 | P1 | the resolver half of the negative, 5b §6's deterministic resolution (cut 4 §5) | `contract-cut` |
 | H4 | the `url` / remote arm (cut 10 results §1) | `url-retrieval` |
 | T1 | the import arm; the raw-write negative under audit and an anchored observer set (cut 5) — both landed | `act-report-remainder`, rides with `url-retrieval` |
-| T2 | success for operation kinds other than `move` and `consolidate`; root-selection failure, second-fulfillment, missing-spec and non-conforming-execution clauses (cut 16 §2); `delete` contributes no arm, opening no operation and minting no report (cut 17 §4) | `act-report-remainder` |
+| T2 | success for operation kinds other than `move` and `consolidate`; root-selection failure, second-fulfillment, missing-spec and non-conforming-execution clauses (cut 16 §2); `delete` contributes no arm, opening no operation and minting no report (cut 18 §4) | `act-report-remainder` |
 | T4 | the coverage projection clause (built by cut 10) → relabel; the observation-deletion negative (cut 3 §4.2) | `act-report-remainder` |
 | T5 | the acquisition operation's began-ness and preflight refusals (cut 3 §4.2) | `url-retrieval` |
 | T7 | publish-together over an acquisition (cut 4 §5) → `url-retrieval`; the cross-root case → `cross-root-publication`, tier 3 | split as stated |
@@ -254,5 +261,5 @@ closes carrying it. Nothing here is work.
 | L2 | u5's `register_root` existing-chain arm — no Science mapping | cut 8 results §1.1 |
 | X2 | the interim best-effort-writer negative — the writer was never built | cut 7, X2's entry (lapsed) |
 | M3 | the concrete-cycle arms needing a circular fixed point in a controlled identity | cut 5, M3's entry — a limitation unless a construction is found |
-| M1 | the resolver bound — a read that never crosses the instrumented resolver (a module constant, an environment lookup, a cached global, a file opened directly) is invisible and passes, so M1 does not assert that every undeclared read is detected | cut 17 §7, preserving M1's own scope clause; lifting it needs an exhaustive capability or sandbox boundary the formal model does not propose |
-| R19 | scope recomputation over a stored verification — the stored projection carries no comparison report, so the audit and the import recompute the verdict and the assessment identity only | cut 17 §7 — it stops being a limitation only if `verification-publication` gives a stored verification a comparison report |
+| M1 | the resolver bound — a read that never crosses the instrumented resolver (a module constant, an environment lookup, a cached global, a file opened directly) is invisible and passes, so M1 does not assert that every undeclared read is detected | cut 18 §7, preserving M1's own scope clause; lifting it needs an exhaustive capability or sandbox boundary the formal model does not propose |
+| R19 | scope recomputation over a stored verification — the stored projection carries no comparison report, so the audit and the import recompute the verdict and the assessment identity only | cut 18 §7 — it stops being a limitation only if `verification-publication` gives a stored verification a comparison report |

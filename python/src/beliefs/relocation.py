@@ -22,6 +22,7 @@ from beliefs import stored
 from beliefs.corpus import EXCLUDED_MUTATION_KINDS as EXCLUDED_KINDS
 from beliefs.corpus import CorpusWriter
 from beliefs.errors import (
+    ActorMismatch,
     AddressDisagreement,
     ContractPinDisagreement,
     DuplicateLocation,
@@ -46,6 +47,13 @@ def _both_locks(first: CorpusWriter, second: CorpusWriter) -> Iterator[None]:
 def _refuse_same_root(first: CorpusWriter, second: CorpusWriter) -> None:
     if Path(first.root).resolve() == Path(second.root).resolve():
         raise SameRootRefused(f"both positions resolve to corpus root {first.root}")
+
+
+def _refuse_actor_disagreement(first: CorpusWriter, second: CorpusWriter) -> None:
+    if first.authority.actor != second.authority.actor:
+        raise ActorMismatch(
+            f"the two writers bind different actors: {first.authority.actor!r} and {second.authority.actor!r}"
+        )
 
 
 def _refuse_excluded_kind(node: Node) -> None:
@@ -77,13 +85,13 @@ def move(
     destination: CorpusWriter,
     ref: str,
     *,
-    actor: str,
     observer: str,
     instrument: str,
     opened_at: str,
     closed_at: str,
 ) -> tuple[Node, ActReport, ActReport]:
     """Move one record destination-first and report once in each root."""
+    _refuse_actor_disagreement(source, destination)
     with _both_locks(source, destination):
         _refuse_same_root(source, destination)
         resolved = source.read_view.resolve(ref)
@@ -104,7 +112,9 @@ def move(
                 )
 
         token = secrets.token_hex(16)
-        intent = OperationIntent("move", token, actor)
+        destination.authority.require("corpus-write", (node.kind, "act-report"))
+        source.authority.require("corpus-write", (node.kind, "act-report"))
+        intent = OperationIntent("move", token, source.authority.actor)
         outcome = Moved(source.corpus_id, destination.corpus_id, node.id)
         report_fields = {
             "subject": node.id,
@@ -171,7 +181,6 @@ def consolidate(
     other: tuple[CorpusWriter, str],
     *,
     rationale: str,
-    actor: str,
     observer: str,
     instrument: str,
     opened_at: str,
@@ -180,6 +189,7 @@ def consolidate(
     """Consolidate one duplicate location into `keep` and report in both roots."""
     keep_writer, keep_ref = keep
     other_writer, other_ref = other
+    _refuse_actor_disagreement(keep_writer, other_writer)
     with _both_locks(keep_writer, other_writer):
         _refuse_same_root(keep_writer, other_writer)
         keep_id = keep_writer.read_view.resolve(keep_ref)
@@ -209,7 +219,9 @@ def consolidate(
                     f"{position} corpus has no operation port; consolidate is a boundary operation"
                 )
 
-        intent = OperationIntent("consolidate", secrets.token_hex(16), actor)
+        keep_writer.authority.require("corpus-write", (merged.kind, "act-report"))
+        other_writer.authority.require("corpus-write", (other_node.kind, "act-report"))
+        intent = OperationIntent("consolidate", secrets.token_hex(16), keep_writer.authority.actor)
         outcome = Consolidated(
             keep_writer.corpus_id,
             keep_node.id,

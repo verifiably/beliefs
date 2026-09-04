@@ -240,6 +240,11 @@ repairs.
 
 ## 4. The acts boundary (`science/holdings/boundary.py`)
 
+> **Amended 2026-09-04 (write permits):** `ActContext` binds one
+> `Authority`; its `actor` is now a read-only property over that authority,
+> and every holdings act requires the holdings family and observation kind
+> before its first effect.
+
 The orchestration across the two roots — the store root read or mutated, the
 observer's corpus root carrying intent and observation. It consumes the
 atoms intent API **as built**; no log machinery changes.

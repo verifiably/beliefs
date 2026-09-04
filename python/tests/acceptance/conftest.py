@@ -22,6 +22,7 @@ from itertools import count
 from pathlib import Path
 
 import pytest
+from authority import FULL
 
 from beliefs.root import (
     init_corpus_root,
@@ -69,7 +70,7 @@ def durable_root(work_directory) -> Iterator[Path]:
     """
     root = work_directory / f"corpus-{os.getpid()}-{next(_counter)}"
     try:
-        init_corpus_root(root)
+        init_corpus_root(root, authority=FULL)
     except Exception as refused:
         raise UncertifiedVolume(
             f"the durable acceptance arms need a certified volume under {work_directory}; "
@@ -85,7 +86,7 @@ def durable_root(work_directory) -> Iterator[Path]:
 @pytest.fixture()
 def durable_writer(durable_root):
     """The composition root's own product, bound to a registered root."""
-    return open_corpus(durable_root)
+    return open_corpus(durable_root, authority=FULL)
 
 
 @pytest.fixture()
@@ -99,8 +100,8 @@ def durable_coordination_roots(work_directory, base_contract):
     )
     try:
         for root in roots:
-            init_corpus_root(root)
-            open_corpus(root).adopt_manifest(profile=pins_for(profile))
+            init_corpus_root(root, authority=FULL)
+            open_corpus(root, authority=FULL).adopt_manifest(profile=pins_for(profile))
         yield roots, profile
     finally:
         for root in roots:
@@ -114,9 +115,9 @@ def durable_coordination_world(work_directory, durable_coordination_roots):
     world_root = work_directory / f"coordination-world-{os.getpid()}-{next(_counter)}"
     config = WorldConfig(world_root, "e" * 32, (corpus_root,))
     try:
-        init_world_root(config)
-        world = open_world(config)
-        world.admit(corpus_root, provenance=Fresh(), actor="cut14")
+        init_world_root(config, authority=FULL)
+        world = open_world(config, authority=FULL)
+        world.admit(corpus_root, provenance=Fresh())
         yield world, corpus_root, profile
     finally:
         shutil.rmtree(world_root, ignore_errors=True)
@@ -137,13 +138,13 @@ def minted_corpus(work_directory) -> Iterator[Path]:
 
     root = work_directory / f"minted-{os.getpid()}"
     try:
-        init_corpus_root(root)
+        init_corpus_root(root, authority=FULL)
     except Exception as refused:
         raise UncertifiedVolume(
             f"the durable acceptance arms need a certified volume under {work_directory}; "
             f"the engine refused: {refused}"
         ) from refused
-    mint_cut4_corpus(open_corpus(root))
+    mint_cut4_corpus(open_corpus(root, authority=FULL))
     yield root
     shutil.rmtree(root, ignore_errors=True)
     shutil.rmtree(metadata_root_for(root), ignore_errors=True)

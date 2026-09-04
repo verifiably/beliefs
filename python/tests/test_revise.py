@@ -6,6 +6,7 @@ from hashlib import sha256
 from typing import ClassVar
 
 import pytest
+from authority import FULL
 from nodes.core.node import NodeMetadata
 from nodes.core.write_plan import DefaultExecutor, ReplaceOp
 
@@ -36,7 +37,7 @@ class Recorder:
 @pytest.fixture()
 def writer(tmp_path) -> CorpusWriter:
     Recorder.plans = []
-    return CorpusWriter(tmp_path, Recorder)
+    return CorpusWriter(tmp_path, Recorder, authority=FULL)
 
 
 def prop(slug: str = "p"):

@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from authority import ACTOR, FULL
 from durable_fixture import basis, route, slug
 from fixtures_cut3 import report as sample_report
 from fixtures_cut6 import PINS
@@ -45,7 +46,6 @@ from beliefs.world import WorldConfig, derive, epoch, registry, rules
 from beliefs.world.logmodel import IntentEntryView, RegisteredEntryView, WellFormedView
 
 MOVE_FIELDS = {
-    "actor": "cut16",
     "observer": "observer",
     "instrument": "instrument",
     "opened_at": "2026-09-03T10:00:00Z",
@@ -84,8 +84,8 @@ def durable_factory(work_directory):
 
     def writer(label: str, pins: CorpusPins = PINS):
         corpus_root = work_directory / f"cut16-{os.getpid()}-{next(_COUNTER)}-{label}"
-        root.init_corpus_root(corpus_root)
-        opened = root.open_corpus(corpus_root)
+        root.init_corpus_root(corpus_root, authority=FULL)
+        opened = root.open_corpus(corpus_root, authority=FULL)
         opened.adopt_manifest(profile=pins)
         managed.append(corpus_root)
         return opened
@@ -93,10 +93,10 @@ def durable_factory(work_directory):
     def world(label: str, *writers):
         world_root = work_directory / f"cut16-{os.getpid()}-{next(_COUNTER)}-{label}-world"
         config = WorldConfig(world_root, f"{next(_COUNTER):032x}"[-32:], tuple(w.root for w in writers))
-        root.init_world_root(config)
-        opened = root.open_world(config)
+        root.init_world_root(config, authority=FULL)
+        opened = root.open_world(config, authority=FULL)
         for corpus in writers:
-            opened.admit(corpus.root, provenance=registry.Fresh(), actor="cut16")
+            opened.admit(corpus.root, provenance=registry.Fresh())
         bindings = derivation_bindings(opened)
         managed.append(world_root)
         return opened, tuple(corpus.corpus_id for corpus in writers), bindings
@@ -305,7 +305,6 @@ def _produce_single_basis(
     ]
     writer.import_bundle(
         [run_node, candidate],
-        actor="cut16",
         observer="observer",
         instrument="instrument",
         opened_at=MOVE_FIELDS["opened_at"],
@@ -619,7 +618,7 @@ def test_m3_consolidates_retraction_replicas_without_touching_the_counter(durabl
         reason="defective-code",
         rationale="invalid result",
         grounds=("verification:v1",),
-        actor="cut16",
+        actor=ACTOR,
         event_token="event-1",
     )
     first = keep.retract(replica)
@@ -633,7 +632,7 @@ def test_m3_consolidates_retraction_replicas_without_touching_the_counter(durabl
             reason="upstream-retraction",
             rationale="withdrawn",
             grounds=("verification:v2",),
-            actor="cut16",
+            actor=ACTOR,
             event_token="event-2",
         )
     )
@@ -673,7 +672,7 @@ def test_t2_each_root_records_one_intent_before_one_qualifying_report(durable_fa
         intents = [entry for entry in entries if type(entry) is IntentEntryView]
         assert len(intents) == 1
         payload = v1.decode(intents[0].payload)
-        assert payload == {"kind": kind, "event_token": report.event_token, "actor": MOVE_FIELDS["actor"]}
+        assert payload == {"kind": kind, "event_token": report.event_token, "actor": ACTOR}
         data_path = corpus._relative_path(record)
         data_acts = [
             entry
@@ -695,7 +694,7 @@ def test_t2_each_root_records_one_intent_before_one_qualifying_report(durable_fa
 
 
 def _store_report(corpus, report) -> None:
-    digest = corpus._append_operation_intent(report.operation, report.event_token, report.actor)
+    digest = corpus._append_operation_intent(report.operation, report.event_token, corpus.authority.actor)
     corpus._publish_operation_report(report, digest)
 
 
@@ -770,7 +769,7 @@ def test_boundary_reresolution_refuses_both_create_only_calls_after_real_move(du
         reason="defective-code",
         rationale="invalid",
         grounds=("verification:v1",),
-        actor="cut16",
+        actor=ACTOR,
         event_token="reresolve",
     )
     refuse = source._refuse
@@ -811,7 +810,7 @@ def test_boundary_lock_deduplicates_resolved_same_root_before_refusal(durable_fa
     node = corpus.add(stored.source_node("paper", title="paper", identifiers={"doi": "10.1/paper"}))
     alias = tmp_path / "cut16-root-alias"
     alias.symlink_to(corpus.root, target_is_directory=True)
-    twin = root.open_corpus(alias)
+    twin = root.open_corpus(alias, authority=FULL)
     events: list[str] = []
 
     class RecordingLock:

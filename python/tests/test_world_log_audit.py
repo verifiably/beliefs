@@ -36,6 +36,7 @@ from atoms.chain.errors import ChainStateInvalid
 from atoms.chain.inspect import STAGING_LEAF
 from atoms.chain.model import GenesisEntry, RegisteredEntry, encode_entry, entry_digest, state_to_json
 from atoms.core.scratch import CHAIN_LEAF
+from authority import FULL
 from fixtures_cut6 import PINS
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.node import Node
@@ -660,7 +661,11 @@ class TestTheAuditAct:
         root = world_root(tmp_path)
         config = config_for(tmp_path, world_id=WORLD_ID)
         world = registry.World(
-            config, DefaultExecutor, chain_head=ChainHeads(), corpus_executor_factory=DefaultExecutor
+            config,
+            DefaultExecutor,
+            chain_head=ChainHeads(),
+            corpus_executor_factory=DefaultExecutor,
+            authority=FULL,
         )
         inspections, captures = Inspections(), Captures()
         inspections.set(root, surfaced(root, "world", science_root._world_genesis_payload(WORLD_ID)))
@@ -833,7 +838,7 @@ class TestTheWorldMirrorIsReportedAndNeverRaised:
         inspections.set(root, view)
 
         with pytest.raises(WorldIdMismatch):
-            science_root.open_world(config)
+            science_root.open_world(config, authority=FULL)
 
         report = audit(
             config,
@@ -881,7 +886,7 @@ class TestTheWorldMirrorIsReportedAndNeverRaised:
         monkeypatch.setattr(science_root, "read_chain", stand_in_read_chain(view))
 
         with pytest.raises(WorldIdMismatch) as caught:
-            science_root.open_world(config)
+            science_root.open_world(config, authority=FULL)
 
         # The mirror agrees with the configuration, so the refusal is the
         # genesis's: it names the id the chain itself was minted under.
@@ -1219,7 +1224,11 @@ def test_one_evaluator_one_inspection_contract(tmp_path, monkeypatch):
     view = surfaced(root, "corpus", science_root.GENESIS_PAYLOAD)
     config = config_for(tmp_path, root)
     world = registry.World(
-        config, DefaultExecutor, chain_head=ChainHeads(), corpus_executor_factory=DefaultExecutor
+        config,
+        DefaultExecutor,
+        chain_head=ChainHeads(),
+        corpus_executor_factory=DefaultExecutor,
+        authority=FULL,
     )
     observers = verify.ObserverSet((corpus_anchor(view),))
     seen: list[tuple[object, object]] = []
@@ -1269,7 +1278,6 @@ def test_one_evaluator_one_inspection_contract(tmp_path, monkeypatch):
         root,
         registry.ReplicaOf(ALPHA),
         observers,
-        actor="alice",
         seam=make_seam(unreached_at_arrival, Captures(), detached=detached),
     )
 
