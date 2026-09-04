@@ -1442,11 +1442,14 @@ class CorpusWriter:
         self,
         report: report_values.ActReport,
         intent_digest: str,
+        *,
+        operation: CreateOp | None = None,
     ) -> report_values.ActReport:
         operation_port = self._operation_port
         assert operation_port is not None
-        node = stored.act_report_node(report)
-        operation_port.execute_fulfilling([self._create_op(node)], intent_digest)
+        if operation is None:
+            operation = self._create_op(stored.act_report_node(report))
+        operation_port.execute_fulfilling([operation], intent_digest)
         self._reconstruct()
         return report
 
@@ -1507,7 +1510,7 @@ class CorpusWriter:
                     findings=findings,
                 )
                 try:
-                    self._validated_import_op(stored.act_report_node(report))
+                    report_op = self._validated_import_op(stored.act_report_node(report))
                 except MalformedRecord as caught:
                     raise ImportRefused("import success report is not canonically storable") from caught
             except ScienceError as caught:
@@ -1523,7 +1526,8 @@ class CorpusWriter:
                     findings=(finding,),
                 )
                 report_node = stored.act_report_node(report)
-                self._publish_operation_report(report, intent_digest)
+                report_op = self._create_op(report_node)
+                self._publish_operation_report(report, intent_digest, operation=report_op)
                 refused.report_ref = report_node.id
                 if refused is caught:
                     raise
@@ -1531,7 +1535,7 @@ class CorpusWriter:
 
             self._corpus.executor.execute(payload)
             self._reconstruct()
-            return self._publish_operation_report(report, intent_digest)
+            return self._publish_operation_report(report, intent_digest, operation=report_op)
 
     def retract(self, record: Node) -> Node:
         """Mint one locally resolvable retraction without touching its target."""
