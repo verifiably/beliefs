@@ -27,7 +27,57 @@ root carries a `science.yaml`.
 
 ## 2. Target
 
-Pending (Task 2).
+**`proposition:concept-disease-stage-affects-protein-phf19`** — `concept:disease-stage`
+`affects` `protein:PHF19`, `claim_layer: causal_effect`, `polarity: positive`,
+`identification_strength: longitudinal` — over **`dataset:gse179929`**, the
+Misund 2022 paired RNA-seq TPM matrix (`GSE179929_gene_tpm.txt.gz`, 6,154,181
+bytes under the predecessor's `data/supp/orig/misund2022/`). Selected
+2026-09-05 by `reproduction.select_target` from 275 candidate
+(proposition, dataset) pairs; the four it beat are in `target.yaml`.
+
+**The join.** The plan's join read a proposition's `datasets` and `related`
+fields and an evidence line's `related`; in the predecessor none of those
+names a dataset, and the join was empty. The predecessor's evidence lines
+name the datasets they analyzed in `dataset_usage` (role `analyzed`), and
+that field is the join. This is the evidence line's own field, not a
+relaxation of the design's §3 criteria; none of *small*, *locally held*,
+*empirical* or *structured* was relaxed. Two facts about "locally held":
+42 dataset records resolve on disk, but 22 of them resolve to absolute paths
+outside the predecessor (`/data/proj/mm30/...`, `/data/raw/...`); the ranking
+prefers a dataset under the predecessor's own `data/` (§3's wording), and the
+chosen one is.
+
+**What the predecessor computed.** Evidence lines `-ev2` (task t240) and
+`-ev3` (task t258) rest on this dataset. t240
+(`interpretation:0084-t240-misund-phf19-trajectory`) computed the per-patient
+`log2((latest_tpm + 1) / (first_tpm + 1))` of PHF19 between the first (NDMM)
+and latest (PD) paired sample, then a Spearman correlation of that change
+against the proliferative-index change from Misund's Supplementary Table S10
+(a second file, `.xlsx`). t258 correlated the same PHF19 change with ssGSEA
+pathway trajectories from Table S9. Lines `-ev0` (t166, four other GEO
+series) and `-ev1` (t055, MMRF) do not use this dataset.
+
+**What this reproduces.** The within-dataset association the proposition
+states — PHF19 expression against disease stage — over the one held file:
+the PHF19 row (`ENSG00000119403`; the file is keyed by unversioned Ensembl
+ids, and the predecessor's annotables crosswalk maps it to PHF19) compared
+between the two stage levels the sample ids carry as their last
+`_`-separated token, `NDMM` (17 samples) and `PD` (34 samples), by a
+two-group rank comparison. `positive_level: PD`: the proposition's positive
+polarity predicts the higher PHF19 in progressive disease. The predecessor's
+own statistic (paired log2FC correlated with a Table S10 covariate) needs a
+second file and `.xlsx` parsing, so it is not what runs; the two-group stage
+association over the same file is the standard-library, one-file expression
+of the proposition, and the record says so rather than taking the next
+alternative (both alternatives over this dataset are abstract concepts —
+`ratchet-strength`, `fitness-selection` — with no column in the file).
+
+**The file's shape.** The matrix is wide: 58,050 gene rows × 51 sample
+columns, gzipped. The plan assumed a long table with a `value_column` and a
+`group_column`; the analysis (Task 7) reads the wide shape instead, taking
+`value_row` and deriving the group from the sample id, and opens the gzip
+directly rather than through a decompression rule. `target.yaml` carries
+`held_file`, `value_row`, `group_separator` and `positive_level`.
 
 ## 3. The path
 

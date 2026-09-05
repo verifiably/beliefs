@@ -34,3 +34,13 @@ def test_answer_payload_distinguishes_beliefs_by_value_and_digest():
         "reason": "no-eligible-assessment",
         "detail": "",
     }
+
+
+def test_rank_prefers_empirical_locally_held_small_targets():
+    from reproduction.select_target import rank
+
+    a = {"proposition_id": "p:a", "claim_layer": "causal_effect", "dataset_bytes": 2_000_000, "empirical_lines": 3}
+    b = {"proposition_id": "p:b", "claim_layer": "structural_claim", "dataset_bytes": 1_000, "empirical_lines": 5}
+    c = {"proposition_id": "p:c", "claim_layer": "empirical_regularity", "dataset_bytes": 50_000, "empirical_lines": 1}
+    ordered = [r["proposition_id"] for r in rank([a, b, c])]
+    assert ordered == ["p:c", "p:a", "p:b"]
