@@ -105,8 +105,8 @@ directly rather than through a decompression rule. `target.yaml` carries
 | 7 | verify: replay, compare, derive scope | ran 2026-09-05: the replay minted `run:edf73817…`; the two result manifests agree (same `stats.tsv` and `outcome.txt` digests); `derive_scope` = **`clean-environment`** on this host, so no scope finding; `build_verification` derived an `AssessmentVerification` with verdict `passed` | `corpus/run/edf73817…`; the verification is in memory until step 8 |
 | 8 | admit and compute belief under `science.belief.v1` | ran 2026-09-05: `build_verification` re-derived from the two stored closures agreed with step 7 (`clean-environment`, `passed`); `admission_record` named the **derived** assessment identity `31627298…`, kept unaltered; minted `verification:…`. `gather` matched one assessment and its run. `admit` refused: `not-admitted-verification-state: kernel 3.3 admits only clean-environment passes` — the gathered assessment carries the stored identity `d9e338a7…`, so no verification names it. `evaluate_over` answered `{"kind": "NoBelief", "reason": "no-eligible-assessment", "detail": ""}`. Terminal under §2 rule 4: the admission reason and the scope (`clean-environment`, `passed`) were read together, and the class is **design-gap** (the identity bridge, §6), not host. Supplied members: `producer_snapshot_identity` = `no-epoch-published` (no epoch was built), the retraction enumeration is empty with coverage this corpus; the holdings reduction rule was not applied (one observation, no history) | `corpus/verification/…` naming the derived identity, the corpus ref of the assessment, scope, verdict and the two-run derivation |
 | 9 | close the corpus: `corpus_check`, semantic audit, log verification | ran 2026-09-05: `corpus_check` **0 findings**; `audit_corpus` over the in-process spec and rule implementations **0 findings** (the stored verification's derivation recomputed and agreed, since it names the derived identity); `audit_log` measured under two observer shapes, both read-only: with the **empty observer set** (the exercise anchored nothing) the outcome is `unresolvable`, 22 chain entries unanchored, 3 intents qualified, one `unanchored` finding — the exercise's own omission, not the kernel's; with **one registry carrier built from the chain head as read now** (the record an anchor act would leave) the outcome is `validated`, anchored through `f64d23b2…`, 0 unanchored, 0 findings. Zero kernel findings is the expected outcome and is stated as such | nothing written; `state.log_verdict` carries both reports |
-| 10a | re-derive the belief from the corpus in a fresh process | pending | |
-| 10b | reconstruct the verification evidence from the corpus | pending | |
+| 10a | re-derive the belief from the corpus in a fresh process | ran 2026-09-05 in a new interpreter: `evaluate_over` over the corpus on disk answered `NoBelief(no-eligible-assessment)`, **equal** to step 8's payload (`state.rederived_equal` = true). Inputs, labelled: *corpus* — the assessment, both runs, the dataset, the verification, the claim and the holdings observation; *supplied* — `producer_snapshot_identity` (`no-epoch-published`) and the empty retraction enumeration; *in-process* — the compiled profile, the empty resolution snapshot and the policy binding | nothing written |
+| 10b | reconstruct the verification evidence from the corpus | ran 2026-09-05: `comparison_report_stored` **false** — no stored record carries step 7's comparison report; the verification names its two-run derivation, both closures decode from their stored projections, `derive_scope` recomputes `clean-environment` (equal) and `build_verification` recomputes `passed` (equal); the `analysis-spec` record is present and its identity matches the in-process spec; `check_verification` reports checked, no contradiction. Inputs, labelled: *corpus* — the verification record, the two run publications, the spec record's identity; *in-process* — the `FrozenSpec` and both rule implementations, because no kernel reader restores either from a record. Recovered by recomputation, not read | nothing written; `state.evidence_reconstruction` |
 
 ## 4. Predictions
 
@@ -153,7 +153,15 @@ citing `state.json` or `findings.jsonl`.
   or lets scope be recomputed (cut 18 §7). 10b is what puts
   `verification-publication` on the path, where the 2026-09-05 re-rank
   provisionally placed it; 10a passing is not evidence against it.
-  **Outcome:** pending.
+  **Outcome:** confirmed for another reason in part. 10a passed as
+  predicted, and for the predicted reason. 10b: no stored record carries the
+  comparison report, as predicted — but scope **can** be recomputed from the
+  corpus, because the stored verification names its two-run derivation
+  (cut 18's `derivation` member) and both closures decode; what the
+  recomputation needs beyond the corpus is the in-process `FrozenSpec` and
+  the rule implementations, since no reader restores them from the
+  `analysis-spec` record. The prediction's "or lets scope be recomputed" is
+  refuted; the rest stands (`state.evidence_reconstruction`).
 - **P7 — the assessment derives without a finding.** Step 6 returns an
   `AssessmentValue`, not an `AssessmentFinding`, on the first run: the
   interpretation rule is authored for this target and the run's result is
@@ -186,6 +194,7 @@ here; they are in §8.
 
 | step | class | reason | filed |
 |---|---|---|---|
+| 10b | design-gap | no stored record carries the verification's comparison report; scope and verdict recover only by recomputation over both stored closures with the in-process spec and rule implementations (P5) | verification-publication (write-path lane) — task filed at the end |
 | 9 | corpus-work | `audit_log` under the empty observer set: `unanchored: corpus:6d25948b…` — the exercise performed no anchor act (`anchor_heads`), so nothing anchors its chain; measured as `validated` under a head carrier instead | this record; no lane |
 | 8 | design-gap | a `clean-environment` pass was refused at admission (`not-admitted-verification-state`): the verification names the derived identity `31627298…`, the gathered assessment carries the stored identity `d9e338a7…`, and only the former satisfies the audit's recomputation. The belief answer is `NoBelief(no-eligible-assessment)` for this reason and no other | assessment/run-record design (one spelling for the run member) — the same task as step 6's |
 | 6 | design-gap | the derived `AssessmentValue` spells `run` as the bare closure address and the stored record as `run:<address>` (which `eligibility_refusal` requires so the run resolves); `assessment.identity()` = `31627298…` and `stored.assessment_value(node).identity()` = `d9e338a7…`. No single identity satisfies both admission over the corpus (which matches the stored one) and the audit's recomputation (which digests the bare address). Unpredicted by §5 | assessment/run-record design (one spelling for the run member) — task filed at the end |
