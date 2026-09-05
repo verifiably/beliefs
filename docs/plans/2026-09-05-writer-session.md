@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Work in the worktree `.worktrees/writer-session` on branch `feat/writer-session`. Every command below runs from `python/` inside that worktree unless it says otherwise.
-- Gates before every commit: `uv run --frozen pytest -q -p no:cacheprovider`, `uv run --frozen ruff check .`, `uv run --frozen pyright` — all clean. The pytest summary line is the count claim; never pipe the run through `tail` without `set -o pipefail`.
+- Gates before every commit: `uv run --frozen pytest -p no:cacheprovider`, `uv run --frozen ruff check .`, `uv run --frozen pyright` — all clean. The pytest summary line is the count claim; never pipe the run through `tail` without `set -o pipefail`.
 - **Frozen text stays frozen.** Never edit §7 or §9 of the design, nor §2–§7 of the cut record. Amendments go in the design's §13 (Task 1) and §10.
 - **The permit check is one bare statement** (write-permits design §5): in `_RoutedExecutor.commit_fulfilling` the first statement with any effect is `scope.authority.require("corpus-write", _plan_kinds(plan))` at the top level of the body. No preflight, primitive call or byte mutation may precede it. `_RoutedExecutor.execute` calls no primitive of its own except the executor delegation it *implements*, and joins the static test's implementation-exclusion list by exact name.
 - **Ordinary write bodies are frozen text.** `add`, `retract`, `supersede`, `revise`, `delete`, `_add_locked`, `_replace_locked`, `_delete_locked`, `mint_coordination`, `revise_coordination`, `import_bundle` and `adopt_manifest` keep every line cuts 5, 14, 16, 17 and 18 pin (`E1c`, `E1r`, `C1`, `S4`, `G2c`, the boundary re-resolution arms, the W17 coordination arms). The one permitted edit inside them is `adopt_manifest`'s executor line (§13 item 12). The staleness probe must print the Task 1 baseline after every task.
@@ -439,7 +439,7 @@ def test_the_session_errors_have_their_designed_bases():
 
 - [ ] **Step 3: Run them to verify they fail**
 
-Run: `uv run --frozen pytest tests/test_report.py tests/test_intent_reduce.py tests/test_errors_session.py -q -p no:cacheprovider`
+Run: `uv run --frozen pytest tests/test_report.py tests/test_intent_reduce.py tests/test_errors_session.py -p no:cacheprovider`
 Expected: FAIL — `MalformedRecord` on the intent construction, `ImportError` on the errors.
 
 - [ ] **Step 4: Implement**
@@ -556,7 +556,7 @@ class LedgerMalformed(ScienceError):
 
 - [ ] **Step 5: Run the tests and the gates**
 
-Run: `uv run --frozen pytest tests/test_report.py tests/test_intent_reduce.py tests/test_errors_session.py tests/test_deletion.py -q -p no:cacheprovider` — PASS. Then the three gates and the staleness probe (cut 11's arm quotes `OPERATION_KINDS` in `shapes.py`, which this task does not touch; the probe must equal the baseline).
+Run: `uv run --frozen pytest tests/test_report.py tests/test_intent_reduce.py tests/test_errors_session.py tests/test_deletion.py -p no:cacheprovider` — PASS. Then the three gates and the staleness probe (cut 11's arm quotes `OPERATION_KINDS` in `shapes.py`, which this task does not touch; the probe must equal the baseline).
 
 - [ ] **Step 6: Commit**
 
@@ -651,7 +651,7 @@ and make its `execute_fulfilling` return `"r" * 64`.
 
 - [ ] **Step 3: Run to verify failure**
 
-Run: `uv run --frozen pytest tests/test_operation_port.py -q -p no:cacheprovider` — FAIL with `AttributeError: preflight` and a `None` digest.
+Run: `uv run --frozen pytest tests/test_operation_port.py -p no:cacheprovider` — FAIL with `AttributeError: preflight` and a `None` digest.
 
 - [ ] **Step 4: Implement**
 
@@ -781,7 +781,7 @@ Update every test port listed in **Files**: add `def preflight(self, plan): pass
 
 - [ ] **Step 5: Run the tests and the gates**
 
-Run the whole suite: `uv run --frozen pytest -q -p no:cacheprovider`. `test_a_write_against_an_unregistered_root_refuses` and `test_capability_boundary.py` must pass unchanged (`read_chain` is named only in `root.py`). Then ruff, pyright, the staleness probe.
+Run the whole suite: `uv run --frozen pytest -p no:cacheprovider`. `test_a_write_against_an_unregistered_root_refuses` and `test_capability_boundary.py` must pass unchanged (`read_chain` is named only in `root.py`). Then ruff, pyright, the staleness probe.
 
 - [ ] **Step 6: Commit**
 
@@ -956,7 +956,7 @@ class TestTheUnresolvedRoot:
 
 - [ ] **Step 3: Run to verify failure**
 
-Run: `uv run --frozen pytest tests/test_corpus_write.py -q -p no:cacheprovider -k Unresolved` — FAIL (`unresolved` missing; the corpus executor is a `DefaultExecutor`).
+Run: `uv run --frozen pytest tests/test_corpus_write.py -p no:cacheprovider -k Unresolved` — FAIL (`unresolved` missing; the corpus executor is a `DefaultExecutor`).
 
 - [ ] **Step 4: Implement**
 
@@ -1096,7 +1096,7 @@ class _SettlingHold:
 
 - [ ] **Step 5: Run the whole suite and the gates**
 
-`uv run --frozen pytest -q -p no:cacheprovider`; ruff; pyright; the probe (the item 5 baseline).
+`uv run --frozen pytest -p no:cacheprovider`; ruff; pyright; the probe (the item 5 baseline).
 
 - [ ] **Step 6: Commit**
 
@@ -1444,7 +1444,7 @@ def test_a_retraction_naming_another_actor_is_actor_mismatch_with_nothing_append
 
 - [ ] **Step 3: Run to verify failure**
 
-Run: `uv run --frozen pytest tests/test_operation_writes.py -q -p no:cacheprovider` — FAIL with `AttributeError: operations`.
+Run: `uv run --frozen pytest tests/test_operation_writes.py -p no:cacheprovider` — FAIL with `AttributeError: operations`.
 
 - [ ] **Step 4: Implement**
 
@@ -1580,7 +1580,7 @@ class OperationWrites:
 
 - [ ] **Step 5: Run the tests and the gates**
 
-`uv run --frozen pytest tests/test_operation_writes.py tests/test_permit_boundary.py tests/test_corpus_write.py tests/test_deletion.py tests/test_coordination_write.py tests/test_relocation.py -q -p no:cacheprovider`, then the whole suite, ruff, pyright, the staleness probe (the item 5 baseline).
+`uv run --frozen pytest tests/test_operation_writes.py tests/test_permit_boundary.py tests/test_corpus_write.py tests/test_deletion.py tests/test_coordination_write.py tests/test_relocation.py -p no:cacheprovider`, then the whole suite, ruff, pyright, the staleness probe (the item 5 baseline).
 
 - [ ] **Step 6: Commit**
 
@@ -1845,7 +1845,7 @@ The `_write` seam in `test_a_partial_write_ends_the_writer...`: give `LedgerWrit
 
 - [ ] **Step 3: Run to verify failure**
 
-Run: `uv run --frozen pytest tests/test_session_ledger.py -q -p no:cacheprovider` — FAIL with `ModuleNotFoundError: beliefs.session`.
+Run: `uv run --frozen pytest tests/test_session_ledger.py -p no:cacheprovider` — FAIL with `ModuleNotFoundError: beliefs.session`.
 
 - [ ] **Step 4: Implement `session/ledger.py`**
 
@@ -2177,7 +2177,7 @@ Create `session/__init__.py` with only a module docstring for now.
 
 - [ ] **Step 5: Run the tests and gates**
 
-`uv run --frozen pytest tests/test_session_ledger.py -q -p no:cacheprovider`, then the three gates. `test_capability_boundary.py` must still pass: the new module imports only stdlib and `beliefs.errors`/`beliefs.sealed`.
+`uv run --frozen pytest tests/test_session_ledger.py -p no:cacheprovider`, then the three gates. `test_capability_boundary.py` must still pass: the new module imports only stdlib and `beliefs.errors`/`beliefs.sealed`.
 
 - [ ] **Step 6: Commit**
 
@@ -2487,7 +2487,7 @@ The session's `session-open` line must be written by the caller of the construct
 
 - [ ] **Step 3: Run to verify failure**
 
-`uv run --frozen pytest tests/test_session_writer.py -q -p no:cacheprovider` — FAIL with `ImportError`.
+`uv run --frozen pytest tests/test_session_writer.py -p no:cacheprovider` — FAIL with `ImportError`.
 
 - [ ] **Step 4: Implement `session/writer.py`**
 
@@ -2903,7 +2903,7 @@ def reconcile_sessions(world_config: WorldConfig, operations_root: Path, *, excl
 
 - [ ] **Step 5: Run the tests and gates**
 
-`uv run --frozen pytest tests/test_session_writer.py tests/test_session_ledger.py -q -p no:cacheprovider`; whole suite; ruff; pyright; `test_capability_boundary.py` (only `session/__init__.py` imports `beliefs.root`).
+`uv run --frozen pytest tests/test_session_writer.py tests/test_session_ledger.py -p no:cacheprovider`; whole suite; ruff; pyright; `test_capability_boundary.py` (only `session/__init__.py` imports `beliefs.root`).
 
 - [ ] **Step 6: Commit**
 
@@ -3092,7 +3092,7 @@ Confirm the `DefectView` constructor's field names in `logmodel.py` and the find
 
 - [ ] **Step 3: Run to verify failure**
 
-`uv run --frozen pytest tests/test_session_reconcile.py -q -p no:cacheprovider` — FAIL with `ImportError`.
+`uv run --frozen pytest tests/test_session_reconcile.py -p no:cacheprovider` — FAIL with `ImportError`.
 
 - [ ] **Step 4: Implement `session/reconcile.py`**
 
@@ -3253,7 +3253,7 @@ Import `ExitStack` from `contextlib`, `_operation_lock_for` and `Finding` from `
 
 - [ ] **Step 5: Run the tests and gates**
 
-`uv run --frozen pytest tests/test_session_reconcile.py tests/test_session_writer.py -q -p no:cacheprovider`; whole suite; ruff; pyright; `test_capability_boundary.py`.
+`uv run --frozen pytest tests/test_session_reconcile.py tests/test_session_writer.py -p no:cacheprovider`; whole suite; ruff; pyright; `test_capability_boundary.py`.
 
 - [ ] **Step 6: Commit**
 
@@ -3652,7 +3652,7 @@ def test_j11_a_writer_is_bound_to_one_invocation_durably(session_rig):
 
 - [ ] **Step 3: Run on the certified volume**
 
-Run: `uv run --frozen pytest tests/acceptance/test_session_acceptance.py -q -p no:cacheprovider` from `python/` with the checkout's certified volume (the repository-relative default). Expected: PASS. A `CapabilityUnavailable` block means the kernel outran the certification, not a regression: recertify and rerun.
+Run: `uv run --frozen pytest tests/acceptance/test_session_acceptance.py -p no:cacheprovider` from `python/` with the checkout's certified volume (the repository-relative default). Expected: PASS. A `CapabilityUnavailable` block means the kernel outran the certification, not a regression: recertify and rerun.
 
 - [ ] **Step 4: Gates and commit**
 
@@ -4214,7 +4214,7 @@ def test_j8_reconciliation_reads_chain_and_ledgers_under_one_hold(work_directory
 
 - [ ] **Step 4: Run on the certified volume**
 
-`uv run --frozen pytest tests/acceptance/test_session_acceptance.py -q -p no:cacheprovider` — PASS. Where the halting backend's method choice is wrong, the continuation arm fails on "must leave a pending registration"; adjust `PUBLISH_PHASE` per Step 2's note and rerun.
+`uv run --frozen pytest tests/acceptance/test_session_acceptance.py -p no:cacheprovider` — PASS. Where the halting backend's method choice is wrong, the continuation arm fails on "must leave a pending registration"; adjust `PUBLISH_PHASE` per Step 2's note and rerun.
 
 - [ ] **Step 5: Gates and commit**
 
@@ -4331,7 +4331,7 @@ Create `tools/cut19_acceptance.py` from `cut18_acceptance.py` with: `DEFAULT_WOR
 
 - [ ] **Step 5: Run**
 
-`uv run --frozen pytest tests/acceptance/test_n2_cut19.py -q -p no:cacheprovider` (the audit applies every sabotage in a workspace copy; expect several minutes). Every arm must be `sound`; a `stale` arm means a `before` string does not occur exactly once — fix the string, never the source. Then `uv run --frozen python tools/cut19_acceptance.py` end to end on the certified volume.
+`uv run --frozen pytest tests/acceptance/test_n2_cut19.py -p no:cacheprovider` (the audit applies every sabotage in a workspace copy; expect several minutes). Every arm must be `sound`; a `stale` arm means a `before` string does not occur exactly once — fix the string, never the source. Then `uv run --frozen python tools/cut19_acceptance.py` end to end on the certified volume.
 
 - [ ] **Step 6: Gates and commit**
 
