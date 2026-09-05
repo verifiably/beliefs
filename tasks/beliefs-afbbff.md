@@ -6,7 +6,7 @@ priority: 1
 size: xl
 owner: feat/writer-session
 created: 2026-08-31T21:28:39Z
-updated: 2026-09-05T09:17:36Z
+updated: 2026-09-05T09:53:23Z
 depends: [beliefs-96a24a]
 tags: [writer, sessions]
 spec: docs/designs/2026-09-05-writer-session-design.md
@@ -19,3 +19,4 @@ Sub-project 2's beliefs half beyond permits (beliefs-96a24a): open_attended_sess
 - 2026-09-04T21:40:11Z (main): write-permit exports live at beliefs merge commit da37650: RequiredCapabilities, KIND_ACTS, and PermitExceeded
 - 2026-09-05T08:28:16Z (feat/writer-session): claimed by Claude Code (Fable 5.1), pid 3136796; brainstorming in .worktrees/writer-session
 - 2026-09-05T09:17:36Z (feat/writer-session): design banked at docs/designs/2026-09-05-writer-session-design.md; cut 19 freezes after review; J1-J10; session lane touches corpus.py and report.py
+- 2026-09-05T09:53:23Z (feat/writer-session): review 1 resolved: scoped(required, invocation_id) and open_attended_session(coordination=) are change requests to science Task 12; J11 added; reconciliation under the corpus lock via detached inspection
