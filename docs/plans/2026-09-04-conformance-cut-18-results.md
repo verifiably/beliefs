@@ -16,13 +16,15 @@ frozen ones.
 
 ## 1. What ran
 
-All Python commands ran from `python/`. The certified runner executed at
-`e9e592a` — the merged head carrying the write-permits lane's cut 17, this
-lane's renumbering to 18 and the permit gating of `delete` — with its default
-durable work root beside the checkout (`python/../.cut18-acceptance`, on the
-same volume as the repository). It scoped XDG cache state to that disposable
-work root, probed the certified durability tuple through `init_corpus_root`
-under a full authority, ran **cut 17** as its sole prefix, and then ran the two
+All Python commands ran from `python/`. The certified runner executed on the
+discharge tree — `e9e592a`'s package and tests plus the filled-in freeze-pin
+constant, i.e. the code as committed at `dc331f1` (the discharge commit does
+not know its own id) — carrying the write-permits lane's cut 17, this lane's
+renumbering to 18 and the permit gating of `delete`, with its default durable
+work root beside the checkout (`python/../.cut18-acceptance`, on the same
+volume as the repository). It scoped XDG cache state to that disposable work
+root, probed the certified durability tuple through `init_corpus_root` under a
+full authority, ran **cut 17** as its sole prefix, and then ran the two
 cut-18 phases.
 
 `uv run --frozen python tools/cut18_acceptance.py`
@@ -377,9 +379,10 @@ The discharge commit `7989d36` carried the first version of this record, as
 cut 17, and therefore did not embed its own commit id. `9973f9f` is the
 post-discharge audit fix of §3. `c0ffd9f` merges the write-permits lane's cut
 17 and `e9e592a` renumbers this cut to 18 and gates `delete`; the run reported
-in §1 is the run at `e9e592a`, and this refresh of §§1, 1.2, 2, 3 and 5 —
-together with the freeze-pin constant naming `e9e592a` — is committed after
-it, in the discharge commit that likewise does not embed its own id.
+in §1 is the run on the discharge tree — `e9e592a`'s package and tests plus
+the filled-in freeze-pin constant naming `e9e592a`, i.e. the code as committed
+at `dc331f1` — and this refresh of §§1, 1.2, 2, 3 and 5 is committed in that
+same discharge commit, which likewise does not know its own id.
 
 ## 6. Remaining boundary
 

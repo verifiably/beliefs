@@ -152,10 +152,11 @@ Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
 (`../plans/2026-09-04-conformance-cut-18-results.md`) closes G2c, G8, C6, R5,
 W16, M1 and M5, re-reads C1, T8, M11 and M13, and leaves S5, R23, R19, R22 and
-M3 partial on their named remainders. `test_the_ledger_summary_names_the_newest_remaining_boundary` holds
-this section to whichever record is newest;
-`test_the_roadmap_and_ledger_name_the_same_boundaries` holds this table and
-the roadmap to one set of ids.
+M3 partial on their named remainders.
+`test_the_ledger_summary_names_the_newest_remaining_boundary` holds this
+section to whichever record is newest;
+`test_the_roadmap_and_ledger_name_the_same_boundaries` holds this table and the
+roadmap to one set of ids.
 
 ## 1. Unbuilt artifacts and what waits on them
 
