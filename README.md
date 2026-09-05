@@ -27,7 +27,7 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Forty-eight documents in `docs/designs/`: the banked redesigns, review disposition,
+Forty-nine documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
 2026-08-02 through 2026-09-05. Read them in this order:
 
@@ -81,6 +81,7 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-09-04-conformance-cut-18.md` | the discharged deletion cut: managed `delete` as an ordinary write, the audit and import ride-alongs, 7 rows closed, 5 partial, 4 closed-row re-reads |
 | `2026-09-04-write-permits-design.md` | the discharged write-permits slice: closed act families and kind routes, `Authority` bound once at every construction seam, checks before effects across the static entry-point inventory, and E1–E8 closed at cut 17 |
 | `2026-09-05-writer-session-design.md` | the writer-session slice: the attended session and its fixed actor, the append-then-fsync session ledger and claim protocol, the scoped writer bound to one invocation and exactly its requirement, `corpus-write` as an operation intent fulfilled by its registration, and reconciliation over ledgers and chains (J1–J11, cut 19 to freeze) |
+| `2026-09-05-conformance-cut-19.md` | the frozen writer-session cut: J1–J11 selected in full, 11 declaration units, the cut 18 runner as prefix; not yet discharged |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -107,10 +108,13 @@ an ordinary write under the root's lock, the corpus-local semantic audit,
 explicit-import derivation validation, the claim restore seam, and the
 instrumented belief resolver. The latest discharged boundary is
 cut 18 ([results](docs/plans/2026-09-04-conformance-cut-18-results.md)).
+Cut 19, the writer session ([cut](docs/designs/2026-09-05-conformance-cut-19.md),
+[design](docs/designs/2026-09-05-writer-session-design.md)), is frozen and not
+yet implemented or discharged.
 
 The guarantee tables are the acceptance criteria — each row must be a failing
-test before it is a passing one. There are **161 rows** across **fourteen frozen
-tables** (G, S, W, R, C, X, N, L, D, M, P, H, T, E), and every cut is frozen
+test before it is a passing one. There are **172 rows** across **fifteen frozen
+tables** (G, S, W, R, C, X, N, L, D, M, P, H, T, E, J), and every cut is frozen
 *before* its code exists so that a row which fails is a failure rather than a
 redefinition.
 

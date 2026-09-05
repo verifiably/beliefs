@@ -2,7 +2,7 @@
 title: Contracts and adoption
 status: living
 created: 2026-08-08
-updated: 2026-09-04
+updated: 2026-09-05
 sources:
   - ../designs/2026-08-03-normative-contract-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -33,6 +33,8 @@ sources:
   - ../designs/2026-09-03-conformance-cut-16.md
   - ../designs/2026-09-04-write-permits-design.md
   - ../designs/2026-09-04-conformance-cut-18.md
+  - ../designs/2026-09-05-writer-session-design.md
+  - ../designs/2026-09-05-conformance-cut-19.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
   - ../plans/2026-08-29-conformance-cut-12-results.md
   - ../plans/2026-09-01-conformance-cut-13-results.md
@@ -196,6 +198,9 @@ cut 18 — frozen the same day as cut 17 and numbered after it, because a number
 is claimed at freeze in freeze order: G2c, G8, C6, R5, W16, M1 and M5 close;
 S5, R23, R19, R22 and M3 remain partial on their named remainders; C1, T8, M11
 and M13 are re-read.
+The writer-session cut is frozen as cut 19 and not yet discharged: J1–J11,
+the `J` table's every row, selected in full before implementation
+(`../designs/2026-09-05-conformance-cut-19.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-04)

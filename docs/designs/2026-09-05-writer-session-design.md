@@ -1,12 +1,12 @@
 # Writer session — design (the `writer-session` slice)
 
 **Date:** 2026-09-05
-**Status:** designed; amended 2026-09-05 after the first review (seven
-findings, §2 items 10–14) and again after the second (four findings, §2
-items 15–18) and the third (two findings, §2 items 19–20) and the fourth (three
-findings, items 19 and 21 rewritten) and the fifth (one finding, item 19
-rewritten again); conformance cut 19 freezes after the sixth review, before
-implementation.
+**Status:** designed and reviewed six times on 2026-09-05 (the first review's
+seven findings became §2 items 10–14, the second's four items 15–18, the
+third's two items 19–20; the fourth, fifth and sixth rewrote items 19 and 21
+and aligned the `J` rows); **conformance cut 19 frozen 2026-09-05**
+(`2026-09-05-conformance-cut-19.md`), before implementation. Not yet
+implemented or discharged.
 **Scope:** the `beliefs` half of the command framework's write boundary beyond
 permits — the user and autonomy layer design
 (`../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md`) §5.2
