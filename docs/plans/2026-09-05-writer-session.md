@@ -4,7 +4,7 @@
 
 **Goal:** An attended `beliefs` writer session with a fixed actor, an append-then-fsync ledger and claim protocol, an invocation-bound scoped writer whose permit is exactly its requirement, every session write as one `corpus-write` intent fulfilled by its registration, settlement of an unresolved root before every prepare, and reconciliation of ledgers against chains — conformance cut 19, rows J1–J11.
 
-**Architecture:** `report.py` and `intents/reduce.py` gain the `corpus-write` operation kind and the rule that a committed fulfilling registration qualifies it. `runrecord.py`'s port protocol gains `preflight` and a registration-digest return from `execute_fulfilling`; `root.py`'s durable factory carries `recover(root)`. `corpus.py` gains one `_locked()` context manager that settles an `unresolved` root before any prepare, an `OperationWrites` facade over seven prepare helpers, and one commit seam (`_commit`) that is the inventory's 37th primitive caller. A new `beliefs/session/` package holds the ledger (`ledger.py`), the session and scoped writer (`writer.py`), the pure reconciliation (`reconcile.py`), and the two compositions `open_attended_session` and `reconcile_sessions` (`__init__.py`). Durable acceptance, N2 arms and a runner discharge cut 19 on the certified volume.
+**Architecture:** `report.py` and `intents/reduce.py` gain the `corpus-write` operation kind and the rule that a committed fulfilling registration qualifies it. `runrecord.py`'s port protocol gains `preflight` and a registration-digest return from `execute_fulfilling`; `root.py`'s durable factory carries `recover(root)`. In `corpus.py` the ordinary write bodies stay byte-identical: `CorpusWriter._operation` becomes a settling hold around the raw root lock, the root's executor is wrapped once so every submission marks the root unresolved, and `OperationWrites` runs the ordinary methods inside a one-call fulfilling scope whose submission is routed to the dedicated, inventoried `_RoutedExecutor.commit_fulfilling` — the 37th primitive caller. A new `beliefs/session/` package holds the ledger (`ledger.py`), the session and scoped writer (`writer.py`), the pure reconciliation (`reconcile.py`), and the two compositions `open_attended_session` and `reconcile_sessions` (`__init__.py`). Durable acceptance, N2 arms and a runner discharge cut 19 on the certified volume.
 
 **Tech Stack:** Python 3.11+ under `uv` (`python/`), pytest, ruff, pyright basic; the `atoms` engine on a certified volume for acceptance; git for freeze pins.
 
@@ -15,10 +15,11 @@
 - Work in the worktree `.worktrees/writer-session` on branch `feat/writer-session`. Every command below runs from `python/` inside that worktree unless it says otherwise.
 - Gates before every commit: `uv run --frozen pytest -q -p no:cacheprovider`, `uv run --frozen ruff check .`, `uv run --frozen pyright` — all clean. The pytest summary line is the count claim; never pipe the run through `tail` without `set -o pipefail`.
 - **Frozen text stays frozen.** Never edit §7 or §9 of the design, nor §2–§7 of the cut record. Amendments go in the design's §13 (Task 1) and §10.
-- **The permit check is one bare statement** (write-permits design §5): in `OperationWrites._commit` the first statement with any effect is `self._writer.authority.require("corpus-write", (kind,))` at the top level of the body. No prepare, preflight, primitive call or byte mutation may precede it.
+- **The permit check is one bare statement** (write-permits design §5): in `_RoutedExecutor.commit_fulfilling` the first statement with any effect is `scope.authority.require("corpus-write", _plan_kinds(plan))` at the top level of the body. No preflight, primitive call or byte mutation may precede it. `_RoutedExecutor.execute` calls no primitive of its own except the executor delegation it *implements*, and joins the static test's implementation-exclusion list by exact name.
+- **Ordinary write bodies are frozen text.** `add`, `retract`, `supersede`, `revise`, `delete`, `_add_locked`, `_replace_locked`, `_delete_locked`, `mint_coordination`, `revise_coordination`, `import_bundle` and `adopt_manifest` keep every line cuts 5, 14, 16, 17 and 18 pin (`E1c`, `E1r`, `C1`, `S4`, `G2c`, the boundary re-resolution arms, the W17 coordination arms). The one permitted edit inside them is `adopt_manifest`'s executor line (§13 item 12). The staleness probe must print the Task 1 baseline after every task.
 - **No `actor` parameter** on any public or private definition in `session/`, on `OperationWrites`, or on any new definition in `corpus.py`. The actor is `Authority.actor`, always.
 - **`session/` imports no engine name.** `session/ledger.py`, `writer.py` and `reconcile.py` import nothing from `atoms` and nothing from `beliefs.root`; only `session/__init__.py` (the composition) imports `beliefs.root`. `root.py` never imports `beliefs.session`.
-- **Pinned sabotage blocks must keep matching exactly once.** After every task that edits `src/beliefs`, run the staleness probe and compare with the baseline Task 1 records:
+- **Pinned sabotage blocks must keep matching exactly once.** After every task that edits `src/beliefs`, run the staleness probe; its output must equal the baseline Task 1 records, because cut 19's runner names `cut18_acceptance.py` as prefix and that runner executes cut 17's and cut 18's audits, which require every one of their strings to match exactly once. A newly stale arm is a defect in the task that caused it, never something to document past:
 
 ```bash
 uv run --frozen python - <<'PY'
@@ -38,7 +39,7 @@ print("stale:", stale)
 PY
 ```
 
-  Any arm that goes stale in a task must be listed in that task's commit message and in the design's §13 with the reason; a stale arm that no task explains is a defect.
+  The baseline is expected to be `stale: []` and to stay so through discharge.
 - Test helper for a full authority: `tests/authority.py` exports `FULL`, `ACTOR`, `narrowed(...)`, `lacking(...)`. No test builds a `WritePermit` literal except through it or `RequiredCapabilities`.
 - **Durable tests** live under `tests/acceptance/` and run on the certified volume beside the checkout (`SCIENCE_CUT4_ROOT` or the repository-relative default); `/tmp` and the scratch volume fail the durability allowlist. A `CapabilityUnavailable` block is a fail-closed result: recertify or report the tuple, never skip.
 - Task records: every task names its own child id in its first and last steps — `tasks start <id>` before its first edit and `tasks done <id> "<what landed>"` staged into its final commit; `tasks check` before every commit. The children form a dependency chain (Task N depends on Task N−1). Never edit `tasks/*.md` by hand.
@@ -55,8 +56,7 @@ PY
 | `python/src/beliefs/intents/reduce.py` | `_qualify_one` matches a `corpus-write` intent on a committed fulfilling registration, records or none |
 | `python/src/beliefs/runrecord.py` | `OperationPort.preflight(plan)`; `execute_fulfilling(plan, fulfills) -> str` |
 | `python/src/beliefs/root.py` | `plan_preflight`, `DurableOperationPort.preflight`, the registration readback, `_DurableExecutorFactory.recover`, `durable_operation_port`, `log_seam` |
-| `python/src/beliefs/corpus.py` | `_RootState.unresolved`/`recover`, `_locked`, `_settle`, `_submitting`, the seven prepare helpers, `OperationWrites`, `_commit`, `OperationCommit` |
-| `python/src/beliefs/relocation.py` | the two-root acts enter `writer._locked()` |
+| `python/src/beliefs/corpus.py` | `_RootState.unresolved`/`recover`/`fulfilling`/`executors`, `_SettlingHold` (the object behind `CorpusWriter._operation`), `_settle`, `_RoutedExecutor` (`execute` delegation, `commit_fulfilling` seam), `_Fulfillment`, `CorpusWriter._fulfilling`, `OperationWrites`, `OperationCommit`; every ordinary write body unchanged |
 | `python/src/beliefs/session/ledger.py` (new) | line encoding, `LedgerWriter`, `LedgerReader`, `ActLine`, `InvocationRecord`, `LedgerEvidence` |
 | `python/src/beliefs/session/writer.py` (new) | `WriterSession`, `ScopedWriter`, the `Claim` union, `KernelRefusalValue` |
 | `python/src/beliefs/session/reconcile.py` (new) | `reconcile(ledgers, chains) -> tuple[Finding, ...]` |
@@ -71,7 +71,7 @@ PY
 ### Task 1: The implementation amendment (§13), the science change requests, and the task records
 
 **Files:**
-- Modify: `docs/designs/2026-09-05-writer-session-design.md` (append §13 after §12)
+- Modify: `docs/designs/2026-09-05-writer-session-design.md` (append §13 after §12), `docs/designs/2026-09-05-conformance-cut-19.md` (append §8 after §7; §2–§7 untouched)
 - Modify (science repo): `/mnt/ssd/Dropbox/science/docs/plans/2026-08-31-command-framework.md` (Task 12 *Consumes* block), `/mnt/ssd/Dropbox/science/docs/specs/2026-08-31-command-framework-design.md` (§4.2, §5.1)
 - Tasks: children of `beliefs-afbbff`
 
@@ -102,9 +102,10 @@ decide. None changes a `J` row or the cut's §2–§7.
    already builds), `log_seam()` (the production `LogSeam`), and
    `plan_preflight(plan)` (§4.3 step 3's two checks as one function).
 2. **`WriterSession` is constructible from parts.** Its constructor takes
-   the session identity, actor, world id, corpus root, corpus id, operations
-   root, an open `LedgerWriter`, a `writer_factory(authority) ->
-   CorpusWriter`, and the reconciliation findings. `open_attended_session`
+   the session identity (from which it derives the actor — no constructor
+   or method anywhere takes an actor, J4), world id, corpus root, corpus
+   id, operations root, an open `LedgerWriter`, a `writer_factory(authority)
+   -> CorpusWriter`, and an optional ceiling for the portable suite. `open_attended_session`
    supplies the durable parts; the portable suite supplies an in-memory
    writer factory over a synthetic-digest port. No test constructs a session
    by any other route.
@@ -133,6 +134,99 @@ decide. None changes a `J` row or the cut's §2–§7.
    `intent_token` equals a `corpus-write` intent's token reads `CLOSED`
    without consulting `held`; `INDETERMINATE` is unreachable for that kind,
    because nothing about the pointer bears on the reading.
+8. **The constructor writes `session-open`.** `WriterSession.__init__`
+   appends the line; the composition writes nothing before it, and
+   reconciliation runs after construction.
+9. **The commit is routed through the root's executor; the ordinary bodies
+   are the one refusal implementation.** Decision 13's prepare helpers and
+   §11's rejection of "a routed executor" are revisited together, on review
+   of the plan: factoring the ordinary bodies collides with the pinned
+   sabotage strings of cuts 5, 16, 17 and 18 (`E1c`, `E1r`, `C1`, `S4`,
+   `G2c`, the boundary re-resolution arms), which cut 19's prefix runner
+   executes; and §11's two objections no longer hold — the scoped writer is
+   per-invocation, so no act runs under the ceiling, and the `require` in
+   the routed seam is real, judged on the kinds the plan emits. So:
+   `OperationWrites.<method>` calls `CorpusWriter.<method>` unchanged, inside
+   a fulfilling scope; the root's wrapped executor routes that scope's one
+   submission to `_RoutedExecutor.commit_fulfilling`, which is the commit
+   seam of §4.3 — require, preflight, intent, fulfilling execution — and
+   the inventory's 37th row. "Every refusal an ordinary method makes, its
+   twin makes" (J1) holds by construction. §4.2's helper table and §4.4's
+   row name are superseded by this item; the cut record's §8 cites it.
+10. **The raw operation lock stays non-settling.** `_operation_lock_for(root)`
+    returns the bare `OperationLock` as today; reconciliation, the scoped
+    writer's act hold, and every engine-side acquisition take it without
+    triggering recovery. `CorpusWriter._operation` becomes a `_SettlingHold`
+    around that lock: enter acquires, then settles an unresolved root; a
+    settlement failure releases the lock and propagates. Every existing
+    `with self._operation:` — `relocation.py`'s `enter_context(writer._operation)`
+    included — therefore settles with no text change, and `relocation.py` is
+    not rewritten.
+11. **Fulfillment is scoped to one locked call.** The executor belongs to the
+    shared root state, so a per-invocation writer does not isolate it.
+    `CorpusWriter._fulfilling()` binds, under the hold, exactly the calling
+    writer's authority and port into `_RootState.fulfilling`, rejects a
+    nested scope (`ScienceError`), and clears the binding in `finally`; the
+    scope admits exactly one submission and refuses a second
+    (`ScienceError`). Both are hard errors: neither is reachable through the
+    seven twins.
+12. **`unresolved` is set at every submission point and cleared only after the
+    complete state update.** Set true: in `_RoutedExecutor.execute`'s
+    ordinary branch before delegating (this covers `Corpus.add`,
+    `_corpus.executor.execute`, and `adopt_manifest`'s factory-created
+    executor, because `_RootState.executors` — the wrapped factory — is what
+    `Corpus` and `adopt_manifest` construct from, and `_reconstruct` rebuilds
+    with it, so the wrapper survives every rebuild); in
+    `commit_fulfilling` after its preflight and before the intent; and by one
+    explicit `self._state.unresolved = True` line before
+    `_publish_operation_report`'s direct port submission. Cleared: only in
+    `_SettlingHold.__exit__`, only on the outermost hold, only when the body
+    exited without an exception — which is after `nodes`' index update, after
+    `_reconstruct`, after the readback. A failure anywhere leaves it set. The
+    run boundary's and the holdings acts' port submissions do not touch this
+    writer's state and are not covered (§8 item 12).
+13. **The permit guard stays a top-level statement in a dedicated method.**
+    `_RoutedExecutor.commit_fulfilling(scope, plan)` begins with
+    `scope.authority.require("corpus-write", _plan_kinds(plan))`, the kinds
+    read from the plan's record paths (`<kind>/<slug>.md`), so the seam
+    requires exactly what it emits. It is inventoried under
+    `corpus.py:_RoutedExecutor.commit_fulfilling`. `_RoutedExecutor.execute`
+    is the `WritePlanExecutor` the corpus holds — an *implementation* of the
+    `execute` primitive, not a caller — and joins `test_permit_boundary.py`'s
+    implementation-exclusion list by exact name, as the design's §4.3 rule
+    for primitive implementations provides.
+14. **Every frozen obligation is retained.** The `J` rows, their checks and
+    the 11 units are unchanged; cut 19's §2 sentence naming "the shared
+    prepare helpers" and §5 item 4's `_prepare_add`/`_locked` arms are
+    superseded by citation in the cut record's dated §8, with §2–§7
+    byte-identical to the freeze; cut 17's and cut 18's audits run unchanged
+    as the prefix and every one of their strings matches exactly once.
+15. **Limitation 5 narrows.** A session `add`, `retract`, `supersede`,
+    `revise` or coordination write no longer rebuilds the view: `nodes`'
+    `Corpus.add` updates the index incrementally after the routed executor
+    returns, exactly as on the library path. `delete` rebuilds, as its
+    ordinary body does today.
+16. **Staleness baseline is `stale: []` throughout.** No task may leave a
+    prior-cut arm stale; the executor route exists so that none does.
+```
+
+Then append to `docs/designs/2026-09-05-conformance-cut-19.md`, after §7, a dated §8 — outside the pinned body, which `test_n2_cut19.py` compares byte-exact through `## 7.`:
+
+```markdown
+## 8. Mechanism amendment — 2026-09-05
+
+Frozen at `5cc2153`. On review of the implementation plan the commit
+mechanism changed (design §13 items 9–15): the ordinary write bodies are the
+one refusal implementation and stay byte-identical, `CorpusWriter._operation`
+settles an unresolved root around the raw lock, and the commit seam is
+`_RoutedExecutor.commit_fulfilling`, reached by routing a fulfilling scope's
+one submission through the root's wrapped executor. Three sentences of §2 and
+one arm list in §5 name the superseded mechanism — "the shared prepare
+helpers", "`_locked()` settlement", and §5 item 4's `_prepare_add` and
+`_locked` sabotages — and are read as citing §13; the selection, the eleven
+rows, their checks and the 11 units are unchanged, and §2–§7 are
+byte-identical to the freeze. `n2_arms_cut19.py` declares the arms this
+mechanism admits, listed in the plan's Task 11.
 ```
 
 - [ ] **Step 3: File the science change requests**
@@ -188,8 +282,8 @@ The twelve children (one per `### Task N:` heading, chained by dependency) were 
 Run the three gates (the design-corpus guard reads the design; §13 must not break the row inventory), then:
 
 ```bash
-git add docs/designs/2026-09-05-writer-session-design.md docs/plans/2026-09-05-writer-session.md tasks/
-tasks done <task-1-id> "§13 banked; science change requests filed; 12 task children chained"
+git add docs/designs/2026-09-05-writer-session-design.md docs/designs/2026-09-05-conformance-cut-19.md docs/plans/2026-09-05-writer-session.md tasks/
+tasks done <task-1-id> "§13 items 1–16 banked; cut record §8; science change requests filed"
 git add tasks/
 git commit -m "docs(session): bank the implementation amendment and file the science change requests"
 ```
@@ -500,7 +594,21 @@ class TestPreflightReadbackAndRecovery:
         assert durable_executor_factory() is factory
 
     def test_recover_on_an_unregistered_root_returns_without_reading_a_chain(self, tmp_path):
-        durable_executor_factory().recover(tmp_path / "never-registered")  # no exception
+        from atoms.coordinator.lifecycle import LifecycleState
+        from beliefs.root import read_lifecycle_state
+
+        plain = tmp_path / "never-registered"
+        plain.mkdir()
+        assert read_lifecycle_state(plain) is LifecycleState.METADATA_LESS  # the reading recover keys on
+        durable_executor_factory().recover(plain)  # no exception, no chain read
+
+    def test_a_failed_lifecycle_read_is_an_execution_error_not_a_recovery(self, tmp_path, monkeypatch):
+        from beliefs import root as science_root
+        from nodes.core.errors import ExecutionError
+
+        monkeypatch.setattr(science_root, "read_lifecycle_state", lambda root: (_ for _ in ()).throw(PermissionError("denied")))
+        with pytest.raises(ExecutionError, match="lifecycle read failed"):
+            durable_executor_factory().recover(tmp_path)
 
     def test_recover_on_a_registered_root_reads_the_chain(self, tmp_path):
         root = tmp_path / "r"
@@ -604,10 +712,10 @@ class _DurableExecutorFactory:
         target = Path(root)
         try:
             state = read_lifecycle_state(target)
-        except Exception:  # noqa: BLE001 - not a registered root: nothing to recover, and the write itself refuses
-            return
+        except Exception as caught:  # noqa: BLE001 - an I/O failure proves nothing about the root; the flag stays set
+            raise ExecutionError(f"lifecycle read failed before recovery: {caught}", index=None, applied=None) from caught
         if state is not LifecycleState.WRITABLE:
-            return
+            return  # an unregistered (metadata-less) or read-only root has nothing to recover; the write itself refuses
         try:
             read_chain(_PRODUCTION_BACKEND, str(target), str(metadata_root_for(target)), PRODUCTION_STORAGE)
         except Exception as caught:  # noqa: BLE001 - one seam failure type
@@ -622,7 +730,7 @@ def durable_executor_factory() -> _DurableExecutorFactory:
     return _DURABLE_EXECUTOR_FACTORY
 ```
 
-`recover` returns on any lifecycle-read failure and on any non-writable state because an unregistered root has nothing to recover and its write refuses registration itself; `test_a_write_against_an_unregistered_root_refuses` pins that refusal's shape and must pass unchanged in Step 5.
+`recover` returns only on a *successful* lifecycle read that is not `WRITABLE` — the metadata-less reading an existing, never-registered directory produces — because such a root has nothing to recover and its write refuses registration itself; any exception from the lifecycle read is an `ExecutionError` that keeps the flag set (a failed read proves nothing about the root). `test_a_write_against_an_unregistered_root_refuses` pins the registration refusal's shape and must pass unchanged in Step 5. If the test in Step 2 shows `read_lifecycle_state` *raising* on a plain directory rather than returning `METADATA_LESS`, name that one exception type in §13 and return on exactly it; never on `Exception`.
 
 Add the two public seams:
 
@@ -662,16 +770,16 @@ git commit -m "feat(root): give the operation port a preflight and a registratio
 
 ---
 
-### Task 4: The unresolved root — `_locked`, `_settle`, `_submitting`
+### Task 4: The unresolved root — the settling hold and the routed executor
 
 **Files:**
-- Modify: `python/src/beliefs/corpus.py:383-390` (`_RootState`), `:451-466` (`_root_state_for`), every `with self._operation:` (lines 1169, 1192, 1266, 1301, 1475, 1565, 1636, 1690, 1735 at HEAD), `_add_locked`, `_replace_locked`, `_delete_locked`, `adopt_manifest`, `_publish_operation_report`, `import_bundle`'s payload execute
-- Modify: `python/src/beliefs/relocation.py:43`
-- Test: `python/tests/test_corpus_write.py`, `python/tests/test_relocation.py`
+- Modify: `python/src/beliefs/corpus.py:383-390` (`_RootState`), `:451-466` (`_root_state_for`), `CorpusWriter.__init__` (`self._operation`), `_reconstruct`, `adopt_manifest` (its executor line only), `_publish_operation_report` (one inserted line)
+- Modify: `python/tests/test_permit_boundary.py` (the implementation-exclusion list gains `_RoutedExecutor.execute`)
+- Test: `python/tests/test_corpus_write.py`
 
 **Interfaces:**
 - Consumes: `executor_factory.recover` (Task 3).
-- Produces: `_RootState.unresolved: bool` (initially `True`), `_RootState.recover: Callable[[Path], None] | None`; `CorpusWriter._locked()` (context manager: acquire, settle, yield), `CorpusWriter._settle()`, `CorpusWriter._submitting()` (context manager bracketing every write submission).
+- Produces: `_RootState.unresolved: bool` (initially `True`), `_RootState.recover: Callable[[Path], None] | None`, `_RootState.executors: Callable[[Path], _RoutedExecutor]` (the wrapped factory), `_RootState.fulfilling: _Fulfillment | None` (always `None` after this task; Task 5 uses it), `_RootState.depth: int`; `_Fulfillment(authority, port, consumed=False, result=None)`; `_SettlingHold` — the context manager behind `CorpusWriter._operation`; `CorpusWriter._settle()`; `_RoutedExecutor(inner, state)` with `.execute(plan)` (ordinary delegation that marks the root unresolved; the fulfilling branch calls `commit_fulfilling`) and a `commit_fulfilling(scope, plan)` stub that Task 5 fills (`raise NotImplementedError` is acceptable **only** because nothing sets `state.fulfilling` before Task 5).
 
 - [ ] **Step 1: `tasks start <task-4-id>`**
 
@@ -681,7 +789,7 @@ Append to `tests/test_corpus_write.py`:
 
 ```python
 class TestTheUnresolvedRoot:
-    """Writer-session design §4.3 'Settlement before every state-dependent read'."""
+    """Writer-session design §4.3 and §13 items 10–12: the settling hold and the routed executor."""
 
     def test_a_fresh_root_state_is_unresolved_and_the_first_write_settles_it(self, tmp_path):
         from beliefs.corpus import _root_state_for
@@ -692,8 +800,8 @@ class TestTheUnresolvedRoot:
         writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
         assert state.unresolved is False
 
-    def test_the_root_state_binds_the_factory_recover(self, tmp_path):
-        from beliefs.corpus import _root_state_for
+    def test_the_root_state_binds_the_factory_recover_and_wraps_its_executors(self, tmp_path):
+        from beliefs.corpus import _RoutedExecutor, _root_state_for
 
         calls = []
 
@@ -706,9 +814,13 @@ class TestTheUnresolvedRoot:
 
         factory = Factory()
         writer = CorpusWriter(tmp_path, factory, authority=FULL)
-        assert _root_state_for(tmp_path, factory).recover is factory.recover
+        state = _root_state_for(tmp_path, factory)
+        assert state.recover is factory.recover
+        assert type(state.corpus.executor) is _RoutedExecutor  # the corpus submits through the wrapper
         writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
         assert calls == [tmp_path.resolve()]  # settled once, before the first prepare
+        writer._reconstruct()
+        assert type(state.corpus.executor) is _RoutedExecutor  # the wrapper survives a rebuild
 
     def test_a_failed_submission_leaves_the_root_unresolved_and_the_next_write_recovers_first(self, tmp_path):
         from beliefs.corpus import _root_state_for
@@ -744,6 +856,22 @@ class TestTheUnresolvedRoot:
         assert events == ["recover", "execute"]
         assert _root_state_for(tmp_path, factory).unresolved is False
 
+    def test_a_failed_index_update_after_a_successful_submission_leaves_the_root_unresolved(self, tmp_path, monkeypatch):
+        from beliefs.corpus import _root_state_for
+
+        writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL)
+        writer.add(stored.proposition_node("p0", title="p0", claim={"operator": "affects"}))
+        state = _root_state_for(tmp_path, DefaultExecutor)
+        index_type = type(state.corpus.index)
+        original = index_type.upsert
+        monkeypatch.setattr(index_type, "upsert", lambda self, node: (_ for _ in ()).throw(RuntimeError("index down")))
+        with pytest.raises(RuntimeError, match="index down"):
+            writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+        assert state.unresolved is True  # the executor returned; the state update did not complete
+        monkeypatch.setattr(index_type, "upsert", original)
+        writer.add(stored.proposition_node("p2", title="p2", claim={"operator": "affects"}))
+        assert state.unresolved is False
+
     def test_a_failed_recovery_keeps_the_root_unresolved_and_blocks_the_prepare(self, tmp_path):
         from beliefs.corpus import _root_state_for
 
@@ -760,60 +888,162 @@ class TestTheUnresolvedRoot:
             writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
         assert _root_state_for(tmp_path, factory).unresolved is True
         assert not (tmp_path / "proposition").exists()
+        assert _operation_lock_for(tmp_path)._holder is None  # the hold released on the settlement failure
 
-    def test_no_bare_lock_acquisition_remains_outside_locked(self):
-        import ast, inspect
+    def test_the_raw_lock_does_not_settle(self, tmp_path):
+        from beliefs.corpus import _root_state_for
+
+        calls = []
+
+        class Factory:
+            def __call__(self, root):
+                return DefaultExecutor(root)
+
+            def recover(self, root):
+                calls.append(root)
+
+        factory = Factory()
+        CorpusWriter(tmp_path, factory, authority=FULL)
+        with _operation_lock_for(tmp_path):
+            pass
+        assert calls == [] and _root_state_for(tmp_path, factory).unresolved is True
+
+    def test_the_settling_hold_is_the_only_raw_lock_entry_in_the_writer(self):
+        import ast
+        import inspect
+
         from beliefs import corpus as module
 
         tree = ast.parse(inspect.getsource(module))
-        offenders = []
-        for node in ast.walk(tree):
-            if isinstance(node, ast.With):
-                for item in node.items:
-                    expression = item.context_expr
-                    if isinstance(expression, ast.Attribute) and expression.attr == "_operation":
-                        offenders.append(node.lineno)
-        # `_locked` itself holds the one permitted `with self._operation`.
-        assert len(offenders) == 1, offenders
+        entries = [
+            (node.lineno, ast.unparse(node.func))
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "__enter__"
+            and ast.unparse(node.func.value) == "self._lock"
+        ]
+        # `_SettlingHold.__enter__` is the one place the bare OperationLock is entered from the
+        # write API; every `with self._operation:` in the bodies goes through it.
+        assert len(entries) == 1, entries
+        withs = [ast.unparse(item.context_expr) for node in ast.walk(tree) if isinstance(node, ast.With) for item in node.items]
+        assert "self._state.lock" not in withs and "self._lock" not in withs
 ```
-
-The last test asserts exactly one bare acquisition remains — inside `_locked`. Note: the `Factory` class carrying `recover` must be a distinct object per test because `_root_state_for` keys on the factory identity per root; `tmp_path` differs per test, so it is.
 
 - [ ] **Step 3: Run to verify failure**
 
-Run: `uv run --frozen pytest tests/test_corpus_write.py -q -p no:cacheprovider -k Unresolved` — FAIL (`unresolved` attribute missing; many bare acquisitions).
+Run: `uv run --frozen pytest tests/test_corpus_write.py -q -p no:cacheprovider -k Unresolved` — FAIL (`unresolved` missing; the corpus executor is a `DefaultExecutor`).
 
 - [ ] **Step 4: Implement**
 
-`_RootState`:
-
 ```python
+@dataclass
+class _Fulfillment:
+    """One locked call's binding (§13 item 11): the exact authority and port
+    whose submission the routed executor commits, and the result."""
+
+    authority: Authority
+    port: OperationPort
+    consumed: bool = False
+    result: tuple[str, str, str] | None = None  # (event_token, intent_digest, entry_digest)
+
+
 @dataclass
 class _RootState:
     lock: OperationLock
     corpus: Corpus
     view: ReadView
     executor_factory: Callable[[Path], WritePlanExecutor]
+    executors: Callable[[Path], _RoutedExecutor]
     recover: Callable[[Path], None] | None
     unresolved: bool = True
-    """Writer-session design decision 19: true at process start and from every
-    submission until the in-memory state is known to match disk."""
+    fulfilling: _Fulfillment | None = None
+    depth: int = 0  # settling-hold nesting on the owning thread
+
+
+class _RoutedExecutor:
+    """The executor the corpus holds (§13 items 12–13): an implementation of the
+    `execute` primitive. Ordinary submissions mark the root unresolved and
+    delegate; a fulfilling scope's one submission is committed by
+    `commit_fulfilling`, the inventoried seam (Task 5)."""
+
+    def __init__(self, inner: WritePlanExecutor, state: _RootState) -> None:
+        self._inner = inner
+        self._state = state
+
+    def execute(self, plan: WritePlan) -> None:
+        scope = self._state.fulfilling
+        if scope is None:
+            self._state.unresolved = True
+            self._inner.execute(plan)
+            return
+        if scope.consumed:
+            raise ScienceError("a fulfilling scope admits exactly one submission")
+        scope.consumed = True
+        self.commit_fulfilling(scope, plan)
+
+    def commit_fulfilling(self, scope: _Fulfillment, plan: WritePlan) -> None:
+        raise NotImplementedError("Task 5 supplies the commit seam")
+
+
+def _routed_factory(executor_factory: Callable[[Path], WritePlanExecutor], holder: list[_RootState]) -> Callable[[Path], _RoutedExecutor]:
+    """The wrapped factory a root state constructs every executor from. `holder`
+    receives the state after construction; the executor reads it lazily, and no
+    submission can happen before the state exists."""
+
+    def build(root: Path) -> _RoutedExecutor:
+        return _RoutedExecutor(executor_factory(root), holder[0])
+
+    return build
+
+
+class _SettlingHold:
+    """`CorpusWriter._operation` (§13 item 10): the raw root lock, plus
+    settlement on entry and the `unresolved` clear on the outermost clean exit."""
+
+    def __init__(self, writer: CorpusWriter) -> None:
+        self._writer = writer
+        self._lock = writer._state.lock
+
+    def __enter__(self) -> _SettlingHold:
+        self._lock.__enter__()
+        state = self._writer._state
+        try:
+            self._writer._settle()
+        except BaseException:
+            self._lock.__exit__(None, None, None)
+            raise
+        state.depth += 1
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
+        state = self._writer._state
+        state.depth -= 1
+        try:
+            if exc_type is None and state.depth == 0:
+                state.unresolved = False
+        finally:
+            self._lock.__exit__(exc_type, exc, traceback)
 ```
 
-`_root_state_for`: `state = _RootState(lock, corpus, ReadView(corpus), executor_factory, getattr(executor_factory, "recover", None))`.
-
-`CorpusWriter`:
+`_root_state_for`:
 
 ```python
-    @contextmanager
-    def _locked(self) -> Iterator[None]:
-        """Acquire the root's operation lock and settle an unresolved root before
-        any state-dependent read (writer-session design §4.3)."""
-        with self._operation:
-            self._settle()
-            yield
+        if state is None:
+            lock = _locked_operation_lock(key)
+            holder: list[_RootState] = []
+            executors = _routed_factory(executor_factory, holder)
+            corpus = Corpus(resolved, executor_factory=executors)
+            state = _RootState(lock, corpus, ReadView(corpus), executor_factory, executors, getattr(executor_factory, "recover", None))
+            holder.append(state)
+            _ROOT_STATES[key] = state
+```
 
+`CorpusWriter.__init__`: `self._operation = _SettlingHold(self)` (the attribute name and every `with self._operation:` are unchanged). `_settle`:
+
+```python
     def _settle(self) -> None:
+        """Recover and rebuild an unresolved root before any state-dependent read (§4.3)."""
         state = self._state
         if not state.unresolved:
             return
@@ -821,51 +1051,38 @@ class _RootState:
             state.recover(state.corpus.store.root)
         self._reconstruct()
         state.unresolved = False
-
-    @contextmanager
-    def _submitting(self) -> Iterator[None]:
-        """Bracket one submission: unresolved from before the write until the
-        in-memory update after it completes; a failure inside leaves it set."""
-        self._state.unresolved = True
-        yield
-        self._state.unresolved = False
 ```
 
-Then, mechanically: every `with self._operation:` in `CorpusWriter` becomes `with self._locked():`; every `return self._corpus.add(x)` in a family body becomes
+`_reconstruct`: `Corpus(self._corpus.store.root, executor_factory=self._state.executors)`. `adopt_manifest`: `self._state.executors(self._corpus.store.root).execute(...)` — the only edit inside a pinned body, and not on a pinned line. `_publish_operation_report`: insert `self._state.unresolved = True` on its own line immediately before `operation_port.execute_fulfilling([operation], intent_digest)` (the pinned line itself is untouched). `ScienceError` is already imported in `corpus.py`; import `OperationPort` from `beliefs.runrecord` under `TYPE_CHECKING` if a cycle appears.
 
-```python
-            with self._submitting():
-                return self._corpus.add(x)
-```
+**No other line of `corpus.py` changes in this task.** Run the staleness probe: `stale: []`.
 
-(`add`, `_add_locked`, `_replace_locked`, `retract`, `supersede`, `revise`, `mint_coordination`, `revise_coordination`); `_delete_locked`'s `self._corpus.executor.execute(...)` + `self._reconstruct()` and `adopt_manifest`'s executor call and `import_bundle`'s `self._corpus.executor.execute(payload); self._reconstruct()` and `_publish_operation_report`'s `execute_fulfilling(...); self._reconstruct()` are each wrapped in `with self._submitting():`. In `relocation.py:43`, `stack.enter_context(roots[key]._operation)` becomes `stack.enter_context(roots[key]._locked())`.
-
-Add `from contextlib import contextmanager` and `Iterator` to `corpus.py`'s imports.
+`test_permit_boundary.py`: `_RoutedExecutor.execute` calls `self._inner.execute`, a primitive by attribute name, and *implements* the executor the corpus holds — add `"_RoutedExecutor.execute"` to the implementation-exclusion list (§13 item 13). The cut 17 arm that sabotages that list's comparison "by containment" quotes the comparison expression, not the list, and still matches once.
 
 - [ ] **Step 5: Run the whole suite and the gates**
 
-`uv run --frozen pytest -q -p no:cacheprovider`; ruff; pyright; the staleness probe. Pinned arms that quote `with self._operation:` in `corpus.py` (check cuts 14–18) will go stale: for each, record the arm in this task's commit message and in design §13 as a new dated item ("the acquisition moved into `_locked`; the arm's `before` no longer occurs"), and do **not** edit the frozen arms module — the discharge of cut 19 cites them (Task 12).
+`uv run --frozen pytest -q -p no:cacheprovider`; ruff; pyright; the probe (`stale: []`).
 
 - [ ] **Step 6: Commit**
 
 ```bash
-tasks done <task-4-id> "unresolved root state, _locked settlement on every path, _submitting bracket"
-git add python/src/beliefs/corpus.py python/src/beliefs/relocation.py python/tests docs/designs/2026-09-05-writer-session-design.md tasks/
-git commit -m "feat(corpus): settle an unresolved root before every prepare"
+tasks done <task-4-id> "settling hold behind CorpusWriter._operation, routed executor marking every submission, unresolved cleared on the outermost clean exit"
+git add python/src/beliefs/corpus.py python/tests tasks/
+git commit -m "feat(corpus): settle an unresolved root before every write body through the existing hold"
 ```
 
 ---
 
-### Task 5: The operation seams — prepare helpers, `OperationWrites`, `_commit`, and the inventory row
+### Task 5: The operation seams — the fulfilling scope, `OperationWrites`, `commit_fulfilling`, and the inventory row
 
 **Files:**
-- Modify: `python/src/beliefs/corpus.py` (`CorpusWriter.add/retract/supersede/revise/delete/mint_coordination/revise_coordination`, new `_prepare_*`, `OperationCommit`, `OperationWrites`, `CorpusWriter.operations`)
+- Modify: `python/src/beliefs/corpus.py` (`_RoutedExecutor.commit_fulfilling`, `_plan_kinds`, `CorpusWriter._fulfilling`, `OperationCommit`, `OperationWrites`, `CorpusWriter.operations`)
 - Modify: `python/tests/test_permit_boundary.py:53-70` (`WRITE_ENTRY_POINTS`)
 - Test: `python/tests/test_operation_writes.py` (new)
 
 **Interfaces:**
-- Consumes: `OperationPort.preflight`, `execute_fulfilling -> str` (Task 3); `_locked`, `_submitting` (Task 4); `PlanRefused`, `OperationPortMissing` (Task 2).
-- Produces: `corpus.OperationCommit(record: Node | None, event_token: str, intent_digest: str, entry_digest: str)`; `CorpusWriter.operations -> OperationWrites` with `add(node)`, `retract(record)`, `supersede(successor, *, of)`, `revise(node)`, `delete(ref)`, `mint_coordination(kind, *, project=None, content)`, `revise_coordination(kind, address, *, predecessors, content)`, each returning `OperationCommit`; `OperationWrites._commit(kind, prepare)` the inventoried definition; `CorpusWriter._prepare_add(node) -> Node`, `_prepare_retract(record) -> Node`, `_prepare_supersede(successor, of) -> Node`, `_prepare_revise(node) -> Node`, `_prepare_delete(ref) -> Node`, `_prepare_mint_coordination(kind, project, content) -> Node`, `_prepare_revise_coordination(kind, address, predecessors, content) -> Node`.
+- Consumes: `OperationPort.preflight`, `execute_fulfilling -> str` (Task 3); `_SettlingHold`, `_RoutedExecutor`, `_Fulfillment`, `_RootState.fulfilling` (Task 4); `PlanRefused`, `OperationPortMissing` (Task 2).
+- Produces: `corpus.OperationCommit(record: Node | None, event_token: str, intent_digest: str, entry_digest: str)`; `CorpusWriter.operations -> OperationWrites` with `add(node)`, `retract(record)`, `supersede(successor, *, of)`, `revise(node)`, `delete(ref)`, `mint_coordination(kind, *, project=None, content)`, `revise_coordination(kind, address, *, predecessors, content)`, each returning `OperationCommit`; `CorpusWriter._fulfilling()` (context manager yielding the `_Fulfillment`); `_RoutedExecutor.commit_fulfilling(scope, plan)` the inventoried definition; `corpus._plan_kinds(plan) -> tuple[str, ...]`.
 
 - [ ] **Step 1: `tasks start <task-5-id>`**
 
@@ -874,25 +1091,23 @@ git commit -m "feat(corpus): settle an unresolved root before every prepare"
 Create `tests/test_operation_writes.py`:
 
 ```python
-"""The operation seams (writer-session design §4.2–§4.4): J1's refusal-before-
-intent arms, J3's act-time permit refusal, J4's actor rule — portably, over the
-in-memory executor and a port returning synthetic registration digests."""
+"""The operation seams (writer-session design §4.2–§4.4, §13 items 9–13): J1's
+refusal-before-intent arms, J3's act-time permit refusal, J4's actor rule — portably,
+over the in-memory executor and a port returning synthetic registration digests."""
 
 from __future__ import annotations
 
 import inspect
-from typing import ClassVar
 
 import pytest
 from authority import ACTOR, FULL, narrowed
-from fixtures_cut6 import PINS
 from nodes.core.errors import PlanRefusedError
 from nodes.core.node import Node
 from nodes.core.write_plan import CreateOp, DefaultExecutor, DeleteOp, ReplaceOp, WritePlan
-from test_deletion import retraction_for
+from test_deletion import mint_eligible_assessment
 
 from beliefs import stored
-from beliefs.corpus import CorpusWriter, OperationCommit, OperationWrites
+from beliefs.corpus import CorpusWriter, OperationCommit, OperationWrites, _root_state_for
 from beliefs.errors import (
     ActorMismatch,
     OperationPortMissing,
@@ -900,9 +1115,9 @@ from beliefs.errors import (
     PermitFact,
     PlanRefused,
     RelocationTargetMissing,
+    ScienceError,
     WriteRefused,
 )
-from beliefs.identity import v1
 from beliefs.intents.shapes import decode_intent
 from beliefs.permit import Authority, WritePermit
 from beliefs.report import OperationIntent
@@ -913,30 +1128,33 @@ def proposition(slug: str, operator: str = "affects") -> Node:
     return stored.proposition_node(slug, title=slug, claim={"operator": operator})
 
 
-class RecordingPort:
-    """A port that appends nothing durable but records the two primitive calls
-    in order and returns synthetic digests, so a test can assert what the seam
-    did and in what order."""
+def retraction(target: Node, ground: str, actor: str) -> Node:
+    identity = stored.stored_semantic_hash(target)
+    assert identity is not None
+    return stored.retraction_node(title="retraction", target=stored.NodeTarget(target.id, target.id, identity),
+                                  reason="defective-code", rationale="invalid", grounds=(ground,), actor=actor, event_token="e1")
 
-    def __init__(self, authority: Authority, *, fail_preflight: bool = False) -> None:
+
+class RecordingPort:
+    """Records the primitive calls in order and returns synthetic digests; applies the
+    plan through a DefaultExecutor so the corpus's index update sees the record."""
+
+    def __init__(self, authority: Authority, root) -> None:
         self.authority = authority
+        self.root = root
         self.calls: list[tuple[str, object]] = []
-        self.fail_preflight = fail_preflight
         self._counter = 0
 
     def _digest(self, tag: str) -> str:
         self._counter += 1
-        return (tag * 64)[:60] + f"{self._counter:04d}"
+        return (tag * 60) + f"{self._counter:04d}"
 
     def append_intent(self, payload: bytes) -> str:
-        digest = self._digest("1")
         self.calls.append(("append_intent", payload))
-        return digest
+        return self._digest("1")
 
     def preflight(self, plan: WritePlan) -> None:
         self.calls.append(("preflight", tuple(plan)))
-        if self.fail_preflight:
-            raise PlanRefusedError("preflight refused by the test port")
         for op in plan:
             content = getattr(op, "content", None)
             if isinstance(content, bytes) and len(content) > RECORD_CEILING:
@@ -947,34 +1165,43 @@ class RecordingPort:
 
     def execute_fulfilling(self, plan: WritePlan, fulfills: str) -> str:
         self.calls.append(("execute_fulfilling", (tuple(plan), fulfills)))
-        DefaultExecutor(self.root).execute(list(plan))  # apply so the rebuilt view sees the record
+        DefaultExecutor(self.root).execute(list(plan))
         return self._digest("2")
 
 
-def writer_over(tmp_path, authority: Authority = FULL, **port_kwargs) -> tuple[CorpusWriter, RecordingPort]:
-    port = RecordingPort(authority, **port_kwargs)
-    port.root = tmp_path
-    writer = CorpusWriter(tmp_path, DefaultExecutor, authority=authority, operation_port=port)
-    return writer, port
+def writer_over(tmp_path, authority: Authority = FULL) -> tuple[CorpusWriter, RecordingPort]:
+    port = RecordingPort(authority, tmp_path)
+    return CorpusWriter(tmp_path, DefaultExecutor, authority=authority, operation_port=port), port
 
 
 def intents_of(port: RecordingPort) -> list[OperationIntent]:
-    decoded = [decode_intent("d" * 64, payload) for kind, payload in port.calls if kind == "append_intent"]
-    return [d.value for d in decoded]
+    return [decode_intent("d" * 64, payload).value for kind, payload in port.calls if kind == "append_intent"]
 
 
-# --- J1: one intent, one fulfilling execution, in order --------------------------
-def test_add_commits_as_intent_then_fulfilling_execution_and_returns_the_commit(tmp_path):
+def primitive_calls(port: RecordingPort) -> list[str]:
+    return [kind for kind, _ in port.calls]
+
+
+# --- J1: one intent, one fulfilling execution, in order; the ordinary body is the refusal implementation
+def test_add_commits_as_preflight_intent_then_fulfilling_execution(tmp_path):
     writer, port = writer_over(tmp_path)
     commit = writer.operations.add(proposition("p1"))
     assert type(commit) is OperationCommit and commit.record is not None and commit.record.id == "proposition:p1"
-    kinds = [kind for kind, _ in port.calls]
-    assert kinds == ["preflight", "append_intent", "execute_fulfilling"]
+    assert primitive_calls(port) == ["preflight", "append_intent", "execute_fulfilling"]
     (intent,) = intents_of(port)
     assert intent == OperationIntent("corpus-write", commit.event_token, ACTOR)
     _, (plan, fulfills) = port.calls[2]
     assert fulfills == commit.intent_digest and type(plan[0]) is CreateOp
-    assert writer.read_view.get("proposition:p1").id == "proposition:p1"
+    assert writer.read_view.get("proposition:p1").id == "proposition:p1"  # the index updated incrementally
+    state = _root_state_for(tmp_path, DefaultExecutor)
+    assert state.unresolved is False and state.fulfilling is None
+
+
+def test_the_ordinary_path_appends_no_intent_and_the_scope_is_never_left_bound(tmp_path):
+    writer, port = writer_over(tmp_path)
+    writer.add(proposition("p1"))
+    assert primitive_calls(port) == []
+    assert _root_state_for(tmp_path, DefaultExecutor).fulfilling is None
 
 
 def test_delete_commits_a_delete_op_and_carries_no_record(tmp_path):
@@ -984,51 +1211,55 @@ def test_delete_commits_a_delete_op_and_carries_no_record(tmp_path):
     commit = writer.operations.delete("proposition:p1")
     assert commit.record is None
     _, (plan, _) = port.calls[-1]
-    assert type(plan[0]) is DeleteOp
+    assert type(plan[0]) is DeleteOp and writer.read_view.resolve("proposition:p1") is None
 
 
 def test_revise_commits_a_replace_op(tmp_path):
     writer, port = writer_over(tmp_path)
     node = writer.add(proposition("p1"))
     port.calls.clear()
-    revised = node.model_copy(update={"title": "renamed"})
-    commit = writer.operations.revise(revised)
+    commit = writer.operations.revise(node.model_copy(update={"title": "renamed"}))
     _, (plan, _) = port.calls[-1]
     assert type(plan[0]) is ReplaceOp and commit.record is not None
 
 
-# --- J1: every refusal precedes the intent -------------------------------------
+def test_retract_and_supersede_commit_through_their_ordinary_bodies(tmp_path):
+    writer, port = writer_over(tmp_path)
+    target = mint_eligible_assessment(writer)
+    p1 = writer.add(proposition("p1"))
+    port.calls.clear()
+    writer.operations.retract(retraction(target, "proposition:p1", ACTOR))
+    writer.operations.supersede(proposition("p2", "inhibits"), of=p1.id)
+    assert primitive_calls(port) == ["preflight", "append_intent", "execute_fulfilling"] * 2
+
+
+# --- J1: every refusal precedes the intent, and every refusal is the ordinary method's own
 @pytest.mark.parametrize(
-    "authority, kind",
-    [
-        (narrowed(kinds=("source",), families=("corpus-write",)), "proposition"),
-        (narrowed(kinds=("proposition",), families=("run",)), "proposition"),
-    ],
+    "authority",
+    [narrowed(kinds=("source",), families=("corpus-write",)), narrowed(kinds=("proposition",), families=("run",))],
 )
-def test_a_permit_refusal_appends_nothing(tmp_path, authority, kind):
+def test_a_permit_refusal_appends_nothing(tmp_path, authority):
     writer, port = writer_over(tmp_path, authority)
     with pytest.raises(PermitExceeded):
         writer.operations.add(proposition("p1"))
     assert port.calls == []
 
 
-def test_a_malformed_record_is_refused_before_the_intent(tmp_path):
+@pytest.mark.parametrize("build", [
+    lambda w: (w.add, w.operations.add, proposition("p1").model_copy(update={"kind": "act-report"})),
+    lambda w: (w.add, w.operations.add, retraction(mint_eligible_assessment(w), "proposition:x", ACTOR)),
+    lambda w: (w.retract, w.operations.retract, retraction(mint_eligible_assessment(w), "proposition:x", "someone-else")),
+])
+def test_the_twin_refuses_exactly_as_the_ordinary_method_and_appends_nothing(tmp_path, build):
     writer, port = writer_over(tmp_path)
-    with pytest.raises(WriteRefused):
-        writer.operations.add(proposition("p1").model_copy(update={"kind": "act-report"}))
-    assert not any(kind == "append_intent" for kind, _ in port.calls)
-
-
-def test_the_operation_add_refuses_a_retraction_exactly_as_add_does(tmp_path):
-    writer, port = writer_over(tmp_path)
-    target = writer.add(proposition("p1"))
-    retraction = retraction_for(target, "proposition:p1")
-    with pytest.raises(WriteRefused) as ordinary:
-        writer.add(retraction)
-    with pytest.raises(WriteRefused) as operation:
-        writer.operations.add(retraction)
-    assert type(operation.value) is type(ordinary.value) and str(operation.value) == str(ordinary.value)
-    assert not any(kind == "append_intent" for kind, _ in port.calls)
+    ordinary, twin, record = build(writer)
+    port.calls.clear()
+    with pytest.raises(WriteRefused) as first:
+        ordinary(record)
+    with pytest.raises(WriteRefused) as second:
+        twin(record)
+    assert type(second.value) is type(first.value) and str(second.value) == str(first.value)
+    assert port.calls == []
 
 
 def test_an_over_ceiling_record_is_plan_refused_before_the_intent(tmp_path):
@@ -1037,7 +1268,14 @@ def test_an_over_ceiling_record_is_plan_refused_before_the_intent(tmp_path):
     with pytest.raises(PlanRefused) as caught:
         writer.operations.add(huge)
     assert isinstance(caught.value.__cause__, PlanRefusedError)
-    assert [kind for kind, _ in port.calls] == ["preflight"]
+    assert primitive_calls(port) == ["preflight"]
+
+
+def test_supersede_of_a_missing_target_refuses_before_the_intent(tmp_path):
+    writer, port = writer_over(tmp_path)
+    with pytest.raises(RelocationTargetMissing):
+        writer.operations.supersede(proposition("p2", "inhibits"), of="proposition:gone")
+    assert port.calls == []
 
 
 def test_a_writer_without_a_port_refuses_every_operation_before_any_refusal(tmp_path):
@@ -1046,17 +1284,50 @@ def test_a_writer_without_a_port_refuses_every_operation_before_any_refusal(tmp_
         writer.operations.add(proposition("p1"))
 
 
-# --- J3: the act-time refusal comes from the kernel entry point ------------------
+# --- §13 item 11: one locked call, one submission, no nesting -------------------------------
+def test_a_nested_fulfilling_scope_and_a_second_submission_are_hard_errors(tmp_path):
+    writer, port = writer_over(tmp_path)
+    with writer._operation, writer._fulfilling() as scope:
+        with pytest.raises(ScienceError, match="nested"):
+            with writer._fulfilling():
+                pass
+        writer.add(proposition("p1"))  # the one submission
+        assert scope.consumed and scope.result is not None
+        with pytest.raises(ScienceError, match="exactly one submission"):
+            writer.add(proposition("p2"))
+    assert _root_state_for(tmp_path, DefaultExecutor).fulfilling is None  # cleared in finally
+    assert primitive_calls(port) == ["preflight", "append_intent", "execute_fulfilling"]
+
+
+def test_the_scope_binds_the_calling_writers_authority_and_port(tmp_path):
+    narrow = narrowed(kinds=("proposition",), families=("corpus-write",))
+    _, wide_port = writer_over(tmp_path)
+    narrow_port = RecordingPort(narrow, tmp_path)
+    narrow_writer = CorpusWriter(tmp_path, DefaultExecutor, authority=narrow, operation_port=narrow_port)
+    narrow_writer.operations.add(proposition("p1"))
+    assert primitive_calls(narrow_port) == ["preflight", "append_intent", "execute_fulfilling"] and wide_port.calls == []
+    assert intents_of(narrow_port)[0].actor == ACTOR
+
+
+# --- J3: the act-time refusal comes from the kernel entry point ------------------------------------
 def test_the_requirement_is_the_effective_permit_at_the_act(tmp_path):
     writer, port = writer_over(tmp_path, narrowed(kinds=("proposition",), families=("corpus-write",)))
     writer.operations.add(proposition("p1"))
     with pytest.raises(PermitExceeded) as caught:
         writer.operations.add(stored.source_node("s1", title="s1", identifiers={"doi": "10.1/s1"}))
-    assert caught.value.requirement == PermitFact("kind", "source")
-    assert caught.value.capability.kinds == ("proposition",)
+    assert caught.value.requirement == PermitFact("kind", "source") and caught.value.capability.kinds == ("proposition",)
+    assert primitive_calls(port) == ["preflight", "append_intent", "execute_fulfilling"]  # only the first write reached the seam
 
 
-# --- J4: the actor is the bound one ----------------------------------------------
+def test_commit_fulfilling_requires_the_kinds_the_plan_emits():
+    from beliefs.corpus import _plan_kinds
+
+    assert _plan_kinds([CreateOp("proposition/p1.md", b"x"), DeleteOp("source/s1.md", expected_digest="0" * 64)]) == ("proposition", "source")
+    with pytest.raises(PlanRefused):
+        _plan_kinds([CreateOp("corpus.yaml", b"x")])
+
+
+# --- J4: the actor is the bound one ------------------------------------------------------------------
 def test_every_intent_carries_the_bound_actor_and_no_seam_takes_one(tmp_path):
     writer, port = writer_over(tmp_path, Authority(WritePermit.full(), "session:" + "a" * 32))
     writer.operations.add(proposition("p1"))
@@ -1067,24 +1338,15 @@ def test_every_intent_carries_the_bound_actor_and_no_seam_takes_one(tmp_path):
 
 def test_a_retraction_naming_another_actor_is_actor_mismatch_with_nothing_appended(tmp_path):
     writer, port = writer_over(tmp_path)
-    target = writer.add(proposition("p1"))
-    foreign = retraction_for(target, "proposition:p1")
-    foreign.facets[stored.RETRACTION_FACET] = {**foreign.facets[stored.RETRACTION_FACET], "actor": "someone-else"}
+    target = mint_eligible_assessment(writer)
     port.calls.clear()
     with pytest.raises(ActorMismatch):
-        writer.operations.retract(foreign)
+        writer.operations.retract(retraction(target, "proposition:p1", "someone-else"))
     assert port.calls == []
-    assert writer.operations.retract(retraction_for(target, "proposition:p1")).record is not None
-
-
-def test_supersede_of_a_missing_target_refuses_before_the_intent(tmp_path):
-    writer, port = writer_over(tmp_path)
-    with pytest.raises(RelocationTargetMissing):
-        writer.operations.supersede(proposition("p2", "inhibits"), of="proposition:gone")
-    assert port.calls == []
+    assert writer.operations.retract(retraction(target, "proposition:p1", ACTOR)).record is not None
 ```
 
-The retraction mutation in `test_a_retraction_naming_another_actor...` does not recompute the semantic stamp; the assertion the row needs is `ActorMismatch`, which `retract` raises **before** stamp validation (it checks the facet's actor first), so a mutated facet without a fresh stamp is sufficient — confirm by reading `_prepare_retract`'s order after the factoring. The ceiling check is the durable executor's, so no ordinary-path ceiling test runs over `DefaultExecutor`; J1's durable arm (Task 9) covers it.
+`mint_eligible_assessment` takes a writer and mints through the ordinary path; check its signature in `tests/test_deletion.py` and whether it needs the root's manifest adopted (adopt with `fixtures_cut6.PINS` in `writer_over` if so).
 
 - [ ] **Step 3: Run to verify failure**
 
@@ -1092,29 +1354,18 @@ Run: `uv run --frozen pytest tests/test_operation_writes.py -q -p no:cacheprovid
 
 - [ ] **Step 4: Implement**
 
-Factor the prepare helpers out of the ordinary methods (decision 13). Each ordinary method becomes require, `_locked`, prepare, `_submitting` write:
-
 ```python
-    def add(self, node: Node) -> Node:
-        self._authority.require("corpus-write", (node.kind,))
-        with self._locked():
-            self._prepare_add(node)
-            with self._submitting():
-                return self._corpus.add(node)
+def _plan_kinds(plan: WritePlan) -> tuple[str, ...]:
+    """The kinds a plan emits, from the record layout `<kind>/<slug>.md` (§13 item 13)."""
+    kinds: list[str] = []
+    for op in plan:
+        kind, _, rest = op.path.partition("/")
+        if not kind or not rest:
+            raise PlanRefused(f"{op.path!r} is not a record path")
+        kinds.append(kind)
+    return tuple(dict.fromkeys(kinds))
 
-    def _prepare_add(self, node: Node) -> None:
-        """`add`'s own refusals — and not `_preflight_add_locked`, whose
-        admitted kind exists for the relocation families (design §4.2)."""
-        self._refuse_family_kinds(node)
-        self._refuse(node)
-        self._refuse_foreign_closure_actor(node)
-```
 
-`retract`: move everything between `with self._locked():` and `return self._corpus.add(record)` into `_prepare_retract(self, record: Node) -> Node` returning `record`; `supersede` → `_prepare_supersede(self, successor, of) -> Node` returning `candidate`; `revise` → `_prepare_revise(self, node) -> Node` returning `node`; `delete` → `_prepare_delete(self, ref) -> Node` (resolve under the lock, `require` on the resolved kind, `_refuse_excluded_kind`, return the node) with `delete` itself then calling `_delete_locked(node.id)`; `mint_coordination` → `_prepare_mint_coordination(self, kind, project, content) -> Node`; `revise_coordination` → `_prepare_revise_coordination(self, kind, address, predecessors, content) -> Node`. The ordinary bodies keep their behavior exactly; the tests of cut 5, 14, 16, 18 are the proof.
-
-The facade and the seam:
-
-```python
 @sealed
 @final
 @dataclass(frozen=True)
@@ -1125,144 +1376,108 @@ class OperationCommit:
     event_token: str
     intent_digest: str
     entry_digest: str
-
-
-class OperationWrites:
-    """The seven session-mediated writes, each one `corpus-write` intent
-    followed by one fulfilling registration (writer-session design §4.2–§4.3).
-    Obtained through `CorpusWriter.operations`; never constructed elsewhere."""
-
-    def __init__(self, writer: CorpusWriter) -> None:
-        self._writer = writer
-
-    def add(self, node: Node) -> OperationCommit:
-        writer = self._writer
-
-        def prepare() -> tuple[Node, WritePlan]:
-            writer._prepare_add(node)
-            return node, [writer._create_or_replace_op(node)]
-
-        return self._commit(node.kind, prepare)
-
-    def retract(self, record: Node) -> OperationCommit:
-        writer = self._writer
-
-        def prepare() -> tuple[Node, WritePlan]:
-            prepared = writer._prepare_retract(record)
-            return prepared, [writer._create_op(prepared)]
-
-        return self._commit("retraction", prepare)
-
-    def supersede(self, successor: Node, *, of: str) -> OperationCommit:
-        writer = self._writer
-
-        def prepare() -> tuple[Node, WritePlan]:
-            candidate = writer._prepare_supersede(successor, of)
-            return candidate, [writer._create_op(candidate)]
-
-        return self._commit("proposition", prepare)
-
-    def revise(self, node: Node) -> OperationCommit:
-        writer = self._writer
-
-        def prepare() -> tuple[Node, WritePlan]:
-            prepared = writer._prepare_revise(node)
-            return prepared, [writer._replace_op(prepared)]
-
-        return self._commit("proposition", prepare)
-
-    def delete(self, ref: str) -> OperationCommit:
-        writer = self._writer
-        with writer._locked():
-            kind = writer._prepare_delete(ref).kind  # resolves or refuses DeletionTargetMissing; the require needs the kind
-
-            def prepare() -> tuple[None, WritePlan]:
-                prepared = writer._prepare_delete(ref)  # re-read under the same (re-entrant) lock
-                return None, [writer._delete_op(prepared)]
-
-            return self._commit(kind, prepare)
-
-    def mint_coordination(self, kind: str, *, project: CoordinationAddress | None = None, content: Mapping[str, object]) -> OperationCommit:
-        writer = self._writer
-
-        def prepare() -> tuple[Node, WritePlan]:
-            candidate = writer._prepare_mint_coordination(kind, project, content)
-            return candidate, [writer._create_op(candidate)]
-
-        return self._commit(kind, prepare)
-
-    def revise_coordination(self, kind: str, address: CoordinationAddress, *, predecessors: Sequence[str], content: Mapping[str, object]) -> OperationCommit:
-        writer = self._writer
-
-        def prepare() -> tuple[Node, WritePlan]:
-            candidate = writer._prepare_revise_coordination(kind, address, predecessors, content)
-            return candidate, [writer._create_op(candidate)]
-
-        return self._commit(kind, prepare)
-
-    def _commit(self, kind: str, prepare: Callable[[], tuple[Node | None, WritePlan]]) -> OperationCommit:
-        """The one primitive caller (design §4.3): require, prepare, preflight,
-        intent, fulfilling execution, rebuild — in that order and no other."""
-        self._writer.authority.require("corpus-write", (kind,))
-        writer = self._writer
-        port = writer._operation_port
-        if port is None:
-            raise OperationPortMissing("this corpus has no operation port; operation writes are session-mediated")
-        with writer._locked():
-            record, plan = prepare()
-            try:
-                port.preflight(plan)
-            except PlanRefusedError as caught:
-                raise PlanRefused(str(caught)) from caught
-            token = secrets.token_hex(16)
-            intent = OperationIntent("corpus-write", token, writer.authority.actor)
-            intent_digest = port.append_intent(
-                v1.encode({"kind": intent.kind, "event_token": intent.event_token, "actor": intent.actor})
-            )
-            with writer._submitting():
-                entry_digest = port.execute_fulfilling(plan, intent_digest)
-                writer._reconstruct()
-            return OperationCommit(record, token, intent_digest, entry_digest)
 ```
 
-`delete` resolves once under the lock to learn the kind the `require` needs and again inside `prepare`; both reads happen under one hold of the re-entrant lock, so nothing can remove the target between them, and `_prepare_delete` is where `DeletionTargetMissing` is raised in both paths. Add on `CorpusWriter`:
+`_RoutedExecutor.commit_fulfilling`, replacing Task 4's stub — the one inventoried seam:
 
 ```python
+    def commit_fulfilling(self, scope: _Fulfillment, plan: WritePlan) -> None:
+        """The commit seam (design §4.3, §13 item 13): require, preflight, intent,
+        fulfilling execution — in that order and no other."""
+        scope.authority.require("corpus-write", _plan_kinds(plan))
+        try:
+            scope.port.preflight(plan)
+        except PlanRefusedError as caught:
+            raise PlanRefused(str(caught)) from caught
+        self._state.unresolved = True
+        token = secrets.token_hex(16)
+        intent = OperationIntent("corpus-write", token, scope.authority.actor)
+        intent_digest = scope.port.append_intent(
+            v1.encode({"kind": intent.kind, "event_token": intent.event_token, "actor": intent.actor})
+        )
+        entry_digest = scope.port.execute_fulfilling(plan, intent_digest)
+        scope.result = (token, intent_digest, entry_digest)
+```
+
+`unresolved` is set after the preflight and before the intent: a preflight refusal submits nothing and leaves the flag as it was; anything from the intent onward is a submission.
+
+`CorpusWriter`:
+
+```python
+    @contextmanager
+    def _fulfilling(self) -> Iterator[_Fulfillment]:
+        """Bind this writer's authority and port for one submission (§13 item 11).
+        Entered under the settling hold by `OperationWrites` only."""
+        port = self._operation_port
+        if port is None:
+            raise OperationPortMissing("this corpus has no operation port; operation writes are session-mediated")
+        state = self._state
+        if state.fulfilling is not None:
+            raise ScienceError("a nested fulfilling scope is not admitted")
+        scope = _Fulfillment(self._authority, port)
+        state.fulfilling = scope
+        try:
+            yield scope
+        finally:
+            state.fulfilling = None
+
     @property
     def operations(self) -> OperationWrites:
         return OperationWrites(self)
 
-    def _create_or_replace_op(self, record: Node) -> CreateOp | ReplaceOp:
-        """The choice `nodes`' `Corpus.add` makes: a live uid replaces."""
-        path = self._relative_path(record)
-        if record.uid in self._corpus.index.by_uid:
-            return ReplaceOp(path=path, content=node_to_markdown(record).encode("utf-8"), expected_digest=self._corpus.manifest[path].sha256)
-        return CreateOp(path=path, content=node_to_markdown(record).encode("utf-8"))
 
-    def _replace_op(self, record: Node) -> ReplaceOp:
-        path = self._relative_path(record)
-        return ReplaceOp(path=path, content=node_to_markdown(record).encode("utf-8"), expected_digest=self._corpus.manifest[path].sha256)
+class OperationWrites:
+    """The seven session-mediated writes (design §4.2, §13 item 9): each is the
+    ordinary method, run inside a fulfilling scope under the settling hold."""
 
-    def _delete_op(self, record: Node) -> DeleteOp:
-        from beliefs.world.rules import member_content_digest
+    def __init__(self, writer: CorpusWriter) -> None:
+        self._writer = writer
 
-        return DeleteOp(path=self._relative_path(record), expected_digest=member_content_digest(node_to_markdown(record).encode("utf-8")))
+    def _run(self, perform: Callable[[], Node | None]) -> OperationCommit:
+        writer = self._writer
+        with writer._operation, writer._fulfilling() as scope:
+            record = perform()
+            if scope.result is None:
+                raise ScienceError("the ordinary method submitted nothing")
+            token, intent_digest, entry_digest = scope.result
+            return OperationCommit(record, token, intent_digest, entry_digest)
+
+    def add(self, node: Node) -> OperationCommit:
+        return self._run(lambda: self._writer.add(node))
+
+    def retract(self, record: Node) -> OperationCommit:
+        return self._run(lambda: self._writer.retract(record))
+
+    def supersede(self, successor: Node, *, of: str) -> OperationCommit:
+        return self._run(lambda: self._writer.supersede(successor, of=of))
+
+    def revise(self, node: Node) -> OperationCommit:
+        return self._run(lambda: self._writer.revise(node))
+
+    def delete(self, ref: str) -> OperationCommit:
+        return self._run(lambda: self._writer.delete(ref))
+
+    def mint_coordination(self, kind: str, *, project: CoordinationAddress | None = None, content: Mapping[str, object]) -> OperationCommit:
+        return self._run(lambda: self._writer.mint_coordination(kind, project=project, content=content))
+
+    def revise_coordination(self, kind: str, address: CoordinationAddress, *, predecessors: Sequence[str], content: Mapping[str, object]) -> OperationCommit:
+        return self._run(lambda: self._writer.revise_coordination(kind, address, predecessors=predecessors, content=content))
 ```
 
-`_prepare_delete` must call `self._authority.require("corpus-write", (node.kind,))` after resolving, exactly as `delete` does today, so `delete`'s inventory row keeps its `require`; `_delete_locked` is unchanged.
+`OperationPortMissing` is raised by `_fulfilling` before any refusal of the write, so a portless writer refuses before its ordinary body runs. The ordinary bodies are **not edited**: the probe prints `stale: []`.
 
-`test_permit_boundary.py`: add `"corpus.py:OperationWrites._commit": "corpus-write"` to `WRITE_ENTRY_POINTS`. The static arm 2 requires the `require` to be the first statement — it is. Arm 1 will report `OperationWrites._commit` as a caller of `append_intent` and `execute_fulfilling`; the row satisfies it. Confirm the inventory count is 37.
+`test_permit_boundary.py`: add `"corpus.py:_RoutedExecutor.commit_fulfilling": "corpus-write"` to `WRITE_ENTRY_POINTS`; `_RoutedExecutor.execute` is already on the implementation-exclusion list from Task 4. Arm 1 reports `commit_fulfilling` as a caller of `append_intent` and `execute_fulfilling` and the row satisfies it; arm 2 finds its `require` as the first statement. Confirm the inventory count is 37.
 
 - [ ] **Step 5: Run the tests and the gates**
 
-`uv run --frozen pytest tests/test_operation_writes.py tests/test_permit_boundary.py tests/test_corpus_write.py tests/test_deletion.py tests/test_coordination_write.py tests/test_relocation.py -q -p no:cacheprovider`, then the whole suite, ruff, pyright, the staleness probe (record any newly stale arm as in Task 4).
+`uv run --frozen pytest tests/test_operation_writes.py tests/test_permit_boundary.py tests/test_corpus_write.py tests/test_deletion.py tests/test_coordination_write.py tests/test_relocation.py -q -p no:cacheprovider`, then the whole suite, ruff, pyright, the staleness probe (`stale: []`).
 
 - [ ] **Step 6: Commit**
 
 ```bash
-tasks done <task-5-id> "OperationWrites with seven prepare helpers and one commit seam; PlanRefused; inventory row 37"
+tasks done <task-5-id> "OperationWrites over the unchanged ordinary bodies; one-call fulfilling scope; commit_fulfilling as inventory row 37"
 git add python/src/beliefs/corpus.py python/tests tasks/
-git commit -m "feat(corpus): add the operation seams that commit a write as a corpus-write intent and its fulfillment"
+git commit -m "feat(corpus): commit an operation write as a corpus-write intent and its fulfillment through the routed executor"
 ```
 
 ---
@@ -1275,7 +1490,7 @@ git commit -m "feat(corpus): add the operation seams that commit a write as a co
 
 **Interfaces:**
 - Consumes: `errors.SessionLedgerFailed`, `errors.LedgerMalformed` (Task 2).
-- Produces (`beliefs.session.ledger`): `LINE_KINDS`, `encode_line(obj: Mapping) -> bytes`, `utc_now() -> str`, `ledger_path(operations_root, session_id) -> Path`; `ActLine(invocation, corpus, entry, intent, record_ids)`; `InvocationRecord(invocation, command, input_digest, acts, outcome)`; `LedgerWriter(path)` with `.append(line: Mapping) -> None`, `.failed: bool`, `.close() -> None`; `LedgerReader` with `.session_id`, `.actor`, `.world_id`, `.closed`, `.torn_tail`, `.open_invocations: tuple[str, ...]`, `.acts() -> tuple[ActLine, ...]`, `.invocations() -> tuple[InvocationRecord, ...]`, `.invocation(id) -> InvocationRecord | None`; `open_ledger_reader(operations_root, session_id) -> LedgerReader`; `LedgerMissing(session_id)`, `LedgerEmpty(session_id)`, `LedgerUnreadable(session_id, error)`; `LedgerEvidence = LedgerReader | LedgerMissing | LedgerEmpty | LedgerUnreadable`; `read_ledger_evidence(operations_root, session_id) -> LedgerEvidence`; validation helpers `require_invocation_id(value) -> str`, `require_hex(value, width, what) -> str`, `validated_outcome(outcome) -> dict`.
+- Produces (`beliefs.session.ledger`): `LINE_KINDS`, (a `LedgerWriter._write` that requires the complete byte count or raises `OSError`), `encode_line(obj: Mapping) -> bytes`, `utc_now() -> str`, `ledger_path(operations_root, session_id) -> Path`; `ActLine(invocation, corpus, entry, intent, record_ids)`; `InvocationRecord(invocation, command, input_digest, acts, outcome)`; `LedgerWriter(path)` with `.append(line: Mapping) -> None`, `.failed: bool`, `.close() -> None`; `LedgerReader` with `.session_id`, `.actor`, `.world_id`, `.closed`, `.torn_tail`, `.open_invocations: tuple[str, ...]`, `.acts() -> tuple[ActLine, ...]`, `.invocations() -> tuple[InvocationRecord, ...]`, `.invocation(id) -> InvocationRecord | None`; `open_ledger_reader(operations_root, session_id) -> LedgerReader`; `LedgerMissing(session_id)`, `LedgerEmpty(session_id)`, `LedgerUnreadable(session_id, error)`; `LedgerEvidence = LedgerReader | LedgerMissing | LedgerEmpty | LedgerUnreadable`; `read_ledger_evidence(operations_root, session_id) -> LedgerEvidence`; validation helpers `require_invocation_id(value) -> str`, `require_hex(value, width, what) -> str`, `validated_outcome(outcome) -> dict`.
 
 - [ ] **Step 1: `tasks start <task-6-id>`**
 
@@ -1445,6 +1660,10 @@ def test_an_empty_or_missing_ledger_is_not_malformed_to_the_reader_but_is_eviden
     path.write_bytes(b"garbage\n")
     evidence = read_ledger_evidence(tmp_path, SESSION)
     assert type(evidence) is LedgerUnreadable and evidence.session_id == SESSION and "line 1" in evidence.error
+    path.unlink()
+    path.mkdir()  # a directory where the file should be: IsADirectoryError on read
+    evidence = read_ledger_evidence(tmp_path, SESSION)
+    assert type(evidence) is LedgerUnreadable and "IsADirectoryError" in evidence.error
 
 
 def test_a_partial_write_ends_the_writer_and_preserves_the_bytes(tmp_path, monkeypatch):
@@ -1468,6 +1687,25 @@ def test_a_partial_write_ends_the_writer_and_preserves_the_bytes(tmp_path, monke
     assert path.read_bytes() == before + partial
     reader = open_ledger_reader(tmp_path, SESSION)
     assert reader.torn_tail is True and reader.open_invocations == ()
+
+
+def test_a_short_write_without_an_exception_ends_the_writer(tmp_path, monkeypatch):
+    path = ledger_path(tmp_path, SESSION)
+    path.parent.mkdir(parents=True)
+    writer = LedgerWriter(path)
+    writer.append(open_line())
+    before = path.read_bytes()
+    real_write = writer._file.write
+
+    def short(data):
+        return real_write(data[:17])  # the OS accepted part of the line and returned normally
+
+    monkeypatch.setattr(writer._file, "write", short)
+    with pytest.raises(SessionLedgerFailed, match="short write"):
+        writer.append(lines()[1])
+    assert writer.failed is True
+    assert path.read_bytes() == before + encode_line(lines()[1])[:17]
+    assert open_ledger_reader(tmp_path, SESSION).torn_tail is True
 
 
 def test_a_failed_fsync_ends_the_writer(tmp_path, monkeypatch):
@@ -1509,6 +1747,7 @@ takes when a ledger is missing, empty, or unreadable."""
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 import re
@@ -1600,7 +1839,7 @@ def validated_outcome(outcome: object) -> dict[str, object]:
             raise ValueError("refusal message must be a string")
         if not isinstance(refusal["data"], Mapping):
             raise ValueError("refusal data must be a JSON object")
-        return {"refusal": {"code": refusal["code"], "message": refusal["message"], "data": dict(refusal["data"])}}
+        return {"refusal": {"code": refusal["code"], "message": refusal["message"], "data": copy.deepcopy(dict(refusal["data"]))}}
     raise ValueError("an outcome is done or refusal")
 
 
@@ -1640,7 +1879,9 @@ class LedgerWriter:
         return self._failed
 
     def _write(self, data: bytes) -> None:
-        self._file.write(data)
+        written = self._file.write(data)
+        if written != len(data):
+            raise OSError(f"short write: {written} of {len(data)} bytes reached the ledger")
 
     def append(self, line: Mapping[str, object]) -> None:
         if self._failed:
@@ -1812,6 +2053,8 @@ def read_ledger_evidence(operations_root: Path, session_id: str) -> LedgerEviden
         raw = path.read_bytes()
     except FileNotFoundError:
         return LedgerMissing(session_id)
+    except OSError as caught:  # a directory in the file's place, a permission or device error: evidence, not an exception
+        return LedgerUnreadable(session_id, f"{type(caught).__name__}: {caught}")
     if not raw:
         return LedgerEmpty(session_id)
     try:
@@ -1845,7 +2088,7 @@ git commit -m "feat(session): add the append-then-fsync session ledger and its r
 
 **Interfaces:**
 - Consumes: Task 6's ledger; `CorpusWriter.operations`, `OperationCommit` (Task 5); `permit_covers`, `Authority`, `WritePermit`, `RequiredCapabilities`, `PermitExceeded`, `PermitFact` (permit.py, errors.py); `root.durable_operation_port`, `root.log_seam`, `root.durable_executor_factory` (Task 3); `CoordinationResolver`, `_operation_lock_for` (corpus.py).
-- Produces (`beliefs.session.writer`): `ClaimFresh`, `ClaimDone(outcome)`, `ClaimOpen`, `ClaimMismatch`, `Claim`; `KernelRefusalValue(value)` with `.value`; `WriterSession(*, session_id, actor, world_id, corpus_root, corpus_id, operations_root, ledger, writer_factory, findings=())` with `.session_id`, `.actor`, `.operations_root`, `.findings`, `.current_invocation`, `.scoped(required, invocation_id) -> ScopedWriter`, `.claim_invocation(id, command, digest) -> Claim`, `.close_invocation(id, outcome) -> None`, `.invocation_acts(id) -> tuple[ActLine, ...]`, `.close() -> None`; `ScopedWriter` with `.invocation_id` and the seven methods. (`beliefs.session`): `open_attended_session(world_config, operations_root, *, coordination=None) -> WriterSession` and re-exports of everything the contract names.
+- Produces (`beliefs.session.writer`): `ClaimFresh`, `ClaimDone(outcome)`, `ClaimOpen`, `ClaimMismatch`, `Claim`; `KernelRefusalValue(value)` with `.value`; `WriterSession(*, session_id, world_id, corpus_root, corpus_id, operations_root, ledger, writer_factory, findings=(), ceiling=None)` — the actor is derived as `session:<session_id>`; no constructor takes one with `.session_id`, `.actor`, `.operations_root`, `.findings`, `.current_invocation`, `.scoped(required, invocation_id) -> ScopedWriter`, `.claim_invocation(id, command, digest) -> Claim`, `.close_invocation(id, outcome) -> None`, `.invocation_acts(id) -> tuple[ActLine, ...]`, `.close() -> None`; `ScopedWriter` with `.invocation_id` and the seven methods. (`beliefs.session`): `open_attended_session(world_config, operations_root, *, coordination=None) -> WriterSession` and re-exports of everything the contract names.
 
 - [ ] **Step 1: `tasks start <task-7-id>`**
 
@@ -1906,7 +2149,7 @@ def make_session(tmp_path: Path, ceiling: WritePermit = WritePermit.full()) -> t
 
     ledger = LedgerWriter(path)
     session = WriterSession(
-        session_id=SESSION, actor=f"session:{SESSION}", world_id=WORLD, corpus_root=corpus_root, corpus_id=CORPUS,
+        session_id=SESSION, world_id=WORLD, corpus_root=corpus_root, corpus_id=CORPUS,
         operations_root=operations_root, ledger=ledger, writer_factory=writer_factory, ceiling=ceiling,
     )
     return session, ports
@@ -1930,12 +2173,24 @@ def test_the_claim_table(tmp_path):
     assert session.current_invocation is None
 
 
-def test_a_refusal_outcome_replays_whole(tmp_path):
+def test_a_refusal_outcome_replays_whole_and_detached_from_every_caller(tmp_path):
     session, _ = make_session(tmp_path)
     session.claim_invocation("F", "over", DIGEST)
-    envelope = {"refusal": {"code": "permit-exceeded", "message": "kind source", "data": {"requirement": "kind source"}}}
+    nested = {"requirement": {"dimension": "kind", "name": "source"}}
+    envelope = {"refusal": {"code": "permit-exceeded", "message": "kind source", "data": nested}}
     session.close_invocation("F", envelope)
-    assert session.claim_invocation("F", "over", DIGEST).outcome == envelope
+    nested["requirement"]["name"] = "MUTATED-INPUT"  # the caller keeps mutating what it passed in
+    first = session.claim_invocation("F", "over", DIGEST).outcome
+    assert first["refusal"]["data"]["requirement"]["name"] == "source"
+    first["refusal"]["data"]["requirement"]["name"] = "MUTATED-OUTPUT"  # and what it got back
+    again = session.claim_invocation("F", "over", DIGEST).outcome
+    assert again["refusal"]["data"]["requirement"]["name"] == "source"
+    session.claim_invocation("G", "mint", DIGEST)
+    session.close_invocation("G", {"done": [["u1", "proposition:p1"]]})
+    session.claim_invocation("G", "mint", DIGEST).outcome["done"].clear()
+    assert session.claim_invocation("G", "mint", DIGEST).outcome == {"done": [["u1", "proposition:p1"]]}
+    reader = open_ledger_reader(session.operations_root, SESSION)
+    assert reader.invocation("G").outcome == {"done": [["u1", "proposition:p1"]]}
 
 
 def test_an_abandoned_invocation_stays_open_and_never_blocks_a_fresh_claim(tmp_path):
@@ -2140,6 +2395,8 @@ from typing import TypeAlias, final
 
 from nodes.core.node import Node
 
+import copy
+
 from beliefs.coordination import CoordinationAddress
 from beliefs.corpus import CorpusWriter, Finding, OperationCommit, _operation_lock_for
 from beliefs.errors import PermitExceeded, PermitFact, SessionClosed, SessionLedgerFailed, SessionProtocolError
@@ -2222,7 +2479,6 @@ class WriterSession:
         self,
         *,
         session_id: str,
-        actor: str,
         world_id: str,
         corpus_root: Path,
         corpus_id: str,
@@ -2233,7 +2489,7 @@ class WriterSession:
         ceiling: WritePermit | None = None,
     ) -> None:
         self.session_id = require_hex(session_id, 32, "session id")
-        self.actor = actor
+        self.actor = f"session:{self.session_id}"  # derived, never supplied (J4)
         self.world_id = require_hex(world_id, 32, "world id")
         self.corpus_root = Path(corpus_root)
         self.corpus_id = require_hex(corpus_id, 32, "corpus id")
@@ -2309,7 +2565,7 @@ class WriterSession:
                 return ClaimMismatch()
             if entry.outcome is None:
                 return ClaimOpen()
-            return ClaimDone(entry.outcome)
+            return ClaimDone(copy.deepcopy(entry.outcome))  # the index is never handed out (§3.3)
 
     def close_invocation(self, invocation_id: str, outcome: Mapping[str, object]) -> None:
         invocation = require_invocation_id(invocation_id)
@@ -2516,7 +2772,6 @@ def open_attended_session(
 
     session = WriterSession(
         session_id=session_id,
-        actor=f"session:{session_id}",
         world_id=world_config.world_id,
         corpus_root=root,
         corpus_id=corpus_id,
@@ -2908,7 +3163,7 @@ git commit -m "feat(session): reconcile session ledgers against chains"
 
 **Interfaces:**
 - Consumes: `open_attended_session`, `reconcile_sessions`, `WriterSession`, `ScopedWriter` (Tasks 7–8); `init_corpus_root`, `open_corpus`, `log_seam`, `durable_executor_factory` (root.py); `PINS` (`fixtures_cut6`); `durable_root`, `work_directory` fixtures (`acceptance/conftest.py`); `read_chain` through `log_seam().inspect_detached`.
-- Produces: the test names the N2 arms of Task 11 cite — `test_j1_each_scoped_write_is_one_intent_and_one_fulfilling_registration`, `test_j1_refusals_append_nothing_of_their_own`, `test_j3_the_act_time_refusal_is_the_kernels_under_a_full_permit_session`, `test_j4_every_intent_carries_the_session_actor`, `test_j5_the_act_line_carries_the_chain_registration_and_is_fsynced_under_the_lock`, `test_j9_lifecycle_and_the_refusing_configurations`, `test_j10_a_session_write_is_indistinguishable_on_ordinary_read`, `test_j11_a_writer_is_bound_to_one_invocation_durably`; a module-level `attended(work_directory, root, **kwargs)` helper.
+- Produces: the test names the N2 arms of Task 11 cite — `test_j1_each_scoped_write_is_one_intent_and_one_fulfilling_registration`, `test_j1_refusals_append_nothing_of_their_own`, `test_j1_coordination_writes_commit_as_operations`, `test_j3_the_act_time_refusal_is_the_kernels_under_a_full_permit_session`, `test_j4_every_intent_carries_the_session_actor`, `test_j5_the_act_line_carries_the_chain_registration_and_is_fsynced_under_the_lock`, `test_j9_lifecycle_and_the_refusing_configurations`, `test_j10_a_session_write_is_indistinguishable_on_ordinary_read`, `test_j11_a_writer_is_bound_to_one_invocation_durably`; a module-level `attended(work_directory, root, **kwargs)` helper.
 
 - [ ] **Step 1: `tasks start <task-9-id>`**
 
@@ -2931,8 +3186,9 @@ from pathlib import Path
 
 import pytest
 from authority import FULL
+from coordination_fixtures import content_for, coordination_profile, pins_for
 from fixtures_cut6 import PINS
-from test_deletion import retraction_for
+from test_deletion import mint_eligible_assessment
 from test_durable_families import proposition
 
 from beliefs import root as science_root
@@ -2951,14 +3207,31 @@ from beliefs.world.logmodel import IntentEntryView, RegisteredEntryView, Settled
 from beliefs.world.records import RECORD_CEILING
 
 PROPOSITIONS = RequiredCapabilities.for_kinds({"proposition"}, {})
+ORDINARY = RequiredCapabilities.for_kinds({"proposition", "retraction"}, {})
 DIGEST = "d" * 64
 
 
-def adopted(work_directory: Path, name: str) -> Path:
+def adopted(work_directory: Path, name: str, pins=PINS) -> Path:
     root = work_directory / f"{name}-{secrets.token_hex(4)}"
     init_corpus_root(root, authority=FULL)
-    open_corpus(root, authority=FULL).adopt_manifest(profile=PINS)
+    open_corpus(root, authority=FULL).adopt_manifest(profile=pins)
     return root
+
+
+def session_retraction(target, ground: str, actor: str):
+    """A well-formed retraction of an eligible target, stamped for the session actor
+    (the shared `retraction_for` hardcodes the test actor, which `retract` refuses)."""
+    identity = stored.stored_semantic_hash(target)
+    assert identity is not None
+    return stored.retraction_node(
+        title="retraction",
+        target=stored.NodeTarget(target.id, target.id, identity),
+        reason="defective-code",
+        rationale="the recorded result is invalid",
+        grounds=(ground,),
+        actor=actor,
+        event_token=secrets.token_hex(8),
+    )
 
 
 def config_for(work_directory: Path, root: Path) -> WorldConfig:
@@ -2982,6 +3255,18 @@ def intents(root: Path):
 
 def registrations(root: Path):
     return [e for e in chain(root).entries if type(e) is RegisteredEntryView]
+
+
+def pending_registrations(root: Path) -> list[str]:
+    """Registrations the detached view holds without a settlement, plus the view's own pending digests."""
+    view = chain(root)
+    settled = {s.registration for s in view.entries if type(s) is SettledEntryView}
+    unsettled = [e.digest for e in view.entries if type(e) is RegisteredEntryView and e.digest not in settled]
+    return unsettled + [digest for _, digest in view.pending]
+
+
+def intents_of_chain(view: WellFormedView) -> list[str]:
+    return [e.digest for e in view.entries if type(e) is IntentEntryView]
 
 
 def tree_hash(*roots: Path) -> str:
@@ -3018,13 +3303,15 @@ def fresh(session, invocation: str, required=PROPOSITIONS):
 # --- J1 ---------------------------------------------------------------------------
 def test_j1_each_scoped_write_is_one_intent_and_one_fulfilling_registration(session_rig):
     session, root, _ = session_rig
+    # An eligible retraction target (assessment) minted through the library path: a proposition is not retractable.
+    target = mint_eligible_assessment(open_corpus(root, authority=FULL))
     before = len(chain(root).entries)
-    w = fresh(session, "A")
+    w = fresh(session, "A", ORDINARY)
     p1 = w.add(proposition("p1"))
     p2 = w.add(proposition("p2"))
     w.revise(p2.model_copy(update={"title": "renamed"}))
     w.supersede(proposition("p3", "inhibits"), of="proposition:p1")
-    w.retract(retraction_for(p2, "proposition:p3"))
+    w.retract(session_retraction(target, "proposition:p3", session.actor))
     w.delete("proposition:p3")
     entries = chain(root).entries[before:]
     kinds = [type(e).__name__ for e in entries]
@@ -3058,15 +3345,39 @@ def test_j1_refusals_append_nothing_of_their_own(session_rig):
             call()
         assert chain(root).tip == settled_head
     assert len(intents(root)) == 0  # no intent decodes to any refused call
-    target = w.add(proposition("t"))
-    w2 = fresh(session, "B")
+    target = mint_eligible_assessment(open_corpus(root, authority=FULL))
+    w2 = fresh(session, "B", ORDINARY)
     session_head = chain(root).tip
-    with pytest.raises(Exception) as ordinary:
-        open_corpus(root, authority=FULL).add(retraction_for(target, "proposition:t"))
+    retraction = session_retraction(target, "proposition:p0", session.actor)
+    with pytest.raises(Exception) as ordinary:  # a retraction enters through retract, not add — both paths
+        open_corpus(root, authority=FULL).add(retraction)
     with pytest.raises(Exception) as operation:
-        w2.add(retraction_for(target, "proposition:t"))
+        w2.add(retraction)
     assert type(operation.value) is type(ordinary.value)
     assert chain(root).tip == session_head
+
+
+def test_j1_coordination_writes_commit_as_operations(work_directory, base_contract):
+    from beliefs.coordination import coordination_revision
+    from beliefs.errors import CoordinationUnavailable
+
+    profile = coordination_profile(base_contract)
+    root = adopted(work_directory, "coord", pins=pins_for(profile))
+    session, _ = attended(work_directory, root, coordination=profile)
+    before = len(chain(root).entries)
+    w = fresh(session, "A", RequiredCapabilities.coordination())
+    project = w.mint_coordination("project", content=content_for("project", name="first"))
+    address = coordination_revision(project).address
+    revised = w.revise_coordination("project", address, predecessors=[project.uid], content=content_for("project", name="second"))
+    entries = chain(root).entries[before:]
+    assert [type(e).__name__ for e in entries] == ["IntentEntryView", "RegisteredEntryView", "SettledEntryView"] * 2
+    assert [act.record_ids for act in session.invocation_acts("A")] == [((project.uid, project.id),), ((revised.uid, revised.id),)]
+    session.close()
+    # Negative: without the launcher's profile the two methods refuse at the act, as an unmounted writer does.
+    plain, _ = attended(work_directory, adopted(work_directory, "coord-plain", pins=pins_for(profile)))
+    with pytest.raises(CoordinationUnavailable):
+        fresh(plain, "A", RequiredCapabilities.coordination()).mint_coordination("project", content=content_for("project"))
+    plain.close()
 
 
 # --- J3 -----------------------------------------------------------------------------
@@ -3084,15 +3395,15 @@ def test_j3_the_act_time_refusal_is_the_kernels_under_a_full_permit_session(sess
 # --- J4 -----------------------------------------------------------------------------
 def test_j4_every_intent_carries_the_session_actor(session_rig):
     session, root, _ = session_rig
-    w = fresh(session, "A")
-    target = w.add(proposition("p1"))
-    foreign = retraction_for(target, "proposition:p1")
-    foreign.facets[stored.RETRACTION_FACET]["actor"] = "someone-else"
+    target = mint_eligible_assessment(open_corpus(root, authority=FULL))
+    w = fresh(session, "A", ORDINARY)
+    w.add(proposition("p1"))
+    foreign = session_retraction(target, "proposition:p1", "someone-else")
     head = chain(root).tip
     with pytest.raises(ActorMismatch):
         w.retract(foreign)
     assert chain(root).tip == head
-    w.retract(retraction_for(target, "proposition:p1"))
+    w.retract(session_retraction(target, "proposition:p1", session.actor))
     assert {i.actor for i in intents(root)} == {session.actor}
 
 
@@ -3171,6 +3482,14 @@ def test_j9_lifecycle_and_the_refusing_configurations(work_directory):
     with pytest.raises(SessionRefused):
         open_attended_session(WorldConfig(work_directory / "w", secrets.token_hex(16), (chainless,)), ops3)
     assert not (ops3 / "sessions").exists()
+    # An unreadable prior ledger — a directory where the file should be — is a finding, never a refusal to open.
+    ops4 = work_directory / f"ops-{secrets.token_hex(4)}"
+    (ops4 / "sessions" / ("9" * 32) / "ledger.v1").mkdir(parents=True)
+    (ops4 / "sessions" / ("8" * 32)).mkdir(parents=True)  # a directory with no ledger at all
+    opened = open_attended_session(config_for(work_directory, root), ops4)
+    codes = {(f.code, f.ref) for f in opened.findings}
+    assert ("session-ledger-malformed", "9" * 32) in codes and ("session-ledger-missing", "8" * 32) in codes
+    opened.close()
 
 
 # --- J10 ----------------------------------------------------------------------------
@@ -3243,7 +3562,7 @@ git commit -m "test(session): add the durable acceptance arms for J1, J3, J4, J5
 
 **Interfaces:**
 - Consumes: Task 9's helpers; `science_root._mapped_submit`, `science_root._registration_for`, `CorpusWriter._reconstruct`, `atoms.fs.platform.select_backend`, `DurableOperationPort`.
-- Produces: `test_j2_a_failure_before_submission_leaves_an_intent_and_no_record`, `test_j2_a_readback_failure_leaves_the_root_unresolved_and_the_registration_committed`, `test_j2_a_rebuild_failure_leaves_the_root_unresolved`, `test_j2_a_ledger_failure_after_commit_ends_the_session`, `test_j2_a_raced_precondition_is_an_execution_error`, `test_j2_continuation_after_unresolved_effects_recovers_before_the_prepare`, `test_j2_a_fresh_process_settles_before_its_first_prepare`, `test_j2_library_and_mixed_handles_settle_first`, `test_j8_reconciliation_over_the_real_root`, `test_j8_reconciliation_is_lock_coherent_under_an_interleaved_write`; `session_faults.HaltingBackend`.
+- Produces: `test_j2_a_failure_before_submission_leaves_an_intent_and_no_record`, `test_j2_a_failed_recovery_refuses_the_write_before_any_prepare`, `test_j2_a_readback_failure_leaves_the_root_unresolved_and_the_registration_committed`, `test_j2_a_rebuild_failure_leaves_the_root_unresolved`, `test_j2_a_ledger_failure_after_commit_ends_the_session`, `test_j2_a_raced_precondition_is_an_execution_error`, `test_j2_continuation_after_unresolved_effects_recovers_before_the_prepare`, `test_j2_a_fresh_process_settles_before_its_first_prepare`, `test_j2_library_and_mixed_handles_settle_first`, `test_j8_reconciliation_over_the_real_root`, `test_j8_reconciliation_is_lock_coherent_under_an_interleaved_write`, `test_j8_reconciliation_reads_chain_and_ledgers_under_one_hold`; `session_faults.TracingBackend`, `HaltingBackend(skip=)`, `HaltingPort`, `PUBLISH_CALLS_BEFORE_RECORD`; helpers `pending_registrations(root)` and `intents_of_chain(view)` beside `registrations`.
 
 - [ ] **Step 1: `tasks start <task-10-id>`**
 
@@ -3259,22 +3578,50 @@ from __future__ import annotations
 
 from atoms.fs.platform import select_backend
 
+from beliefs.root import DurableOperationPort
+
 PUBLISH_PHASE = ("exchange", "transfer_noclobber", "link_anchor")
+#: How many publish-phase calls `run_transaction` makes before the record's own
+#: publish — the registration leaf's, at least. Fixed by Step 2's trace.
+PUBLISH_CALLS_BEFORE_RECORD = 1
 
 
-class HaltingBackend:
-    """Delegates every engine call to the real backend; once `armed`, raises
-    `OSError` at the first publish-phase call after at least one `write`, then
-    disarms — one halt per arming."""
+class TracingBackend:
+    """Delegates every engine call and records the method names, in order — the
+    instrument that finds the transaction's publish step (design §13 item 4)."""
 
     def __init__(self) -> None:
         self._inner = select_backend()
-        self.writes = 0
+        self.calls: list[str] = []
+
+    def __getattr__(self, name):
+        target = getattr(self._inner, name)
+        if not callable(target):
+            return target
+
+        def recording(*args, **kwargs):
+            self.calls.append(name)
+            return target(*args, **kwargs)
+
+        return recording
+
+
+class HaltingBackend:
+    """Delegates every engine call to the real backend; once `armed`, skips
+    `skip` publish-phase calls and raises `OSError` at the next one, then
+    disarms — one halt per arming. Arming happens inside `execute_fulfilling`,
+    after `append_intent` has landed, so the intent is never what halts."""
+
+    def __init__(self, *, skip: int) -> None:
+        self._inner = select_backend()
+        self.skip = skip
+        self.remaining = 0
         self.armed = False
         self.halted = False
+        self.arm_next = False  # set by a test; the port arms at its next fulfilling execution
 
     def arm(self) -> None:
-        self.writes = 0
+        self.remaining = self.skip
         self.armed = True
         self.halted = False
 
@@ -3287,16 +3634,30 @@ class HaltingBackend:
             return counting
         if name in PUBLISH_PHASE:
             def halting(*args, **kwargs):
-                if self.armed and self.writes and not self.halted:
-                    self.halted = True
-                    self.armed = False
-                    raise OSError("halted by the J2 fixture before publish")
+                if self.armed and not self.halted:
+                    if self.remaining > 0:
+                        self.remaining -= 1
+                    else:
+                        self.halted = True
+                        self.armed = False
+                        raise OSError("halted by the J2 fixture before the record's publish")
                 return target(*args, **kwargs)
             return halting
         return target
+
+
+class HaltingPort(DurableOperationPort):
+    """Arms its backend at the transaction-specific point: inside
+    `_execute_fulfilling`, after the intent has landed as its own entry."""
+
+    def _execute_fulfilling(self, plan, fulfills):
+        if self._backend.arm_next:
+            self._backend.arm_next = False
+            self._backend.arm()
+        return super()._execute_fulfilling(plan, fulfills)
 ```
 
-If the engine's publish step turns out to use a different backend method, find it by tracing one committing transaction's backend calls (wrap every method, print names) and set `PUBLISH_PHASE` to the first call after the staging writes; the arm's assertion — a pending registration under detached inspection before recovery, gone after — is what the row requires.
+**Trace before trusting.** `append_intent` itself writes and publishes an entry through the same `write` + `transfer_noclobber` sequence, so a backend armed for the whole port halts the *intent*, leaving genesis alone and no pending registration (this was tried and reproduced). The port therefore arms only inside `_execute_fulfilling`, and the skip count must land the halt *after* the registration leaf is durable and *before* the record's publish. Fix it empirically first: over a registered root, run one `execute_fulfilling` through a port built on `TracingBackend`, print `backend.calls`, and count the publish-phase names before the call that publishes the record path (the `exchange`/`transfer_noclobber` that follows the staged record's `write`s). Set `PUBLISH_CALLS_BEFORE_RECORD` to that count and record the traced sequence in §13 item 4. The arm's assertions then prove the state: detached inspection shows a `RegisteredEntryView` whose `fulfills` is the intent digest with no settlement (or the view's `pending` names it), and the staged record bytes exist under the chain's stage directory (`root / ".#~chain" / ".#~stage"` — confirm the name from the trace's `mkdir_child`/`create_exclusive` arguments) while the record's final path does not.
 
 - [ ] **Step 3: Write the tests**
 
@@ -3305,7 +3666,7 @@ Append to `test_session_acceptance.py`:
 ```python
 from nodes.core.errors import ExecutionError
 from nodes.core.write_plan import DefaultExecutor
-from session_faults import HaltingBackend
+from session_faults import PUBLISH_CALLS_BEFORE_RECORD, HaltingBackend, HaltingPort
 
 from beliefs.corpus import _root_state_for
 from beliefs.errors import RelocationTargetMissing, SessionLedgerFailed
@@ -3395,11 +3756,17 @@ def test_j2_a_ledger_failure_after_commit_ends_the_session(session_rig, monkeypa
     monkeypatch.undo()
     assert (root / "proposition" / "p1.md").exists()
     assert state_of(root).unresolved is False  # the rebuild completed before the append
-    findings = reconcile_sessions(config_for(ops.parent, root), ops)
+    # The write and flush succeeded and only the fsync raised, so the complete act line is on disk:
+    # the ledger — not the failed session's index — is the evidence, and it covers the registration.
     (registration,) = [e for e in registrations(root) if e.fulfills is not None]
-    assert ("session-outcome-unknown", registration.digest) in [(f.code, f.ref) for f in findings]
-    with pytest.raises(SessionLedgerFailed):
-        session.claim_invocation("B", "mint", DIGEST)
+    reader = open_ledger_reader(ops, session.session_id)
+    assert [act.entry for act in reader.acts()] == [registration.digest]
+    findings = reconcile_sessions(config_for(ops.parent, root), ops)
+    assert registration.digest not in {f.ref for f in findings}
+    assert {"session-unclosed"} <= {f.code for f in findings}
+    for call in (lambda: session.claim_invocation("B", "mint", DIGEST), lambda: session.invocation_acts("A")):
+        with pytest.raises(SessionLedgerFailed):
+            call()
 
 
 def test_j2_a_raced_precondition_is_an_execution_error(session_rig, monkeypatch):
@@ -3427,17 +3794,17 @@ def halting_session(work_directory: Path, root: Path):
     from beliefs.session.writer import WriterSession
     from beliefs.session.ledger import LedgerWriter, ledger_path
 
-    backend = HaltingBackend()
+    backend = HaltingBackend(skip=PUBLISH_CALLS_BEFORE_RECORD)
     ops = work_directory / f"ops-{secrets.token_hex(4)}"
     session_id = secrets.token_hex(16)
     path = ledger_path(ops, session_id)
     path.parent.mkdir(parents=True)
 
     def writer_factory(authority):
-        port = DurableOperationPort(root, backend=backend, storage=PRODUCTION_STORAGE, metadata_root=metadata_root_for(root), authority=authority)
+        port = HaltingPort(root, backend=backend, storage=PRODUCTION_STORAGE, metadata_root=metadata_root_for(root), authority=authority)
         return CorpusWriter(root, durable_executor_factory(), authority=authority, operation_port=port)
 
-    session = WriterSession(session_id=session_id, actor=f"session:{session_id}", world_id="1" * 32, corpus_root=root,
+    session = WriterSession(session_id=session_id, world_id="1" * 32, corpus_root=root,
                             corpus_id=load_manifest(root).corpus_id, operations_root=ops, ledger=LedgerWriter(path),
                             writer_factory=writer_factory)
     return session, backend, ops
@@ -3447,14 +3814,19 @@ def test_j2_continuation_after_unresolved_effects_recovers_before_the_prepare(wo
     root = adopted(work_directory, "halting")
     session, backend, _ = halting_session(work_directory, root)
     w = fresh(session, "A")
-    w.add(proposition("t"))  # commits: the backend is not yet armed
-    backend.arm()
+    w.add(proposition("t"))  # commits: the port arms only when a test asks
+    backend.arm_next = True
+    intents_before = len(intents(root))
     with pytest.raises(ExecutionError):
         w.add(proposition("staged"))
     assert backend.halted and state_of(root).unresolved is True
+    assert len(intents(root)) == intents_before + 1  # the intent landed; it is the transaction that halted
     view = chain(root)
-    pending = [r for r in view.entries if type(r) is RegisteredEntryView and r.digest not in {s.registration for s in view.entries if type(s) is SettledEntryView}]
-    assert pending or view.pending, "the halt must leave a pending registration"
+    assert pending_registrations(root), "the halt must leave a pending registration"
+    assert any(r.fulfills == intents_of_chain(view)[-1] for r in view.entries if type(r) is RegisteredEntryView), "the pending registration fulfills the new intent"
+    stage = root / ".#~chain" / ".#~stage"
+    assert stage.exists() and any(stage.rglob("*")), "the staged record's bytes exist"
+    assert not (root / "proposition" / "staged.md").exists()
     # Continuation through the same session: recovery first, then the prepare judges the settled state.
     session.close_invocation("A", {"done": []})
     w2 = fresh(session, "B")
@@ -3476,7 +3848,7 @@ def test_j2_a_fresh_process_settles_before_its_first_prepare(work_directory):
     session, backend, ops = halting_session(work_directory, root)
     w = fresh(session, "A")
     w.add(proposition("t"))
-    backend.arm()
+    backend.arm_next = True
     with pytest.raises(ExecutionError):
         w.add(proposition("staged"))
     assert chain(root).pending or any(
@@ -3515,8 +3887,9 @@ session.close()
 def test_j2_library_and_mixed_handles_settle_first(work_directory, monkeypatch):
     root = adopted(work_directory, "handles")
     session, _ = attended(work_directory, root)
-    w = fresh(session, "A")
-    target = w.add(proposition("t"))
+    w = fresh(session, "A", ORDINARY)
+    target = mint_eligible_assessment(open_corpus(root, authority=FULL))
+    w.add(proposition("t"))
     monkeypatch.setattr(science_root, "_registration_for", lambda *a, **k: (_ for _ in ()).throw(ExecutionError("readback", index=None, applied=None)))
     with pytest.raises(ExecutionError):
         w.delete("proposition:t")
@@ -3530,32 +3903,63 @@ def test_j2_library_and_mixed_handles_settle_first(work_directory, monkeypatch):
     monkeypatch.setattr(CorpusWriter, "_validate_import_bundle", lambda self, *a, **k: (order.append("validate"), real_validate(self, *a, **k))[1])
     monkeypatch.setattr(CorpusWriter, "_preflight_add_locked", lambda self, node: (order.append("preflight-add"), real_preflight_add(self, node))[1])
     library = open_corpus(root, authority=FULL)
-    try:
-        library.import_bundle([retraction_for(target, "proposition:t")], observer="o", instrument="i", opened_at="2026-09-05T00:00:00Z", closed_at="2026-09-05T00:00:01Z")
-    except Exception:  # noqa: BLE001 - the outcome is not the claim; the order is
-        pass
-    assert order[:2] == ["settle", "validate"] and state_of(root).unresolved is False
-    assert library.read_view.resolve("proposition:t") is None
-    # Relocation: settlement precedes the locked preflight helpers.
-    other = adopted(work_directory, "other")
-    survivor = library.add(proposition("mover"))
-    state_of(root).unresolved = True
+    # Import: a member grounded in the deleted record. Settlement precedes validation, and the
+    # rebuilt index no longer resolves the target — the import is judged against disk, not the stale index.
+    bundle = [session_retraction(target, "proposition:t", FULL.actor)]
+    with pytest.raises(Exception) as refused:  # noqa: PT011 - the import's own refusal type is not this row's claim
+        library.import_bundle(bundle, observer="o", instrument="i", opened_at="2026-09-05T00:00:00Z", closed_at="2026-09-05T00:00:01Z")
+    assert order[:2] == ["settle", "validate"], order
+    assert state_of(root).unresolved is False and library.read_view.resolve("proposition:t") is None
+    # Relocation continuation after the readback-failed delete: a real move of the deleted record.
+    monkeypatch.setattr(science_root, "_registration_for", lambda *a, **k: (_ for _ in ()).throw(ExecutionError("readback", index=None, applied=None)))
+    mover = w.add(proposition("mover"))
+    with pytest.raises(ExecutionError):
+        w.delete("proposition:mover")
+    monkeypatch.undo()
+    assert state_of(root).unresolved is True
     order.clear()
-    try:
-        move(library, open_corpus(other, authority=FULL), "proposition:mover")
-    except Exception:  # noqa: BLE001
-        pass
-    assert order and order[0] == "settle" and ("preflight-add" not in order or order.index("preflight-add") > 0)
-    # Mixed handle: a portless durable writer recovers through the factory's capability.
-    state_of(root).unresolved = True
-    portless = CorpusWriter(root, durable_executor_factory(), authority=FULL)
-    assert state_of(root).recover is durable_executor_factory().recover
+    other = open_corpus(adopted(work_directory, "other"), authority=FULL)
+    with pytest.raises(RelocationTargetMissing):
+        move(library, other, "proposition:mover", observer="o", instrument="i")
+    assert order[0] == "settle" and "preflight-add" not in order  # settled first; the missing source refused before any preflight
+    # Mixed handle with staged effects: a portless durable writer over the same root recovers a halted
+    # transaction through the factory's capability before its prepare.
+    halted_root = adopted(work_directory, "halted-handle")
+    halted, backend, _ = halting_session(work_directory, halted_root)
+    hw = fresh(halted, "A")
+    hw.add(proposition("t"))
+    backend.arm_next = True
+    with pytest.raises(ExecutionError):
+        hw.add(proposition("staged"))
+    assert pending_registrations(halted_root), "the halt must leave a pending registration"
+    order.clear()
+    portless = CorpusWriter(halted_root, durable_executor_factory(), authority=FULL)
+    assert state_of(halted_root).recover is durable_executor_factory().recover
     portless.add(proposition("after"))
-    assert state_of(root).unresolved is False
+    assert order[0] == "settle" and not pending_registrations(halted_root) and state_of(halted_root).unresolved is False
     never = work_directory / f"never-{secrets.token_hex(4)}"
     never.mkdir()
     assert _root_state_for(never, DefaultExecutor).recover is None
     session.close()
+
+
+def test_j2_a_failed_recovery_refuses_the_write_before_any_prepare(session_rig, monkeypatch):
+    session, root, _ = session_rig
+    w = fresh(session, "A")
+    monkeypatch.setattr(science_root, "_registration_for", lambda *a, **k: (_ for _ in ()).throw(ExecutionError("readback", index=None, applied=None)))
+    with pytest.raises(ExecutionError):
+        w.add(proposition("p1"))
+    monkeypatch.undo()
+    assert state_of(root).unresolved is True
+    prepared = []
+    monkeypatch.setattr(CorpusWriter, "_refuse_family_kinds", lambda self, node, **k: prepared.append(node.id))
+    monkeypatch.setattr(type(durable_executor_factory()), "recover", lambda self, root: (_ for _ in ()).throw(ExecutionError("engine down", index=None, applied=None)))
+    with pytest.raises(ExecutionError, match="engine down"):
+        w.add(proposition("p2"))
+    assert prepared == [] and state_of(root).unresolved is True
+    monkeypatch.undo()
+    w.add(proposition("p2"))
+    assert state_of(root).unresolved is False
 
 
 # --- J8 -------------------------------------------------------------------------------
@@ -3587,7 +3991,7 @@ def test_j8_reconciliation_over_the_real_root(work_directory, monkeypatch):
     halted, backend, halted_ops = halting_session(work_directory, halted_root)
     hw = fresh(halted, "A")
     hw.add(proposition("t"))
-    backend.arm()
+    backend.arm_next = True
     with pytest.raises(ExecutionError):
         hw.add(proposition("staged"))
     before = tree_hash(halted_root, metadata_root_for(halted_root), halted_ops)
@@ -3628,9 +4032,50 @@ def test_j8_reconciliation_is_lock_coherent_under_an_interleaved_write(work_dire
     (findings,) = done
     assert not [f for f in findings if f.code == "session-entry-foreign"]
     session.close()
+
+
+def test_j8_reconciliation_reads_chain_and_ledgers_under_one_hold(work_directory, monkeypatch):
+    """A write that starts *after* the chain read must be absent from the ledger read too. Under
+    correct code the writer blocks on the lock reconciliation holds across both reads; if the ledger
+    read ever escaped the hold, the write would land between the two reads and its act line would
+    name a registration the chain snapshot lacks — `session-act-unverified`."""
+    root = adopted(work_directory, "one-hold")
+    session, ops = attended(work_directory, root)
+    w = fresh(session, "A")
+    config = config_for(work_directory, root)
+    seam = science_root.log_seam()
+    real_inspect = seam.inspect_detached
+    chain_read = threading.Event()
+    writer_done = threading.Event()
+
+    def inspect_then_release(target):
+        view = real_inspect(target)
+        chain_read.set()          # let the writer try; under correct code it blocks on the lock we hold
+        writer_done.wait(0.5)     # give a leaked write time to land before the ledgers are read
+        return view
+
+    # LogSeam is a frozen dataclass and log_seam() reads the module attribute at call time.
+    monkeypatch.setattr(science_root, "_LOG_SEAM", dataclasses.replace(seam, inspect_detached=inspect_then_release))
+
+    def writer():
+        chain_read.wait(10)
+        w.add(proposition("late"))
+        writer_done.set()
+
+    thread = threading.Thread(target=writer)
+    thread.start()
+    findings = reconcile_sessions(config, ops)
+    thread.join(10)
+    assert not thread.is_alive()
+    assert not [f for f in findings if f.code in ("session-act-unverified", "session-entry-foreign")], findings
+    # The write completed after reconciliation released, and a second pass covers it.
+    assert not [f for f in reconcile_sessions(config, ops) if f.code in ("session-act-unverified", "session-entry-foreign")]
+    session.close()
 ```
 
-`move`'s signature is `relocation.move(source_writer, destination_writer, ref, ...)` at HEAD; check it and adjust the call in `test_j2_library_and_mixed_handles_settle_first`. The relocation assertion is only that `_settle` ran first; whether the move then succeeds or refuses is not the claim.
+`log_seam()` must read `_LOG_SEAM` at call time (it does: `return _LOG_SEAM`), which is what lets the test swap the seam; add `import dataclasses` to the module.
+
+`move`'s signature is `relocation.move(source, destination, ref, *, observer, instrument, ...)` at HEAD; check its keyword list and the exception it raises for a source ref that does not resolve (the plan assumes `RelocationTargetMissing`; use the real one). `pending_registrations(root)` is a small helper to add beside `registrations`: the registrations in the detached view without a settlement, plus the view's `pending` digests.
 
 - [ ] **Step 4: Run on the certified volume**
 
@@ -3653,7 +4098,7 @@ git commit -m "test(session): add the durable acceptance arms for J2 and J8"
 
 **Interfaces:**
 - Consumes: the check names of Tasks 9–10; `n2_arms.Arm`, `n2_arms.Sabotage`; `test_n2.audit`, `test_n2.baseline`; the frozen cut record `docs/designs/2026-09-05-conformance-cut-19.md` at `5cc2153`.
-- Produces: `CUT19_ARMS`, `DECLARATION_UNITS` (the eleven `J` rows), `unit_of(row)`, `CO_CITED = ()`; `tools/cut19_acceptance.py` with `PREFIX_RUNNERS = ("cut18_acceptance.py",)` and `PHASE_MODULES = ("test_session_acceptance.py", "test_n2_cut19.py")`.
+- Produces: `CUT19_ARMS`, `DECLARATION_UNITS` (the eleven `J` rows), `unit_of(row)`, `CO_CITED = ()`; `tools/cut19_acceptance.py` with `PREFIX_RUNNERS = ("cut18_acceptance.py",)` and `PHASE_MODULES = ("test_session_acceptance.py", "test_n2_cut19.py")`. The prefix runs cut 17's and cut 18's audits unchanged; `stale: []` is what lets it.
 
 - [ ] **Step 1: `tasks start <task-11-id>`**
 
@@ -3698,20 +4143,22 @@ Then the arms, in this order, each `before` copied verbatim from the landed file
 
 | row | module | sabotage (`before` → `after`) | checks |
 |---|---|---|---|
-| J1a | `corpus.py` | in `_commit`: swap the `preflight` block and the `append_intent` block so the intent precedes the preflight | `_J1R` |
-| J1b | `corpus.py` | in `_commit`: call `self._writer._append_operation_intent(...)` instead of the new intent append (requires `act-report`) | `_J1`, `_J3` |
-| J1c | `corpus.py` | `_prepare_add`: replace `self._refuse_family_kinds(node)` with `self._preflight_add_locked(node)` | `_J1R` |
-| J1d | `corpus.py` | in `_commit`: `raise PlanRefused(str(caught)) from caught` → `raise` (the nodes type escapes) | `_J1R`, `test_operation_writes.py::test_an_over_ceiling_record_is_plan_refused_before_the_intent` |
+| J1a | `corpus.py` | in `commit_fulfilling`: move the `append_intent` block above the `preflight` `try` | `_J1R` |
+| J1b | `corpus.py` | `_RoutedExecutor.execute`: in the fulfilling branch call `self._inner.execute(plan)` instead of `self.commit_fulfilling(scope, plan)` — no intent, no fulfilling registration | `_J1`, `_J3` |
+| J1c | `corpus.py` | `_fulfilling`: drop `if port is None: raise OperationPortMissing(...)` — a portless writer reaches the ordinary body | `test_operation_writes.py::test_a_writer_without_a_port_refuses_every_operation_before_any_refusal` |
+| J1d | `corpus.py` | in `commit_fulfilling`: `raise PlanRefused(str(caught)) from caught` → `raise` (the nodes type escapes) | `_J1R`, `test_operation_writes.py::test_an_over_ceiling_record_is_plan_refused_before_the_intent` |
 | J1e | `report.py` | drop `"corpus-write", ` from `OPERATION_KINDS` | `_J1` |
 | J1f | `intents/reduce.py` | in `_qualify_one`: `value.kind == "corpus-write"` → `value.kind == "never"` | `_J1` |
-| J2a | `corpus.py` | in `_commit`: move `writer._reconstruct()` out of the `_submitting` block into a `finally` | `_J2R` |
+| J2a | `corpus.py` | `_SettlingHold.__exit__`: `if exc_type is None and state.depth == 0:` → `if state.depth == 0:` (cleared on exception too) | `_J2R` |
 | J2b | `corpus.py` | `_RootState.unresolved: bool = True` → `= False` | `test_corpus_write.py::TestTheUnresolvedRoot::test_a_fresh_root_state_is_unresolved_and_the_first_write_settles_it` |
 | J2c | `corpus.py` | `_settle`: remove the `state.recover(...)` call | `_J2C` |
 | J2d | `corpus.py` | `_root_state_for`: `getattr(executor_factory, "recover", None)` → `None` | `_J2C`, `f"{_A}::test_j2_library_and_mixed_handles_settle_first"` |
+| J2f | `corpus.py` | `_RoutedExecutor.execute`: drop `self._state.unresolved = True` from the ordinary branch | `test_corpus_write.py::TestTheUnresolvedRoot::test_a_failed_submission_leaves_the_root_unresolved_and_the_next_write_recovers_first` |
+| J2g | `corpus.py` | `_reconstruct`: build `Corpus(..., executor_factory=self._state.executor_factory)` (the unwrapped factory; the wrapper is lost after a rebuild) | `test_corpus_write.py::TestTheUnresolvedRoot::test_the_root_state_binds_the_factory_recover_and_wraps_its_executors` |
 | J2e | `root.py` | `_DurableExecutorFactory.recover`: body → `return` | `_J2C` |
 | J3a | `session/writer.py` | `scoped`: `Authority(required.permit, self.actor)` → `Authority(self._ceiling, self.actor)` | `_J3` |
 | J3b | `session/writer.py` | `scoped`: `if not permit_covers(self._ceiling, required):` → `if False:` | `test_session_writer.py::test_scoped_refuses_an_uncovered_requirement_before_any_writer_exists` |
-| J4 | `corpus.py` | in `_commit`: `OperationIntent("corpus-write", token, writer.authority.actor)` → `... "library")` | `_J4` |
+| J4 | `corpus.py` | in `commit_fulfilling`: `OperationIntent("corpus-write", token, scope.authority.actor)` → `... "library")` | `_J4` |
 | J5a | `session/writer.py` | `_act`: drop `self._session._record_act(self._invocation, commit)` | `_J5` |
 | J5b | `session/writer.py` | `_act`: move `_record_act` after the `with _operation_lock_for(...)` block | `_J5` |
 | J6a | `session/writer.py` | `claim_invocation`: `if entry.command != command or entry.input_digest != digest:` → `if False:` | `_J6` |
@@ -3721,17 +4168,18 @@ Then the arms, in this order, each `before` copied verbatim from the landed file
 | J7b | `session/ledger.py` | `append`: `self._failed = True` → `self._failed = False` | `_J7P` |
 | J7c | `session/writer.py` | `close_invocation`: update the index before the `append` | `test_session_writer.py::test_a_ledger_failure_ends_the_session` |
 | J8a | `session/reconcile.py` | `if r.digest in acts: continue` → `if True: continue` | `_J8F`, `_J8` |
+| J8g | `session/__init__.py` | `read_ledger_evidence`'s `except OSError` branch removed (an `IsADirectoryError` escapes) | `f"{_A}::test_j9_lifecycle_and_the_refusing_configurations"` (its unreadable-ledger arm, below) |
 | J8b | `session/reconcile.py` | `if unknown:` (registration branch) → `if False:` | `_J8` |
 | J8c | `session/reconcile.py` | `unknown = (not readable) or bool(open_invocations)` → `unknown = bool(open_invocations)` | `test_session_reconcile.py::test_unreadable_ledgers_are_findings_and_their_intents_read_outcome_unknown` |
 | J8d | `session/reconcile.py` | drop the `for txid, staged in view.pending:` block | `_J8P` |
 | J8e | `session/__init__.py` | `inspect_detached(root)` → `inspect_registered(root)` | `_J8` (the byte-equality with an unsettled registration) |
-| J8f | `session/__init__.py` | read `ledgers` after the `with ExitStack()` block | `_J8I` |
+| J8f | `session/__init__.py` | read `ledgers` after the `with ExitStack()` block | `f"{_A}::test_j8_reconciliation_reads_chain_and_ledgers_under_one_hold"` — the interleaving arm whose late write lands between the reads only when the ledger read escapes the hold |
 | J9a | `session/__init__.py` | `if len(world_config.corpus_roots) != 1:` → `if False:` | `_J9` |
 | J9b | `session/__init__.py` | drop the `type(view) is not WellFormedView` refusal | `_J9` |
-| J10 | `corpus.py` | `_create_or_replace_op`: append a second `CreateOp` of an act-report to the plan | `_J10` |
+| J10 | `corpus.py` | `commit_fulfilling`: append a second `CreateOp` of an act-report to `plan` before `execute_fulfilling` | `_J10` |
 | J11a | `session/writer.py` | `_require_current`: `if self._current != invocation:` → `if self._current is None:` | `_J11` |
-| J11b | `session/writer.py` | `_record_act`: `if self._current != invocation:` → `if False:` | `_J11` |
-| J-inv | `tests/test_permit_boundary.py` | drop the `"corpus.py:OperationWrites._commit"` row | `test_permit_boundary.py::test_the_inventory_is_closed_in_both_directions` |
+| J11b | `session/writer.py` | `_act`: drop `self._session._require_current(self._invocation)` — the act then commits before `_record_act` refuses, so J11's head-unchanged assertion fails | `_J11` |
+| J-inv | `tests/test_permit_boundary.py` | drop the `"corpus.py:_RoutedExecutor.commit_fulfilling"` row | `test_permit_boundary.py::test_the_inventory_is_closed_in_both_directions` |
 
 Where the table says "drop" or "move", spell the exact `before`/`after` strings from the file. The `J-inv` arm sabotages a test module, not the package: follow how `n2_arms_cut17.py` spells its inventory arm's `module` so `test_each_sabotage_names_one_real_source_site` resolves it.
 
@@ -3784,7 +4232,7 @@ From `python/`: `uv run --frozen python tools/cut19_acceptance.py 2>&1 | tee ../
 - README: "Every conformance cut through **cut 19**"; the status paragraph gains the writer session; the cut-19 design-table row's "not yet discharged" becomes "discharged 2026-09-05"; the "latest discharged boundary" sentence names cut 19 and its results; the "is frozen and not yet implemented" sentence is removed.
 - Guide: `foundations.md` — the writer session is implemented (drop "not yet implemented"), bump `updated`; `contracts-and-adoption.md` — "The writer-session cut is discharged as cut 19: J1–J11 close" and the results record in `sources`; `glossary.md` — entries for *writer session*, *session ledger*, *scoped writer*, each citing the design. Run `uv run --frozen python tools/check_guide.py`.
 - Design status: "implemented and discharged 2026-09-05 at `<commit>`; conformance cut 19 froze at `5cc2153` and its 11 units passed through N arms. Results: `../plans/2026-09-05-conformance-cut-19-results.md`." Cut record status: "Discharged 2026-09-05 (`../plans/2026-09-05-conformance-cut-19-results.md`)." — the status line only; §2–§7 stay byte-exact (the pin test enforces it).
-- Dated amendment notes (a short `> **Amended 2026-09-05 (writer session):**` block, frozen text untouched): act-report design §3 (the `corpus-write` operation kind and its qualification by the registration; eight members); write-permits design §4.2 (the inventory's 37th row, `OperationWrites._commit`) and §8 item 5 (the ledger and session now exist); world-changing-families design §3.1 (a session-mediated `delete` appends an intent and a fulfilling registration with an empty surface; it still mints no report).
+- Dated amendment notes (a short `> **Amended 2026-09-05 (writer session):**` block, frozen text untouched): act-report design §3 (the `corpus-write` operation kind and its qualification by the registration; eight members); write-permits design §4.2 (the inventory's 37th row, `_RoutedExecutor.commit_fulfilling`, and `_RoutedExecutor.execute` on the implementation-exclusion list) and §8 item 5 (the ledger and session now exist); world-changing-families design §3.1 (a session-mediated `delete` appends an intent and a fulfilling registration with an empty surface; it still mints no report).
 
 - [ ] **Step 5: Gates, guards, and the merge**
 
