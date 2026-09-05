@@ -96,7 +96,7 @@ directly rather than through a decompression rule. `target.yaml` carries
 
 | # | step | outcome | left on disk |
 |---|---|---|---|
-| 1 | register a world root and adopt one fresh corpus | pending | |
+| 1 | register a world root and adopt one fresh corpus | ran 2026-09-05: world `9ea5394560c2a36acdd4e502e02141c7`, corpus `6d25948b9d8bf0120b096ab470241742` admitted `Fresh`, status `known, live, present`, no findings; store `6750e2f29ff9f74fb8724fc6caad5ff1` | `world/` (registry, `world.yaml`), `corpus/corpus.yaml` (manifest pinning the science contract and the `mm30-reproduction` domain), `store/`, and the three `.metadata` roots |
 | 2 | type the target and mint the proposition | pending | |
 | 3 | hold the dataset | pending | |
 | 4 | freeze the analysis spec and its recipe | pending | |
