@@ -732,7 +732,7 @@ git commit -m "feat(reproduction): hold the dataset and mint its record under th
 
 **Interfaces:**
 - Consumes: `target.yaml` (`held_file, value_column, group_column, positive_level`); `state.proposition_ref, dataset_address, held_file`.
-- Produces: `spec.CODE_ROOT: Path` (the `analysis/` directory; bundle paths are `analysis/...` because `capture_bundle` keeps the root's name); `spec.ENTRYPOINT = "analysis/workflow/Snakefile"`; `spec.TARGETS`; `spec.OUTCOME_DIGESTS`; `spec.interpretation(), equivalence(), held_rules(), definition(), frozen()`; `spec.spec_record(frozen) -> Node`; `state.spec_identity, spec_ref, held_name`.
+- Produces: `spec.CODE_ROOT: Path` (the `analysis/` directory; bundle paths are `analysis/...` because `capture_bundle` keeps the root's name); `spec.ENTRYPOINT = "analysis/workflow/Snakefile"`; `spec.TARGETS`; `spec.OUTCOME_DIGESTS`; `spec.interpretation(), equivalence(), held_rules(), definition(), frozen()`; `spec.spec_record(frozen) -> Node` (semantically stamped); `state.spec_identity, spec_ref, held_name`.
 
 Three facts fix this task's shape:
 
@@ -792,6 +792,20 @@ def test_assoc_refuses_a_positive_level_that_is_absent(tmp_path):
         assoc.decide(assoc.load(_tsv(tmp_path, ["expr", "grp"], rows), value_column="expr", group_column="grp"), positive_level="zzz")
 
 
+def test_spec_record_carries_a_fresh_semantic_stamp():
+    from decimal import Decimal
+    from beliefs import stored
+    from beliefs.spec import Deterministic, SpecDraft, SpecInput, freeze
+    from reproduction import spec as spec_module
+    draft = SpecDraft(target="proposition:p", estimand="e", method="m", assumptions="a", falsification="f",
+                      input_roles=(SpecInput(role="observes", dataset="dataset:sha256:" + "a" * 64),), applicability="x",
+                      interpretation_rule=spec_module.INTERPRETATION_RULE, equivalence_rule=spec_module.EQUIVALENCE_RULE,
+                      parameters={"alpha": Decimal("0.05")}, nondeterminism=Deterministic())
+    node = spec_module.spec_record(freeze(draft, held_rules=spec_module.held_rules()))
+    assert node.kind == "analysis-spec"
+    assert not stored.semantic_hash_missing(node) and not stored.semantic_hash_disagrees(node)
+
+
 def test_assoc_supported_when_positive_level_is_higher(tmp_path):
     assoc = _assoc()
     rows = [[str(10 + i), "hi"] for i in range(8)] + [[str(i), "lo"] for i in range(8)]
@@ -799,7 +813,7 @@ def test_assoc_supported_when_positive_level_is_higher(tmp_path):
     assert outcome == "supported" and z > 0 and p < 0.05 and n == 16
 ```
 
-Run: `cd python && uv run pytest tests/test_reproduction_driver.py -q -k "outcome_digests or assoc"` → FAIL.
+Run: `cd python && uv run pytest tests/test_reproduction_driver.py -q -k "outcome_digests or assoc or semantic_stamp"` → FAIL.
 
 - [ ] **Step 2: Write the analysis**
 
@@ -1021,8 +1035,11 @@ def spec_record(spec: FrozenSpec) -> Node:
         "equivalence_rule": spec.equivalence_rule, "parameters": {k: str(v) for k, v in spec.parameters.items()},
         "nondeterminism": spec.nondeterminism.projection(), "rule_bindings": [list(p) for p in spec.rule_bindings],
     }
-    return Node(id=f"analysis-spec:{spec.identity}", kind="analysis-spec", title=f"spec {spec.identity[:12]}",
-                facets={"analysis-spec": facet}, relations=[])
+    # A governed kind: the writer refuses an unstamped record
+    # (`ValidationRefused: ... semantic-identity stamp is missing or stale`).
+    # `stamp_semantic_identity` is the one construction authority for the stamp.
+    return stored.stamp_semantic_identity(Node(id=f"analysis-spec:{spec.identity}", kind="analysis-spec",
+                                               title=f"spec {spec.identity[:12]}", facets={"analysis-spec": facet}, relations=[]))
 
 
 def main() -> int:
@@ -1049,7 +1066,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 4: Run the tests and freeze**
 
-Run: `cd python && uv run pytest tests/test_reproduction_driver.py -q -k "outcome_digests or assoc"` → PASS.
+Run: `cd python && uv run pytest tests/test_reproduction_driver.py -q -k "outcome_digests or assoc or semantic_stamp"` → PASS.
 Run: `PYTHONPATH=tools uv run python -m reproduction.spec` → `frozen spec ... record analysis-spec:...`. If `CorpusWriter.add` refuses the hand-built node (`ValidationRefused: malformed analysis-spec contract fields`), read `corpus._refuse_r20_contradiction` and correct the facet (driver correction). Record §3 row 4. **From here the target, spec and rule are fixed.**
 
 - [ ] **Step 5: Commit**
@@ -1071,7 +1088,7 @@ git commit -m "feat(reproduction): the validating stdlib analysis, the rendered 
 - Consumes: `spec.*`; `state.held_file, dataset_address, proposition_ref`.
 - Produces: `state.original_run_ref, replayed_run_ref` (typed), `assessment_ref, assessment_identity_stored, assessment_identity_derived, assessment_outcome, verification_scope, verification_verdict, scope_class`; `run.port()`; `run.classify_scope(scope, original, replayed) -> str` (pure given closures).
 
-**Two identities for one assessment, and the stored one wins.** `build_assessment` returns a value whose `run` is the **bare** closure address; the stored record's facet spells it as the **typed** `run:<address>` (`stored.assessment_node(run=run_ref(...))`), so `stored.assessment_value(node).identity()` differs from `assessment.identity()`. Every later consumer — the verification's `assessment` member, `node_corpus`, `gather` — must use the **stored** identity, read back after the mint. Both identities are recorded; that they differ is a design-gap finding (audit.py already normalizes `run` for comparison and says why).
+**Two identities for one assessment, and neither can be substituted for the other.** `build_assessment` returns a value whose `run` is the **bare** closure address; the stored record's facet spells it as the **typed** `run:<address>` (`stored.assessment_node(run=run_ref(...))`, which `eligibility_refusal` requires so the run resolves), so `stored.assessment_value(node).identity()` differs from `assessment.identity()`. Admission over the corpus (`gather` → `admit`) matches verifications against the **stored** identity; the audit (`check_verification`) recomputes the identity from the spec identity, the original run's **bare** address and the spec target, and reports `verification-derivation-contradicted` against anything else. The verification therefore keeps the **derived** identity `admission_record` gives it (Task 9), the admission refusal that follows is recorded as the finding, and both identities are written to `state.json`. This is a kernel gap for the assessment/run-record owner, not a bridge the driver crosses.
 
 - [ ] **Step 1: Write the failing test for `classify_scope`**
 
@@ -1167,7 +1184,8 @@ def main() -> int:
     if stored_identity != derived.identity():
         findings.record(6, "design-gap",
                         "the derived AssessmentValue spells `run` as a bare address and the stored record as run:<address>; "
-                        "the two identities differ, so a verification must name the stored one",
+                        "the two identities differ, and no single one satisfies both admission over the corpus and the "
+                        "audit's recomputation (which digests the bare address)",
                         filed="assessment/run-record design (one spelling for the run member)")
     # Step 7
     replayed = replay(original, spec=frozen, started_at=now(), scratch_base=paths.SCRATCH / "replayed", **common)
@@ -1221,6 +1239,8 @@ git commit -m "feat(reproduction): confined run, assessment, replay and verifica
 - Produces: `state.verification_ref, admission, belief_answer` (`answers.payload`); `belief.context() -> SuppliedContext`, `belief.availability(view) -> Availability`, `belief.evaluate_here(view) -> Belief|NoBelief|Refused` — the **same** corpus-backed call step 10a repeats.
 
 **Same path, both times.** Step 8 evaluates through `evaluation.evaluate_over(view, proposition, ...)`, which gathers the stored assessment, run, dataset, verification and claim through the instrumented resolver; step 10a calls the same function in a fresh process. A value-level `evaluate` with `claims={}` would consult a different contract set than the corpus-backed path and make 10a incomparable. Holdings evidence comes from the stored `holdings-observation` record, not from `state.json`.
+
+**The verification names the derived assessment identity, unaltered.** `admission_record(verification).assessment` is what `build_verification` derived from the original run, and it is what the audit will recompute. Substituting the stored identity would satisfy admission and contradict the audit; keeping the derived one satisfies the audit and is refused by admission (`not-admitted-verification-state`, because the gathered assessment carries the typed-run identity). The exercise keeps the evidence honest and records the refusal: under spec §2 rule 4 the expected answer is then `NoBelief("no-eligible-assessment")` with class **design-gap**, and that answer is a complete run of the path. If admission instead reports `Admitted`, the two identities agreed on this kernel and Task 8's finding is withdrawn in the record.
 
 - [ ] **Step 1: Write `belief.py`**
 
@@ -1294,8 +1314,10 @@ def main() -> int:
                                       contract_identity=writer.manifest_pins().science_contract, epoch="none-published")
     assert isinstance(verification, AssessmentVerification)
     record = admission_record(verification)
+    if record.assessment != st["assessment_identity_derived"]:
+        findings.record(8, "defect", f"admission_record names {record.assessment}, not the derived identity {st['assessment_identity_derived']}")
     minted = writer.add(stored.verification_node(
-        record.ref[:16], title=f"verification of {st['assessment_ref']}", assessment=st["assessment_identity_stored"],
+        record.ref[:16], title=f"verification of {st['assessment_ref']}", assessment=record.assessment,  # derived, unaltered
         assessment_ref=st["assessment_ref"], scope=record.scope, verdict=record.verdict,
         derivation=(st["original_run_ref"], st["replayed_run_ref"])))
     view = world.open_writer().read_view
@@ -1309,6 +1331,12 @@ def main() -> int:
     a = inputs.assessments[0]
     verdict = admit(a, inputs.runs[a.run], observations_from_corpus(view), inputs.verifications)
     admission = "Admitted" if isinstance(verdict, Admitted) else f"AdmissionRefused: {verdict.reason}"
+    if (not isinstance(verdict, Admitted) and verdict.reason.startswith("not-admitted-verification-state")
+            and record.assessment != a.identity() and record.scope == "clean-environment" and record.verdict == "passed"):
+        findings.record(8, "design-gap",
+                        f"a clean-environment pass was refused at admission: the verification names the derived identity "
+                        f"{record.assessment} and the gathered assessment carries {a.identity()}; the audit accepts only the former",
+                        filed="assessment/run-record design (one spelling for the run member)")
     answer = answers.payload(evaluate_here(view))
     if answer["kind"] == "Refused":
         findings.record(8, "design-gap", f"evaluate refused: {answer['reason']}")
@@ -1326,7 +1354,7 @@ if __name__ == "__main__":
 Run: `cd python && PYTHONPATH=tools uv run python -m reproduction.belief`. Record §3 row 8 with the payload verbatim. Then:
 - `Belief` → terminal.
 - `NoBelief("no-directional-outcome")` → terminal; a scientific result.
-- `NoBelief("no-eligible-assessment")` → terminal only with `state.admission` and `state.scope_class` quoted beside it; the class (`host` / `defect` / `corpus-work`) is the classification, never the reason alone.
+- `NoBelief("no-eligible-assessment")` → terminal only with `state.admission` and `state.scope_class` quoted beside it. If `admission` is `not-admitted-verification-state` while the scope is `clean-environment` and the verdict `passed`, the class is **design-gap** (the identity bridge above), not host. Otherwise the class is `scope_class` (`host` / `defect` / `corpus-work`). The reason alone is never the classification.
 - `Refused` or gather mismatch → filed; the path stops here and Tasks 10–12 run over what exists.
 
 Record the two supplied members (`producer_snapshot_identity`, the retraction enumeration) and the bypassed holdings reduction as step 8's stated limitations.
@@ -1489,7 +1517,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-Confirm `check_verification`'s keyword is `evidence=` (audit.py:113) and `Finding` exposes `.code` and `.detail` before running; correct the call, not the reading.
+Confirm `check_verification`'s keyword is `evidence=` (audit.py:113) and `Finding` exposes `.code` and `.detail` before running; correct the call, not the reading. With the verification naming the derived identity (Task 9), the expected `audit_check` is `checked: true` with no contradiction; a contradiction here is a defect.
 
 - [ ] **Step 2: Run it in a fresh interpreter**
 
@@ -1539,7 +1567,8 @@ The `--no-ff` merge into `main` is the human partner's. The corpus under `.mm30-
 
 ## Self-review against the spec and the 2026-09-05 review
 
-- **Identity bridges** (review 1): the dataset record's id is its content address (Task 6, unit-tested); the assessment's stored identity is read back and used by the verification and by `gather` (Tasks 8–9); admission uses the gathered run value, so both refs are typed.
+- **Identity bridges** (review 1, revised after the second review): the dataset record's id is its content address (Task 6, unit-tested); the verification keeps the **derived** assessment identity `admission_record` gives it, so the audit's recomputation agrees, and the admission refusal that follows is recorded as the design-gap finding rather than hidden by substitution (Tasks 8–9); admission uses the gathered run value, so both run refs are typed.
+- **The spec record is stamped** (second review): `spec_record` returns `stored.stamp_semantic_identity(...)`, unit-tested with `semantic_hash_missing` and `semantic_hash_disagrees` both false.
 - **Complete answer comparison, same path** (review 2): `answers.payload` serializes value, digest and binding (unit-tested); step 8 and step 10a both call `belief.evaluate_here`, i.e. `evaluate_over` on the corpus.
 - **Contradictions preserved, equality explicit** (review 3): `scope_equal`, `verdict_equal`, `comparison_report_stored`, and the audit's `contradiction` are all reported; Task 10 classifies on the real codes.
 - **Malformed input refused** (review 4): `assoc.py` raises `MalformedInput` on missing columns, non-finite values, wrong level count, absent positive level and a group below the floor, exits 3, and is unit-tested for each.
