@@ -1053,6 +1053,24 @@ class RelocationTargetMissing(RelocationRefused):
     """
 
 
+class DeletionRefused(WriteRefused):
+    """`delete`'s own refusals (world-changing families §3.1).
+
+    Deletion is a storage operation, not an epistemic one: it refuses on what
+    it cannot resolve or must not touch, never on what names the target.
+    """
+
+
+class DeletionTargetMissing(DeletionRefused):
+    """The ref resolves to no record in this corpus."""
+
+
+class DeletionKindExcluded(DeletionRefused):
+    """The record's kind is excluded from every world-changing operation:
+    act-reports (T8), coordination records, and holdings observations (§3.0).
+    """
+
+
 class BasisMissing(WriteRefused):
     """W3 as narrowed: a `source` with no accepted external identifier, or a
     `dataset` with no content identity. Refused, never coerced to a curation

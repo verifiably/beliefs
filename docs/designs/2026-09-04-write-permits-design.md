@@ -769,3 +769,43 @@ its file names, runner, results record and commit messages to 17 outside
 its verbatim quotation of §13 and its already-executed Task 1, adds the
 relocation seams to Task 5, `relocation.py` to Task 11's seam modules, the
 two-root refusal to Task 13 and the relocation arms to Task 14.
+
+## 15. Deletion amendment — 2026-09-04
+
+Conformance cut 18 (`2026-09-04-conformance-cut-18.md`) adds one public
+world-changing seam, `CorpusWriter.delete`. This section dates its disposition
+against §4.2 and §4.3, and changes nothing else.
+
+| enclosing definition | family | kinds required | first statement | inventoried |
+|---|---|---|---|---|
+| `CorpusWriter.delete` | `corpus-write` | the kind of the record removed | `self._authority.require("corpus-write", (node.kind,))`, under the operation lock, after the target resolves and before `_refuse_excluded_kind` | no — it calls no §4.3 primitive |
+
+**Why the check is not the first statement.** `delete` names its target by
+ref, and the kind it emits is the resolved record's. Resolving before the lock
+would make the check read a record the write may not see, and would surface a
+missing ref as the resolver's own `RefError` instead of `DeletionTargetMissing`.
+So the target resolves under the lock first — the same reading `_delete_locked`
+performs inside its own `require` argument (§14.3) — and the `require` is the
+first statement after it, before every other refusal. An authority that may not
+write the record's kind is therefore refused with `PermitExceeded` before the
+excluded-kind rule is read, and before any effect: `_refuse_excluded_kind` and
+`_delete_locked` both come after it.
+
+**Why it is not inventoried.** §4.3's rule attaches the inventory to the
+definition that makes the primitive call. `delete` calls `_delete_locked`,
+which is inventoried by §14.3 and requires on the same kind; `delete` itself
+calls no primitive. It is `relocation.move` and `relocation.consolidate`'s case
+exactly (§14.3): a public seam that requires explicitly, after the record is
+resolved and before the write, and is not inventoried. §4.3's redundant-require
+rule makes `_delete_locked`'s later check a harmless repeat. `WRITE_ENTRY_POINTS`
+and its E1 case list are therefore unchanged, and the inventory is the same **36
+definitions** §4.2 and §14.3 name; E6's closure test holds it in both directions,
+so an inventory entry for a definition that calls no primitive would fail it.
+
+**Coverage.** No row of §7 changes and §9's accounting is untouched. E1's
+family and kind directions are read for this seam by cut 18's own suite
+(`tests/test_deletion.py`): a narrowed authority is refused `PermitExceeded`
+naming the kind, the record's file and the corpus chain are unchanged, and the
+exact requirement is accepted. The three E6 arms (a require after the effect, a
+require under a branch, a wrong family) already run against the inventoried
+`_delete_locked`.

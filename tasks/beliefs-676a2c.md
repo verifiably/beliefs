@@ -1,12 +1,12 @@
 ---
 id: beliefs-676a2c
 title: "Deliver consolidate, move, and managed deletion"
-status: doing
+status: done
 priority: 2
 size: xl
 owner: design/consolidate-family
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-04T10:22:24Z
+updated: 2026-09-04T23:43:43Z
 depends: []
 tags: [migration, mutation, world]
 ---
@@ -41,3 +41,14 @@ Uncertainty: The outcome is buildable, but the exact cut and interaction between
 - 2026-09-04T09:35:55Z (design/consolidate-family): Task 11 review fix: six vacuous evidence gaps now have exact durable assertions and eight new sabotages (27 arms normalized to the frozen 11 units); focused 23, full Python 3216, Ruff, Pyright, tasks check, and the actual cut-16 runner pass on the certified tuple. Parent remains open for managed deletion and discharge.
 - 2026-09-04T09:54:50Z (design/consolidate-family): Relocation cut discharged: move and consolidate land, G3 and D7 close, W5 reads in full. Managed deletion and the ride-alongs remain; the deletion cut follows.
 - 2026-09-04T10:22:24Z (design/consolidate-family): Task 12 review correction: promoted correction-remainder to tier 1 now that cut 16 discharged its consolidate prerequisite; mutation-lane order remains serial.
+- 2026-09-04T14:21:24Z (design/consolidate-family): claimed by Claude Code (claude-fable-5-1), pid 3996794; resuming for the deletion cut in .worktrees/consolidate-family on design/consolidate-family
+- 2026-09-04T15:30:03Z (design/consolidate-family): Task 2: public delete lands as an ordinary write; T8 and C1 re-read; re-resolution after delete pinned
+- 2026-09-04T16:04:18Z (design/consolidate-family): Task 3: semantic audit lands, Omega-valid first, three contradiction findings, mints nothing
+- 2026-09-04T17:14:08Z (design/consolidate-family): Task 4: explicit import refuses contradicted derivations before any payload write; R19 transition (b) runs end to end
+- 2026-09-04T17:57:57Z (design/consolidate-family): Task 5: claim_from_stored lands; M11 and M13 re-read against the new route
+- 2026-09-04T18:44:10Z (design/consolidate-family): Task 6: beliefs.evaluation lands; M1 containment holds and its sabotage shape fails
+- 2026-09-04T19:42:32Z (design/consolidate-family): Task 7: portable row evidence for G2c, G8, C6, S5, R23, W16, M3 and M5 passes (3329 passed in 922.48s (0:15:22)); ruff and pyright clean
+- 2026-09-04T20:43:28Z (design/consolidate-family): Task 8: durable arms pass on the certified tuple (16 passed)
+- 2026-09-04T21:33:23Z (design/consolidate-family): Task 9: 20 arms normalize to the frozen 17 units; certified runner exited 0
+- 2026-09-04T22:25:19Z (design/consolidate-family): Cut 17 discharged: managed delete, the semantic audit, import derivation validation, claim_from_stored and the instrumented resolver land; G2c, G8, C6, R5, W16, M1 and M5 close
+- 2026-09-04T23:43:43Z (design/consolidate-family): Reopened for cross-lane reconciliation: the write-permits lane claimed cut 17 at freeze, so the deletion cut is renumbered to 18 (task beliefs-67eea2).

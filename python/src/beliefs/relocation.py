@@ -19,7 +19,7 @@ from nodes.core.node import Node
 from nodes.core.relations import Relation
 
 from beliefs import stored
-from beliefs.coordination import COORDINATION_KINDS
+from beliefs.corpus import EXCLUDED_MUTATION_KINDS as EXCLUDED_KINDS
 from beliefs.corpus import CorpusWriter
 from beliefs.errors import (
     ActorMismatch,
@@ -32,8 +32,6 @@ from beliefs.errors import (
     SameRootRefused,
 )
 from beliefs.report import ActReport, Consolidated, Moved, OperationIntent
-
-EXCLUDED_KINDS = ("act-report", "holdings-observation", *COORDINATION_KINDS)
 
 
 @contextmanager
