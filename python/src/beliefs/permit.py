@@ -136,6 +136,13 @@ class Authority:
                 raise PermitExceeded(PermitFact("kind", kind), self.permit.summary())
 
 
+
+# The read door's authority (§16): the empty permit, so every act on a `World`
+# opened through `root.open_world_read` refuses on its family before any effect,
+# and an actor no record can ever carry, because no act under it runs.
+READ_ONLY = Authority(WritePermit(frozenset(), frozenset()), "read-only")
+
+
 @dataclass(frozen=True)
 class RequiredCapabilities:
     """What a declaration needs (§3.5). Compiled to a permit whose families

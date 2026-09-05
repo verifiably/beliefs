@@ -1,7 +1,7 @@
 # Implementation roadmap — design
 
 **Date:** 2026-08-29
-**Status:** approved in session; revised 2026-08-29 across four written-spec review rounds; delivered 2026-08-29 on `docs/roadmap` (roadmap at `docs/plans/2026-08-29-implementation-roadmap.md`, ranked at cut 11); amended 2026-08-29 (§4.1, §5) to group tier 1 into concurrent lanes
+**Status:** approved in session; revised 2026-08-29 across four written-spec review rounds; delivered 2026-08-29 on `docs/roadmap` (roadmap at `docs/plans/2026-08-29-implementation-roadmap.md`, ranked at cut 11); amended 2026-08-29 (§4.1, §5) to group tier 1 into concurrent lanes; amended 2026-09-05 (§4.0, §4.1, §5, §6) to order tier 1 by distance to the dogfood success criterion, to bound open lanes, and to admit a method amendment as a re-ranking trigger (the course-correction session, `2026-09-05-mm30-reproduction-design.md`)
 **Scope:** an ordered statement of the remaining implementation boundaries and
 the discipline that keeps it current. It selects no cut scope, freezes no row,
 and ranks no design question. The next cut's own design is a separate
@@ -251,6 +251,46 @@ answered first. A prerequisite that is the boundary's own work — an
 instrumented resolver for M1, a confinement-capable policy for R15 — is not a
 prerequisite.
 
+### 4.0 The ordering criterion — amended 2026-09-05
+
+> **Amended 2026-09-05.** Tiers stay dependency-based. *Within tier 1* the
+> order is no longer breadth of rows unblocked; it is **distance to the one
+> success criterion the stack has**, the user and autonomy layer design's §8:
+> a coding-agent session over a `beliefs` world holding a reproduced mm30
+> corpus, where `next` ranks a proposition, `run` executes a real analysis
+> under confinement, `verify` reaches `clean-environment`, and `assess`
+> admits the result to a computed belief, every step a governed record.
+>
+> The reason is what breadth optimized for. Eighteen cuts closed 93 of 161
+> rows between 2026-08-07 and 2026-09-04, and in that time no real record
+> touched the system: the last measurement over a real corpus was the typing
+> exercise of 2026-08-07. Breadth ranks the correction remainder first because
+> it closes three rows and several clauses; the dogfood needs none of them on
+> its first day, and it needs the writer session, which no guarantee row
+> names and which this roadmap therefore could not see. Rows are oracles
+> derived from designs written before any code or data existed; closing them
+> is evidence of conformance, not of use, and a ranking by rows alone drifts
+> toward whatever closes most.
+>
+> Three rules follow. **(a)** Tier 1 is split into *on the path* — the
+> boundaries the success criterion cannot be met without, in dependency
+> order — and *off the path*, which follow in breadth order as before.
+> **(b)** A boundary on the path whose slice design is not yet written is
+> still tier 1 when no `open-questions.md` question blocks it: a slice
+> design is the first step of every lane's own work and is not a
+> prerequisite, exactly as the tier rule above already treats a boundary's
+> own machinery. **(c)** Whether a boundary is on the path is a fact about
+> the success criterion, to be *measured* where it can be: the mm30
+> reproduction lane (`2026-09-05-mm30-reproduction-design.md`) exists to
+> reach the first belief through the kernel as a library, and its findings
+> move boundaries on or off the path at the next re-rank.
+>
+> This amends §5's rejection of goal tracks, not its reason. Several goal
+> tracks fail because one boundary sits under several goals and the
+> cross-track ranking needs the dependency logic anyway. One goal has no
+> cross-track ranking, and the dependency logic is kept. The guard (§6) is
+> unchanged: it asserts nothing about tiers or order.
+
 ### 4.1 Tier 1 — buildable now
 
 Strict order. Row 1 is the next cut.
@@ -266,6 +306,18 @@ Strict order. Row 1 is the next cut.
 > the reason row 9 already gives. Lanes are surface-based, which is not the
 > goal-track alternative §5 rejects. The guard (§6) asserts nothing about
 > tiers or order, so it is unchanged.
+
+> **Amended 2026-09-05.** Two changes to the lane discipline. First, while
+> the success criterion is unmet, **at most two kernel lanes are open at
+> once, both on the path**, beside the reproduction lane, which rewrites no
+> kernel surface; an off-path lane opens only when no on-path lane is
+> startable. Four concurrent lanes cost more than they returned for one
+> person: cut numbers collided across worktrees, a rulings ledger was lost
+> at worktree removal, and the any-unrun-arm rule exists because coverage
+> kept being overstated in the merge. Second, the **reproduction lane** is a
+> lane with no boundary: a measurement, in the typing exercise's shape, that
+> holds a worktree and a corpus on the certified volume beside the checkout
+> and produces findings and design amendments, never a cut and never a row.
 
 | # | id | rows | unblocks | placement |
 |---|---|---|---|---|
@@ -324,6 +376,9 @@ Unordered. Each row links its `open-questions.md` anchor.
   the dependency logic underneath anyway. *(2026-08-29: the lanes the amended
   §4.1 adds are not goal tracks — a lane is a shared code surface, and no
   boundary sits in two.)*
+  *(2026-09-05: §4.0 admits **one** goal as tier 1's ordering criterion.
+  The objection was to several tracks competing; a single criterion has no
+  cross-track ranking, and the dependency tiers stay underneath it.)*
 - **Ranking inside the ledger.** Rule 5 of the curation design exists to keep
   ordering out of the guarded summary; a ranking next to it would be an
   unguarded restatement of the guarded rows.
@@ -355,6 +410,13 @@ re-ranks the roadmap in the same change: the discharged boundary leaves both
 documents, any newly named remainder enters both, tier membership is
 recomputed, and `Ranked at` advances. The contributor guide's "Maintaining
 the guide" section gains one sentence naming this obligation.
+
+> **Amended 2026-09-05.** A second trigger: an amendment to this design's
+> method. The commit that amends §4 re-ranks the roadmap in the same change;
+> `Ranked at` stays at the newest results record, since no cut discharged,
+> and the roadmap's `Method` line names the amendment. The guard is
+> unchanged by this, because it reads `Ranked at` against the newest record
+> and nothing else.
 
 **One guard, minimal.** `test_the_roadmap_and_ledger_name_the_same_boundaries`
 in `python/tests/test_designs_corpus.py`:

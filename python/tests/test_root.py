@@ -20,9 +20,10 @@ from authority import FULL
 from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp
 
 from beliefs import root
-from beliefs.errors import CorpusRootRefused, WorldIdMismatch, WorldUninitialized
+from beliefs.errors import CorpusRootRefused, PermitExceeded, PermitFact, WorldIdMismatch, WorldUninitialized
 from beliefs.identity import v1
-from beliefs.world import WorldConfig, _world_mirror_bytes
+from beliefs.permit import READ_ONLY
+from beliefs.world import Fresh, WorldConfig, _world_mirror_bytes
 
 
 def patch_world_engine(monkeypatch, calls, world_id="1" * 32):
@@ -395,3 +396,48 @@ class TestTheWriteIntentEncoding:
 
     def test_an_empty_plan_projects_nothing(self):
         assert root.write_intent_projection([]) == []
+
+
+class TestOpenWorldRead:
+    """The permit-free read door (design §16): a `World` bound to `READ_ONLY`, so
+    its read surface answers and every act refuses before any effect."""
+
+    def test_open_world_read_binds_the_read_only_authority_without_registering(self, monkeypatch, tmp_path):
+        calls = []
+        patch_world_engine(monkeypatch, calls)
+        config = WorldConfig(tmp_path / "world", "1" * 32, ())
+        config.world_root.mkdir()
+        (config.world_root / "world.yaml").write_bytes(_world_mirror_bytes(config.world_id))
+
+        world = root.open_world_read(config)
+
+        assert world.config is config
+        assert world.authority is READ_ONLY
+        assert calls == []
+
+    def test_open_world_read_refuses_every_act_before_any_effect(self, monkeypatch, tmp_path):
+        calls = []
+        patch_world_engine(monkeypatch, calls)
+        config = WorldConfig(tmp_path / "world", "1" * 32, ())
+        config.world_root.mkdir()
+        (config.world_root / "world.yaml").write_bytes(_world_mirror_bytes(config.world_id))
+        world = root.open_world_read(config)
+
+        with pytest.raises(PermitExceeded) as caught:
+            world.admit(tmp_path / "corpus", provenance=Fresh())
+
+        assert caught.value.requirement == PermitFact("family", "registry")
+        assert calls == []
+        assert not (config.world_root / "registry").exists()
+
+    def test_open_world_read_refuses_the_same_worlds_open_world_refuses(self, monkeypatch, tmp_path):
+        calls = []
+        patch_world_engine(monkeypatch, calls)
+        config = WorldConfig(tmp_path / "world", "1" * 32, ())
+        config.world_root.mkdir()
+        (config.world_root / "world.yaml").write_bytes(_world_mirror_bytes("2" * 32))
+
+        with pytest.raises(WorldIdMismatch):
+            root.open_world_read(config)
+
+        assert calls == []

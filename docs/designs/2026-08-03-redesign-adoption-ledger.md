@@ -124,8 +124,11 @@ ancestry and the surfaces they built
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
 carries no priority; ordering over these rows lives in
 `../plans/2026-08-29-implementation-roadmap.md`. A boundary enters this
-table only when a cut's accounting, a results record, or §1's rows prove it
-still open; unresolved design areas are not boundaries and are not listed.
+table only when a cut's accounting, a results record, §1's rows, or a
+`beliefs` sub-project of the user and autonomy layer design
+(`../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md` §8)
+proves it still open; unresolved design areas are not boundaries and are
+not listed.
 
 | id | boundary | owner | what it blocks |
 |---|---|---|---|
@@ -139,10 +142,10 @@ still open; unresolved design areas are not boundaries and are not listed.
 | `packaging-remainder` | X5's relabel; W8a's import-boundary and audit arms | `2026-08-03-world-index-packaging-design.md`; `2026-08-20-world-index-slice-2-design.md` | X5 and W8a read in full |
 | `parity-fixture-2` | the second `science.identity.v1` parity fixture, numeric and escape arms | `2026-08-04-formal-model-and-claim-calculus-design.md` §8 (§3 item 8) | cross-language parity of the identity arms tested twice and compared never |
 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm; C7's consolidate prerequisite discharged at cut 16 and the deletion surface it shares at cut 18 | sub-problem 5a, `2026-08-03-correction-lifecycle-design.md` | the correction lifecycle in full; buildable now, and the mutation lane's only open boundary |
-| `writer-session` | the attended writer session and its ledger, the invocation-bound scoped writer, `corpus-write` as an operation intent fulfilled by its registration, unresolved-root settlement, and reconciliation: J1–J11 | `2026-09-05-writer-session-design.md`; frozen as cut 19 (`2026-09-05-conformance-cut-19.md`) | the command framework's write path — `science`'s dispatcher and service process; no shipped command writes until it lands |
 | `l13-preimage` | **L13 preimage resolver** — preimage-backed classification of a removed verification | the named `atoms` blob-read seam (`2026-08-03-tamper-evident-log-design.md` §5.3) | row 5 reading L13 in full; until then the held-copy match is a path match |
 | `persistence-cut` | X2's persistence-cut arm | the `atoms` A8 certification extended to the publication path, a cross-repo seam `atoms`' own design owns | X2 in full |
-| `verification-publication` | durable publication of verification records — a derived verification written into a corpus through the operation port, with admission evaluated over records read back | the persistence seam; no design names it yet (cut 13 §2) | admission over stored verifications rather than in-memory records; scope recomputation for a stored verification (cut 18 §7) |
+| `verification-publication` | durable publication of verification records — a derived verification written into a corpus through the operation port, with admission evaluated over records read back | its own slice design, not yet written; cut 13 §2 named the exclusion, and cut 18's ruling R2 added the optional `derivation` member the writer will carry | admission over stored verifications rather than in-memory records; scope recomputation for a stored verification (cut 18 §7); a computed belief re-derivable from the corpus alone |
+| `writer-session` | the writer session, the `beliefs` half of the command framework's write boundary beyond permits: `open_attended_session` and the session-fixed actor, the scoped writer whose effective permit is exactly the requirement, the session ledger and claim protocol, the `corpus-write` operation intent under every ordinary session write, unresolved-root settlement, and reconciliation; J1–J11 | the user and autonomy layer design §8 item 2; `2026-09-05-writer-session-design.md`, frozen as cut 19 (`2026-09-05-conformance-cut-19.md`) | `science`'s write dispatch and local writer service; every write the dogfood makes; no shipped command writes until it lands |
 | `nodes-remainder` | the reserved-path contract, recoverable construction, digest-id hazards | `nodes` `2026-08-03-nodes-under-the-system-redesign-design.md` (row 3) | audits over damaged corpora; manifest safety |
 | `authority-labels` | W9, W14 | artifact 11, the pinned authority snapshot — owed, undesigned | every rendered label; the ambiguous-search refusal |
 | `weighted-belief` | S6 arm (h) | the first successor belief policy admitting unequal weights, blocked on ρO3 | weighted belief |

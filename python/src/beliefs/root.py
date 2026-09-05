@@ -144,7 +144,7 @@ from beliefs.holdings.seam import (
 )
 from beliefs.holdings.seam import WritePlan as SeamWritePlan
 from beliefs.identity import v1
-from beliefs.permit import Authority
+from beliefs.permit import READ_ONLY, Authority
 from beliefs.world import (
     AdmissionRecord,
     CorpusSubject,
@@ -232,6 +232,7 @@ __all__ = [
     "migrate_root_to_lifecycle_v3",
     "open_corpus",
     "open_world",
+    "open_world_read",
     "read_lifecycle_state",
     "replicate_root",
     "restore_root",
@@ -1773,3 +1774,17 @@ def open_world(config: WorldConfig, *, authority: Authority) -> World:
         corpus_executor_factory=durable_executor_factory(),
         authority=authority,
     )
+
+
+def open_world_read(config: WorldConfig) -> World:
+    """Open one configured world root for reading alone.
+
+    The read door for consumers that hold no permit at all — the `science`
+    layer's read context (its command-framework design §4.2, §9.2), which may
+    not construct one. It is `open_world` under `permit.READ_ONLY`, stated here
+    rather than defaulted: the three identity claims are checked the same way
+    and the same worlds are refused, and every act on the returned `World`
+    refuses on its family before any effect, so the one thing this door cannot
+    do is write.
+    """
+    return open_world(config, authority=READ_ONLY)
