@@ -2,7 +2,7 @@
 title: Science contributor guide
 status: living
 created: 2026-08-08
-updated: 2026-09-03
+updated: 2026-09-05
 sources:
   - ../designs/2026-08-08-contributor-guide-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -88,4 +88,6 @@ the same change: the discharged boundary leaves both the ledger's `Current
 state` table and the roadmap, any newly named remainder enters both, and the
 roadmap's `Ranked at` line advances to the new cut.
 `test_the_roadmap_and_ledger_name_the_same_boundaries` fails until both are
-done.
+done. An amendment to the roadmap's method re-ranks the same way without a
+new cut: `Ranked at` stays at the newest record and the roadmap's `Method`
+line names the amendment (its design §6, amended 2026-09-05).

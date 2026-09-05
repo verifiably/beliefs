@@ -1,8 +1,12 @@
 # Implementation roadmap
 
 **Ranked at:** cut 18, against the ledger's Current state (2026-09-04)
-**Method:** `../superpowers/specs/2026-08-29-implementation-roadmap-design.md`
-**Recomputed by:** the commit that adds each conformance-cut results record.
+**Method:** `../superpowers/specs/2026-08-29-implementation-roadmap-design.md`,
+as amended 2026-09-05 — tier 1 is ordered by distance to the dogfood success
+criterion (§4.0 there), open lanes are bounded, and a method amendment
+re-ranks without a new cut.
+**Recomputed by:** the commit that adds each conformance-cut results record,
+or that amends the method.
 This document is a current claim: it is rewritten whole at every re-ranking,
 carries no dated corrections, and the previous ranking survives only in git
 history.
@@ -15,28 +19,33 @@ what order*. The two name the same boundaries by id, and
 Design questions are never rows here; they appear only as a boundary's
 *blocked on*, linking `../guide/open-questions.md`.
 
-Ranking is dependency first, then breadth of what a boundary unblocks. A
-boundary is **tier 1** when its entry point is designed and nothing outside
-its own work must land first; **tier 2** when another boundary here or a
-cross-repo seam must land first; **tier 3** when a design question must be
-answered first. A prerequisite that is the boundary's own work is not a
-prerequisite.
+Ranking is dependency first. A boundary is **tier 1** when its entry point is
+designed and nothing outside its own work must land first; **tier 2** when
+another boundary here or a cross-repo seam must land first; **tier 3** when a
+design question must be answered first. A prerequisite that is the boundary's
+own work — its slice design included — is not a prerequisite.
 
-Cut 17 delivered write permits: E1–E8 close, the 36-definition write
-inventory is held statically and dynamically, and the command framework's
-writer session and dispatcher are now unblocked. The completed
-`write-permits` boundary and its one-boundary authority lane leave the live
-ranking.
+Within tier 1 the order is **distance to the success criterion** the user and
+autonomy layer design §8 states
+(`../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md`): a
+coding-agent session over a `beliefs` world holding a reproduced mm30 corpus,
+where `next` ranks a proposition, `run` executes a real analysis under
+confinement, `verify` reaches `clean-environment`, and `assess` admits the
+result to a computed belief, every step a governed record. Boundaries the
+criterion cannot be met without are **on the path**, in dependency order;
+the rest are **off the path**, in breadth order. Whether a boundary is on the
+path is measured where it can be, by the reproduction lane (§Lanes).
 
-Cut 18 delivered managed deletion and the mutation lane's assigned
-ride-alongs: `delete` as an ordinary write, the corpus-local semantic audit,
-explicit-import derivation validation, the claim restore seam, and the
-instrumented belief resolver. G2c, G8, C6, R5, W16, M1 and M5 close; C1, T8,
-M11 and M13 are closed-row re-reads. `consolidate-family`,
-`run-boundary-remainder` and `formal-model-remainder` are closed and leave
-the table; the mutation lane's remaining boundary is `correction-remainder`.
-S5, R23, R19, R22 and M3 keep only the remainders named below, all of them
-re-homed to boundaries this document already ranks.
+**This ranking (2026-09-05) changes order and tier, not what is open.** No cut
+has discharged since cut 18. What moved: `writer-session` enters, on the path
+first — `science`'s write dispatch is blocked on it today and no guarantee row
+names it, which is why the previous ranking could not see it;
+`verification-publication` moves from tier 2 to tier 1 on the path — the
+"persistence seam" it waited on is the composition root, which has landed;
+`domain-boundary` and `world-resolution` stay tier 1 and move onto the path;
+`correction-remainder`, `url-retrieval` and `event-level-l8` move off the
+path; `contract-cut` stays the join. A **reproduction lane** with no boundary
+is added.
 
 ## Boundary index
 
@@ -45,19 +54,20 @@ join key and nothing else; the tiers below carry the ranking.
 
 | id | rows it closes | tier |
 |---|---|---|
-| `url-retrieval` | H4, G9, R10, T5; T7's same-root case | 1 |
-| `world-resolution` | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 (less one arm); W8a's coreference arms; S1, S1a, S5's cross-corpus reach; D3; X12 and M3's coreference arms; R19's cross-corpus recomputation; R23's snapshot, coverage, divergence and explicit-import clauses | 1 |
-| `domain-boundary` | D1, D2, D4, D5, D6, D8, D9, D10; G5 | 1 |
-| `event-level-l8` | L8 | 1 |
-| `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a, X12, C10's certification arms; R23's rules-store clauses | 1 |
-| `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | 1 |
-| `log-remainder` | L1, L4; L10 (relabel) | 1, rides with `event-level-l8` |
-| `act-report-remainder` | T1, T2, T4 | 1, rides with `url-retrieval` |
-| `packaging-remainder` | X5 (relabel); W8a's import and audit arms | 1, rides with `world-resolution` |
+| `writer-session` | J1–J11, the writer-session design's table, frozen with cut 19 | 1, on the path |
+| `verification-publication` | durable publication of verification records; R19's stored-verification limitation | 1, on the path |
+| `domain-boundary` | D1, D2, D4, D5, D6, D8, D9, D10; G5 | 1, on the path |
+| `world-resolution` | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 (less one arm); W8a's coreference arms; S1, S1a, S5's cross-corpus reach; D3; X12 and M3's coreference arms; R19's cross-corpus recomputation; R23's snapshot, coverage, divergence and explicit-import clauses | 1, on the path |
+| `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | 1, off the path |
+| `url-retrieval` | H4, G9, R10, T5; T7's same-root case | 1, off the path |
+| `event-level-l8` | L8 | 1, off the path |
+| `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a, X12, C10's certification arms; R23's rules-store clauses | 1, the join |
 | `parity-fixture-2` | the second `science.identity.v1` fixture | 1, rides with `domain-boundary` |
+| `packaging-remainder` | X5 (relabel); W8a's import and audit arms | 1, rides with `world-resolution` |
+| `act-report-remainder` | T1, T2, T4 | 1, rides with `url-retrieval` |
+| `log-remainder` | L1, L4; L10 (relabel) | 1, rides with `event-level-l8` |
 | `l13-preimage` | L13 | 2 |
 | `persistence-cut` | X2 | 2 |
-| `verification-publication` | durable publication of verification records | 2 |
 | `nodes-remainder` | `nodes` row 3's three items | 2 |
 | `authority-labels` | W9, W14 | 3 |
 | `weighted-belief` | S6 (h) | 3 |
@@ -66,29 +76,39 @@ join key and nothing else; the tiers below carry the ranking.
 
 ## Tier 1 — buildable now
 
-Ordered by what a boundary unblocks, and grouped into **lanes** (§Lanes
-below). A boundary's rank says how much it unblocks; its lane says what it
-must wait for. Within a lane the order is strict; across lanes there is no
-order, and lanes may run concurrently in separate worktrees.
+### On the path
+
+In dependency order. A boundary's rank says how far the success criterion is
+from being met without it; its lane (§Lanes) says what it must wait for.
 
 | # | id | rows | unblocks | placement |
 |---|---|---|---|---|
-| 1 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | the correction lifecycle in full | C7's consolidate prerequisite landed at cut 16 and the deletion surface it shares landed at cut 18; the stored semantic-snapshot kind and evaluator are this boundary's own work. It is now the mutation lane's only open boundary |
-| 2 | `url-retrieval` | H4, G9, R10, T5, T7's same-root case | the first acquisition of a dataset from outside the system; H4 in full | holdings design §2–§3 specify the canonicalization profile and network discipline |
-| 3 | `world-resolution` | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 (less one arm), W8a's coreference arms; S1, S1a, S5's cross-corpus reach; D3; X12 and M3's coreference arms; R19's cross-corpus recomputation; R23's snapshot, coverage, divergence and explicit-import clauses | the read side of the world: resolution states, cross-corpus edges, views, the coreference balance over the map cut 7 published; and every cross-corpus remainder cut 18 left behind | cut 4 §5 deferred the group on "the write boundary and the index" — both landed; the address ruling supplies the oracles. W11/W12 are not here (§3.3) |
-| 4 | `domain-boundary` | D1, D2, D4, D5, D6, D8, D9, D10; G5 | the first domain pack; D8's composition | cut 3 §5 deferred the group on "facets, manifests, and the registry compile"; `ProfileSpec` and the `nodes` registry exist |
-| 5 | `event-level-l8` | L8 | row 5 reads L8 in full; the log's last Science-only remainder | §7's ordered-cuts predicate is built; the event-level relation is its successor |
-| 6 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a, X12 and C10's `instrument-certification` arms; R23's rules-store clauses | the widest set: the conformance-package split (ledger §5), instrument-certification cadence, legacy-check disposition (N10), P1 | last in the tier although it unblocks the most: N1 mints a successor contract identity for every oracle amended after the freeze, and rows 1–5 are Science-only closures that would each force one. Freeze after them |
+| 1 | `writer-session` | J1–J11: `open_attended_session`, the session-fixed actor, the scoped writer whose effective permit is exactly the requirement, the session ledger and claim protocol, the `corpus-write` operation intent under every ordinary session write, and reconciliation | every write the dogfood makes: `science`'s write dispatch (command-framework Task 12) and the local writer service; the interval-membership test the autonomy envelope needs | designed — `2026-09-05-writer-session-design.md`, in review on its lane, cut 19 freezes after it. Nothing outside it must land first; write permits (cut 17) are its floor. It closes no existing row, which is why breadth never ranked it |
+| 2 | `verification-publication` | no guarantee row; cut 13 §2's named exclusion and R19's stored-verification limitation (cut 18 §7) | the `verify` step as a governed record: the comparison report and scope recoverable from the corpus alone rather than from an in-memory `AssessmentVerification`; admission over stored verifications; scope recomputation over a stored verification | entry point exists: `Verification`, the optional `derivation` member cut 18 ruling R2 added for exactly this writer, and `admission_record`'s total projection. The slice design is its own work (§4.0 rule b). Formerly tier 2 behind "the persistence seam"; that seam is the composition root and has landed. The reproduction lane's third question (its design §6) confirms or refutes that the criterion needs it before the slice is drawn — on whether the comparison report and scope are recoverable from the corpus, not on whether the belief recomputes |
+| 3 | `domain-boundary` | D1, D2, D4, D5, D6, D8, D9, D10; G5 | the biology pack — GO, HP, EFO and MONDO bindings and mm30's operator vocabulary (layer design §4.3, sub-project 3); D8's composition; and the **empirical-observation facet's payload contract**, kernel §11's open question, read presence-only today by `is_empirical_observation` — decided in this lane's design because D1 and D2 own facet compilation | cut 3 §5 deferred the group on "facets, manifests, and the registry compile"; `ProfileSpec` and the `nodes` registry exist. The reproduction lane's first question (its design §6) measures how much of the pack the first belief needs, or reports it unmeasured if the target types under the placeholder vocabulary alone |
+| 4 | `world-resolution` | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 (less one arm), W8a's coreference arms; S1, S1a, S5's cross-corpus reach; D3; X12 and M3's coreference arms; R19's cross-corpus recomputation; R23's snapshot, coverage, divergence and explicit-import clauses | `next` over more than one corpus; `publish` (sub-project 5) resolves view queries through it; the read side of the world in full | cut 4 §5 deferred the group on "the write boundary and the index" — both landed; the address ruling supplies the oracles. Last on the path: a single-corpus first belief needs no cross-corpus resolution, and the reproduction lane says whether the dogfood proper does. W11/W12 are closed (cut 14) |
+
+### Off the path
+
+In breadth order. Each opens only when no on-path lane is startable
+(§Concurrency rules, rule 6).
+
+| # | id | rows | unblocks | placement |
+|---|---|---|---|---|
+| 5 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | the correction lifecycle in full | C7's consolidate prerequisite landed at cut 16 and the deletion surface it shares at cut 18; the stored semantic-snapshot kind and evaluator are this boundary's own work. Off the path: the first belief retracts nothing |
+| 6 | `url-retrieval` | H4, G9, R10, T5, T7's same-root case | the first acquisition of a dataset from outside the system; H4 in full | holdings design §2–§3 specify the canonicalization profile and network discipline. Off the path: mm30's data is held locally, so the first belief acquires nothing |
+| 7 | `event-level-l8` | L8 | row 5 reads L8 in full; the log's last Science-only remainder | §7's ordered-cuts predicate is built; the event-level relation is its successor |
+| 8 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a, X12 and C10's `instrument-certification` arms; R23's rules-store clauses | the widest set: the conformance-package split (ledger §5), instrument-certification cadence, legacy-check disposition (N10), P1 | the join, last: N1 mints a successor contract identity for every oracle amended after the freeze, every lane above amends at least one, and the ledger's §2 already rules that the contract freezes after the operation set settles — which the dogfood will change |
 
 **Ride-along closures**, tier 1 by the rule and unblocking no capability of
 their own, each named to the cut that takes it:
 
 | id | rows | rides with |
 |---|---|---|
-| `log-remainder` | L1, L4; L10 (relabel) | `event-level-l8` |
-| `act-report-remainder` | T1, T2, T4 | `url-retrieval` — the acquisition operation is the first new operation kind T2 needs |
-| `packaging-remainder` | X5 (relabel); W8a's import and audit arms | `world-resolution` |
 | `parity-fixture-2` | formal model §8's second fixture | `domain-boundary` — D4's own parity arm exercises the same Python/TypeScript projection machinery |
+| `packaging-remainder` | X5 (relabel); W8a's import and audit arms | `world-resolution` |
+| `act-report-remainder` | T1, T2, T4 | `url-retrieval` — the acquisition operation is the first new operation kind T2 needs |
+| `log-remainder` | L1, L4; L10 (relabel) | `event-level-l8` |
 
 A ride-along is named in the cut that takes it and never stands alone.
 
@@ -96,35 +116,31 @@ A ride-along is named in the cut that takes it and never stands alone.
 
 A **lane** is a set of boundaries that share a code surface and therefore
 land serially; two lanes share no surface they both rewrite and may run at
-the same time. Lanes are dependency- and surface-based, never goal-based:
-the roadmap design rejected goal tracks (its §5) because one boundary would
-sit under several goals, and no boundary below sits in two lanes. The
-ranking above still holds within a lane — a lane's first boundary is its
-highest-ranked one — and tier membership is unchanged by lanes: a tier-2
+the same time. Lanes are dependency- and surface-based, never goal-based; the
+one goal above orders tier 1 and does not define a lane. The ranking still
+holds within a lane, and tier membership is unchanged by lanes: a tier-2
 boundary sits in the lane of its prerequisite and waits there.
 
-| lane | boundaries, in order | shared surface | touches another lane at |
+| lane | boundaries, in order | shared surface | status |
 |---|---|---|---|
-| `acquisition` | `url-retrieval` (+ `act-report-remainder`) | `holdings/`, `report.py` | `boundary.py`, also used by the discharged workflow surface |
-| `mutation` | `correction-remainder` | `adapter.py`, `corpus.py`, `audit.py`, `decode.py`, `evaluation.py`, `world/verify.py` | `world/verify.py`, which the `world-read` lane also owns |
-| `world-read` | `world-resolution` (+ `packaging-remainder`) → `event-level-l8` (+ `log-remainder`) | `world/read.py`, `resolution.py`, `world/verify.py` | `world/registry.py` (above) |
-| `domain` | `domain-boundary` (+ `parity-fixture-2`) | `profile.py`, `contract/`, `ts/`, `fixtures/`, the `nodes` registry | none in `python/src/beliefs/` |
-| `cross-repo` | `l13-preimage`, `persistence-cut`, `nodes-remainder`, in any order | the `atoms` and `nodes` repositories, each behind its own design gate | none; Science consumes each seam after it lands |
+| `write-path` | `writer-session` → `verification-publication` | `corpus.py`, `report.py`, `intents/`, `session/`, `verify.py`, `evaluation.py`, `audit.py` | on the path; open now (`.worktrees/writer-session`) |
+| `domain` | `domain-boundary` (+ `parity-fixture-2`) | `profile.py`, `contract/`, `stored.py` (the facet contract), `ts/`, `fixtures/`, the `nodes` registry | on the path; the second open lane |
+| `world-read` | `world-resolution` (+ `packaging-remainder`) → `event-level-l8` (+ `log-remainder`) | `world/read.py`, `resolution.py`, `world/verify.py` | on the path at its head; opens when `write-path` or `domain` closes |
+| `mutation` | `correction-remainder` | `adapter.py`, `corpus.py`, `audit.py`, `decode.py`, `evaluation.py`, `world/verify.py` | off the path; waits |
+| `acquisition` | `url-retrieval` (+ `act-report-remainder`) | `holdings/`, `report.py` | off the path; waits |
+| `reproduction` | none — a measurement: `../superpowers/specs/2026-09-05-mm30-reproduction-design.md` | no kernel surface; `python/tools/reproduction/`, a corpus on the certified volume beside the checkout, and the record it produces | open beside the two kernel lanes; its findings re-rank |
+| `cross-repo` | `l13-preimage`, `persistence-cut`, `nodes-remainder`, in any order | the `atoms` and `nodes` repositories, each behind its own design gate | as each seam lands |
 
 `contract-cut` is in no lane. It is a **join**: it freezes after every lane
-that amends an oracle has merged, for the reason tier 1's row 6 gives — N1
-mints a successor contract identity for every oracle amended after the
-freeze, and each lane above amends at least one. Tier 3 boundaries are in no
-lane either; a design answer moves one into the lane of the surface it
-lands on. `verification-publication` carries no design yet (its prerequisite,
-below) and so sits in no lane, the same way `persistence-cut` did before its
-cross-repo seam was named.
+that amends an oracle has merged, for the reason tier 1's row 8 gives. Tier 3
+boundaries are in no lane either; a design answer moves one into the lane of
+the surface it lands on.
 
 ### Concurrency rules
 
 Every rule the corpus already has stays in force when lanes run at once —
 a cut is frozen before its code exists, discharged on the certified volume,
-and merged `--no-ff`. Five rules are added by concurrency itself:
+and merged `--no-ff`. Six rules are added by concurrency itself:
 
 1. **A cut number is claimed at freeze, not at discharge.** Two lanes that
    freeze on the same day take consecutive numbers in freeze order, and a
@@ -147,14 +163,20 @@ and merged `--no-ff`. Five rules are added by concurrency itself:
 5. **A cut names the highest-numbered acceptance runner.** A cut frozen while
    a lower-numbered cut is undischarged serializes its discharge after that
    cut's discharge.
+6. **At most two kernel lanes are open at once while the success criterion
+   is unmet, both on the path**, beside the reproduction lane. An off-path
+   lane opens only when no on-path lane is startable. The reproduction lane
+   rewrites no kernel surface and is not counted; a finding it produces
+   lands as a design amendment or an `open-questions.md` entry through the
+   lane that owns the surface, never as a direct edit from the reproduction
+   worktree.
 
 ## Tier 2 — after a named prerequisite lands
 
 | id | rows | prerequisite | unblocks |
 |---|---|---|---|
 | `l13-preimage` | L13 | an `atoms` blob-read seam behind its own design gate; `atoms`' deferred-obligation ledger carries no such entry today | row 5 in full; the held-copy match strengthened from path to bytes |
-| `persistence-cut` | X2 | the `atoms` A8 certification extended to the publication path, behind `atoms`' own design gate. Cut 7 admits a Science-side harness as the alternative; it is rejected here (§5), so the prerequisite is cross-repo and the tier is 2 | X2 in full |
-| `verification-publication` | — | the persistence seam — a design for durable verification records behind the store's own gate; cut 13 §7.2 kept the join value-level | admission over stored verifications rather than in-memory records; scope recomputation for a stored verification (cut 18 §7) |
+| `persistence-cut` | X2 | the `atoms` A8 certification extended to the publication path, behind `atoms`' own design gate. Cut 7 admits a Science-side harness as the alternative; it is rejected by the method (§5 there), so the prerequisite is cross-repo and the tier is 2 | X2 in full |
 | `nodes-remainder` | — | `nodes`' own design gate | audits over damaged corpora; manifest safety |
 
 ## Tier 3 — blocked on a design question
@@ -168,10 +190,19 @@ Unordered. Each row links its `open-questions.md` anchor.
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 — [higher-order records and extraction](../guide/open-questions.md#claims-and-belief) |
 | `cross-root-publication` | T7's cross-root case | [the act-report's residue](../guide/open-questions.md#contracts-and-adoption) |
 
+Two design questions the success criterion meets on its first day are not
+rows anywhere and are carried by the lanes that own their surface: the
+empirical-observation facet's payload contract
+([foundations](../guide/open-questions.md#foundations)), by `domain`; and
+where a typed claim is authored for a corpus that has none — distinct from
+the extraction step M12 names — by the reproduction lane, whose record states
+what the authoring cost was and what a `claim` command must do.
+
 ## Appendix A — live status of every guarantee row at cut 18
 
 Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
-(spec §3.1); a row is closed only when no later source reopens it.
+(spec §3.1); a row is closed only when no later source reopens it. Unchanged
+by the 2026-09-05 re-rank, which discharged nothing.
 
 | table | never selected | part — last cut that read it | reopened |
 |---|---|---|---|
@@ -192,6 +223,12 @@ Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
 
 Closed 93 of 161; open 68.
 
+The writer-session design's J1–J11 are not in this table: the J table enters
+the guarantee tables when that design banks and cut 19 freezes. Until then
+`writer-session` enters the ledger and this roadmap on the user and autonomy
+layer design's §8 item 2, the way `verification-publication` entered on cut
+13 §2 — a named obligation with no guarantee row.
+
 ## Appendix B — classification of every open row
 
 Each open row, its remainder as the last cut states it, and where it goes
@@ -210,11 +247,11 @@ Each open row, its remainder as the last cut states it, and where it goes
 | W13 | coverage-declaration and digest-invariance clauses; manifest-only re-mint detection and the forgery variants; replica-restore's declaration half; the fork copy act (cut 6 §3.2) — every named dependency has since landed → relabel candidates | `world-resolution`; the two-projects negative is closed by cut 14 |
 | W8a | coreference omission-refutes and coverage arms → `world-resolution` (the `coreference-attestation` kind); certification omission-refutes → `contract-cut` (the `instrument-certification` kind); import-boundary and audit arms (cut 7 §3.2) → `packaging-remainder` | split as stated |
 | R10 | "the acquisition path records dataset provenance instead" (cut 3 §4.2) | `url-retrieval` |
-| R19 | cross-corpus recomputation through the world resolver (cut 5; cut 18 §6) → `world-resolution`; scope recomputation over a stored verification → limitation (cut 18 §7). Explicit-import derivation validation, transition (b) end to end, and the log-backed raw-write negatives are closed by cut 18 | split as stated |
+| R19 | cross-corpus recomputation through the world resolver (cut 5; cut 18 §6) → `world-resolution`; scope recomputation over a stored verification → `verification-publication`, which gives a stored verification the comparison report the limitation lacks (cut 18 §7; Appendix C). Explicit-import derivation validation, transition (b) end to end, and the log-backed raw-write negatives are closed by cut 18 | split as stated |
 | R22 | the unresolvable-interpretation-rule refusal → `contract-cut` (the rules store and resolver, 5b §6); the explicit-import recomputation and raw-written-under-audit arms are closed by cut 18 | `contract-cut` |
 | R23 | producer snapshots and receipts, coverage, cross-corpus divergence and the explicit-import clauses → `world-resolution`; rules-store clauses → `contract-cut`. Replay cardinality, local basis/composition disagreement, the move/consolidate clauses and the deletion and audit clauses are closed by cuts 3, 15, 16 and 18 respectively | split as stated |
 | C3 | uncovered-corpus behavior and the coverage declaration over the global retraction map (cut 16 §2); the exact-state move clause is read | `correction-remainder` |
-| C7 | route-standing evaluator and conflict semantics; its consolidate prerequisite landed at cut 16 | `correction-remainder` — tier 1 |
+| C7 | route-standing evaluator and conflict semantics; its consolidate prerequisite landed at cut 16 | `correction-remainder` |
 | C8, C9 | the stored semantic-snapshot kind, its evaluator and succession; world-index-backed digest enumeration; audit reporting; the mount negative on the managed holdings root (cut 5) | `correction-remainder` |
 | C10 | `instrument-certification` eligibility → `contract-cut`; raw-written refused cases under audit → `correction-remainder` (cut 5) | split as stated |
 | X2 | the persistence-cut arm at every stage, "a Science-side persistence-cut harness or an extension of the `atoms` A8 certification to this consumer path" (cut 7) → `persistence-cut`, tier 2; the interim best-effort-writer negative → limitation (lapsed) | as stated |
@@ -241,12 +278,13 @@ Each open row, its remainder as the last cut states it, and where it goes
 | T5 | the acquisition operation's began-ness and preflight refusals (cut 3 §4.2) | `url-retrieval` |
 | T7 | publish-together over an acquisition (cut 4 §5) → `url-retrieval`; the cross-root case → `cross-root-publication`, tier 3 | split as stated |
 
-Two boundaries carry no guarantee row and enter on the ledger's own
+Three boundaries carry no guarantee row and enter on the ledger's own
 statements: `nodes-remainder` (row 3: reserved-path contract, recoverable
-construction, digest-id hazards) and `parity-fixture-2` (§3 item 8: the
-second `science.identity.v1` fixture). A third, `verification-publication`,
-enters the same way: cut 13 §2's own named exclusion, no guarantee row
-naming it.
+construction, digest-id hazards), `parity-fixture-2` (§3 item 8: the second
+`science.identity.v1` fixture), and `verification-publication` (cut 13 §2's
+own named exclusion). A fourth, `writer-session`, enters on the user and
+autonomy layer design's §8 item 2 and carries its own table, J1–J11, frozen
+with cut 19.
 
 ## Appendix C — limitations, ranked nowhere
 
@@ -262,4 +300,4 @@ closes carrying it. Nothing here is work.
 | X2 | the interim best-effort-writer negative — the writer was never built | cut 7, X2's entry (lapsed) |
 | M3 | the concrete-cycle arms needing a circular fixed point in a controlled identity | cut 5, M3's entry — a limitation unless a construction is found |
 | M1 | the resolver bound — a read that never crosses the instrumented resolver (a module constant, an environment lookup, a cached global, a file opened directly) is invisible and passes, so M1 does not assert that every undeclared read is detected | cut 18 §7, preserving M1's own scope clause; lifting it needs an exhaustive capability or sandbox boundary the formal model does not propose |
-| R19 | scope recomputation over a stored verification — the stored projection carries no comparison report, so the audit and the import recompute the verdict and the assessment identity only | cut 18 §7 — it stops being a limitation only if `verification-publication` gives a stored verification a comparison report |
+| R19 | scope recomputation over a stored verification — the stored projection carries no comparison report, so the audit and the import recompute the verdict and the assessment identity only | cut 18 §7 — it stops being a limitation when `verification-publication`, now tier 1 on the path, gives a stored verification a comparison report |
