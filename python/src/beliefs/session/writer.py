@@ -14,7 +14,14 @@ from nodes.core.node import Node
 
 from beliefs.coordination import CoordinationAddress
 from beliefs.corpus import CorpusWriter, Finding, OperationCommit, _operation_lock_for
-from beliefs.errors import PermitExceeded, PermitFact, SessionClosed, SessionLedgerFailed, SessionProtocolError
+from beliefs.errors import (
+    PermitExceeded,
+    PermitFact,
+    ScienceError,
+    SessionClosed,
+    SessionLedgerFailed,
+    SessionProtocolError,
+)
 from beliefs.permit import Authority, RequiredCapabilities, WritePermit, permit_covers, scoped_authority
 from beliefs.sealed import sealed
 from beliefs.session.ledger import (
@@ -113,7 +120,10 @@ class WriterSession:
         self._ledger = ledger
         self._writer_factory = writer_factory
         self._ceiling = WritePermit.full() if ceiling is None else ceiling
-        self._lock = threading.Lock()
+        # Re-entrant: a scoped act holds this lock for its whole duration and the
+        # helpers it calls take it again (§13 item 18). `claim_invocation` and
+        # `close_invocation` are unchanged by that — they still take it once.
+        self._lock = threading.RLock()
         self._index: dict[str, _Invocation] = {}
         self._current: str | None = None
         self._closed = False
@@ -216,10 +226,19 @@ class WriterSession:
                 )
 
     def _record_act(self, invocation: str, commit: OperationCommit) -> None:
+        """Ledger one committed operation. Reached only from `ScopedWriter._act`,
+        which already holds this lock and checked currency under it, so the
+        re-check below is an invariant, not a refusal: an operation whose
+        registration is durable can no longer be refused, and only a crash or a
+        ledger I/O failure — both terminal — may leave it unledgered (§5,
+        §13 item 18)."""
         with self._lock:
             self._require_live()
             if self._current != invocation:
-                raise SessionProtocolError(f"invocation {invocation} is no longer current")
+                raise ScienceError(
+                    f"the current invocation moved from {invocation} to {self._current} while an act "
+                    "held the session lock"
+                )
             records = [] if commit.record is None else [[commit.record.uid, commit.record.id]]
             self._ledger.append(
                 {
@@ -268,7 +287,19 @@ class ScopedWriter:
         return self._invocation
 
     def _act(self, perform: Callable[[], OperationCommit]) -> Node | None:
-        with _operation_lock_for(self._writer.root):
+        """One act: currency, the commit and the `act` line as one atomic step.
+
+        The session lock is taken first and held across `perform`, then the raw
+        root lock (the one `_commit` nests in). That order — session, then
+        root — is the only one taken anywhere: claims and closes take the
+        session lock alone and nothing takes the root lock before the session
+        lock, so the two never deadlock. Holding the session lock only for the
+        currency check would leave a window in which another thread closes or
+        re-claims between the durable commit and the ledger, producing a
+        committed registration with no `act` line in a session that stays live
+        (§13 item 18).
+        """
+        with self._session._lock, _operation_lock_for(self._writer.root):
             self._session._require_current(self._invocation)
             commit = perform()
             self._session._record_act(self._invocation, commit)

@@ -1118,3 +1118,21 @@ decide. None changes a `J` row or the cut's §2–§7.
     permit source. `WriterSession.scoped` calls it with the actor it derives
     from the session id, so no `session/` definition takes an actor and the
     static arm is unweakened.
+18. **The scoped act runs under the session lock; the lock order is session,
+    then root.** `ScopedWriter._act` takes the session's lock first and holds it
+    across the currency check, `perform()` and the `act` line, taking the raw
+    `_operation_lock_for(root)` lock inside it. Holding the session lock only
+    for the check left a window: `_act` held the root lock alone while
+    `claim_invocation` and `close_invocation` hold the session lock alone, so
+    another thread could move the current invocation between the durable commit
+    and the ledger append — a committed registration with no `act` line in a
+    session that stays live, which §5 sanctions only for a crash or a ledger
+    I/O failure, both terminal. With the lock held for the whole act, the
+    currency re-check in `_record_act` is an **invariant**, not a refusal: it
+    raises `ScienceError`, never `SessionProtocolError`, because an operation
+    whose registration is durable can no longer be refused. The session lock is
+    a `threading.RLock` so the helpers `_act` calls may take it again;
+    `claim_invocation` and `close_invocation` are unchanged, still taking it
+    once. **Session lock, then root lock, everywhere** — claims and closes take
+    the session lock alone, and nothing takes the root lock before the session
+    lock, so the two orders never cross.

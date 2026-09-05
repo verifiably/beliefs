@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from authority import narrowed
 from nodes.core.write_plan import DefaultExecutor
 from test_operation_writes import RecordingPort, proposition
 
@@ -160,7 +161,7 @@ def test_eight_threads_claiming_one_fresh_id_under_a_lock_see_one_fresh(tmp_path
 
 # --- J3: scoped is a real writer bound to the requirement -----------------------
 def test_scoped_refuses_an_uncovered_requirement_before_any_writer_exists(tmp_path):
-    session, ports = make_session(tmp_path, ceiling=WritePermit(frozenset({"source"}), frozenset({"corpus-write"})))
+    session, ports = make_session(tmp_path, ceiling=narrowed(kinds={"source"}, families={"corpus-write"}).permit)
     with pytest.raises(PermitExceeded) as caught:
         session.scoped(PROPOSITIONS, "A")
     assert caught.value.requirement == PermitFact("kind", "proposition")
@@ -209,6 +210,50 @@ def test_a_scoped_writer_acts_only_under_its_own_current_invocation(tmp_path):
     session.claim_invocation("C", "mint", DIGEST)  # B abandoned
     with pytest.raises(SessionProtocolError):
         b.add(proposition("p4"))
+
+
+def test_the_session_lock_spans_the_act_so_no_claim_interleaves_with_a_commit(tmp_path, monkeypatch):
+    """§13 item 18: a claim arriving mid-commit waits, so the durable commit and
+    its `act` line are one step. Without the session lock held across `perform`,
+    the claiming thread would finish first and leave a committed registration
+    with no `act` line in a session that stays live."""
+    session, ports = make_session(tmp_path)
+    writer = session.scoped(PROPOSITIONS, "A")
+    session.claim_invocation("A", "mint", DIGEST)
+    (port,) = ports
+    committing, release = threading.Event(), threading.Event()
+    submit = port.execute_fulfilling
+    order: list[str] = []
+
+    def blocking(plan, fulfills):
+        committing.set()
+        assert release.wait(10)
+        return submit(plan, fulfills)
+
+    monkeypatch.setattr(port, "execute_fulfilling", blocking)
+
+    def act():
+        writer.add(proposition("p1"))
+        order.append("act")
+
+    def claim():
+        assert committing.wait(10)
+        order.append("claim-arrives")
+        session.claim_invocation("B", "mint", DIGEST)
+        order.append("claim")
+
+    acting, claiming = threading.Thread(target=act), threading.Thread(target=claim)
+    acting.start()
+    claiming.start()
+    assert committing.wait(10)
+    claiming.join(0.5)
+    assert claiming.is_alive()  # blocked on the session lock the act holds
+    release.set()
+    acting.join(10)
+    claiming.join(10)
+    assert order == ["claim-arrives", "act", "claim"]
+    assert len(session.invocation_acts("A")) == 1
+    assert session.current_invocation == "B"
 
 
 def test_two_writers_scoped_for_one_id_both_act_under_that_id(tmp_path):
