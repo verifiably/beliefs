@@ -964,3 +964,144 @@ its results record lands with the ledger and roadmap re-rank in one commit
 under concurrency rule 2. `science`'s Task 12 suite is the external check
 that the contract's names resolve; it runs there, against a `beliefs` at the
 discharge commit, and is not a gate here.
+
+## 13. Implementation amendment — 2026-09-05
+
+Rulings made at plan time, before any code, that the frozen text does not
+decide. None changes a `J` row or the cut's §2–§7.
+
+1. **Where the compositions live.** `open_attended_session` and
+   `reconcile_sessions` are defined in `beliefs/session/__init__.py`, which
+   imports `beliefs.root`; `root.py` does not import `beliefs.session`. §6
+   names `root.reconcile_sessions`; the exported name is
+   `beliefs.session.reconcile_sessions`, and the behavior is §6's exactly.
+   `root.py` gains three small public seams the composition needs:
+   `durable_operation_port(root, authority)` (the port `open_corpus`
+   already builds), `log_seam()` (the production `LogSeam`), and
+   `plan_preflight(plan)` (§4.3 step 3's two checks as one function).
+2. **`WriterSession` is constructible from parts.** Its constructor takes
+   the session identity (from which it derives the actor — no constructor
+   or method anywhere takes an actor, J4), world id, corpus root, corpus
+   id, operations root, an open `LedgerWriter`, a `writer_factory(authority)
+   -> CorpusWriter`, and an optional ceiling for the portable suite. `open_attended_session`
+   supplies the durable parts; the portable suite supplies an in-memory
+   writer factory over a synthetic-digest port. No test constructs a session
+   by any other route.
+3. **Recovery is `read_chain`, gated by the lifecycle state.** The durable
+   factory's `recover(root)` first reads the root's lifecycle state; when it
+   is not `writable` it returns without reading the chain, leaving the
+   engine's own registration refusal to the write itself — so
+   `test_a_write_against_an_unregistered_root_refuses`' `(index, applied) ==
+   (None, 0)` and its `__cause__` are unchanged. When it is writable,
+   `read_chain` resolves recovery under the project lock; every engine
+   exception maps to `ExecutionError(index=None, applied=None)`.
+4. **The pending-registration fixture is a halting backend.** J2's
+   continuation arm leaves a real staged, unsettled transaction by wrapping
+   the engine backend in a delegate that raises `OSError` at its first
+   publish-phase call (`exchange`, `transfer_noclobber` or `link_anchor`)
+   after at least one `write`; the port under test is constructed over that
+   backend, and the factory's `recover` — over the real backend — is what
+   settles it. The arm asserts the registration is pending under detached
+   inspection before recovery and gone after.
+5. **Staleness baseline at plan time.** The probe of the plan's Global
+   Constraints (with its existence guard) prints, on the untouched tree:
+   `stale: [(5, 'T2', 'corpus.py', 0), (5, 'T2', 'corpus.py', 0), (5, 'C2', 'stored.py', 0), (6, 'X4', 'world.py', 'missing'), (6, 'X4', 'world.py', 'missing'), (6, 'X5', 'world.py', 'missing'), (6, 'X6', 'world.py', 'missing'), (6, 'X6', 'world.py', 'missing'), (6, 'X6', 'world.py', 'missing'), (6, 'W13', 'world.py', 'missing'), (6, 'W13', 'world.py', 'missing'), (6, 'W13', 'world.py', 'missing'), (6, 'W13', 'world.py', 'missing'), (6, 'W13', 'world.py', 'missing'), (6, 'W13', 'world.py', 'missing'), (6, 'labeled:admission-idempotency', 'world.py', 'missing'), (6, 'labeled:status-idempotency', 'world.py', 'missing'), (6, 'labeled:duplicate-carrier', 'world.py', 'missing'), (8, 'L2u5', 'root.py', 0), (8, 'L12u5', 'world/verify.py', 0), (8, 'D6', 'world/verify.py', 0), (8, 'D10', 'world/verify.py', 0), (10, 'H4u1', 'holdings/boundary.py', 0), (10, 'J8', 'holdings/boundary.py', 0)]`.
+   Every entry is pre-existing invalidated evidence from cuts 5, 6, 8 and 10,
+   cited and not run; cuts 17 and 18, which cut 19's prefix runner executes,
+   contribute none.
+6. **Finding order.** §6's "corpus id, then chain position, then code" is
+   implemented as an internal sort key `(corpus_id, position, code, ref)`
+   that the returned `Finding` values do not carry; two runs over equal
+   inputs return equal tuples, which is what J8 asserts.
+7. **The corpus-write branch in `completion`.** A `Registration` whose
+   `intent_token` equals a `corpus-write` intent's token reads `CLOSED`
+   without consulting `held`; `INDETERMINATE` is unreachable for that kind,
+   because nothing about the pointer bears on the reading.
+8. **The constructor writes `session-open`.** `WriterSession.__init__`
+   appends the line; the composition writes nothing before it, and
+   reconciliation runs after construction.
+9. **The commit is routed through the root's executor; the ordinary bodies
+   are the one refusal implementation.** Decision 13's prepare helpers and
+   §11's rejection of "a routed executor" are revisited together, on review
+   of the plan: factoring the ordinary bodies collides with the pinned
+   sabotage strings of cuts 5, 16, 17 and 18 (`E1c`, `E1r`, `C1`, `S4`,
+   `G2c`, the boundary re-resolution arms), which cut 19's prefix runner
+   executes; and §11's two objections no longer hold — the scoped writer is
+   per-invocation, so no act runs under the ceiling, and the `require` in
+   the routed seam is real, judged on the kinds the plan emits. So:
+   `OperationWrites.<method>` calls `CorpusWriter.<method>` unchanged, inside
+   a fulfilling scope; the root's wrapped executor routes that scope's one
+   submission to `_RoutedExecutor.commit_fulfilling`, which is the commit
+   seam of §4.3 — require, preflight, intent, fulfilling execution — and
+   the inventory's 37th row. "Every refusal an ordinary method makes, its
+   twin makes" (J1) holds by construction. §4.2's helper table and §4.4's
+   row name are superseded by this item; the cut record's §8 cites it.
+10. **The raw operation lock stays non-settling.** `_operation_lock_for(root)`
+    returns the bare `OperationLock` as today; reconciliation, the scoped
+    writer's act hold, and every engine-side acquisition take it without
+    triggering recovery. `CorpusWriter._operation` becomes a `_SettlingHold`
+    around that lock: enter acquires, then settles an unresolved root; a
+    settlement failure releases the lock and propagates. Every existing
+    `with self._operation:` — `relocation.py`'s `enter_context(writer._operation)`
+    included — therefore settles with no text change, and `relocation.py` is
+    not rewritten.
+11. **Fulfillment is scoped to one locked call, bound under the raw lock.**
+    The executor belongs to the shared root state, so a per-invocation writer
+    does not isolate it. `OperationWrites._run` takes the *raw* root lock,
+    binds exactly the calling writer's authority and port into
+    `_RootState.fulfilling` through `CorpusWriter._fulfilling()`, and then
+    calls the ordinary method — whose own `require` runs first and whose own
+    settling hold (re-entrant on the same lock) settles afterwards, exactly
+    as for a library caller. Entering the settling hold before the ordinary
+    method would recover, and could move bytes, before the permit was judged;
+    the twin's refusal order is therefore the ordinary method's, by
+    construction. `_fulfilling` rejects a nested scope (`ScienceError`) and
+    clears the binding in `finally`; the scope admits exactly one submission
+    and refuses a second (`ScienceError`). Both are hard errors: neither is
+    reachable through the seven twins. The scope records two facts
+    separately: `consumed` (its one submission attempt was taken, which
+    guards a second) and `submitted` (the seam appended the intent, set after
+    the preflight). Once `submitted`, any exception the ordinary method
+    raises — the engine, the readback, the index update, the rebuild — is
+    re-raised by `_run` as `ExecutionError` with the cause attached (J2's
+    boundary); a refusal before it — the permit's, the body's, or the
+    preflight's `PlanRefused` — propagates unchanged, and the library path's
+    behavior is untouched.
+12. **`unresolved` is set at every submission point and cleared only after the
+    complete state update.** Set true: in `_RoutedExecutor.execute`'s
+    ordinary branch before delegating (this covers `Corpus.add`,
+    `_corpus.executor.execute`, and `adopt_manifest`'s factory-created
+    executor, because `_RootState.executors` — the wrapped factory — is what
+    `Corpus` and `adopt_manifest` construct from, and `_reconstruct` rebuilds
+    with it, so the wrapper survives every rebuild); in
+    `commit_fulfilling` after its preflight and before the intent; and by one
+    explicit `self._state.unresolved = True` line before
+    `_publish_operation_report`'s direct port submission. Cleared: only in
+    `_SettlingHold.__exit__`, only on the outermost hold, only when the body
+    exited without an exception — which is after `nodes`' index update, after
+    `_reconstruct`, after the readback. A failure anywhere leaves it set. The
+    run boundary's and the holdings acts' port submissions do not touch this
+    writer's state and are not covered (§8 item 12).
+13. **The permit guard stays a top-level statement in a dedicated method.**
+    `_RoutedExecutor.commit_fulfilling(scope, plan)` begins with
+    `scope.authority.require("corpus-write", _plan_kinds(plan))`, the kinds
+    read from the plan's record paths (`<kind>/<slug>.md`), so the seam
+    requires exactly what it emits. It is inventoried under
+    `corpus.py:_RoutedExecutor.commit_fulfilling`. `_RoutedExecutor.execute`
+    is the `WritePlanExecutor` the corpus holds — an *implementation* of the
+    `execute` primitive, not a caller — and joins `test_permit_boundary.py`'s
+    implementation-exclusion list by exact name, as the design's §4.3 rule
+    for primitive implementations provides.
+14. **Every frozen obligation is retained.** The `J` rows, their checks and
+    the 11 units are unchanged; cut 19's §2 sentence naming "the shared
+    prepare helpers" and §5 item 4's `_prepare_add`/`_locked` arms are
+    superseded by citation in the cut record's dated §8, with §2–§7
+    byte-identical to the freeze; cut 17's and cut 18's audits run unchanged
+    as the prefix and every one of their strings matches exactly once.
+15. **Limitation 5 narrows.** A session `add`, `retract`, `supersede`,
+    `revise` or coordination write no longer rebuilds the view: `nodes`'
+    `Corpus.add` updates the index incrementally after the routed executor
+    returns, exactly as on the library path. `delete` rebuilds, as its
+    ordinary body does today.
+16. **The staleness baseline is unchanged throughout.** No task may leave a
+    prior-cut arm stale; the executor route exists so that none does.

@@ -272,3 +272,18 @@ Inherited from the design's §8, restated at the freeze:
   not settled.
 - **Reads after a failed submission see unresolved files until the next
   write.**
+
+## 8. Mechanism amendment — 2026-09-05
+
+Frozen at `5cc2153`. On review of the implementation plan the commit
+mechanism changed (design §13 items 9–15): the ordinary write bodies are the
+one refusal implementation and stay byte-identical, `CorpusWriter._operation`
+settles an unresolved root around the raw lock, and the commit seam is
+`_RoutedExecutor.commit_fulfilling`, reached by routing a fulfilling scope's
+one submission through the root's wrapped executor. Three sentences of §2 and
+one arm list in §5 name the superseded mechanism — "the shared prepare
+helpers", "`_locked()` settlement", and §5 item 4's `_prepare_add` and
+`_locked` sabotages — and are read as citing §13; the selection, the eleven
+rows, their checks and the 11 units are unchanged, and §2–§7 are
+byte-identical to the freeze. `n2_arms_cut19.py` declares the arms this
+mechanism admits, listed in the plan's Task 11.
