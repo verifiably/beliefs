@@ -6,7 +6,10 @@ reviews, each revised on the reviewer's findings (the bearer invariant over
 resulting corpus state, attestation on correction, stamp coverage kept apart
 from consultation, the base-versus-domain mismatch stopping rule, guarded
 publication under the operation lock, typed parity-fixture inputs, and the
-oracle corrections in §8). Not yet frozen: conformance cut 20 freezes after
+oracle corrections in §8), then on a written review of the committed
+document whose seven findings became §2 items 1, 2 and 6, §3.1's relation
+groups and `display`, §3.7, §4.2's coverage order, §5.5's enumeration and
+audit stop, and F2 and F4's added cases. Not yet frozen: conformance cut 20 freezes after
 the written review clears, numbered after the writer-session lane's cut 19.
 Not yet implemented or discharged.
 **Scope:** the first of two slices on the `domain` lane, anchored on the
@@ -102,8 +105,10 @@ existed for the records it describes.
    the facet and a producer. The invariant is over the **resulting corpus
    state** and is checked at every entry of either half: a dataset write
    carrying the facet is refused if any `produces` edge already targets it
-   or it carries a lineage basis; a run write is refused if any `produces`
-   target it names resolves to a facet-bearing dataset. `import_bundle`
+   or it carries a lineage basis; **any write carrying a `produces` edge,
+   whatever its carrier's kind**, is refused if a target resolves to a
+   facet-bearing dataset — endpoint enforcement is deferred (§9 item 2), so
+   the check keys on the edge, never on the carrier. `import_bundle`
    evaluates it over the existing corpus overlaid with every proposed member,
    so admission is order-independent; the production-run boundary evaluates
    it under the publication lock (§5.4); `corpus_check` reports it. Whether a
@@ -143,8 +148,9 @@ existed for the records it describes.
    payload shape enforced only as far as their named reader goes (§3.2 says
    exactly how far). `empirical-observation` is the one `shape: schema` facet
    in this slice; domain facets are schema-shaped from slice 2. `display`
-   keeps its hand-coded check, because its check accepts an empty statement
-   and a schema would change behaviour this slice has no ruling for.
+   is declared reader-shaped on `proposition` and `dataset` and keeps its
+   hand-coded check, because that check accepts an empty statement and a
+   schema would change behaviour this slice has no ruling for.
 7. **The compile produces the per-kind artifacts** (§4): compiled kinds,
    compiled facets, one `nodes` `KindSpec` registered per kind in one
    `Registry`, and one compiled validator per schema-shaped facet.
@@ -178,10 +184,16 @@ existed for the records it describes.
     corpus migrates: the reproduction corpus is recreated by re-running the
     driver in a fresh directory, its hold step declaring
     `locator: accession:GSE179929`.
-14. **TypeScript** parses the new sections with the same structural
+14. **The acquisition-boundary validity predicate** is one function, reused
+    wherever a dataset's standing is judged: the facet is present, its
+    payload validates under §6, the dataset has no producer and no lineage
+    basis, and `retrieval`, when present, resolves to an `acquisition`
+    report. Actor binding is a write rule (§5.3) and is **not** part of it.
+    The write seams, `corpus_check` and `eligibility_refusal` all call it.
+15. **TypeScript** parses the new sections with the same structural
     refusals and validates no payload. The second parity fixture is
     values-level over `identity.v1` with typed inputs (§7.3).
-15. **Rows.** D2, D4, D5, D8, D9, D10 and G5 are targeted in full, D1 in part,
+16. **Rows.** D2, D4, D5, D8, D9, D10 and G5 are targeted in full, D1 in part,
     D6 not on its facet arm; each discharges only on its full oracle. New rows
     take prefix `F` (§8).
 
@@ -212,6 +224,7 @@ kinds:
       dataset:               { required: true,  covered: true }
       empirical-observation: { required: false, covered: true }
       lineage-basis:         { required: false, covered: true }
+      display:               { required: false, covered: false }
   run:
     domain: science.run.v1
     facets:
@@ -229,9 +242,15 @@ The first covered facet of each kind is required, which is what
 makes it explicit. Coordination kinds keep coming from the coordination
 contract and register in the same registry.
 
-`relations:` lists kernel §4.1's closed vocabulary — the eleven world
-relations plus `supersedes`, `retracts`, `succeeded-by` and `anchored_in` —
-each with its source and target kind sets. Slice 1 compiles them and enforces
+`relations:` lists kernel §4.1's closed vocabulary in two named groups,
+each relation with its source and target kind sets: the **`world`** group is
+today's eleven (`assesses`, `observes`, `reads`, `transforms`, `produces`,
+`produced_by`, `executes`, `targets`, `verifies`, `member_of`,
+`grounded-in`), and the **`lifecycle`** group is `supersedes`, `retracts`,
+`succeeded-by` and `anchored_in`. `WORLD_RELATIONS` derives from the `world`
+group alone, so the coordination contract's query vocabulary is checked
+against exactly the set it is checked against today, and a coordination
+contract naming a lifecycle relation stays refused — a test holds that. Slice 1 compiles them and enforces
 nothing new at write (§9 item 2); their declaration is what gives D8's
 relation-signature refusal a declaration to refuse against, and what breaks
 the import cycle §4.3 removes.
@@ -257,6 +276,7 @@ limit:
 | `retraction` | `_validated_retraction_facet` at write | a malformed target or arm | — |
 | `proposition` | `decode.py`'s claim decoder | missing or extra keys, refused never repaired | — |
 | `source` | `external_identifiers` | nothing at read; W3's refusal at write when no accepted identifier is present | unknown identifier names ignored |
+| `display` | `display_facet_malformed` | anything but the exact one-field shape `{display_statement: <str>}` | an empty statement; declared optional and uncovered on `proposition` and on `dataset`, which §5.3's revision arm may change |
 | `source-assertion`, `analysis-spec`, `act-report` | their own value readers | as those readers do | this design does not audit them |
 
 Reader strictness is recorded as a limitation (§9 item 1). No reader-shaped
@@ -316,6 +336,18 @@ operators. Content identity is unchanged in kind: the raw root, as today.
 `operators`, `facets`, `kinds` included — is refused at load with
 `MalformedContract`. Nothing consumes a practice at compile.
 
+### 3.7 Document load refuses duplicate keys
+
+PyYAML's `safe_load` keeps the last of two equal mapping keys, so a
+duplicate facet, field, kind or relation declaration would vanish before
+compilation ever reached D8's collision check. Both Python contract loaders
+(`load_base_contract`, `load_domain_contract`, and the coordination and
+practice loaders with them) parse under a loader that refuses a duplicate
+key at **every** mapping level with `MalformedContract`, nested declarations
+included. The TypeScript side's `yaml` parser already refuses duplicates by
+default; the design keeps that default and tests it, so both languages
+refuse the same document for the same reason.
+
 ## 4. The compile
 
 ### 4.1 Compiled products
@@ -344,9 +376,20 @@ validate no further here.
 import, from the base contract carried as package data. A test holds the
 packaged copy byte-identical to `contracts/science/CONTRACT.yaml`, which
 stays the normative file both languages read; a drift is a failing test, not
-a silent second contract. `stored.py` keeps the names `WORLD_KINDS`,
-`WORLD_RELATIONS`, `SEMANTIC_DOMAINS` and `COVERED_FACETS` as views over the
-shipped base's compiled kinds and relations, so the twenty existing readers
+a silent second contract.
+
+**Coverage order is deterministic and not the authored order.**
+`semantic_projection` emits `present` in coverage order, and a contract's
+identity ignores mapping order, so deriving coverage from the authored map
+would let one contract identity yield two stamps. Coverage is the kind's
+`covered` facets **sorted by key, by code point** — which is exactly today's
+`COVERED_FACETS` order for every kind (`dataset`, `empirical-observation`,
+`lineage-basis`; `run`, `run-closure`), so no existing stamp moves. A test
+reorders the declarations under `kinds:` and `facets:` and asserts the
+compiled identity and every semantic stamp are unchanged. `stored.py` keeps the names `WORLD_KINDS`,
+`WORLD_RELATIONS` (the `world` group only, §3.1), `SEMANTIC_DOMAINS` and
+`COVERED_FACETS` as views over the shipped base's compiled kinds and
+relations, so the twenty existing readers
 of those names — `permit.py`'s static inventory test, `view_query.py`,
 `world/epoch.py`, `relocation.py` among them — do not change.
 
@@ -450,22 +493,34 @@ take the compiled profile. Both read through `iter_stored`, which stays
 unvalidated, so a mismatch is reported without triggering the facade's
 refusal on `get`. Two mismatch outcomes, one finding code:
 
-- **Domain pins disagree, base agrees:** one `profile-mismatch` finding;
-  the domain-dependent judgments are withheld (kind existence, facet keys,
-  payload validity, the bearer invariant, retrieval resolution,
-  facet-validity eligibility); what the shipped base decides alone — stamp
-  findings, base-facet findings — is still reported.
-- **`science_contract` disagrees:** one `profile-mismatch` finding and stamp
-  judgments withheld too, since judging stamps under a base the corpus does
-  not pin is the reinterpretation §7.1 forbids.
+- **Domain pins disagree, base agrees.** One `profile-mismatch` finding.
+  **Withheld:** every judgment on a namespaced facet key — `facet-unexpected`
+  and `facet-missing` for namespaced keys, domain payload validity — and,
+  when the `coordination` pin is among those disagreeing, every coordination
+  judgment. **Still reported**, because the shipped base decides them alone:
+  `manifest-malformed`; stamp findings; kind existence for unnamespaced
+  kinds; `facet-unexpected` and `facet-missing` for unnamespaced keys;
+  `empirical-observation` payload validity; the bearer invariant; retrieval
+  resolution; eligibility; retraction-target and lineage findings.
+- **`science_contract` disagrees.** One `profile-mismatch` finding and
+  `manifest-malformed` if it applies; **everything else withheld**, stamp
+  judgments included, since judging stamps under a base the corpus does not
+  pin is the reinterpretation §7.1 forbids. `audit_corpus` performs **no
+  recomputation** in this state: its helpers read through `view.get`, which
+  would raise `ContractMismatch` on the first record, so the audit returns
+  the mismatch finding and stops rather than letting the refusal escape.
 
 Under an agreeing profile the check reports `kind-unknown`,
 `facet-unexpected`, `facet-missing`, `facet-payload-malformed`,
 `facet-bearer-produced` and `facet-retrieval-unresolved`, never raising.
 
-`eligibility_refusal(view, node, profile)` reads **validity**: an observes
-input carries the facet, the payload validates, and the dataset has no
-producer. The existential rule is preserved: an `assesses` edge is admissible
+`eligibility_refusal(view, node, profile)` reads **validity** through the
+acquisition-boundary predicate (§2 item 14), so an observes input
+qualifies only when the facet is present, its payload validates, the
+dataset has neither producer nor lineage basis, and its `retrieval` resolves
+if present. A raw-written dataset carrying both a valid facet and a basis,
+or a declaration whose acquisition report has since been deleted, confers
+nothing. The existential rule is preserved: an `assesses` edge is admissible
 when at least one observes input qualifies; a second observes input with an
 invalid facet does not make the edge inadmissible and is reported separately
 as `facet-payload-malformed`. An edge with no qualifying input is refused
@@ -562,9 +617,9 @@ The `F` table. Rows are frozen; ids are never renumbered.
 | # | guarantee | mutation test |
 |---|---|---|
 | **F1** | The payload contract is enforced at every entry and reported by the check | an unknown key, a missing required field, a wrong type, an unknown scheme, an empty remainder: each refused at `add`, `revise`, relocation with a prefix-stable `FacetPayloadRefused`, and at `import_bundle` as `ImportRefused` naming the member with `FacetPayloadRefused` as its cause; the reproduction's `{boundary, source, asserted_by}` refused at `add`; a raw-written malformation reported `facet-payload-malformed`. **Sabotage:** the validator accepts unknown keys → the reproduction-payload test fails |
-| **F2** | The bearer invariant holds over the resulting corpus state, order-independently | facet dataset then producing run → run refused; producing run then facet dataset → dataset refused; a bundle holding both refused in either member order, naming the pair; a production run whose produced address is a facet-bearing dataset → `RunRefused(acquisition-boundary)`, the intent and its refusal report on the chain, no run record, no output publication, store untouched; a raw-written pair reported `facet-bearer-produced`. **Sabotage:** the producer read dropped → the run-then-dataset test fails |
+| **F2** | The bearer invariant holds over the resulting corpus state, order-independently, for every carrier of a `produces` edge | facet dataset then producing run → run refused; producing run then facet dataset → dataset refused; a non-run record (a `source`, say) carrying `produces` to a facet-bearing dataset → refused on the edge, its kind notwithstanding; a bundle holding both refused in either member order, naming the pair; a production run whose produced address is a facet-bearing dataset → `RunRefused(acquisition-boundary)`, the intent and its refusal report on the chain, no run record, no output publication, store untouched; a raw-written pair reported `facet-bearer-produced`. **Sabotage:** the producer read dropped → the run-then-dataset test fails |
 | **F3** | Attestation is bound at mint and on a changed declaration, preserved on import, relocation and unchanged revision | Alice mints; Bob revises the locator retaining Alice → `ActorMismatch`; naming Bob → accepted; Alice revising her own with Alice retained → accepted; Bob's revise with unchanged declaration and `attested_by: Bob` → refused; import and move keep a foreign attester byte-identical. **Sabotage:** the comparison skipped → Bob-retaining-Alice passes |
-| **F4** | Eligibility reads validity under the existential rule | one valid and one invalid observes input → admissible, the invalid one reported `facet-payload-malformed`; only an invalid one → refused with a reason distinct from absence; only an absent one → refused with the absence reason. **Sabotage:** validity replaced by presence → the invalid-only test admits |
+| **F4** | Eligibility reads the acquisition-boundary validity predicate under the existential rule | one valid and one invalid observes input → admissible, the invalid one reported `facet-payload-malformed`; only an invalid one → refused with a reason distinct from absence; only an absent one → refused with the absence reason; a raw-written observes dataset carrying a valid facet **and** a lineage basis → refused, reported `facet-bearer-produced`; an observes dataset whose `retrieval` names a deleted report → refused, reported `facet-retrieval-unresolved`. **Sabotage:** validity replaced by presence → the invalid-only test admits |
 | **F5** | Profile agreement is rechecked under the lock; the check withholds what it cannot judge | manifest rewritten between construction and `add` → `ContractMismatch`, nothing written; rewritten between a run's intent and its publication → `ContractMismatch`, the intent unfulfilled, no report, no run record; domain-only mismatch → `profile-mismatch` with stamp findings still reported; base mismatch → `profile-mismatch` and no stamp finding. **Sabotage:** the recheck skipped under the lock → the rewritten-manifest test writes |
 | **F6** | A dataset revision changes interpretation and prose only | each preserved field mutated in turn → `ReviseOutsideAllowlist`; removing `empirical-observation` → refused; removing a domain facet → accepted; adding the facet to an unmarked dataset binds the actor and runs the bearer check; the address is unchanged and node content identity and corpus state move (D2's asymmetry) |
 | **F7** | `retrieval` resolves or refuses | present and unresolved → refused; resolving to a report whose operation is not `acquisition` → refused; resolving to an **imported, well-formed** `acquisition` report → accepted. The positive arm tests reference acceptance and claims nothing about URL acquisition, which `url-retrieval` owns |
@@ -617,7 +672,10 @@ skipped; the pin recheck skipped under the lock; validity replaced by
 presence in eligibility; a builder writing an undeclared key; the fixture
 comparison reduced to bytes without digest; the domain parser accepting
 `kinds:`; a domain facet attaching to an undeclared kind accepted at
-compile. Discharged on the certified tuple.
+compile; `WORLD_RELATIONS` widened to both relation groups → the
+coordination-vocabulary refusal test fails; the duplicate-key loader
+replaced by `safe_load` → the duplicate-declaration test fails; coverage
+taken in authored order → the reorder-invariance test fails. Discharged on the certified tuple.
 
 ## 11. What changes elsewhere
 
