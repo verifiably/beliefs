@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 import pytest
+from authority import ACTOR
 from closure_fixtures import make_closure
 from fixtures_cut3 import spec_draft, spec_rules
 from fixtures_cut4 import raw_write
@@ -76,7 +77,9 @@ def assessment_closure(frozen, *, token: str = "tok", result: ResultManifest | N
     return RunClosure(
         recipe=recipe,
         result=base.result if result is None else result,
-        occurrence=base.occurrence,
+        # The closure fixture's occurrence names `tester`; a run closure added
+        # directly must name the writer's bound actor (write permits §4.2).
+        occurrence=replace(base.occurrence, actor=ACTOR),
     )
 
 
@@ -209,7 +212,7 @@ def raw_cyclic_retraction_pair(writer) -> tuple[Node, Node]:
             reason="authored-error",
             rationale="each of the pair withdraws the other",
             grounds=("verification:absent",),
-            actor="tester",
+            actor=ACTOR,
             event_token="event-cycle",
         )
 
@@ -360,7 +363,7 @@ def forged_single_over_two_producers(writer) -> Node:
     record whose deletion leaves nothing to contradict the forgery (§7).
 
     Module-level rather than inline: `test_deletion_rows.py` builds the same
-    state for the cut-17 R23 row, and one construction serves both.
+    state for the cut-18 R23 row, and one construction serves both.
     """
     dataset = writer.add(stored.dataset_node("d", title="d", resources=PINNED))
     writer.add(_producing_run("a", dataset.id))
@@ -519,7 +522,8 @@ class TestTheAuditReportsAndNeverRaises:
         finding already collected — the failure mode the malformed-record catch
         was added to close, reopened by a sibling of the same base."""
         bystander = _bystander(writer)
-        closure = make_closure(shape="dataset-production")
+        base = make_closure(shape="dataset-production")
+        closure = replace(base, occurrence=replace(base.occurrence, actor=ACTOR))
         dataset = writer.add(
             stored.dataset_node(
                 "produced", title="produced", resources=PINNED, empirical_observation={"boundary": "i"}

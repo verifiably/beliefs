@@ -1,6 +1,6 @@
-"""Frozen cut-17 row evidence over the ordinary-write `delete`.
+"""Frozen cut-18 row evidence over the ordinary-write `delete`.
 
-One section per frozen row of `docs/designs/2026-09-04-conformance-cut-17.md`
+One section per frozen row of `docs/designs/2026-09-04-conformance-cut-18.md`
 §3, portable over `test_relocation._writer`. Task 8 re-runs the same arms
 durably; what runs here is the corpus-read half of every selection, and only
 that half — the log-verification arms G8 and C6 also name are the durable

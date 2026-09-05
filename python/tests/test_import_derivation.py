@@ -51,7 +51,6 @@ class _ImportFields(TypedDict):
     """The report fields every import here shares, typed so unpacking them
     beside an explicit `evidence=` cannot be read as supplying it."""
 
-    actor: str
     observer: str
     instrument: str
     opened_at: str
@@ -59,7 +58,6 @@ class _ImportFields(TypedDict):
 
 
 IMPORT_FIELDS: _ImportFields = {
-    "actor": "a",
     "observer": "o",
     "instrument": "i",
     "opened_at": "2026-09-04T00:00:00Z",

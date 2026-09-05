@@ -5,6 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 
 import pytest
+from authority import ACTOR, FULL, lacking, narrowed
 from fixtures_cut4 import path_for
 from nodes.core.errors import RefError
 from nodes.core.node import Node
@@ -18,6 +19,8 @@ from beliefs.errors import (
     DeletionKindExcluded,
     DeletionRefused,
     DeletionTargetMissing,
+    PermitExceeded,
+    PermitFact,
     RelocationTargetMissing,
     WriteRefused,
 )
@@ -44,7 +47,7 @@ def retraction_for(target: Node, ground: str) -> Node:
         reason="defective-code",
         rationale="the recorded result is invalid",
         grounds=(ground,),
-        actor="tester",
+        actor=ACTOR,
         event_token="event-1",
     )
 
@@ -77,7 +80,7 @@ def _stored_act_report(writer: CorpusWriter) -> Node:
     )
     foreign = stored.act_report_node(foreign_report)
     writer.import_bundle(
-        [foreign], actor="k", observer="corpus", instrument="test", opened_at="T0", closed_at="T1"
+        [foreign], observer="corpus", instrument="test", opened_at="T0", closed_at="T1"
     )
     return writer.read_view.get(foreign.id)
 
@@ -95,8 +98,8 @@ def test_delete_removes_exactly_one_record_and_mints_nothing(tmp_path):
     from test_corpus_write import OperationRecorder, Recorder
 
     Recorder.plans = []
-    port = OperationRecorder(tmp_path)
-    writer = CorpusWriter(tmp_path, Recorder, operation_port=port)
+    port = OperationRecorder(tmp_path, authority=FULL)
+    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port)
     kept = writer.add(_node())
     doomed = writer.add(_other_node("doomed"))
     intents_before, executed_before = len(port.intents), len(Recorder.plans)
@@ -196,7 +199,7 @@ def test_delete_refuses_a_kind_the_coordination_profile_names(tmp_path, base_con
     raw_add(root, node)
 
     resolver = CoordinationResolver({root: profile})
-    profiled_writer = CorpusWriter(root, DefaultExecutor, coordination_resolver=resolver)
+    profiled_writer = CorpusWriter(root, DefaultExecutor, authority=FULL, coordination_resolver=resolver)
     profiled_writer._reconstruct()
 
     with pytest.raises(DeletionKindExcluded):
@@ -303,3 +306,52 @@ def test_supersede_refuses_a_predecessor_deleted_under_it(writer, monkeypatch):
     with pytest.raises(RelocationTargetMissing):
         writer.supersede(successor, of=predecessor.id)
     assert writer.read_view.resolve(successor.id) is None
+
+
+def test_e1_delete_requires_the_corpus_write_permit_on_the_resolved_kind(writer):
+    """E1 for `delete` (write-permits design §15).
+
+    The permit is required on the **resolved** record's kind, before every
+    other refusal and before any effect: the family, then the kind, then the
+    exact requirement accepted. A refused delete leaves the record's file byte
+    identical and the record readable.
+    """
+    from test_relocation import _rebind
+
+    target = writer.add(
+        stored.proposition_node("doomed", title="doomed", claim={"operator": "affects"})
+    )
+    path = path_for(writer.root, target.id)
+    before = path.read_bytes()
+
+    without_family = _rebind(writer, lacking(families=("corpus-write",)))
+    with pytest.raises(PermitExceeded) as refused_family:
+        without_family.delete(target.id)
+    assert refused_family.value.requirement == PermitFact("family", "corpus-write")
+
+    without_kind = _rebind(writer, lacking(kinds=("proposition",)))
+    with pytest.raises(PermitExceeded) as refused_kind:
+        without_kind.delete(target.id)
+    assert refused_kind.value.requirement == PermitFact("kind", "proposition")
+
+    assert path.read_bytes() == before
+    assert writer.read_view.get(target.id) == target
+
+    exact = _rebind(writer, narrowed(kinds=("proposition",), families=("corpus-write",)))
+    exact.delete(target.id)
+    assert not path.exists()
+
+
+def test_e1_delete_requires_before_the_excluded_kind_rule(writer):
+    """The permit check precedes `_refuse_excluded_kind`, so an authority that
+    may not write the kind reads `PermitExceeded`, never `DeletionKindExcluded`."""
+    from test_relocation import _rebind
+
+    report = _stored_act_report(writer)
+    excluded = _rebind(writer, lacking(kinds=("act-report",)))
+    with pytest.raises(PermitExceeded) as refused:
+        excluded.delete(report.id)
+    assert refused.value.requirement == PermitFact("kind", "act-report")
+    assert path_for(writer.root, report.id).exists()
+    with pytest.raises(DeletionKindExcluded):
+        writer.delete(report.id)

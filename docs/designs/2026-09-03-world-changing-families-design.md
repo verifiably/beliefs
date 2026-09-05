@@ -3,7 +3,8 @@
 **Date:** 2026-09-03
 
 **Status:** Banked 2026-09-03. Relocation cut 16 discharged 2026-09-04;
-deletion cut 17 discharged 2026-09-04.
+deletion cut 18 discharged 2026-09-04 (frozen as cut 17, renumbered — the
+write-permits lane's cut froze earlier the same day).
 
 **Scope:** The `consolidate-family` boundary of
 [`../plans/2026-08-29-implementation-roadmap.md`](../plans/2026-08-29-implementation-roadmap.md),

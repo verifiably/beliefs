@@ -1,13 +1,13 @@
-"""Cut 17's 17 frozen declaration units and their source sabotages.
+"""Cut 18's 17 frozen declaration units and their source sabotages.
 
-One unit per row selection of `docs/designs/2026-09-04-conformance-cut-17.md`
+One unit per row selection of `docs/designs/2026-09-04-conformance-cut-18.md`
 §3, plus the boundary invariant — sixteen guarantee rows and one invariant,
 counted once each in §4. Lettered arms (`R23a`, `M11b`, …) normalize back to
 their unit through `unit_of`; the inventory is the tuple below and nothing
 else.
 
 Every arm names one source mutation and the durable check it must turn red.
-The checks are cut 17's own — `tests/acceptance/test_deletion_acceptance.py`,
+The checks are cut 18's own — `tests/acceptance/test_deletion_acceptance.py`,
 the module that runs on the certified engine and volume — so no arm here
 borrows a prior cut's evidence and `CO_CITED` is empty.
 """
@@ -34,7 +34,7 @@ _M5 = f"{_ACCEPTANCE}::test_m5_qualification_identity_durably"
 _BOUNDARY = f"{_ACCEPTANCE}::test_boundary_reresolution_after_a_durable_delete"
 
 
-CUT17_ARMS = (
+CUT18_ARMS = (
     # --- G2c: the lifecycle walk, and `delete`'s committed shape -------------
     Arm(
         row="G2c",

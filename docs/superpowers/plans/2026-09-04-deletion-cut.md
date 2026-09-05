@@ -2,6 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Renumbered 2026-09-04:** this plan executed against "cut 17"; the cut it
+> froze is **cut 18** (`docs/designs/2026-09-04-conformance-cut-18.md` §8), the
+> write-permits lane having frozen its own cut 17 earlier the same day. Every
+> `17` below that names *this* cut, its arms file, its runner and its results
+> record reads 18; the text is left as executed.
+
 **Goal:** Build managed `delete` — the third world-changing operation — together with the deletion cut's assigned ride-alongs (the semantic audit, explicit-import derivation validation, the claim restore seam, and the instrumented belief resolver), and discharge conformance cut 17, closing G2c, G8, C6, R5, W16, M1 and M5.
 
 **Architecture:** `delete` joins `CorpusWriter` beside `add` as an **ordinary write**: no intent, no act-report, one engine effect under the per-root lock, no referential check and no tombstone — the managed/raw asymmetry lives entirely in log verification, never in the corpus read. The ride-alongs add three small modules that **compose** existing seams rather than widening them: `beliefs.audit` (a pure semantic audit over a `ReadView` that mints nothing), `beliefs.evaluation` (the one corpus-backed belief evaluation path, instrumented at read time), and one function in `decode.py` (`claim_from_stored`, keeping `WireClaim` confined). Explicit import gains derivation recomputation over evidence the caller supplies explicitly.

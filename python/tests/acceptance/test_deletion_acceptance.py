@@ -1,6 +1,6 @@
-"""Cut 17's durable arms: managed deletion on the certified engine and volume.
+"""Cut 18's durable arms: managed deletion on the certified engine and volume.
 
-Every selected behaviour of `docs/designs/2026-09-04-conformance-cut-17.md` §3
+Every selected behaviour of `docs/designs/2026-09-04-conformance-cut-18.md` §3
 runs twice — portably, in `tests/test_deletion*.py` and the row modules it
 names, and again here through `open_corpus` on a **registered** root. Only this
 module supports a discharge claim (§5 obligation 2), and it never skips: the
@@ -47,6 +47,7 @@ from atoms.chain.inspect import WellFormedChain
 from atoms.chain.model import IntentEntry, RegisteredEntry, SettledEntry
 from atoms.coordinator.commands import inspect_chain_detached
 from atoms.fs.linux import LinuxBackend
+from authority import FULL
 from fixtures_cut4 import path_for, raw_write, reopen
 from fixtures_cut6 import PINS
 from nodes.core.frontmatter import node_to_markdown
@@ -184,10 +185,10 @@ def _durable_corpora(
     try:
         writers: list[CorpusWriter] = []
         for label in labels:
-            root = work / f"cut17-{os.getpid()}-{next(_COUNTER)}-{label}"
-            init_corpus_root(root)
+            root = work / f"cut18-{os.getpid()}-{next(_COUNTER)}-{label}"
+            init_corpus_root(root, authority=FULL)
             roots.append(root)
-            writers.append(_adopted(open_corpus(root), pins))
+            writers.append(_adopted(open_corpus(root, authority=FULL), pins))
         yield tuple(writers)
     finally:
         for root in roots:
@@ -202,7 +203,7 @@ def _reloaded(scenario: Scenario) -> Scenario:
     indexes at construction, so an assertion made on it is an assertion about
     the process's memory. This one is about the committed bytes.
     """
-    return Scenario(writer=open_corpus(scenario.writer.root), values=scenario.values, roots=scenario.roots)
+    return Scenario(writer=open_corpus(scenario.writer.root, authority=FULL), values=scenario.values, roots=scenario.roots)
 
 
 def _assert_delete_chain(root: Path, before: int, path: str) -> None:
@@ -269,7 +270,7 @@ def _record_files(root: Path) -> list[Path]:
 def _view_writer(writer: CorpusWriter):
     """`test_import_derivation._admission` reads `w.read_view`; hand it a
     corpus opened afresh so the admission it computes is over committed bytes."""
-    return open_corpus(writer.root)
+    return open_corpus(writer.root, authority=FULL)
 
 
 # --- G2c ----------------------------------------------------------------------
@@ -332,7 +333,7 @@ def test_g8_c6_raw_removal_refutes_and_managed_delete_validates(work_directory, 
     **log** audit can: the raw removal is `refuted`, the managed one is
     `validated` carrying `record-removed` and, resolved against the caller's
     held copy, `failing-verification-removed` at error severity."""
-    raw_writer = _adopted(open_corpus(durable_root))
+    raw_writer = _adopted(open_corpus(durable_root, authority=FULL))
     with _durable_corpora(work_directory, "g8-managed") as (managed_writer,):
         raw = _scenario(raw_writer)
         managed = _scenario(managed_writer)
@@ -378,7 +379,7 @@ def test_g8_c6_raw_removal_refutes_and_managed_delete_validates(work_directory, 
 # --- R5: the managed holdings deletion as the last-held-copy transition -------
 
 
-R5_CONTENT = b"the observed bytes cut 17 unholds"
+R5_CONTENT = b"the observed bytes cut 18 unholds"
 R5_DECLARATION = DatasetDeclaration(
     (ResourceDeclaration("data", f"sha256:{sha256(R5_CONTENT).hexdigest()}"),)
 )
@@ -414,11 +415,11 @@ def test_r5_the_managed_holdings_delete_ends_heldness_and_changes_admission(cert
     input's eligibility fails, and admission changes: `NoBelief`, never a
     silently unchanged value."""
     corpus_root, store_root = certified_work / "observer", certified_work / "store"
-    init_corpus_root(corpus_root)
-    manifest = open_corpus(corpus_root).adopt_manifest(profile=PINS)
-    store_id = science_root.init_store_root(store_root)
+    init_corpus_root(corpus_root, authority=FULL)
+    manifest = open_corpus(corpus_root, authority=FULL).adopt_manifest(profile=PINS)
+    store_id = science_root.init_store_root(store_root, authority=FULL)
     context = ActContext(
-        corpus_root, store_root, "observer", "instrument", "actor", science_root.holdings_seam()
+        corpus_root, store_root, "observer", "instrument", FULL, science_root.holdings_seam()
     )
     location = StoreLocator(store_id, "data.bin")
 
@@ -426,9 +427,9 @@ def test_r5_the_managed_holdings_delete_ends_heldness_and_changes_admission(cert
     assert published.record.outcome == Found(f"sha256:{sha256(R5_CONTENT).hexdigest()}")
 
     config = registry.WorldConfig(certified_work / "world", "f" * 32, (corpus_root,))
-    science_root.init_world_root(config)
-    world = science_root.open_world(config)
-    world.admit(corpus_root, provenance=registry.Fresh(), actor="alice")
+    science_root.init_world_root(config, authority=FULL)
+    world = science_root.open_world(config, authority=FULL)
+    world.admit(corpus_root, provenance=registry.Fresh())
     binding = rules.install_rule_binding(world, holdings_rule_bundle())
     seam = science_root._log_seam()
 

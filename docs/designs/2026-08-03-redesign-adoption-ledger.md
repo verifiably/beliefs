@@ -103,7 +103,7 @@ ancestry and the surfaces they built
   states; T8 is a closed-row re-read (cut 16).
 - **Write permits** — closed act families and governed-kind routes,
   `Authority(permit, actor)` bound once at every construction seam, checks
-  before effects across the closed 37-definition inventory, and no
+  before effects across the closed 36-definition inventory, and no
   caller-supplied actor. E1–E8 close at cut 17; the command framework's
   writer session and dispatcher are unblocked.
 - **Managed deletion and the mutation-lane ride-alongs** — `delete` as an

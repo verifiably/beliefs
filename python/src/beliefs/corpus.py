@@ -1181,12 +1181,20 @@ class CorpusWriter:
         would collapse. No referential check: the records naming the target
         keep naming it, and withdrawing epistemic force is retraction's job.
         No tombstone: the chain's committed removal is the history.
+
+        The permit is required on the resolved record's kind before any other
+        refusal (write-permits design §15): the target resolves under the lock
+        first, so a missing ref still refuses `DeletionTargetMissing`, and an
+        authority that may not write that kind is refused before the excluded
+        kinds are read. `_delete_locked` requires again on the same kind; §4.3
+        rules the repeat harmless.
         """
         with self._operation:
             try:
                 node = self._view.get(ref)
             except RefError as caught:
                 raise DeletionTargetMissing(f"{ref}: no record resolves in this corpus") from caught
+            self._authority.require("corpus-write", (node.kind,))
             self._refuse_excluded_kind(node)
             self._delete_locked(node.id)
 

@@ -1,4 +1,4 @@
-"""Run cut 17 after cut 16 on the certified durable tuple."""
+"""Run cut 18 after cut 17 on the certified durable tuple."""
 
 from __future__ import annotations
 
@@ -12,25 +12,26 @@ from pathlib import Path
 PYTHON_ROOT = Path(__file__).resolve().parents[1]
 TOOLS = PYTHON_ROOT / "tools"
 ACCEPTANCE = PYTHON_ROOT / "tests" / "acceptance"
-DEFAULT_WORK = PYTHON_ROOT.parent / ".cut17-acceptance"
+DEFAULT_WORK = PYTHON_ROOT.parent / ".cut18-acceptance"
 
-PREFIX_RUNNERS = ("cut16_acceptance.py",)
-PHASE_MODULES = ("test_deletion_acceptance.py", "test_n2_cut17.py")
+PREFIX_RUNNERS = ("cut17_acceptance.py",)
+PHASE_MODULES = ("test_deletion_acceptance.py", "test_n2_cut18.py")
 PROBE_REFUSED = 2
 
 
 def work_directory() -> Path:
-    work = Path(os.environ.get("SCIENCE_CUT17_ROOT", DEFAULT_WORK))
+    work = Path(os.environ.get("SCIENCE_CUT18_ROOT", DEFAULT_WORK))
     work.mkdir(parents=True, exist_ok=True)
     return work
 
 
 def probe(run: Path) -> str | None:
+    from beliefs.permit import Authority, WritePermit
     from beliefs.root import init_corpus_root, metadata_root_for
 
     corpus_root = run / "probe-corpus"
     try:
-        init_corpus_root(corpus_root)
+        init_corpus_root(corpus_root, authority=Authority(WritePermit.full(), "cut18-probe"))
         return None
     except Exception as refused:  # noqa: BLE001 - report the engine's refusal
         return f"{type(refused).__name__}: {refused}"
@@ -44,16 +45,16 @@ def declared_accounting() -> tuple[int, int]:
         path = str(directory)
         if path not in sys.path:
             sys.path.insert(0, path)
-    from n2_arms_cut17 import CUT17_ARMS, DECLARATION_UNITS  # pyright: ignore[reportMissingImports]
+    from n2_arms_cut18 import CUT18_ARMS, DECLARATION_UNITS  # pyright: ignore[reportMissingImports]
 
-    return len(CUT17_ARMS), len(DECLARATION_UNITS)
+    return len(CUT18_ARMS), len(DECLARATION_UNITS)
 
 
 def cut_environment(run: Path) -> dict[str, str]:
     return {
         **os.environ,
         "XDG_CACHE_HOME": str(run / ".cache"),
-        **{f"SCIENCE_CUT{number}_ROOT": str(run) for number in range(4, 18)},
+        **{f"SCIENCE_CUT{number}_ROOT": str(run) for number in range(4, 19)},
     }
 
 
@@ -65,7 +66,7 @@ def run_prefix(runner: str, run: Path) -> int:
         env={
             **os.environ,
             "XDG_CACHE_HOME": str(run / ".cache"),
-            "SCIENCE_CUT16_ROOT": str(run),
+            "SCIENCE_CUT17_ROOT": str(run),
         },
     )
     return completed.returncode
@@ -75,11 +76,11 @@ def main(argv: list[str]) -> int:
     phases = len(PREFIX_RUNNERS) + len(PHASE_MODULES)
     for module in PHASE_MODULES:
         if not (ACCEPTANCE / module).is_file():
-            print(f"cut-17 required acceptance module is missing: {ACCEPTANCE / module}", file=sys.stderr)
+            print(f"cut-18 required acceptance module is missing: {ACCEPTANCE / module}", file=sys.stderr)
             return 1
     for runner in PREFIX_RUNNERS:
         if not (TOOLS / runner).is_file():
-            print(f"cut-17 required prefix runner is missing: {TOOLS / runner}", file=sys.stderr)
+            print(f"cut-18 required prefix runner is missing: {TOOLS / runner}", file=sys.stderr)
             return 1
 
     work = work_directory()
@@ -88,9 +89,9 @@ def main(argv: list[str]) -> int:
         refusal = probe(run)
         if refusal is not None:
             print(
-                "cut-17 acceptance cannot run here: its durable corpus prerequisite refused.\n"
+                "cut-18 acceptance cannot run here: its durable corpus prerequisite refused.\n"
                 f"  {refusal}\n"
-                "  Set SCIENCE_CUT17_ROOT to a certified volume or recertify the tuple. "
+                "  Set SCIENCE_CUT18_ROOT to a certified volume or recertify the tuple. "
                 "This is an error, not a skip.",
                 file=sys.stderr,
             )
@@ -99,14 +100,14 @@ def main(argv: list[str]) -> int:
         phase = 0
         for runner in PREFIX_RUNNERS:
             phase += 1
-            print(f"[cut17 phase {phase}/{phases}] {runner}", flush=True)
+            print(f"[cut18 phase {phase}/{phases}] {runner}", flush=True)
             if returncode := run_prefix(runner, run):
                 return returncode
 
         environment = cut_environment(run)
         for index, module in enumerate(PHASE_MODULES):
             phase += 1
-            print(f"[cut17 phase {phase}/{phases}] {module}", flush=True)
+            print(f"[cut18 phase {phase}/{phases}] {module}", flush=True)
             completed = subprocess.run(
                 [
                     sys.executable,

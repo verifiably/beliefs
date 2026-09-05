@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-04
 **Scope:** implementation and discharge of
-`../designs/2026-09-04-conformance-cut-17.md`.
+`../designs/2026-09-04-conformance-cut-18.md`.
 
 This file preserves the rulings made while the deletion cut's plan was
 executed. The frozen cut remains the authority for selection and accounting;

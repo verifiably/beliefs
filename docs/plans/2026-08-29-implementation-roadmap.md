@@ -22,7 +22,7 @@ cross-repo seam must land first; **tier 3** when a design question must be
 answered first. A prerequisite that is the boundary's own work is not a
 prerequisite.
 
-Cut 17 delivered write permits: E1–E8 close, the 37-definition write
+Cut 17 delivered write permits: E1–E8 close, the 36-definition write
 inventory is held statically and dynamically, and the command framework's
 writer session and dispatcher are now unblocked. The completed
 `write-permits` boundary and its one-boundary authority lane leave the live

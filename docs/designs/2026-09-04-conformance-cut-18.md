@@ -1,7 +1,8 @@
-# Conformance cut 17 — managed deletion
+# Conformance cut 18 — managed deletion
 
-**Status:** Frozen 2026-09-04. Discharged 2026-09-04
-(`../plans/2026-09-04-conformance-cut-17-results.md`).
+**Status:** Frozen 2026-09-04 as cut 17; renumbered to cut 18 on 2026-09-04 (§8).
+Discharged 2026-09-04
+(`../plans/2026-09-04-conformance-cut-18-results.md`).
 
 **Sources:** `2026-09-03-world-changing-families-design.md` §2.2, §2.3, §2.5,
 §3.0, §3.1, §3.6, §6.2, §6.3 and §7, and the frozen G, C, R, S, W, T and M
@@ -9,7 +10,7 @@ rows quoted below.
 
 ## 1. What this cut is
 
-Cut 17 is the frozen acceptance boundary for managed deletion and the
+Cut 18 is the frozen acceptance boundary for managed deletion and the
 mutation lane's assigned ride-alongs: the ordinary-write `delete`, the
 managed/raw asymmetry under log verification, the deletion clauses the
 relocation cut deferred, the claim restore seam, the instrumented belief
@@ -315,8 +316,8 @@ record (§3.1).
 2. Every selected behavior runs portably and again through the certified
    engine on the certified kernel and volume tuple. Capability refusal is an
    error, never a skip or waiver.
-3. The aggregate runner names `cut16_acceptance.py` as its prefix, then runs
-   the deletion acceptance module and the cut-17 N2 audit.
+3. The aggregate runner names `cut17_acceptance.py` as its prefix, then runs
+   the deletion acceptance module and the cut-18 N2 audit.
 4. G8's asymmetry runs through `audit_log` over a real chain: the raw arm
    must read `refuted` and the managed arm `validated` with both removal
    findings. A test that asserts only the corpus read does not satisfy the
@@ -360,3 +361,35 @@ The reader challenges especially:
   limitations, ranked nowhere.
 - **No interrupted operation is ever completed** (design §8); `delete` is one
   transaction and has no prefix set.
+
+## 8. Renumbering amendment — 2026-09-04
+
+This cut was frozen as **cut 17** at `2071be0`. The write-permits lane froze
+its own cut 17 earlier the same day (`c2f87b3`, renumbered at `398491d`) and
+merged first. The roadmap's concurrency rule 1 claims a number **at freeze, in
+freeze order**, so the earlier freeze keeps 17 and this cut is **cut 18**.
+Rule 5 then makes this cut's aggregate runner name the highest-numbered
+runner below it, `cut17_acceptance.py`, as its prefix.
+
+The renumbering is a rename, not a re-reading. §§2–7 are byte-identical to the
+freeze at `2071be0` under exactly four substitutions:
+
+| from | to |
+|---|---|
+| `cut 17` | `cut 18` |
+| `Cut 17` | `Cut 18` |
+| `cut-17` | `cut-18` |
+| `cut16_acceptance` | `cut17_acceptance` |
+
+Nothing else moves: the boundary, the row selections and their quoted rows,
+the 17 declaration units, the 20 sabotage arms, and the accounting — 7
+full/closed, 5 partial, 4 closed-row re-reads — are the frozen ones.
+`tests/acceptance/test_n2_cut18.py` pins both commits: current §§2–7 must equal
+the renumbering commit's byte-exact **and** equal the freeze commit's under
+those four substitutions.
+
+One implementation change rides with the renumbering, dated here and in the
+write-permits design's §15: `CorpusWriter.delete` now requires the
+`corpus-write` permit on the resolved record's kind before any other refusal,
+and is inventoried as a write entry point. It is a check added before an
+effect; no selected behavior, arm or check changes.
