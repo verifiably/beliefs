@@ -97,7 +97,7 @@ directly rather than through a decompression rule. `target.yaml` carries
 | # | step | outcome | left on disk |
 |---|---|---|---|
 | 1 | register a world root and adopt one fresh corpus | ran 2026-09-05: world `9ea5394560c2a36acdd4e502e02141c7`, corpus `6d25948b9d8bf0120b096ab470241742` admitted `Fresh`, status `known, live, present`, no findings; store `6750e2f29ff9f74fb8724fc6caad5ff1` | `world/` (registry, `world.yaml`), `corpus/corpus.yaml` (manifest pinning the science contract and the `mm30-reproduction` domain), `store/`, and the three `.metadata` roots |
-| 2 | type the target and mint the proposition | pending | |
+| 2 | type the target and mint the proposition | ran 2026-09-05: `build_claim` typed the target under the unsorted vocabulary on the first call; claim identity `5e702bc43fdf51d3…`; minted `proposition:concept-disease-stage-affects-protein-phf19` under the full `Authority`. The pure measurement under the modal-sorted vocabulary refused: `ArgumentSortMismatch: slot 1 of 'mm30/affects' is declared 'mm30/concept'; 'protein:PHF19' is of sort 'mm30/protein'` (§6) | `corpus/proposition/…` — one `proposition` record carrying the claim projection and a display statement |
 | 3 | hold the dataset | pending | |
 | 4 | freeze the analysis spec and its recipe | pending | |
 | 5 | execute the run under confinement | pending | |
@@ -176,12 +176,21 @@ here; they are in §8.
 
 | step | class | reason | filed |
 |---|---|---|---|
-| — | — | none yet | — |
+| 2 | corpus-work | under `mm30-modal-sorted`, `build_claim` on the target: `ArgumentSortMismatch` — slot 1 of `mm30/affects` is declared `mm30/concept`; `protein:PHF19` is of sort `mm30/protein` (a term with no slot to occupy, not a rejected value). The exercise's own corpus work: it types under the unsorted vocabulary (§2) | this record, §2 and §5 (the fourth question) |
 
 ## 7. Authoring cost
 
-Pending (Task 5 records the wall time from opening the predecessor record
-through the vocabulary edits to the mint).
+Preliminary; completed at the end. Wall clock, local, 2026-09-05: the
+predecessor's proposition and evidence-line records were first opened at
+15:38 (the selection driver's first successful run); the vocabulary was
+chosen (not edited — both candidates predate the exercise, authored
+2026-08-07 by the typing exercise) at 15:41; the proposition was minted at
+15:42:38. **About four and a half minutes of authoring for one proposition**,
+of which `build_claim` and the mint took under a second (`typing_seconds` in
+`state.json`). Reading what the predecessor computed (two interpretation
+records, one workflow rule, the file's header) took most of it. One
+proposition was typed, not ten: the analysis plan for this target names no
+other proposition. Compared against the run at the end.
 
 ## 8. Driver corrections
 
