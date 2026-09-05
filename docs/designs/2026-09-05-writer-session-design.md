@@ -3,8 +3,8 @@
 **Date:** 2026-09-05
 **Status:** designed; amended 2026-09-05 after the first review (seven
 findings, §2 items 10–14) and again after the second (four findings, §2
-items 15–18); conformance cut 19 freezes after the third review, before
-implementation.
+items 15–18) and the third (two findings, §2 items 19–20); conformance
+cut 19 freezes after the fourth review, before implementation.
 **Scope:** the `beliefs` half of the command framework's write boundary beyond
 permits — the user and autonomy layer design
 (`../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md`) §5.2
@@ -175,6 +175,20 @@ command writes.
 18. **The corpus id and chain are read at open, once.** An unadopted or
     unregistered root refuses at open (decision 5); every `act` line carries
     the id read then.
+19. **A failed submission leaves the root unresolved until the engine has
+    recovered.** The commit seam does not rebuild the view after a failure in
+    step 5 — the files it would index may be a staged effect recovery will
+    remove. It marks the root's shared state `recovery_pending`, and every
+    locked write body on that root, ordinary or operation, first has the
+    port run recovery, then rebuilds, then prepares. Until recovery
+    succeeds no prepare runs.
+20. **Ledger I/O failure ends the session.** A failed `write`, `flush` or
+    `fsync` leaves bytes whose durability the index cannot vouch for; the
+    session becomes `LedgerFailed`, appends nothing further — not even
+    `session-close` — and every method raises `SessionLedgerFailed`. The
+    file is preserved exactly as the failure left it, and the reader's torn
+    tail is its evidence. A handler's error is not a ledger failure and
+    leaves the session usable (decision 7).
 
 ## 3. The session — `beliefs/session/`
 
@@ -240,9 +254,17 @@ attribute the contract names; the ceiling is internal.
 
 One JSON object per line: `json.dumps(obj, sort_keys=True,
 separators=(",", ":"), ensure_ascii=False)`, UTF-8, newline-terminated.
-Every append is `write`, `flush`, `os.fsync` on the file descriptor before
-the appending call returns; the session directory is fsynced once at
-creation. The `line` key discriminates:
+Every append is `write`, `flush`, `os.fsync` on the file descriptor, **and
+only then** the in-memory index update, before the appending call returns;
+the session directory is fsynced once at creation. If any of the three
+steps raises, the session enters the `LedgerFailed` state (decision 20):
+the exception is re-raised as `SessionLedgerFailed` carrying the cause, the
+index is not updated, the file descriptor is closed without further writes,
+and every later method — `scoped`, `claim_invocation`, `close_invocation`,
+`invocation_acts`, and `close` itself — raises `SessionLedgerFailed`. Nothing
+is ever appended after a partial line, so a torn tail stays a tail; and no
+in-memory claim ever outruns the bytes that prove it. The `line` key
+discriminates:
 
 | `line` | fields |
 |---|---|
@@ -318,9 +340,11 @@ a first line that is not `session-open` is malformed. A final byte sequence
 with no terminating newline is a **torn tail**: the reader records it
 (`reader.torn_tail: bool`) and does not refuse, because it is the crash
 evidence §6 exists to surface. The reader exposes `session_id`, `actor`,
-`world_id`, `closed` (whether `session-close` was read), `open_invocation`
-(the id of an `invocation-open` with no `invocation-close`, or `None`),
-`acts()` (every `ActLine`), `invocations()`, and
+`world_id`, `closed` (whether `session-close` was read),
+`open_invocations` (the ids of every `invocation-open` with no
+`invocation-close`, in ledger order — several when invocations were
+abandoned, §3.3; empty when none), `acts()` (every `ActLine`),
+`invocations()`, and
 `invocation(id) -> InvocationRecord | None` carrying `invocation`, `command`,
 `input_digest`, `acts` and `outcome` (`None` while open). A missing file is
 `FileNotFoundError`, not a malformed ledger; an empty file is
@@ -406,8 +430,9 @@ Under the root's operation lock, in this order and no other:
 3. `operation_port.preflight(plan)` — every check the engine would make that
    needs no engine state: `nodes`' `validate_plan`, the reserved-leaf rule,
    and the record ceiling (`root._refuse_malformed` and
-   `_refuse_over_ceiling`, exposed through the port). `PlanRefusedError`
-   propagates; the chain is untouched.
+   `_refuse_over_ceiling`, exposed through the port). The port's
+   `PlanRefusedError` is raised here as `PlanRefused`, a `WriteRefused`
+   (decision 15); the chain is untouched.
 4. Append the intent: `OperationIntent("corpus-write",
    secrets.token_hex(16), authority.actor)` encoded as
    `v1.encode({"kind", "event_token", "actor"})`, through
@@ -421,12 +446,27 @@ Under the root's operation lock, in this order and no other:
    durability — fails as `ExecutionError`, never as a refusal; so does the
    readback of the registration digest, which runs after the commit is
    durable.
-6. `_reconstruct()` — the view is rebuilt as import rebuilds it today. It
-   runs in a `finally` around step 5: once submission was attempted the
-   on-disk state may have moved whether or not step 5 returned, and a
-   stale view would make the next prepare misjudge a path the engine then
-   refuses.
+6. `_reconstruct()` — the view is rebuilt as import rebuilds it today —
+   **on success only**. If step 5 raised, the seam instead sets the root's
+   shared `recovery_pending` flag and re-raises (decision 19): the files on
+   disk may include a staged effect the engine's recovery will roll back,
+   and indexing them would let the next prepare accept, say, a retraction
+   target that recovery then removes before the retraction commits.
 7. Return the commit.
+
+**Recovery before the next prepare.** Every locked write body on
+`CorpusWriter` — the seven ordinary methods and `_commit` — begins, after
+taking the root's operation lock, with `_settle()`: when `recovery_pending`
+is set it calls `operation_port.recover()`, then `_reconstruct()`, then
+clears the flag; when recovery itself fails the flag stays set and
+`ExecutionError` propagates, so no prepare runs against unresolved state.
+`recover()` is `read_chain` under the engine's project lock — the call
+`_chain_head` already makes, which "resolves recovery before it projects" —
+and it is not a write primitive: recovery is the engine's own consistency
+act, exactly as the audit's registered inspection runs it today, and the
+static inventory is unchanged by it. Reads through `read_view` between the
+failure and the next write see the files as the failure left them, as they
+do today for any failed write (§8 item 11).
 
 Steps 1–3 are refusals and leave nothing. Step 3 raises `PlanRefused`, a
 `WriteRefused` subclass wrapping the preflight's `PlanRefusedError`
@@ -523,7 +563,8 @@ invocation stays open, and a retry meets `outcome-unknown` — which is the
 truthful state after a failure past submission (decision 16). The ledger
 append in step 3 is the last such failure point: a crash between the commit
 and the line leaves a covered-in-truth, uncovered-in-evidence registration
-that §6 names. `KernelRefusalValue(value)` — an
+that §6 names, and a ledger I/O failure there raises `SessionLedgerFailed`,
+ends the session (decision 20), and leaves the same registration for §6. `KernelRefusalValue(value)` — an
 `Exception` exposing `.value`, whose wrapped value exposes `.reason` — is
 defined and exported for the contract's one normalization path. **None of
 the seven methods returns a value-style refusal, so this slice never raises
@@ -610,14 +651,14 @@ The `J` table. Rows are frozen; ids are never renumbered.
 | # | Guarantee | Mutation test |
 |---|---|---|
 | **J1** | Every session-mediated ordinary write is exactly one `corpus-write` intent under the session actor followed by exactly one committed registration fulfilling it; the intent qualification reads `matched` and completion reads `closed`; a refused write — permit, family, plan shape, or record ceiling — leaves the chain head unchanged, and every refusal an ordinary method makes, its operation twin makes | Through a real attended session over a registered root, for each of the seven scoped methods: assert the chain grew by one intent (decoded kind `corpus-write`, actor `session:<id>`) and one registration whose `fulfills` is that intent's digest; run `qualify_chain` and `completion` and assert `matched`/`closed`, `delete` included, whose registration publishes no record. Refuse each method under a permit lacking the kind, with a malformed record under the full permit, with a record over `RECORD_CEILING`, and — for `add` — with a retraction and with an act-report; assert the head is byte-identical and, for the retraction, that the refusal equals `add`'s own. **Negative:** the same seven through the ordinary `CorpusWriter` methods append no intent |
-| **J2** | Intent precedes effect, and the promise is bounded by submission: a failure after the intent and before the plan is submitted leaves an unfulfilled intent and no record; a failure after submission — the engine's own, the registration readback, the ledger append, a crash — leaves a state that is unknown until inspected; both surface as `ExecutionError`, never as a refusal, and reconciliation classifies both as `session-outcome-unknown` under the open invocation from the chain, not the exception | Fault `execute_fulfilling` before it submits; assert `ExecutionError`, one intent, no registration, no record file, one `session-outcome-unknown` on the intent digest. Fault the registration readback after the commit; assert `ExecutionError`, the record durable, the registration committed, no `act` line, the view rebuilt, and one `session-outcome-unknown` on the registration digest. Fault the ledger append after the commit; assert the same. Raw-write the target path between prepare and execute so the engine's precondition fails; assert `ExecutionError` and that reconciliation, not the test, says whether a registration stands. **Negative:** fault `append_intent` itself and assert no intent and no record — nothing to reconcile; `PlanRefused` from preflight appends no intent |
+| **J2** | Intent precedes effect, and the promise is bounded by submission: a failure after the intent and before the plan is submitted leaves an unfulfilled intent and no record; a failure after submission — the engine's own, the registration readback, the ledger append, a crash — leaves a state that is unknown until inspected; both surface as `ExecutionError`, never as a refusal, and reconciliation classifies both as `session-outcome-unknown` under the open invocation from the chain, not the exception | Fault `execute_fulfilling` before it submits; assert `ExecutionError`, one intent, no registration, no record file, one `session-outcome-unknown` on the intent digest. Fault the registration readback after the commit; assert `ExecutionError`, the record durable, the registration committed, no `act` line, the view rebuilt, and one `session-outcome-unknown` on the registration digest. Fault the ledger append after the commit; assert the same, and that the session is `LedgerFailed`. **Continuation after unresolved effects:** fault the engine after it has staged the record file but before commit; assert `ExecutionError` and `recovery_pending`; then, through the same session, `retract` a retraction naming that record — assert recovery ran first (the staged file is gone, the chain shows the rollback), the view was rebuilt, and the retraction is refused `RelocationTargetMissing`, never committed; then a fresh `add` succeeds and clears the flag. Fault recovery itself and assert the flag stays set and the next write raises `ExecutionError` before any prepare. Raw-write the target path between prepare and execute so the engine's precondition fails; assert `ExecutionError` and that reconciliation, not the test, says whether a registration stands. **Negative:** fault `append_intent` itself and assert no intent and no record — nothing to reconcile; `PlanRefused` from preflight appends no intent |
 | **J3** | The scoped writer's effective permit is exactly the requirement: an act outside it is `PermitExceeded` raised by the kernel entry point under a full-permit session with nothing written, and `scoped` refuses an uncovered requirement before any writer exists | `scoped(for_kinds({"proposition"}, {}))` then `add(source)` → `PermitExceeded(("kind", "source"))`, head unchanged, no `act` line; `scoped(coordination())` then `add(proposition)` → refused on `proposition`; a requirement covered by the ceiling under a session whose ceiling is narrowed in test → `PermitExceeded` from `scoped`, `_root_state_for` untouched. **Negative:** the same acts under a requirement that names them are minted, and `PermitExceeded.capability` is the *requirement's* summary at the act and the *ceiling's* at `scoped` |
 | **J4** | The actor is session-fixed: every intent a session write appends carries `session:<id>`, no session or scoped method accepts an actor, and a retraction whose facet names another actor is `ActorMismatch` with nothing written | Decode every intent after a run of scoped writes and assert the actor; inspect every public signature on `WriterSession`, `ScopedWriter` and `OperationWrites` for an `actor` parameter and assert none; `retract` a retraction naming `someone-else` → `ActorMismatch`, head unchanged. **Negative:** the same retraction with the session actor is minted |
 | **J5** | Every `act` line carries the registration digest the chain holds and the exact minted identities, and is durable before the write returns and before the root's operation lock releases | After each scoped write, read the ledger back and assert the last `act` line's `entry` equals the registration digest `read_chain` reports for the intent and its `records` equal `[(node.uid, node.id)]` (or `[]` for delete); assert the file's byte length grew before the method returned (a wrapped `os.fsync` observed once per line); observe the lock from a second thread and assert it is held from before the commit until after the append. **Negative:** an `act` line written with a fabricated `entry` is what `session-act-unverified` catches (J8) |
 | **J6** | The claim protocol is exhaustive and fail-closed: the four outcomes of §3.3 exactly, a `ClaimDone` outcome replayed whole (refusal envelope included), an abandoned invocation left open and never blocking a later fresh claim, and every protocol violation a hard error with nothing appended | Drive the table: fresh → open line; same id, same command and digest after close → `ClaimDone` with the identical persisted mapping, for a `done` and for a `refusal` outcome; different digest → `ClaimMismatch`; different command → `ClaimMismatch`; open without close → `ClaimOpen`; a second fresh id while one is open → `ClaimFresh`, the earlier still open, the new one current; `close_invocation` of the abandoned id → `SessionProtocolError`; `close_invocation` of the current id → closed; a malformed outcome → `ValueError`, invocation still current. Assert the returned value's type is one of the four sealed classes in every case. **Negative:** eight threads claiming one fresh id under an external lock see one `ClaimFresh` and, after close, seven `ClaimDone`; an oversized record through the scoped writer is `PlanRefused`, a `WriteRefused`, and its invocation closes with a refusal envelope rather than staying open |
-| **J7** | Every ledger line is appended and fsynced before its call returns, the encoding is canonical JSON lines, and the reader refuses a malformed line and reports a torn tail | Wrap `os.fsync` and assert one call per line for every line kind; parse each line with a strict decoder and assert `sort_keys` order and no whitespace; truncate a ledger mid-line → `torn_tail` true and every complete line read; corrupt a middle line → `LedgerMalformed` naming its number; a first line that is not `session-open` → `LedgerMalformed`. **Negative:** a valid ledger round-trips through the reader to the same `InvocationRecord`s the session's index holds |
+| **J7** | Every ledger line is appended and fsynced before its call returns and before the index records it, the encoding is canonical JSON lines, the reader refuses a malformed line and reports a torn tail, and a ledger I/O failure ends the session with the file preserved as the failure left it | Wrap `os.fsync` and assert one call per line for every line kind; parse each line with a strict decoder and assert `sort_keys` order and no whitespace; truncate a ledger mid-line → `torn_tail` true and every complete line read; corrupt a middle line → `LedgerMalformed` naming its number; a first line that is not `session-open` → `LedgerMalformed`. Fault `write` after part of a line → `SessionLedgerFailed`, the index unchanged, the next `claim_invocation` and `close` → `SessionLedgerFailed`, the file's bytes exactly the partial line, the reader reporting a torn tail with every earlier line intact; fault `fsync` after a complete line → the same, and the claim the line would have recorded is absent from the index. **Negative:** a valid ledger round-trips through the reader to the same `InvocationRecord`s the session's index holds; a handler's `WriteRefused` leaves the session usable |
 | **J8** | Reconciliation classifies every actor-matching chain entry into exactly one of §6's codes, reports ledger claims the chain lacks and every unreadable ledger state, writes nothing — recovery included — and yields byte-equal results at open and through the audit surface over one lock-coherent snapshot | Build every intent, chain and ledger state §6 tables — the detached `pending`-only registration included — over stand-in views and ledger evidence and assert one finding each with the tabled code, severity and ref; run `root.reconcile_sessions` over the real root before and after a crashed session (a ledger with open invocation and a chain with its uncovered entry) and assert the findings equal `session.findings` of a session opened over the same root; hash the corpus root, its metadata sibling and the operations root before and after and assert equality, including with an unsettled registration present (which registered inspection would have resolved). **Interleaving:** start a scoped write on a second thread that blocks inside the commit, run reconciliation, release; assert no `session-entry-foreign` and that the write is either absent from both reads or covered. **Negative:** a fully covered session yields no finding, and an ordinary library write — no session actor — is never classified; a session directory with no ledger yields `session-ledger-missing` and does not refuse open |
-| **J9** | Lifecycle: open writes `session-open` with the actor, world id and permit summary; `close` appends `session-close` once and is idempotent; every later call is `SessionClosed`; a config without exactly one corpus root, a root with no manifest, or a root whose chain is absent or malformed refuses at open with no directory created | Open and assert the first line; close twice and assert one `session-close`; call each method → `SessionClosed`; open over configs with zero and two corpus roots, a missing root, an existing but unadopted root, a registered root with no manifest, and an adopted root whose chain directory is removed → `SessionRefused`, no `sessions/` entry. **Negative:** a session left with an open invocation at `close` writes `session-close` after it, and the reader reports `open_invocation` and `closed` both |
+| **J9** | Lifecycle: open writes `session-open` with the actor, world id and permit summary; `close` appends `session-close` once and is idempotent; every later call is `SessionClosed`; a config without exactly one corpus root, a root with no manifest, or a root whose chain is absent or malformed refuses at open with no directory created | Open and assert the first line; close twice and assert one `session-close`; call each method → `SessionClosed`; open over configs with zero and two corpus roots, a missing root, an existing but unadopted root, a registered root with no manifest, and an adopted root whose chain directory is removed → `SessionRefused`, no `sessions/` entry. **Negative:** a session left with an open invocation at `close` writes `session-close` after it, and the reader reports it in `open_invocations` and `closed` both |
 | **J11** | A scoped writer is bound to one invocation: it acts only while that invocation is the current one, refuses with `SessionProtocolError` and nothing written before it is claimed, after it is closed or abandoned, and under any other current invocation, and carries the requirement it was scoped with, not the ceiling | `scoped(req, "A")`; act before claiming A → `SessionProtocolError`, head unchanged; claim A fresh, act → minted; close A; act again → `SessionProtocolError`; `scoped(narrower, "B")`, claim B fresh; act with A's writer → `SessionProtocolError`, head unchanged, no `act` line under B; act with B's writer → minted under B; abandon B (no close), claim C fresh; act with B's writer → `SessionProtocolError`. **Negative:** two writers scoped for the same id under one claim both act, and every act ledgers under that id |
 | **J10** | A session-written record is indistinguishable on ordinary read from a library write of the same node: same bytes, same path, no additional record, and the corpus view differs only by the record itself | Write one node through a scoped writer and the same node through `open_corpus` on a twin root; assert byte-equal record files, equal `corpus_check` findings, and equal record inventories. Session-`delete` a record and raw-`unlink` its twin; assert the two read views are equal. **Negative:** the two *chains* differ — the session root holds the intent and the fulfilling registration — which is the whole of the difference |
 
@@ -665,7 +706,11 @@ The `J` table. Rows are frozen; ids are never renumbered.
     requirement of `for_kinds({"run"}, {"run": "corpus-write"})` commits a
     `run` record through `add` as an ordinary write, as the route says; the
     `run` family's own intent is the run boundary's.
-
+11. **Reads after a failed submission see unresolved files until the next
+    write.** `recovery_pending` gates writes, not `read_view`; a read between
+    the failure and the next write may see a staged effect recovery will
+    remove, exactly as it does today for a failed ordinary write. Making
+    reads recover is the world-read lane's question, not this slice's.
 ## 9. Conformance cut 19
 
 Cut 18 is discharged (`../plans/2026-09-04-conformance-cut-18-results.md`)
@@ -717,8 +762,9 @@ unreadable ledger's entries as foreign; settle a pending registration),
 `root.py` (read the chain through `inspect_registered`; read ledgers
 outside the lock; raise on a missing ledger; open over a root with no
 manifest), `session/writer.py` again (let a fresh claim raise while one is
-open; let `_commit` raise the `nodes` type from preflight; skip the
-`finally` reconstruct), `session/reconcile.py` again (drop the view's
+open; let `_commit` raise the `nodes` type from preflight; rebuild the view after a failed submission; skip `_settle`; append a
+ledger line after a failed one; update the index before the fsync),
+`session/reconcile.py` again (drop the view's
 `pending` pairs; attach a `pending` pair to an intent), and
 `test_permit_boundary.py`'s inventory (drop the `_commit` row).
 `test_n2_cut19.py` audits them by the cut-12 pattern, and
@@ -735,7 +781,9 @@ then its phase modules.
   (`DurableOperationPort.preflight` and `execute_fulfilling`,
   `reconcile_sessions`), `intents/reduce.py` (`_qualify_one`), `errors.py`
   (`SessionRefused`, `SessionClosed`, `SessionProtocolError`,
-  `LedgerMalformed`, `OperationPortMissing`, `PlanRefused`); and every test port's
+  `LedgerMalformed`, `SessionLedgerFailed`, `OperationPortMissing`,
+  `PlanRefused`); `runrecord.py` and `root.py` also gain
+  `OperationPort.recover()`; and every test port's
   `execute_fulfilling`.
 - **The `session` lane.** The roadmap's lane table gains `session` with
   `writer-session` as its one boundary and a shared surface of `session/`,
@@ -829,6 +877,16 @@ then its phase modules.
 - **Deferring adoption and registration to the first write.** Reconciliation
   at open needs the corpus id and the chain; an endpoint that opened over
   nothing would carry `act` lines no audit could verify.
+- **Rebuilding the view in a `finally` after a failed submission.** It
+  indexes whatever the failure left, staged effects included, and the next
+  prepare trusts the index; recovery then moves the files under a decision
+  already made. Gating writes on recovery costs one chain read after a
+  failure that should be rare.
+- **Continuing to append after a ledger I/O failure.** A partial line
+  followed by a complete one is malformed interior content the reader must
+  refuse, where a partial tail alone is evidence it can report; and an index
+  that recorded a claim whose fsync failed would replay an outcome the disk
+  may not hold.
 - **Refusing open when a prior session is unclosed.** It would make a crash
   a lockout. The finding is the contract's chosen surface for the person.
 
