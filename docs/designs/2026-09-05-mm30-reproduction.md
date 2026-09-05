@@ -72,6 +72,19 @@ of the proposition, and the record says so rather than taking the next
 alternative (both alternatives over this dataset are abstract concepts —
 `ratchet-strength`, `fitness-selection` — with no column in the file).
 
+**The vocabulary.** The proposition is typed under the exercise's own copy
+of the typing exercise's *unsorted* vocabulary
+(`python/tools/reproduction/mm30-reproduction.yaml`, one sort `term`), not
+the modal-sorted one the plan named: the target's kind pair is
+concept→protein, and `mm30-modal-sorted.yaml` assigns `affects` the slots
+`[concept, concept]` by its stated modal rule, refusing the 10
+concept→protein `affects` records by construction. Both vocabularies
+predate the selection, so choosing between them is not fitting one to the
+target; the modal-sorted refusal is measured at step 2 as a pure
+`build_claim` call (no mint) and recorded. Every binding is the placeholder
+`mm30-entities` at release `2026-08-07`; the resolution snapshot declares
+nothing readable, so question 1 is answered unmeasured (§5).
+
 **The file's shape.** The matrix is wide: 58,050 gene rows × 51 sample
 columns, gzipped. The plan assumed a long table with a `value_column` and a
 `group_column`; the analysis (Task 7) reads the wide shape instead, taking
