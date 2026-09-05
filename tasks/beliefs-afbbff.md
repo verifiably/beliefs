@@ -6,10 +6,11 @@ priority: 1
 size: xl
 owner: feat/writer-session
 created: 2026-08-31T21:28:39Z
-updated: 2026-09-05T11:16:11Z
+updated: 2026-09-05T11:38:57Z
 depends: [beliefs-96a24a]
 tags: [writer, sessions]
 spec: docs/designs/2026-09-05-writer-session-design.md
+plan: docs/plans/2026-09-05-writer-session.md
 ---
 
 Sub-project 2's beliefs half beyond permits (beliefs-96a24a): open_attended_session with fresh session identity and endpoint-set actor; WriterSession.scoped(required) returning an invocation-scoped writer; the session ledger (invocation-open/act/invocation-close with persisted refusal envelopes) at <operations root>/sessions/; every session-mediated ordinary corpus write as intent+fulfillment via a versioned act-report amendment adding the corpus-write operation kind; crash reconciliation (chains are truth, ledger is evidence). Contract: the science repo's docs/specs/2026-08-31-command-framework-design.md §§4-5 and its plan's Task 12 Consumes block.
@@ -26,3 +27,4 @@ Sub-project 2's beliefs half beyond permits (beliefs-96a24a): open_attended_sess
 - 2026-09-05T10:41:55Z (feat/writer-session): review 5 resolved: recovery bound to the durable executor factory (recover(root)), read into root state at creation; portless durable writers recover; stale head-unchanged and ExecutionError wording aligned
 - 2026-09-05T10:59:05Z (feat/writer-session): review 6 resolved: two consistency edits; no architectural blockers remain; cut 19 may freeze
 - 2026-09-05T11:16:11Z (feat/writer-session): cut 19 frozen 2026-09-05: docs/designs/2026-09-05-conformance-cut-19.md, J1-J11 in full, 11 units, prefix cut18_acceptance.py; J table in the inventory; roadmap/ledger gain writer-session and the session lane
+- 2026-09-05T11:38:57Z (feat/writer-session): plan banked at docs/plans/2026-09-05-writer-session.md; 12 chained children
