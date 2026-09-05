@@ -42,7 +42,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, cast, final
 
 from nodes.core.corpus import Corpus
-from nodes.core.errors import CollisionError, ExecutionError, RefError
+from nodes.core.errors import CollisionError, ExecutionError, PlanRefusedError, RefError
 from nodes.core.errors import ValidationError as NodesValidationError
 from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.node import Node
@@ -87,6 +87,8 @@ from beliefs.errors import (
     MalformedRecord,
     ManifestAlreadyPresent,
     ManifestMalformed,
+    OperationPortMissing,
+    PlanRefused,
     PredecessorMismatch,
     PredecessorNotStanding,
     ProjectNotResolvable,
@@ -404,6 +406,29 @@ class _RootState:
     depth: int = 0  # settling-hold nesting on the owning thread
 
 
+def _plan_kinds(plan: WritePlan) -> tuple[str, ...]:
+    """The kinds a plan emits, from the record layout `<kind>/<slug>.md` (§13 item 13)."""
+    kinds: list[str] = []
+    for op in plan:
+        kind, _, rest = op.path.partition("/")
+        if not kind or not rest:
+            raise PlanRefused(f"{op.path!r} is not a record path")
+        kinds.append(kind)
+    return tuple(dict.fromkeys(kinds))
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class OperationCommit:
+    """What one operation write committed (writer-session design §4.2)."""
+
+    record: Node | None
+    event_token: str
+    intent_digest: str
+    entry_digest: str
+
+
 class _RoutedExecutor:
     """The executor the corpus holds (§13 items 12–13): an implementation of the
     `execute` primitive. Ordinary submissions mark the root unresolved and
@@ -436,7 +461,22 @@ class _RoutedExecutor:
         self.commit_fulfilling(scope, plan)
 
     def commit_fulfilling(self, scope: _Fulfillment, plan: WritePlan) -> None:
-        raise NotImplementedError("Task 5 supplies the commit seam")
+        """The commit seam (design §4.3, §13 item 13): require, preflight, intent,
+        fulfilling execution — in that order and no other."""
+        scope.authority.require("corpus-write", _plan_kinds(plan))
+        try:
+            scope.port.preflight(plan)
+        except PlanRefusedError as caught:
+            raise PlanRefused(str(caught)) from caught
+        scope.submitted = True  # the refusals are behind us; the intent is the first effect
+        self._state.unresolved = True
+        token = secrets.token_hex(16)
+        intent = OperationIntent("corpus-write", token, scope.authority.actor)
+        intent_digest = scope.port.append_intent(
+            v1.encode({"kind": intent.kind, "event_token": intent.event_token, "actor": intent.actor})
+        )
+        entry_digest = scope.port.execute_fulfilling(plan, intent_digest)
+        scope.result = (token, intent_digest, entry_digest)
 
 
 def _routed_factory(
@@ -1262,6 +1302,28 @@ class CorpusWriter:
         """The facade every other module receives. The mutable handle stays
         here."""
         return self._view
+
+    @contextmanager
+    def _fulfilling(self) -> Iterator[_Fulfillment]:
+        """Bind this writer's authority and port for one submission (§13 item 11).
+        Entered under the raw root lock by `OperationWrites` only; the ordinary
+        method it wraps takes the settling hold itself, after its `require`."""
+        port = self._operation_port
+        if port is None:
+            raise OperationPortMissing("this corpus has no operation port; operation writes are session-mediated")
+        state = self._state
+        if state.fulfilling is not None:
+            raise ScienceError("a nested fulfilling scope is not admitted")
+        scope = _Fulfillment(self._authority, port)
+        state.fulfilling = scope
+        try:
+            yield scope
+        finally:
+            state.fulfilling = None
+
+    @property
+    def operations(self) -> OperationWrites:
+        return OperationWrites(self)
 
     def add(self, node: Node) -> Node:
         """Mint one record, returning it as `nodes` mints it.
@@ -2290,3 +2352,61 @@ class CorpusWriter:
             self._corpus.index.assert_addable(node)
         except CollisionError as caught:
             raise CollisionRefused(str(caught)) from caught
+
+
+class OperationWrites:
+    """The seven session-mediated writes (design §4.2, §13 item 9): each is the
+    ordinary method, run inside a fulfilling scope under the settling hold."""
+
+    def __init__(self, writer: CorpusWriter) -> None:
+        self._writer = writer
+
+    def _run(self, perform: Callable[[], Node | None]) -> OperationCommit:
+        """Bind fulfillment under the *raw* lock, then let the ordinary method run
+        exactly as it does for a library caller: its `require` first, then its own
+        settling hold, then its refusals, then the one submission (§13 item 11).
+        Entering the settling hold here would recover — and could move bytes —
+        before the permit was judged, which the ordinary path never does."""
+        writer = self._writer
+        with writer._state.lock, writer._fulfilling() as scope:
+            try:
+                record = perform()
+            except ExecutionError:
+                raise
+            except Exception as caught:
+                if scope.submitted:
+                    # The intent was appended (§13 item 12); what failed came after the submission began —
+                    # the engine, the readback, or the state update. J2's boundary: ExecutionError.
+                    raise ExecutionError(f"failure after submission: {caught}", index=None, applied=None) from caught
+                raise  # a refusal — the permit's, the body's, or the preflight's — before any effect
+            if scope.result is None:
+                raise ScienceError("the ordinary method submitted nothing")
+            token, intent_digest, entry_digest = scope.result
+            return OperationCommit(record, token, intent_digest, entry_digest)
+
+    def add(self, node: Node) -> OperationCommit:
+        return self._run(lambda: self._writer.add(node))
+
+    def retract(self, record: Node) -> OperationCommit:
+        return self._run(lambda: self._writer.retract(record))
+
+    def supersede(self, successor: Node, *, of: str) -> OperationCommit:
+        return self._run(lambda: self._writer.supersede(successor, of=of))
+
+    def revise(self, node: Node) -> OperationCommit:
+        return self._run(lambda: self._writer.revise(node))
+
+    def delete(self, ref: str) -> OperationCommit:
+        return self._run(lambda: self._writer.delete(ref))
+
+    def mint_coordination(
+        self, kind: str, *, project: CoordinationAddress | None = None, content: Mapping[str, object]
+    ) -> OperationCommit:
+        return self._run(lambda: self._writer.mint_coordination(kind, project=project, content=content))
+
+    def revise_coordination(
+        self, kind: str, address: CoordinationAddress, *, predecessors: Sequence[str], content: Mapping[str, object]
+    ) -> OperationCommit:
+        return self._run(
+            lambda: self._writer.revise_coordination(kind, address, predecessors=predecessors, content=content)
+        )
