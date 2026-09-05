@@ -15,3 +15,6 @@ node_modules/
 .cut11-acceptance/
 .cut14-acceptance/
 .lifecycle-wrappers-test/
+
+# the mm30 reproduction corpus (measurement lane; lives beside the main checkout)
+.mm30-reproduction/

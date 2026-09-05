@@ -2,7 +2,7 @@
 title: Claims and belief
 status: living
 created: 2026-08-08
-updated: 2026-09-03
+updated: 2026-09-05
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-04-domain-extension-boundary-design.md
@@ -15,6 +15,7 @@ sources:
   - ../designs/2026-08-09-conformance-cut-2.md
   - ../designs/2026-08-10-verified-holdings-record-design.md
   - ../designs/2026-08-24-world-index-holdings-design.md
+  - ../designs/2026-09-05-mm30-reproduction.md
 ---
 
 # Claims and belief
@@ -197,4 +198,5 @@ a last held copy, and whether the nine † labels are adopted.
 - [Belief policy and P1–P9](../designs/2026-08-05-belief-policy-design.md#2-what-a-belief-policy-is)
 - [Eight-corpus vocabulary survey](../designs/2026-08-07-corpus-survey-and-vocabulary-admission-design.md#3-what-the-corpora-show)
 - [Multi-corpus typing measurement](../designs/2026-08-07-multi-corpus-typing-exercise.md#3-results)
+- [The mm30 reproduction measurement](../designs/2026-09-05-mm30-reproduction.md#3-the-path)
 - [External-review typing limits](../designs/2026-08-05-review-disposition-and-conformance-cut-1.md#2-the-typing-measurement)

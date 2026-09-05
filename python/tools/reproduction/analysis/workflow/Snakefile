@@ -1,0 +1,13 @@
+import pathlib, subprocess, sys
+
+# The bundle keeps the code root's name: this file is analysis/workflow/Snakefile
+# and the analysis is analysis/assoc.py, found through the workflow's own base
+# directory rather than the sandbox's working directory.
+ASSOC = str(pathlib.Path(workflow.basedir).parent / "assoc.py")
+
+rule assoc:
+    input: "inputs/GSE179929_gene_tpm.txt.gz"
+    output: "outputs/stats.tsv", "outputs/outcome.txt"
+    run:
+        subprocess.run([sys.executable, ASSOC, input[0], output[0], output[1],
+                        "ENSG00000119403", "_", "PD"], check=True)

@@ -1,0 +1,131 @@
+# The mm30 reproduction's claim vocabulary — the exercise's own copy.
+#
+# The `contract:` and `plan:` blocks are `tools/vocabularies/mm30-unsorted.yaml`
+# verbatim, except `contract.contract`, which names this exercise. Read that
+# file's header for what is fitted and what is not; nothing here changes it.
+#
+# Why the unsorted vocabulary and not the modal-sorted one: the target
+# (record §2) is `concept:disease-stage affects protein:PHF19`, a
+# concept→protein pair, and `mm30-modal-sorted.yaml` assigns `affects` the
+# slots `[concept, concept]` by its stated modal rule (it types 208 of 224
+# `affects` records and refuses the 10 concept→protein ones by construction).
+# That refusal is measured at step 2 as a pure `build_claim` call and
+# recorded; the proposition is minted under this vocabulary, whose one sort
+# admits every kind prefix mm30 recorded. Choosing between the two
+# vocabularies the typing exercise authored is not fitting a vocabulary to
+# the target; both predate the selection.
+#
+# Every `vocabulary:` binding is the placeholder `mm30-entities` at release
+# `2026-08-07`. No held ontology release supplies membership for any term, so
+# the resolution snapshot declares nothing readable and every binding is
+# `not-consulted`. The design's question 1 (how much of the biology pack the
+# first belief needs) is therefore answered *unmeasured*; what is measured is
+# the floor: the operator vocabulary and referent set the pack must at least
+# reproduce.
+
+contract:
+  contract: mm30-reproduction
+  version: 1
+  lineage: genesis
+
+  sorts:
+    term:
+      vocabulary: { namespace: mm30-entities, release: "2026-08-07" }
+
+  # mm30 records no qualifier of any kind, and neither does any other surveyed
+  # corpus. §6.4's flat fragment is entirely unexercised by authored data — a
+  # measured absence, not an omission in this file.
+  dimensions: {}
+
+  operators:
+    affects:
+      arity: 2
+      arg_sorts: [term, term]
+      sign_apt: true
+      layers: [causal, structural, statistical]
+      dimensions: []
+
+    associates-with:
+      arity: 2
+      arg_sorts: [term, term]
+      sign_apt: true
+      layers: [statistical, causal]
+      dimensions: []
+
+    regulates:
+      arity: 2
+      arg_sorts: [term, term]
+      sign_apt: true
+      layers: [causal]
+      dimensions: []
+
+    induces-state:
+      arity: 2
+      arg_sorts: [term, term]
+      sign_apt: false
+      layers: [causal]
+      dimensions: []
+
+    is-proxy-for:
+      arity: 2
+      arg_sorts: [term, term]
+      sign_apt: false
+      layers: [causal, structural]
+      dimensions: []
+
+    subtype-of:
+      arity: 2
+      arg_sorts: [term, term]
+      sign_apt: false
+      layers: [structural]
+      dimensions: []
+
+    part-of:
+      arity: 2
+      arg_sorts: [term, term]
+      sign_apt: false
+      layers: [structural]
+      dimensions: []
+
+    binds:
+      arity: 2
+      arg_sorts: [term, term]
+      sign_apt: false
+      layers: [causal]
+      dimensions: []
+
+plan:
+  # Corpus predicate → local operator name. The rewriting is `_` to `-`: a
+  # contract identifier is `[a-z][a-z0-9-]*`, and the corpus wrote underscores.
+  operators:
+    affects: affects
+    associates_with: associates-with
+    regulates: regulates
+    induces_state: induces-state
+    is_proxy_for: is-proxy-for
+    subtype_of: subtype-of
+    part_of: part-of
+    binds: binds
+
+  # Corpus `claim_layer` → base contract layer. The base set is closed and a
+  # domain may not extend it (§7.1), so a value with no counterpart here has
+  # nowhere to go and no contract edit can give it one.
+  layers:
+    causal_effect: causal
+    structural_claim: structural
+    empirical_regularity: statistical
+
+  # Corpus `polarity` → the argument `build_claim` takes. `not_applicable` maps
+  # to null, which is not "no value" but the *only* thing a sign-inapt operator
+  # accepts: supplying `inapt` explicitly is refused, since the projection
+  # carries it on the claim's behalf and an author never chooses it (§7.5).
+  polarities:
+    positive: positive
+    negative: negative
+    unsigned: unsigned
+    not_applicable: null
+
+  # Term kind prefix → local sort name. One sort here; see the header.
+  sorts:
+    concept: term
+    protein: term
