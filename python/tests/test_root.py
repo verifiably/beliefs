@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import inspect
 from pathlib import Path
+from typing import cast
 
 import pytest
 from atoms.chain.model import GenesisEntry
@@ -20,6 +21,7 @@ from authority import FULL
 from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp
 
 from beliefs import root
+from beliefs.corpus import _RoutedExecutor
 from beliefs.errors import CorpusRootRefused, PermitExceeded, PermitFact, WorldIdMismatch, WorldUninitialized
 from beliefs.identity import v1
 from beliefs.permit import READ_ONLY
@@ -330,7 +332,7 @@ class TestTheCompositionRoot:
         link.symlink_to(real, target_is_directory=True)
 
         writer = root.open_corpus(link, authority=FULL)
-        executor = writer._corpus.executor
+        executor = cast(_RoutedExecutor, writer._corpus.executor)._inner
         port = writer._operation_port
         assert isinstance(executor, root.DurableExecutor)
         assert isinstance(port, root.DurableOperationPort)

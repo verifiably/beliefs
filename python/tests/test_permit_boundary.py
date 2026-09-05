@@ -34,6 +34,7 @@ PRIMITIVE_NAMES = frozenset(
 )
 PRIMITIVE_IMPLEMENTATIONS = frozenset(
     {
+        "corpus.py:_RoutedExecutor.execute",
         "root.py:DurableOperationPort.append_intent",
         "root.py:DurableOperationPort.execute",
         "root.py:DurableOperationPort._execute",

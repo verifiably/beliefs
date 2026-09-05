@@ -48,7 +48,7 @@ from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 from nodes.core.structural_index import Index, ResolvedEdge
-from nodes.core.write_plan import CreateOp, DeleteOp, WritePlanExecutor
+from nodes.core.write_plan import CreateOp, DeleteOp, WritePlan, WritePlanExecutor
 from pydantic import ValidationError as PydanticValidationError
 from pydantic_core import PydanticSerializationError
 from yaml import YAMLError
@@ -380,11 +380,107 @@ class OperationLock:
 
 
 @dataclass
+class _Fulfillment:
+    """One locked call's binding (§13 item 11): the exact authority and port
+    whose submission the routed executor commits, and the result."""
+
+    authority: Authority
+    port: OperationPort
+    consumed: bool = False  # the scope's one submission attempt has been taken (guards a second)
+    submitted: bool = False  # the intent was appended: from here on, a failure is post-submission
+    result: tuple[str, str, str] | None = None  # (event_token, intent_digest, entry_digest)
+
+
+@dataclass
 class _RootState:
     lock: OperationLock
     corpus: Corpus
     view: ReadView
     executor_factory: Callable[[Path], WritePlanExecutor]
+    executors: Callable[[Path], _RoutedExecutor]
+    recover: Callable[[Path], None] | None
+    unresolved: bool = True
+    fulfilling: _Fulfillment | None = None
+    depth: int = 0  # settling-hold nesting on the owning thread
+
+
+class _RoutedExecutor:
+    """The executor the corpus holds (§13 items 12–13): an implementation of the
+    `execute` primitive. Ordinary submissions mark the root unresolved and
+    delegate; a fulfilling scope's one submission is committed by
+    `commit_fulfilling`, the inventoried seam.
+
+    `nodes`' `Corpus.__init__` calls the executor factory before the root state
+    exists, so the state is looked up lazily through `holder` at the first
+    submission, never at construction.
+    """
+
+    def __init__(self, inner: WritePlanExecutor, holder: list[_RootState]) -> None:
+        self._inner = inner
+        self._holder = holder
+
+    @property
+    def _state(self) -> _RootState:
+        (state,) = self._holder  # bound by `_root_state_for` right after the corpus is built
+        return state
+
+    def execute(self, plan: WritePlan) -> None:
+        scope = self._state.fulfilling
+        if scope is None:
+            self._state.unresolved = True
+            self._inner.execute(plan)
+            return
+        if scope.consumed:
+            raise ScienceError("a fulfilling scope admits exactly one submission")
+        scope.consumed = True
+        self.commit_fulfilling(scope, plan)
+
+    def commit_fulfilling(self, scope: _Fulfillment, plan: WritePlan) -> None:
+        raise NotImplementedError("Task 5 supplies the commit seam")
+
+
+def _routed_factory(
+    executor_factory: Callable[[Path], WritePlanExecutor], holder: list[_RootState]
+) -> Callable[[Path], _RoutedExecutor]:
+    """The wrapped factory a root state constructs every executor from. `holder`
+    is empty while `Corpus.__init__` runs and receives the state immediately
+    after; the executor resolves it at its first `execute`, so construction
+    never reads it."""
+
+    def build(root: Path) -> _RoutedExecutor:
+        return _RoutedExecutor(executor_factory(root), holder)
+
+    return build
+
+
+@final
+class _SettlingHold:
+    """`CorpusWriter._operation` (§13 item 10): the raw root lock, plus
+    settlement on entry and the `unresolved` clear on the outermost clean exit."""
+
+    def __init__(self, writer: CorpusWriter) -> None:
+        self._writer = writer
+        self._lock = writer._state.lock
+
+    def __enter__(self) -> _SettlingHold:
+        self._lock.__enter__()
+        state = self._writer._state
+        try:
+            self._writer._settle()
+        except BaseException:
+            self._lock.__exit__(None, None, None)
+            raise
+        state.depth += 1
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
+        state = self._writer._state
+        state.depth -= 1
+        try:
+            if exc_type is None and state.depth == 0:
+                state.unresolved = False
+        finally:
+            self._lock.__exit__(exc_type, exc, traceback)
 
 
 class _ImportView:
@@ -455,8 +551,18 @@ def _root_state_for(root: Path, executor_factory: Callable[[Path], WritePlanExec
         state = _ROOT_STATES.get(key)
         if state is None:
             lock = _locked_operation_lock(key)
-            corpus = Corpus(resolved, executor_factory=executor_factory)
-            state = _RootState(lock, corpus, ReadView(corpus), executor_factory)
+            holder: list[_RootState] = []
+            executors = _routed_factory(executor_factory, holder)
+            corpus = Corpus(resolved, executor_factory=executors)
+            state = _RootState(
+                lock,
+                corpus,
+                ReadView(corpus),
+                executor_factory,
+                executors,
+                getattr(executor_factory, "recover", None),
+            )
+            holder.append(state)
             _ROOT_STATES[key] = state
         elif state.executor_factory is not executor_factory:
             raise ScienceError(f"corpus root {key!r} is already open with a different executor factory")
@@ -1120,7 +1226,7 @@ class CorpusWriter:
             raise ValueError("the operation port is bound to another authority than this writer")
         self._authority = authority
         self._state = _root_state_for(root, executor_factory)
-        self._operation = self._state.lock
+        self._operation = _SettlingHold(self)
         self._operation_port = operation_port
         self._coordination_resolver = coordination_resolver
 
@@ -1487,7 +1593,7 @@ class CorpusWriter:
                 }
             ).profile
             manifest = CorpusManifest(2, secrets.token_hex(16), checked_profile)
-            self._state.executor_factory(self._corpus.store.root).execute(
+            self._state.executors(self._corpus.store.root).execute(
                 [CreateOp("corpus.yaml", manifest_bytes(manifest))]
             )
             return manifest
@@ -1528,6 +1634,7 @@ class CorpusWriter:
         assert operation_port is not None
         if operation is None:
             operation = self._create_op(stored.act_report_node(report))
+        self._state.unresolved = True
         operation_port.execute_fulfilling([operation], intent_digest)
         self._reconstruct()
         return report
@@ -2002,8 +2109,18 @@ class CorpusWriter:
             raise ImportRefused(str(caught), member=record.id) from caught
         return CreateOp(path=self._relative_path(record), content=content)
 
+    def _settle(self) -> None:
+        """Recover and rebuild an unresolved root before any state-dependent read (§4.3)."""
+        state = self._state
+        if not state.unresolved:
+            return
+        if state.recover is not None:
+            state.recover(state.corpus.store.root)
+        self._reconstruct()
+        state.unresolved = False
+
     def _reconstruct(self) -> None:
-        corpus = Corpus(self._corpus.store.root, executor_factory=self._state.executor_factory)
+        corpus = Corpus(self._corpus.store.root, executor_factory=self._state.executors)
         self._state.corpus = corpus
         self._state.view = ReadView(corpus)
 
