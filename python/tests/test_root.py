@@ -320,7 +320,7 @@ class TestTheInitActRefusesANonDirectory:
 
 class TestTheCompositionRoot:
     def test_durable_factories_are_stable_module_level_callables(self):
-        assert root.durable_executor_factory() is root._durable_executor
+        assert root.durable_executor_factory() is root._DURABLE_EXECUTOR_FACTORY
         assert root._world_executor_factory() is root._world_executor
 
     def test_a_symlink_root_binds_every_writer_component_to_the_resolved_path(self, tmp_path):

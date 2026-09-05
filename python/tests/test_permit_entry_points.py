@@ -280,11 +280,15 @@ class _Port:
         self.appended.append(payload)
         return self._inner.append_intent(payload)
 
+    def preflight(self, plan) -> None:
+        pass
+
     def execute(self, plan):
         self.appended.append(plan)
 
-    def execute_fulfilling(self, plan, fulfills):
+    def execute_fulfilling(self, plan, fulfills) -> str:
         self.appended.append(plan)
+        return "r" * 64
 
 
 def _fact_from(detail: str) -> PermitFact:

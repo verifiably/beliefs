@@ -76,13 +76,17 @@ class OperationRecorder:
         self.intents.append(payload)
         return self.intent_digest
 
+    def preflight(self, plan) -> None:
+        pass
+
     def execute(self, plan) -> None:
         self.executed.append(list(plan))
         self._inner.execute(plan)
 
-    def execute_fulfilling(self, plan, fulfills: str) -> None:
+    def execute_fulfilling(self, plan, fulfills: str) -> str:
         self.fulfilling.append((list(plan), fulfills))
         self._inner.execute(plan)
+        return "r" * 64
 
 
 @pytest.fixture()
@@ -114,10 +118,13 @@ class TestE2AuthorityBindsOnceAtConstruction:
             def append_intent(self, payload):
                 raise AssertionError("never reached")
 
+            def preflight(self, plan):
+                raise AssertionError("never reached")
+
             def execute(self, plan):
                 raise AssertionError("never reached")
 
-            def execute_fulfilling(self, plan, fulfills):
+            def execute_fulfilling(self, plan, fulfills) -> str:
                 raise AssertionError("never reached")
 
         with pytest.raises(ValueError, match="another authority"):
@@ -130,10 +137,13 @@ class TestE2AuthorityBindsOnceAtConstruction:
             def append_intent(self, payload):
                 raise AssertionError("never reached")
 
+            def preflight(self, plan):
+                raise AssertionError("never reached")
+
             def execute(self, plan):
                 raise AssertionError("never reached")
 
-            def execute_fulfilling(self, plan, fulfills):
+            def execute_fulfilling(self, plan, fulfills) -> str:
                 raise AssertionError("never reached")
 
         port = Port()
