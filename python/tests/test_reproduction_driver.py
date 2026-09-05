@@ -44,3 +44,14 @@ def test_rank_prefers_empirical_locally_held_small_targets():
     c = {"proposition_id": "p:c", "claim_layer": "empirical_regularity", "dataset_bytes": 50_000, "empirical_lines": 1}
     ordered = [r["proposition_id"] for r in rank([a, b, c])]
     assert ordered == ["p:c", "p:a", "p:b"]
+
+
+def test_dataset_record_id_equals_its_content_address():
+    from hashlib import sha256
+
+    from reproduction.hold import dataset_record
+
+    node, address = dataset_record(
+        name="expr.tsv", digest="sha256:" + "c" * 64, title="t", facet={"boundary": "acquisition"}
+    )
+    assert node.id == address == "dataset:sha256:" + sha256(("sha256:" + "c" * 64 + "\n").encode()).hexdigest()

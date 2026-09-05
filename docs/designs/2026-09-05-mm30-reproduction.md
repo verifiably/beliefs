@@ -98,7 +98,7 @@ directly rather than through a decompression rule. `target.yaml` carries
 |---|---|---|---|
 | 1 | register a world root and adopt one fresh corpus | ran 2026-09-05: world `9ea5394560c2a36acdd4e502e02141c7`, corpus `6d25948b9d8bf0120b096ab470241742` admitted `Fresh`, status `known, live, present`, no findings; store `6750e2f29ff9f74fb8724fc6caad5ff1` | `world/` (registry, `world.yaml`), `corpus/corpus.yaml` (manifest pinning the science contract and the `mm30-reproduction` domain), `store/`, and the three `.metadata` roots |
 | 2 | type the target and mint the proposition | ran 2026-09-05: `build_claim` typed the target under the unsorted vocabulary on the first call; claim identity `5e702bc43fdf51d3…`; minted `proposition:concept-disease-stage-affects-protein-phf19` under the full `Authority`. The pure measurement under the modal-sorted vocabulary refused: `ArgumentSortMismatch: slot 1 of 'mm30/affects' is declared 'mm30/concept'; 'protein:PHF19' is of sort 'mm30/protein'` (§6) | `corpus/proposition/…` — one `proposition` record carrying the claim projection and a display statement |
-| 3 | hold the dataset | pending | |
+| 3 | hold the dataset | ran 2026-09-05: the holdings boundary's local arm wrote 6,154,181 bytes to the store under `gse179929/GSE179929_gene_tpm.txt.gz`, digest `sha256:c74ea661…`, and published the observation; the dataset record was minted under its content address `dataset:sha256:a6bf229e…` with an authored `empirical-observation` facet; `admission_state` over the stored declaration and the observation read `Held` | `store/gse179929/…`, `corpus/holdings-observation/8ef93a89…` (outcome `Found`), `corpus/dataset/sha256__a6bf229e…` |
 | 4 | freeze the analysis spec and its recipe | pending | |
 | 5 | execute the run under confinement | pending | |
 | 6 | derive the assessment | pending | |
@@ -125,10 +125,16 @@ citing `state.json` or `findings.jsonl`.
   because `is_empirical_observation` reads presence only. Nothing refuses
   a dataset that is not an observation. This is expected to be the first
   finding filed, to the `domain` lane, which owns facet compilation.
-  **Outcome:** pending.
+  **Outcome:** confirmed. The facet `{"boundary": "acquisition", "source":
+  "dataset:gse179929", "asserted_by": "mm30-reproduction"}` was authored by
+  the driver and accepted unread; `is_empirical_observation` reads presence
+  only (`stored.py`). It was the second finding filed (`findings.jsonl`, step
+  3), not the first: step 2's modal-sorted measurement preceded it.
 - **P3 — the local hold works unchanged.** A holdings observation over a
   local file under the cut-10 local arm needs no amendment.
-  **Outcome:** pending.
+  **Outcome:** confirmed. `holdings.boundary.write` under `holdings_seam()`
+  with the expected digest published a `Found` observation on the first
+  call; `state.holdings_observation_ref` resolves in the read view.
 - **P4 — the run reaches the boundary; the scope is measured, not
   predicted.** The confined launch runs the analysis or refuses at the
   platform probe; it does not fail in between. Which scope `derive_scope`
@@ -176,6 +182,7 @@ here; they are in §8.
 
 | step | class | reason | filed |
 |---|---|---|---|
+| 3 | design-gap | the `empirical-observation` facet is presence-only: `is_empirical_observation` read the driver's authored payload unchecked (P2) | domain lane (facet payload contract, kernel §11) — task filed at the end |
 | 2 | corpus-work | under `mm30-modal-sorted`, `build_claim` on the target: `ArgumentSortMismatch` — slot 1 of `mm30/affects` is declared `mm30/concept`; `protein:PHF19` is of sort `mm30/protein` (a term with no slot to occupy, not a rejected value). The exercise's own corpus work: it types under the unsorted vocabulary (§2) | this record, §2 and §5 (the fourth question) |
 
 ## 7. Authoring cost
