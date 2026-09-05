@@ -2,8 +2,9 @@
 
 **Date:** 2026-09-05
 **Status:** designed; amended 2026-09-05 after the first review (seven
-findings, §2 items 10–14); conformance cut 19 freezes after the second
-review, before implementation.
+findings, §2 items 10–14) and again after the second (four findings, §2
+items 15–18); conformance cut 19 freezes after the third review, before
+implementation.
 **Scope:** the `beliefs` half of the command framework's write boundary beyond
 permits — the user and autonomy layer design
 (`../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md`) §5.2
@@ -103,19 +104,29 @@ command writes.
    entry points themselves refuse an overreaching act; the facade's only
    check is that its invocation is the open one. The session holds no
    writer, so no act ever runs under the ceiling (command-framework §4.2).
-5. **Exactly one corpus root.** `open_attended_session` refuses a config
-   naming zero or several corpus roots. The contract's `ScopedWriter` mirrors
-   one `CorpusWriter`, and choosing a target silently would be a decision
-   the world-resolution lane owns.
+5. **Exactly one corpus root, adopted and registered.** `open_attended_session`
+   refuses a config naming zero or several corpus roots, a root whose
+   manifest does not load, and a root whose chain detached inspection does
+   not find well-formed. The contract's `ScopedWriter` mirrors one
+   `CorpusWriter`, and choosing a target silently would be a decision the
+   world-resolution lane owns; initialization and adoption are launcher- and
+   operator-time acts (command-framework §4.4), never something an endpoint
+   performs by opening.
 6. **The ledger is a JSON-lines file, appended and fsynced per line.** Its
    `act` line carries the intent digest beside the registration digest — an
    additive field the contract does not forbid — so reconciliation joins
    ledger to chain without inference.
-7. **Protocol violations are hard errors, refusals are refusals.** A fresh
-   claim while another invocation is open, a close naming anything but the
-   open invocation, an act with no open invocation: each raises
-   `SessionProtocolError` before any effect. The dispatcher's lock makes
-   them unreachable; reaching one is a bug, never a recorded outcome.
+7. **Protocol violations are hard errors, refusals are refusals, and an
+   abandoned invocation is neither.** A close naming anything but the
+   current invocation, or an act by a writer whose invocation is not the
+   current one, raises `SessionProtocolError` before any effect; the
+   dispatcher's lock makes both unreachable, and reaching one is a bug. An
+   invocation the dispatcher never closes — an internal error escaped its
+   pipeline — simply stays open: the next fresh claim proceeds and becomes
+   current, a retry of the abandoned id is `ClaimOpen` (the contract's
+   `outcome-unknown`), and reconciliation names every open invocation as a
+   candidate for an uncovered entry. A session is never locked by a bug in
+   one command.
 8. **Reconciliation is one pure function over one coherent snapshot.** Open
    and the audit surface call the same classification over parsed ledgers
    and chain entry views, both read under the corpus operation lock through
@@ -147,6 +158,23 @@ command writes.
     ledger, an empty ledger, a torn or malformed one: each is a finding, and
     the intents of such a session classify toward `outcome-unknown`, never
     toward foreign.
+15. **Every refusal the scoped writer raises is a `WriteRefused`.** The
+    preflight's `PlanRefusedError` — a `nodes` error the dispatcher's pinned
+    handler does not catch — is raised by the commit seam as `PlanRefused`,
+    a `WriteRefused` subclass, so an oversized record closes its invocation
+    with a refusal envelope. `ExecutionError` is deliberately *not*
+    normalized: after submission the write may be durable, the invocation
+    stays open, and `outcome-unknown` is the truthful answer.
+16. **"No record" is promised only before submission.** A failure after
+    `execute_fulfilling` is called — the engine's own, the registration
+    readback, the ledger append — leaves a state that is unknown until
+    inspected; J2 says so, and reconciliation classifies it.
+17. **Pending is evidence in its own right.** Reconciliation takes the whole
+    `WellFormedView`, and a staged registration the view reports only in
+    `pending` is a finding without an invented intent association.
+18. **The corpus id and chain are read at open, once.** An unadopted or
+    unregistered root refuses at open (decision 5); every `act` line carries
+    the id read then.
 
 ## 3. The session — `beliefs/session/`
 
@@ -169,10 +197,16 @@ def open_attended_session(
 ```
 
 `world_config` must be an exact `WorldConfig`; `operations_root` a `Path`.
-The config must name exactly one corpus root, and that root must be an
-existing directory; otherwise `SessionRefused`, a `ScienceError`. Nothing
-else is checked at open — an unregistered or unadopted corpus refuses at its
-first write through the engine, exactly as `open_corpus` does today.
+The config must name exactly one corpus root; that root's manifest must
+load (`ManifestMissing` and `ManifestMalformed` are re-raised as
+`SessionRefused`, a `ScienceError`, with the cause attached), and its
+corpus id is read once and carried on every `act` line; and detached
+inspection of the root's chain must yield a `WellFormedView` — an
+`AbsentView` (never registered) or a `MalformedView` refuses open naming
+the view, because a session over a root the audit would refute is a session
+whose every act line would be unverifiable. Adoption and registration are
+`init_corpus_root` and `adopt_manifest`, launcher- and operator-time acts;
+an endpoint opens over their result. Nothing else is checked at open.
 
 `coordination` is the compiled `ProfileSpec` the launcher holds for the
 corpus. When supplied, open constructs `CoordinationResolver({root:
@@ -240,19 +274,22 @@ session's internal lock and returns one member of the closed union:
 
 | the index holds | returns | side effect |
 |---|---|---|
-| nothing for the id | `ClaimFresh()` | appends `invocation-open`; the id becomes the open invocation |
+| nothing for the id | `ClaimFresh()` | appends `invocation-open`; the id becomes the current invocation |
 | open and close, same command and digest | `ClaimDone(outcome)` | none; `outcome` is the persisted mapping, whole |
 | open (either state), different command *or* digest | `ClaimMismatch()` | none |
 | open without close, same command and digest | `ClaimOpen()` | none |
 
-A fresh claim while another invocation is already open raises
-`SessionProtocolError`. `close_invocation` accepts only the open invocation's
-id — anything else is `SessionProtocolError` — and validates the outcome
-strictly before appending: exactly one key, `done` mapping to a list of
+The most recently claimed fresh invocation is the **current** invocation.
+A fresh claim while another is still open is permitted: the earlier one is
+abandoned — an internal error escaped the dispatcher's pipeline before its
+close — and stays open in the ledger, where a retry of its id meets
+`ClaimOpen` and reconciliation names it (§6). `close_invocation` accepts
+only the current invocation's id — anything else is `SessionProtocolError` —
+and validates the outcome strictly before appending: exactly one key, `done` mapping to a list of
 two-string pairs or `refusal` mapping to an object with string `code` and
 `message` and a JSON-object `data`; otherwise `ValueError`, nothing appended,
-the invocation still open. After the append the session has no open
-invocation. `invocation_acts` returns the `act` lines the index holds for the
+the invocation still open. After the append the session has no current
+invocation; earlier abandoned ones remain open. `invocation_acts` returns the `act` lines the index holds for the
 id, in ledger order, as `ActLine(invocation, corpus, entry, intent,
 record_ids)` with `record_ids: tuple[tuple[str, str], ...]`; an unknown id
 returns `()`.
@@ -381,19 +418,32 @@ Under the root's operation lock, in this order and no other:
 5. `operation_port.execute_fulfilling(plan, intent_digest)`, which now
    **returns the registration digest** (§4.4). What the engine judges here —
    the path preconditions the prepare step read under this same lock, and
-   durability — is the only thing that can fail after the intent; it fails
-   as `ExecutionError`, never as a refusal.
-6. `_reconstruct()` — the view is rebuilt as import rebuilds it today.
+   durability — fails as `ExecutionError`, never as a refusal; so does the
+   readback of the registration digest, which runs after the commit is
+   durable.
+6. `_reconstruct()` — the view is rebuilt as import rebuilds it today. It
+   runs in a `finally` around step 5: once submission was attempted the
+   on-disk state may have moved whether or not step 5 returned, and a
+   stale view would make the next prepare misjudge a path the engine then
+   refuses.
 7. Return the commit.
 
-Steps 1–3 are refusals and leave nothing; a failure between steps 4 and 5 —
-the crash window of command-framework §5.3, now including an engine failure
-in step 5 — leaves an unfulfilled intent under the session actor and no
-record, which §6 classifies. The distinction is by type: a `WriteRefused`
-or `PlanRefusedError` means the head is unchanged; an `ExecutionError`
-means an intent may stand. Steps 2 and 3 before step 4 are decisions 2 and
-10, and they are what make J1's "a refused write leaves the chain head
-unchanged" hold for every one of the seven.
+Steps 1–3 are refusals and leave nothing. Step 3 raises `PlanRefused`, a
+`WriteRefused` subclass wrapping the preflight's `PlanRefusedError`
+(decision 15), so the dispatcher's pinned handler closes the invocation
+with a refusal envelope; the ordinary methods keep raising the `nodes` type
+as today. After step 4 the state depends on where the failure fell: a
+failure before submission is attempted — `append_intent` returned and
+`execute_fulfilling` was never entered, or raised before the engine took the
+plan — leaves an unfulfilled intent and no record; a failure **after
+submission** — the engine's own, the readback, or the crash — leaves a
+registration that may be committed and a record that may be durable, and
+nothing in this seam can say which (decision 16). Both surface as
+`ExecutionError`; both are the crash window of command-framework §5.3, and
+§6 classifies them from the chain, not from the exception. Steps 2 and 3
+before step 4 are decisions 2 and 10, and they are what make J1's "a
+refused write leaves the chain head unchanged" hold for every one of the
+seven.
 
 ### 4.4 The port and the inventory
 
@@ -447,9 +497,9 @@ signatures and the ordinary return types (`Node`, or `None` for `delete`).
 Each one, under the root's operation lock (the very one `_commit` nests
 in — the lock is re-entrant per thread):
 
-1. asks the session for the open invocation and requires it to equal the
-   writer's own — none open, another open, or the writer's already closed:
-   `SessionProtocolError`, before any effect. A writer is therefore usable
+1. asks the session for the current invocation and requires it to equal the
+   writer's own — none current, another current, the writer's abandoned or
+   closed: `SessionProtocolError`, before any effect. A writer is therefore usable
    during exactly one invocation and never again, and a writer retained past
    its invocation cannot act under a later one's identity with its own
    permit (decision 4);
@@ -465,9 +515,15 @@ Step 3 runs after the commit, before the method returns, and before the
 lock releases, so a write the handler observes is a write the ledger holds
 (J5) and a reconciliation reading under the same lock never sees a committed
 registration without its line (decision 11). A crash between 2 and 3 is the
-window §6 names. Refusals propagate as raised: `PermitExceeded` and every
-other `WriteRefused` from the kernel, `PlanRefusedError` from the preflight,
-`ExecutionError` from the engine. `KernelRefusalValue(value)` — an
+window §6 names. Refusals propagate as raised, and every one is a `WriteRefused`:
+`PermitExceeded`, the family refusals, and `PlanRefused` from the preflight.
+`ExecutionError` propagates as raised too, and is not a refusal: the
+dispatcher's pinned handler lets it escape as an internal error, the
+invocation stays open, and a retry meets `outcome-unknown` — which is the
+truthful state after a failure past submission (decision 16). The ledger
+append in step 3 is the last such failure point: a crash between the commit
+and the line leaves a covered-in-truth, uncovered-in-evidence registration
+that §6 names. `KernelRefusalValue(value)` — an
 `Exception` exposing `.value`, whose wrapped value exposes `.reason` — is
 defined and exported for the contract's one normalization path. **None of
 the seven methods returns a value-style refusal, so this slice never raises
@@ -481,28 +537,37 @@ it.
 ## 6. Reconciliation
 
 ```python
-def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, tuple[EntryView, ...]]) -> tuple[Finding, ...]: ...
+def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, ChainView]) -> tuple[Finding, ...]: ...
 ```
 
 `LedgerEvidence` is what the composition read for one session directory:
 its `session_id` (the directory name) and one of `LedgerReader`,
 `LedgerMissing`, `LedgerEmpty`, or `LedgerUnreadable(error)` — a
 sealed union, so an unreadable ledger is an input, never an exception
-(decision 14). `chains` maps corpus id to the chain's entry views in chain
-order. For each corpus, the function decodes every `IntentEntryView` with
-`intents.shapes.decode_intent` and keeps operation intents whose actor has
-the form `session:<32 hex>`; registrations are joined by `fulfills`, and a
-registration's settlement decides `committed`; a registration with no
-settlement in the view is **pending**. For every kept intent, exactly one
-classification:
+(decision 14). `chains` maps corpus id to the detached `ChainView` read for it. An
+`AbsentView` or `MalformedView` yields one finding — `session-chain-absent`
+or `session-chain-malformed` (error, the defect as detail) — and classifies
+nothing for that corpus: there is no truth to compare against. For a
+`WellFormedView` the function decodes every `IntentEntryView` in `entries`
+with `intents.shapes.decode_intent` and keeps operation intents whose actor
+has the form `session:<32 hex>`; registrations are joined by `fulfills`, and
+a registration's settlement decides `committed`; a registration in
+`entries` with no settlement is **pending**. The view's own `pending`
+pairs — a transaction id and a registration digest nothing settles, which
+in detached mode may name a staged registration **absent from `entries`**
+(decision 17) — are reported as `session-chain-pending` (warning, ref the
+registration digest, detail the transaction id) with no session or intent
+named, because the view provides none; a pending pair whose digest *is* in
+`entries` is classified through the intent it fulfills, below. For every
+kept intent, exactly one classification:
 
 | state | finding (`code`, severity) | `ref` / `detail` |
 |---|---|---|
 | a committed registration fulfills it and an `act` line of that session names the registration digest | none | — |
-| a committed registration fulfills it, no `act` line names it, and that session's ledger has an open invocation **or is not readable** | `session-outcome-unknown`, warning | the registration digest / `session=… invocation=… intent=…` |
+| a committed registration fulfills it, no `act` line names it, and that session's ledger has one or more open invocations **or is not readable** | `session-outcome-unknown`, warning | the registration digest / `session=… invocations=[…] intent=…` — every open invocation, since the ledger cannot say which one it was |
 | a committed registration fulfills it, no `act` line names it, ledger readable with no open invocation | `session-entry-foreign`, error | the registration digest / `session=… intent=…` |
 | a pending registration fulfills it | `session-entry-pending`, warning | the registration digest / `session=… intent=…` |
-| no registration fulfills it, open invocation or unreadable ledger | `session-outcome-unknown`, warning | the intent digest / `session=… invocation=…` |
+| no registration fulfills it, open invocation(s) or unreadable ledger | `session-outcome-unknown`, warning | the intent digest / `session=… invocations=[…]` |
 | no registration fulfills it, ledger readable with no open invocation | `session-intent-unclaimed`, error | the intent digest / `session=…` |
 | the actor's session has no directory under this operations root | `session-unknown`, error | the intent digest / `actor=…` |
 
@@ -531,8 +596,10 @@ opens, commits and closes around the read is either wholly before it (covered)
 or wholly after it (absent from both), never `foreign`. Cross-process
 writers remain the single-writer deployment obligation. A pending
 registration under detached inspection is what the next write's recovery
-will settle; it is reported, not adjudicated. The root is mapped to its
-manifest's corpus id, and `reconcile` is called. `open_attended_session`
+will settle; it is reported, not adjudicated. The root is mapped to the
+corpus id its manifest carries — a root with no manifest is
+`session-corpus-unadopted` (error) and is not read — and `reconcile` is
+called with the `ChainView` whole. `open_attended_session`
 calls the same function with the new session's own directory excluded; the
 audit surface is the function itself. Neither writes, recovers, or mints.
 
@@ -543,15 +610,15 @@ The `J` table. Rows are frozen; ids are never renumbered.
 | # | Guarantee | Mutation test |
 |---|---|---|
 | **J1** | Every session-mediated ordinary write is exactly one `corpus-write` intent under the session actor followed by exactly one committed registration fulfilling it; the intent qualification reads `matched` and completion reads `closed`; a refused write — permit, family, plan shape, or record ceiling — leaves the chain head unchanged, and every refusal an ordinary method makes, its operation twin makes | Through a real attended session over a registered root, for each of the seven scoped methods: assert the chain grew by one intent (decoded kind `corpus-write`, actor `session:<id>`) and one registration whose `fulfills` is that intent's digest; run `qualify_chain` and `completion` and assert `matched`/`closed`, `delete` included, whose registration publishes no record. Refuse each method under a permit lacking the kind, with a malformed record under the full permit, with a record over `RECORD_CEILING`, and — for `add` — with a retraction and with an act-report; assert the head is byte-identical and, for the retraction, that the refusal equals `add`'s own. **Negative:** the same seven through the ordinary `CorpusWriter` methods append no intent |
-| **J2** | Intent precedes effect: a failure after the intent — the engine's own, or a crash — leaves an unfulfilled intent and no record, surfaces as `ExecutionError` and never as a refusal, and reconciliation names it `session-outcome-unknown` under the open invocation | Fault the port's `execute_fulfilling` after `append_intent`; assert `ExecutionError`, one intent, no registration, no record file; assert `reconcile` yields exactly one `session-outcome-unknown` naming the invocation and the intent digest. Raw-write the target path between prepare and execute so the engine's precondition fails; assert the same. **Negative:** fault `append_intent` itself and assert no intent and no record — nothing to reconcile; a `PlanRefusedError` from preflight appends no intent |
+| **J2** | Intent precedes effect, and the promise is bounded by submission: a failure after the intent and before the plan is submitted leaves an unfulfilled intent and no record; a failure after submission — the engine's own, the registration readback, the ledger append, a crash — leaves a state that is unknown until inspected; both surface as `ExecutionError`, never as a refusal, and reconciliation classifies both as `session-outcome-unknown` under the open invocation from the chain, not the exception | Fault `execute_fulfilling` before it submits; assert `ExecutionError`, one intent, no registration, no record file, one `session-outcome-unknown` on the intent digest. Fault the registration readback after the commit; assert `ExecutionError`, the record durable, the registration committed, no `act` line, the view rebuilt, and one `session-outcome-unknown` on the registration digest. Fault the ledger append after the commit; assert the same. Raw-write the target path between prepare and execute so the engine's precondition fails; assert `ExecutionError` and that reconciliation, not the test, says whether a registration stands. **Negative:** fault `append_intent` itself and assert no intent and no record — nothing to reconcile; `PlanRefused` from preflight appends no intent |
 | **J3** | The scoped writer's effective permit is exactly the requirement: an act outside it is `PermitExceeded` raised by the kernel entry point under a full-permit session with nothing written, and `scoped` refuses an uncovered requirement before any writer exists | `scoped(for_kinds({"proposition"}, {}))` then `add(source)` → `PermitExceeded(("kind", "source"))`, head unchanged, no `act` line; `scoped(coordination())` then `add(proposition)` → refused on `proposition`; a requirement covered by the ceiling under a session whose ceiling is narrowed in test → `PermitExceeded` from `scoped`, `_root_state_for` untouched. **Negative:** the same acts under a requirement that names them are minted, and `PermitExceeded.capability` is the *requirement's* summary at the act and the *ceiling's* at `scoped` |
 | **J4** | The actor is session-fixed: every intent a session write appends carries `session:<id>`, no session or scoped method accepts an actor, and a retraction whose facet names another actor is `ActorMismatch` with nothing written | Decode every intent after a run of scoped writes and assert the actor; inspect every public signature on `WriterSession`, `ScopedWriter` and `OperationWrites` for an `actor` parameter and assert none; `retract` a retraction naming `someone-else` → `ActorMismatch`, head unchanged. **Negative:** the same retraction with the session actor is minted |
 | **J5** | Every `act` line carries the registration digest the chain holds and the exact minted identities, and is durable before the write returns and before the root's operation lock releases | After each scoped write, read the ledger back and assert the last `act` line's `entry` equals the registration digest `read_chain` reports for the intent and its `records` equal `[(node.uid, node.id)]` (or `[]` for delete); assert the file's byte length grew before the method returned (a wrapped `os.fsync` observed once per line); observe the lock from a second thread and assert it is held from before the commit until after the append. **Negative:** an `act` line written with a fabricated `entry` is what `session-act-unverified` catches (J8) |
-| **J6** | The claim protocol is exhaustive and fail-closed: the four outcomes of §3.3 exactly, a `ClaimDone` outcome replayed whole (refusal envelope included), and every protocol violation a hard error with nothing appended | Drive the table: fresh → open line; same id, same command and digest after close → `ClaimDone` with the identical persisted mapping, for a `done` and for a `refusal` outcome; different digest → `ClaimMismatch`; different command → `ClaimMismatch`; open without close → `ClaimOpen`; a second fresh id while one is open → `SessionProtocolError`; `close_invocation` of a non-open id → `SessionProtocolError`; a malformed outcome → `ValueError`, invocation still open. Assert the returned value's type is one of the four sealed classes in every case. **Negative:** eight threads claiming one fresh id under an external lock see one `ClaimFresh` and, after close, seven `ClaimDone` |
+| **J6** | The claim protocol is exhaustive and fail-closed: the four outcomes of §3.3 exactly, a `ClaimDone` outcome replayed whole (refusal envelope included), an abandoned invocation left open and never blocking a later fresh claim, and every protocol violation a hard error with nothing appended | Drive the table: fresh → open line; same id, same command and digest after close → `ClaimDone` with the identical persisted mapping, for a `done` and for a `refusal` outcome; different digest → `ClaimMismatch`; different command → `ClaimMismatch`; open without close → `ClaimOpen`; a second fresh id while one is open → `ClaimFresh`, the earlier still open, the new one current; `close_invocation` of the abandoned id → `SessionProtocolError`; `close_invocation` of the current id → closed; a malformed outcome → `ValueError`, invocation still current. Assert the returned value's type is one of the four sealed classes in every case. **Negative:** eight threads claiming one fresh id under an external lock see one `ClaimFresh` and, after close, seven `ClaimDone`; an oversized record through the scoped writer is `PlanRefused`, a `WriteRefused`, and its invocation closes with a refusal envelope rather than staying open |
 | **J7** | Every ledger line is appended and fsynced before its call returns, the encoding is canonical JSON lines, and the reader refuses a malformed line and reports a torn tail | Wrap `os.fsync` and assert one call per line for every line kind; parse each line with a strict decoder and assert `sort_keys` order and no whitespace; truncate a ledger mid-line → `torn_tail` true and every complete line read; corrupt a middle line → `LedgerMalformed` naming its number; a first line that is not `session-open` → `LedgerMalformed`. **Negative:** a valid ledger round-trips through the reader to the same `InvocationRecord`s the session's index holds |
-| **J8** | Reconciliation classifies every actor-matching chain entry into exactly one of §6's codes, reports ledger claims the chain lacks and every unreadable ledger state, writes nothing — recovery included — and yields byte-equal results at open and through the audit surface over one lock-coherent snapshot | Build the seven intent states of §6 and the six ledger states over stand-in chains and ledger evidence and assert one finding each with the tabled code, severity and ref; run `root.reconcile_sessions` over the real root before and after a crashed session (a ledger with open invocation and a chain with its uncovered entry) and assert the findings equal `session.findings` of a session opened over the same root; hash the corpus root, its metadata sibling and the operations root before and after and assert equality, including with an unsettled registration present (which registered inspection would have resolved). **Interleaving:** start a scoped write on a second thread that blocks inside the commit, run reconciliation, release; assert no `session-entry-foreign` and that the write is either absent from both reads or covered. **Negative:** a fully covered session yields no finding, and an ordinary library write — no session actor — is never classified; a session directory with no ledger yields `session-ledger-missing` and does not refuse open |
-| **J9** | Lifecycle: open writes `session-open` with the actor, world id and permit summary; `close` appends `session-close` once and is idempotent; every later call is `SessionClosed`; a config without exactly one corpus root refuses at open with no directory created | Open and assert the first line; close twice and assert one `session-close`; call each method → `SessionClosed`; open over configs with zero and two corpus roots and over a missing root → `SessionRefused`, no `sessions/` entry. **Negative:** a session left with an open invocation at `close` writes `session-close` after it, and the reader reports `open_invocation` and `closed` both |
-| **J11** | A scoped writer is bound to one invocation: it acts only while that invocation is the open one, refuses with `SessionProtocolError` and nothing written before it is claimed, after it is closed, and under any other open invocation, and carries the requirement it was scoped with, not the ceiling | `scoped(req, "A")`; act before claiming A → `SessionProtocolError`, head unchanged; claim A fresh, act → minted; close A; act again → `SessionProtocolError`; `scoped(narrower, "B")`, claim B fresh; act with A's writer → `SessionProtocolError`, head unchanged, no `act` line under B; act with B's writer → minted under B. **Negative:** two writers scoped for the same id under one claim both act, and every act ledgers under that id |
+| **J8** | Reconciliation classifies every actor-matching chain entry into exactly one of §6's codes, reports ledger claims the chain lacks and every unreadable ledger state, writes nothing — recovery included — and yields byte-equal results at open and through the audit surface over one lock-coherent snapshot | Build every intent, chain and ledger state §6 tables — the detached `pending`-only registration included — over stand-in views and ledger evidence and assert one finding each with the tabled code, severity and ref; run `root.reconcile_sessions` over the real root before and after a crashed session (a ledger with open invocation and a chain with its uncovered entry) and assert the findings equal `session.findings` of a session opened over the same root; hash the corpus root, its metadata sibling and the operations root before and after and assert equality, including with an unsettled registration present (which registered inspection would have resolved). **Interleaving:** start a scoped write on a second thread that blocks inside the commit, run reconciliation, release; assert no `session-entry-foreign` and that the write is either absent from both reads or covered. **Negative:** a fully covered session yields no finding, and an ordinary library write — no session actor — is never classified; a session directory with no ledger yields `session-ledger-missing` and does not refuse open |
+| **J9** | Lifecycle: open writes `session-open` with the actor, world id and permit summary; `close` appends `session-close` once and is idempotent; every later call is `SessionClosed`; a config without exactly one corpus root, a root with no manifest, or a root whose chain is absent or malformed refuses at open with no directory created | Open and assert the first line; close twice and assert one `session-close`; call each method → `SessionClosed`; open over configs with zero and two corpus roots, a missing root, an existing but unadopted root, a registered root with no manifest, and an adopted root whose chain directory is removed → `SessionRefused`, no `sessions/` entry. **Negative:** a session left with an open invocation at `close` writes `session-close` after it, and the reader reports `open_invocation` and `closed` both |
+| **J11** | A scoped writer is bound to one invocation: it acts only while that invocation is the current one, refuses with `SessionProtocolError` and nothing written before it is claimed, after it is closed or abandoned, and under any other current invocation, and carries the requirement it was scoped with, not the ceiling | `scoped(req, "A")`; act before claiming A → `SessionProtocolError`, head unchanged; claim A fresh, act → minted; close A; act again → `SessionProtocolError`; `scoped(narrower, "B")`, claim B fresh; act with A's writer → `SessionProtocolError`, head unchanged, no `act` line under B; act with B's writer → minted under B; abandon B (no close), claim C fresh; act with B's writer → `SessionProtocolError`. **Negative:** two writers scoped for the same id under one claim both act, and every act ledgers under that id |
 | **J10** | A session-written record is indistinguishable on ordinary read from a library write of the same node: same bytes, same path, no additional record, and the corpus view differs only by the record itself | Write one node through a scoped writer and the same node through `open_corpus` on a twin root; assert byte-equal record files, equal `corpus_check` findings, and equal record inventories. Session-`delete` a record and raw-`unlink` its twin; assert the two read views are equal. **Negative:** the two *chains* differ — the session root holds the intent and the fulfilling registration — which is the whole of the difference |
 
 ## 8. Limitations
@@ -648,7 +715,11 @@ for every kind), `session/reconcile.py` (adopt an uncovered entry as
 covered; classify an open-invocation entry as foreign; classify an
 unreadable ledger's entries as foreign; settle a pending registration),
 `root.py` (read the chain through `inspect_registered`; read ledgers
-outside the lock; raise on a missing ledger), and
+outside the lock; raise on a missing ledger; open over a root with no
+manifest), `session/writer.py` again (let a fresh claim raise while one is
+open; let `_commit` raise the `nodes` type from preflight; skip the
+`finally` reconstruct), `session/reconcile.py` again (drop the view's
+`pending` pairs; attach a `pending` pair to an intent), and
 `test_permit_boundary.py`'s inventory (drop the `_commit` row).
 `test_n2_cut19.py` audits them by the cut-12 pattern, and
 `tools/cut19_acceptance.py` runs `PREFIX_RUNNERS = ("cut18_acceptance.py",)`
@@ -664,7 +735,7 @@ then its phase modules.
   (`DurableOperationPort.preflight` and `execute_fulfilling`,
   `reconcile_sessions`), `intents/reduce.py` (`_qualify_one`), `errors.py`
   (`SessionRefused`, `SessionClosed`, `SessionProtocolError`,
-  `LedgerMalformed`, `OperationPortMissing`); and every test port's
+  `LedgerMalformed`, `OperationPortMissing`, `PlanRefused`); and every test port's
   `execute_fulfilling`.
 - **The `session` lane.** The roadmap's lane table gains `session` with
   `writer-session` as its one boundary and a shared surface of `session/`,
@@ -747,6 +818,17 @@ then its phase modules.
   append a settlement — a write from a surface that promises none, and one
   that J8's byte-equality would have to exempt. Pending is reported instead
   and settled by the next write.
+- **Normalizing `ExecutionError` into a refusal.** It would close an
+  invocation `refusal` whose write may be durable, and a retry would then
+  re-execute into exactly the uncertainty command-framework §6.2 forbids.
+  The open invocation *is* the record of that uncertainty.
+- **Refusing a fresh claim while one is open.** Sound only if no exception
+  ever escapes the dispatcher's pipeline; the first internal error would
+  lock the session until restart, and the ledger already expresses "open,
+  never closed" without help.
+- **Deferring adoption and registration to the first write.** Reconciliation
+  at open needs the corpus id and the chain; an endpoint that opened over
+  nothing would carry `act` lines no audit could verify.
 - **Refusing open when a prior session is unclosed.** It would make a crash
   a lockout. The finding is the contract's chosen surface for the person.
 
