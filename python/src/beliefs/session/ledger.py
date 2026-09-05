@@ -209,7 +209,14 @@ def _validated_line(line: Mapping[str, object], *, line_number: int | None) -> d
 
 
 class LedgerReader:
-    """One ledger, parsed in full (§3.5)."""
+    """One ledger, parsed in full (§3.5).
+
+    By the time a line reaches this constructor, `_parse` has already refused
+    any line the writer's protocol cannot produce (an `act` or
+    `invocation-close` naming an invocation never opened or already closed, a
+    repeated `invocation-open`, or any line after `session-close`) — so every
+    `act`/`invocation-close` here targets an invocation this loop has already
+    recorded, and no salvaging is needed."""
 
     def __init__(self, session_id: str, lines: list[dict[str, object]], torn_tail: bool) -> None:
         self.session_id = session_id
@@ -230,24 +237,22 @@ class LedgerReader:
                 acts[invocation] = []
             elif kind == "act":
                 invocation = str(line["invocation"])
-                acts.setdefault(invocation, []).append(
+                acts[invocation].append(
                     ActLine(invocation, str(line["corpus"]), str(line["entry"]), str(line["intent"]), _pairs(line["records"], "act records"))
                 )
             elif kind == "invocation-close":
                 invocation = str(line["invocation"])
-                current = self._records.get(invocation)
-                if current is not None:
-                    self._records[invocation] = InvocationRecord(invocation, current.command, current.input_digest, (), validated_outcome(line["outcome"]))
+                current = self._records[invocation]
+                self._records[invocation] = InvocationRecord(invocation, current.command, current.input_digest, (), validated_outcome(line["outcome"]))
         for invocation, record in list(self._records.items()):
             self._records[invocation] = InvocationRecord(invocation, record.command, record.input_digest, tuple(acts.get(invocation, ())), record.outcome)
-        self._stray_acts = tuple(act for invocation, found in acts.items() if invocation not in self._records for act in found)
 
     @property
     def open_invocations(self) -> tuple[str, ...]:
         return tuple(i for i in self._order if self._records[i].outcome is None)
 
     def acts(self) -> tuple[ActLine, ...]:
-        return tuple(act for i in self._order for act in self._records[i].acts) + self._stray_acts
+        return tuple(act for i in self._order for act in self._records[i].acts)
 
     def invocations(self) -> tuple[InvocationRecord, ...]:
         return tuple(self._records[i] for i in self._order)
@@ -257,21 +262,56 @@ class LedgerReader:
 
 
 def _parse(session_id: str, raw: bytes) -> LedgerReader:
+    """Parse every complete line, refusing both a malformed line's own shape
+    (`_validated_line`) and a line the writer's protocol can never produce:
+    an `act` or `invocation-close` naming an invocation never opened or
+    already closed, a repeated `invocation-open`, or any line after
+    `session-close` (design §7 row J7; fail-early forbids salvaging any of
+    these rather than tolerating and reporting around them)."""
     if not raw:
         raise LedgerMalformed("line 1: the ledger is empty; no session-open")
     torn_tail = not raw.endswith(b"\n")
     chunks = raw.split(b"\n")[:-1]  # the last chunk is empty after a newline, or the torn tail
     lines: list[dict[str, object]] = []
+    opened: set[str] = set()
+    closed: set[str] = set()
+    session_closed_at: int | None = None
     for number, chunk in enumerate(chunks, start=1):
         try:
             parsed = json.loads(chunk.decode("utf-8"))
         except (UnicodeDecodeError, ValueError) as caught:
             raise LedgerMalformed(f"line {number}: not a JSON object: {caught}") from caught
-        lines.append(_validated_line(parsed, line_number=number))
+        validated = _validated_line(parsed, line_number=number)
+        if number == 1:
+            if validated["line"] != "session-open":
+                raise LedgerMalformed("line 1: the first line is not session-open")
+        elif session_closed_at is not None:
+            raise LedgerMalformed(f"line {number}: no line follows session-close (line {session_closed_at})")
+        else:
+            kind = validated["line"]
+            if kind == "invocation-open":
+                invocation = str(validated["invocation"])
+                if invocation in opened:
+                    raise LedgerMalformed(f"line {number}: invocation {invocation!r} is already open")
+                opened.add(invocation)
+            elif kind == "act":
+                invocation = str(validated["invocation"])
+                if invocation not in opened:
+                    raise LedgerMalformed(f"line {number}: act names invocation {invocation!r}, never opened")
+                if invocation in closed:
+                    raise LedgerMalformed(f"line {number}: act names invocation {invocation!r}, already closed")
+            elif kind == "invocation-close":
+                invocation = str(validated["invocation"])
+                if invocation not in opened:
+                    raise LedgerMalformed(f"line {number}: invocation-close names invocation {invocation!r}, never opened")
+                if invocation in closed:
+                    raise LedgerMalformed(f"line {number}: invocation {invocation!r} is already closed")
+                closed.add(invocation)
+            elif kind == "session-close":
+                session_closed_at = number
+        lines.append(validated)
     if not lines:
         raise LedgerMalformed("line 1: the ledger is empty; no session-open")
-    if lines[0]["line"] != "session-open":
-        raise LedgerMalformed("line 1: the first line is not session-open")
     return LedgerReader(session_id, lines, torn_tail)
 
 

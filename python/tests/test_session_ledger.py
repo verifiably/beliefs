@@ -144,6 +144,53 @@ def test_a_first_line_that_is_not_session_open_is_malformed(tmp_path):
         open_ledger_reader(tmp_path, SESSION)
 
 
+@pytest.mark.parametrize(
+    "raw, message",
+    [
+        pytest.param(
+            encode_line(open_line())
+            + encode_line({"line": "invocation-close", "invocation": "A", "outcome": {"done": []}}),
+            "line 2",
+            id="invocation-close-never-opened",
+        ),
+        pytest.param(
+            encode_line(open_line())
+            + encode_line({"line": "act", "invocation": "A", "corpus": WORLD, "entry": ENTRY, "intent": INTENT, "records": []}),
+            "line 2",
+            id="act-never-opened",
+        ),
+        pytest.param(
+            encode_line(open_line())
+            + encode_line({"line": "invocation-open", "invocation": "A", "command": "mint", "input_digest": DIGEST, "at": AT})
+            + encode_line({"line": "invocation-close", "invocation": "A", "outcome": {"done": []}})
+            + encode_line({"line": "act", "invocation": "A", "corpus": WORLD, "entry": ENTRY, "intent": INTENT, "records": []}),
+            "line 4",
+            id="act-after-its-invocation-closed",
+        ),
+        pytest.param(
+            encode_line(open_line())
+            + encode_line({"line": "invocation-open", "invocation": "A", "command": "mint", "input_digest": DIGEST, "at": AT})
+            + encode_line({"line": "invocation-open", "invocation": "A", "command": "mint", "input_digest": DIGEST, "at": AT}),
+            "line 3",
+            id="invocation-open-reopened",
+        ),
+        pytest.param(
+            encode_line(open_line())
+            + encode_line({"line": "session-close", "at": AT})
+            + encode_line({"line": "session-close", "at": AT}),
+            "line 3",
+            id="line-after-session-close",
+        ),
+    ],
+)
+def test_a_line_the_writer_protocol_cannot_produce_is_refused_naming_its_number(tmp_path, raw, message):
+    path = ledger_path(tmp_path, SESSION)
+    path.parent.mkdir(parents=True)
+    path.write_bytes(raw)
+    with pytest.raises(LedgerMalformed, match=message):
+        open_ledger_reader(tmp_path, SESSION)
+
+
 def test_an_empty_or_missing_ledger_is_not_malformed_to_the_reader_but_is_evidence(tmp_path):
     with pytest.raises(FileNotFoundError):
         open_ledger_reader(tmp_path, SESSION)
