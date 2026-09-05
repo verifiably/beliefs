@@ -40,6 +40,7 @@ source = { editable = "../../atoms/python" }
 dev = [
     { name = "pyright", specifier = ">=1.1.390" },
     { name = "pytest", specifier = ">=9.0" },
+    { name = "pytest-testmon", specifier = ">=2.2.0" },
     { name = "ruff", specifier = ">=0.15.7" },
 ]
 
@@ -507,6 +508,7 @@ requires-dist = [
 dev = [
     { name = "pyright", specifier = ">=1.1.390" },
     { name = "pytest", specifier = ">=9.0" },
+    { name = "pytest-testmon", specifier = ">=2.2.0" },
     { name = "ruff", specifier = ">=0.15.7" },
 ]
 
