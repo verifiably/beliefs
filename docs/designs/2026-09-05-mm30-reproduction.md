@@ -104,7 +104,7 @@ directly rather than through a decompression rule. `target.yaml` carries
 | 6 | derive the assessment | ran 2026-09-05: `build_assessment` returned an `AssessmentValue` with outcome `inconclusive` on the first call (P7); minted `assessment:316272987716ac4f`. The derived identity `31627298…` and the stored record's identity `d9e338a7…` differ (§6) | `corpus/assessment/316272987716ac4f.md` |
 | 7 | verify: replay, compare, derive scope | ran 2026-09-05: the replay minted `run:edf73817…`; the two result manifests agree (same `stats.tsv` and `outcome.txt` digests); `derive_scope` = **`clean-environment`** on this host, so no scope finding; `build_verification` derived an `AssessmentVerification` with verdict `passed` | `corpus/run/edf73817…`; the verification is in memory until step 8 |
 | 8 | admit and compute belief under `science.belief.v1` | ran 2026-09-05: `build_verification` re-derived from the two stored closures agreed with step 7 (`clean-environment`, `passed`); `admission_record` named the **derived** assessment identity `31627298…`, kept unaltered; minted `verification:…`. `gather` matched one assessment and its run. `admit` refused: `not-admitted-verification-state: kernel 3.3 admits only clean-environment passes` — the gathered assessment carries the stored identity `d9e338a7…`, so no verification names it. `evaluate_over` answered `{"kind": "NoBelief", "reason": "no-eligible-assessment", "detail": ""}`. Terminal under §2 rule 4: the admission reason and the scope (`clean-environment`, `passed`) were read together, and the class is **design-gap** (the identity bridge, §6), not host. Supplied members: `producer_snapshot_identity` = `no-epoch-published` (no epoch was built), the retraction enumeration is empty with coverage this corpus; the holdings reduction rule was not applied (one observation, no history) | `corpus/verification/…` naming the derived identity, the corpus ref of the assessment, scope, verdict and the two-run derivation |
-| 9 | close the corpus: `corpus_check`, semantic audit, log verification | pending | |
+| 9 | close the corpus: `corpus_check`, semantic audit, log verification | ran 2026-09-05: `corpus_check` **0 findings**; `audit_corpus` over the in-process spec and rule implementations **0 findings** (the stored verification's derivation recomputed and agreed, since it names the derived identity); `audit_log` measured under two observer shapes, both read-only: with the **empty observer set** (the exercise anchored nothing) the outcome is `unresolvable`, 22 chain entries unanchored, 3 intents qualified, one `unanchored` finding — the exercise's own omission, not the kernel's; with **one registry carrier built from the chain head as read now** (the record an anchor act would leave) the outcome is `validated`, anchored through `f64d23b2…`, 0 unanchored, 0 findings. Zero kernel findings is the expected outcome and is stated as such | nothing written; `state.log_verdict` carries both reports |
 | 10a | re-derive the belief from the corpus in a fresh process | pending | |
 | 10b | reconstruct the verification evidence from the corpus | pending | |
 
@@ -186,6 +186,7 @@ here; they are in §8.
 
 | step | class | reason | filed |
 |---|---|---|---|
+| 9 | corpus-work | `audit_log` under the empty observer set: `unanchored: corpus:6d25948b…` — the exercise performed no anchor act (`anchor_heads`), so nothing anchors its chain; measured as `validated` under a head carrier instead | this record; no lane |
 | 8 | design-gap | a `clean-environment` pass was refused at admission (`not-admitted-verification-state`): the verification names the derived identity `31627298…`, the gathered assessment carries the stored identity `d9e338a7…`, and only the former satisfies the audit's recomputation. The belief answer is `NoBelief(no-eligible-assessment)` for this reason and no other | assessment/run-record design (one spelling for the run member) — the same task as step 6's |
 | 6 | design-gap | the derived `AssessmentValue` spells `run` as the bare closure address and the stored record as `run:<address>` (which `eligibility_refusal` requires so the run resolves); `assessment.identity()` = `31627298…` and `stored.assessment_value(node).identity()` = `d9e338a7…`. No single identity satisfies both admission over the corpus (which matches the stored one) and the audit's recomputation (which digests the bare address). Unpredicted by §5 | assessment/run-record design (one spelling for the run member) — task filed at the end |
 | 4 | design-gap | `build_assessment` hands the interpretation rule a `ResultManifest` of output digests, not output bytes; the verdict is routed through a canonical outcome file (`outputs/outcome.txt`, exactly one of three lines) whose digest the rule maps. Unpredicted by the design's §5 | computation design (where an interpretation rule reads content) — task filed at the end |
@@ -212,4 +213,17 @@ other proposition. Compared against the run at the end.
 Mistakes fixed in the driver during the run, kept apart from §6 so a reader
 can tell instrument from kernel.
 
-- none yet.
+- **Step 9, log audit classification.** The first run of `reproduction.close`
+  filed the empty-observer-set `unanchored` line as a design-gap. It is the
+  exercise's own omission (no anchor act was performed), so the driver was
+  corrected to file it as corpus-work, the mis-filed line was removed from
+  `findings.jsonl`, and the step was re-run. `close` writes nothing, so the
+  re-run changed no record.
+- **Step 3 onward, the analysis's input shape.** The plan's analysis read a
+  long table (`value_column`, `group_column`); the held file is a wide gzipped
+  matrix (§2). The analysis, the template's placeholders and `target.yaml`'s
+  keys were written to the wide shape before the spec was frozen, so no run
+  or recipe was affected.
+- **The work directory.** The plan put it beside the worktree; a worktree
+  under `.worktrees/` is removed when the lane closes, so `paths.py` resolves
+  it beside the main checkout when the driver runs from a linked worktree.
