@@ -100,9 +100,9 @@ directly rather than through a decompression rule. `target.yaml` carries
 | 2 | type the target and mint the proposition | ran 2026-09-05: `build_claim` typed the target under the unsorted vocabulary on the first call; claim identity `5e702bc43fdf51d3…`; minted `proposition:concept-disease-stage-affects-protein-phf19` under the full `Authority`. The pure measurement under the modal-sorted vocabulary refused: `ArgumentSortMismatch: slot 1 of 'mm30/affects' is declared 'mm30/concept'; 'protein:PHF19' is of sort 'mm30/protein'` (§6) | `corpus/proposition/…` — one `proposition` record carrying the claim projection and a display statement |
 | 3 | hold the dataset | ran 2026-09-05: the holdings boundary's local arm wrote 6,154,181 bytes to the store under `gse179929/GSE179929_gene_tpm.txt.gz`, digest `sha256:c74ea661…`, and published the observation; the dataset record was minted under its content address `dataset:sha256:a6bf229e…` with an authored `empirical-observation` facet; `admission_state` over the stored declaration and the observation read `Held` | `store/gse179929/…`, `corpus/holdings-observation/8ef93a89…` (outcome `Found`), `corpus/dataset/sha256__a6bf229e…` |
 | 4 | freeze the analysis spec and its recipe | ran 2026-09-05: the Snakefile was rendered with the held basename, the PHF19 row, the `_` separator and `PD`; `freeze` bound the interpretation rule `mm30-reproduction/outcome-file/v1` and the equivalence rule `content-identity-equality/v1` to their held implementations; spec identity `86aaa1a8a8edda82…`, target the proposition's corpus ref; the hand-built `analysis-spec` record was accepted by the writer once stamped | `corpus/analysis-spec/86aaa1a8…`; the rendered `analysis/workflow/Snakefile` in the driver (committed, since its digest enters the definition snapshot). **From here the target, spec and rule are fixed** |
-| 5 | execute the run under confinement | pending | |
-| 6 | derive the assessment | pending | |
-| 7 | verify: replay, compare, derive scope | pending | |
+| 5 | execute the run under confinement | ran 2026-09-05 (2 min 36 s for steps 5–7 together, including the venv snapshot's materialization): the confined planning launch and the execution launch both exited 0; the analysis wrote `stats.tsv` (`z = 1.159`, `p = 0.246`, `n = 51`) and `outcome.txt` = `inconclusive`; run minted as `run:9700c41d…` with the receipt's capabilities `closure-confined-filesystem`, `from-bundle`, `network-denied` and an instance attestation | `corpus/run/9700c41d…` (the closure projection with both launch attestations inside it), the port's registration chain under `corpus/.#~chain/`, the environment snapshot and both run scratches under `scratch/` |
+| 6 | derive the assessment | ran 2026-09-05: `build_assessment` returned an `AssessmentValue` with outcome `inconclusive` on the first call (P7); minted `assessment:316272987716ac4f`. The derived identity `31627298…` and the stored record's identity `d9e338a7…` differ (§6) | `corpus/assessment/316272987716ac4f.md` |
+| 7 | verify: replay, compare, derive scope | ran 2026-09-05: the replay minted `run:edf73817…`; the two result manifests agree (same `stats.tsv` and `outcome.txt` digests); `derive_scope` = **`clean-environment`** on this host, so no scope finding; `build_verification` derived an `AssessmentVerification` with verdict `passed` | `corpus/run/edf73817…`; the verification is in memory until step 8 |
 | 8 | admit and compute belief under `science.belief.v1` | pending | |
 | 9 | close the corpus: `corpus_check`, semantic audit, log verification | pending | |
 | 10a | re-derive the belief from the corpus in a fresh process | pending | |
@@ -141,7 +141,10 @@ citing `state.json` or `findings.jsonl`.
   reaches is what step 7 measures. A scope short of `clean-environment` is
   recorded, not repaired, and is classified by §2 rule 4 — `same-environment`
   to the host, `not-certified` to authoring or defect.
-  **Outcome:** pending.
+  **Outcome:** confirmed. The launch ran the analysis; nothing failed
+  between the platform probe and the result. The measured scope is
+  `clean-environment` (`state.verification_scope`), the best row, so rule 4's
+  classification was not needed.
 - **P5 — the belief re-derives; the verification evidence does not.** Step
   10a passes: the stored projection carries assessment, scope and verdict,
   which is all the evaluator reads. Step 10b fails: step 7's
@@ -156,7 +159,8 @@ citing `state.json` or `findings.jsonl`.
   interpretation rule is authored for this target and the run's result is
   the shape it expects. A finding here is a defect in the rule's authoring
   or the recipe's result manifest, classified under §7.
-  **Outcome:** pending.
+  **Outcome:** confirmed. `build_assessment` returned an `AssessmentValue`
+  (`state.assessment_outcome` = `inconclusive`) on the first run.
 - **P6 — at least one banked design is amended.** Not which. The typing
   exercise amended the kernel design and withdrew a ledger claim; a run
   through five more seams is not expected to amend nothing.
@@ -182,6 +186,7 @@ here; they are in §8.
 
 | step | class | reason | filed |
 |---|---|---|---|
+| 6 | design-gap | the derived `AssessmentValue` spells `run` as the bare closure address and the stored record as `run:<address>` (which `eligibility_refusal` requires so the run resolves); `assessment.identity()` = `31627298…` and `stored.assessment_value(node).identity()` = `d9e338a7…`. No single identity satisfies both admission over the corpus (which matches the stored one) and the audit's recomputation (which digests the bare address). Unpredicted by §5 | assessment/run-record design (one spelling for the run member) — task filed at the end |
 | 4 | design-gap | `build_assessment` hands the interpretation rule a `ResultManifest` of output digests, not output bytes; the verdict is routed through a canonical outcome file (`outputs/outcome.txt`, exactly one of three lines) whose digest the rule maps. Unpredicted by the design's §5 | computation design (where an interpretation rule reads content) — task filed at the end |
 | 4 | design-gap | `analysis-spec` is a stored kind (`stored.py`'s kinds table, semantic domain `science.analysis-spec.v1`, the r20 check on import) with no kernel builder and no reader; the record was hand-built and stamped through `stamp_semantic_identity`, and nothing restores a `FrozenSpec` from it (step 10b) | computation design / `stored.py` (spec record builder and restore) — task filed at the end |
 | 3 | design-gap | the `empirical-observation` facet is presence-only: `is_empirical_observation` read the driver's authored payload unchecked (P2) | domain lane (facet payload contract, kernel §11) — task filed at the end |

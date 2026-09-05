@@ -158,3 +158,12 @@ def test_spec_record_carries_a_fresh_semantic_stamp():
     node = spec_module.spec_record(freeze(draft, held_rules=spec_module.held_rules()))
     assert node.kind == "analysis-spec"
     assert not stored.semantic_hash_missing(node) and not stored.semantic_hash_disagrees(node)
+
+
+def test_classify_scope_attributes_only_same_environment_to_the_host():
+    from reproduction.run import classify_scope
+
+    assert classify_scope("clean-environment", conforming=(True, True), recipes_agree=True) == "none"
+    assert classify_scope("same-environment", conforming=(True, True), recipes_agree=True) == "host"
+    assert classify_scope("not-certified", conforming=(True, False), recipes_agree=True) == "defect"
+    assert classify_scope("not-certified", conforming=(True, True), recipes_agree=False) == "corpus-work"
