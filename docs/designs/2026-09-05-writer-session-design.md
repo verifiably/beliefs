@@ -1105,3 +1105,16 @@ decide. None changes a `J` row or the cut's §2–§7.
     ordinary body does today.
 16. **The staleness baseline is unchanged throughout.** No task may leave a
     prior-cut arm stale; the executor route exists so that none does.
+17. **The scoped authority is minted in `permit.py`.** §5 writes the scoped
+    writer's authority as `Authority(required.permit, self.actor)` at the
+    session. E6's static arm
+    (`test_permit_boundary.py::test_authority_is_constructed_only_in_permit`)
+    admits an `Authority(...)` construction in `permit.py` and nowhere else —
+    the rule write-permits design §16 states as the reason `permit.READ_ONLY`
+    lives there — and `beliefs/session/writer.py` is not `permit.py`. So
+    `permit.py` gains `scoped_authority(required, actor) -> Authority`: it
+    type-checks the requirement and returns `Authority(required.permit,
+    actor)`, exactly §5's value with no widening, no default and no second
+    permit source. `WriterSession.scoped` calls it with the actor it derives
+    from the session id, so no `session/` definition takes an actor and the
+    static arm is unweakened.
