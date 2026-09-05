@@ -5,8 +5,8 @@ status: todo
 priority: 2
 size: m
 created: 2026-09-05T20:00:55Z
-updated: 2026-09-05T22:30:27Z
-depends: []
+updated: 2026-09-05T23:37:41Z
+depends: [beliefs-5f855c]
 parent: beliefs-bc3aff
 tags: [domain, reproduction-finding]
 ---
