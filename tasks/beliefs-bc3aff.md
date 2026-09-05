@@ -5,9 +5,10 @@ status: todo
 priority: 2
 size: xl
 created: 2026-08-31T00:38:27Z
-updated: 2026-08-31T10:04:46Z
+updated: 2026-09-05T22:30:27Z
 depends: []
 tags: [migration, domain, parity]
+spec: docs/designs/2026-09-05-facet-contracts-design.md
 ---
 
 Outcome: Beliefs admits governed domain kinds through a compiled domain boundary, ships the GO/HP/EFO/MONDO biology bindings and mm30 operator vocabulary, and proves a second Python/TypeScript parity fixture.

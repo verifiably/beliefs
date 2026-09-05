@@ -48,6 +48,7 @@ GUARANTEE_TABLES: dict[str, tuple[str, ...]] = {
     "H": ("H1", "H2", "H3", "H4"),
     "T": ("T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"),
     "E": tuple(f"E{n}" for n in range(1, 9)),
+    "F": tuple(f"F{n}" for n in range(1, 9)),
 }
 
 #: Which design owns each table. The formal model reproduces every other table in
@@ -67,6 +68,7 @@ TABLE_OWNERS = {
     "H": "2026-08-10-verified-holdings-record-design.md",
     "T": "2026-08-11-act-report-design.md",
     "E": "2026-09-04-write-permits-design.md",
+    "F": "2026-09-05-facet-contracts-design.md",
 }
 
 #: Science's Linux adoption vocabulary ends at A8. A9 is `atoms`' macOS arm and
@@ -83,7 +85,7 @@ _PENDING_ATOMS_STAGE = re.compile(
 )
 
 #: Row ids run to `G2c` and `W8b`, so the suffix is a letter and not just `a`/`b`.
-_ROW = re.compile(r"^\|\s*\*{0,2}([GSWRCXNLDMPHTE][0-9]+[a-z]?)\*{0,2}\s*\|", re.MULTILINE)
+_ROW = re.compile(r"^\|\s*\*{0,2}([GSWRCXNLDMPHTEF][0-9]+[a-z]?)\*{0,2}\s*\|", re.MULTILINE)
 _LINK = re.compile(r"\]\(([^)#\s]+\.md)[^)]*\)")
 _BACKTICKED_DOC = re.compile(r"`(20\d\d-\d\d-\d\d-[a-z0-9-]+\.md)`")
 #: The same name unquoted. The guide cites designs in links and `sources` lists,
@@ -104,7 +106,7 @@ EXTERNAL_DOCUMENTS = {
 #: A label naming a span of one table's rows, as `W1–W13` or `M1–M13`. Both
 #: endpoints must be rows that exist: the disposition record once labelled the
 #: world group `W1–W16`, and there has never been a `W14`.
-_ROW_RANGE = re.compile(r"\b([GSWRCXNLDMPHTE])([0-9]+[a-z]?)–\1?([0-9]+[a-z]?)\b")
+_ROW_RANGE = re.compile(r"\b([GSWRCXNLDMPHTEF])([0-9]+[a-z]?)–\1?([0-9]+[a-z]?)\b")
 
 PLANS = ROOT / "docs" / "plans"
 
@@ -114,7 +116,7 @@ _RESULTS_RECORD = re.compile(r"\A\d{4}-\d\d-\d\d-conformance-cut-(\d+)-results\.
 #: A guarantee-row label as prose names it — `G4`, `L13`, `S1a` — with no table
 #: cell around it. `_ROW` anchors on `| **G4** |` and finds nothing in a prose
 #: paragraph, which is why this exists separately.
-_PROSE_LABEL = re.compile(r"\b([GSWRCXNLDMPHTE][0-9]+[a-z]?)\b")
+_PROSE_LABEL = re.compile(r"\b([GSWRCXNLDMPHTEF][0-9]+[a-z]?)\b")
 
 #: A level-two heading with its optional `N.` numbering stripped.
 _H2 = re.compile(r"^## (?:\d+\.\s+)?(.*)$")
@@ -225,7 +227,7 @@ def test_the_readme_states_the_corpus_row_total() -> None:
     # The README hard-wraps its prose, so a phrase can straddle a line break.
     readme = re.sub(r"\s+", " ", _text(README))
     assert f"{total} rows" in readme, f"the README does not state the corpus total of {total} rows"
-    table_words = {11: "eleven", 12: "twelve", 13: "thirteen", 14: "fourteen"}
+    table_words = {11: "eleven", 12: "twelve", 13: "thirteen", 14: "fourteen", 15: "fifteen"}
     assert f"{table_words[tables]} frozen tables" in readme, (
         f"the README does not state that the rows sit in {tables} tables"
     )
@@ -275,6 +277,7 @@ _COUNT_WORDS = {
     46: "Forty-six",
     47: "Forty-seven",
     48: "Forty-eight",
+    49: "Forty-nine",
 }
 
 

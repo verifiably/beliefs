@@ -27,7 +27,7 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Forty-eight documents in `docs/designs/`: the banked redesigns, review disposition,
+Forty-nine documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
 2026-08-02 through 2026-09-05. Read them in this order:
 
@@ -81,6 +81,7 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-09-04-conformance-cut-18.md` | the discharged deletion cut: managed `delete` as an ordinary write, the audit and import ride-alongs, 7 rows closed, 5 partial, 4 closed-row re-reads |
 | `2026-09-04-write-permits-design.md` | the discharged write-permits slice: closed act families and kind routes, `Authority` bound once at every construction seam, checks before effects across the static entry-point inventory, and E1–E8 closed at cut 17 |
 | `2026-09-05-mm30-reproduction.md` | the mm30 reproduction measurement: one real proposition pushed through the kernel as a library to the belief evaluator's answer, with its predictions, findings and re-rank |
+| `2026-09-05-facet-contracts-design.md` | the first `domain-boundary` slice, anchored on the empirical-observation facet's payload contract: facet and kind declarations in the base and domain contracts, the compiled per-kind registry and payload validators, the bearer invariant and attestation binding, the shipped base profile and the pin recheck under the operation lock, and the second `science.identity.v1` parity fixture (F1–F8, cut 20 to freeze) |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -109,8 +110,8 @@ instrumented belief resolver. The latest discharged boundary is
 cut 18 ([results](docs/plans/2026-09-04-conformance-cut-18-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
-test before it is a passing one. There are **161 rows** across **fourteen frozen
-tables** (G, S, W, R, C, X, N, L, D, M, P, H, T, E), and every cut is frozen
+test before it is a passing one. There are **169 rows** across **fifteen frozen
+tables** (G, S, W, R, C, X, N, L, D, M, P, H, T, E, F), and every cut is frozen
 *before* its code exists so that a row which fails is a failure rather than a
 redefinition.
 
