@@ -9,6 +9,7 @@ from beliefs.permit import (
     ACT_FAMILIES,
     COMMAND_REACHABLE_FAMILIES,
     KIND_ACTS,
+    READ_ONLY,
     Authority,
     RequiredCapabilities,
     WritePermit,
@@ -201,3 +202,23 @@ class TestE5Coverage:
         required = RequiredCapabilities.for_kinds(["run"], {"run": "corpus-write"})
         assert permit_covers(WritePermit(frozenset({"run"}), frozenset({"corpus-write"})), required)
         assert not permit_covers(WritePermit(frozenset({"run"}), frozenset({"run"})), required)
+
+
+class TestReadOnly:
+    """The read door's authority (design §16): the empty permit, so every act
+    refuses before any effect, under an actor no record can carry."""
+
+    def test_read_only_permits_no_kind_no_family_and_no_ungoverned_kind(self):
+        assert READ_ONLY.permit == WritePermit(frozenset(), frozenset())
+        assert READ_ONLY.permit.ungoverned is False
+        assert READ_ONLY.permit.summary() == PermitSummary((), (), False)
+
+    def test_read_only_refuses_every_family_on_the_family(self):
+        for family in sorted(ACT_FAMILIES):
+            with pytest.raises(PermitExceeded) as caught:
+                READ_ONLY.require(family)
+            assert caught.value.requirement == PermitFact("family", family)
+
+    def test_read_only_is_covered_only_by_the_empty_requirement(self):
+        assert permit_covers(READ_ONLY.permit, RequiredCapabilities.none())
+        assert not permit_covers(READ_ONLY.permit, RequiredCapabilities.coordination())

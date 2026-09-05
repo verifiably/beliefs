@@ -809,3 +809,33 @@ naming the kind, the record's file and the corpus chain are unchanged, and the
 exact requirement is accepted. The three E6 arms (a require after the effect, a
 require under a branch, a wrong family) already run against the inventoried
 `_delete_locked`.
+
+## 16. Read door amendment — 2026-09-05
+
+Task: beliefs-67cff1. This amends §4 and §10; no frozen body changes.
+
+**The gap.** §4 binds an `Authority` at every construction seam, `open_world`
+included, and §11 rejects a default authority there. The `science` layer's
+read context opens a world for `registry`, `status` and `current_epoch` alone,
+and its command-framework design (§4.2, §9.2) says it never constructs a
+permit and that a read-only command runs with only the read context. Between
+the two there was no door: every consumer of the `World` read surface had to
+hold a permit to reach it.
+
+**The values.** `permit.READ_ONLY` is
+`Authority(WritePermit(frozenset(), frozenset()), "read-only")`: the empty
+permit, not ungoverned, under an actor no record can carry, because `require`
+refuses every family before any act runs under it. It is constructed in
+`permit.py`, which is the one place E6's static test allows.
+`root.open_world_read(config)` is `open_world(config, authority=READ_ONLY)`,
+stated rather than defaulted: the three identity claims are checked the same
+way, the same worlds are refused, and every act on the returned `World`
+refuses on its family before any effect. It is a public seam function that
+takes no actor and reaches no write primitive, so the inventory and the
+read-only exception set are unchanged.
+
+**What changes elsewhere.** The `science` repository's read context consumes
+`beliefs.root.open_world_read` in place of `open_world`; its command-framework
+design §4.2 and plan Task 6 carry a dated note. The guarantee tables are
+untouched: E5 already holds that the empty requirement is covered by the
+empty permit, and the read door adds no entry point.
