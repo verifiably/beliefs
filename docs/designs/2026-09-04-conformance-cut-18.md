@@ -390,6 +390,9 @@ those four substitutions.
 
 One implementation change rides with the renumbering, dated here and in the
 write-permits design's §15: `CorpusWriter.delete` now requires the
-`corpus-write` permit on the resolved record's kind before any other refusal,
-and is inventoried as a write entry point. It is a check added before an
-effect; no selected behavior, arm or check changes.
+`corpus-write` permit on the resolved record's kind — under the operation lock,
+after the target resolves and before every other refusal. It is not added to
+that design's static entry-point inventory, because it calls no write primitive
+itself; `_delete_locked` is the inventoried definition and requires again on the
+same kind. It is a check added before an effect; no selected behavior, arm or
+check changes.

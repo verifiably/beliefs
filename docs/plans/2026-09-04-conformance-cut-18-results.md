@@ -1,4 +1,4 @@
-# Conformance cut 17 — discharge results
+# Conformance cut 18 — discharge results
 
 **Date:** 2026-09-04
 **Subject:** managed deletion and the mutation lane's assigned ride-alongs
@@ -6,39 +6,49 @@
 §3.0, §3.1, §3.6, §6.2, §6.3 and §7), measured against the frozen cut at
 `2071be0`.
 
-The frozen §§2–7 remain byte-exact. This discharge changes only the cut's
-status line.
+This cut froze as **cut 17** and is discharged as **cut 18**: the write-permits
+lane froze its own cut 17 earlier the same day and merged first, and a number is
+claimed at freeze in freeze order (roadmap concurrency rule 1). The frozen
+§§2–7 are byte-identical to `2071be0` under the four substitutions the cut
+document's §8 declares, and byte-identical to the renumbering commit. The
+selection, the 17 declaration units, the 20 arms and the accounting are the
+frozen ones.
 
 ## 1. What ran
 
 All Python commands ran from `python/`. The certified runner executed at
-`9973f9f24d95443b8b9811db575bb58a77ce59e4` — the post-discharge audit fix
-recorded in §3 — with its default durable work root beside the checkout
-(`python/../.cut17-acceptance`, on the same volume as the repository). It
-scoped XDG cache state to that disposable work root, probed the certified
-durability tuple through `init_corpus_root`, ran cut 16 as its
-sole prefix — which itself chains cut 15 and cut 14 — and then ran the two
-cut-17 phases.
+`e9e592a` — the merged head carrying the write-permits lane's cut 17, this
+lane's renumbering to 18 and the permit gating of `delete` — with its default
+durable work root beside the checkout (`python/../.cut18-acceptance`, on the
+same volume as the repository). It scoped XDG cache state to that disposable
+work root, probed the certified durability tuple through `init_corpus_root`
+under a full authority, ran **cut 17** as its sole prefix, and then ran the two
+cut-18 phases.
 
-`uv run --frozen python tools/cut17_acceptance.py`
+`uv run --frozen python tools/cut18_acceptance.py`
 
 ```text
-[cut17 phase 1/3] cut16_acceptance.py
-[cut17 phase 2/3] test_deletion_acceptance.py
-16 passed in 47.47s
-[cut17 phase 3/3] test_n2_cut17.py
-7 passed in 23.84s
+[cut18 phase 1/3] cut17_acceptance.py
+[cut17 phase 1/19] test_n2_cut6.py
+...
+[cut17 phase 19/19] test_n2_cut17.py
+8 passed in 14.92s
+declared arms: 24 (= 8 selected + 1 labeled units)
+[cut18 phase 2/3] test_deletion_acceptance.py
+16 passed in 47.07s
+[cut18 phase 3/3] test_n2_cut18.py
+7 passed in 23.78s
 declared arms: 20 (= 17 declaration units; 16 guarantee rows + 1 boundary invariant)
 row accounting: 7 full/closed + 5 partial + 4 closed-row re-reads
 ```
 
-The inherited cut-16 runner completed its cut-15 prefix — which completed its
-own cut-14 prefix — and every one of their phases before the cut-17 phases:
-`test_n2_cut14.py` reported `declared arms: 29`, `test_n2_cut15.py`
-`declared arms: 30`, and `test_n2_cut16.py` `declared arms: 27` with
-`row accounting: 3 full/closed + 5 partial + 1 closed-row re-read`. The probe
-accepted, so no capability refusal or tuple mismatch banner was emitted, and
-the aggregate runner exited 0.
+The prefix is the write-permits runner, which names no prefix runner of its own
+and instead runs the whole prior chain as its nineteen phases: the cut-6, -7,
+-9, -11, -12, -13, -14, -15 and -16 N2 audits, the intent-boundary, successor-
+admission, confinement, coordination, cut-15 lineage and relocation acceptance
+modules, and finally the permit acceptance, boundary, entry-point and cut-17 N2
+modules. Every phase passed; the probe accepted, so no capability refusal or
+tuple mismatch banner was emitted, and the aggregate runner exited 0.
 
 ### 1.1 Certified host facts
 
@@ -54,12 +64,15 @@ the aggregate runner exited 0.
 
 ### 1.2 Repository evidence at the certified head
 
-- `uv run --frozen pytest` — **3330 passed in 866.99s (0:14:26)**;
+- `uv run --frozen pytest` — **3517 passed in 862.02s (0:14:22)**;
 - `uv run --frozen ruff check .` — All checks passed;
 - `uv run --frozen pyright` — **0 errors, 0 warnings, 0 informations**;
 - `npm ci && npm test && npm run typecheck && npm run check` in `ts/` —
   **101 tests passed** across 5 files, `tsc --noEmit` clean, and biome
-  checked 13 files with no fixes applied; and
+  checked 13 files with no fixes applied;
+- `uv run --frozen pytest tests/test_designs_corpus.py tests/test_check_guide.py
+  tests/acceptance/test_n2_cut17.py tests/acceptance/test_n2_cut18.py` — the
+  documentation guards and both lanes' N2 modules, **37 passed in 38.36s**; and
 - `tasks check` — zero errors and zero warnings.
 
 `tests/test_production.py::test_r23_replay_cardinality_one_address_two_edges_nothing_mutated`
@@ -71,7 +84,7 @@ whitespace gates; that commit does not claim to know its own id.
 
 ## 2. Accounting and disposition
 
-Cut 17 reads sixteen guarantee rows: **7 full/closed** (G2c, G8, C6, R5, W16,
+Cut 18 reads sixteen guarantee rows: **7 full/closed** (G2c, G8, C6, R5, W16,
 M1, M5), **5 partial** (S5, R23, R19, R22, M3), and **4 closed-row re-reads**
 (C1, T8, M11, M13). The boundary-invariant declaration adds no row and brings
 the frozen inventory to **17 declaration units**. The executable declarations
@@ -188,9 +201,42 @@ record (§3.1 of the families design, §4 of the frozen cut).
 
 ## 3. Corrections and deviations
 
-There is no frozen-cut deviation. The cut-17 audit pins the freeze commit
-`2071be0`, the frozen whole-file digest, byte-exact §§2–7, and the exact
-17-unit accounting phrases.
+**2026-09-04 — the cut is renumbered from 17 to 18.** The write-permits lane
+froze its cut 17 at 09:41 and merged into `main` at 17:24; this lane froze at
+10:50 (`2071be0`) and discharged at 18:25. The roadmap's concurrency rule 1
+claims a number at freeze in freeze order, so the earlier freeze keeps 17 and
+this cut is 18; rule 5 makes this cut's runner name `cut17_acceptance.py` as
+its prefix, and rule 3 resolved every shared file toward the earlier merge.
+The renumbering is a rename, not a re-reading: §§2–7 differ from the freeze at
+`2071be0` only under `cut 17`→`cut 18`, `Cut 17`→`Cut 18`, `cut-17`→`cut-18`
+and `cut16_acceptance`→`cut17_acceptance`, and the cut document's new §8 states
+exactly that. `tests/acceptance/test_n2_cut18.py` pins both commits: current
+§§2–7 must equal the renumbering commit's byte-exact **and** equal the freeze
+commit's under those four substitutions. `DECLARATION_UNITS`, the 20 arms and
+the accounting phrases are untouched.
+
+**2026-09-04 — `delete` is gated by the `corpus-write` permit.** The
+write-permits slice landed between this cut's freeze and its discharge, so the
+public `delete` this cut selects now requires the permit on the **resolved**
+record's kind before every other refusal: the target resolves under the
+operation lock (a missing ref still refuses `DeletionTargetMissing`), then
+`self._authority.require("corpus-write", (node.kind,))`, then
+`_refuse_excluded_kind`, then `_delete_locked` — which requires again on the
+same kind, a repeat the permits design's §4.3 rules harmless. `delete` is
+**not** added to that design's static entry-point inventory: it calls no write
+primitive itself, exactly like `relocation.move` and `relocation.consolidate`
+(§14.3), and E6 holds the inventory equal to the set of primitive callers in
+both directions, so an entry for a definition that calls none would fail it.
+The permits design's new §15 dates the disposition; two new arms in
+`tests/test_deletion.py` read E1's directions for the seam — the family
+refused, the kind refused by name with the record's file byte-identical and
+the record still readable, the exact requirement accepted, and
+`PermitExceeded` raised ahead of `DeletionKindExcluded`. No selected
+behaviour, arm or check changes.
+
+There is no other frozen-cut deviation. The cut-18 audit pins the freeze
+commit `2071be0`, the renumbering commit, the frozen whole-file digest, §§2–7
+as above, and the exact 17-unit accounting phrases.
 
 The deviations below are from the *design's* expectations, not from the
 frozen cut's selection or accounting. Each is recorded in
@@ -324,11 +370,16 @@ the ledger's nineteenth ruling), outside this cut's frozen selection.
 | `71358f0` | docs(mutation): record the deletion cut's implementation rulings |
 | `7989d36` | docs(mutation): discharge conformance cut 17 and re-rank the roadmap |
 | `9973f9f` | fix(audit): report any record error instead of aborting the audit |
+| `c0ffd9f` | chore: merge main into design/consolidate-family at the write-permits cut 17 |
+| `e9e592a` | refactor(cut18): renumber the deletion cut to 18 and gate delete behind the corpus-write permit |
 
-The discharge commit `7989d36` carries the first version of this record and
-therefore does not embed its own commit id. `9973f9f` is the post-discharge
-fix of §3; the run reported in §1 is the run at that commit, and this
-refresh of §§1, 1.2, 3 and 5 is committed after it.
+The discharge commit `7989d36` carried the first version of this record, as
+cut 17, and therefore did not embed its own commit id. `9973f9f` is the
+post-discharge audit fix of §3. `c0ffd9f` merges the write-permits lane's cut
+17 and `e9e592a` renumbers this cut to 18 and gates `delete`; the run reported
+in §1 is the run at `e9e592a`, and this refresh of §§1, 1.2, 2, 3 and 5 —
+together with the freeze-pin constant naming `e9e592a` — is committed after
+it, in the discharge commit that likewise does not embed its own id.
 
 ## 6. Remaining boundary
 
