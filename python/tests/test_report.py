@@ -264,3 +264,23 @@ def test_t2_the_assessment_run_intent_is_unspellable_without_a_spec_identity():
 def test_the_operation_kind_enum_is_closed():
     with pytest.raises(MalformedRecord):
         OperationIntent(kind="deployment", event_token="tok-1", actor="tester")
+
+
+# --- corpus-write (writer-session design §4.1) --------------------------------
+def test_corpus_write_is_an_operation_kind_and_constructs_an_intent():
+    assert "corpus-write" in report_values.OPERATION_KINDS
+    intent = OperationIntent(kind="corpus-write", event_token="tok-9", actor="session:" + "a" * 32)
+    assert intent.kind == "corpus-write"
+
+
+def test_a_corpus_write_intent_reads_closed_on_a_token_matching_registration_whatever_it_points_at():
+    intent = OperationIntent(kind="corpus-write", event_token="tok-9", actor="session:" + "a" * 32)
+    registrations = (Registration(intent_token="tok-9", pointer="proposition/p1.md"),)
+    assert completion(intent, registrations, held={}) == CLOSED
+    assert completion(intent, registrations, held={"proposition/p1.md": object()}) == CLOSED
+
+
+def test_a_corpus_write_intent_with_no_registration_reads_unfinished():
+    intent = OperationIntent(kind="corpus-write", event_token="tok-9", actor="session:" + "a" * 32)
+    assert completion(intent, registrations=(), held={}) == UNFINISHED
+    assert completion(intent, (Registration(intent_token="other", pointer="x"),), held={}) == UNFINISHED

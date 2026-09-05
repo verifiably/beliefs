@@ -1147,5 +1147,42 @@ class ActorMismatch(WriteRefused):
     Not a permit refusal: the permit may well cover the kind."""
 
 
+class PlanRefused(WriteRefused):
+    """The operation seam's preflight refused the plan — shape, a reserved
+    leaf, or the record ceiling — before any intent (writer-session design
+    §4.3 step 3). Wraps the executor layer's `PlanRefusedError` so the
+    dispatcher's one refusal handler sees a `WriteRefused`."""
+
+
+class OperationPortMissing(WriteRefused):
+    """An operation write was asked of a writer constructed without an
+    operation port (writer-session design §4.2)."""
+
+
+class SessionRefused(ScienceError):
+    """`open_attended_session` refused its configuration (writer-session
+    design §3.1): not exactly one corpus root, no manifest, or no well-formed
+    chain."""
+
+
+class SessionClosed(ScienceError):
+    """A method was called on a session after `close()` (design §3.4)."""
+
+
+class SessionProtocolError(ScienceError):
+    """A close naming anything but the current invocation, or an act by a
+    writer whose invocation is not current (design §3.3, §5). Unreachable
+    through the dispatcher's lock; reaching it is a bug, never an outcome."""
+
+
+class SessionLedgerFailed(ScienceError):
+    """A ledger `write`, `flush` or `fsync` failed; the session is terminal
+    and appends nothing further (design §3.2, decision 20)."""
+
+
+class LedgerMalformed(ScienceError):
+    """The ledger reader refused a line (design §3.5)."""
+
+
 class BundleMemberHeld(ImportRefused):
     """A bundle member is already held or collides with local state."""
