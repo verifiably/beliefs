@@ -175,11 +175,15 @@ decide. None changes a `J` row or the cut's §2–§7.
     construction. `_fulfilling` rejects a nested scope (`ScienceError`) and
     clears the binding in `finally`; the scope admits exactly one submission
     and refuses a second (`ScienceError`). Both are hard errors: neither is
-    reachable through the seven twins. Once the scope has consumed its
-    submission, any exception the ordinary method raises afterwards — the
-    index update, the rebuild — is re-raised by `_run` as `ExecutionError`
-    with the cause attached (J2's boundary); a refusal before the submission
-    propagates unchanged, and the library path's behavior is untouched.
+    reachable through the seven twins. The scope records two facts
+    separately: `consumed` (its one submission attempt was taken, which
+    guards a second) and `submitted` (the seam appended the intent, set after
+    the preflight). Once `submitted`, any exception the ordinary method
+    raises — the engine, the readback, the index update, the rebuild — is
+    re-raised by `_run` as `ExecutionError` with the cause attached (J2's
+    boundary); a refusal before it — the permit's, the body's, or the
+    preflight's `PlanRefused` — propagates unchanged, and the library path's
+    behavior is untouched.
 12. **`unresolved` is set at every submission point and cleared only after the
     complete state update.** Set true: in `_RoutedExecutor.execute`'s
     ordinary branch before delegating (this covers `Corpus.add`,
@@ -955,7 +959,8 @@ class _Fulfillment:
 
     authority: Authority
     port: OperationPort
-    consumed: bool = False
+    consumed: bool = False   # the scope's one submission attempt has been taken (guards a second)
+    submitted: bool = False  # the intent was appended: from here on, a failure is post-submission
     result: tuple[str, str, str] | None = None  # (event_token, intent_digest, entry_digest)
 
 
@@ -1284,12 +1289,17 @@ def test_the_twin_refuses_exactly_as_the_ordinary_method_and_appends_nothing(tmp
 
 
 def test_an_over_ceiling_record_is_plan_refused_before_the_intent(tmp_path):
+    """Through the complete twin: the preflight refusal is `PlanRefused`, never wrapped as a
+    post-submission `ExecutionError`, because nothing was submitted."""
     writer, port = writer_over(tmp_path)
     huge = proposition("p1").model_copy(update={"body": "x" * (RECORD_CEILING + 1)})
     with pytest.raises(PlanRefused) as caught:
         writer.operations.add(huge)
-    assert isinstance(caught.value.__cause__, PlanRefusedError)
+    assert type(caught.value) is PlanRefused and isinstance(caught.value.__cause__, PlanRefusedError)
     assert primitive_calls(port) == ["preflight"]
+    from beliefs.corpus import _root_state_for
+
+    assert _root_state_for(tmp_path, DefaultExecutor).fulfilling is None
 
 
 def test_supersede_of_a_missing_target_refuses_before_the_intent(tmp_path):
@@ -1376,9 +1386,12 @@ def test_a_post_submission_failure_on_the_twin_is_an_execution_error(tmp_path, m
     assert primitive_calls(port) == ["preflight", "append_intent", "execute_fulfilling"]  # the submission happened
     assert state.unresolved is True and state.fulfilling is None
     monkeypatch.undo()
-    with pytest.raises(WriteRefused) as refused:  # a refusal before submission is not normalized
+    with pytest.raises(WriteRefused) as refused:  # a body refusal before submission is not normalized
         writer.operations.add(proposition("p0").model_copy(update={"kind": "act-report"}))
     assert not isinstance(refused.value, ExecutionError)
+    huge = proposition("p3").model_copy(update={"body": "x" * (RECORD_CEILING + 1)})
+    with pytest.raises(PlanRefused):  # nor is the preflight's, even though the scope was consumed
+        writer.operations.add(huge)
 
 
 # --- J3: the act-time refusal comes from the kernel entry point ------------------------------------
@@ -1461,6 +1474,7 @@ class OperationCommit:
             scope.port.preflight(plan)
         except PlanRefusedError as caught:
             raise PlanRefused(str(caught)) from caught
+        scope.submitted = True  # the refusals are behind us; the intent is the first effect
         self._state.unresolved = True
         token = secrets.token_hex(16)
         intent = OperationIntent("corpus-write", token, scope.authority.actor)
@@ -1519,11 +1533,11 @@ class OperationWrites:
             except ExecutionError:
                 raise
             except Exception as caught:
-                if scope.consumed:
-                    # The submission happened (§13 item 12); what failed is the state update after it.
-                    # J2's boundary: every post-submission failure surfaces as ExecutionError.
-                    raise ExecutionError(f"state update after commit failed: {caught}", index=None, applied=None) from caught
-                raise
+                if scope.submitted:
+                    # The intent was appended (§13 item 12); what failed came after the submission began —
+                    # the engine, the readback, or the state update. J2's boundary: ExecutionError.
+                    raise ExecutionError(f"failure after submission: {caught}", index=None, applied=None) from caught
+                raise  # a refusal — the permit's, the body's, or the preflight's — before any effect
             if scope.result is None:
                 raise ScienceError("the ordinary method submitted nothing")
             token, intent_digest, entry_digest = scope.result
@@ -3827,11 +3841,12 @@ def test_j2_a_post_commit_rebuild_failure_on_delete_leaves_the_root_unresolved(s
         return original(self)
 
     monkeypatch.setattr(CorpusWriter, "_reconstruct", failing)
+    acts_before = session.invocation_acts("A")  # the add's act line; the faulted delete must add none
     with pytest.raises(ExecutionError, match="rebuild failed") as caught:  # normalized: the submission happened
         w.delete("proposition:p1")
     assert isinstance(caught.value.__cause__, RuntimeError)
     assert not (root / "proposition" / "p1.md").exists()  # the delete committed
-    assert state_of(root).unresolved is True and session.invocation_acts("A") == ()
+    assert state_of(root).unresolved is True and session.invocation_acts("A") == acts_before
     monkeypatch.undo()
     w.add(proposition("p2"))  # settles (recover, rebuild) first
     assert state_of(root).unresolved is False
@@ -4266,7 +4281,8 @@ Then the arms, in this order, each `before` copied verbatim from the landed file
 | J2d | `corpus.py` | `_root_state_for`: `getattr(executor_factory, "recover", None)` → `None` | `_J2C`, `f"{_A}::test_j2_library_and_mixed_handles_settle_first"` |
 | J2f | `corpus.py` | `_RoutedExecutor.execute`: drop `self._state.unresolved = True` from the ordinary branch | `test_corpus_write.py::TestTheUnresolvedRoot::test_a_failed_submission_leaves_the_root_unresolved_and_the_next_write_recovers_first` |
 | J2g | `corpus.py` | `_reconstruct`: build `Corpus(..., executor_factory=self._state.executor_factory)` (the unwrapped factory; the wrapper is lost after a rebuild) | `test_corpus_write.py::TestTheUnresolvedRoot::test_the_root_state_binds_the_factory_recover_and_wraps_its_executors` |
-| J2h | `corpus.py` | `OperationWrites._run`: drop the `if scope.consumed:` normalization (`raise` unconditionally) | `test_operation_writes.py::test_a_post_submission_failure_on_the_twin_is_an_execution_error`, `f"{_A}::test_j2_a_post_commit_index_failure_on_add_leaves_the_root_unresolved"` |
+| J2h | `corpus.py` | `OperationWrites._run`: drop the `if scope.submitted:` normalization (`raise` unconditionally) | `test_operation_writes.py::test_a_post_submission_failure_on_the_twin_is_an_execution_error`, `f"{_A}::test_j2_a_post_commit_index_failure_on_add_leaves_the_root_unresolved"` |
+| J1g | `corpus.py` | `commit_fulfilling`: move `scope.submitted = True` above the preflight `try` (a preflight refusal is then wrapped as `ExecutionError`) | `test_operation_writes.py::test_an_over_ceiling_record_is_plan_refused_before_the_intent`, `_J1R` |
 | J3c | `corpus.py` | `OperationWrites._run`: `with writer._state.lock, writer._fulfilling()` → `with writer._operation, writer._fulfilling()` (the twin settles before the permit) | `test_operation_writes.py::test_the_twin_judges_the_permit_before_it_settles` |
 | J2e | `root.py` | `_DurableExecutorFactory.recover`: body → `return` | `_J2C` |
 | J3a | `session/writer.py` | `scoped`: `Authority(required.permit, self.actor)` → `Authority(self._ceiling, self.actor)` | `_J3` |
