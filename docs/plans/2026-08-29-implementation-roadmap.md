@@ -4,7 +4,9 @@
 **Method:** `../superpowers/specs/2026-08-29-implementation-roadmap-design.md`,
 as amended 2026-09-05 — tier 1 is ordered by distance to the dogfood success
 criterion (§4.0 there), open lanes are bounded, and a method amendment
-re-ranks without a new cut.
+re-ranks without a new cut. **Re-ranked 2026-09-05 under the second trigger
+by the mm30 reproduction record** (`../designs/2026-09-05-mm30-reproduction.md`),
+which measured the three questions the previous ranking left provisional.
 **Recomputed by:** the commit that adds each conformance-cut results record,
 or that amends the method.
 This document is a current claim: it is rewritten whole at every re-ranking,
@@ -36,16 +38,24 @@ criterion cannot be met without are **on the path**, in dependency order;
 the rest are **off the path**, in breadth order. Whether a boundary is on the
 path is measured where it can be, by the reproduction lane (§Lanes).
 
-**This ranking (2026-09-05) changes order and tier, not what is open.** No cut
-has discharged since cut 18. What moved: `writer-session` enters, on the path
-first — `science`'s write dispatch is blocked on it today and no guarantee row
-names it, which is why the previous ranking could not see it;
-`verification-publication` moves from tier 2 to tier 1 on the path — the
-"persistence seam" it waited on is the composition root, which has landed;
-`domain-boundary` and `world-resolution` stay tier 1 and move onto the path;
-`correction-remainder`, `url-retrieval` and `event-level-l8` move off the
-path; `contract-cut` stays the join. A **reproduction lane** with no boundary
-is added.
+**This ranking (2026-09-05, second pass) changes placements, not order or
+tier.** It follows the mm30 reproduction record, which walked the path from
+a registered world to the belief evaluator's answer over one real
+proposition and answered the three questions the first pass could only
+provisionally answer. `verification-publication` is **confirmed on the
+path**: step 10b found no stored comparison report, and scope and verdict
+recompute only with in-process spec and rule implementations; the record
+also adds to that boundary the assessment identity's two spellings (bare
+run address in the derived value, typed `run:` ref in the stored record),
+which refused a `clean-environment` pass at admission and is why the
+measured belief is `NoBelief(no-eligible-assessment)`. `domain-boundary`
+keeps its place: the pack requirement is **unmeasured** (the target typed
+under the placeholder vocabulary with every binding `not-consulted`), and
+the empirical-observation facet's presence-only reading was confirmed as
+its first finding. `world-resolution` stays **last on the path**: no step
+resolved an address across corpora, so `next` over one corpus can be built
+without it. The reproduction lane closes. What moved in the first pass
+(2026-09-05, morning) is in git history.
 
 ## Boundary index
 
@@ -84,9 +94,9 @@ from being met without it; its lane (§Lanes) says what it must wait for.
 | # | id | rows | unblocks | placement |
 |---|---|---|---|---|
 | 1 | `writer-session` | J1–J11: `open_attended_session`, the session-fixed actor, the scoped writer whose effective permit is exactly the requirement, the session ledger and claim protocol, the `corpus-write` operation intent under every ordinary session write, and reconciliation | every write the dogfood makes: `science`'s write dispatch (command-framework Task 12) and the local writer service; the interval-membership test the autonomy envelope needs | designed — `2026-09-05-writer-session-design.md`, in review on its lane, cut 19 freezes after it. Nothing outside it must land first; write permits (cut 17) are its floor. It closes no existing row, which is why breadth never ranked it |
-| 2 | `verification-publication` | no guarantee row; cut 13 §2's named exclusion and R19's stored-verification limitation (cut 18 §7) | the `verify` step as a governed record: the comparison report and scope recoverable from the corpus alone rather than from an in-memory `AssessmentVerification`; admission over stored verifications; scope recomputation over a stored verification | entry point exists: `Verification`, the optional `derivation` member cut 18 ruling R2 added for exactly this writer, and `admission_record`'s total projection. The slice design is its own work (§4.0 rule b). Formerly tier 2 behind "the persistence seam"; that seam is the composition root and has landed. The reproduction lane's third question (its design §6) confirms or refutes that the criterion needs it before the slice is drawn — on whether the comparison report and scope are recoverable from the corpus, not on whether the belief recomputes |
-| 3 | `domain-boundary` | D1, D2, D4, D5, D6, D8, D9, D10; G5 | the biology pack — GO, HP, EFO and MONDO bindings and mm30's operator vocabulary (layer design §4.3, sub-project 3); D8's composition; and the **empirical-observation facet's payload contract**, kernel §11's open question, read presence-only today by `is_empirical_observation` — decided in this lane's design because D1 and D2 own facet compilation | cut 3 §5 deferred the group on "facets, manifests, and the registry compile"; `ProfileSpec` and the `nodes` registry exist. The reproduction lane's first question (its design §6) measures how much of the pack the first belief needs, or reports it unmeasured if the target types under the placeholder vocabulary alone |
-| 4 | `world-resolution` | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 (less one arm), W8a's coreference arms; S1, S1a, S5's cross-corpus reach; D3; X12 and M3's coreference arms; R19's cross-corpus recomputation; R23's snapshot, coverage, divergence and explicit-import clauses | `next` over more than one corpus; `publish` (sub-project 5) resolves view queries through it; the read side of the world in full | cut 4 §5 deferred the group on "the write boundary and the index" — both landed; the address ruling supplies the oracles. Last on the path: a single-corpus first belief needs no cross-corpus resolution, and the reproduction lane says whether the dogfood proper does. W11/W12 are closed (cut 14) |
+| 2 | `verification-publication` | no guarantee row; cut 13 §2's named exclusion and R19's stored-verification limitation (cut 18 §7) | the `verify` step as a governed record: the comparison report and scope recoverable from the corpus alone rather than from an in-memory `AssessmentVerification`; admission over stored verifications; scope recomputation over a stored verification | entry point exists: `Verification`, the optional `derivation` member cut 18 ruling R2 added for exactly this writer, and `admission_record`'s total projection. The slice design is its own work (§4.0 rule b). Formerly tier 2 behind "the persistence seam"; that seam is the composition root and has landed. **Confirmed on the path by the reproduction record** (its §3 row 10b, §5 question 3): no stored record carries the comparison report; the stored verification's derivation lets scope and verdict recompute, but only with the in-process `FrozenSpec` and rule implementations. The record adds one obligation to this boundary: **one spelling for the assessment's run member** — the derived value digests the bare closure address and the stored record the typed `run:` ref, so admission over the corpus and the audit's recomputation cannot both be satisfied by one verification, and the measured belief was `NoBelief(no-eligible-assessment)` for that reason alone. The slice design names both, and the identity fix is written as a failing test first |
+| 3 | `domain-boundary` | D1, D2, D4, D5, D6, D8, D9, D10; G5 | the biology pack — GO, HP, EFO and MONDO bindings and mm30's operator vocabulary (layer design §4.3, sub-project 3); D8's composition; and the **empirical-observation facet's payload contract**, kernel §11's open question, read presence-only today by `is_empirical_observation` — decided in this lane's design because D1 and D2 own facet compilation | cut 3 §5 deferred the group on "facets, manifests, and the registry compile"; `ProfileSpec` and the `nodes` registry exist. The reproduction record's first question is **unmeasured**: the target typed under the placeholder vocabulary with every binding `not-consulted`, and no ontology release was consulted. What it measured is the floor the pack must reproduce — `affects` with a concept→protein pair, two referents, the `causal` layer — and one constraint: a pack whose `affects` is sorted `[concept, concept]` refuses this target and mm30's ten records like it. The facet payload contract is the record's first filed finding (`is_empirical_observation` accepted an authored payload unread) |
+| 4 | `world-resolution` | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 (less one arm), W8a's coreference arms; S1, S1a, S5's cross-corpus reach; D3; X12 and M3's coreference arms; R19's cross-corpus recomputation; R23's snapshot, coverage, divergence and explicit-import clauses | `next` over more than one corpus; `publish` (sub-project 5) resolves view queries through it; the read side of the world in full | cut 4 §5 deferred the group on "the write boundary and the index" — both landed; the address ruling supplies the oracles. Last on the path, now measured: the reproduction record's second question is **no** — no step of its path resolved an address across corpora or needed a resolution state the registry alone could not give, so `next` over one corpus can be built without this boundary, and the dogfood proper needs it only when a second corpus enters. W11/W12 are closed (cut 14) |
 
 ### Off the path
 
@@ -128,7 +138,7 @@ boundary sits in the lane of its prerequisite and waits there.
 | `world-read` | `world-resolution` (+ `packaging-remainder`) → `event-level-l8` (+ `log-remainder`) | `world/read.py`, `resolution.py`, `world/verify.py` | on the path at its head; opens when `write-path` or `domain` closes |
 | `mutation` | `correction-remainder` | `adapter.py`, `corpus.py`, `audit.py`, `decode.py`, `evaluation.py`, `world/verify.py` | off the path; waits |
 | `acquisition` | `url-retrieval` (+ `act-report-remainder`) | `holdings/`, `report.py` | off the path; waits |
-| `reproduction` | none — a measurement: `../superpowers/specs/2026-09-05-mm30-reproduction-design.md` | no kernel surface; `python/tools/reproduction/`, a corpus on the certified volume beside the checkout, and the record it produces | open beside the two kernel lanes; its findings re-rank |
+| `reproduction` | none — a measurement: `../superpowers/specs/2026-09-05-mm30-reproduction-design.md` | no kernel surface; `python/tools/reproduction/`, a corpus on the certified volume beside the checkout, and the record it produces | **closed 2026-09-05**: ran to the evaluator's answer; its record (`../designs/2026-09-05-mm30-reproduction.md`) re-ranked this document, its five findings are filed through the owning lanes, and its corpus stays at `.mm30-reproduction/` as the seed of the dogfood's world |
 | `cross-repo` | `l13-preimage`, `persistence-cut`, `nodes-remainder`, in any order | the `atoms` and `nodes` repositories, each behind its own design gate | as each seam lands |
 
 `contract-cut` is in no lane. It is a **join**: it freezes after every lane
@@ -193,10 +203,15 @@ Unordered. Each row links its `open-questions.md` anchor.
 Two design questions the success criterion meets on its first day are not
 rows anywhere and are carried by the lanes that own their surface: the
 empirical-observation facet's payload contract
-([foundations](../guide/open-questions.md#foundations)), by `domain`; and
-where a typed claim is authored for a corpus that has none — distinct from
-the extraction step M12 names — by the reproduction lane, whose record states
-what the authoring cost was and what a `claim` command must do.
+([foundations](../guide/open-questions.md#foundations)), by `domain`, now
+with the reproduction record's measurement behind it (an authored payload
+accepted unread); and where a typed claim is authored for a corpus that has
+none — distinct from the extraction step M12 names — answered by the
+reproduction record's §5 (what it cost, what `build_claim` refused, what a
+`claim` command must do and refuse), which is the input to the layer design's
+sub-project 4. A third, raised by the record, is carried by no lane yet:
+where an interpretation rule reads content
+([computation](../guide/open-questions.md#computation-and-reproducibility)).
 
 ## Appendix A — live status of every guarantee row at cut 18
 

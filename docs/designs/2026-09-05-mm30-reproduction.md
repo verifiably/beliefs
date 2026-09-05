@@ -1,10 +1,14 @@
 # The mm30 reproduction — record
 
 **Date:** 2026-09-05
-**Status:** in progress. Started 2026-09-05 on the lane
-`measure/mm30-reproduction`. The commit carries the driver
-(`python/tools/reproduction/`, throwaway by declaration) and its unit tests
-(`python/tests/test_reproduction_driver.py`).
+**Status:** run 2026-09-05, complete. The path was walked to the belief
+evaluator's answer and both halves of step 10 were measured. The lane's
+commits carry the driver (`python/tools/reproduction/`, throwaway by
+declaration), its unit tests (`python/tests/test_reproduction_driver.py`,
+14 tests), this record, five findings filed as tasks through their owning
+lanes, two `open-questions.md` entries, and the roadmap re-rank under the
+method's second trigger. The corpus stays at `.mm30-reproduction/` beside
+the main checkout.
 **Scope:** one real mm30 proposition pushed through the `beliefs` kernel as a
 library, from a registered world to the belief evaluator's answer, under the
 design `../superpowers/specs/2026-09-05-mm30-reproduction-design.md` and its
@@ -119,7 +123,16 @@ citing `state.json` or `findings.jsonl`.
   more than ten propositions need typing for one belief. This is the
   measurement behind the layer design's `claim` command and behind the
   ledger's "has to be authored" prerequisite.
-  **Outcome:** pending.
+  **Outcome:** confirmed, narrowly, and for a weaker reason than predicted.
+  Authoring (§7: about 4.5 minutes from opening the predecessor's records to
+  the mint) exceeded the run (steps 5–7 together, 2 min 36 s), but only
+  because the claim vocabulary already existed: choosing between the two
+  the typing exercise authored took seconds, and `build_claim` plus the mint
+  took 0.1 s (`state.typing_seconds`). One proposition was typed, not ten:
+  this target's analysis plan names no other proposition, so the "no more
+  than ten" bound holds trivially. Had the vocabulary not existed, the
+  typing exercise's cost (a day, 2026-08-07) would have dominated
+  everything else here by two orders of magnitude.
 - **P2 — the facet is stamped, not checked.** Step 3 succeeds by writing an
   `empirical-observation` facet with whatever payload the author chooses,
   because `is_empirical_observation` reads presence only. Nothing refuses
@@ -172,19 +185,70 @@ citing `state.json` or `findings.jsonl`.
 - **P6 — at least one banked design is amended.** Not which. The typing
   exercise amended the kernel design and withdrew a ledger claim; a run
   through five more seams is not expected to amend nothing.
-  **Outcome:** pending.
+  **Outcome:** confirmed as obligations, not yet as text. Five design-gap
+  findings (§6) are filed as amendment obligations through their owning
+  lanes; no banked design's text changes in this lane's commits, because
+  roadmap concurrency rule 6 forbids editing a kernel surface's design from
+  the reproduction worktree. The amendments themselves are the owning
+  lanes' next commits.
 
 ## 5. Questions
 
 The design's §6, answered from the run:
 
-1. **How much of the biology pack does the first belief need?** Pending.
-2. **Does a single-corpus dogfood need world resolution?** Pending.
-3. **Is a stored verification required by the success criterion?** Pending
-   (answered from step 10b, never 10a).
+1. **How much of the biology pack does the first belief need?**
+   **Unmeasured.** The proposition was typed under the unsorted vocabulary
+   (§2), whose one sort binds the placeholder `mm30-entities` namespace at
+   release `2026-08-07`; the resolution snapshot declared nothing readable,
+   every binding was `not-consulted`, and `not-consulted` sufficed to mint
+   and to gather (D3 refuses only `not-member`). No GO, HP, EFO or MONDO
+   binding was exercised. What is measured is the **floor** the pack must at
+   least reproduce: one operator, `affects`, with a concept→protein argument
+   pair; two referents, `concept:disease-stage` and `protein:PHF19`; the
+   `causal` layer and `positive` polarity. And one constraint on the pack's
+   sort discipline: the modal-sorted vocabulary refuses this pair
+   (`ArgumentSortMismatch`, §3 row 2), and it refuses the ten concept→protein
+   `affects` records of mm30 by the same rule, so a pack whose `affects`
+   is `[concept, concept]` cannot type this target.
+2. **Does a single-corpus dogfood need world resolution?** **No.** No step
+   of the path resolved an address across corpora or returned a resolution
+   state the registry alone could not give: step 1 used the registry
+   (admit, status); steps 2–9 used the one corpus's writer and read view;
+   step 10a's `evaluate_over` gathered through the corpus-local instrumented
+   resolver with the corpus id as the whole retraction coverage. `next` over
+   one corpus can be built without world resolution; the dogfood proper
+   needs it only when a second corpus enters. `world-resolution` stays last
+   on the path.
+3. **Is a stored verification required by the success criterion?** **Yes.**
+   Step 10b (never 10a): `comparison_report_stored` is false. The stored
+   verification names its two-run derivation and both closures decode, so
+   scope and verdict *recompute* and agree — but only with the in-process
+   `FrozenSpec` and rule implementations, which no reader restores from a
+   record. Nothing is *recovered* from the corpus alone. `verification-
+   publication` stays on the path; its slice design is drawn next in the
+   `write-path` lane. 10a passing (the belief re-derives equal) is not
+   evidence against it, as the design said.
 
 And the one carried with no row: **where a typed claim is authored** for a
-corpus that has none. Pending.
+corpus that has none.
+- *What it cost:* §7 — reading the predecessor's records dominated; the
+  typing itself was one `build_claim` call.
+- *What `build_claim` refused and why:* nothing, under the chosen vocabulary.
+  Under the modal-sorted one, `ArgumentSortMismatch`: "slot 1 of
+  `mm30/affects` is declared `mm30/concept`; `protein:PHF19` is of sort
+  `mm30/protein` … a term with no slot to occupy" — the sort discipline,
+  not the operator, the layer or the polarity.
+- *What a `claim` command must do:* take a predicate, a subject and an
+  object with kind prefixes, a layer and a polarity; resolve the local
+  names through one **named** domain contract's `term`, exactly as
+  `type_corpus_claims.py` and `vocabulary.plan()` do; build the claim; mint
+  the proposition under the session's writer with the claim projection and
+  a display statement kept out of the identity.
+- *What it must refuse:* a kind prefix that maps to no sort; a sort the
+  operator's slot does not admit; an unknown layer or polarity; and —
+  this record's own lesson — choosing a vocabulary silently: the contract
+  the claim is typed under must be named by the caller or the corpus
+  manifest, never picked to make the claim type.
 
 ## 6. Findings
 
@@ -194,13 +258,13 @@ here; they are in §8.
 
 | step | class | reason | filed |
 |---|---|---|---|
-| 10b | design-gap | no stored record carries the verification's comparison report; scope and verdict recover only by recomputation over both stored closures with the in-process spec and rule implementations (P5) | verification-publication (write-path lane) — task filed at the end |
+| 10b | design-gap | no stored record carries the verification's comparison report; scope and verdict recover only by recomputation over both stored closures with the in-process spec and rule implementations (P5) | write-path lane: `beliefs-f860f1` under `beliefs-754995` (verification publication) |
 | 9 | corpus-work | `audit_log` under the empty observer set: `unanchored: corpus:6d25948b…` — the exercise performed no anchor act (`anchor_heads`), so nothing anchors its chain; measured as `validated` under a head carrier instead | this record; no lane |
-| 8 | design-gap | a `clean-environment` pass was refused at admission (`not-admitted-verification-state`): the verification names the derived identity `31627298…`, the gathered assessment carries the stored identity `d9e338a7…`, and only the former satisfies the audit's recomputation. The belief answer is `NoBelief(no-eligible-assessment)` for this reason and no other | assessment/run-record design (one spelling for the run member) — the same task as step 6's |
-| 6 | design-gap | the derived `AssessmentValue` spells `run` as the bare closure address and the stored record as `run:<address>` (which `eligibility_refusal` requires so the run resolves); `assessment.identity()` = `31627298…` and `stored.assessment_value(node).identity()` = `d9e338a7…`. No single identity satisfies both admission over the corpus (which matches the stored one) and the audit's recomputation (which digests the bare address). Unpredicted by §5 | assessment/run-record design (one spelling for the run member) — task filed at the end |
-| 4 | design-gap | `build_assessment` hands the interpretation rule a `ResultManifest` of output digests, not output bytes; the verdict is routed through a canonical outcome file (`outputs/outcome.txt`, exactly one of three lines) whose digest the rule maps. Unpredicted by the design's §5 | computation design (where an interpretation rule reads content) — task filed at the end |
-| 4 | design-gap | `analysis-spec` is a stored kind (`stored.py`'s kinds table, semantic domain `science.analysis-spec.v1`, the r20 check on import) with no kernel builder and no reader; the record was hand-built and stamped through `stamp_semantic_identity`, and nothing restores a `FrozenSpec` from it (step 10b) | computation design / `stored.py` (spec record builder and restore) — task filed at the end |
-| 3 | design-gap | the `empirical-observation` facet is presence-only: `is_empirical_observation` read the driver's authored payload unchecked (P2) | domain lane (facet payload contract, kernel §11) — task filed at the end |
+| 8 | design-gap | a `clean-environment` pass was refused at admission (`not-admitted-verification-state`): the verification names the derived identity `31627298…`, the gathered assessment carries the stored identity `d9e338a7…`, and only the former satisfies the audit's recomputation. The belief answer is `NoBelief(no-eligible-assessment)` for this reason and no other | write-path lane: `beliefs-ae9b18`, the same task as step 6's |
+| 6 | design-gap | the derived `AssessmentValue` spells `run` as the bare closure address and the stored record as `run:<address>` (which `eligibility_refusal` requires so the run resolves); `assessment.identity()` = `31627298…` and `stored.assessment_value(node).identity()` = `d9e338a7…`. No single identity satisfies both admission over the corpus (which matches the stored one) and the audit's recomputation (which digests the bare address). Unpredicted by §5 | write-path lane: `beliefs-ae9b18` under `beliefs-754995` (one spelling for the run member), with the failing test named |
+| 4 | design-gap | `build_assessment` hands the interpretation rule a `ResultManifest` of output digests, not output bytes; the verdict is routed through a canonical outcome file (`outputs/outcome.txt`, exactly one of three lines) whose digest the rule maps. Unpredicted by the design's §5 | `open-questions.md`, computation section (where an interpretation rule reads content); no lane owns it yet |
+| 4 | design-gap | `analysis-spec` is a stored kind (`stored.py`'s kinds table, semantic domain `science.analysis-spec.v1`, the r20 check on import) with no kernel builder and no reader; the record was hand-built and stamped through `stamp_semantic_identity`, and nothing restores a `FrozenSpec` from it (step 10b) | `beliefs-91aac6` (a stored `analysis-spec` builder and reader), lands through the next lane that rewrites `stored.py` |
+| 3 | design-gap | the `empirical-observation` facet is presence-only: `is_empirical_observation` read the driver's authored payload unchecked (P2) | domain lane: `beliefs-d245a9` (facet payload contract, kernel §11) |
 | 2 | corpus-work | under `mm30-modal-sorted`, `build_claim` on the target: `ArgumentSortMismatch` — slot 1 of `mm30/affects` is declared `mm30/concept`; `protein:PHF19` is of sort `mm30/protein` (a term with no slot to occupy, not a rejected value). The exercise's own corpus work: it types under the unsorted vocabulary (§2) | this record, §2 and §5 (the fourth question) |
 
 ## 7. Authoring cost
@@ -215,7 +279,12 @@ of which `build_claim` and the mint took under a second (`typing_seconds` in
 `state.json`). Reading what the predecessor computed (two interpretation
 records, one workflow rule, the file's header) took most of it. One
 proposition was typed, not ten: the analysis plan for this target names no
-other proposition. Compared against the run at the end.
+other proposition. Against it, steps 5–7 (the confined run, the assessment,
+the replay and the verification) took 2 min 36 s of wall time, most of it
+materializing the environment snapshot once; the whole path from preflight
+to step 10b took about 25 minutes including the driver's own writing.
+Authoring beat the run, but only because the vocabulary was already
+authored (P1).
 
 ## 8. Driver corrections
 
@@ -236,3 +305,43 @@ can tell instrument from kernel.
 - **The work directory.** The plan put it beside the worktree; a worktree
   under `.worktrees/` is removed when the lane closes, so `paths.py` resolves
   it beside the main checkout when the driver runs from a linked worktree.
+
+## 9. What this run does not claim
+
+- **No cut, no row.** Nothing was frozen or selected; no guarantee row's
+  status changes on this record. The measurements are reachability facts
+  about one path over one record.
+- **One proposition, one dataset, one host.** `concept:disease-stage affects
+  protein:PHF19` over GSE179929 on the host `titan`, whose bubblewrap
+  reached `clean-environment`. Another host, another target or a paired
+  analysis may reach a different row of `derive_scope` or a different
+  outcome; the `inconclusive` here is a two-group unpaired comparison at
+  alpha 0.05, not the predecessor's paired trajectory statistic (§2).
+- **The belief is `NoBelief`, for a kernel reason.** The evaluator answered
+  `no-eligible-assessment` because of the assessment identity's two
+  spellings (§6, steps 6 and 8), not because of the data. Had admission
+  succeeded, the frozen rule's `inconclusive` would have given
+  `NoBelief(no-directional-outcome)`, the scientific result; this run never
+  reached that branch, and does not claim it.
+- **Supplied, not derived.** The producer snapshot identity
+  (`no-epoch-published`) and the retraction enumeration (empty, coverage
+  this corpus) were supplied to `SuppliedContext`; no epoch was built and
+  no retraction search ran.
+- **The holdings reduction rule was bypassed.** Step 8 read every `Found`
+  holdings observation directly; supersession and coverage were not
+  applied, since there is one observation and no history.
+- **In-process spec and rules.** Steps 8, 9, 10a and 10b used the
+  `FrozenSpec`, the interpretation rule and the equivalence rule from the
+  driver's process, because no kernel reader restores them from a record
+  (§6, step 4). The stored `analysis-spec` record's identity was checked to
+  agree; that is the whole of what the corpus contributed there.
+- **Question 1 is unmeasured** (§5): no ontology binding was consulted.
+- **No act-report for the fulfilled runs.** A successful confined run's
+  publication plan writes the run record only; the registration chain holds
+  the settled intents. Whether a fulfilled operation should also leave an
+  act-report record is the act-report design's reading, not this record's.
+- **No anchor act.** The corpus's own log is unanchored; `validated` was
+  measured under a carrier built from the head as read (§3 row 9).
+- **The driver is not a surface.** Its scripts are the instrument, written
+  to the bridges this kernel has today; sub-project 4's commands are
+  written from what they show, not by promoting them.

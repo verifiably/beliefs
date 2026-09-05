@@ -2,7 +2,8 @@
 
 **Date:** 2026-09-05
 **Status:** approved in session 2026-09-05 (the course-correction session);
-not yet run. This document is a measurement design in the typing exercise's
+**run 2026-09-05** — the record is `../../designs/2026-09-05-mm30-reproduction.md`
+and its commit re-ranked the roadmap. This document is a measurement design in the typing exercise's
 shape (`../../designs/2026-08-07-corpus-survey-and-vocabulary-admission-design.md`),
 not a slice design: it selects no cut scope, freezes no guarantee row, and
 its deliverable is a dated record, not code that ships.

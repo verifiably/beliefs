@@ -2,9 +2,10 @@
 title: Open questions
 status: living
 created: 2026-08-08
-updated: 2026-08-30
+updated: 2026-09-05
 sources:
   - ../designs/2026-08-02-computation-reproducibility-design.md
+  - ../designs/2026-09-05-mm30-reproduction.md
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-substrate-consolidation-design.md
   - ../designs/2026-08-03-correction-lifecycle-design.md
@@ -72,6 +73,14 @@ implementation**: a guarantee row awaiting code is work, not a question.
   adjustment sets, modality, comparison, and disjunction remain outside the
   flat fragment. Adjustment placement depends separately on scientific target
   and identification method. ([formal-model questions](../designs/2026-08-04-formal-model-and-claim-calculus-design.md#11-open-questions), [adjustment ruling](../designs/2026-08-05-review-disposition-and-conformance-cut-1.md#8-open-questions))
+- **Which vocabulary a claim is typed under, and who names it.** The mm30
+  reproduction typed its target under one of two pre-existing vocabularies
+  because the other's sort discipline refused the target's concept→protein
+  pair; a `claim` command must take the contract from the caller or the
+  corpus manifest and never choose one to make a claim type. Where that
+  binding lives — the manifest's domain pins, a session default, or an
+  argument — is the layer design's sub-project 4 to decide.
+  ([reproduction record](../designs/2026-09-05-mm30-reproduction.md#5-questions))
 - **Vocabulary gaps.** A population vocabulary, term-synonym resolution, and
   the namespace and ownership of a general-purpose operator contract remain
   unsettled. The **layer** set is declared — `contracts/science/CONTRACT.yaml`
@@ -152,6 +161,14 @@ implementation**: a guarantee row awaiting code is work, not a question.
   every verification address, so it needs one: with the belief policy, with
   `science.identity.v1`, or on its own.
   ([computation question](../designs/2026-08-02-computation-reproducibility-design.md#13-open-questions))
+- **Where an interpretation rule reads content.** `build_assessment` hands the
+  frozen spec's interpretation rule a `ResultManifest` of output digests, not
+  output bytes, so a rule that must read a number reads it through a canonical
+  outcome file whose digest it maps. Whether the rule should instead receive
+  the declared outputs' content — and through which held, digest-verified
+  read — is undecided; the mm30 reproduction routed its verdict through a
+  three-line outcome file to stay inside the seam.
+  ([reproduction record](../designs/2026-09-05-mm30-reproduction.md#6-findings))
 
 ## Contracts and adoption
 
