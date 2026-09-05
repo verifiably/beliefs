@@ -6,7 +6,7 @@ priority: 1
 size: xl
 owner: feat/writer-session
 created: 2026-08-31T21:28:39Z
-updated: 2026-09-05T10:41:55Z
+updated: 2026-09-05T10:59:05Z
 depends: [beliefs-96a24a]
 tags: [writer, sessions]
 spec: docs/designs/2026-09-05-writer-session-design.md
@@ -24,3 +24,4 @@ Sub-project 2's beliefs half beyond permits (beliefs-96a24a): open_attended_sess
 - 2026-09-05T10:19:29Z (feat/writer-session): review 3 resolved: recovery_pending gates every write after a failed submission (port.recover then rebuild); ledger I/O failure ends the session (SessionLedgerFailed), index updated only after fsync
 - 2026-09-05T10:30:02Z (feat/writer-session): review 4 resolved: root 'unresolved' flag true at process start and before every submission on every path, cleared after the state update; one _locked() settles before every prepare incl. import and relocation; J1/J2 aligned
 - 2026-09-05T10:41:55Z (feat/writer-session): review 5 resolved: recovery bound to the durable executor factory (recover(root)), read into root state at creation; portless durable writers recover; stale head-unchanged and ExecutionError wording aligned
+- 2026-09-05T10:59:05Z (feat/writer-session): review 6 resolved: two consistency edits; no architectural blockers remain; cut 19 may freeze
