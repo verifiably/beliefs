@@ -32,14 +32,18 @@ stale = []
 for cut in (3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18):
     arms = getattr(importlib.import_module(f"n2_arms_cut{cut}"), f"CUT{cut}_ARMS")
     for arm in arms:
-        n = (package / arm.sabotage.module).read_text(encoding="utf-8").count(arm.sabotage.before)
+        path = package / arm.sabotage.module
+        if not path.exists():
+            stale.append((cut, arm.row, arm.sabotage.module, "missing"))
+            continue
+        n = path.read_text(encoding="utf-8").count(arm.sabotage.before)
         if n != 1:
             stale.append((cut, arm.row, arm.sabotage.module, n))
 print("stale:", stale)
 PY
 ```
 
-  The baseline is expected to be `stale: []` and to stay so through discharge.
+  The baseline is whatever the probe prints on the untouched tree — Task 1 records it verbatim in §13 item 5 — and every later run must print exactly that line, nothing added and nothing removed. Cuts 17 and 18, the two the prefix runner executes, contribute no entries; the entries that exist are pre-existing invalidated evidence from cuts 5, 6, 8 and 10 under the cited-not-run precedent.
 - Test helper for a full authority: `tests/authority.py` exports `FULL`, `ACTOR`, `narrowed(...)`, `lacking(...)`. No test builds a `WritePermit` literal except through it or `RequiredCapabilities`.
 - **Durable tests** live under `tests/acceptance/` and run on the certified volume beside the checkout (`SCIENCE_CUT4_ROOT` or the repository-relative default); `/tmp` and the scratch volume fail the durability allowlist. A `CapabilityUnavailable` block is a fail-closed result: recertify or report the tuple, never skip.
 - Task records: every task names its own child id in its first and last steps — `tasks start <id>` before its first edit and `tasks done <id> "<what landed>"` staged into its final commit; `tasks check` before every commit. The children form a dependency chain (Task N depends on Task N−1). Never edit `tasks/*.md` by hand.
@@ -80,7 +84,7 @@ PY
 
 - [ ] **Step 1: Record the staleness baseline**
 
-Run the probe from Global Constraints on the untouched branch and paste its `stale:` line into §13 item 5 below (it is expected to be `stale: []`; if it is not, the baseline is whatever it prints, verbatim).
+Run the probe from Global Constraints on the untouched branch and confirm it prints exactly the `stale:` line §13 item 5 records below (the controller ran it on the untouched tree). If it prints anything else, stop and report the output.
 
 - [ ] **Step 2: Append §13 to the design**
 
@@ -125,7 +129,12 @@ decide. None changes a `J` row or the cut's §2–§7.
    backend, and the factory's `recover` — over the real backend — is what
    settles it. The arm asserts the registration is pending under detached
    inspection before recovery and gone after.
-5. **Staleness baseline at plan time:** `stale: []`.
+5. **Staleness baseline at plan time.** The probe of the plan's Global
+   Constraints (with its existence guard) prints, on the untouched tree:
+   `stale: [(5, 'T2', 'corpus.py', 0), (5, 'T2', 'corpus.py', 0), (5, 'C2', 'stored.py', 0), (6, 'X4', 'world.py', 'missing'), (6, 'X4', 'world.py', 'missing'), (6, 'X5', 'world.py', 'missing'), (6, 'X6', 'world.py', 'missing'), (6, 'X6', 'world.py', 'missing'), (6, 'X6', 'world.py', 'missing'), (6, 'W13', 'world.py', 'missing'), (6, 'W13', 'world.py', 'missing'), (6, 'W13', 'world.py', 'missing'), (6, 'W13', 'world.py', 'missing'), (6, 'W13', 'world.py', 'missing'), (6, 'W13', 'world.py', 'missing'), (6, 'labeled:admission-idempotency', 'world.py', 'missing'), (6, 'labeled:status-idempotency', 'world.py', 'missing'), (6, 'labeled:duplicate-carrier', 'world.py', 'missing'), (8, 'L2u5', 'root.py', 0), (8, 'L12u5', 'world/verify.py', 0), (8, 'D6', 'world/verify.py', 0), (8, 'D10', 'world/verify.py', 0), (10, 'H4u1', 'holdings/boundary.py', 0), (10, 'J8', 'holdings/boundary.py', 0)]`.
+   Every entry is pre-existing invalidated evidence from cuts 5, 6, 8 and 10,
+   cited and not run; cuts 17 and 18, which cut 19's prefix runner executes,
+   contribute none.
 6. **Finding order.** §6's "corpus id, then chain position, then code" is
    implemented as an internal sort key `(corpus_id, position, code, ref)`
    that the returned `Finding` values do not carry; two runs over equal
@@ -220,7 +229,7 @@ decide. None changes a `J` row or the cut's §2–§7.
     `Corpus.add` updates the index incrementally after the routed executor
     returns, exactly as on the library path. `delete` rebuilds, as its
     ordinary body does today.
-16. **Staleness baseline is `stale: []` throughout.** No task may leave a
+16. **The staleness baseline is unchanged throughout.** No task may leave a
     prior-cut arm stale; the executor route exists so that none does.
 ```
 
@@ -1081,13 +1090,13 @@ class _SettlingHold:
 
 `_reconstruct`: `Corpus(self._corpus.store.root, executor_factory=self._state.executors)`. `adopt_manifest`: `self._state.executors(self._corpus.store.root).execute(...)` — the only edit inside a pinned body, and not on a pinned line. `_publish_operation_report`: insert `self._state.unresolved = True` on its own line immediately before `operation_port.execute_fulfilling([operation], intent_digest)` (the pinned line itself is untouched). `ScienceError` is already imported in `corpus.py`; import `OperationPort` from `beliefs.runrecord` under `TYPE_CHECKING` if a cycle appears.
 
-**No other line of `corpus.py` changes in this task.** Run the staleness probe: `stale: []`.
+**No other line of `corpus.py` changes in this task.** Run the staleness probe: it prints the item 5 baseline.
 
 `test_permit_boundary.py`: `_RoutedExecutor.execute` calls `self._inner.execute`, a primitive by attribute name, and *implements* the executor the corpus holds — add `"corpus.py:_RoutedExecutor.execute"` — the complete `<module>:<qualified name>` key the list uses — to `PRIMITIVE_IMPLEMENTATIONS` (§13 item 13). The cut 17 arm that sabotages that list's comparison "by containment" quotes the comparison expression, not the list, and still matches once.
 
 - [ ] **Step 5: Run the whole suite and the gates**
 
-`uv run --frozen pytest -q -p no:cacheprovider`; ruff; pyright; the probe (`stale: []`).
+`uv run --frozen pytest -q -p no:cacheprovider`; ruff; pyright; the probe (the item 5 baseline).
 
 - [ ] **Step 6: Commit**
 
@@ -1565,13 +1574,13 @@ class OperationWrites:
         return self._run(lambda: self._writer.revise_coordination(kind, address, predecessors=predecessors, content=content))
 ```
 
-`OperationPortMissing` is raised by `_fulfilling` before any refusal of the write, so a portless writer refuses before its ordinary body runs. `ExecutionError` is imported from `nodes.core.errors` (already imported in `corpus.py`). The raw lock and the ordinary method's settling hold are the same re-entrant `OperationLock`, so the order inside `_run` is: lock, bind, `require`, settle, refuse, submit, index update, hold exit (clears `unresolved`), unbind, release. The ordinary bodies are **not edited**: the probe prints `stale: []`.
+`OperationPortMissing` is raised by `_fulfilling` before any refusal of the write, so a portless writer refuses before its ordinary body runs. `ExecutionError` is imported from `nodes.core.errors` (already imported in `corpus.py`). The raw lock and the ordinary method's settling hold are the same re-entrant `OperationLock`, so the order inside `_run` is: lock, bind, `require`, settle, refuse, submit, index update, hold exit (clears `unresolved`), unbind, release. The ordinary bodies are **not edited**: the probe prints the item 5 baseline.
 
 `test_permit_boundary.py`: add `"corpus.py:_RoutedExecutor.commit_fulfilling": "corpus-write"` to `WRITE_ENTRY_POINTS`; `_RoutedExecutor.execute` is already on the implementation-exclusion list from Task 4. Arm 1 reports `commit_fulfilling` as a caller of `append_intent` and `execute_fulfilling` and the row satisfies it; arm 2 finds its `require` as the first statement. Confirm the inventory count is 37.
 
 - [ ] **Step 5: Run the tests and the gates**
 
-`uv run --frozen pytest tests/test_operation_writes.py tests/test_permit_boundary.py tests/test_corpus_write.py tests/test_deletion.py tests/test_coordination_write.py tests/test_relocation.py -q -p no:cacheprovider`, then the whole suite, ruff, pyright, the staleness probe (`stale: []`).
+`uv run --frozen pytest tests/test_operation_writes.py tests/test_permit_boundary.py tests/test_corpus_write.py tests/test_deletion.py tests/test_coordination_write.py tests/test_relocation.py -q -p no:cacheprovider`, then the whole suite, ruff, pyright, the staleness probe (the item 5 baseline).
 
 - [ ] **Step 6: Commit**
 
@@ -4224,7 +4233,7 @@ git commit -m "test(session): add the durable acceptance arms for J2 and J8"
 
 **Interfaces:**
 - Consumes: the check names of Tasks 9–10; `n2_arms.Arm`, `n2_arms.Sabotage`; `test_n2.audit`, `test_n2.baseline`; the frozen cut record `docs/designs/2026-09-05-conformance-cut-19.md` at `5cc2153`.
-- Produces: `CUT19_ARMS`, `DECLARATION_UNITS` (the eleven `J` rows), `unit_of(row)`, `CO_CITED = ()`; `tools/cut19_acceptance.py` with `PREFIX_RUNNERS = ("cut18_acceptance.py",)` and `PHASE_MODULES = ("test_session_acceptance.py", "test_n2_cut19.py")`. The prefix runs cut 17's and cut 18's audits unchanged; `stale: []` is what lets it.
+- Produces: `CUT19_ARMS`, `DECLARATION_UNITS` (the eleven `J` rows), `unit_of(row)`, `CO_CITED = ()`; `tools/cut19_acceptance.py` with `PREFIX_RUNNERS = ("cut18_acceptance.py",)` and `PHASE_MODULES = ("test_session_acceptance.py", "test_n2_cut19.py")`. The prefix runs cut 17's and cut 18's audits unchanged; that those two cuts contribute no stale entries is what lets it.
 
 - [ ] **Step 1: `tasks start <task-11-id>`**
 
