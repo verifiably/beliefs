@@ -162,14 +162,24 @@ decide. None changes a `J` row or the cut's §2–§7.
     `with self._operation:` — `relocation.py`'s `enter_context(writer._operation)`
     included — therefore settles with no text change, and `relocation.py` is
     not rewritten.
-11. **Fulfillment is scoped to one locked call.** The executor belongs to the
-    shared root state, so a per-invocation writer does not isolate it.
-    `CorpusWriter._fulfilling()` binds, under the hold, exactly the calling
-    writer's authority and port into `_RootState.fulfilling`, rejects a
-    nested scope (`ScienceError`), and clears the binding in `finally`; the
-    scope admits exactly one submission and refuses a second
-    (`ScienceError`). Both are hard errors: neither is reachable through the
-    seven twins.
+11. **Fulfillment is scoped to one locked call, bound under the raw lock.**
+    The executor belongs to the shared root state, so a per-invocation writer
+    does not isolate it. `OperationWrites._run` takes the *raw* root lock,
+    binds exactly the calling writer's authority and port into
+    `_RootState.fulfilling` through `CorpusWriter._fulfilling()`, and then
+    calls the ordinary method — whose own `require` runs first and whose own
+    settling hold (re-entrant on the same lock) settles afterwards, exactly
+    as for a library caller. Entering the settling hold before the ordinary
+    method would recover, and could move bytes, before the permit was judged;
+    the twin's refusal order is therefore the ordinary method's, by
+    construction. `_fulfilling` rejects a nested scope (`ScienceError`) and
+    clears the binding in `finally`; the scope admits exactly one submission
+    and refuses a second (`ScienceError`). Both are hard errors: neither is
+    reachable through the seven twins. Once the scope has consumed its
+    submission, any exception the ordinary method raises afterwards — the
+    index update, the rebuild — is re-raised by `_run` as `ExecutionError`
+    with the cause attached (J2's boundary); a refusal before the submission
+    propagates unchanged, and the library path's behavior is untouched.
 12. **`unresolved` is set at every submission point and cleared only after the
     complete state update.** Set true: in `_RoutedExecutor.execute`'s
     ordinary branch before delegating (this covers `Corpus.add`,
@@ -815,8 +825,9 @@ class TestTheUnresolvedRoot:
         factory = Factory()
         writer = CorpusWriter(tmp_path, factory, authority=FULL)
         state = _root_state_for(tmp_path, factory)
-        assert state.recover is factory.recover
+        assert state.recover == factory.recover  # bound methods compare by receiver and function
         assert type(state.corpus.executor) is _RoutedExecutor  # the corpus submits through the wrapper
+        assert state.corpus.executor._state is state  # resolved lazily; construction never read the holder
         writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
         assert calls == [tmp_path.resolve()]  # settled once, before the first prepare
         writer._reconstruct()
@@ -965,11 +976,20 @@ class _RoutedExecutor:
     """The executor the corpus holds (§13 items 12–13): an implementation of the
     `execute` primitive. Ordinary submissions mark the root unresolved and
     delegate; a fulfilling scope's one submission is committed by
-    `commit_fulfilling`, the inventoried seam (Task 5)."""
+    `commit_fulfilling`, the inventoried seam (Task 5).
 
-    def __init__(self, inner: WritePlanExecutor, state: _RootState) -> None:
+    `nodes`' `Corpus.__init__` calls the executor factory before the root state
+    exists, so the state is looked up lazily through `holder` at the first
+    submission, never at construction."""
+
+    def __init__(self, inner: WritePlanExecutor, holder: list[_RootState]) -> None:
         self._inner = inner
-        self._state = state
+        self._holder = holder
+
+    @property
+    def _state(self) -> _RootState:
+        (state,) = self._holder  # bound by `_root_state_for` right after the corpus is built
+        return state
 
     def execute(self, plan: WritePlan) -> None:
         scope = self._state.fulfilling
@@ -988,11 +1008,12 @@ class _RoutedExecutor:
 
 def _routed_factory(executor_factory: Callable[[Path], WritePlanExecutor], holder: list[_RootState]) -> Callable[[Path], _RoutedExecutor]:
     """The wrapped factory a root state constructs every executor from. `holder`
-    receives the state after construction; the executor reads it lazily, and no
-    submission can happen before the state exists."""
+    is empty while `Corpus.__init__` runs and receives the state immediately
+    after; the executor resolves it at its first `execute`, so construction
+    never reads it."""
 
     def build(root: Path) -> _RoutedExecutor:
-        return _RoutedExecutor(executor_factory(root), holder[0])
+        return _RoutedExecutor(executor_factory(root), holder)
 
     return build
 
@@ -1057,7 +1078,7 @@ class _SettlingHold:
 
 **No other line of `corpus.py` changes in this task.** Run the staleness probe: `stale: []`.
 
-`test_permit_boundary.py`: `_RoutedExecutor.execute` calls `self._inner.execute`, a primitive by attribute name, and *implements* the executor the corpus holds — add `"_RoutedExecutor.execute"` to the implementation-exclusion list (§13 item 13). The cut 17 arm that sabotages that list's comparison "by containment" quotes the comparison expression, not the list, and still matches once.
+`test_permit_boundary.py`: `_RoutedExecutor.execute` calls `self._inner.execute`, a primitive by attribute name, and *implements* the executor the corpus holds — add `"corpus.py:_RoutedExecutor.execute"` — the complete `<module>:<qualified name>` key the list uses — to `PRIMITIVE_IMPLEMENTATIONS` (§13 item 13). The cut 17 arm that sabotages that list's comparison "by containment" quotes the comparison expression, not the list, and still matches once.
 
 - [ ] **Step 5: Run the whole suite and the gates**
 
@@ -1101,7 +1122,7 @@ import inspect
 
 import pytest
 from authority import ACTOR, FULL, narrowed
-from nodes.core.errors import PlanRefusedError
+from nodes.core.errors import ExecutionError, PlanRefusedError
 from nodes.core.node import Node
 from nodes.core.write_plan import CreateOp, DefaultExecutor, DeleteOp, ReplaceOp, WritePlan
 from test_deletion import mint_eligible_assessment
@@ -1287,7 +1308,7 @@ def test_a_writer_without_a_port_refuses_every_operation_before_any_refusal(tmp_
 # --- §13 item 11: one locked call, one submission, no nesting -------------------------------
 def test_a_nested_fulfilling_scope_and_a_second_submission_are_hard_errors(tmp_path):
     writer, port = writer_over(tmp_path)
-    with writer._operation, writer._fulfilling() as scope:
+    with writer._state.lock, writer._fulfilling() as scope:
         with pytest.raises(ScienceError, match="nested"):
             with writer._fulfilling():
                 pass
@@ -1307,6 +1328,57 @@ def test_the_scope_binds_the_calling_writers_authority_and_port(tmp_path):
     narrow_writer.operations.add(proposition("p1"))
     assert primitive_calls(narrow_port) == ["preflight", "append_intent", "execute_fulfilling"] and wide_port.calls == []
     assert intents_of(narrow_port)[0].actor == ACTOR
+
+
+def test_the_twin_judges_the_permit_before_it_settles(tmp_path):
+    """§13 item 11: on an unresolved root whose recovery fails, the ordinary method and its twin
+    both refuse the permit — neither reaches recovery, and no byte moves before the judgment."""
+    from beliefs.corpus import _root_state_for
+
+    events = []
+
+    class Factory:
+        def __call__(self, root):
+            return DefaultExecutor(root)
+
+        def recover(self, root):
+            events.append("recover")
+            raise ExecutionError("engine down", index=None, applied=None)
+
+    factory = Factory()
+    narrow = narrowed(kinds=("proposition",), families=("corpus-write",))
+    port = RecordingPort(narrow, tmp_path)
+    writer = CorpusWriter(tmp_path, factory, authority=narrow, operation_port=port)
+    assert _root_state_for(tmp_path, factory).unresolved is True
+    source = stored.source_node("s1", title="s1", identifiers={"doi": "10.1/s1"})
+    with pytest.raises(PermitExceeded):
+        writer.add(source)
+    with pytest.raises(PermitExceeded):
+        writer.operations.add(source)
+    assert events == [] and port.calls == []
+    with pytest.raises(ExecutionError, match="engine down"):
+        writer.operations.add(proposition("p1"))  # permitted: now recovery runs, and fails
+    assert events == ["recover"] and port.calls == []
+
+
+def test_a_post_submission_failure_on_the_twin_is_an_execution_error(tmp_path, monkeypatch):
+    """J2 through the operation path: the executor committed, nodes' index update failed."""
+    from beliefs.corpus import _root_state_for
+
+    writer, port = writer_over(tmp_path)
+    writer.add(proposition("p0"))
+    state = _root_state_for(tmp_path, DefaultExecutor)
+    index_type = type(state.corpus.index)
+    monkeypatch.setattr(index_type, "upsert", lambda self, node: (_ for _ in ()).throw(RuntimeError("index down")))
+    with pytest.raises(ExecutionError, match="index down") as caught:
+        writer.operations.add(proposition("p1"))
+    assert isinstance(caught.value.__cause__, RuntimeError)
+    assert primitive_calls(port) == ["preflight", "append_intent", "execute_fulfilling"]  # the submission happened
+    assert state.unresolved is True and state.fulfilling is None
+    monkeypatch.undo()
+    with pytest.raises(WriteRefused) as refused:  # a refusal before submission is not normalized
+        writer.operations.add(proposition("p0").model_copy(update={"kind": "act-report"}))
+    assert not isinstance(refused.value, ExecutionError)
 
 
 # --- J3: the act-time refusal comes from the kernel entry point ------------------------------------
@@ -1407,7 +1479,8 @@ class OperationCommit:
     @contextmanager
     def _fulfilling(self) -> Iterator[_Fulfillment]:
         """Bind this writer's authority and port for one submission (§13 item 11).
-        Entered under the settling hold by `OperationWrites` only."""
+        Entered under the raw root lock by `OperationWrites` only; the ordinary
+        method it wraps takes the settling hold itself, after its `require`."""
         port = self._operation_port
         if port is None:
             raise OperationPortMissing("this corpus has no operation port; operation writes are session-mediated")
@@ -1434,9 +1507,23 @@ class OperationWrites:
         self._writer = writer
 
     def _run(self, perform: Callable[[], Node | None]) -> OperationCommit:
+        """Bind fulfillment under the *raw* lock, then let the ordinary method run
+        exactly as it does for a library caller: its `require` first, then its own
+        settling hold, then its refusals, then the one submission (§13 item 11).
+        Entering the settling hold here would recover — and could move bytes —
+        before the permit was judged, which the ordinary path never does."""
         writer = self._writer
-        with writer._operation, writer._fulfilling() as scope:
-            record = perform()
+        with writer._state.lock, writer._fulfilling() as scope:
+            try:
+                record = perform()
+            except ExecutionError:
+                raise
+            except Exception as caught:
+                if scope.consumed:
+                    # The submission happened (§13 item 12); what failed is the state update after it.
+                    # J2's boundary: every post-submission failure surfaces as ExecutionError.
+                    raise ExecutionError(f"state update after commit failed: {caught}", index=None, applied=None) from caught
+                raise
             if scope.result is None:
                 raise ScienceError("the ordinary method submitted nothing")
             token, intent_digest, entry_digest = scope.result
@@ -1464,7 +1551,7 @@ class OperationWrites:
         return self._run(lambda: self._writer.revise_coordination(kind, address, predecessors=predecessors, content=content))
 ```
 
-`OperationPortMissing` is raised by `_fulfilling` before any refusal of the write, so a portless writer refuses before its ordinary body runs. The ordinary bodies are **not edited**: the probe prints `stale: []`.
+`OperationPortMissing` is raised by `_fulfilling` before any refusal of the write, so a portless writer refuses before its ordinary body runs. `ExecutionError` is imported from `nodes.core.errors` (already imported in `corpus.py`). The raw lock and the ordinary method's settling hold are the same re-entrant `OperationLock`, so the order inside `_run` is: lock, bind, `require`, settle, refuse, submit, index update, hold exit (clears `unresolved`), unbind, release. The ordinary bodies are **not edited**: the probe prints `stale: []`.
 
 `test_permit_boundary.py`: add `"corpus.py:_RoutedExecutor.commit_fulfilling": "corpus-write"` to `WRITE_ENTRY_POINTS`; `_RoutedExecutor.execute` is already on the implementation-exclusion list from Task 4. Arm 1 reports `commit_fulfilling` as a caller of `append_intent` and `execute_fulfilling` and the row satisfies it; arm 2 finds its `require` as the first statement. Confirm the inventory count is 37.
 
@@ -3562,7 +3649,7 @@ git commit -m "test(session): add the durable acceptance arms for J1, J3, J4, J5
 
 **Interfaces:**
 - Consumes: Task 9's helpers; `science_root._mapped_submit`, `science_root._registration_for`, `CorpusWriter._reconstruct`, `atoms.fs.platform.select_backend`, `DurableOperationPort`.
-- Produces: `test_j2_a_failure_before_submission_leaves_an_intent_and_no_record`, `test_j2_a_failed_recovery_refuses_the_write_before_any_prepare`, `test_j2_a_readback_failure_leaves_the_root_unresolved_and_the_registration_committed`, `test_j2_a_rebuild_failure_leaves_the_root_unresolved`, `test_j2_a_ledger_failure_after_commit_ends_the_session`, `test_j2_a_raced_precondition_is_an_execution_error`, `test_j2_continuation_after_unresolved_effects_recovers_before_the_prepare`, `test_j2_a_fresh_process_settles_before_its_first_prepare`, `test_j2_library_and_mixed_handles_settle_first`, `test_j8_reconciliation_over_the_real_root`, `test_j8_reconciliation_is_lock_coherent_under_an_interleaved_write`, `test_j8_reconciliation_reads_chain_and_ledgers_under_one_hold`; `session_faults.TracingBackend`, `HaltingBackend(skip=)`, `HaltingPort`, `PUBLISH_CALLS_BEFORE_RECORD`; helpers `pending_registrations(root)` and `intents_of_chain(view)` beside `registrations`.
+- Produces: `test_j2_a_failure_before_submission_leaves_an_intent_and_no_record`, `test_j2_a_failed_recovery_refuses_the_write_before_any_prepare`, `test_j2_a_readback_failure_leaves_the_root_unresolved_and_the_registration_committed`, `test_j2_a_post_commit_rebuild_failure_on_delete_leaves_the_root_unresolved`, `test_j2_a_post_commit_index_failure_on_add_leaves_the_root_unresolved`, `test_j2_a_ledger_failure_after_commit_ends_the_session`, `test_j2_a_raced_precondition_is_an_execution_error`, `test_j2_continuation_after_unresolved_effects_recovers_before_the_prepare`, `test_j2_a_fresh_process_settles_before_its_first_prepare`, `test_j2_library_and_mixed_handles_settle_first`, `test_j8_reconciliation_over_the_real_root`, `test_j8_reconciliation_is_lock_coherent_under_an_interleaved_write`, `test_j8_reconciliation_reads_chain_and_ledgers_under_one_hold`; `session_faults.TracingBackend`, `HaltingBackend(skip=)`, `HaltingPort`, `PUBLISH_CALLS_BEFORE_RECORD`; helpers `pending_registrations(root)` and `intents_of_chain(view)` beside `registrations`.
 
 - [ ] **Step 1: `tasks start <task-10-id>`**
 
@@ -3724,25 +3811,49 @@ def test_j2_a_readback_failure_leaves_the_root_unresolved_and_the_registration_c
     assert open_corpus(root, authority=FULL).read_view.get("proposition:p1").id == "proposition:p1"
 
 
-def test_j2_a_rebuild_failure_leaves_the_root_unresolved(session_rig, monkeypatch):
+def test_j2_a_post_commit_rebuild_failure_on_delete_leaves_the_root_unresolved(session_rig, monkeypatch):
+    """Session `add` updates the index incrementally and never rebuilds after commit; `delete`
+    does (`_delete_locked` reconstructs after its execute). Fault that rebuild only."""
     session, root, _ = session_rig
     w = fresh(session, "A")
+    w.add(proposition("p1"))  # settles the fresh root first, with the real rebuild
     original = CorpusWriter._reconstruct
-    calls = {"n": 0}
+    arm = {"on": True}
 
     def failing(self):
-        calls["n"] += 1
-        if calls["n"] == 1:
-            raise ExecutionError("rebuild failed", index=None, applied=None)
+        if arm["on"]:
+            arm["on"] = False
+            raise RuntimeError("rebuild failed")
         return original(self)
 
     monkeypatch.setattr(CorpusWriter, "_reconstruct", failing)
-    with pytest.raises(ExecutionError, match="rebuild failed"):
-        w.add(proposition("p1"))
-    assert state_of(root).unresolved is True
+    with pytest.raises(ExecutionError, match="rebuild failed") as caught:  # normalized: the submission happened
+        w.delete("proposition:p1")
+    assert isinstance(caught.value.__cause__, RuntimeError)
+    assert not (root / "proposition" / "p1.md").exists()  # the delete committed
+    assert state_of(root).unresolved is True and session.invocation_acts("A") == ()
     monkeypatch.undo()
-    w.add(proposition("p2"))
+    w.add(proposition("p2"))  # settles (recover, rebuild) first
     assert state_of(root).unresolved is False
+
+
+def test_j2_a_post_commit_index_failure_on_add_leaves_the_root_unresolved(session_rig, monkeypatch):
+    session, root, ops = session_rig
+    w = fresh(session, "A")
+    w.add(proposition("p0"))
+    state = state_of(root)
+    index_type = type(state.corpus.index)
+    monkeypatch.setattr(index_type, "upsert", lambda self, node: (_ for _ in ()).throw(RuntimeError("index down")))
+    with pytest.raises(ExecutionError, match="index down"):
+        w.add(proposition("p1"))
+    monkeypatch.undo()
+    assert (root / "proposition" / "p1.md").exists()
+    (registration,) = [e for e in registrations(root) if e.fulfills is not None and e.digest not in {a.entry for a in session.invocation_acts("A")}]
+    assert state.unresolved is True
+    findings = reconcile_sessions(config_for(ops.parent, root), ops)
+    assert ("session-outcome-unknown", registration.digest) in [(f.code, f.ref) for f in findings]
+    w.add(proposition("p2"))  # settles first and sees p1
+    assert state.unresolved is False and open_corpus(root, authority=FULL).read_view.get("proposition:p1").id == "proposition:p1"
 
 
 def test_j2_a_ledger_failure_after_commit_ends_the_session(session_rig, monkeypatch):
@@ -3934,7 +4045,7 @@ def test_j2_library_and_mixed_handles_settle_first(work_directory, monkeypatch):
     assert pending_registrations(halted_root), "the halt must leave a pending registration"
     order.clear()
     portless = CorpusWriter(halted_root, durable_executor_factory(), authority=FULL)
-    assert state_of(halted_root).recover is durable_executor_factory().recover
+    assert state_of(halted_root).recover == durable_executor_factory().recover
     portless.add(proposition("after"))
     assert order[0] == "settle" and not pending_registrations(halted_root) and state_of(halted_root).unresolved is False
     never = work_directory / f"never-{secrets.token_hex(4)}"
@@ -4155,6 +4266,8 @@ Then the arms, in this order, each `before` copied verbatim from the landed file
 | J2d | `corpus.py` | `_root_state_for`: `getattr(executor_factory, "recover", None)` → `None` | `_J2C`, `f"{_A}::test_j2_library_and_mixed_handles_settle_first"` |
 | J2f | `corpus.py` | `_RoutedExecutor.execute`: drop `self._state.unresolved = True` from the ordinary branch | `test_corpus_write.py::TestTheUnresolvedRoot::test_a_failed_submission_leaves_the_root_unresolved_and_the_next_write_recovers_first` |
 | J2g | `corpus.py` | `_reconstruct`: build `Corpus(..., executor_factory=self._state.executor_factory)` (the unwrapped factory; the wrapper is lost after a rebuild) | `test_corpus_write.py::TestTheUnresolvedRoot::test_the_root_state_binds_the_factory_recover_and_wraps_its_executors` |
+| J2h | `corpus.py` | `OperationWrites._run`: drop the `if scope.consumed:` normalization (`raise` unconditionally) | `test_operation_writes.py::test_a_post_submission_failure_on_the_twin_is_an_execution_error`, `f"{_A}::test_j2_a_post_commit_index_failure_on_add_leaves_the_root_unresolved"` |
+| J3c | `corpus.py` | `OperationWrites._run`: `with writer._state.lock, writer._fulfilling()` → `with writer._operation, writer._fulfilling()` (the twin settles before the permit) | `test_operation_writes.py::test_the_twin_judges_the_permit_before_it_settles` |
 | J2e | `root.py` | `_DurableExecutorFactory.recover`: body → `return` | `_J2C` |
 | J3a | `session/writer.py` | `scoped`: `Authority(required.permit, self.actor)` → `Authority(self._ceiling, self.actor)` | `_J3` |
 | J3b | `session/writer.py` | `scoped`: `if not permit_covers(self._ceiling, required):` → `if False:` | `test_session_writer.py::test_scoped_refuses_an_uncovered_requirement_before_any_writer_exists` |
