@@ -406,6 +406,14 @@ class _RootState:
     depth: int = 0  # settling-hold nesting on the owning thread
 
 
+def _encode_operation_intent(kind: str, event_token: str, actor: str) -> bytes:
+    """The one wire encoding of an operation intent. Both producers — the routed
+    commit seam and `CorpusWriter._append_operation_intent` — append exactly these
+    bytes, so `decode_intent` reads one shape however the entry was written."""
+    intent = OperationIntent(kind, event_token, actor)
+    return v1.encode({"kind": intent.kind, "event_token": intent.event_token, "actor": intent.actor})
+
+
 def _plan_kinds(plan: WritePlan) -> tuple[str, ...]:
     """The kinds a plan emits, from the record layout `<kind>/<slug>.md` (§13 item 13)."""
     kinds: list[str] = []
@@ -471,9 +479,8 @@ class _RoutedExecutor:
         scope.submitted = True  # the refusals are behind us; the intent is the first effect
         self._state.unresolved = True
         token = secrets.token_hex(16)
-        intent = OperationIntent("corpus-write", token, scope.authority.actor)
         intent_digest = scope.port.append_intent(
-            v1.encode({"kind": intent.kind, "event_token": intent.event_token, "actor": intent.actor})
+            _encode_operation_intent("corpus-write", token, scope.authority.actor)
         )
         entry_digest = scope.port.execute_fulfilling(plan, intent_digest)
         scope.result = (token, intent_digest, entry_digest)
@@ -1666,12 +1673,9 @@ class CorpusWriter:
             raise ActorMismatch(
                 f"the operation intent names actor {intent_actor!r}, not the bound {self.authority.actor!r}"
             )
-        intent = OperationIntent(kind, token, self.authority.actor)
         operation_port = self._operation_port
         assert operation_port is not None
-        digest = operation_port.append_intent(
-            v1.encode({"kind": intent.kind, "event_token": intent.event_token, "actor": intent.actor})
-        )
+        digest = operation_port.append_intent(_encode_operation_intent(kind, token, self.authority.actor))
         if (
             type(digest) is not str
             or len(digest) != 64

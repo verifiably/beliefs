@@ -307,6 +307,19 @@ def test_every_intent_carries_the_bound_actor_and_no_seam_takes_one(tmp_path):
         assert "actor" not in inspect.signature(member).parameters, name
 
 
+def test_the_two_intent_producers_emit_one_encoding(tmp_path):
+    """One wire encoding, two producers: the routed seam's payload is byte-identical to
+    `_append_operation_intent`'s for the same (kind, event_token, actor), so a shape change
+    at one site cannot leave the chain carrying two readings of `corpus-write`."""
+    writer, port = writer_over(tmp_path)
+    commit = writer.operations.add(proposition("p1"))
+    (seam_payload,) = [payload for kind, payload in port.calls if kind == "append_intent"]
+    writer._append_operation_intent("corpus-write", commit.event_token, ACTOR)
+    payloads = [payload for kind, payload in port.calls if kind == "append_intent"]
+    assert payloads == [seam_payload, seam_payload]
+    assert intents_of(port) == [OperationIntent("corpus-write", commit.event_token, ACTOR)] * 2
+
+
 def test_a_retraction_naming_another_actor_is_actor_mismatch_with_nothing_appended(tmp_path):
     writer, port = writer_over(tmp_path)
     target = mint_eligible_assessment(writer)
