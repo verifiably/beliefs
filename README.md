@@ -27,9 +27,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Forty-seven documents in `docs/designs/`: the banked redesigns, review disposition,
+Forty-eight documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
-2026-08-02 through 2026-09-04. Read them in this order:
+2026-08-02 through 2026-09-05. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -80,6 +80,7 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-09-03-conformance-cut-16.md` | the discharged relocation cut: W5 in full, G3 and D7 closed, five partial rows, and T8 re-read against both relocation operations |
 | `2026-09-04-conformance-cut-18.md` | the discharged deletion cut: managed `delete` as an ordinary write, the audit and import ride-alongs, 7 rows closed, 5 partial, 4 closed-row re-reads |
 | `2026-09-04-write-permits-design.md` | the discharged write-permits slice: closed act families and kind routes, `Authority` bound once at every construction seam, checks before effects across the static entry-point inventory, and E1–E8 closed at cut 17 |
+| `2026-09-05-writer-session-design.md` | the writer-session slice: the attended session and its fixed actor, the append-then-fsync session ledger and claim protocol, the invocation-scoped writer bound to exactly its requirement, `corpus-write` as an operation intent fulfilled by its registration, and reconciliation over ledgers and chains (J1–J10, cut 19 to freeze) |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
