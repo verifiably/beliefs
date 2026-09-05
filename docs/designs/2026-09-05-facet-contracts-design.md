@@ -42,8 +42,8 @@ kind and the unfulfilled-intent state; the world-registry design
 (`2026-08-20-world-registry-design.md`) for the manifest and its pins. Where
 those documents decide a point this one cites it.
 **Out of scope:** the biology pack and every real vocabulary binding (slice
-2); URL acquisition and the positive `retrieval` case it alone can reach
-(`url-retrieval`); lineage-inherited observation standing (§14); relation
+2); URL acquisition itself (`url-retrieval`) — F7's positive arm tests
+reference acceptance over an imported report, not acquisition; lineage-inherited observation standing (§14); relation
 endpoint enforcement at write (§9); migrating any reader-shaped facet to a
 schema; contract distribution (D §12); any `science` code.
 
@@ -323,7 +323,9 @@ the right sort — is a seam rule (§5.2), never the grammar's.
 
 Every behavioural declaration: the kind inventory with each kind's domain and
 each facet's `required` and `covered` flags; every relation's source and
-target sets; every facet's shape discriminator; every schema field's
+target sets **and its group** (`world` or `lifecycle`, §3.1) — moving an
+unchanged relation between groups changes coordination-vocabulary
+acceptance, so a test moves one and asserts the compiled identity moves; every facet's shape discriminator; every schema field's
 projection (`type`, `required`, `kinds`, `schemes`); every domain facet's
 `attaches_to`. Changing which kind accepts a facet moves the compiled
 identity with no field change. Descriptions stay out, as they do for
