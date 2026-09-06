@@ -608,6 +608,27 @@ def test_v1_a_report_less_verification_decodes_as_absent(pair):
     assert decode_verification(stored.verification_node("v", title="v", assessment="x", assessment_ref="assessment:a", scope="same-environment", verdict="passed")) is None
 
 
+def test_v1_a_certified_and_cited_report_round_trips_field_wise(pair):
+    # A field swap in _restore_report's CodeLineageCertification/EmbeddedCitation
+    # construction is otherwise invisible: both members are plain strings, so
+    # only a field-wise comparison — not object equality — catches a transposed
+    # rationale/attribution or report_ref/index/content.
+    certification = CodeLineageCertification(rationale="independent rewrite", attribution="alice")
+    published = report()
+    verification = verification_of(pair, certification=certification, citation=(published, 1))
+    decoded = decode_verification(_node_for(verification))
+    assert isinstance(decoded, StoredVerification)
+    assert verification.report.certification is not None and decoded.report.certification is not None
+    assert decoded.report.certification.rationale == verification.report.certification.rationale
+    assert decoded.report.certification.attribution == verification.report.certification.attribution
+    assert verification.report.citation is not None and decoded.report.citation is not None
+    assert decoded.report.citation.report_ref == verification.report.citation.report_ref
+    assert decoded.report.citation.index == verification.report.citation.index
+    assert decoded.report.citation.content == verification.report.citation.content
+    assert decoded.report.identity() == verification.report.identity()
+    assert decoded.basis() == verification.basis()
+
+
 def test_v3_stored_verification_has_no_public_constructor():
     with pytest.raises(TypeError):
         StoredVerification(original="a", replayed="b", assessment=None, rule="r", report=None, scope_rule="s", scope="bogus", verdict="bogus", supersedes=None)  # type: ignore[call-arg]
