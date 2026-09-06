@@ -1153,3 +1153,7 @@ class ActorMismatch(WriteRefused):
 
 class BundleMemberHeld(ImportRefused):
     """A bundle member is already held or collides with local state."""
+
+
+class AcquisitionBoundaryRefused(WriteRefused):
+    """A declaration cannot coexist with a producer or lineage basis."""

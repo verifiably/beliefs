@@ -56,6 +56,7 @@ from yaml import YAMLError
 from beliefs import boundary as boundary_values
 from beliefs import report as report_values
 from beliefs import stored
+from beliefs.acquisition import bearer_refusal, validity_refusal
 from beliefs.consulted import CorpusPins
 from beliefs.coordination import (
     COORDINATION_KINDS,
@@ -68,6 +69,7 @@ from beliefs.coordination import (
 )
 from beliefs.dataset import dataset_address
 from beliefs.errors import (
+    AcquisitionBoundaryRefused,
     ActorMismatch,
     BasisMissing,
     BuildContended,
@@ -80,6 +82,7 @@ from beliefs.errors import (
     DeletionKindExcluded,
     DeletionTargetMissing,
     EligibilityUnmet,
+    FacetPayloadRefused,
     FamilyKindUnsupported,
     IdentityError,
     ImportRefused,
@@ -259,6 +262,19 @@ class ReadView:
     def inbound(self, ref: str) -> list[ResolvedEdge]:
         return self._corpus.inbound(ref)
 
+    def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]:
+        """Ids of every stored record holding a `produces` edge that names `dataset`
+        — by its id, by an alias, or by a target that resolves to it. Dangling
+        edges count: a run written before its dataset is still a producer."""
+        names = {dataset, *aliases}
+        return tuple(sorted({
+            node.id
+            for node in self.iter_stored()
+            for relation in node.relations
+            if relation.predicate == stored.PRODUCES
+            and (relation.target in names or self.resolve(relation.target) == dataset)
+        }))
+
     def iter_stored(self) -> Iterator[Node]:
         """Every stored node, **unvalidated**. The corpus check's read: a
         reporting check that raised at the first stale node would report one
@@ -430,6 +446,19 @@ class _ImportView:
         if uid in self._records:
             return self._records[uid]
         return self._local.get(ref)
+
+    def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]:
+        """Ids of every stored record holding a `produces` edge that names `dataset`
+        — by its id, by an alias, or by a target that resolves to it. Dangling
+        edges count: a run written before its dataset is still a producer."""
+        names = {dataset, *aliases}
+        return tuple(sorted({
+            node.id
+            for node in self.iter_stored()
+            for relation in node.relations
+            if relation.predicate == stored.PRODUCES
+            and (relation.target in names or self.resolve(relation.target) == dataset)
+        }))
 
     def iter_stored(self) -> Iterator[Node]:
         yield from self._local.iter_stored()
@@ -839,7 +868,7 @@ def _producers_of(view: ReadView, dataset: str) -> list[Producer]:
 # --- the §6.2 corpus check ---------------------------------------------------
 
 
-def eligibility_refusal(view: ReadView | _ImportView, node: Node) -> str | None:
+def eligibility_refusal(view: ReadView | _ImportView, node: Node, profile: ProfileSpec) -> str | None:
     """S7's cross-node predicate, in one implementation for both boundaries.
 
     assessment → run → `observes` → dataset → facet. `reads` inputs never
@@ -861,10 +890,16 @@ def eligibility_refusal(view: ReadView | _ImportView, node: Node) -> str | None:
     observed = stored.inputs_of(run, stored.OBSERVES)
     if not observed:
         return f"the run {run_ref!r} has no observes input; reads inputs never confer eligibility"
+    reasons: list[str] = []
     for dataset_ref in observed:
-        if view.holds(dataset_ref) and stored.is_empirical_observation(view.get(dataset_ref)):
+        if not view.holds(dataset_ref):
+            reasons.append(f"{dataset_ref}: unresolved")
+            continue
+        reason = validity_refusal(view, view.get(dataset_ref), profile)
+        if reason is None:
             return None
-    return f"no observes input of {run_ref!r} carries the empirical-observation facet"
+        reasons.append(f"{dataset_ref}: {reason}")
+    return f"no observes input of {run_ref!r} carries a valid empirical-observation facet ({'; '.join(reasons)})"
 
 
 def corpus_check(view: ReadView) -> tuple[Finding, ...]:
@@ -994,7 +1029,7 @@ def corpus_check(view: ReadView) -> tuple[Finding, ...]:
                     assert resolved is not None
                     retraction_targets.setdefault(resolved, []).append(node.id)
         try:
-            reason = eligibility_refusal(view, node)
+            reason = eligibility_refusal(view, node, shipped_base())  # Task 11 threads the caller's profile
         except (IdentityError, SemanticHashMissing, SemanticHashStale):
             reason = None
         if reason is not None:
@@ -2196,9 +2231,8 @@ class CorpusWriter:
         self._refuse_collision(node)
 
     def _refuse_facets(self, node: Node, *, view: ReadView | _ImportView | None = None, provenance: bool = False) -> None:
-        """§5.2: registry validation, then payload validation. Steps 3–5 arrive
-        with `beliefs.acquisition` (Task 8); `provenance=True` means the record
-        arrived from elsewhere and its attestation is kept as written."""
+        """§5.2: registry, payload, bearer, actor, and acquisition validity.
+        Provenance preserves the attestation of an arriving record."""
         try:
             self._profile.validate_document(node)
         except UnknownKindError as caught:
@@ -2210,6 +2244,21 @@ class CorpusWriter:
             facet = self._profile.facets.get(key)
             if facet is not None:
                 validate_payload(facet, payload, where=node.id)
+
+        reading = self._view if view is None else view
+        reason = bearer_refusal(reading, node)
+        if reason is not None:
+            raise AcquisitionBoundaryRefused(reason)
+        payload = node.facets.get(stored.EMPIRICAL_OBSERVATION_FACET)
+        if isinstance(payload, dict):
+            if not provenance and payload.get("attested_by") != self._authority.actor:
+                raise ActorMismatch(
+                    f"{node.id}: the declaration names attester {payload.get('attested_by')!r}, not the bound "
+                    f"{self._authority.actor!r}"
+                )
+            reason = validity_refusal(reading, node, self._profile)
+            if reason is not None:
+                raise FacetPayloadRefused(f"{node.id}: {reason}")
 
     @staticmethod
     def _refuse_governed_stamp(node: Node) -> None:
@@ -2268,7 +2317,7 @@ class CorpusWriter:
     def _refuse_ineligible(self, node: Node, *, view: ReadView | _ImportView | None = None) -> None:
         """S7's write boundary, reading the cross-node predicate through this
         corpus's own read view."""
-        reason = eligibility_refusal(self._view if view is None else view, node)
+        reason = eligibility_refusal(self._view if view is None else view, node, self._profile)
         if reason is not None:
             raise EligibilityUnmet(f"{node.id}: the assesses edge is inadmissible because {reason}")
 

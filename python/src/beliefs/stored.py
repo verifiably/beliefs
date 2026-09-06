@@ -270,9 +270,8 @@ def _facet(node: Node, key: str) -> Mapping[str, Any] | None:
 
 
 def is_empirical_observation(node: Node) -> bool:
-    """Whether a dataset carries the facet an `observes` input demands. The
-    facet's own payload contract is open (kernel §11); its **presence** is what
-    the eligibility predicate reads, and that is all this asks."""
+    """Whether the empirical-observation facet holds a mapping. Eligibility
+    uses the shared acquisition-boundary predicate to validate its standing."""
     return _facet(node, EMPIRICAL_OBSERVATION_FACET) is not None
 
 

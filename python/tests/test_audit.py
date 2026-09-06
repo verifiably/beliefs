@@ -526,7 +526,7 @@ class TestTheAuditReportsAndNeverRaises:
         closure = replace(base, occurrence=replace(base.occurrence, actor=ACTOR))
         dataset = writer.add(
             stored.dataset_node(
-                "produced", title="produced", resources=PINNED, empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}
+                "produced", title="produced", resources=PINNED
             )
         )
         for entry in closure.recipe.inputs:

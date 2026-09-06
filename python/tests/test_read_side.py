@@ -344,7 +344,30 @@ class TestTheCorpusCheck:
             ),
             stored.proposition_node("p1", title="p1", claim={"operator": "affects"}),
         )
-        assert [f.code for f in corpus_check(view)] == ["eligibility-unmet"]
+        findings = corpus_check(view)
+        assert [f.code for f in findings] == ["eligibility-unmet"]
+        assert "no-empirical-observation-facet" in findings[0].message
+
+    def test_an_observes_input_with_an_invalid_facet_is_reported_distinctly(self, tmp_path):
+        plain = stored.dataset_node("plain", title="plain", resources=[{"name": "x", "digest": "sha256:" + "ef" * 32}], empirical_observation={"boundary": "x"})
+        view = seed(
+            tmp_path,
+            plain,
+            stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[plain.id]),
+            stored.assessment_node(
+                "a1",
+                title="a1",
+                spec="analysis-spec:s1",
+                run="run:r1",
+                proposition="proposition:p1",
+                outcome="supported",
+                interpretation_rule="rule:threshold",
+            ),
+            stored.proposition_node("p1", title="p1", claim={"operator": "affects"}),
+        )
+        findings = corpus_check(view)
+        assert [f.code for f in findings] == ["eligibility-unmet"]
+        assert "facet-payload-malformed" in findings[0].message
 
     def test_an_unstamped_governed_record_is_reported_semantic_hash_missing(self, tmp_path):
         node = observed_dataset()
