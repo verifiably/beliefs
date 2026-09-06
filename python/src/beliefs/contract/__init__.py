@@ -31,6 +31,7 @@ from beliefs.contract.domain import (
     parse_domain_contract,
 )
 from beliefs.contract.facets import FacetDecl, FieldDecl
+from beliefs.contract.practice import Practice, load_practice, parse_practice
 
 __all__ = [
     "BaseContract",
@@ -44,6 +45,7 @@ __all__ = [
     "FieldDecl",
     "KindDecl",
     "OperatorDecl",
+    "Practice",
     "RelationDecl",
     "SortDecl",
     "VocabularyBinding",
@@ -52,7 +54,9 @@ __all__ = [
     "load_base_contract",
     "load_coordination_contract",
     "load_domain_contract",
+    "load_practice",
     "parse_base_contract",
     "parse_coordination_contract",
     "parse_domain_contract",
+    "parse_practice",
 ]
