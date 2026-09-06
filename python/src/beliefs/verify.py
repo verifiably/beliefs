@@ -12,7 +12,9 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TypeAlias, cast, final
 
-from beliefs import record
+from nodes.core.node import Node
+
+from beliefs import record, stored
 from beliefs.errors import MalformedClosure, MalformedRecord, MixedShapes, NotAnAssessmentVerification, RuleUnbound
 from beliefs.identity import v1
 from beliefs.recipe import RunClosure
@@ -35,9 +37,11 @@ __all__ = [
     "DatasetProductionVerification",
     "EmbeddedCitation",
     "RunVerification",
+    "StoredVerification",
     "active_verifications",
     "admission_record",
     "build_verification",
+    "decode_verification",
 ]
 
 COMPARISON_REPORT_DOMAIN = "science.comparison-report.v1"
@@ -124,9 +128,11 @@ class ComparisonReport:
     diagnostics: tuple[str, ...]
 
     def __init__(self, *args: object, **kwargs: object) -> None:
-        raise TypeError("ComparisonReport values are minted only by build_verification")
+        raise TypeError("ComparisonReport values are minted only by build_verification and restored by decode_verification")
 
-    def identity(self) -> str:
+    def projection(self) -> dict[str, object]:
+        """The canonical mapping `identity()` digests — and what a published
+        verification stores under `report` (design §4.1)."""
         projection: dict[str, object] = {
             "original_conformance": self.original_conformance,
             "replay_conformance": self.replay_conformance,
@@ -138,7 +144,10 @@ class ComparisonReport:
             projection["certification"] = _certification_projection(self.certification)
         if self.citation is not None:
             projection["citation"] = _citation_projection(self.citation)
-        return v1.digest(COMPARISON_REPORT_DOMAIN, projection)
+        return projection
+
+    def identity(self) -> str:
+        return v1.digest(COMPARISON_REPORT_DOMAIN, self.projection())
 
 
 def _mint_comparison_report(
@@ -260,6 +269,157 @@ class DatasetProductionVerification:
 
 
 RunVerification: TypeAlias = AssessmentVerification | DatasetProductionVerification
+
+
+@sealed
+@final
+@dataclass(frozen=True, init=False)
+class StoredVerification:
+    """A published verification read back: the same basis as the derived
+    value, minted only by `decode_verification` after the record's id
+    recomputes from its members (design §4.2). Distinct from the derived
+    types on purpose — R19 admits no constructor that accepts a report — and
+    closed the same way they are."""
+
+    original: str
+    replayed: str
+    assessment: str | None
+    rule: str
+    report: ComparisonReport
+    scope_rule: str
+    scope: str
+    verdict: str
+    supersedes: str | None
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        raise TypeError("StoredVerification values are minted only by decode_verification")
+
+    def basis(self) -> dict[str, object]:
+        members: dict[str, object] = {
+            "original": self.original,
+            "replayed": self.replayed,
+            "rule": self.rule,
+            "report": self.report,
+            "scope_rule": self.scope_rule,
+            "scope": self.scope,
+            "verdict": self.verdict,
+            "supersedes": self.supersedes,
+        }
+        if self.assessment is not None:
+            members["assessment"] = self.assessment
+        return _basis(members)
+
+    def identity(self) -> str:
+        return v1.digest(RUN_VERIFICATION_DOMAIN, self.basis())
+
+
+def _mint_stored_verification(*, assessment: str | None, **members: object) -> StoredVerification:
+    """The reader's private mint: `_validate_verification` over the same
+    member set the derived mint validates, then the sealed value."""
+    checked: dict[str, object] = dict(members)
+    if assessment is not None:
+        checked["assessment"] = assessment
+    _validate_verification(checked)
+    value = object.__new__(StoredVerification)
+    for name, member in (*members.items(), ("assessment", assessment)):
+        object.__setattr__(value, name, member)
+    return value
+
+
+_REPORT_REQUIRED = frozenset({"original_conformance", "replay_conformance", "receipts", "rule_bindings", "diagnostics"})
+_REPORT_OPTIONAL = frozenset({"certification", "citation"})
+_PUBLISHED_REQUIRED = frozenset({"scope", "verdict", "derivation", "rule", "scope_rule", "report"})
+_PUBLISHED_OPTIONAL = frozenset({"assessment", "supersedes"})
+
+
+def _string_list(value: object, where: str) -> tuple[str, ...]:
+    if not isinstance(value, list) or any(type(member) is not str for member in value):
+        raise MalformedRecord(f"{where} must be a list of strings")
+    return tuple(value)
+
+
+def _restore_report(node_id: str, member: object) -> ComparisonReport:
+    if not isinstance(member, Mapping) or not _REPORT_REQUIRED <= set(member) <= _REPORT_REQUIRED | _REPORT_OPTIONAL:
+        raise MalformedRecord(f"{node_id}: a report member carries exactly the comparison report's projection")
+    bindings = member["rule_bindings"]
+    if not isinstance(bindings, list) or any(
+        not isinstance(pair, list) or len(pair) != 2 or any(type(half) is not str for half in pair) for pair in bindings
+    ):
+        raise MalformedRecord(f"{node_id}: report rule bindings must be a list of string pairs")
+    certification = None
+    if "certification" in member:
+        claim = member["certification"]
+        if not isinstance(claim, Mapping) or set(claim) != {"rationale", "attribution"}:
+            raise MalformedRecord(f"{node_id}: a report certification names exactly rationale and attribution")
+        certification = CodeLineageCertification(rationale=claim["rationale"], attribution=claim["attribution"])
+    citation = None
+    if "citation" in member:
+        cited = member["citation"]
+        if not isinstance(cited, Mapping) or set(cited) != {"report_ref", "index", "content"}:
+            raise MalformedRecord(f"{node_id}: a report citation names exactly report_ref, index and content")
+        citation = EmbeddedCitation(report_ref=cited["report_ref"], index=cited["index"], content=cited["content"])
+    return _mint_comparison_report(
+        original_conformance=member["original_conformance"],
+        replay_conformance=member["replay_conformance"],
+        # _string_list's tuple[str, ...] is runtime-checked to length 2 inside
+        # _mint_comparison_report; the cast carries no coercion (M11).
+        receipts=cast(tuple[str, str], _string_list(member["receipts"], f"{node_id}: report receipts")),
+        rule_bindings=tuple((pair[0], pair[1]) for pair in bindings),
+        certification=certification,
+        citation=citation,
+        diagnostics=_string_list(member["diagnostics"], f"{node_id}: report diagnostics"),
+    )
+
+
+def decode_verification(node: Node) -> StoredVerification | None:
+    """A published verification read back, or `None` for one that carries no
+    report (cut 18 ruling R2: not malformed, only unchecked for scope). A
+    present member that is malformed — a null derivation included — or an id
+    that does not recompute from the members is refused, never repaired
+    (M11). Pure over the node."""
+    if node.kind != "verification":
+        raise MalformedRecord(f"{node.id}: not a verification record")
+    facet = node.facets.get(stored.VERIFICATION_FACET)
+    if not isinstance(facet, dict):
+        raise MalformedRecord(f"{node.id}: a verification carries a {stored.VERIFICATION_FACET!r} facet")
+    if "report" not in facet:
+        return None
+    keys = set(facet)
+    if not _PUBLISHED_REQUIRED <= keys or not keys <= _PUBLISHED_REQUIRED | _PUBLISHED_OPTIONAL:
+        raise MalformedRecord(f"{node.id}: a published verification carries exactly its basis members")
+    if facet["derivation"] is None:
+        raise MalformedRecord(f"{node.id}: a published verification names its derivation")
+    derivation = stored.verification_derivation(node)
+    if derivation is None:
+        raise MalformedRecord(f"{node.id}: a published verification names its derivation")
+    edges = [relation for relation in node.relations if relation.predicate == stored.VERIFIES]
+    if len(edges) > 1:
+        raise MalformedRecord(f"{node.id}: a verification carries at most one verifies edge")
+    if ("assessment" in facet) != bool(edges):
+        raise MalformedRecord(f"{node.id}: the assessment member and the verifies edge are present together or not at all")
+    for name in ("rule", "scope_rule", "scope", "verdict"):
+        if type(facet[name]) is not str:
+            raise MalformedRecord(f"{node.id}: verification {name} must be a string")
+    assessment = facet.get("assessment")
+    if "assessment" in facet and type(assessment) is not str:
+        raise MalformedRecord(f"{node.id}: verification assessment must be a string")
+    supersedes = facet.get("supersedes")
+    if supersedes is not None:
+        supersedes = stored.local_id("verification", supersedes)
+    decoded = _mint_stored_verification(
+        assessment=assessment,
+        original=stored.local_id("run", derivation[0]),
+        replayed=stored.local_id("run", derivation[1]),
+        rule=facet["rule"],
+        report=_restore_report(node.id, facet["report"]),
+        scope_rule=facet["scope_rule"],
+        scope=facet["scope"],
+        verdict=facet["verdict"],
+        supersedes=supersedes,
+    )
+    if decoded.identity() != stored.local_id("verification", node.id):
+        raise MalformedRecord(f"{node.id}: the recomputed identity is not the record id")
+    return decoded
 
 
 def _mint_verification(

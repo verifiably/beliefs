@@ -49,6 +49,7 @@ from beliefs.replay import (
 from beliefs.spec import Deterministic, SpecInput, StochasticUnseeded, freeze, revise
 from beliefs.verification import Verification
 from beliefs.verify import (
+    COMPARISON_REPORT_DOMAIN,
     AssessmentVerification,
     ComparisonReport,
     DatasetProductionVerification,
@@ -535,3 +536,123 @@ def test_k5_a_production_verification_is_refused_by_the_join(production_pair):
     assert isinstance(verification, DatasetProductionVerification)
     with pytest.raises(NotAnAssessmentVerification):
         admission_record(verification)  # pyright: ignore[reportArgumentType] — invalid type is under test
+
+
+# --- V1 / V6: the stored verification's reader (design §4.2) -----------------
+from nodes.core.node import Node
+from nodes.core.relations import Relation
+
+from beliefs import stored
+from beliefs.errors import MalformedRecord, NullRefused
+from beliefs.verify import StoredVerification, decode_verification
+
+
+def _facet_for(verification: AssessmentVerification) -> dict:
+    return {
+        "assessment": verification.assessment,
+        "scope": verification.scope,
+        "verdict": verification.verdict,
+        "derivation": {
+            "original": stored.typed_ref("run", verification.original),
+            "replayed": stored.typed_ref("run", verification.replayed),
+        },
+        "rule": verification.rule,
+        "scope_rule": verification.scope_rule,
+        "report": verification.report.projection(),
+    }
+
+
+def _node_for(verification: AssessmentVerification, *, facet: dict | None = None, identity: str | None = None) -> Node:
+    identity = verification.identity() if identity is None else identity
+    node_id = f"verification:{identity}"
+    node = Node(
+        id=node_id,
+        kind="verification",
+        title="v",
+        facets={stored.VERIFICATION_FACET: _facet_for(verification) if facet is None else facet},
+        relations=[Relation(source=node_id, predicate=stored.VERIFIES, target="assessment:a")],
+    )
+    try:
+        return stored.stamp_semantic_identity(node)
+    except NullRefused:
+        # A present-but-null member (V6's `assessment`/`derivation` arms) can
+        # never be legitimately stamped — the identity encoder refuses null
+        # unconditionally, upstream of decode_verification, which is pure
+        # over the node and never reads this stamp. Leaving the node
+        # unstamped here reaches the reader's own defense instead of
+        # re-testing the encoder's.
+        return node
+
+
+def test_v1_projection_is_what_identity_digests(pair):
+    report = verification_of(pair).report
+    assert report.identity() == v1.digest(COMPARISON_REPORT_DOMAIN, report.projection())
+    assert set(report.projection()) == {"original_conformance", "replay_conformance", "receipts", "rule_bindings", "diagnostics"}
+
+
+def test_v1_decode_restores_the_basis_and_the_report_by_identity(pair):
+    verification = verification_of(pair)
+    decoded = decode_verification(_node_for(verification))
+    assert isinstance(decoded, StoredVerification)
+    assert decoded.basis() == verification.basis()
+    assert decoded.identity() == verification.identity()
+    assert decoded.report.identity() == verification.report.identity()
+    assert decoded.assessment == verification.assessment and decoded.supersedes is None
+
+
+def test_v1_a_report_less_verification_decodes_as_absent(pair):
+    verification = verification_of(pair)
+    facet = _facet_for(verification)
+    del facet["report"]
+    assert decode_verification(_node_for(verification, facet=facet)) is None
+    assert decode_verification(stored.verification_node("v", title="v", assessment="x", assessment_ref="assessment:a", scope="same-environment", verdict="passed")) is None
+
+
+def test_v3_stored_verification_has_no_public_constructor():
+    with pytest.raises(TypeError):
+        StoredVerification(original="a", replayed="b", assessment=None, rule="r", report=None, scope_rule="s", scope="bogus", verdict="bogus", supersedes=None)  # type: ignore[call-arg]
+
+
+def test_v5_a_record_id_that_does_not_recompute_is_malformed(pair):
+    verification = verification_of(pair)
+    with pytest.raises(MalformedRecord, match="recomputed identity"):
+        decode_verification(_node_for(verification, identity="f" * 64))
+    facet = _facet_for(verification)
+    facet["scope"] = "clean-environment" if facet["scope"] != "clean-environment" else "same-environment"
+    with pytest.raises(MalformedRecord, match="recomputed identity"):
+        decode_verification(_node_for(verification, facet=facet))
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda f: f["report"].pop("receipts"),
+        lambda f: f["report"].__setitem__("receipts", [f["report"]["receipts"][0]]),
+        lambda f: f["report"].__setitem__("diagnostics", [1]),
+        lambda f: f["report"].__setitem__("certification", {"rationale": "r"}),
+        lambda f: f["report"].__setitem__("extra", 1),
+        lambda f: f.pop("rule"),
+        lambda f: f.__setitem__("supersedes", "v-1"),
+        lambda f: f.__setitem__("assessment", None),
+        lambda f: f.__setitem__("derivation", None),
+        lambda f: f.pop("derivation"),
+    ],
+)
+def test_v6_a_present_but_malformed_report_or_member_is_refused(pair, mutate):
+    verification = verification_of(pair)
+    facet = _facet_for(verification)
+    mutate(facet)
+    with pytest.raises(MalformedRecord):
+        decode_verification(_node_for(verification, facet=facet))
+
+
+def test_v7_the_assessment_member_and_the_verifies_edge_travel_together(pair):
+    verification = verification_of(pair)
+    node = _node_for(verification)
+    node.relations = []
+    with pytest.raises(MalformedRecord, match="present together"):
+        decode_verification(node)
+    node = _node_for(verification)
+    node.relations.append(Relation(source=node.id, predicate=stored.VERIFIES, target="assessment:b"))
+    with pytest.raises(MalformedRecord, match="at most one"):
+        decode_verification(node)

@@ -599,8 +599,8 @@ _R19 = [
         asserts="only build_verification exposes a public path that mints verification carriers",
         sabotage=Sabotage(
             module="verify.py",
-            before='    "build_verification",\n]',
-            after='    "build_verification",\n    "_mint_verification",\n]',
+            before='    "build_verification",\n    "decode_verification",\n]',
+            after='    "build_verification",\n    "decode_verification",\n    "_mint_verification",\n]',
         ),
         checks=("test_verify.py::test_r19_only_build_verification_mints_the_carriers",),
     ),
@@ -1410,8 +1410,8 @@ _CLAUSE_ARMS = [
         "R18",
         "the comparison report carries the exact certification claim inline",
         "verify.py",
-        "        certification=certification,",
-        "        certification=None,",
+        "        certification=certification,\n        citation=embedded_citation,",
+        "        certification=None,\n        citation=embedded_citation,",
         "test_verify.py::test_r18_the_report_carries_the_evidence_inline_and_the_basis_names_it_once",
     ),
     _clause_arm(
