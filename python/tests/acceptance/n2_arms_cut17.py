@@ -59,8 +59,8 @@ CUT17_ARMS = (
         asserts="the corpus add path requires before it writes",
         sabotage=Sabotage(
             module=_CORPUS,
-            before='        self._authority.require("corpus-write", (node.kind,))\n        with self._operation:\n            self._refuse_family_kinds(node)\n            self._refuse(node)',
-            after='        with self._operation:\n            self._refuse_family_kinds(node)\n            self._refuse(node)',
+            before='        self._authority.require("corpus-write", (node.kind,))\n        with self._operation:\n            self._require_pins_agree()\n            self._refuse_family_kinds(node)\n            self._refuse(node)',
+            after='        with self._operation:\n            self._require_pins_agree()\n            self._refuse_family_kinds(node)\n            self._refuse(node)',
         ),
         checks=(
             f"{_C}::TestE1CorpusWriteRequiresBeforeAnyEffect::test_add_under_a_permit_lacking_the_family_refuses_and_writes_nothing",
@@ -72,8 +72,8 @@ CUT17_ARMS = (
         asserts="the relocation add seam requires before it writes",
         sabotage=Sabotage(
             module=_CORPUS,
-            before='        self.authority.require("corpus-write", (node.kind,))\n        self._preflight_add_locked(node)\n        return self._corpus.add(node)',
-            after='        self._preflight_add_locked(node)\n        result = self._corpus.add(node)\n        self.authority.require("corpus-write", (node.kind,))\n        return result',
+            before='        self.authority.require("corpus-write", (node.kind,))\n        self._preflight_add_locked(node, provenance=provenance)\n        return self._corpus.add(node)',
+            after='        self._preflight_add_locked(node, provenance=provenance)\n        result = self._corpus.add(node)\n        self.authority.require("corpus-write", (node.kind,))\n        return result',
         ),
         checks=(
             "test_permit_entry_points.py::test_e1_the_family_is_refused_with_no_effect[corpus.py.CorpusWriter._add_locked]",
@@ -164,8 +164,8 @@ CUT17_ARMS = (
         asserts="a displaced check is caught statically",
         sabotage=Sabotage(
             module=_HOLDINGS,
-            before='def _append(ctx: ActContext, location: StoreLocator, kind: str) -> tuple[str, str]:\n    ctx.authority.require("holdings", ("holdings-observation",))\n    token = secrets.token_hex(16)\n    return token, ctx.seam.append_intent(\n        ctx.observer_root, intent_payload(location=location, act_kind=kind, event_token=token, actor=ctx.actor)\n    )',
-            after='def _append(ctx: ActContext, location: StoreLocator, kind: str) -> tuple[str, str]:\n    token = secrets.token_hex(16)\n    result = ctx.seam.append_intent(\n        ctx.observer_root, intent_payload(location=location, act_kind=kind, event_token=token, actor=ctx.actor)\n    )\n    ctx.authority.require("holdings", ("holdings-observation",))\n    return token, result',
+            before='def _append(ctx: ActContext, location: StoreLocator, kind: str) -> tuple[str, str]:\n    ctx.authority.require("holdings", ("holdings-observation",))\n    token = secrets.token_hex(16)\n    from beliefs.corpus import require_pins_agree\n\n    with ctx.seam.corpus_lock(ctx.observer_root):\n        require_pins_agree(ctx.observer_root, ctx.profile)\n        intent = ctx.seam.append_intent(\n            ctx.observer_root, intent_payload(location=location, act_kind=kind, event_token=token, actor=ctx.actor)\n        )\n    return token, intent',
+            after='def _append(ctx: ActContext, location: StoreLocator, kind: str) -> tuple[str, str]:\n    token = secrets.token_hex(16)\n    from beliefs.corpus import require_pins_agree\n\n    with ctx.seam.corpus_lock(ctx.observer_root):\n        require_pins_agree(ctx.observer_root, ctx.profile)\n        intent = ctx.seam.append_intent(\n            ctx.observer_root, intent_payload(location=location, act_kind=kind, event_token=token, actor=ctx.actor)\n        )\n    ctx.authority.require("holdings", ("holdings-observation",))\n    return token, intent',
         ),
         checks=(f"{_S}::test_every_entry_point_requires_before_it_writes",),
     ),
@@ -277,8 +277,8 @@ CUT17_ARMS = (
         asserts="H4u1 succeeded: an established finding is published or the act fails loudly",
         sabotage=Sabotage(
             module=_HOLDINGS,
-            before='    node = stored.holdings_observation_node(record)\n    ctx.seam.publish_fulfilling(ctx.observer_root, (CreateOp(f"holdings-observation/{record.identity()}.md",\n                                                             node_to_markdown(node).encode("utf-8")),), intent)\n    return PublishedObservation(record)\n\n\ndef recheck(',
-            after='    node = stored.holdings_observation_node(record)\n    return PublishedObservation(record)\n\n\ndef recheck(',
+            before='        ctx.seam.publish_fulfilling(ctx.observer_root, plan, intent)',
+            after='        pass  # established finding silently dropped',
         ),
         checks=("test_holdings_boundary.py::test_publication_failure_after_an_established_outcome_raises",),
     ),

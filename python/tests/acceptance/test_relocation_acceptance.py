@@ -15,12 +15,13 @@ import yaml
 from authority import ACTOR, FULL
 from durable_fixture import basis, route, slug
 from fixtures_cut3 import report as sample_report
-from fixtures_cut6 import PINS
+from fixtures_cut6 import OTHER_PINS, PINS
 from fixtures_cut15 import SNAKEFILE_CONSTANT_PRODUCTION, run_workflow
 from nodes.core.errors import RefError
 from nodes.core.frontmatter import node_from_markdown
 from nodes.core.node import Node
 from nodes.core.relations import Relation
+from profiles import BASE, WITH_BIOLOGY, WITH_BIOLOGY_OTHER, pins_for
 from test_belief import scenario as belief_scenario
 from test_world_epoch import derivation_bindings
 
@@ -31,6 +32,7 @@ from beliefs.consulted import CorpusPins
 from beliefs.corpus import lineage_snapshot
 from beliefs.errors import (
     AddressDisagreement,
+    ContractMismatch,
     ContractPinDisagreement,
     MalformedRecord,
     RelocationKindExcluded,
@@ -85,7 +87,9 @@ def durable_factory(work_directory):
     def writer(label: str, pins: CorpusPins = PINS):
         corpus_root = work_directory / f"cut16-{os.getpid()}-{next(_COUNTER)}-{label}"
         root.init_corpus_root(corpus_root, authority=FULL)
-        opened = root.open_corpus(corpus_root, authority=FULL)
+        profile = WITH_BIOLOGY_OTHER if pins == OTHER_PINS else WITH_BIOLOGY if pins == PINS else BASE
+        assert pins == pins_for(profile)
+        opened = root.open_corpus(corpus_root, authority=FULL, profile=profile)
         opened.adopt_manifest(profile=pins)
         managed.append(corpus_root)
         return opened
@@ -328,10 +332,10 @@ def test_w5_move_changes_only_location_and_preserves_producer_semantics(durable_
     )
     inbound = source.add(
         Node(
-            id="memo:citation",
-            kind="memo",
+            id="discussion:citation",
+            kind="discussion",
             title="citation",
-            relations=[Relation(source="memo:citation", predicate="cites", target=paper.id)],
+            relations=[Relation(source="discussion:citation", predicate="cites", target=paper.id)],
         )
     )
     world = make_world("w5", source, destination)
@@ -442,10 +446,10 @@ def test_w16_consolidates_one_address_without_asserting_identity(durable_factory
     relocation.move(other_writer, keep_writer, other_run, **MOVE_FIELDS)
     inbound = keep_writer.add(
         Node(
-            id="memo:inbound",
-            kind="memo",
+            id="discussion:inbound",
+            kind="discussion",
             title="inbound",
-            relations=[Relation(source="memo:inbound", predicate="cites", target=keep.id)],
+            relations=[Relation(source="discussion:inbound", predicate="cites", target=keep.id)],
         )
     )
     inbound_before = keep_writer.read_view.get(inbound.id)
@@ -542,28 +546,12 @@ def test_w16_consolidates_one_address_without_asserting_identity(durable_factory
 @pytest.mark.parametrize("fault", ["domain", "base", "missing"])
 def test_d7_each_public_relocation_refuses_contract_disagreement(durable_factory, operation: str, fault: str):
     writer, _ = durable_factory
-    if fault == "domain":
-        source_pins = PINS
-        destination_pins = CorpusPins(PINS.science_contract, {"biology": "biology:" + "c" * 64})
-        node = Node(
-            id="memo:relocated",
-            kind="memo",
-            title="relocated",
-            facets={"biology/gene-axis": {}},
-        )
-    elif fault == "base":
-        source_pins = PINS
-        destination_pins = CorpusPins("science:" + "c" * 64, PINS.domains)
-        node = stored.source_node("paper", title="paper", identifiers={"doi": "10.1/paper"})
-    else:
-        source_pins = PINS
-        destination_pins = CorpusPins(PINS.science_contract, {})
-        node = Node(
-            id="memo:relocated",
-            kind="memo",
-            title="relocated",
-            facets={"biology/gene-axis": {}},
-        )
+    from test_relocation import _node
+
+    source_pins = PINS
+    destination_pins = OTHER_PINS if fault == "domain" else pins_for(BASE) if fault == "missing" else PINS
+    node = (_node("biology/gene-axis") if fault != "base"
+            else stored.source_node("paper", title="paper", identifiers={"doi": "10.1/paper"}))
 
     source = writer(f"d7-{operation}-{fault}-source", source_pins)
     destination = writer(f"d7-{operation}-{fault}-destination", destination_pins)
@@ -571,13 +559,23 @@ def test_d7_each_public_relocation_refuses_contract_disagreement(durable_factory
     if operation == "move":
         call = lambda: relocation.move(source, destination, source_node.id, **MOVE_FIELDS)
     else:
-        destination_node = destination.add(node.model_copy(update={"uid": "f" * 32}))
+        destination_node = node.model_copy(update={"uid": "f" * 32})
+        if fault == "missing":
+            from coordination_fixtures import raw_add
+
+            raw_add(destination.root, destination_node)
+            destination._reconstruct()
+        else:
+            destination.add(destination_node)
         call = lambda: relocation.consolidate(
             (destination, destination_node.id),
             (source, source_node.id),
             **CONSOLIDATE_FIELDS,
         )
-    with pytest.raises(ContractPinDisagreement):
+    if fault == "base":
+        manifest = destination.root / "corpus.yaml"
+        manifest.write_text(manifest.read_text().replace(PINS.science_contract, "science:" + "c" * 64))
+    with pytest.raises(ContractMismatch if fault == "base" else ContractPinDisagreement):
         call()
 
 
@@ -592,7 +590,7 @@ def test_m3_consolidates_retraction_replicas_without_touching_the_counter(durabl
                 "raw",
                 title="raw",
                 resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
-                empirical_observation={"boundary": "instrument"},
+                empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
             )
         )
         run = corpus.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[observed.id]))
@@ -743,7 +741,7 @@ def test_boundary_reresolution_refuses_both_create_only_calls_after_real_move(du
             "observation",
             title="observation",
             resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
-            empirical_observation={"boundary": "instrument"},
+            empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
         )
     )
     destination.add(observed)
@@ -810,7 +808,7 @@ def test_boundary_lock_deduplicates_resolved_same_root_before_refusal(durable_fa
     node = corpus.add(stored.source_node("paper", title="paper", identifiers={"doi": "10.1/paper"}))
     alias = tmp_path / "cut16-root-alias"
     alias.symlink_to(corpus.root, target_is_directory=True)
-    twin = root.open_corpus(alias, authority=FULL)
+    twin = root.open_corpus(alias, authority=FULL, profile=WITH_BIOLOGY)
     events: list[str] = []
 
     class RecordingLock:

@@ -38,6 +38,7 @@ from authority import ACTOR, FULL
 from fixtures_cut6 import PINS
 from nodes.core.errors import ExecutionError
 from nodes.core.write_plan import CreateOp, DefaultExecutor
+from profiles import WITH_BIOLOGY
 from test_world_build import ALPHA, BETA, ChainHeads, corpus_at
 from test_world_log_audit import (
     ABSENT,
@@ -756,6 +757,7 @@ def test_pending_root_refuses_further_mutation_via_the_gate(tmp_path, monkeypatc
         backend=science_root._PRODUCTION_BACKEND,
         storage=science_root.PRODUCTION_STORAGE,
         metadata_root=science_root.metadata_root_for(root),
+        profile=WITH_BIOLOGY,
     )
 
     with pytest.raises(ExecutionError) as submitted:

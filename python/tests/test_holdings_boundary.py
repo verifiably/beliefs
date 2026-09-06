@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 from authority import ACTOR, FULL, narrowed
 from nodes.core.errors import ExecutionError
+from profiles import BASE
 
 from beliefs import root as science_root
 from beliefs.errors import MalformedRecord, PermitExceeded, PermitFact, StoreIdMismatch
@@ -45,7 +46,7 @@ def context(certified_work):
     store_root = certified_work / "store"
     init_corpus_root(observer_root, authority=FULL)
     store_id = init_store_root(store_root, authority=FULL)
-    return ActContext(observer_root, store_root, "observer", "instrument", FULL, holdings_seam()), store_id
+    return ActContext(observer_root, store_root, "observer", "instrument", FULL, holdings_seam(), profile=BASE), store_id
 
 
 def _chain_len(root):
@@ -96,7 +97,7 @@ def test_e3_the_holdings_intent_carries_the_bound_actor(certified_work):
 
 def test_act_context_takes_no_actor_field():
     with pytest.raises(TypeError):
-        ActContext(Path("a"), Path("b"), "observer", "instrument", "actor", holdings_seam())  # type: ignore[arg-type]
+        ActContext(Path("a"), Path("b"), "observer", "instrument", "actor", holdings_seam(), profile=BASE)  # type: ignore[arg-type]
 
 
 def test_recheck_publishes_found_with_the_hash_the_engine_observed(certified_work):

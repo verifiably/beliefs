@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from authority import ACTOR
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -136,7 +137,7 @@ def _seed(
                 "d-e",
                 title="d-e",
                 resources=_resources("e"),
-                empirical_observation={"boundary": "instrument"},
+                empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
             )
         )
     for letter in ("a", "b", "c"):
@@ -145,7 +146,7 @@ def _seed(
                 f"d-{letter}",
                 title=f"d-{letter}",
                 resources=_resources(letter),
-                empirical_observation={"boundary": "instrument"},
+                empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
             )
         )
         nodes.append(

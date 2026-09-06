@@ -14,9 +14,8 @@ from pathlib import Path
 import yaml
 
 from beliefs.consulted import CorpusPins
-from beliefs.contract import load_base_contract
 from beliefs.contract.domain import DomainContract, parse_domain_contract
-from beliefs.profile import ProfileSpec, compile_profile
+from beliefs.profile import ProfileSpec, compile_profile, shipped_base_contract
 from beliefs.resolution import ResolutionSnapshot, build_snapshot
 from reproduction import paths
 
@@ -32,7 +31,7 @@ def _document(path: Path = DOCUMENT) -> dict:
 
 @cache
 def base():
-    return load_base_contract(BASE)
+    return shipped_base_contract()
 
 
 @cache

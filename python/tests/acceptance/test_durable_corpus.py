@@ -28,6 +28,7 @@ from durable_fixture import (
 )
 from fixtures_cut4 import path_for, raw_write, reopen
 from nodes.core.errors import ExecutionError
+from profiles import BASE
 
 from beliefs import stored
 from beliefs.corpus import corpus_check
@@ -57,7 +58,7 @@ class TestTheInitAct:
         unregistered.mkdir(parents=True, exist_ok=True)
         try:
             with pytest.raises(ExecutionError) as refused:
-                open_corpus(unregistered, authority=FULL).add(observed_dataset())
+                open_corpus(unregistered, authority=FULL, profile=BASE).add(observed_dataset())
             # Init is an explicit act, not a fallback the add performs.
             assert (refused.value.index, refused.value.applied) == (None, 0)
             assert refused.value.__cause__ is not None

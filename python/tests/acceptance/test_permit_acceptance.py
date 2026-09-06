@@ -12,6 +12,7 @@ import pytest
 from authority import ACTOR, FULL, lacking, narrowed
 from fixtures_cut3 import DATA_ADDRESS, MINIMAL_POLICY, READS_ADDRESS, definition, freeze, spec_draft, spec_rules, stage
 from fixtures_cut6 import PINS
+from profiles import WITH_BIOLOGY
 from test_durable_families import proposition
 from test_operation_port import durable_port
 
@@ -54,33 +55,34 @@ def _tree_bytes(root: Path) -> dict[str, bytes]:
 
 
 def test_e1_add_through_open_corpus_refuses_before_the_chain_moves(durable_root):
-    writer = open_corpus(durable_root, authority=lacking(kinds=("proposition",)))
+    writer = open_corpus(durable_root, authority=lacking(kinds=("proposition",)), profile=WITH_BIOLOGY)
     before = _head(durable_root)
     with pytest.raises(PermitExceeded) as caught:
         writer.add(proposition("p1"))
     assert caught.value.requirement == PermitFact("kind", "proposition")
     assert _head(durable_root) == before
-    assert open_corpus(durable_root, authority=FULL).add(proposition("p1")).kind == "proposition"
+    assert open_corpus(durable_root, authority=FULL, profile=WITH_BIOLOGY).add(proposition("p1")).kind == "proposition"
 
 
 def test_e1_an_ungoverned_kind_mints_under_the_full_permit_and_refuses_under_a_governed_one(durable_root):
-    from durable_fixture import memo
+    from durable_fixture import discussion
 
     with pytest.raises(PermitExceeded) as caught:
-        open_corpus(durable_root, authority=narrowed(kinds=("proposition",), families=("corpus-write",))).add(memo("memo:m1"))
-    assert caught.value.requirement == PermitFact("kind", "memo")
-    assert open_corpus(durable_root, authority=FULL).add(memo("memo:m1")).kind == "memo"
+        open_corpus(durable_root, authority=narrowed(kinds=("proposition",), families=("corpus-write",)), profile=WITH_BIOLOGY).add(discussion("discussion:m1"))
+    assert caught.value.requirement == PermitFact("kind", "discussion")
+    assert open_corpus(durable_root, authority=FULL, profile=WITH_BIOLOGY).add(discussion("discussion:m1")).kind == "discussion"
 
 
 def test_e2_the_composition_root_binds_one_authority_to_writer_and_port(durable_root):
-    writer = open_corpus(durable_root, authority=FULL)
+    writer = open_corpus(durable_root, authority=FULL, profile=WITH_BIOLOGY)
     assert writer.authority is FULL
     other = DurableOperationPort(
         durable_root, backend=science_root._PRODUCTION_BACKEND, storage=science_root.PRODUCTION_STORAGE,
         metadata_root=metadata_root_for(durable_root), authority=narrowed(),
+        profile=WITH_BIOLOGY,
     )
     with pytest.raises(ValueError, match="another authority"):
-        CorpusWriter(durable_root, science_root.durable_executor_factory(), authority=FULL, operation_port=other)
+        CorpusWriter(durable_root, science_root.durable_executor_factory(), authority=FULL, operation_port=other, profile=WITH_BIOLOGY)
 
 
 def test_e7_the_run_boundary_refuses_with_no_intent_through_a_real_port(durable_root, tmp_path):
@@ -104,7 +106,7 @@ def test_e7_a_holdings_act_refuses_with_the_store_and_observer_chains_unchanged(
     store_root = work_directory / f"store-{os.getpid()}-permit"
     init_corpus_root(observer_root, authority=FULL)
     store_id = init_store_root(store_root, authority=FULL)
-    ctx = ActContext(observer_root, store_root, "observer", "instrument", lacking(families=("holdings",)), holdings_seam())
+    ctx = ActContext(observer_root, store_root, "observer", "instrument", lacking(families=("holdings",)), holdings_seam(), profile=WITH_BIOLOGY)
     before = _head(observer_root), _tree_bytes(store_root)
     with pytest.raises(PermitExceeded):
         holdings_write(ctx, StoreLocator(store_id, "held.bin"), b"bytes")
@@ -112,7 +114,7 @@ def test_e7_a_holdings_act_refuses_with_the_store_and_observer_chains_unchanged(
 
 
 def test_e7_world_admit_refuses_with_the_world_root_unchanged(durable_root, work_directory):
-    open_corpus(durable_root, authority=FULL).adopt_manifest(profile=PINS)
+    open_corpus(durable_root, authority=FULL, profile=WITH_BIOLOGY).adopt_manifest(profile=PINS)
     world_root = work_directory / f"world-{os.getpid()}-permit"
     config = WorldConfig(world_root, "0" * 32, (durable_root,))
     init_world_root(config, authority=FULL)
@@ -125,14 +127,14 @@ def test_e7_world_admit_refuses_with_the_world_root_unchanged(durable_root, work
 
 
 def test_e8_an_unpermitted_member_refuses_the_bundle_with_the_chain_unchanged(durable_root):
-    writer = open_corpus(durable_root, authority=lacking(kinds=("source",)))
+    writer = open_corpus(durable_root, authority=lacking(kinds=("source",)), profile=WITH_BIOLOGY)
     before = _head(durable_root)
     members = [proposition("p2"), stored.source_node("s1", title="s", identifiers={"doi": "10.1/x"})]
     with pytest.raises(PermitExceeded) as caught:
         writer.import_bundle(members, observer="o", instrument="i", opened_at="T0", closed_at="T1")
     assert caught.value.requirement == PermitFact("kind", "source")
     assert _head(durable_root) == before
-    report = open_corpus(durable_root, authority=FULL).import_bundle(members, observer="o", instrument="i", opened_at="T0", closed_at="T1")
+    report = open_corpus(durable_root, authority=FULL, profile=WITH_BIOLOGY).import_bundle(members, observer="o", instrument="i", opened_at="T0", closed_at="T1")
     assert report.actor == ACTOR
     assert _entry_types(durable_root)[len(before):] == (
         "IntentEntryView",
@@ -150,18 +152,18 @@ def test_e1_relocation_refuses_before_either_intent_then_succeeds(work_directory
     try:
         for root in (a, b):
             init_corpus_root(root, authority=FULL)
-            open_corpus(root, authority=FULL).adopt_manifest(profile=PINS)
-        node = open_corpus(a, authority=FULL).add(proposition("moving"))
+            open_corpus(root, authority=FULL, profile=WITH_BIOLOGY).adopt_manifest(profile=PINS)
+        node = open_corpus(a, authority=FULL, profile=WITH_BIOLOGY).add(proposition("moving"))
         before_a, before_b = _head(a), _head(b)
         with pytest.raises(PermitExceeded) as caught:
             move(
-                open_corpus(a, authority=FULL),
+                open_corpus(a, authority=FULL, profile=WITH_BIOLOGY),
                 open_corpus(
                     b,
                     authority=narrowed(
                         kinds=("act-report",), families=("corpus-write",)
                     ),
-                ),
+                 profile=WITH_BIOLOGY),
                 node.id,
                 observer="o",
                 instrument="i",
@@ -172,8 +174,8 @@ def test_e1_relocation_refuses_before_either_intent_then_succeeds(work_directory
         assert (_head(a), _head(b)) == (before_a, before_b)
 
         moved, _, _ = move(
-            open_corpus(a, authority=FULL),
-            open_corpus(b, authority=FULL),
+            open_corpus(a, authority=FULL, profile=WITH_BIOLOGY),
+            open_corpus(b, authority=FULL, profile=WITH_BIOLOGY),
             node.id,
             observer="o",
             instrument="i",

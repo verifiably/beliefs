@@ -22,6 +22,7 @@ from beliefs.errors import MalformedClosure, MalformedRecord, RecipeVersionUnsup
 from beliefs.identity import v1
 from beliefs.permit import Authority
 from beliefs.production import mint_dataset
+from beliefs.profile import ProfileSpec
 from beliefs.recipe import (
     ASSESSMENT_ROLES,
     CAPABILITIES,
@@ -87,6 +88,9 @@ def bare_address(ref: str) -> str:
 
 
 class OperationPort(Protocol):
+    @property
+    def profile(self) -> ProfileSpec: ...
+
     @property
     def authority(self) -> Authority: ...
 

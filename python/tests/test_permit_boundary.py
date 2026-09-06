@@ -24,6 +24,9 @@ PRIMITIVE_ATTRIBUTES = frozenset(
 )
 PRIMITIVE_NAMES = frozenset(
     {
+        # Holdings forwarding routes remain inventoried after sharing their effect helper.
+        "_append",
+        "_publish_record",
         "register_root",
         "_replicate_root_callback",
         "_fork_root_callback",
@@ -67,6 +70,7 @@ WRITE_ENTRY_POINTS: dict[str, str] = {
     "boundary.py:execute_assessment_run": "run",
     "boundary.py:execute_production_run": "run",
     "holdings/boundary.py:_publish": "holdings",
+    "holdings/boundary.py:_publish_record": "holdings",
     "holdings/boundary.py:recheck": "holdings",
     "holdings/boundary.py:_append": "holdings",
     "holdings/boundary.py:write": "holdings",

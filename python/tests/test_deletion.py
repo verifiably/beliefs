@@ -10,6 +10,7 @@ from fixtures_cut4 import path_for
 from nodes.core.errors import RefError
 from nodes.core.node import Node
 from nodes.core.write_plan import DefaultExecutor
+from profiles import BASE
 from test_relocation import _node, _writer
 from test_retract import mint_eligible_assessment
 
@@ -55,11 +56,11 @@ def retraction_for(target: Node, ground: str) -> Node:
 def _other_node(suffix: str) -> Node:
     """A second, distinctly identified node in the same corpus as `_node()`.
 
-    `test_relocation.py::_node` always returns the fixed id `memo:relocated`
+    `test_relocation.py::_node` always returns the fixed id `discussion:relocated`
     — right for its own tests, which move one node between two writers, but a
     collision if `add`ed twice into the same writer.
     """
-    return _node().model_copy(update={"id": f"memo:{suffix}"})
+    return _node().model_copy(update={"id": f"discussion:{suffix}"})
 
 
 def _stored_act_report(writer: CorpusWriter) -> Node:
@@ -76,7 +77,7 @@ def _stored_act_report(writer: CorpusWriter) -> Node:
         instrument="other-tool",
         opened_at="T-2",
         closed_at="T-1",
-        entries=(RecordImportEntry(subject="other", outcome=ImportedRecords(refs=("memo:x",), findings=())),),
+        entries=(RecordImportEntry(subject="other", outcome=ImportedRecords(refs=("discussion:x",), findings=())),),
     )
     foreign = stored.act_report_node(foreign_report)
     writer.import_bundle(
@@ -98,8 +99,8 @@ def test_delete_removes_exactly_one_record_and_mints_nothing(tmp_path):
     from test_corpus_write import OperationRecorder, Recorder
 
     Recorder.plans = []
-    port = OperationRecorder(tmp_path, authority=FULL)
-    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port)
+    port = OperationRecorder(tmp_path, authority=FULL, profile=BASE)
+    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port, profile=BASE)
     kept = writer.add(_node())
     doomed = writer.add(_other_node("doomed"))
     intents_before, executed_before = len(port.intents), len(Recorder.plans)
@@ -199,7 +200,7 @@ def test_delete_refuses_a_kind_the_coordination_profile_names(tmp_path, base_con
     raw_add(root, node)
 
     resolver = CoordinationResolver({root: profile})
-    profiled_writer = CorpusWriter(root, DefaultExecutor, authority=FULL, coordination_resolver=resolver)
+    profiled_writer = CorpusWriter(root, DefaultExecutor, authority=FULL, coordination_resolver=resolver, profile=profile)
     profiled_writer._reconstruct()
 
     with pytest.raises(DeletionKindExcluded):

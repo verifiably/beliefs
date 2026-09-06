@@ -1,8 +1,10 @@
-from beliefs.consulted import CorpusPins
+from profiles import WITH_BIOLOGY, WITH_BIOLOGY_OTHER, pins_for
 
-SCIENCE_ID = "science:" + "a" * 64
-BIOLOGY_ID = "biology:" + "b" * 64
-PINS = CorpusPins(science_contract=SCIENCE_ID, domains={"biology": BIOLOGY_ID})
+PINS = pins_for(WITH_BIOLOGY)
+OTHER_PINS = pins_for(WITH_BIOLOGY_OTHER)
+SCIENCE_ID = PINS.science_contract
+BIOLOGY_ID = PINS.domains["biology"]
+OTHER_BIOLOGY_ID = OTHER_PINS.domains["biology"]
 
 
 def manifest_document(corpus_id: str = "1" * 32) -> str:

@@ -62,6 +62,7 @@ from n2_arms import (
     Sabotage,
 )
 from n2_arms_cut6 import CUT6_ARMS
+from profiles import WITH_BIOLOGY
 from test_durable_families import chain_entries
 from test_n2 import MalformedArm, audit, baseline
 
@@ -163,7 +164,7 @@ def world_case(cut6_work_directory):
         root.init_world_root(config, authority=FULL)
         assert {path.name for path in world_root.iterdir()} == {".#~chain", "world.yaml"}
         root.init_corpus_root(corpus_root, authority=FULL)
-        root.open_corpus(corpus_root, authority=FULL).adopt_manifest(profile=PINS)
+        root.open_corpus(corpus_root, authority=FULL, profile=WITH_BIOLOGY).adopt_manifest(profile=PINS)
         assert not any((world_root / name).exists() for name in ("registry", "epochs", "rules"))
         before_admission = chain_entries(world_root)
         world = root.open_world(config, authority=FULL)

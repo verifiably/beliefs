@@ -11,6 +11,7 @@ not a transition.
 
 from __future__ import annotations
 
+from authority import ACTOR
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 
@@ -26,15 +27,15 @@ RUN = "run:r1"
 PROPOSITION = "proposition:p1"
 ASSESSMENT = "assessment:a1"
 
-CHAIN = ("memo:chain-a", "memo:chain-b", "memo:chain-c")
-DIAMOND_TOP = "memo:diamond-top"
-DIAMOND_BOTTOM = "memo:diamond-bottom"
-CYCLE = ("memo:cycle-a", "memo:cycle-b")
-UNDIRECTED = ("memo:undirected-source", "memo:undirected-target")
-DANGLING_SOURCE = "memo:dangling"
-RENAMED = "memo:renamed"
-RENAMED_OLD = "memo:renamed-old"
-UNRELATED = "memo:unrelated"
+CHAIN = ("discussion:chain-a", "discussion:chain-b", "discussion:chain-c")
+DIAMOND_TOP = "discussion:diamond-top"
+DIAMOND_BOTTOM = "discussion:diamond-bottom"
+CYCLE = ("discussion:cycle-a", "discussion:cycle-b")
+UNDIRECTED = ("discussion:undirected-source", "discussion:undirected-target")
+DANGLING_SOURCE = "discussion:dangling"
+RENAMED = "discussion:renamed"
+RENAMED_OLD = "discussion:renamed-old"
+UNRELATED = "discussion:unrelated"
 
 LINEAGE_ROOT = "dataset:lineage-root"
 LINEAGE_MIDDLE = "dataset:lineage-middle"
@@ -61,8 +62,8 @@ def slug(ref: str) -> str:
     return ref.split(":", 1)[1]
 
 
-def memo(ref: str, *, relations=(), deprecated=()) -> Node:
-    node = Node(id=ref, kind="memo", title=slug(ref), relations=list(relations))
+def discussion(ref: str, *, relations=(), deprecated=()) -> Node:
+    node = Node(id=ref, kind="discussion", title=slug(ref), relations=list(relations))
     node.deprecated_ids = list(deprecated)
     return node
 
@@ -81,7 +82,7 @@ def route(run: str, ancestor: str, transforms=()) -> dict[str, object]:
 
 def observed_dataset(ref: str = RAW):
     return stored.dataset_node(
-        slug(ref), title=slug(ref), resources=pinned(), empirical_observation={"boundary": "instrument"}
+        slug(ref), title=slug(ref), resources=pinned(), empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}
     )
 
 
@@ -126,30 +127,30 @@ def mint_relation_fixture(writer: CorpusWriter) -> None:
     """S1's fixture: chain, diamond, cycle, unrelated predicate, deprecated
     ref, dangling target, and the undirected relation."""
     first, second, third = CHAIN
-    writer.add(memo(first, relations=[cites(first, second), cites(first, UNRELATED, predicate="mentions")]))
-    writer.add(memo(second, relations=[cites(second, third)]))
-    writer.add(memo(third, relations=[cites(third, RENAMED_OLD)]))
-    writer.add(memo(UNRELATED))
-    writer.add(memo(RENAMED, deprecated=[RENAMED_OLD]))
+    writer.add(discussion(first, relations=[cites(first, second), cites(first, UNRELATED, predicate="mentions")]))
+    writer.add(discussion(second, relations=[cites(second, third)]))
+    writer.add(discussion(third, relations=[cites(third, RENAMED_OLD)]))
+    writer.add(discussion(UNRELATED))
+    writer.add(discussion(RENAMED, deprecated=[RENAMED_OLD]))
 
-    left, right = "memo:diamond-left", "memo:diamond-right"
-    writer.add(memo(DIAMOND_TOP, relations=[cites(DIAMOND_TOP, left), cites(DIAMOND_TOP, right)]))
-    writer.add(memo(left, relations=[cites(left, DIAMOND_BOTTOM)]))
-    writer.add(memo(right, relations=[cites(right, DIAMOND_BOTTOM)]))
-    writer.add(memo(DIAMOND_BOTTOM))
+    left, right = "discussion:diamond-left", "discussion:diamond-right"
+    writer.add(discussion(DIAMOND_TOP, relations=[cites(DIAMOND_TOP, left), cites(DIAMOND_TOP, right)]))
+    writer.add(discussion(left, relations=[cites(left, DIAMOND_BOTTOM)]))
+    writer.add(discussion(right, relations=[cites(right, DIAMOND_BOTTOM)]))
+    writer.add(discussion(DIAMOND_BOTTOM))
 
     cycle_a, cycle_b = CYCLE
-    writer.add(memo(cycle_a, relations=[cites(cycle_a, cycle_b)]))
-    writer.add(memo(cycle_b, relations=[cites(cycle_b, cycle_a)]))
+    writer.add(discussion(cycle_a, relations=[cites(cycle_a, cycle_b)]))
+    writer.add(discussion(cycle_b, relations=[cites(cycle_b, cycle_a)]))
 
     source, target = UNDIRECTED
-    writer.add(memo(source, relations=[cites(source, target, directed=False)]))
-    writer.add(memo(target))
+    writer.add(discussion(source, relations=[cites(source, target, directed=False)]))
+    writer.add(discussion(target))
 
     writer.add(
-        memo(
+        discussion(
             DANGLING_SOURCE,
-            relations=[cites(DANGLING_SOURCE, UNRELATED), cites(DANGLING_SOURCE, "memo:gone")],
+            relations=[cites(DANGLING_SOURCE, UNRELATED), cites(DANGLING_SOURCE, "discussion:gone")],
         )
     )
 

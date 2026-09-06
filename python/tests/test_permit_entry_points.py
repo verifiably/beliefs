@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 from authority import ACTOR, lacking, narrowed
+from profiles import BASE, pins_for
 from test_permit_boundary import WRITE_ENTRY_POINTS
 
 from beliefs import root as science_root
@@ -72,7 +73,7 @@ def _writer(authority: Authority, work: Path, *, port: bool = False) -> CorpusWr
     from test_corpus_write import Recorder
 
     if not port:
-        return CorpusWriter(work / "corpus", Recorder, authority=authority)
+        return CorpusWriter(work / "corpus", Recorder, authority=authority, profile=BASE)
     from nodes.core.write_plan import DefaultExecutor
     from test_import_bundle import FakePort
 
@@ -82,6 +83,7 @@ def _writer(authority: Authority, work: Path, *, port: bool = False) -> CorpusWr
         DefaultExecutor,
         authority=authority,
         operation_port=FakePort(root, authority=authority),
+        profile=BASE,
     )
 
 
@@ -112,10 +114,9 @@ def _prepare_corpus(minter=None, *, port: bool = False):
         if minter is not None:
             state["target"] = minter(_writer(lacking(), work))
         if port:
-            from fixtures_cut6 import PINS
             from test_import_bundle import FakePort
 
-            _writer(lacking(), work, port=True).adopt_manifest(profile=PINS)
+            _writer(lacking(), work, port=True).adopt_manifest(profile=pins_for(BASE))
             FakePort.intents, FakePort.executed, FakePort.fulfilling = [], [], []
         _STATE[work] = state
         _reset_recorder()
@@ -209,7 +210,7 @@ def _coordination_writer(authority: Authority, work: Path) -> CorpusWriter:
         DefaultExecutor,  # the executor `writer_with_resolver` binds; same class, same root state
     )
 
-    return CorpusWriter(work / "corpus", DefaultExecutor, authority=authority, coordination_resolver=_STATE[work]["resolver"])
+    return CorpusWriter(work / "corpus", DefaultExecutor, authority=authority, coordination_resolver=_STATE[work]["resolver"], profile=_STATE[work]["resolver"].profile(work / "corpus"))
 
 
 def _mint_coordination(authority, work):
@@ -248,7 +249,7 @@ def _import_bundle(authority, work):
     from test_corpus_write import Recorder
     from test_import_bundle import FakePort, prop
 
-    writer = CorpusWriter(work / "corpus", Recorder, authority=authority, operation_port=FakePort(work / "corpus", authority=authority))
+    writer = CorpusWriter(work / "corpus", Recorder, authority=authority, operation_port=FakePort(work / "corpus", authority=authority), profile=BASE)
     return writer.import_bundle([prop("p1")], observer="o", instrument="i", opened_at="T0", closed_at="T1")
 
 
@@ -261,9 +262,8 @@ def _import_probe(work: Path):
 
 
 def _adopt_manifest(authority, work):
-    from fixtures_cut6 import PINS
 
-    return _writer(authority, work).adopt_manifest(profile=PINS)
+    return _writer(authority, work).adopt_manifest(profile=pins_for(BASE))
 
 
 # --- run family, memory port ---------------------------------------------------------
@@ -273,6 +273,7 @@ class _Port:
         from fixtures_cut3 import MemoryPort
 
         self._inner = MemoryPort()
+        self.profile = self._inner.profile
         self.authority = authority
         self.appended: list = []
 
@@ -318,7 +319,7 @@ def _context(authority: Authority, work: Path):
     from beliefs.holdings.boundary import ActContext
     from beliefs.root import holdings_seam
 
-    return ActContext(work / "observer", work / "store", "observer", "instrument", authority, holdings_seam())
+    return ActContext(work / "observer", work / "store", "observer", "instrument", authority, holdings_seam(), profile=BASE)
 
 
 def _prepare_holdings(held: tuple[str, ...] = (), *, intent: bool = False):
@@ -344,7 +345,7 @@ def _holdings(act: str):
     def run(authority, work):
         from beliefs.holdings import boundary
         from beliefs.holdings.boundary import StoreLocator
-        from beliefs.holdings.records import Found
+        from beliefs.holdings.records import Found, holdings_observation
 
         ctx, store_id = _context(authority, work), _STATE[work]["store_id"]
         if act == "recheck":
@@ -355,6 +356,11 @@ def _holdings(act: str):
             return boundary.delete(ctx, StoreLocator(store_id, "held.bin"))
         if act == "move":
             return boundary.move(ctx, StoreLocator(store_id, "held.bin"), StoreLocator(store_id, "moved.bin"))
+        if act == "_publish_record":
+            record = holdings_observation(location=StoreLocator(store_id, "held.bin"),
+                                          outcome=Found("sha256:" + "1" * 64), observer="observer", instrument="instrument",
+                                          event_token=_STATE[work]["token"], observed_at="2026-09-05T00:00:00Z")
+            return boundary._publish_record(ctx, record, _STATE[work]["intent"])
         if act == "_append":
             return boundary._append(ctx, StoreLocator(store_id, "held.bin"), "write")
         return boundary._publish(ctx, StoreLocator(store_id, "held.bin"), Found("sha256:" + "1" * 64),
@@ -567,6 +573,7 @@ CASES = (
     Case("holdings/boundary.py:delete", "holdings", ("holdings-observation",), True, _prepare_holdings(("held.bin",)), _holdings("delete"), _holdings_probe),
     Case("holdings/boundary.py:move", "holdings", ("holdings-observation",), True, _prepare_holdings(("held.bin",)), _holdings("move"), _holdings_probe),
     Case("holdings/boundary.py:_append", "holdings", ("holdings-observation",), True, _prepare_holdings(), _holdings("_append"), _holdings_probe),
+    Case("holdings/boundary.py:_publish_record", "holdings", ("holdings-observation",), True, _prepare_holdings(("held.bin",), intent=True), _holdings("_publish_record"), _holdings_probe),
     Case("holdings/boundary.py:_publish", "holdings", ("holdings-observation",), True, _prepare_holdings(("held.bin",), intent=True), _holdings("_publish"), _holdings_probe),
     Case("world/registry.py:_locked_admit", "registry", (), False, _prepare_fresh, _admit, _world_probe),
     Case("world/registry.py:World._terminal", "registry", (), False, _prepare_admitted, _retire, _world_probe),

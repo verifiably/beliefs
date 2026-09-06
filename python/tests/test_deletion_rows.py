@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import pytest
+from authority import ACTOR
 from fixtures_cut4 import path_for
 from nodes.core.node import Node
 from test_audit import forged_single_over_two_producers
@@ -185,7 +186,7 @@ def _records(
                 address.split(":", 1)[1],  # the address is the ref: see DATASET_ROOTS
                 title=f"d-{letter}",
                 resources=_resources(letter),
-                empirical_observation={"boundary": "instrument"},
+                empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
                 basis=basis if address == DERIVED else None,
             ),
         )

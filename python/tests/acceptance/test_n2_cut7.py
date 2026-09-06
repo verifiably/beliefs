@@ -84,6 +84,7 @@ from n2_arms_cut7 import (
 )
 from nodes.core.corpus import Corpus
 from nodes.core.write_plan import DefaultExecutor
+from profiles import WITH_BIOLOGY
 from test_durable_families import chain_entries
 from test_n2 import MalformedArm, audit, baseline
 from test_world_build import ALPHA, BETA, corpus_at, genesis_of, sample_nodes, tip_of
@@ -575,7 +576,7 @@ def durable_world(cut7_work_directory):
     try:
         root.init_world_root(config, authority=FULL)
         root.init_corpus_root(corpus_root, authority=FULL)
-        root.open_corpus(corpus_root, authority=FULL).adopt_manifest(profile=PINS)
+        root.open_corpus(corpus_root, authority=FULL, profile=WITH_BIOLOGY).adopt_manifest(profile=PINS)
         # Stored records are placed with the `nodes` handle, exactly as the
         # portable fixtures place them: what these arms assert is committed
         # evidence of *world-root* transactions, and the admission gate the

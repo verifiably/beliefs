@@ -29,6 +29,7 @@ from beliefs.holdings.records import StoreLocator
 from beliefs.root import holdings_seam
 from reproduction import findings, paths, state, world
 from reproduction.authority import AUTHORITY
+from reproduction.vocabulary import profile
 
 OBSERVER = "mm30-reproduction-observer"
 INSTRUMENT = "mm30-reproduction/hold.v1"
@@ -57,7 +58,7 @@ def main() -> int:
     digest = "sha256:" + sha256(content).hexdigest()
     st = state.load()
     relative = f"{target['dataset_id'].split(':', 1)[1]}/{held.name}"
-    ctx = ActContext(paths.CORPUS_ROOT, paths.STORE_ROOT, OBSERVER, INSTRUMENT, AUTHORITY, holdings_seam())
+    ctx = ActContext(paths.CORPUS_ROOT, paths.STORE_ROOT, OBSERVER, INSTRUMENT, AUTHORITY, holdings_seam(), profile=profile())
     published = write(ctx, StoreLocator(st["store_id"], relative), content, expected=digest)
     # P2: the facet payload is authored, not checked. Say what we claim and file the gap.
     node, address = dataset_record(

@@ -18,6 +18,7 @@ from atoms.chain.model import GenesisEntry
 from atoms.core.errors import PreconditionRefused
 from authority import FULL
 from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp
+from profiles import BASE
 
 from beliefs import root
 from beliefs.errors import CorpusRootRefused, PermitExceeded, PermitFact, WorldIdMismatch, WorldUninitialized
@@ -329,7 +330,7 @@ class TestTheCompositionRoot:
         link = tmp_path / "link"
         link.symlink_to(real, target_is_directory=True)
 
-        writer = root.open_corpus(link, authority=FULL)
+        writer = root.open_corpus(link, authority=FULL, profile=BASE)
         executor = writer._corpus.executor
         port = writer._operation_port
         assert isinstance(executor, root.DurableExecutor)

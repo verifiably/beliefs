@@ -6,6 +6,7 @@ from hashlib import sha256
 from typing import cast
 
 from authority import FULL
+from profiles import BASE
 
 from beliefs.assess import run_record
 from beliefs.boundary import execute_assessment_run, execute_production_run
@@ -433,6 +434,7 @@ def definition(
 
 
 class MemoryPort:
+    profile = BASE
     """The shared no-I/O port for value-width unit tests."""
 
     authority = FULL

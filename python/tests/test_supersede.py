@@ -8,6 +8,7 @@ import pytest
 from authority import FULL
 from nodes.core.node import Node
 from nodes.core.write_plan import CreateOp, DefaultExecutor
+from profiles import BASE
 
 from beliefs import stored
 from beliefs.corpus import CorpusWriter
@@ -37,7 +38,7 @@ class Recorder:
 @pytest.fixture()
 def writer(tmp_path) -> CorpusWriter:
     Recorder.plans = []
-    return CorpusWriter(tmp_path, Recorder, authority=FULL)
+    return CorpusWriter(tmp_path, Recorder, authority=FULL, profile=BASE)
 
 
 def prop(slug: str, claim_op: str = "affects") -> Node:

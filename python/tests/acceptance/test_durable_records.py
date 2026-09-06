@@ -14,6 +14,7 @@ represents heldness at all.
 from __future__ import annotations
 
 import pytest
+from authority import ACTOR
 from durable_fixture import PROPOSITION, RULE, SPEC
 from fixtures_cut3 import D_OUT, recipe, spec_draft, spec_rules
 from fixtures_cut3 import closure as run_closure
@@ -77,7 +78,7 @@ def observed_dataset():
         "raw",
         title="raw",
         resources=[{"name": "matrix", "digest": OBSERVED_DIGEST}],
-        empirical_observation={"boundary": "instrument"},
+        empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
     )
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeAlias
@@ -57,6 +58,7 @@ class StoreOutcomeView:
 
 @dataclass(frozen=True)
 class StoreActSeam:
+    corpus_lock: Callable[[Path], AbstractContextManager[None]]
     append_intent: Callable[[Path, bytes], str]
     publish_fulfilling: Callable[[Path, WritePlan, str], None]
     read_path: Callable[[Path, str], PathReadView]

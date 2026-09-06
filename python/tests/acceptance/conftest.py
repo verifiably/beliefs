@@ -23,6 +23,7 @@ from pathlib import Path
 
 import pytest
 from authority import FULL
+from profiles import BASE
 
 from beliefs.root import (
     init_corpus_root,
@@ -86,7 +87,7 @@ def durable_root(work_directory) -> Iterator[Path]:
 @pytest.fixture()
 def durable_writer(durable_root):
     """The composition root's own product, bound to a registered root."""
-    return open_corpus(durable_root, authority=FULL)
+    return open_corpus(durable_root, authority=FULL, profile=BASE)
 
 
 @pytest.fixture()
@@ -101,7 +102,7 @@ def durable_coordination_roots(work_directory, base_contract):
     try:
         for root in roots:
             init_corpus_root(root, authority=FULL)
-            open_corpus(root, authority=FULL).adopt_manifest(profile=pins_for(profile))
+            open_corpus(root, authority=FULL, profile=profile).adopt_manifest(profile=pins_for(profile))
         yield roots, profile
     finally:
         for root in roots:
@@ -144,7 +145,7 @@ def minted_corpus(work_directory) -> Iterator[Path]:
             f"the durable acceptance arms need a certified volume under {work_directory}; "
             f"the engine refused: {refused}"
         ) from refused
-    mint_cut4_corpus(open_corpus(root, authority=FULL))
+    mint_cut4_corpus(open_corpus(root, authority=FULL, profile=BASE))
     yield root
     shutil.rmtree(root, ignore_errors=True)
     shutil.rmtree(metadata_root_for(root), ignore_errors=True)

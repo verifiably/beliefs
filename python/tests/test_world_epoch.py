@@ -68,6 +68,7 @@ def test_coordination_bytes_move_corpus_state_but_never_become_captured_world_re
         root,
         DefaultExecutor, authority=FULL,
         coordination_resolver=CoordinationResolver({root: profile}),
+        profile=profile,
     )
     before = registry.corpus_state_identity(root)
     project = writer.mint_coordination("project", content=content_for("project"))
@@ -90,6 +91,7 @@ def test_world_records_are_still_captured_beside_coordination_records(tmp_path, 
         root,
         DefaultExecutor, authority=FULL,
         coordination_resolver=CoordinationResolver({root: profile}),
+        profile=profile,
     )
     writer.mint_coordination("project", content=content_for("project"))
     assert {record.address for record in epoch._captured_records(root)} == {"dataset:world"}

@@ -53,9 +53,9 @@ def _parent_corpus(work: Path, name: str = "parent") -> Path:
         PARENT_ID,
         (
             Node(
-                id="memo:seed",
+                id="discussion:seed",
                 uid="1" * 32,
-                kind="memo",
+                kind="discussion",
                 title="the seeded record",
                 facets={},
             ),
@@ -63,15 +63,15 @@ def _parent_corpus(work: Path, name: str = "parent") -> Path:
     )
     logged = node_to_markdown(
         Node(
-            id="memo:logged",
+            id="discussion:logged",
             uid="2" * 32,
-            kind="memo",
+            kind="discussion",
             title="the logged record",
             facets={},
         )
     ).encode("utf-8")
     science_root.durable_executor_factory()(root).execute(
-        [CreateOp("memo/logged.md", logged)]
+        [CreateOp("discussion/logged.md", logged)]
     )
     genesis, head = _head_of(root)
     assert head != genesis

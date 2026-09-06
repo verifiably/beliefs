@@ -93,7 +93,7 @@ def add_observed_datasets(writer, closure: RunClosure) -> None:
                     entry.dataset.removeprefix("dataset:"),
                     title="raw",
                     resources=PINNED,
-                    empirical_observation={"boundary": "instrument"},
+                    empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
                 )
             )
 
@@ -176,7 +176,7 @@ def _eligible_assessment(writer) -> Node:
     projection: eligibility is a stored-edge predicate, and a decodable run
     closure is a separate fact that a hand-built run simply does not have."""
     dataset = writer.add(
-        stored.dataset_node("raw", title="raw", resources=PINNED, empirical_observation={"boundary": "instrument"})
+        stored.dataset_node("raw", title="raw", resources=PINNED, empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR})
     )
     run = writer.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[dataset.id]))
     proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
@@ -493,7 +493,7 @@ class TestTheAuditReportsAndNeverRaises:
     def test_an_assessment_whose_stored_outcome_is_outside_the_closed_set(self, writer):
         bystander = _bystander(writer)
         dataset = writer.add(
-            stored.dataset_node("raw", title="raw", resources=PINNED, empirical_observation={"boundary": "i"})
+            stored.dataset_node("raw", title="raw", resources=PINNED, empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR})
         )
         run = writer.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[dataset.id]))
         proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
@@ -526,7 +526,7 @@ class TestTheAuditReportsAndNeverRaises:
         closure = replace(base, occurrence=replace(base.occurrence, actor=ACTOR))
         dataset = writer.add(
             stored.dataset_node(
-                "produced", title="produced", resources=PINNED, empirical_observation={"boundary": "i"}
+                "produced", title="produced", resources=PINNED, empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}
             )
         )
         for entry in closure.recipe.inputs:
@@ -535,7 +535,7 @@ class TestTheAuditReportsAndNeverRaises:
                     entry.dataset.removeprefix("dataset:"),
                     title="input",
                     resources=PINNED,
-                    empirical_observation={"boundary": "i"},
+                    empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
                 )
             )
         run = writer.add(

@@ -8,7 +8,7 @@ import pytest
 import yaml
 from authority import ACTOR
 from fixtures_cut3 import report as sample_report
-from fixtures_cut6 import PINS
+from fixtures_cut6 import OTHER_BIOLOGY_ID, PINS
 from nodes.core.errors import RefError
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -20,6 +20,7 @@ from test_world_epoch import derivation_bindings, make_world, publish
 from beliefs import relocation, stored
 from beliefs.belief import Belief, evaluate
 from beliefs.errors import (
+    ContractMismatch,
     ContractPinDisagreement,
     RelocationKindExcluded,
     RelocationTargetMissing,
@@ -177,10 +178,10 @@ def test_w5_a_move_changes_only_location(tmp_path):
     node = source.add(node.model_copy(update={"deprecated_ids": ["source:old-paper"]}))
     inbound = source.add(
         Node(
-            id="memo:citation",
-            kind="memo",
+            id="discussion:citation",
+            kind="discussion",
             title="citation",
-            relations=[Relation(source="memo:citation", predicate="cites", target=node.id)],
+            relations=[Relation(source="discussion:citation", predicate="cites", target=node.id)],
         )
     )
     world, coverage, bindings = _world_for(tmp_path, source, destination)
@@ -242,7 +243,7 @@ def test_d7_move_refuses_a_domain_facet_across_identities(tmp_path):
     source = _writer(tmp_path / "source", domains=PINS.domains)
     destination = _writer(
         tmp_path / "destination",
-        domains={"biology": "biology:" + "c" * 64},
+        domains={"biology": OTHER_BIOLOGY_ID},
     )
     node = source.add(_node("biology/gene-axis"))
 
@@ -256,14 +257,15 @@ def test_d7_move_refuses_a_base_contract_for_a_facetless_node(tmp_path):
     source = _writer(tmp_path / "source", domains=PINS.domains)
     destination = _writer(
         tmp_path / "destination",
-        science="science:" + "c" * 64,
         domains=PINS.domains,
     )
     node = source.add(
         stored.source_node("paper", title="paper", identifiers={"doi": "10.1/paper"})
     )
 
-    with pytest.raises(ContractPinDisagreement, match="science contracts"):
+    manifest = destination.root / "corpus.yaml"
+    manifest.write_text(manifest.read_text().replace(PINS.science_contract, "science:" + "c" * 64))
+    with pytest.raises(ContractMismatch, match="manifest pins"):
         relocation.move(source, destination, node.id, **MOVE_FIELDS)
 
     assert source.read_view.holds(node.id) and not destination.read_view.holds(node.id)
@@ -354,11 +356,11 @@ def test_consolidate_unions_relations_and_preserves_both_bases(tmp_path):
     keep_writer, other_writer, keep, other = _duplicate_datasets(tmp_path)
     inbound = keep_writer.add(
         Node(
-            id="memo:inbound",
-            kind="memo",
+            id="discussion:inbound",
+            kind="discussion",
             title="inbound",
             relations=[
-                Relation(source="memo:inbound", predicate="cites", target=keep.id)
+                Relation(source="discussion:inbound", predicate="cites", target=keep.id)
             ],
         )
     )
@@ -403,7 +405,7 @@ def test_consolidate_unions_relations_and_preserves_both_bases(tmp_path):
 def test_d7_consolidate_refuses_a_domain_facet_across_identities(tmp_path):
     keep_writer = _writer(
         tmp_path / "domain" / "keep",
-        domains={"biology": "biology:" + "c" * 64},
+        domains={"biology": OTHER_BIOLOGY_ID},
     )
     other_writer = _writer(tmp_path / "domain" / "other", domains=PINS.domains)
     keep = keep_writer.add(_node("biology/gene-axis"))
@@ -420,7 +422,6 @@ def test_d7_consolidate_refuses_a_domain_facet_across_identities(tmp_path):
 def test_d7_consolidate_refuses_a_base_contract_for_a_facetless_node(tmp_path):
     keep_writer = _writer(
         tmp_path / "base" / "keep",
-        science="science:" + "c" * 64,
         domains=PINS.domains,
     )
     other_writer = _writer(tmp_path / "base" / "other", domains=PINS.domains)
@@ -431,7 +432,9 @@ def test_d7_consolidate_refuses_a_base_contract_for_a_facetless_node(tmp_path):
         stored.source_node("s1", title="other", identifiers={"doi": "10.1/abc"})
     )
 
-    with pytest.raises(ContractPinDisagreement, match="science contracts"):
+    manifest = keep_writer.root / "corpus.yaml"
+    manifest.write_text(manifest.read_text().replace(PINS.science_contract, "science:" + "c" * 64))
+    with pytest.raises(ContractMismatch, match="manifest pins"):
         relocation.consolidate(
             (keep_writer, keep.id),
             (other_writer, other.id),
@@ -442,7 +445,11 @@ def test_d7_consolidate_refuses_a_base_contract_for_a_facetless_node(tmp_path):
 def test_d7_consolidate_refuses_a_missing_pin(tmp_path):
     keep_writer = _writer(tmp_path / "missing" / "keep")
     other_writer = _writer(tmp_path / "missing" / "other", domains=PINS.domains)
-    keep = keep_writer.add(_node("biology/gene-axis"))
+    from coordination_fixtures import raw_add
+
+    keep = _node("biology/gene-axis")
+    raw_add(keep_writer.root, keep)
+    keep_writer._reconstruct()
     other = other_writer.add(_node("biology/gene-axis"))
 
     with pytest.raises(ContractPinDisagreement, match="biology"):
@@ -465,7 +472,7 @@ def test_m3_consolidating_equal_basis_retraction_replicas_leaves_the_counter_ret
                 "raw",
                 title="raw",
                 resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
-                empirical_observation={"boundary": "instrument"},
+                empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
             )
         )
         run = writer.add(
@@ -611,7 +618,7 @@ def test_retract_refuses_a_target_moved_away(tmp_path):
             "observation",
             title="observation",
             resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
-            empirical_observation={"boundary": "instrument"},
+            empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
         )
     )
     destination.add(observation)

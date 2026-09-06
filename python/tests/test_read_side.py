@@ -14,6 +14,7 @@ from __future__ import annotations
 import inspect
 
 import pytest
+from authority import ACTOR
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.corpus import Corpus
 from nodes.core.node import Node
@@ -28,11 +29,11 @@ from beliefs.traversal import LineageEntry, RelationEntry, closure
 CITES = "cites"
 
 
-def memo(slug: str, *, relations=()) -> Node:
+def discussion(slug: str, *, relations=()) -> Node:
     """A prose node with relations and no governed facet — the plain carrier for
     the relation fixtures, which are about edges and not about payload."""
-    node_id = f"memo:{slug}"
-    return Node(id=node_id, kind="memo", title=slug, relations=list(relations))
+    node_id = f"discussion:{slug}"
+    return Node(id=node_id, kind="discussion", title=slug, relations=list(relations))
 
 
 def cites(source: str, target: str, *, directed: bool = True, predicate: str = CITES) -> Relation:
@@ -53,47 +54,47 @@ class TestTheOneAlgorithmsSharedBehaviour:
     def test_a_chain_is_walked_transitively(self, tmp_path):
         view = seed(
             tmp_path,
-            memo("a", relations=[cites("memo:a", "memo:b")]),
-            memo("b", relations=[cites("memo:b", "memo:c")]),
-            memo("c"),
+            discussion("a", relations=[cites("discussion:a", "discussion:b")]),
+            discussion("b", relations=[cites("discussion:b", "discussion:c")]),
+            discussion("c"),
         )
-        assert relation_walk(view, "memo:a").reached == ("memo:b", "memo:c")
+        assert relation_walk(view, "discussion:a").reached == ("discussion:b", "discussion:c")
 
     def test_a_diamond_reaches_each_node_once(self, tmp_path):
         view = seed(
             tmp_path,
-            memo("a", relations=[cites("memo:a", "memo:b"), cites("memo:a", "memo:c")]),
-            memo("b", relations=[cites("memo:b", "memo:d")]),
-            memo("c", relations=[cites("memo:c", "memo:d")]),
-            memo("d"),
+            discussion("a", relations=[cites("discussion:a", "discussion:b"), cites("discussion:a", "discussion:c")]),
+            discussion("b", relations=[cites("discussion:b", "discussion:d")]),
+            discussion("c", relations=[cites("discussion:c", "discussion:d")]),
+            discussion("d"),
         )
-        assert relation_walk(view, "memo:a").reached == ("memo:b", "memo:c", "memo:d")
+        assert relation_walk(view, "discussion:a").reached == ("discussion:b", "discussion:c", "discussion:d")
 
     def test_a_cycle_terminates_and_does_not_readmit_the_start(self, tmp_path):
         view = seed(
             tmp_path,
-            memo("a", relations=[cites("memo:a", "memo:b")]),
-            memo("b", relations=[cites("memo:b", "memo:a")]),
+            discussion("a", relations=[cites("discussion:a", "discussion:b")]),
+            discussion("b", relations=[cites("discussion:b", "discussion:a")]),
         )
-        assert relation_walk(view, "memo:a").reached == ("memo:b",)
+        assert relation_walk(view, "discussion:a").reached == ("discussion:b",)
 
     def test_the_start_is_never_in_the_reached_set(self, tmp_path):
         # Start-excluding: substrate §5's inspected set writes the union out
         # because the walk does not, and a walk that quietly included its start
         # would make `{root} ∪ closure` a no-op nobody could see fail.
-        view = seed(tmp_path, memo("a", relations=[cites("memo:a", "memo:a")]), memo("b"))
-        assert relation_walk(view, "memo:a").reached == ()
+        view = seed(tmp_path, discussion("a", relations=[cites("discussion:a", "discussion:a")]), discussion("b"))
+        assert relation_walk(view, "discussion:a").reached == ()
 
     def test_an_unresolvable_step_is_skipped_and_reported_with_its_source_and_position(self, tmp_path):
         view = seed(
             tmp_path,
-            memo("a", relations=[cites("memo:a", "memo:gone"), cites("memo:a", "memo:b")]),
-            memo("b"),
+            discussion("a", relations=[cites("discussion:a", "discussion:gone"), cites("discussion:a", "discussion:b")]),
+            discussion("b"),
         )
-        walk = relation_walk(view, "memo:a")
-        assert walk.reached == ("memo:b",)  # skipped, not fatal
+        walk = relation_walk(view, "discussion:a")
+        assert walk.reached == ("discussion:b",)  # skipped, not fatal
         assert walk.unresolved == (
-            RelationEntry(source="memo:a", position=0, predicate=CITES, target="memo:gone"),
+            RelationEntry(source="discussion:a", position=0, predicate=CITES, target="discussion:gone"),
         )
 
     def test_two_dangling_edges_from_different_sources_are_two_entries(self, tmp_path):
@@ -101,47 +102,47 @@ class TestTheOneAlgorithmsSharedBehaviour:
         # produce one identical entry and two defects deduplicate into one.
         view = seed(
             tmp_path,
-            memo("a", relations=[cites("memo:a", "memo:b"), cites("memo:a", "memo:gone")]),
-            memo("b", relations=[cites("memo:b", "memo:gone")]),
+            discussion("a", relations=[cites("discussion:a", "discussion:b"), cites("discussion:a", "discussion:gone")]),
+            discussion("b", relations=[cites("discussion:b", "discussion:gone")]),
         )
-        walk = relation_walk(view, "memo:a")
+        walk = relation_walk(view, "discussion:a")
         assert [
             (entry.source, entry.position) for entry in walk.unresolved if isinstance(entry, RelationEntry)
-        ] == [("memo:a", 1), ("memo:b", 0)]
+        ] == [("discussion:a", 1), ("discussion:b", 0)]
 
 
 class TestTheRelationAdapter:
     def test_an_unrelated_predicate_is_not_followed(self, tmp_path):
         view = seed(
             tmp_path,
-            memo("a", relations=[cites("memo:a", "memo:b", predicate="mentions")]),
-            memo("b"),
+            discussion("a", relations=[cites("discussion:a", "discussion:b", predicate="mentions")]),
+            discussion("b"),
         )
-        assert relation_walk(view, "memo:a").reached == ()
+        assert relation_walk(view, "discussion:a").reached == ()
 
     def test_a_deprecated_ref_resolves_to_the_live_node(self, tmp_path):
-        live = memo("b")
-        live.deprecated_ids = ["memo:old"]
-        view = seed(tmp_path, memo("a", relations=[cites("memo:a", "memo:old")]), live)
-        assert relation_walk(view, "memo:a").reached == ("memo:b",)
+        live = discussion("b")
+        live.deprecated_ids = ["discussion:old"]
+        view = seed(tmp_path, discussion("a", relations=[cites("discussion:a", "discussion:old")]), live)
+        assert relation_walk(view, "discussion:a").reached == ("discussion:b",)
 
     def test_an_undirected_relation_is_reached_from_its_stored_source(self, tmp_path):
         view = seed(
             tmp_path,
-            memo("a", relations=[cites("memo:a", "memo:b", directed=False)]),
-            memo("b"),
+            discussion("a", relations=[cites("discussion:a", "discussion:b", directed=False)]),
+            discussion("b"),
         )
-        assert relation_walk(view, "memo:a").reached == ("memo:b",)
+        assert relation_walk(view, "discussion:a").reached == ("discussion:b",)
 
     def test_an_undirected_relation_is_not_reached_from_its_stored_target(self, tmp_path):
         # `directed` is read, never reinterpreted: walking an undirected edge
         # backwards invents an edge the author did not write.
         view = seed(
             tmp_path,
-            memo("a", relations=[cites("memo:a", "memo:b", directed=False)]),
-            memo("b"),
+            discussion("a", relations=[cites("discussion:a", "discussion:b", directed=False)]),
+            discussion("b"),
         )
-        assert relation_walk(view, "memo:b").reached == ()
+        assert relation_walk(view, "discussion:b").reached == ()
 
     def test_nodes_exposes_no_transitive_operation(self):
         # A static reading of that package's surface, depending on nothing this
@@ -231,11 +232,11 @@ class TestTheLineageAdapter:
         # nothing in either of them decides when to stop.
         view = seed(
             tmp_path,
-            memo("a", relations=[cites("memo:a", "memo:a")]),
+            discussion("a", relations=[cites("discussion:a", "discussion:a")]),
             stored.dataset_node("c", title="c", basis=self.basis(self.route("run:r", "dataset:c"))),
             stored.run_node("r", title="r", spec="analysis-spec:s"),
         )
-        assert closure("memo:a", RelationAdjacency(view, CITES, "outbound")).reached == ()
+        assert closure("discussion:a", RelationAdjacency(view, CITES, "outbound")).reached == ()
         assert closure("dataset:c", LineageAdjacency(view)).reached == ()
 
 
@@ -244,7 +245,7 @@ def observed_dataset(slug="raw"):
         slug,
         title=slug,
         resources=[{"name": "matrix", "digest": "sha256:" + "ab" * 32}],
-        empirical_observation={"boundary": "instrument"},
+        empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
     )
 
 
@@ -275,9 +276,9 @@ class TestTheFacadesNodeReadPath:
     def test_a_stale_semantic_hash_is_refused_when_a_traversal_resolves_the_node(self, tmp_path):
         node = observed_dataset()
         node.facets[stored.DATASET_FACET]["resources"] = []
-        view = seed(tmp_path, node, memo("a", relations=[cites("memo:a", node.id)]))
+        view = seed(tmp_path, node, discussion("a", relations=[cites("discussion:a", node.id)]))
         with pytest.raises(SemanticHashStale):
-            relation_walk(view, "memo:a")
+            relation_walk(view, "discussion:a")
 
     def test_a_self_consistent_raw_write_is_not_refused(self, tmp_path):
         # The recorded-history bound, pinned: the hash agrees because the writer
@@ -300,9 +301,9 @@ class TestTheFacadesNodeReadPath:
 
     def test_an_unstamped_prose_node_is_not_refused(self, tmp_path):
         # Prose kinds carry no semantic domain; requiring a stamp there would
-        # refuse every hand-authored memo in the corpus.
-        view = seed(tmp_path, memo("a"))
-        assert view.get("memo:a").kind == "memo"
+        # refuse every hand-authored discussion in the corpus.
+        view = seed(tmp_path, discussion("a"))
+        assert view.get("discussion:a").kind == "discussion"
 
     def test_iteration_does_not_refuse_so_the_check_can_report(self, tmp_path):
         node = observed_dataset()
@@ -354,7 +355,7 @@ class TestTheCorpusCheck:
         ]
 
     def test_an_unstamped_prose_node_is_reported_by_nothing(self, tmp_path):
-        assert corpus_check(seed(tmp_path, memo("a"))) == ()
+        assert corpus_check(seed(tmp_path, discussion("a"))) == ()
 
     def test_a_stale_node_is_reported_rather_than_raised(self, tmp_path):
         node = observed_dataset()

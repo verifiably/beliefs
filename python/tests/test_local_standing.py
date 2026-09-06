@@ -204,8 +204,8 @@ def test_corpus_check_reports_a_raw_retraction_with_a_missing_local_target(tmp_p
 
 def test_corpus_check_reports_an_ungoverned_node_with_a_semantic_stamp(tmp_path):
     malformed = Node(
-        id="memo:bad-domain",
-        kind="memo",
+        id="discussion:bad-domain",
+        kind="discussion",
         title="bad domain",
         facets={stored.SEMANTIC_IDENTITY_FACET: {"digest": "x"}},
     )

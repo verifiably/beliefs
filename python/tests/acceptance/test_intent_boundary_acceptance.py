@@ -122,7 +122,7 @@ def test_u2_wrong_token_member(certified_work):
 def test_u2_no_record_member(certified_work):
     root, port = _port(certified_work, "u2-no-record")
     port.execute_fulfilling(
-        (CreateOp("notes/memo.md", b"no record here"),),
+        (CreateOp("notes/discussion.md", b"no record here"),),
         _append_assessment(port),
     )
     rows, findings = _qualification(root)
@@ -173,6 +173,7 @@ def test_u8_negative_discarded_attempt_is_indistinguishable(certified_work, tmp_
 
     class CancelledBeforePublication:
         authority = inner.authority
+        profile = inner.profile
 
         def append_intent(self, payload: bytes) -> str:
             return inner.append_intent(payload)
