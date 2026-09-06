@@ -13,6 +13,7 @@ from types import MappingProxyType
 from typing import TypeAlias, cast, final
 
 from nodes.core.node import Node
+from nodes.core.relations import Relation
 
 from beliefs import record, stored
 from beliefs.errors import MalformedClosure, MalformedRecord, MixedShapes, NotAnAssessmentVerification, RuleUnbound
@@ -42,6 +43,7 @@ __all__ = [
     "admission_record",
     "build_verification",
     "decode_verification",
+    "publication_node",
 ]
 
 COMPARISON_REPORT_DOMAIN = "science.comparison-report.v1"
@@ -423,6 +425,43 @@ def decode_verification(node: Node) -> StoredVerification | None:
     if decoded.identity() != stored.local_id("verification", node.id):
         raise MalformedRecord(f"{node.id}: the recomputed identity is not the record id")
     return decoded
+
+
+def publication_node(derived: RunVerification, *, assessment_ref: str | None = None) -> Node:
+    """The stored record of a derived verification, total over both shapes
+    (design §5.1). Pure: reads no view, holds no lock; `decode_verification`
+    over the result restores the same basis."""
+    if type(derived) is AssessmentVerification:
+        if assessment_ref is None:
+            raise MalformedRecord("an assessment verification publishes against its assessment's corpus ref")
+        stored.local_id("assessment", assessment_ref)
+        title = f"verification of {assessment_ref}"
+    elif type(derived) is DatasetProductionVerification:
+        if assessment_ref is not None:
+            raise MalformedRecord("a dataset-production verification has no assessment to verify")
+        title = "dataset-production verification"
+    else:
+        raise MalformedRecord("publication_node requires a derived RunVerification")
+    facet: dict[str, object] = {
+        "scope": derived.scope,
+        "verdict": derived.verdict,
+        "derivation": {
+            "original": stored.typed_ref("run", derived.original),
+            "replayed": stored.typed_ref("run", derived.replayed),
+        },
+        "rule": derived.rule,
+        "scope_rule": derived.scope_rule,
+        "report": derived.report.projection(),
+    }
+    if type(derived) is AssessmentVerification:
+        facet["assessment"] = derived.assessment
+    if derived.supersedes is not None:
+        facet["supersedes"] = stored.typed_ref("verification", derived.supersedes)
+    identity = derived.identity()
+    relations: list[Relation] = []
+    if assessment_ref is not None:
+        relations.append(Relation(source=f"verification:{identity}", predicate=stored.VERIFIES, target=assessment_ref))
+    return stored.governed_node("verification", identity, title, {stored.VERIFICATION_FACET: facet}, relations)
 
 
 def _mint_verification(

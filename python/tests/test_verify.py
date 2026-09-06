@@ -677,3 +677,64 @@ def test_v7_the_assessment_member_and_the_verifies_edge_travel_together(pair):
     node.relations.append(Relation(source=node.id, predicate=stored.VERIFIES, target="assessment:b"))
     with pytest.raises(MalformedRecord, match="at most one"):
         decode_verification(node)
+
+
+# --- V1 / V3 / V7: the publication projection (design §5.1) --------------------
+from beliefs.verify import publication_node  # DatasetProductionVerification is already imported above
+
+
+def _production_verification(production_pair) -> DatasetProductionVerification:
+    first, second = production_pair
+    verification = build_verification(
+        first.run, second.run, specs={}, held_rules={"impl-dataset-eq-1": DATASET_CONTENT_EQUALITY},
+        contract_identity="contract-1", epoch="epoch-1",
+    )
+    assert isinstance(verification, DatasetProductionVerification)
+    return verification
+
+
+def test_v1_publication_node_round_trips_through_the_reader(pair):
+    verification = verification_of(pair)
+    node = publication_node(verification, assessment_ref="assessment:a")
+    assert node.id == f"verification:{verification.identity()}"
+    assert [(r.predicate, r.target) for r in node.relations] == [(stored.VERIFIES, "assessment:a")]
+    facet = node.facets[stored.VERIFICATION_FACET]
+    assert facet["derivation"] == {"original": f"run:{verification.original}", "replayed": f"run:{verification.replayed}"}
+    assert facet["report"] == verification.report.projection() and "supersedes" not in facet
+    assert not stored.semantic_hash_missing(node) and not stored.semantic_hash_disagrees(node)
+    decoded = decode_verification(node)
+    assert decoded is not None and decoded.basis() == verification.basis()
+
+
+def test_v3_a_superseding_verification_publishes_its_typed_predecessor(pair):
+    verification = verification_of(pair)
+    successor = _mint_verification(
+        original=verification.original, replayed=verification.replayed, assessment=verification.assessment,
+        rule=verification.rule, report=verification.report, scope_rule=verification.scope_rule,
+        scope=verification.scope, verdict="failed", supersedes=verification.identity(),
+    )
+    node = publication_node(successor, assessment_ref="assessment:a")
+    assert node.facets[stored.VERIFICATION_FACET]["supersedes"] == f"verification:{verification.identity()}"
+    decoded = decode_verification(node)
+    assert decoded is not None and decoded.supersedes == verification.identity()
+
+
+def test_v7_the_production_shape_publishes_edge_less_and_admits_nothing(production_pair):
+    verification = _production_verification(production_pair)
+    node = publication_node(verification)
+    assert node.relations == [] and "assessment" not in node.facets[stored.VERIFICATION_FACET]
+    decoded = decode_verification(node)
+    assert decoded is not None and decoded.assessment is None and decoded.identity() == verification.identity()
+    with pytest.raises(NotAnAssessmentVerification):
+        admission_record(verification)  # pyright: ignore[reportArgumentType] — invalid type is under test
+
+
+def test_v7_publication_node_refuses_the_cross(pair, production_pair):
+    with pytest.raises(MalformedRecord, match="corpus ref"):
+        publication_node(verification_of(pair))
+    with pytest.raises(MalformedRecord):
+        publication_node(verification_of(pair), assessment_ref="proposition:p")
+    with pytest.raises(MalformedRecord, match="no assessment"):
+        publication_node(_production_verification(production_pair), assessment_ref="assessment:a")
+    with pytest.raises(MalformedRecord):
+        publication_node("not a verification")  # type: ignore[arg-type]

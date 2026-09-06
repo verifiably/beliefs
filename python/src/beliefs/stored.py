@@ -101,6 +101,7 @@ __all__ = [
     "display_facet_malformed",
     "display_statement",
     "external_identifiers",
+    "governed_node",
     "holdings_observation_node",
     "holdings_observation_value",
     "is_empirical_observation",
@@ -699,6 +700,15 @@ class RouteTarget:
 def _node(kind: str, slug: str, title: str, facets: Mapping[str, Any], relations: Sequence[Relation]) -> Node:
     node = Node(id=f"{kind}:{slug}", kind=kind, title=title, facets=dict(facets), relations=list(relations))
     return stamp_semantic_identity(node)
+
+
+def governed_node(kind: str, local: str, title: str, facets: Mapping[str, Any], relations: Sequence[Relation]) -> Node:
+    """`_node`'s public twin for builders outside this module (verification
+    publication, design §5.1): a stamped record of a governed kind. The stamp's
+    one construction authority is unchanged."""
+    if kind not in SEMANTIC_DOMAINS:
+        raise MalformedRecord(f"kind {kind!r} has no semantic-identity domain")
+    return _node(kind, local, title, facets, relations)
 
 
 def act_report_node(report: report_values.ActReport) -> Node:

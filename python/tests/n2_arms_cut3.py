@@ -599,8 +599,8 @@ _R19 = [
         asserts="only build_verification exposes a public path that mints verification carriers",
         sabotage=Sabotage(
             module="verify.py",
-            before='    "build_verification",\n    "decode_verification",\n]',
-            after='    "build_verification",\n    "decode_verification",\n    "_mint_verification",\n]',
+            before='    "build_verification",\n    "decode_verification",\n    "publication_node",\n]',
+            after='    "build_verification",\n    "decode_verification",\n    "_mint_verification",\n    "publication_node",\n]',
         ),
         checks=("test_verify.py::test_r19_only_build_verification_mints_the_carriers",),
     ),
