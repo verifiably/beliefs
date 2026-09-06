@@ -41,6 +41,7 @@ packages = ["src/beliefs"]
 # ordinary unit-test run must stay portable (adapter design §7).
 addopts = "-q --ignore=tests/acceptance"
 testpaths = ["tests"]
+pythonpath = ["tools"]
 
 [tool.ruff]
 line-length = 120
@@ -49,6 +50,7 @@ line-length = 120
 pythonVersion = "3.11"
 typeCheckingMode = "basic"
 include = ["src", "tests"]
+extraPaths = ["tools"]
 # Cut 5 is hash-pinned and cited, not run; its pre-permit call signatures are frozen.
 exclude = ["tests/acceptance/test_n2_cut5.py"]
 

@@ -14,8 +14,7 @@ thirteen findings amended §3.1 (prose kinds and `role`), §3.5 (no null in a
 projection), §4.1 (the registry is private), §5.1 (the port holds the profile
 and every port method rechecks), §5.2 (provenance mode threaded through import,
 relocation and consolidation) and §7.1 (validated reads, never construction).
-Not yet frozen: conformance cut 20 freezes after
-the written review clears, numbered after the writer-session lane's cut 19.
+**Conformance cut 20 frozen 2026-09-06** (`2026-09-05-conformance-cut-20.md`), before implementation.
 Not yet implemented or discharged.
 **Scope:** the first of two slices on the `domain` lane, anchored on the
 empirical-observation facet's payload contract, kernel §11's open question

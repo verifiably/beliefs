@@ -64,18 +64,18 @@ def main() -> int:
     st = state.load()
     frozen = spec.frozen()
     held = {st["dataset_address"]: Path(st["held_file"])}
-    common = dict(
-        port=port(),
-        definition=spec.definition(),
-        code_roots=(spec.CODE_ROOT,),
-        held_inputs=held,
-        entrypoint=spec.ENTRYPOINT,
-        targets=spec.TARGETS,
-        declared_outputs=spec.TARGETS,
-        observer=OBSERVER,
-        host_realization=socket.gethostname(),
-        cores=1,
-    )
+    common = {
+        "port": port(),
+        "definition": spec.definition(),
+        "code_roots": (spec.CODE_ROOT,),
+        "held_inputs": held,
+        "entrypoint": spec.ENTRYPOINT,
+        "targets": spec.TARGETS,
+        "declared_outputs": spec.TARGETS,
+        "observer": OBSERVER,
+        "host_realization": socket.gethostname(),
+        "cores": 1,
+    }
     # Step 5
     original = execute_assessment_run(
         spec=frozen, boundary_policy=CONFINED_POLICY, started_at=now(), scratch_base=paths.SCRATCH / "original", **common

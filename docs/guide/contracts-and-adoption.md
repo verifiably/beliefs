@@ -33,6 +33,7 @@ sources:
   - ../designs/2026-09-03-conformance-cut-16.md
   - ../designs/2026-09-04-write-permits-design.md
   - ../designs/2026-09-04-conformance-cut-18.md
+  - ../designs/2026-09-05-conformance-cut-20.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
   - ../plans/2026-08-29-conformance-cut-12-results.md
   - ../plans/2026-09-01-conformance-cut-13-results.md
@@ -175,6 +176,8 @@ fitted result into independent validation.
   exact rule bindings and instrument certification in runs and verifications.
 
 ## Current state
+
+Cut 20, the facet-contracts slice, is frozen and not yet discharged.
 
 Eighteen conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple

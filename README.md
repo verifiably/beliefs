@@ -27,7 +27,7 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Forty-nine documents in `docs/designs/`: the banked redesigns, review disposition,
+Fifty documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
 2026-08-02 through 2026-09-05. Read them in this order:
 
@@ -82,6 +82,7 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-09-04-write-permits-design.md` | the discharged write-permits slice: closed act families and kind routes, `Authority` bound once at every construction seam, checks before effects across the static entry-point inventory, and E1–E8 closed at cut 17 |
 | `2026-09-05-mm30-reproduction.md` | the mm30 reproduction measurement: one real proposition pushed through the kernel as a library to the belief evaluator's answer, with its predictions, findings and re-rank |
 | `2026-09-05-facet-contracts-design.md` | the first `domain-boundary` slice, anchored on the empirical-observation facet's payload contract: facet and kind declarations in the base and domain contracts, the compiled per-kind registry and payload validators, the bearer invariant and attestation binding, the shipped base profile and the pin recheck under the operation lock, and the second `science.identity.v1` parity fixture (F1–F8, cut 20 to freeze) |
+| `2026-09-05-conformance-cut-20.md` | the twentieth frozen conformance cut, selecting the facet-contracts slice: 15 rows full, 1 part, with 18 declaration units |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
