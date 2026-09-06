@@ -1,11 +1,12 @@
 ---
 id: beliefs-754995
 title: Deliver verification publication
-status: todo
+status: doing
 priority: 1
 size: l
+owner: feat/verification-publication
 created: 2026-09-05T20:00:55Z
-updated: 2026-09-05T20:00:55Z
+updated: 2026-09-06T11:27:34Z
 depends: [beliefs-afbbff]
 tags: [write-path, verification]
 ---

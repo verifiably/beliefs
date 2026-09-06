@@ -53,7 +53,7 @@ ACCOUNTING: dict[int, tuple[str, str, str]] = {
 #: Rows a later source names open at a widened obligation, overriding a full read.
 REOPENED: dict[str, tuple[str, int]] = {}
 
-_RANGE = re.compile(r"([GSWRCXNLDMPHT])([0-9]+[a-z]?)–\1?([0-9]+[a-z]?)")
+_RANGE = re.compile(r"([GSWRCXNLDMPHTEJV])([0-9]+[a-z]?)–\1?([0-9]+[a-z]?)")
 
 
 def _expand(cell: str) -> set[str]:
