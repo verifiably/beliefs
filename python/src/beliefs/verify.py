@@ -358,12 +358,15 @@ def _restore_report(node_id: str, member: object) -> ComparisonReport:
         if not isinstance(cited, Mapping) or set(cited) != {"report_ref", "index", "content"}:
             raise MalformedRecord(f"{node_id}: a report citation names exactly report_ref, index and content")
         citation = EmbeddedCitation(report_ref=cited["report_ref"], index=cited["index"], content=cited["content"])
+    receipts = _string_list(member["receipts"], f"{node_id}: report receipts")
+    if len(receipts) != 2:
+        raise MalformedRecord(f"{node_id}: report receipts must contain exactly two identities")
     return _mint_comparison_report(
         original_conformance=member["original_conformance"],
         replay_conformance=member["replay_conformance"],
-        # _string_list's tuple[str, ...] is runtime-checked to length 2 inside
-        # _mint_comparison_report; the cast carries no coercion (M11).
-        receipts=cast(tuple[str, str], _string_list(member["receipts"], f"{node_id}: report receipts")),
+        # Narrowed by the length check above: a real 2-tuple literal, not a
+        # cast, is what gives `receipts` its `tuple[str, str]` type here.
+        receipts=(receipts[0], receipts[1]),
         rule_bindings=tuple((pair[0], pair[1]) for pair in bindings),
         certification=certification,
         citation=citation,
