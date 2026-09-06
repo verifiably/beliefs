@@ -1,12 +1,12 @@
 ---
 id: beliefs-afbbff
 title: "Deliver the writer session, session ledger, and corpus-write amendment"
-status: doing
+status: done
 priority: 1
 size: xl
 owner: feat/writer-session
 created: 2026-08-31T21:28:39Z
-updated: 2026-09-05T13:00:56Z
+updated: 2026-09-06T04:21:43Z
 depends: [beliefs-96a24a]
 tags: [writer, sessions]
 spec: docs/designs/2026-09-05-writer-session-design.md
@@ -29,3 +29,4 @@ Sub-project 2's beliefs half beyond permits (beliefs-96a24a): open_attended_sess
 - 2026-09-05T11:16:11Z (feat/writer-session): cut 19 frozen 2026-09-05: docs/designs/2026-09-05-conformance-cut-19.md, J1-J11 in full, 11 units, prefix cut18_acceptance.py; J table in the inventory; roadmap/ledger gain writer-session and the session lane
 - 2026-09-05T11:38:57Z (feat/writer-session): plan banked at docs/plans/2026-09-05-writer-session.md; 12 chained children
 - 2026-09-05T13:00:56Z (feat/writer-session): plan revision after review: A-prime approved (routed executor commit, ordinary bodies untouched, settling hold, one-call fulfilling scope); nine other findings fixed
+- 2026-09-06T04:21:43Z (feat/writer-session): writer session delivered: J1-J11 closed at cut 19 (docs/plans/2026-09-05-conformance-cut-19-results.md)

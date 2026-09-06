@@ -184,10 +184,12 @@ carriage and verification and cut 12's successor admission. Every write entry
 point now receives a bound authority, checks its permit before effects, and
 reads its actor from that authority. The agentic surface has an approved [user
 and autonomy layer design](../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md);
-its writer session is designed ([writer-session design](../designs/2026-09-05-writer-session-design.md))
-and frozen as conformance cut 19 but not yet implemented, and its daily surface
-and autonomy sub-projects are not yet implemented; salvage remains undesigned. The [adoption ledger's current-state
-summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-04)
+its writer session is implemented and discharged as conformance cut 19
+([writer-session design](../designs/2026-09-05-writer-session-design.md)) — the
+attended session, its session ledger and claim protocol, the invocation-bound
+scoped writer, and reconciliation — and its daily surface and autonomy
+sub-projects are not yet implemented; salvage remains undesigned. The [adoption ledger's current-state
+summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-05)
 is the complete statement of what is built and what remains.
 
 ## Open edges

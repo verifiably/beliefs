@@ -80,8 +80,8 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-09-03-conformance-cut-16.md` | the discharged relocation cut: W5 in full, G3 and D7 closed, five partial rows, and T8 re-read against both relocation operations |
 | `2026-09-04-conformance-cut-18.md` | the discharged deletion cut: managed `delete` as an ordinary write, the audit and import ride-alongs, 7 rows closed, 5 partial, 4 closed-row re-reads |
 | `2026-09-04-write-permits-design.md` | the discharged write-permits slice: closed act families and kind routes, `Authority` bound once at every construction seam, checks before effects across the static entry-point inventory, and E1–E8 closed at cut 17 |
-| `2026-09-05-writer-session-design.md` | the writer-session slice: the attended session and its fixed actor, the append-then-fsync session ledger and claim protocol, the scoped writer bound to one invocation and exactly its requirement, `corpus-write` as an operation intent fulfilled by its registration, and reconciliation over ledgers and chains (J1–J11, cut 19 to freeze) |
-| `2026-09-05-conformance-cut-19.md` | the frozen writer-session cut: J1–J11 selected in full, 11 declaration units, the cut 18 runner as prefix; not yet discharged |
+| `2026-09-05-writer-session-design.md` | the writer-session slice: the attended session and its fixed actor, the append-then-fsync session ledger and claim protocol, the scoped writer bound to one invocation and exactly its requirement, `corpus-write` as an operation intent fulfilled by its registration, and reconciliation over ledgers and chains (J1–J11, closed at cut 19) |
+| `2026-09-05-conformance-cut-19.md` | the frozen writer-session cut: J1–J11 selected in full, 11 declaration units, the cut 18 runner as prefix; discharged 2026-09-05 |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -89,7 +89,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 18** is implemented and discharged. What
+Every conformance cut through **cut 19** is implemented and discharged. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -106,11 +106,16 @@ with root-local durable operation evidence; write permits bound at every
 write seam, with no caller-supplied actor; and managed deletion — `delete` as
 an ordinary write under the root's lock, the corpus-local semantic audit,
 explicit-import derivation validation, the claim restore seam, and the
-instrumented belief resolver. The latest discharged boundary is
-cut 18 ([results](docs/plans/2026-09-04-conformance-cut-18-results.md)).
-Cut 19, the writer session ([cut](docs/designs/2026-09-05-conformance-cut-19.md),
-[design](docs/designs/2026-09-05-writer-session-design.md)), is frozen and not
-yet implemented or discharged.
+instrumented belief resolver; and the writer session — an attended session
+whose identity fixes the actor, an append-then-fsync session ledger with its
+claim protocol, an invocation-bound scoped writer whose effective permit is
+exactly its requirement, every session-mediated ordinary write as one
+`corpus-write` operation intent fulfilled by its registration, unresolved-root
+settlement before every prepare, and reconciliation over ledgers and chains.
+The latest discharged boundary is cut 19, the writer session
+([cut](docs/designs/2026-09-05-conformance-cut-19.md),
+[design](docs/designs/2026-09-05-writer-session-design.md),
+[results](docs/plans/2026-09-05-conformance-cut-19-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
 test before it is a passing one. There are **172 rows** across **fifteen frozen
@@ -120,7 +125,7 @@ redefinition.
 
 What is built and what remains to build, each remainder with its named owner,
 is stated once, in the
-[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-04).
+[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-05).
 The per-cut results records under [`docs/plans/`](docs/plans/) are the
 evidence trail, and unresolved design questions live in the guide's
 [open questions](docs/guide/open-questions.md).

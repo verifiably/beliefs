@@ -38,7 +38,7 @@ organization rather than a personal account, so governance and long-term
 stewardship are not tied to one individual. §5 records the namespace and
 decomposition rulings that follow from it.
 
-## Current state (2026-09-04)
+## Current state (2026-09-05)
 
 This section is the one place that states what is built and what remains to
 build. Every other live surface — the README and the contributor guide — links
@@ -46,7 +46,7 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Implemented through conformance cut 18.** Every cut from 4 onward has a
+**Implemented through conformance cut 19.** Every cut from 4 onward has a
 discharge results record under `../plans/`; cuts 1–3 are proved by their merge
 ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
@@ -119,6 +119,12 @@ ancestry and the surfaces they built
   path. G2c, G8, C6, R5, W16, M1 and M5 close; C1, T8, M11 and M13 are
   closed-row re-reads; S5, R23, R19, R22 and M3 remain partial exactly as the
   results record states (cut 18).
+- **The writer session** — the attended session and its fixed actor, the
+  append-then-fsync ledger and claim protocol, the invocation-bound scoped
+  writer under exactly its requirement, `corpus-write` as an operation intent
+  fulfilled by its registration, unresolved-root settlement before every
+  prepare, and reconciliation over ledgers and chains. J1–J11 close at cut 19;
+  `science`'s Task 12 is unblocked.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -145,7 +151,6 @@ not listed.
 | `l13-preimage` | **L13 preimage resolver** — preimage-backed classification of a removed verification | the named `atoms` blob-read seam (`2026-08-03-tamper-evident-log-design.md` §5.3) | row 5 reading L13 in full; until then the held-copy match is a path match |
 | `persistence-cut` | X2's persistence-cut arm | the `atoms` A8 certification extended to the publication path, a cross-repo seam `atoms`' own design owns | X2 in full |
 | `verification-publication` | durable publication of verification records — a derived verification written into a corpus through the operation port, with admission evaluated over records read back | its own slice design, not yet written; cut 13 §2 named the exclusion, and cut 18's ruling R2 added the optional `derivation` member the writer will carry | admission over stored verifications rather than in-memory records; scope recomputation for a stored verification (cut 18 §7); a computed belief re-derivable from the corpus alone |
-| `writer-session` | the writer session, the `beliefs` half of the command framework's write boundary beyond permits: `open_attended_session` and the session-fixed actor, the scoped writer whose effective permit is exactly the requirement, the session ledger and claim protocol, the `corpus-write` operation intent under every ordinary session write, unresolved-root settlement, and reconciliation; J1–J11 | the user and autonomy layer design §8 item 2; `2026-09-05-writer-session-design.md`, frozen as cut 19 (`2026-09-05-conformance-cut-19.md`) | `science`'s write dispatch and local writer service; every write the dogfood makes; no shipped command writes until it lands |
 | `nodes-remainder` | the reserved-path contract, recoverable construction, digest-id hazards | `nodes` `2026-08-03-nodes-under-the-system-redesign-design.md` (row 3) | audits over damaged corpora; manifest safety |
 | `authority-labels` | W9, W14 | artifact 11, the pinned authority snapshot — owed, undesigned | every rendered label; the ambiguous-search refusal |
 | `weighted-belief` | S6 arm (h) | the first successor belief policy admitting unequal weights, blocked on ρO3 | weighted belief |
@@ -154,8 +159,10 @@ not listed.
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-04-conformance-cut-18-results.md`) closes G2c, G8, C6, R5,
-W16, M1 and M5, re-reads C1, T8, M11 and M13, and leaves S5, R23, R19, R22 and
+(`../plans/2026-09-05-conformance-cut-19-results.md`) closes J1–J11 and leaves
+every other open row as cut 18 left it: cut 18
+(`../plans/2026-09-04-conformance-cut-18-results.md`) closed G2c, G8, C6, R5,
+W16, M1 and M5, re-read C1, T8, M11 and M13, and left S5, R23, R19, R22 and
 M3 partial on their named remainders.
 `test_the_ledger_summary_names_the_newest_remaining_boundary` holds this
 section to whichever record is newest;

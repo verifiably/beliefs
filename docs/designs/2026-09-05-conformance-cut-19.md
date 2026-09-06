@@ -1,6 +1,7 @@
 # Conformance cut 19 — the writer session
 
-**Status:** Frozen 2026-09-05, before implementation. Not yet discharged.
+**Status:** Frozen 2026-09-05, before implementation. Discharged 2026-09-05
+(`../plans/2026-09-05-conformance-cut-19-results.md`).
 
 **Sources:** `2026-09-05-writer-session-design.md` §2–§8, in particular §3
 (the session and its ledger), §4 (the `corpus-write` operation and the
