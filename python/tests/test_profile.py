@@ -719,6 +719,7 @@ class TestTheOrdinaryRouteToAnUnparsedArtifact:
                 sorts={},
                 dimensions={},
                 operators={},
+                facets={},
                 content_identity="0" * 64,
                 base_identity="0" * 64,
             )

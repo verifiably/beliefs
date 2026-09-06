@@ -177,6 +177,7 @@ export class DomainContract {
   readonly sorts: DeclarationTable<SortDecl>;
   readonly dimensions: DeclarationTable<DimensionDecl>;
   readonly operators: DeclarationTable<OperatorDecl>;
+  readonly facets: DeclarationTable<FacetDecl>;
 
   /**
    * The base contract this domain was **typed against**.
@@ -206,6 +207,7 @@ export class DomainContract {
       sorts: DeclarationTable<SortDecl>;
       dimensions: DeclarationTable<DimensionDecl>;
       operators: DeclarationTable<OperatorDecl>;
+      facets: DeclarationTable<FacetDecl>;
       base: BaseContract;
     },
   ) {
@@ -223,6 +225,7 @@ export class DomainContract {
     this.sorts = parts.sorts;
     this.dimensions = parts.dimensions;
     this.operators = parts.operators;
+    this.facets = parts.facets;
     this.base = parts.base;
     Object.freeze(this);
   }
@@ -464,7 +467,11 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     );
   }
   const document = mapping(parseYaml(text), source);
-  exactFields(document, ["contract", "version", "lineage"], ["sorts", "dimensions", "operators"], source);
+  for (const section of ["kinds", "relations"]) {
+    if (section in document)
+      throw new MalformedContract(`${source}: a domain contract declares no ${section}; refused`);
+  }
+  exactFields(document, ["contract", "version", "lineage"], ["sorts", "dimensions", "operators", "facets"], source);
 
   if (document.lineage !== "genesis") {
     throw new UncheckableContract(
@@ -472,6 +479,7 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     );
   }
   const namespace = tag(document.contract, `${source}.contract`);
+  const facets = parseFacetDeclarations("facets" in document ? document.facets : {}, `${source}.facets`, namespace);
 
   const sortEntries: [string, SortDecl][] = [];
   for (const [name, body] of Object.entries(declarations(document.sorts, `${source}.sorts`))) {
@@ -557,6 +565,7 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     sorts,
     dimensions,
     operators: frozenTable(operatorEntries),
+    facets,
     base,
   });
 }

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { parseBaseContract } from "../src/contract.js";
+import { parseBaseContract, parseDomainContract } from "../src/contract.js";
 
 const REPO_ROOT = new URL("../../", import.meta.url);
 const SHIPPED = readFileSync(new URL("contracts/science/CONTRACT.yaml", REPO_ROOT), "utf-8");
@@ -61,5 +61,19 @@ describe("the base contract's declarations (design §3.1–§3.4)", () => {
   it("declares the three prose kinds with display only", () => {
     expect(base.kinds.discussion.role).toBe("prose");
     expect(Object.keys(base.kinds.discussion.facets)).toEqual(["display"]);
+  });
+});
+
+describe("a domain contract's facets (design §3.3)", () => {
+  const TESTING = readFileSync(new URL("fixtures/contracts/testing.yaml", REPO_ROOT), "utf-8");
+  const base = parseBaseContract(SHIPPED, "contracts/science/CONTRACT.yaml");
+  it("namespaces facet keys and carries attaches_to", () => {
+    const domain = parseDomainContract(TESTING, "fixtures/contracts/testing.yaml", base);
+    expect(Object.keys(domain.facets).sort()).toEqual(["testing/annotation", "testing/axis"]);
+    expect(domain.facets["testing/axis"].attachesTo).toEqual(["dataset"]);
+  });
+  it("refuses kinds and relations in a domain contract", () => {
+    expect(() => parseDomainContract(`${TESTING}\nkinds: {}\n`, "<bad>", base)).toThrow(/declares no kinds/);
+    expect(() => parseDomainContract(`${TESTING}\nrelations: {}\n`, "<bad>", base)).toThrow(/declares no relations/);
   });
 });

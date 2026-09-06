@@ -31,6 +31,7 @@ from types import MappingProxyType
 from typing import final
 
 from beliefs.contract.base import BaseContract
+from beliefs.contract.facets import FacetDecl, parse_facet_declarations
 from beliefs.errors import MalformedContract, SuccessionViolation, UnparsedContract
 from beliefs.identifiers import not_a_canonical_identifier
 from beliefs.identity import v1
@@ -213,6 +214,7 @@ class DomainContract:
     sorts: Mapping[str, SortDecl]
     dimensions: Mapping[str, DimensionDecl]
     operators: Mapping[str, OperatorDecl]
+    facets: Mapping[str, FacetDecl]
     content_identity: str
 
     base_identity: str
@@ -251,6 +253,7 @@ class DomainContract:
         sorts: dict[str, SortDecl],
         dimensions: dict[str, DimensionDecl],
         operators: dict[str, OperatorDecl],
+        facets: dict[str, FacetDecl],
         content_identity: str,
         base_identity: str,
     ) -> DomainContract:
@@ -268,6 +271,7 @@ class DomainContract:
             ("sorts", MappingProxyType(dict(sorts))),
             ("dimensions", MappingProxyType(dict(dimensions))),
             ("operators", MappingProxyType(dict(operators))),
+            ("facets", MappingProxyType(dict(facets))),
             ("content_identity", content_identity),
             ("base_identity", base_identity),
         ):
@@ -452,7 +456,13 @@ def parse_domain_contract(
             "certifies nothing, since the thing it compares against was written to pass."
         )
     root = _mapping(document, source)
-    _fields(root, _CONTRACT_FIELDS, frozenset({"description"}), source)
+    for section in ("kinds", "relations"):
+        if section in root:
+            raise MalformedContract(
+                f"{source}: a domain contract declares no {section}; a kernel kind or relation signature is the "
+                "base contract's, and a domain contributes facets to kinds that already exist (D §3.3, D8) — refused"
+            )
+    _fields(root, _CONTRACT_FIELDS, frozenset({"description", "facets"}), source)
 
     namespace = _name(root["contract"], f"{source}: contract")
     if namespace == "coordination":
@@ -514,6 +524,8 @@ def parse_domain_contract(
                 )
         operators[name] = operator
 
+    facets = parse_facet_declarations(root.get("facets", {}), where=f"{source}: facets", namespace=namespace)
+
     contract = DomainContract._parsed(
         _MINT,
         namespace=namespace,
@@ -522,6 +534,7 @@ def parse_domain_contract(
         sorts=sorts,
         dimensions=dimensions,
         operators=operators,
+        facets=facets,
         content_identity=v1.digest(DOMAIN_CONTRACT_DOMAIN, root),
         base_identity=base.content_identity,
     )

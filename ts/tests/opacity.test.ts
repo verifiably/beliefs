@@ -298,6 +298,7 @@ describe("a contract that nobody authored cannot be compiled", () => {
           sorts: {},
           dimensions: {},
           operators: {},
+          facets: {},
           base,
         }),
     ).toThrow(UnparsedContract);
@@ -317,6 +318,7 @@ describe("a contract that nobody authored cannot be compiled", () => {
           sorts: {},
           dimensions: {},
           operators: {},
+          facets: {},
           base,
         }),
     ).toThrow(SubclassRefused);
