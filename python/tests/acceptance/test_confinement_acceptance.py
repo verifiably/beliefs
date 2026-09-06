@@ -146,7 +146,7 @@ def belief_over(minted: RunMinted, verification) -> Belief | NoBelief:
     records = Records(
         claims={},
         assessments=(assessment,),
-        runs={run_value.ref: run_value},
+        runs={assessment.run: run_value},
         source_assertions=(),
         verifications=(verification,) if verification is not None else (),
     )

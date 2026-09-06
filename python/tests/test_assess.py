@@ -35,7 +35,6 @@ from beliefs.dataset import ByteObservation, dataset_address
 from beliefs.errors import SignatureRefused
 from beliefs.recipe import EnvironmentManifest, RecipeInput, project_recipe
 from beliefs.record import AssessmentValue, RunValue
-from beliefs.runrecord import run_ref
 from beliefs.spec import (
     ExclusionCertification,
     RuleFixture,
@@ -44,13 +43,14 @@ from beliefs.spec import (
     freeze,
     revise,
 )
+from beliefs.stored import local_id
 from beliefs.verification import Verification
 
 
 def assessment_over(run: RunValue) -> AssessmentValue:
     return AssessmentValue(
         spec=run.spec,
-        run=run.ref,
+        run=local_id("run", run.ref),
         proposition="prop-1",
         outcome="supported",
         interpretation_rule="rule-1",
@@ -421,7 +421,7 @@ def test_r7_zero_observes_inputs_admit_nothing_at_any_quantity_of_reads():
     bridged = run_record(run)
     verdict = admit(
         assessment_over(bridged),
-        dataclasses.replace(bridged, ref=run_ref(bridged.ref)),
+        bridged,
         observations_for(bridged),
         admitting_for(bridged),
     )

@@ -226,7 +226,10 @@ def self_consistent_forgery(writer, node: Node, *, mutate) -> Node:
         "scope_rule": facet["scope_rule"],
         "scope": facet["scope"],
         "verdict": facet["verdict"],
-        "supersedes": None if "supersedes" not in facet else stored.local_id("verification", facet["supersedes"]),
+        # facet's value type is Unknown here (raw dict payload); local_id's own
+        # runtime check is what actually refuses a non-string, so this is a
+        # type-checker note, not a coercion.
+        "supersedes": None if "supersedes" not in facet else stored.local_id("verification", facet["supersedes"]),  # type: ignore[arg-type]
     }
     if "assessment" in facet:
         members["assessment"] = facet["assessment"]
