@@ -389,7 +389,8 @@ facet key refusable, with `nodes` learning nothing about what any key means
 carry `bio-axes`. **The registry is private** (amended 2026-09-05, plan
 review): a registry handed out exposes `register` and mutable `KindSpec`s, so
 a caller could change validation behaviour without moving a pin or the
-compiled identity. The profile exposes `validate_document(node)` and
+compiled identity. A writer refuses a port whose profile differs in base
+identity, activated pins or compiled identity — any one of the three. The profile exposes `validate_document(node)` and
 `document_violations(node)` and nothing else; every compiled mapping, the
 nested ones included, is read-only. For each schema-shaped
 facet the profile compiles a validator over §3.4; reader-shaped facets
@@ -451,7 +452,10 @@ change — raw, or adoption elsewhere — is caught at the next write.
 > the same profile (the writer refuses a port holding another) and
 > `append_intent`, `execute`, `execute_fulfilling` and the guarded form each
 > recheck under their own lock, so assessment publication and every refusal
-> report are covered, not only guarded production publication.
+> report are covered, not only guarded production publication. Holdings acts
+> reach the chain through the store seam, which holds neither: the act context
+> holds the profile, the seam carries the corpus lock, and the boundary rechecks
+> under it before its intent and again before its publication.
 
 ### 5.2 `_refuse_facets`
 
@@ -486,7 +490,9 @@ the move) and preserves the attestation.
 > at its first write or a dangling `produces` edge; both views scan stored
 > relations over the **resulting** index — existing records, arriving members,
 > deprecated-id aliases, targets that resolve to the dataset — and the check's
-> own view reads neighbours unvalidated (§5.5).
+> own view reads neighbours unvalidated (§5.5). The candidate is itself part of
+> the resulting state: a facet-bearing dataset whose own `produces` names
+> itself, by id or alias, is refused before the view is consulted.
 
 ### 5.3 Attestation and the dataset revision arm
 

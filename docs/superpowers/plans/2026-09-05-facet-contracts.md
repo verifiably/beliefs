@@ -1323,6 +1323,7 @@ git commit -m "feat(contract): the practice loader refuses vocabulary and schema
 """§3.4's grammar at validation time, and §4.1's compiled products — immutable, one registry, private."""
 
 import copy
+from dataclasses import FrozenInstanceError
 
 import pytest
 from nodes.core.errors import FacetError, UnknownKindError
@@ -1370,8 +1371,9 @@ class TestCompiledProducts:
             profile.facets["empirical-observation"].fields.pop("locator")  # type: ignore[attr-defined]
         with pytest.raises(AttributeError):
             profile.kinds["dataset"].facets["dataset"].required = False  # type: ignore[misc]
-        assert not hasattr(profile, "registry")
-        assert not hasattr(profile, "_registry") or not callable(getattr(profile._registry, "register", None))
+        assert "registry" not in dir(profile)  # no public registry, no public route to `register`
+        with pytest.raises(FrozenInstanceError):
+            profile._registry = Registry()  # type: ignore[misc]  # the private slot is frozen with the rest
 
     def test_facets_of_a_kind_include_attached_domain_facets(self, profile):
         assert set(profile.facets_of("dataset")) == {
@@ -1976,6 +1978,9 @@ def test_a_writer_requires_a_compiled_profile_and_a_port_agreeing_with_it(tmp_pa
     port = OperationRecorder(tmp_path, authority=FULL, profile=WITH_BIOLOGY)
     with pytest.raises(ValueError, match="profile"):
         CorpusWriter(tmp_path, DefaultExecutor, authority=FULL, profile=BASE, operation_port=port)
+    assert WITH_BIOLOGY.compiled_identity == WITH_BIOLOGY_OTHER.compiled_identity  # description-only variants
+    with pytest.raises(ValueError, match="profile"):
+        CorpusWriter(tmp_path, DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY_OTHER, operation_port=port)
 
 
 def test_adopt_manifest_writes_only_the_held_profiles_pins(tmp_path):
@@ -2143,7 +2148,7 @@ def require_pins_agree(root: Path, profile: ProfileSpec) -> None:
         )
 ```
 
-2. `CorpusWriter.__init__` gains `profile: ProfileSpec` (keyword-only, required, after `authority`): refuse a non-`ProfileSpec` (`TypeError`), a base identity other than `shipped_base().base_contract_identity` (`ContractMismatch`), an `operation_port` whose `profile.compiled_identity != profile.compiled_identity` (`ValueError("the operation port holds another profile than this writer")`), and a mounted coordination profile for this root whose `activated_contracts` differ (`ContractMismatch`). `self._profile = profile`; `@property def profile`. `_require_pins_agree(self)` calls `require_pins_agree(self._corpus.store.root, self._profile)`.
+2. `CorpusWriter.__init__` gains `profile: ProfileSpec` (keyword-only, required, after `authority`): refuse a non-`ProfileSpec` (`TypeError`), a base identity other than `shipped_base().base_contract_identity` (`ContractMismatch`), an `operation_port` whose profile differs in **any** of `base_contract_identity`, `dict(activated_contracts)` or `compiled_identity` (`ValueError("the operation port holds another profile than this writer")`) — the two biology fixtures share a compiled identity and differ only in their activated pins, which is exactly the disagreement a compiled-identity comparison would miss, and a mounted coordination profile for this root whose `activated_contracts` differ (`ContractMismatch`). `self._profile = profile`; `@property def profile`. `_require_pins_agree(self)` calls `require_pins_agree(self._corpus.store.root, self._profile)`.
 
 3. Place `self._require_pins_agree()` as the **first statement after the lock is taken** in every lock-held method or helper that reaches an effect: `add`, `delete`, `revise`, `supersede`, `retract`, `import_bundle`, the coordination write methods, `_add_locked`, `_replace_locked`, `_delete_locked`, `_publish_operation_report`, `_append_operation_intent`; in `relocation.py`, at the top of `move` and `consolidate` bodies once both locks are held (both writers). `adopt_manifest` instead compares the requested pins with `pins_for`-shaped expected pins of the held profile and refuses `ContractMismatch("adopt_manifest writes only the held profile's pins")`. The static inventory test holds the set closed.
 
@@ -2193,6 +2198,47 @@ def require_pins_agree(root: Path, profile: ProfileSpec) -> None:
 ```
 
 Thread `provenance` through `_refuse(node, *, document_validated=False, view=None, provenance=False)` → `self._refuse_facets(node, view=view, provenance=provenance)` placed after `_refuse_invalid` and before `_refuse_governed_stamp`; `_preflight_add_locked(node, *, provenance=False)` and `_add_locked(node, *, provenance=False)` pass it to `_refuse`; `_preflight_replace_locked(node, *, provenance=False)` and `_replace_locked(node, *, provenance=False)` likewise. `import_bundle` calls `self._refuse(record, document_validated=True, view=import_view, provenance=True)`; `relocation.py` passes `provenance=True` at its four call sites (`_preflight_add_locked`, `_add_locked`, `_preflight_replace_locked`, `_replace_locked`).
+
+- [ ] **Step 4b: The holdings act path**
+
+Holdings acts reach the corpus chain through `StoreActSeam.append_intent` and `publish_fulfilling`, whose root implementations (`_store_append_intent`, `_store_publish_fulfilling`) hold neither a profile nor the operation lock. Three changes:
+
+- `holdings/seam.py`: `StoreActSeam` gains `corpus_lock: Callable[[Path], ContextManager[None]]`; `root.py`'s `_HOLDINGS_SEAM` supplies `_world_lock`-style `_operation_lock_for` (the same object the writer and the port take, so a holdings act and a corpus write contend for one lock); the tests' seam fixture supplies a no-op context manager.
+- `holdings/boundary.py`: `ActContext` gains `profile: ProfileSpec` (required; `__post_init__` refuses a non-`ProfileSpec`). `_append` becomes
+
+```python
+def _append(ctx: ActContext, location: StoreLocator, kind: str) -> tuple[str, str]:
+    ctx.authority.require("holdings", ("holdings-observation",))
+    token = secrets.token_hex(16)
+    with ctx.seam.corpus_lock(ctx.observer_root):
+        require_pins_agree(ctx.observer_root, ctx.profile)
+        intent = ctx.seam.append_intent(
+            ctx.observer_root, intent_payload(location=location, act_kind=kind, event_token=token, actor=ctx.actor)
+        )
+    return token, intent
+```
+
+  and `_publish` wraps its `publish_fulfilling` call the same way (`with ctx.seam.corpus_lock(ctx.observer_root): require_pins_agree(...); ctx.seam.publish_fulfilling(...)`); `recheck`'s inline `append_intent` call moves into `_append`. `require_pins_agree` is imported from `beliefs.corpus` inside the functions (the boundary already imports from `root` lazily for the same cycle reason).
+- The static inventory (`test_pin_recheck_inventory.py`) adds `holdings/boundary.py` to its modules and `append_intent`, `publish_fulfilling` to `EFFECTS`.
+
+Every `ActContext(...)` construction (`grep -rn "ActContext(" python/tests python/tools`) gains `profile=` (tests: `BASE` or the corpus's profile; the reproduction driver: `profile()`). Add to `test_profile_agreement.py`:
+
+```python
+def test_a_holdings_act_rechecks_before_its_intent_and_before_its_publication(tmp_path, holdings_context):
+    """`holdings_context(root, profile)` is the fixture the holdings tests build their ActContext with; find it
+    by `grep -n "ActContext(" python/tests/test_holdings_capture.py` and give it a `profile` parameter."""
+    from beliefs.holdings.boundary import write
+    from beliefs.holdings.records import StoreLocator
+
+    writer, _ = _writer(tmp_path / "corpus", WITH_BIOLOGY)
+    ctx = holdings_context(tmp_path, WITH_BIOLOGY)
+    _rewrite_biology_pin(tmp_path / "corpus")
+    with pytest.raises(ContractMismatch):
+        write(ctx, StoreLocator(ctx_store_id(ctx), "f.txt"), b"bytes")
+    assert not any((tmp_path / "corpus").rglob("holdings-observation/*"))
+```
+
+(`ctx_store_id` reads the store genesis through `ctx.seam.store_genesis` as `_bind` does; write it as a two-line helper beside the test.) The refusal before the intent leaves the chain untouched; a manifest rewritten *between* intent and publication is the after-intent arm and is exercised durably in Task 15 by patching the seam's `publish_fulfilling` to rewrite the manifest first.
 
 - [ ] **Step 5: Migrate the fixtures the new refusals reach, in this commit**
 
@@ -2295,6 +2341,15 @@ def test_the_bearer_invariant_reads_the_edge_whatever_its_carrier(tmp_path):
     source = stored.source_node("s", title="s", identifiers={"doi": "10.1/x"})
     source.relations.append(Relation(source=source.id, predicate="produces", target=node.id))
     assert bearer_refusal(view, source) == f"{source.id}: produces {node.id}, which carries the empirical-observation facet"
+
+
+def test_a_new_dataset_producing_itself_is_refused_by_id_and_by_alias(tmp_path):
+    view = seed(tmp_path)  # an empty corpus: nothing resolves, so only the candidate can answer
+    for target in ("dataset:d", "dataset:old"):
+        node = acquired()
+        node.deprecated_ids = ["dataset:old"]
+        node.relations.append(Relation(source=node.id, predicate="produces", target=target))
+        assert bearer_refusal(view, node) == "dataset:d: carries the empirical-observation facet and produces itself"
 ```
 
 - [ ] **Step 2: Write the failing seam tests**
@@ -2487,14 +2542,21 @@ def validity_refusal(view: ProducerView, node: Node, profile: ProfileSpec) -> st
 
 def bearer_refusal(view: ProducerView, node: Node) -> str | None:
     """The resulting-state invariant for one proposed write, either half, keyed
-    on the `produces` edge whatever its carrier's kind."""
+    on the `produces` edge whatever its carrier's kind. The **candidate is part
+    of the resulting state**: a facet-bearing dataset whose own `produces`
+    names itself (by id, alias, or a target that resolves to it) is refused
+    before the view is consulted at all."""
+    own_names = {node.id, *node.deprecated_ids}
+    bears = node.kind == "dataset" and stored.EMPIRICAL_OBSERVATION_FACET in node.facets
     for relation in node.relations:
         if relation.predicate != stored.PRODUCES:
             continue
+        if bears and (relation.target in own_names or view.resolve(relation.target) == node.id):
+            return f"{node.id}: carries the empirical-observation facet and produces itself"
         target = view.resolve(relation.target)
         if target is not None and stored.EMPIRICAL_OBSERVATION_FACET in view.get(target).facets:
             return f"{node.id}: produces {target}, which carries the empirical-observation facet"
-    if node.kind == "dataset" and stored.EMPIRICAL_OBSERVATION_FACET in node.facets:
+    if bears:
         if stored.lineage_basis(node) is not None:
             return f"{node.id}: carries the empirical-observation facet and a lineage basis"
         producers = view.producers(node.id, aliases=tuple(node.deprecated_ids))
@@ -2654,8 +2716,9 @@ def test_dataset_only_authority_may_revise_a_dataset_and_the_writer_restamps(tmp
     stored_node = narrow.revise(candidate)
     assert stored_node.facets["empirical-observation"]["locator"] == "url:y"
     assert not stored.semantic_hash_disagrees(narrow.read_view.get(node.id))
+    proposition = w.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
     with pytest.raises(PermitExceeded):
-        narrow.revise(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
+        narrow.revise(proposition.model_copy(update={"title": "renamed"}))
 
 
 def test_alice_revises_her_own_locator_keeping_herself(minted):
@@ -2706,7 +2769,7 @@ def test_every_preserved_field_is_refused_when_moved(minted, field, refusal):
     elif field == "deprecated_ids":
         candidate.deprecated_ids = ["dataset:old"]
     elif field == "metadata":
-        candidate.metadata = {**candidate.metadata, "version": "2"}
+        candidate.metadata = candidate.metadata.model_copy(update={"version": candidate.metadata.version + 1})
     elif field == "dataset":
         candidate.facets["dataset"] = {"resources": [{"name": "n", "digest": "sha256:" + "2" * 64}]}
     else:
@@ -2723,6 +2786,14 @@ def test_adding_the_facet_to_an_unmarked_dataset_mints_the_declaration(tmp_path)
         w.revise(revised(plain, **{"empirical-observation": {"locator": "url:x", "attested_by": "bob"}}))
     w.revise(revised(plain, **{"empirical-observation": {"locator": "url:x", "attested_by": "alice"}}))
     assert stored.dataset_declaration(w.read_view.get(plain.id)) == stored.dataset_declaration(plain)
+
+
+def test_a_malformed_payload_in_a_revision_is_refused_as_a_payload_fault(minted):
+    from beliefs.errors import FacetPayloadRefused
+
+    w, node = minted
+    with pytest.raises(FacetPayloadRefused, match="null"):
+        w.revise(revised(node, **{"empirical-observation": {"locator": None, "attested_by": "alice"}}))
 
 
 def test_display_and_prose_may_change(minted):
@@ -2788,6 +2859,10 @@ and:
                 f"{node.id}: removing {stored.EMPIRICAL_OBSERVATION_FACET!r} withdraws standing; that is a "
                 "record-level act the correction lifecycle has not designed (facet-contracts §2 item 3)"
             )
+        for key, payload in node.facets.items():  # F1 before F3: a malformed payload is refused as such,
+            facet = self._profile.facets.get(key)  # never as an attestation fault or an unencodable stamp
+            if facet is not None:
+                validate_payload(facet, payload, where=node.id)
         if after is not None:
             strip = lambda payload: {k: v for k, v in payload.items() if k != "attested_by"}  # noqa: E731
             declaration_changed = before is None or strip(before) != strip(after)
@@ -3148,7 +3223,7 @@ class _CheckView:
 
 1. Keep the existing `manifest-malformed` block. Then `scope, detail, disagreeing = profile_mismatch(root, profile)`; when `scope != "none"` append `Finding(severity="error", code="profile-mismatch", ref="corpus.yaml", detail=scope, message=detail)`.
 2. When `scope in ("base", "malformed")`: return the findings so far.
-3. Otherwise run the existing loop with a `_CheckView` (`check = _CheckView(view)`) and two flags: `judge_namespaced = scope == "none"`, `judge_coordination = "coordination" not in disagreeing`. Per node, after the stamp checks, skip every further judgment when `node.kind in profile.coordination_kinds and not judge_coordination`; then:
+3. Otherwise run the existing loop with a `_CheckView` (`check = _CheckView(view)`) and two flags: `judge_namespaced = scope == "none"`, `withhold_coordination = "coordination" in disagreeing`. A coordination record is recognised **by its facet** — `stored.COORDINATION_FACET in node.facets` — never through the supplied profile's `coordination_kinds`, which is empty exactly when the profile lacks the contract the manifest pins. When `withhold_coordination`, the loop `continue`s on such a node **as its first statement**, before today's `coordination_facet_malformed` check and before the stamp checks (a coordination kind under a missing contract cannot even be told governed from prose), and the post-loop supersession-graph checks over `coordination_revisions` are skipped entirely. Then, per remaining node, after the stamp checks:
 
 ```python
         for violation in profile.document_violations(node):
@@ -3558,7 +3633,7 @@ Write `test_facet_acceptance.py` with one test per cut-§3 unit, each re-running
 
 - [ ] **Step 2: The arms**
 
-`n2_arms_cut20.py` (both copies identical, as cut 18 keeps them): one `Arm` per sabotage in design §10, each with `module`, an exact `before`/`after` from the final source, and `checks` naming the acceptance test. The nine sabotages: the validator accepting unknown keys (`facets.py`: delete the `unknown` refusal); the producer read dropped (`acquisition.py`: `producers = ()`); the attestation comparison skipped (`corpus.py`: `if not provenance and payload.get("attested_by") != self._authority.actor` → `if False`); the pin recheck skipped under the lock (`corpus.py`: `_require_pins_agree` returns immediately); validity replaced by presence (`corpus.py` eligibility loop: `reason = validity_refusal(...)` → `reason = None if stored.EMPIRICAL_OBSERVATION_FACET in view.get(dataset_ref).facets else "absent"`); a builder writing an undeclared key (`stored.py`: `dataset_node` adds `facets["provenance"] = {}`); the digest comparison (`identity/v1.py`'s `digest` hashing the canonical bytes without the domain prefix — bytes unchanged, every digest wrong — with the check `test_identity_parity_fixture.py::test_bytes_and_digest_agree`, which fails only through its digest assertion); the domain parser accepting `kinds:` (`domain.py`: delete the explicit refusal loop, so the generic closed-field refusal answers instead — the check `test_domain_contract.py::TestDomainFacets::test_a_domain_declaring_kinds_or_relations_is_refused` matches the specific message `a domain contract declares no kinds` and fails on the generic one); a domain facet attaching to an undeclared kind accepted at compile (`profile.py`: delete that `ProfileError`); `WORLD_RELATIONS` widened (`stored.py`: drop the `group == "world"` filter); the duplicate-key loader replaced (`document.py`: `Loader=yaml.SafeLoader`); coverage in authored order (`profile.py`: `tuple(k for ...)` without `sorted`). `DECLARATION_UNITS` is the 18-tuple of cut §4.
+`n2_arms_cut20.py` (both copies identical, as cut 18 keeps them): one `Arm` per sabotage in design §10, each with `module`, an exact `before`/`after` from the final source, and `checks` naming the acceptance test. The nine sabotages: the validator accepting unknown keys (`facets.py`: delete the `unknown` refusal); the producer read dropped (`acquisition.py`: `producers = ()`); the attestation comparison skipped (`corpus.py`: `if not provenance and payload.get("attested_by") != self._authority.actor` → `if False`); the pin recheck skipped under the lock (`corpus.py`: `_require_pins_agree` returns immediately); validity replaced by presence (`corpus.py` eligibility loop: `reason = validity_refusal(...)` → `reason = None if stored.EMPIRICAL_OBSERVATION_FACET in view.get(dataset_ref).facets else "absent"`); a builder writing an undeclared key (`stored.py`: `dataset_node` adds `facets["provenance"] = {}`); the digest comparison (`identity/v1.py`'s `digest` hashing the canonical bytes without the domain prefix — bytes unchanged, every digest wrong — with the check `test_identity_parity_fixture.py::test_bytes_and_digest_agree`, which fails only through its digest assertion); the domain parser **accepting** `kinds:` and `relations:` (`domain.py`: Task 3 places the explicit refusal loop immediately above the `_fields(root, _CONTRACT_FIELDS, frozenset({"description", "facets"}), source)` call, so one contiguous sabotage deletes the loop *and* widens the optional set to `frozenset({"description", "facets", "kinds", "relations"})` — the mutant then parses a domain contract carrying `kinds:` and ignores it, and the check `test_domain_contract.py::TestDomainFacets::test_a_domain_declaring_kinds_or_relations_is_refused` fails because nothing refuses); a domain facet attaching to an undeclared kind accepted at compile (`profile.py`: delete that `ProfileError`); `WORLD_RELATIONS` widened (`stored.py`: drop the `group == "world"` filter); the duplicate-key loader replaced (`document.py`: `Loader=yaml.SafeLoader`); coverage in authored order (`profile.py`: `tuple(k for ...)` without `sorted`). `DECLARATION_UNITS` is the 18-tuple of cut §4.
 
 - [ ] **Step 3: The runner and the freeze pin**
 
