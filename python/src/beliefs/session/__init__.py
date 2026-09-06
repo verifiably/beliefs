@@ -5,9 +5,10 @@ from __future__ import annotations
 
 import os
 import secrets
+from contextlib import ExitStack
 from pathlib import Path
 
-from beliefs.corpus import CoordinationResolver, CorpusWriter, Finding
+from beliefs.corpus import CoordinationResolver, CorpusWriter, Finding, _operation_lock_for
 from beliefs.errors import ManifestMalformed, ManifestMissing, SessionRefused
 from beliefs.permit import Authority
 from beliefs.profile import ProfileSpec
@@ -19,7 +20,9 @@ from beliefs.session.ledger import (
     LedgerWriter,
     ledger_path,
     open_ledger_reader,
+    read_ledger_evidence,
 )
+from beliefs.session.reconcile import reconcile
 from beliefs.session.writer import (
     Claim,
     ClaimDone,
@@ -31,7 +34,7 @@ from beliefs.session.writer import (
     WriterSession,
 )
 from beliefs.world import WorldConfig, load_manifest
-from beliefs.world.logmodel import WellFormedView
+from beliefs.world.logmodel import ChainView, WellFormedView
 
 __all__ = [
     "ActLine",
@@ -47,6 +50,7 @@ __all__ = [
     "WriterSession",
     "open_attended_session",
     "open_ledger_reader",
+    "reconcile",
     "reconcile_sessions",
 ]
 
@@ -117,5 +121,30 @@ def open_attended_session(
 def reconcile_sessions(
     world_config: WorldConfig, operations_root: Path, *, exclude: str | None = None
 ) -> tuple[Finding, ...]:
-    """Task 8 supplies the body; until then, no prior session is read."""
-    return ()
+    """The audit surface (design §6): one lock-coherent snapshot per root, read
+    through detached inspection; writes nothing and recovers nothing."""
+    sessions = Path(operations_root) / "sessions"
+    ids = sorted(p.name for p in sessions.iterdir() if p.is_dir() and p.name != exclude) if sessions.is_dir() else []
+    chains: dict[str, ChainView] = {}
+    extra: list[Finding] = []
+    roots = sorted(world_config.corpus_roots)
+    with ExitStack() as stack:
+        for root in roots:
+            stack.enter_context(_operation_lock_for(root))
+        for root in roots:
+            try:
+                corpus_id = load_manifest(root).corpus_id
+            except (ManifestMissing, ManifestMalformed) as caught:
+                extra.append(
+                    Finding(
+                        severity="error",
+                        code="session-corpus-unadopted",
+                        ref=str(root),
+                        detail=str(caught),
+                        message="a configured corpus root with no readable manifest is not reconciled",
+                    )
+                )
+                continue
+            chains[corpus_id] = log_seam().inspect_detached(root)
+        ledgers = tuple(read_ledger_evidence(operations_root, sid) for sid in ids)
+    return tuple(sorted((*extra, *reconcile(ledgers, chains)), key=lambda f: (f.code, f.ref, f.detail)))
