@@ -65,7 +65,7 @@
 - Create: `python/tests/verification_fixtures.py`
 
 **Interfaces:**
-- Produces: `frozen_for(target) -> FrozenSpec`; `conforming_closure(frozen, *, token, confined=False, outputs=None) -> RunClosure`; `clean_pair(frozen, *, agreeing=True) -> tuple[RunClosure, RunClosure]`; `evidence_for(frozen) -> DerivationEvidence`; `run_record(closure) -> Node`; `mint_datasets(writer, closure)`; `Published` (dataclass: `frozen, original, replayed, proposition, assessment, derived_value, derived, evidence, node`); `publish_corpus(writer, *, slug="p", claim=None, certification=None, agreeing=True, publish=False) -> Published`; `observations_for(view)`; `evaluation_kwargs(view) -> dict`; `admission_over(writer, proposition_ref, original)`; `self_consistent_forgery(writer, node, *, mutate) -> Node`; `forgeries(writer, published) -> list[tuple[Node, type[Exception]]]`. `publish=True`, `self_consistent_forgery` and `forgeries` import Task 2's, 3's and 5's names lazily, so the module loads from Task 0 on.
+- Produces: `frozen_for(target) -> FrozenSpec`; `conforming_closure(frozen, *, token, confined=False, outputs=None) -> RunClosure`; `clean_pair(frozen, *, agreeing=True, qualifying=True) -> tuple[RunClosure, RunClosure]`; `evidence_for(frozen) -> DerivationEvidence`; `run_record(closure) -> Node`; `mint_datasets(writer, closure)`; `Published` (dataclass: `frozen, original, replayed, proposition, assessment, derived_value, derived, evidence, node`); `publish_corpus(writer, *, slug="p", claim=None, certification=None, agreeing=True, qualifying=True, publish=False) -> Published`; `observations_for(view)`; `evaluation_kwargs(view) -> dict`; `admission_over(writer, proposition_ref, original)`; `self_consistent_forgery(writer, node, *, mutate) -> Node`; `forgeries(writer, published) -> list[tuple[Node, type[Exception], str]]`. `publish=True`, `self_consistent_forgery` and `forgeries` import Task 2's, 3's and 5's names lazily, so the module loads from Task 0 on.
 - Consumes: `fixtures_cut3.closure_with/planned/traced/spec_draft/spec_rules`, `confinement_fixtures.confined_receipt/instance`, `test_evaluation.CLAIM_FACET/EX/GENE/PHENO/OTHER_GENE`, `test_belief.PROFILE`, `fixtures_cut4.raw_write`.
 
 - [ ] **Step 1: Write the module**
@@ -144,9 +144,12 @@ def conforming_closure(frozen: FrozenSpec, *, token: str, confined: bool = False
     return RunClosure(recipe=recipe, result=base.result, occurrence=occurrence)
 
 
-def clean_pair(frozen: FrozenSpec, *, agreeing: bool = True) -> tuple[RunClosure, RunClosure]:
+def clean_pair(frozen: FrozenSpec, *, agreeing: bool = True, qualifying: bool = True) -> tuple[RunClosure, RunClosure]:
+    """`qualifying=False` leaves the replay's receipt unconfined: the pair
+    then derives `same-environment`, which is what a forged
+    `clean-environment` over it must be caught against (V4)."""
     original = conforming_closure(frozen, token="tok-original")
-    replayed = conforming_closure(frozen, token="tok-replayed", confined=True, outputs=None if agreeing else DISAGREEING)
+    replayed = conforming_closure(frozen, token="tok-replayed", confined=qualifying, outputs=None if agreeing else DISAGREEING)
     return original, replayed
 
 
@@ -197,14 +200,14 @@ class Published:
 
 def publish_corpus(
     writer, *, slug: str = "p", claim=None, certification: CodeLineageCertification | None = None,
-    agreeing: bool = True, publish: bool = False,
+    agreeing: bool = True, qualifying: bool = True, publish: bool = False,
 ) -> Published:
     """A proposition, the two runs and their datasets, the stored assessment
     over the original, the verification derived from the pair, and — with
     `publish` — its record through `writer.add`."""
     proposition = writer.add(stored.proposition_node(slug, title=slug, claim=claim or {"operator": "affects"}))
     frozen = frozen_for(proposition.id)
-    original, replayed = clean_pair(frozen, agreeing=agreeing)
+    original, replayed = clean_pair(frozen, agreeing=agreeing, qualifying=qualifying)
     mint_datasets(writer, original)
     writer.add(run_record(original))
     writer.add(run_record(replayed))
@@ -253,7 +256,7 @@ def evaluation_kwargs(view) -> dict:
     return {
         "availability": Availability(observations=observations, implementations={BELIEF_V1.identity: BELIEF_V1}, fixtures={BELIEF_V1_RULE: BELIEF_V1_FIXTURES}),
         "context": SuppliedContext(
-            snapshot=lineage_snapshot(view, list(observations)),
+            snapshot=lineage_snapshot(view, [n.id for n in view.iter_stored() if n.kind == "dataset"]),  # corpus refs, not content addresses [R2, second round]
             producer_snapshot_identity="producer-snapshot-1",
             retractions=RetractionEnumeration(found=(), coverage=("c1",)),
             node_corpus={identity: "c1" for identity in identities},
@@ -311,11 +314,12 @@ def self_consistent_forgery(writer, node: Node, *, mutate) -> Node:
     return forged
 
 
-def forgeries(writer, published: Published) -> list[tuple[Node, type[Exception]]]:
+def forgeries(writer, published: Published) -> list[tuple[Node, type[Exception], str]]:
     """V5's five: a stale id, a forged report, a missing edge, a target that
-    resolves nowhere, and a target carrying another identity. The helper
-    records they need are minted through `writer` first, so a caller takes
-    its baseline after this returns. [R8]"""
+    resolves nowhere, and a target carrying another identity — each with the
+    refusal type and the substring its message carries. The helper records
+    they need are minted through `writer` first, so a caller takes its
+    baseline after this returns. [R8]"""
     from beliefs.errors import MalformedRecord, VerificationTargetMismatch
     from beliefs.verify import publication_node
 
@@ -339,11 +343,11 @@ def forgeries(writer, published: Published) -> list[tuple[Node, type[Exception]]
     )
     other_identity = publication_node(derived, assessment_ref=other.id)
     return [
-        (stale_id, MalformedRecord),
-        (bad_report, MalformedRecord),
-        (no_edge, MalformedRecord),
-        (wrong_target, VerificationTargetMismatch),
-        (other_identity, VerificationTargetMismatch),
+        (stale_id, MalformedRecord, "recomputed identity"),
+        (bad_report, MalformedRecord, "recomputed identity"),
+        (no_edge, MalformedRecord, "present together"),
+        (wrong_target, VerificationTargetMismatch, "resolves to no record"),
+        (other_identity, VerificationTargetMismatch, "carries assessment identity"),
     ]
 ```
 
@@ -382,12 +386,12 @@ git commit -m "test: shared verification fixtures — a conforming pair whose re
 ```python
 def test_v2_one_identity_admits_over_the_corpus_and_audits_clean(writer):
     published = publish_corpus(writer, claim=CLAIM_FACET)
-    original, derived, assessment = published.original, published.derived_value, published.assessment
-    verification, evidence = published.derived, published.evidence
+    original, replayed, assessment = published.original, published.replayed, published.assessment
+    derived, verification, evidence = published.derived_value, published.derived, published.evidence
     record = admission_record(verification)
 ```
 
-with `from test_evaluation import CLAIM_FACET` and `from verification_fixtures import publish_corpus` at the top and the now-unused imports (`test_audit`'s helpers, `freeze`, `spec_draft`, `spec_rules`, `build_assessment`, `AssessmentValue`, `build_verification`) removed. The `stored.verification_node(...)` publication and every assertion stay as they are.
+(`replayed` stays bound: the retained publication block spells `run_ref(replayed.address())`.) With `from test_evaluation import CLAIM_FACET` and `from verification_fixtures import publish_corpus` at the top and the now-unused imports (`test_audit`'s helpers, `freeze`, `spec_draft`, `spec_rules`, `build_assessment`, `AssessmentValue`, `build_verification`) removed. The `stored.verification_node(...)` publication and every assertion stay as they are.
 
 Run: `uv run --frozen pytest tests/test_verification_identity.py -p no:cacheprovider`
 Expected: still FAIL at the first assertion, the two identities differing on `run` only (the proposition member now agrees, since `frozen_for` targets the ref).
@@ -1053,20 +1057,25 @@ def test_v4_a_certified_verification_audits_clean_through_its_stored_certificati
     assert not _findings(writer, published.evidence)
 
 
+# (member named in the finding, the mutation, the corpus it is forged over). The
+# scope case is the frozen cell's escalation: `clean-environment` asserted over a
+# replay that does not qualify, so the honest derivation is `same-environment`.
 V4_FORGERIES = [
-    ("scope", lambda f: f.__setitem__("scope", "same-environment")),
-    ("verdict", lambda f: f.__setitem__("verdict", "failed")),
-    ("report", lambda f: f["report"].__setitem__("receipts", ["sha256:" + "0" * 64, f["report"]["receipts"][1]])),
-    ("report", lambda f: f["report"].__setitem__("original_conformance", "non-conforming: forged")),
-    ("rule", lambda f: f.__setitem__("rule", "some-other-rule/v1")),
-    ("scope_rule", lambda f: f.__setitem__("scope_rule", "scope-derivation/v9")),
+    ("scope", lambda f: f.__setitem__("scope", "clean-environment"), {"qualifying": False}),
+    ("verdict", lambda f: f.__setitem__("verdict", "failed"), {}),
+    ("report", lambda f: f["report"].__setitem__("receipts", ["sha256:" + "0" * 64, f["report"]["receipts"][1]]), {}),
+    ("report", lambda f: f["report"].__setitem__("original_conformance", "non-conforming: forged"), {}),
+    ("rule", lambda f: f.__setitem__("rule", "some-other-rule/v1"), {}),
+    ("scope_rule", lambda f: f.__setitem__("scope_rule", "scope-derivation/v9"), {}),
 ]
 V4_IDS = ["scope", "verdict", "report-receipt", "report-conformance", "rule", "scope_rule"]
 
 
-@pytest.mark.parametrize("member, mutate", V4_FORGERIES, ids=V4_IDS)
-def test_v4_a_self_consistent_forgery_contradicts_on_the_altered_member(writer, member, mutate):
-    published = publish_corpus(writer, publish=True)
+@pytest.mark.parametrize("member, mutate, corpus", V4_FORGERIES, ids=V4_IDS)
+def test_v4_a_self_consistent_forgery_contradicts_on_the_altered_member(writer, member, mutate, corpus):
+    published = publish_corpus(writer, publish=True, **corpus)
+    if member == "scope":
+        assert published.derived.scope == "same-environment"  # the honest reading the forgery escalates
     forged = self_consistent_forgery(writer, published.node, mutate=mutate)
     findings = _findings(writer, published.evidence)
     assert [f.ref for f in findings] == [forged.id] and member in findings[0].detail
@@ -1117,7 +1126,7 @@ def test_v2_a_contradicted_assessment_still_contradicts(writer, tmp_path):
 - [ ] **Step 2: Run to verify they fail**
 
 Run: `uv run --frozen pytest tests/test_audit.py -k "v4 or v6 or contradicted_assessment" -p no:cacheprovider`
-Expected: the `scope`, `report-*`, `rule` and `scope_rule` cases FAIL (no contradiction found); the `verdict` case, V6, the certified case and the contradicted-assessment case pass already.
+Expected: the `scope` (an escalation to `clean-environment` over a non-qualifying replay), `report-*`, `rule` and `scope_rule` cases FAIL (no contradiction found); the `verdict` case, V6, the certified case and the contradicted-assessment case pass already.
 
 - [ ] **Step 3: Extract `_derive` in `verify.py`** — before `build_verification`:
 
@@ -1272,8 +1281,8 @@ def test_v5_each_forgery_is_refused_before_the_intent(tmp_path):
     published = publish_corpus(writer)
     cases = forgeries(writer, published)
     port.calls.clear()
-    for node, refusal in cases:
-        with pytest.raises(refusal):
+    for node, refusal, reason in cases:
+        with pytest.raises(refusal, match=reason):
             writer.operations.add(node)
         assert not [c for c in port.calls if c[0] == "append_intent"], node.id
         assert writer.read_view.resolve(node.id) is None
@@ -1290,16 +1299,19 @@ from verification_fixtures import forgeries, publish_corpus, self_consistent_for
 
 
 def _bundle_around(source, published, *extra):
+    """Every dataset, proposition, assessment and the two runs the source holds,
+    plus `extra` — so a target that carries another identity *resolves* in the
+    destination's union view and is refused for the identity, not for absence."""
     view = source.read_view
     runs = [view.get(stored.typed_ref("run", published.derived.original)), view.get(stored.typed_ref("run", published.derived.replayed))]
-    datasets = [n for n in view.iter_stored() if n.kind == "dataset"]
-    return (*datasets, *runs, published.proposition, published.assessment, *extra)
+    others = [n for n in view.iter_stored() if n.kind in {"dataset", "proposition", "assessment"}]
+    return (*others, *runs, *extra)
 
 
-@pytest.mark.parametrize("member, mutate", V4_FORGERIES, ids=V4_IDS)
-def test_v4_every_self_consistent_forgery_refuses_the_bundle_before_any_write(tmp_path, member, mutate):
+@pytest.mark.parametrize("member, mutate, corpus", V4_FORGERIES, ids=V4_IDS)
+def test_v4_every_self_consistent_forgery_refuses_the_bundle_before_any_write(tmp_path, member, mutate, corpus):
     source = _writer(tmp_path / "source")
-    published = publish_corpus(source, publish=True)
+    published = publish_corpus(source, publish=True, **corpus)
     forged = self_consistent_forgery(source, published.node, mutate=mutate)
     target = _writer(tmp_path / "target")
     with pytest.raises(ImportRefused, match=member):
@@ -1310,9 +1322,9 @@ def test_v4_every_self_consistent_forgery_refuses_the_bundle_before_any_write(tm
 def test_v5_every_forgery_refuses_the_bundle_and_the_well_formed_record_imports(tmp_path):
     source = _writer(tmp_path / "source")
     published = publish_corpus(source, publish=True)
-    for index, (node, _refusal) in enumerate(forgeries(source, published)):
+    for index, (node, _refusal, reason) in enumerate(forgeries(source, published)):
         target = _writer(tmp_path / f"target-{index}")
-        with pytest.raises(ImportRefused):
+        with pytest.raises(ImportRefused, match=reason):
             target.import_bundle(_bundle_around(source, published, node), evidence=published.evidence, **IMPORT_FIELDS)
         assert not path_for(target.root, node.id).exists()
     target = _writer(tmp_path / "target-good")
@@ -1509,6 +1521,20 @@ def test_v8_restore_refuses_a_member_of_the_wrong_type_even_under_its_own_identi
     corrupt(mapping)
     identity, text = _identified(mapping)
     with pytest.raises(MalformedRecord):
+        restore(identity, text)
+
+
+def test_v8_restore_refuses_a_projection_the_restored_spec_would_not_reproduce():
+    """[R1, second round] `SeedPlan.projection()` sorts its streams; a text
+    with them unsorted is canonical, digests to its own identity, and would
+    restore to a spec whose projection digests to another."""
+    mapping = frozen_projection(_rich_spec())
+    plan = mapping["nondeterminism"]["plan"]
+    plan["streams"] = ["b-stream", "a-stream"]
+    plan["stream_roots"] = {"a-stream": "r", "b-stream": "r"}
+    plan["roots"] = {"r": 7}
+    identity, text = _identified(mapping)
+    with pytest.raises(MalformedRecord, match="own projection"):
         restore(identity, text)
 
 
@@ -1735,7 +1761,7 @@ def restore(identity: str, projection: bytes) -> FrozenSpec:
     supersedes = mapping.get("supersedes")
     if supersedes is not None and type(supersedes) is not str:
         raise MalformedRecord(f"{where}: supersedes is a string")
-    return _mint_frozen_spec(
+    spec = _mint_frozen_spec(
         **text,
         input_roles=tuple(_restore_input(entry, where) for entry in mapping["input_roles"]),
         parameters=_freeze_parameter_value(mapping["parameters"]),
@@ -1744,6 +1770,12 @@ def restore(identity: str, projection: bytes) -> FrozenSpec:
         supersedes=supersedes,
         identity=identity,
     )
+    if v1.encode(frozen_projection(spec)) != projection:
+        # A member the value canonicalizes (a seed plan sorts its streams) can be
+        # spelled otherwise in canonical text and still digest to `identity`; the
+        # restored spec would then project to other bytes and another digest.
+        raise MalformedRecord(f"{where}: the projection is not the restored spec's own projection")
+    return spec
 ```
 
 Import `CanonicalTextRefused` from `beliefs.errors` and `Mapping` from `collections.abc`. Add `"frozen_projection"` and `"restore"` to `__all__`. Widen `FrozenSpec.__init__`'s message to "FrozenSpec values are minted by freeze, revise or restore". Read `FrozenSpec.__post_init__` (spec.py ~300): if it re-freezes `parameters` itself, pass the decoded mapping as is.
@@ -2139,8 +2171,8 @@ def test_v5_each_forgery_is_refused_with_the_head_unchanged_and_no_intent(work_d
         head_before = chain(root).tip
         intents_before, registrations_before = len(intents(root)), len(registrations(root))
         acts_before = len(session.invocation_acts("A"))
-        for node, refusal in cases:
-            with pytest.raises(refusal):
+        for node, refusal, reason in cases:
+            with pytest.raises(refusal, match=reason):
                 writer.add(node)
             assert chain(root).tip == head_before, node.id
             assert len(session.invocation_acts("A")) == acts_before
@@ -2380,9 +2412,8 @@ git commit -m "feat(reproduction): publish the verification with its report, bui
 ```python
 """Cut 21's eight frozen declaration units and their source sabotages
 (docs/designs/2026-09-06-conformance-cut-21.md §3, §5 item 4), one arm per
-frozen sabotage. `V5a` drops the verification step rather than moving it
-after the intent: the after-intent variant is not one replacement, and the
-results record dates the substitution."""
+frozen sabotage. `V5a` keeps the refusal and appends an intent before it,
+inside `_refuse_verification` — the after-intent ordering as one replacement."""
 
 from __future__ import annotations
 
@@ -2465,8 +2496,11 @@ CUT21_ARMS = (
         Sabotage(_AUDIT, "            spec = stored.analysis_spec_value(node)\n        except RecordError as refused:\n", "            spec = stored.analysis_spec_value(node)\n        except RecordError:\n            continue\n"),
         (f"{_TA}::test_v8_the_audit_names_a_spec_that_does_not_restore_and_stored_specs_reports_it",)),
     # --- corpus.py -----------------------------------------------------------
-    Arm("V5a", "drop the verification step (the after-intent variant is not one replacement)",
-        Sabotage(_CORPUS, '        if node.kind == "verification":\n            self._refuse_verification(node, view=self._view if view is None else view)\n', "        pass\n"),
+    Arm("V5a", "the verification refusal lands after an intent is appended",
+        # The refusal is preserved; an intent is appended through the port first, which is
+        # exactly the ordering the guarantee forbids. `_encode_operation_intent` is corpus.py's own.
+        Sabotage(_CORPUS, "        decoded = decode_verification(node)  # MalformedRecord propagates: refuse, never repair\n",
+                 '        port = self._operation_port\n        assert port is not None\n        port.append_intent(_encode_operation_intent("corpus-write", "sabotage", self.authority.actor))\n        decoded = decode_verification(node)  # MalformedRecord propagates: refuse, never repair\n'),
         (f"{_TO}::test_v5_each_forgery_is_refused_before_the_intent", f"{_ACC}::test_v5_each_forgery_is_refused_with_the_head_unchanged_and_no_intent")),
     Arm("V5b", "return before the target check",
         Sabotage(_CORPUS, "        if identity != decoded.assessment:\n", "        if False:\n"),
@@ -2490,7 +2524,7 @@ CUT21_ARMS = (
 )
 ```
 
-Every `before` must occur exactly once in its module (V5a's two-line `before` contains V5c's line; the harness counts each `before` in its own module and both count once). V8c's `before` starts one line above the `except` because `audit_corpus` carries the same `except RecordError as refused:` line; its `after` skips the finding, so the mapping returns alone. If a parametrized id differs from the collected one, copy the collected id.
+Every `before` must occur exactly once in its module. V8c's `before` starts one line above the `except` because `audit_corpus` carries the same `except RecordError as refused:` line; its `after` skips the finding, so the mapping returns alone. If a parametrized id differs from the collected one, copy the collected id.
 
 - [ ] **Step 2: Write the audit module** — `tests/acceptance/test_n2_cut21.py`, by the cut-19 pattern (copy `test_n2_cut19.py` and adjust): `FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-06-conformance-cut-21.md"`, `CUT21_FREEZE_COMMIT = "41c9920"`, `CUT21_FROZEN_SHA256 = "eaf214761627a22b9a74713bfe88a2bb4adb0cfd73496110929fb4d9f4af1be5"`, `FROZEN_PRIOR_CUT_FILES` = cut 19's table plus `"python/tests/acceptance/n2_arms_cut19.py": "8723fac"`, `PRIOR_ARMS` gaining `CUT19_ARMS`, the inventory test asserting `DECLARATION_UNITS == tuple(f"V{n}" for n in range(1, 9))` and `len(CUT21_ARMS) == 25`, and the freeze test asserting `"**8 declaration units**"`, `"Eight guarantee rows are read, **8 full/closed** (V1–V8), 0 partial, 0"` and `'("cut20_acceptance.py",)'` in the current text, with `_frozen_body` spanning `## 2. The boundary` to the first `\n## 8.` (none yet: the whole tail).
 
@@ -2550,7 +2584,7 @@ git commit -m "docs(verification): bank the implementation; dated notes in the c
 
 Run: `uv run --frozen python tools/cut21_acceptance.py` from `python/` → every phase green through the cut 20, 19, 18 and 17 prefixes, ending `declared arms: 25 (= 8 declaration units; 8 guarantee rows)`.
 
-- [ ] **Step 6: The results record** — `docs/plans/2026-09-06-conformance-cut-21-results.md`, by cut 19's record's sections: header (subject, measured against the frozen cut at `41c9920`, digest `eaf2147…`); §1 accounting (8 units, 25 arms, all sound); §2 what ran (the runner's command, its work root, the host tuple, every phase, the driver's 10b JSON quoted); §3 disposition (V1–V8 close; R19's stored-verification limitation closes and its cross-corpus arm stays with `world-resolution`; the `Remaining boundary` section naming `world-resolution`'s rows); §4 what this run does not claim (design §9's limitations); §5 every substitution from the frozen §3 and §5, dated — at least these two: V3's negatives live in `test_verification_publication.py` rather than `test_evaluation.py` (a circular test import), and V5's "after `append_intent`" sabotage is declared as dropping the step (not one replacement); plus the V1 run-deletion substitution if Task 8 step 4 met it.
+- [ ] **Step 6: The results record** — `docs/plans/2026-09-06-conformance-cut-21-results.md`, by cut 19's record's sections: header (subject, measured against the frozen cut at `41c9920`, digest `eaf2147…`); §1 accounting (8 units, 25 arms, all sound); §2 what ran (the runner's command, its work root, the host tuple, every phase, the driver's 10b JSON quoted); §3 disposition (V1–V8 close; R19's stored-verification limitation closes and its cross-corpus arm stays with `world-resolution`; the `Remaining boundary` section naming `world-resolution`'s rows); §4 what this run does not claim (design §9's limitations); §5 every substitution from the frozen §3 and §5, dated — at least these two: V3's negatives live in `test_verification_publication.py` rather than `test_evaluation.py` (a circular test import), and V5's "after `append_intent`" sabotage is declared inside `_refuse_verification` (an intent appended through the port before the check) rather than by moving the call in `_commit`; plus the V1 run-deletion substitution if Task 8 step 4 met it.
 
 - [ ] **Step 7: Re-rank.** Run `uv run --frozen python tools/roadmap_status.py` and rewrite the roadmap whole: `**Ranked at:** cut 21`; tier 1 row 1 leaves; `write-path`'s row reads "no open boundary"; the boundary index drops `verification-publication`; Appendix A gains the `V` row (8 closed) and updates the totals; Appendix C drops R19's row. The ledger's `Current state` heading date and table drop the boundary and restate R19's remainder; its summary names cut 21. README: the design's row reads "V1–V8, closed at cut 21", the cut's row "discharged 2026-09-06", and the results record is listed where cut 19's is.
 
