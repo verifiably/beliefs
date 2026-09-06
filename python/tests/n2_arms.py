@@ -318,7 +318,7 @@ _M7 = [
         sabotage=Sabotage(
             module="profile.py",
             before="    operators: dict[str, CompiledOperator] = {}",
-            after='    operators: dict[str, CompiledOperator] = {\n        "science/asserts": CompiledOperator(\n            term="science/asserts", arity=2, arg_sorts=("science/thing", "science/thing"),\n            sign_apt=True, layers=("causal",), dimensions=(), retired=False, namespace="science",\n        )\n    }',
+            after='    operators: dict[str, CompiledOperator] = {\n        "science/asserts": CompiledOperator(\n            term="science/asserts", arity=2, arg_sorts=("science/thing", "science/thing"),\n            sign_apt=True, layers=("causal",), dimensions=(), retired=False, contract="science",\n        )\n    }',
         ),
         checks=(
             "test_profile.py::TestNoSecondAuthoredOperatorArtifact::test_every_operator_traces_to_a_supplied_contract",

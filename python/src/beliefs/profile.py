@@ -30,6 +30,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from functools import cache
+from importlib import resources
 from types import MappingProxyType
 from typing import final
 
@@ -59,6 +61,8 @@ __all__ = [
     "CompiledSort",
     "ProfileSpec",
     "compile_profile",
+    "shipped_base",
+    "shipped_base_contract",
 ]
 
 PROFILE_DOMAIN = "science.profile.v1"
@@ -66,6 +70,23 @@ PROFILE_DOMAIN = "science.profile.v1"
 _MINT = object()
 """`compile_profile`'s own token — see `beliefs.contract.base._MINT` for what a
 token achieves in this language and what it cannot."""
+
+
+@cache
+def shipped_base_contract() -> BaseContract:
+    """Parse the base contract carried by this package."""
+    from beliefs.contract.base import parse_base_contract
+    from beliefs.contract.document import parse_document
+
+    source = "beliefs/contracts/science/CONTRACT.yaml"
+    text = resources.files("beliefs").joinpath("contracts/science/CONTRACT.yaml").read_text(encoding="utf-8")
+    return parse_base_contract(parse_document(text, source=source), source=source)
+
+
+@cache
+def shipped_base() -> ProfileSpec:
+    """Compile the base-only runtime profile once per process."""
+    return compile_profile(shipped_base_contract(), [])
 
 
 @dataclass(frozen=True)

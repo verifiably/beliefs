@@ -145,8 +145,8 @@ class TestNoSecondAuthoredOperatorArtifact:
             assert decl.contract in profile.activated_contracts
 
     def test_compile_profile_is_the_only_exported_route(self):
-        builders = [name for name in profile_module.__all__ if name.islower()]
-        assert builders == ["compile_profile"]
+        public_functions = [name for name in profile_module.__all__ if name.islower()]
+        assert public_functions == ["compile_profile", "shipped_base", "shipped_base_contract"]
 
 
 class TestSemanticEditsRecompileAndEditorialOnesDoNot:
