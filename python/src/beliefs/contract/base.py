@@ -25,15 +25,26 @@ intended answer rather than a problem to engineer around.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 from typing import final
 
+from beliefs.contract.facets import FacetDecl, parse_facet_declarations
 from beliefs.errors import MalformedContract, TagCollision, UnparsedContract
 from beliefs.identity import v1
 from beliefs.sealed import sealed
 
-__all__ = ["BaseContract", "ClaimGrammar", "load_base_contract", "parse_base_contract"]
+__all__ = [
+    "BaseContract",
+    "ClaimGrammar",
+    "FacetUse",
+    "KindDecl",
+    "RelationDecl",
+    "load_base_contract",
+    "parse_base_contract",
+]
 
 BASE_CONTRACT_DOMAIN = "science.contract.v1"
 TAG_ENCODING = "science.identity.v1"
@@ -60,8 +71,9 @@ bypassed rather than defeated, and which belongs to the audit surface. The
 distinction worth keeping is between a hole and a documented limit.
 """
 
-_CONTRACT_FIELDS = frozenset({"contract", "version", "claim_grammar"})
+_CONTRACT_FIELDS = frozenset({"contract", "version", "claim_grammar", "kinds", "relations", "facets"})
 _GRAMMAR_FIELDS = frozenset({"version", "tag_encoding", "quantifiers", "polarities", "sign_inapt_tag", "layers"})
+_RELATION_GROUPS = ("world", "lifecycle")
 
 
 @dataclass(frozen=True)
@@ -86,6 +98,42 @@ class ClaimGrammar:
         return (*self.polarities, self.sign_inapt_tag)
 
 
+@dataclass(frozen=True)
+class FacetUse:
+    required: bool
+    covered: bool
+
+
+@dataclass(frozen=True)
+class KindDecl:
+    name: str
+    role: str
+    domain: str | None
+    facets: Mapping[str, FacetUse]
+
+    def projection(self) -> dict[str, object]:
+        projection: dict[str, object] = {
+            "role": self.role,
+            "facets": {
+                key: {"required": use.required, "covered": use.covered} for key, use in sorted(self.facets.items())
+            },
+        }
+        if self.domain is not None:
+            projection["domain"] = self.domain
+        return projection
+
+
+@dataclass(frozen=True)
+class RelationDecl:
+    name: str
+    group: str
+    sources: tuple[str, ...]
+    targets: tuple[str, ...]
+
+    def projection(self) -> dict[str, object]:
+        return {"group": self.group, "sources": sorted(self.sources), "targets": sorted(self.targets)}
+
+
 @sealed
 @final
 @dataclass(frozen=True, init=False)
@@ -108,6 +156,9 @@ class BaseContract:
     name: str
     version: int
     claim_grammar: ClaimGrammar
+    kinds: Mapping[str, KindDecl]
+    relations: Mapping[str, RelationDecl]
+    facets: Mapping[str, FacetDecl]
 
     content_identity: str
     """Content-derived, and the half that enters ``belief_input_digest`` (§7.3).
@@ -159,6 +210,24 @@ def _exact_fields(mapping: dict[str, object], permitted: frozenset[str], where: 
     missing = sorted(permitted - set(mapping))
     if missing:
         raise MalformedContract(f"{where}: missing field(s) {', '.join(missing)}")
+
+
+def _exact_fields_or_empty(mapping: dict[str, object], permitted: frozenset[str], where: str) -> None:
+    if not mapping:
+        return
+    unknown = sorted(set(mapping) - permitted)
+    if unknown:
+        raise MalformedContract(f"{where}: unknown field(s) {', '.join(unknown)}; refused, never ignored")
+    if "facets" not in mapping:
+        raise MalformedContract(f"{where}: missing field(s) facets")
+
+
+def v1_domain_ok(domain: str) -> bool:
+    try:
+        v1.check_domain(domain)
+    except Exception:  # noqa: BLE001 - any refusal means "not a domain"
+        return False
+    return True
 
 
 def _positive_int(value: object, where: str) -> int:
@@ -223,11 +292,56 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
         layers=_closed_set(grammar["layers"], f"{grammar_where}: layers"),
     )
 
+    facets = parse_facet_declarations(root["facets"], where=f"{source}: facets", namespace=None)
+    kinds: dict[str, KindDecl] = {}
+    for kind_name, body_value in _mapping(root["kinds"], f"{source}: kinds").items():
+        where = f"{source}: kinds.{kind_name}"
+        body = _mapping(body_value, where)
+        _exact_fields_or_empty(body, frozenset({"domain", "facets", "role"}), where)
+        role = body.get("role", "world")
+        if role not in ("world", "prose"):
+            raise MalformedContract(f"{where}: role is `world` or `prose`, found {role!r}")
+        domain = body.get("domain")
+        facet_values = _mapping(body.get("facets", {}), f"{where}.facets")
+        if role == "prose":
+            if domain is not None or set(facet_values) - {"display"}:
+                raise MalformedContract(f"{where}: a prose kind carries no domain and no facet but display")
+        elif body and (not isinstance(domain, str) or not v1_domain_ok(domain)):
+            raise MalformedContract(f"{where}: a governed kind names a `science.<kind>.v<n>` domain")
+        uses: dict[str, FacetUse] = {}
+        for key, use_value in facet_values.items():
+            if key not in facets:
+                raise MalformedContract(f"{where}.facets: {key!r} is not a facet this contract declares")
+            use = _mapping(use_value, f"{where}.facets.{key}")
+            _exact_fields(use, frozenset({"required", "covered"}), f"{where}.facets.{key}")
+            if not isinstance(use["required"], bool) or not isinstance(use["covered"], bool):
+                raise MalformedContract(f"{where}.facets.{key}: required and covered are booleans")
+            uses[key] = FacetUse(required=use["required"], covered=use["covered"])
+        kind_domain = domain if isinstance(domain, str) and role == "world" and body else None
+        kinds[kind_name] = KindDecl(kind_name, role, kind_domain, MappingProxyType(uses))
+
+    relations: dict[str, RelationDecl] = {}
+    for relation_name, body_value in _mapping(root["relations"], f"{source}: relations").items():
+        where = f"{source}: relations.{relation_name}"
+        body = _mapping(body_value, where)
+        _exact_fields(body, frozenset({"group", "sources", "targets"}), where)
+        if body["group"] not in _RELATION_GROUPS:
+            raise MalformedContract(f"{where}: group is one of {', '.join(_RELATION_GROUPS)}, found {body['group']!r}")
+        sources = _closed_set(body["sources"], f"{where}: sources")
+        targets = _closed_set(body["targets"], f"{where}: targets")
+        for kind in (*sources, *targets):
+            if kind not in kinds:
+                raise MalformedContract(f"{where}: {kind!r} is not a kind this contract declares")
+        relations[relation_name] = RelationDecl(relation_name, body["group"], sources, targets)
+
     return BaseContract._parsed(
         _MINT,
         name=name,
         version=_positive_int(root["version"], f"{source}: version"),
         claim_grammar=claim_grammar,
+        kinds=MappingProxyType(kinds),
+        relations=MappingProxyType(relations),
+        facets=MappingProxyType(facets),
         content_identity=v1.digest(BASE_CONTRACT_DOMAIN, root),
     )
 

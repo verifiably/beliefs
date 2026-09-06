@@ -12,6 +12,12 @@ export { buildClaim, Claim, type ClaimParts, Qualifier, Referent } from "./claim
 export {
   type BaseContract,
   type ClaimGrammar,
+  type FacetDecl,
+  type FacetUse,
+  type FieldDecl,
+  type FieldType,
+  type KindDecl,
+  type RelationDecl,
   type DomainContract,
   parseBaseContract,
   parseDomainContract,

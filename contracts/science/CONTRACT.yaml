@@ -31,3 +31,74 @@ claim_grammar:
   sign_inapt_tag: inapt
 
   layers: [causal, structural, statistical, methodological]
+
+# --- kinds, relations and facets (facet-contracts design §3) -----------------
+kinds:
+  proposition:
+    domain: science.proposition.v1
+    facets:
+      proposition: { required: true, covered: true }
+      display: { required: false, covered: false }
+  source-assertion: { domain: science.source-assertion.v1, facets: { source-assertion: { required: true, covered: true } } }
+  assessment: { domain: science.assessment.v1, facets: { assessment: { required: true, covered: true } } }
+  analysis-spec: { domain: science.analysis-spec.v1, facets: { analysis-spec: { required: true, covered: true } } }
+  run:
+    domain: science.run.v1
+    facets: { run: { required: true, covered: true }, run-closure: { required: false, covered: true } }
+  verification: { domain: science.verification.v1, facets: { verification: { required: true, covered: true } } }
+  dataset:
+    domain: science.dataset.v1
+    facets:
+      dataset: { required: true, covered: true }
+      empirical-observation: { required: false, covered: true }
+      lineage-basis: { required: false, covered: true }
+      display: { required: false, covered: false }
+  source: { domain: science.source.v1, facets: { source: { required: true, covered: true } } }
+  holdings-observation: { domain: science.holdings-observation.v1, facets: { holdings-observation: { required: true, covered: true } } }
+  retraction: { domain: science.retraction.v1, facets: { retraction: { required: true, covered: true } } }
+  act-report: { domain: science.act-report.v1, facets: { act-report: { required: true, covered: true } } }
+  instrument-certification: {}
+  coreference-attestation: {}
+  interpretation: { role: prose, facets: { display: { required: false, covered: false } } }
+  discussion: { role: prose, facets: { display: { required: false, covered: false } } }
+  story: { role: prose, facets: { display: { required: false, covered: false } } }
+
+relations:
+  assesses: { group: world, sources: [assessment], targets: [proposition] }
+  observes: { group: world, sources: [run], targets: [dataset] }
+  reads: { group: world, sources: [run], targets: [dataset] }
+  transforms: { group: world, sources: [run], targets: [dataset] }
+  produces: { group: world, sources: [run], targets: [dataset] }
+  produced_by: { group: world, sources: [assessment], targets: [run] }
+  executes: { group: world, sources: [run], targets: [analysis-spec] }
+  targets: { group: world, sources: [analysis-spec], targets: [proposition] }
+  verifies: { group: world, sources: [verification], targets: [assessment] }
+  member_of: { group: world, sources: [source], targets: [dataset] }
+  grounded-in: { group: world, sources: [retraction], targets: [retraction, verification, source] }
+  supersedes: { group: lifecycle, sources: [proposition], targets: [proposition] }
+  retracts: { group: lifecycle, sources: [retraction], targets: [assessment, dataset, verification, source, run] }
+  succeeded-by: { group: lifecycle, sources: [retraction], targets: [retraction] }
+  anchored_in: { group: lifecycle, sources: [source-assertion], targets: [source] }
+
+facets:
+  proposition: { shape: reader, reader: decode.claim_from_stored }
+  display: { shape: reader, reader: stored.display_facet_malformed }
+  source-assertion: { shape: reader, reader: stored.source_assertion_value }
+  assessment: { shape: reader, reader: stored.assessment_value }
+  analysis-spec: { shape: reader, reader: stored.analysis_spec_value }
+  run: { shape: reader, reader: stored.run_spec }
+  run-closure: { shape: reader, reader: runrecord.projection_of }
+  verification: { shape: reader, reader: stored.verification_value }
+  dataset: { shape: reader, reader: stored.dataset_declaration }
+  lineage-basis: { shape: reader, reader: stored.lineage_basis }
+  source: { shape: reader, reader: stored.external_identifiers }
+  holdings-observation: { shape: reader, reader: stored.holdings_observation_value }
+  retraction: { shape: reader, reader: corpus.CorpusWriter._validated_retraction }
+  act-report: { shape: reader, reader: stored.act_report_facet }
+  empirical-observation:
+    shape: schema
+    description: The declared acquisition boundary (design §6). `locator` names the most upstream form outside the held boundary; `attested_by` is bound to the writer's actor at mint; `retrieval` is the boundary-minted acquisition report when one exists.
+    fields:
+      locator: { type: locator, required: true, schemes: [accession, url, instrument] }
+      attested_by: { type: actor, required: true }
+      retrieval: { type: ref, required: false, kinds: [act-report] }

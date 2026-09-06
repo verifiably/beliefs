@@ -108,7 +108,7 @@ class TestRefusals:
         with pytest.raises(MalformedContract, match="unknown field"):
             parse(broken)
 
-    @pytest.mark.parametrize("field", ["contract", "version", "claim_grammar"])
+    @pytest.mark.parametrize("field", ["contract", "version", "claim_grammar", "kinds", "relations", "facets"])
     def test_a_missing_field_is_refused(self, document, field):
         broken = copy.deepcopy(document)
         del broken[field]
