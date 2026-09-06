@@ -1003,6 +1003,30 @@ decide. None changes a `J` row or the cut's §2–§7.
    backend, and the factory's `recover` — over the real backend — is what
    settles it. The arm asserts the registration is pending under detached
    inspection before recovery and gone after.
+
+   **The traced sequence (cut 19, Task 10).** `TracingBackend` over one
+   `execute_fulfilling` on a registered root records these publish-phase calls,
+   in order: four from the engine's own volume certification probe (`exchange`,
+   `transfer_noclobber`, `transfer_noclobber`, `link_anchor` — the probe runs
+   once per submission and deletes its `certify.db` after), then the record
+   payload's blob publish, then the **registration** leaf's
+   `.#~stage` → `<digest>` publish, then the **record's** own
+   `.#~<txid>.op-0.staging` → `<slug>.md` publish, then the settlement's
+   `.#~stage` → `<digest>`. `PUBLISH_CALLS_BEFORE_RECORD` is therefore **6**:
+   the halt lands on the seventh call, after the registration is durable and
+   before the record's path exists. Two facts the trace settled that the plan
+   text did not anticipate: (a) the engine answers a failed publish by rolling
+   the transaction back *in band*, and a rollback that succeeds appends the
+   settlement — so the fixture's window stays open for the whole fulfilling
+   execution and closes in the port's `finally`, which is what leaves the
+   registration durable and unsettled; and (b) the rollback unlinks the
+   record's staging file on its way out, so the staged bytes that survive the
+   halt are the chain's (`<root>/.#~chain/.#~stage`, a file), not the record's.
+   And (c) the count holds only over a kind directory that already exists: a
+   transaction that must create `<kind>/` publishes the directory one call
+   *before* the record, so every arm writes a record of the same kind before it
+   arms, and the acceptance suite re-derives both shapes through
+   `TracingBackend`.
 5. **Staleness baseline at plan time.** The probe of the plan's Global
    Constraints (with its existence guard) prints, on the untouched tree:
    `stale: [(5, 'T2', 'corpus.py', 0), (5, 'T2', 'corpus.py', 0), (5, 'C2', 'stored.py', 0), (6, 'X4', 'world.py', 'missing'), (6, 'X4', 'world.py', 'missing'), (6, 'X5', 'world.py', 'missing'), (6, 'X6', 'world.py', 'missing'), (6, 'X6', 'world.py', 'missing'), (6, 'X6', 'world.py', 'missing'), (6, 'W13', 'world.py', 'missing'), (6, 'W13', 'world.py', 'missing'), (6, 'W13', 'world.py', 'missing'), (6, 'W13', 'world.py', 'missing'), (6, 'W13', 'world.py', 'missing'), (6, 'W13', 'world.py', 'missing'), (6, 'labeled:admission-idempotency', 'world.py', 'missing'), (6, 'labeled:status-idempotency', 'world.py', 'missing'), (6, 'labeled:duplicate-carrier', 'world.py', 'missing'), (8, 'L2u5', 'root.py', 0), (8, 'L12u5', 'world/verify.py', 0), (8, 'D6', 'world/verify.py', 0), (8, 'D10', 'world/verify.py', 0), (10, 'H4u1', 'holdings/boundary.py', 0), (10, 'J8', 'holdings/boundary.py', 0)]`.
