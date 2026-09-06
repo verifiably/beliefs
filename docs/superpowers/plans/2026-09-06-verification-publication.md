@@ -335,10 +335,15 @@ def forgeries(writer, published: Published) -> list[tuple[Node, type[Exception],
     stored.stamp_semantic_identity(no_edge)
     wrong_target = publication_node(derived, assessment_ref="assessment:absent")
     other_proposition = writer.add(stored.proposition_node("p-other", title="p-other", claim={"operator": "affects"}))
+    # Spelled from the same derived value as the real assessment, optionals included,
+    # so it audits clean and imports; only its proposition differs, which the audit's
+    # comparison excludes (cut 18 ruling R12). Its identity differs by that member.
+    value = published.derived_value
+    optional = {n: getattr(value, n) for n in ("estimate", "uncertainty", "estimand", "applicability") if getattr(value, n) is not None}
     other = writer.add(
         stored.assessment_node(
             "a-other", title="a-other", spec=published.frozen.identity, run=run_ref(published.original.address()),
-            proposition=other_proposition.id, outcome="supported", interpretation_rule=published.frozen.interpretation_rule,
+            proposition=other_proposition.id, outcome=value.outcome, interpretation_rule=value.interpretation_rule, **optional,
         )
     )
     other_identity = publication_node(derived, assessment_ref=other.id)
