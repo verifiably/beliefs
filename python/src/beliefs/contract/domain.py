@@ -30,8 +30,6 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import final
 
-import yaml
-
 from beliefs.contract.base import BaseContract
 from beliefs.errors import MalformedContract, SuccessionViolation, UnparsedContract
 from beliefs.identifiers import not_a_canonical_identifier
@@ -616,8 +614,7 @@ def load_domain_contract(path: Path, *, base: BaseContract, predecessor: DomainC
     failure mode this corpus names most often: *a failure to look is not a
     finding of absence.*
     """
-    try:
-        document = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except yaml.YAMLError as exc:
-        raise MalformedContract(f"{path}: not well-formed YAML: {exc}") from exc
+    from beliefs.contract.document import load_document
+
+    document = load_document(path, source=str(path))
     return parse_domain_contract(document, source=str(path), base=base, predecessor=predecessor)

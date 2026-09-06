@@ -29,8 +29,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import final
 
-import yaml
-
 from beliefs.errors import MalformedContract, TagCollision, UnparsedContract
 from beliefs.identity import v1
 from beliefs.sealed import sealed
@@ -235,14 +233,7 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
 
 
 def load_base_contract(path: Path) -> BaseContract:
-    """Read and validate the base contract at ``path``.
+    """Read and validate the base contract at ``path`` (duplicate keys refused, §3.7)."""
+    from beliefs.contract.document import load_document
 
-    The path is a required argument. Resolving it from an ambient location would
-    make the contract in force depend on the checkout, which is the property the
-    belief policy's §2.3 refuses for exactly the same reason.
-    """
-    try:
-        document = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except yaml.YAMLError as exc:  # never let a parser error escape as itself
-        raise MalformedContract(f"{path}: not well-formed YAML: {exc}") from exc
-    return parse_base_contract(document, source=str(path))
+    return parse_base_contract(load_document(path, source=str(path)), source=str(path))
