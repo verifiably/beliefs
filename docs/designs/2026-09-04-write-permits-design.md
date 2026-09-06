@@ -1,7 +1,7 @@
 # Write permits — design (the `write-permits` slice)
 
 **Date:** 2026-09-04
-**Status:** implemented and discharged 2026-09-04 at `16dd415`; conformance cut 17 (16 in
+**Status:** implemented and discharged 2026-09-04 at `4f59d9c`; conformance cut 17 (16 in
 the frozen text, renumbered by §14) froze before implementation at `c2f87b3`
 and its 8 selected + 1 labeled units passed through 24 sabotage arms after the
 current-tree prefix of §13.2. Results:
@@ -684,7 +684,7 @@ This section amends the cut's number and its inventory after the relocation
 half of `consolidate-family` merged into `main` ahead of this slice. Like
 §13 it rewrites nothing in §7 or §9; where it changes a disposition it is
 the current ruling, and the results record cites the freeze (`c2f87b3`),
-§13 (`a0f2302`) and this section.
+§13 (`b25fcc7`) and this section.
 
 ### 14.1 The cut takes 17
 
@@ -858,3 +858,25 @@ read-only exception set are unchanged.
 design §4.2 and plan Task 6 carry a dated note. The guarantee tables are
 untouched: E5 already holds that the empty requirement is covered by the
 empty permit, and the read door adds no entry point.
+
+## 17. Citation amendment — 2026-09-06
+
+A history rewrite on 2026-09-05 (the commit that stripped a session trailer
+from every message) re-minted every commit from 2026-09-04 onward with its
+tree and author date unchanged. The two amendment commits §13 and §14 cite,
+and the freeze-ancestry pins `test_n2_cut17.py` carries for them, named the
+pre-rewrite ids, which are ancestors of no branch; the pin test failed on
+`main` and `cut18_acceptance.py`'s phase 1 could not complete (cut 19 results,
+concern 1; task `beliefs-faf658`). Each id is re-cited in place to the
+rewritten commit with the identical tree and author date:
+
+| was cited as | re-cited to | what it is |
+|---|---|---|
+| `a0f2302` | `b25fcc7` | §13, the implementation amendment |
+| `398491d` | `e6b8c0b` | §14, the renumbering and relocation amendment |
+| `16dd415` | `4f59d9c` | the cut 17 discharge commit |
+
+The freeze commit `c2f87b3` predates the rewrite and is unchanged. No frozen
+section changes: §7 and §9 are still compared byte-exact to `c2f87b3`. The
+cut 17 results record and the write-permits plan re-cite the same ids in
+place, by the same tree-and-date match.

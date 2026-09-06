@@ -364,15 +364,15 @@ The reader challenges especially:
 
 ## 8. Renumbering amendment — 2026-09-04
 
-This cut was frozen as **cut 17** at `2071be0`. The write-permits lane froze
-its own cut 17 earlier the same day (`c2f87b3`, renumbered at `398491d`) and
+This cut was frozen as **cut 17** at `c7d78f5`. The write-permits lane froze
+its own cut 17 earlier the same day (`c2f87b3`, renumbered at `e6b8c0b`) and
 merged first. The roadmap's concurrency rule 1 claims a number **at freeze, in
 freeze order**, so the earlier freeze keeps 17 and this cut is **cut 18**.
 Rule 5 then makes this cut's aggregate runner name the highest-numbered
 runner below it, `cut17_acceptance.py`, as its prefix.
 
 The renumbering is a rename, not a re-reading. §§2–7 are byte-identical to the
-freeze at `2071be0` under exactly four substitutions:
+freeze at `c7d78f5` under exactly four substitutions:
 
 | from | to |
 |---|---|
@@ -396,3 +396,25 @@ that design's static entry-point inventory, because it calls no write primitive
 itself; `_delete_locked` is the inventoried definition and requires again on the
 same kind. It is a check added before an effect; no selected behavior, arm or
 check changes.
+
+## 9. Citation amendment — 2026-09-06
+
+A history rewrite on 2026-09-05 (the commit that stripped a session trailer
+from every message) re-minted every commit from 2026-09-04 onward with its
+tree and author date unchanged. The freeze and renumbering commits §8 cites,
+and the pins `test_n2_cut18.py` carries for them, named the pre-rewrite ids,
+which are ancestors of no branch; the pin test failed on `main` and
+`cut18_acceptance.py`'s phase 1 could not complete (cut 19 results, concern 1;
+task `beliefs-faf658`). Each id is re-cited in place to the rewritten commit
+with the identical tree and author date:
+
+| was cited as | re-cited to | what it is |
+|---|---|---|
+| `2071be0` | `c7d78f5` | the freeze, as cut 17 |
+| `e9e592a` | `e0bc65c` | §8, the renumbering |
+| `dc331f1` | `17f3325` | the discharge tree |
+
+§§2–7 are unchanged and still pinned byte-exact under §8's four substitutions.
+The cut 18 results record and the deletion-cut plan re-cite the same ids in
+place; the cut 19 results record keeps the pre-rewrite ids because it records
+the failure they caused.

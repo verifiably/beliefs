@@ -4,12 +4,12 @@
 **Subject:** managed deletion and the mutation lane's assigned ride-alongs
 (`../designs/2026-09-03-world-changing-families-design.md` §2.2, §2.3, §2.5,
 §3.0, §3.1, §3.6, §6.2, §6.3 and §7), measured against the frozen cut at
-`2071be0`.
+`c7d78f5`.
 
 This cut froze as **cut 17** and is discharged as **cut 18**: the write-permits
 lane froze its own cut 17 earlier the same day and merged first, and a number is
 claimed at freeze in freeze order (roadmap concurrency rule 1). The frozen
-§§2–7 are byte-identical to `2071be0` under the four substitutions the cut
+§§2–7 are byte-identical to `c7d78f5` under the four substitutions the cut
 document's §8 declares, and byte-identical to the renumbering commit. The
 selection, the 17 declaration units, the 20 arms and the accounting are the
 frozen ones.
@@ -17,8 +17,8 @@ frozen ones.
 ## 1. What ran
 
 All Python commands ran from `python/`. The certified runner executed on the
-discharge tree — `e9e592a`'s package and tests plus the filled-in freeze-pin
-constant, i.e. the code as committed at `dc331f1` (the discharge commit does
+discharge tree — `e0bc65c`'s package and tests plus the filled-in freeze-pin
+constant, i.e. the code as committed at `17f3325` (the discharge commit does
 not know its own id) — carrying the write-permits lane's cut 17, this lane's
 renumbering to 18 and the permit gating of `delete`, with its default durable
 work root beside the checkout (`python/../.cut18-acceptance`, on the same
@@ -205,12 +205,12 @@ record (§3.1 of the families design, §4 of the frozen cut).
 
 **2026-09-04 — the cut is renumbered from 17 to 18.** The write-permits lane
 froze its cut 17 at 09:41 and merged into `main` at 17:24; this lane froze at
-10:50 (`2071be0`) and discharged at 18:25. The roadmap's concurrency rule 1
+10:50 (`c7d78f5`) and discharged at 18:25. The roadmap's concurrency rule 1
 claims a number at freeze in freeze order, so the earlier freeze keeps 17 and
 this cut is 18; rule 5 makes this cut's runner name `cut17_acceptance.py` as
 its prefix, and rule 3 resolved every shared file toward the earlier merge.
 The renumbering is a rename, not a re-reading: §§2–7 differ from the freeze at
-`2071be0` only under `cut 17`→`cut 18`, `Cut 17`→`Cut 18`, `cut-17`→`cut-18`
+`c7d78f5` only under `cut 17`→`cut 18`, `Cut 17`→`Cut 18`, `cut-17`→`cut-18`
 and `cut16_acceptance`→`cut17_acceptance`, and the cut document's new §8 states
 exactly that. `tests/acceptance/test_n2_cut18.py` pins both commits: current
 §§2–7 must equal the renumbering commit's byte-exact **and** equal the freeze
@@ -237,7 +237,7 @@ the record still readable, the exact requirement accepted, and
 behaviour, arm or check changes.
 
 There is no other frozen-cut deviation. The cut-18 audit pins the freeze
-commit `2071be0`, the renumbering commit, the frozen whole-file digest, §§2–7
+commit `c7d78f5`, the renumbering commit, the frozen whole-file digest, §§2–7
 as above, and the exact 17-unit accounting phrases.
 
 The deviations below are from the *design's* expectations, not from the
@@ -311,7 +311,7 @@ One correction landed after the discharge commit. **2026-09-04:**
 with a sibling of the same base — `build_assessment`'s `SignatureRefused`
 over an assessment whose stored run decodes to a dataset-production closure
 (R7) — still aborted the audit and discarded the findings already collected;
-`9973f9f` widens the catch to `RecordError`, the base of the family, and
+`582ad2e` widens the catch to `RecordError`, the base of the family, and
 emits `derivation-malformed` for it as before. This restates ruling R11's
 "never aborting" at the width the error hierarchy actually has; no frozen
 row, arm or accounting phrase changes.
@@ -353,35 +353,35 @@ the ledger's nineteenth ruling), outside this cut's frozen selection.
 
 | commit | subject |
 |---|---|
-| `d3b7186` | chore(tasks): close Task 1, freeze conformance cut 17 |
-| `69e3aa1` | feat(corpus): add managed delete as an ordinary write |
-| `5f93239` | feat(audit): add the corpus-local semantic audit and the verification derivation member |
-| `7a3664a` | fix(audit): report malformed records instead of aborting the audit |
-| `d617e57` | fix(audit): leave a record unchecked when a neighbour cannot be read |
-| `a325aa6` | feat(import): recompute verification and assessment derivations at explicit import |
-| `6dabf80` | test(audit): assert the checked arms of verification recomputation |
-| `705222a` | feat(decode): add claim_from_stored, the M13-conforming restore seam |
-| `b013a26` | fix(decode): reuse _wire_parts for claim_from_stored's qualifier-body check |
-| `75a9291` | feat(evaluation): add the instrumented resolver and the corpus-backed evaluation path |
-| `fae2dd4` | chore(tasks): note task 6's landing on the deletion-cut goal |
-| `c061592` | fix(evaluation): trace the proposition ref the resolver read, not the one requested |
-| `89dd217` | test(deletion): pin the frozen cut-17 rows over the ordinary-write delete |
-| `6dd283a` | test(deletion): run S5's belief rise and unify the row fixture builder |
-| `e7c9e64` | test(cut17): add the durable deletion arms |
-| `00cd3b8` | test(cut17): add the N2 declarations and the acceptance runner |
-| `71358f0` | docs(mutation): record the deletion cut's implementation rulings |
-| `7989d36` | docs(mutation): discharge conformance cut 17 and re-rank the roadmap |
-| `9973f9f` | fix(audit): report any record error instead of aborting the audit |
-| `c0ffd9f` | chore: merge main into design/consolidate-family at the write-permits cut 17 |
-| `e9e592a` | refactor(cut18): renumber the deletion cut to 18 and gate delete behind the corpus-write permit |
+| `5f49e33` | chore(tasks): close Task 1, freeze conformance cut 17 |
+| `a4671e0` | feat(corpus): add managed delete as an ordinary write |
+| `fca2960` | feat(audit): add the corpus-local semantic audit and the verification derivation member |
+| `17857a8` | fix(audit): report malformed records instead of aborting the audit |
+| `84dfb59` | fix(audit): leave a record unchecked when a neighbour cannot be read |
+| `69448fd` | feat(import): recompute verification and assessment derivations at explicit import |
+| `e66fee5` | test(audit): assert the checked arms of verification recomputation |
+| `a315fbf` | feat(decode): add claim_from_stored, the M13-conforming restore seam |
+| `c156786` | fix(decode): reuse _wire_parts for claim_from_stored's qualifier-body check |
+| `e0e4eb0` | feat(evaluation): add the instrumented resolver and the corpus-backed evaluation path |
+| `f7155bf` | chore(tasks): note task 6's landing on the deletion-cut goal |
+| `3bdba43` | fix(evaluation): trace the proposition ref the resolver read, not the one requested |
+| `0edecc7` | test(deletion): pin the frozen cut-17 rows over the ordinary-write delete |
+| `4983437` | test(deletion): run S5's belief rise and unify the row fixture builder |
+| `dbc124c` | test(cut17): add the durable deletion arms |
+| `7e1e704` | test(cut17): add the N2 declarations and the acceptance runner |
+| `6cce0e5` | docs(mutation): record the deletion cut's implementation rulings |
+| `1f8b1be` | docs(mutation): discharge conformance cut 17 and re-rank the roadmap |
+| `582ad2e` | fix(audit): report any record error instead of aborting the audit |
+| `20d683a` | chore: merge main into design/consolidate-family at the write-permits cut 17 |
+| `e0bc65c` | refactor(cut18): renumber the deletion cut to 18 and gate delete behind the corpus-write permit |
 
-The discharge commit `7989d36` carried the first version of this record, as
-cut 17, and therefore did not embed its own commit id. `9973f9f` is the
-post-discharge audit fix of §3. `c0ffd9f` merges the write-permits lane's cut
-17 and `e9e592a` renumbers this cut to 18 and gates `delete`; the run reported
-in §1 is the run on the discharge tree — `e9e592a`'s package and tests plus
-the filled-in freeze-pin constant naming `e9e592a`, i.e. the code as committed
-at `dc331f1` — and this refresh of §§1, 1.2, 2, 3 and 5 is committed in that
+The discharge commit `1f8b1be` carried the first version of this record, as
+cut 17, and therefore did not embed its own commit id. `582ad2e` is the
+post-discharge audit fix of §3. `20d683a` merges the write-permits lane's cut
+17 and `e0bc65c` renumbers this cut to 18 and gates `delete`; the run reported
+in §1 is the run on the discharge tree — `e0bc65c`'s package and tests plus
+the filled-in freeze-pin constant naming `e0bc65c`, i.e. the code as committed
+at `17f3325` — and this refresh of §§1, 1.2, 2, 3 and 5 is committed in that
 same discharge commit, which likewise does not know its own id.
 
 ## 6. Remaining boundary

@@ -32,8 +32,8 @@ WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-04-conformance-cut-18.md"
 FROZEN_CUT_AT_FREEZE = "docs/designs/2026-09-04-conformance-cut-17.md"
-CUT18_FREEZE_COMMIT = "2071be0"
-RENUMBERING_AMENDMENT_COMMIT = "e9e592a"
+CUT18_FREEZE_COMMIT = "c7d78f5"
+RENUMBERING_AMENDMENT_COMMIT = "e0bc65c"
 CUT18_FROZEN_SHA256 = "797775b5c591c3c7ade1d1e4f0f188097a4fac27f21435218dbb4fa7f8e54e29"
 
 #: The renumbering is a rename, not a re-reading (cut document §8).

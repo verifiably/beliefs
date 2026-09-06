@@ -28,8 +28,8 @@ WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-04-write-permits-design.md"
 CUT17_FREEZE_COMMIT = "c2f87b3"
-IMPLEMENTATION_AMENDMENT_COMMIT = "a0f2302"
-RENUMBERING_AMENDMENT_COMMIT = "398491d"
+IMPLEMENTATION_AMENDMENT_COMMIT = "b25fcc7"
+RENUMBERING_AMENDMENT_COMMIT = "e6b8c0b"
 FROZEN_PRIOR_CUT_FILES = {
     "python/tests/n2_arms_cut3.py": "5a02ca2",
     "python/tests/n2_arms_cut5.py": "7f5b28ec7da5f19db83fe0819c7477c8dbed7e93",

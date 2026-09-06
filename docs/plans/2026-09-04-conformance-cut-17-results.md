@@ -1,11 +1,11 @@
 # Conformance cut 17 — discharge results
 
 **Date:** 2026-09-04
-**Discharge commit:** `16dd415`
+**Discharge commit:** `4f59d9c`
 **Subject:** write permits
 (`../designs/2026-09-04-write-permits-design.md`), measured against frozen
-§7/§9 at `c2f87b3`, the implementation amendment at `a0f2302`, and the
-renumbering and relocation amendment at `398491d`. Section 14.1 assigns this
+§7/§9 at `c2f87b3`, the implementation amendment at `b25fcc7`, and the
+renumbering and relocation amendment at `e6b8c0b`. Section 14.1 assigns this
 work cut 17; the frozen text's cut-16 references are cited, not edited.
 
 ## 1. Accounting and disposition
@@ -75,7 +75,7 @@ declared arms: 24 (= 8 selected + 1 labeled units)
 ```
 
 The phase summaries total **366 passed, 0 failed**; the runner exited 0. The
-declaration, audit, and runner are committed at `1d8f293`.
+declaration, audit, and runner are committed at `c367070`.
 
 ### 2.1 Certified host facts
 
@@ -104,20 +104,20 @@ confinement mismatch would have ended the runner with exit 2, never a skip.
 
 | commit | subject |
 |---|---|
-| `751f56f` | feat(permit): closed act families, KIND_ACTS, WritePermit and Authority |
-| `fc965e2` | feat(permit): add required capabilities and coverage |
-| `b379505` | docs(plans): apply the pre-flight rulings to the write-permits plan |
-| `14bcdbc` | feat(permit): bind Authority at the corpus writer, the port and open_corpus |
-| `236b1fc` | feat(permit): require permits on writer families and relocation seams |
-| `8d5dbd8` | feat(permit): judge import bundles member by member before the intent |
-| `def001f` | feat(permit): run boundary requires the run permit and refuses without an intent |
-| `a89bc24` | feat(permit): holdings acts require the holdings permit on the bound context |
-| `9a33530` | feat(permit): world binds an authority; registry and epoch acts require it |
-| `659cc6e` | feat(permit): root lifecycle acts require the lifecycle permit |
-| `324f827` | test(permit): hold the write entry points closed statically (E6) |
-| `a86f226` | test(permit): E1 over every inventoried entry point |
-| `8910b18` | test(permit): durable acceptance arms for E1, E2, E7 and E8 |
-| `1d8f293` | test(cut17): declare the N2 arms, the audit, and the acceptance runner |
+| `cc5cf1b` | feat(permit): closed act families, KIND_ACTS, WritePermit and Authority |
+| `6f2ed21` | feat(permit): add required capabilities and coverage |
+| `0e4d1a3` | docs(plans): apply the pre-flight rulings to the write-permits plan |
+| `b7451c9` | feat(permit): bind Authority at the corpus writer, the port and open_corpus |
+| `dfe5677` | feat(permit): require permits on writer families and relocation seams |
+| `acf8798` | feat(permit): judge import bundles member by member before the intent |
+| `8937b01` | feat(permit): run boundary requires the run permit and refuses without an intent |
+| `67750d6` | feat(permit): holdings acts require the holdings permit on the bound context |
+| `4626335` | feat(permit): world binds an authority; registry and epoch acts require it |
+| `a1f7408` | feat(permit): root lifecycle acts require the lifecycle permit |
+| `238695b` | test(permit): hold the write entry points closed statically (E6) |
+| `44d3a3d` | test(permit): E1 over every inventoried entry point |
+| `4ab62ea` | test(permit): durable acceptance arms for E1, E2, E7 and E8 |
+| `c367070` | test(cut17): declare the N2 arms, the audit, and the acceptance runner |
 
 The design and amendment commits precede this range. This results record is
 committed with the discharge change and therefore does not yet name that
