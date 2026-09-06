@@ -744,7 +744,55 @@ def test_j2_a_post_commit_index_failure_on_add_leaves_the_root_unresolved(sessio
     assert state.unresolved is False and open_corpus(root, authority=FULL).read_view.get("proposition:p1").id == "proposition:p1"
 
 
-def test_j2_a_ledger_failure_after_commit_ends_the_session(work_directory, monkeypatch):
+def test_j2_a_ledger_write_failure_after_commit_leaves_the_registration_uncovered(work_directory, monkeypatch):
+    """J2's ledger clause proper: the append fails with **no bytes on disk**, so the
+    committed registration is covered by no `act` line and reconciliation reports it."""
+    # Not `session_rig`: this arm makes the ledger terminal, and the rig's teardown
+    # closes outright — `close` on a failed ledger is `SessionLedgerFailed` (J9).
+    root = adopted(work_directory, "ledger-write-fault")
+    session, ops = attended(work_directory, root)
+    w = fresh(session, "A")
+    real_write = LedgerWriter._write
+
+    def refusing(self, data):
+        # Only the `act` append: `session-open` and `invocation-open` are already durable,
+        # so the crashed session's ledger is readable and names its open invocation.
+        if b'"line":"act"' in data:
+            raise OSError("ledger write")
+        return real_write(self, data)
+
+    monkeypatch.setattr(LedgerWriter, "_write", refusing)
+    ledger_file = ledger_path(ops, session.session_id)
+    bytes_before = ledger_file.read_bytes()
+    with pytest.raises(SessionLedgerFailed):
+        w.add(proposition("p1"))
+    monkeypatch.undo()
+    assert ledger_file.read_bytes() == bytes_before  # nothing of the act line landed
+    assert (root / "proposition" / "p1.md").exists()  # the record is durable
+    (registration,) = [e for e in registrations(root) if e.fulfills is not None]
+    settlement = {e.registration: e.committed for e in chain(root).entries if type(e) is SettledEntryView}
+    assert settlement[registration.digest] is True  # the registration committed
+    assert open_ledger_reader(ops, session.session_id).acts() == ()  # no act line covers it
+    # No `exclude`: the crashed session is exactly what reconciliation must read.
+    findings = reconcile_sessions(config_for(work_directory, root), ops)
+    unknown = [f for f in findings if f.code == "session-outcome-unknown"]
+    assert [f.ref for f in unknown] == [registration.digest]
+    assert f"session={session.session_id}" in unknown[0].detail and "invocations=['A']" in unknown[0].detail
+    assert {"session-unclosed"} <= {f.code for f in findings}
+    for call in (
+        lambda: session.claim_invocation("B", "mint", DIGEST),
+        lambda: session.invocation_acts("A"),
+        lambda: session.close(),
+    ):
+        with pytest.raises(SessionLedgerFailed):
+            call()
+
+
+def test_j2_a_ledger_fsync_failure_after_a_complete_act_line_ends_the_session(work_directory, monkeypatch):
+    """The other half of the ledger clause: the write and flush succeeded and only the
+    fsync raised, so the complete `act` line *is* on disk and covers the registration —
+    what the arm proves is that the rebuild finished before the append and that the
+    session is terminal all the same."""
     # Not `session_rig`: this arm makes the ledger terminal, and the rig's teardown
     # closes outright — `close` on a failed ledger is `SessionLedgerFailed` (J9).
     root = adopted(work_directory, "ledger-fault")
@@ -760,8 +808,7 @@ def test_j2_a_ledger_failure_after_commit_ends_the_session(work_directory, monke
     monkeypatch.undo()
     assert (root / "proposition" / "p1.md").exists()
     assert state_of(root).unresolved is False  # the rebuild completed before the append
-    # The write and flush succeeded and only the fsync raised, so the complete act line is on disk:
-    # the ledger — not the failed session's index — is the evidence, and it covers the registration.
+    # The ledger — not the failed session's index — is the evidence, and here it covers the registration.
     (registration,) = [e for e in registrations(root) if e.fulfills is not None]
     reader = open_ledger_reader(ops, session.session_id)
     assert [act.entry for act in reader.acts()] == [registration.digest]
@@ -1187,10 +1234,15 @@ def test_j8_reconciliation_reads_chain_and_ledgers_under_one_hold(work_directory
     chain_read = threading.Event()
     writer_done = threading.Event()
 
+    released: list[bool] = []
+
     def inspect_then_release(target):
         view = real_inspect(target)
         chain_read.set()          # let the writer try; under correct code it blocks on the lock we hold
-        writer_done.wait(0.5)     # give a leaked write time to land before the ledgers are read
+        # Give a leaked write time to land before the ledgers are read. The result is the
+        # arm's own evidence: `True` would mean the writer got through the hold, and a
+        # writer that never started would make every assertion below vacuous.
+        released.append(writer_done.wait(0.5))
         return view
 
     # LogSeam is a frozen dataclass and log_seam() reads the module attribute at call time.
@@ -1204,8 +1256,11 @@ def test_j8_reconciliation_reads_chain_and_ledgers_under_one_hold(work_directory
     thread = threading.Thread(target=writer)
     thread.start()
     findings = reconcile_sessions(config, ops)
+    assert released == [False], "the writer must still be blocked when the ledgers are read"
     thread.join(10)
     assert not thread.is_alive()
+    # And it did write, once the hold released: the arm is about a real interleaving.
+    assert writer_done.is_set() and (root / "proposition" / "late.md").exists()
     assert not [f for f in findings if f.code in ("session-act-unverified", "session-entry-foreign")], findings
     # The write completed after reconciliation released, and a second pass covers it.
     assert not [f for f in reconcile_sessions(config, ops) if f.code in ("session-act-unverified", "session-entry-foreign")]
