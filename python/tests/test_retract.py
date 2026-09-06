@@ -42,7 +42,7 @@ def content_identity(node: Node) -> str:
 def mint_eligible_assessment(writer: CorpusWriter) -> Node:
     dataset = writer.add(
         stored.dataset_node(
-            "raw", title="raw", resources=PINNED, empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}
+            "raw", title="raw", resources=PINNED, empirical_observation={"locator": "instrument:fixture", "attested_by": writer.authority.actor}
         )
     )
     run = writer.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[dataset.id]))
