@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import inspect
+import json
 import os
 import secrets
 import shutil
@@ -231,10 +232,17 @@ def test_j1_refusals_append_nothing_of_their_own(session_rig):
         with pytest.raises(exception):
             call()
         assert chain(root).tip == settled_head
-    # Under a requirement that names every kind these records carry, the refusal is the body's.
+    # Under a requirement that names every kind these records carry, the refusal is the body's:
+    # the operation twin raises the exact class the ordinary `add` raises for the same record,
+    # and it is not the permit's — `WriteRefused` alone would be satisfied by `PermitExceeded`.
     wide = fresh(session, "B", WIDE)
-    with pytest.raises(WriteRefused):
-        wide.add(proposition("p1").model_copy(update={"kind": "act-report"}))
+    malformed = proposition("p1").model_copy(update={"kind": "act-report"})
+    with pytest.raises(WriteRefused) as ordinary_malformed:
+        open_corpus(root, authority=FULL).add(malformed)
+    with pytest.raises(WriteRefused) as operation_malformed:
+        wide.add(malformed)
+    assert type(operation_malformed.value) is type(ordinary_malformed.value)
+    assert not isinstance(operation_malformed.value, PermitExceeded)
     assert chain(root).tip == settled_head
     assert intents(root) == []  # no intent decodes to any refused call
     target = mint_eligible_assessment(open_corpus(root, authority=FULL))
@@ -245,6 +253,7 @@ def test_j1_refusals_append_nothing_of_their_own(session_rig):
     with pytest.raises(WriteRefused) as operation:
         wide.add(retraction)
     assert type(operation.value) is type(ordinary.value)
+    assert not isinstance(operation.value, PermitExceeded)
     assert chain(root).tip == session_head
     # Each of the seven refused under a permit lacking its kind: the kernel's own `require`
     # runs before the body, so an argument that would refuse later never gets there.
@@ -383,22 +392,45 @@ def test_j5_the_act_line_carries_the_chain_registration_and_is_fsynced_under_the
     node = w.add(proposition("p1"))
     assert holders == [("writer", True)]
     assert ledger_file.stat().st_size > sizes[0]
+    # §7 J5 reads the ledger *back*: the assertions below are off the persisted line, so a
+    # durable `act` carrying an `entry` the chain does not hold fails here whatever the
+    # in-memory index says. The index is asserted alongside, never instead.
+    (persisted,) = open_ledger_reader(ops, session.session_id).acts()
     (act,) = session.invocation_acts("A")
-    registration = next(e for e in registrations(root) if e.fulfills == act.intent)
-    assert act.entry == registration.digest and act.record_ids == ((node.uid, node.id),)
+    registration = next(e for e in registrations(root) if e.fulfills == persisted.intent)
+    assert persisted.entry == registration.digest and persisted.record_ids == ((node.uid, node.id),)
+    assert (act.entry, act.intent, act.record_ids) == (persisted.entry, persisted.intent, persisted.record_ids)
     assert ledger_file.read_bytes().endswith(b"\n")
     assert session._ledger._file.fileno() in fsyncs
     w.delete("proposition:p1")
-    assert session.invocation_acts("A")[-1].record_ids == ()
+    deleted = open_ledger_reader(ops, session.session_id).acts()[-1]
+    assert deleted.record_ids == () and session.invocation_acts("A")[-1].record_ids == ()
+    assert deleted.entry == next(e for e in registrations(root) if e.fulfills == deleted.intent).digest
     assert holders[-1] == ("writer", True)
 
 
 # --- J9 -----------------------------------------------------------------------------
 def test_j9_lifecycle_and_the_refusing_configurations(work_directory):
     root = adopted(work_directory, "corpus")
-    session, ops = attended(work_directory, root)
+    # `attended` mints the world config inside itself, and J9 compares the world id the
+    # `session-open` line carries against the config's *exactly*, so this arm builds the
+    # config and hands it to the constructor rather than going through the helper.
+    config = config_for(work_directory, root)
+    ops = _track(work_directory / f"ops-{secrets.token_hex(4)}")
+    session = open_attended_session(config, ops)
     reader = open_ledger_reader(ops, session.session_id)
-    assert reader.actor == session.actor and reader.world_id and reader.closed is False
+    assert reader.actor == session.actor == f"session:{session.session_id}"
+    assert reader.world_id == config.world_id and reader.closed is False
+    # The whole `session-open` line, permit summary included, read off the file.
+    opened = json.loads(ledger_path(ops, session.session_id).read_bytes().splitlines()[0])
+    ceiling = FULL.permit.summary()  # the attended constructor's ceiling is the full permit
+    assert opened["line"] == "session-open" and opened["session"] == session.session_id
+    assert opened["actor"] == session.actor and opened["world"] == config.world_id
+    assert opened["permit"] == {
+        "kinds": list(ceiling.kinds),
+        "act_families": list(ceiling.act_families),
+        "ungoverned": ceiling.ungoverned,
+    }
     session.claim_invocation("A", "mint", DIGEST)
     session.close()
     session.close()
@@ -482,7 +514,12 @@ def inventory(root: Path) -> list[str]:
 
 # --- J11 ----------------------------------------------------------------------------
 def test_j11_a_writer_is_bound_to_one_invocation_durably(session_rig):
-    session, root, _ = session_rig
+    session, root, ops = session_rig
+
+    def ledgered(invocation: str) -> list[str]:
+        """The act lines the *file* holds for one invocation, read through a fresh reader."""
+        return [act.invocation for act in open_ledger_reader(ops, session.session_id).acts() if act.invocation == invocation]
+
     a = session.scoped(PROPOSITIONS, "A")
     head = chain(root).tip
     with pytest.raises(SessionProtocolError):
@@ -498,8 +535,9 @@ def test_j11_a_writer_is_bound_to_one_invocation_durably(session_rig):
     head = chain(root).tip
     with pytest.raises(SessionProtocolError):
         a.add(proposition("p3"))
-    assert chain(root).tip == head and session.invocation_acts("B") == ()
+    assert chain(root).tip == head and session.invocation_acts("B") == () and ledgered("B") == []
     b.add(proposition("p3"))
+    assert ledgered("B") == ["B"]
     session.claim_invocation("C", "mint", DIGEST)
     with pytest.raises(SessionProtocolError):
         b.add(proposition("p4"))
@@ -509,3 +547,4 @@ def test_j11_a_writer_is_bound_to_one_invocation_durably(session_rig):
     one.add(proposition("p5"))
     two.add(proposition("p6"))
     assert [act.invocation for act in session.invocation_acts("D")] == ["D", "D"]
+    assert ledgered("D") == ["D", "D"]  # durably, off the file the writer fsynced
