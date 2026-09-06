@@ -1,8 +1,10 @@
 # Verification publication — design (the `verification-publication` slice)
 
 **Date:** 2026-09-06
-**Status:** designed 2026-09-06; **conformance cut 21 to freeze** after review,
-before implementation. Not yet implemented.
+**Status:** designed 2026-09-06 and reviewed once the same day (the review's
+six findings became §2 items 13–18 and the section edits they name);
+**conformance cut 21 to freeze** after review clears, before implementation.
+Not yet implemented.
 **Scope:** the `write-path` lane's open boundary — roadmap tier 1, on the path,
 row 1 (`../plans/2026-08-29-implementation-roadmap.md`). Durable publication of
 verification records: a derived verification written into a corpus through
@@ -180,12 +182,54 @@ re-derivable from the corpus alone."
     entered the ledger on cut 13 §2's named exclusion with no guarantee row,
     and a cut needs rows to select. R19's stored-verification limitation
     closes by V4; no row of another table is selected.
-12. **Identity consequences are accepted, not migrated.** Assessment
+12. **Identity consequences are accepted, not migrated (continued below at 18).** Assessment
     identities move (decision 1), so every belief input digest moves and every
     verification's `assessment` member over an existing corpus is stale. The
     reproduction corpus is re-run into a fresh directory, which the `domain`
     lane's decision 13 already schedules; the lane that merges second re-runs
     it (§11).
+13. **Every resolver of the run member adds the prefix — the assessment audit's
+    included** (review finding 1). `check_assessment` resolves the stored
+    value's run through `typed_ref("run", …)`; left bare, the closure lookup
+    fails and every assessment derivation goes *unchecked*, at audit and at
+    import, which the reviewer reproduced. §3.2 lists the site and V2's
+    negative pins that a contradicted assessment still contradicts.
+14. **The analysis-spec record stores its canonical projection text** (review
+    finding 2). `_project_parameter_value` leaves a `Decimal` as a `Decimal`,
+    which the record writer refuses (`RepresenterError`, wrapped as
+    `ValidationRefused`), so a member-by-member facet cannot hold V8's
+    example. The facet is `{identity, projection}` with `projection` the
+    `v1.encode` text of `_facet_projection`'s mapping — the run record's
+    pattern — and `restore` decodes it through `v1.decode`, whose number
+    parser yields `Decimal`, so the round trip is lossless and the identity
+    is the digest of the decoded mapping by construction (§7).
+15. **No spec disappears silently** (review finding 3). A correctly stamped
+    spec record with a false `identity` passes the stamp check, and the
+    import's r20 check reads two fields. So: `_refuse` restores every
+    `analysis-spec` record it prepares (the r20 check now reads the restored
+    spec), `audit_corpus` gains an `analysis-spec` branch that restores and
+    reports a failure as `derivation-malformed` naming the record, and
+    `stored_specs` returns the restored specs *and* the findings for the
+    records it could not restore, never a bare mapping (§6, §7).
+16. **V4's forgeries are self-consistent** (review finding 4). A member
+    change moves the identity, so a fixture that keeps the old id is caught
+    by the reader as malformed (`derivation-malformed` under R11's catch),
+    never as a derivation contradiction. V4's fixtures recompute the id, the
+    relation source and the stamp — a forger who does everything right except
+    the derivation — and the stale-id cases are V5's.
+17. **Identity-equivalent targets are allowed** (review finding 5). Two
+    assessment records can carry one identity (same spec, run and
+    proposition under two slugs; the builders permit it). The `verifies` edge
+    is a corpus pointer and the `assessment` member is what admission reads,
+    so §5.3 requires the target's identity to equal the member and no more; a
+    verification published against either twin admits the identity. V3's
+    negative is restated on that basis.
+18. **Report absence does not imply an unchecked import** (review finding 6).
+    Cut 18 checks a report-less verification's verdict and assessment
+    identity whenever its derivation names runs that resolve and the evidence
+    binds the rule, and refuses a contradiction at import. V6 promises
+    `derivation-unchecked` only for a record with no derivation member, or
+    whose runs or rule do not resolve.
 
 ## 3. One spelling — the identity fix
 
@@ -217,6 +261,7 @@ representable.
 | `admission.admit` | `run.ref != assessment.run` | `run.ref != typed_ref("run", assessment.run)` |
 | `evaluation.gather` | `view.holds(a.run)`, `run_value(view, a.run)` | `ref = typed_ref("run", a.run)` for both; `runs` stays keyed by `a.run` and the trace row stays `("run", a.run)` — the value's spelling, matched by `declared_refs` |
 | `audit._assessment_disagreements` | `stored_value.run != run_ref(derived.run)` | `stored_value.run != derived.run`; the docstring's normalization clause goes |
+| `audit.check_assessment` | `_closure(view, stored_value.run)` | `_closure(view, typed_ref("run", stored_value.run))` — left bare, every assessment derivation is unchecked at audit and at import (decision 13) |
 | `verify.build_verification`, `audit.check_verification` | digest `"run": original.address()` | unchanged — already bare |
 | `corpus.eligibility_refusal` | reads the facet's typed ref directly | unchanged |
 
@@ -384,7 +429,7 @@ publication of the same node (writer-session J10).
 ### 5.3 The preflight refusal
 
 `CorpusWriter._refuse` gains one call after `_refuse_invalid` and before the
-stamp check, for `node.kind == "verification"` only:
+stamp check, for `node.kind == "verification"` (steps 1–3) and `"analysis-spec"` (step 4):
 
 ```python
 def _refuse_verification(self, node: Node, *, view: ReadView | _ImportView) -> None
@@ -405,6 +450,11 @@ step and `_validated_import_bundle` both call under it), before any effect:
    `stored.assessment_value(...).identity()` equals `decoded.assessment`;
    else `VerificationTargetMismatch(WriteRefused)` naming the target and
    both identities. The production shape has no edge and skips this step.
+   Equality of identity is the whole requirement: a second assessment record
+   carrying the same identity is an equally valid target (decision 17).
+4. For `node.kind == "analysis-spec"`, `_refuse` calls
+   `stored.analysis_spec_value(node)` and lets its `MalformedRecord`
+   propagate; the r20 contradiction check reads the restored spec (§7).
 
 No recomputation from the runs happens here: the runs need not resolve for a
 publication to be accepted (a verification may be published into a corpus
@@ -465,31 +515,59 @@ design keeps the computation design's stated bound that a certification
 found false is remedied by a superseding verification, never detected by
 the audit.
 
-`audit_corpus` is unchanged in signature and control flow: it still dispatches
-on kind, still leaves a bad neighbour unchecked (R11), and still mints
-nothing. `stored_specs(view) -> Mapping[str, FrozenSpec]` is added beside it:
-it iterates `analysis-spec` records, restores each through
-`stored.analysis_spec_value`, and returns them keyed by identity; a record
-that fails to restore is skipped with no finding here — it is `corpus_check`'s
-stamp finding and `_refuse`'s import refusal, by the same reasoning R11
-gives — and the caller composes `DerivationEvidence(specs=stored_specs(view) | in_process, …)`
-explicitly. Nothing reads specs ambiently.
+`audit_corpus` keeps its signature and its rules — a bad neighbour leaves a
+derivation unchecked (R11), nothing is minted — and gains one branch: for
+`record.kind == "analysis-spec"` it calls `check_analysis_spec(node)`, which
+restores the spec through `stored.analysis_spec_value` and returns `checked`;
+a `MalformedRecord` from the record's own members becomes the
+`derivation-malformed` finding naming the record, under the catch R11
+already has. Beside it:
+
+```python
+def stored_specs(view) -> tuple[Mapping[str, FrozenSpec], tuple[Finding, ...]]
+```
+
+iterates the `analysis-spec` records, restores each, keys the restored ones by
+identity, and returns the `derivation-malformed` finding for each one it could
+not restore — the same finding the audit branch reports — so a caller that
+composes `DerivationEvidence(specs=specs | in_process, …)` holds the findings
+in its hand and a false spec never vanishes into an unchecked derivation
+(decision 15). Nothing reads specs ambiently.
 
 ## 7. The analysis-spec record
+
+The facet is the run record's pattern, not a member-by-member copy:
+
+```yaml
+analysis-spec:
+  identity: <spec identity>
+  projection: <the v1.encode text of _facet_projection's mapping>
+```
+
+`_facet_projection` already carries every frozen member — target, estimand,
+method, assumptions, falsification, input roles with their exclusions,
+applicability, the two rule names, parameters, nondeterminism, rule bindings,
+and `supersedes` when present — and `identity` is its digest under
+`SPEC_DOMAIN`. Canonical text is the one lossless carrier: `v1.encode` refuses
+what it cannot spell, `v1.decode` parses numbers as `Decimal` and refuses text
+that does not re-encode to itself, so a `Decimal` parameter round-trips as a
+`Decimal` and a non-canonical or edited text is refused at the byte
+(decision 14). The record writer never sees a `Decimal`: the facet holds two
+strings.
 
 `spec` gains one restoring mint:
 
 ```python
-def restore(facet: Mapping[str, object]) -> FrozenSpec
+def restore(identity: str, projection: bytes) -> FrozenSpec
 ```
 
-`facet` is `_facet_projection`'s mapping plus `identity`. `restore` requires
-the key set exactly, decodes `input_roles` (with their optional `exclusion`),
-`parameters` through the inverse of `_project_parameter_value` (so a `Decimal`
-round-trips as a `Decimal`), `nondeterminism` through the three projections'
-inverse, `rule_bindings` as pairs and `supersedes` as optional; recomputes
-`v1.digest(SPEC_DOMAIN, projection-without-identity)` and refuses a
-disagreement with the facet's `identity` (`MalformedRecord`); and mints
+`restore` decodes the text (`CanonicalTextRefused` propagates as
+`MalformedRecord`), requires the mapping's key set exactly, rebuilds
+`input_roles`, `nondeterminism` (through the three variants' inverse) and
+`rule_bindings` as pairs, recomputes `v1.digest(SPEC_DOMAIN, mapping)` and
+refuses a disagreement with `identity`, applies `freeze`'s unfreezable check
+(a stochastic-unseeded spec under a bitwise rule is refused here as it is at
+`freeze`, which is what the import's r20 check now relies on), and mints
 through `_mint_frozen_spec`, the private mint `freeze` and `revise` use.
 `FrozenSpec`'s docstring widens from "minted by freeze or revise" to name
 `restore`.
@@ -497,16 +575,19 @@ through `_mint_frozen_spec`, the private mint `freeze` and `revise` use.
 `stored.analysis_spec_node(spec: FrozenSpec) -> Node` writes the facet above
 under `analysis-spec:<identity>` through `governed_node`, stamped, with no
 relations (the `executes`/`targets` edges are the run's and the assessment's).
-`stored.analysis_spec_value(node) -> FrozenSpec` requires the kind, reads the
-facet, restores through `spec.restore`, and refuses a node whose id is not
-`typed_ref("analysis-spec", spec.identity)`. The reproduction driver's
-hand-built `spec_record` is replaced by the builder and its finding closes.
+`stored.analysis_spec_value(node) -> FrozenSpec` requires the kind, reads
+exactly the two members, restores through `spec.restore`, and refuses a node
+whose id is not `typed_ref("analysis-spec", spec.identity)`.
 
-The `_refuse` preflight does not gain a spec step: the stamp already covers
-the facet, the import's r20 check stands, and a facet whose identity
-disagrees with its members is caught by `analysis_spec_value` wherever a
-reader restores it. This is the same line §5.3 draws for the verification:
-self-consistency at the reader, refused at write only where a write reads.
+Three readers of the record change with it: `_refuse` restores every
+`analysis-spec` it prepares (§5.3 step 4), so a record whose identity is
+false, whose text is not canonical, or whose members contradict the
+unfreezable rule is refused at `add` and at import before any write;
+`_refuse_r20_contradiction` reads `nondeterminism` and `equivalence_rule`
+from the restored spec rather than from loose facet fields; and
+`audit_corpus`'s new branch reports a raw-written record that fails to
+restore (§6). The reproduction driver's hand-built `spec_record` is replaced
+by the builder, its finding closes, and its corpus is re-run (decision 12).
 
 ## 8. Guarantees
 
@@ -515,13 +596,13 @@ The `V` table. Rows are frozen; ids are never renumbered.
 | # | Guarantee | Mutation test |
 |---|---|---|
 | **V1** | A published verification is recoverable from the corpus alone: `decode_verification` over the stored record restores a `StoredVerification` whose basis equals the derived value's member for member, whose report's identity equals the derived report's, and whose scope and verdict are *read*, not recomputed; `comparison_report_stored` is true in the reproduction's step 10b and scope and verdict read equal | Derive a verification over two published runs, publish it, reopen the corpus in a fresh process, decode, and assert `basis()` equality, report identity equality, `identity()` equal to the record id, and that the decode performed no run read (the runs deleted first). Run the reproduction driver's 10b and assert `comparison_report_stored` true, `scope_equal` and `verdict_equal` true, and the *corpus* input list naming the verification record alone for the report. **Negative:** the same record with its `report` member removed decodes as `None`, and 10b reports false |
-| **V2** | One identity: the assessment identity a stored assessment reads back is the identity its run derives, so a verification derived over an original and a replayed run of a stored assessment both admits over the corpus and audits without contradiction; and `AssessmentValue.run` is the bare run address on both sides | The roadmap's failing test, first: publish a dataset, a proposition, an assessment-shaped run, its assessment and a replay; `build_verification` → `publication_node` → `add`; `gather` → `admit` is `Admitted`; `audit_corpus` has no `verification-derivation-contradicted` and no `assessment-derivation-contradicted`; `evaluate_over` answers a `Belief`. Assert `stored.assessment_value(node).run` has no `run:` prefix and equals `build_assessment(closure).run`; assert `run_ref(a) == typed_ref("run", a)`. **Negative:** an assessment facet whose `run` is bare or absent is `MalformedRecord` from `assessment_value`; `admit` with a `RunValue` whose ref is another run is `run-mismatch` |
-| **V3** | Admission is evaluated over records read back: `gather` selects a stored verification by the stored assessment's identity, `admit` reads its scope and verdict from the record, and the belief moves with the record — deleted, it no longer admits; superseded, it is no longer active | Over V2's corpus assert `Belief`; `delete` the verification through the writer and assert `NoBelief(no-eligible-assessment)`; publish a second verification whose `supersedes` names the first and whose verdict is `failed`, and assert `invalidated` and `NoBelief`. Assert the belief input digest equals the one computed in a fresh process over the same corpus (10a). **Negative:** a verification published against a *different* assessment ref with the same identity is refused by V5, so the gathered set never contains it |
-| **V4** | Scope is recomputed over a stored verification: the audit and the import recompute scope through the stored certification and the report by identity, and a stored member that disagrees — scope raised, verdict flipped, a receipt or conformance altered in the report, the rule or scope rule renamed — is `verification-derivation-contradicted` naming the member; a report-less verification is checked for verdict and identity only, as cut 18 rules; and `check_verification` reaches the same verdict whether the evidence's spec is in-process or restored from the corpus | Raw-write V2's published record with `scope: clean-environment` over a pair whose replay receipt does not qualify (or with the verdict flipped, a receipt identity changed, `original_conformance` changed, `rule` renamed, `scope_rule` renamed, each separately, stamp recomputed so the stamp check passes) and assert one finding per case with the member in `detail`; import each as a bundle member with both runs resolvable and assert `ImportRefused` before any file exists. Run the same audit with `evidence.specs` from `stored_specs(view)` alone and assert equal outcomes. **Negative:** the unaltered record audits `checked` with no contradiction; the same alterations on a report-less record are detected only where cut 18 detected them (verdict, identity) |
-| **V5** | Forgery is refused before the intent and before any write: a verification whose id disagrees with its members, whose report identity disagrees with its basis, which carries an `assessment` member without a `verifies` edge or two edges, or whose `verifies` target resolves to no assessment or to one of another identity, is refused at `add` and at import with the chain head unchanged and no intent appended | Through a scoped writer over a registered root, `add` each forged node and assert the refusal type (`MalformedRecord` for the first three, `VerificationTargetMismatch` for the last two), the head equal to the head after settlement, no intent decoding to the invocation's token, no record file, and no `act` line; import the same as bundle members and assert `ImportRefused` with no file. **Negative:** the well-formed node is one intent and one fulfilling registration (J1), and a report-less hand-built node with an unresolvable target still adds, as today |
-| **V6** | A verification without a report is not malformed: it adds, imports unchecked with `derivation-unchecked`, and audits on cut 18's terms; `stored.verification_node`, `verification_value` and `verification_derivation` are unchanged in signature and result | Add cut 18's fixture verifications (no derivation; derivation without report) through the writer and through import; assert acceptance, the `derivation-unchecked` finding on import, and `check_verification`'s outcome equal to cut 18's on the same fixtures. **Negative:** a `report` member that is present and malformed (a missing key, a receipts list of one, a non-string diagnostic) is `MalformedRecord`, at `add`, at import and in the audit |
+| **V2** | One identity: the assessment identity a stored assessment reads back is the identity its run derives, so a verification derived over an original and a replayed run of a stored assessment both admits over the corpus and audits without contradiction; and `AssessmentValue.run` is the bare run address on both sides | The roadmap's failing test, first: publish a dataset, a proposition, an assessment-shaped run, its assessment and a replay; `build_verification` → `publication_node` → `add`; `gather` → `admit` is `Admitted`; `audit_corpus` has no `verification-derivation-contradicted` and no `assessment-derivation-contradicted`; `evaluate_over` answers a `Belief`. Assert `stored.assessment_value(node).run` has no `run:` prefix and equals `build_assessment(closure).run`; assert `run_ref(a) == typed_ref("run", a)`. Raw-alter a stored assessment's `outcome` and assert `assessment-derivation-contradicted` at audit and `ImportRefused` as a bundle member — the lookup resolves through the typed ref (decision 13). **Negative:** an assessment facet whose `run` is bare or absent is `MalformedRecord` from `assessment_value`; `admit` with a `RunValue` whose ref is another run is `run-mismatch` |
+| **V3** | Admission is evaluated over records read back: `gather` selects a stored verification by the stored assessment's identity, `admit` reads its scope and verdict from the record, and the belief moves with the record — deleted, it no longer admits; superseded, it is no longer active | Over V2's corpus assert `Belief`; `delete` the verification through the writer and assert `NoBelief(no-eligible-assessment)`; publish a second verification whose `supersedes` names the first and whose verdict is `failed`, and assert `invalidated` and `NoBelief`. Assert the belief input digest equals the one computed in a fresh process over the same corpus (10a). **Negative:** a verification whose `assessment` member names another proposition's assessment is never gathered for this one; and a second assessment record carrying the same identity under another slug is an equally valid `verifies` target — a verification published against either twin admits the identity (decision 17) |
+| **V4** | Scope is recomputed over a stored verification: the audit and the import recompute scope through the stored certification and the report by identity, and a stored member that disagrees — scope raised, verdict flipped, a receipt or conformance altered in the report, the rule or scope rule renamed — is `verification-derivation-contradicted` naming the member; a report-less verification is checked for verdict and identity only, as cut 18 rules; and `check_verification` reaches the same verdict whether the evidence's spec is in-process or restored from the corpus | Raw-write V2's published record with `scope: clean-environment` over a pair whose replay receipt does not qualify (or with the verdict flipped, a receipt identity changed, `original_conformance` changed, `rule` renamed, `scope_rule` renamed, each separately), with the verification id, the `verifies` relation's source and the stamp all recomputed from the altered members so the record is self-consistent and decodes (decision 16), and assert one finding per case with the member in `detail`; import each as a bundle member with both runs resolvable and assert `ImportRefused` before any file exists. Run the same audit with `evidence.specs` from `stored_specs(view)` alone and assert equal outcomes. **Negative:** the unaltered record audits `checked` with no contradiction; the same alterations on a report-less record are detected only where cut 18 detected them (verdict, identity) |
+| **V5** | Forgery is refused before the intent and before any write: a verification whose id disagrees with its members (a member altered under the old id included), whose report identity disagrees with its basis, which carries an `assessment` member without a `verifies` edge or two edges, or whose `verifies` target resolves to no assessment or to one of another identity, is refused at `add` and at import with the chain head unchanged and no intent appended | Through a scoped writer over a registered root, `add` each forged node and assert the refusal type (`MalformedRecord` for the first three, `VerificationTargetMismatch` for the last two), the head equal to the head after settlement, no intent decoding to the invocation's token, no record file, and no `act` line; import the same as bundle members and assert `ImportRefused` with no file. **Negative:** the well-formed node is one intent and one fulfilling registration (J1), and a report-less hand-built node with an unresolvable target still adds, as today |
+| **V6** | A verification without a report is not malformed: it adds; it imports on cut 18's terms — checked for verdict and assessment identity when its derivation names runs that resolve and the evidence binds the rule, refused on a contradiction, and `derivation-unchecked` only when it names no derivation or its runs or rule do not resolve; and it audits the same way; `stored.verification_node`, `verification_value` and `verification_derivation` are unchanged in signature and result | Add cut 18's fixture verifications (no derivation; derivation without report) through the writer and through import; assert acceptance, `derivation-unchecked` for the derivation-less one and for one whose runs are absent from the bundle, `ImportRefused` for one whose verdict contradicts its resolvable runs, and `check_verification`'s outcome equal to cut 18's on the same fixtures. **Negative:** a `report` member that is present and malformed (a missing key, a receipts list of one, a non-string diagnostic) is `MalformedRecord`, at `add`, at import and in the audit |
 | **V7** | The production shape publishes: a `DatasetProductionVerification` becomes a record with no `verifies` edge and no `assessment` member, decodes to a `StoredVerification` with `assessment` `None`, is never selected by `gather`, and admits nothing; `admission_record` still refuses it | Publish one over a dataset-production pair; assert the record's relations are empty, the facet has no `assessment`, `decode_verification` round-trips, `gather` over every proposition selects it never, and `admission_record` raises `NotAnAssessmentVerification`. **Negative:** `publication_node` refuses a production shape given an `assessment_ref` and an assessment shape given none |
-| **V8** | The analysis-spec record round-trips: `analysis_spec_node` writes a stamped record under `analysis-spec:<identity>` and `analysis_spec_value` restores a `FrozenSpec` equal member for member and by identity; a facet whose identity disagrees with its members, or a node whose id disagrees with its identity, is `MalformedRecord`; `stored_specs` supplies the audit; and the reproduction's step 10b lists the rule implementations as its only in-process input | Freeze a spec with a `Decimal` parameter, a seeded nondeterminism and an exclusion; build, add, reopen, restore and assert equality of every member and `identity`; alter one member raw and assert `MalformedRecord`; rename the id and assert `MalformedRecord`; run the audit with `stored_specs(view)` only and assert V2's outcome. Run 10b and assert `in_process == ["interpretation and equivalence RuleImplementations"]`. **Negative:** `restore` of a facet with an extra key or a missing `identity` is `MalformedRecord`; the constructor's argument list is still closed (R19's arm re-run) |
+| **V8** | The analysis-spec record round-trips: `analysis_spec_node` writes a stamped record under `analysis-spec:<identity>` and `analysis_spec_value` restores a `FrozenSpec` equal member for member and by identity; a facet whose identity disagrees with its members, or a node whose id disagrees with its identity, is `MalformedRecord`; `stored_specs` supplies the audit; and the reproduction's step 10b lists the rule implementations as its only in-process input | Freeze a spec with a `Decimal` parameter, a seeded nondeterminism and an exclusion; build, add (the writer accepts it — the facet holds two strings), reopen, restore and assert equality of every member, `Decimal` type included, and `identity`; edit the projection text raw (a member changed; the same members re-ordered) and assert `MalformedRecord` from `restore`, a `derivation-malformed` finding from `audit_corpus` naming the record, the record absent from `stored_specs`' mapping and present in its findings, and `ImportRefused` as a bundle member; rename the id and assert `MalformedRecord`; run the audit with `stored_specs(view)` only and assert V2's outcome. Run 10b and assert `in_process == ["interpretation and equivalence RuleImplementations"]`. **Negative:** `restore` of a text whose mapping has an extra key, or a facet missing `identity`, is `MalformedRecord`; a stochastic-unseeded spec under a bitwise rule is refused by `restore` as by `freeze`; the constructor's argument list is still closed (R19's arm re-run) |
 
 ## 9. Limitations
 
@@ -599,8 +680,11 @@ scope comparison; skip the report comparison; take `certification=None` for a
 decoded report; compare `stored_value.run` through `run_ref` again),
 `corpus.py` (call `_refuse_verification` after `append_intent`; return before
 the target check; resolve the target in `self._view` instead of `view` for
-import), `spec.py` (skip `restore`'s identity check; project a `Decimal` as a
-string). `test_n2_cut21.py` audits them by the cut-12 pattern, with the
+import), `spec.py` (skip `restore`'s identity check; skip the unfreezable check in
+`restore`; decode with a float parser), `audit.py` again (resolve the
+assessment's run bare; drop the `analysis-spec` branch; let `stored_specs`
+return the mapping alone), `corpus.py` again (skip `_refuse`'s spec
+restoration). `test_n2_cut21.py` audits them by the cut-12 pattern, with the
 staleness probe's baseline taken from the tree, and `tools/cut21_acceptance.py`
 runs `PREFIX_RUNNERS = ("cut20_acceptance.py",)` then its phase modules.
 
@@ -653,8 +737,8 @@ runs `PREFIX_RUNNERS = ("cut20_acceptance.py",)` then its phase modules.
   character classes widened.
 - **The reproduction driver**: `belief.py` step 8 publishes through
   `publication_node`; `rederive.py` step 10b reads the report and relabels
-  its inputs; `spec.py` uses `analysis_spec_node`; `close.py` passes
-  `stored_specs(view)` into its evidence.
+  its inputs; `spec.py` uses `analysis_spec_node`; `close.py` composes its evidence
+  from `stored_specs(view)` and records that call's findings.
 - **Tasks**: `beliefs-754995` carries this design; `beliefs-f860f1`,
   `beliefs-ae9b18` and `beliefs-91aac6` close at discharge.
 
