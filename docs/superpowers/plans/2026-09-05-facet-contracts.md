@@ -154,6 +154,13 @@ def test_a_well_formed_document_loads_as_plain_values(tmp_path):
     assert load_document(path, source="<test>") == {"a": 1, "b": ["x", "y"], "c": {"d": True}}
 
 
+def test_a_non_string_mapping_key_is_refused_not_crashed(tmp_path):
+    path = tmp_path / "c.yaml"
+    path.write_text("? [a, b]\n: 1\n")
+    with pytest.raises(MalformedContract, match="not a string"):
+        load_document(path, source="<test>")
+
+
 def test_malformed_yaml_is_refused_as_a_contract_error(tmp_path):
     path = tmp_path / "c.yaml"
     path.write_text("a: [\n")
@@ -193,12 +200,16 @@ __all__ = ["load_document", "parse_document"]
 
 class _UniqueKeyLoader(yaml.SafeLoader):
     # A SafeLoader subclass: it constructs exactly the tags SafeLoader does and
-    # adds one check. `yaml.load(..., Loader=_UniqueKeyLoader)` is therefore as
+    # adds two checks. `yaml.load(..., Loader=_UniqueKeyLoader)` is therefore as
     # safe as `safe_load`, the same pattern `world/registry.py`'s manifest loader uses.
     def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict[object, object]:
-        seen: set[object] = set()
+        seen: set[str] = set()
         for key_node, _value in node.value:
             key = self.construct_object(key_node, deep=deep)
+            if not isinstance(key, str):
+                raise ConstructorError(
+                    "while constructing a mapping", node.start_mark, f"mapping key {key!r} is not a string", key_node.start_mark
+                )
             if key in seen:
                 raise ConstructorError(
                     "while constructing a mapping", node.start_mark, f"duplicate key {key!r}", key_node.start_mark
@@ -212,8 +223,9 @@ def parse_document(text: str, *, source: str) -> object:
     try:
         return yaml.load(text, Loader=_UniqueKeyLoader)
     except ConstructorError as exc:
-        if "duplicate key" in str(exc.problem or ""):
-            raise MalformedContract(f"{source}: {exc.problem}; refused, never kept last (§3.7)") from exc
+        problem = str(exc.problem or "")
+        if "duplicate key" in problem or "is not a string" in problem:
+            raise MalformedContract(f"{source}: {problem}; refused, never kept last (§3.7)") from exc
         raise MalformedContract(f"{source}: not well-formed YAML: {exc}") from exc
     except yaml.YAMLError as exc:
         raise MalformedContract(f"{source}: not well-formed YAML: {exc}") from exc
@@ -299,8 +311,9 @@ def parse(document):
 
 
 class TestTheShippedDeclarations:
-    def test_the_thirteen_world_kinds_are_declared(self, base_contract):
-        assert set(base_contract.kinds) == {
+    def test_the_thirteen_world_kinds_and_three_prose_kinds_are_declared(self, base_contract):
+        assert {n for n, k in base_contract.kinds.items() if k.role == "prose"} == {"interpretation", "discussion", "story"}
+        assert {n for n, k in base_contract.kinds.items() if k.role == "world"} == {
             "proposition", "source-assertion", "assessment", "analysis-spec", "run", "verification",
             "dataset", "source", "holdings-observation", "retraction", "instrument-certification",
             "coreference-attestation", "act-report",
@@ -310,6 +323,41 @@ class TestTheShippedDeclarations:
         for name in ("instrument-certification", "coreference-attestation"):
             assert base_contract.kinds[name].domain is None
             assert base_contract.kinds[name].facets == {}
+            assert base_contract.kinds[name].role == "world"
+
+    def test_a_prose_kind_may_carry_display_only_and_no_domain(self, base_contract):
+        assert dict(base_contract.kinds["discussion"].facets) == {"display": base_contract.kinds["proposition"].facets["display"]}
+        assert base_contract.kinds["discussion"].domain is None
+
+    def test_a_prose_kind_declaring_a_domain_or_another_facet_is_refused(self, base_contract_path):
+        from beliefs.contract.document import load_document
+
+        doc = load_document(base_contract_path, source="<t>")
+        bad = copy.deepcopy(doc)
+        bad["kinds"]["story"]["domain"] = "science.story.v1"
+        with pytest.raises(MalformedContract, match="prose"):
+            parse(bad)
+        bad = copy.deepcopy(doc)
+        bad["kinds"]["story"]["facets"]["dataset"] = {"required": False, "covered": False}
+        with pytest.raises(MalformedContract, match="prose"):
+            parse(bad)
+
+    def test_a_domain_string_is_checked_and_null_facets_are_refused(self, base_contract_path):
+        from beliefs.contract.document import load_document
+
+        doc = load_document(base_contract_path, source="<t>")
+        bad = copy.deepcopy(doc)
+        bad["kinds"]["dataset"]["domain"] = "dataset-v1"
+        with pytest.raises(MalformedContract, match="science.<kind>.v<n>"):
+            parse(bad)
+        bad = copy.deepcopy(doc)
+        bad["facets"]["empirical-observation"]["description"] = 7
+        with pytest.raises(MalformedContract, match="description"):
+            parse(bad)
+        bad = copy.deepcopy(doc)
+        bad["facets"] = None
+        with pytest.raises(MalformedContract, match="mapping"):
+            parse(bad)
 
     def test_dataset_declares_its_four_facets(self, base_contract):
         facets = base_contract.kinds["dataset"].facets
@@ -510,6 +558,12 @@ kinds:
       act-report: { required: true, covered: true }
   instrument-certification: {}
   coreference-attestation: {}
+  # Kernel §4.4's belief-inert notes: hand-authored, undomained, unstamped,
+  # never in a closure. Declared so the closed registry admits them (design
+  # §3.1 as amended 2026-09-05). `WORLD_KINDS` excludes them by role.
+  interpretation: { role: prose, facets: { display: { required: false, covered: false } } }
+  discussion:     { role: prose, facets: { display: { required: false, covered: false } } }
+  story:          { role: prose, facets: { display: { required: false, covered: false } } }
 
 # Kernel §4.1's closed relation vocabulary. `world` is the queryable group
 # `WORLD_RELATIONS` derives from; `lifecycle` relations are minted by adapters
@@ -579,6 +633,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from types import MappingProxyType
 
 from beliefs.errors import MalformedContract
 
@@ -676,8 +731,8 @@ def parse_facet_declarations(value: object, *, where: str, namespace: str | None
         body = _mapping(body_value, facet_where)
         key = local if namespace is None else f"{namespace}/{local}"
         description = body.get("description")
-        if description is not None and not isinstance(description, str):
-            raise MalformedContract(f"{facet_where}: description is a string")
+        if "description" in body and not isinstance(description, str):
+            raise MalformedContract(f"{facet_where}: description is a string, never null")
         if namespace is None:
             shape = body.get("shape")
             if shape not in ("reader", "schema"):
@@ -705,7 +760,7 @@ def parse_facet_declarations(value: object, *, where: str, namespace: str | None
             name: parse_field(name, field_value, f"{facet_where}.fields.{name}")
             for name, field_value in _mapping(body["fields"], f"{facet_where}.fields").items()
         }
-        declarations[key] = FacetDecl(key, "schema", fields, attaches_to, description)
+        declarations[key] = FacetDecl(key, "schema", MappingProxyType(fields), attaches_to, description)
     return declarations
 ```
 
@@ -728,16 +783,22 @@ class FacetUse:
 @dataclass(frozen=True)
 class KindDecl:
     name: str
+    role: str  # "world" | "prose"
     domain: str | None
     facets: Mapping[str, FacetUse]
 
     def projection(self) -> dict[str, object]:
-        return {
-            "domain": self.domain,
+        # No null anywhere: `science.identity.v1` refuses it. An undomained kind
+        # carries no `domain` key; its role says what it is.
+        projection: dict[str, object] = {
+            "role": self.role,
             "facets": {
                 key: {"required": use.required, "covered": use.covered} for key, use in sorted(self.facets.items())
             },
         }
+        if self.domain is not None:
+            projection["domain"] = self.domain
+        return projection
 
 
 @dataclass(frozen=True)
@@ -760,9 +821,15 @@ Add three fields to `BaseContract` (after `claim_grammar: ClaimGrammar`): `kinds
     for name, body_value in _mapping(root["kinds"], f"{source}: kinds").items():
         where = f"{source}: kinds.{name}"
         body = _mapping(body_value, where)
-        _exact_fields_or_empty(body, frozenset({"domain", "facets"}), where)
+        _exact_fields_or_empty(body, frozenset({"domain", "facets", "role"}), where)
+        role = body.get("role", "world")
+        if role not in ("world", "prose"):
+            raise MalformedContract(f"{where}: role is `world` or `prose`, found {role!r}")
         domain = body.get("domain")
-        if body and (not isinstance(domain, str) or not v1_domain_ok(domain)):
+        if role == "prose":
+            if domain is not None or set(body.get("facets", {})) - {"display"}:
+                raise MalformedContract(f"{where}: a prose kind carries no domain and no facet but display")
+        elif body and (not isinstance(domain, str) or not v1_domain_ok(domain)):
             raise MalformedContract(f"{where}: a governed kind names a `science.<kind>.v<n>` domain")
         uses: dict[str, FacetUse] = {}
         for key, use_value in _mapping(body.get("facets", {}), f"{where}.facets").items():
@@ -773,7 +840,7 @@ Add three fields to `BaseContract` (after `claim_grammar: ClaimGrammar`): `kinds
             if not isinstance(use["required"], bool) or not isinstance(use["covered"], bool):
                 raise MalformedContract(f"{where}.facets.{key}: required and covered are booleans")
             uses[key] = FacetUse(required=use["required"], covered=use["covered"])
-        kinds[name] = KindDecl(name=name, domain=domain if body else None, facets=uses)
+        kinds[name] = KindDecl(name=name, role=role, domain=domain if role == "world" and body else None, facets=MappingProxyType(uses))
 
     relations: dict[str, RelationDecl] = {}
     for name, body_value in _mapping(root["relations"], f"{source}: relations").items():
@@ -790,7 +857,7 @@ Add three fields to `BaseContract` (after `claim_grammar: ClaimGrammar`): `kinds
         relations[name] = RelationDecl(name=name, group=body["group"], sources=sources, targets=targets)
 ```
 
-with two helpers beside `_exact_fields`:
+(`from types import MappingProxyType`; `FacetDecl.fields` is wrapped the same way in `contract/facets.py`: `fields=MappingProxyType(fields)`.) With two helpers beside `_exact_fields`:
 
 ```python
 def _exact_fields_or_empty(mapping: dict[str, object], permitted: frozenset[str], where: str) -> None:
@@ -835,9 +902,12 @@ export interface FacetUse {
 }
 export interface KindDecl {
   readonly name: string;
+  readonly role: "world" | "prose";
   readonly domain: string | null;
   readonly facets: DeclarationTable<FacetUse>;
 }
+
+const SEMANTIC_DOMAIN = /^science\.[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*\.v[1-9][0-9]*$/;
 export interface RelationDecl {
   readonly name: string;
   readonly group: "world" | "lifecycle";
@@ -878,6 +948,9 @@ export function parseFacetDeclarations(value: unknown, where: string, namespace:
     const facetWhere = `${where}.${local}`;
     const body = mapping(bodyValue, facetWhere);
     const key = namespace === null ? tag(local, facetWhere) : `${namespace}/${tag(local, facetWhere)}`;
+    if ("description" in body && typeof body.description !== "string") {
+      throw new MalformedContract(`${facetWhere}: description is a string, never null`);
+    }
     let shape: "reader" | "schema";
     let attachesTo: readonly string[] = [];
     if (namespace === null) {
@@ -909,7 +982,7 @@ export function parseFacetDeclarations(value: unknown, where: string, namespace:
 }
 ```
 
-Then in `parseBaseContract`: change `exactFields(document, ["contract", "version", "claim_grammar"], [], source)` to require `kinds`, `relations`, `facets` too; parse `facets` with `parseFacetDeclarations(document.facets, \`${source}.facets\`, null)`; parse `kinds` (each entry `{}` → `domain: null, facets: {}`; otherwise exact fields `domain`, `facets`, `domain` a string, every facet key present in the facets table, `required`/`covered` booleans); parse `relations` (exact fields `group`, `sources`, `targets`; group in `world`/`lifecycle`; every endpoint a declared kind). Add `kinds`, `relations`, `facets` readonly members to `BaseContract` (frozen tables), thread them through the constructor `parts`, and export the new types from `ts/src/index.ts`. Refusal messages must contain the same key words the Python tests match on (`required`, `kinds`, `schemes`, `shape`, `group`).
+Then in `parseBaseContract`: change `exactFields(document, ["contract", "version", "claim_grammar"], [], source)` to require `kinds`, `relations`, `facets` too; parse `facets` with `parseFacetDeclarations(document.facets, \`${source}.facets\`, null)` (the `mapping` helper already refuses `null`, matching Python); parse `kinds` (each entry `{}` → `role: "world", domain: null, facets: {}`; otherwise exact fields `domain`, `facets`, `role` (optional, `world` default, else `prose`); a `world` kind's `domain` must match `SEMANTIC_DOMAIN` — the same syntax Python's `v1.check_domain` enforces — refusing with a message containing `science.<kind>.v<n>`; a `prose` kind refuses a `domain` and any facet but `display`; every facet key present in the facets table; `required`/`covered` booleans); parse `relations` (exact fields `group`, `sources`, `targets`; group in `world`/`lifecycle`; every endpoint a declared kind). Add `kinds`, `relations`, `facets` readonly members to `BaseContract` (frozen tables), thread them through the constructor `parts`, and export the new types from `ts/src/index.ts`. Refusal messages must contain the same key words the Python tests match on (`required`, `kinds`, `schemes`, `shape`, `group`).
 
 - [ ] **Step 7: Add the TypeScript cases**
 
@@ -939,6 +1012,16 @@ describe("the base contract's declarations (design §3.1–§3.4)", () => {
   it("refuses a relation outside the two groups", () => {
     const bad = SHIPPED.replace("observes:     { group: world,", "observes:     { group: other,");
     expect(() => parseBaseContract(bad, "<bad>")).toThrow(/group/);
+  });
+  it("checks the semantic-domain syntax, a description's type, and refuses null facets — the same three refusals Python makes", () => {
+    expect(() => parseBaseContract(SHIPPED.replace("domain: science.dataset.v1", "domain: dataset-v1"), "<bad>")).toThrow(/science\.<kind>\.v<n>/);
+    expect(() => parseBaseContract(SHIPPED.replace("    description: The declared acquisition boundary", "    description: 7\n    x-ignored: The declared acquisition boundary"), "<bad>")).toThrow(/description|unknown/);
+    expect(() => parseBaseContract(`${SHIPPED.split("\nfacets:")[0]}\nfacets: null\n`, "<bad>")).toThrow(/mapping/);
+  });
+  it("declares the three prose kinds with display only", () => {
+    const base = parseBaseContract(SHIPPED, "contracts/science/CONTRACT.yaml");
+    expect(base.kinds.discussion.role).toBe("prose");
+    expect(Object.keys(base.kinds.discussion.facets)).toEqual(["display"]);
   });
 });
 ```
@@ -988,7 +1071,7 @@ class TestDomainFacets:
         for section in ("kinds", "relations"):
             doc = copy.deepcopy(testing_document)
             doc[section] = {}
-            with pytest.raises(MalformedContract, match=f"{section}.*refused"):
+            with pytest.raises(MalformedContract, match=f"a domain contract declares no {section}"):
                 parse(doc)
 
     def test_a_domain_facet_requires_attaches_to_and_fields(self, parse, testing_document):
@@ -1067,7 +1150,7 @@ passing `facets=facets` to `_parsed`. Import `FacetDecl, parse_facet_declaration
 
 - [ ] **Step 5: TypeScript**
 
-In `parseDomainContract`: refuse `kinds` and `relations` before `exactFields` with `MalformedContract(\`${source}: a domain contract declares no ${section}; refused\`)`; permit `facets` as optional; parse with `parseFacetDeclarations(document.facets ?? {}, \`${source}.facets\`, namespace)`; add `readonly facets: DeclarationTable<FacetDecl>` to `DomainContract`. Append to `ts/tests/declarations.test.ts`:
+In `parseDomainContract`: refuse `kinds` and `relations` before `exactFields` with `MalformedContract(\`${source}: a domain contract declares no ${section}; refused\`)`; permit `facets` as optional; parse with `parseFacetDeclarations("facets" in document ? document.facets : {}, \`${source}.facets\`, namespace)` so an explicit `null` is refused by `mapping` exactly as Python's `_mapping(None)` refuses it; add `readonly facets: DeclarationTable<FacetDecl>` to `DomainContract`. Append to `ts/tests/declarations.test.ts`:
 
 ```ts
 describe("a domain contract's facets (design §3.3)", () => {
@@ -1079,8 +1162,8 @@ describe("a domain contract's facets (design §3.3)", () => {
     expect(domain.facets["testing/axis"].attachesTo).toEqual(["dataset"]);
   });
   it("refuses kinds and relations in a domain contract", () => {
-    expect(() => parseDomainContract(`${TESTING}\nkinds: {}\n`, "<bad>", base)).toThrow(/kinds/);
-    expect(() => parseDomainContract(`${TESTING}\nrelations: {}\n`, "<bad>", base)).toThrow(/relations/);
+    expect(() => parseDomainContract(`${TESTING}\nkinds: {}\n`, "<bad>", base)).toThrow(/declares no kinds/);
+    expect(() => parseDomainContract(`${TESTING}\nrelations: {}\n`, "<bad>", base)).toThrow(/declares no relations/);
   });
 });
 ```
@@ -1223,30 +1306,34 @@ git commit -m "feat(contract): the practice loader refuses vocabulary and schema
 ```
 
 ---
-### Task 5: The compile — compiled kinds and facets, the registry, the validators, the projection
+### Task 5: The compile — compiled kinds and facets, a private registry, the validators, the projection
 
 **Files:**
 - Create: `python/src/beliefs/facets.py`, `python/tests/test_facet_validation.py`
 - Modify: `python/src/beliefs/profile.py`, `python/tests/test_profile.py`, `fixtures/claim-identity-v1.json` (regenerated), `ts/src/profile.ts`, `ts/tests/declarations.test.ts`
 
 **Interfaces:**
-- Produces (Python): `CompiledKind(name, domain, facets: Mapping[str, FacetUse], covered: tuple[str, ...], contract)`; `CompiledFacet(key, shape, attaches_to: frozenset[str], fields: Mapping[str, FieldDecl], contract)`; `ProfileSpec.kinds`, `ProfileSpec.facets`, `ProfileSpec.registry() -> nodes.core.registry.Registry`; `ProfileSpec.facets_of(kind) -> Mapping[str, CompiledFacet]`; `validate_payload(facet: CompiledFacet, payload: object, *, where: str) -> None` raising `FacetPayloadRefused`.
+- Produces (Python): `CompiledKind(name, role, domain, facets: Mapping[str, FacetUse], covered: tuple[str, ...], contract)`; `CompiledFacet(key, shape, attaches_to: frozenset[str], fields: Mapping[str, FieldDecl], contract)`; `ProfileSpec.kinds`, `.facets`, `.relations` (all read-only, nested mappings included); `ProfileSpec.facets_of(kind)`; `ProfileSpec.validate_document(node) -> None` raising `nodes.core.errors.UnknownKindError | FacetError`; `ProfileSpec.document_violations(node) -> tuple[Violation, ...]`; **no public registry**; `validate_payload(facet, payload, *, where) -> None` raising `FacetPayloadRefused`.
 - Consumed by Tasks 6–11.
 
 - [ ] **Step 1: Write the failing tests**
 
 ```python
 # python/tests/test_facet_validation.py
-"""§3.4's grammar at validation time, and §4.1's compiled products."""
+"""§3.4's grammar at validation time, and §4.1's compiled products — immutable, one registry, private."""
 
 import copy
 
 import pytest
 from nodes.core.errors import FacetError, UnknownKindError
 from nodes.core.node import Node
+from nodes.core.registry import Registry
 
-from beliefs.contract import domain
-from beliefs.errors import DuplicateContribution, FacetPayloadRefused, ProfileError
+import beliefs.profile as profile_module
+from beliefs.contract import domain, parse_base_contract
+from beliefs.contract.base import FacetUse
+from beliefs.contract.document import load_document
+from beliefs.errors import FacetPayloadRefused, ProfileError
 from beliefs.facets import validate_payload
 from beliefs.profile import compile_profile
 
@@ -1261,39 +1348,66 @@ def profile(base_contract, testing):
     return compile_profile(base_contract, [testing])
 
 
+def reparse(document, source="<t>"):
+    return parse_base_contract(document, source=source)
+
+
 class TestCompiledProducts:
-    def test_kinds_and_facets_are_compiled_and_read_only(self, profile):
+    def test_kinds_and_facets_are_compiled(self, profile):
         assert profile.kinds["dataset"].covered == ("dataset", "empirical-observation", "lineage-basis")
+        assert profile.kinds["dataset"].role == "world"
         assert profile.kinds["instrument-certification"].domain is None
+        assert profile.kinds["discussion"].role == "prose" and profile.kinds["discussion"].domain is None
         assert profile.facets["empirical-observation"].shape == "schema"
         assert profile.facets["testing/axis"].attaches_to == frozenset({"dataset"})
+
+    def test_nothing_compiled_is_mutable(self, profile):
         with pytest.raises(TypeError):
             profile.kinds["x"] = None  # type: ignore[index]
+        with pytest.raises(TypeError):
+            profile.kinds["dataset"].facets["x"] = FacetUse(True, True)  # type: ignore[index]
+        with pytest.raises((TypeError, AttributeError)):
+            profile.facets["empirical-observation"].fields.pop("locator")  # type: ignore[attr-defined]
+        with pytest.raises(AttributeError):
+            profile.kinds["dataset"].facets["dataset"].required = False  # type: ignore[misc]
+        assert not hasattr(profile, "registry")
+        assert not hasattr(profile, "_registry") or not callable(getattr(profile._registry, "register", None))
 
     def test_facets_of_a_kind_include_attached_domain_facets(self, profile):
         assert set(profile.facets_of("dataset")) == {
             "dataset", "empirical-observation", "lineage-basis", "display", "testing/axis", "testing/annotation"
         }
         assert set(profile.facets_of("run")) == {"run", "run-closure"}
+        assert set(profile.facets_of("discussion")) == {"display"}
 
-    def test_one_kindspec_per_kind_and_the_registry_validates_keys(self, profile):
-        registry = profile.registry()
-        assert registry is profile.registry()  # built once
-        assert registry.is_registered("dataset") and registry.is_registered("act-report")
-        good = Node(id="dataset:x", kind="dataset", title="x", facets={"dataset": {"resources": []}})
-        registry.validate(good)
-        stray = Node(id="dataset:y", kind="dataset", title="y", facets={"dataset": {}, "biology/gene-axis": {}})
+    def test_one_kindspec_per_kind_registered_once_and_validation_is_exposed_without_the_registry(
+        self, base_contract, testing, monkeypatch
+    ):
+        calls: list[str] = []
+        original = Registry.register
+
+        def counting(self, spec):
+            calls.append(spec.name)
+            return original(self, spec)
+
+        monkeypatch.setattr(Registry, "register", counting)
+        compiled = compile_profile(base_contract, [testing])
+        assert sorted(calls) == sorted(compiled.kinds) and len(calls) == len(set(calls))
+        compiled.validate_document(Node(id="dataset:x", kind="dataset", title="x", facets={"dataset": {"resources": []}}))
         with pytest.raises(FacetError, match="unexpected"):
-            registry.validate(stray)
+            compiled.validate_document(Node(id="dataset:y", kind="dataset", title="y", facets={"dataset": {}, "biology/gene-axis": {}}))
         with pytest.raises(UnknownKindError):
-            registry.validate(Node(id="divergence:z", kind="divergence", title="z", facets={}))
+            compiled.validate_document(Node(id="divergence:z", kind="divergence", title="z", facets={}))
+        codes = [v.code for v in compiled.document_violations(Node(id="dataset:w", kind="dataset", title="w", facets={}))]
+        assert codes == ["facet-missing"]
 
-    def test_a_domain_facet_attaching_to_an_undeclared_kind_refuses_the_compile(self, base_contract, testing_document):
-        doc = copy.deepcopy(testing_document)
-        doc["facets"]["axis"]["attaches_to"] = ["divergence"]
-        contract = domain.parse_domain_contract(doc, source="<t>", base=base_contract, predecessor=None)
-        with pytest.raises(ProfileError, match="divergence"):
-            compile_profile(base_contract, [contract])
+    def test_a_domain_facet_attaching_to_an_undeclared_or_prose_kind_refuses_the_compile(self, base_contract, testing_document):
+        for kind in ("divergence", "discussion"):
+            doc = copy.deepcopy(testing_document)
+            doc["facets"]["axis"]["attaches_to"] = [kind]
+            contract = domain.parse_domain_contract(doc, source="<t>", base=base_contract, predecessor=None)
+            with pytest.raises(ProfileError, match=kind):
+                compile_profile(base_contract, [contract])
 
     def test_a_ref_field_naming_an_undeclared_kind_refuses_the_compile(self, base_contract, testing_document):
         doc = copy.deepcopy(testing_document)
@@ -1301,6 +1415,12 @@ class TestCompiledProducts:
         contract = domain.parse_domain_contract(doc, source="<t>", base=base_contract, predecessor=None)
         with pytest.raises(ProfileError, match="ontology"):
             compile_profile(base_contract, [contract])
+
+    def test_every_profile_has_an_identity_and_undomained_kinds_encode_without_null(self, base_contract):
+        compiled = compile_profile(base_contract, [])
+        assert len(compiled.compiled_identity) == 64
+        projection = compiled.projection()["kinds"]["instrument-certification"]
+        assert "domain" not in projection and projection["role"] == "world"
 
     def test_the_compiled_identity_moves_on_every_behavioural_declaration(self, base_contract, testing_document):
         base_identity = compile_profile(base_contract, []).compiled_identity
@@ -1317,30 +1437,22 @@ class TestCompiledProducts:
         assert compile_profile(base_contract, [editorial]).compiled_identity == with_facets
 
     def test_reordering_declarations_moves_neither_identity_nor_coverage(self, base_contract_path):
-        from beliefs.contract import parse_base_contract
-        from beliefs.contract.document import load_document
-
         doc = load_document(base_contract_path, source="<t>")
         reordered = copy.deepcopy(doc)
         reordered["kinds"] = dict(reversed(list(doc["kinds"].items())))
         reordered["kinds"]["dataset"]["facets"] = dict(reversed(list(doc["kinds"]["dataset"]["facets"].items())))
         reordered["facets"] = dict(reversed(list(doc["facets"].items())))
         reordered["relations"] = dict(reversed(list(doc["relations"].items())))
-        a = compile_profile(parse_base_contract(doc, source="<a>"), [])
-        b = compile_profile(parse_base_contract(reordered, source="<b>"), [])
+        a = compile_profile(reparse(doc, "<a>"), [])
+        b = compile_profile(reparse(reordered, "<b>"), [])
         assert a.compiled_identity == b.compiled_identity
         assert a.kinds["dataset"].covered == b.kinds["dataset"].covered
 
     def test_moving_a_relation_between_groups_moves_the_compiled_identity(self, base_contract_path):
-        from beliefs.contract import parse_base_contract
-        from beliefs.contract.document import load_document
-
         doc = load_document(base_contract_path, source="<t>")
         moved = copy.deepcopy(doc)
         moved["relations"]["grounded-in"]["group"] = "lifecycle"
-        a = compile_profile(parse_base_contract(doc, source="<a>"), [])
-        b = compile_profile(parse_base_contract(moved, source="<b>"), [])
-        assert a.compiled_identity != b.compiled_identity
+        assert compile_profile(reparse(doc, "<a>"), []).compiled_identity != compile_profile(reparse(moved, "<b>"), []).compiled_identity
 
 
 class TestPayloadValidation:
@@ -1379,11 +1491,15 @@ class TestPayloadValidation:
 
     def test_a_reader_shaped_facet_validates_nothing_here(self, profile):
         validate_payload(profile.facets["dataset"], {"anything": "goes"}, where="d")
+
+
+def test_profile_imports_nothing_from_stored():
+    assert "stored" not in profile_module.__dict__
 ```
 
 - [ ] **Step 2: Run to verify failure** — `cd python && uv run --frozen pytest tests/test_facet_validation.py -q` → ModuleNotFoundError / AttributeError.
 
-- [ ] **Step 3: Add the errors**
+- [ ] **Step 3: Add the error**
 
 In `python/src/beliefs/errors.py`, directly after `class ValidationRefused(WriteRefused)`:
 
@@ -1452,7 +1568,8 @@ def validate_payload(facet: CompiledFacet, payload: object, *, where: str) -> No
             continue
         prefix, separator, rest = value.partition(":")
         if separator != ":" or not rest:
-            raise _refuse(where, facet.key, f"{name!r} must be `<{'kind' if field.type == 'ref' else 'scheme'}>:<rest>` with a non-empty remainder")
+            what = "kind" if field.type == "ref" else "scheme"
+            raise _refuse(where, facet.key, f"{name!r} must be `<{what}>:<rest>` with a non-empty remainder")
         if field.type == "ref" and prefix not in field.kinds:
             raise _refuse(where, facet.key, f"{name!r} names kind {prefix!r}; declared kinds are {', '.join(field.kinds)}")
         if field.type == "locator" and prefix not in field.schemes:
@@ -1461,12 +1578,13 @@ def validate_payload(facet: CompiledFacet, payload: object, *, where: str) -> No
 
 - [ ] **Step 5: Extend `profile.py`**
 
-Add, after `CompiledOperator`:
+Add, after `CompiledOperator` (imports: `from nodes.core.registry import KindSpec, Registry, Violation`; `from nodes.core.node import Node`; `from beliefs.contract.base import FacetUse, RelationDecl`; `from beliefs.contract.facets import FieldDecl`):
 
 ```python
 @dataclass(frozen=True)
 class CompiledKind:
     name: str
+    role: str  # "world" | "prose" — coordination kinds carry "coordination"
     domain: str | None
     facets: Mapping[str, FacetUse]
     covered: tuple[str, ...]
@@ -1475,10 +1593,15 @@ class CompiledKind:
     contract: str
 
     def projection(self) -> dict[str, object]:
-        return {
-            "domain": self.domain,
+        # No null anywhere: `science.identity.v1` refuses it. An undomained kind
+        # simply carries no `domain` key; its role says what it is.
+        projection: dict[str, object] = {
+            "role": self.role,
             "facets": {k: {"required": u.required, "covered": u.covered} for k, u in sorted(self.facets.items())},
         }
+        if self.domain is not None:
+            projection["domain"] = self.domain
+        return projection
 
 
 @dataclass(frozen=True)
@@ -1497,7 +1620,7 @@ class CompiledFacet:
         }
 ```
 
-Add fields to `ProfileSpec`: `kinds: Mapping[str, CompiledKind]`, `facets: Mapping[str, CompiledFacet]`, `relations: Mapping[str, RelationDecl]`, plus a private `_registry: object` slot filled lazily. Add methods:
+`ProfileSpec` gains `kinds: Mapping[str, CompiledKind]`, `facets: Mapping[str, CompiledFacet]`, `relations: Mapping[str, RelationDecl]` and a private `_registry: Registry` (built in `compile_profile`, never returned), plus:
 
 ```python
     def facets_of(self, kind: str) -> Mapping[str, CompiledFacet]:
@@ -1509,36 +1632,30 @@ Add fields to `ProfileSpec`: `kinds: Mapping[str, CompiledKind]`, `facets: Mappi
         attached = {key: f for key, f in self.facets.items() if kind in f.attaches_to}
         return MappingProxyType({**own, **attached})
 
-    def registry(self) -> Registry:
-        """One `nodes` registry, one `KindSpec` per kind, registered once (D4).
-        The stamp facet is optional on a governed kind — its presence and
-        agreement are the stamp checks' own — and unexpected on an ungoverned one."""
-        cached = object.__getattribute__(self, "_registry")
-        if cached is not None:
-            return cached
-        registry = Registry()
-        for name, kind in self.kinds.items():
-            required = {key for key, use in kind.facets.items() if use.required}
-            optional = {key for key, use in kind.facets.items() if not use.required}
-            optional |= {key for key, facet in self.facets.items() if name in facet.attaches_to}
-            if kind.domain is not None:
-                optional.add("semantic-identity")
-            registry.register(KindSpec(name=name, required_facets=required, optional_facets=optional))
-        object.__setattr__(self, "_registry", registry)
-        return registry
+    def validate_document(self, node: Node) -> None:
+        """Kind registered and facet keys declared (G5, D4), raising `nodes`' own
+        `UnknownKindError` / `FacetError`. The registry stays private: exposing it
+        would let a caller register or mutate a kind without moving a pin."""
+        object.__getattribute__(self, "_registry").validate(node)
+
+    def document_violations(self, node: Node) -> tuple[Violation, ...]:
+        return tuple(object.__getattribute__(self, "_registry").check(node))
 ```
 
-(`from nodes.core.registry import KindSpec, Registry`; `from beliefs.contract.base import FacetUse, RelationDecl`; `from beliefs.contract.facets import FieldDecl`.) In `compile_profile`:
+In `compile_profile`:
 
-- Replace the `stored`-based coordination check with `set(coordination.query_kinds) - set(base.kinds)` and `set(coordination.query_relations) - {n for n, r in base.relations.items() if r.group == "world"}`; delete `from beliefs import stored`.
-- Build `kinds`: for each `base.kinds` entry a `CompiledKind(name, decl.domain, decl.facets, tuple(sorted(k for k, u in decl.facets.items() if u.covered)), "science")`; for each coordination kind a `CompiledKind(name, None, {"coordination": FacetUse(True, False)}, (), "coordination")`.
-- Build `facets`: base facets with `contract="science"`, `attaches_to=frozenset()`; then for each activated domain (sorted namespaces) each facet: refuse `DuplicateContribution` if the key is already present; refuse `ProfileError(f"{key}: attaches_to names {kind!r}, not a base kind")` for any kind not in `base.kinds`; refuse `ProfileError(f"{key}: field {name!r} names kind {k!r}, not in the compiled inventory")` for any `ref` field's kind not in `kinds`; store `CompiledFacet(key, "schema", frozenset(decl.attaches_to), decl.fields, namespace)`. Also resolve base schema facets' `ref` kinds the same way.
-- Pass `kinds=MappingProxyType(dict(kinds))`, `facets=MappingProxyType(dict(facets))`, `relations=MappingProxyType(dict(base.relations))`, `_registry=None` to `_compiled`.
-- In `_projection`, add three entries: `"kinds": {name: k.projection() for name, k in kinds.items()}`, `"relations": {name: r.projection() for name, r in relations.items()}`, `"facets": {key: f.projection() for key, f in facets.items()}` (add the parameters; `projection()` passes `self.kinds`, `self.relations`, `self.facets`).
+- Replace the `stored`-based coordination check with `set(coordination.query_kinds) - {n for n, k in base.kinds.items() if k.role == "world"}` and `set(coordination.query_relations) - {n for n, r in base.relations.items() if r.group == "world"}`; delete `from beliefs import stored`.
+- Build `kinds`: for each `base.kinds` entry `CompiledKind(name, decl.role, decl.domain, MappingProxyType(dict(decl.facets)), tuple(sorted(k for k, u in decl.facets.items() if u.covered)), "science")`; for each coordination kind `CompiledKind(name, "coordination", None, MappingProxyType({"coordination": FacetUse(True, False)}), (), "coordination")`.
+- Build `facets`: base facets with `contract="science"`, `attaches_to=frozenset()`, `fields=MappingProxyType(dict(decl.fields))`; then for each activated domain (sorted namespaces) each facet: `DuplicateContribution` if the key is already present; `ProfileError(f"{key}: attaches_to names {kind!r}, not a world kind")` for any kind whose compiled role is not `"world"` (prose and coordination kinds carry no domain facets; an undeclared kind is refused by the same test); `ProfileError(f"{key}: field {name!r} names kind {k!r}, not in the compiled inventory")` for any `ref` field's kind absent from `kinds`; the same `ref` resolution over base schema facets.
+- Build the registry once: for each compiled kind `Registry.register(KindSpec(name=name, required_facets={required keys}, optional_facets={optional keys} | {domain facets attaching} | ({"semantic-identity"} if domain is not None else set())))`. Pydantic `KindSpec` instances are held only by the private registry; nothing hands them out.
+- Pass `kinds=MappingProxyType(dict(kinds))`, `facets=MappingProxyType(dict(facets))`, `relations=MappingProxyType(dict(base.relations))`, `_registry=registry`.
+- In `_projection`, add `"kinds"`, `"relations"`, `"facets"` entries keyed by name (each value the declaration's `projection()`); `projection()` passes `self.kinds`, `self.relations`, `self.facets`.
+
+In `base.py` (Task 2's `KindDecl`), make the parsed `facets` mapping a `MappingProxyType` and give `KindDecl.projection()` the same no-null shape (`role`, conditional `domain`, `facets`). `FacetDecl.fields` likewise wrapped at parse.
 
 - [ ] **Step 6: TypeScript compile carries the tables**
 
-In `ts/src/profile.ts` add `readonly kinds: DeclarationTable<KindDecl>; readonly relations: DeclarationTable<RelationDecl>; readonly facets: DeclarationTable<FacetDecl>;` to `ProfileSpec` and in `compileProfile` build `facets` from `base.facets` then each domain's `facets`, throwing `ProfileError` on a duplicate key, on an `attachesTo` kind absent from `base.kinds`, and on a `ref` field whose kind is absent from `base.kinds`. Append to `ts/tests/declarations.test.ts`:
+In `ts/src/profile.ts` add `readonly kinds: DeclarationTable<KindDecl>; readonly relations: DeclarationTable<RelationDecl>; readonly facets: DeclarationTable<FacetDecl>;` to `ProfileSpec` and in `compileProfile` build `facets` from `base.facets` then each domain's, throwing `ProfileError` on a duplicate key, on an `attachesTo` kind whose role is not `world`, and on a `ref` field whose kind is absent from `base.kinds`. Append to `ts/tests/declarations.test.ts`:
 
 ```ts
 describe("compileProfile enforces the declaration constraints (design §7.2)", () => {
@@ -1546,27 +1663,29 @@ describe("compileProfile enforces the declaration constraints (design §7.2)", (
   const TESTING = readFileSync(new URL("fixtures/contracts/testing.yaml", REPO_ROOT), "utf-8");
   it("carries kinds, relations and facets", () => {
     const profile = compileProfile(base, [parseDomainContract(TESTING, "<t>", base)]);
-    expect(Object.keys(profile.kinds)).toHaveLength(13);
+    expect(Object.keys(profile.kinds).length).toBeGreaterThanOrEqual(16);
     expect(profile.facets["testing/axis"].attachesTo).toEqual(["dataset"]);
   });
-  it("refuses a domain facet attaching to an undeclared kind", () => {
-    const bad = TESTING.replace("attaches_to: [dataset]\n    fields:\n      axis:", "attaches_to: [divergence]\n    fields:\n      axis:");
-    expect(() => compileProfile(base, [parseDomainContract(bad, "<bad>", base)])).toThrow(/divergence/);
+  it("refuses a domain facet attaching to an undeclared or prose kind", () => {
+    for (const kind of ["divergence", "discussion"]) {
+      const bad = TESTING.replace("attaches_to: [dataset]\n    fields:\n      axis:", `attaches_to: [${kind}]\n    fields:\n      axis:`);
+      expect(() => compileProfile(base, [parseDomainContract(bad, "<bad>", base)])).toThrow(new RegExp(kind));
+    }
   });
 });
 ```
 
 - [ ] **Step 7: Regenerate the claim fixture and re-pin the compiled identity**
 
-Run `cd python && uv run --frozen python tools/generate_claim_identity_fixture.py` and `git diff fixtures/claim-identity-v1.json`: the only changed value must be `profile_compiled_identity` (kinds, relations and facets now enter the projection; no row's bytes move). If any row's `canonical_bytes` or `digest` changed, stop — the projection touched `π_claim`, which it must not. Update `test_profile.py::test_no_coordination_contract_preserves_the_pre_cut_compiled_identity`'s pinned hex to the new value printed by `uv run --frozen python -c "from beliefs.contract import load_base_contract; from beliefs.profile import compile_profile; print(compile_profile(load_base_contract('../contracts/science/CONTRACT.yaml'), []).compiled_identity)"` and rename it `..._preserves_the_cut_20_compiled_identity`.
+Run `cd python && uv run --frozen python tools/generate_claim_identity_fixture.py` and `git diff fixtures/claim-identity-v1.json`: the only changed value must be `profile_compiled_identity`. If any row's `canonical_bytes` or `digest` changed, stop — the projection touched `π_claim`, which it must not. Update `test_profile.py::test_no_coordination_contract_preserves_the_pre_cut_compiled_identity`'s pinned hex to the value printed by `uv run --frozen python -c "from beliefs.contract import load_base_contract; from beliefs.profile import compile_profile; print(compile_profile(load_base_contract('../contracts/science/CONTRACT.yaml'), []).compiled_identity)"` and rename it `..._preserves_the_cut_20_compiled_identity`.
 
 - [ ] **Step 8: Run everything, lint, commit**
 
 `cd python && uv run --frozen pytest && uv run --frozen ruff check . && uv run --frozen pyright`; `cd ts && npm test && npm run typecheck && npm run check`.
 
 ```bash
-git add python/src/beliefs/facets.py python/src/beliefs/profile.py python/src/beliefs/errors.py python/tests/test_facet_validation.py python/tests/test_profile.py fixtures/claim-identity-v1.json ts/src/profile.ts ts/tests/declarations.test.ts
-git commit -m "feat(profile): compile kinds, facets and relations; one registry per profile; payload validators"
+git add python/src/beliefs/facets.py python/src/beliefs/profile.py python/src/beliefs/contract/base.py python/src/beliefs/errors.py python/tests/test_facet_validation.py python/tests/test_profile.py fixtures/claim-identity-v1.json ts/src/profile.ts ts/tests/declarations.test.ts
+git commit -m "feat(profile): compile kinds, facets and relations; a private registry registered once; payload validators"
 ```
 
 ---
@@ -1575,10 +1694,10 @@ git commit -m "feat(profile): compile kinds, facets and relations; one registry 
 
 **Files:**
 - Create: `python/src/beliefs/contracts/science/CONTRACT.yaml` (a byte-identical copy), `python/tests/test_shipped_base.py`
-- Modify: `python/src/beliefs/profile.py` (`shipped_base`, `shipped_base_contract`), `python/src/beliefs/stored.py:160-232`, `python/src/beliefs/__init__.py` if it re-exports, `python/tests/test_stored.py`
+- Modify: `python/src/beliefs/profile.py` (`shipped_base`, `shipped_base_contract`), `python/src/beliefs/stored.py:160-232`, `python/tests/test_stored.py`
 
 **Interfaces:**
-- Produces: `profile.shipped_base_contract() -> BaseContract` and `profile.shipped_base() -> ProfileSpec`, both `functools.cache`d; `stored.WORLD_KINDS`, `WORLD_RELATIONS`, `SEMANTIC_DOMAINS`, `COVERED_FACETS` unchanged in name, type and membership, derived.
+- Produces: `profile.shipped_base_contract() -> BaseContract` and `profile.shipped_base() -> ProfileSpec`, both `functools.cache`d; `stored.WORLD_KINDS`, `WORLD_RELATIONS`, `SEMANTIC_DOMAINS`, `COVERED_FACETS` unchanged in name, type and membership, derived; `stored.PROSE_KINDS`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1603,9 +1722,11 @@ def test_the_shipped_base_is_compiled_once():
 
 
 def test_stored_tables_are_views_over_the_shipped_base():
-    assert stored.WORLD_KINDS == tuple(shipped_base().kinds)
-    assert stored.SEMANTIC_DOMAINS == {n: k.domain for n, k in shipped_base().kinds.items() if k.domain is not None}
-    assert stored.COVERED_FACETS == {n: k.covered for n, k in shipped_base().kinds.items() if k.domain is not None}
+    world = {n: k for n, k in shipped_base().kinds.items() if k.role == "world"}
+    assert stored.WORLD_KINDS == tuple(world)
+    assert stored.PROSE_KINDS == tuple(n for n, k in shipped_base().kinds.items() if k.role == "prose")
+    assert stored.SEMANTIC_DOMAINS == {n: k.domain for n, k in world.items() if k.domain is not None}
+    assert stored.COVERED_FACETS == {n: k.covered for n, k in world.items() if k.domain is not None}
     assert stored.WORLD_RELATIONS == tuple(n for n, r in shipped_base().relations.items() if r.group == "world")
 
 
@@ -1615,6 +1736,7 @@ def test_membership_is_exactly_what_it_was_before_this_slice():
         "source", "holdings-observation", "retraction", "instrument-certification", "coreference-attestation",
         "act-report",
     }
+    assert set(stored.PROSE_KINDS) == {"interpretation", "discussion", "story"}
     assert set(stored.WORLD_RELATIONS) == {
         "assesses", "observes", "reads", "transforms", "produces", "produced_by", "executes", "targets",
         "verifies", "member_of", "grounded-in",
@@ -1622,19 +1744,23 @@ def test_membership_is_exactly_what_it_was_before_this_slice():
     assert stored.COVERED_FACETS["dataset"] == ("dataset", "empirical-observation", "lineage-basis")
     assert stored.COVERED_FACETS["run"] == ("run", "run-closure")
     assert "instrument-certification" not in stored.SEMANTIC_DOMAINS
+    assert "discussion" not in stored.SEMANTIC_DOMAINS
 
 
-def test_profile_imports_nothing_from_stored():
-    import beliefs.profile as profile_module
+def test_the_import_graph_is_acyclic():
+    import importlib
+    import sys
 
-    assert "stored" not in profile_module.__dict__
+    for name in [m for m in list(sys.modules) if m.startswith("beliefs")]:
+        del sys.modules[name]
+    importlib.import_module("beliefs.stored")
 ```
 
 - [ ] **Step 2: Run to verify failure** — `cd python && uv run --frozen pytest tests/test_shipped_base.py -q` → fails on `shipped_base` import.
 
 - [ ] **Step 3: Ship the copy and the accessor**
 
-`mkdir -p python/src/beliefs/contracts/science && cp contracts/science/CONTRACT.yaml python/src/beliefs/contracts/science/CONTRACT.yaml`. Hatchling packages every file under `src/beliefs`, so no `pyproject.toml` change is needed; confirm with `cd python && uv build --wheel -o /dev/null 2>/dev/null || true` only if in doubt (not required). In `profile.py`:
+`mkdir -p python/src/beliefs/contracts/science && cp contracts/science/CONTRACT.yaml python/src/beliefs/contracts/science/CONTRACT.yaml`. Hatchling packages every file under `src/beliefs`. In `profile.py`:
 
 ```python
 from functools import cache
@@ -1666,27 +1792,33 @@ Add both to `__all__`.
 Replace the literal `WORLD_KINDS`, `WORLD_RELATIONS`, `SEMANTIC_DOMAINS` and `COVERED_FACETS` definitions with:
 
 ```python
+from types import MappingProxyType
+
 from beliefs.profile import shipped_base
 
 _SHIPPED = shipped_base()
+_WORLD = {name: kind for name, kind in _SHIPPED.kinds.items() if kind.role == "world"}
 
-WORLD_KINDS: tuple[str, ...] = tuple(_SHIPPED.kinds)
-"""The kernel's kinds, in the base contract's authored order (facet-contracts §4.2)."""
+WORLD_KINDS: tuple[str, ...] = tuple(_WORLD)
+"""The kernel's world kinds, in the base contract's authored order (facet-contracts §4.2)."""
+
+PROSE_KINDS: tuple[str, ...] = tuple(name for name, kind in _SHIPPED.kinds.items() if kind.role == "prose")
+"""Kernel §4.4's belief-inert notes: hand-authored, undomained, unstamped, never in a closure."""
 
 WORLD_RELATIONS: tuple[str, ...] = tuple(name for name, decl in _SHIPPED.relations.items() if decl.group == "world")
 """The `world` relation group only; lifecycle relations are adapter-minted (§3.1)."""
 
 SEMANTIC_DOMAINS: Mapping[str, str] = MappingProxyType(
-    {name: kind.domain for name, kind in _SHIPPED.kinds.items() if kind.domain is not None}
+    {name: kind.domain for name, kind in _WORLD.items() if kind.domain is not None}
 )
 
 COVERED_FACETS: Mapping[str, tuple[str, ...]] = MappingProxyType(
-    {name: kind.covered for name, kind in _SHIPPED.kinds.items() if kind.domain is not None}
+    {name: kind.covered for name, kind in _WORLD.items() if kind.domain is not None}
 )
 """Which facets the semantic hash governs, per kind, sorted by key (§4.2)."""
 ```
 
-Keep `HOLDINGS_OBSERVATION_DOMAIN`/`ACT_REPORT_DOMAIN` imports only if still used elsewhere in the module; the authored order of `kinds:` in `CONTRACT.yaml` must equal the old `WORLD_KINDS` tuple order (Task 2 wrote it in that order — verify by the test). Update the module docstring's "named in code" sentence to "declared by the base contract and compiled (facet-contracts design §4.2)". Then confirm the import graph is acyclic: `cd python && uv run --frozen python -c "import beliefs.stored, beliefs.profile; print('ok')"`.
+The authored order of `kinds:` in `CONTRACT.yaml` must equal the old `WORLD_KINDS` tuple order for the world kinds (Task 2 wrote it in that order; the prose kinds follow). Update the module docstring's "named in code" sentence to "declared by the base contract and compiled (facet-contracts design §4.2)". Add `PROSE_KINDS` to `__all__`.
 
 - [ ] **Step 5: Run, lint, commit**
 
@@ -1699,14 +1831,14 @@ git commit -m "feat(profile): the shipped base profile; stored.py's per-kind tab
 
 ---
 
-### Task 7: The writer holds a profile — real pins, the recheck under the lock, registry and payload validation
+### Task 7: The writer and the port hold a profile — real pins, the recheck under every lock, registry and payload validation, provenance mode
 
 **Files:**
-- Create: `python/tests/profiles.py`, `python/tests/fixtures/biology-fixture.yaml`, `python/tests/test_profile_agreement.py`
-- Modify: `python/src/beliefs/corpus.py` (`CorpusWriter.__init__`, `ReadView.__init__`, every `with self._operation:` block, `adopt_manifest`, `_refuse`, `_preflight_replace_locked`), `python/src/beliefs/root.py` (`open_corpus`), `python/tests/fixtures_cut6.py`, `python/tests/coordination_fixtures.py`, every test/tool constructing `CorpusWriter` or calling `open_corpus`
+- Create: `python/tests/profiles.py`, `python/tests/fixtures/biology-fixture.yaml`, `python/tests/test_profile_agreement.py`, `python/tests/test_pin_recheck_inventory.py`
+- Modify: `python/src/beliefs/corpus.py`, `python/src/beliefs/root.py` (`DurableOperationPort`, `open_corpus`), `python/src/beliefs/runrecord.py` (`OperationPort` protocol gains `profile`), `python/src/beliefs/relocation.py`, `python/tests/fixtures_cut6.py`, `python/tests/coordination_fixtures.py`, `python/tests/test_corpus_write.py` (`OperationRecorder`), every test/tool constructing `CorpusWriter`, a port, or calling `open_corpus`; every test fixture writing an `empirical_observation` payload or a `memo` node
 
 **Interfaces:**
-- Produces: `CorpusWriter(root, executor_factory, *, authority, profile: ProfileSpec, operation_port=None, coordination_resolver=None)`; `open_corpus(root, *, authority, profile, coordination_resolver=None)`; `CorpusWriter.profile`; `CorpusWriter._require_pins_agree()` (lock held); `CorpusWriter._refuse_facets(node, *, view)` steps 1–2; test helpers `profiles.BASE`, `profiles.WITH_BIOLOGY`, `profiles.WITH_BIOLOGY_OTHER`, `profiles.pins_for(profile)`.
+- Produces: `CorpusWriter(root, executor_factory, *, authority, profile: ProfileSpec, operation_port=None, coordination_resolver=None)`; `DurableOperationPort(root, *, backend, storage, metadata_root, authority, profile)`; `OperationPort.profile`; `open_corpus(root, *, authority, profile, coordination_resolver=None)`; module-level `require_pins_agree(root: Path, profile: ProfileSpec) -> None`; `CorpusWriter._refuse(node, *, document_validated=False, view=None, provenance=False)`, `_preflight_add_locked(node, *, provenance=False)`, `_add_locked(node, *, provenance=False)`, `_preflight_replace_locked(node, *, provenance=False)`, `_replace_locked(node, *, provenance=False)`; `_refuse_facets(node, *, view=None, provenance=False)` steps 1–2 here (3–5 in Task 8, which reads `provenance` as "do not bind the actor"); test helpers `profiles.BASE`, `WITH_BIOLOGY`, `WITH_BIOLOGY_OTHER`, `pins_for`.
 
 - [ ] **Step 1: Write the fixture domain contract and the profiles module**
 
@@ -1802,33 +1934,48 @@ def manifest_document(corpus_id: str = "1" * 32) -> str:
     )
 ```
 
-Every test that today builds a second, disagreeing biology identity by hand (`"biology:" + "c" * 64` and the like — find them with `grep -rn '"biology:" +\|biology:.*\* 64' python/tests`) switches to `OTHER_BIOLOGY_ID` / `OTHER_PINS` and constructs its writer with `WITH_BIOLOGY_OTHER`.
+Every test that builds a second, disagreeing biology identity by hand (`grep -rn '"biology:" +\|biology:.*\* 64' python/tests`) switches to `OTHER_BIOLOGY_ID` / `OTHER_PINS` and builds that writer with `WITH_BIOLOGY_OTHER`.
 
 - [ ] **Step 2: Write the failing tests**
 
 ```python
 # python/tests/test_profile_agreement.py
-"""§5.1 and F5: the writer holds a profile and rechecks the pins under the lock."""
+"""§5.1 and F5: writer and port hold a profile; every write path rechecks the pins under its lock."""
 
 import pytest
 from authority import FULL
+from nodes.core.node import Node
 from nodes.core.write_plan import DefaultExecutor
 from profiles import BASE, WITH_BIOLOGY, WITH_BIOLOGY_OTHER, pins_for
+from test_corpus_write import OperationRecorder
 
 from beliefs import stored
 from beliefs.corpus import CorpusWriter, ReadView
-from beliefs.errors import ContractMismatch, ValidationRefused
+from beliefs.errors import ContractMismatch, FacetPayloadRefused, ValidationRefused
+from nodes.core.corpus import Corpus
+
+PINNED = [{"name": "m", "digest": "sha256:" + "1" * 64}]
+IMPORT = {"observer": "o", "instrument": "i", "opened_at": "2026-09-05T00:00:00Z", "closed_at": "2026-09-05T00:00:01Z"}
 
 
 def _writer(root, profile=BASE):
-    writer = CorpusWriter(root, DefaultExecutor, authority=FULL, profile=profile)
+    port = OperationRecorder(root, authority=FULL, profile=profile)
+    writer = CorpusWriter(root, DefaultExecutor, authority=FULL, profile=profile, operation_port=port)
     writer.adopt_manifest(profile=pins_for(profile))
-    return writer
+    return writer, port
 
 
-def test_a_writer_requires_a_compiled_profile(tmp_path):
+def _rewrite_biology_pin(root):
+    text = (root / "corpus.yaml").read_text()
+    (root / "corpus.yaml").write_text(text.replace(pins_for(WITH_BIOLOGY).domains["biology"], pins_for(WITH_BIOLOGY_OTHER).domains["biology"]))
+
+
+def test_a_writer_requires_a_compiled_profile_and_a_port_agreeing_with_it(tmp_path):
     with pytest.raises(TypeError):
         CorpusWriter(tmp_path, DefaultExecutor, authority=FULL)  # type: ignore[call-arg]
+    port = OperationRecorder(tmp_path, authority=FULL, profile=WITH_BIOLOGY)
+    with pytest.raises(ValueError, match="profile"):
+        CorpusWriter(tmp_path, DefaultExecutor, authority=FULL, profile=BASE, operation_port=port)
 
 
 def test_adopt_manifest_writes_only_the_held_profiles_pins(tmp_path):
@@ -1837,116 +1984,203 @@ def test_adopt_manifest_writes_only_the_held_profiles_pins(tmp_path):
         writer.adopt_manifest(profile=pins_for(WITH_BIOLOGY))
 
 
-def test_a_manifest_rewritten_after_construction_refuses_the_next_write(tmp_path):
-    writer = _writer(tmp_path, WITH_BIOLOGY)
-    (tmp_path / "corpus.yaml").write_text(
-        (tmp_path / "corpus.yaml").read_text().replace(
-            pins_for(WITH_BIOLOGY).domains["biology"], pins_for(WITH_BIOLOGY_OTHER).domains["biology"]
-        )
-    )
-    node = stored.proposition_node("p", title="p", claim={"operator": "affects"})
+@pytest.mark.parametrize("path", ["add", "delete", "revise", "import", "intent", "port-execute", "port-fulfilling"])
+def test_every_write_path_rechecks_the_pins_after_a_manifest_change(tmp_path, path):
+    writer, port = _writer(tmp_path, WITH_BIOLOGY)
+    p = writer.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
+    before = sorted(str(x.relative_to(tmp_path)) for x in tmp_path.rglob("*") if x.is_file())
+    _rewrite_biology_pin(tmp_path)
+    q = stored.proposition_node("q", title="q", claim={"operator": "affects"})
     with pytest.raises(ContractMismatch, match="manifest pins"):
-        writer.add(node)
-    assert not (tmp_path / "proposition").exists()
+        if path == "add":
+            writer.add(q)
+        elif path == "delete":
+            writer.delete(p.id)
+        elif path == "revise":
+            writer.revise(p.model_copy(update={"title": "renamed"}))
+        elif path == "import":
+            writer.import_bundle([q], **IMPORT)
+        elif path == "intent":
+            port.append_intent(b"intent")
+        elif path == "port-execute":
+            port.execute(())
+        else:
+            port.execute_fulfilling((), "ab" * 32)
+    after = sorted(str(x.relative_to(tmp_path)) for x in tmp_path.rglob("*") if x.is_file())
+    assert before == after and port.intents == [] and port.executed == [] and port.fulfilling == []
 
 
-def test_a_read_view_refuses_a_corpus_pinning_another_base(tmp_path):
-    _writer(tmp_path)
+def test_relocation_rechecks_at_the_destination(tmp_path):
+    from fixtures_cut6 import PINS  # noqa: F401 - the relocation fixtures adopt biology pins
+    from test_relocation import _writer as relocation_writer
+
+    from beliefs import relocation
+
+    source = relocation_writer(tmp_path / "s", domains=PINS.domains)
+    destination = relocation_writer(tmp_path / "d", domains=PINS.domains)
+    node = source.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
+    _rewrite_biology_pin(tmp_path / "d")
+    with pytest.raises(ContractMismatch):
+        relocation.move((source, node.id), destination, observer="o", instrument="i", opened_at="2026-09-05T00:00:00Z", closed_at="2026-09-05T00:00:01Z")
+    assert source.read_view.holds(node.id) and not destination.read_view.holds(node.id)
+
+
+def test_a_validated_read_refuses_a_corpus_pinning_another_base_but_iteration_does_not(tmp_path):
+    writer, _ = _writer(tmp_path)
+    node = writer.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
     text = (tmp_path / "corpus.yaml").read_text()
     (tmp_path / "corpus.yaml").write_text(text.replace(pins_for(BASE).science_contract, "science:" + "f" * 64))
+    view = ReadView(Corpus(tmp_path))  # construction never checks
+    assert [n.id for n in view.iter_stored()] == [node.id]
     with pytest.raises(ContractMismatch, match="science_contract"):
-        ReadView.opened_at(tmp_path)
+        view.get(node.id)
 
 
 def test_an_unknown_kind_and_an_undeclared_facet_key_are_refused_at_add(tmp_path):
-    writer = _writer(tmp_path)
-    from nodes.core.node import Node
-
+    writer, _ = _writer(tmp_path)
     with pytest.raises(ValidationRefused, match="kind-unknown"):
         writer.add(Node(id="divergence:d", kind="divergence", title="d", facets={}))
     node = stored.proposition_node("p", title="p", claim={"operator": "affects"})
     node.facets["biology/gene-axis"] = {"axis": "rows"}
-    node = stored.stamp_semantic_identity(node)
     with pytest.raises(ValidationRefused, match="facet-unexpected"):
-        writer.add(node)
+        writer.add(stored.stamp_semantic_identity(node))
+
+
+def test_a_prose_kind_is_admitted_with_display_only(tmp_path):
+    writer, _ = _writer(tmp_path)
+    writer.add(Node(id="discussion:d", kind="discussion", title="d", facets={"display": {"display_statement": "x"}}))
+    with pytest.raises(ValidationRefused, match="facet-unexpected"):
+        writer.add(Node(id="discussion:e", kind="discussion", title="e", facets={"dataset": {}}))
 
 
 def test_a_malformed_schema_facet_is_refused_at_add(tmp_path):
-    writer = _writer(tmp_path)
+    writer, _ = _writer(tmp_path)
     node = stored.dataset_node(
-        "d", title="d", resources=[{"name": "x", "digest": "sha256:" + "ab" * 32}],
+        "d", title="d", resources=PINNED,
         empirical_observation={"boundary": "acquisition", "source": "dataset:gse", "asserted_by": "driver"},
     )
-    from beliefs.errors import FacetPayloadRefused
-
     with pytest.raises(FacetPayloadRefused, match="unknown key"):
         writer.add(node)
 ```
 
-- [ ] **Step 3: Run to verify failure** — `cd python && uv run --frozen pytest tests/test_profile_agreement.py -q` → the first test fails (`profile` accepted as absent) and the rest error.
+```python
+# python/tests/test_pin_recheck_inventory.py
+"""F5's static arm: every function in corpus.py and relocation.py that reaches a
+corpus effect calls `_require_pins_agree` (or the module-level `require_pins_agree`)
+earlier in its own body, and every port method that writes calls it under its lock."""
 
-- [ ] **Step 4: The writer**
+import ast
+from pathlib import Path
+
+SRC = Path(__file__).resolve().parents[1] / "src" / "beliefs"
+EFFECTS = {"add", "execute", "_execute", "_execute_fulfilling"}  # `self._corpus.add`, `executor.execute`, port internals
+
+
+def _effect_calls(fn: ast.FunctionDef) -> list[ast.Call]:
+    return [
+        node for node in ast.walk(fn)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in EFFECTS
+        and not (isinstance(node.func.value, ast.Name) and node.func.value.id in {"findings", "calls", "seen_ids", "seen_uids", "seen_paths", "read"})
+    ]
+
+
+def _rechecks(fn: ast.FunctionDef) -> bool:
+    return any(
+        isinstance(node, ast.Call) and isinstance(node.func, (ast.Attribute, ast.Name))
+        and (getattr(node.func, "attr", None) or getattr(node.func, "id", None)) in {"_require_pins_agree", "require_pins_agree"}
+        for node in ast.walk(fn)
+    )
+
+
+def test_every_effecting_function_rechecks_the_pins():
+    offenders = []
+    for module in ("corpus.py", "relocation.py", "root.py"):
+        tree = ast.parse((SRC / module).read_text(encoding="utf-8"))
+        for fn in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]:
+            if fn.name in {"require_pins_agree", "_require_pins_agree", "adopt_manifest", "_reconstruct"}:
+                continue
+            if _effect_calls(fn) and not _rechecks(fn):
+                offenders.append(f"{module}:{fn.name}")
+    assert offenders == [], "effects without a pin recheck: " + ", ".join(offenders)
+```
+
+(Run the inventory once against the finished code and tune the exclusion set in `_effect_calls` to the read-only `.add` calls on sets and lists it names; a new exclusion needs a comment saying what it is. `adopt_manifest` is excluded because it writes the pins it then agrees with.)
+
+- [ ] **Step 3: Run to verify failure** — `cd python && uv run --frozen pytest tests/test_profile_agreement.py tests/test_pin_recheck_inventory.py -q` → TypeErrors and the inventory's offender list.
+
+- [ ] **Step 4: The port and the writer**
+
+`runrecord.py`'s `OperationPort` protocol gains `@property def profile(self) -> ProfileSpec: ...`. `DurableOperationPort.__init__` gains `profile: ProfileSpec` (keyword, required), stores `self._profile`, exposes `profile`, and every one of `append_intent`, `execute`, `execute_fulfilling` (and Task 10's guarded form) calls `require_pins_agree(self.root, self._profile)` as the first statement inside its `with _operation_lock_for(self.root):`. `OperationRecorder` in `test_corpus_write.py` gains `profile=BASE` and the same first-statement call in each method (it has no lock; call it first). `open_corpus` gains `profile` and passes it to both.
 
 In `corpus.py`:
 
-1. `CorpusWriter.__init__` gains `profile: ProfileSpec` (keyword-only, required, after `authority`). Validate:
+1. Module-level:
 
 ```python
-        if not isinstance(profile, ProfileSpec):
-            raise TypeError("a writer holds a compiled ProfileSpec (facet-contracts §5.1)")
-        shipped = shipped_base().base_contract_identity
-        if profile.base_contract_identity != shipped:
-            raise ContractMismatch(
-                f"the supplied profile is compiled from base {profile.base_contract_identity[:12]}…, and this "
-                f"implementation carries {shipped[:12]}…; a corpus under another base is refused, never reinterpreted"
-            )
-        if coordination_resolver is not None:
-            mounted = coordination_resolver.profile(Path(root).resolve())
-            if mounted is not None and mounted.activated_contracts != profile.activated_contracts:
-                raise ContractMismatch("the mounted coordination profile and the writer's profile pin different contracts")
-        self._profile = profile
+def require_pins_agree(root: Path, profile: ProfileSpec) -> None:
+    """§5.1: under the operation lock, before any effect. A manifest, when
+    present, pins exactly this profile's base and activated contracts. A
+    manifest that cannot be loaded is a mismatch: the writer cannot know what
+    it would be agreeing with."""
+    manifest_path = Path(root) / "corpus.yaml"
+    if not manifest_path.exists():
+        return
+    from beliefs.world import load_manifest
+
+    try:
+        pins = load_manifest(Path(root)).profile
+    except ManifestMalformed as caught:
+        raise ContractMismatch(f"{manifest_path}: manifest pins cannot be read: {caught}") from caught
+    expected = CorpusPins(
+        "science:" + profile.base_contract_identity,
+        {ns: f"{ns}:{identity}" for ns, identity in profile.activated_contracts.items()},
+    )
+    if pins != expected:
+        raise ContractMismatch(
+            f"{manifest_path}: manifest pins do not match the profile "
+            f"(manifest {pins.science_contract[:20]}…, {sorted(pins.domains)}; "
+            f"profile {expected.science_contract[:20]}…, {sorted(expected.domains)})"
+        )
 ```
 
-with `@property def profile(self) -> ProfileSpec`.
+2. `CorpusWriter.__init__` gains `profile: ProfileSpec` (keyword-only, required, after `authority`): refuse a non-`ProfileSpec` (`TypeError`), a base identity other than `shipped_base().base_contract_identity` (`ContractMismatch`), an `operation_port` whose `profile.compiled_identity != profile.compiled_identity` (`ValueError("the operation port holds another profile than this writer")`), and a mounted coordination profile for this root whose `activated_contracts` differ (`ContractMismatch`). `self._profile = profile`; `@property def profile`. `_require_pins_agree(self)` calls `require_pins_agree(self._corpus.store.root, self._profile)`.
 
-2. Add `_require_pins_agree`:
+3. Place `self._require_pins_agree()` as the **first statement after the lock is taken** in every lock-held method or helper that reaches an effect: `add`, `delete`, `revise`, `supersede`, `retract`, `import_bundle`, the coordination write methods, `_add_locked`, `_replace_locked`, `_delete_locked`, `_publish_operation_report`, `_append_operation_intent`; in `relocation.py`, at the top of `move` and `consolidate` bodies once both locks are held (both writers). `adopt_manifest` instead compares the requested pins with `pins_for`-shaped expected pins of the held profile and refuses `ContractMismatch("adopt_manifest writes only the held profile's pins")`. The static inventory test holds the set closed.
+
+4. `ReadView.get`: before `_validated`, call `self._require_base_pin()`:
 
 ```python
-    def _require_pins_agree(self) -> None:
-        """§5.1: under the operation lock, before any effect. A manifest, when
-        present, pins exactly this writer's base and activated contracts."""
-        manifest_path = self._corpus.store.root / "corpus.yaml"
-        if not manifest_path.exists():
+    def _require_base_pin(self) -> None:
+        """§7.1: a validated read judges nothing under a base the corpus does not
+        pin. Construction never checks (the check would refuse the audit that
+        reports the mismatch, §5.5); iteration never checks."""
+        path = self._corpus.store.root / "corpus.yaml"
+        try:
+            stamp = (path.stat().st_mtime_ns, path.stat().st_size)
+        except FileNotFoundError:
+            return
+        if stamp == self._base_pin_stamp:
             return
         from beliefs.world import load_manifest
 
-        pins = load_manifest(self._corpus.store.root).profile
-        expected = CorpusPins(
-            "science:" + self._profile.base_contract_identity,
-            {ns: f"{ns}:{identity}" for ns, identity in self._profile.activated_contracts.items()},
-        )
-        if pins != expected:
-            raise ContractMismatch(
-                f"{manifest_path}: manifest pins do not match the writer's profile "
-                f"(manifest {pins.science_contract[:20]}…, {sorted(pins.domains)}; "
-                f"profile {expected.science_contract[:20]}…, {sorted(expected.domains)})"
-            )
+        pinned = load_manifest(self._corpus.store.root).profile.science_contract
+        shipped = "science:" + shipped_base().base_contract_identity
+        if pinned != shipped:
+            raise ContractMismatch(f"{path}: science_contract {pinned[:20]}… is not the shipped base {shipped[:20]}…; refused, never reinterpreted")
+        self._base_pin_stamp = stamp
 ```
 
-Call it as the first statement inside every `with self._operation:` block that writes — enumerate them with `grep -n "with self._operation:" python/src/beliefs/corpus.py` (add, delete, revise, supersede, retract, import_bundle, the two coordination writes, `_append_operation_intent` callers) — **except** `adopt_manifest`, which instead refuses when `profile != expected` computed the same way (raise `ContractMismatch("adopt_manifest writes only the held profile's pins")`).
+(`self._base_pin_stamp = None` in `__init__`; a malformed manifest raises `ManifestMalformed` here, which is the right refusal for a validated read.)
 
-3. `ReadView.__init__` gains the base-pin check: if `corpus.store.root / "corpus.yaml"` exists, `load_manifest(...).profile.science_contract` must equal `"science:" + shipped_base().base_contract_identity`, else `ContractMismatch(f"{root}: manifest pins science_contract {found[:20]}…, not the shipped base; refused, never reinterpreted (§7.1)")`. `iter_stored` stays unvalidated as before (the check is at open, so `corpus_check` in Task 11 opens through `Corpus` directly for the mismatch case — see there).
-
-4. `_refuse_facets`, steps 1–2 only in this task:
+5. `_refuse_facets`, steps 1–2:
 
 ```python
-    def _refuse_facets(self, node: Node, *, view: ReadView | _ImportView | None = None) -> None:
-        """§5.2: registry validation, then payload validation. Steps 3–5 (the
-        acquisition-boundary predicate, attestation, retrieval) arrive with
-        `beliefs.acquisition`."""
-        registry = self._profile.registry()
+    def _refuse_facets(self, node: Node, *, view: ReadView | _ImportView | None = None, provenance: bool = False) -> None:
+        """§5.2: registry validation, then payload validation. Steps 3–5 arrive
+        with `beliefs.acquisition` (Task 8); `provenance=True` means the record
+        arrived from elsewhere and its attestation is kept as written."""
         try:
-            registry.validate(node)
+            self._profile.validate_document(node)
         except UnknownKindError as caught:
             raise ValidationRefused(f"{node.id}: kind-unknown: {caught}") from caught
         except FacetError as caught:
@@ -1958,29 +2192,25 @@ Call it as the first statement inside every `with self._operation:` block that w
                 validate_payload(facet, payload, where=node.id)
 ```
 
-(`from nodes.core.errors import FacetError, UnknownKindError`; `from beliefs.facets import validate_payload`.) Call it in `_refuse` after `self._refuse_invalid(node)` (inside the `if not document_validated` branch keep `_refuse_invalid` as is; `_refuse_facets` runs unconditionally after) and before `self._refuse_governed_stamp(node)`; and in `_preflight_replace_locked` at the same position. `import_bundle`'s per-member validation calls `self._refuse_facets(record, view=import_view)` inside its existing `try` so the refusal is wrapped as `ImportRefused(str(caught), member=record.id)` with the cause preserved.
+Thread `provenance` through `_refuse(node, *, document_validated=False, view=None, provenance=False)` → `self._refuse_facets(node, view=view, provenance=provenance)` placed after `_refuse_invalid` and before `_refuse_governed_stamp`; `_preflight_add_locked(node, *, provenance=False)` and `_add_locked(node, *, provenance=False)` pass it to `_refuse`; `_preflight_replace_locked(node, *, provenance=False)` and `_replace_locked(node, *, provenance=False)` likewise. `import_bundle` calls `self._refuse(record, document_validated=True, view=import_view, provenance=True)`; `relocation.py` passes `provenance=True` at its four call sites (`_preflight_add_locked`, `_add_locked`, `_preflight_replace_locked`, `_replace_locked`).
 
-5. `open_corpus` in `root.py` gains `profile: ProfileSpec` keyword and passes it through.
+- [ ] **Step 5: Migrate the fixtures the new refusals reach, in this commit**
 
-- [ ] **Step 5: Thread the profile through every construction site**
+- Every `empirical_observation={"boundary": ...}` in `python/tests` and `python/tests/acceptance` (`grep -rn 'empirical_observation={"boundary"'`) becomes `empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}` where `ACTOR` is the writing authority's actor (`authority.ACTOR` under `FULL`; the durable fixture's actor under acceptance). Records that are imported rather than added may keep any attester.
+- Every `memo` node (`grep -rln 'kind="memo"\|memo(' python/tests`) becomes the declared prose kind `discussion`: `kind="discussion"`, ids `discussion:<slug>`, and any `memo(` helper renamed `discussion(`. The `nodes` store path derives from the kind, so no other change follows.
+- `coordination_fixtures.py` compiles its profile with `compile_profile(shipped_base_contract(), [], coordination=...)` and pins with `pins_for`.
 
-List them: `grep -rn "CorpusWriter(\|open_corpus(" python/tests python/tools python/src --include='*.py'`. The rule: a writer whose corpus adopts `PINS` (biology) is built with `profile=WITH_BIOLOGY`; one built to disagree with it uses `WITH_BIOLOGY_OTHER`; every other writer uses `profile=BASE`; a writer over a coordination-mounted root uses the profile `coordination_fixtures.py` compiles for that mount (which must itself be compiled from `shipped_base_contract()` and its pins from `pins_for`). Concretely:
+- [ ] **Step 6: Thread the profile through every construction site**
 
-- `python/tests/conftest.py`: add `from profiles import BASE` and a fixture `profile` returning `BASE`; the `writer` fixtures in `test_corpus_write.py`, `test_audit.py`, `test_deletion.py`, and `test_relocation._writer` gain `profile=...`.
-- `test_relocation._writer(root, *, science=SCIENCE, domains=None, ...)`: derive the profile from its arguments — `WITH_BIOLOGY` when `domains` carries `BIOLOGY_ID`, `WITH_BIOLOGY_OTHER` when it carries `OTHER_BIOLOGY_ID`, else `BASE` — and adopt `pins_for(profile)`; delete the `science=` parameter if nothing passes a non-shipped value any more.
-- `coordination_fixtures.py`: build its profile with `compile_profile(shipped_base_contract(), [], coordination=...)` and its pins with `pins_for`.
-- `python/tools/reproduction/world.py::open_writer`: `open_corpus(paths.CORPUS_ROOT, authority=AUTHORITY, profile=profile())` (from `reproduction.vocabulary`); `vocabulary.base()` must return `shipped_base_contract()` so the pins agree.
-- Acceptance modules under `python/tests/acceptance/` that call `open_corpus`: `profile=BASE` or the durable fixture's profile.
+`grep -rn "CorpusWriter(\|open_corpus(\|DurableOperationPort(\|OperationRecorder(" python/tests python/tools python/src --include='*.py'`. The rule: a writer whose corpus adopts `PINS` uses `profile=WITH_BIOLOGY`; one built to disagree uses `WITH_BIOLOGY_OTHER`; every other writer uses `BASE`; a writer over a coordination-mounted root uses that mount's profile; the port a writer takes is built with the same profile. `test_relocation._writer(root, *, domains=None, operation_port=True, authority=FULL)` derives the profile from `domains` (`BIOLOGY_ID` → `WITH_BIOLOGY`, `OTHER_BIOLOGY_ID` → `WITH_BIOLOGY_OTHER`, else `BASE`) and adopts `pins_for(profile)`; drop its `science=` parameter. `python/tools/reproduction/world.py::open_writer` passes `profile=profile()` from `reproduction.vocabulary`, whose `base()` returns `shipped_base_contract()`. Then `cd python && uv run --frozen pytest -x -q 2>&1 | tail -20` until green.
 
-Then `cd python && uv run --frozen pytest -x -q 2>&1 | tail -20` and fix each remaining site the same way until green.
-
-- [ ] **Step 6: Run everything, lint, commit**
+- [ ] **Step 7: Run everything, lint, commit**
 
 `cd python && uv run --frozen pytest && uv run --frozen ruff check . && uv run --frozen pyright`
 
 ```bash
 git add -A python/src python/tests python/tools
-git commit -m "feat(corpus): the writer holds a compiled profile, rechecks pins under the lock, and validates kinds, keys and payloads"
+git commit -m "feat(corpus): writer and port hold a compiled profile, recheck pins under every lock, and validate kinds, keys and payloads"
 ```
 
 ---
@@ -1989,10 +2219,10 @@ git commit -m "feat(corpus): the writer holds a compiled profile, rechecks pins 
 
 **Files:**
 - Create: `python/src/beliefs/acquisition.py`, `python/tests/test_acquisition.py`, `python/tests/test_facet_seams.py`
-- Modify: `python/src/beliefs/corpus.py` (`_refuse_facets` steps 3–5, `_ImportView`, `eligibility_refusal`), `python/src/beliefs/relocation.py`, `python/src/beliefs/errors.py`, `python/tests/test_read_side.py`
+- Modify: `python/src/beliefs/corpus.py` (`_refuse_facets` steps 3–5, `ReadView.producers`, `_ImportView.producers`, `eligibility_refusal`), `python/src/beliefs/errors.py`, `python/tests/test_read_side.py`, `python/tests/conftest.py`
 
 **Interfaces:**
-- Produces: `acquisition.producers_of(view, dataset_id) -> tuple[str, ...]`; `acquisition.validity_refusal(view, node, profile) -> str | None` (the §2 item 14 predicate: `None` when the dataset carries a valid acquisition-boundary facet, else a prefix-stable reason); `acquisition.bearer_refusal(view, node) -> str | None` (the resulting-state invariant for the node being written, either half); `AcquisitionBoundaryRefused(WriteRefused)`; `eligibility_refusal(view, node, profile)`.
+- Produces: `ReadView.producers(dataset_id, *, aliases=()) -> tuple[str, ...]` and `_ImportView.producers(...)`, both over the **resulting** index (existing relations, arriving records, deprecated-id aliases, dangling edges included); `acquisition.validity_refusal(view, node, profile) -> str | None`; `acquisition.bearer_refusal(view, node) -> str | None`; `AcquisitionBoundaryRefused(WriteRefused)`; `eligibility_refusal(view, node, profile)`.
 
 - [ ] **Step 1: Write the failing unit tests**
 
@@ -2000,16 +2230,16 @@ git commit -m "feat(corpus): the writer holds a compiled profile, rechecks pins 
 # python/tests/test_acquisition.py
 """§2 items 1 and 14: the predicate and the invariant, over an in-memory view."""
 
-import pytest
+from nodes.core.relations import Relation
 from profiles import BASE
 
 from beliefs import stored
 from beliefs.acquisition import bearer_refusal, validity_refusal
-from beliefs.corpus import ReadView
-from fixtures_cut4 import seed  # the read-side seeding helper the corpus-check tests use
+
+from test_read_side import seed  # the module's raw-write seeding helper (Task 11 gives it manifest arguments)
 
 PINNED = [{"name": "m", "digest": "sha256:" + "1" * 64}]
-GOOD = {"locator": "accession:GSE1", "attested_by": "keith"}
+GOOD = {"locator": "accession:GSE1", "attested_by": "test-actor"}
 
 
 def acquired(slug="d", **facet):
@@ -2018,50 +2248,54 @@ def acquired(slug="d", **facet):
 
 def test_a_valid_declaration_on_an_unproduced_dataset_passes(tmp_path):
     node = acquired()
-    view = seed(tmp_path, node)
-    assert validity_refusal(view, node, BASE) is None
+    assert validity_refusal(seed(tmp_path, node), node, BASE) is None
 
 
 def test_absence_and_invalidity_are_distinct_reasons(tmp_path):
     plain = stored.dataset_node("p", title="p", resources=PINNED)
-    view = seed(tmp_path, plain)
-    assert validity_refusal(view, plain, BASE) == "no-empirical-observation-facet"
+    assert validity_refusal(seed(tmp_path, plain), plain, BASE) == "no-empirical-observation-facet"
     bad = stored.dataset_node("b", title="b", resources=PINNED, empirical_observation={"boundary": "x"})
-    view = seed(tmp_path, bad)
-    assert str(validity_refusal(view, bad, BASE)).startswith("facet-payload-malformed:")
+    assert str(validity_refusal(seed(tmp_path / "b", bad), bad, BASE)).startswith("facet-payload-malformed:")
 
 
 def test_a_lineage_basis_disqualifies_even_with_a_valid_facet(tmp_path):
     node = stored.dataset_node("d", title="d", resources=PINNED, empirical_observation=GOOD, basis={"tag": "single", "routes": []})
-    view = seed(tmp_path, node)
-    assert validity_refusal(view, node, BASE) == "facet-bearer-produced: the dataset carries a lineage basis"
+    assert validity_refusal(seed(tmp_path, node), node, BASE) == "facet-bearer-produced: the dataset carries a lineage basis"
 
 
 def test_a_producer_disqualifies(tmp_path):
     node = acquired()
     run = stored.run_node("r", title="r", spec="analysis-spec:s", produces=[node.id])
-    view = seed(tmp_path, node, run)
-    assert validity_refusal(view, node, BASE) == f"facet-bearer-produced: produced by {run.id}"
+    assert validity_refusal(seed(tmp_path, node, run), node, BASE) == f"facet-bearer-produced: produced by {run.id}"
+
+
+def test_a_dangling_producer_edge_counts_before_the_dataset_exists(tmp_path):
+    run = stored.run_node("r", title="r", spec="analysis-spec:s", produces=["dataset:d"])
+    view = seed(tmp_path, run)
+    assert view.producers("dataset:d") == (run.id,)
+    assert bearer_refusal(view, acquired()) == f"dataset:d: carries the empirical-observation facet and is produced by {run.id}"
+
+
+def test_an_alias_reaches_the_producer(tmp_path):
+    node = acquired()
+    node.deprecated_ids = ["dataset:old"]
+    run = stored.run_node("r", title="r", spec="analysis-spec:s", produces=["dataset:old"])
+    view = seed(tmp_path, stored.stamp_semantic_identity(node), run)
+    assert view.producers(node.id, aliases=("dataset:old",)) == (run.id,)
 
 
 def test_an_unresolved_retrieval_disqualifies(tmp_path):
     node = acquired(retrieval="act-report:" + "0" * 64)
-    view = seed(tmp_path, node)
-    assert validity_refusal(view, node, BASE) == "facet-retrieval-unresolved: act-report:" + "0" * 64
+    assert validity_refusal(seed(tmp_path, node), node, BASE) == "facet-retrieval-unresolved: act-report:" + "0" * 64
 
 
-def test_the_bearer_invariant_reads_both_halves(tmp_path):
+def test_the_bearer_invariant_reads_the_edge_whatever_its_carrier(tmp_path):
     node = acquired()
     view = seed(tmp_path, node)
     source = stored.source_node("s", title="s", identifiers={"doi": "10.1/x"})
-    source.relations.append(__import__("nodes.core.relations", fromlist=["Relation"]).Relation(source=source.id, predicate="produces", target=node.id))
+    source.relations.append(Relation(source=source.id, predicate="produces", target=node.id))
     assert bearer_refusal(view, source) == f"{source.id}: produces {node.id}, which carries the empirical-observation facet"
-    run = stored.run_node("r", title="r", spec="analysis-spec:s", produces=["dataset:d"])
-    view = seed(tmp_path, run)
-    assert bearer_refusal(view, acquired()) == f"dataset:d: carries the empirical-observation facet and is produced by {run.id}"
 ```
-
-(If `fixtures_cut4.seed` is not the helper `test_read_side.py` uses, import the same helper that file imports; do not write a new one.)
 
 - [ ] **Step 2: Write the failing seam tests**
 
@@ -2070,10 +2304,11 @@ def test_the_bearer_invariant_reads_both_halves(tmp_path):
 """F1–F3, F7 at the write seams: add, import, relocation. Revision is Task 9's."""
 
 import pytest
-from authority import FULL
+from authority import ACTOR, FULL
 from nodes.core.relations import Relation
 from nodes.core.write_plan import DefaultExecutor
 from profiles import BASE, pins_for
+from test_corpus_write import OperationRecorder
 
 from beliefs import stored
 from beliefs.corpus import CorpusWriter
@@ -2082,12 +2317,12 @@ from beliefs.permit import Authority, WritePermit
 
 PINNED = [{"name": "m", "digest": "sha256:" + "1" * 64}]
 ALICE = Authority(WritePermit.full(), "alice")
-BOB = Authority(WritePermit.full(), "bob")
 IMPORT = {"observer": "o", "instrument": "i", "opened_at": "2026-09-05T00:00:00Z", "closed_at": "2026-09-05T00:00:01Z"}
 
 
 def writer(root, authority=FULL):
-    w = CorpusWriter(root, DefaultExecutor, authority=authority, profile=BASE)
+    port = OperationRecorder(root, authority=authority, profile=BASE)
+    w = CorpusWriter(root, DefaultExecutor, authority=authority, profile=BASE, operation_port=port)
     if not (root / "corpus.yaml").exists():
         w.adopt_manifest(profile=pins_for(BASE))
     return w
@@ -2118,7 +2353,7 @@ class TestF1:
 class TestF2:
     def test_facet_dataset_then_producing_run_refuses_the_run(self, tmp_path):
         w = writer(tmp_path)
-        d = w.add(acquired("d", "actor"))
+        d = w.add(acquired("d", ACTOR))
         with pytest.raises(AcquisitionBoundaryRefused, match="carries the empirical-observation facet"):
             w.add(producing("r", d.id))
 
@@ -2126,16 +2361,15 @@ class TestF2:
         w = writer(tmp_path)
         w.add(producing("r", "dataset:d"))
         with pytest.raises(AcquisitionBoundaryRefused, match="is produced by run:r"):
-            w.add(acquired("d", "actor"))
+            w.add(acquired("d", ACTOR))
 
     def test_a_non_run_carrier_of_produces_is_refused_on_the_edge(self, tmp_path):
         w = writer(tmp_path)
-        d = w.add(acquired("d", "actor"))
+        d = w.add(acquired("d", ACTOR))
         source = stored.source_node("s", title="s", identifiers={"doi": "10.1/x"})
         source.relations.append(Relation(source=source.id, predicate="produces", target=d.id))
-        source = stored.stamp_semantic_identity(source)
         with pytest.raises(AcquisitionBoundaryRefused):
-            w.add(source)
+            w.add(stored.stamp_semantic_identity(source))
 
     @pytest.mark.parametrize("order", ["dataset-first", "run-first"])
     def test_a_bundle_holding_both_is_refused_in_either_order(self, tmp_path, order):
@@ -2158,27 +2392,37 @@ class TestF3:
         w.import_bundle([acquired("d", "carol")], **IMPORT)
         assert w.read_view.get("dataset:d").facets["empirical-observation"]["attested_by"] == "carol"
 
+    def test_relocation_keeps_a_foreign_attester(self, tmp_path):
+        from test_relocation import _writer as relocation_writer
+
+        from beliefs import relocation
+
+        source = relocation_writer(tmp_path / "s")
+        destination = relocation_writer(tmp_path / "d")
+        source.import_bundle([acquired("d", "carol")], **IMPORT)
+        relocation.move((source, "dataset:d"), destination, **IMPORT)
+        assert destination.read_view.get("dataset:d").facets["empirical-observation"]["attested_by"] == "carol"
+
 
 class TestF7:
     def test_present_and_unresolved_is_refused(self, tmp_path):
         with pytest.raises(FacetPayloadRefused, match="retrieval-unresolved"):
-            writer(tmp_path).add(acquired("d", "actor", retrieval="act-report:" + "0" * 64))
+            writer(tmp_path).add(acquired("d", ACTOR, retrieval="act-report:" + "0" * 64))
 
-    def test_resolving_to_a_non_acquisition_report_is_refused(self, tmp_path, sample_import_report):
+    def test_resolving_to_a_non_acquisition_report_is_refused(self, tmp_path):
         w = writer(tmp_path)
         report = w.import_bundle([stored.source_node("s", title="s", identifiers={"doi": "10.1/x"})], **IMPORT)
-        ref = f"act-report:{report.identity()}"
         with pytest.raises(FacetPayloadRefused, match="not an acquisition"):
-            w.add(acquired("d", "actor", retrieval=ref))
+            w.add(acquired("d", ACTOR, retrieval=f"act-report:{report.identity()}"))
 
     def test_resolving_to_an_imported_acquisition_report_is_accepted(self, tmp_path, acquisition_report):
         w = writer(tmp_path)
         node = stored.act_report_node(acquisition_report)
         w.import_bundle([node], **IMPORT)
-        w.add(acquired("d", "actor", retrieval=node.id))
+        w.add(acquired("d", ACTOR, retrieval=node.id))
 ```
 
-`acquisition_report` is a fixture to add to `conftest.py`: build an `ActReport` with `operation="acquisition"` using the same constructor `fixtures_cut3.report` uses (copy that helper's call with `operation="acquisition"` and an entries tuple the act-report codec accepts for that operation; read `python/src/beliefs/report.py`'s `ActReport` and its `_entry_facet` to pick a well-formed entry). `sample_import_report` is unused — delete that parameter.
+`acquisition_report` is a `conftest.py` fixture: read `python/src/beliefs/report.py`'s `ActReport` and `fixtures_cut3.report`; build one with `operation="acquisition"` and the smallest entries tuple the act-report codec accepts for that operation (copy `fixtures_cut3.report`'s call and change only `operation`; if the codec requires an operation-specific entry, use the entry type `report.py` defines for acquisition).
 
 - [ ] **Step 3: Run both to verify failure** — `cd python && uv run --frozen pytest tests/test_acquisition.py tests/test_facet_seams.py -q` → ModuleNotFoundError.
 
@@ -2207,18 +2451,14 @@ from beliefs.errors import FacetPayloadRefused
 from beliefs.facets import validate_payload
 from beliefs.profile import ProfileSpec
 
-__all__ = ["ProducerView", "bearer_refusal", "producers_of", "validity_refusal"]
+__all__ = ["ProducerView", "bearer_refusal", "validity_refusal"]
 
 
 class ProducerView(Protocol):
     def holds(self, ref: str) -> bool: ...
     def get(self, ref: str) -> Node: ...
     def resolve(self, ref: str) -> str | None: ...
-    def producers(self, dataset: str) -> tuple[str, ...]: ...
-
-
-def producers_of(view: ProducerView, dataset: str) -> tuple[str, ...]:
-    return tuple(sorted(view.producers(dataset)))
+    def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]: ...
 
 
 def validity_refusal(view: ProducerView, node: Node, profile: ProfileSpec) -> str | None:
@@ -2232,22 +2472,22 @@ def validity_refusal(view: ProducerView, node: Node, profile: ProfileSpec) -> st
         return f"facet-payload-malformed: {refused}"
     if stored.lineage_basis(node) is not None:
         return "facet-bearer-produced: the dataset carries a lineage basis"
-    producers = producers_of(view, node.id)
+    producers = view.producers(node.id, aliases=tuple(node.deprecated_ids))
     if producers:
         return f"facet-bearer-produced: produced by {', '.join(producers)}"
     retrieval = payload.get("retrieval")
     if retrieval is not None:
         if not view.holds(retrieval):
             return f"facet-retrieval-unresolved: {retrieval}"
-        report = view.get(retrieval)
-        facet = report.facets.get("act-report")
+        facet = view.get(retrieval).facets.get("act-report")
         if not isinstance(facet, dict) or facet.get("operation") != "acquisition":
             return f"facet-retrieval-unresolved: {retrieval} is not an acquisition report"
     return None
 
 
 def bearer_refusal(view: ProducerView, node: Node) -> str | None:
-    """The resulting-state invariant for one proposed write, either half."""
+    """The resulting-state invariant for one proposed write, either half, keyed
+    on the `produces` edge whatever its carrier's kind."""
     for relation in node.relations:
         if relation.predicate != stored.PRODUCES:
             continue
@@ -2257,7 +2497,7 @@ def bearer_refusal(view: ProducerView, node: Node) -> str | None:
     if node.kind == "dataset" and stored.EMPIRICAL_OBSERVATION_FACET in node.facets:
         if stored.lineage_basis(node) is not None:
             return f"{node.id}: carries the empirical-observation facet and a lineage basis"
-        producers = producers_of(view, node.id)
+        producers = view.producers(node.id, aliases=tuple(node.deprecated_ids))
         if producers:
             return f"{node.id}: carries the empirical-observation facet and is produced by {', '.join(producers)}"
     return None
@@ -2272,27 +2512,31 @@ class AcquisitionBoundaryRefused(WriteRefused):
     arrives second, whatever the carrier's kind."""
 ```
 
-- [ ] **Step 5: Give both views a `producers` read**
+- [ ] **Step 5: Producer lookups over the resulting index**
 
-On `ReadView`:
-
-```python
-    def producers(self, dataset: str) -> tuple[str, ...]:
-        """The ids of records holding a `produces` edge to `dataset`."""
-        return tuple(edge.relation.source for edge in self.inbound(dataset) if edge.relation.predicate == stored.PRODUCES)
-```
-
-On `_ImportView`, build the combined index once in `__init__`: `self._bundle_producers: dict[str, list[str]]` from every record's `produces` relations (targets resolved through `self._index`), and
+`ReadView.inbound` requires the target to resolve, so it cannot serve a dataset being written for the first time or a dangling edge. Both views scan relations instead:
 
 ```python
-    def producers(self, dataset: str) -> tuple[str, ...]:
-        local = self._local.producers(dataset) if self._local.holds(dataset) else ()
-        return tuple(sorted({*local, *self._bundle_producers.get(dataset, ())}))
+    def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]:
+        """Ids of every stored record holding a `produces` edge that names `dataset`
+        — by its id, by an alias, or by a target that resolves to it. Dangling
+        edges count: a run written before its dataset is still a producer."""
+        names = {dataset, *aliases}
+        found: set[str] = set()
+        for node in self.iter_stored():
+            for relation in node.relations:
+                if relation.predicate != stored.PRODUCES:
+                    continue
+                if relation.target in names or self.resolve(relation.target) == dataset:
+                    found.add(node.id)
+        return tuple(sorted(found))
 ```
 
-- [ ] **Step 6: Steps 3–5 of `_refuse_facets`, the actor binding, import, relocation, eligibility**
+`_ImportView.producers` runs the same scan over `self._local.iter_stored()` followed by `self._records.values()`, resolving through `self._index` (the union index `import_bundle` already builds) — `self.resolve(relation.target)`.
 
-Extend `_refuse_facets(self, node, *, view=None, bind_actor: bool = True)`:
+- [ ] **Step 6: Steps 3–5 of `_refuse_facets`, eligibility, and the fixtures**
+
+Extend `_refuse_facets(self, node, *, view=None, provenance=False)` after step 2:
 
 ```python
         reading = self._view if view is None else view
@@ -2301,7 +2545,7 @@ Extend `_refuse_facets(self, node, *, view=None, bind_actor: bool = True)`:
             raise AcquisitionBoundaryRefused(reason)
         payload = node.facets.get(stored.EMPIRICAL_OBSERVATION_FACET)
         if isinstance(payload, dict):
-            if bind_actor and payload.get("attested_by") != self._authority.actor:
+            if not provenance and payload.get("attested_by") != self._authority.actor:
                 raise ActorMismatch(
                     f"{node.id}: the declaration names attester {payload.get('attested_by')!r}, not the bound "
                     f"{self._authority.actor!r}"
@@ -2315,9 +2559,7 @@ Extend `_refuse_facets(self, node, *, view=None, bind_actor: bool = True)`:
                     raise FacetPayloadRefused(f"{node.id}: retrieval-unresolved: {retrieval} is not an acquisition report")
 ```
 
-`import_bundle` calls `_refuse_facets(record, view=import_view, bind_actor=False)`. `relocation.py`'s destination path calls `destination._preflight_add_locked(node)`; make `_preflight_add_locked` take `bind_actor: bool = True` and have `relocation.py` pass `bind_actor=False` (attestation preserved, everything else enforced against the destination). `revise`'s attestation rule is Task 9's.
-
-Change `eligibility_refusal(view, node)` to `eligibility_refusal(view, node, profile)` and replace its loop:
+`provenance` is already threaded through import and relocation (Task 7), so import keeps a foreign attester and relocation keeps it while enforcing everything else at the destination. Change `eligibility_refusal(view, node)` to `eligibility_refusal(view, node, profile)` and replace its loop:
 
 ```python
     reasons: list[str] = []
@@ -2332,15 +2574,15 @@ Change `eligibility_refusal(view, node)` to `eligibility_refusal(view, node, pro
     return f"no observes input of {run_ref!r} carries a valid empirical-observation facet ({'; '.join(reasons)})"
 ```
 
-`_refuse_ineligible` passes `self._profile`; `corpus_check`'s call site is rewritten in Task 11 (for now pass `shipped_base()` there so the suite stays green, and leave a one-line comment `# Task 11 threads the caller's profile`). Update `test_read_side.py::test_an_observes_input_without_the_empirical_observation_facet_is_reported` to assert the finding's detail names `no-empirical-observation-facet`, and add its sibling `test_an_observes_input_with_an_invalid_facet_is_reported_distinctly` asserting `facet-payload-malformed` appears in the detail. Every existing test fixture that writes `empirical_observation={"boundary": "instrument"}` (about 20 sites, `grep -rn 'empirical_observation={"boundary"' python/tests`) becomes `empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}` where `ACTOR` is the authority the test writes under (`authority.ACTOR` for `FULL`); a fixture that imports rather than adds may keep any attester.
+`_refuse_ineligible` passes `self._profile`; `corpus_check`'s call passes `shipped_base()` until Task 11 threads the caller's profile (one-line comment `# Task 11 threads the caller's profile`). Update `test_read_side.py::test_an_observes_input_without_the_empirical_observation_facet_is_reported` to assert the detail names `no-empirical-observation-facet`, and add `test_an_observes_input_with_an_invalid_facet_is_reported_distinctly` asserting `facet-payload-malformed` in the detail.
 
 - [ ] **Step 7: Run, lint, commit**
 
 `cd python && uv run --frozen pytest && uv run --frozen ruff check . && uv run --frozen pyright`
 
 ```bash
-git add python/src/beliefs/acquisition.py python/src/beliefs/corpus.py python/src/beliefs/relocation.py python/src/beliefs/errors.py python/tests
-git commit -m "feat(corpus): the acquisition-boundary predicate, the bearer invariant, attestation binding and retrieval resolution at every seam"
+git add python/src/beliefs/acquisition.py python/src/beliefs/corpus.py python/src/beliefs/errors.py python/tests
+git commit -m "feat(corpus): the acquisition-boundary predicate, the bearer invariant over the resulting index, attestation binding and retrieval resolution"
 ```
 
 ---
@@ -2352,7 +2594,7 @@ git commit -m "feat(corpus): the acquisition-boundary predicate, the bearer inva
 - Modify: `python/src/beliefs/corpus.py` (`revise`)
 
 **Interfaces:**
-- Produces: `CorpusWriter.revise(node)` accepting a `dataset` under §5.3's exact boundary; `ReviseKindImmutable` unchanged for other kinds.
+- Produces: `CorpusWriter.revise(node)` resolving the current record first, requiring the permit on the **current kind**, dispatching propositions to today's prose arm and datasets to `_revise_dataset_locked`; the accepted dataset revision is **restamped by the writer** (the supplied stamp is ignored).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -2360,38 +2602,40 @@ git commit -m "feat(corpus): the acquisition-boundary predicate, the bearer inva
 # python/tests/test_dataset_revision.py
 """F6 and F3's revision cases (design §5.3)."""
 
-import copy
-
 import pytest
-from authority import FULL
+from authority import lacking
+from nodes.core.relations import Relation
 from nodes.core.write_plan import DefaultExecutor
 from profiles import WITH_BIOLOGY, pins_for
+from test_corpus_write import OperationRecorder
 
 from beliefs import stored
 from beliefs.corpus import CorpusWriter
-from beliefs.errors import ActorMismatch, ReviseOutsideAllowlist
+from beliefs.errors import ActorMismatch, PermitExceeded, ReviseOutsideAllowlist, RevisionTargetMissing
 from beliefs.permit import Authority, WritePermit
 
 PINNED = [{"name": "m", "digest": "sha256:" + "1" * 64}]
 ALICE = Authority(WritePermit.full(), "alice")
 BOB = Authority(WritePermit.full(), "bob")
+DATASET_ONLY = lacking(kinds=("proposition",), actor="alice")  # every kind but proposition
 
 
 def writer(root, authority):
-    w = CorpusWriter(root, DefaultExecutor, authority=authority, profile=WITH_BIOLOGY)
+    port = OperationRecorder(root, authority=authority, profile=WITH_BIOLOGY)
+    w = CorpusWriter(root, DefaultExecutor, authority=authority, profile=WITH_BIOLOGY, operation_port=port)
     if not (root / "corpus.yaml").exists():
         w.adopt_manifest(profile=pins_for(WITH_BIOLOGY))
     return w
 
 
 def revised(node, **facets):
-    copy_ = node.model_copy(deep=True)
+    candidate = node.model_copy(deep=True)
     for key, value in facets.items():
         if value is None:
-            copy_.facets.pop(key, None)
+            candidate.facets.pop(key, None)
         else:
-            copy_.facets[key] = value
-    return stored.stamp_semantic_identity(copy_)
+            candidate.facets[key] = value
+    return candidate  # deliberately NOT restamped: the writer restamps (§5.3)
 
 
 @pytest.fixture()
@@ -2399,6 +2643,19 @@ def minted(tmp_path):
     w = writer(tmp_path, ALICE)
     node = w.add(stored.dataset_node("d", title="d", resources=PINNED, empirical_observation={"locator": "url:x", "attested_by": "alice"}))
     return w, node
+
+
+def test_dataset_only_authority_may_revise_a_dataset_and_the_writer_restamps(tmp_path):
+    w = writer(tmp_path, ALICE)
+    node = w.add(stored.dataset_node("d", title="d", resources=PINNED, empirical_observation={"locator": "url:x", "attested_by": "alice"}))
+    narrow = writer(tmp_path, DATASET_ONLY)
+    candidate = revised(node, **{"empirical-observation": {"locator": "url:y", "attested_by": "alice"}})
+    del candidate.facets[stored.SEMANTIC_IDENTITY_FACET]  # an unstamped edit is accepted and restamped
+    stored_node = narrow.revise(candidate)
+    assert stored_node.facets["empirical-observation"]["locator"] == "url:y"
+    assert not stored.semantic_hash_disagrees(narrow.read_view.get(node.id))
+    with pytest.raises(PermitExceeded):
+        narrow.revise(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
 
 
 def test_alice_revises_her_own_locator_keeping_herself(minted):
@@ -2420,7 +2677,7 @@ def test_an_unchanged_declaration_keeps_its_attester(minted, tmp_path):
     bob = writer(tmp_path, BOB)
     with pytest.raises(ActorMismatch):
         bob.revise(revised(node, **{"empirical-observation": {"locator": "url:x", "attested_by": "bob"}}))
-    bob.revise(revised(node, title="t2") if False else revised(node, **{"biology/gene-axis": {"axis": "rows"}}))
+    bob.revise(revised(node, **{"biology/gene-axis": {"axis": "rows"}}))  # a domain facet, the declaration untouched
 
 
 def test_removing_the_facet_is_refused_and_removing_a_domain_facet_is_not(minted):
@@ -2431,8 +2688,13 @@ def test_removing_the_facet_is_refused_and_removing_a_domain_facet_is_not(minted
         w.revise(revised(node, **{"empirical-observation": None}))
 
 
-@pytest.mark.parametrize("field", ["id", "uid", "relations", "deprecated_ids", "dataset", "lineage-basis"])
-def test_every_preserved_field_is_refused_when_moved(minted, field):
+@pytest.mark.parametrize(
+    "field, refusal",
+    [("id", RevisionTargetMissing), ("uid", RevisionTargetMissing), ("relations", ReviseOutsideAllowlist),
+     ("deprecated_ids", ReviseOutsideAllowlist), ("metadata", ReviseOutsideAllowlist),
+     ("dataset", ReviseOutsideAllowlist), ("lineage-basis", ReviseOutsideAllowlist)],
+)
+def test_every_preserved_field_is_refused_when_moved(minted, field, refusal):
     w, node = minted
     candidate = node.model_copy(deep=True)
     if field == "id":
@@ -2440,16 +2702,16 @@ def test_every_preserved_field_is_refused_when_moved(minted, field):
     elif field == "uid":
         candidate.uid = "0" * 32
     elif field == "relations":
-        from nodes.core.relations import Relation
         candidate.relations.append(Relation(source=node.id, predicate="reads", target="dataset:z"))
     elif field == "deprecated_ids":
         candidate.deprecated_ids = ["dataset:old"]
+    elif field == "metadata":
+        candidate.metadata = {**candidate.metadata, "version": "2"}
     elif field == "dataset":
         candidate.facets["dataset"] = {"resources": [{"name": "n", "digest": "sha256:" + "2" * 64}]}
     else:
         candidate.facets["lineage-basis"] = {"tag": "single", "routes": []}
-    candidate = stored.stamp_semantic_identity(candidate)
-    with pytest.raises((ReviseOutsideAllowlist, Exception)):
+    with pytest.raises(refusal):
         w.revise(candidate)
     assert w.read_view.get(node.id).facets == node.facets
 
@@ -2460,36 +2722,65 @@ def test_adding_the_facet_to_an_unmarked_dataset_mints_the_declaration(tmp_path)
     with pytest.raises(ActorMismatch):
         w.revise(revised(plain, **{"empirical-observation": {"locator": "url:x", "attested_by": "bob"}}))
     w.revise(revised(plain, **{"empirical-observation": {"locator": "url:x", "attested_by": "alice"}}))
-    assert stored.dataset_declaration(w.read_view.get(plain.id)) == stored.dataset_declaration(plain)  # address unchanged
+    assert stored.dataset_declaration(w.read_view.get(plain.id)) == stored.dataset_declaration(plain)
 
 
 def test_display_and_prose_may_change(minted):
     w, node = minted
     candidate = node.model_copy(deep=True, update={"title": "new title"})
     candidate.facets["display"] = {"display_statement": "shown"}
-    w.revise(stored.stamp_semantic_identity(candidate))
+    w.revise(candidate)
     assert w.read_view.get(node.id).title == "new title"
 ```
 
-(Replace the odd `if False else` line in `test_an_unchanged_declaration_keeps_its_attester` with a plain second call: `bob.revise(revised(node, **{"biology/gene-axis": {"axis": "rows"}}))` — Bob may add a domain facet without touching the declaration. The `(ReviseOutsideAllowlist, Exception)` tuple in the preserved-field test is deliberate: an `id` change surfaces as `RevisionTargetMissing`, and the assertion that matters is the unchanged stored facets.)
+(Confirm `Node` has a `metadata` field in the installed `nodes` — `grep -n "metadata" /path/to/nodes/core/node.py`; if it does not, drop that parametrization row and say so in the commit.)
 
-- [ ] **Step 2: Run to verify failure** — `cd python && uv run --frozen pytest tests/test_dataset_revision.py -q` → `ReviseKindImmutable` on every case.
+- [ ] **Step 2: Run to verify failure** — `cd python && uv run --frozen pytest tests/test_dataset_revision.py -q` → `ReviseKindImmutable` / `PermitExceeded` on the wrong kind.
 
-- [ ] **Step 3: Add the arm**
+- [ ] **Step 3: Restructure `revise` and add the arm**
 
-In `revise`, replace `if current.kind != "proposition" or node.kind != "proposition": raise ReviseKindImmutable(...)` with a dispatch: propositions keep the existing body; for `current.kind == "dataset" == node.kind` run `self._revise_dataset_locked(node, current)`; anything else `ReviseKindImmutable("revise operates on propositions and datasets only")`. Then:
+Replace `revise`'s opening so that the permit is required on the current record's kind after it resolves under the lock:
 
 ```python
+    def revise(self, node: Node) -> Node:
+        """Replace a proposition after changing display prose alone, or a dataset
+        within §5.3's interpretation-and-prose boundary."""
+        with self._operation:
+            self._require_pins_agree()
+            existing = self._corpus.index.by_uid.get(node.uid)
+            if existing is None or existing.id != node.id:
+                raise RevisionTargetMissing(f"{node.id}: exact uid and id do not identify a local node")
+            current = self._view.get(node.id)
+            self._authority.require("corpus-write", (current.kind,))
+            if current.kind == "dataset" and node.kind == "dataset":
+                return self._revise_dataset_locked(node, current)
+            if current.kind != "proposition" or node.kind != "proposition":
+                raise ReviseKindImmutable("revise operates on propositions and datasets only")
+            ... # the existing proposition body from `self._refuse_family_kinds(node)` onward, unchanged
+```
+
+and:
+
+```python
+    _DATASET_REVISION_FACETS = frozenset({stored.EMPIRICAL_OBSERVATION_FACET, stored.DISPLAY_FACET})
+
     def _revise_dataset_locked(self, node: Node, current: Node) -> Node:
-        """§5.3's exact boundary: interpretation facets and prose move, nothing else."""
-        self._require_pins_agree()
-        self._authority.require("corpus-write", ("dataset",))
-        for name in ("id", "uid", "kind", "relations", "deprecated_ids"):
-            if getattr(node, name) != getattr(current, name):
-                raise ReviseOutsideAllowlist(f"{node.id}: a dataset revision preserves {name}")
-        for key in (stored.DATASET_FACET, stored.LINEAGE_BASIS_FACET):
-            if node.facets.get(key) != current.facets.get(key):
-                raise ReviseOutsideAllowlist(f"{node.id}: a dataset revision preserves the {key!r} facet")
+        """§5.3's exact boundary. Everything outside title, body, display, the
+        empirical-observation declaration and namespaced domain facets must be
+        byte-identical; the stamp is the writer's to recompute."""
+        candidate_fields = node.model_dump()
+        current_fields = current.model_dump()
+        for fields in (candidate_fields, current_fields):
+            fields.pop("title")
+            fields.pop("body")
+            facets = fields["facets"]
+            fields["facets"] = {
+                key: value for key, value in facets.items()
+                if key not in self._DATASET_REVISION_FACETS and key != stored.SEMANTIC_IDENTITY_FACET and "/" not in key
+            }
+        if candidate_fields != current_fields:
+            moved = sorted(k for k in set(candidate_fields) | set(current_fields) if candidate_fields.get(k) != current_fields.get(k))
+            raise ReviseOutsideAllowlist(f"{node.id}: a dataset revision preserves {', '.join(moved)}")
         before = current.facets.get(stored.EMPIRICAL_OBSERVATION_FACET)
         after = node.facets.get(stored.EMPIRICAL_OBSERVATION_FACET)
         if before is not None and after is None:
@@ -2497,16 +2788,9 @@ In `revise`, replace `if current.kind != "proposition" or node.kind != "proposit
                 f"{node.id}: removing {stored.EMPIRICAL_OBSERVATION_FACET!r} withdraws standing; that is a "
                 "record-level act the correction lifecycle has not designed (facet-contracts §2 item 3)"
             )
-        for key in set(node.facets) | set(current.facets):
-            if key in (stored.DATASET_FACET, stored.LINEAGE_BASIS_FACET, stored.EMPIRICAL_OBSERVATION_FACET,
-                       stored.DISPLAY_FACET, stored.SEMANTIC_IDENTITY_FACET) or "/" in key:
-                continue
-            if node.facets.get(key) != current.facets.get(key):
-                raise ReviseOutsideAllowlist(f"{node.id}: {key!r} is outside a dataset revision's allowlist")
         if after is not None:
-            declaration_changed = before is None or {k: v for k, v in before.items() if k != "attested_by"} != {
-                k: v for k, v in after.items() if k != "attested_by"
-            }
+            strip = lambda payload: {k: v for k, v in payload.items() if k != "attested_by"}  # noqa: E731
+            declaration_changed = before is None or strip(before) != strip(after)
             expected = self._authority.actor if declaration_changed else before["attested_by"]  # type: ignore[index]
             if after.get("attested_by") != expected:
                 raise ActorMismatch(
@@ -2515,12 +2799,15 @@ In `revise`, replace `if current.kind != "proposition" or node.kind != "proposit
                 )
         if stored.display_facet_malformed(node):
             raise ValidationRefused(f"{node.id}: refused by document validation: malformed display facet")
-        self._refuse_invalid(node)
-        self._refuse_facets(node, bind_actor=False)  # attestation was judged above, against the stored declaration
-        self._refuse_governed_stamp(node)
-        self._refuse_rendering(node)
-        return self._corpus.add(node)
+        restamped = stored.stamp_semantic_identity(node.model_copy(deep=True))
+        self._refuse_invalid(restamped)
+        self._refuse_facets(restamped, provenance=True)  # attestation was judged above against the stored declaration
+        self._refuse_governed_stamp(restamped)
+        self._refuse_rendering(restamped)
+        return self._corpus.add(restamped)
 ```
+
+(`current_fields`/`candidate_fields` include `metadata`, `relations`, `deprecated_ids`, `uid`, `kind` and every non-allowlisted facet, so any of them moving is caught by one comparison; `id`/`uid` changes fail earlier as `RevisionTargetMissing`.)
 
 - [ ] **Step 4: Run, lint, commit**
 
@@ -2528,7 +2815,7 @@ In `revise`, replace `if current.kind != "proposition" or node.kind != "proposit
 
 ```bash
 git add python/src/beliefs/corpus.py python/tests/test_dataset_revision.py
-git commit -m "feat(corpus): revise gains the dataset interpretation-correction arm"
+git commit -m "feat(corpus): revise gains the dataset interpretation-correction arm, permit on the actual kind, writer-restamped"
 ```
 
 ---
@@ -2537,10 +2824,10 @@ git commit -m "feat(corpus): revise gains the dataset interpretation-correction 
 
 **Files:**
 - Create: `python/tests/test_guarded_publication.py`
-- Modify: `python/src/beliefs/runrecord.py:89-98` (the `OperationPort` protocol), `python/src/beliefs/root.py` (`DurableOperationPort`), `python/src/beliefs/boundary.py:892-965` (`execute_production_run`), `python/tests/test_corpus_write.py` (`OperationRecorder`)
+- Modify: `python/src/beliefs/runrecord.py:89-98` (the `OperationPort` protocol), `python/src/beliefs/root.py` (`DurableOperationPort`), `python/src/beliefs/boundary.py:892-965` (`execute_production_run`, `acquisition_guard`), `python/tests/test_corpus_write.py` (`OperationRecorder`)
 
 **Interfaces:**
-- Produces: `OperationPort.execute_fulfilling_guarded(plan, fulfills, *, guard: Callable[[ReadView], str | None], fallback: Callable[[str], WritePlan], profile: ProfileSpec) -> str | None` — under the lock: pin recheck (`ContractMismatch` raised, nothing executed), then `guard(view)`; `None` → `plan` executed and `None` returned; a reason → `fallback(reason)` executed and the reason returned.
+- Produces: `OperationPort.execute_fulfilling_guarded(plan, fulfills, *, guard: Callable[[ReadView], str | None], fallback: Callable[[str], WritePlan]) -> str | None` — under the lock: `require_pins_agree(root, self.profile)` (raises `ContractMismatch`, nothing executed), then `guard(view)`; `None` → `plan` executed, `None` returned; a reason → `fallback(reason)` executed and the reason returned. `boundary.acquisition_guard(run: RunClosure) -> Callable[[ReadView], str | None]`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -2549,7 +2836,7 @@ git commit -m "feat(corpus): revise gains the dataset interpretation-correction 
 """§5.4: the production boundary's bearer check shares the publication lock."""
 
 import pytest
-from authority import FULL
+from authority import ACTOR, FULL
 from closure_fixtures import make_closure
 from nodes.core.write_plan import DefaultExecutor
 from profiles import BASE, pins_for
@@ -2560,54 +2847,43 @@ from beliefs.corpus import CorpusWriter
 from beliefs.errors import ContractMismatch
 from beliefs.runrecord import publication_plan
 
-PINNED = [{"name": "m", "digest": "sha256:" + "1" * 64}]
-
 
 def corpus(tmp_path):
-    port = OperationRecorder(tmp_path, authority=FULL)
+    port = OperationRecorder(tmp_path, authority=FULL, profile=BASE)
     w = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL, profile=BASE, operation_port=port)
     w.adopt_manifest(profile=pins_for(BASE))
     return w, port
 
 
 def test_the_guard_runs_under_the_lock_and_selects_the_plan(tmp_path):
-    w, port = corpus(tmp_path)
-    closure = make_closure(shape="dataset-production")
-    _, _, plan = publication_plan(closure)
-    produced = plan[0]  # the run node's create op names its produces target
-    reason = port.execute_fulfilling_guarded(
-        plan, "ab" * 32, guard=lambda view: None, fallback=lambda r: (), profile=BASE
-    )
+    _, port = corpus(tmp_path)
+    _, _, plan = publication_plan(make_closure(shape="dataset-production"))
+    reason = port.execute_fulfilling_guarded(plan, "ab" * 32, guard=lambda view: None, fallback=lambda r: ())
     assert reason is None and port.fulfilling[-1][0] == list(plan)
 
 
 def test_a_reason_publishes_the_fallback_and_returns_it(tmp_path):
-    w, port = corpus(tmp_path)
-    closure = make_closure(shape="dataset-production")
-    _, _, plan = publication_plan(closure)
+    _, port = corpus(tmp_path)
+    _, _, plan = publication_plan(make_closure(shape="dataset-production"))
     marker = [("fallback", ())]
-    reason = port.execute_fulfilling_guarded(
-        plan, "ab" * 32, guard=lambda view: "acquisition-boundary", fallback=lambda r: marker, profile=BASE
-    )
+    reason = port.execute_fulfilling_guarded(plan, "ab" * 32, guard=lambda view: "acquisition-boundary", fallback=lambda r: marker)
     assert reason == "acquisition-boundary" and port.fulfilling[-1][0] == marker
 
 
-def test_a_pin_mismatch_under_the_lock_publishes_nothing(tmp_path):
-    w, port = corpus(tmp_path)
+def test_a_pin_mismatch_under_the_lock_publishes_neither_plan(tmp_path):
+    _, port = corpus(tmp_path)
     text = (tmp_path / "corpus.yaml").read_text()
     (tmp_path / "corpus.yaml").write_text(text.replace(pins_for(BASE).science_contract, "science:" + "f" * 64))
-    closure = make_closure(shape="dataset-production")
-    _, _, plan = publication_plan(closure)
+    _, _, plan = publication_plan(make_closure(shape="dataset-production"))
     with pytest.raises(ContractMismatch):
-        port.execute_fulfilling_guarded(plan, "ab" * 32, guard=lambda v: None, fallback=lambda r: (), profile=BASE)
+        port.execute_fulfilling_guarded(plan, "ab" * 32, guard=lambda v: None, fallback=lambda r: ())
     assert not port.fulfilling
 
 
 def test_the_acquisition_guard_reads_the_produced_address(tmp_path):
-    """The guard the production boundary installs (§5.4): a facet-bearing dataset
-    at the produced address is the reason; an absent or plain one is none. The
-    boundary path itself runs durably in Task 15's acceptance module through
-    `fixtures_cut15`'s production helper."""
+    """The guard the production boundary installs (§5.4). The boundary path itself
+    runs durably in Task 15's acceptance module through `fixtures_cut15`'s
+    production helper."""
     from beliefs.boundary import acquisition_guard
     from beliefs.production import mint_dataset
 
@@ -2619,12 +2895,10 @@ def test_the_acquisition_guard_reads_the_produced_address(tmp_path):
         address.removeprefix("dataset:"),
         title="bearer",
         resources=[{"name": name, "digest": digest} for name, digest in closure.result.outputs],
-        empirical_observation={"locator": "url:x", "attested_by": FULL.actor},
+        empirical_observation={"locator": "url:x", "attested_by": ACTOR},
     ))
     assert acquisition_guard(closure)(w.read_view) == "acquisition-boundary"
 ```
-
-(`FULL.actor` is the `authority` module's `ACTOR`; the dataset node's content address equals the produced address because both are `dataset_address` over the same `(name, digest)` pairs.)
 
 - [ ] **Step 2: Run to verify failure** — `cd python && uv run --frozen pytest tests/test_guarded_publication.py -q` → `AttributeError: execute_fulfilling_guarded`.
 
@@ -2640,24 +2914,23 @@ In `runrecord.py`'s `OperationPort` protocol add:
         *,
         guard: Callable[[ReadView], str | None],
         fallback: Callable[[str], WritePlan],
-        profile: ProfileSpec,
     ) -> str | None: ...
 ```
 
-(`from collections.abc import Callable`; `ReadView` and `ProfileSpec` under `TYPE_CHECKING` to avoid cycles.) In `root.py`'s `DurableOperationPort`:
+(`from collections.abc import Callable`; `ReadView` under `TYPE_CHECKING`.) In `DurableOperationPort`:
 
 ```python
-    def execute_fulfilling_guarded(self, plan, fulfills, *, guard, fallback, profile):
+    def execute_fulfilling_guarded(self, plan, fulfills, *, guard, fallback):
         from beliefs.corpus import ReadView, require_pins_agree
 
         with _operation_lock_for(self.root):
-            require_pins_agree(self.root, profile)  # raises ContractMismatch before either plan
+            require_pins_agree(self.root, self._profile)  # raises before either plan
             reason = guard(ReadView.opened_at(self.root))
             self._execute_fulfilling(plan if reason is None else fallback(reason), fulfills)
             return reason
 ```
 
-Lift the body of `CorpusWriter._require_pins_agree` into a module-level `require_pins_agree(root: Path, profile: ProfileSpec) -> None` in `corpus.py` and have the method call it. Add the same method to `OperationRecorder` in `test_corpus_write.py` (record `(list(plan-or-fallback), fulfills)` into `fulfilling`, call `require_pins_agree`, return the reason).
+`OperationRecorder` gets the same method (record into `fulfilling`, call `require_pins_agree(self.root, self.profile)` first, return the reason).
 
 - [ ] **Step 4: The boundary**
 
@@ -2678,14 +2951,12 @@ with
         def _fallback(reason: str) -> WritePlan:
             return _report_plan(_refused(reason, "absent", actor, observer, started_at, intent).report)
 
-        reason = port.execute_fulfilling_guarded(
-            plan, fulfills, guard=acquisition_guard(result.run), fallback=_fallback, profile=profile
-        )
+        reason = port.execute_fulfilling_guarded(plan, fulfills, guard=acquisition_guard(result.run), fallback=_fallback)
         if reason is not None:
             result = _refused(reason, "absent", actor, observer, started_at, intent)
 ```
 
-and add the module-level guard beside `_report_plan`:
+and add beside `_report_plan`:
 
 ```python
 def acquisition_guard(run: RunClosure) -> Callable[[ReadView], str | None]:
@@ -2702,67 +2973,93 @@ def acquisition_guard(run: RunClosure) -> Callable[[ReadView], str | None]:
     return guard
 ```
 
-`execute_production_run` gains a required keyword `profile: ProfileSpec` (thread it from every caller: `grep -rn "execute_production_run(" python`). Import `mint_dataset` from `beliefs.production` and `ReadView` under `TYPE_CHECKING`.
+(`from beliefs.production import mint_dataset`; `ReadView` under `TYPE_CHECKING`.) The assessment boundary's publication and every refusal report keep using `execute_fulfilling`/`execute`, which Task 7 made recheck the pins under their own lock; the pin-mismatch-after-intent case (unfulfilled intent, `ContractMismatch` raised) is F5's second arm and is asserted in `test_profile_agreement.py`'s `port-fulfilling` case and durably in Task 15.
 
 - [ ] **Step 5: Run, lint, commit**
 
 `cd python && uv run --frozen pytest && uv run --frozen ruff check . && uv run --frozen pyright`
 
 ```bash
-git add python/src/beliefs/runrecord.py python/src/beliefs/root.py python/src/beliefs/boundary.py python/src/beliefs/corpus.py python/tests/test_guarded_publication.py python/tests/test_corpus_write.py
+git add python/src/beliefs/runrecord.py python/src/beliefs/root.py python/src/beliefs/boundary.py python/tests/test_guarded_publication.py python/tests/test_corpus_write.py
 git commit -m "feat(boundary): guarded production publication under the operation lock"
 ```
 
 ---
-### Task 11: The check and the audit take the profile; the mismatch stopping rule
+
+### Task 11: The check and the audit take the profile; the stopping matrix
 
 **Files:**
-- Modify: `python/src/beliefs/corpus.py` (`corpus_check`), `python/src/beliefs/audit.py` (`audit_corpus`), `python/tests/test_read_side.py`, `python/tests/test_audit.py`, `python/tools/reproduction/close.py`
+- Modify: `python/src/beliefs/corpus.py` (`corpus_check`, `profile_mismatch`, `_CheckView`), `python/src/beliefs/audit.py` (`audit_corpus`), `python/tests/test_read_side.py` (`seed`, new cases), `python/tests/test_audit.py`, `python/tools/reproduction/close.py`
 
 **Interfaces:**
-- Produces: `corpus_check(view, profile) -> tuple[Finding, ...]`; `audit_corpus(view, *, evidence, profile)`; finding codes `profile-mismatch`, `kind-unknown`, `facet-unexpected`, `facet-missing`, `facet-payload-malformed`, `facet-bearer-produced`, `facet-retrieval-unresolved`; `corpus.MismatchScope` = `"none" | "domains" | "base"` (internal helper `profile_mismatch(root, profile) -> MismatchScope`).
+- Produces: `corpus_check(view, profile) -> tuple[Finding, ...]`; `audit_corpus(view, *, evidence, profile)`; `profile_mismatch(root, profile) -> tuple[MismatchScope, str]` with `MismatchScope = Literal["none", "domains", "base", "malformed"]`; finding codes `profile-mismatch`, `kind-unknown`, `facet-unexpected`, `facet-missing`, `facet-payload-malformed`, `facet-bearer-produced`, `facet-retrieval-unresolved`; the check reads neighbours **unvalidated** through a `_CheckView` adapter so a stale neighbour is a finding elsewhere, never a raise here.
+
+**The stopping matrix**, implemented literally:
+
+| scope | reported | withheld |
+|---|---|---|
+| `none` | everything | nothing |
+| `domains` | `manifest-malformed`; stamp findings; `kind-unknown` for non-coordination kinds; `facet-missing`/`facet-unexpected` for unnamespaced keys on non-coordination kinds; `empirical-observation` payload validity; bearer; retrieval; eligibility; retraction and lineage findings | every judgment on a namespaced key; **every judgment on a coordination kind** (their kind and `coordination` facet are unnamespaced, so they are withheld by kind membership in `profile.coordination_kinds`) when `coordination` is among the disagreeing pins, else nothing coordination-shaped |
+| `base` | `profile-mismatch`, `manifest-malformed` | everything else, stamps included; the audit performs no recomputation |
+| `malformed` | `manifest-malformed`, `profile-mismatch` (detail `malformed`) | as `base` |
 
 - [ ] **Step 1: Write the failing tests**
 
-Append to `python/tests/test_read_side.py`'s `TestTheCorpusCheck` (the module's `seed`/`admissible_corpus` helpers construct views without a writer; they must also write a manifest pinning `pins_for(BASE)` — extend `seed` to write `corpus.yaml` via `manifest_bytes` when absent, and import `profiles.BASE`):
+Give `test_read_side.py`'s `seed(tmp_path, *nodes)` two keyword parameters, `pins=None` (default `pins_for(BASE)`) and `science_contract=None` (override), write the manifest with `manifest_bytes` after the raw writes, and return `ReadView(Corpus(root))`. Then append to `TestTheCorpusCheck`:
 
 ```python
     def test_the_check_takes_the_profile_and_reports_facet_findings(self, tmp_path):
         bad = stored.dataset_node("b", title="b", resources=PINNED, empirical_observation={"boundary": "x"})
-        view = seed(tmp_path, bad)
-        assert [(f.code, f.ref) for f in corpus_check(view, BASE)] == [("facet-payload-malformed", bad.id)]
+        assert [(f.code, f.ref) for f in corpus_check(seed(tmp_path, bad), BASE)] == [("facet-payload-malformed", bad.id)]
 
-    def test_a_raw_written_bearer_conflict_is_reported(self, tmp_path):
-        d = observed_dataset()  # carries a valid facet
+    def test_a_raw_written_bearer_conflict_is_reported_once(self, tmp_path):
+        d = observed_dataset()
         r = stored.run_node("r", title="r", spec="analysis-spec:s", produces=[d.id])
-        view = seed(tmp_path, d, r)
-        assert ("facet-bearer-produced", d.id) in [(f.code, f.ref) for f in corpus_check(view, BASE)]
+        findings = [(f.code, f.ref) for f in corpus_check(seed(tmp_path, d, r), BASE)]
+        assert findings.count(("facet-bearer-produced", d.id)) == 1
 
     def test_an_unknown_kind_and_an_undeclared_key_are_reported(self, tmp_path):
         from nodes.core.node import Node
         stray = Node(id="divergence:x", kind="divergence", title="x", facets={})
         keyed = stored.proposition_node("p", title="p", claim={"operator": "affects"})
         keyed.facets["biology/gene-axis"] = {}
-        view = seed(tmp_path, stray, stored.stamp_semantic_identity(keyed))
-        codes = {(f.code, f.ref) for f in corpus_check(view, BASE)}
+        codes = {(f.code, f.ref) for f in corpus_check(seed(tmp_path, stray, stored.stamp_semantic_identity(keyed)), BASE)}
         assert ("kind-unknown", "divergence:x") in codes and ("facet-unexpected", keyed.id) in codes
+
+    def test_a_stale_neighbour_is_a_finding_not_a_raise(self, tmp_path):
+        d = observed_dataset()
+        r = stored.run_node("r", title="r", spec="analysis-spec:s", produces=[d.id])
+        r.facets["run"]["spec"] = "analysis-spec:tampered"  # stamp now disagrees
+        findings = corpus_check(seed(tmp_path, d, r), BASE)
+        codes = {(f.code, f.ref) for f in findings}
+        assert ("semantic-hash-stale", r.id) in codes and ("facet-bearer-produced", d.id) in codes
 
     def test_a_domain_only_mismatch_withholds_namespaced_judgments_and_keeps_base_ones(self, tmp_path):
         from profiles import WITH_BIOLOGY
         bad = stored.dataset_node("b", title="b", resources=PINNED, empirical_observation={"boundary": "x"})
         bad.facets["biology/gene-axis"] = {"axis": "rows"}
-        view = seed(tmp_path, stored.stamp_semantic_identity(bad), pins=pins_for(WITH_BIOLOGY))
-        findings = corpus_check(view, BASE)
+        findings = corpus_check(seed(tmp_path, stored.stamp_semantic_identity(bad), pins=pins_for(WITH_BIOLOGY)), BASE)
         codes = [f.code for f in findings]
-        assert codes.count("profile-mismatch") == 1
-        assert "facet-payload-malformed" in codes  # the base facet is still judged
-        assert "facet-unexpected" not in codes  # the namespaced key is not
+        assert codes.count("profile-mismatch") == 1 and "facet-payload-malformed" in codes and "facet-unexpected" not in codes
+
+    def test_a_coordination_pin_disagreement_withholds_coordination_judgments(self, tmp_path):
+        from coordination_fixtures import coordination_profile  # the profile compiled with the coordination contract
+        from nodes.core.node import Node
+        task = Node(id="task:t", kind="task", title="t", facets={"coordination": {"nonsense": True}})
+        findings = corpus_check(seed(tmp_path, task, pins=pins_for(coordination_profile())), BASE)
+        assert [f.code for f in findings] == ["profile-mismatch"]
 
     def test_a_base_mismatch_withholds_everything_but_the_mismatch(self, tmp_path):
         node = observed_dataset()
         del node.facets[stored.SEMANTIC_IDENTITY_FACET]
-        view = seed(tmp_path, node, science_contract="science:" + "f" * 64)
-        assert [f.code for f in corpus_check(view, BASE)] == ["profile-mismatch"]
+        assert [f.code for f in corpus_check(seed(tmp_path, node, science_contract="science:" + "f" * 64), BASE)] == ["profile-mismatch"]
+
+    def test_a_malformed_manifest_is_two_findings_and_no_judgment(self, tmp_path):
+        node = observed_dataset()
+        del node.facets[stored.SEMANTIC_IDENTITY_FACET]
+        view = seed(tmp_path, node)
+        (tmp_path / "corpus.yaml").write_text("manifest_version: 3\n")
+        assert sorted(f.code for f in corpus_check(view, BASE)) == ["manifest-malformed", "profile-mismatch"]
 
     def test_eligibility_keeps_the_existential_rule(self, tmp_path):
         good = observed_dataset()
@@ -2777,60 +3074,90 @@ Append to `python/tests/test_read_side.py`'s `TestTheCorpusCheck` (the module's 
         assert "eligibility-unmet" not in codes and codes == ["facet-payload-malformed"]
 ```
 
-`seed(tmp_path, *nodes, pins=None, science_contract=None)`: writes each node raw, then a manifest with `pins or pins_for(BASE)`, overriding `science_contract` when given, and returns a view opened **through `Corpus` directly** (not `ReadView.opened_at`, whose base-pin check would refuse the base-mismatch case): `ReadView(Corpus(root))`. Append to `test_audit.py`:
+(`coordination_fixtures.coordination_profile` may be named differently; use whatever that module exposes that returns the compiled profile with the coordination contract.) Append to `test_audit.py`:
 
 ```python
-def test_the_audit_stops_on_a_base_mismatch_without_recomputing(writer, tmp_path):
+def test_the_audit_stops_on_a_base_mismatch_without_recomputing(writer):
+    from nodes.core.corpus import Corpus
+    from beliefs.corpus import ReadView
     text = (writer.root / "corpus.yaml").read_text()
     (writer.root / "corpus.yaml").write_text(text.replace(pins_for(BASE).science_contract, "science:" + "f" * 64))
-    from beliefs.corpus import ReadView
-    from nodes.core.corpus import Corpus
-    findings = audit_corpus(ReadView(Corpus(writer.root)), evidence=NO_EVIDENCE, profile=BASE)
-    assert [f.code for f in findings] == ["profile-mismatch"]
+    assert [f.code for f in audit_corpus(ReadView(Corpus(writer.root)), evidence=NO_EVIDENCE, profile=BASE)] == ["profile-mismatch"]
 ```
 
-- [ ] **Step 2: Run to verify failure** — `cd python && uv run --frozen pytest tests/test_read_side.py tests/test_audit.py -q -k "profile or mismatch or bearer or unknown or existential"` → TypeErrors on the new signature.
+- [ ] **Step 2: Run to verify failure** — `cd python && uv run --frozen pytest tests/test_read_side.py tests/test_audit.py -q -k "profile or mismatch or bearer or unknown or existential or neighbour or malformed_manifest"` → TypeErrors on the new signature.
 
 - [ ] **Step 3: Implement**
 
 In `corpus.py`:
 
 ```python
-MismatchScope = Literal["none", "domains", "base"]
+MismatchScope = Literal["none", "domains", "base", "malformed"]
 
 
-def profile_mismatch(root: Path, profile: ProfileSpec) -> tuple[MismatchScope, str]:
-    """§5.5: what the manifest's pins disagree with, and a message for the finding."""
+def profile_mismatch(root: Path, profile: ProfileSpec) -> tuple[MismatchScope, str, frozenset[str]]:
+    """§5.5: what the manifest's pins disagree with, a message, and the disagreeing
+    domain namespaces. A manifest that cannot be read is `malformed`: nothing can
+    be judged against pins nobody can state."""
     manifest_path = Path(root) / "corpus.yaml"
     if not manifest_path.exists():
-        return "none", ""
+        return "none", "", frozenset()
     from beliefs.world import load_manifest
 
-    pins = load_manifest(root).profile
+    try:
+        pins = load_manifest(root).profile
+    except ManifestMalformed as caught:
+        return "malformed", str(caught), frozenset()
     if pins.science_contract != "science:" + profile.base_contract_identity:
-        return "base", f"manifest pins {pins.science_contract[:20]}…, profile carries science:{profile.base_contract_identity[:12]}…"
+        return "base", f"manifest pins {pins.science_contract[:20]}…, profile carries science:{profile.base_contract_identity[:12]}…", frozenset()
     expected = {ns: f"{ns}:{identity}" for ns, identity in profile.activated_contracts.items()}
-    if dict(pins.domains) != expected:
-        return "domains", f"manifest domains {sorted(pins.domains)} differ from the profile's {sorted(expected)}"
-    return "none", ""
+    disagreeing = frozenset(ns for ns in set(pins.domains) | set(expected) if pins.domains.get(ns) != expected.get(ns))
+    if disagreeing:
+        return "domains", f"manifest domains disagree on {sorted(disagreeing)}", disagreeing
+    return "none", "", frozenset()
+
+
+class _CheckView:
+    """The check's own read: every record unvalidated, so a stale neighbour is
+    reported where it stands and never raises here (§5.5)."""
+
+    def __init__(self, view: ReadView) -> None:
+        self._view = view
+        self._by_id = {node.id: node for node in view.iter_stored()}
+
+    def resolve(self, ref: str) -> str | None:
+        return self._view.resolve(ref)
+
+    def holds(self, ref: str) -> bool:
+        return self.resolve(ref) is not None
+
+    def get(self, ref: str) -> Node:
+        resolved = self.resolve(ref)
+        return self._by_id[resolved if resolved is not None else ref]
+
+    def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]:
+        names = {dataset, *aliases}
+        return tuple(sorted(
+            node.id for node in self._by_id.values()
+            for relation in node.relations
+            if relation.predicate == stored.PRODUCES and (relation.target in names or self.resolve(relation.target) == dataset)
+        ))
 ```
 
 `corpus_check(view: ReadView, profile: ProfileSpec)`:
 
-1. Compute `scope, detail = profile_mismatch(view._corpus.store.root, profile)`; when `scope != "none"` append `Finding(severity="error", code="profile-mismatch", ref="corpus.yaml", detail=scope, message=detail)`.
-2. When `scope == "base"`: return after the manifest findings only (the existing `manifest-malformed` block runs first, then the mismatch finding), skipping the node loop entirely.
-3. Otherwise run the existing loop and add, per node, after the stamp checks:
+1. Keep the existing `manifest-malformed` block. Then `scope, detail, disagreeing = profile_mismatch(root, profile)`; when `scope != "none"` append `Finding(severity="error", code="profile-mismatch", ref="corpus.yaml", detail=scope, message=detail)`.
+2. When `scope in ("base", "malformed")`: return the findings so far.
+3. Otherwise run the existing loop with a `_CheckView` (`check = _CheckView(view)`) and two flags: `judge_namespaced = scope == "none"`, `judge_coordination = "coordination" not in disagreeing`. Per node, after the stamp checks, skip every further judgment when `node.kind in profile.coordination_kinds and not judge_coordination`; then:
 
 ```python
-        registry = profile.registry()
-        judge_namespaced = scope == "none"
-        for violation in registry.check(node):
+        for violation in profile.document_violations(node):
             if violation.code == "unknown-kind":
-                findings.append(Finding("error", "kind-unknown", node.id, node.kind, violation.message))
+                findings.append(Finding(severity="error", code="kind-unknown", ref=node.id, detail=node.kind, message=violation.message))
             elif violation.code in ("facet-missing", "facet-unexpected"):
                 if "/" in violation.detail and not judge_namespaced:
                     continue
-                findings.append(Finding("error", violation.code, node.id, violation.detail, violation.message))
+                findings.append(Finding(severity="error", code=violation.code, ref=node.id, detail=violation.detail, message=violation.message))
         for key, payload in node.facets.items():
             facet = profile.facets.get(key)
             if facet is None or ("/" in key and not judge_namespaced):
@@ -2838,22 +3165,21 @@ def profile_mismatch(root: Path, profile: ProfileSpec) -> tuple[MismatchScope, s
             try:
                 validate_payload(facet, payload, where=node.id)
             except FacetPayloadRefused as refused:
-                findings.append(Finding("error", "facet-payload-malformed", node.id, key, str(refused)))
+                findings.append(Finding(severity="error", code="facet-payload-malformed", ref=node.id, detail=key, message=str(refused)))
         if node.kind == "dataset" and stored.EMPIRICAL_OBSERVATION_FACET in node.facets:
-            reason = validity_refusal(view, node, profile)
+            reason = validity_refusal(check, node, profile)
             if reason is not None and not reason.startswith("facet-payload-malformed"):
-                code = reason.split(":", 1)[0]
-                findings.append(Finding("error", code, node.id, reason, f"{node.id}: {reason}"))
+                bearer_or_retrieval.add((reason.split(":", 1)[0], node.id, reason))
         for relation in node.relations:
             if relation.predicate == stored.PRODUCES:
-                target = view.resolve(relation.target)
-                if target is not None and stored.EMPIRICAL_OBSERVATION_FACET in view.get(target).facets:
-                    findings.append(Finding("error", "facet-bearer-produced", target, node.id, f"{target}: produced by {node.id} while carrying the empirical-observation facet"))
+                target = check.resolve(relation.target)
+                if target is not None and stored.EMPIRICAL_OBSERVATION_FACET in check.get(target).facets:
+                    bearer_or_retrieval.add(("facet-bearer-produced", target, f"produced by {node.id}"))
 ```
 
-(`Finding`'s positional order must match its dataclass; use keywords if it differs. De-duplicate `facet-bearer-produced` by `(ref, detail)` before returning.) Replace the existing `eligibility_refusal(view, node)` call with `eligibility_refusal(view, node, profile)` and drop Task 8's `shipped_base()` placeholder. Add the two codes to `MALFORMEDNESS_CODES` only if that set is meant to gate recomputation on structural faults — read its docstring; `facet-payload-malformed` on a dataset belongs there (a malformed declaration must not feed a derivation), `facet-bearer-produced` does not.
+with `bearer_or_retrieval: set[tuple[str, str, str]]` collected across the loop and emitted once per `(code, ref)` after it (one finding per dataset, the details joined), which is what makes the raw-written pair report once. Replace the eligibility call with `eligibility_refusal(check, node, profile)` and drop Task 8's placeholder. Add `facet-payload-malformed` to `MALFORMEDNESS_CODES` (a malformed declaration must not feed a derivation); `facet-bearer-produced` and `facet-retrieval-unresolved` stay out.
 
-`audit_corpus(view, *, evidence, profile)`: call `corpus_check(view, profile)`; if any finding has code `profile-mismatch` with `detail == "base"`, return the findings immediately — no recomputation. Update `close.py`: `corpus_check(view, profile())` and `audit_corpus(view, evidence=evidence(), profile=profile())` importing `profile` from `reproduction.vocabulary`.
+`audit_corpus(view, *, evidence, profile)`: `findings = list(corpus_check(view, profile))`; if any finding has `code == "profile-mismatch"` and `detail in ("base", "malformed")`, return `tuple(findings)` at once. Update `close.py` to pass `profile()` to both.
 
 - [ ] **Step 4: Run, lint, commit**
 
@@ -2861,11 +3187,10 @@ def profile_mismatch(root: Path, profile: ProfileSpec) -> tuple[MismatchScope, s
 
 ```bash
 git add python/src/beliefs/corpus.py python/src/beliefs/audit.py python/tests/test_read_side.py python/tests/test_audit.py python/tools/reproduction/close.py
-git commit -m "feat(corpus): the check and the audit judge under the caller's profile and stop on a base mismatch"
+git commit -m "feat(corpus): the check and the audit judge under the caller's profile with the stopping matrix, reading neighbours unvalidated"
 ```
 
 ---
-
 ### Task 12: The consulted walk's facet arm
 
 **Files:**
@@ -3229,11 +3554,11 @@ A fresh reproduction run (design §13's last line) is performed at discharge, no
 
 - [ ] **Step 1: The durable acceptance module**
 
-Write `test_facet_acceptance.py` with one test per cut-§3 unit, each re-running the corresponding unit test's construction over an `open_corpus` writer on the certified tuple (`durable_fixture.py` provides the root, authority and now `profile=BASE`), asserting the same refusal or finding and, where the row says so, the chain and store unchanged (compare `sorted(root.rglob("*"))` and the metadata chain head before and after through the fixture's `chain_head()` helper if one exists, else `registered_surface_paths`). Names, verbatim from the cut: `test_d2_interpretation_is_separable_from_identity_durably`, `test_d4_one_kindspec_per_kind_compiled_from_the_profile`, `test_d5_manifest_pin_projection_and_refusals`, `test_d8_contributions_compose_without_collision`, `test_d9_practices_carry_no_vocabulary`, `test_d10_facets_stay_facets`, `test_g5_no_divergence_kind_exists`, `test_f1_payload_contract_enforced_at_every_entry`, `test_f2_bearer_invariant_over_resulting_state`, `test_f3_attestation_bound_and_preserved`, `test_f4_eligibility_reads_the_validity_predicate`, `test_f5_profile_agreement_rechecked_under_the_lock`, `test_f6_dataset_revision_changes_interpretation_and_prose_only`, `test_f7_retrieval_resolves_or_refuses`, `test_f8_every_builder_facet_is_declared`, `test_d1_installed_nodes_takes_no_domain_argument`, `test_boundary_no_read_entry_point_gained_an_argument`. For D4 assert `profile.registry()` is one object, `is_registered` for all 13 + coordination kinds, and — the "no second authored per-kind artifact" arm — a static scan that `python/src/beliefs/stored.py` contains no literal `WORLD_KINDS = (` tuple (`"WORLD_KINDS: tuple[str, ...] = tuple(" in source`). For D10 inspect `CorpusWriter`'s public methods by signature: none takes a parameter named `facet` or `facet_key`, and `retract`/`supersede` take records/refs only. For D1 use `inspect.signature` over `Registry.register`, `KindSpec`, `ShapeSpec` in the installed `nodes` package: no parameter named `domain`, `contract` or `vocabulary`. For F8 iterate every `stored.*_node` builder with a minimal valid argument set (copy the argument sets from `test_stored.py`) plus the writer's coordination node and `registry.validate` each.
+Write `test_facet_acceptance.py` with one test per cut-§3 unit, each re-running the corresponding unit test's construction over an `open_corpus` writer on the certified tuple (`durable_fixture.py` provides the root, authority and now `profile=BASE`), asserting the same refusal or finding and, where the row says so, the chain and store unchanged: compare `{p.relative_to(root): sha256(p.read_bytes()).hexdigest() for p in root.rglob("*") if p.is_file()}` before and after (contents, not paths), and the chain head through the durable fixture's log read (`durable_fixture.py` exposes the `read_chain`-backed head the deletion acceptance uses; reuse that helper by name). Names, verbatim from the cut: `test_d2_interpretation_is_separable_from_identity_durably`, `test_d4_one_kindspec_per_kind_compiled_from_the_profile`, `test_d5_manifest_pin_projection_and_refusals`, `test_d8_contributions_compose_without_collision`, `test_d9_practices_carry_no_vocabulary`, `test_d10_facets_stay_facets`, `test_g5_no_divergence_kind_exists`, `test_f1_payload_contract_enforced_at_every_entry`, `test_f2_bearer_invariant_over_resulting_state`, `test_f3_attestation_bound_and_preserved`, `test_f4_eligibility_reads_the_validity_predicate`, `test_f5_profile_agreement_rechecked_under_the_lock`, `test_f6_dataset_revision_changes_interpretation_and_prose_only`, `test_f7_retrieval_resolves_or_refuses`, `test_f8_every_builder_facet_is_declared`, `test_d1_installed_nodes_takes_no_domain_argument`, `test_boundary_no_read_entry_point_gained_an_argument`. For D4 assert `Registry.register` was called exactly once per compiled kind during `compile_profile` (the monkeypatched counting spy from `test_facet_validation.py`, over `shipped_base_contract()` and the durable fixture's coordination contract), that `validate_document` admits every world, prose and coordination kind and refuses `divergence`, and — the "no second authored per-kind artifact" arm — a static scan that `python/src/beliefs/stored.py` contains no literal `WORLD_KINDS = (` tuple (`"WORLD_KINDS: tuple[str, ...] = tuple(" in source`). For D10 inspect `CorpusWriter`'s public methods by signature: none takes a parameter named `facet` or `facet_key`, and `retract`/`supersede` take records/refs only. For D1 use `inspect.signature` over `Registry.register`, `KindSpec`, `ShapeSpec` in the installed `nodes` package: no parameter named `domain`, `contract` or `vocabulary`. For F8 iterate every `stored.*_node` builder with a minimal valid argument set (copy the argument sets from `test_stored.py`) plus the writer's coordination node and `profile.validate_document` each.
 
 - [ ] **Step 2: The arms**
 
-`n2_arms_cut20.py` (both copies identical, as cut 18 keeps them): one `Arm` per sabotage in design §10, each with `module`, an exact `before`/`after` from the final source, and `checks` naming the acceptance test. The nine sabotages: the validator accepting unknown keys (`facets.py`: delete the `unknown` refusal); the producer read dropped (`acquisition.py`: `producers = ()`); the attestation comparison skipped (`corpus.py`: `if bind_actor and payload.get("attested_by") != self._authority.actor` → `if False`); the pin recheck skipped under the lock (`corpus.py`: `_require_pins_agree` returns immediately); validity replaced by presence (`corpus.py` eligibility loop: `reason = validity_refusal(...)` → `reason = None if stored.EMPIRICAL_OBSERVATION_FACET in view.get(dataset_ref).facets else "absent"`); a builder writing an undeclared key (`stored.py`: `dataset_node` adds `facets["provenance"] = {}`); the fixture comparison reduced to bytes (`test_identity_parity_fixture.py` is a test, so the sabotage targets the encoder instead: `identity/v1.py`'s `_encode_decimal` returns `"0"` for zero, and the check is the fixture test); the domain parser accepting `kinds:` (`domain.py`: delete the refusal loop); a domain facet attaching to an undeclared kind accepted at compile (`profile.py`: delete that `ProfileError`); `WORLD_RELATIONS` widened (`stored.py`: drop the `group == "world"` filter); the duplicate-key loader replaced (`document.py`: `Loader=yaml.SafeLoader`); coverage in authored order (`profile.py`: `tuple(k for ...)` without `sorted`). `DECLARATION_UNITS` is the 18-tuple of cut §4.
+`n2_arms_cut20.py` (both copies identical, as cut 18 keeps them): one `Arm` per sabotage in design §10, each with `module`, an exact `before`/`after` from the final source, and `checks` naming the acceptance test. The nine sabotages: the validator accepting unknown keys (`facets.py`: delete the `unknown` refusal); the producer read dropped (`acquisition.py`: `producers = ()`); the attestation comparison skipped (`corpus.py`: `if not provenance and payload.get("attested_by") != self._authority.actor` → `if False`); the pin recheck skipped under the lock (`corpus.py`: `_require_pins_agree` returns immediately); validity replaced by presence (`corpus.py` eligibility loop: `reason = validity_refusal(...)` → `reason = None if stored.EMPIRICAL_OBSERVATION_FACET in view.get(dataset_ref).facets else "absent"`); a builder writing an undeclared key (`stored.py`: `dataset_node` adds `facets["provenance"] = {}`); the digest comparison (`identity/v1.py`'s `digest` hashing the canonical bytes without the domain prefix — bytes unchanged, every digest wrong — with the check `test_identity_parity_fixture.py::test_bytes_and_digest_agree`, which fails only through its digest assertion); the domain parser accepting `kinds:` (`domain.py`: delete the explicit refusal loop, so the generic closed-field refusal answers instead — the check `test_domain_contract.py::TestDomainFacets::test_a_domain_declaring_kinds_or_relations_is_refused` matches the specific message `a domain contract declares no kinds` and fails on the generic one); a domain facet attaching to an undeclared kind accepted at compile (`profile.py`: delete that `ProfileError`); `WORLD_RELATIONS` widened (`stored.py`: drop the `group == "world"` filter); the duplicate-key loader replaced (`document.py`: `Loader=yaml.SafeLoader`); coverage in authored order (`profile.py`: `tuple(k for ...)` without `sorted`). `DECLARATION_UNITS` is the 18-tuple of cut §4.
 
 - [ ] **Step 3: The runner and the freeze pin**
 

@@ -9,7 +9,12 @@ publication under the operation lock, typed parity-fixture inputs, and the
 oracle corrections in §8), then on a written review of the committed
 document whose seven findings became §2 items 1, 2 and 6, §3.1's relation
 groups and `display`, §3.7, §4.2's coverage order, §5.5's enumeration and
-audit stop, and F2 and F4's added cases. Not yet frozen: conformance cut 20 freezes after
+audit stop, and F2 and F4's added cases; then on the plan review of 2026-09-05, whose
+thirteen findings amended §3.1 (prose kinds and `role`), §3.5 (no null in a
+projection), §4.1 (the registry is private), §5.1 (the port holds the profile
+and every port method rechecks), §5.2 (provenance mode threaded through import,
+relocation and consolidation) and §7.1 (validated reads, never construction).
+Not yet frozen: conformance cut 20 freezes after
 the written review clears, numbered after the writer-session lane's cut 19.
 Not yet implemented or discharged.
 **Scope:** the first of two slices on the `domain` lane, anchored on the
@@ -242,6 +247,17 @@ The first covered facet of each kind is required, which is what
 makes it explicit. Coordination kinds keep coming from the coordination
 contract and register in the same registry.
 
+> **Amended 2026-09-05 (plan review): prose kinds and `role`.** Kernel §4.4's
+> belief-inert notes — `interpretation`, `discussion`, `story` — are
+> hand-authored records with no semantic domain that today's writer admits and
+> a closed registry would refuse. They are declared under `kinds:` with
+> `role: prose`: no domain, `display` optional, no other facet; a prose kind
+> declaring a domain or another facet is refused at load. `role` defaults to
+> `world`. `WORLD_KINDS` derives from the `world` kinds alone, so its membership
+> is unchanged; a prose kind carries no stamp and enters no closure, as before,
+> and a domain facet may not attach to one. `memo`, the test suites' prose
+> kind, is not a kernel kind and the tests move to `discussion`.
+
 `relations:` lists kernel §4.1's closed vocabulary in two named groups,
 each relation with its source and target kind sets: the **`world`** group is
 today's eleven (`assesses`, `observes`, `reads`, `transforms`, `produces`,
@@ -321,8 +337,10 @@ the right sort — is a seam rule (§5.2), never the grammar's.
 
 ### 3.5 What enters `compiled_identity`
 
-Every behavioural declaration: the kind inventory with each kind's domain and
-each facet's `required` and `covered` flags; every relation's source and
+Every behavioural declaration: the kind inventory with each kind's role, its
+domain **when it has one** (an undomained kind carries no `domain` key at all,
+since `science.identity.v1` refuses null and a projection with a null could
+never be digested), and each facet's `required` and `covered` flags; every relation's source and
 target sets **and its group** (`world` or `lifecycle`, §3.1) — moving an
 unchanged relation between groups changes coordination-vocabulary
 acceptance, so a test moves one and asserts the compiled identity moves; every facet's shape discriminator; every schema field's
@@ -364,11 +382,16 @@ refuse the same document for the same reason.
 A domain facet attaching to a kind the base does not declare, or two
 contributions to one key, refuse the compile (`DuplicateContribution`,
 `ProfileError`). From `kinds` the profile builds one `nodes` `Registry`,
-calling `register` once per kind with the required and optional key sets,
-and exposes it read-only. That registry is what makes an unknown kind
-refusable (G5) and an undeclared facet key refusable, with `nodes` learning
-nothing about what any key means (D1): the keys it receives are opaque
-strings, as its own fixtures already carry `bio-axes`. For each schema-shaped
+calling `register` once per kind with the required and optional key sets.
+That registry is what makes an unknown kind refusable (G5) and an undeclared
+facet key refusable, with `nodes` learning nothing about what any key means
+(D1): the keys it receives are opaque strings, as its own fixtures already
+carry `bio-axes`. **The registry is private** (amended 2026-09-05, plan
+review): a registry handed out exposes `register` and mutable `KindSpec`s, so
+a caller could change validation behaviour without moving a pin or the
+compiled identity. The profile exposes `validate_document(node)` and
+`document_violations(node)` and nothing else; every compiled mapping, the
+nested ones included, is read-only. For each schema-shaped
 facet the profile compiles a validator over §3.4; reader-shaped facets
 validate no further here.
 
@@ -419,6 +442,17 @@ writes only pins equal to the held profile. A mounted coordination resolver's
 profile for this root must carry the same identities. A later manifest
 change — raw, or adoption elsewhere — is caught at the next write.
 
+> **Amended 2026-09-05 (plan review): every effect, every port method.** The
+> recheck sits inside every lock-held primitive that reaches an effect — the
+> ordinary writes, the relocation helpers (`_add_locked`, `_replace_locked`,
+> `_delete_locked`, the report publication), the operation-intent append — and
+> a static inventory over `corpus.py`, `relocation.py` and `root.py` holds that
+> set closed, in the write-permits design's manner. The operation port holds
+> the same profile (the writer refuses a port holding another) and
+> `append_intent`, `execute`, `execute_fulfilling` and the guarded form each
+> recheck under their own lock, so assessment publication and every refusal
+> report are covered, not only guarded production publication.
+
 ### 5.2 `_refuse_facets`
 
 One new preflight step, run in `_refuse` after document validation and
@@ -436,13 +470,23 @@ before the stamp check, and in `_preflight_replace_locked`:
    refused (`FacetPayloadRefused`, reason `retrieval-unresolved`).
 
 `add` runs all five and binds the actor. `import_bundle` runs the same step
-per member over the `_ImportView` — which gains a combined producer index
-over the bundle's relations and the local view's inbound edges, built once
-per bundle, since the view has no `inbound` today — with attestation exempt
-as provenance. Relocation's `_preflight_add_locked` runs steps 1, 2, 3 and 5
-against the **destination** corpus (its pins, its view, its records: a
-`retrieval` that does not resolve there refuses the move) and preserves the
-attestation.
+per member over the `_ImportView` with attestation exempt as provenance.
+Relocation runs steps 1, 2, 3 and 5 against the **destination** corpus (its
+pins, its view, its records: a `retrieval` that does not resolve there refuses
+the move) and preserves the attestation.
+
+> **Amended 2026-09-05 (plan review): provenance mode, and the producer read.**
+> The exemption is a `provenance` flag threaded through every preflight and
+> lock-held write helper (`_refuse`, `_preflight_add_locked`, `_add_locked`,
+> `_preflight_replace_locked`, `_replace_locked`), set by import, by
+> relocation's move at every one of its calls, and by consolidation's
+> replacement of the survivor — never a separate exempt check beside a binding
+> one, which the binding one would refuse first. The producer read cannot be
+> `inbound`, which requires its target to resolve and so cannot see a dataset
+> at its first write or a dangling `produces` edge; both views scan stored
+> relations over the **resulting** index — existing records, arriving members,
+> deprecated-id aliases, targets that resolve to the dataset — and the check's
+> own view reads neighbours unvalidated (§5.5).
 
 ### 5.3 Attestation and the dataset revision arm
 
@@ -582,7 +626,10 @@ is the test F1 names.
 `ReadView._validated` keeps verifying stamps only, now under the shipped
 base's declared coverage, and additionally refuses a corpus whose manifest
 pins a different `science_contract` (`ContractMismatch`), never
-reinterpreting. No read entry point gains an argument.
+reinterpreting. No read entry point gains an argument. The check is made on
+**validated reads** (`get`), never at construction and never on `iter_stored`:
+a construction-time check would refuse the very audit that reports the
+mismatch (§5.5), and would miss a manifest changed after opening.
 
 ### 7.2 TypeScript
 
