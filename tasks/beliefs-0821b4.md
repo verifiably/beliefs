@@ -6,7 +6,7 @@ priority: 2
 size: m
 owner: feat/domain-boundary
 created: 2026-09-05T23:36:55Z
-updated: 2026-09-06T17:11:27Z
+updated: 2026-09-06T17:34:13Z
 depends: [beliefs-fe44aa]
 parent: beliefs-bc3aff
 tags: [domain]
@@ -20,3 +20,5 @@ step: "Task 8: The acquisition-boundary validity predicate, the bearer invariant
 - 2026-09-06T16:46:04Z (feat/domain-boundary): Shared acquisition predicate, bearer/actor/retrieval seams and resulting-index producers implemented; 14 guard sabotages fail intended assertions, durable seams pass, final gates underway.
 - 2026-09-06T16:54:38Z (feat/domain-boundary): Full gate exposed stale audit/deletion fixtures; output declaration removed and independent acquisition witness preserves derived-lineage deletion assertions. Portable deletion19 passed; durable consumers verifying.
 - 2026-09-06T17:11:27Z (feat/domain-boundary): Enforced shared acquisition validity, resulting-index bearer invariants, attestation and retrieval; Python3735 and TS115 passed.
+- 2026-09-06T17:16:33Z (feat/domain-boundary): Review I1: extracted one shared producer scan; both views retain their existing iteration and resolution surfaces. Covering gates underway.
+- 2026-09-06T17:34:13Z (feat/domain-boundary): Review I1 resolved: shared producer selection; focused134, Python3735, TS115 passed; Ruff/Pyright and pin/permit inventories clean.

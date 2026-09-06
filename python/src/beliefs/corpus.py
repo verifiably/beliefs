@@ -266,14 +266,7 @@ class ReadView:
         """Ids of every stored record holding a `produces` edge that names `dataset`
         — by its id, by an alias, or by a target that resolves to it. Dangling
         edges count: a run written before its dataset is still a producer."""
-        names = {dataset, *aliases}
-        return tuple(sorted({
-            node.id
-            for node in self.iter_stored()
-            for relation in node.relations
-            if relation.predicate == stored.PRODUCES
-            and (relation.target in names or self.resolve(relation.target) == dataset)
-        }))
+        return _producer_ids(self, dataset, aliases=aliases)
 
     def iter_stored(self) -> Iterator[Node]:
         """Every stored node, **unvalidated**. The corpus check's read: a
@@ -451,18 +444,23 @@ class _ImportView:
         """Ids of every stored record holding a `produces` edge that names `dataset`
         — by its id, by an alias, or by a target that resolves to it. Dangling
         edges count: a run written before its dataset is still a producer."""
-        names = {dataset, *aliases}
-        return tuple(sorted({
-            node.id
-            for node in self.iter_stored()
-            for relation in node.relations
-            if relation.predicate == stored.PRODUCES
-            and (relation.target in names or self.resolve(relation.target) == dataset)
-        }))
+        return _producer_ids(self, dataset, aliases=aliases)
 
     def iter_stored(self) -> Iterator[Node]:
         yield from self._local.iter_stored()
         yield from self._records.values()
+
+
+def _producer_ids(view: ReadView | _ImportView, dataset: str, *, aliases: tuple[str, ...]) -> tuple[str, ...]:
+    """One producer-selection rule over the caller's records and resolver."""
+    names = {dataset, *aliases}
+    return tuple(sorted({
+        node.id
+        for node in view.iter_stored()
+        for relation in node.relations
+        if relation.predicate == stored.PRODUCES
+        and (relation.target in names or view.resolve(relation.target) == dataset)
+    }))
 
 
 _ROOT_STATES: dict[str, _RootState] = {}
