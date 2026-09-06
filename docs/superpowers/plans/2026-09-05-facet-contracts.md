@@ -2218,7 +2218,21 @@ def _append(ctx: ActContext, location: StoreLocator, kind: str) -> tuple[str, st
     return token, intent
 ```
 
-  and `_publish` wraps its `publish_fulfilling` call the same way (`with ctx.seam.corpus_lock(ctx.observer_root): require_pins_agree(...); ctx.seam.publish_fulfilling(...)`); `recheck`'s inline `append_intent` call moves into `_append`. `require_pins_agree` is imported from `beliefs.corpus` inside the functions (the boundary already imports from `root` lazily for the same cycle reason).
+  and every publication goes through one guarded helper — `_publish` **and** `write`, which today publishes through its own `ctx.seam.publish_fulfilling` call:
+
+```python
+def _publish_record(ctx: ActContext, record: HoldingsObservation, intent: str) -> PublishedObservation:
+    """The one publication route for a holdings observation: pins rechecked under
+    the corpus lock, then the record published fulfilling its intent."""
+    node = stored.holdings_observation_node(record)
+    plan = (CreateOp(f"holdings-observation/{record.identity()}.md", node_to_markdown(node).encode("utf-8")),)
+    with ctx.seam.corpus_lock(ctx.observer_root):
+        require_pins_agree(ctx.observer_root, ctx.profile)
+        ctx.seam.publish_fulfilling(ctx.observer_root, plan, intent)
+    return PublishedObservation(record)
+```
+
+  `_publish` builds its record as now and returns `_publish_record(ctx, record, intent)`; `write` builds its record exactly as now — `expected=expected` preserved — and returns `_publish_record(ctx, record, intent)` in place of its inline `publish_fulfilling` call. After the change `grep -n "publish_fulfilling" holdings/boundary.py` shows exactly one call, inside `_publish_record`; the static inventory holds that. `recheck`'s inline `append_intent` call moves into `_append`. `require_pins_agree` is imported from `beliefs.corpus` inside the functions (the boundary already imports from `root` lazily for the same cycle reason).
 - The static inventory (`test_pin_recheck_inventory.py`) adds `holdings/boundary.py` to its modules and `append_intent`, `publish_fulfilling` to `EFFECTS`.
 
 Every `ActContext(...)` construction (`grep -rn "ActContext(" python/tests python/tools`) gains `profile=` (tests: `BASE` or the corpus's profile; the reproduction driver: `profile()`). Add to `test_profile_agreement.py`:
@@ -2238,7 +2252,32 @@ def test_a_holdings_act_rechecks_before_its_intent_and_before_its_publication(tm
     assert not any((tmp_path / "corpus").rglob("holdings-observation/*"))
 ```
 
-(`ctx_store_id` reads the store genesis through `ctx.seam.store_genesis` as `_bind` does; write it as a two-line helper beside the test.) The refusal before the intent leaves the chain untouched; a manifest rewritten *between* intent and publication is the after-intent arm and is exercised durably in Task 15 by patching the seam's `publish_fulfilling` to rewrite the manifest first.
+(`ctx_store_id` reads the store genesis through `ctx.seam.store_genesis` as `_bind` does; write it as a two-line helper beside the test.) The refusal before the intent leaves the chain untouched. The after-intent arm injects the change **before the publication lock is taken** — a rewrite inside `publish_fulfilling` would run after the recheck and prove nothing — by wrapping the seam's `store_write` so the manifest is rewritten as the store write returns:
+
+```python
+def test_a_manifest_change_after_the_intent_leaves_it_unfulfilled(tmp_path, holdings_context):
+    from dataclasses import replace
+
+    from beliefs.holdings.boundary import write
+    from beliefs.holdings.records import StoreLocator
+
+    _writer(tmp_path / "corpus", WITH_BIOLOGY)
+    ctx = holdings_context(tmp_path, WITH_BIOLOGY)
+    inner = ctx.seam.store_write
+
+    def store_write_then_rewrite(store_root, relative_path, content):
+        outcome = inner(store_root, relative_path, content)
+        _rewrite_biology_pin(tmp_path / "corpus")  # between the intent and the publication lock
+        return outcome
+
+    ctx = replace(ctx, seam=replace(ctx.seam, store_write=store_write_then_rewrite))
+    with pytest.raises(ContractMismatch):
+        write(ctx, StoreLocator(ctx_store_id(ctx), "f.txt"), b"bytes")
+    assert len(ctx.seam.intents) == 1 and ctx.seam.published == []  # the intent stands unfulfilled
+    assert not any((tmp_path / "corpus").rglob("holdings-observation/*"))
+```
+
+(`ctx.seam.intents` and `.published` are the recording lists the tests' seam fixture keeps; if it names them differently, use its names. Both `ActContext` and `StoreActSeam` are frozen dataclasses, so `dataclasses.replace` builds the wrapped copies.) The same arm runs durably in Task 15 over `holdings_seam()` with the store write wrapped the same way.
 
 - [ ] **Step 5: Migrate the fixtures the new refusals reach, in this commit**
 
@@ -3117,12 +3156,20 @@ Give `test_read_side.py`'s `seed(tmp_path, *nodes)` two keyword parameters, `pin
         codes = [f.code for f in findings]
         assert codes.count("profile-mismatch") == 1 and "facet-payload-malformed" in codes and "facet-unexpected" not in codes
 
-    def test_a_coordination_pin_disagreement_withholds_coordination_judgments(self, tmp_path):
+    def test_a_coordination_pin_disagreement_withholds_only_what_needs_the_contract(self, tmp_path):
         from coordination_fixtures import coordination_profile  # the profile compiled with the coordination contract
         from nodes.core.node import Node
-        task = Node(id="task:t", kind="task", title="t", facets={"coordination": {"nonsense": True}})
-        findings = corpus_check(seed(tmp_path, task, pins=pins_for(coordination_profile())), BASE)
-        assert [f.code for f in findings] == ["profile-mismatch"]
+        pins = pins_for(coordination_profile())
+        malformed_task = Node(id="task:t", kind="task", title="t", facets={"coordination": {"nonsense": True}})
+        facetless_task = Node(id="task:u", kind="task", title="u", facets={})
+        findings = corpus_check(seed(tmp_path, malformed_task, facetless_task, pins=pins), BASE)
+        assert [f.code for f in findings] == ["profile-mismatch"]  # both withheld by kind, facet or no facet
+        raw = stored.dataset_node("b", title="b", resources=PINNED, empirical_observation={"boundary": "x"})
+        raw.facets["coordination"] = {"nonsense": True}
+        del raw.facets[stored.SEMANTIC_IDENTITY_FACET]
+        findings = corpus_check(seed(tmp_path / "second", raw, pins=pins), BASE)
+        codes = {f.code for f in findings}
+        assert codes == {"profile-mismatch", "semantic-hash-missing", "facet-unexpected", "facet-payload-malformed"}
 
     def test_a_base_mismatch_withholds_everything_but_the_mismatch(self, tmp_path):
         node = observed_dataset()
@@ -3223,7 +3270,7 @@ class _CheckView:
 
 1. Keep the existing `manifest-malformed` block. Then `scope, detail, disagreeing = profile_mismatch(root, profile)`; when `scope != "none"` append `Finding(severity="error", code="profile-mismatch", ref="corpus.yaml", detail=scope, message=detail)`.
 2. When `scope in ("base", "malformed")`: return the findings so far.
-3. Otherwise run the existing loop with a `_CheckView` (`check = _CheckView(view)`) and two flags: `judge_namespaced = scope == "none"`, `withhold_coordination = "coordination" in disagreeing`. A coordination record is recognised **by its facet** — `stored.COORDINATION_FACET in node.facets` — never through the supplied profile's `coordination_kinds`, which is empty exactly when the profile lacks the contract the manifest pins. When `withhold_coordination`, the loop `continue`s on such a node **as its first statement**, before today's `coordination_facet_malformed` check and before the stamp checks (a coordination kind under a missing contract cannot even be told governed from prose), and the post-loop supersession-graph checks over `coordination_revisions` are skipped entirely. Then, per remaining node, after the stamp checks:
+3. Otherwise run the existing loop with a `_CheckView` (`check = _CheckView(view)`) and two flags: `judge_namespaced = scope == "none"`, `withhold_coordination = "coordination" in disagreeing`. What the coordination contract alone can judge is decided by the **shipped base inventory**, never by the supplied profile's `coordination_kinds` (empty exactly when the profile lacks the contract the manifest pins) and never by the presence of the facet: a node whose kind is in `shipped_base().kinds` (world or prose) keeps **every base judgment** — stamps, base-facet payloads, the bearer invariant, retrieval, eligibility, and `facet-unexpected` for a `coordination` facet the base declares on no such kind; a node whose kind is **outside** that inventory is one only the coordination contract can judge, so when `withhold_coordination` the loop `continue`s on it as its first statement — before today's `coordination_facet_malformed` check and before anything else — and the post-loop supersession-graph checks over `coordination_revisions` are skipped entirely. A coordination record that has lost its facet is therefore withheld by its kind, and a dataset that gained one is judged by the base. Then, per remaining node, after the stamp checks:
 
 ```python
         for violation in profile.document_violations(node):

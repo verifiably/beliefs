@@ -548,8 +548,14 @@ refusal on `get`. Two mismatch outcomes, one finding code:
 - **Domain pins disagree, base agrees.** One `profile-mismatch` finding.
   **Withheld:** every judgment on a namespaced facet key — `facet-unexpected`
   and `facet-missing` for namespaced keys, domain payload validity — and,
-  when the `coordination` pin is among those disagreeing, every coordination
-  judgment. **Still reported**, because the shipped base decides them alone:
+  when the `coordination` pin is among those disagreeing, every judgment only
+  the coordination contract can make: the kind and key judgments and the
+  coordination-facet checks for a record whose kind is outside the shipped
+  base's inventory (amended 2026-09-05, plan review: the shipped inventory,
+  never the supplied profile's coordination kinds and never the facet's
+  presence, decides which those are, so a base kind that gained a stray
+  `coordination` facet keeps every base judgment and a coordination record
+  that lost its facet is still withheld). **Still reported**, because the shipped base decides them alone:
   `manifest-malformed`; stamp findings; kind existence for unnamespaced
   kinds; `facet-unexpected` and `facet-missing` for unnamespaced keys;
   `empirical-observation` payload validity; the bearer invariant; retrieval
