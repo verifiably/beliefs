@@ -4,11 +4,11 @@
 
 **Goal:** Build the `verification-publication` slice: one spelling for the assessment's run member, a stored verification carrying its whole basis with the comparison report embedded, publication as an ordinary `add`, forgery refused before the intent, scope recomputed by the audit and the import, and the stored `analysis-spec` builder and reader — discharging V1–V8 at conformance cut 21.
 
-**Architecture:** `stored.typed_ref`/`local_id` become the one place a kind prefix is added or removed, and `AssessmentValue.run` is the bare run address on both the derived and the stored side. `verify.publication_node` projects a derived verification to a stamped node under `verification:<identity>` whose facet carries `rule`, `scope_rule`, `report` (the `ComparisonReport` projection) and the typed `derivation`/`supersedes`; `verify.decode_verification` restores a `StoredVerification` and refuses an id that does not recompute. `CorpusWriter._refuse` decodes every verification and restores every analysis-spec it prepares, then checks the `verifies` target's identity, before the intent. `audit.check_verification` recomputes through the constructor's own `_derive` helper and compares scope, rule, scope rule and report identity when a report is stored. `spec.restore` rebuilds a `FrozenSpec` from canonical projection text.
+**Architecture:** `stored.typed_ref`/`local_id` become the one place a kind prefix is added or removed, and `AssessmentValue.run` is the bare run address on both the derived and the stored side. `verify.publication_node` projects a derived verification to a stamped node under `verification:<identity>` whose facet carries `rule`, `scope_rule`, `report` (the `ComparisonReport` projection) and the typed `derivation`/`supersedes`; `verify.decode_verification` restores a `StoredVerification` through a private mint and refuses an id that does not recompute. `CorpusWriter._refuse` decodes every verification and restores every analysis-spec it prepares, then checks the `verifies` target's identity, before the intent. `audit.check_verification` recomputes through the constructor's own `_derive` helper and compares scope, rule, scope rule and report identity when a report is stored. `spec.restore` rebuilds a `FrozenSpec` from canonical projection text without coercing a member.
 
 **Tech Stack:** Python 3.11+ (`uv run --frozen`), `pydantic` v2 `nodes` documents, `pytest`; the `atoms` certified engine for the durable suite; `science.identity.v1` canonical encoding.
 
-**Spec:** `docs/designs/2026-09-06-verification-publication-design.md` (every task cites its sections) and the frozen cut `docs/designs/2026-09-06-conformance-cut-21.md` (frozen at `41c9920`, digest `eaf214761627a22b9a74713bfe88a2bb4adb0cfd73496110929fb4d9f4af1be5`). Read both before any task. The design's §2 decisions 1–18 are the rulings; §8's V rows are the acceptance criteria and their cells are quoted byte-exact in the cut's §3.
+**Spec:** `docs/designs/2026-09-06-verification-publication-design.md` (every task cites its sections) and the frozen cut `docs/designs/2026-09-06-conformance-cut-21.md` (frozen at `41c9920`, digest `eaf214761627a22b9a74713bfe88a2bb4adb0cfd73496110929fb4d9f4af1be5`). Read both before any task. The design's §2 decisions 1–18 are the rulings; §8's V rows are the acceptance criteria and their cells are quoted byte-exact in the cut's §3. This plan was reviewed once (2026-09-06, eleven findings); the resolutions are marked **[R1]**–**[R11]** where they land.
 
 ## Global Constraints
 
@@ -16,13 +16,14 @@
 - The worktree is `.worktrees/verification-publication` on `feat/verification-publication`; run everything from it. `python/` is the working directory for every `uv run` below unless stated.
 - Never edit `tasks/*.md` directly; use the `tasks` CLI. `tasks start <id>` before a task that carries an id, `tasks done <id> "<result>"` in the commit that lands it. Ids: `beliefs-ae9b18` (one spelling, Task 1), `beliefs-f860f1` (the stored report, Task 3), `beliefs-91aac6` (the analysis-spec builder and reader, Task 6), `beliefs-754995` (the boundary, Task 12).
 - Conventional commits, no AI-attribution trailer or footer of any kind.
-- Fail early, no silent fallbacks: every refusal is raised or reported, never skipped. A malformed member is refused, never repaired (M11).
-- Every new check must be able to fail (N2): each test asserts a refusal or a finding a sabotage in Task 10 turns green.
+- Fail early, no silent fallbacks: every refusal is raised or reported, never skipped. A malformed member is refused, never repaired or coerced (M11).
+- Every new check must be able to fail (N2): each test asserts a refusal or a finding a sabotage in Task 10 turns green. Task 10's arm list is the cut's §5 item 4, sabotage for sabotage.
 - The constructor's argument list stays closed (R19): `build_verification` gains no parameter. `admission_record` is untouched. Reading never validates: `decode_verification` is self-consistency, and derivation validation happens at import and under audit only (design §5.3, §6).
-- Sealed value types (`AssessmentVerification`, `DatasetProductionVerification`, `ComparisonReport`, `FrozenSpec`, `StoredVerification`) get no public constructor; restoration goes through the module's private mint.
+- Sealed value types (`AssessmentVerification`, `DatasetProductionVerification`, `ComparisonReport`, `FrozenSpec`, `StoredVerification`) get no public constructor; restoration goes through the module's private mint. **[R3]**
+- A raw-write fixture the audit must *recompute* recomputes its semantic stamp first; an unstamped edit is `semantic-hash-stale`, which the audit skips as malformed and exercises nothing.
 - The `domain` lane's cut 20 is undischarged on its branch. `tools/cut21_acceptance.py` names `cut20_acceptance.py` as prefix and cannot run end to end until that lane merges (Task 12). Every portable test and the durable module run now.
 - No `/home/keith` or `/mnt/ssd/Dropbox` paths in code or docs.
-- Sections §2–§7 of the cut document are frozen; any deviation from them is dated in the results record (Task 12), never edited in.
+- Sections §2–§7 of the cut document are frozen; a deviation from them is dated in the results record (Task 12 step 6), never edited in. Two are known at plan time and listed there.
 
 ---
 
@@ -32,7 +33,9 @@
 
 | path | responsibility |
 |---|---|
-| `python/tests/test_verification_identity.py` | exists (fails at its first assertion on the freeze tree); Task 1 makes it pass, Task 7 widens it |
+| `python/tests/verification_fixtures.py` | the shared builders every V arm uses: a conforming assessment run pair whose replay carries a qualifying confined receipt (`clean-environment` with no engine), the stored records around it, the derived verification, admission over a corpus, the forgeries and the self-consistent forgery **[R4]** |
+| `python/tests/test_verification_identity.py` | exists (fails at its first assertion on the freeze tree); Task 1 makes it pass over the shared pair, Task 7 widens it |
+| `python/tests/test_verification_publication.py` | V3's arms; imports nothing from `test_evaluation` that imports it back **[R6]** |
 | `python/tests/acceptance/test_verification_acceptance.py` | V1, V2, V3, V5 through an attended session on the certified volume; the fresh-process arms |
 | `python/tests/acceptance/n2_arms_cut21.py`, `python/tests/acceptance/test_n2_cut21.py`, `python/tools/cut21_acceptance.py` | the cut-21 discharge surface |
 | `docs/plans/2026-09-06-conformance-cut-21-results.md` | the results record (Task 12, after cut 20 merges) |
@@ -45,26 +48,328 @@
 | `python/src/beliefs/record.py` | `AssessmentValue.run` docstring: bare on both sides (§3.2) |
 | `python/src/beliefs/admission.py` | `admit` resolves through `typed_ref` (§3.2) |
 | `python/src/beliefs/evaluation.py` | `gather` resolves through `typed_ref` (§3.2) |
-| `python/src/beliefs/verify.py` | `ComparisonReport.projection()`, `_Derived`/`_derive`, `StoredVerification`, `_restore_report`, `decode_verification`, `publication_node` (§4, §5.1, §6) |
+| `python/src/beliefs/verify.py` | `ComparisonReport.projection()`, `_Derived`/`_derive`, `StoredVerification` and its private mint, `_restore_report`, `decode_verification`, `publication_node` (§4, §5.1, §6) |
 | `python/src/beliefs/audit.py` | `check_assessment`'s lookup, `_assessment_disagreements`, `check_verification` widened, `check_analysis_spec`, `stored_specs`, the `analysis-spec` branch (§3.2, §6) |
-| `python/src/beliefs/corpus.py` | `_refuse_verification`, `_refuse_r20_contradiction` through `analysis_spec_value`, both called from `_refuse` (§5.3, §7) |
+| `python/src/beliefs/corpus.py` | `_refuse_verification`, `_refuse_r20_contradiction` through `analysis_spec_value`, both called from `_refuse`; the import's separate r20 call removed (§5.3, §7) |
 | `python/src/beliefs/errors.py` | `VerificationTargetMismatch(WriteRefused)` (§5.3) |
-| `python/src/beliefs/spec.py` | `frozen_projection`, `restore` and its three inverse helpers (§7) |
-| `python/tests/test_stored.py`, `test_admission.py`, `test_verify.py`, `test_audit.py`, `test_import_derivation.py`, `test_operation_writes.py`, `test_corpus_write.py`, `test_evaluation.py`, `test_spec.py` | the portable arms, one module per cut §3 cell |
-| `python/tools/reproduction/spec.py`, `belief.py`, `rederive.py`, `close.py` | steps 4, 8, 10b and the evidence (§11) |
+| `python/src/beliefs/spec.py` | `frozen_projection`, `restore` and its inverse helpers, type-checked without coercion (§7) **[R1]** |
+| `python/tests/test_stored.py`, `test_admission.py`, `test_verify.py`, `test_audit.py`, `test_import_derivation.py`, `test_operation_writes.py`, `test_corpus_write.py`, `test_spec.py`, `test_evaluation.py`, `test_reproduction_driver.py` | the portable arms |
+| `python/tools/reproduction/spec.py`, `belief.py`, `rederive.py`, `close.py` | steps 4, 8, 10b and the evidence, with 10b a pure function over a view and its evidence **[R9]** |
 | `docs/designs/2026-09-06-verification-publication-design.md`, the guide, the ledger, the roadmap, `README.md`, `docs/designs/2026-08-02-computation-reproducibility-design.md`, `2026-08-30-run-confinement-design.md`, `docs/plans/2026-09-04-conformance-cut-18-results.md` | banking and discharge (Tasks 11–12) |
+
+---
+
+### Task 0: The shared fixture module
+
+**Files:**
+- Create: `python/tests/verification_fixtures.py`
+
+**Interfaces:**
+- Produces: `frozen_for(target) -> FrozenSpec`; `conforming_closure(frozen, *, token, confined=False, outputs=None) -> RunClosure`; `clean_pair(frozen, *, agreeing=True) -> tuple[RunClosure, RunClosure]`; `evidence_for(frozen) -> DerivationEvidence`; `run_record(closure) -> Node`; `mint_datasets(writer, closure)`; `Published` (dataclass: `frozen, original, replayed, proposition, assessment, derived_value, derived, evidence, node`); `publish_corpus(writer, *, slug="p", claim=None, certification=None, agreeing=True, publish=False) -> Published`; `observations_for(view)`; `evaluation_kwargs(view) -> dict`; `admission_over(writer, proposition_ref, original)`; `self_consistent_forgery(writer, node, *, mutate) -> Node`; `forgeries(writer, published) -> list[tuple[Node, type[Exception]]]`. `publish=True`, `self_consistent_forgery` and `forgeries` import Task 2's, 3's and 5's names lazily, so the module loads from Task 0 on.
+- Consumes: `fixtures_cut3.closure_with/planned/traced/spec_draft/spec_rules`, `confinement_fixtures.confined_receipt/instance`, `test_evaluation.CLAIM_FACET/EX/GENE/PHENO/OTHER_GENE`, `test_belief.PROFILE`, `fixtures_cut4.raw_write`.
+
+- [ ] **Step 1: Write the module**
+
+```python
+"""Shared builders for cut 21's arms (verification-publication design §8).
+
+The run pair is synthetic and conforming — `fixtures_cut3.closure_with` with a
+one-job plan — and the replay carries a qualifying confined receipt bound to
+the recipe's environment identity, so `derive_scope` reaches
+`clean-environment` with no engine (`test_replay.py`'s R4 arms do the same
+over real runs). Every V arm that needs admission builds on it.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, replace
+
+from authority import ACTOR
+from confinement_fixtures import confined_receipt, instance
+from fixtures_cut3 import closure_with, planned, spec_draft, spec_rules, traced
+from fixtures_cut4 import raw_write
+from nodes.core.node import Node
+from nodes.core.relations import Relation
+from test_belief import PROFILE
+from test_evaluation import CLAIM_FACET, EX, GENE, OTHER_GENE, PHENO
+
+from beliefs import runrecord, stored
+from beliefs.admission import admit
+from beliefs.assess import build_assessment
+from beliefs.belief import Availability, SuppliedContext
+from beliefs.closure import RetractionEnumeration
+from beliefs.consulted import CorpusPins
+from beliefs.corpus import lineage_snapshot
+from beliefs.dataset import ByteObservation, dataset_address
+from beliefs.evaluation import evaluate_over, gather
+from beliefs.evidence import DerivationEvidence
+from beliefs.identity import v1
+from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding
+from beliefs.recipe import RunClosure, job_key
+from beliefs.record import AssessmentValue
+from beliefs.replay import CONTENT_EQUALITY, CodeLineageCertification
+from beliefs.resolution import build_snapshot
+from beliefs.runrecord import run_ref
+from beliefs.spec import FrozenSpec, freeze
+from beliefs.verify import AssessmentVerification, build_verification
+
+PINNED = [{"name": "matrix", "digest": "sha256:" + "1" * 64}]
+CONTRACT = "science:" + "c" * 64
+EPOCH = "epoch:" + "e" * 64
+BINDING = PolicyBinding(rule=BELIEF_V1_RULE, implementation=BELIEF_V1.identity)
+DISAGREEING = (("out.txt", "sha256:" + "d" * 64),)
+_PARTS = {
+    "trace": (traced("fit", {"n": "a"}),),
+    "planned": (planned("fit", ("outputs/a.done",), wildcards=(("n", "a"),)),),
+    "target_keys": (job_key("fit", (("n", "a"),)),),
+    "targets": ("outputs/a.done",),
+}
+__all__ = ["CLAIM_FACET", "PROFILE", "EX", "GENE", "OTHER_GENE", "PHENO"]  # re-exported for the acceptance module
+
+
+def frozen_for(target: str) -> FrozenSpec:
+    """The spec's target is the proposition's corpus ref, as the reproduction
+    set it: the stored assessment's `proposition` and the derived one then
+    spell the same string (design §9 names the two namespaces)."""
+    return freeze(spec_draft(target=target), held_rules=spec_rules())
+
+
+def conforming_closure(frozen: FrozenSpec, *, token: str, confined: bool = False, outputs=None) -> RunClosure:
+    base = closure_with(**_PARTS) if outputs is None else closure_with(**_PARTS, outputs=outputs)
+    recipe = replace(base.recipe, spec_identity=frozen.identity, rule_bindings=frozen.rule_bindings)
+    occurrence = replace(base.occurrence, event_token=token, actor=ACTOR)
+    if confined:
+        receipt = confined_receipt(instance=instance(environment_identity=recipe.environment.identity()))
+        occurrence = replace(occurrence, receipt=receipt)
+    return RunClosure(recipe=recipe, result=base.result, occurrence=occurrence)
+
+
+def clean_pair(frozen: FrozenSpec, *, agreeing: bool = True) -> tuple[RunClosure, RunClosure]:
+    original = conforming_closure(frozen, token="tok-original")
+    replayed = conforming_closure(frozen, token="tok-replayed", confined=True, outputs=None if agreeing else DISAGREEING)
+    return original, replayed
+
+
+def evidence_for(frozen: FrozenSpec) -> DerivationEvidence:
+    rules = spec_rules()
+    interpretation = rules[frozen.interpretation_rule]
+    return DerivationEvidence(
+        specs={frozen.identity: frozen},
+        held_rules={CONTENT_EQUALITY.identity: CONTENT_EQUALITY},
+        implementations={interpretation.identity: interpretation},
+    )
+
+
+def run_record(closure: RunClosure) -> Node:
+    return stored.run_publication_node(
+        closure.address(),
+        title="assessment run",
+        projection=runrecord.projection_text(closure).decode("utf-8"),
+        spec=closure.recipe.spec_identity,
+        observes=tuple(e.dataset for e in closure.recipe.inputs if e.role == "observes"),
+        reads=tuple(e.dataset for e in closure.recipe.inputs if e.role == "reads"),
+    )
+
+
+def mint_datasets(writer, closure: RunClosure) -> None:
+    for entry in closure.recipe.inputs:
+        if not writer.read_view.holds(entry.dataset):
+            writer.add(
+                stored.dataset_node(
+                    entry.dataset.removeprefix("dataset:"), title="raw", resources=PINNED,
+                    empirical_observation={"boundary": "instrument"},
+                )
+            )
+
+
+@dataclass(frozen=True)
+class Published:
+    frozen: FrozenSpec
+    original: RunClosure
+    replayed: RunClosure
+    proposition: Node
+    assessment: Node
+    derived_value: AssessmentValue
+    derived: AssessmentVerification
+    evidence: DerivationEvidence
+    node: Node | None
+
+
+def publish_corpus(
+    writer, *, slug: str = "p", claim=None, certification: CodeLineageCertification | None = None,
+    agreeing: bool = True, publish: bool = False,
+) -> Published:
+    """A proposition, the two runs and their datasets, the stored assessment
+    over the original, the verification derived from the pair, and — with
+    `publish` — its record through `writer.add`."""
+    proposition = writer.add(stored.proposition_node(slug, title=slug, claim=claim or {"operator": "affects"}))
+    frozen = frozen_for(proposition.id)
+    original, replayed = clean_pair(frozen, agreeing=agreeing)
+    mint_datasets(writer, original)
+    writer.add(run_record(original))
+    writer.add(run_record(replayed))
+    evidence = evidence_for(frozen)
+    derived_value = build_assessment(original, specs=evidence.specs, implementations=evidence.implementations)
+    assert isinstance(derived_value, AssessmentValue), derived_value
+    optional = {n: getattr(derived_value, n) for n in ("estimate", "uncertainty", "estimand", "applicability") if getattr(derived_value, n) is not None}
+    assessment = writer.add(
+        stored.assessment_node(
+            f"a-{slug}", title=f"a-{slug}", spec=frozen.identity, run=run_ref(original.address()), proposition=proposition.id,
+            outcome=derived_value.outcome, interpretation_rule=derived_value.interpretation_rule, **optional,
+        )
+    )
+    derived = build_verification(
+        original, replayed, specs=evidence.specs, held_rules=evidence.held_rules,
+        contract_identity=CONTRACT, epoch=EPOCH, certification=certification,
+    )
+    assert isinstance(derived, AssessmentVerification)
+    node = None
+    if publish:
+        from beliefs.verify import publication_node
+
+        node = writer.add(publication_node(derived, assessment_ref=assessment.id))
+    return Published(frozen, original, replayed, proposition, assessment, derived_value, derived, evidence, node)
+
+
+def observations_for(view) -> dict[str, tuple[ByteObservation, ...]]:
+    """One observation per held dataset at its declared digest, so `admit`
+    reads every input as Held."""
+    observations: dict[str, tuple[ByteObservation, ...]] = {}
+    for node in view.iter_stored():
+        if node.kind != "dataset":
+            continue
+        declaration = stored.dataset_declaration(node)
+        address = dataset_address(declaration)
+        if address is not None:
+            observations[address] = tuple(
+                ByteObservation(digest=r.digest, location="repo://data") for r in declaration.resources if r.digest
+            )
+    return observations
+
+
+def evaluation_kwargs(view) -> dict:
+    identities = {stored.assessment_value(n).identity() for n in view.iter_stored() if n.kind == "assessment"}
+    observations = observations_for(view)
+    return {
+        "availability": Availability(observations=observations, implementations={BELIEF_V1.identity: BELIEF_V1}, fixtures={BELIEF_V1_RULE: BELIEF_V1_FIXTURES}),
+        "context": SuppliedContext(
+            snapshot=lineage_snapshot(view, list(observations)),
+            producer_snapshot_identity="producer-snapshot-1",
+            retractions=RetractionEnumeration(found=(), coverage=("c1",)),
+            node_corpus={identity: "c1" for identity in identities},
+            pins={"c1": CorpusPins(science_contract="sci-1", domains={"testing": "testing-1"})},
+        ),
+        "profile": PROFILE,
+        "resolution": build_snapshot(readable={EX: [GENE, PHENO, OTHER_GENE]}),
+        "binding": BINDING,
+    }
+
+
+def admission_over(writer, proposition_ref: str, original: RunClosure):
+    """`gather` -> `admit` -> `evaluate_over` over the corpus as it stands. The
+    assessment admitted is *an* assessment over `original`: two records may
+    carry one identity (design decision 17) and the gate is over the identity. [R5]"""
+    view = writer.read_view
+    kwargs = evaluation_kwargs(view)
+    gathered = {k: v for k, v in kwargs.items() if k != "availability"}
+    inputs = gather(view, proposition_ref, **gathered)
+    a = next(a for a in inputs.assessments if a.run == original.address())
+    verdict = admit(a, inputs.runs[a.run], kwargs["availability"].observations, inputs.verifications)
+    return verdict, evaluate_over(view, proposition_ref, **kwargs)
+
+
+def self_consistent_forgery(writer, node: Node, *, mutate) -> Node:
+    """V4's fixture (design decision 16): alter a member, then recompute the
+    id, the relation source and the stamp from the altered members, so the
+    record decodes and only the derivation recomputation can catch it. Written
+    behind the boundary on purpose. The identity is computed through the
+    reader's own basis helper — no constructor is opened for it."""
+    from beliefs.verify import RUN_VERIFICATION_DOMAIN, _basis, _restore_report
+
+    facet = {k: (dict(v) if isinstance(v, dict) else v) for k, v in node.facets[stored.VERIFICATION_FACET].items()}
+    mutate(facet)
+    members: dict[str, object] = {
+        "original": stored.local_id("run", facet["derivation"]["original"]),
+        "replayed": stored.local_id("run", facet["derivation"]["replayed"]),
+        "rule": facet["rule"],
+        "report": _restore_report(node.id, facet["report"]),
+        "scope_rule": facet["scope_rule"],
+        "scope": facet["scope"],
+        "verdict": facet["verdict"],
+        "supersedes": None if "supersedes" not in facet else stored.local_id("verification", facet["supersedes"]),
+    }
+    if "assessment" in facet:
+        members["assessment"] = facet["assessment"]
+    forged_id = f"verification:{v1.digest(RUN_VERIFICATION_DOMAIN, _basis(members))}"
+    forged = stored.stamp_semantic_identity(
+        Node(
+            id=forged_id, kind="verification", title=node.title, facets={stored.VERIFICATION_FACET: facet},
+            relations=[Relation(source=forged_id, predicate=r.predicate, target=r.target) for r in node.relations],
+        )
+    )
+    raw_write(writer.root, forged)
+    return forged
+
+
+def forgeries(writer, published: Published) -> list[tuple[Node, type[Exception]]]:
+    """V5's five: a stale id, a forged report, a missing edge, a target that
+    resolves nowhere, and a target carrying another identity. The helper
+    records they need are minted through `writer` first, so a caller takes
+    its baseline after this returns. [R8]"""
+    from beliefs.errors import MalformedRecord, VerificationTargetMismatch
+    from beliefs.verify import publication_node
+
+    derived, assessment = published.derived, published.assessment
+    good = publication_node(derived, assessment_ref=assessment.id)
+    stale_id = good.model_copy(update={"id": "verification:" + "f" * 64})
+    stale_id.relations = [Relation(source=stale_id.id, predicate=r.predicate, target=r.target) for r in good.relations]
+    stored.stamp_semantic_identity(stale_id)
+    bad_report = good.model_copy(deep=True)
+    bad_report.facets[stored.VERIFICATION_FACET]["report"]["diagnostics"] = ["forged"]
+    stored.stamp_semantic_identity(bad_report)
+    no_edge = good.model_copy(deep=True, update={"relations": []})
+    stored.stamp_semantic_identity(no_edge)
+    wrong_target = publication_node(derived, assessment_ref="assessment:absent")
+    other_proposition = writer.add(stored.proposition_node("p-other", title="p-other", claim={"operator": "affects"}))
+    other = writer.add(
+        stored.assessment_node(
+            "a-other", title="a-other", spec=published.frozen.identity, run=run_ref(published.original.address()),
+            proposition=other_proposition.id, outcome="supported", interpretation_rule=published.frozen.interpretation_rule,
+        )
+    )
+    other_identity = publication_node(derived, assessment_ref=other.id)
+    return [
+        (stale_id, MalformedRecord),
+        (bad_report, MalformedRecord),
+        (no_edge, MalformedRecord),
+        (wrong_target, VerificationTargetMismatch),
+        (other_identity, VerificationTargetMismatch),
+    ]
+```
+
+- [ ] **Step 2: Probe it**
+
+Run: `PYTHONPATH=tests uv run --frozen python -c "from verification_fixtures import frozen_for, clean_pair; from beliefs.replay import derive_scope, conformance; f = frozen_for('proposition:p'); a, b = clean_pair(f); print(conformance(a), conformance(b), derive_scope(a, b, certification=None))"`
+Expected: `conforming conforming clean-environment`.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add python/tests/verification_fixtures.py
+git commit -m "test: shared verification fixtures — a conforming pair whose replay qualifies for clean-environment"
+```
 
 ---
 
 ### Task 1: One spelling for the run member (V2) — `beliefs-ae9b18`
 
 **Files:**
-- Modify: `python/src/beliefs/stored.py` (after `WORLD_RELATIONS`, and `assessment_value` at lines 381–399; `__all__`)
+- Modify: `python/src/beliefs/stored.py` (after `WORLD_RELATIONS`; `assessment_value` at lines 381–399; `__all__`)
 - Modify: `python/src/beliefs/record.py:78-98` (docstring only)
 - Modify: `python/src/beliefs/admission.py:54-56`
 - Modify: `python/src/beliefs/evaluation.py:174-179`
 - Modify: `python/src/beliefs/audit.py:169`, `:191-209`
-- Modify: `python/tests/test_verification_identity.py` (the spec target)
+- Modify: `python/tests/test_verification_identity.py` (the fixture pair) **[R4]**
 - Test: `python/tests/test_stored.py`, `python/tests/test_admission.py`, `python/tests/test_verification_identity.py`
 
 **Interfaces:**
@@ -72,22 +377,20 @@
 
 - [ ] **Step 1: `tasks start beliefs-ae9b18`** (from the worktree root).
 
-- [ ] **Step 2: Correct the identity test's spec target**
-
-The stored assessment's `proposition` is the proposition record's ref and the derived one is the spec's `target` (design §9, decision 1's limitation). The reproduction met them by setting the target to the ref; the test does the same. In `tests/test_verification_identity.py` replace
+- [ ] **Step 2: Rebuild the identity test over the shared pair** — the assertions stay (cut §5 item 8); the construction moves to Task 0's builders, whose replay qualifies for `clean-environment`. Replace everything from `def test_v2_…(writer):` down to (not including) `stored_node = writer.add(` with:
 
 ```python
-    frozen = freeze(spec_draft(), held_rules=spec_rules())
+def test_v2_one_identity_admits_over_the_corpus_and_audits_clean(writer):
+    published = publish_corpus(writer, claim=CLAIM_FACET)
+    original, derived, assessment = published.original, published.derived_value, published.assessment
+    verification, evidence = published.derived, published.evidence
+    record = admission_record(verification)
 ```
 
-with
-
-```python
-    frozen = freeze(spec_draft(target="proposition:p1"), held_rules=spec_rules())
-```
+with `from test_evaluation import CLAIM_FACET` and `from verification_fixtures import publish_corpus` at the top and the now-unused imports (`test_audit`'s helpers, `freeze`, `spec_draft`, `spec_rules`, `build_assessment`, `AssessmentValue`, `build_verification`) removed. The `stored.verification_node(...)` publication and every assertion stay as they are.
 
 Run: `uv run --frozen pytest tests/test_verification_identity.py -p no:cacheprovider`
-Expected: still FAIL at the first assertion, the two identities differing on `run` only.
+Expected: still FAIL at the first assertion, the two identities differing on `run` only (the proposition member now agrees, since `frozen_for` targets the ref).
 
 - [ ] **Step 3: Write the failing helper-pair tests** — append to `tests/test_stored.py`:
 
@@ -160,7 +463,7 @@ def test_v2_admit_matches_a_typed_run_ref_to_the_bare_member():
 - [ ] **Step 4: Run to verify they fail**
 
 Run: `uv run --frozen pytest tests/test_stored.py tests/test_admission.py -k v2 -p no:cacheprovider`
-Expected: FAIL — `ImportError: cannot import name 'local_id'`, and the admission test's first assertion (`admit` compares the typed ref to the bare member and reports `run-mismatch` for `run:r1` too).
+Expected: FAIL — `ImportError: cannot import name 'local_id'`, and the admission test's second assertion (`admit` compares the typed ref to the bare member and reports `run-mismatch` for `run:r1` too).
 
 - [ ] **Step 5: Add the helper pair to `stored.py`** after `WORLD_RELATIONS`:
 
@@ -191,19 +494,7 @@ Add `"local_id"` and `"typed_ref"` to `__all__` (alphabetical). In `assessment_v
 
 - [ ] **Step 6: Resolve through the typed ref at the three resolvers and drop the audit's normalization**
 
-`admission.py`: add `from beliefs.stored import typed_ref` and replace
-
-```python
-    if run.ref != assessment.run:
-        return AdmissionRefused(uid, f"run-mismatch: assessment names {assessment.run!r}, given {run.ref!r}")
-```
-
-with
-
-```python
-    if run.ref != typed_ref("run", assessment.run):
-        return AdmissionRefused(uid, f"run-mismatch: assessment names {assessment.run!r}, given {run.ref!r}")
-```
+`admission.py`: add `from beliefs.stored import typed_ref` and replace `    if run.ref != assessment.run:` with `    if run.ref != typed_ref("run", assessment.run):`.
 
 `evaluation.py`, in `gather`, replace the run loop's head:
 
@@ -216,11 +507,11 @@ with
         trace.append(("run", a.run))
 ```
 
-(`runs` stays keyed by the value's bare `a.run`, and the trace row and `declared_refs` both spell it that way.)
+(`runs` stays keyed by the value's bare `a.run`; the trace row and `declared_refs` both spell it that way.)
 
 `audit.py`: in `check_assessment` replace `closure, why = _closure(view, stored_value.run)` with `closure, why = _closure(view, stored.typed_ref("run", stored_value.run))`; in `_assessment_disagreements` replace `if stored_value.run != run_ref(derived.run):` with `if stored_value.run != derived.run:`, delete the docstring sentence beginning "`run` is normalized first" and the module docstring's clause "after `run` is normalized from a bare closure address to its typed stored reference" (replace with "both spelled bare"), and drop `run_ref` from the `runrecord` import if it is now unused.
 
-`record.py`: replace `AssessmentValue.run`'s implicit position with a docstring line under `run: str`: `"""The run's bare closure address — its world identity — on the derived and the stored side alike (verification-publication design §3)."""`
+`record.py`: under `run: str` add `"""The run's bare closure address — its world identity — on the derived and the stored side alike (verification-publication design §3)."""`.
 
 - [ ] **Step 7: Fix the fixtures that spelled a stored run bare**
 
@@ -229,13 +520,13 @@ Run: `uv run --frozen pytest -p no:cacheprovider 2>&1 | tail -30` and fix every 
 - [ ] **Step 8: Run the suite and the identity test**
 
 Run: `uv run --frozen pytest -p no:cacheprovider 2>&1 | tail -3` → all pass.
-Run: `uv run --frozen pytest tests/test_verification_identity.py -p no:cacheprovider` → PASS (all three assertions).
+Run: `uv run --frozen pytest tests/test_verification_identity.py -p no:cacheprovider` → PASS, the `ADMITTED` assertion included (the shared pair's scope is `clean-environment`).
 Run: `uv run --frozen ruff check . && uv run --frozen pyright` → clean.
 
 - [ ] **Step 9: Commit**
 
 ```bash
-tasks done beliefs-ae9b18 "typed_ref/local_id in stored; AssessmentValue.run bare on both sides; admit, gather and check_assessment resolve through the typed ref; test_verification_identity passes"
+tasks done beliefs-ae9b18 "typed_ref/local_id in stored; AssessmentValue.run bare on both sides; admit, gather and check_assessment resolve through the typed ref; test_verification_identity passes over a clean-environment pair"
 git add -A python tasks
 git commit -m "feat(stored): one spelling for the assessment's run member (V2)"
 ```
@@ -245,12 +536,12 @@ git commit -m "feat(stored): one spelling for the assessment's run member (V2)"
 ### Task 2: The stored verification's reader (V1's round trip, V6's malformed report)
 
 **Files:**
-- Modify: `python/src/beliefs/verify.py` (`ComparisonReport`, new `StoredVerification`, `_restore_report`, `decode_verification`, `__all__`)
+- Modify: `python/src/beliefs/verify.py` (`ComparisonReport`, `StoredVerification` and its mint, `_restore_report`, `decode_verification`, `__all__`)
 - Test: `python/tests/test_verify.py`
 
 **Interfaces:**
-- Produces: `ComparisonReport.projection() -> dict[str, object]`; `class StoredVerification` with members `original, replayed, assessment, rule, report, scope_rule, scope, verdict, supersedes`, `basis()`, `identity()`; `decode_verification(node: Node) -> StoredVerification | None`.
-- Consumes: `stored.local_id`, `stored.verification_derivation`, `stored.VERIFICATION_FACET`, `stored.VERIFIES` (Task 1 and existing).
+- Produces: `ComparisonReport.projection() -> dict[str, object]`; `class StoredVerification` (closed constructor) with members `original, replayed, assessment, rule, report, scope_rule, scope, verdict, supersedes`, `basis()`, `identity()`; `verify._mint_stored_verification(*, assessment, **members)`; `verify._restore_report(node_id, member) -> ComparisonReport`; `decode_verification(node: Node) -> StoredVerification | None`.
+- Consumes: `stored.local_id`, `stored.verification_derivation`, `stored.VERIFICATION_FACET`, `stored.VERIFIES`.
 
 - [ ] **Step 1: Write the failing tests** — append to `tests/test_verify.py`:
 
@@ -317,6 +608,11 @@ def test_v1_a_report_less_verification_decodes_as_absent(pair):
     assert decode_verification(stored.verification_node("v", title="v", assessment="x", assessment_ref="assessment:a", scope="same-environment", verdict="passed")) is None
 
 
+def test_v3_stored_verification_has_no_public_constructor():
+    with pytest.raises(TypeError):
+        StoredVerification(original="a", replayed="b", assessment=None, rule="r", report=None, scope_rule="s", scope="bogus", verdict="bogus", supersedes=None)  # type: ignore[call-arg]
+
+
 def test_v5_a_record_id_that_does_not_recompute_is_malformed(pair):
     verification = verification_of(pair)
     with pytest.raises(MalformedRecord, match="recomputed identity"):
@@ -338,6 +634,8 @@ def test_v5_a_record_id_that_does_not_recompute_is_malformed(pair):
         lambda f: f.pop("rule"),
         lambda f: f.__setitem__("supersedes", "v-1"),
         lambda f: f.__setitem__("assessment", None),
+        lambda f: f.__setitem__("derivation", None),
+        lambda f: f.pop("derivation"),
     ],
 )
 def test_v6_a_present_but_malformed_report_or_member_is_refused(pair, mutate):
@@ -360,11 +658,11 @@ def test_v7_the_assessment_member_and_the_verifies_edge_travel_together(pair):
         decode_verification(node)
 ```
 
-(`pair`, `verification_of`, `v1`, `COMPARISON_REPORT_DOMAIN`, `pytest` and `AssessmentVerification` are already imported or defined in `test_verify.py`; add any that are not.)
+(`pair`, `verification_of`, `v1`, `COMPARISON_REPORT_DOMAIN`, `pytest`, `AssessmentVerification` are already imported or defined in `test_verify.py`; add any that are not.)
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `uv run --frozen pytest tests/test_verify.py -k "v1 or v5 or v6 or v7" -p no:cacheprovider`
+Run: `uv run --frozen pytest tests/test_verify.py -k "v1 or v3 or v5 or v6 or v7" -p no:cacheprovider`
 Expected: FAIL — `ImportError: cannot import name 'StoredVerification'`.
 
 - [ ] **Step 3: Make the projection public and add the reader** in `verify.py`
@@ -397,12 +695,13 @@ Update `ComparisonReport.__init__`'s message to "minted only by build_verificati
 ```python
 @sealed
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class StoredVerification:
     """A published verification read back: the same basis as the derived
     value, minted only by `decode_verification` after the record's id
     recomputes from its members (design §4.2). Distinct from the derived
-    types on purpose — R19 admits no constructor that accepts a report."""
+    types on purpose — R19 admits no constructor that accepts a report — and
+    closed the same way they are."""
 
     original: str
     replayed: str
@@ -413,6 +712,9 @@ class StoredVerification:
     scope: str
     verdict: str
     supersedes: str | None
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        raise TypeError("StoredVerification values are minted only by decode_verification")
 
     def basis(self) -> dict[str, object]:
         members: dict[str, object] = {
@@ -431,6 +733,19 @@ class StoredVerification:
 
     def identity(self) -> str:
         return v1.digest(RUN_VERIFICATION_DOMAIN, self.basis())
+
+
+def _mint_stored_verification(*, assessment: str | None, **members: object) -> StoredVerification:
+    """The reader's private mint: `_validate_verification` over the same
+    member set the derived mint validates, then the sealed value."""
+    checked: dict[str, object] = dict(members)
+    if assessment is not None:
+        checked["assessment"] = assessment
+    _validate_verification(checked)
+    value = object.__new__(StoredVerification)
+    for name, member in (*members.items(), ("assessment", assessment)):
+        object.__setattr__(value, name, member)
+    return value
 
 
 _REPORT_REQUIRED = frozenset({"original_conformance", "replay_conformance", "receipts", "rule_bindings", "diagnostics"})
@@ -479,8 +794,9 @@ def _restore_report(node_id: str, member: object) -> ComparisonReport:
 def decode_verification(node: Node) -> StoredVerification | None:
     """A published verification read back, or `None` for one that carries no
     report (cut 18 ruling R2: not malformed, only unchecked for scope). A
-    present member that is malformed, or an id that does not recompute from
-    the members, is refused — never repaired (M11). Pure over the node."""
+    present member that is malformed — a null derivation included — or an id
+    that does not recompute from the members is refused, never repaired
+    (M11). Pure over the node."""
     if node.kind != "verification":
         raise MalformedRecord(f"{node.id}: not a verification record")
     facet = node.facets.get(stored.VERIFICATION_FACET)
@@ -491,8 +807,11 @@ def decode_verification(node: Node) -> StoredVerification | None:
     keys = set(facet)
     if not _PUBLISHED_REQUIRED <= keys or not keys <= _PUBLISHED_REQUIRED | _PUBLISHED_OPTIONAL:
         raise MalformedRecord(f"{node.id}: a published verification carries exactly its basis members")
+    if facet["derivation"] is None:
+        raise MalformedRecord(f"{node.id}: a published verification names its derivation")
     derivation = stored.verification_derivation(node)
-    assert derivation is not None  # `derivation` is required above; `verification_derivation` validated it
+    if derivation is None:
+        raise MalformedRecord(f"{node.id}: a published verification names its derivation")
     edges = [relation for relation in node.relations if relation.predicate == stored.VERIFIES]
     if len(edges) > 1:
         raise MalformedRecord(f"{node.id}: a verification carries at most one verifies edge")
@@ -507,27 +826,23 @@ def decode_verification(node: Node) -> StoredVerification | None:
     supersedes = facet.get("supersedes")
     if supersedes is not None:
         supersedes = stored.local_id("verification", supersedes)
-    members: dict[str, Any] = {
-        "original": stored.local_id("run", derivation[0]),
-        "replayed": stored.local_id("run", derivation[1]),
-        "rule": facet["rule"],
-        "report": _restore_report(node.id, facet["report"]),
-        "scope_rule": facet["scope_rule"],
-        "scope": facet["scope"],
-        "verdict": facet["verdict"],
-        "supersedes": supersedes,
-    }
-    checked: dict[str, object] = dict(members)
-    if assessment is not None:
-        checked["assessment"] = assessment
-    _validate_verification(checked)
-    decoded = StoredVerification(assessment=assessment, **members)
+    decoded = _mint_stored_verification(
+        assessment=assessment,
+        original=stored.local_id("run", derivation[0]),
+        replayed=stored.local_id("run", derivation[1]),
+        rule=facet["rule"],
+        report=_restore_report(node.id, facet["report"]),
+        scope_rule=facet["scope_rule"],
+        scope=facet["scope"],
+        verdict=facet["verdict"],
+        supersedes=supersedes,
+    )
     if decoded.identity() != stored.local_id("verification", node.id):
         raise MalformedRecord(f"{node.id}: the recomputed identity is not the record id")
     return decoded
 ```
 
-Imports to add at the top of `verify.py`: `from typing import Any` (beside `TypeAlias, cast, final`), `from nodes.core.node import Node`, `from beliefs import stored`. Add `"StoredVerification"` and `"decode_verification"` to `__all__`.
+Imports to add at the top of `verify.py`: `from nodes.core.node import Node`, `from beliefs import stored`. Add `"StoredVerification"` and `"decode_verification"` to `__all__`. **[R2]** the null-derivation branch; **[R3]** the closed constructor.
 
 - [ ] **Step 4: Run to verify they pass**
 
@@ -551,15 +866,14 @@ git commit -m "feat(verify): StoredVerification and decode_verification restore 
 - Test: `python/tests/test_verify.py`
 
 **Interfaces:**
-- Produces: `stored.governed_node(kind: str, local: str, title: str, facets: Mapping[str, Any], relations: Sequence[Relation]) -> Node`; `verify.publication_node(derived: RunVerification, *, assessment_ref: str | None = None) -> Node`.
-- Consumes: Task 2's `decode_verification`.
+- Produces: `stored.governed_node(kind, local, title, facets, relations) -> Node`; `verify.publication_node(derived: RunVerification, *, assessment_ref: str | None = None) -> Node`; `publish_corpus(..., publish=True)` now works.
 
 - [ ] **Step 1: `tasks start beliefs-f860f1`**
 
 - [ ] **Step 2: Write the failing tests** — append to `tests/test_verify.py`:
 
 ```python
-# --- V1 / V7: the publication projection (design §5.1) ------------------------
+# --- V1 / V3 / V7: the publication projection (design §5.1) --------------------
 from beliefs.verify import DatasetProductionVerification, publication_node
 
 
@@ -586,6 +900,19 @@ def test_v1_publication_node_round_trips_through_the_reader(pair):
     assert decoded is not None and decoded.basis() == verification.basis()
 
 
+def test_v3_a_superseding_verification_publishes_its_typed_predecessor(pair):
+    verification = verification_of(pair)
+    successor = _mint_verification(
+        original=verification.original, replayed=verification.replayed, assessment=verification.assessment,
+        rule=verification.rule, report=verification.report, scope_rule=verification.scope_rule,
+        scope=verification.scope, verdict="failed", supersedes=verification.identity(),
+    )
+    node = publication_node(successor, assessment_ref="assessment:a")
+    assert node.facets[stored.VERIFICATION_FACET]["supersedes"] == f"verification:{verification.identity()}"
+    decoded = decode_verification(node)
+    assert decoded is not None and decoded.supersedes == verification.identity()
+
+
 def test_v7_the_production_shape_publishes_edge_less_and_admits_nothing(production_pair):
     verification = _production_verification(production_pair)
     node = publication_node(verification)
@@ -607,11 +934,9 @@ def test_v7_publication_node_refuses_the_cross(pair, production_pair):
         publication_node("not a verification")  # type: ignore[arg-type]
 ```
 
-(`DATASET_CONTENT_EQUALITY`, `NotAnAssessmentVerification` and `admission_record` are already used in `test_verify.py`; import any that are not.)
-
 - [ ] **Step 3: Run to verify they fail**
 
-Run: `uv run --frozen pytest tests/test_verify.py -k "publication or v7" -p no:cacheprovider`
+Run: `uv run --frozen pytest tests/test_verify.py -k "publication or v7 or superseding" -p no:cacheprovider`
 Expected: FAIL — `ImportError: cannot import name 'publication_node'`.
 
 - [ ] **Step 4: Add `governed_node` and `publication_node`**
@@ -685,7 +1010,7 @@ git commit -m "feat(verify): publication_node projects a derived verification to
 
 ---
 
-### Task 4: The audit recomputes scope through the constructor's own derivation (V4, V6)
+### Task 4: The audit recomputes scope through the constructor's own derivation (V4, V6, V2's contradicted assessment)
 
 **Files:**
 - Modify: `python/src/beliefs/verify.py` (`_Derived`, `_derive`, `build_verification`)
@@ -693,142 +1018,106 @@ git commit -m "feat(verify): publication_node projects a derived verification to
 - Test: `python/tests/test_audit.py`
 
 **Interfaces:**
-- Produces: `verify._derive(original, replayed, *, specs, held_rules, certification, citation) -> _Derived` with members `rule, implementation_identity, report, scope, verdict, assessment`.
-- Consumes: Task 2's `decode_verification`, Task 3's `publication_node`.
+- Produces: `verify._derive(original, replayed, *, specs, held_rules, certification, citation) -> _Derived` with members `rule, implementation_identity, report, scope, verdict, assessment`; `test_audit.V4_FORGERIES`.
 
 - [ ] **Step 1: Write the failing tests** — append to `tests/test_audit.py`:
 
 ```python
-# --- V4 / V6: scope, rule, scope rule and report are recomputed (design §6) ---
-from beliefs.verify import decode_verification, publication_node
+# --- V4 / V6 / V2: scope, rule, scope rule and report are recomputed (design §6) ---
+from fixtures_cut4 import reopen
+from nodes.core.node import Node
+from verification_fixtures import publish_corpus, self_consistent_forgery
+
+from beliefs.audit import audit_corpus, check_verification
+from beliefs.replay import CodeLineageCertification
+
+CERTIFIED = CodeLineageCertification(rationale="independent reimplementation", attribution="second team")
+DERIVATION_CODES = {"verification-derivation-contradicted", "assessment-derivation-contradicted", "derivation-malformed"}
 
 
-def _published(writer, *, agreeing: bool = True):
-    """A published verification over two persisted runs and the stored
-    assessment it verifies; returns (evidence, derived, stored node)."""
-    evidence, derived = _replayed_pair(writer, agreeing=agreeing)
-    original = writer.read_view.get(stored.typed_ref("run", derived.original))
-    assessment = writer.add(
-        stored.assessment_node(
-            "a1", title="a1", spec=runrecord.decode_run_closure(original).recipe.spec_identity,
-            run=original.id, proposition="proposition:p", outcome="supported", interpretation_rule="median-difference/v1",
-        )
-    )
-    node = writer.add(publication_node(derived, assessment_ref=assessment.id))
-    return evidence, derived, node
-
-
-def _self_consistent_forgery(writer, node, *, mutate):
-    """V4's fixture (design decision 16): alter a member, then recompute the
-    id, the relation source and the stamp so the record decodes and only the
-    derivation recomputation can catch it."""
-    facet = dict(node.facets[stored.VERIFICATION_FACET])
-    facet["report"] = dict(facet["report"])
-    mutate(facet)
-    # The id is recomputed from the altered members through the reader's own basis.
-    from beliefs.verify import StoredVerification, _restore_report
-
-    members = {
-        "original": stored.local_id("run", facet["derivation"]["original"]),
-        "replayed": stored.local_id("run", facet["derivation"]["replayed"]),
-        "assessment": facet["assessment"],
-        "rule": facet["rule"],
-        "report": _restore_report(node.id, facet["report"]),
-        "scope_rule": facet["scope_rule"],
-        "scope": facet["scope"],
-        "verdict": facet["verdict"],
-        "supersedes": None,
-    }
-    identity = StoredVerification(**members).identity()
-    forged_id = f"verification:{identity}"
-    forged = stored.stamp_semantic_identity(
-        Node(
-            id=forged_id, kind="verification", title=node.title, facets={stored.VERIFICATION_FACET: facet},
-            relations=[Relation(source=forged_id, predicate=r.predicate, target=r.target) for r in node.relations],
-        )
-    )
-    assert decode_verification(forged) is not None, "V4's fixture must decode; a malformed one tests nothing"
-    raw_write(writer.root, forged)  # behind the boundary on purpose: the audit is what catches it
-    return forged
-
-
-def test_v2_a_contradicted_assessment_still_contradicts(writer, tmp_path):
-    """Decision 13: the assessment audit resolves the bare run through the typed ref, so a raw-altered outcome (stamp recomputed) contradicts at audit and refuses at import."""
-    evidence, derived, node = _published(writer)
-    assessment = writer.read_view.get("assessment:a1")
-    altered = assessment.model_copy(deep=True)
-    altered.facets[stored.ASSESSMENT_FACET]["outcome"] = "refuted"
-    stored.stamp_semantic_identity(altered)
-    raw_write(writer.root, altered)
-    view = reopen(writer.root)
-    codes = {f.code for f in audit_corpus(view, evidence=evidence)}
-    assert "assessment-derivation-contradicted" in codes and "semantic-hash-stale" not in codes
-    from test_relocation import _writer
-
-    from beliefs.errors import ImportRefused
-
-    target = _writer(tmp_path / "target")
-    members = tuple(n for n in view.iter_stored() if n.kind in {"dataset", "run"}) + (altered,)
-    with pytest.raises(ImportRefused):
-        target.import_bundle(members, evidence=evidence, observer="o", instrument="i", opened_at="2026-09-06T00:00:00Z", closed_at="2026-09-06T00:00:01Z")
-
-
-def _contradictions(writer, evidence):
-    view = reopen(writer.root)
-    return [f for f in audit_corpus(view, evidence=evidence) if f.code == "verification-derivation-contradicted"]
+def _findings(writer, evidence, code="verification-derivation-contradicted"):
+    return [f for f in audit_corpus(reopen(writer.root), evidence=evidence) if f.code == code]
 
 
 def test_v4_a_published_verification_audits_checked_with_no_contradiction(writer):
-    evidence, derived, node = _published(writer)
-    outcome = check_verification(writer.read_view, writer.read_view.get(node.id), evidence=evidence)
+    published = publish_corpus(writer, publish=True)
+    outcome = check_verification(writer.read_view, writer.read_view.get(published.node.id), evidence=published.evidence)
     assert outcome.checked and outcome.contradiction is None
-    assert not _contradictions(writer, evidence)
+    assert not {f.code for f in audit_corpus(reopen(writer.root), evidence=published.evidence)} & DERIVATION_CODES
 
 
-@pytest.mark.parametrize(
-    "member, mutate",
-    [
-        ("scope", lambda f: f.__setitem__("scope", "clean-environment")),
-        ("verdict", lambda f: f.__setitem__("verdict", "failed")),
-        ("report", lambda f: f["report"].__setitem__("receipts", ["sha256:" + "0" * 64, f["report"]["receipts"][1]])),
-        ("report", lambda f: f["report"].__setitem__("original_conformance", "non-conforming: forged")),
-        ("rule", lambda f: f.__setitem__("rule", "some-other-rule/v1")),
-        ("scope_rule", lambda f: f.__setitem__("scope_rule", "scope-derivation/v9")),
-    ],
-)
+def test_v4_a_certified_verification_audits_clean_through_its_stored_certification(writer):
+    """The recomputation takes the certification from the stored report (decision 7): drop it and the report identity moves. [R10]"""
+    published = publish_corpus(writer, publish=True, certification=CERTIFIED)
+    assert published.derived.report.certification == CERTIFIED
+    assert not _findings(writer, published.evidence)
+
+
+V4_FORGERIES = [
+    ("scope", lambda f: f.__setitem__("scope", "same-environment")),
+    ("verdict", lambda f: f.__setitem__("verdict", "failed")),
+    ("report", lambda f: f["report"].__setitem__("receipts", ["sha256:" + "0" * 64, f["report"]["receipts"][1]])),
+    ("report", lambda f: f["report"].__setitem__("original_conformance", "non-conforming: forged")),
+    ("rule", lambda f: f.__setitem__("rule", "some-other-rule/v1")),
+    ("scope_rule", lambda f: f.__setitem__("scope_rule", "scope-derivation/v9")),
+]
+V4_IDS = ["scope", "verdict", "report-receipt", "report-conformance", "rule", "scope_rule"]
+
+
+@pytest.mark.parametrize("member, mutate", V4_FORGERIES, ids=V4_IDS)
 def test_v4_a_self_consistent_forgery_contradicts_on_the_altered_member(writer, member, mutate):
-    evidence, derived, node = _published(writer)
-    forged = _self_consistent_forgery(writer, node, mutate=mutate)
-    (finding,) = _contradictions(writer, evidence)
-    assert finding.ref == forged.id and member in finding.detail
+    published = publish_corpus(writer, publish=True)
+    forged = self_consistent_forgery(writer, published.node, mutate=mutate)
+    findings = _findings(writer, published.evidence)
+    assert [f.ref for f in findings] == [forged.id] and member in findings[0].detail
+    assert not _findings(writer, published.evidence, code="derivation-malformed")
 
 
 def test_v6_a_report_less_verification_is_checked_for_verdict_and_identity_only(writer):
-    evidence, derived, node = _published(writer)
-    facet = dict(node.facets[stored.VERIFICATION_FACET])
+    published = publish_corpus(writer, publish=True)
+    facet = dict(published.node.facets[stored.VERIFICATION_FACET])
     del facet["report"], facet["rule"], facet["scope_rule"]
-    facet["scope"] = "clean-environment"  # a raised scope a report-less record cannot be caught on (cut 18 §7)
+    facet["scope"] = "same-environment"  # a lowered scope a report-less record cannot be caught on (cut 18 §7)
     legacy = stored.stamp_semantic_identity(
         Node(id="verification:legacy", kind="verification", title="legacy", facets={stored.VERIFICATION_FACET: facet}, relations=[])
     )
     raw_write(writer.root, legacy)
-    outcome = check_verification(reopen(writer.root), reopen(writer.root).get(legacy.id), evidence=evidence)
+    view = reopen(writer.root)
+    outcome = check_verification(view, view.get(legacy.id), evidence=published.evidence)
     assert outcome.checked and outcome.contradiction is None
     facet["verdict"] = "failed"
     flipped = stored.stamp_semantic_identity(
         Node(id="verification:legacy-flipped", kind="verification", title="legacy", facets={stored.VERIFICATION_FACET: facet}, relations=[])
     )
     raw_write(writer.root, flipped)
-    outcome = check_verification(reopen(writer.root), reopen(writer.root).get(flipped.id), evidence=evidence)
+    view = reopen(writer.root)
+    outcome = check_verification(view, view.get(flipped.id), evidence=published.evidence)
     assert outcome.contradiction is not None and "verdict" in outcome.contradiction.detail
-```
 
-Imports needed at the top of `test_audit.py` if absent: `from nodes.core.relations import Relation`, `from fixtures_cut4 import reopen`, `from beliefs.audit import audit_corpus, check_verification`.
+
+def test_v2_a_contradicted_assessment_still_contradicts(writer, tmp_path):
+    """Decision 13: the assessment audit resolves the bare run through the typed ref."""
+    published = publish_corpus(writer, publish=True)
+    altered = published.assessment.model_copy(deep=True)
+    altered.facets[stored.ASSESSMENT_FACET]["outcome"] = "refuted"
+    stored.stamp_semantic_identity(altered)
+    raw_write(writer.root, altered)
+    codes = {f.code for f in audit_corpus(reopen(writer.root), evidence=published.evidence)}
+    assert "assessment-derivation-contradicted" in codes and "semantic-hash-stale" not in codes
+    from test_relocation import _writer
+
+    from beliefs.errors import ImportRefused
+
+    target = _writer(tmp_path / "target")
+    members = tuple(n for n in reopen(writer.root).iter_stored() if n.kind in {"dataset", "run", "proposition"}) + (altered,)
+    with pytest.raises(ImportRefused):
+        target.import_bundle(members, evidence=published.evidence, observer="o", instrument="i", opened_at="2026-09-06T00:00:00Z", closed_at="2026-09-06T00:00:01Z")
+```
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `uv run --frozen pytest tests/test_audit.py -k "v4 or v6" -p no:cacheprovider`
-Expected: the `scope`, `report`, `rule` and `scope_rule` cases FAIL with no contradiction found (`ValueError: not enough values to unpack`); the `verdict` case and V6 pass already — cut 18's path.
+Run: `uv run --frozen pytest tests/test_audit.py -k "v4 or v6 or contradicted_assessment" -p no:cacheprovider`
+Expected: the `scope`, `report-*`, `rule` and `scope_rule` cases FAIL (no contradiction found); the `verdict` case, V6, the certified case and the contradicted-assessment case pass already.
 
 - [ ] **Step 3: Extract `_derive` in `verify.py`** — before `build_verification`:
 
@@ -874,7 +1163,8 @@ def _derive(
             record.ASSESSMENT_DOMAIN,
             {"spec": spec.identity, "run": original.address(), "proposition": spec.target},
         )
-    return _Derived(rule, implementation_identity, report, derive_scope(original, replayed, certification=certification), verdict, assessment)
+    scope = derive_scope(original, replayed, certification=certification)
+    return _Derived(rule, implementation_identity, report, scope, verdict, assessment)
 ```
 
 Then rewrite the body of `build_verification` after its three refusals and the two `_require_str` calls:
@@ -898,15 +1188,13 @@ Then rewrite the body of `build_verification` after its three refusals and the t
     return _mint_verification(assessment=derived.assessment, supersedes=None, **common)
 ```
 
-- [ ] **Step 4: Widen `check_verification` in `audit.py`**
-
-Replace its body from `derivation = ...` to the `disagreements` construction with:
+- [ ] **Step 4: Widen `check_verification` in `audit.py`** — replace its body from `derivation = ...` to the `disagreements` construction with:
 
 ```python
-    derivation = stored.verification_derivation(node)  # MalformedRecord propagates: refuse, never repair
+    decoded = decode_verification(node)  # MalformedRecord propagates: a present, malformed report is refused, never repaired
+    derivation = stored.verification_derivation(node)
     if derivation is None:
         return _unchecked("no derivation member")
-    decoded = decode_verification(node)  # a present, malformed report is refused the same way
     original, why = _closure(view, derivation[0])
     if original is None:
         return _unchecked(why)
@@ -942,7 +1230,7 @@ Replace its body from `derivation = ...` to the `disagreements` construction wit
             disagreements.append("report identity differs from the recomputed report")
 ```
 
-Keep the existing `if not disagreements: … return DerivationOutcome(... Finding(code="verification-derivation-contradicted" ...))` tail. Replace `from beliefs.verify import _resolve_rule` with `from beliefs.verify import _derive, decode_verification`; drop the now-unused `ASSESSMENT_DOMAIN`, `v1` and `VERDICTS` imports if nothing else uses them. Update the docstring: "Recompute a stored verification's derivation from the two runs it names — verdict and assessment identity always; rule, scope rule, scope and report identity when the record carries its report (design §6)."
+**[R2]** the decode precedes the unchecked return. Keep the existing tail. Replace `from beliefs.verify import _resolve_rule` with `from beliefs.verify import _derive, decode_verification`; drop now-unused imports (`ASSESSMENT_DOMAIN`, `v1`, `VERDICTS`) if nothing else uses them. Docstring: "Recompute a stored verification's derivation from the two runs it names — verdict and assessment identity always; rule, scope rule, scope and report identity when the record carries its report (design §6)."
 
 - [ ] **Step 5: Run to verify they pass, then the suite**
 
@@ -958,16 +1246,15 @@ git commit -m "feat(audit): recompute scope, rule, scope rule and report over a 
 
 ---
 
-### Task 5: Forgery refused before the intent (V5, V6's import arms, V4's import half)
+### Task 5: Forgery refused before the intent (V5; V6's and V4's import arms)
 
 **Files:**
 - Modify: `python/src/beliefs/errors.py` (after `ValidationRefused`, line 1087)
 - Modify: `python/src/beliefs/corpus.py:2265-2281` (`_refuse`), new `_refuse_verification`
-- Test: `python/tests/test_operation_writes.py`, `python/tests/test_import_derivation.py`, `python/tests/test_corpus_write.py`
+- Test: `python/tests/test_operation_writes.py`, `python/tests/test_import_derivation.py`
 
 **Interfaces:**
 - Produces: `errors.VerificationTargetMismatch(WriteRefused)`; `CorpusWriter._refuse_verification(node, *, view)`.
-- Consumes: Task 2's `decode_verification`, Task 3's `publication_node`, Task 1's `assessment_value`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -975,77 +1262,22 @@ Append to `tests/test_operation_writes.py`:
 
 ```python
 # --- V5: forgery is refused before the intent (design §5.3) ------------------
-from fixtures_cut3 import spec_draft, spec_rules
-from test_audit import _verification_evidence, add_observed_datasets, assessment_closure, run_publication
+from verification_fixtures import forgeries, publish_corpus
 
-from nodes.core.relations import Relation
-
-from beliefs.errors import MalformedRecord, VerificationTargetMismatch
-from beliefs.runrecord import run_ref
-from beliefs.spec import freeze
-from beliefs.verify import build_verification, publication_node
-
-
-def _publishable(writer):
-    """Two persisted runs, the stored assessment and the derived verification."""
-    frozen = freeze(spec_draft(target="proposition:p"), held_rules=spec_rules())
-    original = assessment_closure(frozen, token="tok-original")
-    replayed = assessment_closure(frozen, token="tok-replayed")
-    add_observed_datasets(writer, original)
-    writer.add(run_publication(original))
-    writer.add(run_publication(replayed))
-    assessment = writer.add(
-        stored.assessment_node(
-            "a1", title="a1", spec=frozen.identity, run=run_ref(original.address()), proposition="proposition:p",
-            outcome="supported", interpretation_rule=frozen.interpretation_rule,
-        )
-    )
-    evidence = _verification_evidence(frozen)
-    derived = build_verification(
-        original, replayed, specs=evidence.specs, held_rules=evidence.held_rules,
-        contract_identity="science:" + "c" * 64, epoch="epoch:" + "e" * 64,
-    )
-    return assessment, derived
-
-
-def _forgeries(writer, assessment, derived):
-    good = publication_node(derived, assessment_ref=assessment.id)
-    stale_id = good.model_copy(update={"id": "verification:" + "f" * 64})
-    stale_id.relations = [Relation(source=stale_id.id, predicate=r.predicate, target=r.target) for r in good.relations]
-    stored.stamp_semantic_identity(stale_id)
-    bad_report = good.model_copy(deep=True)
-    bad_report.facets[stored.VERIFICATION_FACET]["report"]["diagnostics"] = ["forged"]
-    stored.stamp_semantic_identity(bad_report)
-    no_edge = good.model_copy(deep=True, update={"relations": []})
-    stored.stamp_semantic_identity(no_edge)
-    twin_a1 = writer.add(stored.proposition_node("p9", title="p9", claim={"operator": "affects"}))
-    wrong_target = publication_node(derived, assessment_ref="assessment:absent")
-    other = writer.add(
-        stored.assessment_node(
-            "other", title="other", spec="s-other", run=stored.typed_ref("run", derived.original), proposition=twin_a1.id,
-            outcome="supported", interpretation_rule="rule-1",
-        )
-    )
-    other_identity = publication_node(derived, assessment_ref=other.id)
-    return [
-        (stale_id, MalformedRecord),
-        (bad_report, MalformedRecord),
-        (no_edge, MalformedRecord),
-        (wrong_target, VerificationTargetMismatch),
-        (other_identity, VerificationTargetMismatch),
-    ]
+from beliefs.verify import publication_node
 
 
 def test_v5_each_forgery_is_refused_before_the_intent(tmp_path):
     writer, port = writer_over(tmp_path)
-    assessment, derived = _publishable(writer)
+    published = publish_corpus(writer)
+    cases = forgeries(writer, published)
     port.calls.clear()
-    for node, refusal in _forgeries(writer, assessment, derived):
+    for node, refusal in cases:
         with pytest.raises(refusal):
             writer.operations.add(node)
         assert not [c for c in port.calls if c[0] == "append_intent"], node.id
         assert writer.read_view.resolve(node.id) is None
-    commit = writer.operations.add(publication_node(derived, assessment_ref=assessment.id))
+    commit = writer.operations.add(publication_node(published.derived, assessment_ref=published.assessment.id))
     assert commit.record is not None and primitive_calls(port)[-3:] == ["preflight", "append_intent", "execute_fulfilling"]
 ```
 
@@ -1053,53 +1285,65 @@ Append to `tests/test_import_derivation.py`:
 
 ```python
 # --- V4 / V5 / V6 at the import boundary (design §5.4) ------------------------
-from test_audit import _published, _self_consistent_forgery
-
-from beliefs.errors import VerificationTargetMismatch
-from beliefs.verify import publication_node
+from test_audit import V4_FORGERIES, V4_IDS
+from verification_fixtures import forgeries, publish_corpus, self_consistent_forgery
 
 
-def test_v5_a_forged_published_verification_refuses_the_bundle_before_any_write(tmp_path):
+def _bundle_around(source, published, *extra):
+    view = source.read_view
+    runs = [view.get(stored.typed_ref("run", published.derived.original)), view.get(stored.typed_ref("run", published.derived.replayed))]
+    datasets = [n for n in view.iter_stored() if n.kind == "dataset"]
+    return (*datasets, *runs, published.proposition, published.assessment, *extra)
+
+
+@pytest.mark.parametrize("member, mutate", V4_FORGERIES, ids=V4_IDS)
+def test_v4_every_self_consistent_forgery_refuses_the_bundle_before_any_write(tmp_path, member, mutate):
     source = _writer(tmp_path / "source")
-    evidence, derived, node = _published(source)
-    forged = _self_consistent_forgery(source, node, mutate=lambda f: f.__setitem__("scope", "clean-environment"))
+    published = publish_corpus(source, publish=True)
+    forged = self_consistent_forgery(source, published.node, mutate=mutate)
     target = _writer(tmp_path / "target")
-    runs = [source.read_view.get(stored.typed_ref("run", derived.original)), source.read_view.get(stored.typed_ref("run", derived.replayed))]
-    datasets = [n for n in source.read_view.iter_stored() if n.kind == "dataset"]
-    assessment = source.read_view.get("assessment:a1")
-    with pytest.raises(ImportRefused):
-        target.import_bundle((*datasets, *runs, assessment, forged), evidence=evidence, **IMPORT_FIELDS)
-    assert not path_for(target.root, forged.id).exists() and not path_for(target.root, assessment.id).exists()
-    wrong_target = publication_node(derived, assessment_ref="assessment:absent")
-    with pytest.raises(ImportRefused, match="VerificationTargetMismatch|resolves to no record"):
-        target.import_bundle((*datasets, *runs, assessment, wrong_target), evidence=evidence, **IMPORT_FIELDS)
-    report = target.import_bundle((*datasets, *runs, assessment, source.read_view.get(node.id)), evidence=evidence, **IMPORT_FIELDS)
-    assert "derivation-unchecked" not in " ".join(_report_findings(report))
+    with pytest.raises(ImportRefused, match=member):
+        target.import_bundle(_bundle_around(source, published, forged), evidence=published.evidence, **IMPORT_FIELDS)
+    assert not path_for(target.root, forged.id).exists() and not path_for(target.root, published.assessment.id).exists()
+
+
+def test_v5_every_forgery_refuses_the_bundle_and_the_well_formed_record_imports(tmp_path):
+    source = _writer(tmp_path / "source")
+    published = publish_corpus(source, publish=True)
+    for index, (node, _refusal) in enumerate(forgeries(source, published)):
+        target = _writer(tmp_path / f"target-{index}")
+        with pytest.raises(ImportRefused):
+            target.import_bundle(_bundle_around(source, published, node), evidence=published.evidence, **IMPORT_FIELDS)
+        assert not path_for(target.root, node.id).exists()
+    target = _writer(tmp_path / "target-good")
+    # The target assessment is in the bundle and not in the corpus: the union view resolves it (the import-union arm).
+    report = target.import_bundle(_bundle_around(source, published, source.read_view.get(published.node.id)), evidence=published.evidence, **IMPORT_FIELDS)
+    assert not [f for f in _report_findings(report) if f.startswith("derivation-unchecked")]
+    assert path_for(target.root, published.node.id).exists()
 
 
 def test_v6_a_report_less_verification_imports_on_cut_18s_terms(tmp_path):
-    pair = _two_runs(tmp_path / "source", mount=True, agreeing=True)
-    target = _writer(tmp_path / "target")
-    legacy = _stored_from(pair.verification, slug="legacy")
-    contradicting = _stored_from(pair.verification, slug="flipped", verdict=_flip(pair.verification.verdict))
+    source = _writer(tmp_path / "source")
+    published = publish_corpus(source)
+    legacy = _stored_from(published.derived, slug="legacy")
+    contradicting = _stored_from(published.derived, slug="flipped", verdict=_flip(published.derived.verdict))
     derivation_less = stored.verification_node(
-        "bare", title="bare", assessment=pair.verification.assessment, assessment_ref=ASSESSMENT_REF,
-        scope=pair.verification.scope, verdict=pair.verification.verdict,
+        "bare", title="bare", assessment=published.derived.assessment, assessment_ref=ASSESSMENT_REF,
+        scope=published.derived.scope, verdict=published.derived.verdict,
     )
-    report = target.import_bundle((derivation_less,), evidence=pair.evidence, **IMPORT_FIELDS)
+    target = _writer(tmp_path / "target")
+    report = target.import_bundle((derivation_less,), evidence=published.evidence, **IMPORT_FIELDS)
     assert any(f.startswith("derivation-unchecked: verification:bare") for f in _report_findings(report))
-    report = target.import_bundle((legacy,), evidence=pair.evidence, **IMPORT_FIELDS)
+    report = target.import_bundle((legacy,), evidence=published.evidence, **IMPORT_FIELDS)
     assert any(f.startswith("derivation-unchecked: verification:legacy") for f in _report_findings(report))  # its runs are not in the bundle
     with pytest.raises(ImportRefused):
-        target.import_bundle((*pair.datasets, pair.original_node, pair.replayed_node, contradicting), evidence=pair.evidence, **IMPORT_FIELDS)
+        target.import_bundle(_bundle_around(source, published, contradicting), evidence=published.evidence, **IMPORT_FIELDS)
 ```
-
-Confirm `_two_runs`' returned namespace carries `verification`, `evidence`, `original_node`, `replayed_node` and the datasets (read `tests/test_import_derivation.py:150-200`); if the datasets are not on it, mint them with `add_observed_datasets` into the target before the last import and drop `*pair.datasets`.
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `uv run --frozen pytest tests/test_operation_writes.py tests/test_import_derivation.py -k "v5 or v6" -p no:cacheprovider`
-Expected: FAIL — `ImportError: cannot import name 'VerificationTargetMismatch'`.
+Run: `uv run --frozen pytest tests/test_operation_writes.py tests/test_import_derivation.py -k "v4 or v5 or v6" -p no:cacheprovider`
+Expected: FAIL — `ImportError: cannot import name 'VerificationTargetMismatch'` (raised from `verification_fixtures.forgeries`).
 
 - [ ] **Step 3: Add the refusal class** — `errors.py`, after `ValidationRefused`:
 
@@ -1112,14 +1356,14 @@ class VerificationTargetMismatch(WriteRefused):
     with the same identity is an equally valid target (decision 17)."""
 ```
 
-- [ ] **Step 4: Add the preflight step** — `corpus.py`, in `_refuse`, between `self._refuse_invalid(node)`'s block and `self._refuse_governed_stamp(node)`:
+- [ ] **Step 4: Add the preflight step** — `corpus.py`, in `_refuse`, between the `_refuse_invalid` block and `self._refuse_governed_stamp(node)`:
 
 ```python
         if node.kind == "verification":
             self._refuse_verification(node, view=self._view if view is None else view)
 ```
 
-and, after `_refuse_governed_stamp`:
+and after `_refuse_governed_stamp`:
 
 ```python
     def _refuse_verification(self, node: Node, *, view: ReadView | _ImportView) -> None:
@@ -1147,7 +1391,7 @@ and, after `_refuse_governed_stamp`:
             )
 ```
 
-Import `VerificationTargetMismatch` from `beliefs.errors` in `corpus.py`. Confirm `self._view` is the writer's read view attribute (it is what `_validated_import_bundle` wraps); if `_refuse` is also reached with `view=None` from a path where the view is not yet built, use `self.read_view`.
+Import `VerificationTargetMismatch` from `beliefs.errors` in `corpus.py`. `self._view` is the writer's read view, the one `_validated_import_bundle` wraps in `_ImportView`.
 
 - [ ] **Step 5: Run to verify they pass, then the suite**
 
@@ -1166,14 +1410,14 @@ git commit -m "feat(corpus): refuse a forged or mistargeted published verificati
 ### Task 6: The analysis-spec record (V8) — `beliefs-91aac6`
 
 **Files:**
-- Modify: `python/src/beliefs/spec.py` (`frozen_projection`, `restore`, the three inverse helpers; `__all__`)
+- Modify: `python/src/beliefs/spec.py` (`frozen_projection`, `restore`, the inverse helpers; `__all__`)
 - Modify: `python/src/beliefs/stored.py` (`ANALYSIS_SPEC_FACET`, `analysis_spec_node`, `analysis_spec_value`; `__all__`)
-- Modify: `python/src/beliefs/corpus.py:2099-2112` (`_refuse_r20_contradiction`) and `_refuse`
+- Modify: `python/src/beliefs/corpus.py` (`_refuse_r20_contradiction` at 2099–2112, `_refuse`, `_validated_import_bundle`)
 - Modify: `python/src/beliefs/audit.py` (`check_analysis_spec`, `stored_specs`, the dispatch)
-- Test: `python/tests/test_spec.py`, `python/tests/test_stored.py`, `python/tests/test_audit.py`, `python/tests/test_import_derivation.py`
+- Test: `python/tests/test_spec.py`, `python/tests/test_stored.py`, `python/tests/test_audit.py`, `python/tests/test_import_derivation.py`, `python/tests/test_corpus_write.py`
 
 **Interfaces:**
-- Produces: `spec.frozen_projection(spec: FrozenSpec) -> dict[str, object]`; `spec.restore(identity: str, projection: bytes) -> FrozenSpec`; `stored.ANALYSIS_SPEC_FACET = "analysis-spec"`; `stored.analysis_spec_node(spec: FrozenSpec) -> Node`; `stored.analysis_spec_value(node: Node) -> FrozenSpec`; `audit.check_analysis_spec(node: Node) -> DerivationOutcome`; `audit.stored_specs(view) -> tuple[Mapping[str, FrozenSpec], tuple[Finding, ...]]`.
+- Produces: `spec.frozen_projection(spec) -> dict[str, object]`; `spec.restore(identity: str, projection: bytes) -> FrozenSpec`; `stored.ANALYSIS_SPEC_FACET`; `stored.analysis_spec_node(spec) -> Node`; `stored.analysis_spec_value(node) -> FrozenSpec`; `audit.check_analysis_spec(node) -> DerivationOutcome`; `audit.stored_specs(view) -> tuple[Mapping[str, FrozenSpec], tuple[Finding, ...]]`; `test_audit._false_spec_record(spec) -> Node`.
 
 - [ ] **Step 1: `tasks start beliefs-91aac6`**
 
@@ -1182,7 +1426,7 @@ git commit -m "feat(corpus): refuse a forged or mistargeted published verificati
 Append to `tests/test_spec.py`:
 
 ```python
-# --- V8: restore from canonical projection text (design §7) -------------------
+# --- V8: restore from canonical projection text, no coercion (design §7) -----
 from decimal import Decimal
 
 import pytest
@@ -1191,6 +1435,7 @@ from fixtures_cut3 import spec_draft, spec_rules
 from beliefs.errors import MalformedRecord, UnfreezableSpec
 from beliefs.identity import v1
 from beliefs.spec import (
+    SPEC_DOMAIN,
     ExclusionCertification,
     Seeded,
     SpecInput,
@@ -1210,6 +1455,10 @@ def _rich_spec():
         parameters={"alpha": Decimal("0.05"), "iterations": 10, "labels": ["a", "b"], "nested": {"k": Decimal("1.5")}},
     )
     return freeze(draft, held_rules=spec_rules())
+
+
+def _identified(mapping) -> tuple[str, bytes]:
+    return v1.digest(SPEC_DOMAIN, mapping), v1.encode(mapping)
 
 
 def test_v8_restore_round_trips_every_member_and_the_decimal_by_type():
@@ -1240,6 +1489,29 @@ def test_v8_restore_refuses_a_projection_that_does_not_digest_to_the_identity(co
         restore(spec.identity, v1.encode(mapping))
 
 
+@pytest.mark.parametrize(
+    "corrupt",
+    [
+        lambda m: m.__setitem__("target", 7),
+        lambda m: m.__setitem__("target", ""),
+        lambda m: m.__setitem__("parameters", ["not", "a", "mapping"]),
+        lambda m: m["nondeterminism"]["plan"]["roots"].__setitem__("model-initialization", Decimal("7.5")),
+        lambda m: m["nondeterminism"]["plan"]["roots"].__setitem__("model-initialization", True),
+        lambda m: m["input_roles"][0].__setitem__("role", 1),
+        lambda m: m.__setitem__("rule_bindings", [["only-one"]]),
+        lambda m: m.__setitem__("supersedes", 5),
+    ],
+)
+def test_v8_restore_refuses_a_member_of_the_wrong_type_even_under_its_own_identity(corrupt):
+    """[R1] The digest agrees with the text by construction; the members are
+    still typed and never coerced, and `freeze`'s invariants hold."""
+    mapping = frozen_projection(_rich_spec())
+    corrupt(mapping)
+    identity, text = _identified(mapping)
+    with pytest.raises(MalformedRecord):
+        restore(identity, text)
+
+
 def test_v8_restore_refuses_non_canonical_text_and_the_unfreezable_pair():
     spec = _rich_spec()
     text = v1.encode(frozen_projection(spec))
@@ -1247,13 +1519,10 @@ def test_v8_restore_refuses_non_canonical_text_and_the_unfreezable_pair():
         restore(spec.identity, text + b"\n")
     with pytest.raises(MalformedRecord):
         restore(spec.identity, b"{}")
-    draft = spec_draft(nondeterminism=StochasticUnseeded(rationale="urandom"), equivalence_rule="content-identity-equality/v1")
-    mapping = {**frozen_projection(freeze(spec_draft(), held_rules=spec_rules())), "nondeterminism": draft.nondeterminism.projection()}
-    from beliefs.spec import SPEC_DOMAIN
-
-    identity = v1.digest(SPEC_DOMAIN, mapping)
+    mapping = {**frozen_projection(freeze(spec_draft(), held_rules=spec_rules())), "nondeterminism": StochasticUnseeded(rationale="urandom").projection()}
+    identity, text = _identified(mapping)
     with pytest.raises(UnfreezableSpec):
-        restore(identity, v1.encode(mapping))
+        restore(identity, text)
 ```
 
 Append to `tests/test_stored.py`:
@@ -1298,16 +1567,21 @@ Append to `tests/test_audit.py`:
 ```python
 # --- V8: no spec disappears silently (design decision 15) --------------------
 from beliefs.audit import check_analysis_spec, stored_specs
+from beliefs.evidence import NO_EVIDENCE
 from beliefs.spec import freeze
+
+
+def _false_spec_record(spec):
+    forged = stored.analysis_spec_node(spec).model_copy(update={"id": "analysis-spec:forged"})
+    forged.facets[stored.ANALYSIS_SPEC_FACET]["identity"] = "forged"
+    forged.facets[stored.ANALYSIS_SPEC_FACET]["projection"] = forged.facets[stored.ANALYSIS_SPEC_FACET]["projection"].replace("fit the model", "fit another model")
+    return stored.stamp_semantic_identity(forged)
 
 
 def test_v8_the_audit_names_a_spec_that_does_not_restore_and_stored_specs_reports_it(writer):
     spec = freeze(spec_draft(), held_rules=spec_rules())
     good = writer.add(stored.analysis_spec_node(spec))
-    forged = stored.analysis_spec_node(spec).model_copy(update={"id": "analysis-spec:forged"})
-    forged.facets[stored.ANALYSIS_SPEC_FACET]["identity"] = "forged"
-    forged.facets[stored.ANALYSIS_SPEC_FACET]["projection"] = forged.facets[stored.ANALYSIS_SPEC_FACET]["projection"].replace("fit the model", "fit another model")
-    stored.stamp_semantic_identity(forged)
+    forged = _false_spec_record(spec)
     raw_write(writer.root, forged)
     view = reopen(writer.root)
     assert check_analysis_spec(view.get(good.id)).checked
@@ -1319,42 +1593,54 @@ def test_v8_the_audit_names_a_spec_that_does_not_restore_and_stored_specs_report
 
 
 def test_v4_the_audit_reaches_the_same_verdict_with_specs_restored_from_the_corpus(writer):
-    evidence, derived, node = _published(writer)
-    frozen = next(iter(evidence.specs.values()))
-    writer.add(stored.analysis_spec_node(frozen))
+    published = publish_corpus(writer, publish=True)
+    writer.add(stored.analysis_spec_node(published.frozen))
     specs, findings = stored_specs(writer.read_view)
-    assert not findings and set(specs) == {frozen.identity}
+    assert not findings and set(specs) == {published.frozen.identity}
     from dataclasses import replace
 
-    from_corpus = replace(evidence, specs=specs)
-    outcome = check_verification(writer.read_view, writer.read_view.get(node.id), evidence=from_corpus)
+    from_corpus = replace(published.evidence, specs=specs)
+    outcome = check_verification(writer.read_view, writer.read_view.get(published.node.id), evidence=from_corpus)
     assert outcome.checked and outcome.contradiction is None
 ```
 
-Append to `tests/test_import_derivation.py`:
+Append to `tests/test_import_derivation.py` and `tests/test_corpus_write.py` respectively:
 
 ```python
 def test_v8_a_spec_record_whose_identity_is_false_refuses_the_bundle(tmp_path):
+    from test_audit import _false_spec_record
+
+    from beliefs.evidence import NO_EVIDENCE
     from beliefs.spec import freeze
 
-    spec = freeze(spec_draft(), held_rules=spec_rules())
-    forged = stored.analysis_spec_node(spec)
-    forged.facets[stored.ANALYSIS_SPEC_FACET]["projection"] = forged.facets[stored.ANALYSIS_SPEC_FACET]["projection"].replace("fit the model", "fit another model")
-    stored.stamp_semantic_identity(forged)
+    forged = _false_spec_record(freeze(spec_draft(), held_rules=spec_rules()))
     target = _writer(tmp_path / "target")
     with pytest.raises(ImportRefused):
         target.import_bundle((forged,), evidence=NO_EVIDENCE, **IMPORT_FIELDS)
     assert not path_for(target.root, forged.id).exists()
 ```
 
-(`NO_EVIDENCE` from `beliefs.evidence`; `MalformedRecord` and `pytest` as needed.)
+```python
+def test_v8_a_spec_record_whose_identity_is_false_is_refused_at_add(tmp_path):
+    from fixtures_cut3 import spec_draft, spec_rules
+    from test_audit import _false_spec_record
+    from test_relocation import _writer
+
+    from beliefs.errors import MalformedRecord
+    from beliefs.spec import freeze
+
+    writer = _writer(tmp_path / "corpus")
+    with pytest.raises(MalformedRecord):
+        writer.add(_false_spec_record(freeze(spec_draft(), held_rules=spec_rules())))
+    assert writer.read_view.resolve("analysis-spec:forged") is None
+```
 
 - [ ] **Step 3: Run to verify they fail**
 
-Run: `uv run --frozen pytest tests/test_spec.py tests/test_stored.py tests/test_audit.py tests/test_import_derivation.py -k v8 -p no:cacheprovider`
+Run: `uv run --frozen pytest tests/test_spec.py tests/test_stored.py tests/test_audit.py tests/test_import_derivation.py tests/test_corpus_write.py -k v8 -p no:cacheprovider`
 Expected: FAIL — `ImportError: cannot import name 'frozen_projection'`.
 
-- [ ] **Step 4: Add `frozen_projection` and `restore` to `spec.py`** after `freeze`:
+- [ ] **Step 4: Add `frozen_projection` and `restore` to `spec.py`** after `freeze` **[R1]**:
 
 ```python
 def frozen_projection(spec: FrozenSpec) -> dict[str, object]:
@@ -1371,78 +1657,87 @@ _FROZEN_MEMBERS = frozenset(
         "interpretation_rule", "equivalence_rule", "parameters", "nondeterminism", "rule_bindings",
     }
 )
+_TEXT_MEMBERS = ("target", "estimand", "method", "assumptions", "falsification", "applicability", "interpretation_rule", "equivalence_rule")
 
 
-def _restore_input(entry: object) -> SpecInput:
+def _text(mapping: Mapping[str, object], name: str, where: str) -> str:
+    value = mapping[name]
+    if type(value) is not str:
+        raise MalformedRecord(f"{where}: {name} is a string")
+    return value
+
+
+def _restore_input(entry: object, where: str) -> SpecInput:
     if not isinstance(entry, dict) or not {"role", "dataset"} <= set(entry) <= {"role", "dataset", "exclusion"}:
-        raise MalformedRecord("a spec input names role and dataset, with an optional exclusion")
+        raise MalformedRecord(f"{where}: a spec input names role and dataset, with an optional exclusion")
     exclusion = None
     if "exclusion" in entry:
         claim = entry["exclusion"]
         if not isinstance(claim, dict) or set(claim) != {"rationale", "attribution"}:
-            raise MalformedRecord("an exclusion names exactly rationale and attribution")
-        exclusion = ExclusionCertification(rationale=str(claim["rationale"]), attribution=str(claim["attribution"]))
-    return SpecInput(role=str(entry["role"]), dataset=str(entry["dataset"]), exclusion=exclusion)
+            raise MalformedRecord(f"{where}: an exclusion names exactly rationale and attribution")
+        exclusion = ExclusionCertification(rationale=_text(claim, "rationale", where), attribution=_text(claim, "attribution", where))
+    return SpecInput(role=_text(entry, "role", where), dataset=_text(entry, "dataset", where), exclusion=exclusion)
 
 
-def _restore_nondeterminism(value: object) -> NondeterminismContract:
+def _restore_nondeterminism(value: object, where: str) -> NondeterminismContract:
     if not isinstance(value, dict) or type(value.get("variant")) is not str:
-        raise MalformedRecord("a nondeterminism member names its variant")
+        raise MalformedRecord(f"{where}: a nondeterminism member names its variant")
     variant = value["variant"]
     if variant == "deterministic" and set(value) == {"variant"}:
         return Deterministic()
     if variant == "stochastic-unseeded" and set(value) == {"variant", "rationale"}:
-        return StochasticUnseeded(rationale=str(value["rationale"]))
+        return StochasticUnseeded(rationale=_text(value, "rationale", where))
     if variant == "seeded" and set(value) == {"variant", "plan"}:
         plan = value["plan"]
         if not isinstance(plan, dict) or set(plan) != {"derivation_rule", "streams", "roots", "stream_roots"}:
-            raise MalformedRecord("a seed plan names derivation_rule, streams, roots and stream_roots")
-        return Seeded(
-            plan=SeedPlan(
-                derivation_rule=str(plan["derivation_rule"]),
-                streams=tuple(str(s) for s in plan["streams"]),
-                roots={str(k): int(v) for k, v in plan["roots"].items()},
-                stream_roots={str(k): str(v) for k, v in plan["stream_roots"].items()},
-            )
-        )
-    raise MalformedRecord(f"nondeterminism variant {variant!r} is not one of the three")
+            raise MalformedRecord(f"{where}: a seed plan names derivation_rule, streams, roots and stream_roots")
+        streams, roots, stream_roots = plan["streams"], plan["roots"], plan["stream_roots"]
+        if not isinstance(streams, list) or any(type(s) is not str for s in streams):
+            raise MalformedRecord(f"{where}: seed plan streams are strings")
+        if not isinstance(roots, dict) or any(type(k) is not str or type(v) is not int for k, v in roots.items()):
+            raise MalformedRecord(f"{where}: seed plan roots map stream keys to integers")
+        if not isinstance(stream_roots, dict) or any(type(k) is not str or type(v) is not str for k, v in stream_roots.items()):
+            raise MalformedRecord(f"{where}: seed plan stream roots map strings to strings")
+        return Seeded(plan=SeedPlan(derivation_rule=_text(plan, "derivation_rule", where), streams=tuple(streams), roots=dict(roots), stream_roots=dict(stream_roots)))
+    raise MalformedRecord(f"{where}: nondeterminism variant {variant!r} is not one of the three")
 
 
 def restore(identity: str, projection: bytes) -> FrozenSpec:
     """The third mint: a frozen spec from its stored canonical projection
     (design §7). Refuses text that is not canonical, a mapping that is not
-    exactly the frozen members, a digest that is not `identity`, and the
-    pair `freeze` refuses — so a stored spec is exactly one `freeze` produced."""
+    exactly the frozen members, a digest that is not `identity`, any member of
+    the wrong type — nothing is coerced — and the pair `freeze` refuses, so a
+    stored spec is exactly one `freeze` produced."""
+    where = f"analysis-spec {identity[:12]}"
     try:
         mapping = v1.decode(projection)
     except CanonicalTextRefused as refused:
-        raise MalformedRecord(f"analysis-spec {identity[:12]}: the projection is not canonical text: {refused}") from refused
+        raise MalformedRecord(f"{where}: the projection is not canonical text: {refused}") from refused
     if not isinstance(mapping, dict) or not _FROZEN_MEMBERS <= set(mapping) <= _FROZEN_MEMBERS | {"supersedes"}:
-        raise MalformedRecord(f"analysis-spec {identity[:12]}: the projection carries exactly the frozen members")
+        raise MalformedRecord(f"{where}: the projection carries exactly the frozen members")
     if v1.digest(SPEC_DOMAIN, mapping) != identity:
-        raise MalformedRecord(f"analysis-spec {identity[:12]}: the projection does not digest to the identity")
-    if not isinstance(mapping["input_roles"], list) or not isinstance(mapping["rule_bindings"], list):
-        raise MalformedRecord(f"analysis-spec {identity[:12]}: input_roles and rule_bindings are lists")
+        raise MalformedRecord(f"{where}: the projection does not digest to the identity")
+    text = {name: _text(mapping, name, where) for name in _TEXT_MEMBERS}
+    if not text["target"]:
+        raise MalformedRecord(f"{where}: an assessment spec targets a proposition; an empty target is not a spec (R7)")
+    if not isinstance(mapping["input_roles"], list):
+        raise MalformedRecord(f"{where}: input_roles is a list")
+    if not isinstance(mapping["parameters"], dict) or any(type(k) is not str for k in mapping["parameters"]):
+        raise MalformedRecord(f"{where}: parameters is a mapping with string keys")
     bindings = mapping["rule_bindings"]
-    if any(not isinstance(pair, list) or len(pair) != 2 or any(type(half) is not str for half in pair) for pair in bindings):
-        raise MalformedRecord(f"analysis-spec {identity[:12]}: rule bindings are string pairs")
-    nondeterminism = _restore_nondeterminism(mapping["nondeterminism"])
-    equivalence_rule = str(mapping["equivalence_rule"])
-    if isinstance(nondeterminism, StochasticUnseeded) and equivalence_rule in BITWISE_EQUIVALENCE_RULES:
+    if not isinstance(bindings, list) or any(
+        not isinstance(pair, list) or len(pair) != 2 or any(type(half) is not str for half in pair) for pair in bindings
+    ):
+        raise MalformedRecord(f"{where}: rule bindings are string pairs")
+    nondeterminism = _restore_nondeterminism(mapping["nondeterminism"], where)
+    if isinstance(nondeterminism, StochasticUnseeded) and text["equivalence_rule"] in BITWISE_EQUIVALENCE_RULES:
         raise UnfreezableSpec("stochastic-unseeded cannot support a bitwise equivalence rule (computation §3.1a)")
     supersedes = mapping.get("supersedes")
     if supersedes is not None and type(supersedes) is not str:
-        raise MalformedRecord(f"analysis-spec {identity[:12]}: supersedes is a string")
+        raise MalformedRecord(f"{where}: supersedes is a string")
     return _mint_frozen_spec(
-        target=str(mapping["target"]),
-        estimand=str(mapping["estimand"]),
-        method=str(mapping["method"]),
-        assumptions=str(mapping["assumptions"]),
-        falsification=str(mapping["falsification"]),
-        input_roles=tuple(_restore_input(entry) for entry in mapping["input_roles"]),
-        applicability=str(mapping["applicability"]),
-        interpretation_rule=str(mapping["interpretation_rule"]),
-        equivalence_rule=equivalence_rule,
+        **text,
+        input_roles=tuple(_restore_input(entry, where) for entry in mapping["input_roles"]),
         parameters=_freeze_parameter_value(mapping["parameters"]),
         nondeterminism=nondeterminism,
         rule_bindings=tuple((pair[0], pair[1]) for pair in bindings),
@@ -1451,7 +1746,7 @@ def restore(identity: str, projection: bytes) -> FrozenSpec:
     )
 ```
 
-Import `CanonicalTextRefused` from `beliefs.errors`. Add `"frozen_projection"` and `"restore"` to `__all__`. Widen `FrozenSpec.__init__`'s message to "FrozenSpec values are minted by freeze, revise or restore". If `_mint_frozen_spec` does not accept the `parameters` value as frozen (check `FrozenSpec.__post_init__`), pass the decoded mapping through the same freezing `SpecDraft.__post_init__` applies.
+Import `CanonicalTextRefused` from `beliefs.errors` and `Mapping` from `collections.abc`. Add `"frozen_projection"` and `"restore"` to `__all__`. Widen `FrozenSpec.__init__`'s message to "FrozenSpec values are minted by freeze, revise or restore". Read `FrozenSpec.__post_init__` (spec.py ~300): if it re-freezes `parameters` itself, pass the decoded mapping as is.
 
 - [ ] **Step 5: Add the builder and reader to `stored.py`**
 
@@ -1484,7 +1779,7 @@ def analysis_spec_value(node: Node) -> FrozenSpec:
     return spec
 ```
 
-Add both to `__all__`. Confirm the module graph stays acyclic: `spec.py` imports `errors`, `identity`, `sealed` only.
+Add both to `__all__`. `spec.py` imports `errors`, `identity`, `sealed` only, so the graph stays acyclic.
 
 - [ ] **Step 6: Route the preflight and the r20 check through the reader** — `corpus.py`:
 
@@ -1494,7 +1789,8 @@ Replace `_refuse_r20_contradiction`'s body with:
     @staticmethod
     def _refuse_r20_contradiction(record: Node) -> None:
         """A stored spec restores, or the record is refused: the r20 pair is
-        `restore`'s `UnfreezableSpec`, surfaced as document validation."""
+        `restore`'s `UnfreezableSpec`, surfaced as document validation; every
+        other malformedness propagates as `restore` raised it."""
         if record.kind != "analysis-spec":
             return
         try:
@@ -1503,14 +1799,14 @@ Replace `_refuse_r20_contradiction`'s body with:
             raise ValidationRefused(f"{record.id}: {caught}") from caught
 ```
 
-and in `_refuse`, beside the verification step:
+In `_refuse`, beside the verification step:
 
 ```python
         if node.kind == "analysis-spec":
             self._refuse_r20_contradiction(node)
 ```
 
-Import `UnfreezableSpec` from `beliefs.errors`. Then find every test fixture that hand-builds an `analysis-spec` record (`grep -rn '"analysis-spec"' tests/ | grep -v analysis_spec_node`) and rebuild each through `stored.analysis_spec_node(freeze(...))`; a fixture that existed to exercise the r20 refusal builds a `StochasticUnseeded` draft under `content-identity-equality/v1` and asserts `ValidationRefused` from the writer (its `freeze` would refuse, so build its node from the projection mapping by hand exactly as `test_spec.py`'s unfreezable case does, stamped through `stamp_semantic_identity`).
+and in `_validated_import_bundle` delete the separate `self._refuse_r20_contradiction(record)` line — `_refuse(record, view=union)` now performs it, so the one call site is the one Task 10's arm sabotages. Import `UnfreezableSpec` from `beliefs.errors`. Then find every test fixture that hand-builds an `analysis-spec` record (`grep -rn '"analysis-spec"' tests/ | grep -v analysis_spec_node`) and rebuild each through `stored.analysis_spec_node(freeze(...))`; a fixture that existed to exercise the r20 refusal builds its node from the unfreezable mapping exactly as `test_spec.py`'s `_identified` case does, stamped through `stamp_semantic_identity`, and asserts `ValidationRefused`.
 
 - [ ] **Step 7: Add the audit branch and `stored_specs`** — `audit.py`:
 
@@ -1559,7 +1855,7 @@ Run: `uv run --frozen pytest -p no:cacheprovider 2>&1 | tail -3 && uv run --froz
 - [ ] **Step 9: Commit**
 
 ```bash
-tasks done beliefs-91aac6 "stored.analysis_spec_node / analysis_spec_value over canonical projection text; spec.restore recomputes the identity; the preflight, the r20 check and audit_corpus restore every spec; stored_specs returns specs and findings"
+tasks done beliefs-91aac6 "stored.analysis_spec_node / analysis_spec_value over canonical projection text; spec.restore recomputes the identity and coerces nothing; the preflight, the r20 check and audit_corpus restore every spec; stored_specs returns specs and findings"
 git add -A python tasks
 git commit -m "feat(spec): a stored analysis-spec builder and reader over canonical projection text (V8)"
 ```
@@ -1569,12 +1865,10 @@ git commit -m "feat(spec): a stored analysis-spec builder and reader over canoni
 ### Task 7: Admission over records read back (V3, V7's gather arm; V2 widened)
 
 **Files:**
-- Test: `python/tests/test_evaluation.py`, `python/tests/test_verification_identity.py`
+- Create: `python/tests/test_verification_publication.py` **[R6]**
+- Modify: `python/tests/test_verification_identity.py`, `python/tests/test_evaluation.py` (V7's gather arm only)
 
-**Interfaces:**
-- Consumes: Tasks 1–6.
-
-- [ ] **Step 1: Widen the identity test to the full path** — replace the tail of `tests/test_verification_identity.py` from `stored_node = writer.add(` onward with:
+- [ ] **Step 1: Widen the identity test to the full path** — replace its tail from `stored_node = writer.add(` onward with:
 
 ```python
     from beliefs.verify import publication_node
@@ -1592,177 +1886,99 @@ git commit -m "feat(spec): a stored analysis-spec builder and reader over canoni
     assert outcome.checked and outcome.contradiction is None
 
     # V2 in full: gather -> admit over the corpus, the gate's every clause.
-    from test_verification_publication import admission_over
+    from verification_fixtures import admission_over
 
-    verdict, belief = admission_over(writer, proposition.id, original)
+    verdict, belief = admission_over(writer, published.proposition.id, original)
     assert isinstance(verdict, Admitted), verdict
     assert isinstance(belief, Belief), belief
 ```
 
 with `from beliefs.admission import Admitted` and `from beliefs.belief import Belief` at the top.
 
-- [ ] **Step 2: Write the V3/V7 module** — create `tests/test_verification_publication.py`:
+- [ ] **Step 2: Write the V3 module** — `tests/test_verification_publication.py`:
 
 ```python
-"""V3 and V7's gather arm (design §8): admission is evaluated over records
-read back, and the belief moves with the verification record."""
+"""V3 (design §8): admission is evaluated over records read back, and the
+belief moves with the verification record. V7's gather arm sits in
+`test_evaluation.py` beside the gather fixture; nothing here is imported
+back into `test_evaluation`."""
 
 from __future__ import annotations
 
-from fixtures_cut3 import spec_draft, spec_rules
-from test_audit import add_observed_datasets, assessment_closure, run_publication, writer  # noqa: F401
-from test_belief import PROFILE
-from test_evaluation import CLAIM_FACET, EX, GENE, OTHER_GENE, PHENO
+from test_audit import writer  # noqa: F401 - the fixture
+from test_evaluation import CLAIM_FACET, OTHER_GENE, PHENO
+from verification_fixtures import admission_over, evaluation_kwargs, publish_corpus
 
 from beliefs import stored
-from beliefs.admission import admit
-from beliefs.belief import Availability, Belief, NoBelief, SuppliedContext
-from beliefs.closure import RetractionEnumeration
-from beliefs.consulted import CorpusPins
-from beliefs.corpus import lineage_snapshot
-from beliefs.dataset import ByteObservation, dataset_address
-from beliefs.evaluation import evaluate_over, gather
-from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding
-from beliefs.resolution import build_snapshot
+from beliefs.belief import Belief, NoBelief
+from beliefs.evaluation import gather
 from beliefs.runrecord import run_ref
-from beliefs.spec import freeze
-from beliefs.verify import AssessmentVerification, build_verification, publication_node
-from test_audit import _verification_evidence
-
-BINDING = PolicyBinding(rule=BELIEF_V1_RULE, implementation=BELIEF_V1.identity)
+from beliefs.verification import INVALIDATED, active, lifecycle_state
+from beliefs.verify import _mint_verification, publication_node
 
 
-def _observations(view):
-    """One observation per held dataset, at its declared digest, so `admit`
-    reads every input as Held."""
-    observations = {}
-    for node in view.iter_stored():
-        if node.kind != "dataset":
-            continue
-        declaration = stored.dataset_declaration(node)
-        address = dataset_address(declaration)
-        if address is not None:
-            observations[address] = tuple(
-                ByteObservation(digest=resource.digest, location="repo://data") for resource in declaration.resources if resource.digest
-            )
-    return observations
-
-
-def _kwargs(view, proposition_ref: str, identities: dict[str, str]):
-    addresses = list(_observations(view))
-    return {
-        "availability": Availability(observations=_observations(view), implementations={BELIEF_V1.identity: BELIEF_V1}, fixtures={BELIEF_V1_RULE: BELIEF_V1_FIXTURES}),
-        "context": SuppliedContext(
-            snapshot=lineage_snapshot(view, addresses),
-            producer_snapshot_identity="producer-snapshot-1",
-            retractions=RetractionEnumeration(found=(), coverage=("c1",)),
-            node_corpus={identity: "c1" for identity in identities},
-            pins={"c1": CorpusPins(science_contract="sci-1", domains={"testing": "testing-1"})},
-        ),
-        "profile": PROFILE,
-        "resolution": build_snapshot(readable={EX: [GENE, PHENO, OTHER_GENE]}),
-        "binding": BINDING,
-    }
-
-
-def admission_over(writer, proposition_ref: str, original):
-    """`gather` -> `admit` -> `evaluate_over` over the corpus as it stands."""
+def _gathered(writer, proposition_ref):
     view = writer.read_view
-    identities = {stored.assessment_value(n).identity(): n.id for n in view.iter_stored() if n.kind == "assessment"}
-    kwargs = _kwargs(view, proposition_ref, identities)
-    gathered = {k: v for k, v in kwargs.items() if k != "availability"}
-    inputs = gather(view, proposition_ref, **gathered)
-    (a,) = [a for a in inputs.assessments if a.run == original.address()]
-    verdict = admit(a, inputs.runs[a.run], kwargs["availability"].observations, inputs.verifications)
-    return verdict, evaluate_over(view, proposition_ref, **kwargs)
-
-
-def _corpus(writer):
-    """A typed proposition, two persisted runs, the stored assessment and the
-    derived verification — everything V3 publishes and then moves."""
-    proposition = writer.add(stored.proposition_node("p", title="p", claim=CLAIM_FACET))
-    frozen = freeze(spec_draft(target=proposition.id), held_rules=spec_rules())
-    original = assessment_closure(frozen, token="tok-original")
-    replayed = assessment_closure(frozen, token="tok-replayed")
-    add_observed_datasets(writer, original)
-    writer.add(run_publication(original))
-    writer.add(run_publication(replayed))
-    assessment = writer.add(
-        stored.assessment_node(
-            "a1", title="a1", spec=frozen.identity, run=run_ref(original.address()), proposition=proposition.id,
-            outcome="supported", interpretation_rule=frozen.interpretation_rule,
-        )
-    )
-    evidence = _verification_evidence(frozen)
-    derived = build_verification(
-        original, replayed, specs=evidence.specs, held_rules=evidence.held_rules,
-        contract_identity="science:" + "c" * 64, epoch="epoch:" + "e" * 64,
-    )
-    assert isinstance(derived, AssessmentVerification)
-    return proposition, original, replayed, assessment, derived
+    return gather(view, proposition_ref, **{k: v for k, v in evaluation_kwargs(view).items() if k != "availability"})
 
 
 def test_v3_the_belief_moves_with_the_verification_record(writer):
-    proposition, original, replayed, assessment, derived = _corpus(writer)
-    _, before = admission_over(writer, proposition.id, original)
+    published = publish_corpus(writer, claim=CLAIM_FACET)
+    _, before = admission_over(writer, published.proposition.id, published.original)
     assert isinstance(before, NoBelief) and before.reason == "no-eligible-assessment"
-    published = writer.add(publication_node(derived, assessment_ref=assessment.id))
-    _, belief = admission_over(writer, proposition.id, original)
+    node = writer.add(publication_node(published.derived, assessment_ref=published.assessment.id))
+    _, belief = admission_over(writer, published.proposition.id, published.original)
     assert isinstance(belief, Belief)
-    writer.delete(published.id)
-    _, after = admission_over(writer, proposition.id, original)
+    writer.delete(node.id)
+    _, after = admission_over(writer, published.proposition.id, published.original)
     assert isinstance(after, NoBelief) and after.reason == "no-eligible-assessment"
 
 
-def test_v3_a_superseding_failed_verification_invalidates(writer):
-    proposition, original, replayed, assessment, derived = _corpus(writer)
-    first = writer.add(publication_node(derived, assessment_ref=assessment.id))
-    from beliefs.verify import _mint_verification  # the private mint: `build_verification` never sets `supersedes`
-
-    failed = _mint_verification(
+def test_v3_a_superseding_failed_verification_invalidates_and_retires_its_predecessor(writer):
+    published = publish_corpus(writer, claim=CLAIM_FACET, publish=True)
+    derived = published.derived
+    failed = _mint_verification(  # the private mint: `build_verification` never sets `supersedes`
         original=derived.original, replayed=derived.replayed, assessment=derived.assessment, rule=derived.rule,
         report=derived.report, scope_rule=derived.scope_rule, scope=derived.scope, verdict="failed",
         supersedes=derived.identity(),
     )
-    writer.add(publication_node(failed, assessment_ref=assessment.id))
-    inputs = gather(writer.read_view, proposition.id, **{k: v for k, v in _kwargs(writer.read_view, proposition.id, {}).items() if k != "availability"})
-    from beliefs.verification import INVALIDATED, lifecycle_state
-
+    successor = writer.add(publication_node(failed, assessment_ref=published.assessment.id))
+    inputs = _gathered(writer, published.proposition.id)
     assert lifecycle_state(inputs.verifications) == INVALIDATED
-    assert stored.verification_value(writer.read_view.get(first.id)).ref == first.id
+    assert {v.ref for v in active(inputs.verifications)} == {successor.id}  # [R10] the predecessor leaves the active set
+    _, belief = admission_over(writer, published.proposition.id, published.original)
+    assert isinstance(belief, NoBelief)
 
 
 def test_v3_negatives_another_proposition_is_never_gathered_and_a_twin_target_admits(writer):
-    proposition, original, replayed, assessment, derived = _corpus(writer)
+    published = publish_corpus(writer, claim=CLAIM_FACET)
+    value = stored.assessment_value(published.assessment)
     twin = writer.add(
         stored.assessment_node(
-            "a1-twin", title="twin", spec=stored.assessment_value(assessment).spec, run=run_ref(original.address()),
-            proposition=proposition.id, outcome="supported", interpretation_rule=stored.assessment_value(assessment).interpretation_rule,
+            "a-p-twin", title="twin", spec=value.spec, run=run_ref(published.original.address()),
+            proposition=published.proposition.id, outcome=value.outcome, interpretation_rule=value.interpretation_rule,
         )
     )
-    assert stored.assessment_value(twin).identity() == stored.assessment_value(assessment).identity()
-    writer.add(publication_node(derived, assessment_ref=twin.id))  # decision 17: the twin is a valid target
-    verdict, belief = admission_over(writer, proposition.id, original)
+    assert stored.assessment_value(twin).identity() == value.identity()
+    writer.add(publication_node(published.derived, assessment_ref=twin.id))  # decision 17: the twin is a valid target
+    _, belief = admission_over(writer, published.proposition.id, published.original)  # [R5] admission is over the identity
     assert isinstance(belief, Belief)
     other = writer.add(stored.proposition_node("q", title="q", claim={**CLAIM_FACET, "args": [OTHER_GENE, PHENO]}))
-    inputs = gather(writer.read_view, other.id, **{k: v for k, v in _kwargs(writer.read_view, other.id, {}).items() if k != "availability"})
+    inputs = _gathered(writer, other.id)
     assert inputs.verifications == () and inputs.assessments == ()
 ```
 
-`test_verification_publication.py` sits beside the other portable modules; V3's cut cell names `test_evaluation.py` for the negatives, so add to `test_evaluation.py` one line that imports and re-exports them:
+- [ ] **Step 3: V7's gather arm** — append to `tests/test_evaluation.py` (no import of the new module **[R6]**):
 
 ```python
-from test_verification_publication import (  # noqa: F401 - V3's negatives live beside their fixture
-    test_v3_negatives_another_proposition_is_never_gathered_and_a_twin_target_admits,
-)
-```
+from test_verify import production_pair  # noqa: F401 - the module-scoped fixture V7's arm resolves
 
-and for V7's gather arm append to `test_evaluation.py` (`production_pair` is module-scoped in `test_verify.py`, so it is resolved through `request`):
 
-```python
 def test_v7_gather_never_selects_a_production_verification(request, tmp_path):
-    from test_verify import _production_verification
     from test_relocation import _writer
+    from test_verify import _production_verification
+
+    from beliefs.verify import publication_node
 
     production = _production_verification(request.getfixturevalue("production_pair"))
     writer = _writer(tmp_path / "corpus")
@@ -1772,16 +1988,12 @@ def test_v7_gather_never_selects_a_production_verification(request, tmp_path):
     assert node.id not in {v.ref for v in inputs.verifications}
 ```
 
-with `from test_verify import production_pair  # noqa: F401` at module level so the fixture resolves, and `from beliefs.verify import publication_node`.
+- [ ] **Step 4: Run**
 
-- [ ] **Step 3: Run**
-
-Run: `uv run --frozen pytest tests/test_verification_publication.py tests/test_verification_identity.py tests/test_evaluation.py -p no:cacheprovider`
-Expected: PASS. If `evaluate_over` answers `Refused(consulted-contracts-disagree…)`, the pins in `_kwargs` disagree with `PROFILE`'s compiled identity — copy the exact `CorpusPins` values `test_evaluation._fixture` uses at that point in the tree.
-
+Run: `uv run --frozen pytest tests/test_verification_publication.py tests/test_verification_identity.py tests/test_evaluation.py -p no:cacheprovider` → PASS. If `evaluate_over` answers `Refused(consulted-contracts-disagree…)`, copy the `CorpusPins` values `test_evaluation._fixture` uses into `evaluation_kwargs`.
 Run: `uv run --frozen pytest -p no:cacheprovider 2>&1 | tail -3 && uv run --frozen ruff check . && uv run --frozen pyright` → clean.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add -A python
@@ -1794,14 +2006,11 @@ git commit -m "test(evaluation): admission over records read back — the belief
 
 **Files:**
 - Create: `python/tests/acceptance/test_verification_acceptance.py`
-- Test: `python/tests/test_verify.py` (the acyclic-imports assertion)
-
-**Interfaces:**
-- Consumes: `test_session_acceptance.py`'s rig (`adopted`, `attended`, `chain`, `intents`, `fresh`, `DIGEST`, `work_directory`), Tasks 1–7.
+- Test: `python/tests/test_verify.py` (the acyclic-imports probe, in a subprocess **[R7]**)
 
 - [ ] **Step 1: Read the rig you mirror**
 
-Run: `sed -n 40,80p tests/acceptance/conftest.py && grep -n "^DIGEST\|^PROPOSITIONS\|^def adopted\|^def attended\|^def chain" tests/acceptance/test_session_acceptance.py` and note the `work_directory` fixture, `adopted`, `attended`, `chain` and `DIGEST`.
+Run: `sed -n 40,80p tests/acceptance/conftest.py && grep -n "^DIGEST\|^PROPOSITIONS\|^def adopted\|^def attended\|^def chain\|^def intents\|^def registrations" tests/acceptance/test_session_acceptance.py`. `work_directory` is the conftest's session fixture (`SCIENCE_CUT4_ROOT`, default `.cut4-acceptance` beside the checkout; the runner points every `SCIENCE_CUT*_ROOT` at one run directory). The head probe is `chain(root).tip`.
 
 - [ ] **Step 2: Write the module** — `tests/acceptance/test_verification_acceptance.py`:
 
@@ -1821,164 +2030,153 @@ import sys
 from pathlib import Path
 
 import pytest
-from fixtures_cut3 import spec_draft, spec_rules
-from test_audit import _verification_evidence, assessment_closure, run_publication
-from test_belief import PROFILE  # noqa: F401 - re-exported for the fresh-process script
+from authority import FULL
 from test_evaluation import CLAIM_FACET
-from test_session_acceptance import DIGEST, adopted, attended, chain, intents  # noqa: F401 - `work_directory` is the acceptance conftest's session fixture
-from test_verification_publication import admission_over
+from test_session_acceptance import DIGEST, adopted, attended, chain, intents, registrations
+from verification_fixtures import admission_over, forgeries, publish_corpus
 
 from beliefs import stored
 from beliefs.admission import Admitted
 from beliefs.belief import Belief, NoBelief
 from beliefs.corpus import open_corpus
-from beliefs.errors import MalformedRecord, VerificationTargetMismatch
 from beliefs.permit import RequiredCapabilities
-from beliefs.root import metadata_root_for
-from beliefs.runrecord import run_ref
-from beliefs.spec import freeze
-from beliefs.verify import AssessmentVerification, build_verification, decode_verification, publication_node
-from authority import FULL
+from beliefs.verification import INVALIDATED, active, lifecycle_state
+from beliefs.verify import _mint_verification, publication_node
 
-PINNED = [{"name": "raw", "digest": "sha256:" + "7" * 64}]
-KINDS = RequiredCapabilities.for_kinds({"proposition", "dataset", "run", "assessment", "verification", "analysis-spec"}, {})
-
-
-def _publish_pair(writer):
-    proposition = writer.add(stored.proposition_node("p", title="p", claim=CLAIM_FACET))
-    frozen = freeze(spec_draft(target=proposition.id), held_rules=spec_rules())
-    original = assessment_closure(frozen, token="tok-original")
-    replayed = assessment_closure(frozen, token="tok-replayed")
-    for entry in original.recipe.inputs:
-        if not writer.read_view.holds(entry.dataset):
-            writer.add(stored.dataset_node(entry.dataset.removeprefix("dataset:"), title="raw", resources=PINNED, empirical_observation={"boundary": "instrument"}))
-    writer.add(run_publication(original))
-    writer.add(run_publication(replayed))
-    assessment = writer.add(
-        stored.assessment_node(
-            "a1", title="a1", spec=frozen.identity, run=run_ref(original.address()), proposition=proposition.id,
-            outcome="supported", interpretation_rule=frozen.interpretation_rule,
-        )
-    )
-    evidence = _verification_evidence(frozen)
-    derived = build_verification(
-        original, replayed, specs=evidence.specs, held_rules=evidence.held_rules,
-        contract_identity="science:" + "c" * 64, epoch="epoch:" + "e" * 64,
-    )
-    assert isinstance(derived, AssessmentVerification)
-    return proposition, original, assessment, derived, evidence
+KINDS = RequiredCapabilities.for_kinds({"verification"}, {})  # [R8] runs, datasets and the assessment go through the library writer
+TESTS = Path(__file__).resolve().parents[1]
 
 
 def _fresh_process(root: Path, script: str) -> dict:
-    env = {**os.environ, "PYTHONPATH": os.pathsep.join([str(Path(__file__).resolve().parents[1]), str(Path(__file__).resolve().parent)])}
+    env = {**os.environ, "PYTHONPATH": os.pathsep.join([str(TESTS), str(TESTS / "acceptance")])}
     completed = subprocess.run([sys.executable, "-c", script.replace("ROOT", repr(str(root)))], check=True, capture_output=True, text=True, env=env)
     return json.loads(completed.stdout.strip().splitlines()[-1])
 
 
-def test_v1_a_published_verification_is_recoverable_in_a_fresh_process_with_the_runs_gone(work_directory):
+def _session_over(work_directory):
     root = adopted(work_directory, "corpus")
     session, _ = attended(work_directory, root)
+    writer = session.scoped(KINDS, "A")
+    session.claim_invocation("A", "mint", DIGEST)
+    return root, session, writer
+
+
+def test_v1_a_published_verification_is_recoverable_in_a_fresh_process_with_the_runs_gone(work_directory):
+    root, session, writer = _session_over(work_directory)
     try:
-        writer = session.scoped(KINDS, "A")
-        session.claim_invocation("A", "mint", DIGEST)
-        proposition, original, assessment, derived, evidence = _publish_pair(open_corpus(root, authority=FULL))
-        node = writer.add(publication_node(derived, assessment_ref=assessment.id))
-        writer.delete(stored.typed_ref("run", derived.original))
-        writer.delete(stored.typed_ref("run", derived.replayed))
+        published = publish_corpus(open_corpus(root, authority=FULL), claim=CLAIM_FACET)
+        node = writer.add(publication_node(published.derived, assessment_ref=published.assessment.id))
+        library = open_corpus(root, authority=FULL)
+        library.delete(stored.typed_ref("run", published.derived.original))
+        library.delete(stored.typed_ref("run", published.derived.replayed))
     finally:
         session.close()
     report = _fresh_process(
         root,
         "import json; from authority import FULL; from beliefs.corpus import open_corpus; from beliefs.verify import decode_verification\n"
         f"view = open_corpus(ROOT, authority=FULL).read_view; d = decode_verification(view.get({node.id!r}))\n"
+        "assert not view.holds(f'run:{d.original}') and not view.holds(f'run:{d.replayed}')\n"
         "print(json.dumps({'identity': d.identity(), 'report': d.report.identity(), 'scope': d.scope, 'verdict': d.verdict, 'basis': json.dumps(d.basis(), default=lambda r: r.identity(), sort_keys=True)}))",
     )
+    derived = published.derived
     assert report["identity"] == derived.identity() and report["report"] == derived.report.identity()
     assert (report["scope"], report["verdict"]) == (derived.scope, derived.verdict)
     assert report["basis"] == json.dumps(derived.basis(), default=lambda r: r.identity(), sort_keys=True)
 
 
 def test_v2_and_v3_admission_over_the_corpus_and_the_belief_moves_with_the_record(work_directory):
-    root = adopted(work_directory, "corpus")
-    session, _ = attended(work_directory, root)
-    library = open_corpus(root, authority=FULL)
+    root, session, writer = _session_over(work_directory)
     try:
-        writer = session.scoped(KINDS, "A")
-        session.claim_invocation("A", "mint", DIGEST)
-        proposition, original, assessment, derived, evidence = _publish_pair(library)
-        library = open_corpus(root, authority=FULL)
-        _, before = admission_over(library, proposition.id, original)
+        published = publish_corpus(open_corpus(root, authority=FULL), claim=CLAIM_FACET)
+        _, before = admission_over(open_corpus(root, authority=FULL), published.proposition.id, published.original)
         assert isinstance(before, NoBelief)
-        published = writer.add(publication_node(derived, assessment_ref=assessment.id))
-        library = open_corpus(root, authority=FULL)
-        verdict, belief = admission_over(library, proposition.id, original)
+        node = writer.add(publication_node(published.derived, assessment_ref=published.assessment.id))
+        verdict, belief = admission_over(open_corpus(root, authority=FULL), published.proposition.id, published.original)
         assert isinstance(verdict, Admitted) and isinstance(belief, Belief)
         digest_here = belief.belief_input_digest
-        writer.delete(published.id)
-        library = open_corpus(root, authority=FULL)
-        _, after = admission_over(library, proposition.id, original)
+        writer.delete(node.id)
+        _, after = admission_over(open_corpus(root, authority=FULL), published.proposition.id, published.original)
         assert isinstance(after, NoBelief)
-        writer.add(publication_node(derived, assessment_ref=assessment.id))
+        writer.add(publication_node(published.derived, assessment_ref=published.assessment.id))
     finally:
         session.close()
     report = _fresh_process(
         root,
-        "import json; from authority import FULL; from beliefs.corpus import open_corpus; from test_verification_publication import admission_over\n"
-        "from beliefs.runrecord import decode_run_closure; from beliefs import stored\n"
-        f"w = open_corpus(ROOT, authority=FULL); original = decode_run_closure(w.read_view.get({stored.typed_ref('run', derived.original)!r}))\n"
-        f"verdict, belief = admission_over(w, {proposition.id!r}, original); print(json.dumps({{'digest': belief.belief_input_digest}}))",
+        "import json; from authority import FULL; from beliefs.corpus import open_corpus; from verification_fixtures import admission_over\n"
+        "from beliefs.runrecord import decode_run_closure\n"
+        f"w = open_corpus(ROOT, authority=FULL); original = decode_run_closure(w.read_view.get({stored.typed_ref('run', published.derived.original)!r}))\n"
+        f"verdict, belief = admission_over(w, {published.proposition.id!r}, original); print(json.dumps({{'digest': belief.belief_input_digest}}))",
     )
     assert report["digest"] == digest_here
 
 
-def test_v5_each_forgery_is_refused_with_the_head_unchanged_and_no_intent(work_directory):
-    from test_operation_writes import _forgeries
-
-    root = adopted(work_directory, "corpus")
-    session, ops = attended(work_directory, root)
+def test_v3_a_superseding_failed_verification_invalidates_through_the_session(work_directory):
+    root, session, writer = _session_over(work_directory)
     try:
-        writer = session.scoped(KINDS, "A")
-        session.claim_invocation("A", "mint", DIGEST)
+        published = publish_corpus(open_corpus(root, authority=FULL), claim=CLAIM_FACET)
+        derived = published.derived
+        writer.add(publication_node(derived, assessment_ref=published.assessment.id))
+        failed = _mint_verification(
+            original=derived.original, replayed=derived.replayed, assessment=derived.assessment, rule=derived.rule,
+            report=derived.report, scope_rule=derived.scope_rule, scope=derived.scope, verdict="failed",
+            supersedes=derived.identity(),
+        )
+        successor = writer.add(publication_node(failed, assessment_ref=published.assessment.id))
+    finally:
+        session.close()
+    view = open_corpus(root, authority=FULL).read_view
+    values = tuple(stored.verification_value(n) for n in view.iter_stored() if n.kind == "verification")
+    assert lifecycle_state(values) == INVALIDATED and {v.ref for v in active(values)} == {successor.id}
+
+
+def test_v5_each_forgery_is_refused_with_the_head_unchanged_and_no_intent(work_directory):
+    root, session, writer = _session_over(work_directory)
+    try:
         library = open_corpus(root, authority=FULL)
-        proposition, original, assessment, derived, evidence = _publish_pair(library)
+        published = publish_corpus(library, claim=CLAIM_FACET)
+        cases = forgeries(library, published)  # [R8] helper records first, then the baseline
+        open_corpus(root, authority=FULL).read_view  # a settled, non-writing probe
         head_before = chain(root).tip
+        intents_before, registrations_before = len(intents(root)), len(registrations(root))
         acts_before = len(session.invocation_acts("A"))
-        for node, refusal in _forgeries(open_corpus(root, authority=FULL), assessment, derived):
+        for node, refusal in cases:
             with pytest.raises(refusal):
                 writer.add(node)
             assert chain(root).tip == head_before, node.id
             assert len(session.invocation_acts("A")) == acts_before
             assert not (root / "verification" / f"{node.id.split(':', 1)[1]}.md").exists()
-        writer.add(publication_node(derived, assessment_ref=assessment.id))
-        assert len(intents(root)) == len(intents(root)) and len(session.invocation_acts("A")) == acts_before + 1
+        writer.add(publication_node(published.derived, assessment_ref=published.assessment.id))
+        assert len(intents(root)) == intents_before + 1 and len(registrations(root)) == registrations_before + 1
+        assert len(session.invocation_acts("A")) == acts_before + 1
     finally:
         session.close()
 ```
 
-`work_directory` comes from `tests/acceptance/conftest.py` (session-scoped, `SCIENCE_CUT4_ROOT` or `.cut4-acceptance` beside the checkout; the runner points every `SCIENCE_CUT*_ROOT` at one run directory). `_forgeries` in Task 5 mints helper records through the writer it is given; here that is the library writer over the same root, which the session's next `add` sees after settlement. The head is `chain(root).tip`, the probe J1 uses.
-
-- [ ] **Step 3: Add the acyclic-imports assertion** — append to `tests/test_verify.py`:
+- [ ] **Step 3: Add the acyclic-imports probe, in a subprocess** — append to `tests/test_verify.py`:
 
 ```python
 def test_the_publication_modules_form_no_import_cycle():
-    """Design §4.3: verify -> stored -> (record, verification, report, spec); audit -> verify; corpus -> verify only locally."""
-    import importlib
+    """Design §4.3, probed in a fresh interpreter so no loaded class identity is disturbed. [R7]"""
+    import subprocess
     import sys
 
-    for name in ("beliefs.verify", "beliefs.stored", "beliefs.spec", "beliefs.audit", "beliefs.corpus", "beliefs.evaluation", "beliefs.admission"):
-        sys.modules.pop(name, None)
-    importlib.import_module("beliefs.verify")
-    importlib.import_module("beliefs.corpus")
-    source = (Path(science_root.__file__).resolve().parent / "corpus.py").read_text(encoding="utf-8")
-    assert "\nfrom beliefs.verify import" not in source and "\nimport beliefs.verify" not in source
+    script = (
+        "import importlib\n"
+        "for name in ('beliefs.verify', 'beliefs.stored', 'beliefs.spec', 'beliefs.audit', 'beliefs.corpus', 'beliefs.evaluation', 'beliefs.admission'):\n"
+        "    importlib.import_module(name)\n"
+        "import beliefs.corpus, pathlib\n"
+        "source = pathlib.Path(beliefs.corpus.__file__).read_text(encoding='utf-8')\n"
+        "assert '\\nfrom beliefs.verify import' not in source and '\\nimport beliefs.verify' not in source\n"
+        "print('acyclic')\n"
+    )
+    completed = subprocess.run([sys.executable, "-c", script], check=True, capture_output=True, text=True)
+    assert completed.stdout.strip() == "acyclic"
 ```
-
-(`Path` and `science_root` as in the acceptance modules: `import beliefs.root as science_root`.)
 
 - [ ] **Step 4: Run the durable module**
 
 Run: `SCIENCE_CUT4_ROOT=$(git rev-parse --show-toplevel)/.cut21-acceptance uv run --frozen pytest tests/acceptance/test_verification_acceptance.py -p no:cacheprovider`
-Expected: PASS (4 tests). A capability refusal is an error: do not skip.
+Expected: PASS (4 tests). A capability refusal is an error: do not skip. If `library.delete` of a run is refused with `DeletionKindExcluded`, the design's V1 arm cannot delete runs; date it in the results record and assert instead that the fresh process decodes with `view.holds` monkeypatched to raise.
 Run: `uv run --frozen pytest -p no:cacheprovider 2>&1 | tail -3 && uv run --frozen ruff check . && uv run --frozen pyright` → clean.
 
 - [ ] **Step 5: Commit**
@@ -1990,51 +2188,91 @@ git commit -m "test(acceptance): verification publication through an attended se
 
 ---
 
-### Task 9: The reproduction driver reads the report (V1's and V8's 10b arms)
+### Task 9: The reproduction driver reads the report (V1's and V8's 10b arms) **[R9]**
 
 **Files:**
-- Modify: `python/tools/reproduction/spec.py` (`spec_record`), `belief.py` (step 8), `rederive.py` (10b), `close.py` (`evidence`)
+- Modify: `python/tools/reproduction/spec.py` (`spec_record`), `belief.py` (step 8), `close.py` (`evidence_for`), `rederive.py` (`reconstruct` as a pure function)
+- Test: `python/tests/test_reproduction_driver.py`
 
 **Interfaces:**
-- Consumes: `stored.analysis_spec_node`, `verify.publication_node`, `verify.decode_verification`, `audit.stored_specs`.
+- Produces: `close.evidence_for(view) -> DerivationEvidence` (specs from the corpus, rules from code); `rederive.reconstruct(view, st: dict, evidence) -> dict` (10b's report; no `spec.frozen()` anywhere in it).
 
-- [ ] **Step 1: Replace the hand-built spec record** — in `tools/reproduction/spec.py` delete `spec_record`'s body and make it:
+- [ ] **Step 1: Write the failing driver test** — append to `tests/test_reproduction_driver.py`:
+
+```python
+def test_10b_reads_the_report_from_the_corpus_with_no_in_process_spec(tmp_path, monkeypatch):
+    """V1 and V8's 10b arms: the report, scope and verdict are read; the only
+    in-process input is the rule implementations; `spec.frozen()` is not
+    reachable. The negative: a report-less record reports false."""
+    from fixtures_cut3 import spec_rules
+    from test_relocation import _writer
+    from verification_fixtures import publish_corpus
+
+    from beliefs import stored
+    from beliefs.replay import CONTENT_EQUALITY
+    from beliefs.verify import publication_node
+    from reproduction import close, rederive, spec
+
+    writer = _writer(tmp_path / "corpus")
+    published = publish_corpus(writer)
+    spec_node = writer.add(stored.analysis_spec_node(published.frozen))
+    node = writer.add(publication_node(published.derived, assessment_ref=published.assessment.id))
+
+    def unavailable():
+        raise RuntimeError("the in-process spec is unavailable")
+
+    monkeypatch.setattr(spec, "frozen", unavailable)
+    interpretation = spec_rules()[published.frozen.interpretation_rule]
+    monkeypatch.setattr(spec, "equivalence", lambda: CONTENT_EQUALITY)
+    monkeypatch.setattr(spec, "interpretation", lambda: interpretation)
+    st = {"verification_ref": node.id, "spec_ref": spec_node.id}
+    view = writer.read_view
+    report = rederive.reconstruct(view, st, close.evidence_for(view))
+    assert report["comparison_report_stored"] is True
+    assert report["scope_equal"] is True and report["verdict_equal"] is True and report["report_identity_equal"] is True
+    assert report["inputs"]["in_process"] == ["interpretation and equivalence RuleImplementations"]
+    assert report["spec_restored_identity_matches_run"] is True
+    assert report["audit_check"] == {"checked": True, "reason": "", "contradiction": None}
+    legacy = writer.add(
+        stored.verification_node(
+            "legacy", title="legacy", assessment=published.derived.assessment, assessment_ref=published.assessment.id,
+            scope=published.derived.scope, verdict=published.derived.verdict,
+            derivation=(stored.typed_ref("run", published.derived.original), stored.typed_ref("run", published.derived.replayed)),
+        )
+    )
+    negative = rederive.reconstruct(writer.read_view, {**st, "verification_ref": legacy.id}, close.evidence_for(writer.read_view))
+    assert negative["comparison_report_stored"] is False and "scope_read" not in negative
+
+
+def test_10b_names_no_in_process_spec():
+    from pathlib import Path
+
+    from reproduction import rederive
+
+    source = Path(rederive.__file__).read_text(encoding="utf-8")
+    assert "spec.frozen" not in source and "from reproduction import" in source
+```
+
+Run: `uv run --frozen pytest tests/test_reproduction_driver.py -k 10b -p no:cacheprovider` → FAIL (`AttributeError: module 'reproduction.rederive' has no attribute 'reconstruct'`).
+
+- [ ] **Step 2: Replace the hand-built spec record** — in `tools/reproduction/spec.py`:
 
 ```python
 def spec_record(spec: FrozenSpec) -> Node:
-    """The kernel's own builder (verification-publication design §7); the
-    Task-11 finding that nothing restored a FrozenSpec is closed by it."""
+    """The kernel's own builder (verification-publication design §7)."""
     return stored.analysis_spec_node(spec)
 ```
 
-and delete the step-4 `findings.record(4, "design-gap", "analysis-spec is a stored kind ... no kernel builder"...)` call if `main` still emits it (keep the interpretation-rule finding).
+and delete the step-4 finding about the missing builder if `main` still records it (keep the interpretation-rule finding).
 
-- [ ] **Step 2: Publish through the projection** — in `belief.py` replace the `writer.add(stored.verification_node(...))` block with:
+- [ ] **Step 3: Publish through the projection** — in `belief.py` replace the `writer.add(stored.verification_node(...))` block with `minted = writer.add(publication_node(verification, assessment_ref=st["assessment_ref"]))`, importing `publication_node`.
 
-```python
-    minted = writer.add(publication_node(verification, assessment_ref=st["assessment_ref"]))
-```
-
-importing `publication_node` from `beliefs.verify`.
-
-- [ ] **Step 3: Read the report in 10b** — in `rederive.py`, replace `"comparison_report_stored": "comparison" in facet,` with `"comparison_report_stored": "report" in facet,`, and after `derivation = stored.verification_derivation(node)` insert:
+- [ ] **Step 4: Evidence from the corpus** — in `close.py`:
 
 ```python
-    decoded = decode_verification(node)
-    if decoded is not None:
-        report["inputs"]["corpus"] = ["verification record (basis, comparison report, scope, verdict read)", "two run publications", "analysis-spec record"]
-        report["inputs"]["in_process"] = ["interpretation and equivalence RuleImplementations"]
-        report["scope_read"], report["verdict_read"] = decoded.scope, decoded.verdict
-        report["report_identity_read"] = decoded.report.identity()
-```
-
-importing `decode_verification`. Keep the recomputation block that follows (it now asserts equality against the *read* values as well: add `report["scope_equal"] = scope == decoded.scope` when `decoded` is present).
-
-- [ ] **Step 4: Compose the evidence from the corpus** — in `close.py`:
-
-```python
-def evidence() -> DerivationEvidence:
-    specs, findings = stored_specs(world.open_writer().read_view)
+def evidence_for(view) -> DerivationEvidence:
+    """Specs from the corpus, rules from code — 10b's only in-process input."""
+    specs, findings = stored_specs(view)
     if findings:
         raise RuntimeError(f"stored specs that do not restore: {[f.ref for f in findings]}")
     return DerivationEvidence(
@@ -2042,48 +2280,109 @@ def evidence() -> DerivationEvidence:
         held_rules={spec.equivalence().identity: spec.equivalence()},
         implementations={spec.interpretation().identity: spec.interpretation()},
     )
+
+
+def evidence() -> DerivationEvidence:
+    return evidence_for(world.open_writer().read_view)
 ```
 
-importing `stored_specs` from `beliefs.audit` and `world` from `reproduction`.
+importing `stored_specs` from `beliefs.audit`.
 
-- [ ] **Step 5: Re-run the driver into a fresh directory** (design decision 12). From `python/`, with the predecessor corpus available as the record's §1 states:
+- [ ] **Step 5: 10b as a pure function** — in `rederive.py` replace the evidence-reconstruction block of `main` with a call to:
 
-```bash
-export SCIENCE_MM30_ROOT=$(git -C "$(git rev-parse --show-toplevel)/.." rev-parse --show-toplevel 2>/dev/null || echo "$(git rev-parse --show-toplevel)/..")/.mm30-reproduction-cut21
-for step in preflight select_target type_target hold world spec run belief close rederive; do
-  PYTHONPATH=tools uv run --frozen python -m reproduction.$step || { echo "step $step failed"; break; }
-done
+```python
+def reconstruct(view, st: dict, evidence: DerivationEvidence) -> dict:
+    """10b, field by field, each labelled. Reads the verification record, the
+    two run publications and the spec record; recomputes only through
+    `evidence`, which names no in-process spec."""
+    node = view.get(st["verification_ref"])
+    stored_value = stored.verification_value(node)
+    decoded = decode_verification(node)
+    report: dict = {
+        "inputs": {
+            "corpus": ["verification record (basis, comparison report, scope, verdict read)", "two run publications", "analysis-spec record"],
+            "in_process": ["interpretation and equivalence RuleImplementations"],
+        },
+        "comparison_report_stored": decoded is not None,
+        "derivation_named": False,
+        "closures_decoded": False,
+        "scope_recomputed": None,
+        "scope_equal": None,
+        "verdict_recomputed": None,
+        "verdict_equal": None,
+        "report_identity_equal": None,
+        "spec_restored_identity_matches_run": None,
+        "audit_check": None,
+    }
+    if decoded is not None:
+        report["scope_read"], report["verdict_read"], report["report_identity_read"] = decoded.scope, decoded.verdict, decoded.report.identity()
+    derivation = stored.verification_derivation(node)
+    if derivation is not None:
+        report["derivation_named"] = True
+        original, replayed = (decode_run_closure(view.get(ref)) for ref in derivation)
+        report["closures_decoded"] = True
+        certification = None if decoded is None else decoded.report.certification
+        scope = derive_scope(original, replayed, certification=certification)
+        report["scope_recomputed"], report["scope_equal"] = scope, scope == stored_value.scope
+        rebuilt = build_verification(
+            original, replayed, specs=evidence.specs, held_rules=evidence.held_rules,
+            contract_identity="none-consulted", epoch="none-published", certification=certification,
+        )
+        if isinstance(rebuilt, AssessmentVerification):
+            report["verdict_recomputed"], report["verdict_equal"] = rebuilt.verdict, rebuilt.verdict == stored_value.verdict
+            if decoded is not None:
+                report["report_identity_equal"] = rebuilt.report.identity() == decoded.report.identity()
+        if view.holds(st["spec_ref"]):
+            restored = stored.analysis_spec_value(view.get(st["spec_ref"]))
+            report["spec_restored_identity_matches_run"] = restored.identity == original.recipe.spec_identity
+    outcome = check_verification(view, node, evidence=evidence)
+    report["audit_check"] = {
+        "checked": outcome.checked,
+        "reason": outcome.reason,
+        "contradiction": None if outcome.contradiction is None else {"code": outcome.contradiction.code, "detail": outcome.contradiction.detail},
+    }
+    return report
 ```
 
-(`SCIENCE_MM30_ROOT` must be on the certified volume beside the **main** checkout, as `paths.py` computes for `.mm30-reproduction`; set it to that checkout's sibling directory.) Expected at `rederive`: the printed 10b JSON has `"comparison_report_stored": true`, `"scope_equal": true`, `"verdict_equal": true`, and `"in_process": ["interpretation and equivalence RuleImplementations"]`; step 8 prints `admission Admitted` and a `Belief` answer. Save the 10b JSON to `docs/plans/` beside the results record later (Task 12 cites it).
+`main` calls `reconstruct(view, st, close.evidence())`, records the 10b design-gap finding only when `comparison_report_stored` is false, and keeps 10a. The module imports `decode_verification` and `DerivationEvidence`, and drops `spec` from its `from reproduction import …` line.
 
 - [ ] **Step 6: Run the driver's tests and the suite**
 
 Run: `uv run --frozen pytest tests/test_reproduction_driver.py -p no:cacheprovider` → PASS.
 Run: `uv run --frozen pytest -p no:cacheprovider 2>&1 | tail -3 && uv run --frozen ruff check . && uv run --frozen pyright` → clean.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 7: Re-run the driver into a fresh directory** (design decision 12), from `python/`, with the predecessor corpus available as the record's §1 states and `SCIENCE_MM30_ROOT` set to a fresh directory on the certified volume beside the **main** checkout (e.g. `<main checkout>/.mm30-reproduction-cut21`):
+
+```bash
+for step in preflight select_target type_target hold world spec run belief close rederive; do
+  PYTHONPATH=tools uv run --frozen python -m reproduction.$step || { echo "step $step failed"; break; }
+done
+```
+
+Expected at `rederive`: the printed 10b JSON has `"comparison_report_stored": true`, `"scope_equal": true`, `"verdict_equal": true`, `"report_identity_equal": true` and `"in_process": ["interpretation and equivalence RuleImplementations"]`; step 8 prints `admission Admitted` and a `Belief` answer. Keep the 10b JSON for Task 12.
+
+- [ ] **Step 8: Commit**
 
 ```bash
 git add -A python
-git commit -m "feat(reproduction): publish the verification with its report, build the spec record, read 10b from the corpus"
+git commit -m "feat(reproduction): publish the verification with its report, build the spec record, read 10b from the corpus alone"
 ```
 
 ---
 
-### Task 10: N2 arms, the cut-21 audit and the runner
+### Task 10: N2 arms, the cut-21 audit and the runner **[R10] [R11]**
 
 **Files:**
 - Create: `python/tests/acceptance/n2_arms_cut21.py`, `python/tests/acceptance/test_n2_cut21.py`, `python/tools/cut21_acceptance.py`
 
-**Interfaces:**
-- Produces: `CUT21_ARMS`, `DECLARATION_UNITS = ("V1", …, "V8")`, `CO_CITED`, `unit_of`.
-
-- [ ] **Step 1: Declare the arms** — `tests/acceptance/n2_arms_cut21.py`. One grouped unit per V row; every `before` is the exact landed line (re-read the source when writing each). The checks name Tasks 1–8's tests:
+- [ ] **Step 1: Declare the arms, one per frozen sabotage** — `tests/acceptance/n2_arms_cut21.py`. The cut's §5 item 4 lists twenty-three sabotages; every one is an arm below (plus V3's own), and every `before` is copied from the landed source when the arm is written — re-read each site. Parametrized check ids are those `V4_IDS`/the `mutate<N>` defaults produce; confirm with `uv run --frozen pytest tests/test_audit.py tests/test_verify.py tests/test_spec.py --collect-only -q | grep -E "v4|v6|v8"`.
 
 ```python
 """Cut 21's eight frozen declaration units and their source sabotages
-(docs/designs/2026-09-06-conformance-cut-21.md §3, §5 item 4)."""
+(docs/designs/2026-09-06-conformance-cut-21.md §3, §5 item 4), one arm per
+frozen sabotage. `V5a` drops the verification step rather than moving it
+after the intent: the after-intent variant is not one replacement, and the
+results record dates the substitution."""
 
 from __future__ import annotations
 
@@ -2092,9 +2391,10 @@ from n2_arms import Arm, Sabotage
 _VERIFY, _STORED, _AUDIT, _CORPUS, _SPEC, _ADMISSION, _EVALUATION = (
     "verify.py", "stored.py", "audit.py", "corpus.py", "spec.py", "admission.py", "evaluation.py",
 )
-_TV, _TS, _TA, _TI, _TO, _TSP, _TE, _TID, _ACC = (
-    "test_verify.py", "test_stored.py", "test_audit.py", "test_import_derivation.py", "test_operation_writes.py",
-    "test_spec.py", "test_evaluation.py", "test_verification_identity.py", "acceptance/test_verification_acceptance.py",
+_TV, _TS, _TAD, _TA, _TI, _TO, _TSP, _TID, _TVP, _TCW, _ACC = (
+    "test_verify.py", "test_stored.py", "test_admission.py", "test_audit.py", "test_import_derivation.py",
+    "test_operation_writes.py", "test_spec.py", "test_verification_identity.py",
+    "test_verification_publication.py", "test_corpus_write.py", "acceptance/test_verification_acceptance.py",
 )
 
 DECLARATION_UNITS = tuple(f"V{n}" for n in range(1, 9))
@@ -2106,70 +2406,100 @@ def unit_of(row: str) -> str:
 
 
 CUT21_ARMS = (
-    Arm("V1a", "the projection is what identity digests and what the record stores",
+    # --- verify.py -----------------------------------------------------------
+    Arm("V1a", "drop report from the projection",
         Sabotage(_VERIFY, '        "report": derived.report.projection(),\n', '        "report": {},\n'),
         (f"{_TV}::test_v1_publication_node_round_trips_through_the_reader", f"{_ACC}::test_v1_a_published_verification_is_recoverable_in_a_fresh_process_with_the_runs_gone")),
-    Arm("V1b", "a record whose id does not recompute is refused by the reader",
-        Sabotage(_VERIFY, "    if decoded.identity() != stored.local_id(\"verification\", node.id):\n", "    if False:\n"),
+    Arm("V1b", "skip the identity recomputation in decode_verification",
+        Sabotage(_VERIFY, '    if decoded.identity() != stored.local_id("verification", node.id):\n', "    if False:\n"),
         (f"{_TV}::test_v5_a_record_id_that_does_not_recompute_is_malformed",)),
-    Arm("V2a", "the stored assessment hands back the bare run",
-        Sabotage(_STORED, '        run=local_id("run", facet.get("run")),\n', '        run=str(facet.get("run", "")),\n'),
-        (f"{_TS}::test_v2_assessment_value_hands_back_the_bare_run_and_refuses_an_untyped_one", f"{_TID}::test_v2_one_identity_admits_over_the_corpus_and_audits_clean")),
-    Arm("V2b", "admit resolves the bare member through the typed ref",
-        Sabotage(_ADMISSION, '    if run.ref != typed_ref("run", assessment.run):\n', "    if run.ref != assessment.run:\n"),
-        ("test_admission.py::test_v2_admit_matches_a_typed_run_ref_to_the_bare_member",)),
-    Arm("V2c", "gather resolves the run through the typed ref",
-        Sabotage(_EVALUATION, '        ref = stored.typed_ref("run", a.run)\n', "        ref = a.run\n"),
-        (f"{_TID}::test_v2_one_identity_admits_over_the_corpus_and_audits_clean",)),
-    Arm("V2d", "the assessment audit resolves the run through the typed ref",
-        Sabotage(_AUDIT, '    closure, why = _closure(view, stored.typed_ref("run", stored_value.run))\n', "    closure, why = _closure(view, stored_value.run)\n"),
-        (f"{_TA}::test_v2_a_contradicted_assessment_still_contradicts",)),
-    Arm("V3a", "a superseding verification is read from the record",
-        Sabotage(_VERIFY, '        facet["supersedes"] = stored.typed_ref("verification", derived.supersedes)\n', "        pass\n"),
-        ("test_verification_publication.py::test_v3_a_superseding_failed_verification_invalidates",)),
-    Arm("V4a", "scope is recomputed over a stored verification",
-        Sabotage(_AUDIT, "        if decoded.scope != derived.scope:\n", "        if False:\n"),
-        (f"{_TA}::test_v4_a_self_consistent_forgery_contradicts_on_the_altered_member[scope-mutate0]",)),
-    Arm("V4b", "the report is recomputed by identity",
-        Sabotage(_AUDIT, "        if decoded.report.identity() != derived.report.identity():\n", "        if False:\n"),
-        (f"{_TA}::test_v4_a_self_consistent_forgery_contradicts_on_the_altered_member[report-mutate2]",)),
-    Arm("V4c", "the stored certification enters the recomputation",
-        Sabotage(_AUDIT, "    certification = None if decoded is None else decoded.report.certification\n", "    certification = None\n"),
-        (f"{_TA}::test_v4_a_published_verification_audits_checked_with_no_contradiction",)),
-    Arm("V5a", "the verification step precedes the intent",
-        Sabotage(_CORPUS, '        if node.kind == "verification":\n            self._refuse_verification(node, view=self._view if view is None else view)\n', "        pass\n"),
-        (f"{_TO}::test_v5_each_forgery_is_refused_before_the_intent", f"{_ACC}::test_v5_each_forgery_is_refused_with_the_head_unchanged_and_no_intent")),
-    Arm("V5b", "the target's identity must equal the member",
-        Sabotage(_CORPUS, "        if identity != decoded.assessment:\n", "        if False:\n"),
-        (f"{_TO}::test_v5_each_forgery_is_refused_before_the_intent",)),
-    Arm("V6a", "a present, malformed report is refused, never repaired",
-        Sabotage(_VERIFY, "    if not isinstance(member, Mapping) or not _REPORT_REQUIRED <= set(member) <= _REPORT_REQUIRED | _REPORT_OPTIONAL:\n", "    if False:\n"),
+    Arm("V6a", "accept a projection with a missing key",
+        Sabotage(_VERIFY, "    if not isinstance(member, Mapping) or not _REPORT_REQUIRED <= set(member) <= _REPORT_REQUIRED | _REPORT_OPTIONAL:\n", "    if not isinstance(member, Mapping):\n"),
         (f"{_TV}::test_v6_a_present_but_malformed_report_or_member_is_refused[mutate0]",)),
-    Arm("V7a", "the production shape carries no assessment member",
+    Arm("V7a", "write assessment for the production shape",
         Sabotage(_VERIFY, '    if type(derived) is AssessmentVerification:\n        facet["assessment"] = derived.assessment\n', '    facet["assessment"] = getattr(derived, "assessment", "")\n'),
         (f"{_TV}::test_v7_the_production_shape_publishes_edge_less_and_admits_nothing",)),
-    Arm("V8a", "restore recomputes the identity",
+    Arm("V2e", "compute the assessment digest over the typed ref",
+        Sabotage(_VERIFY, '            {"spec": spec.identity, "run": original.address(), "proposition": spec.target},\n', '            {"spec": spec.identity, "run": stored.typed_ref("run", original.address()), "proposition": spec.target},\n'),
+        (f"{_TID}::test_v2_one_identity_admits_over_the_corpus_and_audits_clean",)),
+    Arm("V3a", "publish a superseding verification without its predecessor",
+        Sabotage(_VERIFY, '        facet["supersedes"] = stored.typed_ref("verification", derived.supersedes)\n', "        pass\n"),
+        (f"{_TV}::test_v3_a_superseding_verification_publishes_its_typed_predecessor", f"{_TVP}::test_v3_a_superseding_failed_verification_invalidates_and_retires_its_predecessor")),
+    # --- stored.py -----------------------------------------------------------
+    Arm("V2a", "return the typed ref from assessment_value",
+        Sabotage(_STORED, '        run=local_id("run", facet.get("run")),\n', '        run=str(facet.get("run", "")),\n'),
+        (f"{_TS}::test_v2_assessment_value_hands_back_the_bare_run_and_refuses_an_untyped_one", f"{_TID}::test_v2_one_identity_admits_over_the_corpus_and_audits_clean")),
+    Arm("V2f", "strip nothing in local_id",
+        Sabotage(_STORED, "    return ref[len(prefix):]\n", "    return ref\n"),
+        (f"{_TS}::test_v2_typed_ref_and_local_id_are_inverse_and_agree_with_run_ref",)),
+    Arm("V8d", "skip the identity check in analysis_spec_value",
+        Sabotage(_STORED, '    if node.id != typed_ref("analysis-spec", spec.identity):\n', "    if False:\n"),
+        (f"{_TS}::test_v8_a_renamed_or_falsely_identified_record_is_malformed",)),
+    # --- admission.py / evaluation.py ----------------------------------------
+    Arm("V2b", "compare run.ref to the bare address",
+        Sabotage(_ADMISSION, '    if run.ref != typed_ref("run", assessment.run):\n', "    if run.ref != assessment.run:\n"),
+        (f"{_TAD}::test_v2_admit_matches_a_typed_run_ref_to_the_bare_member",)),
+    Arm("V2c", "resolve a.run untyped",
+        Sabotage(_EVALUATION, '        ref = stored.typed_ref("run", a.run)\n', "        ref = a.run\n"),
+        (f"{_TID}::test_v2_one_identity_admits_over_the_corpus_and_audits_clean",)),
+    # --- audit.py ------------------------------------------------------------
+    Arm("V4a", "skip the scope comparison",
+        Sabotage(_AUDIT, "        if decoded.scope != derived.scope:\n", "        if False:\n"),
+        (f"{_TA}::test_v4_a_self_consistent_forgery_contradicts_on_the_altered_member[scope]",)),
+    Arm("V4b", "skip the report comparison",
+        Sabotage(_AUDIT, "        if decoded.report.identity() != derived.report.identity():\n", "        if False:\n"),
+        (f"{_TA}::test_v4_a_self_consistent_forgery_contradicts_on_the_altered_member[report-receipt]",)),
+    Arm("V4c", "take certification=None for a decoded report",
+        Sabotage(_AUDIT, "    certification = None if decoded is None else decoded.report.certification\n", "    certification = None\n"),
+        (f"{_TA}::test_v4_a_certified_verification_audits_clean_through_its_stored_certification",)),
+    Arm("V2g", "compare stored_value.run through run_ref again",
+        Sabotage(_AUDIT, "    if stored_value.run != derived.run:\n", '    if stored_value.run != "run:" + derived.run:\n'),
+        (f"{_TA}::test_v4_a_published_verification_audits_checked_with_no_contradiction",)),
+    Arm("V2d", "resolve the assessment's run bare",
+        Sabotage(_AUDIT, '    closure, why = _closure(view, stored.typed_ref("run", stored_value.run))\n', "    closure, why = _closure(view, stored_value.run)\n"),
+        (f"{_TA}::test_v2_a_contradicted_assessment_still_contradicts",)),
+    Arm("V8e", "drop the analysis-spec branch",
+        Sabotage(_AUDIT, '            elif node.kind == "analysis-spec":\n                outcome = check_analysis_spec(node)\n', "            elif False:\n                continue\n"),
+        (f"{_TA}::test_v8_the_audit_names_a_spec_that_does_not_restore_and_stored_specs_reports_it",)),
+    Arm("V8c", "let stored_specs return the mapping alone",
+        Sabotage(_AUDIT, "            spec = stored.analysis_spec_value(node)\n        except RecordError as refused:\n", "            spec = stored.analysis_spec_value(node)\n        except RecordError:\n            continue\n"),
+        (f"{_TA}::test_v8_the_audit_names_a_spec_that_does_not_restore_and_stored_specs_reports_it",)),
+    # --- corpus.py -----------------------------------------------------------
+    Arm("V5a", "drop the verification step (the after-intent variant is not one replacement)",
+        Sabotage(_CORPUS, '        if node.kind == "verification":\n            self._refuse_verification(node, view=self._view if view is None else view)\n', "        pass\n"),
+        (f"{_TO}::test_v5_each_forgery_is_refused_before_the_intent", f"{_ACC}::test_v5_each_forgery_is_refused_with_the_head_unchanged_and_no_intent")),
+    Arm("V5b", "return before the target check",
+        Sabotage(_CORPUS, "        if identity != decoded.assessment:\n", "        if False:\n"),
+        (f"{_TO}::test_v5_each_forgery_is_refused_before_the_intent",)),
+    Arm("V5c", "resolve the target in self._view instead of the union for import",
+        Sabotage(_CORPUS, "            self._refuse_verification(node, view=self._view if view is None else view)\n", "            self._refuse_verification(node, view=self._view)\n"),
+        (f"{_TI}::test_v5_every_forgery_refuses_the_bundle_and_the_well_formed_record_imports",)),
+    Arm("V8f", "skip _refuse's spec restoration",
+        Sabotage(_CORPUS, '        if node.kind == "analysis-spec":\n            self._refuse_r20_contradiction(node)\n', "        pass\n"),
+        (f"{_TCW}::test_v8_a_spec_record_whose_identity_is_false_is_refused_at_add", f"{_TI}::test_v8_a_spec_record_whose_identity_is_false_refuses_the_bundle")),
+    # --- spec.py -------------------------------------------------------------
+    Arm("V8a", "skip restore's identity check",
         Sabotage(_SPEC, "    if v1.digest(SPEC_DOMAIN, mapping) != identity:\n", "    if False:\n"),
         (f"{_TSP}::test_v8_restore_refuses_a_projection_that_does_not_digest_to_the_identity[corrupt0]", f"{_TS}::test_v8_a_renamed_or_falsely_identified_record_is_malformed")),
-    Arm("V8b", "restore refuses the unfreezable pair",
-        Sabotage(_SPEC, "    if isinstance(nondeterminism, StochasticUnseeded) and equivalence_rule in BITWISE_EQUIVALENCE_RULES:\n", "    if False:\n"),
+    Arm("V8b", "skip the unfreezable check in restore",
+        Sabotage(_SPEC, '    if isinstance(nondeterminism, StochasticUnseeded) and text["equivalence_rule"] in BITWISE_EQUIVALENCE_RULES:\n', "    if False:\n"),
         (f"{_TSP}::test_v8_restore_refuses_non_canonical_text_and_the_unfreezable_pair",)),
-    Arm("V8c", "stored_specs reports what it cannot restore",
-        Sabotage(_AUDIT, "            findings.append(\n                Finding(\n                    severity=\"error\",\n                    code=\"derivation-malformed\",\n                    ref=node.id,\n                    detail=str(refused),\n                    message=f\"{node.id}: the members a derivation recomputation reads are malformed\",\n                )\n            )\n            continue\n        specs[spec.identity] = spec\n", "            continue\n        specs[spec.identity] = spec\n"),
-        (f"{_TA}::test_v8_the_audit_names_a_spec_that_does_not_restore_and_stored_specs_reports_it",)),
+    Arm("V8g", "decode with a float parser",
+        Sabotage(_SPEC, "        mapping = v1.decode(projection)\n", '        mapping = __import__("json").loads(projection)\n'),
+        (f"{_TSP}::test_v8_restore_round_trips_every_member_and_the_decimal_by_type",)),
 )
 ```
 
-V2d's check is Task 4's `test_v2_a_contradicted_assessment_still_contradicts`. Parametrized ids (`[scope-mutate0]`) must match pytest's generated ids — run `uv run --frozen pytest tests/test_audit.py --collect-only -q | grep v4` and copy them. Every `before` must occur exactly once in its module; the V8c `before` is multi-line and must match the landed indentation byte for byte.
+Every `before` must occur exactly once in its module (V5a's two-line `before` contains V5c's line; the harness counts each `before` in its own module and both count once). V8c's `before` starts one line above the `except` because `audit_corpus` carries the same `except RecordError as refused:` line; its `after` skips the finding, so the mapping returns alone. If a parametrized id differs from the collected one, copy the collected id.
 
-- [ ] **Step 2: Write the audit module** — `tests/acceptance/test_n2_cut21.py`, by the cut-19 pattern (copy `test_n2_cut19.py` and adjust): `FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-06-conformance-cut-21.md"`, `CUT21_FREEZE_COMMIT = "41c9920"`, `CUT21_FROZEN_SHA256 = "eaf214761627a22b9a74713bfe88a2bb4adb0cfd73496110929fb4d9f4af1be5"`, `FROZEN_PRIOR_CUT_FILES` = cut 19's table plus `"python/tests/acceptance/n2_arms_cut19.py": "8723fac"` (and, after Task 12's merge, cut 20's arms file at its last commit), `PRIOR_ARMS` gaining `CUT19_ARMS`, the inventory test asserting `DECLARATION_UNITS == tuple(f"V{n}" for n in range(1, 9))`, and the freeze test asserting `"**8 declaration units**"`, `"Eight guarantee rows are read, **8 full/closed** (V1–V8), 0 partial, 0"` and `'("cut20_acceptance.py",)'` in the current text, with `_frozen_body` spanning `## 2. The boundary` to the first `\n## 8.` (none exists yet: the whole tail).
+- [ ] **Step 2: Write the audit module** — `tests/acceptance/test_n2_cut21.py`, by the cut-19 pattern (copy `test_n2_cut19.py` and adjust): `FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-06-conformance-cut-21.md"`, `CUT21_FREEZE_COMMIT = "41c9920"`, `CUT21_FROZEN_SHA256 = "eaf214761627a22b9a74713bfe88a2bb4adb0cfd73496110929fb4d9f4af1be5"`, `FROZEN_PRIOR_CUT_FILES` = cut 19's table plus `"python/tests/acceptance/n2_arms_cut19.py": "8723fac"`, `PRIOR_ARMS` gaining `CUT19_ARMS`, the inventory test asserting `DECLARATION_UNITS == tuple(f"V{n}" for n in range(1, 9))` and `len(CUT21_ARMS) == 25`, and the freeze test asserting `"**8 declaration units**"`, `"Eight guarantee rows are read, **8 full/closed** (V1–V8), 0 partial, 0"` and `'("cut20_acceptance.py",)'` in the current text, with `_frozen_body` spanning `## 2. The boundary` to the first `\n## 8.` (none yet: the whole tail).
 
 - [ ] **Step 3: Write the runner** — `tools/cut21_acceptance.py`: copy `cut19_acceptance.py`, with `DEFAULT_WORK = PYTHON_ROOT.parent / ".cut21-acceptance"`, `PREFIX_RUNNERS = ("cut20_acceptance.py",)`, `PHASE_MODULES = ("test_verification_acceptance.py", "test_n2_cut21.py")`, `SCIENCE_CUT21_ROOT`, `range(4, 22)` in `cut_environment`, `SCIENCE_CUT20_ROOT` in `run_prefix`'s environment, the import `from n2_arms_cut21 import CUT21_ARMS, DECLARATION_UNITS`, and the final line `f"declared arms: {arms} (= {units} declaration units; 8 guarantee rows)"`.
 
 - [ ] **Step 4: Run the audit module directly** (the runner refuses until cut 20 merges):
 
 Run: `SCIENCE_CUT4_ROOT=$(git rev-parse --show-toplevel)/.cut21-acceptance uv run --frozen pytest tests/acceptance/test_n2_cut21.py -p no:cacheprovider`
-Expected: PASS — every arm sound, every check resolved, the freeze pinned. A `stale` finding means a `before` no longer matches the source: fix the arm, never the source.
+Expected: PASS — every arm sound, every check resolved, the freeze pinned. A `stale` finding means a `before` no longer matches the source: fix the arm, never the source. A `mixed` finding means a check passes under its sabotage: strengthen the check, never the arm.
 Run: `uv run --frozen ruff check . && uv run --frozen pyright` → clean.
 
 - [ ] **Step 5: Commit**
@@ -2184,7 +2514,7 @@ git commit -m "test(cut21): declare the N2 arms, the cut-21 audit and the accept
 ### Task 11: Bank the implementation
 
 **Files:**
-- Modify: `docs/designs/2026-09-06-verification-publication-design.md` (Status), `docs/designs/2026-08-02-computation-reproducibility-design.md` (§7.3b–§7.3c dated note), `docs/designs/2026-08-30-run-confinement-design.md` (§10), `docs/plans/2026-09-04-conformance-cut-18-results.md` (§3 R3, §4), `docs/guide/computation-and-reproducibility.md`, `docs/guide/glossary.md`
+- Modify: `docs/designs/2026-09-06-verification-publication-design.md` (Status), `docs/designs/2026-08-02-computation-reproducibility-design.md` (§7.3c dated note), `docs/designs/2026-08-30-run-confinement-design.md` (§10), `docs/plans/2026-09-04-conformance-cut-18-results.md` (§3 R3, §4), `docs/guide/computation-and-reproducibility.md`, `docs/guide/glossary.md`
 
 - [ ] **Step 1: The design's status** — replace the `**Status:**` paragraph's last sentence with: `**implemented through <sha of Task 10's commit>** on 2026-09-06; cut 21 undischarged, awaiting the domain lane's cut 20 (roadmap rule 5).`
 
@@ -2206,23 +2536,23 @@ git commit -m "docs(verification): bank the implementation; dated notes in the c
 ### Task 12: Discharge after cut 20 merges — `beliefs-754995`
 
 **Files:**
-- Modify: `contracts/science/CONTRACT.yaml` and its packaged copy (the reader line, if the merged tree declares reader-shaped facets), `python/tests/acceptance/test_n2_cut21.py` (`FROZEN_PRIOR_CUT_FILES` gains cut 20's arms), the ledger, the roadmap, `README.md`, `docs/plans/2026-09-06-conformance-cut-21-results.md`
+- Modify: `contracts/science/CONTRACT.yaml` and its packaged copy (the reader lines), `python/tests/acceptance/test_n2_cut21.py` (`FROZEN_PRIOR_CUT_FILES` gains cut 20's arms), the ledger, the roadmap, `README.md`, `docs/plans/2026-09-06-conformance-cut-21-results.md`
 
-- [ ] **Step 1: Merge `main`** once the domain lane's cut 20 is discharged: `git merge --no-ff main` in the worktree; resolve every shared file toward `main` (roadmap rule 3): `_refuse`'s step order is document validation → `_refuse_facets` → `_refuse_verification`/`_refuse_r20_contradiction` → stamp; `audit_corpus` and `check_verification` keep their profile arguments from `main` and this lane's bodies; `stored.py`'s tables become views as `main` has them, with `analysis_spec_node`/`analysis_spec_value`/`governed_node`/`typed_ref`/`local_id` added.
+- [ ] **Step 1: Merge `main`** once the domain lane's cut 20 is discharged: `git merge --no-ff main` in the worktree; resolve every shared file toward `main` (roadmap rule 3): `_refuse`'s step order is document validation → `_refuse_facets` → `_refuse_verification`/`_refuse_r20_contradiction` → stamp; `audit_corpus` and `check_verification` keep their profile arguments from `main` and this lane's bodies; `stored.py`'s tables become views as `main` has them, with this lane's builders, readers and helper pair added.
 
 - [ ] **Step 2: Declare the readers.** In the merged base contract's `facets:` section, name `verify.decode_verification` beside `verification`'s readers and `stored.analysis_spec_value` as `analysis-spec`'s reader, in the shape that design's §3.2 fixes; keep the packaged copy byte-identical (its test holds them). Run the full suite and the facet tests.
 
-- [ ] **Step 3: Pin cut 20's arms.** Add `"python/tests/acceptance/n2_arms_cut20.py": "<git log -1 --format=%h -- that path>"` (or `python/tests/n2_arms_cut20.py`, wherever it landed) to `FROZEN_PRIOR_CUT_FILES` and `CUT20_ARMS` to `PRIOR_ARMS` in `test_n2_cut21.py`.
+- [ ] **Step 3: Pin cut 20's arms.** Add cut 20's arms file at its last commit (`git log -1 --format=%h -- <path>`) to `FROZEN_PRIOR_CUT_FILES` and `CUT20_ARMS` to `PRIOR_ARMS` in `test_n2_cut21.py`.
 
-- [ ] **Step 4: Re-run the reproduction driver** into a fresh directory (Task 9 step 5) on the merged tree and keep the 10b JSON.
+- [ ] **Step 4: Re-run the reproduction driver** into a fresh directory (Task 9 step 7) on the merged tree and keep the 10b JSON.
 
 - [ ] **Step 5: Run the runner on the certified volume**
 
-Run: `uv run --frozen python tools/cut21_acceptance.py` from `python/` → every phase green through the cut 20, 19, 18 and 17 prefixes, ending `declared arms: 17 (= 8 declaration units; 8 guarantee rows)`.
+Run: `uv run --frozen python tools/cut21_acceptance.py` from `python/` → every phase green through the cut 20, 19, 18 and 17 prefixes, ending `declared arms: 25 (= 8 declaration units; 8 guarantee rows)`.
 
-- [ ] **Step 6: The results record** — `docs/plans/2026-09-06-conformance-cut-21-results.md`, by cut 19's record's sections: header (subject, measured against the frozen cut at `41c9920`, digest `eaf2147…`); §1 accounting (8 units, 17 arms, all sound); §2 what ran (the runner's command, its work root, the host tuple, every phase, the driver's 10b JSON quoted); §3 disposition (V1–V8 close; R19's stored-verification limitation closes and its cross-corpus arm stays with `world-resolution`; the `Remaining boundary` section naming `world-resolution`'s rows); §4 what this run does not claim (design §9's limitations); §5 every substitution from the frozen §3 file list, dated.
+- [ ] **Step 6: The results record** — `docs/plans/2026-09-06-conformance-cut-21-results.md`, by cut 19's record's sections: header (subject, measured against the frozen cut at `41c9920`, digest `eaf2147…`); §1 accounting (8 units, 25 arms, all sound); §2 what ran (the runner's command, its work root, the host tuple, every phase, the driver's 10b JSON quoted); §3 disposition (V1–V8 close; R19's stored-verification limitation closes and its cross-corpus arm stays with `world-resolution`; the `Remaining boundary` section naming `world-resolution`'s rows); §4 what this run does not claim (design §9's limitations); §5 every substitution from the frozen §3 and §5, dated — at least these two: V3's negatives live in `test_verification_publication.py` rather than `test_evaluation.py` (a circular test import), and V5's "after `append_intent`" sabotage is declared as dropping the step (not one replacement); plus the V1 run-deletion substitution if Task 8 step 4 met it.
 
-- [ ] **Step 7: Re-rank.** Run `uv run --frozen python tools/roadmap_status.py` and rewrite the roadmap whole (its rule): `**Ranked at:** cut 21`; tier 1 row 1 leaves; `write-path`'s row reads "no open boundary"; the boundary index drops `verification-publication`; Appendix A gains the `V` row (8 closed) and updates the totals; Appendix C drops R19's row. The ledger's `Current state` heading date and table drop the boundary and restate R19's remainder; its summary names cut 21. README: the design's row reads "V1–V8, closed at cut 21", the cut's row "discharged 2026-09-06", and the results record is listed where cut 19's is.
+- [ ] **Step 7: Re-rank.** Run `uv run --frozen python tools/roadmap_status.py` and rewrite the roadmap whole: `**Ranked at:** cut 21`; tier 1 row 1 leaves; `write-path`'s row reads "no open boundary"; the boundary index drops `verification-publication`; Appendix A gains the `V` row (8 closed) and updates the totals; Appendix C drops R19's row. The ledger's `Current state` heading date and table drop the boundary and restate R19's remainder; its summary names cut 21. README: the design's row reads "V1–V8, closed at cut 21", the cut's row "discharged 2026-09-06", and the results record is listed where cut 19's is.
 
 - [ ] **Step 8: Tests, task, commit, merge**
 
