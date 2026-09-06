@@ -76,7 +76,7 @@ relations:
   member_of: { group: world, sources: [source], targets: [dataset] }
   grounded-in: { group: world, sources: [retraction], targets: [retraction, verification, source] }
   supersedes: { group: lifecycle, sources: [proposition], targets: [proposition] }
-  retracts: { group: lifecycle, sources: [retraction], targets: [assessment, dataset, verification, source, run] }
+  retracts: { group: lifecycle, sources: [retraction], targets: [assessment, retraction, verification] }
   succeeded-by: { group: lifecycle, sources: [retraction], targets: [retraction] }
   anchored_in: { group: lifecycle, sources: [source-assertion], targets: [source] }
 

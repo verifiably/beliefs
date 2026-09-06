@@ -39,6 +39,10 @@ describe("the base contract's declarations (design §3.1–§3.4)", () => {
     const bad = SHIPPED.replace("observes: { group: world,", "observes: { group: other,");
     expect(() => parseBaseContract(bad, "<bad>")).toThrow(/group/);
   });
+  it("declares the current retraction endpoint closure", () => {
+    expect(base.relations.retracts.sources).toEqual(["retraction"]);
+    expect(base.relations.retracts.targets).toEqual(["assessment", "retraction", "verification"]);
+  });
   it("matches Python's semantic-domain, description, and null-facet refusals", () => {
     expect(() =>
       parseBaseContract(SHIPPED.replace("domain: science.dataset.v1", "domain: dataset-v1"), "<bad>"),
