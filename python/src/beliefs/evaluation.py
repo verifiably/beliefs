@@ -173,9 +173,10 @@ def gather(
 
     runs: dict[str, RunValue] = {}
     for a in matched:
-        if a.run in runs or not view.holds(a.run):
+        ref = stored.typed_ref("run", a.run)
+        if a.run in runs or not view.holds(ref):
             continue
-        runs[a.run] = run_value(view, a.run)
+        runs[a.run] = run_value(view, ref)
         trace.append(("run", a.run))
         for entry in runs[a.run].inputs:
             if entry.role == stored.OBSERVES and (address := dataset_address(entry.dataset)) is not None:

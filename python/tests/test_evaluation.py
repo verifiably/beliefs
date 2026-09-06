@@ -404,7 +404,7 @@ def test_a_reads_input_declaration_crosses_gather_untraced(tmp_path):
     with_reads = _fixture(tmp_path / "with-reads", PROPOSITION_REF, reads=True)
 
     inputs = gather(with_reads.view, with_reads.proposition, **with_reads.gather_kwargs)
-    run_a = inputs.runs["run:run-a"]
+    run_a = inputs.runs["run-a"]
     assert {i.role for i in run_a.inputs} == {"observes", "reads"}, "the declaration really was handed out"
 
     assert ("dataset", _address("e")) not in inputs.read_trace

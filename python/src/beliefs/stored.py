@@ -105,6 +105,7 @@ __all__ = [
     "holdings_observation_value",
     "is_empirical_observation",
     "lineage_basis",
+    "local_id",
     "recompute_semantic_hash",
     "retraction_node",
     "run_spec",
@@ -113,6 +114,7 @@ __all__ = [
     "semantic_projection",
     "stamp_semantic_identity",
     "stored_semantic_hash",
+    "typed_ref",
     "union_lineage_bases",
     "used_facet_namespaces",
     "verification_derivation",
@@ -187,6 +189,29 @@ WORLD_RELATIONS = (
     MEMBER_OF,
     GROUNDED_IN,
 )
+
+
+def typed_ref(kind: str, local: str) -> str:
+    """`kind:local` — the one place a kind prefix is added (design §3.1). A
+    stored facet spells a reference typed; a derived value spells an identity
+    bare; this and `local_id` are the whole bridge."""
+    if kind not in WORLD_KINDS:
+        raise MalformedRecord(f"{kind!r} is not a world kind")
+    if type(local) is not str or not local or local.startswith(f"{kind}:"):
+        raise MalformedRecord(f"{local!r} is not a bare {kind} id")
+    return f"{kind}:{local}"
+
+
+def local_id(kind: str, ref: str) -> str:
+    """The inverse of `typed_ref`: exactly the kind prefix removed, refusing a
+    reference that does not carry it."""
+    if kind not in WORLD_KINDS:
+        raise MalformedRecord(f"{kind!r} is not a world kind")
+    prefix = f"{kind}:"
+    if type(ref) is not str or not ref.startswith(prefix) or len(ref) == len(prefix):
+        raise MalformedRecord(f"{ref!r} is not a typed {kind} reference")
+    return ref[len(prefix):]
+
 
 RETRACTION_REASONS = (
     "authored-error",
@@ -380,7 +405,11 @@ def inputs_of(node: Node, role: str) -> tuple[str, ...]:
 
 def assessment_value(node: Node) -> AssessmentValue:
     """The stored assessment as cut 2's value — `(spec, run, proposition)` and
-    the facet kernel §4.2.1 tables. Absent optionals stay absent."""
+    the facet kernel §4.2.1 tables. Absent optionals stay absent.
+
+    `run` is handed back bare — the run's address, the world identity the
+    derivation digests — and a facet whose `run` is absent or untyped is
+    malformed (design §3.2)."""
     facet = _facet(node, ASSESSMENT_FACET)
     if facet is None:
         raise MalformedRecord(f"{node.id}: an assessment carries an {ASSESSMENT_FACET!r} facet")
@@ -391,7 +420,7 @@ def assessment_value(node: Node) -> AssessmentValue:
     }
     return AssessmentValue(
         spec=str(facet.get("spec", "")),
-        run=str(facet.get("run", "")),
+        run=local_id("run", facet.get("run")),  # type: ignore[arg-type]
         proposition=str(facet.get("proposition", "")),
         outcome=str(facet.get("outcome", "")),
         interpretation_rule=str(facet.get("interpretation_rule", "")),

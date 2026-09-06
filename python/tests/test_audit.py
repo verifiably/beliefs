@@ -823,7 +823,7 @@ class TestAnUnreadableNeighbourLeavesTheRecordUnchecked:
 
     def test_an_assessment_naming_a_stale_run_is_unchecked(self, writer):
         assessment = _eligible_assessment(writer)
-        run = writer.read_view.get(stored.assessment_value(assessment).run)
+        run = writer.read_view.get(stored.typed_ref("run", stored.assessment_value(assessment).run))
         _tampered_stale(writer, run)
 
         outcome = audit.check_assessment(writer.read_view, assessment, evidence=NO_EVIDENCE)

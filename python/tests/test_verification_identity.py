@@ -12,24 +12,15 @@ the bare closure address (mm30 reproduction record §6, steps 6 and 8).
 from __future__ import annotations
 
 import pytest
-from fixtures_cut3 import spec_draft, spec_rules
-from test_audit import (
-    _interpretation_evidence,
-    _verification_evidence,
-    add_observed_datasets,
-    assessment_closure,
-    run_publication,
-)
+from test_evaluation import CLAIM_FACET
 from test_relocation import _writer
+from verification_fixtures import publish_corpus
 
 from beliefs import stored
-from beliefs.assess import build_assessment
 from beliefs.audit import check_verification
-from beliefs.record import AssessmentValue
 from beliefs.runrecord import run_ref
-from beliefs.spec import freeze
 from beliefs.verification import ADMITTED, lifecycle_state
-from beliefs.verify import AssessmentVerification, admission_record, build_verification
+from beliefs.verify import admission_record
 
 
 @pytest.fixture()
@@ -38,38 +29,9 @@ def writer(tmp_path):
 
 
 def test_v2_one_identity_admits_over_the_corpus_and_audits_clean(writer):
-    frozen = freeze(spec_draft(), held_rules=spec_rules())
-    original = assessment_closure(frozen, token="tok-original")
-    replayed = assessment_closure(frozen, token="tok-replayed")
-    add_observed_datasets(writer, original)
-    writer.add(run_publication(original))
-    writer.add(run_publication(replayed))
-    interpretation = _interpretation_evidence(frozen)
-    derived = build_assessment(original, specs=interpretation.specs, implementations=interpretation.implementations)
-    assert isinstance(derived, AssessmentValue), derived
-    proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
-    # The reproduction driver's shape: the run as the typed corpus ref, so it resolves.
-    assessment = writer.add(
-        stored.assessment_node(
-            "a1",
-            title="a1",
-            spec=frozen.identity,
-            run=run_ref(original.address()),
-            proposition=proposition.id,
-            outcome=derived.outcome,
-            interpretation_rule=derived.interpretation_rule,
-        )
-    )
-    evidence = _verification_evidence(frozen)
-    verification = build_verification(
-        original,
-        replayed,
-        specs=evidence.specs,
-        held_rules=evidence.held_rules,
-        contract_identity="science:" + "c" * 64,
-        epoch="epoch:" + "e" * 64,
-    )
-    assert isinstance(verification, AssessmentVerification)
+    published = publish_corpus(writer, claim=CLAIM_FACET)
+    original, replayed, assessment = published.original, published.replayed, published.assessment
+    derived, verification, evidence = published.derived_value, published.derived, published.evidence
     record = admission_record(verification)
     stored_node = writer.add(
         stored.verification_node(

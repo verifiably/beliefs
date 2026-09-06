@@ -78,6 +78,8 @@ class RunValue:
 class AssessmentValue:
     spec: str
     run: str
+    """The run's bare closure address — its world identity — on the derived and the stored side alike (verification-publication design §3)."""
+
     proposition: str
     """A cut-1 claim identity: propositions are typed claims, consumed here."""
 

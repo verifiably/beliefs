@@ -20,6 +20,7 @@ from typing import final
 from beliefs.dataset import ByteObservation, DatasetDeclaration, Held, admission_state, dataset_address
 from beliefs.record import AssessmentValue, RunValue
 from beliefs.sealed import sealed
+from beliefs.stored import typed_ref
 from beliefs.verification import ADMITTED, Verification, lifecycle_state
 
 __all__ = ["AdmissionRefused", "Admitted", "admit", "vocabulary_availability"]
@@ -52,7 +53,7 @@ def admit(
     run-mismatch, then observes-presence (G6), then heldness of every input
     (G2b), then verification state (G2c)."""
     uid = assessment.identity()
-    if run.ref != assessment.run:
+    if run.ref != typed_ref("run", assessment.run):
         return AdmissionRefused(uid, f"run-mismatch: assessment names {assessment.run!r}, given {run.ref!r}")
     if not any(i.role == "observes" for i in run.inputs):
         return AdmissionRefused(uid, "no-observes-input: reads inputs never confer eligibility, in any quantity")

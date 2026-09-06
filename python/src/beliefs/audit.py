@@ -44,7 +44,7 @@ from beliefs.evidence import NO_EVIDENCE, DerivationEvidence, DerivationOutcome
 from beliefs.identity import v1
 from beliefs.recipe import RunClosure
 from beliefs.record import ASSESSMENT_DOMAIN
-from beliefs.runrecord import decode_run_closure, run_ref
+from beliefs.runrecord import decode_run_closure
 from beliefs.verification import VERDICTS
 from beliefs.verify import _resolve_rule
 
@@ -81,8 +81,7 @@ _COMPARABLE_ASSESSMENT_MEMBERS = (
 vocabulary. `proposition` is deliberately absent: the derived value carries the
 spec's claim **target**, and the stored facet carries the corpus **ref** of the
 proposition record — two namespaces, and comparing them would fire on
-agreement. `spec` and `run` are compared separately, after `run` is normalized
-from a bare closure address to its typed stored reference."""
+agreement. `spec` and `run` are compared separately, both spelled bare."""
 
 
 def _unchecked(reason: str) -> DerivationOutcome:
@@ -166,7 +165,7 @@ def check_assessment(
 ) -> DerivationOutcome:
     """Recompute a stored assessment's facet from the run it names."""
     stored_value = stored.assessment_value(node)
-    closure, why = _closure(view, stored_value.run)
+    closure, why = _closure(view, stored.typed_ref("run", stored_value.run))
     if closure is None:
         return _unchecked(why)
     derived = build_assessment(closure, specs=evidence.specs, implementations=evidence.implementations)
@@ -193,16 +192,14 @@ def _assessment_disagreements(stored_value: AssessmentValue, derived: Assessment
 
     `run` and `spec` are part of the comparison, not exempt from it: a facet
     naming a run or a spec its own closure does not is contradicted by that
-    alone. `run` is normalized first — the derived value carries the bare
-    closure address and the stored facet the typed `run:` reference — because
-    two spellings of one identity are not a disagreement.
+    alone.
     """
     disagreements = [
         name
         for name in _COMPARABLE_ASSESSMENT_MEMBERS
         if getattr(stored_value, name) != getattr(derived, name)
     ]
-    if stored_value.run != run_ref(derived.run):
+    if stored_value.run != derived.run:
         disagreements.append("run")
     if stored_value.spec != derived.spec:
         disagreements.append("spec")

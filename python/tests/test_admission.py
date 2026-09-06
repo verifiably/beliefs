@@ -22,7 +22,7 @@ def dataset(digest: str | None = D1) -> DatasetDeclaration:
 
 
 def run(*inputs: RunInput) -> RunValue:
-    return RunValue(ref="run-1", spec="spec-1", inputs=inputs)
+    return RunValue(ref="run:run-1", spec="spec-1", inputs=inputs)
 
 
 def assessment() -> AssessmentValue:
@@ -100,7 +100,7 @@ class TestG6:
 class TestTheGateReadsItsArguments:
     def test_a_run_that_is_not_the_assessments_run_is_refused(self):
         d = dataset()
-        other = RunValue(ref="run-2", spec="spec-1", inputs=(RunInput(role="observes", dataset=d),))
+        other = RunValue(ref="run:run-2", spec="spec-1", inputs=(RunInput(role="observes", dataset=d),))
         result = admit(assessment(), other, held(d), ADMITTING)
         assert isinstance(result, AdmissionRefused)
         assert result.reason.startswith("run-mismatch")
@@ -131,3 +131,16 @@ class TestD3NotAvailableIsDerived:
         obs = tuple(ByteObservation(digest=r.digest, location="repo://v") for r in d.resources if r.digest)
         readable, members = vocabulary_availability(d, obs, members=("EX:term-1",))
         assert readable and members == ("EX:term-1",)
+
+
+# --- V2: admit resolves the bare run through the typed ref (design §3.2) ------
+def test_v2_admit_matches_a_typed_run_ref_to_the_bare_member():
+    from beliefs.admission import AdmissionRefused, admit
+    from beliefs.record import AssessmentValue, RunValue
+
+    assessment = AssessmentValue(spec="s", run="r1", proposition="p", outcome="supported", interpretation_rule="rule-1")
+    other = RunValue(ref="run:r2", spec="s", inputs=())
+    refused = admit(assessment, other, {}, ())
+    assert isinstance(refused, AdmissionRefused) and refused.reason.startswith("run-mismatch")
+    same = RunValue(ref="run:r1", spec="s", inputs=())
+    assert admit(assessment, same, {}, ()).reason.startswith("no-observes-input")  # type: ignore[union-attr]
