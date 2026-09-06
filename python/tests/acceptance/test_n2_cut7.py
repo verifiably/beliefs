@@ -113,6 +113,8 @@ WRITE_PERMITS_MIGRATION_COMMIT = "659cc6e"
 """The whole-repo science→beliefs mechanical rename (ledger R7). Re-pins a
 file whose only post-freeze edit was that rename's import strings."""
 
+PROFILE_API_MIGRATION_COMMIT = "3c7f32ce64f324d4ee23f389755379b671314dab"
+
 FROZEN_PRIOR_CUT_FILES = {
     "python/tests/n2_arms_cut5.py": CUT6_SOURCE_COMMIT,
     "python/tests/n2_arms_cut6.py": CUT6_SOURCE_COMMIT,
@@ -126,7 +128,9 @@ FROZEN_PRIOR_CUT_FILES = {
     # `f703913`. Re-pinned again across the rename (ledger R7).
     # Write permits deliberately migrated this audit's lifecycle and world
     # seam calls; 659cc6e is the first commit holding the complete migration.
-    "python/tests/acceptance/test_n2_cut6.py": WRITE_PERMITS_MIGRATION_COMMIT,
+    # Compiled profiles mechanically added the required profile argument to
+    # the live world opener; the historical sources and arm tables stay pinned.
+    "python/tests/acceptance/test_n2_cut6.py": PROFILE_API_MIGRATION_COMMIT,
 }
 """Each prior-cut surface and the commit whose content it must still hold."""
 
