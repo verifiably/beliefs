@@ -326,6 +326,38 @@ class TestPreflightReadbackAndRecovery:
         assert read_lifecycle_state(plain) is LifecycleState.METADATA_LESS  # the reading recover keys on
         durable_executor_factory().recover(plain)  # no exception, no chain read
 
+    def test_recover_on_an_uncertified_tuple_returns_without_reading_a_chain(self, monkeypatch):
+        import os
+        import shutil
+        from pathlib import Path
+
+        from atoms.core.errors import CapabilityUnavailable
+
+        from beliefs.root import metadata_root_for, read_lifecycle_state
+
+        shm = Path("/dev/shm")
+        if not shm.is_dir():
+            raise AssertionError(
+                "/dev/shm is unavailable, so the uncertified-tuple recovery negative cannot run; "
+                "this is an error and not a skip"
+            )
+        root = shm / f"science-writer-session-uncertified-{os.getpid()}"
+        try:
+            with pytest.raises(CapabilityUnavailable):
+                init_corpus_root(root, authority=FULL)
+            with pytest.raises(CapabilityUnavailable):
+                read_lifecycle_state(root)  # the case §13 item 19 defers to
+
+            def _fail_if_called(*_args, **_kwargs):
+                raise AssertionError("recover must not read the chain on an uncertified tuple")
+
+            monkeypatch.setattr(science_root, "read_chain", _fail_if_called)
+
+            durable_executor_factory().recover(root)  # returns; the write itself refuses with the same cause
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+            shutil.rmtree(metadata_root_for(root), ignore_errors=True)
+
     def test_a_failed_lifecycle_read_is_an_execution_error_not_a_recovery(self, tmp_path, monkeypatch):
         from nodes.core.errors import ExecutionError
 

@@ -1136,3 +1136,20 @@ decide. None changes a `J` row or the cut's §2–§7.
     once. **Session lock, then root lock, everywhere** — claims and closes take
     the session lock alone, and nothing takes the root lock before the session
     lock, so the two orders never cross.
+19. **A `CapabilityUnavailable` lifecycle read defers to the write's own
+    refusal.** Item 3's "not writable" case is not only a successful read that
+    resolves to a non-`WRITABLE` state: an uncertified tuple (a volume the
+    engine's allowlist does not certify, e.g. a `tmpfs` with no barrier-option
+    table) fails the lifecycle read itself with `CapabilityUnavailable`, and
+    that failure is the engine's own judgment that the root is not writable —
+    the write will refuse with the identical cause regardless of what recovery
+    does. So `recover` catches `CapabilityUnavailable` from the lifecycle read
+    and returns without reading the chain, the same as a successful
+    non-`WRITABLE` read; this is what keeps
+    `test_import_on_an_uncertified_tuple_refuses`'s frozen `(None, 0)` shape
+    intact; a settling hold that instead mapped this case to
+    `ExecutionError(index=None, applied=None)` at recovery would refuse with
+    the right cause but the wrong `(index, applied)` shape, one step earlier
+    than the write itself. Every other lifecycle-read exception is unchanged:
+    it proves nothing about the root, so it still maps to
+    `ExecutionError(index=None, applied=None)` and the flag stays set.

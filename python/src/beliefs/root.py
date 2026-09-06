@@ -1343,6 +1343,11 @@ class _DurableExecutorFactory:
         target = Path(root)
         try:
             state = read_lifecycle_state(target)
+        except CapabilityUnavailable:
+            # §13 item 19: an uncertified tuple is not writable by the engine's own
+            # judgment, and the write itself refuses with this same cause — recovery
+            # has nothing to do and must not manufacture a different refusal shape.
+            return
         except Exception as caught:
             # An I/O failure proves nothing about the root; the flag stays set.
             raise ExecutionError(f"lifecycle read failed before recovery: {caught}", index=None, applied=None) from caught
