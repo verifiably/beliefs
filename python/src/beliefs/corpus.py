@@ -42,13 +42,13 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, cast, final
 
 from nodes.core.corpus import Corpus
-from nodes.core.errors import CollisionError, ExecutionError, RefError
+from nodes.core.errors import CollisionError, ExecutionError, PlanRefusedError, RefError
 from nodes.core.errors import ValidationError as NodesValidationError
 from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 from nodes.core.structural_index import Index, ResolvedEdge
-from nodes.core.write_plan import CreateOp, DeleteOp, WritePlanExecutor
+from nodes.core.write_plan import CreateOp, DeleteOp, WritePlan, WritePlanExecutor
 from pydantic import ValidationError as PydanticValidationError
 from pydantic_core import PydanticSerializationError
 from yaml import YAMLError
@@ -87,6 +87,8 @@ from beliefs.errors import (
     MalformedRecord,
     ManifestAlreadyPresent,
     ManifestMalformed,
+    OperationPortMissing,
+    PlanRefused,
     PredecessorMismatch,
     PredecessorNotStanding,
     ProjectNotResolvable,
@@ -380,11 +382,152 @@ class OperationLock:
 
 
 @dataclass
+class _Fulfillment:
+    """One locked call's binding (§13 item 11): the exact authority and port
+    whose submission the routed executor commits, and the result."""
+
+    authority: Authority
+    port: OperationPort
+    consumed: bool = False  # the scope's one submission attempt has been taken (guards a second)
+    submitted: bool = False  # the intent was appended: from here on, a failure is post-submission
+    result: tuple[str, str, str] | None = None  # (event_token, intent_digest, entry_digest)
+
+
+@dataclass
 class _RootState:
     lock: OperationLock
     corpus: Corpus
     view: ReadView
     executor_factory: Callable[[Path], WritePlanExecutor]
+    executors: Callable[[Path], _RoutedExecutor]
+    recover: Callable[[Path], None] | None
+    unresolved: bool = True
+    fulfilling: _Fulfillment | None = None
+    depth: int = 0  # settling-hold nesting on the owning thread
+
+
+def _encode_operation_intent(kind: str, event_token: str, intent_actor: str) -> bytes:
+    """The one wire encoding of an operation intent. Both producers — the routed
+    commit seam and `CorpusWriter._append_operation_intent` — append exactly these
+    bytes, so `decode_intent` reads one shape however the entry was written."""
+    intent = OperationIntent(kind, event_token, intent_actor)
+    return v1.encode({"kind": intent.kind, "event_token": intent.event_token, "actor": intent.actor})
+
+
+def _plan_kinds(plan: WritePlan) -> tuple[str, ...]:
+    """The kinds a plan emits, from the record layout `<kind>/<slug>.md` (§13 item 13)."""
+    kinds: list[str] = []
+    for op in plan:
+        kind, _, rest = op.path.partition("/")
+        if not kind or not rest:
+            raise PlanRefused(f"{op.path!r} is not a record path")
+        kinds.append(kind)
+    return tuple(dict.fromkeys(kinds))
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class OperationCommit:
+    """What one operation write committed (writer-session design §4.2)."""
+
+    record: Node | None
+    event_token: str
+    intent_digest: str
+    entry_digest: str
+
+
+class _RoutedExecutor:
+    """The executor the corpus holds (§13 items 12–13): an implementation of the
+    `execute` primitive. Ordinary submissions mark the root unresolved and
+    delegate; a fulfilling scope's one submission is committed by
+    `commit_fulfilling`, the inventoried seam.
+
+    `nodes`' `Corpus.__init__` calls the executor factory before the root state
+    exists, so the state is looked up lazily through `holder` at the first
+    submission, never at construction.
+    """
+
+    def __init__(self, inner: WritePlanExecutor, holder: list[_RootState]) -> None:
+        self._inner = inner
+        self._holder = holder
+
+    @property
+    def _state(self) -> _RootState:
+        (state,) = self._holder  # bound by `_root_state_for` right after the corpus is built
+        return state
+
+    def execute(self, plan: WritePlan) -> None:
+        scope = self._state.fulfilling
+        if scope is None:
+            self._state.unresolved = True
+            self._inner.execute(plan)
+            return
+        if scope.consumed:
+            raise ScienceError("a fulfilling scope admits exactly one submission")
+        scope.consumed = True
+        self.commit_fulfilling(scope, plan)
+
+    def commit_fulfilling(self, scope: _Fulfillment, plan: WritePlan) -> None:
+        """The commit seam (design §4.3, §13 item 13): require, preflight, intent,
+        fulfilling execution — in that order and no other."""
+        scope.authority.require("corpus-write", _plan_kinds(plan))
+        try:
+            scope.port.preflight(plan)
+        except PlanRefusedError as caught:
+            raise PlanRefused(str(caught)) from caught
+        scope.submitted = True  # the refusals are behind us; the intent is the first effect
+        self._state.unresolved = True
+        token = secrets.token_hex(16)
+        intent_digest = scope.port.append_intent(
+            _encode_operation_intent("corpus-write", token, scope.authority.actor)
+        )
+        entry_digest = scope.port.execute_fulfilling(plan, intent_digest)
+        scope.result = (token, intent_digest, entry_digest)
+
+
+def _routed_factory(
+    executor_factory: Callable[[Path], WritePlanExecutor], holder: list[_RootState]
+) -> Callable[[Path], _RoutedExecutor]:
+    """The wrapped factory a root state constructs every executor from. `holder`
+    is empty while `Corpus.__init__` runs and receives the state immediately
+    after; the executor resolves it at its first `execute`, so construction
+    never reads it."""
+
+    def build(root: Path) -> _RoutedExecutor:
+        return _RoutedExecutor(executor_factory(root), holder)
+
+    return build
+
+
+@final
+class _SettlingHold:
+    """`CorpusWriter._operation` (§13 item 10): the raw root lock, plus
+    settlement on entry and the `unresolved` clear on the outermost clean exit."""
+
+    def __init__(self, writer: CorpusWriter) -> None:
+        self._writer = writer
+        self._lock = writer._state.lock
+
+    def __enter__(self) -> _SettlingHold:
+        self._lock.__enter__()
+        state = self._writer._state
+        try:
+            self._writer._settle()
+        except BaseException:
+            self._lock.__exit__(None, None, None)
+            raise
+        state.depth += 1
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
+        state = self._writer._state
+        state.depth -= 1
+        try:
+            if exc_type is None and state.depth == 0:
+                state.unresolved = False
+        finally:
+            self._lock.__exit__(exc_type, exc, traceback)
 
 
 class _ImportView:
@@ -455,8 +598,18 @@ def _root_state_for(root: Path, executor_factory: Callable[[Path], WritePlanExec
         state = _ROOT_STATES.get(key)
         if state is None:
             lock = _locked_operation_lock(key)
-            corpus = Corpus(resolved, executor_factory=executor_factory)
-            state = _RootState(lock, corpus, ReadView(corpus), executor_factory)
+            holder: list[_RootState] = []
+            executors = _routed_factory(executor_factory, holder)
+            corpus = Corpus(resolved, executor_factory=executors)
+            state = _RootState(
+                lock,
+                corpus,
+                ReadView(corpus),
+                executor_factory,
+                executors,
+                getattr(executor_factory, "recover", None),
+            )
+            holder.append(state)
             _ROOT_STATES[key] = state
         elif state.executor_factory is not executor_factory:
             raise ScienceError(f"corpus root {key!r} is already open with a different executor factory")
@@ -1120,7 +1273,7 @@ class CorpusWriter:
             raise ValueError("the operation port is bound to another authority than this writer")
         self._authority = authority
         self._state = _root_state_for(root, executor_factory)
-        self._operation = self._state.lock
+        self._operation = _SettlingHold(self)
         self._operation_port = operation_port
         self._coordination_resolver = coordination_resolver
 
@@ -1156,6 +1309,28 @@ class CorpusWriter:
         """The facade every other module receives. The mutable handle stays
         here."""
         return self._view
+
+    @contextmanager
+    def _fulfilling(self) -> Iterator[_Fulfillment]:
+        """Bind this writer's authority and port for one submission (§13 item 11).
+        Entered under the raw root lock by `OperationWrites` only; the ordinary
+        method it wraps takes the settling hold itself, after its `require`."""
+        port = self._operation_port
+        if port is None:
+            raise OperationPortMissing("this corpus has no operation port; operation writes are session-mediated")
+        state = self._state
+        if state.fulfilling is not None:
+            raise ScienceError("a nested fulfilling scope is not admitted")
+        scope = _Fulfillment(self._authority, port)
+        state.fulfilling = scope
+        try:
+            yield scope
+        finally:
+            state.fulfilling = None
+
+    @property
+    def operations(self) -> OperationWrites:
+        return OperationWrites(self)
 
     def add(self, node: Node) -> Node:
         """Mint one record, returning it as `nodes` mints it.
@@ -1487,7 +1662,7 @@ class CorpusWriter:
                 }
             ).profile
             manifest = CorpusManifest(2, secrets.token_hex(16), checked_profile)
-            self._state.executor_factory(self._corpus.store.root).execute(
+            self._state.executors(self._corpus.store.root).execute(
                 [CreateOp("corpus.yaml", manifest_bytes(manifest))]
             )
             return manifest
@@ -1498,12 +1673,9 @@ class CorpusWriter:
             raise ActorMismatch(
                 f"the operation intent names actor {intent_actor!r}, not the bound {self.authority.actor!r}"
             )
-        intent = OperationIntent(kind, token, self.authority.actor)
         operation_port = self._operation_port
         assert operation_port is not None
-        digest = operation_port.append_intent(
-            v1.encode({"kind": intent.kind, "event_token": intent.event_token, "actor": intent.actor})
-        )
+        digest = operation_port.append_intent(_encode_operation_intent(kind, token, self.authority.actor))
         if (
             type(digest) is not str
             or len(digest) != 64
@@ -1528,6 +1700,7 @@ class CorpusWriter:
         assert operation_port is not None
         if operation is None:
             operation = self._create_op(stored.act_report_node(report))
+        self._state.unresolved = True
         operation_port.execute_fulfilling([operation], intent_digest)
         self._reconstruct()
         return report
@@ -2002,8 +2175,18 @@ class CorpusWriter:
             raise ImportRefused(str(caught), member=record.id) from caught
         return CreateOp(path=self._relative_path(record), content=content)
 
+    def _settle(self) -> None:
+        """Recover and rebuild an unresolved root before any state-dependent read (§4.3)."""
+        state = self._state
+        if not state.unresolved:
+            return
+        if state.recover is not None:
+            state.recover(state.corpus.store.root)
+        self._reconstruct()
+        state.unresolved = False
+
     def _reconstruct(self) -> None:
-        corpus = Corpus(self._corpus.store.root, executor_factory=self._state.executor_factory)
+        corpus = Corpus(self._corpus.store.root, executor_factory=self._state.executors)
         self._state.corpus = corpus
         self._state.view = ReadView(corpus)
 
@@ -2173,3 +2356,61 @@ class CorpusWriter:
             self._corpus.index.assert_addable(node)
         except CollisionError as caught:
             raise CollisionRefused(str(caught)) from caught
+
+
+class OperationWrites:
+    """The seven session-mediated writes (design §4.2, §13 item 9): each is the
+    ordinary method, run inside a fulfilling scope under the settling hold."""
+
+    def __init__(self, writer: CorpusWriter) -> None:
+        self._writer = writer
+
+    def _run(self, perform: Callable[[], Node | None]) -> OperationCommit:
+        """Bind fulfillment under the *raw* lock, then let the ordinary method run
+        exactly as it does for a library caller: its `require` first, then its own
+        settling hold, then its refusals, then the one submission (§13 item 11).
+        Entering the settling hold here would recover — and could move bytes —
+        before the permit was judged, which the ordinary path never does."""
+        writer = self._writer
+        with writer._state.lock, writer._fulfilling() as scope:
+            try:
+                record = perform()
+            except ExecutionError:
+                raise
+            except Exception as caught:
+                if scope.submitted:
+                    # The intent was appended (§13 item 12); what failed came after the submission began —
+                    # the engine, the readback, or the state update. J2's boundary: ExecutionError.
+                    raise ExecutionError(f"failure after submission: {caught}", index=None, applied=None) from caught
+                raise  # a refusal — the permit's, the body's, or the preflight's — before any effect
+            if scope.result is None:
+                raise ScienceError("the ordinary method submitted nothing")
+            token, intent_digest, entry_digest = scope.result
+            return OperationCommit(record, token, intent_digest, entry_digest)
+
+    def add(self, node: Node) -> OperationCommit:
+        return self._run(lambda: self._writer.add(node))
+
+    def retract(self, record: Node) -> OperationCommit:
+        return self._run(lambda: self._writer.retract(record))
+
+    def supersede(self, successor: Node, *, of: str) -> OperationCommit:
+        return self._run(lambda: self._writer.supersede(successor, of=of))
+
+    def revise(self, node: Node) -> OperationCommit:
+        return self._run(lambda: self._writer.revise(node))
+
+    def delete(self, ref: str) -> OperationCommit:
+        return self._run(lambda: self._writer.delete(ref))
+
+    def mint_coordination(
+        self, kind: str, *, project: CoordinationAddress | None = None, content: Mapping[str, object]
+    ) -> OperationCommit:
+        return self._run(lambda: self._writer.mint_coordination(kind, project=project, content=content))
+
+    def revise_coordination(
+        self, kind: str, address: CoordinationAddress, *, predecessors: Sequence[str], content: Mapping[str, object]
+    ) -> OperationCommit:
+        return self._run(
+            lambda: self._writer.revise_coordination(kind, address, predecessors=predecessors, content=content)
+        )

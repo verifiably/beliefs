@@ -92,9 +92,18 @@ class OperationPort(Protocol):
 
     def append_intent(self, payload: bytes) -> str: ...
 
+    def preflight(self, plan: WritePlan) -> None:
+        """The state-free checks the engine would make — plan shape, reserved
+        leaves, the record ceiling — raised before any intent (writer-session
+        design §4.3 step 3)."""
+        ...
+
     def execute(self, plan: WritePlan) -> None: ...
 
-    def execute_fulfilling(self, plan: WritePlan, fulfills: str) -> None: ...
+    def execute_fulfilling(self, plan: WritePlan, fulfills: str) -> str:
+        """Commit the plan fulfilling `fulfills` and return the digest of the
+        registration it committed, read from the chain itself (design §4.4)."""
+        ...
 
 
 @sealed

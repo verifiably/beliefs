@@ -251,6 +251,17 @@ business writing, and a test that wants a full one imports the helper of
 
 ### 4.2 The inventory
 
+> **Amended 2026-09-05 (writer session):** the inventory gains a **37th row**,
+> `corpus.py:_RoutedExecutor.commit_fulfilling` — family `corpus-write`, kinds
+> read from the plan's own record paths — whose first statement with any effect
+> is `scope.authority.require("corpus-write", _plan_kinds(plan))`. It is the
+> commit seam a session write is routed through, so the seam requires exactly
+> what it emits. `_RoutedExecutor.execute` is the `WritePlanExecutor` the
+> corpus holds — an *implementation* of the `execute` primitive, not a caller —
+> and joins `test_permit_boundary.py`'s implementation-exclusion list by exact
+> name, as §4.3's rule for primitive implementations provides
+> (`2026-09-05-writer-session-design.md` §13 items 9 and 13).
+
 Every definition below reaches a write primitive and therefore calls
 `authority.require(<family>, <kinds>)` before it. The kinds column is what the
 definition actually emits — judged from the record or bundle in hand, never
@@ -441,6 +452,14 @@ The `E` table. Rows are frozen; ids are never renumbered.
 5. **No ledger, no session.** A refused act leaves no trace anywhere; a
    permitted act leaves exactly the trace it leaves today. Evidence that a
    session performed an act is the session task's.
+
+   > **Amended 2026-09-05 (writer session):** the ledger and the session now
+   > exist. `beliefs.session` opens an attended session whose identity fixes
+   > the actor, appends an `act` line — fsynced under the root's operation
+   > lock — for every committed session write, and reconciles those lines
+   > against the corpus chain. A *refused* act still leaves no trace of its
+   > own: the limitation now bounds refusals only
+   > (`2026-09-05-writer-session-design.md` §3 and §5; J5, J7, J8).
 
 ## 9. Conformance cut 16
 

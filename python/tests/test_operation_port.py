@@ -6,6 +6,8 @@ from typing import ClassVar
 
 import pytest
 from atoms.chain.errors import ChainStateInvalid
+from atoms.chain.model import RegisteredEntry
+from atoms.coordinator.commands import ChainView
 from atoms.core.errors import (
     CapabilityUnavailable,
     PreconditionRefused,
@@ -27,6 +29,7 @@ from beliefs.errors import BuildHold
 from beliefs.root import (
     PRODUCTION_STORAGE,
     DurableOperationPort,
+    durable_executor_factory,
     init_corpus_root,
     init_store_root,
     open_corpus,
@@ -59,8 +62,12 @@ class FakePort:
     def execute(self, plan: WritePlan) -> None:
         self.executed.append(plan)
 
-    def execute_fulfilling(self, plan: WritePlan, fulfills: str) -> None:
+    def preflight(self, plan: WritePlan) -> None:
+        pass
+
+    def execute_fulfilling(self, plan: WritePlan, fulfills: str) -> str:
         self.fulfilling.append((plan, fulfills))
+        return "r" * 64
 
 
 def durable_port(tmp_path, authority=FULL) -> DurableOperationPort:
@@ -137,18 +144,35 @@ class TestTheDurablePort:
 
     def test_execute_fulfilling_threads_the_exact_digest_into_the_spec(self, tmp_path, monkeypatch):
         submitted = []
+        registration_digest = "d" * 64
 
         def capture(_backend, _project_root, _metadata_root, _storage, spec, _payloads):
             submitted.append(spec)
 
-        monkeypatch.setattr(science_root, "run_transaction", capture)
+        def fake_read_chain(_backend, _project_root, _metadata_root, _storage):
+            return ChainView(
+                genesis_digest="g" * 64,
+                entries=(
+                    (
+                        registration_digest,
+                        RegisteredEntry(
+                            txid="t", intent_digest="i", consumer_tag="c", initial=(), final=(), fulfills=FULFILLS
+                        ),
+                    ),
+                ),
+                tip=registration_digest,
+            )
 
-        durable_port(tmp_path).execute_fulfilling(
+        monkeypatch.setattr(science_root, "run_transaction", capture)
+        monkeypatch.setattr(science_root, "read_chain", fake_read_chain)
+
+        digest = durable_port(tmp_path).execute_fulfilling(
             [CreateOp(path="p.md", content=b"record")],
             FULFILLS,
         )
 
         assert submitted[0].fulfills == FULFILLS
+        assert digest == registration_digest
 
     @pytest.mark.parametrize(
         ("raised", "applied"),
@@ -261,3 +285,92 @@ def test_non_port_writes_are_unaffected_by_the_ceiling(certified_work) -> None:
     outcome = science_root._store_write(certified_work, "payload.bin", big)
     assert (certified_work / "payload.bin").read_bytes() == big
     assert outcome.txid
+
+
+class TestPreflightReadbackAndRecovery:
+    def test_preflight_refuses_an_over_ceiling_plan_before_any_engine_call(self, certified_work):
+        port = _registered_port(certified_work)
+        big = CreateOp("proposition/big.md", b"x" * (RECORD_CEILING + 1))
+        with pytest.raises(PlanRefusedError):
+            port.preflight([big])
+        assert _registrations(certified_work) == []
+
+    def test_preflight_refuses_a_reserved_leaf(self, certified_work):
+        port = _registered_port(certified_work)
+        with pytest.raises(PlanRefusedError):
+            port.preflight([CreateOp(".#~stage/x.md", b"x")])
+
+    def test_execute_fulfilling_returns_the_registration_digest_the_chain_holds(self, certified_work):
+        root = certified_work
+        port = _registered_port(root)
+        intent = port.append_intent(PAYLOAD)
+        digest = port.execute_fulfilling([CreateOp("proposition/p1.md", b"---\nid: proposition:p1\n---\n")], intent)
+        (registration,) = _registrations(root)
+        assert digest == registration.digest and registration.fulfills == intent
+
+    def test_the_durable_factory_carries_recover_and_the_default_executor_does_not(self):
+        from nodes.core.write_plan import DefaultExecutor
+
+        factory = durable_executor_factory()
+        assert callable(getattr(factory, "recover", None))
+        assert getattr(DefaultExecutor, "recover", None) is None
+        assert durable_executor_factory() is factory
+
+    def test_recover_on_an_unregistered_root_returns_without_reading_a_chain(self, tmp_path):
+        from atoms.coordinator.lifecycle import LifecycleState
+
+        from beliefs.root import read_lifecycle_state
+
+        plain = tmp_path / "never-registered"
+        plain.mkdir()
+        assert read_lifecycle_state(plain) is LifecycleState.METADATA_LESS  # the reading recover keys on
+        durable_executor_factory().recover(plain)  # no exception, no chain read
+
+    def test_recover_on_an_uncertified_tuple_returns_without_reading_a_chain(self, monkeypatch):
+        import os
+        import shutil
+        from pathlib import Path
+
+        from atoms.core.errors import CapabilityUnavailable
+
+        from beliefs.root import metadata_root_for, read_lifecycle_state
+
+        shm = Path("/dev/shm")
+        if not shm.is_dir():
+            raise AssertionError(
+                "/dev/shm is unavailable, so the uncertified-tuple recovery negative cannot run; "
+                "this is an error and not a skip"
+            )
+        root = shm / f"science-writer-session-uncertified-{os.getpid()}"
+        try:
+            with pytest.raises(CapabilityUnavailable):
+                init_corpus_root(root, authority=FULL)
+            with pytest.raises(CapabilityUnavailable):
+                read_lifecycle_state(root)  # the case §13 item 19 defers to
+
+            def _fail_if_called(*_args, **_kwargs):
+                raise AssertionError("recover must not read the chain on an uncertified tuple")
+
+            monkeypatch.setattr(science_root, "read_chain", _fail_if_called)
+
+            durable_executor_factory().recover(root)  # returns; the write itself refuses with the same cause
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+            shutil.rmtree(metadata_root_for(root), ignore_errors=True)
+
+    def test_a_failed_lifecycle_read_is_an_execution_error_not_a_recovery(self, tmp_path, monkeypatch):
+        from nodes.core.errors import ExecutionError
+
+        from beliefs import root as science_root
+
+        monkeypatch.setattr(
+            science_root, "read_lifecycle_state", lambda root: (_ for _ in ()).throw(PermissionError("denied"))
+        )
+        with pytest.raises(ExecutionError, match="lifecycle read failed"):
+            durable_executor_factory().recover(tmp_path)
+
+    def test_recover_on_a_registered_root_reads_the_chain(self, certified_work):
+        root = certified_work
+        _registered_port(root)
+        durable_executor_factory().recover(root)  # resolves recovery; nothing to settle here
+        assert _registrations(root) == []

@@ -44,13 +44,17 @@ class FakePort:
         FakePort.intents.append(payload)
         return self.intent_digest
 
+    def preflight(self, plan) -> None:
+        pass
+
     def execute(self, plan) -> None:
         FakePort.executed.append(list(plan))
         self._inner.execute(plan)
 
-    def execute_fulfilling(self, plan, fulfills: str) -> None:
+    def execute_fulfilling(self, plan, fulfills: str) -> str:
         FakePort.fulfilling.append((list(plan), fulfills))
         self._inner.execute(plan)
+        return "r" * 64
 
 
 @pytest.fixture()
@@ -728,7 +732,7 @@ def test_refusal_report_failure_leaves_intent_open_and_engine_error_unchanged(tm
         pass
 
     class FailingPort(FakePort):
-        def execute_fulfilling(self, plan, fulfills: str) -> None:
+        def execute_fulfilling(self, plan, fulfills: str) -> str:
             raise ReportFailure
 
     Recorder.plans, FakePort.intents, FakePort.fulfilling = [], [], []
@@ -749,7 +753,7 @@ def test_success_report_failure_leaves_payload_visible_and_intent_open(tmp_path)
         pass
 
     class FailingPort(FakePort):
-        def execute_fulfilling(self, plan, fulfills: str) -> None:
+        def execute_fulfilling(self, plan, fulfills: str) -> str:
             raise ReportFailure
 
     Recorder.plans, FakePort.intents, FakePort.fulfilling = [], [], []

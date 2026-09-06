@@ -2,7 +2,7 @@
 title: Glossary
 status: living
 created: 2026-08-08
-updated: 2026-09-04
+updated: 2026-09-05
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -12,6 +12,8 @@ sources:
   - ../designs/2026-08-05-belief-policy-design.md
   - ../designs/2026-08-09-admission-ramp-design.md
   - ../designs/2026-08-11-act-report-design.md
+  - ../designs/2026-09-04-write-permits-design.md
+  - ../designs/2026-09-05-writer-session-design.md
 ---
 
 # Glossary
@@ -198,6 +200,19 @@ context and the linked design references for normative detail.
   harness-neutral commands and skills, generated adapters, the CLI and MCP,
   the derived work queue and publish — which is its own repository.
   ([user and autonomy layer design](../superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md))
+- **Scoped writer** — The writer a session hands one invocation: bound to that
+  invocation, refusing every act outside it, and holding an effective permit
+  that is *exactly* the declared requirement rather than the session's ceiling.
+  An act beyond the requirement is `PermitExceeded`, raised by the kernel entry
+  point itself with nothing written.
+  ([writer-session design](../designs/2026-09-05-writer-session-design.md))
+- **Session ledger** — The append-then-fsync file a writer session keeps at
+  `<operations root>/sessions/<session-id>/ledger.v1`: five typed canonical
+  JSON lines — `session-open`, `claim`, `act`, `close`, `session-close` — each
+  durable before its call returns. It is the session's own evidence of what it
+  did; reconciliation reads it against the corpus chain, and an I/O failure
+  ends the session with the bytes preserved as the failure left them.
+  ([writer-session design](../designs/2026-09-05-writer-session-design.md))
 - **Sort** — The type of referent a slot admits. Operators declare a sort per
   argument position and per qualifier dimension, so a term of one sort cannot
   fill a slot of another. ([claims](claims-and-belief.md#a-claim-is-typed-by-its-operator))
@@ -219,5 +234,12 @@ context and the linked design references for normative detail.
   `science` compiles a declaration to a `RequiredCapabilities` value and never
   holds a permit. Exceeding one is `PermitExceeded`, refused before any effect.
   ([write-permits design](../designs/2026-09-04-write-permits-design.md))
+- **Writer session** — An attended session over one corpus root: a fresh
+  session identity that fixes the actor as `session:<id>`, a session ledger,
+  the claim protocol that makes an invocation replayable, and every
+  session-mediated ordinary write performed as one `corpus-write` operation
+  intent followed by exactly one committed registration fulfilling it. It is
+  the `beliefs` half of the command framework's write boundary beyond permits.
+  ([writer-session design](../designs/2026-09-05-writer-session-design.md))
 - **World** — The union of admitted corpora and world-level records; projects
   are views over it, not separate epistemic universes. ([identity](identity-world-and-change.md#there-is-one-world-projects-are-views))

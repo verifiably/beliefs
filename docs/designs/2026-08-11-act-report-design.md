@@ -175,6 +175,19 @@ is preserved; no attester class is privileged.
 > intent actor from their bound `Authority`; the actor remains recorded in
 > the intent but is no longer supplied per call.
 
+> **Amended 2026-09-05 (writer session):** the operation-kind enum gains
+> **`corpus-write`** and now has eight members — `acquisition`, `audit`,
+> `consolidate`, `corpus-write`, `import`, `move`, `re-check`, `run-attempt`.
+> A `corpus-write` operation is one session-mediated ordinary corpus write:
+> the boundary appends the intent under the session actor and the write's own
+> committed **registration** is what fulfils it, so the kind is qualified by
+> a registration rather than by a terminal record. It mints no act-report —
+> §3.1's terminal-record step does not apply to it — and `completion` reads
+> `closed` from the fulfilling registration alone, never consulting `held`;
+> `INDETERMINATE` is unreachable for the kind. T2 is untouched: no act-report
+> is minted, so the row gains no arm
+> (`2026-09-05-writer-session-design.md` §4.1, §4.3 and §13 item 7).
+
 Completion is bought with the log's existing machinery: intent, registered
 transaction, `fulfills` constructed by the boundary from its own intent, and
 the §6 qualification reduction. Nothing mutable is introduced; "is this

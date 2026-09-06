@@ -440,11 +440,14 @@ class MemoryPort:
     def append_intent(self, payload: bytes) -> str:
         return sha256(payload).hexdigest()
 
+    def preflight(self, plan) -> None:
+        pass
+
     def execute(self, plan) -> None:
         pass
 
-    def execute_fulfilling(self, plan, fulfills: str) -> None:
-        pass
+    def execute_fulfilling(self, plan, fulfills: str) -> str:
+        return "r" * 64
 
 
 MEMORY_PORT = MemoryPort()

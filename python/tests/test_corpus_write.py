@@ -76,13 +76,17 @@ class OperationRecorder:
         self.intents.append(payload)
         return self.intent_digest
 
+    def preflight(self, plan) -> None:
+        pass
+
     def execute(self, plan) -> None:
         self.executed.append(list(plan))
         self._inner.execute(plan)
 
-    def execute_fulfilling(self, plan, fulfills: str) -> None:
+    def execute_fulfilling(self, plan, fulfills: str) -> str:
         self.fulfilling.append((list(plan), fulfills))
         self._inner.execute(plan)
+        return "r" * 64
 
 
 @pytest.fixture()
@@ -114,10 +118,13 @@ class TestE2AuthorityBindsOnceAtConstruction:
             def append_intent(self, payload):
                 raise AssertionError("never reached")
 
+            def preflight(self, plan):
+                raise AssertionError("never reached")
+
             def execute(self, plan):
                 raise AssertionError("never reached")
 
-            def execute_fulfilling(self, plan, fulfills):
+            def execute_fulfilling(self, plan, fulfills) -> str:
                 raise AssertionError("never reached")
 
         with pytest.raises(ValueError, match="another authority"):
@@ -130,10 +137,13 @@ class TestE2AuthorityBindsOnceAtConstruction:
             def append_intent(self, payload):
                 raise AssertionError("never reached")
 
+            def preflight(self, plan):
+                raise AssertionError("never reached")
+
             def execute(self, plan):
                 raise AssertionError("never reached")
 
-            def execute_fulfilling(self, plan, fulfills):
+            def execute_fulfilling(self, plan, fulfills) -> str:
                 raise AssertionError("never reached")
 
         port = Port()
@@ -647,12 +657,12 @@ class TestTheOperationLock:
         a = CorpusWriter(tmp_path, Recorder, authority=FULL)
         b = CorpusWriter(tmp_path, Recorder, authority=FULL)
 
-        assert a._operation is b._operation
+        assert a._operation._lock is b._operation._lock
         minted = a.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
         assert b.read_view.holds(minted.id)
 
         other = CorpusWriter(tmp_path / "other", Recorder, authority=FULL)
-        assert other._operation is not a._operation
+        assert other._operation._lock is not a._operation._lock
 
     def test_second_writer_with_different_factory_refuses(self, tmp_path):
         CorpusWriter(tmp_path, Recorder, authority=FULL)
@@ -662,7 +672,7 @@ class TestTheOperationLock:
     def test_open_corpus_twice_shares_state(self, tmp_path):
         a = open_corpus(tmp_path, authority=FULL)
         b = open_corpus(tmp_path, authority=FULL)
-        assert a._operation is b._operation
+        assert a._operation._lock is b._operation._lock
 
     def test_two_same_uid_adds_are_serialized_end_to_end(self, tmp_path):
         entered = threading.Event()
@@ -794,20 +804,20 @@ class TestTheLockOnlyLookup:
         looked_up = _operation_lock_for(tmp_path)
         writer = CorpusWriter(tmp_path, Recorder, authority=FULL)
 
-        assert writer._operation is looked_up
+        assert writer._operation._lock is looked_up
 
     def test_the_write_apis_lock_is_what_a_later_lookup_yields(self, tmp_path):
         # The other order, because a lookup that constructed a second lock
         # after the writer had one would still pass the arm above.
         writer = CorpusWriter(tmp_path, Recorder, authority=FULL)
 
-        assert _operation_lock_for(tmp_path) is writer._operation
+        assert _operation_lock_for(tmp_path) is writer._operation._lock
 
     def test_the_lookup_resolves_the_root_the_way_the_write_api_does(self, tmp_path):
         (tmp_path / "sub").mkdir()
         writer = CorpusWriter(tmp_path, Recorder, authority=FULL)
 
-        assert _operation_lock_for(tmp_path / "sub" / "..") is writer._operation
+        assert _operation_lock_for(tmp_path / "sub" / "..") is writer._operation._lock
 
     def test_the_lookup_works_over_damaged_node_bytes(self, tmp_path):
         (tmp_path / "dataset").mkdir()
@@ -824,3 +834,146 @@ class TestTheLockOnlyLookup:
 
     def test_two_roots_do_not_share_a_lock(self, tmp_path):
         assert _operation_lock_for(tmp_path / "one") is not _operation_lock_for(tmp_path / "two")
+
+
+class TestTheUnresolvedRoot:
+    """Writer-session design §4.3 and §13 items 10–12: the settling hold and the routed executor."""
+
+    def test_a_fresh_root_state_is_unresolved_and_the_first_write_settles_it(self, tmp_path):
+        from beliefs.corpus import _root_state_for
+
+        writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL)
+        state = _root_state_for(tmp_path, DefaultExecutor)
+        assert state.unresolved is True and state.recover is None
+        writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+        assert state.unresolved is False
+
+    def test_the_root_state_binds_the_factory_recover_and_wraps_its_executors(self, tmp_path):
+        from beliefs.corpus import _root_state_for, _RoutedExecutor
+
+        calls = []
+
+        class Factory:
+            def __call__(self, root):
+                return DefaultExecutor(root)
+
+            def recover(self, root):
+                calls.append(root)
+
+        factory = Factory()
+        writer = CorpusWriter(tmp_path, factory, authority=FULL)
+        state = _root_state_for(tmp_path, factory)
+        assert state.recover == factory.recover  # bound methods compare by receiver and function
+        assert type(state.corpus.executor) is _RoutedExecutor  # the corpus submits through the wrapper
+        assert state.corpus.executor._state is state  # resolved lazily; construction never read the holder
+        writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+        assert calls == [tmp_path.resolve()]  # settled once, before the first prepare
+        writer._reconstruct()
+        assert type(state.corpus.executor) is _RoutedExecutor  # the wrapper survives a rebuild
+
+    def test_a_failed_submission_leaves_the_root_unresolved_and_the_next_write_recovers_first(self, tmp_path):
+        from beliefs.corpus import _root_state_for
+
+        events = []
+
+        class Halting(DefaultExecutor):
+            fail = False
+
+            def execute(self, plan):
+                if Halting.fail:
+                    Halting.fail = False
+                    raise ExecutionError("halted", index=0, applied=0)
+                events.append("execute")
+                return super().execute(plan)
+
+        class Factory:
+            def __call__(self, root):
+                return Halting(root)
+
+            def recover(self, root):
+                events.append("recover")
+
+        factory = Factory()
+        writer = CorpusWriter(tmp_path, factory, authority=FULL)
+        writer.add(stored.proposition_node("p0", title="p0", claim={"operator": "affects"}))
+        events.clear()
+        Halting.fail = True
+        with pytest.raises(ExecutionError):
+            writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+        assert _root_state_for(tmp_path, factory).unresolved is True
+        writer.add(stored.proposition_node("p2", title="p2", claim={"operator": "affects"}))
+        assert events == ["recover", "execute"]
+        assert _root_state_for(tmp_path, factory).unresolved is False
+
+    def test_a_failed_index_update_after_a_successful_submission_leaves_the_root_unresolved(self, tmp_path, monkeypatch):
+        from beliefs.corpus import _root_state_for
+
+        writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL)
+        writer.add(stored.proposition_node("p0", title="p0", claim={"operator": "affects"}))
+        state = _root_state_for(tmp_path, DefaultExecutor)
+        index_type = type(state.corpus.index)
+        original = index_type.upsert
+        monkeypatch.setattr(index_type, "upsert", lambda self, node: (_ for _ in ()).throw(RuntimeError("index down")))
+        with pytest.raises(RuntimeError, match="index down"):
+            writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+        assert state.unresolved is True  # the executor returned; the state update did not complete
+        monkeypatch.setattr(index_type, "upsert", original)
+        writer.add(stored.proposition_node("p2", title="p2", claim={"operator": "affects"}))
+        assert state.unresolved is False
+
+    def test_a_failed_recovery_keeps_the_root_unresolved_and_blocks_the_prepare(self, tmp_path):
+        from beliefs.corpus import _root_state_for
+
+        class Factory:
+            def __call__(self, root):
+                return DefaultExecutor(root)
+
+            def recover(self, root):
+                raise ExecutionError("engine down", index=None, applied=None)
+
+        factory = Factory()
+        writer = CorpusWriter(tmp_path, factory, authority=FULL)
+        with pytest.raises(ExecutionError, match="engine down"):
+            writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+        assert _root_state_for(tmp_path, factory).unresolved is True
+        assert not (tmp_path / "proposition").exists()
+        assert _operation_lock_for(tmp_path)._holder is None  # the hold released on the settlement failure
+
+    def test_the_raw_lock_does_not_settle(self, tmp_path):
+        from beliefs.corpus import _root_state_for
+
+        calls = []
+
+        class Factory:
+            def __call__(self, root):
+                return DefaultExecutor(root)
+
+            def recover(self, root):
+                calls.append(root)
+
+        factory = Factory()
+        CorpusWriter(tmp_path, factory, authority=FULL)
+        with _operation_lock_for(tmp_path):
+            pass
+        assert calls == [] and _root_state_for(tmp_path, factory).unresolved is True
+
+    def test_the_settling_hold_is_the_only_raw_lock_entry_in_the_writer(self):
+        import ast
+        import inspect
+
+        from beliefs import corpus as module
+
+        tree = ast.parse(inspect.getsource(module))
+        entries = [
+            (node.lineno, ast.unparse(node.func))
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "__enter__"
+            and ast.unparse(node.func.value) == "self._lock"
+        ]
+        # `_SettlingHold.__enter__` is the one place the bare OperationLock is entered from the
+        # write API; every `with self._operation:` in the bodies goes through it.
+        assert len(entries) == 1, entries
+        withs = [ast.unparse(item.context_expr) for node in ast.walk(tree) if isinstance(node, ast.With) for item in node.items]
+        assert "self._state.lock" not in withs and "self._lock" not in withs

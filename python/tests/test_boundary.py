@@ -111,7 +111,7 @@ class _NarrowPort(MemoryPort):
     def execute(self, plan) -> None:
         raise AssertionError("a refused run must not write")
 
-    def execute_fulfilling(self, plan, fulfills: str) -> None:
+    def execute_fulfilling(self, plan, fulfills: str) -> str:
         raise AssertionError("a refused run must not write")
 
 

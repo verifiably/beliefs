@@ -10,6 +10,7 @@ from beliefs.corpus import Finding
 from beliefs.errors import RecordUndecodable
 from beliefs.intents import evidence as evidence_module
 from beliefs.intents import shapes
+from beliefs.report import OperationIntent
 from beliefs.sealed import sealed
 from beliefs.world.logmodel import (
     EntryView,
@@ -179,6 +180,64 @@ def reduce_chain(
     )
 
 
+def _unresolvable(intent: shapes.DecodedIntent) -> tuple[IntentQualification, tuple[Finding, ...]]:
+    return IntentQualification(intent.digest, intent.shape, "unresolvable", None), ()
+
+
+def _attempt_without_recorded_outcome(
+    intent: shapes.DecodedIntent,
+    non_qualifying: list[tuple[str, str]],
+) -> tuple[IntentQualification, tuple[Finding, ...]]:
+    row = IntentQualification(
+        intent.digest,
+        intent.shape,
+        "attempt-without-recorded-outcome",
+        None,
+    )
+    findings = [
+        Finding(
+            severity="warning",
+            code="intent-attempt-without-recorded-outcome",
+            ref=intent.digest,
+            detail="",
+            message="a durable intent whose every pointer fully resolves and none qualifies",
+        )
+    ]
+    findings.extend(
+        Finding(
+            severity="warning",
+            code="intent-fulfillment-non-qualifying",
+            ref=registration_digest,
+            detail=f"intent={intent.digest} reason={reason}",
+            message="a committed fulfillment that does not qualify its intent",
+        )
+        for registration_digest, reason in non_qualifying
+    )
+    return row, tuple(findings)
+
+
+def _qualify_corpus_write(
+    intent: shapes.DecodedIntent,
+    registrations: list[RegisteredEntryView],
+    settlement: Mapping[str, bool],
+) -> tuple[IntentQualification, tuple[Finding, ...]]:
+    """Writer-session design §4.1: a committed registration fulfilling a
+    `corpus-write` intent qualifies it, whatever it publishes — one record, a
+    replacement, or nothing for a deletion. Records are not inspected."""
+    unresolved = False
+    non_qualifying: list[tuple[str, str]] = []
+    for registration in registrations:
+        if registration.digest not in settlement:
+            unresolved = True
+            continue
+        if settlement[registration.digest]:
+            return IntentQualification(intent.digest, intent.shape, "matched", registration.digest), ()
+        non_qualifying.append((registration.digest, "no-record"))
+    if unresolved:
+        return _unresolvable(intent)
+    return _attempt_without_recorded_outcome(intent, non_qualifying)
+
+
 def _qualify_one(
     intent: shapes.DecodedIntent,
     registrations: list[RegisteredEntryView],
@@ -187,6 +246,9 @@ def _qualify_one(
     state_facts: StateFacts,
     matched_reductions: list[tuple[str, RegistrationReduction]],
 ) -> tuple[IntentQualification, tuple[Finding, ...]]:
+    value = intent.value
+    if intent.shape == "operation" and isinstance(value, OperationIntent) and value.kind == "corpus-write":
+        return _qualify_corpus_write(intent, registrations, settlement)
     unresolved = False
     non_qualifying: list[tuple[str, str]] = []
     for registration in registrations:
@@ -223,33 +285,5 @@ def _qualify_one(
         )
         non_qualifying.append((registration.digest, chosen))
     if unresolved:
-        return (
-            IntentQualification(intent.digest, intent.shape, "unresolvable", None),
-            (),
-        )
-    row = IntentQualification(
-        intent.digest,
-        intent.shape,
-        "attempt-without-recorded-outcome",
-        None,
-    )
-    findings = [
-        Finding(
-            severity="warning",
-            code="intent-attempt-without-recorded-outcome",
-            ref=intent.digest,
-            detail="",
-            message="a durable intent whose every pointer fully resolves and none qualifies",
-        )
-    ]
-    findings.extend(
-        Finding(
-            severity="warning",
-            code="intent-fulfillment-non-qualifying",
-            ref=registration_digest,
-            detail=f"intent={intent.digest} reason={reason}",
-            message="a committed fulfillment that does not qualify its intent",
-        )
-        for registration_digest, reason in non_qualifying
-    )
-    return row, tuple(findings)
+        return _unresolvable(intent)
+    return _attempt_without_recorded_outcome(intent, non_qualifying)

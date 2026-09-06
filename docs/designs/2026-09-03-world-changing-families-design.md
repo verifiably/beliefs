@@ -205,6 +205,16 @@ distinguishes"*, and this design's own claim that the committed removal
 transition is the entire history. `delete` therefore mirrors `add`, which mints
 no intent and no report either, and the operation enum gains no `delete` kind.
 
+> **Amended 2026-09-05 (writer session):** through a writer session a `delete`
+> is session-mediated, and the session's commit seam appends one `corpus-write`
+> operation intent and one committed registration that fulfils it — the
+> registration publishing no record. `delete` itself is unchanged and still
+> mints **nothing**: no act-report, no tombstone, and no `delete` operation
+> kind. The intent and registration live in the root's chain, never in the
+> corpus, so the ordinary read of a session `delete` and of a raw `unlink` stay
+> indistinguishable, which is what J10 reads
+> (`2026-09-05-writer-session-design.md` §4.1 and §7 row J10).
+
 **Inbound references do not prevent deletion.** `delete` performs no
 referential check at all: it does not enumerate the records that name its
 target, and the existence of such records — however many — is not a refusal

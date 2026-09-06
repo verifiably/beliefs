@@ -185,6 +185,22 @@ def _publish_operation_report(authority, work):
     return writer._publish_operation_report(report, FakePort.intent_digest)
 
 
+def _commit_fulfilling(authority, work):
+    """The routed commit seam itself (writer-session design §13 item 13): its own
+    `require`, judged on the kinds the plan emits, with nothing else in front of it."""
+    from nodes.core.frontmatter import node_to_markdown
+    from nodes.core.write_plan import CreateOp, DefaultExecutor
+    from test_import_bundle import FakePort, prop
+
+    from beliefs.corpus import _Fulfillment, _root_state_for
+
+    root = work / "corpus"
+    executor = _root_state_for(root, DefaultExecutor).executors(root)
+    scope = _Fulfillment(authority, FakePort(root, authority=authority))
+    plan = [CreateOp(path="proposition/p1.md", content=node_to_markdown(prop("p1")).encode("utf-8"))]
+    return executor.commit_fulfilling(scope, plan)
+
+
 def _prepare_coordination(with_project: bool):
     """Mount the corpus under the coordination profile (a `base_contract` session
     fixture compiles it) and, for revision, mint the project — all in prepare, so
@@ -280,11 +296,15 @@ class _Port:
         self.appended.append(payload)
         return self._inner.append_intent(payload)
 
+    def preflight(self, plan) -> None:
+        pass
+
     def execute(self, plan):
         self.appended.append(plan)
 
-    def execute_fulfilling(self, plan, fulfills):
+    def execute_fulfilling(self, plan, fulfills) -> str:
         self.appended.append(plan)
+        return "r" * 64
 
 
 def _fact_from(detail: str) -> PermitFact:
@@ -560,6 +580,7 @@ CASES = (
     Case("corpus.py:CorpusWriter._delete_locked", "corpus-write", ("proposition",), False, _prepare_corpus(_mint_proposition), _delete_locked, _corpus_probe),
     Case("corpus.py:CorpusWriter._append_operation_intent", "corpus-write", ("act-report",), False, _prepare_corpus(port=True), _append_operation_intent, _corpus_probe),
     Case("corpus.py:CorpusWriter._publish_operation_report", "corpus-write", ("act-report",), False, _prepare_corpus(port=True), _publish_operation_report, _corpus_probe),
+    Case("corpus.py:_RoutedExecutor.commit_fulfilling", "corpus-write", ("proposition",), False, _prepare_corpus(port=True), _commit_fulfilling, _corpus_probe),
     Case("boundary.py:execute_assessment_run", "run", ("run", "act-report"), False, _nothing, _run("assessment"), _run_probe),
     Case("boundary.py:execute_production_run", "run", ("run", "act-report"), False, _nothing, _run("production"), _run_probe),
     Case("holdings/boundary.py:recheck", "holdings", ("holdings-observation",), True, _prepare_holdings(("held.bin",)), _holdings("recheck"), _holdings_probe),

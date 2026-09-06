@@ -25,6 +25,7 @@ __all__ = [
     "WritePermit",
     "permit_covers",
     "require_actor",
+    "scoped_authority",
 ]
 
 ActFamily = Literal["corpus-write", "run", "holdings", "registry", "epoch", "lifecycle"]
@@ -192,6 +193,21 @@ class RequiredCapabilities:
     @classmethod
     def publishes(cls) -> RequiredCapabilities:
         raise ValueError("publish is not an act family")
+
+
+def scoped_authority(required: RequiredCapabilities, actor: str) -> Authority:
+    """A requirement's exact permit, bound to an actor its caller derived.
+
+    E6's static test admits an `Authority(...)` construction in this module and
+    nowhere else (§16), and the writer session narrows an authority per
+    invocation from a `RequiredCapabilities` it holds no `Authority` for
+    (writer-session design §5). The permit is exactly `required.permit` — never
+    widened, never defaulted — so this is the construction seam §3.4 already
+    names, reached by the one caller with no authority of its own to pass on.
+    """
+    if type(required) is not RequiredCapabilities:
+        raise TypeError("scoped_authority binds a RequiredCapabilities")
+    return Authority(required.permit, actor)
 
 
 def permit_covers(ceiling: WritePermit, required: RequiredCapabilities) -> bool:
