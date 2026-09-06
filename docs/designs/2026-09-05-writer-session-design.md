@@ -6,7 +6,7 @@ seven findings became §2 items 10–14, the second's four items 15–18, the
 third's two items 19–20; the fourth, fifth and sixth rewrote items 19 and 21
 and aligned the `J` rows); **conformance cut 19 frozen 2026-09-05**
 (`2026-09-05-conformance-cut-19.md`), before implementation; **implemented
-through `7bc0822`, discharged 2026-09-05**; conformance cut 19 froze at
+through `8723fac`, discharged 2026-09-05**; conformance cut 19 froze at
 `5cc2153` and its 11 units passed through 43 arms. Results:
 `../plans/2026-09-05-conformance-cut-19-results.md`.
 **Scope:** the `beliefs` half of the command framework's write boundary beyond

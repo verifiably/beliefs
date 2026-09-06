@@ -13,7 +13,7 @@ and no renumbering applies. The frozen §§2–7 are byte-identical to `5cc2153`
 accounting sentences and §5's `("cut18_acceptance.py",)`. The selection, the 11
 declaration units and the accounting are the frozen ones.
 
-**The discharge tree** is the code as committed at `7bc0822` — the branch's
+**The discharge tree** is the code as committed at `8723fac` — the branch's
 last code commit, carrying every implementation and test commit of the eleven
 tasks. The discharge commit that adds this record does not know its own id.
 
@@ -374,7 +374,7 @@ module list, on the same certified volume.
   refuse with the identical cause. This was a Task 3 regression, caught by
   `tests/acceptance/test_durable_families.py::test_import_on_an_uncertified_tuple_refuses`
   — whose frozen `(index, applied) == (None, 0)` shape a settling hold would
-  otherwise have moved one step earlier — and fixed at `d310f57`. Every other
+  otherwise have moved one step earlier — and fixed at `8994575`. Every other
   lifecycle-read exception still maps to `ExecutionError(index=None,
   applied=None)` with the flag left set.
 - **Item 4's in-place paragraph — the traced publish sequence.**
@@ -527,25 +527,25 @@ because the harness cannot sabotage a test module.
 |---|---|
 | `6b215eb` | docs(session): bank the writer-session design |
 | `5cc2153` | docs(designs): freeze conformance cut 19 for the writer session |
-| `0605062` | docs(session): bank the implementation amendment and file the science change requests |
-| `12cd4c7` | feat(report): add the corpus-write operation kind qualified by its registration |
-| `df670a5` | feat(root): give the operation port a preflight and a registration readback, and the durable factory recovery |
-| `386ded6` | feat(corpus): settle an unresolved root before every write body through the existing hold |
-| `01c688e` | feat(corpus): commit an operation write as a corpus-write intent and its fulfillment through the routed executor |
-| `ac1772c` | refactor(corpus): give the operation intent one wire encoding both producers append |
-| `637a6da` | feat(session): add the append-then-fsync session ledger and its reader |
-| `131bf25` | fix(session): refuse ledger lines the writer protocol cannot produce |
-| `5d8004d` | feat(session): add the attended writer session and the invocation-bound scoped writer |
-| `3d0c0df` | fix(session): hold the session lock across a scoped act so no claim interleaves with its commit |
-| `cb84086` | feat(session): reconcile session ledgers against chains |
-| `1c87d37` | fix(session): keep reconcile's order, list sessions under the lock, and classify no act against a chain that is not truth |
-| `2514b02` | test(session): add the durable acceptance arms for J1, J3, J4, J5, J9, J10 and J11 |
-| `d310f57` | fix(root): defer to the write's own refusal on an uncertified tuple's lifecycle read |
-| `6d0c549` | test(session): read the act lines back from the ledger and pin the body's refusal |
-| `905dd58` | test(session): add the durable acceptance arms for J2 and J8 |
-| `a333899` | test(session): fault the ledger write itself and close the one-hold arm's vacuity |
-| `7bc0822` | test(cut19): add the N2 arms, the freeze-pinning audit and the acceptance runner |
-| `ceb9c5c` | chore(tasks): file the cut 17/18 freeze-ancestry pin defect found by the cut 19 runner |
+| `7386093` | docs(session): bank the implementation amendment and file the science change requests |
+| `7381e28` | feat(report): add the corpus-write operation kind qualified by its registration |
+| `cdf2a63` | feat(root): give the operation port a preflight and a registration readback, and the durable factory recovery |
+| `cc3e5a3` | feat(corpus): settle an unresolved root before every write body through the existing hold |
+| `5951f35` | feat(corpus): commit an operation write as a corpus-write intent and its fulfillment through the routed executor |
+| `9cffbcc` | refactor(corpus): give the operation intent one wire encoding both producers append |
+| `26c2e45` | feat(session): add the append-then-fsync session ledger and its reader |
+| `9c75761` | fix(session): refuse ledger lines the writer protocol cannot produce |
+| `1a49a38` | feat(session): add the attended writer session and the invocation-bound scoped writer |
+| `dbe9180` | fix(session): hold the session lock across a scoped act so no claim interleaves with its commit |
+| `c73c203` | feat(session): reconcile session ledgers against chains |
+| `ad7dfd0` | fix(session): keep reconcile's order, list sessions under the lock, and classify no act against a chain that is not truth |
+| `f8eb249` | test(session): add the durable acceptance arms for J1, J3, J4, J5, J9, J10 and J11 |
+| `8994575` | fix(root): defer to the write's own refusal on an uncertified tuple's lifecycle read |
+| `663a2db` | test(session): read the act lines back from the ledger and pin the body's refusal |
+| `d6c031d` | test(session): add the durable acceptance arms for J2 and J8 |
+| `88763ca` | test(session): fault the ledger write itself and close the one-hold arm's vacuity |
+| `8723fac` | test(cut19): add the N2 arms, the freeze-pinning audit and the acceptance runner |
+| `af99233` | chore(tasks): file the cut 17/18 freeze-ancestry pin defect found by the cut 19 runner |
 
 The discharge commit carries this record, the ledger's `Current state`, the
 roadmap's re-rank, the README, the guide, the two status lines and the four
