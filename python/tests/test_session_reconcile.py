@@ -1,12 +1,20 @@
 """J8 portably: every intent, chain and ledger state of design §6 over stand-in
-views and ledger evidence."""
+views and ledger evidence, plus one composition test that `reconcile_sessions`
+returns §6's order over a real root."""
 
 from __future__ import annotations
 
-import pytest
+from pathlib import Path
 
+import pytest
+from authority import FULL
+from fixtures_cut6 import PINS
+
+from beliefs.corpus import CorpusWriter
 from beliefs.identity import v1
-from beliefs.session.ledger import LedgerEmpty, LedgerMissing, LedgerReader, LedgerUnreadable, encode_line
+from beliefs.root import durable_executor_factory, init_corpus_root
+from beliefs.session import reconcile_sessions
+from beliefs.session.ledger import LedgerEmpty, LedgerMissing, LedgerReader, LedgerUnreadable, encode_line, ledger_path
 from beliefs.session.ledger import _parse as parse_ledger
 from beliefs.session.reconcile import reconcile
 from beliefs.world.logmodel import (
@@ -19,6 +27,7 @@ from beliefs.world.logmodel import (
     SettledEntryView,
     WellFormedView,
 )
+from beliefs.world.registry import WorldConfig
 
 S1 = "1" * 32
 CORPUS = "c" * 32
@@ -152,3 +161,73 @@ def test_results_are_deterministic():
     chains = {CORPUS: view(intent(I), registration(R, I), settled(R, True), intent("j" * 64))}
     ledgers = [ledger(opens=("A",), closed=False), LedgerMissing("2" * 32)]
     assert reconcile(ledgers, chains) == reconcile(list(reversed(ledgers)), dict(chains))
+
+
+def test_an_act_naming_a_corpus_with_no_truth_is_not_unverified():
+    """§6: a malformed or absent view classifies nothing for that corpus, and a
+    corpus `chains` does not carry is not evidence either way."""
+    acts = (("A", R, I),)
+    malformed = {CORPUS: MalformedView(DefectView(kind="foreign-leaf", subject="x", detail="y"))}
+    found = codes(reconcile([ledger(opens=("A",), closes=("A",), acts=acts)], malformed))
+    assert found == [("session-chain-malformed", "error", CORPUS)]
+
+    absent = {CORPUS: AbsentView()}
+    assert codes(reconcile([ledger(opens=("A",), closes=("A",), acts=acts)], absent)) == [
+        ("session-chain-absent", "error", CORPUS)
+    ]
+
+    unread = {"d" * 32: view(intent(I))}
+    assert "session-act-unverified" not in [
+        code for code, _, _ in codes(reconcile([ledger(opens=("A",), closes=("A",), acts=acts)], unread))
+    ]
+
+
+def test_findings_are_ordered_by_corpus_then_position_not_grouped_by_code():
+    """§6's order: corpus id, then chain position, then code.
+
+    Both halves are pinned against a sort by code: within `CORPUS` the later
+    entry's `session-entry-foreign` follows the earlier entry's
+    `session-intent-unclaimed`, and the second corpus's findings follow both.
+    """
+    other = "d" * 32
+    j, k, m = "c" * 64, "d" * 64, "e" * 64
+    chains = {
+        other: view(intent(m)),
+        CORPUS: view(intent(I), intent(j), registration(k, j), settled(k, True)),
+    }
+    assert codes(reconcile([ledger()], chains)) == [
+        ("session-intent-unclaimed", "error", I),
+        ("session-entry-foreign", "error", k),
+        ("session-intent-unclaimed", "error", m),
+    ]
+
+
+def test_reconcile_sessions_keeps_the_reconcile_order_and_leads_with_the_unadopted_roots(certified_work):
+    """§6's order is `reconcile`'s own, not a re-sort by code: an unadopted root
+    leads even though `ledger-torn-tail` sorts before `session-corpus-unadopted`."""
+    root, unadopted, ops = certified_work / "corpus", certified_work / "nope", certified_work / "ops"
+    init_corpus_root(root, authority=FULL)
+    CorpusWriter(root, durable_executor_factory(), authority=FULL).adopt_manifest(profile=PINS)
+    config = WorldConfig(world_root=certified_work / "world", world_id=WORLD, corpus_roots=(root, unadopted))
+
+    torn = ledger_path(ops, S1)
+    torn.parent.mkdir(parents=True)
+    torn.write_bytes(
+        encode_line({"line": "session-open", "session": S1, "actor": f"session:{S1}", "world": WORLD,
+                     "permit": {"kinds": [], "act_families": [], "ungoverned": True}, "at": AT})
+        + b'{"line":"inv'
+    )
+    (Path(ops) / "sessions" / ("2" * 32)).mkdir()
+
+    found = codes(reconcile_sessions(config, ops, exclude="2" * 32))
+    assert found == [
+        ("session-corpus-unadopted", "error", str(unadopted)),
+        ("ledger-torn-tail", "warning", S1),
+        ("session-unclosed", "warning", S1),
+    ]
+    assert codes(reconcile_sessions(config, ops)) == [
+        ("session-corpus-unadopted", "error", str(unadopted)),
+        ("ledger-torn-tail", "warning", S1),
+        ("session-ledger-missing", "warning", "2" * 32),
+        ("session-unclosed", "warning", S1),
+    ]

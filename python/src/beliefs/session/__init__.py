@@ -122,15 +122,21 @@ def reconcile_sessions(
     world_config: WorldConfig, operations_root: Path, *, exclude: str | None = None
 ) -> tuple[Finding, ...]:
     """The audit surface (design §6): one lock-coherent snapshot per root, read
-    through detached inspection; writes nothing and recovers nothing."""
+    through detached inspection; writes nothing and recovers nothing.
+
+    The session directories are listed *inside* the hold with the chains: a
+    session that opens between a listing and the chain read would show an intent
+    the chain holds under an id the listing never saw, and reconciliation would
+    call it `session-unknown`.
+    """
     sessions = Path(operations_root) / "sessions"
-    ids = sorted(p.name for p in sessions.iterdir() if p.is_dir() and p.name != exclude) if sessions.is_dir() else []
     chains: dict[str, ChainView] = {}
     extra: list[Finding] = []
     roots = sorted(world_config.corpus_roots)
     with ExitStack() as stack:
         for root in roots:
             stack.enter_context(_operation_lock_for(root))
+        ids = sorted(entry.name for entry in sessions.iterdir() if entry.is_dir() and entry.name != exclude) if sessions.is_dir() else []
         for root in roots:
             try:
                 corpus_id = load_manifest(root).corpus_id
@@ -147,4 +153,6 @@ def reconcile_sessions(
                 continue
             chains[corpus_id] = log_seam().inspect_detached(root)
         ledgers = tuple(read_ledger_evidence(operations_root, sid) for sid in ids)
-    return tuple(sorted((*extra, *reconcile(ledgers, chains)), key=lambda f: (f.code, f.ref, f.detail)))
+    # §6's order is `reconcile`'s own — corpus id, then chain position, then code.
+    # The unadopted roots precede it in sorted-root order; nothing is re-sorted.
+    return (*extra, *reconcile(ledgers, chains))

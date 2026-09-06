@@ -120,6 +120,7 @@ def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, ChainView]
                 )
 
     committed_everywhere: set[str] = set()
+    well_formed: set[str] = set()
 
     # --- per corpus -------------------------------------------------------------------
     for corpus_id in sorted(chains):
@@ -150,6 +151,7 @@ def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, ChainView]
             )
             continue
         assert type(view) is WellFormedView
+        well_formed.add(corpus_id)
         entries = view.entries
         settlement = {entry.registration: entry.committed for entry in entries if type(entry) is SettledEntryView}
         by_fulfills: dict[str, list[RegisteredEntryView]] = {}
@@ -283,11 +285,14 @@ def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, ChainView]
                 )
 
     # --- ledger claims the chains lack -------------------------------------------------
+    # Only a well-formed view is truth to compare a claim against: §6 classifies
+    # nothing for a corpus whose view is absent or malformed, and a corpus with no
+    # view at all (its root was not read) is not evidence either way.
     for evidence in ledgers:
         if type(evidence) is not LedgerReader:
             continue
         for act in evidence.acts():
-            if act.entry not in committed_everywhere:
+            if act.corpus in well_formed and act.entry not in committed_everywhere:
                 keyed.append(
                     (
                         (act.corpus, _LEDGER_CLAIM, "session-act-unverified", act.entry),
