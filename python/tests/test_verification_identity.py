@@ -11,6 +11,7 @@ the bare closure address (mm30 reproduction record §6, steps 6 and 8).
 
 from __future__ import annotations
 
+import pytest
 from fixtures_cut3 import spec_draft, spec_rules
 from test_audit import (
     _interpretation_evidence,
@@ -18,8 +19,8 @@ from test_audit import (
     add_observed_datasets,
     assessment_closure,
     run_publication,
-    writer,  # noqa: F401 - the fixture
 )
+from test_relocation import _writer
 
 from beliefs import stored
 from beliefs.assess import build_assessment
@@ -29,6 +30,11 @@ from beliefs.runrecord import run_ref
 from beliefs.spec import freeze
 from beliefs.verification import ADMITTED, lifecycle_state
 from beliefs.verify import AssessmentVerification, admission_record, build_verification
+
+
+@pytest.fixture()
+def writer(tmp_path):
+    return _writer(tmp_path / "corpus")
 
 
 def test_v2_one_identity_admits_over_the_corpus_and_audits_clean(writer):
