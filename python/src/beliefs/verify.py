@@ -556,6 +556,51 @@ def _resolve_rule(
     return rule, implementation_identity, implementation, spec
 
 
+@dataclass(frozen=True)
+class _Derived:
+    rule: str
+    implementation_identity: str
+    report: ComparisonReport
+    scope: str
+    verdict: str
+    assessment: str | None
+
+
+def _derive(
+    original: RunClosure,
+    replayed: RunClosure,
+    *,
+    specs: Mapping[str, FrozenSpec],
+    held_rules: Mapping[str, EquivalenceImplementation],
+    certification: CodeLineageCertification | None,
+    citation: EmbeddedCitation | None,
+) -> _Derived:
+    """The one derivation, for the constructor and for the audit (design
+    decision 8). Every scope-bearing fact is read from the runs; the
+    certification and citation are the authored claims the caller embeds."""
+    rule, implementation_identity, implementation, spec = _resolve_rule(original, specs=specs, held_rules=held_rules)
+    verdict = implementation.evaluate(original.result, replayed.result)
+    if verdict not in VERDICTS:
+        raise MalformedRecord(f"equivalence evaluator returned {verdict!r}, outside {VERDICTS}")
+    report = _mint_comparison_report(
+        original_conformance=conformance(original),
+        replay_conformance=conformance(replayed),
+        receipts=(original.occurrence.receipt.identity(), replayed.occurrence.receipt.identity()),
+        rule_bindings=((rule, implementation_identity),),
+        certification=certification,
+        citation=citation,
+        diagnostics=_job_diagnostics(original, replayed),
+    )
+    assessment = None
+    if spec is not None:
+        assessment = v1.digest(
+            record.ASSESSMENT_DOMAIN,
+            {"spec": spec.identity, "run": original.address(), "proposition": spec.target},
+        )
+    scope = derive_scope(original, replayed, certification=certification)
+    return _Derived(rule, implementation_identity, report, scope, verdict, assessment)
+
+
 def build_verification(
     original: RunClosure,
     replayed: RunClosure,
@@ -580,45 +625,19 @@ def build_verification(
     _require_str(contract_identity, "verification contract identity")
     _require_str(epoch, "verification epoch")
 
-    rule, implementation_identity, implementation, spec = _resolve_rule(original, specs=specs, held_rules=held_rules)
-    verdict = implementation.evaluate(original.result, replayed.result)
-    if verdict not in VERDICTS:
-        raise MalformedRecord(f"equivalence evaluator returned {verdict!r}, outside {VERDICTS}")
     embedded_citation = None
     if citation is not None:
         published, index = citation
         entry = cite(published, index)
-        embedded_citation = EmbeddedCitation(
-            report_ref=published.identity(),
-            index=index,
-            content=_entry_facet(entry),
-        )
-    comparison = _mint_comparison_report(
-        original_conformance=conformance(original),
-        replay_conformance=conformance(replayed),
-        receipts=(original.occurrence.receipt.identity(), replayed.occurrence.receipt.identity()),
-        rule_bindings=((rule, implementation_identity),),
-        certification=certification,
-        citation=embedded_citation,
-        diagnostics=_job_diagnostics(original, replayed),
-    )
+        embedded_citation = EmbeddedCitation(report_ref=published.identity(), index=index, content=_entry_facet(entry))
+    derived = _derive(original, replayed, specs=specs, held_rules=held_rules, certification=certification, citation=embedded_citation)
     common = {
         "original": original.address(),
         "replayed": replayed.address(),
-        "rule": rule,
-        "report": comparison,
+        "rule": derived.rule,
+        "report": derived.report,
         "scope_rule": original.recipe.boundary_policy.scope_rule,
-        "scope": derive_scope(original, replayed, certification=certification),
-        "verdict": verdict,
+        "scope": derived.scope,
+        "verdict": derived.verdict,
     }
-    if spec is None:
-        return _mint_verification(assessment=None, supersedes=None, **common)
-    assessment = v1.digest(
-        record.ASSESSMENT_DOMAIN,
-        {
-            "spec": spec.identity,
-            "run": original.address(),
-            "proposition": spec.target,
-        },
-    )
-    return _mint_verification(assessment=assessment, supersedes=None, **common)
+    return _mint_verification(assessment=derived.assessment, supersedes=None, **common)

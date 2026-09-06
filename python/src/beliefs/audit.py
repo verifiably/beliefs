@@ -41,12 +41,9 @@ from beliefs.errors import (
     SemanticHashStale,
 )
 from beliefs.evidence import NO_EVIDENCE, DerivationEvidence, DerivationOutcome
-from beliefs.identity import v1
 from beliefs.recipe import RunClosure
-from beliefs.record import ASSESSMENT_DOMAIN
 from beliefs.runrecord import decode_run_closure
-from beliefs.verification import VERDICTS
-from beliefs.verify import _resolve_rule
+from beliefs.verify import _derive, decode_verification
 
 __all__ = [
     "MALFORMEDNESS_CODES",
@@ -112,8 +109,11 @@ def _closure(view: ReadView | _ImportView, ref: str) -> tuple[RunClosure | None,
 def check_verification(
     view: ReadView | _ImportView, node: Node, *, evidence: DerivationEvidence
 ) -> DerivationOutcome:
-    """Recompute a stored verification's verdict from the two runs it names."""
-    derivation = stored.verification_derivation(node)  # MalformedRecord propagates: refuse, never repair
+    """Recompute a stored verification's derivation from the two runs it names —
+    verdict and assessment identity always; rule, scope rule, scope and report
+    identity when the record carries its report (design §6)."""
+    decoded = decode_verification(node)  # MalformedRecord propagates: a present, malformed report is refused, never repaired
+    derivation = stored.verification_derivation(node)
     if derivation is None:
         return _unchecked("no derivation member")
     original, why = _closure(view, derivation[0])
@@ -122,29 +122,33 @@ def check_verification(
     replayed, why = _closure(view, derivation[1])
     if replayed is None:
         return _unchecked(why)
+    if original.recipe.shape != replayed.recipe.shape:
+        return _unchecked("mixed shapes")
+    certification = None if decoded is None else decoded.report.certification
+    citation = None if decoded is None else decoded.report.citation
     try:
-        _rule, _implementation_identity, implementation, spec = _resolve_rule(
-            original, specs=evidence.specs, held_rules=evidence.held_rules
+        derived = _derive(
+            original, replayed, specs=evidence.specs, held_rules=evidence.held_rules,
+            certification=certification, citation=citation,
         )
     except RuleUnbound as unbound:
         return _unchecked(str(unbound))
-    if original.recipe.shape != replayed.recipe.shape:
-        return _unchecked("mixed shapes")
     stored_value = stored.verification_value(node)
-    verdict = implementation.evaluate(original.result, replayed.result)
-    if verdict not in VERDICTS:
-        raise MalformedRecord(f"{node.id}: the equivalence evaluator returned {verdict!r}, outside {VERDICTS}")
-    assessment = None
-    if spec is not None:
-        assessment = v1.digest(
-            ASSESSMENT_DOMAIN,
-            {"spec": spec.identity, "run": original.address(), "proposition": spec.target},
-        )
     disagreements: list[str] = []
-    if verdict != stored_value.verdict:
-        disagreements.append(f"verdict stored={stored_value.verdict!r} recomputed={verdict!r}")
-    if assessment is not None and assessment != stored_value.assessment:
+    if derived.verdict != stored_value.verdict:
+        disagreements.append(f"verdict stored={stored_value.verdict!r} recomputed={derived.verdict!r}")
+    if derived.assessment is not None and derived.assessment != stored_value.assessment:
         disagreements.append("assessment identity differs from the original run's derivation")
+    if decoded is not None:
+        if decoded.rule != derived.rule:
+            disagreements.append(f"rule stored={decoded.rule!r} recomputed={derived.rule!r}")
+        scope_rule = original.recipe.boundary_policy.scope_rule
+        if decoded.scope_rule != scope_rule:
+            disagreements.append(f"scope_rule stored={decoded.scope_rule!r} recomputed={scope_rule!r}")
+        if decoded.scope != derived.scope:
+            disagreements.append(f"scope stored={decoded.scope!r} recomputed={derived.scope!r}")
+        if decoded.report.identity() != derived.report.identity():
+            disagreements.append("report identity differs from the recomputed report")
     if not disagreements:
         return DerivationOutcome(checked=True, reason="", contradiction=None)
     return DerivationOutcome(

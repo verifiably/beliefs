@@ -632,7 +632,7 @@ _R19 = [
         asserts="the verifies-to-assessment edge is derived from the frozen spec and original run",
         sabotage=Sabotage(
             module="verify.py",
-            before="    return _mint_verification(assessment=assessment, supersedes=None, **common)",
+            before="    return _mint_verification(assessment=derived.assessment, supersedes=None, **common)",
             after='    return _mint_verification(assessment="", supersedes=None, **common)',
         ),
         checks=("test_verify.py::test_r19_the_assessment_edge_is_derived_never_authored",),
@@ -1016,8 +1016,14 @@ _T6 = [
         asserts="a verification embeds the resolved cited entry content, not only its report position",
         sabotage=Sabotage(
             module="verify.py",
-            before="            content=_entry_facet(entry),",
-            after="            content={},",
+            before=(
+                "        embedded_citation = EmbeddedCitation(report_ref=published.identity(), "
+                "index=index, content=_entry_facet(entry))"
+            ),
+            after=(
+                "        embedded_citation = EmbeddedCitation(report_ref=published.identity(), "
+                "index=index, content={})"
+            ),
         ),
         checks=("test_verify.py::test_t6_r18_deleting_the_cited_report_leaves_the_verification_unchanged",),
     ),
@@ -1410,8 +1416,8 @@ _CLAUSE_ARMS = [
         "R18",
         "the comparison report carries the exact certification claim inline",
         "verify.py",
-        "        certification=certification,\n        citation=embedded_citation,",
-        "        certification=None,\n        citation=embedded_citation,",
+        "        rule_bindings=((rule, implementation_identity),),\n        certification=certification,",
+        "        rule_bindings=((rule, implementation_identity),),\n        certification=None,",
         "test_verify.py::test_r18_the_report_carries_the_evidence_inline_and_the_basis_names_it_once",
     ),
     _clause_arm(
