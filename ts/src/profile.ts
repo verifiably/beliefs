@@ -32,7 +32,15 @@
  * a compilation whose result no longer exists.
  */
 
-import { BaseContract, type ClaimGrammar, DomainContract } from "./contract.js";
+import {
+  BaseContract,
+  type ClaimGrammar,
+  type DeclarationTable,
+  DomainContract,
+  type FacetDecl,
+  type KindDecl,
+  type RelationDecl,
+} from "./contract.js";
 import { ContractMismatch, ProfileError, SubclassRefused, UnparsedContract } from "./errors.js";
 
 export interface CompiledOperator {
@@ -56,6 +64,9 @@ export type ResolutionTable<T> = Readonly<Record<string, T>>;
 
 export class ProfileSpec {
   #minted = true;
+  readonly kinds: DeclarationTable<KindDecl>;
+  readonly facets: DeclarationTable<FacetDecl>;
+  readonly relations: DeclarationTable<RelationDecl>;
   readonly claimGrammar: ClaimGrammar;
   readonly operators: ResolutionTable<CompiledOperator>;
   readonly dimensions: ResolutionTable<CompiledDimension>;
@@ -64,6 +75,9 @@ export class ProfileSpec {
   constructor(
     token: symbol,
     parts: {
+      kinds: DeclarationTable<KindDecl>;
+      facets: DeclarationTable<FacetDecl>;
+      relations: DeclarationTable<RelationDecl>;
       claimGrammar: ClaimGrammar;
       operators: ResolutionTable<CompiledOperator>;
       dimensions: ResolutionTable<CompiledDimension>;
@@ -85,6 +99,9 @@ export class ProfileSpec {
     // this class is the one promising, and the copy here would then be
     // unreachable — defending against a caller the mint token makes impossible,
     // and untestable for the same reason.
+    this.kinds = frozenTable(Object.entries(parts.kinds));
+    this.facets = frozenTable(Object.entries(parts.facets));
+    this.relations = frozenTable(Object.entries(parts.relations));
     this.claimGrammar = parts.claimGrammar;
     this.operators = frozenTable(Object.entries(parts.operators));
     this.dimensions = frozenTable(Object.entries(parts.dimensions));
@@ -120,6 +137,7 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
   const operators: Record<string, CompiledOperator> = Object.create(null);
   const dimensions: Record<string, CompiledDimension> = Object.create(null);
   const sorts: string[] = [];
+  const facets: Record<string, FacetDecl> = Object.assign(Object.create(null), base.facets);
   const seen = new Set<string>();
 
   for (const contract of domains) {
@@ -145,6 +163,13 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
       throw new ProfileError(`two contracts contribute to namespace ${JSON.stringify(contract.namespace)}`);
     }
     seen.add(contract.namespace);
+    for (const [key, facet] of Object.entries(contract.facets)) {
+      for (const kind of facet.attachesTo) {
+        if (base.kinds[kind]?.role !== "world")
+          throw new ProfileError(`${key}: attaches_to names ${kind}, not a world kind`);
+      }
+      facets[key] = facet;
+    }
     for (const name of Object.keys(contract.sorts)) sorts.push(term(contract.namespace, name));
     for (const [name, declaration] of Object.entries(contract.dimensions)) {
       dimensions[term(contract.namespace, name)] = Object.freeze({
@@ -167,7 +192,23 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
     }
   }
 
-  return new ProfileSpec(MINT, { claimGrammar: base.claimGrammar, operators, dimensions, sorts });
+  for (const [key, facet] of Object.entries(facets)) {
+    for (const [name, field] of Object.entries(facet.fields)) {
+      for (const kind of field.kinds) {
+        if (!(kind in base.kinds))
+          throw new ProfileError(`${key}: field ${name} names kind ${kind}, not in the compiled inventory`);
+      }
+    }
+  }
+  return new ProfileSpec(MINT, {
+    kinds: base.kinds,
+    relations: base.relations,
+    facets,
+    claimGrammar: base.claimGrammar,
+    operators,
+    dimensions,
+    sorts,
+  });
 }
 
 /**

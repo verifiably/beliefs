@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parseBaseContract, parseDomainContract } from "../src/contract.js";
+import { compileProfile } from "../src/profile.js";
 
 const REPO_ROOT = new URL("../../", import.meta.url);
 const SHIPPED = readFileSync(new URL("contracts/science/CONTRACT.yaml", REPO_ROOT), "utf-8");
@@ -76,4 +77,55 @@ describe("a domain contract's facets (design §3.3)", () => {
     expect(() => parseDomainContract(`${TESTING}\nkinds: {}\n`, "<bad>", base)).toThrow(/declares no kinds/);
     expect(() => parseDomainContract(`${TESTING}\nrelations: {}\n`, "<bad>", base)).toThrow(/declares no relations/);
   });
+});
+
+describe("compileProfile enforces the declaration constraints (design §7.2)", () => {
+  const base = parseBaseContract(SHIPPED, "contracts/science/CONTRACT.yaml");
+  const TESTING = readFileSync(new URL("fixtures/contracts/testing.yaml", REPO_ROOT), "utf-8");
+  it("carries kinds, relations and facets", () => {
+    const profile = compileProfile(base, [parseDomainContract(TESTING, "<t>", base)]);
+    expect(Object.keys(profile.kinds).length).toBeGreaterThanOrEqual(16);
+    expect(profile.facets["testing/axis"].attachesTo).toEqual(["dataset"]);
+  });
+  it("refuses a domain facet attaching to an undeclared or prose kind", () => {
+    for (const kind of ["divergence", "discussion"]) {
+      const bad = TESTING.replace(
+        "attaches_to: [dataset]\n    fields:\n      axis:",
+        `attaches_to: [${kind}]\n    fields:\n      axis:`,
+      );
+      expect(() => compileProfile(base, [parseDomainContract(bad, "<bad>", base)])).toThrow(new RegExp(kind));
+    }
+  });
+});
+
+it("resolves ref kinds from both base and domain facets", () => {
+  const baseText = SHIPPED.replace("kinds: [act-report]", "kinds: [missing]");
+  expect(() => compileProfile(parseBaseContract(baseText, "<bad>"), [])).toThrow(/missing/);
+  const base = parseBaseContract(SHIPPED, "<base>");
+  const text = readFileSync(new URL("fixtures/contracts/testing.yaml", REPO_ROOT), "utf-8").replace(
+    "kinds: [dataset]",
+    "kinds: [missing]",
+  );
+  expect(() => compileProfile(base, [parseDomainContract(text, "<bad>", base)])).toThrow(/missing/);
+});
+it("keeps compiled declaration products immutable", () => {
+  const base = parseBaseContract(SHIPPED, "<base>");
+  const text = readFileSync(new URL("fixtures/contracts/testing.yaml", REPO_ROOT), "utf-8");
+  const profile = compileProfile(base, [parseDomainContract(text, "<t>", base)]);
+  for (const value of [
+    profile.kinds,
+    profile.kinds.dataset,
+    profile.kinds.dataset.facets,
+    profile.kinds.dataset.facets.dataset,
+    profile.relations,
+    profile.relations.retracts,
+    profile.relations.retracts.targets,
+    profile.facets,
+    profile.facets["testing/axis"],
+    profile.facets["testing/axis"].attachesTo,
+    profile.facets["testing/axis"].fields,
+    profile.facets["testing/axis"].fields.vocabulary.kinds,
+  ]) {
+    expect(Object.isFrozen(value)).toBe(true);
+  }
 });

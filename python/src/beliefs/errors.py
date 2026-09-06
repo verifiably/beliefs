@@ -1089,6 +1089,10 @@ class ValidationRefused(WriteRefused):
     `nodes` exception as `__cause__` so no `nodes` error escapes raw."""
 
 
+class FacetPayloadRefused(ValidationRefused):
+    """A schema-shaped facet payload violates its declared structural grammar."""
+
+
 class CollisionRefused(WriteRefused):
     """`assert_addable`'s corpus-side refusals — a uid held by another id, or
     an identity claim held by another uid — wrapped for the same reason.
