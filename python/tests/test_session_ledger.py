@@ -181,6 +181,20 @@ def test_a_first_line_that_is_not_session_open_is_malformed(tmp_path):
             "line 3",
             id="line-after-session-close",
         ),
+        pytest.param(
+            encode_line(open_line())
+            + encode_line(open_line()),
+            "line 2",
+            id="a-second-session-open",
+        ),
+        pytest.param(
+            encode_line(open_line())
+            + encode_line({"line": "invocation-open", "invocation": "A", "command": "mint", "input_digest": DIGEST, "at": AT})
+            + encode_line({"line": "invocation-close", "invocation": "A", "outcome": {"done": []}})
+            + encode_line({"line": "invocation-close", "invocation": "A", "outcome": {"done": []}}),
+            "line 4",
+            id="invocation-close-of-an-already-closed-invocation",
+        ),
     ],
 )
 def test_a_line_the_writer_protocol_cannot_produce_is_refused_naming_its_number(tmp_path, raw, message):

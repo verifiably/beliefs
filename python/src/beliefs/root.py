@@ -1413,8 +1413,8 @@ def _chain_head(root: Path) -> tuple[str, str]:
 def chain_head_reader() -> Callable[[Path], tuple[str, str]]:
     """The stable root-taking chain reader a `World` is built with.
 
-    Stable in the same sense as `durable_executor_factory`: the same function
-    object every call, so a caller can assert that a world holds *this*
+    Stable in the same sense as `durable_executor_factory`: the same object
+    every call, so a caller can assert that a world holds *this*
     reader rather than one that merely behaves like it.
     """
     return _chain_head
@@ -1645,7 +1645,7 @@ def _log_seam() -> LogSeam:
 
 def log_seam() -> LogSeam:
     """The production log seam, exposed for the session composition (§13 item 1)."""
-    return _LOG_SEAM
+    return _log_seam()
 
 
 def anchor_heads(

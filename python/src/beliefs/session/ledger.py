@@ -154,7 +154,7 @@ class LedgerWriter:
             try:
                 self._file.close()
             except OSError:
-                pass
+                pass  # deliberate best-effort cleanup; must not mask the primary SessionLedgerFailed
             raise SessionLedgerFailed(f"ledger append failed: {caught}") from caught
 
     def close(self) -> None:
@@ -309,6 +309,8 @@ def _parse(session_id: str, raw: bytes) -> LedgerReader:
                 closed.add(invocation)
             elif kind == "session-close":
                 session_closed_at = number
+            elif kind == "session-open":
+                raise LedgerMalformed(f"line {number}: a second session-open")
         lines.append(validated)
     if not lines:
         raise LedgerMalformed("line 1: the ledger is empty; no session-open")

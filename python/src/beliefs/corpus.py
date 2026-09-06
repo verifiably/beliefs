@@ -406,11 +406,11 @@ class _RootState:
     depth: int = 0  # settling-hold nesting on the owning thread
 
 
-def _encode_operation_intent(kind: str, event_token: str, actor: str) -> bytes:
+def _encode_operation_intent(kind: str, event_token: str, intent_actor: str) -> bytes:
     """The one wire encoding of an operation intent. Both producers — the routed
     commit seam and `CorpusWriter._append_operation_intent` — append exactly these
     bytes, so `decode_intent` reads one shape however the entry was written."""
-    intent = OperationIntent(kind, event_token, actor)
+    intent = OperationIntent(kind, event_token, intent_actor)
     return v1.encode({"kind": intent.kind, "event_token": intent.event_token, "actor": intent.actor})
 
 
