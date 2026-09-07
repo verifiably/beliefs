@@ -140,7 +140,7 @@ def test_scope_supersession_preserves_predecessor_evidence(durable_writer):
             template["records"],
             claims={},
             assessments=(value,),
-            runs={run.id: run_value(view, run.id)},
+            runs={stored.local_id("run", run.id): run_value(view, run.id)},
             source_assertions=(),
             verifications=(stored.verification_value(view.get(verification.id)),),
         )
