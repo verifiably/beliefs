@@ -13,9 +13,10 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 
-from beliefs.belief import Belief, NoBelief  # noqa: E402
-from beliefs.policy import PolicyBinding  # noqa: E402
-from reproduction import answers, findings  # noqa: E402
+from reproduction import answers, findings
+
+from beliefs.belief import Belief, NoBelief
+from beliefs.policy import PolicyBinding
 
 
 def test_a_finding_class_outside_the_four_is_refused(tmp_path, monkeypatch):
@@ -145,9 +146,10 @@ def test_assoc_supported_when_positive_level_is_higher_reading_gzip(tmp_path):
 def test_spec_record_carries_a_fresh_semantic_stamp():
     from decimal import Decimal
 
+    from reproduction import spec as spec_module
+
     from beliefs import stored
     from beliefs.spec import Deterministic, SpecDraft, SpecInput, freeze
-    from reproduction import spec as spec_module
 
     draft = SpecDraft(
         target="proposition:p", estimand="e", method="m", assumptions="a", falsification="f",
