@@ -42,6 +42,7 @@ from beliefs.errors import (
 )
 from beliefs.evidence import NO_EVIDENCE, DerivationEvidence, DerivationOutcome
 from beliefs.identity import v1
+from beliefs.profile import ProfileSpec
 from beliefs.recipe import RunClosure
 from beliefs.record import ASSESSMENT_DOMAIN
 from beliefs.runrecord import decode_run_closure, run_ref
@@ -61,7 +62,7 @@ __all__ = [
 
 
 MALFORMEDNESS_CODES = frozenset(
-    {"semantic-hash-missing", "semantic-hash-stale", "coordination-facet-malformed", "derivation-malformed"}
+    {"semantic-hash-missing", "semantic-hash-stale", "coordination-facet-malformed", "derivation-malformed", "facet-payload-malformed"}
 )
 """Ω_valid's codes, and only those. A record one of these names is not read
 again below the classification. A record flagged for anything **else** — a
@@ -242,7 +243,7 @@ def check_lineage_basis(view: ReadView, node: Node) -> DerivationOutcome:
     )
 
 
-def audit_corpus(view: ReadView, *, evidence: DerivationEvidence) -> tuple[Finding, ...]:
+def audit_corpus(view: ReadView, *, evidence: DerivationEvidence, profile: ProfileSpec) -> tuple[Finding, ...]:
     """Ω_valid first, then recomputation over what is well-formed. No standing,
     no belief, no write, no mint — and, like `corpus_check`, no raise: any
     `RecordError` a recomputation raises is reported as `derivation-malformed`,
@@ -251,7 +252,9 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence) -> tuple[Findi
     the whole family — a signature that admits no such derivation
     (`SignatureRefused`), an undecodable closure (`MalformedClosure`) — and a
     narrower catch lets those siblings abort the audit."""
-    findings = list(corpus_check(view))
+    findings = list(corpus_check(view, profile))
+    if any(f.code == "profile-mismatch" and f.detail in ("base", "malformed") for f in findings):
+        return tuple(findings)
     malformed = {finding.ref for finding in findings if finding.code in MALFORMEDNESS_CODES}
     for node in view.iter_stored():
         if node.id in malformed:

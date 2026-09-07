@@ -19,6 +19,7 @@ from durable_fixture import PROPOSITION, RULE, SPEC
 from fixtures_cut3 import D_OUT, recipe, spec_draft, spec_rules
 from fixtures_cut3 import closure as run_closure
 from fixtures_cut4 import raw_write, reopen
+from profiles import BASE
 
 from beliefs import stored
 from beliefs.admission import admit
@@ -191,7 +192,7 @@ class TestR19aTheGenuineAvailabilityTransition:
         # so there is nothing for unavailability to turn into a verdict.
         view = reopen(durable_root)
         assert stored.verification_value(view.get("verification:v1")).verdict == "passed"
-        assert corpus_check(view) == ()
+        assert corpus_check(view, BASE) == ()
 
 
 class TestR19deTheReadSideNegatives:
@@ -226,14 +227,14 @@ class TestR19deTheReadSideNegatives:
                 verdict="passed",
             ),
         )
-        assert corpus_check(reopen(durable_root)) == ()
+        assert corpus_check(reopen(durable_root), BASE) == ()
 
     def test_a_self_consistent_raw_written_run_is_not_detected(self, durable_writer, durable_root):
         mint_run_and_proposition(durable_writer)
         raw_write(durable_root, stored.run_node("smuggled", title="smuggled", spec=SPEC, observes=[RAW]))
         view = reopen(durable_root)
         assert view.holds("run:smuggled")
-        assert corpus_check(view) == ()
+        assert corpus_check(view, BASE) == ()
 
     def test_an_unaudited_verification_is_indistinguishable_from_a_genuine_one(
         self, durable_writer, durable_root
@@ -267,7 +268,7 @@ class TestR19deTheReadSideNegatives:
         forged_fields = view.get(forged.id).facets
         assert genuine_fields[stored.VERIFICATION_FACET] == forged_fields[stored.VERIFICATION_FACET]
         assert genuine_fields[stored.SEMANTIC_IDENTITY_FACET] == forged_fields[stored.SEMANTIC_IDENTITY_FACET]
-        assert corpus_check(view) == ()
+        assert corpus_check(view, BASE) == ()
 
 
 class TestR22TheForgeryAtTheCorrectAddress:
@@ -304,7 +305,7 @@ class TestR22TheForgeryAtTheCorrectAddress:
         assert stored.assessment_value(view.get(ASSESSMENT)).outcome == "supported"
 
     def test_the_corpus_check_reports_nothing(self, forged, durable_root):
-        assert corpus_check(reopen(durable_root)) == ()
+        assert corpus_check(reopen(durable_root), BASE) == ()
 
     def test_a_digest_over_assessment_identities_alone_would_have_missed_it(self, forged, durable_root):
         # The identity is `(spec, run, proposition)` and the forgery changes

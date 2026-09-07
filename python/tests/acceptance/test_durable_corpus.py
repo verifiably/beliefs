@@ -161,14 +161,14 @@ class TestS7BothBoundariesDurably:
                 interpretation_rule=RULE,
             ),
         )
-        findings = corpus_check(reopen(durable_root))
+        findings = corpus_check(reopen(durable_root), BASE)
         assert [(f.severity, f.code, f.ref) for f in findings] == [
             ("error", "eligibility-unmet", "assessment:a2")
         ]
 
     def test_the_check_is_silent_on_the_minted_corpus(self, durable_writer, durable_root):
         mint_records(durable_writer)
-        assert corpus_check(reopen(durable_root)) == ()
+        assert corpus_check(reopen(durable_root), BASE) == ()
 
 
 class TestS8TheNegative:
@@ -198,7 +198,7 @@ class TestS8TheNegative:
         raw_write(durable_root, stored.dataset_node("smuggled", title="smuggled", resources=pinned()))
         view = reopen(durable_root)
         assert view.get("dataset:smuggled").id == "dataset:smuggled"  # the stale-hash check has nothing to say
-        assert corpus_check(view) == ()  # and neither has the corpus check
+        assert corpus_check(view, BASE) == ()  # and neither has the corpus check
 
     def test_a_raw_write_that_moved_the_fields_alone_is_refused_on_read(self, durable_writer, durable_root):
         stale = stored.dataset_node("stale", title="stale", resources=pinned())
@@ -258,7 +258,7 @@ class TestTheMintedRecordsReadBack:
         assert stored.inputs_of(run, stored.READS) == ()
 
     def test_the_minted_corpus_reports_nothing(self, minted_corpus):
-        assert corpus_check(reopen(minted_corpus)) == ()
+        assert corpus_check(reopen(minted_corpus), BASE) == ()
 
     def test_the_slug_helper_addresses_the_same_file_the_store_does(self, minted_corpus):
         assert path_for(minted_corpus, RAW).name == f"{slug(RAW)}.md"

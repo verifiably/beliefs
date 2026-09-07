@@ -393,8 +393,8 @@ def test_g2c_g8_c6_raw_deletion_restores_admission_undetected_on_read(tmp_path):
     restored = scenario.belief()
     assert restored.value == 2
     assert restored.belief_input_digest != invalidated.belief_input_digest
-    assert corpus_check(scenario.view) == (), "the removal is invisible to the read-side check"
-    assert audit_corpus(scenario.view, evidence=NO_EVIDENCE) == (), "and to the corpus-local audit"
+    assert corpus_check(scenario.view, scenario.writer.profile) == (), "the removal is invisible to the read-side check"
+    assert audit_corpus(scenario.view, evidence=NO_EVIDENCE, profile=scenario.writer.profile) == (), "and to the corpus-local audit"
 
 
 # --- G8 and C6: the managed half reads the same; the log half is Task 8's -----
@@ -424,7 +424,7 @@ def test_g8_c6_managed_delete_reads_identically_to_raw_on_the_corpus(tmp_path):
     assert raw.lifecycle(ASSESSMENTS[0]) == managed.lifecycle(ASSESSMENTS[0]) == ADMITTED
     assert raw.belief().value == managed.belief().value == 2
     assert raw.belief().belief_input_digest == managed.belief().belief_input_digest
-    assert corpus_check(raw.view) == corpus_check(managed.view) == ()
+    assert corpus_check(raw.view, raw.writer.profile) == corpus_check(managed.view, managed.writer.profile) == ()
 
 
 # --- S5's deletion half -------------------------------------------------------
@@ -623,13 +623,13 @@ def test_r23_the_audit_detects_a_forged_single_while_b_stands_then_reports_no_co
     writer = _writer(tmp_path / "corpus")
     run_b = forged_single_over_two_producers(writer)
     assert "lineage-basis-contradicted" in {
-        finding.code for finding in audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        finding.code for finding in audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)
     }
 
     writer.delete(run_b.id)
 
     assert "lineage-basis-contradicted" not in {
-        finding.code for finding in audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        finding.code for finding in audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)
     }
 
 

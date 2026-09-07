@@ -12,6 +12,7 @@ skip.
 from __future__ import annotations
 
 import inspect
+from dataclasses import replace
 
 import pytest
 from authority import ACTOR
@@ -19,14 +20,17 @@ from fixtures_cut4 import raw_write, reopen
 from nodes.core.corpus import Corpus
 from nodes.core.node import Node
 from nodes.core.relations import Relation
+from profiles import BASE, pins_for
 
 from beliefs import stored
-from beliefs.corpus import LineageAdjacency, RelationAdjacency, corpus_check, derived_from, lineage_snapshot
+from beliefs.corpus import LineageAdjacency, ReadView, RelationAdjacency, corpus_check, derived_from, lineage_snapshot
 from beliefs.errors import SemanticHashMissing, SemanticHashStale
 from beliefs.lineage import certify
 from beliefs.traversal import LineageEntry, RelationEntry, closure
+from beliefs.world import CorpusManifest, manifest_bytes
 
 CITES = "cites"
+PINNED = [{"name": "matrix", "digest": "sha256:" + "1" * 64}]
 
 
 def discussion(slug: str, *, relations=()) -> Node:
@@ -40,10 +44,15 @@ def cites(source: str, target: str, *, directed: bool = True, predicate: str = C
     return Relation(source=source, predicate=predicate, target=target, directed=directed)
 
 
-def seed(root, *nodes: Node):
+def seed(root, *nodes: Node, pins=None, science_contract=None):
     for node in nodes:
         raw_write(root, node)
-    return reopen(root)
+    root.mkdir(parents=True, exist_ok=True)
+    pins = pins_for(BASE) if pins is None else pins
+    if science_contract is not None:
+        pins = replace(pins, science_contract=science_contract)
+    (root / "corpus.yaml").write_bytes(manifest_bytes(CorpusManifest(2, "1" * 32, pins)))
+    return ReadView(Corpus(root))
 
 
 def relation_walk(view, start: str, predicate: str = CITES, direction: str = "outbound"):
@@ -313,19 +322,93 @@ class TestTheFacadesNodeReadPath:
 
 
 class TestTheCorpusCheck:
+    def test_the_check_takes_the_profile_and_reports_facet_findings(self, tmp_path):
+        bad = stored.dataset_node("b", title="b", resources=PINNED, empirical_observation={"boundary": "x"})
+        assert [(f.code, f.ref) for f in corpus_check(seed(tmp_path, bad), BASE)] == [("facet-payload-malformed", bad.id)]
+
+    def test_a_raw_written_bearer_conflict_is_reported_once(self, tmp_path):
+        d = observed_dataset()
+        r = stored.run_node("r", title="r", spec="analysis-spec:s", produces=[d.id])
+        findings = [(f.code, f.ref) for f in corpus_check(seed(tmp_path, d, r), BASE)]
+        assert findings.count(("facet-bearer-produced", d.id)) == 1
+
+    def test_an_unknown_kind_and_an_undeclared_key_are_reported(self, tmp_path):
+        from nodes.core.node import Node
+        stray = Node(id="divergence:x", kind="divergence", title="x", facets={})
+        keyed = stored.proposition_node("p", title="p", claim={"operator": "affects"})
+        keyed.facets["biology/gene-axis"] = {}
+        codes = {(f.code, f.ref) for f in corpus_check(seed(tmp_path, stray, stored.stamp_semantic_identity(keyed)), BASE)}
+        assert ("kind-unknown", "divergence:x") in codes and ("facet-unexpected", keyed.id) in codes
+
+    def test_a_stale_neighbour_is_a_finding_not_a_raise(self, tmp_path):
+        d = observed_dataset()
+        r = stored.run_node("r", title="r", spec="analysis-spec:s", produces=[d.id])
+        r.facets["run"]["spec"] = "analysis-spec:tampered"  # stamp now disagrees
+        findings = corpus_check(seed(tmp_path, d, r), BASE)
+        codes = {(f.code, f.ref) for f in findings}
+        assert ("semantic-hash-stale", r.id) in codes and ("facet-bearer-produced", d.id) in codes
+
+    def test_a_domain_only_mismatch_withholds_namespaced_judgments_and_keeps_base_ones(self, tmp_path):
+        from profiles import WITH_BIOLOGY
+        bad = stored.dataset_node("b", title="b", resources=PINNED, empirical_observation={"boundary": "x"})
+        bad.facets["biology/gene-axis"] = {"axis": "rows"}
+        findings = corpus_check(seed(tmp_path, stored.stamp_semantic_identity(bad), pins=pins_for(WITH_BIOLOGY)), BASE)
+        codes = [f.code for f in findings]
+        assert codes.count("profile-mismatch") == 1 and "facet-payload-malformed" in codes and "facet-unexpected" not in codes
+
+    def test_a_coordination_pin_disagreement_withholds_only_what_needs_the_contract(self, tmp_path):
+        from coordination_fixtures import coordination_profile  # the profile compiled with the coordination contract
+        from nodes.core.node import Node
+        pins = pins_for(coordination_profile(None))
+        assert "coordination" in pins.domains
+        malformed_task = Node(id="task:t", kind="task", title="t", facets={"coordination": {"nonsense": True}})
+        facetless_task = Node(id="task:u", kind="task", title="u", facets={})
+        findings = corpus_check(seed(tmp_path, malformed_task, facetless_task, pins=pins), BASE)
+        assert [f.code for f in findings] == ["profile-mismatch"]  # both withheld by kind, facet or no facet
+        raw = stored.dataset_node("b", title="b", resources=PINNED, empirical_observation={"boundary": "x"})
+        raw.facets["coordination"] = {"nonsense": True}
+        del raw.facets[stored.SEMANTIC_IDENTITY_FACET]
+        findings = corpus_check(seed(tmp_path / "second", raw, pins=pins), BASE)
+        codes = {f.code for f in findings}
+        assert codes == {"profile-mismatch", "semantic-hash-missing", "facet-unexpected", "facet-payload-malformed"}
+
+    def test_a_base_mismatch_withholds_everything_but_the_mismatch(self, tmp_path):
+        node = observed_dataset()
+        del node.facets[stored.SEMANTIC_IDENTITY_FACET]
+        assert [f.code for f in corpus_check(seed(tmp_path, node, science_contract="science:" + "f" * 64), BASE)] == ["profile-mismatch"]
+
+    def test_a_malformed_manifest_is_two_findings_and_no_judgment(self, tmp_path):
+        node = observed_dataset()
+        del node.facets[stored.SEMANTIC_IDENTITY_FACET]
+        view = seed(tmp_path, node)
+        (tmp_path / "corpus.yaml").write_text("manifest_version: 3\n")
+        assert sorted(f.code for f in corpus_check(view, BASE)) == ["manifest-malformed", "profile-mismatch"]
+
+    def test_eligibility_keeps_the_existential_rule(self, tmp_path):
+        good = observed_dataset()
+        bad = stored.dataset_node("b", title="b", resources=PINNED, empirical_observation={"boundary": "x"})
+        view = seed(
+            tmp_path, good, bad,
+            stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[good.id, bad.id]),
+            stored.assessment_node("a1", title="a1", spec="analysis-spec:s1", run="run:r1", proposition="proposition:p1", outcome="supported", interpretation_rule="rule:threshold"),
+            stored.proposition_node("p1", title="p1", claim={"operator": "affects"}),
+        )
+        codes = [f.code for f in corpus_check(view, BASE)]
+        assert "eligibility-unmet" not in codes and codes == ["facet-payload-malformed"]
+
     def test_a_valid_record_is_reported_by_nothing(self, tmp_path):
-        assert corpus_check(admissible_corpus(tmp_path)) == ()
+        assert corpus_check(admissible_corpus(tmp_path), BASE) == ()
 
     def test_an_assesses_edge_whose_run_has_no_observes_input_is_reported_eligibility_unmet(self, tmp_path):
         view = admissible_corpus(tmp_path, observes=[])
-        findings = corpus_check(view)
+        findings = corpus_check(view, BASE)
         assert [(f.severity, f.code, f.ref, f.detail) for f in findings] == [
             ("error", "eligibility-unmet", "assessment:a1", "proposition:p1")
         ]
 
     def test_reads_inputs_confer_no_eligibility_in_any_quantity(self, tmp_path):
         view = admissible_corpus(tmp_path, observes=[], reads=["dataset:raw", "dataset:raw"])
-        assert [f.code for f in corpus_check(view)] == ["eligibility-unmet"]
+        assert [f.code for f in corpus_check(view, BASE)] == ["eligibility-unmet"]
 
     def test_an_observes_input_without_the_empirical_observation_facet_is_reported(self, tmp_path):
         plain = stored.dataset_node("plain", title="plain", resources=[{"name": "x", "digest": "sha256:" + "ef" * 32}])
@@ -344,7 +427,7 @@ class TestTheCorpusCheck:
             ),
             stored.proposition_node("p1", title="p1", claim={"operator": "affects"}),
         )
-        findings = corpus_check(view)
+        findings = corpus_check(view, BASE)
         assert [f.code for f in findings] == ["eligibility-unmet"]
         assert "no-empirical-observation-facet" in findings[0].message
 
@@ -365,26 +448,26 @@ class TestTheCorpusCheck:
             ),
             stored.proposition_node("p1", title="p1", claim={"operator": "affects"}),
         )
-        findings = corpus_check(view)
-        assert [f.code for f in findings] == ["eligibility-unmet"]
+        findings = corpus_check(view, BASE)
+        assert [f.code for f in findings] == ["eligibility-unmet", "facet-payload-malformed"]
         assert "facet-payload-malformed" in findings[0].message
 
     def test_an_unstamped_governed_record_is_reported_semantic_hash_missing(self, tmp_path):
         node = observed_dataset()
         del node.facets[stored.SEMANTIC_IDENTITY_FACET]
         view = seed(tmp_path, node)
-        assert [(f.severity, f.code, f.ref, f.detail) for f in corpus_check(view)] == [
+        assert [(f.severity, f.code, f.ref, f.detail) for f in corpus_check(view, BASE)] == [
             ("error", "semantic-hash-missing", node.id, "unstamped")
         ]
 
     def test_an_unstamped_prose_node_is_reported_by_nothing(self, tmp_path):
-        assert corpus_check(seed(tmp_path, discussion("a"))) == ()
+        assert corpus_check(seed(tmp_path, discussion("a")), BASE) == ()
 
     def test_a_stale_node_is_reported_rather_than_raised(self, tmp_path):
         node = observed_dataset()
         node.facets[stored.DATASET_FACET]["resources"] = []
         view = seed(tmp_path, node)
-        assert [(f.code, f.ref, f.detail) for f in corpus_check(view)] == [
+        assert [(f.code, f.ref, f.detail) for f in corpus_check(view, BASE)] == [
             ("semantic-hash-stale", node.id, "mismatch")
         ]
 
@@ -393,7 +476,7 @@ class TestTheCorpusCheck:
         node.facets[stored.DISPLAY_FACET] = {"display_statement": "shown", "extra": "not allowed"}
         raw_write(tmp_path, node)
 
-        findings = corpus_check(reopen(tmp_path))
+        findings = corpus_check(reopen(tmp_path), BASE)
 
         assert [(finding.severity, finding.code) for finding in findings] == [
             ("error", "display-malformed")
@@ -406,7 +489,7 @@ class TestTheCorpusCheck:
         )
         raw_write(tmp_path, node)
 
-        findings = corpus_check(reopen(tmp_path))
+        findings = corpus_check(reopen(tmp_path), BASE)
 
         assert [(finding.severity, finding.code) for finding in findings] == [
             ("error", "supersession-target-missing")
@@ -417,7 +500,7 @@ class TestTheCorpusCheck:
         stale.facets[stored.DATASET_FACET]["resources"] = []
         admissible_corpus(tmp_path, observes=[])
         raw_write(tmp_path, stale)
-        findings = corpus_check(reopen(tmp_path))
+        findings = corpus_check(reopen(tmp_path), BASE)
         assert [f.sort_key for f in findings] == sorted(f.sort_key for f in findings)
         assert {f.ref for f in findings} == {"assessment:a1", "dataset:raw"}
 
@@ -536,3 +619,106 @@ class TestTheDerivedFromView:
         assert derived_from(view, "dataset:out").reached == ("dataset:in",)
         snapshot = lineage_snapshot(view, ["dataset:out"])
         assert snapshot.bases["dataset:out"].routes[0].resolved_ancestor == "dataset:other"
+
+
+@pytest.mark.parametrize("manifest", ["absent", "agree", "extra", "missing", "changed", "base", "malformed", "symlink"])
+def test_profile_mismatch_compares_manifest_pins_at_the_root(tmp_path, manifest):
+    from profiles import WITH_BIOLOGY, WITH_BIOLOGY_OTHER
+
+    from beliefs.corpus import profile_mismatch
+
+    profile = BASE
+    pins = pins_for(BASE)
+    if manifest in {"extra", "changed"}:
+        pins = pins_for(WITH_BIOLOGY)
+    if manifest == "missing":
+        profile = WITH_BIOLOGY
+    if manifest == "changed":
+        profile = WITH_BIOLOGY_OTHER
+    seed(tmp_path, pins=pins)
+    path = tmp_path / "corpus.yaml"
+    if manifest == "absent":
+        path.unlink()
+    elif manifest == "base":
+        path.write_text(path.read_text().replace(pins.science_contract, "science:" + "f" * 64))
+    elif manifest == "malformed":
+        path.write_text("manifest_version: 3\n")
+    elif manifest == "symlink":
+        path.unlink()
+        path.symlink_to("missing.yaml")
+    scope, detail, disagreeing = profile_mismatch(tmp_path, profile)
+    expected = "domains" if manifest in {"extra", "missing", "changed"} else "base" if manifest == "base" else "malformed" if manifest in {"malformed", "symlink"} else "none"
+    assert scope == expected
+    assert bool(detail) == (scope != "none")
+    assert disagreeing == (frozenset({"biology"}) if scope == "domains" else frozenset())
+
+
+@pytest.mark.parametrize("agree", [True, False])
+def test_namespaced_payload_judgments_require_agreeing_domain_pins(tmp_path, agree):
+    from profiles import WITH_BIOLOGY
+
+    node = observed_dataset()
+    node.facets["biology/gene-axis"] = {}
+    view = seed(tmp_path, stored.stamp_semantic_identity(node), pins=pins_for(WITH_BIOLOGY if agree else BASE))
+    findings = corpus_check(view, WITH_BIOLOGY)
+    assert [f.code for f in findings] == (["facet-payload-malformed"] if agree else ["profile-mismatch"])
+
+
+def test_missing_base_facet_is_reported_even_without_a_stamp(tmp_path):
+    node = Node(id="dataset:missing", kind="dataset", title="missing", facets={})
+    findings = corpus_check(seed(tmp_path, node), BASE)
+    assert {(f.code, f.detail) for f in findings} == {("facet-missing", "dataset"), ("semantic-hash-missing", "unstamped")}
+
+
+@pytest.mark.parametrize("retrieval", ["absent", "wrong", "stale-acquisition"])
+def test_retrieval_checks_use_unvalidated_neighbours(tmp_path, retrieval):
+    node = observed_dataset()
+    node.facets[stored.EMPIRICAL_OBSERVATION_FACET]["retrieval"] = "act-report:retrieval"
+    neighbour = Node(id="act-report:retrieval", kind="act-report", title="retrieval",
+                     facets={"act-report": {"operation": "acquisition" if retrieval == "stale-acquisition" else "delete"}})
+    view = seed(tmp_path, stored.stamp_semantic_identity(node), *(() if retrieval == "absent" else (neighbour,)))
+    findings = corpus_check(view, BASE)
+    own_codes = [f.code for f in findings if f.ref == node.id]
+    assert own_codes == ([] if retrieval == "stale-acquisition" else ["facet-retrieval-unresolved"])
+    if retrieval != "absent":
+        assert any(f.ref == neighbour.id and f.code == "semantic-hash-missing" for f in findings)
+
+
+def test_produces_reports_a_malformed_bearer_by_alias_once(tmp_path):
+    node = stored.dataset_node("b", title="b", resources=PINNED, empirical_observation={"boundary": "x"})
+    node.deprecated_ids = ["dataset:old"]
+    producer = discussion("producer", relations=[
+        Relation(source="discussion:producer", predicate=stored.PRODUCES, target=target)
+        for target in (node.id, "dataset:old")
+    ])
+    findings = corpus_check(seed(tmp_path, node, producer), BASE)
+    assert [(f.code, f.ref) for f in findings] == [("facet-bearer-produced", node.id), ("facet-payload-malformed", node.id)]
+
+
+def test_biology_mismatch_does_not_withhold_coordination_checks(tmp_path):
+    from coordination_fixtures import coordination_profile
+
+    profile = coordination_profile(None)
+    pins = replace(pins_for(profile), domains={**pins_for(profile).domains, "biology": "biology:" + "f" * 64})
+    node = Node(id="task:t", kind="task", title="t", facets={"coordination": {"nonsense": True}})
+    assert [f.code for f in corpus_check(seed(tmp_path, node, pins=pins), profile)] == ["profile-mismatch", "coordination-facet-malformed"]
+
+
+@pytest.mark.parametrize("agree", [True, False])
+def test_coordination_cycle_judgment_requires_its_pin(tmp_path, agree):
+    from coordination_fixtures import coordination_profile, raw_coordination_node
+
+    profile = coordination_profile(None)
+    first = raw_coordination_node("project", "a" * 32, "b" * 32)
+    second = raw_coordination_node("project", "a" * 32, "c" * 32)
+    first.relations = [Relation(source=first.id, predicate=stored.SUPERSEDES, target=second.id)]
+    second.relations = [Relation(source=second.id, predicate=stored.SUPERSEDES, target=first.id)]
+    view = seed(tmp_path, first, second, pins=pins_for(profile))
+    findings = corpus_check(view, profile if agree else BASE)
+    assert [f.code for f in findings] == (["coordination-supersession-cycle"] if agree else ["profile-mismatch"])
+
+
+def test_malformed_coordination_cannot_hide_an_unknown_kind(tmp_path):
+    node = Node(id="task:t", kind="task", title="t", facets={"coordination": {"nonsense": True}})
+    findings = corpus_check(seed(tmp_path, node), BASE)
+    assert {(f.code, f.ref) for f in findings} == {("coordination-facet-malformed", node.id), ("kind-unknown", node.id)}

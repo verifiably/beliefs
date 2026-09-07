@@ -82,7 +82,7 @@ def test_malformed_facets_are_reported_and_excluded_from_tips(tmp_path, base_con
     malformed.facets[stored.COORDINATION_FACET]["project"] = "bad"
     raw_add(root, valid, malformed)
     assert CoordinationResolver({root: profile}).resolve(CoordinationAddress(A)) == valid
-    findings = corpus_check(CorpusWriter(root, DefaultExecutor, authority=FULL, profile=profile).read_view)
+    findings = corpus_check(CorpusWriter(root, DefaultExecutor, authority=FULL, profile=profile).read_view, profile)
     assert [(finding.code, finding.ref) for finding in findings if finding.code.startswith("coordination-")] == [
         ("coordination-facet-malformed", malformed.id)
     ]
@@ -99,7 +99,7 @@ def test_a_raw_local_cycle_has_no_tip_and_has_an_audit_finding(tmp_path, base_co
     assert CoordinationResolver({root: profile}).resolve(CoordinationAddress(A)) is None
     assert any(
         finding.code == "coordination-supersession-cycle"
-        for finding in corpus_check(CorpusWriter(root, DefaultExecutor, authority=FULL, profile=profile).read_view)
+        for finding in corpus_check(CorpusWriter(root, DefaultExecutor, authority=FULL, profile=profile).read_view, profile)
     )
 
 
@@ -395,7 +395,7 @@ def test_two_roots_diverge_and_one_all_tip_revision_repairs_without_deleting_sib
     assert [relation.target for relation in repair.relations] == sorted((left_tip.id, right_tip.id))
     assert not any(
         finding.code == "supersession-target-missing"
-        for finding in corpus_check(CorpusWriter(left, DefaultExecutor, authority=FULL, profile=profile).read_view)
+        for finding in corpus_check(CorpusWriter(left, DefaultExecutor, authority=FULL, profile=profile).read_view, profile)
     )
 
 

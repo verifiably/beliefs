@@ -141,10 +141,11 @@ def test_corpus_check_distinguishes_malformed_from_absent_manifest(tmp_path):
     malformed.mkdir()
     write_manifest(malformed, "manifest_version: wrong\n")
 
-    findings = corpus_check(CorpusWriter(malformed, DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY).read_view)
+    findings = corpus_check(CorpusWriter(malformed, DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY).read_view, WITH_BIOLOGY)
 
     assert [(finding.severity, finding.code, finding.ref) for finding in findings] == [
-        ("error", "manifest-malformed", "corpus.yaml")
+        ("error", "manifest-malformed", "corpus.yaml"),
+        ("error", "profile-mismatch", "corpus.yaml")
     ]
     assert findings[0].detail
-    assert corpus_check(CorpusWriter(tmp_path / "absent", DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY).read_view) == ()
+    assert corpus_check(CorpusWriter(tmp_path / "absent", DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY).read_view, WITH_BIOLOGY) == ()

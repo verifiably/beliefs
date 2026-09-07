@@ -22,7 +22,7 @@ GUARDS = {"_require_pins_agree", "require_pins_agree"}
 # These methods inherit the root lock; every production caller is checked below.
 INHERITED = {("corpus.py", name) for name in HELPERS} | {("root.py", "_execute"), ("root.py", "_execute_fulfilling")}
 # Set insertion has no corpus effect. Keep receiver names explicit.
-READ_ONLY = {"findings", "seen_ids", "seen_uids", "seen_paths", "seen_deprecated_ids"}
+READ_ONLY = {"finding_reasons", "findings", "seen_ids", "seen_uids", "seen_paths", "seen_deprecated_ids"}
 # Generic executor/lifecycle primitives have no profile. The holdings primitive is
 # only wired through the seam whose policy boundary is checked separately below.
 PRIMITIVES = {("root.py", "init_world_root"), ("root.py", "_store_publish_fulfilling"), ("root.py", "_store_append_intent")}
@@ -126,3 +126,8 @@ def test_inventory_detects_late_checks_and_missing_lock_ownership():
     assert violations("corpus.py", ast.parse(late))
     unlocked = valid.replace("    with self._operation:\n", "").replace("        ", "    ")
     assert violations("corpus.py", ast.parse(unlocked))
+
+
+def test_local_finding_aggregation_is_not_a_corpus_effect():
+    assert violations("corpus.py", ast.parse("def check():\n    finding_reasons = bearer_or_retrieval.setdefault(key, set())\n    finding_reasons.add(reason)\n")) == []
+    assert violations("corpus.py", ast.parse("def add():\n    self._corpus.add(node)\n"))

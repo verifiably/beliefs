@@ -268,7 +268,7 @@ def test_w17j_a_raw_cycle_has_no_tip_and_an_audit_finding(durable_coordination_r
     assert CoordinationResolver({root: profile}).resolve(CoordinationAddress("a" * 32)) is None
     assert any(
         finding.code == "coordination-supersession-cycle"
-        for finding in corpus_check(open_corpus(root, authority=FULL, profile=profile).read_view)
+        for finding in corpus_check(open_corpus(root, authority=FULL, profile=profile).read_view, profile)
     )
 
 
@@ -281,7 +281,7 @@ def test_w17k_a_malformed_facet_is_reported_and_excluded(durable_coordination_ro
     assert CoordinationResolver({root: profile}).resolve(CoordinationAddress("a" * 32)) == valid
     assert any(
         finding.code == "coordination-facet-malformed" and finding.ref == malformed.id
-        for finding in corpus_check(open_corpus(root, authority=FULL, profile=profile).read_view)
+        for finding in corpus_check(open_corpus(root, authority=FULL, profile=profile).read_view, profile)
     )
 
 

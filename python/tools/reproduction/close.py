@@ -16,6 +16,7 @@ from beliefs.corpus import corpus_check
 from beliefs.world import anchors, verify
 from reproduction import findings, paths, spec, state, world
 from reproduction.authority import AUTHORITY
+from reproduction.vocabulary import profile
 
 CONTRADICTIONS = frozenset(
     {"verification-derivation-contradicted", "assessment-derivation-contradicted", "lineage-basis-contradicted"}
@@ -59,10 +60,10 @@ def log_audits() -> dict[str, dict]:
 
 def main() -> int:
     view = world.open_writer().read_view
-    checks = corpus_check(view)
+    checks = corpus_check(view, profile())
     for f in checks:
         findings.record(9, "defect", f"corpus_check: {f.code}: {f.ref}: {f.message}")
-    audits = audit_corpus(view, evidence=evidence())
+    audits = audit_corpus(view, evidence=evidence(), profile=profile())
     for f in audits:
         cls = "defect" if f.code in CONTRADICTIONS or f.code in MALFORMEDNESS_CODES else "design-gap"
         findings.record(9, cls, f"audit_corpus: {f.code}: {f.ref}: {f.message}")
