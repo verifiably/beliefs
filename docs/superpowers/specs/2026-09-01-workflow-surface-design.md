@@ -930,3 +930,22 @@ The repository gates, from `python/`: `uv run --frozen pytest`,
 discharged by `tools/cut15_acceptance.py` on the certified volume beside the
 checkout, with the confinement gate satisfied, and its results record lands
 with the ledger and roadmap re-rank in one commit under concurrency rule 2.
+
+## 16. Declaration re-pin amendment — 2026-09-07
+
+`python/tests/n2_arms_cut3.py` and `python/tests/n2_arms_cut5.py` moved at
+`1e92471`, in the `verification-publication` slice. That slice made
+`AssessmentValue.run` the bare closure address and `RunValue.ref` the typed
+reference; cut 3's and cut 5's arms pin lines of that source verbatim as their
+sabotage `before`, and the standing rule is to fix the arm, never the source,
+so the arms were rewritten against the landed code. This cut's
+`FROZEN_PRIOR_CUT_FILES` still named the pre-move commits, so
+`test_n2_cut15.py`'s pin test failed on this tree.
+
+| was pinned at | re-pinned to | what it is |
+|---|---|---|
+| `5a02ca2` | `1e92471` | `python/tests/n2_arms_cut3.py` |
+| `4a7dc19` | `1e92471` | `python/tests/n2_arms_cut5.py` |
+
+Only the pins move. The selection, the guarantee rows, their checks and the
+declaration units are unchanged, and no frozen section changes.

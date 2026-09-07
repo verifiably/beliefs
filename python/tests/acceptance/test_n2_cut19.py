@@ -36,8 +36,8 @@ CUT19_FREEZE_COMMIT = "5cc2153"
 CUT19_FROZEN_SHA256 = "30875b845b4db648622bcce7a7e722a022f2759f0788370543312e81a8b66796"
 
 FROZEN_PRIOR_CUT_FILES = {
-    "python/tests/n2_arms_cut3.py": "5a02ca2",
-    "python/tests/n2_arms_cut5.py": "7f5b28e",
+    "python/tests/n2_arms_cut3.py": "1e92471",
+    "python/tests/n2_arms_cut5.py": "1e92471",
     "python/tests/n2_arms_cut6.py": "fdea7a7",
     "python/tests/n2_arms_cut7.py": "8ca085e",
     "python/tests/acceptance/n2_arms_cut8.py": "5a02ca2",
