@@ -25,25 +25,50 @@ from beliefs.recipe import (
 )
 
 
-@pytest.hookimpl(wrapper=True)
-def pytest_runtest_call(item):
-    """On a declared uncertified host, report a missing capability instead of failing.
+def _report_missing_capability(error: CapabilityUnavailable) -> None:
+    """Turn a missing capability into a skip, but only on a declared uncertified host.
 
-    AGENTS.md: `CapabilityUnavailable` is a fail-closed result, not a waiver —
-    run on the certified kernel and volume tuple *or report the exact mismatch*.
-    This is that report. The skipped set is defined by the capability probe at
-    run time, not by a list anyone maintains, so a new capability-dependent test
-    needs no annotation and the set cannot go stale.
-
-    Only this one exception converts. Every other failure still fails, so a real
-    regression cannot hide here; a bug that surfaces *as* `CapabilityUnavailable`
-    is caught by the certified host, where nothing converts.
+    Returns without acting anywhere else, so the caller re-raises and the suite stays
+    closed — which is what the certified host and the pre-push gate need.
     """
+    if uncertified_host(os.environ):
+        pytest.skip(f"certified tuple unavailable on this host: {error}")
+
+
+# Wrapped on all three phases, not just the call: a `CapabilityUnavailable` raised inside
+# a fixture lands in setup, which `pytest_runtest_call` never sees. Every capability
+# failure here happens to be a call today, but atoms hit 269 setup-phase ones, and the
+# gap is not worth leaving for whichever project meets it next.
+#
+# AGENTS.md: `CapabilityUnavailable` is a fail-closed result, not a waiver — run on the
+# certified kernel and volume tuple *or report the exact mismatch*. This is that report.
+# The skipped set is defined by the capability probe at run time, not by a list anyone
+# maintains, so a new capability-dependent test needs no annotation and the set cannot go
+# stale. Only this one exception converts; every other failure still fails.
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_setup(item):
     try:
         return (yield)
     except CapabilityUnavailable as error:
-        if uncertified_host(os.environ):
-            pytest.skip(f"certified tuple unavailable on this host: {error}")
+        _report_missing_capability(error)
+        raise
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_call(item):
+    try:
+        return (yield)
+    except CapabilityUnavailable as error:
+        _report_missing_capability(error)
+        raise
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_teardown(item, nextitem):
+    try:
+        return (yield)
+    except CapabilityUnavailable as error:
+        _report_missing_capability(error)
         raise
 
 
