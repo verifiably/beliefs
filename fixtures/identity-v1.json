@@ -1,0 +1,302 @@
+{
+  "fixture": "identity-v1",
+  "identity_contract": "science.identity.v1",
+  "note": "A conformance oracle, frozen. Regenerate deliberately with tools/generate_identity_fixture.py and review the diff.",
+  "vector": [
+    {
+      "name": "integer",
+      "covers": "an integer never contains a point",
+      "domain": "science.parity-fixture.v1",
+      "value": {
+        "t": "int",
+        "v": "12"
+      },
+      "canonical_bytes": "12",
+      "digest": "2b038f085d4147a199c11bf1d8f4e603905d876cc9aaf18a6f64392cc8312512"
+    },
+    {
+      "name": "integer-zero",
+      "covers": "one spelling of integer zero",
+      "domain": "science.parity-fixture.v1",
+      "value": {
+        "t": "int",
+        "v": "0"
+      },
+      "canonical_bytes": "0",
+      "digest": "09a5f57ddfb8ef3c128195b0a634fbe4fc354d9a100bb3c5582bcd76638b4439"
+    },
+    {
+      "name": "negative-integer",
+      "covers": "sign preserved",
+      "domain": "science.parity-fixture.v1",
+      "value": {
+        "t": "int",
+        "v": "-7"
+      },
+      "canonical_bytes": "-7",
+      "digest": "d2a85d701e436e959659130d6aba015b1b37c5a0649e19d3a5ea2456e93c931b"
+    },
+    {
+      "name": "big-integer",
+      "covers": "beyond 2^53, so a JavaScript number cannot carry it",
+      "domain": "science.parity-fixture.v1",
+      "value": {
+        "t": "int",
+        "v": "9007199254740993"
+      },
+      "canonical_bytes": "9007199254740993",
+      "digest": "a4c32a0dbf91111ffc00390206a67a523dcd5b0071a0380a4b47edf32b28ed30"
+    },
+    {
+      "name": "decimal-zero",
+      "covers": "one spelling of decimal zero, folding -0",
+      "domain": "science.parity-fixture.v1",
+      "value": {
+        "t": "decimal",
+        "v": "-0.0"
+      },
+      "canonical_bytes": "0.0",
+      "digest": "74833c82aee8885d9238e8a0c5ddcfddf56b47f20509d514fd3f52f5e0281ab0"
+    },
+    {
+      "name": "decimal-retains-fraction",
+      "covers": "a decimal always retains a fractional part",
+      "domain": "science.parity-fixture.v1",
+      "value": {
+        "t": "decimal",
+        "v": "3"
+      },
+      "canonical_bytes": "3.0",
+      "digest": "f3ffd257b56fc1d333463d4c37bb8313d9cb5033e02bc8b66d3f4a24bdff650d"
+    },
+    {
+      "name": "decimal-strips-trailing-zeros",
+      "covers": "trailing zeros stripped",
+      "domain": "science.parity-fixture.v1",
+      "value": {
+        "t": "decimal",
+        "v": "1.2300"
+      },
+      "canonical_bytes": "1.23",
+      "digest": "a234a54d1963f6e97dd5bd68031b07fb3c9ad4645b009c46154a83cdede69d0c"
+    },
+    {
+      "name": "decimal-no-exponent",
+      "covers": "never exponent notation",
+      "domain": "science.parity-fixture.v1",
+      "value": {
+        "t": "decimal",
+        "v": "1E+6"
+      },
+      "canonical_bytes": "1000000.0",
+      "digest": "7854d1698f21bf9000202a9d605899d6f00fa943fe68a8e14da07ba1ba748282"
+    },
+    {
+      "name": "decimal-small",
+      "covers": "small magnitudes spelled positionally",
+      "domain": "science.parity-fixture.v1",
+      "value": {
+        "t": "decimal",
+        "v": "1E-7"
+      },
+      "canonical_bytes": "0.0000001",
+      "digest": "0d060ecd7dcdd6c119096335fe0d8fb68461e757cdd148e34047e1eba80c1d9c"
+    },
+    {
+      "name": "boolean-and-integer-distinct",
+      "covers": "true is not 1",
+      "domain": "science.parity-fixture.v1",
+      "value": {
+        "t": "list",
+        "v": [
+          {
+            "t": "bool",
+            "v": true
+          },
+          {
+            "t": "int",
+            "v": "1"
+          }
+        ]
+      },
+      "canonical_bytes": "[true,1]",
+      "digest": "97e18ade0945be004d069e1ebe13e0d14a11465dc19464b91cb4dd0980e5ef9d"
+    },
+    {
+      "name": "escape-table",
+      "covers": "every C0 control, the quote and the backslash",
+      "domain": "science.parity-fixture.v1",
+      "value": {
+        "t": "str",
+        "v": "\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\b\t\n\u000b\f\r\u000e\u000f\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f\"\\"
+      },
+      "canonical_bytes": "\"\\u0000\\u0001\\u0002\\u0003\\u0004\\u0005\\u0006\\u0007\\b\\t\\n\\u000b\\f\\r\\u000e\\u000f\\u0010\\u0011\\u0012\\u0013\\u0014\\u0015\\u0016\\u0017\\u0018\\u0019\\u001a\\u001b\\u001c\\u001d\\u001e\\u001f\\\"\\\\\"",
+      "digest": "d58cf4f0f4898543868dd7b7a6a9715ad10da8a3f881ea4aa92423479f858255"
+    },
+    {
+      "name": "non-ascii-unescaped",
+      "covers": "non-ASCII is never escaped",
+      "domain": "science.parity-fixture.v1",
+      "value": {
+        "t": "str",
+        "v": "\u00e9\u03b2\ud83d\ude00"
+      },
+      "canonical_bytes": "\"\u00e9\u03b2\ud83d\ude00\"",
+      "digest": "994eddf892a7952f25ca51fc7aab2db871d9e6c772c0594179ad6af618b521f8"
+    },
+    {
+      "name": "nfc-at-encode",
+      "covers": "decomposed input, NFC-composed canonical output",
+      "domain": "science.parity-fixture.v1",
+      "value": {
+        "t": "str",
+        "v": "cafe\u0301"
+      },
+      "canonical_bytes": "\"caf\u00e9\"",
+      "digest": "49b54ff9c3bb28632f6c9ec63d6f208a2d42e2013e476b46bd12e58e34282083"
+    },
+    {
+      "name": "astral-key-order",
+      "covers": "an astral key sorts after a high BMP key by code point",
+      "domain": "science.parity-fixture.v1",
+      "value": {
+        "t": "obj",
+        "v": {
+          "\ud800\udc00": {
+            "t": "int",
+            "v": "1"
+          },
+          "\uffff": {
+            "t": "int",
+            "v": "2"
+          }
+        }
+      },
+      "canonical_bytes": "{\"\uffff\":2,\"\ud800\udc00\":1}",
+      "digest": "62839b63452d1ff3b60a69466f5e7313228efcf6dc8ad155d8da640a36452e5f"
+    },
+    {
+      "name": "plain-key-order",
+      "covers": "keys sort by code point",
+      "domain": "science.parity-fixture.v1",
+      "value": {
+        "t": "obj",
+        "v": {
+          "b": {
+            "t": "int",
+            "v": "1"
+          },
+          "a": {
+            "t": "int",
+            "v": "2"
+          },
+          "B": {
+            "t": "int",
+            "v": "3"
+          }
+        }
+      },
+      "canonical_bytes": "{\"B\":3,\"a\":2,\"b\":1}",
+      "digest": "46c0834ca37d17bd5128f5fe185927f3c1e816a498b3d21ff0de36d499315fd7"
+    },
+    {
+      "name": "namespaced-facet-key",
+      "covers": "D4's parity arm: a namespaced facet key round-trips",
+      "domain": "science.parity-fixture.v1",
+      "value": {
+        "t": "obj",
+        "v": {
+          "facets": {
+            "t": "obj",
+            "v": {
+              "biology/gene-axis": {
+                "t": "obj",
+                "v": {
+                  "axis": {
+                    "t": "str",
+                    "v": "rows"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "canonical_bytes": "{\"facets\":{\"biology/gene-axis\":{\"axis\":\"rows\"}}}",
+      "digest": "4bf31250bbb1e7c7d22fc67136bcb3c29b8d33ae9b83097721a99f82dcb2f987"
+    },
+    {
+      "name": "nested",
+      "covers": "arrays and objects nest",
+      "domain": "science.parity-fixture.v1",
+      "value": {
+        "t": "obj",
+        "v": {
+          "a": {
+            "t": "list",
+            "v": [
+              {
+                "t": "int",
+                "v": "1"
+              },
+              {
+                "t": "obj",
+                "v": {
+                  "b": {
+                    "t": "list",
+                    "v": [
+                      {
+                        "t": "decimal",
+                        "v": "2.5"
+                      },
+                      {
+                        "t": "str",
+                        "v": "c"
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "canonical_bytes": "{\"a\":[1,{\"b\":[2.5,\"c\"]}]}",
+      "digest": "224a2dfddaef158aaa55d05216e7ce1a0aeb18516f4e12ae4a7219a980246f5b"
+    },
+    {
+      "name": "binary-float-refused",
+      "covers": "binary floats are refused at the boundary",
+      "domain": "science.parity-fixture.v1",
+      "value": {
+        "t": "float",
+        "v": "0.1"
+      },
+      "refusal": "BinaryFloatRefused"
+    },
+    {
+      "name": "null-refused",
+      "covers": "null is refused, not pruned",
+      "domain": "science.parity-fixture.v1",
+      "value": {
+        "t": "obj",
+        "v": {
+          "a": {
+            "t": "null"
+          }
+        }
+      },
+      "refusal": "NullRefused"
+    },
+    {
+      "name": "lone-surrogate-refused",
+      "covers": "an unpaired surrogate has no UTF-8 encoding",
+      "domain": "science.parity-fixture.v1",
+      "value": {
+        "t": "str",
+        "v": "\ud800"
+      },
+      "refusal": "LoneSurrogate"
+    }
+  ]
+}
