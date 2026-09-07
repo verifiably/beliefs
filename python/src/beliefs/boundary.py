@@ -19,16 +19,17 @@ import secrets
 import shutil
 import sys
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
-from typing import final
+from typing import TYPE_CHECKING, final
 
-from nodes.core.frontmatter import node_to_markdown
-from nodes.core.write_plan import CreateOp
+from nodes.core.frontmatter import node_from_markdown, node_to_markdown
+from nodes.core.write_plan import CreateOp, WritePlan
 
 from beliefs import stored
+from beliefs.acquisition import bearer_refusal
 from beliefs.adapter import (
     LOG_HANDLER_SCRIPT,
     SANDBOX_VENV,
@@ -112,9 +113,13 @@ from beliefs.runrecord import OperationPort, publication_plan
 from beliefs.sealed import sealed
 from beliefs.spec import DATASET_EQUIVALENCE_RULE, SEED_DERIVATION_V1, FrozenSpec, NondeterminismContract, Seeded
 
+if TYPE_CHECKING:
+    from beliefs.corpus import ReadView
+
 __all__ = [
     "RunMinted",
     "RunRefused",
+    "acquisition_guard",
     "build_manifest",
     "check_checkpoint_declaration",
     "execute_assessment_run",
@@ -217,6 +222,17 @@ def _report_plan(report: ActReport | None) -> tuple[CreateOp, ...]:
             content=node_to_markdown(node).encode("utf-8"),
         ),
     )
+
+
+def acquisition_guard(run: RunClosure) -> Callable[[ReadView], str | None]:
+    """§5.4: refuse a run that would produce a facet-bearing dataset."""
+    _, _, (operation,) = publication_plan(run)
+    proposed = node_from_markdown(operation.content.decode("utf-8"))
+
+    def guard(view: ReadView) -> str | None:
+        return "acquisition-boundary" if bearer_refusal(view, proposed) is not None else None
+
+    return guard
 
 
 def _intent_wire(intent: AssessmentRunIntent | OperationIntent) -> bytes:
@@ -957,7 +973,13 @@ def execute_production_run(
         result = _refused("recipe-identity-mismatch", "absent", actor, observer, started_at, intent)
     if type(result) is RunMinted:
         _, _, plan = publication_plan(result.run)
-        port.execute_fulfilling(plan, fulfills)
+
+        def _fallback(reason: str) -> WritePlan:
+            return _report_plan(_refused(reason, "absent", actor, observer, started_at, intent).report)
+
+        reason = port.execute_fulfilling_guarded(plan, fulfills, guard=acquisition_guard(result.run), fallback=_fallback)
+        if reason is not None:
+            result = _refused(reason, "absent", actor, observer, started_at, intent)
     else:
         port.execute_fulfilling(_report_plan(result.report), fulfills)
     return result

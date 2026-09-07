@@ -448,6 +448,9 @@ class MemoryPort:
     def execute_fulfilling(self, plan, fulfills: str) -> None:
         pass
 
+    def execute_fulfilling_guarded(self, plan, fulfills: str, *, guard, fallback):
+        return None
+
 
 MEMORY_PORT = MemoryPort()
 

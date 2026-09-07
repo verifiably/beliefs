@@ -54,6 +54,9 @@ class FakePort:
         FakePort.fulfilling.append((list(plan), fulfills))
         self._inner.execute(plan)
 
+    def execute_fulfilling_guarded(self, plan, fulfills: str, *, guard, fallback):
+        raise AssertionError("never reached")
+
 
 @pytest.fixture()
 def writer_with_port(tmp_path):

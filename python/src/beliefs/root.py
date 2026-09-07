@@ -1014,6 +1014,15 @@ class DurableOperationPort:
             require_pins_agree(self.root, self._profile)
             self._execute_fulfilling(plan, fulfills)
 
+    def execute_fulfilling_guarded(self, plan, fulfills, *, guard, fallback):
+        from beliefs.corpus import ReadView
+
+        with _operation_lock_for(self.root):
+            require_pins_agree(self.root, self._profile)
+            reason = guard(ReadView.opened_at(self.root))
+            self._execute_fulfilling(plan if reason is None else fallback(reason), fulfills)
+            return reason
+
     def _execute_fulfilling(self, plan: WritePlan, fulfills: str) -> None:
         require_pins_agree(self.root, self._profile)
         _refuse_over_ceiling(plan)

@@ -9,9 +9,10 @@ the address, and checks the reader-facing `run` facet.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import NoReturn, Protocol, cast, final
+from typing import TYPE_CHECKING, NoReturn, Protocol, cast, final
 
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.node import Node
@@ -53,6 +54,9 @@ from beliefs.recipe import (
 from beliefs.recipe import run_domain_for as _run_domain_for
 from beliefs.sealed import sealed
 from beliefs.spec import Deterministic, ExclusionCertification, RealizedSeeds, Seeded, SeedPlan, StochasticUnseeded
+
+if TYPE_CHECKING:
+    from beliefs.corpus import ReadView
 
 __all__ = [
     "OperationPort",
@@ -99,6 +103,15 @@ class OperationPort(Protocol):
     def execute(self, plan: WritePlan) -> None: ...
 
     def execute_fulfilling(self, plan: WritePlan, fulfills: str) -> None: ...
+
+    def execute_fulfilling_guarded(
+        self,
+        plan: WritePlan,
+        fulfills: str,
+        *,
+        guard: Callable[[ReadView], str | None],
+        fallback: Callable[[str], WritePlan],
+    ) -> str | None: ...
 
 
 @sealed

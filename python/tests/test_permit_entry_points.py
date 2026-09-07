@@ -293,6 +293,9 @@ class _Port:
     def execute_fulfilling(self, plan, fulfills):
         self.appended.append(plan)
 
+    def execute_fulfilling_guarded(self, plan, fulfills, *, guard, fallback):
+        self.appended.append(plan)
+
 
 def _fact_from(detail: str) -> PermitFact:
     words = detail.split()  # "permit exceeded: <dimension> <name> is not permitted"

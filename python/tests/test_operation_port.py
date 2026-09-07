@@ -64,6 +64,9 @@ class FakePort:
     def execute_fulfilling(self, plan: WritePlan, fulfills: str) -> None:
         self.fulfilling.append((plan, fulfills))
 
+    def execute_fulfilling_guarded(self, plan, fulfills: str, *, guard, fallback):
+        raise AssertionError("never reached")
+
 
 def durable_port(tmp_path, authority=FULL) -> DurableOperationPort:
     return DurableOperationPort(
@@ -179,7 +182,7 @@ class TestTheDurablePort:
         assert (mapped.value.index, mapped.value.applied) == (None, applied)
         assert mapped.value.__cause__ is raised
 
-    @pytest.mark.parametrize("mutation", ["append_intent", "execute", "execute_fulfilling"])
+    @pytest.mark.parametrize("mutation", ["append_intent", "execute", "execute_fulfilling", "execute_fulfilling_guarded"])
     def test_every_mutation_takes_the_roots_operation_lock(
         self, tmp_path, monkeypatch, mutation
     ) -> None:
@@ -193,8 +196,10 @@ class TestTheDurablePort:
                 port.append_intent(PAYLOAD)
             elif mutation == "execute":
                 port.execute(plan)
-            else:
+            elif mutation == "execute_fulfilling":
                 port.execute_fulfilling(plan, FULFILLS)
+            else:
+                port.execute_fulfilling_guarded(plan, FULFILLS, guard=lambda view: None, fallback=lambda reason: ())
 
 
 def test_execute_publishes_fulfilling_nothing(certified_work) -> None:

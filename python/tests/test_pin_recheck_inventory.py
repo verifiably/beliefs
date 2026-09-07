@@ -9,7 +9,7 @@ import beliefs
 # Inspect the imported package so a sabotaged package copy is actually judged.
 SRC = Path(beliefs.__file__).resolve().parent
 MODULES = ("corpus.py", "relocation.py", "root.py", "holdings/boundary.py")
-EFFECTS = {"add", "execute", "_execute", "_execute_fulfilling", "execute_fulfilling", "append_intent", "publish_fulfilling", "_store_append_intent", "_store_publish_fulfilling"}
+EFFECTS = {"add", "execute", "_execute", "_execute_fulfilling", "execute_fulfilling", "execute_fulfilling_guarded", "append_intent", "publish_fulfilling", "_store_append_intent", "_store_publish_fulfilling"}
 HELPERS = {
     "_add_locked",
     "_replace_locked",

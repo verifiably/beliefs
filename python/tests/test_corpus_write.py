@@ -24,7 +24,7 @@ from nodes.core.write_plan import CreateOp, DefaultExecutor, DeleteOp, ReplaceOp
 from profiles import BASE, WITH_BIOLOGY
 
 from beliefs import boundary, stored
-from beliefs.corpus import CorpusWriter, OperationLock, _operation_lock_for, require_pins_agree
+from beliefs.corpus import CorpusWriter, OperationLock, ReadView, _operation_lock_for, require_pins_agree
 from beliefs.errors import (
     ActorMismatch,
     BasisMissing,
@@ -90,6 +90,12 @@ class OperationRecorder:
         self.fulfilling.append((list(plan), fulfills))
         self._inner.execute(plan)
 
+    def execute_fulfilling_guarded(self, plan, fulfills: str, *, guard, fallback):
+        require_pins_agree(self.root, self.profile)
+        reason = guard(ReadView.opened_at(self.root))
+        self.fulfilling.append((list(plan if reason is None else fallback(reason)), fulfills))
+        return reason
+
 
 @pytest.fixture()
 def writer(tmp_path) -> CorpusWriter:
@@ -127,6 +133,9 @@ class TestE2AuthorityBindsOnceAtConstruction:
             def execute_fulfilling(self, plan, fulfills):
                 raise AssertionError("never reached")
 
+            def execute_fulfilling_guarded(self, plan, fulfills, *, guard, fallback):
+                raise AssertionError("never reached")
+
         with pytest.raises(ValueError, match="another authority"):
             CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=Port(), profile=BASE)
 
@@ -142,6 +151,9 @@ class TestE2AuthorityBindsOnceAtConstruction:
                 raise AssertionError("never reached")
 
             def execute_fulfilling(self, plan, fulfills):
+                raise AssertionError("never reached")
+
+            def execute_fulfilling_guarded(self, plan, fulfills, *, guard, fallback):
                 raise AssertionError("never reached")
 
         port = Port()

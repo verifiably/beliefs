@@ -249,6 +249,9 @@ class _HashingOperationPort:
         self._inner.execute(operations)
         self.fulfilling.append((operations, fulfills))
 
+    def execute_fulfilling_guarded(self, plan, fulfills: str, *, guard, fallback):
+        raise AssertionError("never reached")
+
 
 @dataclass(frozen=True)
 class _Attempt:
