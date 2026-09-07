@@ -11,7 +11,7 @@ from __future__ import annotations
 import sys
 
 from beliefs import root as science_root
-from beliefs.audit import MALFORMEDNESS_CODES, DerivationEvidence, audit_corpus
+from beliefs.audit import MALFORMEDNESS_CODES, DerivationEvidence, audit_corpus, stored_specs
 from beliefs.corpus import corpus_check
 from beliefs.world import anchors, verify
 from reproduction import findings, paths, spec, state, world
@@ -22,12 +22,20 @@ CONTRADICTIONS = frozenset(
 )
 
 
-def evidence() -> DerivationEvidence:
+def evidence_for(view) -> DerivationEvidence:
+    """Specs from the corpus, rules from code — 10b's only in-process input."""
+    specs, findings = stored_specs(view)
+    if findings:
+        raise RuntimeError(f"stored specs that do not restore: {[f.ref for f in findings]}")
     return DerivationEvidence(
-        specs={spec.frozen().identity: spec.frozen()},
+        specs=specs,
         held_rules={spec.equivalence().identity: spec.equivalence()},
         implementations={spec.interpretation().identity: spec.interpretation()},
     )
+
+
+def evidence() -> DerivationEvidence:
+    return evidence_for(world.open_writer().read_view)
 
 
 def log_audits() -> dict[str, dict]:
