@@ -152,6 +152,11 @@ domain contracts. Their content identities compile into a `ProfileSpec`, then
 into per-kind runtime specifications. Compiled registries are derived products,
 never parallel authorities.
 
+Base and domain contracts also declare facet payload schemas; profile
+compilation merges those declarations into the per-kind runtime specifications.
+The shipped Science base contract declares `empirical-observation`, including
+its required `locator` and `attested_by` fields.
+
 Contracts carry meaning-bearing declarations; the corpus manifest pins which
 ones apply. A domain facet can affect identity only where its contract says so,
 and can affect belief only when the derivation actually reads it. Merely

@@ -8,9 +8,10 @@ store disagreeing about which facet carries a run's spec is a corpus with two
 meanings, so the mapping is code in one module rather than convention repeated
 at each call site.
 
-**Facet keys are unnamespaced.** They belong to the `science` base profile, not
-to a domain contract (domain-extension boundary §3.4), and `empirical-observation`
-is the one the eligibility predicate turns on.
+**Facet keys are unnamespaced.** They are declared by the base contract and
+compiled, not named in code or owned by a domain contract (domain-extension
+boundary §3.4); `empirical-observation` is the one the eligibility predicate
+turns on.
 
 **Relation predicates are kernel §4.1's closed signatures**, and the role-typed
 inputs are stored as relations rather than as facet payload: they are edges the

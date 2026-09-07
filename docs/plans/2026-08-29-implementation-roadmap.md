@@ -1,6 +1,7 @@
 # Implementation roadmap
 
-**Ranked at:** cut 19, against the ledger's Current state (2026-09-05)
+**Ranked at:** cut 20, against the ledger's Current state (2026-09-05), updated
+2026-09-07
 **Method:** `../superpowers/specs/2026-08-29-implementation-roadmap-design.md`,
 as amended 2026-09-05 — tier 1 is ordered by distance to the dogfood success
 criterion (§4.0 there), open lanes are bounded, and a method amendment
@@ -49,10 +50,11 @@ also adds to that boundary the assessment identity's two spellings (bare
 run address in the derived value, typed `run:` ref in the stored record),
 which refused a `clean-environment` pass at admission and is why the
 measured belief is `NoBelief(no-eligible-assessment)`. `domain-boundary`
-keeps its place: the pack requirement is **unmeasured** (the target typed
-under the placeholder vocabulary with every binding `not-consulted`), and
-the empirical-observation facet's presence-only reading was confirmed as
-its first finding. `world-resolution` stays **last on the path**: no step
+keeps its place for slice 2: slice 1 closed the presence-only defect by
+compiling and validating the declared acquisition payload at every seam; the
+biology pack remains **unmeasured** (the target typed under the placeholder
+vocabulary with every binding `not-consulted`). `world-resolution` stays
+**last on the path**: no step
 resolved an address across corpora, so `next` over one corpus can be built
 without it. The reproduction lane closes. What moved in the first pass
 (2026-09-05, morning) is in git history.
@@ -103,7 +105,7 @@ from being met without it; its lane (§Lanes) says what it must wait for.
 | # | id | rows | unblocks | placement |
 |---|---|---|---|---|
 | 1 | `verification-publication` | no guarantee row; cut 13 §2's named exclusion and R19's stored-verification limitation (cut 18 §7) | the `verify` step as a governed record: the comparison report and scope recoverable from the corpus alone rather than from an in-memory `AssessmentVerification`; admission over stored verifications; scope recomputation over a stored verification | entry point exists: `Verification`, the optional `derivation` member cut 18 ruling R2 added for exactly this writer, and `admission_record`'s total projection. The slice design is its own work (§4.0 rule b). Formerly tier 2 behind "the persistence seam"; that seam is the composition root and has landed. **Confirmed on the path by the reproduction record** (its §3 row 10b, §5 question 3): no stored record carries the comparison report; the stored verification's derivation lets scope and verdict recompute, but only with the in-process `FrozenSpec` and rule implementations. The record adds one obligation to this boundary: **one spelling for the assessment's run member** — the derived value digests the bare closure address and the stored record the typed `run:` ref, so admission over the corpus and the audit's recomputation cannot both be satisfied by one verification, and the measured belief was `NoBelief(no-eligible-assessment)` for that reason alone. The slice design names both, and the identity fix is written as a failing test first |
-| 2 | `domain-boundary` | D1, D2, D4, D5, D6, D8, D9, D10; G5 | the biology pack — GO, HP, EFO and MONDO bindings and mm30's operator vocabulary (layer design §4.3, sub-project 3); D8's composition; and the **empirical-observation facet's payload contract**, kernel §11's open question, read presence-only today by `is_empirical_observation` — decided in this lane's design because D1 and D2 own facet compilation | cut 3 §5 deferred the group on "facets, manifests, and the registry compile"; `ProfileSpec` and the `nodes` registry exist. The reproduction record's first question is **unmeasured**: the target typed under the placeholder vocabulary with every binding `not-consulted`, and no ontology release was consulted. What it measured is the floor the pack must reproduce — `affects` with a concept→protein pair, two referents, the `causal` layer — and one constraint: a pack whose `affects` is sorted `[concept, concept]` refuses this target and mm30's ten records like it. The facet payload contract is the record's first filed finding (`is_empirical_observation` accepted an authored payload unread) |
+| 2 | `domain-boundary` | **Slice 1:** D1, D2, D4, D5, D6, D8, D9, D10; G5 — implemented by the 2026-09-05 facet-contracts design and discharged as cut 20. **Slice 2:** the biology pack remains open | the biology pack — GO, HP, EFO and MONDO bindings and mm30's operator vocabulary (layer design §4.3, sub-project 3) | Slice 1 compiled and validated facet contracts, closed the empirical-observation payload finding, and delivered the second parity fixture. Slice 2 must reproduce the measured floor — `affects` with a concept→protein pair, two referents and the `causal` layer — while the ontology-release requirement remains unmeasured |
 | 3 | `world-resolution` | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 (less one arm), W8a's coreference arms; S1, S1a, S5's cross-corpus reach; D3; X12 and M3's coreference arms; R19's cross-corpus recomputation; R23's snapshot, coverage, divergence and explicit-import clauses | `next` over more than one corpus; `publish` (sub-project 5) resolves view queries through it; the read side of the world in full | cut 4 §5 deferred the group on "the write boundary and the index" — both landed; the address ruling supplies the oracles. Last on the path, now measured: the reproduction record's second question is **no** — no step of its path resolved an address across corpora or needed a resolution state the registry alone could not give, so `next` over one corpus can be built without this boundary, and the dogfood proper needs it only when a second corpus enters. W11/W12 are closed (cut 14) |
 
 ### Off the path
@@ -142,7 +144,7 @@ boundary sits in the lane of its prerequisite and waits there.
 | lane | boundaries, in order | shared surface | status |
 |---|---|---|---|
 | `write-path` | `verification-publication` | `corpus.py`, `report.py`, `intents/`, `session/`, `verify.py`, `evaluation.py`, `audit.py` | on the path; `writer-session` closed at cut 19, and `verification-publication` is the lane's next boundary |
-| `domain` | `domain-boundary` (+ `parity-fixture-2`) | `profile.py`, `contract/`, `stored.py` (the facet contract), `ts/`, `fixtures/`, the `nodes` registry | on the path; the one open kernel lane |
+| `domain` | `domain-boundary` slice 2 (biology pack); slice 1 (+ `parity-fixture-2`) discharged at cut 20 | `profile.py`, `contract/`, `stored.py`, `ts/`, `fixtures/`, the `nodes` registry | open (`.worktrees/domain-boundary`) |
 | `world-read` | `world-resolution` (+ `packaging-remainder`) → `event-level-l8` (+ `log-remainder`) | `world/read.py`, `resolution.py`, `world/verify.py` | on the path at its head; opens when `write-path` or `domain` closes |
 | `mutation` | `correction-remainder` | `adapter.py`, `corpus.py`, `audit.py`, `decode.py`, `evaluation.py`, `world/verify.py` | off the path; waits |
 | `acquisition` | `url-retrieval` (+ `act-report-remainder`) | `holdings/`, `report.py` | off the path; waits |
@@ -208,16 +210,13 @@ Unordered. Each row links its `open-questions.md` anchor.
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 — [higher-order records and extraction](../guide/open-questions.md#claims-and-belief) |
 | `cross-root-publication` | T7's cross-root case | [the act-report's residue](../guide/open-questions.md#contracts-and-adoption) |
 
-Two design questions the success criterion meets on its first day are not
-rows anywhere and are carried by the lanes that own their surface: the
-empirical-observation facet's payload contract
-([foundations](../guide/open-questions.md#foundations)), by `domain`, now
-with the reproduction record's measurement behind it (an authored payload
-accepted unread); and where a typed claim is authored for a corpus that has
-none — distinct from the extraction step M12 names — answered by the
+One design question the success criterion meets on its first day is not a row
+and is carried by the lane that owns its surface: where a typed claim is authored
+for a corpus that has none — distinct from the extraction step M12 names — answered by the
 reproduction record's §5 (what it cost, what `build_claim` refused, what a
 `claim` command must do and refuse), which is the input to the layer design's
-sub-project 4. A third, raised by the record, is carried by no lane yet:
+sub-project 4. The empirical-observation payload question closed in domain
+slice 1 (facet-contracts §6). Another question raised by the record is carried by no lane yet:
 where an interpretation rule reads content
 ([computation](../guide/open-questions.md#computation-and-reproducibility)).
 

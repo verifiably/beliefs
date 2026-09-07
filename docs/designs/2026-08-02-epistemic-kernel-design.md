@@ -1439,3 +1439,17 @@ This document is sub-problem 1. Each of the following gets its own design.
   sub-problem 4.
 - **The discourse classification rule** (§6) — who declares it, where it is
   versioned, and whether one rule serves all propositions or it is per-view.
+
+> **Amended 2026-09-07** (facet-contracts design §6, §14). In §4.1, a
+> **declared acquisition boundary** is the dataset's closed, contract-validated
+> `empirical-observation` payload: `locator` names the acquisition source and
+> `attested_by` names the actor making that declaration. The declaration is
+> admitted only when it matches the base contract compiled into the caller-held
+> profile. The bearer invariant remains: an `observes` target must carry that
+> admitted facet and the referenced bytes must be held; authored presence alone
+> confers no eligibility. Limitation 8 is narrowed accordingly: the system does
+> not prove the locator truthful or the acquired material observational in
+> nature. In §11, ~~**The empirical-observation facet** needs its own contract.~~
+> **CLOSED 2026-09-05 by the facet-contracts design §6.** The remaining open
+> question is whether standing inherited through dataset lineage should be
+> admitted (facet-contracts design §14).

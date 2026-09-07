@@ -2776,6 +2776,11 @@ guarantees need, and it already verifies on every call.
   *declares* an acquisition boundary, and what distinguishes a dataset that
   carries the facet from one that merely claims it, is the hinge this design
   inherits and does not settle.
+
+> **Amended 2026-09-07** (facet-contracts design §6). The first §13 question is
+> **closed**: the base contract declares the `empirical-observation` payload,
+> compilation sites its validation in the caller-held profile, and eligibility
+> accepts only the validated `locator` plus `attested_by` declaration.
 - **Whether anything ever collects garbage.** Content-addressed outputs and held
   environment artifacts accumulate; §11.8 declines to specify pruning because
   pruning discards what verification depends on. That is a position on verification

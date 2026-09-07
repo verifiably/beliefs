@@ -46,7 +46,9 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Implemented through conformance cut 19.** Every cut from 4 onward has a
+**Updated 2026-09-07** for the actual cut-20 discharge.
+
+**Implemented through conformance cut 20.** Every cut from 4 onward has a
 discharge results record under `../plans/`; cuts 1–3 are proved by their merge
 ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
@@ -125,6 +127,11 @@ ancestry and the surfaces they built
   fulfilled by its registration, unresolved-root settlement before every
   prepare, and reconciliation over ledgers and chains. J1–J11 close at cut 19;
   `science`'s Task 12 is unblocked.
+- **Facet contracts** — base and domain contracts declare closed facet schemas;
+  profiles compile kinds, relations and facets; every write seam validates the
+  caller-held profile; and the empirical-observation acquisition boundary is
+  `locator` plus `attested_by`. Cut 20 discharges slice 1 with 15 rows
+  full/closed and D1 partial; D6's domain-facet reader arm remains with slice 2.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -140,7 +147,7 @@ not listed.
 |---|---|---|---|
 | `url-retrieval` | the URL retrieval boundary, acquisition orchestration and typed retrieval grants: H4, G9, R10, T5, T7's same-root case | `2026-08-24-world-index-holdings-design.md` §1–§3 | the first acquisition of a dataset from outside the system |
 | `world-resolution` | the read side of the world: W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 less its two-projects negative; W8a's coreference arms; S1, S1a and S5's cross-corpus reach; D3; X12 and M3's coreference arms; R19's cross-corpus recomputation; R23's snapshot, coverage, divergence and explicit-import clauses | `2026-08-02-world-addressing-design.md` and `2026-08-08-world-address-ruling.md` | resolution states, cross-corpus edges, views, the coreference balance |
-| `domain-boundary` | D1, D2, D4, D5, D6, D8, D9, D10; G5 | `2026-08-04-domain-extension-boundary-design.md` | the first domain pack |
+| `domain-boundary` | slice 1, the facet-contracts design dated 2026-09-05, frozen as cut 20 and discharged 2026-09-07; slice 2 remains the biology pack | `2026-08-04-domain-extension-boundary-design.md` | the first domain pack |
 | `event-level-l8` | **Event-level L8** — the presence/exclusion relation across captured corpus heads | the tamper-evident-log design's own successor work (row 5) | row 5 reading L8 in full |
 | `contract-cut` | **The first full contract cut, its executable suite, and N1–N10**; N2's closing doctrine; P1's resolver-negative arm; R22's resolver arm; the `instrument-certification` arms of W8a, X12 and C10; R23's rules-store clauses | sub-problem 5b (row 7) | the normative contract's own guarantees; disposition of the legacy check modules; the conformance-package split (§5) |
 | `log-remainder` | L1, L4; L10's relabel | `2026-08-22-log-verification-design.md` | row 5's L rows read in full |
@@ -159,11 +166,8 @@ not listed.
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-05-conformance-cut-19-results.md`) closes J1–J11 and leaves
-every other open row as cut 18 left it: cut 18
-(`../plans/2026-09-04-conformance-cut-18-results.md`) closed G2c, G8, C6, R5,
-W16, M1 and M5, re-read C1, T8, M11 and M13, and left S5, R23, R19, R22 and
-M3 partial on their named remainders.
+(`../plans/2026-09-07-conformance-cut-20-results.md`) discharges the
+facet-contracts slice and leaves the biology pack as `domain-boundary` slice 2.
 `test_the_ledger_summary_names_the_newest_remaining_boundary` holds this
 section to whichever record is newest;
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds this table and the
