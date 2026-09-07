@@ -1,0 +1,72 @@
+# Front door for tests. Full suite: `just test`. Gates: `just check` (seconds: lint,
+# typecheck, task records) and `just gate` (check plus the suite). `just test-fast` is
+# the documented fast local loop; the inner-loop rule itself lands in step 3 of the
+# audit, after a baseline week, so no guidance points at it yet.
+#
+# Every recipe runs through the vendored timing wrapper tools/tt (source of truth: ops
+# bin/tt) so each run is recorded. Design: ops docs/specs/2026-09-04-test-ci-audit-design.md.
+#
+# The git hooks are deliberately NOT installed: `check` fails on main today (six ruff
+# and twelve pyright errors, all in the mm30 reproduction lane), so a pre-commit hook
+# would block every commit. See the note on beliefs-f253a1; hooks land with §4.6 in
+# step 3, once the gate is green.
+
+tt := "python3 tools/tt"
+
+# Two packages, so each command is written once per package and the whole-repo commands
+# below are composed from them. Recipes and hooks all run these, so none of them can
+# drift from the others. Each is a subshell: `cd` must not leak to the next.
+#
+# `pytest` is bare on purpose. pyproject's addopts already carries `-q`; the documented
+# `uv run --frozen pytest -q` is therefore a second `-q`, i.e. `-qq`, which drops the
+# summary line the wrapper counts tests from.
+#
+# `pyright` takes no path argument, deliberately: python/README.md records that naming a
+# path narrows the check and hides diagnostics outside it, which is how tests/ drifted
+# once already. The gate is the whole project or it is not the gate.
+py_fast_cmd := "(cd python && uv run --frozen pytest -n 8 --dist=loadfile --ignore=tests/test_n2.py)"
+py_test_cmd := "(cd python && uv run --frozen pytest)"
+py_check_cmd := "(cd python && uv run --frozen ruff check . && uv run --frozen pyright)"
+
+# `npm ci` is in AGENTS.md's ts list but is installation, not a gate, so it stays out of
+# the recipes; run it after a dependency change and in a fresh worktree, where ts/ has no
+# node_modules of its own. `npx --no-install` so that a missing install fails here and
+# says so, instead of silently fetching vitest from the network mid-test-run.
+ts_fast_cmd := "(cd ts && npx --no-install vitest run --changed --passWithNoTests)"
+ts_test_cmd := "(cd ts && npm test)"
+ts_check_cmd := "(cd ts && npm run typecheck && npm run check)"
+
+fast_cmd := py_fast_cmd + " && " + ts_fast_cmd
+test_cmd := py_test_cmd + " && " + ts_test_cmd
+check_cmd := py_check_cmd + " && " + ts_check_cmd + " && tasks check"
+
+# beliefs-92e6fe measured this at 164s against the serial gate's 868s and pinned
+# pytest-xdist rather than adopting coverage-based selection; --dist=loadfile keeps every
+# N2 test on one worker so its own 24 subprocess workers are not multiplied. An empty
+# vitest selection is a result, not a failure.
+#
+# The documented fast local loop: xdist with N2 excluded, plus the affected TS tests.
+test-fast:
+    {{tt}} test-fast -- sh -c '{{fast_cmd}}'
+
+# The serial pytest run is the required conformance gate.
+#
+# The full suite, both packages.
+test:
+    {{tt}} test -- sh -c '{{test_cmd}}'
+
+# Seconds, not minutes: lint, typecheck, and the task-record check.
+check:
+    {{tt}} check -- sh -c '{{check_cmd}}'
+
+gate: check test
+
+# Priced separately from the runs people ask for, so the report can cost the hook itself.
+#
+# What a pre-commit hook will run once the gate is green: `check`'s command.
+hook-pre-commit:
+    {{tt}} hook-pre-commit -- sh -c '{{check_cmd}}'
+
+# What a pre-push hook will run: `gate`'s commands, under one hook target.
+hook-pre-push:
+    {{tt}} hook-pre-push -- sh -c '{{check_cmd}} && {{test_cmd}}'

@@ -6,11 +6,25 @@ limitation 9: **M10 is the only cross-implementation row**).
 
 ## Gates
 
+From the repository root:
+
 ```
-uv run --frozen pytest -q
+just check
+just test
+```
+
+`check` is ruff, pyright, biome, tsc, and `tasks check`; `test` is the serial pytest
+gate and the TypeScript suite. Both run through the vendored timing wrapper `tools/tt`,
+so the run is recorded. The commands they run here are:
+
+```
+uv run --frozen pytest
 uv run --frozen ruff check .
 uv run --frozen pyright
 ```
+
+`pytest` is bare rather than `-q`: this project's `addopts` already carries `-q`, so a
+second one is `-qq`, which drops the summary line the wrapper counts tests from.
 
 `pyright` takes no path argument. Naming one narrows the check to that subtree
 and hides every diagnostic outside it — which is how `tests/` drifted once
@@ -31,6 +45,9 @@ On the measured multicore host, run the same loop in parallel:
 ```
 uv run --frozen pytest -n 8 --dist=loadfile --ignore=tests/test_n2.py
 ```
+
+The whole-repository equivalent, which also runs the TypeScript tests vitest selects
+from the working tree, is `just test-fast` from the root.
 
 Use a test file or node id (`tests/test_module.py::test_name`) for the narrowest
 deterministic run, `-k` for a name expression, `--lf` to rerun failures, or
