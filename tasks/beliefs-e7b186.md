@@ -6,7 +6,7 @@ priority: 2
 size: m
 owner: main
 created: 2026-09-07T11:57:19Z
-updated: 2026-09-07T13:30:15Z
+updated: 2026-09-07T14:32:13Z
 depends: [beliefs-97eb6d, beliefs-0e0c9c]
 tags: [testing]
 ---
@@ -23,3 +23,4 @@ Gated on the gate being green: CI added now would fail on every run.
 
 - 2026-09-07T13:07:05Z (main): CI added: .github/workflows/ci.yml runs just ci-python (3.11, 3.13) and just ci-typescript (20, 24) on pushes to main and pull requests, reusing the action pins nodes already vetted. Recipes rather than just gate, because the tasks binary is not on a runner; serial pytest, because python/README.md makes the serial run the required CI gate. Free: the repo is public.
 - 2026-09-07T13:30:15Z (main): First CI run: TypeScript passed on both Node versions, Python failed on both at 'Distribution not found at .../atoms/python'. python/pyproject.toml's [tool.uv.sources] takes atoms-core and nodes-core from ../../atoms/python and ../../nodes/python as editable sibling checkouts, so the runner needs beliefs, atoms and nodes side by side. Both siblings are public, atoms as of today, so CI checks them out at their default branch.
+- 2026-09-07T14:32:13Z (main): Follow-up: CI is added and the TypeScript half is green on Node 20 and 24, but the Python jobs fail 183 of 3739 on a stock runner because the certified ext4 tuple is not available there. That is an environmental requirement, not a wiring fault, so it is filed separately as beliefs-0e7cb1 rather than reopening this. Runner timing for the record: 22m23s for the serial suite against 18m16s locally.
