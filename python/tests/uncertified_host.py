@@ -2,11 +2,15 @@
 
 Its own module rather than a conftest local so the gate can be imported and
 tested directly; conftest is not importable by name.
+
+The variable is named for the stack, not this project: atoms needs the same
+switch, and the exception both convert is raised from atoms. One variable means
+one thing to set in CI and one thing to explain.
 """
 
 import os
 
-UNCERTIFIED_HOST_VAR = "BELIEFS_UNCERTIFIED_HOST"
+UNCERTIFIED_HOST_VAR = "VERIFIABLY_UNCERTIFIED_HOST"
 
 
 def uncertified_host(environ: "os._Environ[str] | dict[str, str]") -> bool:

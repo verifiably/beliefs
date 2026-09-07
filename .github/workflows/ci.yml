@@ -48,7 +48,7 @@ jobs:
       # failing (AGENTS.md). Every other failure still fails.
       - run: just ci-python
         env:
-          BELIEFS_UNCERTIFIED_HOST: "1"
+          VERIFIABLY_UNCERTIFIED_HOST: "1"
 
   typescript:
     runs-on: ubuntu-latest
