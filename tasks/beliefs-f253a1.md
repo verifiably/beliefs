@@ -6,7 +6,7 @@ priority: 2
 size: m
 owner: test-ci-audit
 created: 2026-09-04T21:44:54Z
-updated: 2026-09-07T12:49:04Z
+updated: 2026-09-07T12:57:12Z
 depends: [ops-31f038]
 tags: [testing]
 ---
@@ -25,3 +25,4 @@ Piece of ops-65837b (the cross-project audit in the ops hub). 1. Measure: full-s
 - 2026-09-07T11:36:22Z (main): Step 1 merged to main at 2b10141; worktree and branch removed after tt-report showed no fallback log. Back to todo: step 2 is calendar time, so let a week of runs accumulate and add a note reading 'baseline 2026-09-14: <tt-report --project beliefs numbers>' before step 3.
 - 2026-09-07T12:49:04Z (main): Step 1 is now complete: the git hooks deferred on 2026-09-07 are installed (.githooks/ + core.hooksPath), the gate having gone green via beliefs-97eb6d and beliefs-0e0c9c. Installed both rather than pre-commit only, to keep beliefs in the cross-project hook-pre-push row: nodes, tasks, atoms and forge all carry both from their own step 1, and beliefs has the fleet's most expensive gate, so omitting it would understate that row by its largest term.
 - 2026-09-07T12:49:04Z (main): Predicted hook cost for the baseline week, to check against tt-report on 2026-09-14: pre-commit about 34 commits/day at 18.5s is roughly 73 min/week, of which about half is spent on the 46 percent of commits (232 of 508 over 14 days) that touch only tasks/ or docs/ and no code at all; pre-push about 2 pushes/day at roughly 1115s is roughly 4.3 h/week. Total about 5.5 h/week. The no-code-commit share is the design's own opening example (section 1), and beliefs is the fleet's sharpest instance of it.
+- 2026-09-07T12:57:12Z (main): Caveat on the hooks just installed: beliefs had no hooks at all, so this is an early adoption of the section 4.6 gate policy, not the policy-neutral instrumentation step 1 asks for. mind6 read it the other way and says so in its justfile — it kept the full suite at pre-commit because that is what its hook always ran, and left pre-push uninstalled for step 3. Consequence to state plainly at step 4: beliefs' before/after will show gate cost rising, because the pre-audit reality here was no gates and agents running raw pytest (the 12 recorded bypasses), not a cheaper gate. Reversible: remove .githooks/pre-push and unset core.hooksPath to return to the policy-neutral state.
