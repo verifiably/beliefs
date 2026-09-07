@@ -6,6 +6,7 @@ node→corpus attributions plus per-corpus pins (cut 2 §4.2, D7 row).
 """
 
 import pytest
+from profiles import WITH_BIOLOGY, pins_for
 
 from beliefs.claim import Referent, build_claim
 from beliefs.consulted import CorpusPins, consulted_contracts
@@ -142,4 +143,63 @@ class TestAgreement:
         import inspect
 
         parameters = inspect.signature(consulted_contracts).parameters
-        assert set(parameters) == {"claims", "profile", "node_corpus", "pins", "closure_nodes"}
+        assert set(parameters) == {"claims", "profile", "node_corpus", "pins", "closure_nodes", "facets_read"}
+
+
+def _biology_pins() -> dict[str, CorpusPins]:
+    p = pins_for(WITH_BIOLOGY)
+    return {"c": CorpusPins(p.science_contract, dict(p.domains))}
+
+
+def test_a_read_domain_facet_enters_the_consulted_set():
+    consulted = dict(
+        consulted_contracts(
+            claims={},
+            profile=WITH_BIOLOGY,
+            node_corpus={"dataset:d": "c"},
+            pins=_biology_pins(),
+            closure_nodes=("dataset:d",),
+            facets_read={"dataset:d": ("biology/gene-axis",)},
+        )
+    )
+    assert set(consulted) == {"science", "biology"}
+
+
+def test_an_unread_activated_domain_stays_out():
+    consulted = dict(
+        consulted_contracts(
+            claims={},
+            profile=WITH_BIOLOGY,
+            node_corpus={"dataset:d": "c"},
+            pins=_biology_pins(),
+            closure_nodes=("dataset:d",),
+            facets_read={},
+        )
+    )
+    assert set(consulted) == {"science"}
+
+
+def test_an_unnamespaced_facet_read_adds_nothing_beyond_the_base():
+    consulted = dict(
+        consulted_contracts(
+            claims={},
+            profile=WITH_BIOLOGY,
+            node_corpus={"dataset:d": "c"},
+            pins=_biology_pins(),
+            closure_nodes=("dataset:d",),
+            facets_read={"dataset:d": ("empirical-observation",)},
+        )
+    )
+    assert set(consulted) == {"science"}
+
+
+def test_a_facet_read_outside_the_closure_is_malformed():
+    with pytest.raises(MalformedRecord, match="not a closure node"):
+        consulted_contracts(
+            claims={},
+            profile=WITH_BIOLOGY,
+            node_corpus={"dataset:d": "c"},
+            pins=_biology_pins(),
+            closure_nodes=("dataset:d",),
+            facets_read={"dataset:outside": ("biology/gene-axis",)},
+        )

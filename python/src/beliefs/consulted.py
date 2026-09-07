@@ -6,7 +6,8 @@ N2. So membership is walked here: the base contract unconditionally, each
 domain contract only if the derivation actually read something it declares —
 which in this slice means the claim schema: the proposition's operator, whose
 compiled declaration carries the namespace that declared it (formal model ρA6:
-a facet-only walk would miss exactly this). Resolution runs against supplied
+a facet-only walk would miss exactly this), plus the explicit facet-read arm.
+Resolution runs against supplied
 per-corpus pins; §8.1's agreement rule refuses a closure whose corpora disagree.
 """
 
@@ -48,6 +49,7 @@ def consulted_contracts(
     node_corpus: Mapping[str, str],
     pins: Mapping[str, CorpusPins],
     closure_nodes: tuple[str, ...],
+    facets_read: Mapping[str, tuple[str, ...]] = MappingProxyType({}),
 ) -> tuple[tuple[str, str], ...]:
     corpora = sorted({node_corpus[node] for node in closure_nodes if node in node_corpus}) or sorted(pins)
     if not corpora:
@@ -75,6 +77,15 @@ def consulted_contracts(
     read: set[str] = set()
     for claim in claims.values():
         read.add(profile.operator(claim.operator).contract)
+    for node, keys in facets_read.items():
+        if node not in closure_nodes:
+            raise MalformedRecord(
+                f"{node} is reported read but is not a closure node; a read ledger names closure members only"
+            )
+        for key in keys:
+            namespace, separator, _ = key.partition("/")
+            if separator:
+                read.add(namespace)
     for namespace in sorted(read):
         identities = {pins[corpus].domains[namespace] for corpus in corpora if namespace in pins[corpus].domains}
         if not identities:
