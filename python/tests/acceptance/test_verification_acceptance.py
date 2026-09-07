@@ -1,7 +1,7 @@
 """Cut 21's durable arms: verification publication through an attended session
 on the certified engine and volume (`docs/designs/2026-09-06-conformance-cut-21.md`
 §3, V1, V2, V3 and V5). Every body mirrors its portable twin and additionally
-reopens the corpus — a fresh process for V1 and V3 — so each assertion is
+reopens the corpus — a fresh process for V1 and V2 — so each assertion is
 about bytes the engine committed."""
 
 from __future__ import annotations
@@ -30,9 +30,10 @@ KINDS = RequiredCapabilities.for_kinds({"verification"}, {})  # [R8] runs, datas
 TESTS = Path(__file__).resolve().parents[1]
 
 
-def _fresh_process(root: Path, script: str) -> dict:
+def _fresh_process(script: str) -> dict:
     env = {**os.environ, "PYTHONPATH": os.pathsep.join([str(TESTS), str(TESTS / "acceptance")])}
-    completed = subprocess.run([sys.executable, "-c", script.replace("ROOT", repr(str(root)))], check=True, capture_output=True, text=True, env=env)
+    completed = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, env=env, check=False)
+    assert completed.returncode == 0, completed.stderr
     return json.loads(completed.stdout.strip().splitlines()[-1])
 
 
@@ -55,9 +56,8 @@ def test_v1_a_published_verification_is_recoverable_in_a_fresh_process_with_the_
     finally:
         session.close()
     report = _fresh_process(
-        root,
         "import json; from authority import FULL; from beliefs.root import open_corpus; from beliefs.verify import decode_verification\n"
-        f"view = open_corpus(ROOT, authority=FULL).read_view; d = decode_verification(view.get({node.id!r}))\n"
+        f"view = open_corpus({str(root)!r}, authority=FULL).read_view; d = decode_verification(view.get({node.id!r}))\n"
         "assert not view.holds(f'run:{d.original}') and not view.holds(f'run:{d.replayed}')\n"
         "print(json.dumps({'identity': d.identity(), 'report': d.report.identity(), 'scope': d.scope, 'verdict': d.verdict, 'basis': json.dumps(d.basis(), default=lambda r: r.identity(), sort_keys=True)}))",
     )
@@ -84,10 +84,9 @@ def test_v2_and_v3_admission_over_the_corpus_and_the_belief_moves_with_the_recor
     finally:
         session.close()
     report = _fresh_process(
-        root,
         "import json; from authority import FULL; from beliefs.root import open_corpus; from verification_fixtures import admission_over\n"
         "from beliefs.runrecord import decode_run_closure\n"
-        f"w = open_corpus(ROOT, authority=FULL); original = decode_run_closure(w.read_view.get({stored.typed_ref('run', published.derived.original)!r}))\n"
+        f"w = open_corpus({str(root)!r}, authority=FULL); original = decode_run_closure(w.read_view.get({stored.typed_ref('run', published.derived.original)!r}))\n"
         f"verdict, belief = admission_over(w, {published.proposition.id!r}, original); print(json.dumps({{'digest': belief.belief_input_digest}}))",
     )
     assert report["digest"] == digest_here
