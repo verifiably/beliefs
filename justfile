@@ -3,11 +3,13 @@
 # the documented fast local loop; the inner-loop rule itself lands in step 3 of the
 # audit, after a baseline week, so no guidance points at it yet.
 #
-# Every recipe runs through the vendored timing wrapper tools/tt (source of truth: ops
-# bin/tt) so each run is recorded. Design: ops docs/specs/2026-09-04-test-ci-audit-design.md.
+# Every recipe runs through the vendored timing wrapper tools/tt and the shared hygiene
+# check tools/ops-check (source of truth: ops bin/tt and ops bin/ops-check), so each run
+# is recorded and every project checks the same things first. Design:
+# ops docs/specs/2026-09-04-test-ci-audit-design.md.
 #
-# Git hooks are not installed. The facet-contracts integration resolves the reproduction
-# lint/type diagnostics; hook rollout remains audit step 3 (beliefs-f253a1).
+# The git hooks in .githooks/ are installed (core.hooksPath); AGENTS.md says what each
+# costs. What is left of audit step 3 is the inner-loop guidance (beliefs-f253a1).
 
 tt := "python3 tools/tt"
 
@@ -36,7 +38,7 @@ ts_check_cmd := "(cd ts && npm run typecheck && npm run check)"
 
 fast_cmd := py_fast_cmd + " && " + ts_fast_cmd
 test_cmd := py_test_cmd + " && " + ts_test_cmd
-check_cmd := py_check_cmd + " && " + ts_check_cmd + " && tasks check"
+check_cmd := "python3 tools/ops-check && " + py_check_cmd + " && " + ts_check_cmd + " && tasks check"
 
 # beliefs-92e6fe measured this at 164s against the serial gate's 868s and pinned
 # pytest-xdist rather than adopting coverage-based selection; --dist=loadfile keeps every
