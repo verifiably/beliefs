@@ -536,3 +536,16 @@ def test_v6_a_report_less_verification_imports_on_cut_18s_terms(tmp_path):
     assert any(f.startswith("derivation-unchecked: verification:legacy") for f in _report_findings(report))  # its runs are not in the bundle
     with pytest.raises(ImportRefused):
         target.import_bundle(_bundle_around(source, published, contradicting), evidence=published.evidence, **IMPORT_FIELDS)
+
+
+def test_v8_a_spec_record_whose_identity_is_false_refuses_the_bundle(tmp_path):
+    from test_audit import _false_spec_record
+
+    from beliefs.evidence import NO_EVIDENCE
+    from beliefs.spec import freeze
+
+    forged = _false_spec_record(freeze(spec_draft(), held_rules=spec_rules()))
+    target = _writer(tmp_path / "target")
+    with pytest.raises(ImportRefused):
+        target.import_bundle((forged,), evidence=NO_EVIDENCE, **IMPORT_FIELDS)
+    assert not path_for(target.root, forged.id).exists()

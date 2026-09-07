@@ -936,3 +936,41 @@ def test_v2_a_contradicted_assessment_still_contradicts(writer, tmp_path):
     members = tuple(n for n in reopen(writer.root).iter_stored() if n.kind in {"dataset", "run", "proposition"}) + (altered,)
     with pytest.raises(ImportRefused):
         target.import_bundle(members, evidence=published.evidence, observer="o", instrument="i", opened_at="2026-09-06T00:00:00Z", closed_at="2026-09-06T00:00:01Z")
+
+
+# --- V8: no spec disappears silently (design decision 15) --------------------
+from beliefs.audit import check_analysis_spec, stored_specs
+
+
+def _false_spec_record(spec):
+    forged = stored.analysis_spec_node(spec).model_copy(update={"id": "analysis-spec:forged"})
+    forged.facets[stored.ANALYSIS_SPEC_FACET]["identity"] = "forged"
+    forged.facets[stored.ANALYSIS_SPEC_FACET]["projection"] = forged.facets[stored.ANALYSIS_SPEC_FACET]["projection"].replace("fit the model", "fit another model")
+    return stored.stamp_semantic_identity(forged)
+
+
+def test_v8_the_audit_names_a_spec_that_does_not_restore_and_stored_specs_reports_it(writer):
+    spec = freeze(spec_draft(), held_rules=spec_rules())
+    good = writer.add(stored.analysis_spec_node(spec))
+    forged = _false_spec_record(spec)
+    raw_write(writer.root, forged)
+    view = reopen(writer.root)
+    assert check_analysis_spec(view.get(good.id)).checked
+    with pytest.raises(MalformedRecord):
+        check_analysis_spec(view.get(forged.id))
+    specs, findings = stored_specs(view)
+    assert set(specs) == {spec.identity} and [f.ref for f in findings] == [forged.id] and findings[0].code == "derivation-malformed"
+    assert [f.ref for f in audit_corpus(view, evidence=NO_EVIDENCE) if f.code == "derivation-malformed"] == [forged.id]
+
+
+def test_v4_the_audit_reaches_the_same_verdict_with_specs_restored_from_the_corpus(writer):
+    published = publish_corpus(writer, publish=True)
+    assert published.node is not None
+    writer.add(stored.analysis_spec_node(published.frozen))
+    specs, findings = stored_specs(writer.read_view)
+    assert not findings and set(specs) == {published.frozen.identity}
+    from dataclasses import replace
+
+    from_corpus = replace(published.evidence, specs=specs)
+    outcome = check_verification(writer.read_view, writer.read_view.get(published.node.id), evidence=from_corpus)
+    assert outcome.checked and outcome.contradiction is None

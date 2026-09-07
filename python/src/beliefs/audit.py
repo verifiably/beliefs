@@ -27,6 +27,9 @@ one import serves a caller that only ever names the audit.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from types import MappingProxyType
+
 from nodes.core.node import Node
 
 from beliefs import stored
@@ -43,6 +46,7 @@ from beliefs.errors import (
 from beliefs.evidence import NO_EVIDENCE, DerivationEvidence, DerivationOutcome
 from beliefs.recipe import RunClosure
 from beliefs.runrecord import decode_run_closure
+from beliefs.spec import FrozenSpec
 from beliefs.verify import _derive, decode_verification
 
 __all__ = [
@@ -51,9 +55,11 @@ __all__ = [
     "DerivationEvidence",
     "DerivationOutcome",
     "audit_corpus",
+    "check_analysis_spec",
     "check_assessment",
     "check_lineage_basis",
     "check_verification",
+    "stored_specs",
 ]
 
 
@@ -243,6 +249,40 @@ def check_lineage_basis(view: ReadView, node: Node) -> DerivationOutcome:
     )
 
 
+def check_analysis_spec(node: Node) -> DerivationOutcome:
+    """A stored spec restores or is malformed; `audit_corpus` reports the
+    latter as `derivation-malformed` under the catch R11 already has."""
+    stored.analysis_spec_value(node)
+    return DerivationOutcome(checked=True, reason="", contradiction=None)
+
+
+def stored_specs(view: ReadView | _ImportView) -> tuple[Mapping[str, FrozenSpec], tuple[Finding, ...]]:
+    """Every restorable stored spec keyed by identity, and one
+    `derivation-malformed` finding per record that does not restore — the
+    two halves travel together so a false spec never vanishes into an
+    unchecked derivation (design decision 15)."""
+    specs: dict[str, FrozenSpec] = {}
+    findings: list[Finding] = []
+    for node in view.iter_stored():
+        if node.kind != "analysis-spec":
+            continue
+        try:
+            spec = stored.analysis_spec_value(node)
+        except RecordError as refused:
+            findings.append(
+                Finding(
+                    severity="error",
+                    code="derivation-malformed",
+                    ref=node.id,
+                    detail=str(refused),
+                    message=f"{node.id}: the members a derivation recomputation reads are malformed",
+                )
+            )
+            continue
+        specs[spec.identity] = spec
+    return MappingProxyType(specs), tuple(findings)
+
+
 def audit_corpus(view: ReadView, *, evidence: DerivationEvidence) -> tuple[Finding, ...]:
     """Ω_valid first, then recomputation over what is well-formed. No standing,
     no belief, no write, no mint — and, like `corpus_check`, no raise: any
@@ -264,6 +304,8 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence) -> tuple[Findi
                 outcome = check_assessment(view, node, evidence=evidence)
             elif node.kind == "dataset":
                 outcome = check_lineage_basis(view, node)
+            elif node.kind == "analysis-spec":
+                outcome = check_analysis_spec(node)
             else:
                 continue
         except RecordError as refused:

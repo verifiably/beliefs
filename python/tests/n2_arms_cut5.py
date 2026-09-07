@@ -235,12 +235,10 @@ _EXPLICIT_IMPORT = (
         sabotage=Sabotage(
             module="corpus.py",
             before=(
-                "        if (\n"
-                '            variant == "stochastic-unseeded"\n'
-                "            and equivalence_rule in BITWISE_EQUIVALENCE_RULES\n"
-                "        ):"
+                "        except UnfreezableSpec as caught:\n"
+                '            raise ValidationRefused(f"{record.id}: {caught}") from caught'
             ),
-            after="        if False:",
+            after="        except UnfreezableSpec:\n            pass",
         ),
         checks=("test_import_bundle.py::test_contradictory_nondeterminism_contract_refused",),
     ),

@@ -66,10 +66,12 @@ from beliefs.holdings.records import (
 from beliefs.identity import v1
 from beliefs.permit import require_actor
 from beliefs.record import AssessmentValue
+from beliefs.spec import FrozenSpec, frozen_projection, restore
 from beliefs.verification import Verification
 
 __all__ = [
     "ACCEPTED_EXTERNAL_IDENTIFIERS",
+    "ANALYSIS_SPEC_FACET",
     "ASSESSMENT_FACET",
     "COORDINATION_FACET",
     "COVERED_FACETS",
@@ -96,6 +98,8 @@ __all__ = [
     "RouteTarget",
     "act_report_facet",
     "act_report_node",
+    "analysis_spec_node",
+    "analysis_spec_value",
     "assessment_value",
     "dataset_declaration",
     "display_facet_malformed",
@@ -127,6 +131,7 @@ __all__ = [
 SEMANTIC_IDENTITY_FACET = "semantic-identity"
 EMPIRICAL_OBSERVATION_FACET = "empirical-observation"
 PROPOSITION_FACET = "proposition"
+ANALYSIS_SPEC_FACET = "analysis-spec"
 ASSESSMENT_FACET = "assessment"
 RUN_FACET = "run"
 RUN_CLOSURE_FACET = "run-closure"
@@ -248,7 +253,7 @@ SEMANTIC_DOMAINS: Mapping[str, str] = {
 
 COVERED_FACETS: Mapping[str, tuple[str, ...]] = {
     "act-report": ("act-report",),
-    "analysis-spec": ("analysis-spec",),
+    "analysis-spec": (ANALYSIS_SPEC_FACET,),
     "assessment": (ASSESSMENT_FACET,),
     "dataset": (DATASET_FACET, EMPIRICAL_OBSERVATION_FACET, LINEAGE_BASIS_FACET),
     HOLDINGS_OBSERVATION_KIND: (HOLDINGS_OBSERVATION_FACET,),
@@ -870,6 +875,32 @@ def verification_node(
         {VERIFICATION_FACET: facet},
         [Relation(source=f"verification:{slug}", predicate=VERIFIES, target=assessment_ref)],
     )
+
+
+def analysis_spec_node(spec: FrozenSpec) -> Node:
+    """A frozen spec as a stored record: its identity and its canonical
+    projection text — the run record's pattern, so a `Decimal` parameter
+    round-trips and the identity is the text's digest by construction
+    (design §7)."""
+    if type(spec) is not FrozenSpec:
+        raise MalformedRecord("analysis_spec_node requires a FrozenSpec")
+    projection = v1.encode(frozen_projection(spec)).decode("utf-8")
+    facet = {"identity": spec.identity, "projection": projection}
+    return _node("analysis-spec", spec.identity, f"spec {spec.identity[:12]}", {ANALYSIS_SPEC_FACET: facet}, ())
+
+
+def analysis_spec_value(node: Node) -> FrozenSpec:
+    """The frozen spec a stored record carries, restored and refused on any
+    disagreement between its text, its identity and its id (M11)."""
+    if node.kind != "analysis-spec":
+        raise MalformedRecord(f"{node.id}: not an analysis-spec record")
+    facet = _facet(node, ANALYSIS_SPEC_FACET)
+    if facet is None or set(facet) != {"identity", "projection"} or type(facet["identity"]) is not str or type(facet["projection"]) is not str:
+        raise MalformedRecord(f"{node.id}: an analysis-spec facet is exactly {{identity, projection}}")
+    spec = restore(facet["identity"], facet["projection"].encode("utf-8"))
+    if node.id != typed_ref("analysis-spec", spec.identity):
+        raise MalformedRecord(f"{node.id}: the record id is not the spec identity")
+    return spec
 
 
 def retraction_node(

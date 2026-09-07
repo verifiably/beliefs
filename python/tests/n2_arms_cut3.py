@@ -1117,7 +1117,7 @@ _CLAUSE_ARMS = [
         "G2a",
         "FrozenSpec values are minted through freeze or revise, never the ordinary dataclass API",
         "spec.py",
-        '        raise TypeError("FrozenSpec values are minted by freeze or revise")',
+        '        raise TypeError("FrozenSpec values are minted by freeze, revise or restore")',
         "        return None",
         "test_spec.py::test_frozen_specs_are_minted_only_by_freeze_and_revise",
     ),
