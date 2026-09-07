@@ -5,7 +5,7 @@ status: todo
 priority: 3
 size: m
 created: 2026-09-07T09:31:01Z
-updated: 2026-09-07T12:40:40Z
+updated: 2026-09-07T18:27:25Z
 depends: []
 tags: [testing]
 ---
@@ -19,3 +19,4 @@ Two things worth separating: making tests/test_reproduction_driver.py's imports 
 ## Notes
 
 - 2026-09-07T12:40:40Z (main): Measured 2026-09-07, both figures in the body are wrong: extraPaths = ["tools"] alone takes the baseline from 12 errors to 3 (all in tests/, none in tools/), and putting tools in include type-checks it for 42 errors, not roughly 1600. So type-checking tools/ is a bounded piece of work, not the project the body describes; the import-resolution half is a config line plus three assertions.
+- 2026-09-07T18:27:25Z (main): Half landed with cut 20's merge (b818471): extraPaths = ["tools"] makes tools/ importable so test_reproduction_driver.py's imports resolve, without adding it to include — the cheap half this task hypothesised, and the pyproject comment now cites this task for the rest. Baseline is gone: measured on f2d5a14 from python/, pyright 0 errors and ruff all-passed, down from 12 and 6. Remaining work is deciding whether to type-check tools/ at all (~1600 errors when measured) or to keep importable-but-unchecked as the end state. Upshot: 'pyright/ruff clean' are meaningful gates again, so any new diagnostic is genuinely new.
