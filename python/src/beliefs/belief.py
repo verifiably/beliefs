@@ -275,20 +275,33 @@ def evaluate(
     # claim of independence, never the default.
     #
     # Two assessment records can carry one identity (design decision 17):
-    # the graph is over the identity, not the record, so a twin contributes
-    # no second vertex and no self-edge — aggregating it twice would
-    # double-count identical evidence, which is exactly what
-    # `AggregationInput`'s distinctness check refuses. First occurrence in
-    # `directional`'s existing order wins, so the belief input digest stays
-    # deterministic; `records.assessments` and the closure at step 9 still
-    # carry every record unfiltered.
-    seen_identities: set[str] = set()
+    # the graph is over the identity, not the record, so a genuine twin
+    # contributes no second vertex and no self-edge — aggregating it twice
+    # would double-count identical evidence, which is exactly what
+    # `AggregationInput`'s distinctness check refuses. `identity()` alone
+    # does not make two records the same fact, though: it digests only
+    # `(spec, run, proposition)`, while `outcome` and the rest live in
+    # `facet_digest()`, an independent write-path parameter with no
+    # cross-check. So a shared identity is collapsed only when the kept
+    # record's facet also agrees — an identity-equal, facet-disagreeing pair
+    # is a corpus contradiction, refused loudly rather than silently
+    # resolved by file order. First occurrence in `directional`'s existing
+    # order is what a genuine twin collapses onto, keeping the belief
+    # *value* (this graph, not the step-9 digest) deterministic;
+    # `records.assessments` and the closure at step 9 still carry every
+    # record unfiltered.
+    kept_by_identity: dict[str, AssessmentValue] = {}
     graph_inputs: list[AssessmentValue] = []
     for a in directional:
         identity = a.identity()
-        if identity not in seen_identities:
-            seen_identities.add(identity)
+        kept = kept_by_identity.get(identity)
+        if kept is None:
+            kept_by_identity[identity] = a
             graph_inputs.append(a)
+        elif kept.facet_digest() != a.facet_digest():
+            raise MalformedRecord(
+                f"assessment identity {identity!r} is claimed by disagreeing records: {kept!r} and {a!r}"
+            )
     vertices = tuple(DirectionalInput(assessment=a.identity(), sign=OUTCOME_SIGNS[a.outcome]) for a in graph_inputs)
     edges: list[tuple[str, str]] = []
     for a, b in itertools.combinations(graph_inputs, 2):
