@@ -49,6 +49,7 @@ from beliefs.replay import (
 from beliefs.spec import Deterministic, SpecInput, StochasticUnseeded, freeze, revise
 from beliefs.verification import Verification
 from beliefs.verify import (
+    COMPARISON_REPORT_DOMAIN,
     AssessmentVerification,
     ComparisonReport,
     DatasetProductionVerification,
@@ -535,3 +536,229 @@ def test_k5_a_production_verification_is_refused_by_the_join(production_pair):
     assert isinstance(verification, DatasetProductionVerification)
     with pytest.raises(NotAnAssessmentVerification):
         admission_record(verification)  # pyright: ignore[reportArgumentType] — invalid type is under test
+
+
+# --- V1 / V6: the stored verification's reader (design §4.2) -----------------
+from nodes.core.node import Node
+from nodes.core.relations import Relation
+
+from beliefs import stored
+from beliefs.errors import MalformedRecord, NullRefused
+from beliefs.verify import StoredVerification, decode_verification
+
+
+def _facet_for(verification: AssessmentVerification) -> dict:
+    return {
+        "assessment": verification.assessment,
+        "scope": verification.scope,
+        "verdict": verification.verdict,
+        "derivation": {
+            "original": stored.typed_ref("run", verification.original),
+            "replayed": stored.typed_ref("run", verification.replayed),
+        },
+        "rule": verification.rule,
+        "scope_rule": verification.scope_rule,
+        "report": verification.report.projection(),
+    }
+
+
+def _node_for(verification: AssessmentVerification, *, facet: dict | None = None, identity: str | None = None) -> Node:
+    identity = verification.identity() if identity is None else identity
+    node_id = f"verification:{identity}"
+    node = Node(
+        id=node_id,
+        kind="verification",
+        title="v",
+        facets={stored.VERIFICATION_FACET: _facet_for(verification) if facet is None else facet},
+        relations=[Relation(source=node_id, predicate=stored.VERIFIES, target="assessment:a")],
+    )
+    try:
+        return stored.stamp_semantic_identity(node)
+    except NullRefused:
+        # A present-but-null member (V6's `assessment`/`derivation` arms) can
+        # never be legitimately stamped — the identity encoder refuses null
+        # unconditionally, upstream of decode_verification, which is pure
+        # over the node and never reads this stamp. Leaving the node
+        # unstamped here reaches the reader's own defense instead of
+        # re-testing the encoder's.
+        return node
+
+
+def test_v1_projection_is_what_identity_digests(pair):
+    report = verification_of(pair).report
+    assert report.identity() == v1.digest(COMPARISON_REPORT_DOMAIN, report.projection())
+    assert set(report.projection()) == {"original_conformance", "replay_conformance", "receipts", "rule_bindings", "diagnostics"}
+
+
+def test_v1_decode_restores_the_basis_and_the_report_by_identity(pair):
+    verification = verification_of(pair)
+    decoded = decode_verification(_node_for(verification))
+    assert isinstance(decoded, StoredVerification)
+    assert decoded.basis() == verification.basis()
+    assert decoded.identity() == verification.identity()
+    assert decoded.report.identity() == verification.report.identity()
+    assert decoded.assessment == verification.assessment and decoded.supersedes is None
+
+
+def test_v1_a_report_less_verification_decodes_as_absent(pair):
+    verification = verification_of(pair)
+    facet = _facet_for(verification)
+    del facet["report"]
+    assert decode_verification(_node_for(verification, facet=facet)) is None
+    assert decode_verification(stored.verification_node("v", title="v", assessment="x", assessment_ref="assessment:a", scope="same-environment", verdict="passed")) is None
+
+
+def test_v1_a_certified_and_cited_report_round_trips_field_wise(pair):
+    # A field swap in _restore_report's CodeLineageCertification/EmbeddedCitation
+    # construction is otherwise invisible: both members are plain strings, so
+    # only a field-wise comparison — not object equality — catches a transposed
+    # rationale/attribution or report_ref/index/content.
+    certification = CodeLineageCertification(rationale="independent rewrite", attribution="alice")
+    published = report()
+    verification = verification_of(pair, certification=certification, citation=(published, 1))
+    decoded = decode_verification(_node_for(verification))
+    assert isinstance(decoded, StoredVerification)
+    assert verification.report.certification is not None and decoded.report.certification is not None
+    assert decoded.report.certification.rationale == verification.report.certification.rationale
+    assert decoded.report.certification.attribution == verification.report.certification.attribution
+    assert verification.report.citation is not None and decoded.report.citation is not None
+    assert decoded.report.citation.report_ref == verification.report.citation.report_ref
+    assert decoded.report.citation.index == verification.report.citation.index
+    assert decoded.report.citation.content == verification.report.citation.content
+    assert decoded.report.identity() == verification.report.identity()
+    assert decoded.basis() == verification.basis()
+
+
+def test_v3_stored_verification_has_no_public_constructor():
+    with pytest.raises(TypeError):
+        StoredVerification(original="a", replayed="b", assessment=None, rule="r", report=None, scope_rule="s", scope="bogus", verdict="bogus", supersedes=None)  # type: ignore[call-arg]
+
+
+def test_v5_a_record_id_that_does_not_recompute_is_malformed(pair):
+    verification = verification_of(pair)
+    with pytest.raises(MalformedRecord, match="recomputed identity"):
+        decode_verification(_node_for(verification, identity="f" * 64))
+    facet = _facet_for(verification)
+    facet["scope"] = "clean-environment" if facet["scope"] != "clean-environment" else "same-environment"
+    with pytest.raises(MalformedRecord, match="recomputed identity"):
+        decode_verification(_node_for(verification, facet=facet))
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda f: f["report"].pop("receipts"),
+        lambda f: f["report"].__setitem__("receipts", [f["report"]["receipts"][0]]),
+        lambda f: f["report"].__setitem__("diagnostics", [1]),
+        lambda f: f["report"].__setitem__("certification", {"rationale": "r"}),
+        lambda f: f["report"].__setitem__("extra", 1),
+        lambda f: f.pop("rule"),
+        lambda f: f.__setitem__("supersedes", "v-1"),
+        lambda f: f.__setitem__("assessment", None),
+        lambda f: f.__setitem__("derivation", None),
+        lambda f: f.pop("derivation"),
+        # A null `report` is a *present* member, not an absent one: the reader
+        # branches on `"report" in facet`, so this is the exact seam where a
+        # null could be read as the report-less shape cut 18's R2 lets decode
+        # as `None`. Present and malformed is refused (M11); absent is the
+        # separate `test_v1_a_report_less_verification_decodes_as_absent`.
+        lambda f: f.__setitem__("report", None),
+    ],
+)
+def test_v6_a_present_but_malformed_report_or_member_is_refused(pair, mutate):
+    verification = verification_of(pair)
+    facet = _facet_for(verification)
+    mutate(facet)
+    with pytest.raises(MalformedRecord):
+        decode_verification(_node_for(verification, facet=facet))
+
+
+def test_v7_the_assessment_member_and_the_verifies_edge_travel_together(pair):
+    verification = verification_of(pair)
+    node = _node_for(verification)
+    node.relations = []
+    with pytest.raises(MalformedRecord, match="present together"):
+        decode_verification(node)
+    node = _node_for(verification)
+    node.relations.append(Relation(source=node.id, predicate=stored.VERIFIES, target="assessment:b"))
+    with pytest.raises(MalformedRecord, match="at most one"):
+        decode_verification(node)
+
+
+# --- V1 / V3 / V7: the publication projection (design §5.1) --------------------
+from beliefs.verify import publication_node  # DatasetProductionVerification is already imported above
+
+
+def _production_verification(production_pair) -> DatasetProductionVerification:
+    first, second = production_pair
+    verification = build_verification(
+        first.run, second.run, specs={}, held_rules={"impl-dataset-eq-1": DATASET_CONTENT_EQUALITY},
+        contract_identity="contract-1", epoch="epoch-1",
+    )
+    assert isinstance(verification, DatasetProductionVerification)
+    return verification
+
+
+def test_v1_publication_node_round_trips_through_the_reader(pair):
+    verification = verification_of(pair)
+    node = publication_node(verification, assessment_ref="assessment:a")
+    assert node.id == f"verification:{verification.identity()}"
+    assert [(r.predicate, r.target) for r in node.relations] == [(stored.VERIFIES, "assessment:a")]
+    facet = node.facets[stored.VERIFICATION_FACET]
+    assert facet["derivation"] == {"original": f"run:{verification.original}", "replayed": f"run:{verification.replayed}"}
+    assert facet["report"] == verification.report.projection() and "supersedes" not in facet
+    assert not stored.semantic_hash_missing(node) and not stored.semantic_hash_disagrees(node)
+    decoded = decode_verification(node)
+    assert decoded is not None and decoded.basis() == verification.basis()
+
+
+def test_v3_a_superseding_verification_publishes_its_typed_predecessor(pair):
+    verification = verification_of(pair)
+    successor = _mint_verification(
+        original=verification.original, replayed=verification.replayed, assessment=verification.assessment,
+        rule=verification.rule, report=verification.report, scope_rule=verification.scope_rule,
+        scope=verification.scope, verdict="failed", supersedes=verification.identity(),
+    )
+    node = publication_node(successor, assessment_ref="assessment:a")
+    assert node.facets[stored.VERIFICATION_FACET]["supersedes"] == f"verification:{verification.identity()}"
+    decoded = decode_verification(node)
+    assert decoded is not None and decoded.supersedes == verification.identity()
+
+
+def test_v7_the_production_shape_publishes_edge_less_and_admits_nothing(production_pair):
+    verification = _production_verification(production_pair)
+    node = publication_node(verification)
+    assert node.relations == [] and "assessment" not in node.facets[stored.VERIFICATION_FACET]
+    decoded = decode_verification(node)
+    assert decoded is not None and decoded.assessment is None and decoded.identity() == verification.identity()
+    with pytest.raises(NotAnAssessmentVerification):
+        admission_record(verification)  # pyright: ignore[reportArgumentType] — invalid type is under test
+
+
+def test_v7_publication_node_refuses_the_cross(pair, production_pair):
+    with pytest.raises(MalformedRecord, match="corpus ref"):
+        publication_node(verification_of(pair))
+    with pytest.raises(MalformedRecord):
+        publication_node(verification_of(pair), assessment_ref="proposition:p")
+    with pytest.raises(MalformedRecord, match="no assessment"):
+        publication_node(_production_verification(production_pair), assessment_ref="assessment:a")
+    with pytest.raises(MalformedRecord):
+        publication_node("not a verification")  # type: ignore[arg-type]
+
+
+def test_the_publication_modules_form_no_import_cycle():
+    """Design §4.3, probed in a fresh interpreter so no loaded class identity is disturbed. [R7]"""
+    import subprocess
+    import sys
+
+    script = (
+        "import importlib\n"
+        "for name in ('beliefs.verify', 'beliefs.stored', 'beliefs.spec', 'beliefs.audit', 'beliefs.corpus', 'beliefs.evaluation', 'beliefs.admission'):\n"
+        "    importlib.import_module(name)\n"
+        "import beliefs.corpus, pathlib\n"
+        "source = pathlib.Path(beliefs.corpus.__file__).read_text(encoding='utf-8')\n"
+        "assert '\\nfrom beliefs.verify import' not in source and '\\nimport beliefs.verify' not in source\n"
+        "print('acyclic')\n"
+    )
+    completed = subprocess.run([sys.executable, "-c", script], check=True, capture_output=True, text=True)
+    assert completed.stdout.strip() == "acyclic"

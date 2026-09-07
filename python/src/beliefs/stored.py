@@ -68,10 +68,12 @@ from beliefs.identity import v1
 from beliefs.permit import require_actor
 from beliefs.profile import shipped_base
 from beliefs.record import AssessmentValue
+from beliefs.spec import FrozenSpec, frozen_projection, restore
 from beliefs.verification import Verification
 
 __all__ = [
     "ACCEPTED_EXTERNAL_IDENTIFIERS",
+    "ANALYSIS_SPEC_FACET",
     "ASSESSMENT_FACET",
     "COORDINATION_FACET",
     "COVERED_FACETS",
@@ -99,15 +101,19 @@ __all__ = [
     "RouteTarget",
     "act_report_facet",
     "act_report_node",
+    "analysis_spec_node",
+    "analysis_spec_value",
     "assessment_value",
     "dataset_declaration",
     "display_facet_malformed",
     "display_statement",
     "external_identifiers",
+    "governed_node",
     "holdings_observation_node",
     "holdings_observation_value",
     "is_empirical_observation",
     "lineage_basis",
+    "local_id",
     "recompute_semantic_hash",
     "retraction_node",
     "run_spec",
@@ -116,6 +122,7 @@ __all__ = [
     "semantic_projection",
     "stamp_semantic_identity",
     "stored_semantic_hash",
+    "typed_ref",
     "union_lineage_bases",
     "used_facet_namespaces",
     "verification_derivation",
@@ -127,6 +134,7 @@ __all__ = [
 SEMANTIC_IDENTITY_FACET = "semantic-identity"
 EMPIRICAL_OBSERVATION_FACET = "empirical-observation"
 PROPOSITION_FACET = "proposition"
+ANALYSIS_SPEC_FACET = "analysis-spec"
 ASSESSMENT_FACET = "assessment"
 RUN_FACET = "run"
 RUN_CLOSURE_FACET = "run-closure"
@@ -175,6 +183,29 @@ WORLD_RELATIONS: tuple[str, ...] = tuple(
     name for name, declaration in _SHIPPED.relations.items() if declaration.group == "world"
 )
 """The base contract's world relation group."""
+
+
+def typed_ref(kind: str, local: str) -> str:
+    """`kind:local` — the one place a kind prefix is added (design §3.1). A
+    stored facet spells a reference typed; a derived value spells an identity
+    bare; this and `local_id` are the whole bridge."""
+    if kind not in WORLD_KINDS:
+        raise MalformedRecord(f"{kind!r} is not a world kind")
+    if type(local) is not str or not local or local.startswith(f"{kind}:"):
+        raise MalformedRecord(f"{local!r} is not a bare {kind} id")
+    return f"{kind}:{local}"
+
+
+def local_id(kind: str, ref: str) -> str:
+    """The inverse of `typed_ref`: exactly the kind prefix removed, refusing a
+    reference that does not carry it."""
+    if kind not in WORLD_KINDS:
+        raise MalformedRecord(f"{kind!r} is not a world kind")
+    prefix = f"{kind}:"
+    if type(ref) is not str or not ref.startswith(prefix) or len(ref) == len(prefix):
+        raise MalformedRecord(f"{ref!r} is not a typed {kind} reference")
+    return ref[len(prefix):]
+
 
 RETRACTION_REASONS = (
     "authored-error",
@@ -347,7 +378,11 @@ def inputs_of(node: Node, role: str) -> tuple[str, ...]:
 
 def assessment_value(node: Node) -> AssessmentValue:
     """The stored assessment as cut 2's value — `(spec, run, proposition)` and
-    the facet kernel §4.2.1 tables. Absent optionals stay absent."""
+    the facet kernel §4.2.1 tables. Absent optionals stay absent.
+
+    `run` is handed back bare — the run's address, the world identity the
+    derivation digests — and a facet whose `run` is absent or untyped is
+    malformed (design §3.2)."""
     facet = _facet(node, ASSESSMENT_FACET)
     if facet is None:
         raise MalformedRecord(f"{node.id}: an assessment carries an {ASSESSMENT_FACET!r} facet")
@@ -358,7 +393,7 @@ def assessment_value(node: Node) -> AssessmentValue:
     }
     return AssessmentValue(
         spec=str(facet.get("spec", "")),
-        run=str(facet.get("run", "")),
+        run=local_id("run", facet.get("run")),  # type: ignore[arg-type]
         proposition=str(facet.get("proposition", "")),
         outcome=str(facet.get("outcome", "")),
         interpretation_rule=str(facet.get("interpretation_rule", "")),
@@ -639,6 +674,15 @@ def _node(kind: str, slug: str, title: str, facets: Mapping[str, Any], relations
     return stamp_semantic_identity(node)
 
 
+def governed_node(kind: str, local: str, title: str, facets: Mapping[str, Any], relations: Sequence[Relation]) -> Node:
+    """`_node`'s public twin for builders outside this module (verification
+    publication, design §5.1): a stamped record of a governed kind. The stamp's
+    one construction authority is unchanged."""
+    if kind not in SEMANTIC_DOMAINS:
+        raise MalformedRecord(f"kind {kind!r} has no semantic-identity domain")
+    return _node(kind, local, title, facets, relations)
+
+
 def act_report_node(report: report_values.ActReport) -> Node:
     if type(report) is not report_values.ActReport:
         raise MalformedRecord("act_report_node requires an ActReport")
@@ -798,6 +842,32 @@ def verification_node(
         {VERIFICATION_FACET: facet},
         [Relation(source=f"verification:{slug}", predicate=VERIFIES, target=assessment_ref)],
     )
+
+
+def analysis_spec_node(spec: FrozenSpec) -> Node:
+    """A frozen spec as a stored record: its identity and its canonical
+    projection text — the run record's pattern, so a `Decimal` parameter
+    round-trips and the identity is the text's digest by construction
+    (design §7)."""
+    if type(spec) is not FrozenSpec:
+        raise MalformedRecord("analysis_spec_node requires a FrozenSpec")
+    projection = v1.encode(frozen_projection(spec)).decode("utf-8")
+    facet = {"identity": spec.identity, "projection": projection}
+    return _node("analysis-spec", spec.identity, f"spec {spec.identity[:12]}", {ANALYSIS_SPEC_FACET: facet}, ())
+
+
+def analysis_spec_value(node: Node) -> FrozenSpec:
+    """The frozen spec a stored record carries, restored and refused on any
+    disagreement between its text, its identity and its id (M11)."""
+    if node.kind != "analysis-spec":
+        raise MalformedRecord(f"{node.id}: not an analysis-spec record")
+    facet = _facet(node, ANALYSIS_SPEC_FACET)
+    if facet is None or set(facet) != {"identity", "projection"} or type(facet["identity"]) is not str or type(facet["projection"]) is not str:
+        raise MalformedRecord(f"{node.id}: an analysis-spec facet is exactly {{identity, projection}}")
+    spec = restore(facet["identity"], facet["projection"].encode("utf-8"))
+    if node.id != typed_ref("analysis-spec", spec.identity):
+        raise MalformedRecord(f"{node.id}: the record id is not the spec identity")
+    return spec
 
 
 def retraction_node(

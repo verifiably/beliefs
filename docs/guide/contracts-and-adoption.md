@@ -2,7 +2,7 @@
 title: Contracts and adoption
 status: living
 created: 2026-08-08
-updated: 2026-09-04
+updated: 2026-09-06
 sources:
   - ../designs/2026-08-03-normative-contract-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -34,11 +34,15 @@ sources:
   - ../designs/2026-09-04-write-permits-design.md
   - ../designs/2026-09-04-conformance-cut-18.md
   - ../designs/2026-09-05-conformance-cut-20.md
+  - ../designs/2026-09-05-writer-session-design.md
+  - ../designs/2026-09-05-conformance-cut-19.md
+  - ../designs/2026-09-06-conformance-cut-21.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
   - ../plans/2026-08-29-conformance-cut-12-results.md
   - ../plans/2026-09-01-conformance-cut-13-results.md
   - ../plans/2026-09-04-conformance-cut-17-results.md
   - ../plans/2026-09-04-conformance-cut-18-results.md
+  - ../plans/2026-09-05-conformance-cut-19-results.md
 ---
 
 # Contracts and adoption
@@ -179,7 +183,7 @@ fitted result into independent validation.
 
 Cut 20, the facet-contracts slice, is frozen and not yet discharged.
 
-Eighteen conformance cuts have been frozen and discharged, each frozen before
+Nineteen conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple
 with a results record under `../plans/`. The cut discipline is what this page
 owns: a cut selects rows, the acceptance runner arms each selected unit with
@@ -199,9 +203,15 @@ cut 18 — frozen the same day as cut 17 and numbered after it, because a number
 is claimed at freeze in freeze order: G2c, G8, C6, R5, W16, M1 and M5 close;
 S5, R23, R19, R22 and M3 remain partial on their named remainders; C1, T8, M11
 and M13 are re-read.
+The writer-session cut is discharged as cut 19: J1–J11 close — the `J` table's
+every row, selected in full before implementation and read in full afterwards
+(`../designs/2026-09-05-conformance-cut-19.md`).
+The verification-publication cut is frozen as cut 21 (V1–V8 selected in full
+before implementation, `../designs/2026-09-06-conformance-cut-21.md`) and
+discharges after the domain lane's cut 20.
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-04)
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-05)
 states what is built and which remaining boundaries have named owners; the cut
 documents and results records in the references below are the evidence.
 

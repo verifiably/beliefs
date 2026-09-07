@@ -178,10 +178,13 @@ def test_u8_negative_discarded_attempt_is_indistinguishable(certified_work, tmp_
         def append_intent(self, payload: bytes) -> str:
             return inner.append_intent(payload)
 
+        def preflight(self, plan) -> None:
+            pass
+
         def execute(self, plan) -> None:
             raise _Cancelled()
 
-        def execute_fulfilling(self, plan, fulfills: str) -> None:
+        def execute_fulfilling(self, plan, fulfills: str) -> str:
             raise _Cancelled()
 
     with pytest.raises(_Cancelled):
@@ -264,7 +267,7 @@ def test_bridge_resolves_assessment_ref_and_stamped_basis(certified_work):
     )
     view = ReadView.opened_at(root)
     stored_run_field = stored.assessment_value(view.get("assessment:" + "a" * 64)).run
-    assert view.resolve(stored_run_field) == record_id
+    assert view.resolve(stored.typed_ref("run", stored_run_field)) == record_id
     assert bare_address(record_id) == minted.basis.run
 
 

@@ -5,10 +5,11 @@ from __future__ import annotations
 import re
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
 from n2_arms_cut7 import CUT7_ARMS
@@ -24,8 +25,27 @@ from n2_arms_cut11 import (
     unit_of,
 )
 from test_n2 import FAILED, PASSED, MalformedArm, _run_check, _sabotage, audit, baseline
+from test_n2_cut7 import assert_cut5_matcher_migration
 
 import beliefs.root as science_root
+
+# Live matcher migration, 2026-09-07: frozen declarations above stay byte-exact.
+# The same sabotages now target guarded publication and compiled stamp coverage.
+_LIVE_SABOTAGES = {
+    "J7b": Sabotage(
+        "boundary.py",
+        before="        reason = port.execute_fulfilling_guarded(plan, fulfills, guard=acquisition_guard(result.run), fallback=_fallback)\n",
+        after="        port.execute(plan)\n        reason = None\n",
+    ),
+    "J9a": Sabotage(
+        "stored.py",
+        before="    {name: kind.covered for name, kind in _WORLD.items() if kind.domain is not None}\n",
+        after='    {name: tuple(key for key in kind.covered if name != "run" or key != RUN_CLOSURE_FACET) for name, kind in _WORLD.items() if kind.domain is not None}\n',
+    ),
+}
+CUT11_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT11_ARMS
+)
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -36,7 +56,7 @@ RENAME_COMMIT = "5a02ca2"
 file whose only post-freeze edit was that rename's import strings."""
 
 FROZEN_PRIOR_CUT_FILES = {
-    "python/tests/n2_arms_cut5.py": "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e",
+    "python/tests/n2_arms_cut5.py": "1e92471",  # exact R20 matcher amendment, validated below
     "python/tests/n2_arms_cut6.py": "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e",
     "python/tests/n2_arms_cut7.py": "117f37e",
     "python/tests/acceptance/n2_arms_cut8.py": RENAME_COMMIT,
@@ -175,6 +195,7 @@ class TestTheDeclarationTable:
 
 class TestNoPriorCutDeclarationIsRehomedOrEdited:
     def test_the_frozen_prior_declaration_files_are_byte_identical(self):
+        assert_cut5_matcher_migration(REPO_ROOT)
         for path, pin in FROZEN_PRIOR_CUT_FILES.items():
             completed = subprocess.run(
                 ["git", "-C", str(REPO_ROOT), "diff", "--quiet", pin, "HEAD", "--", path],

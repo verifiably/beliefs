@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -26,6 +27,28 @@ from test_n2 import audit, baseline
 
 import beliefs.root as science_root
 
+# Live facet-contract matcher migration, 2026-09-07; canonical table remains frozen at b0882d3.
+_LIVE_SABOTAGES = {
+    "W5a": Sabotage(
+        module="relocation.py",
+        before="        moved = destination._add_locked(node, provenance=True)\n",
+        after='        moved = destination._add_locked(node.model_copy(update={"uid": "0" * 32}), provenance=True)\n',
+    ),
+    "T2b": Sabotage(
+        module="relocation.py",
+        before="        destination_intent = destination._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n        source_intent = source._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n        moved = destination._add_locked(node, provenance=True)\n        source._delete_locked(node.id)\n",
+        after="        moved = destination._add_locked(node, provenance=True)\n        source._delete_locked(node.id)\n        destination_intent = destination._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n        source_intent = source._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n",
+    ),
+    "T2c": Sabotage(
+        module="relocation.py",
+        before="        keep_intent = keep_writer._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n        other_intent = other_writer._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n        survivor = keep_writer._replace_locked(merged, provenance=True)\n        other_writer._delete_locked(other_node.id)\n",
+        after="        survivor = keep_writer._replace_locked(merged, provenance=True)\n        other_writer._delete_locked(other_node.id)\n        keep_intent = keep_writer._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n        other_intent = other_writer._append_operation_intent(\n            intent.kind, intent.event_token, intent.actor\n        )\n",
+    ),
+}
+CUT16_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT16_ARMS
+)
+
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-03-conformance-cut-16.md"
@@ -33,8 +56,8 @@ CUT16_FREEZE_COMMIT = "ca31a04"
 CUT16_FROZEN_SHA256 = "ed6241e77f31bf43ec765b35568812b777a007f92d87a5936fa39ccae29e2029"
 
 FROZEN_PRIOR_CUT_FILES = {
-    "python/tests/n2_arms_cut3.py": "5a02ca2",
-    "python/tests/n2_arms_cut5.py": "7f5b28e",
+    "python/tests/n2_arms_cut3.py": "1e92471",
+    "python/tests/n2_arms_cut5.py": "1e92471",
     "python/tests/n2_arms_cut6.py": "fdea7a7",
     "python/tests/n2_arms_cut7.py": "8ca085e",
     "python/tests/acceptance/n2_arms_cut8.py": "5a02ca2",

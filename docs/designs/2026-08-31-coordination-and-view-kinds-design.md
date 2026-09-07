@@ -1051,3 +1051,36 @@ no aggregate prefix. Cut 5 remains byte-pinned and cited. Development runs
 targeted checks; discharge runs the cut runner, the new targeted suites, Ruff,
 Pyright, `tasks check`, and one full Python suite on the certified tuple. The
 full suite is not repeated after each implementation task.
+
+## 12. Declaration re-pin amendment — 2026-09-07
+
+`python/tests/n2_arms_cut3.py` and `python/tests/n2_arms_cut5.py` moved at
+`1e92471`, in the `verification-publication` slice. That slice made
+`AssessmentValue.run` the bare closure address and `RunValue.ref` the typed
+reference; cut 3's and cut 5's arms pin lines of that source verbatim as their
+sabotage `before`, and the standing rule is to fix the arm, never the source,
+so the arms were rewritten against the landed code. This cut's
+`FROZEN_PRIOR_CUT_FILES` still named the pre-move commits, so
+`test_n2_cut14.py`'s pin test failed on this tree.
+
+| was pinned at | re-pinned to | what it is |
+|---|---|---|
+| `7f5b28e` | `1e92471` | `python/tests/n2_arms_cut5.py` |
+
+Only the pins move. The selection, the guarantee rows, their checks and the
+declaration units are unchanged, and no frozen section changes.
+
+The same move carries the cited cut-5 surface. `FROZEN_CUT5_SHA256` records
+that cut 5's evidence is **cited, not re-read** (§9.2); two of its four entries
+digest files this slice legitimately rewrote — `python/tests/n2_arms_cut5.py`
+under the rule above, and `python/tests/acceptance/test_n2_cut5.py`, whose
+scope-supersession arm keyed its `runs` map by the typed node id while
+`evaluate` looks it up bare, so the arm no longer ran at all. Both digests are
+re-taken; cut 5's design record and its results record are untouched, and the
+citation itself — that cut 5 is discharged by its frozen results record and not
+re-run — stands.
+
+| file | was | is |
+|---|---|---|
+| `python/tests/n2_arms_cut5.py` | `29a778a6…` | `dd99a0e0…` |
+| `python/tests/acceptance/test_n2_cut5.py` | `df589285…` | `f744c34d…` |

@@ -56,7 +56,7 @@ Use the [glossary](glossary.md) for quick definitions and the consolidated
 ## Status and authority
 
 The guide deliberately does not copy a changing implementation tally. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-04)
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-05)
 is the sole authority for what is built and what remains to build, each
 remainder with its named owner; the consolidated
 [open questions](open-questions.md) page is the sole authority for what is

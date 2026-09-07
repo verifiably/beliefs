@@ -36,6 +36,7 @@ from n2_arms_cut9 import (
     ROW_UNITS,
 )
 from test_n2 import MalformedArm, audit, baseline
+from test_n2_cut7 import assert_cut5_matcher_migration
 
 import beliefs.root as science_root
 
@@ -70,7 +71,7 @@ RENAME_COMMIT = "5a02ca2"
 file whose only post-freeze edit was that rename's import strings."""
 
 FROZEN_PRIOR_CUT_FILES = {
-    "python/tests/n2_arms_cut5.py": CUT6_SOURCE_COMMIT,
+    "python/tests/n2_arms_cut5.py": "1e92471",  # exact R20 matcher amendment, validated below
     "python/tests/n2_arms_cut6.py": CUT6_SOURCE_COMMIT,
     "python/tools/cut5_acceptance.py": RENAME_COMMIT,
     "python/tools/cut6_acceptance.py": RENAME_COMMIT,
@@ -236,6 +237,7 @@ class TestTheAtomsCitationsAreMetadataNotChecks:
 
 class TestNoPriorCutDeclarationIsRehomedOrEdited:
     def test_the_frozen_prior_cut_files_are_byte_identical_to_their_pinned_versions(self):
+        assert_cut5_matcher_migration(REPO_ROOT)
         for path, pin in FROZEN_PRIOR_CUT_FILES.items():
             completed = subprocess.run(
                 ["git", "-C", str(REPO_ROOT), "diff", "--quiet", pin, "HEAD", "--", path],
@@ -247,11 +249,7 @@ class TestNoPriorCutDeclarationIsRehomedOrEdited:
             )
 
     def test_no_cut9_arm_claims_a_check_a_prior_cut_declared(self):
-        prior = {
-            check
-            for arm in (*CUT5_ARMS, *CUT6_ARMS, *CUT7_ARMS, *CUT8_ARMS)
-            for check in arm.checks
-        }
+        prior = {check for arm in (*CUT5_ARMS, *CUT6_ARMS, *CUT7_ARMS, *CUT8_ARMS) for check in arm.checks}
         ours = {check for arm in CUT9_ARMS for check in arm.checks}
         assert not prior & ours
 
@@ -280,11 +278,23 @@ _OBLIGATION_SOURCES: tuple[tuple[str, str, str], ...] = (
     # (§ reference, test file, the assertion text the fixture must carry)
     ("§5.2 L6 u1 baseline-covered pre-log member", "test_fork_acts.py", "in no post-genesis entry"),
     ("§5.3 L6 u2 byte-difference and omission", "test_fork_acts.py", "assert rewritten != original_genesis_bytes"),
-    ("§5.4 L4 u2 same subject, differing geneses", "test_fork_acts.py", "The fixture's obligations: same subject, differing geneses"),
-    ("§5.5 L10 u9 both roots metadata-less first", "test_restore_root.py", "The L10 u9 obligation: both roots are metadata-less first"),
+    (
+        "§5.4 L4 u2 same subject, differing geneses",
+        "test_fork_acts.py",
+        "The fixture's obligations: same subject, differing geneses",
+    ),
+    (
+        "§5.5 L10 u9 both roots metadata-less first",
+        "test_restore_root.py",
+        "The L10 u9 obligation: both roots are metadata-less first",
+    ),
     ("§5 L2 u1 pending entry and no metadata", "test_lifecycle_wrappers.py", "the copy genuinely carries a pending"),
     ("§6 L10 u10 omission, never chain damage", "test_restore_root.py", "never chain\n        # damage"),
-    ("§6 label-8 writable arm through register_root's own path", "test_arrival_modes.py", "The grant is register_root's own"),
+    (
+        "§6 label-8 writable arm through register_root's own path",
+        "test_arrival_modes.py",
+        "The grant is register_root's own",
+    ),
 )
 
 

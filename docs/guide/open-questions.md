@@ -91,6 +91,13 @@ implementation**: a guarantee row awaiting code is work, not a question.
   analyses, decisions, or the record system. Their re-homing must be settled
   before claim arguments widen from external referents to internal records.
   ([review classification](../designs/2026-08-05-review-disposition-and-conformance-cut-1.md#24-the-eleven-k-records--a-classification-and-a-moratorium))
+- **The assessment's `proposition` spelling.** The derived assessment value
+  carries the spec's target and the stored facet the proposition record's
+  corpus ref — two namespaces, excluded from the audit's comparison for that
+  reason. The verification-publication design unifies the run member's
+  spelling and leaves this one to the layer design's claim sub-project, which
+  authors specs against typed claims.
+  ([verification publication](../designs/2026-09-06-verification-publication-design.md#9-limitations))
 - **Weighted belief.** Estimand typing needs an owner before study-design or
   precision weights can be compared; a successor must also decide whether any
   constants are global or domain-scoped. ([belief questions](../designs/2026-08-05-belief-policy-design.md#9-open-questions))
@@ -159,8 +166,11 @@ implementation**: a guarantee row awaiting code is work, not a question.
   ([computation question](../designs/2026-08-02-computation-reproducibility-design.md#13-open-questions))
 - **Where the scope-derivation rule is versioned.** That rule's identity enters
   every verification address, so it needs one: with the belief policy, with
-  `science.identity.v1`, or on its own.
-  ([computation question](../designs/2026-08-02-computation-reproducibility-design.md#13-open-questions))
+  `science.identity.v1`, or on its own. A stored verification now carries the
+  identity as its `scope_rule` member, so a versioning decision changes what
+  new records write, never what stored ones mean.
+  ([computation question](../designs/2026-08-02-computation-reproducibility-design.md#13-open-questions),
+  [verification publication](../designs/2026-09-06-verification-publication-design.md#14-open-questions-this-design-files))
 - **Where an interpretation rule reads content.** `build_assessment` hands the
   frozen spec's interpretation rule a `ResultManifest` of output digests, not
   output bytes, so a rule that must read a number reads it through a canonical

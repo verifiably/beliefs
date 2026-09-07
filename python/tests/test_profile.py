@@ -76,6 +76,16 @@ def test_coordination_schema_edits_recompile(base_contract):
         != compile_profile(base_contract, [], coordination=genesis).compiled_identity
     )
 
+    field_document = copy.deepcopy(COORDINATION_DOCUMENT)
+    field_document["kinds"]["decision"]["fields"].append("about")
+    field_schema = coordination_contract(field_document)
+    original = compile_profile(base_contract, [], coordination=genesis)
+    changed = compile_profile(base_contract, [], coordination=field_schema)
+    assert {name: kind.projection() for name, kind in original.kinds.items()} == {
+        name: kind.projection() for name, kind in changed.kinds.items()
+    }
+    assert changed.compiled_identity != original.compiled_identity
+
 
 @pytest.mark.parametrize("kind", ["not-world", "discussion"])
 def test_coordination_compile_refuses_unknown_query_kind(base_contract, kind):

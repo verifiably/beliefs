@@ -8,8 +8,10 @@
 
 ## Repository gates
 
-- From `python/`, run `uv run --frozen pytest`, `uv run --frozen ruff check .`, and `uv run --frozen pyright`.
-- From `ts/`, run `npm ci`, `npm test`, `npm run typecheck`, and `npm run check`.
+- From the repository root, run `just check` (ruff, pyright, biome, tsc, `tasks check`) and `just test` (the serial pytest gate and the TypeScript suite). `just gate` runs both. These recipes run exactly the commands below, through the vendored timing wrapper `tools/tt`, so every run is recorded (ops `docs/specs/2026-09-04-test-ci-audit-design.md`).
+- The commands the recipes run, should you need one on its own: from `python/`, `uv run --frozen pytest`, `uv run --frozen ruff check .`, and `uv run --frozen pyright`; from `ts/`, `npm test`, `npm run typecheck`, and `npm run check`. `npm ci` is installation, not a gate, and is not in the recipes.
+- Git hooks are not installed. The facet-contracts integration resolves the reproduction Ruff and Pyright diagnostics. Hook rollout remains part of the test/CI audit task (beliefs-f253a1).
+- Remote CI: decided 2026-09-07 that beliefs gets GitHub Actions, because it costs nothing. `verifiably/beliefs` is public, and standard GitHub-hosted runners are free in public repositories on every plan; public-repo runs do not draw on the private-repo minute allowance (2,000/month on Free, then $0.006/min for Linux 2-core), which is the allowance that was exhausted. Larger, GPU and macOS runners are billed even on public repos, so CI stays on standard Linux. Adding the workflow is beliefs-e7b186, gated on the gate going green.
 - `CapabilityUnavailable` is a fail-closed result, not a waiver. Run the Python suite on the certified kernel and volume tuple or report the exact mismatch.
 
 ## Tasks workflow

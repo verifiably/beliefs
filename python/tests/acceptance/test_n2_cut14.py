@@ -25,7 +25,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 CUT14_FREEZE_COMMIT = "c07bf72"
 IMPLEMENTATION_AMENDMENT_COMMIT = "09b0b58"
 FROZEN_PRIOR_CUT_FILES = {
-    "python/tests/n2_arms_cut5.py": "7f5b28ec7da5f19db83fe0819c7477c8dbed7e93",
+    "python/tests/n2_arms_cut5.py": "1e92471",
     "python/tests/n2_arms_cut6.py": "fdea7a7e2f8780f8ddfec3a6a700333a28e648cd",
     "python/tests/n2_arms_cut7.py": "8ca085e8cf860efc9b7504f0961523e5e2a0438f",
     "python/tests/acceptance/n2_arms_cut8.py": "5a02ca299ba2de1b71702f834ac4fc44781c0eef",
@@ -36,8 +36,8 @@ FROZEN_PRIOR_CUT_FILES = {
     "python/tests/acceptance/n2_arms_cut13.py": "7504d6906a8729f8e04097083396a50afc464f9b",
 }
 FROZEN_CUT5_SHA256 = {
-    "python/tests/n2_arms_cut5.py": "29a778a617627a697787ea62b578034e2407d45c2d9adb4e85816598af3f0f19",
-    "python/tests/acceptance/test_n2_cut5.py": "df589285dd377709c322a2a3958196f3e8a8c65032af8d79863b548584e41798",
+    "python/tests/n2_arms_cut5.py": "dd99a0e0c95519a640f3f50e956566546e342765dc03f511f96d451bf87ce60b",
+    "python/tests/acceptance/test_n2_cut5.py": "f744c34d7390c9f9ffc67f28abe47f8c1251f02a284bec41285293a88899cb29",
     "docs/designs/2026-08-19-conformance-cut-5.md": "683dc249b1898179beaac9c9a550bca5b43f5fe3af9a107f0fc7ee47d58cbdd0",
     "docs/plans/2026-08-19-conformance-cut-5-results.md": "3a24efe3678b99d977a6ddd4f464e600479fb689dedd6df3f5647cb58f6f32de",
 }

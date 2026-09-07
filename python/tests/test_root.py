@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import inspect
 from pathlib import Path
+from typing import cast
 
 import pytest
 from atoms.chain.model import GenesisEntry
@@ -21,6 +22,7 @@ from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp
 from profiles import BASE
 
 from beliefs import root
+from beliefs.corpus import _RoutedExecutor
 from beliefs.errors import CorpusRootRefused, PermitExceeded, PermitFact, WorldIdMismatch, WorldUninitialized
 from beliefs.identity import v1
 from beliefs.permit import READ_ONLY
@@ -321,7 +323,7 @@ class TestTheInitActRefusesANonDirectory:
 
 class TestTheCompositionRoot:
     def test_durable_factories_are_stable_module_level_callables(self):
-        assert root.durable_executor_factory() is root._durable_executor
+        assert root.durable_executor_factory() is root._DURABLE_EXECUTOR_FACTORY
         assert root._world_executor_factory() is root._world_executor
 
     def test_a_symlink_root_binds_every_writer_component_to_the_resolved_path(self, tmp_path):
@@ -331,7 +333,7 @@ class TestTheCompositionRoot:
         link.symlink_to(real, target_is_directory=True)
 
         writer = root.open_corpus(link, authority=FULL, profile=BASE)
-        executor = writer._corpus.executor
+        executor = cast(_RoutedExecutor, writer._corpus.executor)._inner
         port = writer._operation_port
         assert isinstance(executor, root.DurableExecutor)
         assert isinstance(port, root.DurableOperationPort)

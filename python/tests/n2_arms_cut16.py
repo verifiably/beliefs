@@ -10,8 +10,8 @@ CUT16_ARMS = (
         asserts="a move preserves the carried record's identity and producer semantics",
         sabotage=Sabotage(
             module="relocation.py",
-            before="        moved = destination._add_locked(node, provenance=True)\n",
-            after=('        moved = destination._add_locked(node.model_copy(update={"uid": "0" * 32}), provenance=True)\n'),
+            before="        moved = destination._add_locked(node)\n",
+            after=('        moved = destination._add_locked(node.model_copy(update={"uid": "0" * 32}))\n'),
         ),
         checks=(f"{_ACCEPTANCE}::test_w5_move_changes_only_location_and_preserves_producer_semantics",),
     ),
@@ -251,11 +251,11 @@ CUT16_ARMS = (
                 "        source_intent = source._append_operation_intent(\n"
                 "            intent.kind, intent.event_token, intent.actor\n"
                 "        )\n"
-                "        moved = destination._add_locked(node, provenance=True)\n"
+                "        moved = destination._add_locked(node)\n"
                 "        source._delete_locked(node.id)\n"
             ),
             after=(
-                "        moved = destination._add_locked(node, provenance=True)\n"
+                "        moved = destination._add_locked(node)\n"
                 "        source._delete_locked(node.id)\n"
                 "        destination_intent = destination._append_operation_intent(\n"
                 "            intent.kind, intent.event_token, intent.actor\n"
@@ -279,11 +279,11 @@ CUT16_ARMS = (
                 "        other_intent = other_writer._append_operation_intent(\n"
                 "            intent.kind, intent.event_token, intent.actor\n"
                 "        )\n"
-                "        survivor = keep_writer._replace_locked(merged, provenance=True)\n"
+                "        survivor = keep_writer._replace_locked(merged)\n"
                 "        other_writer._delete_locked(other_node.id)\n"
             ),
             after=(
-                "        survivor = keep_writer._replace_locked(merged, provenance=True)\n"
+                "        survivor = keep_writer._replace_locked(merged)\n"
                 "        other_writer._delete_locked(other_node.id)\n"
                 "        keep_intent = keep_writer._append_operation_intent(\n"
                 "            intent.kind, intent.event_token, intent.actor\n"

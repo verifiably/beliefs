@@ -15,7 +15,9 @@ projection), §4.1 (the registry is private), §5.1 (the port holds the profile
 and every port method rechecks), §5.2 (provenance mode threaded through import,
 relocation and consolidation) and §7.1 (validated reads, never construction).
 **Conformance cut 20 frozen 2026-09-06** (`2026-09-05-conformance-cut-20.md`), before implementation.
-Not yet implemented or discharged.
+Implemented on the `domain-boundary` lane through the integration and cut-20
+acceptance surface (2026-09-07); certified aggregate discharge and main landing
+remain pending.
 **Scope:** the first of two slices on the `domain` lane, anchored on the
 empirical-observation facet's payload contract, kernel §11's open question
 and the mm30 reproduction record's first filed finding

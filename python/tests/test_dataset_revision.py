@@ -167,3 +167,12 @@ def test_malformed_dataset_prose_is_refused(minted, update):
         update["facets"] = {**node.facets, **update["facets"]}
     with pytest.raises(ValidationRefused):
         w.revise(node.model_copy(deep=True, update=update))
+
+
+def test_candidate_kind_permission_does_not_authorize_the_stored_kind(minted):
+    w, node = minted
+    restricted = writer(w.root, lacking(kinds=("dataset",), actor="alice"))
+    candidate = node.model_copy(deep=True, update={"kind": "proposition"})
+    with pytest.raises(PermitExceeded):
+        restricted.revise(candidate)
+    assert w.read_view.get(node.id) == node

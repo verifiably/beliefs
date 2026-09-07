@@ -165,11 +165,11 @@ _G1 = [
             module="belief.py",
             before=(
                 "    vertices = tuple(DirectionalInput(assessment=a.identity(), "
-                "sign=OUTCOME_SIGNS[a.outcome]) for a in directional)"
+                "sign=OUTCOME_SIGNS[a.outcome]) for a in graph_inputs)"
             ),
             after=(
                 "    vertices = tuple(DirectionalInput(assessment=a.identity(), "
-                "sign=OUTCOME_SIGNS[a.outcome]) for a in directional) + tuple(\n"
+                "sign=OUTCOME_SIGNS[a.outcome]) for a in graph_inputs) + tuple(\n"
                 "        DirectionalInput(assessment=sa.ref, sign=1 if sa.relation == "
                 '"asserts" else -1)\n'
                 "        for sa in records.source_assertions\n"
@@ -505,13 +505,13 @@ _P6 = [
             module="belief.py",
             before=(
                 "    vertices = tuple(DirectionalInput(assessment=a.identity(), "
-                "sign=OUTCOME_SIGNS[a.outcome]) for a in directional)"
+                "sign=OUTCOME_SIGNS[a.outcome]) for a in graph_inputs)"
             ),
             after=(
                 "    vertices = tuple(DirectionalInput(assessment=a.identity(), "
-                "sign=OUTCOME_SIGNS[a.outcome]) for a in directional) + tuple(\n"
+                "sign=OUTCOME_SIGNS[a.outcome]) for a in graph_inputs) + tuple(\n"
                 '        DirectionalInput(assessment=a.identity() + ":estimate", sign=OUTCOME_SIGNS[a.outcome])\n'
-                "        for a in directional\n"
+                "        for a in graph_inputs\n"
                 "        if a.estimate is not None\n"
                 "    )"
             ),
@@ -547,7 +547,7 @@ _P8 = [
             module="belief.py",
             before=(
                 "    vertices = tuple(DirectionalInput(assessment=a.identity(), "
-                "sign=OUTCOME_SIGNS[a.outcome]) for a in directional)"
+                "sign=OUTCOME_SIGNS[a.outcome]) for a in graph_inputs)"
             ),
             after=(
                 "    vertices = tuple(DirectionalInput(assessment=a.identity(), "

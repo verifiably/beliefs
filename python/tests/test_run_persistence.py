@@ -97,6 +97,9 @@ def test_kill_between_append_and_start_leaves_intent_only(certified_work, monkey
             inner.append_intent(payload)
             raise _Killed()
 
+        def preflight(self, plan):
+            raise AssertionError("no publication may run")
+
         def execute(self, plan):
             raise AssertionError("no publication may run")
 
@@ -126,6 +129,9 @@ def test_kill_between_append_and_start_leaves_intent_only_operation_kind(
         def append_intent(self, payload):
             inner.append_intent(payload)
             raise _Killed()
+
+        def preflight(self, plan):
+            raise AssertionError("no publication may run")
 
         def execute(self, plan):
             raise AssertionError("no publication may run")

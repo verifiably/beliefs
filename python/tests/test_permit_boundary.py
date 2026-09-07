@@ -38,6 +38,7 @@ PRIMITIVE_NAMES = frozenset(
 )
 PRIMITIVE_IMPLEMENTATIONS = frozenset(
     {
+        "corpus.py:_RoutedExecutor.execute",
         "root.py:DurableOperationPort.append_intent",
         "root.py:DurableOperationPort.execute",
         "root.py:DurableOperationPort._execute",
@@ -70,6 +71,7 @@ WRITE_ENTRY_POINTS: dict[str, str] = {
     "corpus.py:CorpusWriter._delete_locked": "corpus-write",
     "corpus.py:CorpusWriter._append_operation_intent": "corpus-write",
     "corpus.py:CorpusWriter._publish_operation_report": "corpus-write",
+    "corpus.py:_RoutedExecutor.commit_fulfilling": "corpus-write",
     "boundary.py:execute_assessment_run": "run",
     "boundary.py:execute_production_run": "run",
     "holdings/boundary.py:_publish": "holdings",

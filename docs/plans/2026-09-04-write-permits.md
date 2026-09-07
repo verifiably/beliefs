@@ -79,7 +79,7 @@ EOF
 
 **Interfaces:**
 - Consumes: the frozen design; cut 14 §11 as the amendment precedent; the pinned-arm survey below.
-- Produces: the rulings every later task implements: (a) cut 10 is cited, not run, from this cut's tree onward; (b) this cut's runner (17 by §14) names an explicit module inventory rather than chaining `cut15_acceptance.py`; (c) the `actor` local and `ActContext.actor` property; (d) E6's inventory-side mutations are inline unit arms, not N2 sabotages; (e) `_admit_arrival` reads `world.authority`, `_audit_log` keeps its label; (f) `dataset` not required by the run boundary is already §3.2's ruling. The commit hash of this task is `IMPLEMENTATION_AMENDMENT_COMMIT` in Task 14: `a0f2302`. **Landed 2026-09-04.** The renumbering and relocation amendment (§14) landed separately after the merge of relocation cut 16; its hash is `RENUMBERING_AMENDMENT_COMMIT` in Task 14.
+- Produces: the rulings every later task implements: (a) cut 10 is cited, not run, from this cut's tree onward; (b) this cut's runner (17 by §14) names an explicit module inventory rather than chaining `cut15_acceptance.py`; (c) the `actor` local and `ActContext.actor` property; (d) E6's inventory-side mutations are inline unit arms, not N2 sabotages; (e) `_admit_arrival` reads `world.authority`, `_audit_log` keeps its label; (f) `dataset` not required by the run boundary is already §3.2's ruling. The commit hash of this task is `IMPLEMENTATION_AMENDMENT_COMMIT` in Task 14: `b25fcc7`. **Landed 2026-09-04.** The renumbering and relocation amendment (§14) landed separately after the merge of relocation cut 16; its hash is `RENUMBERING_AMENDMENT_COMMIT` in Task 14.
 
 - [x] **Step 0: Start the task record** — `tasks start beliefs-49d549`
 
@@ -3278,7 +3278,7 @@ cd .. && tasks check && git add python tasks && git commit -m "test(permit): dur
 - Create: `python/tools/cut17_acceptance.py`
 
 **Interfaces:**
-- Consumes: every check id from Tasks 2–13; `IMPLEMENTATION_AMENDMENT_COMMIT` (`a0f2302`) from Task 1 and `RENUMBERING_AMENDMENT_COMMIT` (the §14 commit) — both pinned by the audit test beside the freeze; the pins below.
+- Consumes: every check id from Tasks 2–13; `IMPLEMENTATION_AMENDMENT_COMMIT` (`b25fcc7`) from Task 1 and `RENUMBERING_AMENDMENT_COMMIT` (the §14 commit) — both pinned by the audit test beside the freeze; the pins below.
 - Produces: `CUT17_ARMS` (including the three relocation arms of §14.4, **declared in Step 1 beside the others**: `E1r` displaces `_add_locked`'s `require` below its `self._corpus.add(node)`; `E3r` drops `_append_operation_intent`'s `ActorMismatch` raise; `E7r` drops `move`'s pre-intent `require` on the destination — each `before` unique in its module and outside every cut-16 pinned block, each naming a Task 5 or Task 13 check), `ROW_UNITS = {"E1": 1, ..., "E8": 1}`, `LABELED_UNITS = ("K1",)`, `CO_CITED = {"K1": ("test_holdings_boundary.py::test_publication_failure_after_an_established_outcome_raises",)}` (`H4u1`'s real check id, `n2_arms_cut10.py:312`), `unit_of`.
 
 - [ ] **Step 0: Start the task record** — `tasks start beliefs-c430e0`
@@ -3754,7 +3754,7 @@ cd .. && tasks check && git add python tasks && git commit -m "test(cut17): decl
 
 - [ ] **Step 1: Write the results record**
 
-Mirror `docs/plans/2026-09-01-conformance-cut-15-results.md`'s sections: header (subject, measured against frozen §7/§9 at `c2f87b3`, §13 at `a0f2302` and §14 at `RENUMBERING_AMENDMENT_COMMIT`, the cut numbered 17 by §14.1); §1 accounting (8 selected + 1 labeled = 9 units, N arms); the citation of cut 10 with the pinned shas and the succession by `K1`; §2 what ran (the runner's command, its work root, the exact host tuple, every phase); §3 disposition (E1–E8 close); §4 the by-design stale cut-10 arms named.
+Mirror `docs/plans/2026-09-01-conformance-cut-15-results.md`'s sections: header (subject, measured against frozen §7/§9 at `c2f87b3`, §13 at `b25fcc7` and §14 at `RENUMBERING_AMENDMENT_COMMIT`, the cut numbered 17 by §14.1); §1 accounting (8 selected + 1 labeled = 9 units, N arms); the citation of cut 10 with the pinned shas and the succession by `K1`; §2 what ran (the runner's command, its work root, the exact host tuple, every phase); §3 disposition (E1–E8 close); §4 the by-design stale cut-10 arms named.
 
 - [ ] **Step 2: Move the design status and §10**
 

@@ -139,10 +139,10 @@ def test_w17b_every_ordinary_door_refuses_coordination(durable_coordination_root
 
 
 def test_w17c_import_refuses_and_names_the_coordination_member(durable_coordination_roots):
-    (root, _), _profile = durable_coordination_roots
-    writer = open_corpus(root, authority=FULL, profile=_profile)
-    member = Node(id="note:old", kind="note", title="old")
-    with pytest.raises(ImportRefused) as caught:
+    _roots, _resolver, (writer, source) = writers(durable_coordination_roots)
+    member = source.mint_coordination("project", content=content_for("project"))
+    source.profile.validate_document(member)
+    with pytest.raises(ImportRefused, match="coordination records are replicated") as caught:
         writer.import_bundle(
             [member], observer="o", instrument="i", opened_at=AT, closed_at=AT
         )

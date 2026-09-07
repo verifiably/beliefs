@@ -239,15 +239,19 @@ class _HashingOperationPort:
         self.intents.append(_IntentRecord(payload, digest))
         return digest
 
+    def preflight(self, plan) -> None:
+        pass
+
     def execute(self, plan) -> None:
         operations = list(plan)
         self._inner.execute(operations)
         self.executed.append(operations)
 
-    def execute_fulfilling(self, plan, fulfills: str) -> None:
+    def execute_fulfilling(self, plan, fulfills: str) -> str:
         operations = list(plan)
         self._inner.execute(operations)
         self.fulfilling.append((operations, fulfills))
+        return "r" * 64
 
     def execute_fulfilling_guarded(self, plan, fulfills: str, *, guard, fallback):
         raise AssertionError("never reached")

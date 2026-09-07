@@ -27,8 +27,8 @@ FROZEN_CUT = REPO_ROOT / "docs" / "superpowers" / "specs" / "2026-09-01-workflow
 CUT15_FREEZE_COMMIT = "e2f9d71"
 
 FROZEN_PRIOR_CUT_FILES = {
-    "python/tests/n2_arms_cut3.py": "5a02ca2",
-    "python/tests/n2_arms_cut5.py": "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e",
+    "python/tests/n2_arms_cut3.py": "1e92471",
+    "python/tests/n2_arms_cut5.py": "1e92471",
     "python/tests/n2_arms_cut6.py": "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e",
     "python/tests/n2_arms_cut7.py": "117f37e",
     "python/tests/acceptance/n2_arms_cut8.py": "5a02ca2",

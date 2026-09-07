@@ -1,13 +1,16 @@
 ---
 id: beliefs-afbbff
 title: "Deliver the writer session, session ledger, and corpus-write amendment"
-status: todo
+status: done
 priority: 1
 size: xl
+owner: feat/writer-session
 created: 2026-08-31T21:28:39Z
-updated: 2026-09-04T21:40:11Z
+updated: 2026-09-06T04:21:43Z
 depends: [beliefs-96a24a]
 tags: [writer, sessions]
+spec: docs/designs/2026-09-05-writer-session-design.md
+plan: docs/plans/2026-09-05-writer-session.md
 ---
 
 Sub-project 2's beliefs half beyond permits (beliefs-96a24a): open_attended_session with fresh session identity and endpoint-set actor; WriterSession.scoped(required) returning an invocation-scoped writer; the session ledger (invocation-open/act/invocation-close with persisted refusal envelopes) at <operations root>/sessions/; every session-mediated ordinary corpus write as intent+fulfillment via a versioned act-report amendment adding the corpus-write operation kind; crash reconciliation (chains are truth, ledger is evidence). Contract: the science repo's docs/specs/2026-08-31-command-framework-design.md §§4-5 and its plan's Task 12 Consumes block.
@@ -15,3 +18,15 @@ Sub-project 2's beliefs half beyond permits (beliefs-96a24a): open_attended_sess
 ## Notes
 
 - 2026-09-04T21:40:11Z (main): write-permit exports live at beliefs merge commit da37650: RequiredCapabilities, KIND_ACTS, and PermitExceeded
+- 2026-09-05T08:28:16Z (feat/writer-session): claimed by Claude Code (Fable 5.1), pid 3136796; brainstorming in .worktrees/writer-session
+- 2026-09-05T09:17:36Z (feat/writer-session): design banked at docs/designs/2026-09-05-writer-session-design.md; cut 19 freezes after review; J1-J10; session lane touches corpus.py and report.py
+- 2026-09-05T09:53:23Z (feat/writer-session): review 1 resolved: scoped(required, invocation_id) and open_attended_session(coordination=) are change requests to science Task 12; J11 added; reconciliation under the corpus lock via detached inspection
+- 2026-09-05T10:04:18Z (feat/writer-session): review 2 resolved: PlanRefused(WriteRefused) from preflight; abandoned invocations stay open, fresh claims proceed; J2 bounded at submission; reconcile takes the whole ChainView incl. pending; adoption and a well-formed chain required at open
+- 2026-09-05T10:19:29Z (feat/writer-session): review 3 resolved: recovery_pending gates every write after a failed submission (port.recover then rebuild); ledger I/O failure ends the session (SessionLedgerFailed), index updated only after fsync
+- 2026-09-05T10:30:02Z (feat/writer-session): review 4 resolved: root 'unresolved' flag true at process start and before every submission on every path, cleared after the state update; one _locked() settles before every prepare incl. import and relocation; J1/J2 aligned
+- 2026-09-05T10:41:55Z (feat/writer-session): review 5 resolved: recovery bound to the durable executor factory (recover(root)), read into root state at creation; portless durable writers recover; stale head-unchanged and ExecutionError wording aligned
+- 2026-09-05T10:59:05Z (feat/writer-session): review 6 resolved: two consistency edits; no architectural blockers remain; cut 19 may freeze
+- 2026-09-05T11:16:11Z (feat/writer-session): cut 19 frozen 2026-09-05: docs/designs/2026-09-05-conformance-cut-19.md, J1-J11 in full, 11 units, prefix cut18_acceptance.py; J table in the inventory; roadmap/ledger gain writer-session and the session lane
+- 2026-09-05T11:38:57Z (feat/writer-session): plan banked at docs/plans/2026-09-05-writer-session.md; 12 chained children
+- 2026-09-05T13:00:56Z (feat/writer-session): plan revision after review: A-prime approved (routed executor commit, ordinary bodies untouched, settling hold, one-call fulfilling scope); nine other findings fixed
+- 2026-09-06T04:21:43Z (feat/writer-session): writer session delivered: J1-J11 closed at cut 19 (docs/plans/2026-09-05-conformance-cut-19-results.md)

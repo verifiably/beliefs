@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -28,12 +29,24 @@ from test_n2 import audit, baseline
 
 import beliefs.root as science_root
 
+# Live facet-contract matcher migration, 2026-09-07; canonical table remains frozen at e0bc65c.
+_LIVE_SABOTAGES = {
+    "M3": Sabotage(
+        module="audit.py",
+        before="    findings = list(corpus_check(view, profile))\n",
+        after='    from beliefs import corpus as _corpus_module\n\n    _corpus_module.standing_in_local_view(view, "corpus")\n    findings = list(corpus_check(view, profile))\n',
+    ),
+}
+CUT18_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT18_ARMS
+)
+
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-04-conformance-cut-18.md"
 FROZEN_CUT_AT_FREEZE = "docs/designs/2026-09-04-conformance-cut-17.md"
-CUT18_FREEZE_COMMIT = "2071be0"
-RENUMBERING_AMENDMENT_COMMIT = "e9e592a"
+CUT18_FREEZE_COMMIT = "c7d78f5"
+RENUMBERING_AMENDMENT_COMMIT = "e0bc65c"
 CUT18_FROZEN_SHA256 = "797775b5c591c3c7ade1d1e4f0f188097a4fac27f21435218dbb4fa7f8e54e29"
 
 #: The renumbering is a rename, not a re-reading (cut document §8).
@@ -45,8 +58,8 @@ RENUMBERING_SUBSTITUTIONS = (
 )
 
 FROZEN_PRIOR_CUT_FILES = {
-    "python/tests/n2_arms_cut3.py": "5a02ca2",
-    "python/tests/n2_arms_cut5.py": "7f5b28e",
+    "python/tests/n2_arms_cut3.py": "1e92471",
+    "python/tests/n2_arms_cut5.py": "1e92471",
     "python/tests/n2_arms_cut6.py": "fdea7a7",
     "python/tests/n2_arms_cut7.py": "8ca085e",
     "python/tests/acceptance/n2_arms_cut8.py": "5a02ca2",

@@ -11,6 +11,7 @@ SRC = Path(beliefs.__file__).resolve().parent
 MODULES = ("corpus.py", "relocation.py", "root.py", "holdings/boundary.py")
 EFFECTS = {"add", "execute", "_execute", "_execute_fulfilling", "execute_fulfilling", "execute_fulfilling_guarded", "append_intent", "publish_fulfilling", "_store_append_intent", "_store_publish_fulfilling"}
 HELPERS = {
+    "commit_fulfilling",
     "_add_locked",
     "_replace_locked",
     "_delete_locked",
@@ -72,6 +73,14 @@ def violations(module, tree):
         key = module, fn.name
         parent = parents[fn]
         # DurableOperationPort.execute is policy, DurableExecutor.execute is the primitive.
+        if isinstance(parent, ast.ClassDef) and module == "corpus.py":
+            if parent.name == "_RoutedExecutor" and fn.name == "execute":
+                # Executor primitive: callers are guarded; fulfilling publication is checked separately.
+                assert any(name(call) == "commit_fulfilling" for call in calls(fn))
+                continue
+            if parent.name == "OperationWrites" and fn.name == "add":
+                assert ast.unparse(fn.body[-1]) == "return self._run(lambda: self._writer.add(node))"
+                continue
         if key in PRIMITIVES or (module == "root.py" and fn.name == "execute" and isinstance(parent, ast.ClassDef) and parent.name == "DurableExecutor"):
             continue
         if key in INHERITED:

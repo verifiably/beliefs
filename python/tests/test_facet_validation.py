@@ -134,10 +134,11 @@ class TestCompiledProducts:
     def test_reordering_declarations_moves_neither_identity_nor_coverage(self, base_contract_path):
         doc = cast(dict, load_document(base_contract_path, source="<t>"))
         reordered = copy.deepcopy(doc)
-        reordered["kinds"] = dict(reversed(list(doc["kinds"].items())))
+        reordered["kinds"] = dict(reversed(list(reordered["kinds"].items())))
         reordered["kinds"]["dataset"]["facets"] = dict(reversed(list(doc["kinds"]["dataset"]["facets"].items())))
         reordered["facets"] = dict(reversed(list(doc["facets"].items())))
         reordered["relations"] = dict(reversed(list(doc["relations"].items())))
+        assert tuple(doc["kinds"]["dataset"]["facets"]) != tuple(reordered["kinds"]["dataset"]["facets"])
         a = compile_profile(reparse(doc, "<a>"), [])
         b = compile_profile(reparse(reordered, "<b>"), [])
         assert a.compiled_identity == b.compiled_identity

@@ -1,7 +1,7 @@
 # Write permits — design (the `write-permits` slice)
 
 **Date:** 2026-09-04
-**Status:** implemented and discharged 2026-09-04 at `16dd415`; conformance cut 17 (16 in
+**Status:** implemented and discharged 2026-09-04 at `4f59d9c`; conformance cut 17 (16 in
 the frozen text, renumbered by §14) froze before implementation at `c2f87b3`
 and its 8 selected + 1 labeled units passed through 24 sabotage arms after the
 current-tree prefix of §13.2. Results:
@@ -251,6 +251,17 @@ business writing, and a test that wants a full one imports the helper of
 
 ### 4.2 The inventory
 
+> **Amended 2026-09-05 (writer session):** the inventory gains a **37th row**,
+> `corpus.py:_RoutedExecutor.commit_fulfilling` — family `corpus-write`, kinds
+> read from the plan's own record paths — whose first statement with any effect
+> is `scope.authority.require("corpus-write", _plan_kinds(plan))`. It is the
+> commit seam a session write is routed through, so the seam requires exactly
+> what it emits. `_RoutedExecutor.execute` is the `WritePlanExecutor` the
+> corpus holds — an *implementation* of the `execute` primitive, not a caller —
+> and joins `test_permit_boundary.py`'s implementation-exclusion list by exact
+> name, as §4.3's rule for primitive implementations provides
+> (`2026-09-05-writer-session-design.md` §13 items 9 and 13).
+
 Every definition below reaches a write primitive and therefore calls
 `authority.require(<family>, <kinds>)` before it. The kinds column is what the
 definition actually emits — judged from the record or bundle in hand, never
@@ -441,6 +452,14 @@ The `E` table. Rows are frozen; ids are never renumbered.
 5. **No ledger, no session.** A refused act leaves no trace anywhere; a
    permitted act leaves exactly the trace it leaves today. Evidence that a
    session performed an act is the session task's.
+
+   > **Amended 2026-09-05 (writer session):** the ledger and the session now
+   > exist. `beliefs.session` opens an attended session whose identity fixes
+   > the actor, appends an `act` line — fsynced under the root's operation
+   > lock — for every committed session write, and reconciles those lines
+   > against the corpus chain. A *refused* act still leaves no trace of its
+   > own: the limitation now bounds refusals only
+   > (`2026-09-05-writer-session-design.md` §3 and §5; J5, J7, J8).
 
 ## 9. Conformance cut 16
 
@@ -665,7 +684,7 @@ This section amends the cut's number and its inventory after the relocation
 half of `consolidate-family` merged into `main` ahead of this slice. Like
 §13 it rewrites nothing in §7 or §9; where it changes a disposition it is
 the current ruling, and the results record cites the freeze (`c2f87b3`),
-§13 (`a0f2302`) and this section.
+§13 (`b25fcc7`) and this section.
 
 ### 14.1 The cut takes 17
 
@@ -839,3 +858,44 @@ read-only exception set are unchanged.
 design §4.2 and plan Task 6 carry a dated note. The guarantee tables are
 untouched: E5 already holds that the empty requirement is covered by the
 empty permit, and the read door adds no entry point.
+
+## 17. Citation amendment — 2026-09-06
+
+A history rewrite on 2026-09-05 (the commit that stripped a session trailer
+from every message) re-minted every commit from 2026-09-04 onward with its
+tree and author date unchanged. The two amendment commits §13 and §14 cite,
+and the freeze-ancestry pins `test_n2_cut17.py` carries for them, named the
+pre-rewrite ids, which are ancestors of no branch; the pin test failed on
+`main` and `cut18_acceptance.py`'s phase 1 could not complete (cut 19 results,
+concern 1; task `beliefs-faf658`). Each id is re-cited in place to the
+rewritten commit with the identical tree and author date:
+
+| was cited as | re-cited to | what it is |
+|---|---|---|
+| `a0f2302` | `b25fcc7` | §13, the implementation amendment |
+| `398491d` | `e6b8c0b` | §14, the renumbering and relocation amendment |
+| `16dd415` | `4f59d9c` | the cut 17 discharge commit |
+
+The freeze commit `c2f87b3` predates the rewrite and is unchanged. No frozen
+section changes: §7 and §9 are still compared byte-exact to `c2f87b3`. The
+cut 17 results record and the write-permits plan re-cite the same ids in
+place, by the same tree-and-date match.
+
+## 18. Declaration re-pin amendment — 2026-09-07
+
+`python/tests/n2_arms_cut3.py` and `python/tests/n2_arms_cut5.py` moved at
+`1e92471`, in the `verification-publication` slice. That slice made
+`AssessmentValue.run` the bare closure address and `RunValue.ref` the typed
+reference; cut 3's and cut 5's arms pin lines of that source verbatim as their
+sabotage `before`, and the standing rule is to fix the arm, never the source,
+so the arms were rewritten against the landed code. This cut's
+`FROZEN_PRIOR_CUT_FILES` still named the pre-move commits, so
+`test_n2_cut17.py`'s pin test failed on this tree.
+
+| was pinned at | re-pinned to | what it is |
+|---|---|---|
+| `5a02ca2` | `1e92471` | `python/tests/n2_arms_cut3.py` |
+| `7f5b28e` | `1e92471` | `python/tests/n2_arms_cut5.py` |
+
+Only the pins move. The selection, the guarantee rows, their checks and the
+declaration units are unchanged, and no frozen section changes.

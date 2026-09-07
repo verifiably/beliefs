@@ -50,7 +50,7 @@ __all__ = [
 ]
 
 ACT_REPORT_DOMAIN = "science.act-report.v1"
-OPERATION_KINDS = ("acquisition", "audit", "consolidate", "import", "move", "re-check", "run-attempt")
+OPERATION_KINDS = ("acquisition", "audit", "consolidate", "corpus-write", "import", "move", "re-check", "run-attempt")
 UNFINISHED = "unfinished"
 INDETERMINATE = "indeterminate"
 CLOSED = "closed"
@@ -475,6 +475,10 @@ def completion(intent: Intent, registrations: tuple[Registration, ...], held: Ma
         raise MalformedRecord("completion registrations must be Registration values")
     if not isinstance(held, Mapping):
         raise MalformedRecord("completion held values must be a mapping")
+    if type(intent) is OperationIntent and intent.kind == "corpus-write":
+        # Writer-session design §4.1: the registration is the fulfillment;
+        # nothing about its pointer bears on the reading (§13 item 7).
+        return CLOSED if any(r.intent_token == intent.event_token for r in registrations) else UNFINISHED
     from beliefs.intents import shapes
 
     decoded = shapes.DecodedIntent(

@@ -119,37 +119,8 @@ def frozen() -> FrozenSpec:
 
 
 def spec_record(spec: FrozenSpec) -> Node:
-    """`analysis-spec` is a stored kind (stored.py's kinds table; the import
-    path validates its facet) but the kernel exports no builder or reader for
-    it. This node carries the frozen members and the identity so the record
-    is on disk; that no kernel function restores a FrozenSpec from it is a
-    finding (Task 11)."""
-    facet = {
-        "identity": spec.identity,
-        "target": spec.target,
-        "estimand": spec.estimand,
-        "method": spec.method,
-        "assumptions": spec.assumptions,
-        "falsification": spec.falsification,
-        "input_roles": [{"role": e.role, "dataset": e.dataset} for e in spec.input_roles],
-        "applicability": spec.applicability,
-        "interpretation_rule": spec.interpretation_rule,
-        "equivalence_rule": spec.equivalence_rule,
-        "parameters": {k: str(v) for k, v in spec.parameters.items()},
-        "nondeterminism": spec.nondeterminism.projection(),
-        "rule_bindings": [list(p) for p in spec.rule_bindings],
-    }
-    # A governed kind: the writer refuses an unstamped record.
-    # `stamp_semantic_identity` is the one construction authority for the stamp.
-    return stored.stamp_semantic_identity(
-        Node(
-            id=f"analysis-spec:{spec.identity}",
-            kind="analysis-spec",
-            title=f"spec {spec.identity[:12]}",
-            facets={"analysis-spec": facet},
-            relations=[],
-        )
-    )
+    """The kernel's own builder (verification-publication design §7)."""
+    return stored.analysis_spec_node(spec)
 
 
 def main() -> int:
@@ -163,12 +134,6 @@ def main() -> int:
         "build_assessment hands the interpretation rule a ResultManifest of digests, not output bytes; "
         "the verdict is routed through a canonical outcome file whose digest the rule maps",
         filed="computation design (where an interpretation rule reads content)",
-    )
-    findings.record(
-        4,
-        "design-gap",
-        "analysis-spec is a stored kind with no kernel builder or reader; the spec record was hand-built",
-        filed="computation design / stored.py (spec record builder and restore)",
     )
     print(f"frozen spec {spec.identity} targeting {spec.target}; record {minted.id}")
     return 0

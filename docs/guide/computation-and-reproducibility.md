@@ -2,7 +2,7 @@
 title: Computation and reproducibility
 status: living
 created: 2026-08-08
-updated: 2026-09-03
+updated: 2026-09-06
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -17,6 +17,7 @@ sources:
   - ../designs/2026-08-29-successor-admission-design.md
   - ../designs/2026-08-30-conformance-cut-13.md
   - ../designs/2026-08-30-run-confinement-design.md
+  - ../designs/2026-09-06-verification-publication-design.md
 ---
 
 # Computation and reproducibility
@@ -150,11 +151,14 @@ capabilities the launch actually observed. `derive_scope` reaches
 `clean-environment` only through a qualifying pair of such receipts —
 `boundary-policy/minimal-v1`'s scratch root stays `same-environment` at best.
 Cut 15 composes separate planning and execution launch attestations and closes
-R2, R16, R20, and R21; `qualifies()` reads the execution launch. What is not
-built here is owned elsewhere — durable verification publication, the mutation
-log's event-level order (L8), and the preimage-backed classification of a
-removed verification (L13) — and listed with those owners in the
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-04).
+R2, R16, R20, and R21; `qualifies()` reads the execution launch. Verification
+publication is implemented
+([verification-publication design](../designs/2026-09-06-verification-publication-design.md);
+cut 21 undischarged until cut 20 merges). What is not built here is owned
+elsewhere — the mutation log's event-level order (L8); and the
+preimage-backed classification of a removed verification (L13) — and listed
+with those owners in the
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-05).
 
 ## Open edges
 

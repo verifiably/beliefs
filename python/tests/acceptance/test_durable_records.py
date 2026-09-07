@@ -60,7 +60,13 @@ def belief_digest(view, proposition: str = PROPOSITION) -> str:
     them: the closure digests them, and nothing here computes them.
     """
     assessments = assessments_of(view)
-    runs = {value.run: run_value(view, value.run) for value in assessments if view.holds(value.run)}
+    # `AssessmentValue.run` is the bare closure address; the store is keyed by the
+    # typed ref, and `runs` is keyed the way `evaluate` looks it up — bare.
+    runs = {
+        value.run: run_value(view, stored.typed_ref("run", value.run))
+        for value in assessments
+        if view.holds(stored.typed_ref("run", value.run))
+    }
     return build_closure(
         proposition=proposition,
         assessments=assessments,

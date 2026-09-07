@@ -395,7 +395,7 @@ def _r5_records() -> Records:
     assessment = AssessmentValue(
         spec="spec-a", run="run-a", proposition=PROPOSITION, outcome="supported", interpretation_rule="rule-1"
     )
-    run = RunValue(ref="run-a", spec="spec-a", inputs=(RunInput(role="observes", dataset=R5_DECLARATION),))
+    run = RunValue(ref=stored.typed_ref("run", "run-a"), spec="spec-a", inputs=(RunInput(role="observes", dataset=R5_DECLARATION),))
     verification = Verification(
         ref="v-a", assessment=assessment.identity(), scope="clean-environment", verdict="passed"
     )

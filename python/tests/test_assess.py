@@ -43,13 +43,14 @@ from beliefs.spec import (
     freeze,
     revise,
 )
+from beliefs.stored import local_id
 from beliefs.verification import Verification
 
 
 def assessment_over(run: RunValue) -> AssessmentValue:
     return AssessmentValue(
         spec=run.spec,
-        run=run.ref,
+        run=local_id("run", run.ref),
         proposition="prop-1",
         outcome="supported",
         interpretation_rule="rule-1",

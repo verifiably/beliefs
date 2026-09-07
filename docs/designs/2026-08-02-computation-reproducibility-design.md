@@ -2328,6 +2328,11 @@ available → unavailable must keep admitting, and a forged one going unavailabl
 available must not lose admission until an **audit** records the superseding
 verification that takes it away.
 
+> **Note (2026-09-06).** The stored verification carries the report's projection and
+> its rule and scope-rule identities (verification-publication design §4.1), and
+> scope is recomputed under audit and at import from the stored certification (§6
+> there).
+
 ### 7.4 `t078` and `t080`, closed
 
 `t080`'s belief ceiling is rejected by kernel §3 and nothing here revives it.

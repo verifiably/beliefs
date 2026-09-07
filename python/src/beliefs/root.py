@@ -220,6 +220,7 @@ __all__ = [
     "audit_log",
     "chain_head_reader",
     "durable_executor_factory",
+    "durable_operation_port",
     "epochs_ordered",
     "export_head_artifact",
     "fork_corpus",
@@ -229,11 +230,13 @@ __all__ = [
     "init_store_root",
     "init_world_root",
     "install_shipped_world_rules",
+    "log_seam",
     "metadata_root_for",
     "migrate_root_to_lifecycle_v3",
     "open_corpus",
     "open_world",
     "open_world_read",
+    "plan_preflight",
     "read_lifecycle_state",
     "replicate_root",
     "restore_root",
@@ -990,6 +993,9 @@ class DurableOperationPort:
             except Exception as caught:
                 raise ExecutionError(str(caught), index=None, applied=None) from caught
 
+    def preflight(self, plan: WritePlan) -> None:
+        plan_preflight(plan)
+
     def execute(self, plan: WritePlan) -> None:
         """Publish a record that fulfills no intent."""
         with _operation_lock_for(self.root):
@@ -1009,10 +1015,11 @@ class DurableOperationPort:
             fulfills=None,
         ).execute(plan)
 
-    def execute_fulfilling(self, plan: WritePlan, fulfills: str) -> None:
+    def execute_fulfilling(self, plan: WritePlan, fulfills: str) -> str:
         with _operation_lock_for(self.root):
             require_pins_agree(self.root, self._profile)
             self._execute_fulfilling(plan, fulfills)
+            return _registration_for(self.root, self._backend, self._storage, self._metadata_root, fulfills)
 
     def execute_fulfilling_guarded(self, plan, fulfills, *, guard, fallback):
         from beliefs.corpus import ReadView
@@ -1035,6 +1042,23 @@ class DurableOperationPort:
             intent_domain=INTENT_DOMAIN,
             fulfills=fulfills,
         ).execute(plan)
+
+
+def _registration_for(root: Path, backend: Backend, storage: StorageProfile, metadata_root: Path, fulfills: str) -> str:
+    """The digest of the one registration fulfilling `fulfills`, read back from
+    the chain (design §4.4): digests come from the chain itself, as anchor
+    carriage already reads them, and the executor's outcome stays discarded."""
+    try:
+        view = read_chain(backend, str(root), str(metadata_root), storage)
+    except Exception as caught:
+        # Every engine shape maps to the seam's one failure type.
+        raise ExecutionError(f"registration readback failed: {caught}", index=None, applied=None) from caught
+    matches = [digest for digest, entry in view.entries if type(entry) is RegisteredEntry and entry.fulfills == fulfills]
+    if len(matches) != 1:
+        raise ExecutionError(
+            f"expected exactly one registration fulfilling {fulfills}, found {len(matches)}", index=None, applied=None
+        )
+    return matches[0]
 
 
 class _PlanPayloads:
@@ -1310,6 +1334,12 @@ def _refuse_over_ceiling(plan: WritePlan) -> None:
             )
 
 
+def plan_preflight(plan: WritePlan) -> None:
+    """Writer-session design §4.3 step 3: the two checks that need no engine state."""
+    _refuse_malformed(plan)
+    _refuse_over_ceiling(plan)
+
+
 def _durable_executor(root: Path) -> DurableExecutor:
     return DurableExecutor(
         root,
@@ -1321,9 +1351,43 @@ def _durable_executor(root: Path) -> DurableExecutor:
     )
 
 
-def durable_executor_factory() -> Callable[[Path], DurableExecutor]:
+class _DurableExecutorFactory:
+    """The stable root-taking factory the write API is built with, carrying the
+    root's recovery capability (writer-session design decision 19)."""
+
+    def __call__(self, root: Path) -> DurableExecutor:
+        return _durable_executor(root)
+
+    def recover(self, root: Path) -> None:
+        """Resolve the engine's recovery for `root` (§13 item 3): a no-op on a
+        root that is not writable — the write itself refuses registration —
+        else `read_chain`, which resolves recovery under the project lock."""
+        target = Path(root)
+        try:
+            state = read_lifecycle_state(target)
+        except CapabilityUnavailable:
+            # §13 item 19: an uncertified tuple is not writable by the engine's own
+            # judgment, and the write itself refuses with this same cause — recovery
+            # has nothing to do and must not manufacture a different refusal shape.
+            return
+        except Exception as caught:
+            # An I/O failure proves nothing about the root; the flag stays set.
+            raise ExecutionError(f"lifecycle read failed before recovery: {caught}", index=None, applied=None) from caught
+        if state is not LifecycleState.WRITABLE:
+            return  # an unregistered (metadata-less) or read-only root has nothing to recover; the write itself refuses
+        try:
+            read_chain(_PRODUCTION_BACKEND, str(target), str(metadata_root_for(target)), PRODUCTION_STORAGE)
+        except Exception as caught:
+            # One seam failure type.
+            raise ExecutionError(f"recovery failed: {caught}", index=None, applied=None) from caught
+
+
+_DURABLE_EXECUTOR_FACTORY = _DurableExecutorFactory()
+
+
+def durable_executor_factory() -> _DurableExecutorFactory:
     """The stable root-taking factory the write API is built with."""
-    return _durable_executor
+    return _DURABLE_EXECUTOR_FACTORY
 
 
 def _world_executor(root: Path) -> DurableExecutor:
@@ -1371,8 +1435,8 @@ def _chain_head(root: Path) -> tuple[str, str]:
 def chain_head_reader() -> Callable[[Path], tuple[str, str]]:
     """The stable root-taking chain reader a `World` is built with.
 
-    Stable in the same sense as `durable_executor_factory`: the same function
-    object every call, so a caller can assert that a world holds *this*
+    Stable in the same sense as `durable_executor_factory`: the same object
+    every call, so a caller can assert that a world holds *this*
     reader rather than one that merely behaves like it.
     """
     return _chain_head
@@ -1608,6 +1672,11 @@ def _log_seam() -> LogSeam:
     return _LOG_SEAM
 
 
+def log_seam() -> LogSeam:
+    """The production log seam, exposed for the session composition (§13 item 1)."""
+    return _log_seam()
+
+
 def anchor_heads(
     world: World,
     corpus_ids: frozenset[str],
@@ -1700,6 +1769,19 @@ def epochs_ordered(config: WorldConfig, e1: str, e2: str) -> Ordering:
     return _epochs_ordered(config, e1, e2, seam=_log_seam())
 
 
+def durable_operation_port(root: Path, authority: Authority, *, profile: ProfileSpec) -> DurableOperationPort:
+    """The port `open_corpus` binds, exposed for the session composition (§13 item 1)."""
+    resolved = Path(root).resolve()
+    return DurableOperationPort(
+        resolved,
+        backend=_PRODUCTION_BACKEND,
+        storage=PRODUCTION_STORAGE,
+        metadata_root=metadata_root_for(resolved),
+        authority=authority,
+        profile=profile,
+    )
+
+
 def open_corpus(
     corpus_root: Path, *, authority: Authority, profile: ProfileSpec, coordination_resolver: CoordinationResolver | None = None
 ) -> CorpusWriter:
@@ -1716,14 +1798,7 @@ def open_corpus(
         durable_executor_factory(),
         authority=authority,
         profile=profile,
-        operation_port=DurableOperationPort(
-            root,
-            backend=_PRODUCTION_BACKEND,
-            storage=PRODUCTION_STORAGE,
-            metadata_root=metadata_root_for(root),
-            authority=authority,
-            profile=profile,
-        ),
+        operation_port=durable_operation_port(root, authority, profile=profile),
         coordination_resolver=coordination_resolver,
     )
 

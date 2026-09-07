@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import replace
 
 import pytest
@@ -35,7 +36,13 @@ PINNED = [{"name": "matrix", "digest": "sha256:" + "1" * 64}]
 
 @pytest.fixture()
 def writer(tmp_path):
-    return _writer(tmp_path / "corpus")
+    # A random subdirectory, not the bare `tmp_path`: pytest's own numbered-dir
+    # naming truncates a long parametrized test id to a shared prefix, and its
+    # default retention policy deletes a passing case's directory right after
+    # it, so a later case can be handed back that exact literal path — which
+    # would silently resurrect the corpus module's process-global root-state
+    # cache instead of opening a fresh corpus.
+    return _writer(tmp_path / uuid.uuid4().hex / "corpus")
 
 
 def _producing_run(slug: str, dataset_id: str) -> Node:
@@ -825,7 +832,7 @@ class TestAnUnreadableNeighbourLeavesTheRecordUnchecked:
 
     def test_an_assessment_naming_a_stale_run_is_unchecked(self, writer):
         assessment = _eligible_assessment(writer)
-        run = writer.read_view.get(stored.assessment_value(assessment).run)
+        run = writer.read_view.get(stored.typed_ref("run", stored.assessment_value(assessment).run))
         _tampered_stale(writer, run)
 
         outcome = audit.check_assessment(writer.read_view, assessment, evidence=NO_EVIDENCE)
@@ -888,3 +895,139 @@ def test_declaration_malformedness_alone_withholds_audit_recomputation(writer, d
         assert codes == {"facet-bearer-produced", "lineage-basis-contradicted"}
     else:
         assert codes == {"facet-retrieval-unresolved"}
+
+
+# --- V4 / V6 / V2: scope, rule, scope rule and report are recomputed (design §6) ---
+from fixtures_cut4 import reopen
+from verification_fixtures import publish_corpus, self_consistent_forgery
+
+from beliefs.audit import check_verification
+from beliefs.replay import CodeLineageCertification
+
+CERTIFIED = CodeLineageCertification(rationale="independent reimplementation", attribution="second team")
+DERIVATION_CODES = {"verification-derivation-contradicted", "assessment-derivation-contradicted", "derivation-malformed"}
+
+
+def _findings(writer, evidence, code="verification-derivation-contradicted"):
+    return [f for f in audit_corpus(reopen(writer.root), evidence=evidence, profile=BASE) if f.code == code]
+
+
+def test_v4_a_published_verification_audits_checked_with_no_contradiction(writer):
+    published = publish_corpus(writer, publish=True)
+    assert published.node is not None
+    outcome = check_verification(writer.read_view, writer.read_view.get(published.node.id), evidence=published.evidence)
+    assert outcome.checked and outcome.contradiction is None
+    assert not {f.code for f in audit_corpus(reopen(writer.root), evidence=published.evidence, profile=BASE)} & DERIVATION_CODES
+
+
+def test_v4_a_certified_verification_audits_clean_through_its_stored_certification(writer):
+    """The recomputation takes the certification from the stored report (decision 7): drop it and the report identity moves. [R10]"""
+    published = publish_corpus(writer, publish=True, certification=CERTIFIED)
+    assert published.derived.report.certification == CERTIFIED
+    assert not _findings(writer, published.evidence)
+
+
+# (member named in the finding, the mutation, the corpus it is forged over). The
+# scope case is the frozen cell's escalation: `clean-environment` asserted over a
+# replay that does not qualify, so the honest derivation is `same-environment`.
+V4_FORGERIES = [
+    ("scope", lambda f: f.__setitem__("scope", "clean-environment"), {"qualifying": False}),
+    ("verdict", lambda f: f.__setitem__("verdict", "failed"), {}),
+    ("report", lambda f: f["report"].__setitem__("receipts", ["sha256:" + "0" * 64, f["report"]["receipts"][1]]), {}),
+    ("report", lambda f: f["report"].__setitem__("original_conformance", "non-conforming: forged"), {}),
+    ("rule", lambda f: f.__setitem__("rule", "some-other-rule/v1"), {}),
+    ("scope_rule", lambda f: f.__setitem__("scope_rule", "scope-derivation/v9"), {}),
+]
+V4_IDS = ["scope", "verdict", "report-receipt", "report-conformance", "rule", "scope_rule"]
+
+
+@pytest.mark.parametrize("member, mutate, corpus", V4_FORGERIES, ids=V4_IDS)
+def test_v4_a_self_consistent_forgery_contradicts_on_the_altered_member(writer, member, mutate, corpus):
+    published = publish_corpus(writer, publish=True, **corpus)
+    assert published.node is not None
+    if member == "scope":
+        assert published.derived.scope == "same-environment"  # the honest reading the forgery escalates
+    forged = self_consistent_forgery(writer, published.node, mutate=mutate)
+    findings = _findings(writer, published.evidence)
+    assert [f.ref for f in findings] == [forged.id] and member in findings[0].detail
+    assert not _findings(writer, published.evidence, code="derivation-malformed")
+
+
+def test_v6_a_report_less_verification_is_checked_for_verdict_and_identity_only(writer):
+    published = publish_corpus(writer, publish=True)
+    assert published.node is not None
+    facet = dict(published.node.facets[stored.VERIFICATION_FACET])
+    del facet["report"], facet["rule"], facet["scope_rule"]
+    facet["scope"] = "same-environment"  # a lowered scope a report-less record cannot be caught on (cut 18 §7)
+    legacy = stored.stamp_semantic_identity(
+        Node(id="verification:legacy", kind="verification", title="legacy", facets={stored.VERIFICATION_FACET: facet}, relations=[])
+    )
+    raw_write(writer.root, legacy)
+    view = reopen(writer.root)
+    outcome = check_verification(view, view.get(legacy.id), evidence=published.evidence)
+    assert outcome.checked and outcome.contradiction is None
+    facet["verdict"] = "failed"
+    flipped = stored.stamp_semantic_identity(
+        Node(id="verification:legacy-flipped", kind="verification", title="legacy", facets={stored.VERIFICATION_FACET: facet}, relations=[])
+    )
+    raw_write(writer.root, flipped)
+    view = reopen(writer.root)
+    outcome = check_verification(view, view.get(flipped.id), evidence=published.evidence)
+    assert outcome.contradiction is not None and "verdict" in outcome.contradiction.detail
+
+
+def test_v2_a_contradicted_assessment_still_contradicts(writer, tmp_path):
+    """Decision 13: the assessment audit resolves the bare run through the typed ref."""
+    published = publish_corpus(writer, publish=True)
+    altered = published.assessment.model_copy(deep=True)
+    altered.facets[stored.ASSESSMENT_FACET]["outcome"] = "refuted"
+    stored.stamp_semantic_identity(altered)
+    raw_write(writer.root, altered)
+    codes = {f.code for f in audit_corpus(reopen(writer.root), evidence=published.evidence, profile=BASE)}
+    assert "assessment-derivation-contradicted" in codes and "semantic-hash-stale" not in codes
+    from test_relocation import _writer
+
+    from beliefs.errors import ImportRefused
+
+    target = _writer(tmp_path / "target")
+    members = tuple(n for n in reopen(writer.root).iter_stored() if n.kind in {"dataset", "run", "proposition"}) + (altered,)
+    with pytest.raises(ImportRefused):
+        target.import_bundle(members, evidence=published.evidence, observer="o", instrument="i", opened_at="2026-09-06T00:00:00Z", closed_at="2026-09-06T00:00:01Z")
+
+
+# --- V8: no spec disappears silently (design decision 15) --------------------
+from beliefs.audit import check_analysis_spec, stored_specs
+
+
+def _false_spec_record(spec):
+    forged = stored.analysis_spec_node(spec).model_copy(update={"id": "analysis-spec:forged"})
+    forged.facets[stored.ANALYSIS_SPEC_FACET]["identity"] = "forged"
+    forged.facets[stored.ANALYSIS_SPEC_FACET]["projection"] = forged.facets[stored.ANALYSIS_SPEC_FACET]["projection"].replace("fit the model", "fit another model")
+    return stored.stamp_semantic_identity(forged)
+
+
+def test_v8_the_audit_names_a_spec_that_does_not_restore_and_stored_specs_reports_it(writer):
+    spec = freeze(spec_draft(), held_rules=spec_rules())
+    good = writer.add(stored.analysis_spec_node(spec))
+    forged = _false_spec_record(spec)
+    raw_write(writer.root, forged)
+    view = reopen(writer.root)
+    assert check_analysis_spec(view.get(good.id)).checked
+    with pytest.raises(MalformedRecord):
+        check_analysis_spec(view.get(forged.id))
+    specs, findings = stored_specs(view)
+    assert set(specs) == {spec.identity} and [f.ref for f in findings] == [forged.id] and findings[0].code == "derivation-malformed"
+    assert [f.ref for f in audit_corpus(view, evidence=NO_EVIDENCE, profile=BASE) if f.code == "derivation-malformed"] == [forged.id]
+
+
+def test_v4_the_audit_reaches_the_same_verdict_with_specs_restored_from_the_corpus(writer):
+    published = publish_corpus(writer, publish=True)
+    assert published.node is not None
+    writer.add(stored.analysis_spec_node(published.frozen))
+    specs, findings = stored_specs(writer.read_view)
+    assert not findings and set(specs) == {published.frozen.identity}
+    from dataclasses import replace
+
+    from_corpus = replace(published.evidence, specs=specs)
+    outcome = check_verification(writer.read_view, writer.read_view.get(published.node.id), evidence=from_corpus)
+    assert outcome.checked and outcome.contradiction is None

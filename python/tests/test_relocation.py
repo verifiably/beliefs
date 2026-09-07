@@ -799,7 +799,7 @@ def test_both_locks_acquires_one_distinct_root_once(tmp_path):
     twin = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY)
 
     with relocation._both_locks(writer, twin):
-        assert writer._operation._writer_depth == 1
+        assert writer._operation._lock._writer_depth == 1
 
 
 def test_excluded_kinds_are_reports_observations_and_the_coordination_closed_set():

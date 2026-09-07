@@ -177,3 +177,81 @@ def test_classify_scope_attributes_only_same_environment_to_the_host():
     assert classify_scope("same-environment", conforming=(True, True), recipes_agree=True) == "host"
     assert classify_scope("not-certified", conforming=(True, False), recipes_agree=True) == "defect"
     assert classify_scope("not-certified", conforming=(True, True), recipes_agree=False) == "corpus-work"
+
+
+def test_10b_reads_the_report_from_the_corpus_with_no_in_process_spec(tmp_path, monkeypatch):
+    """V1 and V8's 10b arms: the report, scope and verdict are read; the only
+    in-process input is the rule implementations; `spec.frozen()` is not
+    reachable. The negative: a report-less record reports false."""
+    from fixtures_cut3 import spec_rules
+    from reproduction import close, rederive, spec
+    from test_relocation import _writer
+    from verification_fixtures import publish_corpus
+
+    from beliefs import stored
+    from beliefs.replay import CONTENT_EQUALITY
+    from beliefs.verify import publication_node
+
+    writer = _writer(tmp_path / "corpus")
+    published = publish_corpus(writer)
+    spec_node = writer.add(stored.analysis_spec_node(published.frozen))
+    node = writer.add(publication_node(published.derived, assessment_ref=published.assessment.id))
+
+    def unavailable():
+        raise RuntimeError("the in-process spec is unavailable")
+
+    monkeypatch.setattr(spec, "frozen", unavailable)
+    interpretation = spec_rules()[published.frozen.interpretation_rule]
+    monkeypatch.setattr(spec, "equivalence", lambda: CONTENT_EQUALITY)
+    monkeypatch.setattr(spec, "interpretation", lambda: interpretation)
+    st = {"verification_ref": node.id, "spec_ref": spec_node.id}
+    view = writer.read_view
+    report = rederive.reconstruct(view, st, close.evidence_for(view))
+    assert report["comparison_report_stored"] is True
+    assert report["scope_equal"] is True and report["verdict_equal"] is True and report["report_identity_equal"] is True
+    assert report["inputs"]["in_process"] == ["interpretation and equivalence RuleImplementations"]
+    assert report["spec_restored_identity_matches_run"] is True
+    assert report["audit_check"] == {"checked": True, "reason": "", "contradiction": None}
+    legacy = writer.add(
+        stored.verification_node(
+            "legacy", title="legacy", assessment=published.derived.assessment, assessment_ref=published.assessment.id,
+            scope=published.derived.scope, verdict=published.derived.verdict,
+            derivation=(stored.typed_ref("run", published.derived.original), stored.typed_ref("run", published.derived.replayed)),
+        )
+    )
+    negative = rederive.reconstruct(writer.read_view, {**st, "verification_ref": legacy.id}, close.evidence_for(writer.read_view))
+    assert negative["comparison_report_stored"] is False and "scope_read" not in negative
+
+
+def test_10b_names_no_in_process_spec():
+    from pathlib import Path
+
+    from reproduction import rederive
+
+    source = Path(rederive.__file__).read_text(encoding="utf-8")
+    assert "spec.frozen" not in source and "from reproduction import" in source
+
+
+def test_close_evidence_for_raises_on_a_stored_spec_that_does_not_restore(tmp_path):
+    """`evidence_for` fails loud rather than silently narrowing the specs a
+    recomputation sees (design decision 15): a raw-written analysis-spec
+    record whose text disagrees with its own identity must stop 10b cold,
+    never drop out of `stored_specs`' mapping unnoticed."""
+    from fixtures_cut3 import spec_draft, spec_rules
+    from fixtures_cut4 import raw_write, reopen
+    from reproduction import close
+    from test_relocation import _writer
+
+    from beliefs import stored
+    from beliefs.spec import freeze
+
+    writer = _writer(tmp_path / "corpus")
+    frozen = freeze(spec_draft(), held_rules=spec_rules())
+    forged = stored.analysis_spec_node(frozen).model_copy(update={"id": "analysis-spec:forged"})
+    forged.facets[stored.ANALYSIS_SPEC_FACET]["identity"] = "forged"
+    forged.facets[stored.ANALYSIS_SPEC_FACET]["projection"] = forged.facets[stored.ANALYSIS_SPEC_FACET]["projection"].replace(
+        "fit the model", "fit another model"
+    )
+    raw_write(writer.root, stored.stamp_semantic_identity(forged))
+    with pytest.raises(RuntimeError, match="analysis-spec:forged"):
+        close.evidence_for(reopen(writer.root))

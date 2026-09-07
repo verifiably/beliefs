@@ -116,7 +116,7 @@ file whose only post-freeze edit was that rename's import strings."""
 PROFILE_API_MIGRATION_COMMIT = "3c7f32ce64f324d4ee23f389755379b671314dab"
 
 FROZEN_PRIOR_CUT_FILES = {
-    "python/tests/n2_arms_cut5.py": CUT6_SOURCE_COMMIT,
+    "python/tests/n2_arms_cut5.py": "1e92471",  # exact R20 matcher amendment, validated below
     "python/tests/n2_arms_cut6.py": CUT6_SOURCE_COMMIT,
     "python/tools/cut5_acceptance.py": RENAME_COMMIT,
     "python/tools/cut6_acceptance.py": RENAME_COMMIT,
@@ -1159,6 +1159,7 @@ class TestTheCut7InventoryIsExact:
 
 class TestNoPriorCutDeclarationIsRehomedOrEdited:
     def test_the_frozen_prior_cut_files_are_byte_identical_to_their_pinned_versions(self):
+        assert_cut5_matcher_migration(REPO_ROOT)
         for path, pin in FROZEN_PRIOR_CUT_FILES.items():
             completed = subprocess.run(
                 ["git", "-C", str(REPO_ROOT), "diff", "--quiet", pin, "HEAD", "--", path],
@@ -1203,3 +1204,21 @@ def test_the_harness_preserves_each_malformed_verdict(tmp_path, arm, verdict):
 def test_the_harness_rejects_a_class_node(tmp_path):
     with pytest.raises(MalformedArm, match="one test function"):
         audit(CLASS_NODE_BY_CONSTRUCTION, tmp_path / "class-node")
+
+
+def assert_cut5_matcher_migration(root: Path) -> None:
+    """The upstream R20 matcher amendment changes no declaration or check."""
+    path = "python/tests/n2_arms_cut5.py"
+    original = subprocess.run(
+        ["git", "-C", str(root), "show", "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e:" + path],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    amended = subprocess.run(
+        ["git", "-C", str(root), "show", "1e92471:" + path], check=True, capture_output=True, text=True
+    ).stdout
+    before = '                "        if (\\n"\n                \'            variant == "stochastic-unseeded"\\n\'\n                "            and equivalence_rule in BITWISE_EQUIVALENCE_RULES\\n"\n                "        ):"\n            ),\n            after="        if False:",\n'
+    after = '                "        except UnfreezableSpec as caught:\\n"\n                \'            raise ValidationRefused(f"{record.id}: {caught}") from caught\'\n            ),\n            after="        except UnfreezableSpec:\\n            pass",\n'
+    assert original.count(before) == amended.count(after) == 1
+    assert original.replace(before, after) == amended

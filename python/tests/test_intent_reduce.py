@@ -402,3 +402,69 @@ def test_reduce_registration_with_no_match_returns_every_reason_in_order(
 def test_reduce_registration_marks_a_missing_payload_unresolved() -> None:
     reduction = reduce_registration(_decoded(), ["run/missing.md"], {})
     assert reduction == RegistrationReduction(None, True, ())
+
+
+def _corpus_write_intent(digest: str = "i" * 64) -> IntentEntryView:
+    payload = v1.encode({"kind": "corpus-write", "event_token": "tok-9", "actor": "session:" + "a" * 32})
+    return IntentEntryView(digest=digest, payload=payload)
+
+
+def _corpus_write_registration(digest: str, fulfills: str, final=()) -> RegisteredEntryView:
+    return RegisteredEntryView(digest=digest, txid="t1", initial=(), final=tuple(final), fulfills=fulfills)
+
+
+def _corpus_write_settled(digest: str, registration: str, committed: bool) -> SettledEntryView:
+    return SettledEntryView(digest=digest, txid="t1", registration=registration, committed=committed)
+
+
+def _corpus_write_facts(state):
+    return (("kind", "file"),) if state == "file" else (("kind", "absent"),)
+
+
+def test_a_corpus_write_intent_is_matched_by_its_committed_registration_with_no_record_inspected():
+    entries = (
+        _corpus_write_intent(),
+        _corpus_write_registration("r" * 64, "i" * 64, final=(("proposition/p1.md", "file"),)),
+        _corpus_write_settled("s" * 64, "r" * 64, True),
+    )
+    rows, findings = qualify_chain(entries, records={}, state_facts=_corpus_write_facts)
+    assert rows == (IntentQualification("i" * 64, "operation", "matched", "r" * 64),)
+    assert findings == ()
+
+
+def test_a_corpus_write_deletion_registration_with_an_empty_surface_still_matches():
+    entries = (
+        _corpus_write_intent(),
+        _corpus_write_registration("r" * 64, "i" * 64),
+        _corpus_write_settled("s" * 64, "r" * 64, True),
+    )
+    rows, findings = qualify_chain(entries, records={}, state_facts=_corpus_write_facts)
+    assert rows[0].status == "matched" and findings == ()
+
+
+def test_a_rolled_back_corpus_write_registration_is_an_attempt_without_recorded_outcome():
+    entries = (
+        _corpus_write_intent(),
+        _corpus_write_registration("r" * 64, "i" * 64),
+        _corpus_write_settled("s" * 64, "r" * 64, False),
+    )
+    rows, findings = qualify_chain(entries, records={}, state_facts=_corpus_write_facts)
+    assert rows[0].status == "attempt-without-recorded-outcome"
+    assert {f.code for f in findings} == {"intent-attempt-without-recorded-outcome", "intent-fulfillment-non-qualifying"}
+
+
+def test_an_unsettled_corpus_write_registration_is_unresolvable():
+    entries = (_corpus_write_intent(), _corpus_write_registration("r" * 64, "i" * 64))
+    rows, _ = qualify_chain(entries, records={}, state_facts=_corpus_write_facts)
+    assert rows[0].status == "unresolvable"
+
+
+def test_every_other_operation_kind_still_needs_a_token_bearing_report():
+    payload = v1.encode({"kind": "audit", "event_token": "tok-9", "actor": "session:" + "a" * 32})
+    entries = (
+        IntentEntryView(digest="i" * 64, payload=payload),
+        _corpus_write_registration("r" * 64, "i" * 64, final=(("proposition/p1.md", "file"),)),
+        _corpus_write_settled("s" * 64, "r" * 64, True),
+    )
+    rows, _ = qualify_chain(entries, records={}, state_facts=_corpus_write_facts)
+    assert rows[0].status != "matched"

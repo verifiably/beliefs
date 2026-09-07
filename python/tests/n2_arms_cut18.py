@@ -293,12 +293,12 @@ CUT18_ARMS = (
         asserts="the audit classifies malformedness before any standing evaluation (§5 obligation 5)",
         sabotage=Sabotage(
             module="audit.py",
-            before="    findings = list(corpus_check(view, profile))\n",
+            before="    findings = list(corpus_check(view))\n",
             after=(
                 "    from beliefs import corpus as _corpus_module\n"
                 "\n"
                 '    _corpus_module.standing_in_local_view(view, "corpus")\n'
-                "    findings = list(corpus_check(view, profile))\n"
+                "    findings = list(corpus_check(view))\n"
             ),
         ),
         checks=(_M3,),
