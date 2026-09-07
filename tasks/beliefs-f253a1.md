@@ -6,7 +6,7 @@ priority: 2
 size: m
 owner: test-ci-audit
 created: 2026-09-04T21:44:54Z
-updated: 2026-09-07T11:36:22Z
+updated: 2026-09-07T12:49:04Z
 depends: [ops-31f038]
 tags: [testing]
 ---
@@ -23,3 +23,5 @@ Piece of ops-65837b (the cross-project audit in the ops hub). 1. Measure: full-s
 - 2026-09-07T11:36:09Z (test-ci-audit): step 1 numbers 2026-09-07 (warm caches, 16-core/32-thread host, HEAD 4525c2e): full serial gate 3840 tests in 1096.5s (python 3739 + ts 101), exit 0; test-fast 3701 tests, three green runs 168.5/170.3/179.0s, median 170.3s. The fast loop is 6.4x the serial gate, ~15.4 minutes saved per iteration. The suite has grown since beliefs-92e6fe measured it on 2026-09-04: 3216 tests in 868.15s then, 3840 in 1096.5s now, so python/README.md's numbers are the older sample.
 - 2026-09-07T11:36:09Z (test-ci-audit): check components warm: ruff 0.06s (exit 1), pyright 16.82s (exit 1), tsc 1.20s, biome 0.23s, vitest 0.83s, tasks check 0.02s. The recorded check line reads 0.044s, not ~18s, because ruff fails first and && short-circuits before pyright: that number is time-to-first-failure, not the gate's cost. Once ruff is green, check is about 18s and pyright is 92 percent of it, which makes pyright the step-3 target rather than the test suite.
 - 2026-09-07T11:36:22Z (main): Step 1 merged to main at 2b10141; worktree and branch removed after tt-report showed no fallback log. Back to todo: step 2 is calendar time, so let a week of runs accumulate and add a note reading 'baseline 2026-09-14: <tt-report --project beliefs numbers>' before step 3.
+- 2026-09-07T12:49:04Z (main): Step 1 is now complete: the git hooks deferred on 2026-09-07 are installed (.githooks/ + core.hooksPath), the gate having gone green via beliefs-97eb6d and beliefs-0e0c9c. Installed both rather than pre-commit only, to keep beliefs in the cross-project hook-pre-push row: nodes, tasks, atoms and forge all carry both from their own step 1, and beliefs has the fleet's most expensive gate, so omitting it would understate that row by its largest term.
+- 2026-09-07T12:49:04Z (main): Predicted hook cost for the baseline week, to check against tt-report on 2026-09-14: pre-commit about 34 commits/day at 18.5s is roughly 73 min/week, of which about half is spent on the 46 percent of commits (232 of 508 over 14 days) that touch only tasks/ or docs/ and no code at all; pre-push about 2 pushes/day at roughly 1115s is roughly 4.3 h/week. Total about 5.5 h/week. The no-code-commit share is the design's own opening example (section 1), and beliefs is the fleet's sharpest instance of it.
