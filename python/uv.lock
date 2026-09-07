@@ -30,21 +30,6 @@ wheels = [
 ]
 
 [[package]]
-name = "atoms-core"
-version = "0.1.0"
-source = { editable = "../../atoms/python" }
-
-[package.metadata]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pyright", specifier = ">=1.1.390" },
-    { name = "pytest", specifier = ">=9.0" },
-    { name = "pytest-testmon", specifier = ">=2.2.0" },
-    { name = "ruff", specifier = ">=0.15.7" },
-]
-
-[[package]]
 name = "attrs"
 version = "26.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1156,15 +1141,30 @@ wheels = [
 ]
 
 [[package]]
+name = "verifiably-atoms"
+version = "0.1.0"
+source = { editable = "../../atoms/python" }
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyright", specifier = ">=1.1.390" },
+    { name = "pytest", specifier = ">=9.0" },
+    { name = "pytest-testmon", specifier = ">=2.2.0" },
+    { name = "ruff", specifier = ">=0.15.7" },
+]
+
+[[package]]
 name = "verifiably-beliefs"
 version = "0.0.0"
 source = { editable = "." }
 dependencies = [
-    { name = "atoms-core" },
     { name = "nodes-core" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "snakemake" },
+    { name = "verifiably-atoms" },
 ]
 
 [package.dev-dependencies]
@@ -1177,11 +1177,11 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "atoms-core", editable = "../../atoms/python" },
     { name = "nodes-core", editable = "../../nodes/python" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "snakemake", specifier = "==8.11.4" },
+    { name = "verifiably-atoms", editable = "../../atoms/python" },
 ]
 
 [package.metadata.requires-dev]

@@ -11,7 +11,7 @@ authors = [{ name = "Keith Hughitt", email = "keith.hughitt@gmail.com" }]
 requires-python = ">=3.11"
 classifiers = ["Typing :: Typed"]
 dependencies = [
-  "atoms-core",
+  "verifiably-atoms",
   "nodes-core",
   # Declared because `beliefs.corpus` names `pydantic.ValidationError` when it
   # wraps a document-validation refusal. It arrives with `nodes-core` either
@@ -25,7 +25,7 @@ dependencies = [
 # the sibling checkouts. Publication removes these entries and adds released-version
 # bounds above; nothing else about the dependency changes (adapter design §8).
 [tool.uv.sources]
-atoms-core = { path = "../../atoms/python", editable = true }
+verifiably-atoms = { path = "../../atoms/python", editable = true }
 nodes-core = { path = "../../nodes/python", editable = true }
 
 [build-system]
