@@ -6,7 +6,7 @@ priority: 2
 size: m
 owner: test-ci-audit
 created: 2026-09-04T21:44:54Z
-updated: 2026-09-07T11:17:52Z
+updated: 2026-09-07T11:36:09Z
 depends: [ops-31f038]
 tags: [testing]
 ---
@@ -20,3 +20,5 @@ Piece of ops-65837b (the cross-project audit in the ops hub). 1. Measure: full-s
 - 2026-09-07T11:17:52Z (test-ci-audit): Hooks deliberately NOT installed, the one part of step 1 left undone: just check fails on main. ruff 6 errors and pyright 12, all in the mm30 reproduction lane (tests/test_reproduction_driver.py, tools/reproduction/run.py; cf. beliefs-d84799, beliefs-efc32d), reproduced in the main checkout too. A pre-commit hook running hook-pre-commit would block every commit. Hooks land with the 4.6 gate move in step 3, once the gate is green; the recipes are already there and core.hooksPath is one command.
 - 2026-09-07T11:17:52Z (test-ci-audit): Two recipe details worth keeping: pytest is bare, not the documented -q, because addopts already carries -q and a second one is -qq, which drops the summary line tt counts tests from; pyright keeps no path argument per python/README.md, since naming a path hides diagnostics outside it. npm ci stays out of the recipes as installation, and ts_fast_cmd uses npx --no-install so a fresh worktree without ts/node_modules fails loudly instead of fetching vitest mid-run.
 - 2026-09-07T11:17:52Z (test-ci-audit): ops spec 4.5 assigned beliefs pytest --testmon, but beliefs-92e6fe had already measured and rejected coverage-based selection on 2026-09-04, pinning pytest-xdist; testmon is not a dependency. Corrected that row in ops docs/specs/2026-09-04-test-ci-audit-design.md in the same change; test-fast runs the project's own documented loop.
+- 2026-09-07T11:36:09Z (test-ci-audit): step 1 numbers 2026-09-07 (warm caches, 16-core/32-thread host, HEAD 4525c2e): full serial gate 3840 tests in 1096.5s (python 3739 + ts 101), exit 0; test-fast 3701 tests, three green runs 168.5/170.3/179.0s, median 170.3s. The fast loop is 6.4x the serial gate, ~15.4 minutes saved per iteration. The suite has grown since beliefs-92e6fe measured it on 2026-09-04: 3216 tests in 868.15s then, 3840 in 1096.5s now, so python/README.md's numbers are the older sample.
+- 2026-09-07T11:36:09Z (test-ci-audit): check components warm: ruff 0.06s (exit 1), pyright 16.82s (exit 1), tsc 1.20s, biome 0.23s, vitest 0.83s, tasks check 0.02s. The recorded check line reads 0.044s, not ~18s, because ruff fails first and && short-circuits before pyright: that number is time-to-first-failure, not the gate's cost. Once ruff is green, check is about 18s and pyright is 92 percent of it, which makes pyright the step-3 target rather than the test suite.
