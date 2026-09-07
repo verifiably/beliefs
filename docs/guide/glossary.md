@@ -180,6 +180,10 @@ context and the linked design references for normative detail.
   ([foundations](foundations.md#contracts-compile-into-profiles))
 - **Proposition** — An immutable record whose semantic identity is its typed
   claim structure, not its prose rendering. ([claims](claims-and-belief.md#structure-not-prose-determines-identity))
+- **Published verification** — A verification record carrying its whole basis
+  with the comparison report embedded under an id that is its identity; the
+  audit and the import recompute its scope, and a record without a report is
+  checked for verdict and identity only.
 - **Qualifier** — A restriction on one of an operator's declared dimensions,
   sorted exactly as an argument is. The v1 fragment is flat: one restriction per
   dimension, with a quantifier. ([claims](claims-and-belief.md#a-claim-is-typed-by-its-operator))
