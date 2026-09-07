@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { parse, stringify } from "yaml";
 import { parseBaseContract, parseDomainContract } from "../src/contract.js";
 import { compileProfile } from "../src/profile.js";
 
@@ -58,6 +59,11 @@ describe("the base contract's declarations (design §3.1–§3.4)", () => {
       ),
     ).toThrow(/description|unknown/);
     expect(() => parseBaseContract(`${SHIPPED.split("\nfacets:")[0]}\nfacets: null\n`, "<bad>")).toThrow(/mapping/);
+  });
+  it.each(["dataset", "discussion"])("refuses explicit null %s.facets", (kind) => {
+    const document = parse(SHIPPED);
+    document.kinds[kind].facets = null;
+    expect(() => parseBaseContract(stringify(document), "<bad>")).toThrow(/facets.*mapping/);
   });
   it("declares the three prose kinds with display only", () => {
     expect(base.kinds.discussion.role).toBe("prose");

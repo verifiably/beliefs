@@ -170,3 +170,16 @@ class TestRefusals:
         path.write_text("contract: science\n  version: [\n", encoding="utf-8")
         with pytest.raises(MalformedContract, match="not well-formed YAML"):
             base.load_base_contract(path)
+
+
+@pytest.mark.parametrize("kind", ["dataset", "discussion"])
+def test_explicit_null_kind_facets_are_not_an_empty_deferred_declaration(document, kind):
+    document["kinds"][kind]["facets"] = None
+    with pytest.raises(MalformedContract, match=rf"kinds.{kind}.facets: expected a mapping"):
+        parse(document)
+
+
+def test_genuinely_empty_deferred_declarations_remain_accepted(document):
+    contract = parse(document)
+    for kind in ("instrument-certification", "coreference-attestation"):
+        assert not contract.kinds[kind].facets

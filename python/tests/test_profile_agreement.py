@@ -336,3 +336,163 @@ def test_facet_refusal_code_comes_from_registry_not_record_text(tmp_path):
     writer, _ = _writer(tmp_path)
     with pytest.raises(ValidationRefused, match="facet-unexpected"):
         writer.add(Node(id="discussion:missing", kind="discussion", title="x", facets={"undeclared": {}}))
+
+
+@pytest.fixture()
+def foreign_profile(base_contract_path):
+    import yaml
+
+    from beliefs.contract import parse_base_contract
+    from beliefs.profile import compile_profile
+
+    document = yaml.safe_load(base_contract_path.read_text())
+    document["version"] += 1
+    return compile_profile(parse_base_contract(document, source="<foreign-base>"), [])
+
+
+def _pin(root, profile):
+    from beliefs.world.registry import CorpusManifest, manifest_bytes
+
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "corpus.yaml").write_bytes(manifest_bytes(CorpusManifest(2, "a" * 32, pins_for(profile))))
+
+
+def _bytes(root):
+    return {p.relative_to(root): p.read_bytes() for p in root.rglob("*") if p.is_file()}
+
+
+@pytest.mark.parametrize("session_mediated", [False, True])
+@pytest.mark.parametrize("changed_during_recovery", [False, True])
+def test_unresolved_entry_checks_pins_before_recovery_and_before_settled(tmp_path, session_mediated, changed_during_recovery):
+    from beliefs.permit import RequiredCapabilities
+    from beliefs.session import WriterSession
+    from beliefs.session.ledger import LedgerWriter, ledger_path
+
+    root = tmp_path / f"corpus-{session_mediated}-{changed_during_recovery}"
+    _pin(root, WITH_BIOLOGY)
+    events = []
+
+    class Executor(DefaultExecutor):
+        def execute(self, plan):
+            events.append("execute")
+            return super().execute(plan)
+
+    class Factory:
+        def __call__(self, path):
+            return Executor(path)
+
+        def recover(self, path):
+            events.append("recover")
+            _rewrite_biology_pin(path)
+
+    factory = Factory()
+    port = OperationRecorder(root, authority=FULL, profile=WITH_BIOLOGY)
+    writer = CorpusWriter(root, factory, authority=FULL, profile=WITH_BIOLOGY, operation_port=port)
+    session = None
+    if session_mediated:
+        ledger = ledger_path(tmp_path / "ops", "a" * 32)
+        ledger.parent.mkdir(parents=True)
+
+        def writer_factory(authority):
+            port.authority = authority
+            return CorpusWriter(root, factory, authority=authority, profile=WITH_BIOLOGY, operation_port=port)
+
+        session = WriterSession(session_id="a" * 32, world_id="b" * 32, corpus_root=root, corpus_id="a" * 32,
+                                operations_root=tmp_path / "ops", ledger=LedgerWriter(ledger), writer_factory=writer_factory)
+        session.claim_invocation("A", "add", "c" * 64)
+        target = session.scoped(RequiredCapabilities.for_kinds({"proposition"}, {}), "A")
+    else:
+        target = writer
+    if not changed_during_recovery:
+        _rewrite_biology_pin(root)
+    before = _bytes(tmp_path)
+    with pytest.raises(ContractMismatch):
+        target.add(stored.proposition_node("new", title="new", claim={"operator": "affects"}))
+    assert events == (["recover"] if changed_during_recovery else [])
+    assert port.intents == port.executed == port.fulfilling == []
+    assert writer._state.unresolved is True
+    assert writer._state.depth == 0 and writer._state.lock._holder is None
+    if changed_during_recovery:
+        before[root.relative_to(tmp_path) / "corpus.yaml"] = (root / "corpus.yaml").read_bytes()
+    assert _bytes(tmp_path) == before
+    if session is not None:
+        session.close()
+
+
+@pytest.mark.parametrize("manifest", ["matching", "malformed", "absent"])
+def test_foreign_profile_stops_check_and_audit_before_semantic_judgment(tmp_path, foreign_profile, monkeypatch, manifest):
+    from beliefs import audit
+    from beliefs.corpus import corpus_check
+
+    Corpus(tmp_path).add(Node(id="dataset:bad", kind="dataset", title="unstamped"))
+    if manifest == "matching":
+        _pin(tmp_path, foreign_profile)
+    elif manifest == "malformed":
+        (tmp_path / "corpus.yaml").write_text("profile: [bad")
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("foreign base reached semantic judgment or recomputation")
+
+    monkeypatch.setattr(stored, "semantic_hash_missing", forbidden)
+    monkeypatch.setattr(audit, "check_lineage_basis", forbidden)
+    for check in (corpus_check, lambda view, *, profile: audit.audit_corpus(view, profile=profile, evidence=audit.NO_EVIDENCE)):
+        findings = check(ReadView(Corpus(tmp_path)), profile=foreign_profile)
+        assert [(f.code, f.detail) for f in findings if f.code == "profile-mismatch"] == [("profile-mismatch", "base")]
+        assert [f.code for f in findings] == (["manifest-malformed"] if manifest == "malformed" else []) + ["profile-mismatch"]
+
+
+@pytest.mark.parametrize("method", ["append_intent", "execute", "execute_fulfilling"])
+def test_direct_durable_port_refuses_matching_foreign_pins(tmp_path, foreign_profile, monkeypatch, method):
+    from beliefs import root
+
+    _pin(tmp_path, foreign_profile)
+    before = _bytes(tmp_path)
+    calls = []
+    monkeypatch.setattr(root, "append_intent", lambda *a, **k: calls.append("intent"))
+    monkeypatch.setattr(root.DurableExecutor, "execute", lambda *a, **k: calls.append("execute"))
+    port = root.DurableOperationPort(tmp_path, backend=root._PRODUCTION_BACKEND, storage=root.PRODUCTION_STORAGE,
+                                     metadata_root=tmp_path / "metadata", authority=FULL, profile=foreign_profile)
+    with pytest.raises(ContractMismatch):
+        if method == "append_intent":
+            port.append_intent(b"intent")
+        elif method == "execute":
+            port.execute(())
+        else:
+            port.execute_fulfilling((), "ab" * 32)
+    assert calls == [] and _bytes(tmp_path) == before
+
+
+def test_holdings_refuses_matching_foreign_pins(holdings_context, foreign_profile):
+    from dataclasses import replace
+
+    from beliefs.holdings.boundary import write
+    from beliefs.holdings.records import StoreLocator
+
+    ctx, intents, published = holdings_context
+    ctx = replace(ctx, profile=foreign_profile)
+    _pin(ctx.observer_root, foreign_profile)
+    before = _bytes(ctx.observer_root)
+    with pytest.raises(ContractMismatch):
+        write(ctx, StoreLocator("1" * 32, "f.txt"), b"bytes")
+    assert intents == published == [] and _bytes(ctx.observer_root) == before
+
+
+@pytest.mark.parametrize("mismatch", ["foreign", "mounted", "adopted"])
+def test_attended_session_refuses_incompatible_profiles_before_creating_operations(tmp_path, foreign_profile, monkeypatch, mismatch):
+    from types import SimpleNamespace
+
+    from test_session_reconcile import view
+
+    from beliefs.session import open_attended_session
+    from beliefs.world import WorldConfig
+
+    root = tmp_path / "corpus"
+    _pin(root, WITH_BIOLOGY if mismatch in {"mounted", "adopted"} else BASE)
+    monkeypatch.setattr("beliefs.session.log_seam", lambda: SimpleNamespace(inspect_detached=lambda root: view()))
+    config = WorldConfig(tmp_path / "world", "b" * 32, (root,))
+    before = _bytes(tmp_path)
+    with pytest.raises(ContractMismatch):
+        open_attended_session(config, tmp_path / "ops", profile=foreign_profile if mismatch == "foreign" else BASE,
+                              coordination=WITH_BIOLOGY if mismatch == "mounted" else None)
+    assert not (tmp_path / "ops").exists()
+    assert _bytes(tmp_path) == before

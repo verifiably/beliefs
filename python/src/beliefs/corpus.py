@@ -547,6 +547,7 @@ class _SettlingHold:
         self._lock.__enter__()
         state = self._writer._state
         try:
+            self._writer._require_pins_agree()
             self._writer._settle()
         except BaseException:
             self._lock.__exit__(None, None, None)
@@ -1363,6 +1364,8 @@ MismatchScope = Literal["none", "domains", "base", "malformed"]
 
 def profile_mismatch(root: Path, profile: ProfileSpec) -> tuple[MismatchScope, str, frozenset[str]]:
     """§5.5: pin disagreement scope, explanation, and activated namespaces."""
+    if profile.base_contract_identity != shipped_base().base_contract_identity:
+        return "base", "the supplied profile requires a different base than this runtime ships", frozenset()
     manifest_path = Path(root) / "corpus.yaml"
     if not manifest_path.exists() and not manifest_path.is_symlink():
         return "none", "", frozenset()
@@ -1387,6 +1390,20 @@ def require_pins_agree(root: Path, profile: ProfileSpec) -> None:
     if scope != "none":
         message = "manifest pins cannot be read" if scope == "malformed" else "manifest pins do not match the profile"
         raise ContractMismatch(f"{Path(root) / 'corpus.yaml'}: {message}: {detail}")
+
+
+def require_profile_compatible(profile: ProfileSpec, mounted: ProfileSpec | None = None) -> None:
+    """The deterministic writer/session profile requirements, before opening either."""
+    if not isinstance(profile, ProfileSpec):
+        raise TypeError("a writer binds a compiled ProfileSpec")
+    if profile.base_contract_identity != shipped_base().base_contract_identity:
+        raise ContractMismatch("a writer requires the shipped base contract")
+    if mounted is not None and (
+        mounted.base_contract_identity != profile.base_contract_identity
+        or dict(mounted.activated_contracts) != dict(profile.activated_contracts)
+        or mounted.compiled_identity != profile.compiled_identity
+    ):
+        raise ContractMismatch("the mounted coordination profile differs from this writer's profile")
 
 
 class CorpusWriter:
@@ -1427,23 +1444,14 @@ class CorpusWriter:
             raise TypeError("a writer binds an Authority")
         if operation_port is not None and operation_port.authority != authority:
             raise ValueError("the operation port is bound to another authority than this writer")
-        if not isinstance(profile, ProfileSpec):
-            raise TypeError("a writer binds a compiled ProfileSpec")
-        if profile.base_contract_identity != shipped_base().base_contract_identity:
-            raise ContractMismatch("a writer requires the shipped base contract")
+        mounted = coordination_resolver.profile(root) if coordination_resolver is not None else None
+        require_profile_compatible(profile, mounted)
         if operation_port is not None and (
             operation_port.profile.base_contract_identity != profile.base_contract_identity
             or dict(operation_port.profile.activated_contracts) != dict(profile.activated_contracts)
             or operation_port.profile.compiled_identity != profile.compiled_identity
         ):
             raise ValueError("the operation port holds another profile than this writer")
-        mounted = coordination_resolver.profile(root) if coordination_resolver is not None else None
-        if mounted is not None and (
-            mounted.base_contract_identity != profile.base_contract_identity
-            or dict(mounted.activated_contracts) != dict(profile.activated_contracts)
-            or mounted.compiled_identity != profile.compiled_identity
-        ):
-            raise ContractMismatch("the mounted coordination profile differs from this writer's profile")
         self._profile = profile
         self._authority = authority
         self._state = _root_state_for(root, executor_factory)
@@ -2447,6 +2455,7 @@ class CorpusWriter:
             return
         if state.recover is not None:
             state.recover(state.corpus.store.root)
+        self._require_pins_agree()
         self._reconstruct()
         state.unresolved = False
 

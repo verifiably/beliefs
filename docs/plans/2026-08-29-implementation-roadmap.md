@@ -59,7 +59,7 @@ resolved an address across corpora, so `next` over one corpus can be built
 without it. The reproduction lane closes. What moved in the first pass
 (2026-09-05, morning) is in git history.
 
-Cut 19 delivered the writer session: J1–J11 close — the attended session and
+The historical cut-19 delta delivered the writer session: J1–J11 close — the attended session and
 its fixed actor, the append-then-fsync session ledger and its claim protocol,
 the invocation-bound scoped writer under exactly its requirement,
 `corpus-write` as an operation intent fulfilled by its registration,
@@ -67,7 +67,12 @@ unresolved-root settlement before every prepare, and reconciliation over
 ledgers and chains. The completed `writer-session` boundary leaves the live
 ranking; `verification-publication` becomes the `write-path` lane's open
 boundary and tier 1's first on the path. The cut closes no row of any other
-table, so every other row stands exactly as cut 18 left it.
+table; that was the cut-19 delta relative to cut 18.
+
+Cut 20 subsequently discharged domain-boundary slice 1 and parity-fixture-2:
+D2, D4, D5, D8–D10, G5 and F1–F8 are full/closed, while D1 remains partial.
+The current accounting is 119 of 188 rows closed. Biology slice 2 remains
+open; main landing and cut 21 remain pending.
 
 ## Boundary index
 

@@ -8,7 +8,14 @@ import secrets
 from contextlib import ExitStack
 from pathlib import Path
 
-from beliefs.corpus import CoordinationResolver, CorpusWriter, Finding, _operation_lock_for
+from beliefs.corpus import (
+    CoordinationResolver,
+    CorpusWriter,
+    Finding,
+    _operation_lock_for,
+    require_pins_agree,
+    require_profile_compatible,
+)
 from beliefs.errors import ManifestMalformed, ManifestMissing, SessionRefused
 from beliefs.permit import Authority
 from beliefs.profile import ProfileSpec
@@ -79,11 +86,13 @@ def open_attended_session(
         raise SessionRefused(
             f"a session needs exactly one corpus root; the config names {len(world_config.corpus_roots)}"
         )
+    require_profile_compatible(profile, coordination)
     (root,) = world_config.corpus_roots
     try:
         corpus_id = load_manifest(root).corpus_id
     except (ManifestMissing, ManifestMalformed) as caught:
         raise SessionRefused(f"{root}: the corpus is not adopted: {caught}") from caught
+    require_pins_agree(root, profile)
     view = log_seam().inspect_detached(root)
     if type(view) is not WellFormedView:
         raise SessionRefused(

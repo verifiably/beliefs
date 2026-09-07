@@ -39,6 +39,7 @@ from beliefs.coordination import CoordinationAddress, coordination_revision
 from beliefs.corpus import CorpusWriter, OperationWrites, _operation_lock_for, _root_state_for, corpus_check
 from beliefs.errors import (
     ActorMismatch,
+    ContractMismatch,
     ImportRefused,
     PermitExceeded,
     PermitFact,
@@ -1270,4 +1271,35 @@ def test_j8_reconciliation_reads_chain_and_ledgers_under_one_hold(work_directory
     assert [act.entry for act in open_ledger_reader(ops, session.session_id).acts()] == [
         e.digest for e in registrations(root) if e.fulfills is not None
     ]
+    session.close()
+
+
+
+@pytest.mark.parametrize("entry", ["ordinary", "session"])
+def test_mismatching_pins_leave_durable_pending_recovery_untouched(work_directory, entry):
+    root = adopted(work_directory, f"pin-before-recovery-{entry}")
+    session, backend, ops = halting_session(work_directory, root)
+    writer = fresh(session, "A")
+    writer.add(proposition("first"))
+    backend.arm_next = True
+    with pytest.raises(ExecutionError):
+        writer.add(proposition("pending"))
+    assert backend.halted and state_of(root).unresolved
+    pending = pending_registrations(root)
+    assert pending and (root / ".#~chain" / ".#~stage").is_file()
+    manifest = root / "corpus.yaml"
+    original = manifest.read_bytes()
+    manifest.write_bytes(original.replace(PINS.science_contract.encode(), ("science:" + "f" * 64).encode()))
+    before = tree_hash(root, metadata_root_for(root), ops)
+    target = open_corpus(root, authority=FULL, profile=WITH_BIOLOGY) if entry == "ordinary" else writer
+    with pytest.raises(ContractMismatch):
+        target.add(proposition("refused"))
+    assert tree_hash(root, metadata_root_for(root), ops) == before
+    assert pending_registrations(root) == pending and state_of(root).unresolved
+    # With valid pins restored, the production factory really can settle the
+    # staged transaction and continue through this same session.
+    manifest.write_bytes(original)
+    writer.add(proposition("after"))
+    assert not pending_registrations(root) and not state_of(root).unresolved
+    assert not (root / ".#~chain" / ".#~stage").exists()
     session.close()

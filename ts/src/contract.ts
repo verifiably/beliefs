@@ -381,7 +381,7 @@ export function parseBaseContract(text: string, source: string): BaseContract {
     if (Object.keys(body).length > 0) exactFields(body, ["facets"], ["domain", "role"], where);
     const role = body.role === undefined ? "world" : body.role;
     if (role !== "world" && role !== "prose") throw new MalformedContract(`${where}: role is world or prose`);
-    const facetBody = mapping(body.facets ?? {}, `${where}.facets`);
+    const facetBody = mapping("facets" in body ? body.facets : {}, `${where}.facets`);
     if (role === "prose" && (body.domain !== undefined || Object.keys(facetBody).some((key) => key !== "display")))
       throw new MalformedContract(`${where}: a prose kind carries no domain and no facet but display`);
     if (

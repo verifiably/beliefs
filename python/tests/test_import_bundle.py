@@ -15,7 +15,7 @@ from profiles import BASE
 
 from beliefs import stored
 from beliefs.corpus import CorpusWriter
-from beliefs.errors import BundleMemberHeld, ImportRefused, PermitExceeded, PermitFact
+from beliefs.errors import BundleMemberHeld, ImportRefused, PermitExceeded, PermitFact, ValidationRefused
 from beliefs.identity import v1
 from beliefs.report import ImportedRecords, RecordImportEntry, _mint_report
 from beliefs.spec import SPEC_DOMAIN, StochasticUnseeded, freeze, frozen_projection
@@ -575,12 +575,19 @@ def test_member_that_cannot_round_trip_refuses_before_payload(writer_with_port):
         id="discussion:roundtrip",
         kind="discussion",
         title="roundtrip",
-        facets={"custom": {("a", "b"): "value"}},
+        facets={"display": {"display_statement": "valid prose"}},
+        relations=[
+            Relation(source="discussion:roundtrip", predicate="supersedes", target="discussion:old"),
+            Relation(source="discussion:roundtrip", predicate="relatesTo", target="discussion:other"),
+        ],
     )
 
-    with pytest.raises(ImportRefused) as caught:
+    BASE.validate_document(lossy)
+
+    with pytest.raises(ImportRefused, match="record rendering is lossy") as caught:
         import_records(writer_with_port, [lossy])
 
+    assert isinstance(caught.value.__cause__, ValidationRefused)
     assert caught.value.report_ref is not None
     assert len(FakePort.intents) == 1
     assert len(FakePort.fulfilling) == 1

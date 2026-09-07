@@ -9,7 +9,7 @@ import beliefs
 # Inspect the imported package so a sabotaged package copy is actually judged.
 SRC = Path(beliefs.__file__).resolve().parent
 MODULES = ("corpus.py", "relocation.py", "root.py", "holdings/boundary.py")
-EFFECTS = {"add", "execute", "_execute", "_execute_fulfilling", "execute_fulfilling", "execute_fulfilling_guarded", "append_intent", "publish_fulfilling", "_store_append_intent", "_store_publish_fulfilling"}
+EFFECTS = {"_settle", "recover", "add", "execute", "_execute", "_execute_fulfilling", "execute_fulfilling", "execute_fulfilling_guarded", "append_intent", "publish_fulfilling", "_store_append_intent", "_store_publish_fulfilling"}
 HELPERS = {
     "commit_fulfilling",
     "_add_locked",
@@ -72,6 +72,29 @@ def violations(module, tree):
             continue
         key = module, fn.name
         parent = parents[fn]
+        if module == "corpus.py" and isinstance(parent, ast.ClassDef):
+            if parent.name == "_SettlingHold" and fn.name == "__enter__":
+                # Context entry is effectful: the raw lock and pin guard must
+                # dominate settlement, including entry through _both_locks.
+                guarded = next((node for node in fn.body if isinstance(node, ast.Try)), None)
+                if (ast.unparse(fn.body[0]) != "self._lock.__enter__()"
+                        or guarded is None or not first_guards(guarded.body)
+                        or any(call not in calls(guarded) for call in effects)
+                        or any(call.lineno <= first_guards(guarded.body)[-1].lineno for call in effects)):
+                    failures.append("corpus.py:__enter__: recovery lacks prior check under raw lock")
+                continue
+            if parent.name == "CorpusWriter" and fn.name == "_settle":
+                # The only caller is the checked context entry. Recovery can
+                # change pins; its result must be checked before rebuilding or
+                # claiming settlement. This route has no independent raw lock.
+                guards = [call for call in calls(fn) if name(call) in GUARDS]
+                reconstruct = [call for call in calls(fn) if name(call) == "_reconstruct"]
+                clears = [node for node in ast.walk(fn) if isinstance(node, ast.Assign)
+                          and any(ast.unparse(target) == "state.unresolved" for target in node.targets)]
+                if (len(guards) != 1 or len(reconstruct) != 1 or len(clears) != 1
+                        or not all(call.lineno < guards[0].lineno < reconstruct[0].lineno < clears[0].lineno for call in effects)):
+                    failures.append("corpus.py:_settle: recovery result cleared without a post-recovery pin check")
+                continue
         # DurableOperationPort.execute is policy, DurableExecutor.execute is the primitive.
         if isinstance(parent, ast.ClassDef) and module == "corpus.py":
             if parent.name == "_RoutedExecutor" and fn.name == "execute":
@@ -140,3 +163,25 @@ def test_inventory_detects_late_checks_and_missing_lock_ownership():
 def test_local_finding_aggregation_is_not_a_corpus_effect():
     assert violations("corpus.py", ast.parse("def check():\n    finding_reasons = bearer_or_retrieval.setdefault(key, set())\n    finding_reasons.add(reason)\n")) == []
     assert violations("corpus.py", ast.parse("def add():\n    self._corpus.add(node)\n"))
+
+
+
+def test_context_entry_and_recovery_are_in_the_effect_inventory():
+    source = (SRC / "corpus.py").read_text()
+    tree = ast.parse(source)
+    settlement_sites = [call for call in calls(tree) if name(call) == "_settle"]
+    assert len(settlement_sites) == 1  # __enter__ owns all settlement.
+    assert is_effect(settlement_sites[0])
+    assert violations("corpus.py", tree) == []
+    for before, after in (
+        ("            self._writer._require_pins_agree()\n", ""),
+        ("        self._lock.__enter__()\n", "        pass\n"),
+        ("        self._require_pins_agree()\n        self._reconstruct()", "        self._reconstruct()"),
+    ):
+        assert before in source
+        assert violations("corpus.py", ast.parse(source.replace(before, after)))
+    assert violations("corpus.py", ast.parse("def unguarded(writer):\n    writer._settle()\n"))
+    root = ast.parse((SRC / "root.py").read_text())
+    factory = next(node for node in root.body if isinstance(node, ast.ClassDef) and node.name == "_DurableExecutorFactory")
+    recover = next(node for node in factory.body if isinstance(node, ast.FunctionDef) and node.name == "recover")
+    assert any(name(call) == "read_chain" for call in calls(recover))
