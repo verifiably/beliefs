@@ -1089,6 +1089,14 @@ class ValidationRefused(WriteRefused):
     `nodes` exception as `__cause__` so no `nodes` error escapes raw."""
 
 
+class VerificationTargetMismatch(WriteRefused):
+    """A published verification's `verifies` edge does not resolve to an
+    assessment carrying the identity the verification names — before the
+    intent, at `add` and at import (verification-publication design §5.3).
+    Equality of identity is the whole requirement: a second assessment record
+    with the same identity is an equally valid target (decision 17)."""
+
+
 class CollisionRefused(WriteRefused):
     """`assert_addable`'s corpus-side refusals — a uid held by another id, or
     an identity claim held by another uid — wrapped for the same reason.

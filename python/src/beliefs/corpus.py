@@ -106,6 +106,7 @@ from beliefs.errors import (
     SemanticHashStale,
     SupersedeIdentityUnchanged,
     ValidationRefused,
+    VerificationTargetMismatch,
     WriteRefused,
 )
 from beliefs.evidence import NO_EVIDENCE, DerivationEvidence
@@ -2276,6 +2277,8 @@ class CorpusWriter:
             raise ValidationRefused(f"{node.id}: refused by document validation: malformed display facet")
         if not document_validated:
             self._refuse_invalid(node)
+        if node.kind == "verification":
+            self._refuse_verification(node, view=self._view if view is None else view)
         self._refuse_governed_stamp(node)
         self._refuse_rendering(node)
         self._refuse_collision(node)
@@ -2291,6 +2294,30 @@ class CorpusWriter:
                 raise ValidationRefused(f"{node.id}: semantic-identity stamp is missing or stale")
         except IdentityError as caught:
             raise ValidationRefused(f"{node.id}: semantic-identity stamp cannot be recomputed: {caught}") from caught
+
+    def _refuse_verification(self, node: Node, *, view: ReadView | _ImportView) -> None:
+        """Self-consistency of a published verification, before the intent
+        (design §5.3): the record decodes — id, report identity, edge
+        cardinality — and its `verifies` target is an assessment carrying the
+        named identity. A report-less verification is admitted on cut 18's
+        terms. No run is read: derivation validation is the import's and the
+        audit's alone."""
+        from beliefs.verify import decode_verification  # local: `audit` imports this module
+
+        decoded = decode_verification(node)  # MalformedRecord propagates: refuse, never repair
+        if decoded is None or decoded.assessment is None:
+            return
+        (edge,) = [relation for relation in node.relations if relation.predicate == stored.VERIFIES]
+        if not view.holds(edge.target):
+            raise VerificationTargetMismatch(f"{node.id}: the verifies target {edge.target!r} resolves to no record here")
+        target = view.get(edge.target)
+        if target.kind != "assessment":
+            raise VerificationTargetMismatch(f"{node.id}: the verifies target {edge.target!r} is a {target.kind}, not an assessment")
+        identity = stored.assessment_value(target).identity()
+        if identity != decoded.assessment:
+            raise VerificationTargetMismatch(
+                f"{node.id}: the verifies target carries assessment identity {identity}, not the verification's {decoded.assessment}"
+            )
 
     @staticmethod
     def _refuse_rendering(node: Node) -> bytes:

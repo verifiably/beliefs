@@ -328,3 +328,23 @@ def test_a_retraction_naming_another_actor_is_actor_mismatch_with_nothing_append
         writer.operations.retract(retraction(target, "proposition:p1", "someone-else"))
     assert port.calls == []
     assert writer.operations.retract(retraction(target, "proposition:p1", ACTOR)).record is not None
+
+
+# --- V5: forgery is refused before the intent (design §5.3) ------------------
+from verification_fixtures import forgeries, publish_corpus
+
+from beliefs.verify import publication_node
+
+
+def test_v5_each_forgery_is_refused_before_the_intent(tmp_path):
+    writer, port = writer_over(tmp_path)
+    published = publish_corpus(writer)
+    cases = forgeries(writer, published)
+    port.calls.clear()
+    for node, refusal, reason in cases:
+        with pytest.raises(refusal, match=reason):
+            writer.operations.add(node)
+        assert not [c for c in port.calls if c[0] == "append_intent"], node.id
+        assert writer.read_view.resolve(node.id) is None
+    commit = writer.operations.add(publication_node(published.derived, assessment_ref=published.assessment.id))
+    assert commit.record is not None and primitive_calls(port)[-3:] == ["preflight", "append_intent", "execute_fulfilling"]
