@@ -6,7 +6,7 @@ priority: 2
 size: m
 owner: test-ci-audit
 created: 2026-09-04T21:44:54Z
-updated: 2026-09-07T12:57:12Z
+updated: 2026-09-07T13:05:35Z
 depends: [ops-31f038]
 tags: [testing]
 ---
@@ -26,3 +26,4 @@ Piece of ops-65837b (the cross-project audit in the ops hub). 1. Measure: full-s
 - 2026-09-07T12:49:04Z (main): Step 1 is now complete: the git hooks deferred on 2026-09-07 are installed (.githooks/ + core.hooksPath), the gate having gone green via beliefs-97eb6d and beliefs-0e0c9c. Installed both rather than pre-commit only, to keep beliefs in the cross-project hook-pre-push row: nodes, tasks, atoms and forge all carry both from their own step 1, and beliefs has the fleet's most expensive gate, so omitting it would understate that row by its largest term.
 - 2026-09-07T12:49:04Z (main): Predicted hook cost for the baseline week, to check against tt-report on 2026-09-14: pre-commit about 34 commits/day at 18.5s is roughly 73 min/week, of which about half is spent on the 46 percent of commits (232 of 508 over 14 days) that touch only tasks/ or docs/ and no code at all; pre-push about 2 pushes/day at roughly 1115s is roughly 4.3 h/week. Total about 5.5 h/week. The no-code-commit share is the design's own opening example (section 1), and beliefs is the fleet's sharpest instance of it.
 - 2026-09-07T12:57:12Z (main): Caveat on the hooks just installed: beliefs had no hooks at all, so this is an early adoption of the section 4.6 gate policy, not the policy-neutral instrumentation step 1 asks for. mind6 read it the other way and says so in its justfile — it kept the full suite at pre-commit because that is what its hook always ran, and left pre-push uninstalled for step 3. Consequence to state plainly at step 4: beliefs' before/after will show gate cost rising, because the pre-audit reality here was no gates and agents running raw pytest (the 12 recorded bypasses), not a cheaper gate. Reversible: remove .githooks/pre-push and unset core.hooksPath to return to the policy-neutral state.
+- 2026-09-07T13:05:35Z (main): Decision 2026-09-07 (option C): keep both hooks for the baseline week so beliefs contributes its hook-pre-push data point, then remove the pre-push hook at step 3 when section 4.6 is revisited, with CI carrying the full suite from then on. Recorded so step 3 does not have to rediscover it.

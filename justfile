@@ -70,3 +70,18 @@ hook-pre-commit:
 # What a pre-push hook will run: `gate`'s commands, under one hook target.
 hook-pre-push:
     {{tt}} hook-pre-push -- sh -c '{{check_cmd}} && {{test_cmd}}'
+
+# CI keeps a two-job matrix (Python 3.11/3.13, Node 20/24); each job runs the recipe for
+# its package, so the whole job is one recorded number. These run exactly what `test` and
+# `check` run for that package. `tasks check` is not in them: the tasks binary is not on
+# a runner, which is why CI runs these rather than `just gate` (design section 4.6).
+# The serial pytest run is deliberate — python/README.md makes it the required CI,
+# conformance and completion gate, so CI does not use the xdist fast loop.
+#
+# The Python job: the serial suite, then ruff and pyright.
+ci-python:
+    {{tt}} ci-python -- sh -c '{{py_test_cmd}} && {{py_check_cmd}}'
+
+# The TypeScript job: the suite, then tsc and biome.
+ci-typescript:
+    {{tt}} ci-typescript -- sh -c '{{ts_test_cmd}} && {{ts_check_cmd}}'
