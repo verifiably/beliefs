@@ -11,8 +11,7 @@ from test_evaluation import CLAIM_FACET, OTHER_GENE, PHENO
 from verification_fixtures import admission_over, evaluation_kwargs, publish_corpus
 
 from beliefs import stored
-from beliefs.belief import Belief, NoBelief
-from beliefs.errors import MalformedRecord
+from beliefs.belief import Belief, NoBelief, Refused
 from beliefs.evaluation import gather
 from beliefs.runrecord import run_ref
 from beliefs.verification import INVALIDATED, active, lifecycle_state
@@ -76,16 +75,22 @@ def test_v3_negatives_another_proposition_is_never_gathered_and_a_twin_target_ad
     assert inputs.verifications == () and inputs.assessments == ()
 
 
-def test_v3_twins_that_disagree_on_outcome_are_refused_not_silently_resolved(writer):  # noqa: F811
+@pytest.mark.parametrize("disagreeing_outcome", ["refuted", "inconclusive"])
+def test_v3_twins_that_disagree_on_outcome_are_refused_not_silently_resolved(writer, disagreeing_outcome):  # noqa: F811
     """Ruling P8: `identity()` digests only `(spec, run, proposition)` —
     `outcome` is a free write-path parameter with no cross-check, so a shared
     identity does not by itself mean two records assert the same fact. A
-    disagreeing twin is a corpus contradiction, refused loudly at the
-    aggregation step rather than silently resolved by whichever record the
-    corpus file order put first (the agreeing twin above still admits)."""
+    disagreeing twin is a corpus contradiction, refused loudly rather than
+    silently resolved by whichever record the corpus file order put first (the
+    agreeing twin above still admits).
+
+    `inconclusive` is the case that made the guard's original placement wrong:
+    it disagrees *across* the directional boundary, so a guard reading only the
+    directional records never saw the pair at all and the belief computed from
+    the survivor alone."""
     published = publish_corpus(writer, claim=CLAIM_FACET)
     value = stored.assessment_value(published.assessment)
-    disagreeing_outcome = next(o for o in ("supported", "refuted") if o != value.outcome)
+    assert disagreeing_outcome != value.outcome, "the twin must actually disagree"
     twin = writer.add(
         stored.assessment_node(
             "a-p-disagreeing-twin", title="disagreeing twin", spec=value.spec, run=run_ref(published.original.address()),
@@ -93,6 +98,11 @@ def test_v3_twins_that_disagree_on_outcome_are_refused_not_silently_resolved(wri
         )
     )
     assert stored.assessment_value(twin).identity() == value.identity()
+    assert stored.assessment_value(twin).facet_digest() != value.facet_digest()
     writer.add(publication_node(published.derived, assessment_ref=twin.id))
-    with pytest.raises(MalformedRecord, match=value.identity()):
-        admission_over(writer, published.proposition.id, published.original)
+    _, answer = admission_over(writer, published.proposition.id, published.original)
+    # `evaluate` stays total: the contradiction is an answer, as loud as
+    # step 2's `consulted-contracts-disagree`, and never a Belief.
+    assert isinstance(answer, Refused), answer
+    assert answer.reason.startswith("assessment-identity-contradicted")
+    assert value.identity() in answer.reason
