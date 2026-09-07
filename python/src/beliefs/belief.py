@@ -273,9 +273,25 @@ def evaluate(
     # 7. The dependency graph: directional vertices, an edge for every pair
     # not certified independent (S6, S5) — absence of an edge is a positive
     # claim of independence, never the default.
-    vertices = tuple(DirectionalInput(assessment=a.identity(), sign=OUTCOME_SIGNS[a.outcome]) for a in directional)
+    #
+    # Two assessment records can carry one identity (design decision 17):
+    # the graph is over the identity, not the record, so a twin contributes
+    # no second vertex and no self-edge — aggregating it twice would
+    # double-count identical evidence, which is exactly what
+    # `AggregationInput`'s distinctness check refuses. First occurrence in
+    # `directional`'s existing order wins, so the belief input digest stays
+    # deterministic; `records.assessments` and the closure at step 9 still
+    # carry every record unfiltered.
+    seen_identities: set[str] = set()
+    graph_inputs: list[AssessmentValue] = []
+    for a in directional:
+        identity = a.identity()
+        if identity not in seen_identities:
+            seen_identities.add(identity)
+            graph_inputs.append(a)
+    vertices = tuple(DirectionalInput(assessment=a.identity(), sign=OUTCOME_SIGNS[a.outcome]) for a in graph_inputs)
     edges: list[tuple[str, str]] = []
-    for a, b in itertools.combinations(directional, 2):
+    for a, b in itertools.combinations(graph_inputs, 2):
         certification = certify(
             context.snapshot, _observes_roots(records.runs[a.run]), _observes_roots(records.runs[b.run])
         )

@@ -456,3 +456,20 @@ def test_the_nine_fields_are_build_closure_s_keywords_in_order():
     params = [p for p in inspect.signature(build_closure).parameters if p != "self"]
     fields = [f.name for f in dataclasses.fields(EvaluationInputs)][:9]
     assert fields == params
+
+
+from test_verify import production_pair  # noqa: F401 - the module-scoped fixture V7's arm resolves
+
+
+def test_v7_gather_never_selects_a_production_verification(request, tmp_path):
+    from test_relocation import _writer
+    from test_verify import _production_verification
+
+    from beliefs.verify import publication_node
+
+    production = _production_verification(request.getfixturevalue("production_pair"))
+    writer = _writer(tmp_path / "corpus")
+    node = writer.add(publication_node(production))
+    fixture = _fixture(writer, PROPOSITION_REF)
+    inputs = gather(fixture.view, PROPOSITION_REF, **fixture.gather_kwargs)
+    assert node.id not in {v.ref for v in inputs.verifications}

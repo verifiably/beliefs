@@ -17,8 +17,9 @@ from test_relocation import _writer
 from verification_fixtures import publish_corpus
 
 from beliefs import stored
+from beliefs.admission import Admitted
 from beliefs.audit import check_verification
-from beliefs.runrecord import run_ref
+from beliefs.belief import Belief
 from beliefs.verification import ADMITTED, lifecycle_state
 from beliefs.verify import admission_record
 
@@ -30,20 +31,12 @@ def writer(tmp_path):
 
 def test_v2_one_identity_admits_over_the_corpus_and_audits_clean(writer):
     published = publish_corpus(writer, claim=CLAIM_FACET)
-    original, replayed, assessment = published.original, published.replayed, published.assessment
+    original, assessment = published.original, published.assessment
     derived, verification, evidence = published.derived_value, published.derived, published.evidence
     record = admission_record(verification)
-    stored_node = writer.add(
-        stored.verification_node(
-            record.ref[:16],
-            title="v",
-            assessment=record.assessment,
-            assessment_ref=assessment.id,
-            scope=record.scope,
-            verdict=record.verdict,
-            derivation=(run_ref(original.address()), run_ref(replayed.address())),
-        )
-    )
+    from beliefs.verify import publication_node
+
+    stored_node = writer.add(publication_node(verification, assessment_ref=assessment.id))
     view = writer.read_view
 
     stored_identity = stored.assessment_value(view.get(assessment.id)).identity()
@@ -53,4 +46,11 @@ def test_v2_one_identity_admits_over_the_corpus_and_audits_clean(writer):
     verifications = (stored.verification_value(view.get(stored_node.id)),)
     assert lifecycle_state(tuple(v for v in verifications if v.assessment == stored_identity)) == ADMITTED
     outcome = check_verification(view, view.get(stored_node.id), evidence=evidence)
-    assert outcome.checked and outcome.contradiction is None, outcome
+    assert outcome.checked and outcome.contradiction is None
+
+    # V2 in full: gather -> admit over the corpus, the gate's every clause.
+    from verification_fixtures import admission_over
+
+    verdict, belief = admission_over(writer, published.proposition.id, original)
+    assert isinstance(verdict, Admitted), verdict
+    assert isinstance(belief, Belief), belief
