@@ -184,6 +184,7 @@ context and the linked design references for normative detail.
   with the comparison report embedded under an id that is its identity; the
   audit and the import recompute its scope, and a record without a report is
   checked for verdict and identity only.
+  ([verification publication](../designs/2026-09-06-verification-publication-design.md#41-the-facet))
 - **Qualifier** — A restriction on one of an operator's declared dimensions,
   sorted exactly as an argument is. The v1 fragment is flat: one restriction per
   dimension, with a quantifier. ([claims](claims-and-belief.md#a-claim-is-typed-by-its-operator))

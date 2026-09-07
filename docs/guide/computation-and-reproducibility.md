@@ -151,12 +151,13 @@ capabilities the launch actually observed. `derive_scope` reaches
 `clean-environment` only through a qualifying pair of such receipts —
 `boundary-policy/minimal-v1`'s scratch root stays `same-environment` at best.
 Cut 15 composes separate planning and execution launch attestations and closes
-R2, R16, R20, and R21; `qualifies()` reads the execution launch. What is not
-built here is owned elsewhere — verification publication is implemented
-(verification-publication design; cut 21 undischarged until cut 20 merges);
-the mutation log's event-level order (L8); and the preimage-backed
-classification of a removed verification (L13) — and listed with those
-owners in the
+R2, R16, R20, and R21; `qualifies()` reads the execution launch. Verification
+publication is implemented
+([verification-publication design](../designs/2026-09-06-verification-publication-design.md);
+cut 21 undischarged until cut 20 merges). What is not built here is owned
+elsewhere — the mutation log's event-level order (L8); and the
+preimage-backed classification of a removed verification (L13) — and listed
+with those owners in the
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-05).
 
 ## Open edges
