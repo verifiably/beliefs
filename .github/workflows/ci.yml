@@ -17,9 +17,25 @@ jobs:
         python-version: ["3.11", "3.13"]
     defaults:
       run:
-        working-directory: python
+        working-directory: beliefs/python
     steps:
+      # python/pyproject.toml's [tool.uv.sources] takes atoms-core and nodes-core from
+      # ../../atoms/python and ../../nodes/python as editable sibling checkouts, so the
+      # runner needs the same layout: beliefs, atoms and nodes side by side under the
+      # workspace. Both siblings are public. They are checked out at their default branch
+      # on purpose — that is the coupling this stack already has locally, so a break in
+      # atoms or nodes should surface here rather than at the next sync.
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          path: beliefs
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: verifiably/atoms
+          path: atoms
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: verifiably/nodes
+          path: nodes
       - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           version: "0.11.29"
@@ -37,14 +53,18 @@ jobs:
         node-version: ["20", "24"]
     defaults:
       run:
-        working-directory: ts
+        working-directory: beliefs/ts
     steps:
+      # ts/ has no sibling dependency, but it is checked out under the same path as the
+      # python job so both jobs spell the working directory the same way.
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          path: beliefs
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
-          cache-dependency-path: ts/package-lock.json
+          cache-dependency-path: beliefs/ts/package-lock.json
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
       - run: npm ci
       - run: just ci-typescript
