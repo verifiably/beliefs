@@ -2535,7 +2535,7 @@ Every `before` must occur exactly once in its module. V8c's `before` starts one 
 
 - [ ] **Step 3: Write the runner** — `tools/cut21_acceptance.py`: copy `cut19_acceptance.py`, with `DEFAULT_WORK = PYTHON_ROOT.parent / ".cut21-acceptance"`, `PREFIX_RUNNERS = ("cut20_acceptance.py",)`, `PHASE_MODULES = ("test_verification_acceptance.py", "test_n2_cut21.py")`, `SCIENCE_CUT21_ROOT`, `range(4, 22)` in `cut_environment`, `SCIENCE_CUT20_ROOT` in `run_prefix`'s environment, the import `from n2_arms_cut21 import CUT21_ARMS, DECLARATION_UNITS`, and the final line `f"declared arms: {arms} (= {units} declaration units; 8 guarantee rows)"`.
 
-- [ ] **Step 4: Run the audit module directly** (the runner refuses until cut 20 merges):
+- [ ] **Step 4: Run the audit module directly** (the runner refuses until cut 20 merges): `tools/cut21_acceptance.py`'s control flow is unexercised until then — `PREFIX_RUNNERS` names `cut20_acceptance.py`, which does not exist on this tree, so `main()` returns 1 there before `probe()`, `cut_environment()`, `run_prefix()` or `declared_accounting()` are ever reached. The arm-soundness result below is obtained by running `tests/acceptance/test_n2_cut21.py` directly, never through the runner.
 
 Run: `SCIENCE_CUT4_ROOT=$(git rev-parse --show-toplevel)/.cut21-acceptance uv run --frozen pytest tests/acceptance/test_n2_cut21.py -p no:cacheprovider`
 Expected: PASS — every arm sound, every check resolved, the freeze pinned. A `stale` finding means a `before` no longer matches the source: fix the arm, never the source. A `mixed` finding means a check passes under its sabotage: strengthen the check, never the arm.
