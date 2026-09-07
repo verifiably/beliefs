@@ -738,3 +738,21 @@ def test_v7_publication_node_refuses_the_cross(pair, production_pair):
         publication_node(_production_verification(production_pair), assessment_ref="assessment:a")
     with pytest.raises(MalformedRecord):
         publication_node("not a verification")  # type: ignore[arg-type]
+
+
+def test_the_publication_modules_form_no_import_cycle():
+    """Design §4.3, probed in a fresh interpreter so no loaded class identity is disturbed. [R7]"""
+    import subprocess
+    import sys
+
+    script = (
+        "import importlib\n"
+        "for name in ('beliefs.verify', 'beliefs.stored', 'beliefs.spec', 'beliefs.audit', 'beliefs.corpus', 'beliefs.evaluation', 'beliefs.admission'):\n"
+        "    importlib.import_module(name)\n"
+        "import beliefs.corpus, pathlib\n"
+        "source = pathlib.Path(beliefs.corpus.__file__).read_text(encoding='utf-8')\n"
+        "assert '\\nfrom beliefs.verify import' not in source and '\\nimport beliefs.verify' not in source\n"
+        "print('acyclic')\n"
+    )
+    completed = subprocess.run([sys.executable, "-c", script], check=True, capture_output=True, text=True)
+    assert completed.stdout.strip() == "acyclic"
