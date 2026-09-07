@@ -5,7 +5,7 @@ status: todo
 priority: 1
 size: s
 created: 2026-09-07T14:32:04Z
-updated: 2026-09-07T14:32:04Z
+updated: 2026-09-07T14:39:23Z
 depends: []
 tags: [testing]
 ---
@@ -21,3 +21,7 @@ This is a policy question, not a configuration one. AGENTS.md says CapabilityUna
 3. A self-hosted runner on the certified host. Full fidelity, real operational cost.
 
 Until this is decided CI is red on main, which trains people to ignore it. TypeScript is green on both Node versions and is not implicated.
+
+## Notes
+
+- 2026-09-07T14:39:23Z (main): Marking by hand is not viable: the 183 failures are subsets of 14 files, not whole modules — test_succession 43 of 49, test_permit_entry_points 29 of 96, test_operation_port 10 of 32, test_session_reconcile 1 of 19, and only test_holdings_windows fails entirely (5 of 5). So a module-level pytestmark cannot express it; it would take 183 per-test annotations across 14 files, which is exactly the skip list that rots.
