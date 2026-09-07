@@ -159,6 +159,12 @@ def _replace_locked(authority, work):
     return _writer(authority, work)._replace_locked(target.model_copy(update={"title": "changed"}))
 
 
+def _revise_dataset_locked(authority, work):
+    target = _STATE[work]["target"]
+    writer = _writer(authority, work)
+    return writer._revise_dataset_locked(target, writer.read_view.get(target.id))
+
+
 def _delete_locked(authority, work):
     return _writer(authority, work)._delete_locked(_STATE[work]["target"].id)
 
@@ -552,6 +558,12 @@ def _mint_proposition(writer):
     return writer.add(prop("p"))
 
 
+def _mint_dataset(writer):
+    from test_corpus_write import observed_dataset
+
+    return writer.add(observed_dataset())
+
+
 CASES = (
     Case("corpus.py:CorpusWriter.add", "corpus-write", ("dataset",), False, _prepare_corpus(), _add, _corpus_probe),
     Case("corpus.py:CorpusWriter.retract", "corpus-write", ("retraction",), False, _prepare_corpus(_mint_eligible), _retract, _corpus_probe),
@@ -563,6 +575,7 @@ CASES = (
     Case("corpus.py:CorpusWriter.adopt_manifest", "lifecycle", (), False, _prepare_corpus(), _adopt_manifest, _corpus_probe),
     Case("corpus.py:CorpusWriter._add_locked", "corpus-write", ("proposition",), False, _prepare_corpus(), _add_locked, _corpus_probe),
     Case("corpus.py:CorpusWriter._replace_locked", "corpus-write", ("proposition",), False, _prepare_corpus(_mint_proposition), _replace_locked, _corpus_probe),
+    Case("corpus.py:CorpusWriter._revise_dataset_locked", "corpus-write", ("dataset",), False, _prepare_corpus(_mint_dataset), _revise_dataset_locked, _corpus_probe),
     Case("corpus.py:CorpusWriter._delete_locked", "corpus-write", ("proposition",), False, _prepare_corpus(_mint_proposition), _delete_locked, _corpus_probe),
     Case("corpus.py:CorpusWriter._append_operation_intent", "corpus-write", ("act-report",), False, _prepare_corpus(port=True), _append_operation_intent, _corpus_probe),
     Case("corpus.py:CorpusWriter._publish_operation_report", "corpus-write", ("act-report",), False, _prepare_corpus(port=True), _publish_operation_report, _corpus_probe),

@@ -64,6 +64,7 @@ WRITE_ENTRY_POINTS: dict[str, str] = {
     "corpus.py:CorpusWriter.adopt_manifest": "lifecycle",
     "corpus.py:CorpusWriter._add_locked": "corpus-write",
     "corpus.py:CorpusWriter._replace_locked": "corpus-write",
+    "corpus.py:CorpusWriter._revise_dataset_locked": "corpus-write",
     "corpus.py:CorpusWriter._delete_locked": "corpus-write",
     "corpus.py:CorpusWriter._append_operation_intent": "corpus-write",
     "corpus.py:CorpusWriter._publish_operation_report": "corpus-write",

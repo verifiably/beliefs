@@ -10,7 +10,14 @@ import beliefs
 SRC = Path(beliefs.__file__).resolve().parent
 MODULES = ("corpus.py", "relocation.py", "root.py", "holdings/boundary.py")
 EFFECTS = {"add", "execute", "_execute", "_execute_fulfilling", "execute_fulfilling", "append_intent", "publish_fulfilling", "_store_append_intent", "_store_publish_fulfilling"}
-HELPERS = {"_add_locked", "_replace_locked", "_delete_locked", "_append_operation_intent", "_publish_operation_report"}
+HELPERS = {
+    "_add_locked",
+    "_replace_locked",
+    "_delete_locked",
+    "_revise_dataset_locked",
+    "_append_operation_intent",
+    "_publish_operation_report",
+}
 GUARDS = {"_require_pins_agree", "require_pins_agree"}
 # These methods inherit the root lock; every production caller is checked below.
 INHERITED = {("corpus.py", name) for name in HELPERS} | {("root.py", "_execute"), ("root.py", "_execute_fulfilling")}

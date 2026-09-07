@@ -1858,20 +1858,27 @@ class CorpusWriter:
             return self._corpus.add(candidate)
 
     def revise(self, node: Node) -> Node:
-        """Replace a proposition after changing display prose alone."""
-        self._authority.require("corpus-write", ("proposition",))
+        """Replace proposition prose or a dataset within §5.3's boundary."""
+        self._authority.require("corpus-write")
         with self._operation:
             self._require_pins_agree()
+            try:
+                existing = self._corpus.index.by_uid.get(node.uid)
+            except TypeError as caught:
+                raise ValidationRefused(f"{node.id}: refused by document validation: malformed uid") from caught
+            if existing is None or existing.id != node.id:
+                self._refuse_family_kinds(node)
+                raise RevisionTargetMissing(f"{node.id}: exact uid and id do not identify a local node")
+            current = self._view.get(node.id)
+            self._authority.require("corpus-write", (current.kind,))
+            if current.kind == "dataset":
+                return self._revise_dataset_locked(node, current)
             self._refuse_family_kinds(node)
+            if current.kind != "proposition" or node.kind != "proposition":
+                raise ReviseKindImmutable("revise operates on propositions and datasets only")
             self._refuse_invalid(node)
             if not all(isinstance(relation, Relation) for relation in node.relations):
                 raise ValidationRefused(f"{node.id}: refused by document validation: malformed relation")
-            existing = self._corpus.index.by_uid.get(node.uid)
-            if existing is None or existing.id != node.id:
-                raise RevisionTargetMissing(f"{node.id}: exact uid and id do not identify a local node")
-            current = self._view.get(node.id)
-            if current.kind != "proposition" or node.kind != "proposition":
-                raise ReviseKindImmutable("revise operates on propositions only")
             if stored.display_facet_malformed(node):
                 raise ValidationRefused(f"{node.id}: refused by document validation: malformed display facet")
             try:
@@ -1891,6 +1898,67 @@ class CorpusWriter:
                 raise ReviseOutsideAllowlist(f"{node.id}: revision changes a field outside display prose")
             self._refuse_rendering(node)
             return self._corpus.add(node)
+
+    _DATASET_REVISION_FACETS = frozenset({stored.EMPIRICAL_OBSERVATION_FACET, stored.DISPLAY_FACET})
+
+    def _revise_dataset_locked(self, node: Node, current: Node) -> Node:
+        """Apply §5.3's dataset interpretation-and-prose boundary."""
+        self._require_pins_agree()
+        self._authority.require("corpus-write", (current.kind,))
+        candidate_fields = node.model_dump()
+        current_fields = current.model_dump()
+        for fields in (candidate_fields, current_fields):
+            fields.pop("title")
+            fields.pop("body")
+            facets = fields["facets"]
+            fields["facets"] = {
+                key: value
+                for key, value in facets.items()
+                if key not in self._DATASET_REVISION_FACETS
+                and key != stored.SEMANTIC_IDENTITY_FACET
+                and "/" not in key
+            }
+        if candidate_fields != current_fields:
+            moved = sorted(
+                key
+                for key in set(candidate_fields) | set(current_fields)
+                if candidate_fields.get(key) != current_fields.get(key)
+            )
+            raise ReviseOutsideAllowlist(f"{node.id}: a dataset revision preserves {', '.join(moved)}")
+        before = current.facets.get(stored.EMPIRICAL_OBSERVATION_FACET)
+        after = node.facets.get(stored.EMPIRICAL_OBSERVATION_FACET)
+        if before is not None and after is None:
+            raise ReviseOutsideAllowlist(
+                f"{node.id}: removing {stored.EMPIRICAL_OBSERVATION_FACET!r} withdraws standing; that is a "
+                "record-level act the correction lifecycle has not designed (facet-contracts §2 item 3)"
+            )
+        for key, payload in node.facets.items():
+            facet = self._profile.facets.get(key)
+            if facet is not None:
+                validate_payload(facet, payload, where=node.id)
+        if after is not None:
+            def without_attester(payload: dict) -> dict:
+                return {key: value for key, value in payload.items() if key != "attested_by"}
+
+            declaration_changed = before is None or without_attester(before) != without_attester(after)
+            if declaration_changed:
+                expected = self._authority.actor
+            else:
+                assert before is not None
+                expected = before["attested_by"]
+            if after.get("attested_by") != expected:
+                raise ActorMismatch(
+                    f"{node.id}: a {'changed' if declaration_changed else 'unchanged'} declaration names attester "
+                    f"{after.get('attested_by')!r}, expected {expected!r}"
+                )
+        if stored.display_facet_malformed(node):
+            raise ValidationRefused(f"{node.id}: refused by document validation: malformed display facet")
+        restamped = stored.stamp_semantic_identity(node.model_copy(deep=True))
+        self._refuse_invalid(restamped)
+        self._refuse_facets(restamped, provenance=True)
+        self._refuse_governed_stamp(restamped)
+        self._refuse_rendering(restamped)
+        return self._corpus.add(restamped)
 
     def _validate_import_bundle(
         self, records: tuple[Node, ...], evidence: DerivationEvidence
