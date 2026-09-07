@@ -12,7 +12,9 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from atoms.core.errors import CapabilityUnavailable
 from confinement_constants import CONFINED_MOUNTS, ENVIRONMENT, RENDERED_ENVIRONMENT, SANDBOX_MOUNTS
+from uncertified_host import uncertified_host
 
 from beliefs.recipe import (
     NAMESPACES,
@@ -21,6 +23,29 @@ from beliefs.recipe import (
     LaunchAttestation,
     mount_plan_identity,
 )
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_call(item):
+    """On a declared uncertified host, report a missing capability instead of failing.
+
+    AGENTS.md: `CapabilityUnavailable` is a fail-closed result, not a waiver —
+    run on the certified kernel and volume tuple *or report the exact mismatch*.
+    This is that report. The skipped set is defined by the capability probe at
+    run time, not by a list anyone maintains, so a new capability-dependent test
+    needs no annotation and the set cannot go stale.
+
+    Only this one exception converts. Every other failure still fails, so a real
+    regression cannot hide here; a bug that surfaces *as* `CapabilityUnavailable`
+    is caught by the certified host, where nothing converts.
+    """
+    try:
+        return (yield)
+    except CapabilityUnavailable as error:
+        if uncertified_host(os.environ):
+            pytest.skip(f"certified tuple unavailable on this host: {error}")
+        raise
+
 
 OTHER_ENVIRONMENT = "sha256:" + "cd" * 32
 CONFINED_NAMESPACES = NAMESPACES
