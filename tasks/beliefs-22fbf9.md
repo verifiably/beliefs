@@ -1,12 +1,13 @@
 ---
 id: beliefs-22fbf9
 title: Settle the beliefs package names before any release
-status: todo
+status: done
 priority: 2
 size: s
+owner: main
 created: 2026-09-07T14:29:39Z
-updated: 2026-09-07T14:29:49Z
-depends: [ops-f1a933, atoms-8fe61d]
+updated: 2026-09-07T15:39:33Z
+depends: []
 tags: [hygiene]
 ---
 
@@ -19,3 +20,7 @@ npm: ts/package.json is @verifiably/beliefs with private: true. That may be deli
 Renaming also touches the dependents: [tool.uv.sources] comments say publication replaces the editable path entries with released-version bounds, and science depends on beliefs.
 
 Gated on ops-f1a933 for the naming scheme.
+
+## Notes
+
+- 2026-09-07T15:39:33Z (main): Python distribution renamed beliefs -> verifiably-beliefs, per the verifiably- prefix decision; the import package stays 'beliefs', matching science which imports as 'science' while shipping as verifiably-science. science's dependency and its [tool.uv.sources] key updated, both uv.lock files regenerated. Gates green in both, and science's 226 tests pass against the renamed editable dependency. The npm side is untouched and still open: @verifiably/beliefs remains private: true, and the scope actually in use across the stack is @nodes-dev.

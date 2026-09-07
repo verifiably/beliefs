@@ -2,7 +2,7 @@
 # The published distribution name is not yet ruled; `nodes` is mid-rename into the
 # `verifiably` namespace and nothing here is published. `science` is the import name
 # fixed by the domain-extension design §9.
-name = "beliefs"
+name = "verifiably-beliefs"
 version = "0.0.0"
 description = "beliefs, the Science kernel: recording scientific belief and the evidence it rests on"
 readme = "README.md"
