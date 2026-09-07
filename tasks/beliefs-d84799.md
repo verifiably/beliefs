@@ -5,7 +5,7 @@ status: todo
 priority: 3
 size: m
 created: 2026-09-07T09:31:01Z
-updated: 2026-09-07T09:31:01Z
+updated: 2026-09-07T12:40:40Z
 depends: []
 tags: [testing]
 ---
@@ -15,3 +15,7 @@ python/pyproject.toml's [tool.pyright] include is ["src", "tests"], so python/to
 Adding tools to extraPaths was measured during the verification-publication slice: it surfaces roughly 1600 errors across tools/, so it is a real project rather than a config toggle. It was deliberately not attempted there.
 
 Two things worth separating: making tests/test_reproduction_driver.py's imports resolvable (which would clear the whole standing baseline and make 'pyright is clean' a meaningful gate again), and type-checking tools/ itself. The first may be much cheaper than the second.
+
+## Notes
+
+- 2026-09-07T12:40:40Z (main): Measured 2026-09-07, both figures in the body are wrong: extraPaths = ["tools"] alone takes the baseline from 12 errors to 3 (all in tests/, none in tools/), and putting tools in include type-checks it for 42 errors, not roughly 1600. So type-checking tools/ is a bounded piece of work, not the project the body describes; the import-resolution half is a config line plus three assertions.

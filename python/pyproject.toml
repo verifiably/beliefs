@@ -51,6 +51,10 @@ typeCheckingMode = "basic"
 include = ["src", "tests"]
 # Cut 5 is hash-pinned and cited, not run; its pre-permit call signatures are frozen.
 exclude = ["tests/acceptance/test_n2_cut5.py"]
+# tools/ is importable but not checked: tests/test_reproduction_driver.py imports the
+# mm30 driver from there, and without this its every import is unresolvable. Adding
+# tools to `include` instead would type-check it, which is beliefs-d84799's other half.
+extraPaths = ["tools"]
 
 [dependency-groups]
 dev = [
