@@ -657,6 +657,12 @@ def test_v5_a_record_id_that_does_not_recompute_is_malformed(pair):
         lambda f: f.__setitem__("assessment", None),
         lambda f: f.__setitem__("derivation", None),
         lambda f: f.pop("derivation"),
+        # A null `report` is a *present* member, not an absent one: the reader
+        # branches on `"report" in facet`, so this is the exact seam where a
+        # null could be read as the report-less shape cut 18's R2 lets decode
+        # as `None`. Present and malformed is refused (M11); absent is the
+        # separate `test_v1_a_report_less_verification_decodes_as_absent`.
+        lambda f: f.__setitem__("report", None),
     ],
 )
 def test_v6_a_present_but_malformed_report_or_member_is_refused(pair, mutate):

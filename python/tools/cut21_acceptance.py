@@ -40,14 +40,17 @@ def probe(run: Path) -> str | None:
         shutil.rmtree(metadata_root_for(corpus_root), ignore_errors=True)
 
 
-def declared_accounting() -> tuple[int, int]:
+def declared_accounting() -> tuple[int, int, int]:
+    """Arms, declaration units and guarantee rows, counted from the declaration
+    itself. Nothing here is a literal: a printed accounting that does not move
+    with the table it reports is a claim about a cut that no longer exists."""
     for directory in (PYTHON_ROOT / "tests", ACCEPTANCE):
         path = str(directory)
         if path not in sys.path:
             sys.path.insert(0, path)
-    from n2_arms_cut21 import CUT21_ARMS, DECLARATION_UNITS  # pyright: ignore[reportMissingImports]
+    from n2_arms_cut21 import CUT21_ARMS, DECLARATION_UNITS, unit_of  # pyright: ignore[reportMissingImports]
 
-    return len(CUT21_ARMS), len(DECLARATION_UNITS)
+    return len(CUT21_ARMS), len(DECLARATION_UNITS), len({unit_of(arm.row) for arm in CUT21_ARMS})
 
 
 def cut_environment(run: Path) -> dict[str, str]:
@@ -123,13 +126,9 @@ def main(argv: list[str]) -> int:
             if completed.returncode != 0:
                 return completed.returncode
 
-        arms, units = declared_accounting()
+        arms, units, rows = declared_accounting()
         print(
-            f"declared arms: {arms} (= {units} declaration units; 8 guarantee rows)",
-            flush=True,
-        )
-        print(
-            "row accounting: 8 full/closed + 0 partial + 0 re-reads",
+            f"declared arms: {arms} (= {units} declaration units; {rows} guarantee rows)",
             flush=True,
         )
         return 0

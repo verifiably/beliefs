@@ -392,8 +392,9 @@ def decode_verification(node: Node) -> StoredVerification | None:
     keys = set(facet)
     if not _PUBLISHED_REQUIRED <= keys or not keys <= _PUBLISHED_REQUIRED | _PUBLISHED_OPTIONAL:
         raise MalformedRecord(f"{node.id}: a published verification carries exactly its basis members")
-    if facet["derivation"] is None:
-        raise MalformedRecord(f"{node.id}: a published verification names its derivation")
+    # A null `derivation` member reads back as `None` from the reader, which is
+    # also what narrows `tuple[str, str] | None` for the members below: one
+    # check, not two.
     derivation = stored.verification_derivation(node)
     if derivation is None:
         raise MalformedRecord(f"{node.id}: a published verification names its derivation")
@@ -460,7 +461,8 @@ def publication_node(derived: RunVerification, *, assessment_ref: str | None = N
     identity = derived.identity()
     relations: list[Relation] = []
     if assessment_ref is not None:
-        relations.append(Relation(source=f"verification:{identity}", predicate=stored.VERIFIES, target=assessment_ref))
+        source = stored.typed_ref("verification", identity)
+        relations.append(Relation(source=source, predicate=stored.VERIFIES, target=assessment_ref))
     return stored.governed_node("verification", identity, title, {stored.VERIFICATION_FACET: facet}, relations)
 
 
@@ -581,6 +583,10 @@ def _derive(
     rule, implementation_identity, implementation, spec = _resolve_rule(original, specs=specs, held_rules=held_rules)
     verdict = implementation.evaluate(original.result, replayed.result)
     if verdict not in VERDICTS:
+        # No record ref here: `_derive` is the one derivation both the
+        # constructor and the audit run, and the constructor has no node. On the
+        # audit path `audit_corpus` names the record itself — `ref=node.id` and a
+        # `{node.id}:` message on the `derivation-malformed` finding.
         raise MalformedRecord(f"equivalence evaluator returned {verdict!r}, outside {VERDICTS}")
     report = _mint_comparison_report(
         original_conformance=conformance(original),
