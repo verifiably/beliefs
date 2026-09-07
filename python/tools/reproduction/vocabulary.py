@@ -21,7 +21,6 @@ from reproduction import paths
 
 DOCUMENT = Path(__file__).with_name("mm30-reproduction.yaml")
 MODAL_SORTED = paths.REPO / "python" / "tools" / "vocabularies" / "mm30-modal-sorted.yaml"
-BASE = paths.REPO / "contracts" / "science" / "CONTRACT.yaml"
 
 
 @cache

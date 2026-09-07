@@ -35,14 +35,14 @@ OBSERVER = "mm30-reproduction-observer"
 INSTRUMENT = "mm30-reproduction/hold.v1"
 
 
-def dataset_record(*, name: str, digest: str, title: str, facet: dict) -> tuple[Node, str]:
+def dataset_record(*, name: str, digest: str, title: str, accession: str) -> tuple[Node, str]:
     address = dataset_address(DatasetDeclaration(resources=(ResourceDeclaration(name=name, digest=digest),)))
     assert address is not None
     node = stored.dataset_node(
         address.removeprefix("dataset:"),
         title=title,
         resources=[{"name": name, "digest": digest}],
-        empirical_observation=facet,
+        empirical_observation={"locator": f"accession:{accession}", "attested_by": AUTHORITY.actor},
     )
     return node, address
 
@@ -60,12 +60,11 @@ def main() -> int:
     relative = f"{target['dataset_id'].split(':', 1)[1]}/{held.name}"
     ctx = ActContext(paths.CORPUS_ROOT, paths.STORE_ROOT, OBSERVER, INSTRUMENT, AUTHORITY, holdings_seam(), profile=profile())
     published = write(ctx, StoreLocator(st["store_id"], relative), content, expected=digest)
-    # P2: the facet payload is authored, not checked. Say what we claim and file the gap.
     node, address = dataset_record(
         name=held.name,
         digest=digest,
         title=target["dataset_id"],
-        facet={"boundary": "acquisition", "source": target["dataset_id"], "asserted_by": AUTHORITY.actor},
+        accession=target["dataset_id"].split(":", 1)[1].upper(),
     )
     minted = world.open_writer().add(node)
     verdict = admission_state(
@@ -77,9 +76,8 @@ def main() -> int:
         return 2
     findings.record(
         3,
-        "design-gap",
-        "empirical-observation facet is presence-only: is_empirical_observation read our authored payload unchecked",
-        filed="domain lane (facet payload contract, kernel §11)",
+        "closed",
+        "empirical-observation payload validated under the facet-contracts design §6; the authored placeholder is refused (F1)",
     )
     state.save(
         dataset_ref=minted.id,
