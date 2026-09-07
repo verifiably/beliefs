@@ -220,3 +220,28 @@ def test_10b_names_no_in_process_spec():
 
     source = Path(rederive.__file__).read_text(encoding="utf-8")
     assert "spec.frozen" not in source and "from reproduction import" in source
+
+
+def test_close_evidence_for_raises_on_a_stored_spec_that_does_not_restore(tmp_path):
+    """`evidence_for` fails loud rather than silently narrowing the specs a
+    recomputation sees (design decision 15): a raw-written analysis-spec
+    record whose text disagrees with its own identity must stop 10b cold,
+    never drop out of `stored_specs`' mapping unnoticed."""
+    from fixtures_cut3 import spec_draft, spec_rules
+    from fixtures_cut4 import raw_write, reopen
+    from reproduction import close
+    from test_relocation import _writer
+
+    from beliefs import stored
+    from beliefs.spec import freeze
+
+    writer = _writer(tmp_path / "corpus")
+    frozen = freeze(spec_draft(), held_rules=spec_rules())
+    forged = stored.analysis_spec_node(frozen).model_copy(update={"id": "analysis-spec:forged"})
+    forged.facets[stored.ANALYSIS_SPEC_FACET]["identity"] = "forged"
+    forged.facets[stored.ANALYSIS_SPEC_FACET]["projection"] = forged.facets[stored.ANALYSIS_SPEC_FACET]["projection"].replace(
+        "fit the model", "fit another model"
+    )
+    raw_write(writer.root, stored.stamp_semantic_identity(forged))
+    with pytest.raises(RuntimeError, match="analysis-spec:forged"):
+        close.evidence_for(reopen(writer.root))

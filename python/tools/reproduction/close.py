@@ -24,9 +24,9 @@ CONTRADICTIONS = frozenset(
 
 def evidence_for(view) -> DerivationEvidence:
     """Specs from the corpus, rules from code — 10b's only in-process input."""
-    specs, findings = stored_specs(view)
-    if findings:
-        raise RuntimeError(f"stored specs that do not restore: {[f.ref for f in findings]}")
+    specs, unrestorable = stored_specs(view)
+    if unrestorable:
+        raise RuntimeError(f"stored specs that do not restore: {[f.ref for f in unrestorable]}")
     return DerivationEvidence(
         specs=specs,
         held_rules={spec.equivalence().identity: spec.equivalence()},
