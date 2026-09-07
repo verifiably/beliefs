@@ -899,3 +899,7 @@ so the arms were rewritten against the landed code. This cut's
 
 Only the pins move. The selection, the guarantee rows, their checks and the
 declaration units are unchanged, and no frozen section changes.
+
+> **Amended 2026-09-07** (facet-contracts design §5.2). Limitation 2 is closed
+> by ruling: domains mint no kinds, so domain facets add no act family or
+> governed-kind permission. `KIND_ACTS` is unchanged.

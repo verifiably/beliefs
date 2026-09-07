@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 from authority import narrowed
 from nodes.core.write_plan import DefaultExecutor
+from profiles import BASE
 from test_operation_writes import RecordingPort, proposition
 
 from beliefs import stored
@@ -56,7 +57,7 @@ def make_session(
     def writer_factory(authority: Authority) -> CorpusWriter:
         port = RecordingPort(authority, corpus_root)
         ports.append(port)
-        return CorpusWriter(corpus_root, DefaultExecutor, authority=authority, operation_port=port)
+        return CorpusWriter(corpus_root, DefaultExecutor, authority=authority, operation_port=port, profile=BASE)
 
     ledger = LedgerWriter(path)
     session = WriterSession(
@@ -333,3 +334,14 @@ def test_a_ledger_failure_ends_the_session(tmp_path, monkeypatch):
         with pytest.raises(SessionLedgerFailed):
             call()
     assert session.current_invocation == "A"  # the index never learned the close
+
+
+def test_attended_session_refuses_an_uncompiled_profile_before_ledger_effects(tmp_path):
+    from beliefs.session import open_attended_session
+    from beliefs.world import WorldConfig
+
+    config = WorldConfig(tmp_path / "world", WORLD, (tmp_path / "corpus",))
+    before = tuple(tmp_path.rglob("*"))
+    with pytest.raises(TypeError, match="compiled ProfileSpec"):
+        open_attended_session(config, tmp_path / "ops", profile=None)  # pyright: ignore[reportArgumentType]
+    assert tuple(tmp_path.rglob("*")) == before

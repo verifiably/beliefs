@@ -67,3 +67,20 @@ operators:
     sign_apt: false
     layers: [methodological]
     dimensions: [setting]
+
+# Two fixture facets (facet-contracts design §3.2). They exist to exercise the
+# namespaced grammar, D2's asymmetry, D8's composition and F8's registry check.
+# Neither means anything: `annotation` attaches to two kinds only so that a
+# kind-scoped `attaches_to` is tested at all.
+facets:
+  axis:
+    attaches_to: [dataset]
+    fields:
+      axis:       { type: string, required: true }
+      vocabulary: { type: ref,    required: false, kinds: [dataset] }
+  annotation:
+    attaches_to: [dataset, proposition]
+    fields:
+      note:  { type: string,  required: true }
+      count: { type: integer, required: false }
+      final: { type: boolean, required: false }

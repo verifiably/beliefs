@@ -230,7 +230,15 @@ describe("a profile that did not come from the contracts is not a profile", () =
   });
 
   it("cannot be authored through the constructor either", () => {
-    expect(() => new ProfileSpec(Symbol("forged"), forgedProfile)).toThrow(ProfileError);
+    expect(
+      () =>
+        new ProfileSpec(Symbol("forged"), {
+          ...forgedProfile,
+          kinds: profile.kinds,
+          facets: profile.facets,
+          relations: profile.relations,
+        }),
+    ).toThrow(ProfileError);
   });
 
   it("recognizes the one compileProfile returns", () => {
@@ -298,6 +306,7 @@ describe("a contract that nobody authored cannot be compiled", () => {
           sorts: {},
           dimensions: {},
           operators: {},
+          facets: {},
           base,
         }),
     ).toThrow(UnparsedContract);
@@ -317,6 +326,7 @@ describe("a contract that nobody authored cannot be compiled", () => {
           sorts: {},
           dimensions: {},
           operators: {},
+          facets: {},
           base,
         }),
     ).toThrow(SubclassRefused);

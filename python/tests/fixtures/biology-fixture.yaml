@@ -1,0 +1,26 @@
+# python/tests/fixtures/biology-fixture.yaml
+# A TEST FIXTURE in the `biology` namespace, not a domain. The relocation and
+# world tests pin a `biology` contract identity and need two distinct ones for
+# their pin-disagreement arms; `profiles.py` parses this document twice with
+# different descriptions. Shipping `domains/biology/DOMAIN.yaml` is the second
+# slice's design act (D limitation 5), and nothing here binds a real vocabulary.
+contract: biology
+version: 1
+lineage: genesis
+description: fixture
+sorts:
+  gene:
+    vocabulary: { namespace: EX, release: "2026-01-01" }
+dimensions: {}
+operators:
+  affects:
+    arity: 2
+    arg_sorts: [gene, gene]
+    sign_apt: true
+    layers: [causal]
+    dimensions: []
+facets:
+  gene-axis:
+    attaches_to: [dataset]
+    fields:
+      axis: { type: string, required: true }

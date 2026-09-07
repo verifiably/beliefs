@@ -6,13 +6,11 @@ base contract together with the activated domain contracts — and every runtime
 artifact compiled from it:
 
     base contract  ─┐   (normative SSOT)
-                    ├─▶  ProfileSpec  ─┬─▶  KindSpec set  (D4, deferred)
+                    ├─▶  ProfileSpec  ─┬─▶  KindSpec set  (D4)
     domain contracts┘   (compiled)     └─▶  claim schemas (M7, here)
 
-Only the claim-schema half is built. `KindSpec` compilation is **D4**, fully
-deferred from cut 1, and an operator roster is not a per-kind artifact — an
-operator belongs to no kind, which is why D §6 had to be widened rather than
-merely read (M7).
+Kind and facet declarations compile into one private registry alongside the claim
+schemas. Operators belong to no kind (M7).
 
 **`ProfileSpec` resolves; contracts authorize** (§7.5). The two roles must not
 blur, and the sharp consequence is that **`ProfileSpec`'s own identity never
@@ -32,13 +30,18 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from functools import cache
+from importlib import resources
 from types import MappingProxyType
 from typing import final
 
-from beliefs import stored
-from beliefs.contract.base import BaseContract, ClaimGrammar
+from nodes.core.node import Node
+from nodes.core.registry import KindSpec, Registry, Violation
+
+from beliefs.contract.base import BaseContract, ClaimGrammar, FacetUse, RelationDecl
 from beliefs.contract.coordination import CoordinationContract
 from beliefs.contract.domain import DomainContract, OperatorDecl, VocabularyBinding
+from beliefs.contract.facets import FieldDecl
 from beliefs.errors import (
     ContractMismatch,
     DuplicateContribution,
@@ -52,10 +55,14 @@ from beliefs.sealed import sealed
 __all__ = [
     "CompiledCoordinationKind",
     "CompiledDimension",
+    "CompiledFacet",
+    "CompiledKind",
     "CompiledOperator",
     "CompiledSort",
     "ProfileSpec",
     "compile_profile",
+    "shipped_base",
+    "shipped_base_contract",
 ]
 
 PROFILE_DOMAIN = "science.profile.v1"
@@ -63,6 +70,23 @@ PROFILE_DOMAIN = "science.profile.v1"
 _MINT = object()
 """`compile_profile`'s own token — see `beliefs.contract.base._MINT` for what a
 token achieves in this language and what it cannot."""
+
+
+@cache
+def shipped_base_contract() -> BaseContract:
+    """Parse the base contract carried by this package."""
+    from beliefs.contract.base import parse_base_contract
+    from beliefs.contract.document import parse_document
+
+    source = "beliefs/contracts/science/CONTRACT.yaml"
+    text = resources.files("beliefs").joinpath("contracts/science/CONTRACT.yaml").read_text(encoding="utf-8")
+    return parse_base_contract(parse_document(text, source=source), source=source)
+
+
+@cache
+def shipped_base() -> ProfileSpec:
+    """Compile the base-only runtime profile once per process."""
+    return compile_profile(shipped_base_contract(), [])
 
 
 @dataclass(frozen=True)
@@ -126,6 +150,45 @@ class CompiledOperator:
         }
 
 
+@dataclass(frozen=True)
+class CompiledKind:
+    name: str
+    role: str  # "world" | "prose" — coordination kinds carry "coordination"
+    domain: str | None
+    facets: Mapping[str, FacetUse]
+    covered: tuple[str, ...]
+    """The covered facets **sorted by key by code point** — coverage order is never
+    the authored order, so one contract identity yields one stamp (§4.2)."""
+    contract: str
+
+    def projection(self) -> dict[str, object]:
+        # No null anywhere: `science.identity.v1` refuses it. An undomained kind
+        # simply carries no `domain` key; its role says what it is.
+        projection: dict[str, object] = {
+            "role": self.role,
+            "facets": {k: {"required": u.required, "covered": u.covered} for k, u in sorted(self.facets.items())},
+        }
+        if self.domain is not None:
+            projection["domain"] = self.domain
+        return projection
+
+
+@dataclass(frozen=True)
+class CompiledFacet:
+    key: str
+    shape: str
+    attaches_to: frozenset[str]
+    fields: Mapping[str, FieldDecl]
+    contract: str
+
+    def projection(self) -> dict[str, object]:
+        return {
+            "shape": self.shape,
+            "fields": {name: field.projection() for name, field in sorted(self.fields.items())},
+            "attaches_to": sorted(self.attaches_to),
+        }
+
+
 @sealed
 @final
 @dataclass(frozen=True, init=False)
@@ -139,6 +202,10 @@ class ProfileSpec:
     describing a profile that no longer exists.
     """
 
+    kinds: Mapping[str, CompiledKind]
+    facets: Mapping[str, CompiledFacet]
+    relations: Mapping[str, RelationDecl]
+    _registry: Registry
     claim_grammar: ClaimGrammar
     operators: Mapping[str, CompiledOperator]
     dimensions: Mapping[str, CompiledDimension]
@@ -207,10 +274,7 @@ class ProfileSpec:
         if self.coordination_address_root is not None:
             coordination = {
                 "address_root": self.coordination_address_root,
-                "kinds": {
-                    name: self.coordination_kinds[name].projection()
-                    for name in sorted(self.coordination_kinds)
-                },
+                "kinds": {name: self.coordination_kinds[name].projection() for name in sorted(self.coordination_kinds)},
                 "query_vocabulary": {
                     "kinds": sorted(self.coordination_query_kinds),
                     "relations": sorted(self.coordination_query_relations),
@@ -221,8 +285,29 @@ class ProfileSpec:
             self.operators,
             self.dimensions,
             self.sorts,
+            kinds=self.kinds,
+            facets=self.facets,
+            relations=self.relations,
             coordination=coordination,
         )
+
+    def facets_of(self, kind: str) -> Mapping[str, CompiledFacet]:
+        """Every facet the kind may carry: its own declared facets and every domain
+        facet attaching to it."""
+        if kind not in self.kinds:
+            raise ProfileError(f"kind {kind!r} is not in the compiled inventory")
+        own = {key: self.facets[key] for key in self.kinds[kind].facets}
+        attached = {key: f for key, f in self.facets.items() if kind in f.attaches_to}
+        return MappingProxyType({**own, **attached})
+
+    def validate_document(self, node: Node) -> None:
+        """Kind registered and facet keys declared (G5, D4), raising `nodes`' own
+        `UnknownKindError` / `FacetError`. The registry stays private: exposing it
+        would let a caller register or mutate a kind without moving a pin."""
+        self._registry.validate(node)
+
+    def document_violations(self, node: Node) -> tuple[Violation, ...]:
+        return tuple(self._registry.check(node))
 
     def operator(self, term: str) -> CompiledOperator:
         """Resolve an operator term identifier, or refuse.
@@ -344,8 +429,12 @@ def compile_profile(
             "CoordinationContract — use parse_coordination_contract or load_coordination_contract."
         )
     if coordination is not None:
-        unknown_kinds = set(coordination.query_kinds) - set(stored.WORLD_KINDS)
-        unknown_relations = set(coordination.query_relations) - set(stored.WORLD_RELATIONS)
+        unknown_kinds = set(coordination.query_kinds) - {
+            name for name, kind in base.kinds.items() if kind.role == "world"
+        }
+        unknown_relations = set(coordination.query_relations) - {
+            name for name, relation in base.relations.items() if relation.group == "world"
+        }
         if unknown_kinds or unknown_relations:
             raise ProfileError("coordination query vocabulary is outside the kernel inventory")
     activated = list(domains)
@@ -381,6 +470,62 @@ def compile_profile(
                 "namespaces compose; two to one namespace are refused at compile, never last-writer-wins."
             )
         seen[contract.namespace] = contract
+
+    kinds = {
+        name: CompiledKind(
+            name,
+            decl.role,
+            decl.domain,
+            decl.facets,
+            tuple(sorted(key for key, use in decl.facets.items() if use.covered)),
+            "science",
+        )
+        for name, decl in base.kinds.items()
+    }
+    facets = {
+        key: CompiledFacet(key, decl.shape, frozenset(), decl.fields, "science") for key, decl in base.facets.items()
+    }
+    if coordination is not None:
+        for name in coordination.kinds:
+            if name in kinds:
+                raise DuplicateContribution(f"coordination kind {name!r} already declared by the base contract")
+            kinds[name] = CompiledKind(
+                name,
+                "coordination",
+                None,
+                MappingProxyType({"coordination": FacetUse(True, False)}),
+                (),
+                "coordination",
+            )
+        if "coordination" in facets:
+            raise DuplicateContribution("facet 'coordination' already declared by the base contract")
+        facets["coordination"] = CompiledFacet(
+            "coordination", "reader", frozenset(), MappingProxyType({}), "coordination"
+        )
+    for namespace in sorted(seen):
+        for key, facet in seen[namespace].facets.items():
+            for kind in facet.attaches_to:
+                if kind not in kinds or kinds[kind].role != "world":
+                    raise ProfileError(f"{key}: attaches_to names {kind!r}, not a world kind")
+            facets[key] = CompiledFacet(key, facet.shape, frozenset(facet.attaches_to), facet.fields, namespace)
+    for key, facet in facets.items():
+        for name, field in facet.fields.items():
+            for kind in field.kinds:
+                if kind not in kinds:
+                    raise ProfileError(f"{key}: field {name!r} names kind {kind!r}, not in the compiled inventory")
+    registry = Registry()
+    for name, kind in kinds.items():
+        registry.register(
+            KindSpec(
+                name=name,
+                required_facets={key for key, use in kind.facets.items() if use.required},
+                optional_facets=(
+                    {key for key, use in kind.facets.items() if not use.required}
+                    | {key for key, facet in facets.items() if name in facet.attaches_to}
+                    | ({"semantic-identity"} if kind.domain is not None else set())
+                ),
+            )
+        )
 
     sorts: dict[str, CompiledSort] = {}
     dimensions: dict[str, CompiledDimension] = {}
@@ -418,15 +563,17 @@ def compile_profile(
         if coordination is not None
         else {}
     )
-    coordination_projection = (
-        _coordination_projection(coordination) if coordination is not None else None
-    )
+    coordination_projection = _coordination_projection(coordination) if coordination is not None else None
     activated_contracts = {ns: contract.content_identity for ns, contract in seen.items()}
     if coordination is not None:
         activated_contracts["coordination"] = coordination.content_identity
 
     return ProfileSpec._compiled(
         _MINT,
+        kinds=MappingProxyType(kinds),
+        facets=MappingProxyType(facets),
+        relations=base.relations,
+        _registry=registry,
         claim_grammar=base.claim_grammar,
         # Wrapped so `compiled_identity` cannot come to describe a profile that
         # no longer exists. The `dict()` copy is insurance against a later
@@ -451,6 +598,9 @@ def compile_profile(
                 operators,
                 dimensions,
                 sorts,
+                kinds=kinds,
+                facets=facets,
+                relations=base.relations,
                 coordination=coordination_projection,
             ),
         ),
@@ -467,6 +617,9 @@ def _projection(
     dimensions: Mapping[str, CompiledDimension],
     sorts: Mapping[str, CompiledSort],
     *,
+    kinds: Mapping[str, CompiledKind],
+    facets: Mapping[str, CompiledFacet],
+    relations: Mapping[str, RelationDecl],
     coordination: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """Every declaration is keyed **by term identifier**, never held positionally.
@@ -488,6 +641,9 @@ def _projection(
             "sign_inapt_tag": claim_grammar.sign_inapt_tag,
             "layers": sorted(claim_grammar.layers),
         },
+        "kinds": {name: kind.projection() for name, kind in kinds.items()},
+        "facets": {key: facet.projection() for key, facet in facets.items()},
+        "relations": {name: relation.projection() for name, relation in relations.items()},
         "operators": {term: decl.schema_projection() for term, decl in operators.items()},
         "dimensions": {term: decl.schema_projection() for term, decl in dimensions.items()},
         "sorts": {term: decl.schema_projection() for term, decl in sorts.items()},

@@ -1,4 +1,4 @@
-"""`findings.jsonl`: one line per finding, under the design's four closed classes (§7)."""
+"""`findings.jsonl`: one line per finding, under the design's closed classes (§7)."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 from reproduction import paths
 
-CLASSES = frozenset({"design-gap", "corpus-work", "defect", "host"})
+CLASSES = frozenset({"closed", "design-gap", "corpus-work", "defect", "host"})
 
 
 def record(step: int, cls: str, reason: str, filed: str = "unfiled") -> None:

@@ -62,7 +62,7 @@ class TestS1TheRelationFixtureWalkedOutOfTheStore:
     def test_a_diamond_reaches_its_bottom_once(self, view):
         reached = relation_walk(view, DIAMOND_TOP).reached
         assert reached.count(DIAMOND_BOTTOM) == 1
-        assert set(reached) == {"memo:diamond-left", "memo:diamond-right", DIAMOND_BOTTOM}
+        assert set(reached) == {"discussion:diamond-left", "discussion:diamond-right", DIAMOND_BOTTOM}
 
     def test_a_cycle_terminates(self, view):
         first, second = CYCLE
@@ -78,7 +78,7 @@ class TestS1TheRelationFixtureWalkedOutOfTheStore:
         # The dangling relation is stored **second**, so a report that lost the
         # position could not say which of the source's edges failed.
         assert relation_walk(view, DANGLING_SOURCE).unresolved == (
-            RelationEntry(source=DANGLING_SOURCE, position=1, predicate=CITES, target="memo:gone"),
+            RelationEntry(source=DANGLING_SOURCE, position=1, predicate=CITES, target="discussion:gone"),
         )
 
     def test_an_undirected_relation_is_reached_from_its_stored_source(self, view):

@@ -210,6 +210,8 @@ def gather(
         node_corpus=context.node_corpus,
         pins=context.pins,
         closure_nodes=tuple(sorted(ids)),
+        # §5.6: no derivation reads a domain facet yet; the read ledger arrives with the first reader (slice 2)
+        facets_read={},
     )
     return EvaluationInputs(
         proposition=proposition,

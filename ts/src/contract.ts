@@ -65,13 +65,60 @@ export interface ClaimGrammar {
   readonly layers: readonly string[];
 }
 
+export type FieldType = "string" | "integer" | "boolean" | "ref" | "locator" | "actor";
+export interface FieldDecl {
+  readonly name: string;
+  readonly type: FieldType;
+  readonly required: boolean;
+  readonly kinds: readonly string[];
+  readonly schemes: readonly string[];
+}
+export interface FacetDecl {
+  readonly key: string;
+  readonly shape: "reader" | "schema";
+  readonly fields: DeclarationTable<FieldDecl>;
+  readonly attachesTo: readonly string[];
+}
+export interface FacetUse {
+  readonly required: boolean;
+  readonly covered: boolean;
+}
+export interface KindDecl {
+  readonly name: string;
+  readonly role: "world" | "prose";
+  readonly domain: string | null;
+  readonly facets: DeclarationTable<FacetUse>;
+}
+export interface RelationDecl {
+  readonly name: string;
+  readonly group: "world" | "lifecycle";
+  readonly sources: readonly string[];
+  readonly targets: readonly string[];
+}
+
+const SEMANTIC_DOMAIN = /^science\.[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*\.v[1-9][0-9]*$/;
+const FIELD_TYPES: readonly FieldType[] = ["string", "integer", "boolean", "ref", "locator", "actor"];
+const FIELD_NAME = /^[a-z][a-z0-9_]*$/;
+
 export class BaseContract {
   #minted = true;
   readonly name: string;
   readonly version: number;
   readonly claimGrammar: ClaimGrammar;
+  readonly kinds: DeclarationTable<KindDecl>;
+  readonly relations: DeclarationTable<RelationDecl>;
+  readonly facets: DeclarationTable<FacetDecl>;
 
-  constructor(token: symbol, parts: { version: number; claimGrammar: ClaimGrammar }) {
+  constructor(
+    token: symbol,
+    parts: {
+      version: number;
+      claimGrammar: ClaimGrammar;
+      kinds?: DeclarationTable<KindDecl>;
+      relations?: DeclarationTable<RelationDecl>;
+      facets?: DeclarationTable<FacetDecl>;
+    },
+  ) {
     if (new.target !== BaseContract) {
       throw new SubclassRefused("BaseContract is sealed: a subclass could stand in for a parsed contract");
     }
@@ -80,6 +127,9 @@ export class BaseContract {
         "BaseContract is parsed, never authored — use parseBaseContract(text, source). The contracts are the " +
           "normative SSOT (D §6); an authored one would let a claim be typed against a grammar nobody wrote down.",
       );
+    }
+    if (parts.kinds === undefined || parts.relations === undefined || parts.facets === undefined) {
+      throw new UnparsedContract("BaseContract declarations are installed only by parseBaseContract(text, source)");
     }
     this.name = "science";
     this.version = parts.version;
@@ -90,6 +140,9 @@ export class BaseContract {
       signInaptTag: parts.claimGrammar.signInaptTag,
       layers: Object.freeze([...parts.claimGrammar.layers]),
     });
+    this.kinds = parts.kinds;
+    this.relations = parts.relations;
+    this.facets = parts.facets;
     Object.freeze(this);
   }
 
@@ -124,6 +177,7 @@ export class DomainContract {
   readonly sorts: DeclarationTable<SortDecl>;
   readonly dimensions: DeclarationTable<DimensionDecl>;
   readonly operators: DeclarationTable<OperatorDecl>;
+  readonly facets: DeclarationTable<FacetDecl>;
 
   /**
    * The base contract this domain was **typed against**.
@@ -153,6 +207,7 @@ export class DomainContract {
       sorts: DeclarationTable<SortDecl>;
       dimensions: DeclarationTable<DimensionDecl>;
       operators: DeclarationTable<OperatorDecl>;
+      facets: DeclarationTable<FacetDecl>;
       base: BaseContract;
     },
   ) {
@@ -170,6 +225,7 @@ export class DomainContract {
     this.sorts = parts.sorts;
     this.dimensions = parts.dimensions;
     this.operators = parts.operators;
+    this.facets = parts.facets;
     this.base = parts.base;
     Object.freeze(this);
   }
@@ -222,9 +278,74 @@ function closedSet(value: unknown, where: string): string[] {
   return tags;
 }
 
+function parseField(name: string, value: unknown, where: string): FieldDecl {
+  if (!FIELD_NAME.test(name))
+    throw new MalformedContract(`${where}: ${JSON.stringify(name)} is not a field identifier`);
+  const body = mapping(value, where);
+  exactFields(body, ["type", "required"], ["kinds", "schemes"], where);
+  const type = body.type;
+  if (typeof type !== "string" || !(FIELD_TYPES as readonly string[]).includes(type)) {
+    throw new MalformedContract(`${where}: type ${JSON.stringify(type)} is not one of ${FIELD_TYPES.join(", ")}`);
+  }
+  if (typeof body.required !== "boolean") throw new MalformedContract(`${where}: required is a mandatory boolean`);
+  if ("kinds" in body !== (type === "ref"))
+    throw new MalformedContract(`${where}: kinds is required for type ref and refused for every other type`);
+  if ("schemes" in body !== (type === "locator"))
+    throw new MalformedContract(`${where}: schemes is required for type locator and refused for every other type`);
+  return Object.freeze({
+    name,
+    type: type as FieldType,
+    required: body.required,
+    kinds: Object.freeze(type === "ref" ? closedSet(body.kinds, `${where}.kinds`) : []),
+    schemes: Object.freeze(type === "locator" ? closedSet(body.schemes, `${where}.schemes`) : []),
+  });
+}
+
+export function parseFacetDeclarations(
+  value: unknown,
+  where: string,
+  namespace: string | null,
+): DeclarationTable<FacetDecl> {
+  const entries: [string, FacetDecl][] = [];
+  for (const [local, bodyValue] of Object.entries(mapping(value, where))) {
+    const facetWhere = `${where}.${local}`;
+    const body = mapping(bodyValue, facetWhere);
+    const key = namespace === null ? tag(local, facetWhere) : `${namespace}/${tag(local, facetWhere)}`;
+    if ("description" in body && typeof body.description !== "string")
+      throw new MalformedContract(`${facetWhere}: description is a string, never null`);
+    let shape: "reader" | "schema";
+    let attachesTo: readonly string[] = Object.freeze([]);
+    if (namespace === null) {
+      if (body.shape !== "reader" && body.shape !== "schema")
+        throw new MalformedContract(`${facetWhere}: shape is reader or schema`);
+      shape = body.shape;
+      if (shape === "reader") {
+        exactFields(body, ["shape", "reader"], ["description"], facetWhere);
+        if (typeof body.reader !== "string" || body.reader === "")
+          throw new MalformedContract(`${facetWhere}: a reader-shaped facet names its reader`);
+        entries.push([key, Object.freeze({ key, shape, fields: frozenTable<FieldDecl>([]), attachesTo })]);
+        continue;
+      }
+      exactFields(body, ["shape", "fields"], ["description"], facetWhere);
+    } else {
+      exactFields(body, ["attaches_to", "fields"], ["description"], facetWhere);
+      shape = "schema";
+      attachesTo = Object.freeze(closedSet(body.attaches_to, `${facetWhere}.attaches_to`));
+    }
+    const fields = frozenTable(
+      Object.entries(mapping(body.fields, `${facetWhere}.fields`)).map(([name, fieldValue]) => [
+        name,
+        parseField(name, fieldValue, `${facetWhere}.fields.${name}`),
+      ]),
+    );
+    entries.push([key, Object.freeze({ key, shape, fields, attachesTo })]);
+  }
+  return frozenTable(entries);
+}
+
 export function parseBaseContract(text: string, source: string): BaseContract {
   const document = mapping(parseYaml(text), source);
-  exactFields(document, ["contract", "version", "claim_grammar"], [], source);
+  exactFields(document, ["contract", "version", "claim_grammar", "kinds", "relations", "facets"], [], source);
   if (document.contract !== "science") {
     throw new MalformedContract(
       `${source}: the base contract is named \`science\`, found ${JSON.stringify(document.contract)}`,
@@ -252,6 +373,58 @@ export function parseBaseContract(text: string, source: string): BaseContract {
       `${source}.claim_grammar.sign_inapt_tag: ${JSON.stringify(signInaptTag)} is also an assertable polarity`,
     );
   }
+  const facets = parseFacetDeclarations(document.facets, `${source}.facets`, null);
+  const kindEntries: [string, KindDecl][] = [];
+  for (const [name, bodyValue] of Object.entries(mapping(document.kinds, `${source}.kinds`))) {
+    const where = `${source}.kinds.${name}`;
+    const body = mapping(bodyValue, where);
+    if (Object.keys(body).length > 0) exactFields(body, ["facets"], ["domain", "role"], where);
+    const role = body.role === undefined ? "world" : body.role;
+    if (role !== "world" && role !== "prose") throw new MalformedContract(`${where}: role is world or prose`);
+    const facetBody = mapping("facets" in body ? body.facets : {}, `${where}.facets`);
+    if (role === "prose" && (body.domain !== undefined || Object.keys(facetBody).some((key) => key !== "display")))
+      throw new MalformedContract(`${where}: a prose kind carries no domain and no facet but display`);
+    if (
+      role === "world" &&
+      Object.keys(body).length > 0 &&
+      (typeof body.domain !== "string" || !SEMANTIC_DOMAIN.test(body.domain))
+    )
+      throw new MalformedContract(`${where}: a governed kind names a science.<kind>.v<n> domain`);
+    const uses: [string, FacetUse][] = [];
+    for (const [key, useValue] of Object.entries(facetBody)) {
+      if (!(key in facets))
+        throw new MalformedContract(`${where}.facets: ${JSON.stringify(key)} is not a declared facet`);
+      const use = mapping(useValue, `${where}.facets.${key}`);
+      exactFields(use, ["required", "covered"], [], `${where}.facets.${key}`);
+      if (typeof use.required !== "boolean" || typeof use.covered !== "boolean")
+        throw new MalformedContract(`${where}.facets.${key}: required and covered are booleans`);
+      uses.push([key, Object.freeze({ required: use.required, covered: use.covered })]);
+    }
+    kindEntries.push([
+      name,
+      Object.freeze({
+        name,
+        role,
+        domain: role === "world" && typeof body.domain === "string" ? body.domain : null,
+        facets: frozenTable(uses),
+      }),
+    ]);
+  }
+  const kinds = frozenTable(kindEntries);
+  const relationEntries: [string, RelationDecl][] = [];
+  for (const [name, bodyValue] of Object.entries(mapping(document.relations, `${source}.relations`))) {
+    const where = `${source}.relations.${name}`;
+    const body = mapping(bodyValue, where);
+    exactFields(body, ["group", "sources", "targets"], [], where);
+    if (body.group !== "world" && body.group !== "lifecycle")
+      throw new MalformedContract(`${where}: group is world or lifecycle`);
+    const sources = Object.freeze(closedSet(body.sources, `${where}.sources`));
+    const targets = Object.freeze(closedSet(body.targets, `${where}.targets`));
+    for (const kind of [...sources, ...targets])
+      if (!(kind in kinds)) throw new MalformedContract(`${where}: ${JSON.stringify(kind)} is not a declared kind`);
+    relationEntries.push([name, Object.freeze({ name, group: body.group, sources, targets })]);
+  }
+  const relations = frozenTable(relationEntries);
   return new BaseContract(MINT, {
     version: positiveInt(document.version, `${source}.version`),
     claimGrammar: {
@@ -261,6 +434,9 @@ export function parseBaseContract(text: string, source: string): BaseContract {
       signInaptTag,
       layers: closedSet(grammarDocument.layers, `${source}.claim_grammar.layers`),
     },
+    kinds,
+    relations,
+    facets,
   });
 }
 
@@ -291,7 +467,11 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     );
   }
   const document = mapping(parseYaml(text), source);
-  exactFields(document, ["contract", "version", "lineage"], ["sorts", "dimensions", "operators"], source);
+  for (const section of ["kinds", "relations"]) {
+    if (section in document)
+      throw new MalformedContract(`${source}: a domain contract declares no ${section}; refused`);
+  }
+  exactFields(document, ["contract", "version", "lineage"], ["sorts", "dimensions", "operators", "facets"], source);
 
   if (document.lineage !== "genesis") {
     throw new UncheckableContract(
@@ -299,6 +479,7 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     );
   }
   const namespace = tag(document.contract, `${source}.contract`);
+  const facets = parseFacetDeclarations("facets" in document ? document.facets : {}, `${source}.facets`, namespace);
 
   const sortEntries: [string, SortDecl][] = [];
   for (const [name, body] of Object.entries(declarations(document.sorts, `${source}.sorts`))) {
@@ -384,6 +565,7 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     sorts,
     dimensions,
     operators: frozenTable(operatorEntries),
+    facets,
     base,
   });
 }

@@ -163,3 +163,10 @@ def testing_document(testing_contract_path) -> dict:
     import yaml
 
     return yaml.safe_load(testing_contract_path.read_text(encoding="utf-8"))
+
+
+@pytest.fixture()
+def acquisition_report():
+    from fixtures_cut3 import report
+
+    return report(operation="acquisition")

@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from authority import FULL
 from fixtures_cut6 import PINS
+from profiles import WITH_BIOLOGY
 
 from beliefs.corpus import CorpusWriter
 from beliefs.identity import v1
@@ -207,7 +208,7 @@ def test_reconcile_sessions_keeps_the_reconcile_order_and_leads_with_the_unadopt
     leads even though `ledger-torn-tail` sorts before `session-corpus-unadopted`."""
     root, unadopted, ops = certified_work / "corpus", certified_work / "nope", certified_work / "ops"
     init_corpus_root(root, authority=FULL)
-    CorpusWriter(root, durable_executor_factory(), authority=FULL).adopt_manifest(profile=PINS)
+    CorpusWriter(root, durable_executor_factory(), authority=FULL, profile=WITH_BIOLOGY).adopt_manifest(profile=PINS)
     config = WorldConfig(world_root=certified_work / "world", world_id=WORLD, corpus_roots=(root, unadopted))
 
     torn = ledger_path(ops, S1)

@@ -28,6 +28,9 @@ claim_grammar:
   polarities: [positive, negative, unsigned]
   sign_inapt_tag: inapt
   layers: [causal, structural]
+kinds: {}
+relations: {}
+facets: {}
 `;
 
 const DOMAIN = `

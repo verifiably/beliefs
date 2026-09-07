@@ -31,6 +31,7 @@ from beliefs.holdings.seam import (
     StoreOutcomeView,
 )
 from beliefs.permit import Authority, require_actor
+from beliefs.profile import ProfileSpec
 from beliefs.world.anchors import parse_store_genesis
 
 HOLDINGS_INTENT_DOMAIN = "science.holdings-intent.v1"
@@ -73,8 +74,11 @@ class ActContext:
     instrument: str
     authority: Authority
     seam: StoreActSeam
+    profile: ProfileSpec
 
     def __post_init__(self) -> None:
+        if not isinstance(self.profile, ProfileSpec):
+            raise TypeError("an act context binds a compiled ProfileSpec")
         if type(self.authority) is not Authority:
             raise TypeError("an act context binds an Authority")
 
@@ -84,23 +88,31 @@ class ActContext:
         return self.authority.actor
 
 
+def _publish_record(ctx: ActContext, record: HoldingsObservation, intent: str) -> PublishedObservation:
+    """Publish under the corpus lock after checking the held profile's pins."""
+    ctx.authority.require("holdings", ("holdings-observation",))
+    from beliefs.corpus import require_pins_agree
+
+    node = stored.holdings_observation_node(record)
+    plan = (CreateOp(f"holdings-observation/{record.identity()}.md", node_to_markdown(node).encode("utf-8")),)
+    with ctx.seam.corpus_lock(ctx.observer_root):
+        require_pins_agree(ctx.observer_root, ctx.profile)
+        ctx.seam.publish_fulfilling(ctx.observer_root, plan, intent)
+    return PublishedObservation(record)
+
+
 def _publish(ctx: ActContext, location: StoreLocator, outcome: Found | Absent, token: str, intent: str,
              standing: tuple[HoldingsObservation, ...]) -> PublishedObservation:
     ctx.authority.require("holdings", ("holdings-observation",))
     record = holdings_observation(location=location, outcome=outcome, observer=ctx.observer, instrument=ctx.instrument,
                                   event_token=token, observed_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
                                   supersedes=standing)
-    node = stored.holdings_observation_node(record)
-    ctx.seam.publish_fulfilling(ctx.observer_root, (CreateOp(f"holdings-observation/{record.identity()}.md",
-                                                             node_to_markdown(node).encode("utf-8")),), intent)
-    return PublishedObservation(record)
+    return _publish_record(ctx, record, intent)
 
 
 def recheck(ctx: ActContext, location: StoreLocator, *, standing: tuple[HoldingsObservation, ...] = ()) -> ActResult:
     ctx.authority.require("holdings", ("holdings-observation",))
-    token = secrets.token_hex(16)
-    intent = ctx.seam.append_intent(ctx.observer_root, intent_payload(location=location, act_kind="re-check",
-                                                                        event_token=token, actor=ctx.actor))
+    token, intent = _append(ctx, location, "re-check")
     view = ctx.seam.read_path(ctx.store_root, location.relative_path)
     if isinstance(view, ReadNotAttemptedView):
         return InconclusiveAttempt("byte-locator-untested", view.reason, view.detail)
@@ -131,9 +143,14 @@ def _bind(ctx: ActContext, location: StoreLocator) -> None:
 def _append(ctx: ActContext, location: StoreLocator, kind: str) -> tuple[str, str]:
     ctx.authority.require("holdings", ("holdings-observation",))
     token = secrets.token_hex(16)
-    return token, ctx.seam.append_intent(
-        ctx.observer_root, intent_payload(location=location, act_kind=kind, event_token=token, actor=ctx.actor)
-    )
+    from beliefs.corpus import require_pins_agree
+
+    with ctx.seam.corpus_lock(ctx.observer_root):
+        require_pins_agree(ctx.observer_root, ctx.profile)
+        intent = ctx.seam.append_intent(
+            ctx.observer_root, intent_payload(location=location, act_kind=kind, event_token=token, actor=ctx.actor)
+        )
+    return token, intent
 
 
 def write(ctx: ActContext, location: StoreLocator, content: bytes, *, expected: str | None = None,
@@ -151,10 +168,7 @@ def write(ctx: ActContext, location: StoreLocator, content: bytes, *, expected: 
     record = holdings_observation(location=location, outcome=Found(state.content_hash), expected=expected,
                                   observer=ctx.observer, instrument=ctx.instrument, event_token=token,
                                   observed_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), supersedes=standing)
-    node = stored.holdings_observation_node(record)
-    ctx.seam.publish_fulfilling(ctx.observer_root, (CreateOp(f"holdings-observation/{record.identity()}.md",
-                                                             node_to_markdown(node).encode("utf-8")),), intent)
-    return PublishedObservation(record)
+    return _publish_record(ctx, record, intent)
 
 
 def delete(ctx: ActContext, location: StoreLocator, *, standing: tuple[HoldingsObservation, ...] = ()) -> PublishedObservation:

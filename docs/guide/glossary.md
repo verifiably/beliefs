@@ -117,7 +117,8 @@ context and the linked design references for normative detail.
   facets are unnamespaced; domain facets are namespaced and may extend
   interpretation without redefining kernel relations. A dataset's
   empirical-observation facet is what lets a run's `observes` edge confer
-  eligibility. ([foundations](foundations.md#contracts-compile-into-profiles))
+  eligibility. ([facet-contracts design](../designs/2026-09-05-facet-contracts-design.md),
+  [foundations](foundations.md#contracts-compile-into-profiles))
 - **Declared** — A dataset carrying a content identity without a matching byte
   observation of every resource it declares. A world entity, authorable and
   referenceable, and never belief-eligible. Not the same as *unheld*: a run that

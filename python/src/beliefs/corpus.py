@@ -42,7 +42,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, cast, final
 
 from nodes.core.corpus import Corpus
-from nodes.core.errors import CollisionError, ExecutionError, PlanRefusedError, RefError
+from nodes.core.errors import CollisionError, ExecutionError, FacetError, PlanRefusedError, RefError, UnknownKindError
 from nodes.core.errors import ValidationError as NodesValidationError
 from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.node import Node
@@ -56,6 +56,7 @@ from yaml import YAMLError
 from beliefs import boundary as boundary_values
 from beliefs import report as report_values
 from beliefs import stored
+from beliefs.acquisition import bearer_refusal, validity_refusal
 from beliefs.consulted import CorpusPins
 from beliefs.coordination import (
     COORDINATION_KINDS,
@@ -68,6 +69,7 @@ from beliefs.coordination import (
 )
 from beliefs.dataset import dataset_address
 from beliefs.errors import (
+    AcquisitionBoundaryRefused,
     ActorMismatch,
     BasisMissing,
     BuildContended,
@@ -80,6 +82,7 @@ from beliefs.errors import (
     DeletionKindExcluded,
     DeletionTargetMissing,
     EligibilityUnmet,
+    FacetPayloadRefused,
     FamilyKindUnsupported,
     IdentityError,
     ImportRefused,
@@ -87,6 +90,7 @@ from beliefs.errors import (
     MalformedRecord,
     ManifestAlreadyPresent,
     ManifestMalformed,
+    ManifestMissing,
     OperationPortMissing,
     PlanRefused,
     PredecessorMismatch,
@@ -111,10 +115,11 @@ from beliefs.errors import (
     WriteRefused,
 )
 from beliefs.evidence import NO_EVIDENCE, DerivationEvidence
+from beliefs.facets import validate_payload
 from beliefs.identity import v1
 from beliefs.lineage import Basis, LineageSnapshot, Producer, Route
 from beliefs.permit import Authority
-from beliefs.profile import ProfileSpec
+from beliefs.profile import ProfileSpec, shipped_base
 from beliefs.record import RunInput, RunValue
 from beliefs.report import OperationIntent
 from beliefs.runrecord import OperationPort
@@ -198,6 +203,7 @@ class ReadView:
 
     def __init__(self, corpus: Corpus) -> None:
         self._corpus = corpus
+        self._base_pin_stamp: tuple[int, int] | None = None
 
     @classmethod
     def opened_at(cls, root: Path) -> ReadView:
@@ -231,13 +237,39 @@ class ReadView:
         preceded it — substrate §4.3's bound, inherited here rather than
         papered over.
         """
+        self._require_base_pin()
         return self._validated(self._corpus.get(ref))
+
+    def _require_base_pin(self) -> None:
+        """§7.1: a validated read judges nothing under a base the corpus does not
+        pin. Construction never checks (the check would refuse the audit that
+        reports the mismatch, §5.5); iteration never checks."""
+        path = self._corpus.store.root / "corpus.yaml"
+        try:
+            stamp = (path.stat().st_mtime_ns, path.stat().st_size)
+        except FileNotFoundError:
+            return
+        if stamp == self._base_pin_stamp:
+            return
+        from beliefs.world import load_manifest
+
+        pinned = load_manifest(self._corpus.store.root).profile.science_contract
+        shipped = "science:" + shipped_base().base_contract_identity
+        if pinned != shipped:
+            raise ContractMismatch(f"{path}: science_contract {pinned[:20]}… is not the shipped base {shipped[:20]}…; refused, never reinterpreted")
+        self._base_pin_stamp = stamp
 
     def outbound(self, ref: str) -> list[ResolvedEdge]:
         return self._corpus.outbound(ref)
 
     def inbound(self, ref: str) -> list[ResolvedEdge]:
         return self._corpus.inbound(ref)
+
+    def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]:
+        """Ids of every stored record holding a `produces` edge that names `dataset`
+        — by its id, by an alias, or by a target that resolves to it. Dangling
+        edges count: a run written before its dataset is still a producer."""
+        return _producer_ids(self, dataset, aliases=aliases)
 
     def iter_stored(self) -> Iterator[Node]:
         """Every stored node, **unvalidated**. The corpus check's read: a
@@ -472,6 +504,7 @@ class _RoutedExecutor:
     def commit_fulfilling(self, scope: _Fulfillment, plan: WritePlan) -> None:
         """The commit seam (design §4.3, §13 item 13): require, preflight, intent,
         fulfilling execution — in that order and no other."""
+        require_pins_agree(self._state.corpus.store.root, scope.port.profile)
         scope.authority.require("corpus-write", _plan_kinds(plan))
         try:
             scope.port.preflight(plan)
@@ -514,6 +547,7 @@ class _SettlingHold:
         self._lock.__enter__()
         state = self._writer._state
         try:
+            self._writer._require_pins_agree()
             self._writer._settle()
         except BaseException:
             self._lock.__exit__(None, None, None)
@@ -552,9 +586,51 @@ class _ImportView:
             return self._records[uid]
         return self._local.get(ref)
 
+    def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]:
+        """Ids of every stored record holding a `produces` edge that names `dataset`
+        — by its id, by an alias, or by a target that resolves to it. Dangling
+        edges count: a run written before its dataset is still a producer."""
+        return _producer_ids(self, dataset, aliases=aliases)
+
     def iter_stored(self) -> Iterator[Node]:
         yield from self._local.iter_stored()
         yield from self._records.values()
+
+
+class _CheckView:
+    """Unvalidated neighbours: a stale record is reported where it stands (§5.5)."""
+
+    def __init__(self, view: ReadView) -> None:
+        self._view = view
+        self._by_id = {node.id: node for node in view.iter_stored()}
+
+    def resolve(self, ref: str) -> str | None:
+        return self._view.resolve(ref)
+
+    def holds(self, ref: str) -> bool:
+        return self.resolve(ref) is not None
+
+    def get(self, ref: str) -> Node:
+        resolved = self.resolve(ref)
+        return self._by_id[resolved if resolved is not None else ref]
+
+    def iter_stored(self) -> Iterator[Node]:
+        yield from self._by_id.values()
+
+    def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]:
+        return _producer_ids(self, dataset, aliases=aliases)
+
+
+def _producer_ids(view: ReadView | _ImportView | _CheckView, dataset: str, *, aliases: tuple[str, ...]) -> tuple[str, ...]:
+    """One producer-selection rule over the caller's records and resolver."""
+    names = {dataset, *aliases}
+    return tuple(sorted({
+        node.id
+        for node in view.iter_stored()
+        for relation in node.relations
+        if relation.predicate == stored.PRODUCES
+        and (relation.target in names or view.resolve(relation.target) == dataset)
+    }))
 
 
 _ROOT_STATES: dict[str, _RootState] = {}
@@ -970,7 +1046,7 @@ def _producers_of(view: ReadView, dataset: str) -> list[Producer]:
 # --- the §6.2 corpus check ---------------------------------------------------
 
 
-def eligibility_refusal(view: ReadView | _ImportView, node: Node) -> str | None:
+def eligibility_refusal(view: ReadView | _ImportView | _CheckView, node: Node, profile: ProfileSpec) -> str | None:
     """S7's cross-node predicate, in one implementation for both boundaries.
 
     assessment → run → `observes` → dataset → facet. `reads` inputs never
@@ -992,13 +1068,19 @@ def eligibility_refusal(view: ReadView | _ImportView, node: Node) -> str | None:
     observed = stored.inputs_of(run, stored.OBSERVES)
     if not observed:
         return f"the run {run_ref!r} has no observes input; reads inputs never confer eligibility"
+    reasons: list[str] = []
     for dataset_ref in observed:
-        if view.holds(dataset_ref) and stored.is_empirical_observation(view.get(dataset_ref)):
+        if not view.holds(dataset_ref):
+            reasons.append(f"{dataset_ref}: unresolved")
+            continue
+        reason = validity_refusal(view, view.get(dataset_ref), profile)
+        if reason is None:
             return None
-    return f"no observes input of {run_ref!r} carries the empirical-observation facet"
+        reasons.append(f"{dataset_ref}: {reason}")
+    return f"no observes input of {run_ref!r} carries a valid empirical-observation facet ({'; '.join(reasons)})"
 
 
-def corpus_check(view: ReadView) -> tuple[Finding, ...]:
+def corpus_check(view: ReadView, profile: ProfileSpec) -> tuple[Finding, ...]:
     """The profile-level check (substrate §6.2 item 2), reported and never raised.
 
     Files are canonical and hand-editable, so a node can reach the store without
@@ -1011,7 +1093,7 @@ def corpus_check(view: ReadView) -> tuple[Finding, ...]:
     """
     findings: list[Finding] = []
     manifest_path = view._corpus.store.root / "corpus.yaml"
-    if manifest_path.exists():
+    if manifest_path.exists() or manifest_path.is_symlink():
         from beliefs.world import load_manifest
 
         try:
@@ -1026,10 +1108,25 @@ def corpus_check(view: ReadView) -> tuple[Finding, ...]:
                     message=str(refused),
                 )
             )
+        except ManifestMissing as refused:
+            findings.append(Finding("error", "manifest-malformed", "corpus.yaml", str(refused), str(refused)))
+    scope, detail, disagreeing = profile_mismatch(view._corpus.store.root, profile)
+    if scope != "none":
+        findings.append(Finding("error", "profile-mismatch", "corpus.yaml", scope, detail))
+    if scope in ("base", "malformed"):
+        return tuple(findings)
+    check = _CheckView(view)
+    judge_namespaced = scope == "none"
+    withhold_coordination = "coordination" in disagreeing
+    base_kinds = shipped_base().kinds
+    bearer_or_retrieval: dict[tuple[str, str], set[str]] = {}
     retraction_targets: dict[str, list[str]] = {}
     coordination_revisions: dict[CoordinationAddress, list[CoordinationRevision]] = {}
-    for node in view.iter_stored():
-        if stored.COORDINATION_FACET in node.facets:
+    for node in check.iter_stored():
+        if withhold_coordination and node.kind not in base_kinds:
+            continue
+        coordination_valid = True
+        if not withhold_coordination and stored.COORDINATION_FACET in node.facets:
             if coordination_facet_malformed(node):
                 findings.append(
                     Finding(
@@ -1040,9 +1137,10 @@ def corpus_check(view: ReadView) -> tuple[Finding, ...]:
                         message=f"{node.id}: the coordination facet is malformed",
                     )
                 )
-                continue
-            revision = coordination_revision(node)
-            coordination_revisions.setdefault(revision.address, []).append(revision)
+                coordination_valid = False
+            else:
+                revision = coordination_revision(node)
+                coordination_revisions.setdefault(revision.address, []).append(revision)
         base_valid = True
         if stored.semantic_hash_missing(node):
             base_valid = False
@@ -1078,7 +1176,33 @@ def corpus_check(view: ReadView) -> tuple[Finding, ...]:
                     message=f"{node.id}: the covered fields do not encode, so no hash can be recomputed: {refused}",
                 )
             )
-        if not base_valid:
+        for violation in profile.document_violations(node):
+            if violation.code == "unknown-kind":
+                findings.append(Finding("error", "kind-unknown", node.id, node.kind, violation.message))
+            elif violation.code in ("facet-missing", "facet-unexpected"):
+                if "/" in violation.detail and not judge_namespaced:
+                    continue
+                findings.append(Finding("error", violation.code, node.id, violation.detail, violation.message))
+        for key, payload in node.facets.items():
+            facet = profile.facets.get(key)
+            if facet is None or ("/" in key and not judge_namespaced):
+                continue
+            try:
+                validate_payload(facet, payload, where=node.id)
+            except FacetPayloadRefused as refused:
+                findings.append(Finding("error", "facet-payload-malformed", node.id, key, str(refused)))
+        if node.kind == "dataset" and stored.EMPIRICAL_OBSERVATION_FACET in node.facets:
+            reason = validity_refusal(check, node, profile)
+            if reason is not None and not reason.startswith("facet-payload-malformed"):
+                finding_reasons = bearer_or_retrieval.setdefault((reason.split(":", 1)[0], node.id), set())
+                finding_reasons.add(reason)
+        for relation in node.relations:
+            if relation.predicate == stored.PRODUCES:
+                target = check.resolve(relation.target)
+                if target is not None and stored.EMPIRICAL_OBSERVATION_FACET in check.get(target).facets:
+                    finding_reasons = bearer_or_retrieval.setdefault(("facet-bearer-produced", target), set())
+                    finding_reasons.add(f"produced by {node.id}")
+        if not base_valid or not coordination_valid:
             continue
         if stored.display_facet_malformed(node):
             findings.append(
@@ -1093,7 +1217,7 @@ def corpus_check(view: ReadView) -> tuple[Finding, ...]:
         for relation in node.relations:
             if (
                 relation.predicate == stored.SUPERSEDES
-                and stored.COORDINATION_FACET not in node.facets
+                and (withhold_coordination or stored.COORDINATION_FACET not in node.facets)
                 and not view.holds(relation.target)
             ):
                 findings.append(
@@ -1108,7 +1232,7 @@ def corpus_check(view: ReadView) -> tuple[Finding, ...]:
         if node.kind == "retraction":
             try:
                 target = CorpusWriter._validated_retraction(node)["target"]
-                CorpusWriter._resolve_retraction_target(node, view)
+                CorpusWriter._resolve_retraction_target(node, check)
             except ScienceError as refused:
                 findings.append(
                     Finding(
@@ -1124,10 +1248,7 @@ def corpus_check(view: ReadView) -> tuple[Finding, ...]:
                     resolved = view.resolve(target["ref"])
                     assert resolved is not None
                     retraction_targets.setdefault(resolved, []).append(node.id)
-        try:
-            reason = eligibility_refusal(view, node)
-        except (IdentityError, SemanticHashMissing, SemanticHashStale):
-            reason = None
+        reason = eligibility_refusal(check, node, profile)
         if reason is not None:
             for relation in node.relations:
                 if relation.predicate == stored.ASSESSES:
@@ -1140,6 +1261,9 @@ def corpus_check(view: ReadView) -> tuple[Finding, ...]:
                             message=f"{node.id}: assesses {relation.target!r} but {reason}",
                         )
                     )
+    for (code, ref), reasons in bearer_or_retrieval.items():
+        detail = "; ".join(sorted(reasons))
+        findings.append(Finding("error", code, ref, detail, detail))
     graph = {target: tuple(sorted(retractions)) for target, retractions in retraction_targets.items()}
     try:
         _acyclic_postorder(graph)
@@ -1235,6 +1359,53 @@ class CoordinationResolver:
         return next(iter(tips)).node
 
 
+MismatchScope = Literal["none", "domains", "base", "malformed"]
+
+
+def profile_mismatch(root: Path, profile: ProfileSpec) -> tuple[MismatchScope, str, frozenset[str]]:
+    """§5.5: pin disagreement scope, explanation, and activated namespaces."""
+    if profile.base_contract_identity != shipped_base().base_contract_identity:
+        return "base", "the supplied profile requires a different base than this runtime ships", frozenset()
+    manifest_path = Path(root) / "corpus.yaml"
+    if not manifest_path.exists() and not manifest_path.is_symlink():
+        return "none", "", frozenset()
+    from beliefs.world import load_manifest
+
+    try:
+        pins = load_manifest(Path(root)).profile
+    except (ManifestMalformed, ManifestMissing) as caught:
+        return "malformed", str(caught), frozenset()
+    if pins.science_contract != "science:" + profile.base_contract_identity:
+        return "base", f"manifest pins {pins.science_contract[:20]}…, profile carries science:{profile.base_contract_identity[:12]}…", frozenset()
+    expected = {ns: f"{ns}:{identity}" for ns, identity in profile.activated_contracts.items()}
+    disagreeing = frozenset(ns for ns in set(pins.domains) | set(expected) if pins.domains.get(ns) != expected.get(ns))
+    if disagreeing:
+        return "domains", f"manifest domains disagree on {sorted(disagreeing)}", disagreeing
+    return "none", "", frozenset()
+
+
+def require_pins_agree(root: Path, profile: ProfileSpec) -> None:
+    """§5.1: refuse unreadable or disagreeing pins before any write effect."""
+    scope, detail, _ = profile_mismatch(root, profile)
+    if scope != "none":
+        message = "manifest pins cannot be read" if scope == "malformed" else "manifest pins do not match the profile"
+        raise ContractMismatch(f"{Path(root) / 'corpus.yaml'}: {message}: {detail}")
+
+
+def require_profile_compatible(profile: ProfileSpec, mounted: ProfileSpec | None = None) -> None:
+    """The deterministic writer/session profile requirements, before opening either."""
+    if not isinstance(profile, ProfileSpec):
+        raise TypeError("a writer binds a compiled ProfileSpec")
+    if profile.base_contract_identity != shipped_base().base_contract_identity:
+        raise ContractMismatch("a writer requires the shipped base contract")
+    if mounted is not None and (
+        mounted.base_contract_identity != profile.base_contract_identity
+        or dict(mounted.activated_contracts) != dict(profile.activated_contracts)
+        or mounted.compiled_identity != profile.compiled_identity
+    ):
+        raise ContractMismatch("the mounted coordination profile differs from this writer's profile")
+
+
 class CorpusWriter:
     """The write API — the sole constructor and holder of a mutable `Corpus`.
 
@@ -1265,6 +1436,7 @@ class CorpusWriter:
         executor_factory: Callable[[Path], WritePlanExecutor],
         *,
         authority: Authority,
+        profile: ProfileSpec,
         operation_port: OperationPort | None = None,
         coordination_resolver: CoordinationResolver | None = None,
     ) -> None:
@@ -1272,11 +1444,27 @@ class CorpusWriter:
             raise TypeError("a writer binds an Authority")
         if operation_port is not None and operation_port.authority != authority:
             raise ValueError("the operation port is bound to another authority than this writer")
+        mounted = coordination_resolver.profile(root) if coordination_resolver is not None else None
+        require_profile_compatible(profile, mounted)
+        if operation_port is not None and (
+            operation_port.profile.base_contract_identity != profile.base_contract_identity
+            or dict(operation_port.profile.activated_contracts) != dict(profile.activated_contracts)
+            or operation_port.profile.compiled_identity != profile.compiled_identity
+        ):
+            raise ValueError("the operation port holds another profile than this writer")
+        self._profile = profile
         self._authority = authority
         self._state = _root_state_for(root, executor_factory)
         self._operation = _SettlingHold(self)
         self._operation_port = operation_port
         self._coordination_resolver = coordination_resolver
+
+    @property
+    def profile(self) -> ProfileSpec:
+        return self._profile
+
+    def _require_pins_agree(self) -> None:
+        require_pins_agree(self.root, self._profile)
 
     @property
     def authority(self) -> Authority:
@@ -1343,6 +1531,7 @@ class CorpusWriter:
         """
         self._authority.require("corpus-write", (node.kind,))
         with self._operation:
+            self._require_pins_agree()
             self._refuse_family_kinds(node)
             self._refuse(node)
             self._refuse_foreign_closure_actor(node)
@@ -1366,6 +1555,7 @@ class CorpusWriter:
         rules the repeat harmless.
         """
         with self._operation:
+            self._require_pins_agree()
             try:
                 node = self._view.get(ref)
             except RefError as caught:
@@ -1383,28 +1573,30 @@ class CorpusWriter:
         if node.kind in EXCLUDED_MUTATION_KINDS or (profile is not None and node.kind in profile.coordination_kinds):
             raise DeletionKindExcluded(f"{node.id}: kind {node.kind!r} is excluded from every world-changing operation")
 
-    def _add_locked(self, node: Node) -> Node:
+    def _add_locked(self, node: Node, *, provenance: bool = False) -> Node:
         """`add`'s body, with the root's operation lock already held."""
+        self._require_pins_agree()
         self.authority.require("corpus-write", (node.kind,))
-        self._preflight_add_locked(node)
+        self._preflight_add_locked(node, provenance=provenance)
         return self._corpus.add(node)
 
-    def _preflight_add_locked(self, node: Node) -> None:
+    def _preflight_add_locked(self, node: Node, *, provenance: bool = False) -> None:
         """Run the lock-held add checks without writing."""
         self._refuse_family_kinds(node, admitted_kind=node.kind)
-        self._refuse(node)
+        self._refuse(node, provenance=provenance)
         self._refuse_foreign_closure_actor(node)
 
-    def _replace_locked(self, node: Node) -> Node:
+    def _replace_locked(self, node: Node, *, provenance: bool = False) -> Node:
         """Rewrite an existing `(uid, id)`, with the operation lock held."""
+        self._require_pins_agree()
         self.authority.require("corpus-write", (node.kind,))
-        self._preflight_replace_locked(node)
+        self._preflight_replace_locked(node, provenance=provenance)
         try:
             return self._corpus.add(node)
         except CollisionError as caught:
             raise CollisionRefused(str(caught)) from caught
 
-    def _preflight_replace_locked(self, node: Node) -> None:
+    def _preflight_replace_locked(self, node: Node, *, provenance: bool = False) -> None:
         """Run the lock-held replacement checks without writing."""
         existing = self._corpus.index.by_uid.get(node.uid)
         if existing is None or existing.id != node.id:
@@ -1415,12 +1607,14 @@ class CorpusWriter:
         if stored.display_facet_malformed(node):
             raise ValidationRefused(f"{node.id}: refused by document validation: malformed display facet")
         self._refuse_invalid(node)
+        self._refuse_facets(node, provenance=provenance)
         self._refuse_governed_stamp(node)
         self._refuse_rendering(node)
         self._refuse_collision(node)
 
     def _delete_locked(self, ref: str) -> None:
         """Remove one record's file, with the operation lock already held."""
+        self._require_pins_agree()
         self.authority.require("corpus-write", (self._view.get(ref).kind,))
         from beliefs.world.rules import member_content_digest
 
@@ -1440,6 +1634,7 @@ class CorpusWriter:
     ) -> Node:
         self._authority.require("corpus-write", (kind,))
         with self._operation:
+            self._require_pins_agree()
             validated = self._validated_coordination_content(kind, content)
             if kind == "project":
                 if project is not None:
@@ -1475,6 +1670,7 @@ class CorpusWriter:
     ) -> Node:
         self._authority.require("corpus-write", (kind,))
         with self._operation:
+            self._require_pins_agree()
             validated = self._validated_coordination_content(kind, content)
             if not isinstance(address, CoordinationAddress) or address.revision is not None:
                 raise ValidationRefused("coordination revision requires an unpinned address")
@@ -1649,6 +1845,7 @@ class CorpusWriter:
         from beliefs.world import CorpusManifest, _parse_manifest, manifest_bytes
 
         with self._operation:
+            self._require_pins_agree()
             manifest_path = self._corpus.store.root / "corpus.yaml"
             if manifest_path.exists() or manifest_path.is_symlink():
                 raise ManifestAlreadyPresent(f"{manifest_path}: manifest already present")
@@ -1662,6 +1859,12 @@ class CorpusWriter:
                     },
                 }
             ).profile
+            expected = CorpusPins(
+                "science:" + self._profile.base_contract_identity,
+                {ns: f"{ns}:{identity}" for ns, identity in self._profile.activated_contracts.items()},
+            )
+            if profile != expected:
+                raise ContractMismatch("adopt_manifest writes only the held profile's pins")
             manifest = CorpusManifest(2, secrets.token_hex(16), checked_profile)
             self._state.executors(self._corpus.store.root).execute(
                 [CreateOp("corpus.yaml", manifest_bytes(manifest))]
@@ -1669,6 +1872,7 @@ class CorpusWriter:
             return manifest
 
     def _append_operation_intent(self, kind: str, token: str, intent_actor: str) -> str:
+        self._require_pins_agree()
         self.authority.require("corpus-write", ("act-report",))
         if intent_actor != self.authority.actor:
             raise ActorMismatch(
@@ -1696,6 +1900,7 @@ class CorpusWriter:
         *,
         operation: CreateOp | None = None,
     ) -> report_values.ActReport:
+        self._require_pins_agree()
         self.authority.require("corpus-write", ("act-report",))
         operation_port = self._operation_port
         assert operation_port is not None
@@ -1737,6 +1942,7 @@ class CorpusWriter:
         )
         actor = self._authority.actor
         with self._operation:
+            self._require_pins_agree()
             if not bundle:
                 raise ImportRefused("an import bundle must not be empty")
             for name, value in (
@@ -1808,6 +2014,7 @@ class CorpusWriter:
         """Mint one locally resolvable retraction without touching its target."""
         self._authority.require("corpus-write", ("retraction",))
         with self._operation:
+            self._require_pins_agree()
             self._refuse_family_kinds(record, admitted_kind="retraction")
             facet = record.facets.get(stored.RETRACTION_FACET)
             if isinstance(facet, dict) and facet.get("actor") != self._authority.actor:
@@ -1862,6 +2069,7 @@ class CorpusWriter:
         """Mint a proposition successor without touching its predecessor."""
         self._authority.require("corpus-write", ("proposition",))
         with self._operation:
+            self._require_pins_agree()
             self._refuse_family_kinds(successor)
             try:
                 predecessor = self._view.get(of)
@@ -1904,19 +2112,27 @@ class CorpusWriter:
             return self._corpus.add(candidate)
 
     def revise(self, node: Node) -> Node:
-        """Replace a proposition after changing display prose alone."""
-        self._authority.require("corpus-write", ("proposition",))
+        """Replace proposition prose or a dataset within §5.3's boundary."""
+        self._authority.require("corpus-write", (node.kind,))
         with self._operation:
+            self._require_pins_agree()
+            try:
+                existing = self._corpus.index.by_uid.get(node.uid)
+            except TypeError as caught:
+                raise ValidationRefused(f"{node.id}: refused by document validation: malformed uid") from caught
+            if existing is None or existing.id != node.id:
+                self._refuse_family_kinds(node)
+                raise RevisionTargetMissing(f"{node.id}: exact uid and id do not identify a local node")
+            current = self._view.get(node.id)
+            self._authority.require("corpus-write", (current.kind,))
+            if current.kind == "dataset":
+                return self._revise_dataset_locked(node, current)
             self._refuse_family_kinds(node)
+            if current.kind != "proposition" or node.kind != "proposition":
+                raise ReviseKindImmutable("revise operates on propositions and datasets only")
             self._refuse_invalid(node)
             if not all(isinstance(relation, Relation) for relation in node.relations):
                 raise ValidationRefused(f"{node.id}: refused by document validation: malformed relation")
-            existing = self._corpus.index.by_uid.get(node.uid)
-            if existing is None or existing.id != node.id:
-                raise RevisionTargetMissing(f"{node.id}: exact uid and id do not identify a local node")
-            current = self._view.get(node.id)
-            if current.kind != "proposition" or node.kind != "proposition":
-                raise ReviseKindImmutable("revise operates on propositions only")
             if stored.display_facet_malformed(node):
                 raise ValidationRefused(f"{node.id}: refused by document validation: malformed display facet")
             try:
@@ -1936,6 +2152,67 @@ class CorpusWriter:
                 raise ReviseOutsideAllowlist(f"{node.id}: revision changes a field outside display prose")
             self._refuse_rendering(node)
             return self._corpus.add(node)
+
+    _DATASET_REVISION_FACETS = frozenset({stored.EMPIRICAL_OBSERVATION_FACET, stored.DISPLAY_FACET})
+
+    def _revise_dataset_locked(self, node: Node, current: Node) -> Node:
+        """Apply §5.3's dataset interpretation-and-prose boundary."""
+        self._require_pins_agree()
+        self._authority.require("corpus-write", (current.kind,))
+        candidate_fields = node.model_dump()
+        current_fields = current.model_dump()
+        for fields in (candidate_fields, current_fields):
+            fields.pop("title")
+            fields.pop("body")
+            facets = fields["facets"]
+            fields["facets"] = {
+                key: value
+                for key, value in facets.items()
+                if key not in self._DATASET_REVISION_FACETS
+                and key != stored.SEMANTIC_IDENTITY_FACET
+                and "/" not in key
+            }
+        if candidate_fields != current_fields:
+            moved = sorted(
+                key
+                for key in set(candidate_fields) | set(current_fields)
+                if candidate_fields.get(key) != current_fields.get(key)
+            )
+            raise ReviseOutsideAllowlist(f"{node.id}: a dataset revision preserves {', '.join(moved)}")
+        before = current.facets.get(stored.EMPIRICAL_OBSERVATION_FACET)
+        after = node.facets.get(stored.EMPIRICAL_OBSERVATION_FACET)
+        if before is not None and after is None:
+            raise ReviseOutsideAllowlist(
+                f"{node.id}: removing {stored.EMPIRICAL_OBSERVATION_FACET!r} withdraws standing; that is a "
+                "record-level act the correction lifecycle has not designed (facet-contracts §2 item 3)"
+            )
+        for key, payload in node.facets.items():
+            facet = self._profile.facets.get(key)
+            if facet is not None:
+                validate_payload(facet, payload, where=node.id)
+        if after is not None:
+            def without_attester(payload: dict) -> dict:
+                return {key: value for key, value in payload.items() if key != "attested_by"}
+
+            declaration_changed = before is None or without_attester(before) != without_attester(after)
+            if declaration_changed:
+                expected = self._authority.actor
+            else:
+                assert before is not None
+                expected = before["attested_by"]
+            if after.get("attested_by") != expected:
+                raise ActorMismatch(
+                    f"{node.id}: a {'changed' if declaration_changed else 'unchanged'} declaration names attester "
+                    f"{after.get('attested_by')!r}, expected {expected!r}"
+                )
+        if stored.display_facet_malformed(node):
+            raise ValidationRefused(f"{node.id}: refused by document validation: malformed display facet")
+        restamped = stored.stamp_semantic_identity(node.model_copy(deep=True))
+        self._refuse_invalid(restamped)
+        self._refuse_facets(restamped, provenance=True)
+        self._refuse_governed_stamp(restamped)
+        self._refuse_rendering(restamped)
+        return self._corpus.add(restamped)
 
     def _validate_import_bundle(
         self, records: tuple[Node, ...], evidence: DerivationEvidence
@@ -1992,7 +2269,7 @@ class CorpusWriter:
         union = _ImportView(self._view, records, union_index)
         for record in records:
             try:
-                self._refuse(record, view=union)
+                self._refuse(record, document_validated=True, view=union, provenance=True)
                 if record.kind == "act-report":
                     self._refuse_malformed_act_report(record)
             except (RecordAlreadyMinted, CollisionRefused) as caught:
@@ -2062,7 +2339,7 @@ class CorpusWriter:
         return _cycle_edges(graph)
 
     @staticmethod
-    def _resolve_retraction_target(record: Node, view: ReadView | _ImportView) -> None:
+    def _resolve_retraction_target(record: Node, view: ReadView | _ImportView | _CheckView) -> None:
         target = _validated_retraction_target(record)
         if target["arm"] == "node":
             if target["resolved"].partition(":")[0] not in ELIGIBLE_RETRACTION_TARGET_KINDS:
@@ -2178,6 +2455,7 @@ class CorpusWriter:
             return
         if state.recover is not None:
             state.recover(state.corpus.store.root)
+        self._require_pins_agree()
         self._reconstruct()
         state.unresolved = False
 
@@ -2264,6 +2542,7 @@ class CorpusWriter:
         *,
         document_validated: bool = False,
         view: ReadView | _ImportView | None = None,
+        provenance: bool = False,
     ) -> None:
         self._refuse_already_minted(node)
         self._refuse_missing_basis(node)
@@ -2272,6 +2551,7 @@ class CorpusWriter:
             raise ValidationRefused(f"{node.id}: refused by document validation: malformed display facet")
         if not document_validated:
             self._refuse_invalid(node)
+        self._refuse_facets(node, view=view, provenance=provenance)
         if node.kind == "verification":
             self._refuse_verification(node, view=self._view if view is None else view)
         if node.kind == "analysis-spec":
@@ -2279,6 +2559,36 @@ class CorpusWriter:
         self._refuse_governed_stamp(node)
         self._refuse_rendering(node)
         self._refuse_collision(node)
+
+    def _refuse_facets(self, node: Node, *, view: ReadView | _ImportView | None = None, provenance: bool = False) -> None:
+        """§5.2: registry, payload, bearer, actor, and acquisition validity.
+        Provenance preserves the attestation of an arriving record."""
+        try:
+            self._profile.validate_document(node)
+        except UnknownKindError as caught:
+            raise ValidationRefused(f"{node.id}: kind-unknown: {caught}") from caught
+        except FacetError as caught:
+            code = self._profile.document_violations(node)[0].code
+            raise ValidationRefused(f"{node.id}: {code}: {caught}") from caught
+        for key, payload in node.facets.items():
+            facet = self._profile.facets.get(key)
+            if facet is not None:
+                validate_payload(facet, payload, where=node.id)
+
+        reading = self._view if view is None else view
+        reason = bearer_refusal(reading, node)
+        if reason is not None:
+            raise AcquisitionBoundaryRefused(reason)
+        payload = node.facets.get(stored.EMPIRICAL_OBSERVATION_FACET)
+        if isinstance(payload, dict):
+            if not provenance and payload.get("attested_by") != self._authority.actor:
+                raise ActorMismatch(
+                    f"{node.id}: the declaration names attester {payload.get('attested_by')!r}, not the bound "
+                    f"{self._authority.actor!r}"
+                )
+            reason = validity_refusal(reading, node, self._profile)
+            if reason is not None:
+                raise FacetPayloadRefused(f"{node.id}: {reason}")
 
     @staticmethod
     def _refuse_governed_stamp(node: Node) -> None:
@@ -2361,15 +2671,14 @@ class CorpusWriter:
     def _refuse_ineligible(self, node: Node, *, view: ReadView | _ImportView | None = None) -> None:
         """S7's write boundary, reading the cross-node predicate through this
         corpus's own read view."""
-        reason = eligibility_refusal(self._view if view is None else view, node)
+        reason = eligibility_refusal(self._view if view is None else view, node, self._profile)
         if reason is not None:
             raise EligibilityUnmet(f"{node.id}: the assesses edge is inadmissible because {reason}")
 
     @staticmethod
     def _refuse_invalid(node: Node) -> None:
         """`nodes`' document validation, wrapped so no `nodes` exception escapes
-        raw. The registry half is unexercised here: no kind registry is compiled
-        in this slice, and G5's kind-existence check waits with it."""
+        raw. The held profile validates registry membership separately."""
         try:
             Node.model_validate(node.model_dump(warnings="error"))
         except (NodesValidationError, PydanticValidationError, PydanticSerializationError) as caught:

@@ -128,7 +128,7 @@ from atoms.store.errors import MetadataStoreInvalid
 from nodes.core.errors import ExecutionError, PlanRefusedError
 from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp, WritePlan, validate_plan
 
-from beliefs.corpus import CoordinationResolver, CorpusWriter, _operation_lock_for
+from beliefs.corpus import CoordinationResolver, CorpusWriter, _operation_lock_for, require_pins_agree
 from beliefs.errors import CorpusRootRefused, LogEvidenceRefused, WorldIdMismatch, WorldUninitialized
 from beliefs.holdings.seam import (
     AbsentStateView,
@@ -145,6 +145,7 @@ from beliefs.holdings.seam import (
 from beliefs.holdings.seam import WritePlan as SeamWritePlan
 from beliefs.identity import v1
 from beliefs.permit import READ_ONLY, Authority
+from beliefs.profile import ProfileSpec
 from beliefs.world import (
     AdmissionRecord,
     CorpusSubject,
@@ -945,10 +946,13 @@ class DurableExecutor:
 
 class DurableOperationPort:
     def __init__(
-        self, root: Path, *, backend: Backend, storage: StorageProfile, metadata_root: Path, authority: Authority
+        self, root: Path, *, backend: Backend, storage: StorageProfile, metadata_root: Path, authority: Authority, profile: ProfileSpec
     ) -> None:
         if type(authority) is not Authority:
             raise TypeError("a port binds an Authority")
+        if not isinstance(profile, ProfileSpec):
+            raise TypeError("a port binds a compiled ProfileSpec")
+        self._profile = profile
         self.root = Path(root)
         self._backend = backend
         self._storage = storage
@@ -956,11 +960,16 @@ class DurableOperationPort:
         self._authority = authority
 
     @property
+    def profile(self) -> ProfileSpec:
+        return self._profile
+
+    @property
     def authority(self) -> Authority:
         return self._authority
 
     def append_intent(self, payload: bytes) -> str:
         with _operation_lock_for(self.root):
+            require_pins_agree(self.root, self._profile)
             try:
                 return append_intent(
                     self._backend,
@@ -990,9 +999,11 @@ class DurableOperationPort:
     def execute(self, plan: WritePlan) -> None:
         """Publish a record that fulfills no intent."""
         with _operation_lock_for(self.root):
+            require_pins_agree(self.root, self._profile)
             self._execute(plan)
 
     def _execute(self, plan: WritePlan) -> None:
+        require_pins_agree(self.root, self._profile)
         _refuse_over_ceiling(plan)
         DurableExecutor(
             self.root,
@@ -1006,10 +1017,21 @@ class DurableOperationPort:
 
     def execute_fulfilling(self, plan: WritePlan, fulfills: str) -> str:
         with _operation_lock_for(self.root):
+            require_pins_agree(self.root, self._profile)
             self._execute_fulfilling(plan, fulfills)
             return _registration_for(self.root, self._backend, self._storage, self._metadata_root, fulfills)
 
+    def execute_fulfilling_guarded(self, plan, fulfills, *, guard, fallback):
+        from beliefs.corpus import ReadView
+
+        with _operation_lock_for(self.root):
+            require_pins_agree(self.root, self._profile)
+            reason = guard(ReadView.opened_at(self.root))
+            self._execute_fulfilling(plan if reason is None else fallback(reason), fulfills)
+            return reason
+
     def _execute_fulfilling(self, plan: WritePlan, fulfills: str) -> None:
+        require_pins_agree(self.root, self._profile)
         _refuse_over_ceiling(plan)
         DurableExecutor(
             self.root,
@@ -1588,7 +1610,14 @@ def _store_genesis(root: Path) -> bytes:
     return _read_head(root).genesis_payload
 
 
+@contextmanager
+def _holdings_corpus_lock(root: Path) -> Iterator[None]:
+    with _operation_lock_for(root):
+        yield
+
+
 _HOLDINGS_SEAM = StoreActSeam(
+    corpus_lock=_holdings_corpus_lock,
     append_intent=_store_append_intent,
     publish_fulfilling=_store_publish_fulfilling,
     read_path=_store_read_path,
@@ -1740,7 +1769,7 @@ def epochs_ordered(config: WorldConfig, e1: str, e2: str) -> Ordering:
     return _epochs_ordered(config, e1, e2, seam=_log_seam())
 
 
-def durable_operation_port(root: Path, authority: Authority) -> DurableOperationPort:
+def durable_operation_port(root: Path, authority: Authority, *, profile: ProfileSpec) -> DurableOperationPort:
     """The port `open_corpus` binds, exposed for the session composition (§13 item 1)."""
     resolved = Path(root).resolve()
     return DurableOperationPort(
@@ -1749,11 +1778,12 @@ def durable_operation_port(root: Path, authority: Authority) -> DurableOperation
         storage=PRODUCTION_STORAGE,
         metadata_root=metadata_root_for(resolved),
         authority=authority,
+        profile=profile,
     )
 
 
 def open_corpus(
-    corpus_root: Path, *, authority: Authority, coordination_resolver: CoordinationResolver | None = None
+    corpus_root: Path, *, authority: Authority, profile: ProfileSpec, coordination_resolver: CoordinationResolver | None = None
 ) -> CorpusWriter:
     """The composition root's product: a write API bound to one corpus root,
     writing through the certified engine.
@@ -1767,7 +1797,8 @@ def open_corpus(
         root,
         durable_executor_factory(),
         authority=authority,
-        operation_port=durable_operation_port(root, authority),
+        profile=profile,
+        operation_port=durable_operation_port(root, authority, profile=profile),
         coordination_resolver=coordination_resolver,
     )
 

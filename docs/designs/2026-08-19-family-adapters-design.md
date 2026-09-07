@@ -562,3 +562,8 @@ operation.
 
 **Rebuilding Gate-B around `intent_digest`.** Rejected because the digest is
 opaque and there is no saved plan boundary to authenticate.
+
+> **Amended 2026-09-07** (facet-contracts design §5.3). `revise` gains the
+> dataset arm: it may replace a dataset node with unchanged dataset address and
+> revised contract-valid facet payload, under the same identity and write
+> boundary as the existing family.

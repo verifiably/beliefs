@@ -390,6 +390,44 @@ class TestRetirementIsOneWay:
             parse(edited, predecessor=contract)
 
 
+class TestDomainFacets:
+    def test_the_testing_contract_declares_two_namespaced_facets(self, parse, testing_document):
+        contract = parse(testing_document)
+        assert set(contract.facets) == {"testing/axis", "testing/annotation"}
+        assert contract.facets["testing/axis"].attaches_to == ("dataset",)
+        assert contract.facets["testing/annotation"].attaches_to == ("dataset", "proposition")
+
+    def test_a_domain_declaring_kinds_or_relations_is_refused(self, parse, testing_document):
+        for section in ("kinds", "relations"):
+            doc = copy.deepcopy(testing_document)
+            doc[section] = {}
+            with pytest.raises(MalformedContract, match=f"a domain contract declares no {section}"):
+                parse(doc)
+
+    def test_a_domain_facet_requires_attaches_to_and_fields(self, parse, testing_document):
+        doc = copy.deepcopy(testing_document)
+        del doc["facets"]["axis"]["attaches_to"]
+        with pytest.raises(MalformedContract, match="attaches_to"):
+            parse(doc)
+
+    def test_a_domain_facet_may_not_declare_a_shape(self, parse, testing_document):
+        doc = copy.deepcopy(testing_document)
+        doc["facets"]["axis"]["shape"] = "schema"
+        with pytest.raises(MalformedContract, match="unknown key"):
+            parse(doc)
+
+    def test_facets_enter_the_content_identity(self, parse, testing_document):
+        before = parse(testing_document).content_identity
+        doc = copy.deepcopy(testing_document)
+        doc["facets"]["axis"]["fields"]["axis"]["required"] = False
+        assert parse(doc).content_identity != before
+
+    def test_a_contract_without_facets_still_loads(self, parse, testing_document):
+        doc = copy.deepcopy(testing_document)
+        del doc["facets"]
+        assert parse(doc).facets == {}
+
+
 class TestTheLoadBoundary:
     def test_reading_a_file_runs_the_succession_check(self, tmp_path, base_contract, parse, testing_document):
         # The gap this closes: a loader that parsed without checking would let a

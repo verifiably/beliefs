@@ -6,6 +6,7 @@ import pytest
 from authority import FULL
 from fixtures_cut6 import BIOLOGY_ID, PINS, SCIENCE_ID, manifest_document
 from nodes.core.write_plan import DefaultExecutor
+from profiles import WITH_BIOLOGY
 
 from beliefs.corpus import CorpusWriter, corpus_check
 from beliefs.errors import ManifestAlreadyPresent, ManifestMalformed, ManifestMissing
@@ -115,19 +116,19 @@ def test_projection_and_bytes_ignore_yaml_format_and_mapping_order(tmp_path):
 
 def test_fresh_id_is_opaque_and_survives_root_moves_and_reclones(tmp_path):
     first_root = tmp_path / "first"
-    first = CorpusWriter(first_root, DefaultExecutor, authority=FULL).adopt_manifest(profile=PINS)
+    first = CorpusWriter(first_root, DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY).adopt_manifest(profile=PINS)
     moved = tmp_path / "moved"
     shutil.move(first_root, moved)
     clone = tmp_path / "clone"
     shutil.copytree(moved, clone)
-    second = CorpusWriter(tmp_path / "second", DefaultExecutor, authority=FULL).adopt_manifest(profile=PINS)
+    second = CorpusWriter(tmp_path / "second", DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY).adopt_manifest(profile=PINS)
 
     assert load_manifest(moved).corpus_id == load_manifest(clone).corpus_id == first.corpus_id
     assert second.corpus_id != first.corpus_id
 
 
 def test_existing_manifest_refuses_remint(tmp_path):
-    writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL)
+    writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY)
     first = writer.adopt_manifest(profile=PINS)
 
     with pytest.raises(ManifestAlreadyPresent):
@@ -140,10 +141,11 @@ def test_corpus_check_distinguishes_malformed_from_absent_manifest(tmp_path):
     malformed.mkdir()
     write_manifest(malformed, "manifest_version: wrong\n")
 
-    findings = corpus_check(CorpusWriter(malformed, DefaultExecutor, authority=FULL).read_view)
+    findings = corpus_check(CorpusWriter(malformed, DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY).read_view, WITH_BIOLOGY)
 
     assert [(finding.severity, finding.code, finding.ref) for finding in findings] == [
-        ("error", "manifest-malformed", "corpus.yaml")
+        ("error", "manifest-malformed", "corpus.yaml"),
+        ("error", "profile-mismatch", "corpus.yaml")
     ]
     assert findings[0].detail
-    assert corpus_check(CorpusWriter(tmp_path / "absent", DefaultExecutor, authority=FULL).read_view) == ()
+    assert corpus_check(CorpusWriter(tmp_path / "absent", DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY).read_view, WITH_BIOLOGY) == ()

@@ -1,11 +1,13 @@
 """Cut 17 declaration accounting and N2 audit."""
+
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -23,6 +25,33 @@ from n2_arms_cut17 import CO_CITED, CUT17_ARMS, LABELED_UNITS, ROW_UNITS, unit_o
 from test_n2 import audit, baseline
 
 import beliefs.root as science_root
+
+# Live facet-contract matcher migration, 2026-09-07; canonical table remains frozen at 1d8f293.
+_LIVE_SABOTAGES = {
+    "E1c": Sabotage(
+        module="corpus.py",
+        before='        self._authority.require("corpus-write", (node.kind,))\n        with self._operation:\n            self._require_pins_agree()\n            self._refuse_family_kinds(node)\n            self._refuse(node)',
+        after="        with self._operation:\n            self._require_pins_agree()\n            self._refuse_family_kinds(node)\n            self._refuse(node)",
+    ),
+    "E1r": Sabotage(
+        module="corpus.py",
+        before='        self.authority.require("corpus-write", (node.kind,))\n        self._preflight_add_locked(node, provenance=provenance)\n        return self._corpus.add(node)',
+        after='        self._preflight_add_locked(node, provenance=provenance)\n        result = self._corpus.add(node)\n        self.authority.require("corpus-write", (node.kind,))\n        return result',
+    ),
+    "E6a": Sabotage(
+        module="holdings/boundary.py",
+        before='def _append(ctx: ActContext, location: StoreLocator, kind: str) -> tuple[str, str]:\n    ctx.authority.require("holdings", ("holdings-observation",))\n    token = secrets.token_hex(16)\n    from beliefs.corpus import require_pins_agree\n\n    with ctx.seam.corpus_lock(ctx.observer_root):\n        require_pins_agree(ctx.observer_root, ctx.profile)\n        intent = ctx.seam.append_intent(\n            ctx.observer_root, intent_payload(location=location, act_kind=kind, event_token=token, actor=ctx.actor)\n        )\n    return token, intent',
+        after='def _append(ctx: ActContext, location: StoreLocator, kind: str) -> tuple[str, str]:\n    token = secrets.token_hex(16)\n    from beliefs.corpus import require_pins_agree\n\n    with ctx.seam.corpus_lock(ctx.observer_root):\n        require_pins_agree(ctx.observer_root, ctx.profile)\n        intent = ctx.seam.append_intent(\n            ctx.observer_root, intent_payload(location=location, act_kind=kind, event_token=token, actor=ctx.actor)\n        )\n    ctx.authority.require("holdings", ("holdings-observation",))\n    return token, intent',
+    ),
+    "K1": Sabotage(
+        module="holdings/boundary.py",
+        before="        ctx.seam.publish_fulfilling(ctx.observer_root, plan, intent)",
+        after="        pass  # established finding silently dropped",
+    ),
+}
+CUT17_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT17_ARMS
+)
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -52,8 +81,21 @@ FROZEN_CUT10_SHA256 = {
     "docs/designs/2026-08-24-conformance-cut-10.md": "17dcc49b5a7e2207baeae3990d04f5cb35c499156f9c2cbf1c996b6587cefc64",
     "docs/plans/2026-08-24-conformance-cut-10-results.md": "83fa5f7cb0ea0abaf82db765162792b2862d6cd9e0feec1eabe2aaaac85d224b",
 }
-PRIOR_ARMS = (*CUT3_ARMS, *CUT5_ARMS, *CUT6_ARMS, *CUT7_ARMS, *CUT8_ARMS, *CUT9_ARMS, *CUT10_ARMS,
-              *CUT11_ARMS, *CUT12_ARMS, *CUT13_ARMS, *CUT14_ARMS, *CUT15_ARMS, *CUT16_ARMS)
+PRIOR_ARMS = (
+    *CUT3_ARMS,
+    *CUT5_ARMS,
+    *CUT6_ARMS,
+    *CUT7_ARMS,
+    *CUT8_ARMS,
+    *CUT9_ARMS,
+    *CUT10_ARMS,
+    *CUT11_ARMS,
+    *CUT12_ARMS,
+    *CUT13_ARMS,
+    *CUT14_ARMS,
+    *CUT15_ARMS,
+    *CUT16_ARMS,
+)
 
 
 @pytest.fixture(scope="session")

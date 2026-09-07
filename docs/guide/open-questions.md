@@ -44,9 +44,12 @@ implementation**: a guarantee row awaiting code is work, not a question.
   model-conditional, proof, derivation, and simulation claims cannot satisfy the
   empirical `observes` route. Do they get a second eligibility and answer model,
   or remain outside computed belief? ([kernel question](../designs/2026-08-02-epistemic-kernel-design.md#11-open-questions))
-- **Empirical-observation facet.** What demonstrates an acquisition boundary,
-  rather than merely asserting that a dataset is observational? This contract is
-  the hinge of empirical eligibility. ([kernel question](../designs/2026-08-02-epistemic-kernel-design.md#11-open-questions))
+- ~~**Empirical-observation facet.** What demonstrates an acquisition boundary?~~
+  **CLOSED 2026-09-05** by the
+  [facet-contracts design §6](../designs/2026-09-05-facet-contracts-design.md#6-the-empirical-observation-contract).
+- **Lineage-inherited empirical standing.** Should a derived dataset inherit
+  empirical standing from observed ancestors, and what exact lineage proof
+  would permit it? ([facet-contracts design §14](../designs/2026-09-05-facet-contracts-design.md#14-open-questions-this-design-files))
 - **Kernel-adjacent structures.** Are inquiries, patch definitions, structural
   chains, and coverage searches new kinds or derived views over existing kinds?
   ([kernel question](../designs/2026-08-02-epistemic-kernel-design.md#11-open-questions))
@@ -195,8 +198,11 @@ implementation**: a guarantee row awaiting code is work, not a question.
   ([holdings design](../designs/2026-08-10-verified-holdings-record-design.md),
   [what stayed open](../designs/2026-08-10-verified-holdings-record-design.md#7-what-this-unblocks-and-what-stays-open))
 - **Contract governance.** Facet-breaking changes, compatibility ranges,
-  parallel `genesis` contracts in one namespace, domain distribution, and
-  Python/TypeScript parity policy remain open. ([domain questions](../designs/2026-08-04-domain-extension-boundary-design.md#12-open-questions))
+  parallel `genesis` contracts in one namespace, and domain distribution remain
+  open. ([domain questions](../designs/2026-08-04-domain-extension-boundary-design.md#12-open-questions))
+- **Relation endpoint enforcement.** Should contract-declared endpoint kinds be
+  enforced by `nodes`, by the compiled Science profile at every seam, or by a
+  later registry boundary? ([facet-contracts design §14](../designs/2026-09-05-facet-contracts-design.md#14-open-questions-this-design-files))
 - **Normative artifact shape.** Whether a contract cut becomes a world node and
   how legacy checks pass the adoption gate remain decisions for the first full
   contract cut. ([normative-contract questions](../designs/2026-08-03-normative-contract-design.md#11-open-questions))

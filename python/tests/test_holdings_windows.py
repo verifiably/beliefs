@@ -11,6 +11,7 @@ from authority import FULL
 from fixtures_cut6 import PINS
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.write_plan import CreateOp, DefaultExecutor
+from profiles import WITH_BIOLOGY
 from test_world_build import ChainHeads
 
 from beliefs import root as science_root
@@ -25,7 +26,7 @@ from beliefs.world import logmodel, registry, rules
 def setup(root: Path):
     corpus_root = root / "corpus"
     science_root.init_corpus_root(corpus_root, authority=FULL)
-    manifest = science_root.open_corpus(corpus_root, authority=FULL).adopt_manifest(profile=PINS)
+    manifest = science_root.open_corpus(corpus_root, authority=FULL, profile=WITH_BIOLOGY).adopt_manifest(profile=PINS)
     store_root = root / "store"
     store_id = science_root.init_store_root(store_root, authority=FULL)
     world = registry.World(
@@ -37,7 +38,7 @@ def setup(root: Path):
     )
     world.admit(corpus_root, provenance=registry.Fresh())
     binding = rules.install_rule_binding(world, holdings_rule_bundle())
-    context = ActContext(corpus_root, store_root, "observer", "instrument", FULL, science_root.holdings_seam())
+    context = ActContext(corpus_root, store_root, "observer", "instrument", FULL, science_root.holdings_seam(), profile=WITH_BIOLOGY)
     return context, store_id, manifest.corpus_id, world, binding
 
 

@@ -25,6 +25,10 @@ It does not validate **succession** (§8.3) and does not implement **retirement*
 them. A reduced parser that quietly accepted what the normative reading refuses
 would be a second, weaker reading of the SSOT, and it would look like agreement.
 
+It parses `kinds`, `relations` and `facets` declarations with the same
+structural refusals and validates no facet payload; validation is Python-primary,
+sited with compilation (facet-contracts §7.2).
+
 ## Running it
 
 ```sh

@@ -116,6 +116,7 @@ class HaltingPort(DurableOperationPort):
         storage: StorageProfile,
         metadata_root: Path,
         authority: Authority,
+        profile,
     ) -> None:
         # The delegate answers every engine call through `__getattr__`, which the
         # structural `Backend` protocol cannot see; the cast is the whole of what
@@ -126,6 +127,7 @@ class HaltingPort(DurableOperationPort):
             storage=storage,
             metadata_root=metadata_root,
             authority=authority,
+            profile=profile,
         )
         self.halting_backend = backend
 

@@ -5,6 +5,7 @@ from authority import ACTOR
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 from nodes.core.relations import Relation
+from profiles import BASE
 
 from beliefs import corpus, errors, stored
 from beliefs.errors import (
@@ -195,7 +196,7 @@ def test_corpus_check_reports_a_raw_retraction_with_a_missing_local_target(tmp_p
     retraction = raw_retraction("retraction:r1", "assessment:missing")
     raw_write(tmp_path, retraction)
 
-    findings = corpus.corpus_check(reopen(tmp_path))
+    findings = corpus.corpus_check(reopen(tmp_path), BASE)
 
     assert [(finding.severity, finding.code) for finding in findings] == [
         ("error", "retraction-target-invalid")
@@ -204,16 +205,17 @@ def test_corpus_check_reports_a_raw_retraction_with_a_missing_local_target(tmp_p
 
 def test_corpus_check_reports_an_ungoverned_node_with_a_semantic_stamp(tmp_path):
     malformed = Node(
-        id="memo:bad-domain",
-        kind="memo",
+        id="discussion:bad-domain",
+        kind="discussion",
         title="bad domain",
         facets={stored.SEMANTIC_IDENTITY_FACET: {"digest": "x"}},
     )
     view = seed(tmp_path, malformed)
 
-    findings = corpus.corpus_check(view)
+    findings = corpus.corpus_check(view, BASE)
 
     assert [(finding.code, finding.ref, finding.detail) for finding in findings] == [
+        ("facet-unexpected", malformed.id, "semantic-identity"),
         ("semantic-hash-stale", malformed.id, "unencodable")
     ]
 
@@ -234,7 +236,7 @@ def test_wrong_retraction_target_content_identity_is_invalid_and_not_applied(tmp
     with pytest.raises(errors.RetractionTargetUnresolvable):
         corpus.standing_in_local_view(view, target.id)
 
-    assert "retraction-target-invalid" in {finding.code for finding in corpus.corpus_check(view)}
+    assert "retraction-target-invalid" in {finding.code for finding in corpus.corpus_check(view, BASE)}
 
 
 def test_corpus_check_rejects_raw_cycle_shapes_before_cycle_classification(tmp_path):
@@ -243,7 +245,7 @@ def test_corpus_check_rejects_raw_cycle_shapes_before_cycle_classification(tmp_p
     raw_write(tmp_path, first)
     raw_write(tmp_path, second)
 
-    findings = corpus.corpus_check(reopen(tmp_path))
+    findings = corpus.corpus_check(reopen(tmp_path), BASE)
 
     assert [(finding.severity, finding.code) for finding in findings] == [
         ("error", "retraction-target-invalid"),

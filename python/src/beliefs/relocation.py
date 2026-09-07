@@ -93,6 +93,8 @@ def move(
     """Move one record destination-first and report once in each root."""
     _refuse_actor_disagreement(source, destination)
     with _both_locks(source, destination):
+        source._require_pins_agree()
+        destination._require_pins_agree()
         _refuse_same_root(source, destination)
         resolved = source.read_view.resolve(ref)
         if resolved is None:
@@ -104,7 +106,7 @@ def move(
             raise DuplicateLocation(
                 f"{node.id}: destination already holds this canonical address"
             )
-        destination._preflight_add_locked(node)
+        destination._preflight_add_locked(node, provenance=True)
         for position, writer in (("source", source), ("destination", destination)):
             if writer._operation_port is None:
                 raise RelocationRefused(
@@ -137,7 +139,7 @@ def move(
         source_intent = source._append_operation_intent(
             intent.kind, intent.event_token, intent.actor
         )
-        moved = destination._add_locked(node)
+        moved = destination._add_locked(node, provenance=True)
         source._delete_locked(node.id)
         destination._publish_operation_report(
             destination_report,
@@ -191,6 +193,8 @@ def consolidate(
     other_writer, other_ref = other
     _refuse_actor_disagreement(keep_writer, other_writer)
     with _both_locks(keep_writer, other_writer):
+        keep_writer._require_pins_agree()
+        other_writer._require_pins_agree()
         _refuse_same_root(keep_writer, other_writer)
         keep_id = keep_writer.read_view.resolve(keep_ref)
         if keep_id is None:
@@ -212,7 +216,7 @@ def consolidate(
             )
         _refuse_contract_disagreement(other_node, other_writer, keep_writer)
         merged = _reconcile(keep_node, other_node)
-        keep_writer._preflight_replace_locked(merged)
+        keep_writer._preflight_replace_locked(merged, provenance=True)
         for position, writer in (("keep", keep_writer), ("other", other_writer)):
             if writer._operation_port is None:
                 raise RelocationRefused(
@@ -249,7 +253,7 @@ def consolidate(
         other_intent = other_writer._append_operation_intent(
             intent.kind, intent.event_token, intent.actor
         )
-        survivor = keep_writer._replace_locked(merged)
+        survivor = keep_writer._replace_locked(merged, provenance=True)
         other_writer._delete_locked(other_node.id)
         keep_writer._publish_operation_report(
             keep_report, keep_intent, operation=keep_report_op

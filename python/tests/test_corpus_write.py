@@ -21,9 +21,10 @@ from nodes.core.errors import CollisionError, ExecutionError, RefError, Validati
 from nodes.core.frontmatter import node_from_markdown
 from nodes.core.node import Node, NodeMetadata
 from nodes.core.write_plan import CreateOp, DefaultExecutor, DeleteOp, ReplaceOp
+from profiles import BASE, WITH_BIOLOGY
 
 from beliefs import boundary, stored
-from beliefs.corpus import CorpusWriter, OperationLock, _operation_lock_for
+from beliefs.corpus import CorpusWriter, OperationLock, ReadView, _operation_lock_for, require_pins_agree
 from beliefs.errors import (
     ActorMismatch,
     BasisMissing,
@@ -64,7 +65,9 @@ class Recorder:
 
 
 class OperationRecorder:
-    def __init__(self, root, *, authority=FULL, intent_digest="ab" * 32):
+    def __init__(self, root, *, authority=FULL, profile=BASE, intent_digest="ab" * 32):
+        self.root = root
+        self.profile = profile
         self._inner = DefaultExecutor(root)
         self.authority = authority
         self.intent_digest = intent_digest
@@ -73,6 +76,7 @@ class OperationRecorder:
         self.fulfilling = []
 
     def append_intent(self, payload: bytes) -> str:
+        require_pins_agree(self.root, self.profile)
         self.intents.append(payload)
         return self.intent_digest
 
@@ -80,39 +84,48 @@ class OperationRecorder:
         pass
 
     def execute(self, plan) -> None:
+        require_pins_agree(self.root, self.profile)
         self.executed.append(list(plan))
         self._inner.execute(plan)
 
     def execute_fulfilling(self, plan, fulfills: str) -> str:
+        require_pins_agree(self.root, self.profile)
         self.fulfilling.append((list(plan), fulfills))
         self._inner.execute(plan)
         return "r" * 64
+
+    def execute_fulfilling_guarded(self, plan, fulfills: str, *, guard, fallback):
+        require_pins_agree(self.root, self.profile)
+        reason = guard(ReadView.opened_at(self.root))
+        self.fulfilling.append((list(plan if reason is None else fallback(reason)), fulfills))
+        return reason
 
 
 @pytest.fixture()
 def writer(tmp_path) -> CorpusWriter:
     Recorder.plans = []
-    return CorpusWriter(tmp_path, Recorder, authority=FULL)
+    return CorpusWriter(tmp_path, Recorder, authority=FULL, profile=WITH_BIOLOGY)
 
 
 @pytest.fixture()
 def second_writer(tmp_path) -> CorpusWriter:
-    return CorpusWriter(tmp_path / "second", Recorder, authority=FULL)
+    return CorpusWriter(tmp_path / "second", Recorder, authority=FULL, profile=BASE)
 
 
 class TestE2AuthorityBindsOnceAtConstruction:
     def test_a_writer_requires_an_authority_keyword(self, tmp_path):
         with pytest.raises(TypeError):
-            CorpusWriter(tmp_path, Recorder)  # type: ignore[call-arg]
+            CorpusWriter(tmp_path, Recorder, profile=BASE)  # type: ignore[call-arg]
 
     def test_the_bound_authority_is_readable_and_not_settable(self, tmp_path):
-        writer = CorpusWriter(tmp_path, Recorder, authority=FULL)
+        writer = CorpusWriter(tmp_path, Recorder, authority=FULL, profile=BASE)
         assert writer.authority is FULL
         with pytest.raises(AttributeError):
             writer.authority = FULL  # type: ignore[misc]
 
     def test_a_port_bound_to_another_authority_refuses_construction(self, tmp_path):
         class Port:
+            profile = BASE
             authority = narrowed(kinds=("proposition",), families=("corpus-write",))
 
             def append_intent(self, payload):
@@ -127,11 +140,15 @@ class TestE2AuthorityBindsOnceAtConstruction:
             def execute_fulfilling(self, plan, fulfills) -> str:
                 raise AssertionError("never reached")
 
+            def execute_fulfilling_guarded(self, plan, fulfills, *, guard, fallback):
+                raise AssertionError("never reached")
+
         with pytest.raises(ValueError, match="another authority"):
-            CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=Port())
+            CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=Port(), profile=BASE)
 
     def test_two_writers_over_one_port_with_its_own_authority_both_construct(self, tmp_path):
         class Port:
+            profile = BASE
             authority = FULL
 
             def append_intent(self, payload):
@@ -146,19 +163,22 @@ class TestE2AuthorityBindsOnceAtConstruction:
             def execute_fulfilling(self, plan, fulfills) -> str:
                 raise AssertionError("never reached")
 
+            def execute_fulfilling_guarded(self, plan, fulfills, *, guard, fallback):
+                raise AssertionError("never reached")
+
         port = Port()
-        assert CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port).authority is FULL
-        assert CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port).authority is FULL
+        assert CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port, profile=BASE).authority is FULL
+        assert CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port, profile=BASE).authority is FULL
 
     def test_an_authority_must_be_an_authority(self, tmp_path):
         with pytest.raises(TypeError):
-            CorpusWriter(tmp_path, Recorder, authority="full")  # type: ignore[arg-type]
+            CorpusWriter(tmp_path, Recorder, authority="full", profile=BASE)  # type: ignore[arg-type]
 
 
 class TestE1CorpusWriteRequiresBeforeAnyEffect:
     def test_add_under_a_permit_lacking_the_family_refuses_and_writes_nothing(self, tmp_path):
         Recorder.plans = []
-        writer = CorpusWriter(tmp_path, Recorder, authority=narrowed(kinds=("proposition",), families=("run",)))
+        writer = CorpusWriter(tmp_path, Recorder, authority=narrowed(kinds=("proposition",), families=("run",)), profile=BASE)
         with pytest.raises(PermitExceeded) as caught:
             writer.add(observed_dataset())
         assert caught.value.requirement == PermitFact("family", "corpus-write")
@@ -167,7 +187,8 @@ class TestE1CorpusWriteRequiresBeforeAnyEffect:
     def test_add_under_a_permit_lacking_the_kind_names_the_kind(self, tmp_path):
         Recorder.plans = []
         writer = CorpusWriter(
-            tmp_path, Recorder, authority=narrowed(kinds=("proposition",), families=("corpus-write",))
+            tmp_path, Recorder, authority=narrowed(kinds=("proposition",), families=("corpus-write",)),
+            profile=BASE,
         )
         with pytest.raises(PermitExceeded) as caught:
             writer.add(observed_dataset())
@@ -175,13 +196,13 @@ class TestE1CorpusWriteRequiresBeforeAnyEffect:
         assert Recorder.plans == []
 
     def test_add_under_the_exact_requirement_mints(self, tmp_path):
-        writer = CorpusWriter(tmp_path, Recorder, authority=narrowed(kinds=("dataset",), families=("corpus-write",)))
+        writer = CorpusWriter(tmp_path, Recorder, authority=narrowed(kinds=("dataset",), families=("corpus-write",)), profile=BASE)
         assert writer.add(observed_dataset()).kind == "dataset"
 
     def test_adopt_manifest_is_a_lifecycle_act(self, tmp_path):
         from beliefs.consulted import CorpusPins
 
-        writer = CorpusWriter(tmp_path, Recorder, authority=narrowed(families=("corpus-write",)))
+        writer = CorpusWriter(tmp_path, Recorder, authority=narrowed(families=("corpus-write",)), profile=BASE)
         with pytest.raises(PermitExceeded) as caught:
             writer.adopt_manifest(profile=CorpusPins(science_contract="sha256:" + "0" * 64, domains={}))
         assert caught.value.requirement == PermitFact("family", "lifecycle")
@@ -199,6 +220,7 @@ class TestE3TheActorIsBound:
             tmp_path,
             Recorder,
             authority=narrowed(kinds=("run",), families=("corpus-write",), actor="someone-else"),
+            profile=BASE,
         )
         with pytest.raises(ActorMismatch):
             writer.add(node)
@@ -210,7 +232,8 @@ class TestE3TheActorIsBound:
         _, _, (operation,) = publication_plan(minted_closure())
         node = node_from_markdown(operation.content.decode("utf-8"))
         writer = CorpusWriter(
-            tmp_path, Recorder, authority=narrowed(kinds=("run",), families=("corpus-write",), actor="tester")
+            tmp_path, Recorder, authority=narrowed(kinds=("run",), families=("corpus-write",), actor="tester"),
+            profile=BASE,
         )
         assert writer.add(node).kind == "run"
 
@@ -219,14 +242,15 @@ class TestE3TheActorIsBound:
             tmp_path,
             Recorder,
             authority=narrowed(kinds=("run",), families=("corpus-write",), actor="someone-else"),
+            profile=BASE,
         )
         node = stored.run_node("r1", title="run", spec="analysis-spec:s1")
         assert writer.add(node).kind == "run"
 
 
 def test_append_operation_intent_returns_the_validated_digest(tmp_path):
-    port = OperationRecorder(tmp_path)
-    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port)
+    port = OperationRecorder(tmp_path, profile=BASE)
+    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port, profile=BASE)
 
     digest = writer._append_operation_intent("move", "t" * 32, ACTOR)
 
@@ -236,16 +260,16 @@ def test_append_operation_intent_returns_the_validated_digest(tmp_path):
 
 @pytest.mark.parametrize("digest", ["bad", "AB" * 32, None])
 def test_append_operation_intent_refuses_a_malformed_digest(tmp_path, digest):
-    port = OperationRecorder(tmp_path, intent_digest=digest)
-    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port)
+    port = OperationRecorder(tmp_path, intent_digest=digest, profile=BASE)
+    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port, profile=BASE)
 
     with pytest.raises(ExecutionError, match="intent digest"):
         writer._append_operation_intent("move", "t" * 32, ACTOR)
 
 
 def test_publish_operation_report_fulfills_once_stores_and_reconstructs(tmp_path):
-    port = OperationRecorder(tmp_path)
-    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port)
+    port = OperationRecorder(tmp_path, profile=BASE)
+    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port, profile=BASE)
     intent = OperationIntent("move", "t" * 32, "actor")
     report = boundary._mint_relocation_report(
         intent,
@@ -275,7 +299,7 @@ def test_publish_operation_report_fulfills_once_stores_and_reconstructs(tmp_path
 
 def observed_dataset(slug="raw"):
     return stored.dataset_node(
-        slug, title=slug, resources=PINNED, empirical_observation={"boundary": "instrument"}
+        slug, title=slug, resources=PINNED, empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}
     )
 
 
@@ -464,7 +488,7 @@ class TestTheAddPathIsAddOnly:
         assert Recorder.plans == []
 
     def test_an_unrenderable_node_refuses_before_execution(self, writer):
-        node = Node(id="memo:surrogate", kind="memo", title="surrogate", body="\ud800")
+        node = Node(id="discussion:surrogate", kind="discussion", title="surrogate", body="\ud800")
 
         with pytest.raises(ValidationRefused, match="losslessly renderable"):
             writer.add(node)
@@ -640,7 +664,7 @@ class TestTheExecutionLayerCrossesUnwrapped:
             def execute(self, plan):
                 raise ExecutionError("engine said no", index=None, applied=None)
 
-        writer = CorpusWriter(tmp_path, Failing, authority=FULL)
+        writer = CorpusWriter(tmp_path, Failing, authority=FULL, profile=BASE)
         with pytest.raises(ExecutionError) as raised:
             writer.add(observed_dataset())
         assert not isinstance(raised.value, ScienceError)
@@ -654,24 +678,24 @@ class TestTheOperationLock:
 
     def test_two_writers_one_root_share_lock_and_state(self, tmp_path):
         Recorder.plans = []
-        a = CorpusWriter(tmp_path, Recorder, authority=FULL)
-        b = CorpusWriter(tmp_path, Recorder, authority=FULL)
+        a = CorpusWriter(tmp_path, Recorder, authority=FULL, profile=BASE)
+        b = CorpusWriter(tmp_path, Recorder, authority=FULL, profile=BASE)
 
         assert a._operation._lock is b._operation._lock
         minted = a.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
         assert b.read_view.holds(minted.id)
 
-        other = CorpusWriter(tmp_path / "other", Recorder, authority=FULL)
+        other = CorpusWriter(tmp_path / "other", Recorder, authority=FULL, profile=BASE)
         assert other._operation._lock is not a._operation._lock
 
     def test_second_writer_with_different_factory_refuses(self, tmp_path):
-        CorpusWriter(tmp_path, Recorder, authority=FULL)
+        CorpusWriter(tmp_path, Recorder, authority=FULL, profile=BASE)
         with pytest.raises(ScienceError):
-            CorpusWriter(tmp_path, DefaultExecutor, authority=FULL)
+            CorpusWriter(tmp_path, DefaultExecutor, authority=FULL, profile=BASE)
 
     def test_open_corpus_twice_shares_state(self, tmp_path):
-        a = open_corpus(tmp_path, authority=FULL)
-        b = open_corpus(tmp_path, authority=FULL)
+        a = open_corpus(tmp_path, authority=FULL, profile=BASE)
+        b = open_corpus(tmp_path, authority=FULL, profile=BASE)
         assert a._operation._lock is b._operation._lock
 
     def test_two_same_uid_adds_are_serialized_end_to_end(self, tmp_path):
@@ -691,8 +715,8 @@ class TestTheOperationLock:
                 assert release.wait(timeout=10)
                 self._inner.execute(plan)
 
-        first_writer = CorpusWriter(tmp_path, Barrier, authority=FULL)
-        second_writer = CorpusWriter(tmp_path, Barrier, authority=FULL)
+        first_writer = CorpusWriter(tmp_path, Barrier, authority=FULL, profile=BASE)
+        second_writer = CorpusWriter(tmp_path, Barrier, authority=FULL, profile=BASE)
         first = observed_dataset("first")
         second = observed_dataset("second")
         second.uid = first.uid  # same uid, different id
@@ -738,7 +762,7 @@ class TestTheOperationLock:
         """The build's capture excludes writers without queueing them: the add
         refuses where it stands, and nothing of it reaches the executor."""
         Recorder.plans = []
-        writer = CorpusWriter(tmp_path, Recorder, authority=FULL)
+        writer = CorpusWriter(tmp_path, Recorder, authority=FULL, profile=BASE)
         node = observed_dataset("captured")
         outcome: list[BaseException | None] = [None]
 
@@ -763,7 +787,7 @@ class TestTheOperationLock:
     def test_cooperating_writers_still_serialize_and_succeed(self, tmp_path):
         """No capture, no refusal: four writers released together all land."""
         Recorder.plans = []
-        writers = [CorpusWriter(tmp_path, Recorder, authority=FULL) for _ in range(4)]
+        writers = [CorpusWriter(tmp_path, Recorder, authority=FULL, profile=BASE) for _ in range(4)]
         nodes = [observed_dataset(f"co{index}") for index in range(4)]
         together = threading.Barrier(len(writers))
         failures: list[BaseException] = []
@@ -802,20 +826,20 @@ class TestTheLockOnlyLookup:
 
     def test_the_lookup_yields_the_lock_the_write_api_later_holds(self, tmp_path):
         looked_up = _operation_lock_for(tmp_path)
-        writer = CorpusWriter(tmp_path, Recorder, authority=FULL)
+        writer = CorpusWriter(tmp_path, Recorder, authority=FULL, profile=BASE)
 
         assert writer._operation._lock is looked_up
 
     def test_the_write_apis_lock_is_what_a_later_lookup_yields(self, tmp_path):
         # The other order, because a lookup that constructed a second lock
         # after the writer had one would still pass the arm above.
-        writer = CorpusWriter(tmp_path, Recorder, authority=FULL)
+        writer = CorpusWriter(tmp_path, Recorder, authority=FULL, profile=BASE)
 
         assert _operation_lock_for(tmp_path) is writer._operation._lock
 
     def test_the_lookup_resolves_the_root_the_way_the_write_api_does(self, tmp_path):
         (tmp_path / "sub").mkdir()
-        writer = CorpusWriter(tmp_path, Recorder, authority=FULL)
+        writer = CorpusWriter(tmp_path, Recorder, authority=FULL, profile=BASE)
 
         assert _operation_lock_for(tmp_path / "sub" / "..") is writer._operation._lock
 
@@ -830,7 +854,7 @@ class TestTheLockOnlyLookup:
         # The corpus-constructing entry point cannot serve here, which is why
         # the lock-only one exists.
         with pytest.raises(ValidationError):
-            CorpusWriter(tmp_path, Recorder, authority=FULL)
+            CorpusWriter(tmp_path, Recorder, authority=FULL, profile=BASE)
 
     def test_two_roots_do_not_share_a_lock(self, tmp_path):
         assert _operation_lock_for(tmp_path / "one") is not _operation_lock_for(tmp_path / "two")
@@ -842,7 +866,7 @@ class TestTheUnresolvedRoot:
     def test_a_fresh_root_state_is_unresolved_and_the_first_write_settles_it(self, tmp_path):
         from beliefs.corpus import _root_state_for
 
-        writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL)
+        writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL, profile=BASE)
         state = _root_state_for(tmp_path, DefaultExecutor)
         assert state.unresolved is True and state.recover is None
         writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
@@ -861,7 +885,7 @@ class TestTheUnresolvedRoot:
                 calls.append(root)
 
         factory = Factory()
-        writer = CorpusWriter(tmp_path, factory, authority=FULL)
+        writer = CorpusWriter(tmp_path, factory, authority=FULL, profile=BASE)
         state = _root_state_for(tmp_path, factory)
         assert state.recover == factory.recover  # bound methods compare by receiver and function
         assert type(state.corpus.executor) is _RoutedExecutor  # the corpus submits through the wrapper
@@ -894,7 +918,7 @@ class TestTheUnresolvedRoot:
                 events.append("recover")
 
         factory = Factory()
-        writer = CorpusWriter(tmp_path, factory, authority=FULL)
+        writer = CorpusWriter(tmp_path, factory, authority=FULL, profile=BASE)
         writer.add(stored.proposition_node("p0", title="p0", claim={"operator": "affects"}))
         events.clear()
         Halting.fail = True
@@ -908,7 +932,7 @@ class TestTheUnresolvedRoot:
     def test_a_failed_index_update_after_a_successful_submission_leaves_the_root_unresolved(self, tmp_path, monkeypatch):
         from beliefs.corpus import _root_state_for
 
-        writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL)
+        writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL, profile=BASE)
         writer.add(stored.proposition_node("p0", title="p0", claim={"operator": "affects"}))
         state = _root_state_for(tmp_path, DefaultExecutor)
         index_type = type(state.corpus.index)
@@ -932,7 +956,7 @@ class TestTheUnresolvedRoot:
                 raise ExecutionError("engine down", index=None, applied=None)
 
         factory = Factory()
-        writer = CorpusWriter(tmp_path, factory, authority=FULL)
+        writer = CorpusWriter(tmp_path, factory, authority=FULL, profile=BASE)
         with pytest.raises(ExecutionError, match="engine down"):
             writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
         assert _root_state_for(tmp_path, factory).unresolved is True
@@ -952,7 +976,7 @@ class TestTheUnresolvedRoot:
                 calls.append(root)
 
         factory = Factory()
-        CorpusWriter(tmp_path, factory, authority=FULL)
+        CorpusWriter(tmp_path, factory, authority=FULL, profile=BASE)
         with _operation_lock_for(tmp_path):
             pass
         assert calls == [] and _root_state_for(tmp_path, factory).unresolved is True

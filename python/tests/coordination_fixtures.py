@@ -8,12 +8,12 @@ from nodes.core.corpus import Corpus
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 from nodes.core.write_plan import DefaultExecutor, WritePlanExecutor
+from profiles import pins_for
 
 from beliefs import stored
-from beliefs.consulted import CorpusPins
 from beliefs.contract.coordination import parse_coordination_contract
 from beliefs.corpus import CorpusWriter
-from beliefs.profile import compile_profile
+from beliefs.profile import compile_profile, shipped_base_contract
 
 AT = "2026-09-02T12:00:00Z"
 EMPTY_QUERY = {"version": "science.view-query.v1", "clauses": []}
@@ -87,7 +87,7 @@ def coordination_contract(document=None, predecessor=None):
 
 
 def coordination_profile(base_contract, *, document=None):
-    return compile_profile(base_contract, [], coordination=coordination_contract(document))
+    return compile_profile(shipped_base_contract(), [], coordination=coordination_contract(document))
 
 
 def content_for(kind, *, name=None, **changes) -> dict[str, object]:
@@ -98,13 +98,6 @@ def content_for(kind, *, name=None, **changes) -> dict[str, object]:
         content.update(status="open", depends=[])
     content.update(changes)
     return content
-
-
-def pins_for(profile):
-    return CorpusPins(
-        "science:" + profile.base_contract_identity,
-        {namespace: f"{namespace}:{identity}" for namespace, identity in profile.activated_contracts.items()},
-    )
 
 
 def raw_coordination_node(kind, project, revision, *, local=None, supersedes=(), **facet):
@@ -149,7 +142,7 @@ class Recorder:
 def mounted_root(
     root, profile, executor_factory: Callable[[Path], WritePlanExecutor] = DefaultExecutor
 ):
-    CorpusWriter(root, executor_factory, authority=FULL).adopt_manifest(profile=pins_for(profile))
+    CorpusWriter(root, executor_factory, authority=FULL, profile=profile).adopt_manifest(profile=pins_for(profile))
     return root
 
 

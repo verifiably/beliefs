@@ -21,6 +21,7 @@ from atoms.store.errors import MetadataStoreInvalid
 from authority import FULL
 from nodes.core.errors import ExecutionError, PlanRefusedError
 from nodes.core.write_plan import CreateOp, WritePlan
+from profiles import BASE
 
 from beliefs import root as science_root
 from beliefs import stored
@@ -50,6 +51,7 @@ class Recorder:
 
 
 class FakePort:
+    profile = BASE
     authority = FULL
     intents: ClassVar[list[bytes]] = []
     executed: ClassVar[list[WritePlan]] = []
@@ -69,6 +71,9 @@ class FakePort:
         self.fulfilling.append((plan, fulfills))
         return "r" * 64
 
+    def execute_fulfilling_guarded(self, plan, fulfills: str, *, guard, fallback):
+        raise AssertionError("never reached")
+
 
 def durable_port(tmp_path, authority=FULL) -> DurableOperationPort:
     return DurableOperationPort(
@@ -77,6 +82,7 @@ def durable_port(tmp_path, authority=FULL) -> DurableOperationPort:
         storage=PRODUCTION_STORAGE,
         metadata_root=tmp_path.with_name(tmp_path.name + ".metadata"),
         authority=authority,
+        profile=BASE,
     )
 
 
@@ -98,7 +104,7 @@ class TestTheStructuralPort:
         FakePort.intents = []
         FakePort.fulfilling = []
         port: OperationPort = FakePort()
-        writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port)
+        writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port, profile=BASE)
         plan = [CreateOp(path="p.md", content=b"record")]
 
         configured = writer._operation_port
@@ -111,18 +117,18 @@ class TestTheStructuralPort:
         assert FakePort.fulfilling == [(plan, FULFILLS)]
 
     def test_the_port_defaults_to_none_without_changing_portable_construction(self, tmp_path):
-        assert CorpusWriter(tmp_path, Recorder, authority=FULL)._operation_port is None
+        assert CorpusWriter(tmp_path, Recorder, authority=FULL, profile=BASE)._operation_port is None
 
     def test_ports_do_not_change_the_stable_shared_executor_factory(self, tmp_path):
-        with_port = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=FakePort())
-        without_port = CorpusWriter(tmp_path, Recorder, authority=FULL)
+        with_port = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=FakePort(), profile=BASE)
+        without_port = CorpusWriter(tmp_path, Recorder, authority=FULL, profile=BASE)
 
         assert with_port._state is without_port._state
 
 
 class TestTheDurablePort:
     def test_open_corpus_wires_the_durable_port(self, tmp_path):
-        assert isinstance(open_corpus(tmp_path, authority=FULL)._operation_port, DurableOperationPort)
+        assert isinstance(open_corpus(tmp_path, authority=FULL, profile=BASE)._operation_port, DurableOperationPort)
 
     def test_append_intent_forwards_the_opaque_payload_unchanged(self, tmp_path, monkeypatch):
         calls: list[tuple] = []
@@ -200,7 +206,7 @@ class TestTheDurablePort:
         assert (mapped.value.index, mapped.value.applied) == (None, applied)
         assert mapped.value.__cause__ is raised
 
-    @pytest.mark.parametrize("mutation", ["append_intent", "execute", "execute_fulfilling"])
+    @pytest.mark.parametrize("mutation", ["append_intent", "execute", "execute_fulfilling", "execute_fulfilling_guarded"])
     def test_every_mutation_takes_the_roots_operation_lock(
         self, tmp_path, monkeypatch, mutation
     ) -> None:
@@ -214,8 +220,10 @@ class TestTheDurablePort:
                 port.append_intent(PAYLOAD)
             elif mutation == "execute":
                 port.execute(plan)
-            else:
+            elif mutation == "execute_fulfilling":
                 port.execute_fulfilling(plan, FULFILLS)
+            else:
+                port.execute_fulfilling_guarded(plan, FULFILLS, guard=lambda view: None, fallback=lambda reason: ())
 
 
 def test_execute_publishes_fulfilling_nothing(certified_work) -> None:
@@ -230,7 +238,7 @@ def test_execute_publishes_fulfilling_nothing(certified_work) -> None:
 
 def test_corpus_writer_reenters_its_durable_ports_shared_lock(certified_work) -> None:
     init_corpus_root(certified_work, authority=FULL)
-    writer = open_corpus(certified_work, authority=FULL)
+    writer = open_corpus(certified_work, authority=FULL, profile=BASE)
     node = stored.proposition_node("p", title="p", claim={"operator": "affects"})
 
     writer.import_bundle(

@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import pytest
+from authority import ACTOR
 from fixtures_cut4 import path_for
 from nodes.core.node import Node
 from test_audit import forged_single_over_two_producers
@@ -86,6 +87,8 @@ DERIVED, SIBLING = DATASET_ROOTS
 """The first observed dataset carries the stamped basis the lineage rows delete
 from; the second is the independent side `certify` is asked about."""
 
+ACQUISITION_WITNESS = _address("e")
+
 ASSESSMENTS = ("assessment:a-1", "assessment:a-2")
 
 
@@ -125,7 +128,7 @@ class Scenario:
             self.view,
             PROPOSITION_REF,
             availability=Availability(
-                observations=_observations(*OBSERVED),
+                observations=_observations(*(OBSERVED + (("e",) if ACQUISITION_WITNESS in self.roots else ()))),
                 implementations={BELIEF_V1.identity: BELIEF_V1},
                 fixtures={BELIEF_V1_RULE: BELIEF_V1_FIXTURES},
             ),
@@ -166,7 +169,9 @@ def _records(
 
     Two assessments on one proposition, each over its own run observing its own
     pinned dataset, each carrying one `clean-environment, passed` verification
-    — `belief().value == 2` before anything is touched.
+    — `belief().value == 2` before anything is touched. With a lineage basis,
+    the first run also observes a separate acquisition witness; its derived
+    dataset supplies lineage, not acquisition standing.
 
     One builder, two consumers: `_scenario` admits it in its own order and M3's
     negative admits it in two, so the corpus the digest comparison runs over
@@ -176,6 +181,15 @@ def _records(
         "p": ("add", stored.proposition_node("p", title="p", claim=CLAIM_FACET)),
         "q": ("add", stored.proposition_node("q", title="q", claim=OTHER_CLAIM_FACET)),
     }
+    if basis is not None:
+        records["acquisition-witness"] = (
+            "add",
+            stored.dataset_node(
+                ACQUISITION_WITNESS.split(":", 1)[1], title="acquisition witness",
+                resources=_resources("e"),
+                empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
+            ),
+        )
     verifications: dict[str, Node] = {}
     for index, letter in enumerate(OBSERVED, start=1):
         address = _address(letter)
@@ -185,13 +199,16 @@ def _records(
                 address.split(":", 1)[1],  # the address is the ref: see DATASET_ROOTS
                 title=f"d-{letter}",
                 resources=_resources(letter),
-                empirical_observation={"boundary": "instrument"},
+                empirical_observation=None if basis is not None and address == DERIVED else {"locator": "instrument:fixture", "attested_by": ACTOR},
                 basis=basis if address == DERIVED else None,
             ),
         )
         records[f"run-{letter}"] = (
             "add",
-            stored.run_node(f"run-{letter}", title=f"run-{letter}", spec=f"spec-{letter}", observes=[address]),
+            stored.run_node(
+                f"run-{letter}", title=f"run-{letter}", spec=f"spec-{letter}",
+                observes=[address, ACQUISITION_WITNESS] if basis is not None and address == DERIVED else [address],
+            ),
         )
         assessment = stored.assessment_node(
             f"a-{index}",
@@ -248,7 +265,8 @@ def _admit(
 def _scenario(corpus, *, basis: dict[str, Any] | None = None, extra: tuple[Node, ...] = ()) -> Scenario:
     """`_records` admitted in its own order."""
     records = _records(basis=basis, extra=extra)
-    return _admit(corpus, records, tuple(records))
+    roots = DATASET_ROOTS + ((ACQUISITION_WITNESS,) if basis is not None else ())
+    return _admit(corpus, records, tuple(records), roots=roots)
 
 
 def _verification(scenario: Scenario, slug: str, *, scope: str, verdict: str, supersedes: str | None = None) -> Node:
@@ -375,8 +393,8 @@ def test_g2c_g8_c6_raw_deletion_restores_admission_undetected_on_read(tmp_path):
     restored = scenario.belief()
     assert restored.value == 2
     assert restored.belief_input_digest != invalidated.belief_input_digest
-    assert corpus_check(scenario.view) == (), "the removal is invisible to the read-side check"
-    assert audit_corpus(scenario.view, evidence=NO_EVIDENCE) == (), "and to the corpus-local audit"
+    assert corpus_check(scenario.view, scenario.writer.profile) == (), "the removal is invisible to the read-side check"
+    assert audit_corpus(scenario.view, evidence=NO_EVIDENCE, profile=scenario.writer.profile) == (), "and to the corpus-local audit"
 
 
 # --- G8 and C6: the managed half reads the same; the log half is Task 8's -----
@@ -406,7 +424,7 @@ def test_g8_c6_managed_delete_reads_identically_to_raw_on_the_corpus(tmp_path):
     assert raw.lifecycle(ASSESSMENTS[0]) == managed.lifecycle(ASSESSMENTS[0]) == ADMITTED
     assert raw.belief().value == managed.belief().value == 2
     assert raw.belief().belief_input_digest == managed.belief().belief_input_digest
-    assert corpus_check(raw.view) == corpus_check(managed.view) == ()
+    assert corpus_check(raw.view, raw.writer.profile) == corpus_check(managed.view, managed.writer.profile) == ()
 
 
 # --- S5's deletion half -------------------------------------------------------
@@ -432,7 +450,9 @@ def _lineage_corpus(corpus, *, second_producer: bool) -> Scenario:
 
     The derived dataset is the **observed** one, so it is the address
     `belief.evaluate` certifies over: the certification decision reaches the
-    belief value, and S5's *belief may rise* is a runnable arm."""
+    belief value, and S5's *belief may rise* is a runnable arm. A separate
+    unproduced acquisition witness supplies the first run's eligibility;
+    DERIVED carries only its lineage basis, never an acquisition declaration."""
     extra: list[Node] = [
         stored.dataset_node("origin", title="origin", resources=_resources("c")),
         stored.dataset_node("other", title="other", resources=_resources("d")),
@@ -464,7 +484,11 @@ def _certification(scenario: Scenario) -> Certification:
     assessments: `certify` over each run's `observes` addresses. Their closures
     are disjoint, so the only thing that can decide it is a finding — and the
     decision is the edge that moves the aggregated belief value."""
-    return certify(scenario.snapshot(), (DERIVED,), (SIBLING,))
+    return certify(
+        scenario.snapshot(),
+        stored.inputs_of(scenario.view.get("run:run-a"), stored.OBSERVES),
+        stored.inputs_of(scenario.view.get("run:run-b"), stored.OBSERVES),
+    )
 
 
 def _epistemic_readings(scenario: Scenario) -> dict[str, Any]:
@@ -599,13 +623,13 @@ def test_r23_the_audit_detects_a_forged_single_while_b_stands_then_reports_no_co
     writer = _writer(tmp_path / "corpus")
     run_b = forged_single_over_two_producers(writer)
     assert "lineage-basis-contradicted" in {
-        finding.code for finding in audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        finding.code for finding in audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)
     }
 
     writer.delete(run_b.id)
 
     assert "lineage-basis-contradicted" not in {
-        finding.code for finding in audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        finding.code for finding in audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)
     }
 
 

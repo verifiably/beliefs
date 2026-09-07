@@ -11,7 +11,7 @@ from beliefs.root import open_world as _open_world
 from beliefs.world import Fresh, World, WorldConfig
 from reproduction import paths, state
 from reproduction.authority import AUTHORITY
-from reproduction.vocabulary import pins
+from reproduction.vocabulary import pins, profile
 
 
 def config() -> WorldConfig:
@@ -19,7 +19,7 @@ def config() -> WorldConfig:
 
 
 def open_writer() -> CorpusWriter:
-    return open_corpus(paths.CORPUS_ROOT, authority=AUTHORITY)
+    return open_corpus(paths.CORPUS_ROOT, authority=AUTHORITY, profile=profile())
 
 
 def open_world() -> World:

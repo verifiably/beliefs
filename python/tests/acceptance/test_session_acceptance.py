@@ -22,6 +22,7 @@ from fixtures_cut6 import PINS
 from nodes.core.errors import ExecutionError
 from nodes.core.node import Node
 from nodes.core.write_plan import CreateOp, DefaultExecutor
+from profiles import WITH_BIOLOGY
 from session_faults import (
     PUBLISH_CALLS_BEFORE_RECORD,
     PUBLISH_PHASE,
@@ -38,6 +39,7 @@ from beliefs.coordination import CoordinationAddress, coordination_revision
 from beliefs.corpus import CorpusWriter, OperationWrites, _operation_lock_for, _root_state_for, corpus_check
 from beliefs.errors import (
     ActorMismatch,
+    ContractMismatch,
     ImportRefused,
     PermitExceeded,
     PermitFact,
@@ -107,10 +109,10 @@ def _swept():
     _TRACKED.clear()
 
 
-def adopted(work_directory: Path, name: str, pins=PINS) -> Path:
+def adopted(work_directory: Path, name: str, pins=PINS, profile=WITH_BIOLOGY) -> Path:
     root = _track(work_directory / f"{name}-{secrets.token_hex(4)}")
     init_corpus_root(root, authority=FULL)
-    open_corpus(root, authority=FULL).adopt_manifest(profile=pins)
+    open_corpus(root, authority=FULL, profile=profile).adopt_manifest(profile=pins)
     return root
 
 
@@ -135,9 +137,9 @@ def config_for(work_directory: Path, root: Path) -> WorldConfig:
     return WorldConfig(work_directory / "world", secrets.token_hex(16), (root,))
 
 
-def attended(work_directory: Path, root: Path, **kwargs: Any) -> tuple[WriterSession, Path]:
+def attended(work_directory: Path, root: Path, *, profile=WITH_BIOLOGY, **kwargs: Any) -> tuple[WriterSession, Path]:
     ops = _track(work_directory / f"ops-{secrets.token_hex(4)}")
-    return open_attended_session(config_for(work_directory, root), ops, **kwargs), ops
+    return open_attended_session(config_for(work_directory, root), ops, profile=profile, **kwargs), ops
 
 
 def chain(root: Path) -> WellFormedView:
@@ -213,7 +215,7 @@ def triple(entries, offset: int) -> tuple[IntentEntryView, RegisteredEntryView, 
 def test_j1_each_scoped_write_is_one_intent_and_one_fulfilling_registration(session_rig, work_directory):
     session, root, _ = session_rig
     # An eligible retraction target (assessment) minted through the library path: a proposition is not retractable.
-    target = mint_eligible_assessment(open_corpus(root, authority=FULL))
+    target = mint_eligible_assessment(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY))
     before = len(chain(root).entries)
     w = fresh(session, "A", ORDINARY)
     w.add(proposition("q1"))
@@ -240,7 +242,7 @@ def test_j1_each_scoped_write_is_one_intent_and_one_fulfilling_registration(sess
         assert completion(decoded, (fulfillment,), held={}) == CLOSED
     # Negative: the same methods through the ordinary CorpusWriter append no intent.
     twin = adopted(work_directory, "ordinary")
-    library = open_corpus(twin, authority=FULL)
+    library = open_corpus(twin, authority=FULL, profile=WITH_BIOLOGY)
     twin_target = mint_eligible_assessment(library)
     library.add(proposition("q1"))
     r2 = library.add(proposition("q2"))
@@ -270,18 +272,18 @@ def test_j1_refusals_append_nothing_of_their_own(session_rig):
     wide = fresh(session, "B", WIDE)
     malformed = proposition("p1").model_copy(update={"kind": "act-report"})
     with pytest.raises(WriteRefused) as ordinary_malformed:
-        open_corpus(root, authority=FULL).add(malformed)
+        open_corpus(root, authority=FULL, profile=WITH_BIOLOGY).add(malformed)
     with pytest.raises(WriteRefused) as operation_malformed:
         wide.add(malformed)
     assert type(operation_malformed.value) is type(ordinary_malformed.value)
     assert not isinstance(operation_malformed.value, PermitExceeded)
     assert chain(root).tip == settled_head
     assert intents(root) == []  # no intent decodes to any refused call
-    target = mint_eligible_assessment(open_corpus(root, authority=FULL))
+    target = mint_eligible_assessment(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY))
     session_head = chain(root).tip
     retraction = session_retraction(target, "proposition:p0", session.actor)
     with pytest.raises(WriteRefused) as ordinary:  # a retraction enters through retract, not add — both paths
-        open_corpus(root, authority=FULL).add(retraction)
+        open_corpus(root, authority=FULL, profile=WITH_BIOLOGY).add(retraction)
     with pytest.raises(WriteRefused) as operation:
         wide.add(retraction)
     assert type(operation.value) is type(ordinary.value)
@@ -312,8 +314,8 @@ def test_j1_coordination_writes_commit_as_operations(work_directory, base_contra
     from beliefs.errors import CoordinationUnavailable
 
     profile = coordination_profile(base_contract)
-    root = adopted(work_directory, "coord", pins=pins_for(profile))
-    session, _ = attended(work_directory, root, coordination=profile)
+    root = adopted(work_directory, "coord", pins=pins_for(profile), profile=profile)
+    session, _ = attended(work_directory, root, coordination=profile, profile=profile)
     before = len(chain(root).entries)
     w = fresh(session, "A", RequiredCapabilities.coordination())
     project = w.mint_coordination("project", content=content_for("project", name="first"))
@@ -334,7 +336,7 @@ def test_j1_coordination_writes_commit_as_operations(work_directory, base_contra
     ]
     session.close()
     # Negative: the two coordination methods through the ordinary CorpusWriter append no intent.
-    library = open_corpus(root, authority=FULL, coordination_resolver=CoordinationResolver({root: profile}))
+    library = open_corpus(root, authority=FULL, coordination_resolver=CoordinationResolver({root: profile}), profile=profile)
     minted = len(intents(root))
     other = library.mint_coordination("project", content=content_for("project", name="third"))
     library.revise_coordination(
@@ -345,7 +347,7 @@ def test_j1_coordination_writes_commit_as_operations(work_directory, base_contra
     )
     assert len(intents(root)) == minted
     # Negative: without the launcher's profile the two methods refuse at the act, as an unmounted writer does.
-    plain, _ = attended(work_directory, adopted(work_directory, "coord-plain", pins=pins_for(profile)))
+    plain, _ = attended(work_directory, adopted(work_directory, "coord-plain", pins=pins_for(profile), profile=profile), profile=profile)
     unmounted = fresh(plain, "A", RequiredCapabilities.coordination())
     with pytest.raises(CoordinationUnavailable):
         unmounted.mint_coordination("project", content=content_for("project"))
@@ -380,7 +382,7 @@ def test_j3_the_act_time_refusal_is_the_kernels_under_a_full_permit_session(sess
 # --- J4 -----------------------------------------------------------------------------
 def test_j4_every_intent_carries_the_session_actor(session_rig):
     session, root, _ = session_rig
-    target = mint_eligible_assessment(open_corpus(root, authority=FULL))
+    target = mint_eligible_assessment(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY))
     w = fresh(session, "A", ORDINARY)
     w.add(proposition("q1"))
     foreign = session_retraction(target, "proposition:q1", "someone-else")
@@ -449,7 +451,7 @@ def test_j9_lifecycle_and_the_refusing_configurations(work_directory):
     # config and hands it to the constructor rather than going through the helper.
     config = config_for(work_directory, root)
     ops = _track(work_directory / f"ops-{secrets.token_hex(4)}")
-    session = open_attended_session(config, ops)
+    session = open_attended_session(config, ops, profile=WITH_BIOLOGY)
     reader = open_ledger_reader(ops, session.session_id)
     assert reader.actor == session.actor == f"session:{session.session_id}"
     assert reader.world_id == config.world_id and reader.closed is False
@@ -495,17 +497,17 @@ def test_j9_lifecycle_and_the_refusing_configurations(work_directory):
     ):
         ops2 = _track(work_directory / f"ops-{secrets.token_hex(4)}")
         with pytest.raises(SessionRefused):
-            open_attended_session(WorldConfig(work_directory / "w", secrets.token_hex(16), roots), ops2)
+            open_attended_session(WorldConfig(work_directory / "w", secrets.token_hex(16), roots), ops2, profile=WITH_BIOLOGY)
         assert not (ops2 / "sessions").exists(), description
     ops3 = _track(work_directory / f"ops-{secrets.token_hex(4)}")
     with pytest.raises(SessionRefused):
-        open_attended_session(WorldConfig(work_directory / "w", secrets.token_hex(16), (chainless,)), ops3)
+        open_attended_session(WorldConfig(work_directory / "w", secrets.token_hex(16), (chainless,)), ops3, profile=WITH_BIOLOGY)
     assert not (ops3 / "sessions").exists()
     # An unreadable prior ledger — a directory where the file should be — is a finding, never a refusal to open.
     ops4 = _track(work_directory / f"ops-{secrets.token_hex(4)}")
     (ops4 / "sessions" / ("9" * 32) / "ledger.v1").mkdir(parents=True)
     (ops4 / "sessions" / ("8" * 32)).mkdir(parents=True)  # a directory with no ledger at all
-    opened = open_attended_session(config_for(work_directory, root), ops4)
+    opened = open_attended_session(config_for(work_directory, root), ops4, profile=WITH_BIOLOGY)
     codes = {(f.code, f.ref) for f in opened.findings}
     assert ("session-ledger-malformed", "9" * 32) in codes and ("session-ledger-missing", "8" * 32) in codes
     opened.close()
@@ -518,21 +520,21 @@ def test_j10_a_session_write_is_indistinguishable_on_ordinary_read(work_director
     session, _ops = attended(work_directory, twin_a)
     node = proposition("p1")
     fresh(session, "A").add(node)
-    open_corpus(twin_b, authority=FULL).add(node)
+    open_corpus(twin_b, authority=FULL, profile=WITH_BIOLOGY).add(node)
     a = {p.relative_to(twin_a).as_posix(): p.read_bytes() for p in twin_a.rglob("*.md")}
     b = {p.relative_to(twin_b).as_posix(): p.read_bytes() for p in twin_b.rglob("*.md")}
     assert a == b and a
-    assert corpus_check(open_corpus(twin_a, authority=FULL).read_view) == corpus_check(
-        open_corpus(twin_b, authority=FULL).read_view
-    )
+    assert corpus_check(open_corpus(twin_a, authority=FULL, profile=WITH_BIOLOGY).read_view, profile=WITH_BIOLOGY) == corpus_check(
+        open_corpus(twin_b, authority=FULL, profile=WITH_BIOLOGY).read_view
+    , profile=WITH_BIOLOGY)
     assert inventory(twin_a) == inventory(twin_b)
     fresh(session, "B").delete("proposition:p1")
     (twin_b / "proposition" / "p1.md").unlink()
     assert {p.name for p in twin_a.rglob("*.md")} == {p.name for p in twin_b.rglob("*.md")}
     assert inventory(twin_a) == inventory(twin_b) == []
-    assert corpus_check(open_corpus(twin_a, authority=FULL).read_view) == corpus_check(
-        open_corpus(twin_b, authority=FULL).read_view
-    )
+    assert corpus_check(open_corpus(twin_a, authority=FULL, profile=WITH_BIOLOGY).read_view, profile=WITH_BIOLOGY) == corpus_check(
+        open_corpus(twin_b, authority=FULL, profile=WITH_BIOLOGY).read_view
+    , profile=WITH_BIOLOGY)
     # Negative: the chains differ by exactly what the session added — two intents, and the
     # delete's registration and settlement that a raw unlink never appends.
     assert len(chain(twin_a).entries) == len(chain(twin_b).entries) + 4
@@ -541,7 +543,7 @@ def test_j10_a_session_write_is_indistinguishable_on_ordinary_read(work_director
 
 
 def inventory(root: Path) -> list[str]:
-    return sorted(node.id for node in open_corpus(root, authority=FULL).read_view.iter_stored())
+    return sorted(node.id for node in open_corpus(root, authority=FULL, profile=WITH_BIOLOGY).read_view.iter_stored())
 
 
 # --- J11 ----------------------------------------------------------------------------
@@ -589,9 +591,9 @@ def state_of(root: Path):
 def assessment_grounds(root: Path) -> None:
     """The records an eligible assessment needs, minted through the library so the
     session's own write is the assessment alone."""
-    library = open_corpus(root, authority=FULL)
+    library = open_corpus(root, authority=FULL, profile=WITH_BIOLOGY)
     library.add(
-        stored.dataset_node("raw", title="raw", resources=PINNED, empirical_observation={"boundary": "instrument"})
+        stored.dataset_node("raw", title="raw", resources=PINNED, empirical_observation={"locator": "instrument:fixture", "attested_by": FULL.actor})
     )
     library.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=["dataset:raw"]))
     library.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
@@ -625,8 +627,9 @@ def halting_session(work_directory: Path, root: Path) -> tuple[WriterSession, Ha
             storage=PRODUCTION_STORAGE,
             metadata_root=metadata_root_for(root),
             authority=authority,
+            profile=WITH_BIOLOGY,
         )
-        return CorpusWriter(root, durable_executor_factory(), authority=authority, operation_port=port)
+        return CorpusWriter(root, durable_executor_factory(), authority=authority, operation_port=port, profile=WITH_BIOLOGY)
 
     session = WriterSession(
         session_id=session_id,
@@ -692,7 +695,7 @@ def test_j2_a_readback_failure_leaves_the_root_unresolved_and_the_registration_c
     # The next write settles first and sees the record.
     w.add(proposition("p2"))
     assert state_of(root).unresolved is False
-    assert open_corpus(root, authority=FULL).read_view.get("proposition:p1").id == "proposition:p1"
+    assert open_corpus(root, authority=FULL, profile=WITH_BIOLOGY).read_view.get("proposition:p1").id == "proposition:p1"
 
 
 def test_j2_a_post_commit_rebuild_failure_on_delete_leaves_the_root_unresolved(session_rig, monkeypatch):
@@ -741,7 +744,7 @@ def test_j2_a_post_commit_index_failure_on_add_leaves_the_root_unresolved(sessio
     findings = reconcile_sessions(config_for(ops.parent, root), ops)
     assert ("session-outcome-unknown", registration.digest) in [(f.code, f.ref) for f in findings]
     w.add(proposition("p2"))  # settles first and sees p1
-    assert state.unresolved is False and open_corpus(root, authority=FULL).read_view.get("proposition:p1").id == "proposition:p1"
+    assert state.unresolved is False and open_corpus(root, authority=FULL, profile=WITH_BIOLOGY).read_view.get("proposition:p1").id == "proposition:p1"
 
 
 def test_j2_a_ledger_write_failure_after_commit_leaves_the_registration_uncovered(work_directory, monkeypatch):
@@ -886,7 +889,7 @@ def test_j2_the_halting_backends_skip_count_names_the_records_publish(work_direc
         storage=PRODUCTION_STORAGE,
         metadata_root=metadata_root_for(root),
         authority=FULL,
-    )
+     profile=WITH_BIOLOGY)
     # The kind directory has to exist already: a transaction that must create it publishes
     # it too, one publish *before* the record's, which is why every arm that arms the halt
     # writes a record of the same kind first.
@@ -912,7 +915,7 @@ def test_j2_the_halting_backends_skip_count_names_the_records_publish(work_direc
         storage=PRODUCTION_STORAGE,
         metadata_root=metadata_root_for(fresh_root),
         authority=FULL,
-    )
+     profile=WITH_BIOLOGY)
     first = fresh_port.append_intent(b"{}")
     fresh_backend.calls.clear()
     fresh_port._execute_fulfilling([CreateOp(path="proposition/first.md", content=b"first")], first)
@@ -988,7 +991,8 @@ real_settle = CorpusWriter._settle
 real_prepare = CorpusWriter._refuse_family_kinds
 CorpusWriter._settle = lambda self: (order.append("settle"), real_settle(self))[1]
 CorpusWriter._refuse_family_kinds = lambda self, node, **k: (order.append("prepare"), real_prepare(self, node, **k))[1]
-session = open_attended_session(WorldConfig(root.parent / "w", secrets.token_hex(16), (root,)), ops)
+from profiles import WITH_BIOLOGY
+session = open_attended_session(WorldConfig(root.parent / "w", secrets.token_hex(16), (root,)), ops, profile=WITH_BIOLOGY)
 findings = sorted({{f.code for f in session.findings}})
 w = session.scoped(RequiredCapabilities.for_kinds({{"proposition"}}, {{}}), "A")
 session.claim_invocation("A", "mint", "d" * 64)
@@ -1027,7 +1031,7 @@ def test_j2_library_and_mixed_handles_settle_first(work_directory, monkeypatch):
     root = adopted(work_directory, "handles")
     session, _ops = attended(work_directory, root)
     w = fresh(session, "A", RETRACTABLE)
-    target = mint_eligible_assessment(open_corpus(root, authority=FULL))
+    target = mint_eligible_assessment(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY))
     monkeypatch.setattr(
         science_root,
         "_registration_for",
@@ -1053,7 +1057,7 @@ def test_j2_library_and_mixed_handles_settle_first(work_directory, monkeypatch):
         "_preflight_add_locked",
         lambda self, node: (order.append("preflight-add"), real_preflight_add(self, node))[1],
     )
-    library = open_corpus(root, authority=FULL)
+    library = open_corpus(root, authority=FULL, profile=WITH_BIOLOGY)
     # Import: a member deriving from the deleted record — a retraction naming it as its target.
     # Settlement precedes validation, and the rebuilt index no longer resolves the target, so the
     # import is judged against disk and not against the stale index the failed delete left behind.
@@ -1078,7 +1082,7 @@ def test_j2_library_and_mixed_handles_settle_first(work_directory, monkeypatch):
     monkeypatch.setattr(science_root, "_registration_for", real_registration_for)
     assert state_of(root).unresolved is True
     order.clear()
-    other = open_corpus(adopted(work_directory, "other"), authority=FULL)
+    other = open_corpus(adopted(work_directory, "other"), authority=FULL, profile=WITH_BIOLOGY)
     with pytest.raises(RelocationTargetMissing):
         move(library, other, "proposition:mover", observer="o", instrument="i", opened_at=OPENED_AT, closed_at=CLOSED_AT)
     assert order[0] == "settle" and "preflight-add" not in order  # settled first; the missing source refused before any preflight
@@ -1093,7 +1097,7 @@ def test_j2_library_and_mixed_handles_settle_first(work_directory, monkeypatch):
         hw.add(proposition("staged"))
     assert pending_registrations(halted_root), "the halt must leave a pending registration"
     order.clear()
-    portless = CorpusWriter(halted_root, durable_executor_factory(), authority=FULL)
+    portless = CorpusWriter(halted_root, durable_executor_factory(), authority=FULL, profile=WITH_BIOLOGY)
     assert state_of(halted_root).recover == durable_executor_factory().recover
     portless.add(proposition("after"))
     assert order[0] == "settle" and not pending_registrations(halted_root) and state_of(halted_root).unresolved is False
@@ -1159,7 +1163,7 @@ def test_j8_reconciliation_over_the_real_root(work_directory, monkeypatch):
     later, _ops2 = attended(work_directory, root)  # a later endpoint over a *different* operations root
     assert {f.code for f in later.findings} == {"session-unknown"}  # this session's intents name a ledger it cannot see
     later.close()
-    second = open_attended_session(config, ops)
+    second = open_attended_session(config, ops, profile=WITH_BIOLOGY)
     assert second.findings == reconcile_sessions(config, ops, exclude=second.session_id)
     second.close()
     # Byte equality with an unsettled registration present (registered inspection would have resolved it).
@@ -1267,4 +1271,35 @@ def test_j8_reconciliation_reads_chain_and_ledgers_under_one_hold(work_directory
     assert [act.entry for act in open_ledger_reader(ops, session.session_id).acts()] == [
         e.digest for e in registrations(root) if e.fulfills is not None
     ]
+    session.close()
+
+
+
+@pytest.mark.parametrize("entry", ["ordinary", "session"])
+def test_mismatching_pins_leave_durable_pending_recovery_untouched(work_directory, entry):
+    root = adopted(work_directory, f"pin-before-recovery-{entry}")
+    session, backend, ops = halting_session(work_directory, root)
+    writer = fresh(session, "A")
+    writer.add(proposition("first"))
+    backend.arm_next = True
+    with pytest.raises(ExecutionError):
+        writer.add(proposition("pending"))
+    assert backend.halted and state_of(root).unresolved
+    pending = pending_registrations(root)
+    assert pending and (root / ".#~chain" / ".#~stage").is_file()
+    manifest = root / "corpus.yaml"
+    original = manifest.read_bytes()
+    manifest.write_bytes(original.replace(PINS.science_contract.encode(), ("science:" + "f" * 64).encode()))
+    before = tree_hash(root, metadata_root_for(root), ops)
+    target = open_corpus(root, authority=FULL, profile=WITH_BIOLOGY) if entry == "ordinary" else writer
+    with pytest.raises(ContractMismatch):
+        target.add(proposition("refused"))
+    assert tree_hash(root, metadata_root_for(root), ops) == before
+    assert pending_registrations(root) == pending and state_of(root).unresolved
+    # With valid pins restored, the production factory really can settle the
+    # staged transaction and continue through this same session.
+    manifest.write_bytes(original)
+    writer.add(proposition("after"))
+    assert not pending_registrations(root) and not state_of(root).unresolved
+    assert not (root / ".#~chain" / ".#~stage").exists()
     session.close()

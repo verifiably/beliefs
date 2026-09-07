@@ -26,6 +26,7 @@ from beliefs.runrecord import run_ref
 from beliefs.verify import AssessmentVerification, build_verification
 from reproduction import findings, paths, spec, state, world
 from reproduction.authority import AUTHORITY
+from reproduction.vocabulary import profile
 
 OBSERVER = "mm30-reproduction-observer"
 
@@ -37,6 +38,7 @@ def port() -> DurableOperationPort:
         storage=PRODUCTION_STORAGE,
         metadata_root=metadata_root_for(paths.CORPUS_ROOT),
         authority=AUTHORITY,
+        profile=profile(),
     )
 
 

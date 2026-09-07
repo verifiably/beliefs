@@ -33,6 +33,7 @@ sources:
   - ../designs/2026-09-03-conformance-cut-16.md
   - ../designs/2026-09-04-write-permits-design.md
   - ../designs/2026-09-04-conformance-cut-18.md
+  - ../designs/2026-09-05-conformance-cut-20.md
   - ../designs/2026-09-05-writer-session-design.md
   - ../designs/2026-09-05-conformance-cut-19.md
   - ../designs/2026-09-06-conformance-cut-21.md
@@ -180,7 +181,11 @@ fitted result into independent validation.
 
 ## Current state
 
-Nineteen conformance cuts have been frozen and discharged, each frozen before
+Cut 20, the facet-contracts slice, froze on 2026-09-06 and is discharged; its
+results record preserves the certified aggregate, full-gate, and reproduction
+evidence. Cut 21 remains separately frozen and undischarged.
+
+Twenty conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple
 with a results record under `../plans/`. The cut discipline is what this page
 owns: a cut selects rows, the acceptance runner arms each selected unit with
@@ -203,6 +208,10 @@ and M13 are re-read.
 The writer-session cut is discharged as cut 19: J1–J11 close — the `J` table's
 every row, selected in full before implementation and read in full afterwards
 (`../designs/2026-09-05-conformance-cut-19.md`).
+The facet-contracts slice is discharged as cut 20: 15 rows read full/closed,
+D1 remains partial on its cross-repository arm, and D6's domain-facet reader arm
+travels with biology slice 2
+(`../plans/2026-09-07-conformance-cut-20-results.md`).
 The verification-publication cut is frozen as cut 21 (V1–V8 selected in full
 before implementation, `../designs/2026-09-06-conformance-cut-21.md`) and
 discharges after the domain lane's cut 20.

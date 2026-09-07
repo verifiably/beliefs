@@ -8,7 +8,14 @@ import secrets
 from contextlib import ExitStack
 from pathlib import Path
 
-from beliefs.corpus import CoordinationResolver, CorpusWriter, Finding, _operation_lock_for
+from beliefs.corpus import (
+    CoordinationResolver,
+    CorpusWriter,
+    Finding,
+    _operation_lock_for,
+    require_pins_agree,
+    require_profile_compatible,
+)
 from beliefs.errors import ManifestMalformed, ManifestMissing, SessionRefused
 from beliefs.permit import Authority
 from beliefs.profile import ProfileSpec
@@ -64,24 +71,28 @@ def _fsync_directory(path: Path) -> None:
 
 
 def open_attended_session(
-    world_config: WorldConfig, operations_root: Path, *, coordination: ProfileSpec | None = None
+    world_config: WorldConfig, operations_root: Path, *, profile: ProfileSpec, coordination: ProfileSpec | None = None
 ) -> WriterSession:
     """The interactive constructor (design §3.1): full permit by construction."""
     if type(world_config) is not WorldConfig:
         raise TypeError("open_attended_session takes an exact WorldConfig")
     if not isinstance(operations_root, Path):
         raise TypeError("operations_root must be a Path")
+    if not isinstance(profile, ProfileSpec):
+        raise TypeError("profile must be a compiled ProfileSpec")
     if coordination is not None and not isinstance(coordination, ProfileSpec):
         raise TypeError("coordination must be a compiled ProfileSpec")
     if len(world_config.corpus_roots) != 1:
         raise SessionRefused(
             f"a session needs exactly one corpus root; the config names {len(world_config.corpus_roots)}"
         )
+    require_profile_compatible(profile, coordination)
     (root,) = world_config.corpus_roots
     try:
         corpus_id = load_manifest(root).corpus_id
     except (ManifestMissing, ManifestMalformed) as caught:
         raise SessionRefused(f"{root}: the corpus is not adopted: {caught}") from caught
+    require_pins_agree(root, profile)
     view = log_seam().inspect_detached(root)
     if type(view) is not WellFormedView:
         raise SessionRefused(
@@ -100,7 +111,8 @@ def open_attended_session(
             root,
             durable_executor_factory(),
             authority=authority,
-            operation_port=durable_operation_port(root, authority),
+            profile=profile,
+            operation_port=durable_operation_port(root, authority, profile=profile),
             coordination_resolver=resolver,
         )
 

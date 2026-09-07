@@ -13,6 +13,7 @@ from authority import FULL
 from fixtures_cut6 import PINS
 from nodes.core.projection import to_canonical_json
 from nodes.core.write_plan import DefaultExecutor
+from profiles import WITH_BIOLOGY
 from test_world_build import ALPHA, BETA, ChainHeads, corpus_at, make_world
 
 from beliefs import root as science_root
@@ -185,7 +186,7 @@ def test_the_projection_matches_the_closed_schema(
 ):
     corpus_root = certified_work / "corpus"
     science_root.init_corpus_root(corpus_root, authority=FULL)
-    writer = science_root.open_corpus(corpus_root, authority=FULL)
+    writer = science_root.open_corpus(corpus_root, authority=FULL, profile=WITH_BIOLOGY)
     manifest = writer.adopt_manifest(profile=PINS)
     dataset = writer.add(
         stored.dataset_node(
@@ -204,7 +205,7 @@ def test_the_projection_matches_the_closed_schema(
             "instrument",
             FULL,
             science_root.holdings_seam(),
-        ),
+         profile=WITH_BIOLOGY),
         StoreLocator(store_id, "missing.bin"),
     )
     assert isinstance(published, PublishedObservation)

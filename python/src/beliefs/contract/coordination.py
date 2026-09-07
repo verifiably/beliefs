@@ -7,8 +7,6 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import final
 
-import yaml
-
 from beliefs.errors import MalformedContract, SuccessionViolation, UnparsedContract
 from beliefs.identity import v1
 from beliefs.sealed import sealed
@@ -99,29 +97,6 @@ class CoordinationContract:
                 "relations": sorted(self.query_relations),
             },
         }
-
-
-class _CoordinationLoader(yaml.SafeLoader):
-    pass
-
-
-def _construct_mapping(
-    loader: _CoordinationLoader, node: yaml.MappingNode, deep: bool = False
-) -> dict[object, object]:
-    mapping: dict[object, object] = {}
-    for key_node, value_node in node.value:
-        key = loader.construct_object(key_node, deep=deep)
-        if key in mapping:
-            raise yaml.constructor.ConstructorError(
-                None, None, f"duplicate key {key!r}", key_node.start_mark
-            )
-        mapping[key] = loader.construct_object(value_node, deep=deep)
-    return mapping
-
-
-_CoordinationLoader.add_constructor(
-    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _construct_mapping
-)
 
 
 def _mapping(value: object, where: str) -> dict[str, object]:
@@ -271,8 +246,7 @@ def check_coordination_succession(
 def load_coordination_contract(
     path: Path, *, predecessor: CoordinationContract | None
 ) -> CoordinationContract:
-    try:
-        document = yaml.load(path.read_text(encoding="utf-8"), Loader=_CoordinationLoader)
-    except yaml.YAMLError as caught:
-        raise MalformedContract(f"{path}: not well-formed YAML: {caught}") from caught
+    from beliefs.contract.document import load_document
+
+    document = load_document(path, source=str(path))
     return parse_coordination_contract(document, source=str(path), predecessor=predecessor)

@@ -324,7 +324,7 @@ class TestR19TransitionB:
         report = w.import_bundle([forged], evidence=derived_unmounted.evidence, **IMPORT_FIELDS)
         assert any(f.startswith(f"derivation-unchecked: {forged.id}") for f in _report_findings(report))
         assert _admission(w, identity) == ADMITTED
-        assert audit_corpus(w.read_view, evidence=derived_unmounted.evidence) == ()
+        assert audit_corpus(w.read_view, evidence=derived_unmounted.evidence, profile=w.profile) == ()
 
         w.import_bundle(
             [derived_unmounted.original_node, derived_unmounted.replayed_node], **IMPORT_FIELDS
@@ -333,7 +333,7 @@ class TestR19TransitionB:
         assert "validated" not in w.read_view.get(forged.id).facets[stored.VERIFICATION_FACET]
 
         files = sorted(p for p in w.root.rglob("*.md"))
-        findings = audit_corpus(w.read_view, evidence=derived_unmounted.evidence)
+        findings = audit_corpus(w.read_view, evidence=derived_unmounted.evidence, profile=w.profile)
         assert [f.code for f in findings] == ["verification-derivation-contradicted"]
         assert [f.ref for f in findings] == [forged.id]
         assert sorted(p for p in w.root.rglob("*.md")) == files, "the audit mints nothing"
@@ -351,7 +351,7 @@ class TestR19TransitionB:
         node = _stored_from(superseding, slug="superseding", supersedes=forged.id)
         w.import_bundle([node], evidence=derived_unmounted.evidence, **IMPORT_FIELDS)
         assert _admission(w, identity) != ADMITTED
-        assert [f.ref for f in audit_corpus(w.read_view, evidence=derived_unmounted.evidence)] == [forged.id]
+        assert [f.ref for f in audit_corpus(w.read_view, evidence=derived_unmounted.evidence, profile=w.profile)] == [forged.id]
 
 
 class TestR19NegativesDAndE:
@@ -360,8 +360,8 @@ class TestR19NegativesDAndE:
         raw_write(derived.writer.root, forged)  # `verification_node` already stamps it
         derived.writer._reconstruct()
         assert derived.writer.read_view.get(forged.id).kind == "verification"  # not refused, not detected on read
-        assert corpus_check(derived.writer.read_view) == ()  # the corpus check says nothing
-        assert [f.code for f in audit_corpus(derived.writer.read_view, evidence=derived.evidence)] == [
+        assert corpus_check(derived.writer.read_view, derived.writer.profile) == ()  # the corpus check says nothing
+        assert [f.code for f in audit_corpus(derived.writer.read_view, evidence=derived.evidence, profile=derived.writer.profile)] == [
             "verification-derivation-contradicted"
         ]
 
@@ -382,8 +382,8 @@ class TestR19NegativesDAndE:
         # its internal hashes agree: the projection decodes and readdresses to
         # the id it was written under
         assert run_ref(runrecord.decode_run_closure(raw_run).address()) == raw_run.id
-        assert corpus_check(view) == ()
-        assert audit_corpus(view, evidence=derived.evidence) == ()  # recomputation has nothing to contradict
+        assert corpus_check(view, derived.writer.profile) == ()
+        assert audit_corpus(view, evidence=derived.evidence, profile=derived.writer.profile) == ()  # recomputation has nothing to contradict
 
         genuine = _stored_from(derived.verification, slug="genuine")
         forged = _stored_from(
@@ -403,12 +403,12 @@ class TestR19NegativesDAndE:
                 stored.semantic_hash_disagrees(record),
                 stored.verification_derivation(record),
                 "validated" in record.facets[stored.VERIFICATION_FACET],
-                {finding.code for finding in corpus_check(view) if finding.ref == node_id},
+                {finding.code for finding in corpus_check(view, derived.writer.profile) if finding.ref == node_id},
             )
 
         assert read_path(genuine.id) == read_path(forged.id)
-        assert corpus_check(view) == ()
-        assert {(f.code, f.ref) for f in audit_corpus(view, evidence=derived.evidence)} == {
+        assert corpus_check(view, derived.writer.profile) == ()
+        assert {(f.code, f.ref) for f in audit_corpus(view, evidence=derived.evidence, profile=derived.writer.profile)} == {
             ("verification-derivation-contradicted", forged.id)
         }
 
@@ -464,8 +464,8 @@ class TestR22ExplicitImport:
         raw_write(derived.writer.root, forged)
         derived.writer._reconstruct()
         assert derived.writer.read_view.get(forged.id).kind == "assessment"
-        assert corpus_check(derived.writer.read_view) == ()
-        assert [f.code for f in audit_corpus(derived.writer.read_view, evidence=derived.evidence)] == [
+        assert corpus_check(derived.writer.read_view, derived.writer.profile) == ()
+        assert [f.code for f in audit_corpus(derived.writer.read_view, evidence=derived.evidence, profile=derived.writer.profile)] == [
             "assessment-derivation-contradicted"
         ]
 

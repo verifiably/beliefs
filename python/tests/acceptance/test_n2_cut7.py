@@ -84,6 +84,7 @@ from n2_arms_cut7 import (
 )
 from nodes.core.corpus import Corpus
 from nodes.core.write_plan import DefaultExecutor
+from profiles import WITH_BIOLOGY
 from test_durable_families import chain_entries
 from test_n2 import MalformedArm, audit, baseline
 from test_world_build import ALPHA, BETA, corpus_at, genesis_of, sample_nodes, tip_of
@@ -112,8 +113,10 @@ WRITE_PERMITS_MIGRATION_COMMIT = "659cc6e"
 """The whole-repo science→beliefs mechanical rename (ledger R7). Re-pins a
 file whose only post-freeze edit was that rename's import strings."""
 
+PROFILE_API_MIGRATION_COMMIT = "3c7f32ce64f324d4ee23f389755379b671314dab"
+
 FROZEN_PRIOR_CUT_FILES = {
-    "python/tests/n2_arms_cut5.py": CUT6_SOURCE_COMMIT,
+    "python/tests/n2_arms_cut5.py": "1e92471",  # exact R20 matcher amendment, validated below
     "python/tests/n2_arms_cut6.py": CUT6_SOURCE_COMMIT,
     "python/tools/cut5_acceptance.py": RENAME_COMMIT,
     "python/tools/cut6_acceptance.py": RENAME_COMMIT,
@@ -125,7 +128,9 @@ FROZEN_PRIOR_CUT_FILES = {
     # `f703913`. Re-pinned again across the rename (ledger R7).
     # Write permits deliberately migrated this audit's lifecycle and world
     # seam calls; 659cc6e is the first commit holding the complete migration.
-    "python/tests/acceptance/test_n2_cut6.py": WRITE_PERMITS_MIGRATION_COMMIT,
+    # Compiled profiles mechanically added the required profile argument to
+    # the live world opener; the historical sources and arm tables stay pinned.
+    "python/tests/acceptance/test_n2_cut6.py": PROFILE_API_MIGRATION_COMMIT,
 }
 """Each prior-cut surface and the commit whose content it must still hold."""
 
@@ -575,7 +580,7 @@ def durable_world(cut7_work_directory):
     try:
         root.init_world_root(config, authority=FULL)
         root.init_corpus_root(corpus_root, authority=FULL)
-        root.open_corpus(corpus_root, authority=FULL).adopt_manifest(profile=PINS)
+        root.open_corpus(corpus_root, authority=FULL, profile=WITH_BIOLOGY).adopt_manifest(profile=PINS)
         # Stored records are placed with the `nodes` handle, exactly as the
         # portable fixtures place them: what these arms assert is committed
         # evidence of *world-root* transactions, and the admission gate the
@@ -1154,6 +1159,7 @@ class TestTheCut7InventoryIsExact:
 
 class TestNoPriorCutDeclarationIsRehomedOrEdited:
     def test_the_frozen_prior_cut_files_are_byte_identical_to_their_pinned_versions(self):
+        assert_cut5_matcher_migration(REPO_ROOT)
         for path, pin in FROZEN_PRIOR_CUT_FILES.items():
             completed = subprocess.run(
                 ["git", "-C", str(REPO_ROOT), "diff", "--quiet", pin, "HEAD", "--", path],
@@ -1198,3 +1204,21 @@ def test_the_harness_preserves_each_malformed_verdict(tmp_path, arm, verdict):
 def test_the_harness_rejects_a_class_node(tmp_path):
     with pytest.raises(MalformedArm, match="one test function"):
         audit(CLASS_NODE_BY_CONSTRUCTION, tmp_path / "class-node")
+
+
+def assert_cut5_matcher_migration(root: Path) -> None:
+    """The upstream R20 matcher amendment changes no declaration or check."""
+    path = "python/tests/n2_arms_cut5.py"
+    original = subprocess.run(
+        ["git", "-C", str(root), "show", "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e:" + path],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    amended = subprocess.run(
+        ["git", "-C", str(root), "show", "1e92471:" + path], check=True, capture_output=True, text=True
+    ).stdout
+    before = '                "        if (\\n"\n                \'            variant == "stochastic-unseeded"\\n\'\n                "            and equivalence_rule in BITWISE_EQUIVALENCE_RULES\\n"\n                "        ):"\n            ),\n            after="        if False:",\n'
+    after = '                "        except UnfreezableSpec as caught:\\n"\n                \'            raise ValidationRefused(f"{record.id}: {caught}") from caught\'\n            ),\n            after="        except UnfreezableSpec:\\n            pass",\n'
+    assert original.count(before) == amended.count(after) == 1
+    assert original.replace(before, after) == amended

@@ -11,10 +11,11 @@ from nodes.core.errors import ExecutionError
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 from nodes.core.write_plan import CreateOp, DefaultExecutor
+from profiles import BASE
 
 from beliefs import stored
 from beliefs.corpus import CorpusWriter
-from beliefs.errors import BundleMemberHeld, ImportRefused, PermitExceeded, PermitFact
+from beliefs.errors import BundleMemberHeld, ImportRefused, PermitExceeded, PermitFact, ValidationRefused
 from beliefs.identity import v1
 from beliefs.report import ImportedRecords, RecordImportEntry, _mint_report
 from beliefs.spec import SPEC_DOMAIN, StochasticUnseeded, freeze, frozen_projection
@@ -33,6 +34,7 @@ class Recorder:
 
 
 class FakePort:
+    profile = BASE
     intents: ClassVar[list[bytes]] = []
     executed: ClassVar[list[list]] = []
     fulfilling: ClassVar[list[tuple[list, str]]] = []
@@ -58,11 +60,14 @@ class FakePort:
         self._inner.execute(plan)
         return "r" * 64
 
+    def execute_fulfilling_guarded(self, plan, fulfills: str, *, guard, fallback):
+        raise AssertionError("never reached")
+
 
 @pytest.fixture()
 def writer_with_port(tmp_path):
     Recorder.plans, FakePort.intents, FakePort.fulfilling = [], [], []
-    return CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=FakePort(tmp_path))
+    return CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=FakePort(tmp_path), profile=BASE)
 
 
 def test_import_refuses_a_coordination_member_by_name(writer_with_port):
@@ -103,6 +108,7 @@ def _narrowed_writer(tmp_path, authority):
         Recorder,
         authority=authority,
         operation_port=FakePort(tmp_path, authority=authority),
+        profile=BASE,
     )
 
 
@@ -365,12 +371,12 @@ def test_unresolved_foreign_input_admits_with_finding(writer_with_port):
 
 def test_uncanonically_encodable_success_finding_refuses_before_payload(writer_with_port):
     record = Node(
-        id="memo:surrogate-finding",
-        kind="memo",
+        id="discussion:surrogate-finding",
+        kind="discussion",
         title="surrogate finding",
         relations=[
             Relation(
-                source="memo:surrogate-finding",
+                source="discussion:surrogate-finding",
                 predicate="refers-to",
                 target="\ud800",
             )
@@ -393,7 +399,7 @@ def test_ordinary_eligibility_is_evaluated_over_bundle_union(writer_with_port):
         "observed",
         title="observed",
         resources=[{"name": "data", "digest": "sha256:" + "ab" * 32}],
-        empirical_observation={"boundary": "instrument"},
+        empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
     )
     run = stored.run_node("run", title="run", spec="analysis-spec:s", observes=[dataset.id])
     proposition = prop("claim")
@@ -499,8 +505,8 @@ def test_malformed_retraction_grounds_close_intent_without_payload(writer_with_p
 
 def test_post_intent_domain_validation_failure_closes_with_import_refused(writer_with_port):
     malformed = Node(
-        id="memo:semantic-domain",
-        kind="memo",
+        id="discussion:semantic-domain",
+        kind="discussion",
         title="semantic domain",
         facets={stored.SEMANTIC_IDENTITY_FACET: {"digest": "x"}},
     )
@@ -536,7 +542,7 @@ def test_malformed_intent_digest_refuses_before_payload_or_report(tmp_path):
         intent_digest = "bad"
 
     Recorder.plans, FakePort.intents, FakePort.fulfilling = [], [], []
-    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=MalformedDigestPort(tmp_path))
+    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=MalformedDigestPort(tmp_path), profile=BASE)
 
     with pytest.raises(ExecutionError, match="intent digest"):
         import_records(writer, [prop("not-written")])
@@ -566,15 +572,22 @@ def test_unrenderable_member_closes_the_intent_without_a_payload(writer_with_por
 
 def test_member_that_cannot_round_trip_refuses_before_payload(writer_with_port):
     lossy = Node(
-        id="memo:roundtrip",
-        kind="memo",
+        id="discussion:roundtrip",
+        kind="discussion",
         title="roundtrip",
-        facets={"custom": {("a", "b"): "value"}},
+        facets={"display": {"display_statement": "valid prose"}},
+        relations=[
+            Relation(source="discussion:roundtrip", predicate="supersedes", target="discussion:old"),
+            Relation(source="discussion:roundtrip", predicate="relatesTo", target="discussion:other"),
+        ],
     )
 
-    with pytest.raises(ImportRefused) as caught:
+    BASE.validate_document(lossy)
+
+    with pytest.raises(ImportRefused, match="record rendering is lossy") as caught:
         import_records(writer_with_port, [lossy])
 
+    assert isinstance(caught.value.__cause__, ValidationRefused)
     assert caught.value.report_ref is not None
     assert len(FakePort.intents) == 1
     assert len(FakePort.fulfilling) == 1
@@ -591,7 +604,7 @@ def test_foreign_act_report_enters_inert(writer_with_port):
         instrument="other-tool",
         opened_at="T-2",
         closed_at="T-1",
-        entries=(RecordImportEntry(subject="other", outcome=ImportedRecords(refs=("memo:x",), findings=())),),
+        entries=(RecordImportEntry(subject="other", outcome=ImportedRecords(refs=("discussion:x",), findings=())),),
     )
     foreign = stored.act_report_node(foreign_report)
 
@@ -721,7 +734,7 @@ def test_uncanonically_encodable_report_fields_refuse_before_intent(writer_with_
 def test_uncanonically_encodable_report_subject_refuses_before_intent(tmp_path):
     Recorder.plans, FakePort.intents, FakePort.fulfilling = [], [], []
     root = tmp_path / "\udcff"
-    writer = CorpusWriter(root, Recorder, authority=FULL, operation_port=FakePort(root))
+    writer = CorpusWriter(root, Recorder, authority=FULL, operation_port=FakePort(root), profile=BASE)
 
     with pytest.raises(ImportRefused):
         import_records(writer, [prop("a")])
@@ -733,7 +746,7 @@ def test_uncanonically_encodable_report_subject_refuses_before_intent(tmp_path):
 
 def test_no_operation_port_refuses_before_any_act(tmp_path):
     Recorder.plans = []
-    writer = CorpusWriter(tmp_path, Recorder, authority=FULL)
+    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, profile=BASE)
     with pytest.raises(ImportRefused, match="no operation port"):
         import_records(writer, [prop("a")])
     assert Recorder.plans == []
@@ -748,7 +761,7 @@ def test_refusal_report_failure_leaves_intent_open_and_engine_error_unchanged(tm
             raise ReportFailure
 
     Recorder.plans, FakePort.intents, FakePort.fulfilling = [], [], []
-    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=FailingPort(tmp_path))
+    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=FailingPort(tmp_path), profile=BASE)
     writer.add(prop("held"))
     Recorder.plans = []
 
@@ -769,7 +782,7 @@ def test_success_report_failure_leaves_payload_visible_and_intent_open(tmp_path)
             raise ReportFailure
 
     Recorder.plans, FakePort.intents, FakePort.fulfilling = [], [], []
-    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=FailingPort(tmp_path))
+    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=FailingPort(tmp_path), profile=BASE)
 
     with pytest.raises(ReportFailure) as caught:
         import_records(writer, [prop("admitted")])

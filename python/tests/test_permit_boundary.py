@@ -16,6 +16,7 @@ PRIMITIVE_ATTRIBUTES = frozenset(
         "append_intent",
         "execute",
         "execute_fulfilling",
+        "execute_fulfilling_guarded",
         "publish_fulfilling",
         "store_write",
         "store_delete",
@@ -24,6 +25,9 @@ PRIMITIVE_ATTRIBUTES = frozenset(
 )
 PRIMITIVE_NAMES = frozenset(
     {
+        # Holdings forwarding routes remain inventoried after sharing their effect helper.
+        "_append",
+        "_publish_record",
         "register_root",
         "_replicate_root_callback",
         "_fork_root_callback",
@@ -39,6 +43,7 @@ PRIMITIVE_IMPLEMENTATIONS = frozenset(
         "root.py:DurableOperationPort.execute",
         "root.py:DurableOperationPort._execute",
         "root.py:DurableOperationPort.execute_fulfilling",
+        "root.py:DurableOperationPort.execute_fulfilling_guarded",
         "root.py:DurableOperationPort._execute_fulfilling",
         "root.py:DurableExecutor.execute",
         "root.py:_mapped_submit.submit",
@@ -62,6 +67,7 @@ WRITE_ENTRY_POINTS: dict[str, str] = {
     "corpus.py:CorpusWriter.adopt_manifest": "lifecycle",
     "corpus.py:CorpusWriter._add_locked": "corpus-write",
     "corpus.py:CorpusWriter._replace_locked": "corpus-write",
+    "corpus.py:CorpusWriter._revise_dataset_locked": "corpus-write",
     "corpus.py:CorpusWriter._delete_locked": "corpus-write",
     "corpus.py:CorpusWriter._append_operation_intent": "corpus-write",
     "corpus.py:CorpusWriter._publish_operation_report": "corpus-write",
@@ -69,6 +75,7 @@ WRITE_ENTRY_POINTS: dict[str, str] = {
     "boundary.py:execute_assessment_run": "run",
     "boundary.py:execute_production_run": "run",
     "holdings/boundary.py:_publish": "holdings",
+    "holdings/boundary.py:_publish_record": "holdings",
     "holdings/boundary.py:recheck": "holdings",
     "holdings/boundary.py:_append": "holdings",
     "holdings/boundary.py:write": "holdings",

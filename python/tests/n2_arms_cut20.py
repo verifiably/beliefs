@@ -1,0 +1,176 @@
+"""Cut 20 canonical declaration accounting and twelve real source sabotages."""
+
+from n2_arms import Arm, Sabotage
+
+DECLARATION_UNITS = (
+    "D1",
+    "D2",
+    "D4",
+    "D5",
+    "D8",
+    "D9",
+    "D10",
+    "G5",
+    "F1",
+    "F2",
+    "F3",
+    "F4",
+    "F5",
+    "F6",
+    "F7",
+    "F8",
+    "parity-fixture-2",
+    "boundary-no-read-entry-point-gained-an-argument",
+)
+UNIT_CHECKS = {
+    "D2": "acceptance/test_facet_acceptance.py::test_d2_interpretation_is_separable_from_identity_durably",
+    "D4": "acceptance/test_facet_acceptance.py::test_d4_one_kindspec_per_kind_compiled_from_the_profile",
+    "D5": "acceptance/test_facet_acceptance.py::test_d5_manifest_pin_projection_and_refusals",
+    "D8": "acceptance/test_facet_acceptance.py::test_d8_contributions_compose_without_collision",
+    "D9": "acceptance/test_facet_acceptance.py::test_d9_practices_carry_no_vocabulary",
+    "D10": "acceptance/test_facet_acceptance.py::test_d10_facets_stay_facets",
+    "G5": "acceptance/test_facet_acceptance.py::test_g5_no_divergence_kind_exists",
+    "F1": "acceptance/test_facet_acceptance.py::test_f1_payload_contract_enforced_at_every_entry",
+    "F2": "acceptance/test_facet_acceptance.py::test_f2_bearer_invariant_over_resulting_state",
+    "F3": "acceptance/test_facet_acceptance.py::test_f3_attestation_bound_and_preserved",
+    "F4": "acceptance/test_facet_acceptance.py::test_f4_eligibility_reads_the_validity_predicate",
+    "F5": "acceptance/test_facet_acceptance.py::test_f5_profile_agreement_rechecked_under_the_lock",
+    "F6": "acceptance/test_facet_acceptance.py::test_f6_dataset_revision_changes_interpretation_and_prose_only",
+    "F7": "acceptance/test_facet_acceptance.py::test_f7_retrieval_resolves_or_refuses",
+    "F8": "acceptance/test_facet_acceptance.py::test_f8_every_builder_facet_is_declared",
+    "D1": "acceptance/test_facet_acceptance.py::test_d1_installed_nodes_takes_no_domain_argument",
+    "boundary-no-read-entry-point-gained-an-argument": "acceptance/test_facet_acceptance.py::test_boundary_no_read_entry_point_gained_an_argument",
+    "parity-fixture-2": "test_identity_parity_fixture.py::test_bytes_and_digest_agree",
+}
+
+CUT20_ARMS = (
+    Arm(
+        row="F1",
+        asserts="The declared refusal or projection must detect its source sabotage.",
+        sabotage=Sabotage(
+            module="facets.py",
+            before="    if unknown:\n        raise _refuse(where, facet.key, f\"unknown key(s) {', '.join(map(repr, unknown))}; refused, never ignored\")\n",
+            after="",
+        ),
+        checks=("acceptance/test_facet_acceptance.py::test_f1_payload_contract_enforced_at_every_entry",),
+    ),
+    Arm(
+        row="F2",
+        asserts="The declared refusal or projection must detect its source sabotage.",
+        sabotage=Sabotage(
+            module="acquisition.py",
+            before="        producers = view.producers(node.id, aliases=tuple(node.deprecated_ids))\n",
+            after="        producers = ()\n",
+        ),
+        checks=("acceptance/test_facet_acceptance.py::test_f2_bearer_invariant_over_resulting_state",),
+    ),
+    Arm(
+        row="F3",
+        asserts="The declared refusal or projection must detect its source sabotage.",
+        sabotage=Sabotage(
+            module="corpus.py",
+            before='            if not provenance and payload.get("attested_by") != self._authority.actor:\n',
+            after="            if False:\n",
+        ),
+        checks=("acceptance/test_facet_acceptance.py::test_f3_attestation_bound_and_preserved",),
+    ),
+    Arm(
+        row="F5",
+        asserts="The declared refusal or projection must detect its source sabotage.",
+        sabotage=Sabotage(
+            module="corpus.py",
+            before="    def _require_pins_agree(self) -> None:\n        require_pins_agree(self.root, self._profile)\n",
+            after="    def _require_pins_agree(self) -> None:\n        return\n",
+        ),
+        checks=("acceptance/test_facet_acceptance.py::test_f5_profile_agreement_rechecked_under_the_lock",),
+    ),
+    Arm(
+        row="F4",
+        asserts="The declared refusal or projection must detect its source sabotage.",
+        sabotage=Sabotage(
+            module="corpus.py",
+            before="        reason = validity_refusal(view, view.get(dataset_ref), profile)\n",
+            after='        reason = None if stored.EMPIRICAL_OBSERVATION_FACET in view.get(dataset_ref).facets else "absent"\n',
+        ),
+        checks=("acceptance/test_facet_acceptance.py::test_f4_eligibility_reads_the_validity_predicate",),
+    ),
+    Arm(
+        row="F8",
+        asserts="The declared refusal or projection must detect its source sabotage.",
+        sabotage=Sabotage(
+            module="stored.py",
+            before='    return _node("dataset", slug, title, facets, ())\n',
+            after='    facets["provenance"] = {}\n    return _node("dataset", slug, title, facets, ())\n',
+        ),
+        checks=("acceptance/test_facet_acceptance.py::test_f8_every_builder_facet_is_declared",),
+    ),
+    Arm(
+        row="parity-fixture-2",
+        asserts="The declared refusal or projection must detect its source sabotage.",
+        sabotage=Sabotage(
+            module="identity/v1.py",
+            before='    return sha256(domain.encode("utf-8") + b"\\n" + encode(value)).hexdigest()\n',
+            after="    return sha256(encode(value)).hexdigest()\n",
+        ),
+        checks=("test_identity_parity_fixture.py::test_bytes_and_digest_agree",),
+    ),
+    Arm(
+        row="D8a",
+        asserts="The declared refusal or projection must detect its source sabotage.",
+        sabotage=Sabotage(
+            module="contract/domain.py",
+            before='    for section in ("kinds", "relations"):\n        if section in root:\n            raise MalformedContract(\n                f"{source}: a domain contract declares no {section}; a kernel kind or relation signature is the "\n                "base contract\'s, and a domain contributes facets to kinds that already exist (D §3.3, D8) — refused"\n            )\n    _fields(root, _CONTRACT_FIELDS, frozenset({"description", "facets"}), source)\n',
+            after='    _fields(root, _CONTRACT_FIELDS, frozenset({"description", "facets", "kinds", "relations"}), source)\n',
+        ),
+        checks=("acceptance/test_facet_acceptance.py::test_d8_contributions_compose_without_collision",),
+    ),
+    Arm(
+        row="D8b",
+        asserts="The declared refusal or projection must detect its source sabotage.",
+        sabotage=Sabotage(
+            module="profile.py",
+            before='                    raise ProfileError(f"{key}: attaches_to names {kind!r}, not a world kind")\n',
+            after="                    pass\n",
+        ),
+        checks=("acceptance/test_facet_acceptance.py::test_d8_contributions_compose_without_collision",),
+    ),
+    Arm(
+        row="D4a",
+        asserts="The declared refusal or projection must detect its source sabotage.",
+        sabotage=Sabotage(
+            module="stored.py",
+            before='    name for name, declaration in _SHIPPED.relations.items() if declaration.group == "world"\n',
+            after="    name for name, declaration in _SHIPPED.relations.items()\n",
+        ),
+        checks=("acceptance/test_facet_acceptance.py::test_d4_one_kindspec_per_kind_compiled_from_the_profile",),
+    ),
+    Arm(
+        row="D5",
+        asserts="The declared refusal or projection must detect its source sabotage.",
+        sabotage=Sabotage(
+            module="contract/document.py",
+            before="        return yaml.load(text, Loader=_UniqueKeyLoader)\n",
+            after="        return yaml.load(text, Loader=yaml.SafeLoader)\n",
+        ),
+        checks=("acceptance/test_facet_acceptance.py::test_d5_manifest_pin_projection_and_refusals",),
+    ),
+    Arm(
+        row="D4b",
+        asserts="The declared refusal or projection must detect its source sabotage.",
+        sabotage=Sabotage(
+            module="profile.py",
+            before="            tuple(sorted(key for key, use in decl.facets.items() if use.covered)),\n",
+            after="            tuple(key for key, use in decl.facets.items() if use.covered),\n",
+        ),
+        checks=(
+            "test_facet_validation.py::TestCompiledProducts::test_reordering_declarations_moves_neither_identity_nor_coverage",
+        ),
+    ),
+)
+
+
+def unit_of(row: str) -> str:
+    return {"D8a": "D8", "D8b": "D8", "D4a": "D4", "D4b": "D4"}.get(row, row)
+
+
+CO_CITED: dict[str, tuple[str, ...]] = {}

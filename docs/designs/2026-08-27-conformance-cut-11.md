@@ -379,3 +379,16 @@ closes the last of them.
    destruction of a root together with every anchor holding it is not
    detectable from nothing; L7 u8's negative is this cut's intent-level
    pin of the same bound.
+
+
+## Live guard amendment — 2026-09-07
+
+The current prior-cut guard now pins `python/tests/n2_arms_cut5.py` to
+`1e92471`, completing the matcher-only migration that upstream `da6bab8`
+applied to cuts 14–19 while leaving these earlier guards unchanged. The
+original cut-5 pin remains `4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e`.
+The live guard validates both historical versions and proves their entire
+contents differ only in the exact R20 nondeterminism sabotage matcher: the
+inline variant predicate became the `UnfreezableSpec` catch. Arm declarations,
+checks, and the sabotage's rejection-bypass meaning are unchanged. This is
+an amendment to the current guard, not a rewrite of the frozen cut above.

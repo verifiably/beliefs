@@ -12,6 +12,7 @@ from authority import ACTOR, FULL, narrowed
 from nodes.core.errors import ExecutionError, PlanRefusedError
 from nodes.core.node import Node
 from nodes.core.write_plan import CreateOp, DefaultExecutor, DeleteOp, ReplaceOp, WritePlan
+from profiles import BASE
 from test_retract import mint_eligible_assessment
 
 from beliefs import stored
@@ -49,6 +50,7 @@ class RecordingPort:
 
     def __init__(self, authority: Authority, root) -> None:
         self.authority = authority
+        self.profile = BASE
         self.root = root
         self.calls: list[tuple[str, Any]] = []
         self._counter = 0
@@ -76,10 +78,16 @@ class RecordingPort:
         DefaultExecutor(self.root).execute(list(plan))
         return self._digest("2")
 
+    def execute_fulfilling_guarded(self, plan, fulfills, *, guard, fallback):
+        from beliefs.corpus import ReadView
+        reason = guard(ReadView.opened_at(self.root))
+        self.execute_fulfilling(plan if reason is None else fallback(reason), fulfills)
+        return reason
+
 
 def writer_over(tmp_path, authority: Authority = FULL) -> tuple[CorpusWriter, RecordingPort]:
     port = RecordingPort(authority, tmp_path)
-    return CorpusWriter(tmp_path, DefaultExecutor, authority=authority, operation_port=port), port
+    return CorpusWriter(tmp_path, DefaultExecutor, authority=authority, operation_port=port, profile=BASE), port
 
 
 def intents_of(port: RecordingPort) -> list[OperationIntent]:
@@ -197,7 +205,7 @@ def test_supersede_of_a_missing_target_refuses_before_the_intent(tmp_path):
 
 
 def test_a_writer_without_a_port_refuses_every_operation_before_any_refusal(tmp_path):
-    writer = CorpusWriter(tmp_path, DefaultExecutor, authority=narrowed())
+    writer = CorpusWriter(tmp_path, DefaultExecutor, authority=narrowed(), profile=BASE)
     with pytest.raises(OperationPortMissing):
         writer.operations.add(proposition("p1"))
 
@@ -220,7 +228,7 @@ def test_the_scope_binds_the_calling_writers_authority_and_port(tmp_path):
     narrow = narrowed(kinds=("proposition",), families=("corpus-write",))
     _, wide_port = writer_over(tmp_path)
     narrow_port = RecordingPort(narrow, tmp_path)
-    narrow_writer = CorpusWriter(tmp_path, DefaultExecutor, authority=narrow, operation_port=narrow_port)
+    narrow_writer = CorpusWriter(tmp_path, DefaultExecutor, authority=narrow, operation_port=narrow_port, profile=BASE)
     narrow_writer.operations.add(proposition("p1"))
     assert primitive_calls(narrow_port) == ["preflight", "append_intent", "execute_fulfilling"] and wide_port.calls == []
     assert intents_of(narrow_port)[0].actor == ACTOR
@@ -244,7 +252,7 @@ def test_the_twin_judges_the_permit_before_it_settles(tmp_path):
     factory = Factory()
     narrow = narrowed(kinds=("proposition",), families=("corpus-write",))
     port = RecordingPort(narrow, tmp_path)
-    writer = CorpusWriter(tmp_path, factory, authority=narrow, operation_port=port)
+    writer = CorpusWriter(tmp_path, factory, authority=narrow, operation_port=port, profile=BASE)
     assert _root_state_for(tmp_path, factory).unresolved is True
     source = stored.source_node("s1", title="s1", identifiers={"doi": "10.1/s1"})
     with pytest.raises(PermitExceeded):

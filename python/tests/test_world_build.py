@@ -40,6 +40,7 @@ from fixtures_cut6 import PINS
 from nodes.core.corpus import Corpus
 from nodes.core.node import Node
 from nodes.core.write_plan import DefaultExecutor
+from profiles import WITH_BIOLOGY
 
 from beliefs import root as composition_root
 from beliefs import stored
@@ -667,7 +668,7 @@ def test_api_write_refuses_during_capture(tmp_path):
     builder.start()
     try:
         assert heads.entered.wait(JOIN_TIMEOUT), "the capture never entered its hold"
-        writer = CorpusWriter(roots[ALPHA], DefaultExecutor, authority=FULL)
+        writer = CorpusWriter(roots[ALPHA], DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY)
         with pytest.raises(BuildHold):
             writer.add(stored.dataset_node("blocked", title="blocked"))
     finally:

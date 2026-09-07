@@ -8,9 +8,10 @@ store disagreeing about which facet carries a run's spec is a corpus with two
 meanings, so the mapping is code in one module rather than convention repeated
 at each call site.
 
-**Facet keys are unnamespaced.** They belong to the `science` base profile, not
-to a domain contract (domain-extension boundary §3.4), and `empirical-observation`
-is the one the eligibility predicate turns on.
+**Facet keys are unnamespaced.** They are declared by the base contract and
+compiled, not named in code or owned by a domain contract (domain-extension
+boundary §3.4); `empirical-observation` is the one the eligibility predicate
+turns on.
 
 **Relation predicates are kernel §4.1's closed signatures**, and the role-typed
 inputs are stored as relations rather than as facet payload: they are edges the
@@ -25,7 +26,8 @@ digests. The builders below write both from one argument, so nothing this slice
 mints can disagree with itself; a raw write that makes them disagree is an
 untrusted import, subject to the same stated bound as every other one.
 
-**The semantic hash covers a fixed set of facets per kind, named in code.** A
+**The semantic hash covers a fixed set of facets per kind, declared by the base
+contract and compiled (facet-contracts design §4.2).** A
 stored `covers` list would be data an untrusted writer could shorten, which is a
 hash that certifies whatever it was pointed at. What is stored is the digest
 alone; the coverage is `COVERED_FACETS`, and the projection records which
@@ -47,6 +49,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Any
 
 from nodes.core.node import Node
@@ -56,7 +59,6 @@ from beliefs import report as report_values
 from beliefs.dataset import DatasetDeclaration, ResourceDeclaration
 from beliefs.errors import IdentityError, LoneSurrogate, MalformedRecord
 from beliefs.holdings.records import (
-    HOLDINGS_OBSERVATION_DOMAIN,
     HOLDINGS_OBSERVATION_KIND,
     Absent,
     Found,
@@ -65,6 +67,7 @@ from beliefs.holdings.records import (
 )
 from beliefs.identity import v1
 from beliefs.permit import require_actor
+from beliefs.profile import shipped_base
 from beliefs.record import AssessmentValue
 from beliefs.spec import FrozenSpec, frozen_projection, restore
 from beliefs.verification import Verification
@@ -82,6 +85,7 @@ __all__ = [
     "HOLDINGS_OBSERVATION_FACET",
     "LINEAGE_BASIS_FACET",
     "PROPOSITION_FACET",
+    "PROSE_KINDS",
     "RETRACTION_FACET",
     "RETRACTION_REASONS",
     "RETRACTS",
@@ -167,34 +171,19 @@ RETRACTS = "retracts"
 GROUNDED_IN = "grounded-in"
 SUCCEEDED_BY = "succeeded-by"
 
-WORLD_KINDS = (
-    "proposition",
-    "source-assertion",
-    "assessment",
-    "analysis-spec",
-    "run",
-    "verification",
-    "dataset",
-    "source",
-    "holdings-observation",
-    "retraction",
-    "instrument-certification",
-    "coreference-attestation",
-    "act-report",
+_SHIPPED = shipped_base()
+_WORLD = {name: kind for name, kind in _SHIPPED.kinds.items() if kind.role == "world"}
+
+WORLD_KINDS: tuple[str, ...] = tuple(_WORLD)
+"""The kernel's world kinds, in the base contract's authored order."""
+
+PROSE_KINDS: tuple[str, ...] = tuple(name for name, kind in _SHIPPED.kinds.items() if kind.role == "prose")
+"""Belief-inert prose kinds, which never enter a closure."""
+
+WORLD_RELATIONS: tuple[str, ...] = tuple(
+    name for name, declaration in _SHIPPED.relations.items() if declaration.group == "world"
 )
-WORLD_RELATIONS = (
-    ASSESSES,
-    OBSERVES,
-    READS,
-    TRANSFORMS,
-    PRODUCES,
-    PRODUCED_BY,
-    EXECUTES,
-    TARGETS,
-    VERIFIES,
-    MEMBER_OF,
-    GROUNDED_IN,
-)
+"""The base contract's world relation group."""
 
 
 def typed_ref(kind: str, local: str) -> str:
@@ -237,33 +226,13 @@ ACCEPTED_EXTERNAL_IDENTIFIERS = ("accession", "doi", "isbn", "pmid")
 """W3's accepted external identifiers for a `source`. A closed set: a fallback
 derived from title and year is exactly the coercion the row refuses."""
 
-SEMANTIC_DOMAINS: Mapping[str, str] = {
-    "act-report": report_values.ACT_REPORT_DOMAIN,
-    "analysis-spec": "science.analysis-spec.v1",
-    "assessment": "science.assessment.v1",
-    "dataset": "science.dataset.v1",
-    HOLDINGS_OBSERVATION_KIND: HOLDINGS_OBSERVATION_DOMAIN,
-    "proposition": "science.proposition.v1",
-    "retraction": "science.retraction.v1",
-    "run": "science.run.v1",
-    "source": "science.source.v1",
-    "source-assertion": "science.source-assertion.v1",
-    "verification": "science.verification.v1",
-}
+SEMANTIC_DOMAINS: Mapping[str, str] = MappingProxyType(
+    {name: kind.domain for name, kind in _WORLD.items() if kind.domain is not None}
+)
 
-COVERED_FACETS: Mapping[str, tuple[str, ...]] = {
-    "act-report": ("act-report",),
-    "analysis-spec": (ANALYSIS_SPEC_FACET,),
-    "assessment": (ASSESSMENT_FACET,),
-    "dataset": (DATASET_FACET, EMPIRICAL_OBSERVATION_FACET, LINEAGE_BASIS_FACET),
-    HOLDINGS_OBSERVATION_KIND: (HOLDINGS_OBSERVATION_FACET,),
-    "proposition": (PROPOSITION_FACET,),
-    "retraction": (RETRACTION_FACET,),
-    "run": (RUN_FACET, RUN_CLOSURE_FACET),
-    "source": (SOURCE_FACET,),
-    "source-assertion": ("source-assertion",),
-    "verification": (VERIFICATION_FACET,),
-}
+COVERED_FACETS: Mapping[str, tuple[str, ...]] = MappingProxyType(
+    {name: kind.covered for name, kind in _WORLD.items() if kind.domain is not None}
+)
 """Which facets the semantic hash governs, per kind. Prose — `title`, `body`,
 an authored `display_statement` — is deliberately outside every entry: it is
 hand-editable by rule, and a hash covering it would refuse an editorial fix."""
@@ -333,9 +302,8 @@ def _facet(node: Node, key: str) -> Mapping[str, Any] | None:
 
 
 def is_empirical_observation(node: Node) -> bool:
-    """Whether a dataset carries the facet an `observes` input demands. The
-    facet's own payload contract is open (kernel §11); its **presence** is what
-    the eligibility predicate reads, and that is all this asks."""
+    """Whether the empirical-observation facet holds a mapping. Eligibility
+    uses the shared acquisition-boundary predicate to validate its standing."""
     return _facet(node, EMPIRICAL_OBSERVATION_FACET) is not None
 
 

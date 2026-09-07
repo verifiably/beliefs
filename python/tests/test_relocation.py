@@ -10,11 +10,12 @@ from __future__ import annotations
 import pytest
 from authority import ACTOR, FULL, lacking
 from fixtures_cut3 import report as sample_report
-from fixtures_cut6 import PINS
+from fixtures_cut6 import OTHER_BIOLOGY_ID, OTHER_PINS, PINS
 from nodes.core.errors import RefError
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 from nodes.core.write_plan import DefaultExecutor
+from profiles import BASE, WITH_BIOLOGY, WITH_BIOLOGY_OTHER, pins_for
 from test_corpus_write import OperationRecorder
 
 from beliefs import coordination, relocation, stored
@@ -50,10 +51,12 @@ MOVE_FIELDS = {
 CONSOLIDATE_FIELDS = {**MOVE_FIELDS, "rationale": "keep holds the authored record"}
 
 
-def _writer(root, *, science=SCIENCE, domains=None, operation_port=True, authority=FULL):
-    port = OperationRecorder(root, authority=authority) if operation_port else None
-    writer = CorpusWriter(root, DefaultExecutor, authority=authority, operation_port=port)
-    writer.adopt_manifest(profile=CorpusPins(science, domains or {}))
+def _writer(root, *, domains=None, operation_port=True, authority=FULL):
+    profile = WITH_BIOLOGY_OTHER if domains == OTHER_PINS.domains else WITH_BIOLOGY if domains == PINS.domains else BASE
+    assert domains is None or dict(domains) == dict(pins_for(profile).domains)
+    port = OperationRecorder(root, authority=authority, profile=profile) if operation_port else None
+    writer = CorpusWriter(root, DefaultExecutor, authority=authority, profile=profile, operation_port=port)
+    writer.adopt_manifest(profile=pins_for(profile))
     return writer
 
 
@@ -62,7 +65,8 @@ def _rebind(writer, authority):
         writer.root,
         DefaultExecutor,
         authority=authority,
-        operation_port=OperationRecorder(writer.root, authority=authority),
+        operation_port=OperationRecorder(writer.root, authority=authority, profile=writer.profile),
+        profile=writer.profile,
     )
 
 
@@ -86,12 +90,16 @@ def _writer_for(corpus, **options) -> CorpusWriter:
 
 
 def _node(*facet_keys: str) -> Node:
-    return Node(
-        id="memo:relocated",
-        kind="memo",
-        title="relocated",
-        facets={key: {} for key in facet_keys},
-    )
+    if "biology/gene-axis" in facet_keys:
+        node = stored.dataset_node("relocated", title="relocated", resources=[{"name": "matrix", "digest": "sha256:" + "ab" * 32}])
+        node.facets["biology/gene-axis"] = {"axis": "rows"}
+    else:
+        node = Node(id="discussion:relocated", kind="discussion", title="relocated")
+    if "display" in facet_keys:
+        node.facets["display"] = {"display_statement": "relocated"}
+    for key in set(facet_keys) - {"biology/gene-axis", "display"}:
+        node.facets[key] = {}
+    return node
 
 
 @pytest.fixture()
@@ -242,7 +250,7 @@ def test_move_resolves_a_symlinked_same_root_and_acquires_its_lock_once(
     )
     alias = tmp_path / "alias"
     alias.symlink_to(writer.root, target_is_directory=True)
-    twin = CorpusWriter(alias, DefaultExecutor, authority=FULL)
+    twin = CorpusWriter(alias, DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY)
     events = []
 
     class RecordingLock:
@@ -277,8 +285,7 @@ def test_move_refuses_an_excluded_kind_before_contract_agreement(tmp_path):
     source = _writer(tmp_path / "source", domains=PINS.domains)
     destination = _writer(
         tmp_path / "destination",
-        science="science:" + "c" * 64,
-        domains=PINS.domains,
+        domains=OTHER_PINS.domains,
     )
     report = sample_report()
     source._publish_operation_report(report, "ab" * 32)
@@ -302,14 +309,13 @@ def test_move_checks_contract_agreement_before_destination_occupancy(tmp_path):
     source = _writer(tmp_path / "source", domains=PINS.domains)
     destination = _writer(
         tmp_path / "destination",
-        science="science:" + "c" * 64,
-        domains=PINS.domains,
+        domains=OTHER_PINS.domains,
     )
     node = source.add(
-        stored.source_node("s1", title="source", identifiers={"doi": "10.1/abc"})
+        _node("biology/gene-axis")
     )
     destination.add(
-        stored.source_node("s1", title="destination", identifiers={"doi": "10.1/abc"})
+        _node("biology/gene-axis")
     )
 
     with pytest.raises(ContractPinDisagreement):
@@ -489,14 +495,14 @@ def test_consolidate_selects_one_of_two_distinct_uids_and_mints_no_third(
 def test_consolidate_keeps_ungoverned_kinds_unstamped(
     source_writer, destination_writer
 ):
-    keep = source_writer.add(Node(id="memo:same", kind="memo", title="kept"))
+    keep = source_writer.add(Node(id="discussion:same", kind="discussion", title="kept"))
     other = destination_writer.add(
         Node(
-            id="memo:same",
-            kind="memo",
+            id="discussion:same",
+            kind="discussion",
             title="other",
             relations=[
-                Relation(source="memo:same", predicate="cites", target="memo:target")
+                Relation(source="discussion:same", predicate="cites", target="discussion:target")
             ],
         )
     )
@@ -507,7 +513,7 @@ def test_consolidate_keeps_ungoverned_kinds_unstamped(
         **CONSOLIDATE_FIELDS,
     )
 
-    assert survivor.kind == "memo"
+    assert survivor.kind == "discussion"
     assert stored.SEMANTIC_IDENTITY_FACET not in survivor.facets
     assert survivor.relations == other.relations
 
@@ -684,7 +690,7 @@ def test_consolidate_preflights_the_replacement_before_either_intent(tmp_path):
             "raw",
             title="raw",
             resources=[{"name": "data", "digest": "sha256:" + "ab" * 32}],
-            empirical_observation={"boundary": "instrument"},
+            empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
         )
     )
     run = other_writer.add(
@@ -699,7 +705,10 @@ def test_consolidate_preflights_the_replacement_before_either_intent(tmp_path):
     other.relations = [
         Relation(source=other.id, predicate=stored.ASSESSES, target="proposition:p1")
     ]
-    other_writer.add(other)
+    from coordination_fixtures import raw_add
+
+    raw_add(other_writer.root, other)
+    other_writer._reconstruct()
 
     with pytest.raises(EligibilityUnmet):
         relocation.consolidate(
@@ -769,8 +778,8 @@ def test_both_locks_acquires_distinct_roots_in_sorted_order(tmp_path, monkeypatc
         def __exit__(self, *_):
             events.append(("exit", self.name))
 
-    later = CorpusWriter(tmp_path / "z", DefaultExecutor, authority=FULL)
-    earlier = CorpusWriter(tmp_path / "a", DefaultExecutor, authority=FULL)
+    later = CorpusWriter(tmp_path / "z", DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY)
+    earlier = CorpusWriter(tmp_path / "a", DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY)
     monkeypatch.setattr(later, "_operation", RecordingLock("z"))
     monkeypatch.setattr(earlier, "_operation", RecordingLock("a"))
 
@@ -786,8 +795,8 @@ def test_both_locks_acquires_distinct_roots_in_sorted_order(tmp_path, monkeypatc
 
 
 def test_both_locks_acquires_one_distinct_root_once(tmp_path):
-    writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL)
-    twin = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL)
+    writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY)
+    twin = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY)
 
     with relocation._both_locks(writer, twin):
         assert writer._operation._lock._writer_depth == 1
@@ -803,8 +812,8 @@ def test_excluded_kinds_are_reports_observations_and_the_coordination_closed_set
 
 
 def test_same_root_refuses_after_path_resolution(tmp_path):
-    writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL)
-    twin = CorpusWriter(tmp_path / ".", DefaultExecutor, authority=FULL)
+    writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY)
+    twin = CorpusWriter(tmp_path / ".", DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY)
 
     with pytest.raises(SameRootRefused):
         relocation._refuse_same_root(writer, twin)
@@ -818,7 +827,9 @@ def test_every_excluded_kind_refuses(kind):
 
 def test_contract_agreement_always_checks_the_science_contract(tmp_path):
     source = _writer(tmp_path / "source")
-    destination = _writer(tmp_path / "destination", science="science:" + "c" * 64)
+    destination = _writer(tmp_path / "destination")
+    manifest = destination.root / "corpus.yaml"
+    manifest.write_text(manifest.read_text().replace(SCIENCE, "science:" + "c" * 64))
 
     with pytest.raises(ContractPinDisagreement):
         relocation._refuse_contract_disagreement(_node("display"), source, destination)
@@ -828,7 +839,7 @@ def test_contract_agreement_refuses_a_different_used_domain_pin(tmp_path):
     source = _writer(tmp_path / "source", domains={"biology": BIOLOGY})
     destination = _writer(
         tmp_path / "destination",
-        domains={"biology": "biology:" + "c" * 64},
+        domains={"biology": OTHER_BIOLOGY_ID},
     )
 
     with pytest.raises(ContractPinDisagreement):
@@ -860,21 +871,21 @@ def test_contract_agreement_refuses_a_missing_used_source_domain_pin(tmp_path):
 def test_contract_agreement_ignores_different_unused_domain_pins(tmp_path):
     source = _writer(
         tmp_path / "source",
-        domains={"biology": BIOLOGY, "chemistry": "chemistry:" + "d" * 64},
+        domains=PINS.domains,
     )
     destination = _writer(
         tmp_path / "destination",
-        domains={"biology": BIOLOGY, "chemistry": "chemistry:" + "e" * 64},
+        domains=OTHER_PINS.domains,
     )
 
     relocation._refuse_contract_disagreement(
-        _node("display", "biology/gene-axis"), source, destination
+        _node("display"), source, destination
     )
 
 
 def test_corpus_writer_exposes_its_root_manifest_identity_and_pins(tmp_path):
     pins = CorpusPins(SCIENCE, {"biology": BIOLOGY})
-    writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL)
+    writer = CorpusWriter(tmp_path, DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY)
     manifest = writer.adopt_manifest(profile=pins)
 
     assert writer.root == tmp_path.resolve()

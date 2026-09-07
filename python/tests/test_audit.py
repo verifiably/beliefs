@@ -11,6 +11,7 @@ from closure_fixtures import make_closure
 from fixtures_cut3 import spec_draft, spec_rules
 from fixtures_cut4 import raw_write
 from nodes.core.node import Node
+from profiles import BASE, pins_for
 from test_relocation import _writer
 from test_relocation_rows import _basis_route
 
@@ -100,7 +101,7 @@ def add_observed_datasets(writer, closure: RunClosure) -> None:
                     entry.dataset.removeprefix("dataset:"),
                     title="raw",
                     resources=PINNED,
-                    empirical_observation={"boundary": "instrument"},
+                    empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
                 )
             )
 
@@ -183,7 +184,7 @@ def _eligible_assessment(writer) -> Node:
     projection: eligibility is a stored-edge predicate, and a decodable run
     closure is a separate fact that a hand-built run simply does not have."""
     dataset = writer.add(
-        stored.dataset_node("raw", title="raw", resources=PINNED, empirical_observation={"boundary": "instrument"})
+        stored.dataset_node("raw", title="raw", resources=PINNED, empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR})
     )
     run = writer.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[dataset.id]))
     proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
@@ -323,7 +324,7 @@ class TestOmegaValidComesFirst:
         raw_cyclic_retraction_pair(writer)
         monkeypatch.setattr(corpus, "standing_in_local_view", lambda *a, **k: pytest.fail("standing was evaluated"))
         monkeypatch.setattr(belief, "evaluate", lambda *a, **k: pytest.fail("belief was evaluated"))
-        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)
         assert findings and all(finding.severity == "error" for finding in findings)
         assert {finding.code for finding in findings} <= {
             "semantic-hash-stale",
@@ -350,7 +351,7 @@ class TestOmegaValidComesFirst:
         del bad.facets[stored.SEMANTIC_IDENTITY_FACET]
         raw_write(writer.root, bad)  # unstamped: semantic-hash-missing
         writer._reconstruct()
-        audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)
         assert calls == []
 
 
@@ -359,7 +360,7 @@ class TestTheAuditMintsNothing:
         writer.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
         before = sorted(p for p in writer.root.rglob("*") if p.is_file())
         port = writer._operation_port
-        audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)
         assert sorted(p for p in writer.root.rglob("*") if p.is_file()) == before
         assert port.intents == [] and port.fulfilling == []
 
@@ -394,11 +395,11 @@ class TestLineageBasisRecomputation:
         delete `B`'s run → the semantic finding disappears (§7)."""
         run_b = forged_single_over_two_producers(writer)
 
-        codes = [f.code for f in audit_corpus(writer.read_view, evidence=NO_EVIDENCE)]
+        codes = [f.code for f in audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)]
         assert codes == ["lineage-basis-contradicted"]
 
         writer.delete(run_b.id)
-        assert [f.code for f in audit_corpus(writer.read_view, evidence=NO_EVIDENCE)] == []
+        assert [f.code for f in audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)] == []
 
     def test_a_basis_naming_every_producer_is_not_contradicted(self, writer):
         dataset = writer.add(stored.dataset_node("d", title="d", resources=PINNED))
@@ -418,7 +419,7 @@ class TestLineageBasisRecomputation:
 
         node = writer.read_view.get(dataset.id)
         assert check_lineage_basis(writer.read_view, node) == DerivationOutcome(True, "", None)
-        assert audit_corpus(writer.read_view, evidence=NO_EVIDENCE) == ()
+        assert audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile) == ()
 
 
 class TestUncheckedIsNotContradicted:
@@ -479,7 +480,7 @@ class TestTheAuditReportsAndNeverRaises:
         raw_write(writer.root, stored.stamp_semantic_identity(node))
         writer._reconstruct()
 
-        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)
         assert {(f.code, f.ref) for f in findings} == {
             ("semantic-hash-missing", bystander),
             ("derivation-malformed", node.id),
@@ -491,16 +492,17 @@ class TestTheAuditReportsAndNeverRaises:
         raw_write(writer.root, stored.stamp_semantic_identity(hollow))
         writer._reconstruct()
 
-        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)
         assert {(f.code, f.ref) for f in findings} == {
             ("semantic-hash-missing", bystander),
             ("derivation-malformed", hollow.id),
+            ("facet-missing", hollow.id),
         }
 
     def test_an_assessment_whose_stored_outcome_is_outside_the_closed_set(self, writer):
         bystander = _bystander(writer)
         dataset = writer.add(
-            stored.dataset_node("raw", title="raw", resources=PINNED, empirical_observation={"boundary": "i"})
+            stored.dataset_node("raw", title="raw", resources=PINNED, empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR})
         )
         run = writer.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[dataset.id]))
         proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
@@ -516,7 +518,7 @@ class TestTheAuditReportsAndNeverRaises:
             )
         )
 
-        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)
         assert {(f.code, f.ref) for f in findings} == {
             ("semantic-hash-missing", bystander),
             ("derivation-malformed", node.id),
@@ -533,7 +535,7 @@ class TestTheAuditReportsAndNeverRaises:
         closure = replace(base, occurrence=replace(base.occurrence, actor=ACTOR))
         dataset = writer.add(
             stored.dataset_node(
-                "produced", title="produced", resources=PINNED, empirical_observation={"boundary": "i"}
+                "produced", title="produced", resources=PINNED
             )
         )
         for entry in closure.recipe.inputs:
@@ -542,7 +544,7 @@ class TestTheAuditReportsAndNeverRaises:
                     entry.dataset.removeprefix("dataset:"),
                     title="input",
                     resources=PINNED,
-                    empirical_observation={"boundary": "i"},
+                    empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
                 )
             )
         run = writer.add(
@@ -575,7 +577,7 @@ class TestTheAuditReportsAndNeverRaises:
 
         with pytest.raises(SignatureRefused):
             audit.check_assessment(writer.read_view, writer.read_view.get(node.id), evidence=NO_EVIDENCE)
-        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)
         assert {(f.code, f.ref) for f in findings} == {
             ("semantic-hash-missing", bystander),
             ("eligibility-unmet", node.id),
@@ -599,7 +601,7 @@ class TestTheAuditReportsAndNeverRaises:
         raw_write(writer.root, stored.stamp_semantic_identity(forged))
         writer._reconstruct()
 
-        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)
         assert {(f.code, f.ref) for f in findings} == {
             ("semantic-hash-missing", bystander),
             ("derivation-malformed", dataset.id),
@@ -626,7 +628,7 @@ class TestOmegaValidIsMalformednessOnly:
         raw_write(writer.root, forged)
         writer._reconstruct()
 
-        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)
         assert {(f.code, f.ref) for f in findings} == {
             ("display-malformed", dataset.id),
             ("lineage-basis-contradicted", dataset.id),
@@ -660,7 +662,7 @@ class TestVerificationRecomputation:
         assert audit.check_verification(writer.read_view, node, evidence=evidence) == DerivationOutcome(
             True, "", None
         )
-        assert audit_corpus(writer.read_view, evidence=evidence) == ()
+        assert audit_corpus(writer.read_view, evidence=evidence, profile=writer.profile) == ()
 
     def test_a_failing_replay_is_equally_checked_and_agrees(self, writer):
         """The agreeing arm is not the passing arm: a stored `failed` over a
@@ -718,7 +720,7 @@ class TestAssessmentComparisonNamespaces:
             )
         )
         assert audit.check_assessment(writer.read_view, node, evidence=evidence) == DerivationOutcome(True, "", None)
-        assert audit_corpus(writer.read_view, evidence=evidence) == ()
+        assert audit_corpus(writer.read_view, evidence=evidence, profile=writer.profile) == ()
 
     def test_a_facet_disagreeing_on_outcome_and_spec_names_both_members(self, writer):
         frozen, closure, _run = _derived_run(writer)
@@ -766,7 +768,7 @@ class TestAnEvaluatorOutsideTheClosedSet:
         with pytest.raises(MalformedRecord):
             audit.check_verification(writer.read_view, verification, evidence=evidence)
 
-        findings = audit_corpus(writer.read_view, evidence=evidence)
+        findings = audit_corpus(writer.read_view, evidence=evidence, profile=writer.profile)
         assert ("derivation-malformed", verification.id) in {(f.code, f.ref) for f in findings}
 
 
@@ -801,7 +803,7 @@ class TestAnUnreadableNeighbourLeavesTheRecordUnchecked:
         run_b = writer.add(_producing_run("b", dataset.id))
         _tampered_stale(writer, run_b)
 
-        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)
         assert {(f.code, f.ref) for f in findings} == {("semantic-hash-stale", run_b.id)}
 
         outcome = check_lineage_basis(writer.read_view, writer.read_view.get(dataset.id))
@@ -825,7 +827,7 @@ class TestAnUnreadableNeighbourLeavesTheRecordUnchecked:
         outcome = audit.check_verification(writer.read_view, verification, evidence=NO_EVIDENCE)
         assert not outcome.checked and run.id in outcome.reason and outcome.contradiction is None
 
-        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)
         assert {(f.code, f.ref) for f in findings} == {("semantic-hash-stale", run.id)}
 
     def test_an_assessment_naming_a_stale_run_is_unchecked(self, writer):
@@ -836,8 +838,63 @@ class TestAnUnreadableNeighbourLeavesTheRecordUnchecked:
         outcome = audit.check_assessment(writer.read_view, assessment, evidence=NO_EVIDENCE)
         assert not outcome.checked and run.id in outcome.reason and outcome.contradiction is None
 
-        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE)
+        findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)
         assert {(f.code, f.ref) for f in findings} == {("semantic-hash-stale", run.id)}
+
+
+@pytest.mark.parametrize("manifest", ["base", "malformed", "symlink"])
+def test_the_audit_stops_on_a_base_mismatch_without_recomputing(tmp_path, monkeypatch, manifest):
+    writer = _writer(tmp_path / manifest)
+    from nodes.core.corpus import Corpus
+
+    from beliefs.corpus import ReadView
+    writer.add(stored.dataset_node("d", title="d", resources=PINNED))
+    monkeypatch.setattr(audit, "check_lineage_basis", lambda *args: pytest.fail("recomputed under unknown pins"))
+    path = writer.root / "corpus.yaml"
+    if manifest == "base":
+        path.write_text(path.read_text().replace(pins_for(BASE).science_contract, "science:" + "f" * 64))
+    elif manifest == "malformed":
+        path.write_text("manifest_version: 3\n")
+    else:
+        path.unlink()
+        path.symlink_to("missing.yaml")
+    expected = ["profile-mismatch"] if manifest == "base" else ["manifest-malformed", "profile-mismatch"]
+    assert [f.code for f in audit_corpus(ReadView(Corpus(writer.root)), evidence=NO_EVIDENCE, profile=BASE)] == expected
+
+
+@pytest.mark.parametrize("declaration", ["malformed", "bearer", "retrieval"])
+def test_declaration_malformedness_alone_withholds_audit_recomputation(writer, declaration, monkeypatch):
+    checked = []
+    original = audit.check_lineage_basis
+
+    def recompute(view, node):
+        checked.append(node.id)
+        return original(view, node)
+
+    monkeypatch.setattr(audit, "check_lineage_basis", recompute)
+    dataset = stored.dataset_node("d", title="d", resources=PINNED,
+        empirical_observation={"boundary": "x"} if declaration == "malformed" else
+        {"locator": "instrument:fixture", "attested_by": ACTOR,
+         **({"retrieval": "act-report:gone"} if declaration == "retrieval" else {})})
+    # A missing producing route is a real contradiction if recomputation runs.
+    dataset.facets[stored.LINEAGE_BASIS_FACET] = {"tag": "single", "routes": [_basis_route("a")]}
+    raw_write(writer.root, stored.stamp_semantic_identity(dataset))
+    if declaration == "retrieval":
+        # Retrieval validity is independent of whether the dataset has a basis.
+        del dataset.facets[stored.LINEAGE_BASIS_FACET]
+        raw_write(writer.root, stored.stamp_semantic_identity(dataset))
+    else:
+        raw_write(writer.root, _producing_run("b", dataset.id))
+    writer._reconstruct()
+    findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)
+    codes = {f.code for f in findings}
+    assert checked == ([] if declaration == "malformed" else [dataset.id])
+    if declaration == "malformed":
+        assert "facet-payload-malformed" in codes and "lineage-basis-contradicted" not in codes
+    elif declaration == "bearer":
+        assert codes == {"facet-bearer-produced", "lineage-basis-contradicted"}
+    else:
+        assert codes == {"facet-retrieval-unresolved"}
 
 
 # --- V4 / V6 / V2: scope, rule, scope rule and report are recomputed (design §6) ---
@@ -852,7 +909,7 @@ DERIVATION_CODES = {"verification-derivation-contradicted", "assessment-derivati
 
 
 def _findings(writer, evidence, code="verification-derivation-contradicted"):
-    return [f for f in audit_corpus(reopen(writer.root), evidence=evidence) if f.code == code]
+    return [f for f in audit_corpus(reopen(writer.root), evidence=evidence, profile=BASE) if f.code == code]
 
 
 def test_v4_a_published_verification_audits_checked_with_no_contradiction(writer):
@@ -860,7 +917,7 @@ def test_v4_a_published_verification_audits_checked_with_no_contradiction(writer
     assert published.node is not None
     outcome = check_verification(writer.read_view, writer.read_view.get(published.node.id), evidence=published.evidence)
     assert outcome.checked and outcome.contradiction is None
-    assert not {f.code for f in audit_corpus(reopen(writer.root), evidence=published.evidence)} & DERIVATION_CODES
+    assert not {f.code for f in audit_corpus(reopen(writer.root), evidence=published.evidence, profile=BASE)} & DERIVATION_CODES
 
 
 def test_v4_a_certified_verification_audits_clean_through_its_stored_certification(writer):
@@ -926,7 +983,7 @@ def test_v2_a_contradicted_assessment_still_contradicts(writer, tmp_path):
     altered.facets[stored.ASSESSMENT_FACET]["outcome"] = "refuted"
     stored.stamp_semantic_identity(altered)
     raw_write(writer.root, altered)
-    codes = {f.code for f in audit_corpus(reopen(writer.root), evidence=published.evidence)}
+    codes = {f.code for f in audit_corpus(reopen(writer.root), evidence=published.evidence, profile=BASE)}
     assert "assessment-derivation-contradicted" in codes and "semantic-hash-stale" not in codes
     from test_relocation import _writer
 
@@ -960,7 +1017,7 @@ def test_v8_the_audit_names_a_spec_that_does_not_restore_and_stored_specs_report
         check_analysis_spec(view.get(forged.id))
     specs, findings = stored_specs(view)
     assert set(specs) == {spec.identity} and [f.ref for f in findings] == [forged.id] and findings[0].code == "derivation-malformed"
-    assert [f.ref for f in audit_corpus(view, evidence=NO_EVIDENCE) if f.code == "derivation-malformed"] == [forged.id]
+    assert [f.ref for f in audit_corpus(view, evidence=NO_EVIDENCE, profile=BASE) if f.code == "derivation-malformed"] == [forged.id]
 
 
 def test_v4_the_audit_reaches_the_same_verdict_with_specs_restored_from_the_corpus(writer):

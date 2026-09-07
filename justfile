@@ -6,10 +6,8 @@
 # Every recipe runs through the vendored timing wrapper tools/tt (source of truth: ops
 # bin/tt) so each run is recorded. Design: ops docs/specs/2026-09-04-test-ci-audit-design.md.
 #
-# The git hooks are deliberately NOT installed: `check` fails on main today (six ruff
-# and twelve pyright errors, all in the mm30 reproduction lane), so a pre-commit hook
-# would block every commit. See the note on beliefs-f253a1; hooks land with §4.6 in
-# step 3, once the gate is green.
+# Git hooks are not installed. The facet-contracts integration resolves the reproduction
+# lint/type diagnostics; hook rollout remains audit step 3 (beliefs-f253a1).
 
 tt := "python3 tools/tt"
 

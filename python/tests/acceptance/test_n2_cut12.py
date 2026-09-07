@@ -19,6 +19,7 @@ from n2_arms_cut10 import CUT10_ARMS
 from n2_arms_cut11 import CUT11_ARMS
 from n2_arms_cut12 import CO_CITED, CUT12_ARMS, LABELED_UNITS, ROW_UNITS, unit_of
 from test_n2 import MalformedArm, audit, baseline
+from test_n2_cut7 import assert_cut5_matcher_migration
 
 import beliefs.root as science_root
 
@@ -31,7 +32,7 @@ RENAME_COMMIT = "5a02ca2"
 file whose only post-freeze edit was that rename's import strings."""
 
 FROZEN_PRIOR_CUT_FILES = {
-    "python/tests/n2_arms_cut5.py": "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e",
+    "python/tests/n2_arms_cut5.py": "1e92471",  # exact R20 matcher amendment, validated below
     "python/tests/n2_arms_cut6.py": "4a7dc19dd08d8899417d17f7dfee9eb2dbd1318e",
     "python/tests/n2_arms_cut7.py": "117f37e",
     "python/tests/acceptance/n2_arms_cut8.py": RENAME_COMMIT,
@@ -153,6 +154,7 @@ class TestTheDeclarationTable:
 
 class TestNoPriorCutDeclarationIsRehomedOrEdited:
     def test_the_frozen_prior_declaration_files_are_byte_identical(self):
+        assert_cut5_matcher_migration(REPO_ROOT)
         for path, pin in FROZEN_PRIOR_CUT_FILES.items():
             completed = subprocess.run(
                 ["git", "-C", str(REPO_ROOT), "diff", "--quiet", pin, "HEAD", "--", path],

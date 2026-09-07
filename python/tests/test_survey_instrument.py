@@ -77,7 +77,7 @@ class TestReferenceShape:
 
 
 def _corpus(tmp_path: Path, name: str, records: dict[str, str]):  # -> survey.Corpus, loaded dynamically
-    root = tmp_path / name / "entities" / "memo"
+    root = tmp_path / name / "entities" / "discussion"
     root.mkdir(parents=True)
     for stem, front in records.items():
         (root / f"{stem}.md").write_text(f"---\n{front}\n---\n\nbody\n")
@@ -90,7 +90,7 @@ class TestLinkAccounting:
             tmp_path,
             "identity",
             {
-                "a": "id: memo:a\ntitle: memo:a\ncontent_hash: sha256:abc123\nrelated:\n  - question:q1",
+                "a": "id: discussion:a\ntitle: discussion:a\ncontent_hash: sha256:abc123\nrelated:\n  - question:q1",
             },
         )
         assert dict(c.links) == {"related": 1}
@@ -117,7 +117,7 @@ class TestLinkAccounting:
         assert c.triples == 1
 
     def test_an_unparsed_record_is_named_not_dropped(self, tmp_path: Path) -> None:
-        c = _corpus(tmp_path, "broken", {"a": "kind: memo\n  bad: [indent"})
+        c = _corpus(tmp_path, "broken", {"a": "kind: discussion\n  bad: [indent"})
         assert c.records == 0
         assert len(c.unparsed) == 1
 

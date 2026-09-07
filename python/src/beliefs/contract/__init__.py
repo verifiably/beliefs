@@ -4,7 +4,15 @@ D §6 is explicit that the contracts are the normative SSOT and ``ProfileSpec`` 
 the sole *compiled* runtime profile. Nothing here is authored beside a contract.
 """
 
-from beliefs.contract.base import BaseContract, ClaimGrammar, load_base_contract, parse_base_contract
+from beliefs.contract.base import (
+    BaseContract,
+    ClaimGrammar,
+    FacetUse,
+    KindDecl,
+    RelationDecl,
+    load_base_contract,
+    parse_base_contract,
+)
 from beliefs.contract.coordination import (
     CoordinationContract,
     CoordinationKindDecl,
@@ -22,6 +30,8 @@ from beliefs.contract.domain import (
     load_domain_contract,
     parse_domain_contract,
 )
+from beliefs.contract.facets import FacetDecl, FieldDecl
+from beliefs.contract.practice import Practice, load_practice, parse_practice
 
 __all__ = [
     "BaseContract",
@@ -30,7 +40,13 @@ __all__ = [
     "CoordinationKindDecl",
     "DimensionDecl",
     "DomainContract",
+    "FacetDecl",
+    "FacetUse",
+    "FieldDecl",
+    "KindDecl",
     "OperatorDecl",
+    "Practice",
+    "RelationDecl",
     "SortDecl",
     "VocabularyBinding",
     "check_coordination_succession",
@@ -38,7 +54,9 @@ __all__ = [
     "load_base_contract",
     "load_coordination_contract",
     "load_domain_contract",
+    "load_practice",
     "parse_base_contract",
     "parse_coordination_contract",
     "parse_domain_contract",
+    "parse_practice",
 ]

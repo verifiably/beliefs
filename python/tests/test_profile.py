@@ -39,9 +39,9 @@ def test_coordination_compiles_into_immutable_authorization(base_contract):
     assert compiled.activated_contracts["coordination"] == contract.content_identity
 
 
-def test_no_coordination_contract_preserves_the_pre_cut_compiled_identity(base_contract):
+def test_no_coordination_contract_preserves_the_cut_20_compiled_identity(base_contract):
     before = compile_profile(base_contract, [])
-    assert before.compiled_identity == "343e9aecf49a0042962a92921da3d3a9e5416a42638e20e7a906658b806af411"
+    assert before.compiled_identity == "daebbdee1f95c0ebb61b06a0c202c53f981be98b27fb0a83c2dca42d89cdeefa"
     assert compile_profile(base_contract, [], coordination=None).compiled_identity == before.compiled_identity
     assert before.coordination_kinds == {}
 
@@ -76,17 +76,29 @@ def test_coordination_schema_edits_recompile(base_contract):
         != compile_profile(base_contract, [], coordination=genesis).compiled_identity
     )
 
+    field_document = copy.deepcopy(COORDINATION_DOCUMENT)
+    field_document["kinds"]["decision"]["fields"].append("about")
+    field_schema = coordination_contract(field_document)
+    original = compile_profile(base_contract, [], coordination=genesis)
+    changed = compile_profile(base_contract, [], coordination=field_schema)
+    assert {name: kind.projection() for name, kind in original.kinds.items()} == {
+        name: kind.projection() for name, kind in changed.kinds.items()
+    }
+    assert changed.compiled_identity != original.compiled_identity
 
-def test_coordination_compile_refuses_unknown_query_kind(base_contract):
+
+@pytest.mark.parametrize("kind", ["not-world", "discussion"])
+def test_coordination_compile_refuses_unknown_query_kind(base_contract, kind):
     document = copy.deepcopy(COORDINATION_DOCUMENT)
-    document["query_vocabulary"]["kinds"].append("not-world")
+    document["query_vocabulary"]["kinds"].append(kind)
     with pytest.raises(ProfileError, match="query vocabulary"):
         compile_profile(base_contract, [], coordination=coordination_contract(document))
 
 
-def test_coordination_compile_refuses_unknown_query_relation(base_contract):
+@pytest.mark.parametrize("relation", ["not-a-relation", "supersedes"])
+def test_coordination_compile_refuses_unknown_query_relation(base_contract, relation):
     document = copy.deepcopy(COORDINATION_DOCUMENT)
-    document["query_vocabulary"]["relations"].append("not-a-relation")
+    document["query_vocabulary"]["relations"].append(relation)
     with pytest.raises(ProfileError, match="query vocabulary"):
         compile_profile(base_contract, [], coordination=coordination_contract(document))
 
@@ -143,8 +155,8 @@ class TestNoSecondAuthoredOperatorArtifact:
             assert decl.contract in profile.activated_contracts
 
     def test_compile_profile_is_the_only_exported_route(self):
-        builders = [name for name in profile_module.__all__ if name.islower()]
-        assert builders == ["compile_profile"]
+        public_functions = [name for name in profile_module.__all__ if name.islower()]
+        assert public_functions == ["compile_profile", "shipped_base", "shipped_base_contract"]
 
 
 class TestSemanticEditsRecompileAndEditorialOnesDoNot:
@@ -719,6 +731,7 @@ class TestTheOrdinaryRouteToAnUnparsedArtifact:
                 sorts={},
                 dimensions={},
                 operators={},
+                facets={},
                 content_identity="0" * 64,
                 base_identity="0" * 64,
             )

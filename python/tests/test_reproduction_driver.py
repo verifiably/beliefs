@@ -6,20 +6,16 @@ crosses between kernel spellings and the pure functions its steps rely on.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-
 from reproduction import answers, findings
 
 from beliefs.belief import Belief, NoBelief
 from beliefs.policy import PolicyBinding
 
 
-def test_a_finding_class_outside_the_four_is_refused(tmp_path, monkeypatch):
+def test_a_finding_class_outside_the_closed_set_is_refused(tmp_path, monkeypatch):
     monkeypatch.setattr(findings.paths, "FINDINGS", tmp_path / "f.jsonl")
     with pytest.raises(ValueError):
         findings.record(1, "oops", "reason")
@@ -53,9 +49,19 @@ def test_dataset_record_id_equals_its_content_address():
     from reproduction.hold import dataset_record
 
     node, address = dataset_record(
-        name="expr.tsv", digest="sha256:" + "c" * 64, title="t", facet={"boundary": "acquisition"}
+        name="expr.tsv", digest="sha256:" + "c" * 64, title="t", accession="GSE179929"
     )
     assert node.id == address == "dataset:sha256:" + sha256(("sha256:" + "c" * 64 + "\n").encode()).hexdigest()
+
+
+def test_the_hold_step_declares_a_locator_and_the_bound_actor():
+    from reproduction.authority import ACTOR
+    from reproduction.hold import dataset_record
+
+    node, _ = dataset_record(
+        name="f.gz", digest="sha256:" + "c" * 64, title="dataset:gse179929", accession="GSE179929"
+    )
+    assert node.facets["empirical-observation"] == {"locator": "accession:GSE179929", "attested_by": ACTOR}
 
 
 def test_outcome_digests_cover_exactly_the_three_outcomes():
@@ -72,7 +78,8 @@ def _assoc():
 
     path = Path(__file__).resolve().parents[1] / "tools" / "reproduction" / "analysis" / "assoc.py"
     spec = importlib.util.spec_from_file_location("assoc", path)
-    assert spec is not None and spec.loader is not None, path
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load {path}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

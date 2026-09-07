@@ -1179,3 +1179,21 @@ decide. None changes a `J` row or the cut's §2–§7.
     than the write itself. Every other lifecycle-read exception is unchanged:
     it proves nothing about the root, so it still maps to
     `ExecutionError(index=None, applied=None)` and the flag stays set.
+
+## Integration amendment — 2026-09-07
+
+The facet-contracts integration requires `profile: ProfileSpec` as a keyword
+on `open_attended_session`. The session passes this explicit compiled profile
+to its writer and durable operation port. The optional `coordination` argument
+continues to provide the coordination resolver; the writer's shared agreement
+checks require that resolver and the held profile to agree. No default profile
+is inferred from a manifest or from coordination. Downstream launchers must
+supply the compiled profile when opening a session. This composes the session
+write boundary with the facet-contracts pin gate; it changes no read API.
+
+Revision retains the session's early candidate-kind permission check before
+settlement, followed by authorization against the actual stored kind under
+the lock. A forbidden candidate kind is refused before target resolution,
+including a missing target; a permitted forged candidate kind never grants
+authority over a forbidden stored kind. With full authority, changing a
+dataset's kind still reaches the dataset revision allowlist refusal.

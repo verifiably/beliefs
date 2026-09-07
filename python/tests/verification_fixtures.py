@@ -107,7 +107,7 @@ def mint_datasets(writer, closure: RunClosure) -> None:
             writer.add(
                 stored.dataset_node(
                     entry.dataset.removeprefix("dataset:"), title="raw", resources=PINNED,
-                    empirical_observation={"boundary": "instrument"},
+                    empirical_observation={"locator": "instrument:fixture", "attested_by": writer.authority.actor},
                 )
             )
 

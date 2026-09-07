@@ -837,3 +837,16 @@ what must not break it.
   referent-binding half of kernel limitation 4 — the persistence, discovery,
   supersession and correction path for a claim's binding check — which is
   re-recorded as open there (its ρO1) rather than deleted.
+
+> **Amended 2026-09-07** (facet-contracts design §3.4, §5, §6, §7.2).
+> Section 3.4's payload schema travels with the facet — now literally, as the
+> base contract's `facets:` entry. Section 6's compiled inventory includes
+> kinds, relations, and facets. Section 12's parity question is answered for
+> domain contracts: TypeScript parses their declarations with the same
+> structural refusals, while payload validation remains Python-primary and
+> sited with compilation. Distribution remains open.
+
+> **Current implementation status, 2026-09-07.** Slice 1, the facet-contracts
+> design dated 2026-09-05, is implemented and discharged as frozen conformance
+> cut 20. Slice 2, the biology pack, remains open; cut 21 is a separate,
+> undischarged verification-publication cut.

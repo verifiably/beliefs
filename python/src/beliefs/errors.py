@@ -1089,6 +1089,10 @@ class ValidationRefused(WriteRefused):
     `nodes` exception as `__cause__` so no `nodes` error escapes raw."""
 
 
+class FacetPayloadRefused(ValidationRefused):
+    """A schema-shaped facet payload violates its declared structural grammar."""
+
+
 class VerificationTargetMismatch(WriteRefused):
     """A published verification's `verifies` edge does not resolve to an
     assessment carrying the identity the verification names — before the
@@ -1194,3 +1198,7 @@ class LedgerMalformed(ScienceError):
 
 class BundleMemberHeld(ImportRefused):
     """A bundle member is already held or collides with local state."""
+
+
+class AcquisitionBoundaryRefused(WriteRefused):
+    """A declaration cannot coexist with a producer or lineage basis."""

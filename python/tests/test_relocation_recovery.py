@@ -13,6 +13,7 @@ from nodes.core.frontmatter import node_from_markdown
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 from nodes.core.write_plan import CreateOp, DefaultExecutor
+from profiles import WITH_BIOLOGY
 
 from beliefs import boundary, relocation, stored
 from beliefs.corpus import CorpusWriter
@@ -225,6 +226,7 @@ class _IntentRecord:
 
 
 class _HashingOperationPort:
+    profile = WITH_BIOLOGY
     def __init__(self, root: Path, authority=FULL):
         self._inner = DefaultExecutor(root)
         self.authority = authority
@@ -250,6 +252,9 @@ class _HashingOperationPort:
         self._inner.execute(operations)
         self.fulfilling.append((operations, fulfills))
         return "r" * 64
+
+    def execute_fulfilling_guarded(self, plan, fulfills: str, *, guard, fallback):
+        raise AssertionError("never reached")
 
 
 @dataclass(frozen=True)
@@ -288,6 +293,7 @@ def _writer(root: Path) -> CorpusWriter:
         root,
         DefaultExecutor, authority=FULL,
         operation_port=_HashingOperationPort(root),
+        profile=WITH_BIOLOGY,
     )
     writer.adopt_manifest(profile=PINS)
     return writer
@@ -324,11 +330,11 @@ def _interrupted_move(tmp_path, monkeypatch, stop_after: str) -> _Attempt:
 def _interrupted_consolidate(tmp_path, monkeypatch, stop_after: str) -> _Attempt:
     keep_writer = _writer(tmp_path / stop_after / "keep")
     other_writer = _writer(tmp_path / stop_after / "other")
-    ref = "memo:recovery"
-    keep_relation = Relation(source=ref, predicate="cites", target="memo:a")
-    other_relation = Relation(source=ref, predicate="derived-from", target="memo:b")
-    keep_writer.add(Node(id=ref, kind="memo", title="keep", relations=[keep_relation]))
-    other_writer.add(Node(id=ref, kind="memo", title="other", relations=[other_relation]))
+    ref = "discussion:recovery"
+    keep_relation = Relation(source=ref, predicate="cites", target="discussion:a")
+    other_relation = Relation(source=ref, predicate="derived-from", target="discussion:b")
+    keep_writer.add(Node(id=ref, kind="discussion", title="keep", relations=[keep_relation]))
+    other_writer.add(Node(id=ref, kind="discussion", title="other", relations=[other_relation]))
     targets = {
         "keep-intent": (keep_writer, "_append_operation_intent"),
         "other-intent": (other_writer, "_append_operation_intent"),

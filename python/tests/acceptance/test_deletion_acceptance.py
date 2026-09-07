@@ -51,6 +51,7 @@ from authority import FULL
 from fixtures_cut4 import path_for, raw_write, reopen
 from fixtures_cut6 import PINS
 from nodes.core.frontmatter import node_to_markdown
+from profiles import BASE, WITH_BIOLOGY
 from test_audit import forged_single_over_two_producers, raw_cyclic_retraction_pair
 from test_belief import CLAIM, PROFILE, PROPOSITION
 from test_claim_restore import stored_proposition
@@ -188,7 +189,7 @@ def _durable_corpora(
             root = work / f"cut18-{os.getpid()}-{next(_COUNTER)}-{label}"
             init_corpus_root(root, authority=FULL)
             roots.append(root)
-            writers.append(_adopted(open_corpus(root, authority=FULL), pins))
+            writers.append(_adopted(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY if pins == PINS else BASE), pins))
         yield tuple(writers)
     finally:
         for root in roots:
@@ -203,7 +204,7 @@ def _reloaded(scenario: Scenario) -> Scenario:
     indexes at construction, so an assertion made on it is an assertion about
     the process's memory. This one is about the committed bytes.
     """
-    return Scenario(writer=open_corpus(scenario.writer.root, authority=FULL), values=scenario.values, roots=scenario.roots)
+    return Scenario(writer=open_corpus(scenario.writer.root, authority=FULL, profile=scenario.writer.profile), values=scenario.values, roots=scenario.roots)
 
 
 def _assert_delete_chain(root: Path, before: int, path: str) -> None:
@@ -270,7 +271,7 @@ def _record_files(root: Path) -> list[Path]:
 def _view_writer(writer: CorpusWriter):
     """`test_import_derivation._admission` reads `w.read_view`; hand it a
     corpus opened afresh so the admission it computes is over committed bytes."""
-    return open_corpus(writer.root, authority=FULL)
+    return open_corpus(writer.root, authority=FULL, profile=writer.profile)
 
 
 # --- G2c ----------------------------------------------------------------------
@@ -318,8 +319,8 @@ def test_g2c_lifecycle_walk_over_durable_records(durable_writer):
         after_belief = restored.belief()
         assert after_belief.value == 2
         assert after_belief.belief_input_digest != before_belief.belief_input_digest
-        assert corpus_check(restored.view) == (), "the removal is invisible to the read-side check"
-        assert audit_corpus(restored.view, evidence=NO_EVIDENCE) == (), "and to the corpus-local audit"
+        assert corpus_check(restored.view, restored.writer.profile) == (), "the removal is invisible to the read-side check"
+        assert audit_corpus(restored.view, evidence=NO_EVIDENCE, profile=restored.writer.profile) == (), "and to the corpus-local audit"
 
 
 # --- G8 and C6: the log half (§5 obligation 4) --------------------------------
@@ -333,7 +334,7 @@ def test_g8_c6_raw_removal_refutes_and_managed_delete_validates(work_directory, 
     **log** audit can: the raw removal is `refuted`, the managed one is
     `validated` carrying `record-removed` and, resolved against the caller's
     held copy, `failing-verification-removed` at error severity."""
-    raw_writer = _adopted(open_corpus(durable_root, authority=FULL))
+    raw_writer = _adopted(open_corpus(durable_root, authority=FULL, profile=BASE))
     with _durable_corpora(work_directory, "g8-managed") as (managed_writer,):
         raw = _scenario(raw_writer)
         managed = _scenario(managed_writer)
@@ -361,7 +362,7 @@ def test_g8_c6_raw_removal_refutes_and_managed_delete_validates(work_directory, 
         assert raw_view.lifecycle(ASSESSMENTS[0]) == managed_view.lifecycle(ASSESSMENTS[0]) == ADMITTED
         assert raw_view.belief().value == managed_view.belief().value == 2
         assert raw_view.belief().belief_input_digest == managed_view.belief().belief_input_digest
-        assert corpus_check(raw_view.view) == corpus_check(managed_view.view) == ()
+        assert corpus_check(raw_view.view, raw_view.writer.profile) == corpus_check(managed_view.view, managed_view.writer.profile) == ()
 
         raw_report = _audit_log(raw_writer, history=history["raw"])
         managed_report = _audit_log(managed_writer, history=history["managed"])
@@ -416,10 +417,10 @@ def test_r5_the_managed_holdings_delete_ends_heldness_and_changes_admission(cert
     silently unchanged value."""
     corpus_root, store_root = certified_work / "observer", certified_work / "store"
     init_corpus_root(corpus_root, authority=FULL)
-    manifest = open_corpus(corpus_root, authority=FULL).adopt_manifest(profile=PINS)
+    manifest = open_corpus(corpus_root, authority=FULL, profile=WITH_BIOLOGY).adopt_manifest(profile=PINS)
     store_id = science_root.init_store_root(store_root, authority=FULL)
     context = ActContext(
-        corpus_root, store_root, "observer", "instrument", FULL, science_root.holdings_seam()
+        corpus_root, store_root, "observer", "instrument", FULL, science_root.holdings_seam(), profile=WITH_BIOLOGY
     )
     location = StoreLocator(store_id, "data.bin")
 
@@ -605,7 +606,7 @@ def test_r23_deletion_and_audit_clauses_durably(durable_writer):
 
         run_b = forged_single_over_two_producers(forged)
         assert "lineage-basis-contradicted" in {
-            finding.code for finding in audit_corpus(reopen(forged.root), evidence=NO_EVIDENCE)
+            finding.code for finding in audit_corpus(reopen(forged.root), evidence=NO_EVIDENCE, profile=forged.profile)
         }
 
         forged.delete(run_b.id)
@@ -615,7 +616,7 @@ def test_r23_deletion_and_audit_clauses_durably(durable_writer):
         # transaction committed is the G8/C6 arm's property, established there
         # over `root.audit_log`.
         assert "lineage-basis-contradicted" not in {
-            finding.code for finding in audit_corpus(reopen(forged.root), evidence=NO_EVIDENCE)
+            finding.code for finding in audit_corpus(reopen(forged.root), evidence=NO_EVIDENCE, profile=forged.profile)
         }
 
 
@@ -891,7 +892,7 @@ def test_r19_import_validation_and_transition_b_durably(durable_writer):
             for finding in _report_findings(report)
         )
         assert _admission(_view_writer(w), identity) == ADMITTED
-        assert audit_corpus(reopen(w.root), evidence=unmounted.evidence) == ()
+        assert audit_corpus(reopen(w.root), evidence=unmounted.evidence, profile=w.profile) == ()
 
         w.import_bundle([unmounted.original_node, unmounted.replayed_node], **IMPORT_FIELDS)  # the mount
 
@@ -899,7 +900,7 @@ def test_r19_import_validation_and_transition_b_durably(durable_writer):
         assert "validated" not in reopen(w.root).get(transition_forgery.id).facets[stored.VERIFICATION_FACET]
 
         files = _files(w.root)
-        findings = audit_corpus(reopen(w.root), evidence=unmounted.evidence)
+        findings = audit_corpus(reopen(w.root), evidence=unmounted.evidence, profile=w.profile)
         assert [finding.code for finding in findings] == ["verification-derivation-contradicted"]
         assert [finding.ref for finding in findings] == [transition_forgery.id]
         assert _files(w.root) == files, "the audit mints nothing"
@@ -919,7 +920,7 @@ def test_r19_import_validation_and_transition_b_durably(durable_writer):
 
         assert _admission(_view_writer(w), identity) != ADMITTED
         assert [
-            finding.ref for finding in audit_corpus(reopen(w.root), evidence=unmounted.evidence)
+            finding.ref for finding in audit_corpus(reopen(w.root), evidence=unmounted.evidence, profile=w.profile)
         ] == [transition_forgery.id]
 
         raw_forgery = _stored_from(
@@ -929,9 +930,9 @@ def test_r19_import_validation_and_transition_b_durably(durable_writer):
 
         view = reopen(writer.root)
         assert view.get(raw_forgery.id).kind == "verification", "not refused, not detected on read"
-        assert corpus_check(view) == (), "the corpus check says nothing"
+        assert corpus_check(view, writer.profile) == (), "the corpus check says nothing"
         assert ("verification-derivation-contradicted", raw_forgery.id) in {
-            (finding.code, finding.ref) for finding in audit_corpus(view, evidence=derived.evidence)
+            (finding.code, finding.ref) for finding in audit_corpus(view, evidence=derived.evidence, profile=writer.profile)
         }
         assert _audit_log(writer).outcome == "refuted", "the log sees the write the read path cannot"
 
@@ -967,9 +968,9 @@ def test_r22_import_recomputation_and_audit_durably(durable_writer):
 
     view = reopen(writer.root)
     assert view.get(forged.id).kind == "assessment", "the raw write is not refused"
-    assert corpus_check(view) == (), "and not detected on read"
+    assert corpus_check(view, writer.profile) == (), "and not detected on read"
     assert ("assessment-derivation-contradicted", forged.id) in {
-        (finding.code, finding.ref) for finding in audit_corpus(view, evidence=derived.evidence)
+        (finding.code, finding.ref) for finding in audit_corpus(view, evidence=derived.evidence, profile=writer.profile)
     }
 
 
@@ -1032,7 +1033,7 @@ def test_m3_audit_classification_and_admission_order_durably(work_directory):
                 lambda *a, **k: pytest.fail("standing was evaluated"),
             )
             patch.setattr(belief_module, "evaluate", lambda *a, **k: pytest.fail("belief was evaluated"))
-            findings = audit_corpus(reopen(cyclic.root), evidence=NO_EVIDENCE)
+            findings = audit_corpus(reopen(cyclic.root), evidence=NO_EVIDENCE, profile=cyclic.profile)
 
         assert findings and all(finding.severity == "error" for finding in findings)
         assert {finding.code for finding in findings} <= {

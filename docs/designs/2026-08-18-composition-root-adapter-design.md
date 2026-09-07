@@ -517,3 +517,8 @@ no world index, no interim transaction layer, no runtime executor choice.
    obligation. Nothing here adds cross-root coordination: multi-corpus
    operations remain consumer-composed sequences of per-root transactions,
    per the engine's one-transaction, one-root rule.
+
+> **Amended 2026-09-07** (facet-contracts design §5). Semantic-hash coverage is
+> contract-declared and compiled, never stored per node. The existing per-node
+> defence remains: the projection records which covered facets are present, so
+> an untrusted payload cannot shorten its own coverage.
