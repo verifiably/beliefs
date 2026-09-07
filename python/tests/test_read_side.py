@@ -722,3 +722,21 @@ def test_malformed_coordination_cannot_hide_an_unknown_kind(tmp_path):
     node = Node(id="task:t", kind="task", title="t", facets={"coordination": {"nonsense": True}})
     findings = corpus_check(seed(tmp_path, node), BASE)
     assert {(f.code, f.ref) for f in findings} == {("coordination-facet-malformed", node.id), ("kind-unknown", node.id)}
+
+
+@pytest.mark.parametrize("stray_coordination", [False, True])
+def test_coordination_mismatch_preserves_base_supersession_findings(tmp_path, stray_coordination):
+    from coordination_fixtures import coordination_profile
+
+    node = observed_dataset()
+    node.relations.append(Relation(source=node.id, predicate=stored.SUPERSEDES, target="dataset:missing"))
+    if stray_coordination:
+        node.facets[stored.COORDINATION_FACET] = {"nonsense": True}
+    pins = pins_for(coordination_profile(None))
+    assert "coordination" in pins.domains
+    findings = corpus_check(seed(tmp_path, stored.stamp_semantic_identity(node), pins=pins), BASE)
+    expected = {("profile-mismatch", "corpus.yaml", "domains"),
+                ("supersession-target-missing", node.id, "dataset:missing")}
+    if stray_coordination:
+        expected.add(("facet-unexpected", node.id, stored.COORDINATION_FACET))
+    assert {(f.code, f.ref, f.detail) for f in findings} == expected

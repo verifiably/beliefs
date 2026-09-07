@@ -1061,7 +1061,7 @@ def corpus_check(view: ReadView, profile: ProfileSpec) -> tuple[Finding, ...]:
         for relation in node.relations:
             if (
                 relation.predicate == stored.SUPERSEDES
-                and stored.COORDINATION_FACET not in node.facets
+                and (withhold_coordination or stored.COORDINATION_FACET not in node.facets)
                 and not view.holds(relation.target)
             ):
                 findings.append(
