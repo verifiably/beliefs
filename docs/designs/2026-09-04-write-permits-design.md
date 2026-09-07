@@ -880,3 +880,22 @@ The freeze commit `c2f87b3` predates the rewrite and is unchanged. No frozen
 section changes: §7 and §9 are still compared byte-exact to `c2f87b3`. The
 cut 17 results record and the write-permits plan re-cite the same ids in
 place, by the same tree-and-date match.
+
+## 18. Declaration re-pin amendment — 2026-09-07
+
+`python/tests/n2_arms_cut3.py` and `python/tests/n2_arms_cut5.py` moved at
+`1e92471`, in the `verification-publication` slice. That slice made
+`AssessmentValue.run` the bare closure address and `RunValue.ref` the typed
+reference; cut 3's and cut 5's arms pin lines of that source verbatim as their
+sabotage `before`, and the standing rule is to fix the arm, never the source,
+so the arms were rewritten against the landed code. This cut's
+`FROZEN_PRIOR_CUT_FILES` still named the pre-move commits, so
+`test_n2_cut17.py`'s pin test failed on this tree.
+
+| was pinned at | re-pinned to | what it is |
+|---|---|---|
+| `5a02ca2` | `1e92471` | `python/tests/n2_arms_cut3.py` |
+| `7f5b28e` | `1e92471` | `python/tests/n2_arms_cut5.py` |
+
+Only the pins move. The selection, the guarantee rows, their checks and the
+declaration units are unchanged, and no frozen section changes.

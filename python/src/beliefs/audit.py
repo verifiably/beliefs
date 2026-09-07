@@ -27,6 +27,9 @@ one import serves a caller that only ever names the audit.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from types import MappingProxyType
+
 from nodes.core.node import Node
 
 from beliefs import stored
@@ -41,12 +44,10 @@ from beliefs.errors import (
     SemanticHashStale,
 )
 from beliefs.evidence import NO_EVIDENCE, DerivationEvidence, DerivationOutcome
-from beliefs.identity import v1
 from beliefs.recipe import RunClosure
-from beliefs.record import ASSESSMENT_DOMAIN
-from beliefs.runrecord import decode_run_closure, run_ref
-from beliefs.verification import VERDICTS
-from beliefs.verify import _resolve_rule
+from beliefs.runrecord import decode_run_closure
+from beliefs.spec import FrozenSpec
+from beliefs.verify import _derive, decode_verification
 
 __all__ = [
     "MALFORMEDNESS_CODES",
@@ -54,9 +55,11 @@ __all__ = [
     "DerivationEvidence",
     "DerivationOutcome",
     "audit_corpus",
+    "check_analysis_spec",
     "check_assessment",
     "check_lineage_basis",
     "check_verification",
+    "stored_specs",
 ]
 
 
@@ -81,8 +84,7 @@ _COMPARABLE_ASSESSMENT_MEMBERS = (
 vocabulary. `proposition` is deliberately absent: the derived value carries the
 spec's claim **target**, and the stored facet carries the corpus **ref** of the
 proposition record — two namespaces, and comparing them would fire on
-agreement. `spec` and `run` are compared separately, after `run` is normalized
-from a bare closure address to its typed stored reference."""
+agreement. `spec` and `run` are compared separately, both spelled bare."""
 
 
 def _unchecked(reason: str) -> DerivationOutcome:
@@ -113,8 +115,11 @@ def _closure(view: ReadView | _ImportView, ref: str) -> tuple[RunClosure | None,
 def check_verification(
     view: ReadView | _ImportView, node: Node, *, evidence: DerivationEvidence
 ) -> DerivationOutcome:
-    """Recompute a stored verification's verdict from the two runs it names."""
-    derivation = stored.verification_derivation(node)  # MalformedRecord propagates: refuse, never repair
+    """Recompute a stored verification's derivation from the two runs it names —
+    verdict and assessment identity always; rule, scope rule, scope and report
+    identity when the record carries its report (design §6)."""
+    decoded = decode_verification(node)  # MalformedRecord propagates: a present, malformed report is refused, never repaired
+    derivation = stored.verification_derivation(node)
     if derivation is None:
         return _unchecked("no derivation member")
     original, why = _closure(view, derivation[0])
@@ -123,29 +128,33 @@ def check_verification(
     replayed, why = _closure(view, derivation[1])
     if replayed is None:
         return _unchecked(why)
+    if original.recipe.shape != replayed.recipe.shape:
+        return _unchecked("mixed shapes")
+    certification = None if decoded is None else decoded.report.certification
+    citation = None if decoded is None else decoded.report.citation
     try:
-        _rule, _implementation_identity, implementation, spec = _resolve_rule(
-            original, specs=evidence.specs, held_rules=evidence.held_rules
+        derived = _derive(
+            original, replayed, specs=evidence.specs, held_rules=evidence.held_rules,
+            certification=certification, citation=citation,
         )
     except RuleUnbound as unbound:
         return _unchecked(str(unbound))
-    if original.recipe.shape != replayed.recipe.shape:
-        return _unchecked("mixed shapes")
     stored_value = stored.verification_value(node)
-    verdict = implementation.evaluate(original.result, replayed.result)
-    if verdict not in VERDICTS:
-        raise MalformedRecord(f"{node.id}: the equivalence evaluator returned {verdict!r}, outside {VERDICTS}")
-    assessment = None
-    if spec is not None:
-        assessment = v1.digest(
-            ASSESSMENT_DOMAIN,
-            {"spec": spec.identity, "run": original.address(), "proposition": spec.target},
-        )
     disagreements: list[str] = []
-    if verdict != stored_value.verdict:
-        disagreements.append(f"verdict stored={stored_value.verdict!r} recomputed={verdict!r}")
-    if assessment is not None and assessment != stored_value.assessment:
+    if derived.verdict != stored_value.verdict:
+        disagreements.append(f"verdict stored={stored_value.verdict!r} recomputed={derived.verdict!r}")
+    if derived.assessment is not None and derived.assessment != stored_value.assessment:
         disagreements.append("assessment identity differs from the original run's derivation")
+    if decoded is not None:
+        if decoded.rule != derived.rule:
+            disagreements.append(f"rule stored={decoded.rule!r} recomputed={derived.rule!r}")
+        scope_rule = original.recipe.boundary_policy.scope_rule
+        if decoded.scope_rule != scope_rule:
+            disagreements.append(f"scope_rule stored={decoded.scope_rule!r} recomputed={scope_rule!r}")
+        if decoded.scope != derived.scope:
+            disagreements.append(f"scope stored={decoded.scope!r} recomputed={derived.scope!r}")
+        if decoded.report.identity() != derived.report.identity():
+            disagreements.append("report identity differs from the recomputed report")
     if not disagreements:
         return DerivationOutcome(checked=True, reason="", contradiction=None)
     return DerivationOutcome(
@@ -166,7 +175,7 @@ def check_assessment(
 ) -> DerivationOutcome:
     """Recompute a stored assessment's facet from the run it names."""
     stored_value = stored.assessment_value(node)
-    closure, why = _closure(view, stored_value.run)
+    closure, why = _closure(view, stored.typed_ref("run", stored_value.run))
     if closure is None:
         return _unchecked(why)
     derived = build_assessment(closure, specs=evidence.specs, implementations=evidence.implementations)
@@ -193,16 +202,14 @@ def _assessment_disagreements(stored_value: AssessmentValue, derived: Assessment
 
     `run` and `spec` are part of the comparison, not exempt from it: a facet
     naming a run or a spec its own closure does not is contradicted by that
-    alone. `run` is normalized first — the derived value carries the bare
-    closure address and the stored facet the typed `run:` reference — because
-    two spellings of one identity are not a disagreement.
+    alone.
     """
     disagreements = [
         name
         for name in _COMPARABLE_ASSESSMENT_MEMBERS
         if getattr(stored_value, name) != getattr(derived, name)
     ]
-    if stored_value.run != run_ref(derived.run):
+    if stored_value.run != derived.run:
         disagreements.append("run")
     if stored_value.spec != derived.spec:
         disagreements.append("spec")
@@ -242,6 +249,40 @@ def check_lineage_basis(view: ReadView, node: Node) -> DerivationOutcome:
     )
 
 
+def check_analysis_spec(node: Node) -> DerivationOutcome:
+    """A stored spec restores or is malformed; `audit_corpus` reports the
+    latter as `derivation-malformed` under the catch R11 already has."""
+    stored.analysis_spec_value(node)
+    return DerivationOutcome(checked=True, reason="", contradiction=None)
+
+
+def stored_specs(view: ReadView | _ImportView) -> tuple[Mapping[str, FrozenSpec], tuple[Finding, ...]]:
+    """Every restorable stored spec keyed by identity, and one
+    `derivation-malformed` finding per record that does not restore — the
+    two halves travel together so a false spec never vanishes into an
+    unchecked derivation (design decision 15)."""
+    specs: dict[str, FrozenSpec] = {}
+    findings: list[Finding] = []
+    for node in view.iter_stored():
+        if node.kind != "analysis-spec":
+            continue
+        try:
+            spec = stored.analysis_spec_value(node)
+        except RecordError as refused:
+            findings.append(
+                Finding(
+                    severity="error",
+                    code="derivation-malformed",
+                    ref=node.id,
+                    detail=str(refused),
+                    message=f"{node.id}: the members a derivation recomputation reads are malformed",
+                )
+            )
+            continue
+        specs[spec.identity] = spec
+    return MappingProxyType(specs), tuple(findings)
+
+
 def audit_corpus(view: ReadView, *, evidence: DerivationEvidence) -> tuple[Finding, ...]:
     """Ω_valid first, then recomputation over what is well-formed. No standing,
     no belief, no write, no mint — and, like `corpus_check`, no raise: any
@@ -263,6 +304,8 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence) -> tuple[Findi
                 outcome = check_assessment(view, node, evidence=evidence)
             elif node.kind == "dataset":
                 outcome = check_lineage_basis(view, node)
+            elif node.kind == "analysis-spec":
+                outcome = check_analysis_spec(node)
             else:
                 continue
         except RecordError as refused:

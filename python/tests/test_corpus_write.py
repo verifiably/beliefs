@@ -977,3 +977,17 @@ class TestTheUnresolvedRoot:
         assert len(entries) == 1, entries
         withs = [ast.unparse(item.context_expr) for node in ast.walk(tree) if isinstance(node, ast.With) for item in node.items]
         assert "self._state.lock" not in withs and "self._lock" not in withs
+
+
+def test_v8_a_spec_record_whose_identity_is_false_is_refused_at_add(tmp_path):
+    from fixtures_cut3 import spec_draft, spec_rules
+    from test_audit import _false_spec_record
+    from test_relocation import _writer
+
+    from beliefs.errors import MalformedRecord
+    from beliefs.spec import freeze
+
+    writer = _writer(tmp_path / "corpus")
+    with pytest.raises(MalformedRecord):
+        writer.add(_false_spec_record(freeze(spec_draft(), held_rules=spec_rules())))
+    assert writer.read_view.resolve("analysis-spec:forged") is None

@@ -1,4 +1,4 @@
-"""Cut 19 declaration accounting, freeze pin, and N2 audit."""
+"""Cut 21 declaration accounting, freeze pin, and N2 audit."""
 
 from __future__ import annotations
 
@@ -24,16 +24,17 @@ from n2_arms_cut15 import CUT15_ARMS
 from n2_arms_cut16 import CUT16_ARMS
 from n2_arms_cut17 import CUT17_ARMS
 from n2_arms_cut18 import CUT18_ARMS
-from n2_arms_cut19 import CO_CITED, CUT19_ARMS, DECLARATION_UNITS, unit_of
+from n2_arms_cut19 import CUT19_ARMS
+from n2_arms_cut21 import CO_CITED, CUT21_ARMS, DECLARATION_UNITS, unit_of
 from test_n2 import audit, baseline
 
 import beliefs.root as science_root
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]
-FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-05-conformance-cut-19.md"
-CUT19_FREEZE_COMMIT = "5cc2153"
-CUT19_FROZEN_SHA256 = "30875b845b4db648622bcce7a7e722a022f2759f0788370543312e81a8b66796"
+FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-06-conformance-cut-21.md"
+CUT21_FREEZE_COMMIT = "41c9920"
+CUT21_FROZEN_SHA256 = "eaf214761627a22b9a74713bfe88a2bb4adb0cfd73496110929fb4d9f4af1be5"
 
 FROZEN_PRIOR_CUT_FILES = {
     "python/tests/n2_arms_cut3.py": "1e92471",
@@ -51,6 +52,7 @@ FROZEN_PRIOR_CUT_FILES = {
     "python/tests/n2_arms_cut16.py": "b0882d3",
     "python/tests/acceptance/n2_arms_cut17.py": "1d8f293",
     "python/tests/n2_arms_cut18.py": "e0bc65c",
+    "python/tests/acceptance/n2_arms_cut19.py": "8723fac",
 }
 
 PRIOR_ARMS = (
@@ -69,31 +71,33 @@ PRIOR_ARMS = (
     *CUT16_ARMS,
     *CUT17_ARMS,
     *CUT18_ARMS,
+    *CUT19_ARMS,
 )
 
 
 @pytest.fixture(scope="session")
 def findings(tmp_path_factory):
-    workspace = tmp_path_factory.mktemp("n2-cut19")
+    workspace = tmp_path_factory.mktemp("n2-cut21")
     with ThreadPoolExecutor(max_workers=WORKERS) as pool:
         return tuple(
             pool.map(
                 lambda pair: audit(pair[1], workspace / f"arm{pair[0]}"),
-                enumerate(CUT19_ARMS),
+                enumerate(CUT21_ARMS),
             )
         )
 
 
-def test_the_inventory_is_exactly_the_eleven_frozen_units() -> None:
-    assert DECLARATION_UNITS == tuple(f"J{n}" for n in range(1, 12))
-    assert len(DECLARATION_UNITS) == len(set(DECLARATION_UNITS)) == 11
-    assert {unit_of(arm.row) for arm in CUT19_ARMS} == set(DECLARATION_UNITS)
+def test_the_inventory_is_exactly_the_eight_frozen_units() -> None:
+    assert DECLARATION_UNITS == tuple(f"V{n}" for n in range(1, 9))
+    assert len(DECLARATION_UNITS) == len(set(DECLARATION_UNITS)) == 8
+    assert {unit_of(arm.row) for arm in CUT21_ARMS} == set(DECLARATION_UNITS)
+    assert len(CUT21_ARMS) == 25
 
 
 def test_each_lettered_arm_is_unique_and_carries_an_exact_check() -> None:
-    rows = [arm.row for arm in CUT19_ARMS]
+    rows = [arm.row for arm in CUT21_ARMS]
     assert len(rows) == len(set(rows))
-    for arm in CUT19_ARMS:
+    for arm in CUT21_ARMS:
         assert arm.asserts.strip()
         assert arm.checks and len(arm.checks) == len(set(arm.checks))
         assert arm.sabotage.before != arm.sabotage.after
@@ -104,7 +108,7 @@ def test_each_lettered_arm_is_unique_and_carries_an_exact_check() -> None:
 
 def test_each_sabotage_names_one_real_source_site() -> None:
     package = Path(science_root.__file__).resolve().parent
-    for arm in CUT19_ARMS:
+    for arm in CUT21_ARMS:
         target = package / arm.sabotage.module
         assert target.is_file(), f"{arm.row}: missing {arm.sabotage.module}"
         assert target.read_text(encoding="utf-8").count(arm.sabotage.before) == 1, arm.row
@@ -113,9 +117,9 @@ def test_each_sabotage_names_one_real_source_site() -> None:
 def test_every_declared_check_resolves_and_passes_without_sabotage() -> None:
     every = Arm(
         row="N2",
-        asserts="every cut-19 check passes against the real package",
-        sabotage=CUT19_ARMS[0].sabotage,
-        checks=tuple(dict.fromkeys(check for arm in CUT19_ARMS for check in arm.checks)),
+        asserts="every cut-21 check passes against the real package",
+        sabotage=CUT21_ARMS[0].sabotage,
+        checks=tuple(dict.fromkeys(check for arm in CUT21_ARMS for check in arm.checks)),
     )
     finding = baseline(every)
     assert finding.verdict == "resolved", finding.detail
@@ -129,9 +133,9 @@ def test_every_arm_fails_under_its_own_sabotage(findings) -> None:
 def _frozen_body(text: str) -> str:
     """§§2–7: from the boundary heading to the first heading past the limitations.
 
-    The freeze predates the mechanism amendment, so the frozen file ends at §7
-    and the current one continues into §8. Trailing newlines are stripped so
-    the two slices are the same text either way.
+    No §8 exists yet on this cut, so the slice runs to the end of the file
+    either way; the same slicing rule as cut 19's is kept so a later mechanism
+    amendment (were one ever added) is excluded the same way.
     """
     start = text.index("## 2. The boundary")
     end = text.index("\n## 8.", start) if "\n## 8." in text[start:] else len(text)
@@ -148,26 +152,21 @@ def _show(commit: str, path: str) -> str:
 
 
 def test_the_freeze_commit_and_sections_two_through_seven_are_pinned() -> None:
-    """The cut was frozen once, so §§2–7 are byte-exact against that one commit.
-
-    No renumbering substitution applies: cut 19 was numbered 19 at the freeze.
-    The only later edit to the file is §8, the mechanism amendment, which sits
-    entirely outside the slice compared here.
-    """
+    """The cut was frozen once, so §§2–7 are byte-exact against that one commit."""
     assert (
         subprocess.run(
-            ["git", "-C", str(REPO_ROOT), "merge-base", "--is-ancestor", CUT19_FREEZE_COMMIT, "HEAD"],
+            ["git", "-C", str(REPO_ROOT), "merge-base", "--is-ancestor", CUT21_FREEZE_COMMIT, "HEAD"],
             check=False,
         ).returncode
         == 0
-    ), CUT19_FREEZE_COMMIT
+    ), CUT21_FREEZE_COMMIT
     current = FROZEN_CUT.read_text(encoding="utf-8")
-    frozen = _show(CUT19_FREEZE_COMMIT, str(FROZEN_CUT.relative_to(REPO_ROOT)))
-    assert sha256(frozen.encode("utf-8")).hexdigest() == CUT19_FROZEN_SHA256
+    frozen = _show(CUT21_FREEZE_COMMIT, str(FROZEN_CUT.relative_to(REPO_ROOT)))
+    assert sha256(frozen.encode("utf-8")).hexdigest() == CUT21_FROZEN_SHA256
     assert _frozen_body(current) == _frozen_body(frozen)
-    assert "**11 declaration units**" in current
-    assert "Eleven guarantee rows are read, **11 full/closed** (J1–J11), 0 partial, 0" in current
-    assert '("cut18_acceptance.py",)' in current
+    assert "**8 declaration units**" in current
+    assert "Eight guarantee rows are read, **8 full/closed** (V1–V8), 0 partial, 0" in current
+    assert '("cut20_acceptance.py",)' in current
 
 
 def test_prior_declarations_are_frozen_and_no_check_is_reclaimed() -> None:
@@ -178,6 +177,6 @@ def test_prior_declarations_are_frozen_and_no_check_is_reclaimed() -> None:
         )
         assert completed.returncode == 0, f"{path} moved since {pin}"
     prior = {check for arm in PRIOR_ARMS for check in arm.checks}
-    for arm in CUT19_ARMS:
+    for arm in CUT21_ARMS:
         reclaimed = set(arm.checks) & prior
         assert reclaimed <= set(CO_CITED), arm.row

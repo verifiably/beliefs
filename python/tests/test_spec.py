@@ -186,9 +186,9 @@ def test_frozen_specs_are_minted_only_by_freeze_and_revise():
     original = freeze(draft(), held_rules=held_rules())
     members = {field.name: getattr(original, field.name) for field in dataclasses.fields(FrozenSpec)}
 
-    with pytest.raises(TypeError, match="minted by freeze or revise"):
+    with pytest.raises(TypeError, match="minted by freeze, revise or restore"):
         FrozenSpec(**members)
-    with pytest.raises(TypeError, match="minted by freeze or revise"):
+    with pytest.raises(TypeError, match="minted by freeze, revise or restore"):
         dataclasses.replace(original, identity="forged-spec-id")
 
     successor = revise(
@@ -360,3 +360,105 @@ def test_the_derivation_rule_is_a_pure_function_of_its_three_arguments():
 def test_revise_is_the_only_edit_path_and_freeze_takes_drafts_only():
     assert list(inspect.signature(freeze).parameters) == ["draft", "held_rules", "supersedes"]
     assert list(inspect.signature(revise).parameters) == ["original", "edits", "held_rules", "recorded_failures"]
+
+
+# --- V8: restore from canonical projection text, no coercion (design §7) -----
+from fixtures_cut3 import spec_draft, spec_rules
+
+from beliefs.spec import frozen_projection, restore
+
+
+def _rich_spec():
+    draft = spec_draft(
+        input_roles=(
+            SpecInput(role="observes", dataset="dataset:" + "1" * 64),
+            SpecInput(role="reads", dataset="dataset:" + "2" * 64, exclusion=ExclusionCertification(rationale="r", attribution="a")),
+        ),
+        parameters={"alpha": Decimal("0.05"), "iterations": 10, "labels": ["a", "b"], "nested": {"k": Decimal("1.5")}},
+    )
+    return freeze(draft, held_rules=spec_rules())
+
+
+def _identified(mapping) -> tuple[str, bytes]:
+    return v1.digest(SPEC_DOMAIN, mapping), v1.encode(mapping)
+
+
+def test_v8_restore_round_trips_every_member_and_the_decimal_by_type():
+    spec = _rich_spec()
+    text = v1.encode(frozen_projection(spec))
+    restored = restore(spec.identity, text)
+    assert restored == spec and restored.identity == spec.identity
+    assert type(restored.parameters["alpha"]) is Decimal and restored.parameters["alpha"] == Decimal("0.05")
+    assert type(restored.parameters["iterations"]) is int
+    assert isinstance(restored.nondeterminism, Seeded) and restored.input_roles[1].exclusion is not None
+    assert v1.encode(frozen_projection(restored)) == text
+
+
+@pytest.mark.parametrize(
+    "corrupt",
+    [
+        lambda m: m.__setitem__("method", "another method"),
+        lambda m: m.__setitem__("extra", 1),
+        lambda m: m.pop("estimand"),
+        lambda m: m["parameters"].__setitem__("alpha", Decimal("0.5")),
+    ],
+)
+def test_v8_restore_refuses_a_projection_that_does_not_digest_to_the_identity(corrupt):
+    spec = _rich_spec()
+    mapping = frozen_projection(spec)
+    corrupt(mapping)
+    with pytest.raises(MalformedRecord):
+        restore(spec.identity, v1.encode(mapping))
+
+
+@pytest.mark.parametrize(
+    "corrupt",
+    [
+        lambda m: m.__setitem__("target", 7),
+        lambda m: m.__setitem__("target", ""),
+        lambda m: m.__setitem__("parameters", ["not", "a", "mapping"]),
+        lambda m: m["nondeterminism"]["plan"]["roots"].__setitem__("model-initialization", Decimal("7.5")),
+        lambda m: m["nondeterminism"]["plan"]["roots"].__setitem__("model-initialization", True),
+        lambda m: m["input_roles"][0].__setitem__("role", 1),
+        lambda m: m.__setitem__("rule_bindings", [["only-one"]]),
+        lambda m: m.__setitem__("supersedes", 5),
+    ],
+)
+def test_v8_restore_refuses_a_member_of_the_wrong_type_even_under_its_own_identity(corrupt):
+    """[R1] The digest agrees with the text by construction; the members are
+    still typed and never coerced, and `freeze`'s invariants hold."""
+    mapping = frozen_projection(_rich_spec())
+    corrupt(mapping)
+    identity, text = _identified(mapping)
+    with pytest.raises(MalformedRecord):
+        restore(identity, text)
+
+
+def test_v8_restore_refuses_a_projection_the_restored_spec_would_not_reproduce():
+    """[R1, second round] `SeedPlan.projection()` sorts its streams; a text
+    with them unsorted is canonical, digests to its own identity, and would
+    restore to a spec whose projection digests to another."""
+    mapping = frozen_projection(_rich_spec())
+    nondeterminism = mapping["nondeterminism"]
+    assert isinstance(nondeterminism, dict)
+    plan = nondeterminism["plan"]
+    assert isinstance(plan, dict)
+    plan["streams"] = ["b-stream", "a-stream"]
+    plan["stream_roots"] = {"a-stream": "r", "b-stream": "r"}
+    plan["roots"] = {"r": 7}
+    identity, text = _identified(mapping)
+    with pytest.raises(MalformedRecord, match="own projection"):
+        restore(identity, text)
+
+
+def test_v8_restore_refuses_non_canonical_text_and_the_unfreezable_pair():
+    spec = _rich_spec()
+    text = v1.encode(frozen_projection(spec))
+    with pytest.raises(MalformedRecord):
+        restore(spec.identity, text + b"\n")
+    with pytest.raises(MalformedRecord):
+        restore(spec.identity, b"{}")
+    mapping = {**frozen_projection(freeze(spec_draft(), held_rules=spec_rules())), "nondeterminism": StochasticUnseeded(rationale="urandom").projection()}
+    identity, text = _identified(mapping)
+    with pytest.raises(UnfreezableSpec):
+        restore(identity, text)

@@ -27,9 +27,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Fifty documents in `docs/designs/`: the banked redesigns, review disposition,
+Fifty-two documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
-2026-08-02 through 2026-09-05. Read them in this order:
+2026-08-02 through 2026-09-06. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -83,6 +83,8 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-09-05-mm30-reproduction.md` | the mm30 reproduction measurement: one real proposition pushed through the kernel as a library to the belief evaluator's answer, with its predictions, findings and re-rank |
 | `2026-09-05-writer-session-design.md` | the writer-session slice: the attended session and its fixed actor, the append-then-fsync session ledger and claim protocol, the scoped writer bound to one invocation and exactly its requirement, `corpus-write` as an operation intent fulfilled by its registration, and reconciliation over ledgers and chains (J1–J11, closed at cut 19) |
 | `2026-09-05-conformance-cut-19.md` | the frozen writer-session cut: J1–J11 selected in full, 11 declaration units, the cut 18 runner as prefix; discharged 2026-09-05 |
+| `2026-09-06-verification-publication-design.md` | the verification-publication slice: a derived verification published as an ordinary `add` carrying its whole basis with the comparison report embedded, one spelling for the assessment's run member, admission over records read back, scope recomputed by the audit and the import, and the stored analysis-spec builder and reader (V1–V8, cut 21 frozen 2026-09-06) |
+| `2026-09-06-conformance-cut-21.md` | the frozen verification-publication cut: V1–V8 selected in full, 8 declaration units, the cut 20 runner as prefix; discharges after cut 20 |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -119,7 +121,7 @@ The latest discharged boundary is cut 19, the writer session
 [results](docs/plans/2026-09-05-conformance-cut-19-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
-test before it is a passing one. There are **172 rows** across **fifteen frozen
+test before it is a passing one. There are **180 rows** across **sixteen frozen
 tables** (G, S, W, R, C, X, N, L, D, M, P, H, T, E, J), and every cut is frozen
 *before* its code exists so that a row which fails is a failure rather than a
 redefinition.

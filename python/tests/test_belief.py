@@ -38,6 +38,7 @@ from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, Policy
 from beliefs.profile import ProfileSpec, compile_profile
 from beliefs.projection import claim_identity
 from beliefs.record import AssessmentValue, RunInput, RunValue, SourceAssertion
+from beliefs.stored import typed_ref
 from beliefs.verification import Verification
 
 # --- module-level fixtures: a compiled profile and one claim, loaded once ---
@@ -101,7 +102,7 @@ def _held(*datasets: DatasetDeclaration) -> dict[str, tuple[ByteObservation, ...
 
 
 def _run(ref: str, spec: str, dataset: DatasetDeclaration) -> RunValue:
-    return RunValue(ref=ref, spec=spec, inputs=(RunInput(role="observes", dataset=dataset),))
+    return RunValue(ref=typed_ref("run", ref), spec=spec, inputs=(RunInput(role="observes", dataset=dataset),))
 
 
 def _assessment(spec: str, run: str, outcome: str = "supported") -> AssessmentValue:

@@ -254,7 +254,8 @@ frozen cut's selection or accounting. Each is recorded in
 - **Scope is not recomputed** (ruling R3). The stored projection carries no
   comparison report, so the audit and the import recompute the verdict and
   the assessment identity only. This is the frozen §7 limitation, restated
-  as an implementation ruling.
+  as an implementation ruling — lifted 2026-09-06 by the verification-publication
+  slice (V4); cut 21's results record carries the reading.
 - **Evidence is explicit** (ruling R4). `DerivationEvidence` is supplied by
   the caller and `NO_EVIDENCE` is an explicit empty value; an unresolvable
   derivation is an import **finding**, never a silent pass.
@@ -328,7 +329,8 @@ the ledger's nineteenth ruling), outside this cut's frozen selection.
 - **Scope is not recomputed.** A stored verification carries no comparison
   report, so the audit and the import recompute the verdict and the
   assessment identity only; scope recomputation waits on
-  `verification-publication`.
+  `verification-publication` — lifted 2026-09-06 by the verification-publication
+  slice (V4); cut 21's results record carries the reading.
 - **The audit is corpus-local.** It runs over a `ReadView` and
   caller-supplied evidence; nothing here resolves across corpora, and it
   writes nothing and mints nothing.

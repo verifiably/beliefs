@@ -6,6 +6,7 @@ from typing import ClassVar
 
 import pytest
 from authority import ACTOR, FULL, narrowed
+from fixtures_cut3 import spec_draft, spec_rules
 from nodes.core.errors import ExecutionError
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -16,6 +17,7 @@ from beliefs.corpus import CorpusWriter
 from beliefs.errors import BundleMemberHeld, ImportRefused, PermitExceeded, PermitFact
 from beliefs.identity import v1
 from beliefs.report import ImportedRecords, RecordImportEntry, _mint_report
+from beliefs.spec import SPEC_DOMAIN, StochasticUnseeded, freeze, frozen_projection
 
 
 class Recorder:
@@ -623,20 +625,23 @@ def test_malformed_foreign_act_report_refuses_even_when_restamped(writer_with_po
 
 
 def test_contradictory_nondeterminism_contract_refused(writer_with_port):
+    # The unfreezable pair, built from the raw mapping exactly as
+    # `test_spec.py`'s `_identified` case does: `freeze` itself refuses this
+    # combination, so the only way to a self-consistent stored record of it is
+    # the mapping (V8's r20 refusal is `restore`'s `UnfreezableSpec`, surfaced
+    # by `_refuse_r20_contradiction` as document validation).
+    mapping = {
+        **frozen_projection(freeze(spec_draft(), held_rules=spec_rules())),
+        "nondeterminism": StochasticUnseeded(rationale="the process has no stable seed surface").projection(),
+    }
+    identity = v1.digest(SPEC_DOMAIN, mapping)
+    text = v1.encode(mapping)
     spec = stored.stamp_semantic_identity(
         Node(
-            id="analysis-spec:s",
+            id=f"analysis-spec:{identity}",
             kind="analysis-spec",
             title="s",
-            facets={
-                "analysis-spec": {
-                    "equivalence_rule": "content-identity-equality/v1",
-                    "nondeterminism": {
-                        "variant": "stochastic-unseeded",
-                        "rationale": "the process has no stable seed surface",
-                    },
-                }
-            },
+            facets={stored.ANALYSIS_SPEC_FACET: {"identity": identity, "projection": text.decode("utf-8")}},
             relations=[],
         )
     )
@@ -648,17 +653,24 @@ def test_contradictory_nondeterminism_contract_refused(writer_with_port):
 
 
 def test_malformed_nondeterminism_contract_refuses_without_leaking_a_type_error(writer_with_port):
+    # Self-consistent (its identity is its own digest) but its nondeterminism
+    # member names no string variant — `restore`'s type check refuses it
+    # cleanly rather than leaking a `TypeError` out of a `.get` on a list.
+    mapping = frozen_projection(freeze(spec_draft(), held_rules=spec_rules()))
+    mapping["nondeterminism"] = {"variant": []}
+    identity = v1.digest(SPEC_DOMAIN, mapping)
+    text = v1.encode(mapping)
     spec = stored.stamp_semantic_identity(
         Node(
-            id="analysis-spec:malformed",
+            id=f"analysis-spec:{identity}",
             kind="analysis-spec",
             title="malformed",
-            facets={"analysis-spec": {"equivalence_rule": [], "nondeterminism": {"variant": []}}},
+            facets={stored.ANALYSIS_SPEC_FACET: {"identity": identity, "projection": text.decode("utf-8")}},
             relations=[],
         )
     )
 
-    with pytest.raises(ImportRefused, match="malformed analysis-spec"):
+    with pytest.raises(ImportRefused, match="names its variant"):
         import_records(writer_with_port, [spec])
 
     assert Recorder.plans == []

@@ -21,6 +21,7 @@ from beliefs.recipe import RunClosure
 from beliefs.record import AssessmentValue, RunInput, RunValue
 from beliefs.sealed import sealed
 from beliefs.spec import FrozenSpec, RuleImplementation, implementation_conforms
+from beliefs.stored import typed_ref
 
 __all__ = ["AssessmentFinding", "build_assessment", "run_record"]
 
@@ -98,7 +99,7 @@ def run_record(run: RunClosure) -> RunValue:
     if type(run) is not RunClosure:
         raise MalformedClosure("run_record requires a RunClosure")
     return RunValue(
-        ref=run.address(),
+        ref=typed_ref("run", run.address()),
         spec=run.recipe.spec_identity or "",
         inputs=tuple(
             RunInput(

@@ -243,14 +243,58 @@ def evaluate(
             f"{binding.rule!r}'s fixture set"
         )
 
-    # 5. Gate every assessment on the proposition through admission (G2b, G6,
-    # G2c). Partition eligible from "would be eligible, if only its input
-    # were held" (unheld_only) — the latter needs its own verification-state
-    # check, since `admit` never reaches that check for an input-not-held
-    # refusal.
+    # 5. Collapse the record pool onto its identities, then gate what survives
+    # through admission (G2b, G6, G2c). Partition eligible from "would be
+    # eligible, if only its input were held" (unheld_only) — the latter needs
+    # its own verification-state check, since `admit` never reaches that check
+    # for an input-not-held refusal.
+    #
+    # Two assessment records can carry one identity (design decision 17): the
+    # graph at step 7 is over the identity, not the record, so a genuine twin
+    # must contribute no second vertex and no self-edge — aggregating it twice
+    # would double-count identical evidence, which is exactly what
+    # `AggregationInput`'s distinctness check refuses. `identity()` alone does
+    # not make two records the same fact, though: it digests only
+    # `(spec, run, proposition)`, while `outcome` and the rest live in
+    # `facet_digest()`, an independent write-path parameter with no
+    # cross-check. So a shared identity is collapsed only when the kept
+    # record's facet also agrees — an identity-equal, facet-disagreeing pair is
+    # a corpus contradiction, refused loudly rather than silently resolved by
+    # file order. First occurrence in `matched`'s existing order is what a
+    # genuine twin collapses onto, keeping the belief *value* deterministic;
+    # `records.assessments` and the closure at step 9 still carry every record
+    # unfiltered.
+    #
+    # The collapse runs here, over the whole matched pool, and not over the
+    # directional records at step 7: `outcome` is the very parameter the guard
+    # cross-checks, so a pair disagreeing *across* the directional boundary —
+    # a `supported` record and an `inconclusive` twin — is precisely a
+    # contradiction, and a guard reading only the directional side would never
+    # see it. Admission is no filter for it either: heldness and verification
+    # state are supplied per call and move over time, and whether the corpus
+    # contradicts itself must not depend on which observations this caller
+    # happened to pass.
+    kept_by_identity: dict[str, AssessmentValue] = {}
+    distinct: list[AssessmentValue] = []
+    for a in matched:
+        identity = a.identity()
+        kept = kept_by_identity.get(identity)
+        if kept is None:
+            kept_by_identity[identity] = a
+            distinct.append(a)
+        elif kept.facet_digest() != a.facet_digest():
+            # Loud, and still an answer: `evaluate` is total over its three
+            # arms, exactly as the cross-corpus contract contradiction at
+            # step 2 is (`consulted-contracts-disagree`), which is no less
+            # severe.
+            return Refused(
+                f"assessment-identity-contradicted: {identity!r} is claimed by disagreeing records "
+                f"{kept!r} and {a!r}"
+            )
+
     eligible: list[AssessmentValue] = []
     unheld_only: list[AssessmentValue] = []
-    for a in matched:
+    for a in distinct:
         admission = admit(a, records.runs[a.run], availability.observations, records.verifications)
         if isinstance(admission, Admitted):
             eligible.append(a)
@@ -272,10 +316,13 @@ def evaluate(
 
     # 7. The dependency graph: directional vertices, an edge for every pair
     # not certified independent (S6, S5) — absence of an edge is a positive
-    # claim of independence, never the default.
-    vertices = tuple(DirectionalInput(assessment=a.identity(), sign=OUTCOME_SIGNS[a.outcome]) for a in directional)
+    # claim of independence, never the default. Step 5 already collapsed the
+    # pool onto its identities, so these records are distinct by identity and
+    # the graph carries no second vertex and no self-edge for a genuine twin.
+    graph_inputs = directional
+    vertices = tuple(DirectionalInput(assessment=a.identity(), sign=OUTCOME_SIGNS[a.outcome]) for a in graph_inputs)
     edges: list[tuple[str, str]] = []
-    for a, b in itertools.combinations(directional, 2):
+    for a, b in itertools.combinations(graph_inputs, 2):
         certification = certify(
             context.snapshot, _observes_roots(records.runs[a.run]), _observes_roots(records.runs[b.run])
         )

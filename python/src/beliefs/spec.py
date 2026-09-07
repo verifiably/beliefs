@@ -20,7 +20,7 @@ from hashlib import sha256
 from types import MappingProxyType
 from typing import cast, final
 
-from beliefs.errors import MalformedRecord, MalformedSpec, RuleUnbound, UnfreezableSpec
+from beliefs.errors import CanonicalTextRefused, MalformedRecord, MalformedSpec, RuleUnbound, UnfreezableSpec
 from beliefs.identity import v1
 from beliefs.sealed import sealed
 
@@ -47,7 +47,9 @@ __all__ = [
     "bind_rules",
     "derive_seed",
     "freeze",
+    "frozen_projection",
     "implementation_conforms",
+    "restore",
     "revise",
 ]
 
@@ -295,7 +297,7 @@ class FrozenSpec:
     identity: str
 
     def __init__(self, *args: object, **kwargs: object) -> None:
-        raise TypeError("FrozenSpec values are minted by freeze or revise")
+        raise TypeError("FrozenSpec values are minted by freeze, revise or restore")
 
     def __post_init__(self) -> None:
         if not isinstance(self.input_roles, tuple) or not all(
@@ -350,7 +352,7 @@ def admit_successor(
     return SuccessorAdmitted(candidate.identity)
 
 
-def _facet_projection(draft: SpecDraft, rule_bindings, supersedes) -> dict[str, object]:
+def _facet_projection(draft: SpecDraft | FrozenSpec, rule_bindings, supersedes) -> dict[str, object]:
     facet: dict[str, object] = {
         "target": draft.target,
         "estimand": draft.estimand,
@@ -392,6 +394,115 @@ def freeze(
     identity = v1.digest(SPEC_DOMAIN, _facet_projection(draft, rule_bindings, supersedes))
     members = {f.name: getattr(draft, f.name) for f in fields(SpecDraft)}
     return _mint_frozen_spec(**members, rule_bindings=rule_bindings, supersedes=supersedes, identity=identity)
+
+
+def frozen_projection(spec: FrozenSpec) -> dict[str, object]:
+    """The mapping `SPEC_DOMAIN` digests for a frozen spec — what a stored
+    `analysis-spec` record carries as canonical text (design §7)."""
+    if type(spec) is not FrozenSpec:
+        raise MalformedRecord("frozen_projection requires a FrozenSpec")
+    return _facet_projection(spec, spec.rule_bindings, spec.supersedes)
+
+
+_FROZEN_MEMBERS = frozenset(
+    {
+        "target", "estimand", "method", "assumptions", "falsification", "input_roles", "applicability",
+        "interpretation_rule", "equivalence_rule", "parameters", "nondeterminism", "rule_bindings",
+    }
+)
+_TEXT_MEMBERS = ("target", "estimand", "method", "assumptions", "falsification", "applicability", "interpretation_rule", "equivalence_rule")
+
+
+def _text(mapping: Mapping[str, object], name: str, where: str) -> str:
+    value = mapping[name]
+    if type(value) is not str:
+        raise MalformedRecord(f"{where}: {name} is a string")
+    return value
+
+
+def _restore_input(entry: object, where: str) -> SpecInput:
+    if not isinstance(entry, dict) or not {"role", "dataset"} <= set(entry) <= {"role", "dataset", "exclusion"}:
+        raise MalformedRecord(f"{where}: a spec input names role and dataset, with an optional exclusion")
+    exclusion = None
+    if "exclusion" in entry:
+        claim = entry["exclusion"]
+        if not isinstance(claim, dict) or set(claim) != {"rationale", "attribution"}:
+            raise MalformedRecord(f"{where}: an exclusion names exactly rationale and attribution")
+        exclusion = ExclusionCertification(rationale=_text(claim, "rationale", where), attribution=_text(claim, "attribution", where))
+    return SpecInput(role=_text(entry, "role", where), dataset=_text(entry, "dataset", where), exclusion=exclusion)
+
+
+def _restore_nondeterminism(value: object, where: str) -> NondeterminismContract:
+    if not isinstance(value, dict) or type(value.get("variant")) is not str:
+        raise MalformedRecord(f"{where}: a nondeterminism member names its variant")
+    variant = value["variant"]
+    if variant == "deterministic" and set(value) == {"variant"}:
+        return Deterministic()
+    if variant == "stochastic-unseeded" and set(value) == {"variant", "rationale"}:
+        return StochasticUnseeded(rationale=_text(value, "rationale", where))
+    if variant == "seeded" and set(value) == {"variant", "plan"}:
+        plan = value["plan"]
+        if not isinstance(plan, dict) or set(plan) != {"derivation_rule", "streams", "roots", "stream_roots"}:
+            raise MalformedRecord(f"{where}: a seed plan names derivation_rule, streams, roots and stream_roots")
+        streams, roots, stream_roots = plan["streams"], plan["roots"], plan["stream_roots"]
+        if not isinstance(streams, list) or any(type(s) is not str for s in streams):
+            raise MalformedRecord(f"{where}: seed plan streams are strings")
+        if not isinstance(roots, dict) or any(type(k) is not str or type(v) is not int for k, v in roots.items()):
+            raise MalformedRecord(f"{where}: seed plan roots map stream keys to integers")
+        if not isinstance(stream_roots, dict) or any(type(k) is not str or type(v) is not str for k, v in stream_roots.items()):
+            raise MalformedRecord(f"{where}: seed plan stream roots map strings to strings")
+        return Seeded(plan=SeedPlan(derivation_rule=_text(plan, "derivation_rule", where), streams=tuple(streams), roots=dict(roots), stream_roots=dict(stream_roots)))
+    raise MalformedRecord(f"{where}: nondeterminism variant {variant!r} is not one of the three")
+
+
+def restore(identity: str, projection: bytes) -> FrozenSpec:
+    """The third mint: a frozen spec from its stored canonical projection
+    (design §7). Refuses text that is not canonical, a mapping that is not
+    exactly the frozen members, a digest that is not `identity`, any member of
+    the wrong type — nothing is coerced — and the pair `freeze` refuses, so a
+    stored spec is exactly one `freeze` produced."""
+    where = f"analysis-spec {identity[:12]}"
+    try:
+        mapping = v1.decode(projection)
+    except CanonicalTextRefused as refused:
+        raise MalformedRecord(f"{where}: the projection is not canonical text: {refused}") from refused
+    if not isinstance(mapping, dict) or not _FROZEN_MEMBERS <= set(mapping) <= _FROZEN_MEMBERS | {"supersedes"}:
+        raise MalformedRecord(f"{where}: the projection carries exactly the frozen members")
+    if v1.digest(SPEC_DOMAIN, mapping) != identity:
+        raise MalformedRecord(f"{where}: the projection does not digest to the identity")
+    text = {name: _text(mapping, name, where) for name in _TEXT_MEMBERS}
+    if not text["target"]:
+        raise MalformedRecord(f"{where}: an assessment spec targets a proposition; an empty target is not a spec (R7)")
+    if not isinstance(mapping["input_roles"], list):
+        raise MalformedRecord(f"{where}: input_roles is a list")
+    if not isinstance(mapping["parameters"], dict) or any(type(k) is not str for k in mapping["parameters"]):
+        raise MalformedRecord(f"{where}: parameters is a mapping with string keys")
+    bindings = mapping["rule_bindings"]
+    if not isinstance(bindings, list) or any(
+        not isinstance(pair, list) or len(pair) != 2 or any(type(half) is not str for half in pair) for pair in bindings
+    ):
+        raise MalformedRecord(f"{where}: rule bindings are string pairs")
+    nondeterminism = _restore_nondeterminism(mapping["nondeterminism"], where)
+    if isinstance(nondeterminism, StochasticUnseeded) and text["equivalence_rule"] in BITWISE_EQUIVALENCE_RULES:
+        raise UnfreezableSpec("stochastic-unseeded cannot support a bitwise equivalence rule (computation §3.1a)")
+    supersedes = mapping.get("supersedes")
+    if supersedes is not None and type(supersedes) is not str:
+        raise MalformedRecord(f"{where}: supersedes is a string")
+    spec = _mint_frozen_spec(
+        **text,
+        input_roles=tuple(_restore_input(entry, where) for entry in mapping["input_roles"]),
+        parameters=mapping["parameters"],
+        nondeterminism=nondeterminism,
+        rule_bindings=tuple((pair[0], pair[1]) for pair in bindings),
+        supersedes=supersedes,
+        identity=identity,
+    )
+    if v1.encode(frozen_projection(spec)) != projection:
+        # A member the value canonicalizes (a seed plan sorts its streams) can be
+        # spelled otherwise in canonical text and still digest to `identity`; the
+        # restored spec would then project to other bytes and another digest.
+        raise MalformedRecord(f"{where}: the projection is not the restored spec's own projection")
+    return spec
 
 
 def revise(

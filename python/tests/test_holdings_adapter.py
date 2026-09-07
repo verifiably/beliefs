@@ -88,7 +88,7 @@ def test_adapter_absence_is_refused_by_the_g2b_admission_gate():
     declared = declaration()
     answer = dataset_observations(declared, [member(None)], [])
     assessment = AssessmentValue("spec-1", "run-1", "prop-1", "supported", "rule-1")
-    run = RunValue("run-1", "spec-1", (RunInput("observes", declared),))
+    run = RunValue("run:run-1", "spec-1", (RunInput("observes", declared),))
     verification = Verification("v1", assessment.identity(), "clean-environment", "passed")
     address = dataset_address(declared)
     assert isinstance(answer, DatasetAnswer) and address is not None

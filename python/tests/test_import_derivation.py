@@ -14,6 +14,7 @@ bypasses the operation entirely, so it is caught only when an audit runs.
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import replace
 from types import SimpleNamespace
 from typing import TypedDict
@@ -467,3 +468,84 @@ class TestR22ExplicitImport:
         assert [f.code for f in audit_corpus(derived.writer.read_view, evidence=derived.evidence)] == [
             "assessment-derivation-contradicted"
         ]
+
+
+# --- V4 / V5 / V6 at the import boundary (design §5.4) ------------------------
+from test_audit import V4_FORGERIES, V4_IDS
+from verification_fixtures import forgeries, publish_corpus, self_consistent_forgery
+
+
+def _bundle_around(source, published, *extra) -> tuple[Node, ...]:
+    """Every dataset, proposition, assessment and the two runs the source holds,
+    plus `extra` — so a target that carries another identity *resolves* in the
+    destination's union view and is refused for the identity, not for absence."""
+    view = source.read_view
+    runs = [view.get(stored.typed_ref("run", published.derived.original)), view.get(stored.typed_ref("run", published.derived.replayed))]
+    others = [n for n in view.iter_stored() if n.kind in {"dataset", "proposition", "assessment"}]
+    return (*others, *runs, *extra)
+
+
+@pytest.mark.parametrize("member, mutate, corpus", V4_FORGERIES, ids=V4_IDS)
+def test_v4_every_self_consistent_forgery_refuses_the_bundle_before_any_write(tmp_path, member, mutate, corpus):
+    # A random subdirectory, not the bare `tmp_path`: pytest's own numbered-dir
+    # naming truncates this parametrized test id to a shared prefix, and its
+    # default retention policy deletes a passing case's directory right after
+    # it, so a later case can be handed back that exact literal path — which
+    # would silently resurrect the corpus module's process-global root-state
+    # cache instead of opening a fresh corpus (test_audit.py's `writer` fixture).
+    root = tmp_path / uuid.uuid4().hex
+    source = _writer(root / "source")
+    published = publish_corpus(source, publish=True, **corpus)
+    assert published.node is not None
+    forged = self_consistent_forgery(source, published.node, mutate=mutate)
+    target = _writer(root / "target")
+    with pytest.raises(ImportRefused, match=member):
+        target.import_bundle(_bundle_around(source, published, forged), evidence=published.evidence, **IMPORT_FIELDS)
+    assert not path_for(target.root, forged.id).exists() and not path_for(target.root, published.assessment.id).exists()
+
+
+def test_v5_every_forgery_refuses_the_bundle_and_the_well_formed_record_imports(tmp_path):
+    source = _writer(tmp_path / "source")
+    published = publish_corpus(source, publish=True)
+    assert published.node is not None
+    for index, (node, _refusal, reason) in enumerate(forgeries(source, published)):
+        target = _writer(tmp_path / f"target-{index}")
+        with pytest.raises(ImportRefused, match=reason):
+            target.import_bundle(_bundle_around(source, published, node), evidence=published.evidence, **IMPORT_FIELDS)
+        assert not path_for(target.root, node.id).exists()
+    target = _writer(tmp_path / "target-good")
+    # The target assessment is in the bundle and not in the corpus: the union view resolves it (the import-union arm).
+    report = target.import_bundle(_bundle_around(source, published, source.read_view.get(published.node.id)), evidence=published.evidence, **IMPORT_FIELDS)
+    assert not [f for f in _report_findings(report) if f.startswith("derivation-unchecked")]
+    assert path_for(target.root, published.node.id).exists()
+
+
+def test_v6_a_report_less_verification_imports_on_cut_18s_terms(tmp_path):
+    source = _writer(tmp_path / "source")
+    published = publish_corpus(source)
+    legacy = _stored_from(published.derived, slug="legacy")
+    contradicting = _stored_from(published.derived, slug="flipped", verdict=_flip(published.derived.verdict))
+    derivation_less = stored.verification_node(
+        "bare", title="bare", assessment=published.derived.assessment, assessment_ref=ASSESSMENT_REF,
+        scope=published.derived.scope, verdict=published.derived.verdict,
+    )
+    target = _writer(tmp_path / "target")
+    report = target.import_bundle((derivation_less,), evidence=published.evidence, **IMPORT_FIELDS)
+    assert any(f.startswith("derivation-unchecked: verification:bare") for f in _report_findings(report))
+    report = target.import_bundle((legacy,), evidence=published.evidence, **IMPORT_FIELDS)
+    assert any(f.startswith("derivation-unchecked: verification:legacy") for f in _report_findings(report))  # its runs are not in the bundle
+    with pytest.raises(ImportRefused):
+        target.import_bundle(_bundle_around(source, published, contradicting), evidence=published.evidence, **IMPORT_FIELDS)
+
+
+def test_v8_a_spec_record_whose_identity_is_false_refuses_the_bundle(tmp_path):
+    from test_audit import _false_spec_record
+
+    from beliefs.evidence import NO_EVIDENCE
+    from beliefs.spec import freeze
+
+    forged = _false_spec_record(freeze(spec_draft(), held_rules=spec_rules()))
+    target = _writer(tmp_path / "target")
+    with pytest.raises(ImportRefused):
+        target.import_bundle((forged,), evidence=NO_EVIDENCE, **IMPORT_FIELDS)
+    assert not path_for(target.root, forged.id).exists()

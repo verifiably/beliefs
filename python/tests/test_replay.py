@@ -711,7 +711,7 @@ def test_r15_negative_a_minimal_pair_never_derives_clean_environment(pair):
 def test_r5_g9_unreachable_bytes_with_a_held_copy_move_none_of_the_three(pair):
     original, _ = pair
     d = DatasetDeclaration(resources=(ResourceDeclaration(name="r", digest=D_IN),))
-    run = RunValue(ref="run-1", spec="spec-1", inputs=(RunInput(role="observes", dataset=d),))
+    run = RunValue(ref="run:run-1", spec="spec-1", inputs=(RunInput(role="observes", dataset=d),))
     assessment = AssessmentValue(
         spec="spec-1",
         run="run-1",

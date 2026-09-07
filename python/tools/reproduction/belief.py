@@ -20,7 +20,7 @@ from beliefs.evaluation import evaluate_over, gather
 from beliefs.holdings.records import Found
 from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding
 from beliefs.runrecord import decode_run_closure
-from beliefs.verify import AssessmentVerification, admission_record, build_verification
+from beliefs.verify import AssessmentVerification, admission_record, build_verification, publication_node
 from reproduction import answers, findings, spec, state, vocabulary, world
 
 BINDING = PolicyBinding(rule=BELIEF_V1_RULE, implementation=BELIEF_V1.identity)
@@ -95,17 +95,7 @@ def main() -> int:
             "defect",
             f"admission_record names {record.assessment}, not the derived identity {st['assessment_identity_derived']}",
         )
-    minted = writer.add(
-        stored.verification_node(
-            record.ref[:16],
-            title=f"verification of {st['assessment_ref']}",
-            assessment=record.assessment,  # derived, unaltered
-            assessment_ref=st["assessment_ref"],
-            scope=record.scope,
-            verdict=record.verdict,
-            derivation=(st["original_run_ref"], st["replayed_run_ref"]),
-        )
-    )
+    minted = writer.add(publication_node(verification, assessment_ref=st["assessment_ref"]))
     view = world.open_writer().read_view
     inputs = gather(
         view,

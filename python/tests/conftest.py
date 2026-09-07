@@ -12,6 +12,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from confinement_constants import CONFINED_MOUNTS, ENVIRONMENT, RENDERED_ENVIRONMENT, SANDBOX_MOUNTS
 
 from beliefs.recipe import (
     NAMESPACES,
@@ -21,21 +22,8 @@ from beliefs.recipe import (
     mount_plan_identity,
 )
 
-ENVIRONMENT = "sha256:" + "ab" * 32
 OTHER_ENVIRONMENT = "sha256:" + "cd" * 32
 CONFINED_NAMESPACES = NAMESPACES
-CONFINED_MOUNTS = (
-    ("/", "root", "ro"),
-    ("/lib64/ld-linux-x86-64.so.2", "loader", "ro"),
-    ("/science/env", "env", "ro"),
-    ("/science/bundle", "bundle", "ro"),
-    ("/science/out", "output", "rw"),
-    ("/science/out/inputs", "inputs", "ro"),
-    ("/dev/null", "device", "rw"),
-    ("/dev/urandom", "device", "rw"),
-)
-RENDERED_ENVIRONMENT = (("env:PATH", "value", "/science/env/venv/bin"), ("hostname", "value", "science"))
-SANDBOX_MOUNTS = (("/science/bundle", "/host/scratch/run-1/bundle"), ("/science/out", "/host/scratch/run-1/out"))
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 

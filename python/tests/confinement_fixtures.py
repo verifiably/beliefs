@@ -1,8 +1,8 @@
 """Confined-receipt value builders for the portable suite."""
 
-from conftest import CONFINED_MOUNTS as MOUNTS
-from conftest import ENVIRONMENT as ENV_IDENTITY
-from conftest import RENDERED_ENVIRONMENT, SANDBOX_MOUNTS
+from confinement_constants import CONFINED_MOUNTS as MOUNTS
+from confinement_constants import ENVIRONMENT as ENV_IDENTITY
+from confinement_constants import RENDERED_ENVIRONMENT, SANDBOX_MOUNTS
 from fixtures_cut3 import closure, occurrence
 
 from beliefs.recipe import (

@@ -7,7 +7,7 @@ from pathlib import Path
 from fixtures_cut3 import D_IN, closure_kwargs, report
 
 import beliefs
-from beliefs.admission import admit
+from beliefs.admission import Admitted, admit
 from beliefs.closure import build_closure
 from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, admission_state, dataset_address
 from beliefs.record import AssessmentValue, RunInput, RunValue
@@ -17,7 +17,7 @@ from beliefs.verification import Verification
 
 def admitted_scenario():
     d = DatasetDeclaration(resources=(ResourceDeclaration(name="r", digest=D_IN),))
-    run = RunValue(ref="run-1", spec="spec-1", inputs=(RunInput(role="observes", dataset=d),))
+    run = RunValue(ref="run:run-1", spec="spec-1", inputs=(RunInput(role="observes", dataset=d),))
     assessment = AssessmentValue(
         spec="spec-1",
         run="run-1",
@@ -39,6 +39,9 @@ def test_t4_adding_and_removing_reports_leaves_belief_admission_and_eligibility_
     kwargs = closure_kwargs((assessment,), {"run-1": run})
     before_digest = build_closure(**kwargs).digest()
     before_admission = admit(assessment, run, observations, admitting)
+    # T4 asserts admission is *unchanged*; two equal refusals satisfy that
+    # vacuously, so the scenario has to be admitted for the row to say anything.
+    assert isinstance(before_admission, Admitted), before_admission
     before_state = admission_state(d, observations[address])
     reports = {r.identity(): r for r in (report(), report(event_token="tok-2"))}
     assert reports  # The reports exist and reference nothing that protects them.

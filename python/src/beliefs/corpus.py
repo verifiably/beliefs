@@ -105,7 +105,9 @@ from beliefs.errors import (
     SemanticHashMissing,
     SemanticHashStale,
     SupersedeIdentityUnchanged,
+    UnfreezableSpec,
     ValidationRefused,
+    VerificationTargetMismatch,
     WriteRefused,
 )
 from beliefs.evidence import NO_EVIDENCE, DerivationEvidence
@@ -117,7 +119,6 @@ from beliefs.record import RunInput, RunValue
 from beliefs.report import OperationIntent
 from beliefs.runrecord import OperationPort
 from beliefs.sealed import sealed
-from beliefs.spec import BITWISE_EQUIVALENCE_RULES
 from beliefs.traversal import LineageEntry, Reach, RelationEntry, Step, closure
 from beliefs.view_query import _world_address, parse_view_query
 
@@ -1994,7 +1995,6 @@ class CorpusWriter:
                 self._refuse(record, view=union)
                 if record.kind == "act-report":
                     self._refuse_malformed_act_report(record)
-                self._refuse_r20_contradiction(record)
             except (RecordAlreadyMinted, CollisionRefused) as caught:
                 raise BundleMemberHeld(str(caught), member=record.id) from caught
             except ScienceError as caught:
@@ -2097,19 +2097,15 @@ class CorpusWriter:
 
     @staticmethod
     def _refuse_r20_contradiction(record: Node) -> None:
+        """A stored spec restores, or the record is refused: the r20 pair is
+        `restore`'s `UnfreezableSpec`, surfaced as document validation; every
+        other malformedness propagates as `restore` raised it."""
         if record.kind != "analysis-spec":
             return
-        facet = record.facets.get("analysis-spec")
-        nondeterminism = facet.get("nondeterminism") if isinstance(facet, dict) else None
-        equivalence_rule = facet.get("equivalence_rule") if isinstance(facet, dict) else None
-        variant = nondeterminism.get("variant") if isinstance(nondeterminism, dict) else None
-        if type(equivalence_rule) is not str or type(variant) is not str:
-            raise ValidationRefused(f"{record.id}: malformed analysis-spec contract fields")
-        if (
-            variant == "stochastic-unseeded"
-            and equivalence_rule in BITWISE_EQUIVALENCE_RULES
-        ):
-            raise ValidationRefused(f"{record.id}: stochastic-unseeded cannot support a bitwise equivalence rule")
+        try:
+            stored.analysis_spec_value(record)
+        except UnfreezableSpec as caught:
+            raise ValidationRefused(f"{record.id}: {caught}") from caught
 
     @staticmethod
     def _refuse_malformed_act_report(record: Node) -> None:
@@ -2276,6 +2272,10 @@ class CorpusWriter:
             raise ValidationRefused(f"{node.id}: refused by document validation: malformed display facet")
         if not document_validated:
             self._refuse_invalid(node)
+        if node.kind == "verification":
+            self._refuse_verification(node, view=self._view if view is None else view)
+        if node.kind == "analysis-spec":
+            self._refuse_r20_contradiction(node)
         self._refuse_governed_stamp(node)
         self._refuse_rendering(node)
         self._refuse_collision(node)
@@ -2291,6 +2291,30 @@ class CorpusWriter:
                 raise ValidationRefused(f"{node.id}: semantic-identity stamp is missing or stale")
         except IdentityError as caught:
             raise ValidationRefused(f"{node.id}: semantic-identity stamp cannot be recomputed: {caught}") from caught
+
+    def _refuse_verification(self, node: Node, *, view: ReadView | _ImportView) -> None:
+        """Self-consistency of a published verification, before the intent
+        (design §5.3): the record decodes — id, report identity, edge
+        cardinality — and its `verifies` target is an assessment carrying the
+        named identity. A report-less verification is admitted on cut 18's
+        terms. No run is read: derivation validation is the import's and the
+        audit's alone."""
+        from beliefs.verify import decode_verification  # local: `audit` imports this module
+
+        decoded = decode_verification(node)  # MalformedRecord propagates: refuse, never repair
+        if decoded is None or decoded.assessment is None:
+            return
+        (edge,) = [relation for relation in node.relations if relation.predicate == stored.VERIFIES]
+        if not view.holds(edge.target):
+            raise VerificationTargetMismatch(f"{node.id}: the verifies target {edge.target!r} resolves to no record here")
+        target = view.get(edge.target)
+        if target.kind != "assessment":
+            raise VerificationTargetMismatch(f"{node.id}: the verifies target {edge.target!r} is a {target.kind}, not an assessment")
+        identity = stored.assessment_value(target).identity()
+        if identity != decoded.assessment:
+            raise VerificationTargetMismatch(
+                f"{node.id}: the verifies target carries assessment identity {identity}, not the verification's {decoded.assessment}"
+            )
 
     @staticmethod
     def _refuse_rendering(node: Node) -> bytes:
