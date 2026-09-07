@@ -178,6 +178,12 @@ The certified tuple remained kernel `7.2.2-arch1-1`, ext4
 bytes matched before and after each gate. Post-gate amendments contain only
 this results record and task metadata; executable and test inputs are unchanged.
 
-The preserved fresh corpus is still in the domain worktree at
-`.worktrees/domain-boundary/.mm30-reproduction/cut20-5a59a71aa79f47fa81005573ab26e0e4`.
-The separate pre-existing cut-21 reproduction root is untouched.
+The preserved fresh corpus is at
+`.work/reproduction/cut20-5a59a71aa79f47fa81005573ab26e0e4`, beside the main
+checkout on the certified volume. It was moved there from
+`.worktrees/domain-boundary/.mm30-reproduction/cut20-5a59a71aa79f47fa81005573ab26e0e4`
+on 2026-09-07, before that lane's worktree was removed, and verified identical
+across the move: 77 entries, 12543115 bytes, and a sha256 over the sorted
+per-file digests of `23c64d604b6b87846b8b59cd911e00c5bb6f2be1f4fc929d3d0093983104e2e2`
+on both sides. The separate pre-existing cut-21 reproduction root is untouched;
+it now sits at `.work/reproduction/mm30-cut21`.

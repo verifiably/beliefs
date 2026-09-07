@@ -13,7 +13,7 @@ REPO = Path(__file__).resolve().parents[3]
 # "Beside the checkout" means beside the main checkout: a lane worktree under
 # `.worktrees/` is removed when the lane closes, and the corpus must outlive it.
 CHECKOUT = REPO.parents[1] if REPO.parent.name == ".worktrees" else REPO
-WORK = Path(os.environ.get("SCIENCE_MM30_ROOT", CHECKOUT / ".mm30-reproduction"))
+WORK = Path(os.environ.get("SCIENCE_MM30_ROOT", CHECKOUT / ".work" / "reproduction" / "mm30"))
 PREDECESSOR = Path(
     os.environ.get("MM30_PREDECESSOR", Path.home() / "d" / "cancer" / "cancer-types" / "multiple-myeloma")
 )

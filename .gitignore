@@ -17,8 +17,10 @@ node_modules/
 .cut*-acceptance/
 .lifecycle-wrappers-test/
 
-# the mm30 reproduction corpus (measurement lane; lives beside the main checkout)
-.mm30-reproduction/
+# work roots: acceptance runs, reproduction corpora, caches. One hidden dir
+# beside the main checkout on the certified volume, so a new variant needs no
+# .gitignore edit and the project root stays legible (beliefs-5aad8c).
+.work/
 # Fallback test-timing log, written by tools/tt when the shared log is unwritable and
 # emptied by ops `tt-report`; never committed.
 .tt/
