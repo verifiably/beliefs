@@ -8,8 +8,9 @@
 
 ## Repository gates
 
-- From `python/`, run `uv run --frozen pytest`, `uv run --frozen ruff check .`, and `uv run --frozen pyright`.
-- From `ts/`, run `npm ci`, `npm test`, `npm run typecheck`, and `npm run check`.
+- From the repository root, run `just check` (ruff, pyright, biome, tsc, `tasks check`) and `just test` (the serial pytest gate and the TypeScript suite). `just gate` runs both. These recipes run exactly the commands below, through the vendored timing wrapper `tools/tt`, so every run is recorded (ops `docs/specs/2026-09-04-test-ci-audit-design.md`).
+- The commands the recipes run, should you need one on its own: from `python/`, `uv run --frozen pytest`, `uv run --frozen ruff check .`, and `uv run --frozen pyright`; from `ts/`, `npm test`, `npm run typecheck`, and `npm run check`. `npm ci` is installation, not a gate, and is not in the recipes.
+- Git hooks are not installed. `just check` does not pass on `main`: six ruff and twelve pyright errors, all in the mm30 reproduction lane (beliefs-d84799, beliefs-efc32d). Until that is green, a pre-commit hook would block every commit.
 - `CapabilityUnavailable` is a fail-closed result, not a waiver. Run the Python suite on the certified kernel and volume tuple or report the exact mismatch.
 
 ## Tasks workflow

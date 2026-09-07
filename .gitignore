@@ -19,3 +19,6 @@ node_modules/
 
 # the mm30 reproduction corpus (measurement lane; lives beside the main checkout)
 .mm30-reproduction/
+# Fallback test-timing log, written by tools/tt when the shared log is unwritable and
+# emptied by ops `tt-report`; never committed.
+.tt/
