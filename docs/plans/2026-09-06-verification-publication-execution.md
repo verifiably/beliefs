@@ -474,3 +474,31 @@ All from `python/`, at `da6bab8`:
 | `tests/acceptance/test_n2_cut21.py` (direct, not through the runner) | 7 passed, all 25 arms sound |
 | durable acceptance module (Task 8) | 4/4 |
 | cuts 14–19 freeze and pin suites | green |
+
+## 7. Citation amendment — 2026-09-07
+
+This section amends the record after the freeze doctrine it left open was ruled. It
+rewrites nothing above; where it corrects a ruling it is the current one.
+
+**C1's edit to `python/tests/acceptance/test_n2_cut5.py` is reverted, and cut 14's
+content pin over that module is restored** from `f744c34d…` to `df589285…`, the hash cut
+14's own results record §3 published and still publishes. Cut 5's guard is cited, not
+run; editing it to carry a contract change put the code at odds with the discharge record
+it pins, and Task 1's ruling — which reverted exactly this edit, on exactly this ground —
+was right. The two facts §4 records as having undercut that ruling (the chain terminating
+at cut 17, and `cut5_acceptance.py` executing the module) do not bear on it: an older
+runner is a frozen command for the tree it discharged on, not a live gate.
+
+**Ruling P9's "structurally blocked" is resolved, and its premise corrected.** Cut 10's
+table is not repaired and needs no repair: a cited-not-run guard's pins are historical
+statements, so cut 17's `FROZEN_CUT10_SHA256` and cut 10's own falsified pin now coexist
+by rule rather than by deadlock. Cuts 7, 9, 11, 12 and 13 — live, and re-pinned in the
+facet-contracts landing — were the whole of the mechanical remainder. Cut 8's two pins,
+like cut 10's one, stay as they are.
+
+**Cut 21's chain was never blocked by any of this.** §4's correction stands: the chain
+roots at cut 17, whose inventory contains neither cut 8's guard nor cut 10's.
+
+The doctrine, the registry that records the three falsified pins, and the checks that
+hold the tree to all of it are
+`docs/superpowers/specs/2026-09-07-frozen-guard-doctrine-design.md`.

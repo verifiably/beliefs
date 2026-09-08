@@ -38,7 +38,7 @@ organization rather than a personal account, so governance and long-term
 stewardship are not tied to one individual. §5 records the namespace and
 decomposition rulings that follow from it.
 
-## Current state (2026-09-05)
+## Current state (2026-09-07)
 
 This section is the one place that states what is built and what remains to
 build. Every other live surface — the README and the contributor guide — links
@@ -46,9 +46,10 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-09-07** for the actual cut-20 discharge and facet-contracts landing on `main`.
+**Updated 2026-09-07** for the cut-20 discharge, the facet-contracts landing on `main`, and
+the cut-21 discharge of verification publication.
 
-**Implemented through conformance cut 20.** Every cut from 4 onward has a
+**Implemented through conformance cut 21.** Every cut from 4 onward has a
 discharge results record under `../plans/`; cuts 1–3 are proved by their merge
 ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
@@ -132,6 +133,15 @@ ancestry and the surfaces they built
   caller-held profile; and the empirical-observation acquisition boundary is
   `locator` plus `attested_by`. Cut 20 discharges slice 1 with 15 rows
   full/closed and D1 partial; D6's domain-facet reader arm remains with slice 2.
+- **Verification publication** — a derived verification published as an
+  ordinary `add` carrying its whole basis with the comparison report embedded
+  under an id that is its identity; one spelling for the assessment's run
+  member across the derived and stored sides; admission evaluated over records
+  read back; scope, rule and report recomputed from a stored verification;
+  forgery refused before the intent; and the stored `analysis-spec` builder and
+  reader. V1-V8 close at cut 21, and R19's stored-verification limitation
+  (cut 18 §7) closes with them, leaving only its cross-corpus recomputation
+  with `world-resolution`.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -156,7 +166,6 @@ not listed.
 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm; C7's consolidate prerequisite discharged at cut 16 and the deletion surface it shares at cut 18 | sub-problem 5a, `2026-08-03-correction-lifecycle-design.md` | the correction lifecycle in full; buildable now, and the mutation lane's only open boundary |
 | `l13-preimage` | **L13 preimage resolver** — preimage-backed classification of a removed verification | the named `atoms` blob-read seam (`2026-08-03-tamper-evident-log-design.md` §5.3) | row 5 reading L13 in full; until then the held-copy match is a path match |
 | `persistence-cut` | X2's persistence-cut arm | the `atoms` A8 certification extended to the publication path, a cross-repo seam `atoms`' own design owns | X2 in full |
-| `verification-publication` | durable publication of verification records — a derived verification written into a corpus through the operation port, with admission evaluated over records read back | its slice design, `2026-09-06-verification-publication-design.md` (V1–V8, cut 21 frozen 2026-09-06); cut 13 §2 named the exclusion, and cut 18's ruling R2 added the optional `derivation` member the writer carries | admission over stored verifications rather than in-memory records; scope recomputation for a stored verification (cut 18 §7); a computed belief re-derivable from the corpus alone |
 | `nodes-remainder` | the reserved-path contract, recoverable construction, digest-id hazards | `nodes` `2026-08-03-nodes-under-the-system-redesign-design.md` (row 3) | audits over damaged corpora; manifest safety |
 | `authority-labels` | W9, W14 | artifact 11, the pinned authority snapshot — owed, undesigned | every rendered label; the ambiguous-search refusal |
 | `weighted-belief` | S6 arm (h) | the first successor belief policy admitting unequal weights, blocked on ρO3 | weighted belief |
@@ -165,8 +174,11 @@ not listed.
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-07-conformance-cut-20-results.md`) discharges the
-facet-contracts slice and leaves the biology pack as `domain-boundary` slice 2.
+(`../plans/2026-09-06-conformance-cut-21-results.md`) discharges verification
+publication, closes V1-V8 and lifts R19's stored-verification limitation,
+leaving R19's cross-corpus recomputation with `world-resolution`; the record
+before it (`../plans/2026-09-07-conformance-cut-20-results.md`) discharged the
+facet-contracts slice and left the biology pack as `domain-boundary` slice 2.
 `test_the_ledger_summary_names_the_newest_remaining_boundary` holds this
 section to whichever record is newest;
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds this table and the

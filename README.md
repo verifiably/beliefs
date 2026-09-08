@@ -85,8 +85,8 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-09-05-conformance-cut-20.md` | the twentieth frozen conformance cut, selecting the facet-contracts slice: 15 rows full, 1 part, with 18 declaration units |
 | `2026-09-05-writer-session-design.md` | the writer-session slice: the attended session and its fixed actor, the append-then-fsync session ledger and claim protocol, the scoped writer bound to one invocation and exactly its requirement, `corpus-write` as an operation intent fulfilled by its registration, and reconciliation over ledgers and chains (J1–J11, closed at cut 19) |
 | `2026-09-05-conformance-cut-19.md` | the frozen writer-session cut: J1–J11 selected in full, 11 declaration units, the cut 18 runner as prefix; discharged 2026-09-05 |
-| `2026-09-06-verification-publication-design.md` | the verification-publication slice: a derived verification published as an ordinary `add` carrying its whole basis with the comparison report embedded, one spelling for the assessment's run member, admission over records read back, scope recomputed by the audit and the import, and the stored analysis-spec builder and reader (V1–V8, cut 21 frozen 2026-09-06) |
-| `2026-09-06-conformance-cut-21.md` | the frozen verification-publication cut: V1–V8 selected in full, 8 declaration units, the cut 20 runner as prefix; discharges after cut 20 |
+| `2026-09-06-verification-publication-design.md` | the verification-publication slice: a derived verification published as an ordinary `add` carrying its whole basis with the comparison report embedded, one spelling for the assessment's run member, admission over records read back, scope recomputed by the audit and the import, and the stored analysis-spec builder and reader (V1–V8, closed at cut 21) |
+| `2026-09-06-conformance-cut-21.md` | the frozen verification-publication cut: V1–V8 selected in full, 8 declaration units, the cut 20 runner as prefix; discharged 2026-09-07 |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -94,7 +94,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 19** is implemented and discharged. What
+Every conformance cut through **cut 21** is implemented and discharged. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -116,11 +116,21 @@ whose identity fixes the actor, an append-then-fsync session ledger with its
 claim protocol, an invocation-bound scoped writer whose effective permit is
 exactly its requirement, every session-mediated ordinary write as one
 `corpus-write` operation intent fulfilled by its registration, unresolved-root
-settlement before every prepare, and reconciliation over ledgers and chains.
-The latest discharged boundary is cut 19, the writer session
-([cut](docs/designs/2026-09-05-conformance-cut-19.md),
-[design](docs/designs/2026-09-05-writer-session-design.md),
-[results](docs/plans/2026-09-05-conformance-cut-19-results.md)).
+settlement before every prepare, and reconciliation over ledgers and chains;
+facet contracts — closed facet schemas declared by the base and domain
+contracts, profiles compiling kinds, relations and facets, and every write seam
+validating the caller-held profile; and verification publication — a derived
+verification published as an ordinary `add` carrying its whole basis with the
+comparison report embedded, one spelling for the assessment's run member,
+admission evaluated over records read back, scope recomputed from a stored
+verification, forgery refused before the intent, and the stored analysis-spec
+builder and reader.
+The latest discharged boundary is cut 21, verification publication
+([cut](docs/designs/2026-09-06-conformance-cut-21.md),
+[design](docs/designs/2026-09-06-verification-publication-design.md),
+[results](docs/plans/2026-09-06-conformance-cut-21-results.md)); cut 20, the
+facet-contracts slice, discharged before it
+([results](docs/plans/2026-09-07-conformance-cut-20-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
 test before it is a passing one. There are **188 rows** across **seventeen frozen

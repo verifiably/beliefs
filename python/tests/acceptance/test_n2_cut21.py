@@ -25,6 +25,7 @@ from n2_arms_cut16 import CUT16_ARMS
 from n2_arms_cut17 import CUT17_ARMS
 from n2_arms_cut18 import CUT18_ARMS
 from n2_arms_cut19 import CUT19_ARMS
+from n2_arms_cut20 import CUT20_ARMS
 from n2_arms_cut21 import CO_CITED, CUT21_ARMS, DECLARATION_UNITS, unit_of
 from test_n2 import audit, baseline
 
@@ -53,6 +54,8 @@ FROZEN_PRIOR_CUT_FILES = {
     "python/tests/acceptance/n2_arms_cut17.py": "1d8f293",
     "python/tests/n2_arms_cut18.py": "e0bc65c",
     "python/tests/acceptance/n2_arms_cut19.py": "8723fac",
+    "python/tests/n2_arms_cut20.py": "8639771",
+    "python/tests/acceptance/n2_arms_cut20.py": "d5e203c",
 }
 
 PRIOR_ARMS = (
@@ -72,6 +75,7 @@ PRIOR_ARMS = (
     *CUT17_ARMS,
     *CUT18_ARMS,
     *CUT19_ARMS,
+    *CUT20_ARMS,
 )
 
 

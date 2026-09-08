@@ -88,7 +88,7 @@ facets:
   analysis-spec: { shape: reader, reader: stored.analysis_spec_value }
   run: { shape: reader, reader: stored.run_spec }
   run-closure: { shape: reader, reader: runrecord.projection_of }
-  verification: { shape: reader, reader: stored.verification_value }
+  verification: { shape: reader, reader: verify.decode_verification }
   dataset: { shape: reader, reader: stored.dataset_declaration }
   lineage-basis: { shape: reader, reader: stored.lineage_basis }
   source: { shape: reader, reader: stored.external_identifiers }

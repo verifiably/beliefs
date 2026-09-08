@@ -158,7 +158,7 @@ cut 21 undischarged until cut 20 merges). What is not built here is owned
 elsewhere — the mutation log's event-level order (L8); and the
 preimage-backed classification of a removed verification (L13) — and listed
 with those owners in the
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-05).
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-07).
 
 ## Open edges
 
