@@ -718,12 +718,20 @@ def dataset_node(
     resources: Sequence[Mapping[str, Any]] = (),
     empirical_observation: Mapping[str, Any] | None = None,
     basis: Mapping[str, Any] | None = None,
+    domain_facets: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> Node:
     facets: dict[str, Any] = {DATASET_FACET: {"resources": [dict(resource) for resource in resources]}}
     if empirical_observation is not None:
         facets[EMPIRICAL_OBSERVATION_FACET] = dict(empirical_observation)
     if basis is not None:
         facets[LINEAGE_BASIS_FACET] = dict(basis)
+    for key, payload in (domain_facets or {}).items():
+        if "/" not in key:
+            raise MalformedRecord(
+                f"{key!r} is not a namespaced facet key; a domain facet is `<namespace>/<name>` (F §3.3), and a base "
+                "facet has its own parameter"
+            )
+        facets[key] = dict(payload)
     return _node("dataset", slug, title, facets, ())
 
 

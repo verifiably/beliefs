@@ -198,10 +198,26 @@ class Finding:
         return (self.ref, self.code, self.detail)
 
 
+@sealed
+@final
 class ReadView:
-    """The read-only facade. Concrete, not a protocol — see the module docstring."""
+    """The read-only facade. Concrete, not a protocol — see the module docstring.
+
+    Sealed and final, and built only over the exact `nodes` corpus class
+    (biology pack §5.2, B3): a `FacetRead` is a receipt for a read through
+    this facade, and a subclass overriding `get`, or a view over a fabricated
+    corpus object, would mint receipts for reads that never touched a corpus.
+    What this does **not** authenticate is the bytes: a `Corpus` over a
+    directory of forged records is a corpus (S8's raw-write class), and the
+    audit's stamp discipline is what meets that.
+    """
 
     def __init__(self, corpus: Corpus) -> None:
+        if type(corpus) is not Corpus:
+            raise MalformedRecord(
+                f"a ReadView reads exactly nodes.core.corpus.Corpus, not {type(corpus).__name__}; a view over "
+                "anything else would hand out records no corpus holds (B3)"
+            )
         self._corpus = corpus
         self._base_pin_stamp: tuple[int, int] | None = None
 

@@ -1093,6 +1093,12 @@ class FacetPayloadRefused(ValidationRefused):
     """A schema-shaped facet payload violates its declared structural grammar."""
 
 
+class FacetUndeclared(ScienceError):
+    """A namespaced facet key on a record that the profile in force does not
+    declare (biology pack §5.5): the profile the derivation runs under is
+    stale against the corpus. Prefix `facet-undeclared:`."""
+
+
 class VerificationTargetMismatch(WriteRefused):
     """A published verification's `verifies` edge does not resolve to an
     assessment carrying the identity the verification names — before the
