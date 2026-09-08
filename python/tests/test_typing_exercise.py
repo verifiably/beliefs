@@ -141,8 +141,8 @@ class TestTypeRecord:
         resolved["operators"][("affects", "concept", "concept")] = resolved["operators"].pop(("affects", None, None))
         resolved["operators"][("affects", "concept", "protein")] = contract.term(plan["operators"]["affects"])
 
-        def run(front: dict):
-            return exercise.type_record(profile, resolved, front, exercise.Result(corpus="t", plan="t"))
+        def run(front: dict, result=None):
+            return exercise.type_record(profile, resolved, front, result or exercise.Result(corpus="t", plan="t"))
 
         return run
 
@@ -179,6 +179,7 @@ class TestTypeRecord:
         assert record.outcome == "unmapped-layer"
 
     def test_an_unmapped_shape_is_vocabulary_work_not_a_refusal(self, typed) -> None:
+        result = exercise.Result(corpus="t", plan="t")
         record = typed(
             {
                 "subject": "protein:A",
@@ -186,10 +187,28 @@ class TestTypeRecord:
                 "object": "concept:b",
                 "claim_layer": "causal_effect",
                 "polarity": "positive",
-            }
+            },
+            result,
         )
         assert record.outcome == "unmapped-shape"
         assert record.detail == "affects protein→concept"
+        assert result.unmapped == {"shape": {"affects protein→concept": 1}}
+
+    def test_an_unmapped_predicate_remains_distinct_from_an_unmapped_shape(self, typed) -> None:
+        result = exercise.Result(corpus="t", plan="t")
+        record = typed(
+            {
+                "subject": "concept:a",
+                "predicate": "unknown",
+                "object": "concept:b",
+                "claim_layer": "causal_effect",
+                "polarity": "positive",
+            },
+            result,
+        )
+        assert record.outcome == "unmapped-predicate"
+        assert record.detail == "unknown"
+        assert result.unmapped == {"predicate": {"unknown": 1}}
 
     def test_a_sort_mismatch_is_a_refusal_by_the_calculus(self, typed) -> None:
         # The one outcome in the mm30 run that the contract was not fitted to

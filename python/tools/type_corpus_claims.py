@@ -172,6 +172,9 @@ def type_record(profile, plan: dict, front: dict, result: Result) -> Record:
     if operator is None:
         operator = plan["operators"].get((predicate, None, None))
     if operator is None:
+        if not any(row[0] == predicate for row in plan["operators"]):
+            result.unmapped["predicate"][predicate] += 1
+            return Record(path, "unmapped-predicate", predicate)
         shape = f"{predicate} {subject_kind}→{object_kind}"
         result.unmapped["shape"][shape] += 1
         return Record(path, "unmapped-shape", shape)
