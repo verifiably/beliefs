@@ -37,6 +37,10 @@ def _facet_node():
 def test_the_reader_refuses_anything_but_a_corpus_view():
     """The public bypass B3 closes: an in-memory node, or any object shaped
     like a view, mints nothing."""
+    from unittest.mock import Mock
+
+    from beliefs.corpus import ReadView
+
     node = _facet_node()
 
     class Shaped:
@@ -50,6 +54,11 @@ def test_the_reader_refuses_anything_but_a_corpus_view():
         read_observed_facets(WITH_BIOLOGY, Shaped(), "dataset:d-a")  # type: ignore[arg-type]
     with pytest.raises(MalformedRecord, match="corpus ReadView"):
         read_observed_facets(WITH_BIOLOGY, node, "dataset:d-a")  # type: ignore[arg-type]
+    spoof = Mock(spec=ReadView)
+    spoof.holds.return_value = True
+    spoof.get.return_value = node
+    with pytest.raises(MalformedRecord, match="corpus ReadView"):
+        read_observed_facets(WITH_BIOLOGY, spoof, "dataset:d-a")
 
 
 def test_a_view_cannot_be_subclassed_to_override_its_reads():

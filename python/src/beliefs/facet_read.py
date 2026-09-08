@@ -51,7 +51,7 @@ class FacetRead:
 
 def read_observed_facets(profile: ProfileSpec, view: ReadView, target: str) -> tuple[FacetRead, ...]:
     """Fetch and validate the namespaced facets on one observed dataset."""
-    if not isinstance(view, ReadView):
+    if type(view) is not ReadView:
         raise MalformedRecord(
             f"the domain-facet reader reads through a corpus ReadView, not a {type(view).__name__}; a row is a "
             "receipt for a read against a corpus, and nothing else can mint one (B3)"

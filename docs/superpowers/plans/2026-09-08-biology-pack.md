@@ -1343,7 +1343,7 @@ def read_observed_facets(profile: ProfileSpec, view: ReadView, target: str) -> t
     refuses the derivation rather than dropping the read; an unheld target is
     malformed, because the caller (`gather`) has already filtered to held
     inputs and a miss here is a caller error, not a corpus state."""
-    if not isinstance(view, ReadView):
+    if type(view) is not ReadView:
         raise MalformedRecord(
             f"the domain-facet reader reads through a corpus ReadView, not a {type(view).__name__}; a row is a "
             "receipt for a read against a corpus, and nothing else can mint one (B3)"
@@ -1375,7 +1375,7 @@ def read_observed_facets(profile: ProfileSpec, view: ReadView, target: str) -> t
     return tuple(rows)
 ```
 
-`from beliefs.identity import v1` is the import `contract/domain.py` and `record.py` already use; `v1.digest` returns the bare 64-character hex digest, no `sha256:` prefix. The lines `    if not isinstance(view, ReadView):\n` and `        validate_payload(facet, payload, where=node.id)\n` are Task 11 sabotage sites.
+`from beliefs.identity import v1` is the import `contract/domain.py` and `record.py` already use; `v1.digest` returns the bare 64-character hex digest, no `sha256:` prefix. The lines `    if type(view) is not ReadView:\n` and `        validate_payload(facet, payload, where=node.id)\n` are Task 11 sabotage sites.
 
 - [ ] **Step 5: Run the tests**
 
@@ -1683,11 +1683,15 @@ class Records:
         object.__setattr__(self, "claims", MappingProxyType(dict(self.claims)))
         object.__setattr__(self, "runs", MappingProxyType(dict(self.runs)))
         for row in self.observed_facets:
-            if not isinstance(row, FacetRead):
+            if type(row) is not FacetRead:
                 raise MalformedRecord(f"observed_facets carries a {type(row).__name__}, not a FacetRead; only the reader mints one")
         if list(self.observed_facets) != sorted(self.observed_facets, key=FacetRead.projection):
             raise MalformedRecord("observed_facets is sorted by (address, key, digest); an unsorted carrier is not the reader's")
 ```
+
+The `Records.__post_init__` tests must also pass a `unittest.mock.Mock(spec=FacetRead)` with valid-looking
+`address`, `key`, and `payload_digest` attributes and assert `MalformedRecord`: `Mock` deliberately satisfies
+`isinstance(row, FacetRead)`, so receipt authenticity requires the exact runtime type just as the reader's B3 guard does.
 
 In `evaluate`, replace the closure-node and walk block with:
 
@@ -2930,7 +2934,7 @@ CUT22_ARMS = (
         Sabotage(_READ, "        raise MalformedRecord(\n            \"FacetRead is minted by the reader", "        return None  # sabotage: a field-wise constructor\n        raise MalformedRecord(\n            \"FacetRead is minted by the reader"),
         (f"{_TFR}::test_facet_read_has_no_field_wise_constructor",)),
     Arm("B3b", "mint over anything shaped like a view",
-        Sabotage(_READ, "    if not isinstance(view, ReadView):\n", "    if False:\n"),
+        Sabotage(_READ, "    if type(view) is not ReadView:\n", "    if False:\n"),
         (f"{_TFR}::test_the_reader_refuses_anything_but_a_corpus_view",)),
     Arm("B3c", "a view over a fabricated corpus",
         Sabotage("corpus.py", "        if type(corpus) is not Corpus:\n", "        if False:\n"),
