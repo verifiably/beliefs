@@ -46,7 +46,8 @@ from beliefs.consulted import consulted_contracts
 from beliefs.corpus import ReadView, run_value
 from beliefs.dataset import dataset_address
 from beliefs.decode import claim_from_stored
-from beliefs.errors import ContractDisagreement, ContractMismatch
+from beliefs.errors import ContractDisagreement, ContractMismatch, FacetPayloadRefused, FacetUndeclared
+from beliefs.facet_read import FacetRead, read_observed_facets
 from beliefs.lineage import LineageSnapshot
 from beliefs.policy import PolicyBinding
 from beliefs.profile import ProfileSpec
@@ -85,6 +86,7 @@ class EvaluationInputs:
     retractions: RetractionEnumeration
     consulted: tuple[tuple[str, str], ...]
     binding: tuple[str, str]
+    observed_facets: tuple[FacetRead, ...]
     claim: Claim | None
     read_trace: tuple[ReadRef, ...]
 
@@ -99,6 +101,7 @@ class EvaluationInputs:
             retractions=self.retractions,
             consulted=self.consulted,
             binding=self.binding,
+            observed_facets=self.observed_facets,
         )
 
     def declared_refs(self) -> frozenset[ReadRef]:
@@ -137,6 +140,7 @@ class EvaluationInputs:
             runs=self.runs,
             source_assertions=(),
             verifications=self.verifications,
+            observed_facets=self.observed_facets,
         )
 
 
@@ -172,15 +176,24 @@ def gather(
     ids = frozenset(a.identity() for a in matched)
 
     runs: dict[str, RunValue] = {}
+    observed: dict[tuple[str, str, str], FacetRead] = {}
     for a in matched:
         ref = stored.typed_ref("run", a.run)
         if a.run in runs or not view.holds(ref):
             continue
+        run_node = view.get(ref)
         runs[a.run] = run_value(view, ref)
         trace.append(("run", a.run))
-        for entry in runs[a.run].inputs:
-            if entry.role == stored.OBSERVES and (address := dataset_address(entry.dataset)) is not None:
-                trace.append(("dataset", address))
+        for target in stored.inputs_of(run_node, stored.OBSERVES):
+            if not view.holds(target):
+                continue
+            address = dataset_address(stored.dataset_declaration(view.get(target)))
+            if address is None:
+                continue
+            trace.append(("dataset", address))
+            for row in read_observed_facets(profile, view, target):
+                observed[(row.address, row.key, row.payload_digest)] = row
+    rows = tuple(observed[key] for key in sorted(observed))
 
     verifications: list[Verification] = []
     for node in view.iter_stored():
@@ -204,14 +217,17 @@ def gather(
             trace.append(("proposition", ref))
             break
 
+    ledger: dict[str, list[str]] = {}
+    for row in rows:
+        ledger.setdefault(row.address, []).append(row.key)
+    observed_addresses = tuple(sorted({row.address for row in rows} | {ref for kind, ref in trace if kind == "dataset"}))
     consulted = consulted_contracts(
         claims={proposition: claim} if claim is not None else {},
         profile=profile,
         node_corpus=context.node_corpus,
         pins=context.pins,
-        closure_nodes=tuple(sorted(ids)),
-        # §5.6: no derivation reads a domain facet yet; the read ledger arrives with the first reader (slice 2)
-        facets_read={},
+        closure_nodes=tuple(sorted(ids)) + observed_addresses,
+        facets_read={address: tuple(keys) for address, keys in ledger.items()},
     )
     return EvaluationInputs(
         proposition=proposition,
@@ -225,6 +241,7 @@ def gather(
         binding=(binding.rule, binding.implementation),
         claim=claim,
         read_trace=tuple(trace),
+        observed_facets=rows,
     )
 
 
@@ -251,6 +268,10 @@ def evaluate_over(
     except ContractDisagreement as exc:
         return Refused(f"consulted-contracts-disagree: {exc}")
     except ContractMismatch as exc:
+        return Refused(str(exc))
+    except FacetPayloadRefused as exc:
+        return Refused(f"facet-payload-refused: {exc}")
+    except FacetUndeclared as exc:
         return Refused(str(exc))
     return evaluate(
         proposition=proposition,

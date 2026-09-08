@@ -41,6 +41,7 @@ from beliefs.closure import RetractionEnumeration, build_closure
 from beliefs.consulted import CorpusPins, consulted_contracts
 from beliefs.dataset import ByteObservation, dataset_address
 from beliefs.errors import ContractDisagreement, MalformedRecord
+from beliefs.facet_read import FacetRead
 from beliefs.lineage import LineageSnapshot, certify
 from beliefs.policy import (
     AggregationInput,
@@ -139,10 +140,19 @@ class Records:
     """Never read below (G1): a source-assertion asserts, denies or
     hypothesizes, and moves no belief output byte."""
     verifications: tuple[Verification, ...]
+    observed_facets: tuple[FacetRead, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "claims", MappingProxyType(dict(self.claims)))
         object.__setattr__(self, "runs", MappingProxyType(dict(self.runs)))
+        object.__setattr__(self, "observed_facets", tuple(self.observed_facets))
+        for row in self.observed_facets:
+            if type(row) is not FacetRead:
+                raise MalformedRecord(
+                    f"observed_facets carries a {type(row).__name__}, not a FacetRead; only the reader mints one"
+                )
+        if list(self.observed_facets) != sorted(self.observed_facets, key=FacetRead.projection):
+            raise MalformedRecord("observed_facets is sorted by (address, key, digest); an unsorted carrier is not the reader's")
 
 
 @sealed
@@ -214,7 +224,24 @@ def evaluate(
     # from whatever else the caller happened to pass in `records.claims`. A
     # proposition with no claim record consults only the base contract.
     matched = tuple(a for a in records.assessments if a.proposition == proposition)
-    closure_nodes = tuple(a.identity() for a in matched)
+    for row in records.observed_facets:
+        namespace = row.key.partition("/")[0]
+        if profile.activated_contracts.get(namespace) != row._contract_identity:
+            return Refused(f"facet-read-profile-mismatch: {namespace}")
+    observed = tuple(
+        sorted(
+            {
+                address
+                for a in matched
+                for entry in records.runs[a.run].inputs
+                if entry.role == "observes" and (address := dataset_address(entry.dataset)) is not None
+            }
+        )
+    )
+    closure_nodes = tuple(a.identity() for a in matched) + observed
+    ledger: dict[str, list[str]] = {}
+    for row in records.observed_facets:
+        ledger.setdefault(row.address, []).append(row.key)
     read_claims = {proposition: records.claims[proposition]} if proposition in records.claims else {}
     try:
         consulted = consulted_contracts(
@@ -223,8 +250,7 @@ def evaluate(
             node_corpus=context.node_corpus,
             pins=context.pins,
             closure_nodes=closure_nodes,
-            # §5.6: no derivation reads a domain facet yet; the read ledger arrives with the first reader (slice 2)
-            facets_read={},
+            facets_read={address: tuple(keys) for address, keys in ledger.items()},
         )
     except ContractDisagreement as exc:
         return Refused(f"consulted-contracts-disagree: {exc}")
@@ -349,5 +375,6 @@ def evaluate(
         retractions=context.retractions,
         consulted=consulted,
         binding=(binding.rule, binding.implementation),
+        observed_facets=records.observed_facets,
     )
     return Belief(value=value, belief_input_digest=closure.digest(), policy_binding=binding)

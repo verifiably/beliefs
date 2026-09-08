@@ -277,6 +277,7 @@ def closure_kwargs(assessments, runs):
         "retractions": RetractionEnumeration(found=(), coverage=("supplied",)),
         "consulted": (("science", "base-1"),),
         "binding": ("science.belief.v1", "impl-1"),
+        "observed_facets": (),
     }
 
 

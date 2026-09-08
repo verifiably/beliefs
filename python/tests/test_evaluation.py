@@ -465,13 +465,13 @@ def test_the_no_belief_and_refused_arms_still_gather_and_assert_no_containment(c
     assert calls == ["gathered", "gathered"], "the guard is on the Belief arm only; gather ran on both"
 
 
-def test_the_nine_fields_are_build_closure_s_keywords_in_order():
+def test_the_closure_fields_are_build_closure_s_keywords_in_order():
     import inspect
 
     from beliefs.closure import build_closure
 
     params = [p for p in inspect.signature(build_closure).parameters if p != "self"]
-    fields = [f.name for f in dataclasses.fields(EvaluationInputs)][:9]
+    fields = [f.name for f in dataclasses.fields(EvaluationInputs)][:10]
     assert fields == params
 
 

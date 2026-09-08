@@ -28,6 +28,7 @@ class FacetRead:
     address: str
     key: str
     payload_digest: str
+    _contract_identity: str
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         raise MalformedRecord(
@@ -36,13 +37,16 @@ class FacetRead:
         )
 
     @classmethod
-    def _minted(cls, mint: object, *, address: str, key: str, payload_digest: str) -> FacetRead:
+    def _minted(
+        cls, mint: object, *, address: str, key: str, payload_digest: str, contract_identity: str
+    ) -> FacetRead:
         if mint is not _MINT:
             raise MalformedRecord("FacetRead._minted is the reader's, not a public constructor")
         row = object.__new__(cls)
         object.__setattr__(row, "address", address)
         object.__setattr__(row, "key", key)
         object.__setattr__(row, "payload_digest", payload_digest)
+        object.__setattr__(row, "_contract_identity", contract_identity)
         return row
 
     def projection(self) -> list[str]:
@@ -78,6 +82,12 @@ def read_observed_facets(profile: ProfileSpec, view: ReadView, target: str) -> t
         payload = node.facets[key]
         validate_payload(facet, payload, where=node.id)
         rows.append(
-            FacetRead._minted(_MINT, address=address, key=key, payload_digest=v1.digest(FACET_READ_DOMAIN, payload))
+            FacetRead._minted(
+                _MINT,
+                address=address,
+                key=key,
+                payload_digest=v1.digest(FACET_READ_DOMAIN, payload),
+                contract_identity=profile.activated_contracts[facet.contract],
+            )
         )
     return tuple(rows)

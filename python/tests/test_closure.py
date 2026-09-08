@@ -93,6 +93,7 @@ def closure_kwargs() -> dict:
         "retractions": retractions,
         "consulted": consulted,
         "binding": ("science.belief.v1", "impl-1"),
+        "observed_facets": (),
     }
 
 
@@ -258,9 +259,10 @@ def test_the_same_binding_resolves_identically_elsewhere():
         "snapshot",
         "producer_snapshot_identity",
         "retractions",
-        "consulted",
-        "binding",
-    }
+            "consulted",
+            "binding",
+            "observed_facets",
+        }
     assert all(p.kind is inspect.Parameter.KEYWORD_ONLY for p in parameters.values())
 
     here = build_closure(**closure_kwargs()).digest()

@@ -433,3 +433,8 @@ every entry is navigational.
 > checks and `test_closure.py`'s two D6 checks keep their names and their
 > assertions and bump a compiled profile rather than a pin string. Commit:
 > the one that lands this amendment.
+>
+> The same amendment re-points G1's closed-signature sabotage from the former
+> final `binding` parameter to the new final `observed_facets` parameter. The
+> sabotage and check are unchanged in meaning; only their live source anchor
+> moved. Commit: the one that lands this amendment.

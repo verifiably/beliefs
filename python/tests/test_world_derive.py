@@ -303,6 +303,7 @@ def belief_digest(snapshot: derive.ProducerSnapshot) -> str:
         retractions=RetractionEnumeration(found=(), coverage=("corpus-a",)),
         consulted=(),
         binding=(digest("1"), digest("2")),
+        observed_facets=(),
     ).digest()
 
 

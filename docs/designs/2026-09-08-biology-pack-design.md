@@ -464,6 +464,11 @@ caller" becomes a property of the type, of its one constructor's inputs, and
 of the view those inputs come through. The class carries `address`, `key`,
 `payload_digest`, and a `projection()` of the three in that order.
 
+**Amended 2026-09-08:** the reader also binds a private, non-projected
+identity for the namespace contract that validated the payload. The receipt
+is specific to its validating namespace contract while its
+three-field closure projection stays unchanged.
+
 ### 5.3 `Records`, and the walk
 
 `Records` gains `observed_facets: tuple[FacetRead, ...]`, sorted, and
@@ -511,6 +516,13 @@ whose sabotage site this slice edits is re-pointed at the landed source
 under the frozen-guard doctrine's "fix the arm, never the source", and the
 cut-2 document takes a dated citation amendment. Nothing frozen is edited.
 
+**Amended 2026-09-08:** `evaluate` compares every facet receipt's private
+validating-contract identity with the current profile before the consulted
+walk. A missing or different namespace identity refuses as
+`facet-read-profile-mismatch: <namespace>`. A receipt cannot be reused when
+that contract identity changes; unrelated-domain profile changes remain
+irrelevant. `evaluate_over` rereads under its current profile.
+
 ### 5.4 The closure member
 
 The projection gains `"observed_facets": [[address, key, digest], …]`,
@@ -542,6 +554,9 @@ is under P6.
 - A consulted namespace whose pin disagrees with the profile refuses:
   `Refused("profile-pin-mismatch: <namespace>")`, wrapping `ContractMismatch`
   (§5.3a).
+- A facet receipt validated under a different namespace contract identity refuses before
+  the walk: `Refused("facet-read-profile-mismatch: <namespace>")` (§5.2,
+  §5.3a).
 
 Every message is prefix-stable.
 

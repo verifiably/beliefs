@@ -41,6 +41,7 @@ from types import MappingProxyType
 from typing import final
 
 from beliefs.dataset import dataset_address
+from beliefs.facet_read import FacetRead
 from beliefs.identity import v1
 from beliefs.lineage import LineageSnapshot, snapshot_projection
 from beliefs.record import AssessmentValue, RunValue
@@ -93,6 +94,7 @@ def build_closure(
     retractions: RetractionEnumeration,
     consulted: tuple[tuple[str, str], ...],
     binding: tuple[str, str],
+    observed_facets: tuple[FacetRead, ...],
 ) -> Closure:
     """Build the closure over one proposition's belief inputs (kernel §5.1's
     projection table).
@@ -112,7 +114,8 @@ def build_closure(
       and here it simply has nothing to digest.
 
     Supplied, not computed: `snapshot` (projected via `snapshot_projection`),
-    `producer_snapshot_identity`, `retractions`, `consulted`, `binding`.
+    `producer_snapshot_identity`, `retractions`, `consulted`, `binding`, and
+    `observed_facets` (the reader's rows, always present).
     """
     ours = tuple(a for a in assessments if a.proposition == proposition)
     identities = {a.identity() for a in ours}
@@ -145,5 +148,6 @@ def build_closure(
         },
         "policy_binding": list(binding),
         "consulted": [list(pair) for pair in consulted],
+        "observed_facets": [row.projection() for row in observed_facets],
     }
     return Closure(projection=projection)

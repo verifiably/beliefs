@@ -186,8 +186,12 @@ _G1 = [
         asserts="the digest half: source assertions have no parameter here at all — closure's signature stays closed",
         sabotage=Sabotage(
             module="closure.py",
-            before="    binding: tuple[str, str],\n) -> Closure:",
-            after="    binding: tuple[str, str],\n    source_assertions: tuple[object, ...] = (),\n) -> Closure:",
+            before="    observed_facets: tuple[FacetRead, ...],\n) -> Closure:",
+            after=(
+                "    observed_facets: tuple[FacetRead, ...],\n"
+                "    source_assertions: tuple[object, ...] = (),\n"
+                ") -> Closure:"
+            ),
         ),
         checks=("test_closure.py::test_the_same_binding_resolves_identically_elsewhere",),
     ),
