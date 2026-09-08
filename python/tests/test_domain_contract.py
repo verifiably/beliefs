@@ -314,6 +314,13 @@ class TestSuccession:
         with pytest.raises(SuccessionViolation, match="different canonical schema projection"):
             parse(document, predecessor=genesis)
 
+    def test_a_successor_rewriting_a_namespaced_slot_is_refused(self, parse, testing_document, genesis):
+        operators = copy.deepcopy(testing_document["operators"])
+        operators["affects"]["arg_sorts"] = ["entity", "other/outcome"]
+        document = TestSuccession.successor_document(testing_document, genesis, operators=operators)
+        with pytest.raises(SuccessionViolation, match="different canonical schema projection"):
+            parse(document, predecessor=genesis)
+
     def test_succession_covers_dimensions(self, parse, testing_document, genesis):
         dimensions = copy.deepcopy(testing_document["dimensions"])
         dimensions["population"]["restriction_sort"] = "entity"

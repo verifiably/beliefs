@@ -148,3 +148,98 @@ def test_old_facet_receipts_refuse_under_a_new_profile_identity(tmp_path):
     )
     assert isinstance(fresh, Refused) and fresh.reason.startswith("facet-payload-refused:")
     assert isinstance(stale, Refused) and stale.reason == "facet-read-profile-mismatch: biology"
+
+
+# --- D6's facet arm, the isolated case (design §5.6) ------------------------
+
+
+def _belief(view, profile):
+    result = evaluate_over(view, PROPOSITION_REF, **kwargs_for(view, profile))
+    assert isinstance(result, Belief), result
+    return result
+
+
+def test_isolated_case_biology_enters_through_the_ledger_alone(tmp_path):
+    """The claim is at `testing/affects` over `testing` sorts; nothing in its
+    schema reaches `biology`. With the facet read, biology is consulted; with
+    the facet absent, it is not."""
+    profile = profile_with()
+    with_view = seed(tmp_path / "with")
+    without_view = seed(tmp_path / "without", axis=None)
+    with_facet = gather(with_view, PROPOSITION_REF, **_gathered(kwargs_for(with_view, profile)))
+    without = gather(without_view, PROPOSITION_REF, **_gathered(kwargs_for(without_view, profile)))
+    assert with_facet.claim is not None and with_facet.claim.operator == "testing/affects"
+    assert "biology" in dict(with_facet.consulted)
+    assert "biology" not in dict(without.consulted)
+
+
+def test_isolated_case_a_biology_bump_moves_the_digest(tmp_path):
+    view = seed(tmp_path)
+    before = _belief(view, profile_with("fixture"))
+    after = _belief(view, profile_with("fixture, bumped"))
+    assert before.value == after.value
+    assert before.belief_input_digest != after.belief_input_digest
+
+
+def test_isolated_case_an_unrelated_bump_leaves_it(tmp_path):
+    view = seed(tmp_path)
+    before = _belief(view, profile_with("fixture", unrelated="v1"))
+    after = _belief(view, profile_with("fixture", unrelated="v2"))
+    assert before.belief_input_digest == after.belief_input_digest
+
+
+def test_isolated_case_holds_with_no_claim_record(tmp_path):
+    """A proposition with no claim consults only the base — plus biology
+    through the facet. The assessments name a proposition the corpus does not
+    hold, as `test_evaluation.claimless_fixture` does."""
+    absent = "proposition:never-stored"
+    profile = profile_with()
+    view = seed(tmp_path, proposition=absent)
+    inputs = gather(view, absent, **_gathered(kwargs_for(view, profile)))
+    assert inputs.claim is None
+    assert set(dict(inputs.consulted)) == {"science", "biology"}
+
+
+# --- the dogfood shape: biology by both routes (design §5.6) ----------------
+
+
+def test_dogfood_shape_reaches_biology_by_both_routes(tmp_path):
+    """A claim at `biology/affects` (the fixture's operator) whose sorts are
+    biology's, over the same facet-bearing dataset: dropping either route
+    leaves biology consulted, which is why this case is the measurement and
+    the isolated case is the proof."""
+    from test_evaluation import GENE, OTHER_GENE
+
+    profile = profile_with()
+    biology_claim = {"operator": "biology/affects", "args": [GENE, OTHER_GENE], "qualifiers": {}, "polarity": "positive", "layer": "causal"}
+    view = seed(tmp_path, claim=biology_claim)
+    inputs = gather(view, PROPOSITION_REF, **_gathered(kwargs_for(view, profile)))
+    assert inputs.claim is not None and inputs.claim.operator == "biology/affects"
+    assert "biology" in dict(inputs.consulted)
+    assert [row.key for row in inputs.observed_facets] == ["biology/gene-axis"]
+
+
+# --- M8's added arm (design §7) --------------------------------------------
+
+
+def test_m8_an_editorial_bump_of_a_foreign_sorts_contract_leaves_claim_identity_and_moves_the_digest(tmp_path):
+    """The claim is at `crossing/affects-local-entity`, no domain facet is in
+    the closure (`axis=None`), and the bumped contract is `testing`, reached
+    through slot 1's sort and nothing else. Dropping the walk's sort-contract
+    collection leaves `testing` unconsulted and this test fails (M8a)."""
+    from domain_facet_fixtures import CROSSING_CLAIM
+
+    from beliefs.projection import claim_identity
+
+    view = seed(tmp_path, axis=None, claim=CROSSING_CLAIM)
+    before = profile_with(crossing=True)
+    after = profile_with(crossing=True, testing_description="editorial")
+    one = evaluate_over(view, PROPOSITION_REF, **kwargs_for(view, before))
+    two = evaluate_over(view, PROPOSITION_REF, **kwargs_for(view, after))
+    assert isinstance(one, Belief) and isinstance(two, Belief)
+    inputs_one = gather(view, PROPOSITION_REF, **_gathered(kwargs_for(view, before)))
+    inputs_two = gather(view, PROPOSITION_REF, **_gathered(kwargs_for(view, after)))
+    assert inputs_one.observed_facets == () and inputs_one.claim is not None and inputs_two.claim is not None
+    assert claim_identity(inputs_one.claim) == claim_identity(inputs_two.claim)
+    assert "testing" in dict(inputs_one.consulted)
+    assert one.value == two.value and one.belief_input_digest != two.belief_input_digest
