@@ -8,6 +8,7 @@ nothing.
 
 import copy
 from dataclasses import FrozenInstanceError
+from pathlib import Path
 from typing import ClassVar
 
 import pytest
@@ -20,6 +21,7 @@ from beliefs.contract import base, domain
 from beliefs.errors import (
     ContractMismatch,
     DuplicateContribution,
+    MalformedContract,
     ProfileError,
     SubclassRefused,
     SuccessionViolation,
@@ -114,6 +116,43 @@ def parse(base_contract):
 @pytest.fixture()
 def testing(parse, testing_document):
     return parse(testing_document)
+
+
+@pytest.fixture()
+def crossing_document():
+    path = Path(__file__).resolve().parents[2] / "fixtures" / "contracts" / "crossing.yaml"
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+class TestCrossContractSlots:
+    """Biology pack design §4.3: namespaced references resolve at compile."""
+
+    def test_a_foreign_sort_resolves_when_its_contract_is_compiled(self, base_contract, testing, crossing_document):
+        crossing = domain.parse_domain_contract(crossing_document, source="<crossing>", base=base_contract, predecessor=None)
+        profile = compile_profile(base_contract, [crossing, testing])
+        operator = profile.operator("crossing/affects-local-entity")
+        assert operator.arg_sorts == ("crossing/local", "testing/entity")
+        assert operator.contract == "crossing" and operator.dimensions == ()
+        assert profile.dimensions["crossing/scope"].restriction_sort == "testing/cohort"
+        assert profile.operator("crossing/scoped-local-local").dimensions == ("crossing/scope",)
+        assert profile.sorts["testing/entity"].contract == "testing"
+
+    def test_the_resolver_namespaces_a_bare_name_once(self, base_contract, testing, crossing_document):
+        crossing = domain.parse_domain_contract(crossing_document, source="<crossing>", base=base_contract, predecessor=None)
+        profile = compile_profile(base_contract, [crossing, testing])
+        assert profile.operator("crossing/same-local-local").arg_sorts == ("crossing/local", "crossing/local")
+
+    def test_an_unresolved_reference_refuses_naming_the_namespace(self, base_contract, crossing_document):
+        crossing = domain.parse_domain_contract(crossing_document, source="<crossing>", base=base_contract, predecessor=None)
+        with pytest.raises(MalformedContract, match="no contract for namespace 'testing' is compiled"):
+            compile_profile(base_contract, [crossing])
+
+    def test_compile_order_is_inert(self, base_contract, testing, crossing_document):
+        crossing = domain.parse_domain_contract(crossing_document, source="<crossing>", base=base_contract, predecessor=None)
+        one = compile_profile(base_contract, [crossing, testing])
+        other = compile_profile(base_contract, [testing, crossing])
+        assert one.operator("crossing/affects-local-entity") == other.operator("crossing/affects-local-entity")
+        assert one.activated_contracts == other.activated_contracts
 
 
 @pytest.fixture()

@@ -45,6 +45,7 @@ from beliefs.contract.facets import FieldDecl
 from beliefs.errors import (
     ContractMismatch,
     DuplicateContribution,
+    MalformedContract,
     ProfileError,
     UnparsedContract,
     WithdrawnFromAuthoring,
@@ -534,23 +535,26 @@ def compile_profile(
     # Sorted for a reproducible construction order, which helps a reader diffing
     # two profiles. It is **not** what makes merge order inert: identity.v1 sorts
     # object keys at encode time, so this loop's order cannot reach the identity
-    # either way. Recorded because the opposite is easy to assume — and was
-    # assumed here first, until sabotaging the sort left the suite green.
+    # either way.
     for namespace in sorted(seen):
         contract = seen[namespace]
         for name, decl in contract.sorts.items():
             sorts[contract.term(name)] = CompiledSort(
                 term=contract.term(name), vocabulary=decl.vocabulary, retired=decl.retired, contract=namespace
             )
+    for namespace in sorted(seen):
+        contract = seen[namespace]
         for name, dimension in contract.dimensions.items():
             dimensions[contract.term(name)] = CompiledDimension(
                 term=contract.term(name),
-                restriction_sort=contract.term(dimension.restriction_sort),
+                restriction_sort=_resolve_sort(
+                    contract, dimension.restriction_sort, sorts, where=f"dimensions.{name}: restriction_sort"
+                ),
                 retired=dimension.retired,
                 contract=namespace,
             )
         for name, operator in contract.operators.items():
-            operators[contract.term(name)] = _compile_operator(contract, operator)
+            operators[contract.term(name)] = _compile_operator(contract, operator, sorts)
 
     coordination_kinds = (
         {
@@ -653,11 +657,30 @@ def _projection(
     return projection
 
 
-def _compile_operator(contract: DomainContract, operator: OperatorDecl) -> CompiledOperator:
+def _resolve_sort(
+    contract: DomainContract, name: str, sorts: Mapping[str, CompiledSort], *, where: str
+) -> str:
+    term = name if "/" in name else contract.term(name)
+    if term not in sorts:
+        namespace = term.partition("/")[0]
+        raise MalformedContract(
+            f"{contract.namespace}: {where} names sort {term!r}, but no contract for namespace {namespace!r} is "
+            "compiled into this profile. A cross-contract slot resolves at compile or refuses; nothing here can "
+            "stand behind a sort no compiled contract declares."
+        )
+    return term
+
+
+def _compile_operator(
+    contract: DomainContract, operator: OperatorDecl, sorts: Mapping[str, CompiledSort]
+) -> CompiledOperator:
     return CompiledOperator(
         term=contract.term(operator.name),
         arity=operator.arity,
-        arg_sorts=tuple(contract.term(sort) for sort in operator.arg_sorts),
+        arg_sorts=tuple(
+            _resolve_sort(contract, sort, sorts, where=f"operators.{operator.name}: arg_sorts[{slot}]")
+            for slot, sort in enumerate(operator.arg_sorts)
+        ),
         sign_apt=operator.sign_apt,
         layers=operator.layers,
         dimensions=tuple(contract.term(dimension) for dimension in operator.dimensions),

@@ -1,0 +1,39 @@
+# A synthetic domain contract that names another contract's sorts (biology
+# pack design §4). Owned by neither implementation: both parsers read it, and
+# both compiles must resolve `testing/entity` when `testing` is compiled
+# beside it and refuse when it is not.
+contract: crossing
+version: 1
+lineage: genesis
+
+sorts:
+  local:
+    vocabulary: { namespace: EX, release: "2026-01-01" }
+
+dimensions:
+  scope:
+    restriction_sort: testing/cohort
+
+operators:
+  # Its only route to `testing` is slot 1's argument sort: no dimension, so
+  # a walk that stops collecting sort contracts loses `testing` here (B2a).
+  affects-local-entity:
+    arity: 2
+    arg_sorts: [local, testing/entity]
+    sign_apt: true
+    layers: [causal]
+    dimensions: []
+  # The dimension's restriction sort crosses too, on an operator whose slots
+  # do not, so the restriction-sort route is exercised on its own (B1).
+  scoped-local-local:
+    arity: 2
+    arg_sorts: [local, local]
+    sign_apt: true
+    layers: [causal]
+    dimensions: [scope]
+  same-local-local:
+    arity: 2
+    arg_sorts: [local, local]
+    sign_apt: false
+    layers: [structural]
+    dimensions: []
