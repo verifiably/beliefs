@@ -169,3 +169,60 @@ def confined_host() -> None:
             f"the confined acceptance arms need bubblewrap and user namespaces on this host; {reason}. "
             "This is an error and not a skip."
         )
+
+
+# --- Cited, not run ------------------------------------------------------------------
+#
+# A guard module a later cut took out of the live chain is evidence, not machinery: its
+# bytes are what produced the discharge that cut cites, and several are pinned by content
+# for exactly that reason. Running one on today's tree proves nothing about today's tree,
+# and its red has twice been read as a regression by someone who did not know that.
+#
+# It is refused collection rather than skipped. The rule this file opens with holds: a
+# skip reports green for a guarantee that was not exercised. A refusal reports nothing at
+# all, which is the truth — and `pytest_report_header` says why, naming the ruling and the
+# discharge that stands. The doctrine is
+# `docs/superpowers/specs/2026-09-07-frozen-guard-doctrine-design.md`; the registry is
+# `tests/cited_not_run.py`, and `tests/test_frozen_guards.py` holds the tree to both.
+
+from cited_not_run import CITED_NOT_RUN
+
+_GUARD_DIRECTORY = Path(__file__).resolve().parent
+
+
+def pytest_ignore_collect(collection_path: Path, config) -> bool | None:
+    """Keep a cited-not-run guard out of a directory collection."""
+    if collection_path.parent == _GUARD_DIRECTORY and collection_path.name in CITED_NOT_RUN:
+        return True
+    return None
+
+
+def pytest_collection_modifyitems(session, config, items) -> None:
+    """And out of an explicit one, saying why.
+
+    `pytest_ignore_collect` is not consulted for a path named on the command line — the
+    same reason `addopts`' own `--ignore=tests/acceptance` does not stop `pytest
+    tests/acceptance/test_n2_cut8.py`. Naming the module directly is precisely how these
+    get run by mistake, so the refusal has to land here too.
+
+    The reason is written straight to the terminal rather than returned from
+    `pytest_report_header`, which `-q` — set for every run by `addopts` — suppresses. A
+    refusal nobody can read is how this went wrong the first time.
+    """
+    refused = [item for item in items if Path(str(item.path)).name in CITED_NOT_RUN]
+    if not refused:
+        return
+    items[:] = [item for item in items if item not in refused]
+    config.hook.pytest_deselected(items=refused)
+
+    reporter = config.pluginmanager.get_plugin("terminalreporter")
+    if reporter is None:
+        return
+    reporter.ensure_newline()
+    for module in dict.fromkeys(Path(str(item.path)).name for item in refused):
+        entry = CITED_NOT_RUN[module]
+        reporter.write_line(
+            f"{module}: cut {entry.cut}'s guard is cited, not run — refused collection, not "
+            f"skipped. Ruled by {entry.ruled_by}; its discharge stands at "
+            f"{entry.standing_record}; {entry.successor} carries the coverage now."
+        )
