@@ -4,7 +4,12 @@
 **Status:** designed 2026-09-08 in a brainstorming session of five sectioned
 reviews, each approved as presented (scope and the two contracts; the
 cross-contract slot rule; the domain-facet read; contract locations and the
-measurement; guarantees, the cut sketch, limitations and open questions).
+measurement; guarantees, the cut sketch, limitations and open questions),
+then revised on a written review of the committed document whose three
+findings became §5.3a and B7 (profile and pin agreement), §5.6's isolated
+case and B2's second sabotage (the facet-namespace collection proved on
+its own), and the correction of §5.1, B4 and §9 item 10 (an unheld observed
+dataset is absent from the run value, never "digested by address").
 Conformance cut 22 is not yet frozen; the freeze is a separate document
 written after this design's review clears (§8). Not implemented.
 **Scope:** the second of two slices on the `domain` lane, anchored on the
@@ -416,9 +421,11 @@ unresolved-reference refusal. Payload validation stays Python-primary (F
 already digests, as `observes`, the address of every `observes` input of
 every matched assessment's run. For each such address the reader now:
 
-1. fetches the dataset node when `view.holds(address)`; an observed dataset
-   the view does not hold is digested by address as today and reads
-   nothing;
+1. fetches the dataset node. Every observed dataset that reaches `gather`
+   is held by construction: `run_value` is corpus-local and drops an input
+   whose dataset the view does not hold, so an unheld dataset is absent from
+   the run value, from `observes`, and from this reader alike (§9 item 10).
+   There is no "not held" branch here, and the design claims none;
 2. reads every **namespaced** facet key present on the node that the
    compiled profile declares as attaching to `dataset`;
 3. re-validates each payload through `facets.validate_payload` against the
@@ -458,6 +465,34 @@ type. The class carries `address`, `key`, `payload_digest`, and a
 `evaluate`'s own `facets_read={}` and `gather`'s go away; there is one
 source, the reader, and one carrier, `Records`.
 
+### 5.3a Profile and pin agreement
+
+Review of 2026-09-08 found the gap this closes. The writer rechecks the
+mounted manifest's pins against the supplied profile under every operation
+lock (F §5.1), but `consulted_contracts` never compares a pinned identity to
+the profile it resolves operators through: the pins arrive in
+`SuppliedContext`, the profile as a separate argument, and the walk records
+the pinned identity while the reader validates under the profile's. A caller
+could therefore validate a payload under biology revision B and digest
+revision A — two contracts behind one digest, the defect D6 exists to close,
+arriving through the derivation rather than the writer.
+
+The rule: for **every namespace that enters the consulted set**, the pinned
+identity must equal the profile's — `science` against
+`base_contract_identity`, each domain against `activated_contracts` — or the
+derivation refuses with `ContractMismatch`, surfaced by `evaluate` as
+`Refused("profile-pin-mismatch: <namespace>")`. Agreement is checked for
+consulted namespaces only. An activated-but-unconsulted pin is not compared,
+because nothing was validated or interpreted under it, and cut 2's D6 arm
+that supplies an unrelated pin the profile never reaches stays exactly as
+it is.
+
+The consequence for existing evidence is stated in §10: tests that pin a
+synthetic identity such as `sci-1` under a real profile, and cut 2's D6 arms
+that "bump" by changing the pin string alone, no longer describe a
+well-formed derivation. They are superseded by citation and re-run with a
+real contract bump, never edited.
+
 ### 5.4 The closure member
 
 The projection gains `"observed_facets": [[address, key, digest], …]`,
@@ -486,17 +521,39 @@ is under P6.
   under is stale against the corpus.
 - A `FacetRead` whose address is not an observed dataset is malformed at
   the walk (existing arm).
-- An observed dataset not held reads nothing and refuses nothing.
+- A consulted namespace whose pin disagrees with the profile refuses:
+  `Refused("profile-pin-mismatch: <namespace>")`, wrapping `ContractMismatch`
+  (§5.3a).
 
 Every message is prefix-stable.
 
 ### 5.6 What D6's facet arm measures
 
-On the dogfood: the GSE179929 node carries `biology/gene-axis` (§6.4); the
-read fills the ledger; a biology contract bump with payload and every
-assessment byte fixed moves the digest; an unrelated activated domain's bump
-leaves it unchanged; a payload byte change moves it. The first three are D6
-as written; the fourth is B5.
+The dogfood alone cannot prove the arm, and the design says so: its claim
+reaches `biology` through slot 1's sort (§4.4), so a walk that dropped facet
+namespaces entirely would still consult biology and the bump test would
+still pass. The arm therefore runs on **two cases**.
+
+- **The isolated case**, which is the proof. A derivation whose claim schema
+  does not reach `biology` — a proposition with no claim record, which
+  consults only the base, or a claim at a same-contract operator in the
+  testing domain — over an assessment whose run observes a held dataset
+  carrying `biology/gene-axis`. Biology enters the consulted set through
+  the ledger or not at all. A biology bump with payload and every
+  assessment byte fixed moves the digest; an unrelated activated domain's
+  bump leaves it unchanged. **Sabotage:** the walk not collecting facet
+  namespaces → this case's bump test fails; the walk ignoring
+  `observed_facets` and taking the ledger from anywhere else → this case's
+  consulted set lacks `biology`, the test fails.
+- **The dogfood case**, which is the measurement (§6.4): the GSE179929 node
+  carries the facet, the read fills the ledger, and the same two bumps
+  behave the same way, with `biology` reached by both routes.
+
+A payload byte change moves the digest in both cases; that is B5, which is
+new, and its own sabotage is the closure omitting the member. B5's test
+does not stand in for the arm above: payloads digested independently of the
+ledger would keep B5 green while the isolated case fails, which is why the
+isolated case exists.
 
 ## 6. Location, packaging, and the measurement
 
@@ -570,16 +627,19 @@ fails:
 | id | guarantee | test | sabotage |
 |---|---|---|---|
 | **B1** | A slot sort resolves or refuses, at the right stage | bare name undeclared → refused at parse; `mm30/concept` inside `mm30` → refused at parse; `science/x` → refused at parse; `biology/molecular-entity` compiled with `biology` → resolves to that term; compiled without it → refused at compile with `biology` named; `restriction_sort` takes both forms identically | the resolver namespacing a namespaced name twice → the resolution test fails |
-| **B2** | The consulted walk reaches every sort's contract | the dogfood claim consults `{science, mm30, biology}`; a same-contract operator's set is unchanged from cut 2; a corpus pinning `mm30` only → `ContractDisagreement` naming `biology` | the walk adding the operator's contract alone → the dogfood set lacks `biology`, the test fails |
+| **B2** | The consulted walk reaches every sort's contract, and facet namespaces are collected on their own | the dogfood claim consults `{science, mm30, biology}`; a same-contract operator's set is unchanged from cut 2; a corpus pinning `mm30` only → `ContractDisagreement` naming `biology`; the isolated case (§5.6) consults `biology` through the ledger alone | the walk adding the operator's contract alone → the dogfood set lacks `biology`; the walk not collecting facet namespaces → the isolated case's set lacks `biology`; either test fails |
 | **B3** | `FacetRead` is minted by the reader only | no public field-wise constructor, no cast from a mapping; the only route is the reader's classmethod over a validated payload | a field-wise constructor added → the opacity test fails |
-| **B4** | Every read is validated | a declared facet failing its schema → `Refused("facet-payload-refused…")`; an undeclared namespaced key → `Refused("facet-undeclared…")`; an unheld observed dataset → no read, no refusal | the reader skipping re-validation → the malformed-payload test passes a bad payload, the refusal test fails |
-| **B5** | Observed facets enter the digest | payload byte change, every other member fixed → digest moves; the member is present and empty when nothing was read | the closure omitting the member → the byte-change test fails |
+| **B4** | Every read is validated, and only held datasets are read | a declared facet failing its schema → `Refused("facet-payload-refused…")`; an undeclared namespaced key → `Refused("facet-undeclared…")`; through `gather` with an observed dataset node absent from the view → the run value carries no such input, no `FacetRead` and no `observes` entry exist, nothing refuses | the reader skipping re-validation → the refusal test passes a bad payload and fails; the reader fetching by address outside the run value → the absent-dataset test fails |
+| **B5** | Observed facets enter the digest through the one carrier | payload byte change, every other member fixed → digest moves; the member is present and empty when nothing was read; the rows the closure digests are the rows the walk consumed | the closure omitting the member → the byte-change test fails; the walk taking its ledger from anywhere but `observed_facets` → the isolated case fails (B2) |
+| **B7** | A consulted namespace's pin agrees with the profile | pins built from the profile → the walk proceeds; `science` pinned to another identity → `Refused("profile-pin-mismatch: science")`; a consulted domain pinned to another revision → refused naming it; an unconsulted domain pinned to anything → not compared, unchanged from cut 2 | the agreement check dropped → the mismatch test validates under one revision and digests another, and fails |
 | **B6** | The pack ships byte-identical, and TypeScript refuses what Python refuses | packaged copy equals `domains/biology/CONTRACT.yaml`; the TypeScript parser refuses own-namespace and `science` references and an unresolved reference at compile | the copy edited → the identity test fails; TypeScript accepting `mm30/concept` inside `mm30` → the parity refusal test fails |
 
 Rows elsewhere:
 
 - **D6 closes.** Its facet arm and the negative's domain-facet instantiation
-  run on the dogfood shape (§5.6); B5 adds the payload-byte arm as new.
+  run on §5.6's two cases, the isolated case being the proof and the
+  dogfood the measurement; B5 adds the payload-byte arm as new, and B7 the
+  agreement the arm silently assumed.
 - **M8 gains an arm.** An editorial `biology` bump leaves
   `I_claim` unchanged and moves `belief_input_digest`, now through a sort's
   contract rather than the operator's.
@@ -595,8 +655,9 @@ Rows elsewhere:
 
 Sketch; the freeze is a separate document written after this design's
 review clears, numbered after cut 21 and serialized after cut 21's
-discharge, which landed 2026-09-08 (`03471da`). Selected in full: B1–B6,
-D6, the M8 sort-contract arm, the M6 re-run. In part: D1, unchanged.
+discharge, which landed 2026-09-08 (`03471da`). Selected in full: B1–B7,
+D6 on both cases of §5.6, the M8 sort-contract arm, the M6 re-run. In part:
+D1, unchanged.
 N2 arms sabotage, each with a named check that fails (§7). Discharged on the
 certified tuple, with the reproduction's re-run (§6.4) as the measurement
 rather than an arm: its findings are filed to the reproduction record, and
@@ -618,10 +679,14 @@ a refusal there is a finding through the owning lane, never a workaround.
 8. **Parallel genesis is unchanged** (D §12): nothing stops a second
    `biology` contract declaring `genesis`.
 9. **TypeScript validates no payload** (F §9 item 10), unchanged.
-10. **An observed dataset not held reads nothing**, so a derivation over an
-    unheld dataset consults no domain through facets, and the digest cannot
-    tell "no facet" from "not held" — the `observes` address is the same
-    either way.
+10. **An observed dataset not held is absent from the derivation.**
+    `run_value` is corpus-local and drops an input whose dataset the view
+    does not hold, so neither its address nor any facet on it reaches the
+    closure; the digest cannot tell a run over an unheld dataset from a run
+    with one input fewer. This is the existing property `run_value`
+    documents, named here because §5.1 reads through it; preserving
+    unresolved `observes` addresses is `world-resolution`'s cross-corpus
+    read, not this slice's.
 
 ## 10. What changes elsewhere
 
@@ -641,6 +706,16 @@ a refusal there is a finding through the owning lane, never a workaround.
   re-run's findings; step 10a's digest is annotated as moved by §5.4.
 - **Task `beliefs-1ce152`** gets this document as its spec; the parent
   `beliefs-bc3aff`'s acceptance line is corrected to the pack as declared.
+- **Existing evidence under §5.3a.** Tests that supply a synthetic pin
+  identity under a real profile (`test_belief.py`, `test_closure.py`,
+  `test_consulted.py` build `CorpusPins` with strings such as `sci-1` and
+  `testing-1`) describe derivations the agreement rule refuses. Those that
+  are ordinary fixtures are rewritten to build pins from the profile, as
+  `profiles.pins_for` already does. Those that are **cut 2's D6 arms** and
+  bump by changing the pin string alone are frozen evidence: they are
+  pinned and cited as superseded by B7, and the arm is re-run in cut 22
+  over two compiled profiles that differ by a real contract edit. The plan
+  enumerates each affected test; none is edited in place.
 
 ## 11. Alternatives rejected
 
