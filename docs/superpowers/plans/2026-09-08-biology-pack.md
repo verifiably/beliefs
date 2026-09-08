@@ -164,10 +164,17 @@ namespace; the isolated case consults `biology` through the ledger alone.
 ### B3 — closes
 
 `FacetRead` is minted by the corpus reader only, over a dataset it fetched
-from a corpus view, with the address derived from that dataset's own
-declaration. Selected: no public field-wise constructor; the reader refuses
-anything but a `ReadView`; there is no route that takes an in-memory node or
-a caller-supplied address. **Deferred:** none.
+through the kernel's view of a `nodes` corpus on disk, with the address
+derived from that dataset's own declaration. Selected: no public field-wise
+constructor; the reader refuses anything but a `ReadView`; `ReadView` is
+sealed and final and its constructor refuses any corpus whose exact type is
+not `nodes.core.corpus.Corpus`, so neither an overriding subclass nor a view
+over a fabricated corpus object mints a row; there is no route that takes an
+in-memory node or a caller-supplied address. **The guarantee's edge, stated:**
+a `Corpus` over a directory whose records were written behind the kernel's
+boundaries is a corpus, and a row read from it is a real read of forged
+bytes — the raw-write class S8 names, which the audit's stamp discipline
+addresses and B3 does not. **Deferred:** none.
 
 ### B4 — closes
 
@@ -267,7 +274,8 @@ be silently split or merged after the freeze.
    over the walk and once by M8 over a belief; the facet-namespace
    collection dropped; the `science` agreement dropped; the domain agreement
    dropped), in `facet_read.py` (a field-wise constructor; the corpus-view
-   check dropped; re-validation skipped), in `evaluation.py` (an unheld
+   check dropped; re-validation skipped), in `corpus.py` (`ReadView`'s
+   exact-corpus check dropped), in `evaluation.py` (an unheld
    observed dataset fetched), in `belief.py` (the ledger taken from nowhere,
    cited by a check that derives a belief; observed addresses dropped from
    the closure nodes), in `closure.py` (the `observed_facets` member
@@ -303,6 +311,12 @@ falsified.
 3. M6 is re-read, not re-counted.
 4. The durable D6 arm is the dogfood shape only; the isolated case is
    portable.
+5. B3 authenticates the view, not the bytes: `nodes.core.corpus.Corpus` is
+   another repository's class and reads a directory; a directory of forged
+   records is a corpus. The exact-type check closes subclassing and
+   fabricated corpus objects; forged bytes are S8's and the audit's.
+6. The vocabulary snapshot's address and digest checks are the reproduction
+   tool's, not the kernel's (design §9 item 12).
 ```
 
 - [ ] **Step 4: Run the checks that guard documents**
@@ -1018,11 +1032,13 @@ git commit -m "feat(consulted): reach every slot sort's contract and refuse a pi
 - Create: `python/src/beliefs/facet_read.py`
 - Modify: `python/src/beliefs/errors.py` (add `FacetUndeclared` beside `FacetPayloadRefused`)
 - Modify: `python/src/beliefs/stored.py` (`dataset_node` gains `domain_facets`)
+- Modify: `python/src/beliefs/corpus.py` (`ReadView` sealed, final, exact-corpus constructor ~line 201)
 - Test: `python/tests/test_facet_read.py`
 
 **Interfaces:**
 - Produces: `FacetRead(address: str, key: str, payload_digest: str)` sealed, final, frozen, `init=False`, with `projection() -> list[str]` and a private `_minted(mint, *, address, key, payload_digest)`; `read_observed_facets(profile: ProfileSpec, view: ReadView, target: str) -> tuple[FacetRead, ...]` sorted by key, which **fetches** `target` from the corpus view and derives the address from the fetched dataset's declaration — there is no parameter for a node or an address; `FACET_READ_DOMAIN = "science.facet-read.v1"`; `FacetUndeclared(ScienceError)`; `stored.dataset_node(..., domain_facets: Mapping[str, Mapping[str, Any]] | None = None)`.
 - Consumes: `facets.validate_payload`, `beliefs.identity.v1.digest` (bare hex), `ProfileSpec.facets`, `corpus.ReadView` (`corpus.py` imports neither `belief`, `closure` nor `evaluation`, so the import is cycle-free).
+- Also produces: `ReadView` decorated `@sealed @final`, whose `__init__` refuses a corpus whose exact type is not `nodes.core.corpus.Corpus` (`MalformedRecord`). Nothing in `src` or `tests` subclasses `ReadView` (`_ImportView` and `_CheckView` are separate classes), and the two internal constructions at `corpus.py:684` and `corpus.py:2465` pass a real `Corpus`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1061,10 +1077,14 @@ def test_facet_read_has_no_field_wise_constructor():
         FacetRead(address="dataset:sha256:" + "a" * 64, key="biology/gene-axis", payload_digest="0" * 64)  # type: ignore[call-arg]
 
 
+def _facet_node():
+    return stored.dataset_node("d-a", title="d-a", resources=RESOURCES, domain_facets={"biology/gene-axis": {"axis": "rows"}})
+
+
 def test_the_reader_refuses_anything_but_a_corpus_view():
     """The public bypass B3 closes: an in-memory node, or any object shaped
     like a view, mints nothing."""
-    node = stored.dataset_node("d-a", title="d-a", resources=RESOURCES, domain_facets={"biology/gene-axis": {"axis": "rows"}})
+    node = _facet_node()
 
     class Shaped:
         def holds(self, ref: str) -> bool:
@@ -1077,6 +1097,47 @@ def test_the_reader_refuses_anything_but_a_corpus_view():
         read_observed_facets(WITH_BIOLOGY, Shaped(), "dataset:d-a")  # type: ignore[arg-type]
     with pytest.raises(MalformedRecord, match="corpus ReadView"):
         read_observed_facets(WITH_BIOLOGY, node, "dataset:d-a")  # type: ignore[arg-type]
+
+
+def test_a_view_cannot_be_subclassed_to_override_its_reads():
+    """The second bypass: a subclass whose `get` returns an in-memory node
+    would satisfy `isinstance`. `ReadView` is sealed, so the class statement
+    itself refuses."""
+    from beliefs.corpus import ReadView
+    from beliefs.errors import SubclassRefused
+
+    with pytest.raises(SubclassRefused):
+
+        class Overriding(ReadView):  # type: ignore[misc]
+            def get(self, ref: str):
+                return _facet_node()
+
+
+def test_a_view_over_a_fabricated_corpus_is_refused():
+    """The third bypass: an exact `ReadView` wrapping an object that is not
+    `nodes.core.corpus.Corpus`. The constructor checks the exact type; a
+    `Corpus` subclass from `nodes` is refused too, since only the exact class
+    is known to read a directory."""
+    from nodes.core.corpus import Corpus
+
+    from beliefs.corpus import ReadView
+
+    node = _facet_node()
+
+    class FakeCorpus:
+        def get(self, ref: str):
+            return node
+
+        def holds(self, ref: str) -> bool:
+            return True
+
+    class Derived(Corpus):
+        pass
+
+    with pytest.raises(MalformedRecord, match="exactly nodes.core.corpus.Corpus"):
+        ReadView(FakeCorpus())  # type: ignore[arg-type]
+    with pytest.raises(MalformedRecord, match="exactly nodes.core.corpus.Corpus"):
+        ReadView(Derived.__new__(Derived))
 
 
 def test_the_reader_mints_one_row_per_declared_domain_facet(tmp_path):
@@ -1139,7 +1200,36 @@ def test_dataset_node_refuses_an_unnamespaced_domain_facet():
 Run: `cd python && uv run --frozen pytest tests/test_facet_read.py -q`
 Expected: collection error, `No module named 'beliefs.facet_read'`.
 
-- [ ] **Step 3: Add the error class and the `domain_facets` parameter**
+- [ ] **Step 3: Seal the view, add the error class and the `domain_facets` parameter**
+
+In `python/src/beliefs/corpus.py`, `ReadView` becomes:
+
+```python
+@sealed
+@final
+class ReadView:
+    """The read-only facade. Concrete, not a protocol — see the module docstring.
+
+    Sealed and final, and built only over the exact `nodes` corpus class
+    (biology pack §5.2, B3): a `FacetRead` is a receipt for a read through
+    this facade, and a subclass overriding `get`, or a view over a fabricated
+    corpus object, would mint receipts for reads that never touched a corpus.
+    What this does **not** authenticate is the bytes: a `Corpus` over a
+    directory of forged records is a corpus (S8's raw-write class), and the
+    audit's stamp discipline is what meets that.
+    """
+
+    def __init__(self, corpus: Corpus) -> None:
+        if type(corpus) is not Corpus:
+            raise MalformedRecord(
+                f"a ReadView reads exactly nodes.core.corpus.Corpus, not {type(corpus).__name__}; a view over "
+                "anything else would hand out records no corpus holds (B3)"
+            )
+        self._corpus = corpus
+        self._base_pin_stamp: tuple[int, int] | None = None
+```
+
+with `from typing import final` and `from beliefs.sealed import sealed` added to the module's imports if absent. The line `        if type(corpus) is not Corpus:\n` is a Task 11 sabotage site (B3c). `opened_at` and the two internal constructions already pass a real `Corpus`; run `uv run --frozen pytest tests/test_corpus*.py tests/test_evaluation.py -q` after this edit to confirm nothing constructed a view another way.
 
 In `python/src/beliefs/errors.py`, after `FacetPayloadRefused`:
 
@@ -1295,8 +1385,8 @@ Expected: all pass. Then `uv run --frozen pyright` from `python/`: 0 errors.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add python/src/beliefs/facet_read.py python/src/beliefs/errors.py python/src/beliefs/stored.py python/tests/test_facet_read.py
-git commit -m "feat(facet-read): mint reader-only FacetRead rows from declared domain facets"
+git add python/src/beliefs/facet_read.py python/src/beliefs/errors.py python/src/beliefs/stored.py python/src/beliefs/corpus.py python/tests/test_facet_read.py
+git commit -m "feat(facet-read): mint FacetRead rows only through a sealed view over a real corpus"
 ```
 
 ---
@@ -2287,6 +2377,41 @@ def test_concept_lines_are_canonical_sorted_and_terminated(tmp_path):
     assert concept_lines(tmp_path) == b"concept:a-thing\nconcept:b-thing\n"
 
 
+def test_the_snapshot_refuses_a_dataset_the_binding_does_not_name():
+    from hashlib import sha256
+
+    from reproduction.vocabulary import snapshot_over
+
+    from beliefs.contract.domain import VocabularyBinding
+    from beliefs.dataset import DatasetDeclaration, ResourceDeclaration, dataset_address
+
+    content = b"concept:a-thing\nconcept:b-thing\n"
+    digest = "sha256:" + sha256(content).hexdigest()
+    declared = DatasetDeclaration(resources=(ResourceDeclaration(name="mm30-concepts.txt", digest=digest),))
+    right = dataset_address(declared)
+    assert right is not None
+    bound_to_this = VocabularyBinding(namespace=None, release=None, dataset_identity=right.removeprefix("dataset:"))
+    bound_elsewhere = VocabularyBinding(namespace=None, release=None, dataset_identity="sha256:" + "f" * 64)
+    assert snapshot_over(declared, content, bound_to_this).resolve(bound_to_this, "concept:a-thing").value == "member"
+    with pytest.raises(RuntimeError, match="binds dataset:sha256:f"):
+        snapshot_over(declared, content, bound_elsewhere)
+
+
+def test_the_snapshot_refuses_a_copy_that_is_not_the_dataset():
+    from hashlib import sha256
+
+    from reproduction.vocabulary import snapshot_over
+
+    from beliefs.contract.domain import VocabularyBinding
+    from beliefs.dataset import DatasetDeclaration, ResourceDeclaration, dataset_address
+
+    content = b"concept:a-thing\n"
+    declared = DatasetDeclaration(resources=(ResourceDeclaration(name="mm30-concepts.txt", digest="sha256:" + sha256(content).hexdigest()),))
+    binding = VocabularyBinding(namespace=None, release=None, dataset_identity=dataset_address(declared).removeprefix("dataset:"))  # type: ignore[union-attr]
+    with pytest.raises(RuntimeError, match="does not hash"):
+        snapshot_over(declared, b"concept:a-thing\nconcept:smuggled\n", binding)
+
+
 def test_a_non_canonical_concept_id_refuses(tmp_path):
     from reproduction.concepts import concept_lines
 
@@ -2505,31 +2630,44 @@ def concept_binding() -> VocabularyBinding:
     return contract().sorts["concept"].vocabulary
 
 
-def snapshot() -> ResolutionSnapshot:
-    """The held concept list is read back and supplied as readable; HGNC is
-    not held and stays `not-consulted` (design §6.3, §9 item 2).
-
-    The copy beside `state.json` is an instrument, not the vocabulary: before
-    a single member is asserted, its bytes are hashed and compared to the
-    resource digest the **minted dataset record** declares — read from the
-    corpus, not from state — and a mismatch refuses. Editing the copy cannot
-    change membership while the contract names the original."""
+def snapshot_over(declared: DatasetDeclaration, content: bytes, binding: VocabularyBinding) -> ResolutionSnapshot:
+    """Two checks tie the terms to the vocabulary the contract binds, then the
+    snapshot is built (design §6.3). First the **dataset is the binding's**:
+    the declaration's derived address must equal `dataset:<the binding's
+    dataset identity>`, so a stale `concepts_ref` naming some other held
+    vocabulary refuses even with a matching copy beside it. Then the **copy is
+    the dataset**: its bytes must hash to the resource digest that declaration
+    carries. Only then are its lines asserted as members."""
     from hashlib import sha256
 
+    address = dataset_address(declared)
+    if binding.dataset_identity is None or address != f"dataset:{binding.dataset_identity}":
+        raise RuntimeError(
+            f"the fetched vocabulary dataset is {address}, but the `concept` sort binds "
+            f"dataset:{binding.dataset_identity}; membership is measured against the dataset the contract names"
+        )
+    (resource,) = declared.resources
+    if "sha256:" + sha256(content).hexdigest() != resource.digest:
+        raise RuntimeError(
+            f"the concept copy does not hash to the held vocabulary's declared digest {resource.digest}; "
+            "membership is measured against the dataset the contract binds, never against an edited copy"
+        )
+    return build_snapshot(readable={binding: content.decode("utf-8").splitlines()})
+
+
+def snapshot() -> ResolutionSnapshot:
+    """The held concept list, read back through `snapshot_over`'s two checks;
+    HGNC is not held and stays `not-consulted` (design §6.3, §9 item 2)."""
     from beliefs import stored
     from reproduction import world
 
     st = state.load()
     content = Path(st["concepts_file"]).read_bytes()
     declared = stored.dataset_declaration(world.open_writer().read_view.get(st["concepts_ref"]))
-    (resource,) = declared.resources
-    if "sha256:" + sha256(content).hexdigest() != resource.digest:
-        raise RuntimeError(
-            f"{st['concepts_file']} does not hash to the held vocabulary's declared digest {resource.digest}; "
-            "membership is measured against the dataset the contract binds, never against an edited copy"
-        )
-    return build_snapshot(readable={concept_binding(): content.decode("utf-8").splitlines()})
+    return snapshot_over(declared, content, concept_binding())
 ```
+
+Add `from beliefs.dataset import DatasetDeclaration, dataset_address` to the module's imports.
 
 - [ ] **Step 5: Write `concepts.py` (step 1b)**
 
@@ -2794,6 +2932,9 @@ CUT22_ARMS = (
     Arm("B3b", "mint over anything shaped like a view",
         Sabotage(_READ, "    if not isinstance(view, ReadView):\n", "    if False:\n"),
         (f"{_TFR}::test_the_reader_refuses_anything_but_a_corpus_view",)),
+    Arm("B3c", "a view over a fabricated corpus",
+        Sabotage("corpus.py", "        if type(corpus) is not Corpus:\n", "        if False:\n"),
+        (f"{_TFR}::test_a_view_over_a_fabricated_corpus_is_refused",)),
     Arm("B4a", "skip re-validation",
         Sabotage(_READ, "        validate_payload(facet, payload, where=node.id)\n", "        pass\n"),
         (f"{_TFR}::test_a_malformed_payload_refuses_the_derivation",)),
@@ -2840,7 +2981,7 @@ Create `python/tests/acceptance/test_n2_cut22.py` by copying `test_n2_cut21.py` 
 def test_the_inventory_is_exactly_the_nine_frozen_units() -> None:
     assert DECLARATION_UNITS == ("B1", "B2", "B3", "B4", "B5", "B6", "B7", "D6", "M8")
     assert {unit_of(arm.row) for arm in CUT22_ARMS} == set(DECLARATION_UNITS)
-    assert len(CUT22_ARMS) == 16
+    assert len(CUT22_ARMS) == 17
 ```
 
 and the freeze assertions to `assert "**9 declaration units**" in current`, `assert "Nine guarantee rows are read, **9 full/closed** (B1–B7, D6, M8), 1 partial" in current`, `assert '("cut21_acceptance.py",)' in current`. `_frozen_body` slices from `## 2. The boundary` to the first `\n## 8.` or end of file, as cut 21's does.
@@ -2938,7 +3079,7 @@ Expected: every arm `sound`; the freeze pin test passes. Then:
 cd python && uv run --frozen python tools/cut22_acceptance.py
 ```
 
-Expected: exit 0 and the printed `declared arms: 16 (= 9 declaration units; 9 guarantee rows)`. A `CapabilityUnavailable` refusal means the tuple needs recertification (`atoms-recertify.timer`), not a regression; wait for it and re-run.
+Expected: exit 0 and the printed `declared arms: 17 (= 9 declaration units; 9 guarantee rows)`. A `CapabilityUnavailable` refusal means the tuple needs recertification (`atoms-recertify.timer`), not a regression; wait for it and re-run.
 
 - [ ] **Step 7: Commit**
 

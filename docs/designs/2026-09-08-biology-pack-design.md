@@ -450,11 +450,19 @@ view and derives the address from the declaration it fetched. A private
 mint token alone would not establish provenance — a reader accepting an
 in-memory node and an independent address would mint a valid row without
 touching a corpus (plan review of 2026-09-08) — so the constructor's
-arguments are part of the guarantee. A ledger therefore cannot be authored
-by a caller and handed to the walk; F §5.6's "never from a caller" becomes a
-property of the type and of its one constructor's inputs. The class carries
-`address`, `key`, `payload_digest`, and a `projection()` of the three in
-that order.
+arguments are part of the guarantee, and so is the view: `ReadView` becomes
+sealed and final, and its constructor refuses any corpus whose exact type is
+not `nodes.core.corpus.Corpus`, because an overriding subclass or a view
+over a fabricated corpus object would otherwise mint receipts for reads that
+touched nothing (second plan review, same day). **The edge is stated rather
+than hidden:** the view is authenticated, the bytes are not. A `Corpus` over
+a directory of forged records is a corpus, and a row read from it is a real
+read of forged bytes — the raw-write class S8 names, met by the audit's
+stamp discipline, not by this type (§9 item 11). A ledger therefore cannot
+be authored by a caller and handed to the walk; F §5.6's "never from a
+caller" becomes a property of the type, of its one constructor's inputs, and
+of the view those inputs come through. The class carries `address`, `key`,
+`payload_digest`, and a `projection()` of the three in that order.
 
 ### 5.3 `Records`, and the walk
 
@@ -599,7 +607,13 @@ The kernel defines **no vocabulary file format** and reads no vocabulary
 bytes; `build_snapshot(readable={binding: terms})` is built by the caller
 from what it read, as today. The reproduction reads the held bytes back and
 supplies them, so the first `member` outcome a derivation sees is measured
-by the tool, not by the kernel. §12 files the kernel-side reader.
+by the tool, not by the kernel. Before a member is asserted the tool checks
+two things: the dataset it fetched **is the binding's** — its derived
+address equals the `concept` sort's bound dataset identity, so a stale
+reference to some other held vocabulary refuses even with a matching copy —
+and the copy **is the dataset**, hashing to the resource digest the record
+declares. §12 files the kernel-side reader that would make both checks the
+kernel's.
 
 ### 6.4 The reproduction re-run
 
@@ -635,7 +649,7 @@ fails:
 |---|---|---|---|
 | **B1** | A slot sort resolves or refuses, at the right stage | bare name undeclared → refused at parse; `mm30/concept` inside `mm30` → refused at parse; `science/x` → refused at parse; `biology/molecular-entity` compiled with `biology` → resolves to that term; compiled without it → refused at compile with `biology` named; `restriction_sort` takes both forms identically | the resolver namespacing a namespaced name twice → the resolution test fails |
 | **B2** | The consulted walk reaches every sort's contract, and facet namespaces are collected on their own | the dogfood claim consults `{science, mm30, biology}`; a same-contract operator's set is unchanged from cut 2; a corpus pinning `mm30` only → `ContractDisagreement` naming `biology`; the isolated case (§5.6) consults `biology` through the ledger alone | the walk adding the operator's contract alone → the dogfood set lacks `biology`; the walk not collecting facet namespaces → the isolated case's set lacks `biology`; either test fails |
-| **B3** | `FacetRead` is minted by the corpus reader only, over a dataset it fetched | no public field-wise constructor, no cast from a mapping; the reader refuses anything but a `ReadView` and takes no node and no address, deriving the address from the fetched declaration | a field-wise constructor added → the opacity test fails; the view check dropped → an in-memory node shaped like a view mints a row, the bypass test fails |
+| **B3** | `FacetRead` is minted by the corpus reader only, over a dataset it fetched through the kernel's view of a `nodes` corpus | no public field-wise constructor, no cast from a mapping; the reader refuses anything but a `ReadView`; `ReadView` is sealed and final and refuses any corpus whose exact type is not `nodes.core.corpus.Corpus`; the reader takes no node and no address, deriving the address from the fetched declaration | a field-wise constructor added → the opacity test fails; the view check dropped → an object shaped like a view mints a row; the exact-corpus check dropped → a view over a fabricated corpus mints a row; each bypass test fails |
 | **B4** | Every read is validated, and only held datasets are read | a declared facet failing its schema → `Refused("facet-payload-refused…")`; an undeclared namespaced key → `Refused("facet-undeclared…")`; through `gather` with an observed dataset node absent from the view → the run value carries no such input, no `FacetRead` and no `observes` entry exist, nothing refuses | the reader skipping re-validation → the refusal test passes a bad payload and fails; the reader fetching by address outside the run value → the absent-dataset test fails |
 | **B5** | Observed facets enter the digest through the one carrier | payload byte change, every other member fixed → digest moves; the member is present and empty when nothing was read; the rows the closure digests are the rows the walk consumed | the closure omitting the member → the byte-change test fails; the walk taking its ledger from anywhere but `observed_facets` → the isolated case fails (B2) |
 | **B7** | A consulted namespace's pin agrees with the profile | pins built from the profile → the walk proceeds; `science` pinned to another identity → `Refused("profile-pin-mismatch: science")`; a consulted domain pinned to another revision → refused naming it; an unconsulted domain pinned to anything → not compared, unchanged from cut 2 | the agreement check dropped → the mismatch test validates under one revision and digests another, and fails |
@@ -694,6 +708,14 @@ a refusal there is a finding through the owning lane, never a workaround.
     documents, named here because §5.1 reads through it; preserving
     unresolved `observes` addresses is `world-resolution`'s cross-corpus
     read, not this slice's.
+11. **B3 authenticates the view, not the bytes.** `nodes.core.corpus.Corpus`
+    is another repository's class and reads a directory; the exact-type
+    check closes subclassing and fabricated corpus objects, and a directory
+    of forged records remains S8's raw-write class, met by the audit.
+12. **The vocabulary snapshot's two checks are the tool's.** The reproduction
+    ties the held copy to the binding's dataset by address and digest before
+    asserting a member (§6.3); the kernel's snapshot builder still trusts its
+    caller, which is §12's first open question.
 
 ## 10. What changes elsewhere
 
