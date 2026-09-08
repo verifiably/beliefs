@@ -1,11 +1,12 @@
 ---
 id: beliefs-1ce152
 title: Plan biology slice 2 against the landed facet contracts
-status: todo
+status: doing
 priority: 2
 size: m
+owner: feat/domain-boundary-slice2
 created: 2026-09-07T17:15:37Z
-updated: 2026-09-07T17:15:37Z
+updated: 2026-09-08T09:50:00Z
 depends: []
 parent: beliefs-bc3aff
 tags: [domain, design]
