@@ -19,7 +19,7 @@ from types import MappingProxyType
 from typing import final
 
 from beliefs.claim import Claim
-from beliefs.errors import ContractDisagreement, MalformedRecord
+from beliefs.errors import ContractDisagreement, ContractMismatch, MalformedRecord
 from beliefs.profile import ProfileSpec
 from beliefs.sealed import sealed
 
@@ -69,14 +69,28 @@ def consulted_contracts(
             f"corpora {corpora} pin different science_contracts {sorted(base_identities)}; "
             "refused, never merged, never resolved by recency"
         )
-    consulted: dict[str, str] = {BASE_NAMESPACE: base_identities.pop()}
+    base_identity = base_identities.pop()
+    if base_identity != "science:" + profile.base_contract_identity:
+        raise ContractMismatch(
+            f"profile-pin-mismatch: science is pinned {base_identity[:20]}… but the profile carries "
+            f"science:{profile.base_contract_identity[:12]}…; a derivation validates and digests under one identity, "
+            "never two (biology pack §5.3a)"
+        )
+    consulted: dict[str, str] = {BASE_NAMESPACE: base_identity}
 
-    # Each domain contract only if actually read: the claim schema is the route
-    # in this slice — the operator's declaring namespace (ρA6). Activated-but-
-    # unread namespaces stay out; "activated" is the pin set itself.
+    # Each domain contract only if actually read. A claim reaches its
+    # contract through the operator, and through every sort and dimension the
+    # operator declares (D §8, ρA6); a facet read reaches its namespace.
     read: set[str] = set()
     for claim in claims.values():
-        read.add(profile.operator(claim.operator).contract)
+        operator = profile.operator(claim.operator)
+        read.add(operator.contract)
+        for sort in operator.arg_sorts:
+            read.add(profile.sorts[sort].contract)
+        for dimension in operator.dimensions:
+            declared = profile.dimensions[dimension]
+            read.add(declared.contract)
+            read.add(profile.sorts[declared.restriction_sort].contract)
     for node, keys in facets_read.items():
         if node not in closure_nodes:
             raise MalformedRecord(
@@ -98,5 +112,13 @@ def consulted_contracts(
                 f"namespace {namespace!r} resolves to {sorted(identities)} across corpora {corpora}; "
                 "one derivation, one identity per namespace (D §8.1)"
             )
-        consulted[namespace] = identities.pop()
+        identity = identities.pop()
+        expected = profile.activated_contracts.get(namespace)
+        if identity != f"{namespace}:{expected}":
+            raise ContractMismatch(
+                f"profile-pin-mismatch: {namespace} is pinned {identity[:20]}… but the profile carries "
+                f"{namespace}:{str(expected)[:12]}…; a derivation validates and digests under one identity, "
+                "never two (biology pack §5.3a)"
+            )
+        consulted[namespace] = identity
     return tuple(sorted(consulted.items()))

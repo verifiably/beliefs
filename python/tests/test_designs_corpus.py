@@ -287,6 +287,8 @@ _COUNT_WORDS = {
     52: "Fifty-two",
     53: "Fifty-three",
     54: "Fifty-four",
+    55: "Fifty-five",
+    56: "Fifty-six",
 }
 
 

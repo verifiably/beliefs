@@ -30,6 +30,7 @@ import pytest
 from authority import ACTOR
 from fixtures_cut4 import path_for
 from nodes.core.node import Node
+from profiles import pins_for
 from test_audit import forged_single_over_two_producers
 from test_belief import PROFILE
 from test_decode import ADULTS, COHORT_DATASET
@@ -53,7 +54,6 @@ from beliefs import relocation, stored
 from beliefs.audit import NO_EVIDENCE, audit_corpus
 from beliefs.belief import Availability, Belief, SuppliedContext
 from beliefs.closure import RetractionEnumeration
-from beliefs.consulted import CorpusPins
 from beliefs.contract import load_domain_contract
 from beliefs.corpus import CorpusWriter, ReadView, corpus_check, lineage_snapshot, standing_in_local_view
 from beliefs.decode import claim_from_stored
@@ -118,7 +118,7 @@ class Scenario:
             producer_snapshot_identity="producer-snapshot-1",
             retractions=RetractionEnumeration(found=(), coverage=("c1",)),
             node_corpus={value.identity(): "c1" for value in self.values.values()},
-            pins={"c1": CorpusPins(science_contract="sci-1", domains={"testing": "testing-1"})},
+            pins={"c1": pins_for(PROFILE)},
         )
 
     def belief(self) -> Belief:

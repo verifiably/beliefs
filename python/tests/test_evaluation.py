@@ -22,13 +22,13 @@ from authority import ACTOR
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 from nodes.core.relations import Relation
+from profiles import pins_for
 from test_belief import CLAIM as EXPECTED_CLAIM
 from test_belief import PROFILE
 
 from beliefs import stored
 from beliefs.belief import Availability, Belief, NoBelief, Refused, SuppliedContext, evaluate
 from beliefs.closure import RetractionEnumeration
-from beliefs.consulted import CorpusPins
 from beliefs.contract.domain import VocabularyBinding
 from beliefs.corpus import CorpusWriter, ReadView, lineage_snapshot
 from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
@@ -251,7 +251,7 @@ def _fixture(
         producer_snapshot_identity="producer-snapshot-1",
         retractions=RetractionEnumeration(found=(), coverage=("c1",)),
         node_corpus={value.identity(): "c1" for value in values.values()},
-        pins={"c1": CorpusPins(science_contract="sci-1", domains={"testing": "testing-1"})},
+        pins={"c1": pins_for(PROFILE)},
     )
     return CorpusFixture(
         view=view,
@@ -300,6 +300,20 @@ def test_evaluate_over_is_the_corpus_backed_path_and_yields_a_belief(corpus_fixt
     assert result.value == 2  # two independent supports, as test_belief's scenario publishes
 
 
+def test_evaluate_over_maps_a_profile_pin_mismatch_to_refused(corpus_fixture):
+    context = replace(
+        corpus_fixture.context,
+        pins={"c1": replace(pins_for(PROFILE), science_contract="science:" + "0" * 64)},
+    )
+    result = evaluate_over(
+        corpus_fixture.view,
+        corpus_fixture.proposition,
+        **{**corpus_fixture.kwargs, "context": context},
+    )
+    assert isinstance(result, Refused)
+    assert result.reason.startswith("profile-pin-mismatch: science")
+
+
 def test_the_restored_claim_is_the_one_the_proposition_node_carries(corpus_fixture):
     inputs = gather(corpus_fixture.view, corpus_fixture.proposition, **corpus_fixture.gather_kwargs)
     assert inputs.claim is not None
@@ -309,7 +323,9 @@ def test_the_restored_claim_is_the_one_the_proposition_node_carries(corpus_fixtu
     # And it is the *same* claim `test_belief` builds through `build_claim`,
     # restored from stored bytes rather than constructed.
     assert claim_identity(inputs.claim) == claim_identity(EXPECTED_CLAIM)
-    assert inputs.consulted == (("science", "sci-1"), ("testing", "testing-1"))
+    assert inputs.consulted == tuple(
+        sorted((("science", pins_for(PROFILE).science_contract), ("testing", pins_for(PROFILE).domains["testing"])))
+    )
 
 
 def test_m1_every_read_through_the_resolver_is_inside_the_declared_closure(corpus_fixture):
@@ -375,7 +391,7 @@ def test_a_proposition_with_no_claim_record_consults_only_the_base_contract(clai
     inputs = gather(claimless_fixture.view, claimless_fixture.proposition, **claimless_fixture.gather_kwargs)
     assert inputs.claim is None
     assert dict(inputs.records().claims) == {}
-    assert inputs.consulted == (("science", "sci-1"),)
+    assert inputs.consulted == (("science", pins_for(PROFILE).science_contract),)
     assert "proposition" not in {kind for kind, _ in inputs.read_trace}
     assert set(inputs.read_trace) <= inputs.declared_refs()
 

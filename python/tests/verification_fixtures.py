@@ -17,6 +17,7 @@ from fixtures_cut3 import closure_with, planned, spec_draft, spec_rules, traced
 from fixtures_cut4 import raw_write
 from nodes.core.node import Node
 from nodes.core.relations import Relation
+from profiles import pins_for
 from test_belief import PROFILE
 from test_evaluation import CLAIM_FACET, EX, GENE, OTHER_GENE, PHENO
 
@@ -25,7 +26,6 @@ from beliefs.admission import admit
 from beliefs.assess import build_assessment
 from beliefs.belief import Availability, SuppliedContext
 from beliefs.closure import RetractionEnumeration
-from beliefs.consulted import CorpusPins
 from beliefs.corpus import lineage_snapshot
 from beliefs.dataset import ByteObservation, dataset_address
 from beliefs.evaluation import evaluate_over, gather
@@ -187,7 +187,7 @@ def evaluation_kwargs(view) -> dict:
             producer_snapshot_identity="producer-snapshot-1",
             retractions=RetractionEnumeration(found=(), coverage=("c1",)),
             node_corpus={identity: "c1" for identity in identities},
-            pins={"c1": CorpusPins(science_contract="sci-1", domains={"testing": "testing-1"})},
+            pins={"c1": pins_for(PROFILE)},
         ),
         "profile": PROFILE,
         "resolution": build_snapshot(readable={EX: [GENE, PHENO, OTHER_GENE]}),

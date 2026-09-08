@@ -37,6 +37,8 @@ sources:
   - ../designs/2026-09-05-writer-session-design.md
   - ../designs/2026-09-05-conformance-cut-19.md
   - ../designs/2026-09-06-conformance-cut-21.md
+  - ../designs/2026-09-08-biology-pack-design.md
+  - ../designs/2026-09-08-conformance-cut-22.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
   - ../plans/2026-08-29-conformance-cut-12-results.md
   - ../plans/2026-09-01-conformance-cut-13-results.md

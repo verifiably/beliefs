@@ -16,6 +16,7 @@ from typing import TypedDict, cast
 
 import pytest
 import yaml
+from profiles import pins_for
 
 from beliefs.belief import (
     NO_BELIEF_REASONS,
@@ -160,7 +161,7 @@ def scenario(**overrides: object) -> _Scenario:
         producer_snapshot_identity="producer-snapshot-1",
         retractions=RetractionEnumeration(found=(), coverage=("c1",)),
         node_corpus={a1.identity(): "c1", a2.identity(): "c1"},
-        pins={"c1": CorpusPins(science_contract="sci-1", domains={"testing": "testing-1"})},
+        pins={"c1": pins_for(PROFILE)},
     )
     kwargs: dict[str, object] = {
         "proposition": PROPOSITION,
@@ -445,6 +446,16 @@ class TestG8AFailingVerificationForcesADifferentAnswer:
 
 
 class TestD7AtTheEvaluator:
+    def test_a_profile_pin_mismatch_refuses_with_its_distinct_prefix(self):
+        kwargs = scenario()
+        context = replace(
+            kwargs["context"],
+            pins={"c1": replace(pins_for(PROFILE), science_contract="science:" + "0" * 64)},
+        )
+        result = evaluate(**scenario(context=context))
+        assert isinstance(result, Refused)
+        assert result.reason.startswith("profile-pin-mismatch: science")
+
     def test_disagreeing_corpora_refuse_the_derivation(self):
         kwargs = scenario()
         a1, a2 = kwargs["records"].assessments
@@ -452,8 +463,11 @@ class TestD7AtTheEvaluator:
             kwargs["context"],
             node_corpus={a1.identity(): "c1", a2.identity(): "c2"},
             pins={
-                "c1": CorpusPins(science_contract="sci-1", domains={"testing": "testing-1"}),
-                "c2": CorpusPins(science_contract="sci-1", domains={"testing": "testing-2"}),
+                "c1": pins_for(PROFILE),
+                "c2": CorpusPins(
+                    science_contract=pins_for(PROFILE).science_contract,
+                    domains={**pins_for(PROFILE).domains, "testing": "testing:" + "2" * 64},
+                ),
             },
         )
         result = evaluate(**scenario(context=context))

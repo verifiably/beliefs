@@ -34,6 +34,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import final
 
+from beliefs import errors
 from beliefs.admission import AdmissionRefused, Admitted, admit
 from beliefs.claim import Claim
 from beliefs.closure import RetractionEnumeration, build_closure
@@ -227,6 +228,8 @@ def evaluate(
         )
     except ContractDisagreement as exc:
         return Refused(f"consulted-contracts-disagree: {exc}")
+    except errors.ContractMismatch as exc:
+        return Refused(str(exc))  # already prefixed `profile-pin-mismatch: <namespace>` by the walk
 
     # 3. The exact binding must be held here — fixtures, then implementation.
     if binding.rule not in availability.fixtures:

@@ -46,7 +46,7 @@ from beliefs.consulted import consulted_contracts
 from beliefs.corpus import ReadView, run_value
 from beliefs.dataset import dataset_address
 from beliefs.decode import claim_from_stored
-from beliefs.errors import ContractDisagreement
+from beliefs.errors import ContractDisagreement, ContractMismatch
 from beliefs.lineage import LineageSnapshot
 from beliefs.policy import PolicyBinding
 from beliefs.profile import ProfileSpec
@@ -250,6 +250,8 @@ def evaluate_over(
         inputs = gather(view, proposition, context=context, profile=profile, resolution=resolution, binding=binding)
     except ContractDisagreement as exc:
         return Refused(f"consulted-contracts-disagree: {exc}")
+    except ContractMismatch as exc:
+        return Refused(str(exc))
     return evaluate(
         proposition=proposition,
         records=inputs.records(),

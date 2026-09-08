@@ -424,3 +424,12 @@ every entry is navigational.
    the `nodes` deltas. A7's engine half landed 2026-08-14 and A8 landed
    2026-08-17; the stop-rule outcome remains unchanged. Whichever prerequisite
    set lands first likely names the cut.
+
+> **Amended 2026-09-08 (biology pack design §5.3a, §10).** The consulted walk
+> now reaches every claim's sort and dimension contracts and refuses a
+> consulted namespace whose pin disagrees with the profile. Cut 2's D6 arm
+> "consulting every pinned namespace" is re-pointed at the landed lines of
+> `consulted.py` in `n2_arms_cut2.py` (fix the arm, never the source); its two
+> checks and `test_closure.py`'s two D6 checks keep their names and their
+> assertions and bump a compiled profile rather than a pin string. Commit:
+> the one that lands this amendment.

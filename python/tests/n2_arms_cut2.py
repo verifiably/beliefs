@@ -624,9 +624,17 @@ _M8 = [
             before=(
                 "    read: set[str] = set()\n"
                 "    for claim in claims.values():\n"
-                "        read.add(profile.operator(claim.operator).contract)"
+                "        operator = profile.operator(claim.operator)\n"
+                "        read.add(operator.contract)"
             ),
-            after=("    read: set[str] = set()\n    for corpus in corpora:\n        read.update(pins[corpus].domains)"),
+            after=(
+                "    read: set[str] = set()\n"
+                "    for corpus in corpora:\n"
+                "        read.update(pins[corpus].domains)\n"
+                "    for claim in claims.values():\n"
+                "        operator = profile.operator(claim.operator)\n"
+                "        read.add(operator.contract)"
+            ),
         ),
         checks=("test_closure.py::test_an_activated_but_unconsulted_bump_is_absent",),
     ),
@@ -662,9 +670,17 @@ _D6 = [
             before=(
                 "    read: set[str] = set()\n"
                 "    for claim in claims.values():\n"
-                "        read.add(profile.operator(claim.operator).contract)"
+                "        operator = profile.operator(claim.operator)\n"
+                "        read.add(operator.contract)"
             ),
-            after=("    read: set[str] = set()\n    for corpus in corpora:\n        read.update(pins[corpus].domains)"),
+            after=(
+                "    read: set[str] = set()\n"
+                "    for corpus in corpora:\n"
+                "        read.update(pins[corpus].domains)\n"
+                "    for claim in claims.values():\n"
+                "        operator = profile.operator(claim.operator)\n"
+                "        read.add(operator.contract)"
+            ),
         ),
         checks=("test_consulted.py::TestTheWalk::test_an_activated_but_unread_namespace_stays_out",),
     ),
@@ -673,9 +689,9 @@ _D6 = [
         asserts="the base contract's consultation is unconditional — not gated on whether any claim reads a base facet",
         sabotage=Sabotage(
             module="consulted.py",
-            before="        consulted[namespace] = identities.pop()\n    return tuple(sorted(consulted.items()))",
+            before="        consulted[namespace] = identity\n    return tuple(sorted(consulted.items()))",
             after=(
-                "        consulted[namespace] = identities.pop()\n"
+                "        consulted[namespace] = identity\n"
                 "    if not read:\n"
                 "        consulted.pop(BASE_NAMESPACE, None)\n"
                 "    return tuple(sorted(consulted.items()))"

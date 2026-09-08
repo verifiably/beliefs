@@ -1,5 +1,6 @@
 # Conformance cut 22 — the biology pack, the cross-contract slot, the domain-facet read
 
+**Status:** frozen 2026-09-08 before implementation.
 **Frozen:** 2026-09-08, before implementation, on `feat/domain-boundary-slice2`.
 **Design:** `2026-09-08-biology-pack-design.md`, reviewed 2026-09-08 (three findings, all in the design's status header).
 **Numbered after** cut 21 (concurrency rule 1) and **serialized after** cut 21's discharge, which landed on `main` at `03471da` on 2026-09-08 (rule 5).

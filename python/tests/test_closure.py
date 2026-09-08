@@ -10,6 +10,7 @@ import inspect
 from dataclasses import replace
 
 import pytest
+from profiles import pins_for
 
 from beliefs.closure import Closure, RetractionEnumeration, build_closure
 from beliefs.consulted import CorpusPins, consulted_contracts
@@ -323,18 +324,20 @@ def test_an_editorial_bump_moves_the_belief_digest(base_contract, testing_docume
     assert mutated != baseline
 
 
+def _bumped(base_contract, testing_document, description: str):
+    document = copy.deepcopy(testing_document)
+    document["description"] = description
+    testing = domain.parse_domain_contract(document, source="<test>", base=base_contract, predecessor=None)
+    return compile_profile(base_contract, [testing])
+
+
 def test_an_activated_but_unconsulted_bump_is_absent(base_contract, testing_document):
     # M8 negative half + D6: an extra pinned-but-unread namespace is bumped;
     # the walk output — and hence the digest — is unchanged.
-    testing = domain.parse_domain_contract(testing_document, source="<test>", base=base_contract, predecessor=None)
-    profile = compile_profile(base_contract, [testing])
-
-    pins_v1 = CorpusPins(
-        science_contract="science-id-1", domains={"testing": "testing-id-1", "unrelated": "unrelated-id-1"}
-    )
-    pins_v2 = CorpusPins(
-        science_contract="science-id-1", domains={"testing": "testing-id-1", "unrelated": "unrelated-id-2"}
-    )
+    profile = _bumped(base_contract, testing_document, "v1")
+    real = pins_for(profile)
+    pins_v1 = CorpusPins(science_contract=real.science_contract, domains={**real.domains, "unrelated": "unrelated:" + "1" * 64})
+    pins_v2 = CorpusPins(science_contract=real.science_contract, domains={**real.domains, "unrelated": "unrelated:" + "2" * 64})
     consulted_v1 = consulted_contracts(
         claims={}, profile=profile, node_corpus={}, pins={"c1": pins_v1}, closure_nodes=()
     )
@@ -348,32 +351,37 @@ def test_an_activated_but_unconsulted_bump_is_absent(base_contract, testing_docu
     kwargs["consulted"] = consulted_v1
     baseline = build_closure(**kwargs).digest()
     kwargs["consulted"] = consulted_v2
-    mutated = build_closure(**kwargs).digest()
-    assert mutated == baseline
+    assert build_closure(**kwargs).digest() == baseline
 
 
-def test_the_base_contract_arm_at_the_eligibility_hinge(base_contract, testing_document):
-    # D6: bump the `science` pin in the walk's input; the digest moves even
-    # though this slice's closure reads no base-profile facet — there are none
-    # in this slice.
-    testing = domain.parse_domain_contract(testing_document, source="<test>", base=base_contract, predecessor=None)
-    profile = compile_profile(base_contract, [testing])
+def test_the_base_contract_arm_at_the_eligibility_hinge(base_contract, testing_document, base_contract_path):
+    # D6: bump the *base* contract editorially and pin the bumped profile;
+    # the digest moves even though this closure reads no base-profile facet.
+    # The base parser takes exact top-level fields, so the editorial edit
+    # goes on a facet's `description`, which `contract/facets.py` accepts.
+    import yaml
 
-    pins_v1 = CorpusPins(science_contract="science-id-1", domains={"testing": "testing-id-1"})
-    pins_v2 = CorpusPins(science_contract="science-id-2", domains={"testing": "testing-id-1"})
+    from beliefs.contract.base import parse_base_contract
+
+    document = yaml.safe_load(base_contract_path.read_text(encoding="utf-8"))
+    document["facets"]["empirical-observation"]["description"] = "bumped for the eligibility-hinge arm"
+    bumped_base = parse_base_contract(document, source="<bumped base>")
+    testing_v1 = domain.parse_domain_contract(testing_document, source="<test>", base=base_contract, predecessor=None)
+    testing_v2 = domain.parse_domain_contract(testing_document, source="<test>", base=bumped_base, predecessor=None)
+    profile_v1 = compile_profile(base_contract, [testing_v1])
+    profile_v2 = compile_profile(bumped_base, [testing_v2])
     consulted_v1 = consulted_contracts(
-        claims={}, profile=profile, node_corpus={}, pins={"c1": pins_v1}, closure_nodes=()
+        claims={}, profile=profile_v1, node_corpus={}, pins={"c1": pins_for(profile_v1)}, closure_nodes=()
     )
     consulted_v2 = consulted_contracts(
-        claims={}, profile=profile, node_corpus={}, pins={"c1": pins_v2}, closure_nodes=()
+        claims={}, profile=profile_v2, node_corpus={}, pins={"c1": pins_for(profile_v2)}, closure_nodes=()
     )
 
     kwargs = closure_kwargs()
     kwargs["consulted"] = consulted_v1
     baseline = build_closure(**kwargs).digest()
     kwargs["consulted"] = consulted_v2
-    mutated = build_closure(**kwargs).digest()
-    assert mutated != baseline
+    assert build_closure(**kwargs).digest() != baseline
 
 
 def test_reinterpretation_without_byte_changes_still_moves():
