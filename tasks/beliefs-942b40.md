@@ -1,11 +1,11 @@
 ---
 id: beliefs-942b40
 title: Re-pin cuts 7-13 to the rewritten cut-3 and cut-5 arms
-status: todo
+status: done
 priority: 1
 size: s
 created: 2026-09-07T09:29:37Z
-updated: 2026-09-07T17:56:02Z
+updated: 2026-09-08T02:33:14Z
 depends: []
 tags: [conformance, write-path]
 ---
@@ -23,3 +23,4 @@ Cut 21's runner chain cannot go green until this is resolved. Precedent for the 
 ## Notes
 
 - 2026-09-07T17:56:02Z (main): Facet-contract integration d5e203c and its local main landing include the live cut 7/9/11/12/13 guard migration; the actual cut20 aggregate now passes on main. Historical cut 8/10 are outside that live prefix and were not executed here; verify their remaining scope before changing frozen pins. This note does not close the historical remainder.
+- 2026-09-08T02:33:14Z (feat/verification-publication): Resolved by the freeze doctrine (docs/superpowers/specs/2026-09-07-frozen-guard-doctrine-design.md, commit 8b7fbc3). Cuts 7, 9, 11, 12, 13 were live and were re-pinned in the facet-contracts landing. Cuts 8 and 10 are cited-not-run: their pin tables are historical statements, never repaired, so cut 10's collision with cut 17's FROZEN_CUT10_SHA256 dissolves rather than needing a ruling to break it. The three falsified pins are recorded in python/tests/cited_not_run.py. Cut 21's chain was never blocked by this - it roots at cut 17, whose inventory holds neither guard.

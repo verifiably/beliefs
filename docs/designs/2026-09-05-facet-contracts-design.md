@@ -808,3 +808,20 @@ admitted.
   adoption; the contract cut.
 - **The read ledger behind `facets_read`** (§5.6). Claims and belief; slice
   2 of this lane.
+
+## 15. Citation amendment — 2026-09-07
+
+The `verification` facet's declaration in the base contract now names
+`verify.decode_verification`, the reader the verification-publication slice
+added over the whole stored record. §3.2's reader table row for that facet
+reads, as of this amendment: **`verification_value`, `verification_derivation`,
+`decode_verification`**.
+
+The verification-publication design's §11 asks for that reader to be named "as
+a third reader"; the compiled shape does not admit a list. `contract/facets.py`
+permits exactly `{shape, description, reader}` for a reader-shaped facet,
+requires `reader` to be one non-empty string, and then **discards it** —
+`FacetDecl` keeps no reader name, so the declaration is documentation for a
+reader of record and nothing consumes it. The line therefore names the reader
+that decodes the whole facet today, and this table row is where all three are
+recorded. Cut 21's results record carries the same substitution, dated.

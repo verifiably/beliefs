@@ -1,12 +1,12 @@
 ---
 id: beliefs-754995
 title: Deliver verification publication
-status: doing
+status: done
 priority: 1
 size: l
 owner: feat/verification-publication
 created: 2026-09-05T20:00:55Z
-updated: 2026-09-07T09:30:05Z
+updated: 2026-09-08T03:35:02Z
 depends: [beliefs-afbbff, beliefs-942b40]
 tags: [write-path, verification]
 ---
@@ -16,3 +16,4 @@ The write-path lane's second boundary (roadmap tier 1, on the path, #2): durable
 ## Notes
 
 - 2026-09-07T09:29:05Z (main): Implementation landed on main at 965fe7f (slice merged --no-ff; branch feat/verification-publication deleted). Tasks 0-11 of the plan are complete: V1-V8 are implemented and the portable suite is green at 3739 passed. This task stays open because cut 21 is UNDISCHARGED — the plan's Task 12 needs the domain lane's cut 20 discharged and merged into main first, and cut 20 is not on main. Every ruling made during execution, and the residuals handed forward, are in docs/plans/2026-09-06-verification-publication-execution.md.
+- 2026-09-08T03:35:02Z (feat/verification-publication): cut 21 discharged: V1-V8 closed, R19's stored-verification limitation lifted; results record and re-rank landed
