@@ -64,6 +64,7 @@ __all__ = [
     "compile_profile",
     "shipped_base",
     "shipped_base_contract",
+    "shipped_domain_contract",
 ]
 
 PROFILE_DOMAIN = "science.profile.v1"
@@ -82,6 +83,22 @@ def shipped_base_contract() -> BaseContract:
     source = "beliefs/contracts/science/CONTRACT.yaml"
     text = resources.files("beliefs").joinpath("contracts/science/CONTRACT.yaml").read_text(encoding="utf-8")
     return parse_base_contract(parse_document(text, source=source), source=source)
+
+
+@cache
+def shipped_domain_contract(namespace: str) -> DomainContract:
+    """Parse a domain contract carried by this package, against the shipped base."""
+    from beliefs.contract.document import parse_document
+    from beliefs.contract.domain import parse_domain_contract
+
+    source = f"beliefs/domains/{namespace}/DOMAIN.yaml"
+    resource = resources.files("beliefs").joinpath(f"domains/{namespace}/DOMAIN.yaml")
+    if not resource.is_file():
+        raise ProfileError(f"this package ships no domain contract for namespace {namespace!r}")
+    text = resource.read_text(encoding="utf-8")
+    return parse_domain_contract(
+        parse_document(text, source=source), source=source, base=shipped_base_contract(), predecessor=None
+    )
 
 
 @cache
