@@ -117,7 +117,8 @@ In scope:
 - `consulted.py`: the sort- and dimension-contract collection, the
   `science` and per-namespace pin agreement, `facets_read` derived from
   `FacetRead` rows over closure nodes that include observed addresses;
-- `facet_read.py`: `FacetRead`, its minting classmethod, `read_domain_facets`;
+- `facet_read.py`: `FacetRead`, its minting classmethod, `read_observed_facets`
+  over a `ReadView` and a target ref;
 - `belief.py`: `Records.observed_facets`, the closure-node widening, the
   `ContractMismatch` → `Refused("profile-pin-mismatch")` mapping;
 - `evaluation.py`: `gather`'s observed-dataset read, `EvaluationInputs.observed_facets`,
@@ -152,17 +153,21 @@ naming `testing`; `restriction_sort` takes both forms identically.
 ### B2 — closes
 
 The consulted walk reaches every sort's contract, and facet namespaces are
-collected on their own. Selected: the crossing claim consults
-`{science, crossing, testing}`; a same-contract operator's set is unchanged
-from cut 2; a corpus pinning the operator's contract only →
-`ContractDisagreement` naming the sort's namespace; the isolated case
-consults `biology` through the ledger alone. **Deferred:** none.
+collected on their own. Selected: a claim at `crossing/affects-local-entity`,
+whose only route to `testing` is slot 1's argument sort (the operator
+declares no dimension), consults `{science, crossing, testing}`; a
+same-contract operator's set is unchanged from cut 2; a corpus pinning the
+operator's contract only → `ContractDisagreement` naming the sort's
+namespace; the isolated case consults `biology` through the ledger alone.
+**Deferred:** none.
 
 ### B3 — closes
 
-`FacetRead` is minted by the reader only. Selected: no public field-wise
-constructor; the reader's classmethod is the only route in.
-**Deferred:** none.
+`FacetRead` is minted by the corpus reader only, over a dataset it fetched
+from a corpus view, with the address derived from that dataset's own
+declaration. Selected: no public field-wise constructor; the reader refuses
+anything but a `ReadView`; there is no route that takes an in-memory node or
+a caller-supplied address. **Deferred:** none.
 
 ### B4 — closes
 
@@ -211,8 +216,11 @@ base-contract, unconditional and negative arms stand and are cited.
 
 ### M8 — arm added, closes
 
-An editorial `biology` bump leaves `I_claim` unchanged and moves
-`belief_input_digest`, now through a sort's contract. **Deferred:** none.
+Over a claim at `crossing/affects-local-entity` with no domain facet in the
+closure, an editorial `testing` bump leaves `I_claim` unchanged and moves
+`belief_input_digest` — reached through slot 1's foreign sort and nothing
+else, so dropping the walk's sort-contract collection fails the check.
+**Deferred:** none.
 
 ### M6 — re-read, not counted
 
@@ -255,18 +263,22 @@ be silently split or merged after the freeze.
    `contract/domain.py` (the own-namespace refusal dropped), in `profile.py`
    (the resolver namespacing a namespaced name; the unresolved-reference
    refusal dropped; the shipped pack read from the base's path), in
-   `consulted.py` (the sort-contract collection dropped; the facet-namespace
+   `consulted.py` (the sort-contract collection dropped — cited once by B2
+   over the walk and once by M8 over a belief; the facet-namespace
    collection dropped; the `science` agreement dropped; the domain agreement
-   dropped), in `facet_read.py` (a field-wise constructor; re-validation
-   skipped), in `evaluation.py` (an unheld observed dataset fetched), in
-   `belief.py` (the ledger taken from nowhere; observed addresses dropped
-   from the closure nodes), in `closure.py` (the `observed_facets` member
-   emptied; the `consulted` member emptied). `test_n2_cut22.py` audits them
-   by the cut-12 pattern, with the staleness probe's baseline taken from
-   the tree.
+   dropped), in `facet_read.py` (a field-wise constructor; the corpus-view
+   check dropped; re-validation skipped), in `evaluation.py` (an unheld
+   observed dataset fetched), in `belief.py` (the ledger taken from nowhere,
+   cited by a check that derives a belief; observed addresses dropped from
+   the closure nodes), in `closure.py` (the `observed_facets` member
+   emptied). `test_n2_cut22.py` audits them by the cut-12 pattern, with the
+   staleness probe's baseline taken from the tree.
 5. B5's byte-change test changes one payload byte on the observed dataset
    and nothing else; a test that also re-mints the run or the assessment
-   exercises nothing.
+   exercises nothing. B5's one-carrier half is proved by a check that
+   derives a belief, so the walk inside `evaluate` is what the sabotage
+   reaches; and `gather`'s consulted set must equal `evaluate`'s over the
+   same corpus, asserted by a check of its own.
 6. The isolated case's claim schema must not reach `biology`: its operator
    is `testing/affects` and both slots are `testing` sorts. A case whose
    claim reaches `biology` through a sort is the dogfood shape, not the
@@ -510,9 +522,19 @@ dimensions:
     restriction_sort: testing/cohort
 
 operators:
+  # Its only route to `testing` is slot 1's argument sort: no dimension, so
+  # a walk that stops collecting sort contracts loses `testing` here (B2a).
   affects-local-entity:
     arity: 2
     arg_sorts: [local, testing/entity]
+    sign_apt: true
+    layers: [causal]
+    dimensions: []
+  # The dimension's restriction sort crosses too, on an operator whose slots
+  # do not, so the restriction-sort route is exercised on its own (B1).
+  scoped-local-local:
+    arity: 2
+    arg_sorts: [local, local]
     sign_apt: true
     layers: [causal]
     dimensions: [scope]
@@ -546,8 +568,9 @@ class TestCrossContractSlots:
         profile = compile_profile(base_contract, [crossing, testing])
         operator = profile.operator("crossing/affects-local-entity")
         assert operator.arg_sorts == ("crossing/local", "testing/entity")
-        assert operator.contract == "crossing"
+        assert operator.contract == "crossing" and operator.dimensions == ()
         assert profile.dimensions["crossing/scope"].restriction_sort == "testing/cohort"
+        assert profile.operator("crossing/scoped-local-local").dimensions == ("crossing/scope",)
         assert profile.sorts["testing/entity"].contract == "testing"
 
     def test_the_resolver_namespaces_a_bare_name_once(self, base_contract, testing, crossing_document):
@@ -704,8 +727,11 @@ class TestSlotSorts:
         return compile_profile(base_contract, [crossing, testing])
 
     def test_a_claim_reaches_its_slot_sorts_contracts(self, crossing_profile):
+        """`affects-local-entity` declares no dimension, so `testing` is
+        reached through slot 1's argument sort or not at all."""
         from beliefs.projection import claim_identity
 
+        assert crossing_profile.operator("crossing/affects-local-entity").dimensions == ()
         claim = build_claim(
             profile=crossing_profile,
             operator="crossing/affects-local-entity",
@@ -995,72 +1021,112 @@ git commit -m "feat(consulted): reach every slot sort's contract and refuse a pi
 - Test: `python/tests/test_facet_read.py`
 
 **Interfaces:**
-- Produces: `FacetRead(address: str, key: str, payload_digest: str)` sealed, final, frozen, `init=False`, with `projection() -> list[str]` and a private `_minted(mint, *, address, key, payload_digest)`; `read_domain_facets(profile: ProfileSpec, node: Node, *, address: str) -> tuple[FacetRead, ...]` sorted by key; `FACET_READ_DOMAIN = "science.facet-read.v1"`; `FacetUndeclared(ScienceError)`; `stored.dataset_node(..., domain_facets: Mapping[str, Mapping[str, Any]] | None = None)`.
-- Consumes: `facets.validate_payload`, `beliefs.identity.v1.digest`, `ProfileSpec.facets`.
+- Produces: `FacetRead(address: str, key: str, payload_digest: str)` sealed, final, frozen, `init=False`, with `projection() -> list[str]` and a private `_minted(mint, *, address, key, payload_digest)`; `read_observed_facets(profile: ProfileSpec, view: ReadView, target: str) -> tuple[FacetRead, ...]` sorted by key, which **fetches** `target` from the corpus view and derives the address from the fetched dataset's declaration — there is no parameter for a node or an address; `FACET_READ_DOMAIN = "science.facet-read.v1"`; `FacetUndeclared(ScienceError)`; `stored.dataset_node(..., domain_facets: Mapping[str, Mapping[str, Any]] | None = None)`.
+- Consumes: `facets.validate_payload`, `beliefs.identity.v1.digest` (bare hex), `ProfileSpec.facets`, `corpus.ReadView` (`corpus.py` imports neither `belief`, `closure` nor `evaluation`, so the import is cycle-free).
 
 - [ ] **Step 1: Write the failing tests**
 
 Create `python/tests/test_facet_read.py`:
 
 ```python
-"""B3 and B4 (biology pack design §5.1–§5.2, §5.5): the reader is the only
-route to a `FacetRead`, and every read is validated."""
+"""B3 and B4 (biology pack design §5.1–§5.2, §5.5): the corpus reader is the
+only route to a `FacetRead`, the address is the fetched dataset's own, and
+every read is validated. Every row here seeds a corpus by raw write and reads
+it back through a fresh `ReadView`, because that is the only door."""
 
 from __future__ import annotations
 
 import pytest
+from fixtures_cut4 import raw_write, reopen
 from profiles import WITH_BIOLOGY
 
 from beliefs import stored
+from beliefs.dataset import dataset_address
 from beliefs.errors import FacetPayloadRefused, FacetUndeclared, MalformedRecord
-from beliefs.facet_read import FacetRead, read_domain_facets
+from beliefs.facet_read import FacetRead, read_observed_facets
 
-ADDRESS = "dataset:sha256:" + "a" * 64
+RESOURCES = [{"name": "r-a", "digest": "sha256:" + "a" * 64}]
 
 
-def _dataset(**domain_facets):
-    return stored.dataset_node(
-        "d-a", title="d-a", resources=[{"name": "r-a", "digest": "sha256:" + "a" * 64}], domain_facets=domain_facets
-    )
+def _corpus(tmp_path, **domain_facets):
+    node = stored.dataset_node("d-a", title="d-a", resources=RESOURCES, domain_facets=domain_facets)
+    raw_write(tmp_path, node)
+    return reopen(tmp_path), dataset_address(stored.dataset_declaration(node))
 
 
 def test_facet_read_has_no_field_wise_constructor():
     with pytest.raises(MalformedRecord, match="minted by the reader"):
-        FacetRead(ADDRESS, "biology/gene-axis", "sha256:" + "0" * 64)  # type: ignore[call-arg]
+        FacetRead("dataset:sha256:" + "a" * 64, "biology/gene-axis", "0" * 64)  # type: ignore[call-arg]
     with pytest.raises(MalformedRecord):
-        FacetRead(address=ADDRESS, key="biology/gene-axis", payload_digest="sha256:" + "0" * 64)  # type: ignore[call-arg]
+        FacetRead(address="dataset:sha256:" + "a" * 64, key="biology/gene-axis", payload_digest="0" * 64)  # type: ignore[call-arg]
 
 
-def test_the_reader_mints_one_row_per_declared_domain_facet():
-    rows = read_domain_facets(WITH_BIOLOGY, _dataset(**{"biology/gene-axis": {"axis": "rows"}}), address=ADDRESS)
+def test_the_reader_refuses_anything_but_a_corpus_view():
+    """The public bypass B3 closes: an in-memory node, or any object shaped
+    like a view, mints nothing."""
+    node = stored.dataset_node("d-a", title="d-a", resources=RESOURCES, domain_facets={"biology/gene-axis": {"axis": "rows"}})
+
+    class Shaped:
+        def holds(self, ref: str) -> bool:
+            return True
+
+        def get(self, ref: str):
+            return node
+
+    with pytest.raises(MalformedRecord, match="corpus ReadView"):
+        read_observed_facets(WITH_BIOLOGY, Shaped(), "dataset:d-a")  # type: ignore[arg-type]
+    with pytest.raises(MalformedRecord, match="corpus ReadView"):
+        read_observed_facets(WITH_BIOLOGY, node, "dataset:d-a")  # type: ignore[arg-type]
+
+
+def test_the_reader_mints_one_row_per_declared_domain_facet(tmp_path):
+    view, address = _corpus(tmp_path, **{"biology/gene-axis": {"axis": "rows"}})
+    rows = read_observed_facets(WITH_BIOLOGY, view, "dataset:d-a")
     assert len(rows) == 1
-    assert rows[0].address == ADDRESS and rows[0].key == "biology/gene-axis"
-    assert rows[0].payload_digest.startswith("sha256:")
-    assert rows[0].projection() == [ADDRESS, "biology/gene-axis", rows[0].payload_digest]
+    assert rows[0].address == address and rows[0].key == "biology/gene-axis"
+    assert len(rows[0].payload_digest) == 64 and int(rows[0].payload_digest, 16) >= 0  # v1.digest: bare hex
+    assert rows[0].projection() == [address, "biology/gene-axis", rows[0].payload_digest]
 
 
-def test_the_digest_follows_the_payload_bytes():
-    one = read_domain_facets(WITH_BIOLOGY, _dataset(**{"biology/gene-axis": {"axis": "rows"}}), address=ADDRESS)
-    other = read_domain_facets(WITH_BIOLOGY, _dataset(**{"biology/gene-axis": {"axis": "columns"}}), address=ADDRESS)
-    assert one[0].payload_digest != other[0].payload_digest
+def test_the_address_is_the_fetched_datasets_own(tmp_path):
+    """No caller supplies it: the address is derived from the declaration the
+    corpus holds, so a row can never name a dataset other than the one read."""
+    view, address = _corpus(tmp_path, **{"biology/gene-axis": {"axis": "rows"}})
+    (row,) = read_observed_facets(WITH_BIOLOGY, view, "dataset:d-a")
+    assert row.address == address == dataset_address(stored.dataset_declaration(view.get("dataset:d-a")))
 
 
-def test_base_facets_are_not_this_readers():
+def test_the_digest_follows_the_payload_bytes(tmp_path):
+    one, _ = _corpus(tmp_path / "one", **{"biology/gene-axis": {"axis": "rows"}})
+    other, _ = _corpus(tmp_path / "other", **{"biology/gene-axis": {"axis": "columns"}})
+    assert read_observed_facets(WITH_BIOLOGY, one, "dataset:d-a")[0].payload_digest != read_observed_facets(WITH_BIOLOGY, other, "dataset:d-a")[0].payload_digest
+
+
+def test_base_facets_are_not_this_readers(tmp_path):
     node = stored.dataset_node(
-        "d-a", title="d-a", resources=[{"name": "r-a", "digest": "sha256:" + "a" * 64}],
+        "d-a", title="d-a", resources=RESOURCES,
         empirical_observation={"locator": "instrument:fixture", "attested_by": "actor:fixture"},
     )
-    assert read_domain_facets(WITH_BIOLOGY, node, address=ADDRESS) == ()
+    raw_write(tmp_path, node)
+    assert read_observed_facets(WITH_BIOLOGY, reopen(tmp_path), "dataset:d-a") == ()
 
 
-def test_a_malformed_payload_refuses_the_derivation():
+def test_an_unheld_target_is_malformed(tmp_path):
+    view, _ = _corpus(tmp_path)
+    with pytest.raises(MalformedRecord, match="not held"):
+        read_observed_facets(WITH_BIOLOGY, view, "dataset:d-missing")
+
+
+def test_a_malformed_payload_refuses_the_derivation(tmp_path):
+    view, _ = _corpus(tmp_path, **{"biology/gene-axis": {}})
     with pytest.raises(FacetPayloadRefused, match="missing required field 'axis'"):
-        read_domain_facets(WITH_BIOLOGY, _dataset(**{"biology/gene-axis": {}}), address=ADDRESS)
+        read_observed_facets(WITH_BIOLOGY, view, "dataset:d-a")
 
 
-def test_an_undeclared_namespaced_key_refuses():
+def test_an_undeclared_namespaced_key_refuses(tmp_path):
+    view, _ = _corpus(tmp_path, **{"other/thing": {"x": "y"}})
     with pytest.raises(FacetUndeclared, match="facet-undeclared: 'other/thing'"):
-        read_domain_facets(WITH_BIOLOGY, _dataset(**{"other/thing": {"x": "y"}}), address=ADDRESS)
+        read_observed_facets(WITH_BIOLOGY, view, "dataset:d-a")
 
 
 def test_dataset_node_refuses_an_unnamespaced_domain_facet():
@@ -1120,9 +1186,13 @@ Create `python/src/beliefs/facet_read.py`:
 
 `FacetRead` is what a derivation knows about one facet it read off one
 observed dataset: the dataset's address, the facet key, and the payload's
-digest. It has no field-wise constructor. The reader below is the only route
-in, so the read ledger the consulted walk consumes can never be authored by
-a caller — the property F §5.6 asked for, made a property of the type.
+digest. It has no field-wise constructor, and the one reader below takes a
+**corpus view and a target ref** — never a node, never an address — fetches
+the dataset and derives the address from what it fetched. So a row is a
+receipt for a read that happened against a corpus, and the ledger the
+consulted walk consumes can never be authored by a caller: the property
+F §5.6 asked for, made a property of the type and of its only constructor's
+arguments.
 """
 
 from __future__ import annotations
@@ -1130,15 +1200,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import final
 
-from nodes.core.node import Node
-
+from beliefs import stored
+from beliefs.corpus import ReadView
+from beliefs.dataset import dataset_address
 from beliefs.errors import FacetUndeclared, MalformedRecord
 from beliefs.facets import validate_payload
 from beliefs.identity import v1
 from beliefs.profile import ProfileSpec
 from beliefs.sealed import sealed
 
-__all__ = ["FACET_READ_DOMAIN", "FacetRead", "read_domain_facets"]
+__all__ = ["FACET_READ_DOMAIN", "FacetRead", "read_observed_facets"]
 
 FACET_READ_DOMAIN = "science.facet-read.v1"
 
@@ -1155,7 +1226,7 @@ class FacetRead:
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         raise MalformedRecord(
-            "FacetRead is minted by the reader — use read_domain_facets(profile, node, address=...). A field-wise "
+            "FacetRead is minted by the reader — use read_observed_facets(profile, view, target). A field-wise "
             "constructor would let a caller author the read ledger the consulted walk digests (F §5.6)."
         )
 
@@ -1173,13 +1244,28 @@ class FacetRead:
         return [self.address, self.key, self.payload_digest]
 
 
-def read_domain_facets(profile: ProfileSpec, node: Node, *, address: str) -> tuple[FacetRead, ...]:
-    """Every namespaced facet on `node` that `profile` declares for `dataset`,
-    re-validated against the compiled schema, as sorted rows. Base facets are
-    not this reader's. A key the profile does not declare, or a payload the
-    schema refuses, refuses the derivation rather than dropping the read."""
+def read_observed_facets(profile: ProfileSpec, view: ReadView, target: str) -> tuple[FacetRead, ...]:
+    """Fetch `target` from the corpus view and mint one row per namespaced
+    facet on it that `profile` declares for `dataset`, re-validated against
+    the compiled schema, sorted by key. The address is derived from the
+    fetched declaration, never supplied. Base facets are not this reader's. A
+    key the profile does not declare, or a payload the schema refuses,
+    refuses the derivation rather than dropping the read; an unheld target is
+    malformed, because the caller (`gather`) has already filtered to held
+    inputs and a miss here is a caller error, not a corpus state."""
+    if not isinstance(view, ReadView):
+        raise MalformedRecord(
+            f"the domain-facet reader reads through a corpus ReadView, not a {type(view).__name__}; a row is a "
+            "receipt for a read against a corpus, and nothing else can mint one (B3)"
+        )
+    if not view.holds(target):
+        raise MalformedRecord(f"{target} is not held by this corpus; the reader is called over held observed inputs only")
+    node = view.get(target)
     if node.kind != "dataset":
         raise MalformedRecord(f"{node.id}: the domain-facet reader reads observed datasets, not {node.kind!r}")
+    address = dataset_address(stored.dataset_declaration(node))
+    if address is None:
+        raise MalformedRecord(f"{node.id}: an observed dataset with no content address has nothing to ledger against")
     rows: list[FacetRead] = []
     for key in sorted(node.facets):
         namespace, separator, _ = key.partition("/")
@@ -1199,7 +1285,7 @@ def read_domain_facets(profile: ProfileSpec, node: Node, *, address: str) -> tup
     return tuple(rows)
 ```
 
-`from beliefs.identity import v1` is the import `contract/domain.py` and `record.py` already use.
+`from beliefs.identity import v1` is the import `contract/domain.py` and `record.py` already use; `v1.digest` returns the bare 64-character hex digest, no `sha256:` prefix. The lines `    if not isinstance(view, ReadView):\n` and `        validate_payload(facet, payload, where=node.id)\n` are Task 11 sabotage sites.
 
 - [ ] **Step 5: Run the tests**
 
@@ -1225,8 +1311,8 @@ git commit -m "feat(facet-read): mint reader-only FacetRead rows from declared d
 - Test: `python/tests/test_domain_facet_read.py` (created here; extended in Task 7), `python/tests/domain_facet_fixtures.py`
 
 **Interfaces:**
-- Produces: `Records.observed_facets: tuple[FacetRead, ...] = ()` (sorted, typed in `__post_init__`); `build_closure(..., observed_facets: tuple[FacetRead, ...])` and the projection member `"observed_facets"`; `EvaluationInputs.observed_facets`; `gather` reading held observed datasets; `evaluate_over` mapping `FacetPayloadRefused` → `Refused("facet-payload-refused: …")` and `FacetUndeclared` → `Refused(str(exc))`.
-- Consumes: Task 5's `FacetRead`, `read_domain_facets`; Task 4's walk.
+- Produces: `Records.observed_facets: tuple[FacetRead, ...] = ()` (sorted, typed in `__post_init__`); `build_closure(..., observed_facets: tuple[FacetRead, ...])` and the projection member `"observed_facets"`; `EvaluationInputs.observed_facets`; `gather` reading held observed datasets **and** handing its rows and observed addresses to its own `consulted_contracts` call, so `gather`'s consulted set and `evaluate`'s are one set; `evaluate_over` mapping `FacetPayloadRefused` → `Refused("facet-payload-refused: …")` and `FacetUndeclared` → `Refused(str(exc))`.
+- Consumes: Task 5's `FacetRead`, `read_observed_facets`; Task 4's walk.
 
 - [ ] **Step 1: Write the shared seeding helper**
 
@@ -1262,27 +1348,56 @@ PROPOSITION_REF = "proposition:p"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def testing_contract():
+def _fixture_document(name: str) -> dict:
     import yaml
 
-    document = yaml.safe_load((REPO_ROOT / "fixtures" / "contracts" / "testing.yaml").read_text(encoding="utf-8"))
+    return yaml.safe_load((REPO_ROOT / "fixtures" / "contracts" / f"{name}.yaml").read_text(encoding="utf-8"))
+
+
+def testing_contract(description: str | None = None):
+    document = _fixture_document("testing")
+    if description is not None:
+        document["description"] = description
     return domain.parse_domain_contract(document, source="<test>", base=shipped_base_contract(), predecessor=None)
 
 
-def unrelated_contract(description: str):
-    import yaml
+def crossing_contract():
+    return domain.parse_domain_contract(_fixture_document("crossing"), source="<crossing>", base=shipped_base_contract(), predecessor=None)
 
-    document = yaml.safe_load((REPO_ROOT / "fixtures" / "contracts" / "testing.yaml").read_text(encoding="utf-8"))
+
+def unrelated_contract(description: str):
+    document = _fixture_document("testing")
     document["contract"] = "unrelated"
     document["description"] = description
     return domain.parse_domain_contract(document, source="<unrelated>", base=shipped_base_contract(), predecessor=None)
 
 
-def profile_with(biology_description: str = "fixture", *, unrelated: str | None = None) -> ProfileSpec:
-    contracts = [testing_contract(), biology(biology_description)]
+def profile_with(
+    biology_description: str = "fixture",
+    *,
+    unrelated: str | None = None,
+    testing_description: str | None = None,
+    crossing: bool = False,
+) -> ProfileSpec:
+    contracts = [testing_contract(testing_description), biology(biology_description)]
     if unrelated is not None:
         contracts.append(unrelated_contract(unrelated))
+    if crossing:
+        contracts.append(crossing_contract())
     return compile_profile(shipped_base_contract(), contracts)
+
+
+CROSSING_CLAIM: dict[str, Any] = {
+    "operator": "crossing/affects-local-entity",
+    "args": [OTHER_GENE, GENE],
+    "qualifiers": {},
+    "polarity": "positive",
+    "layer": "causal",
+}
+"""A claim whose only route to `testing` is slot 1's foreign sort: the
+operator declares no dimension. Both terms are members of the `EX`
+vocabulary every fixture sort binds, so the snapshot in `kwargs_for`
+resolves them."""
 
 
 def seed(
@@ -1384,8 +1499,23 @@ def test_gather_reads_the_declared_facet_off_the_held_observed_dataset(tmp_path)
     view = seed(tmp_path)
     inputs = gather(view, PROPOSITION_REF, **_gathered(kwargs_for(view, profile)))
     assert [row.key for row in inputs.observed_facets] == ["biology/gene-axis"]
-    assert ("biology", profile.activated_contracts["biology"]) in [tuple(pair) for pair in inputs.consulted]
+    # Consulted identities carry the namespace prefix; `activated_contracts` values do not.
+    assert ("biology", "biology:" + profile.activated_contracts["biology"]) in [tuple(pair) for pair in inputs.consulted]
     assert ("dataset", inputs.observed_facets[0].address) in inputs.read_trace
+
+
+def test_gather_and_evaluate_agree_on_the_consulted_set(tmp_path):
+    """One walk, two callers: the closure `gather` builds and the one
+    `evaluate` builds over `gather`'s records must digest identically, so a
+    ledger `gather` read but did not pass to its own walk cannot hide."""
+    profile = profile_with()
+    view = seed(tmp_path)
+    kwargs = kwargs_for(view, profile)
+    inputs = gather(view, PROPOSITION_REF, **_gathered(kwargs))
+    belief = evaluate_over(view, PROPOSITION_REF, **kwargs)
+    assert isinstance(belief, Belief)
+    assert inputs.closure().digest() == belief.belief_input_digest
+    assert "biology" in dict(tuple(pair) for pair in inputs.consulted)
 
 
 def test_an_absent_observed_dataset_is_absent_from_gather(tmp_path):
@@ -1539,7 +1669,7 @@ In `python/src/beliefs/evaluation.py`:
 
 ```python
 from beliefs.errors import ContractDisagreement, ContractMismatch, FacetPayloadRefused, FacetUndeclared
-from beliefs.facet_read import FacetRead, read_domain_facets
+from beliefs.facet_read import FacetRead, read_observed_facets
 ...
 class EvaluationInputs:
     ...
@@ -1575,16 +1705,47 @@ In `gather`, replace the runs loop with:
         for target in stored.inputs_of(run_node, stored.OBSERVES):
             if not view.holds(target):
                 continue
-            dataset = view.get(target)
-            address = dataset_address(stored.dataset_declaration(dataset))
+            address = dataset_address(stored.dataset_declaration(view.get(target)))
             if address is None:
                 continue
             trace.append(("dataset", address))
-            for row in read_domain_facets(profile, dataset, address=address):
+            for row in read_observed_facets(profile, view, target):
                 observed[(row.address, row.key, row.payload_digest)] = row
+    rows = tuple(observed[key] for key in sorted(observed))
 ```
 
-and hand `observed_facets=tuple(observed[key] for key in sorted(observed))` to `EvaluationInputs`. The line pair `            if not view.holds(target):\n                continue\n` is a Task 11 sabotage site; keep it exactly.
+Then **wire the rows and the observed addresses into `gather`'s own walk**. The existing call
+
+```python
+    consulted = consulted_contracts(
+        claims={proposition: claim} if claim is not None else {},
+        profile=profile,
+        node_corpus=context.node_corpus,
+        pins=context.pins,
+        closure_nodes=tuple(sorted(ids)),
+        # §5.6: no derivation reads a domain facet yet; the read ledger arrives with the first reader (slice 2)
+        facets_read={},
+    )
+```
+
+becomes
+
+```python
+    ledger: dict[str, list[str]] = {}
+    for row in rows:
+        ledger.setdefault(row.address, []).append(row.key)
+    observed_addresses = tuple(sorted({row.address for row in rows} | {ref for kind, ref in trace if kind == "dataset"}))
+    consulted = consulted_contracts(
+        claims={proposition: claim} if claim is not None else {},
+        profile=profile,
+        node_corpus=context.node_corpus,
+        pins=context.pins,
+        closure_nodes=tuple(sorted(ids)) + observed_addresses,
+        facets_read={address: tuple(keys) for address, keys in ledger.items()},
+    )
+```
+
+and `EvaluationInputs(..., observed_facets=rows)`. `evaluate` rebuilds the same ledger from `Records.observed_facets` and the same closure nodes from the run inputs, so the two walks see one input; `test_gather_and_evaluate_agree_on_the_consulted_set` holds them to it. The line pair `            if not view.holds(target):\n                continue\n` is a Task 11 sabotage site; keep it exactly.
 
 In `evaluate_over`, widen the `gather` guard:
 
@@ -1705,15 +1866,26 @@ def test_dogfood_shape_reaches_biology_by_both_routes(tmp_path):
 # --- M8's added arm (design §7) --------------------------------------------
 
 
-def test_m8_an_editorial_biology_bump_leaves_claim_identity_and_moves_the_digest(tmp_path):
+def test_m8_an_editorial_bump_of_a_foreign_sorts_contract_leaves_claim_identity_and_moves_the_digest(tmp_path):
+    """The claim is at `crossing/affects-local-entity`, no domain facet is in
+    the closure (`axis=None`), and the bumped contract is `testing`, reached
+    through slot 1's sort and nothing else. Dropping the walk's sort-contract
+    collection leaves `testing` unconsulted and this test fails (M8a)."""
+    from domain_facet_fixtures import CROSSING_CLAIM
     from beliefs.projection import claim_identity
 
-    view = seed(tmp_path)
-    one = gather(view, PROPOSITION_REF, **_gathered(kwargs_for(view, profile_with("fixture"))))
-    two = gather(view, PROPOSITION_REF, **_gathered(kwargs_for(view, profile_with("fixture, editorial"))))
-    assert one.claim is not None and two.claim is not None
-    assert claim_identity(one.claim) == claim_identity(two.claim)
-    assert one.closure().digest() != two.closure().digest()
+    view = seed(tmp_path, axis=None, claim=CROSSING_CLAIM)
+    before = profile_with(crossing=True)
+    after = profile_with(crossing=True, testing_description="editorial")
+    one = evaluate_over(view, PROPOSITION_REF, **kwargs_for(view, before))
+    two = evaluate_over(view, PROPOSITION_REF, **kwargs_for(view, after))
+    assert isinstance(one, Belief) and isinstance(two, Belief)
+    inputs_one = gather(view, PROPOSITION_REF, **_gathered(kwargs_for(view, before)))
+    inputs_two = gather(view, PROPOSITION_REF, **_gathered(kwargs_for(view, after)))
+    assert inputs_one.observed_facets == () and inputs_one.claim is not None and inputs_two.claim is not None
+    assert claim_identity(inputs_one.claim) == claim_identity(inputs_two.claim)
+    assert "testing" in dict(tuple(p) for p in inputs_one.consulted)
+    assert one.value == two.value and one.belief_input_digest != two.belief_input_digest
 ```
 
 The `claim=` keyword is the one `seed` gained in Task 6; the biology fixture's `gene` sort binds the same `EX` vocabulary as `testing`'s, so the snapshot in `kwargs_for` resolves both terms.
@@ -2120,7 +2292,9 @@ def test_a_non_canonical_concept_id_refuses(tmp_path):
 
     root = tmp_path / "entities" / "concepts"
     root.mkdir(parents=True)
-    (root / "x.md").write_text("---\nid: 'concept:Bad Thing'\nkind: concept\n---\n")
+    # NFD, not NFC: `e` + combining acute. The predicate is about normalization,
+    # not about spaces or case (`not_a_canonical_identifier` in identifiers.py).
+    (root / "x.md").write_text("---\nid: 'concept:café-thing'\nkind: concept\n---\n", encoding="utf-8")
     with pytest.raises(ValueError, match="canonical"):
         concept_lines(tmp_path)
 ```
@@ -2333,10 +2507,28 @@ def concept_binding() -> VocabularyBinding:
 
 def snapshot() -> ResolutionSnapshot:
     """The held concept list is read back and supplied as readable; HGNC is
-    not held and stays `not-consulted` (design §6.3, §9 item 2)."""
+    not held and stays `not-consulted` (design §6.3, §9 item 2).
+
+    The copy beside `state.json` is an instrument, not the vocabulary: before
+    a single member is asserted, its bytes are hashed and compared to the
+    resource digest the **minted dataset record** declares — read from the
+    corpus, not from state — and a mismatch refuses. Editing the copy cannot
+    change membership while the contract names the original."""
+    from hashlib import sha256
+
+    from beliefs import stored
+    from reproduction import world
+
     st = state.load()
-    lines = Path(st["concepts_file"]).read_bytes().decode("utf-8").splitlines()
-    return build_snapshot(readable={concept_binding(): lines})
+    content = Path(st["concepts_file"]).read_bytes()
+    declared = stored.dataset_declaration(world.open_writer().read_view.get(st["concepts_ref"]))
+    (resource,) = declared.resources
+    if "sha256:" + sha256(content).hexdigest() != resource.digest:
+        raise RuntimeError(
+            f"{st['concepts_file']} does not hash to the held vocabulary's declared digest {resource.digest}; "
+            "membership is measured against the dataset the contract binds, never against an edited copy"
+        )
+    return build_snapshot(readable={concept_binding(): content.decode("utf-8").splitlines()})
 ```
 
 - [ ] **Step 5: Write `concepts.py` (step 1b)**
@@ -2591,12 +2783,17 @@ CUT22_ARMS = (
     Arm("B2a", "add the operator's contract alone",
         Sabotage(_CONSULTED, "        for sort in operator.arg_sorts:\n            read.add(profile.sorts[sort].contract)\n", "        for sort in ():\n            read.add(profile.sorts[sort].contract)\n"),
         (f"{_TC}::TestSlotSorts::test_a_claim_reaches_its_slot_sorts_contracts",)),
+    # The crossing operator declares no dimension, so with argument sorts
+    # dropped `testing` is not reached by any other route (§5 item 4).
     Arm("B2b", "stop collecting facet namespaces",
         Sabotage(_CONSULTED, "            if separator:\n                read.add(namespace)\n", "            if separator:\n                pass\n"),
         (f"{_TDF}::test_isolated_case_biology_enters_through_the_ledger_alone",)),
     Arm("B3a", "a field-wise constructor",
         Sabotage(_READ, "        raise MalformedRecord(\n            \"FacetRead is minted by the reader", "        return None  # sabotage: a field-wise constructor\n        raise MalformedRecord(\n            \"FacetRead is minted by the reader"),
         (f"{_TFR}::test_facet_read_has_no_field_wise_constructor",)),
+    Arm("B3b", "mint over anything shaped like a view",
+        Sabotage(_READ, "    if not isinstance(view, ReadView):\n", "    if False:\n"),
+        (f"{_TFR}::test_the_reader_refuses_anything_but_a_corpus_view",)),
     Arm("B4a", "skip re-validation",
         Sabotage(_READ, "        validate_payload(facet, payload, where=node.id)\n", "        pass\n"),
         (f"{_TFR}::test_a_malformed_payload_refuses_the_derivation",)),
@@ -2606,9 +2803,12 @@ CUT22_ARMS = (
     Arm("B5a", "empty the observed_facets member",
         Sabotage(_CLOSURE, '        "observed_facets": [row.projection() for row in observed_facets],\n', '        "observed_facets": [],\n'),
         (f"{_TDF}::test_a_payload_byte_change_moves_the_digest",)),
+    # B5b mutates `evaluate`, so its check must derive a belief: the isolated
+    # bump test goes through `evaluate_over` → `evaluate`, whose walk then
+    # lacks biology and whose digest no longer moves under the biology bump.
     Arm("B5b", "take the ledger from nowhere",
         Sabotage(_BELIEF, "    for row in records.observed_facets:\n        ledger.setdefault(row.address, []).append(row.key)\n", "    for row in ():\n        ledger.setdefault(row.address, []).append(row.key)\n"),
-        (f"{_TDF}::test_isolated_case_biology_enters_through_the_ledger_alone",)),
+        (f"{_TDF}::test_isolated_case_a_biology_bump_moves_the_digest", f"{_TDF}::test_gather_and_evaluate_agree_on_the_consulted_set")),
     Arm("B6a", "read the shipped pack from the base's path",
         Sabotage(_PROFILE, '    resource = resources.files("beliefs").joinpath(f"domains/{namespace}/DOMAIN.yaml")\n', '    resource = resources.files("beliefs").joinpath("contracts/science/CONTRACT.yaml")\n'),
         (f"{_TSB}::test_the_shipped_pack_declares_the_floor",)),
@@ -2621,9 +2821,12 @@ CUT22_ARMS = (
     Arm("D6a", "drop observed addresses from the closure nodes",
         Sabotage(_BELIEF, "    closure_nodes = tuple(a.identity() for a in matched) + observed\n", "    closure_nodes = tuple(a.identity() for a in matched)\n"),
         (f"{_TDF}::test_isolated_case_a_biology_bump_moves_the_digest",)),
-    Arm("M8a", "empty the consulted member",
-        Sabotage(_CLOSURE, '        "consulted": [list(pair) for pair in consulted],\n', '        "consulted": [],\n'),
-        (f"{_TDF}::test_m8_an_editorial_biology_bump_leaves_claim_identity_and_moves_the_digest",)),
+    # M8a shares B2a's site on purpose: the row promises movement *through a
+    # foreign sort's contract*, so the sabotage that severs that route is the
+    # one whose absence this check must feel.
+    Arm("M8a", "drop the sort-contract collection under a belief",
+        Sabotage(_CONSULTED, "        for sort in operator.arg_sorts:\n            read.add(profile.sorts[sort].contract)\n", "        for sort in ():\n            read.add(profile.sorts[sort].contract)\n"),
+        (f"{_TDF}::test_m8_an_editorial_bump_of_a_foreign_sorts_contract_leaves_claim_identity_and_moves_the_digest",)),
 )
 ```
 
@@ -2637,7 +2840,7 @@ Create `python/tests/acceptance/test_n2_cut22.py` by copying `test_n2_cut21.py` 
 def test_the_inventory_is_exactly_the_nine_frozen_units() -> None:
     assert DECLARATION_UNITS == ("B1", "B2", "B3", "B4", "B5", "B6", "B7", "D6", "M8")
     assert {unit_of(arm.row) for arm in CUT22_ARMS} == set(DECLARATION_UNITS)
-    assert len(CUT22_ARMS) == 15
+    assert len(CUT22_ARMS) == 16
 ```
 
 and the freeze assertions to `assert "**9 declaration units**" in current`, `assert "Nine guarantee rows are read, **9 full/closed** (B1–B7, D6, M8), 1 partial" in current`, `assert '("cut21_acceptance.py",)' in current`. `_frozen_body` slices from `## 2. The boundary` to the first `\n## 8.` or end of file, as cut 21's does.
@@ -2655,6 +2858,7 @@ TypeScript half run as vitest."""
 from __future__ import annotations
 
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -2689,7 +2893,13 @@ def test_d6_the_facet_read_is_consulted_over_bytes_the_engine_committed(work_dir
     bumped = profile_with("fixture, bumped")
     with pytest.raises(ContractMismatch):
         open_corpus(root, authority=FULL, profile=bumped)
-    refused = evaluate_over(reopened, PROPOSITION_REF, **kwargs_for(reopened, bumped))
+    # B7 at the walk: the bumped profile validates, but the pins stay the
+    # manifest's — `kwargs_for(…, bumped)` would build agreeing pins and B7
+    # would rightly accept that pair, so the original pins are put back.
+    original_pins = kwargs_for(reopened, profile)["context"].pins
+    mismatched = kwargs_for(reopened, bumped)
+    mismatched["context"] = replace(mismatched["context"], pins=original_pins)
+    refused = evaluate_over(reopened, PROPOSITION_REF, **mismatched)
     assert isinstance(refused, Refused) and refused.reason.startswith("profile-pin-mismatch: biology")
 
 
@@ -2728,7 +2938,7 @@ Expected: every arm `sound`; the freeze pin test passes. Then:
 cd python && uv run --frozen python tools/cut22_acceptance.py
 ```
 
-Expected: exit 0 and the printed `declared arms: 15 (= 9 declaration units; 9 guarantee rows)`. A `CapabilityUnavailable` refusal means the tuple needs recertification (`atoms-recertify.timer`), not a regression; wait for it and re-run.
+Expected: exit 0 and the printed `declared arms: 16 (= 9 declaration units; 9 guarantee rows)`. A `CapabilityUnavailable` refusal means the tuple needs recertification (`atoms-recertify.timer`), not a regression; wait for it and re-run.
 
 - [ ] **Step 7: Commit**
 

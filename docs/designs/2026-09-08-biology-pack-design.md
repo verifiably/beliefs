@@ -444,10 +444,17 @@ containment is unchanged: the ref was declared, and now it is actually read.
 
 Sealed, final, frozen, and **without a field-wise constructor** — the
 `__init__` raises, as `Claim`'s does, and the reader's minting classmethod
-is the only route in. A ledger therefore cannot be authored by a caller and
-handed to the walk; F §5.6's "never from a caller" becomes a property of the
-type. The class carries `address`, `key`, `payload_digest`, and a
-`projection()` of the three in that order.
+is the only route in. The reader itself takes a **corpus view and a target
+ref**, never a node and never an address: it fetches the dataset from the
+view and derives the address from the declaration it fetched. A private
+mint token alone would not establish provenance — a reader accepting an
+in-memory node and an independent address would mint a valid row without
+touching a corpus (plan review of 2026-09-08) — so the constructor's
+arguments are part of the guarantee. A ledger therefore cannot be authored
+by a caller and handed to the walk; F §5.6's "never from a caller" becomes a
+property of the type and of its one constructor's inputs. The class carries
+`address`, `key`, `payload_digest`, and a `projection()` of the three in
+that order.
 
 ### 5.3 `Records`, and the walk
 
@@ -628,7 +635,7 @@ fails:
 |---|---|---|---|
 | **B1** | A slot sort resolves or refuses, at the right stage | bare name undeclared → refused at parse; `mm30/concept` inside `mm30` → refused at parse; `science/x` → refused at parse; `biology/molecular-entity` compiled with `biology` → resolves to that term; compiled without it → refused at compile with `biology` named; `restriction_sort` takes both forms identically | the resolver namespacing a namespaced name twice → the resolution test fails |
 | **B2** | The consulted walk reaches every sort's contract, and facet namespaces are collected on their own | the dogfood claim consults `{science, mm30, biology}`; a same-contract operator's set is unchanged from cut 2; a corpus pinning `mm30` only → `ContractDisagreement` naming `biology`; the isolated case (§5.6) consults `biology` through the ledger alone | the walk adding the operator's contract alone → the dogfood set lacks `biology`; the walk not collecting facet namespaces → the isolated case's set lacks `biology`; either test fails |
-| **B3** | `FacetRead` is minted by the reader only | no public field-wise constructor, no cast from a mapping; the only route is the reader's classmethod over a validated payload | a field-wise constructor added → the opacity test fails |
+| **B3** | `FacetRead` is minted by the corpus reader only, over a dataset it fetched | no public field-wise constructor, no cast from a mapping; the reader refuses anything but a `ReadView` and takes no node and no address, deriving the address from the fetched declaration | a field-wise constructor added → the opacity test fails; the view check dropped → an in-memory node shaped like a view mints a row, the bypass test fails |
 | **B4** | Every read is validated, and only held datasets are read | a declared facet failing its schema → `Refused("facet-payload-refused…")`; an undeclared namespaced key → `Refused("facet-undeclared…")`; through `gather` with an observed dataset node absent from the view → the run value carries no such input, no `FacetRead` and no `observes` entry exist, nothing refuses | the reader skipping re-validation → the refusal test passes a bad payload and fails; the reader fetching by address outside the run value → the absent-dataset test fails |
 | **B5** | Observed facets enter the digest through the one carrier | payload byte change, every other member fixed → digest moves; the member is present and empty when nothing was read; the rows the closure digests are the rows the walk consumed | the closure omitting the member → the byte-change test fails; the walk taking its ledger from anywhere but `observed_facets` → the isolated case fails (B2) |
 | **B7** | A consulted namespace's pin agrees with the profile | pins built from the profile → the walk proceeds; `science` pinned to another identity → `Refused("profile-pin-mismatch: science")`; a consulted domain pinned to another revision → refused naming it; an unconsulted domain pinned to anything → not compared, unchanged from cut 2 | the agreement check dropped → the mismatch test validates under one revision and digests another, and fails |
