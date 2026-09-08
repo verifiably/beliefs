@@ -8,7 +8,7 @@ from typing import final
 from beliefs import stored
 from beliefs.corpus import ReadView
 from beliefs.dataset import dataset_address
-from beliefs.errors import FacetUndeclared, MalformedRecord
+from beliefs.errors import FacetUndeclared, MalformedRecord, ProfileError
 from beliefs.facets import validate_payload
 from beliefs.identity import v1
 from beliefs.profile import ProfileSpec
@@ -55,6 +55,10 @@ class FacetRead:
 
 def read_observed_facets(profile: ProfileSpec, view: ReadView, target: str) -> tuple[FacetRead, ...]:
     """Fetch and validate the namespaced facets on one observed dataset."""
+    if type(profile) is not ProfileSpec:
+        raise ProfileError(
+            f"profile is a {type(profile).__name__}, not a compiled ProfileSpec — use compile_profile(base, domains)."
+        )
     if type(view) is not ReadView:
         raise MalformedRecord(
             f"the domain-facet reader reads through a corpus ReadView, not a {type(view).__name__}; a row is a "

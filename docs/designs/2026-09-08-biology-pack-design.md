@@ -435,6 +435,10 @@ every matched assessment's run. For each such address the reader now:
    taken under `science.identity.v1` over the payload mapping, as
    `AssessmentValue.facet_digest` takes its own.
 
+The reader accepts only an exact compiled `ProfileSpec`, checked before it
+touches the view or validates a payload. A profile-shaped object cannot splice
+schema from one profile to contract identities from another and mint a receipt.
+
 Unnamespaced facets are not this reader's: `empirical-observation` and the
 other base facets keep their readers and their seams. The read is traced at
 the `("dataset", address)` ref the trace already carries, so M1's

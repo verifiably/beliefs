@@ -11,8 +11,9 @@ from profiles import WITH_BIOLOGY
 
 from beliefs import stored
 from beliefs.dataset import dataset_address
-from beliefs.errors import FacetPayloadRefused, FacetUndeclared, MalformedRecord
+from beliefs.errors import FacetPayloadRefused, FacetUndeclared, MalformedRecord, ProfileError
 from beliefs.facet_read import FacetRead, read_observed_facets
+from beliefs.profile import ProfileSpec, compile_profile, shipped_base_contract, shipped_domain_contract
 
 RESOURCES = [{"name": "r-a", "digest": "sha256:" + "a" * 64}]
 
@@ -59,6 +60,19 @@ def test_the_reader_refuses_anything_but_a_corpus_view():
     spoof.get.return_value = node
     with pytest.raises(MalformedRecord, match="corpus ReadView"):
         read_observed_facets(WITH_BIOLOGY, spoof, "dataset:d-a")
+
+
+def test_the_reader_refuses_a_profile_shaped_spoof_before_minting(tmp_path):
+    from unittest.mock import Mock
+
+    strict = compile_profile(shipped_base_contract(), [shipped_domain_contract("biology")])
+    spoof = Mock(spec=ProfileSpec)
+    spoof.facets = WITH_BIOLOGY.facets
+    spoof.activated_contracts = strict.activated_contracts
+    view, _ = _corpus(tmp_path, **{"biology/gene-axis": {"axis": "rows"}})
+
+    with pytest.raises(ProfileError, match="compiled ProfileSpec"):
+        read_observed_facets(spoof, view, "dataset:d-a")
 
 
 def test_a_view_cannot_be_subclassed_to_override_its_reads():
