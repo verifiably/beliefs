@@ -2,7 +2,7 @@
 title: Computation and reproducibility
 status: living
 created: 2026-08-08
-updated: 2026-09-06
+updated: 2026-09-07
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -152,9 +152,11 @@ capabilities the launch actually observed. `derive_scope` reaches
 `boundary-policy/minimal-v1`'s scratch root stays `same-environment` at best.
 Cut 15 composes separate planning and execution launch attestations and closes
 R2, R16, R20, and R21; `qualifies()` reads the execution launch. Verification
-publication is implemented
-([verification-publication design](../designs/2026-09-06-verification-publication-design.md);
-cut 21 undischarged until cut 20 merges). What is not built here is owned
+publication is implemented and discharged at cut 21
+([design](../designs/2026-09-06-verification-publication-design.md),
+[results](../plans/2026-09-06-conformance-cut-21-results.md)): a published
+verification carries its comparison report, so the audit and the import
+recompute its scope from the corpus rather than from an in-memory value. What is not built here is owned
 elsewhere — the mutation log's event-level order (L8); and the
 preimage-backed classification of a removed verification (L13) — and listed
 with those owners in the

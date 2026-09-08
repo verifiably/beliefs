@@ -5,8 +5,9 @@
 six findings became §2 items 13–18 and the section edits they name);
 **conformance cut 21 frozen 2026-09-06**
 (`2026-09-06-conformance-cut-21.md`), before implementation.
-**implemented through 804cfac** on 2026-09-06; cut 21 undischarged, awaiting
-the domain lane's cut 20 (roadmap rule 5).
+**implemented through 804cfac** on 2026-09-06 and merged to `main` at
+`965fe7f`; **conformance cut 21 discharged 2026-09-07**
+(`../plans/2026-09-06-conformance-cut-21-results.md`), V1–V8 closed.
 **Scope:** the `write-path` lane's open boundary — roadmap tier 1, on the path,
 row 1 (`../plans/2026-08-29-implementation-roadmap.md`). Durable publication of
 verification records: a derived verification written into a corpus through
