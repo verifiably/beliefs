@@ -41,7 +41,7 @@ import {
   type KindDecl,
   type RelationDecl,
 } from "./contract.js";
-import { ContractMismatch, ProfileError, SubclassRefused, UnparsedContract } from "./errors.js";
+import { ContractMismatch, MalformedContract, ProfileError, SubclassRefused, UnparsedContract } from "./errors.js";
 
 export interface CompiledOperator {
   readonly term: string;
@@ -137,6 +137,7 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
   const operators: Record<string, CompiledOperator> = Object.create(null);
   const dimensions: Record<string, CompiledDimension> = Object.create(null);
   const sorts: string[] = [];
+  const sortOwners: Record<string, string> = Object.create(null);
   const facets: Record<string, FacetDecl> = Object.assign(Object.create(null), base.facets);
   const seen = new Set<string>();
 
@@ -170,11 +171,29 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
       }
       facets[key] = facet;
     }
-    for (const name of Object.keys(contract.sorts)) sorts.push(term(contract.namespace, name));
+    for (const name of Object.keys(contract.sorts)) {
+      const sort = term(contract.namespace, name);
+      sorts.push(sort);
+      sortOwners[sort] = contract.namespace;
+    }
+  }
+
+  const resolveSort = (contract: DomainContract, name: string, where: string): string => {
+    const resolved = name.includes("/") ? name : term(contract.namespace, name);
+    if (!(resolved in sortOwners)) {
+      const namespace = resolved.split("/")[0];
+      throw new MalformedContract(
+        `${contract.namespace}: ${where} names sort ${JSON.stringify(resolved)}, but no contract for namespace ${JSON.stringify(namespace)} is compiled into this profile`,
+      );
+    }
+    return resolved;
+  };
+
+  for (const contract of domains) {
     for (const [name, declaration] of Object.entries(contract.dimensions)) {
       dimensions[term(contract.namespace, name)] = Object.freeze({
         term: term(contract.namespace, name),
-        restrictionSort: term(contract.namespace, declaration.restrictionSort),
+        restrictionSort: resolveSort(contract, declaration.restrictionSort, `dimensions.${name}: restriction_sort`),
       });
     }
     for (const [name, declaration] of Object.entries(contract.operators)) {
@@ -184,7 +203,11 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
       operators[term(contract.namespace, name)] = Object.freeze({
         term: term(contract.namespace, name),
         arity: declaration.arity,
-        argSorts: Object.freeze(declaration.argSorts.map((sort) => term(contract.namespace, sort))),
+        argSorts: Object.freeze(
+          declaration.argSorts.map((sort, slot) =>
+            resolveSort(contract, sort, `operators.${name}: arg_sorts[${slot}]`),
+          ),
+        ),
         signApt: declaration.signApt,
         layers: Object.freeze([...declaration.layers]),
         dimensions: Object.freeze(declaration.dimensions.map((dimension) => term(contract.namespace, dimension))),

@@ -117,3 +117,44 @@ describe("the structural refusals both implementations share", () => {
     expect(() => compileProfile(base, [contract, contract])).toThrow(/one namespace|namespace/);
   });
 });
+
+describe("a cross-contract sort reference (biology pack design §4)", () => {
+  const crossing = `
+contract: crossing
+version: 1
+lineage: genesis
+sorts:
+  local:
+    vocabulary: { namespace: EX, release: "2026-01-01" }
+dimensions: {}
+operators:
+  affects-local-entity:
+    arity: 2
+    arg_sorts: [local, testing/entity]
+    sign_apt: true
+    layers: [causal]
+    dimensions: []
+`;
+  it("defers a namespaced reference to compile and resolves it there", () => {
+    const contract = parseDomainContract(crossing, "<crossing>", base);
+    expect(contract.operators["affects-local-entity"].argSorts).toEqual(["local", "testing/entity"]);
+    const testing = parseDomainContract(DOMAIN, "<domain>", base);
+    const profile = compileProfile(base, [contract, testing]);
+    expect(profile.operators["crossing/affects-local-entity"].argSorts).toEqual(["crossing/local", "testing/entity"]);
+  });
+  it("refuses an unresolved reference at compile, naming the namespace", () => {
+    const contract = parseDomainContract(crossing, "<crossing>", base);
+    expect(() => compileProfile(base, [contract])).toThrow(MalformedContract);
+    expect(() => compileProfile(base, [contract])).toThrow(/no contract for namespace "testing" is compiled/);
+  });
+  it("refuses the contract's own namespace and the base's at parse", () => {
+    const own = crossing.replace("testing/entity", "crossing/local");
+    expect(() => parseDomainContract(own, "<crossing>", base)).toThrow(/own namespace/);
+    const sci = crossing.replace("testing/entity", "science/local");
+    expect(() => parseDomainContract(sci, "<crossing>", base)).toThrow(/declares no claim vocabulary/);
+  });
+  it("still refuses a bare undeclared name", () => {
+    const bare = crossing.replace("testing/entity", "entity");
+    expect(() => parseDomainContract(bare, "<crossing>", base)).toThrow(/not a declared sort/);
+  });
+});

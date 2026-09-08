@@ -269,6 +269,38 @@ function tag(value: unknown, where: string): string {
   return value;
 }
 
+function sortReference(
+  value: unknown,
+  where: string,
+  namespace: string,
+  baseName: string,
+  sorts: DeclarationTable<SortDecl>,
+): string {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new MalformedContract(`${where}: ${JSON.stringify(value)} is not a sort reference`);
+  }
+  if (!value.includes("/")) {
+    tag(value, where);
+    if (!(value in sorts)) throw new MalformedContract(`${where}: ${JSON.stringify(value)} is not a declared sort`);
+    return value;
+  }
+  const [foreign, local, ...rest] = value.split("/");
+  if (rest.length > 0 || !NAME.test(foreign) || !NAME.test(local)) {
+    throw new MalformedContract(`${where}: ${JSON.stringify(value)} is not a sort reference`);
+  }
+  if (foreign === namespace) {
+    throw new MalformedContract(
+      `${where}: ${JSON.stringify(value)} names this contract's own namespace; a local sort is spelled by its local name ${JSON.stringify(local)} and nothing else`,
+    );
+  }
+  if (foreign === baseName) {
+    throw new MalformedContract(
+      `${where}: ${JSON.stringify(value)} names the base contract, which declares no claim vocabulary (§7.1); a slot sort is a domain's`,
+    );
+  }
+  return value;
+}
+
 function closedSet(value: unknown, where: string): string[] {
   if (!Array.isArray(value) || value.length === 0) {
     throw new MalformedContract(`${where}: expected a non-empty list`);
@@ -497,12 +529,13 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     const dimensionBody = mapping(body, where);
     exactFields(dimensionBody, ["restriction_sort"], ["retired"], where);
     refuseRetired(dimensionBody, where);
-    const restrictionSort = tag(dimensionBody.restriction_sort, `${where}.restriction_sort`);
-    if (!(restrictionSort in sorts)) {
-      throw new MalformedContract(
-        `${where}.restriction_sort: ${JSON.stringify(restrictionSort)} is not a declared sort`,
-      );
-    }
+    const restrictionSort = sortReference(
+      dimensionBody.restriction_sort,
+      `${where}.restriction_sort`,
+      namespace,
+      base.name,
+      sorts,
+    );
     dimensionEntries.push([tag(name, where), Object.freeze({ name, restrictionSort })]);
   }
   const dimensions = frozenTable(dimensionEntries);
@@ -523,11 +556,9 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
       // Every slot of Fin(arity(op)) is filled, and no slot twice (§6.2).
       throw new MalformedContract(`${where}.arg_sorts: expected exactly ${arity} sorts, one per slot`);
     }
-    const argSorts = operatorBody.arg_sorts.map((entry, index) => tag(entry, `${where}.arg_sorts[${index}]`));
-    for (const sort of argSorts) {
-      if (!(sort in sorts))
-        throw new MalformedContract(`${where}.arg_sorts: ${JSON.stringify(sort)} is not a declared sort`);
-    }
+    const argSorts = operatorBody.arg_sorts.map((entry, index) =>
+      sortReference(entry, `${where}.arg_sorts[${index}]`, namespace, base.name, sorts),
+    );
     if (typeof operatorBody.sign_apt !== "boolean") {
       throw new MalformedContract(`${where}.sign_apt: expected true or false`);
     }
