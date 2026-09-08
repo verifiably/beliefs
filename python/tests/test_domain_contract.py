@@ -193,6 +193,46 @@ class TestOperatorDeclarations:
             parse(broken)
 
 
+class TestSortReferences:
+    """Design §4.1–§4.2 (biology pack): a bare name is this contract's; a
+    namespaced name is another contract's and is deferred to compile."""
+
+    def test_a_namespaced_reference_is_deferred_to_compile(self, parse, testing_document):
+        crossing = copy.deepcopy(testing_document)
+        crossing["operators"]["affects"]["arg_sorts"] = ["entity", "other/thing"]
+        crossing["dimensions"]["population"]["restriction_sort"] = "other/cohort"
+        contract = parse(crossing)
+        assert contract.operators["affects"].arg_sorts == ("entity", "other/thing")
+        assert contract.dimensions["population"].restriction_sort == "other/cohort"
+        # As written, in the schema projection too (§4.5).
+        assert contract.operators["affects"].schema_projection()["arg_sorts"] == ["entity", "other/thing"]
+
+    def test_a_bare_undeclared_name_is_still_refused(self, parse, testing_document):
+        broken = copy.deepcopy(testing_document)
+        broken["operators"]["affects"]["arg_sorts"] = ["entity", "thing"]
+        with pytest.raises(MalformedContract, match="not a sort this contract declares"):
+            parse(broken)
+
+    def test_own_namespace_is_refused(self, parse, testing_document):
+        broken = copy.deepcopy(testing_document)
+        broken["operators"]["affects"]["arg_sorts"] = ["entity", "testing/outcome"]
+        with pytest.raises(MalformedContract, match="own namespace"):
+            parse(broken)
+
+    def test_the_base_namespace_is_refused(self, parse, testing_document):
+        broken = copy.deepcopy(testing_document)
+        broken["dimensions"]["population"]["restriction_sort"] = "science/cohort"
+        with pytest.raises(MalformedContract, match="declares no claim vocabulary"):
+            parse(broken)
+
+    def test_a_malformed_reference_is_refused(self, parse, testing_document):
+        for bad in ("Other/thing", "other/", "/thing", "a/b/c"):
+            broken = copy.deepcopy(testing_document)
+            broken["operators"]["affects"]["arg_sorts"] = ["entity", bad]
+            with pytest.raises(MalformedContract):
+                parse(broken)
+
+
 class TestTheBaseContractIssuesNoOperator:
     def test_a_domain_contract_named_science_is_refused(self, parse, testing_document):
         # §7.1: operators are domain-issued without exception. A base-issued one

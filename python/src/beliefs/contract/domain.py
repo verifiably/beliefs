@@ -378,7 +378,10 @@ def _parse_operator(name: str, value: object, where: str) -> OperatorDecl:
     raw_sorts = body["arg_sorts"]
     if not isinstance(raw_sorts, list):
         raise MalformedContract(f"{where}: arg_sorts must be a list, found {raw_sorts!r}")
-    arg_sorts = tuple(_name(item, f"{where}: arg_sorts[{i}]") for i, item in enumerate(raw_sorts))
+    arg_sorts = tuple(
+        item if isinstance(item, str) else _name(item, f"{where}: arg_sorts[{i}]")
+        for i, item in enumerate(raw_sorts)
+    )
     if len(arg_sorts) != arity:
         raise MalformedContract(
             f"{where}: arity is {arity} but arg_sorts has {len(arg_sorts)} entries. "
@@ -417,6 +420,33 @@ def _no_duplicates(values: tuple[str, ...], where: str) -> None:
         if value in seen:
             raise MalformedContract(f"{where}: {value!r} appears twice")
         seen.add(value)
+
+
+def _sort_reference(
+    value: object, where: str, *, namespace: str, base_name: str, sorts: Mapping[str, SortDecl]
+) -> str:
+    """§4.1–§4.2: validate a local or deferred cross-contract sort reference."""
+    if not isinstance(value, str) or not value:
+        raise MalformedContract(f"{where}: {value!r} is not a sort reference")
+    if "/" not in value:
+        _name(value, where)
+        if value not in sorts:
+            raise MalformedContract(f"{where}: {value!r} is not a sort this contract declares")
+        return value
+    foreign, _, local = value.partition("/")
+    _name(foreign, f"{where}: namespace")
+    _name(local, f"{where}: sort")
+    if foreign == namespace:
+        raise MalformedContract(
+            f"{where}: {value!r} names this contract's own namespace; a local sort is spelled by its local "
+            f"name {local!r} and nothing else"
+        )
+    if foreign == base_name:
+        raise MalformedContract(
+            f"{where}: {value!r} names the base contract, which declares no claim vocabulary (§7.1); "
+            "a slot sort is a domain's"
+        )
+    return value
 
 
 def parse_domain_contract(
@@ -497,11 +527,13 @@ def parse_domain_contract(
         where = f"{source}: dimensions.{name}"
         decl = _mapping(body, where)
         _fields(decl, _DIMENSION_FIELDS, frozenset({"description", "retired"}), where)
-        restriction_sort = _name(decl["restriction_sort"], f"{where}: restriction_sort")
-        if restriction_sort not in sorts:
-            raise MalformedContract(
-                f"{where}: restriction_sort {restriction_sort!r} is not a sort this contract declares"
-            )
+        restriction_sort = _sort_reference(
+            decl["restriction_sort"],
+            f"{where}: restriction_sort",
+            namespace=namespace,
+            base_name=base.name,
+            sorts=sorts,
+        )
         dimensions[name] = DimensionDecl(
             name=name, restriction_sort=restriction_sort, retired=_bool(decl.get("retired", False), f"{where}: retired")
         )
@@ -511,8 +543,13 @@ def parse_domain_contract(
         where = f"{source}: operators.{name}"
         operator = _parse_operator(name, body, where)
         for slot, sort in enumerate(operator.arg_sorts):
-            if sort not in sorts:
-                raise MalformedContract(f"{where}: arg_sorts[{slot}] {sort!r} is not a sort this contract declares")
+            _sort_reference(
+                sort,
+                f"{where}: arg_sorts[{slot}]",
+                namespace=namespace,
+                base_name=base.name,
+                sorts=sorts,
+            )
         for dimension in operator.dimensions:
             if dimension not in dimensions:
                 raise MalformedContract(f"{where}: {dimension!r} is not a dimension this contract declares")
