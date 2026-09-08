@@ -10,8 +10,8 @@ findings became §5.3a and B7 (profile and pin agreement), §5.6's isolated
 case and B2's second sabotage (the facet-namespace collection proved on
 its own), and the correction of §5.1, B4 and §9 item 10 (an unheld observed
 dataset is absent from the run value, never "digested by address").
-Conformance cut 22 is not yet frozen; the freeze is a separate document
-written after this design's review clears (§8). Not implemented.
+Conformance cut 22 is frozen in `2026-09-08-conformance-cut-22.md` after this
+design's review cleared (§8). Not implemented.
 **Scope:** the second of two slices on the `domain` lane, anchored on the
 mm30 reproduction record's measured floor (`2026-09-05-mm30-reproduction.md`
 §5 question 1 and §6 step 2), the facet-contracts design's read-ledger
@@ -503,10 +503,13 @@ that supplies an unrelated pin the profile never reaches stays exactly as
 it is.
 
 The consequence for existing evidence is stated in §10: tests that pin a
-synthetic identity such as `sci-1` under a real profile, and cut 2's D6 arms
-that "bump" by changing the pin string alone, no longer describe a
-well-formed derivation. They are superseded by citation and re-run with a
-real contract bump, never edited.
+synthetic identity such as `sci-1` under a real profile no longer describe
+a well-formed derivation and are rewritten to derive pins from the profile.
+Cut 2's guard is **live** — `test_n2.py` audits `n2_arms_cut2.py` in the
+portable suite and no later cut pins that table by commit — so its D6 arm
+whose sabotage site this slice edits is re-pointed at the landed source
+under the frozen-guard doctrine's "fix the arm, never the source", and the
+cut-2 document takes a dated citation amendment. Nothing frozen is edited.
 
 ### 5.4 The closure member
 
@@ -574,8 +577,12 @@ isolated case exists.
 
 ### 6.1 The pack
 
-The normative file is `domains/biology/CONTRACT.yaml` at the repository
-root. A build-time copy at `python/src/beliefs/domains/biology/CONTRACT.yaml`
+The normative file is `domains/biology/DOMAIN.yaml` at the repository root.
+The file name is `DOMAIN.yaml`, not the base's `CONTRACT.yaml`: D §11
+limitation 5 and `fixtures/contracts/testing.yaml` both name
+`domains/biology/DOMAIN.yaml` as the design act this slice performs, and a
+domain document is not a base contract.
+A build-time copy at `python/src/beliefs/domains/biology/DOMAIN.yaml`
 is held byte-identical by a test, as the base copy is (F §9 item 5), and
 `shipped_domain_contract("biology")` in `profile.py` parses it once per
 process beside `shipped_base_contract`, with `base=shipped_base_contract()`
@@ -653,7 +660,7 @@ fails:
 | **B4** | Every read is validated, and only held datasets are read | a declared facet failing its schema → `Refused("facet-payload-refused…")`; an undeclared namespaced key → `Refused("facet-undeclared…")`; through `gather` with an observed dataset node absent from the view → the run value carries no such input, no `FacetRead` and no `observes` entry exist, nothing refuses | the reader skipping re-validation → the refusal test passes a bad payload and fails; the reader fetching by address outside the run value → the absent-dataset test fails |
 | **B5** | Observed facets enter the digest through the one carrier | payload byte change, every other member fixed → digest moves; the member is present and empty when nothing was read; the rows the closure digests are the rows the walk consumed | the closure omitting the member → the byte-change test fails; the walk taking its ledger from anywhere but `observed_facets` → the isolated case fails (B2) |
 | **B7** | A consulted namespace's pin agrees with the profile | pins built from the profile → the walk proceeds; `science` pinned to another identity → `Refused("profile-pin-mismatch: science")`; a consulted domain pinned to another revision → refused naming it; an unconsulted domain pinned to anything → not compared, unchanged from cut 2 | the agreement check dropped → the mismatch test validates under one revision and digests another, and fails |
-| **B6** | The pack ships byte-identical, and TypeScript refuses what Python refuses | packaged copy equals `domains/biology/CONTRACT.yaml`; the TypeScript parser refuses own-namespace and `science` references and an unresolved reference at compile | the copy edited → the identity test fails; TypeScript accepting `mm30/concept` inside `mm30` → the parity refusal test fails |
+| **B6** | The pack ships byte-identical, and TypeScript refuses what Python refuses | packaged copy equals `domains/biology/DOMAIN.yaml`; the TypeScript parser refuses own-namespace and `science` references and an unresolved reference at compile | the copy edited → the identity test fails; TypeScript accepting `mm30/concept` inside `mm30` → the parity refusal test fails |
 
 Rows elsewhere:
 
@@ -735,16 +742,18 @@ a refusal there is a finding through the owning lane, never a workaround.
   re-run's findings; step 10a's digest is annotated as moved by §5.4.
 - **Task `beliefs-1ce152`** gets this document as its spec; the parent
   `beliefs-bc3aff`'s acceptance line is corrected to the pack as declared.
-- **Existing evidence under §5.3a.** Tests that supply a synthetic pin
-  identity under a real profile (`test_belief.py`, `test_closure.py`,
-  `test_consulted.py` build `CorpusPins` with strings such as `sci-1` and
-  `testing-1`) describe derivations the agreement rule refuses. Those that
-  are ordinary fixtures are rewritten to build pins from the profile, as
-  `profiles.pins_for` already does. Those that are **cut 2's D6 arms** and
-  bump by changing the pin string alone are frozen evidence: they are
-  pinned and cited as superseded by B7, and the arm is re-run in cut 22
-  over two compiled profiles that differ by a real contract edit. The plan
-  enumerates each affected test; none is edited in place.
+- **Existing evidence under §5.3a and §4.4.** `test_consulted.py`,
+  `test_closure.py`, `test_belief.py`, `test_evaluation.py` and
+  `verification_fixtures.py` build `CorpusPins` with strings such as
+  `sci-1` and `testing-1` under a real profile; every one is rewritten to
+  `profiles.pins_for(<the profile in use>)`, and the two cut-2 D6 checks
+  that bump a pin string alone (`test_the_base_contract_arm_at_the_eligibility_hinge`,
+  `test_an_activated_but_unconsulted_bump_is_absent`) bump a **compiled
+  profile** instead, keeping their names and their assertions. The cut-2 D6
+  arm whose sabotage `before` text names the walk's three lines is
+  re-pointed at the landed lines in `n2_arms_cut2.py`, which is live and
+  unpinned; `2026-08-09-conformance-cut-2.md` gains a dated amendment
+  naming the commit. No frozen guard is edited.
 
 ## 11. Alternatives rejected
 
