@@ -1,0 +1,45 @@
+also: [biology]
+contract:
+  contract: mm30
+  version: 1
+  lineage: genesis
+  sorts:
+    concept: {vocabulary: "dataset:{{CONCEPTS}}"}
+  dimensions: {}
+  operators:
+    affects-concept-concept: {arity: 2, arg_sorts: [concept, concept], sign_apt: true, layers: [causal, structural, statistical], dimensions: []}
+    affects-concept-molecular-entity: {arity: 2, arg_sorts: [concept, biology/molecular-entity], sign_apt: true, layers: [causal, structural, statistical], dimensions: []}
+    affects-molecular-entity-concept: {arity: 2, arg_sorts: [biology/molecular-entity, concept], sign_apt: true, layers: [causal, structural, statistical], dimensions: []}
+    associates-with-concept-concept: {arity: 2, arg_sorts: [concept, concept], sign_apt: true, layers: [statistical, causal], dimensions: []}
+    associates-with-molecular-entity-concept: {arity: 2, arg_sorts: [biology/molecular-entity, concept], sign_apt: true, layers: [statistical, causal], dimensions: []}
+    binds-concept-concept: {arity: 2, arg_sorts: [concept, concept], sign_apt: false, layers: [causal], dimensions: []}
+    induces-state-concept-concept: {arity: 2, arg_sorts: [concept, concept], sign_apt: false, layers: [causal], dimensions: []}
+    is-proxy-for-concept-concept: {arity: 2, arg_sorts: [concept, concept], sign_apt: false, layers: [causal, structural], dimensions: []}
+    part-of-molecular-entity-concept: {arity: 2, arg_sorts: [biology/molecular-entity, concept], sign_apt: false, layers: [structural], dimensions: []}
+    part-of-concept-concept: {arity: 2, arg_sorts: [concept, concept], sign_apt: false, layers: [structural], dimensions: []}
+    regulates-concept-molecular-entity: {arity: 2, arg_sorts: [concept, biology/molecular-entity], sign_apt: true, layers: [causal], dimensions: []}
+    regulates-concept-concept: {arity: 2, arg_sorts: [concept, concept], sign_apt: true, layers: [causal], dimensions: []}
+    regulates-molecular-entity-concept: {arity: 2, arg_sorts: [biology/molecular-entity, concept], sign_apt: true, layers: [causal], dimensions: []}
+    subtype-of-concept-concept: {arity: 2, arg_sorts: [concept, concept], sign_apt: false, layers: [structural], dimensions: []}
+plan:
+  operators:
+    - {predicate: affects, subject: concept, object: concept, operator: affects-concept-concept}
+    - {predicate: affects, subject: concept, object: protein, operator: affects-concept-molecular-entity}
+    - {predicate: affects, subject: protein, object: concept, operator: affects-molecular-entity-concept}
+    - {predicate: affects, subject: protein, object: protein, operator: biology/affects-molecular-entity-molecular-entity}
+    - {predicate: associates_with, subject: concept, object: concept, operator: associates-with-concept-concept}
+    - {predicate: associates_with, subject: protein, object: protein, operator: biology/associates-with-molecular-entity-molecular-entity}
+    - {predicate: associates_with, subject: protein, object: concept, operator: associates-with-molecular-entity-concept}
+    - {predicate: binds, subject: concept, object: concept, operator: binds-concept-concept}
+    - {predicate: induces_state, subject: concept, object: concept, operator: induces-state-concept-concept}
+    - {predicate: is_proxy_for, subject: concept, object: concept, operator: is-proxy-for-concept-concept}
+    - {predicate: part_of, subject: protein, object: concept, operator: part-of-molecular-entity-concept}
+    - {predicate: part_of, subject: concept, object: concept, operator: part-of-concept-concept}
+    - {predicate: regulates, subject: concept, object: protein, operator: regulates-concept-molecular-entity}
+    - {predicate: regulates, subject: concept, object: concept, operator: regulates-concept-concept}
+    - {predicate: regulates, subject: protein, object: protein, operator: biology/regulates-molecular-entity-molecular-entity}
+    - {predicate: regulates, subject: protein, object: concept, operator: regulates-molecular-entity-concept}
+    - {predicate: subtype_of, subject: concept, object: concept, operator: subtype-of-concept-concept}
+  sorts: {concept: concept, protein: biology/molecular-entity}
+  layers: {causal_effect: causal, structural_claim: structural, empirical_regularity: statistical}
+  polarities: {positive: positive, negative: negative, unsigned: unsigned, not_applicable: null}

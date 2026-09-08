@@ -77,7 +77,7 @@ from beliefs.claim import Referent, build_claim
 from beliefs.contract import load_base_contract
 from beliefs.contract.domain import parse_domain_contract
 from beliefs.errors import ClaimError
-from beliefs.profile import compile_profile
+from beliefs.profile import compile_profile, shipped_domain_contract
 
 FRONTMATTER = "---"
 
@@ -164,10 +164,17 @@ def type_record(profile, plan: dict, front: dict, result: Result) -> Record:
 
     subject, predicate, obj = (front[part].strip() for part in TRIPLE)
 
-    operator = plan["operators"].get(predicate)
+    subject_kind, object_kind = sort_of(subject), sort_of(obj)
+    for slot, (value, kind) in enumerate(((subject, subject_kind), (obj, object_kind))):
+        if kind is None:
+            return Record(path, "unsorted-referent", f"slot {slot}: {value!r} carries no `<kind>:` prefix")
+    operator = plan["operators"].get((predicate, subject_kind, object_kind))
     if operator is None:
-        result.unmapped["predicate"][predicate] += 1
-        return Record(path, "unmapped-predicate", predicate)
+        operator = plan["operators"].get((predicate, None, None))
+    if operator is None:
+        shape = f"{predicate} {subject_kind}→{object_kind}"
+        result.unmapped["shape"][shape] += 1
+        return Record(path, "unmapped-shape", shape)
 
     raw_layer = front.get("claim_layer")
     if not isinstance(raw_layer, str) or not raw_layer.strip():
@@ -190,10 +197,8 @@ def type_record(profile, plan: dict, front: dict, result: Result) -> Record:
         polarity = plan["polarities"][raw_polarity.strip()]
 
     args = []
-    for slot, value in ((0, subject), (1, obj)):
-        local = sort_of(value)
-        if local is None:
-            return Record(path, "unsorted-referent", f"slot {slot}: {value!r} carries no `<kind>:` prefix")
+    for value, local in ((subject, subject_kind), (obj, object_kind)):
+        assert local is not None
         sort = plan["sorts"].get(local)
         if sort is None:
             result.unmapped["sort"][local] += 1
@@ -208,19 +213,33 @@ def type_record(profile, plan: dict, front: dict, result: Result) -> Record:
 
 
 def run(plan_path: Path, corpus: Path) -> Result:
-    document = yaml.safe_load(plan_path.read_text(encoding="utf-8"))
+    text = plan_path.read_text(encoding="utf-8")
+    if "{{CONCEPTS}}" in text:
+        from reproduction import vocabulary
+
+        document = vocabulary._document(plan_path)
+    else:
+        document = yaml.safe_load(text)
     base = load_base_contract(BASE_CONTRACT)
     contract = parse_domain_contract(document["contract"], source=f"{plan_path}: contract", base=base, predecessor=None)
-    profile = compile_profile(base, [contract])
+    profile = compile_profile(base, [*(shipped_domain_contract(name) for name in document.get("also", [])), contract])
 
     plan = document["plan"]
     # Local names are namespaced here, once, so the plan file stays readable and
     # the term identifiers a claim actually carries are still what reaches
     # `build_claim`. A plan naming term identifiers directly would repeat the
     # contract's namespace on every line and drift from it silently.
+    def term(name: str) -> str:
+        return name if "/" in name else contract.term(name)
+
+    raw_operators = plan.get("operators") or {}
+    if isinstance(raw_operators, dict):
+        rows = {(predicate, None, None): term(name) for predicate, name in raw_operators.items()}
+    else:
+        rows = {(row["predicate"], row["subject"], row["object"]): term(row["operator"]) for row in raw_operators}
     resolved = {
-        "operators": {k: contract.term(v) for k, v in (plan.get("operators") or {}).items()},
-        "sorts": {k: contract.term(v) for k, v in (plan.get("sorts") or {}).items()},
+        "operators": rows,
+        "sorts": {k: term(v) for k, v in (plan.get("sorts") or {}).items()},
         "layers": dict(plan.get("layers") or {}),
         "polarities": dict(plan.get("polarities") or {}),
     }

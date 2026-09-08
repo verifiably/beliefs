@@ -30,9 +30,11 @@ def referent(term: str, plan: dict) -> Referent:
 
 
 def typed(target: dict, profile, plan: dict):
+    subject_kind = target["subject"].partition(":")[0]
+    object_kind = target["object"].partition(":")[0]
     return build_claim(
         profile,
-        operator=plan["operators"][target["predicate"]],
+        operator=vocabulary.operator_for(plan, target["predicate"], subject_kind, object_kind),
         args=(referent(target["subject"], plan), referent(target["object"], plan)),
         layer=plan["layers"][target["claim_layer"]],
         polarity=plan["polarities"][target["polarity"]],
@@ -76,6 +78,14 @@ def main() -> int:
         proposition_ref=minted.id,
         claim_identity=claim_identity(claim),
         typing_seconds=round(time.monotonic() - started, 1),
+    )
+    snapshot = vocabulary.snapshot()
+    concept = snapshot.resolve(vocabulary.concept_binding(), target["subject"])
+    findings.record(
+        2,
+        "closed",
+        f"slot 0 {target['subject']} resolved {concept.value} against the held concept list; "
+        "slot 1 is biology/molecular-entity, not-consulted (design §6.4)",
     )
     print(f"minted {minted.id}; claim identity {claim_identity(claim)}")
     return 0

@@ -34,11 +34,16 @@ def main() -> int:
     init_world_root(config(), authority=AUTHORITY)
     init_corpus_root(paths.CORPUS_ROOT, authority=AUTHORITY)
     store_id = init_store_root(paths.STORE_ROOT, authority=AUTHORITY)
+    state.save(store_id=store_id)
+    print(f"initialized world and store {store_id}")
+    return 0
+
+
+def adopt() -> None:
     manifest = open_writer().adopt_manifest(profile=pins())
     open_world().admit(paths.CORPUS_ROOT, provenance=Fresh())
-    state.save(corpus_id=manifest.corpus_id, store_id=store_id)
-    print(f"corpus {manifest.corpus_id} status {open_world().status(manifest.corpus_id)}; store {store_id}")
-    return 0
+    state.save(corpus_id=manifest.corpus_id)
+    print(f"corpus {manifest.corpus_id} status {open_world().status(manifest.corpus_id)}")
 
 
 if __name__ == "__main__":

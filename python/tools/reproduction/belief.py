@@ -14,6 +14,7 @@ from beliefs import stored
 from beliefs.admission import Admitted, admit
 from beliefs.belief import Availability, SuppliedContext
 from beliefs.closure import RetractionEnumeration
+from beliefs.consulted import CorpusPins
 from beliefs.corpus import ReadView, lineage_snapshot
 from beliefs.dataset import ByteObservation
 from beliefs.evaluation import evaluate_over, gather
@@ -70,6 +71,36 @@ def evaluate_here(view: ReadView):
         resolution=vocabulary.snapshot(),
         binding=BINDING,
     )
+
+
+def pins_negative(view: ReadView) -> None:
+    """With biology unpinned, the walk refuses naming it."""
+    from beliefs.consulted import consulted_contracts
+    from beliefs.errors import ContractDisagreement
+
+    st = state.load()
+    full = world.open_writer().manifest_pins()
+    without = CorpusPins(science_contract=full.science_contract, domains={"mm30": full.domains["mm30"]})
+    inputs = gather(
+        view,
+        st["proposition_ref"],
+        context=context(view),
+        profile=vocabulary.profile(),
+        resolution=vocabulary.snapshot(),
+        binding=BINDING,
+    )
+    try:
+        consulted_contracts(
+            claims={st["proposition_ref"]: inputs.claim} if inputs.claim is not None else {},
+            profile=vocabulary.profile(),
+            node_corpus=context(view).node_corpus,
+            pins={st["corpus_id"]: without},
+            closure_nodes=tuple(a.identity() for a in inputs.assessments),
+        )
+    except ContractDisagreement as refused:
+        findings.record(8, "closed", f"biology unpinned: {refused}")
+        return
+    findings.record(8, "defect", "the walk consulted biology through slot 1's sort without a pin for it")
 
 
 def main() -> int:
@@ -133,7 +164,14 @@ def main() -> int:
             f"{record.assessment} and the gathered assessment carries {a.identity()}; the audit accepts only the former",
             filed="assessment/run-record design (one spelling for the run member)",
         )
+    pins_negative(view)
     answer = answers.payload(evaluate_here(view))
+    findings.record(
+        8,
+        "closed",
+        f"consulted contracts {inputs.consulted}; observed facets "
+        f"{[row.projection() for row in inputs.observed_facets]}",
+    )
     if answer["kind"] == "Refused":
         findings.record(8, "design-gap", f"evaluate refused: {answer['reason']}")
     state.save(verification_ref=minted.id, admission=admission, belief_answer=answer)

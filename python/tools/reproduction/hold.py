@@ -43,6 +43,7 @@ def dataset_record(*, name: str, digest: str, title: str, accession: str) -> tup
         title=title,
         resources=[{"name": name, "digest": digest}],
         empirical_observation={"locator": f"accession:{accession}", "attested_by": AUTHORITY.actor},
+        domain_facets={"biology/gene-axis": {"axis": "rows", "namespace": "HGNC"}},
     )
     return node, address
 
@@ -77,7 +78,7 @@ def main() -> int:
     findings.record(
         3,
         "closed",
-        "empirical-observation payload validated under the facet-contracts design §6; the authored placeholder is refused (F1)",
+        "biology/gene-axis {axis: rows, namespace: HGNC} validated at write by cut 20's seam",
     )
     state.save(
         dataset_ref=minted.id,

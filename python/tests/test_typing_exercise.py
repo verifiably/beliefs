@@ -133,11 +133,13 @@ class TestTypeRecord:
         profile = compile_profile(base, [contract])
         plan = document["plan"]
         resolved = {
-            "operators": {k: contract.term(v) for k, v in plan["operators"].items()},
+            "operators": {(k, None, None): contract.term(v) for k, v in plan["operators"].items()},
             "sorts": {k: contract.term(v) for k, v in plan["sorts"].items()},
             "layers": dict(plan["layers"]),
             "polarities": dict(plan["polarities"]),
         }
+        resolved["operators"][("affects", "concept", "concept")] = resolved["operators"].pop(("affects", None, None))
+        resolved["operators"][("affects", "concept", "protein")] = contract.term(plan["operators"]["affects"])
 
         def run(front: dict):
             return exercise.type_record(profile, resolved, front, exercise.Result(corpus="t", plan="t"))
@@ -175,6 +177,19 @@ class TestTypeRecord:
             }
         )
         assert record.outcome == "unmapped-layer"
+
+    def test_an_unmapped_shape_is_vocabulary_work_not_a_refusal(self, typed) -> None:
+        record = typed(
+            {
+                "subject": "protein:A",
+                "predicate": "affects",
+                "object": "concept:b",
+                "claim_layer": "causal_effect",
+                "polarity": "positive",
+            }
+        )
+        assert record.outcome == "unmapped-shape"
+        assert record.detail == "affects protein→concept"
 
     def test_a_sort_mismatch_is_a_refusal_by_the_calculus(self, typed) -> None:
         # The one outcome in the mm30 run that the contract was not fitted to

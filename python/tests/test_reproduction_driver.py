@@ -255,3 +255,83 @@ def test_close_evidence_for_raises_on_a_stored_spec_that_does_not_restore(tmp_pa
     raw_write(writer.root, stored.stamp_semantic_identity(forged))
     with pytest.raises(RuntimeError, match="analysis-spec:forged"):
         close.evidence_for(reopen(writer.root))
+
+
+def test_the_row_plan_maps_a_predicate_and_kind_pair(tmp_path, monkeypatch):
+    from reproduction import vocabulary
+
+    monkeypatch.setattr(vocabulary.state, "load", lambda: {"concepts_address": "dataset:sha256:" + "c" * 64})
+    plan = vocabulary.plan()
+    assert plan["operators"][("affects", "concept", "protein")] == "mm30/affects-concept-molecular-entity"
+    assert plan["operators"][("affects", "protein", "protein")] == "biology/affects-molecular-entity-molecular-entity"
+    assert plan["sorts"] == {"concept": "mm30/concept", "protein": "biology/molecular-entity"}
+    assert len(plan["operators"]) == 17
+
+
+def test_the_mm30_contract_binds_concept_to_the_held_list(monkeypatch):
+    from reproduction import vocabulary
+
+    monkeypatch.setattr(vocabulary.state, "load", lambda: {"concepts_address": "dataset:sha256:" + "c" * 64})
+    vocabulary._document.cache_clear()
+    contract = vocabulary.contract()
+    assert contract.sorts["concept"].vocabulary.dataset_identity == "sha256:" + "c" * 64
+    assert contract.operators["affects-concept-molecular-entity"].arg_sorts == ("concept", "biology/molecular-entity")
+
+
+def test_concept_lines_are_canonical_sorted_and_terminated(tmp_path):
+    from reproduction.concepts import concept_lines
+
+    root = tmp_path / "entities" / "concepts"
+    root.mkdir(parents=True)
+    (root / "b.md").write_text("---\nid: concept:b-thing\nkind: concept\n---\n")
+    (root / "a.md").write_text("---\nid: concept:a-thing\nkind: concept\n---\n")
+    assert concept_lines(tmp_path) == b"concept:a-thing\nconcept:b-thing\n"
+
+
+def test_the_snapshot_refuses_a_dataset_the_binding_does_not_name():
+    from hashlib import sha256
+
+    from reproduction.vocabulary import snapshot_over
+
+    from beliefs.contract.domain import VocabularyBinding
+    from beliefs.dataset import DatasetDeclaration, ResourceDeclaration, dataset_address
+
+    content = b"concept:a-thing\nconcept:b-thing\n"
+    digest = "sha256:" + sha256(content).hexdigest()
+    declared = DatasetDeclaration(resources=(ResourceDeclaration(name="mm30-concepts.txt", digest=digest),))
+    right = dataset_address(declared)
+    assert right is not None
+    bound_to_this = VocabularyBinding(namespace=None, release=None, dataset_identity=right.removeprefix("dataset:"))
+    bound_elsewhere = VocabularyBinding(namespace=None, release=None, dataset_identity="sha256:" + "f" * 64)
+    assert snapshot_over(declared, content, bound_to_this).resolve(bound_to_this, "concept:a-thing").value == "member"
+    with pytest.raises(RuntimeError, match="binds dataset:sha256:f"):
+        snapshot_over(declared, content, bound_elsewhere)
+
+
+def test_the_snapshot_refuses_a_copy_that_is_not_the_dataset():
+    from hashlib import sha256
+
+    from reproduction.vocabulary import snapshot_over
+
+    from beliefs.contract.domain import VocabularyBinding
+    from beliefs.dataset import DatasetDeclaration, ResourceDeclaration, dataset_address
+
+    content = b"concept:a-thing\n"
+    declared = DatasetDeclaration(
+        resources=(ResourceDeclaration(name="mm30-concepts.txt", digest="sha256:" + sha256(content).hexdigest()),)
+    )
+    address = dataset_address(declared)
+    assert address is not None
+    binding = VocabularyBinding(namespace=None, release=None, dataset_identity=address.removeprefix("dataset:"))
+    with pytest.raises(RuntimeError, match="does not hash"):
+        snapshot_over(declared, b"concept:a-thing\nconcept:smuggled\n", binding)
+
+
+def test_a_non_canonical_concept_id_refuses(tmp_path):
+    from reproduction.concepts import concept_lines
+
+    root = tmp_path / "entities" / "concepts"
+    root.mkdir(parents=True)
+    (root / "x.md").write_text("---\nid: 'concept:café-thing'\nkind: concept\n---\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="canonical"):
+        concept_lines(tmp_path)
