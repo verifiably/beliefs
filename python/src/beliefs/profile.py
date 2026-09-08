@@ -40,7 +40,7 @@ from nodes.core.registry import KindSpec, Registry, Violation
 
 from beliefs.contract.base import BaseContract, ClaimGrammar, FacetUse, RelationDecl
 from beliefs.contract.coordination import CoordinationContract
-from beliefs.contract.domain import DomainContract, OperatorDecl, VocabularyBinding
+from beliefs.contract.domain import DomainContract, OperatorDecl, VocabularyBinding, _name
 from beliefs.contract.facets import FieldDecl
 from beliefs.errors import (
     ContractMismatch,
@@ -91,6 +91,10 @@ def shipped_domain_contract(namespace: str) -> DomainContract:
     from beliefs.contract.document import parse_document
     from beliefs.contract.domain import parse_domain_contract
 
+    try:
+        _name(namespace, "namespace")
+    except MalformedContract:
+        raise ProfileError(f"this package ships no domain contract for namespace {namespace!r}") from None
     source = f"beliefs/domains/{namespace}/DOMAIN.yaml"
     resource = resources.files("beliefs").joinpath(f"domains/{namespace}/DOMAIN.yaml")
     if not resource.is_file():

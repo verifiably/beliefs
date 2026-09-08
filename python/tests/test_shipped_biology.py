@@ -43,3 +43,9 @@ def test_the_pack_is_parsed_once():
 def test_an_unshipped_namespace_is_refused():
     with pytest.raises(ProfileError, match="ships no domain contract"):
         shipped_domain_contract("chemistry")
+
+
+@pytest.mark.parametrize("namespace", ["biology/../biology", "biology.bad"])
+def test_an_invalid_namespace_is_refused(namespace):
+    with pytest.raises(ProfileError, match="ships no domain contract"):
+        shipped_domain_contract(namespace)
