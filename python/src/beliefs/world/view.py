@@ -214,6 +214,11 @@ def open_world_view(world: registry.World, published: epoch.Epoch) -> WorldReadV
                 "under this address as the epoch mapped it; a carrier that disagrees with the publication is "
                 "corruption and not an absence"
             )
+        if recorded.get(node.id) != (corpus_id, uid):
+            raise ResolutionRefused(
+                f"{node.id}: {corpus_id}: {carriers[corpus_id]}: mapped uid {uid!r} has a live address the epoch "
+                "did not map to that record; a new canonical address requires a new publication"
+            )
 
     owners: dict[str, str] = {}
     for corpus_id in sorted(captured):

@@ -6,7 +6,7 @@ priority: 2
 size: m
 owner: design/world-resolution
 created: 2026-09-09T10:57:33Z
-updated: 2026-09-09T12:41:53Z
+updated: 2026-09-09T13:12:04Z
 depends: []
 parent: beliefs-d248ba
 tags: [world-read]
@@ -20,3 +20,4 @@ step: "Task 3: `WorldReadView` — opening, resolution, enumeration, drift, isol
 - 2026-09-09T12:35:53Z (design/world-resolution): RED missing module; GREEN 11 focused tests; ruff and pyright clean; foreign epoch rejected under world barrier
 - 2026-09-09T12:35:53Z (design/world-resolution): Opened a coherent map-bound world read view with absence, drift, isolation, and foreign-epoch refusal
 - 2026-09-09T12:41:53Z (design/world-resolution): review3 fix: alias producer rows now union by mapped location; RED 1 failed/11 passed, GREEN 12 passed; present and absent producer corpus covered
+- 2026-09-09T13:12:04Z (design/world-resolution): follow-up RED 1 failed/19 passed: post-publication canonical rename opened; GREEN world view plus arm staleness 27 passed after requiring live address map agreement

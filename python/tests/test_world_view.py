@@ -134,6 +134,19 @@ class TestOpening:
         with pytest.raises(ResolutionRefused):
             open_world_view(world, published)
 
+    def test_a_postpublication_live_address_rename_is_corruption(self, tmp_path):
+        world, roots, published = two_corpus_world(tmp_path)
+        old = address_in(published, ALPHA)
+        renamed = reopen(roots[ALPHA]).get(old).model_copy(
+            deep=True,
+            update={"id": "dataset:postpublication-new", "deprecated_ids": [old]},
+        )
+        (roots[ALPHA] / "dataset" / f"{old.partition(':')[2]}.md").unlink()
+        raw_write(roots[ALPHA], renamed)
+
+        with pytest.raises(ResolutionRefused, match="live address"):
+            open_world_view(world, published)
+
 
 class TestBoundReads:
     def test_published_producers_unite_alias_rows_with_producer_present_or_absent(self, tmp_path):
