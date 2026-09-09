@@ -449,9 +449,13 @@ Drift is produced by writing to a carrier after publication.
 - Absent dataset, over the chain: with B absent, `D1` has no readable basis,
   is in `not_present`, and yields incompleteness without any divergence
   comparison being reached.
-- Absence named: over the chain with B absent, `Certification.absent` names
-  `R1` and `D1` under B — references the walk never reached — and an absent
-  observed root is named the same way.
+- Absence named: over the chain with B absent, starting at `D2`, the readable
+  basis names `R2` (present) and ancestor `D1` (absent), so
+  `Certification.absent` names exactly `D1` under B — `R1` sits behind `D1`'s
+  unreadable basis and no walk from `D2` can discover it, which the arm
+  asserts by its absence from `absent`. Over the split-producer fixture with B
+  absent, `absent` names the missing run `R3` under B. Starting at `D1` itself
+  with B absent names the absent root `D1`.
 - Refusal is not absence: corrupt a mapped record's stamp in a present corpus
   and assert `lineage_snapshot` refuses and `not_present` is untouched.
 - D3: `build_snapshot` with a `not_present` binding resolves `NOT_PRESENT`; all
@@ -464,8 +468,12 @@ Drift is produced by writing to a carrier after publication.
   corpora consults both corpora's pins and refuses when they disagree; a
   non-empty supplied `node_corpus` over a world view refuses; a facet-read
   target edited after capture refuses with `CaptureDrift`.
-- R19: `check_verification` over the world view recomputes across corpora and
-  refuses a forged verification whose runs are in B.
+- R19: `check_verification` over the world view recomputes across corpora. A
+  well-formed forged verification whose runs are in B yields a checked outcome
+  carrying `verification-derivation-contradicted`; a genuine one yields none.
+  A malformed record raises, as today, and the arm keeps the two apart: the
+  contradiction is a finding, never a refusal, and the refusal is never read
+  as a finding.
 - W6, W8b: the measured arms of §7.
 - Refusals: each row of §6.
 
@@ -547,3 +555,11 @@ comparison needs — a split-producer fixture keeps the dataset and basis
 present with the run in the absent corpus, and the absent-dataset case is its
 own incompleteness arm (§8). The guarantee is stated as per-corpus coherent
 capture throughout (§2.2, §3.2).
+
+**2026-09-09, third pass, two acceptance details.** The absence-named arm
+named a run no walk from its root can reach; it now names what each root can
+discover and takes the missing run from the split-producer fixture. The R19
+arm asserted a refusal where a well-formed forgery is a
+`verification-derivation-contradicted` finding; the arm keeps finding and
+refusal distinct (§8). No architectural finding remained; the design proceeds
+to planning.
