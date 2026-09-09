@@ -499,7 +499,7 @@ def test_plan_records_reads_uid_and_id_from_each_create(tmp_path):
 
 def test_plan_records_refuses_any_other_op():
     with pytest.raises(SessionProtocolError, match="creates only"):
-        plan_records((DeleteOp("x.md"),))
+        plan_records((DeleteOp("x.md", expected_digest="a" * 64),))
 
 
 def _run_port(tmp_path: Path):
@@ -534,7 +534,7 @@ def test_execute_and_the_guarded_form_are_refused_before_the_inner_port(tmp_path
 def test_a_non_create_plan_is_refused_before_the_inner_port(tmp_path):
     _session, _writer, port, inner = _run_port(tmp_path)
     with pytest.raises(SessionProtocolError, match="creates only"):
-        port.execute_fulfilling((DeleteOp("x.md"),), INTENT)
+        port.execute_fulfilling((DeleteOp("x.md", expected_digest="a" * 64),), INTENT)
     assert inner.calls == []
 
 
@@ -657,7 +657,7 @@ from beliefs.runrecord import OperationPort
 if TYPE_CHECKING:
     from beliefs.session.writer import WriterSession
 
-__all__ = ["LedgeredPort", "ledgered_seam", "plan_records"]
+__all__ = ["LedgeredPort", "plan_records"]
 
 
 def plan_records(plan: Sequence[object]) -> tuple[tuple[str, str], ...]:
@@ -728,7 +728,7 @@ class LedgeredPort:
         )
 ```
 
-(`ledgered_seam` is Task 5's; leave the `__all__` entry and add the function there.)
+(`ledgered_seam` and its `__all__` entry are added together in Task 5.)
 
 - [ ] **Step 5: Run the routes file, the session files, and the checks**
 
@@ -1031,7 +1031,7 @@ Expected: the new tests FAIL — `AttributeError: 'ScopedWriter' object has no a
 
 - [ ] **Step 4: Add the seam wrapper and the facade method**
 
-Append to `python/src/beliefs/session/routes.py`:
+Add `"ledgered_seam"` to `__all__` and append to `python/src/beliefs/session/routes.py`:
 
 ```python
 def ledgered_seam(session: WriterSession, invocation: str, inner: StoreActSeam) -> StoreActSeam:
