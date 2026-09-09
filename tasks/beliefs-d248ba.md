@@ -6,10 +6,11 @@ priority: 2
 size: xl
 owner: design/world-resolution
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-09T09:53:42Z
+updated: 2026-09-09T10:57:13Z
 depends: []
 tags: [migration, world-read, resolution]
 spec: docs/superpowers/specs/2026-09-09-world-resolution-slice-1-design.md
+plan: docs/superpowers/plans/2026-09-09-world-resolution-slice-1.md
 ---
 
 Outcome: Beliefs resolves the world read side across corpora, including views, coreference, snapshot clauses, and the packaging/import/audit ride-along.
