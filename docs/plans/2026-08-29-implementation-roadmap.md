@@ -44,8 +44,9 @@ closes D3, S1, S1a, S5, W6, W10 and R19 and reads R23's coverage clause.
 The captured world read view now carries traversal and evaluation across
 corpora. `world-resolution` stays first on the path: coreference, the
 snapshot/import and audit callers, and view evaluation remain. Its packaging
-ride-along is unchanged. W8b was measured and not selected; its build-time uid
-uniqueness and duplicate-location defect is filed as `beliefs-fda0e5`.
+ride-along is unchanged. W8b was measured and not selected; `beliefs-fda0e5`
+repairs its build-time uid uniqueness and duplicate-location defect. A future
+cut must select W8b before its conformance row can close.
 
 The current accounting is 142 of 195 rows closed, with 53 open. The prior
 single-corpus mm30 measurement still ranks this boundary on the path when a
@@ -242,7 +243,7 @@ Each open row, its remainder as the last cut states it, and where it goes
 | G9 | the `url` locator arm beside H4's remote arm (cut 10 results §1) | `url-retrieval` |
 | S6 | arm (h), "the first successor policy admitting unequal weights" (cut 2 §4.2; cut 4 §5) | `weighted-belief` — tier 3 |
 | W1, W2, W4, W5a, W7, W8, W15 | the remaining world resolver (cut 23 results §5); W4 to be adjudicated against merge retirement (address ruling §5), W15 belongs to coreference slice 2 | `world-resolution` |
-| W8b | measured but not selected at cut 23: epoch build accepts one uid under two addresses; a duplicate address raises bare `ValueError` instead of a `duplicate-location` finding (`beliefs-fda0e5`). The view open refusal does not close the build obligation | `world-resolution` |
+| W8b | measured but not selected at cut 23; `beliefs-fda0e5` repairs the measured build defect with distinct `uid-corruption` and `duplicate-location` findings on refusal. Conformance selection remains open | `world-resolution` |
 | W9, W14 | rendered labels and the ambiguous-search refusal against a pinned authority snapshot (ledger artifact 11) | `authority-labels` — tier 3 |
 | W17 | intent-position evidence over the publication-binding revision family (cut 14 results §1) | `publish`; the ordinary coordination revision family is closed |
 | W13 | coverage-declaration and digest-invariance clauses; manifest-only re-mint detection and the forgery variants; replica-restore's declaration half; the fork copy act (cut 6 §3.2) — every named dependency has since landed → relabel candidates | `world-resolution`; the two-projects negative is closed by cut 14 |

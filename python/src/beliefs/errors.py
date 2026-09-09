@@ -13,6 +13,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, TypeAlias
 
 if TYPE_CHECKING:  # pragma: no cover - the report type is the verification module's
+    from beliefs.corpus import Finding
     from beliefs.world.read import BoundStamp
     from beliefs.world.verify import LogReport
 
@@ -134,6 +135,20 @@ class BuildContended(ScienceError):
     operation lock already held. The build refuses at once rather than queue:
     waiting behind a corpus operation is what would let a build park the
     writer queue behind itself."""
+
+
+class AddressMapConflict(ScienceError):
+    """The captured world violates W8b; no epoch can be published.
+
+    The finding distinguishes `uid-corruption` (one uid, different canonical
+    addresses) from `duplicate-location` (one canonical address, several
+    records). Only the latter offers `consolidate`. Its detail names the
+    captured claims, never a preferred carrier.
+    """
+
+    def __init__(self, finding: "Finding") -> None:
+        self.finding = finding
+        super().__init__(f"{finding.code}: {finding.ref}: {finding.detail}; {finding.message}")
 
 
 class BuildHold(ScienceError):

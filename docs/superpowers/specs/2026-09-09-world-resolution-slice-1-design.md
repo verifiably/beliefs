@@ -412,8 +412,8 @@ to `unknown`) is answered by `resolve_address` as it stands, and the cut selects
 an arm over that code. W8b is measured and not selected: the pre-freeze probe
 found that the epoch build publishes one `uid` under two addresses and refuses
 one address held in two corpora with a bare `ValueError`, not the promised
-`duplicate-location` finding. That defect is filed as `beliefs-fda0e5`; repair
-belongs to slice 2's code outside this cut. The view still refuses a `uid` held
+`duplicate-location` finding. `beliefs-fda0e5` subsequently repaired that defect
+in slice 2's code outside this cut; W8b remains unselected. The view still refuses a `uid` held
 under two corpora at open as its own boundary invariant.
 
 ## 8. Testing and the cut

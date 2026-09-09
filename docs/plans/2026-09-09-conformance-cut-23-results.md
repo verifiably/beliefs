@@ -7,6 +7,11 @@
 **Discharged:** 2026-09-09, on `design/world-resolution`
 **Runner:** `python/tools/cut23_acceptance.py`
 
+**Subsequent W8b status (2026-09-09):** `beliefs-fda0e5` repaired the build
+defect measured below. The build now refuses with distinct `uid-corruption`
+and `duplicate-location` findings. W8b remains unselected; the measurements,
+run evidence and accounting in this results record are unchanged.
+
 ## 1. What ran
 
 The refreshed certified run tested commit

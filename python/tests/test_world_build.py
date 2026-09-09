@@ -209,9 +209,9 @@ def sample_nodes(slug: str = "one") -> tuple[Node, ...]:
 def slug_for(corpus_id: str, coverage: tuple[str, ...]) -> str:
     """One record-name slug per corpus in a multi-corpus fixture.
 
-    Two corpora claiming one address is corruption the address map refuses
-    outright (§7.2, and `derive.address_map` refuses it even when the two
-    claims agree), so a fixture covering several corpora has to give each its
+    Two corpora claiming one canonical address is a duplicate location the
+    address map refuses (§7.2), even when their uids agree, so a fixture
+    covering several corpora has to give each its
     own records. A single-corpus fixture keeps the plain `one` the arms that
     name records by hand were written against.
     """

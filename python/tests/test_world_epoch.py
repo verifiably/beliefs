@@ -36,6 +36,7 @@ import pytest
 import yaml
 from authority import FULL
 from coordination_fixtures import content_for, coordination_profile, mounted_root
+from fixtures_cut4 import raw_write
 from nodes.core.corpus import Corpus
 from nodes.core.write_plan import CreateOp, DefaultExecutor, ReplaceOp, WriteOp, WritePlan
 from test_world_build import (
@@ -54,7 +55,7 @@ from test_world_build import (
 
 from beliefs import stored
 from beliefs.corpus import CoordinationResolver, CorpusWriter
-from beliefs.errors import EpochMalformed, EpochUnknown
+from beliefs.errors import AddressMapConflict, EpochMalformed, EpochUnknown
 from beliefs.identity import v1
 from beliefs.world import derive, epoch, read, registry
 
@@ -251,6 +252,35 @@ def formula_packaging_identity(members: dict[str, bytes]) -> str:
         "science.epoch.v1",
         [[name, sha256(content).hexdigest()] for name, content in sorted(members.items())],
     )
+
+
+@pytest.mark.parametrize(
+    ("same_address", "same_uid", "code"),
+    [(False, True, "uid-corruption"), (True, True, "duplicate-location"), (True, False, "duplicate-location")],
+)
+def test_build_reports_world_identity_conflicts_without_publishing(tmp_path, same_address, same_uid, code):
+    world, recorder, bindings, roots = admitted_world(tmp_path, (ALPHA, BETA))
+    original = Corpus(roots[ALPHA]).get("dataset:a")
+    twin = original.model_copy(deep=True, update={
+        "id": original.id if same_address else "dataset:twin",
+        "uid": original.uid if same_uid else "d" * 32,
+    })
+    raw_write(roots[BETA], twin)
+
+    # Each corpus alone is publishable: this is a world invariant, not a
+    # per-corpus uid collision. An uncovered conflict must not stop a build.
+    publish(world, (ALPHA,), bindings)
+    publish(world, (BETA,), bindings)
+    before = epochs_tree(world)
+    plans = len(recorder.plans)
+    with pytest.raises(AddressMapConflict) as caught:
+        publish(world, (ALPHA, BETA), bindings)
+    finding = caught.value.finding
+    assert finding.code == code
+    assert finding.ref == (original.uid if code == "uid-corruption" else original.id)
+    assert ALPHA in finding.detail and BETA in finding.detail
+    assert epochs_tree(world) == before
+    assert len(recorder.plans) == plans
 
 
 # --- Step 1: the deterministic carrier ----------------------------------------

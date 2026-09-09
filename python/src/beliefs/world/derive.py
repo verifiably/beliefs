@@ -69,7 +69,8 @@ from types import MappingProxyType
 from typing import Literal, cast
 
 from beliefs.closure import RetractionEnumeration
-from beliefs.errors import RuleNonconformant
+from beliefs.corpus import Finding
+from beliefs.errors import AddressMapConflict, RuleNonconformant
 from beliefs.identity import v1
 from beliefs.world import epoch
 
@@ -405,16 +406,38 @@ def address_map(capture: Capture) -> Mapping[str, tuple[str, str]]:
     redirect, so its answer survives its corpus being absent — that is the
     whole reason the deprecated entries are here and not left in the corpus.
 
-    The mapping is singular under world §4.3's invariant, and singularity is
-    enforced rather than assumed: two claims on one address is corruption, and
-    resolving it by insertion order would publish an answer whose correctness
-    depended on directory listing order. A second claim refuses even when it
-    agrees with the first — two records answering to one address at one `uid`
-    is a `uid` collision `nodes` already forbids, and "they happen to agree" is
-    not a reason to publish an address whose singularity nobody can vouch for.
+    W8b distinguishes uid corruption from duplicate location. Check canonical
+    claims before redirects, and corruption before offering consolidation:
+    a shared uid at two locations may also name a third, different address.
+    Neither violation is resolved by precedence. Deprecated addresses of one
+    record remain ordinary additional keys, not additional canonical claims.
     """
+    located = capture.located_records()
+    by_uid: dict[str, list[tuple[str, str]]] = {}
+    by_address: dict[str, list[tuple[str, str]]] = {}
+    for corpus_id, record in located:
+        by_uid.setdefault(record.uid, []).append((corpus_id, record.address))
+        by_address.setdefault(record.address, []).append((corpus_id, record.uid))
+    for uid, locations in by_uid.items():
+        if len({address for _, address in locations}) > 1:
+            raise AddressMapConflict(Finding(
+                severity="error",
+                code="uid-corruption",
+                ref=uid,
+                detail=f"corpus/address claims={tuple(locations)!r}",
+                message="one uid names different canonical addresses; no repair is offered",
+            ))
+    for address, locations in by_address.items():
+        if len(locations) > 1:
+            raise AddressMapConflict(Finding(
+                severity="error",
+                code="duplicate-location",
+                ref=address,
+                detail=f"corpus/uid claims={tuple(locations)!r}",
+                message="one canonical address is held in multiple corpora; resolve with consolidate",
+            ))
     mapping: dict[str, tuple[str, str]] = {}
-    for corpus_id, record in capture.located_records():
+    for corpus_id, record in located:
         for address in (record.address, *record.deprecated_ids):
             held = mapping.get(address)
             if held is not None:

@@ -11,6 +11,10 @@ declarations discharged on the certified tuple — see
 `main` on 2026-08-22 with `--no-ff` (integration commit `83744e7`), preserving
 history as results record §7 requires; that constraint outlives the merge.** §9's empty-directory sentence was corrected in the same
 landing; it was wrong as banked.
+**W8b amendment (2026-09-09, `beliefs-fda0e5`):** address-map derivation now
+distinguishes uid corruption from duplicate location before publication.
+This repairs the build defect measured at cut 23; it does not select W8b or
+change either frozen cut's accounting.
 **Scope:** adoption-ledger artifact 1; the build-time uniqueness half of
 artifact 2; anchor carriage needed by artifact 5.
 **Inherits:** `2026-08-02-world-addressing-design.md` §5 and §5.1;
@@ -425,6 +429,23 @@ each mapped to `(corpus_id, uid)`. The mapping is singular under world §4.3's
 invariant. Retired addresses are publication members rather than corpus-local
 redirects, so their answer survives corpus absence.
 
+**W8b amendment (2026-09-09):** `derive.address_map` raises
+`AddressMapConflict`, a `ScienceError` carrying the existing `Finding` envelope.
+One uid at different canonical addresses produces `uid-corruption`, naming
+the uid and its corpus/address claims, with no repair offered. One canonical
+address held in multiple covered corpora produces `duplicate-location`, naming
+the address and its corpus/uid claims and directing the caller to `consolidate`.
+Shared and distinct uids produce the same duplicate-location code. Corruption
+is checked first across the complete capture, so a duplicate pair cannot hide
+a third conflicting canonical address. Claims are ordered by the capture,
+never selected by precedence. A record's deprecated addresses are additional
+map keys, not additional canonical claims; their collision refusal is unchanged.
+
+The refusal happens during pure derivation: no publication plan is submitted,
+and the existing epochs and `current` remain untouched. `build_epoch` still
+returns an `Epoch` on success. This is a finding attached to the refused build,
+not an epoch sweep or a persistent diagnostics channel.
+
 ### 7.3 Producers map and snapshot
 
 The producers map maps each dataset address to a sorted list of run addresses,
@@ -690,6 +711,7 @@ refusals have no synthetic cause.
 | build | `CoverageUnresolvable` | coverage has no carrier or duplicate carriers at preflight |
 | build | `CaptureDrift` | the post-enumeration state identity differs; the capture is discarded |
 | build | `EnumeratedKindUngoverned` | capture found a record of an enumerated map kind with no governed stored-kind definition; the record is neither derived nor skipped |
+| derivation | `AddressMapConflict` | W8b amendment: the captured uid/address claims yield a `uid-corruption` or `duplicate-location` finding; nothing is published |
 | build | `RuleNotHeld` | an exact binding is absent at preflight or the pre-publication recheck |
 | rules | `RuleCollision` | a content-addressed rule path exists with different bytes |
 | rules | `RuleBindingUnknown` | explicit removal names no held exact pair |

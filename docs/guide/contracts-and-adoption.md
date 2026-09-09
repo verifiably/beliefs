@@ -185,7 +185,8 @@ fitted result into independent validation.
 
 Cut 23 discharges the world read view and cross-corpus traversal: D3, S1,
 S1a, S5, W6, W10 and R19 close; R23 gains its coverage clause and stays partial.
-W8b is measured and not selected, with its build defect filed separately.
+W8b is measured and not selected. Its build defect is repaired by
+`beliefs-fda0e5`; the conformance row awaits a future selection.
 The [results record](../plans/2026-09-09-conformance-cut-23-results.md) preserves
 the certified chain and repository gates; it makes no new mm30 measurement.
 

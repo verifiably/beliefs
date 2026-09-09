@@ -21,7 +21,7 @@ from dataclasses import dataclass, fields
 import pytest
 
 from beliefs.closure import RetractionEnumeration, build_closure
-from beliefs.errors import RuleNonconformant
+from beliefs.errors import AddressMapConflict, RuleNonconformant
 from beliefs.identity import v1
 from beliefs.lineage import LineageSnapshot
 from beliefs.world import derive, epoch, rules
@@ -166,15 +166,34 @@ class TestAddressMap:
         mapping = derive.address_map(TWO_CORPORA)
         assert mapping["dataset:retired"] == mapping["dataset:two"]
 
-    def test_the_mapping_is_singular(self):
-        # World §4.3's invariant: one address, one answer. A second claim on one
-        # address is corruption, refused rather than resolved by insertion order.
+    @pytest.mark.parametrize("other_uid", ["uid-dataset:one", "uid-other"])
+    def test_duplicate_location_is_reported_with_either_shared_or_distinct_uids(self, other_uid):
         clash = capture(
             corpus("corpus-a", record("dataset:one"), at="a"),
-            corpus("corpus-b", record("dataset:one", uid="uid-other"), at="b"),
+            corpus("corpus-b", record("dataset:one", uid=other_uid), at="b"),
         )
-        with pytest.raises(ValueError, match="dataset:one"):
+        with pytest.raises(AddressMapConflict) as caught:
             derive.address_map(clash)
+        finding = caught.value.finding
+        assert finding.code == "duplicate-location"
+        assert finding.ref == "dataset:one"
+        assert "corpus-a" in finding.detail and "corpus-b" in finding.detail
+        assert other_uid in finding.detail
+
+    @pytest.mark.parametrize("reverse", [False, True])
+    def test_uid_corruption_outranks_a_duplicate_location(self, reverse):
+        corpora = (
+            corpus("corpus-a", record("dataset:one", uid="shared")),
+            corpus("corpus-b", record("dataset:one", uid="shared")),
+            corpus("corpus-c", record("dataset:two", uid="shared")),
+        )
+        with pytest.raises(AddressMapConflict) as caught:
+            derive.address_map(capture(*(reversed(corpora) if reverse else corpora)))
+        finding = caught.value.finding
+        assert finding.code == "uid-corruption"
+        assert finding.ref == "shared"
+        assert "dataset:one" in finding.detail and "dataset:two" in finding.detail
+        assert "corpus-a" in finding.detail and "corpus-c" in finding.detail
 
     def test_a_deprecated_entry_may_not_shadow_a_live_address(self):
         clash = capture(

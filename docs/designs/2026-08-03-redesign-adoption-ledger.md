@@ -151,8 +151,10 @@ ancestry and the surfaces they built
   capture with detached records, cross-corpus adjacency and producer evidence,
   named absence, five-way resolution, derived attribution and facet drift checks.
   D3, S1, S1a, S5, W6, W10 and R19 close at cut 23; R23 gains its coverage
-  clause and remains partial. W8b was measured and not selected: its build defect
-  remains open as `beliefs-fda0e5`. The corpus now has 142 of 195 rows closed.
+  clause and remains partial. W8b was measured and not selected. Its build defect
+  is repaired by `beliefs-fda0e5`: address-map derivation refuses uid corruption
+  and reports duplicate locations distinctly, before publication. W8b still
+  awaits a conformance selection; the corpus has 142 of 195 rows closed.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
