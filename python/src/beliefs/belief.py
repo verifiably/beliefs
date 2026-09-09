@@ -184,10 +184,18 @@ class SuppliedContext:
     snapshot: LineageSnapshot
     producer_snapshot_identity: str
     retractions: RetractionEnumeration
-    node_corpus: Mapping[str, str]
+    node_corpus: Mapping[str, tuple[str, ...]]
     pins: Mapping[str, CorpusPins]
 
     def __post_init__(self) -> None:
+        if any(
+            not isinstance(corpora, tuple)
+            or not corpora
+            or not all(isinstance(corpus, str) for corpus in corpora)
+            or corpora != tuple(sorted(corpora))
+            for corpora in self.node_corpus.values()
+        ):
+            raise MalformedRecord("node_corpus attributes each node to a non-empty tuple of corpus ids")
         object.__setattr__(self, "node_corpus", MappingProxyType(dict(self.node_corpus)))
         object.__setattr__(self, "pins", MappingProxyType(dict(self.pins)))
 

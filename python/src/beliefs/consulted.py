@@ -46,12 +46,12 @@ def consulted_contracts(
     *,
     claims: Mapping[str, Claim],
     profile: ProfileSpec,
-    node_corpus: Mapping[str, str],
+    node_corpus: Mapping[str, tuple[str, ...]],
     pins: Mapping[str, CorpusPins],
     closure_nodes: tuple[str, ...],
     facets_read: Mapping[str, tuple[str, ...]] = MappingProxyType({}),
 ) -> tuple[tuple[str, str], ...]:
-    corpora = sorted({node_corpus[node] for node in closure_nodes if node in node_corpus}) or sorted(pins)
+    corpora = sorted({corpus for node in closure_nodes if node in node_corpus for corpus in node_corpus[node]}) or sorted(pins)
     if not corpora:
         raise MalformedRecord("a derivation consults at least one corpus's pins")
     unpinned_corpora = sorted(set(corpora) - set(pins))

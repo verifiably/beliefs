@@ -152,7 +152,7 @@ def _belief_digest(published):
             "context": replace(
                 ordinary["context"],
                 producer_snapshot_identity=snapshot.identity(),
-                node_corpus={row["address"]: row["corpus_id"] for row in address_map},
+                node_corpus={row["address"]: (row["corpus_id"],) for row in address_map},
             ),
         }
     )
