@@ -5,7 +5,7 @@ status: todo
 priority: 2
 size: m
 created: 2026-09-07T09:30:22Z
-updated: 2026-09-07T09:30:22Z
+updated: 2026-09-09T09:17:06Z
 depends: []
 tags: [reproduction-finding]
 ---
@@ -15,3 +15,7 @@ The reproduction driver's end-to-end re-run during the verification-publication 
 So step 10b is proven to read the stored comparison report correctly ONCE TARGET SELECTION IS COMPLETE. It is NOT proven that the driver can rebuild target.yaml and reproduce end to end without foreknowledge of the answer. The 10b JSON from that run should not be cited as a clean end-to-end reproduction.
 
 The gap belongs to the earlier target-selection/holding steps: select_target.py, type_target.py, hold.py. Note hold.py:54's 'driver correction' message covers a different failure (a non-regular held file) and is not a precedent for this one.
+
+## Notes
+
+- 2026-09-09T09:17:06Z (hygiene/n2-arms): pyright over tools/ (2026-09-09, not part of the gate) reports one live error here: select_target.py:56 keys lines by f.get('target'), which may be None, so an evidence line without a target is silently filed under None rather than refused - a fail-early gap in the same target-selection step this task owns.
