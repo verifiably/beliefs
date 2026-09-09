@@ -1,7 +1,7 @@
 # World resolution, slice 1 — the world read view and cross-corpus traversal
 
 **Date:** 2026-09-09, revised twice the same day after review (§11)
-**Status:** approved plan; conformance cut 23 frozen 2026-09-09 before implementation
+**Status:** discharged at conformance cut 23 on 2026-09-09; results: `../../plans/2026-09-09-conformance-cut-23-results.md`
 **Boundary:** `world-resolution`, slice 1 of four (`beliefs-d248ba`)
 **Lane:** `world-read`, worktree `.worktrees/world-resolution`
 **Sources:** `../../designs/2026-08-02-world-addressing-design.md` (§5, §5.1, §7),
@@ -13,6 +13,10 @@
 **Measured against:** `main` at `197f517`
 
 ## 1. What this slice is
+
+The baseline below describes `main` at `197f517` before implementation. Slice 1
+is now discharged; the results record names the measured outcome and remaining
+boundary.
 
 The world's read side exists at the epoch tier and stops there. Slice 2 of the
 world index landed `world/read.py`: an address resolves through a published

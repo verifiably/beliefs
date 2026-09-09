@@ -1,12 +1,12 @@
 ---
 id: beliefs-d248ba
 title: Deliver world resolution and packaging remainder
-status: doing
+status: todo
 priority: 2
 size: xl
 owner: design/world-resolution
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-09T12:07:35Z
+updated: 2026-09-09T16:05:31Z
 depends: []
 tags: [migration, world-read, resolution]
 spec: docs/superpowers/specs/2026-09-09-world-resolution-slice-1-design.md
@@ -19,7 +19,7 @@ Acceptance evidence: Freeze a world-read cut; implement resolution states and cr
 
 Sources: `docs/plans/2026-08-29-implementation-roadmap.md` `world-resolution` and `packaging-remainder`; `docs/designs/2026-08-02-world-addressing-design.md`; `docs/designs/2026-08-08-world-address-ruling.md`; and `docs/designs/2026-08-03-world-index-packaging-design.md`.
 
-Uncertainty: The required write and index prerequisites have landed, but the resolver cut and its public query shape are not yet planned.
+Remaining work: Slice 1 is discharged at cut 23. Slices 2–4 are filed as beliefs-113561 (coreference), beliefs-46847c (snapshots/import/audit and packaging), and beliefs-0e523a (view evaluation); their detailed designs and cuts remain to be frozen. W8b build defect beliefs-fda0e5 stays open. The parent outcome is not complete.
 
 ## Notes
 
@@ -28,3 +28,4 @@ Uncertainty: The required write and index prerequisites have landed, but the res
 - 2026-09-09T11:59:42Z (design/world-resolution): took over session 88aa735c-590d-4eda-8d25-0fcf60bef434 (owner design/world-resolution, host titan, pid 1720691, worktree /mnt/ssd/Dropbox/beliefs/.worktrees/world-resolution, since 2026-09-09T09:17:51Z, age 9711s, stale: pid 1720691 is gone)
 - 2026-09-09T11:59:42Z (design/world-resolution): User authorized takeover from closed Claude session; claimed by Codex /root, pid 2130612; executing slice 1 with per-task implementation and review.
 - 2026-09-09T12:07:35Z (design/world-resolution): cut 23 frozen at d62c0dc, sha256 c4873f96fbe6cbbb2925a99a449abe4883e10341592b0c2d363485513bf3eb96; frozen §§2–7 sha256 678e30c3a50863a17df680a8357512194dabd4c617a388a08713562303484276
+- 2026-09-09T16:05:31Z (design/world-resolution): Slice 1 discharged at cut 23; slices 2–4 filed as beliefs-113561 (coreference including W15), beliefs-46847c (snapshots/import/audit and packaging), beliefs-0e523a (view evaluation), in serial dependency order. Parent remains open; returning todo and releasing controller claim at slice handoff; beliefs-fda0e5 stays open.

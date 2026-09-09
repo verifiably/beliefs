@@ -465,7 +465,7 @@ class TestD3TheFiveOutcomesStayDistinct:
         assert TermOutcome.NOT_PRESENT not in reachable
 
     def test_a_binding_cannot_be_both_readable_and_unreadable(self):
-        with pytest.raises(ResolutionError, match="both readable and unreadable"):
+        with pytest.raises(ResolutionError, match=r"more than one availability state \(readable and not-available\)"):
             build_snapshot(readable={EX: [GENE]}, unreadable=[EX])
 
 

@@ -38,7 +38,7 @@ organization rather than a personal account, so governance and long-term
 stewardship are not tied to one individual. §5 records the namespace and
 decomposition rulings that follow from it.
 
-## Current state (2026-09-08)
+## Current state (2026-09-09)
 
 This section is the one place that states what is built and what remains to
 build. Every other live surface — the README and the contributor guide — links
@@ -46,10 +46,10 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-09-08** for cut 22's biology-pack discharge and measured mm30
-rerun.
+**Updated 2026-09-09** for cut 23's world read view and cross-corpus traversal
+discharge.
 
-**Implemented through conformance cut 22.** Every cut from 4 onward has a
+**Implemented through conformance cut 23.** Every cut from 4 onward has a
 discharge results record under `../plans/`; cuts 1–3 are proved by their merge
 ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
@@ -120,8 +120,8 @@ ancestry and the surfaces they built
   assessment before any payload write; `decode.claim_from_stored`, the restore
   seam; and the instrumented resolver behind the only corpus-backed evaluation
   path. G2c, G8, C6, R5, W16, M1 and M5 close; C1, T8, M11 and M13 are
-  closed-row re-reads; S5, R23, R19, R22 and M3 remain partial exactly as the
-  results record states (cut 18).
+  closed-row re-reads; R23, R22 and M3 retain their named remainders. S5 and
+  R19 subsequently close at cut 23.
 - **The writer session** — the attended session and its fixed actor, the
   append-then-fsync ledger and claim protocol, the invocation-bound scoped
   writer under exactly its requirement, `corpus-write` as an operation intent
@@ -140,14 +140,19 @@ ancestry and the surfaces they built
   read back; scope, rule and report recomputed from a stored verification;
   forgery refused before the intent; and the stored `analysis-spec` builder and
   reader. V1-V8 close at cut 21, and R19's stored-verification limitation
-  (cut 18 §7) closes with them, leaving only its cross-corpus recomputation
-  with `world-resolution`.
+  (cut 18 §7) closes with them; its cross-corpus recomputation closes at cut 23.
 - **Biology pack and domain-facet read** — the shipped HGNC-bound
   `molecular-entity` sort, `gene-axis` facet and three protein→protein
   operators compose with mm30's corpus-local concept vocabulary and
   cross-typed operators. The consulted walk authenticates profile pins and
   reader-minted facet receipts supply the digest ledger. B1–B7 and D6 close at
   cut 22; M8 gains its sort-contract arm; D1 remains partial.
+- **World read view and cross-corpus traversal** — an explicit-epoch, map-bound
+  capture with detached records, cross-corpus adjacency and producer evidence,
+  named absence, five-way resolution, derived attribution and facet drift checks.
+  D3, S1, S1a, S5, W6, W10 and R19 close at cut 23; R23 gains its coverage
+  clause and remains partial. W8b was measured and not selected: its build defect
+  remains open as `beliefs-fda0e5`. The corpus now has 142 of 195 rows closed.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -162,7 +167,7 @@ not listed.
 | id | boundary | owner | what it blocks |
 |---|---|---|---|
 | `url-retrieval` | the URL retrieval boundary, acquisition orchestration and typed retrieval grants: H4, G9, R10, T5, T7's same-root case | `2026-08-24-world-index-holdings-design.md` §1–§3 | the first acquisition of a dataset from outside the system |
-| `world-resolution` | the read side of the world: W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 less its two-projects negative; W8a's coreference arms; S1, S1a and S5's cross-corpus reach; D3; X12 and M3's coreference arms; R19's cross-corpus recomputation; R23's snapshot, coverage, divergence and explicit-import clauses | `2026-08-02-world-addressing-design.md` and `2026-08-08-world-address-ruling.md` | resolution states, cross-corpus edges, views, the coreference balance |
+| `world-resolution` | the remaining read side of the world: W1, W2, W4, W5a, W7, W8, W8b, W15; W13 less its two-projects negative; W8a's coreference arms; X12 and M3's coreference arms; R23's snapshot, divergence and explicit-import clauses; W8b's measured build defect is `beliefs-fda0e5` | `2026-08-02-world-addressing-design.md` and `2026-08-08-world-address-ruling.md` | coreference balance, snapshot/import and audit callers, view evaluation |
 | `domain-boundary` | D1's cross-repository negative that adds a domain-aware code path to `nodes`; slices 1 and 2 discharged at cuts 20 and 22 | `2026-08-04-domain-extension-boundary-design.md` | D1 in full |
 | `event-level-l8` | **Event-level L8** — the presence/exclusion relation across captured corpus heads | the tamper-evident-log design's own successor work (row 5) | row 5 reading L8 in full |
 | `contract-cut` | **The first full contract cut, its executable suite, and N1–N10**; N2's closing doctrine; P1's resolver-negative arm; R22's resolver arm; the `instrument-certification` arms of W8a, X12 and C10; R23's rules-store clauses | sub-problem 5b (row 7) | the normative contract's own guarantees; disposition of the legacy check modules; the conformance-package split (§5) |
@@ -180,9 +185,9 @@ not listed.
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-08-conformance-cut-22-results.md`) discharges the biology
-pack, closes B1–B7 and D6, and leaves D1's cross-repository negative with
-`domain-boundary`.
+(`../plans/2026-09-09-conformance-cut-23-results.md`) discharges world-resolution
+slice 1: seven rows close and R23's coverage clause is read. Slices 2–4 retain
+the world and packaging remainders above; `beliefs-d248ba` stays open.
 `test_the_ledger_summary_names_the_newest_remaining_boundary` holds this
 section to whichever record is newest;
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds this table and the

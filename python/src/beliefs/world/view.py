@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import copy
 from collections.abc import Iterator, Mapping
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast, final
@@ -123,7 +123,7 @@ class WorldReadView:
         if entry is None:
             return []
         return [
-            ResolvedEdge(relation=copy.deepcopy(edge.relation), source_uid=edge.source_uid, target_uid=edge.target_uid)
+            ResolvedEdge(relation=deepcopy(edge.relation), source_uid=edge.source_uid, target_uid=edge.target_uid)
             for edge in self._inbound.get(entry, ())
         ]
 

@@ -2,7 +2,7 @@
 title: Contracts and adoption
 status: living
 created: 2026-08-08
-updated: 2026-09-06
+updated: 2026-09-09
 sources:
   - ../designs/2026-08-03-normative-contract-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -183,12 +183,13 @@ fitted result into independent validation.
 
 ## Current state
 
-Cut 22 discharges the biology pack and domain-facet read: B1–B7 and D6 close,
-M8 gains a sort-contract arm, and D1 remains partial on its cross-repository
-negative. Its results record preserves the certified chain and measured mm30
-rerun.
+Cut 23 discharges the world read view and cross-corpus traversal: D3, S1,
+S1a, S5, W6, W10 and R19 close; R23 gains its coverage clause and stays partial.
+W8b is measured and not selected, with its build defect filed separately.
+The [results record](../plans/2026-09-09-conformance-cut-23-results.md) preserves
+the certified chain and repository gates; it makes no new mm30 measurement.
 
-Twenty-two conformance cuts have been frozen and discharged, each frozen before
+Twenty-three conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple
 with a results record under `../plans/`. The cut discipline is what this page
 owns: a cut selects rows, the acceptance runner arms each selected unit with
@@ -206,8 +207,8 @@ as cut 17: E1–E8 close, every write entry point requires its permit before any
 effect, and no caller supplies an actor. The deletion cut is discharged as
 cut 18 — frozen the same day as cut 17 and numbered after it, because a number
 is claimed at freeze in freeze order: G2c, G8, C6, R5, W16, M1 and M5 close;
-S5, R23, R19, R22 and M3 remain partial on their named remainders; C1, T8, M11
-and M13 are re-read.
+S5, R23, R19, R22 and M3 were partial at that cut; S5 and R19 close at cut 23.
+C1, T8, M11 and M13 were re-read.
 The writer-session cut is discharged as cut 19: J1–J11 close — the `J` table's
 every row, selected in full before implementation and read in full afterwards
 (`../designs/2026-09-05-conformance-cut-19.md`).
@@ -221,7 +222,7 @@ D1 partial)
 (`../plans/2026-09-08-conformance-cut-22-results.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-08)
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-09)
 states what is built and which remaining boundaries have named owners; the cut
 documents and results records in the references below are the evidence.
 

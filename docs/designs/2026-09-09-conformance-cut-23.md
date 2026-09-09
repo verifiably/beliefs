@@ -1,11 +1,15 @@
 # Conformance cut 23 — the world read view and cross-corpus traversal
 
-**Status:** frozen 2026-09-09 before implementation.
+**Status:** discharged 2026-09-09; frozen before implementation. Results: `../plans/2026-09-09-conformance-cut-23-results.md`.
 **Frozen:** 2026-09-09, before implementation, on `design/world-resolution`
 **Design:** `../superpowers/specs/2026-09-09-world-resolution-slice-1-design.md`, reviewed 2026-09-09
 **Numbered after** cut 22 (roadmap concurrency rule 1) and **serialized after** its discharge, which landed on `main` at `197f517` (rule 5).
 
 ## 1. What this cut is
+
+The following baseline describes the tree before implementation. Cut 23 is
+now discharged: seven rows close and R23 gains its coverage clause. The dated
+results record preserves the measured outcome; §§2–7 remain frozen.
 
 The world's read side exists at the epoch tier and stops there. Slice 2 of the
 world index landed `world/read.py`: an address resolves through a published

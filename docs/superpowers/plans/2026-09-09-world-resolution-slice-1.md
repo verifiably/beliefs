@@ -1,5 +1,7 @@
 # World resolution slice 1 — implementation plan
 
+**Status:** implementation discharged at cut 23 on 2026-09-09; [results](../../plans/2026-09-09-conformance-cut-23-results.md). Controller integration review and merge remain pending. The steps below preserve the original execution plan.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Give the kernel's walks, snapshot builders, evaluator and verification check a world read view — a per-corpus coherent capture bound to one published epoch — so a read that today stops at the corpus edge continues through the epoch's address map and reports `not-present` where a covered corpus is absent.
