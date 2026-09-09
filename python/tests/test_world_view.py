@@ -230,6 +230,41 @@ class TestBoundReads:
 
 
 class TestCrossCorpusEdges:
+    @pytest.mark.parametrize("source_state", ["unknown", "absent", "local", "foreign"])
+    def test_inbound_resolves_the_declared_source_not_the_container(self, tmp_path, source_state):
+        from beliefs.corpus import RelationAdjacency
+        from beliefs.traversal import closure
+
+        holder = stored.dataset_node("holder", title="holder")
+        target = stored.dataset_node("target", title="target")
+        source = stored.dataset_node("source", title="source")
+        holder.relations.append(Relation(source=source.id, predicate="cites", target=target.id))
+        alpha = (holder, target, source) if source_state == "local" else (holder, target)
+        beta = (source,) if source_state in ("absent", "foreign") else ()
+        roots = corpora(tmp_path, {ALPHA: alpha, BETA: beta})
+        world = world_over(tmp_path, roots)
+        published = publish(world, (ALPHA, BETA), hold_shipped(world))
+        if source_state == "absent":
+            make_absent(roots, BETA)
+        view = open_world_view(world, published)
+        local = ReadView.opened_at(roots[ALPHA])
+
+        edges = view.inbound(target.id)
+        if source_state == "unknown":
+            assert type(view.locate(source.id)) is read.Unknown
+            assert edges == []
+        else:
+            assert len(edges) == 1 and edges[0].relation == holder.relations[0]
+            assert edges[0].target_uid == target.uid
+            assert edges[0].source_uid == (None if source_state == "absent" else source.uid)
+        local_edges = local.inbound(target.id)
+        assert len(local_edges) == 1
+        assert local_edges[0].source_uid == (source.uid if source_state == "local" else None)
+        world_reach = closure(target.id, RelationAdjacency(view, "cites", "inbound"))
+        local_reach = closure(target.id, RelationAdjacency(local, "cites", "inbound"))
+        assert world_reach.reached == ((source.id,) if source_state in ("local", "foreign") else ())
+        assert local_reach.reached == ((source.id,) if source_state == "local" else ())
+
     def test_inbound_crosses_the_corpus_edge_and_is_dangling_locally(self, tmp_path):
         world, roots, published = chain_world(tmp_path)
         view = open_world_view(world, published)
@@ -467,6 +502,57 @@ def world_kwargs(view, profile):
 
 
 class TestEvaluationOverTheWorld:
+    @pytest.mark.parametrize("consumer", ["gather", "evaluate", "evaluate_over"])
+    @pytest.mark.parametrize("pin_state", ["agree", "disagree", "missing"])
+    def test_run_only_corpus_pins_enter_both_contract_walks(self, tmp_path, consumer, pin_state):
+        from beliefs.belief import Belief, Refused, evaluate
+        from beliefs.errors import ContractDisagreement, MalformedRecord
+        from beliefs.evaluation import EvaluationInputs, evaluate_over, gather
+
+        world, _roots, published = split_evaluation_world(tmp_path, ("run:run-a", "run:run-b"))
+        view = open_world_view(world, published)
+        profile = profile_with()
+        kwargs = world_kwargs(view, profile)
+        inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
+                        resolution=kwargs["resolution"], binding=kwargs["binding"])
+        assert {ref for ref, corpora in inputs.node_corpus.items() if BETA in corpora} == {
+            "run:run-a", "run:run-b",
+        }
+        pins = dict(kwargs["context"].pins)
+        other = replace(pins[BETA], science_contract="science:" + "0" * 64)
+        pins["unrelated"] = other
+        if pin_state == "disagree":
+            pins[BETA] = other
+        elif pin_state == "missing":
+            del pins[BETA]
+        context = replace(kwargs["context"], pins=pins)
+
+        def run():
+            if consumer == "gather":
+                return gather(view, "proposition:p", context=context, profile=profile,
+                              resolution=kwargs["resolution"], binding=kwargs["binding"])
+            if consumer == "evaluate":
+                return evaluate(proposition="proposition:p", records=inputs.records(),
+                                context=replace(context, node_corpus=inputs.node_corpus),
+                                profile=profile, availability=kwargs["availability"], binding=kwargs["binding"])
+            return evaluate_over(view, "proposition:p", **{**kwargs, "context": context})
+
+        if pin_state == "missing":
+            with pytest.raises(MalformedRecord, match="hold a closure node but have no entry in pins"):
+                run()
+        elif pin_state == "disagree" and consumer == "gather":
+            with pytest.raises(ContractDisagreement, match="pin different science_contracts"):
+                run()
+        elif pin_state == "disagree":
+            result = run()
+            assert isinstance(result, Refused) and "consulted-contracts-disagree" in result.reason
+        elif consumer == "gather":
+            result = run()
+            assert isinstance(result, EvaluationInputs) and result.consulted == inputs.consulted
+        else:
+            result = run()
+            assert isinstance(result, Belief) and result.value == 2
+
     def test_a_belief_over_two_corpora_attributes_at_the_read(self, tmp_path):
         from beliefs.belief import Belief
         from beliefs.evaluation import evaluate_over, gather

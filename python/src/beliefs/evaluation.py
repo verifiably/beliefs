@@ -309,7 +309,7 @@ def gather(
         profile=profile,
         node_corpus=node_corpus,
         pins=context.pins,
-        closure_nodes=tuple(sorted(ids)) + observed_addresses,
+        closure_nodes=tuple(sorted(ids)) + tuple(stored.typed_ref("run", a.run) for a in matched) + observed_addresses,
         facets_read={address: tuple(keys) for address, keys in ledger.items()},
     )
     return EvaluationInputs(

@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -31,6 +32,18 @@ from n2_arms_cut22 import CO_CITED, CUT22_ARMS, DECLARATION_UNITS, unit_of
 from test_n2 import audit, baseline
 
 import beliefs.root as science_root
+
+# Final-review run membership, 2026-09-09; preserve the frozen declaration.
+_LIVE_SABOTAGES = {
+    "D6a": Sabotage(
+        module="belief.py",
+        before='    closure_nodes = tuple(a.identity() for a in matched) + tuple(stored.typed_ref("run", a.run) for a in matched) + observed\n',
+        after='    closure_nodes = tuple(a.identity() for a in matched) + tuple(stored.typed_ref("run", a.run) for a in matched)\n',
+    ),
+}
+CUT22_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT22_ARMS
+)
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]

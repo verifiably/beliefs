@@ -34,7 +34,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import final
 
-from beliefs import errors
+from beliefs import errors, stored
 from beliefs.admission import AdmissionRefused, Admitted, admit
 from beliefs.claim import Claim
 from beliefs.closure import RetractionEnumeration, build_closure
@@ -224,7 +224,7 @@ def evaluate(
     if not isinstance(binding, PolicyBinding):
         return Refused(f"binding-not-exact: {binding!r} is not a PolicyBinding(rule, implementation) pair")
 
-    # 2. The consulted-contract walk, over the closure's assessment nodes
+    # 2. The consulted-contract walk, over the closure's assessments, runs and observed datasets
     # (D7, unchanged: a cross-corpus disagreement refuses, never merges).
     # `claims` is narrowed to the derivation's own claim — at most one entry,
     # keyed by `proposition` — never the whole record pool: membership in a
@@ -246,7 +246,7 @@ def evaluate(
             }
         )
     )
-    closure_nodes = tuple(a.identity() for a in matched) + observed
+    closure_nodes = tuple(a.identity() for a in matched) + tuple(stored.typed_ref("run", a.run) for a in matched) + observed
     ledger: dict[str, list[str]] = {}
     for row in records.observed_facets:
         ledger.setdefault(row.address, []).append(row.key)

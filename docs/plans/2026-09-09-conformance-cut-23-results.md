@@ -9,7 +9,7 @@
 
 ## 1. What ran
 
-The certified run tested `b5efa6ef9de86f03770a2d0f1e88aea991e9dea1`, from
+The initial certified run tested `b5efa6ef9de86f03770a2d0f1e88aea991e9dea1`, from
 `python/` on the certified host and volume:
 
 ```text
@@ -17,7 +17,7 @@ set -o pipefail; uv run --frozen python tools/cut23_acceptance.py 2>&1 | tee ../
 ```
 
 **Exit code 0.** Task 13's successful transcript is retained byte-for-byte as
-[`certified.log`](2026-09-09-conformance-cut-23-run/certified.log). Subsequent discharge fixes preserve behavior: the stdlib `deepcopy` import uses
+[`certified-prior-b5efa6e.log`](2026-09-09-conformance-cut-23-run/certified-prior-b5efa6e.log). Subsequent discharge fixes preserve behavior: the stdlib `deepcopy` import uses
 its direct spelling to avoid a static guard's filesystem `copy` name, and one
 decode test matches the generalized overlap refusal. Reusing the certified run
 avoids repeating the same chain; final repository and focused checks below
@@ -76,10 +76,21 @@ From the repository root, through the vendored `tools/tt` recipes:
   TypeScript did not run because the Python command failed. Its complete
   transcript is [`test-first-failed.log`](2026-09-09-conformance-cut-23-run/test-first-failed.log).
   The three causes and their correction are recorded in §3.
-- Final `just test` exited **0**: **4205 Python tests passed in 1038.66s**
+- The pre-final-review `just test` exited **0**: **4205 Python tests passed in 1038.66s**
   and **142 TypeScript tests passed across 7 files**, with no skips or failures.
   Transcript:
   [`test.log`](2026-09-09-conformance-cut-23-run/test.log).
+
+That full repository test run preceded the final-review behavioral fixes;
+it is evidence for the preceding tree, not a full-suite result for the fixes.
+
+Final-review covering checks passed **198 tests in 190.16s**, including all
+13 new unit regressions, both live cut 22/23 N2 audits and the live/frozen
+guard sweep. See [`final-fix-focused.log`](2026-09-09-conformance-cut-23-run/final-fix-focused.log).
+The corrected tree's `just check` exited **0**, with zero task errors or
+warnings ([`final-fix-check.log`](2026-09-09-conformance-cut-23-run/final-fix-check.log));
+document/guide checks passed **22 tests in 3.07s**
+([`final-fix-docs.log`](2026-09-09-conformance-cut-23-run/final-fix-docs.log)).
 
 Before the final gate, the focused capability, guide, decode, world-view,
 design-corpus, arm-staleness and frozen-guard suite passed **498 tests in
@@ -128,6 +139,30 @@ arms. `roadmap_status.py` reports **142 closed of 195 rows across 18 tables;
 
 ## 3. Corrections and deviations from the frozen cut
 
+- **2026-09-09 — final-review run-only pin agreement.** Both `gather` and pure
+  `evaluate` now include matched assessments' typed run addresses in consulted
+  closure membership. A second corpus holding only the two selected runs must
+  agree on pins and must supply them. Nine regression cases exercise agreement,
+  disagreement and missing pins through each of `gather`, `evaluate` and
+  `evaluate_over`, with an unrelated disagreeing pin excluded throughout.
+- **2026-09-09 — final-review declared inbound sources.** The world index
+  resolves stored `Relation.source` through the epoch map. Unknown sources
+  contribute no edge; mapped sources absent from held capture retain an edge
+  with `source_uid=None`; a different held source supplies its actual uid.
+  Four regression cases check these states and world/local closure behavior.
+  The index still visits mapped captured containers and resolves targets by map.
+- **2026-09-09 — final-review live sabotage adaptations.** Cut 22 D6a's old
+  assignment matcher predates run closure membership; its live replacement
+  matches the new assignment and removes only observed datasets, retaining
+  runs. Cut 23 W10d's old `held.values()` → `captured.values()` loop mutation
+  was observed **vacuous** after the declared-source map guard independently
+  excluded the unmapped drift run. Its live replacement swaps the complete
+  inbound membership block for a captured-record loop with container source
+  uids, bypassing both redundant source membership checks in one replacement.
+  The same durable assertion must detect `run:late` entering the index. W10e's
+  target-map mutation remains unchanged. Both adaptations live in the audit
+  guards; all historical declaration bodies, the 25 arms/8 units/8 rows, and
+  frozen cut §§2–7 remain unchanged.
 - **2026-09-09 — root and refusal reachability.** `closure` fetches its root
   before walking, so lineage handles actual `NotPresent` roots first. Unknown
   roots retain `RefError` in both view types. The absence-helper sabotage is

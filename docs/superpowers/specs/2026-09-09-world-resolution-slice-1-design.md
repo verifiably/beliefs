@@ -219,6 +219,11 @@ it is filed under an address only if the map records that address. A drift
 record contributes no edge, and a drift copy of a foreign target cannot
 capture one.
 
+The source is the stored `Relation.source`, resolved through the epoch map,
+not the containing record's uid. An unknown source files no edge; a mapped
+source in an absent carrier keeps `source_uid=None`. A held mapped source
+supplies its actual uid even when a different record contains the relation.
+
 `producers(dataset)` needs no change of rule: `_producer_ids` scans stored
 records by target string and resolves through the view, and over the world
 view's enumeration and map that already spans corpora and excludes drift.
@@ -348,6 +353,10 @@ listed so the boundary is exact:
   `consulted_contracts`'s `node_corpus` become `Mapping[str, tuple[str, ...]]`,
   sorted non-empty tuples, and the consulted set is their union. Existing
   single-corpus callers and fixtures pass one-tuples.
+  Both `gather` and pure `evaluate` include the selected assessments' typed
+  run addresses in `closure_nodes`, alongside assessment identities and
+  observed dataset addresses. A corpus holding only those runs therefore
+  participates in pin agreement; unrelated supplied pins remain excluded.
 - **Who supplies it.** Over a corpus view, `node_corpus` is supplied as
   today. Over a world view, `evaluate_over` derives it from the read and
   requires `context.node_corpus` to be **empty**; a non-empty mapping refuses
@@ -570,3 +579,13 @@ arm asserted a refusal where a well-formed forgery is a
 `verification-derivation-contradicted` finding; the arm keeps finding and
 refusal distinct (§8). No architectural finding remained; the design proceeds
 to planning.
+
+**2026-09-09, final implementation review, two corrections.** Run attribution
+was recorded but both consulted-contract consumers omitted its addresses;
+both now include the matched assessments' runs. The inbound index substituted
+the containing uid for `Relation.source`; it now resolves that source through
+the epoch map and held capture, preserving unknown exclusion and absent
+source heldness. Unit regressions cover each consumer and source state.
+The live W10d sabotage bypasses the expanded source-membership boundary;
+its original declaration and the frozen cut are preserved. See the
+[cut 23 results](../../plans/2026-09-09-conformance-cut-23-results.md) for evidence.

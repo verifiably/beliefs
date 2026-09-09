@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -32,6 +33,39 @@ from n2_arms_cut23 import CO_CITED, CUT23_ARMS, DECLARATION_UNITS, unit_of
 from test_n2 import audit, baseline
 
 import beliefs.root as science_root
+
+# Final review, 2026-09-09: source map membership now also excludes drift.
+# Bypass the whole index membership boundary; the frozen declaration stays intact.
+_LIVE_SABOTAGES = {
+    "W10d": Sabotage(
+        module="world/view.py",
+        before=(
+            "    for records in held.values():\n"
+            "        for uid, node in records.items():\n"
+            "            for relation in node.relations:\n"
+            "                if (target := recorded.get(relation.target)) is not None:\n"
+            "                    source = recorded.get(relation.source)\n"
+            "                    if source is None:\n"
+            "                        continue\n"
+            "                    source_uid = source[1] if source[1] in held.get(source[0], {}) else None\n"
+            "                    inbound.setdefault(target, []).append(\n"
+            "                        ResolvedEdge(relation=relation, source_uid=source_uid, target_uid=target[1])\n"
+            "                    )\n"
+        ),
+        after=(
+            "    for records in captured.values():\n"
+            "        for uid, node in records.items():\n"
+            "            for relation in node.relations:\n"
+            "                if (target := recorded.get(relation.target)) is not None:\n"
+            "                    inbound.setdefault(target, []).append(\n"
+            "                        ResolvedEdge(relation=relation, source_uid=uid, target_uid=target[1])\n"
+            "                    )\n"
+        ),
+    ),
+}
+CUT23_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT23_ARMS
+)
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]

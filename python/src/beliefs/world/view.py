@@ -244,8 +244,12 @@ def open_world_view(world: registry.World, published: epoch.Epoch) -> WorldReadV
         for uid, node in records.items():
             for relation in node.relations:
                 if (target := recorded.get(relation.target)) is not None:
+                    source = recorded.get(relation.source)
+                    if source is None:
+                        continue
+                    source_uid = source[1] if source[1] in held.get(source[0], {}) else None
                     inbound.setdefault(target, []).append(
-                        ResolvedEdge(relation=relation, source_uid=uid, target_uid=target[1])
+                        ResolvedEdge(relation=relation, source_uid=source_uid, target_uid=target[1])
                     )
 
     producer_sets: dict[tuple[str, str], set[str]] = {}

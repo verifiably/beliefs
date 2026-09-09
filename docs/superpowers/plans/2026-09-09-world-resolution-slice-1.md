@@ -12,6 +12,14 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-09-world-resolution-slice-1-design.md` (revised through `a92fe8d`). The plan argues from it; read both.
 
+**Final-review clarification (2026-09-09):** Task 3's index snippet below
+substitutes the containing uid for the stored source; the implementation
+instead resolves `Relation.source` through the epoch map, excludes unknown
+sources and uses `None` for mapped sources absent from held capture. Task 10's
+run attribution also requires both `gather` and pure `evaluate` to include
+matched assessments' typed run addresses in consulted `closure_nodes`.
+These corrections follow spec §§4.1 and 5.3; historical snippets remain below.
+
 ## Global Constraints
 
 - Work on branch `design/world-resolution` in `.worktrees/world-resolution`; commit with conventional messages; no AI-attribution trailers.
