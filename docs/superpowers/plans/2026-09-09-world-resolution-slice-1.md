@@ -1237,10 +1237,7 @@ def lineage_snapshot(view: "ReadView | WorldReadView", roots: Sequence[str]) -> 
     producers: dict[str, tuple[Producer, ...]] = {}
     for dataset in inspected:
         if not view.holds(dataset):
-            corpus_id = _absence_of(view, dataset)
-            if corpus_id is not None:
-                not_present[dataset] = corpus_id
-            continue
+            continue  # an absent root was recorded above; every other inspected dataset was reached resolved
         node = view.get(dataset)
         routes = []
         for route in stored.basis_routes(node):
@@ -2051,13 +2048,23 @@ CUT23_ARMS = (
     ),
     Arm(
         row="S5b",
-        asserts="absence is entered with its corpus, from a not-present answer only",
+        asserts="a route's absent run or ancestor is entered with its corpus",
         sabotage=Sabotage(
             module=_CORPUS,
-            before="            corpus_id = _absence_of(view, dataset)\n            if corpus_id is not None:\n                not_present[dataset] = corpus_id\n            continue\n",
-            after="            continue\n",
+            before="            for ref in (run, ancestor):\n                corpus_id = _absence_of(view, ref)\n                if corpus_id is not None:\n                    not_present[ref] = corpus_id\n",
+            after="            for ref in ():\n                corpus_id = _absence_of(view, ref)\n                if corpus_id is not None:\n                    not_present[ref] = corpus_id\n",
         ),
         checks=(f"{_A}::test_an_absent_corpus_is_lineage_incomplete_naming_it_durably",),
+    ),
+    Arm(
+        row="S5g",
+        asserts="an absent root is recorded before any walk",
+        sabotage=Sabotage(
+            module=_CORPUS,
+            before="        if not view.holds(root):\n            corpus_id = _absence_of(view, root)\n            if corpus_id is not None:\n                not_present[root] = corpus_id\n            continue  # `closure` fetches the root first; an absent root is recorded, never walked\n",
+            after="        if not view.holds(root):\n            continue\n",
+        ),
+        checks=(f"{_A}::test_an_absent_root_is_recorded_before_any_walk_durably",),
     ),
     Arm(
         row="S5c",
@@ -2202,11 +2209,13 @@ CUT23_ARMS = (
 )
 ```
 
-`R19` proper mutates the verification recomputation and is checked by the verification arm; `R19b`–`R19e` sabotage the evaluation seam the cross-corpus recomputation shares. If the guard's uniqueness test wants one check per arm, split `test_evaluation_reports_an_absent_corpus_and_attributes_at_the_read_durably` into the checks its name implies. Add `test_the_five_outcomes_are_produced_and_kept_apart_durably`, `test_a_facet_read_is_held_to_the_capture_durably` and `test_one_uid_under_two_corpora_refuses_at_open_durably` to the acceptance module (Step 1) — the unit tests of Tasks 3, 8 and 10 over the durable roots. `W6` sabotages slice 2's code and its check runs `read.resolve_address` over the durable world: that is what "measured, not built" means at N2. Twenty-three arms in all.
+`R19` proper mutates the verification recomputation and is checked by the verification arm; `R19b`–`R19e` sabotage the evaluation seam the cross-corpus recomputation shares. If the guard's uniqueness test wants one check per arm, split `test_evaluation_reports_an_absent_corpus_and_attributes_at_the_read_durably` into the checks its name implies. Add `test_the_five_outcomes_are_produced_and_kept_apart_durably`, `test_a_facet_read_is_held_to_the_capture_durably` and `test_one_uid_under_two_corpora_refuses_at_open_durably` to the acceptance module (Step 1) — the unit tests of Tasks 3, 8 and 10 over the durable roots. `W6` sabotages slice 2's code and its check runs `read.resolve_address` over the durable world: that is what "measured, not built" means at N2. Twenty-five arms in all.
+
+**2026-09-09, two findings on `7ec391f`.** The arm count was 23 where the block declares more; the guard and runner now say 25, `S5g` having been added for the absent-root path. `S5b` deleted a branch that had become dead once roots are recorded before the walk; it now removes the route-level collection, and Task 7's dead branch is gone.
 
 - [ ] **Step 4: Write the guard**
 
-`test_n2_cut23.py`, modelled on `test_n2_cut22.py` line for line: `CUT23_FREEZE_COMMIT` and `CUT23_FROZEN_SHA256` from Task 1's note; `FROZEN_CUT = ROOT / "docs/designs/2026-09-09-conformance-cut-23.md"`; `FROZEN_PRIOR_CUT_FILES` = cut 22's table plus `"python/tests/acceptance/n2_arms_cut22.py": "<the commit that last touched it, from git log -1 --format=%h -- that path>"`; `PRIOR_ARMS` extended with `CUT22_ARMS`; the inventory test asserting `DECLARATION_UNITS == ("D3", "S1", "S1a", "S5", "W6", "W10", "R19", "R23")`, `{unit_of(arm.row) for arm in CUT23_ARMS}` equal to it, and `len(CUT23_ARMS) == 23`; the pinned-sections test greping `**8 declaration units**`, the accounting sentence and `("cut22_acceptance.py",)`.
+`test_n2_cut23.py`, modelled on `test_n2_cut22.py` line for line: `CUT23_FREEZE_COMMIT` and `CUT23_FROZEN_SHA256` from Task 1's note; `FROZEN_CUT = ROOT / "docs/designs/2026-09-09-conformance-cut-23.md"`; `FROZEN_PRIOR_CUT_FILES` = cut 22's table plus `"python/tests/acceptance/n2_arms_cut22.py": "<the commit that last touched it, from git log -1 --format=%h -- that path>"`; `PRIOR_ARMS` extended with `CUT22_ARMS`; the inventory test asserting `DECLARATION_UNITS == ("D3", "S1", "S1a", "S5", "W6", "W10", "R19", "R23")`, `{unit_of(arm.row) for arm in CUT23_ARMS}` equal to it, and `len(CUT23_ARMS) == 25`; the pinned-sections test greping `**8 declaration units**`, the accounting sentence and `("cut22_acceptance.py",)`.
 
 - [ ] **Step 5: Audit the arms**
 
@@ -2244,7 +2253,7 @@ Expected: PASS — `test_n2_cut23.py` is now live through the new runner; every 
 - [ ] **Step 4: Run the whole runner**
 
 Run: `uv run --frozen python tools/cut23_acceptance.py 2>&1 | tee ../.cut23-acceptance/run.log | tail -30`
-Expected: exit 0; the prefix chain through cut 22 green; both phases green; the final line `declared arms: 23 (= 8 declaration units; 8 guarantee rows)`.
+Expected: exit 0; the prefix chain through cut 22 green; both phases green; the final line `declared arms: 25 (= 8 declaration units; 8 guarantee rows)`.
 
 - [ ] **Step 5: Commit**
 
