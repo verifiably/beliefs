@@ -9,57 +9,63 @@
 
 ## 1. What ran
 
-The initial certified run tested `b5efa6ef9de86f03770a2d0f1e88aea991e9dea1`, from
-`python/` on the certified host and volume:
+The refreshed certified run tested commit
+`13576c5a7997319abe38f8684747d9cd716e1d2d`, tree
+`8c7bf9d6d4baae9efca2909c9669c87527990910`, from `python/` on the certified
+host and volume:
 
 ```text
-set -o pipefail; uv run --frozen python tools/cut23_acceptance.py 2>&1 | tee ../.superpowers/sdd/2026-09-09-world-resolution-slice-1/task-13-certified.log
+uv run --frozen python tools/cut23_acceptance.py > ../docs/plans/2026-09-09-conformance-cut-23-run/certified.log 2>&1
 ```
 
-**Exit code 0.** Task 13's successful transcript is retained byte-for-byte as
-[`certified-prior-b5efa6e.log`](2026-09-09-conformance-cut-23-run/certified-prior-b5efa6e.log). Subsequent discharge fixes preserve behavior: the stdlib `deepcopy` import uses
-its direct spelling to avoid a static guard's filesystem `copy` name, and one
-decode test matches the generalized overlap refusal. Reusing the certified run
-avoids repeating the same chain; final repository and focused checks below
-verify the discharge edits.
+**Exit code 0.** The corrected runtime and tests stayed fixed throughout the
+run; the subsequent update records only documentation, transcripts and task evidence.
+The complete refreshed transcript is
+[`certified.log`](2026-09-09-conformance-cut-23-run/certified.log).
 No capability waiver, skip or refusal occurred.
+
+The initial Task 13 certified run at
+`b5efa6ef9de86f03770a2d0f1e88aea991e9dea1` is retained byte-for-byte as
+[`certified-prior-b5efa6e.log`](2026-09-09-conformance-cut-23-run/certified-prior-b5efa6e.log).
+It preceded the two final-review behavioral fixes and is historical evidence.
+The new run re-executes the whole certified prefix chain after those fixes.
 
 The prefix chain was cut 23 → cut 22 → cut 21 → cut 20 → cut 19 → cut 18 →
 cut 17. Its **31 phase summaries report 511 passed**:
 
 | phase | module | summary |
 |---|---|---|
-| cut17 phase 1/19 | `test_n2_cut6.py` | 23 passed in 12.41s |
-| cut17 phase 2/19 | `test_n2_cut7.py` | 42 passed in 49.34s |
-| cut17 phase 3/19 | `test_n2_cut9.py` | 23 passed in 18.36s |
-| cut17 phase 4/19 | `test_intent_boundary_acceptance.py` | 18 passed in 6.84s |
-| cut17 phase 5/19 | `test_n2_cut11.py` | 17 passed in 30.80s |
-| cut17 phase 6/19 | `test_successor_admission_acceptance.py` | 4 passed in 2.17s |
-| cut17 phase 7/19 | `test_n2_cut12.py` | 16 passed in 15.15s |
-| cut17 phase 8/19 | `test_confinement_acceptance.py` | 15 passed in 315.77s (0:05:15) |
-| cut17 phase 9/19 | `test_n2_cut13.py` | 16 passed in 123.66s (0:02:03) |
-| cut17 phase 10/19 | `test_coordination_acceptance.py` | 22 passed in 15.34s |
-| cut17 phase 11/19 | `test_n2_cut14.py` | 7 passed in 13.65s |
-| cut17 phase 12/19 | `test_cut15_lineage.py` | 5 passed in 77.63s (0:01:17) |
-| cut17 phase 13/19 | `test_n2_cut15.py` | 8 passed in 44.40s |
-| cut17 phase 14/19 | `test_relocation_acceptance.py` | 16 passed in 66.57s (0:01:06) |
-| cut17 phase 15/19 | `test_n2_cut16.py` | 7 passed in 75.42s (0:01:15) |
-| cut17 phase 16/19 | `test_permit_acceptance.py` | 8 passed in 4.20s |
-| cut17 phase 17/19 | `test_permit_boundary.py` | 18 passed in 2.37s |
-| cut17 phase 18/19 | `test_permit_entry_points.py` | 102 passed in 25.60s |
-| cut17 phase 19/19 | `test_n2_cut17.py` | 8 passed in 16.10s |
-| cut18 phase 2/3 | `test_deletion_acceptance.py` | 16 passed in 52.69s |
-| cut18 phase 3/3 | `test_n2_cut18.py` | 7 passed in 27.86s |
-| cut19 phase 2/3 | `test_session_acceptance.py` | 27 passed in 30.22s |
-| cut19 phase 3/3 | `test_n2_cut19.py` | 7 passed in 29.14s |
-| cut20 phase 2/3 | `test_facet_acceptance.py` | 17 passed in 40.58s |
-| cut20 phase 3/3 | `test_n2_cut20.py` | 5 passed in 36.17s |
-| cut21 phase 2/3 | `test_verification_acceptance.py` | 4 passed in 7.20s |
-| cut21 phase 3/3 | `test_n2_cut21.py` | 7 passed in 36.10s |
-| cut22 phase 2/3 | `test_biology_acceptance.py` | 2 passed in 2.43s |
-| cut22 phase 3/3 | `test_n2_cut22.py` | 7 passed in 4.35s |
-| cut23 phase 2/3 | `test_world_view_acceptance.py` | 30 passed in 119.78s (0:01:59) |
-| cut23 phase 3/3 | `test_n2_cut23.py` | 7 passed in 43.29s |
+| cut17 phase 1/19 | `test_n2_cut6.py` | 23 passed in 13.80s |
+| cut17 phase 2/19 | `test_n2_cut7.py` | 42 passed in 49.89s |
+| cut17 phase 3/19 | `test_n2_cut9.py` | 23 passed in 19.97s |
+| cut17 phase 4/19 | `test_intent_boundary_acceptance.py` | 18 passed in 7.02s |
+| cut17 phase 5/19 | `test_n2_cut11.py` | 17 passed in 34.68s |
+| cut17 phase 6/19 | `test_successor_admission_acceptance.py` | 4 passed in 2.15s |
+| cut17 phase 7/19 | `test_n2_cut12.py` | 16 passed in 17.00s |
+| cut17 phase 8/19 | `test_confinement_acceptance.py` | 15 passed in 327.91s (0:05:27) |
+| cut17 phase 9/19 | `test_n2_cut13.py` | 16 passed in 130.73s (0:02:10) |
+| cut17 phase 10/19 | `test_coordination_acceptance.py` | 22 passed in 15.71s |
+| cut17 phase 11/19 | `test_n2_cut14.py` | 7 passed in 14.05s |
+| cut17 phase 12/19 | `test_cut15_lineage.py` | 5 passed in 81.11s (0:01:21) |
+| cut17 phase 13/19 | `test_n2_cut15.py` | 8 passed in 54.94s |
+| cut17 phase 14/19 | `test_relocation_acceptance.py` | 16 passed in 64.61s (0:01:04) |
+| cut17 phase 15/19 | `test_n2_cut16.py` | 7 passed in 74.21s (0:01:14) |
+| cut17 phase 16/19 | `test_permit_acceptance.py` | 8 passed in 4.04s |
+| cut17 phase 17/19 | `test_permit_boundary.py` | 18 passed in 2.35s |
+| cut17 phase 18/19 | `test_permit_entry_points.py` | 102 passed in 26.11s |
+| cut17 phase 19/19 | `test_n2_cut17.py` | 8 passed in 15.16s |
+| cut18 phase 2/3 | `test_deletion_acceptance.py` | 16 passed in 59.83s |
+| cut18 phase 3/3 | `test_n2_cut18.py` | 7 passed in 26.83s |
+| cut19 phase 2/3 | `test_session_acceptance.py` | 27 passed in 29.26s |
+| cut19 phase 3/3 | `test_n2_cut19.py` | 7 passed in 26.73s |
+| cut20 phase 2/3 | `test_facet_acceptance.py` | 17 passed in 40.57s |
+| cut20 phase 3/3 | `test_n2_cut20.py` | 5 passed in 34.56s |
+| cut21 phase 2/3 | `test_verification_acceptance.py` | 4 passed in 7.18s |
+| cut21 phase 3/3 | `test_n2_cut21.py` | 7 passed in 35.55s |
+| cut22 phase 2/3 | `test_biology_acceptance.py` | 2 passed in 2.44s |
+| cut22 phase 3/3 | `test_n2_cut22.py` | 7 passed in 4.07s |
+| cut23 phase 2/3 | `test_world_view_acceptance.py` | 30 passed in 118.15s (0:01:58) |
+| cut23 phase 3/3 | `test_n2_cut23.py` | 7 passed in 45.55s |
 
 Cut 23's final inventory is:
 
@@ -91,8 +97,12 @@ The corrected tree's `just check` exited **0**, with zero task errors or
 warnings ([`final-fix-check.log`](2026-09-09-conformance-cut-23-run/final-fix-check.log));
 document/guide checks passed **22 tests in 3.07s**
 ([`final-fix-docs.log`](2026-09-09-conformance-cut-23-run/final-fix-docs.log)).
+After refreshing the certified results table, document/guide checks passed
+**22 tests in 0.81s** and `just check` again exited **0** with zero task errors
+or warnings ([`final-fix-refreshed-docs.log`](2026-09-09-conformance-cut-23-run/final-fix-refreshed-docs.log),
+[`final-fix-refreshed-check.log`](2026-09-09-conformance-cut-23-run/final-fix-refreshed-check.log)).
 
-Before the final gate, the focused capability, guide, decode, world-view,
+During the initial discharge, before its final gate, the focused capability, guide, decode, world-view,
 design-corpus, arm-staleness and frozen-guard suite passed **498 tests in
 25.16s**. The final gate kept the tree stable until its summary was captured;
 afterward the measured counts, task handoff state and implementation plan status
@@ -101,7 +111,7 @@ with zero errors and warnings. The final document checks are retained in
 [`final-docs.log`](2026-09-09-conformance-cut-23-run/final-docs.log), and task
 validation in [`tasks.log`](2026-09-09-conformance-cut-23-run/tasks.log).
 
-The first gates started at `b5efa6e`; discharge reporting and documentation
+The initial-discharge gates started at `b5efa6e`; discharge reporting and documentation
 were edited during the first serial run. Final repository and focused checks
 run after the corrections, so the transient guide failure is preserved rather
 than treated as a passing final state.
@@ -206,7 +216,7 @@ arms. `roadmap_status.py` reports **142 closed of 195 rows across 18 tables;
   The direct stdlib `deepcopy` import follows existing modules without weakening
   the capability guard; the test now matches the actual generalized refusal.
   The failed transcript is retained; the complete final gate then passed.
-- **2026-09-09 — discharge bookkeeping.** The certified Task 13 run is reused;
+- **2026-09-09 — discharge bookkeeping.** The initial discharge reused the certified Task 13 run;
   root `just check` and `just test` remain mandatory. The reporting tool gains
   cut 23's accounting row before Appendix A regeneration. Existing plan children
   supply freeze and discharge tasks, so no duplicate ceremony tasks are filed.
