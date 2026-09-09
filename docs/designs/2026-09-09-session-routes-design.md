@@ -366,7 +366,8 @@ recording port and a fake seam):
 8a. A holdings context kept past its invocation's close is refused at
     `write`'s first call, and the fake seam records that no member at all
     was reached, `read_path` and `store_genesis` included; the same for
-    `recheck`, whose first member is `read_path`. A close that lands from
+    `recheck`, which also starts through `append_intent` and whose second
+    member is `read_path`. A close that lands from
     inside `append_intent`'s delegate is refused at `store_genesis` (the
     `_bind` step), and the fake seam records neither a genesis read nor a
     store write after it.
@@ -379,14 +380,18 @@ recording port and a fake seam):
     `corpus_lock` and `publish_fulfilling` are entered without the session
     lock, and the assertion fails deterministically, with no threads.
 8c. Forced interleaving. Thread A runs a holdings `write` whose fake inner
-    seam, on entering `corpus_lock` for publication, waits until thread B
-    has *attempted* the session lock (the wrapper signals the attempt
-    before blocking); thread B runs `add`. Under the designed order A
-    already holds the session lock, B's attempt blocks, A finishes, B
-    finishes; the join succeeds without timing out. Under the reversed order
-    B acquires the session lock and blocks on the operation lock A holds,
-    A then blocks on the session lock, and the bounded join fails. The plan
-    proves the test by running it once with the order reversed.
+    seam, on entering `corpus_lock` for publication, waits for thread B's
+    signal; thread B runs `add`. The session-lock wrapper, on B's thread,
+    first tries a non-blocking acquisition: if it succeeds it signals
+    "owned" and continues; if it fails it signals "held by another" and
+    then blocks. Either way the signal states which thread owns the lock
+    before A proceeds, so no schedule lets A slip through a still-free
+    lock. Under the designed order A already holds the session lock, B
+    signals "held by another" and blocks, A finishes, B finishes, and the
+    bounded join succeeds. Under the reversed order B's try succeeds, B
+    blocks on the operation lock A holds, A then blocks on the session
+    lock, and the bounded join fails. The plan proves the test by running
+    it once with the order reversed.
 
 **Durable** (`acceptance/test_session_acceptance.py`'s rig):
 
