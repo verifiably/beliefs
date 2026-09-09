@@ -1,6 +1,6 @@
 # World resolution, slice 1 — the world read view and cross-corpus traversal
 
-**Date:** 2026-09-09, revised the same day after review (§11)
+**Date:** 2026-09-09, revised twice the same day after review (§11)
 **Status:** draft for review; freezes as the next conformance cut once reviewed
 **Boundary:** `world-resolution`, slice 1 of four (`beliefs-d248ba`)
 **Lane:** `world-read`, worktree `.worktrees/world-resolution`
@@ -53,12 +53,16 @@ W13 relabels — slice 3; view evaluation, W7 — slice 4.
    same method shape, and consumers that need world reach widen their annotation
    to the union `ReadView | WorldReadView`, exactly as `_ImportView` and
    `_CheckView` are admitted today.
-2. **Every read is bound, and the view is a capture.** The view is opened at
-   an explicit `Epoch`, never at `current` (`world/read.py`'s rule: nothing
-   belief-reachable names `current`). Addressing goes through the epoch's
-   address map only. The records the view serves are read **once**, under each
-   corpus's own capture hold, into memory; nothing the view answers rereads a
-   file. An address the map records resolves to its captured record or reads
+2. **Every read is bound, and the view is a per-corpus coherent capture.**
+   The view is opened at an explicit `Epoch`, never at `current`
+   (`world/read.py`'s rule: nothing belief-reachable names `current`).
+   Addressing goes through the epoch's address map only. The records the view
+   serves are read **once**, each corpus under its own capture hold, into
+   memory; nothing the view answers rereads a file. The guarantee is per
+   corpus: each corpus is captured coherently, and the captures are serial, so
+   the view is a sequence of coherent corpus states and not one simultaneous
+   world state. That is the epoch build's guarantee too, and the stamp names
+   the publication, not a moment. An address the map records resolves to its captured record or reads
    `not-present`; an address the map never observed is `unknown` whatever a
    carrier holds today. A carrier record the map does not know is **drift**:
    reported on the view, never served, never silently dropped.
@@ -76,11 +80,14 @@ W13 relabels — slice 3; view evaluation, W7 — slice 4.
    map as well, so an absent producing run is an absent producer and never an
    empty set; and an absent producer's inputs are unknown, not empty, so no
    divergence comparison is made over it.
-5. **Fetches from the capture, facet reads from the corpus.** `get` and
-   enumeration serve captured records under the corpus facade's validation
-   rule. A facet read must go through a real corpus `ReadView` (B3), so it is
-   routed to the holding corpus and checked against the capture before it is
-   trusted.
+5. **Fetches from the capture, facet reads from the corpus, and nothing
+   served is shared.** `get` and enumeration serve captured records under the
+   corpus facade's validation rule, as detached copies: `Node`, its facets
+   and its relations are mutable, and a caller that could reach the retained
+   object could rewrite the capture behind the inbound index. A facet read
+   must go through a real corpus `ReadView` (B3), so it is routed to the
+   holding corpus and the complete set it returns is checked against the
+   capture before it is accepted.
 
 ## 3. The world read view
 
@@ -121,12 +128,17 @@ record for that corpus. A corpus whose two states agree has an empty
 `resolve` answers the live address through the map, or `None` for `Unknown`
 **and** for `NotPresent` — the corpus shape has one negative and keeps it, so
 a consumer that needs the distinction calls `locate`. `holds` is
-`resolve(ref) is not None`. `get` locates, then serves the captured record
+`resolve(ref) is not None`. `get` locates, then serves a detached deep copy of the captured record
 through the corpus facade's validation rule — `semantic-hash-stale` and
 `semantic-hash-missing` refuse exactly as `ReadView.get` refuses — factored
 out of `ReadView._validated` into one module-level function both call. `get`
 on a `NotPresent` ref raises `RecordNotPresent(ref, corpus_id, stamp)`, a new
 `errors.py` class; on `Unknown` it raises the `RefError` the corpus view would.
+
+Every object that leaves the view is detached: `get` and `iter_stored`
+return deep copies (`model_copy(deep=True)`), and `inbound` returns edges
+whose `relation` is a copy. Mutating a returned object changes no later
+answer. The retained records are never handed out.
 
 `corpus_of` answers from the map alone — an absent corpus's id is still an
 answer. `corpus_view` returns the holding corpus's live `ReadView`, refusing
@@ -153,8 +165,9 @@ through it is held to the capture.
    caller retries: read the corpus-state identity, read every record, read
    the state identity again, and refuse with `CaptureDrift` if the two differ.
    This is `epoch._capture`'s discipline, applied to a read, and it is what
-   makes the view a point in time: after the hold, nothing the view answers
-   touches the carrier again. The base-pin check `ReadView.get` performs per
+   makes each corpus's part of the view coherent: after the hold, nothing the
+   view answers touches that carrier again. The captures being serial, the
+   view as a whole is per-corpus coherent and no more (§2.2). The base-pin check `ReadView.get` performs per
    fetch runs once here, per corpus.
 3. Over the captured records, check every mapped `(corpus_id, uid)` of a
    present corpus is held under the mapped address; a disagreement is
@@ -264,8 +277,13 @@ step 1 inspects the root explicitly), has no readable basis, is entered in
 **Where the corpus survives in the result.** `Certification.findings` is a
 closed set of two codes and stays one. `Certification` gains
 `absent: tuple[Absence, ...]`, with `Absence(ref: str, corpus_id: str)` frozen,
-filled by `certify` from `not_present` over the inspected set and sorted by
-ref. Consumers that read codes read the same codes; a consumer that wants to
+sorted by ref. `certify` fills it from `not_present` over the **references the
+inspected datasets make**, not over the inspected set itself: the inspected
+set holds datasets the walk reached, and a missing run or ancestor is by
+definition never reached, so a filter by membership would drop exactly the
+references it exists to name. The rule is: every absent root; every route's
+stored run and stored ancestor of every inspected dataset's basis; and every
+absent producer of every inspected dataset. Consumers that read codes read the same codes; a consumer that wants to
 say which corpus is missing reads `absent`.
 
 ### 5.2 The resolution snapshot
@@ -302,13 +320,17 @@ listed so the boundary is exact:
   input whose `locate` is `NotPresent`, with its corpus, into the not-present
   set `evaluate_over` reads below.
 - `read_observed_facets(profile, view, target)` keeps its exact-`ReadView`
-  check. Over a world view `gather` calls it with `view.corpus_view(target)`.
-  A facet read rereads the file, which the capture cannot make coherent
-  without B3 changing, so it is held to the capture instead: `gather` fetches
-  the target through the corpus view, compares its content identity to the
-  captured record's, and refuses with `CaptureDrift` on disagreement before
-  reading facets. A write landing between that comparison and the facet read
-  is the residual, and it is named in §9 rather than papered over.
+  check. Over a world view `gather` calls it with `view.corpus_view(target)`,
+  which rereads the file. The read is held to the capture **after** it
+  returns, on what it returned: `gather` computes from the captured record
+  the complete row set `read_observed_facets` would mint over it — every
+  `(address, key, payload_digest)` under the profile's facet-read rule — and
+  requires the live read's row set to equal it exactly, additions and
+  removals included. Any difference refuses with `CaptureDrift`. Comparing
+  identities would not do: a namespaced facet can change while the record's
+  address and semantic hash both stand, which a probe reproduced, and a
+  comparison made before the read leaves the read itself unchecked. Comparing
+  the returned set closes both.
 - **Attribution.** `consulted_contracts` is keyed by assessment **value
   identity**, not by stored address, so `corpus_of` cannot attribute an
   assessment after the fact. `gather` attributes at the read: while iterating
@@ -358,7 +380,7 @@ view does not have and should not fake.
 | a ref the map never observed | `Unknown`; no carrier is consulted |
 | a carrier record the map never observed, or a carrier state the epoch did not record | a `DriftReport`; never served, never a refusal |
 | `get` / `corpus_view` on `NotPresent` | `RecordNotPresent` |
-| a facet-read target disagreeing with its captured record | `CaptureDrift` at `gather` |
+| a facet read returning a row set other than the captured record's | `CaptureDrift` at `gather` |
 | a binding named in two availability states | `ResolutionError` at `build_snapshot` |
 | a non-empty `node_corpus` supplied over a world view | `MalformedRecord` at `evaluate_over` |
 | the epoch is not this world's | `EpochUnknown`, as `open_epoch` already raises |
@@ -384,18 +406,26 @@ and is filed as such; it is not this slice's to repair inside the cut.
 **Fixtures.** `tests/test_world_build.py` already builds a two-corpus world
 with `admitted_world`, publishes an epoch with `publish`, and pins the four
 rule bindings. The acceptance module for this cut reuses those helpers on the
-certified volume and adds one fixture: a lineage chain `D0 → R1 → D1 → R2 → D2`
-with `R1` and `D1` in corpus B and the rest in corpus A, plus a verification in
-A whose two runs are in B. Absence is produced by dropping B's root from the
+certified volume and adds two fixtures. The **chain**: `D0 → R1 → D1 → R2 → D2` with `R1` and
+`D1` in corpus B and the rest in corpus A, plus a verification in A whose two
+runs are in B. The **split producer**: a dataset `D3` in A carrying a `single`
+basis whose route names run `R3`, with `R3` itself in B and its `produces`
+edge to `D3` recorded in the published producers map. Absence is produced by dropping B's root from the
 `WorldConfig` after publication and re-opening; never by deleting records.
 Drift is produced by writing to a carrier after publication.
 
 **Arms**, each with a two-corpus positive and a corpus-local negative:
 
 - Capture: after opening, write a record to A and edit an existing one;
-  `get`, `iter_stored` and `inbound` answer the captured content, the new
-  record is in `drift()` with A's state pair disagreeing, and a second open
-  reports the same. Open while a writer holds A's lock refuses at once.
+  `get`, `iter_stored` and `inbound` answer the captured content and the
+  first view's `drift()` is unchanged — it reports what its capture saw and
+  cannot see a later write. A second open reports the new record as unmapped
+  and A's state pair as disagreeing. Open while a writer holds A's lock
+  refuses at once.
+- Isolation: mutate a node returned by `get`, a node yielded by
+  `iter_stored` and a relation on an edge returned by `inbound`; assert every
+  later answer from the view is unchanged, and that the retained records are
+  not the returned objects.
 - W10: the world closure over the chain is complete and clean; the corpus-local
   closure from A reports `lineage-incomplete` for the same chain.
 - Edges under drift: a drift record in A holding a `produces` edge to a mapped
@@ -409,11 +439,19 @@ Drift is produced by writing to a carrier after publication.
   `absent` naming B, independence is `not-certified`, and the snapshot
   projection differs from the one with B present and from one with the
   ancestor unknown.
-- Absent producer: with B absent, `D1`'s producer set is one absent
-  `Producer` from the published map; `divergence_state` is `"incomplete"`,
-  the projection's `divergence` member reads `"incomplete"`, and no
-  `lineage-divergent` is emitted — the probe's fabricated divergence is the
-  negative.
+- Absent producer, over the split-producer fixture: with B absent, `D3` and
+  its `single` basis are present, its producer set is one absent `Producer`
+  from the published map, `divergence_state` is `"incomplete"`, the
+  projection's `divergence` member reads `"incomplete"`, `absent` names `R3`
+  under B, and no `lineage-divergent` is emitted — the probe's fabricated
+  divergence is the negative. With B present, the same dataset compares
+  normally and is `undiverged`.
+- Absent dataset, over the chain: with B absent, `D1` has no readable basis,
+  is in `not_present`, and yields incompleteness without any divergence
+  comparison being reached.
+- Absence named: over the chain with B absent, `Certification.absent` names
+  `R1` and `D1` under B — references the walk never reached — and an absent
+  observed root is named the same way.
 - Refusal is not absence: corrupt a mapped record's stamp in a present corpus
   and assert `lineage_snapshot` refuses and `not_present` is untouched.
 - D3: `build_snapshot` with a `not_present` binding resolves `NOT_PRESENT`; all
@@ -438,8 +476,11 @@ membership (file drift sources), its target resolution (resolve targets through
 the local index), the published-producers union (inbound only), divergence
 gating (compare over an absent producer), `not_present` in the lineage
 projection (omit it), the three-way overlap refusal (drop one pair), attribution
-at the read (attribute after the fact through `corpus_of`), and `corpus_view`
-routing (pass the world view to `read_observed_facets`).
+at the read (attribute after the fact through `corpus_of`), `corpus_view`
+routing (pass the world view to `read_observed_facets`), the facet-set
+comparison (compare identities instead of the returned rows), boundary
+isolation (return the retained node), and absence collection (filter
+`not_present` by the inspected set).
 
 **The cut.** This design freezes as the next conformance cut under the lane
 rules: the number is claimed at freeze, the runner names the highest-numbered
@@ -448,13 +489,7 @@ design names `corpus.py`, `lineage.py`, `resolution.py`, `evaluation.py`,
 `belief.py`, `consulted.py`, `audit.py` and `errors.py` as shared surfaces it
 rewrites, per concurrency rule 3.
 
-## 9. Limitations and open questions this design files
-
-**Limitation — the facet read's window.** A facet read must reread a real
-corpus file (B3). `gather` holds it to the capture by comparing content
-identities before the read, and a write that lands between the comparison and
-the read is not detected. Closing the window means a capture-backed
-`ReadView`, which is a change to B3's boundary and not this slice's.
+## 9. Open questions this design files
 
 1. **Whether the absent set is a digest member of its own.** This slice
    reaches the belief input digest through the `lineage` member alone, and
@@ -493,3 +528,22 @@ at the read, identities held in two corpora consult both, and a supplied
 is a closed code set — `absent` is a separate field (§5.1). (6) `None` and
 tuples fail the identity encoder, confirmed by probe — every new projection
 member uses the `[] | [value]` and object-list idioms (§5.1, §5.2).
+
+**2026-09-09, second review, five findings, all resolved.** (1) Comparing a
+record's content identity before a facet read neither bound the facet payload
+— a namespaced facet can change under an unchanged address and semantic hash,
+reproduced — nor closed the window; the live read's complete row set is now
+compared to the rows the captured record would mint, after the read (§5.3),
+and the limitation is withdrawn. (2) `Node` and its parts are mutable, so
+serving retained objects let a caller rewrite the capture behind the inbound
+index — the boundary returns detached copies, with an isolation arm (§2.5,
+§3.1, §8). (3) Filtering `not_present` by the inspected set dropped every
+missing run and ancestor, since the walk never reaches them — absence is
+collected from the inspected datasets' route and producer references and the
+absent roots (§5.1). (4) The capture arm expected an open view to report a
+later write; it reports what it captured and the second open reports the
+drift (§8). (5) The absent-producer arm had removed the `single` basis its
+comparison needs — a split-producer fixture keeps the dataset and basis
+present with the run in the absent corpus, and the absent-dataset case is its
+own incompleteness arm (§8). The guarantee is stated as per-corpus coherent
+capture throughout (§2.2, §3.2).
