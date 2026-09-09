@@ -25,6 +25,7 @@ from beliefs.errors import (
 from beliefs.holdings.seam import StoreActSeam
 from beliefs.permit import Authority, RequiredCapabilities, WritePermit, permit_covers, scoped_authority
 from beliefs.profile import ProfileSpec
+from beliefs.runrecord import OperationPort
 from beliefs.sealed import sealed
 from beliefs.session.ledger import (
     ActLine,
@@ -237,9 +238,12 @@ class WriterSession:
                     f"writer bound to {invocation} cannot act; current invocation is {self._current}"
                 )
 
-    def _record_act(self, invocation: str, commit: OperationCommit) -> None:
-        """Ledger one committed operation. Reached only from `ScopedWriter._act`,
-        which already holds this lock and checked currency under it, so the
+    def _record_committed(
+        self, invocation: str, *, intent: str, entry: str, records: tuple[tuple[str, str], ...]
+    ) -> None:
+        """Ledger one committed write by its digests and record pairs. Reached
+        only from `ScopedWriter._act` and the session routes, each of which
+        already holds this lock and checked currency under it, so the
         re-check below is an invariant, not a refusal: an operation whose
         registration is durable can no longer be refused, and only a crash or a
         ledger I/O failure — both terminal — may leave it unledgered (§5,
@@ -251,26 +255,21 @@ class WriterSession:
                     f"the current invocation moved from {invocation} to {self._current} while an act "
                     "held the session lock"
                 )
-            records = [] if commit.record is None else [[commit.record.uid, commit.record.id]]
             self._ledger.append(
                 {
                     "line": "act",
                     "invocation": invocation,
                     "corpus": self.corpus_id,
-                    "entry": commit.entry_digest,
-                    "intent": commit.intent_digest,
-                    "records": records,
+                    "entry": entry,
+                    "intent": intent,
+                    "records": [list(pair) for pair in records],
                 }
             )
-            self._index[invocation].acts.append(
-                ActLine(
-                    invocation,
-                    self.corpus_id,
-                    commit.entry_digest,
-                    commit.intent_digest,
-                    tuple((pair[0], pair[1]) for pair in records),
-                )
-            )
+            self._index[invocation].acts.append(ActLine(invocation, self.corpus_id, entry, intent, records))
+
+    def _record_act(self, invocation: str, commit: OperationCommit) -> None:
+        records = () if commit.record is None else ((commit.record.uid, commit.record.id),)
+        self._record_committed(invocation, intent=commit.intent_digest, entry=commit.entry_digest, records=records)
 
     # --- close -----------------------------------------------------------------------
     def close(self) -> None:
@@ -312,6 +311,15 @@ class ScopedWriter:
         if store_id is None:
             raise SessionProtocolError("this session was opened with no store root; the holdings route has no store")
         return store_id
+
+    def operation_port(self) -> OperationPort:
+        """Return this invocation's durable, act-ledgered run route."""
+        from beliefs.session.routes import LedgeredPort
+
+        port = self._writer._operation_port
+        if port is None:
+            raise SessionProtocolError("this scoped writer has no durable operation port")
+        return LedgeredPort(self._session, self._invocation, port)
 
     def _act(self, perform: Callable[[], OperationCommit]) -> Node | None:
         """One act: currency, the commit and the `act` line as one atomic step.

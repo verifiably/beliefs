@@ -458,9 +458,9 @@ git commit -m "feat(session): bind an optional store root and expose actor and s
 - Consumes: `ScopedWriter._authority`, `WriterSession._lock`, `WriterSession._require_current(invocation)`, `CorpusWriter._operation_port` (the durable port the writer factory built).
 - Produces: `beliefs.session.routes.plan_records(plan) -> tuple[tuple[str, str], ...]`; `beliefs.session.routes.LedgeredPort(session, invocation, inner)`; `WriterSession._record_committed(invocation, *, intent: str, entry: str, records: tuple[tuple[str, str], ...]) -> None`; `ScopedWriter.operation_port() -> OperationPort`.
 
-- [ ] **Step 1: `tasks start beliefs-b9edfe`**
+- [x] **Step 1: `tasks start beliefs-b9edfe`**
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Create `python/tests/test_session_routes.py`:
 
@@ -568,12 +568,12 @@ def test_a_permit_below_run_is_refused_by_the_boundary_before_any_intent(tmp_pat
 
 (The last test states the boundary's own guard; `execute_assessment_run` opens with exactly that `require`, so the refusal precedes its `append_intent`.)
 
-- [ ] **Step 3: Run them to see them fail**
+- [x] **Step 3: Run them to see them fail**
 
 Run: `(cd python && uv run --frozen pytest tests/test_session_routes.py -q)`
 Expected: FAIL — `ModuleNotFoundError: No module named 'beliefs.session.routes'`.
 
-- [ ] **Step 4: Split `_record_act` and add the port**
+- [x] **Step 4: Split `_record_act` and add the port**
 
 `python/src/beliefs/session/writer.py`. Replace `_record_act` (`:228-262`) with the general entry and a commit-shaped wrapper:
 
@@ -730,14 +730,14 @@ class LedgeredPort:
 
 (`ledgered_seam` and its `__all__` entry are added together in Task 5.)
 
-- [ ] **Step 5: Run the routes file, the session files, and the checks**
+- [x] **Step 5: Run the routes file, the session files, and the checks**
 
 Add `"operation_port"` to the expected set in `test_the_scoped_writer_exposes_the_seven_methods_the_routes_and_its_invocation` (`python/tests/test_session_writer.py`). Then:
 
 Run: `(cd python && uv run --frozen pytest tests/test_session_routes.py tests/test_session_writer.py tests/test_session_ledger.py -q)` then `just check`
 Expected: pass. `CorpusWriter._operation_port` (`corpus.py:1475`) is read directly: the session module already reaches the writer's private operation lock the same way, and pyright's private-usage report is not enabled in this repository.
 
-- [ ] **Step 6: Commit and close**
+- [x] **Step 6: Commit and close**
 
 ```bash
 git add python/src/beliefs/session python/tests/test_session_routes.py
