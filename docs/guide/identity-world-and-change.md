@@ -94,6 +94,11 @@ binds to an explicit producer-snapshot identity, while epoch read answers carry
 the packaging identity and coverage they came from. An older epoch may answer
 only inside its stated coverage and state.
 
+Open a cross-corpus read with `open_world_view(world, published_epoch)`. It
+captures each present corpus against that explicit epoch's address map before
+serving any answer. `WorldReadView` follows the same adjacencies across corpus
+boundaries; a plain `ReadView` truncates at its corpus edge.
+
 ### Correction is additive
 
 Records are immutable. **Supersession** says that a replacement continues or

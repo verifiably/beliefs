@@ -22,9 +22,9 @@ invisible to it.** Every fixture that writes bytes behind the API reconstructs a
 fresh facade before asserting read behaviour — reconstruction from disk is the
 recovery posture the seam names, and it is the read this slice actually runs.
 
-**Traversal is corpus-local throughout.** A walk truncates at the corpus edge;
-reaching a target the holding corpus does not carry is the world index's, which
-this slice does not build.
+**Traversal is corpus-local over a `ReadView` and world-wide over a
+`WorldReadView` (`world/view.py`): the same adjacencies, one truncating at the
+corpus edge and the other continuing through the epoch's address map.**
 """
 
 from __future__ import annotations
