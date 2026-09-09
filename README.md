@@ -87,8 +87,8 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-09-05-conformance-cut-19.md` | the frozen writer-session cut: J1–J11 selected in full, 11 declaration units, the cut 18 runner as prefix; discharged 2026-09-05 |
 | `2026-09-06-verification-publication-design.md` | the verification-publication slice: a derived verification published as an ordinary `add` carrying its whole basis with the comparison report embedded, one spelling for the assessment's run member, admission over records read back, scope recomputed by the audit and the import, and the stored analysis-spec builder and reader (V1–V8, closed at cut 21) |
 | `2026-09-06-conformance-cut-21.md` | the frozen verification-publication cut: V1–V8 selected in full, 8 declaration units, the cut 20 runner as prefix; discharged 2026-09-07 |
-| `2026-09-08-biology-pack-design.md` | the second domain-boundary slice: cross-contract slot sorts, consulted-profile pin agreement, domain-facet reads, and the packaged biology contract |
-| `2026-09-08-conformance-cut-22.md` | the frozen biology-pack cut: B1–B7, the cross-contract consulted walk, domain-facet read, and packaged biology contract |
+| `2026-09-08-biology-pack-design.md` | the second domain-boundary slice: cross-contract slot sorts, consulted-profile pin agreement, domain-facet reads, and the packaged biology contract (B1–B7, closed at cut 22) |
+| `2026-09-08-conformance-cut-22.md` | the discharged biology-pack cut: B1–B7, the cross-contract consulted walk, domain-facet read, and packaged biology contract |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -96,7 +96,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 21** is implemented and discharged. What
+Every conformance cut through **cut 22** is implemented and discharged. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -127,22 +127,22 @@ comparison report embedded, one spelling for the assessment's run member,
 admission evaluated over records read back, scope recomputed from a stored
 verification, forgery refused before the intent, and the stored analysis-spec
 builder and reader.
-The latest discharged boundary is cut 21, verification publication
-([cut](docs/designs/2026-09-06-conformance-cut-21.md),
-[design](docs/designs/2026-09-06-verification-publication-design.md),
-[results](docs/plans/2026-09-06-conformance-cut-21-results.md)); cut 20, the
-facet-contracts slice, discharged before it
-([results](docs/plans/2026-09-07-conformance-cut-20-results.md)).
+The biology pack now supplies cross-contract slots, consulted-pin agreement,
+domain-facet reads, and the packaged `biology` contract. The latest discharged
+boundary is cut 22
+([cut](docs/designs/2026-09-08-conformance-cut-22.md),
+[design](docs/designs/2026-09-08-biology-pack-design.md),
+[results](docs/plans/2026-09-08-conformance-cut-22-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
-test before it is a passing one. There are **188 rows** across **seventeen frozen
-tables** (G, S, W, R, C, X, N, L, D, M, P, H, T, E, F, J, V), and every cut is frozen
+test before it is a passing one. There are **195 rows** across **eighteen frozen
+tables** (G, S, W, R, C, X, N, L, D, M, P, H, T, E, F, J, V, B), and every cut is frozen
 *before* its code exists so that a row which fails is a failure rather than a
 redefinition.
 
 What is built and what remains to build, each remainder with its named owner,
 is stated once, in the
-[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-05).
+[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-08).
 The per-cut results records under [`docs/plans/`](docs/plans/) are the
 evidence trail, and unresolved design questions live in the guide's
 [open questions](docs/guide/open-questions.md).

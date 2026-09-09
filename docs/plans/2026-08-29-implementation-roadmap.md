@@ -1,7 +1,7 @@
 # Implementation roadmap
 
-**Ranked at:** cut 21, against the ledger's Current state (2026-09-07), updated
-2026-09-07
+**Ranked at:** cut 22, against the ledger's Current state (2026-09-08), updated
+2026-09-08
 **Method:** `../superpowers/specs/2026-08-29-implementation-roadmap-design.md`,
 as amended 2026-09-05 — tier 1 is ordered by distance to the dogfood success
 criterion (§4.0 there), open lanes are bounded, and a method amendment
@@ -15,7 +15,7 @@ carries no dated corrections, and the previous ranking survives only in git
 history.
 
 The adoption ledger's `Current state` table
-(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-07`)
+(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-08`)
 is the authority for *what* is open; this document is the authority for *in
 what order*. The two name the same boundaries by id, and
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds them to it.
@@ -39,29 +39,18 @@ criterion cannot be met without are **on the path**, in dependency order;
 the rest are **off the path**, in breadth order. Whether a boundary is on the
 path is measured where it can be, by the reproduction lane (§Lanes).
 
-**This ranking (2026-09-07) closes the write path.** Cut 21 discharged
-verification publication: V1–V8 close, R19's stored-verification limitation
-closes with them, and `verification-publication` — tier 1's first row on the
-path in the previous two rankings — leaves the ranking. The `write-path` lane
-has no open boundary and closes; `domain-boundary` slice 2 and
-`world-resolution` are what remain on the path, in that order, and the
-`world-read` lane may now open beside the `domain` lane under rule 6.
-
-The order and tier of everything below are unchanged by this ranking. The
-measurements the second 2026-09-05 pass made still hold and are not remade
-here: `domain-boundary` keeps its place for slice 2, whose biology pack
-remains unmeasured (the target typed under the placeholder vocabulary with
-every binding `not-consulted`); and `world-resolution` stays last on the path,
-since no step of the mm30 reproduction resolved an address across corpora, so
-`next` over one corpus can be built without it and the dogfood needs it when a
-second corpus enters. The reproduction lane stays closed.
+**This ranking (2026-09-08) discharges biology slice 2.** Cut 22 closes B1–B7
+and D6, rereads M6, and adds M8's sort-contract arm. The shipped pack is the
+measured minimum; GO, HP, EFO and MONDO remain unmeasured. `domain-boundary`
+retains D1's cross-repository negative, while `world-resolution` remains the
+next on-path implementation boundary.
 
 The historical deltas: cut 19 delivered the writer session (J1–J11) and
 retired `writer-session`; cut 20 discharged domain-boundary slice 1 and
 parity-fixture-2 (D2, D4, D5, D8–D10, G5 and F1–F8 full/closed, D1 partial),
 and facet contracts landed on `main` on 2026-09-07; cut 21 closed the `V`
-table in full. The current accounting is 127 of 188 rows closed. Biology slice
-2 remains open.
+table in full; cut 22 added and closed B1–B7 and closed D6. The current
+accounting is 135 of 195 rows closed. D1 remains partial.
 
 ## Boundary index
 
@@ -70,7 +59,7 @@ join key and nothing else; the tiers below carry the ranking.
 
 | id | rows it closes | tier |
 |---|---|---|
-| `domain-boundary` | biology pack slice 2; D1's cross-repository negative and D6's domain-facet reader arm | 1, on the path |
+| `domain-boundary` | D1's cross-repository negative | 2 |
 | `world-resolution` | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 (less one arm); W8a's coreference arms; S1, S1a, S5's cross-corpus reach; D3; X12 and M3's coreference arms; R19's cross-corpus recomputation; R23's snapshot, coverage, divergence and explicit-import clauses | 1, on the path |
 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | 1, off the path |
 | `url-retrieval` | H4, G9, R10, T5; T7's same-root case | 1, off the path |
@@ -96,8 +85,7 @@ from being met without it; its lane (§Lanes) says what it must wait for.
 
 | # | id | rows | unblocks | placement |
 |---|---|---|---|---|
-| 1 | `domain-boundary` | **Slice 1:** D2, D4, D5, D8, D9, D10, G5 and F1–F8 full/closed; D1 partial — implemented by the 2026-09-05 facet-contracts design and discharged as cut 20. **Slice 2:** D1's cross-repository negative, D6's domain-facet reader arm, and the biology pack remain open | the biology pack — GO, HP, EFO and MONDO bindings and mm30's operator vocabulary (layer design §4.3, sub-project 3) | Slice 1 compiled and validated facet contracts, closed the empirical-observation payload finding, and delivered the second parity fixture. Slice 2 must reproduce the measured floor — `affects` with a concept→protein pair, two referents and the `causal` layer — while the ontology-release requirement remains unmeasured |
-| 2 | `world-resolution` | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 (less one arm), W8a's coreference arms; S1, S1a, S5's cross-corpus reach; D3; X12 and M3's coreference arms; R19's cross-corpus recomputation; R23's snapshot, coverage, divergence and explicit-import clauses | `next` over more than one corpus; `publish` (sub-project 5) resolves view queries through it; the read side of the world in full | cut 4 §5 deferred the group on "the write boundary and the index" — both landed; the address ruling supplies the oracles. Last on the path, now measured: the reproduction record's second question is **no** — no step of its path resolved an address across corpora or needed a resolution state the registry alone could not give, so `next` over one corpus can be built without this boundary, and the dogfood proper needs it only when a second corpus enters. W11/W12 are closed (cut 14) |
+| 1 | `world-resolution` | W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 (less one arm), W8a's coreference arms; S1, S1a, S5's cross-corpus reach; D3; X12 and M3's coreference arms; R19's cross-corpus recomputation; R23's snapshot, coverage, divergence and explicit-import clauses | `next` over more than one corpus; `publish` (sub-project 5) resolves view queries through it; the read side of the world in full | cut 4 §5 deferred the group on "the write boundary and the index" — both landed; the address ruling supplies the oracles. Now first on the path: the reproduction needs it when a second corpus enters. W11/W12 are closed (cut 14) |
 
 ### Off the path
 
@@ -134,7 +122,7 @@ boundary sits in the lane of its prerequisite and waits there.
 | lane | boundaries, in order | shared surface | status |
 |---|---|---|---|
 | `write-path` | none — no open boundary | `corpus.py`, `report.py`, `intents/`, `session/`, `verify.py`, `evaluation.py`, `audit.py` | closed: `writer-session` discharged at cut 19 and `verification-publication` at cut 21 |
-| `domain` | `domain-boundary` slice 2 (biology pack); slice 1 (+ `parity-fixture-2`) discharged at cut 20 | `profile.py`, `contract/`, `stored.py`, `ts/`, `fixtures/`, the `nodes` registry | open (`.worktrees/domain-boundary`) |
+| `domain` | `domain-boundary` D1 cross-repository negative; slices 1 and 2 discharged at cuts 20 and 22 | the `nodes` registry | waits on the cross-repository seam |
 | `world-read` | `world-resolution` (+ `packaging-remainder`) → `event-level-l8` (+ `log-remainder`) | `world/read.py`, `resolution.py`, `world/verify.py` | on the path at its head; open to start — `write-path` closed at cut 21 |
 | `mutation` | `correction-remainder` | `adapter.py`, `corpus.py`, `audit.py`, `decode.py`, `evaluation.py`, `world/verify.py` | off the path; waits |
 | `acquisition` | `url-retrieval` (+ `act-report-remainder`) | `holdings/`, `report.py` | off the path; waits |
@@ -185,6 +173,7 @@ and merged `--no-ff`. Six rules are added by concurrency itself:
 
 | id | rows | prerequisite | unblocks |
 |---|---|---|---|
+| `domain-boundary` | D1 | `nodes`' own design gate for the cross-repository negative | D1 in full |
 | `l13-preimage` | L13 | an `atoms` blob-read seam behind its own design gate; `atoms`' deferred-obligation ledger carries no such entry today | row 6 in full; the held-copy match strengthened from path to bytes |
 | `persistence-cut` | X2 | the `atoms` A8 certification extended to the publication path, behind `atoms`' own design gate. Cut 7 admits a Science-side harness as the alternative; it is rejected by the method (§5 there), so the prerequisite is cross-repo and the tier is 2 | X2 in full |
 | `nodes-remainder` | — | `nodes`' own design gate | audits over damaged corpora; manifest safety |
@@ -210,11 +199,11 @@ slice 1 (facet-contracts §6). Another question raised by the record is carried 
 where an interpretation rule reads content
 ([computation](../guide/open-questions.md#computation-and-reproducibility)).
 
-## Appendix A — live status of every guarantee row at cut 21
+## Appendix A — live status of every guarantee row at cut 22
 
 Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
-(spec §3.1); a row is closed only when no later source reopens it. Cut 21 reads
-its eight `V` rows in full and closes the table; the table below is the
+(spec §3.1); a row is closed only when no later source reopens it. Cut 22 adds
+and closes B1–B7 and closes D6; the table below is the
 generator's output.
 
 | table | never selected | part — last cut that read it | reopened |
@@ -227,7 +216,7 @@ generator's output.
 | X | — | X2 (cut 7), X5 (cut 7), X12 (cut 7) | — |
 | N | N1, N3, N4, N5, N6, N7, N8, N9, N10 | N2 (cut 4) | — |
 | L | — | L1 (cut 8), L2 (cut 9), L4 (cut 9), L7 (cut 12), L8 (cut 8), L10 (cut 10), L13 (cut 8) | — |
-| D | — | D1 (cut 20), D3 (cut 2), D6 (cut 2) | — |
+| D | — | D1 (cut 22), D3 (cut 2) | — |
 | M | M12 | M3 (cut 18) | — |
 | P | — | P1 (cut 2) | — |
 | H | — | H4 (cut 10) | — |
@@ -236,8 +225,9 @@ generator's output.
 | F | — | — | — |
 | J | — | — | — |
 | V | — | — | — |
+| B | — | — | — |
 
-Closed 127 of 188; open 61.
+Closed 135 of 195; open 60.
 
 The `V` table joined the guarantee tables when the verification-publication
 design banked and cut 21 froze; cut 21 read every one of its rows in full, so the
@@ -281,9 +271,8 @@ Each open row, its remainder as the last cut states it, and where it goes
 | L8 | event-level cross-chain order (cut 11 §3.2) | `event-level-l8` |
 | L10 | "no named cross-cut remainder … row label remains partial" (cut 10 results §1) → relabel | rides with `event-level-l8` |
 | L13 | the preimage resolver over the `atoms` blob-read seam (cut 11 §3.2; log design §5.3); cut 18 closes nothing here — removal classification stays a path match | `l13-preimage` — tier 2 |
-| D1 | the cross-repository negative that adds a domain-aware code path to `nodes` (cut 20 §8) | `domain-boundary` slice 2 |
+| D1 | the cross-repository negative that adds a domain-aware code path to `nodes` (cut 22 §2) | `domain-boundary` |
 | D3 | `not-present` and the five-way non-collapse over the world index (cut 2 §4.2) | `world-resolution` |
-| D6 | the domain-facet derivation over the compiled registry (cut 2 §4.2; cut 20 §8) | `domain-boundary` slice 2 |
 | M3 | coreference-attestation arm → `world-resolution`; the concrete-cycle arms needing "a spellable controlled identity construction … a circular fixed point" (cut 5) → limitation unless a construction is found. The equal-basis replica arm is read by cut 16; the raw-written-cycle classification and the admission-order negative are closed by cut 18 | split as stated |
 | M12 | the extraction path (cut 3 §5; kernel limitation 3) | `extraction-path` — tier 3 |
 | P1 | the resolver half of the negative, 5b §6's deterministic resolution (cut 4 §5) | `contract-cut` |

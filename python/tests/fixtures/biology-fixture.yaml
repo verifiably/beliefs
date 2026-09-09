@@ -2,8 +2,8 @@
 # A TEST FIXTURE in the `biology` namespace, not a domain. The relocation and
 # world tests pin a `biology` contract identity and need two distinct ones for
 # their pin-disagreement arms; `profiles.py` parses this document twice with
-# different descriptions. Shipping `domains/biology/DOMAIN.yaml` is the second
-# slice's design act (D limitation 5), and nothing here binds a real vocabulary.
+# different descriptions. Shipping `domains/biology/DOMAIN.yaml` completed at
+# cut 22; this stays a fixture and binds no real vocabulary.
 contract: biology
 version: 1
 lineage: genesis

@@ -10,8 +10,9 @@ findings became §5.3a and B7 (profile and pin agreement), §5.6's isolated
 case and B2's second sabotage (the facet-namespace collection proved on
 its own), and the correction of §5.1, B4 and §9 item 10 (an unheld observed
 dataset is absent from the run value, never "digested by address").
-Conformance cut 22 is frozen in `2026-09-08-conformance-cut-22.md` after this
-design's review cleared (§8). Not implemented.
+Implemented on the domain lane; conformance cut 22 frozen 2026-09-08 at
+`99d5757` and discharged 2026-09-08
+(`../plans/2026-09-08-conformance-cut-22-results.md`).
 **Scope:** the second of two slices on the `domain` lane, anchored on the
 mm30 reproduction record's measured floor (`2026-09-05-mm30-reproduction.md`
 §5 question 1 and §6 step 2), the facet-contracts design's read-ledger

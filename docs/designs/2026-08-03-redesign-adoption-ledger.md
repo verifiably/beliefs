@@ -38,7 +38,7 @@ organization rather than a personal account, so governance and long-term
 stewardship are not tied to one individual. §5 records the namespace and
 decomposition rulings that follow from it.
 
-## Current state (2026-09-07)
+## Current state (2026-09-08)
 
 This section is the one place that states what is built and what remains to
 build. Every other live surface — the README and the contributor guide — links
@@ -46,10 +46,10 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-09-07** for the cut-20 discharge, the facet-contracts landing on `main`, and
-the cut-21 discharge of verification publication.
+**Updated 2026-09-08** for cut 22's biology-pack discharge and measured mm30
+rerun.
 
-**Implemented through conformance cut 21.** Every cut from 4 onward has a
+**Implemented through conformance cut 22.** Every cut from 4 onward has a
 discharge results record under `../plans/`; cuts 1–3 are proved by their merge
 ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
@@ -131,8 +131,8 @@ ancestry and the surfaces they built
 - **Facet contracts** — base and domain contracts declare closed facet schemas;
   profiles compile kinds, relations and facets; every write seam validates the
   caller-held profile; and the empirical-observation acquisition boundary is
-  `locator` plus `attested_by`. Cut 20 discharges slice 1 with 15 rows
-  full/closed and D1 partial; D6's domain-facet reader arm remains with slice 2.
+  `locator` plus `attested_by`. Cut 20 discharged slice 1 with 15 rows
+  full/closed and D1 partial; cut 22 closes D6 while D1 stays partial.
 - **Verification publication** — a derived verification published as an
   ordinary `add` carrying its whole basis with the comparison report embedded
   under an id that is its identity; one spelling for the assessment's run
@@ -142,6 +142,12 @@ ancestry and the surfaces they built
   reader. V1-V8 close at cut 21, and R19's stored-verification limitation
   (cut 18 §7) closes with them, leaving only its cross-corpus recomputation
   with `world-resolution`.
+- **Biology pack and domain-facet read** — the shipped HGNC-bound
+  `molecular-entity` sort, `gene-axis` facet and three protein→protein
+  operators compose with mm30's corpus-local concept vocabulary and
+  cross-typed operators. The consulted walk authenticates profile pins and
+  reader-minted facet receipts supply the digest ledger. B1–B7 and D6 close at
+  cut 22; M8 gains its sort-contract arm; D1 remains partial.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -157,7 +163,7 @@ not listed.
 |---|---|---|---|
 | `url-retrieval` | the URL retrieval boundary, acquisition orchestration and typed retrieval grants: H4, G9, R10, T5, T7's same-root case | `2026-08-24-world-index-holdings-design.md` §1–§3 | the first acquisition of a dataset from outside the system |
 | `world-resolution` | the read side of the world: W1, W2, W4, W5a, W6, W7, W8, W8b, W10, W15; W13 less its two-projects negative; W8a's coreference arms; S1, S1a and S5's cross-corpus reach; D3; X12 and M3's coreference arms; R19's cross-corpus recomputation; R23's snapshot, coverage, divergence and explicit-import clauses | `2026-08-02-world-addressing-design.md` and `2026-08-08-world-address-ruling.md` | resolution states, cross-corpus edges, views, the coreference balance |
-| `domain-boundary` | slice 1, the facet-contracts design dated 2026-09-05, frozen as cut 20 and discharged 2026-09-07; slice 2 remains the biology pack | `2026-08-04-domain-extension-boundary-design.md` | the first domain pack |
+| `domain-boundary` | D1's cross-repository negative that adds a domain-aware code path to `nodes`; slices 1 and 2 discharged at cuts 20 and 22 | `2026-08-04-domain-extension-boundary-design.md` | D1 in full |
 | `event-level-l8` | **Event-level L8** — the presence/exclusion relation across captured corpus heads | the tamper-evident-log design's own successor work (row 5) | row 5 reading L8 in full |
 | `contract-cut` | **The first full contract cut, its executable suite, and N1–N10**; N2's closing doctrine; P1's resolver-negative arm; R22's resolver arm; the `instrument-certification` arms of W8a, X12 and C10; R23's rules-store clauses | sub-problem 5b (row 7) | the normative contract's own guarantees; disposition of the legacy check modules; the conformance-package split (§5) |
 | `log-remainder` | L1, L4; L10's relabel | `2026-08-22-log-verification-design.md` | row 5's L rows read in full |
@@ -174,11 +180,9 @@ not listed.
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-06-conformance-cut-21-results.md`) discharges verification
-publication, closes V1-V8 and lifts R19's stored-verification limitation,
-leaving R19's cross-corpus recomputation with `world-resolution`; the record
-before it (`../plans/2026-09-07-conformance-cut-20-results.md`) discharged the
-facet-contracts slice and left the biology pack as `domain-boundary` slice 2.
+(`../plans/2026-09-08-conformance-cut-22-results.md`) discharges the biology
+pack, closes B1–B7 and D6, and leaves D1's cross-repository negative with
+`domain-boundary`.
 `test_the_ledger_summary_names_the_newest_remaining_boundary` holds this
 section to whichever record is newest;
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds this table and the

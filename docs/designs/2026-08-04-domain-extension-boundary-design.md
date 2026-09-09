@@ -838,6 +838,14 @@ what must not break it.
   supersession and correction path for a claim's binding check — which is
   re-recorded as open there (its ρO1) rather than deleted.
 
+> **Amended 2026-09-08** (biology-pack design §4, cut 22). An operator slot may
+> name a sort declared by another activated contract; the corpus-local mm30
+> contract uses that rule for `biology/molecular-entity`.
+
+> **Amended 2026-09-08** (biology-pack design §6.1, cut 22). The byte-identical
+> packaged copy of `domains/biology/DOMAIN.yaml` is the first shipped domain
+> contract. Distribution beyond this repository remains open.
+
 > **Amended 2026-09-07** (facet-contracts design §3.4, §5, §6, §7.2).
 > Section 3.4's payload schema travels with the facet — now literally, as the
 > base contract's `facets:` entry. Section 6's compiled inventory includes

@@ -263,9 +263,16 @@ across separately evolved corpora, and a reader. A field that fails 2.6 and
 that a domain reader wants goes to a domain pack under `beliefs/domains/`,
 the only place a vocabulary can be bound. Ontology terms are `term`
 referents under the ontology's own identifier with an exact release
-binding (domain §5). The mm30 dogfood needs the biology pack — GO, HP, EFO
-and MONDO bindings and mm30's operator vocabulary from the typing exercise —
-and that pack is the `domain-boundary` lane's first.
+binding (domain §5). The mm30 dogfood uses the shipped biology pack's
+HGNC-bound molecular-entity sort, gene-axis facet and protein→protein
+operators, composed with mm30's corpus-local concept vocabulary and
+cross-typed operators.
+
+> **Amended 2026-09-08** (biology-pack design §3, cut 22). The shipped pack is
+> the measured minimum: HGNC-bound `molecular-entity`, `gene-axis`, and the
+> three protein→protein operators. The corpus-local mm30 contract owns its
+> concept vocabulary and cross-typed operators. GO, HP, EFO and MONDO remain
+> unmeasured.
 
 The predecessor's escape hatches — project-local manifests, configuration
 deny-lists, keyed suppressions, inert fields — do not exist here. A record
@@ -916,7 +923,7 @@ column says so.
 | 0 | **Rename and seed** — `science` → `beliefs`; ledger §5 ruling; glossary; create `science` and `autonomy` with a README pointing here | kernel, new | nothing | now, between lane merges |
 | 1 | **Coordination and view kinds** — opaque project identity minting, `(project, local id)` addressing, the coordination revision family (one or more predecessor tips; the general at-commit rule under the root lock; the tip rule), W11, W12, W13's two-projects negative; the coordination contract in `beliefs`; the `foundations.md` extension | `beliefs` | delivered 2026-09-02 by cut 14; W17 intent-position remains with item 5 | complete |
 | 2 | **Command framework** — declaration schema, write classes, budgeted renderer, preamble, adapter generator with the Claude Code target, CLI and MCP over `beliefs` reads; the writer endpoint with its bound permit, endpoint-set actor and session ledger; the write permit on every `beliefs` write entry point | `science`, `beliefs` | 0 | now, against today's kernel reads |
-| 3 | **Biology domain pack** — GO, HP, EFO, MONDO bindings; mm30's operator vocabulary | `beliefs/domains/biology` | the `domain-boundary` lane | with that lane |
+| 3 | **Biology domain pack** — shipped HGNC-bound molecular-entity sort, gene-axis facet and three protein→protein operators; mm30's concept vocabulary and cross-typed operators live in its corpus-local contract; GO, HP, EFO and MONDO remain unmeasured | `beliefs/domains/biology` and the mm30 corpus | the `domain-boundary` lane | complete at cut 22 |
 | 4 | **The dogfood command set** — the dozen commands over a real world root; mm30 reproduced, not migrated, as the first corpus | `science` | 1, 2, 3; `run-confinement` and `workflow-surface` for a real assessment | after 2; grows as lanes land |
 | 4a | **The mm30 reproduction** *(added 2026-09-05)* — item 4's library-level precursor: one proposition through the kernel as a library to a computed belief, a measurement rather than a slice (`2026-09-05-mm30-reproduction-design.md`); its record sizes items 3 and 4 and re-ranks the roadmap | `beliefs`, as a lane with no boundary | nothing above cut 18 | now, beside the kernel lanes |
 | 5 | **Publish** — the act and `publication` record in `beliefs`, composed over `init_corpus_root`, a staging world, `export_head_artifact`, `replicate_root` and `restore_root`; the versioned act-report amendment adding the `publish` operation kind and the versioned coordination-contract amendment declaring `publication` and `publication-binding`, with their deterministic record factories and the family's intent-position rule for operation-minted revisions; transports carrying the head artifact, admission-side refusal and dry run in `science` | `beliefs`, `science` | 1; the `world-read` lane (view queries resolve through it) | after that lane |
@@ -929,7 +936,8 @@ proposition, `run` executes a real Snakemake analysis under confinement,
 `verify` reaches `clean-environment`, and `assess` admits the result to a
 computed belief — every step a governed record.
 
-**What this adds to the ledger.** Item 3 still carries `domain-boundary`.
+**What this adds to the ledger.** Item 3 is delivered at cut 22;
+`domain-boundary` retains D1's cross-repository negative.
 Item 1's `coordination-addressing` boundary left the live ledger when cut 14
 discharged; `publish` retains W17 intent-position.
 

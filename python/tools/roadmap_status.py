@@ -50,12 +50,13 @@ ACCOUNTING: dict[int, tuple[str, str, str]] = {
     19: ("conformance-cut-19-results §2", "J1, J2, J3, J4, J5, J6, J7, J8, J9, J10, J11", ""),
     20: ("conformance-cut-20 §4", "D2, D4, D5, D8, D9, D10, G5, F1, F2, F3, F4, F5, F6, F7, F8", "D1"),
     21: ("conformance-cut-21-results §2", "V1, V2, V3, V4, V5, V6, V7, V8", ""),
+    22: ("conformance-cut-22-results §2", "B1, B2, B3, B4, B5, B6, B7, D6, M8", "D1"),
 }
 
 #: Rows a later source names open at a widened obligation, overriding a full read.
 REOPENED: dict[str, tuple[str, int]] = {}
 
-_RANGE = re.compile(r"([GSWRCXNLDMPHTEJV])([0-9]+[a-z]?)–\1?([0-9]+[a-z]?)")
+_RANGE = re.compile(r"([GSWRCXNLDMPHTEJVB])([0-9]+[a-z]?)–\1?([0-9]+[a-z]?)")
 
 
 def _expand(cell: str) -> set[str]:

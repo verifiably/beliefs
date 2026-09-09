@@ -195,7 +195,7 @@ its writer session is implemented and discharged as conformance cut 19
 attended session, its session ledger and claim protocol, the invocation-bound
 scoped writer, and reconciliation — and its daily surface and autonomy
 sub-projects are not yet implemented; salvage remains undesigned. The [adoption ledger's current-state
-summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-07)
+summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-08)
 is the complete statement of what is built and what remains.
 
 ## Open edges

@@ -183,9 +183,10 @@ fitted result into independent validation.
 
 ## Current state
 
-Cut 20, the facet-contracts slice, froze on 2026-09-06 and is discharged; its
-results record preserves the certified aggregate, full-gate, and reproduction
-evidence. Cut 21 remains separately frozen and undischarged.
+Cut 22 discharges the biology pack and domain-facet read: B1–B7 and D6 close,
+M8 gains a sort-contract arm, and D1 remains partial on its cross-repository
+negative. Its results record preserves the certified chain and measured mm30
+rerun.
 
 Twenty conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple
@@ -212,14 +213,15 @@ every row, selected in full before implementation and read in full afterwards
 (`../designs/2026-09-05-conformance-cut-19.md`).
 The facet-contracts slice is discharged as cut 20: 15 rows read full/closed,
 D1 remains partial on its cross-repository arm, and D6's domain-facet reader arm
-travels with biology slice 2
+then traveled with biology slice 2
 (`../plans/2026-09-07-conformance-cut-20-results.md`).
-The verification-publication cut is frozen as cut 21 (V1–V8 selected in full
-before implementation, `../designs/2026-09-06-conformance-cut-21.md`) and
-discharges after the domain lane's cut 20.
+The verification-publication cut is discharged as cut 21 (V1–V8 full/closed),
+and the biology-pack slice is discharged as cut 22 (B1–B7 and D6 full/closed;
+D1 partial)
+(`../plans/2026-09-08-conformance-cut-22-results.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-07)
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-08)
 states what is built and which remaining boundaries have named owners; the cut
 documents and results records in the references below are the evidence.
 

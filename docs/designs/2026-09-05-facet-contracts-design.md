@@ -595,6 +595,10 @@ caller-selected consulted set would be exactly the digest that cannot fail.
 `facets_read` must eventually come from the readers' own execution — a read
 ledger the first domain reader fills in slice 2 — never from a caller.
 
+> **Answered 2026-09-08** by the biology-pack design §5 and cut 22: the domain
+> reader mints authenticated receipts from its own reads, and `gather` derives
+> `facets_read` from those receipts.
+
 ### 5.7 Refusals
 
 `FacetPayloadRefused(ValidationRefused)` naming facet, field and reason;
@@ -705,13 +709,16 @@ signature by any spelling.
 2. **Relation endpoints are compiled, not enforced at write.** Source and
    target sets enter `compiled_identity`; nothing new refuses an edge whose
    endpoints disagree with them. Validation scope for the contract cut.
-3. **`facets_read` is empty**, so D6's facet arm is unproven here.
+3. **Answered at cut 22:** the biology-pack reader supplies `facets_read` and
+   closes D6's facet arm (biology-pack design §5.6).
 4. **F7's positive arm is reference acceptance**, not acquisition.
 5. **The packaged base contract is a build-time copy**, held byte-identical
    by a test; the normative file stays at `contracts/science/CONTRACT.yaml`.
 6. **Domain contract documents are supplied by the caller.** Distribution
    (D §12) stays open; the writer verifies pins, it does not locate
    contracts.
+   Cut 22 ships the first byte-identical packaged domain contract; external
+   distribution remains open (biology-pack design §6.1).
 7. **The bearer invariant sees producers in this corpus only.** A producer
    in another corpus is `world-resolution`'s cross-corpus read.
 8. **The locator's truth and the observation's nature stay authored** —
@@ -806,8 +813,9 @@ admitted.
   Foundations; owned by whichever lane next rewrites the closure.
 - **Relation endpoint enforcement at write** (§9 item 2). Contracts and
   adoption; the contract cut.
-- **The read ledger behind `facets_read`** (§5.6). Claims and belief; slice
-  2 of this lane.
+- ~~**The read ledger behind `facets_read`** (§5.6).~~ **ANSWERED 2026-09-08**
+  by the biology-pack design §5 and cut 22: authenticated reader receipts are
+  the ledger source.
 
 ## 15. Citation amendment — 2026-09-07
 
