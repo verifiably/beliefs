@@ -5,7 +5,7 @@ status: todo
 priority: 1
 size: m
 created: 2026-09-09T12:43:20Z
-updated: 2026-09-09T13:23:42Z
+updated: 2026-09-09T14:08:33Z
 depends: []
 tags: [command-framework, dogfood]
 ---
@@ -15,3 +15,4 @@ Belief-path design (science docs/specs/2026-09-09-belief-path-commands-design.md
 ## Notes
 
 - 2026-09-09T13:23:42Z (main): Names the science plan (docs/plans/2026-09-09-belief-path-commands.md) assumes: open_attended_session(..., store_root: Path | None = None); ScopedWriter.operation_port() -> OperationPort under the scoped authority with commits recorded as act lines; ScopedWriter.holdings_context(*, instrument: str) -> ActContext over the session's store root, observer = session actor, published observations recorded as act lines; ScopedWriter.store_id -> str; ScopedWriter.actor; and beliefs.replay.replay accepting a RunClosure as well as a RunMinted (it reads only the closure). Also needed: a public way to read a store root's id.
+- 2026-09-09T14:08:33Z (main): Also assumed by the science plan: beliefs.root.store_identity(store_root) -> str | None, the public form of _read_existing_store_genesis (detached inspection).
