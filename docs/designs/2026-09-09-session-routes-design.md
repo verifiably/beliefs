@@ -7,7 +7,11 @@ ledgered port and seam; reference rules, replay and errors; testing and
 documents), after three rulings: the reproduction driver maps its
 identities onto the kernel implementations rather than keeping copies; rule
 identities carry the kernel's scope; the store root is optional on the
-session. Not yet implemented.
+session. Revised 2026-09-09 on a written review of the committed document
+whose six findings became §4.2's lock order and guarded members, §4.4
+(reconciliation over the two new intent shapes), §5's bitwise
+classification, §4.1's atomic append, and §2's corrected contract with
+test 16. Not yet implemented.
 **Scope:** the three kernel seams the science belief-path design depends on
 (science `docs/specs/2026-09-09-belief-path-commands-design.md` §6.1, §6.2,
 §5): the public store identity reader (`beliefs-2d9a55`), the run and
@@ -57,11 +61,14 @@ def store_identity(store_root: Path) -> str | None: ...
 `beliefs.root.store_identity` is the public name of the existing
 `_read_existing_store_genesis`: a detached inspection of the root's chain,
 with no metadata root, no recovery and no writes, that returns the id the
-store genesis carries. It returns `None` when the root has no chain, the
-chain is not well formed, or the first entry is not a store genesis. A
-genesis whose payload is malformed still raises `CorpusRootRefused`, as it
-does today. `init_store_root` calls the public name; the private one is
-removed.
+store genesis carries. Its contract is the existing function's, stated
+exactly: `None` when the root has no chain, when the chain is not well
+formed, or when the first entry is not a genesis entry at all; and
+`CorpusRootRefused` when the first entry is a genesis whose payload is not
+a store genesis, which covers both a malformed payload and a genesis of
+another domain, a corpus root among them. A corpus root is not "no store
+yet"; it is a root the caller has misnamed, and the read says so.
+`init_store_root` calls the public name; the private one is removed.
 
 Detached inspection is the point, not a convenience: a store may be arriving
 or interrupted, and the read context must never run recovery on a root it
@@ -145,8 +152,11 @@ lets the session hear what they commit.
 An `OperationPort` over the invocation's durable port.
 
 - `profile`, `authority`, `preflight`: delegate.
-- `append_intent(payload)`: requires the invocation to be current, then
-  delegates.
+- `append_intent(payload)`: under the session lock, requires the
+  invocation to be current and delegates before releasing it. The check and
+  the durable append are one step; `_require_current` alone releases the
+  lock on return, which would let a close on another thread land between
+  the check and the append.
 - `execute_fulfilling(plan, fulfills)`: under the session lock, requires
   currency, delegates, and records an act from `fulfills` (the intent
   digest), the entry digest the durable port returns, and the records of
@@ -165,10 +175,33 @@ An `OperationPort` over the invocation's durable port.
 
 ### 4.2 `LedgeredSeam`
 
-A `StoreActSeam` whose `publish_fulfilling(root, plan, intent)` requires
-currency under the session lock, delegates, and records an act from the
-intent digest, the entry digest and the plan's records. Every other field
-passes through to the production seam unchanged.
+A `StoreActSeam` over the production seam, with three obligations.
+
+**Lock order.** The holdings boundary holds the corpus lock when it calls
+`append_intent` and `publish_fulfilling` (`_append` and `_publish_record`
+both open `seam.corpus_lock` first). A wrapper that took the session lock
+inside those calls would acquire corpus then session, the reverse of
+`ScopedWriter._act`, and two threads would deadlock. So the ledgered seam's
+`corpus_lock(root)` is where the session lock is taken: it acquires the
+session lock, requires currency, then enters the inner corpus lock, and
+releases both in reverse. `append_intent` and `publish_fulfilling` then run
+with the session lock already held (it is re-entrant) and re-check nothing
+they cannot re-check for free. Session then corpus, everywhere.
+
+**Every act is guarded.** A context is a value a handler can keep, so
+every member that changes state requires currency under the session lock,
+atomically with its delegate: `append_intent`, `store_write`,
+`store_delete`, `store_move` and `publish_fulfilling`. The two reads,
+`read_path` and `store_genesis`, pass through. A context used after its
+invocation closed is refused at the first act, before an intent is
+appended and before a byte moves. An invocation closed part-way through an
+act is refused at the next step; what precedes it, an appended intent
+without a publication, is exactly the state a crash leaves, and §4.4 makes
+reconciliation report it.
+
+**Recording.** `publish_fulfilling(root, plan, intent)` delegates and
+records an act from the intent digest, the entry digest and the plan's
+records.
 
 For this, `StoreActSeam.publish_fulfilling` changes type from
 `Callable[[Path, WritePlan, str], None]` to `Callable[[Path, WritePlan, str],
@@ -189,10 +222,30 @@ the holdings observation plan are creates only.
 `WriterSession._record_act` splits in two: the existing commit-shaped entry
 stays for the seven corpus-write methods, and a general one takes
 `(invocation, *, intent, entry, records)`. Both write the same ledger line
-and append the same `ActLine`, so the ledger schema, `reconcile_sessions`
-and science's audit are untouched. An act line for a run names the run
-record; for a refused run, the act-report; for a holdings write, the
-observation.
+and append the same `ActLine`, so the ledger schema and science's audit are
+untouched. An act line for a run names the run record; for a refused run,
+the act-report; for a holdings write, the observation.
+
+### 4.4 Reconciliation hears the new shapes
+
+`reconcile` (`session/reconcile.py`) walks a corpus chain's intent entries
+and keeps only those whose decoded value is an `OperationIntent` with a
+session actor; every other shape is skipped before the actor is read. A run
+intent (`AssessmentRunIntent`, which carries its actor) and a holdings
+intent (a mapping whose decoder currently drops the actor) appended by a
+session are therefore invisible to it: a committed run or observation with
+no act line, or by a session with no ledger, produces no finding today,
+where the same corpus write produces `session-unknown`,
+`session-outcome-unknown` or `session-entry-foreign`.
+
+The change: `decode_holdings_intent` returns the actor beside the fields it
+already returns (its existing callers ignore the extra key); `reconcile`
+takes the actor from any of the three decoded shapes and applies the same
+session-actor match and the same findings to all of them. The findings'
+codes, severities and messages do not change; what changes is which intents
+they can be about. An interrupted holdings act (§4.2) is then an intent by
+a session with a registration that never committed, reported under the
+same branch that reports an interrupted corpus write.
 
 ## 5. Reference rules (`beliefs-e5ab34`)
 
@@ -218,6 +271,14 @@ one per outcome.
 `CONTENT_IDENTITY_RULE` to `beliefs.replay.CONTENT_EQUALITY`, which keeps
 its `impl-eq-1` identity and gains two manifest fixtures, equal and
 unequal, so it is no longer conformant by vacuity.
+
+`spec.BITWISE_EQUIVALENCE_RULES`, the set `freeze` and the record restorer
+both consult to refuse a stochastic-unseeded draft under a bitwise
+equivalence rule (computation §3.1a), holds the bare
+`content-identity-equality/v1` only. The kernel identity joins it. Without
+that, a draft refused under the bare name would freeze under the kernel's,
+and a stored record naming the kernel identity would restore where the bare
+one is refused.
 
 ### 5.1 Rule identities carry the author's scope
 
@@ -262,7 +323,7 @@ No new exception class. Everything a route can refuse is an existing one:
 | a plan with a non-create op | the recording helper | `SessionProtocolError` |
 | `store_id` or `holdings_context` on a store-less session | the facade | `SessionProtocolError` |
 | a store root without a genesis at open | the opener | `SessionRefused` |
-| a malformed store genesis | `store_identity` | `CorpusRootRefused` |
+| a genesis that is not a store genesis (malformed, or another domain) | `store_identity` | `CorpusRootRefused` |
 | a locator naming another store | the holdings boundary | `StoreIdMismatch` |
 
 The first is a refusal of the invocation; the science dispatcher already
@@ -286,12 +347,25 @@ recording port and a fake seam):
    and reach the inner port not at all.
 5. A plan with a non-create op is refused before the inner port is reached.
 6. After the invocation closes, `append_intent` and `execute_fulfilling`
-   raise `SessionProtocolError`.
+   raise `SessionProtocolError`; and a close that lands on another thread
+   between a currency check and the durable append cannot: the close waits
+   on the session lock and the append completes under the invocation it was
+   checked for.
 7. The ledgered seam's `publish_fulfilling` ledgers a holdings act the same
-   way, and its other fields are the inner seam's.
+   way; its two reads are the inner seam's.
 8. A permit narrowed below `run` or `holdings` is refused by the boundary
    with `PermitExceeded` before any intent is appended (the recording port
    saw no `append_intent`).
+8a. A holdings context kept past its invocation's close is refused at
+    `write`'s first act: the fake seam saw no `append_intent` and no
+    `store_write`. A close between `append_intent` and `store_write`
+    (driven by a fake seam that closes the invocation from inside
+    `append_intent`'s delegate) is refused at `store_write`, and the store
+    is untouched.
+8b. Lock order: one thread inside a holdings `write` through the ledgered
+    seam and another inside `ScopedWriter.add` on the same session and root
+    both complete; the test drives the interleaving with a fake seam whose
+    `store_write` blocks until the other thread has entered `add`.
 
 **Durable** (`acceptance/test_session_acceptance.py`'s rig):
 
@@ -305,11 +379,21 @@ recording port and a fake seam):
     (`publication_plan`) is ledgered the same way.
 12. `reconcile_sessions` over a session holding both lines reports no
     finding beyond what a proposition-only session reports.
+12a. Reconciliation over the new shapes: a committed run publication and a
+    committed holdings observation by a session with no ledger each yield
+    `session-unknown`; each with a ledger but no act line yields
+    `session-entry-foreign` (closed invocation) or
+    `session-outcome-unknown` (open invocation); a holdings intent with no
+    committed registration is reported as an interrupted write is. The
+    decoded holdings intent carries its actor.
 
 **Rules and replay:**
 
 13. Every entry of `REFERENCE_RULES` conforms to its fixtures, and its key
-    is a `beliefs/…/v1` identity.
+    is a `beliefs/…/v1` identity. A stochastic-unseeded draft naming
+    `beliefs/content-identity-equality/v1` is refused by `freeze`, and a
+    record naming it is refused by the restorer, exactly as under the bare
+    name.
 14. The driver's `frozen().identity` equals the value the 2026-09-05
     reproduction record carries, pinned as a literal.
 15. `replay` over `minted.run` returns what `replay` over `minted` returns.
@@ -317,8 +401,8 @@ recording port and a fake seam):
 **Store identity:**
 
 16. A fresh `init_store_root` round-trips through `store_identity`; an
-    empty directory and a corpus root return `None`; a malformed genesis
-    raises `CorpusRootRefused`.
+    empty directory returns `None`; a corpus root and a malformed store
+    genesis each raise `CorpusRootRefused`.
 
 ## 9. Limitations and open questions
 
