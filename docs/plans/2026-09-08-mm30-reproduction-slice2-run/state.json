@@ -1,0 +1,98 @@
+{
+  "admission": "Admitted",
+  "assessment_identity_derived": "61a28cbb6c38415a14b5b5698c88057f909fb95130604c15debfbf249ae91109",
+  "assessment_identity_stored": "61a28cbb6c38415a14b5b5698c88057f909fb95130604c15debfbf249ae91109",
+  "assessment_outcome": "inconclusive",
+  "assessment_ref": "assessment:61a28cbb6c38415a",
+  "audit_findings": 0,
+  "belief_answer": {
+    "detail": "",
+    "kind": "NoBelief",
+    "reason": "no-directional-outcome"
+  },
+  "claim_identity": "780ace5964c8ab8315607ee9ed084b4acf6bf0f3f20f82bbbd41c11408cddb1c",
+  "concepts_address": "dataset:sha256:be3bf183a830c31d4f8acf46a309e01bd0476580d2d6db4079af3e3c7bd738d8",
+  "concepts_count": 285,
+  "concepts_file": "/mnt/ssd/Dropbox/beliefs/.work/reproduction/mm30-slice2/mm30-concepts.txt",
+  "concepts_ref": "dataset:sha256:be3bf183a830c31d4f8acf46a309e01bd0476580d2d6db4079af3e3c7bd738d8",
+  "corpus_check_findings": 0,
+  "corpus_id": "2ea32f637fcdea58a6d96c505bc50a44",
+  "dataset_address": "dataset:sha256:a6bf229ef0abd8e11f0b7f017cbdb6977395e23d83fb122fcf141f723ba1e448",
+  "dataset_ref": "dataset:sha256:a6bf229ef0abd8e11f0b7f017cbdb6977395e23d83fb122fcf141f723ba1e448",
+  "evidence_reconstruction": {
+    "audit_check": {
+      "checked": true,
+      "contradiction": null,
+      "reason": ""
+    },
+    "closures_decoded": true,
+    "comparison_report_stored": true,
+    "derivation_named": true,
+    "inputs": {
+      "corpus": [
+        "verification record (basis, comparison report, scope, verdict read)",
+        "two run publications",
+        "analysis-spec record"
+      ],
+      "in_process": [
+        "interpretation and equivalence RuleImplementations"
+      ]
+    },
+    "report_identity_equal": true,
+    "report_identity_read": "edc77f5e729311696ea8659f3542f4979e3fdda8a878d21f6467072c7f3fbee3",
+    "scope_equal": true,
+    "scope_read": "clean-environment",
+    "scope_recomputed": "clean-environment",
+    "spec_restored_identity_matches_run": true,
+    "verdict_equal": true,
+    "verdict_read": "passed",
+    "verdict_recomputed": "passed"
+  },
+  "held_digest": "sha256:c74ea661e636ab670315f722cbad2d9c1154dbbc114012180d48c623850a31a5",
+  "held_file": "/mnt/ssd/Dropbox/cancer/cancer-types/multiple-myeloma/data/supp/orig/misund2022/GSE179929_gene_tpm.txt.gz",
+  "held_name": "GSE179929_gene_tpm.txt.gz",
+  "holdings_observation_ref": "holdings-observation:b6914ad86524715a01ded9492e4607253e6441e32013187c0e3728c04c603458",
+  "log_verdict": {
+    "head-carrier": {
+      "anchored_through": "c5bcc64327f43cef9b17f610af9d613f6c93b4dd5e40ee4c43d291a6a8304d4d",
+      "findings": [],
+      "intents": 4,
+      "observer_bound": [
+        "registry-record provenance=named-local custody=read-from-root subject=corpus:2ea32f637fcdea58a6d96c505bc50a44 genesis=90ab2f0d12c2908bb6bacbd4ee1206c1d73a99a57ba6fb5ad4dd870fbbc4f0e0 head=c5bcc64327f43cef9b17f610af9d613f6c93b4dd5e40ee4c43d291a6a8304d4d"
+      ],
+      "outcome": "validated",
+      "pending": 0,
+      "unanchored_tail": 0
+    },
+    "no-observer": {
+      "anchored_through": null,
+      "findings": [
+        "unanchored: corpus:2ea32f637fcdea58a6d96c505bc50a44"
+      ],
+      "intents": 4,
+      "observer_bound": [],
+      "outcome": "unresolvable",
+      "pending": 0,
+      "unanchored_tail": 27
+    }
+  },
+  "original_run_ref": "run:2f8abfa54be0358ee7e3700fe40ad878ad72fc604352cc6d883fc50b98d65560",
+  "proposition_ref": "proposition:concept-disease-stage-affects-protein-phf19",
+  "rederived_belief": {
+    "detail": "",
+    "kind": "NoBelief",
+    "reason": "no-directional-outcome"
+  },
+  "rederived_equal": true,
+  "replayed_run_ref": "run:73bca738645cde629807ac6a849387c56d426644db43908bd52fec88161d0af5",
+  "scope_class": "none",
+  "spec_identity": "86aaa1a8a8edda8217a1d6f5f6ae28c89fae7362176a214f9fd9fdf95e3f2b1d",
+  "spec_ref": "analysis-spec:86aaa1a8a8edda8217a1d6f5f6ae28c89fae7362176a214f9fd9fdf95e3f2b1d",
+  "store_id": "22083a322b3c63ce68907aa29180cda8",
+  "store_relative_path": "gse179929/GSE179929_gene_tpm.txt.gz",
+  "typing_seconds": 0.2,
+  "verification_ref": "verification:c129d601a58984e090d46526af46ab00d18099ab5178c785eeb264d97763f451",
+  "verification_scope": "clean-environment",
+  "verification_verdict": "passed",
+  "world_id": "3db84b4868da28f5e18ca25b2825086a"
+}

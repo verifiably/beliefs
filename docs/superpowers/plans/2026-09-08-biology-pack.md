@@ -3149,7 +3149,11 @@ In `docs/designs/2026-09-05-mm30-reproduction.md`:
 
 - §5 question 1: append a dated paragraph beginning `**Measured 2026-09-08 (biology pack design §6.4).**` stating the operator the target typed under, slot 0's `member` outcome against the held concept list of N identifiers, slot 1's `not-consulted`, the new claim identity and why it differs, and the full-corpus typing yield from `typing-all-307.md` (typed count, and each refusal class with its count).
 - §6: one row per finding in `findings.jsonl` from this run, in the table's existing columns.
-- §3 row 10a: a note that the re-derive's digest differs from the 2026-09-05 record because the closure gained `observed_facets` (design §5.4), with both digests quoted.
+- §3 row 10a: a dated note that both re-derivations returned `NoBelief`, which
+  carries no `belief_input_digest`, and that the 2026-09-05 artifacts record no
+  input digest. State that the closure projection gained `observed_facets`
+  (design §5.4), while the typed claim/operator and consulted contracts also
+  changed, so this run did not isolate a causal digest comparison.
 - The status header: `Re-run 2026-09-08 as biology slice 2's measurement; see §5 question 1 and §6.`
 
 - [ ] **Step 4: Commit**
