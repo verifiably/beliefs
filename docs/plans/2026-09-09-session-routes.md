@@ -1197,9 +1197,9 @@ git commit -m "test(session): prove the routes durably against the chain"
 **Interfaces:**
 - Produces: `decode_holdings_intent(row)` mapping gains `"actor": str`; `reconcile` classifies intents of all three decoded shapes by their session actor.
 
-- [ ] **Step 1: `tasks start beliefs-7fd23b`**
+- [x] **Step 1: `tasks start beliefs-7fd23b`**
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Append to `python/tests/test_session_reconcile.py`:
 
@@ -1254,12 +1254,12 @@ def test_an_interrupted_holdings_act_is_an_unclaimed_intent():
     assert ("session-intent-unclaimed", "error", I) in codes(reconcile([ledger(opens=("A",), closes=("A",))], chains))
 ```
 
-- [ ] **Step 3: Run them to see them fail**
+- [x] **Step 3: Run them to see them fail**
 
 Run: `(cd python && uv run --frozen pytest tests/test_session_reconcile.py -q -k "either_shape or carries_its_actor or interrupted_holdings")`
 Expected: FAIL — the actor `KeyError` and empty finding lists.
 
-- [ ] **Step 4: Decode the actor and classify every shape**
+- [x] **Step 4: Decode the actor and classify every shape**
 
 In `python/src/beliefs/intents/holdings.py`, the `return` of `decode_holdings_intent` (the source `shapes.decode_intent` calls):
 
@@ -1311,12 +1311,12 @@ Replace lines `183-190` (`decoded = ...` through `sid = match.group(1)`) with:
 
 and in the `session-unknown` finding use `f"actor={actor}"` for the detail. Check `shapes.Unrecognized` is the decoder's other return type (it is, `decode_intent -> DecodedIntent | Unrecognized`).
 
-- [ ] **Step 5: Run the reconcile, holdings and acceptance files and the checks**
+- [x] **Step 5: Run the reconcile, holdings and acceptance files and the checks**
 
 Run: `(cd python && uv run --frozen pytest tests/test_session_reconcile.py tests/test_intent_evidence.py tests/test_intents_holdings.py tests/test_holdings_receipt.py tests/acceptance/test_session_acceptance.py -q)` then `just check`
 Expected: pass.
 
-- [ ] **Step 6: Commit and close**
+- [x] **Step 6: Commit and close**
 
 ```bash
 git add python/src/beliefs/intents/holdings.py python/src/beliefs/holdings/qualify.py python/src/beliefs/session/reconcile.py python/tests/test_session_reconcile.py
