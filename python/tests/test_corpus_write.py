@@ -1015,3 +1015,35 @@ def test_v8_a_spec_record_whose_identity_is_false_is_refused_at_add(tmp_path):
     with pytest.raises(MalformedRecord):
         writer.add(_false_spec_record(freeze(spec_draft(), held_rules=spec_rules())))
     assert writer.read_view.resolve("analysis-spec:forged") is None
+
+
+def test_validated_node_is_the_facade_rule_factored_out():
+    from nodes.core.node import Node
+
+    from beliefs import stored
+    from beliefs.corpus import ReadView, validated_node
+    from beliefs.errors import SemanticHashMissing
+
+    node = Node(id="proposition:p", kind="proposition", title="p", facets={"proposition": {"operator": "affects"}})
+    with pytest.raises(SemanticHashMissing):
+        validated_node(node)
+    stamped = stored.proposition_node("p", title="p", claim={"operator": "affects"})
+    assert validated_node(stamped) is stamped
+    assert ReadView._validated(stamped) is stamped
+
+
+def test_record_not_present_exposes_its_refusal_context():
+    from beliefs.errors import RecordNotPresent, ResolutionRefused, ScienceError
+    from beliefs.world.read import BoundStamp
+
+    stamp = BoundStamp("a" * 64, (("corpus", "state"),))
+    refusal = RecordNotPresent("proposition:p", "corpus", stamp)
+    assert issubclass(RecordNotPresent, ScienceError)
+    assert not issubclass(RecordNotPresent, ResolutionRefused)
+    assert refusal.ref == "proposition:p"
+    assert refusal.corpus_id == "corpus"
+    assert refusal.stamp is stamp
+    assert str(refusal) == (
+        "proposition:p: recorded in corpus, a covered corpus with no carrier here "
+        "(publication aaaaaaaaaaaa…); the record is elsewhere, not gone"
+    )

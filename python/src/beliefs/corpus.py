@@ -198,6 +198,22 @@ class Finding:
         return (self.ref, self.code, self.detail)
 
 
+def validated_node(node: Node) -> Node:
+    """Validate the semantic identity stamp on a fetched governed record."""
+    if stored.semantic_hash_missing(node):
+        raise SemanticHashMissing(
+            f"{node.id}: a {node.kind!r} carries no semantic-identity stamp "
+            "(semantic-hash-missing); the boundary mints every governed record stamped, "
+            "so an unstamped one is a raw write that skipped even self-stamping"
+        )
+    if stored.semantic_hash_disagrees(node):
+        raise SemanticHashStale(
+            f"{node.id}: the stored semantic hash disagrees with the fields it covers "
+            "(semantic-hash-stale); the node is an untrusted import, not a guaranteed mutation"
+        )
+    return node
+
+
 @sealed
 @final
 class ReadView:
@@ -298,18 +314,7 @@ class ReadView:
 
     @staticmethod
     def _validated(node: Node) -> Node:
-        if stored.semantic_hash_missing(node):
-            raise SemanticHashMissing(
-                f"{node.id}: a {node.kind!r} carries no semantic-identity stamp "
-                "(semantic-hash-missing); the boundary mints every governed record stamped, "
-                "so an unstamped one is a raw write that skipped even self-stamping"
-            )
-        if stored.semantic_hash_disagrees(node):
-            raise SemanticHashStale(
-                f"{node.id}: the stored semantic hash disagrees with the fields it covers "
-                "(semantic-hash-stale); the node is an untrusted import, not a guaranteed mutation"
-            )
-        return node
+        return validated_node(node)
 
 
 @final
