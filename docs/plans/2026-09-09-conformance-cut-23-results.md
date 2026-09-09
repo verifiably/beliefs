@@ -222,7 +222,8 @@ arms. `roadmap_status.py` reports **142 closed of 195 rows across 18 tables;
   supply freeze and discharge tasks, so no duplicate ceremony tasks are filed.
   W15, explicitly deferred by frozen §2, remains open despite its omission from
   the Task 14 brief's remainder list. Two accidentally tracked Task 2 scratch
-  files are untracked while their local evidence is retained for review.
+  files were untracked; their local evidence remained available through the
+  completed final review.
 
 ## 4. Reproduction measurement
 
@@ -249,5 +250,21 @@ divergence and explicit-import clauses. R23's rules-store clauses remain with
 and audit arms. Slices 2–4 are filed under the still-open `beliefs-d248ba` as
 `beliefs-113561` (coreference, including W15), `beliefs-46847c`
 (snapshots/import/audit and packaging), and `beliefs-0e523a` (W7 view evaluation),
-with serial dependencies. The parent returns to `todo` at this slice's handoff;
+with serial dependencies. The parent is `todo` with its claim released;
 completion of slice 1 does not claim the remaining boundary is discharged.
+
+## 6. Main integration
+
+The lane merged into `main` on 2026-09-09 at
+`6eb0b936ef046a3ae211be00b4f2f0b4bd9b48c8`, after all task reviews and the
+final scoped re-review passed. Both final-review findings were addressed.
+The merge preserves the independent task-record commits already on `main`.
+
+From the repository root, `just gate` exited **0** on that unchanged merged
+tree: **4218 Python tests passed in 1345.43s** and **142 TypeScript tests
+passed across 7 files**. Ruff, Pyright, TypeScript typecheck, Biome and
+`tasks check` also passed, with zero errors or warnings and no test skips.
+This is the full serial gate for the corrected implementation; the earlier
+4205-test result in §1 predates the 13 final-review regressions.
+The complete [main gate transcript](2026-09-09-conformance-cut-23-run/main-gate.log)
+and [exit record](2026-09-09-conformance-cut-23-run/main-gate-exit.log) are retained.
