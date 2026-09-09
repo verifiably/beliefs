@@ -356,6 +356,14 @@ class TestLineageSnapshotOverTheWorld:
         result = certify(snapshot, ("dataset:d1",), ())
         assert result.state == "not-certified" and result.absent == (Absence("dataset:d1", BETA),)
 
+    def test_an_unknown_root_refuses_in_world_and_corpus_views(self, tmp_path):
+        from beliefs.corpus import lineage_snapshot
+
+        world, roots, published = chain_world(tmp_path)
+        for view in (open_world_view(world, published), ReadView.opened_at(roots[ALPHA])):
+            with pytest.raises(RefError):
+                lineage_snapshot(view, ["dataset:unknown"])
+
     def test_a_refusal_is_not_absence(self, tmp_path):
         from nodes.core.corpus import Corpus
         from nodes.core.frontmatter import node_to_markdown

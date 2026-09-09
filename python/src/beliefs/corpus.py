@@ -1034,10 +1034,9 @@ def lineage_snapshot(view: ReadView | WorldReadView, roots: Sequence[str]) -> Li
     for root in roots:
         if root not in inspected:
             inspected.append(root)
-        if not view.holds(root):
-            corpus_id = _absence_of(view, root)
-            if corpus_id is not None:
-                not_present[root] = corpus_id
+        corpus_id = _absence_of(view, root)
+        if corpus_id is not None:
+            not_present[root] = corpus_id
             continue
         for dataset in closure(root, adjacency).reached:
             if dataset not in inspected:
