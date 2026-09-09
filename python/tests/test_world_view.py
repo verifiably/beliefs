@@ -15,6 +15,7 @@ from test_world_receipts import corpora, hold_shipped, publish, world_over
 from beliefs import stored
 from beliefs.corpus import ReadView, _root_state_for
 from beliefs.errors import BuildContended, EpochUnknown, RecordNotPresent, ResolutionRefused
+from beliefs.lineage import Absence, snapshot_projection
 from beliefs.world import read
 from beliefs.world.view import DriftReport, WorldReadView, open_world_view
 
@@ -322,3 +323,103 @@ class TestW10:
         assert superseded_by(view, old.id) == (new.id,)
         assert derived_from(ReadView.opened_at(roots[BETA]), d1.id).reached == ()
         assert superseded_by(ReadView.opened_at(roots[ALPHA]), old.id) == ()
+
+
+class TestLineageSnapshotOverTheWorld:
+    def test_absence_is_entered_with_its_corpus_and_only_from_not_present(self, tmp_path):
+        from beliefs.corpus import lineage_snapshot
+        from beliefs.lineage import certify
+
+        world, roots, published = chain_world(tmp_path)
+        complete = lineage_snapshot(open_world_view(world, published), ["dataset:d2"])
+        assert complete.not_present == {}
+        assert certify(complete, ("dataset:d2",), ()).state == "independent"
+
+        make_absent(roots, BETA)
+        partial = lineage_snapshot(open_world_view(world, published), ["dataset:d2"])
+        assert partial.not_present == {"dataset:d1": BETA}
+        (route,) = partial.bases["dataset:d2"].routes
+        assert route.resolved_run == "run:r2" and route.resolved_ancestor is None
+        result = certify(partial, ("dataset:d2",), ())
+        assert result.state == "not-certified" and "lineage-incomplete" in result.findings
+        assert result.absent == (Absence("dataset:d1", BETA),)
+        assert snapshot_projection(partial) != snapshot_projection(complete)
+
+    def test_an_absent_root_is_recorded_before_any_walk(self, tmp_path):
+        from beliefs.corpus import lineage_snapshot
+        from beliefs.lineage import certify
+
+        world, roots, published = chain_world(tmp_path)
+        make_absent(roots, BETA)
+        snapshot = lineage_snapshot(open_world_view(world, published), ["dataset:d1"])
+        assert snapshot.not_present == {"dataset:d1": BETA} and snapshot.roots == ("dataset:d1",)
+        result = certify(snapshot, ("dataset:d1",), ())
+        assert result.state == "not-certified" and result.absent == (Absence("dataset:d1", BETA),)
+
+    def test_a_refusal_is_not_absence(self, tmp_path):
+        from nodes.core.corpus import Corpus
+        from nodes.core.frontmatter import node_to_markdown
+
+        from beliefs.corpus import lineage_snapshot
+        from beliefs.errors import SemanticHashStale
+
+        world, roots, published = chain_world(tmp_path)
+        node = Corpus(roots[ALPHA]).get("dataset:d2")
+        node.facets["dataset"]["resources"] = [{"digest": "f" * 64}]
+        (roots[ALPHA] / "dataset" / "d2.md").write_text(node_to_markdown(node))
+        view = open_world_view(world, published)
+        with pytest.raises(SemanticHashStale):
+            lineage_snapshot(view, ["dataset:d2"])
+
+    def test_a_published_producer_survives_its_absent_carrier(self, tmp_path):
+        from beliefs.corpus import lineage_snapshot
+        from beliefs.lineage import divergence_state
+
+        d0 = stored.dataset_node("d0", title="d0")
+        d3 = stored.dataset_node(
+            "d3",
+            title="d3",
+            basis={
+                "tag": "single",
+                "routes": [
+                    {
+                        "identity": "route:d3",
+                        "run": "run:r3",
+                        "ancestor": d0.id,
+                        "transforms": [d0.id],
+                    }
+                ],
+            },
+        )
+        r3 = stored.run_node("r3", title="r3", spec="s", transforms=[d0.id], produces=[d3.id])
+        roots = corpora(tmp_path, {ALPHA: (d0, d3), BETA: (r3,)})
+        world = world_over(tmp_path, roots)
+        published = publish(world, (ALPHA, BETA), hold_shipped(world))
+        present = lineage_snapshot(open_world_view(world, published), [d3.id])
+        assert [p.absent for p in present.producers[d3.id]] == [()]
+        assert divergence_state(present, d3.id) == "undiverged"
+
+        make_absent(roots, BETA)
+        gone = lineage_snapshot(open_world_view(world, published), [d3.id])
+        (producer,) = gone.producers[d3.id]
+        assert producer.stored_run == r3.id and producer.resolved_run is None and producer.absent == (BETA,)
+        assert gone.not_present == {r3.id: BETA}
+        assert divergence_state(gone, d3.id) == "incomplete"
+        assert snapshot_projection(gone)["divergence"] == {d3.id: "incomplete"}
+
+    def test_a_basisless_dataset_with_an_absent_published_producer_is_incomplete(self, tmp_path):
+        from beliefs.corpus import lineage_snapshot
+        from beliefs.lineage import certify
+
+        dataset = stored.dataset_node("basisless", title="basisless")
+        run = stored.run_node("producer", title="producer", spec="s", produces=[dataset.id])
+        roots = corpora(tmp_path, {ALPHA: (dataset,), BETA: (run,)})
+        world = world_over(tmp_path, roots)
+        published = publish(world, (ALPHA, BETA), hold_shipped(world))
+        make_absent(roots, BETA)
+
+        snapshot = lineage_snapshot(open_world_view(world, published), [dataset.id])
+        result = certify(snapshot, (dataset.id,), ())
+
+        assert snapshot.producers[dataset.id][0].absent == (BETA,)
+        assert result.state == "not-certified" and result.findings == ("lineage-incomplete",)

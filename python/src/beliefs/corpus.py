@@ -993,14 +993,12 @@ class _DerivedFromAdjacency:
         return tuple(steps)
 
 
-def run_value(view: ReadView, ref: str) -> RunValue:
+def run_value(view: ReadView | WorldReadView, ref: str) -> RunValue:
     """A stored run as cut 2's value: its spec, and its role-partitioned inputs
     with each input dataset's declaration read from the dataset itself.
 
-    **Corpus-local**: an input naming a dataset this corpus does not hold is not
-    in the value, because its declaration lives wherever that dataset does and
-    resolving an address to the corpus holding it is the world index's job. A
-    walk truncating at the corpus edge is this layer's documented property.
+    Over a world view the filter is the same and the absence is reported by
+    `gather`, which collects every input whose `locate` is `NotPresent`.
     """
     node = view.get(ref)
     inputs = tuple(
@@ -1012,8 +1010,18 @@ def run_value(view: ReadView, ref: str) -> RunValue:
     return RunValue(ref=ref, spec=stored.run_spec(node) or "", inputs=inputs)
 
 
-def lineage_snapshot(view: ReadView, roots: Sequence[str]) -> LineageSnapshot:
-    """Produce substrate §5's snapshot from a store, corpus-locally.
+def _absence_of(view: ReadView | WorldReadView, ref: str) -> str | None:
+    """Return the absent corpus recorded for `ref`; propagate refusals."""
+    from beliefs.world.read import NotPresent
+    from beliefs.world.view import WorldReadView
+
+    if not isinstance(view, WorldReadView):
+        return None
+    return view.corpus_of(ref) if type(view.locate(ref)) is NotPresent else None
+
+
+def lineage_snapshot(view: ReadView | WorldReadView, roots: Sequence[str]) -> LineageSnapshot:
+    """Produce substrate §5's snapshot from a read view.
 
     The inspected set is `{observed root} ∪ closure` — the union written out,
     because the walk is start-excluding and a root whose own immediate parent is
@@ -1022,8 +1030,16 @@ def lineage_snapshot(view: ReadView, roots: Sequence[str]) -> LineageSnapshot:
     """
     adjacency = LineageAdjacency(view)
     inspected: list[str] = []
+    not_present: dict[str, str] = {}
     for root in roots:
-        for dataset in (root, *closure(root, adjacency).reached):
+        if root not in inspected:
+            inspected.append(root)
+        if not view.holds(root):
+            corpus_id = _absence_of(view, root)
+            if corpus_id is not None:
+                not_present[root] = corpus_id
+            continue
+        for dataset in closure(root, adjacency).reached:
             if dataset not in inspected:
                 inspected.append(dataset)
 
@@ -1033,25 +1049,35 @@ def lineage_snapshot(view: ReadView, roots: Sequence[str]) -> LineageSnapshot:
         if not view.holds(dataset):
             continue
         node = view.get(dataset)
-        routes = tuple(
-            Route(
-                dataset=dataset,
-                stored_run=str(route.get("run", "")),
-                resolved_run=view.resolve(str(route.get("run", ""))),
-                stored_ancestor=str(route.get("ancestor", "")),
-                resolved_ancestor=view.resolve(str(route.get("ancestor", ""))),
-                transforms=tuple(str(entry) for entry in route.get("transforms", []) or ()),
+        routes = []
+        for route in stored.basis_routes(node):
+            run, ancestor = str(route.get("run", "")), str(route.get("ancestor", ""))
+            for ref in (run, ancestor):
+                corpus_id = _absence_of(view, ref)
+                if corpus_id is not None:
+                    not_present[ref] = corpus_id
+            routes.append(
+                Route(
+                    dataset=dataset,
+                    stored_run=run,
+                    resolved_run=view.resolve(run),
+                    stored_ancestor=ancestor,
+                    resolved_ancestor=view.resolve(ancestor),
+                    transforms=tuple(str(entry) for entry in route.get("transforms", []) or ()),
+                )
             )
-            for route in stored.basis_routes(node)
-        )
         facet = stored.lineage_basis(node)
         if facet is not None and routes:
-            bases[dataset] = Basis(tag=str(facet.get("tag", "single")), routes=routes)
-        producers[dataset] = tuple(_producers_of(view, dataset))
-    return LineageSnapshot(roots=tuple(roots), bases=bases, producers=producers)
+            bases[dataset] = Basis(tag=str(facet.get("tag", "single")), routes=tuple(routes))
+        found = _producers_of(view, dataset)
+        for producer in found:
+            if producer.absent:
+                not_present[producer.stored_run] = producer.absent[0]
+        producers[dataset] = tuple(found)
+    return LineageSnapshot(roots=tuple(roots), bases=bases, producers=producers, not_present=not_present)
 
 
-def _producers_of(view: ReadView, dataset: str) -> list[Producer]:
+def _producers_of(view: ReadView | WorldReadView, dataset: str) -> list[Producer]:
     """The runs holding a `produces` edge to `dataset`, with what each of them
     `transforms`. The producer set is the divergence test's input; the basis
     route is what it is compared against, and the two are separate reads on
@@ -1064,6 +1090,26 @@ def _producers_of(view: ReadView, dataset: str) -> list[Producer]:
         resolved = view.resolve(run_ref)
         transforms = () if resolved is None else stored.inputs_of(view.get(resolved), stored.TRANSFORMS)
         producers.append(Producer(stored_run=run_ref, resolved_run=resolved, transforms=transforms))
+    from beliefs.world.view import WorldReadView
+
+    if isinstance(view, WorldReadView):
+        seen = {producer.stored_run for producer in producers}
+        for run in view.published_producers(dataset):
+            if run in seen:
+                continue
+            resolved = view.resolve(run)
+            if resolved is not None:
+                producers.append(
+                    Producer(
+                        stored_run=run,
+                        resolved_run=resolved,
+                        transforms=stored.inputs_of(view.get(resolved), stored.TRANSFORMS),
+                    )
+                )
+                continue
+            corpus_id = _absence_of(view, run)
+            if corpus_id is not None:
+                producers.append(Producer(stored_run=run, resolved_run=None, transforms=(), absent=(corpus_id,)))
     return producers
 
 
