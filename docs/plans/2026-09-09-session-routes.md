@@ -132,9 +132,9 @@ git commit -m "feat(root): expose the store identity reader"
 **Interfaces:**
 - Produces: `StoreActSeam.publish_fulfilling: Callable[[Path, WritePlan, str], str]` returning the digest of the registration that fulfilled the intent.
 
-- [ ] **Step 1: `tasks start beliefs-8dca16`**
+- [x] **Step 1: `tasks start beliefs-8dca16`**
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 Append to `python/tests/test_holdings_seam.py`:
 
@@ -167,12 +167,12 @@ def _entries(view):
 
 (`WellFormedView.entries` carries `RegisteredEntryView(digest, txid, initial, final, fulfills)` rows, so `getattr(e, "fulfills", None)` selects exactly the registration.)
 
-- [ ] **Step 3: Run it to see it fail**
+- [x] **Step 3: Run it to see it fail**
 
 Run: `(cd python && uv run --frozen pytest tests/test_holdings_seam.py -q -k publish_fulfilling_returns)`
 Expected: FAIL — `assert [...] == [None]`.
 
-- [ ] **Step 4: Return the digest**
+- [x] **Step 4: Return the digest**
 
 `python/src/beliefs/holdings/seam.py:63`:
 
@@ -210,12 +210,12 @@ In `python/tests/test_profile_agreement.py:227` make the fake return a digest:
         return "cd" * 32
 ```
 
-- [ ] **Step 5: Run the holdings files and the checks**
+- [x] **Step 5: Run the holdings files and the checks**
 
 Run: `(cd python && uv run --frozen pytest tests/test_holdings_seam.py tests/test_holdings_boundary.py tests/test_profile_agreement.py -q)` then `just check`
 Expected: pass.
 
-- [ ] **Step 6: Commit and close**
+- [x] **Step 6: Commit and close**
 
 ```bash
 git add python/src/beliefs/holdings/seam.py python/src/beliefs/root.py python/tests/test_holdings_seam.py python/tests/test_profile_agreement.py

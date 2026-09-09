@@ -1,14 +1,20 @@
 ---
 id: beliefs-8dca16
 title: "Task 2: The holdings seam's publish returns the entry digest"
-status: todo
+status: done
 priority: 1
 size: xs
+owner: kernel-seams
 created: 2026-09-09T22:13:45Z
-updated: 2026-09-09T22:16:00Z
+updated: 2026-09-09T23:05:53Z
 depends: [beliefs-2d9a55]
 parent: beliefs-5fe2e3
 tags: [dogfood, command-framework]
 plan: docs/plans/2026-09-09-session-routes.md
 step: "Task 2: The holdings seam's publish returns the entry digest"
 ---
+
+## Notes
+
+- 2026-09-09T23:03:19Z (kernel-seams): claimed by /root/seams_task2, pid 0
+- 2026-09-09T23:05:53Z (kernel-seams): publish_fulfilling returns the registration digest

@@ -227,6 +227,7 @@ def holdings_context(tmp_path):
     def publish(_root, plan, intent):
         assert held
         published.append((plan, intent))
+        return "cd" * 32
 
     state = FileStateView("sha256:" + "1" * 64)
     seam = StoreActSeam(corpus_lock=corpus_lock, append_intent=append, publish_fulfilling=publish,

@@ -287,14 +287,39 @@ def test_the_seam_delegates_intent_publication_and_genesis(monkeypatch, tmp_path
 
     monkeypatch.setattr(science_root, "append_intent", append)
     monkeypatch.setattr(DurableExecutor, "execute", publish)
+    monkeypatch.setattr(science_root, "_registration_for", lambda *_args: "4" * 64)
     monkeypatch.setattr(science_root, "_read_head", head)
     seam = holdings_seam()
 
     assert seam.append_intent(tmp_path, payload) == "2" * 64
-    seam.publish_fulfilling(tmp_path, plan, "3" * 64)
+    assert seam.publish_fulfilling(tmp_path, plan, "3" * 64) == "4" * 64
     assert seam.store_genesis(tmp_path) == b"genesis"
     assert calls == [
         ("append", tmp_path, payload),
         ("publish", tmp_path, plan, "3" * 64),
         ("genesis", tmp_path),
     ]
+
+
+def test_publish_fulfilling_returns_the_registration_digest(certified_work):
+    from beliefs.holdings.boundary import intent_payload
+    from beliefs.holdings.records import StoreLocator
+    from beliefs.root import init_corpus_root
+
+    observer = certified_work / "observer"
+    init_corpus_root(observer, authority=FULL)
+    seam = holdings_seam()
+    payload = intent_payload(
+        location=StoreLocator("1" * 32, "p.bin"), act_kind="write", event_token="tok", actor="observer"
+    )
+    with seam.corpus_lock(observer):
+        intent = seam.append_intent(observer, payload)
+        entry = seam.publish_fulfilling(observer, (CreateOp("notes/p.md", b"---\nid: x\n---\n"),), intent)
+
+    view = science_root.log_seam().inspect_detached(observer)
+    registered = {digest: e for digest, e in _entries(view) if getattr(e, "fulfills", None) == intent}
+    assert list(registered) == [entry]
+
+
+def _entries(view):
+    return [(entry.digest, entry) for entry in view.entries]

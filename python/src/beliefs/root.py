@@ -1277,17 +1277,20 @@ def _store_append_intent(root: Path, payload: bytes) -> str:
         raise ExecutionError(str(caught), index=None, applied=None) from caught
 
 
-def _store_publish_fulfilling(root: Path, plan: SeamWritePlan, fulfills: str) -> None:
+def _store_publish_fulfilling(root: Path, plan: SeamWritePlan, fulfills: str) -> str:
+    """Publish the observation plan fulfilling `fulfills` and return its digest."""
     _refuse_over_ceiling(cast(WritePlan, plan))
+    metadata_root = metadata_root_for(root)
     DurableExecutor(
         root,
         backend=_PRODUCTION_BACKEND,
         storage=PRODUCTION_STORAGE,
-        metadata_root=metadata_root_for(root),
+        metadata_root=metadata_root,
         consumer_tag=CONSUMER_TAG,
         intent_domain=INTENT_DOMAIN,
         fulfills=fulfills,
     ).execute(cast(WritePlan, plan))
+    return _registration_for(root, _PRODUCTION_BACKEND, PRODUCTION_STORAGE, metadata_root, fulfills)
 
 
 def _require_file(pre: PathState, op: ReplaceOp | DeleteOp, index: int) -> FileState:
