@@ -566,6 +566,14 @@ def test_a_permit_below_run_is_refused_by_the_boundary_before_any_intent(tmp_pat
     assert ports[-1].calls == []
 ```
 
+Round-1 review adds one deterministic concurrency regression for design §8
+item 6. Move the `TracingLock` helper originally shown in Task 5 into this
+file now; use it with a blocking recording-port `append_intent` to prove a
+concurrent `close_invocation` reports `held-by-another`, stays blocked until
+the append is released, and completes after the append. Temporarily release
+the session lock between `_require_current` and the inner append and verify
+this test fails before restoring the implementation.
+
 (The last test states the boundary's own guard; `execute_assessment_run` opens with exactly that `require`, so the refusal precedes its `append_intent`.)
 
 - [x] **Step 3: Run them to see them fail**
@@ -784,50 +792,6 @@ GENESIS = b'{"domain":"science.store-root.v1","store_id":"' + STORE_ID.encode() 
 STATE = FileStateView("sha256:" + "a" * 64)
 
 
-class TracingLock:
-    """A re-entrant lock that records who holds it and how each acquisition
-    went, so tests can state the lock order rather than race for it."""
-
-    def __init__(self, on_attempt=None) -> None:
-        self._inner = threading.RLock()
-        self._holder: int | None = None
-        self._depth = 0
-        self.attempts: list[tuple[str, str]] = []
-        self._on_attempt = on_attempt
-
-    def acquire(self, blocking: bool = True, timeout: float = -1) -> bool:
-        me = threading.current_thread().name
-        if self._inner.acquire(blocking=False):
-            outcome = "owned"
-        else:
-            outcome = "held-by-another"
-        self.attempts.append((me, outcome))
-        if self._on_attempt is not None:
-            self._on_attempt(me, outcome)
-        if outcome == "held-by-another":
-            if not self._inner.acquire(blocking, timeout):
-                return False
-        self._holder = threading.get_ident()
-        self._depth += 1
-        return True
-
-    def release(self) -> None:
-        self._depth -= 1
-        if self._depth == 0:
-            self._holder = None
-        self._inner.release()
-
-    def __enter__(self):
-        self.acquire()
-        return self
-
-    def __exit__(self, *exc) -> None:
-        self.release()
-
-    def held_by_me(self) -> bool:
-        return self._holder == threading.get_ident()
-
-
 @dataclass
 class FakeSeam:
     """The inner seam a ledgered seam wraps: records every member reached, and
@@ -946,6 +910,10 @@ def test_a_context_kept_past_its_invocation_reaches_no_member(tmp_path):
         recheck(ctx, StoreLocator(STORE_ID, "p.bin"))
     assert seam.reached == []
 ```
+
+`TracingLock` is already present above this Task 5 append block because Task
+4's round-1 concurrency regression moved the shared helper earlier. Reuse it;
+do not define another lock wrapper.
 
 The close-during-the-act test drives the close from inside the fake seam's own `append_intent` (the session lock is held there and is re-entrant):
 

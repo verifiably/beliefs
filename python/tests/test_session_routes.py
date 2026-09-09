@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,48 @@ from beliefs.session.routes import plan_records
 
 RUNS = RequiredCapabilities.for_kinds({"run", "act-report"}, {"run": "run", "act-report": "run"})
 INTENT = "1" * 64
+
+
+class TracingLock:
+    """A re-entrant lock that reports attempts blocked by another thread."""
+
+    def __init__(self, on_attempt=None) -> None:
+        self._inner = threading.RLock()
+        self._holder: int | None = None
+        self._depth = 0
+        self.attempts: list[tuple[str, str]] = []
+        self._on_attempt = on_attempt
+
+    def acquire(self, blocking: bool = True, timeout: float = -1) -> bool:
+        name = threading.current_thread().name
+        if self._inner.acquire(blocking=False):
+            outcome = "owned"
+        else:
+            outcome = "held-by-another"
+        self.attempts.append((name, outcome))
+        if self._on_attempt is not None:
+            self._on_attempt(name, outcome)
+        if outcome == "held-by-another" and not self._inner.acquire(blocking, timeout):
+            return False
+        self._holder = threading.get_ident()
+        self._depth += 1
+        return True
+
+    def release(self) -> None:
+        self._depth -= 1
+        if self._depth == 0:
+            self._holder = None
+        self._inner.release()
+
+    def __enter__(self):
+        self.acquire()
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self.release()
+
+    def held_by_me(self) -> bool:
+        return self._holder == threading.get_ident()
 
 
 def _plan(*nodes) -> tuple[CreateOp, ...]:
@@ -79,6 +122,50 @@ def test_a_closed_invocation_refuses_both_port_steps(tmp_path):
     with pytest.raises(SessionProtocolError):
         port.execute_fulfilling(_plan(proposition("p")), INTENT)
     assert inner.calls == []
+
+
+def test_close_waits_while_append_intent_holds_the_session_lock(tmp_path, monkeypatch):
+    session, _writer, port, inner = _run_port(tmp_path)
+    appending, release, close_waiting = threading.Event(), threading.Event(), threading.Event()
+    order: list[str] = []
+
+    def on_attempt(name: str, outcome: str) -> None:
+        if name == "close" and outcome == "held-by-another":
+            close_waiting.set()
+
+    monkeypatch.setattr(session, "_lock", TracingLock(on_attempt))
+    append_intent = inner.append_intent
+
+    def blocking_append(payload: bytes) -> str:
+        appending.set()
+        assert release.wait(10)
+        digest = append_intent(payload)
+        order.append("append")
+        return digest
+
+    monkeypatch.setattr(inner, "append_intent", blocking_append)
+
+    def append() -> None:
+        port.append_intent(b"intent")
+
+    def close() -> None:
+        assert appending.wait(10)
+        session.close_invocation("A", {"done": []})
+        order.append("close")
+
+    appender = threading.Thread(target=append, name="append")
+    closer = threading.Thread(target=close, name="close")
+    appender.start()
+    assert appending.wait(10)
+    closer.start()
+    assert close_waiting.wait(10)
+    assert closer.is_alive()
+    release.set()
+    appender.join(10)
+    closer.join(10)
+
+    assert not appender.is_alive() and not closer.is_alive()
+    assert order == ["append", "close"]
 
 
 def test_the_port_carries_the_scoped_authority_and_profile(tmp_path):
