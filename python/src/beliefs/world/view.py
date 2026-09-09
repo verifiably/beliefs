@@ -243,11 +243,11 @@ def open_world_view(world: registry.World, published: epoch.Epoch) -> WorldReadV
                         ResolvedEdge(relation=relation, source_uid=uid, target_uid=target[1])
                     )
 
-    producers: dict[tuple[str, str], tuple[str, ...]] = {}
+    producer_sets: dict[tuple[str, str], set[str]] = {}
     entries = cast(tuple[Mapping[str, object], ...], published.documents["producers-map.yaml"]["producers"])
     for entry in entries:
         if (located := recorded.get(cast(str, entry["dataset"]))) is not None:
-            producers[located] = tuple(cast(list[str], entry["runs"]))
+            producer_sets.setdefault(located, set()).update(cast(list[str], entry["runs"]))
 
     return WorldReadView._opened(
         _MINT,
@@ -257,6 +257,6 @@ def open_world_view(world: registry.World, published: epoch.Epoch) -> WorldReadV
         absent=absent,
         drift=tuple(drift),
         inbound={key: tuple(edges) for key, edges in inbound.items()},
-        producers=producers,
+        producers={location: tuple(sorted(runs)) for location, runs in producer_sets.items()},
         live=live,
     )

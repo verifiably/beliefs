@@ -99,6 +99,25 @@ class TestOpening:
 
 
 class TestBoundReads:
+    def test_published_producers_unite_alias_rows_with_producer_present_or_absent(self, tmp_path):
+        dataset = stored.dataset_node("d-new", title="dataset").model_copy(
+            update={"deprecated_ids": ["dataset:d-old"]}
+        )
+        first = stored.run_node("r1", title="run 1", spec="analysis-spec:r1", produces=[dataset.id])
+        second = stored.run_node("r2", title="run 2", spec="analysis-spec:r2", produces=["dataset:d-old"])
+        roots = corpora(tmp_path, {ALPHA: (dataset,), BETA: (first, second)})
+        world = world_over(tmp_path, roots)
+        published = publish(world, (ALPHA, BETA), hold_shipped(world))
+
+        view = open_world_view(world, published)
+        assert view.published_producers(dataset.id) == (first.id, second.id)
+        assert view.published_producers("dataset:d-old") == (first.id, second.id)
+
+        make_absent(roots, BETA)
+        absent = open_world_view(world, published)
+        assert absent.published_producers(dataset.id) == (first.id, second.id)
+        assert absent.published_producers("dataset:d-old") == (first.id, second.id)
+
     def test_reads_are_from_the_capture_and_drift_is_reported_on_the_next_open(self, tmp_path):
         world, roots, published = two_corpus_world(tmp_path)
         first = open_world_view(world, published)
