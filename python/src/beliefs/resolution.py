@@ -35,7 +35,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from enum import Enum
 from types import MappingProxyType
-from typing import final
+from typing import Literal, final
 
 from beliefs.contract.domain import VocabularyBinding
 from beliefs.errors import ResolutionError
@@ -119,7 +119,7 @@ class ReferentPosition:
 class _BoundVocabulary:
     """One binding's terms, or which of the two ways it could not be read."""
 
-    state: str
+    state: Literal["readable", "not-available", "not-present"]
     terms: frozenset[str]
     absent: tuple[str, ...]
 
