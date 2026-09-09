@@ -51,7 +51,7 @@ from authority import FULL
 from fixtures_cut4 import path_for, raw_write, reopen
 from fixtures_cut6 import PINS
 from nodes.core.frontmatter import node_to_markdown
-from profiles import BASE, WITH_BIOLOGY
+from profiles import BASE, WITH_BIOLOGY, pins_for
 from test_audit import forged_single_over_two_producers, raw_cyclic_retraction_pair
 from test_belief import CLAIM, PROFILE, PROPOSITION
 from test_claim_restore import stored_proposition
@@ -456,7 +456,7 @@ def test_r5_the_managed_holdings_delete_ends_heldness_and_changes_admission(cert
         producer_snapshot_identity="producer-snapshot-1",
         retractions=RetractionEnumeration(found=(), coverage=("c1",)),
         node_corpus={records.assessments[0].identity(): "c1"},
-        pins={"c1": CorpusPins(science_contract="sci-1", domains={"testing": "testing-1"})},
+        pins={"c1": pins_for(PROFILE)},
     )
 
     def answer_for(held: DatasetAnswer):

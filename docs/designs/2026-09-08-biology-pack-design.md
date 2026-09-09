@@ -762,8 +762,9 @@ a refusal there is a finding through the owning lane, never a workaround.
 - **Task `beliefs-1ce152`** gets this document as its spec; the parent
   `beliefs-bc3aff`'s acceptance line is corrected to the pack as declared.
 - **Existing evidence under §5.3a and §4.4.** `test_consulted.py`,
-  `test_closure.py`, `test_belief.py`, `test_evaluation.py` and
-  `verification_fixtures.py` build `CorpusPins` with strings such as
+  `test_closure.py`, `test_belief.py`, `test_evaluation.py`,
+  `verification_fixtures.py`, and the confinement and deletion acceptance
+  fixtures build `CorpusPins` with strings such as
   `sci-1` and `testing-1` under a real profile; every one is rewritten to
   `profiles.pins_for(<the profile in use>)`, and the two cut-2 D6 checks
   that bump a pin string alone (`test_the_base_contract_arm_at_the_eligibility_hinge`,
@@ -772,7 +773,9 @@ a refusal there is a finding through the owning lane, never a workaround.
   arm whose sabotage `before` text names the walk's three lines is
   re-pointed at the landed lines in `n2_arms_cut2.py`, which is live and
   unpinned; `2026-08-09-conformance-cut-2.md` gains a dated amendment
-  naming the commit. No frozen guard is edited.
+  naming the commit. Frozen declaration tables remain unchanged; the live
+  cut-14 guard machinery adapts W18j's matcher to the landed profile-agreement
+  initialization line, with a dated citation amendment in its results record.
 
 ## 11. Alternatives rejected
 

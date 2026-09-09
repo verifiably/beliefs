@@ -66,8 +66,9 @@ Replace the "Existing evidence under §5.3a" bullet in §10 with:
 
 ```markdown
 - **Existing evidence under §5.3a and §4.4.** `test_consulted.py`,
-  `test_closure.py`, `test_belief.py`, `test_evaluation.py` and
-  `verification_fixtures.py` build `CorpusPins` with strings such as
+  `test_closure.py`, `test_belief.py`, `test_evaluation.py`,
+  `verification_fixtures.py`, and the confinement and deletion acceptance
+  fixtures build `CorpusPins` with strings such as
   `sci-1` and `testing-1` under a real profile; every one is rewritten to
   `profiles.pins_for(<the profile in use>)`, and the two cut-2 D6 checks
   that bump a pin string alone (`test_the_base_contract_arm_at_the_eligibility_hinge`,
@@ -76,7 +77,9 @@ Replace the "Existing evidence under §5.3a" bullet in §10 with:
   D6 arm whose sabotage `before` text names the walk's three lines is
   re-pointed at the landed lines in `n2_arms_cut2.py`, which is live and
   unpinned; `2026-08-09-conformance-cut-2.md` gains a dated amendment
-  naming the commit. No frozen guard is edited.
+  naming the commit. Frozen declaration tables remain unchanged; the live
+  cut-14 guard machinery adapts W18j's matcher to the landed profile-agreement
+  initialization line, with a dated citation amendment in its results record.
 ```
 
 - [ ] **Step 3: Write the cut-22 freeze document**
@@ -1605,7 +1608,7 @@ def test_gather_and_evaluate_agree_on_the_consulted_set(tmp_path):
     belief = evaluate_over(view, PROPOSITION_REF, **kwargs)
     assert isinstance(belief, Belief)
     assert inputs.closure().digest() == belief.belief_input_digest
-    assert "biology" in dict(tuple(pair) for pair in inputs.consulted)
+    assert "biology" in dict(inputs.consulted)
 
 
 def test_an_absent_observed_dataset_is_absent_from_gather(tmp_path):
@@ -3010,6 +3013,7 @@ import pytest
 from authority import FULL
 from domain_facet_fixtures import PROPOSITION_REF, kwargs_for, profile_with, seed
 from profiles import pins_for
+from test_evaluation import GENE, OTHER_GENE
 from test_session_acceptance import adopted
 
 from beliefs.belief import Belief, Refused
@@ -3024,20 +3028,30 @@ def test_d6_the_facet_read_is_consulted_over_bytes_the_engine_committed(work_dir
     """The dogfood shape, durable: the facet-bearing dataset goes through
     `CorpusWriter.add` (cut 20's seam validates the payload), belief derives
     with `biology` consulted, and both pin-agreement seams refuse a bumped
-    profile — the writer's own recheck at open, and B7 at the walk. The digest
+    profile — the writer's own recheck before a write, and B7 at the walk. The digest
     movement under a bump is the portable arm's (Task 7)."""
     profile = profile_with()
     root = adopted(work_directory, "corpus", pins=pins_for(profile), profile=profile)
     writer = open_corpus(root, authority=FULL, profile=profile)
-    view = seed(writer, axis="rows")
+    biology_claim = {
+        "operator": "biology/affects",
+        "args": [GENE, OTHER_GENE],
+        "qualifiers": {},
+        "polarity": "positive",
+        "layer": "causal",
+    }
+    view = seed(writer, axis="rows", claim=biology_claim)
     result = evaluate_over(view, PROPOSITION_REF, **kwargs_for(view, profile))
     assert isinstance(result, Belief)
     reopened = open_corpus(root, authority=FULL, profile=profile).read_view
     gathered = {k: v for k, v in kwargs_for(reopened, profile).items() if k != "availability"}
-    assert "biology" in dict(tuple(pair) for pair in gather(reopened, PROPOSITION_REF, **gathered).consulted)
+    inputs = gather(reopened, PROPOSITION_REF, **gathered)
+    assert inputs.claim is not None and inputs.claim.operator == "biology/affects"
+    assert [row.key for row in inputs.observed_facets] == ["biology/gene-axis"]
+    assert "biology" in dict(tuple(pair) for pair in inputs.consulted)
     bumped = profile_with("fixture, bumped")
     with pytest.raises(ContractMismatch):
-        open_corpus(root, authority=FULL, profile=bumped)
+        open_corpus(root, authority=FULL, profile=bumped).add(reopened.get(PROPOSITION_REF))
     # B7 at the walk: the bumped profile validates, but the pins stay the
     # manifest's — `kwargs_for(…, bumped)` would build agreeing pins and B7
     # would rightly accept that pair, so the original pins are put back.

@@ -1,10 +1,11 @@
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -19,6 +20,18 @@ from n2_arms_cut14 import CO_CITED, CUT14_ARMS, LABELED_UNITS, ROW_UNITS, unit_o
 from test_n2 import audit, baseline
 
 import beliefs.root as science_root
+
+# Live profile-pin matcher migration, 2026-09-08; canonical table remains frozen at f982778.
+_LIVE_SABOTAGES = {
+    "W18j": Sabotage(
+        module="consulted.py",
+        before="    consulted: dict[str, str] = {BASE_NAMESPACE: base_identity}",
+        after='    consulted: dict[str, str] = {BASE_NAMESPACE: base_identity}\n    if "coordination" in pins[corpora[0]].domains:\n        consulted["coordination"] = pins[corpora[0]].domains["coordination"]',
+    ),
+}
+CUT14_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT14_ARMS
+)
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]

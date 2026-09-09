@@ -164,3 +164,8 @@ with `publish`; view-query evaluation remains with `world-read`; neither is
 silently reassigned to a new coordination boundary. W13's remaining
 coverage/digest, restore, forgery, and fork clauses stay with
 `world-resolution` as the roadmap records.
+
+> **Amended 2026-09-08 (biology pack design §5.3a, §10).** The live cut-14
+> guard adapts W18j's matcher to the landed base-profile agreement line while
+> preserving its injection, check, row, and arm count. The canonical
+> `n2_arms_cut14.py` declaration remains frozen at `f982778`.

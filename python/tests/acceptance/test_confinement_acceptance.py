@@ -19,6 +19,7 @@ from fixtures_cut3 import (
     spec_draft,
     spec_rules,
 )
+from profiles import pins_for
 from test_assess import observations_for
 from test_belief import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PROFILE
 from test_verify import verification_of
@@ -29,7 +30,6 @@ from beliefs.assess import build_assessment, run_record
 from beliefs.belief import Availability, Belief, NoBelief, Records, SuppliedContext, evaluate
 from beliefs.boundary import RunMinted, RunRefused
 from beliefs.closure import RetractionEnumeration
-from beliefs.consulted import CorpusPins
 from beliefs.dataset import dataset_address
 from beliefs.identity import v1
 from beliefs.lineage import LineageSnapshot
@@ -160,7 +160,7 @@ def belief_over(minted: RunMinted, verification) -> Belief | NoBelief:
         producer_snapshot_identity="snap-1",
         retractions=RetractionEnumeration(found=(), coverage=("c1",)),
         node_corpus={assessment.identity(): "c1"},
-        pins={"c1": CorpusPins(science_contract="sci-1", domains={"testing": "testing-1"})},
+        pins={"c1": pins_for(PROFILE)},
     )
     outcome = evaluate(
         proposition=assessment.proposition,

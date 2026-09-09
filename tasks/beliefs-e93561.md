@@ -6,7 +6,7 @@ priority: 2
 size: m
 owner: feat/domain-boundary-slice2
 created: 2026-09-08T11:32:19Z
-updated: 2026-09-08T21:36:21Z
+updated: 2026-09-08T23:56:14Z
 depends: []
 parent: beliefs-1ce152
 tags: [domain]
@@ -19,3 +19,4 @@ step: "Task 4: The consulted walk reaches sort contracts and checks pin agreemen
 - 2026-09-08T20:48:39Z (feat/domain-boundary-slice2): claimed by task4, pid 2
 - 2026-09-08T21:36:21Z (feat/domain-boundary-slice2): RED: 4 expected consulted-walk failures; GREEN: 20 focused checks; portable 4070 passed with 3 task-local audit defects fixed and covered by 20 affected + 38 N2 checks
 - 2026-09-08T21:36:21Z (feat/domain-boundary-slice2): Consulted walks now reach slot contracts and refuse pins that disagree with the validating profile.
+- 2026-09-08T23:56:14Z (feat/domain-boundary-slice2): Task 11 certified chain found two missed acceptance fixtures still using synthetic pins; corrected in Task 11 alongside the cut-22 runner.
