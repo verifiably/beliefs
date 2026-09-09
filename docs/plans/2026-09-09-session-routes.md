@@ -237,9 +237,9 @@ git commit -m "feat(holdings): return the registration digest from the seam's pu
 **Interfaces:**
 - Produces: `WriterSession(…, profile: ProfileSpec | None = None, store_root: Path | None = None, store_id: str | None = None, holdings_seam: StoreActSeam | None = None)`; `WriterSession.scoped` passes the authority to `ScopedWriter(session, writer, invocation_id, authority)`; `ScopedWriter.actor -> str`; `ScopedWriter.store_id -> str` (raises `SessionProtocolError` without a store); `open_attended_session(…, store_root: Path | None = None)` refusing `SessionRefused` when `store_identity` is `None`.
 
-- [ ] **Step 1: `tasks start beliefs-89e551`**
+- [x] **Step 1: `tasks start beliefs-89e551`**
 
-- [ ] **Step 2: Write the failing portable tests**
+- [x] **Step 2: Write the failing portable tests**
 
 Append to `python/tests/test_session_writer.py`:
 
@@ -314,12 +314,12 @@ def test_a_store_root_without_a_genesis_refuses_before_any_ledger(work_directory
     assert not (ops / "sessions").exists()
 ```
 
-- [ ] **Step 3: Run them to see them fail**
+- [x] **Step 3: Run them to see them fail**
 
 Run: `(cd python && uv run --frozen pytest tests/test_session_writer.py tests/acceptance/test_session_acceptance.py -q -k "facade_exposes or store_id or with_a_store or without_a_genesis")`
 Expected: FAIL — `TypeError: __init__() got an unexpected keyword argument 'store_root'` and `AttributeError: 'ScopedWriter' object has no attribute 'actor'`.
 
-- [ ] **Step 4: Carry the store on the session and the authority on the facade**
+- [x] **Step 4: Carry the store on the session and the authority on the facade**
 
 `python/src/beliefs/session/writer.py`. Imports: add `from beliefs.holdings.seam import StoreActSeam` and `from beliefs.profile import ProfileSpec`. In `WriterSession.__init__` add after `ceiling`:
 
@@ -415,7 +415,7 @@ and pass to the constructor:
         holdings_seam=holdings_seam() if store_root is not None else None,
 ```
 
-- [ ] **Step 5: Extend the facade-surface test**
+- [x] **Step 5: Extend the facade-surface test**
 
 `python/tests/test_session_writer.py:278-280` asserts the facade's public names exactly. Add the two properties:
 
@@ -430,12 +430,12 @@ def test_the_scoped_writer_exposes_the_seven_methods_the_routes_and_its_invocati
 
 (Tasks 4 and 5 each add one more name to this set.)
 
-- [ ] **Step 6: Run the two files and the checks**
+- [x] **Step 6: Run the two files and the checks**
 
 Run: `(cd python && uv run --frozen pytest tests/test_session_writer.py tests/acceptance/test_session_acceptance.py -q)` then `just check`
 Expected: pass.
 
-- [ ] **Step 7: Commit and close**
+- [x] **Step 7: Commit and close**
 
 ```bash
 git add python/src/beliefs/session python/tests/test_session_writer.py python/tests/acceptance/test_session_acceptance.py

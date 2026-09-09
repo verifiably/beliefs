@@ -22,7 +22,9 @@ from beliefs.errors import (
     SessionLedgerFailed,
     SessionProtocolError,
 )
+from beliefs.holdings.seam import StoreActSeam
 from beliefs.permit import Authority, RequiredCapabilities, WritePermit, permit_covers, scoped_authority
+from beliefs.profile import ProfileSpec
 from beliefs.sealed import sealed
 from beliefs.session.ledger import (
     ActLine,
@@ -109,6 +111,10 @@ class WriterSession:
         writer_factory: Callable[[Authority], CorpusWriter],
         findings: tuple[Finding, ...] = (),
         ceiling: WritePermit | None = None,
+        profile: ProfileSpec | None = None,
+        store_root: Path | None = None,
+        store_id: str | None = None,
+        holdings_seam: StoreActSeam | None = None,
     ) -> None:
         self.session_id = require_hex(session_id, 32, "session id")
         self.actor = f"session:{self.session_id}"  # derived, never supplied (J4)
@@ -120,6 +126,12 @@ class WriterSession:
         self._ledger = ledger
         self._writer_factory = writer_factory
         self._ceiling = WritePermit.full() if ceiling is None else ceiling
+        if (store_root is None) != (store_id is None):
+            raise TypeError("a session binds a store root and its id together, or neither")
+        self.profile = profile
+        self.store_root = None if store_root is None else Path(store_root)
+        self.store_id = store_id
+        self._holdings_seam = holdings_seam
         # Re-entrant: a scoped act holds this lock for its whole duration and the
         # helpers it calls take it again (§13 item 18). `claim_invocation` and
         # `close_invocation` are unchanged by that — they still take it once.
@@ -168,8 +180,8 @@ class WriterSession:
                 raise PermitExceeded(PermitFact("family", missing_family[0]), summary)
             missing_kind = sorted(required.permit.kinds - self._ceiling.kinds)
             raise PermitExceeded(PermitFact("kind", missing_kind[0]), summary)
-        writer = self._writer_factory(scoped_authority(required, self.actor))
-        return ScopedWriter(self, writer, invocation)
+        authority = scoped_authority(required, self.actor)
+        return ScopedWriter(self, self._writer_factory(authority), invocation, authority)
 
     # --- claims ------------------------------------------------------------------
     def claim_invocation(self, invocation_id: str, command: str, input_digest: str) -> Claim:
@@ -273,18 +285,33 @@ class WriterSession:
 
 
 class ScopedWriter:
-    """The facade a handler holds (design §5): seven methods, one invocation."""
+    """The facade a handler holds (design §5): seven corpus-write methods, the
+    two routes of the session-routes design §3.3, one invocation."""
 
-    __slots__ = ("_invocation", "_session", "_writer")
+    __slots__ = ("_authority", "_invocation", "_session", "_writer")
 
-    def __init__(self, session: WriterSession, writer: CorpusWriter, invocation_id: str) -> None:
+    def __init__(self, session: WriterSession, writer: CorpusWriter, invocation_id: str, authority: Authority) -> None:
         self._session = session
         self._writer = writer
         self._invocation = invocation_id
+        self._authority = authority
 
     @property
     def invocation_id(self) -> str:
         return self._invocation
+
+    @property
+    def actor(self) -> str:
+        """The session actor — also the scoped authority's, so the observer a
+        command passes and the actor a boundary stamps agree."""
+        return self._session.actor
+
+    @property
+    def store_id(self) -> str:
+        store_id = self._session.store_id
+        if store_id is None:
+            raise SessionProtocolError("this session was opened with no store root; the holdings route has no store")
+        return store_id
 
     def _act(self, perform: Callable[[], OperationCommit]) -> Node | None:
         """One act: currency, the commit and the `act` line as one atomic step.

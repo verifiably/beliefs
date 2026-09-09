@@ -62,8 +62,10 @@ from beliefs.root import (
     DurableOperationPort,
     durable_executor_factory,
     init_corpus_root,
+    init_store_root,
     metadata_root_for,
     open_corpus,
+    store_identity,
 )
 from beliefs.session import (
     ScopedWriter,
@@ -141,6 +143,30 @@ def config_for(work_directory: Path, root: Path) -> WorldConfig:
 def attended(work_directory: Path, root: Path, *, profile=WITH_BIOLOGY, **kwargs: Any) -> tuple[WriterSession, Path]:
     ops = _track(work_directory / f"ops-{secrets.token_hex(4)}")
     return open_attended_session(config_for(work_directory, root), ops, profile=profile, **kwargs), ops
+
+
+# --- the session's store (session-routes design §3.1) --------------------------
+def test_a_session_opened_with_a_store_exposes_its_identity(work_directory):
+    root = adopted(work_directory, "store-session")
+    store = _track(work_directory / f"store-{secrets.token_hex(4)}")
+    minted = init_store_root(store, authority=FULL)
+    session, _ops = attended(work_directory, root, store_root=store)
+    try:
+        session.claim_invocation("A", "mint", "d" * 64)
+        writer = session.scoped(RequiredCapabilities.for_kinds({"proposition"}, {}), "A")
+        assert writer.store_id == minted == store_identity(store)
+    finally:
+        session.close()
+
+
+def test_a_store_root_without_a_genesis_refuses_before_any_ledger(work_directory):
+    root = adopted(work_directory, "no-store")
+    store = _track(work_directory / f"store-{secrets.token_hex(4)}")
+    store.mkdir()
+    ops = _track(work_directory / f"ops-{secrets.token_hex(4)}")
+    with pytest.raises(SessionRefused, match="store root"):
+        session_module.open_attended_session(config_for(work_directory, root), ops, profile=WITH_BIOLOGY, store_root=store)
+    assert not (ops / "sessions").exists()
 
 
 def chain(root: Path) -> WellFormedView:
