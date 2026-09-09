@@ -142,10 +142,19 @@ operators:
     const profile = compileProfile(base, [contract, testing]);
     expect(profile.operators["crossing/affects-local-entity"].argSorts).toEqual(["crossing/local", "testing/entity"]);
   });
-  it("refuses an unresolved reference at compile, naming the namespace", () => {
+  it("refuses an unresolved reference at compile, naming the sort and namespace", () => {
     const contract = parseDomainContract(crossing, "<crossing>", base);
     expect(() => compileProfile(base, [contract])).toThrow(MalformedContract);
-    expect(() => compileProfile(base, [contract])).toThrow(/no contract for namespace "testing" is compiled/);
+    expect(() => compileProfile(base, [contract])).toThrow(
+      /no compiled contract declares sort "testing\/entity" \(namespace "testing"\)/,
+    );
+  });
+  it("uses the same diagnostic when the namespace is present but the sort is absent", () => {
+    const contract = parseDomainContract(crossing.replace("testing/entity", "testing/missing"), "<crossing>", base);
+    const testing = parseDomainContract(DOMAIN, "<domain>", base);
+    expect(() => compileProfile(base, [contract, testing])).toThrow(
+      /no compiled contract declares sort "testing\/missing" \(namespace "testing"\)/,
+    );
   });
   it("refuses the contract's own namespace and the base's at parse", () => {
     const own = crossing.replace("testing/entity", "crossing/local");

@@ -82,6 +82,11 @@ tables, 135 closed and 60 open**: 127 previously closed + 7 new closed B rows +
 - **2026-09-08 — typing classifier.** An unknown predicate remains
   `unmapped-predicate`; `unmapped-shape` is reserved for a known predicate with
   a missing kind pair.
+- **2026-09-08 — final-review evidence.** The dogfood fixture now records real
+  `Belief` digest comparisons for a biology editorial bump, an unrelated-domain
+  bump, and a facet-payload change. The resolver refusal now names the missing
+  sort truthfully whether its namespace is absent or already compiled, and the
+  Python coverage reaches an unresolved operator slot with no foreign dimension.
 
 ## 4. Reproduction measurement
 

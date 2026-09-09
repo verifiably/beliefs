@@ -514,7 +514,7 @@ git commit -m "feat(contract): accept a namespaced sort reference at parse, defe
 - Test: `python/tests/test_profile.py`
 
 **Interfaces:**
-- Produces: `_resolve_sort(contract, name, sorts, *, where) -> str`; `_compile_operator(contract, operator, sorts)`; a `MalformedContract` at compile whose message starts `<contract>: <where> names sort '<term>', but no contract for namespace '<ns>' is compiled`.
+- Produces: `_resolve_sort(contract, name, sorts, *, where) -> str`; `_compile_operator(contract, operator, sorts)`; a `MalformedContract` at compile whose message starts `<contract>: <where> names sort '<term>', but no compiled contract declares sort '<term>' (namespace '<ns>')`.
 - Consumes: Task 2's reference form.
 
 - [ ] **Step 1: Add the crossing fixture**
@@ -1874,6 +1874,12 @@ git commit -m "feat(evaluation): read declared domain facets off observed datase
 ---
 
 ### Task 7: D6's two cases and the M8 arm
+
+> **Amended 2026-09-08 after final review.** The dogfood case also compares
+> real `Belief` digests across a biology editorial bump, an unrelated-domain
+> bump, and a facet-payload change, using the same seeded corpus and
+> profile-derived pins. This fulfills design §5.6's comparison claim without
+> changing the isolated proof, frozen cut, or sabotage inventory.
 
 **Files:**
 - Modify: `python/tests/test_domain_facet_read.py`

@@ -685,9 +685,9 @@ def _resolve_sort(
     if term not in sorts:
         namespace = term.partition("/")[0]
         raise MalformedContract(
-            f"{contract.namespace}: {where} names sort {term!r}, but no contract for namespace {namespace!r} is "
-            "compiled into this profile. A cross-contract slot resolves at compile or refuses; nothing here can "
-            "stand behind a sort no compiled contract declares."
+            f"{contract.namespace}: {where} names sort {term!r}, but no compiled contract declares sort {term!r} "
+            f"(namespace {namespace!r}). A cross-contract slot resolves at compile or refuses; nothing here can "
+            "stand behind an undeclared sort."
         )
     return term
 

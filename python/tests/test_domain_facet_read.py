@@ -9,6 +9,7 @@ from unittest.mock import Mock
 import pytest
 from domain_facet_fixtures import PROPOSITION_REF, kwargs_for, profile_with, seed
 from domain_facet_fixtures import testing_contract as _testing_contract
+from test_evaluation import GENE, OTHER_GENE
 
 from beliefs.belief import Belief, Records, Refused, evaluate
 from beliefs.consulted import CorpusPins
@@ -202,21 +203,46 @@ def test_isolated_case_holds_with_no_claim_record(tmp_path):
 
 # --- the dogfood shape: biology by both routes (design §5.6) ----------------
 
+BIOLOGY_CLAIM = {
+    "operator": "biology/affects",
+    "args": [GENE, OTHER_GENE],
+    "qualifiers": {},
+    "polarity": "positive",
+    "layer": "causal",
+}
+
 
 def test_dogfood_shape_reaches_biology_by_both_routes(tmp_path):
     """A claim at `biology/affects` (the fixture's operator) whose sorts are
     biology's, over the same facet-bearing dataset: dropping either route
     leaves biology consulted, which is why this case is the measurement and
     the isolated case is the proof."""
-    from test_evaluation import GENE, OTHER_GENE
-
     profile = profile_with()
-    biology_claim = {"operator": "biology/affects", "args": [GENE, OTHER_GENE], "qualifiers": {}, "polarity": "positive", "layer": "causal"}
-    view = seed(tmp_path, claim=biology_claim)
+    view = seed(tmp_path, claim=BIOLOGY_CLAIM)
     inputs = gather(view, PROPOSITION_REF, **_gathered(kwargs_for(view, profile)))
     assert inputs.claim is not None and inputs.claim.operator == "biology/affects"
     assert "biology" in dict(inputs.consulted)
     assert [row.key for row in inputs.observed_facets] == ["biology/gene-axis"]
+
+
+def test_dogfood_biology_bump_moves_the_digest(tmp_path):
+    view = seed(tmp_path, claim=BIOLOGY_CLAIM)
+    before = _belief(view, profile_with("fixture"))
+    after = _belief(view, profile_with("editorial"))
+    assert before.value == after.value and before.belief_input_digest != after.belief_input_digest
+
+
+def test_dogfood_unrelated_bump_leaves_the_digest(tmp_path):
+    view = seed(tmp_path, claim=BIOLOGY_CLAIM)
+    before = _belief(view, profile_with(unrelated="v1"))
+    after = _belief(view, profile_with(unrelated="v2"))
+    assert before.belief_input_digest == after.belief_input_digest
+
+
+def test_dogfood_payload_change_moves_the_digest(tmp_path):
+    rows = _belief(seed(tmp_path / "rows", claim=BIOLOGY_CLAIM), profile_with())
+    columns = _belief(seed(tmp_path / "columns", axis="columns", claim=BIOLOGY_CLAIM), profile_with())
+    assert rows.value == columns.value and rows.belief_input_digest != columns.belief_input_digest
 
 
 # --- M8's added arm (design §7) --------------------------------------------

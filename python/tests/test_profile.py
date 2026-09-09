@@ -144,8 +144,18 @@ class TestCrossContractSlots:
 
     def test_an_unresolved_reference_refuses_naming_the_namespace(self, base_contract, crossing_document):
         crossing = domain.parse_domain_contract(crossing_document, source="<crossing>", base=base_contract, predecessor=None)
-        with pytest.raises(MalformedContract, match="no contract for namespace 'testing' is compiled"):
+        with pytest.raises(MalformedContract, match="no compiled contract declares sort 'testing/cohort'"):
             compile_profile(base_contract, [crossing])
+
+    def test_an_unresolved_operator_sort_refuses_without_a_foreign_dimension(
+        self, base_contract, testing, crossing_document
+    ):
+        crossing_document["dimensions"] = {}
+        crossing_document["operators"] = {"affects-local-entity": crossing_document["operators"]["affects-local-entity"]}
+        crossing_document["operators"]["affects-local-entity"]["arg_sorts"][1] = "testing/missing"
+        crossing = domain.parse_domain_contract(crossing_document, source="<crossing>", base=base_contract, predecessor=None)
+        with pytest.raises(MalformedContract, match="no compiled contract declares sort 'testing/missing'"):
+            compile_profile(base_contract, [crossing, testing])
 
     def test_compile_order_is_inert(self, base_contract, testing, crossing_document):
         crossing = domain.parse_domain_contract(crossing_document, source="<crossing>", base=base_contract, predecessor=None)

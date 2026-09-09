@@ -183,7 +183,7 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
     if (!(resolved in sortOwners)) {
       const namespace = resolved.split("/")[0];
       throw new MalformedContract(
-        `${contract.namespace}: ${where} names sort ${JSON.stringify(resolved)}, but no contract for namespace ${JSON.stringify(namespace)} is compiled into this profile`,
+        `${contract.namespace}: ${where} names sort ${JSON.stringify(resolved)}, but no compiled contract declares sort ${JSON.stringify(resolved)} (namespace ${JSON.stringify(namespace)})`,
       );
     }
     return resolved;
