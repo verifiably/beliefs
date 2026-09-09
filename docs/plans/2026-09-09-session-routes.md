@@ -399,8 +399,8 @@ After the existing detached-view check (the `WellFormedView` refusal) and before
 ```python
     store_id: str | None = None
     if store_root is not None:
-        if type(store_root) is not Path:
-            raise TypeError("open_attended_session takes a Path store root")
+        if not isinstance(store_root, Path):
+            raise TypeError("store_root must be a Path")
         store_id = store_identity(store_root)
         if store_id is None:
             raise SessionRefused(f"store root {store_root} carries no store genesis")
@@ -415,12 +415,27 @@ and pass to the constructor:
         holdings_seam=holdings_seam() if store_root is not None else None,
 ```
 
-- [ ] **Step 5: Run the two files and the checks**
+- [ ] **Step 5: Extend the facade-surface test**
+
+`python/tests/test_session_writer.py:278-280` asserts the facade's public names exactly. Add the two properties:
+
+```python
+def test_the_scoped_writer_exposes_the_seven_methods_the_routes_and_its_invocation(tmp_path):
+    public = {name for name in dir(ScopedWriter) if not name.startswith("_")}
+    assert public == {
+        "add", "retract", "supersede", "revise", "delete", "mint_coordination", "revise_coordination",
+        "invocation_id", "actor", "store_id",
+    }
+```
+
+(Tasks 4 and 5 each add one more name to this set.)
+
+- [ ] **Step 6: Run the two files and the checks**
 
 Run: `(cd python && uv run --frozen pytest tests/test_session_writer.py tests/acceptance/test_session_acceptance.py -q)` then `just check`
 Expected: pass.
 
-- [ ] **Step 6: Commit and close**
+- [ ] **Step 7: Commit and close**
 
 ```bash
 git add python/src/beliefs/session python/tests/test_session_writer.py python/tests/acceptance/test_session_acceptance.py
@@ -717,6 +732,8 @@ class LedgeredPort:
 
 - [ ] **Step 5: Run the routes file, the session files, and the checks**
 
+Add `"operation_port"` to the expected set in `test_the_scoped_writer_exposes_the_seven_methods_the_routes_and_its_invocation` (`python/tests/test_session_writer.py`). Then:
+
 Run: `(cd python && uv run --frozen pytest tests/test_session_routes.py tests/test_session_writer.py tests/test_session_ledger.py -q)` then `just check`
 Expected: pass. `CorpusWriter._operation_port` (`corpus.py:1475`) is read directly: the session module already reaches the writer's private operation lock the same way, and pyright's private-usage report is not enabled in this repository.
 
@@ -820,6 +837,7 @@ class FakeSeam:
     lock: TracingLock | None = None
     on_corpus_lock: Any = None
     reached: list[str] = field(default_factory=list)
+    published: list[tuple[object, ...]] = field(default_factory=list)
     entered: int = 0
 
     def _touch(self, name: str) -> None:
@@ -841,8 +859,9 @@ class FakeSeam:
             self._touch("append_intent")
             return INTENT
 
-        def publish_fulfilling(_root, _plan, _intent):
+        def publish_fulfilling(_root, plan, _intent):
             self._touch("publish_fulfilling")
+            self.published.append(tuple(plan))
             return "2" * 64
 
         def read_path(_root, _path):
@@ -867,11 +886,25 @@ class FakeSeam:
         )
 
 
-def _holdings(tmp_path: Path, seam: FakeSeam):
+BOTH = RequiredCapabilities.for_kinds({"holdings-observation", "proposition"}, {})
+
+
+def _holdings(tmp_path: Path, seam: FakeSeam, scope: RequiredCapabilities = HOLDINGS):
     session, ports = make_session(tmp_path, store_root=tmp_path / "store", store_id=STORE_ID, holdings_seam=seam.build())
     session.claim_invocation("A", "hold", DIGEST)
-    writer = session.scoped(HOLDINGS, "A")
+    writer = session.scoped(scope, "A")
     return session, writer, writer.holdings_context(instrument="test"), ports[-1]
+
+
+def _published_pair(seam: FakeSeam) -> tuple[str, str]:
+    """The `[uid, id]` of the one node the fake seam was asked to publish,
+    read from the plan's bytes: `stored.holdings_observation_node` mints a
+    fresh uid per call, so the ledgered pair can only be read back, not rebuilt."""
+    from nodes.core.frontmatter import node_from_markdown
+
+    ((op,),) = seam.published
+    node = node_from_markdown(op.content.decode("utf-8"))  # type: ignore[attr-defined]
+    return node.uid, node.id
 
 
 def test_holdings_context_without_a_store_is_a_protocol_error(tmp_path):
@@ -893,13 +926,13 @@ def test_holdings_context_binds_the_session_and_the_scoped_authority(tmp_path):
 def test_a_holdings_write_ledgers_an_act_naming_the_observation(tmp_path):
     seam = FakeSeam(tmp_path / "corpus")
     session, writer, ctx, _ = _holdings(tmp_path, seam)
-    published = write(ctx, StoreLocator(STORE_ID, "p.bin"), b"bytes")
-    node = stored.holdings_observation_node(published.record)
-    session.close_invocation("A", {"done": [[node.uid, node.id]]})
+    write(ctx, StoreLocator(STORE_ID, "p.bin"), b"bytes")
+    pair = _published_pair(seam)
+    session.close_invocation("A", {"done": [list(pair)]})
     session.close()
 
     (act,) = open_ledger_reader(session.operations_root, session.session_id).acts()
-    assert (act.intent, act.entry, act.record_ids) == (INTENT, "2" * 64, ((node.uid, node.id),))
+    assert (act.intent, act.entry, act.record_ids) == (INTENT, "2" * 64, (pair,))
     assert seam.reached == ["corpus_lock", "append_intent", "store_genesis", "store_write", "corpus_lock", "publish_fulfilling"]
 
 
@@ -945,7 +978,7 @@ def test_a_close_inside_the_intent_append_is_refused_at_the_genesis_read(tmp_pat
 def test_lock_order_is_session_then_corpus_everywhere(tmp_path):
     lock = TracingLock()
     seam = FakeSeam(tmp_path / "corpus", lock=lock)
-    session, writer, ctx, _ = _holdings(tmp_path, seam)
+    session, writer, ctx, _ = _holdings(tmp_path, seam, BOTH)  # the add needs the proposition kind too
     session._lock = lock  # type: ignore[assignment]
     write(ctx, StoreLocator(STORE_ID, "p.bin"), b"bytes")
     writer.add(proposition("p"))
@@ -969,7 +1002,7 @@ def test_a_holdings_write_and_a_corpus_add_on_two_threads_both_complete(tmp_path
             assert b_signalled.wait(5), "B never attempted the session lock"
 
     seam = FakeSeam(tmp_path / "corpus", on_corpus_lock=on_corpus_lock)
-    session, writer, ctx, _ = _holdings(tmp_path, seam)
+    session, writer, ctx, _ = _holdings(tmp_path, seam, BOTH)
     session._lock = lock  # type: ignore[assignment]
     failures: list[BaseException] = []
 
@@ -1073,6 +1106,8 @@ Add to `ScopedWriter` in `python/src/beliefs/session/writer.py` after `operation
 
 - [ ] **Step 5: Run the file, the holdings files, and the checks**
 
+Add `"holdings_context"` to the expected set in `test_the_scoped_writer_exposes_the_seven_methods_the_routes_and_its_invocation` (`python/tests/test_session_writer.py`); the set is now complete. Then:
+
 Run: `(cd python && uv run --frozen pytest tests/test_session_routes.py tests/test_session_writer.py tests/test_holdings_boundary.py -q)` then `just check`
 Expected: pass.
 
@@ -1112,6 +1147,7 @@ Append to `python/tests/acceptance/test_session_acceptance.py` (add the imports 
 
 ```python
 # --- the routes, durably (session-routes design §8 items 10–12) -------------------
+# (`from nodes.core.frontmatter import node_from_markdown` joins the file's imports.)
 def _registration_fulfilling(root: Path, intent: str) -> str:
     matches = [e.digest for e in chain(root).entries if getattr(e, "fulfills", None) == intent]
     assert len(matches) == 1, matches
@@ -1129,14 +1165,14 @@ def test_a_holdings_write_through_the_scoped_writer_is_ledgered_against_the_chai
     session.claim_invocation("A", "dataset", "d" * 64)
     writer = session.scoped(RequiredCapabilities.for_kinds({"holdings-observation"}, {}), "A")
     published = write(writer.holdings_context(instrument="acceptance"), StoreLocator(writer.store_id, "held.bin"), b"held")
-    node = stored.holdings_observation_node(published.record)
-    session.close_invocation("A", {"done": [[node.uid, node.id]]})
+    (act,) = session.invocation_acts("A")
+    session.close_invocation("A", {"done": [list(pair) for pair in act.record_ids]})
     session.close()
 
-    (act,) = open_ledger_reader(ops, session.session_id).acts()
-    assert act.record_ids == ((node.uid, node.id),)
+    # The persisted node is the only holder of the uid the boundary minted.
+    persisted = node_from_markdown((root / "holdings-observation" / f"{published.record.identity()}.md").read_text())
+    assert act.record_ids == ((persisted.uid, persisted.id),)
     assert act.entry == _registration_fulfilling(root, act.intent)
-    assert (root / "holdings-observation" / f"{published.record.identity()}.md").exists()
     assert reconcile_sessions(config_for(work_directory, root), ops) == ()
 
 
@@ -1187,7 +1223,7 @@ git commit -m "test(session): prove the routes durably against the chain"
 ### Task 7: Reconciliation hears the run and holdings intent shapes
 
 **Files:**
-- Modify: `python/src/beliefs/holdings/qualify.py:55-60` (`decode_holdings_intent` returns `actor`), `python/src/beliefs/session/reconcile.py:181-190`
+- Modify: `python/src/beliefs/intents/holdings.py` (`decode_holdings_intent` returns `actor`; this is the source), `python/src/beliefs/holdings/qualify.py` (GENERATED from it by `python/tools/regen_holdings_interior.py`; never hand-edited), `python/src/beliefs/session/reconcile.py:181-190`
 - Test: `python/tests/test_session_reconcile.py` (`test_intent_evidence.py` exercises the decoder and asserts only its `location`, so the added key breaks nothing)
 
 **Interfaces:**
@@ -1257,7 +1293,7 @@ Expected: FAIL — the actor `KeyError` and empty finding lists.
 
 - [ ] **Step 4: Decode the actor and classify every shape**
 
-`python/src/beliefs/holdings/qualify.py:55`:
+In `python/src/beliefs/intents/holdings.py`, the `return` of `decode_holdings_intent` (the source `shapes.decode_intent` calls):
 
 ```python
     return {
@@ -1267,6 +1303,12 @@ Expected: FAIL — the actor `KeyError` and empty finding lists.
         "kind": value["kind"],
         "location": _location(value["location"]),
     }
+```
+
+Then regenerate the rule-side copy and confirm the two agree:
+
+```bash
+(cd python && uv run --frozen python tools/regen_holdings_interior.py && uv run --frozen pytest tests/test_intents_holdings.py -q)
 ```
 
 `python/src/beliefs/session/reconcile.py`. Add `from beliefs.report import AssessmentRunIntent, OperationIntent` and, above `reconcile`:
@@ -1309,7 +1351,7 @@ Expected: pass.
 - [ ] **Step 6: Commit and close**
 
 ```bash
-git add python/src/beliefs/holdings/qualify.py python/src/beliefs/session/reconcile.py python/tests/test_session_reconcile.py
+git add python/src/beliefs/intents/holdings.py python/src/beliefs/holdings/qualify.py python/src/beliefs/session/reconcile.py python/tests/test_session_reconcile.py
 tasks note beliefs-7fd23b "reconcile classifies run and holdings intents by session actor; the decoded holdings intent carries its actor"
 tasks done beliefs-7fd23b
 git add tasks
@@ -1646,12 +1688,12 @@ git commit -m "feat(rules): ship the reference rules keyed by kernel-scoped iden
 ### Task 10: The reproduction driver maps onto the kernel rules
 
 **Files:**
-- Modify: `python/tools/reproduction/spec.py:34-84`
+- Modify: `python/tools/reproduction/spec.py:34-84`; the callers of the removed accessors: `python/tools/reproduction/run.py:96,159`, `python/tools/reproduction/belief.py:117`, `python/tools/reproduction/close.py:33-34`
 - Test: `python/tests/test_reproduction_driver.py`
 
 **Interfaces:**
 - Consumes: `beliefs.rules.OUTCOME_FILE_V1`, `beliefs.replay.CONTENT_EQUALITY`.
-- Produces: `reproduction.spec.held_rules()` mapping the driver's two identities to the kernel objects; `OUTCOME_FILE`, `INTERPRETATION_RULE`, `EQUIVALENCE_RULE`, `OUTCOME_DIGESTS` unchanged in value.
+- Produces: `reproduction.spec.held_rules()` mapping the driver's two identities to the kernel objects; `reproduction.spec.INTERPRETATION` (= `OUTCOME_FILE_V1`) and `reproduction.spec.EQUIVALENCE` (= `CONTENT_EQUALITY`) replacing the `interpretation()` / `equivalence()` accessors; `OUTCOME_FILE`, `INTERPRETATION_RULE`, `EQUIVALENCE_RULE`, `OUTCOME_DIGESTS` unchanged in value.
 
 - [ ] **Step 1: `tasks start beliefs-dff3e9`, then pin the pre-change identity**
 
@@ -1727,6 +1769,8 @@ from beliefs.rules import OUTCOME_FILE, OUTCOME_FILE_V1, outcome_digest
 INTERPRETATION_RULE = "mm30-reproduction/outcome-file/v1"
 EQUIVALENCE_RULE = "content-identity-equality/v1"
 OUTCOME_DIGESTS = {outcome_digest(o): o for o in ("supported", "refuted", "inconclusive")}
+INTERPRETATION = OUTCOME_FILE_V1
+EQUIVALENCE = CONTENT_EQUALITY
 
 
 def held_rules() -> dict:
@@ -1734,8 +1778,17 @@ def held_rules() -> dict:
     (session-routes design §5.2). The record's spec identity is unchanged:
     `freeze` digests (rule identity, implementation identity) pairs, and both
     pairs are the ones the 2026-09-05 record carries."""
-    return {INTERPRETATION_RULE: OUTCOME_FILE_V1, EQUIVALENCE_RULE: CONTENT_EQUALITY}
+    return {INTERPRETATION_RULE: INTERPRETATION, EQUIVALENCE_RULE: EQUIVALENCE}
 ```
+
+The three other driver modules call the removed accessors; change each call site to the constants, keeping the mapping shape it builds:
+
+- `python/tools/reproduction/run.py:96`: `implementations={spec.INTERPRETATION.identity: spec.INTERPRETATION},`
+- `python/tools/reproduction/run.py:159`: `held_rules={spec.EQUIVALENCE.identity: spec.EQUIVALENCE},`
+- `python/tools/reproduction/belief.py:117`: `held_rules={spec.EQUIVALENCE.identity: spec.EQUIVALENCE},`
+- `python/tools/reproduction/close.py:33-34`: `held_rules={spec.EQUIVALENCE.identity: spec.EQUIVALENCE},` and `implementations={spec.INTERPRETATION.identity: spec.INTERPRETATION},`
+
+Then `grep -rn "interpretation()\|equivalence()" python/tools python/tests` must print nothing.
 
 Keep `OUTCOME_FILE` importable from the module (`from beliefs.rules import OUTCOME_FILE` re-exports it) — `grep -rn "spec.OUTCOME_FILE\|OUTCOME_DIGESTS" python/tools python/tests` and keep every name still referenced.
 
@@ -1747,7 +1800,7 @@ Expected: pass, including `test_spec_record_carries_a_fresh_semantic_stamp`.
 - [ ] **Step 6: Commit and close**
 
 ```bash
-git add python/tools/reproduction/spec.py python/tests/test_reproduction_driver.py
+git add python/tools/reproduction python/tests/test_reproduction_driver.py
 tasks note beliefs-dff3e9 "driver held_rules maps its identities onto the kernel implementations; frozen identity pinned and unchanged"
 tasks done beliefs-dff3e9
 git add tasks
@@ -1761,7 +1814,7 @@ git commit -m "refactor(reproduction): bind the driver's rule identities to the 
 **Files:**
 - Modify: `docs/designs/2026-09-09-session-routes-design.md` (Status), `docs/designs/2026-08-03-redesign-adoption-ledger.md` (a row for the session routes beside the writer-session row, `:125` region), `docs/guide/` (only if a guide page lists `ScopedWriter`'s methods or `open_attended_session`'s signature: `grep -rn "ScopedWriter\|open_attended_session" docs/guide`)
 
-- [ ] **Step 1: Run the whole gate**
+- [ ] **Step 1: `tasks start beliefs-6a9931`, then run the whole gate**
 
 Run: `just gate`
 Expected: pass. The serial `just test` is the conformance gate; do not skip it.
@@ -1773,6 +1826,8 @@ In the design's `**Status:**` replace `Not yet implemented.` with `Implemented o
 - [ ] **Step 3: Close the three tasks and tell science what landed**
 
 ```bash
+tasks note beliefs-6a9931 "status corrected, ledger row added, science notified"
+tasks done beliefs-6a9931
 tasks note beliefs-5fe2e3 "landed: open_attended_session(store_root=), ScopedWriter.actor/store_id/operation_port()/holdings_context(), replay over a RunClosure; reconciliation covers run and holdings intents"
 tasks done beliefs-5fe2e3
 tasks note beliefs-e5ab34 "landed: beliefs.rules.REFERENCE_RULES keyed beliefs/outcome-file/v1 and beliefs/content-identity-equality/v1; beliefs.rules.OUTCOME_FILE; the driver binds the same objects"
