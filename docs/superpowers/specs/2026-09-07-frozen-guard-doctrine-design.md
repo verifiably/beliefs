@@ -6,7 +6,8 @@ when the tree falsifies one
 **Measured against:** `main` at `9031c9b` — 18 guard modules, 144 pins, 14 live, 4 cited
 not run, 3 falsified pins
 **Enforced by:** `python/tests/frozen_guards.py`, `python/tests/cited_not_run.py` and
-`python/tests/test_frozen_guards.py`, in the portable suite
+`python/tests/test_frozen_guards.py`, in the portable suite; arm staleness (§7) by
+`python/tests/arm_staleness.py` and `python/tests/test_arm_staleness.py` beside them
 
 This is method, not a boundary: it closes no guarantee row, adds no row to the adoption
 ledger, and changes no ranking. It rules one question the corpus has answered
@@ -129,6 +130,40 @@ in the registry and left exactly as they are.
 - **Scalar ancestry pins** (`CUT17_FREEZE_COMMIT` and its siblings) are outside the
   tables this covers; `beliefs-faf658` owns them.
 - **Arm staleness** — a sabotage whose `before` block no longer matches — is a different
-  failure from a falsified pin, is not detected here, and is `beliefs-ee11e2`'s.
+  failure from a falsified pin and is not detected by the pin checks. §7, added
+  2026-09-09, is where it is measured.
 - **Whether a cut should be cited rather than run** stays the citing cut's own ruling.
   This document says only how that ruling is recorded and what follows from it.
+
+## 7. Arm staleness — dated amendment, 2026-09-09
+
+A stale arm is the pin failure's quieter twin. Its sabotage `before` block no longer
+occurs in the kernel, so the mutation does nothing, every check passes, and the arm
+scores `sound` while asserting nothing (`test_n2.py`'s `stale` finding). The audits
+that report it run only at a discharge, so `beliefs-ee11e2` found eight arms already
+stale before the verification-publication slice touched anything, and the live guards
+were re-targeted by hand before the next cut could run.
+
+The same two standings decide what a stale arm means.
+
+**A live guard's arms are machinery**, and the thing measured is what the guard
+audits, not what its declaration file says. The declaration file is frozen under
+later cuts' pins, so a live guard whose kernel line moved does not edit it: it
+carries a `_LIVE_SABOTAGES` table keyed by row and audits the re-targeted tuple —
+cuts 11, 14, 16, 17 and 18 did this on 2026-09-07 and 2026-09-08. A guard whose
+module pins a `CUTN_SOURCE_COMMIT` for its own cut, as cut 6 does, is measured
+against that commit's tree. Two things are held true in the portable suite: every
+arm a live guard audits occurs exactly once in the tree it audits, and every declared
+arm the working tree has outgrown is a row the guard re-targets.
+
+**A cited-not-run guard's arms are evidence.** Its declarations are the bytes that
+produced the discharge later cuts cite, and the tree moving from under them is a fact
+about the tree — cut 9's guard says so of cut 8's — never a license to rewrite the
+declaration and never a regression. Each registry entry now records its stale arms
+by `row[index]` with the commit that moved the anchor, and the suite holds the tree
+to exactly that set: cut 4 carries seven, cut 5 six, cut 8 four and cut 10 two, all
+of them stale before this amendment was written.
+
+On the tree this was measured against (`main` at `7d06e27`) every live guard was
+already clean under its re-targeting table, so the amendment changes no arm; it adds
+the measurement that would have reported the eight the day they went stale.
