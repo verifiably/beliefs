@@ -129,6 +129,7 @@ from beliefs.view_query import _world_address, parse_view_query
 
 if TYPE_CHECKING:
     from beliefs.world import CorpusManifest
+    from beliefs.world.view import WorldReadView
 
 __all__ = [
     "DIRECTIONS",
@@ -642,7 +643,9 @@ class _CheckView:
         return _producer_ids(self, dataset, aliases=aliases)
 
 
-def _producer_ids(view: ReadView | _ImportView | _CheckView, dataset: str, *, aliases: tuple[str, ...]) -> tuple[str, ...]:
+def _producer_ids(
+    view: ReadView | _ImportView | _CheckView | WorldReadView, dataset: str, *, aliases: tuple[str, ...]
+) -> tuple[str, ...]:
     """One producer-selection rule over the caller's records and resolver."""
     names = {dataset, *aliases}
     return tuple(sorted({
