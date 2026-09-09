@@ -7,11 +7,8 @@ its arguments, and **D3** about the five outcomes staying distinct.
 
 One scope note that a reader will otherwise have to reconstruct. `not-available`
 appears in both M4 and D3 and they are **not the same test**. M4's is local — the
-vocabulary could not be read — and is in cut 1. D3's is world-level — the dataset
-has an address the consulted index records and its corpus is absent — and needs
-holding machinery this slice does not build. The cut is explicit that neither
-stands in for the other, so only the local one is exercised, and `not-present` is
-exercised nowhere.
+vocabulary could not be read. D3's world-level `not-present` means the dataset's
+covered corpus is absent. The cut keeps the two distinct.
 """
 
 import subprocess
@@ -468,7 +465,7 @@ class TestD3TheFiveOutcomesStayDistinct:
         assert TermOutcome.NOT_PRESENT not in reachable
 
     def test_a_binding_cannot_be_both_readable_and_unreadable(self):
-        with pytest.raises(ResolutionError, match="both readable and unreadable"):
+        with pytest.raises(ResolutionError, match=r"more than one availability state \(readable and not-available\)"):
             build_snapshot(readable={EX: [GENE]}, unreadable=[EX])
 
 
@@ -839,7 +836,11 @@ class TestTheSnapshotAuthenticatesWhatItIsBuiltFrom:
         # Built through §6.3's raw route, which stands in for the one now closed.
         snapshot = ResolutionSnapshot._built(
             resolution._MINT,
-            bindings={EX: resolution._BoundVocabulary(readable=True, terms=frozenset([1]))},  # type: ignore[arg-type]
+            bindings={EX: resolution._BoundVocabulary(
+                state="readable",
+                terms=frozenset([1]),  # type: ignore[arg-type]
+                absent=(),
+            )},
             identity="unchecked",
         )
         assert snapshot.resolve(EX, "1") is TermOutcome.NOT_MEMBER

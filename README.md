@@ -27,9 +27,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Fifty-six documents in `docs/designs/`: the banked redesigns, review disposition,
+Fifty-seven documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
-2026-08-02 through 2026-09-08. Read them in this order:
+2026-08-02 through 2026-09-09. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -89,6 +89,7 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-09-06-conformance-cut-21.md` | the frozen verification-publication cut: V1–V8 selected in full, 8 declaration units, the cut 20 runner as prefix; discharged 2026-09-07 |
 | `2026-09-08-biology-pack-design.md` | the second domain-boundary slice: cross-contract slot sorts, consulted-profile pin agreement, domain-facet reads, and the packaged biology contract (B1–B7, closed at cut 22) |
 | `2026-09-08-conformance-cut-22.md` | the discharged biology-pack cut: B1–B7, the cross-contract consulted walk, domain-facet read, and packaged biology contract |
+| `2026-09-09-conformance-cut-23.md` | the discharged world-read cut: the world read view, cross-corpus traversal, covered absence, and cross-corpus verification |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -96,7 +97,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 22** is implemented and discharged. What
+Every conformance cut through **cut 23** is implemented and discharged. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -128,11 +129,13 @@ admission evaluated over records read back, scope recomputed from a stored
 verification, forgery refused before the intent, and the stored analysis-spec
 builder and reader.
 The biology pack now supplies cross-contract slots, consulted-pin agreement,
-domain-facet reads, and the packaged `biology` contract. The latest discharged
-boundary is cut 22
-([cut](docs/designs/2026-09-08-conformance-cut-22.md),
-[design](docs/designs/2026-09-08-biology-pack-design.md),
-[results](docs/plans/2026-09-08-conformance-cut-22-results.md)).
+domain-facet reads, and the packaged `biology` contract. The world read view
+now captures records at an explicit published epoch, traverses across corpora,
+and carries named absence into lineage and evaluation. The latest discharged
+boundary is cut 23
+([cut](docs/designs/2026-09-09-conformance-cut-23.md),
+[design](docs/superpowers/specs/2026-09-09-world-resolution-slice-1-design.md),
+[results](docs/plans/2026-09-09-conformance-cut-23-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
 test before it is a passing one. There are **195 rows** across **eighteen frozen
@@ -142,7 +145,7 @@ redefinition.
 
 What is built and what remains to build, each remainder with its named owner,
 is stated once, in the
-[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-08).
+[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-09).
 The per-cut results records under [`docs/plans/`](docs/plans/) are the
 evidence trail, and unresolved design questions live in the guide's
 [open questions](docs/guide/open-questions.md).

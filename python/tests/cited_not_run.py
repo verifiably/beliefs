@@ -63,7 +63,13 @@ CITED_NOT_RUN: dict[str, CitedNotRun] = {
             "S8[3]": "moved at e2d2288, when coordination genesis changed root.py's imports",
             "S8[4]": "moved at 8b3b75e, when the family-era raw-write shapes changed the corpus check",
             "S8[11]": "moved at 06a76ca, when chained retraction records re-shaped the locked add",
+            "S8[5]": "moved at 3b3dec3, when the corpus validation rule was factored into validated_node",
             "R19[29]": "moved at 8b3b75e, when the family-era raw-write shapes changed the corpus check",
+            "R19[28]": "moved at 3b3dec3, when the corpus validation rule was factored into validated_node",
+            "S5[22]": "moved in world-resolution Task 7, when lineage routes began recording absent corpora",
+            "S5[23]": "moved in world-resolution Task 7, when lineage routes began recording absent corpora",
+            "S5[24]": "moved in world-resolution Task 7, when lineage routes began recording absent corpora",
+            "R23[27]": "moved in world-resolution Task 7, when lineage routes began recording absent corpora",
         },
     ),
     "test_n2_cut5.py": CitedNotRun(

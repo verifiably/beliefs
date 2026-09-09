@@ -159,7 +159,7 @@ def belief_over(minted: RunMinted, verification) -> Belief | NoBelief:
         snapshot=LineageSnapshot(roots=tuple(root for root in observed if root is not None), bases={}, producers={}),
         producer_snapshot_identity="snap-1",
         retractions=RetractionEnumeration(found=(), coverage=("c1",)),
-        node_corpus={assessment.identity(): "c1"},
+        node_corpus={assessment.identity(): ("c1",)},
         pins={"c1": pins_for(PROFILE)},
     )
     outcome = evaluate(

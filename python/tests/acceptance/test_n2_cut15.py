@@ -2,10 +2,11 @@
 
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -20,6 +21,18 @@ from n2_arms_cut15 import CO_CITED, CUT15_ARMS, LABELED_UNITS, ROW_UNITS, unit_o
 from test_n2 import audit, baseline
 
 import beliefs.root as science_root
+
+# Live world-resolution retarget, 2026-09-09; the cut-15 declaration stays frozen.
+_LIVE_SABOTAGES = {
+    "R23": Sabotage(
+        module="lineage.py",
+        before='        state = divergence_state(snapshot, dataset)\n        if state == "divergent":',
+        after="        state = divergence_state(snapshot, dataset)\n        if False:",
+    ),
+}
+CUT15_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT15_ARMS
+)
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]

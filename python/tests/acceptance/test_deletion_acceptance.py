@@ -455,7 +455,7 @@ def test_r5_the_managed_holdings_delete_ends_heldness_and_changes_admission(cert
         snapshot=LineageSnapshot(roots=(address,), bases={}, producers={}),
         producer_snapshot_identity="producer-snapshot-1",
         retractions=RetractionEnumeration(found=(), coverage=("c1",)),
-        node_corpus={records.assessments[0].identity(): "c1"},
+        node_corpus={records.assessments[0].identity(): ("c1",)},
         pins={"c1": pins_for(PROFILE)},
     )
 

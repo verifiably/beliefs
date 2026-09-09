@@ -22,9 +22,9 @@ invisible to it.** Every fixture that writes bytes behind the API reconstructs a
 fresh facade before asserting read behaviour — reconstruction from disk is the
 recovery posture the seam names, and it is the read this slice actually runs.
 
-**Traversal is corpus-local throughout.** A walk truncates at the corpus edge;
-reaching a target the holding corpus does not carry is the world index's, which
-this slice does not build.
+**Traversal is corpus-local over a `ReadView` and world-wide over a
+`WorldReadView` (`world/view.py`): the same adjacencies, one truncating at the
+corpus edge and the other continuing through the epoch's address map.**
 """
 
 from __future__ import annotations
@@ -129,6 +129,7 @@ from beliefs.view_query import _world_address, parse_view_query
 
 if TYPE_CHECKING:
     from beliefs.world import CorpusManifest
+    from beliefs.world.view import WorldReadView
 
 __all__ = [
     "DIRECTIONS",
@@ -196,6 +197,22 @@ class Finding:
     @property
     def sort_key(self) -> tuple[str, str, str]:
         return (self.ref, self.code, self.detail)
+
+
+def validated_node(node: Node) -> Node:
+    """Validate the semantic identity stamp on a fetched governed record."""
+    if stored.semantic_hash_missing(node):
+        raise SemanticHashMissing(
+            f"{node.id}: a {node.kind!r} carries no semantic-identity stamp "
+            "(semantic-hash-missing); the boundary mints every governed record stamped, "
+            "so an unstamped one is a raw write that skipped even self-stamping"
+        )
+    if stored.semantic_hash_disagrees(node):
+        raise SemanticHashStale(
+            f"{node.id}: the stored semantic hash disagrees with the fields it covers "
+            "(semantic-hash-stale); the node is an untrusted import, not a guaranteed mutation"
+        )
+    return node
 
 
 @sealed
@@ -298,18 +315,7 @@ class ReadView:
 
     @staticmethod
     def _validated(node: Node) -> Node:
-        if stored.semantic_hash_missing(node):
-            raise SemanticHashMissing(
-                f"{node.id}: a {node.kind!r} carries no semantic-identity stamp "
-                "(semantic-hash-missing); the boundary mints every governed record stamped, "
-                "so an unstamped one is a raw write that skipped even self-stamping"
-            )
-        if stored.semantic_hash_disagrees(node):
-            raise SemanticHashStale(
-                f"{node.id}: the stored semantic hash disagrees with the fields it covers "
-                "(semantic-hash-stale); the node is an untrusted import, not a guaranteed mutation"
-            )
-        return node
+        return validated_node(node)
 
 
 @final
@@ -637,7 +643,9 @@ class _CheckView:
         return _producer_ids(self, dataset, aliases=aliases)
 
 
-def _producer_ids(view: ReadView | _ImportView | _CheckView, dataset: str, *, aliases: tuple[str, ...]) -> tuple[str, ...]:
+def _producer_ids(
+    view: ReadView | _ImportView | _CheckView | WorldReadView, dataset: str, *, aliases: tuple[str, ...]
+) -> tuple[str, ...]:
     """One producer-selection rule over the caller's records and resolver."""
     names = {dataset, *aliases}
     return tuple(sorted({
@@ -721,7 +729,7 @@ class RelationAdjacency:
     fixture that pins this is why the flag is read at all.
     """
 
-    def __init__(self, view: ReadView, predicate: str, direction: str) -> None:
+    def __init__(self, view: ReadView | WorldReadView, predicate: str, direction: str) -> None:
         if direction not in DIRECTIONS:
             raise ValueError(f"direction {direction!r} is outside {DIRECTIONS}")
         self._view = view
@@ -790,7 +798,7 @@ class LineageAdjacency:
     only one of them an edge of the closure.
     """
 
-    def __init__(self, view: ReadView) -> None:
+    def __init__(self, view: ReadView | WorldReadView) -> None:
         self._view = view
 
     def steps(self, ref: str) -> tuple[Step, ...]:
@@ -825,7 +833,7 @@ class LineageAdjacency:
 # --- the walks the arms run over ---------------------------------------------
 
 
-def derived_from(view: ReadView, dataset: str) -> Reach:
+def derived_from(view: ReadView | WorldReadView, dataset: str) -> Reach:
     """`derived_from` as a **view** over `produces ∘ transforms`, walked out of
     the store — stored nowhere, and no API accepts an authored ancestry list.
 
@@ -837,7 +845,7 @@ def derived_from(view: ReadView, dataset: str) -> Reach:
     return closure(dataset, _DerivedFromAdjacency(view))
 
 
-def superseded_by(view: ReadView, ref: str) -> tuple[str, ...]:
+def superseded_by(view: ReadView | WorldReadView, ref: str) -> tuple[str, ...]:
     """The sorted, transitive successors derived from inbound `supersedes` edges."""
     return closure(ref, RelationAdjacency(view, stored.SUPERSEDES, "inbound")).reached
 
@@ -973,7 +981,7 @@ def _validated_retraction_target(record: Node) -> dict:
 
 
 class _DerivedFromAdjacency:
-    def __init__(self, view: ReadView) -> None:
+    def __init__(self, view: ReadView | WorldReadView) -> None:
         self._view = view
 
     def steps(self, ref: str) -> tuple[Step, ...]:
@@ -985,14 +993,12 @@ class _DerivedFromAdjacency:
         return tuple(steps)
 
 
-def run_value(view: ReadView, ref: str) -> RunValue:
+def run_value(view: ReadView | WorldReadView, ref: str) -> RunValue:
     """A stored run as cut 2's value: its spec, and its role-partitioned inputs
     with each input dataset's declaration read from the dataset itself.
 
-    **Corpus-local**: an input naming a dataset this corpus does not hold is not
-    in the value, because its declaration lives wherever that dataset does and
-    resolving an address to the corpus holding it is the world index's job. A
-    walk truncating at the corpus edge is this layer's documented property.
+    Over a world view the filter is the same and the absence is reported by
+    `gather`, which collects every input whose `locate` is `NotPresent`.
     """
     node = view.get(ref)
     inputs = tuple(
@@ -1004,8 +1010,18 @@ def run_value(view: ReadView, ref: str) -> RunValue:
     return RunValue(ref=ref, spec=stored.run_spec(node) or "", inputs=inputs)
 
 
-def lineage_snapshot(view: ReadView, roots: Sequence[str]) -> LineageSnapshot:
-    """Produce substrate §5's snapshot from a store, corpus-locally.
+def _absence_of(view: ReadView | WorldReadView, ref: str) -> str | None:
+    """Return the absent corpus recorded for `ref`; propagate refusals."""
+    from beliefs.world.read import NotPresent
+    from beliefs.world.view import WorldReadView
+
+    if not isinstance(view, WorldReadView):
+        return None
+    return view.corpus_of(ref) if type(view.locate(ref)) is NotPresent else None
+
+
+def lineage_snapshot(view: ReadView | WorldReadView, roots: Sequence[str]) -> LineageSnapshot:
+    """Produce substrate §5's snapshot from a read view.
 
     The inspected set is `{observed root} ∪ closure` — the union written out,
     because the walk is start-excluding and a root whose own immediate parent is
@@ -1014,8 +1030,15 @@ def lineage_snapshot(view: ReadView, roots: Sequence[str]) -> LineageSnapshot:
     """
     adjacency = LineageAdjacency(view)
     inspected: list[str] = []
+    not_present: dict[str, str] = {}
     for root in roots:
-        for dataset in (root, *closure(root, adjacency).reached):
+        if root not in inspected:
+            inspected.append(root)
+        corpus_id = _absence_of(view, root)
+        if corpus_id is not None:
+            not_present[root] = corpus_id
+            continue
+        for dataset in closure(root, adjacency).reached:
             if dataset not in inspected:
                 inspected.append(dataset)
 
@@ -1025,25 +1048,35 @@ def lineage_snapshot(view: ReadView, roots: Sequence[str]) -> LineageSnapshot:
         if not view.holds(dataset):
             continue
         node = view.get(dataset)
-        routes = tuple(
-            Route(
-                dataset=dataset,
-                stored_run=str(route.get("run", "")),
-                resolved_run=view.resolve(str(route.get("run", ""))),
-                stored_ancestor=str(route.get("ancestor", "")),
-                resolved_ancestor=view.resolve(str(route.get("ancestor", ""))),
-                transforms=tuple(str(entry) for entry in route.get("transforms", []) or ()),
+        routes = []
+        for route in stored.basis_routes(node):
+            run, ancestor = str(route.get("run", "")), str(route.get("ancestor", ""))
+            for ref in (run, ancestor):
+                corpus_id = _absence_of(view, ref)
+                if corpus_id is not None:
+                    not_present[ref] = corpus_id
+            routes.append(
+                Route(
+                    dataset=dataset,
+                    stored_run=run,
+                    resolved_run=view.resolve(run),
+                    stored_ancestor=ancestor,
+                    resolved_ancestor=view.resolve(ancestor),
+                    transforms=tuple(str(entry) for entry in route.get("transforms", []) or ()),
+                )
             )
-            for route in stored.basis_routes(node)
-        )
         facet = stored.lineage_basis(node)
         if facet is not None and routes:
-            bases[dataset] = Basis(tag=str(facet.get("tag", "single")), routes=routes)
-        producers[dataset] = tuple(_producers_of(view, dataset))
-    return LineageSnapshot(roots=tuple(roots), bases=bases, producers=producers)
+            bases[dataset] = Basis(tag=str(facet.get("tag", "single")), routes=tuple(routes))
+        found = _producers_of(view, dataset)
+        for producer in found:
+            if producer.absent:
+                not_present[producer.stored_run] = producer.absent[0]
+        producers[dataset] = tuple(found)
+    return LineageSnapshot(roots=tuple(roots), bases=bases, producers=producers, not_present=not_present)
 
 
-def _producers_of(view: ReadView, dataset: str) -> list[Producer]:
+def _producers_of(view: ReadView | WorldReadView, dataset: str) -> list[Producer]:
     """The runs holding a `produces` edge to `dataset`, with what each of them
     `transforms`. The producer set is the divergence test's input; the basis
     route is what it is compared against, and the two are separate reads on
@@ -1056,6 +1089,26 @@ def _producers_of(view: ReadView, dataset: str) -> list[Producer]:
         resolved = view.resolve(run_ref)
         transforms = () if resolved is None else stored.inputs_of(view.get(resolved), stored.TRANSFORMS)
         producers.append(Producer(stored_run=run_ref, resolved_run=resolved, transforms=transforms))
+    from beliefs.world.view import WorldReadView
+
+    if isinstance(view, WorldReadView):
+        seen = {producer.stored_run for producer in producers}
+        for run in view.published_producers(dataset):
+            if run in seen:
+                continue
+            resolved = view.resolve(run)
+            if resolved is not None:
+                producers.append(
+                    Producer(
+                        stored_run=run,
+                        resolved_run=resolved,
+                        transforms=stored.inputs_of(view.get(resolved), stored.TRANSFORMS),
+                    )
+                )
+                continue
+            corpus_id = _absence_of(view, run)
+            if corpus_id is not None:
+                producers.append(Producer(stored_run=run, resolved_run=None, transforms=(), absent=(corpus_id,)))
     return producers
 
 

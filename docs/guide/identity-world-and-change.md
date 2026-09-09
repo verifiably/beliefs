@@ -2,7 +2,7 @@
 title: Identity, world, and change
 status: living
 created: 2026-08-08
-updated: 2026-09-05
+updated: 2026-09-09
 sources:
   - ../designs/2026-08-02-substrate-consolidation-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -23,6 +23,7 @@ sources:
   - ../designs/2026-08-24-conformance-cut-10.md
   - ../designs/2026-08-26-world-index-intent-boundary-design.md
   - ../designs/2026-08-27-conformance-cut-11.md
+  - ../designs/2026-09-09-conformance-cut-23.md
 ---
 
 # Identity, world, and change
@@ -93,6 +94,11 @@ binds to an explicit producer-snapshot identity, while epoch read answers carry
 the packaging identity and coverage they came from. An older epoch may answer
 only inside its stated coverage and state.
 
+Open a cross-corpus read with `open_world_view(world, published_epoch)`. It
+captures each present corpus against that explicit epoch's address map before
+serving any answer. `WorldReadView` follows the same adjacencies across corpus
+boundaries; a plain `ReadView` truncates at its corpus edge.
+
 ### Correction is additive
 
 Records are immutable. **Supersession** says that a replacement continues or
@@ -160,12 +166,14 @@ genesis↔mirror agreement check, and the ordered-cuts predicate; the root
 lifecycle and store substrate — the fail-closed writer state, the lifecycle
 commands, `restore_root`, the fork acts with act-derived `forked_from`, and
 genesis-bound store subjects; and verified store-side holdings with their
-intent-bearing acts. Global resolution remains designed, and the address ruling
-still governs the eventual derived views: labels are computed on read,
+intent-bearing acts. Cut 23 adds an explicit-epoch world read view with captured
+cross-corpus traversal, named absence and verification recomputation. Coreference,
+snapshot/import and audit callers, and view evaluation remain open. The address
+ruling governs those derived views: labels are computed on read,
 coreference is graded rather than merged, and storage duplication changes no
 address. What the log still owes — event-level L8 and the L13 preimage resolver
 — is listed with its owners in the
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-08).
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-09).
 
 ## Open edges
 

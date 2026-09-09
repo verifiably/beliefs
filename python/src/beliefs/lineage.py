@@ -24,11 +24,11 @@ plus the explicit root, because deleting the root's own immediate parent must
 still be seen (§5 step 1). Then, in order: any `conflict` basis in the
 inspected set decides `lineage-divergent` on the **tag alone**, before any
 resolution or comparison (§5 step 2, short-circuit); any unresolved basis
-entry — either resolution `None` — or a cycle decides `lineage-incomplete`
-(§5 step 2b); any `single` basis whose producer set holds a `transforms`
-divergence from the route decides `lineage-divergent` (§5 step 3, and *only*
-against `single` — a conflict has no one route to diverge from, already
-decided). Only complete, undiverged, **disjoint** closures certify
+entry, absent input, or cycle decides `lineage-incomplete` (§5 step 2b); any
+remaining `single` basis whose producer set holds a `transforms` divergence
+from the route decides `lineage-divergent` (§5 step 3, and *only* against
+`single` — a conflict has no one route to diverge from, already decided). Only
+complete, undiverged, **disjoint** closures certify
 `independent`; complete, undiverged, overlapping closures certify
 `shared-source`; anything else is `not-certified` — never a synonym for
 `shared-source`, which asserts *demonstrated* common ancestry.
@@ -47,7 +47,7 @@ never a null.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import final
 
@@ -59,6 +59,7 @@ __all__ = [
     "CERTIFICATION_FINDINGS",
     "CERTIFICATION_STATES",
     "DIVERGENCE_STATES",
+    "Absence",
     "Basis",
     "Certification",
     "LineageSnapshot",
@@ -72,7 +73,17 @@ __all__ = [
 BASIS_TAGS = ("conflict", "single")
 CERTIFICATION_FINDINGS = ("lineage-divergent", "lineage-incomplete")
 CERTIFICATION_STATES = ("independent", "not-certified", "shared-source")
-DIVERGENCE_STATES = ("divergent", "undiverged")
+DIVERGENCE_STATES = ("divergent", "incomplete", "undiverged")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class Absence:
+    """One reference the world records in a covered corpus that has no carrier."""
+
+    ref: str
+    corpus_id: str
 
 
 @sealed
@@ -146,6 +157,11 @@ class Producer:
     stored_run: str
     resolved_run: str | None
     transforms: tuple[str, ...]
+    absent: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.absent, tuple) or len(self.absent) > 1:
+            raise MalformedSnapshot("a producer names at most one absent corpus")
 
 
 @sealed
@@ -160,6 +176,7 @@ class LineageSnapshot:
     roots: tuple[str, ...]
     bases: Mapping[str, Basis]
     producers: Mapping[str, tuple[Producer, ...]]
+    not_present: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not all(isinstance(b, Basis) for b in self.bases.values()):
@@ -171,6 +188,7 @@ class LineageSnapshot:
             raise MalformedSnapshot("a snapshot's producers map holds tuples of Producer values only")
         object.__setattr__(self, "bases", MappingProxyType(dict(self.bases)))
         object.__setattr__(self, "producers", MappingProxyType(dict(self.producers)))
+        object.__setattr__(self, "not_present", MappingProxyType(dict(self.not_present)))
 
 
 @sealed
@@ -182,6 +200,7 @@ class Certification:
     authored, and `not-certified` is never a synonym for `shared-source`."""
 
     findings: tuple[str, ...]
+    absent: tuple[Absence, ...] = ()
 
     def __post_init__(self) -> None:
         if self.state not in CERTIFICATION_STATES:
@@ -190,21 +209,21 @@ class Certification:
             )
         if not all(f in CERTIFICATION_FINDINGS for f in self.findings):
             raise MalformedSnapshot(f"a finding is outside the closed set {CERTIFICATION_FINDINGS}")
+        if not all(isinstance(a, Absence) for a in self.absent):
+            raise MalformedSnapshot("a certification's absent tuple holds Absence values only")
 
 
 def divergence_state(snapshot: LineageSnapshot, dataset: str) -> str:
     """`"divergent"` if any producer's `transforms` differ from the dataset's
-    `single` basis route; `"undiverged"` otherwise. A replay — a producer
-    whose transforms *equal* the route's — is not divergence.
+    `single` basis route; `"incomplete"` if an input is absent; `"undiverged"`
+    otherwise. A replay whose transforms equal the route's is not divergence.
 
     Defined **only** against a `single` basis: a `conflict` has no one route
     to diverge from, and that case is decided on the tag alone, before this is
     ever reached for that dataset (certify's traversal short-circuits a
     `conflict` before calling this). An unresolved producer's `transforms` are
-    still literal, stored data and participate in the comparison the same as
-    a resolved one's — whether the *run* itself still resolves is
-    `lineage-incomplete` ground, and that finding belongs to the traversal
-    that walks the basis, not to this comparison.
+    still literal, stored data and participate in the comparison unless the
+    producer is explicitly absent, when its empty transforms are unknown.
 
     Raises `BasisTagMismatch` for a `conflict` basis: the snapshot itself is
     well-formed, this is a call outside the domain the comparison is defined
@@ -217,7 +236,14 @@ def divergence_state(snapshot: LineageSnapshot, dataset: str) -> str:
             f"divergence_state is defined only against a `single` basis; {dataset!r} carries {basis.tag!r}"
         )
     route = basis.routes[0]
-    for producer in snapshot.producers.get(dataset, ()):
+    producers = snapshot.producers.get(dataset, ())
+    if (
+        route.stored_run in snapshot.not_present
+        or route.stored_ancestor in snapshot.not_present
+        or any(producer.absent for producer in producers)
+    ):
+        return "incomplete"
+    for producer in producers:
         if producer.transforms != route.transforms:
             return "divergent"
     return "undiverged"
@@ -247,8 +273,12 @@ def _closure(snapshot: LineageSnapshot, root: str) -> tuple[frozenset[str], tupl
             findings.append("lineage-incomplete")  # a cycle: see the docstring's argument
             continue
         inspected.add(dataset)
+        if dataset in snapshot.not_present:
+            findings.append("lineage-incomplete")
         basis = snapshot.bases.get(dataset)
         if basis is None:
+            if any(producer.absent for producer in snapshot.producers.get(dataset, ())):
+                findings.append("lineage-incomplete")
             continue  # a root whose basis names nothing
         if basis.tag == "conflict":
             findings.append("lineage-divergent")
@@ -258,8 +288,11 @@ def _closure(snapshot: LineageSnapshot, root: str) -> tuple[frozenset[str], tupl
                 findings.append("lineage-incomplete")
                 continue
             stack.append(r.resolved_ancestor)
-        if divergence_state(snapshot, dataset) == "divergent":
+        state = divergence_state(snapshot, dataset)
+        if state == "divergent":
             findings.append("lineage-divergent")
+        elif state == "incomplete":
+            findings.append("lineage-incomplete")
     return frozenset(inspected), tuple(findings)
 
 
@@ -285,11 +318,30 @@ def certify(snapshot: LineageSnapshot, roots_a: tuple[str, ...], roots_b: tuple[
     closure_a, findings_a = _walk_all(snapshot, roots_a)
     closure_b, findings_b = _walk_all(snapshot, roots_b)
     findings = tuple(dict.fromkeys(findings_a + findings_b))  # dedupe, keep first-seen order
+    absent = _absent_references(snapshot, closure_a | closure_b, roots_a + roots_b)
     if findings:
-        return Certification(state="not-certified", findings=findings)
+        return Certification(state="not-certified", findings=findings, absent=absent)
     if closure_a & closure_b:
-        return Certification(state="shared-source", findings=())
-    return Certification(state="independent", findings=())
+        return Certification(state="shared-source", findings=(), absent=absent)
+    return Certification(state="independent", findings=(), absent=absent)
+
+
+def _absent_references(
+    snapshot: LineageSnapshot, inspected: frozenset[str], roots: tuple[str, ...]
+) -> tuple[Absence, ...]:
+    """Collect absence from inspected datasets' references and absent roots."""
+    named = {root: snapshot.not_present[root] for root in roots if root in snapshot.not_present}
+    for dataset in inspected:
+        basis = snapshot.bases.get(dataset)
+        if basis is not None:
+            for route in basis.routes:
+                for ref in (route.stored_run, route.stored_ancestor):
+                    if ref in snapshot.not_present:
+                        named[ref] = snapshot.not_present[ref]
+        for producer in snapshot.producers.get(dataset, ()):
+            if producer.absent:
+                named[producer.stored_run] = producer.absent[0]
+    return tuple(Absence(ref, corpus_id) for ref, corpus_id in sorted(named.items()))
 
 
 def _ref_projection(stored: str, resolved: str | None) -> dict[str, object]:
@@ -312,6 +364,7 @@ def _producer_projection(producer: Producer) -> dict[str, object]:
     return {
         "run": _ref_projection(producer.stored_run, producer.resolved_run),
         "transforms": list(producer.transforms),
+        "absent": list(producer.absent),
     }
 
 
@@ -322,9 +375,8 @@ def snapshot_projection(snapshot: LineageSnapshot) -> dict[str, object]:
     transforms; and the derived divergence state per basis — `"divergent"` on
     the tag alone for a `conflict`, else `divergence_state`'s result.
 
-    Deferred: the producer-snapshot identity member (the covered corpora's
-    stable ids) — this cut's `LineageSnapshot` carries no corpus concept to
-    project (cut 2 §4.2)."""
+    It also records the absent corpus per not-present reference
+    (world-resolution slice 1 §5.1)."""
     bases = {
         dataset: {"tag": basis.tag, "routes": [_route_projection(r) for r in basis.routes]}
         for dataset, basis in snapshot.bases.items()
@@ -339,4 +391,7 @@ def snapshot_projection(snapshot: LineageSnapshot) -> dict[str, object]:
         "bases": bases,
         "producers": producers,
         "divergence": divergence,
+        "not_present": [
+            {"ref": ref, "corpus_id": corpus_id} for ref, corpus_id in sorted(snapshot.not_present.items())
+        ],
     }

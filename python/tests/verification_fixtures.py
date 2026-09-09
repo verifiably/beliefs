@@ -186,7 +186,7 @@ def evaluation_kwargs(view) -> dict:
             snapshot=lineage_snapshot(view, [n.id for n in view.iter_stored() if n.kind == "dataset"]),  # corpus refs, not content addresses [R2, second round]
             producer_snapshot_identity="producer-snapshot-1",
             retractions=RetractionEnumeration(found=(), coverage=("c1",)),
-            node_corpus={identity: "c1" for identity in identities},
+            node_corpus={identity: ("c1",) for identity in identities},
             pins={"c1": pins_for(PROFILE)},
         ),
         "profile": PROFILE,

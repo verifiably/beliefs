@@ -178,6 +178,7 @@ from beliefs.world.verify import (
     PresentedManifest,
     PresentedWorldIds,
 )
+from beliefs.world.view import DriftReport, WorldReadView, open_world_view
 
 __all__ = [
     "BELIEF_INPUT_KIND",
@@ -229,6 +230,7 @@ __all__ = [
     "DefectView",
     "DerivationBindings",
     "DerivationReceipt",
+    "DriftReport",
     "EdgeAnswer",
     "EntryView",
     "Epoch",
@@ -267,6 +269,7 @@ __all__ = [
     "WellFormedView",
     "World",
     "WorldConfig",
+    "WorldReadView",
     "WorldSubject",
     "address_map",
     "address_map_projection",
@@ -296,6 +299,7 @@ __all__ = [
     "manifest_projection",
     "member_content_digest",
     "open_epoch",
+    "open_world_view",
     "packaging_identity_of",
     "parse_log_head_record",
     "parse_rule_document",

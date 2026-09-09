@@ -153,7 +153,7 @@ def kwargs_for(view: ReadView, profile: ProfileSpec) -> dict[str, Any]:
             snapshot=lineage_snapshot(view, ("dataset:d-a", "dataset:d-b")),
             producer_snapshot_identity="producer-snapshot-1",
             retractions=RetractionEnumeration(found=(), coverage=("c1",)),
-            node_corpus={identity: "c1" for identity in identities},
+            node_corpus={identity: ("c1",) for identity in identities},
             pins={"c1": pins_for(profile)},
         ),
         "profile": profile,

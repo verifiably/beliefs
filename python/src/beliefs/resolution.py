@@ -23,13 +23,10 @@ documents; the accepting rows here are its **dual** — a failure to look is not
 finding of presence either, which is why an unperformed check is recorded as
 unperformed rather than omitted.
 
-**`not-present` is unreachable in this cut, and is defined anyway.** It means the
-bound dataset has a world address the consulted index records while its corpus is
-absent — which needs the world index and holding machinery that cut 1 does not
-build (D3's deferred arm). Defining four of five would be implementing a
-different closed set than the one §7.2 rules, and the gap would be invisible;
-defining all five leaves exactly one outcome that nothing here constructs, which
-is a fact a test can state.
+`not-present` is produced by `build_snapshot(not_present=...)`: the world read
+view's `locate` found the binding's dataset in a covered corpus, and that corpus
+is absent from this world. The snapshot records that corpus so this state remains
+distinct from both an unheld local dataset and a binding nobody consulted.
 """
 
 from __future__ import annotations
@@ -38,7 +35,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from enum import Enum
 from types import MappingProxyType
-from typing import final
+from typing import Literal, final
 
 from beliefs.contract.domain import VocabularyBinding
 from beliefs.errors import ResolutionError
@@ -120,15 +117,16 @@ class ReferentPosition:
 
 @dataclass(frozen=True)
 class _BoundVocabulary:
-    """What the snapshot holds for one binding: its terms, or the fact that it could not be read."""
+    """One binding's terms, or which of the two ways it could not be read."""
 
-    readable: bool
+    state: Literal["readable", "not-available", "not-present"]
     terms: frozenset[str]
+    absent: tuple[str, ...]
 
     def projection(self) -> dict[str, object]:
-        if not self.readable:
-            return {"readable": False}
-        return {"readable": True, "terms": sorted(self.terms)}
+        if self.state == "readable":
+            return {"state": "readable", "terms": sorted(self.terms), "absent": []}
+        return {"state": self.state, "terms": [], "absent": list(self.absent)}
 
 
 @sealed
@@ -154,7 +152,8 @@ class ResolutionSnapshot:
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         raise ResolutionError(
-            "ResolutionSnapshot is built, never authored — use build_snapshot(readable=..., unreadable=...). "
+            "ResolutionSnapshot is built, never authored — use build_snapshot(readable=..., unreadable=..., "
+            "not_present=...). "
             "Its identity is derived from its contents, and a field-wise constructor would let a snapshot "
             "carry an identity describing a different availability state than its own."
         )
@@ -196,12 +195,13 @@ class ResolutionSnapshot:
         if state is None:
             # Nothing was looked at: this binding's namespace was never consulted.
             return TermOutcome.NOT_CONSULTED
-        if not state.readable:
+        if state.state == "not-present":
+            # The world records the binding's dataset in a covered corpus that
+            # has no carrier here — D3's world-level arm.
+            return TermOutcome.NOT_PRESENT
+        if state.state == "not-available":
             # The dataset is identified and its bytes are not held here. This is
-            # M4's *local* analogue of `not-available` and is in cut 1; D3's
-            # world-level arm — an indexed address whose corpus is absent — is
-            # not, and the two are deliberately not allowed to stand in for each
-            # other.
+            # M4's local `not-available`, distinct from an absent world corpus.
             return TermOutcome.NOT_AVAILABLE
         return TermOutcome.MEMBER if canonical(term) in state.terms else TermOutcome.NOT_MEMBER
 
@@ -274,30 +274,46 @@ def build_snapshot(
     *,
     readable: Mapping[VocabularyBinding, Iterable[str]] | None = None,
     unreadable: Iterable[VocabularyBinding] = (),
+    not_present: Mapping[VocabularyBinding, str] | None = None,
 ) -> ResolutionSnapshot:
     """Build a snapshot from what is readable and what is identified but not held.
 
-    A binding absent from **both** arguments is `not-consulted`, and that is the
+    A binding absent from all three arguments is `not-consulted`, and that is the
     honest default: a snapshot says what was looked at, and silence about a
     binding is silence, not a claim that its vocabulary is empty. An empty
     `readable` entry is a different fact — the vocabulary was read and contains
     nothing — and the two produce different outcomes.
     """
     table: dict[VocabularyBinding, _BoundVocabulary] = {}
-    for binding, terms in (readable or {}).items():
-        _require_binding(binding)
-        table[binding] = _BoundVocabulary(
-            readable=True,
-            terms=frozenset(_require_term(term, binding) for term in _require_terms(terms, binding)),
-        )
-    for binding in unreadable:
+
+    def _place(binding: VocabularyBinding, entry: _BoundVocabulary) -> None:
         _require_binding(binding)
         if binding in table:
             raise ResolutionError(
-                f"binding {binding.projection()} is given as both readable and unreadable. "
-                "One binding has one state; a snapshot that carried both would let a caller pick."
+                f"binding {binding.projection()} is given in more than one availability state "
+                f"({table[binding].state} and {entry.state}). One binding has one state; a snapshot that "
+                "carried two would let a caller pick."
             )
-        table[binding] = _BoundVocabulary(readable=False, terms=frozenset())
+        table[binding] = entry
+
+    for binding, terms in (readable or {}).items():
+        _require_binding(binding)
+        _place(
+            binding,
+            _BoundVocabulary(
+                state="readable",
+                terms=frozenset(_require_term(term, binding) for term in _require_terms(terms, binding)),
+                absent=(),
+            ),
+        )
+    for binding in unreadable:
+        _require_binding(binding)
+        _place(binding, _BoundVocabulary(state="not-available", terms=frozenset(), absent=()))
+    for binding, corpus_id in (not_present or {}).items():
+        _require_binding(binding)
+        if type(corpus_id) is not str or not corpus_id:
+            raise ResolutionError(f"{binding.projection()}: a not-present binding names the absent corpus")
+        _place(binding, _BoundVocabulary(state="not-present", terms=frozenset(), absent=(corpus_id,)))
 
     snapshot = ResolutionSnapshot._built(_MINT, bindings=MappingProxyType(dict(table)), identity="")
     object.__setattr__(snapshot, "identity", v1.digest(SNAPSHOT_DOMAIN, snapshot.projection()))

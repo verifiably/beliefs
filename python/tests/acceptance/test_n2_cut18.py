@@ -36,6 +36,16 @@ _LIVE_SABOTAGES = {
         before="    findings = list(corpus_check(view, profile))\n",
         after='    from beliefs import corpus as _corpus_module\n\n    _corpus_module.standing_in_local_view(view, "corpus")\n    findings = list(corpus_check(view, profile))\n',
     ),
+    "S5": Sabotage(
+        module="corpus.py",
+        before="                    resolved_ancestor=view.resolve(ancestor),\n",
+        after="                    resolved_ancestor=ancestor,\n",
+    ),
+    "R23b": Sabotage(
+        module="corpus.py",
+        before="                    resolved_run=view.resolve(run),\n",
+        after="                    resolved_run=run,\n",
+    ),
 }
 CUT18_ARMS = tuple(
     replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT18_ARMS

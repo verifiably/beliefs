@@ -117,7 +117,7 @@ class Scenario:
             snapshot=self.snapshot(),
             producer_snapshot_identity="producer-snapshot-1",
             retractions=RetractionEnumeration(found=(), coverage=("c1",)),
-            node_corpus={value.identity(): "c1" for value in self.values.values()},
+            node_corpus={value.identity(): ("c1",) for value in self.values.values()},
             pins={"c1": pins_for(PROFILE)},
         )
 

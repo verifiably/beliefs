@@ -5,6 +5,7 @@ holding the node" needs the index, and corpora exist here as supplied
 node→corpus attributions plus per-corpus pins (cut 2 §4.2, D7 row).
 """
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -67,6 +68,30 @@ def test_an_activated_coordination_contract_is_never_a_belief_input(profile, pin
     assert "coordination" not in dict(with_pin)
 
 
+def test_one_identity_held_in_two_corpora_consults_both_and_refuses_disagreement(profile, pins):
+    same = pins()
+    other = replace(same, science_contract="science:" + "0" * 64)
+    node_corpus = {"a" * 64: ("c1", "c2")}
+
+    consulted = consulted_contracts(
+        claims={},
+        profile=profile,
+        node_corpus=node_corpus,
+        pins={"c1": same, "c2": same},
+        closure_nodes=("a" * 64,),
+    )
+    assert consulted[0][0] == "science"
+
+    with pytest.raises(ContractDisagreement):
+        consulted_contracts(
+            claims={},
+            profile=profile,
+            node_corpus=node_corpus,
+            pins={"c1": same, "c2": other},
+            closure_nodes=("a" * 64,),
+        )
+
+
 class TestTheWalk:
     def test_the_base_contract_is_unconditional(self, profile, pins):
         consulted = consulted_contracts(
@@ -80,7 +105,7 @@ class TestTheWalk:
         consulted = consulted_contracts(
             claims={claim_identity(claim): claim},
             profile=profile,
-            node_corpus={claim_identity(claim): "c1"},
+            node_corpus={claim_identity(claim): ("c1",)},
             pins={"c1": pins()},
             closure_nodes=(claim_identity(claim),),
         )
@@ -98,7 +123,7 @@ class TestTheWalk:
             consulted_contracts(
                 claims={},
                 profile=profile,
-                node_corpus={"n1": "c2"},
+                node_corpus={"n1": ("c2",)},
                 pins={"c1": pins()},
                 closure_nodes=("n1",),
             )
@@ -113,7 +138,7 @@ class TestAgreement:
             consulted_contracts(
                 claims={uid: claim},
                 profile=profile,
-                node_corpus={uid: "c1", "other-node": "c2"},
+                node_corpus={uid: ("c1",), "other-node": ("c2",)},
                 pins={"c1": pins(testing="t-v1"), "c2": pins(testing="t-v2")},
                 closure_nodes=(uid, "other-node"),
             )
@@ -127,7 +152,7 @@ class TestAgreement:
             consulted_contracts(
                 claims={uid: claim},
                 profile=profile,
-                node_corpus={uid: "c1"},
+                node_corpus={uid: ("c1",)},
                 pins={"c1": unpinned},
                 closure_nodes=(uid,),
             )
@@ -139,7 +164,7 @@ class TestAgreement:
             consulted_contracts(
                 claims={},
                 profile=profile,
-                node_corpus={"n1": "c1", "n2": "c2"},
+                node_corpus={"n1": ("c1",), "n2": ("c2",)},
                 pins={"c1": pins(science="base-1"), "c2": pins(science="base-2")},
                 closure_nodes=("n1", "n2"),
             )
@@ -185,7 +210,7 @@ class TestSlotSorts:
             consulted_contracts(
                 claims={uid: claim},
                 profile=crossing_profile,
-                node_corpus={uid: "c1"},
+                node_corpus={uid: ("c1",)},
                 pins={"c1": CorpusPins(pins.science_contract, dict(pins.domains))},
                 closure_nodes=(uid,),
             )
@@ -210,7 +235,7 @@ class TestSlotSorts:
             consulted_contracts(
                 claims={uid: claim},
                 profile=crossing_profile,
-                node_corpus={uid: "c1"},
+                node_corpus={uid: ("c1",)},
                 pins={"c1": without_testing},
                 closure_nodes=(uid,),
             )
@@ -234,7 +259,7 @@ class TestPinAgreement:
             consulted_contracts(
                 claims={uid: claim},
                 profile=profile,
-                node_corpus={uid: "c1"},
+                node_corpus={uid: ("c1",)},
                 pins={"c1": pins(testing="testing:" + "1" * 64)},
                 closure_nodes=(uid,),
             )
@@ -255,7 +280,7 @@ def test_a_read_domain_facet_enters_the_consulted_set():
         consulted_contracts(
             claims={},
             profile=WITH_BIOLOGY,
-            node_corpus={"dataset:d": "c"},
+            node_corpus={"dataset:d": ("c",)},
             pins=_biology_pins(),
             closure_nodes=("dataset:d",),
             facets_read={"dataset:d": ("biology/gene-axis",)},
@@ -269,7 +294,7 @@ def test_an_unread_activated_domain_stays_out():
         consulted_contracts(
             claims={},
             profile=WITH_BIOLOGY,
-            node_corpus={"dataset:d": "c"},
+            node_corpus={"dataset:d": ("c",)},
             pins=_biology_pins(),
             closure_nodes=("dataset:d",),
             facets_read={},
@@ -283,7 +308,7 @@ def test_an_unnamespaced_facet_read_adds_nothing_beyond_the_base():
         consulted_contracts(
             claims={},
             profile=WITH_BIOLOGY,
-            node_corpus={"dataset:d": "c"},
+            node_corpus={"dataset:d": ("c",)},
             pins=_biology_pins(),
             closure_nodes=("dataset:d",),
             facets_read={"dataset:d": ("empirical-observation",)},
@@ -297,7 +322,7 @@ def test_a_facet_read_outside_the_closure_is_malformed():
         consulted_contracts(
             claims={},
             profile=WITH_BIOLOGY,
-            node_corpus={"dataset:d": "c"},
+            node_corpus={"dataset:d": ("c",)},
             pins=_biology_pins(),
             closure_nodes=("dataset:d",),
             facets_read={"dataset:outside": ("biology/gene-axis",)},

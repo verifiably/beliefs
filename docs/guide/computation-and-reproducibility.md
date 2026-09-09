@@ -2,7 +2,7 @@
 title: Computation and reproducibility
 status: living
 created: 2026-08-08
-updated: 2026-09-07
+updated: 2026-09-09
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -160,7 +160,7 @@ recompute its scope from the corpus rather than from an in-memory value. What is
 elsewhere — the mutation log's event-level order (L8); and the
 preimage-backed classification of a removed verification (L13) — and listed
 with those owners in the
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-08).
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-09).
 
 ## Open edges
 

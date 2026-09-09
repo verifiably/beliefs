@@ -250,7 +250,7 @@ def _fixture(
         snapshot=lineage_snapshot(view, ("dataset:d-a", "dataset:d-b")),
         producer_snapshot_identity="producer-snapshot-1",
         retractions=RetractionEnumeration(found=(), coverage=("c1",)),
-        node_corpus={value.identity(): "c1" for value in values.values()},
+        node_corpus={value.identity(): ("c1",) for value in values.values()},
         pins={"c1": pins_for(PROFILE)},
     )
     return CorpusFixture(

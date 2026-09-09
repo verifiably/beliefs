@@ -160,7 +160,7 @@ def scenario(**overrides: object) -> _Scenario:
         snapshot=LineageSnapshot(roots=(ADDRESS_A, ADDRESS_B), bases={}, producers={}),
         producer_snapshot_identity="producer-snapshot-1",
         retractions=RetractionEnumeration(found=(), coverage=("c1",)),
-        node_corpus={a1.identity(): "c1", a2.identity(): "c1"},
+        node_corpus={a1.identity(): ("c1",), a2.identity(): ("c1",)},
         pins={"c1": pins_for(PROFILE)},
     )
     kwargs: dict[str, object] = {
@@ -173,6 +173,12 @@ def scenario(**overrides: object) -> _Scenario:
     }
     kwargs.update(overrides)
     return cast(_Scenario, kwargs)
+
+
+@pytest.mark.parametrize("node_corpus", [{"node": "c1"}, {"node": ()}, {"node": ("c1", 1)}, {"node": ("c2", "c1")}])
+def test_node_corpus_attributes_nodes_to_sorted_nonempty_string_tuples(node_corpus):
+    with pytest.raises(MalformedRecord, match="node_corpus attributes each node to a non-empty tuple of corpus ids"):
+        replace(scenario()["context"], node_corpus=node_corpus)
 
 
 def test_w18j_a_coordination_pin_never_enters_the_belief_input_digest():
@@ -461,7 +467,7 @@ class TestD7AtTheEvaluator:
         a1, a2 = kwargs["records"].assessments
         context = replace(
             kwargs["context"],
-            node_corpus={a1.identity(): "c1", a2.identity(): "c2"},
+            node_corpus={a1.identity(): ("c1",), a2.identity(): ("c2",)},
             pins={
                 "c1": pins_for(PROFILE),
                 "c2": CorpusPins(
