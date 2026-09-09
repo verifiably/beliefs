@@ -29,11 +29,20 @@ declared arms: 17 (= 9 declaration units; 9 guarantee rows)
 ```
 
 The certified transcript is retained as
-`.superpowers/sdd/2026-09-08-biology-pack/task-11-certified-final.log`. No
-capability waiver or refusal occurred. The M6 namespaced-slot reread was run
+[`2026-09-08-conformance-cut-22-run/certified.log`](2026-09-08-conformance-cut-22-run/certified.log).
+No capability waiver or refusal occurred. The M6 namespaced-slot reread was run
 separately by Task 7's full domain-contract module test and is also selected by
 the repository Python suite; the cut-22 runner does not count it as a new
 sabotage arm.
+
+The final repository gates tested commit `68a4b38d12f5a14fc4d92c13fdf792b95f0e0c12`:
+
+- `just check` exited 0; Ruff, Pyright, TypeScript typecheck, Biome, and
+  `tasks check` passed. Its transcript is
+  [`check.log`](2026-09-08-conformance-cut-22-run/check.log).
+- `just test` exited 0 with **4,125 Python tests passed in 1207.86 seconds**
+  and **142 TypeScript tests passed**, with no skips or failures. Its transcript
+  is [`test.log`](2026-09-08-conformance-cut-22-run/test.log).
 
 ## 2. Accounting and disposition
 

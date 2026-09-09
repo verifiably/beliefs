@@ -6,7 +6,7 @@ priority: 2
 size: m
 owner: feat/domain-boundary-slice2
 created: 2026-09-07T17:15:37Z
-updated: 2026-09-09T01:20:49Z
+updated: 2026-09-09T02:15:34Z
 depends: []
 parent: beliefs-bc3aff
 tags: [domain, design]
@@ -24,3 +24,4 @@ Design, implement, measure, and discharge biology slice 2 against the landed fac
 - 2026-09-08T20:16:21Z (feat/domain-boundary-slice2): Plan revised again 2026-09-08: ReadView sealed/final with exact-Corpus constructor (B3c), B3's edge stated (view authenticated, bytes are S8's); snapshot_over ties the copy to the binding by address and digest, with two refusal tests
 - 2026-09-09T01:20:49Z (feat/domain-boundary-slice2): Slice 2 implemented and cut 22 discharged; see docs/plans/2026-09-08-conformance-cut-22-results.md
 - 2026-09-09T01:20:49Z (feat/domain-boundary-slice2): Designed, implemented, measured, and discharged biology slice 2; D1 remains a named cross-repository remainder
+- 2026-09-09T02:15:34Z (feat/domain-boundary-slice2): Final retention: preserved certified cut-22, final check, and final test transcripts under docs/plans/2026-09-08-conformance-cut-22-run; gates tested 68a4b38.
