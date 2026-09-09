@@ -9,6 +9,7 @@ import pytest
 
 from beliefs.errors import BasisTagMismatch, MalformedSnapshot
 from beliefs.lineage import (
+    Absence,
     Basis,
     Certification,
     LineageSnapshot,
@@ -184,3 +185,94 @@ class TestTheProjectionRecordsBothHalves:
             producers={"x": (Producer(stored_run="r2", resolved_run="r2", transforms=("t2",)),)},
         )
         assert snapshot_projection(quiet) != snapshot_projection(loud)
+
+
+class TestAbsenceGatesDivergence:
+    def test_an_absent_producer_is_incomplete_never_divergent(self):
+        snapshot = LineageSnapshot(
+            roots=("d",),
+            bases={"d": Basis(tag="single", routes=(route("d", "a", transforms=("a",)),))},
+            producers={
+                "d": (Producer(stored_run="run:gone", resolved_run=None, transforms=(), absent=("beta",)),)
+            },
+            not_present={"run:gone": "beta"},
+        )
+        assert divergence_state(snapshot, "d") == "incomplete"
+        result = certify(snapshot, ("d",), ())
+        assert result.state == "not-certified"
+        assert "lineage-incomplete" in result.findings and "lineage-divergent" not in result.findings
+        assert result.absent == (Absence("run:gone", "beta"),)
+        assert snapshot_projection(snapshot)["divergence"] == {"d": "incomplete"}
+
+    def test_an_absent_producer_without_a_basis_is_still_incomplete(self):
+        snapshot = LineageSnapshot(
+            roots=("d",),
+            bases={},
+            producers={"d": (Producer("r", None, (), absent=("beta",)),)},
+            not_present={"r": "beta"},
+        )
+        result = certify(snapshot, ("d",), ())
+        assert result.state == "not-certified"
+        assert result.findings == ("lineage-incomplete",)
+        assert result.absent == (Absence("r", "beta"),)
+
+    def test_a_present_producer_still_compares(self):
+        snapshot = LineageSnapshot(
+            roots=("d",),
+            bases={"d": Basis(tag="single", routes=(route("d", "a", transforms=("a",)),))},
+            producers={"d": (Producer(stored_run="run-d", resolved_run="run-d", transforms=("other",)),)},
+        )
+        assert divergence_state(snapshot, "d") == "divergent"
+
+
+class TestAbsenceIsCollectedFromReferences:
+    def test_a_missing_ancestor_and_run_are_named_though_never_reached(self):
+        snapshot = LineageSnapshot(
+            roots=("d",),
+            bases={"d": Basis(tag="single", routes=(route("d", "dataset:anc", resolved=False),))},
+            producers={},
+            not_present={"run-d": "beta", "dataset:anc": "beta"},
+        )
+        result = certify(snapshot, ("d",), ())
+        assert set(result.absent) == {Absence("run-d", "beta"), Absence("dataset:anc", "beta")}
+
+    def test_an_absent_root_is_named(self):
+        snapshot = LineageSnapshot(
+            roots=("dataset:gone",), bases={}, producers={}, not_present={"dataset:gone": "beta"}
+        )
+        result = certify(snapshot, ("dataset:gone",), ())
+        assert result.state == "not-certified"
+        assert "lineage-incomplete" in result.findings
+        assert result.absent == (Absence("dataset:gone", "beta"),)
+
+    def test_findings_stay_the_closed_code_set(self):
+        with pytest.raises(MalformedSnapshot):
+            Certification(state="not-certified", findings=("lineage-incomplete: beta",))
+
+
+class TestAbsenceIsProjected:
+    def test_not_present_moves_the_projection_and_is_encodable(self):
+        from beliefs.identity import v1
+
+        with_absence = LineageSnapshot(
+            roots=("d",),
+            bases={"d": Basis(tag="single", routes=(route("d", "x", resolved=False),))},
+            producers={},
+            not_present={"x": "beta"},
+        )
+        unknown = LineageSnapshot(
+            roots=("d",), bases={"d": Basis(tag="single", routes=(route("d", "x", resolved=False),))}, producers={}
+        )
+        a, b = snapshot_projection(with_absence), snapshot_projection(unknown)
+        assert a["not_present"] == [{"ref": "x", "corpus_id": "beta"}] and b["not_present"] == []
+        assert v1.encode(a) != v1.encode(b)
+        producer = Producer(stored_run="r", resolved_run=None, transforms=(), absent=("beta",))
+        assert v1.encode({"p": snapshot_projection(LineageSnapshot(roots=(), bases={}, producers={"d": (producer,)}))})
+
+    def test_new_value_shapes_are_closed(self):
+        with pytest.raises(MalformedSnapshot):
+            Producer(stored_run="r", resolved_run=None, transforms=(), absent=["beta"])  # type: ignore[arg-type]
+        with pytest.raises(MalformedSnapshot):
+            Producer(stored_run="r", resolved_run=None, transforms=(), absent=("a", "b"))
+        with pytest.raises(MalformedSnapshot):
+            Certification(state="not-certified", findings=(), absent=("beta",))  # type: ignore[arg-type]
