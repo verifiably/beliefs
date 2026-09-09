@@ -11,7 +11,10 @@ session. Revised 2026-09-09 on a written review of the committed document
 whose six findings became §4.2's lock order and guarded members, §4.4
 (reconciliation over the two new intent shapes), §5's bitwise
 classification, §4.1's atomic append, and §2's corrected contract with
-test 16. Not yet implemented.
+test 16; and again on a second review whose two findings made §4.2's
+guard total (the seam's reads run recovery on a writable root) and
+replaced test 8b with a lock-order trace and a forced interleaving that
+fail under the reversed order. Not yet implemented.
 **Scope:** the three kernel seams the science belief-path design depends on
 (science `docs/specs/2026-09-09-belief-path-commands-design.md` §6.1, §6.2,
 §5): the public store identity reader (`beliefs-2d9a55`), the run and
@@ -188,15 +191,18 @@ releases both in reverse. `append_intent` and `publish_fulfilling` then run
 with the session lock already held (it is re-entrant) and re-check nothing
 they cannot re-check for free. Session then corpus, everywhere.
 
-**Every act is guarded.** A context is a value a handler can keep, so
-every member that changes state requires currency under the session lock,
-atomically with its delegate: `append_intent`, `store_write`,
-`store_delete`, `store_move` and `publish_fulfilling`. The two reads,
-`read_path` and `store_genesis`, pass through. A context used after its
-invocation closed is refused at the first act, before an intent is
-appended and before a byte moves. An invocation closed part-way through an
-act is refused at the next step; what precedes it, an appended intent
-without a publication, is exactly the state a crash leaves, and §4.4 makes
+**Every member is guarded.** A context is a value a handler can keep, so
+every member of the ledgered seam requires currency under the session lock,
+atomically with its delegate, with no exception for the two that look like
+reads: the production `store_genesis` reads the chain through the
+registered path, which takes the project lock and resolves recovery before
+it answers, and `read_path` goes through the same lifecycle view. Neither
+is inert on a writable root, and a context bound to a closed invocation
+does nothing at all. A context used after its invocation closed is refused
+at its first call, before an intent is appended, before recovery runs and
+before a byte moves. An invocation closed part-way through an act is
+refused at the next step; what precedes it, an appended intent without a
+publication, is exactly the state a crash leaves, and §4.4 makes
 reconciliation report it.
 
 **Recording.** `publish_fulfilling(root, plan, intent)` delegates and
@@ -352,20 +358,35 @@ recording port and a fake seam):
    on the session lock and the append completes under the invocation it was
    checked for.
 7. The ledgered seam's `publish_fulfilling` ledgers a holdings act the same
-   way; its two reads are the inner seam's.
+   way, and every member reaches the inner seam only under a current
+   invocation.
 8. A permit narrowed below `run` or `holdings` is refused by the boundary
    with `PermitExceeded` before any intent is appended (the recording port
    saw no `append_intent`).
 8a. A holdings context kept past its invocation's close is refused at
-    `write`'s first act: the fake seam saw no `append_intent` and no
-    `store_write`. A close between `append_intent` and `store_write`
-    (driven by a fake seam that closes the invocation from inside
-    `append_intent`'s delegate) is refused at `store_write`, and the store
-    is untouched.
-8b. Lock order: one thread inside a holdings `write` through the ledgered
-    seam and another inside `ScopedWriter.add` on the same session and root
-    both complete; the test drives the interleaving with a fake seam whose
-    `store_write` blocks until the other thread has entered `add`.
+    `write`'s first call, and the fake seam records that no member at all
+    was reached, `read_path` and `store_genesis` included; the same for
+    `recheck`, whose first member is `read_path`. A close that lands from
+    inside `append_intent`'s delegate is refused at `store_genesis` (the
+    `_bind` step), and the fake seam records neither a genesis read nor a
+    store write after it.
+8b. Lock-order trace. The test replaces the session's lock with a wrapper
+    that records acquisitions per thread, and gives the ledgered seam a fake
+    inner seam whose every member asserts, on entry, that the current
+    thread holds the session lock, and whose `corpus_lock` is the real
+    `_operation_lock_for(root)`. One holdings `write` and one `add` on the
+    same session and root both pass. Under the reversed order the inner
+    `corpus_lock` and `publish_fulfilling` are entered without the session
+    lock, and the assertion fails deterministically, with no threads.
+8c. Forced interleaving. Thread A runs a holdings `write` whose fake inner
+    seam, on entering `corpus_lock` for publication, waits until thread B
+    has *attempted* the session lock (the wrapper signals the attempt
+    before blocking); thread B runs `add`. Under the designed order A
+    already holds the session lock, B's attempt blocks, A finishes, B
+    finishes; the join succeeds without timing out. Under the reversed order
+    B acquires the session lock and blocks on the operation lock A holds,
+    A then blocks on the session lock, and the bounded join fails. The plan
+    proves the test by running it once with the order reversed.
 
 **Durable** (`acceptance/test_session_acceptance.py`'s rig):
 
