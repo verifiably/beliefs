@@ -7,17 +7,20 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from authority import FULL
 from domain_facet_fixtures import kwargs_for, profile_with, seed
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.errors import RefError
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.relations import Relation
 from nodes.core.write_plan import DefaultExecutor
+from profiles import BASE, pins_for
 from test_world_build import ALPHA, BETA, sample_nodes, slug_for
 from test_world_receipts import corpora, hold_shipped, publish, world_over
+from verification_fixtures import publish_corpus, self_consistent_forgery
 
 from beliefs import stored
-from beliefs.corpus import ReadView, _root_state_for, lineage_snapshot
+from beliefs.corpus import CorpusWriter, ReadView, _root_state_for, lineage_snapshot
 from beliefs.errors import BuildContended, EpochUnknown, RecordNotPresent, ResolutionRefused
 from beliefs.lineage import Absence, snapshot_projection
 from beliefs.world import read
@@ -664,3 +667,61 @@ class TestEvaluationOverTheWorld:
         inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
                         resolution=kwargs["resolution"], binding=kwargs["binding"])
         assert inputs.absent == () and inputs.claim is None
+
+
+def split_verification_world(tmp_path: Path):
+    scratch = tmp_path / "scratch"
+    writer = CorpusWriter(scratch, DefaultExecutor, authority=FULL, profile=BASE)
+    writer.adopt_manifest(profile=pins_for(BASE))
+    published = publish_corpus(writer, publish=True)
+    assert published.node is not None
+    forged = self_consistent_forgery(
+        writer, published.node, mutate=lambda facet: facet.__setitem__("verdict", "failed")
+    )
+    nodes = tuple(reopen(scratch).iter_stored())
+    runs = tuple(node for node in nodes if node.kind == "run")
+    roots = corpora(tmp_path, {ALPHA: tuple(node for node in nodes if node.kind != "run"), BETA: runs})
+    world = world_over(tmp_path, roots)
+    view = open_world_view(world, publish(world, (ALPHA, BETA), hold_shipped(world)))
+    assert view.corpus_of(published.node.id) == ALPHA
+    assert all(view.corpus_of(run.id) == BETA for run in runs)
+    return published, forged, roots, view
+
+
+class TestR19AcrossCorpora:
+    def test_a_genuine_verification_is_checked(self, tmp_path):
+        from beliefs.audit import check_verification
+
+        published, _forged, _roots, view = split_verification_world(tmp_path)
+        assert published.node is not None
+        outcome = check_verification(view, view.get(published.node.id), evidence=published.evidence)
+        assert outcome.checked and outcome.contradiction is None
+
+    def test_a_verdict_only_well_formed_forgery_is_a_finding(self, tmp_path):
+        from beliefs.audit import check_verification
+
+        published, forged, _roots, view = split_verification_world(tmp_path)
+        outcome = check_verification(view, view.get(forged.id), evidence=published.evidence)
+        assert outcome.checked and outcome.contradiction is not None
+        assert outcome.contradiction.code == "verification-derivation-contradicted"
+
+    def test_a_malformed_record_raises(self, tmp_path):
+        from beliefs.audit import check_verification
+        from beliefs.errors import MalformedRecord
+
+        published, _forged, _roots, view = split_verification_world(tmp_path)
+        assert published.node is not None
+        malformed = view.get(published.node.id)
+        malformed.facets["verification"]["report"] = {"forged": True}
+        with pytest.raises(MalformedRecord):
+            check_verification(view, malformed, evidence=published.evidence)
+
+    def test_a_corpus_local_view_leaves_foreign_runs_unchecked(self, tmp_path):
+        from beliefs.audit import check_verification
+
+        published, _forged, roots, _view = split_verification_world(tmp_path)
+        assert published.node is not None
+        local = ReadView.opened_at(roots[ALPHA])
+        outcome = check_verification(local, local.get(published.node.id), evidence=published.evidence)
+        assert not outcome.checked and outcome.contradiction is None
+        assert outcome.reason.endswith("does not resolve here")

@@ -29,6 +29,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from types import MappingProxyType
+from typing import TYPE_CHECKING
 
 from nodes.core.node import Node
 
@@ -49,6 +50,9 @@ from beliefs.recipe import RunClosure
 from beliefs.runrecord import decode_run_closure
 from beliefs.spec import FrozenSpec
 from beliefs.verify import _derive, decode_verification
+
+if TYPE_CHECKING:
+    from beliefs.world.view import WorldReadView
 
 __all__ = [
     "MALFORMEDNESS_CODES",
@@ -98,7 +102,7 @@ unrecomputable. Reaching one from a well-formed record leaves that record
 unchecked; the neighbour is `corpus_check`'s to classify, under its own ref."""
 
 
-def _closure(view: ReadView | _ImportView, ref: str) -> tuple[RunClosure | None, str]:
+def _closure(view: ReadView | _ImportView | WorldReadView, ref: str) -> tuple[RunClosure | None, str]:
     if not view.holds(ref):
         return None, f"{ref} does not resolve here"
     try:
@@ -114,7 +118,7 @@ def _closure(view: ReadView | _ImportView, ref: str) -> tuple[RunClosure | None,
 
 
 def check_verification(
-    view: ReadView | _ImportView, node: Node, *, evidence: DerivationEvidence
+    view: ReadView | _ImportView | WorldReadView, node: Node, *, evidence: DerivationEvidence
 ) -> DerivationOutcome:
     """Recompute a stored verification's derivation from the two runs it names —
     verdict and assessment identity always; rule, scope rule, scope and report
