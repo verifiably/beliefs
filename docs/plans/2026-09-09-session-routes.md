@@ -36,9 +36,9 @@ Task 1 first (science's read context depends on it alone). Tasks 2–8 in order.
 **Interfaces:**
 - Produces: `beliefs.root.store_identity(store_root: Path) -> str | None`; raises `CorpusRootRefused` for a genesis that is not a store genesis.
 
-- [ ] **Step 1: `tasks start beliefs-2d9a55`**
+- [x] **Step 1: `tasks start beliefs-2d9a55`**
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Append to `python/tests/test_store_root.py` (imports `init_corpus_root` and `store_identity` are added at the top of the file, beside the existing `from beliefs.root import LifecycleState, init_store_root`):
 
@@ -73,12 +73,12 @@ class TestStoreIdentity:
         assert not hasattr(science_root, "_read_existing_store_genesis")
 ```
 
-- [ ] **Step 3: Run them to see them fail**
+- [x] **Step 3: Run them to see them fail**
 
 Run: `(cd python && uv run --frozen pytest tests/test_store_root.py -q -k TestStoreIdentity)`
 Expected: FAIL — `ImportError: cannot import name 'store_identity'`.
 
-- [ ] **Step 4: Rename and document the reader**
+- [x] **Step 4: Rename and document the reader**
 
 In `python/src/beliefs/root.py` replace the function at `:392` with:
 
@@ -105,12 +105,12 @@ def store_identity(store_root: Path) -> str | None:
 
 Replace the two callers (`existing = _read_existing_store_genesis(store_root)` at `:426`, `resumed = _read_existing_store_genesis(dest)` at `:661`) with `store_identity(...)`. Add `"store_identity",` to `__all__` in alphabetical position (after `"restore_root"`). Update the module docstring of `python/tests/test_store_root.py` line 6–7 to name `store_identity` instead of `_read_existing_store_genesis`.
 
-- [ ] **Step 5: Run the file and the checks**
+- [x] **Step 5: Run the file and the checks**
 
 Run: `(cd python && uv run --frozen pytest tests/test_store_root.py -q)` then `just check`
 Expected: all pass; ruff and pyright clean.
 
-- [ ] **Step 6: Commit and close**
+- [x] **Step 6: Commit and close**
 
 ```bash
 git add python/src/beliefs/root.py python/tests/test_store_root.py

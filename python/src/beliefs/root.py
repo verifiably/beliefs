@@ -240,6 +240,7 @@ __all__ = [
     "read_lifecycle_state",
     "replicate_root",
     "restore_root",
+    "store_identity",
     "write_intent_digest",
     "write_intent_projection",
 ]
@@ -389,13 +390,18 @@ def _decode_store_genesis(payload: bytes) -> tuple[str, tuple[str, str] | None]:
         ) from caught
 
 
-def _read_existing_store_genesis(store_root: Path) -> str | None:
-    """The durable store genesis's id, or None for a chain-less root.
+def store_identity(store_root: Path) -> str | None:
+    """The id a durable store genesis claims for this tree, or None when no
+    chain, no well-formed chain, or no genesis entry is there to claim one.
 
     Detached inspection, deliberately: an arriving or interrupted store has
-    no serviceable carrier to read coherently, and the question here is only
-    whether a durable store genesis already claims this tree.
+    no serviceable carrier to read coherently, so this read takes no lock,
+    runs no recovery and writes nothing. A genesis that is not a store
+    genesis — a corpus root's, or a malformed payload — raises
+    ``CorpusRootRefused``: that root is misnamed, not merely empty.
     """
+    if not store_root.exists():
+        return None
     inspected = inspect_chain_detached(_PRODUCTION_BACKEND, str(store_root))
     if type(inspected) is not WellFormedChain or not inspected.entries:
         return None
@@ -423,7 +429,7 @@ def init_store_root(store_root: Path, *, authority: Authority) -> str:
             "be a store root"
         )
     store_root.mkdir(parents=True, exist_ok=True)
-    existing = _read_existing_store_genesis(store_root)
+    existing = store_identity(store_root)
     if existing is not None:
         if (
             _read_lifecycle_state_callback(
@@ -658,7 +664,7 @@ def fork_store(source_root: Path, dest_root: Path, *, authority: Authority) -> s
     pending = _fork_pending(dest)
     if pending is not None:
         _fork_resume(dest, pending)
-        resumed = _read_existing_store_genesis(dest)
+        resumed = store_identity(dest)
         if resumed is None:
             raise CorpusRootRefused(
                 f"{str(dest)!r} resumed a fork but carries no store genesis"
