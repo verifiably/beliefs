@@ -8,7 +8,7 @@ from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TypeAlias, final
+from typing import TYPE_CHECKING, TypeAlias, final
 
 from nodes.core.node import Node
 
@@ -35,6 +35,9 @@ from beliefs.session.ledger import (
     utc_now,
     validated_outcome,
 )
+
+if TYPE_CHECKING:
+    from beliefs.holdings.boundary import ActContext
 
 __all__ = [
     "Claim",
@@ -320,6 +323,24 @@ class ScopedWriter:
         if port is None:
             raise SessionProtocolError("this scoped writer has no durable operation port")
         return LedgeredPort(self._session, self._invocation, port)
+
+    def holdings_context(self, *, instrument: str) -> ActContext:
+        """Return this invocation's durable, act-ledgered holdings route."""
+        from beliefs.holdings.boundary import ActContext
+        from beliefs.session.routes import ledgered_seam
+
+        session = self._session
+        if session.store_root is None or session._holdings_seam is None or session.profile is None:
+            raise SessionProtocolError("this session was opened with no store root; the holdings route has no store")
+        return ActContext(
+            observer_root=session.corpus_root,
+            store_root=session.store_root,
+            observer=session.actor,
+            instrument=instrument,
+            authority=self._authority,
+            seam=ledgered_seam(session, self._invocation, session._holdings_seam),
+            profile=session.profile,
+        )
 
     def _act(self, perform: Callable[[], OperationCommit]) -> Node | None:
         """One act: currency, the commit and the `act` line as one atomic step.

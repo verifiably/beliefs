@@ -767,9 +767,9 @@ git commit -m "feat(session): ledger the run route through the scoped writer's o
 - Consumes: `WriterSession.store_root`, `.store_id`, `.profile`, `._holdings_seam`, `.corpus_root`; `ScopedWriter._authority`.
 - Produces: `beliefs.session.routes.ledgered_seam(session, invocation, inner: StoreActSeam) -> StoreActSeam`; `ScopedWriter.holdings_context(*, instrument: str) -> ActContext`.
 
-- [ ] **Step 1: `tasks start beliefs-c90220`**
+- [x] **Step 1: `tasks start beliefs-c90220`**
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Append to `python/tests/test_session_routes.py`:
 
@@ -992,12 +992,12 @@ def test_a_holdings_write_and_a_corpus_add_on_two_threads_both_complete(tmp_path
     assert ("B", "held-by-another") in lock.attempts
 ```
 
-- [ ] **Step 3: Run them to see them fail**
+- [x] **Step 3: Run them to see them fail**
 
 Run: `(cd python && uv run --frozen pytest tests/test_session_routes.py -q)`
 Expected: the new tests FAIL — `AttributeError: 'ScopedWriter' object has no attribute 'holdings_context'`.
 
-- [ ] **Step 4: Add the seam wrapper and the facade method**
+- [x] **Step 4: Add the seam wrapper and the facade method**
 
 Add `"ledgered_seam"` to `__all__` and append to `python/src/beliefs/session/routes.py`:
 
@@ -1072,14 +1072,14 @@ Add to `ScopedWriter` in `python/src/beliefs/session/writer.py` after `operation
 
 (`ActContext` is imported under `TYPE_CHECKING` for the annotation; the in-function import avoids a cycle through `beliefs.holdings.boundary` → `beliefs.corpus`.)
 
-- [ ] **Step 5: Run the file, the holdings files, and the checks**
+- [x] **Step 5: Run the file, the holdings files, and the checks**
 
 Add `"holdings_context"` to the expected set in `test_the_scoped_writer_exposes_the_seven_methods_the_routes_and_its_invocation` (`python/tests/test_session_writer.py`); the set is now complete. Then:
 
 Run: `(cd python && uv run --frozen pytest tests/test_session_routes.py tests/test_session_writer.py tests/test_holdings_boundary.py -q)` then `just check`
 Expected: pass.
 
-- [ ] **Step 6: Prove the two lock-order tests bite**
+- [x] **Step 6: Prove the two lock-order tests bite**
 
 Temporarily reverse the order in `ledgered_seam.corpus_lock` (enter `inner.corpus_lock(root)` first, then `session._lock`) and in `publish_fulfilling` (take `session._lock` only inside, after the boundary already holds the corpus lock — that is the code as reversed above). Run:
 
@@ -1087,7 +1087,7 @@ Temporarily reverse the order in `ledgered_seam.corpus_lock` (enter `inner.corpu
 
 Expected: `test_lock_order_is_session_then_corpus_everywhere` fails on the `held_by_me` assertion inside `corpus_lock`; `test_a_holdings_write_and_a_corpus_add_on_two_threads_both_complete` fails on `is_alive`. Restore the designed order, rerun, expect pass. Record the observation in the task note.
 
-- [ ] **Step 7: Commit and close**
+- [x] **Step 7: Commit and close**
 
 ```bash
 git add python/src/beliefs/session python/tests/test_session_routes.py

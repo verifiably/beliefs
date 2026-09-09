@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from nodes.core.frontmatter import node_from_markdown
 from nodes.core.write_plan import CreateOp, WritePlan
 
 from beliefs.errors import SessionProtocolError
+from beliefs.holdings.seam import StoreActSeam
 from beliefs.permit import Authority
 from beliefs.profile import ProfileSpec
 from beliefs.runrecord import OperationPort
@@ -16,7 +19,7 @@ from beliefs.runrecord import OperationPort
 if TYPE_CHECKING:
     from beliefs.session.writer import WriterSession
 
-__all__ = ["LedgeredPort", "plan_records"]
+__all__ = ["LedgeredPort", "ledgered_seam", "plan_records"]
 
 
 def plan_records(plan: Sequence[object]) -> tuple[tuple[str, str], ...]:
@@ -76,3 +79,41 @@ class LedgeredPort:
         fallback: Callable[[str], WritePlan],
     ) -> str | None:
         raise SessionProtocolError("the guarded execution path is outside the session routes")
+
+
+def ledgered_seam(session: WriterSession, invocation: str, inner: StoreActSeam) -> StoreActSeam:
+    """Guard a holdings seam and ledger each published observation."""
+
+    def guarded(member: Callable[..., Any]) -> Callable[..., Any]:
+        def call(*args: Any) -> Any:
+            with session._lock:
+                session._require_current(invocation)
+                return member(*args)
+
+        return call
+
+    @contextmanager
+    def corpus_lock(root: Path) -> Iterator[None]:
+        with session._lock:
+            session._require_current(invocation)
+            with inner.corpus_lock(root):
+                yield
+
+    def publish_fulfilling(root: Path, plan: Sequence[object], intent: str) -> str:
+        with session._lock:
+            session._require_current(invocation)
+            records = plan_records(plan)
+            entry = inner.publish_fulfilling(root, plan, intent)
+            session._record_committed(invocation, intent=intent, entry=entry, records=records)
+            return entry
+
+    return StoreActSeam(
+        corpus_lock=corpus_lock,
+        append_intent=guarded(inner.append_intent),
+        publish_fulfilling=publish_fulfilling,
+        read_path=guarded(inner.read_path),
+        store_write=guarded(inner.store_write),
+        store_delete=guarded(inner.store_delete),
+        store_move=guarded(inner.store_move),
+        store_genesis=guarded(inner.store_genesis),
+    )

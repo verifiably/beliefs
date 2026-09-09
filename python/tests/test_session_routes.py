@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import threading
+from contextlib import contextmanager
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import pytest
 from nodes.core.frontmatter import node_to_markdown
@@ -11,7 +14,11 @@ from nodes.core.write_plan import CreateOp, DeleteOp
 from test_operation_writes import proposition
 from test_session_writer import DIGEST, make_session
 
+from beliefs.corpus import _operation_lock_for
 from beliefs.errors import PermitExceeded, SessionProtocolError
+from beliefs.holdings.boundary import ActContext, recheck, write
+from beliefs.holdings.records import StoreLocator
+from beliefs.holdings.seam import FileStateView, PathObservedView, StoreActSeam, StoreOutcomeView
 from beliefs.permit import RequiredCapabilities
 from beliefs.session import open_ledger_reader
 from beliefs.session.routes import plan_records
@@ -182,3 +189,184 @@ def test_a_permit_below_run_is_refused_by_the_boundary_before_any_intent(tmp_pat
     with pytest.raises(PermitExceeded):
         port.authority.require("run", ("run", "act-report"))
     assert ports[-1].calls == []
+
+
+# --- the holdings route (design §4.2) ---------------------------------------------
+HOLDINGS = RequiredCapabilities.for_kinds({"holdings-observation"}, {})
+STORE_ID = "1" * 32
+GENESIS = b'{"domain":"science.store-root.v1","store_id":"' + STORE_ID.encode() + b'"}'
+STATE = FileStateView("sha256:" + "a" * 64)
+
+
+@dataclass
+class FakeSeam:
+    root: Path
+    lock: TracingLock | None = None
+    on_corpus_lock: Any = None
+    reached: list[str] = field(default_factory=list)
+    published: list[tuple[object, ...]] = field(default_factory=list)
+    entered: int = 0
+
+    def _touch(self, name: str) -> None:
+        if self.lock is not None:
+            assert self.lock.held_by_me(), f"{name} entered without the session lock"
+        self.reached.append(name)
+
+    def build(self) -> StoreActSeam:
+        @contextmanager
+        def corpus_lock(root):
+            self._touch("corpus_lock")
+            with _operation_lock_for(root):
+                self.entered += 1
+                if self.on_corpus_lock is not None:
+                    self.on_corpus_lock(self.entered)
+                yield
+
+        def append_intent(_root, _payload):
+            self._touch("append_intent")
+            return INTENT
+
+        def publish_fulfilling(_root, plan, _intent):
+            self._touch("publish_fulfilling")
+            self.published.append(tuple(plan))
+            return "2" * 64
+
+        def read_path(_root, _path):
+            self._touch("read_path")
+            return PathObservedView(STATE)
+
+        def store_write(_root, path, _bytes):
+            self._touch("store_write")
+            return StoreOutcomeView("tx", ((path, STATE),))
+
+        def store_genesis(_root):
+            self._touch("store_genesis")
+            return GENESIS
+
+        def unused(*_):
+            raise AssertionError("not reached")
+
+        return StoreActSeam(corpus_lock, append_intent, publish_fulfilling, read_path, store_write, unused, unused, store_genesis)
+
+
+BOTH = RequiredCapabilities.for_kinds({"holdings-observation", "proposition"}, {})
+
+
+def _holdings(tmp_path: Path, seam: FakeSeam, scope: RequiredCapabilities = HOLDINGS):
+    session, ports = make_session(tmp_path, store_root=tmp_path / "store", store_id=STORE_ID, holdings_seam=seam.build())
+    session.claim_invocation("A", "hold", DIGEST)
+    writer = session.scoped(scope, "A")
+    return session, writer, writer.holdings_context(instrument="test"), ports[-1]
+
+
+def _published_pair(seam: FakeSeam) -> tuple[str, str]:
+    from nodes.core.frontmatter import node_from_markdown
+    ((op,),) = seam.published
+    node = node_from_markdown(op.content.decode("utf-8"))  # type: ignore[attr-defined]
+    return node.uid, node.id
+
+
+def test_holdings_context_without_a_store_is_a_protocol_error(tmp_path):
+    session, _ = make_session(tmp_path)
+    session.claim_invocation("A", "hold", DIGEST)
+    with pytest.raises(SessionProtocolError, match="no store"):
+        session.scoped(HOLDINGS, "A").holdings_context(instrument="test")
+
+
+def test_holdings_context_binds_the_session_and_the_scoped_authority(tmp_path):
+    seam = FakeSeam(tmp_path / "corpus")
+    session, writer, ctx, _ = _holdings(tmp_path, seam)
+    assert type(ctx) is ActContext
+    assert (ctx.observer_root, ctx.store_root) == (session.corpus_root, tmp_path / "store")
+    assert (ctx.observer, ctx.instrument, ctx.actor) == (session.actor, "test", writer.actor)
+    assert ctx.authority is writer._authority and ctx.profile is session.profile
+
+
+def test_a_holdings_write_ledgers_an_act_naming_the_observation(tmp_path):
+    seam = FakeSeam(tmp_path / "corpus")
+    session, _writer, ctx, _ = _holdings(tmp_path, seam)
+    write(ctx, StoreLocator(STORE_ID, "p.bin"), b"bytes")
+    pair = _published_pair(seam)
+    session.close_invocation("A", {"done": [list(pair)]})
+    session.close()
+    (act,) = open_ledger_reader(session.operations_root, session.session_id).acts()
+    assert (act.intent, act.entry, act.record_ids) == (INTENT, "2" * 64, (pair,))
+    assert seam.reached == ["corpus_lock", "append_intent", "store_genesis", "store_write", "corpus_lock", "publish_fulfilling"]
+
+
+def test_a_context_kept_past_its_invocation_reaches_no_member(tmp_path):
+    seam = FakeSeam(tmp_path / "corpus")
+    session, _writer, ctx, _ = _holdings(tmp_path, seam)
+    session.close_invocation("A", {"done": []})
+    with pytest.raises(SessionProtocolError):
+        write(ctx, StoreLocator(STORE_ID, "p.bin"), b"bytes")
+    with pytest.raises(SessionProtocolError):
+        recheck(ctx, StoreLocator(STORE_ID, "p.bin"))
+    assert seam.reached == []
+
+
+def test_a_close_inside_the_intent_append_is_refused_at_the_genesis_read(tmp_path):
+    holder: dict[str, Any] = {}
+    seam = FakeSeam(tmp_path / "corpus")
+    original = seam.build
+
+    def build():
+        from dataclasses import replace
+        built = original()
+        inner_append = built.append_intent
+
+        def closing_append(root, payload):
+            digest = inner_append(root, payload)
+            holder["session"].close_invocation("A", {"done": []})
+            return digest
+        return replace(built, append_intent=closing_append)
+
+    seam.build = build  # type: ignore[method-assign]
+    session, _writer, ctx, _ = _holdings(tmp_path, seam)
+    holder["session"] = session
+    with pytest.raises(SessionProtocolError):
+        write(ctx, StoreLocator(STORE_ID, "p.bin"), b"bytes")
+    assert seam.reached == ["corpus_lock", "append_intent"]
+
+
+def test_lock_order_is_session_then_corpus_everywhere(tmp_path):
+    lock = TracingLock()
+    seam = FakeSeam(tmp_path / "corpus", lock=lock)
+    session, writer, ctx, _ = _holdings(tmp_path, seam, BOTH)
+    session._lock = lock  # type: ignore[assignment]
+    write(ctx, StoreLocator(STORE_ID, "p.bin"), b"bytes")
+    writer.add(proposition("p"))
+    assert {outcome for _, outcome in lock.attempts} == {"owned"}
+    assert "publish_fulfilling" in seam.reached
+
+
+def test_a_holdings_write_and_a_corpus_add_on_two_threads_both_complete(tmp_path):
+    b_signalled, a_in_publication = threading.Event(), threading.Event()
+    lock = TracingLock(on_attempt=lambda name, _outcome: b_signalled.set() if name == "B" else None)
+
+    def on_corpus_lock(entered: int) -> None:
+        if entered == 2:
+            a_in_publication.set()
+            assert b_signalled.wait(5), "B never attempted the session lock"
+
+    seam = FakeSeam(tmp_path / "corpus", on_corpus_lock=on_corpus_lock)
+    session, writer, ctx, _ = _holdings(tmp_path, seam, BOTH)
+    session._lock = lock  # type: ignore[assignment]
+    failures: list[BaseException] = []
+
+    def run(fn):
+        try:
+            fn()
+        except BaseException as caught:  # noqa: BLE001
+            failures.append(caught)
+
+    a = threading.Thread(name="A", target=run, args=(lambda: write(ctx, StoreLocator(STORE_ID, "p.bin"), b"bytes"),), daemon=True)
+    b = threading.Thread(name="B", target=run, args=(lambda: writer.add(proposition("p")),), daemon=True)
+    a.start()
+    assert a_in_publication.wait(5)
+    b.start()
+    a.join(5)
+    b.join(5)
+    assert not a.is_alive() and not b.is_alive(), "deadlock: the lock order is not session then corpus"
+    assert failures == []
+    assert ("B", "held-by-another") in lock.attempts
