@@ -86,9 +86,9 @@ NO_BELIEF_REASONS = (
     "no-directional-outcome",
 )
 """The closed set of `NoBelief` reasons (belief-policy §4). `unavailable-
-corpus-absent` is banked but **unreachable in this slice**: records arrive as
-call arguments, so there is no corpus for this evaluator to find absent — the
-same defined-but-unreachable pattern cut 1 used for `not-present`."""
+corpus-absent` is returned by `evaluate_over` over a world read view whose
+inputs reach a record the epoch maps to a covered corpus with no carrier
+(world-resolution slice 1 §5.3)."""
 
 
 @sealed

@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from domain_facet_fixtures import kwargs_for, profile_with, seed
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.errors import RefError
+from nodes.core.frontmatter import node_to_markdown
+from nodes.core.relations import Relation
 from nodes.core.write_plan import DefaultExecutor
 from test_world_build import ALPHA, BETA, sample_nodes, slug_for
 from test_world_receipts import corpora, hold_shipped, publish, world_over
 
 from beliefs import stored
-from beliefs.corpus import ReadView, _root_state_for
+from beliefs.corpus import ReadView, _root_state_for, lineage_snapshot
 from beliefs.errors import BuildContended, EpochUnknown, RecordNotPresent, ResolutionRefused
 from beliefs.lineage import Absence, snapshot_projection
 from beliefs.world import read
@@ -431,3 +435,232 @@ class TestLineageSnapshotOverTheWorld:
 
         assert snapshot.producers[dataset.id][0].absent == (BETA,)
         assert result.state == "not-certified" and result.findings == ("lineage-incomplete",)
+
+
+def split_evaluation_world(tmp_path: Path, beta_refs=("dataset:d-a",)):
+    """Split the seeded corpus across carriers; by default only d-a lives in BETA."""
+    scratch = tmp_path / "scratch"
+    seeded = seed(scratch, axis="rows")
+    nodes = list(seeded.iter_stored())
+    beta_nodes = [n for n in nodes if n.id in beta_refs]
+    rest = [n for n in nodes if n.id not in beta_refs]
+    roots = corpora(tmp_path, {ALPHA: tuple(rest), BETA: tuple(beta_nodes)})
+    world = world_over(tmp_path, roots)
+    published = publish(world, (ALPHA, BETA), hold_shipped(world))
+    return world, roots, published
+
+
+def world_kwargs(view, profile):
+    """`kwargs_for` over the world view: attribution derived, both corpora pinned alike."""
+    kwargs = kwargs_for(view, profile)
+    context = replace(
+        kwargs["context"],
+        snapshot=lineage_snapshot(view, ("dataset:d-a", "dataset:d-b")),
+        retractions=replace(kwargs["context"].retractions, coverage=(ALPHA, BETA)),
+        node_corpus={},
+        pins={ALPHA: kwargs["context"].pins["c1"], BETA: kwargs["context"].pins["c1"]},
+    )
+    return {**kwargs, "context": context}
+
+
+class TestEvaluationOverTheWorld:
+    def test_a_belief_over_two_corpora_attributes_at_the_read(self, tmp_path):
+        from beliefs.belief import Belief
+        from beliefs.evaluation import evaluate_over, gather
+
+        world, _roots, published = split_evaluation_world(tmp_path)
+        profile = profile_with()
+        view = open_world_view(world, published)
+        kwargs = world_kwargs(view, profile)
+        inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
+                        resolution=kwargs["resolution"], binding=kwargs["binding"])
+        assert inputs.absent == ()
+        assert ("biology", kwargs["context"].pins[ALPHA].domains["biology"]) in inputs.consulted
+        assert len(inputs.observed_facets) == 1  # d-a's gene-axis row, read through BETA's own ReadView
+        assert inputs.node_corpus[inputs.observed_facets[0].address] == (BETA,)
+        assert inputs.node_corpus["run:run-a"] == (ALPHA,)
+        assert set(inputs.read_trace) <= inputs.declared_refs()
+        result = evaluate_over(view, "proposition:p", **kwargs)
+        assert isinstance(result, Belief)
+
+    def test_an_absent_input_corpus_is_the_banked_reason(self, tmp_path):
+        from beliefs.belief import NoBelief
+        from beliefs.evaluation import evaluate_over
+
+        world, roots, published = split_evaluation_world(tmp_path)
+        make_absent(roots, BETA)
+        view = open_world_view(world, published)
+        result = evaluate_over(view, "proposition:p", **world_kwargs(view, profile_with()))
+        assert isinstance(result, NoBelief)
+        assert result.reason == "unavailable-corpus-absent" and BETA in result.detail
+
+    @pytest.mark.parametrize("role", [stored.READS, stored.TRANSFORMS, stored.OBSERVES])
+    def test_an_absent_assessment_run_and_every_input_role_are_reported(self, tmp_path, role):
+        """Absence beyond the observed dataset: the assessment's own run, and a
+        input of each role, each recorded in the absent corpus."""
+        from beliefs.belief import NoBelief
+        from beliefs.evaluation import evaluate_over, gather
+
+        scratch = tmp_path / "scratch"
+        seeded = seed(scratch, axis="rows")
+        nodes = list(seeded.iter_stored())
+        raw_write(scratch, stored.dataset_node("d-t", title="d-t"))
+        run_b = next(n for n in nodes if n.id == "run:run-b")
+        run_b.relations.append(Relation(source=run_b.id, predicate=role, target="dataset:d-t"))
+        stored.stamp_semantic_identity(run_b)
+        raw_write(scratch, run_b)
+        nodes = list(reopen(scratch).iter_stored())
+        beta_side = tuple(n for n in nodes if n.id in ("run:run-a", "dataset:d-t"))
+        alpha_side = tuple(n for n in nodes if n.id not in ("run:run-a", "dataset:d-t"))
+        roots = corpora(tmp_path, {ALPHA: alpha_side, BETA: beta_side})
+        world = world_over(tmp_path, roots)
+        published = publish(world, (ALPHA, BETA), hold_shipped(world))
+        profile = profile_with()
+        make_absent(roots, BETA)
+        view = open_world_view(world, published)
+        kwargs = world_kwargs(view, profile)
+        inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
+                        resolution=kwargs["resolution"], binding=kwargs["binding"])
+        assert ("run:run-a", BETA) in inputs.absent and ("dataset:d-t", BETA) in inputs.absent
+        result = evaluate_over(view, "proposition:p", **kwargs)
+        assert isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent"
+
+    def test_the_derived_attribution_reaches_evaluate(self, tmp_path):
+        """An unrelated corpus pinned differently must not reach the consulted
+        walk: `evaluate` recomputes it from the context, so the context it gets
+        carries the attribution the read derived, not every supplied pin."""
+        from beliefs.belief import Belief
+        from beliefs.evaluation import evaluate_over
+
+        world, _roots, published = split_evaluation_world(tmp_path)
+        profile = profile_with()
+        view = open_world_view(world, published)
+        kwargs = world_kwargs(view, profile)
+        unrelated = replace(kwargs["context"].pins[ALPHA], science_contract="science:" + "0" * 64)
+        context = replace(kwargs["context"], pins={**kwargs["context"].pins, "unrelated": unrelated})
+        result = evaluate_over(view, "proposition:p", **{**kwargs, "context": context})
+        assert isinstance(result, Belief)
+
+    def test_a_supplied_attribution_over_a_world_view_refuses(self, tmp_path):
+        from beliefs.errors import MalformedRecord
+        from beliefs.evaluation import gather
+
+        world, _roots, published = split_evaluation_world(tmp_path)
+        profile = profile_with()
+        view = open_world_view(world, published)
+        kwargs = world_kwargs(view, profile)
+        supplied = replace(kwargs["context"], node_corpus={"anything": (ALPHA,)})
+        with pytest.raises(MalformedRecord, match="node_corpus.*derived"):
+            gather(view, "proposition:p", context=supplied, profile=profile,
+                   resolution=kwargs["resolution"], binding=kwargs["binding"])
+
+    @pytest.mark.parametrize("change", ["content", "addition", "removal"])
+    def test_a_facet_read_is_held_to_the_capture(self, tmp_path, change):
+        """A namespaced facet is not under the semantic hash: editing it after the
+        capture leaves `get` content-valid and the address unchanged, and only the
+        row-set comparison sees it. A whitespace-only rewrite keeps the row set and
+        must not refuse."""
+        from beliefs.errors import CaptureDrift
+        from beliefs.evaluation import gather
+
+        world, roots, published = split_evaluation_world(tmp_path)
+        profile = profile_with()
+        view = open_world_view(world, published)
+        kwargs = world_kwargs(view, profile)
+        path = roots[BETA] / "dataset" / "d-a.md"
+        path.write_text(path.read_text() + "\n")
+        gather(view, "proposition:p", context=kwargs["context"], profile=profile,
+               resolution=kwargs["resolution"], binding=kwargs["binding"])
+        node = reopen(roots[BETA]).get("dataset:d-a")
+        if change == "content":
+            node.facets["biology/gene-axis"]["axis"] = "columns"
+        elif change == "removal":
+            del node.facets["biology/gene-axis"]
+        else:
+            node.facets["testing/annotation"] = {"note": "added"}
+        path.write_text(node_to_markdown(node))
+        assert view.get("dataset:d-a").facets["biology/gene-axis"]["axis"] == "rows"  # the capture stands
+        with pytest.raises(CaptureDrift):
+            gather(view, "proposition:p", context=kwargs["context"], profile=profile,
+                   resolution=kwargs["resolution"], binding=kwargs["binding"])
+
+
+    def test_identical_assessment_values_at_distinct_addresses_consult_both_corpora(self, tmp_path):
+        from beliefs.belief import Belief, Refused
+        from beliefs.evaluation import evaluate_over, gather
+
+        nodes = tuple(seed(tmp_path / "scratch").iter_stored())
+        twin = stored.assessment_node(
+            "a-twin", title="twin", spec="spec-a", run="run:run-a", proposition="proposition:p",
+            outcome="supported", interpretation_rule="rule-1",
+        )
+        original = next(n for n in nodes if n.id == "assessment:a-1")
+        assert original.id != twin.id and original.uid != twin.uid
+        assert stored.assessment_value(original) == stored.assessment_value(twin)
+        roots = corpora(tmp_path, {ALPHA: nodes, BETA: (twin,)})
+        world = world_over(tmp_path, roots)
+        view = open_world_view(world, publish(world, (ALPHA, BETA), hold_shipped(world)))
+        profile = profile_with()
+        kwargs = world_kwargs(view, profile)
+        inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
+                        resolution=kwargs["resolution"], binding=kwargs["binding"])
+        assert inputs.node_corpus[stored.assessment_value(original).identity()] == (ALPHA, BETA)
+        with pytest.raises(TypeError):
+            cast(Any, inputs.node_corpus)[stored.assessment_value(original).identity()] = (ALPHA,)
+        assert isinstance(evaluate_over(view, "proposition:p", **kwargs), Belief)
+        pins = kwargs["context"].pins
+        disagreeing = replace(pins[BETA], science_contract="science:" + "0" * 64)
+        context = replace(kwargs["context"], pins={ALPHA: pins[ALPHA], BETA: disagreeing})
+        result = evaluate_over(view, "proposition:p", **{**kwargs, "context": context})
+        assert isinstance(result, Refused) and "consulted-contracts-disagree" in result.reason
+
+    def test_a_proposition_only_absent_carrier_is_reported(self, tmp_path):
+        from beliefs.belief import NoBelief
+        from beliefs.evaluation import evaluate_over, gather
+
+        world, roots, published = split_evaluation_world(tmp_path, ("proposition:p",))
+        make_absent(roots, BETA)
+        view = open_world_view(world, published)
+        profile = profile_with()
+        kwargs = world_kwargs(view, profile)
+        assert kwargs["context"].snapshot.not_present == {}
+        inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
+                        resolution=kwargs["resolution"], binding=kwargs["binding"])
+        assert inputs.absent == (("proposition:p", BETA),)
+        result = evaluate_over(view, "proposition:p", **kwargs)
+        assert isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent"
+        assert BETA in result.detail
+
+    def test_absence_in_the_supplied_snapshot_is_reported(self, tmp_path):
+        from beliefs.belief import NoBelief
+        from beliefs.evaluation import evaluate_over, gather
+
+        nodes = tuple(seed(tmp_path / "scratch").iter_stored())
+        extra = stored.dataset_node("extra", title="extra")
+        roots = corpora(tmp_path, {ALPHA: nodes, BETA: (extra,)})
+        world = world_over(tmp_path, roots)
+        published = publish(world, (ALPHA, BETA), hold_shipped(world))
+        make_absent(roots, BETA)
+        view = open_world_view(world, published)
+        profile = profile_with()
+        kwargs = world_kwargs(view, profile)
+        context = replace(kwargs["context"], snapshot=lineage_snapshot(
+            view, ("dataset:d-a", "dataset:d-b", "dataset:extra")))
+        inputs = gather(view, "proposition:p", context=context, profile=profile,
+                        resolution=kwargs["resolution"], binding=kwargs["binding"])
+        assert inputs.absent == (("dataset:extra", BETA),)
+        result = evaluate_over(view, "proposition:p", **{**kwargs, "context": context})
+        assert isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent"
+
+    def test_an_unknown_proposition_reference_is_not_absence(self, tmp_path):
+        from beliefs.evaluation import gather
+
+        nodes = tuple(n for n in seed(tmp_path / "scratch").iter_stored() if n.kind != "proposition")
+        roots = corpora(tmp_path, {ALPHA: nodes, BETA: ()})
+        world = world_over(tmp_path, roots)
+        view = open_world_view(world, publish(world, (ALPHA, BETA), hold_shipped(world)))
+        profile = profile_with()
+        kwargs = world_kwargs(view, profile)
+        inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
+                        resolution=kwargs["resolution"], binding=kwargs["binding"])
+        assert inputs.absent == () and inputs.claim is None
