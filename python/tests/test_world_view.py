@@ -41,6 +41,43 @@ def make_absent(roots: dict[str, Path], corpus_id: str) -> None:
     (roots[corpus_id] / "corpus.yaml").unlink()
 
 
+def chain_nodes():
+    """D0 -> R1 -> D1 -> R2 -> D2, R1 and D1 placed in BETA by the caller."""
+    d0 = stored.dataset_node("d0", title="d0")
+    r1 = stored.run_node("r1", title="r1", spec="s", transforms=[d0.id], produces=["dataset:d1"])
+    d1 = stored.dataset_node(
+        "d1",
+        title="d1",
+        basis={
+            "tag": "single",
+            "routes": [
+                {"identity": "route:d1", "run": r1.id, "ancestor": d0.id, "transforms": [d0.id]}
+            ],
+        },
+    )
+    r2 = stored.run_node("r2", title="r2", spec="s", transforms=[d1.id], produces=["dataset:d2"])
+    d2 = stored.dataset_node(
+        "d2",
+        title="d2",
+        basis={
+            "tag": "single",
+            "routes": [
+                {"identity": "route:d2", "run": r2.id, "ancestor": d1.id, "transforms": [d1.id]}
+            ],
+        },
+    )
+    return d0, r1, d1, r2, d2
+
+
+def chain_world(tmp_path: Path):
+    d0, r1, d1, r2, d2 = chain_nodes()
+    coverage = (ALPHA, BETA)
+    roots = corpora(tmp_path, {ALPHA: (d0, r2, d2), BETA: (r1, d1)})
+    world = world_over(tmp_path, roots)
+    bindings = hold_shipped(world)
+    return world, roots, publish(world, coverage, bindings)
+
+
 class TestOpening:
     def test_the_stamp_is_the_epochs(self, tmp_path):
         world, _roots, published = two_corpus_world(tmp_path)
@@ -169,6 +206,58 @@ class TestBoundReads:
             view.corpus_view(address_in(published, BETA))
         with pytest.raises(RefError):
             view.corpus_view("dataset:never-observed")
+
+
+class TestCrossCorpusEdges:
+    def test_inbound_crosses_the_corpus_edge_and_is_dangling_locally(self, tmp_path):
+        world, roots, published = chain_world(tmp_path)
+        view = open_world_view(world, published)
+        producers_of_d1 = {
+            e.relation.source for e in view.inbound("dataset:d1") if e.relation.predicate == "produces"
+        }
+        assert producers_of_d1 == {"run:r1"}
+        producers_of_d2 = {
+            e.relation.source for e in view.inbound("dataset:d2") if e.relation.predicate == "produces"
+        }
+        assert producers_of_d2 == {"run:r2"}
+        # r2 transforms d1, which BETA holds: found at the world layer, dangling in ALPHA alone.
+        assert {
+            e.relation.source for e in view.inbound("dataset:d1") if e.relation.predicate == "transforms"
+        } == {"run:r2"}
+        with pytest.raises(RefError):  # the corpus facade cannot even ask about a ref it does not hold
+            ReadView.opened_at(roots[ALPHA]).inbound("dataset:d1")
+
+    def test_inbound_to_an_absent_record_still_finds_present_sources(self, tmp_path):
+        world, roots, published = chain_world(tmp_path)
+        make_absent(roots, BETA)
+        view = open_world_view(world, published)
+        assert type(view.locate("dataset:d1")) is read.NotPresent
+        assert {e.relation.source for e in view.inbound("dataset:d1")} == {"run:r2"}
+        assert view.inbound("dataset:never-observed") == []
+
+    def test_a_drift_source_files_no_edge_and_producers_excludes_it(self, tmp_path):
+        world, roots, published = chain_world(tmp_path)
+        raw_write(roots[ALPHA], stored.run_node("late", title="late", spec="s", produces=["dataset:d2"]))
+        view = open_world_view(world, published)
+        assert "run:late" not in {e.relation.source for e in view.inbound("dataset:d2")}
+        assert view.producers("dataset:d2") == ("run:r2",)
+
+    def test_a_drift_copy_of_a_foreign_target_does_not_hide_the_edge(self, tmp_path):
+        world, roots, published = chain_world(tmp_path)
+        raw_write(roots[ALPHA], stored.dataset_node("d1", title="a drift copy of BETA's d1"))
+        view = open_world_view(world, published)
+        assert view.corpus_of("dataset:d1") == BETA
+        assert {
+            e.relation.source for e in view.inbound("dataset:d1") if e.relation.predicate == "transforms"
+        } == {"run:r2"}
+
+    def test_published_producers_survive_an_absent_carrier(self, tmp_path):
+        world, roots, published = chain_world(tmp_path)
+        make_absent(roots, BETA)
+        view = open_world_view(world, published)
+        assert view.published_producers("dataset:d1") == ("run:r1",)
+        assert view.published_producers("dataset:d2") == ("run:r2",)
+        assert view.published_producers("dataset:never-observed") == ()
 
 
 def test_returned_objects_are_detached(tmp_path):
