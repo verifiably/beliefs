@@ -20,6 +20,7 @@ from authority import ACTOR, FULL
 from coordination_fixtures import content_for, coordination_profile, pins_for
 from fixtures_cut6 import PINS
 from nodes.core.errors import ExecutionError
+from nodes.core.frontmatter import node_from_markdown
 from nodes.core.node import Node
 from nodes.core.write_plan import CreateOp, DefaultExecutor
 from profiles import WITH_BIOLOGY
@@ -1322,3 +1323,59 @@ def test_mismatching_pins_leave_durable_pending_recovery_untouched(work_director
     assert not pending_registrations(root) and not state_of(root).unresolved
     assert not (root / ".#~chain" / ".#~stage").exists()
     session.close()
+
+
+# --- the routes, durably (session-routes design §8 items 10–12) -------------------
+def _registration_fulfilling(root: Path, intent: str) -> str:
+    matches = [e.digest for e in chain(root).entries if getattr(e, "fulfills", None) == intent]
+    assert len(matches) == 1, matches
+    return matches[0]
+
+
+def test_a_holdings_write_through_the_scoped_writer_is_ledgered_against_the_chain(work_directory):
+    from beliefs.holdings.boundary import write
+    from beliefs.holdings.records import StoreLocator
+
+    root = adopted(work_directory, "holdings-route")
+    store = _track(work_directory / f"store-{secrets.token_hex(4)}")
+    init_store_root(store, authority=FULL)
+    session, ops = attended(work_directory, root, store_root=store)
+    session.claim_invocation("A", "dataset", "d" * 64)
+    writer = session.scoped(RequiredCapabilities.for_kinds({"holdings-observation"}, {}), "A")
+    published = write(writer.holdings_context(instrument="acceptance"), StoreLocator(writer.store_id, "held.bin"), b"held")
+    (act,) = session.invocation_acts("A")
+    session.close_invocation("A", {"done": [list(pair) for pair in act.record_ids]})
+    session.close()
+
+    # The persisted node is the only holder of the uid the boundary minted.
+    persisted = node_from_markdown((root / "holdings-observation" / f"{published.record.identity()}.md").read_text())
+    assert act.record_ids == ((persisted.uid, persisted.id),)
+    assert act.entry == _registration_fulfilling(root, act.intent)
+    assert reconcile_sessions(config_for(work_directory, root), ops) == ()
+
+
+def test_a_run_publication_through_the_operation_port_is_ledgered_against_the_chain(work_directory):
+    from fixtures_cut3 import spec_draft, spec_rules
+    from test_audit import assessment_closure
+
+    from beliefs.identity import v1
+    from beliefs.runrecord import publication_plan
+    from beliefs.spec import freeze
+
+    root = adopted(work_directory, "run-route")
+    session, ops = attended(work_directory, root)
+    session.claim_invocation("A", "run", "d" * 64)
+    writer = session.scoped(RequiredCapabilities.for_kinds({"run", "act-report"}, {"run": "run", "act-report": "run"}), "A")
+    port = writer.operation_port()
+    closure = assessment_closure(freeze(spec_draft(), held_rules=spec_rules()))
+    intent = port.append_intent(v1.encode({"spec_identity": closure.recipe.spec_identity, "event_token": "tok", "actor": writer.actor}))
+    _address, _produces, plan = publication_plan(closure)
+    entry = port.execute_fulfilling(plan, intent)
+    (act,) = session.invocation_acts("A")
+    session.close_invocation("A", {"done": [list(pair) for pair in act.record_ids]})
+    session.close()
+
+    assert act.entry == entry == _registration_fulfilling(root, intent)
+    (pair,) = act.record_ids
+    assert pair[1] == f"run:{closure.address()}"
+    assert reconcile_sessions(config_for(work_directory, root), ops) == ()

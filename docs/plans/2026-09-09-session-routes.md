@@ -1107,9 +1107,9 @@ git commit -m "feat(session): ledger the holdings route through the scoped write
 **Interfaces:**
 - Consumes: Tasks 3–5; `beliefs.runrecord.publication_plan(closure)`; `test_audit.assessment_closure`, `fixtures_cut3.spec_draft/spec_rules`; `beliefs.holdings.boundary.write`; `beliefs.holdings.records.StoreLocator`; `beliefs.session.reconcile_sessions`.
 
-- [ ] **Step 1: `tasks start beliefs-440c98`**
+- [x] **Step 1: `tasks start beliefs-440c98`**
 
-- [ ] **Step 2: Write the tests**
+- [x] **Step 2: Write the tests**
 
 Append to `python/tests/acceptance/test_session_acceptance.py` (add the imports named in the body to the file's import blocks):
 
@@ -1171,12 +1171,12 @@ def test_a_run_publication_through_the_operation_port_is_ledgered_against_the_ch
     assert reconcile_sessions(config_for(work_directory, root), ops) == ()
 ```
 
-- [ ] **Step 3: Run them**
+- [x] **Step 3: Run them**
 
 Run: `(cd python && uv run --frozen pytest tests/acceptance/test_session_acceptance.py -q -k "holdings_route or run_route or through_the")`
 Expected: PASS (`stored.run_publication_node(slug, …)` assigns `id = f"run:{slug}"`, and `publication_plan` passes the closure address as the slug).
 
-- [ ] **Step 4: Run `just check` and commit**
+- [x] **Step 4: Run `just check` and commit**
 
 ```bash
 git add python/tests/acceptance/test_session_acceptance.py
