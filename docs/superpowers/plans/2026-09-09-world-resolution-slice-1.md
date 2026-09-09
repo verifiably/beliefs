@@ -54,7 +54,7 @@
 - Modify: `docs/designs/README.md` (the design list and its count), `python/tests/test_designs_corpus.py` only if `_COUNT_WORDS` needs the next number word
 
 **Interfaces:**
-- Produces: the nine declaration units named below, cited verbatim by Task 12's `DECLARATION_UNITS`, and the literal `PREFIX_RUNNERS = ("cut22_acceptance.py",)` cited by Task 13.
+- Produces: the eight declaration units named below, cited verbatim by Task 12's `DECLARATION_UNITS`, and the literal `PREFIX_RUNNERS = ("cut22_acceptance.py",)` cited by Task 13.
 
 - [ ] **Step 1: Confirm the number is free**
 
@@ -99,8 +99,8 @@ Cross-corpus reach: an absent ancestor or producing run in a covered corpus is `
 ### W6 — closes, read over slice 2's code
 Three states, never collapsed; removing a corpus does not convert its ids to `unknown`. Selected: unit `W6`. **Deferred:** nothing.
 
-### W8b — closes, read over slice 2's code
-Duplicate-location and corruption distinguished at build; no repair offered. Selected: unit `W8b`. **Deferred:** nothing.
+### W8b — not selected, measured
+Probed 2026-09-09 on `197f517` before the freeze: `epoch.build_epoch` **published** an epoch over two records at different addresses sharing one `uid`, and refused one address held in two corpora with a bare `ValueError` from `derive.address_map` rather than the `duplicate-location` finding the row promises. Neither half of the row can be read closed on this tree, and repairing the build is a change to slice 2's code outside this cut's boundary. **Not selected.** The measurement is filed as a task in this lane (`beliefs-<id>`, Task 1 step 5) and the row stays part in the roadmap. What this cut does hold is the view's own half: a `uid` held under two corpora refuses at open as corruption (§5 item 4, boundary invariants).
 
 ### W10 — closes
 Cross-corpus edges are ordinary at the world layer and dangling at the corpus layer. Selected: unit `W10`. **Deferred:** nothing.
@@ -118,10 +118,10 @@ The view captures, never rereads; every object served is detached; the world loc
 `## 4. Accounting` — exactly these two sentences, which the guard greps:
 
 ```markdown
-Nine guarantee rows are read, **8 full/closed** (D3, S1, S1a, S5, W6, W8b, W10, R19), 1 partial (R23), and **9 declaration units** carry them: `D3`, `S1`, `S1a`, `S5`, `W6`, `W8b`, `W10`, `R19`, `R23`.
+Eight guarantee rows are read, **7 full/closed** (D3, S1, S1a, S5, W6, W10, R19), 1 partial (R23), and **8 declaration units** carry them: `D3`, `S1`, `S1a`, `S5`, `W6`, `W10`, `R19`, `R23`. W8b is measured and not selected (§3).
 ```
 
-`## 5. N2 and acceptance obligations` — numbered as cut 22's: (1) the inventory is exactly the nine units, single-homed; (2) every durable arm runs on the certified volume, refusal is an error and never a skip; (3) the runner, quoting `PREFIX_RUNNERS = ("cut22_acceptance.py",)` and `PHASE_MODULES = ("test_world_view_acceptance.py", "test_n2_cut23.py")`; (4) every sabotage site, listed from spec §8's N2 paragraph plus the two measured-row sabotages: in `world/view.py` (map-first resolution replaced by a carrier scan; the absent set read as unknown; `get` served from the live carrier; drift sources filed in the inbound index; targets resolved through the local index; the retained node returned), in `corpus.py` (the published-producers union dropped; `not_present` filtered by the inspected set), in `lineage.py` (the divergence comparison made over an absent producer; `not_present` omitted from the projection), in `resolution.py` (one overlap pair unrefused), in `evaluation.py` (attribution after the fact through `corpus_of`; the world view passed to `read_observed_facets`; the facet comparison made on identities), in `world/read.py` (`not status.present` answered `Unknown`), in `world/registry.py` (the `duplicate-carrier` finding dropped); (5) `test_n2_cut23.py` audits them by the cut-12 pattern with the staleness probe's baseline taken from the tree; (6) prior declarations frozen, no check reclaimed; (7) the freeze pin.
+`## 5. N2 and acceptance obligations` — numbered as cut 22's: (1) the inventory is exactly the eight units, single-homed; (2) every durable arm runs on the certified volume, refusal is an error and never a skip; (3) the runner, quoting `PREFIX_RUNNERS = ("cut22_acceptance.py",)` and `PHASE_MODULES = ("test_world_view_acceptance.py", "test_n2_cut23.py")`; (4) every sabotage site, listed from spec §8's N2 paragraph plus the two measured-row sabotages: in `world/view.py` (map-first resolution replaced by a carrier scan; the absent set read as unknown; `get` served from the live carrier; drift sources filed in the inbound index; targets resolved through the local index; the retained node returned), in `corpus.py` (the published-producers union dropped; `not_present` filtered by the inspected set), in `lineage.py` (the divergence comparison made over an absent producer; `not_present` omitted from the projection), in `resolution.py` (one overlap pair unrefused), in `evaluation.py` (attribution after the fact through `corpus_of`; the world view passed to `read_observed_facets`; the facet comparison made on identities), in `world/read.py` (`not status.present` answered `Unknown`), in `audit.py` (the verdict disagreement never recorded), and in `world/view.py` again (a `uid` held under two corpora admitted at open); (5) `test_n2_cut23.py` audits them by the cut-12 pattern with the staleness probe's baseline taken from the tree; (6) prior declarations frozen, no check reclaimed; (7) the freeze pin.
 
 `## 6. Second reader` and `## 7. Limitations` — the second reader records the three review passes on the spec (§11 there); limitations: per-corpus coherent capture is not one world state; the absent set reaches the digest through the lineage member only (spec §9).
 
@@ -142,7 +142,11 @@ git commit -m "docs(cut23): freeze conformance cut 23, the world read view"
 git rev-parse --short HEAD   # this is CUT23_FREEZE_COMMIT for Task 12
 ```
 
-Record the sha and `sha256sum docs/designs/2026-09-09-conformance-cut-23.md` in a task note: `tasks note beliefs-d248ba "cut 23 frozen at <sha>, sha256 <digest>"`.
+Record the sha and `sha256sum docs/designs/2026-09-09-conformance-cut-23.md` in a task note: `tasks note beliefs-d248ba "cut 23 frozen at <sha>, sha256 <digest>"`. File the W8b measurement before the freeze commit so §3 can cite its id:
+
+```bash
+tasks add "W8b at build: uid uniqueness is unchecked and a duplicate address is a ValueError, not a duplicate-location finding" -p 2 --size m --tag world-read --tag conformance -b "Measured 2026-09-09 on 197f517: epoch.build_epoch publishes two records at different addresses sharing one uid, and refuses one address held in two corpora with derive.address_map's bare ValueError instead of the duplicate-location finding W8b promises. Cut 23 does not select W8b; the view refuses uid ambiguity at open as its own half."
+```
 
 ---
 
@@ -166,10 +170,13 @@ def test_validated_node_is_the_facade_rule_factored_out():
     from beliefs import stored
     from beliefs.errors import SemanticHashMissing
 
-    node = stored.proposition_node("p", title="p", claim={"operator": "affects"})
+    from nodes.core.node import Node
+
+    # `stored.proposition_node` stamps at construction; an unstamped governed record is built bare.
+    node = Node(id="proposition:p", kind="proposition", title="p", facets={"proposition": {"operator": "affects"}})
     with pytest.raises(SemanticHashMissing):
         validated_node(node)
-    stamped = stored.stamp_semantic_identity(node)
+    stamped = stored.proposition_node("p", title="p", claim={"operator": "affects"})
     assert validated_node(stamped) is stamped
     assert ReadView._validated(stamped) is stamped
 
@@ -272,8 +279,8 @@ from pathlib import Path
 
 import pytest
 from authority import FULL
+from fixtures_cut4 import raw_write, reopen
 from nodes.core.errors import RefError
-from profiles import WITH_BIOLOGY
 from test_world_build import ALPHA, BETA, sample_nodes, slug_for
 from test_world_receipts import corpora, hold_shipped, publish, world_over
 
@@ -340,6 +347,14 @@ class TestOpening:
             with pytest.raises(BuildContended):
                 open_world_view(world, published)
 
+    def test_one_uid_under_two_corpora_refuses_at_open(self, tmp_path):
+        world, roots, published = two_corpus_world(tmp_path)
+        alpha = address_in(published, ALPHA)
+        twin = reopen(roots[ALPHA]).get(alpha).model_copy(deep=True, update={"id": "dataset:twin"})
+        raw_write(roots[BETA], twin)  # same uid, a second corpus, a different address
+        with pytest.raises(ResolutionRefused, match="uid uniqueness"):
+            open_world_view(world, published)
+
     def test_a_carrier_disagreeing_with_the_map_is_corruption(self, tmp_path):
         world, roots, published = two_corpus_world(tmp_path)
         alpha = address_in(published, ALPHA)
@@ -356,8 +371,8 @@ class TestBoundReads:
         first = open_world_view(world, published)
         alpha = address_in(published, ALPHA)
         before = first.get(alpha)
-        writer = CorpusWriter(roots[ALPHA], DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY)
-        writer.add(stored.dataset_node("late", title="late"))
+        late = stored.dataset_node("late", title="late")
+        raw_write(roots[ALPHA], late)  # drift is a write the publication never saw; the boundary need not bless it
         assert first.get(alpha) == before
         assert "dataset:late" not in {n.id for n in first.iter_stored()}
         assert first.drift() == ()  # it reports what it captured, not what came after
@@ -366,7 +381,7 @@ class TestBoundReads:
         (report,) = second.drift()
         assert report.corpus_id == ALPHA
         assert report.published_state != report.captured_state
-        assert report.unmapped == (writer.read_view.get("dataset:late").uid,)
+        assert report.unmapped == (late.uid,)
         assert "dataset:late" not in {n.id for n in second.iter_stored()}
 
     def test_enumeration_is_mapped_records_in_corpus_order(self, tmp_path):
@@ -682,6 +697,16 @@ def open_world_view(world: registry.World, published: epoch.Epoch) -> WorldReadV
                 "corruption and not an absence"
             )
 
+    owners: dict[str, str] = {}
+    for corpus_id in sorted(captured):
+        for uid in captured[corpus_id]:
+            if uid in owners:
+                raise ResolutionRefused(
+                    f"uid {uid!r} is held by both {owners[uid]} and {corpus_id}; world uid uniqueness is enforced "
+                    "and its violation is corruption, not a record with two homes (W8b, the view's half)"
+                )
+            owners[uid] = corpus_id
+
     drift: list[DriftReport] = []
     held: dict[str, dict[str, Node]] = {}
     for corpus_id in sorted(captured):
@@ -787,7 +812,8 @@ class TestCrossCorpusEdges:
         assert producers_of_d2 == {"run:r2"}
         # r2 transforms d1, which BETA holds: found at the world layer, dangling in ALPHA alone.
         assert {e.relation.source for e in view.inbound("dataset:d1") if e.relation.predicate == "transforms"} == {"run:r2"}
-        assert ReadView.opened_at(roots[ALPHA]).inbound("dataset:d1") == []
+        with pytest.raises(RefError):  # the corpus facade cannot even ask about a ref it does not hold
+            ReadView.opened_at(roots[ALPHA]).inbound("dataset:d1")
 
     def test_inbound_to_an_absent_record_still_finds_present_sources(self, tmp_path):
         world, roots, published = chain_world(tmp_path)
@@ -799,16 +825,14 @@ class TestCrossCorpusEdges:
 
     def test_a_drift_source_files_no_edge_and_producers_excludes_it(self, tmp_path):
         world, roots, published = chain_world(tmp_path)
-        writer = CorpusWriter(roots[ALPHA], DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY)
-        writer.add(stored.run_node("late", title="late", spec="s", produces=["dataset:d2"]))
+        raw_write(roots[ALPHA], stored.run_node("late", title="late", spec="s", produces=["dataset:d2"]))
         view = open_world_view(world, published)
         assert "run:late" not in {e.relation.source for e in view.inbound("dataset:d2")}
         assert view.producers("dataset:d2") == ("run:r2",)
 
     def test_a_drift_copy_of_a_foreign_target_does_not_hide_the_edge(self, tmp_path):
         world, roots, published = chain_world(tmp_path)
-        writer = CorpusWriter(roots[ALPHA], DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY)
-        writer.add(stored.dataset_node("d1", title="a drift copy of BETA's d1"))
+        raw_write(roots[ALPHA], stored.dataset_node("d1", title="a drift copy of BETA's d1"))
         view = open_world_view(world, published)
         assert view.corpus_of("dataset:d1") == BETA
         assert {e.relation.source for e in view.inbound("dataset:d1") if e.relation.predicate == "transforms"} == {"run:r2"}
@@ -829,7 +853,7 @@ Expected: most PASS against Task 3's index; `test_a_drift_copy_of_a_foreign_targ
 
 - [ ] **Step 3: Harden**
 
-`corpus_at` pins every fixture corpus to `pins_for(WITH_BIOLOGY)`, which is why the writers above are built with `profile=WITH_BIOLOGY`: `require_pins_agree` refuses any other profile at the write. Keep the index logic as written; a failure here is a defect in Task 3's index.
+Drift is produced with `raw_write`, never through a writer: a record the publication never saw is by definition one the boundary was not asked about, and `CorpusWriter.add` would refuse a dataset with no content basis (`BasisMissing`) before any drift existed. Keep the index logic as written; a failure here is a defect in Task 3's index.
 
 - [ ] **Step 4: Run and commit**
 
@@ -996,7 +1020,7 @@ class Absence:
     corpus_id: str
 ```
 
-`Producer` gains `absent: tuple[str, ...] = ()` with a `__post_init__` refusing anything but `()` or a one-tuple. `LineageSnapshot` gains `not_present: Mapping[str, str] = MappingProxyType({})` after `producers`, wrapped in `MappingProxyType(dict(...))` in `__post_init__`. `Certification` gains `absent: tuple[Absence, ...] = ()` after `findings`, and its `__post_init__` also checks every member is an `Absence`.
+`Producer` gains `absent: tuple[str, ...] = ()` with a `__post_init__` refusing anything but `()` or a one-tuple. `LineageSnapshot` gains `not_present: Mapping[str, str] = field(default_factory=dict)` after `producers` (`from dataclasses import field`; a `MappingProxyType({})` default is unhashable and Python 3.11's dataclass machinery refuses it), frozen to `MappingProxyType(dict(self.not_present))` in `__post_init__` like `bases` and `producers`. `Certification` gains `absent: tuple[Absence, ...] = ()` after `findings`, and its `__post_init__` also checks every member is an `Absence`.
 
 `divergence_state`, after the `BasisTagMismatch` guard:
 
@@ -1114,6 +1138,17 @@ class TestLineageSnapshotOverTheWorld:
         assert result.absent == (Absence("dataset:d1", BETA),)
         assert snapshot_projection(partial) != snapshot_projection(complete)
 
+    def test_an_absent_root_is_recorded_before_any_walk(self, tmp_path):
+        from beliefs.corpus import lineage_snapshot
+        from beliefs.lineage import certify
+
+        world, roots, published = chain_world(tmp_path)
+        make_absent(roots, BETA)
+        snapshot = lineage_snapshot(open_world_view(world, published), ["dataset:d1"])  # the root itself is absent
+        assert snapshot.not_present == {"dataset:d1": BETA} and snapshot.roots == ("dataset:d1",)
+        result = certify(snapshot, ("dataset:d1",), ())
+        assert result.state == "not-certified" and result.absent == (Absence("dataset:d1", BETA),)
+
     def test_a_refusal_is_not_absence(self, tmp_path):
         from beliefs.corpus import lineage_snapshot
         from beliefs.errors import SemanticHashStale
@@ -1187,7 +1222,14 @@ def lineage_snapshot(view: "ReadView | WorldReadView", roots: Sequence[str]) -> 
     inspected: list[str] = []
     not_present: dict[str, str] = {}
     for root in roots:
-        for dataset in (root, *closure(root, adjacency).reached):
+        if root not in inspected:
+            inspected.append(root)  # §5 step 1: the root is inspected whether or not it can be read
+        if not view.holds(root):
+            corpus_id = _absence_of(view, root)
+            if corpus_id is not None:
+                not_present[root] = corpus_id
+            continue  # `closure` fetches the root first; an absent root is recorded, never walked
+        for dataset in closure(root, adjacency).reached:
             if dataset not in inspected:
                 inspected.append(dataset)
 
@@ -1508,8 +1550,9 @@ Append to `python/tests/test_world_view.py`. The scenario is `domain_facet_fixtu
 from dataclasses import replace  # noqa: E402
 
 from domain_facet_fixtures import kwargs_for, profile_with, seed  # noqa: E402
-from fixtures_cut4 import reopen  # noqa: E402
 from nodes.core.frontmatter import node_to_markdown  # noqa: E402
+
+from nodes.core.relations import Relation  # noqa: E402
 
 from beliefs.corpus import lineage_snapshot  # noqa: E402
 
@@ -1567,6 +1610,52 @@ class TestEvaluationOverTheWorld:
         result = evaluate_over(view, "proposition:p", **world_kwargs(view, profile_with()))
         assert isinstance(result, NoBelief)
         assert result.reason == "unavailable-corpus-absent" and BETA in result.detail
+
+    def test_an_absent_assessment_run_and_a_transforms_input_are_reported(self, tmp_path):
+        """Absence beyond the observed dataset: the assessment's own run, and a
+        `transforms` input, each recorded in the absent corpus."""
+        from beliefs.belief import NoBelief
+        from beliefs.evaluation import evaluate_over, gather
+
+        scratch = tmp_path / "scratch"
+        seeded = seed(scratch, axis="rows")
+        nodes = list(seeded.iter_stored())
+        raw_write(scratch, stored.dataset_node("d-t", title="d-t"))
+        run_b = next(n for n in nodes if n.id == "run:run-b")
+        run_b.relations.append(Relation(source=run_b.id, predicate=stored.TRANSFORMS, target="dataset:d-t"))
+        stored.stamp_semantic_identity(run_b)
+        raw_write(scratch, run_b)
+        nodes = list(reopen(scratch).iter_stored())
+        beta_side = tuple(n for n in nodes if n.id in ("run:run-a", "dataset:d-t"))
+        alpha_side = tuple(n for n in nodes if n.id not in ("run:run-a", "dataset:d-t"))
+        roots = corpora(tmp_path, {ALPHA: alpha_side, BETA: beta_side})
+        world = world_over(tmp_path, roots)
+        published = publish(world, (ALPHA, BETA), hold_shipped(world))
+        profile = profile_with()
+        make_absent(roots, BETA)
+        view = open_world_view(world, published)
+        kwargs = world_kwargs(view, profile)
+        inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
+                        resolution=kwargs["resolution"], binding=kwargs["binding"])
+        assert ("run:run-a", BETA) in inputs.absent and ("dataset:d-t", BETA) in inputs.absent
+        result = evaluate_over(view, "proposition:p", **kwargs)
+        assert isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent"
+
+    def test_the_derived_attribution_reaches_evaluate(self, tmp_path):
+        """An unrelated corpus pinned differently must not reach the consulted
+        walk: `evaluate` recomputes it from the context, so the context it gets
+        carries the attribution the read derived, not every supplied pin."""
+        from beliefs.belief import Belief
+        from beliefs.evaluation import evaluate_over
+
+        world, _roots, published = split_evaluation_world(tmp_path)
+        profile = profile_with()
+        view = open_world_view(world, published)
+        kwargs = world_kwargs(view, profile)
+        unrelated = replace(kwargs["context"].pins[ALPHA], science_contract="science:" + "0" * 64)
+        context = replace(kwargs["context"], pins={**kwargs["context"].pins, "unrelated": unrelated})
+        result = evaluate_over(view, "proposition:p", **{**kwargs, "context": context})
+        assert isinstance(result, Belief)
 
     def test_a_supplied_attribution_over_a_world_view_refuses(self, tmp_path):
         from beliefs.errors import MalformedRecord
@@ -1654,17 +1743,31 @@ def _facets_held_to_capture(profile: ProfileSpec, view: "WorldReadView", target:
 In `gather`: widen the annotation to `"ReadView | WorldReadView"`; add `from beliefs.world.view import WorldReadView` at the top of the body (a runtime import, because `world.view` imports `corpus`); add `world = isinstance(view, WorldReadView)`, `attribution: dict[str, set[str]] = {}`, `absent: list[tuple[str, str]] = []`. Then:
 
 - in the assessment loop, after `matched.append(value)`: `if world: attribution.setdefault(value.identity(), set()).add(view.corpus_of(node.id) or "")`;
-- in the run loop, replace `if not view.holds(target): continue` with:
+- in the run loop, the existing skip `if a.run in runs or not view.holds(ref): continue` becomes:
 
 ```python
-            if not view.holds(target):
+        ref = stored.typed_ref("run", a.run)
+        if a.run in runs:
+            continue
+        if not view.holds(ref):
+            corpus_id = _absence_of(view, ref)
+            if corpus_id is not None:
+                absent.append((ref, corpus_id))  # an assessment's own run, recorded in an absent corpus
+            continue
+        run_node = view.get(ref)
+        runs[a.run] = run_value(view, ref)
+        trace.append(("run", a.run))
+        for role in stored.INPUT_ROLES:
+            for target in stored.inputs_of(run_node, role):
+                if view.holds(target):
+                    continue
                 corpus_id = _absence_of(view, target)
                 if corpus_id is not None:
-                    absent.append((target, corpus_id))
-                continue
+                    absent.append((target, corpus_id))  # reads, transforms and observes alike
 ```
 
-  and after `address` is known: `if world: attribution.setdefault(address, set()).add(view.corpus_of(target) or "")`;
+  followed by the existing `observes` loop over held targets, in which, after `address` is known: `if world: attribution.setdefault(address, set()).add(view.corpus_of(target) or "")`;
+- after the loops, the lineage closure's own absence joins: `absent.extend(context.snapshot.not_present.items())` — the snapshot the caller supplies is the one `lineage_snapshot` built over the world view (Task 7), and its `not_present` names every absent ancestor and producer the closure reaches;
 - replace `read_observed_facets(profile, view, target)` with `(_facets_held_to_capture(profile, view, target) if world else read_observed_facets(profile, view, target))`;
 - before `consulted_contracts`:
 
@@ -1680,7 +1783,7 @@ In `gather`: widen the annotation to `"ReadView | WorldReadView"`; add `from bel
 ```
 
   and pass `node_corpus=node_corpus`;
-- return `absent=tuple(sorted(set(absent)))`.
+- return `absent=tuple(sorted(set(absent)))` and `node_corpus=MappingProxyType(dict(node_corpus))` — `EvaluationInputs` gains `node_corpus: Mapping[str, tuple[str, ...]]` beside `absent`, because `evaluate` recomputes the consulted walk from the context it is handed and would otherwise fall back to every supplied pin.
 
 In `evaluate_over`: widen the annotation; after the `try` block succeeds:
 
@@ -1688,7 +1791,10 @@ In `evaluate_over`: widen the annotation; after the `try` block succeeds:
     if inputs.absent:
         corpora = ", ".join(sorted({corpus_id for _, corpus_id in inputs.absent}))
         return NoBelief("unavailable-corpus-absent", detail=f"inputs recorded in absent corpora: {corpora}")
+    context = replace(context, node_corpus=inputs.node_corpus)  # the attribution the read derived reaches evaluate
 ```
+
+with `from dataclasses import replace`. Over a corpus view `inputs.node_corpus` is the supplied mapping, so this is the identity there.
 
 Update `belief.py`'s `NO_BELIEF_REASONS` docstring (lines 88–91): "`unavailable-corpus-absent` is returned by `evaluate_over` over a world read view whose run inputs reach a record the epoch maps to a covered corpus with no carrier (world-resolution slice 1 §5.3)."
 
@@ -1789,6 +1895,7 @@ test_the_relation_and_lineage_chains_cross_the_edge_durably                 (S1,
 test_an_absent_corpus_is_lineage_incomplete_naming_it_durably              (S5, R23)
 test_a_published_producer_survives_its_absent_carrier_durably              (S5)
 test_an_absent_dataset_is_incomplete_without_a_comparison_durably          (S5)
+test_an_absent_root_is_recorded_before_any_walk_durably                    (S5)
 test_absence_names_what_each_root_can_discover_durably                     (S5)
 test_a_refusal_is_not_absence_durably                                      (boundary)
 test_the_capture_is_coherent_and_drift_is_the_next_opens_durably           (capture)
@@ -1796,7 +1903,7 @@ test_a_returned_object_is_detached_durably                                 (isol
 test_evaluation_reports_an_absent_corpus_and_attributes_at_the_read_durably (evaluation)
 test_check_verification_reports_a_cross_corpus_forgery_durably             (R19)
 test_the_three_states_never_collapse_and_removal_is_not_unknown            (W6, over read.resolve_address)
-test_duplicate_location_and_corruption_are_distinguished_at_build          (W8b, over epoch.build_epoch)
+test_one_uid_under_two_corpora_refuses_at_open_durably                     (the view's half of W8b)
 test_the_five_outcomes_are_produced_and_kept_apart_durably                 (D3)
 test_a_facet_read_is_held_to_the_capture_durably                            (evaluation)
 ```
@@ -1824,10 +1931,9 @@ _LINEAGE = "lineage.py"
 _RESOLUTION = "resolution.py"
 _EVALUATION = "evaluation.py"
 _READ = "world/read.py"
-_REGISTRY = "world/registry.py"
 _A = "acceptance/test_world_view_acceptance.py"
 
-DECLARATION_UNITS: tuple[str, ...] = ("D3", "S1", "S1a", "S5", "W6", "W8b", "W10", "R19", "R23")
+DECLARATION_UNITS: tuple[str, ...] = ("D3", "S1", "S1a", "S5", "W6", "W10", "R19", "R23")
 CO_CITED: tuple[str, ...] = ()
 
 
@@ -1851,10 +1957,9 @@ CUT23_ARMS = (
             before="        entry = self._recorded.get(ref)\n        if entry is None:\n            return Unknown(self._stamp)\n",
             after=(
                 "        entry = self._recorded.get(ref)\n        if entry is None:\n"
-                "            for corpus_id, records in self._held.items():\n"
-                "                for uid, node in records.items():\n"
-                "                    if node.id == ref:\n"
-                "                        return Resolved(Location(corpus_id, uid), self._stamp)\n"
+                "            for corpus_id, live in self._live.items():\n"
+                "                if live.holds(ref):\n"
+                "                    return Resolved(Location(corpus_id, live.get(ref).uid), self._stamp)\n"
                 "            return Unknown(self._stamp)\n"
             ),
         ),
@@ -1897,9 +2002,9 @@ CUT23_ARMS = (
             module=_VIEW,
             before="                target = recorded.get(relation.target)\n                if target is None:\n                    continue  # dangling at the world layer: nothing the epoch recorded\n",
             after=(
-                "                target = recorded.get(relation.target)\n"
-                "                if target is None or relation.target in {n.id for n in held[corpus_id].values()} and target[0] != corpus_id:\n"
-                "                    continue\n"
+                "                local = next((u for u, n in captured[corpus_id].items() if n.id == relation.target), None)\n"
+                "                target = (corpus_id, local) if local is not None else recorded.get(relation.target)\n"
+                "                if target is None:\n                    continue\n"
             ),
         ),
         checks=(f"{_A}::test_the_relation_and_lineage_chains_cross_the_edge_durably",),
@@ -2058,6 +2163,16 @@ CUT23_ARMS = (
         row="R19",
         asserts="check_verification recomputes across corpora and reports a well-formed forgery",
         sabotage=Sabotage(
+            module="audit.py",
+            before="    if derived.verdict != stored_value.verdict:\n",
+            after="    if False and derived.verdict != stored_value.verdict:\n",
+        ),
+        checks=(f"{_A}::test_check_verification_reports_a_cross_corpus_forgery_durably",),
+    ),
+    Arm(
+        row="R19e",
+        asserts="an absent corpus is the banked reason, never unheld input",
+        sabotage=Sabotage(
             module=_EVALUATION,
             before="        return NoBelief(\"unavailable-corpus-absent\", detail=f\"inputs recorded in absent corpora: {corpora}\")\n",
             after="        return NoBelief(\"unavailable-input-unheld\", detail=f\"inputs recorded in absent corpora: {corpora}\")\n",
@@ -2075,23 +2190,23 @@ CUT23_ARMS = (
         checks=(f"{_A}::test_the_three_states_never_collapse_and_removal_is_not_unknown",),
     ),
     Arm(
-        row="W8b",
-        asserts="duplicate location and corruption are distinguished at build and no repair is offered",
+        row="W10g",
+        asserts="a uid held under two corpora refuses at open as corruption — the view's half of world uid uniqueness",
         sabotage=Sabotage(
-            module=_REGISTRY,
-            before="    if len(carriers) > 1:\n",
-            after="    if len(carriers) > 2:\n",
+            module=_VIEW,
+            before="            if uid in owners:\n",
+            after="            if False and uid in owners:\n",
         ),
-        checks=(f"{_A}::test_duplicate_location_and_corruption_are_distinguished_at_build",),
+        checks=(f"{_A}::test_one_uid_under_two_corpora_refuses_at_open_durably",),
     ),
 )
 ```
 
-The R19 rows: `R19b`–`R19d` sabotage the evaluation seam the cross-corpus recomputation shares, and `R19` proper is checked by the verification arm; if the guard's uniqueness test wants one check per arm, split `test_evaluation_reports_an_absent_corpus_and_attributes_at_the_read_durably` into the three checks its name implies. Add `test_the_five_outcomes_are_produced_and_kept_apart_durably` and `test_a_facet_read_is_held_to_the_capture_durably` to the acceptance module (Step 1) — the unit tests of Tasks 8 and 10 over the durable roots. `W6` and `W8b` sabotage slice 2's code and their checks run `read.resolve_address` and `epoch.build_epoch` over the durable world: that is what "measured, not built" means at N2.
+`R19` proper mutates the verification recomputation and is checked by the verification arm; `R19b`–`R19e` sabotage the evaluation seam the cross-corpus recomputation shares. If the guard's uniqueness test wants one check per arm, split `test_evaluation_reports_an_absent_corpus_and_attributes_at_the_read_durably` into the checks its name implies. Add `test_the_five_outcomes_are_produced_and_kept_apart_durably`, `test_a_facet_read_is_held_to_the_capture_durably` and `test_one_uid_under_two_corpora_refuses_at_open_durably` to the acceptance module (Step 1) — the unit tests of Tasks 3, 8 and 10 over the durable roots. `W6` sabotages slice 2's code and its check runs `read.resolve_address` over the durable world: that is what "measured, not built" means at N2. Twenty-three arms in all.
 
 - [ ] **Step 4: Write the guard**
 
-`test_n2_cut23.py`, modelled on `test_n2_cut22.py` line for line: `CUT23_FREEZE_COMMIT` and `CUT23_FROZEN_SHA256` from Task 1's note; `FROZEN_CUT = ROOT / "docs/designs/2026-09-09-conformance-cut-23.md"`; `FROZEN_PRIOR_CUT_FILES` = cut 22's table plus `"python/tests/acceptance/n2_arms_cut22.py": "<the commit that last touched it, from git log -1 --format=%h -- that path>"`; `PRIOR_ARMS` extended with `CUT22_ARMS`; the inventory test asserting `DECLARATION_UNITS == ("D3", "S1", "S1a", "S5", "W6", "W8b", "W10", "R19", "R23")`, `{unit_of(arm.row) for arm in CUT23_ARMS}` equal to it, and `len(CUT23_ARMS) == 23`; the pinned-sections test greping `**9 declaration units**`, the accounting sentence and `("cut22_acceptance.py",)`.
+`test_n2_cut23.py`, modelled on `test_n2_cut22.py` line for line: `CUT23_FREEZE_COMMIT` and `CUT23_FROZEN_SHA256` from Task 1's note; `FROZEN_CUT = ROOT / "docs/designs/2026-09-09-conformance-cut-23.md"`; `FROZEN_PRIOR_CUT_FILES` = cut 22's table plus `"python/tests/acceptance/n2_arms_cut22.py": "<the commit that last touched it, from git log -1 --format=%h -- that path>"`; `PRIOR_ARMS` extended with `CUT22_ARMS`; the inventory test asserting `DECLARATION_UNITS == ("D3", "S1", "S1a", "S5", "W6", "W10", "R19", "R23")`, `{unit_of(arm.row) for arm in CUT23_ARMS}` equal to it, and `len(CUT23_ARMS) == 23`; the pinned-sections test greping `**8 declaration units**`, the accounting sentence and `("cut22_acceptance.py",)`.
 
 - [ ] **Step 5: Audit the arms**
 
@@ -2129,7 +2244,7 @@ Expected: PASS — `test_n2_cut23.py` is now live through the new runner; every 
 - [ ] **Step 4: Run the whole runner**
 
 Run: `uv run --frozen python tools/cut23_acceptance.py 2>&1 | tee ../.cut23-acceptance/run.log | tail -30`
-Expected: exit 0; the prefix chain through cut 22 green; both phases green; the final line `declared arms: N (= 9 declaration units; 9 guarantee rows)`.
+Expected: exit 0; the prefix chain through cut 22 green; both phases green; the final line `declared arms: 23 (= 8 declaration units; 8 guarantee rows)`.
 
 - [ ] **Step 5: Commit**
 
@@ -2144,23 +2259,25 @@ git commit -m "test(cut23): the acceptance runner, and the corpus-local claims c
 
 **Files:**
 - Create: `docs/plans/<discharge date>-conformance-cut-23-results.md` and `docs/plans/<discharge date>-conformance-cut-23-run/{certified.log,check.log,test.log}` — the date is the day the gate runs, in `YYYY-MM-DD`; every `2026-09-XX` below is that date
-- Modify: `docs/designs/2026-08-03-redesign-adoption-ledger.md` (`Updated`, `Implemented through conformance cut 23`, the `Current state` table: `world-resolution` row rewritten to its remaining rows), `docs/plans/2026-08-29-implementation-roadmap.md` (whole rewrite per its own rule: `**Ranked at:** cut 23`, Appendix A regenerated by `python/tools/roadmap_status.py`, Appendix B rows for D3, S1, S1a, S5, W6, W8b, W10, R19 removed and R23 narrowed), `docs/superpowers/specs/2026-09-09-world-resolution-slice-1-design.md` (`Status:` line → discharged at cut 23, dated)
+- Modify: `docs/designs/2026-08-03-redesign-adoption-ledger.md` (`Updated`, `Implemented through conformance cut 23`, the `Current state` table: `world-resolution` row rewritten to its remaining rows), `docs/plans/2026-08-29-implementation-roadmap.md` (whole rewrite per its own rule: `**Ranked at:** cut 23`, Appendix A regenerated by `python/tools/roadmap_status.py`, Appendix B rows for D3, S1, S1a, S5, W6, W10, R19 removed, R23 narrowed, and W8b's entry amended with the measured build defect), `docs/superpowers/specs/2026-09-09-world-resolution-slice-1-design.md` (`Status:` line → discharged at cut 23, dated)
 - Task tree: `tasks add "Freeze cut 23" --parent beliefs-d248ba` and `tasks add "Discharge cut 23" --parent beliefs-d248ba` were the two ceremony tasks; close both; file slices 2–4 as siblings.
 
-- [ ] **Step 1: Run the serial gate and retain the transcripts**
+- [ ] **Step 1: Run the repository gates and retain the transcripts**
+
+From the repository root, so the `just` recipes wrap every command in the timing tool `AGENTS.md` requires and the TypeScript checks and suite run beside the Python ones:
 
 ```bash
-mkdir -p ../docs/plans/2026-09-XX-conformance-cut-23-run
-uv run --frozen python tools/cut23_acceptance.py > ../docs/plans/2026-09-XX-conformance-cut-23-run/certified.log 2>&1; echo "exit $?"
-(uv run --frozen ruff check . && uv run --frozen pyright) > ../docs/plans/2026-09-XX-conformance-cut-23-run/check.log 2>&1; echo "exit $?"
-uv run --frozen pytest -p no:cacheprovider > ../docs/plans/2026-09-XX-conformance-cut-23-run/test.log 2>&1; echo "exit $?"
-tail -1 ../docs/plans/2026-09-XX-conformance-cut-23-run/test.log
+mkdir -p docs/plans/2026-09-XX-conformance-cut-23-run
+(cd python && uv run --frozen python tools/cut23_acceptance.py) > docs/plans/2026-09-XX-conformance-cut-23-run/certified.log 2>&1; echo "exit $?"
+just check > docs/plans/2026-09-XX-conformance-cut-23-run/check.log 2>&1; echo "exit $?"
+just test  > docs/plans/2026-09-XX-conformance-cut-23-run/test.log  2>&1; echo "exit $?"
+grep -E "^[0-9]+ passed" docs/plans/2026-09-XX-conformance-cut-23-run/test.log
 ```
-Expected: three `exit 0`; the summary line names the count. Claim the count only from that line.
+Expected: three `exit 0`; the pytest summary line and the vitest summary line name their counts. Claim the counts only from those lines.
 
 - [ ] **Step 2: Write the results record**
 
-Sections as cut 22's: `## 1. What ran` (the exact commands, exit codes, the prefix chain, per-phase counts, the `declared arms:` line, the transcript links), `## 2. Accounting and disposition` (D3, S1, S1a, S5, W6, W8b, W10, R19 full/closed; R23 part with its remainder), `## 3. Corrections and deviations from the frozen cut` (dated bullets, empty if none), `## 4. Reproduction measurement`, `## 5. Remaining boundary` (naming every open label: `world-resolution` retains W1, W2, W4, W5a, W7, W8, W13's clauses, W8a's coreference arms, X12 and M3's coreference arms, R23's snapshot, divergence and explicit-import clauses; `packaging-remainder` unchanged).
+Sections as cut 22's: `## 1. What ran` (the exact commands, exit codes, the prefix chain, per-phase counts, the `declared arms:` line, the transcript links), `## 2. Accounting and disposition` (D3, S1, S1a, S5, W6, W10, R19 full/closed; R23 part with its remainder; W8b measured, not selected, with the build defect's task id), `## 3. Corrections and deviations from the frozen cut` (dated bullets, empty if none), `## 4. Reproduction measurement`, `## 5. Remaining boundary` (naming every open label: `world-resolution` retains W1, W2, W4, W5a, W7, W8, W8b, W13's clauses, W8a's coreference arms, X12 and M3's coreference arms, R23's snapshot, divergence and explicit-import clauses; `packaging-remainder` unchanged).
 
 - [ ] **Step 3: Regenerate the roadmap's Appendix A and rewrite the ledger's Current state**
 
@@ -2176,3 +2293,9 @@ git commit -m "docs(cut23): discharge conformance cut 23 and re-rank the roadmap
 ```
 
 Then merge `design/world-resolution` into `main` with `--no-ff`, run the serial gate on `main`, and remove the worktree per the roadmap's lane rules.
+
+---
+
+## Review log
+
+**2026-09-09, eight findings on `2f5837d`, all resolved.** (1) W8b was probed against the build and neither half holds on this tree — two addresses sharing one `uid` publish, a duplicate address is a bare `ValueError` — so the row is measured and not selected, the accounting is eight rows read and seven closed, the defect is filed as a task at the freeze, and the view refuses a `uid` held under two corpora at open as its own half (Task 1, Task 3, Task 12). (2) `closure` fetches the root first, so an absent root is checked and recorded before any walk (Task 7). (3) Absence is collected from the assessment's own run, every input role, and the supplied lineage snapshot's `not_present`, with a test for each (Task 10). (4) `EvaluationInputs` carries the derived `node_corpus` and `evaluate_over` hands `evaluate` a context that holds it, so an unrelated pin cannot reach the consulted walk; tested (Task 10). (5) `not_present` defaults through `field(default_factory=dict)`; a `MappingProxyType` default is unhashable on 3.11 (Task 6). (6) `W10b` scans the live carriers, `W10e` resolves through the captured local records, `R19` mutates the verdict comparison in `audit.py` with `R19e` carrying the reason arm, and the registry arm is replaced by `W10g` over the uid-uniqueness refusal (Task 12). (7) The stamp test builds a bare `Node`, drift fixtures use `raw_write`, and the corpus-local inbound negative expects `RefError` (Tasks 2, 3, 4). (8) Discharge runs `just check` and `just test` from the repository root beside the certified runner (Task 14).

@@ -6,7 +6,7 @@ priority: 2
 size: xl
 owner: design/world-resolution
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-09T10:57:13Z
+updated: 2026-09-09T11:18:48Z
 depends: []
 tags: [migration, world-read, resolution]
 spec: docs/superpowers/specs/2026-09-09-world-resolution-slice-1-design.md
@@ -24,3 +24,4 @@ Uncertainty: The required write and index prerequisites have landed, but the res
 ## Notes
 
 - 2026-09-09T09:53:03Z (design/world-resolution): Slice split agreed 2026-09-09: 1 world read view + cross-corpus traversal (this spec), 2 coreference-attestation kind, 3 snapshot import/audit/diagnostic callers + relabels, 4 view evaluation. Approach A: a sealed sibling WorldReadView beside ReadView, bound to an explicit epoch, consumers widened to the union. Review tightened four points: published producers consulted for absent carriers; absence carries corpus_id into LineageSnapshot.not_present and its projection; not_present is a third digested availability state in build_snapshot with overlap refused; evaluation seam names gather, run_value, facet-read routing and check_verification, broader audit to slice 3.
+- 2026-09-09T11:18:48Z (design/world-resolution): Plan reviewed 2026-09-09 (eight findings, resolved): W8b measured broken at build and dropped from cut 23's selection (7 closed of 8 read; the view refuses uid ambiguity at open); absent roots checked before the walk; evaluation absence covers assessment runs, every input role and the lineage snapshot; derived attribution reaches evaluate; dataclass default via default_factory; four N2 arms retargeted; three fixtures corrected; discharge through just check/test.
