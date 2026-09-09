@@ -34,6 +34,7 @@ from test_durable_families import proposition
 from test_retract import PINNED, mint_eligible_assessment
 
 from beliefs import root as science_root
+from beliefs import session as session_module
 from beliefs import stored
 from beliefs.coordination import CoordinationAddress, coordination_revision
 from beliefs.corpus import CorpusWriter, OperationWrites, _operation_lock_for, _root_state_for, corpus_check
@@ -1225,54 +1226,46 @@ def test_j8_reconciliation_is_lock_coherent_under_an_interleaved_write(work_dire
 
 
 def test_j8_reconciliation_reads_chain_and_ledgers_under_one_hold(work_directory, monkeypatch):
-    """A write that starts *after* the chain read must be absent from the ledger read too. Under
-    correct code the writer blocks on the lock reconciliation holds across both reads; if the ledger
-    read ever escaped the hold, the write would land between the two reads and its act line would
-    name a registration the chain snapshot lacks — `session-act-unverified`."""
+    """The chain read and the ledger read both run on a thread that holds the root's operation lock
+    as a writer, and the lock is held before the first and still at the second. Observed at the two
+    read points themselves, not through a racing writer: an earlier form of this check let a writer
+    loose after the chain read and waited a fixed half second for its durable commit to land, so
+    under load an unheld lock still read as held (beliefs-d0ca64). The holder is the lock's own
+    state, which is what "under one hold" means, and it is the same on every run."""
     root = adopted(work_directory, "one-hold")
     session, ops = attended(work_directory, root)
-    w = fresh(session, "A")
+    fresh(session, "A").add(proposition("before"))  # a ledger with an act line, so the ledger read is real
     config = config_for(work_directory, root)
+    lock = _operation_lock_for(root)
     seam = science_root.log_seam()
     real_inspect = seam.inspect_detached
-    chain_read = threading.Event()
-    writer_done = threading.Event()
+    real_read_ledgers = session_module.read_ledger_evidence
+    holds: list[tuple[str, bool]] = []
 
-    released: list[bool] = []
+    def held_by_this_thread() -> bool:
+        # The lock's holder and owner are the fact this arm is about; there is no other witness.
+        with lock._condition:
+            return lock._holder == "writer" and lock._writer_owner == threading.get_ident()
 
-    def inspect_then_release(target):
-        view = real_inspect(target)
-        chain_read.set()          # let the writer try; under correct code it blocks on the lock we hold
-        # Give a leaked write time to land before the ledgers are read. The result is the
-        # arm's own evidence: `True` would mean the writer got through the hold, and a
-        # writer that never started would make every assertion below vacuous.
-        released.append(writer_done.wait(0.5))
-        return view
+    def inspect_observed(target):
+        holds.append(("chain", held_by_this_thread()))
+        return real_inspect(target)
+
+    def ledgers_observed(operations_root, session_id):
+        holds.append(("ledgers", held_by_this_thread()))
+        return real_read_ledgers(operations_root, session_id)
 
     # LogSeam is a frozen dataclass and log_seam() reads the module attribute at call time.
-    monkeypatch.setattr(science_root, "_LOG_SEAM", dataclasses.replace(seam, inspect_detached=inspect_then_release))
-
-    def writer():
-        chain_read.wait(10)
-        w.add(proposition("late"))
-        writer_done.set()
-
-    thread = threading.Thread(target=writer)
-    thread.start()
+    monkeypatch.setattr(science_root, "_LOG_SEAM", dataclasses.replace(seam, inspect_detached=inspect_observed))
+    monkeypatch.setattr(session_module, "read_ledger_evidence", ledgers_observed)
     findings = reconcile_sessions(config, ops)
-    assert released == [False], "the writer must still be blocked when the ledgers are read"
-    thread.join(10)
-    assert not thread.is_alive()
-    # And it did write, once the hold released: the arm is about a real interleaving.
-    assert writer_done.is_set() and (root / "proposition" / "late.md").exists()
+    assert holds == [("chain", True), ("ledgers", True)], holds
+    assert not held_by_this_thread(), "the hold is reconciliation's, released with it"
     assert not [f for f in findings if f.code in ("session-act-unverified", "session-entry-foreign")], findings
-    # The write completed after reconciliation released, and a second pass covers it.
-    assert not [f for f in reconcile_sessions(config, ops) if f.code in ("session-act-unverified", "session-entry-foreign")]
     assert [act.entry for act in open_ledger_reader(ops, session.session_id).acts()] == [
         e.digest for e in registrations(root) if e.fulfills is not None
     ]
     session.close()
-
 
 
 @pytest.mark.parametrize("entry", ["ordinary", "session"])

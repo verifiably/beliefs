@@ -474,6 +474,30 @@ other row moves, in either document.
 record lands on `feat/writer-session`; the `--no-ff` merge into `main` and the
 post-merge gate run follow separately.
 
+### 3.1 `J8f`'s check corrected — dated note, 2026-09-09
+
+`beliefs-d0ca64`: two runs of `tools/cut19_acceptance.py` over `main` at
+`74a5938` on 2026-09-06 gave two verdicts for `J8f`. The first was **mixed** —
+`test_j8_reconciliation_reads_chain_and_ledgers_under_one_hold` passed with the
+sabotage applied — and the second was sound. The check let a writer loose after
+the chain read and waited a fixed half second for its durable commit to land,
+so whether an unheld lock was seen depended on scheduling: a commit slower than
+the wait read as a held lock. The 43-arms-sound claim above was true on its
+run and is not retracted; the arm's check is what changes.
+
+The check now observes the hold at the two read points themselves. Both the
+chain read (`inspect_detached`) and the ledger read (`read_ledger_evidence`)
+are patched to record whether the calling thread holds the root's operation
+lock as a writer at that moment, and the check asserts both are held and that
+the hold is released with reconciliation. The witness is the lock's own
+holder state, so the verdict is the same on every run, and it closes the
+**check gap** §3 names above: a ledger read dedented out of the hold now reads
+as unheld at its own patch point, where the earlier form could only lose or
+win a race against the writer. `J8f`'s declaration, its sabotage and its two
+checks are unchanged (`n2_arms_cut19.py` stays at `8723fac`); the interleaving
+consequence — a write straddling the reads — remains
+`test_j8_reconciliation_is_lock_coherent_under_an_interleaved_write`'s.
+
 ## 4. Reproduction prerequisites, and what this run does not claim
 
 **To reproduce this discharge** you need: this repository at the discharge
