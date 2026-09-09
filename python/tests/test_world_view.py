@@ -273,3 +273,39 @@ def test_returned_objects_are_detached(tmp_path):
     yielded.deprecated_ids.append("dataset:fake")
     assert "dataset:fake" not in next(n for n in view.iter_stored() if n.id == alpha).deprecated_ids
     assert view.get(alpha) is not view.get(alpha)
+
+
+class TestW10:
+    def test_the_world_closure_is_complete_and_the_local_one_truncates(self, tmp_path):
+        from beliefs.corpus import LineageAdjacency, RelationAdjacency
+        from beliefs.traversal import closure
+
+        world, roots, published = chain_world(tmp_path)
+        view = open_world_view(world, published)
+        world_reach = closure("dataset:d2", LineageAdjacency(view))
+        assert set(world_reach.reached) == {"dataset:d1", "dataset:d0"}
+        assert world_reach.unresolved == ()
+        local_reach = closure("dataset:d2", LineageAdjacency(ReadView.opened_at(roots[ALPHA])))
+        assert set(local_reach.reached) == set()
+        assert local_reach.unresolved != ()
+        produced = closure("dataset:d1", RelationAdjacency(view, "produces", "inbound"))
+        assert set(produced.reached) == {"run:r1"}
+
+    def test_derived_from_and_superseded_by_cross_the_world_only(self, tmp_path):
+        from nodes.core.relations import Relation
+
+        from beliefs.corpus import derived_from, superseded_by
+
+        d0, r1, d1, _r2, _d2 = chain_nodes()
+        old = stored.proposition_node("old", title="old", claim={"operator": "affects"})
+        new = stored.proposition_node("new", title="new", claim={"operator": "causes"})
+        new.relations.append(Relation(source=new.id, predicate=stored.SUPERSEDES, target=old.id))
+        roots = corpora(tmp_path, {ALPHA: (d0, old), BETA: (r1, d1, new)})
+        world = world_over(tmp_path, roots)
+        published = publish(world, (ALPHA, BETA), hold_shipped(world))
+
+        view = open_world_view(world, published)
+        assert derived_from(view, d1.id).reached == (d0.id,)
+        assert superseded_by(view, old.id) == (new.id,)
+        assert derived_from(ReadView.opened_at(roots[BETA]), d1.id).reached == ()
+        assert superseded_by(ReadView.opened_at(roots[ALPHA]), old.id) == ()

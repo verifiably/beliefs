@@ -729,7 +729,7 @@ class RelationAdjacency:
     fixture that pins this is why the flag is read at all.
     """
 
-    def __init__(self, view: ReadView, predicate: str, direction: str) -> None:
+    def __init__(self, view: ReadView | WorldReadView, predicate: str, direction: str) -> None:
         if direction not in DIRECTIONS:
             raise ValueError(f"direction {direction!r} is outside {DIRECTIONS}")
         self._view = view
@@ -798,7 +798,7 @@ class LineageAdjacency:
     only one of them an edge of the closure.
     """
 
-    def __init__(self, view: ReadView) -> None:
+    def __init__(self, view: ReadView | WorldReadView) -> None:
         self._view = view
 
     def steps(self, ref: str) -> tuple[Step, ...]:
@@ -833,7 +833,7 @@ class LineageAdjacency:
 # --- the walks the arms run over ---------------------------------------------
 
 
-def derived_from(view: ReadView, dataset: str) -> Reach:
+def derived_from(view: ReadView | WorldReadView, dataset: str) -> Reach:
     """`derived_from` as a **view** over `produces ∘ transforms`, walked out of
     the store — stored nowhere, and no API accepts an authored ancestry list.
 
@@ -845,7 +845,7 @@ def derived_from(view: ReadView, dataset: str) -> Reach:
     return closure(dataset, _DerivedFromAdjacency(view))
 
 
-def superseded_by(view: ReadView, ref: str) -> tuple[str, ...]:
+def superseded_by(view: ReadView | WorldReadView, ref: str) -> tuple[str, ...]:
     """The sorted, transitive successors derived from inbound `supersedes` edges."""
     return closure(ref, RelationAdjacency(view, stored.SUPERSEDES, "inbound")).reached
 
@@ -981,7 +981,7 @@ def _validated_retraction_target(record: Node) -> dict:
 
 
 class _DerivedFromAdjacency:
-    def __init__(self, view: ReadView) -> None:
+    def __init__(self, view: ReadView | WorldReadView) -> None:
         self._view = view
 
     def steps(self, ref: str) -> tuple[Step, ...]:
