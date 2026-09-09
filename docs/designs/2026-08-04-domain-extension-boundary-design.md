@@ -854,7 +854,8 @@ what must not break it.
 > structural refusals, while payload validation remains Python-primary and
 > sited with compilation. Distribution remains open.
 
-> **Current implementation status, 2026-09-07.** Slice 1, the facet-contracts
-> design dated 2026-09-05, is implemented and discharged as frozen conformance
-> cut 20. Slice 2, the biology pack, remains open; cut 21 is a separate,
-> undischarged verification-publication cut.
+> **Current implementation status, 2026-09-08.** Slice 1, the facet-contracts
+> design dated 2026-09-05, is implemented and discharged as cut 20. Slice 2,
+> the biology pack, is implemented and discharged as cut 22; verification
+> publication is discharged as cut 21. D1 remains partial only on its
+> cross-repository `nodes` negative.

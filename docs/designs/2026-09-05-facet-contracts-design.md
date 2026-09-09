@@ -17,7 +17,8 @@ relocation and consolidation) and §7.1 (validated reads, never construction).
 **Conformance cut 20 frozen 2026-09-06** (`2026-09-05-conformance-cut-20.md`), before implementation.
 Implemented on the `domain-boundary` lane through the integration and cut-20
 acceptance surface (2026-09-07); the certified aggregate passed and cut 20 is
-discharged. Landed on `main` on 2026-09-07; biology slice 2 remains open.
+discharged. Landed on `main` on 2026-09-07; biology slice 2 was subsequently
+implemented and discharged at cut 22 on 2026-09-08.
 **Scope:** the first of two slices on the `domain` lane, anchored on the
 empirical-observation facet's payload contract, kernel §11's open question
 and the mm30 reproduction record's first filed finding
@@ -696,8 +697,8 @@ named: D2, D4, D5, D8, D9, D10 and G5 in full. D1 in part — the arms about
 the `nodes` tree read the installed package (no API takes a domain, contract
 or vocabulary argument; the registry receives opaque keys) and its "add a
 `nodes` code path" negative is that repository's own review, named as the
-remainder. D6 stays partial on the facet arm, deferred to slice 2's first
-reader, and its negative's domain-facet instantiation travels with it. D8's
+remainder. At cut 20, D6 stayed partial on the facet arm and traveled to slice
+2's first reader; cut 22 closes it. D8's
 oracle covers a domain declaring `kinds:`, `relations:`, or a relation
 signature by any spelling.
 

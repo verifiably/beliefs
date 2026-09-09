@@ -203,7 +203,7 @@ is the complete statement of what is built and what remains.
 See [Foundations](open-questions.md#foundations) in the consolidated question
 list for the unresolved non-empirical route, the kernel-adjacent structures, Science profile distribution, and why
 pre-run fixation is not pre-registration. The empirical-observation facet's
-payload contract is decided, not yet frozen or implemented, by the
+payload contract is implemented and discharged at cut 20, as specified by the
 [facet-contracts design](../designs/2026-09-05-facet-contracts-design.md#6-the-empirical-observation-contract).
 
 ## References

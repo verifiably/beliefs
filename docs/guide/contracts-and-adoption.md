@@ -188,7 +188,7 @@ M8 gains a sort-contract arm, and D1 remains partial on its cross-repository
 negative. Its results record preserves the certified chain and measured mm30
 rerun.
 
-Twenty conformance cuts have been frozen and discharged, each frozen before
+Twenty-one conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple
 with a results record under `../plans/`. The cut discipline is what this page
 owns: a cut selects rows, the acceptance runner arms each selected unit with
