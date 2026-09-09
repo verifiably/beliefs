@@ -27,9 +27,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Fifty-six documents in `docs/designs/`: the banked redesigns, review disposition,
+Fifty-seven documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
-2026-08-02 through 2026-09-08. Read them in this order:
+2026-08-02 through 2026-09-09. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -89,6 +89,7 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-09-06-conformance-cut-21.md` | the frozen verification-publication cut: V1–V8 selected in full, 8 declaration units, the cut 20 runner as prefix; discharged 2026-09-07 |
 | `2026-09-08-biology-pack-design.md` | the second domain-boundary slice: cross-contract slot sorts, consulted-profile pin agreement, domain-facet reads, and the packaged biology contract (B1–B7, closed at cut 22) |
 | `2026-09-08-conformance-cut-22.md` | the discharged biology-pack cut: B1–B7, the cross-contract consulted walk, domain-facet read, and packaged biology contract |
+| `2026-09-09-conformance-cut-23.md` | the frozen world-read cut: the world read view, cross-corpus traversal, covered absence, and cross-corpus verification |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and

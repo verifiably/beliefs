@@ -2,7 +2,7 @@
 title: Identity, world, and change
 status: living
 created: 2026-08-08
-updated: 2026-09-05
+updated: 2026-09-09
 sources:
   - ../designs/2026-08-02-substrate-consolidation-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -23,6 +23,7 @@ sources:
   - ../designs/2026-08-24-conformance-cut-10.md
   - ../designs/2026-08-26-world-index-intent-boundary-design.md
   - ../designs/2026-08-27-conformance-cut-11.md
+  - ../designs/2026-09-09-conformance-cut-23.md
 ---
 
 # Identity, world, and change

@@ -1,7 +1,7 @@
 # World resolution, slice 1 — the world read view and cross-corpus traversal
 
 **Date:** 2026-09-09, revised twice the same day after review (§11)
-**Status:** draft for review; freezes as the next conformance cut once reviewed
+**Status:** approved plan; conformance cut 23 frozen 2026-09-09 before implementation
 **Boundary:** `world-resolution`, slice 1 of four (`beliefs-d248ba`)
 **Lane:** `world-read`, worktree `.worktrees/world-resolution`
 **Sources:** `../../designs/2026-08-02-world-addressing-design.md` (§5, §5.1, §7),
@@ -34,8 +34,10 @@ makes the three absence distinctions the code has banked producible.
 **Rows it closes or reads.** D3's `not-present` arm and the remainder of the
 five-way non-collapse; S1 and S1a's chain crossing corpora; S5's cross-corpus
 reach; W10 in full; R19's cross-corpus recomputation; R23's coverage clause.
-W6 and W8b's duplicate-location arm are **measured** against the surface slice
-2 landed and selected as arms over existing code.
+W6 is **measured** against the surface slice 2 landed and selected as an arm
+over existing code. W8b is measured but not selected: both build-time halves
+failed the pre-freeze probe, and the view's own duplicate-uid refusal remains a
+boundary invariant rather than a W8b selection.
 
 **Rows it does not touch**, each named to its slice: the `coreference-attestation`
 kind and every populated balance, omission-refutes and endpoint-refusal arm
@@ -393,13 +395,13 @@ resolution snapshot's third state are filled from `NotPresent` answers only.
 ## 7. What this slice measures rather than builds
 
 W6 (the three states never collapse; removing a corpus does not convert its ids
-to `unknown`) and W8b's duplicate-location half (two records at one address in
-two corpora → a `duplicate-location` finding resolvable by `consolidate`) are
-answered by `resolve_address` and the epoch build as they stand. The cut
-selects arms over that code and records the reading. W8b's corruption half
-(one `uid` under two addresses, no repair offered) is likewise read at build.
-If a selected arm fails on the tree, that is a finding against slice 2's code
-and is filed as such; it is not this slice's to repair inside the cut.
+to `unknown`) is answered by `resolve_address` as it stands, and the cut selects
+an arm over that code. W8b is measured and not selected: the pre-freeze probe
+found that the epoch build publishes one `uid` under two addresses and refuses
+one address held in two corpora with a bare `ValueError`, not the promised
+`duplicate-location` finding. That defect is filed as `beliefs-fda0e5`; repair
+belongs to slice 2's code outside this cut. The view still refuses a `uid` held
+under two corpora at open as its own boundary invariant.
 
 ## 8. Testing and the cut
 
@@ -474,7 +476,8 @@ Drift is produced by writing to a carrier after publication.
   A malformed record raises, as today, and the arm keeps the two apart: the
   contradiction is a finding, never a refusal, and the refusal is never read
   as a finding.
-- W6, W8b: the measured arms of §7.
+- W6: the measured arm of §7. W8b remains measured and not selected; the
+  view's duplicate-uid refusal is a boundary-invariant arm.
 - Refusals: each row of §6.
 
 **N2 sabotages**, one per mechanism: map-first resolution (fall through to a
