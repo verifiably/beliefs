@@ -32,6 +32,11 @@ class CitedNotRun:
     reason: str
     falsified_pins: dict[str, str] = field(default_factory=dict)
     """Pin target -> what moved it. Recorded, never repaired."""
+    stale_arms: dict[str, str] = field(default_factory=dict)
+    """`row[index]` of a declared arm whose sabotage no longer matches the tree -> what
+    moved its anchor. The index is the arm's position in the frozen `CUTN_ARMS` tuple.
+    Recorded, never repaired: the declarations are the bytes the cited discharge ran, and
+    `tests/test_arm_staleness.py` holds the tree to exactly this set."""
 
 
 MOVED_BY_VERIFICATION_PUBLICATION = (
@@ -51,6 +56,15 @@ CITED_NOT_RUN: dict[str, CitedNotRun] = {
             "the drop: unlike cuts 5, 8 and 10 this one was implicit, which is the case this "
             "registry exists to make impossible. The inventory is the ruling of record."
         ),
+        stale_arms={
+            "S7[0]": "moved at bf78f7a, when the add path's eligibility refusal took the profile",
+            "S7[1]": "moved at 8b3b75e, when the family-era raw-write shapes changed the corpus check",
+            "S7[2]": "moved at 1d9d235, when the acquisition boundary re-shaped the observes-input check",
+            "S8[3]": "moved at e2d2288, when coordination genesis changed root.py's imports",
+            "S8[4]": "moved at 8b3b75e, when the family-era raw-write shapes changed the corpus check",
+            "S8[11]": "moved at 06a76ca, when chained retraction records re-shaped the locked add",
+            "R19[29]": "moved at 8b3b75e, when the family-era raw-write shapes changed the corpus check",
+        },
     ),
     "test_n2_cut5.py": CitedNotRun(
         cut=5,
@@ -64,6 +78,14 @@ CITED_NOT_RUN: dict[str, CitedNotRun] = {
             "that moved the cut-5 arms edited this module once (205e5f7) and re-minted cut 14's "
             "content pin; both were reverted on 2026-09-07 — see the doctrine's §5."
         ),
+        stale_arms={
+            "G7[2]": "moved at 49f6f6c, when the shipped base profile took over facet coverage",
+            "G7[4]": "moved at 49f6f6c, when the shipped base profile took over facet coverage",
+            "M5[5]": "moved at 49f6f6c, when the shipped base profile took over facet coverage",
+            "T2[10]": "moved at 6a4d972, when relocation act-reports moved to the boundary",
+            "T2[11]": "moved at 6a4d972, when relocation act-reports moved to the boundary",
+            "C2[18]": "moved at 4626335, when the world bound an authority",
+        },
     ),
     "test_n2_cut8.py": CitedNotRun(
         cut=8,
@@ -82,6 +104,12 @@ CITED_NOT_RUN: dict[str, CitedNotRun] = {
                 "entries for it while they were live, and cut 8, already cited, did not"
             ),
         },
+        stale_arms={
+            "L2u5[5]": "moved at d958c64, when durable operation-port mutations were serialized",
+            "L12u5[37]": "moved at c7817ba, when evaluated qualification replaced intents_unevaluated",
+            "D6[48]": "moved at 8e14f8a, when store subjects went through anchor, export and audit",
+            "D10[52]": "moved at 588fc9e, when restore_root took one held boundary",
+        },
     ),
     "test_n2_cut10.py": CitedNotRun(
         cut=10,
@@ -96,5 +124,9 @@ CITED_NOT_RUN: dict[str, CitedNotRun] = {
             "FROZEN_CUT10_SHA256, which is why its own table cannot be repaired."
         ),
         falsified_pins={"python/tests/n2_arms_cut5.py": MOVED_BY_VERIFICATION_PUBLICATION},
+        stale_arms={
+            "H4u1[12]": "moved at 67750d6, when holdings acts began requiring the holdings permit",
+            "J8[27]": "moved at 67750d6, when holdings acts began requiring the holdings permit",
+        },
     ),
 }
