@@ -58,27 +58,32 @@ evaluation (`beliefs-0e523a`), delivered serially in that order.
 
 ## Boundary index
 
-Every boundary the ledger table lists, by id. This section is the guard's
-join key and nothing else; the tiers below carry the ranking.
+Every boundary the ledger table lists, by id, with its task entry point.
+The tiers below carry the ranking. Task dependencies encode prerequisites
+and serial lane order; `tasks ready` is eligibility, not the roadmap's
+priority or permission to open an off-path lane. Reuse these high-level tasks
+and add implementation children when each slice is designed. Ride-alongs share
+their lane's task, and tier-3 design questions remain `idea` tasks.
 
-| id | rows it closes | tier |
-|---|---|---|
-| `domain-boundary` | D1's cross-repository negative | 2 |
-| `world-resolution` | W1, W2 and W5a in slice 2b; W7, W8 and W8b; W13 less its two-projects negative; R23's snapshot, divergence and explicit-import clauses | 1, on the path |
-| `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | 1, off the path |
-| `url-retrieval` | H4, G9, R10, T5; T7's same-root case | 1, off the path |
-| `event-level-l8` | L8 | 1, off the path |
-| `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a, X12, C10's certification arms; R23's rules-store clauses | 1, the join |
-| `packaging-remainder` | X5 (relabel); W8a's import and audit arms | 1, rides with `world-resolution` |
-| `act-report-remainder` | T1, T2, T4 | 1, rides with `url-retrieval` |
-| `log-remainder` | L1, L4; L10 (relabel) | 1, rides with `event-level-l8` |
-| `l13-preimage` | L13 | 2 |
-| `persistence-cut` | X2 | 2 |
-| `nodes-remainder` | `nodes` row 3's three items | 2 |
-| `authority-labels` | W9, W14 | 3 |
-| `weighted-belief` | S6 (h) | 3 |
-| `extraction-path` | M12 | 3 |
-| `cross-root-publication` | T7's cross-root case | 3 |
+| id | rows it closes | tier | task |
+|---|---|---|---|
+| `domain-boundary` | D1's cross-repository negative | 2 | [beliefs-928881](../../tasks/beliefs-928881.md) |
+| `world-resolution` | W1, W2 and W5a in slice 2b; W7, W8 and W8b; W13 less its two-projects negative; R23's snapshot, divergence and explicit-import clauses | 1, on the path | [beliefs-d248ba](../../tasks/beliefs-d248ba.md) |
+| `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | 1, off the path | [beliefs-aa27da](../../tasks/beliefs-aa27da.md) |
+| `url-retrieval` | H4, G9, R10, T5; T7's same-root case | 1, off the path | [beliefs-d13fe8](../../tasks/beliefs-d13fe8.md) |
+| `event-level-l8` | L8 | 1, off the path | [beliefs-b34652](../../tasks/beliefs-b34652.md) |
+| `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a, X12, C10's certification arms; R23's rules-store clauses | 1, the join | [beliefs-eacbe2](../../tasks/beliefs-eacbe2.md) |
+| `packaging-remainder` | X5 (relabel); W8a's import and audit arms | 1, rides with `world-resolution` | [beliefs-d248ba](../../tasks/beliefs-d248ba.md) |
+| `act-report-remainder` | T1, T2, T4 | 1, rides with `url-retrieval` | [beliefs-d13fe8](../../tasks/beliefs-d13fe8.md) |
+| `log-remainder` | L1, L4; L10 (relabel) | 1, rides with `event-level-l8` | [beliefs-b34652](../../tasks/beliefs-b34652.md) |
+| `l13-preimage` | L13 | 2 | [beliefs-a7df71](../../tasks/beliefs-a7df71.md) |
+| `persistence-cut` | X2 | 2 | [beliefs-3ea822](../../tasks/beliefs-3ea822.md) |
+| `nodes-remainder` | `nodes` row 3's three items | 2 | `nodes-ce28b8` in `nodes` |
+| `authority-labels` | W9, W14 | 3 | [beliefs-84d7b0](../../tasks/beliefs-84d7b0.md) |
+| `weighted-belief` | S6 (h) | 3 | [beliefs-638318](../../tasks/beliefs-638318.md) |
+| `extraction-path` | M12 | 3 | [beliefs-9e1f60](../../tasks/beliefs-9e1f60.md) |
+| `cross-root-publication` | T7's cross-root case | 3 | [beliefs-256f17](../../tasks/beliefs-256f17.md) |
+| `publish` | W17’s publication-binding intent-position arm; governed publication act and records | 2 | [beliefs-1a5157](../../tasks/beliefs-1a5157.md) |
 
 ## Tier 1 — buildable now
 
@@ -127,11 +132,16 @@ boundary sits in the lane of its prerequisite and waits there.
 |---|---|---|---|
 | `write-path` | none — no open boundary | `corpus.py`, `report.py`, `intents/`, `session/`, `verify.py`, `evaluation.py`, `audit.py` | closed: `writer-session` discharged at cut 19 and `verification-publication` at cut 21 |
 | `domain` | `domain-boundary` D1 cross-repository negative; slices 1 and 2 discharged at cuts 20 and 22 | the `nodes` registry | waits on the cross-repository seam |
-| `world-read` | `world-resolution` slices 2b–4 (+ `packaging-remainder`) → `event-level-l8` (+ `log-remainder`) | `world/read.py`, `world/view.py`, `resolution.py`, `world/verify.py`; `corpus.py`, `lineage.py`, `evaluation.py`, `belief.py`, `consulted.py`, `audit.py` as each slice names | on the path at its head; slices 1 and 2 discharged at cuts 23 and 24, slice 2b next |
+| `world-read` | `world-resolution` slices 2b–4 (+ `packaging-remainder`) → `event-level-l8` (+ `log-remainder`) → `publish` | `world/read.py`, `world/view.py`, `resolution.py`, `world/verify.py`; `corpus.py`, `lineage.py`, `evaluation.py`, `belief.py`, `consulted.py`, `audit.py` as each slice names | on the path at its head; slices 1 and 2 discharged at cuts 23 and 24, slice 2b next |
 | `mutation` | `correction-remainder` | `adapter.py`, `corpus.py`, `audit.py`, `decode.py`, `evaluation.py`, `world/verify.py` | off the path; waits |
 | `acquisition` | `url-retrieval` (+ `act-report-remainder`) | `holdings/`, `report.py` | off the path; waits |
 | `reproduction` | none — a measurement: `../superpowers/specs/2026-09-05-mm30-reproduction-design.md` | no kernel surface; `python/tools/reproduction/`, a corpus on the certified volume beside the checkout, and the record it produces | **closed 2026-09-05**: ran to the evaluator's answer; its record (`../designs/2026-09-05-mm30-reproduction.md`) re-ranked this document, its five findings are filed through the owning lanes, and its corpus stays at `.mm30-reproduction/` as the seed of the dogfood's world |
 | `cross-repo` | `l13-preimage`, `persistence-cut`, `nodes-remainder`, in any order | the `atoms` and `nodes` repositories, each behind its own design gate | as each seam lands |
+
+`publish` follows the complete `world-read` lane, as the user and autonomy
+layer design §8 item 5 requires. Its coordination/view prerequisite is already
+discharged at cut 14; its publication-binding revision and act-report amendments
+must land before `contract-cut` freezes.
 
 `contract-cut` is in no lane. It is a **join**: it freezes after every lane
 that amends an oracle has merged, for the reason tier 1's row 5 gives. Tier 3
@@ -177,7 +187,8 @@ and merged `--no-ff`. Six rules are added by concurrency itself:
 
 | id | rows | prerequisite | unblocks |
 |---|---|---|---|
-| `domain-boundary` | D1 | `nodes`' own design gate for the cross-repository negative | D1 in full |
+| `domain-boundary` | D1 | `nodes`' own design gate for the cross-repository negative, tracked by `beliefs-928881` | D1 in full |
+| `publish` | W17’s publication-binding intent-position arm; governed publication act and records | completed coordination/view kinds at cut 14, then the complete `world-read` lane (`beliefs-b34652`); user and autonomy layer design §8 item 5 | immutable selected-view publication and governed binding revisions |
 | `l13-preimage` | L13 | an `atoms` blob-read seam behind its own design gate; `atoms`' deferred-obligation ledger carries no such entry today | row 6 in full; the held-copy match strengthened from path to bytes |
 | `persistence-cut` | X2 | the `atoms` A8 certification extended to the publication path, behind `atoms`' own design gate. Cut 7 admits a Science-side harness as the alternative; it is rejected by the method (§5 there), so the prerequisite is cross-repo and the tier is 2 | X2 in full |
 | `nodes-remainder` | — | `nodes`' own design gate | audits over damaged corpora; manifest safety |

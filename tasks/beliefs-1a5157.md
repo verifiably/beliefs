@@ -5,8 +5,8 @@ status: todo
 priority: 2
 size: xl
 created: 2026-08-31T00:38:28Z
-updated: 2026-08-31T00:38:28Z
-depends: [beliefs-acc2e9, beliefs-b34652]
+updated: 2026-09-10T20:26:52Z
+depends: [beliefs-b34652, beliefs-1f7400]
 tags: [migration, publication, coordination]
 ---
 
@@ -16,4 +16,4 @@ Acceptance evidence: After coordination/view delivery and the world-read lane, b
 
 Sources: `docs/superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md` §§4.1 and 6 and §8 item 5; `docs/designs/2026-08-11-act-report-design.md`; and the root-lifecycle and log-verification designs.
 
-Uncertainty: Destination-specific remote transport remains for Science, while this task owns only the Beliefs act and records. The prerequisite coordination and world-read outcomes are unfinished.
+Uncertainty: Destination-specific remote transport remains for Science, while this task owns only the Beliefs act and records. Coordination/view delivery is complete at cut 14 (beliefs-1f7400); the world-read lane remains unfinished. W17’s publication-binding intent-position arm belongs here.

@@ -6,7 +6,7 @@ priority: 2
 size: xl
 owner: design/world-resolution
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-09T17:32:47Z
+updated: 2026-09-10T20:26:52Z
 depends: []
 tags: [migration, world-read, resolution]
 spec: docs/superpowers/specs/2026-09-09-world-resolution-slice-1-design.md
@@ -19,7 +19,7 @@ Acceptance evidence: Freeze a world-read cut; implement resolution states and cr
 
 Sources: `docs/plans/2026-08-29-implementation-roadmap.md` `world-resolution` and `packaging-remainder`; `docs/designs/2026-08-02-world-addressing-design.md`; `docs/designs/2026-08-08-world-address-ruling.md`; and `docs/designs/2026-08-03-world-index-packaging-design.md`.
 
-Remaining work: Slice 1 is discharged at cut 23. Slices 2–4 are filed as beliefs-113561 (coreference), beliefs-46847c (snapshots/import/audit and packaging), and beliefs-0e523a (view evaluation); their detailed designs and cuts remain to be frozen. W8b build defect beliefs-fda0e5 stays open. The parent outcome is not complete.
+Remaining work: Slices 1 and 2 are discharged at cuts 23 and 24, merged through 7d69341. The remaining serial chain is beliefs-b7994b (slice 2b, normalized source addressing), beliefs-46847c (slice 3, snapshots/import/audit and packaging), then beliefs-0e523a (slice 4, view evaluation). W8b's measured build defect is repaired by beliefs-fda0e5; selecting and discharging W8b remains open. The parent outcome is not complete.
 
 ## Notes
 

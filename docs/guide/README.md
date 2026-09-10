@@ -2,7 +2,7 @@
 title: Science contributor guide
 status: living
 created: 2026-08-08
-updated: 2026-09-09
+updated: 2026-09-10
 sources:
   - ../designs/2026-08-08-contributor-guide-design.md
   - ../designs/2026-08-03-redesign-adoption-ledger.md
@@ -91,3 +91,9 @@ roadmap's `Ranked at` line advances to the new cut.
 done. An amendment to the roadmap's method re-ranks the same way without a
 new cut: `Ranked at` stays at the newest record and the roadmap's `Method`
 line names the amendment (its design §6, amended 2026-09-05).
+
+The roadmap's [Boundary index](../plans/2026-08-29-implementation-roadmap.md#boundary-index)
+maps each remaining boundary to its high-level task. At discharge, update that
+task's current body and affected dependencies as well as the docs; keep dated
+notes as history. `tasks ready` lists eligible work, while the roadmap retains
+lane priority and sequencing authority.
