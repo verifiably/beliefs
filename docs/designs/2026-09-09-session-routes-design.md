@@ -14,7 +14,9 @@ classification, §4.1's atomic append, and §2's corrected contract with
 test 16; and again on a second review whose two findings made §4.2's
 guard total (the seam's reads run recovery on a writable root) and
 replaced test 8b with a lock-order trace and a forced interleaving that
-fail under the reversed order. Not yet implemented.
+fail under the reversed order. Implemented on branch `kernel-seams`,
+2026-09-09: Tasks 1–10 of
+`../plans/2026-09-09-session-routes.md`; awaiting merge.
 **Scope:** the three kernel seams the science belief-path design depends on
 (science `docs/specs/2026-09-09-belief-path-commands-design.md` §6.1, §6.2,
 §5): the public store identity reader (`beliefs-2d9a55`), the run and

@@ -1780,32 +1780,36 @@ git commit -m "refactor(reproduction): bind the driver's rule identities to the 
 ### Task 11: Status, ledger row, and the science handoff
 
 **Files:**
-- Modify: `docs/designs/2026-09-09-session-routes-design.md` (Status), `docs/designs/2026-08-03-redesign-adoption-ledger.md` (a row for the session routes beside the writer-session row, `:125` region), `docs/guide/` (only if a guide page lists `ScopedWriter`'s methods or `open_attended_session`'s signature: `grep -rn "ScopedWriter\|open_attended_session" docs/guide`)
+- Modify: `docs/designs/2026-09-09-session-routes-design.md` (Status), `docs/designs/2026-08-03-redesign-adoption-ledger.md` (a row for the session routes beside the writer-session row, `:125` region), `README.md` and `docs/guide/foundations.md` (design indexes), and the conformance inventories exposed by the full gate: `python/tests/acceptance/test_n2_cut9.py`, `python/tests/acceptance/test_n2_cut11.py`, `python/tests/acceptance/test_n2_cut19.py`, `python/tests/test_designs_corpus.py`, `python/tests/test_permit_boundary.py`
 
-- [ ] **Step 1: `tasks start beliefs-6a9931`, then run the whole gate**
+- [x] **Step 1: `tasks start beliefs-6a9931`, then run the whole gate**
 
 Run: `just gate`
 Expected: pass. The serial `just test` is the conformance gate; do not skip it.
 
-- [ ] **Step 2: Correct the design's status and the ledger**
+If the first full gate exposes stale frozen-arm targets or closed documentation
+and write-boundary inventories, update those inventories to the routes that
+actually landed, run the six failed tests together, then rerun the whole gate.
 
-In the design's `**Status:**` replace `Not yet implemented.` with `Implemented on branch kernel-seams, <date>: Tasks 1–10 of ../plans/2026-09-09-session-routes.md; landed at <merge commit> (fill on merge).` In the adoption ledger add, after the writer-session bullet, one bullet: `- **The session routes** — the scoped writer's run and holdings routes, ledgered; the public store identity reader; the reference rules under the beliefs scope (docs/designs/2026-09-09-session-routes-design.md). Built.` Update any guide page found by the grep to the new signatures.
+- [x] **Step 2: Correct the design's status and the ledger**
 
-- [ ] **Step 3: Close the three tasks and tell science what landed**
+In the design's `**Status:**` replace `Not yet implemented.` with `Implemented on branch kernel-seams, <date>: Tasks 1–10 of ../plans/2026-09-09-session-routes.md; awaiting merge.` In the adoption ledger add, after the writer-session bullet, one bullet: `- **The session routes** — the scoped writer's run and holdings routes, ledgered; the public store identity reader; the reference rules under the beliefs scope (docs/designs/2026-09-09-session-routes-design.md). Built.` Update any guide page found by the grep to the new signatures.
+
+- [x] **Step 3: Close the three tasks and prepare the science handoff**
 
 ```bash
-tasks note beliefs-6a9931 "status corrected, ledger row added, science notified"
+tasks note beliefs-6a9931 "status corrected, ledger row added, science handoff prepared"
 tasks done beliefs-6a9931
 tasks note beliefs-5fe2e3 "landed: open_attended_session(store_root=), ScopedWriter.actor/store_id/operation_port()/holdings_context(), replay over a RunClosure; reconciliation covers run and holdings intents"
 tasks done beliefs-5fe2e3
 tasks note beliefs-e5ab34 "landed: beliefs.rules.REFERENCE_RULES keyed beliefs/outcome-file/v1 and beliefs/content-identity-equality/v1; beliefs.rules.OUTCOME_FILE; the driver binds the same objects"
 tasks done beliefs-e5ab34
-tasks note sci-66b26d "kernel seams landed on beliefs branch kernel-seams. Names differ from the plan's assumptions in one place: rule identities are beliefs/outcome-file/v1 and beliefs/content-identity-equality/v1 (constants beliefs.rules.OUTCOME_FILE_RULE, CONTENT_IDENTITY_RULE); adjust the spec command's resolution and the fixture contract at the call sites."
+tasks note beliefs-6a9931 "science handoff: kernel seams are implemented on beliefs branch kernel-seams. Names differ from the plan's assumptions in one place: rule identities are beliefs/outcome-file/v1 and beliefs/content-identity-equality/v1 (constants beliefs.rules.OUTCOME_FILE_RULE, CONTENT_IDENTITY_RULE); adjust the spec command's resolution and the fixture contract at the call sites."
 tasks check
-git add docs tasks
+git add README.md docs python/tests tasks
 git commit -m "docs(session): record the session routes as built"
 ```
 
-- [ ] **Step 4: Hand back**
+- [x] **Step 4: Hand back**
 
 Report the branch head and the three closed task ids. Merging `kernel-seams` into `main` is the operator's; the science plan's Task 3 becomes ready once `beliefs-2d9a55` is closed (it already is after Task 1), and Tasks 4, 6–9, 11 once the other two close.

@@ -1,11 +1,11 @@
 ---
 id: beliefs-5fe2e3
 title: Expose the run and holdings routes on the invocation-scoped writer
-status: todo
+status: done
 priority: 1
 size: m
 created: 2026-09-09T12:43:20Z
-updated: 2026-09-09T15:44:21Z
+updated: 2026-09-10T01:36:29Z
 depends: []
 tags: [command-framework, dogfood]
 ---
@@ -17,3 +17,5 @@ Belief-path design (science docs/specs/2026-09-09-belief-path-commands-design.md
 - 2026-09-09T13:23:42Z (main): Names the science plan (docs/plans/2026-09-09-belief-path-commands.md) assumes: open_attended_session(..., store_root: Path | None = None); ScopedWriter.operation_port() -> OperationPort under the scoped authority with commits recorded as act lines; ScopedWriter.holdings_context(*, instrument: str) -> ActContext over the session's store root, observer = session actor, published observations recorded as act lines; ScopedWriter.store_id -> str; ScopedWriter.actor; and beliefs.replay.replay accepting a RunClosure as well as a RunMinted (it reads only the closure). Also needed: a public way to read a store root's id.
 - 2026-09-09T14:08:33Z (main): Also assumed by the science plan: beliefs.root.store_identity(store_root) -> str | None, the public form of _read_existing_store_genesis (detached inspection).
 - 2026-09-09T15:44:21Z (main): store_identity split out as beliefs-2d9a55 so science's read context can proceed before the routes land; this task keeps open_attended_session(store_root=), operation_port(), holdings_context(), store_id, actor, and replay over a RunClosure.
+- 2026-09-10T01:36:28Z (kernel-seams): landed: open_attended_session(store_root=), ScopedWriter.actor/store_id/operation_port()/holdings_context(), replay over a RunClosure; reconciliation covers run and holdings intents
+- 2026-09-10T01:36:29Z (kernel-seams): exposed ledgered run and holdings routes on the invocation-scoped writer

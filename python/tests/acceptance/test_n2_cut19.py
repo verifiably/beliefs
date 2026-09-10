@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -28,6 +29,17 @@ from n2_arms_cut19 import CO_CITED, CUT19_ARMS, DECLARATION_UNITS, unit_of
 from test_n2 import audit, baseline
 
 import beliefs.root as science_root
+
+_LIVE_SABOTAGES = {
+    "J3a": Sabotage(
+        "session/writer.py",
+        before="        authority = scoped_authority(required, self.actor)\n",
+        after="        authority = Authority(self._ceiling, self.actor)\n",
+    ),
+}
+CUT19_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT19_ARMS
+)
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]

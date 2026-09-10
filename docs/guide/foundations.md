@@ -13,6 +13,7 @@ sources:
   - ../designs/2026-09-04-write-permits-design.md
   - ../designs/2026-09-05-facet-contracts-design.md
   - ../designs/2026-09-05-writer-session-design.md
+  - ../designs/2026-09-09-session-routes-design.md
   - ../designs/2026-08-09-admission-ramp-design.md
   - ../designs/2026-08-10-verified-holdings-record-design.md
   - ../designs/2026-08-11-act-report-design.md
@@ -193,7 +194,9 @@ and autonomy layer design](../superpowers/specs/2026-08-29-user-and-autonomy-lay
 its writer session is implemented and discharged as conformance cut 19
 ([writer-session design](../designs/2026-09-05-writer-session-design.md)) — the
 attended session, its session ledger and claim protocol, the invocation-bound
-scoped writer, and reconciliation — and its daily surface and autonomy
+scoped writer, and reconciliation. Its [session routes](../designs/2026-09-09-session-routes-design.md)
+add ledgered run and holdings access, the public store identity reader, and
+kernel-scoped reference rules. Its daily surface and autonomy
 sub-projects are not yet implemented; salvage remains undesigned. The [adoption ledger's current-state
 summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-08)
 is the complete statement of what is built and what remains.
@@ -213,6 +216,7 @@ payload contract is implemented and discharged at cut 20, as specified by the
 - [Write permits: authority at every write entry point, E1–E8](../designs/2026-09-04-write-permits-design.md#7-guarantees)
 - [Facet contracts: declarations, the compiled registry, the bearer invariant, F1–F8](../designs/2026-09-05-facet-contracts-design.md#8-guarantees)
 - [Writer session: the session ledger, the scoped writer, and `corpus-write` as an operation, J1–J11](../designs/2026-09-05-writer-session-design.md#7-guarantees)
+- [Session routes: store identity, ledgered run and holdings routes, and reference rules](../designs/2026-09-09-session-routes-design.md)
 - [Domain extension: D1–D10 and profile compilation](../designs/2026-08-04-domain-extension-boundary-design.md#3-the-ownership-split)
 - [Formal model: the thirteen kinds and M1–M13](../designs/2026-08-04-formal-model-and-claim-calculus-design.md#21-rec--world-records-the-thirteen-kernel-kinds)
 - [Adoption ledger: clean-start ruling](../designs/2026-08-03-redesign-adoption-ledger.md#0-the-clean-start-ruling-2026-08-04)
