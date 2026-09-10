@@ -1421,7 +1421,7 @@ git commit -m "feat(replay): accept a run closure"
 **Files:**
 - Create: `python/src/beliefs/rules.py`
 - Modify: `python/src/beliefs/replay.py:66` (`CONTENT_EQUALITY` fixtures), `python/src/beliefs/spec.py:58` (`BITWISE_EQUIVALENCE_RULES`), `python/src/beliefs/spec.py:196-235` (a `HeldImplementation` protocol so `freeze` accepts either implementation type)
-- Test: `python/tests/test_rules.py` (new), `python/tests/test_spec.py`
+- Test: `python/tests/test_rules.py` (new); existing regression verification: `python/tests/test_spec.py`
 
 **Interfaces:**
 - Produces: `beliefs.rules.OUTCOME_FILE`, `OUTCOME_FILE_RULE`, `CONTENT_IDENTITY_RULE`, `OUTCOME_FILE_V1`, `REFERENCE_RULES`, `outcome_digest(outcome) -> str`, `interpret_outcome_file(manifest) -> dict[str, str]`; `beliefs.spec.HeldImplementation` protocol; `freeze(..., held_rules: Mapping[str, HeldImplementation])`.
