@@ -93,7 +93,7 @@ def main() -> int:
     derived = build_assessment(
         original.run,
         specs={frozen.identity: frozen},
-        implementations={spec.interpretation().identity: spec.interpretation()},
+        implementations={spec.INTERPRETATION.identity: spec.INTERPRETATION},
     )
     if isinstance(derived, AssessmentFinding):
         findings.record(6, "defect", f"AssessmentFinding: {derived.reason}")
@@ -156,7 +156,7 @@ def main() -> int:
         original.run,
         replayed.run,
         specs={frozen.identity: frozen},
-        held_rules={spec.equivalence().identity: spec.equivalence()},
+        held_rules={spec.EQUIVALENCE.identity: spec.EQUIVALENCE},
         contract_identity=writer.manifest_pins().science_contract,
         epoch="none-published",
     )

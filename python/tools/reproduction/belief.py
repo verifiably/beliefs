@@ -114,7 +114,7 @@ def main() -> int:
         original,
         replayed,
         specs={frozen.identity: frozen},
-        held_rules={spec.equivalence().identity: spec.equivalence()},
+        held_rules={spec.EQUIVALENCE.identity: spec.EQUIVALENCE},
         contract_identity=writer.manifest_pins().science_contract,
         epoch="none-published",
     )

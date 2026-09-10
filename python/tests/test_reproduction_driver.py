@@ -202,8 +202,8 @@ def test_10b_reads_the_report_from_the_corpus_with_no_in_process_spec(tmp_path, 
 
     monkeypatch.setattr(spec, "frozen", unavailable)
     interpretation = spec_rules()[published.frozen.interpretation_rule]
-    monkeypatch.setattr(spec, "equivalence", lambda: CONTENT_EQUALITY)
-    monkeypatch.setattr(spec, "interpretation", lambda: interpretation)
+    monkeypatch.setattr(spec, "EQUIVALENCE", CONTENT_EQUALITY)
+    monkeypatch.setattr(spec, "INTERPRETATION", interpretation)
     st = {"verification_ref": node.id, "spec_ref": spec_node.id}
     view = writer.read_view
     report = rederive.reconstruct(view, st, close.evidence_for(view))
@@ -335,3 +335,40 @@ def test_a_non_canonical_concept_id_refuses(tmp_path):
     (root / "x.md").write_text("---\nid: 'concept:café-thing'\nkind: concept\n---\n", encoding="utf-8")
     with pytest.raises(ValueError, match="canonical"):
         concept_lines(tmp_path)
+
+
+PINNED_IDENTITY = "fadc127ba6efd8a901015a029df99178c346889a39afb98200ba7c9914c5da6a"
+
+
+def test_the_driver_binds_the_kernel_rules_under_its_own_identities():
+    from decimal import Decimal
+
+    from reproduction import spec as spec_module
+
+    from beliefs.replay import CONTENT_EQUALITY
+    from beliefs.rules import OUTCOME_FILE_V1
+    from beliefs.spec import Deterministic, SpecDraft, SpecInput, freeze
+
+    held = spec_module.held_rules()
+    assert held[spec_module.INTERPRETATION_RULE] is OUTCOME_FILE_V1
+    assert held[spec_module.EQUIVALENCE_RULE] is CONTENT_EQUALITY
+    draft = SpecDraft(
+        target="proposition:p",
+        estimand="e",
+        method="m",
+        assumptions="a",
+        falsification="f",
+        input_roles=(SpecInput(role="observes", dataset="dataset:sha256:" + "a" * 64),),
+        applicability="x",
+        interpretation_rule=spec_module.INTERPRETATION_RULE,
+        equivalence_rule=spec_module.EQUIVALENCE_RULE,
+        parameters={"alpha": Decimal("0.05")},
+        nondeterminism=Deterministic(),
+    )
+    frozen = freeze(draft, held_rules=held)
+    # The pairs the 2026-09-05 record digests, unchanged: identity-neutral by construction.
+    assert frozen.rule_bindings == (
+        ("content-identity-equality/v1", "impl-eq-1"),
+        ("mm30-reproduction/outcome-file/v1", "impl-outcome-file-1"),
+    )
+    assert frozen.identity == PINNED_IDENTITY

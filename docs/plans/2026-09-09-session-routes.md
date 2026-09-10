@@ -1663,7 +1663,7 @@ git commit -m "feat(rules): ship the reference rules keyed by kernel-scoped iden
 - Consumes: `beliefs.rules.OUTCOME_FILE_V1`, `beliefs.replay.CONTENT_EQUALITY`.
 - Produces: `reproduction.spec.held_rules()` mapping the driver's two identities to the kernel objects; `reproduction.spec.INTERPRETATION` (= `OUTCOME_FILE_V1`) and `reproduction.spec.EQUIVALENCE` (= `CONTENT_EQUALITY`) replacing the `interpretation()` / `equivalence()` accessors; `OUTCOME_FILE`, `INTERPRETATION_RULE`, `EQUIVALENCE_RULE`, `OUTCOME_DIGESTS` unchanged in value.
 
-- [ ] **Step 1: `tasks start beliefs-dff3e9`, then pin the pre-change identity**
+- [x] **Step 1: `tasks start beliefs-dff3e9`, then pin the pre-change identity**
 
 Before touching the driver, compute the identity the current code freezes for the fixed draft the driver's existing test uses:
 
@@ -1685,7 +1685,7 @@ EOF
 
 Copy the printed 64-character identity into `PINNED_IDENTITY` in Step 2.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 Append to `python/tests/test_reproduction_driver.py`:
 
@@ -1720,12 +1720,12 @@ def test_the_driver_binds_the_kernel_rules_under_its_own_identities():
     assert frozen.identity == PINNED_IDENTITY
 ```
 
-- [ ] **Step 3: Run it to see it fail**
+- [x] **Step 3: Run it to see it fail**
 
 Run: `(cd python && uv run --frozen pytest tests/test_reproduction_driver.py -q -k binds_the_kernel_rules)`
 Expected: FAIL on the `is OUTCOME_FILE_V1` assertion (the identity assertion would pass already, which is the point).
 
-- [ ] **Step 4: Re-point the driver**
+- [x] **Step 4: Re-point the driver**
 
 In `python/tools/reproduction/spec.py` delete `_interpret`, `interpretation()` and `equivalence()` and the now-unused imports (`cache` stays if still used by `frozen()`; `sha256`, `RuleFixture`, `RuleImplementation`, `EquivalenceImplementation`, `ResultManifest` go if unused). Replace the constants and `held_rules`:
 
@@ -1760,12 +1760,12 @@ Then `grep -rn "interpretation()\|equivalence()" python/tools python/tests` must
 
 Keep `OUTCOME_FILE` importable from the module (`from beliefs.rules import OUTCOME_FILE` re-exports it) — `grep -rn "spec.OUTCOME_FILE\|OUTCOME_DIGESTS" python/tools python/tests` and keep every name still referenced.
 
-- [ ] **Step 5: Run the driver tests and the checks**
+- [x] **Step 5: Run the driver tests and the checks**
 
 Run: `(cd python && uv run --frozen pytest tests/test_reproduction_driver.py -q)` then `just check`
 Expected: pass, including `test_spec_record_carries_a_fresh_semantic_stamp`.
 
-- [ ] **Step 6: Commit and close**
+- [x] **Step 6: Commit and close**
 
 ```bash
 git add python/tools/reproduction python/tests/test_reproduction_driver.py
