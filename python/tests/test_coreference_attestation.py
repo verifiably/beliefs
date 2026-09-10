@@ -5,11 +5,14 @@ from __future__ import annotations
 
 import pytest
 from authority import ACTOR
+from test_world_build import ALPHA, build, corpus_at, install_bindings, make_world
+from test_world_derive import reduce_with
 
 from beliefs import stored
 from beliefs.corpus import EXCLUDED_MUTATION_KINDS
 from beliefs.errors import MalformedRecord
 from beliefs.identity import v1
+from beliefs.world import derive, registry, rules
 
 LEFT = "dataset:left"
 RIGHT = "dataset:right"
@@ -114,3 +117,76 @@ class TestTheReader:
         node.facets.clear()
         with pytest.raises(MalformedRecord):
             stored.coreference_attestation_value(node)
+
+
+def endpoints_and(*attestations):
+    """Two datasets and the attestations over them, as raw stored nodes."""
+    return (
+        stored.dataset_node("left", title="left", resources=[{"name": "d", "digest": "sha256:" + "1" * 64}]),
+        stored.dataset_node("right", title="right", resources=[{"name": "d", "digest": "sha256:" + "2" * 64}]),
+        *attestations,
+    )
+
+
+class TestTheRuleNormalizes:
+    def test_the_unicode_fixture_ships_and_reduces_to_one_unit(self):
+        bundle = next(b for b in rules.shipped_rule_bundles() if b.symbol == "reduce_coreference")
+        assert any(name == "coreference.unicode.yaml" for name, _ in bundle.fixtures)
+
+    def test_two_normalization_forms_of_one_grounds_are_one_unit(self):
+        capture = {
+            "coverage": ["corpus-a"],
+            "records": [
+                {
+                    "corpus_id": "corpus-a", "address": f"coreference:{n}", "uid": f"uid-{n}",
+                    "kind": "coreference-attestation", "deprecated_ids": [], "produces": [],
+                    "retraction": None, "certification": None,
+                    "coreference": {
+                        "endpoints": ["address-a", "address-b"], "stance": 1, "actor": "alice",
+                        "grounds": grounds, "event_token": f"event-{n}",
+                    },
+                }
+                for n, grounds in ((1, NFC), (2, NFD))
+            ],
+        }
+        produced = reduce_with("reduce_coreference", capture)
+        assert produced == {"pairs": [{"endpoints": ["address-a", "address-b"], "balance": 1, "distinct_key_count": 1}]}
+
+
+class TestTheCapturedValue:
+    def test_non_nfc_text_is_refused(self):
+        with pytest.raises(ValueError, match="NFC"):
+            derive.CapturedCoreference(("a", "b"), 1, "alice", NFD, "event-1")
+
+
+class TestTheCaptureLift:
+    def test_a_stored_attestation_is_captured_and_reduced(self, tmp_path):
+        alpha = corpus_at(tmp_path / "alpha", ALPHA, endpoints_and(attestation(), attestation(token="event-2")))
+        world = make_world(tmp_path, alpha)
+        world.admit(alpha, provenance=registry.Fresh())
+        draft = build(world, (ALPHA,), install_bindings(world))
+        captured = [r for r in draft.capture.corpora[0].records if r.kind == "coreference-attestation"]
+        assert len(captured) == 2
+        by_token = {}
+        for record in captured:
+            assert record.coreference is not None
+            by_token[record.coreference.event_token] = record.coreference
+        assert by_token == {
+            token: derive.CapturedCoreference((LEFT, RIGHT), 1, ACTOR, "the same bytes", token)
+            for token in ("event-1", "event-2")
+        }
+        assert dict(derive.coreference_map(draft.run("coreference-reduction")).pairs) == {(LEFT, RIGHT): (1, 1)}
+
+    def test_grounds_rewritten_between_normalization_forms_is_refused_at_capture(self, tmp_path):
+        from fixtures_cut4 import path_for
+
+        node = attestation(grounds=NFC)
+        alpha = corpus_at(tmp_path / "alpha", ALPHA, endpoints_and(node))
+        path = path_for(alpha, node.id)
+        text = path.read_text(encoding="utf-8")
+        assert NFC in text and NFD not in text
+        path.write_text(text.replace(NFC, NFD), encoding="utf-8")  # the probe: identity-equal bytes, reduction-distinct
+        world = make_world(tmp_path, alpha)
+        world.admit(alpha, provenance=registry.Fresh())
+        with pytest.raises(MalformedRecord, match="NFC"):
+            build(world, (ALPHA,), install_bindings(world))
