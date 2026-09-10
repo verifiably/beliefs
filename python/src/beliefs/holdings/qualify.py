@@ -54,6 +54,7 @@ def decode_holdings_intent(row):
         raise ValueError("malformed holdings intent at " + row["digest"])
     return {
         "digest": row["digest"],
+        "actor": value["actor"],
         "event_token": value["event_token"],
         "kind": value["kind"],
         "location": _location(value["location"]),

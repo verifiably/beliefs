@@ -1,11 +1,11 @@
 ---
 id: beliefs-e5ab34
 title: Ship reference rule implementations keyed by rule identity
-status: todo
+status: done
 priority: 1
 size: s
 created: 2026-09-09T12:43:20Z
-updated: 2026-09-09T13:23:41Z
+updated: 2026-09-10T01:36:30Z
 depends: []
 tags: [command-framework, dogfood]
 ---
@@ -15,3 +15,5 @@ Belief-path design (science docs/specs/2026-09-09-belief-path-commands-design.md
 ## Notes
 
 - 2026-09-09T13:23:41Z (main): Names the science plan (docs/plans/2026-09-09-belief-path-commands.md) assumes: beliefs.rules.REFERENCE_RULES, a Mapping[str, RuleImplementation | EquivalenceImplementation] keyed by rule identity holding outcome-file/v1 (digest of outputs/outcome.txt -> supported/refuted/inconclusive) and content-identity-equality/v1, each with fixtures; beliefs.rules.OUTCOME_FILE = 'outputs/outcome.txt'. If the names land differently, science adjusts its call sites.
+- 2026-09-10T01:36:29Z (kernel-seams): landed: beliefs.rules.REFERENCE_RULES keyed beliefs/outcome-file/v1 and beliefs/content-identity-equality/v1; beliefs.rules.OUTCOME_FILE; the driver binds the same objects
+- 2026-09-10T01:36:30Z (kernel-seams): shipped reference rule implementations keyed by permanent rule identity

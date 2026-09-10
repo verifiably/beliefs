@@ -18,7 +18,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, fields
 from hashlib import sha256
 from types import MappingProxyType
-from typing import cast, final
+from typing import Protocol, cast, final
 
 from beliefs.errors import CanonicalTextRefused, MalformedRecord, MalformedSpec, RuleUnbound, UnfreezableSpec
 from beliefs.identity import v1
@@ -32,6 +32,7 @@ __all__ = [
     "Deterministic",
     "ExclusionCertification",
     "FrozenSpec",
+    "HeldImplementation",
     "NondeterminismContract",
     "RealizedSeeds",
     "RuleFixture",
@@ -55,7 +56,7 @@ __all__ = [
 
 SPEC_DOMAIN = "science.spec.v1"
 SEED_DERIVATION_V1 = "seed-derivation/v1"
-BITWISE_EQUIVALENCE_RULES = frozenset({"content-identity-equality/v1"})
+BITWISE_EQUIVALENCE_RULES = frozenset({"content-identity-equality/v1", "beliefs/content-identity-equality/v1"})
 DATASET_EQUIVALENCE_RULE = "dataset-content-equality/v1"
 SPEC_INPUT_ROLES = ("observes", "reads")
 
@@ -211,7 +212,20 @@ class RuleImplementation:
             raise MalformedSpec("an implementation carries its content identity")
 
 
-def implementation_conforms(impl: RuleImplementation) -> bool:
+class HeldImplementation(Protocol):
+    """The fixture-carrying implementation shape bound by ``freeze``."""
+
+    @property
+    def identity(self) -> str: ...
+
+    @property
+    def evaluate(self) -> Callable[..., object]: ...
+
+    @property
+    def fixtures(self) -> tuple[RuleFixture, ...]: ...
+
+
+def implementation_conforms(impl: HeldImplementation) -> bool:
     """An evaluator that raises does not conform; comparison is exact (==)."""
     for fixture in impl.fixtures:
         try:
@@ -222,7 +236,7 @@ def implementation_conforms(impl: RuleImplementation) -> bool:
     return True
 
 
-def bind_rules(named: tuple[str, ...], held: Mapping[str, RuleImplementation]) -> tuple[tuple[str, str], ...]:
+def bind_rules(named: tuple[str, ...], held: Mapping[str, HeldImplementation]) -> tuple[tuple[str, str], ...]:
     bound: dict[str, str] = {}
     for rule in named:
         if rule not in held:
@@ -381,7 +395,7 @@ def _facet_projection(draft: SpecDraft | FrozenSpec, rule_bindings, supersedes) 
 
 
 def freeze(
-    draft: SpecDraft, *, held_rules: Mapping[str, RuleImplementation], supersedes: str | None = None
+    draft: SpecDraft, *, held_rules: Mapping[str, HeldImplementation], supersedes: str | None = None
 ) -> FrozenSpec:
     if not draft.target:
         raise MalformedSpec("an assessment spec targets a proposition; an empty target is not a spec (R7)")
@@ -509,7 +523,7 @@ def revise(
     original: FrozenSpec,
     *,
     edits: Mapping[str, object],
-    held_rules: Mapping[str, RuleImplementation],
+    held_rules: Mapping[str, HeldImplementation],
     recorded_failures: frozenset[str],
 ) -> FrozenSpec:
     """The only edit path. Always mints with `supersedes=original.identity`,

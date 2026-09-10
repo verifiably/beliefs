@@ -45,7 +45,12 @@ DIGEST = "d" * 64
 
 
 def make_session(
-    tmp_path: Path, ceiling: WritePermit | None = None
+    tmp_path: Path,
+    ceiling: WritePermit | None = None,
+    *,
+    store_root: Path | None = None,
+    store_id: str | None = None,
+    holdings_seam: Any = None,
 ) -> tuple[WriterSession, list[RecordingPort]]:
     corpus_root = tmp_path / "corpus"
     corpus_root.mkdir()
@@ -64,6 +69,7 @@ def make_session(
         session_id=SESSION, world_id=WORLD, corpus_root=corpus_root, corpus_id=CORPUS,
         operations_root=operations_root, ledger=ledger, writer_factory=writer_factory,
         ceiling=WritePermit.full() if ceiling is None else ceiling,
+        profile=BASE, store_root=store_root, store_id=store_id, holdings_seam=holdings_seam,
     )
     return session, ports
 
@@ -275,9 +281,34 @@ def test_delete_ledgers_an_empty_record_list(tmp_path):
     assert session.invocation_acts("A")[-1].record_ids == ()
 
 
-def test_the_scoped_writer_exposes_only_the_seven_methods_and_its_invocation(tmp_path):
+def test_the_scoped_writer_exposes_the_seven_methods_the_routes_and_its_invocation(tmp_path):
     public = {name for name in dir(ScopedWriter) if not name.startswith("_")}
-    assert public == {"add", "retract", "supersede", "revise", "delete", "mint_coordination", "revise_coordination", "invocation_id"}
+    assert public == {
+        "add", "retract", "supersede", "revise", "delete", "mint_coordination", "revise_coordination",
+        "invocation_id", "actor", "store_id", "operation_port", "holdings_context",
+    }
+
+
+# --- the session's store and the facade's authority (session-routes design §3) ---
+def test_the_facade_exposes_the_session_actor(tmp_path):
+    session, _ = make_session(tmp_path)
+    session.claim_invocation("A", "mint", DIGEST)
+    writer = session.scoped(PROPOSITIONS, "A")
+    assert writer.actor == session.actor == f"session:{SESSION}"
+
+
+def test_store_id_without_a_store_is_a_protocol_error(tmp_path):
+    session, _ = make_session(tmp_path)
+    session.claim_invocation("A", "mint", DIGEST)
+    writer = session.scoped(PROPOSITIONS, "A")
+    with pytest.raises(SessionProtocolError, match="no store"):
+        _ = writer.store_id
+
+
+def test_a_session_built_with_a_store_exposes_its_id(tmp_path):
+    session, _ = make_session(tmp_path, store_root=tmp_path / "store", store_id="e" * 32)
+    session.claim_invocation("A", "mint", DIGEST)
+    assert session.scoped(PROPOSITIONS, "A").store_id == "e" * 32
 
 
 # --- refusal shapes -----------------------------------------------------------------

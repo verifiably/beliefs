@@ -8,7 +8,7 @@ from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TypeAlias, final
+from typing import TYPE_CHECKING, TypeAlias, final
 
 from nodes.core.node import Node
 
@@ -22,7 +22,10 @@ from beliefs.errors import (
     SessionLedgerFailed,
     SessionProtocolError,
 )
+from beliefs.holdings.seam import StoreActSeam
 from beliefs.permit import Authority, RequiredCapabilities, WritePermit, permit_covers, scoped_authority
+from beliefs.profile import ProfileSpec
+from beliefs.runrecord import OperationPort
 from beliefs.sealed import sealed
 from beliefs.session.ledger import (
     ActLine,
@@ -32,6 +35,9 @@ from beliefs.session.ledger import (
     utc_now,
     validated_outcome,
 )
+
+if TYPE_CHECKING:
+    from beliefs.holdings.boundary import ActContext
 
 __all__ = [
     "Claim",
@@ -109,6 +115,10 @@ class WriterSession:
         writer_factory: Callable[[Authority], CorpusWriter],
         findings: tuple[Finding, ...] = (),
         ceiling: WritePermit | None = None,
+        profile: ProfileSpec | None = None,
+        store_root: Path | None = None,
+        store_id: str | None = None,
+        holdings_seam: StoreActSeam | None = None,
     ) -> None:
         self.session_id = require_hex(session_id, 32, "session id")
         self.actor = f"session:{self.session_id}"  # derived, never supplied (J4)
@@ -120,6 +130,12 @@ class WriterSession:
         self._ledger = ledger
         self._writer_factory = writer_factory
         self._ceiling = WritePermit.full() if ceiling is None else ceiling
+        if (store_root is None) != (store_id is None):
+            raise TypeError("a session binds a store root and its id together, or neither")
+        self.profile = profile
+        self.store_root = None if store_root is None else Path(store_root)
+        self.store_id = store_id
+        self._holdings_seam = holdings_seam
         # Re-entrant: a scoped act holds this lock for its whole duration and the
         # helpers it calls take it again (§13 item 18). `claim_invocation` and
         # `close_invocation` are unchanged by that — they still take it once.
@@ -168,8 +184,8 @@ class WriterSession:
                 raise PermitExceeded(PermitFact("family", missing_family[0]), summary)
             missing_kind = sorted(required.permit.kinds - self._ceiling.kinds)
             raise PermitExceeded(PermitFact("kind", missing_kind[0]), summary)
-        writer = self._writer_factory(scoped_authority(required, self.actor))
-        return ScopedWriter(self, writer, invocation)
+        authority = scoped_authority(required, self.actor)
+        return ScopedWriter(self, self._writer_factory(authority), invocation, authority)
 
     # --- claims ------------------------------------------------------------------
     def claim_invocation(self, invocation_id: str, command: str, input_digest: str) -> Claim:
@@ -225,9 +241,12 @@ class WriterSession:
                     f"writer bound to {invocation} cannot act; current invocation is {self._current}"
                 )
 
-    def _record_act(self, invocation: str, commit: OperationCommit) -> None:
-        """Ledger one committed operation. Reached only from `ScopedWriter._act`,
-        which already holds this lock and checked currency under it, so the
+    def _record_committed(
+        self, invocation: str, *, intent: str, entry: str, records: tuple[tuple[str, str], ...]
+    ) -> None:
+        """Ledger one committed write by its digests and record pairs. Reached
+        only from `ScopedWriter._act` and the session routes, each of which
+        already holds this lock and checked currency under it, so the
         re-check below is an invariant, not a refusal: an operation whose
         registration is durable can no longer be refused, and only a crash or a
         ledger I/O failure — both terminal — may leave it unledgered (§5,
@@ -239,26 +258,21 @@ class WriterSession:
                     f"the current invocation moved from {invocation} to {self._current} while an act "
                     "held the session lock"
                 )
-            records = [] if commit.record is None else [[commit.record.uid, commit.record.id]]
             self._ledger.append(
                 {
                     "line": "act",
                     "invocation": invocation,
                     "corpus": self.corpus_id,
-                    "entry": commit.entry_digest,
-                    "intent": commit.intent_digest,
-                    "records": records,
+                    "entry": entry,
+                    "intent": intent,
+                    "records": [list(pair) for pair in records],
                 }
             )
-            self._index[invocation].acts.append(
-                ActLine(
-                    invocation,
-                    self.corpus_id,
-                    commit.entry_digest,
-                    commit.intent_digest,
-                    tuple((pair[0], pair[1]) for pair in records),
-                )
-            )
+            self._index[invocation].acts.append(ActLine(invocation, self.corpus_id, entry, intent, records))
+
+    def _record_act(self, invocation: str, commit: OperationCommit) -> None:
+        records = () if commit.record is None else ((commit.record.uid, commit.record.id),)
+        self._record_committed(invocation, intent=commit.intent_digest, entry=commit.entry_digest, records=records)
 
     # --- close -----------------------------------------------------------------------
     def close(self) -> None:
@@ -273,18 +287,60 @@ class WriterSession:
 
 
 class ScopedWriter:
-    """The facade a handler holds (design §5): seven methods, one invocation."""
+    """The facade a handler holds (design §5): seven corpus-write methods, the
+    two routes of the session-routes design §3.3, one invocation."""
 
-    __slots__ = ("_invocation", "_session", "_writer")
+    __slots__ = ("_authority", "_invocation", "_session", "_writer")
 
-    def __init__(self, session: WriterSession, writer: CorpusWriter, invocation_id: str) -> None:
+    def __init__(self, session: WriterSession, writer: CorpusWriter, invocation_id: str, authority: Authority) -> None:
         self._session = session
         self._writer = writer
         self._invocation = invocation_id
+        self._authority = authority
 
     @property
     def invocation_id(self) -> str:
         return self._invocation
+
+    @property
+    def actor(self) -> str:
+        """The session actor — also the scoped authority's, so the observer a
+        command passes and the actor a boundary stamps agree."""
+        return self._session.actor
+
+    @property
+    def store_id(self) -> str:
+        store_id = self._session.store_id
+        if store_id is None:
+            raise SessionProtocolError("this session was opened with no store root; the holdings route has no store")
+        return store_id
+
+    def operation_port(self) -> OperationPort:
+        """Return this invocation's durable, act-ledgered run route."""
+        from beliefs.session.routes import LedgeredPort
+
+        port = self._writer._operation_port
+        if port is None:
+            raise SessionProtocolError("this scoped writer has no durable operation port")
+        return LedgeredPort(self._session, self._invocation, port)
+
+    def holdings_context(self, *, instrument: str) -> ActContext:
+        """Return this invocation's durable, act-ledgered holdings route."""
+        from beliefs.holdings.boundary import ActContext
+        from beliefs.session.routes import ledgered_seam
+
+        session = self._session
+        if session.store_root is None or session._holdings_seam is None or session.profile is None:
+            raise SessionProtocolError("this session was opened with no store root; the holdings route has no store")
+        return ActContext(
+            observer_root=session.corpus_root,
+            store_root=session.store_root,
+            observer=session.actor,
+            instrument=instrument,
+            authority=self._authority,
+            seam=ledgered_seam(session, self._invocation, session._holdings_seam),
+            profile=session.profile,
+        )
 
     def _act(self, perform: Callable[[], OperationCommit]) -> Node | None:
         """One act: currency, the commit and the `act` line as one atomic step.

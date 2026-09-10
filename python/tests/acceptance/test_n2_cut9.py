@@ -21,10 +21,11 @@ import re
 import subprocess
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
 from n2_arms_cut7 import CUT7_ARMS
@@ -39,6 +40,17 @@ from test_n2 import MalformedArm, audit, baseline
 from test_n2_cut7 import assert_cut5_matcher_migration
 
 import beliefs.root as science_root
+
+_LIVE_SABOTAGES = {
+    "V1": Sabotage(
+        "root.py",
+        before="    existing = store_identity(store_root)\n",
+        after="    existing = None\n",
+    ),
+}
+CUT9_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT9_ARMS
+)
 
 WORKERS = 8
 

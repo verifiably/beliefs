@@ -19,7 +19,7 @@ from beliefs.corpus import (
 from beliefs.errors import ManifestMalformed, ManifestMissing, SessionRefused
 from beliefs.permit import Authority
 from beliefs.profile import ProfileSpec
-from beliefs.root import durable_executor_factory, durable_operation_port, log_seam
+from beliefs.root import durable_executor_factory, durable_operation_port, holdings_seam, log_seam, store_identity
 from beliefs.session.ledger import (
     ActLine,
     InvocationRecord,
@@ -71,7 +71,12 @@ def _fsync_directory(path: Path) -> None:
 
 
 def open_attended_session(
-    world_config: WorldConfig, operations_root: Path, *, profile: ProfileSpec, coordination: ProfileSpec | None = None
+    world_config: WorldConfig,
+    operations_root: Path,
+    *,
+    profile: ProfileSpec,
+    coordination: ProfileSpec | None = None,
+    store_root: Path | None = None,
 ) -> WriterSession:
     """The interactive constructor (design §3.1): full permit by construction."""
     if type(world_config) is not WorldConfig:
@@ -98,6 +103,13 @@ def open_attended_session(
         raise SessionRefused(
             f"{root}: the chain is {type(view).__name__}; a session opens over a registered, well-formed root"
         )
+    store_id: str | None = None
+    if store_root is not None:
+        if not isinstance(store_root, Path):
+            raise TypeError("store_root must be a Path")
+        store_id = store_identity(store_root)
+        if store_id is None:
+            raise SessionRefused(f"store root {store_root} carries no store genesis")
     resolver = CoordinationResolver({root: coordination}) if coordination is not None else None
 
     session_id = secrets.token_hex(16)
@@ -124,6 +136,10 @@ def open_attended_session(
         operations_root=operations_root,
         ledger=ledger,
         writer_factory=writer_factory,
+        profile=profile,
+        store_root=store_root,
+        store_id=store_id,
+        holdings_seam=holdings_seam() if store_root is not None else None,
     )
     # §3.1: session-open is written (by the constructor) before reconciliation runs.
     session.findings = reconcile_sessions(world_config, operations_root, exclude=session_id)

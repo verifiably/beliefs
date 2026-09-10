@@ -128,6 +128,10 @@ ancestry and the surfaces they built
   fulfilled by its registration, unresolved-root settlement before every
   prepare, and reconciliation over ledgers and chains. J1–J11 close at cut 19;
   `science`'s Task 12 is unblocked.
+- **The session routes** — the scoped writer's run and holdings routes,
+  ledgered; the public store identity reader; the reference rules under the
+  beliefs scope
+  (`docs/designs/2026-09-09-session-routes-design.md`). Built.
 - **Facet contracts** — base and domain contracts declare closed facet schemas;
   profiles compile kinds, relations and facets; every write seam validates the
   caller-held profile; and the empirical-observation acquisition boundary is

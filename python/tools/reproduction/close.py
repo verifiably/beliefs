@@ -30,8 +30,8 @@ def evidence_for(view) -> DerivationEvidence:
         raise RuntimeError(f"stored specs that do not restore: {[f.ref for f in unrestorable]}")
     return DerivationEvidence(
         specs=specs,
-        held_rules={spec.equivalence().identity: spec.equivalence()},
-        implementations={spec.interpretation().identity: spec.interpretation()},
+        held_rules={spec.EQUIVALENCE.identity: spec.EQUIVALENCE},
+        implementations={spec.INTERPRETATION.identity: spec.INTERPRETATION},
     )
 
 

@@ -9,7 +9,7 @@ from collections.abc import Mapping, Sequence
 
 from beliefs.corpus import Finding
 from beliefs.intents import shapes
-from beliefs.report import OperationIntent
+from beliefs.report import AssessmentRunIntent, OperationIntent
 from beliefs.session.ledger import LedgerEmpty, LedgerEvidence, LedgerMissing, LedgerReader, LedgerUnreadable
 from beliefs.world.logmodel import (
     AbsentView,
@@ -41,6 +41,21 @@ corpus, ordered after every entry that corpus actually holds."""
 
 def _finding(severity: str, code: str, ref: str, detail: str, message: str) -> Finding:
     return Finding(severity=severity, code=code, ref=ref, detail=detail, message=message)
+
+
+def _session_of(decoded: shapes.DecodedIntent | shapes.Unrecognized) -> str | None:
+    """Return the session id named by any recognized intent shape's actor."""
+    if type(decoded) is not shapes.DecodedIntent:
+        return None
+    value = decoded.value
+    if isinstance(value, (OperationIntent, AssessmentRunIntent)):
+        actor: object = value.actor
+    else:
+        actor = value.get("actor")
+    if type(actor) is not str:
+        return None
+    match = _SESSION_ACTOR.fullmatch(actor)
+    return None if match is None else match.group(1)
 
 
 def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, ChainView]) -> tuple[Finding, ...]:
@@ -181,12 +196,10 @@ def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, ChainView]
             if type(entry) is not IntentEntryView:
                 continue
             decoded = shapes.decode_intent(entry.digest, entry.payload)
-            if type(decoded) is not shapes.DecodedIntent or not isinstance(decoded.value, OperationIntent):
+            sid = _session_of(decoded)
+            if sid is None:
                 continue
-            match = _SESSION_ACTOR.fullmatch(decoded.value.actor)
-            if match is None:
-                continue
-            sid = match.group(1)
+            actor = f"session:{sid}"
             evidence = by_session.get(sid)
             if evidence is None:
                 keyed.append(
@@ -196,7 +209,7 @@ def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, ChainView]
                             "error",
                             "session-unknown",
                             entry.digest,
-                            f"actor={decoded.value.actor}",
+                            f"actor={actor}",
                             "an intent by a session with no ledger under this operations root",
                         ),
                     )

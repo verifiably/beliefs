@@ -12,6 +12,9 @@ from fixtures_cut6 import PINS
 from profiles import WITH_BIOLOGY
 
 from beliefs.corpus import CorpusWriter
+from beliefs.holdings.boundary import intent_payload
+from beliefs.holdings.qualify import decode_holdings_intent
+from beliefs.holdings.records import StoreLocator
 from beliefs.identity import v1
 from beliefs.root import durable_executor_factory, init_corpus_root
 from beliefs.session import reconcile_sessions
@@ -232,3 +235,48 @@ def test_reconcile_sessions_keeps_the_reconcile_order_and_leads_with_the_unadopt
         ("session-ledger-missing", "warning", "2" * 32),
         ("session-unclosed", "warning", S1),
     ]
+
+
+# --- the run and holdings shapes (session-routes design §4.4) ----------------------
+def run_intent(digest: str, session: str = S1) -> IntentEntryView:
+    return IntentEntryView(digest=digest, payload=v1.encode({"spec_identity": "5" * 64, "event_token": "tok", "actor": f"session:{session}"}))
+
+
+def holdings_intent(digest: str, session: str = S1) -> IntentEntryView:
+    payload = intent_payload(location=StoreLocator("1" * 32, "p.bin"), act_kind="write", event_token="tok", actor=f"session:{session}")
+    return IntentEntryView(digest=digest, payload=payload)
+
+
+def test_the_decoded_holdings_intent_carries_its_actor():
+    entry = holdings_intent(I)
+    decoded = decode_holdings_intent({"digest": I, "entry": {"payload": entry.payload.hex()}})
+    assert decoded is not None and decoded["actor"] == f"session:{S1}"
+
+
+@pytest.mark.parametrize("shape", [run_intent, holdings_intent])
+def test_a_session_intent_of_either_shape_with_no_ledger_is_unknown(shape):
+    chains = {CORPUS: view(shape(I), registration(R, I), settled(R, True))}
+    assert ("session-unknown", "error", I) in codes(reconcile([], chains))
+
+
+@pytest.mark.parametrize("shape", [run_intent, holdings_intent])
+def test_an_uncovered_registration_of_either_shape_is_foreign_when_closed(shape):
+    chains = {CORPUS: view(shape(I), registration(R, I), settled(R, True))}
+    assert ("session-entry-foreign", "error", R) in codes(reconcile([ledger(opens=("A",), closes=("A",))], chains))
+
+
+@pytest.mark.parametrize("shape", [run_intent, holdings_intent])
+def test_an_uncovered_registration_of_either_shape_is_outcome_unknown_when_open(shape):
+    chains = {CORPUS: view(shape(I), registration(R, I), settled(R, True))}
+    assert ("session-outcome-unknown", "warning", R) in codes(reconcile([ledger(opens=("A",), closed=False)], chains))
+
+
+@pytest.mark.parametrize("shape", [run_intent, holdings_intent])
+def test_a_covered_registration_of_either_shape_yields_nothing(shape):
+    chains = {CORPUS: view(shape(I), registration(R, I), settled(R, True))}
+    assert reconcile([ledger(opens=("A",), closes=("A",), acts=(("A", R, I),))], chains) == ()
+
+
+def test_an_interrupted_holdings_act_is_an_unclaimed_intent():
+    chains = {CORPUS: view(holdings_intent(I))}
+    assert ("session-intent-unclaimed", "error", I) in codes(reconcile([ledger(opens=("A",), closes=("A",))], chains))

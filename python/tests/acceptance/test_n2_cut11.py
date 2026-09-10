@@ -32,6 +32,11 @@ import beliefs.root as science_root
 # Live matcher migration, 2026-09-07: frozen declarations above stay byte-exact.
 # The same sabotages now target guarded publication and compiled stamp coverage.
 _LIVE_SABOTAGES = {
+    "J3a": Sabotage(
+        "session/writer.py",
+        before="        authority = scoped_authority(required, self.actor)\n",
+        after="        authority = Authority(self._ceiling, self.actor)\n",
+    ),
     "J7b": Sabotage(
         "boundary.py",
         before="        reason = port.execute_fulfilling_guarded(plan, fulfills, guard=acquisition_guard(result.run), fallback=_fallback)\n",

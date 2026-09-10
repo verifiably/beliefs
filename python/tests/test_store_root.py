@@ -3,7 +3,7 @@
 Plan Task 3 (docs/superpowers/plans/2026-08-23-root-lifecycle.md). The engine
 is stubbed the way `test_root.py` stubs it — Science's own logic is the
 subject — except the detached genesis read, which is real: fabricated chain
-leaves are canonical engine bytes, so `_read_existing_store_genesis` exercises
+leaves are canonical engine bytes, so `store_identity` exercises
 the same decode a cold arrival would.
 """
 
@@ -19,7 +19,12 @@ from authority import FULL
 
 from beliefs import root as science_root
 from beliefs.errors import CorpusRootRefused
-from beliefs.root import LifecycleState, init_store_root
+from beliefs.root import (
+    LifecycleState,
+    init_corpus_root,
+    init_store_root,
+    store_identity,
+)
 from beliefs.world.verify import registered_surface_paths
 
 _HEX32 = re.compile(r"^[0-9a-f]{32}$")
@@ -41,6 +46,33 @@ def _recording_register(calls: list) -> object:
         return "d" * 64
 
     return record
+
+
+class TestStoreIdentity:
+    def test_a_fresh_store_round_trips_its_id(self, certified_work):
+        root = certified_work / "store"
+        minted = init_store_root(root, authority=FULL)
+        assert store_identity(root) == minted
+
+    def test_an_empty_directory_and_a_missing_root_read_none(self, tmp_path):
+        (tmp_path / "empty").mkdir()
+        assert store_identity(tmp_path / "empty") is None
+        assert store_identity(tmp_path / "absent") is None
+
+    def test_a_corpus_root_is_refused_not_none(self, certified_work):
+        root = certified_work / "corpus"
+        init_corpus_root(root, authority=FULL)
+        with pytest.raises(CorpusRootRefused, match="store genesis payload is malformed"):
+            store_identity(root)
+
+    def test_a_malformed_store_genesis_is_refused(self, tmp_path):
+        root = tmp_path / "store"
+        _fabricate_genesis(root, b'{"domain":"science.store-root.v1"}')
+        with pytest.raises(CorpusRootRefused):
+            store_identity(root)
+
+    def test_the_private_name_is_gone(self):
+        assert not hasattr(science_root, "_read_existing_store_genesis")
 
 
 class TestInitStoreRoot:

@@ -60,7 +60,7 @@ class StoreOutcomeView:
 class StoreActSeam:
     corpus_lock: Callable[[Path], AbstractContextManager[None]]
     append_intent: Callable[[Path, bytes], str]
-    publish_fulfilling: Callable[[Path, WritePlan, str], None]
+    publish_fulfilling: Callable[[Path, WritePlan, str], str]
     read_path: Callable[[Path, str], PathReadView]
     store_write: Callable[[Path, str, bytes], StoreOutcomeView]
     store_delete: Callable[[Path, str], StoreOutcomeView]

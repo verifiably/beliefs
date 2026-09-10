@@ -14,17 +14,15 @@ import shutil
 import sys
 from decimal import Decimal
 from functools import cache
-from hashlib import sha256
 from pathlib import Path
 
 import yaml
 from nodes.core.node import Node
 
-from beliefs import stored
+from beliefs import rules, stored
 from beliefs.adapter import WorkflowDefinition
-from beliefs.recipe import ResultManifest
-from beliefs.replay import EquivalenceImplementation
-from beliefs.spec import Deterministic, FrozenSpec, RuleFixture, RuleImplementation, SpecDraft, SpecInput, freeze
+from beliefs.replay import CONTENT_EQUALITY
+from beliefs.spec import Deterministic, FrozenSpec, SpecDraft, SpecInput, freeze
 from reproduction import findings, paths, state, world
 
 CODE_ROOT = Path(__file__).with_name("analysis")  # bundle name: analysis/
@@ -32,12 +30,12 @@ TEMPLATE = Path(__file__).with_name("Snakefile.template")  # outside the code ro
 SNAKEFILE = CODE_ROOT / "workflow" / "Snakefile"
 ENTRYPOINT = "analysis/workflow/Snakefile"
 TARGETS = ("outputs/stats.tsv", "outputs/outcome.txt")
-OUTCOME_FILE = "outputs/outcome.txt"
+OUTCOME_FILE = rules.OUTCOME_FILE
 INTERPRETATION_RULE = "mm30-reproduction/outcome-file/v1"
 EQUIVALENCE_RULE = "content-identity-equality/v1"
-OUTCOME_DIGESTS = {
-    "sha256:" + sha256((o + "\n").encode()).hexdigest(): o for o in ("supported", "refuted", "inconclusive")
-}
+OUTCOME_DIGESTS = {rules.outcome_digest(o): o for o in ("supported", "refuted", "inconclusive")}
+INTERPRETATION = rules.OUTCOME_FILE_V1
+EQUIVALENCE = CONTENT_EQUALITY
 
 
 def render_snakefile() -> bytes:
@@ -57,35 +55,13 @@ def render_snakefile() -> bytes:
     return SNAKEFILE.read_bytes()
 
 
-def _interpret(manifest: ResultManifest) -> dict:
-    return {"outcome": OUTCOME_DIGESTS[dict(manifest.outputs)[OUTCOME_FILE]]}
-
-
-@cache
-def interpretation() -> RuleImplementation:
-    supported = next(d for d, o in OUTCOME_DIGESTS.items() if o == "supported")
-    return RuleImplementation(
-        identity="impl-outcome-file-1",
-        evaluate=_interpret,
-        fixtures=(
-            RuleFixture(
-                arguments=(ResultManifest(outputs=((OUTCOME_FILE, supported),)),), expected={"outcome": "supported"}
-            ),
-        ),
-    )
-
-
-@cache
-def equivalence() -> EquivalenceImplementation:
-    return EquivalenceImplementation(
-        identity="impl-eq-1",
-        evaluate=lambda a, b: "passed" if a == b else "failed",
-        fixtures=(RuleFixture(arguments=(1, 1), expected="passed"),),
-    )
-
-
 def held_rules() -> dict:
-    return {INTERPRETATION_RULE: interpretation(), EQUIVALENCE_RULE: equivalence()}
+    """The driver's identities, bound to the kernel's implementations
+    (session-routes design §5.2). The record's spec identity is unchanged:
+    `freeze` digests (rule identity, implementation identity) pairs, and both
+    pairs are the ones the 2026-09-05 record carries.
+    """
+    return {INTERPRETATION_RULE: INTERPRETATION, EQUIVALENCE_RULE: EQUIVALENCE}
 
 
 def definition() -> WorkflowDefinition:

@@ -61,7 +61,7 @@ from beliefs.replay import (
     qualifies,
     replay_eligibility,
 )
-from beliefs.report import CLOSED, completion
+from beliefs.report import CLOSED, AssessmentRunIntent, Registration, completion
 from beliefs.spec import Deterministic, RealizedSeeds, Seeded, SeedPlan, StochasticUnseeded, derive_seed, freeze
 from beliefs.verification import Verification, lifecycle_state
 
@@ -332,6 +332,44 @@ def test_a_production_replay_runs_through_the_boundary_with_an_equal_recipe(tmp_
     assert isinstance(original, RunMinted) and isinstance(replayed, RunMinted)
     assert original.run.recipe.identity() == replayed.run.recipe.identity()
     assert original.run.occurrence.receipt.execution.scratch_mapping != replayed.run.occurrence.receipt.execution.scratch_mapping
+
+
+def test_replay_over_a_closure_is_replay_over_the_minted_result(monkeypatch, tmp_path):
+    from test_audit import assessment_closure
+
+    from beliefs import replay as replay_module
+
+    frozen = freeze(spec_draft(), held_rules=spec_rules())
+    closure = assessment_closure(frozen)
+    minted = RunMinted(
+        run=closure,
+        intent=AssessmentRunIntent(frozen.identity, "tok", "test-actor"),
+        registration=Registration("tok", "p" * 64),
+    )
+    seen: list[dict] = []
+
+    def capture(**kwargs):
+        seen.append(kwargs)
+        return "sentinel"
+
+    monkeypatch.setattr(replay_module, "execute_assessment_run", capture)
+    common = {
+        "port": object(),
+        "spec": frozen,
+        "definition": closure.recipe.workflow_definition,
+        "code_roots": (),
+        "held_inputs": {},
+        "entrypoint": "e",
+        "targets": ("t",),
+        "declared_outputs": tuple(n for n, _ in closure.result.outputs),
+        "observer": "o",
+        "started_at": "2026-09-09T00:00:00Z",
+        "host_realization": "h",
+        "scratch_base": tmp_path,
+    }
+    assert replay_module.replay(minted, **common) == "sentinel"
+    assert replay_module.replay(closure, **common) == "sentinel"
+    assert seen[0] == seen[1]
 
 
 def test_a_replay_refuses_a_reconstructed_recipe_mismatch(tmp_path):

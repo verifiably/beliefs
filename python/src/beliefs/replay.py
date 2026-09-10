@@ -65,7 +65,16 @@ def _manifest_equality(original: ResultManifest, replayed: ResultManifest) -> st
     return "passed" if original == replayed else "failed"
 
 
-CONTENT_EQUALITY = EquivalenceImplementation("impl-eq-1", _manifest_equality, ())
+_EQUAL_A = ResultManifest(outputs=(("outputs/result.txt", "sha256:" + "a" * 64),))
+_EQUAL_B = ResultManifest(outputs=(("outputs/result.txt", "sha256:" + "b" * 64),))
+CONTENT_EQUALITY = EquivalenceImplementation(
+    "impl-eq-1",
+    _manifest_equality,
+    (
+        RuleFixture(arguments=(_EQUAL_A, _EQUAL_A), expected="passed"),
+        RuleFixture(arguments=(_EQUAL_A, _EQUAL_B), expected="failed"),
+    ),
+)
 DATASET_CONTENT_EQUALITY = EquivalenceImplementation("impl-dataset-eq-1", _manifest_equality, ())
 
 
@@ -109,7 +118,7 @@ def replay_eligibility(
 
 
 def replay(
-    original: RunMinted,
+    original: RunMinted | RunClosure,
     *,
     port: OperationPort,
     spec: FrozenSpec | None,
@@ -125,6 +134,7 @@ def replay(
     scratch_base: Path,
     cores: int = 1,
 ) -> RunMinted | RunRefused:
+    closure = original.run if type(original) is RunMinted else original
     common = {
         "definition": definition,
         "code_roots": code_roots,
@@ -138,9 +148,9 @@ def replay(
         "scratch_base": scratch_base,
         "cores": cores,
         "port": port,
-        "boundary_policy": original.run.recipe.boundary_policy,
+        "boundary_policy": closure.recipe.boundary_policy,
     }
-    recipe = original.run.recipe
+    recipe = closure.recipe
     common["expected_recipe_identity"] = recipe.identity()
     if recipe.shape == "assessment":
         outcome = execute_assessment_run(spec=spec, **common)

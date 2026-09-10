@@ -1,0 +1,478 @@
+# Session routes, store identity and reference rules — design (the belief-path seams)
+
+**Date:** 2026-09-09
+**Status:** designed 2026-09-09 in a brainstorming session of four sectioned
+reviews, each approved as presented (store identity and the session; the
+ledgered port and seam; reference rules, replay and errors; testing and
+documents), after three rulings: the reproduction driver maps its
+identities onto the kernel implementations rather than keeping copies; rule
+identities carry the kernel's scope; the store root is optional on the
+session. Revised 2026-09-09 on a written review of the committed document
+whose six findings became §4.2's lock order and guarded members, §4.4
+(reconciliation over the two new intent shapes), §5's bitwise
+classification, §4.1's atomic append, and §2's corrected contract with
+test 16; and again on a second review whose two findings made §4.2's
+guard total (the seam's reads run recovery on a writable root) and
+replaced test 8b with a lock-order trace and a forced interleaving that
+fail under the reversed order. Implemented through `266a84d` and merged into
+`main` on 2026-09-09: Tasks 1–10 of
+`../plans/2026-09-09-session-routes.md`.
+**Scope:** the three kernel seams the science belief-path design depends on
+(science `docs/specs/2026-09-09-belief-path-commands-design.md` §6.1, §6.2,
+§5): the public store identity reader (`beliefs-2d9a55`), the run and
+holdings routes on the invocation-scoped writer (`beliefs-5fe2e3`), and the
+reference rule implementations keyed by rule identity (`beliefs-e5ab34`).
+Builds on the writer session (`2026-09-05-writer-session-design.md`), the
+write permits (`2026-09-04-write-permits-design.md`) and the holdings
+boundary. Science's `sci-66b26d` depends on all three.
+
+## 1. What the surface needs and why the kernel has to give it
+
+A science command runs one invocation of one attended session. It holds a
+`ScopedWriter`, whose seven methods are the corpus-write family, and a read
+context; it never sees a permit or an `Authority` (command framework §4.2).
+The belief path needs two more act families from that position:
+
+- **`run`.** `execute_assessment_run` and `replay` take an `OperationPort`.
+  The port binds an `Authority` and the durable root; a command has neither.
+- **`holdings`.** `write` and `delete` take an `ActContext`, which binds an
+  `Authority`, a store root, a seam and a profile. Same position.
+
+Permit reach is not the gap. A declaration that routes `run` and
+`act-report` to `run` yields the `run` family; `holdings-observation` yields
+`holdings`; both are command-reachable and the session ceiling covers them.
+The gap is a seam: nothing on the scoped writer hands out a port or a
+context bound to the invocation's scoped authority, and nothing would ledger
+what they commit. The session's ledger is the account of what an invocation
+did (writer-session design §3); a run or an observation committed past it
+would be an act the ledger cannot see, and science's write audit, which
+rebuilds the canonical report from the ledger's `act` lines, would see
+nothing.
+
+Two smaller needs sit beside it. The read context must know a store root's
+identity without opening a session, to build the resolution snapshot and to
+match held paths of the form `store:<id>:<relative>`; the kernel holds that
+read as a private function. And the surface's `spec` command resolves rule
+identities to implementations the kernel ships, so `freeze` binds them and
+the audit recomputes against the same code; today the only such
+implementations live in the mm30 reproduction driver, an instrument.
+
+## 2. Store identity (`beliefs-2d9a55`)
+
+```python
+def store_identity(store_root: Path) -> str | None: ...
+```
+
+`beliefs.root.store_identity` is the public name of the existing
+`_read_existing_store_genesis`: a detached inspection of the root's chain,
+with no metadata root, no recovery and no writes, that returns the id the
+store genesis carries. Its contract is the existing function's, stated
+exactly: `None` when the root has no chain, when the chain is not well
+formed, or when the first entry is not a genesis entry at all; and
+`CorpusRootRefused` when the first entry is a genesis whose payload is not
+a store genesis, which covers both a malformed payload and a genesis of
+another domain, a corpus root among them. A corpus root is not "no store
+yet"; it is a root the caller has misnamed, and the read says so.
+`init_store_root` calls the public name; the private one is removed.
+
+Detached inspection is the point, not a convenience: a store may be arriving
+or interrupted, and the read context must never run recovery on a root it
+only reads (science plan Task 3).
+
+## 3. The session's store and the scoped writer (`beliefs-5fe2e3`)
+
+### 3.1 Opening with a store
+
+```python
+def open_attended_session(
+    world_config: WorldConfig,
+    operations_root: Path,
+    *,
+    profile: ProfileSpec,
+    coordination: ProfileSpec | None = None,
+    store_root: Path | None = None,
+) -> WriterSession: ...
+```
+
+When `store_root` is given, the opener reads `store_identity(store_root)`
+before any ledger file exists and refuses with `SessionRefused` when it is
+`None`; a misconfigured store fails before a `session-open` line is written.
+`WriterSession` carries `store_root`, `store_id`, `profile` and the holdings
+seam beside its writer factory. All four are optional on the constructor so
+the portable tests that build a session from parts keep working, and the
+opener supplies the production seam (`holdings_seam()`).
+
+The store is optional because a session that only mints propositions has no
+use for one, and the kernel's own acceptance rigs open sessions with no
+store. A route that needs it and finds none is a protocol error (§3.3), not
+a refusal of the invocation.
+
+### 3.2 The scoped authority reaches the facade
+
+`WriterSession.scoped` mints the scoped authority as today
+(`scoped_authority(required, self.actor)`) and hands it to the
+`ScopedWriter` explicitly, beside the corpus writer. The facade needs it for
+the two routes, and today it is reachable only through the corpus writer's
+private fields. No new `Authority(...)` construction appears; the permit
+module's static test stands.
+
+### 3.3 Four members on the facade
+
+```python
+class ScopedWriter:
+    @property
+    def actor(self) -> str: ...            # the session actor
+    @property
+    def store_id(self) -> str: ...         # SessionProtocolError without a store
+    def operation_port(self) -> OperationPort: ...
+    def holdings_context(self, *, instrument: str) -> ActContext: ...
+```
+
+`actor` is the session actor, which is also the scoped authority's actor,
+so the `observer` a command passes to a boundary and the `actor` the
+boundary stamps agree.
+
+`operation_port()` returns the ledgered port of §4 over the durable port
+bound to this invocation's scoped authority.
+
+`holdings_context(instrument=…)` returns an `ActContext` with observer root
+= the session's corpus root, store root = the session's, observer = the
+actor, instrument as given, authority = the scoped authority, profile = the
+session's, seam = the ledgered seam of §4. Without a store it raises
+`SessionProtocolError`. The seven existing methods do not change.
+
+The boundaries keep their own `authority.require` calls. An assessment run
+whose declared capabilities do not cover the route returns
+`RunRefused(reason="permit-exceeded", report=None, intent=None,
+registration=None)` before an intent is appended. Holdings and corpus writes
+raise `PermitExceeded`.
+
+## 4. The ledgered routes (`beliefs-5fe2e3`)
+
+One new module, `beliefs/session/routes.py`, holds two thin wrappers that
+share one recording helper. Neither changes what the boundaries do; each
+lets the session hear what they commit.
+
+### 4.1 `LedgeredPort`
+
+An `OperationPort` over the invocation's durable port.
+
+- `profile`, `authority`, `preflight`: delegate.
+- `append_intent(payload)`: under the session lock, requires the
+  invocation to be current and delegates before releasing it. The check and
+  the durable append are one step; `_require_current` alone releases the
+  lock on return, which would let a close on another thread land between
+  the check and the append.
+- `execute_fulfilling(plan, fulfills)`: under the session lock, requires
+  currency, delegates, and records an act from `fulfills` (the intent
+  digest), the entry digest the durable port returns, and the records of
+  the plan (§4.3). The lock order is the one `ScopedWriter._act` uses,
+  session then operation, and nothing is held while a workflow runs: the
+  boundary reaches the port only before the run (the intent) and after it
+  (the publication).
+- `execute(plan)`: refused with `SessionProtocolError`. A session route
+  commits only fulfilling writes; an unfulfilling commit would be an act
+  with no intent for the ledger to name. Assessment's existing pre-intent
+  refusals for a missing or invalid frozen spec, an unheld input or
+  acquisition input, and unsupported boundary policy publish through this
+  member, so they also raise `SessionProtocolError` on this route. A surface
+  must validate those preconditions before calling it.
+- `execute_fulfilling_guarded(...)`: refused with `SessionProtocolError`.
+  The durable form returns the guard's reason, not an entry digest, so the
+  act could not be ledgered faithfully. No command declares a production
+  run; when one does, the guarded path is extended to return both and this
+  refusal is lifted (§9).
+
+### 4.2 `LedgeredSeam`
+
+A `StoreActSeam` over the production seam, with three obligations.
+
+**Lock order.** The holdings boundary holds the corpus lock when it calls
+`append_intent` and `publish_fulfilling` (`_append` and `_publish_record`
+both open `seam.corpus_lock` first). A wrapper that took the session lock
+inside those calls would acquire corpus then session, the reverse of
+`ScopedWriter._act`, and two threads would deadlock. So the ledgered seam's
+`corpus_lock(root)` is where the session lock is taken: it acquires the
+session lock, requires currency, then enters the inner corpus lock, and
+releases both in reverse. `append_intent` and `publish_fulfilling` then run
+with the session lock already held (it is re-entrant) and re-check nothing
+they cannot re-check for free. Session then corpus, everywhere.
+
+**Every member is guarded.** A context is a value a handler can keep, so
+every member of the ledgered seam requires currency under the session lock,
+atomically with its delegate, with no exception for the two that look like
+reads: the production `store_genesis` reads the chain through the
+registered path, which takes the project lock and resolves recovery before
+it answers, and `read_path` goes through the same lifecycle view. Neither
+is inert on a writable root, and a context bound to a closed invocation
+does nothing at all. A context used after its invocation closed is refused
+at its first call, before an intent is appended, before recovery runs and
+before a byte moves. An invocation closed part-way through an act is
+refused at the next step; what precedes it, an appended intent without a
+publication, is exactly the state a crash leaves, and §4.4 makes
+reconciliation report it.
+
+**Recording.** `publish_fulfilling(root, plan, intent)` delegates and
+records an act from the intent digest, the entry digest and the plan's
+records.
+
+For this, `StoreActSeam.publish_fulfilling` changes type from
+`Callable[[Path, WritePlan, str], None]` to `Callable[[Path, WritePlan, str],
+str]`, and `_store_publish_fulfilling` returns the registration's entry
+digest, computed the way `DurableOperationPort.execute_fulfilling` already
+computes it. The holdings acts ignore the return value, so nothing else in
+the boundary moves.
+
+### 4.3 Records from a plan
+
+Both wrappers derive the act's `[uid, id]` pairs from the plan itself: each
+`CreateOp`'s bytes are read back through `node_from_markdown`, the reader
+the corpus and the boundary already use, and the node's `uid` and `id` are
+the pair. A plan carrying any other op kind is refused with
+`SessionProtocolError`; the run publication plan, the act-report plan and
+the holdings observation plan are creates only.
+
+`WriterSession._record_act` splits in two: the existing commit-shaped entry
+stays for the seven corpus-write methods, and a general one takes
+`(invocation, *, intent, entry, records)`. Both write the same ledger line
+and append the same `ActLine`, so the ledger schema and science's audit are
+untouched. An act line for a run names the run record; for a refused run,
+the act-report; for a holdings write, the observation.
+
+### 4.4 Reconciliation hears the new shapes
+
+`reconcile` (`session/reconcile.py`) walks a corpus chain's intent entries
+and keeps only those whose decoded value is an `OperationIntent` with a
+session actor; every other shape is skipped before the actor is read. A run
+intent (`AssessmentRunIntent`, which carries its actor) and a holdings
+intent (a mapping whose decoder currently drops the actor) appended by a
+session are therefore invisible to it: a committed run or observation with
+no act line, or by a session with no ledger, produces no finding today,
+where the same corpus write produces `session-unknown`,
+`session-outcome-unknown` or `session-entry-foreign`.
+
+The change: `decode_holdings_intent` returns the actor beside the fields it
+already returns (its existing callers ignore the extra key); `reconcile`
+takes the actor from any of the three decoded shapes and applies the same
+session-actor match and the same findings to all of them. The findings'
+codes, severities and messages do not change; what changes is which intents
+they can be about. An interrupted holdings act (§4.2) is then an intent by
+a session with a registration that never committed, reported under the
+same branch that reports an interrupted corpus write.
+
+## 5. Reference rules (`beliefs-e5ab34`)
+
+A new module, `beliefs/rules.py`, importable without constructing anything:
+
+```python
+OUTCOME_FILE = "outputs/outcome.txt"
+OUTCOME_FILE_RULE = "beliefs/outcome-file/v1"
+CONTENT_IDENTITY_RULE = "beliefs/content-identity-equality/v1"
+OUTCOME_FILE_V1: RuleImplementation          # identity "impl-outcome-file-1"
+REFERENCE_RULES: Mapping[str, RuleImplementation | EquivalenceImplementation]
+```
+
+`OUTCOME_FILE_V1` is the driver's interpretation rule moved into the kernel:
+it maps the manifest's digest for `OUTCOME_FILE`, one of the three digests
+of the canonical lines `supported`, `refuted`, `inconclusive` (each with a
+trailing newline), to `{"outcome": …}`. A manifest without the file, or with
+another digest, raises; `implementation_conforms` treats a raise as
+non-conformance, and `freeze` refuses to bind it. It carries three fixtures,
+one per outcome.
+
+`REFERENCE_RULES` maps `OUTCOME_FILE_RULE` to `OUTCOME_FILE_V1` and
+`CONTENT_IDENTITY_RULE` to `beliefs.replay.CONTENT_EQUALITY`, which keeps
+its `impl-eq-1` identity and gains two manifest fixtures, equal and
+unequal, so it is no longer conformant by vacuity.
+
+`spec.BITWISE_EQUIVALENCE_RULES`, the set `freeze` and the record restorer
+both consult to refuse a stochastic-unseeded draft under a bitwise
+equivalence rule (computation §3.1a), holds the bare
+`content-identity-equality/v1` only. The kernel identity joins it. Without
+that, a draft refused under the bare name would freeze under the kernel's,
+and a stored record naming the kernel identity would restore where the bare
+one is refused.
+
+### 5.1 Rule identities carry the author's scope
+
+A rule identity is digested into every spec identity that binds it, so it
+is permanent. The shape is `<scope>/<rule>/v<N>`: the scope names the
+author, the version is the contract's, not the code's. A new digest scheme
+for the outcome file would be `beliefs/outcome-file/v2`; a faster
+implementation of the same contract is a new `impl-…` identity under the
+same rule. The kernel's scope is `beliefs`. The reproduction driver took
+`mm30-reproduction`; an operator's rules, when the kernel gives them a home,
+take the operator's.
+
+### 5.2 The driver maps onto the kernel
+
+`python/tools/reproduction/spec.py` deletes its evaluator and its
+equivalence lambda. Its `held_rules()` maps its existing identities,
+`mm30-reproduction/outcome-file/v1` and the bare
+`content-identity-equality/v1`, to `OUTCOME_FILE_V1` and `CONTENT_EQUALITY`.
+The record's frozen spec identity is unchanged, because `freeze` digests
+`(rule identity, implementation identity)` pairs and both pairs are the
+pairs the record carries. The driver's design-gap finding (its rule sees
+digests, not bytes) is unchanged in substance and now describes the kernel
+rule too.
+
+## 6. Replay over a closure
+
+`replay(original: RunMinted | RunClosure, …)` reads only the closure's
+recipe (boundary policy, identity, shape, inputs, parameters,
+nondeterminism). The union and one line selecting `original.run` for a
+minted result are the change. The surface verifies from a stored run
+record's closure and never holds the minted result.
+
+## 7. Errors
+
+No new exception class. Everything a route can refuse is an existing one:
+
+| Condition | Raised by | Class |
+| --- | --- | --- |
+| declared capabilities do not cover an assessment run | the run boundary's `require` handler | `RunRefused("permit-exceeded", None, None, None)` |
+| declared capabilities do not cover a holdings or corpus write | the boundary's `require` | `PermitExceeded` |
+| assessment pre-intent refusal (frozen spec, input heldness, boundary policy) on the fulfilling-only route | the ledgered port's forbidden `execute` | `SessionProtocolError` |
+| the invocation is not current | the ledgered port or seam | `SessionProtocolError` |
+| `execute` or the guarded form on a ledgered port | the ledgered port | `SessionProtocolError` |
+| a plan with a non-create op | the recording helper | `SessionProtocolError` |
+| `store_id` or `holdings_context` on a store-less session | the facade | `SessionProtocolError` |
+| a store root without a genesis at open | the opener | `SessionRefused` |
+| a genesis that is not a store genesis (malformed, or another domain) | `store_identity` | `CorpusRootRefused` |
+| a locator naming another store | the holdings boundary | `StoreIdMismatch` |
+
+The first two are refusals of the invocation; the science dispatcher must
+normalise both forms. The `SessionProtocolError` rows are programming errors
+on the caller's side and surface as such.
+
+## 8. Guarantees and their tests
+
+Three layers on existing rigs.
+
+**Portable, from parts** (`test_session_writer.py`'s `make_session` with the
+recording port and a fake seam):
+
+1. `actor` equals the session actor.
+2. `store_id` and `holdings_context()` raise `SessionProtocolError` on a
+   session built without a store.
+3. `operation_port().execute_fulfilling(plan, fulfills)` ledgers one act
+   whose `intent` is `fulfills`, whose `entry` is what the port returned,
+   and whose records are the pairs parsed from the plan.
+4. `execute` and `execute_fulfilling_guarded` raise `SessionProtocolError`
+   and reach the inner port not at all.
+5. A plan with a non-create op is refused before the inner port is reached.
+6. After the invocation closes, `append_intent` and `execute_fulfilling`
+   raise `SessionProtocolError`; and a close that lands on another thread
+   between a currency check and the durable append cannot: the close waits
+   on the session lock and the append completes under the invocation it was
+   checked for.
+7. The ledgered seam's `publish_fulfilling` ledgers a holdings act the same
+   way, and every member reaches the inner seam only under a current
+   invocation.
+8. A permit narrowed below `run` returns `RunRefused("permit-exceeded", …)`;
+   one narrowed below `holdings` raises `PermitExceeded`. Both happen before
+   any intent is appended (the recording port saw no `append_intent`). An
+   assessment with an unheld input proves the fulfilling-only route rejects
+   its pre-intent report publication with `SessionProtocolError` and no
+   durable calls.
+8a. A holdings context kept past its invocation's close is refused at
+    `write`'s first call, and the fake seam records that no member at all
+    was reached, `read_path` and `store_genesis` included; the same for
+    `recheck`, which also starts through `append_intent` and whose second
+    member is `read_path`. A close that lands from
+    inside `append_intent`'s delegate is refused at `store_genesis` (the
+    `_bind` step), and the fake seam records neither a genesis read nor a
+    store write after it.
+8b. Lock-order trace. The test replaces the session's lock with a wrapper
+    that records acquisitions per thread, and gives the ledgered seam a fake
+    inner seam whose every member asserts, on entry, that the current
+    thread holds the session lock, and whose `corpus_lock` is the real
+    `_operation_lock_for(root)`. One holdings `write` and one `add` on the
+    same session and root both pass. Under the reversed order the inner
+    `corpus_lock` and `publish_fulfilling` are entered without the session
+    lock, and the assertion fails deterministically, with no threads.
+8c. Forced interleaving. Thread A runs a holdings `write` whose fake inner
+    seam, on entering `corpus_lock` for publication, waits for thread B's
+    signal; thread B runs `add`. The session-lock wrapper, on B's thread,
+    first tries a non-blocking acquisition: if it succeeds it signals
+    "owned" and continues; if it fails it signals "held by another" and
+    then blocks. Either way the signal states which thread owns the lock
+    before A proceeds, so no schedule lets A slip through a still-free
+    lock. Under the designed order A already holds the session lock, B
+    signals "held by another" and blocks, A finishes, B finishes, and the
+    bounded join succeeds. Under the reversed order B's try succeeds, B
+    blocks on the operation lock A holds, A then blocks on the session
+    lock, and the bounded join fails. The plan proves the test by running
+    it once with the order reversed.
+
+**Durable** (`acceptance/test_session_acceptance.py`'s rig):
+
+9. Opening with an initialised store root exposes its `store_id` through a
+   scoped writer; opening on a root without a genesis raises
+   `SessionRefused` and leaves no ledger directory.
+10. One holdings `write` through `holdings_context` publishes an
+    observation whose act line's entry digest is the chain entry that
+    carries it.
+11. One run publication through `operation_port()` from a fixture closure
+    (`publication_plan`) is ledgered the same way.
+12. `reconcile_sessions` over a session holding both lines reports no
+    finding beyond what a proposition-only session reports.
+12a. Reconciliation over the new shapes: a committed run publication and a
+    committed holdings observation by a session with no ledger each yield
+    `session-unknown`; each with a ledger but no act line yields
+    `session-entry-foreign` (closed invocation) or
+    `session-outcome-unknown` (open invocation); a holdings intent with no
+    committed registration is reported as an interrupted write is. The
+    decoded holdings intent carries its actor.
+
+**Rules and replay:**
+
+13. Every entry of `REFERENCE_RULES` conforms to its fixtures, and its key
+    is a `beliefs/…/v1` identity. A stochastic-unseeded draft naming
+    `beliefs/content-identity-equality/v1` is refused by `freeze`, and a
+    record naming it is refused by the restorer, exactly as under the bare
+    name.
+14. The driver's `frozen().identity` equals the value the 2026-09-05
+    reproduction record carries, pinned as a literal.
+15. `replay` over `minted.run` returns what `replay` over `minted` returns.
+
+**Store identity:**
+
+16. A fresh `init_store_root` round-trips through `store_identity`; an
+    empty directory returns `None`; a corpus root and a malformed store
+    genesis each raise `CorpusRootRefused`.
+
+## 9. Limitations and open questions
+
+- **Production runs.** The guarded execution path is outside this seam
+  (§4.1). Lifting it means the durable guarded form returning the entry
+  digest beside the reason; a one-line change to its callers when a command
+  needs it.
+- **Assessment pre-intent refusals.** Missing or invalid frozen specs,
+  unheld inputs or acquisition inputs, and unsupported boundary policies
+  publish an unfulfilling report through `execute`, which this route refuses.
+  Surfaces must validate those preconditions first. Supporting these as
+  session acts requires an explicit intent and ledger amendment; the route
+  must not enable unledgered `execute`.
+- **One store per session.** The session binds one store root. A world
+  with several stores needs either several sessions or a locator-keyed
+  context; neither is asked for.
+- **Records by re-reading.** Deriving pairs by parsing the plan's bytes is
+  a read of what the boundary is about to write, not a second source of
+  truth: the bytes are the node. If a future plan carries something other
+  than nodes, the helper refuses rather than guesses.
+- **Rule identities in the record.** The mm30 record keeps
+  `mm30-reproduction/outcome-file/v1`; a spec frozen through the surface
+  under `beliefs/outcome-file/v1` has a different identity, which the
+  science design already accounts for (§8.3 there).
+
+## 10. Task mapping
+
+- `beliefs-2d9a55` — §2. Size xs. First: science's read context depends on
+  it alone.
+- `beliefs-5fe2e3` — §3, §4, §6. Size m.
+- `beliefs-e5ab34` — §5. Size s. Independent of the other two.
+
+The plan (`../plans/2026-09-09-session-routes.md`) attaches one step per
+section to these tasks. The adoption ledger gains its row when the work
+lands.
