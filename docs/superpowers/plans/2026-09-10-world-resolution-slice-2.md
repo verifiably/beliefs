@@ -116,6 +116,14 @@ Five guarantee rows are read, **2 full/closed** (W15, W4), 3 partial (X12, W8a, 
 
 `## 5. N2 and acceptance obligations` — numbered as cut 23's: (1) the inventory is exactly the five units, single-homed; (2) every durable arm runs on the certified volume, refusal is an error and never a skip; (3) the runner, quoting `PREFIX_RUNNERS = ("cut23_acceptance.py",)` and `PHASE_MODULES = ("test_coreference_acceptance.py", "test_n2_cut24.py")`; (4) the 18 declared arms cover every sabotage site: in `corpus.py` (the admissible-kind set widened to prose; the raw self-pair check dropped; exact resolution weakened to presence; the kind comparison dropped; the actor bind dropped; the family-kind clause dropped; the controlled rebuild narrowed to the id; the import clause dropped; attestations admitted into the retraction graph; a `merge` name registered on the operations facade), in `stored.py` (relations attached to each endpoint), in `world/epoch.py` (the capture lift dropped; capture iterates every live admitted corpus instead of the declared coverage), in `world/rules_v1/coreference.py` (the event token added to the key; the NFC normalization dropped), in `world/read.py` (missing coverage answered empty; the refuted rebuild answered validated; the rebuild comparison narrowed to membership), and in `world/derive.py` (the coreference map added to the belief input); (5) `test_n2_cut24.py` audits them by the cut-12 pattern with the staleness probe's baseline taken from the tree; (6) prior declarations frozen, no check reclaimed; (7) the freeze pin.
 
+The preceding count is the historical instruction that produced frozen §5 and
+is preserved verbatim there. A 2026-09-10 post-freeze review counted 19
+distinct mutations in that list and found that the live Task 7 table omitted
+the `act-report` endpoint-kind admission and the membership-only receipt
+comparison. The current execution inventory retains its original 18 arms and
+adds `W15n` and `X12c`, for 20; Task 9 records the deviation without rewriting
+frozen §§2–7.
+
 `## 6. Second reader` — the spec's two review passes on 2026-09-10 (§14 there): eight findings, then four. `## 7. Limitations` — (1) the deduplication key defeats exact NFC duplicates only; per-attester capping and grounds equivalence are policy, unbuilt; (2) the coverage arm's "digest unchanged" clause is unsatisfiable as the row states it and is read on one coverage; (3) an attestation over a since-deleted endpoint is reduced and never refused (spec §13 item 3).
 
 - [ ] **Step 3: Add the document to the README list and count**
@@ -1319,7 +1327,7 @@ git commit -m "test(world): read coreference edges over stored attestations"
 
 **Interfaces:**
 - Consumes: Task 1's five units, freeze sha and sha256; every seam, capture and rule change above.
-- Produces: `CUT24_ARMS` (18 arms), `DECLARATION_UNITS = ("W15", "X12", "W8a", "M3", "W4")`, `unit_of`, `CO_CITED = ()`.
+- Produces: `CUT24_ARMS` (20 live arms; frozen §5 retains its historical 18-arm count), `DECLARATION_UNITS = ("W15", "X12", "W8a", "M3", "W4")`, `unit_of`, `CO_CITED = ()`.
 
 - [ ] **Step 1: `tasks start beliefs-ee18db`, then write the durable acceptance module**
 
@@ -1358,6 +1366,7 @@ test_an_unmounted_covered_corpus_still_contributes_to_the_published_balance_dura
 test_coreference_between_retractions_closes_no_route_durably               (M3 and W15 cycle: both retractions byte-unchanged; standing unchanged; no graph edge; the validator and forced-verdict checks of cut 5 re-run with the edge active; the raw-cycle audit classification of cut 18 re-run)
 test_membership_follows_coverage_durably                                   (X12 membership)
 test_omission_and_a_wrong_balance_refute_and_move_no_digest_durably        (X12 / W8a omission and wrong balance; producer, retraction and certification receipts stay validated)
+test_a_membership_only_rebuild_does_not_validate_a_wrong_balance_durably   (X12: a wrong balance with unchanged pair membership and a consistent claimed subject is refuted)
 test_unresolvable_for_an_unmounted_and_for_a_moved_named_state_durably     (X12 unresolvable, both cases)
 test_the_digest_boundary_holds_on_one_coverage_durably                     (W8a coverage as restated: same coverage, two more attestations in B → one producer snapshot identity, one digest, different maps; the two-coverage pair carries two digests)
 test_no_operation_retires_an_address_on_coreference_grounds_durably        (W4: endpoints byte-unchanged and live; no deprecated_ids entry; the inventory has no merge member and no member writes one)
@@ -1381,7 +1390,7 @@ For the cut 5 and cut 18 re-runs inside the cycle test, call the same helpers th
 - [ ] **Step 2: Run the module on the certified volume**
 
 Run: `uv run --frozen pytest tests/acceptance/test_coreference_acceptance.py -q -p no:cacheprovider`
-Expected: PASS, 14 tests, no skip. A `UncertifiedVolume` error means the work directory is not the certified one: set `SCIENCE_CUT4_ROOT` to the certified volume beside the checkout and rerun; never waive.
+Expected: PASS, 15 tests, no skip. A `UncertifiedVolume` error means the work directory is not the certified one: set `SCIENCE_CUT4_ROOT` to the certified volume beside the checkout and rerun; never waive.
 
 - [ ] **Step 3: Write the declarations**
 
@@ -1432,13 +1441,63 @@ Then `CUT24_ARMS`, one `Arm` per site; the `before` strings are the exact lines 
 | W15k | `_READ`: `    missing = tuple(\n        corpus_id for corpus_id in registry._live_corpus_ids(world.registry()) if corpus_id not in covered\n    )\n` → `    missing = ()\n` | `_A::test_coverage_bounds_the_balance_and_no_epoch_is_unspellable_durably` |
 | W15l | `_STORED`: `    return _node("coreference-attestation", slug, title, {COREFERENCE_ATTESTATION_FACET: facet}, ())\n` → `    return _node("coreference-attestation", slug, title, {COREFERENCE_ATTESTATION_FACET: facet}, [Relation(source=f"coreference-attestation:{slug}", predicate="cites", target=endpoint) for endpoint in facet["endpoints"]])\n` | `_A::test_closure_rewrites_nothing_durably`, `_U::TestTheBuilder::test_it_sorts_the_pair_digests_the_facet_and_carries_no_relations` |
 | W15m | `_CORPUS`: `            elif record.kind == "coreference-attestation":\n                try:\n                    attestation = self._validated_coreference(record)\n` → `            elif False:\n                try:\n                    attestation = self._validated_coreference(record)\n` | `_U::TestImport::test_a_bundled_attestation_is_validated_and_resolved_over_the_union` |
+| W15n | `_STORED`: `    "retraction",\n    "instrument-certification",\n)\n` (in `COREFERENCE_ENDPOINT_KINDS`) → `    "retraction",\n    "instrument-certification",\n    "act-report",\n)\n` — a runnable closed-tuple mutation that admits a boundary-minted occurrence record | `_U::TestTheKindIsGoverned::test_the_endpoint_kinds_are_the_world_kinds_less_the_three_exclusions` |
 | X12a | `_READ`: `    if epoch._document_bytes(rebuilt) != _claimed_projection(published, kind, receipt):\n` → `    if kind != "coreference-reduction" and epoch._document_bytes(rebuilt) != _claimed_projection(published, kind, receipt):\n` | `_A::test_omission_and_a_wrong_balance_refute_and_move_no_digest_durably`, `_U::TestPopulatedReceipts::test_an_omitted_attestation_and_a_wrong_balance_refute_and_move_no_digest` |
 | X12b | `_DERIVE`: `    return producers[0].subject_identity\n` (in `belief_input_identity`) → `    return v1.digest(PRODUCER_SNAPSHOT_DOMAIN, [producers[0].subject_identity, *sorted(r.subject_identity for r in receipts if r.kind == "coreference-reduction")])\n` — a well-formed versioned domain, so the sabotaged digest runs and moves with the coreference map instead of raising `MalformedDomain` | `_A::test_the_digest_boundary_holds_on_one_coverage_durably` |
+| X12c | `_READ`: replace the exact contiguous block below with its stated replacement — a runnable coreference-specific validator that compares pair membership but ignores balance and count | `_A::test_a_membership_only_rebuild_does_not_validate_a_wrong_balance_durably` |
 | W8aa | `_EPOCH`: `    for corpus_id in preflight.coverage:\n        carrier = preflight.carriers[corpus_id]\n` (in `_capture`) → `    for corpus_id in registry._live_corpus_ids(world.registry()):\n        carrier = registry._carrier_roots(world.config, corpus_id)[0]\n` — the coverage bound: every live admitted corpus is captured whatever the declaration says | `_A::test_the_digest_boundary_holds_on_one_coverage_durably`, `_U::TestPopulatedReceipts::test_coverage_bounds_the_balance_and_the_narrower_epoch_is_indeterminate_over_the_wider_world` |
 | M3a | `_CORPUS`: `        if stored_node.kind != "retraction":\n            continue\n        retraction = view.get(stored_node.id)\n` (in `standing_in_local_view`) → `        if stored_node.kind not in ("retraction", "coreference-attestation"):\n            continue\n        retraction = view.get(stored_node.id)\n` | `_A::test_coreference_between_retractions_closes_no_route_durably` |
 | W4a | `_CORPUS`: `    def retract(self, record: Node) -> OperationCommit:\n        return self._run(lambda: self._writer.retract(record))\n` → the same followed by `\n    merge = retract\n` | `_A::test_no_operation_retires_an_address_on_coreference_grounds_durably` |
 
 Every `before` must occur exactly once in its module; `test_each_sabotage_names_one_real_source_site` enforces it. If `belief_input_identity`'s `return` line is shared with another function's, widen X12b's `before` to include its preceding `raise ValueError(...)` line.
+
+X12c's exact `before` string is:
+
+```python
+    if epoch._document_bytes(rebuilt) != _claimed_projection(published, kind, receipt):
+        return derive.ReceiptOutcome(
+            kind,
+            "refuted",
+            "rebuilding this subject over the named states with the named implementation "
+            "produced a different projection from the one this epoch published",
+        )
+    if derive.subject_identity(kind, rebuilt) != receipt.subject_identity:
+        return derive.ReceiptOutcome(
+            kind,
+            "refuted",
+            f"the rebuilt subject has identity {derive.subject_identity(kind, rebuilt)}, "
+            f"not the {receipt.subject_identity} this receipt names",
+        )
+```
+
+Its exact `after` string is:
+
+```python
+    if kind == "coreference-reduction":
+        rebuilt_members = {
+            tuple(cast(Sequence[str], pair["endpoints"]))
+            for pair in cast(Sequence[Mapping[str, object]], rebuilt["pairs"])
+        }
+        claimed_members = {
+            tuple(cast(Sequence[str], pair["endpoints"]))
+            for pair in cast(
+                Sequence[Mapping[str, object]], published.documents["coreference-map.yaml"]["pairs"]
+            )
+        }
+        mismatched = rebuilt_members != claimed_members
+    else:
+        mismatched = (
+            epoch._document_bytes(rebuilt) != _claimed_projection(published, kind, receipt)
+            or derive.subject_identity(kind, rebuilt) != receipt.subject_identity
+        )
+    if mismatched:
+        return derive.ReceiptOutcome(
+            kind,
+            "refuted",
+            "rebuilding this subject over the named states with the named implementation "
+            "produced a different projection from the one this epoch published",
+        )
+```
 
 - [ ] **Step 4: Write the guard**
 
@@ -1448,7 +1507,7 @@ Copy `test_n2_cut23.py` to `test_n2_cut24.py` and change: the docstring to cut 2
 def test_the_inventory_is_exactly_the_five_frozen_units() -> None:
     assert DECLARATION_UNITS == ("W15", "X12", "W8a", "M3", "W4")
     assert {unit_of(arm.row) for arm in CUT24_ARMS} == set(DECLARATION_UNITS)
-    assert len(CUT24_ARMS) == 18
+    assert len(CUT24_ARMS) == 20
 ```
 
 - [ ] **Step 5: Run the guard**
@@ -1459,7 +1518,7 @@ Expected: PASS — every check resolves and passes clean, every arm fails under 
 - [ ] **Step 6: Commit**
 
 ```bash
-tasks note beliefs-ee18db "14 durable arms, 18 declared N2 arms over 5 units; guard green on the certified volume"
+tasks note beliefs-ee18db "15 durable tests, 20 live N2 arms over 5 units; guard green on the certified volume; frozen §5 retains its historical count"
 tasks done beliefs-ee18db "cut 24's arms and declarations"
 git add python/tests/acceptance tasks
 git commit -m "test(cut24): durable coreference arms and the N2 declarations"
@@ -1506,7 +1565,7 @@ Expected: PASS — `test_n2_cut24.py` is now live through the new runner; every 
 - [ ] **Step 5: Run the whole runner**
 
 Run: `uv run --frozen python tools/cut24_acceptance.py 2>&1 | tee ../.cut24-acceptance/run.log | tail -30`
-Expected: exit 0; the prefix chain through cut 23 green; both phases green; the final line `declared arms: 18 (= 5 declaration units; 5 guarantee rows)`.
+Expected: exit 0; the prefix chain through cut 23 green; both phases green; the final line `declared arms: 20 (= 5 declaration units; 5 guarantee rows)`.
 
 - [ ] **Step 6: Commit**
 
@@ -1540,7 +1599,7 @@ Expected: three `exit 0`; the pytest summary line and the vitest summary line na
 
 - [ ] **Step 2: Write the results record**
 
-Sections as cut 23's: `## 1. What ran` (the exact commands, exit codes, the prefix chain, per-phase counts, the `declared arms:` line, the transcript links); `## 2. Accounting and disposition` (W15 and W4 close; X12, W8a and M3 part with their exact remainders; W8b measured and not selected; W1, W2, W5a re-filed to `beliefs-b7994b`); `## 3. Corrections and deviations from the frozen cut` (dated bullets, empty if none; the writer-session J1 "seven" statement and the eighth route covered here go in this section); `## 4. Reproduction measurement` (no new mm30 run; cite cut 22's); `## 5. Remaining boundary` (`world-resolution` retains W7, W8, W8b, W13's clauses, X12/W8a/M3's non-coreference arms as owned, R23's snapshot, divergence and explicit-import clauses, and slice 2b's W1, W2, W5a; `packaging-remainder` unchanged); `## 6. Main integration` after the merge.
+Sections as cut 23's: `## 1. What ran` (the exact commands, exit codes, the prefix chain, per-phase counts, the `declared arms:` line, the transcript links); `## 2. Accounting and disposition` (W15 and W4 close; X12, W8a and M3 part with their exact remainders; W8b measured and not selected; W1, W2, W5a re-filed to `beliefs-b7994b`); `## 3. Corrections and deviations from the frozen cut` (dated bullets; record that frozen §5 said 18 while naming 19 mutations and that post-freeze review retained the original 18 declarations and added `W15n` for `act-report` endpoint admission and `X12c` for membership-only receipt comparison, making the live runner's count 20; the writer-session J1 "seven" statement and the eighth route covered here also go in this section); `## 4. Reproduction measurement` (no new mm30 run; cite cut 22's); `## 5. Remaining boundary` (`world-resolution` retains W7, W8, W8b, W13's clauses, X12/W8a/M3's non-coreference arms as owned, R23's snapshot, divergence and explicit-import clauses, and slice 2b's W1, W2, W5a; `packaging-remainder` unchanged); `## 6. Main integration` after the merge.
 
 - [ ] **Step 3: Regenerate the roadmap's Appendix A and rewrite the ledger's Current state**
 
@@ -1567,3 +1626,5 @@ Then merge `world-resolution` into `main` with `--no-ff`, run `just gate` on `ma
 **2026-09-10, first review on `3e54338`, eight findings, all resolved.** (1) The builder test asserted the facet set without the `semantic-identity` stamp `_node` adds — it now asserts the payload and the stamp separately (Task 2). (2) `PermitRefused` does not exist; the permit's refusal is `PermitExceeded` (Task 4). (3) The Unicode fixture also refuses the "duplicate coreference weighting" and "wrong sorting" mutants, confirmed by probe — both `refused_by` sets gain it (Task 3 step 6). (4) The in-memory `Recorder` writer has no operation port, so import refused before validation — the import test uses `test_facet_seams.writer` (Task 4). (5) One catch wrapped both the reader and the controlled rebuild as `ValidationRefused`, against spec §9 — the rebuild is `_controlled_coreference`, called outside the wrap and raising `MalformedRecord`; `_validated_coreference` composes both for the import door (Task 4). (6) `ActLine.record_ids` holds `(uid, id)` pairs (Task 5). (7) Deleting the reinstall in the indeterminate-span test would leave its wider publication `RuleNotHeld` — the reinstall now installs the shipped bundle (Task 6). (8) W15i's sabotage crashed on three-way unpacking and X12b's used a malformed identity domain — both mutants are now runnable and wrong (Task 7).
 
 **2026-09-10, second review on `9045172`, five findings, all resolved.** W8aa now mutates `_capture` so captured inputs actually widen, and Task 1 names that site; the world-view writer uses the root's existing `DefaultExecutor`; the capture assertion keys values by event token; the optional stamp is narrowed before `len`; and W15f retains and exercises the public `add`, `supersede` and `revise` refusals, matching their calls to `_refuse_family_kinds` without `admitted_kind`.
+
+**2026-09-10, freeze review on `c722199`, one accounting finding, resolved forward.** Frozen §5 says 18 arms while naming 19 mutations, and the 18-arm Task 7 table omitted the spec's `act-report` endpoint-admission and membership-only receipt-comparison mutants. Frozen §§2–7 remain byte-exact; editable §1 records the correction, and the live plan retains the original 18 arms plus independent `W15n` and `X12c` arms, for 20. Task 9 must carry this dated deviation into the results record.

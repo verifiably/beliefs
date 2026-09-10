@@ -35,6 +35,13 @@ reader's.
 
 The selection rule is cut 5's: a clause is selected only when its source mutation and every named check run inside §2. A row with any unrun arm is partial.
 
+> **2026-09-10 post-freeze accounting correction:** review found that §5's
+> frozen “18 declared arms” count names 19 distinct mutations and that the live
+> plan omitted two independent checks: admitting `act-report` as an endpoint
+> kind and narrowing exact receipt validation to membership. Sections 2–7 stay
+> byte-exact. The live Task 7 inventory adds `W15n` and `X12c` to the original
+> 18 arms, for 20; the discharge record will carry this dated deviation.
+
 ## 2. The boundary
 
 In scope:
