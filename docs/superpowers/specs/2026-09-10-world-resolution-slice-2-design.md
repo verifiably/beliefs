@@ -74,12 +74,32 @@ split so its pin survives.
    filter each walker must remember. A relation would also need a declared
    predicate whose `sources`/`targets` closure admits every world kind, which
    the contract's relation table has no precedent for.
-2. **Grounds is one exact string, compared byte for byte.** The ruling's
+2. **Grounds is one exact string, compared in NFC.** The ruling's
    deduplication key reads `grounds`, and §5.2 there refuses to decide when two
    rationales are the same rationale. The captured value and all four rule
    fixtures already hold `grounds` as one text; this slice keeps that shape and
-   states the comparison: no Unicode normalization, no trimming, no case fold.
-   Two grounds that differ in one byte are two units, deliberately.
+   states the comparison: exact, after the one normalization the identity
+   encoder already applies. `science.identity.v1` normalizes every string to
+   NFC before digesting, so `é` and `é` are one grounds to every
+   identity here — the record's address, its semantic hash and the
+   corpus-state identity — and a reduction that compared raw Python strings
+   would count them as two units. A probe confirmed it: editing one stored
+   attestation's grounds between the two forms moved the balance from 1 to 2
+   with the record's content identity and the corpus-state identity
+   unchanged, which is a balance the receipt could not refute. Deduplication
+   and identity must agree about string equality, so: the reader and builder
+   refuse a facet string that is not already in NFC through
+   `identifiers.not_a_canonical_identifier`, the precedent the identifier
+   layer set; `derive.CapturedCoreference` refuses the same; and the shipped
+   rule normalizes each key member with `unicodedata.normalize("NFC", …)`
+   before comparing, so its fixtures state the rule rather than assume the
+   boundary. A fifth fixture, `coreference.unicode.yaml`, holds two
+   attestations whose grounds differ only in normalization form and expects
+   one unit. No trimming and no case fold: two grounds that differ in one
+   NFC code point are two units, deliberately. The rule's implementation
+   identity moves with the edit, as any rule edit moves it; the epochs the
+   suite publishes are built under the shipped binding and none pins the old
+   identity as a literal.
 3. **Endpoints resolve through a view the caller supplies.** The retract
    precedent resolves its target in the writer's own corpus. An attestation's
    whole purpose is often a pair held in two corpora, so the seam takes
@@ -175,8 +195,9 @@ once (§5).
   reader the contract names. Refuses with `MalformedRecord` a facet whose key
   set is not exactly the five, endpoints that are not a two-element list of
   non-empty text, endpoints not in sorted order, a self-pair, a stance outside
-  `{1, -1}` or not an `int` (`True` is refused: `type(stance) is int`), and any
-  empty text. It does not resolve endpoints — a reader has no view.
+  `{1, -1}` or not an `int` (`True` is refused: `type(stance) is int`), any
+  empty text, and any text that is not in NFC (§2 item 2). It does not
+  resolve endpoints — a reader has no view.
 - `coreference_attestation_node(*, title, endpoints, stance, actor, grounds, event_token) -> Node`:
   sorts the pair, refuses every malformed field with `MalformedRecord` as the
   reader does, requires `actor` through `require_actor` exactly as
@@ -205,23 +226,32 @@ In order, under `self._operation` (the settling hold, as `retract`):
    Import is a separate door (§4.4): `_validate_import_bundle` calls no
    family-kind clause and admits a retraction after its own validation, and
    an attestation is admitted the same way.
-4. The facet's `actor` must equal `self._authority.actor`, else
-   `ActorMismatch`, checked on the raw facet before shape validation so an
-   attribution forgery is named as such.
+4. Two checks on the raw facet, before shape validation, so each is named
+   as what it is rather than wrapped as a malformed shape: the facet's
+   `actor` must equal `self._authority.actor`, else `ActorMismatch`; and if
+   the facet's `endpoints` is a two-element list whose members are equal, the
+   seam raises `CoreferenceEndpointRefused("self-pair")` here. The reader
+   refuses a self-pair too, as `MalformedRecord`, for every other caller;
+   this ordering is what makes the promised refusal reachable through the
+   seam, since step 5 would otherwise wrap it as `ValidationRefused` first.
 5. Shape: `stored.coreference_attestation_value(record)`; `MalformedRecord`
    becomes `ValidationRefused("… refused by coreference shape validation: …")`.
-   The record must equal `coreference_attestation_node` rebuilt from its own
-   facet, byte for byte, else `MalformedRecord` — the controlled-shape check
-   `_validated_retraction` performs.
+   Then the controlled-shape check on `_validated_retraction`'s exact terms:
+   `coreference_attestation_node` is rebuilt from the record's own title and
+   facet, and the record's `id`, `facets` and `relations` must each equal the
+   rebuild's, else `MalformedRecord`. `uid` is minted fresh by every `Node`
+   construction and is the record's own; `title` is the input to the rebuild
+   and not compared. A byte-for-byte comparison of whole records would refuse
+   every valid attestation.
 6. Endpoints, over `view or self._view`, each endpoint in sorted order and
    the first failure refusing:
    - **inadmissible-kind:** the ref's kind prefix (`ref.partition(":")[0]`)
      is not in `stored.COREFERENCE_ENDPOINT_KINDS`. Prose, coordination,
      act-report, holdings-observation and attestation prefixes refuse here
      before any lookup.
-   - **self-pair:** left equals right after the builder's sort — reachable
-     only through a raw record, since the builder refuses it, and kept as a
-     seam refusal so the seam does not trust its input.
+   - **self-pair:** already refused at step 4 on the raw facet; restated here
+     only so the four reasons are one list. A record reaching this step has
+     two distinct endpoints.
    - **unresolved:** `view.resolve(ref)` is `None` or differs from `ref`.
      Over a world view the message names `locate(ref)`'s answer: `Unknown`, or
      `NotPresent` with the corpus id `corpus_of(ref)` answers — `NotPresent`
@@ -271,9 +301,10 @@ facets only, and the stamp check is all a governed record gets). Without a
 clause of its own, an imported attestation would enter with no shape check,
 no endpoint refusal and no controlled rebuild. The import path therefore
 gains, in the same loop as the retraction clause: for every bundled
-`coreference-attestation`, the reader, the controlled-shape rebuild, and the
-four endpoint refusals of §4.1 step 6 over `union` (the bundle beside the
-corpus), each failure raised as `ImportRefused` naming the member. The actor
+`coreference-attestation`, the reader, the controlled-shape rebuild on the
+same three fields (`id`, `facets`, `relations`), and the four endpoint
+refusals of §4.1 step 6 over `union` (the bundle beside the corpus), each
+failure raised as `ImportRefused` naming the member. The actor
 is not re-bound at import, as a retraction's is not: an imported record
 carries its own attribution, and the import's own actor is the act's. No
 attestation is refused at import for existing in the bundle: it is a world
@@ -392,13 +423,23 @@ records are byte-unchanged, `standing` over each target is unchanged, the
 retraction graph the writer and the audit compute has no edge between them,
 and `expand_coreference` over the active edge is the only structure that
 associates them. No operation exists that merges them: the arm asserts the
-inventory above has no `merge` member. Then the two negatives W15 names so
-the closed route is not read as a discharged invariant: a bundle whose
-retractions close a cycle through the resolved world context is still
-refused at import with its witness (`_import_cycle_edges` over the union),
-so the DAG invariant remains M3's and is not discharged by the attestation;
-and a raw-written cyclic pair is still classified malformed by the audit
-before any standing or belief evaluation, as cut 18 read it.
+inventory above has no `merge` member. Then the two negatives W15 names, so
+the closed route is not read as a discharged invariant, each stated over the
+mechanism that exists and no wider. **The DAG invariant is still M3's:** the
+abstract validator handed a two-cycle still returns a cycle-specific result
+with its witness, and a forced cycle verdict over an otherwise valid bundle
+still refuses import with no write — cut 5's arms, re-run with an active
+attestation between the two retractions in place, showing the attestation
+enters neither the validator's graph nor its verdict.
+`_import_cycle_edges` reads the bundle beside the local corpus and not the
+resolved world context, and a concrete cyclic bundle is not constructible
+under controlled identities (cut 5's banked limitation, which M3 retains and
+this slice does not lift); the arm therefore claims nothing about a
+world-context cycle and does not spell one. **A raw-written cycle stays
+auditable corruption:** cut 18's arm, re-run — a raw cyclic pair is
+classified malformed by the audit before any standing or belief evaluation,
+and the active attestation between them changes that classification and its
+finding not at all.
 
 ## 9. Refusals
 
@@ -407,7 +448,8 @@ before any standing or belief evaluation, as cut 18 read it.
 | a `coreference-attestation` through `add`, `supersede` or `revise` | `WriteRefused`, "enters through attest_coreference" |
 | the facet's actor is not the authority's | `ActorMismatch` |
 | a malformed facet | `ValidationRefused` wrapping `MalformedRecord` |
-| a record not byte-equal to its controlled rebuild | `MalformedRecord` |
+| a record whose `id`, `facets` or `relations` differ from its controlled rebuild | `MalformedRecord` |
+| a facet string not in NFC, at the builder, the reader or the capture | `MalformedRecord` |
 | an endpoint whose kind prefix is outside `COREFERENCE_ENDPOINT_KINDS` | `CoreferenceEndpointRefused("inadmissible-kind")` |
 | a bundled attestation failing shape, rebuild or any endpoint refusal over the union | `ImportRefused` naming the member |
 | left equals right | `CoreferenceEndpointRefused("self-pair")` |
@@ -424,7 +466,12 @@ seam refuses records, the receipt refutes maps, and the edge reads
 ## 10. Testing and the cut
 
 **Unit** (`tests/test_coreference_attestation.py`, new): the builder and
-reader over every malformed shape; the seam's refusal order; the actor bind;
+reader over every malformed shape, the non-NFC refusal included; the
+reduction over the Unicode fixture, and a probe-shaped regression that a
+stored attestation's grounds rewritten between normalization forms is
+refused at capture rather than counted twice; the seam's refusal order with
+the self-pair reaching its own reason; the controlled rebuild comparing the
+three fields and accepting a fresh `uid`; the actor bind;
 endpoint resolution over a corpus view and over a world view, including
 `NotPresent` and a retired address; `add` and import refusing the kind; the
 capture lift; a balance sequence through the shipped rule over real
@@ -511,7 +558,8 @@ deprecated-id resolution), the kind comparison (compare prefixes instead of
 records), the actor bind (skip it), the family-kind clause (let `add` mint
 it), the controlled-shape rebuild (skip it), the capture lift (pass
 `coreference=None`), the dedup key (add the event token to it), the coverage
-bound (reduce over every configured corpus), the receipt rebuild (compare
+bound (reduce over every configured corpus), the NFC agreement (drop the
+normalization from the rule's key), the receipt rebuild (compare
 membership and not balances), the digest boundary (add the coreference map to
 `belief_input_identity`'s members), the no-relations invariant (attach a
 relation to each endpoint), the import clause (skip the attestation branch in
@@ -531,7 +579,9 @@ concrete-cycle limitation.
 ## 11. Shared files, under roadmap concurrency rule 3
 
 `errors.py`, `corpus.py`, `stored.py`, `permit.py` (docstring only),
-`world/epoch.py`, `session/writer.py`, `contracts/science/CONTRACT.yaml` and
+`world/epoch.py`, `world/derive.py` (the NFC check on the captured value),
+`world/rules_v1/coreference.py` and its fixtures (the fifth fixture and the
+normalized key), `session/writer.py`, `contracts/science/CONTRACT.yaml` and
 its packaged copy, `python/tests/test_designs_corpus.py`, the adoption
 ledger, the roadmap, the guide index and `docs/guide/identity-world-and-change.md`.
 Tests that pin the deferral and are split or amended: `test_facet_declarations.py`,
@@ -611,3 +661,22 @@ does not exist — corrected to the dedup key and the root-chain log audit (§7,
 §10). (8) `NotPresent` carries no corpus id, `require_actor` raises its own
 errors, and X12's moved-state `unresolvable` case was unnamed — each stated
 (§3.3, §4.1, §10).
+
+**2026-09-10, second review, four findings, all resolved in this revision.**
+(1) Byte-exact grounds disagreed with the identity encoder, which normalizes
+to NFC: a probe moved a balance from 1 to 2 by rewriting one stored grounds
+between normalization forms while the record's content identity and the
+corpus-state identity stayed fixed — the boundary now refuses non-NFC text,
+the captured value refuses it, the rule normalizes its key, and a Unicode
+fixture pins one unit (§2 item 2, §3.3, §9, §10). (2) The controlled-shape
+check was stated as whole-record byte equality, which `_node`'s fresh `uid`
+makes unsatisfiable — it now compares `id`, `facets` and `relations`, as the
+retraction precedent does, at the seam and at import (§4.1 step 5, §4.4).
+(3) The self-pair refusal was unreachable, since the reader refused it first
+and step 5 wrapped that as `ValidationRefused` — it is now checked on the raw
+facet before shape validation (§4.1 step 4). (4) The cycle arm claimed an
+import refusal through the resolved world context with a witness;
+`_import_cycle_edges` reads the bundle and the local corpus only, and a
+concrete controlled cycle is cut 5's banked limitation — the arm is split
+into the abstract-validator and forced-verdict checks and the raw-audit
+check, re-run with an attestation in place, and claims nothing wider (§8).
