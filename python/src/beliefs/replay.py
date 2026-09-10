@@ -109,7 +109,7 @@ def replay_eligibility(
 
 
 def replay(
-    original: RunMinted,
+    original: RunMinted | RunClosure,
     *,
     port: OperationPort,
     spec: FrozenSpec | None,
@@ -125,6 +125,7 @@ def replay(
     scratch_base: Path,
     cores: int = 1,
 ) -> RunMinted | RunRefused:
+    closure = original.run if type(original) is RunMinted else original
     common = {
         "definition": definition,
         "code_roots": code_roots,
@@ -138,9 +139,9 @@ def replay(
         "scratch_base": scratch_base,
         "cores": cores,
         "port": port,
-        "boundary_policy": original.run.recipe.boundary_policy,
+        "boundary_policy": closure.recipe.boundary_policy,
     }
-    recipe = original.run.recipe
+    recipe = closure.recipe
     common["expected_recipe_identity"] = recipe.identity()
     if recipe.shape == "assessment":
         outcome = execute_assessment_run(spec=spec, **common)

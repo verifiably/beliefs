@@ -1337,9 +1337,9 @@ git commit -m "feat(session): reconcile the run and holdings intent shapes"
 **Interfaces:**
 - Produces: `replay(original: RunMinted | RunClosure, …)`.
 
-- [ ] **Step 1: `tasks start beliefs-469af0`**
+- [x] **Step 1: `tasks start beliefs-469af0`**
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 Append to `python/tests/test_replay.py`:
 
@@ -1373,12 +1373,12 @@ def test_replay_over_a_closure_is_replay_over_the_minted_result(monkeypatch, tmp
 
 (`RunMinted`'s exact constructor fields are `run`, `intent`, `registration` — `boundary.py:137`; if `Registration` needs different strings, mirror `test_boundary.py`'s minted fixture.)
 
-- [ ] **Step 3: Run it to see it fail**
+- [x] **Step 3: Run it to see it fail**
 
 Run: `(cd python && uv run --frozen pytest tests/test_replay.py -q -k over_a_closure)`
 Expected: FAIL — `AttributeError: 'RunClosure' object has no attribute 'run'`.
 
-- [ ] **Step 4: Accept the closure**
+- [x] **Step 4: Accept the closure**
 
 `python/src/beliefs/replay.py`: import `RunClosure` from `beliefs.recipe` (extend the existing `from beliefs.recipe import (...)` block) and change the signature and the two reads:
 
@@ -1399,12 +1399,12 @@ def replay(
     recipe = closure.recipe
 ```
 
-- [ ] **Step 5: Run the file and the checks**
+- [x] **Step 5: Run the file and the checks**
 
 Run: `(cd python && uv run --frozen pytest tests/test_replay.py -q)` then `just check`
 Expected: pass.
 
-- [ ] **Step 6: Commit and close**
+- [x] **Step 6: Commit and close**
 
 ```bash
 git add python/src/beliefs/replay.py python/tests/test_replay.py
