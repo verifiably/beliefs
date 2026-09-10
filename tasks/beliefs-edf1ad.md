@@ -6,7 +6,7 @@ priority: 2
 size: m
 owner: world-resolution
 created: 2026-09-10T10:02:02Z
-updated: 2026-09-10T15:01:03Z
+updated: 2026-09-10T15:28:03Z
 depends: []
 parent: beliefs-113561
 tags: [world-read]
@@ -21,3 +21,4 @@ tags: [world-read]
 - 2026-09-10T14:33:22Z (world-resolution): completion evidence: facet plus cut20 22 checks and guard sweep 28 checks passed; full cut24 aggregate passed 33 test phases/540 tests, ending at 20 arms (= 5 declaration units; 5 guarantee rows).
 - 2026-09-10T14:35:47Z (world-resolution): final gates: just check and just hook-pre-commit exit 0; tasks check reported zero errors and zero warnings. Hook printed the non-blocking Pyright 1.1.411-to-1.1.414 update notice.
 - 2026-09-10T15:01:03Z (world-resolution): review fix round 1: extracted cut23/cut24 stable runner machinery, kept literal AST inventory tuples, moved W8a note into its cell, and removed the guide duplicate; focused 6 and guard 28 passed, just check green; post-extraction aggregate pending.
+- 2026-09-10T15:28:03Z (world-resolution): review fix accepted: post-extraction aggregate on c21a622 passed 33 test summaries/540 tests; cut24 phases 15 plus 7 passed and final accounting is 20 arms (= 5 declaration units; 5 guarantee rows).
