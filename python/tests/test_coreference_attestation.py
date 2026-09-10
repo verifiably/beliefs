@@ -12,7 +12,7 @@ from test_corpus_write import Recorder
 from test_session_writer import DIGEST, make_session
 from test_world_build import ALPHA, build, corpus_at, install_bindings, make_world
 from test_world_derive import reduce_with
-from test_world_receipts import corpora, hold_shipped, publish, world_over
+from test_world_receipts import corpora, document, hold_shipped, outcomes, publish, repackage, world_over
 
 from beliefs import stored
 from beliefs.corpus import EXCLUDED_MUTATION_KINDS, CorpusWriter
@@ -28,7 +28,7 @@ from beliefs.errors import (
 from beliefs.identity import v1
 from beliefs.permit import RequiredCapabilities
 from beliefs.session.writer import ScopedWriter
-from beliefs.world import derive, registry, rules
+from beliefs.world import derive, read, registry, rules
 from beliefs.world.view import open_world_view
 
 LEFT = "dataset:left"
@@ -351,6 +351,56 @@ class TestTheCaptureLift:
         world.admit(alpha, provenance=registry.Fresh())
         with pytest.raises(MalformedRecord, match="NFC"):
             build(world, (ALPHA,), install_bindings(world))
+
+
+class TestPopulatedReceipts:
+    def two_corpus_world(self, tmp_path):
+        left = stored.dataset_node("left", title="left", resources=PINNED)
+        right = stored.dataset_node(
+            "right", title="right", resources=[{"name": "d", "digest": "sha256:" + "2" * 64}]
+        )
+        plus = attestation(actor="alice", token="a-1")
+        minus = attestation(actor="bob", stance=-1, token="b-1")
+        roots = corpora(tmp_path, {"a" * 32: (left, right, plus), "b" * 32: (minus,)})
+        world = world_over(tmp_path, roots)
+        return world, roots, hold_shipped(world)
+
+    def test_an_omitted_attestation_and_a_wrong_balance_refute_and_move_no_digest(self, tmp_path):
+        world, _roots, bindings = self.two_corpus_world(tmp_path)
+        published = publish(world, ("a" * 32, "b" * 32), bindings)
+        assert document(published, "coreference-map.yaml") == {
+            "pairs": [{"endpoints": [LEFT, RIGHT], "balance": 0, "distinct_key_count": 2}]
+        }
+        assert read.coreference_edge(world, published, LEFT, RIGHT).state == "inactive"
+        for wrong in (
+            {"pairs": []},
+            {"pairs": [{"endpoints": [LEFT, RIGHT], "balance": 1, "distinct_key_count": 1}]},
+        ):
+            receipt = dict(
+                document(published, "coreference-receipt.yaml"),
+                subject=derive.subject_identity("coreference-reduction", wrong),
+            )
+            claimed = repackage(
+                world,
+                published,
+                {"coreference-map.yaml": wrong, "coreference-receipt.yaml": receipt},
+            )
+            assert read.validate_receipt(world, claimed, "coreference-reduction").outcome == "refuted"
+            assert read.coreference_edge(world, claimed, LEFT, RIGHT).state == "indeterminate"
+            assert (
+                claimed.receipts["producer-receipt.yaml"].subject_identity
+                == published.receipts["producer-receipt.yaml"].subject_identity
+            )  # the belief input (test_world_read.py:448 pins this member as belief_input_identity's answer)
+            assert outcomes(world, claimed)["producer"] == "validated"
+
+    def test_coverage_bounds_the_balance_and_the_narrower_epoch_is_indeterminate_over_the_wider_world(
+        self, tmp_path
+    ):
+        world, _roots, bindings = self.two_corpus_world(tmp_path)
+        narrow = publish(world, ("a" * 32,), bindings)
+        assert document(narrow, "coreference-map.yaml")["pairs"][0]["balance"] == 1
+        answer = read.coreference_edge(world, narrow, LEFT, RIGHT)
+        assert (answer.state, answer.missing_coverage) == ("indeterminate", ("b" * 32,))
 
 
 class TestTheSessionRoute:

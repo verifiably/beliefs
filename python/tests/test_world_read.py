@@ -464,48 +464,29 @@ class TestTheBoundStamp:
             derive.belief_input_identity(())
 
 
-# --- Step 4: edge state and expansion -----------------------------------------
-#
-# The shipped capture pass records no coreference attestation — §13 defers that
-# stored kind — so a coreference map built from a real corpus is empty and
-# every edge in it is `inactive`. An arm that only ever saw an empty map would
-# pin half the contract. So these arms bind a *sibling implementation* of the
-# coreference rule that reduces `produces` edges into pairs: no coreference
-# fixture carries a record with a `produces` edge, so the successor satisfies
-# every normative fixture, and on a real corpus it publishes a genuinely
-# non-empty reduction whose receipt validates.
-
-COREFERENCE_ANCHOR = '        attestation = record["coreference"]\n'
-COREFERENCE_ARM = (
-    '        for dataset in record["produces"]:\n'
-    '            pair = tuple(sorted((record["address"], dataset)))\n'
-    '            units.setdefault(pair, set()).add((1, record["address"], dataset))\n'
-)
-
-
-def coreference_successor():
-    from beliefs.world import rules
-
-    bundle = next(
-        candidate for candidate in rules.shipped_rule_bundles() if candidate.symbol == "reduce_coreference"
-    )
-    source = bundle.implementation.decode("utf-8")
-    assert source.count(COREFERENCE_ANCHOR) == 1
-    source = source.replace(COREFERENCE_ANCHOR, COREFERENCE_ARM + COREFERENCE_ANCHOR)
-    return rules.RuleBundle(bundle.symbol, bundle.fixtures, source.encode("utf-8"))
-
-
 def linked_nodes(slug: str) -> tuple[Node, ...]:
-    """One dataset and the two runs producing it — a three-endpoint chain once
-    the reduction above turns each `produces` edge into a pair."""
-    dataset = stored.dataset_node(slug, title=f"dataset {slug}")
-    return (
-        dataset,
-        stored.run_node(slug, title=f"run {slug}", spec=f"analysis-spec:{slug}", produces=[dataset.id]),
-        stored.run_node(
-            f"{slug}-two", title=f"run {slug} two", spec=f"analysis-spec:{slug}-two", produces=[dataset.id]
+    """Three datasets and two attestations, `a ~ b` and `a ~ c`: a
+    three-endpoint chain the reduction turns into two pairs."""
+    a, b, c = (
+        stored.dataset_node(
+            f"{slug}", title=f"dataset {slug}", resources=[{"name": "d", "digest": "sha256:" + "1" * 64}]
+        ),
+        stored.dataset_node(
+            f"{slug}-b", title=f"dataset {slug} b", resources=[{"name": "d", "digest": "sha256:" + "2" * 64}]
+        ),
+        stored.dataset_node(
+            f"{slug}-c", title=f"dataset {slug} c", resources=[{"name": "d", "digest": "sha256:" + "3" * 64}]
         ),
     )
+    attest = lambda left, right, token: stored.coreference_attestation_node(
+        title="coreference",
+        endpoints=(left.id, right.id),
+        stance=1,
+        actor="alice",
+        grounds="one work",
+        event_token=token,
+    )
+    return (a, b, c, attest(a, b, f"{slug}-1"), attest(a, c, f"{slug}-2"))
 
 
 def coreference_world(
@@ -515,18 +496,11 @@ def coreference_world(
     *,
     also_configured: tuple[Path, ...] = (),
 ):
-    """A world publishing a non-empty, validating coreference reduction."""
-    from beliefs.world import rules
-
+    """A world publishing a non-empty, validating coreference reduction over
+    stored attestations and the shipped rule."""
     roots = corpora(tmp_path, placement)
     world = world_over(tmp_path, roots, also_configured=also_configured)
-    shipped = hold_shipped(world)
-    bindings = epoch.DerivationBindings(
-        producer=shipped.producer,
-        retraction=shipped.retraction,
-        certification=shipped.certification,
-        coreference=rules.install_rule_binding(world, coreference_successor()),
-    )
+    bindings = hold_shipped(world)
     return world, bindings, roots, publish(world, coverage, bindings)
 
 
@@ -548,13 +522,13 @@ class TestCoreferenceEdges:
         world, bindings, _roots, published = coreference_world(
             tmp_path, {ALPHA: linked_nodes("a")}, (ALPHA,)
         )
-        assert pairs_of(published) == [["dataset:a", "run:a"], ["dataset:a", "run:a-two"]]
+        assert pairs_of(published) == [["dataset:a", "dataset:a-b"], ["dataset:a", "dataset:a-c"]]
         assert read.validate_receipt(world, published, "coreference-reduction").outcome == "validated"
 
-        active = read.coreference_edge(world, published, "run:a", "dataset:a")
+        active = read.coreference_edge(world, published, "dataset:a", "dataset:a-b")
         assert active.state == "active"
-        assert read.coreference_edge(world, published, "run:a", "run:a-two").state == "inactive"
-        assert read.expand_coreference(world, published, "run:a") == ("dataset:a", "run:a-two")
+        assert read.coreference_edge(world, published, "dataset:a-b", "dataset:a-c").state == "inactive"
+        assert read.expand_coreference(world, published, "dataset:a") == ("dataset:a-b", "dataset:a-c")
 
         from beliefs.world import derive
 
@@ -590,24 +564,24 @@ class TestCoreferenceEdges:
 
         for outcome, carrier in carriers.items():
             assert read.validate_receipt(world, carrier, "coreference-reduction").outcome == outcome
-            for left, right in (("run:a", "dataset:a"), ("run:a", "run:a-two")):
+            for left, right in (("dataset:a", "dataset:a-b"), ("dataset:a", "dataset:a-c")):
                 answer = read.coreference_edge(world, carrier, left, right)
                 assert answer.state == "indeterminate", (outcome, left, right)
                 assert answer.receipt_outcome == outcome
                 assert answer.missing_coverage == ()
             with pytest.raises(read.EdgeIndeterminate) as refusal:
-                read.expand_coreference(world, carrier, "run:a")
+                read.expand_coreference(world, carrier, "dataset:a")
             assert refusal.value.receipt_outcome == outcome
             assert outcome in str(refusal.value)
 
         # unresolvable: the exact pair is no longer held here.
         rules.remove_rule_binding(world, bindings.coreference)
         assert read.validate_receipt(world, published, "coreference-reduction").outcome == "unresolvable"
-        answer = read.coreference_edge(world, published, "run:a", "dataset:a")
+        answer = read.coreference_edge(world, published, "dataset:a", "dataset:a-b")
         assert answer.state == "indeterminate"
         assert answer.receipt_outcome == "unresolvable"
         with pytest.raises(read.EdgeIndeterminate, match="unresolvable"):
-            read.expand_coreference(world, published, "run:a")
+            read.expand_coreference(world, published, "dataset:a")
 
         assert read.EDGE_STATES == ("active", "inactive", "indeterminate")
 
@@ -642,7 +616,7 @@ class TestCoreferenceEdges:
         assert read.validate_receipt(world, refuted, "coreference-reduction").outcome == "refuted"
 
         # Every edge the map covers, and every edge it does not.
-        for left, right in (("invented-a", "invented-b"), ("run:a", "dataset:a"), ("x", "y")):
+        for left, right in (("invented-a", "invented-b"), ("dataset:a", "dataset:a-b"), ("x", "y")):
             assert read.coreference_edge(world, refuted, left, right).state == "indeterminate"
 
         # Belief is untouched: the producer receipt still validates and the
@@ -678,15 +652,15 @@ class TestCoreferenceEdges:
         world, _bindings, roots, published = coreference_world(
             tmp_path, {ALPHA: linked_nodes("a")}, (ALPHA,)
         )
-        assert read.coreference_edge(world, published, "run:a", "dataset:a").state == "active"
+        assert read.coreference_edge(world, published, "dataset:a", "dataset:a-b").state == "active"
 
         (roots[ALPHA] / "corpus.yaml").write_bytes(b"corpus_id: []\n")
 
-        answer = read.coreference_edge(world, published, "run:a", "dataset:a")
+        answer = read.coreference_edge(world, published, "dataset:a", "dataset:a-b")
         assert answer.state == "indeterminate"
         assert answer.receipt_outcome == "unresolvable"
         with pytest.raises(read.EdgeIndeterminate, match="unresolvable"):
-            read.expand_coreference(world, published, "run:a")
+            read.expand_coreference(world, published, "dataset:a")
 
     def test_edge_indeterminate_names_missing_span_and_receipt_outcome(self, tmp_path):
         """The refusal names every unestablished input, by name.
@@ -711,12 +685,12 @@ class TestCoreferenceEdges:
 
         # BETA is live and uncovered; GAMMA is carried and not admitted, so it
         # is not part of this world's span at all.
-        answer = read.coreference_edge(world, published, "run:a", "dataset:a")
+        answer = read.coreference_edge(world, published, "dataset:a", "dataset:a-b")
         assert answer.state == "indeterminate"
         assert answer.missing_coverage == (BETA,)
         assert answer.receipt_outcome is None
         with pytest.raises(read.EdgeIndeterminate) as refusal:
-            read.expand_coreference(world, published, "run:a")
+            read.expand_coreference(world, published, "dataset:a")
         assert refusal.value.missing_coverage == (BETA,)
         assert refusal.value.receipt_outcome is None
         assert BETA in str(refusal.value)
@@ -724,24 +698,26 @@ class TestCoreferenceEdges:
 
         # Both unestablished inputs at once, and both named.
         rules.remove_rule_binding(world, bindings.coreference)
-        answer = read.coreference_edge(world, published, "run:a", "dataset:a")
+        answer = read.coreference_edge(world, published, "dataset:a", "dataset:a-b")
         assert answer.missing_coverage == (BETA,)
         assert answer.receipt_outcome == "unresolvable"
         with pytest.raises(read.EdgeIndeterminate) as both:
-            read.expand_coreference(world, published, "run:a")
+            read.expand_coreference(world, published, "dataset:a")
         assert both.value.missing_coverage == (BETA,)
         assert both.value.receipt_outcome == "unresolvable"
         assert BETA in str(both.value) and "unresolvable" in str(both.value)
 
         # Wider coverage is accepted: an epoch over both corpora keeps
         # answering once BETA leaves the live set.
-        rules.install_rule_binding(world, coreference_successor())
+        rules.install_rule_binding(
+            world, next(bundle for bundle in rules.shipped_rule_bundles() if bundle.symbol == "reduce_coreference")
+        )
         wider = publish(world, (ALPHA, BETA), bindings)
         assert [corpus_id for corpus_id, _state in wider.coverage] == [ALPHA, BETA]
-        assert read.coreference_edge(world, wider, "run:a", "dataset:a").state == "active"
+        assert read.coreference_edge(world, wider, "dataset:a", "dataset:a-b").state == "active"
         world.retire(BETA)
         assert registry._live_corpus_ids(world.registry()) == (ALPHA,)
-        widest = read.coreference_edge(world, wider, "run:a", "dataset:a")
+        widest = read.coreference_edge(world, wider, "dataset:a", "dataset:a-b")
         assert widest.state == "active"
         assert widest.missing_coverage == ()
-        assert read.expand_coreference(world, wider, "run:a") == ("dataset:a", "run:a-two")
+        assert read.expand_coreference(world, wider, "dataset:a") == ("dataset:a-b", "dataset:a-c")
