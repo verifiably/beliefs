@@ -178,6 +178,11 @@ open**. No new guarantee table or row is introduced.
   cleanup warning. Its root cause was not established; the warning-bearing log
   is retained as
   [`capture-lift-cleanup-warning.log`](2026-09-10-conformance-cut-24-run/capture-lift-cleanup-warning.log).
+- **2026-09-10 — Pyright version notice.** The Task 8 commit hook reported
+  that Pyright `1.1.414` was available while the project remained pinned to
+  `1.1.411`. The notice did not affect the gate result; the existing pin was
+  deliberately preserved, and the dependency update remains deferred and was
+  not implemented in this slice.
 
 ## 4. Reproduction measurement
 
