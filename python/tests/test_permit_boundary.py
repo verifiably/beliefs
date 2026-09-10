@@ -62,6 +62,7 @@ PRIMITIVE_IMPLEMENTATIONS = frozenset(
 WRITE_ENTRY_POINTS: dict[str, str] = {
     "corpus.py:CorpusWriter.add": "corpus-write",
     "corpus.py:CorpusWriter.retract": "corpus-write",
+    "corpus.py:CorpusWriter.attest_coreference": "corpus-write",
     "corpus.py:CorpusWriter.supersede": "corpus-write",
     "corpus.py:CorpusWriter.revise": "corpus-write",
     "corpus.py:CorpusWriter.mint_coordination": "corpus-write",

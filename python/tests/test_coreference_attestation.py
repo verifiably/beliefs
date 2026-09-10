@@ -4,26 +4,183 @@ capture, its seam, and its reduction (spec 2026-09-10-world-resolution-slice-2-d
 from __future__ import annotations
 
 import pytest
-from authority import ACTOR
+from authority import ACTOR, FULL, lacking
+from nodes.core.relations import Relation
+from nodes.core.write_plan import DefaultExecutor
+from profiles import BASE, WITH_BIOLOGY
+from test_corpus_write import Recorder
 from test_world_build import ALPHA, build, corpus_at, install_bindings, make_world
 from test_world_derive import reduce_with
+from test_world_receipts import corpora, hold_shipped, publish, world_over
 
 from beliefs import stored
-from beliefs.corpus import EXCLUDED_MUTATION_KINDS
-from beliefs.errors import MalformedRecord
+from beliefs.corpus import EXCLUDED_MUTATION_KINDS, CorpusWriter
+from beliefs.errors import (
+    ActorMismatch,
+    CoreferenceEndpointRefused,
+    ImportRefused,
+    MalformedRecord,
+    PermitExceeded,
+    ValidationRefused,
+    WriteRefused,
+)
 from beliefs.identity import v1
 from beliefs.world import derive, registry, rules
+from beliefs.world.view import open_world_view
 
 LEFT = "dataset:left"
 RIGHT = "dataset:right"
 NFC = "caf\u00e9"      # precomposed e-acute
 NFD = "cafe\u0301"     # e + combining acute: one string to every digest, two to Python
+PINNED = [{"name": "d", "digest": "sha256:" + "1" * 64}]
 
 
 def attestation(*, endpoints=(RIGHT, LEFT), stance=1, actor=ACTOR, grounds="the same bytes", token="event-1"):
     return stored.coreference_attestation_node(
         title="coreference", endpoints=endpoints, stance=stance, actor=actor, grounds=grounds, event_token=token
     )
+
+
+@pytest.fixture()
+def writer(request, tmp_path) -> CorpusWriter:
+    Recorder.plans.clear()
+    callspec = getattr(request.node, "callspec", None)
+    root = tmp_path / callspec.id if callspec is not None else tmp_path
+    w = CorpusWriter(root / "corpus", Recorder, authority=FULL, profile=BASE)
+    w.add(stored.dataset_node("left", title="left", resources=PINNED))
+    w.add(stored.dataset_node("right", title="right", resources=[{"name": "d", "digest": "sha256:" + "2" * 64}]))
+    return w
+
+
+class TestTheSeam:
+    def test_it_mints_and_touches_neither_endpoint(self, writer):
+        before = {ref: writer.read_view.get(ref).model_dump() for ref in (LEFT, RIGHT)}
+        minted = writer.attest_coreference(attestation())
+        assert writer.read_view.get(minted.id).facets == minted.facets
+        assert {ref: writer.read_view.get(ref).model_dump() for ref in (LEFT, RIGHT)} == before
+        assert minted.relations == [] and writer.read_view.inbound(LEFT) == []
+
+    def test_add_supersede_and_revise_refuse_the_kind(self, writer):
+        with pytest.raises(WriteRefused, match="attest_coreference"):
+            writer.add(attestation())
+        with pytest.raises(WriteRefused, match="attest_coreference"):
+            writer.supersede(attestation(), of=LEFT)
+        with pytest.raises(WriteRefused, match="attest_coreference"):
+            writer.revise(attestation())
+
+    def test_the_permit_is_required_before_the_hold(self, tmp_path):
+        w = CorpusWriter(tmp_path / "c", Recorder, authority=lacking(kinds=("coreference-attestation",)), profile=BASE)
+        with pytest.raises(PermitExceeded):
+            w.attest_coreference(attestation())
+
+    def test_the_actor_is_bound(self, writer):
+        with pytest.raises(ActorMismatch):
+            writer.attest_coreference(attestation(actor="someone-else"))
+
+    def test_a_raw_self_pair_reaches_its_own_refusal(self, writer):
+        node = attestation()
+        node.facets[stored.COREFERENCE_ATTESTATION_FACET]["endpoints"] = [LEFT, LEFT]
+        with pytest.raises(CoreferenceEndpointRefused) as refused:
+            writer.attest_coreference(node)
+        assert refused.value.reason == "self-pair" and refused.value.endpoint == LEFT
+
+    def test_a_malformed_shape_is_a_validation_refusal(self, writer):
+        node = attestation()
+        node.facets[stored.COREFERENCE_ATTESTATION_FACET]["stance"] = 3
+        with pytest.raises(ValidationRefused, match="coreference shape validation"):
+            writer.attest_coreference(node)
+
+    def test_the_controlled_rebuild_compares_id_facets_and_relations_and_accepts_a_fresh_uid(self, writer):
+        node = attestation()
+        node.relations.append(Relation(source=node.id, predicate="cites", target=LEFT))
+        with pytest.raises(MalformedRecord, match="controlled stored shape"):
+            writer.attest_coreference(node)
+        assert writer.attest_coreference(attestation(token="fresh")).uid
+
+    @pytest.mark.parametrize(
+        ("endpoints", "reason", "endpoint"),
+        [
+            (("discussion:d", "discussion:e"), "inadmissible-kind", "discussion:d"),
+            (("act-report:a", "act-report:b"), "inadmissible-kind", "act-report:a"),
+            (
+                ("coreference-attestation:a", "coreference-attestation:b"),
+                "inadmissible-kind",
+                "coreference-attestation:a",
+            ),
+            ((LEFT, "dataset:missing"), "unresolved", "dataset:missing"),
+        ],
+    )
+    def test_the_endpoint_refusals_over_the_corpus_view(self, writer, endpoints, reason, endpoint):
+        with pytest.raises(CoreferenceEndpointRefused) as refused:
+            writer.attest_coreference(attestation(endpoints=endpoints))
+        assert (refused.value.reason, refused.value.endpoint) == (reason, endpoint)
+
+    def test_two_kinds_are_a_category_error(self, writer):
+        writer.add(stored.source_node("s", title="s", identifiers={"doi": "10.1/x"}))
+        with pytest.raises(CoreferenceEndpointRefused) as refused:
+            writer.attest_coreference(attestation(endpoints=(LEFT, "source:s")))
+        assert refused.value.reason == "kind-mismatch"
+
+    def test_a_retired_address_does_not_resolve_exactly(self, writer):
+        # A raw rename through the `nodes` handle: the seam under test is the
+        # attestation's, and no kernel rename exists yet (slice 2b).
+        writer._corpus.rename(LEFT, "dataset:left-2")
+        assert writer.read_view.resolve(LEFT) == "dataset:left-2"
+        with pytest.raises(CoreferenceEndpointRefused) as refused:
+            writer.attest_coreference(attestation())
+        assert refused.value.reason == "unresolved" and refused.value.endpoint == LEFT
+
+    def test_the_refusal_order_is_actor_then_self_pair_then_shape(self, writer):
+        node = attestation(actor="someone-else")
+        node.facets[stored.COREFERENCE_ATTESTATION_FACET]["endpoints"] = [LEFT, LEFT]
+        with pytest.raises(ActorMismatch):
+            writer.attest_coreference(node)
+
+
+class TestTheSeamOverAWorldView:
+    def test_a_pair_split_across_corpora_resolves_and_a_not_present_endpoint_names_its_corpus(self, tmp_path):
+        left = stored.dataset_node("left", title="left", resources=PINNED)
+        right = stored.dataset_node(
+            "right", title="right", resources=[{"name": "d", "digest": "sha256:" + "2" * 64}]
+        )
+        roots = corpora(tmp_path, {"a" * 32: (left,), "b" * 32: (right,)})
+        world = world_over(tmp_path, roots)
+        published = publish(world, ("a" * 32, "b" * 32), hold_shipped(world))
+        view = open_world_view(world, published)
+        w = CorpusWriter(roots["a" * 32], DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY)
+        assert w.attest_coreference(attestation(), view=view).id
+        (roots["b" * 32] / "corpus.yaml").unlink()
+        absent = open_world_view(world, published)
+        with pytest.raises(CoreferenceEndpointRefused) as refused:
+            w.attest_coreference(attestation(token="event-2"), view=absent)
+        assert (refused.value.reason, refused.value.endpoint, refused.value.corpus_id) == (
+            "unresolved",
+            RIGHT,
+            "b" * 32,
+        )
+
+
+class TestImport:
+    def test_a_bundled_attestation_is_validated_and_resolved_over_the_union(self, tmp_path):
+        # Import needs an operation port; `test_facet_seams.writer` builds the
+        # port-backed writer and adopts a manifest, so use it rather than the
+        # in-memory recorder above (which refuses with "no operation port").
+        from test_facet_seams import IMPORT
+        from test_facet_seams import writer as port_writer
+
+        w = port_writer(tmp_path / "ported")
+        w.add(stored.dataset_node("left", title="left", resources=PINNED))
+        w.add(stored.dataset_node("right", title="right", resources=[{"name": "d", "digest": "sha256:" + "2" * 64}]))
+        good = attestation(actor="importer")
+        w.import_bundle([good], **IMPORT)
+        assert w.read_view.holds(good.id)
+        bad = attestation(actor="importer", endpoints=(LEFT, "dataset:nowhere"), token="event-9")
+        with pytest.raises(ImportRefused, match="dataset:nowhere"):
+            w.import_bundle([bad], **IMPORT)
+        malformed = attestation(actor="importer", token="event-8")
+        malformed.facets[stored.COREFERENCE_ATTESTATION_FACET]["stance"] = 5
+        with pytest.raises(ImportRefused, match=malformed.id):
+            w.import_bundle([malformed], **IMPORT)
 
 
 class TestTheKindIsGoverned:

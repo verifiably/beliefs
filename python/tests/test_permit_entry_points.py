@@ -136,6 +136,34 @@ def _retract(authority, work):
     return _writer(authority, work).retract(retraction_for(_STATE[work]["target"]))
 
 
+def _mint_pair(writer):
+    from beliefs import stored
+
+    left = writer.add(
+        stored.dataset_node("left", title="left", resources=[{"name": "d", "digest": "sha256:" + "1" * 64}])
+    )
+    right = writer.add(
+        stored.dataset_node("right", title="right", resources=[{"name": "d", "digest": "sha256:" + "2" * 64}])
+    )
+    return (left, right)
+
+
+def _attest(authority, work):
+    from beliefs import stored
+
+    left, right = _STATE[work]["target"]
+    return _writer(authority, work).attest_coreference(
+        stored.coreference_attestation_node(
+            title="coreference",
+            endpoints=(left.id, right.id),
+            stance=1,
+            actor=authority.actor,
+            grounds="one work",
+            event_token="event-1",
+        )
+    )
+
+
 def _supersede(authority, work):
     from test_supersede import prop
 
@@ -590,6 +618,7 @@ def _mint_dataset(writer):
 CASES = (
     Case("corpus.py:CorpusWriter.add", "corpus-write", ("dataset",), False, _prepare_corpus(), _add, _corpus_probe),
     Case("corpus.py:CorpusWriter.retract", "corpus-write", ("retraction",), False, _prepare_corpus(_mint_eligible), _retract, _corpus_probe),
+    Case("corpus.py:CorpusWriter.attest_coreference", "corpus-write", ("coreference-attestation",), False, _prepare_corpus(_mint_pair), _attest, _corpus_probe),
     Case("corpus.py:CorpusWriter.supersede", "corpus-write", ("proposition",), False, _prepare_corpus(_mint_predecessor), _supersede, _corpus_probe),
     Case("corpus.py:CorpusWriter.revise", "corpus-write", ("proposition",), False, _prepare_corpus(_mint_proposition), _revise, _corpus_probe),
     Case("corpus.py:CorpusWriter.mint_coordination", "corpus-write", ("project",), False, _prepare_coordination(False), _mint_coordination, _coordination_probe),

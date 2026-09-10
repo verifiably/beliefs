@@ -1009,6 +1009,21 @@ class RetractionGroundsMissing(WriteRefused):
     """A retraction carries no present string grounds reference."""
 
 
+class CoreferenceEndpointRefused(WriteRefused):
+    """A coreference attestation names an endpoint the seam refuses (world
+    address ruling §5.1): the four typing refusals, one class, a closed reason."""
+
+    REASONS = ("self-pair", "kind-mismatch", "unresolved", "inadmissible-kind")
+
+    def __init__(self, message: str, *, endpoint: str, reason: str, corpus_id: str | None = None) -> None:
+        if reason not in self.REASONS:
+            raise ValueError(f"{reason!r} is not a coreference endpoint refusal reason")
+        super().__init__(message)
+        self.endpoint = endpoint
+        self.reason = reason
+        self.corpus_id = corpus_id
+
+
 class RevisionTargetMissing(WriteRefused):
     """The supplied `(uid, id)` pair does not identify a local node."""
 
