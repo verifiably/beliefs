@@ -24,6 +24,7 @@ sources:
   - ../designs/2026-08-26-world-index-intent-boundary-design.md
   - ../designs/2026-08-27-conformance-cut-11.md
   - ../designs/2026-09-09-conformance-cut-23.md
+  - ../designs/2026-09-10-conformance-cut-24.md
 ---
 
 # Identity, world, and change
