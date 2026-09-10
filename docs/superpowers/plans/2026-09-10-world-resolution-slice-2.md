@@ -114,7 +114,7 @@ The record carries no relations; every facet string is NFC at the builder, the r
 Five guarantee rows are read, **2 full/closed** (W15, W4), 3 partial (X12, W8a, M3), and **5 declaration units** carry them: `W15`, `X12`, `W8a`, `M3`, `W4`. W8b stays measured and not selected; W1, W2 and W5a are re-filed to slice 2b (§2).
 ```
 
-`## 5. N2 and acceptance obligations` — numbered as cut 23's: (1) the inventory is exactly the five units, single-homed; (2) every durable arm runs on the certified volume, refusal is an error and never a skip; (3) the runner, quoting `PREFIX_RUNNERS = ("cut23_acceptance.py",)` and `PHASE_MODULES = ("test_coreference_acceptance.py", "test_n2_cut24.py")`; (4) the 18 declared arms cover every sabotage site: in `corpus.py` (the admissible-kind set widened to prose; the raw self-pair check dropped; exact resolution weakened to presence; the kind comparison dropped; the actor bind dropped; the family-kind clause dropped; the controlled rebuild narrowed to the id; the import clause dropped; attestations admitted into the retraction graph; a `merge` name registered on the operations facade), in `stored.py` (relations attached to each endpoint), in `world/epoch.py` (the capture lift dropped), in `world/rules_v1/coreference.py` (the event token added to the key; the NFC normalization dropped), in `world/read.py` (missing coverage answered empty; the refuted rebuild answered validated; the rebuild comparison narrowed to membership), and in `world/derive.py` (the coreference map added to the belief input); (5) `test_n2_cut24.py` audits them by the cut-12 pattern with the staleness probe's baseline taken from the tree; (6) prior declarations frozen, no check reclaimed; (7) the freeze pin.
+`## 5. N2 and acceptance obligations` — numbered as cut 23's: (1) the inventory is exactly the five units, single-homed; (2) every durable arm runs on the certified volume, refusal is an error and never a skip; (3) the runner, quoting `PREFIX_RUNNERS = ("cut23_acceptance.py",)` and `PHASE_MODULES = ("test_coreference_acceptance.py", "test_n2_cut24.py")`; (4) the 18 declared arms cover every sabotage site: in `corpus.py` (the admissible-kind set widened to prose; the raw self-pair check dropped; exact resolution weakened to presence; the kind comparison dropped; the actor bind dropped; the family-kind clause dropped; the controlled rebuild narrowed to the id; the import clause dropped; attestations admitted into the retraction graph; a `merge` name registered on the operations facade), in `stored.py` (relations attached to each endpoint), in `world/epoch.py` (the capture lift dropped; capture iterates every live admitted corpus instead of the declared coverage), in `world/rules_v1/coreference.py` (the event token added to the key; the NFC normalization dropped), in `world/read.py` (missing coverage answered empty; the refuted rebuild answered validated; the rebuild comparison narrowed to membership), and in `world/derive.py` (the coreference map added to the belief input); (5) `test_n2_cut24.py` audits them by the cut-12 pattern with the staleness probe's baseline taken from the tree; (6) prior declarations frozen, no check reclaimed; (7) the freeze pin.
 
 `## 6. Second reader` — the spec's two review passes on 2026-09-10 (§14 there): eight findings, then four. `## 7. Limitations` — (1) the deduplication key defeats exact NFC duplicates only; per-attester capping and grounds equivalence are policy, unbuilt; (2) the coverage arm's "digest unchanged" clause is unsatisfiable as the row states it and is read on one coverage; (3) an attestation over a since-deleted endpoint is reduced and never refused (spec §13 item 3).
 
@@ -208,7 +208,9 @@ class TestTheBuilder:
         }
         # `_node` stamps every governed record; the facet set is exactly the two.
         assert set(node.facets) == {stored.COREFERENCE_ATTESTATION_FACET, "semantic-identity"}
-        assert len(stored.stored_semantic_hash(node)) == 64  # the stamp is present and well-formed
+        stamp = stored.stored_semantic_hash(node)
+        assert stamp is not None
+        assert len(stamp) == 64
         assert node.relations == []
         assert node.id == "coreference-attestation:" + v1.digest(
             stored.COREFERENCE_ATTESTATION_DOMAIN, node.facets[stored.COREFERENCE_ATTESTATION_FACET]
@@ -528,8 +530,14 @@ class TestTheCaptureLift:
         draft = build(world, (ALPHA,), install_bindings(world))
         captured = [r for r in draft.capture.corpora[0].records if r.kind == "coreference-attestation"]
         assert len(captured) == 2
-        assert all(r.coreference == derive.CapturedCoreference((LEFT, RIGHT), 1, ACTOR, "the same bytes", t)
-                   for r, t in zip(captured, ("event-1", "event-2")))
+        by_token = {}
+        for record in captured:
+            assert record.coreference is not None
+            by_token[record.coreference.event_token] = record.coreference
+        assert by_token == {
+            token: derive.CapturedCoreference((LEFT, RIGHT), 1, ACTOR, "the same bytes", token)
+            for token in ("event-1", "event-2")
+        }
         assert dict(derive.coreference_map(draft.run("coreference-reduction")).pairs) == {(LEFT, RIGHT): (1, 1)}
 
     def test_grounds_rewritten_between_normalization_forms_is_refused_at_capture(self, tmp_path):
@@ -722,6 +730,7 @@ Append to `python/tests/test_coreference_attestation.py`:
 
 ```python
 from authority import FULL, lacking, narrowed
+from nodes.core.write_plan import DefaultExecutor
 from profiles import BASE
 from test_corpus_write import Recorder
 from test_world_receipts import corpora, hold_shipped, publish, world_over
@@ -760,6 +769,8 @@ class TestTheSeam:
     def test_add_supersede_and_revise_refuse_the_kind(self, writer):
         with pytest.raises(WriteRefused, match="attest_coreference"):
             writer.add(attestation())
+        with pytest.raises(WriteRefused, match="attest_coreference"):
+            writer.supersede(attestation(), of=LEFT)
         with pytest.raises(WriteRefused, match="attest_coreference"):
             writer.revise(attestation())
 
@@ -836,7 +847,7 @@ class TestTheSeamOverAWorldView:
         world = world_over(tmp_path, roots)
         published = publish(world, ("a" * 32, "b" * 32), hold_shipped(world))
         view = open_world_view(world, published)
-        w = CorpusWriter(roots["a" * 32], Recorder, authority=FULL, profile=BASE)
+        w = CorpusWriter(roots["a" * 32], DefaultExecutor, authority=FULL, profile=BASE)
         assert w.attest_coreference(attestation(), view=view).id
         (roots["b" * 32] / "corpus.yaml").unlink()
         absent = open_world_view(world, published)
@@ -1423,7 +1434,7 @@ Then `CUT24_ARMS`, one `Arm` per site; the `before` strings are the exact lines 
 | W15m | `_CORPUS`: `            elif record.kind == "coreference-attestation":\n                try:\n                    attestation = self._validated_coreference(record)\n` → `            elif False:\n                try:\n                    attestation = self._validated_coreference(record)\n` | `_U::TestImport::test_a_bundled_attestation_is_validated_and_resolved_over_the_union` |
 | X12a | `_READ`: `    if epoch._document_bytes(rebuilt) != _claimed_projection(published, kind, receipt):\n` → `    if kind != "coreference-reduction" and epoch._document_bytes(rebuilt) != _claimed_projection(published, kind, receipt):\n` | `_A::test_omission_and_a_wrong_balance_refute_and_move_no_digest_durably`, `_U::TestPopulatedReceipts::test_an_omitted_attestation_and_a_wrong_balance_refute_and_move_no_digest` |
 | X12b | `_DERIVE`: `    return producers[0].subject_identity\n` (in `belief_input_identity`) → `    return v1.digest(PRODUCER_SNAPSHOT_DOMAIN, [producers[0].subject_identity, *sorted(r.subject_identity for r in receipts if r.kind == "coreference-reduction")])\n` — a well-formed versioned domain, so the sabotaged digest runs and moves with the coreference map instead of raising `MalformedDomain` | `_A::test_the_digest_boundary_holds_on_one_coverage_durably` |
-| W8aa | `_EPOCH`: `    covered = tuple(sorted(coverage))\n    config = world.config\n    world._state.registry = registry._scan_registry(config.world_root)\n` (in `_locked_resolve_coverage`) → `    config = world.config\n    world._state.registry = registry._scan_registry(config.world_root)\n    covered = tuple(sorted(coverage | {record.corpus_id for record in world._state.registry.admissions}))\n` — the coverage bound: every admitted corpus is captured whatever the declaration says | `_A::test_the_digest_boundary_holds_on_one_coverage_durably`, `_U::TestPopulatedReceipts::test_coverage_bounds_the_balance_and_the_narrower_epoch_is_indeterminate_over_the_wider_world` |
+| W8aa | `_EPOCH`: `    for corpus_id in preflight.coverage:\n        carrier = preflight.carriers[corpus_id]\n` (in `_capture`) → `    for corpus_id in registry._live_corpus_ids(world.registry()):\n        carrier = registry._carrier_roots(world.config, corpus_id)[0]\n` — the coverage bound: every live admitted corpus is captured whatever the declaration says | `_A::test_the_digest_boundary_holds_on_one_coverage_durably`, `_U::TestPopulatedReceipts::test_coverage_bounds_the_balance_and_the_narrower_epoch_is_indeterminate_over_the_wider_world` |
 | M3a | `_CORPUS`: `        if stored_node.kind != "retraction":\n            continue\n        retraction = view.get(stored_node.id)\n` (in `standing_in_local_view`) → `        if stored_node.kind not in ("retraction", "coreference-attestation"):\n            continue\n        retraction = view.get(stored_node.id)\n` | `_A::test_coreference_between_retractions_closes_no_route_durably` |
 | W4a | `_CORPUS`: `    def retract(self, record: Node) -> OperationCommit:\n        return self._run(lambda: self._writer.retract(record))\n` → the same followed by `\n    merge = retract\n` | `_A::test_no_operation_retires_an_address_on_coreference_grounds_durably` |
 
@@ -1554,3 +1565,5 @@ Then merge `world-resolution` into `main` with `--no-ff`, run `just gate` on `ma
 ## Review log
 
 **2026-09-10, first review on `3e54338`, eight findings, all resolved.** (1) The builder test asserted the facet set without the `semantic-identity` stamp `_node` adds — it now asserts the payload and the stamp separately (Task 2). (2) `PermitRefused` does not exist; the permit's refusal is `PermitExceeded` (Task 4). (3) The Unicode fixture also refuses the "duplicate coreference weighting" and "wrong sorting" mutants, confirmed by probe — both `refused_by` sets gain it (Task 3 step 6). (4) The in-memory `Recorder` writer has no operation port, so import refused before validation — the import test uses `test_facet_seams.writer` (Task 4). (5) One catch wrapped both the reader and the controlled rebuild as `ValidationRefused`, against spec §9 — the rebuild is `_controlled_coreference`, called outside the wrap and raising `MalformedRecord`; `_validated_coreference` composes both for the import door (Task 4). (6) `ActLine.record_ids` holds `(uid, id)` pairs (Task 5). (7) Deleting the reinstall in the indeterminate-span test would leave its wider publication `RuleNotHeld` — the reinstall now installs the shipped bundle (Task 6). (8) W15i's sabotage crashed on three-way unpacking and X12b's used a malformed identity domain — both mutants are now runnable and wrong (Task 7).
+
+**2026-09-10, second review on `9045172`, five findings, all resolved.** W8aa now mutates `_capture` so captured inputs actually widen, and Task 1 names that site; the world-view writer uses the root's existing `DefaultExecutor`; the capture assertion keys values by event token; the optional stamp is narrowed before `len`; and W15f retains and exercises the public `add`, `supersede` and `revise` refusals, matching their calls to `_refuse_family_kinds` without `admitted_kind`.
