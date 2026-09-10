@@ -49,8 +49,8 @@ is a sibling task (§12), not this slice.
 1. **The address is a digest.** `source:` followed by
    `sha256` under the domain `science.source-address.v1` over
    `{"scheme": s, "value": v}` — the shape every other governed kind already
-   has, injective by construction (`encode ∘ π` on the basis, W1/W2's
-   requirement), and never in conflict with `nodes`' slug grammar
+   has, collision-resistant under domain separation (`encode ∘ π` on the
+   basis is injective; the digest is what W1/W2 rest on), and never in conflict with `nodes`' slug grammar
    (`[A-Za-z0-9][A-Za-z0-9:_.-]*`, which no DOI satisfies). A readable
    encoding was rejected: it is a second encoding to specify, and it would
    make `source` the one kind whose address is not a digest.
@@ -115,15 +115,22 @@ change.
 `IdentifierMalformed(WriteRefused)` carries `scheme`, `value` (repr-safe)
 and a closed `reason`:
 `unknown-scheme | not-a-string | empty | malformed | non-canonical`.
-`not-a-string` is raised for any non-`str` value before any other rule.
 `non-canonical` is the boundary's reason (§5): a stored value the rule would
 have changed.
+
+**Refusal order, pinned.** Entries are examined in sorted key order and the
+first refusal wins. Per entry: `unknown-scheme` (the key is not in `SCHEMES`)
+→ `not-a-string` (the value is not a `str`) → `empty` (after trim and prefix
+strip the remainder is empty — so `""`, whitespace-only, and a prefix-only
+input such as `doi:` are all `empty`) → `malformed` (the remainder fails its
+scheme's shape). `{"unknown": 1}` is therefore `unknown-scheme`, and
+`{"doi": "", "pmid": 5}` is `empty` on `doi`.
 
 | scheme | canonical form | `malformed` when |
 |---|---|---|
 | `doi` | NFC; trim; strip one leading `doi:` or `http://`/`https://` + `doi.org/` or `dx.doi.org/`, case-insensitively; lowercase the remainder | the remainder does not match `10\.[0-9]{4,9}/[^\s]+` |
 | `pmid` | trim; strip one leading `pmid:` case-insensitively | the remainder does not match `[1-9][0-9]*` |
-| `isbn` | trim; strip one leading `isbn:` case-insensitively; drop hyphens and spaces; uppercase; ISBN-10 (`[0-9]{9}[0-9X]`) has its check digit verified and is converted to ISBN-13 (`978` + nine digits + recomputed check); ISBN-13 (`[0-9]{13}`) has its check digit verified | neither length, or a check digit fails |
+| `isbn` | trim; strip one leading `isbn:` case-insensitively; drop hyphens and spaces; uppercase; ISBN-10 (`[0-9]{9}[0-9X]`) has its check digit verified and is converted to ISBN-13 (`978` + nine digits + recomputed check); ISBN-13 (`[0-9]{13}`) must begin `978` or `979` (the International ISBN Agency's two prefixes — a structural check, no authority lookup) and has its check digit verified | neither length, a check digit fails, or a thirteen-digit remainder lacks the `978`/`979` prefix (`0000000000000` is checksum-valid and refused) |
 | `accession` | trim; uppercase | the remainder does not match `[A-Z]+[A-Z0-9_.]*` |
 
 Form only, throughout. `NC_000913.3` and `NC_000913` stay two identifiers; the
@@ -133,8 +140,9 @@ identity is inferred (ruling §4.2: "authority evidence normalizes form only").
 
 ### 3.2 `normalized_identifiers`, `basis`, `source_address`
 
-`normalized_identifiers` validates **every** entry — key in `SCHEMES` else
-`unknown-scheme`; value through `normalize` — and returns the canonical map.
+`normalized_identifiers` validates **every** entry in the order §3.1 pins —
+key in `SCHEMES` else `unknown-scheme`; value through `normalize` — and
+returns the canonical map.
 It is total over the map before any selection happens. Today
 `external_identifiers` silently ignores an unknown key and an empty value;
 both are the coercion the ruling forbids and both now refuse.
@@ -207,7 +215,7 @@ Payload: `{"entries": [entry, ...]}`. Well-formed means all of:
 - Each entry is a mapping with exactly `from`, `to`, `actor`, `grounds`,
   `event_token`. `from` and `to` are mappings over accepted schemes whose
   values are canonical non-empty strings (validated through `normalize`,
-  every entry); `to` is non-empty; `from != to`. `actor`, `grounds` and
+  every entry); **both** `from` and `to` are non-empty maps; `from != to`. `actor`, `grounds` and
   `event_token` are non-empty strings; the whole entry is canonically
   encodable under `science.identity.v1` (a lone surrogate is malformed).
 - Event tokens are distinct across entries.
@@ -251,8 +259,12 @@ this order:
 3. The subject's kind is `source`, else `CorrectionRefused(reason="not-a-source")`.
 4. The **current** record passes `_refuse_source` (§5.1) — a raw-edited
    subject is refused before anything is appended.
-5. `identifiers` through `normalized_identifiers` (its refusals propagate);
-   at least one entry, else `BasisMissing`.
+5. `identifiers` through `normalized_identifiers` (its refusals propagate),
+   and the supplied map must **equal** its normalized form — the seam does
+   not canonicalize on the caller's behalf; an uppercase or URL-form DOI
+   refuses `IdentifierMalformed(reason="non-canonical")` here, before the
+   `unchanged` comparison can absorb it. At least one entry, else
+   `BasisMissing`.
 6. `grounds` is a non-empty, canonically encodable string, else
    `CorrectionRefused(reason="grounds-empty")`.
 7. If the new map equals the current map, refuse
@@ -373,7 +385,9 @@ attestation, because an attestation needs two records.
 
 `tests/test_source_address.py` (new): the normalization table per scheme —
 accepted spellings folding to one canonical form, each refusal reason
-reachable, ISBN-10 → 13 with a wrong check digit refused, every entry
+reachable, ISBN-10 → 13 with a wrong check digit refused, a checksum-valid thirteen-digit
+number with a wrong prefix refused, the pinned refusal order over `{"unknown": 1}`,
+`""`, whitespace and prefix-only input, every entry
 validated before basis selection (a valid DOI beside a malformed PMID
 refuses); precedence over every subset of the four schemes; a pinned digest
 for one `(scheme, value)` so the address domain cannot drift silently; the
@@ -384,7 +398,8 @@ duplicate token, unencodable grounds, redirect-set disagreement, duplicate
 deprecated id, history-free record with a deprecated id.
 
 `tests/test_identifier_correction.py` (new): the refusal order of §6.1 with
-each reason reached by the earliest step that can reach it; unmoved
+each reason reached by the earliest step that can reach it, a non-canonical
+supplied map refused before `unchanged`; unmoved
 (`ReplaceOp`), moved (`CreateOp` + `DeleteOp`) and A→B→A return with A live
 again and absent from `deprecated_ids`; the current record validated before
 append (a raw-edited subject refuses); referrers byte-unchanged; `add`
@@ -429,8 +444,11 @@ row clause:
   (§10.5). Dataset address derivation stays the sibling task's.
 - **W5a, source arm:** correct a source's DOI → `uid` preserved, id moved,
   the old id resolving through `deprecated_ids` in the corpus and in a
-  published epoch's address map; a `source-assertion` and a retraction that
-  named the old address are byte-unchanged and still resolve. **Negative:**
+  published epoch's address map; a `source-assertion` anchored in the old
+  address and a retraction whose `grounded-in` relation names it (a source
+  is not an eligible retraction `NodeTarget`; the grounds reference is the
+  edge a retraction may hold to a source) are byte-unchanged and still
+  resolve. **Negative:**
   the seam has no case parameter; `add` with the new DOI mints a second
   entity; `attest_coreference` over the pair is the third arm; none of the
   three invokes another.
@@ -485,8 +503,17 @@ are not edited. Their **live** phase modules —
 fixtures and must keep running; they receive the documented fixture migration
 (slug removed, DOI repaired, `source:` literal replaced by the built id) and
 nothing else. Where a frozen arm's `before` string names a line this slice
-must change, the arm is left as it stands and its staleness recorded against
-the tree baseline, never repaired in place.
+must change and the arm is only probed for staleness, it is left as it
+stands and its staleness recorded against the tree baseline. One arm is
+audited live, not merely probed: cut 16's `M3a` matches
+`self._refuse_missing_basis(node)` in `corpus.py`, and `test_n2_cut16.py`
+requires that matcher to occur exactly once, which the split into
+`_refuse_source` and `_refuse_dataset_basis` breaks; recording the staleness
+in cut 25 cannot satisfy cut 16's own audit, and cut 16 sits on every later
+prefix chain. The declaration table `n2_arms_cut16.py` stays frozen;
+`test_n2_cut16.py` gains a **dated live matcher adapter** for `M3a` in its
+existing `_LIVE_SABOTAGES` pattern (the 2026-09-07 facet-contract migration
+is the precedent), asserting the same thing over the split lines.
 
 ## 11. Shared files, under roadmap concurrency rule 3
 
