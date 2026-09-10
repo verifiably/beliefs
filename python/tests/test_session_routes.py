@@ -9,13 +9,16 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from fixtures_cut3 import run_assessment
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.write_plan import CreateOp, DeleteOp
+from test_boundary import _assessment
 from test_operation_writes import proposition
 from test_session_writer import DIGEST, make_session
 
+from beliefs.boundary import RunRefused
 from beliefs.corpus import _operation_lock_for
-from beliefs.errors import PermitExceeded, SessionProtocolError
+from beliefs.errors import SessionProtocolError
 from beliefs.holdings.boundary import ActContext, recheck, write
 from beliefs.holdings.records import StoreLocator
 from beliefs.holdings.seam import FileStateView, PathObservedView, StoreActSeam, StoreOutcomeView
@@ -186,9 +189,17 @@ def test_a_permit_below_run_is_refused_by_the_boundary_before_any_intent(tmp_pat
     session, ports = make_session(tmp_path)
     session.claim_invocation("A", "run", DIGEST)
     port = session.scoped(RequiredCapabilities.for_kinds({"proposition"}, {}), "A").operation_port()
-    with pytest.raises(PermitExceeded):
-        port.authority.require("run", ("run", "act-report"))
+    refused = run_assessment(tmp_path, port=port)
+    assert isinstance(refused, RunRefused) and refused.reason == "permit-exceeded"
+    assert refused.report is None and refused.intent is None and refused.registration is None
     assert ports[-1].calls == []
+
+
+def test_an_unheld_input_refusal_is_excluded_by_the_fulfilling_only_route(tmp_path):
+    _session, _writer, port, inner = _run_port(tmp_path)
+    with pytest.raises(SessionProtocolError, match="fulfilling writes"):
+        _assessment(tmp_path, port, held_inputs={})
+    assert inner.calls == []
 
 
 # --- the holdings route (design §4.2) ---------------------------------------------

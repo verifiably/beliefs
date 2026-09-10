@@ -141,10 +141,11 @@ actor, instrument as given, authority = the scoped authority, profile = the
 session's, seam = the ledgered seam of §4. Without a store it raises
 `SessionProtocolError`. The seven existing methods do not change.
 
-The boundaries keep their own `authority.require` calls, so an invocation
-whose declared capabilities do not cover a route is refused by the kernel
-with `PermitExceeded` before an intent is appended, exactly as an
-under-permitted `add` is.
+The boundaries keep their own `authority.require` calls. An assessment run
+whose declared capabilities do not cover the route returns
+`RunRefused(reason="permit-exceeded", report=None, intent=None,
+registration=None)` before an intent is appended. Holdings and corpus writes
+raise `PermitExceeded`.
 
 ## 4. The ledgered routes (`beliefs-5fe2e3`)
 
@@ -171,7 +172,11 @@ An `OperationPort` over the invocation's durable port.
   (the publication).
 - `execute(plan)`: refused with `SessionProtocolError`. A session route
   commits only fulfilling writes; an unfulfilling commit would be an act
-  with no intent for the ledger to name.
+  with no intent for the ledger to name. Assessment's existing pre-intent
+  refusals for a missing or invalid frozen spec, an unheld input or
+  acquisition input, and unsupported boundary policy publish through this
+  member, so they also raise `SessionProtocolError` on this route. A surface
+  must validate those preconditions before calling it.
 - `execute_fulfilling_guarded(...)`: refused with `SessionProtocolError`.
   The durable form returns the guard's reason, not an entry digest, so the
   act could not be ledgered faithfully. No command declares a production
@@ -325,7 +330,9 @@ No new exception class. Everything a route can refuse is an existing one:
 
 | Condition | Raised by | Class |
 | --- | --- | --- |
-| declared capabilities do not cover the route | the boundary's `require` | `PermitExceeded` |
+| declared capabilities do not cover an assessment run | the run boundary's `require` handler | `RunRefused("permit-exceeded", None, None, None)` |
+| declared capabilities do not cover a holdings or corpus write | the boundary's `require` | `PermitExceeded` |
+| assessment pre-intent refusal (frozen spec, input heldness, boundary policy) on the fulfilling-only route | the ledgered port's forbidden `execute` | `SessionProtocolError` |
 | the invocation is not current | the ledgered port or seam | `SessionProtocolError` |
 | `execute` or the guarded form on a ledgered port | the ledgered port | `SessionProtocolError` |
 | a plan with a non-create op | the recording helper | `SessionProtocolError` |
@@ -334,9 +341,9 @@ No new exception class. Everything a route can refuse is an existing one:
 | a genesis that is not a store genesis (malformed, or another domain) | `store_identity` | `CorpusRootRefused` |
 | a locator naming another store | the holdings boundary | `StoreIdMismatch` |
 
-The first is a refusal of the invocation; the science dispatcher already
-normalises it. The `SessionProtocolError` rows are programming errors on
-the caller's side and surface as such.
+The first two are refusals of the invocation; the science dispatcher must
+normalise both forms. The `SessionProtocolError` rows are programming errors
+on the caller's side and surface as such.
 
 ## 8. Guarantees and their tests
 
@@ -362,9 +369,12 @@ recording port and a fake seam):
 7. The ledgered seam's `publish_fulfilling` ledgers a holdings act the same
    way, and every member reaches the inner seam only under a current
    invocation.
-8. A permit narrowed below `run` or `holdings` is refused by the boundary
-   with `PermitExceeded` before any intent is appended (the recording port
-   saw no `append_intent`).
+8. A permit narrowed below `run` returns `RunRefused("permit-exceeded", …)`;
+   one narrowed below `holdings` raises `PermitExceeded`. Both happen before
+   any intent is appended (the recording port saw no `append_intent`). An
+   assessment with an unheld input proves the fulfilling-only route rejects
+   its pre-intent report publication with `SessionProtocolError` and no
+   durable calls.
 8a. A holdings context kept past its invocation's close is refused at
     `write`'s first call, and the fake seam records that no member at all
     was reached, `read_path` and `store_genesis` included; the same for
@@ -438,6 +448,12 @@ recording port and a fake seam):
   (§4.1). Lifting it means the durable guarded form returning the entry
   digest beside the reason; a one-line change to its callers when a command
   needs it.
+- **Assessment pre-intent refusals.** Missing or invalid frozen specs,
+  unheld inputs or acquisition inputs, and unsupported boundary policies
+  publish an unfulfilling report through `execute`, which this route refuses.
+  Surfaces must validate those preconditions first. Supporting these as
+  session acts requires an explicit intent and ledger amendment; the route
+  must not enable unledgered `execute`.
 - **One store per session.** The session binds one store root. A world
   with several stores needs either several sessions or a locator-keyed
   context; neither is asked for.

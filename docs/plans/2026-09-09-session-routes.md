@@ -474,11 +474,14 @@ from pathlib import Path
 
 import pytest
 from authority import narrowed
+from fixtures_cut3 import run_assessment
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.write_plan import CreateOp, DeleteOp
 from test_operation_writes import proposition
+from test_boundary import _assessment
 from test_session_writer import DIGEST, make_session
 
+from beliefs.boundary import RunRefused
 from beliefs.errors import PermitExceeded, SessionProtocolError
 from beliefs.permit import RequiredCapabilities
 from beliefs.session import open_ledger_reader
@@ -556,14 +559,20 @@ def test_the_port_carries_the_scoped_authority_and_profile(tmp_path):
 
 
 def test_a_permit_below_run_is_refused_by_the_boundary_before_any_intent(tmp_path):
-    from beliefs.boundary import execute_assessment_run
-
     session, ports = make_session(tmp_path)
     session.claim_invocation("A", "run", DIGEST)
     port = session.scoped(RequiredCapabilities.for_kinds({"proposition"}, {}), "A").operation_port()
-    with pytest.raises(PermitExceeded):
-        port.authority.require("run", ("run", "act-report"))
+    refused = run_assessment(tmp_path, port=port)
+    assert isinstance(refused, RunRefused) and refused.reason == "permit-exceeded"
+    assert refused.report is None and refused.intent is None and refused.registration is None
     assert ports[-1].calls == []
+
+
+def test_an_unheld_input_refusal_is_excluded_by_the_fulfilling_only_route(tmp_path):
+    _session, _writer, port, inner = _run_port(tmp_path)
+    with pytest.raises(SessionProtocolError, match="fulfilling writes"):
+        _assessment(tmp_path, port, held_inputs={})
+    assert inner.calls == []
 ```
 
 Round-1 review adds one deterministic concurrency regression for design §8
@@ -574,7 +583,10 @@ the append is released, and completes after the append. Temporarily release
 the session lock between `_require_current` and the inner append and verify
 this test fails before restoring the implementation.
 
-(The last test states the boundary's own guard; `execute_assessment_run` opens with exactly that `require`, so the refusal precedes its `append_intent`.)
+(The last test calls the actual assessment boundary and establishes its
+`RunRefused` value contract. A companion regression supplies an unheld input
+and establishes that the fulfilling-only route raises `SessionProtocolError`
+before any durable call.)
 
 - [x] **Step 3: Run them to see them fail**
 
@@ -1804,7 +1816,7 @@ tasks note beliefs-5fe2e3 "landed: open_attended_session(store_root=), ScopedWri
 tasks done beliefs-5fe2e3
 tasks note beliefs-e5ab34 "landed: beliefs.rules.REFERENCE_RULES keyed beliefs/outcome-file/v1 and beliefs/content-identity-equality/v1; beliefs.rules.OUTCOME_FILE; the driver binds the same objects"
 tasks done beliefs-e5ab34
-tasks note beliefs-6a9931 "science handoff: kernel seams are implemented on beliefs branch kernel-seams. Names differ from the plan's assumptions in one place: rule identities are beliefs/outcome-file/v1 and beliefs/content-identity-equality/v1 (constants beliefs.rules.OUTCOME_FILE_RULE, CONTENT_IDENTITY_RULE); adjust the spec command's resolution and the fixture contract at the call sites."
+tasks note beliefs-6a9931 "science handoff: kernel seams are implemented on beliefs branch kernel-seams. Assessment run permit failures return RunRefused(permit-exceeded) with no report, intent, or registration; holdings and corpus permit failures raise PermitExceeded. The fulfilling-only run route rejects pre-intent frozen-spec, input-heldness, and boundary-policy report publication with SessionProtocolError, so surfaces must prevalidate them; supporting them later requires an explicit intent/ledger amendment. Rule identities are beliefs/outcome-file/v1 and beliefs/content-identity-equality/v1 (constants beliefs.rules.OUTCOME_FILE_RULE, CONTENT_IDENTITY_RULE)."
 tasks check
 git add README.md docs python/tests tasks
 git commit -m "docs(session): record the session routes as built"
