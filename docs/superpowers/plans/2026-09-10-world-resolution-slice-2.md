@@ -202,12 +202,13 @@ class TestTheBuilder:
     def test_it_sorts_the_pair_digests_the_facet_and_carries_no_relations(self):
         node = attestation()
         assert node.kind == "coreference-attestation"
-        assert node.facets == {
-            stored.COREFERENCE_ATTESTATION_FACET: {
-                "endpoints": [LEFT, RIGHT], "stance": 1, "actor": ACTOR,
-                "grounds": "the same bytes", "event_token": "event-1",
-            }
+        assert node.facets[stored.COREFERENCE_ATTESTATION_FACET] == {
+            "endpoints": [LEFT, RIGHT], "stance": 1, "actor": ACTOR,
+            "grounds": "the same bytes", "event_token": "event-1",
         }
+        # `_node` stamps every governed record; the facet set is exactly the two.
+        assert set(node.facets) == {stored.COREFERENCE_ATTESTATION_FACET, "semantic-identity"}
+        assert len(stored.stored_semantic_hash(node)) == 64  # the stamp is present and well-formed
         assert node.relations == []
         assert node.id == "coreference-attestation:" + v1.digest(
             stored.COREFERENCE_ATTESTATION_DOMAIN, node.facets[stored.COREFERENCE_ATTESTATION_FACET]
@@ -683,15 +684,19 @@ and in the `derive.CapturedRecord(...)` call, after the `retraction=(...)` argum
 
 Extend the docstring's governance paragraph with one sentence: "A `coreference-attestation` node is read through `stored.coreference_attestation_value`, and a malformed facet — non-NFC text included — raises `MalformedRecord` out of the capture, as a malformed retraction facet does."
 
-- [ ] **Step 6: Run the tests and the rule suites**
+- [ ] **Step 6: Extend the mutants' expectations**
+
+`test_world_derive.py`'s `MUTATIONS` table pins, per defective reducer, exactly which fixtures refuse it (`test_a_defective_reducer_is_refused_by_exactly_the_named_fixtures`). The new fixture refuses two of them, confirmed by probe: the "duplicate coreference weighting" mutant keeps the event token in its key, so the two normalization-form submissions stay two units; the "wrong sorting" mutant compares raw strings, so they stay two units there too. Add `"coreference.unicode.yaml"` to both `refused_by` sets (`:937` and `:961-963`). No other mutant's set moves: the rest reduce `sample`-shaped inputs where the fixture's two records still fold to one.
+
+- [ ] **Step 7: Run the tests and the rule suites**
 
 Run: `uv run --frozen pytest tests/test_coreference_attestation.py tests/test_world_rules.py tests/test_world_derive.py tests/test_world_build.py tests/test_world_receipts.py -q -p no:cacheprovider && uv run --frozen ruff check . && uv run --frozen pyright`
 Expected: PASS. `test_world_rules.py` installs the shipped bundle and runs its fixtures, the new one included.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-tasks note beliefs-e88cae "rule key NFC-normalized with coreference.unicode.yaml; CapturedCoreference refuses non-NFC; _captured_records lifts the facet"
+tasks note beliefs-e88cae "rule key NFC-normalized with coreference.unicode.yaml; CapturedCoreference refuses non-NFC; _captured_records lifts the facet; two mutants' refused_by sets extended"
 tasks done beliefs-e88cae "the reduction and the identity encoder agree about string equality; real attestations reduce"
 git add python/src/beliefs/world python/tests/test_coreference_attestation.py tasks
 git commit -m "feat(world): reduce stored coreference attestations under an NFC key"
@@ -709,7 +714,7 @@ git commit -m "feat(world): reduce stored coreference attestations under an NFC 
 
 **Interfaces:**
 - Consumes: Task 2's builder and reader; Task 3's capture.
-- Produces: `errors.CoreferenceEndpointRefused(WriteRefused)` with `endpoint: str`, `reason: str`, `corpus_id: str | None`, class attribute `REASONS = ("self-pair", "kind-mismatch", "unresolved", "inadmissible-kind")`; `CorpusWriter.attest_coreference(record: Node, *, view: ReadView | WorldReadView | None = None) -> Node`; `CorpusWriter._validated_coreference(record) -> stored.CoreferenceAttestation` (static); `CorpusWriter._resolve_coreference_endpoints(record, attestation, view) -> None` (static); `OperationWrites.attest_coreference(record, *, view=None) -> OperationCommit`.
+- Produces: `errors.CoreferenceEndpointRefused(WriteRefused)` with `endpoint: str`, `reason: str`, `corpus_id: str | None`, class attribute `REASONS = ("self-pair", "kind-mismatch", "unresolved", "inadmissible-kind")`; `CorpusWriter.attest_coreference(record: Node, *, view: ReadView | WorldReadView | None = None) -> Node`; `CorpusWriter._controlled_coreference(record, attestation) -> None` (static, raises `MalformedRecord`); `CorpusWriter._validated_coreference(record) -> stored.CoreferenceAttestation` (static; reader plus rebuild, for import); `CorpusWriter._resolve_coreference_endpoints(record, attestation, view) -> None` (static); `OperationWrites.attest_coreference(record, *, view=None) -> OperationCommit`.
 
 - [ ] **Step 1: `tasks start beliefs-4407ca`, then write the failing tests**
 
@@ -726,7 +731,7 @@ from beliefs.errors import (
     ActorMismatch,
     CoreferenceEndpointRefused,
     ImportRefused,
-    PermitRefused,
+    PermitExceeded,
     ValidationRefused,
     WriteRefused,
 )
@@ -760,7 +765,7 @@ class TestTheSeam:
 
     def test_the_permit_is_required_before_the_hold(self, tmp_path):
         w = CorpusWriter(tmp_path / "c", Recorder, authority=lacking(kinds=("coreference-attestation",)), profile=BASE)
-        with pytest.raises(PermitRefused):
+        with pytest.raises(PermitExceeded):
             w.attest_coreference(attestation())
 
     def test_the_actor_is_bound(self, writer):
@@ -783,7 +788,7 @@ class TestTheSeam:
     def test_the_controlled_rebuild_compares_id_facets_and_relations_and_accepts_a_fresh_uid(self, writer):
         node = attestation()
         node.relations.append(Relation(source=node.id, predicate="cites", target=LEFT))
-        with pytest.raises(ValidationRefused, match="controlled stored shape"):
+        with pytest.raises(MalformedRecord, match="controlled stored shape"):  # spec §9: the rebuild is MalformedRecord, not a shape wrap
             writer.attest_coreference(node)
         assert writer.attest_coreference(attestation(token="fresh")).uid  # a uid minted by this construction
 
@@ -841,19 +846,25 @@ class TestTheSeamOverAWorldView:
 
 
 class TestImport:
-    def test_a_bundled_attestation_is_validated_and_resolved_over_the_union(self, writer):
-        from test_facet_seams import IMPORT
+    def test_a_bundled_attestation_is_validated_and_resolved_over_the_union(self, tmp_path):
+        # Import needs an operation port; `test_facet_seams.writer` builds the
+        # port-backed writer and adopts a manifest, so use it rather than the
+        # in-memory recorder above (which refuses with "no operation port").
+        from test_facet_seams import IMPORT, writer as port_writer
 
+        w = port_writer(tmp_path / "ported")
+        w.add(stored.dataset_node("left", title="left", resources=PINNED))
+        w.add(stored.dataset_node("right", title="right", resources=[{"name": "d", "digest": "sha256:" + "2" * 64}]))
         good = attestation(actor="importer")
-        writer.import_bundle([good], **IMPORT)
-        assert writer.read_view.holds(good.id)
+        w.import_bundle([good], **IMPORT)
+        assert w.read_view.holds(good.id)
         bad = attestation(actor="importer", endpoints=(LEFT, "dataset:nowhere"), token="event-9")
         with pytest.raises(ImportRefused, match="dataset:nowhere"):
-            writer.import_bundle([bad], **IMPORT)
+            w.import_bundle([bad], **IMPORT)
         malformed = attestation(actor="importer", token="event-8")
         malformed.facets[stored.COREFERENCE_ATTESTATION_FACET]["stance"] = 5
         with pytest.raises(ImportRefused, match=malformed.id):
-            writer.import_bundle([malformed], **IMPORT)
+            w.import_bundle([malformed], **IMPORT)
 ```
 
 `Corpus.rename(old_id, new_id)` is the `nodes` handle's own rename (`nodes/core/corpus.py`), reached through the writer's `_corpus`; `IMPORT` is `test_facet_seams.py:19`'s keyword set for `import_bundle`.
@@ -917,19 +928,27 @@ In `python/src/beliefs/corpus.py` import `CoreferenceEndpointRefused` beside `Re
                         endpoint=str(endpoints[0]),
                         reason="self-pair",
                     )
+            if record.kind != "coreference-attestation":
+                raise ValidationRefused(f"{record.id}: attest_coreference accepts a stored coreference attestation only")
             try:
-                attestation = self._validated_coreference(record)
+                attestation = stored.coreference_attestation_value(record)
             except MalformedRecord as caught:
                 raise ValidationRefused(f"{record.id}: refused by coreference shape validation: {caught}") from caught
+            self._controlled_coreference(record, attestation)  # MalformedRecord, outside the shape wrap (spec §9)
             self._resolve_coreference_endpoints(record, attestation, self._view if view is None else view)
             self._refuse(record, document_validated=True)
             return self._corpus.add(record)
 
     @staticmethod
     def _validated_coreference(record: Node) -> stored.CoreferenceAttestation:
-        if record.kind != "coreference-attestation":
-            raise ValidationRefused(f"{record.id}: attest_coreference accepts a stored coreference attestation only")
+        """The reader and the controlled rebuild, for the import door, where
+        every failure is one `ImportRefused` anyway."""
         attestation = stored.coreference_attestation_value(record)
+        CorpusWriter._controlled_coreference(record, attestation)
+        return attestation
+
+    @staticmethod
+    def _controlled_coreference(record: Node, attestation: stored.CoreferenceAttestation) -> None:
         expected = stored.coreference_attestation_node(
             title=record.title,
             endpoints=attestation.endpoints,
@@ -940,7 +959,6 @@ In `python/src/beliefs/corpus.py` import `CoreferenceEndpointRefused` beside `Re
         )
         if record.id != expected.id or record.facets != expected.facets or record.relations != expected.relations:
             raise MalformedRecord(f"{record.id}: coreference attestation does not match the controlled stored shape")
-        return attestation
 
     @staticmethod
     def _resolve_coreference_endpoints(
@@ -1102,7 +1120,7 @@ class TestTheSessionRoute:
         writer.add(stored.dataset_node("right", title="right", resources=[{"name": "d", "digest": "sha256:" + "2" * 64}]))
         minted = writer.attest_coreference(attestation(actor=writer.actor))
         acts = session.invocation_acts("A")
-        assert acts[-1].record_ids == (minted.id,)
+        assert acts[-1].record_ids == ((minted.uid, minted.id),)  # `_record_act` ledgers (uid, id) pairs
 
     def test_the_facade_surface_is_the_eight_methods(self):
         public = {name for name in dir(ScopedWriter) if not name.startswith("_")}
@@ -1199,7 +1217,15 @@ def coreference_world(
     return world, bindings, roots, publish(world, coverage, bindings)
 ```
 
-Then in `TestCoreferenceEdges` replace every `"run:a"` with `"dataset:a"`, every `"dataset:a"` that was the second member of a pair with `"dataset:a-b"`, and every `"run:a-two"` with `"dataset:a-c"`; the expected `pairs_of` becomes `[["dataset:a", "dataset:a-b"], ["dataset:a", "dataset:a-c"]]` and the expected expansion `("dataset:a-b", "dataset:a-c")`. In `test_edge_indeterminate_names_missing_span_and_receipt_outcome` (`:679-747`) the line `rules.install_rule_binding(world, coreference_successor())` is deleted: the shipped binding is already held. Keep every assertion otherwise.
+Then in `TestCoreferenceEdges` replace every `"run:a"` with `"dataset:a"`, every `"dataset:a"` that was the second member of a pair with `"dataset:a-b"`, and every `"run:a-two"` with `"dataset:a-c"`; the expected `pairs_of` becomes `[["dataset:a", "dataset:a-b"], ["dataset:a", "dataset:a-c"]]` and the expected expansion `("dataset:a-b", "dataset:a-c")`. In `test_edge_indeterminate_names_missing_span_and_receipt_outcome` (`:679-747`) the test removes the coreference binding to reach `unresolvable` and then reinstalls one before its wider-coverage publication; the line `rules.install_rule_binding(world, coreference_successor())` becomes a reinstall of the shipped bundle, so that publication does not raise `RuleNotHeld`:
+
+```python
+        rules.install_rule_binding(
+            world, next(bundle for bundle in rules.shipped_rule_bundles() if bundle.symbol == "reduce_coreference")
+        )
+```
+
+Keep every assertion otherwise.
 
 - [ ] **Step 2: Run the module**
 
@@ -1390,13 +1416,13 @@ Then `CUT24_ARMS`, one `Arm` per site; the `before` strings are the exact lines 
 | W15f | `_CORPUS`: `        if node.kind == "coreference-attestation" and admitted_kind != "coreference-attestation":\n            raise WriteRefused("a coreference attestation enters through attest_coreference")\n` → `        pass\n` | `_U::TestTheSeam::test_add_supersede_and_revise_refuse_the_kind` |
 | W15g | `_CORPUS`: `        if record.id != expected.id or record.facets != expected.facets or record.relations != expected.relations:\n            raise MalformedRecord(f"{record.id}: coreference attestation does not match` → `        if record.id != expected.id:\n            raise MalformedRecord(f"{record.id}: coreference attestation does not match` | `_U::TestTheSeam::test_the_controlled_rebuild_compares_id_facets_and_relations_and_accepts_a_fresh_uid` |
 | W15h | `_EPOCH`: `                if node.id not in attestations\n                else derive.CapturedCoreference(\n` → `                if True\n                else derive.CapturedCoreference(\n` | `_A::test_the_balance_sequence_is_attester_symmetric_and_retains_every_record_durably`, `_U::TestTheCaptureLift::test_a_stored_attestation_is_captured_and_reduced` |
-| W15i | `_RULE`: `        units.setdefault(endpoints, set()).add((stance, _nfc(attestation["actor"]), _nfc(attestation["grounds"])))\n` → `        units.setdefault(endpoints, set()).add((stance, _nfc(attestation["actor"]), _nfc(attestation["grounds"]), attestation["event_token"]))\n` | `_A::test_exact_duplicates_add_no_weight_and_different_grounds_do_durably` |
+| W15i | `_RULE`: the contiguous block from `        units.setdefault(endpoints, set()).add((stance, _nfc(attestation["actor"]), _nfc(attestation["grounds"])))\n` through `                "balance": sum(stance for stance, _actor, _grounds in distinct),\n` → the same block with the key `(stance, _nfc(attestation["actor"]), _nfc(attestation["grounds"]), attestation["event_token"])` and the sum `sum(stance for stance, _actor, _grounds, _token in distinct)` — a runnable reducer that counts the token, so the duplicates arm reads 10 rather than crashing on unpacking | `_A::test_exact_duplicates_add_no_weight_and_different_grounds_do_durably` |
 | W15j | `_RULE`: `def _nfc(value):\n    return unicodedata.normalize("NFC", value)\n` → `def _nfc(value):\n    return value\n` | `_U::TestTheRuleNormalizes::test_two_normalization_forms_of_one_grounds_are_one_unit` |
 | W15k | `_READ`: `    missing = tuple(\n        corpus_id for corpus_id in registry._live_corpus_ids(world.registry()) if corpus_id not in covered\n    )\n` → `    missing = ()\n` | `_A::test_coverage_bounds_the_balance_and_no_epoch_is_unspellable_durably` |
 | W15l | `_STORED`: `    return _node("coreference-attestation", slug, title, {COREFERENCE_ATTESTATION_FACET: facet}, ())\n` → `    return _node("coreference-attestation", slug, title, {COREFERENCE_ATTESTATION_FACET: facet}, [Relation(source=f"coreference-attestation:{slug}", predicate="cites", target=endpoint) for endpoint in facet["endpoints"]])\n` | `_A::test_closure_rewrites_nothing_durably`, `_U::TestTheBuilder::test_it_sorts_the_pair_digests_the_facet_and_carries_no_relations` |
 | W15m | `_CORPUS`: `            elif record.kind == "coreference-attestation":\n                try:\n                    attestation = self._validated_coreference(record)\n` → `            elif False:\n                try:\n                    attestation = self._validated_coreference(record)\n` | `_U::TestImport::test_a_bundled_attestation_is_validated_and_resolved_over_the_union` |
 | X12a | `_READ`: `    if epoch._document_bytes(rebuilt) != _claimed_projection(published, kind, receipt):\n` → `    if kind != "coreference-reduction" and epoch._document_bytes(rebuilt) != _claimed_projection(published, kind, receipt):\n` | `_A::test_omission_and_a_wrong_balance_refute_and_move_no_digest_durably`, `_U::TestPopulatedReceipts::test_an_omitted_attestation_and_a_wrong_balance_refute_and_move_no_digest` |
-| X12b | `_DERIVE`: `    return producers[0].subject_identity\n` (in `belief_input_identity`) → `    return v1.digest(BELIEF_INPUT_KIND, [producers[0].subject_identity, *sorted(r.subject_identity for r in receipts if r.kind == "coreference-reduction")])\n` | `_A::test_the_digest_boundary_holds_on_one_coverage_durably` |
+| X12b | `_DERIVE`: `    return producers[0].subject_identity\n` (in `belief_input_identity`) → `    return v1.digest(PRODUCER_SNAPSHOT_DOMAIN, [producers[0].subject_identity, *sorted(r.subject_identity for r in receipts if r.kind == "coreference-reduction")])\n` — a well-formed versioned domain, so the sabotaged digest runs and moves with the coreference map instead of raising `MalformedDomain` | `_A::test_the_digest_boundary_holds_on_one_coverage_durably` |
 | W8aa | `_EPOCH`: `    covered = tuple(sorted(coverage))\n    config = world.config\n    world._state.registry = registry._scan_registry(config.world_root)\n` (in `_locked_resolve_coverage`) → `    config = world.config\n    world._state.registry = registry._scan_registry(config.world_root)\n    covered = tuple(sorted(coverage | {record.corpus_id for record in world._state.registry.admissions}))\n` — the coverage bound: every admitted corpus is captured whatever the declaration says | `_A::test_the_digest_boundary_holds_on_one_coverage_durably`, `_U::TestPopulatedReceipts::test_coverage_bounds_the_balance_and_the_narrower_epoch_is_indeterminate_over_the_wider_world` |
 | M3a | `_CORPUS`: `        if stored_node.kind != "retraction":\n            continue\n        retraction = view.get(stored_node.id)\n` (in `standing_in_local_view`) → `        if stored_node.kind not in ("retraction", "coreference-attestation"):\n            continue\n        retraction = view.get(stored_node.id)\n` | `_A::test_coreference_between_retractions_closes_no_route_durably` |
 | W4a | `_CORPUS`: `    def retract(self, record: Node) -> OperationCommit:\n        return self._run(lambda: self._writer.retract(record))\n` → the same followed by `\n    merge = retract\n` | `_A::test_no_operation_retires_an_address_on_coreference_grounds_durably` |
@@ -1527,4 +1553,4 @@ Then merge `world-resolution` into `main` with `--no-ff`, run `just gate` on `ma
 
 ## Review log
 
-*(empty until the first review pass)*
+**2026-09-10, first review on `3e54338`, eight findings, all resolved.** (1) The builder test asserted the facet set without the `semantic-identity` stamp `_node` adds — it now asserts the payload and the stamp separately (Task 2). (2) `PermitRefused` does not exist; the permit's refusal is `PermitExceeded` (Task 4). (3) The Unicode fixture also refuses the "duplicate coreference weighting" and "wrong sorting" mutants, confirmed by probe — both `refused_by` sets gain it (Task 3 step 6). (4) The in-memory `Recorder` writer has no operation port, so import refused before validation — the import test uses `test_facet_seams.writer` (Task 4). (5) One catch wrapped both the reader and the controlled rebuild as `ValidationRefused`, against spec §9 — the rebuild is `_controlled_coreference`, called outside the wrap and raising `MalformedRecord`; `_validated_coreference` composes both for the import door (Task 4). (6) `ActLine.record_ids` holds `(uid, id)` pairs (Task 5). (7) Deleting the reinstall in the indeterminate-span test would leave its wider publication `RuleNotHeld` — the reinstall now installs the shipped bundle (Task 6). (8) W15i's sabotage crashed on three-way unpacking and X12b's used a malformed identity domain — both mutants are now runnable and wrong (Task 7).
