@@ -1426,9 +1426,9 @@ git commit -m "feat(replay): accept a run closure"
 **Interfaces:**
 - Produces: `beliefs.rules.OUTCOME_FILE`, `OUTCOME_FILE_RULE`, `CONTENT_IDENTITY_RULE`, `OUTCOME_FILE_V1`, `REFERENCE_RULES`, `outcome_digest(outcome) -> str`, `interpret_outcome_file(manifest) -> dict[str, str]`; `beliefs.spec.HeldImplementation` protocol; `freeze(..., held_rules: Mapping[str, HeldImplementation])`.
 
-- [ ] **Step 1: `tasks start beliefs-77caa9`**
+- [x] **Step 1: `tasks start beliefs-77caa9`**
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Create `python/tests/test_rules.py`:
 
@@ -1514,12 +1514,12 @@ def test_the_kernel_equality_identity_is_bitwise_at_restore():
         restore(identity, v1.encode(mapping))
 ```
 
-- [ ] **Step 3: Run them to see them fail**
+- [x] **Step 3: Run them to see them fail**
 
 Run: `(cd python && uv run --frozen pytest tests/test_rules.py -q)`
 Expected: FAIL — `ModuleNotFoundError: No module named 'beliefs.rules'`.
 
-- [ ] **Step 4: Ship the rules**
+- [x] **Step 4: Ship the rules**
 
 Create `python/src/beliefs/rules.py`:
 
@@ -1636,12 +1636,12 @@ class HeldImplementation(Protocol):
 
 (`from typing import Protocol` beside the existing typing imports; add `"HeldImplementation"` to `__all__`.)
 
-- [ ] **Step 5: Run the rules, spec and replay files and the checks**
+- [x] **Step 5: Run the rules, spec and replay files and the checks**
 
 Run: `(cd python && uv run --frozen pytest tests/test_rules.py tests/test_spec.py tests/test_replay.py tests/test_reproduction_driver.py -q)` then `just check`
 Expected: pass; pyright accepts `REFERENCE_RULES` where `held_rules` is expected.
 
-- [ ] **Step 6: Commit and close**
+- [x] **Step 6: Commit and close**
 
 ```bash
 git add python/src/beliefs/rules.py python/src/beliefs/replay.py python/src/beliefs/spec.py python/tests/test_rules.py

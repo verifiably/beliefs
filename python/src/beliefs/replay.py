@@ -65,7 +65,16 @@ def _manifest_equality(original: ResultManifest, replayed: ResultManifest) -> st
     return "passed" if original == replayed else "failed"
 
 
-CONTENT_EQUALITY = EquivalenceImplementation("impl-eq-1", _manifest_equality, ())
+_EQUAL_A = ResultManifest(outputs=(("outputs/result.txt", "sha256:" + "a" * 64),))
+_EQUAL_B = ResultManifest(outputs=(("outputs/result.txt", "sha256:" + "b" * 64),))
+CONTENT_EQUALITY = EquivalenceImplementation(
+    "impl-eq-1",
+    _manifest_equality,
+    (
+        RuleFixture(arguments=(_EQUAL_A, _EQUAL_A), expected="passed"),
+        RuleFixture(arguments=(_EQUAL_A, _EQUAL_B), expected="failed"),
+    ),
+)
 DATASET_CONTENT_EQUALITY = EquivalenceImplementation("impl-dataset-eq-1", _manifest_equality, ())
 
 
