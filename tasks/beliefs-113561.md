@@ -6,7 +6,7 @@ priority: 2
 size: l
 owner: world-resolution
 created: 2026-09-09T15:26:24Z
-updated: 2026-09-10T08:53:51Z
+updated: 2026-09-10T09:18:40Z
 depends: [beliefs-d502fd]
 parent: beliefs-d248ba
 tags: [world-read]
@@ -17,3 +17,4 @@ Resume from cut 23 and docs/superpowers/specs/2026-09-09-world-resolution-slice-
 ## Notes
 
 - 2026-09-10T08:53:51Z (world-resolution): claimed by claude (world-resolution lane), pid 2814779; worktree .worktrees/world-resolution, branch world-resolution
+- 2026-09-10T09:18:40Z (world-resolution): 2026-09-10 design: W1, W2 and W5a re-filed to beliefs-b7994b (slice 2b, source addresses derived from the normalized identifier); this slice is the coreference-attestation kind and balance: W15, X12/W8a/M3 coreference arms, W4 as rewritten. Spec docs/superpowers/specs/2026-09-10-world-resolution-slice-2-design.md
