@@ -41,9 +41,10 @@ def test_coordination_compiles_into_immutable_authorization(base_contract):
     assert compiled.activated_contracts["coordination"] == contract.content_identity
 
 
-def test_no_coordination_contract_preserves_the_cut_20_compiled_identity(base_contract):
+def test_no_coordination_contract_preserves_the_slice_2_compiled_identity(base_contract):
+    """The identity moved at slice 2 when the coreference kind gained its domain."""
     before = compile_profile(base_contract, [])
-    assert before.compiled_identity == "daebbdee1f95c0ebb61b06a0c202c53f981be98b27fb0a83c2dca42d89cdeefa"
+    assert before.compiled_identity == "e66d257c6088ca1fabfc1a998c7575b9eaa35ceefee60a012f4a855f1b7bcb03"
     assert compile_profile(base_contract, [], coordination=None).compiled_identity == before.compiled_identity
     assert before.coordination_kinds == {}
 

@@ -37,11 +37,16 @@ class TestTheShippedDeclarations:
             "act-report",
         }
 
-    def test_the_deferred_kinds_carry_no_domain_and_no_facets(self, base_contract):
-        for name in ("instrument-certification", "coreference-attestation"):
-            assert base_contract.kinds[name].domain is None
-            assert base_contract.kinds[name].facets == {}
-            assert base_contract.kinds[name].role == "world"
+    def test_the_one_deferred_kind_carries_no_domain_and_no_facets(self, base_contract):
+        assert base_contract.kinds["instrument-certification"].domain is None
+        assert base_contract.kinds["instrument-certification"].facets == {}
+        assert base_contract.kinds["instrument-certification"].role == "world"
+
+    def test_the_coreference_attestation_is_governed_since_slice_2(self, base_contract):
+        kind = base_contract.kinds["coreference-attestation"]
+        assert kind.domain == "science.coreference-attestation.v1"
+        assert set(kind.facets) == {"coreference-attestation"}
+        assert kind.facets["coreference-attestation"].required and kind.facets["coreference-attestation"].covered
 
     def test_a_prose_kind_may_carry_display_only_and_no_domain(self, base_contract):
         assert dict(base_contract.kinds["discussion"].facets) == {

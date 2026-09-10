@@ -20,7 +20,7 @@ describe("the base contract's declarations (design §3.1–§3.4)", () => {
     expect(Object.values(base.kinds).filter((kind) => kind.role === "world")).toHaveLength(13);
     expect(Object.values(base.kinds).filter((kind) => kind.role === "prose")).toHaveLength(3);
     expect(base.kinds["instrument-certification"].domain).toBeNull();
-    expect(base.kinds["coreference-attestation"].facets).toEqual({});
+    expect(base.kinds["coreference-attestation"].domain).toBe("science.coreference-attestation.v1");
   });
   it("declares empirical-observation as the one schema-shaped facet", () => {
     expect(

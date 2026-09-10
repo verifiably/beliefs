@@ -55,6 +55,7 @@ from typing import Any
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 
+from beliefs import identifiers
 from beliefs import report as report_values
 from beliefs.dataset import DatasetDeclaration, ResourceDeclaration
 from beliefs.errors import IdentityError, LoneSurrogate, MalformedRecord
@@ -77,6 +78,9 @@ __all__ = [
     "ANALYSIS_SPEC_FACET",
     "ASSESSMENT_FACET",
     "COORDINATION_FACET",
+    "COREFERENCE_ATTESTATION_DOMAIN",
+    "COREFERENCE_ATTESTATION_FACET",
+    "COREFERENCE_ENDPOINT_KINDS",
     "COVERED_FACETS",
     "DATASET_FACET",
     "DISPLAY_FACET",
@@ -98,6 +102,7 @@ __all__ = [
     "VERIFICATION_FACET",
     "WORLD_KINDS",
     "WORLD_RELATIONS",
+    "CoreferenceAttestation",
     "NodeTarget",
     "RouteTarget",
     "act_report_facet",
@@ -105,6 +110,8 @@ __all__ = [
     "analysis_spec_node",
     "analysis_spec_value",
     "assessment_value",
+    "coreference_attestation_node",
+    "coreference_attestation_value",
     "dataset_declaration",
     "display_facet_malformed",
     "display_statement",
@@ -145,6 +152,25 @@ LINEAGE_BASIS_FACET = "lineage-basis"
 SOURCE_FACET = "source"
 VERIFICATION_FACET = "verification"
 RETRACTION_FACET = "retraction"
+COREFERENCE_ATTESTATION_FACET = "coreference-attestation"
+COREFERENCE_ATTESTATION_DOMAIN = "science.coreference-attestation.v1"
+COREFERENCE_STANCES = (1, -1)
+COREFERENCE_ENDPOINT_KINDS: tuple[str, ...] = (
+    "proposition",
+    "source-assertion",
+    "assessment",
+    "analysis-spec",
+    "run",
+    "verification",
+    "dataset",
+    "source",
+    "retraction",
+    "instrument-certification",
+)
+"""The kinds a coreference attestation may name as endpoints (slice 2 design
+§2 item 4): the world kinds less the attestation itself and the two
+boundary-minted occurrence records. `test_coreference_attestation.py` holds
+this equal to `WORLD_KINDS - {coreference-attestation} - EXCLUDED_MUTATION_KINDS`."""
 HOLDINGS_OBSERVATION_FACET = "holdings-observation"
 COORDINATION_FACET = "coordination"
 
@@ -948,6 +974,89 @@ def retraction_node(
     if successor is not None:
         relations.append(Relation(source=node_id, predicate=SUCCEEDED_BY, target=successor))
     return _node("retraction", slug, title, {RETRACTION_FACET: facet}, relations)
+
+
+@dataclass(frozen=True)
+class CoreferenceAttestation:
+    """The stored facet as a value (world address ruling §5.1). Endpoints are
+    sorted; every text member is NFC."""
+
+    endpoints: tuple[str, str]
+    stance: int
+    actor: str
+    grounds: str
+    event_token: str
+
+
+def _coreference_text(value: object, location: str) -> str:
+    if type(value) is not str or not value:
+        raise MalformedRecord(f"a coreference attestation {location} is non-empty text")
+    problem = identifiers.not_a_canonical_identifier(value)
+    if problem is not None:
+        raise MalformedRecord(f"a coreference attestation {location} is not in NFC: {problem}")
+    return value
+
+
+def _coreference_fields(facet: Mapping[str, Any]) -> CoreferenceAttestation:
+    if set(facet) != {"endpoints", "stance", "actor", "grounds", "event_token"}:
+        raise MalformedRecord("a coreference attestation facet carries exactly endpoints, stance, actor, grounds and event_token")
+    endpoints = facet["endpoints"]
+    if type(endpoints) is not list or len(endpoints) != 2:
+        raise MalformedRecord("a coreference attestation names exactly two endpoints")
+    left = _coreference_text(endpoints[0], "endpoint")
+    right = _coreference_text(endpoints[1], "endpoint")
+    if left == right:
+        raise MalformedRecord(f"{left!r} is named as both endpoints; a self-pair is a claim with no content")
+    if left > right:
+        raise MalformedRecord("a coreference attestation stores its endpoints sorted")
+    stance = facet["stance"]
+    if type(stance) is not int or stance not in COREFERENCE_STANCES:
+        raise MalformedRecord("a coreference stance is +1 or -1")
+    return CoreferenceAttestation(
+        (left, right),
+        stance,
+        _coreference_text(facet["actor"], "actor"),
+        _coreference_text(facet["grounds"], "grounds"),
+        _coreference_text(facet["event_token"], "event token"),
+    )
+
+
+def coreference_attestation_value(node: Node) -> CoreferenceAttestation:
+    """The facet reader the base contract names for the kind."""
+    facet = _facet(node, COREFERENCE_ATTESTATION_FACET)
+    if facet is None:
+        raise MalformedRecord(f"{node.id}: a coreference attestation carries a {COREFERENCE_ATTESTATION_FACET!r} facet")
+    try:
+        return _coreference_fields(facet)
+    except MalformedRecord as caught:
+        raise MalformedRecord(f"{node.id}: {caught}") from caught
+
+
+def coreference_attestation_node(
+    *,
+    title: str,
+    endpoints: Sequence[str],
+    stance: int,
+    actor: str,
+    grounds: str,
+    event_token: str,
+) -> Node:
+    if isinstance(endpoints, (str, bytes)) or not isinstance(endpoints, Sequence) or len(endpoints) != 2:
+        raise MalformedRecord("a coreference attestation names exactly two endpoints")
+    named = [_coreference_text(endpoint, "endpoint") for endpoint in endpoints]
+    facet: dict[str, Any] = {
+        "endpoints": sorted(named),
+        "stance": stance,
+        "actor": require_actor(actor),
+        "grounds": grounds,
+        "event_token": event_token,
+    }
+    _coreference_fields(facet)
+    try:
+        slug = v1.digest(COREFERENCE_ATTESTATION_DOMAIN, facet)
+    except LoneSurrogate as exc:
+        raise MalformedRecord("a coreference attestation identity field is not canonically encodable") from exc
+    return _node("coreference-attestation", slug, title, {COREFERENCE_ATTESTATION_FACET: facet}, ())
 
 
 def holdings_observation_node(observation: HoldingsObservation) -> Node:

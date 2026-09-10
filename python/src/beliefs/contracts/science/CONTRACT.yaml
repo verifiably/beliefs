@@ -57,7 +57,9 @@ kinds:
   holdings-observation: { domain: science.holdings-observation.v1, facets: { holdings-observation: { required: true, covered: true } } }
   retraction: { domain: science.retraction.v1, facets: { retraction: { required: true, covered: true } } }
   instrument-certification: {}
-  coreference-attestation: {}
+  coreference-attestation:
+    domain: science.coreference-attestation.v1
+    facets: { coreference-attestation: { required: true, covered: true } }
   act-report: { domain: science.act-report.v1, facets: { act-report: { required: true, covered: true } } }
   interpretation: { role: prose, facets: { display: { required: false, covered: false } } }
   discussion: { role: prose, facets: { display: { required: false, covered: false } } }
@@ -94,6 +96,7 @@ facets:
   source: { shape: reader, reader: stored.external_identifiers }
   holdings-observation: { shape: reader, reader: stored.holdings_observation_value }
   retraction: { shape: reader, reader: corpus.CorpusWriter._validated_retraction }
+  coreference-attestation: { shape: reader, reader: stored.coreference_attestation_value }
   act-report: { shape: reader, reader: stored.act_report_facet }
   empirical-observation:
     shape: schema
