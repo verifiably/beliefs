@@ -198,6 +198,8 @@ reproduction lane. This run is therefore evidence that **10b reads the stored
 report correctly once target selection is complete**, and is not a claim that
 the driver reproduces end to end unaided.
 
+**Closed 2026-09-10 (`beliefs-efc32d`).** A new driver step, `analysis_inputs.py` (step 2a), now derives those keys itself: the symbol from the proposition's protein term, the row through the crosswalk the dataset record's `identity_context` names, the levels from the held file's header, and the separator and level order from the driver's checked-in `analysis-inputs.yaml`, which the header must agree with. Rebuilt unaided into `.work/reproduction/mm30-rebuild`, `target.yaml` was identical to the frozen 2026-09-05 file, the spec froze to the same identity `86aaa1a8…`, and the full path reached `clean-environment`, `passed`, `Admitted` and an equal 10a/10b re-derivation; the ledger is `docs/plans/2026-09-10-mm30-reproduction-rebuild-run/`.
+
 ## 2. Accounting and disposition
 
 Cut 21 reads eight guarantee rows: **8 full/closed** (V1–V8), 0 partial, 0

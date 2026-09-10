@@ -372,3 +372,106 @@ def test_the_driver_binds_the_kernel_rules_under_its_own_identities():
         ("mm30-reproduction/outcome-file/v1", "impl-outcome-file-1"),
     )
     assert frozen.identity == PINNED_IDENTITY
+
+
+def _phf19_inputs_case():
+    target = {
+        "subject": "concept:disease-stage",
+        "predicate": "affects",
+        "object": "protein:PHF19",
+        "polarity": "positive",
+        "dataset_id": "dataset:gse179929",
+        "dataset_path": "/held/GSE179929_gene_tpm.txt.gz",
+    }
+    declaration = {
+        "crosswalks": {"dataset:gene-crosswalk-hgnc": {"key": "ensgene", "symbol": "symbol"}},
+        "groups": {"concept:disease-stage": {"separator": "_", "level_order": ["NDMM", "PD"]}},
+    }
+    dataset_front = {
+        "id": "dataset:gse179929",
+        "identity_context": {"molecular_ids": {"gene": {"namespace": "ensembl", "registry": "dataset:gene-crosswalk-hgnc"}}},
+    }
+    header = ["Sample_ID", "P4_S1_NDMM", "P4_S2_PD", "P8_S1_PD"]
+    crosswalk = [
+        {"ensgene": "ENSG00000000003", "symbol": "TSPAN6"},
+        {"ensgene": "ENSG00000119403", "symbol": "PHF19"},
+    ]
+    return target, declaration, dataset_front, header, crosswalk
+
+
+def test_analysis_inputs_are_derived_from_the_selection_the_record_the_header_and_the_declaration():
+    from reproduction.analysis_inputs import analysis_inputs
+
+    assert analysis_inputs(*_phf19_inputs_case()) == {
+        "held_file": "GSE179929_gene_tpm.txt.gz",
+        "value_row": "ENSG00000119403",
+        "value_row_symbol": "PHF19",
+        "group_separator": "_",
+        "positive_level": "PD",
+    }
+
+
+def test_positive_level_follows_polarity_over_the_declared_level_order():
+    from reproduction.analysis_inputs import InputsRefused, positive_level_for
+
+    assert positive_level_for("positive", ["NDMM", "PD"]) == "PD"
+    assert positive_level_for("negative", ["NDMM", "PD"]) == "NDMM"
+    with pytest.raises(InputsRefused, match="unsigned"):
+        positive_level_for("unsigned", ["NDMM", "PD"])
+
+
+def test_header_levels_must_equal_the_declared_order_and_every_sample_must_carry_a_token():
+    from reproduction.analysis_inputs import InputsRefused, levels_in
+
+    assert levels_in(["Sample_ID", "P4_S1_NDMM", "P4_S2_PD"], "_") == ["NDMM", "PD"]
+    with pytest.raises(InputsRefused, match="P4S1NDMM"):
+        levels_in(["Sample_ID", "P4S1NDMM"], "_")
+    target, declaration, front, _header, crosswalk = _phf19_inputs_case()
+    from reproduction.analysis_inputs import analysis_inputs
+
+    with pytest.raises(InputsRefused, match="MGUS"):
+        analysis_inputs(target, declaration, front, ["Sample_ID", "P1_S1_NDMM", "P1_S2_MGUS"], crosswalk)
+
+
+def test_the_crosswalk_must_name_the_symbol_exactly_once():
+    from reproduction.analysis_inputs import InputsRefused, row_for_symbol
+
+    rows = [{"ensgene": "ENSG1", "symbol": "PHF19"}, {"ensgene": "ENSG2", "symbol": "PHF19"}]
+    with pytest.raises(InputsRefused, match="2 rows"):
+        row_for_symbol(rows, "PHF19", key="ensgene", symbol_column="symbol")
+    with pytest.raises(InputsRefused, match="no row"):
+        row_for_symbol(rows[:1], "EZH2", key="ensgene", symbol_column="symbol")
+
+
+def test_analysis_inputs_refuse_a_dataset_whose_registry_is_not_declared():
+    from reproduction.analysis_inputs import InputsRefused, analysis_inputs
+
+    target, declaration, front, header, crosswalk = _phf19_inputs_case()
+    undeclared = {**declaration, "crosswalks": {}}
+    with pytest.raises(InputsRefused, match="dataset:gene-crosswalk-hgnc"):
+        analysis_inputs(target, undeclared, front, header, crosswalk)
+    unkeyed = {**front, "identity_context": {}}
+    with pytest.raises(InputsRefused, match="molecular_ids"):
+        analysis_inputs(target, declaration, unkeyed, header, crosswalk)
+
+
+def test_analysis_inputs_refuse_a_target_that_is_not_one_concept_and_one_protein():
+    from reproduction.analysis_inputs import InputsRefused, analysis_inputs
+
+    target, declaration, front, header, crosswalk = _phf19_inputs_case()
+    with pytest.raises(InputsRefused, match="concept:ratchet-strength"):
+        analysis_inputs({**target, "object": "concept:ratchet-strength"}, declaration, front, header, crosswalk)
+
+
+def test_select_target_refuses_an_eligible_evidence_line_without_a_target(tmp_path):
+    from reproduction.select_target import evidence_lines
+
+    lines = tmp_path / "entities" / "evidence-lines"
+    lines.mkdir(parents=True)
+    (lines / "ok.md").write_text(
+        "---\nid: evidence-line:ok\ntarget: proposition:p\nevidence_type: empirical_data\nbelief_eligible: true\n---\n"
+    )
+    assert list(evidence_lines(tmp_path)) == ["proposition:p"]
+    (lines / "orphan.md").write_text("---\nid: evidence-line:orphan\nevidence_type: empirical_data\nbelief_eligible: true\n---\n")
+    with pytest.raises(ValueError, match="orphan"):
+        evidence_lines(tmp_path)

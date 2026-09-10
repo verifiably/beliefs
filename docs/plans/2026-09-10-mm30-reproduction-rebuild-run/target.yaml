@@ -1,0 +1,87 @@
+proposition_id: proposition:concept-disease-stage-affects-protein-phf19
+subject: concept:disease-stage
+predicate: affects
+object: protein:PHF19
+claim_layer: causal_effect
+polarity: positive
+identification_strength: longitudinal
+dataset_id: dataset:gse179929
+dataset_path: /mnt/ssd/Dropbox/cancer/cancer-types/multiple-myeloma/data/supp/orig/misund2022/GSE179929_gene_tpm.txt.gz
+dataset_bytes: 6154181
+under_data: true
+empirical_lines: 4
+evidence_line_ids:
+- evidence-line:concept-disease-stage-affects-protein-phf19-ev1
+- evidence-line:concept-disease-stage-affects-protein-phf19-ev3
+- evidence-line:concept-disease-stage-affects-protein-phf19-ev2
+- evidence-line:concept-disease-stage-affects-protein-phf19-ev0
+alternatives:
+- proposition_id: proposition:concept-ratchet-strength-affects-concept-state-commitment-entropy
+  subject: concept:ratchet-strength
+  predicate: affects
+  object: concept:state-commitment-entropy
+  claim_layer: causal_effect
+  polarity: negative
+  identification_strength: longitudinal
+  dataset_id: dataset:gse179929
+  dataset_path: /mnt/ssd/Dropbox/cancer/cancer-types/multiple-myeloma/data/supp/orig/misund2022/GSE179929_gene_tpm.txt.gz
+  dataset_bytes: 6154181
+  under_data: true
+  empirical_lines: 4
+  evidence_line_ids:
+  - evidence-line:concept-ratchet-strength-affects-concept-state-commitment-entropy-ev1
+  - evidence-line:concept-ratchet-strength-affects-concept-state-commitment-entropy-ev3
+  - evidence-line:concept-ratchet-strength-affects-concept-state-commitment-entropy-ev2
+  - evidence-line:concept-ratchet-strength-affects-concept-state-commitment-entropy-ev0
+- proposition_id: proposition:concept-fitness-selection-affects-concept-apparent-basin-depth
+  subject: concept:fitness-selection
+  predicate: affects
+  object: concept:apparent-basin-depth
+  claim_layer: causal_effect
+  polarity: positive
+  identification_strength: longitudinal
+  dataset_id: dataset:gse179929
+  dataset_path: /mnt/ssd/Dropbox/cancer/cancer-types/multiple-myeloma/data/supp/orig/misund2022/GSE179929_gene_tpm.txt.gz
+  dataset_bytes: 6154181
+  under_data: true
+  empirical_lines: 1
+  evidence_line_ids:
+  - evidence-line:concept-fitness-selection-affects-concept-apparent-basin-depth-ev0
+- proposition_id: proposition:concept-non-1q-architecture-affects-concept-treatment-response
+  subject: concept:non-1q-architecture
+  predicate: affects
+  object: concept:treatment-response
+  claim_layer: causal_effect
+  polarity: unsigned
+  identification_strength: none
+  dataset_id: dataset:gdsc
+  dataset_path: /mnt/ssd/Dropbox/cancer/cancer-types/multiple-myeloma/data/external/gdsc_v2/2022-07-24
+  dataset_bytes: 162852355
+  under_data: true
+  empirical_lines: 1
+  evidence_line_ids:
+  - evidence-line:concept-non-1q-architecture-affects-concept-treatment-response-ev0
+- proposition_id: proposition:concept-prc2-complex-regulates-concept-interferon-signaling
+  subject: concept:prc2-complex
+  predicate: regulates
+  object: concept:interferon-signaling
+  claim_layer: causal_effect
+  polarity: negative
+  identification_strength: interventional
+  dataset_id: dataset:gse214669
+  dataset_path: /data/raw/yu2023_ms177/GSE214668_Combined_DESeq_MM1S_MS177.txt.gz
+  dataset_bytes: 670583
+  under_data: false
+  empirical_lines: 6
+  evidence_line_ids:
+  - evidence-line:concept-prc2-complex-regulates-concept-interferon-signaling-ev2
+  - evidence-line:concept-prc2-complex-regulates-concept-interferon-signaling-ev0
+  - evidence-line:concept-prc2-complex-regulates-concept-interferon-signaling-ev1
+  - evidence-line:concept-prc2-complex-regulates-concept-interferon-signaling-ev3
+  - evidence-line:concept-prc2-complex-regulates-concept-interferon-signaling-ev7
+  - evidence-line:concept-prc2-complex-regulates-concept-interferon-signaling-ev6
+held_file: GSE179929_gene_tpm.txt.gz
+value_row: ENSG00000119403
+value_row_symbol: PHF19
+group_separator: _
+positive_level: PD

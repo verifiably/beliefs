@@ -371,6 +371,8 @@ If exit 2: widen the join to the evidence lines' `source` records (an `interpret
 
 - [ ] **Step 4: Fix the analysis inputs into `target.yaml`.** Read the chosen evidence lines and their sources. Write into the record's §2 what the predecessor computed and which file under `dataset_path` carries it. Then append to `target.yaml` by hand: `held_file` (the one regular file the analysis reads, its basename), `value_column`, `group_column`, `positive_level` (the level of `group_column` in which the proposition predicts the higher `value_column`), all as they appear in that file's header. If the computation is not expressible in standard-library Python over one file, take the next alternative and say why.
 
+  *Superseded 2026-09-10 (`beliefs-efc32d`): the by-hand append is replaced by step 2a, `analysis_inputs.py`, which derives the keys from the selection, the dataset record, the held file's header and the checked-in `analysis-inputs.yaml`.*
+
 - [ ] **Step 5: Commit**
 
 ```bash

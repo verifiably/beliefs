@@ -1,0 +1,24 @@
+# What the predecessor states only in prose, declared once so the driver can
+# fix the analysis inputs into target.yaml itself (record §2, "What this
+# reproduces"). Each entry is checked against the data it describes at step
+# 2a, and a mismatch refuses the run rather than guessing.
+
+# The gene registries the predecessor's dataset records name under
+# `identity_context.molecular_ids.gene.registry`. The named `dataset:` id has
+# no record of its own in the predecessor; this is the file behind it,
+# relative to the predecessor root, with the columns that carry the matrix's
+# row key and the symbol the proposition names.
+crosswalks:
+  dataset:gene-crosswalk-hgnc:
+    path: data/annotables/annotables-grch38.tsv.gz
+    key: ensgene
+    symbol: symbol
+
+# The grouping concept a proposition's subject names, read from the sample
+# ids: the level is the token after the last `separator`, and `level_order`
+# lists the levels the header must carry, ascending, so that a positive
+# polarity predicts the higher value in the last one.
+groups:
+  concept:disease-stage:
+    separator: "_"
+    level_order: [NDMM, PD]

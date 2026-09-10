@@ -414,6 +414,8 @@ complete* — it is not evidence the driver reproduces end to end. The gap
 belongs to `select_target.py`/`type_target.py`/`hold.py`, none in this
 slice's scope, and is a finding for the reproduction lane.
 
+**Closed 2026-09-10 (`beliefs-efc32d`).** A new driver step, `analysis_inputs.py` (step 2a), now derives those keys itself: the symbol from the proposition's protein term, the row through the crosswalk the dataset record's `identity_context` names, the levels from the held file's header, and the separator and level order from the driver's checked-in `analysis-inputs.yaml`, which the header must agree with. Rebuilt unaided into `.work/reproduction/mm30-rebuild`, `target.yaml` was identical to the frozen 2026-09-05 file, the spec froze to the same identity `86aaa1a8…`, and the full path reached `clean-environment`, `passed`, `Admitted` and an equal 10a/10b re-derivation; the ledger is `docs/plans/2026-09-10-mm30-reproduction-rebuild-run/`.
+
 **Deferred minors the final review triaged as shippable** (non-exhaustive,
 by task): Task 0 — a `# noqa: RUF022` on `verification_fixtures.py`'s
 `__all__`. Task 1 — three added `# type: ignore` comments beyond the brief's

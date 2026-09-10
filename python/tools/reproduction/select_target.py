@@ -42,6 +42,19 @@ def dataset_bytes(root: Path) -> int:
     return sum(p.stat().st_size for p in root.rglob("*") if p.is_file()) if root.is_dir() else root.stat().st_size
 
 
+def evidence_lines(root: Path) -> dict[str, list[dict]]:
+    """Empirical, belief-eligible evidence lines by the proposition they target.
+    A line with no target has nowhere to be filed and refuses the scan."""
+    lines: dict[str, list[dict]] = defaultdict(list)
+    for p in (root / "entities" / "evidence-lines").glob("*.md"):
+        f = front(p)
+        if f.get("evidence_type") == "empirical_data" and f.get("belief_eligible") is True:
+            if not isinstance(f.get("target"), str):
+                raise ValueError(f"{p}: an eligible empirical evidence line names no target")
+            lines[f["target"]].append(f)
+    return lines
+
+
 def main() -> int:
     root = paths.PREDECESSOR
     propositions = {
@@ -49,11 +62,7 @@ def main() -> int:
         for p in (root / "entities" / "propositions").glob("*.md")
         if (f := front(p)).get("predicate") and f.get("subject") and f.get("object")
     }
-    lines: dict[str, list[dict]] = defaultdict(list)
-    for p in (root / "entities" / "evidence-lines").glob("*.md"):
-        f = front(p)
-        if f.get("evidence_type") == "empirical_data" and f.get("belief_eligible") is True:
-            lines[f.get("target")].append(f)
+    lines = evidence_lines(root)
     datasets: dict[str, Path] = {}
     for p in (root / "entities" / "datasets").glob("*.md"):
         f = front(p)
