@@ -29,7 +29,14 @@ RUFF_CACHE_DIR=/tmp/beliefs-ruff-cache just check
 All checks passed; tasks check reported 0 errors and 0 warnings.
 ```
 
-The full `tests/test_replay.py` run is currently blocked by fixture execution failures in the existing assessment/production setup (`RunRefused: the planning launch exited 1`), yielding 7 failures and 19 setup errors.
+The initial full-file run hit `RunRefused: the planning launch exited 1` because Snakemake's source cache attempted to create a `TemporaryDirectory` under the default `~/.cache`, which is read-only here (`errno 30`). Setting `XDG_CACHE_HOME=/tmp/task8-xdg-cache` resolves the environment issue.
+
+Final validation:
+
+```text
+XDG_CACHE_HOME=/tmp/task8-xdg-cache python3 tools/tt task8-replay-cache -- sh -c 'cd python && uv run --frozen pytest tests/test_replay.py -q'
+52 passed in 152.817s
+```
 
 ## Files changed
 
@@ -44,4 +51,4 @@ The implementation changes only the requested union and two closure reads; no co
 
 ## Concerns
 
-The full replay file needs a certified or otherwise functioning fixture execution environment before its pre-existing boundary-dependent tests can run.
+Full replay validation passes with the cache directory override documented above; no implementation concern remains.
