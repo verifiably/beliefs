@@ -168,8 +168,10 @@ lifecycle and store substrate — the fail-closed writer state, the lifecycle
 commands, `restore_root`, the fork acts with act-derived `forked_from`, and
 genesis-bound store subjects; and verified store-side holdings with their
 intent-bearing acts. Cut 23 adds an explicit-epoch world read view with captured
-cross-corpus traversal, named absence and verification recomputation. Coreference,
-snapshot/import and audit callers, and view evaluation remain open. The address
+cross-corpus traversal, named absence and verification recomputation. Cut 24 makes
+the coreference attestation a governed, mintable kind and reduces stored attestations
+into the published balance; snapshot/import and audit callers, and view evaluation
+remain open. Snapshot/import and audit callers, and view evaluation remain open. The address
 ruling governs those derived views: labels are computed on read,
 coreference is graded rather than merged, and storage duplication changes no
 address. What the log still owes — event-level L8 and the L13 preimage resolver

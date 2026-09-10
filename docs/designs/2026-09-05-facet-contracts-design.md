@@ -218,6 +218,8 @@ no domain and no facets, so `world/epoch.py`'s ungoverned-kind refusal keeps
 firing exactly as it does now and stops firing the day a charter declares a
 domain.
 
+> **2026-09-10:** `coreference-attestation` gained its domain and facet at world resolution slice 2; `instrument-certification` is the one kind still deferred.
+
 ```yaml
 kinds:
   proposition:

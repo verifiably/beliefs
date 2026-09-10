@@ -823,6 +823,7 @@ chain-reader premise.
   charters. A raw record claiming either kind refuses capture with
   `EnumeratedKindUngoverned`; it cannot turn this deferral into unchecked
   derived content.
+  > **2026-09-10:** `coreference-attestation` gained its domain and facet at world resolution slice 2; `instrument-certification` is the one kind still deferred.
 - **Pinned authority snapshot:** artifact 11 is untouched.
 
 These deferrals do not license production use of private `atoms` readers or a
