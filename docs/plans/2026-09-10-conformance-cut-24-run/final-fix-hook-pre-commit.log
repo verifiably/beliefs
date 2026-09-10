@@ -1,0 +1,16 @@
+python3 tools/tt hook-pre-commit -- sh -c 'python3 tools/ops-check && (cd python && uv run --frozen ruff check . && uv run --frozen pyright) && (cd ts && npm run typecheck && npm run check) && tasks check'
+All checks passed!
+0 errors, 0 warnings, 0 informations
+WARNING: there is a new pyright version available (v1.1.411 -> v1.1.414).
+Please install the new version or set PYRIGHT_PYTHON_FORCE_VERSION to `latest`
+
+
+> @verifiably/beliefs@0.0.0 typecheck
+> tsc --noEmit
+
+
+> @verifiably/beliefs@0.0.0 check
+> biome check .
+
+Checked 15 files in 20ms. No fixes applied.
+{"errors":[],"warnings":[]}

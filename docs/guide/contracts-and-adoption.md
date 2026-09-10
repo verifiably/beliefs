@@ -223,7 +223,7 @@ D1 partial)
 (`../plans/2026-09-08-conformance-cut-22-results.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-09)
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-10)
 states what is built and which remaining boundaries have named owners; the cut
 documents and results records in the references below are the evidence.
 

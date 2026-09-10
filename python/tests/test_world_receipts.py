@@ -479,7 +479,9 @@ class TestReceiptOutcomes:
         over this coverage is empty. An epoch republished carrying a pair with
         a nonzero balance — and a coreference receipt whose subject identity
         matches that map exactly, so the contract is sound — is refuted by the
-        rebuild, which finds nothing to weigh.
+        rebuild, which finds nothing to weigh. Populated refutations — an
+        omitted attestation, a wrong balance over a real one — are cut 24's
+        arms in `test_coreference_attestation.py` and its acceptance module.
         """
         world, _bindings, _roots, published = published_world(tmp_path)
         assert document(published, "coreference-map.yaml") == {"pairs": []}

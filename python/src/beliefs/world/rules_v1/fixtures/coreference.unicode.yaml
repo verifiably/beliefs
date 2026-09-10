@@ -1,0 +1,41 @@
+# The NFC arm. Two submissions of one stance by one attester whose grounds
+# differ only in Unicode normalization form — a precomposed é and an e with a
+# combining acute. `science.identity.v1` digests both as one string, so the
+# reduction counts them as one unit; a reduction comparing raw Python strings
+# would publish 2 for both members while every identity stayed fixed.
+input:
+  coverage: ["corpus-a"]
+  records:
+    - corpus_id: "corpus-a"
+      address: "coreference:one"
+      uid: "uid-coreference-one"
+      kind: "coreference-attestation"
+      deprecated_ids: []
+      produces: []
+      retraction: null
+      certification: null
+      coreference:
+        endpoints: ["address-a", "address-b"]
+        stance: 1
+        actor: "alice"
+        grounds: "caf\u00E9"
+        event_token: "event-1"
+    - corpus_id: "corpus-a"
+      address: "coreference:two"
+      uid: "uid-coreference-two"
+      kind: "coreference-attestation"
+      deprecated_ids: []
+      produces: []
+      retraction: null
+      certification: null
+      coreference:
+        endpoints: ["address-a", "address-b"]
+        stance: 1
+        actor: "alice"
+        grounds: "cafe\u0301"
+        event_token: "event-2"
+expected:
+  pairs:
+    - endpoints: ["address-a", "address-b"]
+      balance: 1
+      distinct_key_count: 1

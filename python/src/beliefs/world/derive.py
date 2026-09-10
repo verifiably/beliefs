@@ -68,6 +68,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Literal, cast
 
+from beliefs import identifiers
 from beliefs.closure import RetractionEnumeration
 from beliefs.corpus import Finding
 from beliefs.errors import AddressMapConflict, RuleNonconformant
@@ -229,15 +230,15 @@ class CapturedCoreference:
         if type(self.endpoints) is not tuple or len(self.endpoints) != 2:
             raise ValueError("a coreference attestation names exactly two endpoints")
         left, right = self.endpoints
-        _require_text(left, "endpoint")
-        _require_text(right, "endpoint")
+        _require_canonical_text(left, "endpoint")
+        _require_canonical_text(right, "endpoint")
         if left == right:
             raise ValueError(f"{left!r} is named as both endpoints; a self-pair is a claim with no content")
         if type(self.stance) is not int or self.stance not in (1, -1):
             raise ValueError("a coreference stance is +1 or -1")
-        _require_text(self.actor, "actor")
-        _require_text(self.grounds, "grounds")
-        _require_text(self.event_token, "event_token")
+        _require_canonical_text(self.actor, "actor")
+        _require_canonical_text(self.grounds, "grounds")
+        _require_canonical_text(self.event_token, "event_token")
 
 
 @dataclass(frozen=True)
@@ -924,6 +925,14 @@ def _require_text(value: object, location: str) -> str:
     if type(value) is not str or not value:
         raise ValueError(f"{location} is nonempty text")
     return value
+
+
+def _require_canonical_text(value: object, location: str) -> str:
+    text = _require_text(value, location)
+    problem = identifiers.not_a_canonical_identifier(text)
+    if problem is not None:
+        raise ValueError(f"{location} is not in NFC: {problem}")
+    return text
 
 
 def _require_lower_hex(value: object, length: int, location: str) -> str:

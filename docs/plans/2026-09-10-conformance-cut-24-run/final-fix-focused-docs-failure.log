@@ -1,0 +1,27 @@
+...........F..                                                           [100%]
+=================================== FAILURES ===================================
+_________ test_the_ledger_summary_names_the_newest_remaining_boundary __________
+
+    def test_the_ledger_summary_names_the_newest_remaining_boundary() -> None:
+        """A cut lands, names its remainder, and the summary is never updated.
+    
+        That is the one disagreement that actually happened, and the only one this
+        guard reads for: the newest results record's `Remaining boundary` section
+        constrains what the ledger's `Current state` section must name, never what
+        else it may say.
+    
+        Both reads fail closed. The heading is a convention this guard establishes
+        (cut 11 is the first record to carry it), so its absence is a failure, and
+        an empty label collection is a failure — a guard asserting over the empty
+        set would pass on exactly the drift it exists to catch.
+        """
+        cut, newest = _newest_results_record()
+    
+        remaining = _h2_section(_text(newest), "Remaining boundary")
+>       assert remaining is not None, f"{newest.name} has no `Remaining boundary` section"
+E       AssertionError: 2026-09-10-conformance-cut-24-results.md has no `Remaining boundary` section
+E       assert None is not None
+
+tests/test_designs_corpus.py:396: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_designs_corpus.py::test_the_ledger_summary_names_the_newest_remaining_boundary

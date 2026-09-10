@@ -88,7 +88,7 @@ from profiles import WITH_BIOLOGY
 from test_durable_families import chain_entries
 from test_n2 import MalformedArm, audit, baseline
 from test_world_build import ALPHA, BETA, corpus_at, genesis_of, sample_nodes, tip_of
-from test_world_read import RETIRED, coreference_successor, linked_nodes
+from test_world_read import RETIRED, linked_nodes
 from test_world_receipts import corpora, document, publish, world_over
 
 from beliefs import root, stored
@@ -290,14 +290,14 @@ class Journey:
 
 
 def journey_corpora(tmp_path: Path) -> dict[str, Path]:
-    """Two corpora: one carrying a retired address, both carrying linked runs.
+    """Two corpora: one carrying a retired address, both carrying linked datasets.
 
-    The runs are what the coreference successor below reduces into pairs, and
-    the retired address is what makes `NotPresent` distinguishable from
-    `Unknown` — §7.2 records a `deprecated_ids` entry exactly as it records a
-    live one, so the address survives its corpus going away. Exactly one corpus
-    carries it: `derive.address_map` refuses a repeated address even when the
-    two claims agree.
+    Stored attestations link each dataset chain for the shipped coreference
+    rule, and the retired address is what makes `NotPresent` distinguishable
+    from `Unknown` — §7.2 records a `deprecated_ids` entry exactly as it
+    records a live one, so the address survives its corpus going away. Exactly
+    one corpus carries it: `derive.address_map` refuses a repeated address even
+    when the two claims agree.
     """
     withdrawn = stored.dataset_node("a-successor", title="dataset a successor")
     return corpora(
@@ -314,20 +314,13 @@ def journey_corpora(tmp_path: Path) -> dict[str, Path]:
 def journey(tmp_path) -> Journey:
     """The whole build path, run for real, before any arm asserts anything.
 
-    The four shipped rules are held by the composition root's own explicit act
-    and the coreference rule is then *also* bound to a sibling implementation:
-    the shipped reduction reads an attestation kind §13 defers, so on a real
-    corpus it publishes an empty map and every edge in it is `inactive`. The
-    successor reduces `produces` edges instead, satisfies every normative
-    fixture of the rule it implements, and is what lets `active` be reached at
-    all in this slice.
+    The four shipped rules are held by the composition root's own explicit
+    act. The shipped coreference rule reduces the stored attestations above,
+    reaching an active edge without a test-only implementation.
     """
     roots = journey_corpora(tmp_path)
     world = world_over(tmp_path, roots, name="journey-world")
-    bindings = dataclasses.replace(
-        shipped_bindings(world),
-        coreference=rules.install_rule_binding(world, coreference_successor()),
-    )
+    bindings = shipped_bindings(world)
     superseded = publish(world, (ALPHA, BETA), bindings)
     _extra_record(roots[BETA], "b-later")
     current = publish(world, (ALPHA, BETA), bindings)
@@ -434,18 +427,21 @@ def test_edges_answer_active_inactive_and_indeterminate(journey: Journey):
     """
     assert read.EDGE_STATES == ("active", "inactive", "indeterminate")
 
-    active = read.coreference_edge(journey.world, journey.current, "run:a", "dataset:a")
+    active = read.coreference_edge(journey.world, journey.current, "dataset:a", "dataset:a-b")
     assert active.state == "active"
     assert active.missing_coverage == () and active.receipt_outcome is None
 
     # A pair the reduction never recorded is established `inactive`, not unknown.
-    inactive = read.coreference_edge(journey.world, journey.current, "run:a", "run:a-two")
+    inactive = read.coreference_edge(journey.world, journey.current, "dataset:a-b", "dataset:a-c")
     assert inactive.state == "inactive"
-    assert read.expand_coreference(journey.world, journey.current, "dataset:a") == ("run:a", "run:a-two")
+    assert read.expand_coreference(journey.world, journey.current, "dataset:a") == (
+        "dataset:a-b",
+        "dataset:a-c",
+    )
 
     # An epoch over ALPHA alone did not observe BETA, which is live here.
     narrow = publish(journey.world, (ALPHA,), journey.bindings)
-    narrowed = read.coreference_edge(journey.world, narrow, "run:a", "dataset:a")
+    narrowed = read.coreference_edge(journey.world, narrow, "dataset:a", "dataset:a-b")
     assert narrowed.state == "indeterminate"
     assert narrowed.missing_coverage == (BETA,)
     assert narrowed.receipt_outcome is None
@@ -476,7 +472,7 @@ def test_removing_a_binding_reports_the_receipts_it_severed(journey: Journey):
     # The consequence the report predicted, now observable.
     outcome = read.validate_receipt(journey.world, journey.current, "coreference-reduction")
     assert outcome.outcome == "unresolvable"
-    answer = read.coreference_edge(journey.world, journey.current, "run:a", "dataset:a")
+    answer = read.coreference_edge(journey.world, journey.current, "dataset:a", "dataset:a-b")
     assert answer.state == "indeterminate"
     assert answer.receipt_outcome == "unresolvable"
     assert answer.missing_coverage == ()

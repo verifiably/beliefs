@@ -42,6 +42,9 @@ design (`2026-09-03-world-changing-families-design.md`) own the seven write
 families the operation seams mirror; the log-verification design
 (`2026-08-22-log-verification-design.md`) owns the chain views reconciliation
 reads.
+
+> **Amended 2026-09-10** (world resolution slice 2): an eighth seam, `attest_coreference`, joins on the same rule — refusals first, one commit seam, the `act` line after the commit. J1's "seven" is frozen text and stays; cut 24's results record states the eighth is covered there.
+
 **Out of scope:** the dispatcher, renderer, cursors and every surface
 (`science`'s Task 12 and 13); run, holdings and import acts through the
 scoped writer (§8); multi-corpus write targeting (§8); the run-session
@@ -101,10 +104,16 @@ command writes.
    for a prior operation and nothing of the refused one. This is the
    write-permits design §6's rule for every intent-opening family, stated
    with the one qualification settlement adds.
+
+   > **Amended 2026-09-10** (world resolution slice 2): an eighth seam, `attest_coreference`, joins on the same rule — refusals first, one commit seam, the `act` line after the commit. J1's "seven" is frozen text and stays; cut 24's results record states the eighth is covered there.
+
 3. **One commit seam.** All seven operation methods route through one
    private definition that calls the two primitives in order — intent, then
    fulfilling execution — and reads the registration digest back. The static
    inventory grows by exactly that definition (§4.4).
+
+   > **Amended 2026-09-10** (world resolution slice 2): an eighth seam, `attest_coreference`, joins on the same rule — refusals first, one commit seam, the `act` line after the commit. J1's "seven" is frozen text and stays; cut 24's results record states the eighth is covered there.
+
 4. **A scoped writer is a real writer bound to the requirement and to one
    invocation.** `scoped(required, invocation_id)` constructs a fresh
    `CorpusWriter` and durable port under `Authority(required.permit,
@@ -555,6 +564,8 @@ seven operation methods call no primitive and are not inventoried; `_commit`
 requires unconditionally at the top of its body before its `append_intent`
 (§5 arm 2 of that design). No definition gains an `actor` parameter.
 `test_permit_boundary.py`'s `WRITE_ENTRY_POINTS` holds 37 definitions.
+
+> **Amended 2026-09-10** (world resolution slice 2): an eighth seam, `attest_coreference`, joins on the same rule — refusals first, one commit seam, the `act` line after the commit. J1's "seven" is frozen text and stays; cut 24's results record states the eighth is covered there.
 
 ## 5. The scoped writer
 

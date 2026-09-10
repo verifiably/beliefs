@@ -471,6 +471,8 @@ epoch may be inactive under another. Since the balance is outside belief, this
 moves no digest — the property W8a's coverage arm asserts for the producers map,
 here with the belief consequence absent.
 
+*(Read 2026-09-10: the producers-map property is that the digest **moves** with coverage; the coreference map's property is that it contributes nothing to the digest, asserted on one coverage — cut 24.)*
+
 ---
 
 ## 6. Programme and release are identifiers, not entities

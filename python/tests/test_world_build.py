@@ -974,17 +974,17 @@ class TestSerialCapture:
 # --- Step 4: the ungoverned enumerated kinds ----------------------------------
 
 
-@pytest.mark.parametrize("kind", ["coreference-attestation", "instrument-certification"])
+@pytest.mark.parametrize("kind", ["instrument-certification"])
 def test_build_refuses_ungoverned_enumerated_record(tmp_path, kind):
     """§13's deferral, enforced at capture rather than trusted.
 
-    Both kinds are enumerated by one of the four maps and neither has a
-    governed stored-kind definition in this slice. A record claiming one is
+    The kind is enumerated by one of the four maps and has no governed
+    stored-kind definition in this slice. A record claiming it is
     therefore content no derivation may read: the build refuses the whole
     capture rather than deriving from it or quietly leaving it out.
     """
     assert kind not in stored.SEMANTIC_DOMAINS
-    claimant = Node(id=f"{kind}:claim", kind=kind, title="an ungoverned claim")
+    claimant = Node(id="instrument-certification:c", kind="instrument-certification", title="c")
     corpus_root = corpus_at(tmp_path / "alpha", ALPHA, sample_nodes())
     Corpus(corpus_root).add(claimant)
     world = make_world(tmp_path, corpus_root)
@@ -1004,7 +1004,7 @@ class TestUngovernedKindsAreRefusedNotAssumed:
         # No captured view is ever assembled, so no reducer can have read one:
         # the refusal is raised while the pass is still walking stored records.
         corpus_root = corpus_at(tmp_path / "alpha", ALPHA, sample_nodes())
-        Corpus(corpus_root).add(Node(id="coreference-attestation:c", kind="coreference-attestation", title="c"))
+        Corpus(corpus_root).add(Node(id="instrument-certification:c", kind="instrument-certification", title="c"))
         world = make_world(tmp_path, corpus_root)
         world.admit(corpus_root, provenance=registry.Fresh())
         bindings = install_bindings(world)
@@ -1034,7 +1034,9 @@ class TestUngovernedKindsAreRefusedNotAssumed:
         assert all(record.coreference is None for record in draft.capture.corpora[0].records)
 
     def test_a_governed_enumerated_kind_is_admitted(self, tmp_path):
-        assert set(epoch.ENUMERATED_SOURCE_KINDS) & set(stored.SEMANTIC_DOMAINS) == {"retraction", "run"}
+        assert set(epoch.ENUMERATED_SOURCE_KINDS) & set(stored.SEMANTIC_DOMAINS) == {
+            "retraction", "run", "coreference-attestation"
+        }
 
 
 # --- Step 6: the pre-publication binding recheck ------------------------------

@@ -135,6 +135,8 @@ either set without a route fails the suite.
 | `holdings-observation` | `{holdings}` | minted only by the four holdings acts through the store seam |
 | `project`, `question`, `hypothesis`, `topic`, `theme`, `task`, `decision`, `note` | `{corpus-write}` | the coordination family door is a corpus write (command-framework §3.3) |
 
+> **Amended 2026-09-10:** `coreference-attestation` is minted only through `CorpusWriter.attest_coreference` (slice 2 design §4.1); `add` refuses it as it refuses a retraction.
+
 Domain kinds are absent because no domain pack exists. The domain-boundary
 design owes this table an amendment on the first kind it mints; until then
 the completeness test above is what refuses a silent addition.
@@ -271,6 +273,7 @@ from a declaration.
 |---|---|---|---|
 | `CorpusWriter.add` | `corpus-write` | `node.kind` | none → a `run` record carrying the run-closure facet is decoded (`decode_run_closure`) and its `occurrence.actor` must equal the bound actor, else `ActorMismatch`; `add` already refuses every other actor-bearing kind (`act-report`, `retraction`, `holdings-observation`, the coordination kinds), so no other record through `add` names an actor |
 | `CorpusWriter.retract` | `corpus-write` | `retraction` | authored into the retraction facet → the facet's `actor` must equal the bound actor or the write refuses (`ActorMismatch`, a `WriteRefused`) |
+| `CorpusWriter.attest_coreference` | `corpus-write` | `coreference-attestation` | authored into the facet → the facet's `actor` must equal the bound actor, else `ActorMismatch` — added 2026-09-10 |
 | `CorpusWriter.supersede`, `CorpusWriter.revise` | `corpus-write` | `proposition` | none → none |
 | `CorpusWriter.mint_coordination`, `CorpusWriter.revise_coordination` | `corpus-write` | the coordination kind | none → none |
 | `CorpusWriter.import_bundle` | `corpus-write` | every member's kind, then `act-report` | `actor` keyword → removed; the intent's actor is the bound one. Members are stored verbatim: an imported run closure or retraction naming a foreign actor is **provenance**, attributed to the importer by the intent and never rewritten — the one deliberate route for a record whose actor is not the bound one |

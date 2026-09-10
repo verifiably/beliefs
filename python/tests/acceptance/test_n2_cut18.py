@@ -31,6 +31,22 @@ import beliefs.root as science_root
 
 # Live facet-contract matcher migration, 2026-09-07; canonical table remains frozen at e0bc65c.
 _LIVE_SABOTAGES = {
+    "C1": Sabotage(
+        module="corpus.py",
+        before=(
+            "                ) from caught\n"
+            "            return self._corpus.add(record)\n"
+            "\n"
+            "    def attest_coreference(self, record: Node, *, view: ReadView | WorldReadView | None = None) -> Node:\n"
+        ),
+        after=(
+            "                ) from caught\n"
+            "            self._delete_locked(target_ref)\n"
+            "            return self._corpus.add(record)\n"
+            "\n"
+            "    def attest_coreference(self, record: Node, *, view: ReadView | WorldReadView | None = None) -> Node:\n"
+        ),
+    ),
     "M3": Sabotage(
         module="audit.py",
         before="    findings = list(corpus_check(view, profile))\n",

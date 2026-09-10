@@ -24,6 +24,7 @@ sources:
   - ../designs/2026-08-26-world-index-intent-boundary-design.md
   - ../designs/2026-08-27-conformance-cut-11.md
   - ../designs/2026-09-09-conformance-cut-23.md
+  - ../designs/2026-09-10-conformance-cut-24.md
 ---
 
 # Identity, world, and change
@@ -167,13 +168,15 @@ lifecycle and store substrate — the fail-closed writer state, the lifecycle
 commands, `restore_root`, the fork acts with act-derived `forked_from`, and
 genesis-bound store subjects; and verified store-side holdings with their
 intent-bearing acts. Cut 23 adds an explicit-epoch world read view with captured
-cross-corpus traversal, named absence and verification recomputation. Coreference,
-snapshot/import and audit callers, and view evaluation remain open. The address
+cross-corpus traversal, named absence and verification recomputation. Cut 24 makes
+the coreference attestation a governed, mintable kind and reduces stored attestations
+into the published balance; snapshot/import and audit callers, and view evaluation
+remain open, as does source re-addressing in slice 2b. The address
 ruling governs those derived views: labels are computed on read,
 coreference is graded rather than merged, and storage duplication changes no
 address. What the log still owes — event-level L8 and the L13 preimage resolver
 — is listed with its owners in the
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-09).
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-10).
 
 ## Open edges
 

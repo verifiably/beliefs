@@ -934,7 +934,7 @@ def reduce_coreference(capture):
         ]
     }
 ''',
-        frozenset({"coreference.basic.yaml", "coreference.duplicates.yaml"}),
+        frozenset({"coreference.basic.yaml", "coreference.duplicates.yaml", "coreference.unicode.yaml"}),
     ),
     "wrong sorting": Mutation(
         "reduce_coreference",
@@ -959,7 +959,12 @@ def reduce_coreference(capture):
     }
 ''',
         frozenset(
-            {"coreference.basic.yaml", "coreference.duplicates.yaml", "coreference.unsorted.yaml"}
+            {
+                "coreference.basic.yaml",
+                "coreference.duplicates.yaml",
+                "coreference.unsorted.yaml",
+                "coreference.unicode.yaml",
+            }
         ),
     ),
 }
@@ -1087,12 +1092,16 @@ class TestPurity:
     def test_no_shipped_implementation_imports_or_opens_anything(self):
         # A reducer cannot reach a corpus root, a registry, a current pointer or
         # an installed default because it has no way to *name* one: the loader
-        # execs it in a namespace holding only builtins, and there is no import
-        # in the source to bring one in.
+        # execs it in a namespace holding only builtins, apart from the one
+        # standard-library normalization module the coreference rule needs.
         forbidden = {"open", "__import__", "eval", "exec", "compile", "input", "globals", "vars"}
         for bundle in rules.shipped_rule_bundles():
             tree = ast.parse(bundle.implementation, filename=bundle.symbol)
-            assert not [node for node in ast.walk(tree) if isinstance(node, ast.Import | ast.ImportFrom)]
+            imports = [node for node in ast.walk(tree) if isinstance(node, ast.Import | ast.ImportFrom)]
+            assert all(
+                isinstance(node, ast.Import) and [alias.name for alias in node.names] == ["unicodedata"]
+                for node in imports
+            ), bundle.symbol
             names = {node.id for node in ast.walk(tree) if isinstance(node, ast.Name)}
             assert not names & forbidden, bundle.symbol
 

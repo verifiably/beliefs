@@ -122,6 +122,9 @@ than discovered at merge:
   kinds. The relocation cut selects T2's per-kind arm for `move` and
   `consolidate`, read **root-locally** (§3.5). Every other T2 arm stays with
   `act-report-remainder`, and T2 stays part.
+
+  > **Amended 2026-09-10** (world resolution slice 2): an eighth seam, `attest_coreference`, joins on the same rule — refusals first, one commit seam, the `act` line after the commit. J1's "seven" is frozen text and stays; cut 24's results record states the eighth is covered there.
+
 - **T5** reserves outcome vocabularies per act kind and already names the
   managed-mutation, record-import and subject-evaluation entries.
   `record-mutation` is a fourth such kind on which `byte-locator-untested`

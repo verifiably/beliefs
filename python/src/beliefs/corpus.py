@@ -79,6 +79,7 @@ from beliefs.errors import (
     ContractMismatch,
     CoordinationKindUnsupported,
     CoordinationUnavailable,
+    CoreferenceEndpointRefused,
     DeletionKindExcluded,
     DeletionTargetMissing,
     EligibilityUnmet,
@@ -2134,6 +2135,105 @@ class CorpusWriter:
                 ) from caught
             return self._corpus.add(record)
 
+    def attest_coreference(self, record: Node, *, view: ReadView | WorldReadView | None = None) -> Node:
+        """Mint one coreference attestation whose endpoints resolve exactly,
+        touching neither endpoint (slice 2 design §4.1).
+
+        `view` is where the endpoints resolve: this corpus by default, or a
+        `WorldReadView` the caller opened **before** this call for a pair held
+        in two corpora. The seam never opens one: opening takes every covered
+        corpus's capture hold, and this writer holds its own.
+        """
+        self._authority.require("corpus-write", ("coreference-attestation",))
+        with self._operation:
+            self._require_pins_agree()
+            self._refuse_family_kinds(record, admitted_kind="coreference-attestation")
+            raw = record.facets.get(stored.COREFERENCE_ATTESTATION_FACET)
+            if isinstance(raw, dict):
+                if raw.get("actor") != self._authority.actor:
+                    raise ActorMismatch(
+                        f"{record.id}: the attestation names actor {raw.get('actor')!r}, "
+                        f"not the bound {self._authority.actor!r}"
+                    )
+                endpoints = raw.get("endpoints")
+                if isinstance(endpoints, list) and len(endpoints) == 2 and endpoints[0] == endpoints[1]:
+                    raise CoreferenceEndpointRefused(
+                        f"{record.id}: {endpoints[0]!r} is named as both endpoints; a self-pair is a claim with no content",
+                        endpoint=str(endpoints[0]),
+                        reason="self-pair",
+                    )
+            if record.kind != "coreference-attestation":
+                raise ValidationRefused(f"{record.id}: attest_coreference accepts a stored coreference attestation only")
+            try:
+                attestation = stored.coreference_attestation_value(record)
+            except MalformedRecord as caught:
+                raise ValidationRefused(f"{record.id}: refused by coreference shape validation: {caught}") from caught
+            self._controlled_coreference(record, attestation)
+            self._resolve_coreference_endpoints(record, attestation, self._view if view is None else view)
+            self._refuse(record, document_validated=True)
+            return self._corpus.add(record)
+
+    @staticmethod
+    def _validated_coreference(record: Node) -> stored.CoreferenceAttestation:
+        """The reader and the controlled rebuild, for the import door, where
+        every failure is one `ImportRefused` anyway."""
+        attestation = stored.coreference_attestation_value(record)
+        CorpusWriter._controlled_coreference(record, attestation)
+        return attestation
+
+    @staticmethod
+    def _controlled_coreference(record: Node, attestation: stored.CoreferenceAttestation) -> None:
+        expected = stored.coreference_attestation_node(
+            title=record.title,
+            endpoints=attestation.endpoints,
+            stance=attestation.stance,
+            actor=attestation.actor,
+            grounds=attestation.grounds,
+            event_token=attestation.event_token,
+        )
+        if record.id != expected.id or record.facets != expected.facets or record.relations != expected.relations:
+            raise MalformedRecord(f"{record.id}: coreference attestation does not match the controlled stored shape")
+
+    @staticmethod
+    def _resolve_coreference_endpoints(
+        record: Node,
+        attestation: stored.CoreferenceAttestation,
+        view: ReadView | _ImportView | WorldReadView,
+    ) -> None:
+        """The four endpoint refusals, in the order slice 2 design §4.1 step 6
+        states them; a record reaching here has two distinct endpoints."""
+        from beliefs.world.read import NotPresent, Unknown
+        from beliefs.world.view import WorldReadView as _WorldReadView
+
+        kinds: list[str] = []
+        for endpoint in attestation.endpoints:
+            if endpoint.partition(":")[0] not in stored.COREFERENCE_ENDPOINT_KINDS:
+                raise CoreferenceEndpointRefused(
+                    f"{record.id}: {endpoint!r} is outside the admissible endpoint kinds {stored.COREFERENCE_ENDPOINT_KINDS}",
+                    endpoint=endpoint,
+                    reason="inadmissible-kind",
+                )
+            if view.resolve(endpoint) != endpoint:
+                corpus_id: str | None = None
+                detail = "does not resolve exactly"
+                if isinstance(view, _WorldReadView):
+                    located = view.locate(endpoint)
+                    if isinstance(located, NotPresent):
+                        corpus_id = view.corpus_of(endpoint)
+                        detail = f"is recorded in {corpus_id}, a covered corpus with no carrier here"
+                    elif isinstance(located, Unknown):
+                        detail = "is unknown to this epoch"
+                raise CoreferenceEndpointRefused(
+                    f"{record.id}: {endpoint!r} {detail}", endpoint=endpoint, reason="unresolved", corpus_id=corpus_id
+                )
+            kinds.append(view.get(endpoint).kind)
+        if kinds[0] != kinds[1]:
+            raise CoreferenceEndpointRefused(
+                f"{record.id}: endpoints are of two kinds ({kinds[0]!r}, {kinds[1]!r}); a coreference claim names one kind",
+                endpoint=attestation.endpoints[1],
+                reason="kind-mismatch",
+            )
+
     def supersede(self, successor: Node, *, of: str) -> Node:
         """Mint a proposition successor without touching its predecessor."""
         self._authority.require("corpus-write", ("proposition",))
@@ -2351,6 +2451,12 @@ class CorpusWriter:
                 try:
                     self._validated_retraction(record)
                     self._resolve_retraction_target(record, union)
+                except ScienceError as caught:
+                    raise ImportRefused(str(caught), member=record.id) from caught
+            elif record.kind == "coreference-attestation":
+                try:
+                    attestation = self._validated_coreference(record)
+                    self._resolve_coreference_endpoints(record, attestation, union)
                 except ScienceError as caught:
                     raise ImportRefused(str(caught), member=record.id) from caught
 
@@ -2597,6 +2703,8 @@ class CorpusWriter:
             raise WriteRefused("a holdings observation is minted only by the acts boundary")
         if node.kind == "retraction" and admitted_kind != "retraction":
             raise WriteRefused("a retraction enters through retract")
+        if node.kind == "coreference-attestation" and admitted_kind != "coreference-attestation":
+            raise WriteRefused("a coreference attestation enters through attest_coreference")
         if node.kind == "act-report":
             raise WriteRefused("an act-report is minted by the boundary and stored by import")
 
@@ -2761,7 +2869,7 @@ class CorpusWriter:
 
 
 class OperationWrites:
-    """The seven session-mediated writes (design §4.2, §13 item 9): each is the
+    """The eight session-mediated writes (design §4.2, §13 item 9): each is the
     ordinary method, run inside a fulfilling scope under the settling hold."""
 
     def __init__(self, writer: CorpusWriter) -> None:
@@ -2795,6 +2903,11 @@ class OperationWrites:
 
     def retract(self, record: Node) -> OperationCommit:
         return self._run(lambda: self._writer.retract(record))
+
+    def attest_coreference(
+        self, record: Node, *, view: ReadView | WorldReadView | None = None
+    ) -> OperationCommit:
+        return self._run(lambda: self._writer.attest_coreference(record, view=view))
 
     def supersede(self, successor: Node, *, of: str) -> OperationCommit:
         return self._run(lambda: self._writer.supersede(successor, of=of))

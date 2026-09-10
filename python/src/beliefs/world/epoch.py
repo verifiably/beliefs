@@ -1192,6 +1192,11 @@ def _captured_records(corpus_root: Path) -> tuple[derive.CapturedRecord, ...]:
     built. `EnumeratedKindUngoverned` refuses the whole capture: a record whose
     kind one of the four maps enumerates but which has no governed stored-kind
     definition can be neither derived from nor silently omitted.
+
+    A `coreference-attestation` node is read through
+    `stored.coreference_attestation_value`, and a malformed facet — non-NFC
+    text included — raises `MalformedRecord` out of the capture, as a malformed
+    retraction facet does.
     """
     view = ReadView.opened_at(corpus_root)
     nodes = tuple(view.iter_stored())
@@ -1203,6 +1208,9 @@ def _captured_records(corpus_root: Path) -> tuple[derive.CapturedRecord, ...]:
                 "derived from or silently narrowed"
             )
     facets = {node.id: _validated_retraction_facet(node) for node in nodes if node.kind == "retraction"}
+    attestations = {
+        node.id: stored.coreference_attestation_value(node) for node in nodes if node.kind == "coreference-attestation"
+    }
     standing = _standing_retractions(view, facets)
     return tuple(
         derive.CapturedRecord(
@@ -1221,6 +1229,17 @@ def _captured_records(corpus_root: Path) -> tuple[derive.CapturedRecord, ...]:
                 else derive.CapturedRetraction(
                     _retraction_target(facets[node.id]),
                     RETRACTION_UPHELD if standing.get(node.id, True) else RETRACTION_OVERTURNED,
+                )
+            ),
+            coreference=(
+                None
+                if node.id not in attestations
+                else derive.CapturedCoreference(
+                    attestations[node.id].endpoints,
+                    attestations[node.id].stance,
+                    attestations[node.id].actor,
+                    attestations[node.id].grounds,
+                    attestations[node.id].event_token,
                 )
             ),
         )

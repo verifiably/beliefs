@@ -181,5 +181,5 @@ def test_explicit_null_kind_facets_are_not_an_empty_deferred_declaration(documen
 
 def test_genuinely_empty_deferred_declarations_remain_accepted(document):
     contract = parse(document)
-    for kind in ("instrument-certification", "coreference-attestation"):
+    for kind in ("instrument-certification",):
         assert not contract.kinds[kind].facets
