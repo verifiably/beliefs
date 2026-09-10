@@ -9,6 +9,7 @@ from nodes.core.relations import Relation
 from nodes.core.write_plan import DefaultExecutor
 from profiles import BASE, WITH_BIOLOGY
 from test_corpus_write import Recorder
+from test_session_writer import DIGEST, make_session
 from test_world_build import ALPHA, build, corpus_at, install_bindings, make_world
 from test_world_derive import reduce_with
 from test_world_receipts import corpora, hold_shipped, publish, world_over
@@ -25,6 +26,8 @@ from beliefs.errors import (
     WriteRefused,
 )
 from beliefs.identity import v1
+from beliefs.permit import RequiredCapabilities
+from beliefs.session.writer import ScopedWriter
 from beliefs.world import derive, registry, rules
 from beliefs.world.view import open_world_view
 
@@ -33,6 +36,7 @@ RIGHT = "dataset:right"
 NFC = "caf\u00e9"      # precomposed e-acute
 NFD = "cafe\u0301"     # e + combining acute: one string to every digest, two to Python
 PINNED = [{"name": "d", "digest": "sha256:" + "1" * 64}]
+ATTESTING = RequiredCapabilities.for_kinds({"dataset", "coreference-attestation"}, {})
 
 
 def attestation(*, endpoints=(RIGHT, LEFT), stance=1, actor=ACTOR, grounds="the same bytes", token="event-1"):
@@ -347,3 +351,19 @@ class TestTheCaptureLift:
         world.admit(alpha, provenance=registry.Fresh())
         with pytest.raises(MalformedRecord, match="NFC"):
             build(world, (ALPHA,), install_bindings(world))
+
+
+class TestTheSessionRoute:
+    def test_attest_is_the_eighth_ledgered_route(self, tmp_path):
+        session, _ = make_session(tmp_path)
+        session.claim_invocation("A", "mint", DIGEST)
+        writer = session.scoped(ATTESTING, "A")
+        writer.add(stored.dataset_node("left", title="left", resources=PINNED))
+        writer.add(stored.dataset_node("right", title="right", resources=[{"name": "d", "digest": "sha256:" + "2" * 64}]))
+        minted = writer.attest_coreference(attestation(actor=writer.actor))
+        acts = session.invocation_acts("A")
+        assert acts[-1].record_ids == ((minted.uid, minted.id),)  # `_record_act` ledgers (uid, id) pairs
+
+    def test_the_facade_surface_is_the_eight_methods(self):
+        public = {name for name in dir(ScopedWriter) if not name.startswith("_")}
+        assert "attest_coreference" in public

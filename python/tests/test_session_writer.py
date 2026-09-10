@@ -281,10 +281,10 @@ def test_delete_ledgers_an_empty_record_list(tmp_path):
     assert session.invocation_acts("A")[-1].record_ids == ()
 
 
-def test_the_scoped_writer_exposes_the_seven_methods_the_routes_and_its_invocation(tmp_path):
+def test_the_scoped_writer_exposes_the_eight_methods_the_routes_and_its_invocation(tmp_path):
     public = {name for name in dir(ScopedWriter) if not name.startswith("_")}
     assert public == {
-        "add", "retract", "supersede", "revise", "delete", "mint_coordination", "revise_coordination",
+        "add", "retract", "attest_coreference", "supersede", "revise", "delete", "mint_coordination", "revise_coordination",
         "invocation_id", "actor", "store_id", "operation_port", "holdings_context",
     }
 

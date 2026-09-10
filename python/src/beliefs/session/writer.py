@@ -37,7 +37,9 @@ from beliefs.session.ledger import (
 )
 
 if TYPE_CHECKING:
+    from beliefs.corpus import ReadView
     from beliefs.holdings.boundary import ActContext
+    from beliefs.world.view import WorldReadView
 
 __all__ = [
     "Claim",
@@ -84,7 +86,7 @@ Claim: TypeAlias = ClaimFresh | ClaimDone | ClaimOpen | ClaimMismatch
 
 class KernelRefusalValue(Exception):
     """A value-style kernel refusal carried as an exception so the dispatcher has
-    one normalization path (design §5). Unraised by this slice's seven methods."""
+    one normalization path (design §5). Unraised by this slice's eight methods."""
 
     def __init__(self, value: object) -> None:
         super().__init__(str(getattr(value, "reason", repr(value))))
@@ -287,7 +289,7 @@ class WriterSession:
 
 
 class ScopedWriter:
-    """The facade a handler holds (design §5): seven corpus-write methods, the
+    """The facade a handler holds (design §5): eight corpus-write methods, the
     two routes of the session-routes design §3.3, one invocation."""
 
     __slots__ = ("_authority", "_invocation", "_session", "_writer")
@@ -368,6 +370,11 @@ class ScopedWriter:
 
     def retract(self, record: Node) -> Node:
         minted = self._act(lambda: self._writer.operations.retract(record))
+        assert minted is not None
+        return minted
+
+    def attest_coreference(self, record: Node, *, view: ReadView | WorldReadView | None = None) -> Node:
+        minted = self._act(lambda: self._writer.operations.attest_coreference(record, view=view))
         assert minted is not None
         return minted
 

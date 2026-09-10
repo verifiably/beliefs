@@ -129,6 +129,9 @@ either set without a route fails the suite.
 | kind | admissible routes | why |
 |---|---|---|
 | `proposition`, `source-assertion`, `assessment`, `analysis-spec`, `source`, `verification`, `instrument-certification`, `coreference-attestation`, `retraction` | `{corpus-write}` | minted only through `CorpusWriter.add` and the corpus families |
+
+> **Amended 2026-09-10:** `coreference-attestation` is minted only through `CorpusWriter.attest_coreference` (slice 2 design §4.1); `add` refuses it as it refuses a retraction.
+
 | `run` | `{run, corpus-write}` | the run boundary publishes it fulfilling a run intent; the add path can mint a `run` record directly (cut 15's R23 arm does) |
 | `dataset` | `{corpus-write}` | `publication_plan` mints only the `run` record; the dataset it produces is a relation target, never a record the boundary writes |
 | `act-report` | `{corpus-write, run}` | `import_bundle` and the run boundary each close their intent with one; the holdings acts fulfill theirs with a `holdings-observation` and mint no report |
@@ -271,6 +274,7 @@ from a declaration.
 |---|---|---|---|
 | `CorpusWriter.add` | `corpus-write` | `node.kind` | none → a `run` record carrying the run-closure facet is decoded (`decode_run_closure`) and its `occurrence.actor` must equal the bound actor, else `ActorMismatch`; `add` already refuses every other actor-bearing kind (`act-report`, `retraction`, `holdings-observation`, the coordination kinds), so no other record through `add` names an actor |
 | `CorpusWriter.retract` | `corpus-write` | `retraction` | authored into the retraction facet → the facet's `actor` must equal the bound actor or the write refuses (`ActorMismatch`, a `WriteRefused`) |
+| `CorpusWriter.attest_coreference` | `corpus-write` | `coreference-attestation` | authored into the facet → the facet's `actor` must equal the bound actor, else `ActorMismatch` — added 2026-09-10 |
 | `CorpusWriter.supersede`, `CorpusWriter.revise` | `corpus-write` | `proposition` | none → none |
 | `CorpusWriter.mint_coordination`, `CorpusWriter.revise_coordination` | `corpus-write` | the coordination kind | none → none |
 | `CorpusWriter.import_bundle` | `corpus-write` | every member's kind, then `act-report` | `actor` keyword → removed; the intent's actor is the bound one. Members are stored verbatim: an imported run closure or retraction naming a foreign actor is **provenance**, attributed to the importer by the intent and never rewritten — the one deliberate route for a record whose actor is not the bound one |
