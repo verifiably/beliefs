@@ -402,6 +402,14 @@ def test_f8_every_builder_facet_is_declared(corpora, acquisition_report):
         "analysis_spec_node": stored.analysis_spec_node(freeze(spec_draft(), held_rules=spec_rules())),
         "retraction_node": stored.retraction_node(title="r", target=stored.NodeTarget("dataset:d", "dataset:d", "1" * 64), reason="authored-error", rationale="wrong", grounds=["source:s"], actor=ACTOR, event_token="e"),
         "holdings_observation_node": stored.holdings_observation_node(observation()),
+        "coreference_attestation_node": stored.coreference_attestation_node(
+            title="coreference",
+            endpoints=("dataset:d", "dataset:e"),
+            stance=1,
+            actor=ACTOR,
+            grounds="one work",
+            event_token="coref",
+        ),
     }
     assert set(builders) == {name for name, value in vars(stored).items() if name.endswith("_node") and not name.startswith("_") and callable(value)}
     for node in builders.values():

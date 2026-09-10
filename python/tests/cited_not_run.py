@@ -91,6 +91,7 @@ CITED_NOT_RUN: dict[str, CitedNotRun] = {
             "T2[10]": "moved at 6a4d972, when relocation act-reports moved to the boundary",
             "T2[11]": "moved at 6a4d972, when relocation act-reports moved to the boundary",
             "C2[18]": "moved at 4626335, when the world bound an authority",
+            "C1[17]": "moved at dc28583, when coreference attestation was inserted between retraction and supersede",
         },
     ),
     "test_n2_cut8.py": CitedNotRun(
