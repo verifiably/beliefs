@@ -1,7 +1,7 @@
 # World resolution, slice 2 — the coreference attestation and its balance
 
 **Date:** 2026-09-10
-**Status:** draft, awaiting review
+**Status:** discharged at conformance cut 24 on 2026-09-10; results: `../../plans/2026-09-10-conformance-cut-24-results.md`
 **Boundary:** `world-resolution`, slice 2 of four (`beliefs-d248ba`), task `beliefs-113561`
 **Lane:** `world-read`, worktree `.worktrees/world-resolution`
 **Sources:** `../../designs/2026-08-08-world-address-ruling.md` (§3, §5–§5.5, §9),

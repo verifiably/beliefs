@@ -1,6 +1,6 @@
 # World resolution slice 2 — implementation plan
 
-**Status:** planned 2026-09-10; not yet frozen or implemented.
+**Status:** implementation discharged at cut 24 on 2026-09-10; [results](../../plans/2026-09-10-conformance-cut-24-results.md). The steps below preserve the original execution plan.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

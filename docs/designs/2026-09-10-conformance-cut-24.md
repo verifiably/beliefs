@@ -1,11 +1,16 @@
 # Conformance cut 24 — the coreference attestation and its balance
 
-**Status:** frozen 2026-09-10 before implementation.
+**Status:** discharged 2026-09-10; frozen before implementation. Results: `../plans/2026-09-10-conformance-cut-24-results.md`.
 **Frozen:** 2026-09-10, before implementation, on `world-resolution`
 **Design:** `../superpowers/specs/2026-09-10-world-resolution-slice-2-design.md`, reviewed twice 2026-09-10
 **Numbered after** cut 23 (roadmap concurrency rule 1) and **serialized after** its discharge, which landed on `main` at `6eb0b93` (rule 5).
 
 ## 1. What this cut is
+
+The following baseline describes the tree before implementation. Cut 24 is
+now discharged: W15 and W4 close, while X12, W8a and M3 gain their
+coreference arms and remain partial. The dated results record preserves the
+measured outcome; §§2–7 remain frozen.
 
 The world address ruling made different-basis coreference an attributed,
 additive attestation with a derived balance and retired structural merge. The

@@ -1,7 +1,7 @@
 # Implementation roadmap
 
-**Ranked at:** cut 23, against the ledger's Current state (2026-09-09), updated
-2026-09-09
+**Ranked at:** cut 24, against the ledger's Current state (2026-09-10), updated
+2026-09-10
 **Method:** `../superpowers/specs/2026-08-29-implementation-roadmap-design.md`,
 as amended 2026-09-05 — tier 1 is ordered by distance to the dogfood success
 criterion (§4.0 there), open lanes are bounded, and a method amendment
@@ -15,7 +15,7 @@ carries no dated corrections, and the previous ranking survives only in git
 history.
 
 The adoption ledger's `Current state` table
-(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-09`)
+(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-10`)
 is the authority for *what* is open; this document is the authority for *in
 what order*. The two name the same boundaries by id, and
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds them to it.
@@ -39,22 +39,22 @@ criterion cannot be met without are **on the path**, in dependency order;
 the rest are **off the path**, in breadth order. Whether a boundary is on the
 path is measured where it can be, by the reproduction lane (§Lanes).
 
-**This ranking (2026-09-09) discharges world-resolution slice 1.** Cut 23
-closes D3, S1, S1a, S5, W6, W10 and R19 and reads R23's coverage clause.
-The captured world read view now carries traversal and evaluation across
-corpora. `world-resolution` stays first on the path: coreference, the
-snapshot/import and audit callers, and view evaluation remain. Its packaging
-ride-along is unchanged. W8b was measured and not selected; `beliefs-fda0e5`
-repairs its build-time uid uniqueness and duplicate-location defect. A future
-cut must select W8b before its conformance row can close.
+**This ranking (2026-09-10) discharges world-resolution slice 2.** Cut 24
+closes W15 and W4 and reads the coreference arms of X12, W8a and M3. The
+governed attestation now reaches a populated, coverage-bound balance through
+the ledgered session route. `world-resolution` stays first on the path: source
+re-addressing in slice 2b, the snapshot/import and audit callers, and view
+evaluation remain. Its packaging ride-along is unchanged. W8b was measured,
+repaired by `beliefs-fda0e5`, and not selected; a future cut must select it
+before its conformance row can close.
 
-The current accounting is 142 of 195 rows closed, with 53 open. The prior
+The current accounting is 144 of 195 rows closed, with 51 open. The prior
 single-corpus mm30 measurement still ranks this boundary on the path when a
-second corpus enters; cut 23 adds two-corpus acceptance fixtures, not another
+second corpus enters; cut 24 adds coreference acceptance fixtures, not another
 mm30 reproduction measurement. `domain-boundary` retains D1's cross-repository
-negative. The remaining slices under `beliefs-d248ba` are coreference
-(`beliefs-113561`), snapshots/import/audit (`beliefs-46847c`), and view evaluation
-(`beliefs-0e523a`), delivered serially in that order.
+negative. The remaining slices under `beliefs-d248ba` are source re-addressing
+(`beliefs-b7994b`), snapshots/import/audit (`beliefs-46847c`), and view
+evaluation (`beliefs-0e523a`), delivered serially in that order.
 
 ## Boundary index
 
@@ -64,7 +64,7 @@ join key and nothing else; the tiers below carry the ranking.
 | id | rows it closes | tier |
 |---|---|---|
 | `domain-boundary` | D1's cross-repository negative | 2 |
-| `world-resolution` | W1, W2, W4, W5a, W7, W8, W8b, W15; W13 less its two-projects negative; W8a's coreference arms; X12 and M3's coreference arms; R23's snapshot, divergence and explicit-import clauses | 1, on the path |
+| `world-resolution` | W1, W2 and W5a in slice 2b; W7, W8 and W8b; W13 less its two-projects negative; R23's snapshot, divergence and explicit-import clauses; X12's `instrument-certification` arms; W8a's `instrument-certification`, import and audit arms; M3's concrete-cycle limitation | 1, on the path |
 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | 1, off the path |
 | `url-retrieval` | H4, G9, R10, T5; T7's same-root case | 1, off the path |
 | `event-level-l8` | L8 | 1, off the path |
@@ -89,7 +89,7 @@ from being met without it; its lane (§Lanes) says what it must wait for.
 
 | # | id | rows | unblocks | placement |
 |---|---|---|---|---|
-| 1 | `world-resolution` | W1, W2, W4, W5a, W7, W8, W8b, W15; W13 less its two-projects negative; W8a's coreference arms; X12 and M3's coreference arms; R23's snapshot, divergence and explicit-import clauses | coreference-backed resolution; snapshot/import and audit callers; W7 view evaluation for `next` and `publish` | slice 1 discharged at cut 23; slices 2–4 follow the explicit-epoch capture now built. W8b repair remains `beliefs-fda0e5` |
+| 1 | `world-resolution` | W1, W2 and W5a in slice 2b; W7, W8 and W8b; W13 less its two-projects negative; R23's snapshot, divergence and explicit-import clauses; X12's `instrument-certification` arms; W8a's `instrument-certification`, import and audit arms; M3's concrete-cycle limitation | source re-addressing; snapshot/import and audit callers; W7 view evaluation for `next` and `publish` | slices 1 and 2 discharged at cuts 23 and 24; slice 2b (`beliefs-b7994b`) is next. W8b is repaired by `beliefs-fda0e5` but remains unselected |
 
 ### Off the path
 
@@ -127,7 +127,7 @@ boundary sits in the lane of its prerequisite and waits there.
 |---|---|---|---|
 | `write-path` | none — no open boundary | `corpus.py`, `report.py`, `intents/`, `session/`, `verify.py`, `evaluation.py`, `audit.py` | closed: `writer-session` discharged at cut 19 and `verification-publication` at cut 21 |
 | `domain` | `domain-boundary` D1 cross-repository negative; slices 1 and 2 discharged at cuts 20 and 22 | the `nodes` registry | waits on the cross-repository seam |
-| `world-read` | `world-resolution` slices 2–4 (+ `packaging-remainder`) → `event-level-l8` (+ `log-remainder`) | `world/read.py`, `world/view.py`, `resolution.py`, `world/verify.py`; `corpus.py`, `lineage.py`, `evaluation.py`, `belief.py`, `consulted.py`, `audit.py` as each slice names | on the path at its head; slice 1 discharged at cut 23, slice 2 next |
+| `world-read` | `world-resolution` slices 2b–4 (+ `packaging-remainder`) → `event-level-l8` (+ `log-remainder`) | `world/read.py`, `world/view.py`, `resolution.py`, `world/verify.py`; `corpus.py`, `lineage.py`, `evaluation.py`, `belief.py`, `consulted.py`, `audit.py` as each slice names | on the path at its head; slices 1 and 2 discharged at cuts 23 and 24, slice 2b next |
 | `mutation` | `correction-remainder` | `adapter.py`, `corpus.py`, `audit.py`, `decode.py`, `evaluation.py`, `world/verify.py` | off the path; waits |
 | `acquisition` | `url-retrieval` (+ `act-report-remainder`) | `holdings/`, `report.py` | off the path; waits |
 | `reproduction` | none — a measurement: `../superpowers/specs/2026-09-05-mm30-reproduction-design.md` | no kernel surface; `python/tools/reproduction/`, a corpus on the certified volume beside the checkout, and the record it produces | **closed 2026-09-05**: ran to the evaluator's answer; its record (`../designs/2026-09-05-mm30-reproduction.md`) re-ranked this document, its five findings are filed through the owning lanes, and its corpus stays at `.mm30-reproduction/` as the seed of the dogfood's world |
@@ -203,25 +203,25 @@ slice 1 (facet-contracts §6). Another question raised by the record is carried 
 where an interpretation rule reads content
 ([computation](../guide/open-questions.md#computation-and-reproducibility)).
 
-## Appendix A — live status of every guarantee row at cut 23
+## Appendix A — live status of every guarantee row at cut 24
 
 Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
-(spec §3.1); a row is closed only when no later source reopens it. Cut 23
-closes seven previously open rows and leaves R23 partial. W8b remains never
-selected despite its measured defect; measurement is not selection.
+(spec §3.1); a row is closed only when no later source reopens it. Cut 24
+closes W15 and W4 and leaves X12, W8a and M3 partial. W8b remains never
+selected despite its repaired measured defect; measurement is not selection.
 
 | table | never selected | part — last cut that read it | reopened |
 |---|---|---|---|
 | G | — | G9 (cut 10) | — |
 | S | — | S6 (cut 2) | — |
-| W | W1, W2, W4, W7, W8, W9, W14, W15, W5a, W8b | W13 (cut 14), W17 (cut 14), W8a (cut 7) | — |
+| W | W1, W2, W7, W8, W9, W14, W5a, W8b | W13 (cut 14), W17 (cut 14), W8a (cut 24) | — |
 | R | — | R10 (cut 3), R22 (cut 18), R23 (cut 23) | — |
 | C | C7, C8, C9 | C3 (cut 16), C10 (cut 5) | — |
-| X | — | X2 (cut 7), X5 (cut 7), X12 (cut 7) | — |
+| X | — | X2 (cut 7), X5 (cut 7), X12 (cut 24) | — |
 | N | N1, N3, N4, N5, N6, N7, N8, N9, N10 | N2 (cut 4) | — |
 | L | — | L1 (cut 8), L2 (cut 9), L4 (cut 9), L7 (cut 12), L8 (cut 8), L10 (cut 10), L13 (cut 8) | — |
 | D | — | D1 (cut 22) | — |
-| M | M12 | M3 (cut 18) | — |
+| M | M12 | M3 (cut 24) | — |
 | P | — | P1 (cut 2) | — |
 | H | — | H4 (cut 10) | — |
 | T | T7 | T1 (cut 5), T2 (cut 16), T4 (cut 3), T5 (cut 3) | — |
@@ -231,7 +231,7 @@ selected despite its measured defect; measurement is not selection.
 | V | — | — | — |
 | B | — | — | — |
 
-Closed 142 of 195; open 53.
+Closed 144 of 195; open 51.
 
 ## Appendix B — classification of every open row
 
@@ -242,12 +242,13 @@ Each open row, its remainder as the last cut states it, and where it goes
 |---|---|---|
 | G9 | the `url` locator arm beside H4's remote arm (cut 10 results §1) | `url-retrieval` |
 | S6 | arm (h), "the first successor policy admitting unequal weights" (cut 2 §4.2; cut 4 §5) | `weighted-belief` — tier 3 |
-| W1, W2, W4, W5a, W7, W8, W15 | the remaining world resolver (cut 23 results §5); W4 to be adjudicated against merge retirement (address ruling §5), W15 belongs to coreference slice 2 | `world-resolution` |
-| W8b | measured but not selected at cut 23; `beliefs-fda0e5` repairs the measured build defect with distinct `uid-corruption` and `duplicate-location` findings on refusal. Conformance selection remains open | `world-resolution` |
+| W1, W2, W5a | source addresses derived from the normalized external identifier (cut 24 results §5) | `world-resolution` slice 2b, `beliefs-b7994b` |
+| W7, W8 | the remaining world resolver and view evaluation (cut 24 results §5) | `world-resolution` |
+| W8b | measured but not selected; `beliefs-fda0e5` repaired the measured build defect with distinct `uid-corruption` and `duplicate-location` findings on refusal. Conformance selection remains open | `world-resolution` |
 | W9, W14 | rendered labels and the ambiguous-search refusal against a pinned authority snapshot (ledger artifact 11) | `authority-labels` — tier 3 |
 | W17 | intent-position evidence over the publication-binding revision family (cut 14 results §1) | `publish`; the ordinary coordination revision family is closed |
 | W13 | coverage-declaration and digest-invariance clauses; manifest-only re-mint detection and the forgery variants; replica-restore's declaration half; the fork copy act (cut 6 §3.2) — every named dependency has since landed → relabel candidates | `world-resolution`; the two-projects negative is closed by cut 14 |
-| W8a | coreference omission-refutes and coverage arms → `world-resolution` (the `coreference-attestation` kind); certification omission-refutes → `contract-cut` (the `instrument-certification` kind); import-boundary and audit arms (cut 7 §3.2) → `packaging-remainder` | split as stated |
+| W8a | the coreference omission-refutes and coverage arms are read at cut 24; certification omission-refutes → `contract-cut` (the `instrument-certification` kind); import-boundary and audit arms (cut 7 §3.2) → `packaging-remainder` | split as stated |
 | R10 | "the acquisition path records dataset provenance instead" (cut 3 §4.2) | `url-retrieval` |
 | R22 | the unresolvable-interpretation-rule refusal → `contract-cut` (the rules store and resolver, 5b §6); the explicit-import recomputation and raw-written-under-audit arms are closed by cut 18 | `contract-cut` |
 | R23 | producer snapshots and receipts, cross-corpus divergence and explicit-import clauses → `world-resolution`; rules-store clauses → `contract-cut`. Cut 23 closes the coverage clause; replay cardinality, local basis/composition disagreement, move/consolidate, deletion and audit clauses retain their prior closure | split as stated |
@@ -257,7 +258,7 @@ Each open row, its remainder as the last cut states it, and where it goes
 | C10 | `instrument-certification` eligibility → `contract-cut`; raw-written refused cases under audit → `correction-remainder` (cut 5) | split as stated |
 | X2 | the persistence-cut arm at every stage, "a Science-side persistence-cut harness or an extension of the `atoms` A8 certification to this consumer path" (cut 7) → `persistence-cut`, tier 2; the interim best-effort-writer negative → limitation (lapsed) | as stated |
 | X5 | admission arm read by cut 6, build arm by cut 7, neither relabeling (cut 7's X5 entry) → relabel | rides with `world-resolution` |
-| X12 | `instrument-certification` membership → `contract-cut`; `coreference-attestation` membership → `world-resolution` (cut 7) | split as stated |
+| X12 | the `coreference-attestation` membership and omission-refutes arms are read at cut 24; `instrument-certification` membership and omission-refutes → `contract-cut` | `contract-cut` |
 | N1, N3–N10 | the first contract cut, certification machinery, the adoption gate (cut 3 §5) | `contract-cut` |
 | N2 | the doctrine over the rows no cut selects (cut 4 §4.2) — closes with the contract cut | `contract-cut` |
 | L1, L4 | the partial units cuts 8 and 9 record in their row entries | `log-remainder`, rides with `event-level-l8` |
@@ -267,7 +268,7 @@ Each open row, its remainder as the last cut states it, and where it goes
 | L10 | "no named cross-cut remainder … row label remains partial" (cut 10 results §1) → relabel | rides with `event-level-l8` |
 | L13 | the preimage resolver over the `atoms` blob-read seam (cut 11 §3.2; log design §5.3); cut 18 closes nothing here — removal classification stays a path match | `l13-preimage` — tier 2 |
 | D1 | the cross-repository negative that adds a domain-aware code path to `nodes` (cut 22 §2) | `domain-boundary` |
-| M3 | coreference-attestation arm → `world-resolution`; the concrete-cycle arms needing "a spellable controlled identity construction … a circular fixed point" (cut 5) → limitation unless a construction is found. The equal-basis replica arm is read by cut 16; the raw-written-cycle classification and the admission-order negative are closed by cut 18 | split as stated |
+| M3 | the coreference-attestation arm is read at cut 24; the concrete-cycle arms needing "a spellable controlled identity construction … a circular fixed point" (cut 5) remain a limitation unless a construction is found. The equal-basis replica arm is read by cut 16; the raw-written-cycle classification and admission-order negative are closed by cut 18 | limitation only — ranked nowhere |
 | M12 | the extraction path (cut 3 §5; kernel limitation 3) | `extraction-path` — tier 3 |
 | P1 | the resolver half of the negative, 5b §6's deterministic resolution (cut 4 §5) | `contract-cut` |
 | H4 | the `url` / remote arm (cut 10 results §1) | `url-retrieval` |

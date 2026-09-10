@@ -91,7 +91,7 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-09-08-biology-pack-design.md` | the second domain-boundary slice: cross-contract slot sorts, consulted-profile pin agreement, domain-facet reads, and the packaged biology contract (B1–B7, closed at cut 22) |
 | `2026-09-08-conformance-cut-22.md` | the discharged biology-pack cut: B1–B7, the cross-contract consulted walk, domain-facet read, and packaged biology contract |
 | `2026-09-09-conformance-cut-23.md` | the discharged world-read cut: the world read view, cross-corpus traversal, covered absence, and cross-corpus verification |
-| `2026-09-10-conformance-cut-24.md` | the frozen coreference-attestation cut: the governed record, populated balance, receipt completeness, endpoint refusals, and unchanged read side |
+| `2026-09-10-conformance-cut-24.md` | the discharged coreference-attestation cut: the governed record, populated balance, receipt completeness, endpoint refusals, and unchanged read side |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -99,7 +99,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 23** is implemented and discharged. What
+Every conformance cut through **cut 24** is implemented and discharged. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -133,11 +133,12 @@ builder and reader.
 The biology pack now supplies cross-contract slots, consulted-pin agreement,
 domain-facet reads, and the packaged `biology` contract. The world read view
 now captures records at an explicit published epoch, traverses across corpora,
-and carries named absence into lineage and evaluation. The latest discharged
-boundary is cut 23
-([cut](docs/designs/2026-09-09-conformance-cut-23.md),
-[design](docs/superpowers/specs/2026-09-09-world-resolution-slice-1-design.md),
-[results](docs/plans/2026-09-09-conformance-cut-23-results.md)).
+and carries named absence into lineage and evaluation. Coreference attestations
+are now governed, minted through the ledgered session route, and reduced into
+the published coverage-bound balance. The latest discharged boundary is cut 24
+([cut](docs/designs/2026-09-10-conformance-cut-24.md),
+[design](docs/superpowers/specs/2026-09-10-world-resolution-slice-2-design.md),
+[results](docs/plans/2026-09-10-conformance-cut-24-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
 test before it is a passing one. There are **195 rows** across **eighteen frozen
@@ -147,7 +148,7 @@ redefinition.
 
 What is built and what remains to build, each remainder with its named owner,
 is stated once, in the
-[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-09).
+[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-10).
 The per-cut results records under [`docs/plans/`](docs/plans/) are the
 evidence trail, and unresolved design questions live in the guide's
 [open questions](docs/guide/open-questions.md).

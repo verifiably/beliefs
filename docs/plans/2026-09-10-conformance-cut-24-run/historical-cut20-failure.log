@@ -1,0 +1,128 @@
+[cut24 phase 1/3] cut23_acceptance.py
+[cut23 phase 1/3] cut22_acceptance.py
+[cut22 phase 1/3] cut21_acceptance.py
+[cut21 phase 1/3] cut20_acceptance.py
+[cut20 phase 1/3] cut19_acceptance.py
+[cut19 phase 1/3] cut18_acceptance.py
+[cut18 phase 1/3] cut17_acceptance.py
+[cut17 phase 1/19] test_n2_cut6.py
+.......................                                                  [100%]
+23 passed in 12.32s
+[cut17 phase 2/19] test_n2_cut7.py
+..........................................                               [100%]
+42 passed in 46.17s
+[cut17 phase 3/19] test_n2_cut9.py
+.......................                                                  [100%]
+23 passed in 16.96s
+[cut17 phase 4/19] test_intent_boundary_acceptance.py
+..................                                                       [100%]
+18 passed in 6.51s
+[cut17 phase 5/19] test_n2_cut11.py
+.................                                                        [100%]
+17 passed in 30.32s
+[cut17 phase 6/19] test_successor_admission_acceptance.py
+....                                                                     [100%]
+4 passed in 2.06s
+[cut17 phase 7/19] test_n2_cut12.py
+................                                                         [100%]
+16 passed in 14.22s
+[cut17 phase 8/19] test_confinement_acceptance.py
+...............                                                          [100%]
+15 passed in 311.95s (0:05:11)
+[cut17 phase 9/19] test_n2_cut13.py
+................                                                         [100%]
+16 passed in 125.07s (0:02:05)
+[cut17 phase 10/19] test_coordination_acceptance.py
+......................                                                   [100%]
+22 passed in 15.92s
+[cut17 phase 11/19] test_n2_cut14.py
+.......                                                                  [100%]
+7 passed in 14.13s
+[cut17 phase 12/19] test_cut15_lineage.py
+.....                                                                    [100%]
+5 passed in 79.49s (0:01:19)
+[cut17 phase 13/19] test_n2_cut15.py
+........                                                                 [100%]
+8 passed in 44.80s
+[cut17 phase 14/19] test_relocation_acceptance.py
+................                                                         [100%]
+16 passed in 65.40s (0:01:05)
+[cut17 phase 15/19] test_n2_cut16.py
+.......                                                                  [100%]
+7 passed in 76.23s (0:01:16)
+[cut17 phase 16/19] test_permit_acceptance.py
+........                                                                 [100%]
+8 passed in 4.30s
+[cut17 phase 17/19] test_permit_boundary.py
+..................                                                       [100%]
+18 passed in 2.63s
+[cut17 phase 18/19] test_permit_entry_points.py
+........................................................................ [ 68%]
+.................................                                        [100%]
+105 passed in 28.62s
+[cut17 phase 19/19] test_n2_cut17.py
+........                                                                 [100%]
+8 passed in 15.23s
+declared arms: 24 (= 8 selected + 1 labeled units)
+[cut18 phase 2/3] test_deletion_acceptance.py
+................                                                         [100%]
+16 passed in 54.87s
+[cut18 phase 3/3] test_n2_cut18.py
+.......                                                                  [100%]
+7 passed in 27.49s
+declared arms: 20 (= 17 declaration units; 16 guarantee rows + 1 boundary invariant)
+row accounting: 7 full/closed + 5 partial + 4 closed-row re-reads
+[cut19 phase 2/3] test_session_acceptance.py
+...............................                                          [100%]
+31 passed in 64.27s (0:01:04)
+[cut19 phase 3/3] test_n2_cut19.py
+.......                                                                  [100%]
+7 passed in 33.09s
+declared arms: 43 (= 11 declaration units; 11 guarantee rows)
+row accounting: 11 full/closed + 0 partial + 0 re-reads
+[cut20 phase 2/3] test_facet_acceptance.py
+..............F..                                                        [100%]
+=================================== FAILURES ===================================
+___________________ test_f8_every_builder_facet_is_declared ____________________
+
+corpora = <function corpora.<locals>.make at 0x7fd2b4032b60>
+acquisition_report = ActReport(operation='acquisition', event_token='tok-1', actor='tester', observer='observer-1', instrument='instrument-...obs-1'), instrument_inputs=()), RunAttemptEntry(subject='absent', outcome=RunRefusal(missing_member='spec_identity'))))
+
+    def test_f8_every_builder_facet_is_declared(corpora, acquisition_report):
+        from closure_fixtures import make_closure
+        from coordination_fixtures import content_for
+        from fixtures_cut3 import spec_draft, spec_rules
+        from test_holdings_records import observation
+    
+        from beliefs.corpus import CoordinationResolver
+        from beliefs.runrecord import projection_text
+        from beliefs.spec import freeze
+        profile = compile_profile(shipped_base_contract(), [], coordination=coordination_contract())
+        w = corpora(profile=profile)
+        coordinated = open_corpus(w.root, authority=FULL, profile=profile, coordination_resolver=CoordinationResolver({w.root: profile}))
+        closure = make_closure()
+        builders = {
+            "governed_node": stored.governed_node("source", "g", "g", {"source": {"identifiers": {"doi": "x"}}}, ()),
+            "act_report_node": stored.act_report_node(acquisition_report),
+            "proposition_node": stored.proposition_node("p", title="p", claim={"operator": "affects"}, display_statement="shown"),
+            "source_node": stored.source_node("s", title="s", identifiers={"doi": "x"}),
+            "dataset_node": acquired("d", ACTOR),
+            "run_node": producing("r", "dataset:x"),
+            "run_publication_node": stored.run_publication_node("rp", title="rp", projection=projection_text(closure).decode(), spec="analysis-spec:s"),
+            "assessment_node": stored.assessment_node("a", title="a", spec="analysis-spec:s", run="run:r", proposition="proposition:p", outcome="supported", interpretation_rule="rule:r"),
+            "verification_node": stored.verification_node("v", title="v", assessment="a", assessment_ref="assessment:a", scope="same-environment", verdict="passed"),
+            "analysis_spec_node": stored.analysis_spec_node(freeze(spec_draft(), held_rules=spec_rules())),
+            "retraction_node": stored.retraction_node(title="r", target=stored.NodeTarget("dataset:d", "dataset:d", "1" * 64), reason="authored-error", rationale="wrong", grounds=["source:s"], actor=ACTOR, event_token="e"),
+            "holdings_observation_node": stored.holdings_observation_node(observation()),
+        }
+>       assert set(builders) == {name for name, value in vars(stored).items() if name.endswith("_node") and not name.startswith("_") and callable(value)}
+E       AssertionError: assert {'act_report_...on_node', ...} == {'act_report_...ed_node', ...}
+E         
+E         Extra items in the right set:
+E         'coreference_attestation_node'
+E         Use -v to get more diff
+
+tests/acceptance/test_facet_acceptance.py:406: AssertionError
+=========================== short test summary info ============================
+FAILED tests/acceptance/test_facet_acceptance.py::test_f8_every_builder_facet_is_declared
+1 failed, 16 passed in 41.61s

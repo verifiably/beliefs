@@ -38,7 +38,7 @@ organization rather than a personal account, so governance and long-term
 stewardship are not tied to one individual. §5 records the namespace and
 decomposition rulings that follow from it.
 
-## Current state (2026-09-09)
+## Current state (2026-09-10)
 
 This section is the one place that states what is built and what remains to
 build. Every other live surface — the README and the contributor guide — links
@@ -46,10 +46,10 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-09-09** for cut 23's world read view and cross-corpus traversal
-discharge.
+**Updated 2026-09-10** for cut 24's coreference-attestation and populated
+balance discharge.
 
-**Implemented through conformance cut 23.** Every cut from 4 onward has a
+**Implemented through conformance cut 24.** Every cut from 4 onward has a
 discharge results record under `../plans/`; cuts 1–3 are proved by their merge
 ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
@@ -158,7 +158,13 @@ ancestry and the surfaces they built
   clause and remains partial. W8b was measured and not selected. Its build defect
   is repaired by `beliefs-fda0e5`: address-map derivation refuses uid corruption
   and reports duplicate locations distinctly, before publication. W8b still
-  awaits a conformance selection; the corpus has 142 of 195 rows closed.
+  awaits a conformance selection.
+- **Coreference attestation and balance** — the governed attributed record,
+  its endpoint and actor refusals, NFC-normalized reduction over declared
+  coverage, populated receipt validation, and the ledgered session route.
+  W15 and W4 close at cut 24; X12, W8a and M3 gain their coreference arms and
+  remain partial on their named non-coreference remainders. The corpus has 144
+  of 195 rows closed.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -173,7 +179,7 @@ not listed.
 | id | boundary | owner | what it blocks |
 |---|---|---|---|
 | `url-retrieval` | the URL retrieval boundary, acquisition orchestration and typed retrieval grants: H4, G9, R10, T5, T7's same-root case | `2026-08-24-world-index-holdings-design.md` §1–§3 | the first acquisition of a dataset from outside the system |
-| `world-resolution` | the remaining read side of the world: W1, W2, W4, W5a, W7, W8, W8b, W15; W13 less its two-projects negative; W8a's coreference arms; X12 and M3's coreference arms; R23's snapshot, divergence and explicit-import clauses; W8b's measured build defect is `beliefs-fda0e5` | `2026-08-02-world-addressing-design.md` and `2026-08-08-world-address-ruling.md` | coreference balance, snapshot/import and audit callers, view evaluation |
+| `world-resolution` | the remaining read side of the world: W1, W2 and W5a in slice 2b (`beliefs-b7994b`); W7, W8 and W8b; W13 less its two-projects negative; R23's snapshot, divergence and explicit-import clauses; X12's `instrument-certification` arms; W8a's `instrument-certification`, import-boundary and audit arms; and M3's concrete-cycle limitation. W8b is measured, repaired by `beliefs-fda0e5`, and not selected | `2026-08-02-world-addressing-design.md` and `2026-08-08-world-address-ruling.md` | source re-addressing, snapshot/import and audit callers, view evaluation |
 | `domain-boundary` | D1's cross-repository negative that adds a domain-aware code path to `nodes`; slices 1 and 2 discharged at cuts 20 and 22 | `2026-08-04-domain-extension-boundary-design.md` | D1 in full |
 | `event-level-l8` | **Event-level L8** — the presence/exclusion relation across captured corpus heads | the tamper-evident-log design's own successor work (row 5) | row 5 reading L8 in full |
 | `contract-cut` | **The first full contract cut, its executable suite, and N1–N10**; N2's closing doctrine; P1's resolver-negative arm; R22's resolver arm; the `instrument-certification` arms of W8a, X12 and C10; R23's rules-store clauses | sub-problem 5b (row 7) | the normative contract's own guarantees; disposition of the legacy check modules; the conformance-package split (§5) |
@@ -191,9 +197,11 @@ not listed.
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-09-conformance-cut-23-results.md`) discharges world-resolution
-slice 1: seven rows close and R23's coverage clause is read. Slices 2–4 retain
-the world and packaging remainders above; `beliefs-d248ba` stays open.
+(`../plans/2026-09-10-conformance-cut-24-results.md`) discharges world-resolution
+slice 2: W15 and W4 close, while X12, W8a and M3 retain only their named
+non-coreference arms. Slice 2b (`beliefs-b7994b`) carries W1, W2 and W5a;
+slices 3–4 retain the other world and packaging remainders above.
+`beliefs-d248ba` stays open.
 `test_the_ledger_summary_names_the_newest_remaining_boundary` holds this
 section to whichever record is newest;
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds this table and the

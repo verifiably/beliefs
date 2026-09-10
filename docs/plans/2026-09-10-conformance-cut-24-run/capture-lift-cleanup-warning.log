@@ -1,0 +1,12 @@
+command: ['/mnt/ssd/Dropbox/beliefs/.worktrees/world-resolution/python/.venv/bin/python', '-m', 'pytest', '-q', '--no-header', '-p', 'no:cacheprovider', '/mnt/ssd/Dropbox/beliefs/.worktrees/world-resolution/python/tests/test_coreference_attestation.py::TestTheCaptureLift::test_a_stored_attestation_is_captured_and_reduced']
+package: 
+exit: 0
+.                                                                        [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/_pytest/pathlib.py:95
+  /mnt/ssd/Dropbox/beliefs/.worktrees/world-resolution/python/.venv/lib/python3.13/site-packages/_pytest/pathlib.py:95: PytestWarning: (rm_rf) error removing /tmp/pytest-of-keith/garbage-8e683630-8b0a-47eb-baca-c07b1b746146
+  <class 'OSError'>: [Errno 39] Directory not empty: '/tmp/pytest-of-keith/garbage-8e683630-8b0a-47eb-baca-c07b1b746146'
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+
