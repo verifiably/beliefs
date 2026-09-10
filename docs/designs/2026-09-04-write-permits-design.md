@@ -129,14 +129,13 @@ either set without a route fails the suite.
 | kind | admissible routes | why |
 |---|---|---|
 | `proposition`, `source-assertion`, `assessment`, `analysis-spec`, `source`, `verification`, `instrument-certification`, `coreference-attestation`, `retraction` | `{corpus-write}` | minted only through `CorpusWriter.add` and the corpus families |
-
-> **Amended 2026-09-10:** `coreference-attestation` is minted only through `CorpusWriter.attest_coreference` (slice 2 design §4.1); `add` refuses it as it refuses a retraction.
-
 | `run` | `{run, corpus-write}` | the run boundary publishes it fulfilling a run intent; the add path can mint a `run` record directly (cut 15's R23 arm does) |
 | `dataset` | `{corpus-write}` | `publication_plan` mints only the `run` record; the dataset it produces is a relation target, never a record the boundary writes |
 | `act-report` | `{corpus-write, run}` | `import_bundle` and the run boundary each close their intent with one; the holdings acts fulfill theirs with a `holdings-observation` and mint no report |
 | `holdings-observation` | `{holdings}` | minted only by the four holdings acts through the store seam |
 | `project`, `question`, `hypothesis`, `topic`, `theme`, `task`, `decision`, `note` | `{corpus-write}` | the coordination family door is a corpus write (command-framework §3.3) |
+
+> **Amended 2026-09-10:** `coreference-attestation` is minted only through `CorpusWriter.attest_coreference` (slice 2 design §4.1); `add` refuses it as it refuses a retraction.
 
 Domain kinds are absent because no domain pack exists. The domain-boundary
 design owes this table an amendment on the first kind it mints; until then
