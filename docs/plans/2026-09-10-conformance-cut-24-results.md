@@ -221,6 +221,33 @@ slice 2b (`beliefs-b7994b`), slice 3 (`beliefs-46847c`) and slice 4
 
 ## 6. Main integration
 
-Pending controller final whole-branch review and plan-authorized integration.
-This discharge commit does not merge or remove the `world-resolution`
-worktree.
+Merged `world-resolution` into `main` locally on 2026-09-10 with `--no-ff`,
+at `7d6934119f5796eec5384516a26346a878388380`. Its parents are the prior
+main `42108347a1efee164522b41db46b9bef07e6d226` and reviewed branch head
+`b3014ba7aed1df81f7e4c99d6549bb8e87b5797a`; the merged tree equals the
+branch tree.
+
+The whole-branch review found no production correctness blocker. Its
+delivery-ownership and authored-path findings were corrected at `b3014ba`,
+and scoped re-review approved both without new blocking findings. The
+nonblocking cleanup warning and Pyright notice remain recorded in §3.
+
+From the repository root on the merge commit:
+
+```text
+just gate > docs/plans/2026-09-10-conformance-cut-24-run/main-gate.log 2>&1
+exit 0
+4333 passed in 1073.94s (0:17:53)
+Test Files  7 passed (7); Tests  142 passed (142)
+```
+
+Ruff, Pyright, TypeScript typecheck, Biome and task validation also passed;
+task validation reported zero errors and warnings. The complete transcript
+and exit record are retained as
+[`main-gate.log`](2026-09-10-conformance-cut-24-run/main-gate.log) and
+[`main-gate.exit`](2026-09-10-conformance-cut-24-run/main-gate.exit).
+
+After the successful gate, the merged worktree and local feature branch were
+removed. No push was performed. This subsequent integration record changes
+only documentation and task evidence; the tested runtime and tests remain
+unchanged.
