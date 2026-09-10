@@ -64,7 +64,7 @@ join key and nothing else; the tiers below carry the ranking.
 | id | rows it closes | tier |
 |---|---|---|
 | `domain-boundary` | D1's cross-repository negative | 2 |
-| `world-resolution` | W1, W2 and W5a in slice 2b; W7, W8 and W8b; W13 less its two-projects negative; R23's snapshot, divergence and explicit-import clauses; X12's `instrument-certification` arms; W8a's `instrument-certification`, import and audit arms; M3's concrete-cycle limitation | 1, on the path |
+| `world-resolution` | W1, W2 and W5a in slice 2b; W7, W8 and W8b; W13 less its two-projects negative; R23's snapshot, divergence and explicit-import clauses | 1, on the path |
 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | 1, off the path |
 | `url-retrieval` | H4, G9, R10, T5; T7's same-root case | 1, off the path |
 | `event-level-l8` | L8 | 1, off the path |
@@ -89,7 +89,7 @@ from being met without it; its lane (§Lanes) says what it must wait for.
 
 | # | id | rows | unblocks | placement |
 |---|---|---|---|---|
-| 1 | `world-resolution` | W1, W2 and W5a in slice 2b; W7, W8 and W8b; W13 less its two-projects negative; R23's snapshot, divergence and explicit-import clauses; X12's `instrument-certification` arms; W8a's `instrument-certification`, import and audit arms; M3's concrete-cycle limitation | source re-addressing; snapshot/import and audit callers; W7 view evaluation for `next` and `publish` | slices 1 and 2 discharged at cuts 23 and 24; slice 2b (`beliefs-b7994b`) is next. W8b is repaired by `beliefs-fda0e5` but remains unselected |
+| 1 | `world-resolution` | W1, W2 and W5a in slice 2b; W7, W8 and W8b; W13 less its two-projects negative; R23's snapshot, divergence and explicit-import clauses | source re-addressing; snapshot/import and audit callers; W7 view evaluation for `next` and `publish` | slices 1 and 2 discharged at cuts 23 and 24; slice 2b (`beliefs-b7994b`) is next. W8b is repaired by `beliefs-fda0e5` but remains unselected |
 
 ### Off the path
 

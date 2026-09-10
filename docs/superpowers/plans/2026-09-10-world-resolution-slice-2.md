@@ -63,9 +63,9 @@
 - [ ] **Step 1: `tasks start beliefs-2fff11`, then confirm the number is free**
 
 ```bash
-git -C /mnt/ssd/Dropbox/beliefs worktree list
-for wt in $(git -C /mnt/ssd/Dropbox/beliefs worktree list --porcelain | awk '/^worktree /{print $2}'); do ls "$wt/docs/designs" | grep -c "conformance-cut-24"; done
-git -C /mnt/ssd/Dropbox/beliefs branch -a --contains $(git -C /mnt/ssd/Dropbox/beliefs rev-parse main) | head
+git worktree list
+for wt in $(git worktree list --porcelain | awk '/^worktree /{print $2}'); do ls "$wt/docs/designs" | grep -c "conformance-cut-24"; done
+git branch -a --contains $(git rev-parse main) | head
 ```
 Expected: every count is `0`. If not, the number is taken; use the next free one everywhere below and in every later task.
 

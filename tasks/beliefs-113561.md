@@ -6,7 +6,7 @@ priority: 2
 size: l
 owner: world-resolution
 created: 2026-09-09T15:26:24Z
-updated: 2026-09-10T15:55:38Z
+updated: 2026-09-10T16:27:06Z
 depends: [beliefs-d502fd]
 parent: beliefs-d248ba
 tags: [world-read]
@@ -25,3 +25,6 @@ Resume from cut 23 and docs/superpowers/specs/2026-09-09-world-resolution-slice-
 - 2026-09-10T12:58:08Z (world-resolution): SDD controller: Tasks 1-6 committed and reviewed through 31182cf; Task 7 durable acceptance and 20-arm N2 guard underway; main remains clean at 4210834
 - 2026-09-10T15:55:38Z (world-resolution): slice 2 discharged at cut 24; W1, W2, W5a continue as beliefs-b7994b
 - 2026-09-10T15:55:38Z (world-resolution): coreference attestations and balance discharged at cut 24
+- 2026-09-10T16:22:40Z (world-resolution): final-review documentation fix reopened: preserve global row status while restoring contract-cut, packaging-remainder, and unscheduled M3 ownership
+- 2026-09-10T16:27:06Z (world-resolution): final review fix complete: cut 24 global partial statuses preserved; certification remains contract-cut, W8a import/audit remains packaging-remainder, M3 limitation remains unscheduled
+- 2026-09-10T16:27:06Z (world-resolution): Slice 2 documentation now matches the binding remainder ownership and retains the cut 24 discharge.

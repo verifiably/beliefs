@@ -202,16 +202,19 @@ is made here.
 coverage-declaration, digest-invariance, manifest-only re-mint/forgery,
 replica-restore declaration and fork-copy clauses; **R23**'s snapshot,
 cross-corpus-divergence and explicit-import clauses; and slice 2b's **W1, W2
-and W5a**, filed as `beliefs-b7994b`. **X12** retains only its
-`instrument-certification` membership and omission-refutes arms;
-**W8a** retains only its `instrument-certification` omission-refutes,
-import-boundary and audit arms; **M3** retains only its banked concrete-cycle
-limitation. The coreference arms of X12, W8a and M3 are read at this cut.
-W8b is measured, repaired by `beliefs-fda0e5`, and not selected.
+and W5a**, filed as `beliefs-b7994b`. W8b is measured, repaired by
+`beliefs-fda0e5`, and not selected.
 
-`packaging-remainder` is unchanged: **X5**'s relabel and **W8a**'s
-import-boundary and audit arms. `contract-cut` retains the
-`instrument-certification` arms of X12 and W8a and R23's rules-store clauses.
+Outside `world-resolution`, the three rows left partial by cut 24 retain their
+separate dispositions; their coreference arms are read at this cut. **X12**'s
+`instrument-certification` arms stay with `contract-cut`. **W8a**'s
+`instrument-certification` arm stays with `contract-cut`, while its
+import-boundary and audit arms stay with `packaging-remainder`, which rides
+with the world lane. **M3** retains only its banked concrete-cycle limitation,
+which remains unscheduled and ranked nowhere.
+
+`packaging-remainder` also owns **X5**'s relabel. `contract-cut` also owns
+R23's rules-store clauses.
 The remaining implementation slices under the still-open `beliefs-d248ba` are
 slice 2b (`beliefs-b7994b`), slice 3 (`beliefs-46847c`) and slice 4
 (`beliefs-0e523a`).
