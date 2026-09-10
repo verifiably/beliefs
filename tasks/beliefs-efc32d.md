@@ -1,11 +1,12 @@
 ---
 id: beliefs-efc32d
 title: The mm30 driver cannot rebuild target.yaml and reproduce unaided
-status: todo
+status: doing
 priority: 2
 size: m
+owner: main
 created: 2026-09-07T09:30:22Z
-updated: 2026-09-09T09:17:06Z
+updated: 2026-09-10T21:34:30Z
 depends: []
 tags: [reproduction-finding]
 ---
