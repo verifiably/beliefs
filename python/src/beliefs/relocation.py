@@ -26,6 +26,7 @@ from beliefs.errors import (
     AddressDisagreement,
     ContractPinDisagreement,
     DuplicateLocation,
+    HistoryDisagreement,
     RelocationKindExcluded,
     RelocationRefused,
     RelocationTargetMissing,
@@ -214,6 +215,19 @@ def consolidate(
             raise AddressDisagreement(
                 f"{keep_node.id} and {other_node.id}: consolidation requires one canonical address"
             )
+        if keep_node.kind == "source":
+            keep_map = keep_node.facets[stored.SOURCE_FACET]["identifiers"]
+            other_map = other_node.facets[stored.SOURCE_FACET]["identifiers"]
+            if keep_map != other_map:
+                raise HistoryDisagreement(
+                    f"{keep_node.id}: the two replicas carry different identifier maps"
+                )
+            if keep_node.facets.get(
+                stored.IDENTIFIER_CORRECTION_FACET
+            ) != other_node.facets.get(stored.IDENTIFIER_CORRECTION_FACET):
+                raise HistoryDisagreement(
+                    f"{keep_node.id}: the two replicas carry different correction histories"
+                )
         _refuse_contract_disagreement(other_node, other_writer, keep_writer)
         merged = _reconcile(keep_node, other_node)
         keep_writer._preflight_replace_locked(merged, provenance=True)

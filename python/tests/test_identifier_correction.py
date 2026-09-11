@@ -12,6 +12,7 @@ from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp
 from profiles import BASE
 from test_corpus_write import Recorder
 from test_operation_writes import intents_of, primitive_calls, writer_over
+from test_relocation import _writer
 from test_session_writer import DIGEST, make_session
 from test_source_address import ADDR_A, ADDR_B, CANONICAL_DOI, A, B, entry, raw_source
 
@@ -22,12 +23,14 @@ from beliefs.errors import (
     CollisionRefused,
     CorrectionRefused,
     FacetPayloadRefused,
+    HistoryDisagreement,
     IdentifierMalformed,
     PermitExceeded,
     SourceAddressDisagreement,
     ValidationRefused,
 )
 from beliefs.permit import RequiredCapabilities
+from beliefs.relocation import consolidate, move
 
 
 class _ImportFields(TypedDict):
@@ -397,3 +400,62 @@ class TestTheSessionLayers:
         _, (_, fulfills) = port.calls[-1]
         assert intent.kind == "corpus-write" and fulfills == acts[-1].intent
         assert not any(node.kind == "act-report" for node in ReadView.opened_at(port.root).iter_stored())
+
+
+REPORT = {
+    "observer": "o",
+    "instrument": "i",
+    "opened_at": "2026-09-10T00:00:00Z",
+    "closed_at": "2026-09-10T00:00:01Z",
+}
+
+
+@pytest.fixture()
+def two_writers(tmp_path):
+    return _writer(tmp_path / "left"), _writer(tmp_path / "right")
+
+
+class TestRelocation:
+    def test_move_carries_history_and_deprecated_ids(self, two_writers):
+        left, right = two_writers
+        minted = left.add(stored.source_node(title="p", identifiers=A))
+        corrected = left.correct_identifier(minted.id, B, grounds="g")
+        move(left, right, corrected.id, **REPORT)
+        arrived = right.read_view.get(ADDR_B)
+        assert arrived.uid == corrected.uid and arrived.deprecated_ids == [ADDR_A]
+        assert stored.identifier_corrections(arrived) == stored.identifier_corrections(corrected)
+        assert right.read_view.resolve(ADDR_A) == ADDR_B
+
+    def test_consolidate_refuses_divergent_histories(self, two_writers):
+        left, right = two_writers
+        node = stored.source_node(title="p", identifiers=A)
+        for writer in (left, right):
+            writer.add(node.model_copy(deep=True))
+            writer.correct_identifier(ADDR_A, B, grounds="g")
+        with pytest.raises(HistoryDisagreement):
+            consolidate((left, ADDR_B), (right, ADDR_B), rationale="r", **REPORT)
+
+    def test_divergent_identifier_maps_refuse_consolidation(self, two_writers):
+        left, right = two_writers
+        left.add(stored.source_node(title="p", identifiers=B))
+        right.add(stored.source_node(title="p", identifiers={**B, "isbn": "9780306406157"}))
+        with pytest.raises(HistoryDisagreement):
+            consolidate((left, ADDR_B), (right, ADDR_B), rationale="r", **REPORT)
+
+    def test_consolidate_refuses_a_handle_addressed_replica_at_replace(self, two_writers):
+        left, right = two_writers
+        forged = raw_source(B, node_id="source:Chen2023")
+        for writer in (left, right):
+            raw_write(writer.root, forged)
+            writer._reconstruct()
+        with pytest.raises(SourceAddressDisagreement):
+            consolidate((left, forged.id), (right, forged.id), rationale="r", **REPORT)
+
+    def test_consolidate_accepts_byte_identical_replicas(self, two_writers):
+        left, right = two_writers
+        minted = left.add(stored.source_node(title="p", identifiers=A))
+        corrected = left.correct_identifier(minted.id, B, grounds="g")
+        right.import_bundle([corrected], **REPORT)
+        survivor, *_ = consolidate((left, ADDR_B), (right, ADDR_B), rationale="r", **REPORT)
+        assert survivor.uid == corrected.uid and survivor.deprecated_ids == [ADDR_A]
+        assert stored.identifier_corrections(survivor) == stored.identifier_corrections(corrected)

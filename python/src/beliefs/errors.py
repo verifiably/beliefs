@@ -1100,6 +1100,12 @@ class AddressDisagreement(RelocationRefused):
     """
 
 
+class HistoryDisagreement(RelocationRefused):
+    """`consolidate` was given two sources at one address whose identifier maps
+    or correction histories differ (slice 2b §7). Reconciling them is a design
+    this slice refuses to improvise; the survivor's history must not silently win."""
+
+
 class DuplicateLocation(RelocationRefused):
     """`move`'s destination already holds a record at that canonical address.
 

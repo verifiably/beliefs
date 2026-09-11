@@ -1660,7 +1660,7 @@ git commit -m "feat(session): correct_identifier through OperationWrites and Sco
 - Modify: `python/src/beliefs/errors.py` — `HistoryDisagreement`
 - Test: `python/tests/test_identifier_correction.py` (append)
 
-- [ ] **Step 1: Add the error**
+- [x] **Step 1: Add the error**
 
 After `AddressDisagreement` in `errors.py`; preserve the module's existing public-class export convention (it has no `__all__`):
 
@@ -1671,7 +1671,7 @@ class HistoryDisagreement(RelocationRefused):
     this slice refuses to improvise; the survivor's history must not silently win."""
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Append. `tests/test_relocation.py::_writer` builds a `CorpusWriter` with an `OperationRecorder` port and an adopted manifest; import it and define the pair fixture here:
 
@@ -1698,34 +1698,25 @@ class TestRelocation:
         left, right = two_writers
         minted = left.add(stored.source_node(title="p", identifiers=A))
         corrected = left.correct_identifier(minted.id, B, grounds="g")
-        moved, *_ = move(left, right, corrected.id, **REPORT)
+        move(left, right, corrected.id, **REPORT)
         arrived = right.read_view.get(ADDR_B)
-        assert arrived.deprecated_ids == [ADDR_A] and len(stored.identifier_corrections(arrived)) == 1
+        assert arrived.uid == corrected.uid and arrived.deprecated_ids == [ADDR_A]
+        assert stored.identifier_corrections(arrived) == stored.identifier_corrections(corrected)
         assert right.read_view.resolve(ADDR_A) == ADDR_B
-
-    def test_consolidate_identical_histories(self, two_writers):
-        left, right = two_writers
-        node = stored.source_node(title="p", identifiers=A)
-        for w in (left, right):
-            w.add(node.model_copy(deep=True))
-        # Same correction on both replicas: bind both writers to one actor and apply the same call.
-        for w in (left, right):
-            w.correct_identifier(ADDR_A, B, grounds="g")
-        # The two histories differ by event token; consolidate must refuse — see the next test.
 
     def test_consolidate_refuses_divergent_histories(self, two_writers):
         left, right = two_writers
         node = stored.source_node(title="p", identifiers=A)
-        for w in (left, right):
-            w.add(node.model_copy(deep=True))
-            w.correct_identifier(ADDR_A, B, grounds="g")  # two tokens, two histories
+        for writer in (left, right):
+            writer.add(node.model_copy(deep=True))
+            writer.correct_identifier(ADDR_A, B, grounds="g")
         with pytest.raises(HistoryDisagreement):
             consolidate((left, ADDR_B), (right, ADDR_B), rationale="r", **REPORT)
 
-    def test_consolidate_refuses_divergent_maps(self, two_writers):
+    def test_divergent_identifier_maps_refuse_consolidation(self, two_writers):
         left, right = two_writers
         left.add(stored.source_node(title="p", identifiers=B))
-        right.add(stored.source_node(title="p", identifiers={**B, "isbn": "9780306406157"}))  # same basis, different map
+        right.add(stored.source_node(title="p", identifiers={**B, "isbn": "9780306406157"}))
         with pytest.raises(HistoryDisagreement):
             consolidate((left, ADDR_B), (right, ADDR_B), rationale="r", **REPORT)
 
@@ -1735,9 +1726,9 @@ class TestRelocation:
         # own map/history comparison finds them identical.
         left, right = two_writers
         forged = raw_source(B, node_id="source:Chen2023")
-        for w in (left, right):
-            raw_write(w.root, forged)
-            w._reconstruct()
+        for writer in (left, right):
+            raw_write(writer.root, forged)
+            writer._reconstruct()
         with pytest.raises(SourceAddressDisagreement):
             consolidate((left, forged.id), (right, forged.id), rationale="r", **REPORT)
 
@@ -1745,19 +1736,20 @@ class TestRelocation:
         left, right = two_writers
         minted = left.add(stored.source_node(title="p", identifiers=A))
         corrected = left.correct_identifier(minted.id, B, grounds="g")
-        right.import_bundle([corrected], **REPORT)  # a replica with the same history
+        right.import_bundle([corrected], **REPORT)
         survivor, *_ = consolidate((left, ADDR_B), (right, ADDR_B), rationale="r", **REPORT)
-        assert survivor.deprecated_ids == [ADDR_A] and len(stored.identifier_corrections(survivor)) == 1
+        assert survivor.uid == corrected.uid and survivor.deprecated_ids == [ADDR_A]
+        assert stored.identifier_corrections(survivor) == stored.identifier_corrections(corrected)
 ```
 
-Delete `test_consolidate_identical_histories` (its body is a note, not a test) before running; the byte-identical case is the last test.
+The byte-identical case is the last test. The divergent-map test has a distinct name prefix because pytest's truncated temporary directory names otherwise alias the preceding divergent-history test in the process-global corpus root cache.
 
-- [ ] **Step 3: Run to verify they fail**
+- [x] **Step 3: Run to verify they fail**
 
 Run: `cd python && uv run --frozen pytest tests/test_identifier_correction.py -k Relocation`
 Expected: the two `refuses` tests FAIL (consolidate succeeds); the others pass or fail on fixture names to be aligned.
 
-- [ ] **Step 4: Implement the refusal**
+- [x] **Step 4: Implement the refusal**
 
 In `consolidate`, after the `AddressDisagreement` check:
 
@@ -1775,14 +1767,16 @@ In `consolidate`, after the `AddressDisagreement` check:
 
 Import `HistoryDisagreement`.
 
-- [ ] **Step 5: Run, lint, commit**
+- [x] **Step 5: Run, lint, commit**
 
 ```
 cd python && uv run --frozen pytest tests/test_identifier_correction.py tests/test_relocation.py
 uv run --frozen ruff check . && uv run --frozen pyright
-git add python/src/beliefs/relocation.py python/src/beliefs/errors.py python/tests/test_identifier_correction.py
+git add python/src/beliefs/relocation.py python/src/beliefs/errors.py python/tests/test_identifier_correction.py docs/superpowers/plans/2026-09-10-world-resolution-slice-2b.md tasks/beliefs-45f67f.md
 git commit -m "feat(relocation): consolidate refuses sources with divergent identifier histories"
 ```
+
+**Task 8 evidence (2026-09-11):** RED failed on the two missing `HistoryDisagreement` branches while the other three relocation tests passed. GREEN passed 5 focused relocation tests and 94 identifier-correction plus relocation tests; ruff passed; pyright reported 0 errors and 0 warnings. `move` already carried the source unchanged through provenance admission. The whole-slice gate remains Task 11.
 
 ---
 
