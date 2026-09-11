@@ -100,15 +100,25 @@ SCHEMES = ("doi", "pmid", "isbn", "accession")          # closed, in precedence 
 SOURCE_ADDRESS_DOMAIN = "science.source-address.v1"
 
 def normalize(scheme: str, value: object) -> str: ...     # raises IdentifierMalformed
-def normalized_identifiers(identifiers: Mapping[str, object]) -> dict[str, str]: ...
+def normalized_identifiers(identifiers: Mapping[str, object], *, accepted: Sequence[str]) -> dict[str, str]: ...
 def basis(identifiers: Mapping[str, str]) -> tuple[str, str] | None: ...
 def source_address(identifiers: Mapping[str, str]) -> str | None: ...
 ```
 
-`stored.ACCEPTED_EXTERNAL_IDENTIFIERS` becomes a re-export of `SCHEMES` —
-one tuple, in precedence order; the alphabetical tuple it replaces is a drift
-hazard. Any test pinning the alphabetical order is corrected in the same
-change.
+`stored.ACCEPTED_EXTERNAL_IDENTIFIERS` **stays as it is**, byte-identical
+(*amended 2026-09-10 at planning: an earlier draft re-exported `SCHEMES`
+there; cut 4's frozen arm W3 sabotages that exact literal in `stored.py`, and
+`test_n2_cut4.py` fails hard on a stale arm*). The accepted set is that
+literal; `SCHEMES` is the same set in precedence order, and `source.py` keeps
+its own rule table keyed by scheme. The drift hazard of two spellings is
+closed two ways: a unit test pins
+`set(SCHEMES) == set(stored.ACCEPTED_EXTERNAL_IDENTIFIERS) == set(_RULES)`,
+and `normalize` treats a scheme that is accepted but has no rule as an
+invariant violation (`LookupError`, never `IdentifierMalformed`) — which is
+also what keeps W3's sabotage (`"url"` appended to the accepted literal)
+sound: the migrated check expects `unknown-scheme` and gets an error instead.
+Acceptance is checked in `stored.py` against its literal before any rule
+runs; `source.py` imports nothing from `stored`.
 
 ### 3.1 `normalize`
 
