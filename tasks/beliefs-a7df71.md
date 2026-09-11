@@ -5,7 +5,7 @@ status: todo
 priority: 3
 size: m
 created: 2026-08-31T00:38:28Z
-updated: 2026-08-31T00:38:28Z
+updated: 2026-09-11T14:34:29Z
 depends: [atoms-38887b]
 tags: [migration, cross-repo, log]
 ---
@@ -17,3 +17,7 @@ Acceptance evidence: Consume the reviewed seam delivered by `atoms-38887b`; desi
 Sources: `docs/plans/2026-08-29-implementation-roadmap.md` `l13-preimage`; `docs/designs/2026-08-03-tamper-evident-log-design.md`; and Atoms task `atoms-38887b`.
 
 Uncertainty: Atoms has the internal verified reader but has not delivered the public seam, so the exact consumer interface remains pending there.
+
+## Notes
+
+- 2026-09-11T14:34:29Z (main): Consumer scope for atoms-38887b: engine-produced replicas carry the project tree/chain but no local transaction records or preimage blobs; metadata is minted fresh and writable roots cannot be demoted. Read surviving preimages from the reachable writable source root, or classify from supplied held-copy history bytes; this task owns source-root selection and matching to the inspected chain. Transporting history into replicas is outside the approved Atoms seam.
