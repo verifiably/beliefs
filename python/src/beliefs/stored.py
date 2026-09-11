@@ -50,15 +50,16 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Any
+from typing import Any, final
 
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 
 from beliefs import identifiers
 from beliefs import report as report_values
+from beliefs import source as source_basis_projection
 from beliefs.dataset import DatasetDeclaration, ResourceDeclaration
-from beliefs.errors import IdentityError, LoneSurrogate, MalformedRecord
+from beliefs.errors import IdentifierMalformed, IdentityError, LoneSurrogate, MalformedRecord
 from beliefs.holdings.records import (
     HOLDINGS_OBSERVATION_KIND,
     Absent,
@@ -70,6 +71,7 @@ from beliefs.identity import v1
 from beliefs.permit import require_actor
 from beliefs.profile import shipped_base
 from beliefs.record import AssessmentValue
+from beliefs.sealed import sealed
 from beliefs.spec import FrozenSpec, frozen_projection, restore
 from beliefs.verification import Verification
 
@@ -87,6 +89,7 @@ __all__ = [
     "EMPIRICAL_OBSERVATION_FACET",
     "GROUNDED_IN",
     "HOLDINGS_OBSERVATION_FACET",
+    "IDENTIFIER_CORRECTION_FACET",
     "LINEAGE_BASIS_FACET",
     "PROPOSITION_FACET",
     "PROSE_KINDS",
@@ -103,6 +106,7 @@ __all__ = [
     "WORLD_KINDS",
     "WORLD_RELATIONS",
     "CoreferenceAttestation",
+    "IdentifierCorrection",
     "NodeTarget",
     "RouteTarget",
     "act_report_facet",
@@ -117,8 +121,10 @@ __all__ = [
     "display_statement",
     "external_identifiers",
     "governed_node",
+    "held_source_addresses",
     "holdings_observation_node",
     "holdings_observation_value",
+    "identifier_corrections",
     "is_empirical_observation",
     "lineage_basis",
     "local_id",
@@ -128,11 +134,14 @@ __all__ = [
     "semantic_hash_disagrees",
     "semantic_hash_missing",
     "semantic_projection",
+    "source_address_of",
+    "source_basis",
     "stamp_semantic_identity",
     "stored_semantic_hash",
     "typed_ref",
     "union_lineage_bases",
     "used_facet_namespaces",
+    "validate_source_history",
     "verification_derivation",
     "verification_value",
 ]
@@ -150,6 +159,7 @@ DATASET_FACET = "dataset"
 DISPLAY_FACET = "display"
 LINEAGE_BASIS_FACET = "lineage-basis"
 SOURCE_FACET = "source"
+IDENTIFIER_CORRECTION_FACET = "identifier-correction"
 VERIFICATION_FACET = "verification"
 RETRACTION_FACET = "retraction"
 COREFERENCE_ATTESTATION_FACET = "coreference-attestation"
@@ -347,6 +357,121 @@ def external_identifiers(node: Node) -> tuple[str, ...]:
             if isinstance(identifiers.get(name), str) and identifiers[name]
         )
     )
+
+
+def _source_identifiers(node: Node) -> Mapping[str, Any]:
+    facet = _facet(node, SOURCE_FACET) or {}
+    identifiers = facet.get("identifiers")
+    return identifiers if isinstance(identifiers, dict) else {}
+
+
+def source_basis(node: Node) -> tuple[str, str] | None:
+    """The selected `(scheme, value)` of a stored source, or `None`."""
+    return source_basis_projection.basis(
+        {k: v for k, v in _source_identifiers(node).items() if isinstance(v, str)}
+    )
+
+
+def source_address_of(node: Node) -> str | None:
+    """The address the stored identifiers derive — what the boundary compares `node.id` against."""
+    return source_basis_projection.source_address(
+        {k: v for k, v in _source_identifiers(node).items() if isinstance(v, str)}
+    )
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class IdentifierCorrection:
+    """One attributed entry of a source's identifier-correction history (slice 2b §5.2)."""
+
+    from_identifiers: Mapping[str, str]
+    to_identifiers: Mapping[str, str]
+    actor: str
+    grounds: str
+    event_token: str
+
+
+_CORRECTION_KEYS = frozenset({"from", "to", "actor", "grounds", "event_token"})
+
+
+def _correction_map(raw: object, where: str) -> Mapping[str, str]:
+    if not isinstance(raw, dict) or not raw:
+        raise MalformedRecord(f"{where}: is not a non-empty mapping")
+    try:
+        canonical = source_basis_projection.normalized_identifiers(raw)
+    except IdentifierMalformed as caught:
+        raise MalformedRecord(f"{where}: {caught}") from caught
+    if canonical != raw:
+        raise MalformedRecord(f"{where}: holds a non-canonical identifier")
+    return MappingProxyType(canonical)
+
+
+def identifier_corrections(node: Node) -> tuple[IdentifierCorrection, ...]:
+    """Read history validated to slice 2b §5.2, or raise `MalformedRecord`."""
+    if IDENTIFIER_CORRECTION_FACET not in node.facets:
+        return ()
+    facet = node.facets[IDENTIFIER_CORRECTION_FACET]
+    if (
+        not isinstance(facet, dict)
+        or set(facet) != {"entries"}
+        or not isinstance(facet["entries"], list)
+        or not facet["entries"]
+    ):
+        raise MalformedRecord(
+            f"{node.id}: identifier-correction is a mapping holding a non-empty `entries` list"
+        )
+    corrections: list[IdentifierCorrection] = []
+    tokens: set[str] = set()
+    for index, raw in enumerate(facet["entries"]):
+        where = f"{node.id}: identifier-correction entry {index}"
+        if not isinstance(raw, dict) or set(raw) != _CORRECTION_KEYS:
+            raise MalformedRecord(f"{where}: keys are exactly {sorted(_CORRECTION_KEYS)}")
+        for key in ("actor", "grounds", "event_token"):
+            if not isinstance(raw[key], str) or not raw[key]:
+                raise MalformedRecord(f"{where}: {key} is a non-empty string")
+        # Maps first, so a null or non-mapping `from`/`to` is this reader's refusal and never an
+        # encoding error; then the whole entry under the identity encoding, every refusal of
+        # which (NullRefused, LoneSurrogate, ...) is IdentityError and translated here.
+        frm = _correction_map(raw["from"], f"{where} from")
+        to = _correction_map(raw["to"], f"{where} to")
+        try:
+            v1.encode(raw)
+        except IdentityError as caught:
+            raise MalformedRecord(f"{where}: not canonically encodable: {caught}") from caught
+        if raw["event_token"] in tokens:
+            raise MalformedRecord(f"{where}: event token {raw['event_token']!r} repeats")
+        tokens.add(raw["event_token"])
+        if frm == to:
+            raise MalformedRecord(f"{where}: from and to are equal; a correction changes something")
+        if corrections and dict(corrections[-1].to_identifiers) != dict(frm):
+            raise MalformedRecord(f"{where}: from does not continue the previous entry's to")
+        corrections.append(IdentifierCorrection(frm, to, raw["actor"], raw["grounds"], raw["event_token"]))
+    if dict(corrections[-1].to_identifiers) != dict(_source_identifiers(node)):
+        raise MalformedRecord(f"{node.id}: the last correction does not end at the current identifiers")
+    return tuple(corrections)
+
+
+def held_source_addresses(history: Sequence[IdentifierCorrection]) -> frozenset[str]:
+    """Every address derivable from any map in the history."""
+    addresses: set[str] = set()
+    for correction in history:
+        for mapping in (correction.from_identifiers, correction.to_identifiers):
+            address = source_basis_projection.source_address(mapping)
+            assert address is not None  # a validated map is non-empty
+            addresses.add(address)
+    return frozenset(addresses)
+
+
+def validate_source_history(node: Node) -> tuple[IdentifierCorrection, ...]:
+    """Validate correction history and exact redirect agreement."""
+    history = identifier_corrections(node)
+    expected = sorted(held_source_addresses(history) - {node.id})
+    if list(node.deprecated_ids) != expected:
+        raise MalformedRecord(
+            f"{node.id}: deprecated_ids {list(node.deprecated_ids)} are not the history's redirect set {expected}"
+        )
+    return history
 
 
 def dataset_declaration(node: Node) -> DatasetDeclaration:

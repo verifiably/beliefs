@@ -53,7 +53,11 @@ kinds:
       empirical-observation: { required: false, covered: true }
       lineage-basis: { required: false, covered: true }
       display: { required: false, covered: false }
-  source: { domain: science.source.v1, facets: { source: { required: true, covered: true } } }
+  source:
+    domain: science.source.v1
+    facets:
+      source: { required: true, covered: true }
+      identifier-correction: { required: false, covered: false }
   holdings-observation: { domain: science.holdings-observation.v1, facets: { holdings-observation: { required: true, covered: true } } }
   retraction: { domain: science.retraction.v1, facets: { retraction: { required: true, covered: true } } }
   instrument-certification: {}
@@ -94,6 +98,7 @@ facets:
   dataset: { shape: reader, reader: stored.dataset_declaration }
   lineage-basis: { shape: reader, reader: stored.lineage_basis }
   source: { shape: reader, reader: stored.external_identifiers }
+  identifier-correction: { shape: reader, reader: stored.identifier_corrections }
   holdings-observation: { shape: reader, reader: stored.holdings_observation_value }
   retraction: { shape: reader, reader: corpus.CorpusWriter._validated_retraction }
   coreference-attestation: { shape: reader, reader: stored.coreference_attestation_value }

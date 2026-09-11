@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from itertools import combinations
+from types import MappingProxyType
+from typing import Any, cast
 
 import pytest
+from nodes.core.node import Node
 
-from beliefs import source
-from beliefs.errors import IdentifierMalformed
+from beliefs import source, stored
+from beliefs.errors import IdentifierMalformed, MalformedRecord
 from beliefs.identity import v1
 
 CANONICAL_DOI = "10.1234/abc.def"
@@ -130,3 +133,142 @@ class TestBasisAndAddress:
 
     def test_two_records_with_different_selected_bases_are_two_addresses(self):
         assert source.source_address({"pmid": "1"}) != source.source_address({"doi": CANONICAL_DOI, "pmid": "1"})
+
+
+def raw_source(identifiers, *, history=None, deprecated=(), node_id=None):
+    """A hand-built source, stamped, at the derived address unless `node_id` overrides it."""
+    facets: dict[str, Any] = {stored.SOURCE_FACET: {"identifiers": dict(identifiers)}}
+    if history is not None:
+        facets[stored.IDENTIFIER_CORRECTION_FACET] = {"entries": [dict(e) for e in history]}
+    address = node_id or source.source_address(identifiers)
+    assert address is not None
+    node = Node(
+        id=address,
+        kind="source",
+        title="paper",
+        facets=facets,
+        deprecated_ids=list(deprecated),
+    )
+    return stored.stamp_semantic_identity(node)
+
+
+def entry(frm, to, *, actor="curator", grounds="checked the PDF", token="t1"):
+    return {"from": dict(frm), "to": dict(to), "actor": actor, "grounds": grounds, "event_token": token}
+
+
+A = {"pmid": "1"}
+B = {"doi": CANONICAL_DOI, "pmid": "1"}
+ADDR_A = cast(str, source.source_address(A))
+ADDR_B = cast(str, source.source_address(B))
+
+
+class TestReaders:
+    def test_source_basis_and_address_of(self):
+        node = raw_source(B)
+        assert stored.source_basis(node) == ("doi", CANONICAL_DOI)
+        assert stored.source_address_of(node) == node.id == ADDR_B
+
+    def test_no_history_reads_empty(self):
+        assert stored.identifier_corrections(raw_source(A)) == ()
+
+    def test_a_well_formed_history_reads_back(self):
+        node = raw_source(B, history=[entry(A, B)], deprecated=[ADDR_A])
+        (correction,) = stored.identifier_corrections(node)
+        assert correction.from_identifiers == A and correction.to_identifiers == B
+        assert isinstance(correction.from_identifiers, MappingProxyType)
+        assert isinstance(correction.to_identifiers, MappingProxyType)
+        assert (correction.actor, correction.grounds, correction.event_token) == (
+            "curator",
+            "checked the PDF",
+            "t1",
+        )
+
+    def test_held_addresses(self):
+        assert stored.held_source_addresses(
+            stored.identifier_corrections(raw_source(B, history=[entry(A, B)], deprecated=[ADDR_A]))
+        ) == {ADDR_A, ADDR_B}
+
+    def test_validate_source_history_accepts_the_agreeing_redirect(self):
+        node = raw_source(B, history=[entry(A, B)], deprecated=[ADDR_A])
+        assert len(stored.validate_source_history(node)) == 1
+        assert stored.validate_source_history(raw_source(A)) == ()
+
+    @pytest.mark.parametrize(
+        "deprecated",
+        [
+            [],  # the retired address missing
+            [ADDR_A, ADDR_A],  # a duplicate
+            [ADDR_A, ADDR_B],  # the live address deprecated too
+            [ADDR_A, "source:" + "f" * 64],  # a retired address the history does not derive
+        ],
+        ids=["missing", "duplicate", "live-and-deprecated", "underived"],
+    )
+    def test_validate_source_history_refuses_a_disagreeing_redirect(self, deprecated):
+        node = raw_source(B, history=[entry(A, B)], deprecated=deprecated)
+        with pytest.raises(MalformedRecord):
+            stored.validate_source_history(node)
+
+    def test_an_unsorted_redirect_refuses(self):
+        two = {"pmid": "2"}
+        history = [entry(A, B, token="t1"), entry(B, two, token="t2")]
+        node = raw_source(two, history=history, deprecated=sorted([ADDR_A, ADDR_B], reverse=True))
+        with pytest.raises(MalformedRecord):
+            stored.validate_source_history(node)
+        assert (
+            len(
+                stored.validate_source_history(
+                    raw_source(two, history=history, deprecated=sorted([ADDR_A, ADDR_B]))
+                )
+            )
+            == 2
+        )
+
+    def test_a_history_free_source_with_a_deprecated_id_refuses(self):
+        with pytest.raises(MalformedRecord):
+            stored.validate_source_history(raw_source(B, deprecated=[ADDR_A]))
+
+    @pytest.mark.parametrize(
+        "history",
+        [
+            [],  # empty entries
+            [dict(entry(A, B), extra=1)],  # an extra key
+            [{k: v for k, v in entry(A, B).items() if k != "grounds"}],  # a missing key
+            [entry({}, B)],  # empty from
+            [entry(A, {})],  # empty to
+            [entry(A, {"doi": "10.1234/ABC.DEF", "pmid": "1"})],  # non-canonical value in a map
+            [entry(A, {"url": "x"})],  # unknown scheme in a map
+            [entry(A, B, actor="")],
+            [entry(A, B, grounds="")],
+            [entry(A, B, token="")],
+            [entry(A, B, grounds="\udcff")],  # a lone surrogate is not canonically encodable
+            [dict(entry(A, B), **{"from": None})],  # a null map: this reader's refusal, never NullRefused
+            [entry(A, B, token="t"), entry(B, {"pmid": "2"}, token="t")],  # duplicate token
+            [entry(A, B), entry({"pmid": "9"}, {"pmid": "2"}, token="t2")],  # continuity broken
+        ],
+    )
+    def test_malformed_shapes_refuse(self, history):
+        node = raw_source(
+            B if history and history[-1]["to"] == B else {"pmid": "2"},
+            history=history,
+            deprecated=[ADDR_A],
+        )
+        with pytest.raises(MalformedRecord):
+            stored.identifier_corrections(node)
+
+    def test_from_equal_to_refuses_and_nothing_else_does(self):
+        # The one fixture that violates only the from != to clause: continuity holds,
+        # the entry ends at the current identifiers, and the redirect set is empty.
+        node = raw_source(A, history=[entry(A, A)], deprecated=[])
+        with pytest.raises(MalformedRecord, match="from and to are equal"):
+            stored.identifier_corrections(node)
+
+    def test_the_last_entry_must_end_at_the_current_identifiers(self):
+        node = raw_source({"pmid": "7"}, history=[entry(A, B)], deprecated=[ADDR_A])
+        with pytest.raises(MalformedRecord):
+            stored.identifier_corrections(node)
+
+    def test_the_facet_must_be_a_mapping_with_entries_only(self):
+        node = raw_source(B)
+        node.facets[stored.IDENTIFIER_CORRECTION_FACET] = {"entries": [entry(A, B)], "note": 1}
+        with pytest.raises(MalformedRecord):
+            stored.identifier_corrections(node)
