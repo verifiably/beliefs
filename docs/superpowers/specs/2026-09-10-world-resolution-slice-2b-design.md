@@ -4,7 +4,9 @@
 W1, W2 and W5a closed. Task `beliefs-b7994b`, under `beliefs-d248ba`. Sibling of slice 2
 (`2026-09-10-world-resolution-slice-2-design.md`), which re-filed W1, W2 and
 W5a here (§1 and §12 there). Frozen as **conformance cut 25** after the selected
-acceptance and sabotage checks passed.
+acceptance and sabotage checks passed. The 2026-09-11 final-review supplement
+(cut 25 §8) completes §10.4 history-free redirect sabotage coverage: 24 frozen
+declarations, 25 live audited arms, with the original freeze preserved.
 
 Amends: world addressing §4.2 (the `source` row) and §4.4 (an enrichment
 shape); the address ruling §4.1 (the source renderer reads the basis); the
@@ -506,6 +508,17 @@ dataset revision's resource-preservation comparison in
 `_revise_dataset_locked` (the W5a dataset arm's protection, which no earlier
 cut sabotages). Each sabotage is validated against its actual site and its
 named checks before the accounting freezes.
+
+**Post-freeze coverage correction, 2026-09-11:** the frozen table's W5a-k
+weakens redirect list equality to set equality; its fixtures have history and
+do not prove the separately required history-free clause. Supplemental W5a-o
+in `test_n2_cut25.py` changes `if list(node.deprecated_ids) != expected:` to
+`if history and list(node.deprecated_ids) != expected:` in `stored.py`, selecting
+the existing history-free refusal checks in `TestReaders` and `TestTheBoundary`.
+The live export includes all 25 arms for the existing audit and portable
+staleness checks. Cut 25 §8 records the controller-authorized supplement; the
+24 frozen declarations, original §§2–7 and freeze/hash pins are preserved.
+The runner's declaration-file accounting remains `24/3/3`.
 
 ### 10.5 The cut
 

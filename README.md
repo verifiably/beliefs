@@ -92,7 +92,7 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-09-08-conformance-cut-22.md` | the discharged biology-pack cut: B1–B7, the cross-contract consulted walk, domain-facet read, and packaged biology contract |
 | `2026-09-09-conformance-cut-23.md` | the discharged world-read cut: the world read view, cross-corpus traversal, covered absence, and cross-corpus verification |
 | `2026-09-10-conformance-cut-24.md` | the discharged coreference-attestation cut: the governed record, populated balance, receipt completeness, endpoint refusals, and unchanged read side |
-| `2026-09-10-conformance-cut-25.md` | the discharged source-address cut: normalized identifier-derived addresses, attributed identifier correction, W1/W2/W5a closed, and 24 N2 arms |
+| `2026-09-10-conformance-cut-25.md` | the discharged source-address cut: normalized identifier-derived addresses, attributed identifier correction, W1/W2/W5a closed, 24 frozen N2 declarations and 25 live audited arms (dated supplement in §8) |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and

@@ -775,10 +775,10 @@ order (slice 2b §3). A closed set: a fallback derived from title and year is
 exactly the coercion the row refuses."""
 ```
 
-Cut 4's frozen arm `W3[8]` sabotages the old literal and cut 4 is cited-not-run, so in `python/tests/cited_not_run.py` add to the `cut=4` entry's `stale_arms` (keep the existing entries; use the sha of this task's commit once made — amend the commit after the first pass to insert it):
+Cut 4's frozen arm `W3[8]` sabotages the old literal and cut 4 is cited-not-run, so in `python/tests/cited_not_run.py` add to the `cut=4` entry's `stale_arms` (keep the existing entries; cite retained last-matching parent `28f1005`, as recorded in the committed cited-not-run metadata):
 
 ```python
-            "W3[8]": "moved at <sha>, when slice 2b made source.SCHEMES the one accepted tuple (2026-09-10)",
+            "W3[8]": "retired by slice 2b tuple migration, 2026-09-11; last matching parent 28f1005",
 ```
 
 Then replace lines 736–737 with:
@@ -2311,7 +2311,7 @@ def unit_of(row: str) -> str:
     return unit
 ```
 
-One `Arm` per spec §10.4 mechanism; each `before` is an exact substring occurring once in its module, each `after` the weakening, and each `checks` tuple names tests whose fixture violates **only** the invariant the sabotage removes — an arm whose check survives its sabotage is vacuous and fails the audit. The 24 arms:
+One `Arm` per spec §10.4 mechanism; each `before` is an exact substring occurring once in its module, each `after` the weakening, and each `checks` tuple names tests whose fixture violates **only** the invariant the sabotage removes — an arm whose check survives its sabotage is vacuous and fails the audit. The original 24-arm table below omitted the history-free mechanism; the dated Task 10 review correction below records its supplemental live arm. The frozen declarations remain unchanged:
 
 | row | module | sabotage (`before` → `after`) | checks (each fails under the sabotage) |
 |---|---|---|---|
@@ -2374,7 +2374,19 @@ git add python/tests/acceptance/n2_arms_cut25.py python/tests/acceptance/test_n2
 git commit -m "test(cut25): N2 arms, audit and runner for derived source addresses"
 ```
 
-**Task 10 evidence (2026-09-11):** 24 arms sound; final full `cut25_acceptance.py` exited 0 with the cut 24 prefix chain green, 20 source acceptance checks passed, and 7 N2 checks passed with the one planned `not yet frozen` skip. The sharpened W5a-c mutant fails on referrer byte differences. Permit migration, staleness and frozen guards passed 140 checks; `just check` passed. Main cited staleness 26 → 28 is exactly cut 4 W3[6]/W3[8]; cut 16 M3a adds one displaced declaration but its live adapter matches, leaving live staleness zero. Cut 25 remains draft and Task 11 owns freeze/discharge and the final root test gate.
+**Task 10 evidence (2026-09-11):** 24 arms sound; final full `cut25_acceptance.py` exited 0 with the cut 24 prefix chain green, 20 source acceptance checks passed, and 7 N2 checks passed with the one planned `not yet frozen` skip. The sharpened W5a-c mutant fails on referrer byte differences. Permit migration, staleness and frozen guards passed 140 checks; `just check` passed. Main cited staleness 26 → 28 is exactly cut 4 W3[6]/W3[8]; cut 16 M3a adds one displaced declaration but its live adapter matches, leaving live staleness zero. At that point cut 25 remained draft; Task 11 subsequently completed freeze/discharge and the final root test gate.
+
+**Task 10 final-review correction (2026-09-11):** I1 identified that frozen W5a-k
+weakens list equality but does not sabotage the history-free redirect refusal
+required by design §10.4. The controller authorized supplemental live W5a-o in
+`test_n2_cut25.py`: the `stored.py` guard gains `history and`, selected by both
+existing history-free refusal checks. The existing baseline, exact-site,
+uniqueness, no-reclaim and soundness loops now cover 25 live arms across the same
+three units; portable staleness reads this exported live tuple. The frozen
+24-arm declaration, cut §§2–7, freeze commit and digest stay unchanged.
+`cut25_acceptance.py` still reports historical declared accounting `24/3/3`;
+cut 25 §8 records the supplement. M1 replaces Task 3's self-amending SHA recipe
+with the actual retained last-matching parent `28f1005`.
 
 ---
 

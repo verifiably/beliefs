@@ -170,3 +170,46 @@ implementation evidence received controller review before Task 11 froze.
 4. Precedence can give one work two addresses; a shared secondary identifier is
    a future audit finding, never automatic identity inference.
 5. The source label renderer is unbuilt; W14 belongs to slice 4.
+
+## 8. Post-freeze coverage correction — 2026-09-11
+
+Final review found a missing design §10.4 mechanism: frozen W5a-k weakens
+redirect list equality to set equality, but its fixtures have correction
+history. It does not remove only the history-free redirect refusal. The
+production guard was correct; the controller authorized this supplemental
+live proof while preserving the original discharge evidence.
+
+`python/tests/acceptance/test_n2_cut25.py` retains the frozen declaration under
+`FROZEN_CUT25_ARMS` and exports `CUT25_ARMS` with supplemental **W5a-o**. In
+`stored.py`, its exact unique source mutation is:
+
+```python
+    if list(node.deprecated_ids) != expected:
+```
+
+changed to:
+
+```python
+    if history and list(node.deprecated_ids) != expected:
+```
+
+It selects both existing independent checks:
+
+- `test_source_address.py::TestReaders::test_a_history_free_source_with_a_deprecated_id_refuses`
+- `test_identifier_correction.py::TestTheBoundary::test_a_history_free_source_with_a_deprecated_id_refuses`
+
+Both checks pass without sabotage and fail under this mutation. The existing
+baseline, exact-site, uniqueness, no-reclaim and soundness loops include the
+supplement: **25 live audited arms**, across the same three declaration units.
+Portable staleness reads the guard's live `CUT25_ARMS`, so this arm also refuses
+a displaced source matcher.
+
+Historical accounting remains **24 frozen declared arms**, three declaration
+units and three closed rows. The runner's `declared_accounting` reads the frozen
+declaration file and therefore remains `24/3/3`; it executes the live audit as
+its existing phase. `n2_arms_cut25.py` and this document's frozen §§2–7 remain
+byte-exact. The original freeze commit
+`50726094e7109dc9bad2754a85515580c8614127` and frozen-document SHA-256
+`05c17b94be314daf1aabf07c0f9750b1a41d8db30ba352fe0aec3977b11038b7`
+are unchanged. This dated supplement is outside that frozen body and does not
+rewrite the original discharge or create a new declaration unit.

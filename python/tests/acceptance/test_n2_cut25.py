@@ -8,7 +8,7 @@ from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -30,10 +30,30 @@ from n2_arms_cut21 import CUT21_ARMS
 from n2_arms_cut22 import CUT22_ARMS
 from n2_arms_cut23 import CUT23_ARMS
 from n2_arms_cut24 import CUT24_ARMS
-from n2_arms_cut25 import CO_CITED, CUT25_ARMS, DECLARATION_UNITS, unit_of
+from n2_arms_cut25 import CO_CITED, DECLARATION_UNITS, unit_of
+from n2_arms_cut25 import CUT25_ARMS as FROZEN_CUT25_ARMS
 from test_n2 import audit, baseline
 
 import beliefs.root as science_root
+
+# 2026-09-11: supplement the frozen 24 arms with design §10.4's history-free guard.
+# Export the live tuple so arm_staleness.audited_arms measures every audited arm.
+CUT25_ARMS = (
+    *FROZEN_CUT25_ARMS,
+    Arm(
+        row="W5a-o",
+        asserts="a history-free source cannot carry deprecated ids",
+        sabotage=Sabotage(
+            module="stored.py",
+            before="    if list(node.deprecated_ids) != expected:\n",
+            after="    if history and list(node.deprecated_ids) != expected:\n",
+        ),
+        checks=(
+            "test_source_address.py::TestReaders::test_a_history_free_source_with_a_deprecated_id_refuses",
+            "test_identifier_correction.py::TestTheBoundary::test_a_history_free_source_with_a_deprecated_id_refuses",
+        ),
+    ),
+)
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -106,7 +126,9 @@ def findings(tmp_path_factory):
 def test_the_inventory_is_exactly_the_three_declared_units() -> None:
     assert DECLARATION_UNITS == ("W1", "W2", "W5a")
     assert {unit_of(arm.row) for arm in CUT25_ARMS} == set(DECLARATION_UNITS)
-    assert len(CUT25_ARMS) == 24
+    assert {unit_of(arm.row) for arm in FROZEN_CUT25_ARMS} == set(DECLARATION_UNITS)
+    assert len(FROZEN_CUT25_ARMS) == 24
+    assert len(CUT25_ARMS) == 25
 
 
 def test_each_lettered_arm_is_unique_and_carries_an_exact_check() -> None:
@@ -129,7 +151,7 @@ def test_each_sabotage_names_one_real_source_site() -> None:
         assert target.read_text(encoding="utf-8").count(arm.sabotage.before) == 1, arm.row
 
 
-def test_every_declared_check_resolves_and_passes_without_sabotage() -> None:
+def test_every_live_check_resolves_and_passes_without_sabotage() -> None:
     every = Arm(
         row="N2",
         asserts="every cut-25 check passes against the real package",
@@ -148,9 +170,8 @@ def test_every_arm_fails_under_its_own_sabotage(findings) -> None:
 def _frozen_body(text: str) -> str:
     """§§2–7: from the boundary heading to the first heading past the limitations.
 
-    No §8 exists yet on this cut, so the slice runs to the end of the file
-    either way; the same slicing rule as cut 19's is kept so a later mechanism
-    amendment (were one ever added) is excluded the same way.
+    The dated supplemental live-arm evidence in §8 is outside the original
+    freeze, using the same slicing rule as cut 19.
     """
     start = text.index("## 2. The boundary")
     end = text.index("\n## 8.", start) if "\n## 8." in text[start:] else len(text)
