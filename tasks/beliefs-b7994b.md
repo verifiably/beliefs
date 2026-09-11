@@ -1,12 +1,13 @@
 ---
 id: beliefs-b7994b
 title: "World resolution slice 2b: source addresses derived from the normalized identifier"
-status: doing
+status: done
 priority: 2
 size: l
 owner: world-resolution-slice-2b
 created: 2026-09-10T09:18:24Z
-updated: 2026-09-11T00:28:23Z
+updated: 2026-09-11T12:57:46Z
+completed: 2026-09-11T12:57:46Z
 depends: [beliefs-113561]
 parent: beliefs-d248ba
 tags: [world-read]
@@ -19,3 +20,4 @@ Re-filed from beliefs-113561 on 2026-09-10 by the slice 2 design (docs/superpowe
 ## Notes
 
 - 2026-09-10T23:34:41Z (world-resolution-slice-2b): Design written 2026-09-10 (docs/superpowers/specs/2026-09-10-world-resolution-slice-2b-design.md): digest address under science.source-address.v1, fixed precedence doi>pmid>isbn>accession, canonicalize-and-refuse, correction attributed in an identifier-correction facet via a session-mediated corpus-write (no new operation kind: cut 19 J1e pins OPERATION_KINDS), consolidate refuses divergent histories, dataset re-addressing filed as a sibling.
+- 2026-09-11T12:57:46Z (world-resolution-slice-2b): Slice 2b landed: derived source addresses, correct_identifier, cut 25 frozen at 50726094e7109dc9bad2754a85515580c8614127; W1, W2, W5a closed

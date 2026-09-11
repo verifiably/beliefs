@@ -2421,11 +2421,13 @@ and staleness/frozen guards passed 14 checks. Cut 25 froze at
 `05c17b94be314daf1aabf07c0f9750b1a41d8db30ba352fe0aec3977b11038b7`;
 the unskipped pin audit then passed 8 checks.
 
-- [ ] **Step 5: Close the task**
+- [x] **Step 5: Close the task**
 
 ```bash
-tasks done beliefs-b7994b "Slice 2b landed: derived source addresses, correct_identifier, cut 25 frozen at <sha>; W1, W2, W5a closed"
-git add -A && git commit -m "chore(tasks): close beliefs-b7994b"
+TASKS_SESSION=codex-implement-11 tasks done beliefs-5e882c "Documentation synchronized, follow-ups filed, gates passed, and cut 25 frozen at 50726094e7109dc9bad2754a85515580c8614127 with pin audit green"
+TASKS_SESSION=codex-implement-11 tasks done beliefs-b7994b "Slice 2b landed: derived source addresses, correct_identifier, cut 25 frozen at 50726094e7109dc9bad2754a85515580c8614127; W1, W2, W5a closed"
+git add docs/superpowers/plans/2026-09-10-world-resolution-slice-2b.md tasks/beliefs-5e882c.md tasks/beliefs-b7994b.md
+git commit -m "chore(tasks): close beliefs-b7994b"
 ```
 
-Then hand the branch to `superpowers:finishing-a-development-branch`.
+Then hand the branch to the controller for final review.
