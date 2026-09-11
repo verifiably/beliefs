@@ -38,8 +38,8 @@ import beliefs.root as science_root
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-10-conformance-cut-25.md"
-CUT25_FREEZE_COMMIT = ""
-CUT25_FROZEN_SHA256 = ""
+CUT25_FREEZE_COMMIT = "50726094e7109dc9bad2754a85515580c8614127"
+CUT25_FROZEN_SHA256 = "05c17b94be314daf1aabf07c0f9750b1a41d8db30ba352fe0aec3977b11038b7"
 
 FROZEN_PRIOR_CUT_FILES = {
     "python/tests/n2_arms_cut3.py": "1e92471",
@@ -168,8 +168,6 @@ def _show(commit: str, path: str) -> str:
 
 def test_the_freeze_commit_and_sections_two_through_seven_are_pinned() -> None:
     """Once frozen, §§2–7 are byte-exact against the freeze commit."""
-    if not CUT25_FREEZE_COMMIT:
-        pytest.skip("not yet frozen")
     assert (
         subprocess.run(
             ["git", "-C", str(REPO_ROOT), "merge-base", "--is-ancestor", CUT25_FREEZE_COMMIT, "HEAD"],
@@ -182,7 +180,7 @@ def test_the_freeze_commit_and_sections_two_through_seven_are_pinned() -> None:
     assert sha256(frozen.encode("utf-8")).hexdigest() == CUT25_FROZEN_SHA256
     assert _frozen_body(current) == _frozen_body(frozen)
     assert "**3 declaration units**" in current
-    assert "Three guarantee rows are read, **0 full/closed** until discharge" in current
+    assert "Three guarantee rows are read, **3 full/closed** (W1, W2, W5a)" in current
     assert '("cut24_acceptance.py",)' in current
 
 

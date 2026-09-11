@@ -2408,9 +2408,18 @@ tasks add "Reconcile divergent identifier-correction histories at consolidate" -
 tasks add "The contract names stored.source_assertion_value, which does not exist" --status idea --tag contract -b "contracts/science/CONTRACT.yaml declares source-assertion's reader as stored.source_assertion_value; no such function is defined in stored.py and no source-assertion builder exists, so the kind cannot be minted through a builder or read through its declared reader. Found 2026-09-10 while looking for a source referrer in slice 2b."
 ```
 
-- [ ] **Step 4: Verify, then freeze**
+- [x] **Step 4: Verify, then freeze**
 
 Run the gate from the repository root: `just check && just test` (python, typescript and `tasks check` together), then `cd python && uv run --frozen python tools/cut25_acceptance.py`, then `uv run --frozen pytest tests/test_arm_staleness.py tests/test_frozen_guards.py`. With everything green: set the cut document's §4 to the discharged accounting (`**3 declaration units**`, "Three guarantee rows are read, **3 full/closed** (W1, W2, W5a)"), mark W1/W2/W5a closed in the spec's status line and the cut document, commit as `docs(cut25): freeze conformance cut 25`, then fill `CUT25_FREEZE_COMMIT` (full sha) and `CUT25_FROZEN_SHA256` (`sha256sum docs/designs/2026-09-10-conformance-cut-25.md`) in `test_n2_cut25.py`, remove its skip guard, run it, and commit `test(cut25): pin the freeze`.
+
+**Task 11 freeze evidence (2026-09-11):** after the five bounded integration
+corrections, `just check` exited 0, `just test` exited 0 with 4476 Python and
+142 TypeScript tests passed, the cut 25 runner exited 0 with the cut 24 prefix,
+20 source checks and 7 N2 checks passed plus the planned pre-freeze pin skip,
+and staleness/frozen guards passed 14 checks. Cut 25 froze at
+`50726094e7109dc9bad2754a85515580c8614127`, document sha256
+`05c17b94be314daf1aabf07c0f9750b1a41d8db30ba352fe0aec3977b11038b7`;
+the unskipped pin audit then passed 8 checks.
 
 - [ ] **Step 5: Close the task**
 
