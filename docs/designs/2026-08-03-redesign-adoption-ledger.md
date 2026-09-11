@@ -38,7 +38,7 @@ organization rather than a personal account, so governance and long-term
 stewardship are not tied to one individual. §5 records the namespace and
 decomposition rulings that follow from it.
 
-## Current state (2026-09-10)
+## Current state (2026-09-11)
 
 This section is the one place that states what is built and what remains to
 build. Every other live surface — the README and the contributor guide — links
@@ -220,7 +220,7 @@ roadmap to one set of ids.
 
 The artifact rows and §3 preserve the dated adoption history; their original
 "awaits implementation" statements describe those earlier cuts. Use
-[Current state](#current-state-2026-09-10) for the live remainder.
+[Current state](#current-state-2026-09-11) for the live remainder.
 
 > **Artifact status reconciliation (2026-09-10, through cut 24).** Row 5's
 > general intent qualification closed at cut 11 and G4 at cut 12; its live

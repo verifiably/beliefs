@@ -1,6 +1,6 @@
 # Implementation roadmap
 
-**Ranked at:** cut 24, against the ledger's Current state (2026-09-10); live row
+**Ranked at:** cut 24, against the ledger's Current state (2026-09-11); live row
 status updated through cut 25 on 2026-09-11
 **Method:** `../superpowers/specs/2026-08-29-implementation-roadmap-design.md`,
 as amended 2026-09-05 — tier 1 is ordered by distance to the dogfood success
@@ -15,7 +15,7 @@ carries no dated corrections, and the previous ranking survives only in git
 history.
 
 The adoption ledger's `Current state` table
-(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-10`)
+(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-11`)
 is the authority for *what* is open; this document is the authority for *in
 what order*. The two name the same boundaries by id, and
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds them to it.
