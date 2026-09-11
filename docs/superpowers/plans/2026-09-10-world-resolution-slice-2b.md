@@ -1844,7 +1844,7 @@ def test_w5a_dataset_arm_a_rehold_is_a_new_entity(world):
     )
     assert reheld.id != d.id and stored.dataset_declaration(reheld) != stored.dataset_declaration(d)
     run = left.read_view.get("run:r1")  # mint_eligible_assessment's run; AssessmentValue.run is the closure address, not the id
-    assert [e.target for e in left.read_view.outbound(assessment.id) if e.predicate == stored.PRODUCED_BY] == [run.id] if hasattr(stored, "PRODUCED_BY") else True
+    assert [e.target for e in left.read_view.outbound(assessment.id) if e.predicate == stored.PRODUCED_BY] == [run.id]
     observed = [r.target for r in run.relations if r.predicate == stored.OBSERVES]
     assert observed == [d.id] and reheld.id not in observed
     assert left.read_view.get(d.id).facets[stored.DATASET_FACET] == d.facets[stored.DATASET_FACET]
