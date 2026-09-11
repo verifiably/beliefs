@@ -26,7 +26,7 @@ from test_n2 import audit, baseline
 
 import beliefs.root as science_root
 
-# Live facet-contract matcher migration, 2026-09-07; canonical table remains frozen at 1d8f293.
+# Live facet-contract matcher migration, 2026-09-07; canonical table remains frozen at c367070.
 _LIVE_SABOTAGES = {
     "E1c": Sabotage(
         module="corpus.py",

@@ -353,3 +353,10 @@ arms, S1, S1a, S5's cross-corpus reach, D3, X12's and M3's coreference arms,
 and R23's snapshot, coverage, divergence and explicit-import clauses. On the
 path, the next boundary is the `domain` lane's biology pack — slice 2 of
 `domain-boundary`.
+
+## Citation amendment — 2026-09-11
+
+The live guard’s cut-17 declaration pin is re-cited from orphaned `1d8f293`
+to landed `c367070`. Git confirms identical `n2_arms_cut17.py` bytes at both
+commits. This corrects a remaining address from the 2026-09-05 history rewrite;
+the frozen declarations and discharge evidence are unchanged.

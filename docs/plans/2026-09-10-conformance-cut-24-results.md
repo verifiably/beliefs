@@ -251,3 +251,10 @@ After the successful gate, the merged worktree and local feature branch were
 removed. No push was performed. This subsequent integration record changes
 only documentation and task evidence; the tested runtime and tests remain
 unchanged.
+
+## Citation amendment — 2026-09-11
+
+The live guard’s cut-17 declaration pin is re-cited from orphaned `1d8f293`
+to landed `c367070`. Git confirms identical `n2_arms_cut17.py` bytes at both
+commits. This corrects a remaining address from the 2026-09-05 history rewrite;
+the frozen declarations and discharge evidence are unchanged.

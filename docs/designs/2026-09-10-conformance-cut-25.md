@@ -213,3 +213,10 @@ byte-exact. The original freeze commit
 `05c17b94be314daf1aabf07c0f9750b1a41d8db30ba352fe0aec3977b11038b7`
 are unchanged. This dated supplement is outside that frozen body and does not
 rewrite the original discharge or create a new declaration unit.
+
+## 9. Citation amendment — 2026-09-11
+
+The live guard’s cut-17 declaration pin is re-cited from orphaned `1d8f293`
+to landed `c367070`. Git confirms identical `n2_arms_cut17.py` bytes at both
+commits. This corrects a remaining address from the 2026-09-05 history rewrite;
+the frozen declarations and this document’s frozen §§2–7 are unchanged.

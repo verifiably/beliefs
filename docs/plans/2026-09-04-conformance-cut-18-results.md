@@ -411,3 +411,10 @@ C3 stays with `correction-remainder`, which is now the mutation lane's only
 open boundary. T2's other operation-family clauses stay with
 `act-report-remainder`; `delete` adds no arm to them. L13 stays with
 `l13-preimage`, unmoved by this cut.
+
+## Citation amendment — 2026-09-11
+
+The live guard’s cut-17 declaration pin is re-cited from orphaned `1d8f293`
+to landed `c367070`. Git confirms identical `n2_arms_cut17.py` bytes at both
+commits. This corrects a remaining address from the 2026-09-05 history rewrite;
+the frozen declarations and discharge evidence are unchanged.

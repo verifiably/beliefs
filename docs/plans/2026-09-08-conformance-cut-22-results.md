@@ -120,3 +120,10 @@ the cross-repository negative that adds a domain-aware code path to `nodes`.
 GO, HP, EFO and MONDO remain unmeasured limitations rather than promised
 contents of the shipped pack. The next on-path implementation boundary is
 `world-resolution`.
+
+## Citation amendment — 2026-09-11
+
+The live guard’s cut-17 declaration pin is re-cited from orphaned `1d8f293`
+to landed `c367070`. Git confirms identical `n2_arms_cut17.py` bytes at both
+commits. This corrects a remaining address from the 2026-09-05 history rewrite;
+the frozen declarations and discharge evidence are unchanged.

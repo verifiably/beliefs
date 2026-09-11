@@ -61,7 +61,7 @@ FROZEN_PRIOR_CUT_FILES = {
     "python/tests/acceptance/n2_arms_cut14.py": "f982778",
     "python/tests/acceptance/n2_arms_cut15.py": "8a4d43b",
     "python/tests/n2_arms_cut16.py": "b0882d3",
-    "python/tests/acceptance/n2_arms_cut17.py": "1d8f293",
+    "python/tests/acceptance/n2_arms_cut17.py": "c367070",
     "python/tests/n2_arms_cut18.py": "e0bc65c",
 }
 
