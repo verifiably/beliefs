@@ -47,7 +47,7 @@ def test_adopt_manifest_writes_only_the_held_profiles_pins(tmp_path):
     assert list(tmp_path.rglob("*")) == []
 
 
-@pytest.mark.parametrize("path", ["add", "delete", "revise", "import", "intent", "port-execute", "port-fulfilling"])
+@pytest.mark.parametrize("path", ["add", "delete", "revise", "correct-identifier", "import", "intent", "port-execute", "port-fulfilling"])
 def test_every_write_path_rechecks_the_pins_after_a_manifest_change(tmp_path, path):
     tmp_path = tmp_path / path
     writer, port = _writer(tmp_path, WITH_BIOLOGY)
@@ -62,6 +62,8 @@ def test_every_write_path_rechecks_the_pins_after_a_manifest_change(tmp_path, pa
             writer.delete(p.id)
         elif path == "revise":
             writer.revise(p.model_copy(update={"title": "renamed"}))
+        elif path == "correct-identifier":
+            writer.correct_identifier("source:nowhere", {"pmid": "1"}, grounds="g")
         elif path == "import":
             writer.import_bundle([q], observer="o", instrument="i", opened_at="T0", closed_at="T1")
         elif path == "intent":

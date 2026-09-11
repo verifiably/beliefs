@@ -48,7 +48,7 @@ from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 from nodes.core.structural_index import Index, ResolvedEdge
-from nodes.core.write_plan import CreateOp, DeleteOp, WritePlan, WritePlanExecutor
+from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp, WritePlan, WritePlanExecutor
 from pydantic import ValidationError as PydanticValidationError
 from pydantic_core import PydanticSerializationError
 from yaml import YAMLError
@@ -81,6 +81,7 @@ from beliefs.errors import (
     CoordinationKindUnsupported,
     CoordinationUnavailable,
     CoreferenceEndpointRefused,
+    CorrectionRefused,
     DeletionKindExcluded,
     DeletionTargetMissing,
     EligibilityUnmet,
@@ -204,7 +205,10 @@ class Finding:
 
 
 def validated_node(node: Node) -> Node:
-    """Validate the semantic identity stamp on a fetched governed record."""
+    """Validate a fetched record's semantic stamp and source correction history.
+
+    A malformed source history raises `FacetPayloadRefused`.
+    """
     if stored.semantic_hash_missing(node):
         raise SemanticHashMissing(
             f"{node.id}: a {node.kind!r} carries no semantic-identity stamp "
@@ -270,8 +274,9 @@ class ReadView:
     # --- fetching -----------------------------------------------------------
 
     def get(self, ref: str) -> Node:
-        """Fetch one node, refusing a stale semantic hash (`semantic-hash-stale`)
-        and an unstamped governed kind (`semantic-hash-missing`).
+        """Fetch one node, refusing a stale semantic hash (`semantic-hash-stale`),
+        an unstamped governed kind (`semantic-hash-missing`), and a malformed
+        source correction history (`FacetPayloadRefused`).
 
         The stale refusal is S3's read-side check; the missing refusal is the
         2026-08-18 review's strengthening — a governed kind is minted stamped
@@ -2197,6 +2202,85 @@ class CorpusWriter:
             self._resolve_coreference_endpoints(record, attestation, self._view if view is None else view)
             self._refuse(record, document_validated=True)
             return self._corpus.add(record)
+
+    def correct_identifier(self, ref: str, identifiers: Mapping[str, object], *, grounds: str) -> Node:
+        """Change a source's identifiers under one attributed assertion — "same
+        work; the removed identifiers were erroneous" (slice 2b §6). The
+        address moves iff the selected basis changes; the old address is
+        retained in `deprecated_ids`; `uid` is preserved; no referrer is read
+        or rewritten. One executor submission."""
+        self._authority.require("corpus-write", ("source",))
+        with self._operation:
+            self._require_pins_agree()
+            live = self._view.resolve(ref)
+            if live is None:
+                raise CorrectionRefused(f"{ref!r}: no record resolves in this corpus", reason="target-missing")
+            subject = self._view.get(live)
+            if subject.kind != "source":
+                raise CorrectionRefused(f"{subject.id}: correct_identifier operates on sources only", reason="not-a-source")
+            self._refuse_source(subject, provenance=True)
+            canonical = source_basis_projection.normalized_identifiers(
+                cast(Mapping[object, object], identifiers)
+            )
+            for scheme, value in canonical.items():
+                if identifiers[scheme] != value:
+                    raise IdentifierMalformed(
+                        f"{subject.id}: {scheme} identifier {identifiers[scheme]!r} is not canonical; the seam does not normalize",
+                        scheme=scheme, value=identifiers[scheme], reason="non-canonical",
+                    )
+            if not canonical:
+                raise BasisMissing(f"{subject.id}: a correction supplies at least one accepted external identifier")
+            if type(grounds) is not str or not grounds:
+                raise CorrectionRefused(f"{subject.id}: grounds are a non-empty string", reason="grounds-empty")
+            try:
+                v1.encode(grounds)
+            except LoneSurrogate as caught:
+                raise CorrectionRefused(f"{subject.id}: grounds are not canonically encodable", reason="grounds-empty") from caught
+            current = dict(subject.facets[stored.SOURCE_FACET]["identifiers"])
+            if canonical == current:
+                raise CorrectionRefused(f"{subject.id}: the supplied identifiers equal the current ones", reason="unchanged")
+
+            successor = subject.model_copy(deep=True)
+            successor.facets[stored.SOURCE_FACET]["identifiers"] = canonical
+            history = successor.facets.setdefault(stored.IDENTIFIER_CORRECTION_FACET, {"entries": []})
+            history["entries"].append(
+                {
+                    "from": current,
+                    "to": dict(canonical),
+                    "actor": self._authority.actor,
+                    "grounds": grounds,
+                    "event_token": secrets.token_hex(16),
+                }
+            )
+            new_address = stored.source_address_of(successor)
+            assert new_address is not None
+            successor.id = new_address
+            # Derive the redirect set first; the completed successor is validated below through the
+            # one validator, which requires deprecated_ids to be exactly this.
+            held = stored.held_source_addresses(stored.identifier_corrections(successor))
+            successor.deprecated_ids = sorted(held - {new_address})
+            stored.stamp_semantic_identity(successor)
+
+            self._refuse_invalid(successor)
+            self._refuse_facets(successor, provenance=True)
+            self._refuse_source(successor, provenance=True)
+            self._refuse_governed_stamp(successor)
+            content = self._refuse_rendering(successor)
+            holder = self._corpus.index.resolve_uid(new_address)
+            if holder is not None and holder != subject.uid:
+                raise CollisionRefused(f"{new_address} is held by another record ({holder})")
+
+            old_path = self._relative_path(subject)
+            new_path = self._relative_path(successor)
+            expected = self._corpus.manifest[old_path].sha256
+            plan: list[CreateOp | DeleteOp | ReplaceOp]
+            if new_path != old_path:
+                plan = [CreateOp(path=new_path, content=content), DeleteOp(path=old_path, expected_digest=expected)]
+            else:
+                plan = [ReplaceOp(path=new_path, content=content, expected_digest=expected)]
+            self._corpus.executor.execute(plan)
+            self._reconstruct()
+            return self._view.get(new_address)
 
     @staticmethod
     def _validated_coreference(record: Node) -> stored.CoreferenceAttestation:

@@ -1047,6 +1047,20 @@ class SourceAddressDisagreement(WriteRefused):
     wrong address, which is what a handle-addressed or hand-edited source is."""
 
 
+class CorrectionRefused(WriteRefused):
+    """`correct_identifier` refused before any effect (slice 2b §6.1): one
+    class, a closed reason. Identifier form refusals are `IdentifierMalformed`
+    and an empty basis is `BasisMissing`; these are the seam's own."""
+
+    REASONS = ("target-missing", "not-a-source", "grounds-empty", "unchanged")
+
+    def __init__(self, message: str, *, reason: str) -> None:
+        if reason not in self.REASONS:
+            raise ValueError(f"{reason!r} is not a correction refusal reason")
+        super().__init__(message)
+        self.reason = reason
+
+
 class RevisionTargetMissing(WriteRefused):
     """The supplied `(uid, id)` pair does not identify a local node."""
 

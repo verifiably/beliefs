@@ -1216,14 +1216,16 @@ git commit -m "feat(corpus): read paths validate the identifier-correction histo
 ### Task 6: `CorpusWriter.correct_identifier`
 
 **Files:**
-- Modify: `python/src/beliefs/corpus.py` — new method after `attest_coreference` (~line 2236)
+- Modify: `python/src/beliefs/corpus.py` — new method after `attest_coreference`
 - Modify: `python/src/beliefs/errors.py` — `CorrectionRefused`
 - Test: `python/tests/test_identifier_correction.py` (append)
+- Test: `python/tests/test_profile_agreement.py` (existing write-path pin parameterization)
+- Adjacent docs: `validated_node` and `ReadView.get` now name source-history `FacetPayloadRefused`.
 
 **Interfaces:**
 - Produces: `CorpusWriter.correct_identifier(ref: str, identifiers: Mapping[str, object], *, grounds: str) -> Node`; `errors.CorrectionRefused(message, *, reason)` with `REASONS = ("target-missing", "not-a-source", "grounds-empty", "unchanged")`.
 
-- [ ] **Step 1: Add the error**
+- [x] **Step 1: Add the error**
 
 Append to `errors.py` after `SourceAddressDisagreement`; preserve the module's existing public-class export convention (it has no `__all__`):
 
@@ -1242,14 +1244,15 @@ class CorrectionRefused(WriteRefused):
         self.reason = reason
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Append to `python/tests/test_identifier_correction.py`:
 
 ```python
-from nodes.core.relations import Relation
+from authority import ACTOR, lacking
+from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp
 
-from beliefs.errors import CollisionRefused, CorrectionRefused
+from beliefs.errors import CollisionRefused, CorrectionRefused, PermitExceeded
 
 C = {"pmid": "2"}
 ADDR_C = source.source_address(C)
@@ -1260,15 +1263,32 @@ def minted_a(writer):
 
 
 class TestTheSeamRefusals:
+    def test_source_permit_refuses_before_resolution(self, tmp_path):
+        restricted = CorpusWriter(tmp_path / "restricted", Recorder, authority=lacking(kinds=("source",)), profile=BASE)
+        before = len(Recorder.plans)
+        with pytest.raises(PermitExceeded):
+            restricted.correct_identifier("source:nowhere", {"doi": "10.1/x"}, grounds="")
+        assert len(Recorder.plans) == before
+
+    def test_non_canonical_refusal_is_independent_of_insertion_order(self, writer):
+        minted = minted_a(writer)
+        for identifiers in (
+            {"pmid": "pmid:1", "doi": "10.1234/ABC"},
+            {"doi": "10.1234/ABC", "pmid": "pmid:1"},
+        ):
+            with pytest.raises(IdentifierMalformed) as caught:
+                writer.correct_identifier(minted.id, identifiers, grounds="g")
+            assert (caught.value.scheme, caught.value.reason) == ("doi", "non-canonical")
+
     def test_target_missing(self, writer):
         with pytest.raises(CorrectionRefused) as caught:
-            writer.correct_identifier("source:nowhere", B, grounds="g")
+            writer.correct_identifier("source:nowhere", {"doi": "10.1/x"}, grounds="")
         assert caught.value.reason == "target-missing"
 
     def test_not_a_source(self, writer):
         d = writer.add(stored.dataset_node("d", title="d", resources=[{"name": "d", "digest": "sha256:" + "1" * 64}]))
         with pytest.raises(CorrectionRefused) as caught:
-            writer.correct_identifier(d.id, B, grounds="g")
+            writer.correct_identifier(d.id, {"doi": "10.1/x"}, grounds="")
         assert caught.value.reason == "not-a-source"
 
     def test_a_raw_edited_subject_refuses_before_append(self, writer):
@@ -1285,12 +1305,12 @@ class TestTheSeamRefusals:
         raw_edit_history(writer, minted.id, move_identifiers)
         assert writer.read_view.get(minted.id).id == minted.id  # readable: the read path does not catch it
         with pytest.raises(SourceAddressDisagreement):
-            writer.correct_identifier(minted.id, B, grounds="g")
+            writer.correct_identifier(minted.id, {"doi": "10.1/x"}, grounds="")
 
     def test_malformed_supplied_identifiers(self, writer):
         minted = minted_a(writer)
         with pytest.raises(IdentifierMalformed) as caught:
-            writer.correct_identifier(minted.id, {"doi": "10.1/x"}, grounds="g")
+            writer.correct_identifier(minted.id, {"doi": "10.1/x"}, grounds="")
         assert caught.value.reason == "malformed"
 
     def test_non_canonical_supplied_map_refuses_before_unchanged(self, writer):
@@ -1302,13 +1322,13 @@ class TestTheSeamRefusals:
     def test_empty_map(self, writer):
         minted = minted_a(writer)
         with pytest.raises(BasisMissing):
-            writer.correct_identifier(minted.id, {}, grounds="g")
+            writer.correct_identifier(minted.id, {}, grounds="")
 
     @pytest.mark.parametrize("grounds", ["", "\udcff"])
     def test_grounds_empty_or_unencodable(self, writer, grounds):
         minted = minted_a(writer)
         with pytest.raises(CorrectionRefused) as caught:
-            writer.correct_identifier(minted.id, B, grounds=grounds)
+            writer.correct_identifier(minted.id, A, grounds=grounds)
         assert caught.value.reason == "grounds-empty"
 
     def test_unchanged(self, writer):
@@ -1323,7 +1343,7 @@ class TestTheSeamRefusals:
         with pytest.raises(CollisionRefused):
             writer.correct_identifier(minted.id, C, grounds="g")
 
-    def test_collision_with_another_records_retired_address(self, writer):
+    def test_collision_with_retired_address_of_another_record(self, writer):
         minted = minted_a(writer)
         other = writer.add(stored.source_node(title="other", identifiers=C))
         writer.correct_identifier(other.id, {"pmid": "3"}, grounds="g")  # C is now other's retired address
@@ -1338,7 +1358,7 @@ class TestTheSeamRefusals:
             lambda: writer.correct_identifier(minted.id, A, grounds="g"),
             lambda: writer.correct_identifier(minted.id, B, grounds=""),
         ):
-            with pytest.raises(Exception):
+            with pytest.raises(CorrectionRefused):
                 call()
         assert len(Recorder.plans) == before
         assert writer.read_view.get(minted.id).model_dump() == minted.model_dump()
@@ -1347,9 +1367,13 @@ class TestTheSeamRefusals:
 class TestTheSeamEffects:
     def test_moved_creates_and_deletes_preserving_uid(self, writer):
         minted = minted_a(writer)
+        before = len(Recorder.plans)
+        expected = writer._corpus.manifest[writer._relative_path(minted)].sha256
         corrected = writer.correct_identifier(minted.id, B, grounds="checked the PDF")
+        assert len(Recorder.plans) == before + 1
         plan = Recorder.plans[-1]
         assert [type(op) for op in plan] == [CreateOp, DeleteOp]
+        assert plan[1].expected_digest == expected
         assert corrected.uid == minted.uid and corrected.id == ADDR_B
         assert corrected.deprecated_ids == [ADDR_A]
         (correction,) = stored.identifier_corrections(corrected)
@@ -1359,7 +1383,11 @@ class TestTheSeamEffects:
 
     def test_unmoved_replaces_in_place(self, writer):
         minted = writer.add(stored.source_node(title="p", identifiers=B))
+        before = len(Recorder.plans)
+        expected = writer._corpus.manifest[writer._relative_path(minted)].sha256
         corrected = writer.correct_identifier(minted.id, {**B, "isbn": "9780306406157"}, grounds="g")
+        assert len(Recorder.plans) == before + 1
+        assert Recorder.plans[-1][0].expected_digest == expected
         assert [type(op) for op in Recorder.plans[-1]] == [ReplaceOp]
         assert corrected.id == minted.id and corrected.deprecated_ids == []
         assert len(stored.identifier_corrections(corrected)) == 1
@@ -1412,12 +1440,12 @@ class TestTheSeamEffects:
 
 `test_retract.retraction_for` hard-codes `grounds=("verification:v1",)`, so the test builds its own retraction naming the source; `content_identity` is `test_retract`'s helper. The retraction is the referrer; its file bytes must not change, and the old address must still resolve.
 
-- [ ] **Step 3: Run to verify they fail**
+- [x] **Step 3: Run to verify they fail**
 
 Run: `cd python && uv run --frozen pytest tests/test_identifier_correction.py -k "Seam"`
-Expected: FAIL — `AttributeError: 'CorpusWriter' object has no attribute 'correct_identifier'`.
+Observed: **20 failed, 13 deselected** — `AttributeError: 'CorpusWriter' object has no attribute 'correct_identifier'`.
 
-- [ ] **Step 4: Implement the seam**
+- [x] **Step 4: Implement the seam**
 
 Add to `CorpusWriter` after `attest_coreference`:
 
@@ -1438,12 +1466,14 @@ Add to `CorpusWriter` after `attest_coreference`:
             if subject.kind != "source":
                 raise CorrectionRefused(f"{subject.id}: correct_identifier operates on sources only", reason="not-a-source")
             self._refuse_source(subject, provenance=True)
-            canonical = source_basis_projection.normalized_identifiers(identifiers)
-            for scheme, value in identifiers.items():
-                if canonical[scheme] != value:
+            canonical = source_basis_projection.normalized_identifiers(
+                cast(Mapping[object, object], identifiers)
+            )
+            for scheme, value in canonical.items():
+                if identifiers[scheme] != value:
                     raise IdentifierMalformed(
-                        f"{subject.id}: {scheme} identifier {value!r} is not canonical; the seam does not normalize",
-                        scheme=scheme, value=value, reason="non-canonical",
+                        f"{subject.id}: {scheme} identifier {identifiers[scheme]!r} is not canonical; the seam does not normalize",
+                        scheme=scheme, value=identifiers[scheme], reason="non-canonical",
                     )
             if not canonical:
                 raise BasisMissing(f"{subject.id}: a correction supplies at least one accepted external identifier")
@@ -1500,16 +1530,21 @@ Add to `CorpusWriter` after `attest_coreference`:
             return self._view.get(new_address)
 ```
 
-Add `ReplaceOp` to the `nodes.core.write_plan` import and `CorrectionRefused`, `LoneSurrogate` to the errors import (check `LoneSurrogate` is imported; `v1` is). Note `_refuse_rendering` returns the rendered bytes — that is the content written, so the file is exactly the losslessly re-parsed form.
+Added `ReplaceOp` to the `nodes.core.write_plan` import and `CorrectionRefused` to the errors import; `LoneSurrogate` and `v1` were already imported. The mapping cast follows `stored.source_node` and preserves validation of runtime keys. Canonical comparisons iterate the sorted normalized map for deterministic diagnostics. Note `_refuse_rendering` returns the rendered bytes — that is the content written, so the file is exactly the losslessly re-parsed form.
 
-- [ ] **Step 5: Run, lint, commit**
+- [x] **Step 5: Run, lint, commit**
 
 ```
-cd python && uv run --frozen pytest tests/test_identifier_correction.py tests/test_arm_staleness.py tests/test_frozen_guards.py
+# From python/:
+uv run --frozen pytest tests/test_identifier_correction.py tests/test_arm_staleness.py tests/test_frozen_guards.py tests/test_profile_agreement.py tests/test_pin_recheck_inventory.py
 uv run --frozen ruff check . && uv run --frozen pyright
-git add python/src/beliefs/corpus.py python/src/beliefs/errors.py python/tests/test_identifier_correction.py
+# From the repository root:
+tasks check
+git add python/src/beliefs/corpus.py python/src/beliefs/errors.py python/tests/test_identifier_correction.py python/tests/test_profile_agreement.py docs/superpowers/plans/2026-09-10-world-resolution-slice-2b.md tasks/beliefs-8f99e2.md
 git commit -m "feat(corpus): correct_identifier renames a source through deprecated_ids with an attributed history"
 ```
+
+**Task 6 evidence (2026-09-11):** 99 focused, frozen-guard, profile-agreement and pin-inventory tests passed; ruff passed; pyright reported 0 errors, 0 warnings. Competing-fault tests establish permit, resolution, source kind/current validity, supplied map, grounds and unchanged refusal order. Moved and unmoved writes assert exactly one submission and the captured manifest digest. No frozen declarations or guards needed retargeting. The whole-slice gate remains Task 11.
 
 ---
 
