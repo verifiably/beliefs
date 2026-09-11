@@ -1556,7 +1556,7 @@ git commit -m "feat(corpus): correct source identifiers with attributed history"
 - Modify: `docs/designs/2026-09-05-writer-session-design.md` — dated note: nine session-mediated writes
 - Test: `python/tests/test_identifier_correction.py` (append)
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append:
 

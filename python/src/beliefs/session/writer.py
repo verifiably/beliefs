@@ -86,7 +86,7 @@ Claim: TypeAlias = ClaimFresh | ClaimDone | ClaimOpen | ClaimMismatch
 
 class KernelRefusalValue(Exception):
     """A value-style kernel refusal carried as an exception so the dispatcher has
-    one normalization path (design §5). Unraised by this slice's eight methods."""
+    one normalization path (design §5). Unraised by this slice's nine methods."""
 
     def __init__(self, value: object) -> None:
         super().__init__(str(getattr(value, "reason", repr(value))))
@@ -289,7 +289,7 @@ class WriterSession:
 
 
 class ScopedWriter:
-    """The facade a handler holds (design §5): eight corpus-write methods, the
+    """The facade a handler holds (design §5): nine corpus-write methods, the
     two routes of the session-routes design §3.3, one invocation."""
 
     __slots__ = ("_authority", "_invocation", "_session", "_writer")
