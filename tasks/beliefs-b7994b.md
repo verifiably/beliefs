@@ -6,11 +6,12 @@ priority: 2
 size: l
 owner: world-resolution-slice-2b
 created: 2026-09-10T09:18:24Z
-updated: 2026-09-10T23:34:41Z
+updated: 2026-09-11T00:28:23Z
 depends: [beliefs-113561]
 parent: beliefs-d248ba
 tags: [world-read]
 spec: docs/superpowers/specs/2026-09-10-world-resolution-slice-2b-design.md
+plan: docs/superpowers/plans/2026-09-10-world-resolution-slice-2b.md
 ---
 
 Re-filed from beliefs-113561 on 2026-09-10 by the slice 2 design (docs/superpowers/specs/2026-09-10-world-resolution-slice-2-design.md section 1 and 12). W1, W2 and W5a rest on a source's address being derived from its normalized external identifier, which the world address ruling upholds (section 2 there) and the builder does not do: stored.source_node takes an authored slug, so two papers sharing a citekey collide at the world layer and two records of one DOI do not. Closing them needs a source re-addressing design with a per-scheme normalization rule (doi, pmid, isbn, accession), a choice rule where a source carries several identifiers, and an identifier-correction rename (address ruling section 4.4's mis-transcribed case: uid preserved, address renamed, old address in deprecated_ids). Measured 2026-09-10: 78 source_node call sites across 18 test files and 31 literal source: refs in tests; none in src. Shares no code with the coreference slice.
