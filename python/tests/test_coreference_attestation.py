@@ -120,9 +120,9 @@ class TestTheSeam:
         assert (refused.value.reason, refused.value.endpoint) == (reason, endpoint)
 
     def test_two_kinds_are_a_category_error(self, writer):
-        writer.add(stored.source_node("s", title="s", identifiers={"doi": "10.1/x"}))
+        source = writer.add(stored.source_node(title="s", identifiers={"doi": "10.1234/x"}))
         with pytest.raises(CoreferenceEndpointRefused) as refused:
-            writer.attest_coreference(attestation(endpoints=(LEFT, "source:s")))
+            writer.attest_coreference(attestation(endpoints=(LEFT, source.id)))
         assert refused.value.reason == "kind-mismatch"
 
     def test_a_retired_address_does_not_resolve_exactly(self, writer):

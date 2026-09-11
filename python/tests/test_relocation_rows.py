@@ -174,7 +174,7 @@ def _move_published_dataset(tmp_path):
 def test_w5_a_move_changes_only_location(tmp_path):
     source = _writer(tmp_path / "source", domains=PINS.domains)
     destination = _writer(tmp_path / "destination", domains=PINS.domains)
-    node = stored.source_node("paper", title="paper", identifiers={"doi": "10.1/paper"})
+    node = stored.source_node(title="paper", identifiers={"doi": "10.1234/paper"})
     node = source.add(node.model_copy(update={"deprecated_ids": ["source:old-paper"]}))
     inbound = source.add(
         Node(
@@ -260,7 +260,7 @@ def test_d7_move_refuses_a_base_contract_for_a_facetless_node(tmp_path):
         domains=PINS.domains,
     )
     node = source.add(
-        stored.source_node("paper", title="paper", identifiers={"doi": "10.1/paper"})
+        stored.source_node(title="paper", identifiers={"doi": "10.1234/paper"})
     )
 
     manifest = destination.root / "corpus.yaml"
@@ -426,10 +426,10 @@ def test_d7_consolidate_refuses_a_base_contract_for_a_facetless_node(tmp_path):
     )
     other_writer = _writer(tmp_path / "base" / "other", domains=PINS.domains)
     keep = keep_writer.add(
-        stored.source_node("s1", title="kept", identifiers={"doi": "10.1/abc"})
+        stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"})
     )
     other = other_writer.add(
-        stored.source_node("s1", title="other", identifiers={"doi": "10.1/abc"})
+        stored.source_node(title="other", identifiers={"doi": "10.1234/abc"})
     )
 
     manifest = keep_writer.root / "corpus.yaml"

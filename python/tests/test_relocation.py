@@ -118,7 +118,7 @@ def writer(tmp_path):
 
 
 def test_move_relocates_without_touching_identity(source_writer, destination_writer):
-    node = stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"})
+    node = stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})
     node = source_writer.add(node.model_copy(update={"deprecated_ids": ["source:former"]}))
 
     moved, _, _ = relocation.move(source_writer, destination_writer, node.id, **MOVE_FIELDS)
@@ -131,7 +131,7 @@ def test_move_relocates_without_touching_identity(source_writer, destination_wri
 
 
 def test_move_refuses_a_destination_lacking_the_kind_before_either_intent(source_writer, destination_writer):
-    node = source_writer.add(stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"}))
+    node = source_writer.add(stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"}))
     source = _rebind(source_writer, FULL)
     destination = _rebind(destination_writer, lacking(kinds=("source",)))
     before = tuple(member.id for member in source.read_view.iter_stored()), tuple(
@@ -150,7 +150,7 @@ def test_move_refuses_a_destination_lacking_the_kind_before_either_intent(source
 
 
 def test_move_refuses_a_source_lacking_act_report_before_either_intent(source_writer, destination_writer):
-    node = source_writer.add(stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"}))
+    node = source_writer.add(stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"}))
     source = _rebind(source_writer, lacking(kinds=("act-report",)))
     destination = _rebind(destination_writer, FULL)
 
@@ -183,10 +183,10 @@ def test_append_operation_intent_refuses_a_foreign_actor_before_append(writer):
 
 def test_move_refuses_an_occupied_destination(source_writer, destination_writer):
     node = source_writer.add(
-        stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"})
+        stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})
     )
     destination_writer.add(
-        stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"})
+        stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})
     )
 
     with pytest.raises(DuplicateLocation):
@@ -197,10 +197,10 @@ def test_move_deprecated_alias_collision_refuses_before_intents(
     source_writer, destination_writer
 ):
     node = source_writer.add(
-        stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"})
+        stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})
     )
     claimed = stored.source_node(
-        "other", title="Another paper", identifiers={"doi": "10.1/other"}
+        title="Another paper", identifiers={"doi": "10.1234/other"}
     )
     destination_writer.add(claimed.model_copy(update={"deprecated_ids": [node.id]}))
 
@@ -217,10 +217,10 @@ def test_move_uid_collision_refuses_before_intents(
     source_writer, destination_writer
 ):
     node = source_writer.add(
-        stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"})
+        stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})
     )
     other = stored.source_node(
-        "other", title="Another paper", identifiers={"doi": "10.1/other"}
+        title="Another paper", identifiers={"doi": "10.1234/other"}
     )
     destination_writer.add(other.model_copy(update={"uid": node.uid}))
 
@@ -235,7 +235,7 @@ def test_move_uid_collision_refuses_before_intents(
 
 def test_move_refuses_a_same_root_pair(writer):
     node = writer.add(
-        stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"})
+        stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})
     )
 
     with pytest.raises(SameRootRefused):
@@ -246,7 +246,7 @@ def test_move_resolves_a_symlinked_same_root_and_acquires_its_lock_once(
     writer, tmp_path, monkeypatch
 ):
     node = writer.add(
-        stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"})
+        stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})
     )
     alias = tmp_path / "alias"
     alias.symlink_to(writer.root, target_is_directory=True)
@@ -274,7 +274,7 @@ def test_move_refuses_a_missing_source_before_later_preconditions(
     source_writer, destination_writer
 ):
     destination_writer.add(
-        stored.source_node("missing", title="occupied", identifiers={"doi": "10.1/missing"})
+        stored.source_node(title="occupied", identifiers={"doi": "10.1234/missing"})
     )
 
     with pytest.raises(RelocationTargetMissing):
@@ -326,7 +326,7 @@ def test_move_mints_one_report_per_root_under_one_token(
     source_writer, destination_writer, monkeypatch
 ):
     node = source_writer.add(
-        stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"})
+        stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})
     )
     minted_by = []
     report_operations = {}
@@ -399,7 +399,7 @@ def test_move_preflights_both_operation_ports_before_either_intent(tmp_path, mis
         operation_port=missing != "destination",
     )
     node = source.add(
-        stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"})
+        stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})
     )
     configured = destination if missing == "source" else source
     configured_port = configured._operation_port
@@ -415,7 +415,7 @@ def test_move_preflights_both_operation_ports_before_either_intent(tmp_path, mis
 
 def test_move_validates_report_metadata_before_either_intent(source_writer, destination_writer):
     node = source_writer.add(
-        stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"})
+        stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})
     )
 
     with pytest.raises(MalformedRecord, match="canonically encodable"):
@@ -438,7 +438,7 @@ def test_consolidate_preserves_a_shared_uid_and_retires_nothing(
     source_writer, destination_writer
 ):
     keep = source_writer.add(
-        stored.source_node("s1", title="kept", identifiers={"doi": "10.1/abc"})
+        stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"})
     )
     destination_writer.add(keep.model_copy(update={"title": "other"}))
 
@@ -467,10 +467,10 @@ def test_consolidate_selects_one_of_two_distinct_uids_and_mints_no_third(
     source_writer, destination_writer
 ):
     keep = source_writer.add(
-        stored.source_node("s1", title="kept", identifiers={"doi": "10.1/abc"})
+        stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"})
     )
     other = destination_writer.add(
-        stored.source_node("s1", title="other", identifiers={"doi": "10.1/abc"})
+        stored.source_node(title="other", identifiers={"doi": "10.1234/abc"})
     )
     assert keep.uid != other.uid
 
@@ -520,10 +520,10 @@ def test_consolidate_keeps_ungoverned_kinds_unstamped(
 
 def test_consolidate_refuses_two_different_addresses(source_writer, destination_writer):
     keep = source_writer.add(
-        stored.source_node("kept", title="kept", identifiers={"doi": "10.1/kept"})
+        stored.source_node(title="kept", identifiers={"doi": "10.1234/kept"})
     )
     other = destination_writer.add(
-        stored.source_node("other", title="other", identifiers={"doi": "10.1/other"})
+        stored.source_node(title="other", identifiers={"doi": "10.1234/other"})
     )
 
     with pytest.raises(AddressDisagreement):
@@ -538,10 +538,10 @@ def test_consolidate_is_not_offered_for_one_uid_under_two_addresses(
     source_writer, destination_writer
 ):
     keep = source_writer.add(
-        stored.source_node("kept", title="kept", identifiers={"doi": "10.1/kept"})
+        stored.source_node(title="kept", identifiers={"doi": "10.1234/kept"})
     )
     other = stored.source_node(
-        "other", title="other", identifiers={"doi": "10.1/other"}
+        title="other", identifiers={"doi": "10.1234/other"}
     ).model_copy(update={"uid": keep.uid})
     destination_writer.add(other)
 
@@ -555,7 +555,7 @@ def test_consolidate_is_not_offered_for_one_uid_under_two_addresses(
 
 def test_consolidate_refuses_a_same_root_pair(writer):
     keep = writer.add(
-        stored.source_node("s1", title="kept", identifiers={"doi": "10.1/abc"})
+        stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"})
     )
 
     with pytest.raises(SameRootRefused):
@@ -573,7 +573,7 @@ def test_consolidate_refuses_an_excluded_kind_on_either_input(tmp_path, excluded
     ordinary_writer = other_writer if excluded == "keep" else keep_writer
     excluded_writer._publish_operation_report(report, "ab" * 32)
     ordinary = ordinary_writer.add(
-        stored.source_node("s1", title="ordinary", identifiers={"doi": "10.1/abc"})
+        stored.source_node(title="ordinary", identifiers={"doi": "10.1234/abc"})
     )
     excluded_port = excluded_writer._operation_port
     assert isinstance(excluded_port, OperationRecorder)
@@ -618,7 +618,7 @@ def test_consolidate_preflights_both_operation_ports_before_either_intent(
         operation_port=missing != "other",
     )
     keep = keep_writer.add(
-        stored.source_node("s1", title="kept", identifiers={"doi": "10.1/abc"})
+        stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"})
     )
     other_writer.add(keep.model_copy(update={"title": "other"}))
     configured = other_writer if missing == "keep" else keep_writer
@@ -640,14 +640,14 @@ def test_consolidate_refuses_a_missing_input_before_intents(tmp_path, missing):
     keep_writer = _writer(tmp_path / missing / "keep", domains=PINS.domains)
     other_writer = _writer(tmp_path / missing / "other", domains=PINS.domains)
     present_writer = other_writer if missing == "keep" else keep_writer
-    present_writer.add(
-        stored.source_node("s1", title="present", identifiers={"doi": "10.1/abc"})
+    present = present_writer.add(
+        stored.source_node(title="present", identifiers={"doi": "10.1234/abc"})
     )
 
     with pytest.raises(RelocationTargetMissing, match=f"{missing} corpus"):
         relocation.consolidate(
-            (keep_writer, "source:s1"),
-            (other_writer, "source:s1"),
+            (keep_writer, present.id),
+            (other_writer, present.id),
             **CONSOLIDATE_FIELDS,
         )
 
@@ -661,7 +661,7 @@ def test_consolidate_validates_both_reports_before_either_intent(
     source_writer, destination_writer
 ):
     keep = source_writer.add(
-        stored.source_node("s1", title="kept", identifiers={"doi": "10.1/abc"})
+        stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"})
     )
     other = destination_writer.add(keep.model_copy(update={"title": "other"}))
 
@@ -683,7 +683,7 @@ def test_consolidate_preflights_the_replacement_before_either_intent(tmp_path):
     keep_writer = _writer(tmp_path / "keep", domains=PINS.domains)
     other_writer = _writer(tmp_path / "other", domains=PINS.domains)
     keep = keep_writer.add(
-        stored.source_node("s1", title="kept", identifiers={"doi": "10.1/abc"})
+        stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"})
     )
     observed = other_writer.add(
         stored.dataset_node(
@@ -698,9 +698,7 @@ def test_consolidate_preflights_the_replacement_before_either_intent(tmp_path):
             "r1", title="r1", spec="analysis-spec:s1", observes=[observed.id]
         )
     )
-    other = stored.source_node(
-        "s1", title="other", identifiers={"doi": "10.1/abc"}
-    )
+    other = stored.source_node(title="other", identifiers={"doi": "10.1234/abc"})
     other.facets[stored.ASSESSMENT_FACET] = {"run": run.id}
     other.relations = [
         Relation(source=other.id, predicate=stored.ASSESSES, target="proposition:p1")
@@ -727,15 +725,13 @@ def test_consolidate_preflights_replacement_collisions_before_either_intent(
     source_writer, destination_writer
 ):
     claimed = source_writer.add(
-        stored.source_node(
-            "claimed", title="claimed", identifiers={"doi": "10.1/claimed"}
-        )
+        stored.source_node(title="claimed", identifiers={"doi": "10.1234/claimed"})
     )
     keep = source_writer.add(
-        stored.source_node("s1", title="kept", identifiers={"doi": "10.1/abc"})
+        stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"})
     )
     other = stored.source_node(
-        "s1", title="other", identifiers={"doi": "10.1/abc"}
+        title="other", identifiers={"doi": "10.1234/abc"}
     ).model_copy(update={"deprecated_ids": [claimed.id]})
     destination_writer.add(other)
     keep_before = source_writer.read_view.get(keep.id)

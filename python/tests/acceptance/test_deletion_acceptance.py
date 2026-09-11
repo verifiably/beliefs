@@ -817,7 +817,7 @@ def test_m11_claim_from_stored_is_a_function_of_its_arguments_over_a_durable_rec
         patch.setattr(decode, "decode_claim", lambda *a, **k: pytest.fail("delegated on a wrong kind"))
         with pytest.raises(MalformedWireClaim):
             claim_from_stored(
-                stored.source_node("s", title="s", identifiers={"doi": "10.1/x"}),
+                stored.source_node(title="s", identifiers={"doi": "10.1234/x"}),
                 profile=PROFILE,
                 snapshot=M13_SNAPSHOT,
             )

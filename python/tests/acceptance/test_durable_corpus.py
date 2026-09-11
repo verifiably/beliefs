@@ -94,8 +94,8 @@ class TestW3Durably:
         self, durable_writer, durable_root
     ):
         with pytest.raises(BasisMissing):
-            durable_writer.add(stored.source_node("s1", title="A paper", identifiers={}))
-        assert not path_for(durable_root, "source:s1").exists()
+            durable_writer.add(stored.source_node(title="A paper", identifiers={}))
+        assert not any(n.kind == "source" for n in reopen(durable_root).iter_stored())
 
     def test_a_dataset_with_no_content_identity_is_refused_before_it_lands(self, durable_writer, durable_root):
         with pytest.raises(BasisMissing):
@@ -104,8 +104,8 @@ class TestW3Durably:
 
     def test_supplying_the_basis_afterwards_is_a_second_separate_mint(self, durable_writer, durable_root):
         with pytest.raises(BasisMissing):
-            durable_writer.add(stored.source_node("s1", title="A paper", identifiers={}))
-        second = durable_writer.add(stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"}))
+            durable_writer.add(stored.source_node(title="A paper", identifiers={}))
+        second = durable_writer.add(stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"}))
         assert reopen(durable_root).holds(second.id)
 
 
@@ -246,7 +246,9 @@ class TestTheMintedRecordsReadBack:
     def test_the_assessment_reads_back_as_the_value_it_was_minted_from(self, minted_corpus):
         view = reopen(minted_corpus)
         value = stored.assessment_value(view.get(ASSESSMENT))
-        assert (value.spec, value.run, value.proposition) == (SPEC, RUN, PROPOSITION)
+        # 2026-09-11: V2 returns the run's bare world identity; this live cut-4
+        # expectation had retained the pre-V2 typed reference.
+        assert (value.spec, value.run, value.proposition) == (SPEC, slug(RUN), PROPOSITION)
         assert value.outcome == "supported"
 
     def test_the_observed_dataset_reads_back_with_its_facet(self, minted_corpus):

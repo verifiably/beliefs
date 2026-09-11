@@ -285,7 +285,7 @@ def test_j1_refusals_append_nothing_of_their_own(session_rig):
     session, root, _ = session_rig
     settled_head = chain(root).tip  # the probe: a settled, non-writing read
     w = fresh(session, "A", PROPOSITIONS)
-    source = stored.source_node("s1", title="s1", identifiers={"doi": "10.1/s"})
+    source = stored.source_node(title="s1", identifiers={"doi": "10.1234/s"})
     huge = proposition("big").model_copy(update={"body": "x" * (RECORD_CEILING + 1)})
     for exception, call in (
         (PermitExceeded, lambda: w.add(source)),
@@ -391,7 +391,7 @@ def test_j3_the_act_time_refusal_is_the_kernels_under_a_full_permit_session(sess
     session, root, _ = session_rig
     head = chain(root).tip
     w = fresh(session, "A")
-    source = stored.source_node("s1", title="s1", identifiers={"doi": "10.1/s"})
+    source = stored.source_node(title="s1", identifiers={"doi": "10.1234/s"})
     with pytest.raises(PermitExceeded) as caught:
         w.add(source)
     assert caught.value.requirement == PermitFact("kind", "source") and caught.value.capability.kinds == ("proposition",)

@@ -312,7 +312,7 @@ def _stop_after(monkeypatch, target: object, method_name: str) -> None:
 def _interrupted_move(tmp_path, monkeypatch, stop_after: str) -> _Attempt:
     source = _writer(tmp_path / stop_after / "source")
     destination = _writer(tmp_path / stop_after / "destination")
-    node = source.add(stored.source_node("recovery", title="recovery", identifiers={"doi": "10.1/recovery"}))
+    node = source.add(stored.source_node(title="recovery", identifiers={"doi": "10.1234/recovery"}))
     targets = {
         "destination-intent": (destination, "_append_operation_intent"),
         "source-intent": (source, "_append_operation_intent"),

@@ -133,11 +133,11 @@ def test_the_four_endpoint_refusals_durably(pair):
     writer = writer_at(roots, a)
     writer.add(Node(id="discussion:d", kind="discussion", title="d"))
     writer.add(Node(id="discussion:e", kind="discussion", title="e"))
-    writer.add(stored.source_node("s", title="s", identifiers={"doi": "10.1/x"}))
+    source = writer.add(stored.source_node(title="s", identifiers={"doi": "10.1234/x"}))
     for endpoints, reason in (
         (("discussion:d", "discussion:e"), "inadmissible-kind"),
         ((LEFT, "dataset:missing"), "unresolved"),
-        ((LEFT, "source:s"), "kind-mismatch"),
+        ((LEFT, source.id), "kind-mismatch"),
         ((LEFT, LEFT), "self-pair"),
     ):
         node = attestation()
@@ -501,9 +501,10 @@ def test_lifecycle_treats_an_attestation_as_a_retraction_s_peer_durably(pair):
     with pytest.raises(ImportRefused) as refused:
         left.import_bundle((malformed,), **IMPORT)
     assert refused.value.member == malformed.id
+    source = stored.source_node(title="s", identifiers={"doi": "10.1234/x"})
     for endpoints, reason in (
         ((LEFT, "dataset:missing"), "unresolved"),
-        ((LEFT, "source:s"), "kind-mismatch"),
+        ((LEFT, source.id), "kind-mismatch"),
         (("discussion:d", "discussion:e"), "inadmissible-kind"),
         ((LEFT, LEFT), "self-pair"),
     ):
@@ -511,9 +512,7 @@ def test_lifecycle_treats_an_attestation_as_a_retraction_s_peer_durably(pair):
         bad.facets[stored.COREFERENCE_ATTESTATION_FACET]["endpoints"] = list(endpoints)
         if reason != "self-pair":
             bad = attestation(endpoints=endpoints, token=reason)
-        extras = (
-            (stored.source_node("s", title="s", identifiers={"doi": "10.1/x"}),) if reason == "kind-mismatch" else ()
-        )
+        extras = (source,) if reason == "kind-mismatch" else ()
         with pytest.raises(ImportRefused) as refused:
             left.import_bundle((bad, *extras), **IMPORT)
         assert refused.value.member == bad.id

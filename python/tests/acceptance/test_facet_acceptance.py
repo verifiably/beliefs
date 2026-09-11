@@ -241,7 +241,7 @@ def test_f2_bearer_invariant_over_resulting_state(corpora, tmp_path):
     d = w.add(acquired("d", ACTOR))
     with refused(w, AcquisitionBoundaryRefused):
         w.add(producing("r", d.id))
-    source = stored.source_node("s", title="s", identifiers={"doi": "10.1/x"})
+    source = stored.source_node(title="s", identifiers={"doi": "10.1234/x"})
     source.relations.append(Relation(source=source.id, predicate="produces", target=d.id))
     with refused(w, AcquisitionBoundaryRefused):
         w.add(stored.stamp_semantic_identity(source))
@@ -368,7 +368,7 @@ def test_f7_retrieval_resolves_or_refuses(corpora, acquisition_report):
     w = corpora()
     with refused(w, FacetPayloadRefused, match="retrieval-unresolved"):
         w.add(acquired("d", ACTOR, retrieval="act-report:" + "0" * 64))
-    wrong = w.import_bundle([stored.source_node("s", title="s", identifiers={"doi": "10.1/x"})], **IMPORT)
+    wrong = w.import_bundle([stored.source_node(title="s", identifiers={"doi": "10.1234/x"})], **IMPORT)
     with refused(w, FacetPayloadRefused, match="not an acquisition"):
         w.add(acquired("d", ACTOR, retrieval=f"act-report:{wrong.identity()}"))
     report = stored.act_report_node(acquisition_report)
@@ -393,7 +393,7 @@ def test_f8_every_builder_facet_is_declared(corpora, acquisition_report):
         "governed_node": stored.governed_node("source", "g", "g", {"source": {"identifiers": {"doi": "x"}}}, ()),
         "act_report_node": stored.act_report_node(acquisition_report),
         "proposition_node": stored.proposition_node("p", title="p", claim={"operator": "affects"}, display_statement="shown"),
-        "source_node": stored.source_node("s", title="s", identifiers={"doi": "x"}),
+        "source_node": stored.source_node(title="s", identifiers={"doi": "10.1234/x"}),
         "dataset_node": acquired("d", ACTOR),
         "run_node": producing("r", "dataset:x"),
         "run_publication_node": stored.run_publication_node("rp", title="rp", projection=projection_text(closure).decode(), spec="analysis-spec:s"),

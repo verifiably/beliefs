@@ -10,7 +10,7 @@ import pytest
 from nodes.core.node import Node
 
 from beliefs import source, stored
-from beliefs.errors import IdentifierMalformed, MalformedRecord
+from beliefs.errors import BasisMissing, IdentifierMalformed, MalformedRecord
 from beliefs.identity import v1
 
 CANONICAL_DOI = "10.1234/abc.def"
@@ -112,16 +112,18 @@ class TestRefusalOrder:
 
     def test_one_tuple_in_precedence_order(self):
         assert source.SCHEMES == ("doi", "pmid", "isbn", "accession")
+        assert stored.ACCEPTED_EXTERNAL_IDENTIFIERS is source.SCHEMES
         assert set(source._RULES) == set(source.SCHEMES)
 
 
 class TestBasisAndAddress:
     def test_precedence_over_every_non_empty_subset(self):
         full = {"doi": CANONICAL_DOI, "pmid": "1", "isbn": "9780306406157", "accession": "GSE1"}
+        precedence = ("doi", "pmid", "isbn", "accession")
         for size in range(1, 5):
-            for schemes in combinations(source.SCHEMES, size):
+            for schemes in combinations(precedence, size):
                 subset = {k: full[k] for k in schemes}
-                expected = min(schemes, key=source.SCHEMES.index)
+                expected = min(schemes, key=precedence.index)
                 assert source.basis(subset) == (expected, full[expected])
 
     def test_no_basis_is_none(self):
@@ -138,6 +140,37 @@ class TestBasisAndAddress:
 
     def test_two_records_with_different_selected_bases_are_two_addresses(self):
         assert source.source_address({"pmid": "1"}) != source.source_address({"doi": CANONICAL_DOI, "pmid": "1"})
+
+
+class TestTheBuilder:
+    def test_it_stores_the_canonical_form_and_derives_the_id(self):
+        node = stored.source_node(
+            title="A paper",
+            identifiers={"doi": "https://doi.org/10.1234/ABC.def", "pmid": "pmid:7"},
+        )
+        assert node.facets[stored.SOURCE_FACET] == {
+            "identifiers": {"doi": CANONICAL_DOI, "pmid": "7"}
+        }
+        assert (
+            node.id
+            == source.source_address({"doi": CANONICAL_DOI})
+            == stored.source_address_of(node)
+        )
+        assert stored.IDENTIFIER_CORRECTION_FACET not in node.facets
+
+    def test_two_spellings_are_one_facet_one_stamp_one_address(self):
+        one = stored.source_node(title="x", identifiers={"doi": "10.1234/ABC"})
+        two = stored.source_node(title="y", identifiers={"doi": "doi:10.1234/abc"})
+        assert one.id == two.id and one.facets == two.facets
+
+    def test_an_empty_basis_refuses_at_the_builder(self):
+        with pytest.raises(BasisMissing):
+            stored.source_node(title="A paper", identifiers={})
+
+    def test_an_unaccepted_scheme_refuses_at_the_builder(self):
+        with pytest.raises(IdentifierMalformed) as caught:
+            stored.source_node(title="A paper", identifiers={"url": "https://example.org"})
+        assert caught.value.reason == "unknown-scheme"
 
 
 def raw_source(identifiers, *, history=None, deprecated=(), node_id=None):

@@ -326,7 +326,7 @@ def test_w5_move_changes_only_location_and_preserves_producer_semantics(durable_
     source = writer("w5-source")
     destination = writer("w5-destination")
     paper = source.add(
-        stored.source_node("paper", title="paper", identifiers={"doi": "10.1/paper"}).model_copy(
+        stored.source_node(title="paper", identifiers={"doi": "10.1234/paper"}).model_copy(
             update={"deprecated_ids": ["source:old-paper"]}
         )
     )
@@ -505,7 +505,7 @@ def test_w16_consolidates_one_address_without_asserting_identity(durable_factory
 
     shared_keep = writer("w16-shared-keep")
     shared_other = writer("w16-shared-other")
-    shared_node = shared_keep.add(stored.source_node("same", title="kept", identifiers={"doi": "10.1/same"}))
+    shared_node = shared_keep.add(stored.source_node(title="kept", identifiers={"doi": "10.1234/same"}))
     shared_other.add(shared_node.model_copy(update={"title": "replica"}))
     shared_survivor, _, _ = relocation.consolidate(
         (shared_keep, shared_node.id),
@@ -517,8 +517,8 @@ def test_w16_consolidates_one_address_without_asserting_identity(durable_factory
     for same_uid in (False, True):
         left = writer(f"w16-refuse-left-{same_uid}")
         right = writer(f"w16-refuse-right-{same_uid}")
-        left_node = left.add(stored.source_node("left", title="left", identifiers={"doi": "10.1/left"}))
-        right_node = stored.source_node("right", title="right", identifiers={"doi": "10.1/right"})
+        left_node = left.add(stored.source_node(title="left", identifiers={"doi": "10.1234/left"}))
+        right_node = stored.source_node(title="right", identifiers={"doi": "10.1234/right"})
         if same_uid:
             right_node = right_node.model_copy(update={"uid": left_node.uid})
         right_node = right.add(right_node)
@@ -551,7 +551,7 @@ def test_d7_each_public_relocation_refuses_contract_disagreement(durable_factory
     source_pins = PINS
     destination_pins = OTHER_PINS if fault == "domain" else pins_for(BASE) if fault == "missing" else PINS
     node = (_node("biology/gene-axis") if fault != "base"
-            else stored.source_node("paper", title="paper", identifiers={"doi": "10.1/paper"}))
+            else stored.source_node(title="paper", identifiers={"doi": "10.1234/paper"}))
 
     source = writer(f"d7-{operation}-{fault}-source", source_pins)
     destination = writer(f"d7-{operation}-{fault}-destination", destination_pins)
@@ -652,8 +652,8 @@ def test_t2_each_root_records_one_intent_before_one_qualifying_report(durable_fa
     writer, _ = durable_factory
     keep = writer("t2-keep")
     other = writer("t2-other")
-    kept = keep.add(stored.source_node("same", title="keep", identifiers={"doi": "10.1/same"}))
-    duplicate = other.add(stored.source_node("same", title="other", identifiers={"doi": "10.1/same"}))
+    kept = keep.add(stored.source_node(title="keep", identifiers={"doi": "10.1234/same"}))
+    duplicate = other.add(stored.source_node(title="other", identifiers={"doi": "10.1234/same"}))
     starts = {corpus.root: len(_entries(corpus.root)) for corpus in (keep, other)}
     _, keep_report, other_report = relocation.consolidate((keep, kept.id), (other, duplicate.id), **CONSOLIDATE_FIELDS)
     operations = (
@@ -718,7 +718,7 @@ def test_t8_move_and_consolidate_refuse_act_reports(durable_factory):
     keep = writer("t8-consolidate-keep")
     other = writer("t8-consolidate-other")
     _store_report(keep, report)
-    ordinary = other.add(stored.source_node("ordinary", title="ordinary", identifiers={"doi": "10.1/ordinary"}))
+    ordinary = other.add(stored.source_node(title="ordinary", identifiers={"doi": "10.1234/ordinary"}))
     consolidate_before = {corpus.root: _entries(corpus.root) for corpus in (keep, other)}
     with pytest.raises(RelocationKindExcluded):
         relocation.consolidate(
@@ -805,7 +805,7 @@ def test_boundary_reresolution_refuses_both_create_only_calls_after_real_move(du
 def test_boundary_lock_deduplicates_resolved_same_root_before_refusal(durable_factory, tmp_path, monkeypatch):
     writer, _ = durable_factory
     corpus = writer("dedup")
-    node = corpus.add(stored.source_node("paper", title="paper", identifiers={"doi": "10.1/paper"}))
+    node = corpus.add(stored.source_node(title="paper", identifiers={"doi": "10.1234/paper"}))
     alias = tmp_path / "cut16-root-alias"
     alias.symlink_to(corpus.root, target_is_directory=True)
     twin = root.open_corpus(alias, authority=FULL, profile=WITH_BIOLOGY)

@@ -63,7 +63,7 @@ def test_an_unresolved_retrieval_disqualifies(tmp_path):
 def test_the_bearer_invariant_reads_the_edge_whatever_its_carrier(tmp_path):
     node = acquired()
     view = seed(tmp_path, node)
-    source = stored.source_node("s", title="s", identifiers={"doi": "10.1/x"})
+    source = stored.source_node(title="s", identifiers={"doi": "10.1234/x"})
     source.relations.append(Relation(source=source.id, predicate="produces", target=node.id))
     assert bearer_refusal(view, source) == f"{source.id}: produces {node.id}, which carries the empirical-observation facet"
 

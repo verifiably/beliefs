@@ -147,7 +147,7 @@ class TestM11FunctionOfItsArguments:
     def test_a_wrong_kind_refuses_before_delegation(self, profile, readable, monkeypatch):
         monkeypatch.setattr(decode, "decode_claim", lambda *a, **k: pytest.fail("delegated"))
         with pytest.raises(MalformedWireClaim):
-            claim_from_stored(stored.source_node("s", title="s", identifiers={"doi": "10.1/x"}), profile=profile, snapshot=readable)
+            claim_from_stored(stored.source_node(title="s", identifiers={"doi": "10.1234/x"}), profile=profile, snapshot=readable)
 
     def test_no_key_error_or_attribute_error_escapes(self, profile, readable, affects):
         node = stored_proposition(affects()).model_copy(update={"facets": {}})

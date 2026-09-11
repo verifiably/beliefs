@@ -129,7 +129,7 @@ def test_e7_world_admit_refuses_with_the_world_root_unchanged(durable_root, work
 def test_e8_an_unpermitted_member_refuses_the_bundle_with_the_chain_unchanged(durable_root):
     writer = open_corpus(durable_root, authority=lacking(kinds=("source",)), profile=WITH_BIOLOGY)
     before = _head(durable_root)
-    members = [proposition("p2"), stored.source_node("s1", title="s", identifiers={"doi": "10.1/x"})]
+    members = [proposition("p2"), stored.source_node(title="s", identifiers={"doi": "10.1234/x"})]
     with pytest.raises(PermitExceeded) as caught:
         writer.import_bundle(members, observer="o", instrument="i", opened_at="T0", closed_at="T1")
     assert caught.value.requirement == PermitFact("kind", "source")

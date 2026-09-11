@@ -181,7 +181,7 @@ def test_the_act_time_refusal_comes_from_the_kernel_with_the_requirements_summar
     writer = session.scoped(PROPOSITIONS, "A")
     session.claim_invocation("A", "mint", DIGEST)
     with pytest.raises(PermitExceeded) as caught:
-        writer.add(stored.source_node("s1", title="s1", identifiers={"doi": "10.1/s1"}))
+        writer.add(stored.source_node(title="s1", identifiers={"doi": "10.1234/s1"}))
     assert caught.value.capability.kinds == ("proposition",)
     assert session.invocation_acts("A") == ()
 

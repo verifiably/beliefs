@@ -254,7 +254,7 @@ def test_the_twin_judges_the_permit_before_it_settles(tmp_path):
     port = RecordingPort(narrow, tmp_path)
     writer = CorpusWriter(tmp_path, factory, authority=narrow, operation_port=port, profile=BASE)
     assert _root_state_for(tmp_path, factory).unresolved is True
-    source = stored.source_node("s1", title="s1", identifiers={"doi": "10.1/s1"})
+    source = stored.source_node(title="s1", identifiers={"doi": "10.1234/s1"})
     with pytest.raises(PermitExceeded):
         writer.add(source)
     with pytest.raises(PermitExceeded):
@@ -293,7 +293,7 @@ def test_the_requirement_is_the_effective_permit_at_the_act(tmp_path):
     writer, port = writer_over(tmp_path, narrowed(kinds=("proposition",), families=("corpus-write",)))
     writer.operations.add(proposition("p1"))
     with pytest.raises(PermitExceeded) as caught:
-        writer.operations.add(stored.source_node("s1", title="s1", identifiers={"doi": "10.1/s1"}))
+        writer.operations.add(stored.source_node(title="s1", identifiers={"doi": "10.1234/s1"}))
     assert caught.value.requirement == PermitFact("kind", "source") and caught.value.capability.kinds == ("proposition",)
     assert primitive_calls(port) == ["preflight", "append_intent", "execute_fulfilling"]  # only the first write reached the seam
 

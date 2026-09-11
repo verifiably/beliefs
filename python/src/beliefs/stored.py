@@ -50,7 +50,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Any, final
+from typing import Any, cast, final
 
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -59,7 +59,7 @@ from beliefs import identifiers
 from beliefs import report as report_values
 from beliefs import source as source_basis_projection
 from beliefs.dataset import DatasetDeclaration, ResourceDeclaration
-from beliefs.errors import IdentifierMalformed, IdentityError, LoneSurrogate, MalformedRecord
+from beliefs.errors import BasisMissing, IdentifierMalformed, IdentityError, LoneSurrogate, MalformedRecord
 from beliefs.holdings.records import (
     HOLDINGS_OBSERVATION_KIND,
     Absent,
@@ -258,9 +258,10 @@ INPUT_ROLES = (OBSERVES, READS, TRANSFORMS)
 """The role partition. `observes` confers eligibility; `reads` never does, in
 any quantity; `transforms` is dataset-production lineage input."""
 
-ACCEPTED_EXTERNAL_IDENTIFIERS = ("accession", "doi", "isbn", "pmid")
-"""W3's accepted external identifiers for a `source`. A closed set: a fallback
-derived from title and year is exactly the coercion the row refuses."""
+ACCEPTED_EXTERNAL_IDENTIFIERS = source_basis_projection.SCHEMES
+"""W3's accepted external identifiers for a `source` — one tuple, in precedence
+order (slice 2b §3). A closed set: a fallback derived from title and year is
+exactly the coercion the row refuses."""
 
 SEMANTIC_DOMAINS: Mapping[str, str] = MappingProxyType(
     {name: kind.domain for name, kind in _WORLD.items() if kind.domain is not None}
@@ -858,8 +859,22 @@ def proposition_node(
     return _node("proposition", slug, title, facets, ())
 
 
-def source_node(slug: str, *, title: str, identifiers: Mapping[str, str]) -> Node:
-    return _node("source", slug, title, {SOURCE_FACET: {"identifiers": dict(identifiers)}}, ())
+def source_node(*, title: str, identifiers: Mapping[str, object]) -> Node:
+    """A source at its basis-derived address (slice 2b §4): every identifier
+    canonical, the id the digest over the selected basis. No slug — a handle
+    never participates in an address. Refuses an empty basis itself, since no
+    id exists without one; the boundary refuses it again for hand-built records."""
+    canonical = source_basis_projection.normalized_identifiers(
+        cast(Mapping[object, object], identifiers)
+    )
+    address = source_basis_projection.source_address(canonical)
+    if address is None:
+        raise BasisMissing(
+            "a source carries an accepted external identifier "
+            f"({', '.join(ACCEPTED_EXTERNAL_IDENTIFIERS)}); a curation note is its own explicit add, "
+            "and no title-and-year fallback exists"
+        )
+    return _node("source", address.partition(":")[2], title, {SOURCE_FACET: {"identifiers": canonical}}, ())
 
 
 def dataset_node(

@@ -141,7 +141,7 @@ def test_revise_refuses_missing_exact_target(writer):
 
 
 def test_revise_refuses_non_proposition(writer):
-    source = writer.add(stored.source_node("s", title="s", identifiers={"doi": "10.1/x"}))
+    source = writer.add(stored.source_node(title="s", identifiers={"doi": "10.1234/x"}))
 
     with pytest.raises(ReviseKindImmutable):
         writer.revise(source.model_copy(update={"title": "x"}))

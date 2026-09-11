@@ -117,7 +117,7 @@ def test_e8_one_unpermitted_member_refuses_the_bundle_before_the_intent(tmp_path
         tmp_path, narrowed(kinds=("proposition", "act-report"), families=("corpus-write",))
     )
     with pytest.raises(PermitExceeded) as caught:
-        _import(writer, [prop("p1"), stored.source_node("s1", title="s", identifiers={"doi": "10.1/x"})])
+        _import(writer, [prop("p1"), stored.source_node(title="s", identifiers={"doi": "10.1234/x"})])
     assert caught.value.requirement == PermitFact("kind", "source")
     assert FakePort.intents == [] and FakePort.executed == [] and FakePort.fulfilling == []
 

@@ -809,12 +809,13 @@ grep -rl "source_node(" tests | xargs sed -i -E 's/source_node\("[^"]*", title=/
 grep -rn -E '"10\.[0-9]{1,3}/' tests | cut -d: -f1 | sort -u   # every abbreviated DOI fixture
 ```
 
-Repair each abbreviated DOI to a 4-digit registrant, keeping the suffix so intent stays readable: `10.1/abc` → `10.1234/abc`, `10.1/x` → `10.1234/x`, `10.1/s1` → `10.1234/s1`, `10.1/kept` → `10.1234/kept`, and so on. Do this with a second `sed -i -E 's#"10\.1/#"10.1234/#g'` over the same file list, then grep again to confirm no `"10.1/` remains.
+Repair each abbreviated DOI used as an admissible source to a 4-digit registrant, keeping the suffix so intent stays readable: `10.1/abc` → `10.1234/abc`, `10.1/x` → `10.1234/x`, `10.1/s1` → `10.1234/s1`, `10.1/kept` → `10.1234/kept`, and so on. Do this with a second `sed -i -E 's#"10\.1/#"10.1234/#g'` over the same file list, then classify remaining matches: intentionally malformed normalization inputs and frozen evidence stay unchanged; no live positive source fixture may retain an abbreviated DOI.
 
 Then the manual pass, file by file (`grep -rn "source:" tests` lists the 31 literals):
 
 - Every `"source:<slug>"` literal that named a built source becomes the built node's `.id`. Where the test built the node inline and then referred to the literal, bind the node first: `paper = stored.source_node(title="paper", identifiers={"doi": "10.1234/paper"})` and use `paper.id`.
 - Literals that name a source that is deliberately *absent* (`source:missing`, `source:elsewhere`, `source:former`) stay as they are — an unresolvable ref is what they assert.
+- The seven-module verification also corrects cut 4's stale live assessment-readback expectation to `slug(RUN)`, the bare run identity V2 has returned since 2026-09-06; production semantics and frozen declarations do not move.
 - `tests/test_corpus_write.py::TestW3TheBasisRefusal`: the two `identifiers={}` tests now assert `BasisMissing` from the **builder** (drop `writer.add(...)` around the call); add one boundary test that hand-builds a source with `governed_node("source", "handle", "A paper", {stored.SOURCE_FACET: {"identifiers": {}}}, ())` and asserts `writer.add` raises `BasisMissing` — the existing `_refuse_missing_basis` already answers it, so it passes now and keeps passing through Task 4. `test_an_unaccepted_identifier_is_not_a_basis` becomes:
 
 ```python

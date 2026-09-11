@@ -31,6 +31,7 @@ from beliefs.errors import (
     BuildHold,
     CollisionRefused,
     EligibilityUnmet,
+    IdentifierMalformed,
     ManifestAlreadyPresent,
     ManifestMalformed,
     PermitExceeded,
@@ -323,14 +324,14 @@ def admissible(writer: CorpusWriter, *, observes=True):
 
 
 def test_add_locked_applies_every_ordinary_create_check(writer):
-    node = writer.add(stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"}))
+    node = writer.add(stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"}))
 
     with writer._operation, pytest.raises(RecordAlreadyMinted):
         writer._add_locked(node)
 
 
 def test_replace_locked_rewrites_at_the_same_uid_and_id(writer):
-    node = writer.add(stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"}))
+    node = writer.add(stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"}))
     revised = node.model_copy(update={"title": "A paper, consolidated"})
 
     with writer._operation:
@@ -341,15 +342,15 @@ def test_replace_locked_rewrites_at_the_same_uid_and_id(writer):
 
 
 def test_replace_locked_refuses_a_node_that_is_not_already_minted(writer):
-    absent = stored.source_node("s2", title="Another", identifiers={"doi": "10.1/xyz"})
+    absent = stored.source_node(title="Another", identifiers={"doi": "10.1234/xyz"})
 
     with writer._operation, pytest.raises(RevisionTargetMissing):
         writer._replace_locked(absent)
 
 
 def test_replace_locked_wraps_a_new_deprecated_id_collision(writer):
-    target = writer.add(stored.source_node("s1", title="One", identifiers={"doi": "10.1/one"}))
-    owned = writer.add(stored.source_node("s2", title="Two", identifiers={"doi": "10.1/two"}))
+    target = writer.add(stored.source_node(title="One", identifiers={"doi": "10.1234/one"}))
+    owned = writer.add(stored.source_node(title="Two", identifiers={"doi": "10.1234/two"}))
     replacement = target.model_copy(update={"deprecated_ids": [owned.id]})
 
     with writer._operation, pytest.raises(CollisionRefused) as refused:
@@ -392,7 +393,7 @@ def test_the_locked_seams_still_refuse_an_act_report(writer):
 
 
 def test_replace_locked_runs_the_eligibility_check(writer):
-    node = writer.add(stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"}))
+    node = writer.add(stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"}))
     ineligible = node.model_copy(
         update={
             "relations": [
@@ -499,16 +500,28 @@ class TestTheAddPathIsAddOnly:
 class TestW3TheBasisRefusal:
     def test_a_source_with_no_accepted_external_identifier_refuses(self, writer):
         with pytest.raises(BasisMissing):
-            writer.add(stored.source_node("s1", title="A paper", identifiers={}))
+            stored.source_node(title="A paper", identifiers={})
+
+    def test_a_hand_built_source_with_no_basis_refuses_at_the_boundary(self, writer):
+        node = stored.governed_node(
+            "source",
+            "handle",
+            "A paper",
+            {stored.SOURCE_FACET: {"identifiers": {}}},
+            (),
+        )
+        with pytest.raises(BasisMissing):
+            writer.add(node)
 
     def test_a_source_with_a_doi_is_minted(self, writer):
-        assert writer.add(stored.source_node("s1", title="A paper", identifiers={"doi": "10.1/abc"})).id
+        assert writer.add(stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})).id
 
     def test_an_unaccepted_identifier_is_not_a_basis(self, writer):
         # The set is closed: a url or a title-and-year is not an external
         # identifier, and there is no derived-identity escape to reach.
-        with pytest.raises(BasisMissing):
-            writer.add(stored.source_node("s1", title="A paper", identifiers={"url": "https://example.org"}))
+        with pytest.raises(IdentifierMalformed) as caught:
+            stored.source_node(title="A paper", identifiers={"url": "https://example.org"})
+        assert caught.value.reason == "unknown-scheme"
 
     def test_a_dataset_with_no_content_identity_refuses(self, writer):
         with pytest.raises(BasisMissing):
@@ -529,8 +542,8 @@ class TestW3TheBasisRefusal:
 
     def test_a_note_is_not_what_a_missing_basis_coerces_to(self, writer):
         with pytest.raises(BasisMissing):
-            writer.add(stored.source_node("s1", title="A paper", identifiers={}))
-        assert not writer.read_view.holds("source:s1")
+            stored.source_node(title="A paper", identifiers={})
+        assert not any(n.kind == "source" for n in writer.read_view.iter_stored())
 
 
 class TestS7TheWriteBoundary:

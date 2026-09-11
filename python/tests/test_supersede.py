@@ -75,7 +75,7 @@ def test_supersede_refuses_a_stale_successor_stamp_before_execution(writer):
 
 
 def test_supersede_refuses_an_unsupported_predecessor_kind(writer):
-    source = writer.add(stored.source_node("s", title="s", identifiers={"doi": "10.1/x"}))
+    source = writer.add(stored.source_node(title="s", identifiers={"doi": "10.1234/x"}))
 
     with pytest.raises(FamilyKindUnsupported):
         writer.supersede(prop("p"), of=source.id)
@@ -85,7 +85,7 @@ def test_supersede_refuses_an_unsupported_successor_kind(writer):
     old = writer.add(prop("p"))
 
     with pytest.raises(FamilyKindUnsupported):
-        writer.supersede(stored.source_node("s", title="s", identifiers={"doi": "10.1/x"}), of=old.id)
+        writer.supersede(stored.source_node(title="s", identifiers={"doi": "10.1234/x"}), of=old.id)
 
 
 def test_supersede_refuses_a_fresh_pair_before_a_caller_authored_edge(writer):

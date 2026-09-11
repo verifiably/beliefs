@@ -65,7 +65,7 @@ class TestF2:
     def test_a_non_run_carrier_of_produces_is_refused_on_the_edge(self, tmp_path):
         w = writer(tmp_path)
         d = w.add(acquired("d", ACTOR))
-        source = stored.source_node("s", title="s", identifiers={"doi": "10.1/x"})
+        source = stored.source_node(title="s", identifiers={"doi": "10.1234/x"})
         source.relations.append(Relation(source=source.id, predicate="produces", target=d.id))
         with pytest.raises(AcquisitionBoundaryRefused):
             w.add(stored.stamp_semantic_identity(source))
@@ -110,7 +110,7 @@ class TestF7:
 
     def test_resolving_to_a_non_acquisition_report_is_refused(self, tmp_path):
         w = writer(tmp_path)
-        report = w.import_bundle([stored.source_node("s", title="s", identifiers={"doi": "10.1/x"})], **IMPORT)
+        report = w.import_bundle([stored.source_node(title="s", identifiers={"doi": "10.1234/x"})], **IMPORT)
         with pytest.raises(FacetPayloadRefused, match="not an acquisition"):
             w.add(acquired("d", ACTOR, retrieval=f"act-report:{report.identity()}"))
 
