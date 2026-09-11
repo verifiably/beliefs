@@ -50,6 +50,9 @@ class TestNormalizeIsbn:
     def test_isbn10_with_x_check_digit(self):
         assert source.normalize("isbn", "0-8044-2957-X") == "9780804429573"
 
+    def test_isbn13_with_979_prefix(self):
+        assert source.normalize("isbn", "979-0-306-40615-6") == "9790306406156"
+
     @pytest.mark.parametrize("bad", ["978-0-306-40615-8", "0-306-40615-3", "0000000000000", "1234567890123", "12345"])
     def test_malformed(self, bad):
         with pytest.raises(IdentifierMalformed) as caught:

@@ -59,7 +59,7 @@
 
 - [ ] **Step 1: Add the error class**
 
-Append to `python/src/beliefs/errors.py` directly after `CoreferenceEndpointRefused`, and add `"IdentifierMalformed"` to `__all__` in alphabetical position:
+Append to `python/src/beliefs/errors.py` directly after `CoreferenceEndpointRefused`. The module has no `__all__`; preserve its existing public-class export convention:
 
 ```python
 class IdentifierMalformed(WriteRefused):
@@ -859,7 +859,7 @@ DOI fixtures repaired to valid registrants (slice 2b design §10.2)."
 
 - [ ] **Step 1: Add the error**
 
-Append to `errors.py` after `IdentifierMalformed` and add to `__all__`:
+Append to `errors.py` after `IdentifierMalformed`; preserve the module's existing public-class export convention (it has no `__all__`):
 
 ```python
 class SourceAddressDisagreement(WriteRefused):
@@ -1197,7 +1197,7 @@ git commit -m "feat(corpus): read paths validate the identifier-correction histo
 
 - [ ] **Step 1: Add the error**
 
-Append to `errors.py` after `SourceAddressDisagreement`; add to `__all__`:
+Append to `errors.py` after `SourceAddressDisagreement`; preserve the module's existing public-class export convention (it has no `__all__`):
 
 ```python
 class CorrectionRefused(WriteRefused):
@@ -1582,7 +1582,7 @@ git commit -m "feat(session): correct_identifier through OperationWrites and Sco
 
 - [ ] **Step 1: Add the error**
 
-After `AddressDisagreement` in `errors.py`; add to `__all__`:
+After `AddressDisagreement` in `errors.py`; preserve the module's existing public-class export convention (it has no `__all__`):
 
 ```python
 class HistoryDisagreement(RelocationRefused):
