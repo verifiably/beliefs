@@ -1541,7 +1541,7 @@ uv run --frozen ruff check . && uv run --frozen pyright
 # From the repository root:
 tasks check
 git add python/src/beliefs/corpus.py python/src/beliefs/errors.py python/tests/test_identifier_correction.py python/tests/test_profile_agreement.py docs/superpowers/plans/2026-09-10-world-resolution-slice-2b.md tasks/beliefs-8f99e2.md
-git commit -m "feat(corpus): correct_identifier renames a source through deprecated_ids with an attributed history"
+git commit -m "feat(corpus): correct source identifiers with attributed history"
 ```
 
 **Task 6 evidence (2026-09-11):** 99 focused, frozen-guard, profile-agreement and pin-inventory tests passed; ruff passed; pyright reported 0 errors, 0 warnings. Competing-fault tests establish permit, resolution, source kind/current validity, supplied map, grounds and unchanged refusal order. Moved and unmoved writes assert exactly one submission and the captured manifest digest. No frozen declarations or guards needed retargeting. The whole-slice gate remains Task 11.
