@@ -17,6 +17,7 @@ from nodes.core.relations import Relation
 from nodes.core.write_plan import DefaultExecutor
 from profiles import BASE, WITH_BIOLOGY, WITH_BIOLOGY_OTHER, pins_for
 from test_corpus_write import OperationRecorder
+from test_source_address import entry, raw_source
 
 from beliefs import coordination, relocation, stored
 from beliefs.consulted import CorpusPins
@@ -118,8 +119,11 @@ def writer(tmp_path):
 
 
 def test_move_relocates_without_touching_identity(source_writer, destination_writer):
-    node = stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})
-    node = source_writer.add(node.model_copy(update={"deprecated_ids": ["source:former"]}))
+    prior = {"pmid": "1"}
+    current = {"doi": "10.1234/abc"}
+    retired = stored.source_node(title="former", identifiers=prior).id
+    node = raw_source(current, history=[entry(prior, current)], deprecated=[retired])
+    source_writer.import_bundle([node], **MOVE_FIELDS)
 
     moved, _, _ = relocation.move(source_writer, destination_writer, node.id, **MOVE_FIELDS)
 
@@ -199,18 +203,23 @@ def test_move_deprecated_alias_collision_refuses_before_intents(
     node = source_writer.add(
         stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})
     )
-    claimed = stored.source_node(
-        title="Another paper", identifiers={"doi": "10.1234/other"}
+    claimed = raw_source(
+        {"doi": "10.1234/other"},
+        history=[entry({"doi": "10.1234/abc"}, {"doi": "10.1234/other"})],
+        deprecated=[node.id],
     )
-    destination_writer.add(claimed.model_copy(update={"deprecated_ids": [node.id]}))
-
+    destination_writer.import_bundle([claimed], **MOVE_FIELDS)
+    before_intents = {
+        id(writer_): list(_recording_port(writer_).intents)
+        for writer_ in (source_writer, destination_writer)
+    }
     with pytest.raises(CollisionRefused):
         relocation.move(source_writer, destination_writer, node.id, **MOVE_FIELDS)
 
     for writer_ in (source_writer, destination_writer):
         port = writer_._operation_port
         assert isinstance(port, OperationRecorder)
-        assert port.intents == []
+        assert port.intents == before_intents[id(writer_)]
 
 
 def test_move_uid_collision_refuses_before_intents(
@@ -724,18 +733,26 @@ def test_consolidate_preflights_the_replacement_before_either_intent(tmp_path):
 def test_consolidate_preflights_replacement_collisions_before_either_intent(
     source_writer, destination_writer
 ):
-    claimed = source_writer.add(
-        stored.source_node(title="claimed", identifiers={"doi": "10.1234/claimed"})
+    claimed = source_writer.add(Node(id="discussion:claimed", kind="discussion", title="claimed"))
+    keep = source_writer.add(Node(id="discussion:kept", kind="discussion", title="kept"))
+    other = destination_writer.add(
+        Node(
+            id=keep.id,
+            kind="discussion",
+            title="other",
+            deprecated_ids=[claimed.id],
+        )
     )
-    keep = source_writer.add(
-        stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"})
-    )
-    other = stored.source_node(
-        title="other", identifiers={"doi": "10.1234/abc"}
-    ).model_copy(update={"deprecated_ids": [claimed.id]})
-    destination_writer.add(other)
     keep_before = source_writer.read_view.get(keep.id)
     other_before = destination_writer.read_view.get(other.id)
+    before_intents = {
+        id(writer_): list(_recording_port(writer_).intents)
+        for writer_ in (source_writer, destination_writer)
+    }
+    before_fulfilling = {
+        id(writer_): list(_recording_port(writer_).fulfilling)
+        for writer_ in (source_writer, destination_writer)
+    }
 
     with pytest.raises(CollisionRefused):
         relocation.consolidate(
@@ -749,8 +766,8 @@ def test_consolidate_preflights_replacement_collisions_before_either_intent(
     for writer_ in (source_writer, destination_writer):
         port = writer_._operation_port
         assert isinstance(port, OperationRecorder)
-        assert port.intents == []
-        assert port.fulfilling == []
+        assert port.intents == before_intents[id(writer_)]
+        assert port.fulfilling == before_fulfilling[id(writer_)]
 
 
 def test_every_relocation_refusal_is_a_write_refusal():

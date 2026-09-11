@@ -1070,6 +1070,14 @@ uv run --frozen pytest tests/test_arm_staleness.py tests/test_frozen_guards.py
 
 Expected: all pass.
 
+Ruled adjacent fixture migrations: the source move and destination-alias fixtures
+enter through `import_bundle` with valid correction history, and assert no new
+intent after setup. The locked replacement collision uses valid owned-to-target
+history. The consolidate replacement-collision fixture uses `discussion`, whose
+aliases remain governed by the generic collision boundary; a source cannot validly
+claim an address already held in the same keep corpus. The durable W5 move fixture
+likewise imports valid correction history.
+
 - [ ] **Step 7: Commit**
 
 ```bash

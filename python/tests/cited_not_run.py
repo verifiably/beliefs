@@ -57,6 +57,10 @@ CITED_NOT_RUN: dict[str, CitedNotRun] = {
             "registry exists to make impossible. The inventory is the ruling of record."
         ),
         stale_arms={
+            "W3[6]": (
+                "retired by slice 2b source-boundary split, 2026-09-10; "
+                "last matching parent faab230"
+            ),
             "W3[8]": "retired by slice 2b tuple migration, 2026-09-11; last matching parent 28f1005",
             "S7[0]": "moved at bf78f7a, when the add path's eligibility refusal took the profile",
             "S7[1]": "moved at 8b3b75e, when the family-era raw-write shapes changed the corpus check",

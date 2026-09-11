@@ -23,6 +23,7 @@ from nodes.core.node import Node
 from nodes.core.relations import Relation
 from profiles import BASE, WITH_BIOLOGY, WITH_BIOLOGY_OTHER, pins_for
 from test_belief import scenario as belief_scenario
+from test_source_address import entry, raw_source
 from test_world_epoch import derivation_bindings
 
 from beliefs import relocation, root, runrecord, stored
@@ -325,11 +326,14 @@ def test_w5_move_changes_only_location_and_preserves_producer_semantics(durable_
     writer, make_world = durable_factory
     source = writer("w5-source")
     destination = writer("w5-destination")
-    paper = source.add(
-        stored.source_node(title="paper", identifiers={"doi": "10.1234/paper"}).model_copy(
-            update={"deprecated_ids": ["source:old-paper"]}
-        )
+    prior = {"pmid": "1"}
+    current = {"doi": "10.1234/paper"}
+    paper = raw_source(
+        current,
+        history=[entry(prior, current)],
+        deprecated=[stored.source_node(title="old paper", identifiers=prior).id],
     )
+    source.import_bundle([paper], **MOVE_FIELDS)
     inbound = source.add(
         Node(
             id="discussion:citation",

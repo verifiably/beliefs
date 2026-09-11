@@ -22,6 +22,7 @@ from nodes.core.frontmatter import node_from_markdown
 from nodes.core.node import Node, NodeMetadata
 from nodes.core.write_plan import CreateOp, DefaultExecutor, DeleteOp, ReplaceOp
 from profiles import BASE, WITH_BIOLOGY
+from test_source_address import entry, raw_source
 
 from beliefs import boundary, stored
 from beliefs.corpus import CorpusWriter, OperationLock, ReadView, _operation_lock_for, require_pins_agree
@@ -349,9 +350,15 @@ def test_replace_locked_refuses_a_node_that_is_not_already_minted(writer):
 
 
 def test_replace_locked_wraps_a_new_deprecated_id_collision(writer):
-    target = writer.add(stored.source_node(title="One", identifiers={"doi": "10.1234/one"}))
-    owned = writer.add(stored.source_node(title="Two", identifiers={"doi": "10.1234/two"}))
-    replacement = target.model_copy(update={"deprecated_ids": [owned.id]})
+    target_identifiers = {"doi": "10.1234/one"}
+    owned_identifiers = {"doi": "10.1234/two"}
+    target = writer.add(stored.source_node(title="One", identifiers=target_identifiers))
+    owned = writer.add(stored.source_node(title="Two", identifiers=owned_identifiers))
+    replacement = raw_source(
+        target_identifiers,
+        history=[entry(owned_identifiers, target_identifiers)],
+        deprecated=[owned.id],
+    ).model_copy(update={"uid": target.uid})
 
     with writer._operation, pytest.raises(CollisionRefused) as refused:
         writer._replace_locked(replacement)

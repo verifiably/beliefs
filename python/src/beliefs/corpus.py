@@ -55,6 +55,7 @@ from yaml import YAMLError
 
 from beliefs import boundary as boundary_values
 from beliefs import report as report_values
+from beliefs import source as source_basis_projection
 from beliefs import stored
 from beliefs.acquisition import bearer_refusal, validity_refusal
 from beliefs.consulted import CorpusPins
@@ -85,6 +86,7 @@ from beliefs.errors import (
     EligibilityUnmet,
     FacetPayloadRefused,
     FamilyKindUnsupported,
+    IdentifierMalformed,
     IdentityError,
     ImportRefused,
     LoneSurrogate,
@@ -109,6 +111,7 @@ from beliefs.errors import (
     ScienceError,
     SemanticHashMissing,
     SemanticHashStale,
+    SourceAddressDisagreement,
     SupersedeIdentityUnchanged,
     UnfreezableSpec,
     ValidationRefused,
@@ -1672,7 +1675,8 @@ class CorpusWriter:
         if existing is None or existing.id != node.id:
             raise RevisionTargetMissing(f"{node.id}: exact uid and id do not identify a local node")
         self._refuse_family_kinds(node, admitted_kind=node.kind)
-        self._refuse_missing_basis(node)
+        self._refuse_source(node, provenance=True)
+        self._refuse_dataset_basis(node)
         self._refuse_ineligible(node)
         if stored.display_facet_malformed(node):
             raise ValidationRefused(f"{node.id}: refused by document validation: malformed display facet")
@@ -2722,7 +2726,8 @@ class CorpusWriter:
         provenance: bool = False,
     ) -> None:
         self._refuse_already_minted(node)
-        self._refuse_missing_basis(node)
+        self._refuse_source(node, provenance=provenance)
+        self._refuse_dataset_basis(node)
         self._refuse_ineligible(node, view=view)
         if stored.display_facet_malformed(node):
             raise ValidationRefused(f"{node.id}: refused by document validation: malformed display facet")
@@ -2831,14 +2836,44 @@ class CorpusWriter:
                 f"{node.id} is already minted under uid {node.uid}; use revise for a display-only replacement"
             )
 
-    def _refuse_missing_basis(self, node: Node) -> None:
-        """W3 as narrowed, over the record being minted and nothing else."""
-        if node.kind == "source" and not stored.external_identifiers(node):
+    def _refuse_source(self, node: Node, *, provenance: bool = False) -> None:
+        """Slice 2b §5.1, in order: canonical identifiers (every entry), a
+        basis, the derived address, a well-formed history, redirect agreement.
+        `provenance` admits a history (import, relocation, the seam); an
+        ordinary add refuses one — history is minted by `correct_identifier`."""
+        if node.kind != "source":
+            return
+        facet = stored._facet(node, stored.SOURCE_FACET) or {}
+        identifiers = facet.get("identifiers")
+        if not isinstance(identifiers, dict):
+            raise ValidationRefused(f"{node.id}: a source facet holds an `identifiers` mapping")
+        canonical = source_basis_projection.normalized_identifiers(identifiers)
+        for scheme, value in canonical.items():
+            if identifiers[scheme] != value:
+                raise IdentifierMalformed(
+                    f"{node.id}: {scheme} identifier {identifiers[scheme]!r} is stored non-canonically",
+                    scheme=scheme,
+                    value=identifiers[scheme],
+                    reason="non-canonical",
+                )
+        address = stored.source_address_of(node)
+        if address is None:
             raise BasisMissing(
                 f"{node.id}: a source carries an accepted external identifier "
                 f"({', '.join(stored.ACCEPTED_EXTERNAL_IDENTIFIERS)}); a curation note is its own explicit add, "
                 "and no title-and-year fallback exists"
             )
+        if node.id != address:
+            raise SourceAddressDisagreement(f"{node.id}: the identifiers derive {address}")
+        if stored.IDENTIFIER_CORRECTION_FACET in node.facets and not provenance:
+            raise ValidationRefused(f"{node.id}: a correction history is minted by correct_identifier, never added")
+        try:
+            stored.validate_source_history(node)
+        except MalformedRecord as caught:
+            raise ValidationRefused(f"{node.id}: refused by document validation: {caught}") from caught
+
+    def _refuse_dataset_basis(self, node: Node) -> None:
+        """W3 as narrowed, the dataset half — unchanged in content."""
         if node.kind == "dataset" and dataset_address(stored.dataset_declaration(node)) is None:
             raise BasisMissing(
                 f"{node.id}: a dataset carries a content identity — every declared resource pinned by an "

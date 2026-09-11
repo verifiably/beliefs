@@ -1041,6 +1041,12 @@ class IdentifierMalformed(WriteRefused):
         self.reason = reason
 
 
+class SourceAddressDisagreement(WriteRefused):
+    """A source's stored id is not the address its identifiers derive (slice 2b
+    §5.1). The basis is present and canonical; the record simply lives at the
+    wrong address, which is what a handle-addressed or hand-edited source is."""
+
+
 class RevisionTargetMissing(WriteRefused):
     """The supplied `(uid, id)` pair does not identify a local node."""
 

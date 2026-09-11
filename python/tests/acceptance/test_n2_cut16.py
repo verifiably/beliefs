@@ -29,6 +29,20 @@ import beliefs.root as science_root
 
 # Live facet-contract matcher migration, 2026-09-07; canonical table remains frozen at b0882d3.
 _LIVE_SABOTAGES = {
+    # Live source-boundary matcher migration, 2026-09-10 (slice 2b): the basis
+    # guard split into _refuse_source and _refuse_dataset_basis; the table
+    # stays frozen at b0882d3 and the arm asserts the same thing over the split lines.
+    "M3a": Sabotage(
+        module="corpus.py",
+        before=(
+            "        self._refuse_family_kinds(node, admitted_kind=node.kind)\n"
+            "        self._refuse_source(node, provenance=True)\n"
+        ),
+        after=(
+            "        self._refuse_family_kinds(node)\n"
+            "        self._refuse_source(node, provenance=True)\n"
+        ),
+    ),
     "W5a": Sabotage(
         module="relocation.py",
         before="        moved = destination._add_locked(node, provenance=True)\n",
