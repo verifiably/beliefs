@@ -6,7 +6,7 @@ priority: 2
 size: m
 owner: world-resolution-slice-2b
 created: 2026-09-11T00:28:23Z
-updated: 2026-09-11T09:22:08Z
+updated: 2026-09-11T09:29:41Z
 depends: [beliefs-fe22b0]
 parent: beliefs-b7994b
 tags: [world-read]
@@ -20,3 +20,4 @@ step: "Task 4: The write boundary — `_refuse_source`, `_refuse_dataset_basis`,
 - 2026-09-11T09:16:09Z (world-resolution-slice-2b): Ruling: migrate the corpus replacement collision fixture to valid owned-to-target source history; source-history validation correctly precedes collision, preserving CollisionRefused and CollisionError cause coverage.
 - 2026-09-11T09:22:08Z (world-resolution-slice-2b): Evidence: boundary/corpus/import/relocation 189 passed; durable W5 1 passed; cut16 matcher 1 passed/6 deselected; arm staleness and frozen guards 14 passed; ruff clean; pyright 0 errors.
 - 2026-09-11T09:22:08Z (world-resolution-slice-2b): Source writes now enforce canonical derived addresses and validated correction history, with adjacent fixtures and frozen matcher provenance migrated.
+- 2026-09-11T09:29:41Z (world-resolution-slice-2b): Review fix: marked all seven Task 4 plan steps complete and replaced self-SHA amendment guidance with verified last-matching parent faab230.

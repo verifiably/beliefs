@@ -858,7 +858,7 @@ DOI fixtures repaired to valid registrants (slice 2b design §10.2)."
 **Interfaces:**
 - Produces: `CorpusWriter._refuse_source(node, *, provenance: bool)`, `CorpusWriter._refuse_dataset_basis(node)`, `errors.SourceAddressDisagreement(WriteRefused)`.
 
-- [ ] **Step 1: Add the error**
+- [x] **Step 1: Add the error**
 
 Append to `errors.py` after `IdentifierMalformed`; preserve the module's existing public-class export convention (it has no `__all__`):
 
@@ -869,7 +869,7 @@ class SourceAddressDisagreement(WriteRefused):
     wrong address, which is what a handle-addressed or hand-edited source is."""
 ```
 
-- [ ] **Step 2: Write the failing boundary tests**
+- [x] **Step 2: Write the failing boundary tests**
 
 Create `python/tests/test_identifier_correction.py`:
 
@@ -964,12 +964,12 @@ class TestTheBoundary:
             writer.add(stored.dataset_node("d1", title="d", resources=[]))
 ```
 
-- [ ] **Step 3: Run to verify they fail**
+- [x] **Step 3: Run to verify they fail**
 
 Run: `cd python && uv run --frozen pytest tests/test_identifier_correction.py`
 Expected: `test_a_handle_address_refuses`, `test_add_refuses_a_history`, `test_a_history_free_source_with_a_deprecated_id_refuses`, `test_a_non_canonical_stored_value_refuses` FAIL (no such refusals yet); the rest may already pass.
 
-- [ ] **Step 4: Split the guard**
+- [x] **Step 4: Split the guard**
 
 In `corpus.py` replace `_refuse_missing_basis` with:
 
@@ -1034,10 +1034,13 @@ In `_preflight_replace_locked`, replace `self._refuse_missing_basis(node)` with:
 (`_preflight_replace_locked` is reached only by `consolidate` and the seam, both provenance paths.) Add `IdentifierMalformed`, `SourceAddressDisagreement` to the `beliefs.errors` import block and `from beliefs import source as source_basis_projection` to the imports. Keep `_refuse_dataset_basis`'s `if node.kind == "dataset" and dataset_address(stored.dataset_declaration(node)) is None:` line byte-identical to the old one — cut 4's `W3[7]` matches it and must stay live-matching; the source clause it replaces (`W3[6]`) goes stale and is registered in `cited_not_run.py`'s `cut=4` entry:
 
 ```python
-            "W3[6]": "moved at <sha>, when slice 2b split the basis guard into _refuse_source and _refuse_dataset_basis (2026-09-10)",
+            "W3[6]": (
+                "retired by slice 2b source-boundary split, 2026-09-10; "
+                "last matching parent faab230"
+            ),
 ```
 
-- [ ] **Step 5: Add the cut 16 live adapter**
+- [x] **Step 5: Add the cut 16 live adapter**
 
 Cut 16's `M3a` arm (`python/tests/n2_arms_cut16.py:197-208`) matches the two lines `self._refuse_family_kinds(node, admitted_kind=node.kind)\n        self._refuse_missing_basis(node)\n` in `_preflight_replace_locked` (confirm with `grep -n "_refuse_family_kinds(node, admitted_kind=node.kind)" python/src/beliefs/corpus.py`; the arm's `before` must occur exactly once). After the split, add to `test_n2_cut16.py::_LIVE_SABOTAGES` (keep the existing entries):
 
@@ -1060,7 +1063,7 @@ Cut 16's `M3a` arm (`python/tests/n2_arms_cut16.py:197-208`) matches the two lin
 
 Verify with `grep -c` that the new `before` occurs exactly once in `corpus.py`.
 
-- [ ] **Step 6: Run**
+- [x] **Step 6: Run**
 
 ```
 cd python && uv run --frozen pytest tests/test_identifier_correction.py tests/test_corpus_write.py tests/test_import_bundle.py tests/test_relocation.py
@@ -1078,12 +1081,14 @@ aliases remain governed by the generic collision boundary; a source cannot valid
 claim an address already held in the same keep corpus. The durable W5 move fixture
 likewise imports valid correction history.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
-git add python/src/beliefs/corpus.py python/src/beliefs/errors.py python/tests/test_identifier_correction.py python/tests/test_corpus_write.py python/tests/acceptance/test_n2_cut16.py python/tests/cited_not_run.py
-git commit -m "feat(corpus): source write boundary checks the derived address and the history"
-# then insert this commit's sha into cited_not_run.py's W3[6] entry and `git commit --amend --no-edit`
+# Verify `faab230` is the last parent whose frozen W3[6] matcher still matches,
+# then record that parent in `cited_not_run.py`; never cite the new commit itself.
+git diff --exit-code faab230 -- python/tests/n2_arms_cut16.py
+git add docs/superpowers/plans/2026-09-10-world-resolution-slice-2b.md python/src/beliefs/corpus.py python/src/beliefs/errors.py python/tests/test_identifier_correction.py python/tests/test_corpus_write.py python/tests/test_relocation.py python/tests/acceptance/test_n2_cut16.py python/tests/acceptance/test_relocation_acceptance.py python/tests/cited_not_run.py tasks/beliefs-9aaf78.md
+git commit -m "feat(corpus): validate source identity history at writes"
 ```
 
 ---
