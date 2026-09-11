@@ -520,6 +520,7 @@ class TestReaders:
             [entry(A, B, grounds="")],
             [entry(A, B, token="")],
             [entry(A, B, grounds="\udcff")],  # a lone surrogate is not canonically encodable
+            [dict(entry(A, B), **{"from": None})],  # a null map: this reader's refusal, never NullRefused
             [entry(A, B, token="t"), entry(B, {"pmid": "2"}, token="t")],  # duplicate token
             [entry(A, B), entry({"pmid": "9"}, {"pmid": "2"}, token="t2")],  # continuity broken
         ],
@@ -630,15 +631,18 @@ def identifier_corrections(node: Node) -> tuple[IdentifierCorrection, ...]:
         for key in ("actor", "grounds", "event_token"):
             if not isinstance(raw[key], str) or not raw[key]:
                 raise MalformedRecord(f"{where}: {key} is a non-empty string")
+        # Maps first, so a null or non-mapping `from`/`to` is this reader's refusal and never an
+        # encoding error; then the whole entry under the identity encoding, every refusal of
+        # which (NullRefused, LoneSurrogate, ...) is IdentityError and translated here.
+        frm = _correction_map(raw["from"], f"{where} from")
+        to = _correction_map(raw["to"], f"{where} to")
         try:
             v1.encode(raw)
-        except LoneSurrogate as caught:
-            raise MalformedRecord(f"{where}: not canonically encodable") from caught
+        except IdentityError as caught:
+            raise MalformedRecord(f"{where}: not canonically encodable: {caught}") from caught
         if raw["event_token"] in tokens:
             raise MalformedRecord(f"{where}: event token {raw['event_token']!r} repeats")
         tokens.add(raw["event_token"])
-        frm = _correction_map(raw["from"], f"{where} from")
-        to = _correction_map(raw["to"], f"{where} to")
         if frm == to:
             raise MalformedRecord(f"{where}: from and to are equal; a correction changes something")
         if corrections and dict(corrections[-1].to_identifiers) != dict(frm):
@@ -932,16 +936,27 @@ class TestTheBoundary:
         with pytest.raises(ValidationRefused):
             writer.add(raw_source(B, deprecated=[ADDR_A]))
 
-    def test_import_admits_a_well_formed_history_and_refuses_a_malformed_one(self, writer):
+    def test_import_admits_a_well_formed_history_and_refuses_a_malformed_one(self, tmp_path):
+        # `import_bundle` is a boundary operation: it needs an operation port, which this
+        # module's `writer` fixture lacks. test_relocation._writer builds one with a recording port.
+        from test_relocation import _writer
+
         from beliefs.errors import ImportRefused
 
+        importer = _writer(tmp_path / "importer")
+        report = {"observer": "o", "instrument": "i", "opened_at": "2026-09-10T00:00:00Z", "closed_at": "2026-09-10T00:00:01Z"}
         good = raw_source(B, history=[entry(A, B)], deprecated=[ADDR_A])
-        writer.import_bundle([good], observer="o", instrument="i", opened_at="2026-09-10T00:00:00Z", closed_at="2026-09-10T00:00:01Z")
-        assert writer.read_view.get(ADDR_B).deprecated_ids == [ADDR_A]
-        bad = raw_source({"pmid": "9"}, history=[entry(A, {"pmid": "9"}, grounds="")], deprecated=[ADDR_A])
+        importer.import_bundle([good], **report)
+        assert importer.read_view.get(ADDR_B).deprecated_ids == [ADDR_A]
+        # The malformed member claims addresses nothing else holds, so the only refusal it can
+        # meet is history validation — a BundleMemberHeld on a colliding deprecated id would
+        # subclass ImportRefused and satisfy a looser assertion with the validation removed.
+        eight, nine = {"pmid": "8"}, {"pmid": "9"}
+        bad = raw_source(nine, history=[entry(eight, nine, grounds="")], deprecated=[source.source_address(eight)])
         with pytest.raises(ImportRefused) as caught:
-            writer.import_bundle([bad], observer="o", instrument="i", opened_at="2026-09-10T00:00:00Z", closed_at="2026-09-10T00:00:01Z")
-        assert caught.value.member == bad.id
+            importer.import_bundle([bad], **report)
+        assert type(caught.value) is ImportRefused and caught.value.member == bad.id
+        assert "grounds" in str(caught.value)
 
     def test_a_dataset_without_content_identity_still_refuses(self, writer):
         with pytest.raises(BasisMissing):
@@ -1344,15 +1359,21 @@ class TestTheSeamEffects:
     def test_referrers_are_byte_unchanged(self, writer):
         # A retraction's `grounded-in` edge is the reference a record may hold to a source
         # (a source is not an eligible retraction NodeTarget). No source-assertion builder exists.
-        from test_retract import mint_eligible_assessment, retraction_for
+        from test_retract import content_identity, mint_eligible_assessment
 
         minted = minted_a(writer)
         assessment = mint_eligible_assessment(writer)
-        retraction = retraction_for(assessment)
-        retraction.facets[stored.RETRACTION_FACET]["grounds"] = [minted.id]
-        retraction.relations = [r for r in retraction.relations if r.predicate != stored.GROUNDED_IN]
-        retraction.relations.append(Relation(source=retraction.id, predicate=stored.GROUNDED_IN, target=minted.id))
-        stored.stamp_semantic_identity(retraction)
+        # The id is content-derived over the grounds, so the grounds are supplied at build time;
+        # mutating a built retraction leaves its id stale and _validated_retraction refuses it.
+        retraction = stored.retraction_node(
+            title="retraction",
+            target=stored.NodeTarget(assessment.id, assessment.id, content_identity(assessment)),
+            reason="defective-code",
+            rationale="the recorded result is invalid",
+            grounds=(minted.id,),
+            actor=ACTOR,
+            event_token="event-1",
+        )
         writer.retract(retraction)
         files_before = {p: p.read_bytes() for p in (writer.root / "retraction").glob("*.md")}
         writer.correct_identifier(minted.id, B, grounds="g")
@@ -1361,7 +1382,7 @@ class TestTheSeamEffects:
         assert writer.read_view.inbound(ADDR_B) == writer.read_view.inbound(minted.id)
 ```
 
-`retraction_for` builds its grounds as `("verification:v1",)`; the test rewrites them to name the source, restamps, and mints through `retract`. Confirm the facet key name with `grep -n "RETRACTION_FACET =" python/src/beliefs/stored.py`. The retraction is the referrer; its file bytes must not change, and the old address must still resolve.
+`test_retract.retraction_for` hard-codes `grounds=("verification:v1",)`, so the test builds its own retraction naming the source; `content_identity` is `test_retract`'s helper. The retraction is the referrer; its file bytes must not change, and the old address must still resolve.
 
 - [ ] **Step 3: Run to verify they fail**
 
@@ -1691,7 +1712,7 @@ git commit -m "feat(relocation): consolidate refuses sources with divergent iden
 - Create: `python/tests/acceptance/test_source_address_acceptance.py`
 
 **Interfaces:**
-- Consumes: `open_corpus`/`init_corpus_root`/`init_world_root`/`open_world` from `beliefs.root`; `publish`/`hold_shipped` from `tests/test_world_receipts.py`; `open_world_view` from `beliefs.world.view`; `adopted`, `fresh`, `halting_session`, `chain`, `pending_registrations`, `state_of`, `registrations`, `config_for` from `tests/acceptance/test_session_acceptance.py` (read that module first: `fresh(session, invocation, required)` claims the invocation; `adopted` pins `WITH_BIOLOGY`); `TracingBackend`, `PUBLISH_CALLS_BEFORE_RECORD`, `PUBLISH_PHASE` from `tests/acceptance/session_faults.py`; `mint_eligible_assessment`, `retraction_for` from `tests/test_retract.py`; `raw_write` from `tests/fixtures_cut4.py`.
+- Consumes: `open_corpus`/`init_corpus_root`/`init_world_root`/`open_world` from `beliefs.root`; `publish`/`hold_shipped` from `tests/test_world_receipts.py`; `open_world_view` from `beliefs.world.view`; `adopted`, `fresh`, `halting_session`, `chain`, `pending_registrations`, `state_of`, `registrations`, `config_for` from `tests/acceptance/test_session_acceptance.py` (read that module first: `fresh(session, invocation, required)` claims the invocation; `adopted` pins `WITH_BIOLOGY`); `PUBLISH_CALLS_BEFORE_RECORD` from `tests/acceptance/session_faults.py`; `mint_eligible_assessment`, `content_identity` from `tests/test_retract.py`.
 
 - [ ] **Step 1: Write the arms**
 
@@ -1704,18 +1725,13 @@ import inspect
 import shutil
 from pathlib import Path
 from tempfile import mkdtemp
-from typing import cast
 
 import pytest
-from atoms.fs.backend import Backend
 from authority import ACTOR, FULL
-from durable_fixture import pinned
 from nodes.core.errors import ExecutionError
-from nodes.core.relations import Relation
-from nodes.core.write_plan import CreateOp, DeleteOp
 from profiles import BASE, WITH_BIOLOGY, pins_for
-from session_faults import PUBLISH_CALLS_BEFORE_RECORD, PUBLISH_PHASE, TracingBackend
-from test_retract import mint_eligible_assessment, retraction_for
+from session_faults import PUBLISH_CALLS_BEFORE_RECORD
+from test_retract import content_identity, mint_eligible_assessment
 from test_session_acceptance import (
     adopted,
     chain,
@@ -1740,15 +1756,7 @@ from beliefs.errors import (
 )
 from beliefs.permit import RequiredCapabilities
 from beliefs.relocation import consolidate, move
-from beliefs.root import (
-    PRODUCTION_STORAGE,
-    DurableOperationPort,
-    init_corpus_root,
-    init_world_root,
-    metadata_root_for,
-    open_corpus,
-    open_world,
-)
+from beliefs.root import init_corpus_root, init_world_root, metadata_root_for, open_corpus, open_world
 from beliefs.session.reconcile import reconcile_sessions
 from beliefs.world import Fresh, WorldConfig
 from beliefs.world.read import Unknown
@@ -1855,11 +1863,15 @@ def test_w5a_source_arm_rename_preserves_uid_and_redirects(world):
     paper = left.add(stored.source_node(title="p", identifiers={"doi": "10.1234/wrong"}))
     # The referrer: a retraction grounded in the source (a source is not a retraction NodeTarget).
     assessment = mint_eligible_assessment(left)
-    retraction = retraction_for(assessment)
-    retraction.facets[stored.RETRACTION_FACET]["grounds"] = [paper.id]
-    retraction.relations = [r for r in retraction.relations if r.predicate != stored.GROUNDED_IN]
-    retraction.relations.append(Relation(source=retraction.id, predicate=stored.GROUNDED_IN, target=paper.id))
-    stored.stamp_semantic_identity(retraction)
+    retraction = stored.retraction_node(  # grounds supplied at build: the id is content-derived over them
+        title="retraction",
+        target=stored.NodeTarget(assessment.id, assessment.id, content_identity(assessment)),
+        reason="defective-code",
+        rationale="the recorded result is invalid",
+        grounds=(paper.id,),
+        actor=ACTOR,
+        event_token="event-1",
+    )
     minted = left.retract(retraction)
     referrer_bytes = (left.root / "retraction" / f"{minted.id.partition(':')[2]}.md").read_bytes()
 
@@ -1886,40 +1898,47 @@ def test_w5a_source_arm_rename_preserves_uid_and_redirects(world):
     assert left.read_view.get(other.id).deprecated_ids == [] and left.read_view.get(corrected.id).deprecated_ids == [paper.id]
 
 
-def _traced_port(root: Path) -> tuple[DurableOperationPort, TracingBackend]:
-    backend = TracingBackend()
-    port = DurableOperationPort(
-        root, backend=cast(Backend, backend), storage=PRODUCTION_STORAGE, metadata_root=metadata_root_for(root),
-        authority=FULL, profile=WITH_BIOLOGY,
-    )
-    return port, backend
+def _halt_at(session, backend, root, skip, subject, target):
+    """Arm the halting backend at publish `skip`, run one correction of `subject`
+    to `target`, and return the file state observed at the halt as
+    `(old_exists, new_exists)`; then disarm and settle through an unrelated add."""
+    old_path = root / "source" / f"{subject.id.partition(':')[2]}.md"
+    new_path = root / "source" / f"{source.source_address(target).partition(':')[2]}.md"
+    backend.skip = skip
+    backend.arm_next = True
+    with pytest.raises(ExecutionError):
+        fresh(session, f"halt-{skip}", SOURCES).correct_identifier(subject.id, target, grounds="g")
+    assert backend.halted and state_of(root).unresolved is True
+    observed = (old_path.exists(), new_path.exists())
+    backend.disarm()
+    fresh(session, f"settle-{skip}", SOURCES).add(stored.source_node(title="settle", identifiers={"pmid": str(1000 + skip)}))
+    assert state_of(root).unresolved is False
+    return observed
 
 
-def test_failure_boundary_the_two_op_transaction_is_traced(work_directory):
-    """The instrument that fixes the fault positions for the next test: where in the
-    engine's publish sequence the create lands, where the delete lands, and where the
-    settlement is — measured, not assumed from the single-record count."""
-    root = adopted(work_directory, "cut25-traced")
-    port, backend = _traced_port(root)
-    warm = port.append_intent(b"{}")
-    port._execute_fulfilling([CreateOp(path="source/warm.md", content=b"warm")], warm)
-    intent = port.append_intent(b"{}")
-    backend.calls.clear()
-    old = root / "source" / "warm.md"
-    from hashlib import sha256
-
-    port._execute_fulfilling(
-        [CreateOp(path="source/new.md", content=b"new"), DeleteOp(path="source/warm.md", expected_digest=sha256(b"warm").hexdigest())],
-        intent,
-    )
-    publishes = [name for name in backend.calls if name in PUBLISH_PHASE]
-    assert not old.exists() and (root / "source" / "new.md").read_bytes() == b"new"
-    # Record the count here as a module constant for the halting test below; it is the
-    # two-op transaction's own sequence, one publish longer than the single-record count
-    # if the engine publishes the delete separately, and equal if it folds both into one payload.
-    global TWO_OP_PUBLISHES
-    TWO_OP_PUBLISHES = len(publishes)
-    assert TWO_OP_PUBLISHES >= PUBLISH_CALLS_BEFORE_RECORD + 2
+def test_failure_boundary_the_two_op_transaction_publishes_the_create_before_the_delete(work_directory):
+    """The instrument that fixes the injection positions for the next test: sweep
+    the halt over the two-op transaction's publish sequence and read the file
+    state at each halt. The positions are derived from what was observed, never
+    from the single-record count, and the sweep must show the create completing
+    before the delete begins."""
+    root = adopted(work_directory, "cut25-sweep")
+    session, backend, _ops = halting_session(work_directory, root)
+    w = fresh(session, "warm", SOURCES)
+    w.add(stored.source_node(title="warm", identifiers={"pmid": "99"}))  # the kind directory exists
+    observed: list[tuple[int, tuple[bool, bool]]] = []
+    for skip in range(PUBLISH_CALLS_BEFORE_RECORD, PUBLISH_CALLS_BEFORE_RECORD + 4):
+        subject = w.add(stored.source_node(title="s", identifiers={"pmid": str(10 + skip)}))
+        target = {"doi": f"10.1234/s{skip}", "pmid": str(10 + skip)}
+        observed.append((skip, _halt_at(session, backend, root, skip, subject, target)))
+    states = [state for _, state in observed]
+    assert (True, False) in states and (True, True) in states, observed
+    assert states.index((True, False)) < states.index((True, True)), observed
+    assert (False, False) not in states, observed  # the delete never lands before the create
+    global HALT_BEFORE_CREATE, HALT_BETWEEN
+    HALT_BEFORE_CREATE = observed[states.index((True, False))][0]
+    HALT_BETWEEN = observed[states.index((True, True))][0]
+    session.close()
 
 
 def test_failure_boundary_refusals_and_applied_prefixes(work_directory, monkeypatch):
@@ -1941,35 +1960,36 @@ def test_failure_boundary_refusals_and_applied_prefixes(work_directory, monkeypa
         w.correct_identifier(paper.id, {"pmid": "1"}, grounds="g")
     assert len(chain(root).entries) == before and old_path.exists() and not new_path.exists()
 
-    # 2. Halt at the create's publish: the transaction rolls back or stays pending; the
-    #    observed prefix is stated, never both files live.
+    # 2. Halt before the create's publish (position derived by the sweep test, which runs
+    #    first in this module): nothing published, the intent stands, reconciliation classifies it.
+    backend.skip = HALT_BEFORE_CREATE
     backend.arm_next = True
     with pytest.raises(ExecutionError):
         w.correct_identifier(paper.id, target, grounds="g")
     assert backend.halted and pending_registrations(root) and state_of(root).unresolved is True
-    assert old_path.exists() and not new_path.exists(), "create halted: nothing published"
+    assert (old_path.exists(), new_path.exists()) == (True, False), "create halted: nothing published"
     findings = reconcile_sessions(config_for(ops.parent, root), ops)
     assert any(f.code in ("session-outcome-unknown", "session-entry-pending") for f in findings)
     backend.disarm()
     fresh(session, "B", SOURCES).add(stored.source_node(title="q", identifiers={"pmid": "2"}))  # settles first
     assert not pending_registrations(root) and state_of(root).unresolved is False
-    assert old_path.exists() and not new_path.exists(), "rolled back: the subject stands at its old address"
+    assert (old_path.exists(), new_path.exists()) == (True, False), "rolled back: the subject stands at its old address"
 
-    # 3. Halt one publish after the create's (the delete's, per the traced sequence): assert the
-    #    observed prefix from the files, then settlement leaves one record.
-    backend.skip = PUBLISH_CALLS_BEFORE_RECORD + 1
+    # 3. Halt between the create and the delete (the sweep's (True, True) position): the create
+    #    completed and the delete did not; settlement resolves the pair to exactly one record.
+    backend.skip = HALT_BETWEEN
     backend.arm_next = True
     with pytest.raises(ExecutionError):
         fresh(session, "C", SOURCES).correct_identifier(paper.id, target, grounds="g")
     assert backend.halted and state_of(root).unresolved is True
-    staged = (old_path.exists(), new_path.exists())
-    assert staged in {(True, False), (True, True)}, staged  # never (False, False): the engine publishes the create first
+    assert (old_path.exists(), new_path.exists()) == (True, True), "create completed, delete pending"
     backend.disarm()
     fresh(session, "D", SOURCES).add(stored.source_node(title="r", identifiers={"pmid": "3"}))
     assert state_of(root).unresolved is False
+    assert old_path.exists() != new_path.exists(), "settlement leaves one file, never both"
     reader = open_corpus(root, authority=FULL, profile=WITH_BIOLOGY)
     holders = [n for n in reader.read_view.iter_stored() if n.uid == paper.uid]
-    assert len(holders) == 1 and (old_path.exists() != new_path.exists())
+    assert len(holders) == 1
     stored.validate_source_history(holders[0])
 
     # 4. Post-commit readback fault: the plan committed, the registration stands, the view is not rebuilt.
@@ -2011,7 +2031,7 @@ def test_lifecycle_move_consolidate_delete(world):
     assert left.read_view.resolve(paper.id) is None
 ```
 
-The halting arm's expected prefixes are stated from the engine's own order (create before delete, the traced test above measures it). If step 3's `skip` lands on the settlement rather than the delete, `staged` reads `(True, True)`; the assertion admits it and the settlement assertion afterwards is what proves the pair resolved to one record. Confirm the `PRODUCTION_STORAGE`/`DurableOperationPort` import path from `test_session_acceptance.py`'s own imports and the `RETRACTION_FACET`/`OBSERVES` constant names in `stored.py`. `SOURCES` grants the kinds `mint_eligible_assessment` and `retract` need through the session's permit.
+The sweep test derives `HALT_BEFORE_CREATE` and `HALT_BETWEEN` from observed file states and the halting test consumes them; pytest runs the module in file order, and the module-level `global`s make the dependency explicit — if the sweep is skipped or reordered the halting test fails on the undefined name rather than on a guessed count. `(True, False)` before `(True, True)` in the sweep is the proof that the create completes before the delete begins; `(False, False)` anywhere would mean the delete published first and fails the sweep. `SOURCES` grants the kinds `mint_eligible_assessment` and `retract` need through the session's permit.
 
 - [ ] **Step 2: Run on the certified volume**
 
@@ -2090,7 +2110,7 @@ Write each `before` by copying the exact line(s) from the file (`sed -n` them) �
 
 - [ ] **Step 4: The cut document**
 
-`docs/designs/2026-09-10-conformance-cut-25.md`, on cut 24's section shape: §1 what (from spec §1), §2 the boundary (spec §3–§8 condensed to the mechanisms), §3 selection (W1, W2, W5a — each "intended closure; closes when its checks pass"), §4 accounting (`**3 declaration units**`; "Three guarantee rows are read, **0 full/closed** until discharge" — update at freeze), §5 N2 and acceptance obligations (the 23 arms of Step 1, `PREFIX_RUNNERS = ("cut24_acceptance.py",)`), §6 second reader (the four review passes recorded in the spec §14), §7 limitations (spec §13). Do not mark it frozen.
+`docs/designs/2026-09-10-conformance-cut-25.md`, on cut 24's section shape: §1 what (from spec §1), §2 the boundary (spec §3–§8 condensed to the mechanisms), §3 selection (W1, W2, W5a — each "intended closure; closes when its checks pass"), §4 accounting (`**3 declaration units**`; "Three guarantee rows are read, **0 full/closed** until discharge" — update at freeze), §5 N2 and acceptance obligations (the 24 arms of Step 1, `PREFIX_RUNNERS = ("cut24_acceptance.py",)`), §6 second reader (the four review passes recorded in the spec §14), §7 limitations (spec §13). Do not mark it frozen.
 
 - [ ] **Step 5: Run the audit and the runner**
 
