@@ -55,7 +55,7 @@ from typing import Any
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 
-from beliefs import identifiers, source
+from beliefs import identifiers
 from beliefs import report as report_values
 from beliefs.dataset import DatasetDeclaration, ResourceDeclaration
 from beliefs.errors import IdentityError, LoneSurrogate, MalformedRecord
@@ -248,7 +248,7 @@ INPUT_ROLES = (OBSERVES, READS, TRANSFORMS)
 """The role partition. `observes` confers eligibility; `reads` never does, in
 any quantity; `transforms` is dataset-production lineage input."""
 
-ACCEPTED_EXTERNAL_IDENTIFIERS = source.SCHEMES
+ACCEPTED_EXTERNAL_IDENTIFIERS = ("accession", "doi", "isbn", "pmid")
 """W3's accepted external identifiers for a `source`. A closed set: a fallback
 derived from title and year is exactly the coercion the row refuses."""
 
