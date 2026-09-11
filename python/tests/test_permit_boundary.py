@@ -63,6 +63,8 @@ WRITE_ENTRY_POINTS: dict[str, str] = {
     "corpus.py:CorpusWriter.add": "corpus-write",
     "corpus.py:CorpusWriter.retract": "corpus-write",
     "corpus.py:CorpusWriter.attest_coreference": "corpus-write",
+    # 2026-09-11 slice 2b: identifier correction is a source corpus-write.
+    "corpus.py:CorpusWriter.correct_identifier": "corpus-write",
     "corpus.py:CorpusWriter.supersede": "corpus-write",
     "corpus.py:CorpusWriter.revise": "corpus-write",
     "corpus.py:CorpusWriter.mint_coordination": "corpus-write",

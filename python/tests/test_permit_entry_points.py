@@ -172,6 +172,12 @@ def _supersede(authority, work):
     )
 
 
+def _correct_identifier(authority, work):
+    return _writer(authority, work).correct_identifier(
+        _STATE[work]["target"].id, {"doi": "10.1234/corrected"}, grounds="checked the source"
+    )
+
+
 def _revise(authority, work):
     return _writer(authority, work).revise(_STATE[work]["target"])
 
@@ -615,10 +621,18 @@ def _mint_dataset(writer):
     return writer.add(observed_dataset())
 
 
+def _mint_source(writer):
+    from beliefs import stored
+
+    return writer.add(stored.source_node(title="source", identifiers={"doi": "10.1234/original"}))
+
+
 CASES = (
     Case("corpus.py:CorpusWriter.add", "corpus-write", ("dataset",), False, _prepare_corpus(), _add, _corpus_probe),
     Case("corpus.py:CorpusWriter.retract", "corpus-write", ("retraction",), False, _prepare_corpus(_mint_eligible), _retract, _corpus_probe),
     Case("corpus.py:CorpusWriter.attest_coreference", "corpus-write", ("coreference-attestation",), False, _prepare_corpus(_mint_pair), _attest, _corpus_probe),
+    # 2026-09-11 slice 2b: cover the new seam's family, source kind and exact permit.
+    Case("corpus.py:CorpusWriter.correct_identifier", "corpus-write", ("source",), False, _prepare_corpus(_mint_source), _correct_identifier, _corpus_probe),
     Case("corpus.py:CorpusWriter.supersede", "corpus-write", ("proposition",), False, _prepare_corpus(_mint_predecessor), _supersede, _corpus_probe),
     Case("corpus.py:CorpusWriter.revise", "corpus-write", ("proposition",), False, _prepare_corpus(_mint_proposition), _revise, _corpus_probe),
     Case("corpus.py:CorpusWriter.mint_coordination", "corpus-write", ("project",), False, _prepare_coordination(False), _mint_coordination, _coordination_probe),

@@ -2287,9 +2287,10 @@ git commit -m "test(acceptance): W1, W2 and W5a over derived source addresses"
 ### Task 10: N2 arms, the audit, the runner and the cut document
 
 **Files:**
+- Modify: `python/tests/test_identifier_correction.py` (W5a-c byte assertion on every exit path), `python/tests/test_permit_boundary.py` and `python/tests/test_permit_entry_points.py` (new seam inventory and matching permit case), this Task 10 execution record, and `tasks/beliefs-f71cad.md` through the CLI.
 - Create: `python/tests/acceptance/n2_arms_cut25.py`, `python/tests/acceptance/test_n2_cut25.py`, `python/tools/cut25_acceptance.py`, `docs/designs/2026-09-10-conformance-cut-25.md`
 
-- [ ] **Step 1: Declare the arms**
+- [x] **Step 1: Declare the arms**
 
 `n2_arms_cut25.py`, on `n2_arms_cut24.py`'s shape with **its own parser** — cut 24's takes a unit plus one bare lowercase letter and cannot name a row under `W5a`:
 
@@ -2300,8 +2301,8 @@ CO_CITED: tuple[str, ...] = ()
 
 def unit_of(row: str) -> str:
     """Rows are `<unit>` or `<unit>-<letter>`; the hyphen is what lets `W5a` carry rows."""
-    unit, _, suffix = row.partition("-")
-    if unit not in DECLARATION_UNITS or (suffix and not (len(suffix) == 1 and suffix.islower())):
+    unit, hyphen, suffix = row.partition("-")
+    if unit not in DECLARATION_UNITS or (hyphen and not (len(suffix) == 1 and suffix.islower())):
         raise ValueError(f"{row!r} is not a cut-25 row")
     return unit
 ```
@@ -2313,16 +2314,16 @@ One `Arm` per spec §10.4 mechanism; each `before` is an exact substring occurri
 | W2-a | source.py | `remainder = _remainder("doi", value, _DOI_PREFIX).lower()` → `.lower()` dropped | `test_source_address.py::TestNormalizeDoi::test_every_spelling_folds_to_one_canonical_form` |
 | W2-b | source.py | `_DOI_PREFIX = re.compile(r"^(?:doi:\|https?://(?:dx\.)?doi\.org/)", re.IGNORECASE)` → `re.compile(r"^$")` | same |
 | W2-c | source.py | `SCHEMES = ("doi", "pmid", "isbn", "accession")` → reversed | `TestBasisAndAddress::test_precedence_over_every_non_empty_subset`, `TestRefusalOrder::test_one_tuple_in_precedence_order` |
-| W2-d | source.py | `return {scheme: normalize(scheme, identifiers[scheme]) for scheme in sorted(identifiers)}` → `for scheme in sorted(identifiers)[:1]}` | `TestRefusalOrder::test_every_entry_is_validated_before_selection` |
+| W2-d | source.py | `return {scheme: normalize(scheme, identifiers[scheme]) for scheme in sorted(schemes)}` → `for scheme in sorted(schemes)[:1]}` | `TestRefusalOrder::test_every_entry_is_validated_before_selection` |
 | W2-e | source.py | `if _isbn13_check(remainder[:12]) != remainder[12]:` → `if False:` | `TestNormalizeIsbn::test_malformed[978-0-306-40615-8]` |
 | W2-f | source.py | `if scheme not in _RULES:` → `if False:` (an unknown scheme then hits `_RULES[scheme]` and raises `KeyError`, not `IdentifierMalformed`) | `TestRefusalOrder::test_unknown_scheme_wins_over_its_own_value` |
 | W2-g | source.py | `if not remainder:\n        raise _refuse(scheme, value, "empty"` → `if False:` | `TestRefusalOrder::test_empty_after_trim_and_prefix_strip` (the empty DOI then reads `malformed`) |
 | W1-a | corpus.py | `if node.id != address:\n            raise SourceAddressDisagreement` → `if False:` | `test_identifier_correction.py::TestTheBoundary::test_a_handle_address_refuses` (builder output is correctly addressed, so no acceptance arm is named) |
 | W1-b | corpus.py | `_preflight_replace_locked`'s `self._refuse_source(node, provenance=True)` line → removed | `TestRelocation::test_consolidate_refuses_a_handle_addressed_replica_at_replace` |
-| W1-c | corpus.py | `_refuse_source`'s `if canonical[scheme] != value:` → `if False:` | `TestTheBoundary::test_a_non_canonical_stored_value_refuses` |
+| W1-c | corpus.py | `_refuse_source`'s `if identifiers[scheme] != value:` → `if False:` | `TestTheBoundary::test_a_non_canonical_stored_value_refuses` |
 | W5a-a | corpus.py | `self._refuse_dataset_basis(node)` in `_refuse` → removed | `test_corpus_write.py::TestW3TheBasisRefusal::test_a_dataset_with_no_content_identity_refuses` |
 | W5a-b | corpus.py | `successor.deprecated_ids = sorted(held - {new_address})` → `successor.deprecated_ids = []` | `TestTheSeamEffects::test_moved_creates_and_deletes_preserving_uid` (the successor then fails the one validator, so the seam refuses instead of renaming) |
-| W5a-c | corpus.py | the two-op plan → `self._corpus.rename(subject.id, new_address)` (rewrites referrers) | `TestTheSeamEffects::test_referrers_are_byte_unchanged` |
+| W5a-c | corpus.py | the two-op plan → `self._corpus.rename(subject.id, new_address)` (rewrites referrers) | `TestTheSeamEffects::test_referrers_are_byte_unchanged` (byte equality runs in `finally`; resolution assertions remain) |
 | W5a-d | corpus.py | `"actor": self._authority.actor,` → `"actor": "nobody",` | `TestTheSeamEffects::test_moved_creates_and_deletes_preserving_uid` (asserts `correction.actor == ACTOR`) |
 | W5a-e | corpus.py | `if canonical == current:\n                raise CorrectionRefused` → `if False:` | `TestTheSeamRefusals::test_unchanged` |
 | W5a-f | corpus.py | `self._refuse_source(subject, provenance=True)` (the pre-append validation) → removed | `TestTheSeamRefusals::test_a_raw_edited_subject_refuses_before_append` (identifiers moved under the stored id, stamp recomputed: only the boundary catches it) |
@@ -2335,35 +2336,41 @@ One `Arm` per spec §10.4 mechanism; each `before` is an exact substring occurri
 | W5a-m | relocation.py | the history comparison `if keep_node.facets.get(stored.IDENTIFIER_CORRECTION_FACET) != other_node.facets.get(` → `if False and ...` | `TestRelocation::test_consolidate_refuses_divergent_histories` |
 | W5a-n | corpus.py | `_revise_dataset_locked`'s `if candidate_fields != current_fields:` → `if False:` | acceptance `test_w5a_dataset_arm_a_rehold_is_a_new_entity` |
 
+The parser also rejects a trailing hyphen (`W1-`, `W5a-`) in a focused valid/invalid row check.
+
 Write each `before` by copying the exact line(s) from the file (`sed -n` them) — never retype. Before declaring the accounting, run the audit and confirm every arm is `sound`: a `vacuous` or `mixed` verdict means the fixture does not isolate the invariant, and the fix is a sharper fixture in the named test, never a looser check.
 
-- [ ] **Step 2: The audit test**
+- [x] **Step 2: The audit test**
 
-`test_n2_cut25.py`: copy `test_n2_cut24.py` wholesale, then: import `unit_of` from `n2_arms_cut25` (never cut 24's); import `CUT24_ARMS` too and add `n2_arms_cut24.py` to `FROZEN_PRIOR_CUT_FILES` at its freeze commit (`git log -1 --format=%h -- python/tests/acceptance/n2_arms_cut24.py` on `main`); rename every `24` to `25`; set `FROZEN_CUT` to the cut 25 document; leave `CUT25_FREEZE_COMMIT` and `CUT25_FROZEN_SHA256` as `""` with a `pytest.skip("not yet frozen")` guard in the pin test until the freeze commit exists (the freeze task fills them); adjust the three `assert ... in current` strings to cut 25's accounting sentences once the document is written.
+`test_n2_cut25.py`: copy `test_n2_cut24.py` wholesale, then: import `unit_of` from `n2_arms_cut25` (never cut 24's); import `CUT24_ARMS` too and add `n2_arms_cut24.py` to `FROZEN_PRIOR_CUT_FILES` at its freeze commit (`git log -1 --format=%h -- python/tests/acceptance/n2_arms_cut24.py` on `main`); rename the current-cut references from `24` to `25`, preserving prior imports and historical commit ids; set `FROZEN_CUT` to the cut 25 document; leave `CUT25_FREEZE_COMMIT` and `CUT25_FROZEN_SHA256` as `""` with a `pytest.skip("not yet frozen")` guard in the pin test until the freeze commit exists (the freeze task fills them); adjust the three `assert ... in current` strings to cut 25's accounting sentences once the document is written.
 
-- [ ] **Step 3: The runner**
+- [x] **Step 3: The runner**
 
 `python/tools/cut25_acceptance.py`: copy `cut24_acceptance.py`, replace `24` with `25`, `PREFIX_RUNNERS = ("cut24_acceptance.py",)`, `PHASE_MODULES = ("test_source_address_acceptance.py", "test_n2_cut25.py")`.
 
-- [ ] **Step 4: The cut document**
+- [x] **Step 4: The cut document**
 
 `docs/designs/2026-09-10-conformance-cut-25.md`, on cut 24's section shape: §1 what (from spec §1), §2 the boundary (spec §3–§8 condensed to the mechanisms), §3 selection (W1, W2, W5a — each "intended closure; closes when its checks pass"), §4 accounting (`**3 declaration units**`; "Three guarantee rows are read, **0 full/closed** until discharge" — update at freeze), §5 N2 and acceptance obligations (the 24 arms of Step 1, `PREFIX_RUNNERS = ("cut24_acceptance.py",)`), §6 second reader (the four review passes recorded in the spec §14), §7 limitations (spec §13). Do not mark it frozen.
 
-- [ ] **Step 5: Run the audit and the runner**
+**2026-09-11 execution correction:** the first full prefix stopped at cut 17 phase 17 because the live static permit inventory omitted `CorpusWriter.correct_identifier`. Register the source `corpus-write` seam and one matching dynamic permit case, preserving exact inventory equality and all family/kind/exact-permit checks. No frozen declarations change.
+
+- [x] **Step 5: Run the audit and the runner**
 
 ```
 cd python && uv run --frozen pytest tests/acceptance/test_n2_cut25.py
 uv run --frozen python tools/cut25_acceptance.py
 ```
 
-Expected: every arm `sound`; no `stale`, `vacuous`, `mixed` or `uncollected`; the staleness probe over cuts 3–24 identical to the tree baseline (record the baseline from an untouched `main` checkout first: `git stash` is forbidden — use the main worktree at `/mnt/ssd/Dropbox/beliefs`). The runner completes with cut 24's prefix chain green. Fix any arm whose `before` fails to match by re-copying the line; never edit a frozen file.
+Expected: every arm `sound`; no `stale`, `vacuous`, `mixed` or `uncollected`; measure the untouched `main` baseline, then compare actual live guards and cited registry staleness. Only the authorized cut 4 W3[6]/W3[8] additions and cut 16 M3a declaration displacement may differ; the live M3a adapter must match exactly once. `git stash` is forbidden; read the main checkout without changing it. The runner completes with cut 24's prefix chain green. Fix any arm whose `before` fails to match by re-copying the line; never edit a frozen file.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
-git add python/tests/acceptance/n2_arms_cut25.py python/tests/acceptance/test_n2_cut25.py python/tools/cut25_acceptance.py docs/designs/2026-09-10-conformance-cut-25.md
+git add python/tests/acceptance/n2_arms_cut25.py python/tests/acceptance/test_n2_cut25.py python/tools/cut25_acceptance.py docs/designs/2026-09-10-conformance-cut-25.md python/tests/test_identifier_correction.py python/tests/test_permit_boundary.py python/tests/test_permit_entry_points.py docs/superpowers/plans/2026-09-10-world-resolution-slice-2b.md tasks/beliefs-f71cad.md
 git commit -m "test(cut25): N2 arms, audit and runner for derived source addresses"
 ```
+
+**Task 10 evidence (2026-09-11):** 24 arms sound; final full `cut25_acceptance.py` exited 0 with the cut 24 prefix chain green, 20 source acceptance checks passed, and 7 N2 checks passed with the one planned `not yet frozen` skip. The sharpened W5a-c mutant fails on referrer byte differences. Permit migration, staleness and frozen guards passed 140 checks; `just check` passed. Main cited staleness 26 → 28 is exactly cut 4 W3[6]/W3[8]; cut 16 M3a adds one displaced declaration but its live adapter matches, leaving live staleness zero. Cut 25 remains draft and Task 11 owns freeze/discharge and the final root test gate.
 
 ---
 

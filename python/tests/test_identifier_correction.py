@@ -357,8 +357,10 @@ class TestTheSeamEffects:
         )
         writer.retract(retraction)
         files_before = {p: p.read_bytes() for p in (writer.root / "retraction").glob("*.md")}
-        writer.correct_identifier(minted.id, B, grounds="g")
-        assert {p: p.read_bytes() for p in (writer.root / "retraction").glob("*.md")} == files_before
+        try:
+            writer.correct_identifier(minted.id, B, grounds="g")
+        finally:
+            assert {p: p.read_bytes() for p in (writer.root / "retraction").glob("*.md")} == files_before
         assert writer.read_view.resolve(minted.id) == ADDR_B
         assert writer.read_view.inbound(ADDR_B) == writer.read_view.inbound(minted.id)
 
