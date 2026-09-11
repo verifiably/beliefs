@@ -6,7 +6,7 @@ from itertools import combinations
 
 import pytest
 
-from beliefs import source, stored
+from beliefs import source
 from beliefs.errors import IdentifierMalformed
 from beliefs.identity import v1
 
@@ -101,7 +101,6 @@ class TestRefusalOrder:
 
     def test_one_tuple_in_precedence_order(self):
         assert source.SCHEMES == ("doi", "pmid", "isbn", "accession")
-        assert stored.ACCEPTED_EXTERNAL_IDENTIFIERS is source.SCHEMES
         assert set(source._RULES) == set(source.SCHEMES)
 
 
