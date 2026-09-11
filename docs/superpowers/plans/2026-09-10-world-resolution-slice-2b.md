@@ -1102,14 +1102,14 @@ git commit -m "feat(corpus): validate source identity history at writes"
 **Interfaces:**
 - Consumes: `stored.validate_source_history`, `errors.FacetPayloadRefused` (exists, subclass of `ValidationRefused`).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `python/tests/test_identifier_correction.py`:
 
 ```python
 from fixtures_cut4 import raw_write
-from nodes.core.errors import RefError
 
+from beliefs.corpus import corpus_check
 from beliefs.errors import FacetPayloadRefused
 
 
@@ -1132,34 +1132,48 @@ class TestTheReadSide:
         with pytest.raises(FacetPayloadRefused):
             writer.read_view.get(minted.id)
 
-    def test_a_duplicated_deprecated_id_refuses_on_read(self, writer):
-        minted = writer.add(stored.source_node(title="p", identifiers=A))
-        corrected = writer.correct_identifier(minted.id, B, grounds="g")  # Task 6's seam; run this test after it lands
-        raw_edit_history(writer, corrected.id, lambda n: n.deprecated_ids.append(ADDR_A))  # [old] -> [old, old]
+    def test_a_duplicated_deprecated_id_refuses_on_read(self, tmp_path):
+        from test_relocation import _writer
+
+        importer = _writer(tmp_path / "importer")
+        corrected = raw_source(B, history=[entry(A, B)], deprecated=[ADDR_A])
+        importer.import_bundle(
+            [corrected],
+            observer="o",
+            instrument="i",
+            opened_at="2026-09-10T00:00:00Z",
+            closed_at="2026-09-10T00:00:01Z",
+        )
+        assert importer.read_view.get(ADDR_B).deprecated_ids == [ADDR_A]
+
+        raw_edit_history(importer, corrected.id, lambda node: node.deprecated_ids.append(ADDR_A))
         with pytest.raises(FacetPayloadRefused):
-            writer.read_view.get(corrected.id)
+            importer.read_view.get(corrected.id)
 
     def test_the_check_view_reports_facet_payload_malformed(self, writer):
-        from beliefs.audit import check_corpus  # the audit entry the finding loop serves
-
         minted = writer.add(stored.source_node(title="p", identifiers=B))
 
         def mutate(node):
             node.facets[stored.IDENTIFIER_CORRECTION_FACET] = {"entries": [entry(A, B, grounds="")]}
 
         raw_edit_history(writer, minted.id, mutate)
-        findings = check_corpus(writer.root, profile=BASE)
-        assert any(f.code == "facet-payload-malformed" and f.ref == minted.id and f.detail == stored.IDENTIFIER_CORRECTION_FACET for f in findings)
+        findings = corpus_check(writer.read_view, BASE)
+        assert any(
+            finding.code == "facet-payload-malformed"
+            and finding.ref == minted.id
+            and finding.detail == stored.IDENTIFIER_CORRECTION_FACET
+            for finding in findings
+        )
 ```
 
 Confirm the audit entry name by `grep -n "^def check" python/src/beliefs/audit.py` and use the function the existing `facet-payload-malformed` tests call (`grep -rn "facet-payload-malformed" python/tests | head`). Adjust the import and call to match.
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `cd python && uv run --frozen pytest tests/test_identifier_correction.py -k TheReadSide`
 Expected: FAIL — the read returns the node; the finding list lacks the code.
 
-- [ ] **Step 3: Wire the reader into both paths**
+- [x] **Step 3: Wire the reader into both paths**
 
 In `validated_node`, after the `semantic_hash_disagrees` check:
 
@@ -1187,13 +1201,13 @@ In the finding loop, immediately after the `for key, payload in node.facets.item
 
 Add `FacetPayloadRefused` to the errors import if absent.
 
-- [ ] **Step 4: Run, lint, commit**
+- [x] **Step 4: Run, lint, commit**
 
 ```
 cd python && uv run --frozen pytest tests/test_identifier_correction.py tests/test_audit.py tests/test_world_view.py
 uv run --frozen ruff check . && uv run --frozen pyright
 uv run --frozen pytest tests/test_arm_staleness.py tests/test_frozen_guards.py
-git add python/src/beliefs/corpus.py python/tests/test_identifier_correction.py
+git add docs/superpowers/plans/2026-09-10-world-resolution-slice-2b.md python/src/beliefs/corpus.py python/tests/test_identifier_correction.py tasks/beliefs-56a287.md
 git commit -m "feat(corpus): read paths validate the identifier-correction history"
 ```
 

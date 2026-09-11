@@ -216,6 +216,13 @@ def validated_node(node: Node) -> Node:
             f"{node.id}: the stored semantic hash disagrees with the fields it covers "
             "(semantic-hash-stale); the node is an untrusted import, not a guaranteed mutation"
         )
+    if node.kind == "source":
+        try:
+            stored.validate_source_history(node)
+        except MalformedRecord as caught:
+            raise FacetPayloadRefused(
+                f"{node.id}: {stored.IDENTIFIER_CORRECTION_FACET}: {caught}"
+            ) from caught
     return node
 
 
@@ -1264,6 +1271,20 @@ def corpus_check(view: ReadView, profile: ProfileSpec) -> tuple[Finding, ...]:
                 validate_payload(facet, payload, where=node.id)
             except FacetPayloadRefused as refused:
                 findings.append(Finding("error", "facet-payload-malformed", node.id, key, str(refused)))
+        if node.kind == "source":
+            try:
+                stored.validate_source_history(node)
+            except MalformedRecord as refused:
+                base_valid = False
+                findings.append(
+                    Finding(
+                        "error",
+                        "facet-payload-malformed",
+                        node.id,
+                        stored.IDENTIFIER_CORRECTION_FACET,
+                        str(refused),
+                    )
+                )
         if node.kind == "dataset" and stored.EMPIRICAL_OBSERVATION_FACET in node.facets:
             reason = validity_refusal(check, node, profile)
             if reason is not None and not reason.startswith("facet-payload-malformed"):

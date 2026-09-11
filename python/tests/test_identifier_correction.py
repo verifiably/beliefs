@@ -7,14 +7,16 @@ from typing import TypedDict
 
 import pytest
 from authority import FULL
+from fixtures_cut4 import raw_write
 from profiles import BASE
 from test_corpus_write import Recorder
 from test_source_address import ADDR_A, ADDR_B, CANONICAL_DOI, A, B, entry, raw_source
 
 from beliefs import source, stored
-from beliefs.corpus import CorpusWriter
+from beliefs.corpus import CorpusWriter, corpus_check
 from beliefs.errors import (
     BasisMissing,
+    FacetPayloadRefused,
     IdentifierMalformed,
     SourceAddressDisagreement,
     ValidationRefused,
@@ -112,3 +114,56 @@ class TestTheBoundary:
     def test_a_dataset_without_content_identity_still_refuses(self, writer):
         with pytest.raises(BasisMissing):
             writer.add(stored.dataset_node("d1", title="d", resources=[]))
+
+
+def raw_edit_history(writer, node_id, mutate):
+    """Rewrite one stored source's file outside the boundary, as a forger would."""
+    node = writer.read_view.get(node_id).model_copy(deep=True)
+    mutate(node)
+    raw_write(writer.root, node)
+    writer._reconstruct()
+
+
+class TestTheReadSide:
+    def test_a_raw_edited_history_refuses_on_read(self, writer):
+        minted = writer.add(stored.source_node(title="p", identifiers=B))
+
+        def mutate(node):
+            node.facets[stored.IDENTIFIER_CORRECTION_FACET] = {"entries": []}
+
+        raw_edit_history(writer, minted.id, mutate)
+        with pytest.raises(FacetPayloadRefused):
+            writer.read_view.get(minted.id)
+
+    def test_a_duplicated_deprecated_id_refuses_on_read(self, tmp_path):
+        from test_relocation import _writer
+
+        importer = _writer(tmp_path / "importer")
+        corrected = raw_source(B, history=[entry(A, B)], deprecated=[ADDR_A])
+        importer.import_bundle(
+            [corrected],
+            observer="o",
+            instrument="i",
+            opened_at="2026-09-10T00:00:00Z",
+            closed_at="2026-09-10T00:00:01Z",
+        )
+        assert importer.read_view.get(ADDR_B).deprecated_ids == [ADDR_A]
+
+        raw_edit_history(importer, corrected.id, lambda node: node.deprecated_ids.append(ADDR_A))
+        with pytest.raises(FacetPayloadRefused):
+            importer.read_view.get(corrected.id)
+
+    def test_the_check_view_reports_facet_payload_malformed(self, writer):
+        minted = writer.add(stored.source_node(title="p", identifiers=B))
+
+        def mutate(node):
+            node.facets[stored.IDENTIFIER_CORRECTION_FACET] = {"entries": [entry(A, B, grounds="")]}
+
+        raw_edit_history(writer, minted.id, mutate)
+        findings = corpus_check(writer.read_view, BASE)
+        assert any(
+            finding.code == "facet-payload-malformed"
+            and finding.ref == minted.id
+            and finding.detail == stored.IDENTIFIER_CORRECTION_FACET
+            for finding in findings
+        )
