@@ -1916,8 +1916,9 @@ def _halt_at(session, backend, root, skip, subject, target):
     return observed
 
 
-def test_failure_boundary_the_two_op_transaction_publishes_the_create_before_the_delete(work_directory):
-    """The instrument that fixes the injection positions for the next test: sweep
+@pytest.fixture()
+def correction_halt_positions(work_directory) -> tuple[int, int]:
+    """Derive the injection positions for the requesting test: sweep
     the halt over the two-op transaction's publish sequence and read the file
     state at each halt. The positions are derived from what was observed, never
     from the single-record count, and the sweep must show the create completing
@@ -1935,16 +1936,17 @@ def test_failure_boundary_the_two_op_transaction_publishes_the_create_before_the
     assert (True, False) in states and (True, True) in states, observed
     assert states.index((True, False)) < states.index((True, True)), observed
     assert (False, False) not in states, observed  # the delete never lands before the create
-    global HALT_BEFORE_CREATE, HALT_BETWEEN
-    HALT_BEFORE_CREATE = observed[states.index((True, False))][0]
-    HALT_BETWEEN = observed[states.index((True, True))][0]
+    halt_before_create = observed[states.index((True, False))][0]
+    halt_between = observed[states.index((True, True))][0]
     session.close()
+    return halt_before_create, halt_between
 
 
-def test_failure_boundary_refusals_and_applied_prefixes(work_directory, monkeypatch):
+def test_failure_boundary_refusals_and_applied_prefixes(work_directory, monkeypatch, correction_halt_positions):
     """Spec §10.3: a refusal has no effect; a halt after submission leaves a stated
     prefix and the root unresolved; a post-commit readback fault leaves the record
     durable; settlement leaves exactly one record with the subject's uid."""
+    halt_before_create, halt_between = correction_halt_positions
     root = adopted(work_directory, "cut25-halt")
     session, backend, ops = halting_session(work_directory, root)
     w = fresh(session, "A", SOURCES)
@@ -1960,9 +1962,9 @@ def test_failure_boundary_refusals_and_applied_prefixes(work_directory, monkeypa
         w.correct_identifier(paper.id, {"pmid": "1"}, grounds="g")
     assert len(chain(root).entries) == before and old_path.exists() and not new_path.exists()
 
-    # 2. Halt before the create's publish (position derived by the sweep test, which runs
-    #    first in this module): nothing published, the intent stands, reconciliation classifies it.
-    backend.skip = HALT_BEFORE_CREATE
+    # 2. Halt before the create's publish (position derived by the requested sweep fixture):
+    #    nothing published, the intent stands, reconciliation classifies it.
+    backend.skip = halt_before_create
     backend.arm_next = True
     with pytest.raises(ExecutionError):
         w.correct_identifier(paper.id, target, grounds="g")
@@ -1977,7 +1979,7 @@ def test_failure_boundary_refusals_and_applied_prefixes(work_directory, monkeypa
 
     # 3. Halt between the create and the delete (the sweep's (True, True) position): the create
     #    completed and the delete did not; settlement resolves the pair to exactly one record.
-    backend.skip = HALT_BETWEEN
+    backend.skip = halt_between
     backend.arm_next = True
     with pytest.raises(ExecutionError):
         fresh(session, "C", SOURCES).correct_identifier(paper.id, target, grounds="g")
@@ -2031,7 +2033,7 @@ def test_lifecycle_move_consolidate_delete(world):
     assert left.read_view.resolve(paper.id) is None
 ```
 
-The sweep test derives `HALT_BEFORE_CREATE` and `HALT_BETWEEN` from observed file states and the halting test consumes them; pytest runs the module in file order, and the module-level `global`s make the dependency explicit — if the sweep is skipped or reordered the halting test fails on the undefined name rather than on a guessed count. `(True, False)` before `(True, True)` in the sweep is the proof that the create completes before the delete begins; `(False, False)` anywhere would mean the delete published first and fails the sweep. `SOURCES` grants the kinds `mint_eligible_assessment` and `retract` need through the session's permit.
+The `correction_halt_positions` fixture derives and returns the two halt positions from observed file states. The halting test requests it explicitly, so direct selection and `--lf` reruns perform the sweep without depending on another test's execution. `(True, False)` before `(True, True)` in the sweep is the proof that the create completes before the delete begins; `(False, False)` anywhere would mean the delete published first and fails the sweep. `SOURCES` grants the kinds `mint_eligible_assessment` and `retract` need through the session's permit.
 
 - [ ] **Step 2: Run on the certified volume**
 
