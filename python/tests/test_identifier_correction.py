@@ -11,10 +11,12 @@ from fixtures_cut4 import raw_write
 from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp
 from profiles import BASE
 from test_corpus_write import Recorder
+from test_operation_writes import intents_of, primitive_calls, writer_over
+from test_session_writer import DIGEST, make_session
 from test_source_address import ADDR_A, ADDR_B, CANONICAL_DOI, A, B, entry, raw_source
 
 from beliefs import source, stored
-from beliefs.corpus import CorpusWriter, corpus_check
+from beliefs.corpus import CorpusWriter, OperationCommit, ReadView, corpus_check
 from beliefs.errors import (
     BasisMissing,
     CollisionRefused,
@@ -25,6 +27,7 @@ from beliefs.errors import (
     SourceAddressDisagreement,
     ValidationRefused,
 )
+from beliefs.permit import RequiredCapabilities
 
 
 class _ImportFields(TypedDict):
@@ -355,3 +358,42 @@ class TestTheSeamEffects:
         assert {p: p.read_bytes() for p in (writer.root / "retraction").glob("*.md")} == files_before
         assert writer.read_view.resolve(minted.id) == ADDR_B
         assert writer.read_view.inbound(ADDR_B) == writer.read_view.inbound(minted.id)
+
+
+SOURCES = RequiredCapabilities.for_kinds({"source"}, {})
+
+
+class TestTheSessionLayers:
+    def test_the_operation_facade_returns_the_fulfilling_commit(self, tmp_path):
+        writer, port = writer_over(tmp_path)
+        minted = writer.add(stored.source_node(title="p", identifiers=A))
+
+        commit = writer.operations.correct_identifier(minted.id, B, grounds="g")
+
+        assert type(commit) is OperationCommit and commit.record is not None
+        assert commit.record.id == ADDR_B and commit.record.uid == minted.uid
+        assert primitive_calls(port) == ["preflight", "append_intent", "execute_fulfilling"]
+        (intent,) = intents_of(port)
+        assert intent.kind == "corpus-write" and intent.event_token == commit.event_token
+        _, (_, fulfills) = port.calls[-1]
+        assert fulfills == commit.intent_digest and commit.entry_digest == "2" * 60 + "0002"
+
+    def test_the_scoped_writer_commits_one_corpus_write_and_ledgers_an_act(self, tmp_path):
+        session, ports = make_session(tmp_path)
+        scoped = session.scoped(SOURCES, "A")
+        session.claim_invocation("A", "mint", DIGEST)
+        minted = scoped.add(stored.source_node(title="p", identifiers=A))
+        (port,) = ports
+        calls_before = len(port.calls)
+        intents_before = len(intents_of(port))
+
+        corrected = scoped.correct_identifier(minted.id, B, grounds="g")
+
+        assert corrected.id == ADDR_B and corrected.uid == minted.uid
+        acts = session.invocation_acts("A")
+        assert len(acts) == 2 and acts[-1].record_ids == ((corrected.uid, corrected.id),)
+        assert primitive_calls(port)[calls_before:] == ["preflight", "append_intent", "execute_fulfilling"]
+        (intent,) = intents_of(port)[intents_before:]
+        _, (_, fulfills) = port.calls[-1]
+        assert intent.kind == "corpus-write" and fulfills == acts[-1].intent
+        assert not any(node.kind == "act-report" for node in ReadView.opened_at(port.root).iter_stored())

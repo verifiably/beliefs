@@ -419,7 +419,7 @@ git commit -m "feat(source): per-scheme normalization, precedence and the addres
 - Consumes: Task 1's `source.*`.
 - Produces: `stored.IDENTIFIER_CORRECTION_FACET = "identifier-correction"`, `stored.source_basis(node) -> tuple[str, str] | None`, `stored.source_address_of(node) -> str | None`, `stored.IdentifierCorrection` (frozen dataclass: `from_identifiers: Mapping[str, str]`, `to_identifiers: Mapping[str, str]`, `actor: str`, `grounds: str`, `event_token: str`), `stored.identifier_corrections(node) -> tuple[IdentifierCorrection, ...]` (the history alone; raises `MalformedRecord`), `stored.held_source_addresses(history) -> frozenset[str]`, and **`stored.validate_source_history(node) -> tuple[IdentifierCorrection, ...]`** — the one validator: the history plus redirect agreement (`deprecated_ids == sorted(held − {node.id})`, so duplicates, order, a history-free deprecated id and an underived retired address are one refusal). Every boundary and read path calls `validate_source_history`, never the pieces.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `python/tests/test_source_address.py`:
 
@@ -1561,42 +1561,55 @@ git commit -m "feat(corpus): correct source identifiers with attributed history"
 Append:
 
 ```python
+from test_operation_writes import intents_of, primitive_calls, writer_over
 from test_session_writer import DIGEST, make_session
 
+from beliefs.corpus import OperationCommit, ReadView
 from beliefs.permit import RequiredCapabilities
-from beliefs.session.writer import ScopedWriter
 
 SOURCES = RequiredCapabilities.for_kinds({"source"}, {})
 
 
 class TestTheSessionLayers:
+    def test_the_operation_facade_returns_the_fulfilling_commit(self, tmp_path):
+        writer, port = writer_over(tmp_path)
+        minted = writer.add(stored.source_node(title="p", identifiers=A))
+        commit = writer.operations.correct_identifier(minted.id, B, grounds="g")
+        assert type(commit) is OperationCommit and commit.record is not None
+        assert commit.record.id == ADDR_B and commit.record.uid == minted.uid
+        assert primitive_calls(port) == ["preflight", "append_intent", "execute_fulfilling"]
+        (intent,) = intents_of(port)
+        assert intent.kind == "corpus-write" and intent.event_token == commit.event_token
+        _, (_, fulfills) = port.calls[-1]
+        assert fulfills == commit.intent_digest and commit.entry_digest == "2" * 60 + "0002"
+
     def test_the_scoped_writer_commits_one_corpus_write_and_ledgers_an_act(self, tmp_path):
         session, ports = make_session(tmp_path)
         scoped = session.scoped(SOURCES, "A")
         session.claim_invocation("A", "mint", DIGEST)
         minted = scoped.add(stored.source_node(title="p", identifiers=A))
+        (port,) = ports
+        calls_before = len(port.calls)
+        intents_before = len(intents_of(port))
         corrected = scoped.correct_identifier(minted.id, B, grounds="g")
         assert corrected.id == ADDR_B and corrected.uid == minted.uid
         acts = session.invocation_acts("A")
         assert len(acts) == 2 and acts[-1].record_ids == ((corrected.uid, corrected.id),)
-        # One corpus-write intent per act, minting no act-report.
-        (port,) = ports
-        assert [intent.kind for intent in port.intents][-1] == "corpus-write"
-        assert not any(n.kind == "act-report" for n in port.writer.read_view.iter_stored())
-
-    def test_the_facade_exposes_nine_methods(self):
-        public = {name for name in dir(ScopedWriter) if not name.startswith("_")}
-        assert "correct_identifier" in public
+        assert primitive_calls(port)[calls_before:] == ["preflight", "append_intent", "execute_fulfilling"]
+        (intent,) = intents_of(port)[intents_before:]
+        _, (_, fulfills) = port.calls[-1]
+        assert intent.kind == "corpus-write" and fulfills == acts[-1].intent
+        assert not any(node.kind == "act-report" for node in ReadView.opened_at(port.root).iter_stored())
 ```
 
 `make_session` returns `(session, ports)` where each `RecordingPort` records the intents it appended; read `tests/test_session_writer.py::RecordingPort` for the attribute that holds them (`intents` above) and the writer it was built for, and adjust the two attribute names to match. `tests/test_session_writer.py::test_the_scoped_writer_exposes_the_eight_methods_the_routes_and_its_invocation` pins the public set — add `"correct_identifier"` to that set and rename the test to `..._nine_methods_...` in this task.
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `cd python && uv run --frozen pytest tests/test_identifier_correction.py -k SessionLayers`
-Expected: FAIL — `AttributeError: ... has no attribute 'correct_identifier'`.
+Observed: **2 failed, 33 deselected** — the two facades each raised `AttributeError` for missing `correct_identifier`.
 
-- [ ] **Step 3: Add the two layers**
+- [x] **Step 3: Add the two layers**
 
 In `OperationWrites` after `attest_coreference`:
 
@@ -1625,14 +1638,18 @@ Update `OperationWrites`'s docstring: "The nine session-mediated writes". In `do
 
 Check for a test pinning "eight" (`grep -rn "eight" python/tests/test_session_writer.py python/tests/acceptance/test_session_acceptance.py`) and update its count.
 
-- [ ] **Step 4: Run, lint, commit**
+- [x] **Step 4: Run, lint, commit**
 
 ```
 cd python && uv run --frozen pytest tests/test_identifier_correction.py tests/test_session_writer.py
 uv run --frozen ruff check . && uv run --frozen pyright
-git add python/src/beliefs/corpus.py python/src/beliefs/session/writer.py docs/designs/2026-09-05-writer-session-design.md python/tests
+cd ..
+tasks done beliefs-e47050 "correct_identifier now commits and ledgers through both session facades with exactly one fulfilling corpus write"
+git add python/src/beliefs/corpus.py python/src/beliefs/session/writer.py docs/designs/2026-09-05-writer-session-design.md python/tests/test_identifier_correction.py python/tests/test_session_writer.py docs/superpowers/plans/2026-09-10-world-resolution-slice-2b.md tasks/beliefs-e47050.md
 git commit -m "feat(session): correct_identifier through OperationWrites and ScopedWriter"
 ```
+
+**Task 7 evidence (2026-09-11):** RED failed twice on the missing facade methods. GREEN passed 57 focused identifier-correction and session-writer tests; ruff passed; pyright reported 0 errors and 0 warnings. The correction delta is exactly one preflight, one intent and one fulfilling execution; the fulfilling digest is linked to both direct `OperationCommit` metadata and the scoped ledger act. No act-report is minted. The whole-slice gate remains Task 11.
 
 ---
 

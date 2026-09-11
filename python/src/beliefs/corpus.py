@@ -3009,7 +3009,7 @@ class CorpusWriter:
 
 
 class OperationWrites:
-    """The eight session-mediated writes (design §4.2, §13 item 9): each is the
+    """The nine session-mediated writes (design §4.2, §13 item 9): each is the
     ordinary method, run inside a fulfilling scope under the settling hold."""
 
     def __init__(self, writer: CorpusWriter) -> None:
@@ -3048,6 +3048,11 @@ class OperationWrites:
         self, record: Node, *, view: ReadView | WorldReadView | None = None
     ) -> OperationCommit:
         return self._run(lambda: self._writer.attest_coreference(record, view=view))
+
+    def correct_identifier(
+        self, ref: str, identifiers: Mapping[str, object], *, grounds: str
+    ) -> OperationCommit:
+        return self._run(lambda: self._writer.correct_identifier(ref, identifiers, grounds=grounds))
 
     def supersede(self, successor: Node, *, of: str) -> OperationCommit:
         return self._run(lambda: self._writer.supersede(successor, of=of))

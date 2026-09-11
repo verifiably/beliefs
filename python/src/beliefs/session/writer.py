@@ -378,6 +378,11 @@ class ScopedWriter:
         assert minted is not None
         return minted
 
+    def correct_identifier(self, ref: str, identifiers: Mapping[str, object], *, grounds: str) -> Node:
+        minted = self._act(lambda: self._writer.operations.correct_identifier(ref, identifiers, grounds=grounds))
+        assert minted is not None
+        return minted
+
     def supersede(self, successor: Node, *, of: str) -> Node:
         minted = self._act(lambda: self._writer.operations.supersede(successor, of=of))
         assert minted is not None

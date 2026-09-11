@@ -567,6 +567,11 @@ requires unconditionally at the top of its body before its `append_intent`
 
 > **Amended 2026-09-10** (world resolution slice 2): an eighth seam, `attest_coreference`, joins on the same rule — refusals first, one commit seam, the `act` line after the commit. J1's "seven" is frozen text and stays; cut 24's results record states the eighth is covered there.
 
+> **Amended 2026-09-10 (slice 2b):** the session-mediated writes number
+> **nine** — `correct_identifier` joins them as an ordinary `corpus-write`,
+> one intent and one registration, minting no act-report
+> (`2026-09-10-world-resolution-slice-2b-design.md` §6).
+
 ## 5. The scoped writer
 
 ```python
