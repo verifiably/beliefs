@@ -2,7 +2,7 @@
 title: Glossary
 status: living
 created: 2026-08-08
-updated: 2026-09-05
+updated: 2026-09-11
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -137,6 +137,11 @@ context and the linked design references for normative detail.
   revised only by supersession, never expired by age; heldness is derived
   from the active observations under a declared coverage.
   ([holdings design](../designs/2026-08-10-verified-holdings-record-design.md))
+- **Identifier correction** — An attributed source-identity event that replaces
+  one canonical identifier map with another for the same work. It preserves the
+  source UID, renames the address only when the selected basis changes, and keeps
+  every retired address resolvable without rewriting referrers.
+  ([identity](identity-world-and-change.md#correction-is-additive))
 - **Identity basis** — The kind-specific semantic fields whose canonical
   projection determines a record's content identity. ([identity](identity-world-and-change.md#identity-is-not-one-field))
 - **Independence** — A pairwise, three-valued judgment derived from complete
@@ -225,6 +230,10 @@ context and the linked design references for normative detail.
 - **Source assertion** — A record of what a source asserts, denies, or
   hypothesizes about a proposition; it is useful but has no edge into belief.
   ([foundations](foundations.md#the-epistemic-invariant))
+- **Source address** — The `source:<digest>` lookup key derived under
+  `science.source-address.v1` from the selected normalized external identifier,
+  using fixed precedence DOI, PMID, ISBN, then accession.
+  ([identity](identity-world-and-change.md#identity-is-not-one-field))
 - **Standing** — The active status calculated from an acyclic retraction graph,
   including counter-retractions, rather than stored as a mutable flag.
   ([identity](identity-world-and-change.md#correction-is-additive))

@@ -53,6 +53,7 @@ ACCOUNTING: dict[int, tuple[str, str, str]] = {
     22: ("conformance-cut-22-results §2", "B1, B2, B3, B4, B5, B6, B7, D6, M8", "D1"),
     23: ("conformance-cut-23-results §2", "D3, S1, S1a, S5, W6, W10, R19", "R23"),
     24: ("conformance-cut-24-results §2", "W15, W4", "X12, W8a, M3"),
+    25: ("conformance-cut-25 §4", "W1, W2, W5a", ""),
 }
 
 #: Rows a later source names open at a widened obligation, overriding a full read.

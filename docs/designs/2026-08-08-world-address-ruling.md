@@ -179,6 +179,8 @@ values:
 | an **authority identifier** | `preferred_label(identifier, pinned_authority_release)` |
 | a **record** | kind-specific rendering from immutable record content, **recursively rendering any authority identifiers it holds** |
 
+> **Amended 2026-09-10 (slice 2b):** for `source` the renderer reads `stored.source_basis` — the selected `(scheme, value)` — and nothing else.
+
 `source` is the pure first case — its basis *is* an authority identifier.
 `dataset` is the second, holding authority identifiers in its fields.
 `proposition` is the second and is the worked example already banked, consulting

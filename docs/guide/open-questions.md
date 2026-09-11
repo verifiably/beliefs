@@ -2,7 +2,7 @@
 title: Open questions
 status: living
 created: 2026-08-08
-updated: 2026-09-05
+updated: 2026-09-11
 sources:
   - ../designs/2026-08-02-computation-reproducibility-design.md
   - ../designs/2026-09-05-mm30-reproduction.md
@@ -119,7 +119,9 @@ implementation**: a guarantee row awaiting code is work, not a question.
 - **Which external authorities are accepted, and who decides.** Every rendered
   label and the ambiguous-search refusal resolve against a pinned local snapshot
   of an authority. How a snapshot is pinned, versioned, distributed and bumped —
-  and whether a bump is an amendment act — is owed and undesigned.
+  and whether a bump is an amendment act — is owed and undesigned. Cut 25's
+  accession normalization is form-only and does not answer which accession
+  authorities are accepted, so this question stays open.
   ([ruling question](../designs/2026-08-08-world-address-ruling.md#11-open-questions))
 - **Whether a coreference balance belongs in any audit.** A coreference edge is
   outside belief by construction, but an active edge standing at `1` with a

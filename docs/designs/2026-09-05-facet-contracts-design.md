@@ -296,8 +296,13 @@ limit:
 | `retraction` | `_validated_retraction_facet` at write | a malformed target or arm | — |
 | `proposition` | `decode.py`'s claim decoder | missing or extra keys, refused never repaired | — |
 | `source` | `external_identifiers` | nothing at read; W3's refusal at write when no accepted identifier is present | unknown identifier names ignored |
+| `identifier-correction` | `identifier_corrections`, `validate_source_history` | malformed entries, non-canonical identifiers, broken continuity, duplicate tokens, no-op events, terminal disagreement, or a redirect list differing from the history-derived held addresses | absence, as an empty correction history |
 | `display` | `display_facet_malformed` | anything but the exact one-field shape `{display_statement: <str>}` | an empty statement; declared optional and uncovered on `proposition` and on `dataset`, which §5.3's revision arm may change |
 | `source-assertion`, `analysis-spec`, `act-report` | their own value readers | as those readers do | this design does not audit them |
+
+> **Amended 2026-09-10 (slice 2b):** `identifier-correction` is a reader-shaped,
+> optional, uncovered source facet. Its named reader is `stored.identifier_corrections`;
+> `stored.validate_source_history` applies the history and redirect contract together.
 
 Reader strictness is recorded as a limitation (§9 item 1). No reader-shaped
 facet migrates to a schema in this slice.

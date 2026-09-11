@@ -323,7 +323,7 @@ precedent and appears in the table below.
 |---|---|---|
 | `proposition` | kernel §4.1 semantic hash | already ruled |
 | `source-assertion` | hash over **(source identity, anchored span, stance, proposition identity)** | the proposition hash alone would make every paper's assertion of P *the same node*, collapsing the discourse counts §6 of the kernel is built to compute — one assertion where the corpus holds forty |
-| `source` | external identifier — DOI, PMID, ISBN, accession — normalized | a work's identity is issued by the world, not computed by us |
+| `source` | external identifier — DOI, PMID, ISBN, accession — normalized *— normalized per scheme and selected by fixed precedence doi > pmid > isbn > accession, addressed as the domain digest under `science.source-address.v1` (2026-09-10, slice 2b §3)* | a work's identity is issued by the world, not computed by us |
 | `dataset` | **content identity** — the **dataset basis projection** over the declared resources' digests: deduplicated, sorted, `\n`-joined, digested (*projection ruled 2026-08-09, `2026-08-09-admission-ramp-design.md` §6.2; the row previously read "manifest/content hash", which named no canonical derivation and so gave two implementations two addresses*) | a provider identifier names a *programme*, not data — §1.1's DepMap rows are exactly this confusion. Provider identifiers and accessions are ~~**aliases**~~ **authority-identifier fields** (`programme`, `release`) carried in the record, not the basis — *amended 2026-08-08 with the alias's retirement; the three levels (programme, release, held bytes) are distinct fields and a normalizer may never collapse them* |
 | `analysis-spec` | content identity | frozen pre-run by the kernel; immutable by construction |
 | `run` | content identity of the execution closure — specified by sub-problem 4 §4.1 as **recipe + result + occurrence** | immutable by construction; the occurrence's minted event token is what keeps two identical executions distinct |
@@ -655,6 +655,7 @@ mechanism serves both, which is why neither needs a bespoke one.
 > |---|---|
 > | **the basis was mis-transcribed** — one identifier ever, recorded wrongly | unchanged: a **rename**. `uid` preserved, node renamed to the corrected address, old address retained in `deprecated_ids`. No coreference is involved because there is only one work *and* only one identifier |
 > | **the authority replaced or corrected the identifier** — two identifiers legitimately exist | a **`coreference-attestation`** (§4.2). Both records stand, both addresses persist, nothing is renamed and nothing retires |
+> | **the record gains an identifier that always existed** (enrichment) — one record, one work | a **rename** iff the selected basis changes; old address retained. An attestation needs two records (slice 2b §6.4) |
 > | **genuinely different version or work** | unchanged: a new entity, linked to the old |
 >
 > The old table put the first two in one row and made the boundary turn on a

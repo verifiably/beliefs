@@ -1,8 +1,8 @@
 # Conformance cut 25 — source addresses derived from normalized identifiers
 
-**Status:** draft 2026-09-11; not frozen or discharged. W1, W2 and W5a are intended closures.
+**Status:** frozen and discharged 2026-09-11. W1, W2 and W5a are closed.
 **Design:** `../superpowers/specs/2026-09-10-world-resolution-slice-2b-design.md`, reviewed in four passes 2026-09-10.
-**Numbered after and serialized after** cut 24, whose discharge is in the branch ancestry. Task 11 records the freeze and discharge after review.
+**Numbered after and serialized after** cut 24, whose discharge is in the branch ancestry.
 
 ## 1. What this cut is
 
@@ -64,14 +64,14 @@ in its live guard, as design §10.6 requires.
 
 ## 3. Selection
 
-### W1 — intended closure; closes when its checks pass
+### W1 — closed
 
 Three pairs sharing a title and citekey-shaped display but holding distinct DOIs
 produce six records and addresses. A handle resolves nowhere in the corpus or
 published world. Hand-built and replacement records must agree with their
 derived address. Selected unit: `W1`. Deferred: nothing within this source row.
 
-### W2 — intended closure; closes when its checks pass
+### W2 — closed
 
 Equivalent spellings normalize to one facet, stamp and address. Every identifier
 is validated before precedence chooses a basis. Duplicate adds refuse; duplicate
@@ -79,7 +79,7 @@ corpus locations refuse publication until consolidation leaves one location.
 `{pmid: P}` and `{doi: D, pmid: P}` remain distinct selected bases despite their
 shared secondary identifier. Selected unit: `W2`. Deferred: nothing in this row.
 
-### W5a — intended closure; closes when its checks pass
+### W5a — closed
 
 Both arms run. Dataset resource changes refuse in-place revision; re-holding
 mints a new entity and preserves the prior assessment's binding. Source correction
@@ -92,10 +92,9 @@ Move, consolidation and delete preserve the lifecycle rules. Selected unit:
 
 ## 4. Accounting
 
-Three guarantee rows are read, **0 full/closed** until discharge, and
-**3 declaration units** carry them: `W1`, `W2`, `W5a`. There are **24 declared
-arms**. Checks supply closure evidence; Task 11 records the reviewed freeze and
-discharge before changing this accounting.
+Three guarantee rows are read, **3 full/closed** (W1, W2, W5a), and
+**3 declaration units** carry them. There are **24 declared arms**. The reviewed
+acceptance and sabotage checks supply closure evidence.
 
 ## 5. N2 and acceptance obligations
 
@@ -142,9 +141,9 @@ discharge before changing this accounting.
    must equal the registry. Against untouched main, only the authorized cut 4
    W3[6]/W3[8] additions and cut 16 M3a declaration displacement are permitted;
    every live matcher must still apply exactly once.
-6. Prior declarations remain pinned, including cut 24 at `79f118f`. Task 11 fills
-   cut 25's empty freeze commit and digest; until then the pin test explicitly
-   skips with `not yet frozen`. This document remains a draft.
+6. Prior declarations remain pinned, including cut 24 at `79f118f`. The immediate
+   follow-up commit pins cut 25's freeze commit and this document's digest after
+   the freeze commit exists.
 
 ## 6. Second reader
 
@@ -159,7 +158,7 @@ limitation, both contracts and intended closure wording.
 
 Subsequent plan review established the shared history/redirect validator, row
 parser, per-mutation fixtures and cited-not-run treatment of cut 4. Task 10's
-implementation evidence receives controller review before Task 11 freezes.
+implementation evidence received controller review before Task 11 froze.
 
 ## 7. Limitations
 

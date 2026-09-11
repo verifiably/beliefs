@@ -570,7 +570,7 @@ requires unconditionally at the top of its body before its `append_intent`
 > **Amended 2026-09-10 (slice 2b):** the session-mediated writes number
 > **nine** — `correct_identifier` joins them as an ordinary `corpus-write`,
 > one intent and one registration, minting no act-report
-> (`2026-09-10-world-resolution-slice-2b-design.md` §6).
+> ([slice 2b design](../superpowers/specs/2026-09-10-world-resolution-slice-2b-design.md) §6).
 
 ## 5. The scoped writer
 

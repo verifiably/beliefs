@@ -15,6 +15,7 @@ from nodes.core.relations import Relation
 from test_belief import scenario as belief_scenario
 from test_corpus_write import OperationRecorder
 from test_relocation import CONSOLIDATE_FIELDS, MOVE_FIELDS, _node, _writer
+from test_source_address import entry, raw_source
 from test_world_epoch import derivation_bindings, make_world, publish
 
 from beliefs import relocation, stored
@@ -174,8 +175,20 @@ def _move_published_dataset(tmp_path):
 def test_w5_a_move_changes_only_location(tmp_path):
     source = _writer(tmp_path / "source", domains=PINS.domains)
     destination = _writer(tmp_path / "destination", domains=PINS.domains)
-    node = stored.source_node(title="paper", identifiers={"doi": "10.1234/paper"})
-    node = source.add(node.model_copy(update={"deprecated_ids": ["source:old-paper"]}))
+    prior = {"pmid": "1"}
+    current = {"doi": "10.1234/paper"}
+    node = raw_source(
+        current,
+        history=[entry(prior, current)],
+        deprecated=[stored.source_node(title="old paper", identifiers=prior).id],
+    )
+    source.import_bundle(
+        [node],
+        observer=MOVE_FIELDS["observer"],
+        instrument=MOVE_FIELDS["instrument"],
+        opened_at=MOVE_FIELDS["opened_at"],
+        closed_at=MOVE_FIELDS["closed_at"],
+    )
     inbound = source.add(
         Node(
             id="discussion:citation",

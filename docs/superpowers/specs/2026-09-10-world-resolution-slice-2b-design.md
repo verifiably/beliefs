@@ -1,11 +1,10 @@
 # World resolution, slice 2b — source addresses derived from the normalized identifier
 
-**Status:** designed 2026-09-10; not yet frozen. Task `beliefs-b7994b`, under
-`beliefs-d248ba`. Sibling of slice 2
+**Status:** implemented and discharged at conformance cut 25 on 2026-09-11;
+W1, W2 and W5a closed. Task `beliefs-b7994b`, under `beliefs-d248ba`. Sibling of slice 2
 (`2026-09-10-world-resolution-slice-2-design.md`), which re-filed W1, W2 and
-W5a here (§1 and §12 there). Freezes as **conformance cut 25** by a dated
-commit after review clears; W1, W2 and W5a are **intended closures** until the
-selected acceptance and sabotage checks pass.
+W5a here (§1 and §12 there). Frozen as **conformance cut 25** after the selected
+acceptance and sabotage checks passed.
 
 Amends: world addressing §4.2 (the `source` row) and §4.4 (an enrichment
 shape); the address ruling §4.1 (the source renderer reads the basis); the

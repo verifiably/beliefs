@@ -27,7 +27,7 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Fifty-nine documents in `docs/designs/`: the banked redesigns, review disposition,
+Sixty documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
 2026-08-02 through 2026-09-10. Read them in this order:
 
@@ -92,6 +92,7 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-09-08-conformance-cut-22.md` | the discharged biology-pack cut: B1–B7, the cross-contract consulted walk, domain-facet read, and packaged biology contract |
 | `2026-09-09-conformance-cut-23.md` | the discharged world-read cut: the world read view, cross-corpus traversal, covered absence, and cross-corpus verification |
 | `2026-09-10-conformance-cut-24.md` | the discharged coreference-attestation cut: the governed record, populated balance, receipt completeness, endpoint refusals, and unchanged read side |
+| `2026-09-10-conformance-cut-25.md` | the discharged source-address cut: normalized identifier-derived addresses, attributed identifier correction, W1/W2/W5a closed, and 24 N2 arms |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -99,7 +100,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 24** is implemented and discharged. What
+Every conformance cut through **cut 25** is implemented and discharged. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -135,10 +136,11 @@ domain-facet reads, and the packaged `biology` contract. The world read view
 now captures records at an explicit published epoch, traverses across corpora,
 and carries named absence into lineage and evaluation. Coreference attestations
 are now governed, minted through the ledgered session route, and reduced into
-the published coverage-bound balance. The latest discharged boundary is cut 24
-([cut](docs/designs/2026-09-10-conformance-cut-24.md),
-[design](docs/superpowers/specs/2026-09-10-world-resolution-slice-2-design.md),
-[results](docs/plans/2026-09-10-conformance-cut-24-results.md)).
+the published coverage-bound balance. Source addresses are now derived from
+normalized identifiers, and identifier correction preserves attributed history.
+The latest discharged boundary is cut 25
+([cut](docs/designs/2026-09-10-conformance-cut-25.md),
+[design](docs/superpowers/specs/2026-09-10-world-resolution-slice-2b-design.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
 test before it is a passing one. There are **195 rows** across **eighteen frozen

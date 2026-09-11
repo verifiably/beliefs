@@ -1,5 +1,7 @@
 # World Resolution Slice 2b Implementation Plan
 
+**Status:** implementation discharged at conformance cut 25 on 2026-09-11.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Derive every `source` address from its normalized external identifier, build the one seam through which a source's identifiers change, and make the write and read boundaries check both — closing W1, W2 and W5a as conformance cut 25.
@@ -57,7 +59,7 @@
 **Interfaces:**
 - Produces: `source.SCHEMES: tuple[str, ...]`, `source.SOURCE_ADDRESS_DOMAIN: str`, `source.normalize(scheme: str, value: object) -> str`, `source.normalized_identifiers(identifiers: Mapping[str, object]) -> dict[str, str]`, `source.basis(identifiers: Mapping[str, str]) -> tuple[str, str] | None`, `source.source_address(identifiers: Mapping[str, str]) -> str | None`, `errors.IdentifierMalformed(message, *, scheme, value, reason)` with `REASONS = ("unknown-scheme", "not-a-string", "empty", "malformed", "non-canonical")`.
 
-- [ ] **Step 1: Add the error class**
+- [x] **Step 1: Add the error class**
 
 Append to `python/src/beliefs/errors.py` directly after `CoreferenceEndpointRefused`. The module has no `__all__`; preserve its existing public-class export convention:
 
@@ -79,7 +81,7 @@ class IdentifierMalformed(WriteRefused):
         self.reason = reason
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Create `python/tests/test_source_address.py`:
 
@@ -247,12 +249,12 @@ class TestBasisAndAddress:
         assert source.source_address({"pmid": "1"}) != source.source_address({"doi": CANONICAL_DOI, "pmid": "1"})
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
 Run: `cd python && uv run --frozen pytest tests/test_source_address.py`
 Expected: FAIL — `ImportError: cannot import name 'source'`.
 
-- [ ] **Step 4: Write `source.py`**
+- [x] **Step 4: Write `source.py`**
 
 Create `python/src/beliefs/source.py`:
 
@@ -389,21 +391,21 @@ def source_address(identifiers: Mapping[str, str]) -> str | None:
 
 Note on `_accession`: the `re.compile(r"^$")` prefix matches only the empty string, so `_remainder` strips nothing — accessions have no scheme prefix. Note on `_isbn`: the second `empty` check covers `isbn:--`, whose remainder survives `_remainder` and empties on hyphen removal.
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `cd python && uv run --frozen pytest tests/test_source_address.py`
 Expected: all pass. Confirm the summary line reads `N passed` with N ≥ 40.
 
-- [ ] **Step 6: Lint and type-check**
+- [x] **Step 6: Lint and type-check**
 
 Run: `cd python && uv run --frozen ruff check . && uv run --frozen pyright`
 Expected: `All checks passed!` and `0 errors`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add python/src/beliefs/source.py python/src/beliefs/errors.py python/tests/test_source_address.py
-git commit -m "feat(source): per-scheme normalization, precedence and the address digest"
+git commit -m "feat(source): normalize identifiers and derive source addresses"
 ```
 
 ---
@@ -549,12 +551,12 @@ class TestReaders:
             stored.identifier_corrections(node)
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `cd python && uv run --frozen pytest tests/test_source_address.py -k "Readers"`
 Expected: FAIL — `AttributeError: module 'beliefs.stored' has no attribute 'IDENTIFIER_CORRECTION_FACET'`.
 
-- [ ] **Step 3: Add the constants, value and readers to `stored.py`**
+- [x] **Step 3: Add the constants, value and readers to `stored.py`**
 
 Near the other facet constants (after `SOURCE_FACET = "source"`, line 152):
 
@@ -681,7 +683,7 @@ def validate_source_history(node: Node) -> tuple[IdentifierCorrection, ...]:
 
 Add `from beliefs.errors import IdentifierMalformed` to the existing errors import, and `from types import MappingProxyType` if not already imported (it is — check line ~40).
 
-- [ ] **Step 4: Declare the facet in both contract copies**
+- [x] **Step 4: Declare the facet in both contract copies**
 
 In both `contracts/science/CONTRACT.yaml` and `python/src/beliefs/contracts/science/CONTRACT.yaml`, replace the `source` kind line:
 
@@ -701,12 +703,12 @@ and in the `facets:` block, after the `source:` reader line add:
 
 Then verify the copies are identical: `diff contracts/science/CONTRACT.yaml python/src/beliefs/contracts/science/CONTRACT.yaml` prints nothing.
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `cd python && uv run --frozen pytest tests/test_source_address.py tests/test_profile.py tests/test_facet_contracts.py`
 Expected: all pass (the contract tests confirm the declaration parses; if a test pins the count of declared facets, update that count in the same commit and say so in the commit body).
 
-- [ ] **Step 6: Lint, type-check, commit**
+- [x] **Step 6: Lint, type-check, commit**
 
 ```bash
 cd python && uv run --frozen ruff check . && uv run --frozen pyright
@@ -727,7 +729,7 @@ git commit -m "feat(stored): source basis readers and the identifier-correction 
 **Interfaces:**
 - Produces: `stored.source_node(*, title: str, identifiers: Mapping[str, object]) -> Node` — no `slug`; refuses `IdentifierMalformed` and `BasisMissing`.
 
-- [ ] **Step 1: Write the failing builder tests**
+- [x] **Step 1: Write the failing builder tests**
 
 Append to `python/tests/test_source_address.py`:
 
@@ -757,12 +759,12 @@ class TestTheBuilder:
         assert caught.value.reason == "unknown-scheme"
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `cd python && uv run --frozen pytest tests/test_source_address.py -k TheBuilder`
 Expected: FAIL — `TypeError: source_node() missing 1 required positional argument: 'slug'`.
 
-- [ ] **Step 3: Replace the tuple and the builder**
+- [x] **Step 3: Replace the tuple and the builder**
 
 In `stored.py` replace lines 251–253 with:
 
@@ -800,7 +802,7 @@ def source_node(*, title: str, identifiers: Mapping[str, object]) -> Node:
 
 Add `BasisMissing` to the `beliefs.errors` import in `stored.py`.
 
-- [ ] **Step 4: Migrate the call sites**
+- [x] **Step 4: Migrate the call sites**
 
 Mechanical pass, then a manual pass. From `python/`:
 
@@ -829,20 +831,22 @@ Then the manual pass, file by file (`grep -rn "source:" tests` lists the 31 lite
 
   `test_a_note_is_not_what_a_missing_basis_coerces_to` keeps its `holds` assertion over the address the empty map *would* have had — there is none — so assert `not any(n.kind == "source" for n in writer.read_view.iter_stored())` instead of `holds("source:s1")`.
 
-- [ ] **Step 5: Run the whole suite**
+- [x] **Step 5: Run the whole suite**
 
 Run: `cd python && uv run --frozen pytest tests --ignore=tests/acceptance`
-Expected: every test passes. Then `uv run --frozen pytest tests/test_arm_staleness.py tests/test_frozen_guards.py` — passes once `W3[8]` is registered with the right sha. Then run the seven migrated acceptance phase modules directly: `uv run --frozen pytest tests/acceptance/test_permit_acceptance.py tests/acceptance/test_durable_corpus.py tests/acceptance/test_facet_acceptance.py tests/acceptance/test_relocation_acceptance.py tests/acceptance/test_coreference_acceptance.py tests/acceptance/test_session_acceptance.py tests/acceptance/test_deletion_acceptance.py` — all pass. Record the two summary lines in the commit body.
+Execution evidence: the broad run reached `4428 passed, 4 failed`; each failure
+was repaired and its complete affected set reran green, while the controller
+ruled out a duplicate broad run. Staleness/frozen guards passed 14 checks; the
+seven migrated acceptance modules reached 131 passed with one stale readback
+expectation, whose exact corrected rerun passed. Task 11 retains the mandatory
+full root gate over the final tree.
 
-- [ ] **Step 6: Lint, type-check, commit**
+- [x] **Step 6: Lint, type-check, commit**
 
 ```bash
 cd python && uv run --frozen ruff check . && uv run --frozen pyright
 git add -A python/src/beliefs/stored.py python/tests
-git commit -m "feat(stored)!: source_node derives its address from the normalized identifier
-
-Slug removed; 78 call sites and 31 source: literals migrated; abbreviated
-DOI fixtures repaired to valid registrants (slice 2b design §10.2)."
+git commit -m "feat(stored)!: derive source addresses from identifiers"
 ```
 
 ---
@@ -2377,10 +2381,10 @@ git commit -m "test(cut25): N2 arms, audit and runner for derived source address
 ### Task 11: Documentation, tasks and the freeze
 
 **Files:**
-- Modify: `docs/designs/2026-08-02-world-addressing-design.md` (§4.2 `source` row, §4.4 table), `docs/designs/2026-08-08-world-address-ruling.md` (§4.1 row), `docs/designs/2026-09-05-facet-contracts-design.md` (the reader-facet inventory), `docs/guide/identity-world-and-change.md`, `docs/guide/glossary.md`, `docs/guide/open-questions.md`, **`docs/plans/2026-08-29-implementation-roadmap.md`** (the authoritative roadmap's W-row table — not the historical design spec under `docs/superpowers/specs/`), `docs/designs/2026-08-03-redesign-adoption-ledger.md` (current-state summary), the spec's status line, `docs/designs/2026-09-10-conformance-cut-25.md` (freeze), `python/tests/acceptance/test_n2_cut25.py` (pins)
+- Modify: `README.md` (cut 25 inventory and current boundary), `docs/designs/2026-08-02-world-addressing-design.md` (§4.2 `source` row, §4.4 table), `docs/designs/2026-08-08-world-address-ruling.md` (§4.1 row), `docs/designs/2026-09-05-facet-contracts-design.md` (the reader-facet inventory), `docs/designs/2026-09-05-writer-session-design.md` (resolving slice 2b design link), `docs/guide/identity-world-and-change.md`, `docs/guide/glossary.md`, `docs/guide/open-questions.md`, **`docs/plans/2026-08-29-implementation-roadmap.md`** (the authoritative roadmap's W-row table — not the historical design spec under `docs/superpowers/specs/`), `python/tools/roadmap_status.py` (cut 25 accounting; the roadmap generator must reproduce the newly closed rows and counts), `docs/designs/2026-08-03-redesign-adoption-ledger.md` (current-state summary), `python/tests/test_designs_corpus.py` (the next design-count spelling), `python/tests/test_relocation_rows.py` (valid correction provenance for the W5a source alias fixture), the spec's status line, `docs/designs/2026-09-10-conformance-cut-25.md` (freeze), `python/tests/acceptance/test_n2_cut25.py` (pins)
 - Tasks: `beliefs-b7994b` and two new siblings under `beliefs-d248ba`
 
-- [ ] **Step 1: Amend the designs by dated note**
+- [x] **Step 1: Amend the designs by dated note**
 
 World addressing §4.2, `source` row — append to the basis cell: `*— normalized per scheme and selected by fixed precedence doi > pmid > isbn > accession, addressed as the domain digest under `science.source-address.v1` (2026-09-10, slice 2b §3)*`. §4.4's amended table gains a row before "genuinely different version or work":
 
@@ -2392,11 +2396,11 @@ Address ruling §4.1: after the table, `> **Amended 2026-09-10 (slice 2b):** for
 
 Facet-contracts design: add `identifier-correction` to the reader-shaped facet list with a dated note.
 
-- [ ] **Step 2: Guide, roadmap, ledger, open questions**
+- [x] **Step 2: Guide, roadmap, ledger, open questions**
 
 `identity-world-and-change.md` "Current state": replace "as does source re-addressing in slice 2b" with "Cut 25 derives every source address from its normalized identifier and adds the attributed identifier correction; dataset re-addressing and divergent-history reconciliation are filed." Glossary: entries for *source address*, *identifier correction*. Open questions (identity section): note that accession normalization is form-only and the accepted-authorities question stays open. Roadmap (`docs/plans/2026-08-29-implementation-roadmap.md`) W-row table: move W1, W2, W5a to the closed column at cut 25. Adoption ledger current-state: one sentence on cut 25.
 
-- [ ] **Step 3: Tasks**
+- [x] **Step 3: Tasks**
 
 ```bash
 tasks add "Dataset addresses derived from the content identity" --parent beliefs-d248ba -p 2 --size l --tag world-read -b "dataset_node takes an authored slug while dataset_address is computed and never checked against the id; 189 dataset_node sites measured 2026-09-10. The choice between dataset:sha256: as the address and a digest domain is this design's. Filed by slice 2b (docs/superpowers/specs/2026-09-10-world-resolution-slice-2b-design.md section 12)."
