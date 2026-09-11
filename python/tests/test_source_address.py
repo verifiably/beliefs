@@ -95,6 +95,11 @@ class TestRefusalOrder:
             source.normalized_identifiers({"unknown": 1})
         assert (caught.value.reason, caught.value.scheme) == ("unknown-scheme", "unknown")
 
+    def test_non_string_scheme_is_a_named_unknown_scheme_refusal(self):
+        with pytest.raises(IdentifierMalformed) as caught:
+            source.normalized_identifiers({"pmid": "1", 1: "x"})
+        assert (caught.value.reason, caught.value.scheme) == ("unknown-scheme", 1)
+
     def test_sorted_key_order_first_refusal_wins(self):
         with pytest.raises(IdentifierMalformed) as caught:
             source.normalized_identifiers({"pmid": 5, "doi": ""})
@@ -272,3 +277,9 @@ class TestReaders:
         node.facets[stored.IDENTIFIER_CORRECTION_FACET] = {"entries": [entry(A, B)], "note": 1}
         with pytest.raises(MalformedRecord):
             stored.identifier_corrections(node)
+
+    def test_a_mixed_key_identifier_map_is_a_malformed_record(self):
+        mixed = entry(A, B)
+        mixed["from"] = {"pmid": "1", 1: "x"}
+        with pytest.raises(MalformedRecord):
+            stored.identifier_corrections(raw_source(B, history=[mixed], deprecated=[ADDR_A]))

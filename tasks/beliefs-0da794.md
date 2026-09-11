@@ -6,7 +6,7 @@ priority: 2
 size: m
 owner: world-resolution-slice-2b
 created: 2026-09-11T00:28:23Z
-updated: 2026-09-11T08:08:37Z
+updated: 2026-09-11T08:17:41Z
 depends: [beliefs-eb9ac6]
 parent: beliefs-b7994b
 tags: [world-read]
@@ -19,3 +19,6 @@ step: "Task 2: Readers, the history facet and both contract copies"
 - 2026-09-11T08:03:11Z (world-resolution-slice-2b): claimed by /root/implement_2, process pid 2734659
 - 2026-09-11T08:07:06Z (world-resolution-slice-2b): base contract facet changed compiled profile identity e66d257c... -> d767624e...; controller approved updating the live pin in test_profile.py
 - 2026-09-11T08:08:37Z (world-resolution-slice-2b): Added source basis/history readers, exact redirect validation, contract declarations, malformed-record coverage, and the slice 2b profile identity pin.
+- 2026-09-11T08:15:55Z (world-resolution-slice-2b): round-1 review fix claimed by /root/implement_2: mixed identifier keys escape normalized_identifiers sorting as TypeError; controller ruled shared unknown-scheme refusal
+- 2026-09-11T08:17:41Z (world-resolution-slice-2b): round-1 fix: normalized_identifiers now names non-string scheme keys as unknown-scheme before sorting; focused red 2 TypeErrors, green 2 passed; adjacent 184 passed
+- 2026-09-11T08:17:41Z (world-resolution-slice-2b): Closed the mixed-key TypeError escape at normalized_identifiers and covered source/history named refusals.

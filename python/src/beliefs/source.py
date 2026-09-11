@@ -96,8 +96,18 @@ def normalize(scheme: str, value: object) -> str:
     return _RULES[scheme](value)
 
 
-def normalized_identifiers(identifiers: Mapping[str, object]) -> dict[str, str]:
-    return {scheme: normalize(scheme, identifiers[scheme]) for scheme in sorted(identifiers)}
+def normalized_identifiers(identifiers: Mapping[object, object]) -> dict[str, str]:
+    schemes: list[str] = []
+    for scheme, value in identifiers.items():
+        if not isinstance(scheme, str):
+            raise IdentifierMalformed(
+                f"{scheme!r} identifier {value!r}: accepted schemes are {SCHEMES}",
+                scheme=scheme,
+                value=value,
+                reason="unknown-scheme",
+            )
+        schemes.append(scheme)
+    return {scheme: normalize(scheme, identifiers[scheme]) for scheme in sorted(schemes)}
 
 
 def basis(identifiers: Mapping[str, str]) -> tuple[str, str] | None:

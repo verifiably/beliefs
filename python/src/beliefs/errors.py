@@ -1032,7 +1032,7 @@ class IdentifierMalformed(WriteRefused):
 
     REASONS = ("unknown-scheme", "not-a-string", "empty", "malformed", "non-canonical")
 
-    def __init__(self, message: str, *, scheme: str, value: object, reason: str) -> None:
+    def __init__(self, message: str, *, scheme: object, value: object, reason: str) -> None:
         if reason not in self.REASONS:
             raise ValueError(f"{reason!r} is not an identifier refusal reason")
         super().__init__(message)
