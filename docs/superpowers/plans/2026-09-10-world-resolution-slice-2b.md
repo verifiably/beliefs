@@ -14,11 +14,12 @@
 
 - Run everything from `python/` with the project venv: `uv run --frozen pytest ...` and `uv run --frozen pyright`; system python lacks `beliefs`.
 - Pytest count claims need the summary line: do not pass `-q` (addopts already sets it); read the final `N passed` line.
-- `stored.ACCEPTED_EXTERNAL_IDENTIFIERS = ("accession", "doi", "isbn", "pmid")` in `stored.py` is byte-frozen by cut 4's W3 arm. Never edit that line.
-- `self._refuse_missing_basis(node)` is matched by cut 16's `M3a` arm; the split in Task 4 must add the dated live adapter to `test_n2_cut16.py::_LIVE_SABOTAGES` in the same commit.
+- Frozen declarations that a task's line change displaces are never edited. Two mechanisms, and the task that moves the line uses the right one in the same commit: a **cited-not-run** guard (`python/tests/cited_not_run.py`, e.g. cut 4) gets the displaced arm recorded in its `stale_arms`; a **live** guard (e.g. cut 16) gets a dated re-target in its `_LIVE_SABOTAGES`. `uv run --frozen pytest tests/test_arm_staleness.py tests/test_frozen_guards.py` must pass after every task that touches a matched line; run it in Tasks 3, 4, 5, 6.
+- The closeout gate is the root-level `just check` and `just test` (both from the repository root), then the cut runner. The python-only invocations inside tasks are per-task feedback, not the gate.
 - Frozen files (`n2_arms_cut*.py`, cut documents, declaration tables of cuts ≤ 24) are never edited. Live phase modules of earlier cuts receive only the documented fixture migration (Task 3).
 - Every DOI fixture is valid under spec §3.1: registrant of 4–9 digits, e.g. `10.1234/abc`. Never `10.1/abc`.
 - Conventional commits; no AI-attribution trailer (the pre-commit hook refuses one).
+- N2 rows are named `<unit>-<letter>` (`W1-a`, `W5a-c`); cut 25's `unit_of` parses exactly that (Task 10). Never copy cut 24's parser unchanged.
 - Paths in this plan are relative to the repository root; the worktree is `.worktrees/slice-2b/`.
 - The pre-commit gate runs ruff, pyright, biome and `tasks check`; `ts/node_modules` must exist in the worktree (`cd ts && npm ci` once).
 
@@ -28,9 +29,9 @@
 
 | file | responsibility |
 |---|---|
-| `python/src/beliefs/source.py` (new) | `SCHEMES`, `SOURCE_ADDRESS_DOMAIN`, `normalize`, `normalized_identifiers`, `basis`, `source_address` — the basis projection, no `stored` import |
+| `python/src/beliefs/source.py` (new) | `SCHEMES`, `SOURCE_ADDRESS_DOMAIN`, `normalize`, `normalized_identifiers`, `basis`, `source_address` — the basis projection; `stored` re-exports `SCHEMES` as `ACCEPTED_EXTERNAL_IDENTIFIERS` |
 | `python/src/beliefs/errors.py` | `IdentifierMalformed`, `SourceAddressDisagreement`, `CorrectionRefused`, `HistoryDisagreement` |
-| `python/src/beliefs/stored.py` | `source_node` (new signature), `canonical_source_identifiers`, `source_basis`, `source_address_of`, `IdentifierCorrection`, `identifier_corrections`, `IDENTIFIER_CORRECTION_FACET` |
+| `python/src/beliefs/stored.py` | `source_node` (new signature), `source_basis`, `source_address_of`, `IdentifierCorrection`, `identifier_corrections`, `validate_source_history` (the one history/redirect validator), `IDENTIFIER_CORRECTION_FACET` |
 | `contracts/science/CONTRACT.yaml`, `python/src/beliefs/contracts/science/CONTRACT.yaml` | the `identifier-correction` facet declaration (both copies, identical) |
 | `python/src/beliefs/corpus.py` | `_refuse_source`, `_refuse_dataset_basis`, `correct_identifier`, `OperationWrites.correct_identifier`, `validated_node`, the finding loop |
 | `python/src/beliefs/session/writer.py` | `ScopedWriter.correct_identifier` |
@@ -38,6 +39,8 @@
 | `python/tests/test_source_address.py` (new) | normalization, precedence, digest pin, builder, readers, history shapes |
 | `python/tests/test_identifier_correction.py` (new) | the seam, session layers, relocation, read side |
 | `python/tests/acceptance/test_source_address_acceptance.py` (new) | W1, W2, W5a, failure boundary, lifecycle |
+| `python/tests/cited_not_run.py` | cut 4's `stale_arms` gains `W3[6]` and `W3[8]` |
+| `python/tests/acceptance/test_n2_cut16.py` | `_LIVE_SABOTAGES` re-targets `M3a` |
 | `python/tests/acceptance/n2_arms_cut25.py`, `test_n2_cut25.py` (new) | sabotage declarations and audit |
 | `python/tools/cut25_acceptance.py` (new) | the runner |
 | `docs/designs/2026-09-10-conformance-cut-25.md` (new) | the cut document |
@@ -52,7 +55,7 @@
 - Test: `python/tests/test_source_address.py` (new)
 
 **Interfaces:**
-- Produces: `source.SCHEMES: tuple[str, ...]`, `source.SOURCE_ADDRESS_DOMAIN: str`, `source.normalize(scheme: str, value: object) -> str`, `source.normalized_identifiers(identifiers: Mapping[str, object], *, accepted: Sequence[str]) -> dict[str, str]`, `source.basis(identifiers: Mapping[str, str]) -> tuple[str, str] | None`, `source.source_address(identifiers: Mapping[str, str]) -> str | None`, `errors.IdentifierMalformed(message, *, scheme, value, reason)` with `REASONS = ("unknown-scheme", "not-a-string", "empty", "malformed", "non-canonical")`.
+- Produces: `source.SCHEMES: tuple[str, ...]`, `source.SOURCE_ADDRESS_DOMAIN: str`, `source.normalize(scheme: str, value: object) -> str`, `source.normalized_identifiers(identifiers: Mapping[str, object]) -> dict[str, str]`, `source.basis(identifiers: Mapping[str, str]) -> tuple[str, str] | None`, `source.source_address(identifiers: Mapping[str, str]) -> str | None`, `errors.IdentifierMalformed(message, *, scheme, value, reason)` with `REASONS = ("unknown-scheme", "not-a-string", "empty", "malformed", "non-canonical")`.
 
 - [ ] **Step 1: Add the error class**
 
@@ -178,8 +181,6 @@ class TestRefusalOrder:
     """Spec §3.1: sorted key order, first refusal wins; per entry
     unknown-scheme → not-a-string → empty → malformed."""
 
-    ACCEPTED = stored.ACCEPTED_EXTERNAL_IDENTIFIERS
-
     def test_not_a_string_precedes_every_value_rule(self):
         with pytest.raises(IdentifierMalformed) as caught:
             source.normalize("doi", 5)
@@ -193,34 +194,38 @@ class TestRefusalOrder:
 
     def test_unknown_scheme_wins_over_its_own_value(self):
         with pytest.raises(IdentifierMalformed) as caught:
-            source.normalized_identifiers({"unknown": 1}, accepted=self.ACCEPTED)
+            source.normalized_identifiers({"unknown": 1})
         assert (caught.value.reason, caught.value.scheme) == ("unknown-scheme", "unknown")
 
     def test_sorted_key_order_first_refusal_wins(self):
         with pytest.raises(IdentifierMalformed) as caught:
-            source.normalized_identifiers({"pmid": 5, "doi": ""}, accepted=self.ACCEPTED)
+            source.normalized_identifiers({"pmid": 5, "doi": ""})
         assert (caught.value.reason, caught.value.scheme) == ("empty", "doi")
 
     def test_every_entry_is_validated_before_selection(self):
         with pytest.raises(IdentifierMalformed) as caught:
-            source.normalized_identifiers({"doi": CANONICAL_DOI, "pmid": "0"}, accepted=self.ACCEPTED)
+            source.normalized_identifiers({"doi": CANONICAL_DOI, "pmid": "0"})
         assert (caught.value.reason, caught.value.scheme) == ("malformed", "pmid")
 
-    def test_an_accepted_scheme_without_a_rule_is_an_invariant_violation(self):
-        with pytest.raises(LookupError):
-            source.normalized_identifiers({"url": "https://x"}, accepted=(*self.ACCEPTED, "url"))
-
-    def test_the_three_sets_agree(self):
-        assert set(source.SCHEMES) == set(stored.ACCEPTED_EXTERNAL_IDENTIFIERS) == set(source._RULES)
+    def test_one_tuple_in_precedence_order(self):
         assert source.SCHEMES == ("doi", "pmid", "isbn", "accession")
+        assert stored.ACCEPTED_EXTERNAL_IDENTIFIERS is source.SCHEMES
+        assert set(source._RULES) == set(source.SCHEMES)
 
 
 class TestBasisAndAddress:
-    def test_precedence_over_every_subset(self):
+    def test_precedence_over_every_non_empty_subset(self):
+        from itertools import combinations
+
         full = {"doi": CANONICAL_DOI, "pmid": "1", "isbn": "9780306406157", "accession": "GSE1"}
-        for scheme in source.SCHEMES:
-            subset = {k: v for k, v in full.items() if source.SCHEMES.index(k) >= source.SCHEMES.index(scheme)}
-            assert source.basis(subset) == (scheme, full[scheme])
+        seen = 0
+        for size in range(1, 5):
+            for schemes in combinations(source.SCHEMES, size):
+                subset = {k: full[k] for k in schemes}
+                expected = min(schemes, key=source.SCHEMES.index)
+                assert source.basis(subset) == (expected, full[expected]), subset
+                seen += 1
+        assert seen == 15
 
     def test_no_basis_is_none(self):
         assert source.basis({}) is None
@@ -231,9 +236,10 @@ class TestBasisAndAddress:
         assert source.source_address({"doi": CANONICAL_DOI, "pmid": "1"}) == f"source:{expected}"
 
     def test_pinned_digest(self):
-        # Pinned so the address domain cannot drift silently. Recompute only on a ruled domain change.
-        assert source.source_address({"pmid": "12345"}) == "source:" + v1.digest(
-            "science.source-address.v1", {"scheme": "pmid", "value": "12345"}
+        # A stored literal, computed once on 2026-09-10 under science.source-address.v1 over
+        # {"scheme": "pmid", "value": "12345"}. Move it only on a ruled domain change.
+        assert source.source_address({"pmid": "12345"}) == (
+            "source:8e2aa77202899912130944e03f698206f93ec6faaf4d8c1e6847b9eec5e65db9"
         )
         assert source.SOURCE_ADDRESS_DOMAIN == "science.source-address.v1"
 
@@ -255,10 +261,8 @@ Create `python/src/beliefs/source.py`:
 
 A source's basis is an identifier issued by the world, normalized. This module
 owns the per-scheme form rules, the precedence that selects the basis when a
-record carries several, and the address digest. It imports nothing from
-`stored`: the *accepted* set is `stored.ACCEPTED_EXTERNAL_IDENTIFIERS`, a
-literal frozen by cut 4's W3 arm, and callers pass it in. A scheme that is
-accepted but has no rule here is an invariant violation, never a refusal.
+record carries several, and the address digest. `SCHEMES` is the one accepted
+set; `stored.ACCEPTED_EXTERNAL_IDENTIFIERS` re-exports it.
 
 Form only, throughout. No authority is consulted and no identity is inferred.
 """
@@ -267,7 +271,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping
 
 from beliefs.errors import IdentifierMalformed
 from beliefs.identity import v1
@@ -352,27 +356,17 @@ _RULES: Mapping[str, Callable[[object], str]] = {"doi": _doi, "pmid": _pmid, "is
 
 
 def normalize(scheme: str, value: object) -> str:
-    """The canonical form of `value` under `scheme`'s rule, or `IdentifierMalformed`.
-
-    A scheme with no rule is a `LookupError`: the accepted literal and this
-    table disagree, which is a defect in the package and not in the record."""
-    try:
-        rule = _RULES[scheme]
-    except KeyError:
-        raise LookupError(f"no normalization rule for accepted scheme {scheme!r}") from None
-    return rule(value)
+    """The canonical form of `value` under `scheme`'s rule, or `IdentifierMalformed`."""
+    if scheme not in _RULES:
+        raise _refuse(scheme, value, "unknown-scheme", f"accepted schemes are {SCHEMES}")
+    return _RULES[scheme](value)
 
 
-def normalized_identifiers(identifiers: Mapping[str, object], *, accepted: Sequence[str]) -> dict[str, str]:
+def normalized_identifiers(identifiers: Mapping[str, object]) -> dict[str, str]:
     """Every entry validated in sorted key order, the first refusal winning:
     `unknown-scheme` → `not-a-string` → `empty` → `malformed`. Returns the
     canonical map. Total over the map before any basis is selected."""
-    canonical: dict[str, str] = {}
-    for scheme in sorted(identifiers):
-        if scheme not in accepted:
-            raise _refuse(scheme, identifiers[scheme], "unknown-scheme", f"accepted schemes are {tuple(accepted)}")
-        canonical[scheme] = normalize(scheme, identifiers[scheme])
-    return canonical
+    return {scheme: normalize(scheme, identifiers[scheme]) for scheme in sorted(identifiers)}
 
 
 def basis(identifiers: Mapping[str, str]) -> tuple[str, str] | None:
@@ -423,7 +417,7 @@ git commit -m "feat(source): per-scheme normalization, precedence and the addres
 
 **Interfaces:**
 - Consumes: Task 1's `source.*`.
-- Produces: `stored.IDENTIFIER_CORRECTION_FACET = "identifier-correction"`, `stored.canonical_source_identifiers(identifiers: Mapping[str, object]) -> dict[str, str]` (acceptance against the frozen literal, then `source.normalized_identifiers`), `stored.source_basis(node) -> tuple[str, str] | None`, `stored.source_address_of(node) -> str | None`, `stored.IdentifierCorrection` (frozen dataclass: `from_identifiers: Mapping[str, str]`, `to_identifiers: Mapping[str, str]`, `actor: str`, `grounds: str`, `event_token: str`), `stored.identifier_corrections(node) -> tuple[IdentifierCorrection, ...]` raising `MalformedRecord`, `stored.held_source_addresses(history) -> frozenset[str]`.
+- Produces: `stored.IDENTIFIER_CORRECTION_FACET = "identifier-correction"`, `stored.source_basis(node) -> tuple[str, str] | None`, `stored.source_address_of(node) -> str | None`, `stored.IdentifierCorrection` (frozen dataclass: `from_identifiers: Mapping[str, str]`, `to_identifiers: Mapping[str, str]`, `actor: str`, `grounds: str`, `event_token: str`), `stored.identifier_corrections(node) -> tuple[IdentifierCorrection, ...]` (the history alone; raises `MalformedRecord`), `stored.held_source_addresses(history) -> frozenset[str]`, and **`stored.validate_source_history(node) -> tuple[IdentifierCorrection, ...]`** — the one validator: the history plus redirect agreement (`deprecated_ids == sorted(held − {node.id})`, so duplicates, order, a history-free deprecated id and an underived retired address are one refusal). Every boundary and read path calls `validate_source_history`, never the pieces.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -463,13 +457,6 @@ ADDR_B = source.source_address(B)
 
 
 class TestReaders:
-    def test_canonical_source_identifiers_checks_acceptance_against_the_frozen_literal(self):
-        assert stored.canonical_source_identifiers({"DOI": "x"}) if False else True  # keys are case-sensitive
-        with pytest.raises(IdentifierMalformed) as caught:
-            stored.canonical_source_identifiers({"url": "https://x"})
-        assert caught.value.reason == "unknown-scheme"
-        assert stored.canonical_source_identifiers({"doi": DOI}) == {"doi": CANONICAL_DOI}
-
     def test_source_basis_and_address_of(self):
         node = raw_source(B)
         assert stored.source_basis(node) == ("doi", CANONICAL_DOI)
@@ -487,6 +474,38 @@ class TestReaders:
     def test_held_addresses(self):
         assert stored.held_source_addresses(stored.identifier_corrections(raw_source(B, history=[entry(A, B)], deprecated=[ADDR_A]))) == {ADDR_A, ADDR_B}
 
+    def test_validate_source_history_accepts_the_agreeing_redirect(self):
+        node = raw_source(B, history=[entry(A, B)], deprecated=[ADDR_A])
+        assert len(stored.validate_source_history(node)) == 1
+        assert stored.validate_source_history(raw_source(A)) == ()
+
+    @pytest.mark.parametrize(
+        "deprecated",
+        [
+            [],  # the retired address missing
+            [ADDR_A, ADDR_A],  # a duplicate
+            [ADDR_A, ADDR_B],  # the live address deprecated too
+            [ADDR_A, "source:" + "f" * 64],  # a retired address the history does not derive
+        ],
+        ids=["missing", "duplicate", "live-and-deprecated", "underived"],
+    )
+    def test_validate_source_history_refuses_a_disagreeing_redirect(self, deprecated):
+        node = raw_source(B, history=[entry(A, B)], deprecated=deprecated)
+        with pytest.raises(MalformedRecord):
+            stored.validate_source_history(node)
+
+    def test_an_unsorted_redirect_refuses(self):
+        two = {"pmid": "2"}
+        history = [entry(A, B, token="t1"), entry(B, two, token="t2")]
+        node = raw_source(two, history=history, deprecated=sorted([ADDR_A, ADDR_B], reverse=True))
+        with pytest.raises(MalformedRecord):
+            stored.validate_source_history(node)
+        assert len(stored.validate_source_history(raw_source(two, history=history, deprecated=sorted([ADDR_A, ADDR_B])))) == 2
+
+    def test_a_history_free_source_with_a_deprecated_id_refuses(self):
+        with pytest.raises(MalformedRecord):
+            stored.validate_source_history(raw_source(B, deprecated=[ADDR_A]))
+
     @pytest.mark.parametrize(
         "history",
         [
@@ -495,7 +514,6 @@ class TestReaders:
             [{k: v for k, v in entry(A, B).items() if k != "grounds"}],  # a missing key
             [entry({}, B)],  # empty from
             [entry(A, {})],  # empty to
-            [entry(A, A)],  # from == to
             [entry(A, {"doi": DOI, "pmid": "1"})],  # non-canonical value in a map
             [entry(A, {"url": "x"})],  # unknown scheme in a map
             [entry(A, B, actor="")],
@@ -511,6 +529,13 @@ class TestReaders:
         with pytest.raises(MalformedRecord):
             stored.identifier_corrections(node)
 
+    def test_from_equal_to_refuses_and_nothing_else_does(self):
+        # The one fixture that violates only the from != to clause: continuity holds,
+        # the entry ends at the current identifiers, and the redirect set is empty.
+        node = raw_source(A, history=[entry(A, A)], deprecated=[])
+        with pytest.raises(MalformedRecord, match="from and to are equal"):
+            stored.identifier_corrections(node)
+
     def test_the_last_entry_must_end_at_the_current_identifiers(self):
         node = raw_source({"pmid": "7"}, history=[entry(A, B)], deprecated=[ADDR_A])
         with pytest.raises(MalformedRecord):
@@ -522,8 +547,6 @@ class TestReaders:
         with pytest.raises(MalformedRecord):
             stored.identifier_corrections(node)
 ```
-
-Remove the first line of `test_canonical_source_identifiers_checks_acceptance_against_the_frozen_literal` (the `if False` line is a slip; keep the three real assertions).
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
@@ -538,18 +561,11 @@ Near the other facet constants (after `SOURCE_FACET = "source"`, line 152):
 IDENTIFIER_CORRECTION_FACET = "identifier-correction"
 ```
 
-Add `from beliefs import source as source_basis_projection` to the imports (the alias avoids shadowing the `source` parameter names used elsewhere in the module). Add these entries to `__all__` in alphabetical position: `"IDENTIFIER_CORRECTION_FACET"`, `"IdentifierCorrection"`, `"canonical_source_identifiers"`, `"held_source_addresses"`, `"identifier_corrections"`, `"source_address_of"`, `"source_basis"`.
+Add `from beliefs import source as source_basis_projection` to the imports (the alias avoids shadowing the `source` parameter names used elsewhere in the module). Add these entries to `__all__` in alphabetical position: `"IDENTIFIER_CORRECTION_FACET"`, `"IdentifierCorrection"`, `"held_source_addresses"`, `"identifier_corrections"`, `"source_address_of"`, `"source_basis"`, `"validate_source_history"`.
 
 After `external_identifiers` (line 349), add:
 
 ```python
-def canonical_source_identifiers(identifiers: Mapping[str, object]) -> dict[str, str]:
-    """Acceptance against W3's frozen literal, then every scheme's form rule
-    (slice 2b §3.2). The literal is the accepted set; `source.SCHEMES` is its
-    precedence order."""
-    return source_basis_projection.normalized_identifiers(identifiers, accepted=ACCEPTED_EXTERNAL_IDENTIFIERS)
-
-
 def _source_identifiers(node: Node) -> Mapping[str, Any]:
     facet = _facet(node, SOURCE_FACET) or {}
     identifiers = facet.get("identifiers")
@@ -586,7 +602,7 @@ def _correction_map(raw: object, where: str) -> Mapping[str, str]:
     if not isinstance(raw, dict) or not raw:
         raise MalformedRecord(f"{where}: is not a non-empty mapping")
     try:
-        canonical = canonical_source_identifiers(raw)
+        canonical = source_basis_projection.normalized_identifiers(raw)
     except IdentifierMalformed as caught:
         raise MalformedRecord(f"{where}: {caught}") from caught
     if canonical != raw:
@@ -642,6 +658,21 @@ def held_source_addresses(history: Sequence[IdentifierCorrection]) -> frozenset[
             assert address is not None  # a validated map is non-empty
             addresses.add(address)
     return frozenset(addresses)
+
+
+def validate_source_history(node: Node) -> tuple[IdentifierCorrection, ...]:
+    """The one implementation of slice 2b §5.2: the history, then redirect
+    agreement — `deprecated_ids` is exactly `sorted(held − {node.id})`. A
+    duplicate, an unsorted list, a history-free record carrying any deprecated
+    id, and a retired address the history does not derive are one refusal.
+    Every write path and both read paths call this and nothing narrower."""
+    history = identifier_corrections(node)
+    expected = sorted(held_source_addresses(history) - {node.id})
+    if list(node.deprecated_ids) != expected:
+        raise MalformedRecord(
+            f"{node.id}: deprecated_ids {list(node.deprecated_ids)} are not the history's redirect set {expected}"
+        )
+    return history
 ```
 
 Add `from beliefs.errors import IdentifierMalformed` to the existing errors import, and `from types import MappingProxyType` if not already imported (it is — check line ~40).
@@ -684,9 +715,10 @@ git commit -m "feat(stored): source basis readers and the identifier-correction 
 ### Task 3: The builder derives the address; migrate every call site
 
 **Files:**
-- Modify: `python/src/beliefs/stored.py:736-737` (`source_node`)
+- Modify: `python/src/beliefs/stored.py:251` (`ACCEPTED_EXTERNAL_IDENTIFIERS` becomes the re-export) and `:736-737` (`source_node`)
+- Modify: `python/tests/cited_not_run.py` (cut 4's `stale_arms`)
 - Modify: the 18 test files calling `source_node` (list them with `grep -rl "source_node(" python/tests`), including the seven frozen-cut phase modules named in spec §10.6
-- Test: `python/tests/test_source_address.py` (append), `python/tests/test_corpus_write.py::TestW3TheBasisRefusal`
+- Test: `python/tests/test_source_address.py` (append), `python/tests/test_corpus_write.py::TestW3TheBasisRefusal`, `python/tests/test_arm_staleness.py`
 
 **Interfaces:**
 - Produces: `stored.source_node(*, title: str, identifiers: Mapping[str, object]) -> Node` — no `slug`; refuses `IdentifierMalformed` and `BasisMissing`.
@@ -726,9 +758,24 @@ class TestTheBuilder:
 Run: `cd python && uv run --frozen pytest tests/test_source_address.py -k TheBuilder`
 Expected: FAIL — `TypeError: source_node() missing 1 required positional argument: 'slug'`.
 
-- [ ] **Step 3: Replace the builder**
+- [ ] **Step 3: Replace the tuple and the builder**
 
-In `stored.py` replace lines 736–737 with:
+In `stored.py` replace lines 251–253 with:
+
+```python
+ACCEPTED_EXTERNAL_IDENTIFIERS = source_basis_projection.SCHEMES
+"""W3's accepted external identifiers for a `source` — one tuple, in precedence
+order (slice 2b §3). A closed set: a fallback derived from title and year is
+exactly the coercion the row refuses."""
+```
+
+Cut 4's frozen arm `W3[8]` sabotages the old literal and cut 4 is cited-not-run, so in `python/tests/cited_not_run.py` add to the `cut=4` entry's `stale_arms` (keep the existing entries; use the sha of this task's commit once made — amend the commit after the first pass to insert it):
+
+```python
+            "W3[8]": "moved at <sha>, when slice 2b made source.SCHEMES the one accepted tuple (2026-09-10)",
+```
+
+Then replace lines 736–737 with:
 
 ```python
 def source_node(*, title: str, identifiers: Mapping[str, object]) -> Node:
@@ -736,7 +783,7 @@ def source_node(*, title: str, identifiers: Mapping[str, object]) -> Node:
     canonical, the id the digest over the selected basis. No slug — a handle
     never participates in an address. Refuses an empty basis itself, since no
     id exists without one; the boundary refuses it again for hand-built records."""
-    canonical = canonical_source_identifiers(identifiers)
+    canonical = source_basis_projection.normalized_identifiers(identifiers)
     address = source_basis_projection.source_address(canonical)
     if address is None:
         raise BasisMissing(
@@ -764,7 +811,7 @@ Then the manual pass, file by file (`grep -rn "source:" tests` lists the 31 lite
 
 - Every `"source:<slug>"` literal that named a built source becomes the built node's `.id`. Where the test built the node inline and then referred to the literal, bind the node first: `paper = stored.source_node(title="paper", identifiers={"doi": "10.1234/paper"})` and use `paper.id`.
 - Literals that name a source that is deliberately *absent* (`source:missing`, `source:elsewhere`, `source:former`) stay as they are — an unresolvable ref is what they assert.
-- `tests/test_corpus_write.py::TestW3TheBasisRefusal`: the two `identifiers={}` tests now assert `BasisMissing` from the **builder** (drop `writer.add(...)` around the call); add one boundary test that hand-builds a source with `governed_node("source", "handle", "A paper", {stored.SOURCE_FACET: {"identifiers": {}}}, ())` and asserts `writer.add` raises `BasisMissing` (that boundary clause lands in Task 4 — mark it `@pytest.mark.xfail(strict=True, reason="slice 2b task 4")` here and remove the marker in Task 4). `test_an_unaccepted_identifier_is_not_a_basis` becomes:
+- `tests/test_corpus_write.py::TestW3TheBasisRefusal`: the two `identifiers={}` tests now assert `BasisMissing` from the **builder** (drop `writer.add(...)` around the call); add one boundary test that hand-builds a source with `governed_node("source", "handle", "A paper", {stored.SOURCE_FACET: {"identifiers": {}}}, ())` and asserts `writer.add` raises `BasisMissing` — the existing `_refuse_missing_basis` already answers it, so it passes now and keeps passing through Task 4. `test_an_unaccepted_identifier_is_not_a_basis` becomes:
 
 ```python
     def test_an_unaccepted_identifier_is_not_a_basis(self, writer):
@@ -775,12 +822,12 @@ Then the manual pass, file by file (`grep -rn "source:" tests` lists the 31 lite
         assert caught.value.reason == "unknown-scheme"
 ```
 
-  This is the check cut 4's frozen W3 arm names; under its sabotage (`"url"` appended to the accepted literal) `source.normalize` raises `LookupError`, so the check still fails and the arm stays sound. `test_a_note_is_not_what_a_missing_basis_coerces_to` keeps its `holds` assertion over the address the empty map *would* have had — there is none — so assert `not any(n.kind == "source" for n in writer.read_view.iter_stored())` instead of `holds("source:s1")`.
+  `test_a_note_is_not_what_a_missing_basis_coerces_to` keeps its `holds` assertion over the address the empty map *would* have had — there is none — so assert `not any(n.kind == "source" for n in writer.read_view.iter_stored())` instead of `holds("source:s1")`.
 
 - [ ] **Step 5: Run the whole suite**
 
 Run: `cd python && uv run --frozen pytest tests --ignore=tests/acceptance`
-Expected: every test passes except the one `xfail`. Then run the seven migrated acceptance phase modules directly: `uv run --frozen pytest tests/acceptance/test_permit_acceptance.py tests/acceptance/test_durable_corpus.py tests/acceptance/test_facet_acceptance.py tests/acceptance/test_relocation_acceptance.py tests/acceptance/test_coreference_acceptance.py tests/acceptance/test_session_acceptance.py tests/acceptance/test_deletion_acceptance.py` — all pass. Record the two summary lines in the commit body.
+Expected: every test passes. Then `uv run --frozen pytest tests/test_arm_staleness.py tests/test_frozen_guards.py` — passes once `W3[8]` is registered with the right sha. Then run the seven migrated acceptance phase modules directly: `uv run --frozen pytest tests/acceptance/test_permit_acceptance.py tests/acceptance/test_durable_corpus.py tests/acceptance/test_facet_acceptance.py tests/acceptance/test_relocation_acceptance.py tests/acceptance/test_coreference_acceptance.py tests/acceptance/test_session_acceptance.py tests/acceptance/test_deletion_acceptance.py` — all pass. Record the two summary lines in the commit body.
 
 - [ ] **Step 6: Lint, type-check, commit**
 
@@ -800,8 +847,8 @@ DOI fixtures repaired to valid registrants (slice 2b design §10.2)."
 **Files:**
 - Modify: `python/src/beliefs/corpus.py` — `_refuse_missing_basis` (~line 2836), `_refuse` (~2716), `_preflight_replace_locked` (~1669)
 - Modify: `python/src/beliefs/errors.py` — `SourceAddressDisagreement`
-- Modify: `python/tests/acceptance/test_n2_cut16.py::_LIVE_SABOTAGES`
-- Test: `python/tests/test_identifier_correction.py` (new), `python/tests/test_corpus_write.py` (remove the xfail)
+- Modify: `python/tests/acceptance/test_n2_cut16.py::_LIVE_SABOTAGES`, `python/tests/cited_not_run.py` (cut 4's `W3[6]`)
+- Test: `python/tests/test_identifier_correction.py` (new), `python/tests/test_arm_staleness.py`
 
 **Interfaces:**
 - Produces: `CorpusWriter._refuse_source(node, *, provenance: bool)`, `CorpusWriter._refuse_dataset_basis(node)`, `errors.SourceAddressDisagreement(WriteRefused)`.
@@ -885,6 +932,17 @@ class TestTheBoundary:
         with pytest.raises(ValidationRefused):
             writer.add(raw_source(B, deprecated=[ADDR_A]))
 
+    def test_import_admits_a_well_formed_history_and_refuses_a_malformed_one(self, writer):
+        from beliefs.errors import ImportRefused
+
+        good = raw_source(B, history=[entry(A, B)], deprecated=[ADDR_A])
+        writer.import_bundle([good], observer="o", instrument="i", opened_at="2026-09-10T00:00:00Z", closed_at="2026-09-10T00:00:01Z")
+        assert writer.read_view.get(ADDR_B).deprecated_ids == [ADDR_A]
+        bad = raw_source({"pmid": "9"}, history=[entry(A, {"pmid": "9"}, grounds="")], deprecated=[ADDR_A])
+        with pytest.raises(ImportRefused) as caught:
+            writer.import_bundle([bad], observer="o", instrument="i", opened_at="2026-09-10T00:00:00Z", closed_at="2026-09-10T00:00:01Z")
+        assert caught.value.member == bad.id
+
     def test_a_dataset_without_content_identity_still_refuses(self, writer):
         with pytest.raises(BasisMissing):
             writer.add(stored.dataset_node("d1", title="d", resources=[]))
@@ -911,7 +969,7 @@ In `corpus.py` replace `_refuse_missing_basis` with:
         identifiers = facet.get("identifiers")
         if not isinstance(identifiers, dict):
             raise ValidationRefused(f"{node.id}: a source facet holds an `identifiers` mapping")
-        canonical = stored.canonical_source_identifiers(identifiers)  # IdentifierMalformed propagates
+        canonical = source_basis_projection.normalized_identifiers(identifiers)  # IdentifierMalformed propagates
         for scheme, value in identifiers.items():
             if canonical[scheme] != value:
                 raise IdentifierMalformed(
@@ -930,14 +988,9 @@ In `corpus.py` replace `_refuse_missing_basis` with:
         if stored.IDENTIFIER_CORRECTION_FACET in node.facets and not provenance:
             raise ValidationRefused(f"{node.id}: a correction history is minted by correct_identifier, never added")
         try:
-            history = stored.identifier_corrections(node)
+            stored.validate_source_history(node)  # history and redirect agreement, one validator
         except MalformedRecord as caught:
             raise ValidationRefused(f"{node.id}: refused by document validation: {caught}") from caught
-        expected = stored.held_source_addresses(history) - {node.id}
-        if len(node.deprecated_ids) != len(set(node.deprecated_ids)) or set(node.deprecated_ids) != expected:
-            raise ValidationRefused(
-                f"{node.id}: deprecated_ids {sorted(node.deprecated_ids)} do not agree with the history's {sorted(expected)}"
-            )
 
     def _refuse_dataset_basis(self, node: Node) -> None:
         """W3 as narrowed, the dataset half — unchanged in content."""
@@ -962,11 +1015,15 @@ In `_preflight_replace_locked`, replace `self._refuse_missing_basis(node)` with:
         self._refuse_dataset_basis(node)
 ```
 
-(`_preflight_replace_locked` is reached only by `consolidate` and the seam, both provenance paths.) Add `IdentifierMalformed`, `SourceAddressDisagreement` to the `beliefs.errors` import block.
+(`_preflight_replace_locked` is reached only by `consolidate` and the seam, both provenance paths.) Add `IdentifierMalformed`, `SourceAddressDisagreement` to the `beliefs.errors` import block and `from beliefs import source as source_basis_projection` to the imports. Keep `_refuse_dataset_basis`'s `if node.kind == "dataset" and dataset_address(stored.dataset_declaration(node)) is None:` line byte-identical to the old one — cut 4's `W3[7]` matches it and must stay live-matching; the source clause it replaces (`W3[6]`) goes stale and is registered in `cited_not_run.py`'s `cut=4` entry:
+
+```python
+            "W3[6]": "moved at <sha>, when slice 2b split the basis guard into _refuse_source and _refuse_dataset_basis (2026-09-10)",
+```
 
 - [ ] **Step 5: Add the cut 16 live adapter**
 
-Cut 16's `M3a` arm (`python/tests/n2_arms_cut16.py:197-208`) matches the two lines `self._refuse_family_kinds(node, admitted_kind=node.kind)\n        self._refuse_missing_basis(node)\n` in `_preflight_add_locked`… check: it is in `_preflight_replace_locked`? Run `grep -n "_refuse_family_kinds(node, admitted_kind=node.kind)" python/src/beliefs/corpus.py` — the arm's `before` must occur exactly once. After the split, add to `test_n2_cut16.py::_LIVE_SABOTAGES` (keep the existing entries):
+Cut 16's `M3a` arm (`python/tests/n2_arms_cut16.py:197-208`) matches the two lines `self._refuse_family_kinds(node, admitted_kind=node.kind)\n        self._refuse_missing_basis(node)\n` in `_preflight_replace_locked` (confirm with `grep -n "_refuse_family_kinds(node, admitted_kind=node.kind)" python/src/beliefs/corpus.py`; the arm's `before` must occur exactly once). After the split, add to `test_n2_cut16.py::_LIVE_SABOTAGES` (keep the existing entries):
 
 ```python
     # Live source-boundary matcher migration, 2026-09-10 (slice 2b): the basis
@@ -985,15 +1042,14 @@ Cut 16's `M3a` arm (`python/tests/n2_arms_cut16.py:197-208`) matches the two lin
     ),
 ```
 
-If the matched site is `_preflight_add_locked` rather than `_preflight_replace_locked`, use `provenance=provenance` in both strings to match what Step 4 wrote there. Verify with `grep -c` that the new `before` occurs exactly once in `corpus.py`.
+Verify with `grep -c` that the new `before` occurs exactly once in `corpus.py`.
 
-- [ ] **Step 6: Remove the xfail and run**
-
-Remove the `xfail` marker added in Task 3. Run:
+- [ ] **Step 6: Run**
 
 ```
 cd python && uv run --frozen pytest tests/test_identifier_correction.py tests/test_corpus_write.py tests/test_import_bundle.py tests/test_relocation.py
 uv run --frozen pytest tests/acceptance/test_n2_cut16.py -k "sabotage_names_one_real_source_site or M3a"
+uv run --frozen pytest tests/test_arm_staleness.py tests/test_frozen_guards.py
 ```
 
 Expected: all pass.
@@ -1001,8 +1057,9 @@ Expected: all pass.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add python/src/beliefs/corpus.py python/src/beliefs/errors.py python/tests/test_identifier_correction.py python/tests/test_corpus_write.py python/tests/acceptance/test_n2_cut16.py
+git add python/src/beliefs/corpus.py python/src/beliefs/errors.py python/tests/test_identifier_correction.py python/tests/test_corpus_write.py python/tests/acceptance/test_n2_cut16.py python/tests/cited_not_run.py
 git commit -m "feat(corpus): source write boundary checks the derived address and the history"
+# then insert this commit's sha into cited_not_run.py's W3[6] entry and `git commit --amend --no-edit`
 ```
 
 ---
@@ -1014,7 +1071,7 @@ git commit -m "feat(corpus): source write boundary checks the derived address an
 - Test: `python/tests/test_identifier_correction.py` (append)
 
 **Interfaces:**
-- Consumes: `stored.identifier_corrections`, `stored.held_source_addresses`, `errors.FacetPayloadRefused` (exists, subclass of `ValidationRefused`).
+- Consumes: `stored.validate_source_history`, `errors.FacetPayloadRefused` (exists, subclass of `ValidationRefused`).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1046,6 +1103,13 @@ class TestTheReadSide:
         with pytest.raises(FacetPayloadRefused):
             writer.read_view.get(minted.id)
 
+    def test_a_duplicated_deprecated_id_refuses_on_read(self, writer):
+        minted = writer.add(stored.source_node(title="p", identifiers=A))
+        corrected = writer.correct_identifier(minted.id, B, grounds="g")  # Task 6's seam; run this test after it lands
+        raw_edit_history(writer, corrected.id, lambda n: n.deprecated_ids.append(ADDR_A))  # [old] -> [old, old]
+        with pytest.raises(FacetPayloadRefused):
+            writer.read_view.get(corrected.id)
+
     def test_the_check_view_reports_facet_payload_malformed(self, writer):
         from beliefs.audit import check_corpus  # the audit entry the finding loop serves
 
@@ -1073,14 +1137,9 @@ In `validated_node`, after the `semantic_hash_disagrees` check:
 ```python
     if node.kind == "source":
         try:
-            history = stored.identifier_corrections(node)
+            stored.validate_source_history(node)
         except MalformedRecord as caught:
             raise FacetPayloadRefused(f"{node.id}: {stored.IDENTIFIER_CORRECTION_FACET}: {caught}") from caught
-        expected = stored.held_source_addresses(history) - {node.id}
-        if set(node.deprecated_ids) != expected:
-            raise FacetPayloadRefused(
-                f"{node.id}: {stored.IDENTIFIER_CORRECTION_FACET}: deprecated_ids disagree with the history"
-            )
     return node
 ```
 
@@ -1089,9 +1148,7 @@ In the finding loop, immediately after the `for key, payload in node.facets.item
 ```python
         if node.kind == "source":
             try:
-                history = stored.identifier_corrections(node)
-                if set(node.deprecated_ids) != stored.held_source_addresses(history) - {node.id}:
-                    raise MalformedRecord("deprecated_ids disagree with the history")
+                stored.validate_source_history(node)
             except MalformedRecord as refused:
                 base_valid = False
                 findings.append(
@@ -1106,6 +1163,7 @@ Add `FacetPayloadRefused` to the errors import if absent.
 ```
 cd python && uv run --frozen pytest tests/test_identifier_correction.py tests/test_audit.py tests/test_world_view.py
 uv run --frozen ruff check . && uv run --frozen pyright
+uv run --frozen pytest tests/test_arm_staleness.py tests/test_frozen_guards.py
 git add python/src/beliefs/corpus.py python/tests/test_identifier_correction.py
 git commit -m "feat(corpus): read paths validate the identifier-correction history"
 ```
@@ -1171,9 +1229,19 @@ class TestTheSeamRefusals:
         assert caught.value.reason == "not-a-source"
 
     def test_a_raw_edited_subject_refuses_before_append(self, writer):
+        # The one edit only the boundary catches: identifiers moved under the stored id with the
+        # stamp recomputed — validated_node's stamp and history checks both pass, and without the
+        # pre-append _refuse_source the seam would build a successor whose history never held the
+        # stored address, dropping it from the redirect set.
         minted = minted_a(writer)
-        raw_edit_history(writer, minted.id, lambda n: n.deprecated_ids.append(ADDR_C))
-        with pytest.raises((ValidationRefused, FacetPayloadRefused)):
+
+        def move_identifiers(node):
+            node.facets[stored.SOURCE_FACET]["identifiers"] = dict(C)
+            stored.stamp_semantic_identity(node)
+
+        raw_edit_history(writer, minted.id, move_identifiers)
+        assert writer.read_view.get(minted.id).id == minted.id  # readable: the read path does not catch it
+        with pytest.raises(SourceAddressDisagreement):
             writer.correct_identifier(minted.id, B, grounds="g")
 
     def test_malformed_supplied_identifiers(self, writer):
@@ -1274,25 +1342,26 @@ class TestTheSeamEffects:
         assert corrected.id == ADDR_C and sorted(corrected.deprecated_ids) == sorted([ADDR_A, ADDR_B])
 
     def test_referrers_are_byte_unchanged(self, writer):
+        # A retraction's `grounded-in` edge is the reference a record may hold to a source
+        # (a source is not an eligible retraction NodeTarget). No source-assertion builder exists.
+        from test_retract import mint_eligible_assessment, retraction_for
+
         minted = minted_a(writer)
-        prop = writer.add(stored.proposition_node("p", title="p", claim={"subject": "x", "predicate": "y", "object": "z"}))
-        assertion = stored.governed_node(
-            "source-assertion", "sa1", "asserts",
-            {"source-assertion": {"source": minted.id, "span": "p1", "stance": "asserts", "proposition": prop.id}},
-            [Relation(source="source-assertion:sa1", predicate="anchored_in", target=minted.id)],
-        )
-        # Use the repo's own source-assertion builder if one exists (grep "def source_assertion" stored.py);
-        # the facet keys above are illustrative and must match stored.source_assertion_value's reader.
-        stored.stamp_semantic_identity(assertion)
-        writer.add(assertion)
-        before = (writer.root / "source-assertion").read_bytes() if (writer.root / "source-assertion").is_file() else None
-        stored_before = {p: p.read_bytes() for p in (writer.root / "source-assertion").glob("*.md")}
+        assessment = mint_eligible_assessment(writer)
+        retraction = retraction_for(assessment)
+        retraction.facets[stored.RETRACTION_FACET]["grounds"] = [minted.id]
+        retraction.relations = [r for r in retraction.relations if r.predicate != stored.GROUNDED_IN]
+        retraction.relations.append(Relation(source=retraction.id, predicate=stored.GROUNDED_IN, target=minted.id))
+        stored.stamp_semantic_identity(retraction)
+        writer.retract(retraction)
+        files_before = {p: p.read_bytes() for p in (writer.root / "retraction").glob("*.md")}
         writer.correct_identifier(minted.id, B, grounds="g")
-        assert {p: p.read_bytes() for p in (writer.root / "source-assertion").glob("*.md")} == stored_before
+        assert {p: p.read_bytes() for p in (writer.root / "retraction").glob("*.md")} == files_before
         assert writer.read_view.resolve(minted.id) == ADDR_B
+        assert writer.read_view.inbound(ADDR_B) == writer.read_view.inbound(minted.id)
 ```
 
-For `test_referrers_are_byte_unchanged`, build the source-assertion with whatever builder `stored.py` already offers (`grep -n "source_assertion\|source-assertion" python/src/beliefs/stored.py`) and the claim shape `tests/test_corpus_write.py` uses for propositions; drop the `before = ...` line (it is a slip) and keep `stored_before`. The assertion is the referrer; its file bytes must not change.
+`retraction_for` builds its grounds as `("verification:v1",)`; the test rewrites them to name the source, restamps, and mints through `retract`. Confirm the facet key name with `grep -n "RETRACTION_FACET =" python/src/beliefs/stored.py`. The retraction is the referrer; its file bytes must not change, and the old address must still resolve.
 
 - [ ] **Step 3: Run to verify they fail**
 
@@ -1320,7 +1389,7 @@ Add to `CorpusWriter` after `attest_coreference`:
             if subject.kind != "source":
                 raise CorrectionRefused(f"{subject.id}: correct_identifier operates on sources only", reason="not-a-source")
             self._refuse_source(subject, provenance=True)
-            canonical = stored.canonical_source_identifiers(identifiers)
+            canonical = source_basis_projection.normalized_identifiers(identifiers)
             for scheme, value in identifiers.items():
                 if canonical[scheme] != value:
                     raise IdentifierMalformed(
@@ -1354,6 +1423,8 @@ Add to `CorpusWriter` after `attest_coreference`:
             new_address = stored.source_address_of(successor)
             assert new_address is not None
             successor.id = new_address
+            # Derive the redirect set first; the completed successor is validated below through the
+            # one validator, which requires deprecated_ids to be exactly this.
             held = stored.held_source_addresses(stored.identifier_corrections(successor))
             successor.deprecated_ids = sorted(held - {new_address})
             stored.stamp_semantic_identity(successor)
@@ -1385,7 +1456,7 @@ Add `ReplaceOp` to the `nodes.core.write_plan` import and `CorrectionRefused`, `
 - [ ] **Step 5: Run, lint, commit**
 
 ```
-cd python && uv run --frozen pytest tests/test_identifier_correction.py
+cd python && uv run --frozen pytest tests/test_identifier_correction.py tests/test_arm_staleness.py tests/test_frozen_guards.py
 uv run --frozen ruff check . && uv run --frozen pyright
 git add python/src/beliefs/corpus.py python/src/beliefs/errors.py python/tests/test_identifier_correction.py
 git commit -m "feat(corpus): correct_identifier renames a source through deprecated_ids with an attributed history"
@@ -1557,6 +1628,18 @@ class TestRelocation:
         with pytest.raises(HistoryDisagreement):
             consolidate((left, ADDR_B), (right, ADDR_B), rationale="r", **REPORT)
 
+    def test_consolidate_refuses_a_handle_addressed_replica_at_replace(self, two_writers):
+        # Only _preflight_replace_locked's _refuse_source catches this: both replicas were raw-written
+        # at a handle address with a valid stamp and no history, so every read passes and consolidate's
+        # own map/history comparison finds them identical.
+        left, right = two_writers
+        forged = raw_source(B, node_id="source:Chen2023")
+        for w in (left, right):
+            raw_write(w.root, forged)
+            w._reconstruct()
+        with pytest.raises(SourceAddressDisagreement):
+            consolidate((left, forged.id), (right, forged.id), rationale="r", **REPORT)
+
     def test_consolidate_accepts_byte_identical_replicas(self, two_writers):
         left, right = two_writers
         minted = left.add(stored.source_node(title="p", identifiers=A))
@@ -1608,7 +1691,7 @@ git commit -m "feat(relocation): consolidate refuses sources with divergent iden
 - Create: `python/tests/acceptance/test_source_address_acceptance.py`
 
 **Interfaces:**
-- Consumes: the `durable_world` fixture shape from `tests/acceptance/test_world_view_acceptance.py` (copy it; do not import from a frozen-cut phase module), `publish`/`hold_shipped` from `tests/test_world_receipts.py`, `open_world_view` from `beliefs.world.view`, `halting_session` from `tests/acceptance/test_session_acceptance.py` (read it; copy the idiom for arming a `HaltingBackend`).
+- Consumes: `open_corpus`/`init_corpus_root`/`init_world_root`/`open_world` from `beliefs.root`; `publish`/`hold_shipped` from `tests/test_world_receipts.py`; `open_world_view` from `beliefs.world.view`; `adopted`, `fresh`, `halting_session`, `chain`, `pending_registrations`, `state_of`, `registrations`, `config_for` from `tests/acceptance/test_session_acceptance.py` (read that module first: `fresh(session, invocation, required)` claims the invocation; `adopted` pins `WITH_BIOLOGY`); `TracingBackend`, `PUBLISH_CALLS_BEFORE_RECORD`, `PUBLISH_PHASE` from `tests/acceptance/session_faults.py`; `mint_eligible_assessment`, `retraction_for` from `tests/test_retract.py`; `raw_write` from `tests/fixtures_cut4.py`.
 
 - [ ] **Step 1: Write the arms**
 
@@ -1617,34 +1700,67 @@ git commit -m "feat(relocation): consolidate refuses sources with divergent iden
 
 from __future__ import annotations
 
+import inspect
 import shutil
 from pathlib import Path
 from tempfile import mkdtemp
+from typing import cast
 
 import pytest
-from authority import FULL
+from atoms.fs.backend import Backend
+from authority import ACTOR, FULL
 from durable_fixture import pinned
+from nodes.core.errors import ExecutionError
 from nodes.core.relations import Relation
-from profiles import BASE, pins_for
+from nodes.core.write_plan import CreateOp, DeleteOp
+from profiles import BASE, WITH_BIOLOGY, pins_for
+from session_faults import PUBLISH_CALLS_BEFORE_RECORD, PUBLISH_PHASE, TracingBackend
+from test_retract import mint_eligible_assessment, retraction_for
+from test_session_acceptance import (
+    adopted,
+    chain,
+    config_for,
+    fresh,
+    halting_session,
+    pending_registrations,
+    registrations,
+    state_of,
+)
 from test_world_receipts import hold_shipped, publish
 
 from beliefs import source, stored
+from beliefs.corpus import CorpusWriter
 from beliefs.errors import (
     AddressMapConflict,
     CollisionRefused,
-    ExecutionError,
+    CorrectionRefused,
     HistoryDisagreement,
     RecordAlreadyMinted,
     ReviseOutsideAllowlist,
 )
+from beliefs.permit import RequiredCapabilities
 from beliefs.relocation import consolidate, move
-from beliefs.root import init_corpus_root, init_world_root, metadata_root_for, open_corpus, open_world
+from beliefs.root import (
+    PRODUCTION_STORAGE,
+    DurableOperationPort,
+    init_corpus_root,
+    init_world_root,
+    metadata_root_for,
+    open_corpus,
+    open_world,
+)
+from beliefs.session.reconcile import reconcile_sessions
 from beliefs.world import Fresh, WorldConfig
 from beliefs.world.read import Unknown
 from beliefs.world.view import open_world_view
 
 REPORT = {"observer": "o", "instrument": "i", "opened_at": "2026-09-10T00:00:00Z", "closed_at": "2026-09-10T00:00:01Z"}
-PAIRS = (("Chen2023", "10.1234/chen.a", "10.5678/chen.b"), ("Liu2020", "10.1234/liu.a", "10.5678/liu.b"), ("Shi2025", "10.1234/shi.a", "10.5678/shi.b"))
+SOURCES = RequiredCapabilities.for_kinds({"source", "dataset", "run", "proposition", "assessment", "retraction"}, {})
+PAIRS = (
+    ("Chen2023", "10.1234/chen.a", "10.5678/chen.b"),
+    ("Liu2020", "10.1234/liu.a", "10.5678/liu.b"),
+    ("Shi2025", "10.1234/shi.a", "10.5678/shi.b"),
+)
 
 
 @pytest.fixture()
@@ -1703,7 +1819,7 @@ def test_w2_a_shared_basis_is_one_address(world):
     right.add(two)
     with pytest.raises(AddressMapConflict) as caught:
         publish(registry, (a, b), hold_shipped(registry))
-    assert caught.value.code == "duplicate-location"
+    assert caught.value.finding.code == "duplicate-location"
     consolidate((left, one.id), (right, two.id), rationale="one paper", **REPORT)
     published = publish(registry, (a, b), hold_shipped(registry))
     assert open_world_view(registry, published).corpus_of(one.id) == a
@@ -1716,91 +1832,162 @@ def test_w2_a_shared_basis_is_one_address(world):
 
 def test_w5a_dataset_arm_a_rehold_is_a_new_entity(world):
     _, (_, left), _ = world
-    d = left.add(stored.dataset_node("d", title="d", resources=pinned()))
+    assessment = mint_eligible_assessment(left)  # observes dataset:raw through run:r1
+    d = left.read_view.get("dataset:raw")
     changed = d.model_copy(deep=True)
     changed.facets[stored.DATASET_FACET]["resources"] = [{"name": "d", "digest": "sha256:" + "9" * 64}]
     stored.stamp_semantic_identity(changed)
     with pytest.raises(ReviseOutsideAllowlist):
         left.revise(changed)
-    reheld = left.add(stored.dataset_node("d-reheld", title="d", resources=[{"name": "d", "digest": "sha256:" + "9" * 64}]))
+    reheld = left.add(
+        stored.dataset_node("raw-reheld", title="raw", resources=[{"name": "d", "digest": "sha256:" + "9" * 64}])
+    )
     assert reheld.id != d.id and stored.dataset_declaration(reheld) != stored.dataset_declaration(d)
-    # Bind an assessment to `d` before the re-hold in the real arm: build run + spec + assessment
-    # with tests/test_corpus_write.py's `admissible(writer, ...)` helper, then assert its `assesses`
-    # closure still names `d` and never `reheld`. Copy that helper's call exactly.
+    run = left.read_view.get("run:r1")  # mint_eligible_assessment's run; AssessmentValue.run is the closure address, not the id
+    assert [e.target for e in left.read_view.outbound(assessment.id) if e.predicate == stored.PRODUCED_BY] == [run.id] if hasattr(stored, "PRODUCED_BY") else True
+    observed = [r.target for r in run.relations if r.predicate == stored.OBSERVES]
+    assert observed == [d.id] and reheld.id not in observed
+    assert left.read_view.get(d.id).facets[stored.DATASET_FACET] == d.facets[stored.DATASET_FACET]
 
 
 def test_w5a_source_arm_rename_preserves_uid_and_redirects(world):
     registry, (a, left), (b, right) = world
     paper = left.add(stored.source_node(title="p", identifiers={"doi": "10.1234/wrong"}))
-    # A referrer through a grounded-in edge (a source is not a retraction NodeTarget) and a source-assertion:
-    # build both with the repo's builders (grep "def retraction_node" / "source_assertion" in stored.py) naming paper.id.
+    # The referrer: a retraction grounded in the source (a source is not a retraction NodeTarget).
+    assessment = mint_eligible_assessment(left)
+    retraction = retraction_for(assessment)
+    retraction.facets[stored.RETRACTION_FACET]["grounds"] = [paper.id]
+    retraction.relations = [r for r in retraction.relations if r.predicate != stored.GROUNDED_IN]
+    retraction.relations.append(Relation(source=retraction.id, predicate=stored.GROUNDED_IN, target=paper.id))
+    stored.stamp_semantic_identity(retraction)
+    minted = left.retract(retraction)
+    referrer_bytes = (left.root / "retraction" / f"{minted.id.partition(':')[2]}.md").read_bytes()
+
     corrected = left.correct_identifier(paper.id, {"doi": "10.1234/right"}, grounds="the PDF's DOI")
     assert corrected.uid == paper.uid and corrected.deprecated_ids == [paper.id]
+    (correction,) = stored.identifier_corrections(corrected)
+    assert correction.actor == ACTOR and correction.grounds == "the PDF's DOI"
     assert left.read_view.resolve(paper.id) == corrected.id
+    assert (left.root / "retraction" / f"{minted.id.partition(':')[2]}.md").read_bytes() == referrer_bytes
+    assert [e.target for e in left.read_view.outbound(minted.id) if e.predicate == stored.GROUNDED_IN] == [paper.id]
     published = publish(registry, (a, b), hold_shipped(registry))
     view = open_world_view(registry, published)
     assert view.resolve(paper.id) == corrected.id
-    # Negative — three arms, three calls, no chooser:
-    import inspect
 
+    # Negative — three arms, three calls, no chooser.
     assert "case" not in inspect.signature(left.correct_identifier).parameters
-    other = left.add(stored.source_node(title="p2", identifiers={"doi": "10.1234/another"}))
+    other = left.add(stored.source_node(title="p2", identifiers={"doi": "10.1234/another"}))  # arm 2: a new work
     assert other.uid != corrected.uid
-    # attest_coreference over (corrected, other) is the third arm; it is exercised in cut 24 and not repeated here.
+    attestation = stored.coreference_attestation_node(  # arm 3: two identifiers legitimately exist
+        title="same paper", endpoints=(corrected.id, other.id), stance=1, actor=ACTOR, grounds="the same PDF", event_token="e1"
+    )
+    left.attest_coreference(attestation)
+    assert left.read_view.get(corrected.id).id == corrected.id and left.read_view.get(other.id).id == other.id
+    assert left.read_view.get(other.id).deprecated_ids == [] and left.read_view.get(corrected.id).deprecated_ids == [paper.id]
 
 
-def test_failure_boundary_refusals_and_applied_prefixes(work_directory):
-    """Spec §10.3: a refusal has no effect; a halt after submission leaves the
-    root unresolved, reconciliation classifies the intent, and settlement leaves
-    exactly one record with the subject's uid and a consistent redirect."""
-    from session_faults import PUBLISH_CALLS_BEFORE_RECORD
-    from test_session_acceptance import adopted, chain, fresh, halting_session, pending_registrations, state_of
-    from beliefs.errors import CorrectionRefused
-    from beliefs.session.reconcile import reconcile_sessions
-    from beliefs.root import config_for
+def _traced_port(root: Path) -> tuple[DurableOperationPort, TracingBackend]:
+    backend = TracingBackend()
+    port = DurableOperationPort(
+        root, backend=cast(Backend, backend), storage=PRODUCTION_STORAGE, metadata_root=metadata_root_for(root),
+        authority=FULL, profile=WITH_BIOLOGY,
+    )
+    return port, backend
 
+
+def test_failure_boundary_the_two_op_transaction_is_traced(work_directory):
+    """The instrument that fixes the fault positions for the next test: where in the
+    engine's publish sequence the create lands, where the delete lands, and where the
+    settlement is — measured, not assumed from the single-record count."""
+    root = adopted(work_directory, "cut25-traced")
+    port, backend = _traced_port(root)
+    warm = port.append_intent(b"{}")
+    port._execute_fulfilling([CreateOp(path="source/warm.md", content=b"warm")], warm)
+    intent = port.append_intent(b"{}")
+    backend.calls.clear()
+    old = root / "source" / "warm.md"
+    from hashlib import sha256
+
+    port._execute_fulfilling(
+        [CreateOp(path="source/new.md", content=b"new"), DeleteOp(path="source/warm.md", expected_digest=sha256(b"warm").hexdigest())],
+        intent,
+    )
+    publishes = [name for name in backend.calls if name in PUBLISH_PHASE]
+    assert not old.exists() and (root / "source" / "new.md").read_bytes() == b"new"
+    # Record the count here as a module constant for the halting test below; it is the
+    # two-op transaction's own sequence, one publish longer than the single-record count
+    # if the engine publishes the delete separately, and equal if it folds both into one payload.
+    global TWO_OP_PUBLISHES
+    TWO_OP_PUBLISHES = len(publishes)
+    assert TWO_OP_PUBLISHES >= PUBLISH_CALLS_BEFORE_RECORD + 2
+
+
+def test_failure_boundary_refusals_and_applied_prefixes(work_directory, monkeypatch):
+    """Spec §10.3: a refusal has no effect; a halt after submission leaves a stated
+    prefix and the root unresolved; a post-commit readback fault leaves the record
+    durable; settlement leaves exactly one record with the subject's uid."""
     root = adopted(work_directory, "cut25-halt")
     session, backend, ops = halting_session(work_directory, root)
     w = fresh(session, "A", SOURCES)
+    w.add(stored.source_node(title="warm", identifiers={"pmid": "99"}))  # the kind directory exists
     paper = w.add(stored.source_node(title="p", identifiers={"pmid": "1"}))
     target = {"doi": "10.1234/one", "pmid": "1"}
+    old_path = root / "source" / f"{paper.id.partition(':')[2]}.md"
+    new_path = root / "source" / f"{source.source_address(target).partition(':')[2]}.md"
 
-    # Refusal: no intent, no effect.
+    # 1. Refusal: no intent, no effect.
     before = len(chain(root).entries)
     with pytest.raises(CorrectionRefused):
-        w.correct_identifier(paper.id, {"pmid": "1"}, grounds="g")  # unchanged
-    assert len(chain(root).entries) == before
+        w.correct_identifier(paper.id, {"pmid": "1"}, grounds="g")
+    assert len(chain(root).entries) == before and old_path.exists() and not new_path.exists()
 
-    # Halt after submission, at the create's publish: the create may be staged, the delete is not.
+    # 2. Halt at the create's publish: the transaction rolls back or stays pending; the
+    #    observed prefix is stated, never both files live.
     backend.arm_next = True
     with pytest.raises(ExecutionError):
         w.correct_identifier(paper.id, target, grounds="g")
     assert backend.halted and pending_registrations(root) and state_of(root).unresolved is True
+    assert old_path.exists() and not new_path.exists(), "create halted: nothing published"
     findings = reconcile_sessions(config_for(ops.parent, root), ops)
     assert any(f.code in ("session-outcome-unknown", "session-entry-pending") for f in findings)
-
-    # The next write settles first; afterwards exactly one record carries the uid.
     backend.disarm()
-    fresh(session, "B", SOURCES).add(stored.source_node(title="q", identifiers={"pmid": "2"}))
+    fresh(session, "B", SOURCES).add(stored.source_node(title="q", identifiers={"pmid": "2"}))  # settles first
     assert not pending_registrations(root) and state_of(root).unresolved is False
-    reader = open_corpus(root, authority=FULL, profile=BASE)
-    holders = [n for n in reader.read_view.iter_stored() if n.uid == paper.uid]
-    assert len(holders) == 1
-    (survivor,) = holders
-    history = stored.identifier_corrections(survivor)
-    assert set(survivor.deprecated_ids) == stored.held_source_addresses(history) - {survivor.id}
+    assert old_path.exists() and not new_path.exists(), "rolled back: the subject stands at its old address"
 
-    # Halt one publish later, after both ops: same invariants, and the record stands at the new address
-    # if the transaction committed, or at the old one if it rolled back — never at both.
+    # 3. Halt one publish after the create's (the delete's, per the traced sequence): assert the
+    #    observed prefix from the files, then settlement leaves one record.
     backend.skip = PUBLISH_CALLS_BEFORE_RECORD + 1
     backend.arm_next = True
     with pytest.raises(ExecutionError):
-        fresh(session, "C", SOURCES).correct_identifier(survivor.id, {"pmid": "3"}, grounds="g")
+        fresh(session, "C", SOURCES).correct_identifier(paper.id, target, grounds="g")
+    assert backend.halted and state_of(root).unresolved is True
+    staged = (old_path.exists(), new_path.exists())
+    assert staged in {(True, False), (True, True)}, staged  # never (False, False): the engine publishes the create first
     backend.disarm()
-    fresh(session, "D", SOURCES).add(stored.source_node(title="r", identifiers={"pmid": "4"}))
-    reader = open_corpus(root, authority=FULL, profile=BASE)
+    fresh(session, "D", SOURCES).add(stored.source_node(title="r", identifiers={"pmid": "3"}))
+    assert state_of(root).unresolved is False
+    reader = open_corpus(root, authority=FULL, profile=WITH_BIOLOGY)
     holders = [n for n in reader.read_view.iter_stored() if n.uid == paper.uid]
-    assert len(holders) == 1 and set(holders[0].deprecated_ids) == stored.held_source_addresses(stored.identifier_corrections(holders[0])) - {holders[0].id}
+    assert len(holders) == 1 and (old_path.exists() != new_path.exists())
+    stored.validate_source_history(holders[0])
+
+    # 4. Post-commit readback fault: the plan committed, the registration stands, the view is not rebuilt.
+    subject = holders[0]
+    next_target = {**subject.facets[stored.SOURCE_FACET]["identifiers"], "isbn": "9780306406157"}
+    monkeypatch.setattr(
+        CorpusWriter, "_reconstruct", lambda self: (_ for _ in ()).throw(ExecutionError("readback", index=None, applied=None))
+    )
+    with pytest.raises(ExecutionError):
+        fresh(session, "E", SOURCES).correct_identifier(subject.id, next_target, grounds="g")
+    monkeypatch.undo()
+    assert state_of(root).unresolved is True
+    assert any(e.fulfills is not None for e in registrations(root))
+    fresh(session, "F", SOURCES).add(stored.source_node(title="s", identifiers={"pmid": "4"}))
+    reader = open_corpus(root, authority=FULL, profile=WITH_BIOLOGY)
+    holders = [n for n in reader.read_view.iter_stored() if n.uid == paper.uid]
+    assert len(holders) == 1 and holders[0].facets[stored.SOURCE_FACET]["identifiers"] == next_target
+    stored.validate_source_history(holders[0])
     session.close()
 
 
@@ -1810,15 +1997,21 @@ def test_lifecycle_move_consolidate_delete(world):
     corrected = left.correct_identifier(paper.id, {"doi": "10.1234/five", "pmid": "5"}, grounds="g")
     moved, *_ = move(left, right, corrected.id, **REPORT)
     assert right.read_view.get(moved.id).deprecated_ids == [paper.id]
-    right.import_bundle([moved], **REPORT) if False else None  # replicas are made through the world's own paths
-    left.import_bundle([right.read_view.get(moved.id)], **REPORT)
+    assert right.read_view.resolve(paper.id) == moved.id
+    left.import_bundle([right.read_view.get(moved.id)], **REPORT)  # a byte-identical replica
     survivor, *_ = consolidate((left, moved.id), (right, moved.id), rationale="r", **REPORT)
-    assert survivor.deprecated_ids == [paper.id]
+    assert survivor.deprecated_ids == [paper.id] and len(stored.identifier_corrections(survivor)) == 1
+    other = right.add(stored.source_node(title="o", identifiers={"pmid": "6"}))
+    right.correct_identifier(other.id, {"doi": "10.1234/six", "pmid": "6"}, grounds="g1")
+    twin = left.add(stored.source_node(title="o", identifiers={"pmid": "6"}))
+    left.correct_identifier(twin.id, {"doi": "10.1234/six", "pmid": "6"}, grounds="g2")  # another token: divergent
+    with pytest.raises(HistoryDisagreement):
+        consolidate((left, source.source_address({"doi": "10.1234/six"})), (right, source.source_address({"doi": "10.1234/six"})), rationale="r", **REPORT)
     left.delete(survivor.id)
     assert left.read_view.resolve(paper.id) is None
 ```
 
-`halting_session` builds its writers over `WITH_BIOLOGY`; `adopted` pins the same profile, so the reader opened afterwards must use `WITH_BIOLOGY` too (replace `BASE` in the two `open_corpus` calls). `config_for` lives where `test_session_acceptance.py` imports it from (`grep -n "config_for" python/tests/acceptance/test_session_acceptance.py`). The halting backend counts publish-phase calls, so "one publish later" is the engine's own sequence; if the second arm's skip count lands before the record rather than after, raise it by one and record the count in a comment as `test_j2_the_halting_backends_skip_count_names_the_records_publish` does. Remove the `if False else None` line in the lifecycle test. Fill the two "build with the repo's builders" comments with real calls.
+The halting arm's expected prefixes are stated from the engine's own order (create before delete, the traced test above measures it). If step 3's `skip` lands on the settlement rather than the delete, `staged` reads `(True, True)`; the assertion admits it and the settlement assertion afterwards is what proves the pair resolved to one record. Confirm the `PRODUCTION_STORAGE`/`DurableOperationPort` import path from `test_session_acceptance.py`'s own imports and the `RETRACTION_FACET`/`OBSERVES` constant names in `stored.py`. `SOURCES` grants the kinds `mint_eligible_assessment` and `retract` need through the session's permit.
 
 - [ ] **Step 2: Run on the certified volume**
 
@@ -1841,39 +2034,55 @@ git commit -m "test(acceptance): W1, W2 and W5a over derived source addresses"
 
 - [ ] **Step 1: Declare the arms**
 
-`n2_arms_cut25.py`, on `n2_arms_cut24.py`'s shape (`DECLARATION_UNITS = ("W1", "W2", "W5a")`, `CO_CITED = ()`, `unit_of` copied verbatim). One `Arm` per spec §10.4 mechanism; each `before` is an exact substring occurring once in its module, each `after` the weakening, each `checks` tuple naming tests from Tasks 1–9 that fail under it. The 23 arms and their sites:
+`n2_arms_cut25.py`, on `n2_arms_cut24.py`'s shape with **its own parser** — cut 24's takes a unit plus one bare lowercase letter and cannot name a row under `W5a`:
 
-| row | module | sabotage (`before` → `after`) | checks |
+```python
+DECLARATION_UNITS: tuple[str, ...] = ("W1", "W2", "W5a")
+CO_CITED: tuple[str, ...] = ()
+
+
+def unit_of(row: str) -> str:
+    """Rows are `<unit>` or `<unit>-<letter>`; the hyphen is what lets `W5a` carry rows."""
+    unit, _, suffix = row.partition("-")
+    if unit not in DECLARATION_UNITS or (suffix and not (len(suffix) == 1 and suffix.islower())):
+        raise ValueError(f"{row!r} is not a cut-25 row")
+    return unit
+```
+
+One `Arm` per spec §10.4 mechanism; each `before` is an exact substring occurring once in its module, each `after` the weakening, and each `checks` tuple names tests whose fixture violates **only** the invariant the sabotage removes — an arm whose check survives its sabotage is vacuous and fails the audit. The 24 arms:
+
+| row | module | sabotage (`before` → `after`) | checks (each fails under the sabotage) |
 |---|---|---|---|
-| W2a | source.py | `remainder = _remainder("doi", value, _DOI_PREFIX).lower()` → `.lower()` dropped | `test_source_address.py::TestNormalizeDoi::test_every_spelling_folds_to_one_canonical_form` |
-| W2b | source.py | `_DOI_PREFIX = re.compile(r"^(?:doi:\|https?://(?:dx\.)?doi\.org/)", re.IGNORECASE)` → `re.compile(r"^$")` | same |
-| W2c | source.py | `SCHEMES = ("doi", "pmid", "isbn", "accession")` → reversed | `TestBasisAndAddress::test_precedence_over_every_subset`, `TestRefusalOrder::test_the_three_sets_agree` |
-| W2d | source.py | in `normalized_identifiers`, `for scheme in sorted(identifiers):` → `for scheme in list(identifiers)[:1]:` (selects before validating the rest) | `TestRefusalOrder::test_every_entry_is_validated_before_selection` |
-| W1a | corpus.py | `if node.id != address:\n            raise SourceAddressDisagreement` → `if False:` | `test_identifier_correction.py::TestTheBoundary::test_a_handle_address_refuses`, acceptance W1 |
-| W1b | corpus.py | `_preflight_replace_locked`'s `self._refuse_source(node, provenance=True)` line → removed | `TestRelocation::test_consolidate_refuses_divergent_maps` (only if the map check is in `_refuse_source`; otherwise name a replace-path test that hand-edits an address before consolidate) |
+| W2-a | source.py | `remainder = _remainder("doi", value, _DOI_PREFIX).lower()` → `.lower()` dropped | `test_source_address.py::TestNormalizeDoi::test_every_spelling_folds_to_one_canonical_form` |
+| W2-b | source.py | `_DOI_PREFIX = re.compile(r"^(?:doi:\|https?://(?:dx\.)?doi\.org/)", re.IGNORECASE)` → `re.compile(r"^$")` | same |
+| W2-c | source.py | `SCHEMES = ("doi", "pmid", "isbn", "accession")` → reversed | `TestBasisAndAddress::test_precedence_over_every_non_empty_subset`, `TestRefusalOrder::test_one_tuple_in_precedence_order` |
+| W2-d | source.py | `return {scheme: normalize(scheme, identifiers[scheme]) for scheme in sorted(identifiers)}` → `for scheme in sorted(identifiers)[:1]}` | `TestRefusalOrder::test_every_entry_is_validated_before_selection` |
+| W2-e | source.py | `if _isbn13_check(remainder[:12]) != remainder[12]:` → `if False:` | `TestNormalizeIsbn::test_malformed[978-0-306-40615-8]` |
+| W2-f | source.py | `if scheme not in _RULES:` → `if False:` (an unknown scheme then hits `_RULES[scheme]` and raises `KeyError`, not `IdentifierMalformed`) | `TestRefusalOrder::test_unknown_scheme_wins_over_its_own_value` |
+| W2-g | source.py | `if not remainder:\n        raise _refuse(scheme, value, "empty"` → `if False:` | `TestRefusalOrder::test_empty_after_trim_and_prefix_strip` (the empty DOI then reads `malformed`) |
+| W1-a | corpus.py | `if node.id != address:\n            raise SourceAddressDisagreement` → `if False:` | `test_identifier_correction.py::TestTheBoundary::test_a_handle_address_refuses` (builder output is correctly addressed, so no acceptance arm is named) |
+| W1-b | corpus.py | `_preflight_replace_locked`'s `self._refuse_source(node, provenance=True)` line → removed | `TestRelocation::test_consolidate_refuses_a_handle_addressed_replica_at_replace` |
+| W1-c | corpus.py | `_refuse_source`'s `if canonical[scheme] != value:` → `if False:` | `TestTheBoundary::test_a_non_canonical_stored_value_refuses` |
 | W5a-a | corpus.py | `self._refuse_dataset_basis(node)` in `_refuse` → removed | `test_corpus_write.py::TestW3TheBasisRefusal::test_a_dataset_with_no_content_identity_refuses` |
-| W5a-b | corpus.py | `successor.deprecated_ids = sorted(held - {new_address})` → `successor.deprecated_ids = []` | `TestTheSeamEffects::test_moved_creates_and_deletes_preserving_uid` |
+| W5a-b | corpus.py | `successor.deprecated_ids = sorted(held - {new_address})` → `successor.deprecated_ids = []` | `TestTheSeamEffects::test_moved_creates_and_deletes_preserving_uid` (the successor then fails the one validator, so the seam refuses instead of renaming) |
 | W5a-c | corpus.py | the two-op plan → `self._corpus.rename(subject.id, new_address)` (rewrites referrers) | `TestTheSeamEffects::test_referrers_are_byte_unchanged` |
-| W5a-d | corpus.py | `"actor": self._authority.actor,` → `"actor": "nobody",` | acceptance W5a source arm asserting the entry's actor; add the assertion there |
+| W5a-d | corpus.py | `"actor": self._authority.actor,` → `"actor": "nobody",` | `TestTheSeamEffects::test_moved_creates_and_deletes_preserving_uid` (asserts `correction.actor == ACTOR`) |
 | W5a-e | corpus.py | `if canonical == current:\n                raise CorrectionRefused` → `if False:` | `TestTheSeamRefusals::test_unchanged` |
-| W5a-f | corpus.py | `self._refuse_source(subject, provenance=True)` (the pre-append validation) → removed | `TestTheSeamRefusals::test_a_raw_edited_subject_refuses_before_append` |
+| W5a-f | corpus.py | `self._refuse_source(subject, provenance=True)` (the pre-append validation) → removed | `TestTheSeamRefusals::test_a_raw_edited_subject_refuses_before_append` (identifiers moved under the stored id, stamp recomputed: only the boundary catches it) |
 | W5a-g | corpus.py | `if stored.IDENTIFIER_CORRECTION_FACET in node.facets and not provenance:` → `and False:` | `TestTheBoundary::test_add_refuses_a_history` |
-| W5a-h | corpus.py | import branch: `self._refuse(record, document_validated=True, view=union, provenance=True)` → wrapped so a source's `_refuse_source` is skipped (write an explicit `if record.kind != "source":` guard as the `after`) | an import test in `test_identifier_correction.py` refusing a malformed imported history — add it in this task |
-| W5a-i | corpus.py | `validated_node`'s `if node.kind == "source":` → `if False:` | `TestTheReadSide::test_a_raw_edited_history_refuses_on_read` |
-| W5a-j | corpus.py | finding loop's `if node.kind == "source":` → `if False:` | `TestTheReadSide::test_the_check_view_reports_facet_payload_malformed` |
-| W5a-k | corpus.py | `set(node.deprecated_ids) != expected` → `False` | `TestTheBoundary::test_a_history_free_source_with_a_deprecated_id_refuses` |
-| W5a-l | stored.py | `if frm == to:\n            raise MalformedRecord` → `if False:` | `TestReaders::test_malformed_shapes_refuse[history5]` (the `from == to` case — pin the param id) |
-| W5a-m | relocation.py | the history comparison → `if False and ...` | `TestRelocation::test_consolidate_refuses_divergent_histories` |
-| W2e | source.py | `if _isbn13_check(remainder[:12]) != remainder[12]:` → `if False:` | `TestNormalizeIsbn::test_malformed[978-0-306-40615-8]` |
-| W2f | source.py | `if scheme not in accepted:` → `if False:` | `TestRefusalOrder::test_unknown_scheme_wins_over_its_own_value` |
-| W2g | source.py | `if not remainder:\n        raise _refuse(scheme, value, "empty"` → `if False:` | `TestRefusalOrder::test_empty_after_trim_and_prefix_strip` |
+| W5a-h | corpus.py | the import loop's `self._refuse(record, document_validated=True, view=union, provenance=True)` → guarded `if record.kind != "source":` | `TestTheBoundary::test_import_admits_a_well_formed_history_and_refuses_a_malformed_one` |
+| W5a-i | corpus.py | `validated_node`'s `if node.kind == "source":` → `if False:` | `TestTheReadSide::test_a_raw_edited_history_refuses_on_read`, `TestTheReadSide::test_a_duplicated_deprecated_id_refuses_on_read` |
+| W5a-j | corpus.py | the finding loop's `if node.kind == "source":` → `if False:` | `TestTheReadSide::test_the_check_view_reports_facet_payload_malformed` |
+| W5a-k | stored.py | `validate_source_history`'s `if list(node.deprecated_ids) != expected:` → `if set(node.deprecated_ids) != set(expected):` | `TestReaders::test_validate_source_history_refuses_a_disagreeing_redirect[duplicate]`, `TestReaders::test_an_unsorted_redirect_refuses` |
+| W5a-l | stored.py | `if frm == to:\n            raise MalformedRecord` → `if False:` | `TestReaders::test_from_equal_to_refuses_and_nothing_else_does` |
+| W5a-m | relocation.py | the history comparison `if keep_node.facets.get(stored.IDENTIFIER_CORRECTION_FACET) != other_node.facets.get(` → `if False and ...` | `TestRelocation::test_consolidate_refuses_divergent_histories` |
 | W5a-n | corpus.py | `_revise_dataset_locked`'s `if candidate_fields != current_fields:` → `if False:` | acceptance `test_w5a_dataset_arm_a_rehold_is_a_new_entity` |
 
-Write each `before` by copying the exact line(s) from the file (`sed -n` them) — never retype. Verify every arm with the audit before freezing.
+Write each `before` by copying the exact line(s) from the file (`sed -n` them) — never retype. Before declaring the accounting, run the audit and confirm every arm is `sound`: a `vacuous` or `mixed` verdict means the fixture does not isolate the invariant, and the fix is a sharper fixture in the named test, never a looser check.
 
 - [ ] **Step 2: The audit test**
 
-`test_n2_cut25.py`: copy `test_n2_cut24.py` wholesale, then: import `CUT24_ARMS` too and add `n2_arms_cut24.py` to `FROZEN_PRIOR_CUT_FILES` at its freeze commit (`git log -1 --format=%h -- python/tests/acceptance/n2_arms_cut24.py` on `main`); rename every `24` to `25`; set `FROZEN_CUT` to the cut 25 document; leave `CUT25_FREEZE_COMMIT` and `CUT25_FROZEN_SHA256` as `""` with a `pytest.skip("not yet frozen")` guard in the pin test until the freeze commit exists (the freeze task fills them); adjust the three `assert ... in current` strings to cut 25's accounting sentences once the document is written.
+`test_n2_cut25.py`: copy `test_n2_cut24.py` wholesale, then: import `unit_of` from `n2_arms_cut25` (never cut 24's); import `CUT24_ARMS` too and add `n2_arms_cut24.py` to `FROZEN_PRIOR_CUT_FILES` at its freeze commit (`git log -1 --format=%h -- python/tests/acceptance/n2_arms_cut24.py` on `main`); rename every `24` to `25`; set `FROZEN_CUT` to the cut 25 document; leave `CUT25_FREEZE_COMMIT` and `CUT25_FROZEN_SHA256` as `""` with a `pytest.skip("not yet frozen")` guard in the pin test until the freeze commit exists (the freeze task fills them); adjust the three `assert ... in current` strings to cut 25's accounting sentences once the document is written.
 
 - [ ] **Step 3: The runner**
 
@@ -1904,7 +2113,7 @@ git commit -m "test(cut25): N2 arms, audit and runner for derived source address
 ### Task 11: Documentation, tasks and the freeze
 
 **Files:**
-- Modify: `docs/designs/2026-08-02-world-addressing-design.md` (§4.2 `source` row, §4.4 table), `docs/designs/2026-08-08-world-address-ruling.md` (§4.1 row), `docs/designs/2026-09-05-facet-contracts-design.md` (the reader-facet inventory), `docs/guide/identity-world-and-change.md`, `docs/guide/glossary.md`, `docs/guide/open-questions.md`, `docs/superpowers/specs/2026-08-29-implementation-roadmap-design.md` (W-row table), `docs/designs/2026-08-03-redesign-adoption-ledger.md` (current-state summary), the spec's status line, `docs/designs/2026-09-10-conformance-cut-25.md` (freeze), `python/tests/acceptance/test_n2_cut25.py` (pins)
+- Modify: `docs/designs/2026-08-02-world-addressing-design.md` (§4.2 `source` row, §4.4 table), `docs/designs/2026-08-08-world-address-ruling.md` (§4.1 row), `docs/designs/2026-09-05-facet-contracts-design.md` (the reader-facet inventory), `docs/guide/identity-world-and-change.md`, `docs/guide/glossary.md`, `docs/guide/open-questions.md`, **`docs/plans/2026-08-29-implementation-roadmap.md`** (the authoritative roadmap's W-row table — not the historical design spec under `docs/superpowers/specs/`), `docs/designs/2026-08-03-redesign-adoption-ledger.md` (current-state summary), the spec's status line, `docs/designs/2026-09-10-conformance-cut-25.md` (freeze), `python/tests/acceptance/test_n2_cut25.py` (pins)
 - Tasks: `beliefs-b7994b` and two new siblings under `beliefs-d248ba`
 
 - [ ] **Step 1: Amend the designs by dated note**
@@ -1921,18 +2130,19 @@ Facet-contracts design: add `identifier-correction` to the reader-shaped facet l
 
 - [ ] **Step 2: Guide, roadmap, ledger, open questions**
 
-`identity-world-and-change.md` "Current state": replace "as does source re-addressing in slice 2b" with "Cut 25 derives every source address from its normalized identifier and adds the attributed identifier correction; dataset re-addressing and divergent-history reconciliation are filed." Glossary: entries for *source address*, *identifier correction*. Open questions (identity section): note that accession normalization is form-only and the accepted-authorities question stays open. Roadmap W-row table: move W1, W2, W5a to the closed column at cut 25. Adoption ledger current-state: one sentence on cut 25.
+`identity-world-and-change.md` "Current state": replace "as does source re-addressing in slice 2b" with "Cut 25 derives every source address from its normalized identifier and adds the attributed identifier correction; dataset re-addressing and divergent-history reconciliation are filed." Glossary: entries for *source address*, *identifier correction*. Open questions (identity section): note that accession normalization is form-only and the accepted-authorities question stays open. Roadmap (`docs/plans/2026-08-29-implementation-roadmap.md`) W-row table: move W1, W2, W5a to the closed column at cut 25. Adoption ledger current-state: one sentence on cut 25.
 
 - [ ] **Step 3: Tasks**
 
 ```bash
 tasks add "Dataset addresses derived from the content identity" --parent beliefs-d248ba -p 2 --size l --tag world-read -b "dataset_node takes an authored slug while dataset_address is computed and never checked against the id; 189 dataset_node sites measured 2026-09-10. The choice between dataset:sha256: as the address and a digest domain is this design's. Filed by slice 2b (docs/superpowers/specs/2026-09-10-world-resolution-slice-2b-design.md section 12)."
 tasks add "Reconcile divergent identifier-correction histories at consolidate" --parent beliefs-d248ba -p 3 --size m --tag world-read -b "Slice 2b makes consolidate refuse two source replicas whose identifier maps or correction histories differ (HistoryDisagreement). Reconciling them — which history survives, how tokens merge, whether the union of held addresses is the redirect set — needs its own design (slice 2b section 7)."
+tasks add "The contract names stored.source_assertion_value, which does not exist" --status idea --tag contract -b "contracts/science/CONTRACT.yaml declares source-assertion's reader as stored.source_assertion_value; no such function is defined in stored.py and no source-assertion builder exists, so the kind cannot be minted through a builder or read through its declared reader. Found 2026-09-10 while looking for a source referrer in slice 2b."
 ```
 
 - [ ] **Step 4: Verify, then freeze**
 
-Run the full gate: `cd python && uv run --frozen pytest tests && uv run --frozen python tools/cut25_acceptance.py`, plus `tasks check`. With everything green: set the cut document's §4 to the discharged accounting (`**3 declaration units**`, "Three guarantee rows are read, **3 full/closed** (W1, W2, W5a)"), mark W1/W2/W5a closed in the spec's status line and the cut document, commit as `docs(cut25): freeze conformance cut 25`, then fill `CUT25_FREEZE_COMMIT` (full sha) and `CUT25_FROZEN_SHA256` (`sha256sum docs/designs/2026-09-10-conformance-cut-25.md`) in `test_n2_cut25.py`, remove its skip guard, run it, and commit `test(cut25): pin the freeze`.
+Run the gate from the repository root: `just check && just test` (python, typescript and `tasks check` together), then `cd python && uv run --frozen python tools/cut25_acceptance.py`, then `uv run --frozen pytest tests/test_arm_staleness.py tests/test_frozen_guards.py`. With everything green: set the cut document's §4 to the discharged accounting (`**3 declaration units**`, "Three guarantee rows are read, **3 full/closed** (W1, W2, W5a)"), mark W1/W2/W5a closed in the spec's status line and the cut document, commit as `docs(cut25): freeze conformance cut 25`, then fill `CUT25_FREEZE_COMMIT` (full sha) and `CUT25_FROZEN_SHA256` (`sha256sum docs/designs/2026-09-10-conformance-cut-25.md`) in `test_n2_cut25.py`, remove its skip guard, run it, and commit `test(cut25): pin the freeze`.
 
 - [ ] **Step 5: Close the task**
 

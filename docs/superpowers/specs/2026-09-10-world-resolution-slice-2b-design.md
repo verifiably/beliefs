@@ -100,25 +100,22 @@ SCHEMES = ("doi", "pmid", "isbn", "accession")          # closed, in precedence 
 SOURCE_ADDRESS_DOMAIN = "science.source-address.v1"
 
 def normalize(scheme: str, value: object) -> str: ...     # raises IdentifierMalformed
-def normalized_identifiers(identifiers: Mapping[str, object], *, accepted: Sequence[str]) -> dict[str, str]: ...
+def normalized_identifiers(identifiers: Mapping[str, object]) -> dict[str, str]: ...
 def basis(identifiers: Mapping[str, str]) -> tuple[str, str] | None: ...
 def source_address(identifiers: Mapping[str, str]) -> str | None: ...
 ```
 
-`stored.ACCEPTED_EXTERNAL_IDENTIFIERS` **stays as it is**, byte-identical
-(*amended 2026-09-10 at planning: an earlier draft re-exported `SCHEMES`
-there; cut 4's frozen arm W3 sabotages that exact literal in `stored.py`, and
-`test_n2_cut4.py` fails hard on a stale arm*). The accepted set is that
-literal; `SCHEMES` is the same set in precedence order, and `source.py` keeps
-its own rule table keyed by scheme. The drift hazard of two spellings is
-closed two ways: a unit test pins
-`set(SCHEMES) == set(stored.ACCEPTED_EXTERNAL_IDENTIFIERS) == set(_RULES)`,
-and `normalize` treats a scheme that is accepted but has no rule as an
-invariant violation (`LookupError`, never `IdentifierMalformed`) — which is
-also what keeps W3's sabotage (`"url"` appended to the accepted literal)
-sound: the migrated check expects `unknown-scheme` and gets an error instead.
-Acceptance is checked in `stored.py` against its literal before any rule
-runs; `source.py` imports nothing from `stored`.
+`stored.ACCEPTED_EXTERNAL_IDENTIFIERS` becomes a re-export of `SCHEMES` —
+one tuple, in precedence order; the alphabetical tuple it replaces is a drift
+hazard. Cut 4's frozen arm W3 sabotages that literal, but `test_n2_cut4.py`
+is **cited, not run** (`python/tests/cited_not_run.py`), so the displaced
+matcher is recorded in that registry's `stale_arms` for cut 4 — `W3[8]` for
+the tuple, `W3[6]` for the source clause `_refuse_source` replaces — and
+`tests/test_arm_staleness.py` holds the tree to exactly that set. *(A
+planning-time amendment on 2026-09-10 had kept the literal and added a
+second tuple with an `accepted=` parameter on a false premise that the arm
+was audited live; it is withdrawn.)* Any live test pinning the alphabetical
+order is corrected in the same change.
 
 ### 3.1 `normalize`
 
@@ -238,6 +235,15 @@ Payload: `{"entries": [entry, ...]}`. Well-formed means all of:
   empty — so ordinary `add` cannot manufacture a redirect without carrying
   the facet it is refused for carrying.
 
+**One validator.** `stored.validate_source_history(node)` is the single
+implementation of every clause above **and** redirect agreement: it returns
+the history and refuses (`MalformedRecord`) a `deprecated_ids` that is not
+exactly `sorted(held − {node.id})` — so a duplicate entry, an unsorted list,
+a history-free record with any deprecated id, and a retired address the
+history does not derive are all one refusal. Every promised entry point
+invokes it: `_refuse_source` on every write path, `validated_node`, and the
+check view's finding loop. No caller re-derives the comparison.
+
 Who may write it: `add` refuses a source carrying the facet
 (`ValidationRefused`: history is minted by `correct_identifier` only);
 `import_bundle` admits a well-formed one as provenance, on the
@@ -286,9 +292,11 @@ this order:
    new address and `deprecated_ids` becomes `sorted(held − {new id})` with
    `held` as §5.2 defines it — so an A→B→A return makes A live again and
    removes it from the deprecated set; `stamp_semantic_identity` recomputed.
-9. The successor passes `_refuse_invalid`, `_refuse_facets`,
-   `_refuse_source` (every clause of §5.1 and §5.2 including redirect
-   agreement), `_refuse_governed_stamp`, `_refuse_rendering`.
+9. Only after step 8 has derived the successor's `deprecated_ids` is the
+   completed successor validated: `_refuse_invalid`, `_refuse_facets`,
+   `_refuse_source` (every clause of §5.1 and §5.2 through the one
+   validator, redirect agreement included), `_refuse_governed_stamp`,
+   `_refuse_rendering`.
 10. Collision: `index.resolve_uid(successor.id)` is `None` or
     `subject.uid`; anything else is `CollisionRefused`. A retired address of
     *another* record collides — W14's retired address is a canonical address
@@ -361,12 +369,12 @@ attestation, because an attestation needs two records.
 
 ## 8. The read side
 
-- `validated_node` invokes `stored.identifier_corrections` after the stamp
-  checks; a malformed history raises on read as the stamp checks do
+- `validated_node` invokes `stored.validate_source_history` after the stamp
+  checks; a malformed history or redirect raises on read as the stamp checks do
   (`FacetPayloadRefused`, the existing exception the finding loop already
   maps to `facet-payload-malformed`).
-- The check view's finding loop invokes the reader for every `source` and
-  records `facet-payload-malformed` on the facet key, alongside the
+- The check view's finding loop invokes the same validator for every
+  `source` and records `facet-payload-malformed` on the facet key, alongside the
   `validate_payload` findings it already records for schema-shaped facets.
 - `ReadView.resolve`, `world/view.py`'s locate, and the epoch address map
   already consult `deprecated_ids`; nothing changes there. A published
@@ -454,11 +462,14 @@ row clause:
   (§10.5). Dataset address derivation stays the sibling task's.
 - **W5a, source arm:** correct a source's DOI → `uid` preserved, id moved,
   the old id resolving through `deprecated_ids` in the corpus and in a
-  published epoch's address map; a `source-assertion` anchored in the old
-  address and a retraction whose `grounded-in` relation names it (a source
+  published epoch's address map; a retraction whose `grounded-in` relation names the old address (a source
   is not an eligible retraction `NodeTarget`; the grounds reference is the
-  edge a retraction may hold to a source) are byte-unchanged and still
-  resolve. **Negative:**
+  edge a retraction may hold to a source) is byte-unchanged and still
+  resolves; `attest_coreference` over the corrected record and a second
+  entity minted by `add` is the third arm, both records standing and
+  neither renamed. (No `source-assertion` builder exists and the contract's
+  named reader `stored.source_assertion_value` is undefined — filed as an
+  idea, out of scope.) **Negative:**
   the seam has no case parameter; `add` with the new DOI mints a second
   entity; `attest_coreference` over the pair is the third arm; none of the
   three invokes another.
@@ -476,7 +487,11 @@ row clause:
 ### 10.4 N2 sabotages
 
 `tests/acceptance/n2_arms_cut25.py`, audited by `test_n2_cut25.py` on the cut
-12 pattern with the staleness baseline taken from the tree. One per
+12 pattern with the staleness baseline taken from the tree. Rows are named
+`<unit>-<letter>` (`W1-a`, `W5a-c`) and cut 25's `unit_of` parses exactly
+that — cut 24's parser, which takes a unit plus one bare lowercase letter,
+cannot name a row under `W5a`. Every arm's fixture violates only the
+invariant its sabotage removes, so no arm is vacuous or mixed. One per
 mechanism: drop the DOI lowercase fold; drop the prefix strip; reverse
 precedence; select the basis before validating the map; drop the address
 check from `_refuse_source`; drop `_refuse_source` from
@@ -514,8 +529,8 @@ fixtures and must keep running; they receive the documented fixture migration
 (slug removed, DOI repaired, `source:` literal replaced by the built id) and
 nothing else. Where a frozen arm's `before` string names a line this slice
 must change and the arm is only probed for staleness, it is left as it
-stands and its staleness recorded against the tree baseline. One arm is
-audited live, not merely probed: cut 16's `M3a` matches
+stands and its staleness recorded against the tree baseline. Cut 4's W3 arms are cited-not-run and are registered as stale (§3). One
+arm is audited live, not merely probed: cut 16's `M3a` matches
 `self._refuse_missing_basis(node)` in `corpus.py`, and `test_n2_cut16.py`
 requires that matcher to occur exactly once, which the split into
 `_refuse_source` and `_refuse_dataset_basis` breaks; recording the staleness
@@ -583,3 +598,7 @@ its children. Two siblings are filed under `beliefs-d248ba`:
   sabotage, failure-boundary coverage added, frozen evidence separated from
   live phase modules, the blocked-address limitation corrected, both
   contract copies named, closures marked intended.
+- 2026-09-10, plan review: the planning-time tuple amendment withdrawn (cut 4 is
+  cited-not-run; the registry records the stale W3 arms); one shared
+  history/redirect validator with duplicate rejection; `<unit>-<letter>` row
+  naming; per-mutation fixtures; the source-assertion reader gap noted.
