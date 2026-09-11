@@ -1024,6 +1024,23 @@ class CoreferenceEndpointRefused(WriteRefused):
         self.corpus_id = corpus_id
 
 
+class IdentifierMalformed(WriteRefused):
+    """A source identifier refused by its scheme's form rule (slice 2b design
+    §3.1): one class, a closed reason, the scheme and the offending value.
+    `non-canonical` is the boundary's reason — a stored or supplied value the
+    rule would have changed."""
+
+    REASONS = ("unknown-scheme", "not-a-string", "empty", "malformed", "non-canonical")
+
+    def __init__(self, message: str, *, scheme: str, value: object, reason: str) -> None:
+        if reason not in self.REASONS:
+            raise ValueError(f"{reason!r} is not an identifier refusal reason")
+        super().__init__(message)
+        self.scheme = scheme
+        self.value = value
+        self.reason = reason
+
+
 class RevisionTargetMissing(WriteRefused):
     """The supplied `(uid, id)` pair does not identify a local node."""
 
