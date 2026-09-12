@@ -60,6 +60,8 @@ def test_a_module_the_tree_no_longer_has_is_stale_not_an_error() -> None:
 
     assert read("world.py") is None
     assert read("world/__init__.py") is not None
+    assert read("core/registry.py", "nodes") is not None
+    assert read("core/registry.py") is None  # a nodes module is not a beliefs module
 
 
 def test_the_portable_harness_arms_apply_exactly_once() -> None:

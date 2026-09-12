@@ -24,11 +24,12 @@ import importlib.util
 import re
 import subprocess
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Protocol
 
-from n2_arms import Arm
+from n2_arms import Arm, installed_nodes_root
 
 _CUT_NUMBER = re.compile(r"cut(\d+)")
 
@@ -43,6 +44,16 @@ class StaleArm:
     module: str
     matches: int | None
     """How many times the `before` block occurs; `None` when the module is not there."""
+
+
+class TreeReader(Protocol):
+    """A module's source in one package's tree, or `None` when the tree has no such module.
+
+    `package` defaults so that every reader can be called with a module alone, as the
+    Beliefs-only callers always have; a `nodes` arm passes its own package.
+    """
+
+    def __call__(self, module: str, package: str = "beliefs") -> str | None: ...
 
 
 def cut_number(guard: Path) -> int:
@@ -109,7 +120,7 @@ def re_targeted_rows(guard: Path, *, repo_root: Path) -> frozenset[str]:
     return frozenset(getattr(module, "_LIVE_SABOTAGES", {}))
 
 
-def audited_tree(guard: Path, *, repo_root: Path) -> Callable[[str], str | None]:
+def audited_tree(guard: Path, *, repo_root: Path) -> TreeReader:
     """A reader for the kernel tree the guard's sabotages are applied to.
 
     The working tree, unless the guard pins a `CUTN_SOURCE_COMMIT` for its own cut — cut 6
@@ -126,21 +137,23 @@ def audited_tree(guard: Path, *, repo_root: Path) -> Callable[[str], str | None]
     return historical_tree(commit, repo_root=repo_root)
 
 
-def working_tree(repo_root: Path) -> Callable[[str], str | None]:
-    package = repo_root / "python" / "src" / "beliefs"
+def working_tree(repo_root: Path) -> TreeReader:
+    roots = {"beliefs": repo_root / "python" / "src" / "beliefs", "nodes": installed_nodes_root()}
 
-    def read(module: str) -> str | None:
-        path = package / module
+    def read(module: str, package: str = "beliefs") -> str | None:
+        path = roots[package] / module
         return path.read_text(encoding="utf-8") if path.is_file() else None
 
     return read
 
 
-def historical_tree(commit: str, *, repo_root: Path) -> Callable[[str], str | None]:
-    def read(module: str) -> str | None:
-        for package in ("python/src/science", "python/src/beliefs"):
+def historical_tree(commit: str, *, repo_root: Path) -> TreeReader:
+    def read(module: str, package: str = "beliefs") -> str | None:
+        if package != "beliefs":
+            return None  # a nodes arm has no Beliefs commit to read from; it reads as stale here
+        for source_package in ("python/src/science", "python/src/beliefs"):
             completed = subprocess.run(
-                ["git", "-C", str(repo_root), "show", f"{commit}:{package}/{module}"],
+                ["git", "-C", str(repo_root), "show", f"{commit}:{source_package}/{module}"],
                 check=False,
                 capture_output=True,
             )
@@ -151,7 +164,7 @@ def historical_tree(commit: str, *, repo_root: Path) -> Callable[[str], str | No
     return read
 
 
-def stale_arms(guard: str, arms: Sequence[Arm], read: Callable[[str], str | None]) -> tuple[StaleArm, ...]:
+def stale_arms(guard: str, arms: Sequence[Arm], read: TreeReader) -> tuple[StaleArm, ...]:
     """Every arm whose `before` block does not occur exactly once in the tree `read` reads.
 
     Exactly once is `test_n2._sabotage`'s own rule: zero matches mutates nothing, and two
@@ -159,7 +172,7 @@ def stale_arms(guard: str, arms: Sequence[Arm], read: Callable[[str], str | None
     """
     stale: list[StaleArm] = []
     for index, arm in enumerate(arms):
-        source = read(arm.sabotage.module)
+        source = read(arm.sabotage.module, arm.sabotage.package)
         matches = None if source is None else source.count(arm.sabotage.before)
         if matches != 1:
             stale.append(StaleArm(guard=guard, key=f"{arm.row}[{index}]", module=arm.sabotage.module, matches=matches))

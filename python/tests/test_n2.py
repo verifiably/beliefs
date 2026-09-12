@@ -60,11 +60,16 @@ from n2_arms import (
     VACUOUS_BY_CONSTRUCTION,
     Arm,
     Sabotage,
+    installed_nodes_root,
 )
 from n2_arms_cut2 import CUT2_ARMS
 from n2_arms_cut3 import CUT3_ARMS
 
 PACKAGE = Path(__file__).resolve().parent.parent / "src" / "beliefs"
+PACKAGES = {"beliefs": PACKAGE, "nodes": installed_nodes_root()}
+"""Where each package's source is read from. A sabotage names one of these; the copy
+under the arm's workspace carries the package's own directory name, so `PYTHONPATH`
+set to the copy's parent shadows the installed package by that name."""
 TESTS = Path(__file__).resolve().parent
 HARNESS = Path(__file__).name
 
@@ -177,11 +182,77 @@ def test_an_explicit_cache_root_reaches_n2_children(tmp_path, monkeypatch):
     assert calls[0][1]["env"]["XDG_CACHE_HOME"] == str(cache)
 
 
+NODES_CHECK = "test_domain_boundary.py::test_d1_installed_nodes_is_invariant_under_namespace_renaming"
+
+
+def test_a_nodes_sabotage_that_does_not_apply_is_stale(tmp_path):
+    arm = Arm(
+        row="D1",
+        asserts="a sabotage written against code nodes no longer has",
+        sabotage=Sabotage(package="nodes", module="core/registry.py", before="this text is not in nodes\n", after=""),
+        checks=(NODES_CHECK,),
+    )
+    assert audit(arm, tmp_path).verdict == "stale"
+
+
+def test_a_nodes_sabotage_mutates_the_copy_and_never_the_source(tmp_path):
+    from n2_arms import installed_nodes_root
+
+    source = installed_nodes_root()
+    before_bytes = {p.relative_to(source): p.read_bytes() for p in source.rglob("*.py")}
+    arm = Arm(
+        row="D1",
+        asserts="the copy carries the mutation",
+        sabotage=Sabotage(
+            package="nodes",
+            module="core/registry.py",
+            before="        present = set(node.facets)\n        missing = required - present\n",
+            after="        present = set()\n        missing = required - present\n",
+        ),
+        checks=(NODES_CHECK,),
+    )
+    package = _sabotage(arm, tmp_path)
+    assert package == tmp_path / "nodes"
+    assert package is not None
+    assert "present = set()" in (package / "core" / "registry.py").read_text(encoding="utf-8")
+    assert {p.relative_to(source): p.read_bytes() for p in source.rglob("*.py")} == before_bytes
+
+
+def test_a_nodes_copy_shadows_the_installed_package_in_the_subprocess(tmp_path):
+    import subprocess
+    import sys
+
+    arm = Arm(
+        row="D1",
+        asserts="the subprocess imports the copy",
+        sabotage=Sabotage(
+            package="nodes",
+            module="core/registry.py",
+            before="        present = set(node.facets)\n        missing = required - present\n",
+            after="        present = set()\n        missing = required - present\n",
+        ),
+        checks=(NODES_CHECK,),
+    )
+    package = _sabotage(arm, tmp_path)
+    assert package is not None
+    completed = subprocess.run(
+        [sys.executable, "-c", "import nodes.core.registry as r; print(r.__file__)"],
+        env={"PATH": "/usr/bin:/bin", "PYTHONPATH": str(package.parent)},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert completed.stdout.strip() == str(package / "core" / "registry.py")
+
+
 def _sabotage(arm: Arm, into: Path) -> Path | None:
-    """Copy the package into `into` and apply the arm's mutation. `None` if it does not apply."""
-    package = into / PACKAGE.name
-    shutil.copytree(PACKAGE, package)
+    """Copy the arm's package into `into` and apply the mutation. `None` if it does not apply."""
+    source_root = PACKAGES[arm.sabotage.package]
+    package = into / source_root.name
+    shutil.copytree(source_root, package)
     target = package / arm.sabotage.module
+    if not target.is_file():
+        return None
     source = target.read_text(encoding="utf-8")
     if source.count(arm.sabotage.before) != 1:
         return None
