@@ -1,7 +1,7 @@
 # Implementation roadmap
 
 **Ranked at:** cut 24, against the ledger's Current state (2026-09-11); live row
-status updated through cut 25 on 2026-09-11
+status updated through cut 25 on 2026-09-11; `nodes-remainder` closed 2026-09-12
 **Method:** `../superpowers/specs/2026-08-29-implementation-roadmap-design.md`,
 as amended 2026-09-05 — tier 1 is ordered by distance to the dogfood success
 criterion (§4.0 there), open lanes are bounded, and a method amendment
@@ -79,7 +79,6 @@ their lane's task, and tier-3 design questions remain `idea` tasks.
 | `log-remainder` | L1, L4; L10 (relabel) | 1, rides with `event-level-l8` | [beliefs-b34652](../../tasks/beliefs-b34652.md) |
 | `l13-preimage` | L13 | 2 | [beliefs-a7df71](../../tasks/beliefs-a7df71.md) |
 | `persistence-cut` | X2 | 2 | [beliefs-3ea822](../../tasks/beliefs-3ea822.md) |
-| `nodes-remainder` | `nodes` row 3's three items | 2 | `nodes-ce28b8` in `nodes` |
 | `authority-labels` | W9, W14 | 3 | [beliefs-84d7b0](../../tasks/beliefs-84d7b0.md) |
 | `weighted-belief` | S6 (h) | 3 | [beliefs-638318](../../tasks/beliefs-638318.md) |
 | `extraction-path` | M12 | 3 | [beliefs-9e1f60](../../tasks/beliefs-9e1f60.md) |
@@ -137,7 +136,7 @@ boundary sits in the lane of its prerequisite and waits there.
 | `mutation` | `correction-remainder` | `adapter.py`, `corpus.py`, `audit.py`, `decode.py`, `evaluation.py`, `world/verify.py` | off the path; waits |
 | `acquisition` | `url-retrieval` (+ `act-report-remainder`) | `holdings/`, `report.py` | off the path; waits |
 | `reproduction` | none — a measurement: `../superpowers/specs/2026-09-05-mm30-reproduction-design.md` | no kernel surface; `python/tools/reproduction/`, a corpus on the certified volume beside the checkout, and the record it produces | **closed 2026-09-05**: ran to the evaluator's answer; its record (`../designs/2026-09-05-mm30-reproduction.md`) re-ranked this document, its five findings are filed through the owning lanes, and its corpus stays at `.mm30-reproduction/` as the seed of the dogfood's world |
-| `cross-repo` | `l13-preimage`, `persistence-cut`, `nodes-remainder`, in any order | the `atoms` and `nodes` repositories, each behind its own design gate | as each seam lands |
+| `cross-repo` | `l13-preimage`, `persistence-cut`, in any order (`nodes-remainder` closed 2026-09-12 at `nodes` `b0c37b8`) | the `atoms` and `nodes` repositories, each behind its own design gate | as each seam lands |
 
 `publish` follows the complete `world-read` lane, as the user and autonomy
 layer design §8 item 5 requires. Its coordination/view prerequisite is already
@@ -192,7 +191,6 @@ and merged `--no-ff`. Six rules are added by concurrency itself:
 | `publish` | W17’s publication-binding intent-position arm; governed publication act and records | completed coordination/view kinds at cut 14, then the complete `world-read` lane (`beliefs-b34652`); user and autonomy layer design §8 item 5 | immutable selected-view publication and governed binding revisions |
 | `l13-preimage` | L13 | an `atoms` blob-read seam behind its own design gate; `atoms`' deferred-obligation ledger carries no such entry today | row 6 in full; the held-copy match strengthened from path to bytes |
 | `persistence-cut` | X2 | the `atoms` A8 certification extended to the publication path, behind `atoms`' own design gate. Cut 7 admits a Science-side harness as the alternative; it is rejected by the method (§5 there), so the prerequisite is cross-repo and the tier is 2 | X2 in full |
-| `nodes-remainder` | — | `nodes`' own design gate | audits over damaged corpora; manifest safety |
 
 ## Tier 3 — blocked on a design question
 
@@ -289,9 +287,10 @@ Each open row, its remainder as the last cut states it, and where it goes
 | T5 | the acquisition operation's began-ness and preflight refusals (cut 3 §4.2) | `url-retrieval` |
 | T7 | publish-together over an acquisition (cut 4 §5) → `url-retrieval`; the cross-root case → `cross-root-publication`, tier 3 | split as stated |
 
-One boundary carries no guarantee row and enters on the ledger's own
+One boundary carried no guarantee row and entered on the ledger's own
 statements: `nodes-remainder` (row 3: reserved-path contract, recoverable
-construction, digest-id hazards). Two others did and are gone:
+construction, digest-id hazards); it left on 2026-09-12 when `nodes` merged
+its 2.0 remainder (`b0c37b8`). Two others did carry rows and are gone:
 `writer-session`, which carried J1–J11 and left when cut 19 closed every row
 of it, and `verification-publication`, which entered on cut 13 §2's own named
 exclusion, acquired the `V` table at its freeze, and left when cut 21 closed

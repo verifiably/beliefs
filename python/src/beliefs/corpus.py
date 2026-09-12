@@ -81,6 +81,7 @@ from beliefs.errors import (
     CoordinationKindUnsupported,
     CoordinationUnavailable,
     CoreferenceEndpointRefused,
+    CorpusRootRefused,
     CorrectionRefused,
     DeletionKindExcluded,
     DeletionTargetMissing,
@@ -323,8 +324,13 @@ class ReadView:
     def iter_stored(self) -> Iterator[Node]:
         """Every stored node, **unvalidated**. The corpus check's read: a
         reporting check that raised at the first stale node would report one
-        finding and hide every other."""
-        yield from self._corpus.all()
+        finding and hide every other.
+
+        Read from the store, not the index: `nodes` 2.0's `Corpus.all()` returns
+        the members admitted at open, so a record written behind the boundary
+        since then is invisible to it — and a stored record the check has not
+        seen is exactly what this read exists to reach."""
+        yield from self._corpus.store.all_nodes()
 
     def live_id(self, uid: str) -> str:
         return self._corpus.index.by_uid[uid].id
@@ -1553,6 +1559,16 @@ class CorpusWriter:
             raise ValueError("the operation port holds another profile than this writer")
         self._profile = profile
         self._authority = authority
+        # Binding a writer establishes its root directory. `nodes` 2.0 refuses to
+        # construct over an absent root (a missing root propagates; it is never an
+        # empty corpus), while the best-effort executor still materializes kind
+        # directories at the first write — so the writer, not the first plan, is
+        # where the directory comes from. Registration stays the lifecycle's
+        # explicit act; a directory is not a registered root.
+        root = Path(root)
+        if root.exists() and not root.is_dir():
+            raise CorpusRootRefused(f"{str(root)!r} exists and is not a directory, so it cannot be a corpus root")
+        root.mkdir(parents=True, exist_ok=True)
         self._state = _root_state_for(root, executor_factory)
         self._operation = _SettlingHold(self)
         self._operation_port = operation_port

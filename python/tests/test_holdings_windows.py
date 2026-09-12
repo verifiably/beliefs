@@ -103,7 +103,7 @@ def test_nonqualifying_fulfillments_are_committed_and_leave_the_intent_unsettled
     )
     if case == "no-observation":
         node = stored.dataset_node("outside", title="Outside the holdings layout")
-        path = "outside.md"
+        path = "dataset/outside.md"  # well-placed for its id, and no holdings observation
     else:
         record = holdings_observation(
             location=StoreLocator(store_id, "other.bin") if case == "wrong-location" else location,

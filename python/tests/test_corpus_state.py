@@ -158,10 +158,6 @@ def test_filesystem_and_formatting_changes_are_inert(tmp_path):
         )
     )
     expected = corpus_state_identity(root)
-    original = Corpus(root).store.path_for(run.id)
-    renamed = root / "renamed" / original.name
-    renamed.parent.mkdir()
-    original.rename(renamed)
     (root / "editor.txt").write_text("one\n", encoding="utf-8")
     (root / "editor.txt").write_text("two\n\n", encoding="utf-8")
     parsed = yaml.safe_load((root / "corpus.yaml").read_text(encoding="utf-8"))
@@ -174,6 +170,21 @@ def test_filesystem_and_formatting_changes_are_inert(tmp_path):
     for path in root.rglob("*"):
         os.utime(path, None)
     assert corpus_state_identity(root) == expected
+
+
+def test_a_misplaced_node_file_is_a_malformed_state(tmp_path):
+    # Cut 6 selected "rename a node's file" as an inert change; `nodes` 2.0's
+    # well-placedness (STANDARD §4.1) made a node file at a path other than
+    # its id's mapped path a member strict construction refuses, so the move
+    # is no longer inert — it is a placement fault, reported as malformed.
+    run = stored.run_node("inert", title="inert", spec="analysis-spec:s1")
+    root = _state_root(tmp_path, run)
+    original = Corpus(root).store.path_for(run.id)
+    renamed = root / "renamed" / original.name
+    renamed.parent.mkdir()
+    original.rename(renamed)
+    with pytest.raises(CorpusStateMalformed, match="mapped path"):
+        corpus_state_identity(root)
 
 
 def test_every_semantic_manifest_member_moves_state(tmp_path):

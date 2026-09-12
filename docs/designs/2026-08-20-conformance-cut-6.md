@@ -179,6 +179,13 @@ W13 is **part**. Selected:
   `corpus.yaml` (whitespace, key order, quoting), reorder its `domains`
   mapping, and touch every mtime; assert the state identity is unchanged in
   each case.
+
+  *(2026-09-12:)* the file-rename arm is superseded by `nodes` 2.0's
+  well-placedness (its STANDARD §4.1): a node file at a path other than its
+  id's mapped path is a member strict construction refuses, so the move is a
+  placement fault reported as `CorpusStateMalformed`, not an inert change
+  (`test_a_misplaced_node_file_is_a_malformed_state`). The other inert arms
+  stand as discharged.
 - **Selected:** change a manifest field semantically — a pinned contract
   identity, `corpus_id`, fork provenance — and assert the state identity
   moves.

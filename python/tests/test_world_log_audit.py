@@ -38,6 +38,7 @@ from atoms.chain.model import GenesisEntry, RegisteredEntry, encode_entry, entry
 from atoms.core.scratch import CHAIN_LEAF
 from authority import FULL
 from fixtures_cut6 import PINS
+from nodes.core.errors import ValidationError
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.node import Node
 from nodes.core.write_plan import DefaultExecutor
@@ -396,7 +397,7 @@ class TestTheAuditAct:
         root = corpus_root(tmp_path)
         (root / "verification").mkdir(parents=True, exist_ok=True)
         (root / "verification" / "v1.md").write_text("---\nnot: [a valid record\n---\n", encoding="utf-8")
-        with pytest.raises(yaml.YAMLError):
+        with pytest.raises(ValidationError):
             _root_state_for(root, DefaultExecutor)
         view = surfaced(root, "corpus", science_root.GENESIS_PAYLOAD)
         inspections, captures = Inspections(), Captures()

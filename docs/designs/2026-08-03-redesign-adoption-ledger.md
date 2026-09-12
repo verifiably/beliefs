@@ -194,7 +194,6 @@ not listed.
 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm; C7's consolidate prerequisite discharged at cut 16 and the deletion surface it shares at cut 18 | sub-problem 5a, `2026-08-03-correction-lifecycle-design.md` | the correction lifecycle in full; buildable now, and the mutation lane's only open boundary |
 | `l13-preimage` | **L13 preimage resolver** — preimage-backed classification of a removed verification | the named `atoms` blob-read seam (`2026-08-03-tamper-evident-log-design.md` §5.3) | row 5 reading L13 in full; until then the held-copy match is a path match |
 | `persistence-cut` | X2's persistence-cut arm | the `atoms` A8 certification extended to the publication path, a cross-repo seam `atoms`' own design owns | X2 in full |
-| `nodes-remainder` | the reserved-path contract, recoverable construction, digest-id hazards | `nodes` `2026-08-03-nodes-under-the-system-redesign-design.md` (row 3) | audits over damaged corpora; manifest safety |
 | `authority-labels` | W9, W14 | artifact 11, the pinned authority snapshot — owed, undesigned | every rendered label; the ambiguous-search refusal |
 | `weighted-belief` | S6 arm (h) | the first successor belief policy admitting unequal weights, blocked on ρO3 | weighted belief |
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 | an untypeable span minting nothing, end to end |
@@ -207,7 +206,10 @@ of work. The newest results record
 slice 2: W15 and W4 close, while X12, W8a and M3 retain only their named
 non-coreference arms. Cut 25 then discharges slice 2b and closes W1, W2 and W5a;
 slices 3–4 and the two filed follow-ups retain the other world and packaging remainders above.
-`beliefs-d248ba` stays open. Every boundary's tracker entry is named in the
+`beliefs-d248ba` stays open. `nodes-remainder` closed 2026-09-12: `nodes`
+merged its 2.0 remainder to `main` at `b0c37b8` (STANDARD 2.0; umbrella
+`nodes-ce28b8`), so row 3 carries no live work and the contract-cut join
+(`beliefs-eacbe2`) no longer waits on `nodes`. Every boundary's tracker entry is named in the
 roadmap's [Boundary index](../plans/2026-08-29-implementation-roadmap.md#boundary-index).
 `publish` remains open under the layer design and cut 14's W17 remainder;
 its omission from this table did not discharge it.
@@ -246,6 +248,34 @@ The artifact rows and §3 preserve the dated adoption history; their original
 | 9 | **Formal model + typed claim calculus** — a formal model of the banked system (M₀), the smallest system satisfying the intended guarantees (M\*), and the refinement map between them | `2026-08-04-formal-model-and-claim-calculus-design.md` | the claim grammar and canonical tag encoding (`science` base contract); `π_claim` + `tag_claim` in `science.identity.v1`; `ProfileSpec` compilation of claim schemas; the Python/TypeScript claim-identity parity fixture | **Design banked 2026-08-05** (a proposition **is** a typed claim, `Claim = Σ(op:Operator). Args × Qualifiers × Polarity × Layer`, with `statement` demoted out of identity; five-way term resolution; contract succession for claim vocabulary — kernel §4.1/§5/§8/§11 with G3, G7 and limitation 4; comp §7.1; world §4.1/§4.3/W4/§10; substrate §4.2; 5a §3/§4/C10; 5b §4; D §5/§6/§8/§12 with D3, D6 and limitation 2; and this ledger and the README amended in the banking commit); cut 1 implements and tests its selected arms of M4–M11 and M13 (§3 item 10, merged 2026-08-07); cut 5 implements and tests four selected M3 arms (local-DAG termination, abstract cycle witness, forced-verdict consumption, and ordinary unresolved-target refusal). M1–M2, M12, and M3's unselected clauses await implementation, and all four **implementation authorities** above are now built or frozen |
 | 10 | **Belief policy** — what a belief *value* is, and the identity under which it is pinned | `2026-08-05-belief-policy-design.md` | the four terms kernel §4.2.1 cites as versioned policy members and never defines; `belief policy version` as the last bare rule reference in the G3 digest; the review-disposition record's F3 and its §5.5 stop rule, which place this ahead of the vertical slice | **Design banked 2026-08-05** (exact `PolicyBinding = (rule identity, implementation content identity)` as a required per-computation argument; `science.belief.v1` with `V = ℤ` and unit weight, so a value is a signed evidence balance and never odds; `Belief \| NoBelief(reason) \| Refused(reason)`; `inconclusive` excluded from the graph — kernel §4.2.1/§5/§5.1/lim. 5, formal model §3.3, D §8, substrate S6(h), 5b §4, and this ledger and the README amended in the banking commit); P2–P9 and part of P1 **landed 2026-08-09, conformance cut 2's slice** (`2026-08-09-conformance-cut-2.md` §4.1/§4.2); P1's resolver-negative arm awaits the rules store and 5b §6's deterministic resolution. Weighting by study design or precision is **blocked on ρO3**, not deferred by choice, and conformance cut 1 is **unchanged** — this discharges its prerequisite without widening it |
 | 11 | **Pinned authority snapshot** — which external authorities are accepted, and how a snapshot of one is pinned, versioned, distributed and bumped | `2026-08-08-world-address-ruling.md` §4.2, limitation 5; the vocabulary-admission design (2026-08-07) is the nearest precedent and may be the right home rather than a new document | **every rendered label** (§4.1 there), the ambiguous-search-term refusal (W9, restated), and the authority-evidence arm of coreference normalization — CI can decide none of them without a pinned snapshot to decide against | **Owed, undesigned.** The ruling states the discipline — **pinned local snapshot, never a live network lookup**, so builds stay reproducible and an authority update is an explicit amendment — and does **not** design the artifact. Nothing banked waits on it *for identity*, since no basis is authority-label-derived; what waits is the **display and search** surface, which is why this is owed rather than blocking. **W14** asserts the renderer's invariance; nothing yet asserts the snapshot's own lifecycle |
+
+> **Row 3 closed (2026-09-12).** `nodes` merged the redesign remainder to its
+> `main` at `b0c37b8` as STANDARD 2.0 (umbrella `nodes-ce28b8`; integration
+> design `2026-09-11-nodes-2.0-remainder-design.md` there): the reserved-path
+> contract and symlink containment, collecting construction with the
+> `parse-error` / `path-mismatch` / `uid-collision` / `id-collision` findings,
+> the `path-collision` finding and mapped-path refusal, non-empty opaque uids,
+> the seam's §7 amendments as normative text, the identity boundary (nodes
+> §11.1), and the `biology/gene-axis` facet fixture. `descendants`,
+> `ancestors` and `dangling()` are withdrawn; this repository called none.
+> `nodes-core` is consumed by editable path, so the change is live on sync;
+> the first open after it rebuilds each corpus's snapshot cold. This
+> repository's gate against the merge found three seams, closed the same day:
+> the seam's plan-path `.md` suffix rule refused every manifest, registry and
+> epoch write (the durable executor takes `validate_plan` as its one lexical
+> authority), so `nodes` withdrew the rule at `5ff3c78` and its seam log
+> records this repository's answer to the pending 2026-09-11 row — suffix
+> clause refused, preflight and portability rules accepted; `CorpusWriter` now
+> establishes its root directory on binding, since a `Corpus` no longer opens
+> over an absent root; and `ReadView.iter_stored` reads the store rather than
+> `Corpus.all()`, which now returns only the members admitted at open. Two
+> claims narrowed with it: the world resolver's carrier-read fault list drops
+> `YAMLError`, pydantic's `ValidationError` and `UnicodeError`, which the 2.0
+> parse floor now wraps as `NodesError`; and cut 6's file-rename inertness arm
+> is superseded — a moved node file is a placement fault under 2.0's
+> well-placedness, recorded in the cut document. Audits
+> over damaged corpora (collecting construction) and manifest safety are now
+> buildable here and owned by no boundary until a cut selects them.
 
 > **Row 5 current-state correction (2026-08-28).** General intent
 > qualification is implemented by world-index slice 6 and discharged by cut

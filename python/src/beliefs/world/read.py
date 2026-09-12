@@ -86,8 +86,6 @@ from pathlib import Path
 from typing import cast
 
 from nodes.core.errors import NodesError
-from pydantic import ValidationError as PydanticValidationError
-from yaml import YAMLError
 
 from beliefs.corpus import ReadView, _root_state_for
 from beliefs.errors import (
@@ -147,9 +145,6 @@ _CARRIER_READ_FAULTS = (
     SemanticHashMissing,
     SemanticHashStale,
     NodesError,
-    PydanticValidationError,
-    YAMLError,
-    UnicodeError,
     OSError,
 )
 """What reading a present carrier is converted to `ResolutionRefused` for (§8.3).
@@ -168,19 +163,18 @@ happen": `ReadView.opened_at` -> `Corpus.__init__` -> `node_from_markdown`
 reaches `yaml.safe_load` and a bare `Node(...)` construction with no wrapper of
 its own, so what surfaces here is whatever those raise, and the honest posture
 is a list each of whose members has been *seen*, extended when a new shape is
-seen. Three of the seven were added exactly that way, after arms found them
-escaping raw.
+seen. Three members were added exactly that way, after arms found them
+escaping raw, and left again when `nodes` 2.0's parse floor closed the escape.
 
 What each covers: a governed record with no semantic-identity stamp
 (`SemanticHashMissing`) or a stale one (`SemanticHashStale`) is §8.3's
-corruption, decided on the read path. Front matter that is not YAML raises out
-of the parser (`YAMLError`); front matter that parses and is not a `Node`
-raises pydantic's `ValidationError`; bytes that are not UTF-8 raise
-`UnicodeError` from the decode both `Store.read_file` and the index rebuild
-perform — the `nodes` store wraps none of the three on the read path, so none
-of them is a `NodesError`. `NodesError` itself covers what the store refuses
-about its own layout and identifiers, and `OSError` the filesystem underneath
-all of it.
+corruption, decided on the read path. `NodesError` covers everything the
+`nodes` parse floor refuses — front matter that is not YAML, front matter
+that parses and is not a node, bytes that are not UTF-8 — as well as what the
+store refuses about its own layout and identifiers: since `nodes` 2.0 the read
+path wraps each of those in its own `ValidationError`, where 1.2 let
+`YAMLError`, pydantic's `ValidationError` and `UnicodeError` escape raw.
+`OSError` is the filesystem underneath all of it.
 """
 
 

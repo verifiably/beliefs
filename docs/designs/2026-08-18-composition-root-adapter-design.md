@@ -17,7 +17,8 @@ strengthening the review found (§5a: an unstamped governed kind is refused,
 cut's accounting.
 **Sources:** the `nodes` write-plan/executor seam design
 (`~/d/nodes/docs/designs/2026-08-17-nodes-write-plan-executor-seam-design.md`,
-frozen 2026-08-17, pre-normative); the `atoms` authority design §11–§12.2/§14
+frozen 2026-08-17, pre-normative; its §7 amendments normative in `nodes`
+STANDARD 2.0 since 2026-09-12); the `atoms` authority design §11–§12.2/§14
 (`~/d/atoms/docs/plans/2026-07-23-recoverable-fs-effect-engine-design.md`), with
 A8's physical certification (adoption ledger row 4); conformance cut 4
 (`2026-08-17-conformance-cut-4.md`); the substrate consolidation design
@@ -479,6 +480,14 @@ immediately follows in `nodes`:
    and date; guide citation; the `24: "Twenty-four"` `_COUNT_WORDS` entry);
 4. the `nodes` exercise map records the **create path** as consumer-exercised
    by this design, activating Science's sign-off right over amendments to it.
+
+   *(2026-09-12:)* the right was exercised once. `nodes` 2.0's reserved-path
+   amendment added a `.md` suffix rule to `validate_plan`; this repository's
+   gate showed the create path carries `corpus.yaml`, `world.yaml`,
+   `registry/*.yaml` and `epochs/*` through the seam, so the suffix clause was
+   refused and withdrawn at `nodes` `5ff3c78`, with the symlink preflight and
+   the segment, portability and reserved rules accepted. Recorded in the
+   seam design's §8 log there.
 
 **Non-goals restated:** no family adapters, no anchor acts, no holdings root,
 no world index, no interim transaction layer, no runtime executor choice.

@@ -37,7 +37,6 @@ from types import ModuleType
 import pytest
 from nodes.core.errors import NodesError
 from nodes.core.node import Node
-from pydantic import ValidationError as PydanticValidationError
 from test_world_build import ALPHA, BETA, GAMMA, corpus_at, sample_nodes, slug_for
 from test_world_receipts import (
     corpora,
@@ -48,7 +47,6 @@ from test_world_receipts import (
     repackage,
     world_over,
 )
-from yaml import YAMLError
 
 from beliefs import stored
 from beliefs.errors import ResolutionRefused, SemanticHashMissing, SemanticHashStale
@@ -206,10 +204,12 @@ class TestBoundResolution:
         is only as good as the list. The ambiguity arm above never reaches it —
         an unreadable *manifest* is converted earlier, by the presence
         reduction — so this is the only place the list is exercised at all, and
-        it exercises **all seven** members: a tuple member with no shape behind
-        it is an assertion nobody checked, which is how three escapees
+        it exercises **every** member: a tuple member with no shape behind it
+        is an assertion nobody checked, which is how three escapees
         (`YAMLError`, pydantic's `ValidationError`, `UnicodeError`) shipped in
-        the first place.
+        the first place — and how their removal is proved, now that `nodes`
+        2.0's parse floor wraps each in its own `ValidationError`, a
+        `NodesError`.
 
         Each shape asserts its own `__cause__` type, so removing a member does
         not quietly widen the escape surface — it lets that shape out raw and
@@ -242,22 +242,20 @@ class TestBoundResolution:
             # A governed record carrying no stamp at all — a raw write that
             # skipped even self-stamping.
             "missing semantic hash": (unstamped.encode("utf-8"), SemanticHashMissing),
-            # Front matter that is not YAML at all.
-            "unparsable front matter": (b"---\nid: [\n---\n", YAMLError),
-            # Front matter that parses and is not a node.
+            # Front matter that is not YAML at all: the parse floor's refusal.
+            "unparsable front matter": (b"---\nid: [\n---\n", NodesError),
+            # Front matter that parses and is not a node: the parse floor's refusal.
             "front matter that is not a node": (
                 stamped.replace(digest_line + "\n", "").encode("utf-8"),
-                PydanticValidationError,
+                NodesError,
             ),
             # A node the `nodes` store itself refuses: its own identifier rule.
             "an identifier the store refuses": (
                 stamped.replace("id: dataset:one", "id: NOT A REF").encode("utf-8"),
                 NodesError,
             ),
-            # Bytes that are not UTF-8. Both `Store.read_file` and the index
-            # rebuild decode without a wrapper, and `UnicodeError` is a
-            # `ValueError` — neither `OSError` nor any of the above catches it.
-            "bytes that are not UTF-8": (intact.replace(b"dataset one", b"dataset \xff\xfe"), UnicodeError),
+            # Bytes that are not UTF-8: decoded fatally by the parse floor.
+            "bytes that are not UTF-8": (intact.replace(b"dataset one", b"dataset \xff\xfe"), NodesError),
         }
         for label, (content, cause) in shapes.items():
             record.write_bytes(content)
@@ -281,8 +279,8 @@ class TestBoundResolution:
         # Closed against the tuple: a member with no shape driving it is the
         # gap this arm exists to prevent, so the arm fails when one is added
         # without one.
-        driven = {SemanticHashStale, SemanticHashMissing, YAMLError, PydanticValidationError, NodesError}
-        assert driven | {UnicodeError, OSError} == set(read._CARRIER_READ_FAULTS)
+        driven = {SemanticHashStale, SemanticHashMissing, NodesError}
+        assert driven | {OSError} == set(read._CARRIER_READ_FAULTS)
 
 
 # --- Step 3: the bound stamp, and what it does not claim ----------------------
