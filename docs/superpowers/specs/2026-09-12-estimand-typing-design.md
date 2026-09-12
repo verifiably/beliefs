@@ -102,8 +102,9 @@ in particular M6 governs the new declaration class without amendment (§5.3).
    the comparison exists to be read — by a successor policy, or by a `science`
    view — instead of being uncomputable. A prose applicability retypes only
    along declared dimensions or by dropping a restatement of an `observes`
-   dataset; every other clause refuses, and a re-authored spec is a
-   successor whose scope is not certified equal to the prose one (§4).
+   dataset; every other clause refuses. A spec re-authored under the grammar
+   is a new spec in a recreated corpus, with no successor link to the prose
+   one and no certified scope equality (§4, decision 10).
 3. **Estimate, uncertainty and reference are decimals on one declared scale**
    (§6). The reference is the spec's; the scale is the estimand's; the rule
    returns `Decimal`s that the constructor checks against both, and each
@@ -154,12 +155,33 @@ in particular M6 governs the new declaration class without amendment (§5.3).
    fragment named, never flattened into the fragment (§3.3). Flattening is the
    scope-widening failure kernel §4.1 exists to prevent, committed by an
    encoding.
-10. **Every existing spec and assessment re-identifies.** The spec facet and
-    the assessment facet take canonical typed projections, so their identities
-    and digests move. Exactly one frozen spec and one assessment exist, both
-    the reproduction's, and §9 says what the reproduction re-runs. Belief
-    input digests move for every corpus, as verification-publication decision
-    12 already made them.
+10. **A corpus is recreated under the new base contract, never migrated,
+    and a pre-grammar record is refused by name.** The spec facet and the
+    assessment facet take canonical typed projections, and every spec facet
+    projection now carries the grammar it was frozen under
+    (`estimand_grammar: science.estimand.v1`). A stored projection with no
+    grammar member is a **pre-grammar** record: `restore` and
+    `analysis_spec_value` refuse it with `UnfreezableSpec("pre-grammar
+    spec")`, `assessment_value` refuses a prose-fielded facet with
+    `MalformedRecord("pre-grammar assessment")`, the audit reports each
+    under its own code (`spec-pre-grammar`, `assessment-pre-grammar`) and
+    never as `derivation-malformed`, and **no reader coerces prose into a
+    typed member**. There is no `revise` across the shape change, because
+    `revise` copies members from a restored original and a pre-grammar spec
+    does not restore; there is no `supersedes` edge either, since a
+    successor edge asserts a semantic edit of a record the successor's
+    corpus does not hold. The transition is the one the corpus already
+    made at cut 22 for the claim identity: the driver **recreates** the
+    reproduction corpus from the predecessor's records under the new
+    contracts, the prior corpus state survives in history, and the addendum
+    cites the prose spec's identity as text. Exactly one frozen spec and one
+    assessment exist today, both the reproduction's. Belief input digests
+    move for every corpus, as verification-publication decision 12 already
+    made them. Rejected: a coercing reader that types a prose estimand on
+    the way in (it would mint an estimand nobody authored, under a claim
+    nobody checked); a `PreGrammarSpec` arm that restores and is inert
+    (every consumer of `FrozenSpec` would grow a branch for a record no
+    corpus needs to hold).
 11. **No new kind, relation, facet key, intent, operation kind or write
     class.** Analysis specs and assessments are minted through the writer as
     today; the permit, the session ledger and the root lock are untouched.
@@ -301,11 +323,12 @@ comparison can no longer see. A refused clause that restricts along a
 scientific attribute asks the operator's successor to declare the dimension
 (ρO4's population vocabulary is the obvious first). A refused clause the
 author judges to be estimator behaviour rather than scope — how missing
-values are handled — is re-authored as a **successor spec** under `revise`,
-which mints a new pre-declaration with a `supersedes` edge; the successor's
-scope is what its typed fields say, and the design does **not** certify it
-equal in scope to the prose one. The reproduction's clause is the second
-case and is worked in §9.
+values are handled — is **re-authored** as a new spec under the grammar, in
+the recreated corpus decision 10 rules, with `method` stating the
+behaviour; the new spec's scope is what its typed fields say, it carries no
+`supersedes` edge to the prose one, and the design does **not** certify the
+two equal in scope. The reproduction's clause is the second case and is
+worked in §9.
 
 **The limit this leaves, stated once.** The key (§7.3) and the match (§7.2)
 see scope only through declared dimensions. Two specs over one dataset, one
@@ -491,7 +514,13 @@ retirement, for the reason `decode_claim` gives: it cannot tell authoring
 from restoration. `restore` and `analysis_spec_value` gain a `profile`
 argument; every caller is enumerated in the implementation plan (measured:
 `corpus._refuse_r20_contradiction`, `succession._decoded_evidence`, the
-replay path and the driver's `rederive`).
+replay path and the driver's `rederive`). A projection lacking the
+`estimand_grammar` member, or an assessment facet whose `estimand` is a
+string, is a **pre-grammar** record and refuses under decision 10's named
+reasons; the audit's spec and assessment checks report `spec-pre-grammar`
+and `assessment-pre-grammar` as their own codes, so a recreated corpus that
+somehow still holds one is told which record and why, and a reader never
+repairs it.
 
 ### 7.3 Commensuration
 
@@ -520,6 +549,25 @@ same quantity are the same quantity, weighted differently. Conditioning is
 inside the key because a different conditioning set is a different quantity
 (decision 4).
 
+**Applicability is outside the estimand, so it is outside this key, and a
+second predicate carries it:**
+
+```text
+co_scoped(a, b)  =  π_applicability(a) == π_applicability(b)      -- canonical map equality, M5's
+```
+
+Two specs on one claim with identical estimands and different typed
+applicability maps — one licensed for `population ↦ ⟨generic, adults⟩`,
+one for the empty map — are `commensurable` and **not** `co_scoped`. A
+successor policy that pools on `commensurable` alone pools a subgroup with
+the whole; the successor's design reads **both** predicates, and the rule
+it adopts for estimands that are commensurable and not co-scoped —
+exclude, refuse, or weight — is its own. `co_scoped` is exposed beside
+`commensurable` from `beliefs.estimand` and, like it, is unread by v1.
+Folding applicability into the estimand was rejected in §4 and stays
+rejected; two predicates over two fields is the shape kernel §4.2.1's
+table already has.
+
 ## 8. Guarantees — table Q
 
 Certified by mutation per the estimator doctrine; every check must be able to
@@ -536,8 +584,8 @@ corpus inventory when the design moves to `docs/designs/` at freeze.
 | **Q6** | Structural match is checked at the write boundary and under audit; semantic match is not claimed | A spec whose estimand was built against a claim other than the one its target record carries → `ValidationRefused("estimand-target-mismatch")` — **including** a claim at the **same operator** with different arguments, or the same arguments under different qualifiers; a target the writer's view cannot resolve → `ValidationRefused("estimand-target-unresolvable")`; explicit import refuses the same; a raw-written mismatching spec is **not** refused on read and is caught **only** under audit with `spec-target-contradicted`. **The inconsistent stored pair:** raw-write a spec whose estimand carries the target's **correct** claim identity beside a **different** declared operator, with contrast, measure and control correctly typed under that operator and the spec digest recomputed; assert it decodes without refusal, that explicit import **refuses** it and audit **contradicts** it on the operator equality alone, and — **sabotage** — that comparing claim identities only lets it through. **Negative:** a measured quantity of the right sort that does not in fact operationalize the claim's argument is **admitted** — the check is structural, and the row asserts it does not pretend otherwise |
 | **Q7** | Every member enters identity, and only members do | Change **only** `claim`, `contrast.slot`, `kind`, `baseline`, `comparison`, `contrast.quantity`, `increment`, `measure.quantity`, `measure.scale`, `reference`, `control.identification`, one `conditioning` member, or one `applicability` entry: the spec identity **moves** each time; reorder `conditioning` → **unchanged**; `increment` `1` against `1.0` → **unchanged** (identity v1's canonical decimal text). On the assessment: change only `estimate`, only `uncertainty`, only `estimand`, only `applicability` → the facet digest **moves**, the belief value is **unchanged** (P6's four arms, now per member); G3's keyed-facet arms unchanged. **Negative:** an editorial change to a consulted contract leaves `I_claim` unchanged (M8) |
 | **Q8** | The estimand's contracts are consulted | Derive belief over an assessment whose estimand binds a measure sort declared in contract `X`; bump `X` touching no facet, no operator and no claim → `belief_input_digest` **moves**; bump an activated contract the estimand does not reach → **unchanged**; type an estimand under a sort pinned by no corpus → `ContractDisagreement`. **Sabotage:** drop the estimand walk from `consulted_contracts` and assert the first arm **fails** |
-| **Q9** | Commensuration is total, decidable, and unread by v1 | For any two admitted estimands the predicate returns a boolean, never raises; equal except `control.identification` → **commensurable**; differing in any other member → **not**; `baseline`/`comparison` swapped → **not**; the same contrast and measure over two claims at one operator (PHF19 and EZH2) → **not**; per-unit against per-ten-units of one quantity → **not**. **Sabotage:** make the predicate raise and assert every P row still passes — v1 never calls it; **P5** still holds: no API path produces unequal weights |
-| **Q10** | The reproduction re-authors a successor spec, re-identifies, and re-derives | Under mm30's successor contract the record's estimand builds with every referent resolving `member` against the held lists; the prose applicability's second clause is **refused** at retyping (§4), and the typed spec is minted by `revise` as a **successor** with `supersedes` naming the prose spec; steps 4–10b re-run; the belief re-derives to the **same value** under a **different digest**; the consulted set is unchanged. **Not asserted:** that the successor's scope equals the prose spec's — the row records the authored judgment and certifies nothing about it. **Measured, not asserted** (§9) |
+| **Q9** | Commensuration is total, decidable, and unread by v1 | For any two admitted estimands the predicate returns a boolean, never raises; equal except `control.identification` → **commensurable**; differing in any other member → **not**; `baseline`/`comparison` swapped → **not**; the same contrast and measure over two claims at one operator (PHF19 and EZH2) → **not**; per-unit against per-ten-units of one quantity → **not**. **The scope counterexample:** two specs on **one** claim with **identical** estimands and **different** typed applicability maps (`population ↦ ⟨generic, adults⟩` against `{}`) → `commensurable` is **true** and `co_scoped` is **false**; assert both predicates are exposed, both are total, and neither is read by v1's evaluator (**sabotage:** make `co_scoped` raise and assert every P row still passes). **Sabotage:** make the predicate raise and assert every P row still passes — v1 never calls it; **P5** still holds: no API path produces unequal weights |
+| **Q10** | The reproduction recreates its corpus, re-authors its spec, and re-derives from disk | The driver recreates the reproduction corpus under the successor contracts (decision 10); the record's estimand builds with every referent resolving `member` against the held lists; the prose applicability's second clause is **refused** at retyping (§4), and the typed spec is minted by `freeze` with no `supersedes`; steps 4–10b re-run; the belief re-derives to the **same value** under a **different digest**; the consulted set is unchanged. **Then, in a fresh process** holding nothing in memory: restore the frozen spec through `analysis_spec_value` and the assessment through `assessment_value` from the corpus on disk, re-derive the assessment from its run and the belief from its closure, and assert both equal what the driver's process derived — the recovered-from-the-corpus-alone reading the reproduction record §5 question 3 required of verification. **The transition:** present the **prior** corpus state's prose spec and assessment to the same readers and assert `UnfreezableSpec("pre-grammar spec")` and `MalformedRecord("pre-grammar assessment")`, that the audit over that state reports `spec-pre-grammar` and `assessment-pre-grammar` and **not** `derivation-malformed`, and that no reader returns a typed value for either. **Not asserted:** that the new spec's scope equals the prose spec's — the addendum records the authored judgment and no row certifies it. **Measured, not asserted** (§9) |
 
 ## 9. Identity, digests, and the reproduction
 
@@ -565,13 +613,16 @@ corpus inventory when the design moves to `docs/designs/` at freeze.
   one `observes` input and is dropped under §4. The second is **refused**:
   the operator declares no dimension it could be typed along, and §4 gives
   it no other home. The reproduction therefore does not *retype* its spec;
-  it **re-authors** one under `revise`, a successor with a `supersedes` edge
-  to the prose spec, whose applicability is `{}` and whose `method` states
-  how the estimator treats a sample with no finite value. That successor's
-  scope is what its typed fields say. **It is not certified equal in scope
-  to the prose spec**, and Q10 does not claim it; the addendum records the
-  author's judgment that the refused clause described estimator behaviour,
-  as a judgment. The 285-member
+  it **re-authors** one by `freeze` in the corpus the driver recreates under
+  the successor contracts (decision 10), with applicability `{}` and a
+  `method` that states how the estimator treats a sample with no finite
+  value. The prose spec is not restored, not revised and not superseded:
+  it lives in the prior corpus state, and the addendum cites its identity
+  (`86aaa1a8…`) as text, as the biology pack's re-run cited the replaced
+  claim identity. The new spec's scope is what its typed fields say. **It
+  is not certified equal in scope to the prose spec**, and Q10 does not
+  claim it; the addendum records the author's judgment that the refused
+  clause described estimator behaviour, as a judgment. The 285-member
   concept list holds `concept:disease-stage` and holds **no** `ndmm` or `pd`
   member (measured 2026-09-12), so the levels cannot bind under `concept`.
   The successor mm30 contract declares three corpus-local sorts —
@@ -621,7 +672,9 @@ loop; drop the estimand walk in `consulted_contracts`; put `identification`
 into the commensuration key; drop `claim` from the projection; drop
 `increment` from the projection; admit an increment of `0`; take `claim` from
 the wire instead of the `Claim`; drop `estimand:` entries from
-`_declarations()`. Each sabotage is
+`_declarations()`; drop the `estimand_grammar` member from the spec
+projection; coerce a string estimand to a typed one in `restore`; report a
+pre-grammar spec as `derivation-malformed`. Each sabotage is
 validated against its site and its selecting checks before the accounting
 freezes.
 
@@ -733,16 +786,23 @@ earlier one.
    limitation 10, extended).
 8. **`restore` and `analysis_spec_value` gain a `profile` argument**, a
    signature change across four measured callers; the plan enumerates them.
-9. **Sample selection outside a declared dimension is invisible to the key
-   and the match** (§4). Two specs over one dataset, one keeping only adults
-   by a rule stated in `method`, share typed applicability and a
-   commensuration key. The design refuses to import such a clause from
-   prose at retyping and cannot stop a new spec from stating one in prose;
-   the remedy is a declared dimension, which is a contract successor and,
-   for populations, ρO4.
-10. **The reproduction's typed spec is a successor, not a retyping**, and
-    its scope equality with the prose spec is an authored judgment the
-    addendum records and no row certifies (§9, Q10).
+9. **Sample selection outside a declared dimension is invisible to both
+   predicates** (§4, §7.3). Two specs over one dataset, one keeping only
+   adults by a rule stated in `method`, share typed applicability, so they
+   are `commensurable` and `co_scoped` alike. The design refuses to import
+   such a clause from prose at retyping and cannot stop a new spec from
+   stating one in prose. Declaring the dimension — a contract successor
+   and, for populations, ρO4 — moves the selection into `applicability`,
+   where `co_scoped` separates it; it does not move it into the
+   commensuration key, and a successor policy that reads only
+   `commensurable` still pools it.
+10. **The reproduction's typed spec is a new spec in a recreated corpus,
+    not a retyping and not a successor**; its scope equality with the prose
+    spec is an authored judgment the addendum records and no row certifies
+    (§9, Q10). The prose spec survives only in the prior corpus state.
+11. **A pre-grammar record is refused, never read.** A corpus that holds
+    one after the lane lands is a corpus that was not recreated; the audit
+    names the record and the reason, and nothing repairs it (decision 10).
 
 ## 14. Task linkage
 
@@ -782,3 +842,19 @@ separately; it does not depend on this one.
   names the residual blindness as limitation 9, and §9 and Q10 make the
   reproduction's typed spec a `revise` successor whose scope equality is
   recorded as a judgment and certified by no row.
+- 2026-09-12, third review, two findings, both taken: (1) the `revise`
+  successor had no construction route, since `revise` copies members from a
+  restored original and a prose spec cannot restore once restoration is
+  typed, and a retained prose spec would audit as malformed — decision 10
+  now rules the transition as recreation, never migration: the spec
+  projection carries its grammar, a pre-grammar spec or assessment refuses
+  under a named reason and audits under its own code, no reader coerces,
+  and the reproduction re-authors by `freeze` in a recreated corpus with no
+  `supersedes`; Q10 restores spec and assessment from disk in a fresh
+  process and exercises the pre-grammar refusals against the prior corpus
+  state; (2) applicability sits outside the estimand and so outside the
+  commensuration key, so two specs on one claim with identical estimands
+  and different typed applicability compared as commensurable — §7.3 adds
+  `co_scoped` over the applicability maps, rules that a successor policy
+  reads both predicates, Q9 carries the exact counterexample, and
+  limitation 9 no longer names a declared dimension as a fix for the key.
