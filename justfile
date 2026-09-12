@@ -52,7 +52,8 @@ docs_check_cmd := hygiene_cmd + " && tasks check"
 # node_modules of its own until `npm ci`; the python side needs nothing, because `uv run
 # --frozen` creates the venv and installs the locked dependencies (pyright included) on
 # first use. No gitignored inputs: the suite reads only tracked fixtures. Idempotent.
-setup_cmd := "(cd ts && npm ci)"
+# npm ci replaces node_modules; restore its local Dropbox ignore attribute afterward.
+setup_cmd := "(cd ts && npm ci && attr -s com.dropbox.ignored -V 1 node_modules)"
 
 # beliefs-92e6fe measured this at 164s against the serial gate's 868s and pinned
 # pytest-xdist rather than adopting coverage-based selection; --dist=loadfile keeps every
