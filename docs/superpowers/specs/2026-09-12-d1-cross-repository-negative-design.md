@@ -1,7 +1,7 @@
 # D1's cross-repository negative — design
 
 **Status:** draft 2026-09-12, revised the same day after the first review (three
-findings, all taken: §3, §4.1, §4.5). Task: beliefs-928881. Cut: 26, to be frozen after
+findings, all taken: §3, §4.1, §4.5) and the second (one: §4.3's shared inventory). Task: beliefs-928881. Cut: 26, to be frozen after
 this design clears.
 **Sources:** `../../designs/2026-08-04-domain-extension-boundary-design.md` row D1;
 `../../plans/2026-09-08-conformance-cut-22-results.md` §2 and §5;
@@ -50,9 +50,10 @@ of a sabotage that lands in a package from another repository.
   function in a subprocess, score sound/vacuous/mixed/uncollected/stale — and it extends
   by one field: a sabotage names its package. `test_n2.py`'s session audit today covers
   cuts 1–3 only; every later cut's guard is an acceptance module and runs at its
-  discharge and by hand. Cut 26's arms join the portable audit as a fourth tuple, so the
-  negative runs at every `just test`, every pre-push and every CI push — which is where a
-  `nodes` that moved under the sabotage has to be seen. Rejected: a separate harness for
+  discharge and by hand. Cut 26's arms join the portable inventory — one tuple feeding
+  both the sabotage audit and the unsabotaged baseline (§4.3) — so the negative runs at
+  every `just test`, every pre-push and every CI push, which is where a `nodes` that
+  moved under the sabotage has to be seen. Rejected: a separate harness for
   cross-repository arms; it would re-derive N2's five findings and its aggregation guard,
   and the first version of N2 is the record of how those get got wrong. Rejected: an
   acceptance-only guard; it would leave the negative unrun in every automated gate.
@@ -181,10 +182,18 @@ at the cut freeze against the `nodes` commit then resolved, and the results reco
 commit.
 
 The declaration file is the canonical one under `python/tests/`, as cut 20's is, and it
-is consumed twice: `test_n2.py` adds `CUT26_ARMS` to the tuple its session fixture
-audits (`ARMS`, `CUT2_ARMS`, `CUT3_ARMS`, and now this), so the negative runs in the
-portable suite and every gate; and the acceptance guard `tests/acceptance/test_n2_cut26.py`
-pins it by commit and bytes for the discharge, as every cut's guard does.
+is consumed twice. In `test_n2.py`, the portable audit's inventory becomes one
+module-level tuple, `PORTABLE_ARMS = (*ARMS, *CUT2_ARMS, *CUT3_ARMS, *CUT26_ARMS)`,
+consumed by both places that enumerate arms today: the session fixture that audits every
+arm under its sabotage, and
+`test_every_check_resolves_and_passes_without_the_sabotage`, which today re-lists cuts
+1–3 on its own and runs every declared check unsabotaged in N2's restricted subprocess
+environment. Ordinary collection does not establish that baseline — the check passing
+under `just test` says nothing about it passing under the harness's environment — so a
+tuple added to the audit alone would leave cut 26's negative without the direction that
+proves its check is not already red. One tuple, two consumers, so the two directions
+cannot drift. The acceptance guard `tests/acceptance/test_n2_cut26.py` pins the
+declaration by commit and bytes for the discharge, as every cut's guard does.
 
 ### 4.4 The `nodes`-local gate — in the `nodes` repository
 
@@ -232,8 +241,8 @@ closed. Frozen declarations and cut bodies through cut 25 stay byte-exact.
 2. The `nodes` task lands STANDARD §2.3 and the seam row; its commit is recorded.
 3. Cut 26 design written and frozen, with the sabotage text fixed against that commit.
 4. §4.1 check (red against a sabotaged copy by hand, green against the tree), then the
-   §4.2 harness with its self-tests, then the §4.3 declaration file, its entry in
-   `test_n2.py`'s audited tuple, and the acceptance guard.
+   §4.2 harness with its self-tests, then the §4.3 declaration file, the shared
+   `PORTABLE_ARMS` tuple in `test_n2.py`, and the acceptance guard.
 5. Serial gate on the required tuple; results document; ledger and roadmap; task done.
 
 ## 7. Out of scope
