@@ -436,31 +436,6 @@ wheels = [
 ]
 
 [[package]]
-name = "nodes-core"
-version = "0.1.1"
-source = { editable = "../../nodes/python" }
-dependencies = [
-    { name = "pydantic" },
-    { name = "pyyaml" },
-    { name = "rfc8785" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "pydantic", specifier = ">=2.0" },
-    { name = "pyyaml", specifier = ">=6.0.3" },
-    { name = "rfc8785", specifier = ">=0.1.4,<0.2" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pyright", specifier = ">=1.1.390" },
-    { name = "pytest", specifier = ">=9.0" },
-    { name = "pytest-testmon", specifier = ">=2.2.0" },
-    { name = "ruff", specifier = ">=0.15.7" },
-]
-
-[[package]]
 name = "packaging"
 version = "25.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1160,11 +1135,11 @@ name = "verifiably-beliefs"
 version = "0.0.0"
 source = { editable = "." }
 dependencies = [
-    { name = "nodes-core" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "snakemake" },
     { name = "verifiably-atoms" },
+    { name = "verifiably-nodes" },
 ]
 
 [package.dev-dependencies]
@@ -1177,11 +1152,11 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "nodes-core", editable = "../../nodes/python" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "snakemake", specifier = "==8.11.4" },
     { name = "verifiably-atoms", editable = "../../atoms/python" },
+    { name = "verifiably-nodes", editable = "../../nodes/python" },
 ]
 
 [package.metadata.requires-dev]
@@ -1189,6 +1164,31 @@ dev = [
     { name = "pyright", specifier = ">=1.1.390" },
     { name = "pytest", specifier = ">=9.0" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
+    { name = "ruff", specifier = ">=0.15.7" },
+]
+
+[[package]]
+name = "verifiably-nodes"
+version = "0.1.1"
+source = { editable = "../../nodes/python" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "rfc8785" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pydantic", specifier = ">=2.0" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "rfc8785", specifier = ">=0.1.4,<0.2" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyright", specifier = ">=1.1.390" },
+    { name = "pytest", specifier = ">=9.0" },
+    { name = "pytest-testmon", specifier = ">=2.2.0" },
     { name = "ruff", specifier = ">=0.15.7" },
 ]
 

@@ -1,7 +1,7 @@
 [project]
-# The published distribution name is not yet ruled; `nodes` is mid-rename into the
-# `verifiably` namespace and nothing here is published. `science` is the import name
-# fixed by the domain-extension design §9.
+# The distribution name follows the stack-wide `verifiably-<layer>` scheme decided
+# 2026-09-07; nothing here is published yet. `science` is the import name fixed by the
+# domain-extension design §9.
 name = "verifiably-beliefs"
 version = "0.0.0"
 description = "beliefs, the Science kernel: recording scientific belief and the evidence it rests on"
@@ -12,9 +12,9 @@ requires-python = ">=3.11"
 classifiers = ["Typing :: Typed"]
 dependencies = [
   "verifiably-atoms",
-  "nodes-core",
+  "verifiably-nodes",
   # Declared because `beliefs.corpus` names `pydantic.ValidationError` when it
-  # wraps a document-validation refusal. It arrives with `nodes-core` either
+  # wraps a document-validation refusal. It arrives with `verifiably-nodes` either
   # way; an undeclared import is a dependency nobody can see going stale.
   "pydantic>=2.0",
   "pyyaml>=6.0.3",
@@ -26,7 +26,7 @@ dependencies = [
 # bounds above; nothing else about the dependency changes (adapter design §8).
 [tool.uv.sources]
 verifiably-atoms = { path = "../../atoms/python", editable = true }
-nodes-core = { path = "../../nodes/python", editable = true }
+verifiably-nodes = { path = "../../nodes/python", editable = true }
 
 [build-system]
 requires = ["hatchling>=1.30"]

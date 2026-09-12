@@ -19,7 +19,7 @@ jobs:
       run:
         working-directory: beliefs/python
     steps:
-      # python/pyproject.toml's [tool.uv.sources] takes atoms-core and nodes-core from
+      # python/pyproject.toml's [tool.uv.sources] takes verifiably-atoms and verifiably-nodes from
       # ../../atoms/python and ../../nodes/python as editable sibling checkouts, so the
       # runner needs the same layout: beliefs, atoms and nodes side by side under the
       # workspace. Both siblings are public. They are checked out at their default branch
