@@ -4,8 +4,9 @@ title: test_n2_cut5.py carries 15 pre-existing failures from four older causes
 status: todo
 priority: 3
 size: m
+complexity: mid
 created: 2026-09-07T09:30:47Z
-updated: 2026-09-07T09:30:47Z
+updated: 2026-09-12T16:26:55Z
 depends: []
 tags: [conformance]
 ---
@@ -20,3 +21,7 @@ Four distinct causes, all older API surfaces:
 The remaining 3 are the arm-audit tests reporting those plus three stale sabotages.
 
 Cut 5 feeds cuts 7-13 via tools/cut5_acceptance.py:45,66, so this debt has to be paid before any cut-5-citing chain runs green. Note pyproject.toml:42's addopts ignores tests/acceptance, so the portable suite never sees any of it.
+
+## Notes
+
+- 2026-09-12T16:26:55Z (main): Complexity mid: The obsolete actor/import and coordination call sites are identified and still visible in cut 5. Repair is bounded, but stale sabotage handling and downstream acceptance-chain validation must preserve frozen evidence.

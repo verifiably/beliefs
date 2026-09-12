@@ -4,9 +4,10 @@ title: Test + CI iteration cost audit
 status: doing
 priority: 2
 size: m
+complexity: low
 owner: main
 created: 2026-09-04T21:44:54Z
-updated: 2026-09-12T10:11:14Z
+updated: 2026-09-12T16:26:55Z
 started: 2026-09-12T10:07:24Z
 depends: [ops-31f038]
 tags: [testing]
@@ -34,3 +35,4 @@ Piece of ops-65837b (the cross-project audit in the ops hub). 1. Measure: full-s
 - 2026-09-12T10:11:04Z (main): step 3 hygiene, 2026-09-12: (a) docs-only commits: .githooks/pre-commit runs hook-pre-commit-docs (ops-check and tasks check, composed from the same justfile pieces as check_cmd) when nothing under python/ or ts/ is staged, hook-pre-commit otherwise; the report will price both shapes. Filed ops-3dbbe6 to lift it into the template if the after-week bears it out. (b) AGENTS.md carries the section 4.7 project line plus the finding that hand-run full suites cost 2.4x the pre-push hook. (c) durations: 4,438 tests in 171.46s under the fast loop; no sleeps or network; the slow tail is 97 real pipeline executions, filed as beliefs-9b248a rather than changed, since several of the files are frozen cut evidence. (d) python/README.md refreshed with today's numbers.
 - 2026-09-12T10:11:04Z (main): Also from the baseline: main's CI is red on its last three pushes (5 failed on 2026-09-11, the orphaned-pins failure b91151f fixes) and b91151f is still unpushed; the next push pays the 17-minute pre-push hook. Not this task's, noted so the after-week reading knows why the ci-python rows look as they do.
 - 2026-09-12T10:11:14Z (main): parked (waiting on agent): step 4 on or after 2026-09-19: tt-report --since 7 --project beliefs for the after-week; compare hook-pre-commit (now split with hook-pre-commit-docs), test (hand-run full suites, 23 codex runs before), test-fast, hook-pre-push and fast/full against the 2026-09-12 baseline note, then tasks done with before/after
+- 2026-09-12T16:26:55Z (main): Complexity low: Remaining work is the dated after-week tt-report comparison against the recorded baseline (on or after 2026-09-19); hooks, recipes and guidance are already present. The metrics and completion check are specified; no new gate design remains.

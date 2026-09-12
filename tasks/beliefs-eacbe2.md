@@ -4,8 +4,9 @@ title: Deliver the first full contract cut
 status: todo
 priority: 2
 size: xl
+complexity: high
 created: 2026-08-31T00:38:28Z
-updated: 2026-09-10T20:26:52Z
+updated: 2026-09-12T16:26:55Z
 depends: [beliefs-73be28, beliefs-d13fe8, beliefs-b34652, beliefs-bc3aff, beliefs-aa27da, beliefs-a7df71, beliefs-3ea822, nodes-ce28b8, beliefs-928881, beliefs-1a5157]
 tags: [migration, contract, conformance]
 ---
@@ -21,3 +22,4 @@ Uncertainty: The roadmap fixes the join point, but successor identities, certifi
 ## Notes
 
 - 2026-09-10T20:26:52Z (main): Curation restores D1 and publish as blockers: domain slice completion left D1 open, and publish amends the coordination contract, W17 and act-report oracles before the final contract freezes.
+- 2026-09-12T16:26:55Z (main): Complexity high: The roadmap fixes the join point, not successor contract identities, certification cadence, normative package shape or legacy-check disposition. Those architecture/governance decisions remain after the oracle-amending lanes; Nodes 2.0 landing alone does not settle them.

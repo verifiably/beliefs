@@ -4,8 +4,9 @@ title: Guard the project root against new scratch directories
 status: todo
 priority: 3
 size: s
+complexity: low
 created: 2026-09-07T09:49:14Z
-updated: 2026-09-07T09:49:14Z
+updated: 2026-09-12T16:26:55Z
 depends: []
 tags: [testing]
 ---
@@ -19,3 +20,7 @@ Two nuances worth handling:
 - .gitignore globs hide the problem from git status but not from the filesystem, so the test should read the directory, not git's view of it. The .cut*-acceptance/ glob added in e9768a6 already means a new cut root appears with no .gitignore edit at all — convenient, and exactly why the count grew unnoticed.
 
 Related incident: during the verification-publication slice a stray 'git add -A' in the main checkout swept an unignored .mm30-reproduction-cut21/ into a commit on main. It was caught and reverted, but a root-hygiene test would have made the underlying condition visible much earlier.
+
+## Notes
+
+- 2026-09-12T16:26:55Z (main): Complexity low: The task specifies the filesystem entry allowlist, ignored-directory filter, diagnostic and .work convention; existing .gitignore supplies the policy. One focused guard with positive/negative cases has a clear check.

@@ -4,8 +4,9 @@ title: Close L13 through a public preimage seam
 status: todo
 priority: 3
 size: m
+complexity: high
 created: 2026-08-31T00:38:28Z
-updated: 2026-09-11T14:34:29Z
+updated: 2026-09-12T16:26:55Z
 depends: [atoms-38887b]
 tags: [migration, cross-repo, log]
 ---
@@ -21,3 +22,4 @@ Uncertainty: Atoms has the internal verified reader but has not delivered the pu
 ## Notes
 
 - 2026-09-11T14:34:29Z (main): Consumer scope for atoms-38887b: engine-produced replicas carry the project tree/chain but no local transaction records or preimage blobs; metadata is minted fresh and writable roots cannot be demoted. Read surviving preimages from the reachable writable source root, or classify from supplied held-copy history bytes; this task owns source-root selection and matching to the inspected chain. Transporting history into replicas is outside the approved Atoms seam.
+- 2026-09-12T16:26:55Z (main): Complexity high: atoms-38887b has delivered the writable-source read_preimage contract; the original missing-seam uncertainty is resolved. Beliefs still owns source-root selection, matching held history to the inspected chain and classification/refusal semantics, including replicas without local transaction/preimage history.

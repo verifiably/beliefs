@@ -4,8 +4,9 @@ title: Complete the correction lifecycle
 status: todo
 priority: 3
 size: xl
+complexity: high
 created: 2026-08-31T00:38:28Z
-updated: 2026-09-10T20:26:52Z
+updated: 2026-09-12T16:26:55Z
 depends: [beliefs-676a2c]
 tags: [migration, mutation, correction]
 ---
@@ -17,3 +18,7 @@ Acceptance evidence: Consolidate landed at cut 16 and deletion at cut 18. Design
 Sources: `docs/plans/2026-08-29-implementation-roadmap.md` `correction-remainder`; `docs/designs/2026-08-03-correction-lifecycle-design.md`; and the cut-5 correction accounting.
 
 Uncertainty: Consolidate’s prerequisite is discharged; the semantic-snapshot kind and evaluator are this outcome's still-unplanned work.
+
+## Notes
+
+- 2026-09-12T16:26:55Z (main): Complexity high: The correction design fixes standing and succession guarantees, and consolidate/deletion prerequisites landed, but the semantic-snapshot kind/evaluator and route standing must still compose coverage, exact-state receipts, import and audit outcomes. No concrete correction cut resolves that integration.

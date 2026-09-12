@@ -4,8 +4,9 @@ title: Deliver event-level L8 and the log remainder
 status: todo
 priority: 2
 size: l
+complexity: high
 created: 2026-08-31T00:38:27Z
-updated: 2026-08-31T00:38:28Z
+updated: 2026-09-12T16:26:55Z
 depends: [beliefs-d248ba]
 tags: [migration, world-read, log]
 ---
@@ -17,3 +18,7 @@ Acceptance evidence: After world resolution lands, freeze and implement the even
 Sources: `docs/plans/2026-08-29-implementation-roadmap.md` `event-level-l8` and `log-remainder`; `docs/designs/2026-08-03-tamper-evident-log-design.md`; and `docs/designs/2026-08-22-log-verification-design.md`.
 
 Uncertainty: The ordered-cuts predicate exists, but the event-level relation's design and cut plan do not.
+
+## Notes
+
+- 2026-09-12T16:26:55Z (main): Complexity high: Log design section 7 defines event order via presence/exclusion across ordered cuts, while root.epochs_ordered implements only the cut predicate. The event relation and its coverage, corruption, divergence and refusal semantics still need a concrete design and conformance selection.
