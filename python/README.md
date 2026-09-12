@@ -69,6 +69,13 @@ the serial delta but shows the absolute-time variance. An initial
 sat outside the captured runtime closure; the pinned development dependency
 keeps workers inside the project environment.
 
+On 2026-09-12 (beliefs-f253a1, step 3) the parallel command above ran 4,438 tests in
+171.46s, and the serial gate's median over the baseline week's 24 recorded runs was
+1066.0s. The suite has no sleeps or network of note; its cost is structural — 97 call
+sites across 17 test files execute a real pipeline through the boundary, and the 60
+slowest tests (5–24s each, every one such an execution) account for roughly half of the
+parallel run's worker time (beliefs-9b248a).
+
 ## What is here
 
 | module | what it owns | authority |

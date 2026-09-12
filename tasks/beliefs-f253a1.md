@@ -1,12 +1,13 @@
 ---
 id: beliefs-f253a1
 title: Test + CI iteration cost audit
-status: todo
+status: doing
 priority: 2
 size: m
-owner: test-ci-audit
+owner: main
 created: 2026-09-04T21:44:54Z
-updated: 2026-09-07T13:28:19Z
+updated: 2026-09-12T10:11:14Z
+started: 2026-09-12T10:07:24Z
 depends: [ops-31f038]
 tags: [testing]
 ---
@@ -28,3 +29,8 @@ Piece of ops-65837b (the cross-project audit in the ops hub). 1. Measure: full-s
 - 2026-09-07T12:57:12Z (main): Caveat on the hooks just installed: beliefs had no hooks at all, so this is an early adoption of the section 4.6 gate policy, not the policy-neutral instrumentation step 1 asks for. mind6 read it the other way and says so in its justfile — it kept the full suite at pre-commit because that is what its hook always ran, and left pre-push uninstalled for step 3. Consequence to state plainly at step 4: beliefs' before/after will show gate cost rising, because the pre-audit reality here was no gates and agents running raw pytest (the 12 recorded bypasses), not a cheaper gate. Reversible: remove .githooks/pre-push and unset core.hooksPath to return to the policy-neutral state.
 - 2026-09-07T13:05:35Z (main): Decision 2026-09-07 (option C): keep both hooks for the baseline week so beliefs contributes its hook-pre-push data point, then remove the pre-push hook at step 3 when section 4.6 is revisited, with CI carrying the full suite from then on. Recorded so step 3 does not have to rediscover it.
 - 2026-09-07T13:28:19Z (main): First real pre-push run: the gate passed (1001.8s, exit 0, 3840 tests) and then git push exited 141 with no output and pushed nothing, because the connection git had already opened idled out during the 16.7-minute hook. Filed as ops-d3f966; the commits went up with --no-verify rather than re-paying a gate that had just passed, so there is one push with no hook-pre-push line behind it.
+- 2026-09-12T10:07:24Z (main): baseline 2026-09-12 (tt-report --since 6 --project beliefs; 09-07 through 09-12, 5.5 days, two days short of the week because 413 recorded runs is the volume the week was for): hook-pre-commit 215 runs median 20.5s p90 24.2 fail 0.1, 1.31h total, 76 claude/139 codex; hook-pre-push 10 runs median 1041.6s p90 1139.2, 2.93h total; test 24 runs median 1066.0s p90 1253.8 fail 0.2, 7.13h total, 23 of them codex; test-fast 10 runs median 170.3s fail 0.3, 0.52h; check 88 runs median 20.7s, 0.46h; fast/full by agents 0.33, bypasses 12. Total recorded 12.4h, about 2.25h/day, and the single largest term is codex running the full suite by hand, 2.4x the pre-push hook. 196 commits, 76 (39 percent) touching only tasks/, docs/, AGENTS.md or README.md, each paying the 20s gate.
+- 2026-09-12T10:11:04Z (main): step 3 gates, 2026-09-12: option C (drop pre-push, CI carries the suite) is not taken. Its premise fell through the same afternoon it was decided: 9ede7da (14:45Z, after the 13:05Z decision) made CI skip every capability-dependent test on the uncertified runner — 189 of 4,476 on the 2026-09-11 run — so CI cannot carry the suite, and the pre-push hook is the only gate those tests have. The hooks stay at section 4.6 as they are, which is also what the ops design settled on when it fixed the idle-out with the SSH keepalive. Reversible in one line if the user overrides.
+- 2026-09-12T10:11:04Z (main): step 3 hygiene, 2026-09-12: (a) docs-only commits: .githooks/pre-commit runs hook-pre-commit-docs (ops-check and tasks check, composed from the same justfile pieces as check_cmd) when nothing under python/ or ts/ is staged, hook-pre-commit otherwise; the report will price both shapes. Filed ops-3dbbe6 to lift it into the template if the after-week bears it out. (b) AGENTS.md carries the section 4.7 project line plus the finding that hand-run full suites cost 2.4x the pre-push hook. (c) durations: 4,438 tests in 171.46s under the fast loop; no sleeps or network; the slow tail is 97 real pipeline executions, filed as beliefs-9b248a rather than changed, since several of the files are frozen cut evidence. (d) python/README.md refreshed with today's numbers.
+- 2026-09-12T10:11:04Z (main): Also from the baseline: main's CI is red on its last three pushes (5 failed on 2026-09-11, the orphaned-pins failure b91151f fixes) and b91151f is still unpushed; the next push pays the 17-minute pre-push hook. Not this task's, noted so the after-week reading knows why the ci-python rows look as they do.
+- 2026-09-12T10:11:14Z (main): parked (waiting on agent): step 4 on or after 2026-09-19: tt-report --since 7 --project beliefs for the after-week; compare hook-pre-commit (now split with hook-pre-commit-docs), test (hand-run full suites, 23 codex runs before), test-fast, hook-pre-push and fast/full against the 2026-09-12 baseline note, then tasks done with before/after

@@ -37,7 +37,16 @@ ts_check_cmd := "(cd ts && npm run typecheck && npm run check)"
 
 fast_cmd := py_fast_cmd + " && " + ts_fast_cmd
 test_cmd := py_test_cmd + " && " + ts_test_cmd
-check_cmd := "python3 tools/ops-check && " + py_check_cmd + " && " + ts_check_cmd + " && tasks check"
+hygiene_cmd := "python3 tools/ops-check"
+check_cmd := hygiene_cmd + " && " + py_check_cmd + " && " + ts_check_cmd + " && tasks check"
+
+# The checks a commit pays when it stages nothing under python/ or ts/: ruff, pyright,
+# tsc and biome read only those two trees, so such a commit cannot change their verdict,
+# and the pre-commit hook runs this instead (see .githooks/pre-commit). Composed from the
+# same pieces as check_cmd so the two cannot drift. Baseline 2026-09-12: 76 of 196
+# commits (39 percent) were docs- or tasks-only and each paid the 20s gate, pyright 92
+# percent of it (beliefs-f253a1).
+docs_check_cmd := hygiene_cmd + " && tasks check"
 
 # What a fresh checkout or worktree needs before the gates can run. ts/ has no
 # node_modules of its own until `npm ci`; the python side needs nothing, because `uv run
@@ -78,6 +87,10 @@ setup:
 # What a pre-commit hook will run once the gate is green: `check`'s command.
 hook-pre-commit:
     {{tt}} hook-pre-commit -- sh -c '{{check_cmd}}'
+
+# What the pre-commit hook runs when nothing under python/ or ts/ is staged: the checks that read what it touched.
+hook-pre-commit-docs:
+    {{tt}} hook-pre-commit-docs -- sh -c '{{docs_check_cmd}}'
 
 # What a pre-push hook will run: `gate`'s commands, under one hook target.
 hook-pre-push:

@@ -1,4 +1,12 @@
 #!/bin/sh
 # Installed by `git config core.hooksPath .githooks`. Seconds only; the suite runs at
 # push. The recipe is the gate `just check` runs, recorded under its own target.
-exec just hook-pre-commit
+#
+# ruff, pyright, tsc and biome read only python/ and ts/. A commit that stages nothing
+# there cannot change their verdict, so it pays only the checks that read what it did
+# touch (ops-check, tasks check), under a target of its own so the report prices both
+# shapes. The tree-wide checks still run at the next code commit and at push.
+if git diff --cached --name-only | grep -q '^python/\|^ts/'; then
+    exec just hook-pre-commit
+fi
+exec just hook-pre-commit-docs
