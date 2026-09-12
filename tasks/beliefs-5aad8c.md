@@ -4,8 +4,9 @@ title: Consolidate work roots under a single .work/ instead of the project root
 status: todo
 priority: 3
 size: m
+complexity: mid
 created: 2026-09-07T09:48:53Z
-updated: 2026-09-07T09:49:14Z
+updated: 2026-09-12T16:26:55Z
 depends: [beliefs-1b6534]
 tags: [testing]
 ---
@@ -25,3 +26,7 @@ Scope: 17 runners each carry one line, DEFAULT_WORK = PYTHON_ROOT.parent / '.cut
 ADOPT FORWARD, NEVER MIGRATE THE FROZEN RECORDS. Of 25 docs naming these paths, 11 are conformance results records (cuts 7-19). Those state the work root a past run actually used; rewriting them would make them assert something false about the past, which the repo's own rule forbids (invalidated frozen evidence is pinned and cited, never edited). Leave every results record alone. Old .gitignore lines can be pruned once nothing cites them.
 
 Verification is the hard part, not the edit: proving a runner still works means re-running its chain, and most chains cannot run today (cut 20 absent; cut 5 carries 15 pre-existing failures, beliefs-1b6534). Do this when a chain can be exercised, not blind.
+
+## Notes
+
+- 2026-09-12T16:26:55Z (main): Complexity mid: The destination convention, runner defaults, environment overrides and same-volume constraint are established, and .work is already ignored. Remaining judgment is validating the historical runner chains and separating current defaults from frozen run records.
