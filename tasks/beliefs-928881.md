@@ -6,9 +6,9 @@ priority: 2
 size: m
 owner: design/d1-cross-repo-negative
 created: 2026-09-10T20:26:23Z
-updated: 2026-09-12T14:09:34Z
+updated: 2026-09-12T15:04:12Z
 started: 2026-09-12T13:29:49Z
-depends: []
+depends: [nodes-3a16c5]
 tags: [cross-repo, conformance]
 spec: docs/superpowers/specs/2026-09-12-d1-cross-repository-negative-design.md
 plan: docs/superpowers/plans/2026-09-12-d1-cross-repository-negative.md
