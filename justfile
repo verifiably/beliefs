@@ -28,10 +28,9 @@ py_fast_cmd := "(cd python && uv run --frozen pytest -n 8 --dist=loadfile --igno
 py_test_cmd := "(cd python && uv run --frozen pytest)"
 py_check_cmd := "(cd python && uv run --frozen ruff check . && uv run --frozen pyright)"
 
-# `npm ci` is in AGENTS.md's ts list but is installation, not a gate, so it stays out of
-# the recipes; run it after a dependency change and in a fresh worktree, where ts/ has no
-# node_modules of its own. `npx --no-install` so that a missing install fails here and
-# says so, instead of silently fetching vitest from the network mid-test-run.
+# `npm ci` is installation, not a gate, so it stays out of the gate recipes and lives in
+# `setup` below. `npx --no-install` so that a missing install fails here and says so,
+# instead of silently fetching vitest from the network mid-test-run.
 ts_fast_cmd := "(cd ts && npx --no-install vitest run --changed --passWithNoTests)"
 ts_test_cmd := "(cd ts && npm test)"
 ts_check_cmd := "(cd ts && npm run typecheck && npm run check)"
@@ -39,6 +38,12 @@ ts_check_cmd := "(cd ts && npm run typecheck && npm run check)"
 fast_cmd := py_fast_cmd + " && " + ts_fast_cmd
 test_cmd := py_test_cmd + " && " + ts_test_cmd
 check_cmd := "python3 tools/ops-check && " + py_check_cmd + " && " + ts_check_cmd + " && tasks check"
+
+# What a fresh checkout or worktree needs before the gates can run. ts/ has no
+# node_modules of its own until `npm ci`; the python side needs nothing, because `uv run
+# --frozen` creates the venv and installs the locked dependencies (pyright included) on
+# first use. No gitignored inputs: the suite reads only tracked fixtures. Idempotent.
+setup_cmd := "(cd ts && npm ci)"
 
 # beliefs-92e6fe measured this at 164s against the serial gate's 868s and pinned
 # pytest-xdist rather than adopting coverage-based selection; --dist=loadfile keeps every
@@ -60,6 +65,13 @@ check:
     {{tt}} check -- sh -c '{{check_cmd}}'
 
 gate: check test
+
+# A gate that fails before `just setup` is an unhydrated tree, not a bug. Recorded like
+# the gates, because setup that recurs is a cost.
+#
+# Make this checkout runnable: once right after `git worktree add`, again after a dependency change.
+setup:
+    {{tt}} setup -- sh -c '{{setup_cmd}}'
 
 # Priced separately from the runs people ask for, so the report can cost the hook itself.
 #
