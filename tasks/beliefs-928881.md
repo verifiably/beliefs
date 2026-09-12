@@ -6,11 +6,12 @@ priority: 2
 size: m
 owner: design/d1-cross-repo-negative
 created: 2026-09-10T20:26:23Z
-updated: 2026-09-12T13:34:51Z
+updated: 2026-09-12T14:09:34Z
 started: 2026-09-12T13:29:49Z
 depends: []
 tags: [cross-repo, conformance]
 spec: docs/superpowers/specs/2026-09-12-d1-cross-repository-negative-design.md
+plan: docs/superpowers/plans/2026-09-12-d1-cross-repository-negative.md
 ---
 
 Outcome: close the sole remaining domain-boundary clause, D1’s negative that adds a domain-aware code path to nodes and proves the independent conformance check refuses it. The Beliefs domain slices are already discharged at cuts 20 and 22; this is not another domain implementation slice.
