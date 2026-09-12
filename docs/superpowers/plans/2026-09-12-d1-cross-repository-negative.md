@@ -392,12 +392,17 @@ def _nodes() -> dict[str, Node]:
     )
     return {
         "valid": gene_axis,
+        # A non-empty membership naming the dataset, so clause 4 has a structural reference
+        # to read back through `members` and `containers` and not only a node to fetch.
         "built-in-beside-namespaced": Node(
             id="genes:all",
             uid="0" * 32,
             kind="genes",
             title="all genes",
-            facets={"membership": {"members": []}, "biology/gene-axis": {"axis": "rows"}},
+            facets={
+                "membership": {"members": ["dataset:gene-expression-matrix"]},
+                "biology/gene-axis": {"axis": "rows"},
+            },
         ),
         "missing-required": gene_axis.model_copy(update={"facets": {"biology": {"organism": "Homo sapiens"}}}),
         "unexpected": gene_axis.model_copy(
@@ -438,21 +443,29 @@ def test_d1_installed_nodes_is_invariant_under_namespace_renaming(rho, tmp_path)
     nodes = _nodes()
     assert _validate_outcome(registry, nodes["missing-required"]) is FacetError
     assert [v.code for v in registry.check(nodes["unexpected"])] == ["facet-unexpected", "facet-unexpected"]
-    # 4. a corpus written with ρ(n) reads back as ρ of what n reads back as
-    read: dict[str, list[Node]] = {}
+    # 4. a corpus written with ρ(n) reads back as ρ of what n reads back as — the nodes
+    #    themselves and the structural index over them
+    dataset, container = nodes["valid"], nodes["built-in-beside-namespaced"]
+    read: dict[str, tuple[list[Node], list[str], list[str]]] = {}
     for label, mapping in (("plain", identity), ("renamed", rho)):
         root = tmp_path / label
         root.mkdir()
         corpus = Corpus(root, registry=_registry(mapping))
         plan = [
             CreateOp(path_for_node_id(n.id), node_to_markdown(_rename_node(n, mapping)).encode("utf-8"))
-            for n in (nodes["valid"], nodes["built-in-beside-namespaced"])
+            for n in (dataset, container)
         ]
         corpus.executor.execute(plan)
         reopened = Corpus(root, registry=_registry(mapping))
-        read[label] = [reopened.get(n.id) for n in (nodes["valid"], nodes["built-in-beside-namespaced"])]
-        assert {n.id for n in reopened.all()} == {nodes["valid"].id, nodes["built-in-beside-namespaced"].id}
-    assert read["renamed"] == [_rename_node(n, rho) for n in read["plain"]]
+        read[label] = (
+            [reopened.get(n.id) for n in (dataset, container)],
+            reopened.members(container.id),
+            reopened.containers(dataset.id),
+        )
+        assert {n.id for n in reopened.all()} == {dataset.id, container.id}
+    plain_nodes, plain_members, plain_containers = read["plain"]
+    assert plain_members == [dataset.id] and plain_containers == [container.id]  # non-empty by construction
+    assert read["renamed"] == ([_rename_node(n, rho) for n in plain_nodes], plain_members, plain_containers)
 ```
 
 - [ ] **Step 2: Run it against the real `nodes`**
@@ -523,7 +536,7 @@ biology/ facets."
 - Modify: `python/tests/test_arm_staleness.py:59-61` (the reader call)
 
 **Interfaces:**
-- Produces: `Sabotage(module, before, after, package="beliefs")`; `n2_arms.installed_nodes_root() -> Path` (the resolved `src/nodes`); `test_n2.PACKAGES: dict[str, Path]`; `arm_staleness.working_tree(repo_root)` returning `read(module: str, package: str = "beliefs") -> str | None`.
+- Produces: `Sabotage(module, before, after, package="beliefs")`; `n2_arms.installed_nodes_root() -> Path` (the resolved `src/nodes`); `test_n2.PACKAGES: dict[str, Path]`; `arm_staleness.TreeReader`, a `Protocol` whose `__call__(self, module: str, package: str = "beliefs") -> str | None` every reader (`working_tree`, `historical_tree`, `audited_tree`) returns and `stale_arms` takes — the default keeps every existing one-argument call site valid under pyright.
 - Consumes: Task 3's test as the check the self-tests name.
 
 - [ ] **Step 1: Write the failing self-tests in `test_n2.py`**
@@ -675,10 +688,23 @@ Expected: all three PASS.
 
 - [ ] **Step 6: Make the staleness reader package-aware**
 
-In `arm_staleness.py`, replace `working_tree`:
+In `arm_staleness.py`, add `Protocol` to the `typing` imports (add the import if the module has none) and define the reader contract once, after `StaleArm`:
 
 ```python
-def working_tree(repo_root: Path) -> Callable[[str, str], str | None]:
+class TreeReader(Protocol):
+    """A module's source in one package's tree, or `None` when the tree has no such module.
+
+    `package` defaults so that every reader can be called with a module alone, as the
+    Beliefs-only callers always have; a `nodes` arm passes its own package.
+    """
+
+    def __call__(self, module: str, package: str = "beliefs") -> str | None: ...
+```
+
+Replace `working_tree`:
+
+```python
+def working_tree(repo_root: Path) -> TreeReader:
     roots = {"beliefs": repo_root / "python" / "src" / "beliefs", "nodes": installed_nodes_root()}
 
     def read(module: str, package: str = "beliefs") -> str | None:
@@ -688,14 +714,14 @@ def working_tree(repo_root: Path) -> Callable[[str, str], str | None]:
     return read
 ```
 
-replace `historical_tree`'s inner `read` signature with `def read(module: str, package: str = "beliefs") -> str | None:` and add as its first line:
+Change `historical_tree`'s return annotation to `-> TreeReader`, its inner signature to `def read(module: str, package: str = "beliefs") -> str | None:`, and add as its first line:
 
 ```python
         if package != "beliefs":
             return None  # a nodes arm has no Beliefs commit to read from; it reads as stale here
 ```
 
-and in `stale_arms` change `source = read(arm.sabotage.module)` to `source = read(arm.sabotage.module, arm.sabotage.package)`. Update the return annotation of `audited_tree` to `Callable[[str, str], str | None]`. Import `installed_nodes_root` from `n2_arms`.
+Change `audited_tree`'s return annotation to `-> TreeReader`, `stale_arms`'s parameter to `read: TreeReader`, and inside it `source = read(arm.sabotage.module)` to `source = read(arm.sabotage.module, arm.sabotage.package)`. Import `installed_nodes_root` from `n2_arms`. The three `Callable[[str], str | None]` annotations in the module are now all `TreeReader`; grep for `Callable[[str]` afterwards and expect no match.
 
 - [ ] **Step 7: Add the reader test and run the staleness suite**
 
@@ -707,10 +733,10 @@ In `test_arm_staleness.py`, extend `test_a_module_the_tree_no_longer_has_is_stal
 ```
 
 ```bash
-cd python && uv run --frozen pytest tests/test_arm_staleness.py tests/test_n2.py -k "not findings" -v
+cd python && uv run --frozen pyright && uv run --frozen pytest tests/test_arm_staleness.py "tests/test_n2.py::test_a_nodes_sabotage_that_does_not_apply_is_stale" "tests/test_n2.py::test_a_nodes_sabotage_mutates_the_copy_and_never_the_source" "tests/test_n2.py::test_a_nodes_copy_shadows_the_installed_package_in_the_subprocess" "tests/test_n2.py::test_an_explicit_cache_root_reaches_n2_children" -v
 ```
 
-Expected: PASS. (`-k "not findings"` skips the session audit, which Task 5 re-runs in full.)
+Expected: pyright 0 errors; every selected test PASS. The session audit (`TestEveryArmAssertsSomething`, the `findings` fixture) is not selected — it is named by node id nowhere above, and `-k` would not exclude it since it matches names, not fixtures. Task 5 Step 4 runs it in full.
 
 - [ ] **Step 8: Lint, typecheck, commit**
 
@@ -887,6 +913,22 @@ CUT26_FROZEN_SHA256 = "<filled at Step 6>"
 
 `FROZEN_PRIOR_CUT_FILES`: cut 25's table plus `"python/tests/acceptance/n2_arms_cut25.py": "515fc8b"`. `PRIOR_ARMS`: cut 25's tuple plus `*CUT25_ARMS`.
 
+The cut's **own** declaration is pinned too — cut 25's guard pins the document and the prior declarations but not its own table, so an edit to a sabotage's text or an arm's check after the freeze would pass it. Add:
+
+```python
+FROZEN_DECLARATION = "python/tests/n2_arms_cut26.py"
+CUT26_DECLARATION_SHA256 = "<filled at Step 6>"
+
+
+def test_the_declaration_is_byte_exact_against_the_freeze() -> None:
+    """The arms the guard audits are the arms that were frozen: the canonical table's
+    bytes at HEAD equal its bytes at the freeze commit, and that digest is pinned here
+    so a rewrite of both the file and the commit reference cannot pass silently."""
+    current = (REPO_ROOT / FROZEN_DECLARATION).read_bytes()
+    assert sha256(current).hexdigest() == CUT26_DECLARATION_SHA256
+    assert current.decode("utf-8") == _show(CUT26_FREEZE_COMMIT, FROZEN_DECLARATION)
+```
+
 Tests, each replacing its cut 25 counterpart:
 
 ```python
@@ -938,11 +980,11 @@ git rev-parse HEAD
 git show HEAD:docs/designs/2026-09-12-conformance-cut-26.md | sha256sum
 ```
 
-Fill `CUT26_FREEZE_COMMIT` with the full sha and `CUT26_FROZEN_SHA256` with the digest, then:
+Also `sha256sum python/tests/n2_arms_cut26.py` for the declaration's digest. Fill `CUT26_FREEZE_COMMIT` with the full sha, `CUT26_FROZEN_SHA256` with the document digest and `CUT26_DECLARATION_SHA256` with the declaration digest, then:
 
 ```bash
 git add python/tests/acceptance/test_n2_cut26.py
-git commit -m "test(cut26): pin the freeze commit and body digest"
+git commit -m "test(cut26): pin the freeze commit, the body digest and the declaration digest"
 ```
 
 - [ ] **Step 7: Run the guard and the frozen-guard gates**
@@ -1037,4 +1079,4 @@ Expected: the grep prints only lines inside frozen cut documents (cuts 20–25),
 
 - **Spec coverage.** §2 decisions → Tasks 3 (invariance), 4 (package-aware N2), 5 (portable inventory), 1 (nodes gate, read-only checkout). §3 property clauses 1–4 → Task 3's four assertion groups; kernel-only invariants → `_registry`; sorted diagnostics → `_rename_violations`/`_sorted`; non-empty fixtures → `missing-required`, `unexpected`, and the two explicit non-emptiness asserts. §4.1 → Task 3. §4.2 → Task 4 (field, roots, copy, PYTHONPATH, staleness, three self-tests). §4.3 → Task 5 (declaration, shim, `PORTABLE_ARMS` in both consumers and the staleness gate, guard). §4.4 → Task 1. §4.5 → Tasks 2, 5 Step 6, 6. §5 → Task 3 Step 3 (red by hand), Task 4 self-tests, Task 6 Step 1. §6 sequence → task order. §7 → Task 2's out-of-scope paragraph.
 - **Placeholders.** `<NODES_GATE_COMMIT>`, `<CUT26_FREEZE_COMMIT>`, `<CUT26_FROZEN_SHA256>`, `<sha>`, `<N>`, `<T>`, `<n>` are values produced by earlier steps and named there; each step that fills one says which command prints it.
-- **Type consistency.** `Sabotage(package=, module=, before=, after=)` everywhere; `installed_nodes_root()` from `n2_arms` in Tasks 4 and 5; `read(module, package="beliefs")` in `arm_staleness` and its two tests; `PORTABLE_ARMS` in `test_n2` and imported by `test_arm_staleness`; the check id string is identical in Tasks 3, 4 (`NODES_CHECK`) and 5 (`UNIT_CHECKS["D1"]`).
+- **Type consistency.** `Sabotage(package=, module=, before=, after=)` everywhere; `installed_nodes_root()` from `n2_arms` in Tasks 4 and 5; `TreeReader` is the one reader type in `arm_staleness` (`working_tree`, `historical_tree`, `audited_tree`, `stale_arms`) and its default `package` keeps the one-argument calls in `test_arm_staleness` valid; `PORTABLE_ARMS` in `test_n2` and imported by `test_arm_staleness`; the check id string is identical in Tasks 3, 4 (`NODES_CHECK`) and 5 (`UNIT_CHECKS["D1"]`).

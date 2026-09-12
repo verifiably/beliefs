@@ -4,8 +4,9 @@ title: "Task 2: Cut 26's design document"
 status: todo
 priority: 2
 size: s
+complexity: mid
 created: 2026-09-12T14:09:34Z
-updated: 2026-09-12T14:09:43Z
+updated: 2026-09-12T14:17:09Z
 depends: [beliefs-807d73]
 parent: beliefs-928881
 tags: [conformance]
