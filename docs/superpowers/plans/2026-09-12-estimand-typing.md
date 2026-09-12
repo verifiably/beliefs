@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Work in the worktree `.worktrees/estimand-typing` (branch `design/estimand-typing`). Every path below is relative to the Beliefs repository root; paths shown to the user are prefixed with the worktree directory.
-- **The lane opens only under roadmap concurrency rule 6** (spec §11): at most two kernel lanes while the success criterion is unmet, an off-path lane only when no on-path lane is startable. Tasks 1–5 rewrite no surface another lane names and may proceed as soon as the plan is approved; Tasks 6–9 rewrite `decode.py`, `corpus.py`, `evaluation.py` and `stored.py` (spec §10.5) and wait for the lane.
+- **The lane opens first, and the cut freezes before its code exists.** Task 0 admits the lane under roadmap concurrency rule 6 (at most two kernel lanes while the success criterion is unmet; an off-path lane only when no on-path lane is startable) and freezes the cut document by dated commit. No later task starts until Task 0's freeze commit is in the branch. Every task rewrites a surface the lane owns; Tasks 6–9 additionally rewrite `decode.py`, `corpus.py`, `evaluation.py` and `stored.py` (spec §10.5), and the later merge resolves toward the earlier lane.
 - Every Python command runs from `python/` as `uv run --frozen …`; `pytest` is bare (`addopts` carries `-q` and `--ignore=tests/acceptance`; an acceptance module runs only when named). Count claims quote the summary line.
 - The shipped base contract is authored at `contracts/science/CONTRACT.yaml`; `python/src/beliefs/contracts/science/CONTRACT.yaml` is its byte-identical packaged copy, held equal by a test — edit the first, copy to the second.
 - Frozen declarations and cut bodies through cut 26 stay byte-exact. No reader coerces a pre-grammar record (spec decision 10).
@@ -48,6 +48,30 @@
 | `docs/designs/…-conformance-cut-<N>.md`, `docs/plans/…-conformance-cut-<N>-results.md`, the amended designs, guide, glossary, ledger, roadmap | freeze, discharge, amendments (Tasks 11, 12) |
 
 `<N>` is claimed at freeze (concurrency rule 1): the next unclaimed cut number across every worktree at that moment, chained after the highest-numbered discharged runner.
+
+---
+
+### Task 0: Open the lane and freeze the cut
+
+**Files:**
+- Create: `docs/designs/<date>-conformance-cut-<N>.md`
+- Move: `docs/superpowers/specs/2026-09-12-estimand-typing-design.md` → `docs/designs/2026-09-12-estimand-typing-design.md` (`git mv`)
+- Modify: `python/tests/test_designs_corpus.py` (`GUARANTEE_TABLES["Q"]`, `TABLE_OWNERS["Q"]`), the designs README row total and list
+
+**Interfaces:**
+- Produces: the cut number `<N>`, the freeze commit `CUT<N>_FREEZE_COMMIT` and the cut document's SHA-256, both pinned by Task 11's guard; the lane's admission recorded on `beliefs-59f846`.
+
+- [ ] **Step 1: Admit the lane under rule 6**
+
+Run `tasks prime --project beliefs` and read the roadmap's lane table. The lane opens only if fewer than two kernel lanes are open **and** no on-path lane is startable (the `world-read` head is either in flight or blocked). Record the reading in a task note — `tasks note beliefs-59f846 "lane admitted under rule 6: <open lanes>, <on-path state>"` — and `tasks start beliefs-59f846`. If the rule refuses, stop here: the plan waits, and nothing below starts.
+
+- [ ] **Step 2: Claim the cut number**
+
+Run `git worktree list` and `ls <each worktree>/docs/designs/*conformance-cut-*.md`; `<N>` is the next number unclaimed in any worktree (concurrency rule 1). Read the highest-numbered **discharged** runner in `python/tools/cut*_acceptance.py` for Task 11's `PREFIX_RUNNERS` (rule 5).
+
+- [ ] **Step 3: Write and freeze the cut document**
+
+Write `docs/designs/<date>-conformance-cut-<N>.md` on cut 26's shape: §1 what this cut is; §2 the boundary (the files this plan names); §3 selection — declaration units `Q1`–`Q10`, single-homed, every clause selected only when its source mutation and every named check run inside §2; §4 accounting; §5 N2 and acceptance obligations (the mechanisms of spec §10.3, one arm each — the `before` blocks are written in Task 11 against the tree that exists then, and the accounting freezes there); §6 second reader; §7 limitations (spec §13, restated). `git mv` the design spec into `docs/designs/`, register `"Q": [f"Q{i}" for i in range(1, 11)]` and its owner, update the README, and run `uv run --frozen pytest tests/test_designs_corpus.py` green. Commit: `docs(cut): freeze conformance cut <N>, estimand typing` — this is the dated freeze commit, made before any code below exists.
 
 ---
 
@@ -885,25 +909,30 @@ def test_estimand_has_no_public_constructor():
         Estimand(claim="c", operator="o", contrast=None, measure=None, reference=Decimal("0"), control=None)  # type: ignore[call-arg]
 
 
-@pytest.mark.parametrize("override,error,position", [
-    ({"contrast": LevelsContrast(slot=2, baseline=Referent(L, "EX:a"), comparison=Referent(L, "EX:b"))}, ContrastRefused, "slot 2"),
-    ({"contrast": LevelsContrast(slot=1, baseline=Referent(L, "EX:a"), comparison=Referent(L, "EX:b"))}, ContrastRefused, "no level sort"),
-    ({"contrast": LevelsContrast(slot=0, baseline=Referent(L, "EX:a"), comparison=Referent(L, "EX:a"))}, ContrastRefused, "distinct"),
-    ({"contrast": LevelsContrast(slot=0, baseline=Referent(E, "EX:a"), comparison=Referent(L, "EX:b"))}, EstimandSortMismatch, "contrast.baseline"),
-    ({"contrast": ContinuousContrast(slot=0, quantity=Referent(M, "EX:q"), increment=Decimal("0"))}, ContrastRefused, "increment"),
-    ({"contrast": ContinuousContrast(slot=0, quantity=Referent(M, "EX:q"), increment=Decimal("-1"))}, ContrastRefused, "increment"),
-    ({"contrast": ContinuousContrast(slot=0, quantity=Referent(E, "EX:q"), increment=Decimal("1"))}, EstimandSortMismatch, "contrast.quantity"),
-    ({"measure": Measure(quantity=Referent(E, "EX:tpm"), scale="additive")}, EstimandSortMismatch, "measure.quantity"),
-    ({"measure": Measure(quantity=Referent(M, "EX:tpm"), scale="ordinal")}, MeasureRefused, "scale"),
-    ({"measure": Measure(quantity=Referent(M, "EX:hr"), scale="multiplicative"), "reference": Decimal("0")}, ReferenceRefused, "multiplicative"),
-    ({"reference": Decimal("NaN")}, ReferenceRefused, "finite"),
-    ({"control": Control(identification=Referent(E, "EX:obs"), conditioning=())}, EstimandSortMismatch, "control.identification"),
-    ({"control": Control(identification=Referent(I, "EX:obs"), conditioning=(Referent(O, "EX:c"),))}, EstimandSortMismatch, "control.conditioning[0]"),
-    ({"control": Control(identification=Referent(I, "EX:obs"), conditioning=(Referent(E, "EX:c"), Referent(E, "EX:c")))}, ControlRefused, "duplicate"),
+# Every invalid value is built **inside** the assertion: the sealed values refuse
+# at construction, so a parametrization that constructed them at collection time
+# would fail before `pytest.raises` ran.
+@pytest.mark.parametrize("make,error,position", [
+    (lambda: {"contrast": LevelsContrast(slot=2, baseline=Referent(L, "EX:a"), comparison=Referent(L, "EX:b"))}, ContrastRefused, "slot 2"),
+    (lambda: {"contrast": LevelsContrast(slot=True, baseline=Referent(L, "EX:a"), comparison=Referent(L, "EX:b"))}, ContrastRefused, "integer"),
+    (lambda: {"contrast": ContinuousContrast(slot=0.5, quantity=Referent(M, "EX:q"), increment=Decimal("1"))}, ContrastRefused, "integer"),  # type: ignore[arg-type]
+    (lambda: {"contrast": LevelsContrast(slot=1, baseline=Referent(L, "EX:a"), comparison=Referent(L, "EX:b"))}, ContrastRefused, "no level sort"),
+    (lambda: {"contrast": LevelsContrast(slot=0, baseline=Referent(L, "EX:a"), comparison=Referent(L, "EX:a"))}, ContrastRefused, "distinct"),
+    (lambda: {"contrast": LevelsContrast(slot=0, baseline=Referent(E, "EX:a"), comparison=Referent(L, "EX:b"))}, EstimandSortMismatch, "contrast.baseline"),
+    (lambda: {"contrast": ContinuousContrast(slot=0, quantity=Referent(M, "EX:q"), increment=Decimal("0"))}, ContrastRefused, "increment"),
+    (lambda: {"contrast": ContinuousContrast(slot=0, quantity=Referent(M, "EX:q"), increment=Decimal("-1"))}, ContrastRefused, "increment"),
+    (lambda: {"contrast": ContinuousContrast(slot=0, quantity=Referent(E, "EX:q"), increment=Decimal("1"))}, EstimandSortMismatch, "contrast.quantity"),
+    (lambda: {"measure": Measure(quantity=Referent(E, "EX:tpm"), scale="additive")}, EstimandSortMismatch, "measure.quantity"),
+    (lambda: {"measure": Measure(quantity=Referent(M, "EX:tpm"), scale="ordinal")}, MeasureRefused, "scale"),
+    (lambda: {"measure": Measure(quantity=Referent(M, "EX:hr"), scale="multiplicative"), "reference": Decimal("0")}, ReferenceRefused, "multiplicative"),
+    (lambda: {"reference": Decimal("NaN")}, ReferenceRefused, "finite"),
+    (lambda: {"control": Control(identification=Referent(E, "EX:obs"), conditioning=())}, EstimandSortMismatch, "control.identification"),
+    (lambda: {"control": Control(identification=Referent(I, "EX:obs"), conditioning=(Referent(O, "EX:c"),))}, EstimandSortMismatch, "control.conditioning[0]"),
+    (lambda: {"control": Control(identification=Referent(I, "EX:obs"), conditioning=(Referent(E, "EX:c"), Referent(E, "EX:c")))}, ControlRefused, "duplicate"),
 ])
-def test_each_refusal_names_its_position(profile, claim, unconsulted, override, error, position):
+def test_each_refusal_names_its_position(profile, claim, unconsulted, make, error, position):
     with pytest.raises(error, match=position):
-        build(profile, claim, unconsulted, **override)
+        build(profile, claim, unconsulted, **make())
 
 
 def test_a_float_reference_is_refused_before_the_digest(profile, claim, unconsulted):
@@ -1147,6 +1176,13 @@ def _finite(value: object, where: str, error: type[EstimandError]) -> Decimal:
     return value
 
 
+def _require_slot(value: object) -> None:
+    """An integer, never a bool and never a float: the decoder already refuses
+    these on the wire, and the shared constructor refuses them for every route."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ContrastRefused(f"contrast.slot is an integer slot index, found {value!r}")
+
+
 @sealed
 @final
 @dataclass(frozen=True)
@@ -1156,6 +1192,7 @@ class LevelsContrast:
     comparison: Referent
 
     def __post_init__(self) -> None:
+        _require_slot(self.slot)
         for name in ("baseline", "comparison"):
             if not isinstance(getattr(self, name), Referent):
                 raise UntypedEstimandMember(f"contrast.{name} holds {type(getattr(self, name)).__name__}, not a Referent")
@@ -1170,6 +1207,7 @@ class ContinuousContrast:
     increment: Decimal
 
     def __post_init__(self) -> None:
+        _require_slot(self.slot)
         if not isinstance(self.quantity, Referent):
             raise UntypedEstimandMember(f"contrast.quantity holds {type(self.quantity).__name__}, not a Referent")
         if _finite(self.increment, "contrast.increment", ContrastRefused) <= 0:
@@ -1535,6 +1573,9 @@ def test_decode_types_a_wire_value_and_resolves_it(profile, claim):
     (lambda p: p["contrast"].__setitem__("kind", "levels-and-continuous"), MalformedWireEstimand),
     (lambda p: p["contrast"].__setitem__("slot", "0"), MalformedWireEstimand),
     (lambda p: p["contrast"].__setitem__("baseline", {"sort": E, "term": "EX:ndmm"}), EstimandSortMismatch),
+    (lambda p: p["measure"].__setitem__("quantity", {"sort": 7, "term": "EX:tpm"}), MalformedWireEstimand),
+    (lambda p: p["measure"].__setitem__("quantity", {"sort": "", "term": "EX:tpm"}), MalformedWireEstimand),
+    (lambda p: p["measure"].__setitem__("quantity", {"term": "EX:tpm"}), MalformedWireEstimand),
     (lambda p: p["contrast"].__setitem__("comparison", {"sort": L, "term": "EX:ndmm"}), ContrastRefused),
     (lambda p: p.__setitem__("reference", "zero"), MalformedWireEstimand),
     (lambda p: p["control"].__setitem__("conditioning", "none"), MalformedWireEstimand),
@@ -1597,19 +1638,21 @@ class WireEstimand:
     control: Mapping[str, object]
 
 
-def _wire_term(value: object, where: str) -> str:
-    """A referent on the wire: a bare term (the decode route) or `{sort, term}`
-    (the stored projection). The sort is recovered from the declaration either way,
-    and a stored sort that disagrees with it is a sort mismatch, not a repair."""
+def _wire_referent(value: object, where: str, *, declared: str) -> Referent:
+    """A referent on the wire, in one of two forms and never a blend of them.
+
+    The **bare-term** form (the decode route) carries a term only; its sort is
+    the declaration's. The **stored** form (`{sort, term}`, the projection's)
+    carries an explicit sort that must be a non-empty string — it is passed
+    through unchanged, and `Estimand._checked` then refuses it if it is not the
+    declared sort. Nothing here substitutes the declaration's sort for a stored
+    one that is missing, empty or not a string: that would repair a malformed
+    record on the way in, which is the one thing a decoder must not do."""
     if isinstance(value, Mapping):
         if set(value) != {"sort", "term"}:
             raise MalformedWireEstimand(f"{where}: a stored referent is exactly {{sort, term}}")
-        return _require_text(value["term"], f"{where}.term")
-    return _require_text(value, where)
-
-
-def _wire_sort(value: object) -> str | None:
-    return value["sort"] if isinstance(value, Mapping) and isinstance(value.get("sort"), str) else None
+        return Referent(sort=_require_text(value["sort"], f"{where}.sort"), term=_require_text(value["term"], f"{where}.term"))
+    return Referent(sort=declared, term=_require_text(value, where))
 
 
 def _decimal(value: object, where: str) -> Decimal:
@@ -1642,19 +1685,19 @@ def _typed_estimand(wire: WireEstimand, profile: ProfileSpec) -> Estimand:
         level_sort = declaration.level_sorts.get(str(slot), "")
         contrast: LevelsContrast | ContinuousContrast = LevelsContrast(
             slot=slot,
-            baseline=Referent(sort=_wire_sort(contrast_body["baseline"]) or level_sort, term=_wire_term(contrast_body["baseline"], "contrast.baseline")),
-            comparison=Referent(sort=_wire_sort(contrast_body["comparison"]) or level_sort, term=_wire_term(contrast_body["comparison"], "contrast.comparison")),
+            baseline=_wire_referent(contrast_body["baseline"], "contrast.baseline", declared=level_sort),
+            comparison=_wire_referent(contrast_body["comparison"], "contrast.comparison", declared=level_sort),
         )
     else:
         _exact_keys(contrast_body, {"slot", "kind", "quantity", "increment"}, "contrast")
         contrast = ContinuousContrast(
             slot=slot,
-            quantity=Referent(sort=_wire_sort(contrast_body["quantity"]) or declaration.measure_sort, term=_wire_term(contrast_body["quantity"], "contrast.quantity")),
+            quantity=_wire_referent(contrast_body["quantity"], "contrast.quantity", declared=declaration.measure_sort),
             increment=_decimal(contrast_body["increment"], "contrast.increment"),
         )
     _exact_keys(measure_body, {"quantity", "scale"}, "measure")
     measure = Measure(
-        quantity=Referent(sort=_wire_sort(measure_body["quantity"]) or declaration.measure_sort, term=_wire_term(measure_body["quantity"], "measure.quantity")),
+        quantity=_wire_referent(measure_body["quantity"], "measure.quantity", declared=declaration.measure_sort),
         scale=_require_text(measure_body["scale"], "measure.scale"),
     )
     _exact_keys(control_body, {"identification", "conditioning"}, "control")
@@ -1662,9 +1705,9 @@ def _typed_estimand(wire: WireEstimand, profile: ProfileSpec) -> Estimand:
     if isinstance(conditioning, (str, bytes)) or not isinstance(conditioning, Sequence):
         raise MalformedWireEstimand("control.conditioning is a sequence of referents")
     control = Control(
-        identification=Referent(sort=_wire_sort(control_body["identification"]) or declaration.identification_sort, term=_wire_term(control_body["identification"], "control.identification")),
+        identification=_wire_referent(control_body["identification"], "control.identification", declared=declaration.identification_sort),
         conditioning=tuple(
-            Referent(sort=_wire_sort(member) or declaration.conditioning_sort, term=_wire_term(member, f"control.conditioning[{i}]"))
+            _wire_referent(member, f"control.conditioning[{i}]", declared=declaration.conditioning_sort)
             for i, member in enumerate(conditioning)
         ),
     )
@@ -1726,7 +1769,7 @@ def applicability_from_stored(projection: Mapping[str, object], *, profile: Prof
             raise MalformedWireEstimand(f"{where}: exactly quantifier and restriction")
         qualifiers[dimension] = Qualifier(
             quantifier=_require_text(body["quantifier"], f"{where}.quantifier"),
-            restriction=Referent(sort=_wire_sort(body["restriction"]) or declared.restriction_sort, term=_wire_term(body["restriction"], f"{where}.restriction")),
+            restriction=_wire_referent(body["restriction"], f"{where}.restriction", declared=declared.restriction_sort),
         )
     declaration = profile.operator(operator)
     permitted = set(declaration.dimensions)
@@ -1907,6 +1950,19 @@ def test_another_grammar_identity_is_malformed_not_pre_grammar():
         restore(v1.digest(SPEC_DOMAIN, projection), v1.encode(projection), profile=TESTING_PROFILE)
 
 
+def test_a_malformed_typed_member_restores_as_a_record_error():
+    from fixtures_cut3 import TESTING_PROFILE
+
+    from beliefs.errors import RecordError
+    from beliefs.spec import frozen_projection, restore
+
+    spec = freeze(draft(), held_rules=held_rules())
+    projection = frozen_projection(spec)
+    projection["estimand"]["measure"]["quantity"] = {"sort": "", "term": "EX:tpm"}
+    with pytest.raises(RecordError, match="do not restore"):
+        restore(v1.digest(SPEC_DOMAIN, projection), v1.encode(projection), profile=TESTING_PROFILE)
+
+
 def test_revise_copies_the_typed_members():
     from fixtures_cut3 import typed_estimand
 
@@ -1990,11 +2046,17 @@ then after the digest check:
 ```python
     if mapping["estimand_grammar"] != ESTIMAND_GRAMMAR:
         raise MalformedRecord(f"{where}: estimand_grammar is {mapping['estimand_grammar']!r}, not {ESTIMAND_GRAMMAR!r}")
-    estimand = estimand_from_stored(mapping["estimand"], profile=profile)
-    applicability = applicability_from_stored(mapping["applicability"], profile=profile, operator=estimand.operator)
+    try:
+        estimand = estimand_from_stored(mapping["estimand"], profile=profile)
+        applicability = applicability_from_stored(mapping["applicability"], profile=profile, operator=estimand.operator)
+    except (DecodeError, EstimandError, ClaimError, ProfileError) as refused:
+        # Translated here, not propagated: the audit and `stored_specs` catch
+        # `RecordError`, and a decode-family error escaping a stored reader would
+        # abort an audit instead of becoming its finding.
+        raise MalformedRecord(f"{where}: the typed members do not restore: {refused}") from refused
 ```
 
-and pass `estimand=estimand, applicability=applicability` to `_mint_frozen_spec` (the `**text` no longer carries them). `revise` casts `estimand` to `Estimand` and `applicability` to `Mapping[str, Qualifier]` from `edits`/`original` exactly as the other members.
+(import `DecodeError`, `EstimandError`, `ClaimError`, `ProfileError` from `beliefs.errors`) and pass `estimand=estimand, applicability=applicability` to `_mint_frozen_spec` (the `**text` no longer carries them). `revise` casts `estimand` to `Estimand` and `applicability` to `Mapping[str, Qualifier]` from `edits`/`original` exactly as the other members.
 
 `python/src/beliefs/stored.py`: `def analysis_spec_value(node: Node, *, profile: ProfileSpec) -> FrozenSpec:` calling `restore(facet["identity"], facet["projection"].encode("utf-8"), profile=profile)` (import `ProfileSpec` under `TYPE_CHECKING` if `stored` must stay import-light; `restore` is already imported).
 
@@ -2024,7 +2086,7 @@ git commit -m "feat(spec): type the estimand and applicability members; refuse p
 - Test: `python/tests/test_records.py`, `python/tests/test_assess.py`
 
 **Interfaces:**
-- Produces: `AssessmentValue(spec, run, proposition, outcome, interpretation_rule, estimand: Estimand, applicability: Mapping[str, Qualifier], estimate: Decimal | None = None, uncertainty: Interval | StandardError | None = None)`; `stored.assessment_node(slug, *, title, spec, run, proposition, outcome, interpretation_rule, estimand, applicability, estimate=None, uncertainty=None)` writing a `typed` member of canonical text; `stored.assessment_value(node, *, profile)`; `stored.assessment_identity(node) -> str` reading only `spec`, `run`, `proposition`.
+- Produces: `AssessmentValue(spec, run, proposition, outcome, interpretation_rule, estimand: Estimand, applicability: Mapping[str, Qualifier], estimate: Decimal | None = None, uncertainty: Interval | StandardError | None = None)`; `stored.assessment_node(slug, *, title, spec, run, proposition, outcome, interpretation_rule, estimand, applicability, estimate=None, uncertainty=None)` writing a `typed` member of canonical text; `stored.assessment_value(node, *, profile)`; `stored.AssessmentRef(spec, run, proposition)` with `identity()`, and `stored.assessment_reference(node) -> AssessmentRef` reading only those three members.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -2052,6 +2114,18 @@ In `python/tests/test_records.py`, rewrite the parametrized optional-field test:
             assessment(estimate="0.4")
         with pytest.raises(MalformedRecord):
             assessment(estimand="the effect of x on y")
+
+    def test_the_numerical_invariants_hold_at_construction(self):
+        from decimal import Decimal
+
+        from beliefs.estimand import Interval, StandardError
+
+        with pytest.raises(MalformedRecord, match="non-negative"):
+            assessment(estimate=Decimal("0.4"), uncertainty=StandardError(Decimal("-0.1")))
+        with pytest.raises(MalformedRecord, match="excludes"):
+            assessment(estimate=Decimal("0.4"), uncertainty=Interval(Decimal("0.5"), Decimal("0.7"), Decimal("0.95")))
+        with pytest.raises(MalformedRecord, match="no estimate"):
+            assessment(uncertainty=StandardError(Decimal("0.1")))
 ```
 
 (`assessment()`'s default fields gain `estimand=typed_estimand()` and `applicability=typed_applicability()`.)
@@ -2116,7 +2190,17 @@ Expected: red — string members accepted, `estimand` an unexpected keyword on `
 from decimal import Decimal
 
 from beliefs.claim import Qualifier
-from beliefs.estimand import Estimand, Interval, StandardError, applicability_projection, estimand_projection, uncertainty_projection
+from beliefs.errors import UncertaintyRefused
+from beliefs.estimand import (
+    Estimand,
+    Interval,
+    StandardError,
+    applicability_projection,
+    check_estimate,
+    check_uncertainty,
+    estimand_projection,
+    uncertainty_projection,
+)
 
 
 @sealed
@@ -2144,6 +2228,19 @@ class AssessmentValue:
             raise MalformedRecord(f"estimate is a Decimal or absent, found {type(self.estimate).__name__}")
         if self.uncertainty is not None and not isinstance(self.uncertainty, (Interval, StandardError)):
             raise MalformedRecord(f"uncertainty is an Interval, a StandardError or absent, found {type(self.uncertainty).__name__}")
+        # The numerical invariants (estimand-typing §6) hold at **every**
+        # construction — the constructor's, the stored reader's, a test's — so a
+        # stored record cannot carry a negative standard error or an interval
+        # that excludes its estimate any more than a derived one can.
+        try:
+            if self.estimate is not None:
+                check_estimate(self.estimate, self.estimand.measure.scale)
+            if self.uncertainty is not None:
+                if self.estimate is None:
+                    raise UncertaintyRefused("an uncertainty with no estimate to be uncertain about")
+                check_uncertainty(self.uncertainty, self.estimate, self.estimand.measure.scale)
+        except UncertaintyRefused as refused:
+            raise MalformedRecord(str(refused)) from refused
         object.__setattr__(self, "applicability", MappingProxyType(dict(self.applicability)))
 
     def identity(self) -> str:
@@ -2265,14 +2362,31 @@ def assessment_node(
 _ASSESSMENT_FACET_KEYS = frozenset({"spec", "run", "proposition", "outcome", "interpretation_rule", "typed"})
 
 
-def assessment_identity(node: Node) -> str:
-    """`(spec, run, proposition)` read off the stored facet with no profile —
-    the identity needs nothing typed, and the successor-admission reader and
-    the retraction target resolver need nothing else."""
+@sealed
+@final
+@dataclass(frozen=True)
+class AssessmentRef:
+    """The three world-identity members of a stored assessment and nothing
+    typed: what the successor-admission reader (`spec`, `identity()`) and the
+    retraction target resolver (`identity()`) read. Malformed evidence still
+    refuses — a missing facet or a non-string member is `MalformedRecord`."""
+
+    spec: str
+    run: str
+    proposition: str
+
+    def identity(self) -> str:
+        return v1.digest(ASSESSMENT_DOMAIN, {"spec": self.spec, "run": self.run, "proposition": self.proposition})
+
+
+def assessment_reference(node: Node) -> AssessmentRef:
     facet = _facet(node, ASSESSMENT_FACET)
     if facet is None:
         raise MalformedRecord(f"{node.id}: an assessment carries an {ASSESSMENT_FACET!r} facet")
-    return v1.digest(ASSESSMENT_DOMAIN, {"spec": str(facet.get("spec", "")), "run": local_id("run", facet.get("run")), "proposition": str(facet.get("proposition", ""))})  # type: ignore[arg-type]
+    for member in ("spec", "run", "proposition"):
+        if type(facet.get(member)) is not str or not facet[member]:
+            raise MalformedRecord(f"{node.id}: assessment member {member!r} is a non-empty string")
+    return AssessmentRef(spec=facet["spec"], run=local_id("run", facet["run"]), proposition=facet["proposition"])
 
 
 def assessment_value(node: Node, *, profile: ProfileSpec) -> AssessmentValue:
@@ -2292,8 +2406,11 @@ def assessment_value(node: Node, *, profile: ProfileSpec) -> AssessmentValue:
         raise MalformedRecord(f"{node.id}: the typed member is not canonical text: {refused}") from refused
     if not isinstance(typed, dict) or not {"estimand", "applicability"} <= set(typed) <= {"estimand", "applicability", "estimate", "uncertainty"}:
         raise MalformedRecord(f"{node.id}: the typed member carries estimand, applicability, and optionally estimate and uncertainty")
-    estimand = estimand_from_stored(typed["estimand"], profile=profile)
-    applicability = applicability_from_stored(typed["applicability"], profile=profile, operator=estimand.operator)
+    try:
+        estimand = estimand_from_stored(typed["estimand"], profile=profile)
+        applicability = applicability_from_stored(typed["applicability"], profile=profile, operator=estimand.operator)
+    except (DecodeError, EstimandError, ClaimError, ProfileError) as refused:
+        raise MalformedRecord(f"{node.id}: the typed members do not restore: {refused}") from refused
     uncertainty = None
     if "uncertainty" in typed:
         body = typed["uncertainty"]
@@ -2313,7 +2430,7 @@ def assessment_value(node: Node, *, profile: ProfileSpec) -> AssessmentValue:
     )
 ```
 
-(`AssessmentValue.__post_init__` refuses a non-`Decimal` `estimate` decoded from text, so the reader coerces nothing.) Point `succession._typed` and `corpus.py:2946` at `stored.assessment_identity(node)`; give `evaluation.py:221` `profile=profile`. Update `fixtures_cut3.interp` and `result_sensitive` to return `Decimal("0.4")` and `{"kind": "standard-error", "value": Decimal("0.1")}`.
+(`AssessmentValue.__post_init__` refuses a non-`Decimal` `estimate` decoded from text and runs `check_estimate` and `check_uncertainty` against the estimand's scale, so the reader coerces nothing and admits no value the constructor would have refused. Add to `test_records.py`'s stored-reader coverage: a raw facet whose `typed` member carries `{"kind": "standard-error", "value": -0.1}` reads as `MalformedRecord`, never as a value.) Point `succession._typed` at `stored.assessment_reference(node)` — its return type becomes `dict[str, AssessmentRef]`, and `_recorded_failures`' reads of `target.identity()` and `target.spec` are unchanged — and `corpus.py:2946` at `stored.assessment_reference(target).identity()`; give `evaluation.py:221` `profile=profile`. Run `uv run --frozen pytest tests/test_successor_admission.py tests/acceptance/test_successor_admission_acceptance.py` and confirm the arm that admits a successor over an **active failed verification** still passes: it is the path that reads both members. Update `fixtures_cut3.interp` and `result_sensitive` to return `Decimal("0.4")` and `{"kind": "standard-error", "value": Decimal("0.1")}`.
 
 - [ ] **Step 6: Run the tests**
 
@@ -2547,6 +2664,7 @@ git commit -m "feat(boundary): require the spec's estimand to name its target's 
 **Files:**
 - Modify: `python/src/beliefs/consulted.py:45-100`
 - Modify: `python/src/beliefs/evaluation.py:307-314`, `python/src/beliefs/belief.py:255-262` (pass `estimands=`)
+- Create: `python/tests/fixtures/measures-fixture.yaml` — namespace `measures`, `lineage: genesis`, one sort `assay` bound to `{namespace: EX, release: "2026-01-01"}`, no dimensions, no operators, no facets; a contract **no claim can reach**, since it declares no operator
 - Test: `python/tests/test_consulted.py`, `python/tests/test_belief.py`
 
 **Interfaces:**
@@ -2557,21 +2675,40 @@ git commit -m "feat(boundary): require the spec's estimand to name its target's 
 Append to `python/tests/test_consulted.py`:
 
 ```python
-def test_an_estimand_reaches_its_declaration_and_its_sorts(profile, pins, claim):
+@pytest.fixture()
+def measured(base_contract, testing_document):
+    """`testing` whose `affects` estimand measures in `measures/assay`, compiled
+    beside the `measures` fixture: a contract reached through the estimand and
+    through nothing else, so the arm below cannot pass on the claim walk."""
+    import copy
+    from pathlib import Path
+
+    from beliefs.contract.document import load_document
+
+    fixture = Path(__file__).resolve().parent / "fixtures" / "measures-fixture.yaml"
+    measures = domain.parse_domain_contract(load_document(fixture, source=str(fixture)), source=str(fixture), base=base_contract, predecessor=None)
+    document = copy.deepcopy(testing_document)
+    document["estimands"]["affects"]["measure_sort"] = "measures/assay"
+    testing = domain.parse_domain_contract(document, source="<measured>", base=base_contract, predecessor=None)
+    return compile_profile(base_contract, [testing, measures])
+
+
+def test_an_estimand_reaches_a_contract_no_claim_reaches(measured, claim):
     from fixtures_cut3 import UNCONSULTED
     from beliefs.claim import Referent
     from beliefs.estimand import Control, LevelsContrast, Measure, build_estimand
 
+    claim = build_claim(profile=measured, operator="testing/affects", args=claim.args, qualifiers={}, polarity="positive", layer="causal")
     estimand, _ = build_estimand(
-        profile, claim, snapshot=UNCONSULTED,
+        measured, claim, snapshot=UNCONSULTED,
         contrast=LevelsContrast(0, Referent("testing/level", "EX:a"), Referent("testing/level", "EX:b")),
-        measure=Measure(Referent("testing/measure", "EX:m"), "additive"), reference=Decimal("0"),
+        measure=Measure(Referent("measures/assay", "EX:m"), "additive"), reference=Decimal("0"),
         control=Control(Referent("testing/identification", "EX:obs"), ()),
     )
-    without = consulted_contracts(claims={}, profile=profile, node_corpus={}, pins={"c1": pins()}, closure_nodes=())
-    with_estimand = consulted_contracts(claims={}, estimands={"a1": estimand}, profile=profile, node_corpus={}, pins={"c1": pins()}, closure_nodes=())
-    assert dict(without) == {"science": pins().science_contract}
-    assert dict(with_estimand) == {"science": pins().science_contract, "testing": pins().domains["testing"]}
+    pins = pins_for(measured)
+    claim_only = consulted_contracts(claims={"p": claim}, profile=measured, node_corpus={}, pins={"c1": pins}, closure_nodes=())
+    with_estimand = consulted_contracts(claims={"p": claim}, estimands={"a1": estimand}, profile=measured, node_corpus={}, pins={"c1": pins}, closure_nodes=())
+    assert "measures" not in dict(claim_only) and dict(with_estimand)["measures"] == pins.domains["measures"]
 
 
 def test_an_estimand_under_an_unpinned_namespace_refuses(profile, pins, claim):
@@ -2581,7 +2718,7 @@ def test_an_estimand_under_an_unpinned_namespace_refuses(profile, pins, claim):
 
 Replace the `...` with the concrete construction: parse a `testing_document` copy whose `estimands.affects.measure_sort` is `biology/gene` alongside `profiles.biology("fixture")` compiled together, build the estimand, then call `consulted_contracts` with pins carrying `testing` but not `biology` and assert `ContractDisagreement` matching `'biology' is consulted but pinned by no corpus`.
 
-In `python/tests/test_belief.py`, add the Q8 arm beside the existing D6 claim-schema arm: derive a belief over one assessment (the module's fixture) whose estimand binds `testing/measure`; recompile the profile from a `testing_document` copy with `description` changed on the `measure` sort only (editorial: identity moves, projection does not — this is the **contract identity** bump D6 reads); assert `belief_input_digest` moves; then bump an activated-but-unreached fixture contract and assert it does not.
+In `python/tests/test_belief.py`, add the Q8 arm beside the existing D6 claim-schema arm, over the `measured` profile above: derive a belief over one assessment whose estimand's measure quantity binds `measures/assay`; recompile with the `measures` fixture's `description` changed (editorial: its content identity moves, no projection does) and re-pin it; assert `belief_input_digest` **moves**; then change the description of a third activated fixture contract that neither the claim nor the estimand reaches and assert the digest is **unchanged**. Because `measures` declares no operator, the claim walk cannot reach it, so deleting the estimand walk in `consulted_contracts` makes the first assertion fail — which is exactly the sabotage Task 11 declares for this arm, and the plan's own check that the arm is not vacuous.
 
 - [ ] **Step 2: Run them to verify they fail**
 
@@ -2655,7 +2792,7 @@ The predecessor contract must be supplied to `parse_domain_contract`: `vocabular
 
 - [ ] **Step 2: Hold the three lists**
 
-Create `python/tools/reproduction/lists.py` on the pattern of `concepts.py`: `LISTS = {"levels": ("mm30-stage-levels.txt", ["level:ndmm", "level:pd"]), "measures": ("mm30-measures.txt", ["measure:rna-seq-tpm"]), "identifications": ("mm30-identifications.txt", ["identification:interventional", "identification:longitudinal", "identification:observational", "identification:structural"])}`; each list is written sorted, one identifier per line, held under its digest through `holdings.boundary.write`, minted as a dataset with `stored.dataset_node`, and its address saved to `state.json` under `<name>_address`. `vocabulary._document` replaces the three tokens as it replaces `{{CONCEPTS}}`. `snapshot()` builds one snapshot over all four bindings: `build_snapshot(readable={concept_binding: concepts, level_binding: levels, ...})`.
+Create `python/tools/reproduction/lists.py` on the pattern of `concepts.py`, in **two entry points**, because `world.adopt()` compiles the contract and the contract binds every list's address: `LISTS = {"levels": ("mm30-stage-levels.txt", ["level:ndmm", "level:pd"]), "measures": ("mm30-measures.txt", ["measure:rna-seq-tpm"]), "identifications": ("mm30-identifications.txt", ["identification:interventional", "identification:longitudinal", "identification:observational", "identification:structural"])}`. `prepare()` writes each list sorted, one canonical identifier per line, newline-terminated, to `paths.WORK`, computes its digest and dataset address as `concepts.py` does, and saves `<name>_address` and `<name>_file` to `state.json` — **before** anything adopts. `concepts.main()` is split the same way: its address computation and `state.save(concepts_address=…)` move ahead of `world.adopt()`, which now compiles with all four addresses present. `mint()` then holds each list's bytes through `holdings.boundary.write` and mints its dataset record with `stored.dataset_node`, saving `<name>_ref`. `vocabulary._document` replaces the three tokens as it replaces `{{CONCEPTS}}` and refuses when any address is absent. `snapshot()` builds one snapshot over all four bindings: `build_snapshot(readable={concept_binding: concepts, level_binding: levels, measure_binding: measures, identification_binding: identifications})`.
 
 - [ ] **Step 3: The typed draft**
 
@@ -2685,7 +2822,7 @@ def draft() -> SpecDraft:
         estimand=estimand,
         method=(
             "two-group rank comparison (Mann-Whitney U, normal approximation), standard library; "
-            "a sample whose value is not finite is excluded by the estimator"
+            "a sample whose value is not finite is malformed input and the run refuses (assoc.py's own rule)"
         ),
         assumptions="independent samples; the stage is a two-level factor carried by each sample id",
         falsification="no difference at alpha 0.05, or a difference opposite the proposition's polarity",
@@ -2698,11 +2835,11 @@ def draft() -> SpecDraft:
     )
 ```
 
-The prose applicability's second clause is **refused** at retyping per spec §4 and moves into `method`, as shown; the driver records the relocation with `findings.record(4, "corpus-work", "prose applicability clause 'whose ids carry a stage token and whose value is finite' refused at retyping (no declared dimension); re-authored in `method` as estimator behaviour — an authored judgment (design §4, §9)")`. `run.py` step 6 passes `estimand=derived.estimand, applicability=derived.applicability, estimate=derived.estimate, uncertainty=derived.uncertainty` to `stored.assessment_node`.
+The prose applicability's second clause is **refused** at retyping per spec §4 and moves into `method`, as shown; the driver records the relocation with `findings.record(4, "corpus-work", "prose applicability clause 'whose ids carry a stage token and whose value is finite' refused at retyping (no declared dimension); re-authored in `method` as estimator behaviour — the estimator refuses a non-finite value as malformed input, it does not exclude the sample — an authored judgment (design §4, §9)")`. Changing `assoc.py` to exclude instead would be a separate behavioural change and is not made. `run.py` step 6 passes `estimand=derived.estimand, applicability=derived.applicability, estimate=derived.estimate, uncertainty=derived.uncertainty` to `stored.assessment_node`.
 
 - [ ] **Step 4: Recreate, re-run, restore in a fresh process**
 
-Move the prior corpus aside (`mv .work/reproduction/mm30 .work/reproduction/mm30.cut22` — it is the prior corpus state Q10's transition arm reads) and run the driver's steps in order: `world`, `select_target`, `concepts`, `lists`, `type_target`, `hold`, `spec`, `run`, then `rederive` and `close`. `rederive.py` gains, in its fresh process: `stored.analysis_spec_value(view.get(st["spec_ref"]), profile=profile())` and `stored.assessment_value(view.get(st["assessment_ref"]), profile=profile())`, re-derives the assessment through `build_assessment` and the belief through `belief.evaluate_here`, and writes `spec_restored`, `assessment_restored`, `belief_equal` into its report. It then opens the **prior** corpus at `mm30.cut22` read-only and records that `analysis_spec_value` raises `PreGrammarSpec`, `assessment_value` raises `PreGrammarAssessment`, and `audit_corpus` reports `spec-pre-grammar` and `assessment-pre-grammar` and no `derivation-malformed` — Q10's transition arm, measured.
+Move the prior corpus aside (`mv .work/reproduction/mm30 .work/reproduction/mm30.cut22` — it is the prior corpus state Q10's transition arm reads) and run the driver's steps in order: `world`, `select_target`, `lists prepare` (addresses only), `concepts` (addresses, then adoption, then the held list and record), `lists mint`, `type_target`, `hold`, `spec`, `run`, `belief` (publishes the verification and saves the baseline `rederive` reads), then `rederive` and `close`. The order is written into `docs/superpowers/specs/2026-09-05-mm30-reproduction-design.md`'s step table as a dated amendment, since `lists` is a new step and `belief` was implicit. `rederive.py` gains, in its fresh process: `stored.analysis_spec_value(view.get(st["spec_ref"]), profile=profile())` and `stored.assessment_value(view.get(st["assessment_ref"]), profile=profile())`, re-derives the assessment through `build_assessment` and the belief through `belief.evaluate_here`, and writes `spec_restored`, `assessment_restored`, `belief_equal` into its report. It then opens the **prior** corpus at `mm30.cut22` read-only (`ReadView.opened_at`) and records, under the successor profile: `analysis_spec_value` raises `PreGrammarSpec`, `assessment_value` raises `PreGrammarAssessment`, and `audit_corpus` returns exactly one finding, `profile-mismatch` with detail `base`, and reads no record — the prior corpus pins the cut-22 base contract, which predates the grammar and does not parse under the successor, so the existing profile-disagreement rule fires first and is preserved. The two pre-grammar audit codes are Task 8's, exercised on a corpus **pinned to the successor** that holds a raw-written pre-grammar record; the addendum cites that test by name rather than claiming the prior corpus reaches them. Q10's transition arm, measured.
 
 - [ ] **Step 5: The addendum**
 
@@ -2723,9 +2860,9 @@ git commit -m "feat(reproduction): recreate the mm30 corpus under the successor 
 - Create: `python/tests/acceptance/test_estimand_acceptance.py`, `python/tests/n2_arms_cut<N>.py`, `python/tests/acceptance/n2_arms_cut<N>.py` (re-export shim), `python/tests/acceptance/test_n2_cut<N>.py`, `python/tools/cut<N>_acceptance.py`, `docs/designs/<date>-conformance-cut-<N>.md`
 - Modify: `python/tests/test_designs_corpus.py` (`GUARANTEE_TABLES["Q"]`, `TABLE_OWNERS["Q"]`), the designs README row total
 
-- [ ] **Step 1: Claim the cut number and write the cut document**
+- [ ] **Step 1: The frozen cut is Task 0's**
 
-Run `ls docs/designs/*conformance-cut-*.md` across every worktree (`git worktree list`, then `ls` each) and take the next unclaimed number `<N>`. Write `docs/designs/<date>-conformance-cut-<N>.md` on cut 26's shape (§1 what this cut is, §2 the boundary, §3 selection, §4 accounting, §5 N2 and acceptance obligations, §6 second reader, §7 limitations): declaration units `Q1`–`Q10`, single-homed; every arm's fixture violates only the invariant its sabotage removes; the reproduction's Q10 read from the addendum. Move the design spec to `docs/designs/2026-09-12-estimand-typing-design.md` (`git mv`), register `"Q": [f"Q{i}" for i in range(1, 11)]` in `GUARANTEE_TABLES` and its owner in `TABLE_OWNERS`, update the designs README count and list, and run `uv run --frozen pytest tests/test_designs_corpus.py` green.
+The cut document, the `Q` table registration and the freeze commit already exist (Task 0). Nothing in the frozen document is edited; a correction found while writing the arms is a dated supplement in the cut document's §8, on cut 25's precedent.
 
 - [ ] **Step 2: The acceptance module**
 
@@ -2772,8 +2909,8 @@ git commit -m "docs(cut): discharge conformance cut <N>; close estimand-typing a
 
 ## Self-review
 
-**Spec coverage.** §3.1 grammar → Task 1; §3.2 type and projection → Tasks 4, 5; §3.3 fragment refusals → Task 4 (`**richer`, the per-member refusals); §4 applicability and the relocation rule → Tasks 4, 5, 10; §5.1–5.3 declaration, compile, succession → Tasks 2, 3; §5.4 consulted walk → Task 9; §6 estimate and uncertainty meanings and checks → Tasks 4, 7; §7.1 construction → Task 4; §7.2 boundary, decode, `restore(profile)`, pre-grammar → Tasks 5, 6, 8; §7.3 `commensurable`, `co_scoped` → Task 4; §8 Q1–Q10 → Tasks 1–10 unit, Task 11 acceptance; §9 identity and the reproduction → Tasks 6, 7, 10; §10 testing and the cut → Task 11; §11 roadmap → Task 12; §12/§13 nothing to build; decision 10's transition → Tasks 6, 7, 8, 10.
+**Spec coverage.** §11's lane admission and the freeze-before-code rule → Task 0; §3.1 grammar → Task 1; §3.2 type and projection → Tasks 4, 5; §3.3 fragment refusals → Task 4 (`**richer`, the per-member refusals); §4 applicability and the relocation rule → Tasks 4, 5, 10; §5.1–5.3 declaration, compile, succession → Tasks 2, 3; §5.4 consulted walk → Task 9; §6 estimate and uncertainty meanings and checks → Tasks 4, 7; §7.1 construction → Task 4; §7.2 boundary, decode, `restore(profile)`, pre-grammar → Tasks 5, 6, 8; §7.3 `commensurable`, `co_scoped` → Task 4; §8 Q1–Q10 → Tasks 1–10 unit, Task 11 acceptance; §9 identity and the reproduction → Tasks 6, 7, 10; §10 testing and the cut → Task 11; §11 roadmap → Task 12; §12/§13 nothing to build; decision 10's transition → Tasks 6, 7, 8, 10.
 
 **Placeholder scan.** `<N>` and `<date>` are claimed at freeze by concurrency rule 1 and are not placeholders. Task 9's second consulted test and Task 11's acceptance module are described by construction rather than pasted because they compose the unit tests' code verbatim; the arms list names every sabotage site. Task 7's `run_assessment_under` names the helper to add if absent, with its construction.
 
-**Type consistency.** `build_estimand(profile, claim, *, contrast, measure, reference, control, snapshot)` (Task 4) is what Tasks 6, 7, 8, 9, 10 call; `estimand_from_stored(projection, *, profile)` and `applicability_from_stored(projection, *, profile, operator)` (Task 5) are what `restore` (Task 6) and `assessment_value` (Task 7) call; `restore(identity, projection, *, profile)` and `analysis_spec_value(node, *, profile)` (Task 6) are what Tasks 8 and 10 call; `assessment_identity(node)` (Task 7) is what `succession._typed` and `corpus.py:2946` call; `consulted_contracts(..., estimands=)` (Task 9) is what `evaluation.py` and `belief.py` call; `PreGrammarSpec` / `PreGrammarAssessment` (Task 6) are what Task 8's audit branches and Task 10's transition arm catch.
+**Type consistency.** `build_estimand(profile, claim, *, contrast, measure, reference, control, snapshot)` (Task 4) is what Tasks 6, 7, 8, 9, 10 call; `estimand_from_stored(projection, *, profile)` and `applicability_from_stored(projection, *, profile, operator)` (Task 5) are what `restore` (Task 6) and `assessment_value` (Task 7) call; `restore(identity, projection, *, profile)` and `analysis_spec_value(node, *, profile)` (Task 6) are what Tasks 8 and 10 call; `assessment_reference(node) -> AssessmentRef` (Task 7) is what `succession._typed` and `corpus.py:2946` call, and `AssessmentRef` keeps `spec` and `identity()` for `_recorded_failures`; `consulted_contracts(..., estimands=)` (Task 9) is what `evaluation.py` and `belief.py` call; `PreGrammarSpec` / `PreGrammarAssessment` (Task 6) are what Task 8's audit branches and Task 10's transition arm catch.
