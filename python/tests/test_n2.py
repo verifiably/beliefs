@@ -64,6 +64,7 @@ from n2_arms import (
 )
 from n2_arms_cut2 import CUT2_ARMS
 from n2_arms_cut3 import CUT3_ARMS
+from n2_arms_cut26 import CUT26_ARMS
 
 PACKAGE = Path(__file__).resolve().parent.parent / "src" / "beliefs"
 PACKAGES = {"beliefs": PACKAGE, "nodes": installed_nodes_root()}
@@ -72,6 +73,8 @@ under the arm's workspace carries the package's own directory name, so `PYTHONPA
 set to the copy's parent shadows the installed package by that name."""
 TESTS = Path(__file__).resolve().parent
 HARNESS = Path(__file__).name
+PORTABLE_ARMS = (*ARMS, *CUT2_ARMS, *CUT3_ARMS, *CUT26_ARMS)
+"""Every arm the portable suite audits, both sabotaged and unsabotaged."""
 
 WORKERS = 24
 
@@ -324,10 +327,10 @@ def audit(arm: Arm, workspace: Path) -> Finding:
 
 @pytest.fixture(scope="session")
 def findings(tmp_path_factory) -> tuple[Finding, ...]:
-    """Every declared arm across cuts 1–3, audited once. Concurrent — each
+    """Every declared arm across cuts 1–3 and 26, audited once. Concurrent — each
     arm owns its own copy."""
     root = tmp_path_factory.mktemp("n2")
-    all_arms = (*ARMS, *CUT2_ARMS, *CUT3_ARMS)
+    all_arms = PORTABLE_ARMS
     with ThreadPoolExecutor(max_workers=WORKERS) as pool:
         return tuple(pool.map(lambda pair: audit(pair[1], root / f"arm{pair[0]}"), enumerate(all_arms)))
 
@@ -369,7 +372,7 @@ class TestEveryArmAssertsSomething:
             row="N2",
             asserts="every declared check resolves and passes against the real package",
             sabotage=ARMS[0].sabotage,
-            checks=tuple(dict.fromkeys(check for arm in (*ARMS, *CUT2_ARMS, *CUT3_ARMS) for check in arm.checks)),
+            checks=tuple(dict.fromkeys(check for arm in PORTABLE_ARMS for check in arm.checks)),
         )
         finding = baseline(every)
         assert finding.verdict == "resolved", finding.detail

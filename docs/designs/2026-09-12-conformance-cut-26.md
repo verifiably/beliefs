@@ -1,6 +1,6 @@
 # Conformance cut 26 — D1's cross-repository negative
 
-**Status:** drafted 2026-09-12; freezes at the commit this line names once it does.
+**Status:** frozen 2026-09-12 at the commit named by test_n2_cut26.py; discharge pending.
 **Design:** `../superpowers/specs/2026-09-12-d1-cross-repository-negative-design.md`, reviewed in two passes 2026-09-12.
 **Numbered after and serialized after** cut 25, whose discharge is in the branch ancestry.
 **`nodes` gate:** `nodes` commit `d8ecf664c85b7d17488de9f8884e5ba5b302c821` (STANDARD §2.3 opacity sentence; seam §8 row).
@@ -95,6 +95,8 @@ passes against the real package (`baseline`) and fails under each sabotage
 (`audit`). The harness self-tests prove a `nodes` sabotage that does not apply
 scores `stale`, the copy is mutated and the source is not, and the copy shadows
 the installed package in the subprocess.
+
+The runner `python/tools/cut26_acceptance.py` chains `PREFIX_RUNNERS = ("cut25_acceptance.py",)` and runs `test_n2_cut26.py`.
 
 ## 6. Second reader
 

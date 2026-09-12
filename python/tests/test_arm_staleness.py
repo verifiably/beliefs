@@ -24,8 +24,7 @@ import cited_not_run
 import frozen_guards
 import pytest
 from n2_arms import ARMS, STALE_BY_CONSTRUCTION
-from n2_arms_cut2 import CUT2_ARMS
-from n2_arms_cut3 import CUT3_ARMS
+from test_n2 import PORTABLE_ARMS
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ACCEPTANCE = REPO_ROOT / "python" / "tests" / "acceptance"
@@ -65,10 +64,9 @@ def test_a_module_the_tree_no_longer_has_is_stale_not_an_error() -> None:
 
 
 def test_the_portable_harness_arms_apply_exactly_once() -> None:
-    """Cuts 1–3, which `test_n2.py` audits and the fast loop ignores."""
-    stale = arm_staleness.stale_arms(
-        "test_n2.py", (*ARMS, *CUT2_ARMS, *CUT3_ARMS), arm_staleness.working_tree(REPO_ROOT)
-    )
+    """Cuts 1–3 and 26, which `test_n2.py` audits and the fast loop ignores. Cut 26's arms
+    are read from the installed `nodes` tree."""
+    stale = arm_staleness.stale_arms("test_n2.py", PORTABLE_ARMS, arm_staleness.working_tree(REPO_ROOT))
 
     assert stale == ()
 
