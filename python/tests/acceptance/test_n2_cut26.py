@@ -38,10 +38,10 @@ from test_n2_cut25 import CUT25_ARMS
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-12-conformance-cut-26.md"
-CUT26_FREEZE_COMMIT = "<filled at Step 6>"
-CUT26_FROZEN_SHA256 = "<filled at Step 6>"
+CUT26_FREEZE_COMMIT = "16926adfa33cae63f8bc33c65106a20de95df8ef"
+CUT26_FROZEN_SHA256 = "9775b0de0dc7c3b1d5234a2ae9d55a839a3c0febeadb971b0d547cd7afc1d268"
 FROZEN_DECLARATION = "python/tests/n2_arms_cut26.py"
-CUT26_DECLARATION_SHA256 = "<filled at Step 6>"
+CUT26_DECLARATION_SHA256 = "e507c6b4b2a8c660b98bad15456508555fd2ef7ed532476524a2e03fe1a1508f"
 
 FROZEN_PRIOR_CUT_FILES = {
     "python/tests/n2_arms_cut3.py": "1e92471",
