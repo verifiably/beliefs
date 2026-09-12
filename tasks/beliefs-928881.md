@@ -6,7 +6,7 @@ priority: 2
 size: m
 owner: design/d1-cross-repo-negative
 created: 2026-09-10T20:26:23Z
-updated: 2026-09-12T13:34:45Z
+updated: 2026-09-12T13:34:51Z
 started: 2026-09-12T13:29:49Z
 depends: []
 tags: [cross-repo, conformance]
@@ -22,3 +22,4 @@ Sources: docs/plans/2026-09-08-conformance-cut-22-results.md sections 2 and 5; d
 ## Notes
 
 - 2026-09-12T13:34:45Z (design/d1-cross-repo-negative): 2026-09-12: design spec drafted at docs/superpowers/specs/2026-09-12-d1-cross-repository-negative-design.md in .worktrees/d1-cross-repo-negative (branch design/d1-cross-repo-negative). Key finding: no existing check would refuse a domain-aware nodes path — signature inspection cannot see a branch on a string — so the design adds a namespace-renaming invariance check over the installed nodes, extends N2 Sabotage with a package field so a sabotage can land in a copy of nodes, and asks nodes for a STANDARD 2.3 opacity sentence plus a seam 8 row, no nodes code. Cut 26 (highest across branches is 25).
+- 2026-09-12T13:34:51Z (design/d1-cross-repo-negative): parked (waiting on user, review): review the design spec at .worktrees/d1-cross-repo-negative/docs/superpowers/specs/2026-09-12-d1-cross-repository-negative-design.md; on approval: file the nodes task (STANDARD 2.3 sentence + seam 8 row), then write cut 26's design and the implementation plan
