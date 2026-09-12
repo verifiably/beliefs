@@ -15,7 +15,7 @@ carries no dated corrections, and the previous ranking survives only in git
 history.
 
 The adoption ledger's `Current state` table
-(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-11`)
+(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-12`)
 is the authority for *what* is open; this document is the authority for *in
 what order*. The two name the same boundaries by id, and
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds them to it.

@@ -34,8 +34,8 @@ two arms. The global corpus has **148 of 195 rows closed, 47 open**.
 
 ## 3. Corrections and deviations from the frozen cut
 
-The frozen cut's selection, declarations, and body did not change. Two live
-guard corrections were required during discharge:
+The frozen cut's selection, declarations, and body did not change. The
+following corrections were required during discharge:
 
 - the README/guide design inventory and its count guard gained cut 26;
 - cut 6's historical replay now resolves the package-aware Beliefs source map

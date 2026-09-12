@@ -160,7 +160,7 @@ recompute its scope from the corpus rather than from an in-memory value. What is
 elsewhere — the mutation log's event-level order (L8); and the
 preimage-backed classification of a removed verification (L13) — and listed
 with those owners in the
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-11).
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-12).
 
 ## Open edges
 
