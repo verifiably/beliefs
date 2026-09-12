@@ -6,7 +6,7 @@ priority: 3
 size: l
 complexity: high
 created: 2026-09-12T20:31:58Z
-updated: 2026-09-12T20:32:08Z
+updated: 2026-09-12T20:32:52Z
 depends: []
 tags: [design, belief, contract]
 spec: docs/superpowers/specs/2026-09-12-estimand-typing-design.md
@@ -23,3 +23,4 @@ Uncertainty: off the dogfood path; opens a lane only under roadmap concurrency r
 ## Notes
 
 - 2026-09-12T20:32:08Z (design/estimand-typing): Drafted the design spec in the estimand-typing worktree (.worktrees/estimand-typing, branch design/estimand-typing); under review, not frozen.
+- 2026-09-12T20:32:52Z (design/estimand-typing): parked (waiting on user, review): Review the design spec docs/superpowers/specs/2026-09-12-estimand-typing-design.md; on approval invoke writing-plans for the implementation plan (lane opens only under roadmap rule 6)

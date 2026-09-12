@@ -542,7 +542,7 @@ earlier one.
 - **Tier 1, off the path.** Its entry point is designed and nothing outside
   its own work must land first. The dogfood's first belief needs none of it:
   the reproduction reached a computed belief with prose fields. It opens a
-  lane, `estimand`, only when no on-path lane is startable (rule 6).
+  lane, `estimand-typing`, only when no on-path lane is startable (rule 6).
 - **Before the contract cut freezes.** It amends the base contract, the
   operator declaration class, the assessment facet and the D6 oracle; N1
   mints a successor identity for every oracle amended after the freeze, so
