@@ -857,5 +857,5 @@ what must not break it.
 > **Current implementation status, 2026-09-08.** Slice 1, the facet-contracts
 > design dated 2026-09-05, is implemented and discharged as cut 20. Slice 2,
 > the biology pack, is implemented and discharged as cut 22; verification
-> publication is discharged as cut 21. D1 remains partial only on its
-> cross-repository `nodes` negative.
+> publication is discharged as cut 21. Cut 26 (2026-09-12) discharges D1's
+> cross-repository negative; D1 is in full.

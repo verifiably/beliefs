@@ -693,8 +693,8 @@ Rows elsewhere:
   contract rather than the operator's.
 - **M6 re-runs** unchanged over a successor that rewrites a namespaced slot.
 - **M7 is respected** explicitly (§3.5).
-- **D1 stays partial.** Its "add a `nodes` code path" negative runs in
-  `nodes`'s suite; deferred again with that reason.
+- **D1 stayed partial at cut 22.** Its "add a `nodes` code path" negative was
+  deferred there; cut 26 later closes it through the external N2 harness.
 - **D3 is not reopened.** The held concept list gives the first live
   `member` outcome, but D3 closed at cut 2 over a synthetic readable
   vocabulary and this measurement adds no arm to it.

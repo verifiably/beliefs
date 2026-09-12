@@ -1,14 +1,19 @@
 ---
 id: beliefs-928881
 title: Close D1 through the cross-repository domain-boundary negative
-status: todo
+status: done
 priority: 2
 size: m
 complexity: mid
+owner: design/d1-cross-repo-negative
 created: 2026-09-10T20:26:23Z
-updated: 2026-09-12T16:28:17Z
-depends: []
+updated: 2026-09-12T16:37:31Z
+started: 2026-09-12T13:29:49Z
+completed: 2026-09-12T16:37:14Z
+depends: [nodes-3a16c5]
 tags: [cross-repo, conformance]
+spec: docs/superpowers/specs/2026-09-12-d1-cross-repository-negative-design.md
+plan: docs/superpowers/plans/2026-09-12-d1-cross-repository-negative.md
 ---
 
 Outcome: close the sole remaining domain-boundary clause, D1’s negative that adds a domain-aware code path to nodes and proves the independent conformance check refuses it. The Beliefs domain slices are already discharged at cuts 20 and 22; this is not another domain implementation slice.
@@ -19,5 +24,8 @@ Sources: docs/plans/2026-09-08-conformance-cut-22-results.md sections 2 and 5; d
 
 ## Notes
 
-- 2026-09-12T16:26:55Z (main): Complexity mid: The draft in .worktrees/d1-cross-repo-negative/docs/superpowers/specs/2026-09-12-d1-cross-repository-negative-design.md now specifies namespace invariance, two mutations, installed-package resolution and shared portable N2 inventory. Review, Nodes documentation gate and cut freeze remain; harness integration is bounded by that design. Existing review park is unchanged.
-- 2026-09-12T16:28:17Z (main): Complexity evidence correction: the spec header and shared review park lag the worktree. Read its linked implementation plan and task records; history through d3d4c07 in .worktrees/d1-cross-repo-negative already contains the Nodes gate, invariance check, harness and freeze. The remaining discharge task beliefs-af9fd8 is already mid: certified acceptance-chain validation and evidence/status reconciliation remain bounded work. The mid rating stands. On merge retain the worktree task metadata and notes alongside this rating; no worktree edits or ownership takeover here.
+- 2026-09-12T13:34:45Z (design/d1-cross-repo-negative): 2026-09-12: design spec drafted at docs/superpowers/specs/2026-09-12-d1-cross-repository-negative-design.md in .worktrees/d1-cross-repo-negative (branch design/d1-cross-repo-negative). Key finding: no existing check would refuse a domain-aware nodes path — signature inspection cannot see a branch on a string — so the design adds a namespace-renaming invariance check over the installed nodes, extends N2 Sabotage with a package field so a sabotage can land in a copy of nodes, and asks nodes for a STANDARD 2.3 opacity sentence plus a seam 8 row, no nodes code. Cut 26 (highest across branches is 25).
+- 2026-09-12T13:34:51Z (design/d1-cross-repo-negative): parked (waiting on user, review): review the design spec at .worktrees/d1-cross-repo-negative/docs/superpowers/specs/2026-09-12-d1-cross-repository-negative-design.md; on approval: file the nodes task (STANDARD 2.3 sentence + seam 8 row), then write cut 26's design and the implementation plan
+- 2026-09-12T16:37:14Z (design/d1-cross-repo-negative): cut 26 frozen and discharged: D1 in full through the namespace-renaming invariance and two nodes-package sabotages under N2; domain-boundary closed
+- 2026-09-12T16:37:31Z (design/d1-cross-repo-negative): Complexity mid: The draft in .worktrees/d1-cross-repo-negative/docs/superpowers/specs/2026-09-12-d1-cross-repository-negative-design.md now specifies namespace invariance, two mutations, installed-package resolution and shared portable N2 inventory. Review, Nodes documentation gate and cut freeze remain; harness integration is bounded by that design. Existing review park is unchanged.
+- 2026-09-12T16:37:31Z (design/d1-cross-repo-negative): Complexity evidence correction: the spec header and shared review park lag the worktree. Read its linked implementation plan and task records; history through d3d4c07 in .worktrees/d1-cross-repo-negative already contains the Nodes gate, invariance check, harness and freeze. The remaining discharge task beliefs-af9fd8 is already mid: certified acceptance-chain validation and evidence/status reconciliation remain bounded work. The mid rating stands. On merge retain the worktree task metadata and notes alongside this rating; no worktree edits or ownership takeover here.

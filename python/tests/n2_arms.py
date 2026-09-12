@@ -32,7 +32,9 @@ exactly as cut 1 left them.
 
 from __future__ import annotations
 
+import importlib.util
 from dataclasses import dataclass
+from pathlib import Path
 
 __all__ = [
     "ARMS",
@@ -44,6 +46,7 @@ __all__ = [
     "VACUOUS_BY_CONSTRUCTION",
     "Arm",
     "Sabotage",
+    "installed_nodes_root",
 ]
 
 
@@ -58,10 +61,25 @@ class Sabotage:
     """
 
     module: str
-    """Path under `src/beliefs`, e.g. `resolution.py` or `contract/domain.py`."""
+    """Path under the package root — `src/beliefs` by default, `src/nodes` for a
+    `nodes` sabotage — e.g. `resolution.py`, `contract/domain.py`, `core/registry.py`."""
 
     before: str
     after: str
+
+    package: str = "beliefs"
+    """Which package the mutation lands in: `beliefs`, or `nodes` for D1's
+    cross-repository negative, where the copy N2 mutates is of the installed
+    `nodes` and the real tree is never written."""
+
+
+def installed_nodes_root() -> Path:
+    """The `src/nodes` directory of the `nodes` the interpreter installed — the
+    sibling editable checkout locally, the default-branch checkout in CI. `nodes`
+    is a namespace package, so it is found through `nodes.core`."""
+    spec = importlib.util.find_spec("nodes.core")
+    assert spec is not None and spec.submodule_search_locations, "nodes.core is not installed"
+    return Path(next(iter(spec.submodule_search_locations))).resolve().parent
 
 
 @dataclass(frozen=True)

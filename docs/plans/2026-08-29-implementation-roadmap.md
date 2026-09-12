@@ -1,7 +1,7 @@
 # Implementation roadmap
 
-**Ranked at:** cut 24, against the ledger's Current state (2026-09-11); live row
-status updated through cut 25 on 2026-09-11; `nodes-remainder` closed 2026-09-12
+**Ranked at:** cut 26, against the ledger's Current state (2026-09-12);
+`nodes-remainder` closed 2026-09-12
 **Method:** `../superpowers/specs/2026-08-29-implementation-roadmap-design.md`,
 as amended 2026-09-05 — tier 1 is ordered by distance to the dogfood success
 criterion (§4.0 there), open lanes are bounded, and a method amendment
@@ -15,7 +15,7 @@ carries no dated corrections, and the previous ranking survives only in git
 history.
 
 The adoption ledger's `Current state` table
-(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-11`)
+(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-12`)
 is the authority for *what* is open; this document is the authority for *in
 what order*. The two name the same boundaries by id, and
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds them to it.
@@ -48,11 +48,10 @@ snapshot/import and audit callers and view evaluation remain. Its packaging
 ride-along is unchanged. W8b was measured, repaired by `beliefs-fda0e5`, and
 not selected; a future cut must select it before its conformance row can close.
 
-The current accounting is 147 of 195 rows closed, with 48 open. The prior
+The current accounting is 148 of 195 rows closed, with 47 open. The prior
 single-corpus mm30 measurement still ranks this boundary on the path when a
 second corpus enters; cut 25 adds source-address acceptance fixtures, not another
-mm30 reproduction measurement. `domain-boundary` retains D1's cross-repository
-negative. The remaining slices under `beliefs-d248ba` are snapshots/import/audit
+mm30 reproduction measurement. The remaining slices under `beliefs-d248ba` are snapshots/import/audit
 (`beliefs-46847c`) and view evaluation (`beliefs-0e523a`), delivered serially in
 that order; dataset addressing (`beliefs-48214e`) and divergent-history
 reconciliation (`beliefs-24b42b`) are filed alongside them.
@@ -68,7 +67,6 @@ their lane's task, and tier-3 design questions remain `idea` tasks.
 
 | id | rows it closes | tier | task |
 |---|---|---|---|
-| `domain-boundary` | D1's cross-repository negative | 2 | [beliefs-928881](../../tasks/beliefs-928881.md) |
 | `world-resolution` | W7, W8 and W8b; W13 less its two-projects negative; R23's snapshot, divergence and explicit-import clauses; dataset addressing and divergent correction-history reconciliation | 1, on the path | [beliefs-d248ba](../../tasks/beliefs-d248ba.md) |
 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | 1, off the path | [beliefs-aa27da](../../tasks/beliefs-aa27da.md) |
 | `url-retrieval` | H4, G9, R10, T5; T7's same-root case | 1, off the path | [beliefs-d13fe8](../../tasks/beliefs-d13fe8.md) |
@@ -131,7 +129,7 @@ boundary sits in the lane of its prerequisite and waits there.
 | lane | boundaries, in order | shared surface | status |
 |---|---|---|---|
 | `write-path` | none — no open boundary | `corpus.py`, `report.py`, `intents/`, `session/`, `verify.py`, `evaluation.py`, `audit.py` | closed: `writer-session` discharged at cut 19 and `verification-publication` at cut 21 |
-| `domain` | `domain-boundary` D1 cross-repository negative; slices 1 and 2 discharged at cuts 20 and 22 | the `nodes` registry | waits on the cross-repository seam |
+| `domain` | none — `domain-boundary` closed at cut 26 after slices 1 and 2 at cuts 20 and 22 | the `nodes` registry | closed 2026-09-12 at cut 26 |
 | `world-read` | `world-resolution` slices 3–4 and the filed dataset/history follow-ups (+ `packaging-remainder`) → `event-level-l8` (+ `log-remainder`) → `publish` | `world/read.py`, `world/view.py`, `resolution.py`, `world/verify.py`; `corpus.py`, `lineage.py`, `evaluation.py`, `belief.py`, `consulted.py`, `audit.py` as each slice names | on the path at its head; slices 1, 2 and 2b discharged at cuts 23, 24 and 25, slice 3 next |
 | `mutation` | `correction-remainder` | `adapter.py`, `corpus.py`, `audit.py`, `decode.py`, `evaluation.py`, `world/verify.py` | off the path; waits |
 | `acquisition` | `url-retrieval` (+ `act-report-remainder`) | `holdings/`, `report.py` | off the path; waits |
@@ -187,7 +185,6 @@ and merged `--no-ff`. Six rules are added by concurrency itself:
 
 | id | rows | prerequisite | unblocks |
 |---|---|---|---|
-| `domain-boundary` | D1 | `nodes`' own design gate for the cross-repository negative, tracked by `beliefs-928881` | D1 in full |
 | `publish` | W17’s publication-binding intent-position arm; governed publication act and records | completed coordination/view kinds at cut 14, then the complete `world-read` lane (`beliefs-b34652`); user and autonomy layer design §8 item 5 | immutable selected-view publication and governed binding revisions |
 | `l13-preimage` | L13 | an `atoms` blob-read seam behind its own design gate; `atoms`' deferred-obligation ledger carries no such entry today | row 6 in full; the held-copy match strengthened from path to bytes |
 | `persistence-cut` | X2 | the `atoms` A8 certification extended to the publication path, behind `atoms`' own design gate. Cut 7 admits a Science-side harness as the alternative; it is rejected by the method (§5 there), so the prerequisite is cross-repo and the tier is 2 | X2 in full |
@@ -213,7 +210,7 @@ slice 1 (facet-contracts §6). Another question raised by the record is carried 
 where an interpretation rule reads content
 ([computation](../guide/open-questions.md#computation-and-reproducibility)).
 
-## Appendix A — live status of every guarantee row at cut 25
+## Appendix A — live status of every guarantee row at cut 26
 
 Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
 (spec §3.1); a row is closed only when no later source reopens it. Cut 25
@@ -230,7 +227,7 @@ selected despite its repaired measured defect; measurement is not selection.
 | X | — | X2 (cut 7), X5 (cut 7), X12 (cut 24) | — |
 | N | N1, N3, N4, N5, N6, N7, N8, N9, N10 | N2 (cut 4) | — |
 | L | — | L1 (cut 8), L2 (cut 9), L4 (cut 9), L7 (cut 12), L8 (cut 8), L10 (cut 10), L13 (cut 8) | — |
-| D | — | D1 (cut 22) | — |
+| D | — | — | — |
 | M | M12 | M3 (cut 24) | — |
 | P | — | P1 (cut 2) | — |
 | H | — | H4 (cut 10) | — |
@@ -241,7 +238,7 @@ selected despite its repaired measured defect; measurement is not selection.
 | V | — | — | — |
 | B | — | — | — |
 
-Closed 147 of 195; open 48.
+Closed 148 of 195; open 47.
 
 ## Appendix B — classification of every open row
 
@@ -276,7 +273,6 @@ Each open row, its remainder as the last cut states it, and where it goes
 | L8 | event-level cross-chain order (cut 11 §3.2) | `event-level-l8` |
 | L10 | "no named cross-cut remainder … row label remains partial" (cut 10 results §1) → relabel | rides with `event-level-l8` |
 | L13 | the preimage resolver over the `atoms` blob-read seam (cut 11 §3.2; log design §5.3); cut 18 closes nothing here — removal classification stays a path match | `l13-preimage` — tier 2 |
-| D1 | the cross-repository negative that adds a domain-aware code path to `nodes` (cut 22 §2) | `domain-boundary` |
 | M3 | the coreference-attestation arm is read at cut 24; the concrete-cycle arms needing "a spellable controlled identity construction … a circular fixed point" (cut 5) remain a limitation unless a construction is found. The equal-basis replica arm is read by cut 16; the raw-written-cycle classification and admission-order negative are closed by cut 18 | limitation only — ranked nowhere |
 | M12 | the extraction path (cut 3 §5; kernel limitation 3) | `extraction-path` — tier 3 |
 | P1 | the resolver half of the negative, 5b §6's deterministic resolution (cut 4 §5) | `contract-cut` |
