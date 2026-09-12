@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-12-d1-cross-repository-negative-design.md`
 
+**Implementation status:** complete 2026-09-12; cut 26 discharged and D1 closed.
+
 ## Global Constraints
 
 - Work in the worktree `.worktrees/d1-cross-repo-negative` (branch `design/d1-cross-repo-negative`); every path below is relative to the Beliefs repository root, and paths shown to the user are prefixed with the worktree directory.

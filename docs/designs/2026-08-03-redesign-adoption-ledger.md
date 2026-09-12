@@ -46,11 +46,12 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-09-11** for cut 25's derived source addresses and attributed
-identifier-correction discharge.
+**Updated 2026-09-12** for cut 26's D1 cross-repository negative discharge.
 
-**Implemented through conformance cut 25.** Cuts 4–24 have discharge results
-records under `../plans/`; cut 25 records discharge in its frozen cut document.
+**Implemented through conformance cut 26.** Cuts 4–24 have discharge results
+records under `../plans/`; cut 25 records discharge in its frozen cut document,
+and cut 26 records discharge in
+`../plans/2026-09-12-conformance-cut-26-results.md`.
 Cuts 1–3 are proved by their merge ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
 
@@ -136,7 +137,8 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   profiles compile kinds, relations and facets; every write seam validates the
   caller-held profile; and the empirical-observation acquisition boundary is
   `locator` plus `attested_by`. Cut 20 discharged slice 1 with 15 rows
-  full/closed and D1 partial; cut 22 closes D6 while D1 stays partial.
+  full/closed and D1 partial; cut 22 closes D6; cut 26 closes D1's
+  cross-repository negative.
 - **Verification publication** — a derived verification published as an
   ordinary `add` carrying its whole basis with the comparison report embedded
   under an id that is its identity; one spelling for the assessment's run
@@ -150,7 +152,7 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   operators compose with mm30's corpus-local concept vocabulary and
   cross-typed operators. The consulted walk authenticates profile pins and
   reader-minted facet receipts supply the digest ledger. B1–B7 and D6 close at
-  cut 22; M8 gains its sort-contract arm; D1 remains partial.
+  cut 22; M8 gains its sort-contract arm; D1 closes at cut 26.
 - **World read view and cross-corpus traversal** — an explicit-epoch, map-bound
   capture with detached records, cross-corpus adjacency and producer evidence,
   named absence, five-way resolution, derived attribution and facet drift checks.
@@ -169,7 +171,7 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   attributed correction preserves UID and retired addresses without rewriting
   referrers, and every boundary validates the history. W1, W2 and W5a close at
   cut 25. Dataset addressing and divergent-history reconciliation are filed.
-  The corpus has 147 of 195 rows closed.
+  The corpus has 148 of 195 rows closed.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -185,7 +187,6 @@ not listed.
 |---|---|---|---|
 | `url-retrieval` | the URL retrieval boundary, acquisition orchestration and typed retrieval grants: H4, G9, R10, T5, T7's same-root case | `2026-08-24-world-index-holdings-design.md` §1–§3 | the first acquisition of a dataset from outside the system |
 | `world-resolution` | the remaining read side of the world: W7, W8 and W8b; W13 less its two-projects negative; R23's snapshot, divergence and explicit-import clauses; dataset addressing (`beliefs-48214e`); and divergent correction-history reconciliation (`beliefs-24b42b`). W8b is measured, repaired by `beliefs-fda0e5`, and not selected | `2026-08-02-world-addressing-design.md` and `2026-08-08-world-address-ruling.md` | dataset addressing, snapshot/import and audit callers, view evaluation |
-| `domain-boundary` | D1's cross-repository negative that adds a domain-aware code path to `nodes`; slices 1 and 2 discharged at cuts 20 and 22; remainder tracked by `beliefs-928881` | `2026-08-04-domain-extension-boundary-design.md` | D1 in full |
 | `event-level-l8` | **Event-level L8** — the presence/exclusion relation across captured corpus heads | the tamper-evident-log design's own successor work (row 5) | row 5 reading L8 in full |
 | `contract-cut` | **The first full contract cut, its executable suite, and N1–N10**; N2's closing doctrine; P1's resolver-negative arm; R22's resolver arm; the `instrument-certification` arms of W8a, X12 and C10; R23's rules-store clauses | sub-problem 5b (row 7) | the normative contract's own guarantees; disposition of the legacy check modules; the conformance-package split (§5) |
 | `log-remainder` | L1, L4; L10's relabel | `2026-08-22-log-verification-design.md` | row 5's L rows read in full |
@@ -229,8 +230,8 @@ The artifact rows and §3 preserve the dated adoption history; their original
 > work is event-level L8, L13 and the assigned L1/L4/L10 remainder. Row 6's
 > consolidate and deletion prerequisites landed at cuts 16 and 18; C7–C9,
 > C3's coverage and C10's audit arm remain, with certification owned by row 7.
-> Row 8's D2–D10 are closed (cuts 16, 20, 22 and 23); only D1's
-> cross-repository negative remains. Row 9's M1 and M2 closed at cuts 18 and 3;
+> Row 8's D2–D10 are closed (cuts 16, 20, 22 and 23); D1's
+> cross-repository negative closed at cut 26. Row 9's M1 and M2 closed at cuts 18 and 3;
 > M12 remains design-blocked, and M3 retains only the concrete-cycle limitation
 > after cut 24. These corrections also supersede §3's matching earlier claims;
 > no historical cut selection or evidence is changed.

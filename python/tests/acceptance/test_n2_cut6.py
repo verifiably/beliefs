@@ -14,8 +14,9 @@ be checked by the tests that shipped with it.
 sabotage applied" is only evidence when the same check exits 0 without it, on
 the same tree — otherwise a check that has stopped passing for an unrelated
 reason scores every arm that names it `sound`. The historical package is frozen
-source, but the interpreter and the installed dependencies underneath it are
-not, so that failure mode is live rather than theoretical.
+source. Its recorded `nodes` dependency is pinned with it; the interpreter and
+the remaining installed dependencies are still live, so that failure mode is
+live rather than theoretical.
 `test_every_check_passes_against_the_unsabotaged_historical_package` runs each
 declared check against an unmutated copy of the pinned package, under the pin,
 and is what makes the `sound` verdicts below mean something.
@@ -60,6 +61,7 @@ from n2_arms import (
     VACUOUS_BY_CONSTRUCTION,
     Arm,
     Sabotage,
+    installed_nodes_root,
 )
 from n2_arms_cut6 import CUT6_ARMS
 from profiles import WITH_BIOLOGY
@@ -82,6 +84,11 @@ pin forward is only correct when the arms are re-declared against a newer tree,
 which is a new conformance cut rather than an edit to this one.
 """
 
+CUT6_NODES_COMMIT = "5a00bba51df8bb2a06ec8a2fdc3c56ac8959e619"
+"""The post-discharge `nodes` source recorded by cut 6's results."""
+
+NODES_REPO = installed_nodes_root().parents[2]
+
 
 def _historical_tree(destination: Path) -> Path:
     """Materialize the repository at `CUT6_SOURCE_COMMIT`, read-only evidence.
@@ -99,26 +106,47 @@ def _historical_tree(destination: Path) -> Path:
     destination.mkdir(parents=True, exist_ok=True)
     with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
         tar.extractall(destination, filter="data")
+    nodes_destination = destination / ".nodes-source"
+    nodes_archive = subprocess.run(
+        ["git", "-C", str(NODES_REPO), "archive", CUT6_NODES_COMMIT],
+        check=True,
+        stdout=subprocess.PIPE,
+    ).stdout
+    nodes_destination.mkdir()
+    with tarfile.open(fileobj=io.BytesIO(nodes_archive)) as tar:
+        tar.extractall(nodes_destination, filter="data")
     python_root = destination / "python"
     if not (python_root / "src" / "science" / "world.py").is_file():
         raise AssertionError(
             f"{CUT6_SOURCE_COMMIT} does not hold python/src/science/world.py, so it is not the tree "
             "cut 6's sabotages were declared against"
         )
+    if not (nodes_destination / "python" / "src" / "nodes").is_dir():
+        raise AssertionError(f"{CUT6_NODES_COMMIT} does not hold python/src/nodes")
     return python_root
+
+
+def _historical_nodes(historical: Path) -> Path:
+    return historical.parent / ".nodes-source" / "python" / "src" / "nodes"
+
+
+def _historical_audit(arm: Arm, workspace: Path, historical: Path):
+    shutil.copytree(_historical_nodes(historical), workspace / "nodes")
+    return audit(arm, workspace)
 
 
 @contextmanager
 def _pinned(historical: Path):
-    """Point the harness's two path globals at the historical tree.
+    """Point the harness's package and test roots at the historical tree.
 
-    `test_n2.PACKAGE` is what `_sabotage` copies and mutates; `test_n2.TESTS` is
-    where `_run_check` resolves node ids from. Both have to move together: a
-    check taken from the live suite imports `beliefs.world.registry`, which the
-    pre-promotion package does not have, and would exit 4 against it.
+    `test_n2.PACKAGES["beliefs"]` is what `_sabotage` copies and mutates;
+    `test_n2.TESTS` is where `_run_check` resolves node ids from. Both have to
+    move together: a check taken from the live suite imports
+    `beliefs.world.registry`, which the pre-promotion package does not have, and
+    would exit 4 against it.
     """
     with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(test_n2, "PACKAGE", historical / "src" / "science")
+        patch.setitem(test_n2.PACKAGES, "beliefs", historical / "src" / "science")
         patch.setattr(test_n2, "TESTS", historical / "tests")
         yield
 
@@ -144,6 +172,14 @@ def test_the_pinned_cut6_source_commit_is_an_ancestor_of_the_working_tree():
         f"{CUT6_SOURCE_COMMIT} is not an ancestor of HEAD, so cut 6's sabotage direction would be "
         "auditing a tree this branch never had"
     )
+
+
+def test_the_pinned_cut6_nodes_commit_is_an_ancestor_of_the_installed_tree():
+    completed = subprocess.run(
+        ["git", "-C", str(NODES_REPO), "merge-base", "--is-ancestor", CUT6_NODES_COMMIT, "HEAD"],
+        check=False,
+    )
+    assert completed.returncode == 0, f"{CUT6_NODES_COMMIT} is not an ancestor of the installed nodes tree"
 
 
 @pytest.fixture(scope="session")
@@ -258,7 +294,12 @@ def findings(tmp_path_factory, historical_tree) -> tuple:
     """
     root_path = tmp_path_factory.mktemp("n2-cut6")
     with _pinned(historical_tree), ThreadPoolExecutor(max_workers=WORKERS) as pool:
-        return tuple(pool.map(lambda pair: audit(pair[1], root_path / f"arm{pair[0]}"), enumerate(CUT6_ARMS)))
+        return tuple(
+            pool.map(
+                lambda pair: _historical_audit(pair[1], root_path / f"arm{pair[0]}", historical_tree),
+                enumerate(CUT6_ARMS),
+            )
+        )
 
 
 @pytest.fixture(scope="session")
@@ -281,6 +322,7 @@ def historical_clean_runs(tmp_path_factory, historical_tree) -> tuple:
     """
     clean = tmp_path_factory.mktemp("cut6-clean") / "science"
     shutil.copytree(historical_tree / "src" / "science", clean)
+    shutil.copytree(_historical_nodes(historical_tree), clean.parent / "nodes")
     with _pinned(historical_tree), ThreadPoolExecutor(max_workers=WORKERS) as pool:
         return tuple(pool.map(lambda check: test_n2._run_check(check, clean), _declared_checks()))
 
@@ -402,15 +444,17 @@ class TestTheAuditStillDiscriminatesUnderThePin:
             ),
         )
         with _pinned(historical_tree):
-            assert audit(arm, tmp_path / "real").verdict == "sound"
-            assert audit(neutralized, tmp_path / "neutralized").verdict == "vacuous"
+            assert _historical_audit(arm, tmp_path / "real", historical_tree).verdict == "sound"
+            assert _historical_audit(neutralized, tmp_path / "neutralized", historical_tree).verdict == "vacuous"
 
     def test_a_by_construction_malformed_arm_keeps_its_verdict_under_the_pin(self, tmp_path, historical_tree):
         # Its sabotage names `resolution.py`, which the pinned tree holds
         # unchanged, so this says the pin degrades none of the harness's
         # machinery — only which tree it reads.
         with _pinned(historical_tree):
-            assert audit(VACUOUS_BY_CONSTRUCTION, tmp_path / "vacuous").verdict == "vacuous"
+            assert (
+                _historical_audit(VACUOUS_BY_CONSTRUCTION, tmp_path / "vacuous", historical_tree).verdict == "vacuous"
+            )
 
 
 def test_the_harness_rejects_a_class_node(tmp_path):

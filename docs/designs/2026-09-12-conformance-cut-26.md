@@ -1,6 +1,6 @@
 # Conformance cut 26 — D1's cross-repository negative
 
-**Status:** frozen 2026-09-12 at the commit named by test_n2_cut26.py; discharge pending.
+**Status:** frozen and discharged 2026-09-12. D1 is closed.
 **Design:** `../superpowers/specs/2026-09-12-d1-cross-repository-negative-design.md`, reviewed in two passes 2026-09-12.
 **Numbered after and serialized after** cut 25, whose discharge is in the branch ancestry.
 **`nodes` gate:** `nodes` commit `d8ecf664c85b7d17488de9f8884e5ba5b302c821` (STANDARD §2.3 opacity sentence; seam §8 row).

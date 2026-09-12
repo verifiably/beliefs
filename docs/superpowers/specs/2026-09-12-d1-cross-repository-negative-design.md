@@ -1,8 +1,7 @@
 # D1's cross-repository negative — design
 
-**Status:** draft 2026-09-12, revised the same day after the first review (three
-findings, all taken: §3, §4.1, §4.5) and the second (one: §4.3's shared inventory). Task: beliefs-928881. Cut: 26, to be frozen after
-this design clears.
+**Status:** implemented and discharged 2026-09-12 at cut 26, after two design
+reviews. Task: beliefs-928881.
 **Sources:** `../../designs/2026-08-04-domain-extension-boundary-design.md` row D1;
 `../../plans/2026-09-08-conformance-cut-22-results.md` §2 and §5;
 `../../plans/2026-08-29-implementation-roadmap.md` `domain-boundary`.

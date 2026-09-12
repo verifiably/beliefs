@@ -214,13 +214,17 @@ The writer-session cut is discharged as cut 19: J1–J11 close — the `J` table
 every row, selected in full before implementation and read in full afterwards
 (`../designs/2026-09-05-conformance-cut-19.md`).
 The facet-contracts slice is discharged as cut 20: 15 rows read full/closed,
-D1 remains partial on its cross-repository arm, and D6's domain-facet reader arm
+D1 was partial on its cross-repository arm, and D6's domain-facet reader arm
 then traveled with biology slice 2
 (`../plans/2026-09-07-conformance-cut-20-results.md`).
 The verification-publication cut is discharged as cut 21 (V1–V8 full/closed),
 and the biology-pack slice is discharged as cut 22 (B1–B7 and D6 full/closed;
-D1 partial)
+D1 still partial then)
 (`../plans/2026-09-08-conformance-cut-22-results.md`).
+Cut 26 closes D1's cross-repository negative through namespace-renaming
+invariance and two `nodes`-package sabotages
+(`../designs/2026-09-12-conformance-cut-26.md`;
+`../plans/2026-09-12-conformance-cut-26-results.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-11)
