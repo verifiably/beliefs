@@ -29,6 +29,7 @@ corpus edge and the other continuing through the epoch's address map.**
 
 from __future__ import annotations
 
+import os
 import re
 import secrets
 import threading
@@ -737,6 +738,25 @@ def _root_state_for(root: Path, executor_factory: Callable[[Path], WritePlanExec
         elif state.executor_factory is not executor_factory:
             raise ScienceError(f"corpus root {key!r} is already open with a different executor factory")
         return state
+
+
+def _forget_roots_under(directory: Path) -> None:
+    """Drop every registry entry — state and lock — for a root at or below `directory`.
+
+    The registry is in-process and authoritative, and `OperationLock` states the
+    single-writer obligation that makes it so: a root deleted and recreated at one path
+    under a live process is outside it, and nothing here can detect one (a nodes root
+    carries no identity marker, and a recreated directory may reuse its inode). Test
+    harnesses do exactly that — pytest under `tmp_path_retention_policy=failed` deletes
+    a passing test's directory and can hand the next test the same literal path, which
+    would then be served the previous test's corpus — so the suite's conftest calls this
+    at every test's teardown. It is that harness's seam, not a production entry point.
+    """
+    prefix = str(Path(directory).resolve())
+    with _ROOT_STATES_LOCK:
+        for registry in (_ROOT_STATES, _OPERATION_LOCKS):
+            for key in [key for key in registry if key == prefix or key.startswith(prefix + os.sep)]:
+                del registry[key]
 
 
 # --- the two adjacency adapters ---------------------------------------------

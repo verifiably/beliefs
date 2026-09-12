@@ -615,3 +615,25 @@ def test_world_public_surface_has_no_registry_mutator():
     assert {
         name for name, value in vars(world_module.World).items() if not name.startswith("_") and callable(value)
     } == {"admit", "depart", "registry", "retire", "status"}
+
+
+class TestTheWorldRegistryUnderARecreatedRoot:
+    """beliefs-efa63f, the world registry's half: one state per resolved root path, held
+    for the life of the process, and the conftest's teardown eviction is what keeps a
+    recreated temporary root from being served the previous test's state."""
+
+    def test_eviction_is_by_prefix_and_leaves_every_other_root_alone(self, tmp_path):
+        inside = tmp_path / "a" / "world"
+        sibling = tmp_path / "ab"  # shares the string prefix `a`, not the directory
+        outside = tmp_path / "b"
+        states = {root: world_module._world_state_for(root) for root in (inside, sibling, outside)}
+        world_module._forget_worlds_under(tmp_path / "a")
+        assert world_module._world_state_for(inside) is not states[inside]
+        assert world_module._world_state_for(sibling) is states[sibling]
+        assert world_module._world_state_for(outside) is states[outside]
+
+    def test_the_conftest_evicts_every_temporary_root_at_teardown(self, request, tmp_path):
+        # The eviction fixture is autouse; a test that takes `tmp_path` has it in its
+        # closure, so the roots opened below are forgotten when this test ends.
+        assert "_forget_temporary_roots" in request.fixturenames
+        world_module._world_state_for(tmp_path / "world")

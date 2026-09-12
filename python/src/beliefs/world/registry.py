@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import threading
 from collections.abc import Callable, Iterator
@@ -185,6 +186,17 @@ def _world_state_for(world_root: Path) -> _WorldState:
         return _WORLD_STATES.setdefault(
             str(Path(world_root).resolve()), _WorldState(threading.Lock(), RegistryView())
         )
+
+
+def _forget_worlds_under(directory: Path) -> None:
+    """Drop every world state for a root at or below `directory` — the test harness's
+    seam, for the same reason as `corpus._forget_roots_under`: a world root deleted and
+    recreated at one path under a live process is outside the single-writer obligation,
+    and the suite's conftest evicts a test's temporary roots at its teardown."""
+    prefix = str(Path(directory).resolve())
+    with _WORLD_STATES_LOCK:
+        for key in [key for key in _WORLD_STATES if key == prefix or key.startswith(prefix + os.sep)]:
+            del _WORLD_STATES[key]
 
 
 def _world_lock_for(world_root: Path) -> threading.Lock:

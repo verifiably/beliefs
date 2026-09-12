@@ -1023,6 +1023,62 @@ class TestTheUnresolvedRoot:
         assert "self._state.lock" not in withs and "self._lock" not in withs
 
 
+class TestTheRegistryUnderARecreatedRoot:
+    """beliefs-efa63f: the per-root registry is in-process and authoritative. A root
+    deleted and recreated at one path under a live process is outside the single-writer
+    obligation, so the registry cannot tell — and pytest under
+    `tmp_path_retention_policy=failed` does exactly that between tests. The eviction seam
+    is what the conftest fixture calls at teardown; the hazard test is why."""
+
+    @staticmethod
+    def _open_and_write(root):
+        writer = CorpusWriter(root, DefaultExecutor, authority=FULL, profile=BASE)
+        writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+        return writer
+
+    def test_without_eviction_a_recreated_root_is_served_the_previous_corpus(self, tmp_path):
+        import shutil
+
+        root = tmp_path / "corpus"
+        self._open_and_write(root)
+        shutil.rmtree(root)
+        root.mkdir()
+        # The path holds nothing; a writer opened there is served the registry's state,
+        # whose index still resolves `p1`. This is the hazard.
+        assert not any(root.iterdir())
+        reopened = CorpusWriter(root, DefaultExecutor, authority=FULL, profile=BASE)
+        assert reopened.read_view.holds("proposition:p1")
+
+    def test_eviction_makes_a_recreated_root_open_fresh(self, tmp_path):
+        import shutil
+
+        from beliefs.corpus import _forget_roots_under, _root_state_for
+
+        root = tmp_path / "corpus"
+        self._open_and_write(root)
+        before = _root_state_for(root, DefaultExecutor)
+        shutil.rmtree(root)
+        root.mkdir()
+        _forget_roots_under(tmp_path)
+        reopened = CorpusWriter(root, DefaultExecutor, authority=FULL, profile=BASE)
+        assert not reopened.read_view.holds("proposition:p1")
+        assert _root_state_for(root, DefaultExecutor) is not before
+        assert _operation_lock_for(root) is _root_state_for(root, DefaultExecutor).lock
+
+    def test_eviction_is_by_prefix_and_leaves_every_other_root_alone(self, tmp_path):
+        from beliefs.corpus import _ROOT_STATES, _forget_roots_under, _root_state_for
+
+        inside = tmp_path / "a" / "corpus"
+        sibling = tmp_path / "ab"  # shares the string prefix `a`, not the directory
+        outside = tmp_path / "b"
+        for root in (inside, sibling, outside):
+            root.mkdir(parents=True)
+            _root_state_for(root, DefaultExecutor)
+        _forget_roots_under(tmp_path / "a")
+        assert str(inside.resolve()) not in _ROOT_STATES
+        assert str(sibling.resolve()) in _ROOT_STATES and str(outside.resolve()) in _ROOT_STATES
+
+
 def test_v8_a_spec_record_whose_identity_is_false_is_refused_at_add(tmp_path):
     from fixtures_cut3 import spec_draft, spec_rules
     from test_audit import _false_spec_record

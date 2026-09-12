@@ -16,6 +16,8 @@ from atoms.core.errors import CapabilityUnavailable
 from confinement_constants import CONFINED_MOUNTS, ENVIRONMENT, RENDERED_ENVIRONMENT, SANDBOX_MOUNTS
 from uncertified_host import uncertified_host
 
+import beliefs.world.registry as world_registry
+from beliefs import corpus
 from beliefs.recipe import (
     NAMESPACES,
     REQUIRED_FOR_CLEAN_ENVIRONMENT,
@@ -76,6 +78,27 @@ OTHER_ENVIRONMENT = "sha256:" + "cd" * 32
 CONFINED_NAMESPACES = NAMESPACES
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+@pytest.fixture(autouse=True)
+def _forget_temporary_roots(request) -> "Iterator[None]":
+    """Evict the per-root registries' entries under this test's `tmp_path` at teardown.
+
+    The corpus and world registries are in-process and keyed by resolved path, for the
+    life of the process (`corpus._forget_roots_under`). pytest under
+    `tmp_path_retention_policy=failed` — this machine's `PYTEST_ADDOPTS`, not pytest's
+    default — deletes a passing test's directory and then hands a later test the same
+    literal path, which the registries would serve the earlier test's state. Evicting at
+    teardown makes every path-keyed fixture order-independent without a per-fixture
+    workaround. A test that takes no `tmp_path` opens no temporary root and evicts none.
+    """
+    if "tmp_path" not in request.fixturenames:
+        yield
+        return
+    path = request.getfixturevalue("tmp_path")
+    yield
+    corpus._forget_roots_under(path)
+    world_registry._forget_worlds_under(path)
 
 
 @pytest.fixture()

@@ -14,7 +14,6 @@ bypasses the operation entirely, so it is caught only when an audit runs.
 
 from __future__ import annotations
 
-import uuid
 from dataclasses import replace
 from types import SimpleNamespace
 from typing import TypedDict
@@ -487,18 +486,11 @@ def _bundle_around(source, published, *extra) -> tuple[Node, ...]:
 
 @pytest.mark.parametrize("member, mutate, corpus", V4_FORGERIES, ids=V4_IDS)
 def test_v4_every_self_consistent_forgery_refuses_the_bundle_before_any_write(tmp_path, member, mutate, corpus):
-    # A random subdirectory, not the bare `tmp_path`: pytest's own numbered-dir
-    # naming truncates this parametrized test id to a shared prefix, and its
-    # default retention policy deletes a passing case's directory right after
-    # it, so a later case can be handed back that exact literal path — which
-    # would silently resurrect the corpus module's process-global root-state
-    # cache instead of opening a fresh corpus (test_audit.py's `writer` fixture).
-    root = tmp_path / uuid.uuid4().hex
-    source = _writer(root / "source")
+    source = _writer(tmp_path / "source")
     published = publish_corpus(source, publish=True, **corpus)
     assert published.node is not None
     forged = self_consistent_forgery(source, published.node, mutate=mutate)
-    target = _writer(root / "target")
+    target = _writer(tmp_path / "target")
     with pytest.raises(ImportRefused, match=member):
         target.import_bundle(_bundle_around(source, published, forged), evidence=published.evidence, **IMPORT_FIELDS)
     assert not path_for(target.root, forged.id).exists() and not path_for(target.root, published.assessment.id).exists()

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import uuid
 from dataclasses import replace
 
 import pytest
@@ -36,13 +35,7 @@ PINNED = [{"name": "matrix", "digest": "sha256:" + "1" * 64}]
 
 @pytest.fixture()
 def writer(tmp_path):
-    # A random subdirectory, not the bare `tmp_path`: pytest's own numbered-dir
-    # naming truncates a long parametrized test id to a shared prefix, and its
-    # default retention policy deletes a passing case's directory right after
-    # it, so a later case can be handed back that exact literal path — which
-    # would silently resurrect the corpus module's process-global root-state
-    # cache instead of opening a fresh corpus.
-    return _writer(tmp_path / uuid.uuid4().hex / "corpus")
+    return _writer(tmp_path / "corpus")
 
 
 def _producing_run(slug: str, dataset_id: str) -> Node:
