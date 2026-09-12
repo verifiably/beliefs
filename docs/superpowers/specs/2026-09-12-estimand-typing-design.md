@@ -100,9 +100,10 @@ in particular M6 governs the new declaration class without amendment (§5.3).
    term subsumption the domain boundary declines to supply, and refusing on
    mismatch stays rejected on kernel §4.2.1's grounds. What this buys is that
    the comparison exists to be read — by a successor policy, or by a `science`
-   view — instead of being uncomputable. A prose applicability retypes by
-   relocating each clause to the declared dimensions, the `observes` set or
-   `assumptions`, and refuses a clause that fits none (§4).
+   view — instead of being uncomputable. A prose applicability retypes only
+   along declared dimensions or by dropping a restatement of an `observes`
+   dataset; every other clause refuses, and a re-authored spec is a
+   successor whose scope is not certified equal to the prose one (§4).
 3. **Estimate, uncertainty and reference are decimals on one declared scale**
    (§6). The reference is the spec's; the scale is the estimand's; the rule
    returns `Decimal`s that the constructor checks against both, and each
@@ -123,8 +124,10 @@ in particular M6 governs the new declaration class without amendment (§5.3).
 5. **Structural match is checked; semantic match stays a limitation.** An
    estimand is built against the typed claim it answers, carries that claim's
    identity, and cannot be built outside the claim's operator declaration
-   (§7.1); the write boundary then checks the spec's estimand names the
-   claim its *target record* carries (§7.2), which construction cannot see.
+   (§7.1); the write boundary then checks the spec's estimand names both the
+   claim identity and the operator its *target record* carries (§7.2), which
+   construction cannot see and which a stored record carries as two
+   independent members.
    Whether the measured quantity actually
    operationalizes the claim's argument — kernel §2.1's "that an estimand
    matches the claim it is used for" — is not guaranteeable and is not
@@ -278,24 +281,40 @@ proposition already carries.
 
 **What applicability is, and what it is not.** It restricts along the
 operator's **declared dimensions only**, because that is the one structure
-canonical equality can compare. Two other things a prose "applicability"
-habitually carries are not lost by that rule; they already have typed homes:
+canonical equality can compare. Exactly one other thing a prose
+"applicability" habitually carries has a typed home already: the **dataset**
+— "samples of gse179929" — is the run's `observes` input, stamped in the
+closure and read by lineage and independence, and restating it in a
+qualifier would carry the same fact twice. Nothing else does. In particular
+the `observes` set names *which datasets* were read and not *which rows* the
+analysis kept, so a sample selection — adults only, first-relapse only, rows
+with a finite value — is **not** carried by it, and the inline exclusion
+certification (computation §5.2) is a different thing again: it removes a
+`reads` input from the lineage closure and says nothing about rows.
 
-- **the cohort** — *which* samples, *which* dataset — is the run's
-  `observes` set, stamped in the closure and read by lineage and
-  independence; an estimand is over its observed datasets by construction,
-  and restating one of them in a qualifier would carry the same fact twice;
-- **inclusion rules** — a sample is used when its id carries a stage token
-  and its value is finite — are conditions under which the method licenses
-  the estimand, which is `assumptions`' own definition (computation §3.1).
+Retyping an existing spec therefore admits exactly two dispositions per
+clause of its prose applicability — **typed** along a declared dimension, or
+**dropped** as a restatement of an `observes` dataset — and **refuses** every
+other clause, quoted, with no third home: not `assumptions`, not `method`,
+because a scope restriction moved into prose is a scope restriction the typed
+comparison can no longer see. A refused clause that restricts along a
+scientific attribute asks the operator's successor to declare the dimension
+(ρO4's population vocabulary is the obvious first). A refused clause the
+author judges to be estimator behaviour rather than scope — how missing
+values are handled — is re-authored as a **successor spec** under `revise`,
+which mints a new pre-declaration with a `supersedes` edge; the successor's
+scope is what its typed fields say, and the design does **not** certify it
+equal in scope to the prose one. The reproduction's clause is the second
+case and is worked in §9.
 
-Retyping an existing spec therefore **relocates** each clause of its prose
-applicability to exactly one of the three homes, and records the
-relocation. A clause that fits none — a restriction along a dimension the
-operator does not declare, which no assumption expresses — **refuses** the
-retyping, with the clause quoted; it is not dropped, and the operator's
-successor is asked to declare the dimension. The reproduction's clause is
-worked in §9.
+**The limit this leaves, stated once.** The key (§7.3) and the match (§7.2)
+see scope only through declared dimensions. Two specs over one dataset, one
+of which keeps only adults by a rule written in `method`, carry identical
+typed applicability and one commensuration key, and nothing here detects
+it. The kernel cannot read prose; what it can do is refuse to *import* such
+a clause from prose at retyping, which this section does, and make the
+typed route the cheap one, which declaring the dimension is. Limitation 9
+carries this.
 
 It stays a spec field beside `estimand`, not a member of it. Kernel §4.2.1's
 table separates the two, P6 tests them separately, and they vary
@@ -460,7 +479,7 @@ lives at the seams that hold a view:
 
 | seam | check | on failure |
 |---|---|---|
-| `CorpusWriter._refuse` for an `analysis-spec` record — a new `_refuse_estimand_target_mismatch` beside `_refuse_r20_contradiction` | resolve `spec.target` in the writer's view; decode its claim; require `spec.estimand.claim == I_claim(decoded)` — which entails the operator — and `spec.applicability` over `Dims(claim.operator)` | `ValidationRefused("estimand-target-mismatch")`; an unresolvable target is `ValidationRefused("estimand-target-unresolvable")` — cross-corpus targets are `world-resolution`'s read (§13) |
+| `CorpusWriter._refuse` for an `analysis-spec` record — a new `_refuse_estimand_target_mismatch` beside `_refuse_r20_contradiction` | resolve `spec.target` in the writer's view; decode its claim; require **both** `spec.estimand.claim == I_claim(decoded)` **and** `spec.estimand.operator == decoded.operator`, and `spec.applicability` over `Dims(decoded.operator)`. At construction the identity entails the operator; a **stored** estimand carries the two as independent members with no claim preimage, so a record pairing the target's true hash with another operator and a payload correctly typed under it decodes cleanly, re-digests cleanly, and is caught only by the second equality | `ValidationRefused("estimand-target-mismatch")`; an unresolvable target is `ValidationRefused("estimand-target-unresolvable")` — cross-corpus targets are `world-resolution`'s read (§13) |
 | explicit import | the same check, over the import view | refused, never repaired |
 | audit, a new `check_spec_target` beside `check_assessment` | the same comparison over the stored record | `Finding(code="spec-target-contradicted")`; a raw-written mismatching spec is not refused on read and is caught here only — §7.3c's limitation, unchanged in shape |
 | `build_assessment` | none added — it consumes an admitted spec | — |
@@ -514,11 +533,11 @@ corpus inventory when the design moves to `docs/designs/` at freeze.
 | **Q3** | An estimand is unconstructible outside its claim's operator declaration, and refuses rather than flattens | Each refusal in §7.1, one fixture each, asserting the position named; a wrong-sorted level, contrasted quantity, measured quantity, identification and conditioning member each **refused**; a continuous contrast with no quantity, or with an increment of `0`, negative, or a `float` → **refused**; `not-member` refuses and `not-consulted` **mints** with a receipt, and the five outcomes stay distinct (D3 preserved). **Fragment:** three levels, two slots, a second measure, an attenuation pair → each refused with the fragment named, and assert **no flattened estimand** is reachable. **Opacity:** `Estimand` has no public field-wise constructor (M13's shape), and `claim` and `operator` are taken from the `Claim` handed in, never from the wire |
 | **Q4** | `applicability` is a qualifier map over the target operator's dimensions, comparable and unread | An undeclared dimension, two restrictions on one dimension, an unbound restriction → refused; the empty map admitted; `applicability == claim.qualifiers` computed by canonical projection equality and **decidable in both directions**. **P6 preserved verbatim:** change only `applicability`, assert belief value unchanged and digest moved, and assert **no mismatch finding exists** to be emitted |
 | **Q5** | Estimate and uncertainty are typed on the spec's scale, and the rule cannot move the reference | A rule yielding a `float`, a `str`, an interval with `low > estimate` or `high < estimate`, `level ∉ (0, 1)`, a negative standard error, or an estimate `≤ 0` under `multiplicative` → **no assessment**, an `AssessmentFinding` naming the violation, and never `inconclusive`; a rule output carrying `reference` or `scale` → the same. **Negative:** a rule yielding nothing but `outcome` mints as today, and `mm30-reproduction/outcome-file/v1`'s identity is **unchanged** |
-| **Q6** | Structural match is checked at the write boundary and under audit; semantic match is not claimed | A spec whose estimand was built against a claim other than the one its target record carries → `ValidationRefused("estimand-target-mismatch")` — **including** a claim at the **same operator** with different arguments, or the same arguments under different qualifiers; a target the writer's view cannot resolve → `ValidationRefused("estimand-target-unresolvable")`; explicit import refuses the same; a raw-written mismatching spec is **not** refused on read and is caught **only** under audit with `spec-target-contradicted`. **Negative:** a measured quantity of the right sort that does not in fact operationalize the claim's argument is **admitted** — the check is structural, and the row asserts it does not pretend otherwise |
+| **Q6** | Structural match is checked at the write boundary and under audit; semantic match is not claimed | A spec whose estimand was built against a claim other than the one its target record carries → `ValidationRefused("estimand-target-mismatch")` — **including** a claim at the **same operator** with different arguments, or the same arguments under different qualifiers; a target the writer's view cannot resolve → `ValidationRefused("estimand-target-unresolvable")`; explicit import refuses the same; a raw-written mismatching spec is **not** refused on read and is caught **only** under audit with `spec-target-contradicted`. **The inconsistent stored pair:** raw-write a spec whose estimand carries the target's **correct** claim identity beside a **different** declared operator, with contrast, measure and control correctly typed under that operator and the spec digest recomputed; assert it decodes without refusal, that explicit import **refuses** it and audit **contradicts** it on the operator equality alone, and — **sabotage** — that comparing claim identities only lets it through. **Negative:** a measured quantity of the right sort that does not in fact operationalize the claim's argument is **admitted** — the check is structural, and the row asserts it does not pretend otherwise |
 | **Q7** | Every member enters identity, and only members do | Change **only** `claim`, `contrast.slot`, `kind`, `baseline`, `comparison`, `contrast.quantity`, `increment`, `measure.quantity`, `measure.scale`, `reference`, `control.identification`, one `conditioning` member, or one `applicability` entry: the spec identity **moves** each time; reorder `conditioning` → **unchanged**; `increment` `1` against `1.0` → **unchanged** (identity v1's canonical decimal text). On the assessment: change only `estimate`, only `uncertainty`, only `estimand`, only `applicability` → the facet digest **moves**, the belief value is **unchanged** (P6's four arms, now per member); G3's keyed-facet arms unchanged. **Negative:** an editorial change to a consulted contract leaves `I_claim` unchanged (M8) |
 | **Q8** | The estimand's contracts are consulted | Derive belief over an assessment whose estimand binds a measure sort declared in contract `X`; bump `X` touching no facet, no operator and no claim → `belief_input_digest` **moves**; bump an activated contract the estimand does not reach → **unchanged**; type an estimand under a sort pinned by no corpus → `ContractDisagreement`. **Sabotage:** drop the estimand walk from `consulted_contracts` and assert the first arm **fails** |
 | **Q9** | Commensuration is total, decidable, and unread by v1 | For any two admitted estimands the predicate returns a boolean, never raises; equal except `control.identification` → **commensurable**; differing in any other member → **not**; `baseline`/`comparison` swapped → **not**; the same contrast and measure over two claims at one operator (PHF19 and EZH2) → **not**; per-unit against per-ten-units of one quantity → **not**. **Sabotage:** make the predicate raise and assert every P row still passes — v1 never calls it; **P5** still holds: no API path produces unequal weights |
-| **Q10** | The reproduction re-types, re-identifies, and re-derives | Under mm30's successor contract the record's estimand builds with every referent resolving `member` against the held lists; the spec re-identifies; steps 4–10b re-run; the belief re-derives to the **same value** under a **different digest**; the consulted set is unchanged. **Measured, not asserted** (§9) |
+| **Q10** | The reproduction re-authors a successor spec, re-identifies, and re-derives | Under mm30's successor contract the record's estimand builds with every referent resolving `member` against the held lists; the prose applicability's second clause is **refused** at retyping (§4), and the typed spec is minted by `revise` as a **successor** with `supersedes` naming the prose spec; steps 4–10b re-run; the belief re-derives to the **same value** under a **different digest**; the consulted set is unchanged. **Not asserted:** that the successor's scope equals the prose spec's — the row records the authored judgment and certifies nothing about it. **Measured, not asserted** (§9) |
 
 ## 9. Identity, digests, and the reproduction
 
@@ -540,16 +559,19 @@ corpus inventory when the design moves to `docs/designs/` at freeze.
   mm30/affects-concept-molecular-entity`; `contrast: {slot: 0, kind: levels,
   baseline: NDMM, comparison: PD}`; `measure: {quantity: <expression>,
   scale: additive}`; `reference: 0`; `control: {identification:
-  <observational>, conditioning: ∅}`; `applicability: {}`. The empty map is
-  **not** a widening: the driver's prose applicability, "samples of
-  gse179929 whose ids carry a stage token and whose value is finite", is
-  two clauses, and §4 relocates each — "samples of gse179929" is the run's
-  one `observes` input, already stamped; "whose ids carry a stage token and
-  whose value is finite" is an inclusion rule and moves into `assumptions`
-  beside the two the draft already carries. The operator declares no
-  dimensions, so the map has nothing to carry, and nothing is lost; the
-  addendum quotes the relocation. Had a clause fit neither home, the
-  retyping would refuse (§4). The 285-member
+  <observational>, conditioning: ∅}`; `applicability: {}`. The driver's
+  prose applicability, "samples of gse179929 whose ids carry a stage token
+  and whose value is finite", is two clauses. The first restates the run's
+  one `observes` input and is dropped under §4. The second is **refused**:
+  the operator declares no dimension it could be typed along, and §4 gives
+  it no other home. The reproduction therefore does not *retype* its spec;
+  it **re-authors** one under `revise`, a successor with a `supersedes` edge
+  to the prose spec, whose applicability is `{}` and whose `method` states
+  how the estimator treats a sample with no finite value. That successor's
+  scope is what its typed fields say. **It is not certified equal in scope
+  to the prose spec**, and Q10 does not claim it; the addendum records the
+  author's judgment that the refused clause described estimator behaviour,
+  as a judgment. The 285-member
   concept list holds `concept:disease-stage` and holds **no** `ndmm` or `pd`
   member (measured 2026-09-12), so the levels cannot bind under `concept`.
   The successor mm30 contract declares three corpus-local sorts —
@@ -591,8 +613,10 @@ skip the level-sort presence check; admit `not-member`; skip the duplicate-
 conditioning check; admit a float reference; drop the sign check under
 `multiplicative`; drop the dimension check in `build_applicability`; admit a
 string estimate; drop `low ≤ estimate ≤ high`; drop the extra-key refusal on
-rule output; compare operators instead of claim identities in
-`_refuse_estimand_target_mismatch`; drop `check_spec_target` from the audit
+rule output; drop the operator equality from
+`_refuse_estimand_target_mismatch`, keeping the claim-identity one (Q6's
+stored-pair arm selects it); drop the claim-identity equality, keeping the
+operator one; drop `check_spec_target` from the audit
 loop; drop the estimand walk in `consulted_contracts`; put `identification`
 into the commensuration key; drop `claim` from the projection; drop
 `increment` from the projection; admit an increment of `0`; take `claim` from
@@ -709,6 +733,16 @@ earlier one.
    limitation 10, extended).
 8. **`restore` and `analysis_spec_value` gain a `profile` argument**, a
    signature change across four measured callers; the plan enumerates them.
+9. **Sample selection outside a declared dimension is invisible to the key
+   and the match** (§4). Two specs over one dataset, one keeping only adults
+   by a rule stated in `method`, share typed applicability and a
+   commensuration key. The design refuses to import such a clause from
+   prose at retyping and cannot stop a new spec from stating one in prose;
+   the remedy is a declared dimension, which is a contract successor and,
+   for populations, ρO4.
+10. **The reproduction's typed spec is a successor, not a retyping**, and
+    its scope equality with the prose spec is an authored judgment the
+    addendum records and no row certifies (§9, Q10).
 
 ## 14. Task linkage
 
@@ -736,3 +770,15 @@ separately; it does not depend on this one.
   check; (4) `dispersion` had no precision meaning — renamed
   `standard-error` and given one (§6), with the interval's meaning fixed
   beside it.
+- 2026-09-12, second review, two findings, both taken: (1) a stored
+  estimand carries claim identity and operator as independent members with
+  no preimage, so identity equality alone admits a record pairing the true
+  hash with another operator — §7.2 now requires both equalities, Q6 gains
+  the inconsistent-pair arm and §10.3 two sabotages; (2) the `observes` set
+  names datasets, not rows, so relocating a sample-selection clause into
+  `assumptions` hid a scope distinction from the key — §4 now admits only
+  two dispositions (typed along a declared dimension, or dropped as a
+  restatement of an `observes` dataset), refuses every other clause,
+  names the residual blindness as limitation 9, and §9 and Q10 make the
+  reproduction's typed spec a `revise` successor whose scope equality is
+  recorded as a judgment and certified by no row.
