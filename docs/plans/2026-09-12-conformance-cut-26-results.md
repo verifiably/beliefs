@@ -16,6 +16,13 @@ Pyright also printed its informational notice that 1.1.414 is available while
 the environment runs 1.1.411; its analysis reported zero errors, warnings, or
 information diagnostics.
 
+A post-discharge review strengthened clause 4 after that full gate: `Corpus.all`
+now compares complete, ordered nodes under both renamings rather than only their
+IDs. An in-memory `Corpus.all` that dropped `biology/` facets failed the amended
+check; the installed package passed both cases, and the focused portable N2 and
+staleness audit passed all 48 tests. These focused results, rather than the
+earlier full gate, are the evidence for the stronger assertion.
+
 The installed `nodes` source tree was byte-identical before and after. A SHA-256
 over each sorted relative path and file byte sequence under `python/src/nodes`,
 excluding `.git`, `__pycache__`, `.pyc`, and `.pyo`, covered 19 files and
@@ -41,7 +48,8 @@ following corrections were required during discharge:
 - cut 6's historical replay now resolves the package-aware Beliefs source map
   and replays against `nodes` `5a00bba51df8bb2a06ec8a2fdc3c56ac8959e619`,
   the post-discharge source recorded by cut 6's results. Its live baseline still
-  reads the currently installed `nodes` package;
+  reads the currently installed `nodes` package. Cut 7's live guard now pins
+  that intentional amendment at `46667b25c1afed966c3b831b6aef44ebb23e4616`;
 - `domain-boundary` was removed from the ledger's open-boundary table, instead
   of retained as a closed row, to preserve the ledger/roadmap open-set contract.
 

@@ -48,8 +48,8 @@
 ### Task 1: The `nodes`-local gate — STANDARD §2.3 and the seam row
 
 **Files:**
-- Modify: `/mnt/ssd/Dropbox/nodes/docs/STANDARD.md` (§2.3 Facets, after the sentence ending "New facet schemas SHOULD reject unknown keys.")
-- Modify: `/mnt/ssd/Dropbox/nodes/docs/designs/2026-08-17-nodes-write-plan-executor-seam-design.md` (§8 Amendments log, append a row)
+- Modify in the nodes checkout: `docs/STANDARD.md` (§2.3 Facets, after the sentence ending "New facet schemas SHOULD reject unknown keys.")
+- Modify in the nodes checkout: `docs/designs/2026-08-17-nodes-write-plan-executor-seam-design.md` (§8 Amendments log, append a row)
 
 **Interfaces:**
 - Produces: the `nodes` commit sha `NODES_GATE_COMMIT`, recorded in Task 5's declaration file and Task 6's results.
@@ -59,7 +59,7 @@
 Run from the `nodes` checkout:
 
 ```bash
-cd /mnt/ssd/Dropbox/nodes
+cd "$NODES_CHECKOUT"
 tasks add "Facet-name opacity: STANDARD 2.3 sentence and the seam row for Science's D1 negative" -p 2 --size xs --tag standard --source beliefs-928881 -b "Science's D1 negative (beliefs docs/superpowers/specs/2026-09-12-d1-cross-repository-negative-design.md section 4.4) asks nodes for two prose edits and no code: STANDARD 2.3 states that facet names outside the built-in set are opaque to the kernel while caller-supplied invariants may read any facet by name; the write-plan seam's section 8 records that Beliefs' N2 harness mutates a scratch copy of the installed package and the nodes tree gains nothing."
 tasks start <nodes-id>
 ```
@@ -91,7 +91,7 @@ Append to the Amendments log table in §8:
 - [ ] **Step 4: Verify the tree and commit in `nodes`**
 
 ```bash
-cd /mnt/ssd/Dropbox/nodes
+cd "$NODES_CHECKOUT"
 grep -n "opaque to the kernel" docs/STANDARD.md
 tasks done <nodes-id> "STANDARD 2.3 opacity sentence and seam section 8 row; no code"
 tasks check
@@ -448,7 +448,7 @@ def test_d1_installed_nodes_is_invariant_under_namespace_renaming(rho, tmp_path)
     # 4. a corpus written with ρ(n) reads back as ρ of what n reads back as — the nodes
     #    themselves and the structural index over them
     dataset, container = nodes["valid"], nodes["built-in-beside-namespaced"]
-    read: dict[str, tuple[list[Node], list[str], list[str]]] = {}
+    read: dict[str, tuple[list[Node], list[Node], list[str], list[str]]] = {}
     for label, mapping in (("plain", identity), ("renamed", rho)):
         root = tmp_path / label
         root.mkdir()
@@ -461,13 +461,19 @@ def test_d1_installed_nodes_is_invariant_under_namespace_renaming(rho, tmp_path)
         reopened = Corpus(root, registry=_registry(mapping))
         read[label] = (
             [reopened.get(n.id) for n in (dataset, container)],
+            reopened.all(),
             reopened.members(container.id),
             reopened.containers(dataset.id),
         )
-        assert {n.id for n in reopened.all()} == {dataset.id, container.id}
-    plain_nodes, plain_members, plain_containers = read["plain"]
+        assert [n.id for n in read[label][1]] == [dataset.id, container.id]
+    plain_nodes, plain_all, plain_members, plain_containers = read["plain"]
     assert plain_members == [dataset.id] and plain_containers == [container.id]  # non-empty by construction
-    assert read["renamed"] == ([_rename_node(n, rho) for n in plain_nodes], plain_members, plain_containers)
+    assert read["renamed"] == (
+        [_rename_node(n, rho) for n in plain_nodes],
+        [_rename_node(n, rho) for n in plain_all],
+        plain_members,
+        plain_containers,
+    )
 ```
 
 - [ ] **Step 2: Run it against the real `nodes`**
@@ -1015,7 +1021,7 @@ just test 2>&1 | tail -3
 cd python && uv run --frozen python tools/cut26_acceptance.py 2>&1 | tail -20
 ```
 
-Expected: `just test` green (the serial suite includes `test_n2.py`, hence both D1 arms); the runner prints cut 26's accounting (2 arms, 1 unit, 1 row) and exit 0. Record the `nodes` commit the run resolved: `git -C "$(dirname "$(dirname "$(dirname "$(uv run --frozen python -c 'from n2_arms import installed_nodes_root;print(installed_nodes_root())' 2>/dev/null || echo /mnt/ssd/Dropbox/nodes/python/src/nodes)')")")" rev-parse --short HEAD` — or simply `git -C /mnt/ssd/Dropbox/nodes rev-parse --short HEAD` locally.
+Expected: `just test` green (the serial suite includes `test_n2.py`, hence both D1 arms); the runner prints cut 26's accounting (2 arms, 1 unit, 1 row) and exit 0. Record the `nodes` commit the run resolved: `git -C "$(uv run --frozen python -c 'from n2_arms import installed_nodes_root; print(installed_nodes_root().parents[2])')" rev-parse --short HEAD`.
 
 - [ ] **Step 2: Write the results**
 

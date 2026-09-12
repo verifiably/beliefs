@@ -175,7 +175,7 @@ def test_d1_installed_nodes_is_invariant_under_namespace_renaming(rho, tmp_path)
     # 4. a corpus written with ρ(n) reads back as ρ of what n reads back as — the nodes
     #    themselves and the structural index over them
     dataset, container = nodes["valid"], nodes["built-in-beside-namespaced"]
-    read: dict[str, tuple[list[Node], list[str], list[str]]] = {}
+    read: dict[str, tuple[list[Node], list[Node], list[str], list[str]]] = {}
     for label, mapping in (("plain", identity), ("renamed", rho)):
         root = tmp_path / label
         root.mkdir()
@@ -188,10 +188,16 @@ def test_d1_installed_nodes_is_invariant_under_namespace_renaming(rho, tmp_path)
         reopened = Corpus(root, registry=_registry(mapping))
         read[label] = (
             [reopened.get(n.id) for n in (dataset, container)],
+            reopened.all(),
             reopened.members(container.id),
             reopened.containers(dataset.id),
         )
-        assert {n.id for n in reopened.all()} == {dataset.id, container.id}
-    plain_nodes, plain_members, plain_containers = read["plain"]
+        assert [n.id for n in read[label][1]] == [dataset.id, container.id]
+    plain_nodes, plain_all, plain_members, plain_containers = read["plain"]
     assert plain_members == [dataset.id] and plain_containers == [container.id]  # non-empty by construction
-    assert read["renamed"] == ([_rename_node(n, rho) for n in plain_nodes], plain_members, plain_containers)
+    assert read["renamed"] == (
+        [_rename_node(n, rho) for n in plain_nodes],
+        [_rename_node(n, rho) for n in plain_all],
+        plain_members,
+        plain_containers,
+    )
