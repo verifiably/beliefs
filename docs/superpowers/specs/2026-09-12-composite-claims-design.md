@@ -90,10 +90,13 @@ and never authored, and rules where the rest of `inquiry` and
    is a claim.
 
 3. **Members are propositions, named by claim identity; edges are derived
-   from the members' typed claims.** A member's role — a directed edge, or
-   the asserted absence of one — is read off its claim's operator, layer and
-   polarity under a domain declaration (§3.3); nothing about a member is
-   authored on the composite beyond its identity. The two-axis labels the
+   from the members' typed claims.** Every member is a directed edge, read
+   off its claim's operator and layer under a domain declaration (§3.3);
+   polarity is the edge's **sign** and never its presence — a negative
+   `affects(X, Y)` is an inhibitory arrow, exactly as the reproduction's
+   `positive_level_for` reads negative polarity as predicting the lower
+   level. Nothing about a member is authored on the composite beyond its
+   identity. The two-axis labels the
    predecessor authored per edge become derived columns of the reading: the
    replication axis is the member's belief, the identification axis is the
    identification class its admitted assessments carry once estimand typing
@@ -115,10 +118,13 @@ and never authored, and rules where the rest of `inquiry` and
 
 6. **Assumptions are members or nothing.** A DAG's assumptions are of three
    kinds and each already has a home: an absent edge is implied by the node
-   set (decision 4) and, where evidenced, is a negative-polarity member; a
-   confounding assumption is an absent edge to or from a declared node; an
-   estimand-level assumption (positivity, consistency, no interference) is
-   the spec's `assumptions` under the estimand design. A structural-layer
+   set (decision 4) and by nothing else — evidence *against* an edge is a
+   member whose belief is negative, and an explicit absence claim is
+   unrepresentable at this grammar version (limitation 14) rather than
+   smuggled in through polarity; a confounding assumption is an absent edge
+   to or from a declared node; an estimand-level assumption (positivity,
+   consistency, no interference) is the spec's `assumptions` under the
+   estimand design. A structural-layer
    claim that a DAG relies on — `is-proxy-for`, `part-of` — is a proposition
    with its own belief and is refused as a member of the `dag` shape in this
    grammar version (§3.4), not folded in as prose. No prose assumption field
@@ -135,9 +141,11 @@ and never authored, and rules where the rest of `inquiry` and
 8. **A composite is immutable and succeeds by `supersedes`.** The formal
    model's signature is `* ──supersedes──▶ *` (same-kind succession); the
    base contract narrowed it to propositions because nothing else needed it.
-   The signature widens to `composite` (§5), the adapter's `supersede` refuses
-   cross-kind pairs, and an identity-unchanged successor is refused as it is
-   for propositions. No new revision family.
+   The signature widens to `composite` and gains a declared `same_kind`
+   rule (§3.1) that the shared write path and the audit enforce for every
+   route in — `add`, `supersede` and import alike — so widening the kind
+   lists cannot open a cross-kind edge; an identity-unchanged successor is
+   refused as it is for propositions. No new revision family.
 
 9. **The reading refuses on an unresolved member and reports a superseded
    one.** The coordination-and-view-kinds design pins that evaluation over an
@@ -183,7 +191,7 @@ kinds:
 
 relations:
   composes:   { group: world,     sources: [composite],              targets: [proposition] }
-  supersedes: { group: lifecycle, sources: [proposition, composite], targets: [proposition, composite] }
+  supersedes: { group: lifecycle, sources: [proposition, composite], targets: [proposition, composite], same_kind: true }
 
 facets:
   composite: { shape: reader, reader: stored.composite_value }
@@ -197,6 +205,23 @@ both parsers refuse an unknown shape or a missing grammar. `display` is the
 proposition's uncovered prose facet, reused unchanged: a label and a
 rationale are content, never structure, and a hash covering them would
 refuse an editorial fix.
+
+`same_kind: true` is a new relation field, admissible only where `sources`
+and `targets` are equal sets and refused at parse otherwise, in both
+implementations. It states what the formal model's `* ──supersedes──▶ *
+(same-kind succession)` already means: an instance's endpoints must be
+records of one kind. Listing both kinds as sources and targets without it
+would admit `composite ──supersedes──▶ proposition` and its reverse
+through any path that does not call `supersede` — explicit import writes
+records the adapter did not author — and a composite could then appear in a
+proposition's supersession state, which admission reads. The rule is
+therefore enforced where every incoming record passes: the shared
+`_refuse` path, beside the signature check each relation instance already
+passes and **not** behind the `document_validated` shortcut import takes
+(`supersedes-cross-kind`, a `SignatureRefused` lineage), and again under
+audit for a raw-written record (§4.3). The adapter's `supersede` keeps its
+own cross-kind refusal (`FamilyKindUnsupported`) as the earlier, clearer
+message; it is not the guard.
 
 `assesses` is untouched. `composes` is a world-group relation whose only
 effect is membership; it enters no closure, confers no eligibility and is
@@ -279,15 +304,18 @@ polarity and arguments) and classified:
 
 | the member's claim | contributes | condition |
 |---|---|---|
-| operator has an `edges:` row; layer `causal`; polarity `positive` or `unsigned`, or the operator is sign-inapt | a directed edge `cause → effect` | both endpoint nodes are in the node set |
-| operator has an `edges:` row; layer `causal`; polarity `negative` | an **absence** — no edge, and the assertion that none holds on that ordered pair | both endpoint nodes are in the node set |
+| operator has an `edges:` row; layer `causal`; any polarity — `positive`, `negative`, `unsigned`, or the operator is sign-inapt | a directed edge `cause → effect`, carrying the polarity as its sign | both endpoint nodes are in the node set |
 | operator has no `edges:` row | **refused** — `composite-member-undeclared`, naming the operator | |
 | layer is not `causal` | **refused** — `composite-member-layer`, naming the layer and the fragment | |
 | an argument's `(sort, term)` is not a declared node | **refused** — `composite-member-outside-nodes`, naming the argument | |
-| an edge and an absence on one ordered pair | **refused** — `composite-contradictory`, naming the pair | |
 | the edge set has a cycle | **refused** — `composite-cyclic`, naming one cycle | |
 
-Two members forming the same edge — `affects(X, Y)` and `regulates(X, Y)` —
+Polarity never decides presence. A negative-polarity member is an
+inhibitory edge, so a cycle through it is a cycle and the check runs over
+every member; reading `negative` as "no edge" would turn an inhibitory
+relationship into no relationship and let such a cycle escape. The DAG's
+only absences are the ordered pairs of declared nodes that no member
+covers, and they are implied, never authored. Two members forming the same edge — `affects(X, Y)` and `regulates(X, Y)` —
 are two claims about one arrow and both stand; the edge set is a set of
 ordered pairs. A member's qualifiers are carried, reported by the reading,
 and not interpreted: two members on one pair restricted to different
@@ -310,19 +338,39 @@ successor, never a domain's choice.
 ### 4.1 `build_composite`
 
 ```text
-build_composite(profile, view, *, shape, nodes, members, slug) → Composite
+build_composite(profile, view, *, shape, nodes, members, snapshot, slug)
+    → (Composite, CompositeReceipt)
+
+CompositeReceipt = (composite identity, snapshot identity,
+                    one TermOutcome per node position `node:<index>`)
 ```
 
 The constructor takes the compiled profile, a read view, the shape, the node
-set as `(sort, term)` pairs, and the members as **corpus refs** of
-propositions. For each ref it resolves the record in `view`, refuses a
-non-proposition (`composite-member-kind`), restores the record's typed claim
-through the stored claim projection, and classifies it under §3.4. It
-returns a frozen `Composite` value carrying the facet (§3.2), the derived
-edge and absence sets, and the members' refs beside their identities. The
-node set's sorts must be sorts the profile declares; the terms are
-identifiers under the sort's vocabulary and are checked exactly as claim
-referents are (formal model §7.2, the five resolution outcomes).
+set as `(sort, term)` pairs, the members as **corpus refs** of propositions,
+and a `ResolutionSnapshot` — a required argument with no default and no
+ambient fallback, for the reason `decode_claim` takes one: which
+vocabularies are readable is an input, and two holders resolving the same
+nodes through ambient state could disagree with nothing to say which was
+right. For each member ref it resolves the record in `view`, refuses a
+non-proposition (`composite-member-kind`), restores the record's typed
+claim through the stored claim projection, and classifies it under §3.4.
+For each node it requires the sort to be one the profile declares, the term
+to be a well-formed identifier, and then resolves the term against the
+sort's bound vocabulary under `snapshot`, with D3's five outcomes: `member`
+admits; `not-member` **refuses** (`composite-node-not-member`, naming the
+node); `not-consulted`, `not-present` and `not-available` admit, because a
+check not performed is not a finding. Every outcome is written to the
+receipt at the node's position in the sorted set, so a caller can tell a
+node whose vocabulary was consulted and holds it from one whose vocabulary
+was never opened. This matters most for an **isolated node** — one no
+member's claim names — since no claim decode ever resolves it and the
+composite's own resolution is its only one; U3 holds an isolated node
+against a consulted vocabulary that excludes it (refuses) and against one
+the snapshot did not consult (admits, `not-consulted` in the receipt).
+
+It returns a frozen `Composite` value carrying the facet (§3.2), the derived
+edge set with signs, and the members' refs beside their identities, and
+the receipt beside it.
 
 The constructor is the only route to a `Composite`: a hand-built value has
 no `_checked` mark and `stored.composite_node` refuses it, the estimand
@@ -338,8 +386,14 @@ covered facet and one `composes` relation per member; the adapter's ordinary
 constructor did:
 
 1. the facet decodes (`stored.composite_value`): grammar tag, a shape in
-   the profile's `composite_grammar`, canonical non-empty `nodes`, canonical
-   `members`; anything else is `facet-payload-malformed`;
+   the profile's `composite_grammar`, canonical non-empty `nodes` whose
+   sorts the profile declares and whose terms are well-formed identifiers,
+   canonical `members`; anything else is `facet-payload-malformed`. The
+   boundary and the audit check **form only** and never vocabulary
+   membership: like a stored claim's referents, a node's membership "is
+   deferred to decode against a snapshot", and the writer holds none — the
+   constructor (§4.1) and the reading (§6.1) are where membership is
+   resolved, each under the snapshot its caller names;
 2. the relation set is exactly one `composes` per member, in facet order,
    and nothing else authored under that predicate
    (`composite-relations-mismatch`);
@@ -367,6 +421,7 @@ profile)`, that re-runs §4.2's steps 1–4 over the stored record and reports:
 | `composite-member-mismatch` | the resolved proposition's semantic identity differs from the facet's — a raw edit to either record |
 | `composite-relations-mismatch` | the facet and the relation set disagree in count or order |
 | `composite-malformed` | §3.4 refuses over the resolved records — a domain contract successor retired an `edges:` row the composite relies on, or a member's stored claim no longer classifies |
+| `supersedes-cross-kind` | a stored `supersedes` instance, on any record, whose endpoints are of different kinds — a raw write, since the shared path refuses it |
 
 A finding here is a contradiction, not malformedness: the record is well
 formed, and it is read again by every later arm. The audit reads the
@@ -381,7 +436,7 @@ facet — kind, `grammar`, `shape`, sorted `nodes`, sorted `members` — the
 proposition's semantic-hash discipline, stamped at mint and recomputed by
 `corpus_check`. Two composites over the same nodes and members in any
 authoring order are one identity; adding a node with no member changes it,
-because the absence set changed. Neither the display facet nor the local
+because the implied absence set changed. Neither the display facet nor the local
 slug enters it. The world address derives from the identity as every
 semantic-identity kind's does (world §4.2).
 
@@ -425,7 +480,12 @@ projection (`closure.py`) does not mention the kind, and U4 holds it there.
 ### 6.1 What it is
 
 ```text
-read_composite(view, ref, *, binding, profile, epoch) → CompositeReading
+read_composite(view, ref, *,
+               context      : SuppliedContext,
+               availability : Availability,
+               resolution   : ResolutionSnapshot,
+               binding      : PolicyBinding,
+               profile      : ProfileSpec) → CompositeReading
 
 CompositeReading =
   composite   : ref, identity, shape, nodes
@@ -434,19 +494,28 @@ CompositeReading =
 
 MemberRow =
   member      : ClaimIdentity, corpus ref
-  role        : edge(cause, effect) | absence(cause, effect)
+  role        : edge(cause, effect, sign)
   claim       : operator, args, qualifiers, polarity, layer   -- as restored
   resolution  : active | superseded(successors)
   belief      : Belief | NoBelief | Refused                   -- the evaluator's own answer
   identification : sorted set of identification terms         -- §6.2
+  nodes       : one TermOutcome per node, under `resolution`  -- §4.1's receipt, re-taken
 ```
 
-The reading is a pure function of `(the composite record, the epoch's
-world, the policy binding, the profile)`, stores nothing, and is not a
-belief: `belief` in a row is exactly what `evaluate` returns for that
-proposition under that binding, called per member with the same `Records`
-pool the evaluator already takes, and nothing is summed, weighted or
-combined across rows. The two-axis lesson is kept as two columns per row,
+The reading is a pure function of exactly the arguments above — the
+composite record as `view` serves it at the epoch, the supplied context
+(lineage snapshot, producer snapshot, retraction enumeration, corpus
+pins), what is held here (`Availability`: byte observations, policy
+implementations, fixtures), the vocabulary resolution snapshot, the policy
+binding and the profile — and of nothing ambient. It stores nothing and is
+not a belief. Per member it calls `evaluation.gather(view, member,
+context=, profile=, resolution=, binding=)` and then `evaluate` with the
+same `availability`, so `belief` in a row is exactly the evaluator's own
+answer under the inputs the caller named: holding the bound implementation
+turns a row's `Refused` into a `Belief`, withholding a dataset's
+observation turns a `Belief` into `NoBelief`, and neither changes without
+the reading's arguments changing. Nothing is summed, weighted or combined
+across rows. The two-axis lesson is kept as two columns per row,
 each with no default: an edge nobody has assessed reports `NoBelief` and
 `{}`; a refused evaluation reports `Refused` with its reason, never a
 neutral value.
@@ -461,7 +530,11 @@ returns rows.
 Once estimand typing lands, each admitted assessment of a member carries a
 typed estimand whose `control.identification` is a term of the domain's
 identification sort; the column is the sorted set of those terms over the
-member's admitted assessments, read through `stored.analysis_spec_value`.
+assessments **the evaluator admitted for that member under the same
+gathered inputs** — the admission the `belief` column rests on, not a
+second derivation — read through `stored.analysis_spec_value` with the
+reading's profile. An assessment admission excludes (unverified,
+retracted, superseded) contributes no term.
 It is the predecessor's `identification` axis derived instead of authored,
 with `none` unspellable: a member with no admitted assessment has an empty
 set, not a value. This is the one place the design depends on the estimand
@@ -546,13 +619,13 @@ claims, never a claim, and its reading is never a belief.
 |---|---|---|
 | **U1** | The base contract declares `composite_grammar` and the `composite` kind; an unknown shape, a missing grammar, or a `composes` signature outside `composite → proposition` refuses at parse in both implementations | Python and TypeScript parse the shipped contract and refuse each mutation; the world-kind count is fourteen in both |
 | **U2** | A domain `edges:` row names an own-namespace operator with `causal` among its layers and two distinct in-range slots; compile keys it by namespaced operator; succession never redefines a row | parse and compile refusals; a successor contract redefining `edge:<op>` refuses under §8.3's rule |
-| **U3** | `build_composite` and the boundary refuse, with the named code, a member whose operator is undeclared, whose layer is not `causal`, whose argument is outside the node set, an edge and an absence on one pair, a cycle, a duplicate node or member, and an empty node set; and admit a composite with nodes and no members | one fixture per row of §3.4's table, each asserted at construction and at `add` |
+| **U3** | `build_composite` and the boundary refuse, with the named code, a member whose operator is undeclared, whose layer is not `causal`, whose argument is outside the node set, a cycle — including one through a negative-polarity member — a duplicate node or member, an empty node set, and an isolated node that a consulted vocabulary excludes; and admit a composite with nodes and no members, a negative-polarity member as a signed edge, and an isolated node under an unconsulted vocabulary with `not-consulted` in the receipt | one fixture per row of §3.4's table, each asserted at construction and at `add` |
 | **U4** | Minting, superseding and deleting a composite leaves every proposition's belief input digest byte-identical, and `assesses` cannot target one | digest before and after each family operation; a hand-built assessment naming a composite refuses at the signature |
 | **U5** | Identity is content identity over the covered facet: authoring order does not move it; a node with no member does; display prose does not | three pairs of records, hashed |
 | **U6** | The boundary requires each `composes` target to resolve to a proposition whose semantic identity equals the facet's member at that position; a mismatch, a non-proposition and an unresolvable ref each refuse with their code | a stored composite with a swapped member, a dataset member, and a member ref that resolves nowhere |
 | **U7** | The audit reports an unresolvable member, a mismatched member, a relation-set mismatch, and a composite that no longer classifies, as contradictions, not malformedness, and reads the record again in later arms | delete a member and audit; raw-edit a member's claim and audit; retire the `edges:` row by successor and audit |
-| **U8** | The reading is a pure function of `(record, epoch, binding, profile)`: two processes agree byte for byte; a member with no admitted assessment reads `NoBelief` and `{}`; a superseded member reads its successors and a belief; an unresolvable member refuses the reading | the reproduction's composite read twice from persisted records (§9); a fixture composite with an assessed, an unassessed and a superseded member |
-| **U9** | `supersede` admits a same-kind composite successor, authors the relation, and refuses a cross-kind pair and an identity-unchanged successor | three calls |
+| **U8** | The reading is a pure function of its named arguments — record, view at the epoch, supplied context, availability, resolution snapshot, binding, profile: two processes agree byte for byte under equal arguments; withholding the policy implementation turns a row's belief into `Refused` and withholding a dataset observation turns it into `NoBelief`, with the identification column following the same admission; a member with no admitted assessment reads `NoBelief` and `{}`; a superseded member reads its successors and a belief; an unresolvable member refuses the reading | the reproduction's composite read twice from persisted records (§9); a fixture composite with an assessed, an unassessed and a superseded member, read under full availability and under each withholding |
+| **U9** | `supersede` admits a same-kind composite successor, authors the relation, and refuses a cross-kind pair and an identity-unchanged successor; a `supersedes` instance with endpoints of different kinds refuses on the shared path for `add` and for `import_bundle` (`ImportRefused`, the member named), and a raw-written one audits as `supersedes-cross-kind`; both parsers refuse `same_kind` on a relation whose sources and targets differ | the three family calls; an import bundle carrying `composite ──supersedes──▶ proposition` and its reverse; a raw-written pair audited; a mutated contract parsed in Python and TypeScript |
 | **U10** | The reproduction composes the `h1-prognosis` fragment from the recreated corpus and reads it in a fresh process: the assessed member carries the evaluator's belief and the unassessed one `NoBelief`, from persisted records, twice, byte-identical | §9's addendum, from persisted records |
 
 ## 9. The reproduction
@@ -574,7 +647,9 @@ design adds two steps after `belief`:
   members `{the reproduced target, the new proposition}`. The concept list
   holds `overall-survival` (measured 2026-09-12, `entities/concepts/`).
 - **`read`** — the driver reads the composite under the reproduction's
-  policy binding and records the rows: the target member `edge(disease-stage
+  policy binding, supplied context, availability and resolution snapshot —
+  the same four the `belief` step handed the evaluator — and records the
+  rows: the target member `edge(disease-stage
   → PHF19)` with the belief the `belief` step computed and the
   identification set `{observational}` from its typed estimand; the spine
   member `edge(PHF19 → overall-survival)` with `NoBelief` and `{}`. The
@@ -613,9 +688,12 @@ U8 and U10 against persisted records, in a fresh process, twice.
 | U4 | `closure.py`'s projection gains the composites naming the proposition | the digest moves when a composite is minted |
 | U4 | the base contract's `assesses` targets gain `composite` | the signature test and U1 |
 | U6 | `_refuse_composite` skips step 3 | a swapped member is admitted |
+| U9 | the same-kind check moves behind `document_validated` | the import arm admits a cross-kind edge |
 | U8 | the reading maps an unresolvable member to `NoBelief` | U8's refusal arm |
 | U8 | the reading defaults an empty identification set to `observational` | U8's `{}` arm |
+| U8 | the reading builds its own `Availability` from the checkout instead of taking it | U8's withholding arms disagree with the evaluator's |
 | U3 | classification accepts a `statistical`-layer member as an edge | the `associates-with` fixture |
+| U3 | classification drops a negative-polarity member from the edge set | the signed-cycle fixture |
 
 ### 10.4 The cut
 
@@ -683,6 +761,9 @@ merges rather than beside it.
 - **An assumption role on members, or a prose `assumptions` field.**
   Decision 6: every assumption a DAG makes is a member, an absence the node
   set implies, or the spec's. A prose field is `claim_refs` again.
+- **Negative polarity as an absence member.** The first draft's reading;
+  review found it turns inhibition into no relationship and lets a signed
+  cycle escape detection. Polarity is a sign (decision 3).
 - **Authored per-edge labels** (`edge_status`, `identification`,
   `ladder_level`). The predecessor's documented regret; both are derived
   columns here and the ladder is presentation.
@@ -748,6 +829,16 @@ merges rather than beside it.
     amendment** (§5).
 13. **The identification column is empty until estimand typing lands**, and
     the lane is sequenced after it rather than shipping the column blank.
+14. **An explicit absence claim is unrepresentable.** Polarity is a sign,
+    and the grammar's closed polarity set has no "no effect" value; a
+    finding of no effect is a refuted edge member, and a composite that
+    wants to *assert* an absence beyond what its node set implies has no
+    member to do it with at this grammar version. A separately declared
+    absence meaning is a later grammar version's, if a corpus needs one.
+15. **Node membership is resolved at construction and at reading, never at
+    the boundary.** A stored composite whose node was `not-consulted` when
+    built is well formed; whether its term is a member is the next
+    reading's finding under that reading's snapshot.
 
 ## 14. Task linkage
 
@@ -762,3 +853,19 @@ them.
 
 - 2026-09-12, drafted in session from the models assessment, after the
   estimand-typing spec cleared review.
+- 2026-09-12, first review, four findings, all taken: (1) negative polarity
+  was read as an absent edge, turning inhibition into no relationship and
+  letting a signed cycle escape — polarity is now the edge's sign and never
+  its presence (decisions 3 and 6, §3.4, limitation 14); (2) the reading
+  promised determinism from four inputs while the evaluator needs supplied
+  context, availability and a resolution snapshot — §6.1 names every
+  argument, the identification column rests on the same admission, and U8
+  gains the withholding arms; (3) widening `supersedes` to two kinds admitted
+  cross-kind edges through import — the relation declares `same_kind`,
+  enforced on the shared write path outside the `document_validated`
+  shortcut and under audit, with an import arm in U9; (4) construction
+  invoked the five resolution outcomes without a snapshot or a receipt —
+  `build_composite` takes a `ResolutionSnapshot` and returns a receipt per
+  node, isolated nodes are tested under consulted non-membership and an
+  unconsulted vocabulary, and the boundary checks form only (limitation
+  15).

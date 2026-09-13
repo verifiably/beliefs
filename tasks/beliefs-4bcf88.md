@@ -6,7 +6,7 @@ priority: 2
 size: l
 complexity: high
 created: 2026-09-13T00:35:00Z
-updated: 2026-09-13T00:41:23Z
+updated: 2026-09-13T01:05:00Z
 depends: []
 tags: [design]
 spec: docs/superpowers/specs/2026-09-12-composite-claims-design.md
@@ -17,3 +17,4 @@ The second spec from the 2026-09-12 models assessment. A structure (a causal DAG
 ## Notes
 
 - 2026-09-13T00:41:23Z (design/composite-claim): parked (waiting on user, review): Spec drafted; review it, then write the implementation plan
+- 2026-09-13T01:05:00Z (design/composite-claim): Spec review 1: four findings (negative polarity kept as a sign; reading names every evaluator input; supersedes same_kind on the shared path and under audit; build_composite takes a ResolutionSnapshot and returns a receipt), all taken
