@@ -35,9 +35,12 @@ from beliefs.errors import (
     CorpusStateMalformed,
     CoverageUnresolvable,
     EpochImportRefused,
+    EpochMalformed,
     EpochUnknown,
+    PermitExceeded,
 )
 from beliefs.lineage import certify, divergence_state, snapshot_projection
+from beliefs.permit import READ_ONLY
 from beliefs.resolution import build_snapshot
 from beliefs.root import init_world_root, metadata_root_for, open_corpus, open_world, replicate_root, restore_root
 from beliefs.world import Fresh, WorldConfig, anchors, derive, epoch, read, registry, rules, verify
@@ -154,6 +157,19 @@ def test_a_missing_receipt_a_corpus_state_and_a_bare_version_are_refused_durably
             import_epoch(target, source)
         assert caught.value.reason == ("malformed-carrier" if fault == "missing" else "malformed-receipt")
         assert inventory(target) == before
+
+    # The same invalid state must also be judged after a raw write bypasses import.
+    receipt = document(published, "producer-receipt.yaml")
+    receipt["corpus_states"][0]["corpus_state"] = receipt["corpus_states"][0]["corpus_id"]
+    retained = repackage(target, published, {"producer-receipt.yaml": receipt})
+    before = inventory(target)
+    audit = audit_epochs(target)
+    outcome = outcomes(audit)[retained.packaging_identity, "producer"]
+    assert outcome.outcome == "malformed" and "corpus_state" in outcome.detail
+    assert [(f.ref, f.detail) for f in audit.findings if f.code == "receipt-malformed"] == [
+        (retained.packaging_identity, f"producer: {outcome.detail}")
+    ]
+    assert inventory(target) == before
 
 
 def test_an_unresolvable_receipt_imports_with_a_finding_and_a_later_audit_evaluates_it_durably(chain, scratch):
@@ -692,3 +708,51 @@ def test_well_formed_unheld_identities_are_unresolvable_durably(chain, scratch, 
     assert report.written
     assert report.outcomes["producer"].outcome == "unresolvable"
     assert [f.code for f in report.findings] == ["receipt-unresolvable"]
+
+
+@pytest.mark.parametrize("fault", ["symlink", "unreadable"])
+def test_a_symlink_or_unreadable_source_member_is_refused_durably(chain, scratch, fault):
+    world, roots, published, _a, _b = chain
+    target = replica(scratch, world, roots)
+    source = exported(published, scratch / "export")
+    member = source / "producer-receipt.yaml"
+    mode = member.stat().st_mode
+    if fault == "symlink":
+        original = member.rename(scratch / "original-receipt.yaml")
+        member.symlink_to(original)
+    else:
+        member.chmod(0)
+    before = inventory(target)
+    try:
+        with pytest.raises(EpochImportRefused) as caught:
+            import_epoch(target, source)
+        assert caught.value.reason == "malformed-carrier"
+        assert inventory(target) == before
+    finally:
+        if fault == "unreadable":
+            member.chmod(mode)
+
+
+def test_a_malformed_retained_carrier_refuses_reimport_without_writing_durably(chain, scratch):
+    world, roots, published, _a, _b = chain
+    target = replica(scratch, world, roots)
+    source = exported(published, scratch / "export")
+    assert import_epoch(target, source).written
+    member = target.config.world_root / "epochs" / published.packaging_identity / "coverage.yaml"
+    member.write_bytes(b"not the retained carrier's coverage\n")
+    before = inventory(target)
+    with pytest.raises(EpochMalformed, match="members recompute the packaging identity"):
+        import_epoch(target, source)
+    assert inventory(target) == before
+
+
+def test_import_requires_the_epoch_permit_before_reading_the_source_durably(chain, scratch, monkeypatch):
+    world, roots, published, _a, _b = chain
+    target = replica(scratch, world, roots)
+    reader = open_world(target.config, authority=READ_ONLY)
+    source = exported(published, scratch / "export")
+    before = inventory(target)
+    monkeypatch.setattr(epoch, "_carrier_members", never)
+    with pytest.raises(PermitExceeded):
+        import_epoch(reader, source)
+    assert inventory(target) == before
