@@ -30,7 +30,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from nodes.core.node import Node
 
@@ -516,7 +516,7 @@ def audit_world(
             continue
         if outcome is not None and outcome.contradiction is not None:
             corpora[corpus_id].append(outcome.contradiction)
-    world_findings: list[Finding] = []
+    world_findings = _world_findings(world, view, published, malformed, excluded)
     return WorldAudit(
         view.stamp,
         {
@@ -525,3 +525,98 @@ def audit_world(
         },
         tuple(sorted(world_findings, key=lambda finding: finding.sort_key)),
     )
+
+
+def _world_findings(
+    world: World,
+    view: WorldReadView,
+    published: Epoch,
+    malformed: Mapping[str, set[str]],
+    excluded: set[str],
+) -> list[Finding]:
+    """Ω_valid first: malformed and excluded records are not decoded again."""
+    from beliefs import source as source_basis
+    from beliefs.errors import IdentifierMalformed
+    from beliefs.world import audit as epoch_audit
+    from beliefs.world.read import Unknown, validate_receipt
+
+    findings: list[Finding] = []
+    identifiers: dict[tuple[str, str], list[str]] = {}
+    for node in view.iter_stored():
+        corpus_id = view.corpus_of(node.id)
+        if corpus_id in excluded or node.id in malformed.get(corpus_id or "", set()):
+            continue
+        if node.kind == "coreference-attestation":
+            try:
+                endpoints = stored.coreference_attestation_value(node).endpoints
+            except MalformedRecord:
+                continue
+            for endpoint in endpoints:
+                try:
+                    located = view.locate(endpoint)
+                except CorpusDamaged:
+                    findings.append(
+                        Finding(
+                            "warning",
+                            "attestation-endpoint-unreachable",
+                            node.id,
+                            endpoint,
+                            f"{node.id}: endpoint {endpoint} sits in a corpus this audit could not read whole",
+                        )
+                    )
+                    continue
+                if type(located) is Unknown:
+                    findings.append(
+                        Finding(
+                            "warning",
+                            "attestation-endpoint-unknown",
+                            node.id,
+                            endpoint,
+                            f"{node.id}: endpoint {endpoint} is an address this epoch never observed; "
+                            "the attestation names nothing the world holds or held",
+                        )
+                    )
+        elif node.kind == "source":
+            try:
+                normalized = source_basis.normalized_identifiers(
+                    cast(Mapping[object, object], dict(stored._source_identifiers(node)))
+                )
+            except IdentifierMalformed:
+                continue
+            for scheme, value in normalized.items():
+                identifiers.setdefault((scheme, value), []).append(node.id)
+    for (scheme, value), holders in sorted(identifiers.items()):
+        distinct = sorted(set(holders))
+        if len(distinct) > 1:
+            findings.append(
+                Finding(
+                    "warning",
+                    "source-identifier-shared",
+                    distinct[0],
+                    f"{scheme}:{value}",
+                    f"{distinct[0]}: shares {scheme}:{value} with {', '.join(distinct[1:])}; "
+                    "precedence made these two addresses and they may be one work",
+                )
+            )
+    opened = {published.packaging_identity: published}
+    outcomes = []
+    for kind in epoch_audit._KINDS:
+        outcome = validate_receipt(world, published, kind)
+        outcomes.append((published.packaging_identity, kind, outcome))
+        finding = epoch_audit._receipt_finding(published.packaging_identity, outcome)
+        if finding is not None:
+            findings.append(finding)
+    for verdict in epoch_audit._verdicts(opened, outcomes, ()):
+        state = epoch_audit.snapshot_state(world, verdict.kind, verdict.subject_identity).state
+        if state == "contradicted":
+            findings.append(
+                Finding(
+                    "error",
+                    "snapshot-contradicted",
+                    verdict.subject_identity,
+                    verdict.kind,
+                    f"{verdict.subject_identity}: no receipt naming this {verdict.kind} subject validates "
+                    "and at least one is refuted",
+                )
+            )
+    return findings
