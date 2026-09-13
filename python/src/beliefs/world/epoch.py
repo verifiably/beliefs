@@ -1774,6 +1774,34 @@ def _retained_identities_locked(world_root: Path) -> tuple[str, ...]:
     return tuple(sorted({carrier.packaging_identity for carrier in _retained_receipt_bindings_locked(world_root)}))
 
 
+def _locked_retained_directories(world_root: Path) -> tuple[tuple[str, str | None], ...]:
+    """Every retained entry by name, without opening any carrier."""
+    base = Path(world_root) / "epochs"
+    if base.is_symlink():
+        raise EpochMalformed(f"{base}: the epochs directory is a symbolic link")
+    if not base.exists():
+        return ()
+    if not base.is_dir():
+        raise EpochMalformed(f"{base}: the epochs directory is not a directory")
+    entries: list[tuple[str, str | None]] = []
+    for entry in sorted(base.iterdir()):
+        if entry.name == CURRENT_POINTER:
+            continue
+        try:
+            if entry.is_symlink() or not entry.is_dir() or not _PACKAGING_IDENTITY.fullmatch(entry.name):
+                entries.append(
+                    (entry.name, f"{entry}: nothing but epoch carriers and {CURRENT_POINTER!r} lives here")
+                )
+                continue
+            if _emptied(entry):
+                continue
+        except OSError as caught:
+            entries.append((entry.name, f"{entry}: cannot be read: {caught}"))
+            continue
+        entries.append((entry.name, None))
+    return tuple(entries)
+
+
 def _carried_identities(published: Epoch) -> frozenset[str]:
     """The identities one opened epoch carries: its four receipts and the
     producer snapshot its producer receipt names as its subject.

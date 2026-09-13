@@ -37,6 +37,7 @@ from beliefs.world.anchors import (
     log_head_record_bytes,
     parse_log_head_record,
 )
+from beliefs.world.audit import SNAPSHOT_STATES, EpochAudit, SnapshotVerdict, audit_epochs, snapshot_state
 from beliefs.world.derive import (
     BELIEF_INPUT_KIND,
     CERTIFICATION_INVENTORY_DOMAIN,
@@ -205,6 +206,7 @@ __all__ = [
     "RETRACTION_ENUMERATION_DOMAIN",
     "RETRACTION_RESOLUTIONS",
     "RULE_DOMAIN",
+    "SNAPSHOT_STATES",
     "SNAPSHOT_SUBJECT",
     "SUBJECT_DOMAINS",
     "WORLD_GENESIS_DOMAIN",
@@ -235,6 +237,7 @@ __all__ = [
     "EdgeAnswer",
     "EntryView",
     "Epoch",
+    "EpochAudit",
     "EpochDeletionReport",
     "EpochImportReport",
     "ForkOf",
@@ -264,6 +267,7 @@ __all__ = [
     "RuleRemovalReport",
     "SettledEntryView",
     "SeveredIdentity",
+    "SnapshotVerdict",
     "StatusRecord",
     "StoreSubject",
     "Subject",
@@ -277,6 +281,7 @@ __all__ = [
     "address_map_projection",
     "admission_digest",
     "admission_projection",
+    "audit_epochs",
     "belief_input_identity",
     "binding_for",
     "build_epoch",
@@ -320,6 +325,7 @@ __all__ = [
     "rule_document_bytes",
     "rule_identity",
     "shipped_rule_bundles",
+    "snapshot_state",
     "status_digest",
     "status_projection",
     "subject_identity",
