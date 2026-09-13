@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast, overload
 
 import pytest
 from authority import FULL
@@ -755,7 +755,19 @@ class TestEvaluationOverTheWorld:
         assert inputs.absent == () and inputs.claim is None
 
 
-def split_verification_world(tmp_path: Path):
+@overload
+def split_verification_world(
+    tmp_path: Path, *, include_world: Literal[False] = False
+) -> tuple[Any, Any, Any, Any]: ...
+
+
+@overload
+def split_verification_world(
+    tmp_path: Path, *, include_world: Literal[True]
+) -> tuple[Any, Any, Any, Any, Any, Any]: ...
+
+
+def split_verification_world(tmp_path: Path, *, include_world: bool = False):
     scratch = tmp_path / "scratch"
     writer = CorpusWriter(scratch, DefaultExecutor, authority=FULL, profile=BASE)
     writer.adopt_manifest(profile=pins_for(BASE))
@@ -768,9 +780,12 @@ def split_verification_world(tmp_path: Path):
     runs = tuple(node for node in nodes if node.kind == "run")
     roots = corpora(tmp_path, {ALPHA: tuple(node for node in nodes if node.kind != "run"), BETA: runs})
     world = world_over(tmp_path, roots)
-    view = open_world_view(world, publish(world, (ALPHA, BETA), hold_shipped(world)))
+    epoch = publish(world, (ALPHA, BETA), hold_shipped(world))
+    view = open_world_view(world, epoch)
     assert view.corpus_of(published.node.id) == ALPHA
     assert all(view.corpus_of(run.id) == BETA for run in runs)
+    if include_world:
+        return published, forged, roots, view, world, epoch
     return published, forged, roots, view
 
 

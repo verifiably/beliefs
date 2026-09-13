@@ -667,8 +667,41 @@ class _CheckView:
         return _producer_ids(self, dataset, aliases=aliases)
 
 
+class _CapturedCheckView:
+    """`_CheckView`'s shape over one corpus's captured records — mapped and
+    drift alike — resolving live and deprecated ids over that set and nothing
+    else, so "does not resolve locally" means the capture (slice 3 §5.3)."""
+
+    def __init__(self, records: Sequence[Node]) -> None:
+        self._by_id = {node.id: node for node in records}
+        self._live: dict[str, str] = {}
+        for node in records:
+            self._live[node.id] = node.id
+            for deprecated in node.deprecated_ids:
+                self._live.setdefault(deprecated, node.id)
+
+    def resolve(self, ref: str) -> str | None:
+        return self._live.get(ref)
+
+    def holds(self, ref: str) -> bool:
+        return self.resolve(ref) is not None
+
+    def get(self, ref: str) -> Node:
+        resolved = self.resolve(ref)
+        return self._by_id[resolved if resolved is not None else ref]
+
+    def iter_stored(self) -> Iterator[Node]:
+        yield from self._by_id.values()
+
+    def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]:
+        return _producer_ids(self, dataset, aliases=aliases)
+
+
 def _producer_ids(
-    view: ReadView | _ImportView | _CheckView | WorldReadView, dataset: str, *, aliases: tuple[str, ...]
+    view: ReadView | _ImportView | _CheckView | _CapturedCheckView | WorldReadView,
+    dataset: str,
+    *,
+    aliases: tuple[str, ...],
 ) -> tuple[str, ...]:
     """One producer-selection rule over the caller's records and resolver."""
     names = {dataset, *aliases}
@@ -1175,7 +1208,9 @@ def _producers_of(view: ReadView | WorldReadView, dataset: str) -> list[Producer
 # --- the §6.2 corpus check ---------------------------------------------------
 
 
-def eligibility_refusal(view: ReadView | _ImportView | _CheckView, node: Node, profile: ProfileSpec) -> str | None:
+def eligibility_refusal(
+    view: ReadView | _ImportView | _CheckView | _CapturedCheckView, node: Node, profile: ProfileSpec
+) -> str | None:
     """S7's cross-node predicate, in one implementation for both boundaries.
 
     assessment → run → `observes` → dataset → facet. `reads` inputs never
@@ -1244,7 +1279,17 @@ def corpus_check(view: ReadView, profile: ProfileSpec) -> tuple[Finding, ...]:
         findings.append(Finding("error", "profile-mismatch", "corpus.yaml", scope, detail))
     if scope in ("base", "malformed"):
         return tuple(findings)
-    check = _CheckView(view)
+    findings.extend(_record_findings(_CheckView(view), profile, scope, disagreeing))
+    return tuple(sorted(findings, key=lambda finding: finding.sort_key))
+
+
+def _record_findings(
+    check: _CheckView | _CapturedCheckView,
+    profile: ProfileSpec,
+    scope: MismatchScope,
+    disagreeing: frozenset[str],
+) -> list[Finding]:
+    findings: list[Finding] = []
     judge_namespaced = scope == "none"
     withhold_coordination = "coordination" in disagreeing
     base_kinds = shipped_base().kinds
@@ -1361,7 +1406,7 @@ def corpus_check(view: ReadView, profile: ProfileSpec) -> tuple[Finding, ...]:
             if (
                 relation.predicate == stored.SUPERSEDES
                 and (withhold_coordination or stored.COORDINATION_FACET not in node.facets)
-                and not view.holds(relation.target)
+                and not check.holds(relation.target)
             ):
                 findings.append(
                     Finding(
@@ -1388,7 +1433,7 @@ def corpus_check(view: ReadView, profile: ProfileSpec) -> tuple[Finding, ...]:
                 )
             else:
                 if target["arm"] == "node":
-                    resolved = view.resolve(target["ref"])
+                    resolved = check.resolve(target["ref"])
                     assert resolved is not None
                     retraction_targets.setdefault(resolved, []).append(node.id)
         reason = eligibility_refusal(check, node, profile)
@@ -1431,7 +1476,7 @@ def corpus_check(view: ReadView, profile: ProfileSpec) -> tuple[Finding, ...]:
                     message=f"{address}: coordination supersession graph has no standing tip",
                 )
             )
-    return tuple(sorted(findings, key=lambda finding: finding.sort_key))
+    return findings
 
 
 @final
@@ -1518,6 +1563,10 @@ def profile_mismatch(root: Path, profile: ProfileSpec) -> tuple[MismatchScope, s
         pins = load_manifest(Path(root)).profile
     except (ManifestMalformed, ManifestMissing) as caught:
         return "malformed", str(caught), frozenset()
+    return _pins_mismatch(pins, profile)
+
+
+def _pins_mismatch(pins: CorpusPins, profile: ProfileSpec) -> tuple[MismatchScope, str, frozenset[str]]:
     if pins.science_contract != "science:" + profile.base_contract_identity:
         return "base", f"manifest pins {pins.science_contract[:20]}…, profile carries science:{profile.base_contract_identity[:12]}…", frozenset()
     expected = {ns: f"{ns}:{identity}" for ns, identity in profile.activated_contracts.items()}
@@ -1525,6 +1574,25 @@ def profile_mismatch(root: Path, profile: ProfileSpec) -> tuple[MismatchScope, s
     if disagreeing:
         return "domains", f"manifest domains disagree on {sorted(disagreeing)}", disagreeing
     return "none", "", frozenset()
+
+
+def _manifest_findings(
+    manifest: CorpusManifest, profile: ProfileSpec
+) -> tuple[tuple[Finding, ...], MismatchScope, frozenset[str]]:
+    """The manifest half of `corpus_check` over a parsed manifest."""
+    if profile.base_contract_identity != shipped_base().base_contract_identity:
+        return (
+            Finding(
+                "error",
+                "profile-mismatch",
+                "corpus.yaml",
+                "base",
+                "the supplied profile requires a different base than this runtime ships",
+            ),
+        ), "base", frozenset()
+    scope, detail, disagreeing = _pins_mismatch(manifest.profile, profile)
+    findings = (Finding("error", "profile-mismatch", "corpus.yaml", scope, detail),) if scope != "none" else ()
+    return findings, scope, disagreeing
 
 
 def require_pins_agree(root: Path, profile: ProfileSpec) -> None:
@@ -2677,7 +2745,9 @@ class CorpusWriter:
         return _cycle_edges(graph)
 
     @staticmethod
-    def _resolve_retraction_target(record: Node, view: ReadView | _ImportView | _CheckView) -> None:
+    def _resolve_retraction_target(
+        record: Node, view: ReadView | _ImportView | _CheckView | _CapturedCheckView
+    ) -> None:
         target = _validated_retraction_target(record)
         if target["arm"] == "node":
             if target["resolved"].partition(":")[0] not in ELIGIBLE_RETRACTION_TARGET_KINDS:

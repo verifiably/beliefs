@@ -28,6 +28,7 @@ one import serves a caller that only ever names the audit.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
@@ -35,8 +36,18 @@ from nodes.core.node import Node
 
 from beliefs import stored
 from beliefs.assess import AssessmentValue, build_assessment
-from beliefs.corpus import Finding, ReadView, _ImportView, _producers_of, corpus_check
+from beliefs.corpus import (
+    Finding,
+    ReadView,
+    _CapturedCheckView,
+    _ImportView,
+    _manifest_findings,
+    _producers_of,
+    _record_findings,
+    corpus_check,
+)
 from beliefs.errors import (
+    CorpusDamaged,
     IdentityError,
     MalformedRecord,
     RecordError,
@@ -52,14 +63,20 @@ from beliefs.spec import FrozenSpec
 from beliefs.verify import _derive, decode_verification
 
 if TYPE_CHECKING:
+    from beliefs.world.epoch import Epoch
+    from beliefs.world.read import BoundStamp
+    from beliefs.world.registry import World
     from beliefs.world.view import WorldReadView
 
 __all__ = [
     "MALFORMEDNESS_CODES",
     "NO_EVIDENCE",
+    "WORLD_AUDIT_CODES",
     "DerivationEvidence",
     "DerivationOutcome",
+    "WorldAudit",
     "audit_corpus",
+    "audit_world",
     "check_analysis_spec",
     "check_assessment",
     "check_lineage_basis",
@@ -76,6 +93,39 @@ again below the classification. A record flagged for anything **else** — a
 malformed display facet, a supersession target that does not resolve locally,
 an unmet eligibility predicate — is well formed, and skipping it would hide a
 real contradiction behind an unrelated finding."""
+
+WORLD_AUDIT_CODES = frozenset(
+    {
+        "epoch-malformed",
+        "receipt-malformed",
+        "receipt-refuted",
+        "receipt-unresolvable",
+        "snapshot-contradicted",
+        "anchor-uncorroborated",
+        "parse-error",
+        "path-mismatch",
+        "uid-collision",
+        "id-collision",
+        "corpus-damaged",
+        "corpus-absent",
+        "drift",
+        "derivation-unreachable",
+        "attestation-endpoint-unknown",
+        "attestation-endpoint-unreachable",
+        "source-identifier-shared",
+    }
+)
+"""Slice 3 design §5.5's closed set, beside `MALFORMEDNESS_CODES`."""
+
+
+@dataclass(frozen=True)
+class WorldAudit:
+    stamp: BoundStamp
+    corpora: Mapping[str, tuple[Finding, ...]]
+    world: tuple[Finding, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "corpora", MappingProxyType(dict(self.corpora)))
 
 _COMPARABLE_ASSESSMENT_MEMBERS = (
     "outcome",
@@ -176,7 +226,7 @@ def check_verification(
 
 
 def check_assessment(
-    view: ReadView | _ImportView, node: Node, *, evidence: DerivationEvidence
+    view: ReadView | _ImportView | WorldReadView, node: Node, *, evidence: DerivationEvidence
 ) -> DerivationOutcome:
     """Recompute a stored assessment's facet from the run it names."""
     stored_value = stored.assessment_value(node)
@@ -221,7 +271,7 @@ def _assessment_disagreements(stored_value: AssessmentValue, derived: Assessment
     return sorted(disagreements)
 
 
-def check_lineage_basis(view: ReadView, node: Node) -> DerivationOutcome:
+def check_lineage_basis(view: ReadView | WorldReadView, node: Node) -> DerivationOutcome:
     """A stamped basis must name every resolved producer of its dataset. A
     producer the basis omits is what a raw-forged `single(A)` looks like while
     `B`'s run stands; once `B`'s run is gone, nothing contradicts it (§7)."""
@@ -261,7 +311,7 @@ def check_analysis_spec(node: Node) -> DerivationOutcome:
     return DerivationOutcome(checked=True, reason="", contradiction=None)
 
 
-def stored_specs(view: ReadView | _ImportView) -> tuple[Mapping[str, FrozenSpec], tuple[Finding, ...]]:
+def stored_specs(view: ReadView | _ImportView | WorldReadView) -> tuple[Mapping[str, FrozenSpec], tuple[Finding, ...]]:
     """Every restorable stored spec keyed by identity, and one
     `derivation-malformed` finding per record that does not restore — the
     two halves travel together so a false spec never vanishes into an
@@ -329,3 +379,149 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence, profile: Profi
         if outcome.contradiction is not None:
             findings.append(outcome.contradiction)
     return tuple(sorted(findings, key=lambda finding: finding.sort_key))
+
+
+def _recompute(view: WorldReadView, node: Node, evidence: DerivationEvidence) -> DerivationOutcome | None:
+    if node.kind == "verification":
+        return check_verification(view, node, evidence=evidence)
+    if node.kind == "assessment":
+        return check_assessment(view, node, evidence=evidence)
+    if node.kind == "dataset":
+        return check_lineage_basis(view, node)
+    if node.kind == "analysis-spec":
+        return check_analysis_spec(node)
+    return None
+
+
+def audit_world(
+    world: World,
+    published: Epoch,
+    *,
+    evidence: DerivationEvidence,
+    profile: ProfileSpec,
+) -> WorldAudit:
+    """Judge the capture at `published`; writes nothing.
+
+    Carrier and open refusals, including `CaptureDrift`, retain their documented
+    behavior. Damage reached within the capture becomes findings.
+    """
+    from beliefs.world.view import open_world_view
+
+    view = open_world_view(world, published, on_damage="report")
+    damaged = {report.corpus_id: report for report in view.damaged()}
+    drift = {report.corpus_id: report for report in view.drift()}
+    corpora: dict[str, list[Finding]] = {}
+    malformed: dict[str, set[str]] = {}
+    excluded: set[str] = set()
+    for corpus_id, _state in published.coverage:
+        findings = corpora.setdefault(corpus_id, [])
+        if corpus_id in view.absent():
+            findings.append(
+                Finding(
+                    "warning",
+                    "corpus-absent",
+                    corpus_id,
+                    "",
+                    f"{corpus_id}: a covered corpus with no carrier here",
+                )
+            )
+            continue
+        manifest_findings, scope, disagreeing = _manifest_findings(view.captured_manifest(corpus_id), profile)
+        findings.extend(manifest_findings)
+        report = damaged.get(corpus_id)
+        if report is not None and report.cause == "base-pin":
+            findings.append(
+                Finding(
+                    "error",
+                    "corpus-damaged",
+                    corpus_id,
+                    "base-pin",
+                    f"{corpus_id}: the manifest pins a base this runtime does not ship; "
+                    "no record was read and nothing was recomputed",
+                )
+            )
+            continue
+        if scope in ("base", "malformed"):
+            excluded.add(corpus_id)
+            continue
+        findings.extend(
+            _record_findings(_CapturedCheckView(view.captured_records(corpus_id)), profile, scope, disagreeing)
+        )
+        malformed[corpus_id] = {finding.ref for finding in findings if finding.code in MALFORMEDNESS_CODES}
+        if report is not None:
+            findings.extend(report.findings)
+            excluded_count = len({finding.ref for finding in report.findings})
+            findings.append(
+                Finding(
+                    "error",
+                    "corpus-damaged",
+                    corpus_id,
+                    f"construction:{excluded_count}",
+                    f"{corpus_id}: {excluded_count} file(s) failed construction; the remainder was audited, "
+                    "nothing was recomputed and no drift comparison was made",
+                )
+            )
+            continue
+        moved = drift.get(corpus_id)
+        if moved is not None:
+            if moved.published_state != moved.captured_state:
+                findings.append(
+                    Finding(
+                        "warning",
+                        "drift",
+                        corpus_id,
+                        "state",
+                        f"{corpus_id}: the carrier stands at {moved.captured_state[:12]}…, not the "
+                        f"{moved.published_state[:12]}… this epoch recorded; rebuild to publish over it",
+                    )
+                )
+            for uid in moved.unmapped:
+                findings.append(
+                    Finding(
+                        "warning",
+                        "drift",
+                        corpus_id,
+                        f"unmapped:{uid}",
+                        f"{corpus_id}: uid {uid!r} is held but the epoch never mapped it; rebuild to publish it",
+                    )
+                )
+    for node in view.iter_stored():
+        corpus_id = view.corpus_of(node.id)
+        assert corpus_id is not None
+        if corpus_id in excluded or node.id in malformed.get(corpus_id, set()):
+            continue
+        try:
+            outcome = _recompute(view, node, evidence)
+        except CorpusDamaged as unreachable:
+            corpora[corpus_id].append(
+                Finding(
+                    "warning",
+                    "derivation-unreachable",
+                    node.id,
+                    unreachable.corpus_id,
+                    f"{node.id}: its recomputation reaches {unreachable.corpus_id}, which this audit could not read whole",
+                )
+            )
+            continue
+        except RecordError as refused:
+            corpora[corpus_id].append(
+                Finding(
+                    "error",
+                    "derivation-malformed",
+                    node.id,
+                    str(refused),
+                    f"{node.id}: the members a derivation recomputation reads are malformed",
+                )
+            )
+            continue
+        if outcome is not None and outcome.contradiction is not None:
+            corpora[corpus_id].append(outcome.contradiction)
+    world_findings: list[Finding] = []
+    return WorldAudit(
+        view.stamp,
+        {
+            corpus_id: tuple(sorted(findings, key=lambda finding: finding.sort_key))
+            for corpus_id, findings in corpora.items()
+        },
+        tuple(sorted(world_findings, key=lambda finding: finding.sort_key)),
+    )
