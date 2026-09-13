@@ -5,9 +5,10 @@ status: doing
 priority: 2
 size: m
 complexity: low
+process: direct
 owner: main
 created: 2026-09-04T21:44:54Z
-updated: 2026-09-12T16:26:55Z
+updated: 2026-09-13T17:59:37Z
 started: 2026-09-12T10:07:24Z
 depends: [ops-31f038]
 tags: [testing]
@@ -36,3 +37,4 @@ Piece of ops-65837b (the cross-project audit in the ops hub). 1. Measure: full-s
 - 2026-09-12T10:11:04Z (main): Also from the baseline: main's CI is red on its last three pushes (5 failed on 2026-09-11, the orphaned-pins failure b91151f fixes) and b91151f is still unpushed; the next push pays the 17-minute pre-push hook. Not this task's, noted so the after-week reading knows why the ci-python rows look as they do.
 - 2026-09-12T10:11:14Z (main): parked (waiting on agent): step 4 on or after 2026-09-19: tt-report --since 7 --project beliefs for the after-week; compare hook-pre-commit (now split with hook-pre-commit-docs), test (hand-run full suites, 23 codex runs before), test-fast, hook-pre-push and fast/full against the 2026-09-12 baseline note, then tasks done with before/after
 - 2026-09-12T16:26:55Z (main): Complexity low: Remaining work is the dated after-week tt-report comparison against the recorded baseline (on or after 2026-09-19); hooks, recipes and guidance are already present. The metrics and completion check are specified; no new gate design remains.
+- 2026-09-13T17:59:37Z (main): Process direct: the remaining after-week metrics comparison is already specified in the 2026-09-12 notes and is due on or after 2026-09-19; metadata-only correction for process_missing, with the existing park and work status preserved.

@@ -172,7 +172,7 @@ uv run --frozen pytest tests/test_arm_staleness.py tests/test_frozen_guards.py t
 The first command reported **161 passed in 220.67s (0:03:40)**.
 The second command reported **35 passed, 2 deselected**; its two exclusions are
 the already retained full cut-27 mutation run and its baseline, not source-site
-or frozen-evidence checks. Main integration and its full gate remain pending (§6).
+or frozen-evidence checks. The later integrated full-gate result is recorded in §6.
 
 
 ## 4. Reproduction measurement
@@ -198,7 +198,20 @@ unowned and unselected.
 
 ## 6. Main integration
 
-Pending. This discharge remains on `design/world-resolution-slice-3` until the
-controller's final whole-branch review. The controller owns the later `--no-ff`
-merge, the `just gate` run on `main`, this section's integration record, and
-worktree removal. Task 11 performed no merge or push.
+Merged `design/world-resolution-slice-3` into `main` with `--no-ff` on
+2026-09-13 at `645dc8f999c32e10007893955004c64b07a1f7e7`, after the final
+whole-branch review and scoped approval of correction commit
+`a8f78a81e95cc901c218600edef299712f1bc9f5`.
+
+`just gate` on that merged revision exited **0**: Ruff, Pyright, TypeScript
+typecheck, Biome and task checks passed; the serial Python suite reported
+**4,563 passed in 1,125.76s**, and TypeScript reported **142 passed** across
+seven files. Task validation reported zero errors and warnings. The exact
+output is retained in [main-gate.log](2026-09-13-conformance-cut-27-run/main-gate.log).
+This run covers the corrected source, including the subject-grouping regression
+and validated-versus-refuted retained-receipt composition check. The earlier
+transcripts in §1 remain unchanged.
+
+The tracked Task 2 verification note is preserved with the other evidence as
+[receipt-contract-implementation.md](2026-09-13-conformance-cut-27-run/receipt-contract-implementation.md)
+when clearing the temporary implementation workspace.
