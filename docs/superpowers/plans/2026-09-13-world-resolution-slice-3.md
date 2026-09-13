@@ -1515,6 +1515,7 @@ from pathlib import Path
 import pytest
 from fixtures_cut4 import raw_write
 from profiles import BASE
+from test_profile_agreement import foreign_profile  # noqa: F401 — pytest fixture
 from test_world_build import ALPHA, BETA
 from test_world_view import address_in, damage, make_absent, two_corpus_world
 
@@ -1642,23 +1643,20 @@ def test_the_audit_writes_nothing_and_every_code_is_declared(tmp_path):
         assert f.code in WORLD_AUDIT_CODES or f.code in {"semantic-hash-stale", "profile-mismatch"}
 
 
-def test_a_foreign_profile_stops_every_recomputation(tmp_path, monkeypatch):
+def test_a_foreign_profile_stops_every_recomputation(tmp_path, monkeypatch, foreign_profile):
     """Scope `base` from the supplied profile, not the manifest: the view opens
     (the manifest pins the shipped base), and `audit_corpus`'s early return
     must hold per corpus — nothing is recomputed (review finding 1)."""
-    from types import SimpleNamespace
-
     from beliefs import audit as audit_module
-    from beliefs import corpus as corpus_module
 
     world, _roots, published = two_corpus_world(tmp_path)
-    monkeypatch.setattr(corpus_module, "shipped_base", lambda: SimpleNamespace(base_contract_identity="0" * 64, kinds=frozenset()))
+    assert foreign_profile.base_contract_identity != BASE.base_contract_identity
 
     def never(*_a, **_k):
         raise AssertionError("a recomputation ran under a base mismatch")
 
     monkeypatch.setattr(audit_module, "_recompute", never)
-    audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE)
+    audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=foreign_profile)
 
     assert codes(audit.corpora[ALPHA]) == [("profile-mismatch", "base")] == codes(audit.corpora[BETA])
 
@@ -1878,7 +1876,7 @@ Append to `python/tests/test_world_audit.py`:
 ```python
 def attestation(left: str, right: str):
     return stored.coreference_attestation_node(
-        endpoints=(left, right), stance=1, actor="alice", grounds="same work", event_token="event-1"
+        title="coreference attestation", endpoints=(left, right), stance=1, actor="alice", grounds="same work", event_token="event-1"
     )
 
 
@@ -1910,8 +1908,15 @@ def test_an_attestation_over_a_deleted_endpoint_is_unknown_and_one_over_an_absen
     make_absent(roots, BETA)
     absent = audit_world(world, rebuilt, evidence=NO_EVIDENCE, profile=BASE)
     # The deleted endpoint stays unknown; the BETA endpoint is not-present and yields nothing (review finding 8).
-    assert codes(absent.world) == [("attestation-endpoint-unknown", gone.id)]
+    assert codes(f for f in absent.world if f.code.startswith("attestation-endpoint")) == [
+        ("attestation-endpoint-unknown", gone.id)
+    ]
     assert not any(f.ref == over_beta.id for f in absent.world)
+    receipt_findings = [f for f in absent.world if f.code == "receipt-unresolvable"]
+    assert len(receipt_findings) == 4
+    assert {f.detail.partition(":")[0] for f in receipt_findings} == {
+        "producer", "retraction-enumeration", "certification-enumeration", "coreference-reduction"
+    }
 
 
 def test_a_healthy_attestation_naming_a_damaged_endpoint_reports_and_the_audit_completes(tmp_path):
@@ -2047,20 +2052,29 @@ Add one more test to `python/tests/test_world_audit.py`:
 
 ```python
 def test_a_malformed_attestation_is_a_per_record_finding_and_the_audit_completes(tmp_path):
+    from test_world_receipts import hold_shipped, publish
+
+    from beliefs.world.view import open_world_view
+
     world, roots, published = two_corpus_world(tmp_path)
-    broken = attestation("dataset:x", "dataset:y")
-    broken.facets[stored.COREFERENCE_ATTESTATION_FACET]["endpoints"] = ["dataset:x"]  # one endpoint, raw-written
+    broken = attestation(address_in(published, ALPHA), address_in(published, BETA))
     raw_write(roots[ALPHA], broken)
+    published = publish(world, (ALPHA, BETA), hold_shipped(world))
+
+    # Corrupt an already mapped record; its id and uid stay fixed.
+    broken.facets[stored.COREFERENCE_ATTESTATION_FACET]["endpoints"] = [address_in(published, ALPHA)]
+    raw_write(roots[ALPHA], broken)
+    assert broken.id in {node.id for node in open_world_view(world, published).iter_stored()}
 
     audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE)
 
-    assert ("facet-payload-malformed", stored.COREFERENCE_ATTESTATION_FACET) in codes(audit.corpora[ALPHA]) or any(
-        f.ref == broken.id and f.code in {"facet-payload-malformed", "derivation-malformed", "semantic-hash-stale"} for f in audit.corpora[ALPHA]
-    )
+    assert any(f.ref == broken.id and f.code == "semantic-hash-stale" for f in audit.corpora[ALPHA])
     assert not any(f.ref == broken.id for f in audit.world)
 ```
 
-The raw record's stamp no longer covers its edited facet, so `semantic-hash-stale` is the finding the per-record check actually reports; tighten the assertion to the observed code.
+The raw record's stamp no longer covers its edited facet, so `semantic-hash-stale`
+is the finding the per-record check reports. Its address was published before the
+edit, so the world-level loop encounters it and must honor that classification.
 
 - [ ] **Step 4: Run, lint, commit**
 
@@ -2512,3 +2526,13 @@ projections and identities — both assert `belief_input_digest` through
 endpoint tests' negatives were wrong — the deleted endpoint stays unknown when
 another corpus goes absent, and the repair happens in place on the same corpus
 and epoch (Task 7).
+
+**2026-09-13, second review, three fixture corrections.** The foreign-profile
+test reuses the compiled `foreign_profile` fixture without changing the runtime's
+shipped base, so it exercises the excluded-corpus branch rather than base-pin
+damage (Task 6). The malformed attestation is published while valid, then
+raw-edited with its mapped id and uid retained; the test asserts that the world
+iteration reaches it and that the audit reports its stale stamp (Task 7). The
+absent-endpoint test checks endpoint findings separately from the four required
+receipt-unresolvable warnings (Task 7). The shared attestation helper supplies
+the constructor's required title.

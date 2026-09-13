@@ -7,7 +7,7 @@ size: l
 complexity: high
 owner: design/world-resolution-slice-3
 created: 2026-09-09T15:26:44Z
-updated: 2026-09-13T12:33:11Z
+updated: 2026-09-13T13:12:18Z
 started: 2026-09-13T10:47:06Z
 depends: [beliefs-113561, beliefs-b7994b]
 parent: beliefs-d248ba
@@ -30,3 +30,8 @@ Design and freeze slice 3 from docs/superpowers/specs/2026-09-09-world-resolutio
 - 2026-09-13T11:34:21Z (design/world-resolution-slice-3): parked (waiting on user, review): Second review resolved (588c4e4 -> HEAD on design/world-resolution-slice-3). User re-reviews docs/superpowers/specs/2026-09-13-world-resolution-slice-3-design.md; on approval invoke writing-plans, then freeze cut 27
 - 2026-09-13T11:52:31Z (design/world-resolution-slice-3): parked (waiting on user, review): Third review resolved (HEAD on design/world-resolution-slice-3). User re-reviews docs/superpowers/specs/2026-09-13-world-resolution-slice-3-design.md; on approval invoke writing-plans, then freeze cut 27
 - 2026-09-13T11:55:44Z (design/world-resolution-slice-3): Design approved by user 2026-09-13 after three review passes (72cb8dc); writing the implementation plan next.
+- 2026-09-13T12:33:37Z (design/world-resolution-slice-3): parked (waiting on user, review): Plan written and committed (docs/superpowers/plans/2026-09-13-world-resolution-slice-3.md, 11 step tasks). User reviews the plan and chooses subagent-driven or inline execution; then Task 1 (beliefs-310b74) freezes cut 27
+- 2026-09-13T12:51:21Z (design/world-resolution-slice-3): parked (waiting on user, review): Plan revised after first review (HEAD on design/world-resolution-slice-3). User re-reviews docs/superpowers/plans/2026-09-13-world-resolution-slice-3.md and chooses subagent-driven or inline execution; then Task 1 (beliefs-310b74) freezes cut 27
+- 2026-09-13T13:09:23Z (design/world-resolution-slice-3): claimed by Codex /root, pid 2002849; applying the three second-review corrections to the implementation plan only
+- 2026-09-13T13:12:18Z (design/world-resolution-slice-3): Second plan review corrected: reuse compiled foreign_profile without changing shipped_base; publish the attestation before corrupting its mapped record; assert endpoint findings separately from all four receipt warnings. Focused probes passed against the existing runtime; no implementation steps executed.
+- 2026-09-13T13:12:18Z (design/world-resolution-slice-3): parked (waiting on user, review): Implementation plan's second-review fixture corrections are complete; review the revised plan before Task 1 freezes cut 27
