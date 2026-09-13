@@ -383,7 +383,7 @@ git commit -m "feat(contract): declare composite_grammar, the composite kind, co
 **Files:**
 - Modify: `python/src/beliefs/contract/domain.py:59-63` (field sets), the declaration classes, `DomainContract` (`edges`, `_parsed`, `_declarations`), `parse_domain_contract`
 - Modify: `fixtures/contracts/testing.yaml` (one `edges:` row)
-- Modify: `python/tests/fixtures/biology-fixture.yaml` (one `edges:` row for `affects`, so the test writers' `WITH_BIOLOGY` profile can compose)
+- Modify: `python/tests/fixtures/biology-fixture.yaml` (one `edges:` row for `affects`, so the test writers' `WITH_BIOLOGY` profile can compose; three sorts and one `estimands:` row, so Tasks 4 and 6 can type an assessment under it)
 - Modify: `python/src/beliefs/profile.py` (`CompiledEdge`, `ProfileSpec.edges`, `compile_profile`, `_projection`)
 - Modify: `ts/src/contract.ts` (`EdgeDecl`, `DomainContract.edges`, `parseDomainContract`), `ts/src/profile.ts` (`ProfileSpec.edges`)
 - Test: `python/tests/test_domain_contract.py`, `python/tests/test_profile.py`, `ts/tests/declarations.test.ts`
@@ -504,7 +504,7 @@ edges:
   affects: { cause: 0, effect: 1 }
 ```
 
-Append to `python/tests/fixtures/biology-fixture.yaml` after its `operators:` block: `edges:\n  affects: { cause: 0, effect: 1 }`.
+Append to `python/tests/fixtures/biology-fixture.yaml` after its `operators:` block: `edges:\n  affects: { cause: 0, effect: 1 }`. In the same file add three sorts beside `gene`, each `vocabulary: { namespace: EX, release: "2026-01-01" }` — `level`, `measure`, `identification` — and an `estimands:` table with one row for `affects`, spelled exactly as the estimand lane's `fixtures/contracts/testing.yaml` spells its `affects` row (the same keys — `level_sorts` keyed by slot, `measure_sort`, `identification_sort`, and `conditioning_sort` if that fixture carries it — with the three new sorts in place of its). Tasks 4 and 6 type assessments under `WITH_BIOLOGY` with them. `profiles.py` parses the document twice with different descriptions; both variants gain the rows. Run `uv run --frozen pytest tests/test_relocation.py tests/test_world_view_acceptance.py -q`; if either pins the fixture contract's identity, update the pin here.
 
 - [ ] **Step 3: Run the tests to verify they fail**
 
@@ -1326,8 +1326,10 @@ Create `python/tests/test_composite_boundary.py`:
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 import pytest
-from authority import FULL
+from authority import ACTOR, FULL
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -1341,15 +1343,30 @@ from beliefs.composite import CompositeNode, CompositeError, build_composite
 from beliefs.contract.domain import VocabularyBinding
 from beliefs.corpus import CorpusWriter, superseded_by
 from beliefs.errors import FamilyKindUnsupported, ImportRefused, SignatureRefused, SupersedeIdentityUnchanged
+from beliefs.estimand import Control, LevelsContrast, Measure, build_estimand
 from beliefs.projection import claim_identity, project_claim
 from beliefs.resolution import build_snapshot
 
 GENE = "biology/gene"
 AFFECTS = "biology/affects"
 EX = VocabularyBinding(namespace="EX", release="2026-01-01", dataset_identity=None)
-SNAPSHOT = build_snapshot(readable={EX: ["EX:a", "EX:b", "EX:c"]})
+# Every biology-fixture sort binds `EX/2026-01-01`, so one binding carries the nodes and the estimand's terms.
+SNAPSHOT = build_snapshot(readable={EX: ["EX:a", "EX:b", "EX:c", "EX:lo", "EX:hi", "EX:expr", "EX:observational"]})
 A, B, C = (CompositeNode(GENE, f"EX:{t}") for t in "abc")
 IMPORT = {"observer": "o", "instrument": "i", "opened_at": "2026-09-12T00:00:00Z", "closed_at": "2026-09-12T00:00:01Z"}
+
+
+def _estimand(claim):
+    """A typed estimand for a biology-fixture `affects` claim, under the profile that stores and restores it —
+    the fixture's `estimands:` row for `affects` (Task 2) names `biology/level`, `biology/measure`, `biology/identification`."""
+    estimand, _ = build_estimand(
+        WITH_BIOLOGY, claim, snapshot=SNAPSHOT,
+        contrast=LevelsContrast(slot=0, baseline=Referent("biology/level", "EX:lo"), comparison=Referent("biology/level", "EX:hi")),
+        measure=Measure(quantity=Referent("biology/measure", "EX:expr"), scale="additive"),
+        reference=Decimal("0"),
+        control=Control(identification=Referent("biology/identification", "EX:observational"), conditioning=()),
+    )
+    return estimand
 
 
 def _writer(root):
@@ -1480,15 +1497,43 @@ class TestSupersession:
             other.import_bundle(members, **IMPORT)
         assert caught.value.member == record.id
 
-    def test_an_assessment_targeting_a_composite_is_refused_by_kind_not_by_eligibility(self, writer):
-        from test_evaluation import _observations, _resources
+    def _typed_assessment(self, writer, slug: str, target: str):
+        """Otherwise valid evidence: an attested, held-shaped dataset, an observing run, and an assessment typed
+        under the fixture profile (the estimand lane's constructor requires `estimand` and `applicability`)."""
+        from test_evaluation import _resources
 
+        if not writer.read_view.holds("dataset:d-a"):
+            writer.add(stored.dataset_node("d-a", title="d-a", resources=_resources("a"), empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}))
+        run = writer.add(stored.run_node(f"run-{slug}", title=slug, spec=f"spec-{slug}", observes=["dataset:d-a"]))
+        return stored.assessment_node(
+            slug, title=slug, spec=f"spec-{slug}", run=run.id, proposition=target, outcome="supported", interpretation_rule="rule-1",
+            estimand=_estimand(_claim("EX:a", "EX:b")), applicability={},
+        )
+
+    def test_an_assessment_targeting_a_composite_is_refused_by_kind_at_add_and_at_import(self, writer, tmp_path):
         composite = writer.add(stored.composite_node(_build(writer, ["proposition:ab"], slug="v1"), title="v1"))
-        writer.add(stored.dataset_node("d-a", title="d-a", resources=_resources("a"), empirical_observation={"locator": "instrument:fixture", "attested_by": "test-actor"}))
-        run = writer.add(stored.run_node("run-x", title="x", spec="spec-x", observes=["dataset:d-a"]))
-        assessment = stored.assessment_node("a-x", title="x", spec="spec-x", run=run.id, proposition=composite.id, outcome="supported", interpretation_rule="rule-1")
+        assessment = self._typed_assessment(writer, "a-x", composite.id)
+        # The typed constructor admits it; only the target's kind is wrong.
+        assert stored.assessment_value(assessment, profile=writer.profile).proposition == composite.id
         with pytest.raises(SignatureRefused, match="assesses-target-kind"):
             writer.add(assessment)
+        other = _writer(tmp_path / "other")
+        members = tuple(n for n in writer.read_view.iter_stored() if n.kind in {"proposition", "composite", "dataset", "run"}) + (assessment,)
+        with pytest.raises(ImportRefused, match="assesses-target-kind"):
+            other.import_bundle(members, **IMPORT)
+
+    def test_an_assessment_whose_target_resolves_nowhere_is_refused_at_add_and_at_import(self, writer, tmp_path):
+        assessment = self._typed_assessment(writer, "a-y", "composite:future")
+        with pytest.raises(SignatureRefused, match="assesses-target-unresolvable"):
+            writer.add(assessment)
+        other = _writer(tmp_path / "other")
+        members = tuple(n for n in writer.read_view.iter_stored() if n.kind in {"proposition", "dataset", "run"}) + (assessment,)
+        with pytest.raises(ImportRefused, match="assesses-target-unresolvable"):
+            other.import_bundle(members, **IMPORT)
+        # And a target arriving in the same bundle resolves through the union view.
+        ok = self._typed_assessment(writer, "a-z", "proposition:ab")
+        other.import_bundle((*members[:-1], ok), **IMPORT)
+        assert other.read_view.holds("assessment:a-z")
 
     def test_a_same_kind_supersedes_edge_imports(self, writer, tmp_path):
         first = writer.add(stored.composite_node(_build(writer, ["proposition:ab"], slug="v1"), title="v1"))
@@ -1543,8 +1588,14 @@ In `python/src/beliefs/corpus.py`, add two methods beside `_refuse_verification`
                 continue
             try:
                 target = view.get(relation.target)
-            except RefError:
-                continue  # an unresolvable target is the eligibility predicate's refusal
+            except RefError as caught:
+                # Not the eligibility predicate's to refuse: it reads the run and
+                # its observed datasets and never the target. An edge to a ref
+                # that resolves nowhere would let a later `composite:future`
+                # establish the forbidden edge by arriving second.
+                raise SignatureRefused(
+                    f"{node.id}: assesses-target-unresolvable: {relation.target} resolves to no record in this corpus"
+                ) from caught
             if target.kind != "proposition":
                 raise SignatureRefused(
                     f"{node.id}: assesses-target-kind: an assessment assesses a proposition, not a {target.kind!r} ({relation.target})"
@@ -1582,7 +1633,7 @@ In `_refuse`, after the `if node.kind == "analysis-spec":` line and **before** `
             self._refuse_composite(node, view=reading)
 ```
 
-Import `CompositeError` and `SignatureRefused` from `beliefs.errors` at the top of `corpus.py`. `_refuse_supersedes_same_kind` runs for every record regardless of `document_validated`; `ImportRefused(str(caught), member=record.id)` wraps both new refusals through the existing `except ScienceError` in `_validate_import_bundle`.
+Import `CompositeError` and `SignatureRefused` from `beliefs.errors` at the top of `corpus.py`. All three new refusals run for every record regardless of `document_validated`; `ImportRefused(str(caught), member=record.id)` wraps them through the existing `except ScienceError` in `_validate_import_bundle`. Under the import's union view an assessment and its target may arrive in one bundle: `_ImportView.get` resolves bundle members, so a target in the same bundle resolves and an absent one refuses. Run the whole suite after this step: any existing test that minted an assessment through `add` before its target existed now refuses, and the fix is to mint the target first — the edge was always kernel §4.1's `Assessment ──assesses──▶ Proposition`.
 
 - [ ] **Step 4: `supersede` widened**
 
@@ -1809,11 +1860,11 @@ git commit -m "feat(audit): report a dangling, mismatched or unclassifiable comp
 ### Task 6: The reading — the traced evaluator and `read_composite`
 
 **Files:**
-- Modify: `python/src/beliefs/belief.py` (`Admission`, `admitted`, `evaluate_traced`; `evaluate` as first projection), `python/src/beliefs/evaluation.py` (`evaluate_over_traced`; `evaluate_over` as first projection), `python/src/beliefs/composite.py` (`Resolution`, `MemberRow`, `CompositeReading`, `read_composite`), `python/tests/fixtures/biology-fixture.yaml` (three sorts and one `estimands:` row, so an assessment stored under `WITH_BIOLOGY` restores under it)
+- Modify: `python/src/beliefs/belief.py` (`Admission`, `admitted`, `evaluate_traced`; `evaluate` as first projection), `python/src/beliefs/evaluation.py` (`evaluate_over_traced`; `evaluate_over` as first projection), `python/src/beliefs/composite.py` (`Resolution`, `MemberRow`, `CompositeReading`, `read_composite`)
 - Test: `python/tests/test_belief.py`, `python/tests/test_evaluation.py`, `python/tests/test_composite_reading.py`
 
 **Interfaces:**
-- Consumes: `evaluation.gather`, `belief.evaluate`, `admission.admit`, `verification.lifecycle_state`, `corpus.superseded_by` (existing); the estimand lane's `AssessmentValue.estimand: Estimand` with `estimand.control.identification: Referent` (estimand plan Task 7), its `build_estimand`, `LevelsContrast`, `Measure`, `Control`, and the `estimands:` declaration shape its `testing.yaml` fixture carries (plan Task 2 there).
+- Consumes: `evaluation.gather`, `belief.evaluate`, `admission.admit`, `verification.lifecycle_state`, `corpus.superseded_by` (existing); the estimand lane's `AssessmentValue.estimand: Estimand` with `estimand.control.identification: Referent` (estimand plan Task 7); Task 4's `_estimand` helper and `SNAPSHOT` (typed under the biology fixture's `estimands:` row from Task 2).
 - Produces, at `beliefs.belief`: `NotReached` and `Reached(admitted: frozenset[str])` (sealed, frozen; `Admission = NotReached | Reached`); `admitted(distinct, *, runs, observations, verifications) -> tuple[tuple[AssessmentValue, ...], tuple[AssessmentValue, ...]]` (eligible, unheld-only — step 5's partition, called exactly once by the evaluator); `evaluate_traced(**same kwargs as evaluate) -> tuple[Belief | NoBelief | Refused, Admission]`; `evaluate(...)` unchanged in signature and answer, defined as `evaluate_traced(...)[0]`. At `beliefs.evaluation`: `evaluate_over_traced(view, proposition, *, availability, context, profile, resolution, binding) -> tuple[answer, Admission]`; `evaluate_over(...) = evaluate_over_traced(...)[0]`. At `beliefs.composite`: `Resolution(state: str, successors: tuple[str, ...])` with `state ∈ {"active", "superseded"}`; `MemberRow(member, ref, role: Edge, claim: Claim, resolution: Resolution, belief, identification: tuple[str, ...] | NotReached)`; `CompositeReading(ref, identity, shape, nodes: tuple[CompositeNode, ...], standing: Resolution, node_outcomes: Mapping[str, TermOutcome], rows: tuple[MemberRow, ...])` with `projection() -> dict` (canonically encodable; the evaluator answer projected as `answers.payload` in the reproduction driver does — `{"kind": "Belief", "value", "belief_input_digest", "policy_binding"}` and its two siblings); `read_composite(view, ref, *, context, availability, resolution, binding, profile) -> CompositeReading`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -1904,20 +1955,16 @@ Create `python/tests/test_composite_reading.py`:
 
 from __future__ import annotations
 
-from decimal import Decimal
-
 import pytest
-from profiles import WITH_BIOLOGY, pins_for
-from test_composite_boundary import EX, GENE, A, B, C, _build, _claim, _proposition, _writer
+from profiles import pins_for
+from test_composite_boundary import GENE, SNAPSHOT, A, _build, _claim, _estimand, _proposition, _writer
 from test_evaluation import _observations  # the held byte observations helper, keyed by dataset address
 
 from beliefs import stored
 from beliefs.belief import Availability, Belief, NoBelief, NotReached, SuppliedContext
-from beliefs.claim import Referent
 from beliefs.closure import RetractionEnumeration
 from beliefs.composite import CompositeNode, CompositeError, build_composite, read_composite
 from beliefs.corpus import lineage_snapshot
-from beliefs.estimand import Control, LevelsContrast, Measure, build_estimand
 from beliefs.evaluation import evaluate_over
 from beliefs.identity import v1
 from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding
@@ -1925,21 +1972,6 @@ from beliefs.projection import project_claim
 from beliefs.resolution import TermOutcome, build_snapshot
 
 BINDING = PolicyBinding(rule=BELIEF_V1_RULE, implementation=BELIEF_V1.identity)
-# Every biology-fixture sort binds `EX/2026-01-01`, so one binding carries the nodes and the estimand's terms.
-SNAPSHOT = build_snapshot(readable={EX: ["EX:a", "EX:b", "EX:c", "EX:lo", "EX:hi", "EX:expr", "EX:observational"]})
-
-
-def _estimand(claim):
-    """A typed estimand for a biology-fixture `affects` claim, under the profile that stores and restores it —
-    the fixture's `estimands:` row for `affects` (Step 4) names `biology/level`, `biology/measure`, `biology/identification`."""
-    estimand, _ = build_estimand(
-        WITH_BIOLOGY, claim, snapshot=SNAPSHOT,
-        contrast=LevelsContrast(slot=0, baseline=Referent("biology/level", "EX:lo"), comparison=Referent("biology/level", "EX:hi")),
-        measure=Measure(quantity=Referent("biology/measure", "EX:expr"), scale="additive"),
-        reference=Decimal("0"),
-        control=Control(identification=Referent("biology/identification", "EX:observational"), conditioning=()),
-    )
-    return estimand
 
 
 @pytest.fixture()
@@ -2183,9 +2215,7 @@ def evaluate_over(
 
 Import `Admission`, `NotReached`, `evaluate_traced` from `beliefs.belief`; add `evaluate_over_traced` to `__all__`.
 
-- [ ] **Step 4: The fixture's estimand declarations and the seeding helper**
-
-In `python/tests/fixtures/biology-fixture.yaml` add three sorts beside `gene`, each `vocabulary: { namespace: EX, release: "2026-01-01" }` — `level`, `measure`, `identification` — and an `estimands:` table with one row for `affects`, spelled exactly as the estimand lane's `fixtures/contracts/testing.yaml` spells its `affects` row (the same keys — `level_sorts` keyed by slot, `measure_sort`, `identification_sort`, and `conditioning_sort` if that fixture carries it — with the three new sorts in place of its). `profiles.py` parses the document twice with different descriptions; both variants gain the rows. Run `uv run --frozen pytest tests/test_relocation.py tests/test_world_view_acceptance.py -q` if either pins the fixture contract's identity and update the pin.
+- [ ] **Step 4: The seeding helper**
 
 In `python/tests/test_evaluation.py`, beside `_seed`, add a helper the reading tests share:
 
@@ -2603,7 +2633,7 @@ Nothing in the frozen document is edited; a correction found while writing the a
 - `test_u1_grammar_kind_and_relations` — the shipped contract's declarations in Python and, via `subprocess.run(["npx", "vitest", "run", "tests/declarations.test.ts"], cwd=ts)`, in TypeScript.
 - `test_u2_edges_declared_and_never_redefined` — `test_domain_contract.TestEdges` over the durable corpus's pinned profile.
 - `test_u3_form_classification_and_vocabulary_arms` — the two halves: `add` refuses each form/classification row; `add` admits the vocabulary-excluded isolated node that `build_composite` and `read_composite` refuse/report.
-- `test_u4_belief_inert` — read the belief input digest of `proposition:ab` through `evaluate_over` before and after minting, superseding and deleting a composite naming it; byte-identical each time; an assessment with otherwise valid evidence — an observing run over a held, attested dataset — whose `assesses` target is the composite is refused at `add` and at `import_bundle` with `SignatureRefused("…assesses-target-kind…")` (Task 4's guard; the eligibility predicate alone admits it).
+- `test_u4_belief_inert` — read the belief input digest of `proposition:ab` through `evaluate_over` before and after minting, superseding and deleting a composite naming it; byte-identical each time; an assessment with otherwise valid evidence — an observing run over a held, attested dataset — whose `assesses` target is the composite is refused at `add` and at `import_bundle` with `SignatureRefused("…assesses-target-kind…")`, and one whose target resolves nowhere with `…assesses-target-unresolvable…` (Task 4's guard; the eligibility predicate alone admits both, so a `composite:future` could otherwise establish the edge by arriving second).
 - `test_u5_identity` — the three pairs of `test_composite.py`.
 - `test_u6_boundary_resolution_and_identity` — the swapped member, the dataset member, the unresolvable ref, through `add` and through `import_bundle`.
 - `test_u7_audit_codes` — the four codes plus `supersedes-cross-kind`, each still read by later arms.
@@ -2620,6 +2650,7 @@ Nothing in the frozen document is edited; a correction found while writing the a
 | U4-a | `closure.py`: the projection gains the composites naming the proposition | `test_u4_belief_inert` (digest moves on mint) |
 | U4-b | `contracts/science/CONTRACT.yaml` (both copies): `assesses` targets gain `composite` | `test_u1_…`, `test_u4_…` |
 | U4-c | `corpus.py` `_refuse_assesses_target_kind`: `target.kind != "proposition"` becomes `False` | `test_u4_…` (the otherwise-eligible assessment is admitted) |
+| U4-d | `corpus.py` `_refuse_assesses_target_kind`: the `except RefError` arm becomes `continue` | `test_u4_…` (the `composite:future` assessment is admitted) |
 | U3-a | `composite.py` `classify`: the `layer != "causal"` refusal dropped | `test_u3_…` (the `associates-with`/statistical fixture) |
 | U3-b | `composite.py` `classify`: `Edge(... sign=claim.polarity ...)` skipped for `negative` (member dropped from `edges`) | `test_u3_…` (the signed-cycle fixture) |
 | U3-c | `composite.py` `build_composite`: `refused` computed over `outcome.performed` instead of `outcome.refuses` (admits `not-member`) | `test_u3_…` (the excluding-snapshot fixture) |

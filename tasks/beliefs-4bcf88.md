@@ -6,7 +6,7 @@ priority: 2
 size: l
 complexity: high
 created: 2026-09-13T00:35:00Z
-updated: 2026-09-13T02:13:20Z
+updated: 2026-09-13T02:32:38Z
 depends: []
 tags: [design]
 spec: docs/superpowers/specs/2026-09-12-composite-claims-design.md
@@ -23,3 +23,4 @@ The second spec from the 2026-09-12 models assessment. A structure (a causal DAG
 - 2026-09-13T01:26:36Z (design/composite-claim): Spec review 3: two findings (admitted set survives NoBelief arms as reached/not-reached; admission-once asserted by a call trap), both taken
 - 2026-09-13T01:56:09Z (design/composite-claim): parked (waiting on user, review): Plan drafted; review it, then Task 0 opens the lane after estimand-typing merges
 - 2026-09-13T02:13:20Z (design/composite-claim): Plan review 1: twelve findings (field sets extend the estimand baseline; assesses target-kind guard; step-5 contradiction arm; whole node-set contract and retirement in classify; restoration errors translated; reading refuses not-member; supported shapes enforced; acyclic typed reading fixture; U10 receipt not-consulted for PHF19; traps exercise the reading; YAML mutations and NotReached equality), all taken
+- 2026-09-13T02:32:38Z (design/composite-claim): Plan review 2: two findings (unresolved assesses target refuses on the shared path, add and import; U4 test builds a typed assessment, fixture estimand rows moved to Task 2), both taken
