@@ -1530,10 +1530,13 @@ class TestSupersession:
         members = tuple(n for n in writer.read_view.iter_stored() if n.kind in {"proposition", "dataset", "run"}) + (assessment,)
         with pytest.raises(ImportRefused, match="assesses-target-unresolvable"):
             other.import_bundle(members, **IMPORT)
-        # And a target arriving in the same bundle resolves through the union view.
+        # And a target arriving in the same bundle resolves through the union view. The bundle is rebuilt
+        # after `ok` exists, so it carries `run:run-a-z` too — eligibility refuses an assessment whose run
+        # is in neither the destination nor the bundle.
         ok = self._typed_assessment(writer, "a-z", "proposition:ab")
-        other.import_bundle((*members[:-1], ok), **IMPORT)
-        assert other.read_view.holds("assessment:a-z")
+        bundle = tuple(n for n in writer.read_view.iter_stored() if n.kind in {"proposition", "dataset", "run"}) + (ok,)
+        other.import_bundle(bundle, **IMPORT)
+        assert other.read_view.holds("assessment:a-z") and other.read_view.holds("run:run-a-z")
 
     def test_a_same_kind_supersedes_edge_imports(self, writer, tmp_path):
         first = writer.add(stored.composite_node(_build(writer, ["proposition:ab"], slug="v1"), title="v1"))
