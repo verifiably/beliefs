@@ -21,7 +21,7 @@ from verification_fixtures import publish_corpus, self_consistent_forgery
 
 from beliefs import stored
 from beliefs.corpus import CorpusWriter, ReadView, _root_state_for, lineage_snapshot
-from beliefs.errors import BuildContended, EpochUnknown, RecordNotPresent, ResolutionRefused
+from beliefs.errors import BuildContended, CaptureDrift, EpochUnknown, RecordNotPresent, ResolutionRefused
 from beliefs.lineage import Absence, snapshot_projection
 from beliefs.world import read
 from beliefs.world.view import DriftReport, WorldReadView, open_world_view
@@ -811,3 +811,115 @@ class TestR19AcrossCorpora:
         outcome = check_verification(local, local.get(published.node.id), evidence=published.evidence)
         assert not outcome.checked and outcome.contradiction is None
         assert outcome.reason.endswith("does not resolve here")
+
+
+def damage(root: Path, kind: str) -> None:
+    """Apply one damage named by the four construction clauses."""
+    from nodes.core.frontmatter import node_from_markdown
+
+    stored_files = sorted(root.rglob("*.md"))
+    if kind == "parse-error":
+        (root / "verification").mkdir(exist_ok=True)
+        (root / "verification" / "bad.md").write_text("---\nnot: [a valid record\n---\n", encoding="utf-8")
+        return
+    if kind == "path-mismatch":
+        source = stored_files[0]
+        source.rename(source.with_name("moved-" + source.name))
+        return
+    original = node_from_markdown(stored_files[0].read_text(encoding="utf-8"))
+    twin = original.model_copy(deep=True)
+    kind_prefix, _, slug = original.id.partition(":")
+    twin.id = f"{kind_prefix}:{slug}-twin"
+    if kind == "uid-collision":
+        pass
+    elif kind == "id-collision":
+        twin.uid = f"twin-{original.uid}"
+        twin.deprecated_ids = [original.id]
+    else:
+        raise ValueError(kind)
+    raw_write(root, twin)
+
+
+class TestReportMode:
+    @pytest.mark.parametrize("kind", ["parse-error", "path-mismatch", "uid-collision", "id-collision"])
+    def test_a_damaged_carrier_is_reported_and_never_served(self, tmp_path, kind):
+        from beliefs.errors import CorpusDamaged, CorpusStateMalformed
+
+        world, roots, published = two_corpus_world(tmp_path)
+        damage(roots[BETA], kind)
+
+        with pytest.raises(CorpusStateMalformed):
+            open_world_view(world, published)
+        view = open_world_view(world, published, on_damage="report")
+
+        (report,) = view.damaged()
+        assert report.corpus_id == BETA and report.cause == "construction"
+        assert kind in {finding.code for finding in report.findings}
+        assert view.absent() == () and all(d.corpus_id != BETA for d in view.drift())
+        address = address_in(published, BETA)
+        for read_it in (view.locate, view.resolve, view.holds, view.get, view.inbound, view.corpus_view):
+            with pytest.raises(CorpusDamaged):
+                read_it(address)
+        assert view.corpus_of(address) == BETA
+        assert all(node.id != address for node in view.iter_stored())
+        assert view.captured_records(BETA) and view.captured_manifest(BETA).corpus_id == BETA
+        assert view.get(address_in(published, ALPHA)).id == address_in(published, ALPHA)
+
+    def test_a_foreign_base_pin_is_damage_with_no_records(self, tmp_path):
+        from fixtures_cut6 import manifest_document
+
+        from beliefs.errors import ContractMismatch, CorpusDamaged
+
+        world, roots, published = two_corpus_world(tmp_path)
+        manifest = manifest_document(BETA).replace(
+            f"science_contract: {pins_for(BASE).science_contract}", "science_contract: science:" + "0" * 64
+        )
+        (roots[BETA] / "corpus.yaml").write_text(manifest, encoding="utf-8")
+
+        with pytest.raises(ContractMismatch):
+            open_world_view(world, published)
+        view = open_world_view(world, published, on_damage="report")
+
+        (report,) = view.damaged()
+        assert report.cause == "base-pin" and report.findings == ()
+        assert view.captured_records(BETA) == ()
+        assert view.captured_manifest(BETA).profile.science_contract == "science:" + "0" * 64
+        with pytest.raises(CorpusDamaged):
+            view.get(address_in(published, BETA))
+
+    def test_a_damaged_corpus_skips_the_map_and_owner_checks(self, tmp_path):
+        world, roots, published = two_corpus_world(tmp_path)
+        damage(roots[BETA], "uid-collision")
+        view = open_world_view(world, published, on_damage="report")
+        assert view.damaged()[0].corpus_id == BETA
+
+    def test_the_hold_is_the_lock_only_lookup(self, tmp_path, monkeypatch):
+        """Strict corpus construction must happen only after the hold is taken."""
+        from beliefs import corpus as corpus_module
+
+        world, roots, published = two_corpus_world(tmp_path)
+        damage(roots[BETA], "parse-error")
+
+        def refuse(*_a, **_k):
+            raise AssertionError("_root_state_for called under report mode")
+
+        monkeypatch.setattr(corpus_module, "_root_state_for", refuse)
+        view = open_world_view(world, published, on_damage="report")
+        assert view.damaged()[0].corpus_id == BETA
+
+    def test_drift_moving_inside_the_hold_still_raises(self, tmp_path, monkeypatch):
+        world, roots, published = two_corpus_world(tmp_path)
+        from beliefs.world import registry as registry_module
+
+        calls = {"n": 0}
+        original = registry_module.corpus_state_identity
+
+        def moving(root):
+            calls["n"] += 1
+            if calls["n"] == 2:
+                raw_write(roots[ALPHA], stored.dataset_node("late", title="late"))
+            return original(root)
+
+        monkeypatch.setattr(registry_module, "corpus_state_identity", moving)
+        with pytest.raises(CaptureDrift):
+            open_world_view(world, published, on_damage="report")

@@ -180,7 +180,7 @@ from beliefs.world.verify import (
     PresentedManifest,
     PresentedWorldIds,
 )
-from beliefs.world.view import DriftReport, WorldReadView, open_world_view
+from beliefs.world.view import DamageReport, DriftReport, WorldReadView, open_world_view
 
 __all__ = [
     "BELIEF_INPUT_KIND",
@@ -229,6 +229,7 @@ __all__ = [
     "CorpusManifest",
     "CorpusStatus",
     "CorpusSubject",
+    "DamageReport",
     "DefectKind",
     "DefectView",
     "DerivationBindings",

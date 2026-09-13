@@ -139,6 +139,7 @@ if TYPE_CHECKING:
     from beliefs.world.view import WorldReadView
 
 __all__ = [
+    "CONSTRUCTION_CODES",
     "DIRECTIONS",
     "ELIGIBLE_RETRACTION_TARGET_KINDS",
     "EXCLUDED_MUTATION_KINDS",
@@ -738,6 +739,23 @@ def _root_state_for(root: Path, executor_factory: Callable[[Path], WritePlanExec
         elif state.executor_factory is not executor_factory:
             raise ScienceError(f"corpus root {key!r} is already open with a different executor factory")
         return state
+
+
+CONSTRUCTION_CODES = frozenset({"parse-error", "path-mismatch", "uid-collision", "id-collision"})
+"""The construction findings adopted from ``nodes`` collecting mode."""
+
+
+def _collecting_view(root: Path) -> tuple[tuple[Node, ...], tuple[Finding, ...]]:
+    """Return detached admitted records and sealed construction findings."""
+    handle = Corpus(Path(root).resolve(), mode="collecting")
+    findings = tuple(
+        Finding(severity=f.severity, code=f.code, ref=f.ref, detail=f.detail, message=f.message)
+        for f in handle.check()
+        if f.code in CONSTRUCTION_CODES
+    )
+    return tuple(node.model_copy(deep=True) for node in handle.all()), tuple(
+        sorted(findings, key=lambda finding: finding.sort_key)
+    )
 
 
 def _forget_roots_under(directory: Path) -> None:

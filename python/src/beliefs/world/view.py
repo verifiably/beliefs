@@ -6,19 +6,28 @@ from collections.abc import Iterator, Mapping
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast, final
+from typing import Literal, cast, final
 
 from nodes.core.errors import RefError
 from nodes.core.node import Node
 from nodes.core.structural_index import ResolvedEdge
 
-from beliefs.corpus import ReadView, _producer_ids, _root_state_for, validated_node
-from beliefs.errors import CaptureDrift, EpochUnknown, ManifestMalformed, RecordNotPresent, ResolutionRefused
+from beliefs.corpus import Finding, ReadView, _collecting_view, _operation_lock_for, _producer_ids, validated_node
+from beliefs.errors import (
+    CaptureDrift,
+    ContractMismatch,
+    CorpusDamaged,
+    CorpusStateMalformed,
+    EpochUnknown,
+    ManifestMalformed,
+    RecordNotPresent,
+    ResolutionRefused,
+)
 from beliefs.sealed import sealed
 from beliefs.world import epoch, registry
 from beliefs.world.read import BoundStamp, Location, NotPresent, Resolved, Unknown, _address_map, _stamp
 
-__all__ = ["DriftReport", "WorldReadView", "open_world_view"]
+__all__ = ["DamageReport", "DriftReport", "WorldReadView", "open_world_view"]
 
 _MINT = object()
 
@@ -32,6 +41,15 @@ class DriftReport:
     unmapped: tuple[str, ...]
 
 
+@final
+@dataclass(frozen=True)
+class DamageReport:
+    corpus_id: str
+    carrier: Path
+    cause: Literal["construction", "base-pin"]
+    findings: tuple[Finding, ...]
+
+
 @sealed
 @final
 class WorldReadView:
@@ -40,6 +58,10 @@ class WorldReadView:
     _held: Mapping[str, Mapping[str, Node]]
     _absent: tuple[str, ...]
     _drift: tuple[DriftReport, ...]
+    _damaged: tuple[DamageReport, ...]
+    _damaged_ids: frozenset[str]
+    _captured: Mapping[str, tuple[Node, ...]]
+    _manifests: Mapping[str, registry.CorpusManifest]
     _inbound: Mapping[tuple[str, str], tuple[ResolvedEdge, ...]]
     _producers: Mapping[tuple[str, str], tuple[str, ...]]
     _live: Mapping[str, ReadView]
@@ -57,6 +79,10 @@ class WorldReadView:
         held: Mapping[str, Mapping[str, Node]],
         absent: tuple[str, ...],
         drift: tuple[DriftReport, ...],
+        damaged: tuple[DamageReport, ...],
+        damaged_ids: frozenset[str],
+        captured: Mapping[str, tuple[Node, ...]],
+        manifests: Mapping[str, registry.CorpusManifest],
         inbound: Mapping[tuple[str, str], tuple[ResolvedEdge, ...]],
         producers: Mapping[tuple[str, str], tuple[str, ...]],
         live: Mapping[str, ReadView],
@@ -69,6 +95,10 @@ class WorldReadView:
         view._held = held
         view._absent = absent
         view._drift = drift
+        view._damaged = damaged
+        view._damaged_ids = damaged_ids
+        view._captured = captured
+        view._manifests = manifests
         view._inbound = inbound
         view._producers = producers
         view._live = live
@@ -84,7 +114,17 @@ class WorldReadView:
     def drift(self) -> tuple[DriftReport, ...]:
         return self._drift
 
+    def damaged(self) -> tuple[DamageReport, ...]:
+        return self._damaged
+
+    def captured_records(self, corpus_id: str) -> tuple[Node, ...]:
+        return tuple(node.model_copy(deep=True) for node in self._captured[corpus_id])
+
+    def captured_manifest(self, corpus_id: str) -> registry.CorpusManifest:
+        return self._manifests[corpus_id]
+
     def locate(self, ref: str) -> Resolved | NotPresent | Unknown:
+        self._refuse_damaged(ref)
         entry = self._recorded.get(ref)
         if entry is None:
             return Unknown(self._stamp)
@@ -105,6 +145,7 @@ class WorldReadView:
         return () if entry is None else self._producers.get(entry, ())
 
     def resolve(self, ref: str) -> str | None:
+        self._refuse_damaged(ref)
         entry = self._recorded.get(ref)
         if entry is None or entry[0] in self._absent:
             return None
@@ -119,6 +160,7 @@ class WorldReadView:
         return validated_node(node).model_copy(deep=True)
 
     def inbound(self, ref: str) -> list[ResolvedEdge]:
+        self._refuse_damaged(ref)
         entry = self._recorded.get(ref)
         if entry is None:
             return []
@@ -149,8 +191,15 @@ class WorldReadView:
             raise RecordNotPresent(ref, self._recorded[ref][0], self._stamp)
         return cast(Resolved, located)
 
+    def _refuse_damaged(self, ref: str) -> None:
+        entry = self._recorded.get(ref)
+        if entry is not None and entry[0] in self._damaged_ids:
+            raise CorpusDamaged(ref, entry[0], self._stamp)
 
-def open_world_view(world: registry.World, published: epoch.Epoch) -> WorldReadView:
+
+def open_world_view(
+    world: registry.World, published: epoch.Epoch, *, on_damage: Literal["refuse", "report"] = "refuse"
+) -> WorldReadView:
     stamp = _stamp(published)
     recorded = _address_map(published)
     covered = tuple(corpus_id for corpus_id, _ in published.coverage)
@@ -184,13 +233,30 @@ def open_world_view(world: registry.World, published: epoch.Epoch) -> WorldReadV
     captured: dict[str, dict[str, Node]] = {}
     states: dict[str, str] = {}
     live: dict[str, ReadView] = {}
+    manifests: dict[str, registry.CorpusManifest] = {}
+    all_captured: dict[str, tuple[Node, ...]] = {}
+    damaged: list[DamageReport] = []
     for corpus_id in sorted(carriers):
         carrier = carriers[corpus_id]
-        state = _root_state_for(carrier, world._corpus_executor_factory)
-        with state.lock.capture():
-            before = registry.corpus_state_identity(carrier)
-            view = ReadView.opened_at(carrier)
-            view._require_base_pin()
+        with _operation_lock_for(carrier).capture():
+            manifests[corpus_id] = registry.load_manifest(carrier)
+            try:
+                before = registry.corpus_state_identity(carrier)
+                view = ReadView.opened_at(carrier)
+                view._require_base_pin()
+            except CorpusStateMalformed:
+                if on_damage == "refuse":
+                    raise
+                remainder, findings = _collecting_view(carrier)
+                damaged.append(DamageReport(corpus_id, carrier, "construction", findings))
+                all_captured[corpus_id] = remainder
+                continue
+            except ContractMismatch:
+                if on_damage == "refuse":
+                    raise
+                damaged.append(DamageReport(corpus_id, carrier, "base-pin", ()))
+                all_captured[corpus_id] = ()
+                continue
             records = tuple(view.iter_stored())
             after = registry.corpus_state_identity(carrier)
             if before != after:
@@ -199,8 +265,10 @@ def open_world_view(world: registry.World, published: epoch.Epoch) -> WorldReadV
                     f"({before} -> {after}); the whole open is discarded and nothing is served"
                 )
         captured[corpus_id] = {node.uid: node for node in records}
+        all_captured[corpus_id] = records
         states[corpus_id] = before
         live[corpus_id] = view
+    damaged_ids = frozenset(report.corpus_id for report in damaged)
 
     mapped: dict[str, set[str]] = {}
     for address, (corpus_id, uid) in recorded.items():
@@ -265,6 +333,10 @@ def open_world_view(world: registry.World, published: epoch.Epoch) -> WorldReadV
         held=held,
         absent=absent,
         drift=tuple(drift),
+        damaged=tuple(damaged),
+        damaged_ids=damaged_ids,
+        captured=all_captured,
+        manifests=manifests,
         inbound={key: tuple(edges) for key, edges in inbound.items()},
         producers={location: tuple(sorted(runs)) for location, runs in producer_sets.items()},
         live=live,

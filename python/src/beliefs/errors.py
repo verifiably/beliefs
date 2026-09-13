@@ -432,6 +432,19 @@ class RecordNotPresent(ScienceError):
         )
 
 
+class CorpusDamaged(ScienceError):
+    """A recorded address belongs to a present corpus this view could not read whole."""
+
+    def __init__(self, ref: str, corpus_id: str, stamp: "BoundStamp") -> None:
+        self.ref = ref
+        self.corpus_id = corpus_id
+        self.stamp = stamp
+        super().__init__(
+            f"{ref}: recorded in {corpus_id}, a present corpus this view could not read whole "
+            f"(publication {stamp.packaging_identity[:12]}…); the record is unjudged, not absent"
+        )
+
+
 class EdgeIndeterminate(ScienceError):
     """A coreference expansion would have traversed an indeterminate edge (§8.4).
 
