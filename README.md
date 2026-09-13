@@ -102,7 +102,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 26** is implemented and discharged. What
+Every conformance cut through **cut 27** is implemented and discharged. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -140,9 +140,12 @@ and carries named absence into lineage and evaluation. Coreference attestations
 are now governed, minted through the ledgered session route, and reduced into
 the published coverage-bound balance. Source addresses are now derived from
 normalized identifiers, and identifier correction preserves attributed history.
-The latest discharged boundary is cut 26
-([cut](docs/designs/2026-09-12-conformance-cut-26.md),
-[results](docs/plans/2026-09-12-conformance-cut-26-results.md)).
+Epoch import evaluates every receipt before writing; epoch audit and query
+reduce retained receipt states; and the world audit reports damaged corpora
+while judging their captured remainder.
+The latest discharged boundary is cut 27
+([cut](docs/designs/2026-09-13-conformance-cut-27.md),
+[results](docs/plans/2026-09-13-conformance-cut-27-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
 test before it is a passing one. There are **196 rows** across **eighteen frozen
@@ -152,7 +155,7 @@ redefinition.
 
 What is built and what remains to build, each remainder with its named owner,
 is stated once, in the
-[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-12).
+[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-13).
 The per-cut results records under [`docs/plans/`](docs/plans/) are the
 evidence trail, and unresolved design questions live in the guide's
 [open questions](docs/guide/open-questions.md).

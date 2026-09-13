@@ -1,13 +1,13 @@
 # Conformance cut 27 — snapshots, import, audit and diagnostics
 
-**Status:** frozen 2026-09-13 before implementation.
+**Status:** discharged 2026-09-13; frozen before implementation. Results: `../plans/2026-09-13-conformance-cut-27-results.md`.
 **Frozen:** 2026-09-13, before implementation, on `design/world-resolution-slice-3`
 **Design:** `../superpowers/specs/2026-09-13-world-resolution-slice-3-design.md`, reviewed three times 2026-09-13
 **Numbered after** cut 26 (roadmap concurrency rule 1) and **serialized after** its discharge, which is in the branch ancestry (rule 5).
 
 ## 1. What this cut is
 
-The world index's evidence of its own completeness is the derivation receipt.
+The following baseline describes the tree before implementation; cut 27 is now discharged, and the dated results record preserves the measured outcome.
 Cut 7 built the one evaluator the world-addressing design names —
 `world/read.py`'s `validate_receipt`: well-formedness from the document alone,
 then availability, then the rebuild — and gave it one caller, the coreference

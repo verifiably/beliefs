@@ -1,7 +1,7 @@
 # World resolution, slice 3 — snapshots, import, audit and diagnostics
 
 **Date:** 2026-09-13
-**Status:** approved 2026-09-13; implementation in progress
+**Status:** discharged at conformance cut 27 on 2026-09-13; results: `../../plans/2026-09-13-conformance-cut-27-results.md`
 **Boundary:** `world-resolution`, slice 3 of four (`beliefs-d248ba`, task `beliefs-46847c`), carrying `packaging-remainder` with it
 **Lane:** `world-read`, worktree `.worktrees/world-slice-3`
 **Sources:** `../../designs/2026-08-02-world-addressing-design.md` (§5 "one evaluator, three callers", §5.1, §7 rows W8a, W13),

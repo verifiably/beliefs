@@ -1,7 +1,6 @@
 # Implementation roadmap
 
-**Ranked at:** cut 26, against the ledger's Current state (2026-09-12);
-`nodes-remainder` closed 2026-09-12
+**Ranked at:** cut 27, against the ledger's Current state (2026-09-13)
 **Method:** `../superpowers/specs/2026-08-29-implementation-roadmap-design.md`,
 as amended 2026-09-05 — tier 1 is ordered by distance to the dogfood success
 criterion (§4.0 there), open lanes are bounded, and a method amendment
@@ -15,7 +14,7 @@ carries no dated corrections, and the previous ranking survives only in git
 history.
 
 The adoption ledger's `Current state` table
-(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-12`)
+(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-13`)
 is the authority for *what* is open; this document is the authority for *in
 what order*. The two name the same boundaries by id, and
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds them to it.
@@ -39,22 +38,19 @@ criterion cannot be met without are **on the path**, in dependency order;
 the rest are **off the path**, in breadth order. Whether a boundary is on the
 path is measured where it can be, by the reproduction lane (§Lanes).
 
-**Cut 25 (2026-09-11) discharges world-resolution slice 2b without changing
-the ranking.** It closes W1, W2 and W5a: source addresses now derive from the
-selected normalized identifier, and identifier correction is attributed and
-preserves continuity. `world-resolution` stays first on the path: dataset
-address derivation and divergent-history reconciliation are filed, while the
-snapshot/import and audit callers and view evaluation remain. Its packaging
-ride-along is unchanged. W8b was measured, repaired by `beliefs-fda0e5`, and
-not selected; a future cut must select it before its conformance row can close.
+**Cut 27 (2026-09-13) discharges world-resolution slice 3 without changing
+the ranking.** It closes X5, W13 and the new S9; reads R23's snapshot, import
+and divergence clauses; and reads W8a's packaging arms. `world-resolution`
+stays first on the path: W7, W8 and W8b remain
+unselected for slice 4, and dataset-address derivation and divergent-history
+reconciliation remain filed. W8b is measured and repaired by `beliefs-fda0e5`.
 
-The current accounting is 148 of 195 rows closed, with 47 open. The prior
+The current accounting is 151 of 196 rows closed, with 45 open. The prior
 single-corpus mm30 measurement still ranks this boundary on the path when a
-second corpus enters; cut 25 adds source-address acceptance fixtures, not another
-mm30 reproduction measurement. The remaining slices under `beliefs-d248ba` are snapshots/import/audit
-(`beliefs-46847c`) and view evaluation (`beliefs-0e523a`), delivered serially in
-that order; dataset addressing (`beliefs-48214e`) and divergent-history
-reconciliation (`beliefs-24b42b`) are filed alongside them.
+second corpus enters; cut 27 adds no new mm30 reproduction measurement. The
+remaining slice under `beliefs-d248ba` is view evaluation (`beliefs-0e523a`);
+dataset addressing (`beliefs-48214e`) and divergent-history reconciliation
+(`beliefs-24b42b`) remain filed alongside it.
 
 ## Boundary index
 
@@ -67,12 +63,11 @@ their lane's task, and tier-3 design questions remain `idea` tasks.
 
 | id | rows it closes | tier | task |
 |---|---|---|---|
-| `world-resolution` | W7, W8 and W8b; W13 less its two-projects negative; R23's snapshot, divergence and explicit-import clauses; dataset addressing and divergent correction-history reconciliation | 1, on the path | [beliefs-d248ba](../../tasks/beliefs-d248ba.md) |
+| `world-resolution` | W7, W8 and W8b; dataset addressing and divergent correction-history reconciliation | 1, on the path | [beliefs-d248ba](../../tasks/beliefs-d248ba.md) |
 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | 1, off the path | [beliefs-aa27da](../../tasks/beliefs-aa27da.md) |
 | `url-retrieval` | H4, G9, R10, T5; T7's same-root case | 1, off the path | [beliefs-d13fe8](../../tasks/beliefs-d13fe8.md) |
 | `event-level-l8` | L8 | 1, off the path | [beliefs-b34652](../../tasks/beliefs-b34652.md) |
-| `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a, X12, C10's certification arms; R23's rules-store clauses | 1, the join | [beliefs-eacbe2](../../tasks/beliefs-eacbe2.md) |
-| `packaging-remainder` | X5 (relabel); W8a's import and audit arms | 1, rides with `world-resolution` | [beliefs-d248ba](../../tasks/beliefs-d248ba.md) |
+| `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | 1, the join | [beliefs-eacbe2](../../tasks/beliefs-eacbe2.md) |
 | `act-report-remainder` | T1, T2, T4 | 1, rides with `url-retrieval` | [beliefs-d13fe8](../../tasks/beliefs-d13fe8.md) |
 | `log-remainder` | L1, L4; L10 (relabel) | 1, rides with `event-level-l8` | [beliefs-b34652](../../tasks/beliefs-b34652.md) |
 | `l13-preimage` | L13 | 2 | [beliefs-a7df71](../../tasks/beliefs-a7df71.md) |
@@ -92,7 +87,7 @@ from being met without it; its lane (§Lanes) says what it must wait for.
 
 | # | id | rows | unblocks | placement |
 |---|---|---|---|---|
-| 1 | `world-resolution` | W7, W8 and W8b; W13 less its two-projects negative; R23's snapshot, divergence and explicit-import clauses; dataset addressing and divergent correction-history reconciliation | dataset addressing; snapshot/import and audit callers; W7 view evaluation for `next` and `publish` | slices 1, 2 and 2b discharged at cuts 23, 24 and 25; slice 3 (`beliefs-46847c`) is next. W8b is repaired by `beliefs-fda0e5` but remains unselected |
+| 1 | `world-resolution` | W7, W8 and W8b; dataset addressing and divergent correction-history reconciliation | dataset addressing; W7 view evaluation for `next` and `publish` | slices 1, 2, 2b and 3 discharged at cuts 23, 24, 25 and 27; slice 4 (`beliefs-0e523a`) is next. W8 and W8b remain unselected; W8b is repaired by `beliefs-fda0e5` |
 
 ### Off the path
 
@@ -104,14 +99,13 @@ In breadth order. Each opens only when no on-path lane is startable
 | 2 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | the correction lifecycle in full | C7's consolidate prerequisite landed at cut 16 and the deletion surface it shares at cut 18; the stored semantic-snapshot kind and evaluator are this boundary's own work. Off the path: the first belief retracts nothing |
 | 3 | `url-retrieval` | H4, G9, R10, T5, T7's same-root case | the first acquisition of a dataset from outside the system; H4 in full | holdings design §2–§3 specify the canonicalization profile and network discipline. Off the path: mm30's data is held locally, so the first belief acquires nothing |
 | 4 | `event-level-l8` | L8 | row 5 reads L8 in full; the log's last Science-only remainder | §7's ordered-cuts predicate is built; the event-level relation is its successor |
-| 5 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a, X12 and C10's `instrument-certification` arms; R23's rules-store clauses | the widest set: the conformance-package split (ledger §5), instrument-certification cadence, legacy-check disposition (N10), P1 | the join, last: N1 mints a successor contract identity for every oracle amended after the freeze, every lane above amends at least one, and the ledger's §2 already rules that the contract freezes after the operation set settles — which the dogfood will change |
+| 5 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | the widest set: the conformance-package split (ledger §5), instrument-certification cadence, legacy-check disposition (N10), P1 | the join, last: N1 mints a successor contract identity for every oracle amended after the freeze, every lane above amends at least one, and the ledger's §2 already rules that the contract freezes after the operation set settles — which the dogfood will change |
 
 **Ride-along closures**, tier 1 by the rule and unblocking no capability of
 their own, each named to the cut that takes it:
 
 | id | rows | rides with |
 |---|---|---|
-| `packaging-remainder` | X5 (relabel); W8a's import and audit arms | `world-resolution` |
 | `act-report-remainder` | T1, T2, T4 | `url-retrieval` — the acquisition operation is the first new operation kind T2 needs |
 | `log-remainder` | L1, L4; L10 (relabel) | `event-level-l8` |
 
@@ -130,7 +124,7 @@ boundary sits in the lane of its prerequisite and waits there.
 |---|---|---|---|
 | `write-path` | none — no open boundary | `corpus.py`, `report.py`, `intents/`, `session/`, `verify.py`, `evaluation.py`, `audit.py` | closed: `writer-session` discharged at cut 19 and `verification-publication` at cut 21 |
 | `domain` | none — `domain-boundary` closed at cut 26 after slices 1 and 2 at cuts 20 and 22 | the `nodes` registry | closed 2026-09-12 at cut 26 |
-| `world-read` | `world-resolution` slices 3–4 and the filed dataset/history follow-ups (+ `packaging-remainder`) → `event-level-l8` (+ `log-remainder`) → `publish` | `world/read.py`, `world/view.py`, `resolution.py`, `world/verify.py`; `corpus.py`, `lineage.py`, `evaluation.py`, `belief.py`, `consulted.py`, `audit.py` as each slice names | on the path at its head; slices 1, 2 and 2b discharged at cuts 23, 24 and 25, slice 3 next |
+| `world-read` | `world-resolution` slice 4 and the filed dataset/history follow-ups → `event-level-l8` (+ `log-remainder`) → `publish` | `world/read.py`, `world/view.py`, `resolution.py`, `world/verify.py`; `corpus.py`, `lineage.py`, `evaluation.py`, `belief.py`, `consulted.py`, `audit.py` as each slice names | on the path at its head; slices 1, 2, 2b and 3 discharged at cuts 23, 24, 25 and 27, slice 4 next |
 | `mutation` | `correction-remainder` | `adapter.py`, `corpus.py`, `audit.py`, `decode.py`, `evaluation.py`, `world/verify.py` | off the path; waits |
 | `acquisition` | `url-retrieval` (+ `act-report-remainder`) | `holdings/`, `report.py` | off the path; waits |
 | `reproduction` | none — a measurement: `../superpowers/specs/2026-09-05-mm30-reproduction-design.md` | no kernel surface; `python/tools/reproduction/`, a corpus on the certified volume beside the checkout, and the record it produces | **closed 2026-09-05**: ran to the evaluator's answer; its record (`../designs/2026-09-05-mm30-reproduction.md`) re-ranked this document, its five findings are filed through the owning lanes, and its corpus stays at `.mm30-reproduction/` as the seed of the dogfood's world |
@@ -210,21 +204,21 @@ slice 1 (facet-contracts §6). Another question raised by the record is carried 
 where an interpretation rule reads content
 ([computation](../guide/open-questions.md#computation-and-reproducibility)).
 
-## Appendix A — live status of every guarantee row at cut 26
+## Appendix A — live status of every guarantee row at cut 27
 
 Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
-(spec §3.1); a row is closed only when no later source reopens it. Cut 25
-closes W1, W2 and W5a. X12, W8a and M3 remain partial at cut 24; W8b remains never
-selected despite its repaired measured defect; measurement is not selection.
+(spec §3.1); a row is closed only when no later source reopens it. Cut 27 closes
+X5, W13 and S9. R23 and W8a remain partial only on their `contract-cut`
+clauses; W8 and W8b remain never selected, and measurement is not selection.
 
 | table | never selected | part — last cut that read it | reopened |
 |---|---|---|---|
 | G | — | G9 (cut 10) | — |
 | S | — | S6 (cut 2) | — |
-| W | W7, W8, W9, W14, W8b | W13 (cut 14), W17 (cut 14), W8a (cut 24) | — |
-| R | — | R10 (cut 3), R22 (cut 18), R23 (cut 23) | — |
+| W | W7, W8, W9, W14, W8b | W17 (cut 14), W8a (cut 27) | — |
+| R | — | R10 (cut 3), R22 (cut 18), R23 (cut 27) | — |
 | C | C7, C8, C9 | C3 (cut 16), C10 (cut 5) | — |
-| X | — | X2 (cut 7), X5 (cut 7), X12 (cut 24) | — |
+| X | — | X2 (cut 7), X12 (cut 24) | — |
 | N | N1, N3, N4, N5, N6, N7, N8, N9, N10 | N2 (cut 4) | — |
 | L | — | L1 (cut 8), L2 (cut 9), L4 (cut 9), L7 (cut 12), L8 (cut 8), L10 (cut 10), L13 (cut 8) | — |
 | D | — | — | — |
@@ -238,7 +232,7 @@ selected despite its repaired measured defect; measurement is not selection.
 | V | — | — | — |
 | B | — | — | — |
 
-Closed 148 of 195; open 47.
+Closed 151 of 196; open 45.
 
 ## Appendix B — classification of every open row
 
@@ -249,21 +243,19 @@ Each open row, its remainder as the last cut states it, and where it goes
 |---|---|---|
 | G9 | the `url` locator arm beside H4's remote arm (cut 10 results §1) | `url-retrieval` |
 | S6 | arm (h), "the first successor policy admitting unequal weights" (cut 2 §4.2; cut 4 §5) | `weighted-belief` — tier 3 |
-| W7, W8 | the remaining world resolver and view evaluation (cut 24 results §5) | `world-resolution` |
+| W7, W8 | the remaining world resolver and view evaluation (cut 27 results §5); both remain unselected | `world-resolution` |
 | W8b | measured but not selected; `beliefs-fda0e5` repaired the measured build defect with distinct `uid-corruption` and `duplicate-location` findings on refusal. Conformance selection remains open | `world-resolution` |
 | W9, W14 | rendered labels and the ambiguous-search refusal against a pinned authority snapshot (ledger artifact 11) | `authority-labels` — tier 3 |
 | W17 | intent-position evidence over the publication-binding revision family (cut 14 results §1) | `publish`; the ordinary coordination revision family is closed |
-| W13 | coverage-declaration and digest-invariance clauses; manifest-only re-mint detection and the forgery variants; replica-restore's declaration half; the fork copy act (cut 6 §3.2) — every named dependency has since landed → relabel candidates | `world-resolution`; the two-projects negative is closed by cut 14 |
-| W8a | the coreference omission-refutes and coverage arms are read at cut 24; certification omission-refutes → `contract-cut` (the `instrument-certification` kind); import-boundary and audit arms (cut 7 §3.2) → `packaging-remainder` | split as stated |
+| W8a | only certification omission-refutes remains after cut 27 reads the import-boundary and audit arms | `contract-cut` — the `instrument-certification` kind |
 | R10 | "the acquisition path records dataset provenance instead" (cut 3 §4.2) | `url-retrieval` |
 | R22 | the unresolvable-interpretation-rule refusal → `contract-cut` (the rules store and resolver, 5b §6); the explicit-import recomputation and raw-written-under-audit arms are closed by cut 18 | `contract-cut` |
-| R23 | producer snapshots and receipts, cross-corpus divergence and explicit-import clauses → `world-resolution`; rules-store clauses → `contract-cut`. Cut 23 closes the coverage clause; replay cardinality, local basis/composition disagreement, move/consolidate, deletion and audit clauses retain their prior closure | split as stated |
+| R23 | only the rules-store clauses remain after cut 27 reads producer snapshots and receipts, cross-corpus divergence and explicit import; all earlier clauses retain their prior closure | `contract-cut` |
 | C3 | uncovered-corpus behavior and the coverage declaration over the global retraction map (cut 16 §2); the exact-state move clause is read | `correction-remainder` |
 | C7 | route-standing evaluator and conflict semantics; its consolidate prerequisite landed at cut 16 | `correction-remainder` |
 | C8, C9 | the stored semantic-snapshot kind, its evaluator and succession; world-index-backed digest enumeration; audit reporting; the mount negative on the managed holdings root (cut 5) | `correction-remainder` |
 | C10 | `instrument-certification` eligibility → `contract-cut`; raw-written refused cases under audit → `correction-remainder` (cut 5) | split as stated |
 | X2 | the persistence-cut arm at every stage, "a Science-side persistence-cut harness or an extension of the `atoms` A8 certification to this consumer path" (cut 7) → `persistence-cut`, tier 2; the interim best-effort-writer negative → limitation (lapsed) | as stated |
-| X5 | admission arm read by cut 6, build arm by cut 7, neither relabeling (cut 7's X5 entry) → relabel | rides with `world-resolution` |
 | X12 | the `coreference-attestation` membership and omission-refutes arms are read at cut 24; `instrument-certification` membership and omission-refutes → `contract-cut` | `contract-cut` |
 | N1, N3–N10 | the first contract cut, certification machinery, the adoption gate (cut 3 §5) | `contract-cut` |
 | N2 | the doctrine over the rows no cut selects (cut 4 §4.2) — closes with the contract cut | `contract-cut` |
@@ -288,7 +280,7 @@ statements: `nodes-remainder` (row 3: reserved-path contract, recoverable
 construction, digest-id hazards); it left on 2026-09-12 when `nodes` merged
 its 2.0 remainder (`b0c37b8`). Two others did carry rows and are gone:
 `writer-session`, which carried J1–J11 and left when cut 19 closed every row
-of it, and `verification-publication`, which entered on cut 13 §2's own named
+of it; `verification-publication`, which entered on cut 13 §2's own named
 exclusion, acquired the `V` table at its freeze, and left when cut 21 closed
 all eight.
 

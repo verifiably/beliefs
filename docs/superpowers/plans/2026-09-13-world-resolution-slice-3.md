@@ -1,6 +1,6 @@
 # World resolution slice 3 — implementation plan
 
-**Status:** implementation in progress since 2026-09-13.
+**Status:** implementation discharged at conformance cut 27 on 2026-09-13; [results](../../plans/2026-09-13-conformance-cut-27-results.md).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

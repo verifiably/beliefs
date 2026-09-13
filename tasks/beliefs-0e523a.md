@@ -6,7 +6,7 @@ priority: 2
 size: l
 complexity: high
 created: 2026-09-09T15:26:54Z
-updated: 2026-09-12T16:26:55Z
+updated: 2026-09-13T17:05:26Z
 depends: [beliefs-46847c]
 parent: beliefs-d248ba
 tags: [world-read]
@@ -17,3 +17,4 @@ Design and freeze W7 view evaluation over the completed world resolver, followin
 ## Notes
 
 - 2026-09-12T16:26:55Z (main): Complexity high: W7 still needs its view-evaluation design over explicit epochs and deterministic query semantics, followed by a complete W8/W8b and packaging accounting. The landed world reader does not settle that evaluator or the remaining conformance selection.
+- 2026-09-13T17:05:26Z (design/world-resolution-slice-3): from slice 3: W8 and W8b remain retained and unselected; audit both labels at slice 4's discharge (slice 3 design §11 item 3)
