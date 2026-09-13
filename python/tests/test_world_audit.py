@@ -130,7 +130,7 @@ def test_a_foreign_base_pin_is_reported_from_the_manifest_alone(tmp_path):
 
 
 def test_a_recomputation_reaching_a_damaged_corpus_is_unreachable(tmp_path):
-    published, _forged, roots, _view, world, epoch = split_verification_world(tmp_path, include_world=True)
+    published, _forged, roots, _view, world, epoch = split_verification_world(tmp_path)
     assert published.node is not None
     damage(roots[BETA], "parse-error")
 

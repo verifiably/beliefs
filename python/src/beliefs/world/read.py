@@ -356,7 +356,7 @@ def _member_for(kind: str) -> str:
 def _contract_fault(
     kind: str, member: str, receipt: epoch._ReceiptCarrier, published: epoch.Epoch
 ) -> str | None:
-    """§7.5's receipt contract, checked against one document, or `None`.
+    """§7.5's receipt contract, checked against carrier and subject bytes, or `None`.
 
     This is the sole enforcer of `epoch.RECEIPT_KEYS`. The carrier layer
     *declares* the closed per-kind key set and deliberately does not police it
@@ -364,11 +364,12 @@ def _contract_fault(
     lift a finding out of, and turning it into an unreadable carrier would
     close the path §8.2 exists to keep open.
 
-    Every check here is a statement about the document and about nothing else,
-    which is what makes them decidable before availability. They run in the
+    Every check here concerns receipt, coverage and subject bytes in the carrier;
+    none consults availability. They run in the
     order a reader would ask them: is this the declared key set, is every value
     written, is the discriminant the member's, is each identity an identity,
-    are the states the sorted distinct sequence §7.5's formula digests, and —
+    are the states the sorted distinct sequence §7.5's formula digests, do their
+    coverage and subject identity agree with the carried snapshot, and —
     for the two kinds that carry their subject's projection — does that
     projection digest to the subject the receipt names.
     """

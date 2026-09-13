@@ -18,7 +18,7 @@ from test_relocation_rows import _belief_digest
 from test_world_audit import codes, stale
 from test_world_epoch_audit import inventory
 from test_world_import_epoch import exported
-from test_world_receipts import document, hold_shipped, publish, repackage
+from test_world_receipts import document, hold_shipped, producer_successor, publish, repackage
 from test_world_view import address_in, chain_nodes, damage
 from test_world_view_acceptance import chain, durable_world  # noqa: F401
 
@@ -263,6 +263,31 @@ def test_a_validating_receipt_beside_a_malformed_one_is_checked_durably(chain):
     assert not any(
         f.code == "snapshot-contradicted" for f in audit_world(world, forged, evidence=NO_EVIDENCE, profile=BASE).world
     )
+
+
+def test_a_validating_retained_receipt_suppresses_a_refuted_own_snapshot_durably(durable_world):
+    original, (world, _roots, published, _a, _b) = verification_world(durable_world)
+    successor = rules.install_rule_binding(world, producer_successor(behavioural=True))
+    receipt = document(published, "producer-receipt.yaml")
+    receipt["implementation_identity"] = successor.implementation_identity
+    forged = repackage(world, published, {"producer-receipt.yaml": receipt})
+    subject = published.receipts["producer-receipt.yaml"].subject_identity
+    assert forged.receipts["producer-receipt.yaml"].subject_identity == subject
+    assert read.validate_receipt(world, published, "producer").outcome == "validated"
+    assert read.validate_receipt(world, forged, "producer").outcome == "refuted"
+
+    audit = audit_world(world, forged, evidence=original.evidence, profile=BASE)
+
+    assert [(f.code, f.ref) for f in audit.world if f.code.startswith("receipt-")] == [
+        ("receipt-refuted", forged.packaging_identity)
+    ]
+    assert not any(f.code == "snapshot-contradicted" for f in audit.world)
+    verdict = snapshot_state(world, "producer", subject)
+    assert verdict.state == "checked"
+    assert {name: outcome.outcome for name, outcome in verdict.receipts} == {
+        published.packaging_identity: "validated",
+        forged.packaging_identity: "refuted",
+    }
 
 
 def test_mounting_evaluates_nothing_and_the_three_callers_agree_durably(chain, scratch, monkeypatch):

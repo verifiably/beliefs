@@ -117,8 +117,11 @@ def _verdicts(
     groups: dict[tuple[derive.ReceiptKind, str], list[tuple[str, derive.ReceiptOutcome]]] = {}
     for name, kind, outcome in outcomes:
         subject = opened[name].receipts[read._member_for(kind)].subject_identity
-        if subject is not None:
-            groups.setdefault((kind, subject), []).append((name, outcome))
+        try:
+            subject = registry._require_lower_hex(subject, 64, "subject")
+        except ValueError:
+            continue
+        groups.setdefault((kind, subject), []).append((name, outcome))
     return tuple(
         SnapshotVerdict(
             kind,

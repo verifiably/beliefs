@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Literal, cast, overload
+from typing import Any, cast
 
 import pytest
 from authority import FULL
@@ -755,19 +755,7 @@ class TestEvaluationOverTheWorld:
         assert inputs.absent == () and inputs.claim is None
 
 
-@overload
-def split_verification_world(
-    tmp_path: Path, *, include_world: Literal[False] = False
-) -> tuple[Any, Any, Any, Any]: ...
-
-
-@overload
-def split_verification_world(
-    tmp_path: Path, *, include_world: Literal[True]
-) -> tuple[Any, Any, Any, Any, Any, Any]: ...
-
-
-def split_verification_world(tmp_path: Path, *, include_world: bool = False):
+def split_verification_world(tmp_path: Path):
     scratch = tmp_path / "scratch"
     writer = CorpusWriter(scratch, DefaultExecutor, authority=FULL, profile=BASE)
     writer.adopt_manifest(profile=pins_for(BASE))
@@ -784,16 +772,14 @@ def split_verification_world(tmp_path: Path, *, include_world: bool = False):
     view = open_world_view(world, epoch)
     assert view.corpus_of(published.node.id) == ALPHA
     assert all(view.corpus_of(run.id) == BETA for run in runs)
-    if include_world:
-        return published, forged, roots, view, world, epoch
-    return published, forged, roots, view
+    return published, forged, roots, view, world, epoch
 
 
 class TestR19AcrossCorpora:
     def test_a_genuine_verification_is_checked(self, tmp_path):
         from beliefs.audit import check_verification
 
-        published, _forged, _roots, view = split_verification_world(tmp_path)
+        published, _forged, _roots, view, _world, _epoch = split_verification_world(tmp_path)
         assert published.node is not None
         outcome = check_verification(view, view.get(published.node.id), evidence=published.evidence)
         assert outcome.checked and outcome.contradiction is None
@@ -801,7 +787,7 @@ class TestR19AcrossCorpora:
     def test_a_verdict_only_well_formed_forgery_is_a_finding(self, tmp_path):
         from beliefs.audit import check_verification
 
-        published, forged, _roots, view = split_verification_world(tmp_path)
+        published, forged, _roots, view, _world, _epoch = split_verification_world(tmp_path)
         outcome = check_verification(view, view.get(forged.id), evidence=published.evidence)
         assert outcome.checked and outcome.contradiction is not None
         assert outcome.contradiction.code == "verification-derivation-contradicted"
@@ -810,7 +796,7 @@ class TestR19AcrossCorpora:
         from beliefs.audit import check_verification
         from beliefs.errors import MalformedRecord
 
-        published, _forged, _roots, view = split_verification_world(tmp_path)
+        published, _forged, _roots, view, _world, _epoch = split_verification_world(tmp_path)
         assert published.node is not None
         malformed = view.get(published.node.id)
         malformed.facets["verification"]["report"] = {"forged": True}
@@ -820,7 +806,7 @@ class TestR19AcrossCorpora:
     def test_a_corpus_local_view_leaves_foreign_runs_unchecked(self, tmp_path):
         from beliefs.audit import check_verification
 
-        published, _forged, roots, _view = split_verification_world(tmp_path)
+        published, _forged, roots, _view, _world, _epoch = split_verification_world(tmp_path)
         assert published.node is not None
         local = ReadView.opened_at(roots[ALPHA])
         outcome = check_verification(local, local.get(published.node.id), evidence=published.evidence)

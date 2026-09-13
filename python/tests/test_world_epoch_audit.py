@@ -67,6 +67,29 @@ def test_a_malformed_receipt_is_reported_and_excluded_from_the_reduction(tmp_pat
     assert verdict.state == "checked"
 
 
+@pytest.mark.parametrize("subject", [None, "", "v1", "A" * 64, "g" * 64, "a" * 63])
+def test_a_missing_or_ill_formed_subject_joins_no_snapshot_group(tmp_path, subject):
+    world, _bindings, _roots, published = published_world(tmp_path, (ALPHA, BETA))
+    receipt = document(published, "producer-receipt.yaml")
+    if subject is None:
+        del receipt["subject"]
+    else:
+        receipt["subject"] = subject
+    forged = repackage(world, published, {"producer-receipt.yaml": receipt})
+
+    audit = audit_epochs(world)
+
+    assert [(name, outcome.outcome) for name, kind, outcome in audit.receipts if kind == "producer"] == sorted(
+        [(published.packaging_identity, "validated"), (forged.packaging_identity, "malformed")]
+    )
+    (producer,) = [verdict for verdict in audit.snapshots if verdict.kind == "producer"]
+    assert producer.subject_identity == published.receipts["producer-receipt.yaml"].subject_identity
+    assert [name for name, _outcome in producer.receipts] == [published.packaging_identity]
+    assert [(finding.code, finding.ref) for finding in audit.findings] == [
+        ("receipt-malformed", forged.packaging_identity)
+    ]
+
+
 def test_the_two_roads_to_unchecked_are_distinguishable(tmp_path):
     _world, _bindings, roots, published = published_world(tmp_path, (ALPHA, BETA))
     receipt = document(published, "producer-receipt.yaml")

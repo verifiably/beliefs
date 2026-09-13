@@ -1,7 +1,7 @@
 # Conformance cut 27 — results
 
 **Cut:** `../designs/2026-09-13-conformance-cut-27.md`, corrected freeze
-`a04fc6a87fcd6fa49090d2344076cfd2d560fe7b`; frozen §§2–7 SHA-256
+`a04fc6a87fcd6fa49090d2344076cfd2d560fe7b`; freeze document SHA-256
 `7eb63bee70679bd4e79db7ed5fc41c3779eae3a4eac2a8a520cf63d2f9a3d4d1`
 **Declaration:** `3674da8ab348fc3afdf0a5d7af09a141b9d665a3`; SHA-256
 `564cd8fa93f5d0c22d374f90ba0b2bfbee3758504c977a5367cbd1930b15008f`
@@ -73,7 +73,8 @@ Cut 27's final inventory is:
 declared arms: 27 (= 5 declaration units; 5 guarantee rows)
 ```
 
-From the repository root, through the vendored `tools/tt` recipes:
+Against the implementation at `40c7dcb`, from the repository root through
+the vendored `tools/tt` recipes:
 
 - `just check` exited **0** in 23.669s: Ruff passed; Pyright reported zero
   errors, warnings and information diagnostics; TypeScript typecheck and Biome
@@ -134,6 +135,45 @@ following measured corrections were required or clarified during implementation:
 
 The measured declaration count is exactly the frozen count of 27 arms; there
 is no arm-count deviation.
+
+### 2026-09-13 — post-discharge review correction
+
+The final review found that an ill-formed textual receipt subject entered the
+snapshot groups as an ordinary unchecked identity. The shared grouping boundary
+now uses the existing identity validator: missing or ill-formed subjects yield
+only their receipt finding, while a well-formed subject on an otherwise malformed
+receipt still enters the unchecked group. Five invalid-subject cases failed
+before the fix; those cases, the absent-subject case and the existing named
+all-malformed case then passed (**7 passed**).
+
+A new durable world-audit test retains a validating receipt beside a genuinely
+refuted own receipt for the same subject. The own `receipt-refuted` finding
+remains and `snapshot-contradicted` is absent. Replacing the retained-set decision
+with a local-only decision made that assertion fail; the production decision
+was restored. The private verification fixture now returns its full tuple to
+all callers. The guide's stale open-callers claim and five ledger anchors, the
+freeze-document hash label above, the evaluator docstring and the broader world
+task's remaining-work body were corrected.
+
+The focused verification below covers this later correction. The **4,557 Python
+and 142 TypeScript** results in §1 remain historical evidence for `40c7dcb`;
+they do not cover this source fix. The original transcripts, including the
+Pyright version-update notice, are unchanged; that notice is not an analysis
+warning or a branch defect. No dependency, frozen §§2–7, declaration or hash pin
+changed. Source-site and freeze guards required no retargeting.
+
+From `python/`:
+
+```sh
+uv run --frozen pytest -n 8 --dist=loadfile tests/test_world_epoch_audit.py tests/test_world_receipts.py tests/test_world_audit.py tests/test_world_view.py tests/acceptance/test_world_audit_acceptance.py
+uv run --frozen pytest tests/test_arm_staleness.py tests/test_frozen_guards.py tests/test_designs_corpus.py tests/acceptance/test_n2_cut27.py -k 'not every_live_check and not every_arm_fails'
+```
+
+The first command reported **161 passed in 220.67s (0:03:40)**.
+The second command reported **35 passed, 2 deselected**; its two exclusions are
+the already retained full cut-27 mutation run and its baseline, not source-site
+or frozen-evidence checks. Main integration and its full gate remain pending (§6).
+
 
 ## 4. Reproduction measurement
 
