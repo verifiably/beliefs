@@ -6,10 +6,14 @@ priority: 2
 size: s
 complexity: low
 created: 2026-09-13T01:56:09Z
-updated: 2026-09-13T01:56:09Z
+updated: 2026-09-13T09:05:03Z
 depends: []
 parent: beliefs-4bcf88
 tags: [design]
 plan: docs/superpowers/plans/2026-09-12-composite-claims.md
 step: "Task 0: Open the lane and freeze the cut"
 ---
+
+## Notes
+
+- 2026-09-13T09:05:03Z (design/composite-claim): parked (waiting on agent, dependency): Open the lane once estimand-typing has merged into main and rule 6 admits an off-path lane; then claim the cut number and freeze

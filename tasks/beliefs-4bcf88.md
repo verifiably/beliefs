@@ -6,7 +6,7 @@ priority: 2
 size: l
 complexity: high
 created: 2026-09-13T00:35:00Z
-updated: 2026-09-13T02:52:33Z
+updated: 2026-09-13T09:05:04Z
 depends: []
 tags: [design]
 spec: docs/superpowers/specs/2026-09-12-composite-claims-design.md
@@ -25,3 +25,5 @@ The second spec from the 2026-09-12 models assessment. A structure (a causal DAG
 - 2026-09-13T02:13:20Z (design/composite-claim): Plan review 1: twelve findings (field sets extend the estimand baseline; assesses target-kind guard; step-5 contradiction arm; whole node-set contract and retirement in classify; restoration errors translated; reading refuses not-member; supported shapes enforced; acyclic typed reading fixture; U10 receipt not-consulted for PHF19; traps exercise the reading; YAML mutations and NotReached equality), all taken
 - 2026-09-13T02:32:38Z (design/composite-claim): Plan review 2: two findings (unresolved assesses target refuses on the shared path, add and import; U4 test builds a typed assessment, fixture estimand rows moved to Task 2), both taken
 - 2026-09-13T02:52:33Z (design/composite-claim): Plan review 3: one finding (same-bundle import rebuilds the bundle after the new assessment's run exists), taken
+- 2026-09-13T09:05:03Z (design/composite-claim): Plan cleared 2026-09-13 after three reviews. Execution waits on Task 0: estimand-typing (beliefs-59f846, branch design/estimand-typing) must merge into main first, then rule 6, then the cut number and freeze.
+- 2026-09-13T09:05:04Z (design/composite-claim): parked (waiting on agent, dependency): Plan cleared 2026-09-13; execution waits on Task 0's merge, rule-6 and freeze gates
