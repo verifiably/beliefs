@@ -276,7 +276,7 @@ The artifact rows and §3 preserve the dated adoption history; their original
 > is superseded — a moved node file is a placement fault under 2.0's
 > well-placedness, recorded in the cut document. Audits
 > over damaged corpora (collecting construction) and manifest safety are now
-> buildable here and owned by no boundary until a cut selects them.
+> buildable here and owned by no boundary until a cut selects them. Audits over damaged corpora were selected by cut 27 (2026-09-13) as row S9 of the substrate design; manifest safety remains unowned.
 
 > **Row 5 current-state correction (2026-08-28).** General intent
 > qualification is implemented by world-index slice 6 and discharged by cut

@@ -487,6 +487,24 @@ def _build_epoch(authority, work):
     return epoch.build_epoch(_rebind(state["world"], authority), coverage=frozenset(state["roots"]), bindings=state["bindings"])
 
 
+def _prepare_epoch_import(work: Path, _request) -> None:
+    from test_world_import_epoch import exported, replica_world
+    from test_world_receipts import published_world
+
+    _world, _bindings, roots, published = published_world(work)
+    _STATE[work] = {
+        "world": replica_world(work, roots),
+        "source": exported(published, work / "export"),
+    }
+
+
+def _import_epoch(authority, work):
+    from beliefs.world.importing import import_epoch
+
+    state = _STATE[work]
+    return import_epoch(_rebind(state["world"], authority), state["source"])
+
+
 def _prepare_retained(work: Path, _request) -> None:
     from test_world_gc import three_retained
 
@@ -660,6 +678,7 @@ CASES = (
     Case("world/anchors.py:_anchor_heads", "registry", (), False, _prepare_anchor, _anchor, _world_probe),
     Case("world/epoch.py:build_epoch", "epoch", (), False, _prepare_admitted, _build_epoch, _world_probe),
     Case("world/epoch.py:delete_epoch", "epoch", (), False, _prepare_retained, _delete_epoch, _world_probe),
+    Case("world/importing.py:import_epoch", "epoch", (), False, _prepare_epoch_import, _import_epoch, _world_probe),
     Case("world/rules.py:install_rule_binding", "epoch", (), False, _nothing, _install_rule, _world_probe),
     Case("world/rules.py:remove_rule_binding", "epoch", (), False, _prepare_installed, _remove_rule, _world_probe),
     _lifecycle_case("init_corpus_root", "init_corpus_root"),

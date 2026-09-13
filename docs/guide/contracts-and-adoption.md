@@ -226,6 +226,9 @@ Cut 26 closes D1's cross-repository negative through namespace-renaming
 invariance and two `nodes`-package sabotages
 (`../designs/2026-09-12-conformance-cut-26.md`;
 `../plans/2026-09-12-conformance-cut-26-results.md`).
+Cut 27 implements world resolution slice 3 — R23's snapshot, import and
+divergence clauses, W8a's packaging arms, the X5 and W13 relabels and the new
+row S9 (`../designs/2026-09-13-conformance-cut-27.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-12)
