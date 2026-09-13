@@ -490,7 +490,8 @@ read_composite(view, ref, *,
 CompositeReading =
   composite   : ref, identity, shape, nodes
   standing    : active | superseded(successors)
-  rows        : one MemberRow per member, in facet order
+  nodes       : one TermOutcome per node position, under `resolution`  -- §4.1's receipt, re-taken
+  rows        : one MemberRow per member, in facet order              -- empty for a memberless composite
 
 MemberRow =
   member      : ClaimIdentity, corpus ref
@@ -499,8 +500,12 @@ MemberRow =
   resolution  : active | superseded(successors)
   belief      : Belief | NoBelief | Refused                   -- the evaluator's own answer
   identification : sorted set of identification terms         -- §6.2
-  nodes       : one TermOutcome per node, under `resolution`  -- §4.1's receipt, re-taken
 ```
+
+The node receipt sits on the reading, not on a row: a composite with nodes
+and no members is legal (§3.2), has no rows, and still has nodes whose
+resolution under this reading's snapshot is the reading's finding to
+expose.
 
 The reading is a pure function of exactly the arguments above — the
 composite record as `view` serves it at the epoch, the supplied context
@@ -508,17 +513,25 @@ composite record as `view` serves it at the epoch, the supplied context
 pins), what is held here (`Availability`: byte observations, policy
 implementations, fixtures), the vocabulary resolution snapshot, the policy
 binding and the profile — and of nothing ambient. It stores nothing and is
-not a belief. Per member it calls `evaluation.gather(view, member,
-context=, profile=, resolution=, binding=)` and then `evaluate` with the
-same `availability`, so `belief` in a row is exactly the evaluator's own
-answer under the inputs the caller named: holding the bound implementation
-turns a row's `Refused` into a `Belief`, withholding a dataset's
-observation turns a `Belief` into `NoBelief`, and neither changes without
-the reading's arguments changing. Nothing is summed, weighted or combined
-across rows. The two-axis lesson is kept as two columns per row,
-each with no default: an edge nobody has assessed reports `NoBelief` and
-`{}`; a refused evaluation reports `Refused` with its reason, never a
-neutral value.
+not a belief. Per member it obtains the evaluator's answer **through
+`evaluation.evaluate_over`'s sequence and never by calling `gather` and
+`evaluate` itself**: the wrapper's binding guard, its translation of
+gather-time contract and facet errors into `Refused`, its
+`NoBelief("unavailable-corpus-absent")` for inputs recorded in absent
+corpora, and its corpus attribution of the gathered records are the
+evaluator's behaviour, and a reading that re-sequenced them would let a
+missing run reach `evaluate` as a missing dictionary entry where the
+wrapper answers `NoBelief`. `belief` in a row is therefore **equal** to
+what `evaluate_over(view, member, availability=, context=, profile=,
+resolution=, binding=)` returns for that member, and U8 asserts the
+equality rather than a shape: withholding the bound implementation makes
+the row `NoBelief("unavailable-policy-unheld")`, withholding a dataset's
+observation makes it `NoBelief` with the evaluator's own reason, and
+neither changes without the reading's arguments changing. Nothing is
+summed, weighted or combined across rows. The two-axis lesson is kept as
+two columns per row, each with no default: an edge nobody has assessed
+reports `NoBelief` and `{}`; a refused evaluation reports `Refused` with
+its reason, never a neutral value.
 
 A summary — how many edges carry a computed belief, how many an
 interventional identification, the predecessor's ladder level — is
@@ -530,11 +543,33 @@ returns rows.
 Once estimand typing lands, each admitted assessment of a member carries a
 typed estimand whose `control.identification` is a term of the domain's
 identification sort; the column is the sorted set of those terms over the
-assessments **the evaluator admitted for that member under the same
-gathered inputs** — the admission the `belief` column rests on, not a
-second derivation — read through `stored.analysis_spec_value` with the
-reading's profile. An assessment admission excludes (unverified,
-retracted, superseded) contributes no term.
+assessments **the evaluator admitted for that member** — the admission the
+`belief` column rests on, not a second derivation — read through
+`stored.analysis_spec_value` with the reading's profile.
+
+*How the reading obtains that set.* The evaluator's step 5 — collapsing
+the record pool onto identities and gating it through `admit` — is
+factored into one function, `belief.admitted(records, availability,
+context, profile)`, that `evaluate` calls and that returns the identities
+it went on to digest; and `evaluation.evaluate_over` is restated as the
+first projection of `evaluation.evaluate_over_traced`, which runs the
+identical guard, gather, absent-corpus and translation sequence and returns
+`(answer, admitted identities)`, the set being empty on every `NoBelief`
+and `Refused` arm. The reading calls the traced form once per member and
+reads both columns from its result, so the two columns cannot rest on
+different admissions, and a fixture pins `evaluate_over(...) ==
+evaluate_over_traced(...)[0]` over every U8 case.
+
+*What that set is.* Admission today checks a run's inputs and the
+verification state (G2b, G6, G2c); `verification.py` defers the
+correction-lifecycle §7a clause that excludes the target of a standing
+retraction to `correction-remainder`. The column follows admission **as it
+is**: an assessment a standing retraction names contributes its term
+exactly as it contributes to belief until that remainder lands, and when
+it lands both columns move together through the one function
+(limitation 16). An assessment admission refuses — a run mismatch, no
+`observes` input, an unheld input, a failing verification state —
+contributes no term.
 It is the predecessor's `identification` axis derived instead of authored,
 with `none` unspellable: a member with no admitted assessment has an empty
 set, not a value. This is the one place the design depends on the estimand
@@ -619,12 +654,12 @@ claims, never a claim, and its reading is never a belief.
 |---|---|---|
 | **U1** | The base contract declares `composite_grammar` and the `composite` kind; an unknown shape, a missing grammar, or a `composes` signature outside `composite → proposition` refuses at parse in both implementations | Python and TypeScript parse the shipped contract and refuse each mutation; the world-kind count is fourteen in both |
 | **U2** | A domain `edges:` row names an own-namespace operator with `causal` among its layers and two distinct in-range slots; compile keys it by namespaced operator; succession never redefines a row | parse and compile refusals; a successor contract redefining `edge:<op>` refuses under §8.3's rule |
-| **U3** | `build_composite` and the boundary refuse, with the named code, a member whose operator is undeclared, whose layer is not `causal`, whose argument is outside the node set, a cycle — including one through a negative-polarity member — a duplicate node or member, an empty node set, and an isolated node that a consulted vocabulary excludes; and admit a composite with nodes and no members, a negative-polarity member as a signed edge, and an isolated node under an unconsulted vocabulary with `not-consulted` in the receipt | one fixture per row of §3.4's table, each asserted at construction and at `add` |
+| **U3** | *Form and classification, at construction and at `add` alike:* refuse, with the named code, a member whose operator is undeclared, whose layer is not `causal`, whose argument is outside the node set, a cycle — including one through a negative-polarity member — a duplicate node or member, and an empty node set; admit a composite with nodes and no members, and a negative-polarity member as a signed edge. *Vocabulary, at construction and at reading only:* `build_composite` refuses an isolated node that a consulted vocabulary excludes (`composite-node-not-member`) and the reading refuses the same stored record under the same snapshot, while `add` admits it, checking form only (§4.2); under a snapshot that did not consult the vocabulary both admit it with `not-consulted` in the receipt | one fixture per row of §3.4's table, each asserted at construction and at `add`; the isolated-node fixture asserted at construction, at `add`, and at reading, under an excluding and an unconsulted snapshot |
 | **U4** | Minting, superseding and deleting a composite leaves every proposition's belief input digest byte-identical, and `assesses` cannot target one | digest before and after each family operation; a hand-built assessment naming a composite refuses at the signature |
 | **U5** | Identity is content identity over the covered facet: authoring order does not move it; a node with no member does; display prose does not | three pairs of records, hashed |
 | **U6** | The boundary requires each `composes` target to resolve to a proposition whose semantic identity equals the facet's member at that position; a mismatch, a non-proposition and an unresolvable ref each refuse with their code | a stored composite with a swapped member, a dataset member, and a member ref that resolves nowhere |
 | **U7** | The audit reports an unresolvable member, a mismatched member, a relation-set mismatch, and a composite that no longer classifies, as contradictions, not malformedness, and reads the record again in later arms | delete a member and audit; raw-edit a member's claim and audit; retire the `edges:` row by successor and audit |
-| **U8** | The reading is a pure function of its named arguments — record, view at the epoch, supplied context, availability, resolution snapshot, binding, profile: two processes agree byte for byte under equal arguments; withholding the policy implementation turns a row's belief into `Refused` and withholding a dataset observation turns it into `NoBelief`, with the identification column following the same admission; a member with no admitted assessment reads `NoBelief` and `{}`; a superseded member reads its successors and a belief; an unresolvable member refuses the reading | the reproduction's composite read twice from persisted records (§9); a fixture composite with an assessed, an unassessed and a superseded member, read under full availability and under each withholding |
+| **U8** | The reading is a pure function of its named arguments — record, view at the epoch, supplied context, availability, resolution snapshot, binding, profile: two processes agree byte for byte under equal arguments; every row's `belief` **equals** `evaluate_over`'s answer for that member under the same arguments — so withholding the policy implementation reads `NoBelief("unavailable-policy-unheld")`, withholding a dataset observation reads the evaluator's own `NoBelief`, and a member whose inputs sit in an absent corpus reads `NoBelief("unavailable-corpus-absent")` — with the identification column drawn from the same traced admission; a member with no admitted assessment reads `NoBelief` and `{}`; a superseded member reads its successors and a belief; an unresolvable member refuses the reading; a memberless composite reads no rows and a node receipt, with `not-consulted` for a node under an unconsulted vocabulary | the reproduction's composite read twice from persisted records (§9); a fixture composite with an assessed, an unassessed and a superseded member, read under full availability and under each withholding, each row compared with `evaluate_over` called directly; a memberless two-node composite under an unconsulted snapshot |
 | **U9** | `supersede` admits a same-kind composite successor, authors the relation, and refuses a cross-kind pair and an identity-unchanged successor; a `supersedes` instance with endpoints of different kinds refuses on the shared path for `add` and for `import_bundle` (`ImportRefused`, the member named), and a raw-written one audits as `supersedes-cross-kind`; both parsers refuse `same_kind` on a relation whose sources and targets differ | the three family calls; an import bundle carrying `composite ──supersedes──▶ proposition` and its reverse; a raw-written pair audited; a mutated contract parsed in Python and TypeScript |
 | **U10** | The reproduction composes the `h1-prognosis` fragment from the recreated corpus and reads it in a fresh process: the assessed member carries the evaluator's belief and the unassessed one `NoBelief`, from persisted records, twice, byte-identical | §9's addendum, from persisted records |
 
@@ -649,7 +684,7 @@ design adds two steps after `belief`:
 - **`read`** — the driver reads the composite under the reproduction's
   policy binding, supplied context, availability and resolution snapshot —
   the same four the `belief` step handed the evaluator — and records the
-  rows: the target member `edge(disease-stage
+  node receipt and the rows: the target member `edge(disease-stage
   → PHF19)` with the belief the `belief` step computed and the
   identification set `{observational}` from its typed estimand; the spine
   member `edge(PHF19 → overall-survival)` with `NoBelief` and `{}`. The
@@ -692,6 +727,8 @@ U8 and U10 against persisted records, in a fresh process, twice.
 | U8 | the reading maps an unresolvable member to `NoBelief` | U8's refusal arm |
 | U8 | the reading defaults an empty identification set to `observational` | U8's `{}` arm |
 | U8 | the reading builds its own `Availability` from the checkout instead of taking it | U8's withholding arms disagree with the evaluator's |
+| U8 | the reading calls `gather` and `evaluate` directly, skipping the wrapper's absent-corpus arm | U8's absent-corpus row disagrees with `evaluate_over` |
+| U8 | the identification column re-runs `admit` instead of reading the traced set | the fixture pinning `evaluate_over_traced` disagrees under a withheld input |
 | U3 | classification accepts a `statistical`-layer member as an edge | the `associates-with` fixture |
 | U3 | classification drops a negative-polarity member from the edge set | the signed-cycle fixture |
 
@@ -839,6 +876,12 @@ merges rather than beside it.
     the boundary.** A stored composite whose node was `not-consulted` when
     built is well formed; whether its term is a member is the next
     reading's finding under that reading's snapshot.
+16. **The identification column follows admission as it is.** Retraction
+    filtering of admitted assessments is deferred by `verification.py` to
+    `correction-remainder`; until it lands, an assessment a standing
+    retraction names contributes a term as it contributes to belief. The
+    column and the belief share one admission function, so they move
+    together and never disagree.
 
 ## 14. Task linkage
 
@@ -869,3 +912,18 @@ them.
   node, isolated nodes are tested under consulted non-membership and an
   unconsulted vocabulary, and the boundary checks form only (limitation
   15).
+- 2026-09-12, second review, four findings, all taken; `same_kind` stays
+  declarative: (1) the reading re-sequenced `gather` and `evaluate`,
+  bypassing `evaluate_over`'s absent-corpus arm, error translation and
+  attribution, and U8 expected `Refused` for an unheld implementation where
+  the evaluator answers `NoBelief("unavailable-policy-unheld")` — §6.1 now
+  obtains each row through the wrapper's sequence and U8 asserts equality
+  with `evaluate_over`'s answers; (2) the identification column promised a
+  retraction exclusion admission does not perform — it follows the current
+  admitted set, obtained once through `evaluate_over_traced` over a
+  factored `belief.admitted`, with limitation 16; (3) U3 required `add` to
+  refuse a vocabulary-excluded node the boundary cannot see — split into
+  form-and-classification arms at construction and `add`, and vocabulary
+  arms at construction and reading; (4) node outcomes lived on member rows
+  and vanished for a memberless composite — the receipt sits on
+  `CompositeReading`, with a memberless fixture in U8.
