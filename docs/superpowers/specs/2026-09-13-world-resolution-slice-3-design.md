@@ -174,14 +174,23 @@ here reaches (§11).
    receipt naming only `A` for coverage `{A, B}` therefore reaches
    availability, and with `A` standing and the binding held would
    **validate** a map that omits every producer in `B` — W8a's own worst case.
-   `_contract_fault` widens to `(kind, member, receipt, published)`: the set
-   of `corpus_id`s in `corpus_states` must equal the set in `coverage.yaml`,
-   and for the two member-carried subjects (producer snapshot, coreference
-   map) the receipt's `subject` must equal `subject_identity(kind, member
-   projection)`; either failure is `malformed`, decided from the carrier's
-   bytes with no corpus present and no rule held. This changes every caller
-   of `validate_receipt`, the coreference edge query included, and is named
-   in §9.
+   `_contract_fault` widens to `(kind, member, receipt, published)` and
+   requires **every coverage declaration the carrier holds to agree**: the
+   set of `corpus_id`s in the receipt's `corpus_states` must equal the set in
+   `coverage.yaml`, and must equal the subject's own `coverage` member where
+   the subject declares one — `producer-snapshot.yaml`'s for the producer
+   kind, the carried `enumeration`'s for the retraction kind, the carried
+   `inventory`'s for the certification kind; the coreference map declares
+   none. The carrier layer checks each of those members for shape only, so a
+   snapshot declaring `{A, B}` beside an epoch coverage and receipt naming
+   `{A}`, with a subject digest recomputed to match, parses cleanly and would
+   pass a two-way check — confirmed by probe. And for the two member-carried
+   subjects (producer snapshot, coreference map) the receipt's `subject` must
+   equal `subject_identity(kind, member projection)`, as the projection-
+   bearing kinds' carried digests are already checked. Any failure is
+   `malformed`, decided from the carrier's bytes with no corpus present and
+   no rule held. This changes every caller of `validate_receipt`, the
+   coreference edge query included, and is named in §9.
 
 ## 3. The import act
 
@@ -571,7 +580,7 @@ and `nodes`' own `check()`.
 | a retained carrier of the same identity, byte-identical | admitted, `written=False` |
 | a retained carrier of the same identity that does not read | `EpochMalformed`, propagated from the locked loader |
 | the caller lacks the `epoch` permit | the authority's refusal, before the carrier is read |
-| a receipt whose corpus set is not the coverage, or whose subject is not its member's identity | `malformed`, from the carrier's bytes, before any availability |
+| a receipt whose corpus set differs from `coverage.yaml` or from its subject's own coverage declaration, or whose subject is not its member's identity | `malformed`, from the carrier's bytes, before any availability |
 | a retained carrier that does not read or cannot be read (`EpochMalformed`, `OSError`), under audit or query | `epoch-malformed` finding, or `unreadable`; the sweep continues |
 | a covered carrier whose manifest pins another base, under `on_damage="report"` | a `DamageReport` with cause `base-pin`: manifest captured, no records, every read refuses |
 | a covered carrier whose strict open fails, under `on_damage="refuse"` | `CorpusStateMalformed` at open — one exception now, where `main` raises `nodes`' construction error on an uncached root and `CorpusStateMalformed` on a cached one |
@@ -661,9 +670,20 @@ the epoch mapped, which the view refuses as corruption.
 
 **Arms**, grouped by row.
 
-- *R23 explicit import and snapshot:* the trimmed producer snapshot (one entry
-  deleted, coverage and receipt intact, repackaged) is refused at import
-  because the rebuild disagrees; a carrier missing a receipt member is refused
+- *R23 explicit import and snapshot:* two fixtures for the row's "delete
+  `R2`'s entry from a valid snapshot, leave its coverage and receipt intact"
+  — taken literally, the trimmed snapshot's identity no longer matches the
+  receipt's `subject`, so decision 9 refuses it as `malformed-receipt`
+  before any rebuild, which the first arm asserts; the second arm is the
+  **internally consistent omission**: the snapshot trimmed, the receipt's
+  `subject` recomputed over the trimmed projection, coverage, states and
+  binding preserved, and the import refused as `refuted-receipt` because the
+  reconstruction from the named states restores the entry. The results
+  record notes that the row's literal fixture is now caught one gate earlier
+  and that its reconstruction clause is read through the consistent fixture.
+  A snapshot declaring `{A, B}` beside an epoch coverage and receipt naming
+  `{A}`, subject recomputed, is `malformed-receipt` with `A` standing and the
+  binding held. A carrier missing a receipt member is refused
   as malformed; a receipt naming a corpus rather than a state, and one naming
   a bare version string, are refused as `malformed-receipt` with no corpus
   present and no rule held; a receipt over a corpus absent here imports with
@@ -732,8 +752,9 @@ the epoch mapped, which the view refuses as corruption.
 - *Refusals:* each row of §6.
 
 **N2 sabotages**, one per mechanism: the well-formedness gate (evaluate
-availability first); the coverage check (drop the corpus-set comparison);
-the subject check (drop the member-identity comparison); the refuted gate
+availability first); the coverage check (compare the receipt with
+`coverage.yaml` only, not with the subject's own declaration); the subject
+check (drop the member-identity comparison); the refuted gate
 (admit a refuted receipt); the carrier catch (let `OSError` escape the
 sweep); the base pin (capture records under a foreign base); the endpoint
 catch (let `CorpusDamaged` escape the endpoint check); the pointer
@@ -874,3 +895,16 @@ have escaped on a healthy attestation naming a damaged endpoint —
 locate (§5.4, §5.5, §8). (5) The malformed-cache limitation was false:
 `load_snapshot` returns `None` on `OSError` and `ValueError` and the corpus
 rebuilds in either mode — removed (§11).
+
+**2026-09-13, third review (user's reviewer), two issues, both resolved.**
+(1) The coverage check compared the receipt with `coverage.yaml` alone while
+the producer snapshot member declares its own coverage, which the carrier
+layer checks for shape only — a snapshot declaring `{A, B}` beside an epoch
+and receipt naming `{A}` passed both checks, confirmed by probe; every
+coverage declaration the carrier holds must now agree, the retraction
+enumeration's and certification inventory's included (decision 9, §6, §8).
+(2) The R23 omission fixture as written is now refused as malformed at the
+subject check and never reaches reconstruction — the literal fixture is kept
+as the malformedness arm and an internally consistent omission fixture, with
+the subject recomputed over the trimmed snapshot, carries the refuted-at-
+rebuild clause (§8).
