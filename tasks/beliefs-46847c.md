@@ -1,15 +1,18 @@
 ---
 id: beliefs-46847c
 title: "World resolution slice 3: snapshots, import, audit and diagnostics"
-status: todo
+status: doing
 priority: 2
 size: l
 complexity: high
+owner: design/world-resolution-slice-3
 created: 2026-09-09T15:26:44Z
-updated: 2026-09-12T16:26:55Z
+updated: 2026-09-13T10:55:40Z
+started: 2026-09-13T10:47:06Z
 depends: [beliefs-113561, beliefs-b7994b]
 parent: beliefs-d248ba
 tags: [world-read]
+spec: docs/superpowers/specs/2026-09-13-world-resolution-slice-3-design.md
 ---
 
 Design and freeze slice 3 from docs/superpowers/specs/2026-09-09-world-resolution-slice-1-design.md section 1 and cut 23 sections 2-3. Widen snapshot import, audit and diagnostic callers; discharge R23 snapshot, cross-corpus divergence and explicit-import clauses, X5 relabel, W13 remaining clauses, and W8a import/audit packaging arms. Keep R23 rules-store clauses with contract-cut and retain any unselected W8 remainder explicitly. Coordinate beliefs-fda0e5 for W8b, without treating the world-view open refusal as build conformance.
@@ -20,3 +23,4 @@ Design and freeze slice 3 from docs/superpowers/specs/2026-09-09-world-resolutio
 - 2026-09-10T20:26:52Z (main): Cut-24 curation: source addressing slice 2b precedes slice 3 under the roadmap’s serial delivery order; the dependency now records that order.
 - 2026-09-12T12:17:05Z (main): nodes 2.0 (nodes main b0c37b8, 5ff3c78) landed 2026-09-12: Corpus(root, mode="collecting") excludes damaged, misplaced and colliding files and reports them through check() as parse-error / path-mismatch / uid-collision / id-collision / path-collision findings. The audit callers this slice widens still open strict and report the first fault as CorpusStateMalformed; opening the audited root in collecting mode is the nodes-remainder ledger row's 'audits over damaged corpora', now buildable and owned by no boundary — select it here or record why not.
 - 2026-09-12T16:26:55Z (main): Complexity high: Slice 1 and cut 23 define the remainder, but slice 3 must still design snapshot/import/audit semantics across absent, divergent and damaged corpora, select collecting-mode audits, and reconcile packaging/relabel guarantees. This is more than widening reader types.
+- 2026-09-13T10:55:40Z (design/world-resolution-slice-3): Slice 3 design drafted 2026-09-13 (docs/superpowers/specs/2026-09-13-world-resolution-slice-3-design.md): epoch import act, epoch audit + snapshot-state query over the retained set, world audit over the capture with collecting-mode damage findings (selects the ledger's 'audits over damaged corpora' as new row S9), X5/W13 relabels, R23 cross-corpus divergence measured; cut 27 claimed at freeze. Awaiting user review.
