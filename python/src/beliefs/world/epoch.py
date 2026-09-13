@@ -620,8 +620,8 @@ def _locked_open_epoch(world_root: Path, packaging_identity: str) -> Epoch:
     a loader that completed recovery itself could not be reused by an act that
     had to complete it earlier.
 
-    The order is §8.1's: the exact member set, then every closed document, then
-    the recomputed packaging identity. Every failure is `EpochMalformed` with
+    The order is §8.1's: the exact member set, the recomputed packaging
+    identity, then every closed document. Every failure is `EpochMalformed` with
     the underlying refusal as its cause — except an absence, which is
     `EpochUnknown`, because "there is no such epoch" and "there is one and it
     is broken" are answers a caller acts on differently.
@@ -638,6 +638,17 @@ def _locked_open_epoch(world_root: Path, packaging_identity: str) -> Epoch:
     if _emptied(directory):
         raise EpochUnknown(f"{directory}: this world retains no epoch under that packaging identity")
     members = _carrier_members(directory)
+    recomputed = packaging_identity_of(members)
+    if recomputed != packaging_identity:
+        raise EpochMalformed(
+            f"{directory}: the members recompute the packaging identity {recomputed}, "
+            "so this directory does not hold the epoch its name claims"
+        )
+    return _carrier_epoch(members, packaging_identity)
+
+
+def _carrier_epoch(members: Mapping[str, bytes], packaging_identity: str) -> Epoch:
+    """Parse one carrier's eleven members into an epoch value."""
     documents: dict[str, Mapping[object, object]] = {}
     receipts: dict[str, _ReceiptCarrier] = {}
     for member, content in members.items():
@@ -646,12 +657,6 @@ def _locked_open_epoch(world_root: Path, packaging_identity: str) -> Epoch:
             documents[member] = receipts[member].document
         else:
             documents[member] = _parse_member(packaging_identity, member, content)
-    recomputed = packaging_identity_of(members)
-    if recomputed != packaging_identity:
-        raise EpochMalformed(
-            f"{directory}: the members recompute the packaging identity {recomputed}, "
-            "so this directory does not hold the epoch its name claims"
-        )
     return Epoch(
         packaging_identity,
         members,

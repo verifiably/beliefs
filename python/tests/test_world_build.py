@@ -318,7 +318,7 @@ class TestTheCompositionRootReadsTheChain:
 
 
 @pytest.mark.parametrize(
-    "module", ["anchors", "derive", "epoch", "logmodel", "read", "registry", "rules", "verify"]
+    "module", ["anchors", "derive", "epoch", "importing", "logmodel", "read", "registry", "rules", "verify"]
 )
 def test_each_world_module_imports_first_without_a_cycle(module):
     """Every world module is importable *first* in a fresh interpreter.

@@ -95,6 +95,7 @@ from beliefs.world.epoch import (
     packaging_identity_of,
     receipt_identity,
 )
+from beliefs.world.importing import EpochImportReport, import_epoch
 from beliefs.world.logmodel import (
     DEFECT_KINDS,
     AbsentView,
@@ -235,6 +236,7 @@ __all__ = [
     "EntryView",
     "Epoch",
     "EpochDeletionReport",
+    "EpochImportReport",
     "ForkOf",
     "ForkedFrom",
     "Fresh",
@@ -290,6 +292,7 @@ __all__ = [
     "fixture_set_identity",
     "head_artifact_bytes",
     "implementation_identity",
+    "import_epoch",
     "install_rule_binding",
     "load_manifest",
     "log_head_digest",
