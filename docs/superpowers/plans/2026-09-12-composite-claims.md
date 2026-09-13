@@ -140,11 +140,16 @@ class TestCompositeGrammarAndKind:
         with pytest.raises(MalformedContract, match="same_kind"):
             parse(document)
 
+    def test_an_unsupported_shape_is_refused(self, document):
+        document["composite_grammar"]["shapes"] = ["dag", "pag"]
+        with pytest.raises(MalformedContract, match="pag"):
+            parse(document)
+
     def test_the_grammar_and_the_rule_enter_the_identities(self, document):
         from beliefs.profile import compile_profile
 
         before = parse(copy.deepcopy(document))
-        document["composite_grammar"]["shapes"] = ["dag", "pag"]
+        document["composite_grammar"]["version"] = 2
         after = parse(document)
         assert before.content_identity != after.content_identity
         assert compile_profile(before, []).compiled_identity != compile_profile(after, []).compiled_identity
@@ -168,15 +173,20 @@ In `ts/tests/declarations.test.ts` change the count test to `"declares fourteen 
     expect(base.relations.composes.targets).toEqual(["proposition"]);
   });
   it("refuses same_kind where sources and targets differ", () => {
-    const bad = SHIPPED.replace(
-      "composes:   { group: world,     sources: [composite],              targets: [proposition] }",
-      "composes:   { group: world,     sources: [composite],              targets: [proposition], same_kind: true }",
-    );
+    const line = "composes: { group: world, sources: [composite], targets: [proposition] }";
+    expect(SHIPPED).toContain(line); // the mutation must land, or the assertion below asserts nothing
+    const bad = SHIPPED.replace(line, "composes: { group: world, sources: [composite], targets: [proposition], same_kind: true }");
     expect(() => parseBaseContract(bad, "<bad>")).toThrow(/same_kind/);
   });
+  it("refuses an unsupported shape", () => {
+    const line = "  shapes: [dag]\n";
+    expect(SHIPPED).toContain(line);
+    expect(() => parseBaseContract(SHIPPED.replace(line, "  shapes: [dag, pag]\n"), "<bad>")).toThrow(/pag/);
+  });
   it("refuses a base contract without the composite grammar", () => {
-    const bad = SHIPPED.replace(/composite_grammar:\n  version: 1\n  shapes: \[dag\]\n/, "");
-    expect(() => parseBaseContract(bad, "<bad>")).toThrow(/composite_grammar/);
+    const block = "composite_grammar:\n  version: 1\n  shapes: [dag]\n";
+    expect(SHIPPED).toContain(block);
+    expect(() => parseBaseContract(SHIPPED.replace(block, ""), "<bad>")).toThrow(/composite_grammar/);
   });
 ```
 
@@ -227,9 +237,12 @@ Copy the file byte-for-byte to `python/src/beliefs/contracts/science/CONTRACT.ya
 In `python/src/beliefs/contract/base.py`:
 
 ```python
-_CONTRACT_FIELDS = frozenset({"contract", "version", "claim_grammar", "composite_grammar", "kinds", "relations", "facets"})
-_GRAMMAR_FIELDS = frozenset({"version", "tag_encoding", "quantifiers", "polarities", "sign_inapt_tag", "layers"})
+_CONTRACT_FIELDS = _CONTRACT_FIELDS | {"composite_grammar"}  # the baseline's set already carries `estimand_grammar`; extend it, never restate it
 _COMPOSITE_GRAMMAR_FIELDS = frozenset({"version", "shapes"})
+SUPPORTED_SHAPES = ("dag",)
+"""The shapes this implementation derives (design §3.4). A contract naming a
+shape outside this set is refused at parse: a profile carrying `pag` would
+otherwise run `dag` classification under another shape's name."""
 _RELATION_FIELDS = frozenset({"group", "sources", "targets"})
 _RELATION_OPTIONAL = frozenset({"same_kind"})
 _RELATION_GROUPS = ("world", "lifecycle")
@@ -285,6 +298,12 @@ Add `composite_grammar: CompositeGrammar` to `BaseContract` after `claim_grammar
     )
     if not composite_grammar.shapes:
         raise MalformedContract(f"{composite_where}: shapes must be non-empty; a grammar with no shape admits no composite")
+    unsupported = sorted(set(composite_grammar.shapes) - set(SUPPORTED_SHAPES))
+    if unsupported:
+        raise MalformedContract(
+            f"{composite_where}: shapes {unsupported} are not shapes this implementation derives ({SUPPORTED_SHAPES}); "
+            "a later grammar version arrives with its classification, never ahead of it"
+        )
 ```
 
 (`_closed_set` already raises `TagCollision` on a duplicate and refuses a non-list.) Replace the relation loop's body:
@@ -325,15 +344,20 @@ export interface CompositeGrammar {
   readonly version: number;
   readonly shapes: readonly string[];
 }
+const SUPPORTED_SHAPES: readonly string[] = ["dag"];
 ```
 
-add `readonly compositeGrammar: CompositeGrammar;` to `BaseContract` and `readonly sameKind: boolean;` to `RelationDecl`; in `parseBaseContract` extend the `exactFields(document, [...])` list with `"composite_grammar"` after `"claim_grammar"`, and after the claim grammar parse add:
+add `readonly compositeGrammar: CompositeGrammar;` to `BaseContract` and `readonly sameKind: boolean;` to `RelationDecl`; in `parseBaseContract` add `"composite_grammar"` to the required list of the top-level `exactFields(document, [...])` call **beside the `"estimand_grammar"` entry the baseline already carries** (never restate the list), and after the claim grammar parse add:
 
 ```ts
   const compositeDocument = mapping(document.composite_grammar, `${source}.composite_grammar`);
   exactFields(compositeDocument, ["version", "shapes"], [], `${source}.composite_grammar`);
   const shapes = closedSet(compositeDocument.shapes, `${source}.composite_grammar.shapes`);
   if (shapes.length === 0) throw new MalformedContract(`${source}.composite_grammar.shapes: must be non-empty`);
+  for (const shape of shapes) {
+    if (!SUPPORTED_SHAPES.includes(shape))
+      throw new MalformedContract(`${source}.composite_grammar.shapes: ${JSON.stringify(shape)} is not a shape this implementation derives`);
+  }
   const compositeGrammar: CompositeGrammar = Object.freeze({
     version: positiveInt(compositeDocument.version, `${source}.composite_grammar.version`),
     shapes: Object.freeze(shapes),
@@ -537,7 +561,7 @@ def _parse_edge(name: str, value: object, where: str, operators: Mapping[str, Op
     return EdgeDecl(operator=name, cause=cause, effect=effect, retired=_bool(body.get("retired", False), f"{where}: retired"))
 ```
 
-`DomainContract` gains `edges: Mapping[str, EdgeDecl]` after `operators`; `_parsed` takes `edges: dict[str, EdgeDecl]` and sets it with `MappingProxyType(dict(edges))`; `_declarations()` returns one more group, `*((f"edge:{name}", decl) for name, decl in self.edges.items())`, and its return annotation widens to include `EdgeDecl`. In `parse_domain_contract`: `_fields(root, _CONTRACT_FIELDS, frozenset({"description", "facets", "edges"}), source)`, and after the operators loop:
+`DomainContract` gains `edges: Mapping[str, EdgeDecl]` after `operators`; `_parsed` takes `edges: dict[str, EdgeDecl]` and sets it with `MappingProxyType(dict(edges))`; `_declarations()` returns one more group, `*((f"edge:{name}", decl) for name, decl in self.edges.items())`, and its return annotation widens to include `EdgeDecl`. In `parse_domain_contract`, add `"edges"` to the optional set of the existing `_fields(root, _CONTRACT_FIELDS, frozenset({...}), source)` call — the baseline's set already holds `"description"`, `"facets"` and `"estimands"`; extend it, never restate it — and after the operators loop:
 
 ```python
     edges: dict[str, EdgeDecl] = {}
@@ -577,7 +601,7 @@ with `edges: dict[str, CompiledEdge] = {}` declared beside `operators`; pass `ed
 
 - [ ] **Step 6: TypeScript parity**
 
-In `ts/src/contract.ts` add `export interface EdgeDecl { readonly operator: string; readonly cause: number; readonly effect: number; }`, `readonly edges: DeclarationTable<EdgeDecl>` on `DomainContract`, `"edges"` to `parseDomainContract`'s optional field list, and after the operators table is built:
+In `ts/src/contract.ts` add `export interface EdgeDecl { readonly operator: string; readonly cause: number; readonly effect: number; }`, `readonly edges: DeclarationTable<EdgeDecl>` on `DomainContract`, `"edges"` appended to `parseDomainContract`'s existing optional field list (beside the baseline's `"estimands"`), and after the operators table is built:
 
 ```ts
   const edgeEntries: [string, EdgeDecl][] = [];
@@ -775,6 +799,39 @@ class TestConstruction:
         # fixture is unconstructible (arg sorts differ), which is itself the assertion.
         pytest.skip("cycle detection is exercised in test_composite_boundary under the biology fixture (gene → gene)")
 
+    def test_an_isolated_node_with_an_undeclared_sort_refuses_in_shared_classification(self, tmp_path):
+        from beliefs.composite import CompositeFacet, classify
+        from beliefs.contract.base import COMPOSITE_GRAMMAR
+
+        facet = CompositeFacet(grammar=COMPOSITE_GRAMMAR, shape="dag", nodes=(CompositeNode("nowhere/sort", "EX:z"),), members=())
+        with pytest.raises(CompositeError) as caught:
+            classify(PROFILE, facet, {})
+        assert caught.value.code == "composite-node-sort"
+
+    def test_a_retired_edge_declaration_refuses(self, tmp_path):
+        import copy
+
+        import yaml
+
+        document = yaml.safe_load((REPO / "fixtures/contracts/testing.yaml").read_text())
+        successor = copy.deepcopy(document)
+        successor["lineage"] = {"successor": TESTING.content_identity}
+        successor["edges"]["affects"]["retired"] = True
+        retired = compile_profile(BASE, [parse_domain_contract(successor, source="<r>", base=BASE, predecessor=TESTING)])
+        view = _corpus(tmp_path, _proposition("ab", AB))
+        with pytest.raises(CompositeError) as caught:
+            build_composite(retired, view, shape="dag", nodes=[A, C], members=["proposition:ab"], snapshot=CONSULTED, slug="x")
+        assert caught.value.code == "composite-member-retired"
+
+    def test_a_member_whose_stored_claim_fails_typing_is_unrestorable_not_an_escape(self, tmp_path):
+        node = _proposition("bad", AB)
+        node.facets[stored.PROPOSITION_FACET]["layer"] = "methodological"  # affects admits causal only
+        stored.stamp_semantic_identity(node)
+        view = _corpus(tmp_path, node)
+        with pytest.raises(CompositeError) as caught:
+            build_composite(PROFILE, view, shape="dag", nodes=[A, C], members=["proposition:bad"], snapshot=CONSULTED, slug="x")
+        assert caught.value.code == "composite-member-unrestorable"
+
     def test_an_isolated_node_a_consulted_vocabulary_excludes_refuses(self, tmp_path):
         view = _corpus(tmp_path, _proposition("ab", AB))
         with pytest.raises(CompositeError) as caught:
@@ -823,6 +880,7 @@ class TestStoredShape:
             lambda f: f.__setitem__("nodes", [{"sort": ENTITY, "term": "EX:a"}, {"sort": ENTITY, "term": "EX:a"}]),
             lambda f: f.__setitem__("nodes", [{"sort": OUTCOME, "term": "EX:y"}, {"sort": ENTITY, "term": "EX:a"}]),  # unsorted
             lambda f: f.__setitem__("members", ["b", "a"]),
+            lambda f: f.__setitem__("members", ["a", 7]),
             lambda f: f.__setitem__("extra", 1),
             lambda f: f.pop("members"),
         ],
@@ -894,7 +952,7 @@ from nodes.core.node import Node
 from beliefs.claim import Claim, _require_referent_identifier
 from beliefs.contract.base import COMPOSITE_GRAMMAR
 from beliefs.decode import claim_from_stored
-from beliefs.errors import CompositeError, DecodeError, MalformedRecord
+from beliefs.errors import ClaimError, CompositeError, DecodeError, MalformedRecord, ProfileError
 from beliefs.identity import v1
 from beliefs.profile import ProfileSpec
 from beliefs.projection import claim_identity
@@ -950,16 +1008,19 @@ class CompositeFacet:
             raise MalformedRecord(f"a composite facet carries grammar {COMPOSITE_GRAMMAR!r}, found {self.grammar!r}")
         if type(self.shape) is not str or not self.shape:
             raise MalformedRecord("a composite's shape is a non-empty tag")
+        if type(self.nodes) is not tuple or any(type(n) is not CompositeNode for n in self.nodes):
+            raise MalformedRecord("a composite's nodes are CompositeNode values")
         if not self.nodes:
             raise MalformedRecord("a composite declares at least one node")
+        if type(self.members) is not tuple or any(type(m) is not str or not m for m in self.members):
+            raise MalformedRecord("a composite's members are non-empty claim-identity strings")
+        # Types first, order second: sorting a list holding a non-string raises
+        # TypeError, which is not a refusal anything downstream translates.
         keys = [(n.sort, n.term) for n in self.nodes]
         if keys != sorted(keys) or len(set(keys)) != len(keys):
             raise MalformedRecord("a composite's nodes are sorted by (sort, term) and distinct; refused, never tidied")
         if list(self.members) != sorted(self.members) or len(set(self.members)) != len(self.members):
             raise MalformedRecord("a composite's members are sorted and distinct; refused, never tidied")
-        for member in self.members:
-            if type(member) is not str or not member:
-                raise MalformedRecord("a member is a claim identity")
 
     def projection(self) -> dict[str, object]:
         return {
@@ -1026,11 +1087,22 @@ def _canonical_nodes(nodes: Iterable[object]) -> tuple[CompositeNode, ...]:
     return tuple(sorted(listed, key=lambda n: (n.sort, n.term)))
 
 
+def require_node_sorts(profile: ProfileSpec, nodes: Sequence[CompositeNode]) -> None:
+    """Every node's sort is one the profile declares — isolated nodes included,
+    since no member's claim ever names them and nothing else would look."""
+    for index, node in enumerate(nodes):
+        if node.sort not in profile.sorts:
+            raise CompositeError("composite-node-sort", f"node {index}: {node.sort!r} is not a sort this profile declares")
+
+
 def classify(profile: ProfileSpec, facet: CompositeFacet, claims: Mapping[str, Claim]) -> tuple[Edge, ...]:
     """§3.4's table for `shape: dag`. `claims` is keyed by member identity and
-    must cover every member; a missing key is the caller's defect."""
+    must cover every member; a missing key is the caller's defect. The whole
+    node-set contract is checked here, because this is the one function the
+    constructor, the boundary and the audit share."""
     if facet.shape not in profile.composite_grammar.shapes:
         raise CompositeError("composite-shape", f"{facet.shape!r} is not a shape the base contract declares ({profile.composite_grammar.shapes})")
+    require_node_sorts(profile, facet.nodes)
     declared = {(n.sort, n.term): n for n in facet.nodes}
     edges: list[Edge] = []
     for member in facet.members:
@@ -1038,16 +1110,18 @@ def classify(profile: ProfileSpec, facet: CompositeFacet, claims: Mapping[str, C
         edge = profile.edges.get(claim.operator)
         if edge is None:
             raise CompositeError("composite-member-undeclared", f"member {member}: operator {claim.operator!r} declares no edge")
+        if edge.retired:
+            raise CompositeError("composite-member-retired", f"member {member}: the edge declaration for {claim.operator!r} is retired; a retired row types history and admits no new structure (§7.3a)")
         if claim.layer != "causal":
             raise CompositeError("composite-member-layer", f"member {member}: layer {claim.layer!r} forms no edge in a dag; the inhabited fragment is the causal layer")
-        endpoints = []
-        for slot in (edge.cause, edge.effect):
-            referent = claim.args[slot]
-            node = declared.get((referent.sort, referent.term))
-            if node is None:
+        # Every argument must be a declared node, not only the two the edge
+        # reads: a ternary operator's third slot is part of the claim the
+        # composite asserts over these nodes.
+        for slot, referent in enumerate(claim.args):
+            if (referent.sort, referent.term) not in declared:
                 raise CompositeError("composite-member-outside-nodes", f"member {member}: argument {slot} ({referent.sort}, {referent.term}) is not a declared node")
-            endpoints.append(node)
-        edges.append(Edge(cause=endpoints[0], effect=endpoints[1], sign=claim.polarity, member=member))
+        cause, effect = (declared[(claim.args[slot].sort, claim.args[slot].term)] for slot in (edge.cause, edge.effect))
+        edges.append(Edge(cause=cause, effect=effect, sign=claim.polarity, member=member))
     _refuse_cycle(facet.nodes, edges)
     return tuple(edges)
 
@@ -1092,7 +1166,11 @@ def restore_members(view: object, facet_members: Sequence[str], refs: Sequence[s
             raise CompositeError("composite-member-kind", f"member {ref} is a {node.kind!r}, not a proposition")
         try:
             claim, _ = claim_from_stored(node, profile=profile, snapshot=snapshot)
-        except DecodeError as caught:
+        except (DecodeError, ClaimError, ProfileError) as caught:
+            # `claim_from_stored` raises all three families: a malformed wire
+            # claim, a claim that fails typing (`InadmissibleLayer`, an arity or
+            # sort mismatch), an operator no contract declares. None is a
+            # `RecordError`, so each is translated here or it escapes the audit.
             raise CompositeError("composite-member-unrestorable", f"member {ref}: {caught}") from caught
         if claim_identity(claim) != member:
             raise CompositeError("composite-member-mismatch", f"member {ref} carries claim {claim_identity(claim)}, the facet names {member}")
@@ -1135,7 +1213,7 @@ def build_composite(
             raise CompositeError("composite-member-kind", f"member {ref} is a {node.kind!r}, not a proposition")
         try:
             claim, _ = claim_from_stored(node, profile=profile, snapshot=snapshot)
-        except DecodeError as caught:
+        except (DecodeError, ClaimError, ProfileError) as caught:
             raise CompositeError("composite-member-unrestorable", f"member {ref}: {caught}") from caught
         by_ref[ref] = claim
     identities = {ref: claim_identity(claim) for ref, claim in by_ref.items()}
@@ -1149,12 +1227,10 @@ def build_composite(
         members=tuple(identities[ref] for ref in ordered_refs),
     )
 
+    require_node_sorts(profile, canonical_nodes)
     outcomes: dict[str, TermOutcome] = {}
     for index, node in enumerate(canonical_nodes):
-        sort = profile.sorts.get(node.sort)
-        if sort is None:
-            raise CompositeError("composite-node-sort", f"node {index}: {node.sort!r} is not a sort this profile declares")
-        outcomes[ReferentPosition.node(index).label()] = snapshot.resolve(sort.vocabulary, node.term)
+        outcomes[ReferentPosition.node(index).label()] = snapshot.resolve(profile.sorts[node.sort].vocabulary, node.term)
     refused = [label for label, outcome in outcomes.items() if outcome.refuses]
     if refused:
         named = ", ".join(f"{label} ({canonical_nodes[int(label.partition(':')[2])].term})" for label in refused)
@@ -1183,6 +1259,7 @@ def composite_value(node: Node) -> "CompositeFacet":
     nodes, canonical members. Membership of a node's term in its vocabulary
     is never read here."""
     from beliefs.composite import CompositeFacet, CompositeNode
+    from beliefs.errors import ClaimError
 
     facet = _facet(node, COMPOSITE_FACET)
     if facet is None:
@@ -1198,7 +1275,7 @@ def composite_value(node: Node) -> "CompositeFacet":
             raise MalformedRecord(f"{node.id}: a node is {{sort, term}} of strings")
         try:
             nodes.append(CompositeNode(entry["sort"], entry["term"]))
-        except Exception as caught:  # noqa: BLE001 — `Referent`'s identifier checks raise ClaimError subclasses
+        except ClaimError as caught:  # the identifier checks are `Referent`'s, a ClaimError family
             raise MalformedRecord(f"{node.id}: {caught}") from caught
     try:
         return CompositeFacet(grammar=facet["grammar"], shape=facet["shape"], nodes=tuple(nodes), members=tuple(raw_members))
@@ -1238,7 +1315,7 @@ git commit -m "feat(composite): build, classify and store a composite over propo
 
 **Interfaces:**
 - Consumes: `composite.classify`, `composite.restore_members`, `composite.EMPTY_SNAPSHOT`, `stored.composite_value`, `stored.COMPOSES` (Task 3); `KIND_ACTS["composite"]` (Task 1).
-- Produces: every `CorpusWriter` route in — `add`, `supersede`, `import_bundle`, `move`'s destination half through `_add_locked` — refusing a malformed composite with its `CompositeError` code, and refusing any record carrying a `supersedes` edge to a record of another kind with `SignatureRefused("<id>: supersedes-cross-kind: …")`; `supersede(successor, of=)` admitting a same-kind `composite` pair.
+- Produces: every `CorpusWriter` route in — `add`, `supersede`, `import_bundle`, `move`'s destination half through `_add_locked` — refusing a malformed composite with its `CompositeError` code, refusing any record carrying a `supersedes` edge to a record of another kind with `SignatureRefused("<id>: supersedes-cross-kind: …")`, and refusing an assessment whose `assesses` edge resolves to anything but a proposition with `SignatureRefused("<id>: assesses-target-kind: …")` — the guard U4 needs, since `eligibility_refusal` reads the run and the observed dataset and never the target's kind (found in review: an otherwise eligible assessment naming `composite:x` passes it); `supersede(successor, of=)` admitting a same-kind `composite` pair.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1403,6 +1480,16 @@ class TestSupersession:
             other.import_bundle(members, **IMPORT)
         assert caught.value.member == record.id
 
+    def test_an_assessment_targeting_a_composite_is_refused_by_kind_not_by_eligibility(self, writer):
+        from test_evaluation import _observations, _resources
+
+        composite = writer.add(stored.composite_node(_build(writer, ["proposition:ab"], slug="v1"), title="v1"))
+        writer.add(stored.dataset_node("d-a", title="d-a", resources=_resources("a"), empirical_observation={"locator": "instrument:fixture", "attested_by": "test-actor"}))
+        run = writer.add(stored.run_node("run-x", title="x", spec="spec-x", observes=["dataset:d-a"]))
+        assessment = stored.assessment_node("a-x", title="x", spec="spec-x", run=run.id, proposition=composite.id, outcome="supported", interpretation_rule="rule-1")
+        with pytest.raises(SignatureRefused, match="assesses-target-kind"):
+            writer.add(assessment)
+
     def test_a_same_kind_supersedes_edge_imports(self, writer, tmp_path):
         first = writer.add(stored.composite_node(_build(writer, ["proposition:ab"], slug="v1"), title="v1"))
         second = writer.supersede(stored.composite_node(_build(writer, ["proposition:ab", "proposition:bc"], slug="v2"), title="v2"), of=first.id)
@@ -1444,6 +1531,25 @@ In `python/src/beliefs/corpus.py`, add two methods beside `_refuse_verification`
         )  # steps 2–3
         composite_module.classify(self._profile, facet, claims)  # step 4
 
+    def _refuse_assesses_target_kind(self, node: Node, *, view: ReadView | _ImportView) -> None:
+        """`assesses` targets a proposition and nothing else (kernel §4.1, U4).
+        The eligibility predicate reads the run and its observed dataset and
+        never the target's kind, so without this an otherwise eligible
+        assessment could name a composite and enter the pool `gather` matches."""
+        if node.kind != "assessment":
+            return
+        for relation in node.relations:
+            if relation.predicate != stored.ASSESSES:
+                continue
+            try:
+                target = view.get(relation.target)
+            except RefError:
+                continue  # an unresolvable target is the eligibility predicate's refusal
+            if target.kind != "proposition":
+                raise SignatureRefused(
+                    f"{node.id}: assesses-target-kind: an assessment assesses a proposition, not a {target.kind!r} ({relation.target})"
+                )
+
     def _refuse_supersedes_same_kind(self, node: Node, *, view: ReadView | _ImportView) -> None:
         """Design §3.1's `same_kind` rule, on the shared path every route takes
         and outside the `document_validated` shortcut: a `supersedes` edge whose
@@ -1471,6 +1577,7 @@ In `_refuse`, after the `if node.kind == "analysis-spec":` line and **before** `
 ```python
         reading = self._view if view is None else view
         self._refuse_supersedes_same_kind(node, view=reading)
+        self._refuse_assesses_target_kind(node, view=reading)
         if node.kind == "composite":
             self._refuse_composite(node, view=reading)
 ```
@@ -1499,7 +1606,7 @@ and change the docstring's first line to "Mint a proposition or composite succes
 
 ```bash
 git add python/src/beliefs/corpus.py python/tests/test_composite_boundary.py python/tests/test_permit_entry_points.py
-git commit -m "feat(corpus): refuse a malformed composite and a cross-kind supersedes edge on the shared write path; supersede composites (U3, U6, U9)"
+git commit -m "feat(corpus): refuse a malformed composite, a cross-kind supersedes edge and a non-proposition assesses target on the shared write path; supersede composites (U3, U4, U6, U9)"
 ```
 
 ---
@@ -1586,6 +1693,27 @@ def test_a_raw_written_cross_kind_supersedes_edge_is_reported_on_any_record(tmp_
     raw_write(writer.root, node)
     assert ("supersedes-cross-kind", "proposition:ab") in _codes(writer)
     assert check_supersedes_kinds(reopen(writer.root), reopen(writer.root).get("proposition:ab"), profile=writer.profile) is not None
+
+
+def test_a_successor_that_retires_the_edge_row_makes_the_composite_malformed(tmp_path):
+    import copy
+
+    from beliefs.contract import parse_domain_contract
+    from beliefs.contract.document import load_document
+    from beliefs.profile import compile_profile, shipped_base_contract
+    from profiles import FIXTURE, biology
+
+    writer, minted = _composite_corpus(tmp_path)
+    document = load_document(FIXTURE, source=str(FIXTURE))
+    successor = copy.deepcopy(document)
+    successor["description"] = "fixture"
+    successor["lineage"] = {"successor": biology("fixture").content_identity}
+    successor["edges"]["affects"]["retired"] = True
+    retired = compile_profile(shipped_base_contract(), [parse_domain_contract(successor, source="<r>", base=shipped_base_contract(), predecessor=biology("fixture"))])
+    # `check_composite` directly: the corpus pins the predecessor, and this arm is about classification under the successor, not about pins.
+    outcome = check_composite(reopen(writer.root), reopen(writer.root).get(minted.id), profile=retired)
+    assert outcome.contradiction is not None and outcome.contradiction.code == "composite-malformed"
+    assert "composite-member-retired" in outcome.contradiction.detail
 
 
 def test_check_composite_reads_form_only_and_never_a_snapshot(tmp_path):
@@ -1681,11 +1809,11 @@ git commit -m "feat(audit): report a dangling, mismatched or unclassifiable comp
 ### Task 6: The reading — the traced evaluator and `read_composite`
 
 **Files:**
-- Modify: `python/src/beliefs/belief.py` (`Admission`, `admitted`, `evaluate_traced`; `evaluate` as first projection), `python/src/beliefs/evaluation.py` (`evaluate_over_traced`; `evaluate_over` as first projection), `python/src/beliefs/composite.py` (`Resolution`, `MemberRow`, `CompositeReading`, `read_composite`)
+- Modify: `python/src/beliefs/belief.py` (`Admission`, `admitted`, `evaluate_traced`; `evaluate` as first projection), `python/src/beliefs/evaluation.py` (`evaluate_over_traced`; `evaluate_over` as first projection), `python/src/beliefs/composite.py` (`Resolution`, `MemberRow`, `CompositeReading`, `read_composite`), `python/tests/fixtures/biology-fixture.yaml` (three sorts and one `estimands:` row, so an assessment stored under `WITH_BIOLOGY` restores under it)
 - Test: `python/tests/test_belief.py`, `python/tests/test_evaluation.py`, `python/tests/test_composite_reading.py`
 
 **Interfaces:**
-- Consumes: `evaluation.gather`, `belief.evaluate`, `admission.admit`, `verification.lifecycle_state`, `corpus.superseded_by` (existing); the estimand lane's `AssessmentValue.estimand: Estimand` with `estimand.control.identification: Referent` (estimand plan Task 7) and its `fixtures_cut3.typed_estimand()`, `typed_applicability()`.
+- Consumes: `evaluation.gather`, `belief.evaluate`, `admission.admit`, `verification.lifecycle_state`, `corpus.superseded_by` (existing); the estimand lane's `AssessmentValue.estimand: Estimand` with `estimand.control.identification: Referent` (estimand plan Task 7), its `build_estimand`, `LevelsContrast`, `Measure`, `Control`, and the `estimands:` declaration shape its `testing.yaml` fixture carries (plan Task 2 there).
 - Produces, at `beliefs.belief`: `NotReached` and `Reached(admitted: frozenset[str])` (sealed, frozen; `Admission = NotReached | Reached`); `admitted(distinct, *, runs, observations, verifications) -> tuple[tuple[AssessmentValue, ...], tuple[AssessmentValue, ...]]` (eligible, unheld-only — step 5's partition, called exactly once by the evaluator); `evaluate_traced(**same kwargs as evaluate) -> tuple[Belief | NoBelief | Refused, Admission]`; `evaluate(...)` unchanged in signature and answer, defined as `evaluate_traced(...)[0]`. At `beliefs.evaluation`: `evaluate_over_traced(view, proposition, *, availability, context, profile, resolution, binding) -> tuple[answer, Admission]`; `evaluate_over(...) = evaluate_over_traced(...)[0]`. At `beliefs.composite`: `Resolution(state: str, successors: tuple[str, ...])` with `state ∈ {"active", "superseded"}`; `MemberRow(member, ref, role: Edge, claim: Claim, resolution: Resolution, belief, identification: tuple[str, ...] | NotReached)`; `CompositeReading(ref, identity, shape, nodes: tuple[CompositeNode, ...], standing: Resolution, node_outcomes: Mapping[str, TermOutcome], rows: tuple[MemberRow, ...])` with `projection() -> dict` (canonically encodable; the evaluator answer projected as `answers.payload` in the reproduction driver does — `{"kind": "Belief", "value", "belief_input_digest", "policy_binding"}` and its two siblings); `read_composite(view, ref, *, context, availability, resolution, binding, profile) -> CompositeReading`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -1713,13 +1841,20 @@ def test_admission_is_reached_with_identities_on_a_belief_and_on_a_directionless
     assert isinstance(admission, Reached) and len(admission.admitted) == 50
 
 
-def test_admission_is_not_reached_when_the_answer_precedes_step_5():
+def test_admission_is_not_reached_when_the_answer_precedes_the_gate():
     unheld = scenario()["availability"]
     without_policy = Availability(observations=unheld.observations, implementations={}, fixtures=unheld.fixtures)
     answer, admission = evaluate_traced(**scenario(availability=without_policy))
-    assert answer == NoBelief("unavailable-policy-unheld") and admission is NotReached()
+    assert answer == NoBelief("unavailable-policy-unheld") and admission == NotReached()
     answer, admission = evaluate_traced(**scenario(binding=None))
-    assert isinstance(answer, Refused) and admission is NotReached()
+    assert isinstance(answer, Refused) and admission == NotReached()
+    # The identity-contradiction arm sits inside step 5, before the gate, and keeps its existing answer.
+    base = scenario()
+    twin = _assessment("spec-a", "run-a", outcome="refuted")  # same (spec, run, proposition) as a1, different facet
+    records = Records(claims=base["records"].claims, assessments=(*base["records"].assessments, twin), runs=base["records"].runs, source_assertions=(), verifications=base["records"].verifications)
+    answer, admission = evaluate_traced(**scenario(records=records))
+    assert isinstance(answer, Refused) and answer.reason.startswith("assessment-identity-contradicted") and admission == NotReached()
+    assert evaluate(**scenario(records=records)) == answer
 
 
 def test_the_admitted_set_is_not_the_digest_keyed_set():
@@ -1731,7 +1866,7 @@ def test_the_admitted_set_is_not_the_digest_keyed_set():
     assert {a.identity() for a in kwargs["records"].assessments} == {a1.identity(), a2.identity()}  # the closure keys both
 
 
-def test_admission_runs_exactly_once(monkeypatch):
+def test_admission_runs_exactly_once_in_the_evaluator(monkeypatch):
     from beliefs import belief as belief_module
 
     original = belief_module.admitted
@@ -1748,7 +1883,7 @@ def test_admission_runs_exactly_once(monkeypatch):
     assert calls == [1]
 ```
 
-(`NotReached()` is a singleton — the sealed class returns the one instance — so `is` holds; if the codebase's `sealed` helper forbids `__new__` overrides, make the test `== NotReached()` and drop the singleton.) Append to `python/tests/test_evaluation.py`:
+(`NotReached` is a frozen dataclass with no fields: equal by value, never compared by identity.) Append to `python/tests/test_evaluation.py`:
 
 ```python
 def test_evaluate_over_is_the_first_projection_of_evaluate_over_traced(corpus_fixture, claimless_fixture):
@@ -1769,38 +1904,59 @@ Create `python/tests/test_composite_reading.py`:
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 import pytest
-from fixtures_cut3 import typed_applicability, typed_estimand
-from profiles import pins_for
-from test_composite_boundary import EX, GENE, SNAPSHOT, A, B, C, _build, _claim, _proposition, _writer
+from profiles import WITH_BIOLOGY, pins_for
+from test_composite_boundary import EX, GENE, A, B, C, _build, _claim, _proposition, _writer
 from test_evaluation import _observations  # the held byte observations helper, keyed by dataset address
 
 from beliefs import stored
 from beliefs.belief import Availability, Belief, NoBelief, NotReached, SuppliedContext
+from beliefs.claim import Referent
 from beliefs.closure import RetractionEnumeration
 from beliefs.composite import CompositeNode, CompositeError, build_composite, read_composite
 from beliefs.corpus import lineage_snapshot
+from beliefs.estimand import Control, LevelsContrast, Measure, build_estimand
 from beliefs.evaluation import evaluate_over
 from beliefs.identity import v1
 from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding
+from beliefs.projection import project_claim
 from beliefs.resolution import TermOutcome, build_snapshot
 
 BINDING = PolicyBinding(rule=BELIEF_V1_RULE, implementation=BELIEF_V1.identity)
+# Every biology-fixture sort binds `EX/2026-01-01`, so one binding carries the nodes and the estimand's terms.
+SNAPSHOT = build_snapshot(readable={EX: ["EX:a", "EX:b", "EX:c", "EX:lo", "EX:hi", "EX:expr", "EX:observational"]})
+
+
+def _estimand(claim):
+    """A typed estimand for a biology-fixture `affects` claim, under the profile that stores and restores it —
+    the fixture's `estimands:` row for `affects` (Step 4) names `biology/level`, `biology/measure`, `biology/identification`."""
+    estimand, _ = build_estimand(
+        WITH_BIOLOGY, claim, snapshot=SNAPSHOT,
+        contrast=LevelsContrast(slot=0, baseline=Referent("biology/level", "EX:lo"), comparison=Referent("biology/level", "EX:hi")),
+        measure=Measure(quantity=Referent("biology/measure", "EX:expr"), scale="additive"),
+        reference=Decimal("0"),
+        control=Control(identification=Referent("biology/identification", "EX:observational"), conditioning=()),
+    )
+    return estimand
 
 
 @pytest.fixture()
 def corpus(tmp_path):
-    """Three propositions; `ab` assessed once (supported, verified, held), `bc` unassessed, `ca` superseded by `ca2`."""
+    """Three propositions over an acyclic graph a→b, b⊣c, a→c: `ab` assessed once
+    (supported, verified, held), `bc` unassessed, `ac` (unsigned) superseded by `ac2` (positive)."""
     w = _writer(tmp_path / "corpus")
     ab = _proposition(w, "ab", _claim("EX:a", "EX:b"))
     _proposition(w, "bc", _claim("EX:b", "EX:c", polarity="negative"))
-    ca = _proposition(w, "ca", _claim("EX:c", "EX:a", polarity="unsigned"))
-    ca2 = w.supersede(stored.proposition_node("ca2", title="ca2", claim=__import__("beliefs.projection", fromlist=["project_claim"]).project_claim(_claim("EX:c", "EX:a"))), of=ca.id)
-    # One admitted assessment of `ab`: an observing run over a held dataset, a passed clean-environment verification.
-    from test_evaluation import seed_assessed_proposition  # Task 6 Step 3 adds this helper beside `_seed`
+    ac = _proposition(w, "ac", _claim("EX:a", "EX:c", polarity="unsigned"))
+    ac2 = w.supersede(stored.proposition_node("ac2", title="ac2", claim=project_claim(_claim("EX:a", "EX:c"))), of=ac.id)
+    # One admitted assessment of `ab`: an observing run over a held dataset, a passed clean-environment verification,
+    # typed under the profile that restores it (Step 4).
+    from test_evaluation import seed_assessed_proposition
 
-    dataset_address = seed_assessed_proposition(w, ab.id, slug="a-ab", estimand=typed_estimand(), applicability=typed_applicability())
-    return w, dataset_address, ca.id, ca2.id
+    dataset_address = seed_assessed_proposition(w, ab.id, slug="a-ab", estimand=_estimand(_claim("EX:a", "EX:b")), applicability={})
+    return w, dataset_address, ac.id, ac2.id
 
 
 def _inputs(w, dataset_address, *, hold=True, with_policy=True):
@@ -1821,22 +1977,22 @@ def _inputs(w, dataset_address, *, hold=True, with_policy=True):
 
 
 def test_rows_equal_the_wrapper_answers_and_columns_share_one_admission(corpus):
-    w, dataset_address, ca, ca2 = corpus
-    minted = w.add(stored.composite_node(_build(w, ["proposition:ab", "proposition:bc", ca]), title="g"))
+    w, dataset_address, ac, ac2 = corpus
+    minted = w.add(stored.composite_node(_build(w, ["proposition:ab", "proposition:bc", ac]), title="g"))
     reading = read_composite(w.read_view, minted.id, **_inputs(w, dataset_address))
     assert reading.identity == stored.stored_semantic_hash(w.read_view.get(minted.id))
     by_ref = {row.ref: row for row in reading.rows}
     for ref, row in by_ref.items():
         assert row.belief == evaluate_over(w.read_view, ref, **_inputs(w, dataset_address))
-    assert isinstance(by_ref["proposition:ab"].belief, Belief) and by_ref["proposition:ab"].identification == (typed_estimand().control.identification.term,)
+    assert isinstance(by_ref["proposition:ab"].belief, Belief) and by_ref["proposition:ab"].identification == ("EX:observational",)
     assert by_ref["proposition:bc"].belief == NoBelief("no-eligible-assessment") and by_ref["proposition:bc"].identification == ()
-    assert by_ref[ca].resolution.state == "superseded" and by_ref[ca].resolution.successors == (ca2,)
+    assert by_ref[ac].resolution.state == "superseded" and by_ref[ac].resolution.successors == (ac2,)
     assert {row.role.sign for row in reading.rows} == {"positive", "negative", "unsigned"}
     assert set(reading.node_outcomes) == {"node:0", "node:1", "node:2"} and reading.standing.state == "active"
 
 
 def test_withholding_follows_the_evaluator(corpus):
-    w, dataset_address, ca, _ = corpus
+    w, dataset_address, _, _ = corpus
     minted = w.add(stored.composite_node(_build(w, ["proposition:ab"]), title="g"))
     unheld = read_composite(w.read_view, minted.id, **_inputs(w, dataset_address, hold=False)).rows[0]
     assert unheld.belief == evaluate_over(w.read_view, "proposition:ab", **_inputs(w, dataset_address, hold=False))
@@ -1849,12 +2005,43 @@ def test_two_inconclusive_admitted_assessments_keep_their_terms(corpus):
     w, dataset_address, *_ = corpus
     from test_evaluation import seed_assessed_proposition
 
-    seed_assessed_proposition(w, "proposition:bc", slug="i-1", outcome="inconclusive", estimand=typed_estimand(), applicability=typed_applicability())
-    seed_assessed_proposition(w, "proposition:bc", slug="i-2", outcome="inconclusive", estimand=typed_estimand(), applicability=typed_applicability())
+    bc = _estimand(_claim("EX:b", "EX:c", polarity="negative"))
+    seed_assessed_proposition(w, "proposition:bc", slug="i-1", outcome="inconclusive", estimand=bc, applicability={})
+    seed_assessed_proposition(w, "proposition:bc", slug="i-2", outcome="inconclusive", estimand=bc, applicability={})
     minted = w.add(stored.composite_node(_build(w, ["proposition:bc"]), title="g"))
     row = read_composite(w.read_view, minted.id, **_inputs(w, dataset_address)).rows[0]
     assert row.belief == NoBelief("no-directional-outcome")
-    assert row.identification == (typed_estimand().control.identification.term,)
+    assert row.identification == ("EX:observational",)
+
+
+def test_the_reading_admits_each_member_once_and_never_calls_admit_itself(corpus, monkeypatch):
+    """Two traps, because the two declared mutations differ: a second
+    `belief.admitted` call over the gathered records, and a direct
+    `admission.admit` call per gathered assessment. `admit` is counted through
+    the module `belief.admitted` resolves it from, so a `read_composite` that
+    imported it itself would still be counted — `admit` has one home."""
+    from beliefs import admission as admission_module
+    from beliefs import belief as belief_module
+
+    admitted_calls, admit_calls = [], []
+    original_admitted, original_admit = belief_module.admitted, belief_module.admit
+
+    def trap_admitted(*args, **kwargs):
+        admitted_calls.append(1)
+        return original_admitted(*args, **kwargs)
+
+    def trap_admit(*args, **kwargs):
+        admit_calls.append(1)
+        return original_admit(*args, **kwargs)
+
+    monkeypatch.setattr(belief_module, "admitted", trap_admitted)
+    monkeypatch.setattr(belief_module, "admit", trap_admit)
+    monkeypatch.setattr(admission_module, "admit", trap_admit)
+    w, dataset_address, *_ = corpus
+    minted = w.add(stored.composite_node(_build(w, ["proposition:ab", "proposition:bc"]), title="g"))
+    read_composite(w.read_view, minted.id, **_inputs(w, dataset_address))
+    assert admitted_calls == [1, 1]  # one per member, from the evaluator
+    assert admit_calls == [1]  # `ab` has one distinct assessment; `bc` has none — nothing outside the evaluator called it
 
 
 def test_an_unresolvable_member_refuses_the_reading(corpus):
@@ -1870,10 +2057,20 @@ def test_a_memberless_composite_reads_no_rows_and_a_node_receipt(corpus):
     w, dataset_address, *_ = corpus
     value, _ = build_composite(w.profile, w.read_view, shape="dag", nodes=[A, CompositeNode(GENE, "EX:z")], members=[], snapshot=build_snapshot(), slug="m")
     minted = w.add(stored.composite_node(value, title="m"))
-    reading = read_composite(w.read_view, minted.id, **_inputs(w, dataset_address))
+    unconsulted = {**_inputs(w, dataset_address), "resolution": build_snapshot()}
+    reading = read_composite(w.read_view, minted.id, **unconsulted)
     assert reading.rows == ()
-    assert reading.node_outcomes == {"node:0": TermOutcome.MEMBER, "node:1": TermOutcome.NOT_MEMBER}  # SNAPSHOT consults EX and lacks z
+    assert reading.node_outcomes == {"node:0": TermOutcome.NOT_CONSULTED, "node:1": TermOutcome.NOT_CONSULTED}
     assert v1.encode(reading.projection())  # canonically encodable
+
+
+def test_the_reading_refuses_a_node_the_consulted_vocabulary_excludes(corpus):
+    w, dataset_address, *_ = corpus
+    value, _ = build_composite(w.profile, w.read_view, shape="dag", nodes=[A, CompositeNode(GENE, "EX:z")], members=[], snapshot=build_snapshot(), slug="m")
+    minted = w.add(stored.composite_node(value, title="m"))
+    with pytest.raises(CompositeError) as caught:
+        read_composite(w.read_view, minted.id, **_inputs(w, dataset_address))  # SNAPSHOT consults EX and lacks z
+    assert caught.value.code == "composite-node-not-member" and "node:1" in str(caught.value)
 
 
 def test_a_superseded_composite_reports_its_successor(corpus):
@@ -1884,7 +2081,7 @@ def test_a_superseded_composite_reports_its_successor(corpus):
     assert reading.standing.state == "superseded" and reading.standing.successors == (second.id,)
 ```
 
-The memberless test reads under `SNAPSHOT`, which consults `EX` and excludes `EX:z`; the reading **reports** `not-member` in the receipt rather than refusing, because the record is already stored and the finding is the reading's (spec limitation 15). Refusal on `not-member` is the constructor's alone; `test_composite.py` holds that.
+The memberless receipt is exercised under an unconsulted snapshot; under the consulting `SNAPSHOT`, which lacks `EX:z`, the reading refuses exactly as the constructor does (U3's vocabulary arm). Only the boundary and the audit check form alone.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
@@ -1936,7 +2133,7 @@ def admitted(
     return tuple(eligible), tuple(unheld_only)
 ```
 
-Rename the existing `evaluate` to `evaluate_traced` with return type `tuple[Belief | NoBelief | Refused, Admission]`; every `return X` before the step-5 block becomes `return X, NotReached()`; the step-5 loop body is replaced by
+Rename the existing `evaluate` to `evaluate_traced` with return type `tuple[Belief | NoBelief | Refused, Admission]`; every `return X` before the `admitted` call becomes `return X, NotReached()` — that is the four steps 1–4 arms **and** the `assessment-identity-contradicted` `Refused` inside step 5's identity-collapse loop, which precedes the gate (a `return` left bare there makes the first-projection wrapper index a `Refused`, `TypeError`); the admission loop that follows the collapse is replaced by
 
 ```python
     eligible, unheld_only = admitted(distinct, runs=records.runs, observations=availability.observations, verifications=records.verifications)
@@ -1986,7 +2183,9 @@ def evaluate_over(
 
 Import `Admission`, `NotReached`, `evaluate_traced` from `beliefs.belief`; add `evaluate_over_traced` to `__all__`.
 
-- [ ] **Step 4: The seeding helper**
+- [ ] **Step 4: The fixture's estimand declarations and the seeding helper**
+
+In `python/tests/fixtures/biology-fixture.yaml` add three sorts beside `gene`, each `vocabulary: { namespace: EX, release: "2026-01-01" }` — `level`, `measure`, `identification` — and an `estimands:` table with one row for `affects`, spelled exactly as the estimand lane's `fixtures/contracts/testing.yaml` spells its `affects` row (the same keys — `level_sorts` keyed by slot, `measure_sort`, `identification_sort`, and `conditioning_sort` if that fixture carries it — with the three new sorts in place of its). `profiles.py` parses the document twice with different descriptions; both variants gain the rows. Run `uv run --frozen pytest tests/test_relocation.py tests/test_world_view_acceptance.py -q` if either pins the fixture contract's identity and update the pin.
 
 In `python/tests/test_evaluation.py`, beside `_seed`, add a helper the reading tests share:
 
@@ -2122,6 +2321,11 @@ def read_composite(
     outcomes: dict[str, TermOutcome] = {}
     for index, n in enumerate(facet.nodes):
         outcomes[ReferentPosition.node(index).label()] = resolution.resolve(profile.sorts[n.sort].vocabulary, n.term)
+    refused = [label for label, outcome in outcomes.items() if outcome.refuses]
+    if refused:
+        # U3: construction and reading refuse alike under an excluding snapshot;
+        # only the boundary and the audit, which hold no snapshot, check form alone.
+        raise CompositeError("composite-node-not-member", f"{ref}: {', '.join(refused)}: the term is not in the vocabulary its sort binds, and the vocabulary was read")
 
     rows: list[MemberRow] = []
     for member, member_ref in zip(facet.members, refs, strict=True):
@@ -2274,7 +2478,12 @@ def main() -> int:
         composite_identity=value.identity,
         composite_receipt={label: outcome.value for label, outcome in receipt.outcomes.items()},
     )
-    findings.record(11, "closed", f"composed {minted.id} ({value.identity[:16]}…) over {len(value.edges)} edges; node outcomes {state.load()['composite_receipt']}")
+    outcomes = state.load()["composite_receipt"]
+    # The reproduction's snapshot consults concepts, levels, measures and identifications and leaves
+    # `biology/molecular-entity` unconsulted, so PHF19 — node:0, since "biology" sorts before "mm30" —
+    # resolves `not-consulted`, and the two concepts `member` (design §4.1: a check not performed is not a finding).
+    expected = {"node:0": "not-consulted", "node:1": "member", "node:2": "member"}
+    findings.record(11, "closed" if outcomes == expected else "defect", f"composed {minted.id} ({value.identity[:16]}…) over {len(value.edges)} edges; node outcomes {outcomes} (expected {expected})")
     print(f"composed {minted.id}; edges {[(e.cause.term, e.effect.term, e.sign) for e in value.edges]}")
     return 0
 
@@ -2345,7 +2554,7 @@ Move the estimand lane's corpus aside (`mv <CHECKOUT>/.work/reproduction/mm30 <C
 
 - [ ] **Step 5: The addendum and the unit test**
 
-Append `## 11. Addendum — composite claims, <date>` to `docs/designs/2026-09-05-mm30-reproduction.md`: the two successor contract identities; the spine proposition's identity and its claim as spelled; the composite's identity, its three nodes and two signed edges; the node receipt (three `member` outcomes, or the refusal); the reading's rows — the target member `edge(disease-stage → PHF19, positive)` with the `belief` step's answer and identification `{identification:observational}`, the spine member `edge(PHF19 → overall-survival, negative)` with `NoBelief("no-eligible-assessment")` and `()`; the two encodings' equality; the moved-aside corpus's `profile-mismatch: base`; and the author's judgment that the fragment is the inquiry's spine and not its DAG — the proxies (`is-proxy-for`) and the other nodes are not minted, the first exercise of spec limitation 5. Add to `python/tests/test_reproduction_driver.py`:
+Append `## 11. Addendum — composite claims, <date>` to `docs/designs/2026-09-05-mm30-reproduction.md`: the two successor contract identities; the spine proposition's identity and its claim as spelled; the composite's identity, its three nodes and two signed edges; the node receipt — `node:0` (PHF19, `biology/molecular-entity`) `not-consulted` because the reproduction's snapshot binds no HGNC release, `node:1` and `node:2` (the two concepts) `member`; the reading's rows — the target member `edge(disease-stage → PHF19, positive)` with the `belief` step's answer and identification `{identification:observational}`, the spine member `edge(PHF19 → overall-survival, negative)` with `NoBelief("no-eligible-assessment")` and `()`; the two encodings' equality; the moved-aside corpus's `profile-mismatch: base`; and the author's judgment that the fragment is the inquiry's spine and not its DAG — the proxies (`is-proxy-for`) and the other nodes are not minted, the first exercise of spec limitation 5. Add to `python/tests/test_reproduction_driver.py`:
 
 ```python
 def test_the_reading_projection_round_trips_through_identity_v1(tmp_path):
@@ -2394,13 +2603,13 @@ Nothing in the frozen document is edited; a correction found while writing the a
 - `test_u1_grammar_kind_and_relations` — the shipped contract's declarations in Python and, via `subprocess.run(["npx", "vitest", "run", "tests/declarations.test.ts"], cwd=ts)`, in TypeScript.
 - `test_u2_edges_declared_and_never_redefined` — `test_domain_contract.TestEdges` over the durable corpus's pinned profile.
 - `test_u3_form_classification_and_vocabulary_arms` — the two halves: `add` refuses each form/classification row; `add` admits the vocabulary-excluded isolated node that `build_composite` and `read_composite` refuse/report.
-- `test_u4_belief_inert` — read the belief input digest of `proposition:ab` through `evaluate_over` before and after minting, superseding and deleting a composite naming it; byte-identical each time; a hand-built `assessment_node` whose `assesses` target is the composite is refused at `add` (`EligibilityUnmet` or `SignatureRefused`, whichever the existing eligibility check raises for a non-proposition target — pin the actual class).
+- `test_u4_belief_inert` — read the belief input digest of `proposition:ab` through `evaluate_over` before and after minting, superseding and deleting a composite naming it; byte-identical each time; an assessment with otherwise valid evidence — an observing run over a held, attested dataset — whose `assesses` target is the composite is refused at `add` and at `import_bundle` with `SignatureRefused("…assesses-target-kind…")` (Task 4's guard; the eligibility predicate alone admits it).
 - `test_u5_identity` — the three pairs of `test_composite.py`.
 - `test_u6_boundary_resolution_and_identity` — the swapped member, the dataset member, the unresolvable ref, through `add` and through `import_bundle`.
 - `test_u7_audit_codes` — the four codes plus `supersedes-cross-kind`, each still read by later arms.
 - `test_u8_reading_equals_the_wrapper` — every row compared with `evaluate_over`; the withholding arms; the two-inconclusive fixture; the one-admitted-one-refused fixture; the memberless composite; the unresolvable member; and two `subprocess` readings of the durable corpus compared byte for byte.
 - `test_u9_supersession` — the three family calls, the import arms in both directions, the audited raw pair, the parser mutation in both implementations.
-- `test_u10_reproduction` — reads `<CHECKOUT>/.work/reproduction/mm30/state.json` and asserts `reading_equal is True`, `composite_receipt` holds three `member` outcomes, and `reading_rows` names the two refs with signs `positive` and `negative`; skipped with the addendum's recorded refusal named when `composite_refusal` is present (an unrun arm, reported as such).
+- `test_u10_reproduction` — reads `<CHECKOUT>/.work/reproduction/mm30/state.json` and asserts `reading_equal is True`, `composite_receipt == {"node:0": "not-consulted", "node:1": "member", "node:2": "member"}` (PHF19's sort is unconsulted under the reproduction's snapshot; the two concepts are members), and `reading_rows` names the two refs with signs `positive` and `negative`; skipped with the addendum's recorded refusal named when `composite_refusal` is present (an unrun arm, reported as such).
 
 - [ ] **Step 3: The declaration file**
 
@@ -2410,6 +2619,7 @@ Nothing in the frozen document is edited; a correction found while writing the a
 |---|---|---|
 | U4-a | `closure.py`: the projection gains the composites naming the proposition | `test_u4_belief_inert` (digest moves on mint) |
 | U4-b | `contracts/science/CONTRACT.yaml` (both copies): `assesses` targets gain `composite` | `test_u1_…`, `test_u4_…` |
+| U4-c | `corpus.py` `_refuse_assesses_target_kind`: `target.kind != "proposition"` becomes `False` | `test_u4_…` (the otherwise-eligible assessment is admitted) |
 | U3-a | `composite.py` `classify`: the `layer != "causal"` refusal dropped | `test_u3_…` (the `associates-with`/statistical fixture) |
 | U3-b | `composite.py` `classify`: `Edge(... sign=claim.polarity ...)` skipped for `negative` (member dropped from `edges`) | `test_u3_…` (the signed-cycle fixture) |
 | U3-c | `composite.py` `build_composite`: `refused` computed over `outcome.performed` instead of `outcome.refuses` (admits `not-member`) | `test_u3_…` (the excluding-snapshot fixture) |
@@ -2423,7 +2633,8 @@ Nothing in the frozen document is edited; a correction found while writing the a
 | U8-b | `composite.py` `read_composite`: `identification = ("identification:observational",)` when the set is empty | `test_u8_…` (the `{}` arm) |
 | U8-c | `composite.py` `read_composite`: `availability` replaced by one built from `view` (every stored holdings observation) | `test_u8_…` (the withholding arms) |
 | U8-d | `composite.py` `read_composite`: `evaluate_over_traced` replaced by `gather` + `evaluate_traced` (the absent-corpus arm skipped) | `test_u8_…` (the absent-corpus row) |
-| U8-e | `composite.py` `read_composite`: the identification column re-runs `admit` over gathered records instead of reading `admission.admitted` | `test_belief.py::test_admission_runs_exactly_once` cited through `test_u8_…` |
+| U8-e | `composite.py` `read_composite`: the identification column calls `admission.admit` per gathered assessment instead of reading `admission.admitted` | `test_u8_…` (the `admit`-count trap) |
+| U8-g | `composite.py` `read_composite`: the identification column calls `belief.admitted` a second time over the gathered records | `test_u8_…` (the `admitted`-count trap) |
 | U8-f | `belief.py` `evaluate_traced`: every `NoBelief` return carries `NotReached()` | `test_u8_…` (the two-inconclusive fixture) |
 | U9-a | `corpus.py` `_refuse`: `_refuse_supersedes_same_kind` moved under `if not document_validated:` | `test_u9_supersession` (the import arm) |
 | U9-b | `contract/base.py`: the `same_kind and set(sources) != set(targets)` refusal dropped | `test_u9_supersession` (the parser arm) |
