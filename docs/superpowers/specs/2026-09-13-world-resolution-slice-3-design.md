@@ -798,7 +798,7 @@ included, now refuses a coverage-subset receipt as malformed), `world/epoch.py`
 `test_the_readme_states_the_corpus_row_total` holds), the ledger, the roadmap
 and the guide index. New: `world/importing.py`, `world/audit.py`. Dated
 notes: the world-addressing design (W8a, W13), the substrate design and the
-formal model (S9, including its "S1–S8" inherit line), the adoption ledger
+formal model (S9, including its "S1–S9" inherit line), the adoption ledger
 (row 3's "audits over damaged corpora" selected here). Slice 4 touches `world/view.py`
 and `audit.py` after this slice merges; no other open lane names these files.
 

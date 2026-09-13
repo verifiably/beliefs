@@ -212,7 +212,7 @@ payload contract is implemented and discharged at cut 20, as specified by the
 ## References
 
 - [Epistemic kernel: invariant, structure, and G1–G9](../designs/2026-08-02-epistemic-kernel-design.md#2-the-invariant)
-- [Substrate consolidation: S1–S8 and ownership](../designs/2026-08-02-substrate-consolidation-design.md#2-the-boundary-ruling--split-by-nature)
+- [Substrate consolidation: S1–S9 and ownership](../designs/2026-08-02-substrate-consolidation-design.md#2-the-boundary-ruling--split-by-nature)
 - [Write permits: authority at every write entry point, E1–E8](../designs/2026-09-04-write-permits-design.md#7-guarantees)
 - [Facet contracts: declarations, the compiled registry, the bearer invariant, F1–F8](../designs/2026-09-05-facet-contracts-design.md#8-guarantees)
 - [Writer session: the session ledger, the scoped writer, and `corpus-write` as an operation, J1–J11](../designs/2026-09-05-writer-session-design.md#7-guarantees)

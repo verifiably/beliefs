@@ -34,7 +34,7 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | document | what it rules |
 |---|---|
 | `2026-08-02-epistemic-kernel-design.md` | what belief is, what may change it, and what the system does not claim (guarantees G1–G9) |
-| `2026-08-02-substrate-consolidation-design.md` | the `nodes`/`atoms` seam and the profile a corpus runs under (S1–S8) |
+| `2026-08-02-substrate-consolidation-design.md` | the `nodes`/`atoms` seam and the profile a corpus runs under (S1–S9) |
 | `2026-08-02-world-addressing-design.md` | addresses, corpora, and the world index (W1–W16) |
 | `2026-08-02-computation-reproducibility-design.md` | runs, recipes, replay, and lineage (R1–R23) |
 | `2026-08-03-correction-lifecycle-design.md` | retraction and correction — subtracting standing without deleting a record (C1–C10) |

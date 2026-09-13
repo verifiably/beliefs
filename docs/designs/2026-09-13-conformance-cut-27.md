@@ -38,6 +38,11 @@ filed audit-finding questions from slices 1, 2 and 2b.
 
 The selection rule is cut 5's: a clause is selected only when its source mutation and every named check run inside §2. A row with any unrun arm is partial.
 
+> **2026-09-13 pre-implementation freeze correction:** the initial freeze
+> named two planned focused-test files by obsolete names. The boundary below
+> now names `test_world_import_epoch.py` and `test_world_audit.py`; no
+> implementation had begun when this correction superseded the initial freeze.
+
 ## 2. The boundary
 
 In scope:
@@ -53,7 +58,7 @@ In scope:
 - `python/src/beliefs/audit.py`: `WORLD_AUDIT_CODES`, `WorldAudit`, `audit_world` and the world-level checks;
 - `python/src/beliefs/world/registry.py`: the X5 and W13 relabel fixtures;
 - `python/src/beliefs/world/__init__.py`: the new public exports;
-- `python/tests/test_world_receipts.py`, `python/tests/test_world_import.py`, `python/tests/test_world_epoch_audit.py`, `python/tests/test_world_view.py` and `python/tests/test_audit.py`: focused behavior;
+- `python/tests/test_world_receipts.py`, `python/tests/test_world_import_epoch.py`, `python/tests/test_world_epoch_audit.py`, `python/tests/test_world_view.py` and `python/tests/test_world_audit.py`: focused behavior;
 - `python/tests/acceptance/test_world_audit_acceptance.py`, `python/tests/acceptance/n2_arms_cut27.py` and `python/tests/acceptance/test_n2_cut27.py`: durable arms, declarations and guard;
 - `python/tools/cut27_acceptance.py` and `python/tools/roadmap_status.py`: runner and accounting;
 - the S9 ledger and navigation surfaces, dated guarantee notes, adoption ledger, roadmap, guide, README and cut 27 results record.
