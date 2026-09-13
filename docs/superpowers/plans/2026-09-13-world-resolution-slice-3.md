@@ -80,34 +80,9 @@ Created 2026-09-13 against this plan; each task's first step names its id.
 **Interfaces:**
 - Produces: the five declaration units `R23`, `W8a`, `X5`, `W13`, `S9` cited verbatim by Task 9's `DECLARATION_UNITS`; the literals `PREFIX_RUNNERS = ("cut26_acceptance.py",)` and `PHASE_MODULES = ("test_world_audit_acceptance.py", "test_n2_cut27.py")` cited by Task 10; the freeze sha and sha256 cited by Task 9's guard; the row id `S9` every later task's tests name.
 
-- [ ] **Step 0: Create the step tasks and record their ids**
+- [ ] **Step 0: `tasks start beliefs-310b74`**
 
-The plan file now exists, so the tracker accepts it:
-
-```bash
-prev=""; i=0
-while IFS='|' read -r title size cx; do
-  i=$((i+1))
-  id=$(tasks add "${title#*: }" --parent beliefs-46847c --plan world-resolution-slice-3 --step "$title" -p 2 --size "$size" --complexity "$cx" --tag world-read | python3 -c 'import sys,json; print(json.load(sys.stdin)["id"])')
-  echo "- Task $i: \`$id\`"
-  [ -n "$prev" ] && tasks dep "$id" --on "$prev" >/dev/null
-  prev=$id
-done <<'EOF'
-Task 1: Freeze conformance cut 27 and mint S9|s|low
-Task 2: The evaluator — coverage agreement and the damaged carrier|s|mid
-Task 3: The epoch import act|m|mid
-Task 4: The epoch audit and the snapshot-state query|m|mid
-Task 5: Report mode on the world view|m|high
-Task 6: The per-corpus checks over a capture and audit_world|l|high
-Task 7: The world-level findings|m|mid
-Task 8: Relabel fixtures — X5, W13 and R23's divergence|m|mid
-Task 9: Durable arms, N2 declarations and the guard|l|high
-Task 10: The runner, the status row and the dated notes|s|low
-Task 11: Discharge|m|mid
-EOF
-tasks check
-```
-Paste the echoed lines under this plan's **Task ids** heading, then `tasks start <task-1-id>`.
+The eleven step tasks already exist under `beliefs-46847c` (the **Task ids** section); they were created against this plan on 2026-09-13. Do not add them again.
 
 - [ ] **Step 1: Confirm the number is free**
 
