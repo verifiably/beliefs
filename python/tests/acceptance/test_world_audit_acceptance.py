@@ -500,6 +500,9 @@ def test_attestation_endpoints_and_shared_identifiers_are_findings_durably(durab
 
 def test_the_world_audit_reproduces_every_per_record_finding_durably(chain, monkeypatch):
     world, roots, published, a, _b = chain
+    mapped = ReadView.opened_at(roots[a]).get("dataset:d0")
+    mapped.facets["semantic-identity"]["digest"] = "0" * 64
+    raw_write(roots[a], mapped)
     raw_write(roots[a], stale("captured"))
     local = audit_corpus(ReadView.opened_at(roots[a]), evidence=NO_EVIDENCE, profile=BASE)
     captured = open_world_view(world, published, on_damage="report")
@@ -507,7 +510,7 @@ def test_the_world_audit_reproduces_every_per_record_finding_durably(chain, monk
     monkeypatch.setattr(view_module, "open_world_view", lambda *_args, **_kwargs: captured)
     findings = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE).corpora[a]
     assert tuple(f for f in findings if f.code != "drift") == local
-    assert any(f.code == "semantic-hash-stale" for f in local)
+    assert {f.ref for f in local if f.code == "semantic-hash-stale"} == {mapped.id, "dataset:captured"}
     assert not any(f.ref == "dataset:after-capture" for f in findings)
 
 
