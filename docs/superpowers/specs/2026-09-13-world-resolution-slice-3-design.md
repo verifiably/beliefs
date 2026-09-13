@@ -140,15 +140,29 @@ here reaches (§11).
    consulted, and a digest that moved anyway would make the belief input a
    function of the checkout.
 7. **The evaluator answers `unresolvable` for a carrier it cannot read.** On
-   `main`, `_standing` constructs a strict corpus and a damaged carrier makes
-   `validate_receipt` raise a `nodes` construction error instead of returning
-   an outcome — so a coreference edge query over a damaged corpus raises where
-   world §8.4 says it answers `indeterminate`. A carrier that cannot be read
-   cannot stand at the named state: `unresolvable`, with a detail naming the
-   fault, on the precedent of the unreadable manifest the same function
-   already handles. Malformedness stays a property of the *receipt*; a
-   damaged *corpus* is a property of the checkout, and the audit tells the
-   two apart by also emitting the damage findings (§5.3).
+   `main`, `_standing` takes its hold through `_root_state_for`, which
+   constructs a strict corpus *before* the hold and caches it: on a process
+   that has not opened the root, a damaged carrier makes `validate_receipt`
+   raise `nodes`' own construction error outside any hold; on one that has,
+   `corpus_state_identity` inside the hold raises `CorpusStateMalformed`.
+   Either way an exception where world §8.4 says a coreference edge answers
+   `indeterminate`. A carrier that cannot be read cannot stand at the named
+   state: `unresolvable`, with a detail naming the fault, on the precedent of
+   the unreadable manifest the same function already handles. Malformedness
+   stays a property of the *receipt*; a damaged *corpus* is a property of the
+   checkout, and the audit tells the two apart by also emitting the damage
+   findings (§5.3).
+8. **A reader that must judge a damaged root takes the lock-only lookup.**
+   `_operation_lock_for` exists for exactly this (its docstring: "on exactly
+   the damaged root an audit exists to judge, asking for the lock would raise
+   before the audit could say what was wrong"), and the log audit's
+   `_subject_hold` is the precedent. `_standing` and the report-mode open both
+   take the corpus's capture hold through it, and the strict attempt happens
+   *inside* the hold, as `corpus_state_identity` followed by
+   `ReadView.opened_at` — which is what the hold already does today. What is
+   caught is `CorpusStateMalformed`, the one wrapper every construction and
+   enumeration fault of the strict open already funnels through; `CaptureDrift`
+   stays a raise, because a moving corpus is not a damaged one.
 
 ## 3. The import act
 
@@ -180,12 +194,17 @@ the reason is what it reports.
 do, then:
 
 1. **Read the carrier once.** `epoch._carrier_members(source)` reads the eleven
-   members; a member set other than `EPOCH_MEMBERS`, a symlink, or an
-   unreadable file is `EpochImportRefused("malformed-carrier")`. Every member
-   is parsed as `_locked_open_epoch` parses it — the closed documents, the
-   receipt carriers, the coverage and anchors — and the packaging identity is
-   **recomputed** over the bytes. The source directory's name is never
-   consulted: a supplied copy may sit anywhere and claims nothing.
+   members and the packaging identity is **recomputed** over the bytes; then
+   a new `epoch._carrier_epoch(members, packaging_identity) -> Epoch`,
+   factored out of `_locked_open_epoch` so both call it, parses every member
+   as the loader does — the closed documents, the receipt carriers, the
+   coverage and anchors. Exactly the `EpochMalformed` and `OSError` these two
+   steps raise — a member set other than `EPOCH_MEMBERS`, a symlink, an
+   unreadable or missing member, a document outside its closed shape — are
+   converted to `EpochImportRefused("malformed-carrier")`; the conversion is
+   scoped to this step and no later `EpochMalformed` is caught. The source
+   directory's name is never consulted: a supplied copy may sit anywhere and
+   claims nothing.
 2. **World membership.** The anchors member's world subject must be this
    world's id; otherwise `EpochImportRefused("foreign-world")`, the same check
    `open_world_view` makes.
@@ -254,11 +273,17 @@ Both functions write nothing and take no permit: they are reads. `Finding` is
 ### 4.2 The reduction
 
 `audit_epochs`, under one hold of the world lock, crosses the recovery barrier
-and lists the retained identities; each carrier is opened with
-`_locked_open_epoch`. A carrier that refuses with `EpochMalformed` is recorded
-as an `epoch-malformed` finding (`ref` the directory name, `detail` the
-refusal) and contributes no receipt; the hold is released before any corpus is
-touched, exactly as `validate_receipt` does. Every receipt of every opened
+and walks `epochs/` by **directory name**, through a new
+`_locked_retained_directories(world_root)`: the existing lister,
+`_retained_identities_locked`, reads every carrier's receipts as it walks and
+refuses on the first damaged one, which is the rule decision 4 rejects. The
+walk skips `current` and every emptied directory (§9's nonsemantic residue);
+a name that is not a packaging identity is itself an `epoch-malformed`
+finding, since the loader would answer `EpochUnknown` for it. Each remaining
+carrier is opened with `_locked_open_epoch`; one that refuses with
+`EpochMalformed` is recorded as an `epoch-malformed` finding (`ref` the
+directory name, `detail` the refusal) and contributes no receipt. The hold is
+released before any corpus is touched, exactly as `validate_receipt` does. Every receipt of every opened
 epoch is then evaluated. Findings: `receipt-malformed` (error; `ref` the
 packaging identity, `detail` the kind and the contract fault),
 `receipt-refuted` (error, with the evaluator's detail, and a message advising
@@ -266,6 +291,10 @@ a rebuild), `receipt-unresolvable` (warning: a property of this checkout).
 
 The snapshot verdicts are computed over the outcomes just taken, grouped by
 `(kind, subject_identity)` across all opened epochs, by decision 4's rule. A
+`malformed` receipt whose subject member is missing or ill-formed names no
+subject and joins no group: it is reported by `receipt-malformed` alone,
+which is why the findings list and not the verdict list is where a malformed
+pair is found. A
 subject reduced to `contradicted` also yields a `snapshot-contradicted`
 finding (error; `ref` the subject identity, `detail` the kind), because the
 state is the answer a reader of the receipt table wants and the finding is
@@ -325,15 +354,25 @@ do not change — each reaches the view through `resolve`, `get`, `inbound` and
 
 `open_world_view` gains a keyword `on_damage: Literal["refuse", "report"] =
 "refuse"`. Under `"refuse"` nothing changes. Under `"report"`, step 2 of
-slice 1 §3.2 becomes: inside the corpus's capture hold, attempt the strict
-open; if `Corpus` construction raises — `nodes`' parse, placement or collision
-error, or any other exception construction raises — re-open in collecting mode
-under the same hold, take the construction findings from `check()` (the
-`parse-error`, `path-mismatch`, `uid-collision` and `id-collision` entries,
-which lead the list), enumerate the collected remainder, and record the
-corpus as **damaged** with those findings and that remainder. No state
-identity is computed for it — an identity over a subset would claim a content
-the corpus does not have — and no drift comparison is made.
+slice 1 §3.2 becomes: take the corpus's capture hold through
+`_operation_lock_for` (decision 8), never through `_root_state_for`, whose
+strict construction precedes the hold; inside the hold, the strict attempt is
+`corpus_state_identity` then `ReadView.opened_at`, as today. If that raises
+`CorpusStateMalformed`, re-open in collecting mode under the same hold through
+`_collecting_view` (below), select the construction findings from the
+corpus's `check()` output **by code** — the four construction codes; the
+list is sorted by ref, so position selects nothing — and re-mint each as a
+`beliefs.corpus.Finding`, field for field, since `nodes`' finding is a
+mutable model and a sealed report hands out no mutable object. The
+**collected remainder is the corpus's `all()`** — the members admitted at
+construction — and never `iter_stored`, which reads the store and would
+re-parse the excluded file. The corpus is recorded as **damaged** with those
+findings and that remainder. No state identity is computed for it — an
+identity over a subset would claim a content the corpus does not have — and
+no drift comparison is made. Steps 3 and 4 of slice 1 §3.2 **skip** a damaged
+corpus: its mapped-but-missing uids are what `corpus-damaged` covers, not
+corruption, and its uids enter no owner map, so a cross-corpus uid collision
+involving a damaged corpus is not decided (§11).
 
 The view gains:
 
@@ -357,21 +396,33 @@ consumer that opens in report mode and reads a damaged address gets a refusal
 and never a record.
 
 A collecting-mode corpus never enters `_ROOT_STATES` and is never wrapped in
-a `ReadView` a writer could reach: a private `_collecting_view(root)` in
-`corpus.py` builds the `ReadView` over a fresh collecting `Corpus` for the
-duration of the hold and returns it with the construction findings; the
-facade's B3 rule is satisfied — the corpus is the exact `nodes` class — and
-S8's is too, since the handle is created and dropped inside the view's open.
+a `ReadView` a writer could reach: a private `_collecting_view(root) ->
+tuple[tuple[Node, ...], tuple[Finding, ...]]` in `corpus.py` constructs a
+fresh collecting `Corpus` for the duration of the hold and returns detached
+copies of its admitted records with the re-minted construction findings; the
+handle is created and dropped inside the view's open, so S8 holds, and no
+`ReadView` is built over it at all.
 
 ### 5.3 What the audit judges, per corpus
 
 `corpus_check` is split, without changing its signature or its findings, into
-two functions it now calls: `_manifest_findings(root_manifest, profile)` —
-the `manifest-malformed` and `profile-mismatch` findings, over a *parsed
-manifest* rather than a root path — and `_record_findings(records, profile,
-scope, disagreeing)` — the per-record stamp, facet, coordination and
-eligibility findings over any record iterable. `corpus_check` reads its
-manifest from the root and its records from the live view, as today.
+two functions it now calls: `_manifest_findings(manifest, profile)` — the
+`profile-mismatch` finding, over a *parsed manifest* rather than a root path,
+with `corpus_check` alone still producing `manifest-malformed` from a load
+failure, since a carrier whose manifest does not load never reaches report
+mode (it is `ResolutionRefused` at the open's step 1) — and
+`_record_findings(check, profile, scope, disagreeing)` — the per-record
+stamp, facet, coordination, supersession, retraction and eligibility findings
+over a `_CheckView`-shaped resolver. The per-record checks **resolve**:
+`supersession-target-missing`, the retraction target, validity and
+eligibility all ask whether a ref resolves locally, so the resolver is the
+meaning of "locally". `corpus_check` keeps its `_CheckView` over the live
+view. `audit_world` gives `_record_findings` a **captured-record resolver**,
+`_CapturedCheckView`, built from one corpus's captured records — mapped and
+drift alike — resolving live and deprecated ids over that set and nothing
+else: corpus-local, over the capture, so the live corpus is never consulted
+and a world-scale resolution never changes what "does not resolve here"
+means.
 
 `audit_world` opens the view in report mode and, for every covered corpus in
 sorted order:
@@ -389,13 +440,19 @@ sorted order:
   differs from the epoch's coverage pair, and one per unmapped uid with
   `detail="unmapped:<uid>"`, each with a message advising a rebuild.
 
-Then, over the world view, the recomputations: for every **mapped** record
-of every whole corpus, `check_verification`, `check_assessment`,
-`check_lineage_basis` or `check_analysis_spec` by kind, under `audit_corpus`'s
-existing catch — a `RecordError` is `derivation-malformed` — plus a new catch:
-a `CorpusDamaged` or `RecordNotPresent` raised from inside a recomputation is
+Then, over the world view, the recomputations, under `audit_corpus`'s two
+existing rules applied **per corpus**: a corpus whose `profile-mismatch` scope
+is `base` or `malformed` gets its manifest findings and nothing more, and a
+record any Ω_valid finding names is skipped. For every other **mapped**
+record of every whole corpus, `check_verification`, `check_assessment`,
+`check_lineage_basis` or `check_analysis_spec` by kind, under the existing
+catch — a `RecordError` is `derivation-malformed` — plus one new catch: a
+`CorpusDamaged` raised from inside a recomputation is
 `derivation-unreachable` (warning; `detail` the corpus id), because the audit
 could not judge, which is not a contradiction and not a malformed record.
+`RecordNotPresent` is not caught: `_closure` and `_producers_of` guard every
+`get` with `holds` or `resolve`, so nothing inside a recomputation raises it,
+and an absent input is already the recomputation's own unchecked answer.
 Findings from recomputations are filed under the corpus that holds the
 record; the lineage-basis check over the world view is where R23's
 cross-corpus divergence surfaces at audit (§7).
@@ -415,7 +472,9 @@ Over the view, in `WorldAudit.world`:
   `source` records at different addresses whose normalized identifier sets
   intersect. Slice 2b's item 4: precedence makes such a pair two addresses,
   and the finding is the CI-decidable statement that they may be one work.
-  It asserts nothing; an attestation or a correction is the operator's.
+  It asserts nothing; an attestation or a correction is the operator's. A
+  `source` record whose identifiers do not normalize (`IdentifierMalformed`)
+  is skipped here: its fault is the per-record check's, already reported.
 - `receipt-*` and `snapshot-contradicted` for the audited epoch's own four
   receipts, evaluated through §4's reduction over the retained set, so a
   reader of one world audit sees the standing of the epoch it was bound to.
@@ -459,7 +518,7 @@ and `nodes`' own `check()`.
 | a retained carrier of the same identity that does not read | `EpochMalformed`, propagated from the locked loader |
 | the caller lacks the `epoch` permit | the authority's refusal, before the carrier is read |
 | a retained carrier that does not read, under audit | `epoch-malformed` finding; the sweep continues |
-| a covered carrier whose strict open fails, under `on_damage="refuse"` | `CorpusStateMalformed` at open, as on `main` |
+| a covered carrier whose strict open fails, under `on_damage="refuse"` | `CorpusStateMalformed` at open — one exception now, where `main` raises `nodes`' construction error on an uncached root and `CorpusStateMalformed` on a cached one |
 | the same, under `on_damage="report"` | a `DamageReport`; its addresses refuse with `CorpusDamaged` on every read |
 | a covered carrier the receipt evaluator cannot read | `unresolvable`, never an exception |
 | a collecting-mode corpus reaching a writer or `_ROOT_STATES` | unconstructible: the handle never leaves `open_world_view` |
@@ -470,11 +529,16 @@ enters `absent()`, `not_present` or the resolution snapshot's third state.
 
 ## 7. What this slice measures rather than builds
 
-**R23's cross-corpus divergence, negative (e).** With `R1` minting `D` from
-`A` in corpus X and `R2` producing byte-identical `D` from `B` in corpus Y,
-the world view's `_producers_of` already unions both runs through the world
-inbound index and `divergence_state` compares each producer's `transforms`
-against the `single` route. The arm is expected to pass on the tree:
+**R23's cross-corpus divergence, negative (e).** `D` is held **once**, in
+corpus X, minted by `R1` from `A` with its `single` basis stamped; `R2` is a
+run in corpus Y carrying a `produces` edge naming `D`'s address and a
+`transforms` edge naming `B`, and no `D` record exists in Y — a second `D`
+record in Y would be a `duplicate-location` refusal at the epoch build
+(`AddressMapConflict`), not a divergence, and the row's "byte-identical `D`
+from `B`" is the derivation claim `R2` makes, not a second stored record.
+The world inbound index files `R2`'s edge under `D` through the map,
+`_producers_of` resolves `R2` through Y, and `divergence_state` compares its
+`transforms` against the route. The arm is expected to pass on the tree:
 `lineage-divergent`, `not-certified`, and a belief digest that moves when
 `R2` is added. It is declared as a measured arm; if it fails, the fix is a
 change to slice 1's code and is recorded as such in the results record.
@@ -620,7 +684,7 @@ relabel, S9 closes, R23 and W8a part — R23 on its rules-store clauses and W8a
 on its `instrument-certification` arm, both `contract-cut`'s. Every durable
 arm runs on the certified volume; the staleness probe's baseline is the
 tree's output, never an empty list. The results record adds the dated notes
-of §2.3 and §7 to the W8a and W13 rows, the S9 row to the substrate design and the
+of decision 3 and §7 to the W8a and W13 rows, the S9 row to the substrate design and the
 formal model, and retires `packaging-remainder` from the roadmap and ledger.
 
 ## 9. Shared files, under roadmap concurrency rule 3
@@ -629,12 +693,15 @@ Rewritten by this slice: `errors.py` (`EpochImportRefused`, `CorpusDamaged`),
 `corpus.py` (`corpus_check`'s split, `_collecting_view`), `audit.py`
 (`audit_world`, `WorldAudit`, `WORLD_AUDIT_CODES`, three widened annotations),
 `world/view.py` (`on_damage`, `DamageReport`, `damaged`, `captured_records`,
-`captured_manifest`), `world/read.py` (`_standing`), `world/__init__.py` and
+`captured_manifest`), `world/read.py` (`_standing`), `world/epoch.py`
+(`_carrier_epoch`, `_locked_retained_directories`), `world/__init__.py` and
 `root.py` (re-exports), `python/tests/test_designs_corpus.py` (the `S` table),
-the ledger, the roadmap and the guide index. New: `world/importing.py`,
-`world/audit.py`. Dated notes: the world-addressing design (W8a, W13), the
-substrate design and the formal model (S9), the adoption ledger (row 3's
-"audits over damaged corpora" selected here). Slice 4 touches `world/view.py`
+`README.md` (the row total moves from 195 to 196, which
+`test_the_readme_states_the_corpus_row_total` holds), the ledger, the roadmap
+and the guide index. New: `world/importing.py`, `world/audit.py`. Dated
+notes: the world-addressing design (W8a, W13), the substrate design and the
+formal model (S9, including its "S1–S8" inherit line), the adoption ledger
+(row 3's "audits over damaged corpora" selected here). Slice 4 touches `world/view.py`
 and `audit.py` after this slice merges; no other open lane names these files.
 
 ## 10. Task linkage
@@ -672,7 +739,46 @@ under `beliefs-d248ba` and inherits the W8/W8b audit obligation named in §1.
 7. **Corroboration is not verification.** `anchor-uncorroborated` says whether
    the registry saw the heads an epoch names; it does not replay a chain, and
    an epoch named as an observer carrier is still the caller's choice.
+8. **A cross-corpus uid collision involving a damaged corpus is undecided.**
+   The owner map is built over whole corpora only (§5.2); a uid the damaged
+   corpus's remainder shares with another corpus is neither refused nor
+   reported until the corpus is repaired and the audit rerun.
+9. **A managed deletion since publication refuses the audit at that epoch.**
+   The view refuses at open when a mapped uid is not captured, and an
+   ordinary `delete` after publication produces exactly that (slice 1 §6,
+   corruption rather than absence). `audit_world` over the last epoch cannot
+   judge a corpus that has had one; the route is a rebuild, then the audit at
+   the new epoch, where the deleted address is `Unknown` and an attestation
+   over it is §5.4's finding.
 
 ## 12. Review log
 
-*(none yet)*
+**2026-09-13, first review, eleven findings, all resolved in this revision.**
+(1) Both openers took the capture hold through `_root_state_for`, whose strict
+construction precedes the hold and is cached, so a damaged root raised
+`nodes`' own error on an uncached process and `CorpusStateMalformed` on a
+cached one — report mode and `_standing` now take the lock-only lookup, the
+strict attempt runs inside the hold and the catch is `CorpusStateMalformed`
+alone (decisions 7–8, §5.2). (2) `iter_stored` reads the store, so
+"enumerate the remainder" would have re-parsed the excluded file — the
+remainder is the collecting corpus's `all()` (§5.2). (3) The only
+retained-identity lister reads every carrier's receipts and refuses on the
+first damaged one — a name-only walk is named (§4.2). (4) `check()` sorts by
+ref and returns `nodes`' mutable finding — selection is by code and each is
+re-minted (§5.2). (5) Slice 1's map-corruption and owner-map checks would have
+refused the open over a damaged corpus's excluded mapped record — a damaged
+corpus skips both, with the undecided collision recorded (§5.2, §11 item 8).
+(6) The per-record checks resolve, so "over any record iterable" named no
+resolver — `_CapturedCheckView` over the capture, corpus-local (§5.3). (7) The
+R23 (e) fixture as worded held `D` in two corpora, a `duplicate-location`
+refusal at build — restated with `R2`'s claim as edges and one stored `D`
+(§7). (8) Import step 1 named refusals `_carrier_members` does not raise and
+left the in-memory `Epoch` unbuilt — `_carrier_epoch` is factored out of the
+loader and the `(EpochMalformed, OSError)` conversion is scoped (§3.2). (9)
+Minting S9 moves the README's row total, which a test holds (§9). (10) A
+managed deletion since publication refuses the audit; `RecordNotPresent`
+could not be raised inside a recomputation (§5.3, §11 item 9). (11) Four
+ambiguities pinned: Ω_valid-first and the profile-mismatch early return apply
+per corpus; a subjectless malformed receipt joins no verdict; a source record
+that does not normalize is skipped; `manifest-malformed` is unreachable through
+report mode (§4.2, §5.3, §5.4).
