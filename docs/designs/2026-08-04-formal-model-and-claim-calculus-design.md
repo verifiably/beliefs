@@ -13,7 +13,7 @@ prose (ρA1, ρA2).
 
 **Inherits:** the epistemic kernel (**G1–G9** since 2026-08-09, §4.1's signatures and semantic
 identity, §8.7's recorded-history limit, limitation 4's predicate vocabulary),
-substrate consolidation (S1–S8), world addressing (**W1–W16** since 2026-08-08),
+substrate consolidation (S1–S9, S9 added 2026-09-13), world addressing (**W1–W16** since 2026-08-08),
 computation and
 reproducibility (R1–R23), correction lifecycle (C1–C10), world-index packaging
 (X1–X12), normative contract (N1–N10), tamper-evident log (L1–L13), domain
@@ -931,6 +931,7 @@ rather than half-blank.
 | S6 | only certified independence confers multiplicity | EB† |
 | S7 | eligibility is enforced at both boundaries, including raw writes | PC† |
 | S8 | no module outside the write API holds a mutable handle (static) | US† |
+| S9 | an audit judges a damaged corpus: construction faults are findings, the remainder is audited, no state identity is claimed | RF† + PC† |
 
 **W — world addressing**
 

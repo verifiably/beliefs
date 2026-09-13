@@ -27,9 +27,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Sixty-one documents in `docs/designs/`: the banked redesigns, review disposition,
+Sixty-two documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
-2026-08-02 through 2026-09-12. Read them in this order:
+2026-08-02 through 2026-09-13. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -94,6 +94,7 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-09-10-conformance-cut-24.md` | the discharged coreference-attestation cut: the governed record, populated balance, receipt completeness, endpoint refusals, and unchanged read side |
 | `2026-09-10-conformance-cut-25.md` | the discharged source-address cut: normalized identifier-derived addresses, attributed identifier correction, W1/W2/W5a closed, 24 frozen N2 declarations and 25 live audited arms (dated supplement in §8) |
 | `2026-09-12-conformance-cut-26.md` | the discharged D1 cross-repository negative cut: namespace-renaming invariance and two `nodes`-package sabotages, closing D1 |
+| `2026-09-13-conformance-cut-27.md` | the frozen slice 3 cut: epoch import, epoch audit and query, the world audit over a capture and damaged corpora, X5 and W13 relabels, S9 |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -144,7 +145,7 @@ The latest discharged boundary is cut 26
 [results](docs/plans/2026-09-12-conformance-cut-26-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
-test before it is a passing one. There are **195 rows** across **eighteen frozen
+test before it is a passing one. There are **196 rows** across **eighteen frozen
 tables** (G, S, W, R, C, X, N, L, D, M, P, H, T, E, F, J, V, B), and every cut is frozen
 *before* its code exists so that a row which fails is a failure rather than a
 redefinition.
