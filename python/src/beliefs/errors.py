@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Literal, TypeAlias
 
 if TYPE_CHECKING:  # pragma: no cover - the report type is the verification module's
     from beliefs.corpus import Finding
+    from beliefs.world.derive import ReceiptOutcome
     from beliefs.world.read import BoundStamp
     from beliefs.world.verify import LogReport
 
@@ -119,6 +120,21 @@ class EpochUnknown(ScienceError):
     the bytes of any other epoch is implied. A world whose ``current`` pointer
     has never been written answers the same way: it has published no epoch, and
     inventing one to point at would be worse than saying so."""
+
+
+class EpochImportRefused(ScienceError):
+    """An epoch carrier was not admitted into ``epochs/``."""
+
+    def __init__(
+        self,
+        reason: Literal["malformed-carrier", "foreign-world", "malformed-receipt", "refuted-receipt"],
+        message: str,
+        *,
+        outcomes: tuple["ReceiptOutcome", ...] = (),
+    ) -> None:
+        super().__init__(message)
+        self.reason = reason
+        self.outcomes = outcomes
 
 
 class EpochCurrent(ScienceError):
@@ -413,6 +429,19 @@ class RecordNotPresent(ScienceError):
         super().__init__(
             f"{ref}: recorded in {corpus_id}, a covered corpus with no carrier here "
             f"(publication {stamp.packaging_identity[:12]}…); the record is elsewhere, not gone"
+        )
+
+
+class CorpusDamaged(ScienceError):
+    """A recorded address belongs to a present corpus this view could not read whole."""
+
+    def __init__(self, ref: str, corpus_id: str, stamp: "BoundStamp") -> None:
+        self.ref = ref
+        self.corpus_id = corpus_id
+        self.stamp = stamp
+        super().__init__(
+            f"{ref}: recorded in {corpus_id}, a present corpus this view could not read whole "
+            f"(publication {stamp.packaging_identity[:12]}…); the record is unjudged, not absent"
         )
 
 

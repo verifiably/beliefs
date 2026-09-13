@@ -26,6 +26,7 @@ sources:
   - ../designs/2026-09-09-conformance-cut-23.md
   - ../designs/2026-09-10-conformance-cut-24.md
   - ../designs/2026-09-10-conformance-cut-25.md
+  - ../designs/2026-09-13-conformance-cut-27.md
 ---
 
 # Identity, world, and change
@@ -173,13 +174,15 @@ cross-corpus traversal, named absence and verification recomputation. Cut 24 mak
 the coreference attestation a governed, mintable kind and reduces stored attestations
 into the published balance. Cut 25 derives every source address from its normalized
 identifier and adds the attributed identifier correction; dataset re-addressing and
-divergent-history reconciliation are filed. Snapshot/import and audit callers, and
-view evaluation remain open. The address
+divergent-history reconciliation are filed. Cut 27 adds the explicit epoch import,
+the epoch audit with its snapshot-state query, and a world audit that judges the
+capture corpus by corpus and reports a damaged corpus rather than refusing it;
+view evaluation remains open. The address
 ruling governs those derived views: labels are computed on read,
 coreference is graded rather than merged, and storage duplication changes no
 address. What the log still owes — event-level L8 and the L13 preimage resolver
 — is listed with its owners in the
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-12).
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-13).
 
 ## Open edges
 

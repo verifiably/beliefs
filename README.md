@@ -27,14 +27,14 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Sixty-one documents in `docs/designs/`: the banked redesigns, review disposition,
+Sixty-two documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
-2026-08-02 through 2026-09-12. Read them in this order:
+2026-08-02 through 2026-09-13. Read them in this order:
 
 | document | what it rules |
 |---|---|
 | `2026-08-02-epistemic-kernel-design.md` | what belief is, what may change it, and what the system does not claim (guarantees G1–G9) |
-| `2026-08-02-substrate-consolidation-design.md` | the `nodes`/`atoms` seam and the profile a corpus runs under (S1–S8) |
+| `2026-08-02-substrate-consolidation-design.md` | the `nodes`/`atoms` seam and the profile a corpus runs under (S1–S9) |
 | `2026-08-02-world-addressing-design.md` | addresses, corpora, and the world index (W1–W16) |
 | `2026-08-02-computation-reproducibility-design.md` | runs, recipes, replay, and lineage (R1–R23) |
 | `2026-08-03-correction-lifecycle-design.md` | retraction and correction — subtracting standing without deleting a record (C1–C10) |
@@ -94,6 +94,7 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-09-10-conformance-cut-24.md` | the discharged coreference-attestation cut: the governed record, populated balance, receipt completeness, endpoint refusals, and unchanged read side |
 | `2026-09-10-conformance-cut-25.md` | the discharged source-address cut: normalized identifier-derived addresses, attributed identifier correction, W1/W2/W5a closed, 24 frozen N2 declarations and 25 live audited arms (dated supplement in §8) |
 | `2026-09-12-conformance-cut-26.md` | the discharged D1 cross-repository negative cut: namespace-renaming invariance and two `nodes`-package sabotages, closing D1 |
+| `2026-09-13-conformance-cut-27.md` | the frozen slice 3 cut: epoch import, epoch audit and query, the world audit over a capture and damaged corpora, X5 and W13 relabels, S9 |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -101,7 +102,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 26** is implemented and discharged. What
+Every conformance cut through **cut 27** is implemented and discharged. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -139,19 +140,22 @@ and carries named absence into lineage and evaluation. Coreference attestations
 are now governed, minted through the ledgered session route, and reduced into
 the published coverage-bound balance. Source addresses are now derived from
 normalized identifiers, and identifier correction preserves attributed history.
-The latest discharged boundary is cut 26
-([cut](docs/designs/2026-09-12-conformance-cut-26.md),
-[results](docs/plans/2026-09-12-conformance-cut-26-results.md)).
+Epoch import evaluates every receipt before writing; epoch audit and query
+reduce retained receipt states; and the world audit reports damaged corpora
+while judging their captured remainder.
+The latest discharged boundary is cut 27
+([cut](docs/designs/2026-09-13-conformance-cut-27.md),
+[results](docs/plans/2026-09-13-conformance-cut-27-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
-test before it is a passing one. There are **195 rows** across **eighteen frozen
+test before it is a passing one. There are **196 rows** across **eighteen frozen
 tables** (G, S, W, R, C, X, N, L, D, M, P, H, T, E, F, J, V, B), and every cut is frozen
 *before* its code exists so that a row which fails is a failure rather than a
 redefinition.
 
 What is built and what remains to build, each remainder with its named owner,
 is stated once, in the
-[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-12).
+[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-13).
 The per-cut results records under [`docs/plans/`](docs/plans/) are the
 evidence trail, and unresolved design questions live in the guide's
 [open questions](docs/guide/open-questions.md).

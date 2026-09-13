@@ -87,9 +87,10 @@ from typing import cast
 
 from nodes.core.errors import NodesError
 
-from beliefs.corpus import ReadView, _root_state_for
+from beliefs.corpus import ReadView, _operation_lock_for
 from beliefs.errors import (
     CaptureDrift,
+    CorpusStateMalformed,
     EdgeIndeterminate,
     EpochUnknown,
     ManifestMalformed,
@@ -267,7 +268,7 @@ def validate_receipt(
     """
     member = _member_for(kind)
     receipt = published.receipts[member]
-    fault = _contract_fault(kind, member, receipt)
+    fault = _contract_fault(kind, member, receipt, published)
     if fault is not None:
         return derive.ReceiptOutcome(kind, "malformed", fault)
     # Past this point the five identity members are present and well formed,
@@ -309,14 +310,9 @@ def validate_receipt(
                 "unresolvable",
                 f"{corpus_id}: exactly one carrier of a named corpus is required; carriers={detail}",
             )
-        standing = _standing(world, corpus_id, corpus_state, carriers[0])
-        if standing is None:
-            return derive.ReceiptOutcome(
-                kind,
-                "unresolvable",
-                f"{corpus_id}: {carriers[0]}: this corpus no longer stands at the state "
-                f"{corpus_state} the receipt named",
-            )
+        standing = _standing(corpus_id, corpus_state, carriers[0])
+        if isinstance(standing, str):
+            return derive.ReceiptOutcome(kind, "unresolvable", f"{corpus_id}: {carriers[0]}: {standing}")
         captured.append(standing)
     produced = held.invoke(derive.Capture(tuple(captured)).rule_input())
     try:
@@ -357,8 +353,10 @@ def _member_for(kind: str) -> str:
     raise ValueError(f"{kind!r} is not one of the four receipt kinds {sorted(epoch.RECEIPT_KINDS.values())}")
 
 
-def _contract_fault(kind: str, member: str, receipt: epoch._ReceiptCarrier) -> str | None:
-    """§7.5's receipt contract, checked against one document, or `None`.
+def _contract_fault(
+    kind: str, member: str, receipt: epoch._ReceiptCarrier, published: epoch.Epoch
+) -> str | None:
+    """§7.5's receipt contract, checked against carrier and subject bytes, or `None`.
 
     This is the sole enforcer of `epoch.RECEIPT_KEYS`. The carrier layer
     *declares* the closed per-kind key set and deliberately does not police it
@@ -366,11 +364,12 @@ def _contract_fault(kind: str, member: str, receipt: epoch._ReceiptCarrier) -> s
     lift a finding out of, and turning it into an unreadable carrier would
     close the path §8.2 exists to keep open.
 
-    Every check here is a statement about the document and about nothing else,
-    which is what makes them decidable before availability. They run in the
+    Every check here concerns receipt, coverage and subject bytes in the carrier;
+    none consults availability. They run in the
     order a reader would ask them: is this the declared key set, is every value
     written, is the discriminant the member's, is each identity an identity,
-    are the states the sorted distinct sequence §7.5's formula digests, and —
+    are the states the sorted distinct sequence §7.5's formula digests, do their
+    coverage and subject identity agree with the carried snapshot, and —
     for the two kinds that carry their subject's projection — does that
     projection digest to the subject the receipt names.
     """
@@ -412,6 +411,31 @@ def _contract_fault(kind: str, member: str, receipt: epoch._ReceiptCarrier) -> s
         return "corpus_states is not sorted by corpus_id; §7.5's identity formula names sorted pairs"
     if len(set(covered)) != len(covered):
         return "corpus_states names one corpus twice"
+    declared = sorted(corpus_id for corpus_id, _state in published.coverage)
+    if covered != declared:
+        return (
+            f"corpus_states names {covered}, not the coverage {declared} this epoch declares; a receipt over a "
+            "narrower or wider corpus set is unsound before any corpus is consulted (world §5, well_formed)"
+        )
+    subject_member = _SUBJECT_MEMBERS.get(kind)
+    if subject_member is not None:
+        try:
+            member_identity = derive.subject_identity(
+                kind, _thawed(cast(Mapping[object, object], published.documents[subject_member]))
+            )
+        except Exception as caught:  # noqa: BLE001 — any refusal here is the same finding
+            return f"{subject_member} is not a projection this subject's identity can be taken over: {caught}"
+        if member_identity != receipt.subject_identity:
+            return (
+                f"{subject_member} has identity {member_identity}, not the {receipt.subject_identity} "
+                "this receipt names as its subject"
+            )
+    subject_coverage = _subject_coverage(kind, receipt, published)
+    if subject_coverage is not None and subject_coverage != declared:
+        return (
+            f"the {kind} subject declares coverage {subject_coverage}, not the {declared} this epoch and "
+            "receipt declare; the three declarations must agree before availability (world §5)"
+        )
     key = _SUBJECT_KEYS.get(kind)
     if key is not None:
         carried = receipt.document[key]
@@ -429,10 +453,27 @@ def _contract_fault(kind: str, member: str, receipt: epoch._ReceiptCarrier) -> s
     return None
 
 
-def _standing(
-    world: registry.World, corpus_id: str, corpus_state: str, carrier: Path
-) -> derive.CapturedCorpus | None:
-    """One named corpus, re-read at the state the receipt named, or `None`.
+def _subject_coverage(kind: str, receipt: epoch._ReceiptCarrier, published: epoch.Epoch) -> list[str] | None:
+    """The coverage the subject itself declares, sorted, or `None` for the one
+    kind that declares none (the coreference map). A declaration that is not a
+    list of text is returned as an impossible marker so the caller reports it."""
+    if kind == "producer":
+        source: object = published.documents["producer-snapshot.yaml"].get("coverage")
+    elif kind == "retraction-enumeration":
+        carried = receipt.document.get("enumeration")
+        source = carried.get("coverage") if isinstance(carried, Mapping) else None
+    elif kind == "certification-enumeration":
+        carried = receipt.document.get("inventory")
+        source = carried.get("coverage") if isinstance(carried, Mapping) else None
+    else:
+        return None
+    if not isinstance(source, (list, tuple)) or not all(type(member) is str for member in source):
+        return ["<not a coverage declaration>"]
+    return sorted(source)
+
+
+def _standing(corpus_id: str, corpus_state: str, carrier: Path) -> derive.CapturedCorpus | str:
+    """One named corpus, re-read at the state the receipt named, or a detail string.
 
     The caller does **not** hold the world lock here, and must not: this takes
     the corpus's own operation lock and runs an enumeration under it, which is
@@ -447,18 +488,25 @@ def _standing(
     outcome cannot depend on whether an enumeration of an already-irrelevant
     corpus happened to refuse.
 
-    `None` is "this corpus does not stand where the receipt named", which is
+    A carrier that cannot be read cannot stand at any named state: `unresolvable`,
+    decided inside the same hold, on the unreadable-manifest precedent above.
+    The hold is the lock-only lookup, because `_root_state_for` constructs a
+    strict corpus before the hold and would raise on exactly the damaged root.
+
+    A string is "this corpus does not stand where the receipt named", which is
     §7.5's `unresolvable`. Drift inside the hold is `CaptureDrift`, not an
     outcome: the mover was a raw filesystem edit and there is no coherent read
     to report on.
     """
-    state = _root_state_for(carrier, world._corpus_executor_factory)
-    with state.lock.capture():
-        before = registry.corpus_state_identity(carrier)
-        if before != corpus_state:
-            return None
-        records = epoch._captured_records(carrier)
-        after = registry.corpus_state_identity(carrier)
+    with _operation_lock_for(carrier).capture():
+        try:
+            before = registry.corpus_state_identity(carrier)
+            if before != corpus_state:
+                return f"this corpus no longer stands at the state {corpus_state} the receipt named"
+            records = epoch._captured_records(carrier)
+            after = registry.corpus_state_identity(carrier)
+        except CorpusStateMalformed as caught:
+            return f"this corpus cannot be read, so the named state {corpus_state} cannot be reached: {caught}"
     if before != after:
         raise CaptureDrift(
             f"{corpus_id}: {carrier}: the corpus state moved inside a validation hold "

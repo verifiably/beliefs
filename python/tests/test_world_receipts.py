@@ -726,3 +726,80 @@ class TestReceiptOutcomes:
             # A kind outside `ReceiptKind` on purpose: the arm exercises the
             # runtime refusal of a fifth kind.
             read.validate_receipt(world, published, "producer-snapshot")  # pyright: ignore[reportArgumentType]
+
+    def _refuse_availability(self, monkeypatch):
+        """Every availability read refuses, so a `malformed` verdict proves the
+        order and not only the outcome (spec decision 9)."""
+        def refuse(*_args, **_kwargs):
+            raise AssertionError("availability consulted before well-formedness")
+
+        monkeypatch.setattr(registry, "corpus_state_identity", refuse)
+        monkeypatch.setattr(registry, "_carrier_roots", refuse)
+        monkeypatch.setattr(rules, "_locked_resolve_rule_binding", refuse)
+
+    def test_a_receipt_naming_a_narrower_corpus_set_is_malformed_before_availability(self, tmp_path, monkeypatch):
+        world, _bindings, _roots, published = published_world(tmp_path, (ALPHA, BETA))
+        receipt = document(published, "producer-receipt.yaml")
+        receipt["corpus_states"] = [state for state in receipt["corpus_states"] if state["corpus_id"] == ALPHA]
+        narrowed = repackage(world, published, {"producer-receipt.yaml": receipt})
+
+        self._refuse_availability(monkeypatch)
+        outcome = read.validate_receipt(world, narrowed, "producer")
+        assert outcome.outcome == "malformed"
+        assert "not the coverage" in outcome.detail
+
+    def test_every_coverage_declaration_must_agree(self, tmp_path, monkeypatch):
+        """Snapshot {A, B}; epoch coverage and receipt {A}; subject digest untouched.
+        A two-way check passes this carrier — the spec's probe (decision 9)."""
+        world, _bindings, _roots, published = published_world(tmp_path, (ALPHA, BETA))
+        receipt = document(published, "producer-receipt.yaml")
+        receipt["corpus_states"] = [state for state in receipt["corpus_states"] if state["corpus_id"] == ALPHA]
+        coverage = document(published, "coverage.yaml")
+        coverage["coverage"] = [entry for entry in coverage["coverage"] if entry["corpus_id"] == ALPHA]
+        anchors = document(published, "anchors.yaml")
+        anchors["corpora"] = [entry for entry in anchors["corpora"] if entry["subject"] == ALPHA]
+        skewed = repackage(
+            world, published,
+            {"producer-receipt.yaml": receipt, "coverage.yaml": coverage, "anchors.yaml": anchors},
+        )
+
+        self._refuse_availability(monkeypatch)
+        outcome = read.validate_receipt(world, skewed, "producer")
+        assert outcome.outcome == "malformed"
+        assert "subject declares coverage" in outcome.detail
+
+    def test_a_member_subject_disagreeing_with_its_receipt_is_malformed(self, tmp_path, monkeypatch):
+        """R23's literal omission fixture: the snapshot trimmed, the receipt untouched."""
+        world, _bindings, _roots, published = published_world(tmp_path, (ALPHA, BETA))
+        snapshot = document(published, "producer-snapshot.yaml")
+        assert snapshot["producers"], "the sample corpus carries a producer to omit"
+        snapshot["producers"] = snapshot["producers"][1:]
+        trimmed = repackage(world, published, {"producer-snapshot.yaml": snapshot})
+
+        self._refuse_availability(monkeypatch)
+        outcome = read.validate_receipt(world, trimmed, "producer")
+        assert outcome.outcome == "malformed"
+        assert "producer-snapshot.yaml has identity" in outcome.detail
+
+    def test_the_consistent_omission_is_refuted_at_rebuild(self, tmp_path):
+        """R23's reconstruction clause: subject recomputed over the trimmed snapshot."""
+        world, _bindings, _roots, published = published_world(tmp_path, (ALPHA, BETA))
+        snapshot = document(published, "producer-snapshot.yaml")
+        snapshot["producers"] = snapshot["producers"][1:]
+        receipt = document(published, "producer-receipt.yaml")
+        receipt["subject"] = derive.subject_identity("producer", snapshot)
+        omitted = repackage(world, published, {"producer-snapshot.yaml": snapshot, "producer-receipt.yaml": receipt})
+
+        assert read.validate_receipt(world, omitted, "producer").outcome == "refuted"
+
+    def test_a_damaged_carrier_is_unresolvable_rather_than_an_exception(self, tmp_path):
+        """Spec decisions 7–8: the hold is the lock-only lookup, the strict attempt
+        runs inside it, and `CorpusStateMalformed` becomes an outcome."""
+        world, _bindings, roots, published = published_world(tmp_path, (ALPHA, BETA))
+        (roots[BETA] / "verification").mkdir(exist_ok=True)
+        (roots[BETA] / "verification" / "bad.md").write_text("---\nnot: [a valid record\n---\n", encoding="utf-8")
+
+        outcome = read.validate_receipt(world, published, "producer")
+        assert outcome.outcome == "unresolvable"
+        assert "cannot be read" in outcome.detail and BETA in outcome.detail
+        assert read.validate_receipt(world, published, "coreference-reduction").outcome == "unresolvable"

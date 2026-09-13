@@ -95,6 +95,43 @@ from beliefs import root, stored
 from beliefs.errors import EpochCurrent, EpochUnknown
 from beliefs.world import derive, epoch, read, registry, rules
 
+# Live matcher migration, 2026-09-13: Task 2 moved the evaluator's standing
+# and contract-fault call sites while cut 7's declarations remain frozen.
+_LIVE_SABOTAGES = {
+    "X12": Sabotage(
+        "world/read.py",
+        before="        if before != corpus_state:\n                return f\"this corpus no longer stands at the state {corpus_state} the receipt named\"",
+        after="        if False:\n                return f\"this corpus no longer stands at the state {corpus_state} the receipt named\"",
+    ),
+    "W8a": Sabotage(
+        "world/read.py",
+        before=(
+            "    member = _member_for(kind)\n"
+            "    receipt = published.receipts[member]\n"
+            "    fault = _contract_fault(kind, member, receipt, published)"
+        ),
+        after=(
+            "    member = _member_for(kind)\n"
+            "    receipt = published.receipts[member]\n"
+            "    with registry._locked_barrier(world) as _early_root:\n"
+            "        rules._locked_resolve_rule_binding(\n"
+            "            _early_root,\n"
+            "            rules.RuleBinding(\n"
+            "                cast(str, receipt.rule_identity), cast(str, receipt.implementation_identity)\n"
+            "            ),\n"
+            "        )\n"
+            "    fault = _contract_fault(kind, member, receipt, published)"
+        ),
+    ),
+}
+_LIVE_SABOTAGE_INDICES = {("X12", 25), ("W8a", 33)}
+CUT7_ARMS = tuple(
+    dataclasses.replace(arm, sabotage=_LIVE_SABOTAGES[arm.row])
+    if (arm.row, index) in _LIVE_SABOTAGE_INDICES
+    else arm
+    for index, arm in enumerate(CUT7_ARMS)
+)
+
 WORKERS = 8
 _COUNTER = count()
 

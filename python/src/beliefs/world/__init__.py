@@ -37,6 +37,7 @@ from beliefs.world.anchors import (
     log_head_record_bytes,
     parse_log_head_record,
 )
+from beliefs.world.audit import SNAPSHOT_STATES, EpochAudit, SnapshotVerdict, audit_epochs, snapshot_state
 from beliefs.world.derive import (
     BELIEF_INPUT_KIND,
     CERTIFICATION_INVENTORY_DOMAIN,
@@ -95,6 +96,7 @@ from beliefs.world.epoch import (
     packaging_identity_of,
     receipt_identity,
 )
+from beliefs.world.importing import EpochImportReport, import_epoch
 from beliefs.world.logmodel import (
     DEFECT_KINDS,
     AbsentView,
@@ -178,7 +180,7 @@ from beliefs.world.verify import (
     PresentedManifest,
     PresentedWorldIds,
 )
-from beliefs.world.view import DriftReport, WorldReadView, open_world_view
+from beliefs.world.view import DamageReport, DriftReport, WorldReadView, open_world_view
 
 __all__ = [
     "BELIEF_INPUT_KIND",
@@ -204,6 +206,7 @@ __all__ = [
     "RETRACTION_ENUMERATION_DOMAIN",
     "RETRACTION_RESOLUTIONS",
     "RULE_DOMAIN",
+    "SNAPSHOT_STATES",
     "SNAPSHOT_SUBJECT",
     "SUBJECT_DOMAINS",
     "WORLD_GENESIS_DOMAIN",
@@ -226,6 +229,7 @@ __all__ = [
     "CorpusManifest",
     "CorpusStatus",
     "CorpusSubject",
+    "DamageReport",
     "DefectKind",
     "DefectView",
     "DerivationBindings",
@@ -234,7 +238,9 @@ __all__ = [
     "EdgeAnswer",
     "EntryView",
     "Epoch",
+    "EpochAudit",
     "EpochDeletionReport",
+    "EpochImportReport",
     "ForkOf",
     "ForkedFrom",
     "Fresh",
@@ -262,6 +268,7 @@ __all__ = [
     "RuleRemovalReport",
     "SettledEntryView",
     "SeveredIdentity",
+    "SnapshotVerdict",
     "StatusRecord",
     "StoreSubject",
     "Subject",
@@ -275,6 +282,7 @@ __all__ = [
     "address_map_projection",
     "admission_digest",
     "admission_projection",
+    "audit_epochs",
     "belief_input_identity",
     "binding_for",
     "build_epoch",
@@ -290,6 +298,7 @@ __all__ = [
     "fixture_set_identity",
     "head_artifact_bytes",
     "implementation_identity",
+    "import_epoch",
     "install_rule_binding",
     "load_manifest",
     "log_head_digest",
@@ -317,6 +326,7 @@ __all__ = [
     "rule_document_bytes",
     "rule_identity",
     "shipped_rule_bundles",
+    "snapshot_state",
     "status_digest",
     "status_projection",
     "subject_identity",

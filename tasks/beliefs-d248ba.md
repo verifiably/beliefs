@@ -7,7 +7,7 @@ size: xl
 complexity: high
 owner: design/world-resolution
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-12T16:26:55Z
+updated: 2026-09-13T17:30:37Z
 depends: []
 tags: [migration, world-read, resolution]
 spec: docs/superpowers/specs/2026-09-09-world-resolution-slice-1-design.md
@@ -20,7 +20,7 @@ Acceptance evidence: Freeze a world-read cut; implement resolution states and cr
 
 Sources: `docs/plans/2026-08-29-implementation-roadmap.md` `world-resolution` and `packaging-remainder`; `docs/designs/2026-08-02-world-addressing-design.md`; `docs/designs/2026-08-08-world-address-ruling.md`; and `docs/designs/2026-08-03-world-index-packaging-design.md`.
 
-Remaining work: Slices 1 and 2 are discharged at cuts 23 and 24, merged through 7d69341. The remaining serial chain is beliefs-b7994b (slice 2b, normalized source addressing), beliefs-46847c (slice 3, snapshots/import/audit and packaging), then beliefs-0e523a (slice 4, view evaluation). W8b's measured build defect is repaired by beliefs-fda0e5; selecting and discharging W8b remains open. The parent outcome is not complete.
+Remaining work: Slices 1, 2 and 2b are discharged at cuts 23, 24 and 25; slice 3 is discharged at cut 27. The next serial slice is beliefs-0e523a (slice 4, world view evaluation). W8 and W8b remain retained and unselected; slice 4 owns their discharge audit. W8b's measured build defect was repaired by beliefs-fda0e5. The two filed follow-ups remain beliefs-48214e (dataset addresses derived from content identity) and beliefs-24b42b (divergent identifier-correction histories at consolidate). This broader outcome remains open.
 
 ## Notes
 
