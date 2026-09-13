@@ -216,10 +216,11 @@ through any path that does not call `supersede` — explicit import writes
 records the adapter did not author — and a composite could then appear in a
 proposition's supersession state, which admission reads. The rule is
 therefore enforced where every incoming record passes: the shared
-`_refuse` path, beside the signature check each relation instance already
-passes and **not** behind the `document_validated` shortcut import takes
-(`supersedes-cross-kind`, a `SignatureRefused` lineage), and again under
-audit for a raw-written record (§4.3). The adapter's `supersede` keeps its
+`_refuse` path, as a **new** check — the write path performs no relation
+endpoint-kind check today (limitation 17) — placed **not** behind the
+`document_validated` shortcut import takes (`supersedes-cross-kind`, a
+`SignatureRefused` lineage), and again under audit for a raw-written record
+(§4.3). The adapter's `supersede` keeps its
 own cross-kind refusal (`FamilyKindUnsupported`) as the earlier, clearer
 message; it is not the guard.
 
@@ -249,8 +250,12 @@ tidied. A composite with nodes and no members is legal and asserts that no
 direct relation holds among its nodes. An empty node set is refused: a
 structure over nothing asserts nothing.
 
-The facet stores the members' **claim identities**, which are the
-propositions' semantic identities (kernel §4.1, formal model §2.1). The
+The facet stores the members' **claim identities** — `I_claim`, the digest
+of the claim projection (formal model §6.5), which is what a proposition's
+world identity is. A proposition record also carries a `semantic-identity`
+stamp, a digest of the same projection under the record's own domain; the
+two are different digests of one thing, and the facet, the boundary (§4.2)
+and the audit (§4.3) compare `I_claim`, never the stamp. The
 `composes` relation instances store the members' **corpus refs**. This is
 the assessment's two-namespace shape (`open-questions.md`, "the
 assessment's `proposition` spelling"), adopted deliberately rather than by
@@ -906,6 +911,13 @@ merges rather than beside it.
     retraction names contributes a term as it contributes to belief. The
     column and the belief share one admission function, so they move
     together and never disagree.
+17. **Relation endpoint kinds are not enforced at the write boundary.**
+    The base contract's `sources` and `targets` are parsed and compiled and
+    consulted by nothing on the shared refusal path — found while planning.
+    `composes` endpoints are checked by the composite's own boundary step
+    and `supersedes` by the same-kind rule; every other signature rests on
+    the typed constructors and the audit. A general endpoint-kind check is
+    filed in `open-questions.md` at the cut, not built here.
 
 ## 14. Task linkage
 
@@ -960,3 +972,11 @@ them.
   digest's keyed facets; (2) the repeated-admission sabotage was caught by
   nothing, since a pure function re-run over equal inputs agrees with
   itself — replaced by a trap on a second `belief.admitted` call.
+- 2026-09-12, cleared for implementation planning. Two corrections found
+  while planning, recorded here: (1) §3.1 said the same-kind rule sits
+  beside a relation-instance signature check the write path already
+  performs; no such check exists — `RelationDecl` is read by nothing on the
+  write path — so the rule is a new check and the general absence is
+  limitation 17; (2) §3.2's "semantic identity" of a member is `I_claim`,
+  not the record's `semantic-identity` stamp, and the boundary compares
+  `I_claim`.
