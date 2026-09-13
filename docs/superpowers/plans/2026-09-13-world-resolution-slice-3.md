@@ -917,13 +917,22 @@ def test_an_unreadable_carrier_is_a_finding_and_the_next_carrier_is_still_evalua
         return original_members(directory)
 
     monkeypatch.setattr(epoch, "_carrier_members", unreadable)
+    original_emptied = epoch._emptied
+
+    def unlistable(directory: Path):
+        if directory.name == second.packaging_identity:
+            raise PermissionError(f"{directory}: listing refused")  # the walk's own read, before the loader
+        return original_emptied(directory)
+
+    monkeypatch.setattr(epoch, "_emptied", unlistable)
+    third = repackage(world, published, {"producer-receipt.yaml": {**receipt, "rule_identity": "v2"}})  # distinct bytes, so a third carrier
 
     audit = audit_epochs(world)
 
     assert [f.ref for f in audit.findings if f.code == "epoch-malformed"] == sorted(
-        ["not-an-identity", published.packaging_identity]
+        ["not-an-identity", published.packaging_identity, second.packaging_identity]
     )
-    assert {n for n, _k, _o in audit.receipts} == {second.packaging_identity}
+    assert {n for n, _k, _o in audit.receipts} == {third.packaging_identity}
     subject = published.receipts["producer-receipt.yaml"].subject_identity
     assert subject is not None
     verdict = snapshot_state(world, "producer", subject)
@@ -1020,10 +1029,14 @@ def _locked_retained_directories(world_root: Path) -> tuple[tuple[str, str | Non
     for entry in sorted(base.iterdir()):
         if entry.name == CURRENT_POINTER:
             continue
-        if entry.is_symlink() or not entry.is_dir() or not _PACKAGING_IDENTITY.fullmatch(entry.name):
-            entries.append((entry.name, f"{entry}: nothing but epoch carriers and {CURRENT_POINTER!r} lives here"))
-            continue
-        if _emptied(entry):
+        try:
+            if entry.is_symlink() or not entry.is_dir() or not _PACKAGING_IDENTITY.fullmatch(entry.name):
+                entries.append((entry.name, f"{entry}: nothing but epoch carriers and {CURRENT_POINTER!r} lives here"))
+                continue
+            if _emptied(entry):
+                continue
+        except OSError as caught:  # an entry the process cannot stat or list is unjudged, not a stop
+            entries.append((entry.name, f"{entry}: cannot be read: {caught}"))
             continue
         entries.append((entry.name, None))
     return tuple(entries)
@@ -1210,25 +1223,35 @@ Append to `python/tests/test_world_view.py`:
 
 ```python
 def damage(root: Path, kind: str) -> None:
-    """One damage per S9 clause. `uid-collision` and `id-collision` copy an
-    existing record under a new file; `path-mismatch` moves one."""
+    """One damage per S9 clause, each producing exactly its named finding under
+    `nodes` 2.0 collecting mode. The two collisions write a *well-placed* twin
+    through `raw_write` (its own mapped path), so placement is not the fault:
+    `uid-collision` is a different live id sharing the uid; `id-collision` is
+    a different live id and uid whose `deprecated_ids` claims the original's
+    live id (review finding 4)."""
+    from nodes.core.frontmatter import node_from_markdown
+
     stored_files = sorted(root.rglob("*.md"))
     if kind == "parse-error":
         (root / "verification").mkdir(exist_ok=True)
         (root / "verification" / "bad.md").write_text("---\nnot: [a valid record\n---\n", encoding="utf-8")
-    elif kind == "path-mismatch":
+        return
+    if kind == "path-mismatch":
         source = stored_files[0]
         source.rename(source.with_name("moved-" + source.name))
-    elif kind == "uid-collision":
-        source = stored_files[0]
-        text = source.read_text(encoding="utf-8").replace(f"id: {source.stem}", f"id: {source.stem}-twin", 1)
-        source.with_name(f"{source.stem}-twin.md").write_text(text, encoding="utf-8")
+        return
+    original = node_from_markdown(stored_files[0].read_text(encoding="utf-8"))
+    twin = original.model_copy(deep=True)
+    kind_prefix, _, slug = original.id.partition(":")
+    twin.id = f"{kind_prefix}:{slug}-twin"
+    if kind == "uid-collision":
+        pass  # same uid, different live id, its own mapped path
     elif kind == "id-collision":
-        source = stored_files[0]
-        text = source.read_text(encoding="utf-8").replace("uid: ", "uid: twin-", 1)
-        source.with_name(f"{source.stem}-twin.md").write_text(text, encoding="utf-8")
+        twin.uid = f"twin-{original.uid}"
+        twin.deprecated_ids = [original.id]  # claims the original's live id
     else:
         raise ValueError(kind)
+    raw_write(root, twin)
 
 
 class TestReportMode:
@@ -1619,6 +1642,27 @@ def test_the_audit_writes_nothing_and_every_code_is_declared(tmp_path):
         assert f.code in WORLD_AUDIT_CODES or f.code in {"semantic-hash-stale", "profile-mismatch"}
 
 
+def test_a_foreign_profile_stops_every_recomputation(tmp_path, monkeypatch):
+    """Scope `base` from the supplied profile, not the manifest: the view opens
+    (the manifest pins the shipped base), and `audit_corpus`'s early return
+    must hold per corpus — nothing is recomputed (review finding 1)."""
+    from types import SimpleNamespace
+
+    from beliefs import audit as audit_module
+    from beliefs import corpus as corpus_module
+
+    world, _roots, published = two_corpus_world(tmp_path)
+    monkeypatch.setattr(corpus_module, "shipped_base", lambda: SimpleNamespace(base_contract_identity="0" * 64, kinds=frozenset()))
+
+    def never(*_a, **_k):
+        raise AssertionError("a recomputation ran under a base mismatch")
+
+    monkeypatch.setattr(audit_module, "_recompute", never)
+    audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE)
+
+    assert codes(audit.corpora[ALPHA]) == [("profile-mismatch", "base")] == codes(audit.corpora[BETA])
+
+
 def test_corpus_damaged_never_escapes(tmp_path):
     world, roots, published = two_corpus_world(tmp_path)
     damage(roots[BETA], "id-collision")
@@ -1750,6 +1794,7 @@ def audit_world(world: World, published: Epoch, *, evidence: DerivationEvidence,
     drift = {report.corpus_id: report for report in view.drift()}
     corpora: dict[str, list[Finding]] = {}
     malformed: dict[str, set[str]] = {}
+    excluded: set[str] = set()  # corpora no recomputation may touch: base/malformed scope
     for corpus_id, _state in published.coverage:
         findings = corpora.setdefault(corpus_id, [])
         if corpus_id in view.absent():
@@ -1762,7 +1807,7 @@ def audit_world(world: World, published: Epoch, *, evidence: DerivationEvidence,
             findings.append(Finding("error", "corpus-damaged", corpus_id, "base-pin", f"{corpus_id}: the manifest pins a base this runtime does not ship; no record was read and nothing was recomputed"))
             continue
         if scope in ("base", "malformed"):
-            malformed[corpus_id] = set()
+            excluded.add(corpus_id)  # `audit_corpus`'s early return, per corpus: nothing below judges it
             continue
         findings.extend(_record_findings(_CapturedCheckView(view.captured_records(corpus_id)), profile, scope, disagreeing))
         malformed[corpus_id] = {finding.ref for finding in findings if finding.code in MALFORMEDNESS_CODES}
@@ -1780,7 +1825,7 @@ def audit_world(world: World, published: Epoch, *, evidence: DerivationEvidence,
     for node in view.iter_stored():
         corpus_id = view.corpus_of(node.id)
         assert corpus_id is not None  # iter_stored yields mapped records only
-        if node.id in malformed.get(corpus_id, set()):
+        if corpus_id in excluded or node.id in malformed.get(corpus_id, set()):
             continue
         try:
             outcome = _recompute(view, node, evidence)
@@ -1792,7 +1837,7 @@ def audit_world(world: World, published: Epoch, *, evidence: DerivationEvidence,
             continue
         if outcome is not None and outcome.contradiction is not None:
             corpora[corpus_id].append(outcome.contradiction)
-    world_findings: list[Finding] = []  # Task 7 fills this
+    world_findings: list[Finding] = []  # Task 7: `_world_findings(world, view, published, malformed, excluded)`
     return WorldAudit(
         view.stamp,
         {corpus_id: tuple(sorted(findings, key=lambda f: f.sort_key)) for corpus_id, findings in corpora.items()},
@@ -1846,7 +1891,9 @@ def test_an_attestation_over_a_deleted_endpoint_is_unknown_and_one_over_an_absen
     beta_nodes = sample_nodes(slug_for(BETA, coverage))
     gone = stored.proposition_node("gone", title="gone", claim={"operator": "affects"})
     kept = beta_nodes[0]
-    roots = corpora(tmp_path, {ALPHA: (*alpha_nodes, gone, attestation(*sorted((gone.id, kept.id)))), BETA: beta_nodes})
+    over_gone = attestation(*sorted((gone.id, alpha_nodes[0].id)))  # its endpoint will be deleted: unknown after a rebuild
+    over_beta = attestation(*sorted((alpha_nodes[1].id, kept.id)))  # its endpoint sits in BETA: not-present when BETA is absent
+    roots = corpora(tmp_path, {ALPHA: (*alpha_nodes, gone, over_gone, over_beta), BETA: beta_nodes})
     world = world_over(tmp_path, roots)
     bindings = hold_shipped(world)
     publish(world, coverage, bindings)
@@ -1862,7 +1909,9 @@ def test_an_attestation_over_a_deleted_endpoint_is_unknown_and_one_over_an_absen
 
     make_absent(roots, BETA)
     absent = audit_world(world, rebuilt, evidence=NO_EVIDENCE, profile=BASE)
-    assert not any(f.code.startswith("attestation-endpoint") for f in absent.world)
+    # The deleted endpoint stays unknown; the BETA endpoint is not-present and yields nothing (review finding 8).
+    assert codes(absent.world) == [("attestation-endpoint-unknown", gone.id)]
+    assert not any(f.ref == over_beta.id for f in absent.world)
 
 
 def test_a_healthy_attestation_naming_a_damaged_endpoint_reports_and_the_audit_completes(tmp_path):
@@ -1881,8 +1930,11 @@ def test_a_healthy_attestation_naming_a_damaged_endpoint_reports_and_the_audit_c
     audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE)
 
     assert ("attestation-endpoint-unreachable", beta_nodes[0].id) in codes(audit.world)
-    repaired = two_corpus_world(tmp_path / "repaired")
-    assert not any(f.code.startswith("attestation-endpoint") for f in audit_world(*repaired[::2], evidence=NO_EVIDENCE, profile=BASE).world)
+    # Repair the same corpus in place — remove the unparsable file — and audit the same epoch (review finding 8).
+    (roots[BETA] / "verification" / "bad.md").unlink()
+    repaired = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE)
+    assert not any(f.code.startswith("attestation-endpoint") for f in repaired.world)
+    assert repaired.corpora[BETA] == ()
 
 
 def test_two_sources_sharing_a_secondary_identifier_are_reported(tmp_path):
@@ -1926,20 +1978,36 @@ Expected: 4 failed — `audit.world` is empty.
 
 - [ ] **Step 3: `_world_findings`**
 
-In `python/src/beliefs/audit.py` add, and call it in `audit_world` as `world_findings = _world_findings(world, view, published)`:
+In `python/src/beliefs/audit.py` add, and call it in `audit_world` as `world_findings = _world_findings(world, view, published, malformed, excluded)`:
 
 ```python
-def _world_findings(world: World, view: WorldReadView, published: Epoch) -> list[Finding]:
+def _world_findings(
+    world: World,
+    view: WorldReadView,
+    published: Epoch,
+    malformed: Mapping[str, set[str]],
+    excluded: set[str],
+) -> list[Finding]:
+    """Ω_valid first, here too: a record the per-corpus check classified
+    malformed, or a corpus excluded under a base mismatch, is never decoded
+    again (review finding 2)."""
     from beliefs import source as source_basis
     from beliefs.errors import IdentifierMalformed
     from beliefs.world import audit as epoch_audit
-    from beliefs.world.read import Unknown
+    from beliefs.world.read import Unknown, validate_receipt
 
     findings: list[Finding] = []
     identifiers: dict[tuple[str, str], list[str]] = {}
     for node in view.iter_stored():
+        corpus_id = view.corpus_of(node.id)
+        if corpus_id in excluded or node.id in malformed.get(corpus_id or "", set()):
+            continue
         if node.kind == "coreference-attestation":
-            for endpoint in stored.coreference_attestation_value(node).endpoints:
+            try:
+                endpoints = stored.coreference_attestation_value(node).endpoints
+            except MalformedRecord:
+                continue  # classified by the per-record check under its own ref
+            for endpoint in endpoints:
                 try:
                     located = view.locate(endpoint)
                 except CorpusDamaged:
@@ -1973,7 +2041,26 @@ def _world_findings(world: World, view: WorldReadView, published: Epoch) -> list
     return findings
 ```
 
-`validate_receipt` is imported from `beliefs.world.read` inside the function too (the audit module imports `corpus`, and `world.read` imports `corpus`; a function-local import keeps the order). The verdict for the audited epoch is reduced over the **retained set** through `snapshot_state`, as spec §5.4 requires; the local `_verdicts` call only enumerates the subjects.
+`validate_receipt` is imported inside the function (the audit module imports `corpus`, and `world.read` imports `corpus`; a function-local import keeps the order). The verdict for the audited epoch is reduced over the **retained set** through `snapshot_state`, as spec §5.4 requires; the local `_verdicts` call only enumerates the subjects.
+
+Add one more test to `python/tests/test_world_audit.py`:
+
+```python
+def test_a_malformed_attestation_is_a_per_record_finding_and_the_audit_completes(tmp_path):
+    world, roots, published = two_corpus_world(tmp_path)
+    broken = attestation("dataset:x", "dataset:y")
+    broken.facets[stored.COREFERENCE_ATTESTATION_FACET]["endpoints"] = ["dataset:x"]  # one endpoint, raw-written
+    raw_write(roots[ALPHA], broken)
+
+    audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE)
+
+    assert ("facet-payload-malformed", stored.COREFERENCE_ATTESTATION_FACET) in codes(audit.corpora[ALPHA]) or any(
+        f.ref == broken.id and f.code in {"facet-payload-malformed", "derivation-malformed", "semantic-hash-stale"} for f in audit.corpora[ALPHA]
+    )
+    assert not any(f.ref == broken.id for f in audit.world)
+```
+
+The raw record's stamp no longer covers its edited facet, so `semantic-hash-stale` is the finding the per-record check actually reports; tighten the assertion to the observed code.
 
 - [ ] **Step 4: Run, lint, commit**
 
@@ -2026,8 +2113,7 @@ from beliefs.world import derive, epoch, read, registry
 from beliefs.world.view import open_world_view
 
 
-def belief_digest(published: epoch.Epoch) -> str:
-    return derive.belief_input_identity(tuple(published.receipts.values()))  # or the closure-level digest; see step 2
+from test_relocation_rows import _belief_digest  # kernel §5.1's digest, from a belief evaluated over the epoch's producer snapshot
 
 
 class TestW13:
@@ -2037,8 +2123,7 @@ class TestW13:
         world = world_over(tmp_path, roots)
         bindings = hold_shipped(world)
         first = publish(world, coverage, bindings)
-        digest = derive.belief_input_identity  # noqa: F841 — see step 2 for the exact digest read
-        before = (first.coverage, first.documents["producer-snapshot.yaml"], first.receipts["producer-receipt.yaml"].subject_identity)
+        before = (first.coverage, first.documents["producer-snapshot.yaml"], _belief_digest(first))
 
         for relocation in ("moved", "renamed-differently", "cloned"):
             target = tmp_path / relocation
@@ -2054,7 +2139,7 @@ class TestW13:
             )
             again = publish(world, coverage, bindings)
             assert registry.load_manifest(target).corpus_id == BETA
-            assert (again.coverage, again.documents["producer-snapshot.yaml"], again.receipts["producer-receipt.yaml"].subject_identity) == before
+            assert (again.coverage, again.documents["producer-snapshot.yaml"], _belief_digest(again)) == before
 
     def test_a_coordinated_forgery_is_undetected_and_reads_as_a_fork(self, tmp_path):
         from fixtures_cut6 import PINS
@@ -2142,13 +2227,14 @@ class TestR23Divergence:
         world_without = world_over(tmp_path / "without", roots_without)
         published_without = publish(world_without, coverage, hold_shipped(world_without))
         without_r2 = snapshot_projection(lineage_snapshot(open_world_view(world_without, published_without), [d1.id]))
-        assert with_r2 != without_r2  # the lineage member of the belief input digest moves with the producer set
+        assert with_r2 != without_r2  # the lineage member moves with the producer set
+        assert _belief_digest(published) != _belief_digest(published_without)  # and so does kernel §5.1's digest: the snapshot covers the producer set
 ```
 
 - [ ] **Step 2: Run them; measure rather than fix**
 
 Run: `cd python && uv run --frozen pytest tests/test_world_relabels.py`
-Expected: every test passes on the tree. `belief_digest` is unused by the final assertions — remove it, or replace the `snapshot_projection` comparison with the closure-level `belief_input_digest` over the two projections if `python/src/beliefs/closure.py` exposes a pure function for it (prefer that; it is the row's literal claim). If the R23 arm **fails**, stop: the fix is to slice 1's code and is recorded in the results record under "corrections" (spec §7) — file `tasks note beliefs-46847c` with the failure before changing anything. If the coordinated-forgery arm's registry write is refused by the registry loader's content-name check, write the record with the exact `registry` codec (`admission_digest` names the file; `admission_projection` is its content) — the two calls above are those.
+Expected: every test passes on the tree. Both rows assert kernel §5.1's `belief_input_digest` itself, through `test_relocation_rows._belief_digest` (a belief evaluated over the epoch's producer snapshot identity), never a proxy — a projection comparison would still pass if belief stopped incorporating the input (review finding 7). If the R23 arm **fails**, stop: the fix is to slice 1's code and is recorded in the results record under "corrections" (spec §7) — file `tasks note beliefs-46847c` with the failure before changing anything. If the coordinated-forgery arm's registry write is refused by the registry loader's content-name check, write the record with the exact `registry` codec (`admission_digest` names the file; `admission_projection` is its content) — the two calls above are those.
 
 - [ ] **Step 3: Lint, commit**
 
@@ -2198,10 +2284,10 @@ Create `python/tests/acceptance/test_world_audit_acceptance.py`. It re-exercises
 | `test_attestation_endpoints_and_shared_identifiers_are_findings_durably` | Task 7's three arms |
 | `test_the_world_audit_reproduces_every_per_record_finding_durably` | a stale-stamped raw record: `audit_world`'s finding equals `audit_corpus`'s over the live root |
 | `test_the_evaluator_answers_unresolvable_for_a_damaged_carrier_and_the_edge_is_indeterminate_durably` | Task 2's arm plus `read.coreference_edge(...).state == "indeterminate"` |
-| `test_root_move_rename_and_clone_change_no_identity_durably` | Task 8's W13 root-move arm |
+| `test_root_move_rename_and_clone_change_no_identity_durably` | Task 8's W13 root-move arm, asserting `_belief_digest` equality across every relocation |
 | `test_a_coordinated_forgery_is_undetected_and_reads_as_a_fork_durably` | Task 8's arm |
 | `test_two_carriers_of_one_id_refuse_the_build_durably` | Task 8's X5 arm |
-| `test_a_cross_corpus_producer_diverges_and_moves_the_digest_durably` | Task 8's R23 arm |
+| `test_a_cross_corpus_producer_diverges_and_moves_the_digest_durably` | Task 8's R23 arm, asserting `_belief_digest` inequality with and without `R2` |
 | `test_open_refusals_never_become_absence_durably` | over a report-mode view: `CorpusDamaged` from every read of a damaged address, and `absent()`, `not_present` and the resolution snapshot's `not_present` input are empty for it |
 
 Run: `cd python && uv run --frozen pytest tests/acceptance/test_world_audit_acceptance.py`
@@ -2244,7 +2330,7 @@ Then `CUT27_ARMS`, 27 `Arm(...)` entries, each with a `Sabotage(module=..., befo
 - `W8a-a` `world/read.py`: move the `fault = _contract_fault(...)` call below the rule-binding resolution → `test_every_coverage_declaration_must_agree_durably`.
 - `W8a-b` `world/read.py`: `if subject_coverage is not None and subject_coverage != declared:` → `if False:` (the receipt is compared with `coverage.yaml` only, the two-way check the third review refuted) → same check.
 - `W8a-c` `world/read.py`: `if member_identity != receipt.subject_identity:` → `if False:` → `test_the_literal_omission_is_malformed_and_the_consistent_one_refuted_durably`.
-- `W8a-d` `world/audit.py`: `_reduce` counts malformed as refuted (`if outcome.outcome != "malformed"` → `if True`) → `test_an_all_malformed_snapshot_is_unchecked_with_a_finding_per_pair_durably`.
+- `W8a-d` `world/audit.py`: `_reduce`'s classification admits malformed evidence — `if any(outcome.outcome == "refuted" for outcome in well_formed):` → `if any(outcome.outcome in ("refuted", "malformed") for outcome in outcomes):` — so an all-malformed snapshot reads `contradicted` (dropping the `well_formed` filter alone changes nothing, since the two predicates name only `validated` and `refuted`; review finding 6) → `test_an_all_malformed_snapshot_is_unchecked_with_a_finding_per_pair_durably`.
 - `W8a-e` `world/audit.py`: `unreadable.append((name, str(caught)))` → `continue` (skip silently) → `test_an_unreadable_carrier_is_a_finding_and_the_next_carrier_is_still_evaluated_durably`.
 - `W8a-f` `world/read.py`: `except CorpusStateMalformed as caught:` → `except CoverageUnknown as caught:` (a class never raised there) → `test_the_evaluator_answers_unresolvable_for_a_damaged_carrier_and_the_edge_is_indeterminate_durably`.
 - `W8a-g` `world/audit.py`: `except (EpochMalformed, OSError) as caught:` → `except EpochMalformed as caught:` → the unreadable-carrier test.
@@ -2273,17 +2359,31 @@ Every `before` must occur exactly once in its module — run `test_each_sabotage
 
 - [ ] **Step 3: The guard**
 
-Create `python/tests/acceptance/test_n2_cut27.py` from `test_n2_cut26.py`: import `CUT27_ARMS, CO_CITED, DECLARATION_UNITS, unit_of` from `n2_arms_cut27`; add `from n2_arms_cut26 import CUT26_ARMS` to the prior imports and `*CUT26_ARMS` to `PRIOR_ARMS`; `FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-13-conformance-cut-27.md"`; `FROZEN_DECLARATION = "python/tests/acceptance/n2_arms_cut27.py"`; `CUT27_FREEZE_COMMIT` from Task 1's note and `CUT27_FROZEN_SHA256` from its `sha256sum`; `CUT27_DECLARATION_SHA256` computed after the declaration is committed (step 4). `FROZEN_PRIOR_CUT_FILES` gains `"python/tests/n2_arms_cut26.py": "<the short sha that added it — git log --follow>"`. The inventory test asserts `DECLARATION_UNITS == ("R23", "W8a", "X5", "W13", "S9")`, 27 rows, and `unit_of` over every row. The pinned-sections test greps `"**5 declaration units**"`, `"Five guarantee rows are read, **3 full/closed** (X5, W13, S9)"` and `'("cut26_acceptance.py",)'`. The `nodes`-gate test is dropped (no `nodes` arm). The baseline/audit fixtures are unchanged; every arm's `sabotage.package` is `"beliefs"`.
+Create `python/tests/acceptance/test_n2_cut27.py` from `test_n2_cut26.py`: import `CUT27_ARMS, CO_CITED, DECLARATION_UNITS, unit_of` from `n2_arms_cut27`; add `from n2_arms_cut26 import CUT26_ARMS` to the prior imports and `*CUT26_ARMS` to `PRIOR_ARMS`; `FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-13-conformance-cut-27.md"`; `FROZEN_DECLARATION = "python/tests/acceptance/n2_arms_cut27.py"`. **Two commits are pinned, not one** (review finding 5): `CUT27_FREEZE_COMMIT` and `CUT27_FROZEN_SHA256` are Task 1's freeze commit and the cut document's digest there; `CUT27_DECLARATION_COMMIT` and `CUT27_DECLARATION_SHA256` are the commit step 4 makes and the declaration's digest there — the declaration did not exist at the freeze. `test_the_freeze_commit_and_sections_two_through_seven_are_pinned` reads the cut document from `CUT27_FREEZE_COMMIT` as cut 26's does; `test_the_declaration_is_byte_exact_against_the_freeze` becomes:
+
+```python
+def test_the_declaration_is_byte_exact_against_its_own_commit() -> None:
+    """The arms the guard audits are the arms that were declared: the canonical
+    table's bytes at HEAD equal its bytes at the declaring commit, which is
+    an ancestor of HEAD and a descendant of the freeze."""
+    for commit in (CUT27_FREEZE_COMMIT, CUT27_DECLARATION_COMMIT):
+        assert subprocess.run(["git", "-C", str(REPO_ROOT), "merge-base", "--is-ancestor", commit, "HEAD"], check=False).returncode == 0, commit
+    assert subprocess.run(["git", "-C", str(REPO_ROOT), "merge-base", "--is-ancestor", CUT27_FREEZE_COMMIT, CUT27_DECLARATION_COMMIT], check=False).returncode == 0
+    current = (REPO_ROOT / FROZEN_DECLARATION).read_bytes()
+    assert sha256(current).hexdigest() == CUT27_DECLARATION_SHA256
+    assert current.decode("utf-8") == _show(CUT27_DECLARATION_COMMIT, FROZEN_DECLARATION)
+``` `FROZEN_PRIOR_CUT_FILES` gains `"python/tests/n2_arms_cut26.py": "<the short sha that added it — git log --follow>"`. The inventory test asserts `DECLARATION_UNITS == ("R23", "W8a", "X5", "W13", "S9")`, 27 rows, and `unit_of` over every row. The pinned-sections test greps `"**5 declaration units**"`, `"Five guarantee rows are read, **3 full/closed** (X5, W13, S9)"` and `'("cut26_acceptance.py",)'`. The `nodes`-gate test is dropped (no `nodes` arm). The baseline/audit fixtures are unchanged; every arm's `sabotage.package` is `"beliefs"`.
 
 - [ ] **Step 4: Pin the declaration, run the guard, commit**
 
 ```bash
 git add python/tests/acceptance/n2_arms_cut27.py python/tests/acceptance/test_world_audit_acceptance.py
 git commit -m "test(cut27): durable arms and the N2 declaration"
+git rev-parse HEAD                                    # → CUT27_DECLARATION_COMMIT
 sha256sum python/tests/acceptance/n2_arms_cut27.py    # → CUT27_DECLARATION_SHA256
 ```
 
-Fill the digest into `test_n2_cut27.py`, then:
+Fill both into `test_n2_cut27.py`, then:
 
 Run: `cd python && uv run --frozen pytest tests/acceptance/test_n2_cut27.py`
 Expected: every guard test passes — including `test_every_arm_fails_under_its_own_sabotage` (27 sound findings) and the freeze pin.
@@ -2390,4 +2490,25 @@ Then merge `design/world-resolution-slice-3` into `main` with `--no-ff`, run `ju
 
 ## Review log
 
-*(none yet)*
+**2026-09-13, first review (user's reviewer), eight findings, all resolved.**
+(1) A base-scope profile mismatch recorded an empty malformed set and the
+recomputation loop read that as permission — `audit_world` now tracks an
+`excluded` corpus set and skips it, with a test that patches `_recompute` to
+raise (Task 6). (2) `_world_findings` decoded every attestation outside any
+handler and without the Ω_valid classification — it takes `malformed` and
+`excluded`, skips classified records and catches `MalformedRecord` (Task 7).
+(3) `_locked_retained_directories` called `_emptied` before any catch, so an
+unlistable carrier directory escaped — per-entry `OSError` is a finding; the
+`epochs/` directory itself still refuses (Task 4). (4) Both collision fixtures
+produced `path-mismatch` — `damage()` writes well-placed twins through
+`raw_write`: a shared uid under a different live id, and a different uid whose
+`deprecated_ids` claims the original's live id (Task 5). (5) The guard pinned
+the declaration to the freeze commit, where it did not exist — two commits are
+pinned, the declaration's own being a descendant of the freeze (Task 9). (6)
+`W8a-d` removed a filter the two predicates never consulted — the mutant now
+admits malformed evidence as `contradicted` (Task 9). (7) W13 and R23 compared
+projections and identities — both assert `belief_input_digest` through
+`test_relocation_rows._belief_digest`, unit and durable (Tasks 8, 9). (8) The
+endpoint tests' negatives were wrong — the deleted endpoint stays unknown when
+another corpus goes absent, and the repair happens in place on the same corpus
+and epoch (Task 7).
