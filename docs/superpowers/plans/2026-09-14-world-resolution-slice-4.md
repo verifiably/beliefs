@@ -1,6 +1,6 @@
 # World resolution slice 4 — implementation plan
 
-**Status:** approved 2026-09-14; Task 1 complete, cut 28 frozen. Task 2 is next.
+**Status:** approved 2026-09-14; cut 28 frozen and implementation in progress. Task records carry current progress.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -167,7 +167,7 @@ byte-exact from this commit; §1 stays editable.
 **Interfaces:**
 - Produces: `errors.SelectionRefused(reason, *, refs, corpus_ids=())` with `REASONS`, `.reason`, `.refs`, `.corpus_ids`; `view_query.stored_query(node: Node) -> ViewQuery`; `WorldReadView._mapped_records() -> Iterator[tuple[str, Node]]`. Tasks 3–5 consume all three.
 
-- [ ] **Step 1: `tasks start beliefs-6b28db`, then write the failing tests**
+- [x] **Step 1: `tasks start beliefs-6b28db`, then write the failing tests**
 
 Append to `python/tests/test_view_query.py`:
 
@@ -233,12 +233,12 @@ def test_selection_refused_carries_a_closed_reason_and_sorted_references():
         SelectionRefused("absent", refs=["x"])
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `cd python && uv run --frozen pytest tests/test_view_query.py tests/test_world_view.py -k "stored_query or selection_refused or mapped_records"`
 Expected: FAIL with `ImportError` (`stored_query`, `SelectionRefused`) and `AttributeError` (`_mapped_records`).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `python/src/beliefs/errors.py`, after `CorpusDamaged`:
 
@@ -298,7 +298,7 @@ def stored_query(node: Node) -> ViewQuery:
                 yield corpus_id, self._held[corpus_id][uid]
 ```
 
-- [ ] **Step 4: Run the tests, the staleness probes and the gate**
+- [x] **Step 4: Run the tests, the staleness probes and the gate**
 
 Run: `cd python && uv run --frozen pytest tests/test_view_query.py tests/test_world_view.py tests/test_arm_staleness.py tests/test_frozen_guards.py`
 Expected: PASS, summary line names the count.
@@ -306,7 +306,7 @@ Expected: PASS, summary line names the count.
 Run: `uv run --frozen ruff check . && uv run --frozen pyright`
 Expected: clean.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd .. && tasks note beliefs-6b28db "SelectionRefused, stored_query, WorldReadView._mapped_records"
@@ -327,7 +327,7 @@ git commit -m "feat(world): SelectionRefused, stored_query and the view's privat
 - Consumes: `WorldReadView` (`damaged`, `drift`, `locate`, `resolve`, `corpus_of`, `stamp`, `_mapped_records`), `corpus.validated_node`, `view_query.{ViewQuery, Clause, Kinds, ReferencesTerm, Closure, Addresses}`, `errors.SelectionRefused`, `identity.v1.digest`, `world.read.{BoundStamp, NotPresent, Resolved, Unknown}`.
 - Produces: `SELECTION_VERSION = "science.view-selection.v1"`; `Unresolved(source, predicate, target, state, corpus_id)` with `projection()` and `sort_key`; `Selection(stamp, query, selected, contributing, absent, unresolved)` with `complete`, `projection()`, `identity()`; `evaluate_query(view, query) -> Selection`; the internal seam `_denote(view, predicate, held, unresolved) -> set[str]` that Tasks 4 and 5 extend for `ReferencesTerm` and `Closure`. Both raise `NotImplementedError` in this task.
 
-- [ ] **Step 1: `tasks start beliefs-9454aa`, then write the fixture and the failing tests**
+- [x] **Step 1: `tasks start beliefs-9454aa`, then write the fixture and the failing tests**
 
 Create `python/tests/test_world_selection.py`:
 
@@ -574,12 +574,12 @@ class TestAbsenceAndValidation:
 
 The stale record is staged *before* publication — the epoch capture is `iter_stored`'s unvalidated read (`epoch.py:1188`), so the record is mapped and the view is not drifted; the refusal is validation's, not drift's.
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `cd python && uv run --frozen pytest tests/test_world_selection.py`
 Expected: FAIL at collection with `ModuleNotFoundError: beliefs.world.selection`.
 
-- [ ] **Step 3: Write the module**
+- [x] **Step 3: Write the module**
 
 Create `python/src/beliefs/world/selection.py`:
 
@@ -777,7 +777,7 @@ def _denote(
 
 In `python/src/beliefs/world/__init__.py` add `from beliefs.world.selection import Selection, Unresolved, evaluate_query` beside the `view` import and the three names to `__all__` in alphabetical position (`"Selection"`, `"Unresolved"` among the classes; `"evaluate_query"` among the functions).
 
-- [ ] **Step 4: Run the tests and the gate**
+- [x] **Step 4: Run the tests and the gate**
 
 Run: `cd python && uv run --frozen pytest tests/test_world_selection.py tests/test_world_view.py tests/test_arm_staleness.py tests/test_frozen_guards.py`
 Expected: every test in `TestAddressesAndKinds`, `TestIdentityAndDeterminism`, `TestEntryRefusals` and `TestAbsenceAndValidation` passes; the staleness probes pass.
@@ -785,7 +785,7 @@ Expected: every test in `TestAddressesAndKinds`, `TestIdentityAndDeterminism`, `
 Run: `uv run --frozen ruff check . && uv run --frozen pyright`
 Expected: clean.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd .. && tasks note beliefs-9454aa "world/selection.py: Selection, Unresolved, evaluate_query over kinds and addresses; entry refusals; identity"
@@ -806,7 +806,7 @@ git commit -m "feat(world): evaluate_query over the world read view, kinds and a
 - Consumes: Task 3's `_denote` seam and `held`; `decode._wire_parts` and `decode.MalformedWireClaim`.
 - Produces: `decode.stored_claim_terms(node) -> tuple[tuple[str, ...], tuple[str, ...]]` — `(argument terms, restriction terms)` after the shape check, no profile; the `ReferencesTerm` branch; `_binds_term(node: Node, term: str) -> bool`, which validates first and translates `MalformedWireClaim` into `record-malformed`.
 
-- [ ] **Step 1: `tasks start beliefs-d1c305`, then write the failing tests**
+- [x] **Step 1: `tasks start beliefs-d1c305`, then write the failing tests**
 
 Append to `python/tests/test_world_selection.py`:
 
@@ -864,12 +864,12 @@ class TestReferencesTerm:
 
 The corrupt non-match: with `p-b` dropped, the only proposition is the stale one whose stored `args` no longer hold `GENE`, so an unvalidated scan would yield the empty selection; the arm requires the refusal.
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `cd python && uv run --frozen pytest tests/test_world_selection.py -k ReferencesTerm`
 Expected: FAIL with `NotImplementedError: references-term lands in Task 4`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `python/src/beliefs/decode.py`, after `claim_from_stored`, factor its pre-delegation shape check into a public reader that never needs a profile (the `WireClaim` still never leaves the module):
 
@@ -936,7 +936,7 @@ and in `_denote`:
         }
 ```
 
-- [ ] **Step 4: Run the tests and the gate**
+- [x] **Step 4: Run the tests and the gate**
 
 Run: `cd python && uv run --frozen pytest tests/test_world_selection.py`
 Expected: PASS.
@@ -944,7 +944,7 @@ Expected: PASS.
 Run: `uv run --frozen ruff check . && uv run --frozen pyright`
 Expected: clean.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd .. && tasks note beliefs-d1c305 "references-term denotation: validated before the facet read, malformed facet refuses, compared as stored"

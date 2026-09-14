@@ -18,7 +18,7 @@ from beliefs import stored
 from beliefs.corpus import ReadView
 from beliefs.errors import SelectionRefused, SemanticHashStale
 from beliefs.view_query import ViewQuery, parse_view_query, stored_query
-from beliefs.world.selection import SELECTION_VERSION, evaluate_query
+from beliefs.world.selection import SELECTION_VERSION, Unresolved, evaluate_query
 from beliefs.world.view import open_world_view
 
 PROJECT = "1" * 32
@@ -65,6 +65,78 @@ def evaluate_topic(world, roots, published, topic):
     """The caller's half: resolve the record live, then evaluate bound."""
     record = Corpus(roots[ALPHA]).get(topic.id)
     return evaluate_query(open_world_view(world, published), stored_query(record))
+
+
+class TestClosure:
+    def test_out_from_the_run_selects_the_other_corpus_dataset_and_not_the_run(self, tmp_path):
+        world, roots, published, topic = topic_world(tmp_path, [{"closure": {"anchor": "run:r-a", "predicates": ["produces"], "direction": "out"}}])
+        selection = evaluate_topic(world, roots, published, topic)
+        assert selection.selected == ("dataset:d-b",) and selection.contributing == (BETA,)
+        assert selection.complete and selection.unresolved == ()
+
+    def test_in_from_the_dataset_selects_the_producing_run_in_the_other_corpus(self, tmp_path):
+        world, roots, published, topic = topic_world(tmp_path, [{"closure": {"anchor": "dataset:d-b", "predicates": ["produces"], "direction": "in"}}])
+        selection = evaluate_topic(world, roots, published, topic)
+        assert selection.selected == ("run:r-a",) and selection.contributing == (ALPHA,)
+
+    def test_both_walks_both_ways_and_excludes_the_anchor(self, tmp_path):
+        world, roots, published, topic = topic_world(tmp_path, [{"closure": {"anchor": "dataset:d-b", "predicates": ["produces"], "direction": "both"}}])
+        assert evaluate_topic(world, roots, published, topic).selected == ("run:r-a",)
+
+    def test_a_dangling_target_is_reported_unknown_and_never_selected(self, tmp_path):
+        d_x = stored.dataset_node("d-x", title="d-x")
+        d_x.relations.append(Relation(source=d_x.id, predicate="cites", target="dataset:never"))
+        world, roots, published, topic = topic_world(tmp_path, [{"closure": {"anchor": "dataset:d-x", "predicates": ["cites"], "direction": "out"}}], alpha_extra=(d_x,))
+        selection = evaluate_topic(world, roots, published, topic)
+        assert selection.selected == () and selection.complete
+        assert selection.unresolved == (Unresolved("dataset:d-x", "cites", "dataset:never", "unknown", None),)
+
+    def test_a_traversed_target_in_an_absent_corpus_is_an_incomplete_selection_not_a_refusal(self, tmp_path):
+        world, roots, published, topic = topic_world(tmp_path, [{"closure": {"anchor": "run:r-a", "predicates": ["produces"], "direction": "out"}}])
+        complete = evaluate_topic(world, roots, published, topic)
+        make_absent(roots, BETA)
+        partial = evaluate_topic(world, roots, published, topic)
+        assert partial.selected == () and partial.absent == (BETA,) and not partial.complete
+        assert partial.unresolved == (Unresolved("run:r-a", "produces", "dataset:d-b", "not-present", BETA),)
+        assert partial.projection()["unresolved"] == [{"source": "run:r-a", "predicate": "produces", "target": "dataset:d-b", "state": "not-present", "corpus_id": [BETA]}]
+        assert partial.identity() != complete.identity()
+
+    def test_an_anchor_in_an_absent_corpus_refuses(self, tmp_path):
+        world, roots, published, topic = topic_world(tmp_path, [{"closure": {"anchor": "dataset:d-b", "predicates": ["produces"], "direction": "in"}}])
+        assert evaluate_topic(world, roots, published, topic).selected == ("run:r-a",)
+        make_absent(roots, BETA)
+        with pytest.raises(SelectionRefused) as caught:
+            evaluate_topic(world, roots, published, topic)
+        assert caught.value.reason == "address-not-present" and caught.value.refs == ("dataset:d-b",)
+
+    def test_an_absent_inbound_source_is_reported_not_present_and_not_dropped(self, tmp_path):
+        world, roots, published, topic = topic_world(tmp_path, [{"closure": {"anchor": "dataset:d-a", "predicates": ["produces"], "direction": "in"}}])
+        assert evaluate_topic(world, roots, published, topic).selected == ("run:r-b",)
+        make_absent(roots, BETA)
+        partial = evaluate_topic(world, roots, published, topic)
+        assert partial.selected == () and not partial.complete
+        assert partial.unresolved == (Unresolved("dataset:d-a", "produces", "run:r-b", "not-present", BETA),)
+
+    def test_a_retired_anchor_over_a_cycle_selects_what_the_live_anchor_selects(self, tmp_path):
+        a = stored.dataset_node("cyc-a", title="a")
+        b = stored.dataset_node("cyc-b", title="b")
+        a.relations.append(Relation(source=a.id, predicate="cites", target=b.id))
+        b.relations.append(Relation(source=b.id, predicate="cites", target=a.id))
+        a.deprecated_ids = ["dataset:cyc-a-old"]
+        live_q = [{"closure": {"anchor": "dataset:cyc-a", "predicates": ["cites"], "direction": "out"}}]
+        retired_q = [{"closure": {"anchor": "dataset:cyc-a-old", "predicates": ["cites"], "direction": "out"}}]
+        world, _roots, published, _topic = topic_world(tmp_path, live_q, alpha_extra=(a, b))
+        view = open_world_view(world, published)
+        assert evaluate_query(view, query(live_q)).selected == ("dataset:cyc-b",)
+        assert evaluate_query(view, query(retired_q)).selected == ("dataset:cyc-b",)
+
+    def test_two_predicates_walk_both_and_steps_are_reported_once(self, tmp_path):
+        d_x = stored.dataset_node("d-x", title="d-x")
+        d_x.relations.append(Relation(source=d_x.id, predicate="cites", target="dataset:never"))
+        d_x.relations.append(Relation(source=d_x.id, predicate="reads", target="dataset:never"))
+        world, roots, published, topic = topic_world(tmp_path, [{"closure": {"anchor": "dataset:d-x", "predicates": ["cites", "reads"], "direction": "out"}}], alpha_extra=(d_x,))
+        selection = evaluate_topic(world, roots, published, topic)
+        assert [(s.predicate, s.target) for s in selection.unresolved] == [("cites", "dataset:never"), ("reads", "dataset:never")]
 
 
 class TestAddressesAndKinds:

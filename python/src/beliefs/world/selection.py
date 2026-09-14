@@ -16,11 +16,12 @@ from typing import Literal, final
 
 from nodes.core.node import Node
 
-from beliefs.corpus import validated_node
+from beliefs.corpus import RelationAdjacency, validated_node
 from beliefs.decode import MalformedWireClaim, stored_claim_terms
 from beliefs.errors import SelectionRefused
 from beliefs.identity import v1
 from beliefs.sealed import sealed
+from beliefs.traversal import Adjacency, RelationEntry, Step, closure
 from beliefs.view_query import Addresses, Closure, Kinds, Predicate, ReferencesTerm, ViewQuery
 from beliefs.world.read import BoundStamp, NotPresent, Unknown
 from beliefs.world.view import WorldReadView
@@ -111,6 +112,64 @@ def _binds_term(node: Node, term: str) -> bool:
     return term in args or term in restrictions
 
 
+class _InboundAdjacency:
+    """Inbound edges under one predicate over the world view."""
+
+    def __init__(self, view: WorldReadView, predicate: str) -> None:
+        self._view = view
+        self._predicate = predicate
+
+    def steps(self, ref: str) -> tuple[Step, ...]:
+        steps: list[Step] = []
+        for position, edge in enumerate(self._view.inbound(ref)):
+            if edge.relation.predicate != self._predicate:
+                continue
+            if edge.source_uid is None:
+                steps.append(
+                    Step(
+                        stored=edge.relation.source,
+                        resolved=None,
+                        entry=RelationEntry(source=ref, position=position, predicate=self._predicate, target=edge.relation.source),
+                    )
+                )
+                continue
+            source_id = self._view.live_id(edge.source_uid)
+            steps.append(
+                Step(
+                    stored=source_id,
+                    resolved=source_id,
+                    entry=RelationEntry(source=ref, position=position, predicate=self._predicate, target=source_id),
+                )
+            )
+        return tuple(steps)
+
+
+class _QueryAdjacency:
+    """Closure adjacencies composed in predicate then direction order."""
+
+    def __init__(self, view: WorldReadView, predicates: tuple[str, ...], direction: str) -> None:
+        parts: list[Adjacency] = []
+        for predicate in predicates:
+            if direction in ("out", "both"):
+                parts.append(RelationAdjacency(view, predicate, "outbound"))
+            if direction in ("in", "both"):
+                parts.append(_InboundAdjacency(view, predicate))
+        self._parts = tuple(parts)
+
+    def steps(self, ref: str) -> tuple[Step, ...]:
+        return tuple(step for part in self._parts for step in part.steps(ref))
+
+
+def _classify(view: WorldReadView, entry: RelationEntry) -> Unresolved:
+    located = view.locate(entry.target)
+    if type(located) is NotPresent:
+        corpus_id = view.corpus_of(entry.target)
+        assert corpus_id is not None
+        return Unresolved(entry.source, entry.predicate, entry.target, "not-present", corpus_id)
+    assert type(located) is Unknown, entry
+    return Unresolved(entry.source, entry.predicate, entry.target, "unknown", None)
+
+
 def evaluate_query(view: WorldReadView, query: ViewQuery) -> Selection:
     """Denote `query` over `view` (§3.2), or refuse."""
     if type(view) is not WorldReadView:
@@ -199,5 +258,12 @@ def _denote(
             if node.kind == "proposition" and _binds_term(node, predicate.value)
         }
     if isinstance(predicate, Closure):
-        raise NotImplementedError("closure lands in Task 5")
+        live = view.resolve(predicate.anchor)
+        assert live is not None, predicate.anchor
+        reach = closure(live, _QueryAdjacency(view, predicate.predicates, predicate.direction))
+        for entry in reach.unresolved:
+            assert isinstance(entry, RelationEntry), entry
+            step = _classify(view, entry)
+            unresolved.setdefault(step.sort_key, step)
+        return set(reach.reached)
     raise TypeError(f"{type(predicate).__name__} is not a v1 predicate")
