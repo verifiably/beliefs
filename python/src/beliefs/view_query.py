@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal, TypeAlias
 
+from nodes.core.node import Node
+
 from beliefs import stored
+from beliefs.coordination import VIEW_KINDS
+from beliefs.errors import MalformedRecord
 from beliefs.identifiers import not_an_identifier
 from beliefs.identity import v1
 
@@ -189,3 +194,16 @@ def parse_view_query(value: object) -> ViewQuery:
         )
         parsed.append(Clause(members))
     return ViewQuery(tuple(sorted(parsed, key=lambda clause: v1.encode(clause.projection()))))
+
+
+def stored_query(node: Node) -> ViewQuery:
+    """The parsed query of a stored view revision."""
+    if not isinstance(node, Node) or node.kind not in VIEW_KINDS:
+        raise MalformedRecord(f"{getattr(node, 'id', node)!r}: not a view revision")
+    facet = node.facets.get(stored.COORDINATION_FACET)
+    if not isinstance(facet, Mapping) or "query" not in facet:
+        raise MalformedRecord(f"{node.id}: a view revision carries a query in its coordination facet")
+    try:
+        return parse_view_query(facet["query"])
+    except ValueError as caught:
+        raise MalformedRecord(f"{node.id}: stored view query does not parse: {caught}") from caught

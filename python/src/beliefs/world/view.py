@@ -177,6 +177,12 @@ class WorldReadView:
             for uid in sorted(self._held[corpus_id]):
                 yield self._held[corpus_id][uid].model_copy(deep=True)
 
+    def _mapped_records(self) -> Iterator[tuple[str, Node]]:
+        """Yield retained records mapped to their present corpus, without copying."""
+        for corpus_id in sorted(self._held):
+            for uid in sorted(self._held[corpus_id]):
+                yield corpus_id, self._held[corpus_id][uid]
+
     def live_id(self, uid: str) -> str:
         for records in self._held.values():
             if (node := records.get(uid)) is not None:

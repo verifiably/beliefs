@@ -7,7 +7,7 @@ sharpest case), and a test that can only assert "something was raised" cannot
 tell a good refusal from a bad one.
 """
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, TypeAlias
@@ -443,6 +443,25 @@ class CorpusDamaged(ScienceError):
             f"{ref}: recorded in {corpus_id}, a present corpus this view could not read whole "
             f"(publication {stamp.packaging_identity[:12]}…); the record is unjudged, not absent"
         )
+
+
+class SelectionRefused(ScienceError):
+    """A view query could not be evaluated over this world view (world
+    resolution slice 4 §3.4): one class, a closed reason, the offending
+    references sorted. No reason says where a record is — that is
+    ``NotPresent``'s and ``RecordNotPresent``'s job — and every reason says
+    the question could not be answered."""
+
+    REASONS = ("corpus-damaged", "corpus-drifted", "address-unknown", "address-not-present", "record-malformed")
+
+    def __init__(self, reason: str, *, refs: Sequence[str], corpus_ids: Sequence[str] = ()) -> None:
+        if reason not in self.REASONS:
+            raise ValueError(f"{reason!r} is not a selection refusal reason")
+        self.reason = reason
+        self.refs = tuple(sorted(set(refs)))
+        self.corpus_ids = tuple(sorted(set(corpus_ids)))
+        where = f" in {', '.join(self.corpus_ids)}" if self.corpus_ids else ""
+        super().__init__(f"view evaluation refused ({reason}): {', '.join(self.refs)}{where}")
 
 
 class EdgeIndeterminate(ScienceError):
