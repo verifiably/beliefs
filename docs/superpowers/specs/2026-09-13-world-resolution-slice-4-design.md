@@ -1,7 +1,7 @@
 # World resolution, slice 4 — view evaluation and the W8/W8b discharge
 
-**Date:** 2026-09-13, revised 2026-09-14 after first review (§11)
-**Status:** revised, awaiting second review
+**Date:** 2026-09-13, revised twice 2026-09-14 after review (§11)
+**Status:** revised twice, awaiting third review
 **Boundary:** `world-resolution`, slice 4 of four (`beliefs-d248ba`); task `beliefs-0e523a`
 **Lane:** `world-read`, worktree `.worktrees/world-resolution-slice-4`
 **Sources:** `../../designs/2026-08-02-world-addressing-design.md` (§5, §7: W7, W8, W8b),
@@ -433,10 +433,17 @@ order-reversed negative:
   - one query with two clauses, `addresses` over `ALPHA`'s dataset and
     `references-term` over `BETA`'s proposition, selects both and
     contributes both.
-  Negative: with `BETA` absent, the `addresses` and `closure` forms refuse
-  `address-not-present` naming `BETA`, and the `kinds` form returns an
-  incomplete selection with `BETA` in `absent` whose identity differs from
-  the complete one — never the empty set, never `unknown`.
+  Negative, with `BETA` absent: the `addresses` form refuses
+  `address-not-present` naming `BETA`; the `closure` form from `ALPHA`'s
+  run still resolves its anchor, reaches nothing, and returns an
+  incomplete selection with one `not-present` unresolved step naming the
+  dataset under `BETA` and `BETA` in `absent`; the `kinds` form returns an
+  incomplete selection with `BETA` in `absent`. Each incomplete identity
+  differs from the complete one — never the empty set, never `unknown`.
+  A sixth form, `closure` anchored at `BETA`'s dataset over `produces`,
+  `in`, selects `ALPHA`'s run when `BETA` is present and refuses
+  `address-not-present` naming the anchor under `BETA` when it is absent:
+  the missing-anchor refusal, distinct from the traversed-target report.
 - Drift: edit a mapped record's relations in `BETA` after publication and
   reopen at the same epoch; the second open reports drift on `BETA` and
   the evaluation refuses `corpus-drifted` naming it, while the first open,
@@ -552,3 +559,11 @@ non-match arm (§3.2, §7). (4) The W7 arm claimed the dataset was found
 but `references-term` selects propositions and an `addresses` query over
 `BETA` contributes `BETA` alone — the arm now states each form's selected
 records and contributing corpora separately (§7).
+
+**2026-09-14, second review, one finding, resolved.** The W7 negative had
+the `closure` form refusing `address-not-present` with `BETA` absent, but
+its anchor is `ALPHA`'s run and stays resolved; only the traversed dataset
+is `NotPresent`, which §3.2 reports as an unresolved step — reproduced
+against the existing traversal. The negative now expects an incomplete
+selection with one not-present step, and a sixth form anchored at `BETA`'s
+dataset carries the missing-anchor refusal (§7).

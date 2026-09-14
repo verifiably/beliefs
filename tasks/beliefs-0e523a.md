@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/world-resolution-slice-4
 created: 2026-09-09T15:26:54Z
-updated: 2026-09-14T09:36:17Z
+updated: 2026-09-14T10:30:50Z
 started: 2026-09-14T03:10:08Z
 depends: [beliefs-46847c]
 parent: beliefs-d248ba
@@ -27,3 +27,4 @@ Design and freeze W7 view evaluation over the completed world resolver, followin
 - 2026-09-14T03:26:43Z (design/world-resolution-slice-4): parked (waiting on user, review): Review the slice 4 design (docs/superpowers/specs/2026-09-13-world-resolution-slice-4-design.md); on approval, writing-plans, then freeze cut 28
 - 2026-09-14T09:36:17Z (design/world-resolution-slice-4): First design review 2026-09-14: four findings (drift refusal, live anchor, validate candidates before facet read, per-predicate W7 expectations) resolved; spec §11
 - 2026-09-14T09:36:17Z (design/world-resolution-slice-4): parked (waiting on user, review): Second review of the slice 4 design (docs/superpowers/specs/2026-09-13-world-resolution-slice-4-design.md §11 lists the four resolutions); on approval, writing-plans, then freeze cut 28
+- 2026-09-14T10:30:50Z (design/world-resolution-slice-4): Second design review 2026-09-14: the W7 closure negative with BETA absent is an incomplete selection with an unresolved step, not a refusal; a BETA-anchored form carries the missing-anchor refusal (spec §11)
