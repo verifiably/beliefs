@@ -174,6 +174,7 @@ from beliefs.world.rules import (
 )
 from beliefs.world.rules import _HeldRule as _HeldRule
 from beliefs.world.rules import _resolve_rule_binding as _resolve_rule_binding
+from beliefs.world.selection import Selection, Unresolved, evaluate_query
 from beliefs.world.verify import (
     LogSeam,
     PresentedIdentity,
@@ -266,6 +267,7 @@ __all__ = [
     "RuleBinding",
     "RuleBundle",
     "RuleRemovalReport",
+    "Selection",
     "SettledEntryView",
     "SeveredIdentity",
     "SnapshotVerdict",
@@ -273,6 +275,7 @@ __all__ = [
     "StoreSubject",
     "Subject",
     "Unknown",
+    "Unresolved",
     "WellFormedView",
     "World",
     "WorldConfig",
@@ -294,6 +297,7 @@ __all__ = [
     "decode_head_artifact",
     "delete_epoch",
     "derivation_receipts",
+    "evaluate_query",
     "expand_coreference",
     "fixture_set_identity",
     "head_artifact_bytes",
