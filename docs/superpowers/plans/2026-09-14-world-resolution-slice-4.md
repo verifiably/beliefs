@@ -1,6 +1,6 @@
 # World resolution slice 4 — implementation plan
 
-**Status:** approved 2026-09-14; Task 1 (cut 28 freeze) in progress.
+**Status:** approved 2026-09-14; Task 1 complete, cut 28 frozen. Task 2 is next.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -73,11 +73,11 @@ Created 2026-09-14 against this plan; each task's first step names its id.
 **Interfaces:**
 - Produces: the three declaration units `W7`, `W8`, `W8b` cited verbatim by Task 7's `DECLARATION_UNITS`; the literals `PREFIX_RUNNERS = ("cut27_acceptance.py",)` and `PHASE_MODULES = ("test_world_selection_acceptance.py", "test_n2_cut28.py")` cited by Task 8; the freeze sha and sha256 cited by Task 7's guard.
 
-- [ ] **Step 0: `tasks start beliefs-cb9581`**
+- [x] **Step 0: `tasks start beliefs-cb9581`**
 
 The nine step tasks already exist under `beliefs-0e523a` (the **Task ids** section); they were created against this plan on 2026-09-14. Do not add them again.
 
-- [ ] **Step 1: Confirm the number is free**
+- [x] **Step 1: Confirm the number is free**
 
 ```bash
 for wt in $(git worktree list --porcelain | awk '/^worktree /{print $2}'); do ls "$wt/docs/designs" | grep -c "conformance-cut-28"; done
@@ -85,7 +85,7 @@ git log --all --oneline -- 'docs/designs/*cut-28*' | head -3
 ```
 Expected: every count is `0` and the log is empty. If not, use the next free number everywhere below and in every later task.
 
-- [ ] **Step 2: Write the cut document**
+- [x] **Step 2: Write the cut document**
 
 Follow `docs/designs/2026-09-13-conformance-cut-27.md` section for section. Header:
 
@@ -130,16 +130,16 @@ The sites in (4) count fifteen in `selection.py`, one in `decode.py`, four in `d
 
 `## 6. Second reader` — the spec's two review passes on 2026-09-14 (§11 there): four findings, then one. `## 7. Limitations` — one line each: every predicate is an enumeration of the capture, with no per-epoch index (spec §9 item 1); no closure-over-selection predicate (spec §9 item 2); W8's search-term conflict is unrun and re-homed, not closed; `next` and `publish` are not built and their refusal rules over `Selection` are stated, not exercised; serial per-corpus captures (slice 1 limitation 1) carry.
 
-- [ ] **Step 3: Add the document to the README list and the guide's sources**
+- [x] **Step 3: Add the document to the README list and the guide's sources**
 
 In `README.md` add a row after line 97 in the same format: `| \`2026-09-14-conformance-cut-28.md\` | the frozen slice 4 cut: view-query evaluation over the world read view, W7, and the W8/W8b discharge over existing code |`. Bump the stated count of designs by one (the sentence `test_the_readme_states_how_many_designs_there_are` reads; extend `_COUNT_WORDS` in `python/tests/test_designs_corpus.py` if the next number word is missing). In `docs/guide/contracts-and-adoption.md`'s front-matter `sources:` list add `  - ../designs/2026-09-14-conformance-cut-28.md` in date order.
 
-- [ ] **Step 4: Run the design-corpus guards**
+- [x] **Step 4: Run the design-corpus guards**
 
 Run: `cd python && uv run --frozen pytest tests/test_designs_corpus.py -p no:cacheprovider`
 Expected: every test passes (the row total stays 196; no row is minted).
 
-- [ ] **Step 5: Commit the freeze and pin it**
+- [x] **Step 5: Commit the freeze and pin it**
 
 ```bash
 git add docs README.md python/tests/test_designs_corpus.py tasks
@@ -150,6 +150,11 @@ tasks note beliefs-0e523a "cut 28 frozen at <sha>, sha256 <digest>"
 tasks done beliefs-cb9581 "cut 28 frozen at <sha>"
 ```
 Task 7 pins both values.
+
+**Freeze recorded 2026-09-14:** commit `dfc8665f414af8ef1a93f81532391e64fb805c18`;
+whole-document SHA-256 `39e93aa6e5e13e839aad8a675b11e1652fa30fd7e2f05ab62f516ba26480ba62`.
+Design-corpus guards: 14 passed; pre-commit checks passed. §§2–7 remain
+byte-exact from this commit; §1 stays editable.
 
 ---
 
