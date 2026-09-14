@@ -489,7 +489,8 @@ class TestEntryRefusals:
         node.relations.append(Relation(source=node.id, predicate="cites", target="dataset:d-a"))
         (roots[BETA] / "dataset" / "d-b.md").write_text(node_to_markdown(node), encoding="utf-8")
         after = open_world_view(world, published)
-        assert after.drift() and after.drift()[0].corpus_id == BETA
+        moved = [report.corpus_id for report in after.drift() if report.captured_state != report.published_state]
+        assert moved == [BETA]
         with pytest.raises(SelectionRefused) as caught:
             evaluate_query(after, stored_query(Corpus(roots[ALPHA]).get(topic.id)))
         assert caught.value.reason == "corpus-drifted" and caught.value.refs == (BETA,)
@@ -1511,7 +1512,7 @@ Then the durable tests, one per spec §7 bullet, each ending in `_durably`, buil
 | `test_w7_two_clauses_select_and_contribute_both_durably` | `addresses` over `dataset:d-a` plus `references-term` GENE: both selected, `contributing == tuple(sorted((a, b)))` |
 | `test_w7_the_absent_corpus_refuses_reports_or_names_itself_by_form_durably` | after `absent(roots, b)`: `addresses` → `SelectionRefused("address-not-present")` refs `(dataset:d-b,)` corpora `(b,)`; `closure` out from `run:r-a` → incomplete, `unresolved == (Unresolved("run:r-a","produces","dataset:d-b","not-present", b),)`; `kinds` → incomplete, `absent == (b,)`; each incomplete identity differs from its complete one and none is empty-and-complete |
 | `test_w7_a_closure_anchored_in_the_absent_corpus_refuses_durably` | `in` over `produces` from `dataset:d-b` selects `run:r-a` present; refuses `address-not-present` refs `(dataset:d-b,)` absent |
-| `test_w7_a_drifted_view_refuses_and_the_earlier_capture_evaluates_durably` | Task 3's drift arm, then a rebuild (`epoch.build_epoch` with `hold_shipped`) evaluates clean with a different identity |
+| `test_w7_a_drifted_view_refuses_and_the_earlier_capture_evaluates_durably` | Task 3's drift arm: filter reports by `captured_state != published_state` and assert only `b` moved; then a rebuild (`epoch.build_epoch` with `hold_shipped`) evaluates clean with a different identity |
 | `test_w7_a_damaged_view_refuses_durably` | Task 3's damage arm |
 | `test_w7_reordered_authoring_and_registration_give_one_projection_durably` | Task 3's two determinism arms, the registration case over two `conflict_world`-style worlds with the corpora admitted in opposite order |
 | `test_w7_a_retired_anchor_over_a_cycle_selects_what_the_live_anchor_selects_durably` | Task 5's cycle arm |
@@ -1730,3 +1731,9 @@ are asserted as literals and `clauses: []` isolates `absent` (Tasks 3, 5, 7).
 roots under two worlds admitted in opposite order, the whole finding
 compared (Task 6). (8) `contributing` is sorted over minted ids — every
 durable expectation is `tuple(sorted((a, b)))` (Task 7).
+
+**2026-09-14, second review, one finding, resolved.** The drift arm still
+expected BETA's report first, but ALPHA's equal-state coordination report
+precedes it. The assertion now filters reports by changed corpus states and
+expects only BETA; the durable counterpart explicitly uses the same filter
+(Tasks 3 and 7).
