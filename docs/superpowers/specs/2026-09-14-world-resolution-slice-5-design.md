@@ -93,11 +93,17 @@ ambiguous-search-term conflict, `authority-labels`.
 4. **No seam, no history, no redirect.** A dataset re-held with a different
    manifest is always a new entity (world §4.4). `revise` already preserves
    the `dataset` facet (facet-contracts §5.3; cut 25's W5a-n arm), so an
-   admitted record's address cannot drift under it. `consolidate` needs no
-   dataset arm of `_reconcile`: two records at one derived address hold one
-   declaration by construction, and the source-only `HistoryDisagreement`
-   stays source-only. Slice 2b §7's reconciliation follow-up
-   (`beliefs-24b42b`) is untouched.
+   admitted record's address cannot drift under it. `consolidate` gains one
+   dataset clause, and it is a validation, not a reconciliation: both
+   inputs must derive the shared id from their own declarations before
+   `_reconcile` runs. Today `consolidate` reads both records straight from
+   their views, `_reconcile` keeps the survivor's facets and discards the
+   loser's declaration, and `_preflight_replace_locked` validates only the
+   merged survivor — so a valid survivor and a raw record at the same id
+   with different digests would consolidate, deleting the invalid record
+   unexamined (review finding 1, §12). The source-only
+   `HistoryDisagreement` stays source-only; slice 2b §7's reconciliation
+   follow-up (`beliefs-24b42b`) is untouched.
 5. **One record per byte set, stated as a consequence.** Two datasets
    declaring the same digests are one address whatever their titles,
    `empirical-observation` facets, domain facets or lineage bases. A second
@@ -162,11 +168,21 @@ not this slice's work and they are listed as read, not rewritten (§11).
 
 Paths that reach it, none new: `add` (through `_refuse`); `import_bundle`
 (through `_refuse` with `provenance=True`, so a bundle member at a handle
-address refuses `ImportRefused` naming the member); relocation's `move` and
-`consolidate` (the destination writer's `_refuse`); `replace`-shaped family
-writes (`_preflight_replace_locked`). `revise` reaches neither clause and
-needs neither: it requires an exact `(uid, id)` match and preserves the
-`dataset` facet.
+address refuses `ImportRefused` naming the member); relocation's `move`
+(the destination's `_preflight_add_locked` over the moved record);
+`replace`-shaped family writes (`_preflight_replace_locked`). `revise`
+reaches neither clause and needs neither: it requires an exact `(uid, id)`
+match and preserves the `dataset` facet.
+
+One path needs its own call, because the record it must judge never
+reaches the boundary: **`consolidate`**. After the `AddressDisagreement`
+check and beside the source clause, when the kind is `dataset`, both
+`keep_node` and `other_node` are held to
+`stored.dataset_address_of(node) == node.id`, else
+`DatasetAddressDisagreement` naming the position (`keep` or `other`) and
+the corpus — before `_reconcile`, before any write. The loser's
+declaration is the only content the operation deletes, and it is judged
+before it is discarded.
 
 ## 6. What this slice measures rather than builds
 
@@ -185,7 +201,7 @@ needs neither: it requires an exact `(uid, id)` match and preserves the
 | refusal | where |
 |---|---|
 | `BasisMissing` | builder; `_refuse_dataset_basis` clause 1 (unchanged) |
-| `DatasetAddressDisagreement` | `_refuse_dataset_basis` clause 2, on add, import, relocation and replacement preflight |
+| `DatasetAddressDisagreement` | `_refuse_dataset_basis` clause 2, on add, import, `move` and replacement preflight; `consolidate` over either input, naming its position, before reconciliation |
 | `MalformedRecord` (facet key without `/`) | builder (unchanged) |
 | `ImportRefused` naming the member | `import_bundle` over either of the above |
 | `RecordAlreadyMinted` / `CollisionRefused` | a second add of one byte set (unchanged mechanism, new reach) |
@@ -216,7 +232,20 @@ of the admitted record's observation facet keeps the id.
 handle-addressed dataset into a boundary-governed destination refuses;
 `consolidate` of two records at one derived address in two corpora succeeds
 with one address and no redirect (W16's dataset arm over a real derived
-address, which the existing test already exercises by slug).
+address, which the existing test already exercises by slug); `consolidate`
+of a valid survivor with a raw record at the same id whose digests differ
+refuses `DatasetAddressDisagreement` naming `other`, writes nothing in
+either corpus, and the mirror with `keep` swapped names `keep`.
+
+The three existing boundary checks that reach `BasisMissing` through the
+builder — `test_corpus_write.py` (two sites) and `test_durable_corpus.py`
+(one, cut 4's live phase module) call `writer.add(dataset_node(…,
+resources=[]))` under `pytest.raises(BasisMissing)` — are migrated
+explicitly to hand-built unpinned records (`governed_node("dataset", …)`),
+so they still cross the boundary and still fail when its guard is removed.
+Left as they are, the new builder refusal would satisfy them before the
+boundary is reached (review finding 2, §12). The builder's own refusal is
+checked separately in `test_stored.py`, above.
 
 ### 8.2 Migration
 
@@ -244,7 +273,10 @@ site loses its slug and, where it passed no declaration, gains
 the built node's `id` or `dataset_ref(<handle>)`; every fixture that gave two
 records one shared digest constant gives them two seeds unless the test is
 about one byte set in two places (W16, R23 negative (a)), where the shared
-constant is the point and stays.
+constant is the point and stays. The exception to "lose the slug" is the
+test whose subject is the boundary's refusal of a record the builder can no
+longer produce: it is rebuilt by hand with `governed_node`, never satisfied
+by the builder (§8.1, the three named sites).
 
 Closure fixtures move with their datasets: `durable_fixture.py`'s `RAW`,
 `DERIVED` and the eight `LINEAGE_*` constants, `verification_fixtures.py`'s
@@ -282,7 +314,11 @@ certified volume, one function per arm:
   `DatasetAddressDisagreement` on add, at replacement preflight, on import
   naming the member, and on `move` into a governed destination; the same
   bytes at the derived address are admitted; `consolidate` of two records at
-  one derived address gives one address and no redirect.
+  one derived address gives one address and no redirect. Negative: a valid
+  survivor and a raw record at the same id carrying different digests refuse
+  `DatasetAddressDisagreement` naming `other` before anything is written, the
+  invalid record is still present in its corpus afterwards, and swapping
+  `keep` names `keep`.
 
 ### 8.4 N2 sabotages
 
@@ -297,6 +333,7 @@ independent function above. Mechanisms, and the module each lives in:
 | W8 | id/derived-address agreement on `add` | `corpus.py` |
 | W8 | agreement at replacement preflight | `corpus.py` |
 | W8 | agreement under import provenance | `corpus.py` |
+| W8 | both consolidation inputs validated before reconciliation (weakened to the survivor only) | `relocation.py` |
 
 The plan fixes the count; every arm passes without its mutation and fails
 with it; stale, vacuous, mixed and uncollected arms refuse.
@@ -360,7 +397,8 @@ date move with the cut document), the ledger, the roadmap, `README.md`,
 `docs/guide/contracts-and-adoption.md` and `docs/guide/foundations.md` (the
 "through cut 28" sentences), `python/tools/roadmap_status.py`. Of the
 `mutation` lane's surface, `corpus.py` is rewritten at one method; no other
-lane is open. `stored.py` and the test corpus are this lane's.
+lane is open. `relocation.py` is rewritten at one clause of `consolidate`.
+`stored.py` and the test corpus are this lane's.
 
 Dated notes, not rewrites: world design §4.2's dataset row ("the stored id is
 held to the address at the write boundary from cut 29"); slice 2b §12 item 1
@@ -399,4 +437,20 @@ both follow-ups discharge.
 
 ## 12. Review log
 
-None yet.
+**2026-09-14, first review — two findings, both verified against the tree
+and taken.**
+
+1. *Consolidation did not validate the losing dataset's address.* §5 had
+   claimed the existing paths cover `consolidate`; they cover only the merged
+   survivor, and `_reconcile` discards the loser's declaration before
+   `_preflight_replace_locked` runs. Reproduced by the reviewer with the
+   proposed guard: a valid survivor and a raw record at one id with different
+   digests consolidated, deleting the invalid record. Taken: both inputs are
+   validated before reconciliation (§2 item 4, §5), a negative acceptance
+   case and an N2 arm in `relocation.py` are added (§8.3, §8.4).
+2. *The fixture migration would have made the existing boundary checks
+   vacuous.* Three tests reach `BasisMissing` through `writer.add(dataset_node(…,
+   resources=[]))`; with the builder refusing first they pass without reaching
+   the boundary, even with its guard removed. Taken: those sites migrate to
+   hand-built records and the builder's refusal is checked separately (§8.1,
+   §8.2).
