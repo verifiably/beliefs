@@ -1,6 +1,6 @@
 # World resolution slice 4 — implementation plan
 
-**Status:** approved 2026-09-14; cut 28 frozen and implementation in progress. Task records carry current progress.
+**Status:** implemented and discharged at conformance cut 28 on 2026-09-14; main integration pending (§Task 9 step 4).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -965,7 +965,7 @@ git commit -m "feat(world): references-term denotation with validation before th
 - Consumes: `corpus.RelationAdjacency(view, predicate, "outbound")`, `traversal.{closure, Step, RelationEntry}`, `view.inbound`, `view.live_id`, `view.locate`, `view.corpus_of`.
 - Produces: the `Closure` branch; every unresolved step entered into Task 3's `unresolved` map.
 
-- [ ] **Step 1: `tasks start beliefs-35d582`, then write the failing tests**
+- [x] **Step 1: `tasks start beliefs-35d582`, then write the failing tests**
 
 Append to `python/tests/test_world_selection.py`:
 
@@ -1065,12 +1065,12 @@ class TestClosure:
         assert [(s.predicate, s.target) for s in selection.unresolved] == [("cites", "dataset:never"), ("reads", "dataset:never")]
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `cd python && uv run --frozen pytest tests/test_world_selection.py -k Closure`
 Expected: FAIL with `NotImplementedError: closure lands in Task 5`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `selection.py` add the imports `from beliefs.corpus import RelationAdjacency, validated_node` (extend the existing line) and `from beliefs.traversal import Adjacency, RelationEntry, Step, closure`, then:
 
@@ -1150,7 +1150,7 @@ and in `_denote`:
         return set(reach.reached)
 ```
 
-- [ ] **Step 4: Run the tests and the gate**
+- [x] **Step 4: Run the tests and the gate**
 
 Run: `cd python && uv run --frozen pytest tests/test_world_selection.py tests/test_world_view.py`
 Expected: PASS.
@@ -1160,7 +1160,7 @@ If `test_both_walks_both_ways_and_excludes_the_anchor` reaches `dataset:d-a` thr
 Run: `uv run --frozen ruff check . && uv run --frozen pyright`
 Expected: clean.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd .. && tasks note beliefs-35d582 "closure denotation: live anchor, query adjacency with reported absent inbound sources, unresolved classified by locate"
@@ -1180,7 +1180,7 @@ git commit -m "feat(world): closure denotation from the live anchor through the 
 - Consumes: `test_world_epoch.{admitted_world, publish, epochs_tree}`, `test_world_build.{ALPHA, BETA}`, `relocation.{consolidate, move}`, `corpus.corpus_check`, `errors.{AddressMapConflict, AddressDisagreement, HistoryDisagreement, DuplicateLocation, SourceAddressDisagreement}`, `test_relocation._writer` and `CONSOLIDATE_FIELDS`, `test_identifier_correction.{A, B, ADDR_B, REPORT}`.
 - Produces: the unit-level readings Task 7 lifts onto the certified volume, one function per §4 bullet.
 
-- [ ] **Step 1: `tasks start beliefs-7d4299`, then write the tests**
+- [x] **Step 1: `tasks start beliefs-7d4299`, then write the tests**
 
 These arms read code that already passes; they are written to fail under Task 7's sabotages, so write each assertion to name the exact property.
 
@@ -1344,14 +1344,14 @@ class TestW8b:
 
 `sample_nodes(slug_for(corpus_id, coverage))` names each corpus's records by the corpus id's first character (`test_world_build.py:209`), so ALPHA's dataset is `dataset:a` under any multi-corpus coverage; the registration-order test reuses one set of roots under two worlds admitted in opposite order, so the claims are identical and the whole finding is compared.
 
-- [ ] **Step 2: Run them**
+- [x] **Step 2: Run them**
 
 Run: `cd python && uv run --frozen pytest tests/test_world_conflicts.py`
 Expected: PASS — these read existing code. A failure is a finding about that code or the fixture; record it in `tasks note` and fix the fixture, never the production code, unless the spec's §4 claim is measured false, in which case stop and report.
 
 If `corpus_check` with `WITH_BIOLOGY` refuses because the `sample_nodes` manifest pins `PINS` (biology), that is the intended profile; if it refuses on a base mismatch use `profiles.BASE`.
 
-- [ ] **Step 3: Gate and commit**
+- [x] **Step 3: Gate and commit**
 
 ```bash
 uv run --frozen ruff check . && uv run --frozen pyright
@@ -1372,7 +1372,7 @@ git commit -m "test(world): W8 and W8b arms over the existing build, consolidate
 - Consumes: `test_world_view_acceptance.durable_world` (the certified-volume two-corpus fixture; `make(alpha_nodes, beta_nodes, *, profile=BASE, raw=())` returns `world, {a: alpha, b: beta}, published, a, b` and exposes `make.corpus()`), `coordination_fixtures.{coordination_profile, raw_coordination_node}`, `corpus.CoordinationResolver`, `coordination.CoordinationAddress`, Tasks 2–6's public names, `n2_arms.Arm`/`Sabotage`, `test_n2.audit`/`baseline`, cut 27's guard as the template.
 - Produces: `DECLARATION_UNITS = ("W7", "W8", "W8b")`, `CUT28_ARMS` (23 arms), `UNIT_CHECKS`, `unit_of`; the durable tests Task 8's runner names; the pins `CUT28_FREEZE_COMMIT`, `CUT28_FROZEN_SHA256`, `CUT28_DECLARATION_COMMIT`, `CUT28_DECLARATION_SHA256`.
 
-- [ ] **Step 1: `tasks start beliefs-10efda`, then write the durable arms**
+- [x] **Step 1: `tasks start beliefs-10efda`, then write the durable arms**
 
 Create `python/tests/acceptance/test_world_selection_acceptance.py`. Header and fixtures:
 
@@ -1540,7 +1540,7 @@ For the W8 `source` fixtures use `stored.source_node(title=..., identifiers={"do
 Run: `cd python && uv run --frozen pytest tests/acceptance/test_world_selection_acceptance.py`
 Expected: all pass on the certified volume (the `work_directory` fixture refuses elsewhere).
 
-- [ ] **Step 2: The declaration module**
+- [x] **Step 2: The declaration module**
 
 Create `python/tests/acceptance/n2_arms_cut28.py` on `n2_arms_cut27.py`'s shape:
 
@@ -1595,11 +1595,11 @@ Then `CUT28_ARMS`, 23 `Arm(...)` entries, each with a `Sabotage(module=..., befo
 
 That is 23 arms: sixteen `W7`, three `W8`, four `W8b`. Every `before` must occur exactly once in its module — run `test_each_sabotage_names_one_real_source_site` (step 3) until it does. If a mutation cannot be made to fail exactly one durable test, add the durable test that isolates it rather than dropping the arm, and record the count in Task 9.
 
-- [ ] **Step 3: The guard**
+- [x] **Step 3: The guard**
 
 Create `python/tests/acceptance/test_n2_cut28.py` from `test_n2_cut27.py`: import `CUT28_ARMS, CO_CITED, DECLARATION_UNITS, UNIT_CHECKS, unit_of` from `n2_arms_cut28`; add `from n2_arms_cut27 import CUT27_ARMS` to the prior imports and `*CUT27_ARMS` to `PRIOR_ARMS`; `FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-14-conformance-cut-28.md"`; `FROZEN_DECLARATION = "python/tests/acceptance/n2_arms_cut28.py"`; the session fixture's `mktemp("n2-cut28")`. Two commits are pinned: `CUT28_FREEZE_COMMIT` and `CUT28_FROZEN_SHA256` are Task 1's freeze commit and the cut document's digest there; `CUT28_DECLARATION_COMMIT` and `CUT28_DECLARATION_SHA256` are the commit step 4 makes and the declaration's digest there. `FROZEN_PRIOR_CUT_FILES` gains `"python/tests/acceptance/n2_arms_cut27.py": "<the short sha that added it — git log --follow>"`. The inventory test asserts `DECLARATION_UNITS == ("W7", "W8", "W8b")`, `len(CUT28_ARMS) == 23`, and `unit_of` over every row. The pinned-sections test greps `"**3 declaration units**"`, `"Three guarantee rows are read, **2 full/closed** (W7, W8b)"` and `'("cut27_acceptance.py",)'`. The row-parser test's rejects become `("", "D1", "W7-", "W7a", "W7-A", "W7-1", "W7-aa", "W7-a-b")` with `match="is not a cut-28 row"`. `test_the_freeze_commit_and_sections_two_through_seven_are_pinned`, `test_the_declaration_is_byte_exact_against_its_own_commit` and `test_prior_declarations_are_frozen_and_no_check_is_reclaimed` keep cut 27's bodies with the names swapped.
 
-- [ ] **Step 4: Pin the declaration, run the guard, commit**
+- [x] **Step 4: Pin the declaration, run the guard, commit**
 
 ```bash
 git add python/tests/acceptance/n2_arms_cut28.py python/tests/acceptance/test_world_selection_acceptance.py
@@ -1629,11 +1629,11 @@ git commit -m "test(cut28): the freeze guard and pins"
 - Create: `python/tools/cut28_acceptance.py`
 - Modify: `python/tools/roadmap_status.py:58` (add cut 28's row), `docs/designs/2026-08-02-world-addressing-design.md:1511` (W7's cell), `:1512` (W8's cell), `:1514` (W8b's cell), `docs/superpowers/specs/2026-09-10-world-resolution-slice-2b-design.md` (§13, appended item), `docs/guide/identity-world-and-change.md:171-180`, `docs/guide/contracts-and-adoption.md:229-231`, `docs/guide/foundations.md:126-128`
 
-- [ ] **Step 1: `tasks start beliefs-0160ea`, then write the runner**
+- [x] **Step 1: `tasks start beliefs-0160ea`, then write the runner**
 
 Copy `python/tools/cut27_acceptance.py` to `cut28_acceptance.py` and change: the docstring to `"""Run cut 28 after cut 27 on the certified durable tuple."""`; `DEFAULT_WORK = PYTHON_ROOT.parent / ".cut28-acceptance"`; `PREFIX_RUNNERS = ("cut27_acceptance.py",)`; `PHASE_MODULES = ("test_world_selection_acceptance.py", "test_n2_cut28.py")`; the import to `from n2_arms_cut28 import CUT28_ARMS, DECLARATION_UNITS, unit_of` and the return to count `CUT28_ARMS`; `cut=28`.
 
-- [ ] **Step 2: The status tool's row**
+- [x] **Step 2: The status tool's row**
 
 In `python/tools/roadmap_status.py` after line 58 (`27: (...)`) add:
 
@@ -1641,7 +1641,7 @@ In `python/tools/roadmap_status.py` after line 58 (`27: (...)`) add:
     28: ("conformance-cut-28-results §2", "W7, W8b", "W8"),
 ```
 
-- [ ] **Step 3: The row notes, the 2b note and the guide**
+- [x] **Step 3: The row notes, the 2b note and the guide**
 
 Each a dated addition; no existing words are removed.
 
@@ -1653,7 +1653,7 @@ Each a dated addition; no existing words are removed.
 - `docs/guide/contracts-and-adoption.md:229-231`: after the cut 27 sentence add "Cut 28 discharges world resolution slice 4 — W7's view evaluation and the W8/W8b conflicts over existing code (`../designs/2026-09-14-conformance-cut-28.md`; `../plans/<date>-conformance-cut-28-results.md`)." — the results path is filled in Task 9.
 - `docs/guide/foundations.md:126-128`: after "deliberately not a query engine." add " The evaluator is `evaluate_query` over the world read view, delivered at cut 28."
 
-- [ ] **Step 4: Run the guard sweeps and the whole runner**
+- [x] **Step 4: Run the guard sweeps and the whole runner**
 
 Run: `cd python && uv run --frozen pytest tests/test_frozen_guards.py tests/test_arm_staleness.py tests/test_designs_corpus.py -p no:cacheprovider`
 Expected: PASS.
@@ -1661,7 +1661,7 @@ Expected: PASS.
 Run: `cd python && uv run --frozen python tools/cut28_acceptance.py 2>&1 | tee ../.cut28-acceptance/run.log | tail -30`
 Expected: exit 0; the prefix chain through cut 27 green; both phases green; the final line `declared arms: 23 (= 3 declaration units; 3 guarantee rows)`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd .. && tasks note beliefs-0160ea "runner cut28_acceptance.py green over the cut 27 prefix; roadmap_status row; W7/W8/W8b notes; 2b W14 note; guide"
@@ -1678,7 +1678,7 @@ git commit -m "test(cut28): the acceptance runner, and the dated notes on W7, W8
 - Create: `docs/plans/<date>-conformance-cut-28-results.md` and `docs/plans/<date>-conformance-cut-28-run/{certified.log,check.log,test.log}` — the date is the day the gate runs; every `2026-09-XX` below is that date
 - Modify: `docs/designs/2026-08-03-redesign-adoption-ledger.md` (`Updated`, the `Current state` heading date, the summary bullet after line 180: "W7 and W8b close at cut 28; W8's ambiguous-search-term conflict is re-homed to `authority-labels`", the `world-resolution` row at line 196 → "the two filed follow-ups: dataset addressing (`beliefs-48214e`) and divergent correction-history reconciliation (`beliefs-24b42b`); no guarantee row remains", the `authority-labels` row at line 204 → `W8's ambiguous-search-term conflict, W9, W14`), `docs/plans/2026-08-29-implementation-roadmap.md` (whole rewrite per its header rule: `**Ranked at:** cut 28`, the cut 27 paragraph replaced by a cut 28 paragraph, Appendix A regenerated by `python/tools/roadmap_status.py`, Appendix B: the `W7, W8` row becomes `W8 | the ambiguous-search-term conflict, W9's arm restated (cut 28 results §5) | authority-labels — tier 3`, the `W8b` row leaves, the `W9, W14` row gains W8; the boundary index and tier-1 row for `world-resolution` read "the two filed follow-ups" with no rows; the tier-3 `authority-labels` row gains W8), `docs/designs/2026-09-14-conformance-cut-28.md` (`Status:` and §1's first sentence only), `docs/superpowers/specs/2026-09-13-world-resolution-slice-4-design.md` (`Status:` → discharged at cut 28, dated), this plan (`Status:`), `README.md` (the "through cut 27" and "latest discharged boundary" sentences → cut 28), `docs/guide/contracts-and-adoption.md` (the results path)
 
-- [ ] **Step 1: `tasks start beliefs-902cd5`, then run the repository gates and retain the transcripts**
+- [x] **Step 1: `tasks start beliefs-902cd5`, then run the repository gates and retain the transcripts**
 
 From the repository root:
 
@@ -1691,15 +1691,15 @@ grep -E "^[0-9]+ passed" docs/plans/2026-09-XX-conformance-cut-28-run/test.log
 ```
 Expected: three `exit 0`; the pytest summary line and the vitest summary line name their counts. Claim the counts only from those lines.
 
-- [ ] **Step 2: Write the results record**
+- [x] **Step 2: Write the results record**
 
 Sections as cut 27's: `## 1. What ran` (the exact commands, exit codes, the prefix chain, per-phase counts, the `declared arms:` line, the transcript links); `## 2. Accounting and disposition` (W7 and W8b close; W8 part on its ambiguous-search-term conflict, re-homed to `authority-labels`; the closed count moves from 151 to **153** of 196, leaving **43** open — confirm against `roadmap_status.py`'s output); `## 3. Corrections and deviations from the frozen cut` (dated bullets: any fixture measured against §4's claims, any arm count other than 23, any staleness re-target); `## 4. Reproduction measurement` (no new mm30 run; cite cut 22's); `## 5. Remaining boundary` (`world-resolution` retains no guarantee row and the filed follow-ups `beliefs-48214e` and `beliefs-24b42b`; `authority-labels` retains W8's ambiguous-search-term conflict, W9 and W14; `contract-cut` retains R23's rules-store clauses and W8a's `instrument-certification` arm; manifest safety unowned); `## 6. Main integration` after the merge.
 
-- [ ] **Step 3: Regenerate the roadmap's Appendix A and rewrite the ledger's Current state**
+- [x] **Step 3: Regenerate the roadmap's Appendix A and rewrite the ledger's Current state**
 
 Run: `cd python && uv run --frozen python tools/roadmap_status.py` and paste its table; rewrite the roadmap whole per its header rule; update the ledger's `world-resolution` and `authority-labels` rows and the summary; run `uv run --frozen pytest tests/test_designs_corpus.py -p no:cacheprovider` until green — `test_the_roadmap_and_ledger_name_the_same_boundaries` and `test_the_ledger_summary_names_the_newest_remaining_boundary` bind these documents to the record. The summary must name every row label the results record's `Remaining boundary` names (`W8`, `W9`, `W14`, `R23`, `W8a`).
 
-- [ ] **Step 4: Close the tasks and commit**
+- [x] **Step 4: Close the tasks and commit**
 
 ```bash
 tasks done beliefs-902cd5 "cut 28 discharged; results record docs/plans/2026-09-XX-conformance-cut-28-results.md"

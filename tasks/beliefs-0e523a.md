@@ -1,15 +1,16 @@
 ---
 id: beliefs-0e523a
 title: "World resolution slice 4: world view evaluation"
-status: doing
+status: done
 priority: 2
 size: l
 complexity: high
 process: planned
 owner: design/world-resolution-slice-4
 created: 2026-09-09T15:26:54Z
-updated: 2026-09-14T11:42:09Z
+updated: 2026-09-14T13:40:24Z
 started: 2026-09-14T03:10:08Z
+completed: 2026-09-14T13:40:24Z
 depends: [beliefs-46847c]
 parent: beliefs-d248ba
 tags: [world-read]
@@ -39,3 +40,4 @@ Design and freeze W7 view evaluation over the completed world resolver, followin
 - 2026-09-14T11:41:22Z (design/world-resolution-slice-4): cut 28 frozen at dfc8665f414af8ef1a93f81532391e64fb805c18, sha256 39e93aa6e5e13e839aad8a675b11e1652fa30fd7e2f05ab62f516ba26480ba62; Task 1 complete, 14 design-corpus guards and pre-commit checks passed
 - 2026-09-14T11:41:22Z (design/world-resolution-slice-4): parked (waiting on agent, session): Task 1 complete: cut 28 frozen at dfc8665, digest recorded in plan and task notes. Next: Task 2 (SelectionRefused, stored_query and private enumeration).
 - 2026-09-14T11:42:09Z (design/world-resolution-slice-4): claimed by Codex, pid 1942208; user authorized remaining Tasks 2–9, including conformance discharge
+- 2026-09-14T13:40:24Z (design/world-resolution-slice-4): slice 4 discharged at cut 28: view evaluation over the world read view; W7, W8b closed; W8 part, re-homed

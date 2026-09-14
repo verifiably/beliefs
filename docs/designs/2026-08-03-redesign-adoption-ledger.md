@@ -38,7 +38,7 @@ organization rather than a personal account, so governance and long-term
 stewardship are not tied to one individual. §5 records the namespace and
 decomposition rulings that follow from it.
 
-## Current state (2026-09-13)
+## Current state (2026-09-14)
 
 This section is the one place that states what is built and what remains to
 build. Every other live surface — the README and the contributor guide — links
@@ -46,12 +46,12 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-09-13** for cut 27's world-resolution slice 3 discharge.
+**Updated 2026-09-14** for cut 28's world-resolution slice 4 discharge.
 
-**Implemented through conformance cut 27.** Cuts 4–24 have discharge results
+**Implemented through conformance cut 28.** Cuts 4–24 have discharge results
 records under `../plans/`; cut 25 records discharge in its frozen cut document,
-and cuts 26–27 record discharge in their dated results records, most recently
-`../plans/2026-09-13-conformance-cut-27-results.md`.
+and cuts 26–28 record discharge in their dated results records, most recently
+`../plans/2026-09-14-conformance-cut-28-results.md`.
 Cuts 1–3 are proved by their merge ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
 
@@ -171,14 +171,15 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   attributed correction preserves UID and retired addresses without rewriting
   referrers, and every boundary validates the history. W1, W2 and W5a close at
   cut 25. Dataset addressing and divergent-history reconciliation are filed.
-- **Epoch import, epoch audit and damaged-corpus world audit** — explicit
+- **Epoch import, epoch audit, damaged-corpus world audit and view evaluation** — explicit
   create-only epoch import evaluates every receipt before writing; retained
   epoch audit and snapshot-state query share that evaluator; and the semantic
   audit judges a captured world corpus by corpus, reporting construction damage
   while auditing the remainder. X5, W13 and the new S9 close at cut 27; R23
   retains only its rules-store clauses and W8a only its
-  `instrument-certification` arm. W7, W8 and W8b remain unselected for slice 4.
-  The corpus has 151 of 196 rows closed.
+  `instrument-certification` arm. W7 and W8b close at cut 28; W8's
+  ambiguous-search-term conflict is re-homed to `authority-labels`.
+  The corpus has 153 of 196 rows closed.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -193,7 +194,7 @@ not listed.
 | id | boundary | owner | what it blocks |
 |---|---|---|---|
 | `url-retrieval` | the URL retrieval boundary, acquisition orchestration and typed retrieval grants: H4, G9, R10, T5, T7's same-root case | `2026-08-24-world-index-holdings-design.md` §1–§3 | the first acquisition of a dataset from outside the system |
-| `world-resolution` | the remaining read side of the world: W7, W8 and W8b, all retained and unselected; dataset addressing (`beliefs-48214e`); and divergent correction-history reconciliation (`beliefs-24b42b`). W8b is measured and repaired by `beliefs-fda0e5` | `2026-08-02-world-addressing-design.md` and `2026-08-08-world-address-ruling.md` | dataset addressing and view evaluation |
+| `world-resolution` | the two filed follow-ups: dataset addressing (`beliefs-48214e`) and divergent correction-history reconciliation (`beliefs-24b42b`); no guarantee row remains | `2026-08-02-world-addressing-design.md` and `2026-08-08-world-address-ruling.md` | dataset addressing and correction-history reconciliation |
 | `event-level-l8` | **Event-level L8** — the presence/exclusion relation across captured corpus heads | the tamper-evident-log design's own successor work (row 5) | row 5 reading L8 in full |
 | `contract-cut` | **The first full contract cut, its executable suite, and N1–N10**; N2's closing doctrine; P1's resolver-negative arm; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | sub-problem 5b (row 7) | the normative contract's own guarantees; disposition of the legacy check modules; the conformance-package split (§5) |
 | `log-remainder` | L1, L4; L10's relabel | `2026-08-22-log-verification-design.md` | row 5's L rows read in full |
@@ -201,7 +202,7 @@ not listed.
 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm; C7's consolidate prerequisite discharged at cut 16 and the deletion surface it shares at cut 18 | sub-problem 5a, `2026-08-03-correction-lifecycle-design.md` | the correction lifecycle in full; buildable now, and the mutation lane's only open boundary |
 | `l13-preimage` | **L13 preimage resolver** — preimage-backed classification of a removed verification | the named `atoms` blob-read seam (`2026-08-03-tamper-evident-log-design.md` §5.3) | row 5 reading L13 in full; until then the held-copy match is a path match |
 | `persistence-cut` | X2's persistence-cut arm | the `atoms` A8 certification extended to the publication path, a cross-repo seam `atoms`' own design owns | X2 in full |
-| `authority-labels` | W9, W14 | artifact 11, the pinned authority snapshot — owed, undesigned | every rendered label; the ambiguous-search refusal |
+| `authority-labels` | W8's ambiguous-search-term conflict, W9, W14 | artifact 11, the pinned authority snapshot — owed, undesigned | every rendered label; the ambiguous-search refusal |
 | `weighted-belief` | S6 arm (h) | the first successor belief policy admitting unequal weights, blocked on ρO3 | weighted belief |
 | `extraction-path` | M12 | the extraction step, kernel limitation 3 | an untypeable span minting nothing, end to end |
 | `cross-root-publication` | T7's cross-root case | the act-report design's cross-root publication residue | cross-root publication of a provenance reference and its report |
@@ -209,10 +210,11 @@ not listed.
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-13-conformance-cut-27-results.md`) discharges world-resolution
-slice 3: X5, W13 and S9 close; R23 and W8a retain only their named
-`contract-cut` clauses; and `packaging-remainder` closes. Slice 4 and the two
-filed dataset/history follow-ups retain the open world work above.
+(`../plans/2026-09-14-conformance-cut-28-results.md`) discharges world-resolution
+slice 4: W7 and W8b close; W8 retains only its ambiguous-search-term conflict
+under `authority-labels` with W9 and W14; R23 and W8a retain only their named
+`contract-cut` clauses. The two filed dataset/history follow-ups retain the
+open `world-resolution` work above.
 `beliefs-d248ba` stays open. `nodes-remainder` closed 2026-09-12: `nodes`
 merged its 2.0 remainder to `main` at `b0c37b8` (STANDARD 2.0; umbrella
 `nodes-ce28b8`), so row 3 carries no live work and the contract-cut join
@@ -229,7 +231,7 @@ roadmap to one set of ids.
 
 The artifact rows and §3 preserve the dated adoption history; their original
 "awaits implementation" statements describe those earlier cuts. Use
-[Current state](#current-state-2026-09-13) for the live remainder.
+[Current state](#current-state-2026-09-14) for the live remainder.
 
 > **Artifact status reconciliation (2026-09-10, through cut 24).** Row 5's
 > general intent qualification closed at cut 11 and G4 at cut 12; its live

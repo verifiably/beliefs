@@ -233,7 +233,7 @@ row S9 (`../plans/2026-09-13-conformance-cut-27-results.md`).
 Cut 28 discharges world resolution slice 4 — W7's view evaluation and the W8/W8b conflicts over existing code (`../designs/2026-09-14-conformance-cut-28.md`; `../plans/2026-09-14-conformance-cut-28-results.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-13)
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-14)
 states what is built and which remaining boundaries have named owners; the cut
 documents and results records in the references below are the evidence.
 

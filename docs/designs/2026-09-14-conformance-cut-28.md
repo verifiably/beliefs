@@ -1,12 +1,13 @@
 # Conformance cut 28 — view evaluation and the W8/W8b discharge
 
-**Status:** frozen 2026-09-14 before implementation.
+**Status:** discharged 2026-09-14; results: `../plans/2026-09-14-conformance-cut-28-results.md`.
 **Frozen:** 2026-09-14, before implementation, on `design/world-resolution-slice-4`
 **Design:** `../superpowers/specs/2026-09-13-world-resolution-slice-4-design.md`, approved 2026-09-14; amended at plan review (§11)
 **Numbered after** cut 27 (roadmap concurrency rule 1) and **serialized after** its discharge, which is in the branch ancestry (rule 5).
 
 ## 1. What this cut is
 
+Discharged 2026-09-14 by `../plans/2026-09-14-conformance-cut-28-results.md`.
 The baseline below describes `main` at `98b92ec` before implementation.
 
 A view record stores a query. Cut 14 landed the language — `view_query.py`
