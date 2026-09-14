@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/world-resolution-slice-5
 created: 2026-09-11T11:42:27Z
-updated: 2026-09-14T22:45:20Z
+updated: 2026-09-14T22:45:30Z
 started: 2026-09-14T22:06:20Z
 depends: []
 parent: beliefs-d248ba
@@ -26,3 +26,4 @@ dataset_node takes an authored slug while dataset_address is computed and never 
 - 2026-09-14T22:18:44Z (design/world-resolution-slice-5): Slice 5 spec drafted 2026-09-14: keep dataset:sha256:<fold> as ruled (domain digest rejected), builder drops the slug, boundary adds DatasetAddressDisagreement in _refuse_dataset_basis clause 2; no seam or history; cut 29 re-reads W2/W3/W8 dataset arms, closes nothing; migration measured at 217 test sites, 768 literals, 52 title-only raw-corpus sites; cut 7 INTERPOSED_WRITE needs a dated live adapter
 - 2026-09-14T22:18:54Z (design/world-resolution-slice-5): parked (waiting on user, review): User reviews docs/superpowers/specs/2026-09-14-world-resolution-slice-5-design.md; on approval, write the implementation plan (writing-plans) in this worktree
 - 2026-09-14T22:26:49Z (design/world-resolution-slice-5): Spec review 1 (2026-09-14): consolidate must validate both dataset inputs before _reconcile (loser's declaration was discarded unexamined); boundary BasisMissing tests migrate to governed_node so the builder refusal cannot satisfy them. Both taken in the spec §12.
+- 2026-09-14T22:45:30Z (design/world-resolution-slice-5): parked (waiting on user, review): User reviews docs/superpowers/plans/2026-09-14-world-resolution-slice-5.md; on approval execute Task 1 (freeze) onward via subagent-driven development in this worktree
