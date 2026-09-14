@@ -26,3 +26,12 @@
 ## Concerns
 
 None.
+
+## Review fix round 1
+
+The review identified duplicate `_wire_parts` validation in `stored_claim_terms`. Removed the validation from `_stored_wire`; the terms reader validates once on its path, while `claim_from_stored` validates once before delegating to `decode_claim`.
+
+- `uv run --frozen pytest tests/test_claim_restore.py` — 14 passed.
+- `uv run --frozen pytest tests/test_world_selection.py` — 28 passed.
+- `uv run --frozen pytest tests/test_decode.py -k 'WireValueIsChecked or claim_from_stored'` — 7 passed, 62 deselected.
+- `uv run --frozen ruff check .` — clean.

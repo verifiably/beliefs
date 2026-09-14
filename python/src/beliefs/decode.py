@@ -236,7 +236,6 @@ def _stored_wire(node: Node) -> WireClaim:
         polarity=facet["polarity"],
         layer=facet["layer"],
     )
-    _wire_parts(wire)
     return wire
 
 
@@ -260,4 +259,6 @@ def claim_from_stored(node: Node, *, profile: ProfileSpec, snapshot: ResolutionS
     `AttributeError` on the way in (M11): a restore helper is exactly where
     "be liberal in what you accept" would defeat the row.
     """
-    return decode_claim(_stored_wire(node), profile=profile, snapshot=snapshot)
+    wire = _stored_wire(node)
+    _wire_parts(wire)
+    return decode_claim(wire, profile=profile, snapshot=snapshot)
