@@ -122,13 +122,16 @@ def conflict_world(durable_world, scratch, alpha_nodes, beta_nodes, *, twin):
         left.add(node)
     for node in beta_nodes:
         right.add(node)
-    right.add(twin)
     config = WorldConfig(scratch / f"world-{a[:8]}", "e" * 32, (alpha, beta))
     init_world_root(config, authority=FULL)
     world = open_world(config, authority=FULL)
     world.admit(alpha, provenance=Fresh())
     world.admit(beta, provenance=Fresh())
-    return world, {a: alpha, b: beta}, (a, b), (left, right), hold_shipped(world)
+    raw_write(beta, twin)
+    return world, {a: alpha, b: beta}, (a, b), (
+        open_corpus(alpha, authority=FULL, profile=BASE),
+        open_corpus(beta, authority=FULL, profile=BASE),
+    ), hold_shipped(world)
 
 
 def publish(world, coverage, bindings):
@@ -223,9 +226,30 @@ def test_w7_a_damaged_view_refuses_durably(topic):
 
 
 def test_w7_reordered_authoring_and_registration_give_one_projection_durably(topic):
-    first, (world, _roots, published, _a, _b) = result(topic([{"kinds": ["dataset"]}, {"addresses": ["dataset:d-b"]}], [{"kinds": ["run"]}]))
+    first, (world, roots, published, a, b) = result(topic([{"kinds": ["dataset"]}, {"addresses": ["dataset:d-b"]}], [{"kinds": ["run"]}]))
     reordered = query([{"kinds": ["run"]}], [{"addresses": ["dataset:d-b"]}, {"kinds": ["dataset"]}])
     assert first.projection() == evaluate_query(open_world_view(world, published), reordered).projection()
+    projections = []
+    for name, order in (("forward", (a, b)), ("backward", (b, a))):
+        paths = tuple(roots[corpus_id] for corpus_id in order)
+        config = WorldConfig(world.config.world_root.parent / name, "e" * 32, paths)
+        init_world_root(config, authority=FULL)
+        ordered = open_world(config, authority=FULL)
+        for path in paths:
+            ordered.admit(path, provenance=Fresh())
+        capture = publish(ordered, (a, b), hold_shipped(ordered))
+        projection = evaluate_query(open_world_view(ordered, capture), query([{"kinds": ["dataset"]}])).projection()
+        assert projection["epoch"] == capture.packaging_identity
+        projections.append(projection)
+    assert [{key: value for key, value in projection.items() if key != "epoch"} for projection in projections] == [
+        {key: value for key, value in projections[0].items() if key != "epoch"}
+    ] * 2
+    reversed_config = WorldConfig(world.config.world_root, world.config.world_id, tuple(reversed(world.config.corpus_roots)))
+    reversed_world = open_world(reversed_config, authority=FULL)
+    same_query = query([{"kinds": ["dataset"]}])
+    assert evaluate_query(open_world_view(world, published), same_query).projection() == evaluate_query(
+        open_world_view(reversed_world, published), same_query
+    ).projection()
 
 
 def test_w7_a_retired_anchor_over_a_cycle_selects_what_the_live_anchor_selects_durably(topic):
@@ -323,13 +347,17 @@ def test_w8_duplicate_location_refuses_the_build_in_either_order_and_consolidate
         with pytest.raises(AddressMapConflict) as second: publish(ordered, coverage, hold_shipped(ordered))
         assert (second.value.finding.code, second.value.finding.ref, second.value.finding.detail) == (caught.value.finding.code, caught.value.finding.ref, caught.value.finding.detail)
     for keep_index in (0, 1):
-        original, twin = source_pair(); _w, _r, _c, pair, _b = conflict_world(durable_world, scratch, (original,), (), twin=twin); keep, other = pair[keep_index], pair[1-keep_index]
+        original, twin = source_pair()
+        _a, _alpha, left = durable_world.corpus(); _b, _beta, right = durable_world.corpus()
+        left.add(original); right.add(twin); pair = (left, right); keep, other = pair[keep_index], pair[1-keep_index]
         survivor, _, _ = relocation.consolidate((keep, original.id), (other, original.id), **CONSOLIDATE_FIELDS)
         config = WorldConfig(scratch / f"fixed-{keep.corpus_id[:8]}", "a" * 32, (pair[0].root, pair[1].root)); init_world_root(config, authority=FULL); fixed = open_world(config, authority=FULL)
         for writer in pair: fixed.admit(writer.root, provenance=Fresh())
         view = open_world_view(fixed, publish(fixed, tuple(w.corpus_id for w in pair), hold_shipped(fixed)))
         assert view.get(original.id).uid == survivor.uid and [n.id for n in view.iter_stored()].count(original.id) == 1
-    original, twin = source_pair(); _w, _r, _c, pair, _b = conflict_world(durable_world, scratch, (original,), (), twin=twin)
+    original, twin = source_pair()
+    _a, _alpha, left = durable_world.corpus(); _b, _beta, right = durable_world.corpus()
+    left.add(original); right.add(twin); pair = (left, right)
     state = [durable_state(w) for w in pair]
     with pytest.raises(DuplicateLocation): relocation.move(pair[0], pair[1], original.id, **MOVE_FIELDS)
     assert [durable_state(w) for w in pair] == state
@@ -338,22 +366,29 @@ def test_w8_duplicate_location_refuses_the_build_in_either_order_and_consolidate
 def test_w8_address_conflict_refuses_the_build_and_consolidate_and_the_write_boundary_durably(durable_world, scratch):
     left = stored.source_node(title="p", identifiers={"doi": "10.1234/abc"}); right = stored.source_node(title="p", identifiers={"doi": "10.1234/abc", "isbn": "9780306406157"})
     world, _roots, coverage, writers, bindings = conflict_world(durable_world, scratch, (left,), (), twin=right)
-    with pytest.raises(AddressMapConflict): publish(world, coverage, bindings)
-    writers = tuple(open_corpus(w.root, authority=FULL, profile=BASE) for w in writers)
-    state = [durable_state(w) for w in writers]
-    with pytest.raises(HistoryDisagreement): relocation.consolidate((writers[0], left.id), (writers[1], right.id), **CONSOLIDATE_FIELDS)
-    assert [durable_state(w) for w in writers] == state
+    with pytest.raises(AddressMapConflict) as caught: publish(world, coverage, bindings)
+    assert (caught.value.finding.code, caught.value.finding.ref) == ("duplicate-location", left.id)
+    for keep_index in (0, 1):
+        left = stored.source_node(title="p", identifiers={"doi": "10.1234/abc"}); right = stored.source_node(title="p", identifiers={"doi": "10.1234/abc", "isbn": "9780306406157"})
+        _a, _alpha, first = durable_world.corpus(); _b, _beta, second = durable_world.corpus()
+        first.add(left); second.add(right); pair = (first, second)
+        keep, other = pair[keep_index], pair[1 - keep_index]
+        state = [durable_state(writer) for writer in pair]
+        with pytest.raises(HistoryDisagreement): relocation.consolidate((keep, left.id), (other, right.id), **CONSOLIDATE_FIELDS)
+        assert [durable_state(writer) for writer in pair] == state
     forged = left.model_copy(update={"id": "source:forged"})
     with pytest.raises(SourceAddressDisagreement): writers[0].add(forged)
 
 
 def test_w8b_uid_corruption_offers_no_repair_and_consolidate_is_unavailable_durably(durable_world, scratch):
     one = stored.dataset_node("one", title="one", resources=pinned()); two = stored.dataset_node("two", title="two", resources=pinned()).model_copy(update={"uid": one.uid})
-    world, _roots, coverage, writers, bindings = conflict_world(durable_world, scratch, (one,), (), twin=two)
+    world, _roots, coverage, _writers, bindings = conflict_world(durable_world, scratch, (one,), (), twin=two)
     with pytest.raises(AddressMapConflict) as caught: publish(world, coverage, bindings)
-    assert caught.value.finding.code == "uid-corruption" and "consolidate" not in caught.value.finding.message
-    writers = tuple(open_corpus(w.root, authority=FULL, profile=BASE) for w in writers)
-    with pytest.raises(AddressDisagreement): relocation.consolidate((writers[0], one.id), (writers[1], two.id), **CONSOLIDATE_FIELDS)
+    assert (caught.value.finding.code, caught.value.finding.ref) == ("uid-corruption", one.uid)
+    assert "no repair is offered" in caught.value.finding.message and "consolidate" not in caught.value.finding.message
+    _a, _alpha, left = durable_world.corpus(); _b, _beta, right = durable_world.corpus()
+    left.add(one); right.add(two)
+    with pytest.raises(AddressDisagreement): relocation.consolidate((left, one.id), (right, two.id), **CONSOLIDATE_FIELDS)
 
 
 @pytest.mark.parametrize("same_uid", [True, False])
