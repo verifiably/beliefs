@@ -1,13 +1,15 @@
 ---
 id: beliefs-48214e
 title: Dataset addresses derived from the content identity
-status: todo
+status: doing
 priority: 2
 size: l
 complexity: high
 process: planned
+owner: design/world-resolution-slice-5
 created: 2026-09-11T11:42:27Z
-updated: 2026-09-14T22:06:16Z
+updated: 2026-09-14T22:06:20Z
+started: 2026-09-14T22:06:20Z
 depends: []
 parent: beliefs-d248ba
 tags: [world-read]
