@@ -379,8 +379,12 @@ are not edited. Three frozen surfaces touch this slice:
   frozen-text assertions over the declaration are untouched. This is the
   M3a precedent of slice 2b §10.6, and it is named here so the plan does
   not discover it.
+- **Cut 5's guard is not live.** `test_n2_cut5.py` builds two datasets
+  through the old signature, but cut 14 pinned the whole cut-5 surface by
+  digest and registered it cited-not-run: it is neither edited nor run, and
+  its sites stay as frozen evidence (plan review finding 1).
 - **Live phase modules of earlier cuts** that build datasets —
-  `test_n2_cut5.py`, `test_n2_cut7.py`, `test_durable_corpus.py`,
+  `test_n2_cut7.py`, `test_durable_corpus.py`,
   `test_facet_acceptance.py`, `test_relocation_acceptance.py`,
   `test_coreference_acceptance.py`, `test_source_address_acceptance.py`,
   `test_world_view_acceptance.py`, `test_world_audit_acceptance.py`,
@@ -457,3 +461,9 @@ and taken.**
    the boundary, even with its guard removed. Taken: those sites migrate to
    hand-built records and the builder's refusal is checked separately (§8.1,
    §8.2).
+
+**2026-09-14, plan review — four findings on the plan, one reaching the
+spec.** `test_n2_cut5.py` was listed among the live phase modules to
+migrate; it is cited-not-run and hash-pinned, so §8.6 now excludes it. The
+other three (task ordering against the reproduction driver test, a second
+attester's writer binding, commit paths) changed the plan only.

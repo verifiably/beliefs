@@ -17,13 +17,14 @@
 - Run everything from `python/` with the project venv: `uv run --frozen pytest ...` and `uv run --frozen pyright`; system python lacks `beliefs`.
 - Pytest count claims need the summary line: do not pass `-q` (addopts already sets it); read the final `N passed` line. Do not pipe through `tail` without `pipefail`.
 - The cut freezes **before** its code exists (roadmap concurrency rules; spec §8.5): Task 1 writes and commits the cut document first, and its §§2–7 are never edited afterwards.
-- Frozen files — `n2_arms_cut*.py` of cuts ≤ 28, cut documents of cuts ≤ 28, `python/tests/cited_not_run.py`'s existing entries — are never edited. Live phase modules of earlier cuts receive only the documented fixture migration (Task 4). A displaced frozen line gets a **dated live adapter** in its guard's `_LIVE_SABOTAGES` (the cut 16 and cut 7 precedent), never an edit to the declaration.
+- Frozen files — `n2_arms_cut*.py` of cuts ≤ 28, cut documents of cuts ≤ 28, `python/tests/cited_not_run.py`'s existing entries, and the **cited-not-run guards** (`python/tests/acceptance/test_n2_cut5.py`, hash-pinned by cut 14 and refused at collection) — are never edited and never run. Live phase modules of earlier cuts receive only the documented fixture migration (Task 3). A displaced frozen line gets a **dated live adapter** in its guard's `_LIVE_SABOTAGES` (the cut 16 and cut 7 precedent), never an edit to the declaration.
 - Decision 3 of the spec: the first clause of `_refuse_dataset_basis` — the line `if node.kind == "dataset" and dataset_address(stored.dataset_declaration(node)) is None:` — and the two call lines `self._refuse_dataset_basis(node)` stay byte-identical. Cut 4's W3 arms and cut 25's `before` strings match them.
 - `uv run --frozen pytest tests/test_arm_staleness.py tests/test_frozen_guards.py` must pass after every task that touches `stored.py`, `corpus.py`, `relocation.py`, `world/epoch.py`'s guard or any `test_n2_cut*.py`: run it in Tasks 3, 4, 5, 7.
 - The closeout gate is the root-level `just check` and `just test` (from the repository root), then the cut 29 runner on the certified volume. Per-task pytest invocations are feedback, not the gate.
 - Conventional commits; no AI-attribution trailer (the pre-commit hook refuses one).
 - N2 rows are `<unit>-<letter>` (`W2-a`, `W8-c`); cut 29's `unit_of` parses exactly that.
 - Paths in this plan are relative to the repository root; the worktree is `.worktrees/world-resolution-slice-5/`. When reporting a path to the user, prefix it with the worktree directory.
+- Every `git add` runs from the worktree root. Python checks that must precede a commit run in a subshell — `(cd python && uv run --frozen ruff check . && uv run --frozen pyright)` — so the shell never stages `python/src/...` from inside `python/`.
 - Never `git stash`; read the main checkout without changing it when a baseline is needed.
 - `tasks start <id>` before each task, `tasks done <id> "<what landed>"` in the task's final commit; `tasks check` before every commit.
 
@@ -40,7 +41,7 @@
 | `python/src/beliefs/relocation.py` | `consolidate` validates both dataset inputs before `_reconcile` (spec §2 item 4, §5) |
 | `python/tools/reproduction/hold.py`, `concepts.py` | drop the slug argument (spec §6) |
 | `python/tests/acceptance/durable_fixture.py`, `verification_fixtures.py`, `fixtures_cut3.py` | fixture references derived through `dataset_ref` (spec §8.2) |
-| the 50 test files calling `dataset_node(` | the §8.2 migration |
+| the 49 live test files calling `dataset_node(` (`test_n2_cut5.py` is cited-not-run and untouched) | the §8.2 migration |
 | `python/tests/acceptance/test_n2_cut7.py` | dated live adapter for the X9 interposed write (spec §8.6) |
 | `python/tests/acceptance/test_dataset_address_acceptance.py` (new) | W2, W3, W8 dataset arms on the certified volume (spec §8.3) |
 | `python/tests/acceptance/n2_arms_cut29.py`, `test_n2_cut29.py`, `python/tools/cut29_acceptance.py` (new) | declaration, guard, runner (spec §8.4, §8.5) |
@@ -357,7 +358,7 @@ Expected: the final line reads `N passed`.
 - [ ] **Step 7: Lint, type-check, commit**
 
 ```bash
-cd python && uv run --frozen ruff check . && uv run --frozen pyright
+(cd python && uv run --frozen ruff check . && uv run --frozen pyright)
 tasks check
 git add python/src/beliefs/errors.py python/src/beliefs/stored.py python/tests/dataset_fixtures.py python/tests/test_dataset_fixtures.py python/tests/test_stored.py
 git commit -m "feat(stored): read a dataset's derived address from its stored declaration"
@@ -365,13 +366,19 @@ git commit -m "feat(stored): read a dataset's derived address from its stored de
 
 ---
 
-### Task 3: The builder derives the id; migrate the unit-test corpus
+### Task 3: The builder derives the id; migrate every call site
+
+One task, one commit: the portable suite imports the reproduction tools
+(`test_reproduction_driver.py` calls `hold.dataset_record`) and pyright
+covers `tests/acceptance`, so every caller of the builder moves with it
+(plan review finding 2).
 
 **Files:**
 - Modify: `python/src/beliefs/stored.py:880-901` (`dataset_node`)
 - Modify: `python/tests/dataset_fixtures.py` (`dataset` drops the seed positional)
-- Modify: `python/tests/fixtures_cut3.py:204` (`closure_with` dataset defaults), `python/tests/verification_fixtures.py:42,104-113`, `python/tests/test_corpus_write.py:302-305`, `python/tests/test_read_side.py:252`, `python/tests/test_audit.py:87-100`, `python/tests/test_stored.py:11-12`, `python/tests/domain_facet_fixtures.py`, and every other non-acceptance test file calling `dataset_node(` (the list in Step 4)
-- Test: `python/tests/test_stored.py` (append), then `tests` without acceptance
+- Modify: `python/tools/reproduction/hold.py:38-48`, `python/tools/reproduction/concepts.py:43-55`
+- Modify: `python/tests/fixtures_cut3.py:204` (`closure_with` dataset defaults), `python/tests/verification_fixtures.py:42,104-113`, `python/tests/test_corpus_write.py:302-305`, `python/tests/test_read_side.py:252`, `python/tests/test_audit.py:87-100`, `python/tests/test_stored.py:11-12`, `python/tests/domain_facet_fixtures.py`, `python/tests/acceptance/durable_fixture.py:24-48,83-86,105-113,164-183`, and every other test file calling `dataset_node(` (the list in Step 4)
+- Test: `python/tests/test_stored.py` (append), `python/tests/test_reproduction_driver.py`, then the portable suite
 
 **Interfaces:**
 - Consumes: `dataset_fixtures.pinned`, `dataset_ref`, `pinned_for`, `dataset` (Task 2).
@@ -483,14 +490,14 @@ def dataset(seed: str, *, title: str | None = None, **facets) -> Node:
     return stored.dataset_node(title=seed if title is None else title, resources=pinned(seed), **facets)
 ```
 
-- [ ] **Step 4: Migrate the non-acceptance test files**
+- [ ] **Step 4: Migrate every test file and the reproduction tools**
 
-The files (from `grep -rl "dataset_node(" python/tests --include='*.py' | grep -v /acceptance/`): `test_read_side.py`, `test_world_view.py`, `test_coreference_attestation.py`, `test_audit.py`, `test_world_selection.py`, `test_relocation_rows.py`, `test_holdings_capture.py`, `test_deletion_rows.py`, `test_corpus_write.py`, `test_acquisition.py`, `test_world_read.py`, `test_world_build.py`, `test_retract.py`, `test_facet_read.py`, `test_facet_seams.py`, `test_dataset_revision.py`, `test_world_receipts.py`, `test_world_epoch.py`, `test_relocation.py`, `test_permit_entry_points.py`, `test_import_bundle.py`, `test_identifier_correction.py`, `test_guarded_publication.py`, `test_evaluation.py`, `domain_facet_fixtures.py`, `verification_fixtures.py`, `test_world_relabels.py`, `test_world_audit.py`, `test_stored.py`, `test_profile_agreement.py`, `test_local_standing.py`, `test_holdings_windows.py`, `test_holdings_receipt.py`, `n2_arms_cut7.py` (**frozen — do not edit**; its site is a declaration string, handled in Task 4).
+The files (from `grep -rl "dataset_node(" python/tests --include='*.py'`), portable: `test_read_side.py`, `test_world_view.py`, `test_coreference_attestation.py`, `test_audit.py`, `test_world_selection.py`, `test_relocation_rows.py`, `test_holdings_capture.py`, `test_deletion_rows.py`, `test_corpus_write.py`, `test_acquisition.py`, `test_world_read.py`, `test_world_build.py`, `test_retract.py`, `test_facet_read.py`, `test_facet_seams.py`, `test_dataset_revision.py`, `test_world_receipts.py`, `test_world_epoch.py`, `test_relocation.py`, `test_permit_entry_points.py`, `test_import_bundle.py`, `test_identifier_correction.py`, `test_guarded_publication.py`, `test_evaluation.py`, `domain_facet_fixtures.py`, `verification_fixtures.py`, `test_world_relabels.py`, `test_world_audit.py`, `test_stored.py`, `test_profile_agreement.py`, `test_local_standing.py`, `test_holdings_windows.py`, `test_holdings_receipt.py`; acceptance: `durable_fixture.py`, `test_durable_corpus.py`, `test_world_selection_acceptance.py`, `test_relocation_acceptance.py`, `test_world_view_acceptance.py`, `test_facet_acceptance.py`, `test_world_audit_acceptance.py`, `test_durable_traversal.py`, `test_source_address_acceptance.py`, `test_coreference_acceptance.py`, `test_n2_cut7.py`, `test_cut15_lineage.py`, `test_session_acceptance.py`, `test_durable_records.py`, `test_deletion_acceptance.py`. **Excluded, frozen:** `n2_arms_cut7.py` (a declaration string; Task 4's live adapter) and `acceptance/test_n2_cut5.py` (cited-not-run, hash-pinned by cut 14; it is neither edited nor run — its two builder sites stay as they are, as frozen evidence).
 
 Two mechanical passes from `python/`, title-only sites first so the general pass cannot swallow them:
 
 ```bash
-FILES=$(grep -rl "dataset_node(" tests --include='*.py' | grep -v /acceptance/ | grep -v n2_arms_cut7.py)
+FILES=$(grep -rl "dataset_node(" tests --include='*.py' | grep -v n2_arms_cut7.py | grep -v test_n2_cut5.py)
 # title-only sites: dataset_node("a", title="a") -> dataset_node(title="a", resources=pinned("a"))
 sed -i -E 's/dataset_node\("([^"]*)",\s*title=("[^"]*")\)/dataset_node(title=\2, resources=pinned("\1"))/g' $FILES
 # every remaining site: drop the slug
@@ -540,43 +547,7 @@ and
 
 7. **`test_dataset_revision.py`** keeps one shared `PINNED` for the record under revision; where a test builds a *second* dataset it gets its own seed.
 8. **Holdings tests** (`test_holdings_capture.py`, `test_holdings_windows.py`, `test_holdings_receipt.py`, `test_acquisition.py`): de-slug; where the capture or receipt names `"dataset:<x>"`, use `dataset_ref("<x>")`.
-
-- [ ] **Step 5: Run the portable suite**
-
-Run: `cd python && uv run --frozen pytest tests`
-Expected: the final line reads `N passed` with **no failures**. Work through failures file by file; every failure is one of the manual-pass categories above. Do not touch `tests/acceptance` in this task except `durable_fixture.py`'s imports if a portable test imports it (it does not; leave it for Task 4).
-
-- [ ] **Step 6: Staleness and frozen guards**
-
-Run: `cd python && uv run --frozen pytest tests/test_arm_staleness.py tests/test_frozen_guards.py`
-Expected: pass. `stored.py`'s builder is matched by no frozen arm; if a guard reports a newly stale arm, stop and record which line moved before continuing.
-
-- [ ] **Step 7: Lint, type-check, commit**
-
-```bash
-cd python && uv run --frozen ruff check . && uv run --frozen pyright
-tasks check
-git add python/src/beliefs/stored.py python/tests
-git commit -m "feat(stored)!: derive dataset ids from the content identity"
-```
-
----
-
-### Task 4: Migrate the acceptance corpus, the frozen-cut adapters and the tools
-
-**Files:**
-- Modify: `python/tests/acceptance/durable_fixture.py:24-48,52-58,83-86,105-113,164-183`, and every acceptance module calling `dataset_node(` (`test_durable_corpus.py`, `test_world_selection_acceptance.py`, `test_relocation_acceptance.py`, `test_world_view_acceptance.py`, `test_facet_acceptance.py`, `test_world_audit_acceptance.py`, `test_durable_traversal.py`, `test_source_address_acceptance.py`, `test_coreference_acceptance.py`, `test_n2_cut7.py`, `test_n2_cut5.py`, `test_cut15_lineage.py`, `test_session_acceptance.py`, `test_durable_records.py`, `test_deletion_acceptance.py`)
-- Modify: `python/tests/acceptance/test_n2_cut7.py:95-135,1011-1050` (the X9 live adapter)
-- Modify: `python/tools/reproduction/hold.py:38-48`, `python/tools/reproduction/concepts.py:43-55`
-- Modify: `python/tests/test_domain_boundary.py:40,115,132` only if the fixture crosses the boundary (Step 5)
-
-**Interfaces:**
-- Consumes: `dataset_fixtures` (Task 2), the new builder (Task 3).
-- Produces: `durable_fixture.RAW`, `DERIVED`, `LINEAGE_*` as derived addresses; `durable_fixture.pinned()` retained; `test_n2_cut7.LIVE_INTERPOSED_WRITE`.
-
-- [ ] **Step 1: `durable_fixture.py`**
-
-Replace the dataset constants (lines 24–25, 40–48) with seed-derived addresses:
+9. **`acceptance/durable_fixture.py`**: the dataset constants become seed-derived addresses, keeping the no-argument `pinned()` iterator, which four acceptance modules import for records whose address they never name in advance:
 
 ```python
 from dataset_fixtures import dataset_ref, pinned as pinned_for_seed
@@ -595,7 +566,7 @@ LINEAGE_ABSENT_RUN = dataset_ref("lineage-absent-run")
 LINEAGE_CYCLE = (dataset_ref("lineage-cycle-a"), dataset_ref("lineage-cycle-b"))
 ```
 
-Keep the no-argument `pinned()` iterator: four acceptance modules import it for records whose address they never name in advance. `observed_dataset` and `mint_lineage_fixture`'s inner `dataset` become seed-based:
+   `observed_dataset` and `mint_lineage_fixture`'s inner `dataset` become seed-based:
 
 ```python
 def observed_dataset(seed: str = "raw"):
@@ -613,14 +584,8 @@ def observed_dataset(seed: str = "raw"):
     ...
 ```
 
-`mint_records`' `DERIVED` record: `stored.dataset_node(title="derived", resources=pinned_for_seed("derived"), basis=basis(route(RUN, RAW, [RAW])))`. Every route and relation keeps naming the constants, which are now the derived addresses. `slug(ref)` stays for the non-dataset kinds.
-
-- [ ] **Step 2: The acceptance modules**
-
-Run the same two `sed` passes as Task 3 Step 4 over `tests/acceptance` (excluding `n2_arms_cut*.py`, which are frozen), add the `dataset_fixtures` imports, then the manual pass with the same eight rules. Two module-specific items:
-
-- `test_world_selection_acceptance.py` lines 66–69: delete the loop body that patches empty `resources` to `pinned()` and re-stamps — every dataset now arrives pinned from `topic_nodes`; keep the plain `writer.add(node)`.
-- `test_durable_corpus.py::TestW3Durably::test_a_dataset_with_no_content_identity_is_refused_before_it_lands` (line 100) builds by hand, and asserts against the handle path it names:
+   `mint_records`' `DERIVED` record: `stored.dataset_node(title="derived", resources=pinned_for_seed("derived"), basis=basis(route(RUN, RAW, [RAW])))`. Every route and relation keeps naming the constants, which are now the derived addresses. `slug(ref)` stays for the non-dataset kinds.
+10. **Acceptance modules**, two specifics beyond the eight rules: `test_world_selection_acceptance.py` lines 66–69 — delete the loop body that patches empty `resources` to `pinned()` and re-stamps; every dataset now arrives pinned from `topic_nodes`, so keep the plain `writer.add(node)`. `test_durable_corpus.py::TestW3Durably::test_a_dataset_with_no_content_identity_is_refused_before_it_lands` (line 100) builds by hand and keeps asserting against the handle path it names:
 
 ```python
     def test_a_dataset_with_no_content_identity_is_refused_before_it_lands(self, durable_writer, durable_root):
@@ -630,7 +595,54 @@ Run the same two `sed` passes as Task 3 Step 4 over `tests/acceptance` (excludin
         assert not path_for(durable_root, "dataset:d1").exists()
 ```
 
-- [ ] **Step 3: The cut 7 live adapter**
+   `test_n2_cut7.py`'s own `_extra_record(corpus_root, slug)` (line 644) becomes `_extra_record(corpus_root, seed)` adding `dataset(seed, title=f"dataset {seed}")`, and its `"a-successor"` site (line 339) becomes `dataset("a-successor", title="dataset a successor")`; its frozen `INTERPOSED_WRITE` handling is Task 4's.
+11. **The reproduction tools.** `python/tools/reproduction/hold.py::dataset_record`:
+
+```python
+def dataset_record(*, name: str, digest: str, title: str, accession: str) -> tuple[Node, str]:
+    node = stored.dataset_node(
+        title=title,
+        resources=[{"name": name, "digest": digest}],
+        empirical_observation={"locator": f"accession:{accession}", "attested_by": AUTHORITY.actor},
+        domain_facets={"biology/gene-axis": {"axis": "rows", "namespace": "HGNC"}},
+    )
+    return node, node.id
+```
+
+   Drop the now-unused `DatasetDeclaration`, `ResourceDeclaration`, `dataset_address` imports if nothing else in the module uses them. `concepts.py` lines 43–55: delete the `address = dataset_address(...)` line, build `stored.dataset_node(title="mm30 concept vocabulary", resources=[{"name": RESOURCE, "digest": digest}])`, and use `node.id` where `address` was used.
+
+- [ ] **Step 5: Run the portable suite**
+
+Run: `cd python && uv run --frozen pytest tests`
+Expected: the final line reads `N passed` with **no failures** — `test_reproduction_driver.py::test_dataset_record_id_equals_its_content_address` among them. Work through failures file by file; every failure is one of the manual-pass categories above. The acceptance modules are migrated here but exercised in Task 4 on the certified volume (they are excluded from the portable run); pyright and ruff cover them now.
+
+- [ ] **Step 6: Staleness and frozen guards**
+
+Run: `cd python && uv run --frozen pytest tests/test_arm_staleness.py tests/test_frozen_guards.py`
+Expected: pass. `stored.py`'s builder is matched by no frozen arm; if a guard reports a newly stale arm, stop and record which line moved before continuing.
+
+- [ ] **Step 7: Lint, type-check, commit**
+
+```bash
+(cd python && uv run --frozen ruff check . && uv run --frozen pyright)
+tasks check
+git add python/src/beliefs/stored.py python/tests python/tools/reproduction
+git commit -m "feat(stored)!: derive dataset ids from the content identity"
+```
+
+---
+
+### Task 4: The cut 7 live adapter and the acceptance run
+
+**Files:**
+- Modify: `python/tests/acceptance/test_n2_cut7.py:95-135,1011-1050` (the X9 live adapter)
+- Modify: `python/tests/test_domain_boundary.py:40,115,132` only if the fixture crosses the boundary (Step 2)
+
+**Interfaces:**
+- Consumes: `dataset_fixtures` (Task 2), the new builder and the migrated acceptance corpus (Task 3).
+- Produces: `test_n2_cut7.LIVE_INTERPOSED_WRITE`, `FROZEN_CUT7_ARMS`; every live acceptance module green on the certified volume.
+
+- [ ] **Step 1: The cut 7 live adapter**
 
 `test_n2_cut7.py` already re-targets two frozen arms by `(row, index)` (lines 99–133). The X9 relocated-head arm is index **15** in `CUT7_ARMS` (`world/epoch.py`); its frozen `after` interposes `stored.dataset_node(__import__("uuid").uuid4().hex, title="interposed")`, which the new builder refuses with `TypeError`, so the witness would fail for the wrong reason. Add, beside the existing `_LIVE_SABOTAGES` block:
 
@@ -661,9 +673,10 @@ CUT7_ARMS = tuple(
     else arm
     for index, arm in enumerate(CUT7_ARMS)
 )
+assert FROZEN_CUT7_ARMS[_X9_RELOCATED_HEAD_INDEX].checks == (RELOCATED_HEAD_CHECK,)
 ```
 
-placed **after** the existing `CUT7_ARMS = tuple(...)` re-targeting so both adapters apply. Verify the index before pinning it: `uv run --frozen python -c "import sys; sys.path[:0]=['tests','tests/acceptance']; from n2_arms_cut7 import *; print([i for i,a in enumerate(CUT7_ARMS) if a.checks==(RELOCATED_HEAD_CHECK,)])"` prints `[15]`. Add an assertion in the module: `assert FROZEN_CUT7_ARMS[_X9_RELOCATED_HEAD_INDEX].checks == (RELOCATED_HEAD_CHECK,)`.
+placed **after** the existing `CUT7_ARMS = tuple(...)` re-targeting so both adapters apply (`FROZEN_CUT7_ARMS` then holds the X12/W8a-adapted tuple, which is what the declaration test below compares against; its X9 arm is still the frozen one). Verify the index before pinning it: `uv run --frozen python -c "import sys; sys.path[:0]=['tests','tests/acceptance']; from n2_arms_cut7 import *; print([i for i,a in enumerate(CUT7_ARMS) if a.checks==(RELOCATED_HEAD_CHECK,)])"` prints `[15]`.
 
 Then in `TestTheRelocatedHeadSabotageIsNotVacuous` (line 1011 on): `test_the_declared_mutation_carries_a_real_interposed_write` reads the **frozen** arm — change `_relocated_head_arm()` to take the tuple:
 
@@ -673,7 +686,7 @@ def _relocated_head_arm(arms=None) -> Arm:
     return arm
 ```
 
-and in that one test call `_relocated_head_arm(FROZEN_CUT7_ARMS)`; the live tests (`test_relocation_alone_passes_the_witness_and_the_interposed_write_fails_it`) keep `_relocated_head_arm()` and replace `INTERPOSED_WRITE` with `LIVE_INTERPOSED_WRITE` in the `relocation_only` construction (`arm.sabotage.after.replace(LIVE_INTERPOSED_WRITE, "")`). Add one test:
+and in that one test call `_relocated_head_arm(FROZEN_CUT7_ARMS)`; the live test (`test_relocation_alone_passes_the_witness_and_the_interposed_write_fails_it`) keeps `_relocated_head_arm()` and replaces `INTERPOSED_WRITE` with `LIVE_INTERPOSED_WRITE` in the `relocation_only` construction (`arm.sabotage.after.replace(LIVE_INTERPOSED_WRITE, "")`). Add one test:
 
 ```python
     def test_the_live_interposed_write_is_the_dated_adapter_of_the_frozen_one(self):
@@ -685,50 +698,28 @@ and in that one test call `_relocated_head_arm(FROZEN_CUT7_ARMS)`; the live test
         assert live.sabotage.before == frozen.sabotage.before
 ```
 
-`test_n2_cut7.py`'s own `_extra_record(corpus_root, slug)` (line 644) becomes `_extra_record(corpus_root, seed)` adding `dataset(seed, title=f"dataset {seed}")`; the `"a-successor"` site at line 339 becomes `dataset("a-successor", title="dataset a successor")`.
+- [ ] **Step 2: The on-disk domain-boundary fixture**
 
-- [ ] **Step 4: The reproduction tools**
+`python/tests/test_domain_boundary.py` line 40 writes a raw markdown record `id: dataset:gene-expression-matrix`. Read the test: if the record is only read back through `nodes` or a `ReadView`, leave it. If it is added through `CorpusWriter.add`, `import_bundle` or relocation, compute the derived id from its declared resources (`dataset_address(DatasetDeclaration(...))` over the digests the fixture text declares) and replace the three `dataset:gene-expression-matrix` literals with it. The copy in `docs/superpowers/plans/2026-09-12-d1-cross-repository-negative.md` is an execution record and is not edited. (If Task 3's portable run already failed here, this was done there; confirm and move on.)
 
-`python/tools/reproduction/hold.py::dataset_record`:
+- [ ] **Step 3: Run the live acceptance modules and the guards**
 
-```python
-def dataset_record(*, name: str, digest: str, title: str, accession: str) -> tuple[Node, str]:
-    node = stored.dataset_node(
-        title=title,
-        resources=[{"name": name, "digest": digest}],
-        empirical_observation={"locator": f"accession:{accession}", "attested_by": AUTHORITY.actor},
-        domain_facets={"biology/gene-axis": {"axis": "rows", "namespace": "HGNC"}},
-    )
-    return node, node.id
-```
-
-and drop the now-unused `DatasetDeclaration`, `ResourceDeclaration`, `dataset_address` imports if nothing else in the module uses them. `concepts.py` lines 43–55: delete the `address = dataset_address(...)` line, build `stored.dataset_node(title="mm30 concept vocabulary", resources=[{"name": RESOURCE, "digest": digest}])`, and use `node.id` where `address` was used.
-
-Run: `cd python && uv run --frozen pytest tests/test_reproduction_driver.py`
-Expected: the final line reads `N passed`.
-
-- [ ] **Step 5: The on-disk domain-boundary fixture**
-
-`python/tests/test_domain_boundary.py` line 40 writes a raw markdown record `id: dataset:gene-expression-matrix`. Read the test: if the record is only read back through `nodes` or a `ReadView`, leave it. If it is added through `CorpusWriter.add`, `import_bundle` or relocation, compute the derived id from its declared resources (`dataset_address(DatasetDeclaration(...))` over the digests the fixture text declares) and replace the three `dataset:gene-expression-matrix` literals with it. The copy in `docs/superpowers/plans/2026-09-12-d1-cross-repository-negative.md` is an execution record and is not edited.
-
-- [ ] **Step 6: Run the acceptance modules and the guards**
-
-Run each migrated module on the certified volume (the worktree's own `.cut29-acceptance/` directory is on it; `tests/acceptance/conftest.py` refuses otherwise):
+Run each migrated live module on the certified volume (the worktree's own directory is on it; `tests/acceptance/conftest.py` refuses otherwise — a temporary volume with an uncertified mount tuple is a wrong place to run this, not a waiver). `test_n2_cut5.py` is **not** in this list: it is cited-not-run and refused at collection.
 
 ```bash
-cd python && uv run --frozen pytest tests/acceptance/test_durable_corpus.py tests/acceptance/test_world_selection_acceptance.py tests/acceptance/test_relocation_acceptance.py tests/acceptance/test_world_view_acceptance.py tests/acceptance/test_facet_acceptance.py tests/acceptance/test_world_audit_acceptance.py tests/acceptance/test_durable_traversal.py tests/acceptance/test_source_address_acceptance.py tests/acceptance/test_coreference_acceptance.py tests/acceptance/test_n2_cut5.py tests/acceptance/test_n2_cut7.py tests/acceptance/test_cut15_lineage.py tests/acceptance/test_session_acceptance.py tests/acceptance/test_durable_records.py tests/acceptance/test_deletion_acceptance.py
+cd python && uv run --frozen pytest tests/acceptance/test_durable_corpus.py tests/acceptance/test_world_selection_acceptance.py tests/acceptance/test_relocation_acceptance.py tests/acceptance/test_world_view_acceptance.py tests/acceptance/test_facet_acceptance.py tests/acceptance/test_world_audit_acceptance.py tests/acceptance/test_durable_traversal.py tests/acceptance/test_source_address_acceptance.py tests/acceptance/test_coreference_acceptance.py tests/acceptance/test_n2_cut7.py tests/acceptance/test_cut15_lineage.py tests/acceptance/test_session_acceptance.py tests/acceptance/test_durable_records.py tests/acceptance/test_deletion_acceptance.py
 uv run --frozen pytest tests/test_arm_staleness.py tests/test_frozen_guards.py
 ```
 
 Expected: every module's final line reads `N passed`; the guards pass, with cut 7's re-targeted rows reported by `re_targeted_rows` and nothing newly stale.
 
-- [ ] **Step 7: Lint, type-check, commit**
+- [ ] **Step 4: Lint, type-check, commit**
 
 ```bash
-cd python && uv run --frozen ruff check . && uv run --frozen pyright
+(cd python && uv run --frozen ruff check . && uv run --frozen pyright)
 tasks check
-git add python/tests/acceptance python/tools/reproduction python/tests/test_domain_boundary.py
-git commit -m "test: migrate the acceptance corpus and reproduction tools to derived dataset addresses"
+git add python/tests/acceptance/test_n2_cut7.py python/tests/test_domain_boundary.py
+git commit -m "test(cut7): dated live adapter for the X9 interposed write under derived dataset ids"
 ```
 
 ---
@@ -894,7 +885,7 @@ Expected: pass; cut 4's `W3[6]`/`W3[8]` and cut 25's matchers still find their l
 - [ ] **Step 7: Lint, type-check, commit**
 
 ```bash
-cd python && uv run --frozen ruff check . && uv run --frozen pyright
+(cd python && uv run --frozen ruff check . && uv run --frozen pyright)
 tasks check
 git add python/src/beliefs/corpus.py python/src/beliefs/relocation.py python/tests/test_corpus_write.py python/tests/test_relocation.py
 git commit -m "feat(corpus): hold every dataset to its derived address at the boundary and at both consolidate inputs"
@@ -935,6 +926,7 @@ from test_world_view_acceptance import durable_world  # noqa: F401
 # ruff: noqa: F811 - imported pytest fixtures are injected below.
 from beliefs import relocation, stored
 from beliefs.errors import BasisMissing, CollisionRefused, DatasetAddressDisagreement, ImportRefused
+from beliefs.permit import Authority, WritePermit
 from beliefs.root import init_world_root, open_corpus, open_world
 from beliefs.world import Fresh, WorldConfig, epoch
 
@@ -960,7 +952,9 @@ def handle(seed: str, node_id: str = "dataset:handle"):
 
 def test_w2_two_corpora_mint_one_address_from_one_declaration_durably(durable_world):
     _, _, left = durable_world.corpus(BASE)
-    _, _, right = durable_world.corpus(BASE)
+    _, beta, _ = durable_world.corpus(BASE)
+    # A second attester: the observation facet names its writer's actor (plan review finding 3).
+    right = open_corpus(beta, authority=Authority(WritePermit.full(), "other"), profile=BASE)
     a = left.add(stored.dataset_node(title="DepMap 24Q2", resources=pinned("depmap"), empirical_observation=OBSERVED))
     b = right.add(stored.dataset_node(title="depmap release", resources=pinned("depmap"), empirical_observation={**OBSERVED, "attested_by": "other"}))
     assert a.id == b.id == dataset_ref("depmap")
@@ -1082,7 +1076,7 @@ Expected: the final line reads `10 passed` (9 functions, one parametrized twice)
 - [ ] **Step 3: Lint, type-check, commit**
 
 ```bash
-cd python && uv run --frozen ruff check . && uv run --frozen pyright
+(cd python && uv run --frozen ruff check . && uv run --frozen pyright)
 tasks check
 git add python/tests/acceptance/test_dataset_address_acceptance.py
 git commit -m "test(cut29): durable W2, W3 and W8 dataset arms"
@@ -1207,11 +1201,11 @@ Fill `CUT29_DECLARATION_COMMIT` (full sha) and `CUT29_DECLARATION_SHA256` in the
 From the repository root of the worktree:
 
 ```bash
+mkdir -p .cut29-acceptance docs/plans/2026-09-14-conformance-cut-29-run
 just check > docs/plans/2026-09-14-conformance-cut-29-run/check.log 2>&1; echo "check exit $?"
 just test  > docs/plans/2026-09-14-conformance-cut-29-run/test.log 2>&1;  echo "test exit $?"
-cd python && mkdir -p ../.cut29-acceptance
-uv run --frozen python tools/cut29_acceptance.py > ../.cut29-acceptance/run.log 2>&1; echo "runner exit $?"
-cp ../.cut29-acceptance/run.log ../docs/plans/2026-09-14-conformance-cut-29-run/certified.log
+(cd python && uv run --frozen python tools/cut29_acceptance.py > ../.cut29-acceptance/run.log 2>&1; echo "runner exit $?")
+cp .cut29-acceptance/run.log docs/plans/2026-09-14-conformance-cut-29-run/certified.log
 ```
 
 Expected: all three exit **0**. Read the final summary lines (`N passed`) of every phase in `run.log` and the Python/TypeScript totals in `test.log`; they go into the record verbatim. Redact only a machine-specific checkout path in the logs, replacing it with `.worktrees/world-resolution-slice-5/...`, and say so in the record.
@@ -1306,8 +1300,8 @@ Then hand the branch to the controller for the whole-branch review and the `--no
 
 ## Self-review
 
-**Spec coverage.** §2 items 1–6: Task 3 (builder), Task 5 (boundary, consolidate), Task 1/9 (no audit finding; documented). §3 reader: Task 2. §4 builder: Task 3. §5 paths: Task 5 tests add, import, move, replacement (through consolidate), consolidate both inputs. §6: Task 4 Step 4, Task 8 §4. §7 refusals: Tasks 2, 3, 5. §8.1 unit: Tasks 2, 3, 5. §8.2 migration incl. the three boundary sites and `test_domain_boundary.py`: Tasks 3, 4. §8.3 acceptance: Task 6. §8.4 arms: Task 7 (six arms — the plan fixes the count the spec left open). §8.5 cut: Tasks 1, 7, 8. §8.6 frozen evidence, cut 7 adapter, live phase modules: Task 4. §9 shared files: Tasks 1, 9. §10 task linkage: plan attach. §11 limitations: Task 1 §7.
+**Spec coverage.** §2 items 1–6: Task 3 (builder), Task 5 (boundary, consolidate), Task 1/9 (no audit finding; documented). §3 reader: Task 2. §4 builder: Task 3. §5 paths: Task 5 tests add, import, move, replacement (through consolidate), consolidate both inputs. §6: Task 4 Step 4, Task 8 §4. §7 refusals: Tasks 2, 3, 5. §8.1 unit: Tasks 2, 3, 5. §8.2 migration incl. the three boundary sites, the tools and `test_domain_boundary.py`: Tasks 3, 4. §8.3 acceptance: Task 6. §8.4 arms: Task 7 (six arms — the plan fixes the count the spec left open). §8.5 cut: Tasks 1, 7, 8. §8.6 frozen evidence: Task 3 (live phase modules, cut 5 untouched) and Task 4 (cut 7 adapter). §9 shared files: Tasks 1, 9. §10 task linkage: plan attach. §11 limitations: Task 1 §7.
 
 **Type consistency.** `dataset_node(*, title, resources, empirical_observation=None, basis=None, domain_facets=None)` is used identically in Tasks 3–6; `dataset_address_of(node) -> str | None` in Tasks 2, 5, 6, 7; `dataset_fixtures.pinned(seed)`, `dataset_ref(seed)`, `pinned_for(ref)`, `dataset(seed, *, title=None, **facets)` throughout; `DatasetAddressDisagreement` in Tasks 2, 5, 6, 7.
 
-**Known unknowns named where the implementer meets them.** The domain-boundary fixture's write path (Task 4 Step 5); the exact multi-line builder sites the mechanical pass cannot reach (Task 3 Step 4).
+**Known unknowns named where the implementer meets them.** The domain-boundary fixture's write path (Task 4 Step 2); the exact multi-line builder sites the mechanical pass cannot reach (Task 3 Step 4).
