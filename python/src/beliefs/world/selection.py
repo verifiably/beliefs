@@ -17,6 +17,7 @@ from typing import Literal, final
 from nodes.core.node import Node
 
 from beliefs.corpus import validated_node
+from beliefs.decode import MalformedWireClaim, stored_claim_terms
 from beliefs.errors import SelectionRefused
 from beliefs.identity import v1
 from beliefs.sealed import sealed
@@ -101,6 +102,15 @@ Held = Mapping[str, tuple[str, Node]]
 """Live address -> (corpus_id, retained record), one enumeration of the capture."""
 
 
+def _binds_term(node: Node, term: str) -> bool:
+    validated_node(node)
+    try:
+        args, restrictions = stored_claim_terms(node)
+    except MalformedWireClaim:
+        raise SelectionRefused("record-malformed", refs=[node.id]) from None
+    return term in args or term in restrictions
+
+
 def evaluate_query(view: WorldReadView, query: ViewQuery) -> Selection:
     """Denote `query` over `view` (§3.2), or refuse."""
     if type(view) is not WorldReadView:
@@ -183,8 +193,11 @@ def _denote(
             resolved.add(live)
         return resolved
     if isinstance(predicate, ReferencesTerm):
-        raise NotImplementedError("references-term lands in Task 4")
+        return {
+            address
+            for address, (_, node) in held.items()
+            if node.kind == "proposition" and _binds_term(node, predicate.value)
+        }
     if isinstance(predicate, Closure):
         raise NotImplementedError("closure lands in Task 5")
     raise TypeError(f"{type(predicate).__name__} is not a v1 predicate")
-

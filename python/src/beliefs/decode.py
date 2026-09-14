@@ -51,7 +51,7 @@ from beliefs.resolution import (
     _emit_receipt,
 )
 
-__all__ = ["WireClaim", "claim_from_stored", "decode_claim"]
+__all__ = ["WireClaim", "claim_from_stored", "decode_claim", "stored_claim_terms"]
 
 
 @dataclass(frozen=True)
@@ -214,23 +214,11 @@ def _resolve(profile: ProfileSpec, snapshot: ResolutionSnapshot, referent: Refer
 _STORED_CLAIM_KEYS = frozenset({"operator", "args", "qualifiers", "polarity", "layer"})
 
 
-def claim_from_stored(node: Node, *, profile: ProfileSpec, snapshot: ResolutionSnapshot) -> tuple[Claim, BindingCheckReceipt]:
-    """Restore a `Claim` from a stored proposition's covered claim facet.
-
-    The wire value is built **here** and consumed **here** — `WireClaim` still
-    never leaves this module (M13) — and typing is delegated to `decode_claim`
-    rather than duplicated, so the check still happens once, in one place. The
-    same is true one level down: a qualifier body's own shape (missing or
-    unknown fields) is `_wire_parts`' check, not a second copy of it, so it is
-    called here — its return discarded — before `decode_claim`, rather than
-    left for `decode_claim` to reach on its own. Every ill-formed input
-    refuses **before** delegation, with nothing minted and no `KeyError` or
-    `AttributeError` on the way in (M11): a restore helper is exactly where
-    "be liberal in what you accept" would defeat the row.
-    """
+def _stored_wire(node: Node) -> WireClaim:
+    """Read and validate the covered claim facet into the private wire shape."""
     if not isinstance(node, Node) or node.kind != "proposition":
-        raise MalformedWireClaim(f"claim_from_stored restores a proposition node, found {type(node).__name__}")
-    facet = node.facets.get("proposition")  # stored.PROPOSITION_FACET; restated to keep decode.py free of stored.py
+        raise MalformedWireClaim(f"stored claim reads a proposition node, found {type(node).__name__}")
+    facet = node.facets.get("proposition")
     if not isinstance(facet, Mapping):
         raise MalformedWireClaim(f"{node.id}: no covered claim facet")
     keys = set(facet)
@@ -248,5 +236,28 @@ def claim_from_stored(node: Node, *, profile: ProfileSpec, snapshot: ResolutionS
         polarity=facet["polarity"],
         layer=facet["layer"],
     )
-    _wire_parts(wire)  # the shared shape check, including a qualifier body's fields — refuse before delegating, not inside it
-    return decode_claim(wire, profile=profile, snapshot=snapshot)
+    _wire_parts(wire)
+    return wire
+
+
+def stored_claim_terms(node: Node) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Read stored argument and qualifier restriction terms after shape validation."""
+    _operator, args, qualifier_bodies, _polarity, _layer = _wire_parts(_stored_wire(node))
+    return tuple(args), tuple(body["restriction"] for body in qualifier_bodies.values())
+
+
+def claim_from_stored(node: Node, *, profile: ProfileSpec, snapshot: ResolutionSnapshot) -> tuple[Claim, BindingCheckReceipt]:
+    """Restore a `Claim` from a stored proposition's covered claim facet.
+
+    The wire value is built **here** and consumed **here** — `WireClaim` still
+    never leaves this module (M13) — and typing is delegated to `decode_claim`
+    rather than duplicated, so the check still happens once, in one place. The
+    same is true one level down: a qualifier body's own shape (missing or
+    unknown fields) is `_wire_parts`' check, not a second copy of it, so it is
+    called here — its return discarded — before `decode_claim`, rather than
+    left for `decode_claim` to reach on its own. Every ill-formed input
+    refuses **before** delegation, with nothing minted and no `KeyError` or
+    `AttributeError` on the way in (M11): a restore helper is exactly where
+    "be liberal in what you accept" would defeat the row.
+    """
+    return decode_claim(_stored_wire(node), profile=profile, snapshot=snapshot)

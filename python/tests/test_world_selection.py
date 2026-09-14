@@ -9,7 +9,7 @@ from coordination_fixtures import raw_coordination_node
 from nodes.core.corpus import Corpus
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.relations import Relation
-from test_evaluation import CLAIM_FACET
+from test_evaluation import CLAIM_FACET, GENE, PHENO
 from test_world_build import ALPHA, BETA
 from test_world_receipts import corpora, hold_shipped, publish, world_over
 from test_world_view import make_absent
@@ -104,6 +104,57 @@ class TestAddressesAndKinds:
         )
         selection = evaluate_topic(world, roots, published, topic)
         assert selection.selected == ("dataset:d-new",)
+
+
+class TestReferencesTerm:
+    def test_a_term_in_an_argument_selects_the_proposition_and_never_a_dataset(self, tmp_path):
+        world, roots, published, topic = topic_world(tmp_path, [{"references-term": GENE}])
+        selection = evaluate_topic(world, roots, published, topic)
+        assert selection.selected == ("proposition:p-b",) and selection.contributing == (BETA,)
+
+    def test_a_term_in_a_qualifier_restriction_selects(self, tmp_path):
+        qualified = stored.proposition_node(
+            "p-q", title="p-q",
+            claim={**CLAIM_FACET, "qualifiers": {"tissue": {"quantifier": "some", "restriction": "EX:liver"}}},
+        )
+        world, roots, published, topic = topic_world(tmp_path, [{"references-term": "EX:liver"}], beta_extra=(qualified,))
+        selection = evaluate_topic(world, roots, published, topic)
+        assert selection.selected == ("proposition:p-q",)
+
+    def test_a_term_absent_everywhere_selects_nothing_and_refuses_nothing(self, tmp_path):
+        world, roots, published, topic = topic_world(tmp_path, [{"references-term": "EX:nothing"}])
+        selection = evaluate_topic(world, roots, published, topic)
+        assert selection.selected == () and selection.complete
+
+    def test_the_term_is_compared_as_stored_without_normalization(self, tmp_path):
+        world, roots, published, topic = topic_world(tmp_path, [{"references-term": GENE.upper()}])
+        assert evaluate_topic(world, roots, published, topic).selected == ()
+
+    @pytest.mark.parametrize(
+        "claim",
+        [
+            {**CLAIM_FACET, "args": "not-a-list"},
+            {**CLAIM_FACET, "args": [GENE, 7]},
+            {**CLAIM_FACET, "qualifiers": {"tissue": {"restriction": "EX:liver"}}},
+            {**CLAIM_FACET, "qualifiers": {"tissue": {"quantifier": "some", "restriction": "EX:liver", "extra": 1}}},
+            {k: v for k, v in CLAIM_FACET.items() if k != "layer"},
+        ],
+    )
+    def test_a_malformed_claim_facet_refuses_naming_the_record(self, tmp_path, claim):
+        broken = stored.proposition_node("p-x", title="p-x", claim=claim)
+        world, roots, published, topic = topic_world(tmp_path, [{"references-term": GENE}], beta_extra=(broken,))
+        with pytest.raises(SelectionRefused) as caught:
+            evaluate_topic(world, roots, published, topic)
+        assert caught.value.reason == "record-malformed" and caught.value.refs == ("proposition:p-x",)
+
+    def test_a_stale_edit_that_removed_the_term_refuses_rather_than_yielding_empty(self, tmp_path):
+        stale = stored.proposition_node("p-s", title="p-s", claim=CLAIM_FACET)
+        stale.facets["proposition"]["args"] = ["EX:other", PHENO]
+        world, roots, published, topic = topic_world(
+            tmp_path, [{"references-term": GENE}], beta_extra=(stale,), without=("proposition:p-b",),
+        )
+        with pytest.raises(SemanticHashStale):
+            evaluate_topic(world, roots, published, topic)
 
 
 class TestIdentityAndDeterminism:
