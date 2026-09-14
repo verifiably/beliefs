@@ -591,6 +591,7 @@ its children. Two siblings are filed under `beliefs-d248ba`:
 4. **Precedence makes some same-work pairs two addresses** (§6.4); the
    shared secondary identifier is a CI-decidable finding for slice 3's audit.
 5. **The renderer is not built**; W14 is slice 4's.
+6. **W14's home (2026-09-14).** §12 and this section assigned the label renderer and W14 to slice 4. Slice 4's design §8 item 1 records that the roadmap's boundary index homes W9 and W14 in `authority-labels`, tier 3, blocked on artifact 11, and that a renderer without a pinned snapshot could assert nothing; W14 stays there and slice 4 builds no renderer.
 
 ## 14. Review log
 

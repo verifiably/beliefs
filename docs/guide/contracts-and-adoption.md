@@ -40,6 +40,7 @@ sources:
   - ../designs/2026-09-08-biology-pack-design.md
   - ../designs/2026-09-08-conformance-cut-22.md
   - ../designs/2026-09-13-conformance-cut-27.md
+  - ../designs/2026-09-14-conformance-cut-28.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
   - ../plans/2026-08-29-conformance-cut-12-results.md
   - ../plans/2026-09-01-conformance-cut-13-results.md
@@ -229,9 +230,10 @@ invariance and two `nodes`-package sabotages
 Cut 27 discharges world resolution slice 3 — R23's snapshot, import and
 divergence clauses, W8a's packaging arms, the X5 and W13 relabels and the new
 row S9 (`../plans/2026-09-13-conformance-cut-27-results.md`).
+Cut 28 discharges world resolution slice 4 — W7's view evaluation and the W8/W8b conflicts over existing code (`../designs/2026-09-14-conformance-cut-28.md`; `../plans/2026-09-14-conformance-cut-28-results.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-13)
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-14)
 states what is built and which remaining boundaries have named owners; the cut
 documents and results records in the references below are the evidence.
 

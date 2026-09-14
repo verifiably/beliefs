@@ -924,3 +924,13 @@ class TestReportMode:
         monkeypatch.setattr(registry_module, "corpus_state_identity", moving)
         with pytest.raises(CaptureDrift):
             open_world_view(world, published, on_damage="report")
+
+
+def test_mapped_records_enumerate_what_iter_stored_yields_without_copying(tmp_path):
+    world, _roots, published = two_corpus_world(tmp_path)
+    view = open_world_view(world, published)
+    pairs = list(view._mapped_records())
+    assert [node.id for _, node in pairs] == [node.id for node in view.iter_stored()]
+    assert [corpus for corpus, _ in pairs] == [view.corpus_of(node.id) for _, node in pairs]
+    first = pairs[0][1]
+    assert pairs[0][1] is first and next(iter(view._mapped_records()))[1] is first

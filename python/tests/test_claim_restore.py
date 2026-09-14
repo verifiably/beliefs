@@ -14,7 +14,7 @@ from test_decode import affects as _affects  # the wire-claim builder; a plain f
 
 from beliefs import decode, stored
 from beliefs.claim import Claim
-from beliefs.decode import claim_from_stored, decode_claim
+from beliefs.decode import claim_from_stored, decode_claim, stored_claim_terms
 from beliefs.errors import MalformedWireClaim
 from beliefs.projection import claim_identity, project_claim
 from beliefs.resolution import BindingCheckReceipt, build_snapshot
@@ -52,6 +52,17 @@ def affects():
 def stored_proposition(wire) -> Node:
     facet = {"operator": wire.operator, "args": list(wire.args), "qualifiers": {k: dict(v) for k, v in wire.qualifiers.items()}, "polarity": wire.polarity, "layer": wire.layer}
     return stored.proposition_node("p", title="p", claim=facet)
+
+
+class TestStoredClaimTerms:
+    def test_reads_arguments_and_qualifier_restrictions_without_a_profile(self, affects):
+        wire = affects(qualifiers={"testing/population": {"quantifier": "some", "restriction": ADULTS}})
+        assert stored_claim_terms(stored_proposition(wire)) == ((GENE, OUTCOME), (ADULTS,))
+
+    def test_refuses_a_malformed_qualifier_body(self, affects):
+        wire = affects(qualifiers={"testing/population": {"restriction": ADULTS}})
+        with pytest.raises(MalformedWireClaim):
+            stored_claim_terms(stored_proposition(wire))
 
 
 class TestM13Opacity:

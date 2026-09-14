@@ -125,7 +125,7 @@ one or more predecessor tips; an address resolves to its one standing tip or
 refuses naming every tip, and divergence is repaired by one revision
 superseding them all. The query a view stores is `science.view-query.v1` — a
 small, closed selector grammar evaluated at a named epoch, deliberately not a
-query engine. The [coordination-and-view-kinds
+query engine. The evaluator is `evaluate_query` over the world read view, delivered at cut 28. The [coordination-and-view-kinds
 design](../designs/2026-08-31-coordination-and-view-kinds-design.md)
 specifies all of this and is implemented through conformance cut 14. Its 2026-09-02
 §11 amendment leaves W17's intent-position evidence with `publish`, the first
@@ -198,7 +198,7 @@ scoped writer, and reconciliation. Its [session routes](../designs/2026-09-09-se
 add ledgered run and holdings access, the public store identity reader, and
 kernel-scoped reference rules. Its daily surface and autonomy
 sub-projects are not yet implemented; salvage remains undesigned. The [adoption ledger's current-state
-summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-13)
+summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-14)
 is the complete statement of what is built and what remains.
 
 ## Open edges
