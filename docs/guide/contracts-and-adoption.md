@@ -40,6 +40,7 @@ sources:
   - ../designs/2026-09-08-biology-pack-design.md
   - ../designs/2026-09-08-conformance-cut-22.md
   - ../designs/2026-09-13-conformance-cut-27.md
+  - ../designs/2026-09-14-conformance-cut-28.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
   - ../plans/2026-08-29-conformance-cut-12-results.md
   - ../plans/2026-09-01-conformance-cut-13-results.md

@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/world-resolution-slice-4
 created: 2026-09-09T15:26:54Z
-updated: 2026-09-14T11:32:50Z
+updated: 2026-09-14T11:40:14Z
 started: 2026-09-14T03:10:08Z
 depends: [beliefs-46847c]
 parent: beliefs-d248ba
@@ -35,3 +35,4 @@ Design and freeze W7 view evaluation over the completed world resolver, followin
 - 2026-09-14T11:25:14Z (design/world-resolution-slice-4): Plan review 2026-09-14: eight findings resolved; spec amended for the drift rule (state pair, not unmapped), decode.stored_claim_terms, and the foreign-source inbound fixture; 23 arms
 - 2026-09-14T11:25:14Z (design/world-resolution-slice-4): parked (waiting on user, review): Second review of the slice 4 plan (review log lists the eight resolutions; spec §11 third entry); on approval, execute Task 1 (freeze cut 28)
 - 2026-09-14T11:32:50Z (design/world-resolution-slice-4): Second plan-review finding resolved: drift assertion filters captured_state != published_state and names only BETA; durable counterpart explicit. Planned portable snippets: 51 passed; no implementation or cut freeze performed.
+- 2026-09-14T11:40:14Z (design/world-resolution-slice-4): claimed by Codex, pid 1942208; plan approved by user 2026-09-14, executing Task 1 freeze only

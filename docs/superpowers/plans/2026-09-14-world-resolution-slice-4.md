@@ -1,6 +1,6 @@
 # World resolution slice 4 — implementation plan
 
-**Status:** plan drafted 2026-09-14 against the approved design; awaiting review.
+**Status:** approved 2026-09-14; Task 1 (cut 28 freeze) in progress.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
