@@ -1,13 +1,15 @@
 ---
 id: beliefs-0e523a
 title: "World resolution slice 4: world view evaluation"
-status: todo
+status: doing
 priority: 2
 size: l
 complexity: high
 process: planned
+owner: design/world-resolution-slice-4
 created: 2026-09-09T15:26:54Z
-updated: 2026-09-14T03:09:34Z
+updated: 2026-09-14T03:10:08Z
+started: 2026-09-14T03:10:08Z
 depends: [beliefs-46847c]
 parent: beliefs-d248ba
 tags: [world-read]
