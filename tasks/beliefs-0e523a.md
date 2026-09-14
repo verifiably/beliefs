@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/world-resolution-slice-4
 created: 2026-09-09T15:26:54Z
-updated: 2026-09-14T03:26:43Z
+updated: 2026-09-14T09:36:17Z
 started: 2026-09-14T03:10:08Z
 depends: [beliefs-46847c]
 parent: beliefs-d248ba
@@ -25,3 +25,4 @@ Design and freeze W7 view evaluation over the completed world resolver, followin
 - 2026-09-14T03:09:34Z (main): Process planned: W7 view evaluation is an undesigned slice; it needs a slice design and freeze like slices 1-3 (cuts 23/24/25/27). Rule-6 reading 2026-09-13: slice 3 merged at cut 27, no kernel lane open, this is the on-path head, so it opens; estimand-typing and composite-claim stay parked off-path.
 - 2026-09-14T03:26:43Z (design/world-resolution-slice-4): Design drafted 2026-09-13: evaluate_query over WorldReadView (world/selection.py), W7 selected, W8 part (search-term arm deferred to authority-labels, re-homed at discharge), W8b selected over existing code, W14 stays tier 3; cut 28 claimed at freeze
 - 2026-09-14T03:26:43Z (design/world-resolution-slice-4): parked (waiting on user, review): Review the slice 4 design (docs/superpowers/specs/2026-09-13-world-resolution-slice-4-design.md); on approval, writing-plans, then freeze cut 28
+- 2026-09-14T09:36:17Z (design/world-resolution-slice-4): First design review 2026-09-14: four findings (drift refusal, live anchor, validate candidates before facet read, per-predicate W7 expectations) resolved; spec §11

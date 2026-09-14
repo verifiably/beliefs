@@ -1,7 +1,7 @@
 # World resolution, slice 4 — view evaluation and the W8/W8b discharge
 
-**Date:** 2026-09-13
-**Status:** draft, awaiting review
+**Date:** 2026-09-13, revised 2026-09-14 after first review (§11)
+**Status:** revised, awaiting second review
 **Boundary:** `world-resolution`, slice 4 of four (`beliefs-d248ba`); task `beliefs-0e523a`
 **Lane:** `world-read`, worktree `.worktrees/world-resolution-slice-4`
 **Sources:** `../../designs/2026-08-02-world-addressing-design.md` (§5, §7: W7, W8, W8b),
@@ -81,7 +81,15 @@ again.
    and every fact the answer depends on is in the capture. Two callers
    holding the same epoch and the same query get the same `Selection`, and
    its projection carries the packaging identity so a selection at another
-   epoch has another identity. The evaluator takes `WorldReadView` only —
+   epoch has another identity. That equality needs one more refusal: the
+   view serves the *captured* contents of every mapped record, and the open
+   checks a mapped record's address, not its content, so a record edited
+   after publication is served as edited and reported as drift, never
+   refused. Two opens at one epoch can therefore hold different relations
+   under one stamp, and a selection over either would be complete. The
+   evaluator refuses a drifted view at entry (§3.2), so a selection carries
+   the epoch's stamp only when the capture is the epoch's state. The
+   evaluator takes `WorldReadView` only —
    not the `ReadView | WorldReadView` union the walks accept — because a
    corpus-local selection is the `fb-2026-07-30-019` defect W7 exists to
    refuse, and a function that accepted both would let a consumer reach it
@@ -200,7 +208,11 @@ disagree.
 1. Refuse if `view.damaged()` is non-empty: `SelectionRefused("corpus-damaged")`
    naming every damaged corpus. A damaged corpus is excluded from
    `iter_stored`, and a scan that ran over the remainder would answer for a
-   world it did not see.
+   world it did not see. Then refuse if `view.drift()` is non-empty:
+   `SelectionRefused("corpus-drifted")` naming every drifted corpus. A
+   drifted capture is a state the epoch did not publish; the route is a
+   rebuild and an evaluation at the new epoch. Damage is checked first
+   because a damaged corpus has no state identity to compare.
 2. `locate` every address the query names — each `addresses` member and
    each `closure` anchor, across all clauses — before any denotation is
    computed. If any is `Unknown`, refuse `SelectionRefused("address-unknown")`
@@ -212,21 +224,32 @@ disagree.
    its state, and the role is visible in the query it holds.
 3. Denote each predicate as a set of live addresses:
    - `kinds`: every record `iter_stored` yields whose `kind` is in the set.
-   - `references-term`: every yielded `proposition` whose claim facet
-     holds the term in `args` or as a qualifier's `restriction`. The facet's
-     shape is checked as `decode.claim_from_stored` checks it — the five
-     keys, `args` a sequence, `qualifiers` a mapping of bodies each with a
-     `restriction` — and a violation refuses with
-     `SelectionRefused("record-malformed")` naming the record. No decode is
-     performed: the term is compared as stored.
-   - `closure`: `traversal.closure(anchor, adjacency)` over a composite
-     adjacency (§3.3); its `reached` set, which excludes the anchor.
+   - `references-term`: every `proposition` whose claim facet holds the
+     term in `args` or as a qualifier's `restriction`. Each candidate
+     proposition passes `validated_node` **before** its facet is read, so a
+     stale or missing semantic hash refuses whether or not the edited claim
+     would have matched — the scan is a facet read, and §2.4 admits no
+     unvalidated facet read. The facet's shape is then checked as
+     `decode.claim_from_stored` checks it — the five keys, `args` a
+     sequence, `qualifiers` a mapping of bodies each with a `restriction` —
+     and a violation refuses with `SelectionRefused("record-malformed")`
+     naming the record. No decode is performed: the term is compared as
+     stored.
+   - `closure`: `traversal.closure(live, adjacency)` from the anchor's
+     **live** address — `view.resolve(anchor)`, which step 2 has already
+     shown is `Resolved` — over a composite adjacency (§3.3); its `reached`
+     set, which excludes the anchor's record. The walk seeds its visited
+     set with the literal start, and every step resolves to a live id, so
+     a retired address passed as-is would let a cycle back to the anchor
+     select the anchor itself.
    - `addresses`: the `Resolved` records' live ids.
 4. Intersect within a clause, union across clauses (view-kinds §2.1).
    `clauses: []` denotes the empty selection and is not a refusal.
 5. Validate every selected record through `validated_node` on the
-   captured record; a refusal propagates unchanged. Record the holding
-   corpus of each through `corpus_of`.
+   captured record — a `kinds` or `closure` member is selected by its kind
+   or its edges and has not been read as a facet yet — and let a refusal
+   propagate unchanged. Record the holding corpus of each through
+   `corpus_of`.
 6. Build the `Selection`: sorted members, the view's `absent()`, the
    unresolved steps collected in step 3.
 
@@ -239,7 +262,8 @@ selected and a record of an absent corpus cannot be.
 
 ### 3.3 The closure adjacency
 
-`closure` walks `RelationAdjacency(view, predicate, "outbound")` for
+`closure` starts at the anchor's live address (§3.2 step 3) and walks
+`RelationAdjacency(view, predicate, "outbound")` for
 `out`, an evaluator-owned inbound adjacency for `in`, and both for `both`,
 one adjacency per named predicate, composed by concatenating their steps in
 predicate order then direction order. `traversal.closure` is unchanged:
@@ -265,8 +289,8 @@ evaluator adds no rule for them.
 
 ```
 class SelectionRefused(ScienceError):
-    REASONS = ("corpus-damaged", "address-unknown", "address-not-present",
-               "record-malformed")
+    REASONS = ("corpus-damaged", "corpus-drifted", "address-unknown",
+               "address-not-present", "record-malformed")
     reason: str
     refs: tuple[str, ...]        # sorted addresses, records or corpus ids
     corpus_ids: tuple[str, ...]  # not-present reasons: the absent corpora, sorted
@@ -353,6 +377,7 @@ and the N2 declarations, which is what selection is.
 | condition | answer |
 |---|---|
 | the view has a damaged corpus | `SelectionRefused("corpus-damaged")` at entry |
+| the view reports drift on any corpus | `SelectionRefused("corpus-drifted")` at entry, every drifted corpus named; rebuild, then evaluate at the new epoch |
 | an address the query names is `Unknown` | `SelectionRefused("address-unknown")`, every such address named |
 | an address the query names is `NotPresent`, none `Unknown` | `SelectionRefused("address-not-present")`, every such address and its corpus named |
 | a proposition's claim facet is malformed under `references-term` | `SelectionRefused("record-malformed")` naming the record |
@@ -393,37 +418,61 @@ records at one address with differing identifier maps.
 **Arms**, each with a two-corpus positive and a corpus-local or
 order-reversed negative:
 
-- W7: the topic in `ALPHA` selects the dataset in `BETA` under each
-  predicate form; the selection is complete, `contributing` names both
-  corpora, and the identity is equal across two opens at the same epoch.
-  Negative: with `BETA` absent, the `addresses` and anchor forms refuse
-  `not-present` naming `BETA`, and the `kinds` form returns an incomplete
-  selection with `BETA` in `absent` whose identity differs from the complete
-  one — never the empty set, never `unknown`.
+- W7, one arm per predicate form, each a topic record in `ALPHA` whose
+  query reaches `BETA`, each complete and each with the identity equal
+  across two opens at the same epoch:
+  - `addresses` naming `BETA`'s dataset selects exactly it; `contributing`
+    is `(BETA,)` — the topic's own corpus contributes nothing, since a
+    coordination record is never selected;
+  - `kinds: [dataset]` selects `ALPHA`'s and `BETA`'s datasets;
+    `contributing` is `(ALPHA, BETA)`;
+  - `closure` from `ALPHA`'s run over `produces`, `out`, selects `BETA`'s
+    dataset and not the run; `contributing` is `(BETA,)`;
+  - `references-term` selects `BETA`'s proposition, never a dataset;
+    `contributing` is `(BETA,)`;
+  - one query with two clauses, `addresses` over `ALPHA`'s dataset and
+    `references-term` over `BETA`'s proposition, selects both and
+    contributes both.
+  Negative: with `BETA` absent, the `addresses` and `closure` forms refuse
+  `address-not-present` naming `BETA`, and the `kinds` form returns an
+  incomplete selection with `BETA` in `absent` whose identity differs from
+  the complete one — never the empty set, never `unknown`.
+- Drift: edit a mapped record's relations in `BETA` after publication and
+  reopen at the same epoch; the second open reports drift on `BETA` and
+  the evaluation refuses `corpus-drifted` naming it, while the first open,
+  captured before the edit, still evaluates. Negative: the rebuilt epoch
+  evaluates clean and its selection identity differs from the first's.
 - Determinism: the same query with clauses and predicates authored in
   another order, and the corpora registered in another order, gives an
   identical projection.
 - Closure: `out`, `in` and `both` over the chain; the anchor is excluded;
   a dangling target is reported `unknown`; an absent inbound source is
   reported `not-present` under `BETA` and not dropped; a retired address
-  as anchor walks from its record.
+  as anchor over a cycle `A → B → A` selects exactly `B`, the same as the
+  live anchor does.
 - Addresses: a retired and a live address of one record select it once.
 - References-term: a term in an argument slot and one in a qualifier
   restriction both select; a proposition with a malformed facet refuses
   naming it; a term absent everywhere selects nothing and refuses nothing.
-- Validation: a selected record with a stale semantic hash refuses.
+- Validation: a selected record with a stale semantic hash refuses; a
+  proposition whose stale-hash edit removed the requested term from its
+  arguments refuses under `references-term` rather than yielding an empty
+  selection — the corrupt non-match is the arm, and it is written so that
+  the unvalidated scan would pass it.
 - Damage: a report-mode view with a damaged corpus refuses at entry.
 - Empty: `clauses: []` is complete and empty.
 - W8 duplicate location, address conflict; W8b's four arms; §4 as written.
 - Refusals: each row of §5.
 
 **N2 sabotages**, one per mechanism: the entry damage check (skip it);
-address pre-check (denote an unknown address as empty); not-present
-collapsed into unknown (one reason for both); clause composition
-(intersect across clauses); closure anchor included; inbound absent source
-dropped (use `RelationAdjacency` inbound as-is); unresolved omitted from
-the projection; `absent` omitted from the projection; selected records
-served unvalidated; `references-term` matched on arguments only;
+the entry drift check (skip it); address pre-check (denote an unknown
+address as empty); not-present collapsed into unknown (one reason for
+both); clause composition (intersect across clauses); closure anchor
+included; closure started from the literal anchor string; inbound absent
+source dropped (use `RelationAdjacency` inbound as-is); unresolved omitted
+from the projection; `absent` omitted from the projection; selected
+records served unvalidated; candidate propositions read unvalidated;
+`references-term` matched on arguments only;
 `references-term` normalized before comparison; world-only typing widened
 to `ReadView`; and for W8/W8b: the uid check dropped, the address check
 dropped, addresses checked before uids (corruption masked as duplication),
@@ -484,4 +533,22 @@ on-path head (roadmap rule 6).
 
 ## 11. Review log
 
-*(none yet)*
+**2026-09-14, first review, four findings, all resolved in this revision.**
+(1) The open verifies a mapped record's address and not its content, so a
+record edited after publication is served as edited and reported as drift;
+two opens at one stamp yielded different closures with neither absent nor
+damaged, reproduced — the evaluator now refuses a drifted view at entry
+with `corpus-drifted` (§2.1, §3.2, §3.4, §5, §7). (2) `traversal.closure`
+seeds its visited set with the literal start while every step resolves to
+a live id, so a retired anchor over a cycle selected the anchor's own
+record, reproduced — the walk starts from the anchor's live address, with a
+retired-anchor cycle arm (§3.2, §3.3, §7). (3) The ordered algorithm
+validated only selected records while `references-term` read facets off
+unvalidated held records, contradicting §2.4; a stale edit removing the
+term produced an empty selection without refusal — every candidate
+proposition is validated before its facet is read, with a corrupt
+non-match arm (§3.2, §7). (4) The W7 arm claimed the dataset was found
+"under each predicate form" and that `contributing` named both corpora,
+but `references-term` selects propositions and an `addresses` query over
+`BETA` contributes `BETA` alone — the arm now states each form's selected
+records and contributing corpora separately (§7).
