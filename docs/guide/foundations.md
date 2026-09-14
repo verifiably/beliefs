@@ -125,7 +125,7 @@ one or more predecessor tips; an address resolves to its one standing tip or
 refuses naming every tip, and divergence is repaired by one revision
 superseding them all. The query a view stores is `science.view-query.v1` — a
 small, closed selector grammar evaluated at a named epoch, deliberately not a
-query engine. The [coordination-and-view-kinds
+query engine. The evaluator is `evaluate_query` over the world read view, delivered at cut 28. The [coordination-and-view-kinds
 design](../designs/2026-08-31-coordination-and-view-kinds-design.md)
 specifies all of this and is implemented through conformance cut 14. Its 2026-09-02
 §11 amendment leaves W17's intent-position evidence with `publish`, the first
