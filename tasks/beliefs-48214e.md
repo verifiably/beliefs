@@ -8,12 +8,13 @@ complexity: high
 process: planned
 owner: design/world-resolution-slice-5
 created: 2026-09-11T11:42:27Z
-updated: 2026-09-14T22:26:49Z
+updated: 2026-09-14T22:45:20Z
 started: 2026-09-14T22:06:20Z
 depends: []
 parent: beliefs-d248ba
 tags: [world-read]
 spec: docs/superpowers/specs/2026-09-14-world-resolution-slice-5-design.md
+plan: docs/superpowers/plans/2026-09-14-world-resolution-slice-5.md
 ---
 
 dataset_node takes an authored slug while dataset_address is computed and never checked against the id; 189 dataset_node sites measured 2026-09-10. The choice between dataset:sha256: as the address and a digest domain is this design's. Filed by slice 2b (docs/superpowers/specs/2026-09-10-world-resolution-slice-2b-design.md section 12).

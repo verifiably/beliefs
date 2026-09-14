@@ -330,13 +330,16 @@ independent function above. Mechanisms, and the module each lives in:
 | W2 | builder derives the id from the declaration (replaced by the title) | `stored.py` |
 | W2 | `dataset_address_of` reads the stored declaration (replaced by `node.id`) | `stored.py` |
 | W3 | builder refuses a `None` address before minting | `stored.py` |
-| W8 | id/derived-address agreement on `add` | `corpus.py` |
-| W8 | agreement at replacement preflight | `corpus.py` |
-| W8 | agreement under import provenance | `corpus.py` |
+| W8 | id/derived-address agreement on `add` (reached by `move` too) | `corpus.py` |
 | W8 | both consolidation inputs validated before reconciliation (weakened to the survivor only) | `relocation.py` |
+| W8 | the import loop validates datasets like every other member (skipped for datasets) | `corpus.py` |
 
-The plan fixes the count; every arm passes without its mutation and fails
-with it; stale, vacuous, mixed and uncollected arms refuse.
+Six arms. A replacement-preflight arm was considered and dropped at plan
+drafting: for datasets the only replace-shaped write is `consolidate`'s
+merged survivor, and with both inputs validated first no fixture can reach
+the preflight with a disagreeing dataset, so the arm would be vacuous.
+Every arm passes without its mutation and fails with it; stale, vacuous,
+mixed and uncollected arms refuse.
 
 ### 8.5 The cut
 
