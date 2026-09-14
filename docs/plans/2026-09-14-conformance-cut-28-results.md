@@ -163,5 +163,27 @@ unowned and unselected.
 
 ## 6. Main integration
 
-Pending controller review, the authorized `--no-ff` merge, and the main-branch
-gate. This section will be completed with that evidence after integration.
+Merged `design/world-resolution-slice-4` into `main` with `--no-ff` on
+2026-09-14 at `fb90cc317836291605f991107d2e987cfa4545e8`, after the final
+whole-branch review approved `7f34ead` with no findings. That review independently
+verified the frozen cut sections, declaration bytes, pin ancestry, unchanged
+source since the branch gates, and the 669 acceptance-test invocations.
+
+`just gate`, begun on that merged revision, exited **0**: Ruff, Pyright, TypeScript
+typecheck, Biome and task checks passed; the serial Python suite reported
+**4,627 passed in 1,146.99s (0:19:06)**, and TypeScript reported **142 passed**
+across seven files. Task validation reported zero errors and warnings.
+The output is retained in
+[`main-gate.log`](2026-09-14-conformance-cut-28-run/main-gate.log), with only
+Vitest's absolute checkout path replaced by `./ts`. Pyright's benign version
+notice is retained, as in §1. The earlier transcripts remain unchanged.
+
+While the gate ran, main advanced to `fbdd986` with a `.gitignore`-only change;
+the source and tests under validation did not change. The integration-record
+commit was rebased onto that main revision to preserve the concurrent change.
+
+The tracked implementation reports are preserved alongside the gate evidence
+when clearing the temporary implementation workspace:
+[Task 2](2026-09-14-conformance-cut-28-run/task-2-report.md),
+[Task 4](2026-09-14-conformance-cut-28-run/task-4-report.md), and
+[Task 5](2026-09-14-conformance-cut-28-run/task-5-report.md).

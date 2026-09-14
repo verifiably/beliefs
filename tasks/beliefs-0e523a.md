@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/world-resolution-slice-4
 created: 2026-09-09T15:26:54Z
-updated: 2026-09-14T13:40:24Z
+updated: 2026-09-14T14:10:22Z
 started: 2026-09-14T03:10:08Z
 completed: 2026-09-14T13:40:24Z
 depends: [beliefs-46847c]
@@ -41,3 +41,4 @@ Design and freeze W7 view evaluation over the completed world resolver, followin
 - 2026-09-14T11:41:22Z (design/world-resolution-slice-4): parked (waiting on agent, session): Task 1 complete: cut 28 frozen at dfc8665, digest recorded in plan and task notes. Next: Task 2 (SelectionRefused, stored_query and private enumeration).
 - 2026-09-14T11:42:09Z (design/world-resolution-slice-4): claimed by Codex, pid 1942208; user authorized remaining Tasks 2–9, including conformance discharge
 - 2026-09-14T13:40:24Z (design/world-resolution-slice-4): slice 4 discharged at cut 28: view evaluation over the world read view; W7, W8b closed; W8 part, re-homed
+- 2026-09-14T14:10:22Z (design/world-resolution-slice-4): Integrated into main at fb90cc3; merged just gate exit 0: 4627 Python and 142 TypeScript tests; cut 28 results section 6 retains evidence

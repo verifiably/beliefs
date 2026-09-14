@@ -1,6 +1,6 @@
 # World resolution slice 4 — implementation plan
 
-**Status:** implemented and discharged at conformance cut 28 on 2026-09-14; main integration pending (§Task 9 step 4).
+**Status:** implemented, discharged at conformance cut 28, and integrated into main on 2026-09-14 at `fb90cc3`; the merged-main gate passed (cut 28 results §6).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

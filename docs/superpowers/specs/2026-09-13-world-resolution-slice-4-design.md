@@ -1,7 +1,7 @@
 # World resolution, slice 4 — view evaluation and the W8/W8b discharge
 
 **Date:** 2026-09-13, revised three times 2026-09-14 after review (§11)
-**Status:** discharged at conformance cut 28 on 2026-09-14; results: `../../plans/2026-09-14-conformance-cut-28-results.md`
+**Status:** discharged at conformance cut 28 and integrated into main on 2026-09-14; the merged-main gate passed; results: `../../plans/2026-09-14-conformance-cut-28-results.md`
 **Boundary:** `world-resolution`, slice 4 of four (`beliefs-d248ba`); task `beliefs-0e523a`
 **Lane:** `world-read`, worktree `.worktrees/world-resolution-slice-4`
 **Sources:** `../../designs/2026-08-02-world-addressing-design.md` (§5, §7: W7, W8, W8b),
