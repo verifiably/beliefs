@@ -9,7 +9,7 @@ from fixtures_cut4 import raw_write
 from nodes.core.corpus import Corpus
 from profiles import WITH_BIOLOGY
 from test_identifier_correction import ADDR_B, REPORT, B
-from test_relocation import CONSOLIDATE_FIELDS, MOVE_FIELDS, _writer
+from test_relocation import CONSOLIDATE_FIELDS, MOVE_FIELDS, _recording_port, _writer
 from test_world_build import ALPHA, BETA, make_world
 from test_world_epoch import admitted_world, derivation_bindings, epochs_tree, publish
 
@@ -25,6 +25,15 @@ from beliefs.errors import (
     SourceAddressDisagreement,
 )
 from beliefs.world import registry
+from beliefs.world.view import open_world_view
+
+
+def root_tree(root: Path) -> dict[str, bytes]:
+    return {
+        str(path.relative_to(root)): path.read_bytes()
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
 
 
 def conflict_world(tmp_path: Path, *, coverage=(ALPHA, BETA), twin_of="dataset:a", same_address=True, same_uid=False):
@@ -47,7 +56,9 @@ class TestW8DuplicateLocation:
             publish(world, (ALPHA, BETA), bindings)
         finding = caught.value.finding
         assert finding.code == "duplicate-location" and finding.ref == original.id
-        assert finding.detail.index(ALPHA) < finding.detail.index(BETA)
+        assert finding.detail == (
+            f"corpus/uid claims=(('{ALPHA}', '{original.uid}'), ('{BETA}', '{_twin.uid}'))"
+        )
         assert "resolve with consolidate" in finding.message and str(roots[ALPHA]) not in finding.detail
         assert epochs_tree(world) == before
 
@@ -75,6 +86,14 @@ class TestW8DuplicateLocation:
         survivor, _, _ = relocation.consolidate((keep, record.id), (other, record.id), **CONSOLIDATE_FIELDS)
         assert survivor.uid == keep.read_view.get(record.id).uid
         assert other.read_view.resolve(record.id) is None
+        world = make_world(tmp_path / "world", left.root, right.root)
+        for writer in (left, right):
+            world.admit(writer.root, provenance=registry.Fresh())
+        published = publish(world, (left.corpus_id, right.corpus_id), derivation_bindings(world))
+        view = open_world_view(world, published)
+        assert view.get(record.id).uid == survivor.uid
+        assert view.corpus_of(record.id) == keep.corpus_id
+        assert [node.id for node in view.iter_stored()].count(record.id) == 1
 
     def test_move_into_the_occupied_destination_refuses_thereafter(self, tmp_path):
         left = _writer(tmp_path / "left")
@@ -82,8 +101,12 @@ class TestW8DuplicateLocation:
         record = stored.source_node(title="kept", identifiers={"doi": "10.1234/abc"})
         left.add(record)
         right.add(record.model_copy(deep=True))
+        before = {id(writer): (root_tree(writer.root), list(_recording_port(writer).intents)) for writer in (left, right)}
         with pytest.raises(DuplicateLocation):
             relocation.move(left, right, record.id, **MOVE_FIELDS)
+        for writer in (left, right):
+            assert root_tree(writer.root) == before[id(writer)][0]
+            assert _recording_port(writer).intents == before[id(writer)][1]
 
 
 class TestW8AddressConflict:
@@ -103,9 +126,15 @@ class TestW8AddressConflict:
         right.add(stored.source_node(title="p", identifiers={**B, "isbn": "9780306406157"}))
         keep, other = (left, right) if keep_first else (right, left)
         before = (left.read_view.get(ADDR_B), right.read_view.get(ADDR_B))
+        before_state = {
+            id(writer): (root_tree(writer.root), list(_recording_port(writer).intents)) for writer in (left, right)
+        }
         with pytest.raises(HistoryDisagreement):
             relocation.consolidate((keep, ADDR_B), (other, ADDR_B), rationale="r", **REPORT)
         assert (left.read_view.get(ADDR_B), right.read_view.get(ADDR_B)) == before
+        for writer in (left, right):
+            assert root_tree(writer.root) == before_state[id(writer)][0]
+            assert _recording_port(writer).intents == before_state[id(writer)][1]
 
     def test_a_source_at_the_wrong_address_refuses_at_the_write_boundary(self, tmp_path):
         writer = _writer(tmp_path / "only")
