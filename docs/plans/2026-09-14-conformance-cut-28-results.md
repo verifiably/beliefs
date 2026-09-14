@@ -88,10 +88,18 @@ Against the same stable source, from the repository root through the vendored
 - `just check` exited **0**: Ruff passed; Pyright reported zero errors,
   warnings and information diagnostics; TypeScript typecheck and Biome passed;
   and `tasks check` reported zero errors and warnings. Transcript:
-  [`check.log`](2026-09-14-conformance-cut-28-run/check.log).
+  [`check.log`](2026-09-14-conformance-cut-28-run/check.log). Pyright also
+  printed a benign notice that version 1.1.414 was available; it was a tooling
+  update notice, separate from the zero diagnostics, and did not require a
+  tooling change or gate rerun.
 - `just test` exited **0**: **4,627 Python tests passed in 1,229.35s
   (0:20:29)** and **142 TypeScript tests passed across 7 files**. Transcript:
   [`test.log`](2026-09-14-conformance-cut-28-run/test.log).
+
+The retained `test.log` has one documentation-only redaction: Vitest's printed
+machine-specific checkout root was replaced with the main-checkout-relative
+`.worktrees/world-resolution-slice-4/ts`. Test output, counts and timings are
+otherwise unchanged. The certified acceptance transcript remains byte-exact.
 
 ## 2. Accounting and disposition
 

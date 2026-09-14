@@ -70,11 +70,10 @@ python3 tools/tt test -- sh -c '(cd python && uv run --frozen pytest) && (cd ts 
 > vitest run
 
 
- RUN  v4.1.11 /mnt/ssd/Dropbox/beliefs/.worktrees/world-resolution-slice-4/ts
+ RUN  v4.1.11 .worktrees/world-resolution-slice-4/ts
 
 
  Test Files  7 passed (7)
       Tests  142 passed (142)
    Start at  09:14:51
    Duration  522ms (transform 680ms, setup 0ms, import 1.46s, tests 296ms, environment 1ms)
-
