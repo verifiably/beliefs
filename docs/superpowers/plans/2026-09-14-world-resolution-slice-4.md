@@ -24,7 +24,7 @@
 - `derive.py`, `relocation.py`, `corpus.py` and `world/view.py`'s served surface are read, not rewritten (spec §6, §7). The only `view.py` change is the private accessor.
 - Frozen files (`n2_arms_cut*.py`, cut documents, declaration tables of cuts ≤ 27) are never edited. A task that displaces a line a frozen cited-not-run guard matches records the arm in `python/tests/cited_not_run.py`'s `stale_arms`; a live guard gets a dated re-target. `uv run --frozen pytest tests/test_arm_staleness.py tests/test_frozen_guards.py` passes after Tasks 2 and 3.
 - N2 rows are `<unit>-<letter>` (`W7-a`, `W8b-c`); cut 28's `unit_of` parses exactly that. Every durable arm runs on the certified volume; a capability refusal is an error, never a skip.
-- Shared surfaces this lane rewrites (roadmap rule 3): `errors.py`, `view_query.py`, `world/__init__.py`, `world/view.py` (private accessor only), `python/tools/roadmap_status.py`, `python/tests/test_designs_corpus.py`, `README.md`, the ledger, the roadmap, the guide, the world-addressing design (dated notes on W7, W8, W8b), the slice 2b design (dated note), the adoption ledger.
+- Shared surfaces this lane rewrites (roadmap rule 3): `errors.py`, `view_query.py`, `decode.py`, `world/__init__.py`, `world/view.py` (private accessor only), `python/tools/roadmap_status.py`, `python/tests/test_designs_corpus.py`, `README.md`, the ledger, the roadmap, the guide, the world-addressing design (dated notes on W7, W8, W8b), the slice 2b design (dated note), the adoption ledger.
 - The cut is frozen before implementation (Task 1) and its §§2–7 are byte-exact from the freeze commit onward; §1 stays editable. The number is 28 unless a sibling worktree has claimed it first — Task 1 checks every worktree and branch.
 
 ## Task ids
@@ -50,6 +50,7 @@ Created 2026-09-14 against this plan; each task's first step names its id.
 | `docs/designs/2026-09-14-conformance-cut-28.md` | the frozen cut: boundary, selection, accounting, obligations |
 | `python/src/beliefs/errors.py` | `SelectionRefused` |
 | `python/src/beliefs/view_query.py` | `stored_query(node) -> ViewQuery` |
+| `python/src/beliefs/decode.py` | `stored_claim_terms(node) -> tuple[tuple[str, ...], tuple[str, ...]]`, the profile-independent shape check factored out of `claim_from_stored` |
 | `python/src/beliefs/world/view.py` | `WorldReadView._mapped_records()`, the private enumeration |
 | `python/src/beliefs/world/selection.py` (new) | `SELECTION_VERSION`, `Unresolved`, `Selection`, `evaluate_query`, the query adjacency |
 | `python/src/beliefs/world/__init__.py` | re-exports `Selection`, `Unresolved`, `evaluate_query` |
@@ -99,7 +100,7 @@ Follow `docs/designs/2026-09-13-conformance-cut-27.md` section for section. Head
 
 `## 1. What this cut is` — spec §1's first four paragraphs (the language exists and nothing evaluates it; the read side is complete; W7 asks for the join; the W8/W8b audit), then cut 5's selection-rule sentence: "The selection rule is cut 5's: a clause is selected only when its source mutation and every named check run inside §2. A row with any unrun arm is partial."
 
-`## 2. The boundary` — `In scope:` bullets at file-and-symbol granularity from this plan's file-structure table (`errors.py`: `SelectionRefused`; `view_query.py`: `stored_query`; `world/view.py`: `_mapped_records`; `world/selection.py`: `SELECTION_VERSION`, `Unresolved`, `Selection`, `evaluate_query`; `world/__init__.py`: the exports; the four test modules; the runner and `roadmap_status.py`; the dated notes, ledger, roadmap, guide, README and results record). `Out of scope:` bullets: W9 and W14 (`authority-labels`, tier 3; slice 2b's assignment of W14 to slice 4 does not stand, spec §8 item 1); W8's ambiguous-search-term conflict (deferred to `authority-labels` with W9, ledger artifact 11; re-homed at discharge, spec §8 item 2); R23's rules-store clauses and W8a's `instrument-certification` arm (`contract-cut`); `beliefs-48214e` and `beliefs-24b42b` (filed, not prerequisites); `derive.py`, `relocation.py`, `corpus.py` and every served method of `world/view.py`, which are read and not rewritten; `next` and `publish`, which consume the evaluator and are not built here.
+`## 2. The boundary` — `In scope:` bullets at file-and-symbol granularity from this plan's file-structure table (`errors.py`: `SelectionRefused`; `view_query.py`: `stored_query`; `decode.py`: `stored_claim_terms`; `world/view.py`: `_mapped_records`; `world/selection.py`: `SELECTION_VERSION`, `Unresolved`, `Selection`, `evaluate_query`; `world/__init__.py`: the exports; the four test modules; the runner and `roadmap_status.py`; the dated notes, ledger, roadmap, guide, README and results record). `Out of scope:` bullets: W9 and W14 (`authority-labels`, tier 3; slice 2b's assignment of W14 to slice 4 does not stand, spec §8 item 1); W8's ambiguous-search-term conflict (deferred to `authority-labels` with W9, ledger artifact 11; re-homed at discharge, spec §8 item 2); R23's rules-store clauses and W8a's `instrument-certification` arm (`contract-cut`); `beliefs-48214e` and `beliefs-24b42b` (filed, not prerequisites); `derive.py`, `relocation.py`, `corpus.py` and every served method of `world/view.py`, which are read and not rewritten; `next` and `publish`, which consume the evaluator and are not built here.
 
 `## 3. Selection` — one subsection per row:
 
@@ -123,9 +124,9 @@ No refusal borrows `NotPresent`, `Unknown` or `RecordNotPresent`; the evaluator 
 Three guarantee rows are read, **2 full/closed** (W7, W8b), 1 partial (W8), and **3 declaration units** carry them: `W7`, `W8`, `W8b`. W8's remainder is its ambiguous-search-term conflict, re-homed to `authority-labels` at discharge (§2); `world-resolution` then retains no guarantee row.
 ```
 
-`## 5. N2 and acceptance obligations` — numbered as cut 27's: (1) the inventory is exactly the three units, single-homed; (2) every durable arm runs on the certified volume, refusal is an error and never a skip; (3) the runner, quoting `PREFIX_RUNNERS = ("cut27_acceptance.py",)` and `PHASE_MODULES = ("test_world_selection_acceptance.py", "test_n2_cut28.py")`; (4) the 22 declared arms cover every sabotage site: in `world/selection.py` (the entry damage check skipped; the entry drift check skipped; an unknown address denoted as empty; not-present collapsed into unknown; clauses intersected instead of unioned; the anchor included in its closure; the closure started from the literal anchor string; an absent inbound source dropped; `unresolved` omitted from the projection; `absent` omitted from the projection; selected records served unvalidated; candidate propositions read unvalidated; `references-term` matched on arguments only; `references-term` normalized before comparison; the world-only type check widened), in `world/derive.py` (the uid check dropped; the address check dropped; addresses checked before uids; `duplicate-location` keyed on `uid` equality), in `relocation.py` (`consolidate` accepting two addresses; `consolidate` choosing a survivor when histories differ; `move` overwriting an occupied destination); (5) `test_n2_cut28.py` audits them by the cut-12 pattern with the staleness probe's baseline taken from the tree; (6) prior declarations frozen, no check reclaimed; (7) this document and its declaration inventory pinned by digest before discharge.
+`## 5. N2 and acceptance obligations` — numbered as cut 27's: (1) the inventory is exactly the three units, single-homed; (2) every durable arm runs on the certified volume, refusal is an error and never a skip; (3) the runner, quoting `PREFIX_RUNNERS = ("cut27_acceptance.py",)` and `PHASE_MODULES = ("test_world_selection_acceptance.py", "test_n2_cut28.py")`; (4) the 23 declared arms cover every sabotage site: in `world/selection.py` (the entry damage check skipped; the entry drift check skipped; an unknown address no longer refusing; not-present collapsed into unknown; clauses intersected instead of unioned; the anchor included in its closure; the closure started from the literal anchor string; an absent inbound source dropped; `unresolved` omitted from the projection; `absent` omitted from the projection; selected records served unvalidated; candidate propositions read unvalidated; `references-term` matched on arguments only; a malformed claim facet read as not referencing; the world-only type check widened), in `decode.py` (claim terms normalized before comparison), in `world/derive.py` (the uid check dropped; the address check dropped; addresses checked before uids; `duplicate-location` keyed on `uid` equality), in `relocation.py` (`consolidate` accepting two addresses; `consolidate` choosing a survivor when histories differ; `move` overwriting an occupied destination); (5) `test_n2_cut28.py` audits them by the cut-12 pattern with the staleness probe's baseline taken from the tree; (6) prior declarations frozen, no check reclaimed; (7) this document and its declaration inventory pinned by digest before discharge.
 
-The sites in (4) count fifteen in `selection.py`, four in `derive.py` and three in `relocation.py`: **22 arms**.
+The sites in (4) count fifteen in `selection.py`, one in `decode.py`, four in `derive.py` and three in `relocation.py`: **23 arms**.
 
 `## 6. Second reader` — the spec's two review passes on 2026-09-14 (§11 there): four findings, then one. `## 7. Limitations` — one line each: every predicate is an enumeration of the capture, with no per-epoch index (spec §9 item 1); no closure-over-selection predicate (spec §9 item 2); W8's search-term conflict is unrun and re-homed, not closed; `next` and `publish` are not built and their refusal rules over `Selection` are stated, not exercised; serial per-corpus captures (slice 1 limitation 1) carry.
 
@@ -360,12 +361,16 @@ def query(*clauses: list[dict]) -> ViewQuery:
 
 
 def topic_nodes():
-    """ALPHA: d_a, r_a (produces d_b), the project and topic records.
-    BETA: d_b, r_b (produces d_a), p_b (claim binding GENE and PHENO)."""
+    """ALPHA: d_a (carrying a `produces` relation whose declared source is
+    BETA's r_b — the world inbound index files edges from held records only,
+    so the edge that must survive BETA's absence lives on d_a), r_a (produces
+    d_b), the project and topic records. BETA: d_b, r_b, p_b (claim binding
+    GENE and PHENO)."""
     d_a = stored.dataset_node("d-a", title="d-a")
     d_b = stored.dataset_node("d-b", title="d-b")
     r_a = stored.run_node("r-a", title="r-a", spec="s", produces=[d_b.id])
-    r_b = stored.run_node("r-b", title="r-b", spec="s", produces=[d_a.id])
+    r_b = stored.run_node("r-b", title="r-b", spec="s", produces=[])
+    d_a.relations.append(Relation(source=r_b.id, predicate="produces", target=d_a.id))
     p_b = stored.proposition_node("p-b", title="p-b", claim=CLAIM_FACET)
     project = raw_coordination_node("project", PROJECT, "4" * 32)
     return (d_a, r_a, project), (d_b, r_b, p_b)
@@ -490,6 +495,13 @@ class TestEntryRefusals:
         assert caught.value.reason == "corpus-drifted" and caught.value.refs == (BETA,)
         assert evaluate_query(before, stored_query(Corpus(roots[ALPHA]).get(topic.id))).complete
 
+    def test_records_outside_the_map_report_unmapped_under_equal_states_and_do_not_refuse(self, tmp_path):
+        world, roots, published, topic = topic_world(tmp_path, [{"kinds": ["dataset"]}])
+        view = open_world_view(world, published)
+        (report,) = [r for r in view.drift() if r.corpus_id == ALPHA]
+        assert report.captured_state == report.published_state and report.unmapped  # the project and topic uids
+        assert evaluate_query(view, stored_query(Corpus(roots[ALPHA]).get(topic.id))).complete
+
     def test_a_damaged_view_refuses_before_drift_is_read(self, tmp_path):
         from test_world_view import damage
 
@@ -534,7 +546,17 @@ class TestAbsenceAndValidation:
         make_absent(roots, BETA)
         partial = evaluate_topic(world, roots, published, topic)
         assert partial.selected == ("dataset:d-a",) and partial.absent == (BETA,) and not partial.complete
+        assert partial.projection()["absent"] == [BETA]  # the member itself, not only the identity
         assert partial.identity() != complete.identity()
+
+    def test_absent_alone_moves_the_identity(self, tmp_path):
+        """`clauses: []` selects nothing either way, so only `absent` differs."""
+        world, roots, published, topic = topic_world(tmp_path)
+        complete = evaluate_topic(world, roots, published, topic)
+        make_absent(roots, BETA)
+        partial = evaluate_topic(world, roots, published, topic)
+        assert complete.selected == partial.selected == () and complete.contributing == partial.contributing == ()
+        assert partial.projection()["absent"] == [BETA] and partial.identity() != complete.identity()
 
     def test_a_selected_record_with_a_stale_hash_refuses(self, tmp_path):
         stale = stored.dataset_node("d-s", title="d-s")
@@ -670,8 +692,11 @@ def evaluate_query(view: WorldReadView, query: ViewQuery) -> Selection:
         raise TypeError(f"evaluate_query takes a parsed ViewQuery, not {type(query).__name__}")
     if view.damaged():
         raise SelectionRefused("corpus-damaged", refs=[report.corpus_id for report in view.damaged()])
-    if view.drift():
-        raise SelectionRefused("corpus-drifted", refs=[report.corpus_id for report in view.drift()])
+    moved = [report.corpus_id for report in view.drift() if report.captured_state != report.published_state]
+    if moved:
+        # A report whose states agree lists records outside the world map by
+        # construction (coordination and prose kinds); only a moved state refuses.
+        raise SelectionRefused("corpus-drifted", refs=moved)
     _require_located(view, query.addresses())
 
     held: dict[str, tuple[str, Node]] = {node.id: (corpus_id, node) for corpus_id, node in view._mapped_records()}
@@ -768,12 +793,12 @@ git commit -m "feat(world): evaluate_query over the world read view, kinds and a
 ### Task 4: `references-term` with validation before the facet read
 
 **Files:**
-- Modify: `python/src/beliefs/world/selection.py` (`_denote`, new `_binds_term`)
-- Test: `python/tests/test_world_selection.py`
+- Modify: `python/src/beliefs/decode.py` (after `claim_from_stored`), `python/src/beliefs/world/selection.py` (`_denote`, new `_binds_term`)
+- Test: `python/tests/test_decode.py` (or the module that tests `claim_from_stored`; find it with `grep -rl claim_from_stored python/tests`), `python/tests/test_world_selection.py`
 
 **Interfaces:**
-- Consumes: Task 3's `_denote` seam and `held`.
-- Produces: the `ReferencesTerm` branch; `_binds_term(node: Node, term: str) -> bool`, which validates first and refuses `record-malformed`.
+- Consumes: Task 3's `_denote` seam and `held`; `decode._wire_parts` and `decode.MalformedWireClaim`.
+- Produces: `decode.stored_claim_terms(node) -> tuple[tuple[str, ...], tuple[str, ...]]` — `(argument terms, restriction terms)` after the shape check, no profile; the `ReferencesTerm` branch; `_binds_term(node: Node, term: str) -> bool`, which validates first and translates `MalformedWireClaim` into `record-malformed`.
 
 - [ ] **Step 1: `tasks start beliefs-d1c305`, then write the failing tests**
 
@@ -804,8 +829,18 @@ class TestReferencesTerm:
         world, roots, published, topic = topic_world(tmp_path, [{"references-term": GENE.upper()}])
         assert evaluate_topic(world, roots, published, topic).selected == ()
 
-    def test_a_malformed_claim_facet_refuses_naming_the_record(self, tmp_path):
-        broken = stored.proposition_node("p-x", title="p-x", claim={**CLAIM_FACET, "args": "not-a-list"})
+    @pytest.mark.parametrize(
+        "claim",
+        [
+            {**CLAIM_FACET, "args": "not-a-list"},
+            {**CLAIM_FACET, "args": [GENE, 7]},
+            {**CLAIM_FACET, "qualifiers": {"tissue": {"restriction": "EX:liver"}}},  # no quantifier
+            {**CLAIM_FACET, "qualifiers": {"tissue": {"quantifier": "some", "restriction": "EX:liver", "extra": 1}}},
+            {k: v for k, v in CLAIM_FACET.items() if k != "layer"},
+        ],
+    )
+    def test_a_malformed_claim_facet_refuses_naming_the_record(self, tmp_path, claim):
+        broken = stored.proposition_node("p-x", title="p-x", claim=claim)
         world, roots, published, topic = topic_world(tmp_path, [{"references-term": GENE}], beta_extra=(broken,))
         with pytest.raises(SelectionRefused) as caught:
             evaluate_topic(world, roots, published, topic)
@@ -830,33 +865,58 @@ Expected: FAIL with `NotImplementedError: references-term lands in Task 4`.
 
 - [ ] **Step 3: Implement**
 
-In `selection.py` add the module constant and helper, and replace the `ReferencesTerm` branch:
+In `python/src/beliefs/decode.py`, after `claim_from_stored`, factor its pre-delegation shape check into a public reader that never needs a profile (the `WireClaim` still never leaves the module):
 
 ```python
-_CLAIM_KEYS = frozenset({"operator", "args", "qualifiers", "polarity", "layer"})
+def stored_claim_terms(node: Node) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """The argument terms and the qualifier restriction terms of a stored
+    proposition's claim facet, after `_wire_parts`' shape check and before any
+    profile is consulted (world resolution slice 4 §3.2). Every ill-formed
+    facet refuses with `MalformedWireClaim`, exactly as `claim_from_stored`
+    refuses before delegating; nothing is typed or resolved."""
+    if not isinstance(node, Node) or node.kind != "proposition":
+        raise MalformedWireClaim(f"stored_claim_terms reads a proposition node, found {type(node).__name__}")
+    facet = node.facets.get("proposition")
+    if not isinstance(facet, Mapping):
+        raise MalformedWireClaim(f"{node.id}: no covered claim facet")
+    keys = set(facet)
+    if keys != _STORED_CLAIM_KEYS:
+        missing, extra = sorted(_STORED_CLAIM_KEYS - keys), sorted(keys - _STORED_CLAIM_KEYS)
+        raise MalformedWireClaim(f"{node.id}: claim facet missing {missing}, extra {extra}; refused, never repaired")
+    if isinstance(facet["args"], str) or not isinstance(facet["args"], Sequence):
+        raise MalformedWireClaim(f"{node.id}: args is not a sequence")
+    if not isinstance(facet["qualifiers"], Mapping):
+        raise MalformedWireClaim(f"{node.id}: qualifiers is not a mapping")
+    _, terms, qualifier_bodies, _, _ = _wire_parts(
+        WireClaim(
+            operator=facet["operator"],
+            args=tuple(facet["args"]),
+            qualifiers=facet["qualifiers"],
+            polarity=facet["polarity"],
+            layer=facet["layer"],
+        )
+    )
+    return tuple(terms), tuple(body["restriction"] for body in qualifier_bodies.values())
+```
 
+Then make `claim_from_stored` call the same checks by delegating its shape half to this function's body (extract `_stored_wire(node) -> WireClaim` used by both if that reads cleaner; the constraint is one shape check, not two copies). Add one test beside `claim_from_stored`'s: a well-formed facet returns `((GENE, PHENO), ())` and a qualifier lacking `quantifier` raises `MalformedWireClaim`.
 
+In `selection.py` import `from beliefs.decode import MalformedWireClaim, stored_claim_terms` and add the helper, then replace the `ReferencesTerm` branch:
+
+```python
 def _binds_term(node: Node, term: str) -> bool:
     """Whether a proposition's stored claim binds `term` as an argument or a
     qualifier restriction (§3.2 step 3). The record is validated **before**
-    its facet is read, and the facet's shape is checked as
-    `decode.claim_from_stored` checks it; a violation is corruption and
-    refuses, never "does not reference". No decode, no normalization: the
-    term is compared as stored."""
+    its facet is read, and the facet's shape is `decode`'s own check; a
+    violation is corruption and refuses, never "does not reference". No
+    decode against a profile, no normalization: the term is compared as
+    stored."""
     validated_node(node)
-    facet = node.facets.get("proposition")
-    if (
-        not isinstance(facet, Mapping)
-        or set(facet) != _CLAIM_KEYS
-        or isinstance(facet["args"], str)
-        or not isinstance(facet["args"], (list, tuple))
-        or not isinstance(facet["qualifiers"], Mapping)
-        or any(not isinstance(body, Mapping) or "restriction" not in body for body in facet["qualifiers"].values())
-    ):
-        raise SelectionRefused("record-malformed", refs=[node.id])
-    if term in facet["args"]:
-        return True
-    return any(body["restriction"] == term for body in facet["qualifiers"].values())
+    try:
+        args, restrictions = stored_claim_terms(node)
+    except MalformedWireClaim:
+        raise SelectionRefused("record-malformed", refs=[node.id]) from None
+    return term in args or term in restrictions
 ```
 
 and in `_denote`:
@@ -948,6 +1008,9 @@ class TestClosure:
         partial = evaluate_topic(world, roots, published, topic)
         assert partial.selected == () and partial.absent == (BETA,) and not partial.complete
         assert partial.unresolved == (Unresolved("run:r-a", "produces", "dataset:d-b", "not-present", BETA),)
+        assert partial.projection()["unresolved"] == [
+            {"source": "run:r-a", "predicate": "produces", "target": "dataset:d-b", "state": "not-present", "corpus_id": [BETA]}
+        ]
         assert partial.identity() != complete.identity()
 
     def test_an_anchor_in_an_absent_corpus_refuses(self, tmp_path):
@@ -1128,8 +1191,10 @@ from nodes.core.corpus import Corpus
 from profiles import WITH_BIOLOGY
 from test_identifier_correction import A, B, ADDR_B, REPORT
 from test_relocation import CONSOLIDATE_FIELDS, MOVE_FIELDS, _writer
-from test_world_build import ALPHA, BETA
-from test_world_epoch import admitted_world, epochs_tree, publish
+from test_world_build import ALPHA, BETA, make_world
+from test_world_epoch import admitted_world, derivation_bindings, epochs_tree, publish
+
+GAMMA = "c" * 32
 
 from beliefs import relocation, stored
 from beliefs.corpus import ReadView, corpus_check
@@ -1140,6 +1205,7 @@ from beliefs.errors import (
     HistoryDisagreement,
     SourceAddressDisagreement,
 )
+from beliefs.world import registry
 from beliefs.world.view import open_world_view
 
 
@@ -1168,17 +1234,17 @@ class TestW8DuplicateLocation:
         assert epochs_tree(world) == before
 
     def test_the_other_registration_order_gives_the_same_code_ref_and_claims(self, tmp_path):
-        forward = conflict_world(tmp_path / "f")
-        backward = conflict_world(tmp_path / "b", coverage=(BETA, ALPHA), twin_of="dataset:b")
+        _world, _r, _b, roots, _o, _t = conflict_world(tmp_path)
         findings = []
-        for world, _r, bindings, _roots, _o, _t in (forward, backward):
+        for name, order in (("f", (roots[ALPHA], roots[BETA])), ("b", (roots[BETA], roots[ALPHA]))):
+            world = make_world(tmp_path / name, *order)
+            for corpus_root in order:
+                world.admit(corpus_root, provenance=registry.Fresh())
             with pytest.raises(AddressMapConflict) as caught:
-                publish(world, (ALPHA, BETA), bindings)
+                publish(world, (ALPHA, BETA), derivation_bindings(world))
             findings.append(caught.value.finding)
-        assert findings[0].code == findings[1].code == "duplicate-location"
-        assert {findings[0].ref, findings[1].ref} == {"dataset:a", "dataset:b"}
-        for finding in findings:
-            assert finding.detail.index(ALPHA) < finding.detail.index(BETA)
+        assert (findings[0].code, findings[0].ref, findings[0].detail) == (findings[1].code, findings[1].ref, findings[1].detail)
+        assert findings[0].code == "duplicate-location"
 
     @pytest.mark.parametrize("keep_first", [True, False])
     def test_consolidate_repairs_with_the_authored_survivor_and_the_rebuild_publishes(self, tmp_path, keep_first):
@@ -1253,11 +1319,13 @@ class TestW8b:
         assert (caught.value.finding.code, caught.value.finding.ref) == ("duplicate-location", original.id)
 
     def test_corruption_outranks_duplication(self, tmp_path):
-        world, _r, bindings, roots, original, _twin = conflict_world(tmp_path, same_uid=True)
+        # A third corpus: a second record sharing the uid inside BETA is a corpus-local
+        # `CollisionError` at open, before the world-level ordering check is reached.
+        world, _r, bindings, roots, original, _twin = conflict_world(tmp_path, coverage=(ALPHA, BETA, GAMMA), same_uid=True)
         third = original.model_copy(deep=True, update={"id": "dataset:third"})
-        raw_write(roots[BETA], third)  # the shared uid now also names a third address
+        raw_write(roots[GAMMA], third)  # the shared uid now also names a third address
         with pytest.raises(AddressMapConflict) as caught:
-            publish(world, (ALPHA, BETA), bindings)
+            publish(world, (ALPHA, BETA, GAMMA), bindings)
         assert caught.value.finding.code == "uid-corruption"
 
     def test_each_corpus_alone_reports_neither(self, tmp_path):
@@ -1268,7 +1336,7 @@ class TestW8b:
             assert not [f for f in findings if f.code in ("uid-corruption", "duplicate-location")]
 ```
 
-The backward case passes `twin_of="dataset:b"` because `sample_nodes(slug_for(...))` names BETA's dataset `dataset:b` when BETA comes first; check `slug_for` in `test_world_build.py:209` and adjust the two ids to what it yields.
+`sample_nodes(slug_for(corpus_id, coverage))` names each corpus's records by the corpus id's first character (`test_world_build.py:209`), so ALPHA's dataset is `dataset:a` under any multi-corpus coverage; the registration-order test reuses one set of roots under two worlds admitted in opposite order, so the claims are identical and the whole finding is compared.
 
 - [ ] **Step 2: Run them**
 
@@ -1296,7 +1364,7 @@ git commit -m "test(world): W8 and W8b arms over the existing build, consolidate
 
 **Interfaces:**
 - Consumes: `test_world_view_acceptance.durable_world` (the certified-volume two-corpus fixture; `make(alpha_nodes, beta_nodes, *, profile=BASE, raw=())` returns `world, {a: alpha, b: beta}, published, a, b` and exposes `make.corpus()`), `coordination_fixtures.{coordination_profile, raw_coordination_node}`, `corpus.CoordinationResolver`, `coordination.CoordinationAddress`, Tasks 2–6's public names, `n2_arms.Arm`/`Sabotage`, `test_n2.audit`/`baseline`, cut 27's guard as the template.
-- Produces: `DECLARATION_UNITS = ("W7", "W8", "W8b")`, `CUT28_ARMS` (22 arms), `UNIT_CHECKS`, `unit_of`; the durable tests Task 8's runner names; the pins `CUT28_FREEZE_COMMIT`, `CUT28_FROZEN_SHA256`, `CUT28_DECLARATION_COMMIT`, `CUT28_DECLARATION_SHA256`.
+- Produces: `DECLARATION_UNITS = ("W7", "W8", "W8b")`, `CUT28_ARMS` (23 arms), `UNIT_CHECKS`, `unit_of`; the durable tests Task 8's runner names; the pins `CUT28_FREEZE_COMMIT`, `CUT28_FROZEN_SHA256`, `CUT28_DECLARATION_COMMIT`, `CUT28_DECLARATION_SHA256`.
 
 - [ ] **Step 1: `tasks start beliefs-10efda`, then write the durable arms**
 
@@ -1314,6 +1382,7 @@ from tempfile import mkdtemp
 import pytest
 from authority import FULL
 from coordination_fixtures import coordination_profile, raw_coordination_node
+from durable_fixture import pinned
 from fixtures_cut4 import raw_write
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.relations import Relation
@@ -1366,17 +1435,37 @@ def topic_record(*clauses):
 
 
 @pytest.fixture()
-def topic(durable_world):
+def topic(durable_world, scratch):
     """The topic world on the certified volume: the coordination pin in both
-    manifests, the project and topic raw-written into ALPHA before publication."""
-    def make(*clauses, alpha_extra=(), beta_extra=()):
-        alpha, beta = topic_nodes()
-        alpha_world = tuple(n for n in alpha if n.kind != "project")
-        project = next(n for n in alpha if n.kind == "project")
-        return durable_world(
-            (*alpha_world, *alpha_extra), (*beta, *beta_extra),
-            profile=COORDINATION, raw=(project, topic_record(*clauses)),
-        )
+    manifests; `alpha_extra`/`beta_extra` go through the durable writer,
+    `alpha_raw`/`beta_raw` are raw-written (the corruption arms stage a stale
+    stamp the writer would refuse), the project and topic are raw-written into
+    ALPHA, and `without` drops fixture records by id — all before publication."""
+    def make(*clauses, alpha_extra=(), beta_extra=(), alpha_raw=(), beta_raw=(), without=()):
+        alpha_nodes, beta_nodes = topic_nodes()
+        alpha_nodes = tuple(n for n in alpha_nodes if n.kind != "project" and n.id not in without)
+        beta_nodes = tuple(n for n in beta_nodes if n.id not in without)
+        project = next(n for n in topic_nodes()[0] if n.kind == "project")
+        a, alpha, left = durable_world.corpus(COORDINATION)
+        b, beta, right = durable_world.corpus(COORDINATION)
+        for writer, nodes in ((left, (*alpha_nodes, *alpha_extra)), (right, (*beta_nodes, *beta_extra))):
+            for node in nodes:
+                node = node.model_copy(deep=True)
+                if node.kind == "dataset" and not node.facets["dataset"]["resources"]:
+                    node.facets["dataset"]["resources"] = pinned()
+                    stored.stamp_semantic_identity(node)
+                writer.add(node)
+        for node in (project, topic_record(*clauses), *alpha_raw):
+            raw_write(alpha, node)
+        for node in beta_raw:
+            raw_write(beta, node)
+        config = WorldConfig(scratch / "topic-world", "e" * 32, (alpha, beta))
+        init_world_root(config, authority=FULL)
+        world = open_world(config, authority=FULL)
+        world.admit(alpha, provenance=Fresh())
+        world.admit(beta, provenance=Fresh())
+        published = epoch.build_epoch(world, coverage=frozenset((a, b)), bindings=hold_shipped(world))
+        return world, {a: alpha, b: beta}, published, a, b
     return make
 
 
@@ -1409,17 +1498,17 @@ def conflict_world(durable_world, scratch, alpha_nodes, beta_nodes, *, twin):
     return world, {a: alpha, b: beta}, (a, b), (left, right), hold_shipped(world)
 ```
 
-`durable_world`'s `make` must accept `raw` nodes for ALPHA before publication — it does (`raw=()` writes with `raw_write(alpha, node)`); check that the coordination-pinned profile builds cleanly (`pins_for(COORDINATION)` carries the `coordination` domain). If `make`'s staging assertion `{n.id for n in writer.read_view.iter_stored()} == {n.id for n in nodes}` fails because raw nodes are written after it, nothing changes: `raw` is written after the assertion.
+`durable_world.corpus(profile)` registers a certified root and adopts `pins_for(profile)`, so both manifests carry the coordination pin the resolver checks; `pinned` is `durable_fixture.pinned` (import it). A dataset passed with empty `resources` is re-stamped after `pinned()` exactly as `durable_world.make` does. Corpus ids are opaque and minted, so every expected `contributing` is written `tuple(sorted((a, b)))`, never `(a, b)`.
 
 Then the durable tests, one per spec §7 bullet, each ending in `_durably`, built from the unit tests of Tasks 3–6 by replacing `topic_world` with the `topic` fixture, `ALPHA`/`BETA` with the returned `a`/`b`, `evaluate_topic` with `evaluate_query(open_world_view(world, published), resolved_query(roots, a))`, and `tmp_path` writers with `durable_world.corpus()` writers. The required functions and what each asserts:
 
 | test | asserts |
 |---|---|
 | `test_w7_addresses_selects_the_other_corpus_record_and_contributes_its_corpus_durably` | `selected == (dataset:d-b,)`, `contributing == (b,)`, complete; identity equal across two opens |
-| `test_w7_kinds_selects_and_contributes_both_corpora_durably` | both datasets, `contributing == (a, b)` |
+| `test_w7_kinds_selects_and_contributes_both_corpora_durably` | both datasets, `contributing == tuple(sorted((a, b)))` |
 | `test_w7_closure_out_selects_the_other_corpus_dataset_and_not_the_run_durably` | `(dataset:d-b,)`, `(b,)` |
 | `test_w7_references_term_selects_the_proposition_and_never_a_dataset_durably` | `(proposition:p-b,)`, `(b,)` |
-| `test_w7_two_clauses_select_and_contribute_both_durably` | `addresses` over `dataset:d-a` plus `references-term` GENE: both selected, both contribute |
+| `test_w7_two_clauses_select_and_contribute_both_durably` | `addresses` over `dataset:d-a` plus `references-term` GENE: both selected, `contributing == tuple(sorted((a, b)))` |
 | `test_w7_the_absent_corpus_refuses_reports_or_names_itself_by_form_durably` | after `absent(roots, b)`: `addresses` → `SelectionRefused("address-not-present")` refs `(dataset:d-b,)` corpora `(b,)`; `closure` out from `run:r-a` → incomplete, `unresolved == (Unresolved("run:r-a","produces","dataset:d-b","not-present", b),)`; `kinds` → incomplete, `absent == (b,)`; each incomplete identity differs from its complete one and none is empty-and-complete |
 | `test_w7_a_closure_anchored_in_the_absent_corpus_refuses_durably` | `in` over `produces` from `dataset:d-b` selects `run:r-a` present; refuses `address-not-present` refs `(dataset:d-b,)` absent |
 | `test_w7_a_drifted_view_refuses_and_the_earlier_capture_evaluates_durably` | Task 3's drift arm, then a rebuild (`epoch.build_epoch` with `hold_shipped`) evaluates clean with a different identity |
@@ -1429,8 +1518,9 @@ Then the durable tests, one per spec §7 bullet, each ending in `_durably`, buil
 | `test_w7_dangling_and_absent_inbound_steps_are_reported_not_dropped_durably` | Task 5's dangling arm and absent-inbound arm |
 | `test_w7_a_retired_and_a_live_address_select_once_durably` | Task 3's arm |
 | `test_w7_terms_in_arguments_and_restrictions_select_and_a_malformed_facet_refuses_durably` | Task 4's three arms |
-| `test_w7_a_stale_edit_that_removed_the_term_refuses_durably` | Task 4's corrupt non-match |
-| `test_w7_a_stale_selected_record_refuses_durably` | Task 3's arm |
+| `test_w7_a_stale_edit_that_removed_the_term_refuses_durably` | Task 4's corrupt non-match, staged with `beta_raw=(stale,)` and `without=("proposition:p-b",)` |
+| `test_w7_a_stale_selected_record_refuses_durably` | Task 3's arm, staged with `alpha_raw=(stale,)` |
+| `test_w7_projection_members_are_asserted_directly_durably` | Task 3's `absent`-alone identity arm over `clauses: []`, plus `projection()["absent"] == [b]` and the literal `projection()["unresolved"]` entry of the closure-out-with-`b`-absent case |
 | `test_w7_empty_clauses_and_a_read_view_durably` | `clauses: []` complete and empty; `ReadView` → `TypeError` |
 | `test_w7_an_unknown_address_refuses_naming_every_unknown_one_durably` | Task 3's arm: `address-unknown`, every unknown address, no corpus; unknown outranks not-present |
 | `test_w8_duplicate_location_refuses_the_build_in_either_order_and_consolidate_repairs_durably` | Task 6's four duplicate-location arms over `conflict_world`, `consolidate` parametrized on `keep`, the rebuild publishing and the view serving one record, `move` refusing `DuplicateLocation` |
@@ -1471,22 +1561,23 @@ def unit_of(row: str) -> str:
     return unit
 ```
 
-Then `CUT28_ARMS`, 22 `Arm(...)` entries, each with a `Sabotage(module=..., before=<the exact source as landed>, after=<the mutation>)` and `checks=(<the durable test that fails under it>,)`. The `before` text is copied verbatim from the landed code, which is why this module is written last. The mutations, by row:
+Then `CUT28_ARMS`, 23 `Arm(...)` entries, each with a `Sabotage(module=..., before=<the exact source as landed>, after=<the mutation>)` and `checks=(<the durable test that fails under it>,)`. The `before` text is copied verbatim from the landed code, which is why this module is written last. The mutations, by row:
 
 - `W7-a` `world/selection.py`: `if view.damaged():` → `if False:` → `test_w7_a_damaged_view_refuses_durably`.
-- `W7-b` `world/selection.py`: `if view.drift():` → `if False:` → `test_w7_a_drifted_view_refuses_and_the_earlier_capture_evaluates_durably`.
+- `W7-b` `world/selection.py`: `if moved:` → `if False:` → `test_w7_a_drifted_view_refuses_and_the_earlier_capture_evaluates_durably`.
 - `W7-c` `world/selection.py`: in `_require_located`, `if unknown:` → `if False:` (an unknown address no longer refuses) → `test_w7_an_unknown_address_refuses_naming_every_unknown_one_durably`.
 - `W7-d` `world/selection.py`: `raise SelectionRefused("address-not-present", …)` → `raise SelectionRefused("address-unknown", refs=[address for address, _ in not_present])` (not-present collapsed into unknown) → `test_w7_the_absent_corpus_refuses_reports_or_names_itself_by_form_durably`.
 - `W7-e` `world/selection.py`: `members = denoted if members is None else members & denoted` and `selected |= members or set()` → intersect across clauses (`selected = members if not selected else selected & members`) → `test_w7_two_clauses_select_and_contribute_both_durably`.
 - `W7-f` `world/selection.py`: `return set(reach.reached)` → `return set(reach.reached) | {live}` → `test_w7_closure_out_selects_the_other_corpus_dataset_and_not_the_run_durably`.
 - `W7-g` `world/selection.py`: `reach = closure(live, …)` → `reach = closure(predicate.anchor, …)` → `test_w7_a_retired_anchor_over_a_cycle_selects_what_the_live_anchor_selects_durably`.
 - `W7-h` `world/selection.py`: the `_InboundAdjacency` `if edge.source_uid is None:` block → `continue` (drop it, as `RelationAdjacency._inbound` does) → `test_w7_dangling_and_absent_inbound_steps_are_reported_not_dropped_durably`.
-- `W7-i` `world/selection.py`: `"unresolved": [step.projection() for step in self.unresolved],` → `"unresolved": [],` → `test_w7_the_absent_corpus_refuses_reports_or_names_itself_by_form_durably` (the incomplete closure identity equals the complete one).
-- `W7-j` `world/selection.py`: `"absent": list(self.absent),` → `"absent": [],` → same test (the `kinds` form).
+- `W7-i` `world/selection.py`: `"unresolved": [step.projection() for step in self.unresolved],` → `"unresolved": [],` → `test_w7_projection_members_are_asserted_directly_durably` (the literal member; identity inequality alone survives this mutation because `selected` moves too).
+- `W7-j` `world/selection.py`: `"absent": list(self.absent),` → `"absent": [],` → the same test (`clauses: []` isolates `absent`, and the member is asserted as a literal).
 - `W7-k` `world/selection.py`: `for address in selected:\n        validated_node(held[address][1])` → `pass` → `test_w7_a_stale_selected_record_refuses_durably`.
 - `W7-l` `world/selection.py`: in `_binds_term`, `validated_node(node)` → removed → `test_w7_a_stale_edit_that_removed_the_term_refuses_durably`.
-- `W7-m` `world/selection.py`: `return any(body["restriction"] == term …)` → `return False` → `test_w7_terms_in_arguments_and_restrictions_select_and_a_malformed_facet_refuses_durably`.
-- `W7-n` `world/selection.py`: `if term in facet["args"]:` → `if term.lower() in [a.lower() for a in facet["args"]]:` → `test_w7_terms_in_arguments_and_restrictions_select_and_a_malformed_facet_refuses_durably`, whose negative asserts `GENE.upper()` selects nothing.
+- `W7-m` `world/selection.py`: `return term in args or term in restrictions` → `return term in args` → `test_w7_terms_in_arguments_and_restrictions_select_and_a_malformed_facet_refuses_durably`.
+- `W7-n` `world/selection.py`: `raise SelectionRefused("record-malformed", refs=[node.id]) from None` → `return False` (a malformed facet reads as "does not reference") → `test_w7_terms_in_arguments_and_restrictions_select_and_a_malformed_facet_refuses_durably`'s malformed-facet assertion.
+- `W7-p` `decode.py`: in `stored_claim_terms`, `return tuple(terms), tuple(body["restriction"] for body in qualifier_bodies.values())` → `return tuple(term.lower() for term in terms), tuple(body["restriction"] for body in qualifier_bodies.values())` (terms normalized before comparison) → the same test's `GENE.upper()` negative, written as a distinct assertion.
 - `W7-o` `world/selection.py`: `if type(view) is not WorldReadView:` → `if False:` → `test_w7_empty_clauses_and_a_read_view_durably`.
 - `W8-a` `world/derive.py`: `if len(locations) > 1:` (the `by_address` loop) → `if False:` → `test_w8_duplicate_location_refuses_the_build_in_either_order_and_consolidate_repairs_durably`.
 - `W8-b` `relocation.py`: `if keep_map != other_map:` → `if False:` (a survivor's map wins) → `test_w8_address_conflict_refuses_the_build_and_consolidate_and_the_write_boundary_durably`.
@@ -1496,11 +1587,11 @@ Then `CUT28_ARMS`, 22 `Arm(...)` entries, each with a `Sabotage(module=..., befo
 - `W8b-c` `world/derive.py`: `by_address.setdefault(record.address, []).append((corpus_id, record.uid))` → keyed on `(record.address, record.uid)` so distinct uids at one address are not a duplicate → `test_w8b_duplicate_location_is_the_same_finding_with_shared_or_distinct_uids_durably`.
 - `W8b-d` `relocation.py`: `if keep_node.id != other_node.id:` → `if False:` → `test_w8b_uid_corruption_offers_no_repair_and_consolidate_is_unavailable_durably`.
 
-That is 22 arms: fifteen `W7`, three `W8`, four `W8b`. Every `before` must occur exactly once in its module — run `test_each_sabotage_names_one_real_source_site` (step 3) until it does. If a mutation cannot be made to fail exactly one durable test, add the durable test that isolates it rather than dropping the arm, and record the count in Task 9.
+That is 23 arms: sixteen `W7`, three `W8`, four `W8b`. Every `before` must occur exactly once in its module — run `test_each_sabotage_names_one_real_source_site` (step 3) until it does. If a mutation cannot be made to fail exactly one durable test, add the durable test that isolates it rather than dropping the arm, and record the count in Task 9.
 
 - [ ] **Step 3: The guard**
 
-Create `python/tests/acceptance/test_n2_cut28.py` from `test_n2_cut27.py`: import `CUT28_ARMS, CO_CITED, DECLARATION_UNITS, UNIT_CHECKS, unit_of` from `n2_arms_cut28`; add `from n2_arms_cut27 import CUT27_ARMS` to the prior imports and `*CUT27_ARMS` to `PRIOR_ARMS`; `FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-14-conformance-cut-28.md"`; `FROZEN_DECLARATION = "python/tests/acceptance/n2_arms_cut28.py"`; the session fixture's `mktemp("n2-cut28")`. Two commits are pinned: `CUT28_FREEZE_COMMIT` and `CUT28_FROZEN_SHA256` are Task 1's freeze commit and the cut document's digest there; `CUT28_DECLARATION_COMMIT` and `CUT28_DECLARATION_SHA256` are the commit step 4 makes and the declaration's digest there. `FROZEN_PRIOR_CUT_FILES` gains `"python/tests/acceptance/n2_arms_cut27.py": "<the short sha that added it — git log --follow>"`. The inventory test asserts `DECLARATION_UNITS == ("W7", "W8", "W8b")`, `len(CUT28_ARMS) == 22`, and `unit_of` over every row. The pinned-sections test greps `"**3 declaration units**"`, `"Three guarantee rows are read, **2 full/closed** (W7, W8b)"` and `'("cut27_acceptance.py",)'`. The row-parser test's rejects become `("", "D1", "W7-", "W7a", "W7-A", "W7-1", "W7-aa", "W7-a-b")` with `match="is not a cut-28 row"`. `test_the_freeze_commit_and_sections_two_through_seven_are_pinned`, `test_the_declaration_is_byte_exact_against_its_own_commit` and `test_prior_declarations_are_frozen_and_no_check_is_reclaimed` keep cut 27's bodies with the names swapped.
+Create `python/tests/acceptance/test_n2_cut28.py` from `test_n2_cut27.py`: import `CUT28_ARMS, CO_CITED, DECLARATION_UNITS, UNIT_CHECKS, unit_of` from `n2_arms_cut28`; add `from n2_arms_cut27 import CUT27_ARMS` to the prior imports and `*CUT27_ARMS` to `PRIOR_ARMS`; `FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-14-conformance-cut-28.md"`; `FROZEN_DECLARATION = "python/tests/acceptance/n2_arms_cut28.py"`; the session fixture's `mktemp("n2-cut28")`. Two commits are pinned: `CUT28_FREEZE_COMMIT` and `CUT28_FROZEN_SHA256` are Task 1's freeze commit and the cut document's digest there; `CUT28_DECLARATION_COMMIT` and `CUT28_DECLARATION_SHA256` are the commit step 4 makes and the declaration's digest there. `FROZEN_PRIOR_CUT_FILES` gains `"python/tests/acceptance/n2_arms_cut27.py": "<the short sha that added it — git log --follow>"`. The inventory test asserts `DECLARATION_UNITS == ("W7", "W8", "W8b")`, `len(CUT28_ARMS) == 23`, and `unit_of` over every row. The pinned-sections test greps `"**3 declaration units**"`, `"Three guarantee rows are read, **2 full/closed** (W7, W8b)"` and `'("cut27_acceptance.py",)'`. The row-parser test's rejects become `("", "D1", "W7-", "W7a", "W7-A", "W7-1", "W7-aa", "W7-a-b")` with `match="is not a cut-28 row"`. `test_the_freeze_commit_and_sections_two_through_seven_are_pinned`, `test_the_declaration_is_byte_exact_against_its_own_commit` and `test_prior_declarations_are_frozen_and_no_check_is_reclaimed` keep cut 27's bodies with the names swapped.
 
 - [ ] **Step 4: Pin the declaration, run the guard, commit**
 
@@ -1514,11 +1605,11 @@ sha256sum python/tests/acceptance/n2_arms_cut28.py    # → CUT28_DECLARATION_SH
 Fill both into `test_n2_cut28.py`, then:
 
 Run: `cd python && uv run --frozen pytest tests/acceptance/test_n2_cut28.py`
-Expected: every guard test passes — including `test_every_arm_fails_under_its_own_sabotage` (22 sound findings) and the freeze pin.
+Expected: every guard test passes — including `test_every_arm_fails_under_its_own_sabotage` (23 sound findings) and the freeze pin.
 
 ```bash
 uv run --frozen ruff check . && uv run --frozen pyright
-cd .. && tasks note beliefs-10efda "22 durable arms on the certified volume; n2_arms_cut28 declared and pinned; guard green"
+cd .. && tasks note beliefs-10efda "23 durable arms on the certified volume; n2_arms_cut28 declared and pinned; guard green"
 tasks done beliefs-10efda "cut 28 arms, declarations and guard"
 git add python/tests tasks
 git commit -m "test(cut28): the freeze guard and pins"
@@ -1562,7 +1653,7 @@ Run: `cd python && uv run --frozen pytest tests/test_frozen_guards.py tests/test
 Expected: PASS.
 
 Run: `cd python && uv run --frozen python tools/cut28_acceptance.py 2>&1 | tee ../.cut28-acceptance/run.log | tail -30`
-Expected: exit 0; the prefix chain through cut 27 green; both phases green; the final line `declared arms: 22 (= 3 declaration units; 3 guarantee rows)`.
+Expected: exit 0; the prefix chain through cut 27 green; both phases green; the final line `declared arms: 23 (= 3 declaration units; 3 guarantee rows)`.
 
 - [ ] **Step 5: Commit**
 
@@ -1596,7 +1687,7 @@ Expected: three `exit 0`; the pytest summary line and the vitest summary line na
 
 - [ ] **Step 2: Write the results record**
 
-Sections as cut 27's: `## 1. What ran` (the exact commands, exit codes, the prefix chain, per-phase counts, the `declared arms:` line, the transcript links); `## 2. Accounting and disposition` (W7 and W8b close; W8 part on its ambiguous-search-term conflict, re-homed to `authority-labels`; the closed count moves from 151 to **153** of 196, leaving **43** open — confirm against `roadmap_status.py`'s output); `## 3. Corrections and deviations from the frozen cut` (dated bullets: any fixture measured against §4's claims, any arm count other than 22, any staleness re-target); `## 4. Reproduction measurement` (no new mm30 run; cite cut 22's); `## 5. Remaining boundary` (`world-resolution` retains no guarantee row and the filed follow-ups `beliefs-48214e` and `beliefs-24b42b`; `authority-labels` retains W8's ambiguous-search-term conflict, W9 and W14; `contract-cut` retains R23's rules-store clauses and W8a's `instrument-certification` arm; manifest safety unowned); `## 6. Main integration` after the merge.
+Sections as cut 27's: `## 1. What ran` (the exact commands, exit codes, the prefix chain, per-phase counts, the `declared arms:` line, the transcript links); `## 2. Accounting and disposition` (W7 and W8b close; W8 part on its ambiguous-search-term conflict, re-homed to `authority-labels`; the closed count moves from 151 to **153** of 196, leaving **43** open — confirm against `roadmap_status.py`'s output); `## 3. Corrections and deviations from the frozen cut` (dated bullets: any fixture measured against §4's claims, any arm count other than 23, any staleness re-target); `## 4. Reproduction measurement` (no new mm30 run; cite cut 22's); `## 5. Remaining boundary` (`world-resolution` retains no guarantee row and the filed follow-ups `beliefs-48214e` and `beliefs-24b42b`; `authority-labels` retains W8's ambiguous-search-term conflict, W9 and W14; `contract-cut` retains R23's rules-store clauses and W8a's `instrument-certification` arm; manifest safety unowned); `## 6. Main integration` after the merge.
 
 - [ ] **Step 3: Regenerate the roadmap's Appendix A and rewrite the ledger's Current state**
 
@@ -1619,4 +1710,23 @@ Then merge `design/world-resolution-slice-4` into `main` with `--no-ff`, run `ju
 
 ## Review log
 
-*(none yet)*
+**2026-09-14, first review, eight findings, all resolved.** (1) Every topic
+world reports unmapped coordination uids under equal states, so the drift
+check refused the W7 positives — the evaluator keys on the state pair, the
+spec is amended (§2.1, §3.2, §5), and a unit arm pins the equal-state case
+(Task 3). (2) The hand-written claim-shape check admitted a qualifier without
+`quantifier` — `decode.stored_claim_terms` factors `_wire_parts`' check out
+of `claim_from_stored` and the evaluator translates its refusal (Task 4).
+(3) The absent-inbound fixture carried the edge on the absent run, which the
+inbound index never files — the relation lives on `d_a` with `r_b` as its
+declared source (Task 3). (4) A third same-uid record inside BETA is a
+corpus-local `CollisionError` before the world check — it lives in a third
+corpus (Task 6). (5) `alpha_extra`/`beta_extra` went through the validating
+durable writer — the topic fixture builds its own world with raw staging for
+both corpora and keeps `without` (Task 7). (6) Dropping `absent` or
+`unresolved` from the projection survived identity inequality — the members
+are asserted as literals and `clauses: []` isolates `absent` (Tasks 3, 5, 7).
+(7) The registration-order test compared different duplicates — one set of
+roots under two worlds admitted in opposite order, the whole finding
+compared (Task 6). (8) `contributing` is sorted over minted ids — every
+durable expectation is `tuple(sorted((a, b)))` (Task 7).

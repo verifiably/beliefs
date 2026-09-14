@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/world-resolution-slice-4
 created: 2026-09-09T15:26:54Z
-updated: 2026-09-14T10:48:08Z
+updated: 2026-09-14T11:25:14Z
 started: 2026-09-14T03:10:08Z
 depends: [beliefs-46847c]
 parent: beliefs-d248ba
@@ -32,3 +32,4 @@ Design and freeze W7 view evaluation over the completed world resolver, followin
 - 2026-09-14T10:30:50Z (design/world-resolution-slice-4): parked (waiting on user, review): Third review of the slice 4 design (§11 second-review entry); on approval, writing-plans, then freeze cut 28
 - 2026-09-14T10:48:08Z (design/world-resolution-slice-4): Plan drafted 2026-09-14: nine steps filed (beliefs-cb9581 … beliefs-902cd5); cut 28; 22 arms over W7/W8/W8b
 - 2026-09-14T10:48:08Z (design/world-resolution-slice-4): parked (waiting on user, review): Review the slice 4 implementation plan (docs/superpowers/plans/2026-09-14-world-resolution-slice-4.md); on approval, execute Task 1 (freeze cut 28) via subagent-driven development
+- 2026-09-14T11:25:14Z (design/world-resolution-slice-4): Plan review 2026-09-14: eight findings resolved; spec amended for the drift rule (state pair, not unmapped), decode.stored_claim_terms, and the foreign-source inbound fixture; 23 arms

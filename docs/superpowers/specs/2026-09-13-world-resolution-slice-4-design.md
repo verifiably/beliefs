@@ -1,7 +1,7 @@
 # World resolution, slice 4 — view evaluation and the W8/W8b discharge
 
-**Date:** 2026-09-13, revised twice 2026-09-14 after review (§11)
-**Status:** revised twice, awaiting third review
+**Date:** 2026-09-13, revised three times 2026-09-14 after review (§11)
+**Status:** approved 2026-09-14 at `0e8600b`; amended at plan review (§11 third entry)
 **Boundary:** `world-resolution`, slice 4 of four (`beliefs-d248ba`); task `beliefs-0e523a`
 **Lane:** `world-read`, worktree `.worktrees/world-resolution-slice-4`
 **Sources:** `../../designs/2026-08-02-world-addressing-design.md` (§5, §7: W7, W8, W8b),
@@ -87,8 +87,14 @@ again.
    after publication is served as edited and reported as drift, never
    refused. Two opens at one epoch can therefore hold different relations
    under one stamp, and a selection over either would be complete. The
-   evaluator refuses a drifted view at entry (§3.2), so a selection carries
-   the epoch's stamp only when the capture is the epoch's state. The
+   evaluator refuses a view whose capture moved at entry (§3.2), so a
+   selection carries the epoch's stamp only when the capture is the epoch's
+   state. The signal is the corpus-state pair on each `DriftReport`: a
+   report whose captured state equals the published one lists records the
+   map never held by construction — coordination and prose kinds, which the
+   epoch captures for state identity and never addresses (view-kinds
+   §11.5) — and every ordinary topic world carries one; it is not drift of
+   the capture and does not refuse. The
    evaluator takes `WorldReadView` only —
    not the `ReadView | WorldReadView` union the walks accept — because a
    corpus-local selection is the `fb-2026-07-30-019` defect W7 exists to
@@ -208,11 +214,13 @@ disagree.
 1. Refuse if `view.damaged()` is non-empty: `SelectionRefused("corpus-damaged")`
    naming every damaged corpus. A damaged corpus is excluded from
    `iter_stored`, and a scan that ran over the remainder would answer for a
-   world it did not see. Then refuse if `view.drift()` is non-empty:
-   `SelectionRefused("corpus-drifted")` naming every drifted corpus. A
-   drifted capture is a state the epoch did not publish; the route is a
-   rebuild and an evaluation at the new epoch. Damage is checked first
-   because a damaged corpus has no state identity to compare.
+   world it did not see. Then refuse if any `DriftReport` carries
+   `captured_state != published_state`: `SelectionRefused("corpus-drifted")`
+   naming every such corpus. A moved capture is a state the epoch did not
+   publish; the route is a rebuild and an evaluation at the new epoch. A
+   report whose two states agree names only records outside the world map
+   (decision 1) and does not refuse. Damage is checked first because a
+   damaged corpus has no state identity to compare.
 2. `locate` every address the query names — each `addresses` member and
    each `closure` anchor, across all clauses — before any denotation is
    computed. If any is `Unknown`, refuse `SelectionRefused("address-unknown")`
@@ -229,12 +237,14 @@ disagree.
      proposition passes `validated_node` **before** its facet is read, so a
      stale or missing semantic hash refuses whether or not the edited claim
      would have matched — the scan is a facet read, and §2.4 admits no
-     unvalidated facet read. The facet's shape is then checked as
-     `decode.claim_from_stored` checks it — the five keys, `args` a
-     sequence, `qualifiers` a mapping of bodies each with a `restriction` —
-     and a violation refuses with `SelectionRefused("record-malformed")`
-     naming the record. No decode is performed: the term is compared as
-     stored.
+     unvalidated facet read. The facet's shape is then checked by
+     `decode.stored_claim_terms(node)`, the profile-independent shape check
+     factored out of `claim_from_stored` — the five keys, `args` a sequence
+     of identifiers, every qualifier body exactly `quantifier` and
+     `restriction` — which returns the argument and restriction terms, and
+     its `MalformedWireClaim` refuses with
+     `SelectionRefused("record-malformed")` naming the record. No decode
+     against a profile is performed: the term is compared as stored.
    - `closure`: `traversal.closure(live, adjacency)` from the anchor's
      **live** address — `view.resolve(anchor)`, which step 2 has already
      shown is `Resolved` — over a composite adjacency (§3.3); its `reached`
@@ -377,7 +387,8 @@ and the N2 declarations, which is what selection is.
 | condition | answer |
 |---|---|
 | the view has a damaged corpus | `SelectionRefused("corpus-damaged")` at entry |
-| the view reports drift on any corpus | `SelectionRefused("corpus-drifted")` at entry, every drifted corpus named; rebuild, then evaluate at the new epoch |
+| a drift report's captured state differs from the published state | `SelectionRefused("corpus-drifted")` at entry, every such corpus named; rebuild, then evaluate at the new epoch |
+| a drift report whose states agree (records outside the world map) | not a refusal; the records are never selected |
 | an address the query names is `Unknown` | `SelectionRefused("address-unknown")`, every such address named |
 | an address the query names is `NotPresent`, none `Unknown` | `SelectionRefused("address-not-present")`, every such address and its corpus named |
 | a proposition's claim facet is malformed under `references-term` | `SelectionRefused("record-malformed")` naming the record |
@@ -410,8 +421,10 @@ whose query names records in `BETA` — by `addresses`, by `kinds`, by
 by `references-term` against a proposition in `BETA` whose claim facet
 carries the term. Absence is produced by dropping `BETA`'s root from the
 config after publication; a dangling target by a relation to an address the
-map never recorded; a not-present inbound source by the split-producer
-fixture with `BETA` absent. The W8/W8b fixtures are the duplicate-address
+map never recorded; a not-present inbound source by a relation stored on a
+present `ALPHA` record whose declared `source` is `BETA`'s run — the world
+inbound index files an edge only from held records, so the edge must live on
+the record that stays. The W8/W8b fixtures are the duplicate-address
 and shared-uid worlds `test_world_epoch.py` builds, and a pair of `source`
 records at one address with differing identifier maps.
 
@@ -448,7 +461,14 @@ order-reversed negative:
   reopen at the same epoch; the second open reports drift on `BETA` and
   the evaluation refuses `corpus-drifted` naming it, while the first open,
   captured before the edit, still evaluates. Negative: the rebuilt epoch
-  evaluates clean and its selection identity differs from the first's.
+  evaluates clean and its selection identity differs from the first's; and
+  the ordinary topic world, whose coordination records make every open
+  report unmapped uids under equal states, evaluates without refusal.
+- Projection members: `absent` and `unresolved` are asserted as projected
+  literals, not only through identity inequality — `selected` and
+  `contributing` also move when a corpus goes absent, so inequality alone
+  cannot show the member is present. For `absent`, `clauses: []` with and
+  without `BETA` selects nothing both times and the identities differ.
 - Determinism: the same query with clauses and predicates authored in
   another order, and the corpora registered in another order, gives an
   identical projection.
@@ -493,7 +513,7 @@ cut 27 and serialized after its discharge, which is in the branch ancestry.
 ("test_world_selection_acceptance.py", "test_n2_cut28.py")`. Declaration
 units `W7`, `W8` and `W8b`. W8's search-term arm is named in §3 of the cut
 as deferred to `authority-labels`. The cut names `errors.py`,
-`view_query.py`, `world/__init__.py`, `python/tools/roadmap_status.py`,
+`view_query.py`, `decode.py`, `world/__init__.py`, `python/tools/roadmap_status.py`,
 `python/tests/test_designs_corpus.py`, the ledger, the roadmap and the guide
 index as shared surfaces it rewrites, per concurrency rule 3; `corpus.py`,
 `derive.py`, `relocation.py` and `world/view.py` are read and not rewritten.
@@ -567,3 +587,15 @@ is `NotPresent`, which §3.2 reports as an unresolved step — reproduced
 against the existing traversal. The negative now expects an incomplete
 selection with one not-present step, and a sixth form anchored at `BETA`'s
 dataset carries the missing-anchor refusal (§7).
+
+**2026-09-14, plan review, three amendments to this spec.** (1) Every
+ordinary topic world reports drift: the view lists coordination records as
+unmapped uids under equal corpus states, reproduced with a fresh project
+record — the refusal now keys on `captured_state != published_state`, and
+an equal-state report names records outside the map by construction
+(§2.1, §3.2, §5, §7). (2) The claim-shape check as written admitted a
+qualifier lacking `quantifier` — the shape check is `decode`'s own,
+factored into `stored_claim_terms` (§3.2, §7 shared files). (3) The
+absent-inbound fixture carried the edge on the absent run, which the
+inbound index never files — the edge lives on the present record with a
+foreign `source` (§7).
