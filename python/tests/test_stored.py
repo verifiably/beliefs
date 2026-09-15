@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from beliefs import stored
+from beliefs.dataset import dataset_address
 from beliefs.errors import MalformedRecord
 
 PINNED = [{"name": "data", "digest": "sha256:" + "ab" * 32}]
@@ -10,6 +11,17 @@ PINNED = [{"name": "data", "digest": "sha256:" + "ab" * 32}]
 
 def _dataset(slug: str, basis=None):
     return stored.dataset_node(slug, title=slug, resources=PINNED, basis=basis)
+
+
+def test_dataset_address_of_reads_the_stored_declaration_not_the_id():
+    handle = stored.governed_node("dataset", "handle", "handle", {stored.DATASET_FACET: {"resources": PINNED}}, ())
+    assert stored.dataset_address_of(handle) == dataset_address(stored.dataset_declaration(handle))
+    assert stored.dataset_address_of(handle) != handle.id
+
+
+def test_dataset_address_of_is_none_for_an_unpinned_record():
+    unpinned = stored.governed_node("dataset", "u", "u", {stored.DATASET_FACET: {"resources": [{"name": "x"}]}}, ())
+    assert stored.dataset_address_of(unpinned) is None
 
 
 def _route(identity: str) -> dict[str, object]:

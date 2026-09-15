@@ -58,7 +58,7 @@ from nodes.core.relations import Relation
 from beliefs import identifiers
 from beliefs import report as report_values
 from beliefs import source as source_basis_projection
-from beliefs.dataset import DatasetDeclaration, ResourceDeclaration
+from beliefs.dataset import DatasetDeclaration, ResourceDeclaration, dataset_address
 from beliefs.errors import BasisMissing, IdentifierMalformed, IdentityError, LoneSurrogate, MalformedRecord
 from beliefs.holdings.records import (
     HOLDINGS_OBSERVATION_KIND,
@@ -116,6 +116,7 @@ __all__ = [
     "assessment_value",
     "coreference_attestation_node",
     "coreference_attestation_value",
+    "dataset_address_of",
     "dataset_declaration",
     "display_facet_malformed",
     "display_statement",
@@ -378,6 +379,13 @@ def source_address_of(node: Node) -> str | None:
     return source_basis_projection.source_address(
         {k: v for k, v in _source_identifiers(node).items() if isinstance(v, str)}
     )
+
+
+def dataset_address_of(node: Node) -> str | None:
+    """The address the stored declaration derives (slice 5 §3) — what the
+    boundary compares `node.id` against. All-or-nothing, like the fold it
+    calls: an unpinned resource gives `None`, never a partial address."""
+    return dataset_address(dataset_declaration(node))
 
 
 @sealed
