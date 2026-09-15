@@ -194,6 +194,22 @@ def entry(frm, to, *, actor="curator", grounds="checked the PDF", token="t1"):
     return {"from": dict(frm), "to": dict(to), "actor": actor, "grounds": grounds, "event_token": token}
 
 
+def consolidation(frm, absorbed, *, actor="consolidator", grounds="one paper", token="c1"):
+    """A consolidation entry (slice 6 §3.1): `from == to`, plus the absorbed chain."""
+    return {
+        "from": dict(frm),
+        "to": dict(frm),
+        "actor": actor,
+        "grounds": grounds,
+        "event_token": token,
+        "absorbed": [dict(e) for e in absorbed],
+    }
+
+
+C = {"doi": "10.1234/xyz", "pmid": "1"}
+ADDR_C = cast(str, source.source_address(C))
+
+
 A = {"pmid": "1"}
 B = {"doi": CANONICAL_DOI, "pmid": "1"}
 ADDR_A = cast(str, source.source_address(A))
@@ -225,6 +241,70 @@ class TestReaders:
         assert stored.held_source_addresses(
             stored.identifier_corrections(raw_source(B, history=[entry(A, B)], deprecated=[ADDR_A]))
         ) == {ADDR_A, ADDR_B}
+
+    # --- slice 6 §3: the consolidation entry and the nested chain ---
+
+    def test_a_consolidation_entry_reads_with_its_absorbed_chain(self):
+        history = [entry(A, B, token="t1"), consolidation(B, [entry(A, C, token="o1"), entry(C, B, token="o2")])]
+        node = raw_source(B, history=history, deprecated=sorted([ADDR_A, ADDR_C]))
+        first, merged = stored.identifier_corrections(node)
+        assert first.absorbed == ()
+        assert merged.from_identifiers == B and merged.to_identifiers == B
+        assert (merged.actor, merged.grounds, merged.event_token) == ("consolidator", "one paper", "c1")
+        assert [c.event_token for c in merged.absorbed] == ["o1", "o2"]
+        assert merged.absorbed[0].from_identifiers == A and merged.absorbed[1].to_identifiers == B
+        assert stored.validate_source_history(node) == (first, merged)
+
+    def test_a_nested_consolidation_entry_reads(self):
+        inner = consolidation(B, [entry(A, B, token="o1")], token="c1")
+        outer = consolidation(B, [entry(C, B, token="p1"), inner], token="c2")
+        node = raw_source(B, history=[entry(A, B, token="t1"), outer], deprecated=sorted([ADDR_A, ADDR_C]))
+        _, merged = stored.identifier_corrections(node)
+        assert merged.absorbed[1].absorbed[0].event_token == "o1"
+
+    def test_held_addresses_reach_into_absorbed_chains_once(self):
+        history = [entry(A, B, token="t1"), consolidation(B, [entry(A, C, token="o1"), entry(C, B, token="o2")])]
+        node = raw_source(B, history=history, deprecated=sorted([ADDR_A, ADDR_C]))
+        assert stored.held_source_addresses(stored.identifier_corrections(node)) == {ADDR_A, ADDR_B, ADDR_C}
+
+    @pytest.mark.parametrize(
+        "deprecated",
+        [sorted([ADDR_A]), sorted([ADDR_A, ADDR_C, "source:" + "f" * 64])],
+        ids=["omits-an-absorbed-address", "adds-an-underived-address"],
+    )
+    def test_validate_source_history_holds_the_redirect_set_to_the_absorbed_chain(self, deprecated):
+        history = [entry(A, B, token="t1"), consolidation(B, [entry(A, C, token="o1"), entry(C, B, token="o2")])]
+        with pytest.raises(MalformedRecord):
+            stored.validate_source_history(raw_source(B, history=history, deprecated=deprecated))
+
+    def test_an_identical_event_may_recur_across_chains(self):
+        b = entry(A, B, token="b")
+        history = [
+            entry(A, B, token="a"),
+            consolidation(B, [b], token="m1"),
+            consolidation(B, [entry(A, B, token="c"), consolidation(B, [dict(b)], token="m2")], token="m3"),
+        ]
+        node = raw_source(B, history=history, deprecated=[ADDR_A])
+        assert len(stored.identifier_corrections(node)) == 3
+
+    @pytest.mark.parametrize(
+        "history, match",
+        [
+            ([dict(entry(A, B, token="t1"), absorbed=[entry(B, A, token="o1")])], "changes nothing"),
+            ([entry(A, B, token="t1"), consolidation(B, [])], "non-empty list"),
+            ([entry(A, B, token="t1"), consolidation(B, [entry(A, C, token="o1"), entry({"pmid": "9"}, B, token="o2")])], "continue"),
+            ([entry(A, B, token="t1"), consolidation(B, [entry(A, C, token="o1")])], "does not end at the entry"),
+            ([entry(A, B, token="t1"), consolidation(B, [entry(A, B, token="t1", grounds="other")])], "two different events"),
+            ([entry(A, B, token="t1"), consolidation(B, [entry(A, C, token="o1"), entry(C, B, token="o1")])], "repeats"),
+            ([entry(A, B, token="t1"), consolidation(B, [entry(A, B, token="o1", grounds="\udcff")])], "encodable"),
+            ([entry(A, B, token="t1"), consolidation(B, [entry(A, B, token="o1")], token="t1")], "repeats"),
+        ],
+        ids=["six-keys-unequal", "empty-absorbed", "absorbed-discontinuous", "absorbed-ends-elsewhere", "conflicting-reuse", "repeat-inside-absorbed", "unencodable-inside-absorbed", "entry-token-repeats-spine"],
+    )
+    def test_malformed_consolidation_shapes_refuse(self, history, match):
+        node = raw_source(B, history=history, deprecated=[ADDR_A])
+        with pytest.raises(MalformedRecord, match=match):
+            stored.identifier_corrections(node)
 
     def test_validate_source_history_accepts_the_agreeing_redirect(self):
         node = raw_source(B, history=[entry(A, B)], deprecated=[ADDR_A])
