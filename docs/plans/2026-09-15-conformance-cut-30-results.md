@@ -100,5 +100,28 @@ on its `instrument-certification` arm.
 
 ## 6. Main integration
 
-Main integration is pending controller merge, merged-main verification, and
-worktree cleanup.
+Merged `design/world-resolution-slice-6` into `main` with `--no-ff` on
+2026-09-15 at `4d785f08630d97975c4fcacf6c5d6f1d8fc000f4`, after the whole-branch
+review and scoped review of the final documentation fixes at `7fc856b`.
+All review findings were addressed. The merge also retains main's independent
+`ops-check` version 4 update from `d537fa7`.
+
+`just gate`, run on that unchanged merged revision with the five certified-root
+exports in §1, exited **0**. Ruff, Pyright, TypeScript typecheck and Biome passed;
+task validation reported **zero errors and zero warnings**. The serial Python
+suite reported **4,690 passed in 1,152.06s (0:19:12)**. TypeScript reported
+**142 passed** across seven files. No capability refusal, skip or waiver occurred.
+
+The output is retained in
+[`main-gate.log`](2026-09-15-conformance-cut-30-run/main-gate.log), SHA-256
+`7f65471fd3e7be795c5aafd123ea722b645453e90525b5b8be175d61162be555`.
+Only Vitest's absolute checkout path was replaced by `./ts`; Pyright's
+informational version-availability notice is retained. Earlier branch and
+certified transcripts are unchanged. This integration record changes only
+documentation after the gate.
+
+The rule-6 handoff note for parked task `beliefs-705507` was committed as
+`c68c61e` on `design/estimand-typing`; that lane must rebase onto main before opening.
+Its stale `process_missing` task warning was resolved by mirroring main's existing
+`process: direct` decision for `beliefs-f253a1`. Task validation there now reports
+zero errors and zero warnings.
