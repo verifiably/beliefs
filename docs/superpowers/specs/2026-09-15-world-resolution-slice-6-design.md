@@ -1,7 +1,7 @@
 # World resolution, slice 6 — reconciling divergent correction histories at `consolidate`
 
 **Date:** 2026-09-15
-**Status:** draft, under review; not frozen
+**Status:** discharged at conformance cut 30 on 2026-09-15; results: ../../plans/2026-09-15-conformance-cut-30-results.md
 **Boundary:** `world-resolution`, the last of its filed follow-ups (`beliefs-d248ba`); task `beliefs-24b42b`
 **Lane:** `world-read`, worktree `.worktrees/world-resolution-slice-6`
 **Sources:** `2026-09-10-world-resolution-slice-2b-design.md` (§5.2, §6, §7, §8, §12, §13),

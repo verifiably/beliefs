@@ -140,7 +140,7 @@ context and the linked design references for normative detail.
 - **Identifier correction** — An attributed source-identity event that replaces
   one canonical identifier map with another for the same work. It preserves the
   source UID, renames the address only when the selected basis changes, and keeps
-  every retired address resolvable without rewriting referrers.
+  every retired address resolvable without rewriting referrers; a consolidation entry (`from == to`, plus `absorbed`) records the other replica's history when duplicates consolidate (cut 30).
   ([identity](identity-world-and-change.md#correction-is-additive))
 - **Identity basis** — The kind-specific semantic fields whose canonical
   projection determines a record's content identity. ([identity](identity-world-and-change.md#identity-is-not-one-field))

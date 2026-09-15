@@ -105,7 +105,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 29** is implemented and discharged. What
+Every conformance cut through **cut 30** is implemented and discharged. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -146,9 +146,9 @@ normalized identifiers, and identifier correction preserves attributed history.
 Epoch import evaluates every receipt before writing; epoch audit and query
 reduce retained receipt states; and the world audit reports damaged corpora
 while judging their captured remainder.
-The latest discharged boundary is cut 29
-([cut](docs/designs/2026-09-14-conformance-cut-29.md),
-[results](docs/plans/2026-09-14-conformance-cut-29-results.md)).
+The latest discharged boundary is cut 30
+([cut](docs/designs/2026-09-15-conformance-cut-30.md),
+[results](docs/plans/2026-09-15-conformance-cut-30-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
 test before it is a passing one. There are **196 rows** across **eighteen frozen

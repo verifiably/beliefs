@@ -1,6 +1,6 @@
 # Conformance cut 30 — reconciling divergent correction histories at `consolidate`
 
-**Status:** frozen 2026-09-15, before implementation; not yet discharged.
+**Status:** discharged 2026-09-15; results: ../plans/2026-09-15-conformance-cut-30-results.md
 **Frozen:** 2026-09-15, before implementation, on `design/world-resolution-slice-6`
 **Design:** `../superpowers/specs/2026-09-15-world-resolution-slice-6-design.md`, approved 2026-09-15 after two reviews (§11 there)
 **Numbered after** cut 29 (roadmap concurrency rule 1) and **serialized after** its discharge, which is in the branch ancestry (rule 5).

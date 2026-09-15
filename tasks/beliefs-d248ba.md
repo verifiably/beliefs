@@ -1,13 +1,14 @@
 ---
 id: beliefs-d248ba
 title: Deliver world resolution and packaging remainder
-status: todo
+status: done
 priority: 2
 size: xl
 complexity: high
 owner: design/world-resolution
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-14T13:40:23Z
+updated: 2026-09-15T13:42:36Z
+completed: 2026-09-15T13:42:36Z
 depends: []
 tags: [migration, world-read, resolution]
 spec: docs/superpowers/specs/2026-09-09-world-resolution-slice-1-design.md
@@ -33,3 +34,4 @@ Remaining work: Slices 1, 2 and 2b are discharged at cuts 23, 24 and 25; slice 3
 - 2026-09-09T17:32:47Z (main): Slice 1 merged into main at 6eb0b93. Final review fixes verified by 511 certified tests; merged-main just gate passed 4218 Python and 142 TypeScript tests with zero task errors or warnings. Slices 2-4 and the W8b build defect remain open; claim remains released.
 - 2026-09-12T16:26:55Z (main): Complexity high: Cuts 23-25 and the source-address implementation are landed; the current roadmap leaves snapshots/import/audit, view evaluation, dataset identity and divergent-history reconciliation. Those children retain unresolved semantics, so the parent is not mechanical closeout work.
 - 2026-09-14T13:40:23Z (design/world-resolution-slice-4): slice 4 discharged at cut 28: W7 and W8b close, W8's search-term conflict re-homed to authority-labels; the two filed follow-ups remain
+- 2026-09-15T13:42:36Z (design/world-resolution-slice-6): world-resolution closed: slices 1–6 discharged at cuts 23–25, 27–30; both filed follow-ups landed

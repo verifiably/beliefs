@@ -46,12 +46,12 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-09-15** for cut 29's world-resolution slice 5 discharge.
+**Updated 2026-09-15** for cut 30's world-resolution slice 6 discharge.
 
-**Implemented through conformance cut 29.** Cuts 4–24 have discharge results
+**Implemented through conformance cut 30.** Cuts 4–24 have discharge results
 records under `../plans/`; cut 25 records discharge in its frozen cut document,
-and cuts 26–29 record discharge in their dated results records, most recently
-`../plans/2026-09-14-conformance-cut-29-results.md`.
+and cuts 26–30 record discharge in their dated results records, most recently
+`../plans/2026-09-15-conformance-cut-30-results.md`.
 Cuts 1–3 are proved by their merge ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
 
@@ -194,7 +194,6 @@ not listed.
 | id | boundary | owner | what it blocks |
 |---|---|---|---|
 | `url-retrieval` | the URL retrieval boundary, acquisition orchestration and typed retrieval grants: H4, G9, R10, T5, T7's same-root case | `2026-08-24-world-index-holdings-design.md` §1–§3 | the first acquisition of a dataset from outside the system |
-| `world-resolution` | one filed follow-up: divergent correction-history reconciliation (`beliefs-24b42b`); no guarantee row remains | `2026-08-02-world-addressing-design.md` and `2026-08-08-world-address-ruling.md` | correction-history reconciliation |
 | `event-level-l8` | **Event-level L8** — the presence/exclusion relation across captured corpus heads | the tamper-evident-log design's own successor work (row 5) | row 5 reading L8 in full |
 | `contract-cut` | **The first full contract cut, its executable suite, and N1–N10**; N2's closing doctrine; P1's resolver-negative arm; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | sub-problem 5b (row 7) | the normative contract's own guarantees; disposition of the legacy check modules; the conformance-package split (§5) |
 | `log-remainder` | L1, L4; L10's relabel | `2026-08-22-log-verification-design.md` | row 5's L rows read in full |
@@ -210,10 +209,7 @@ not listed.
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-14-conformance-cut-29-results.md`) discharges world-resolution
-slice 5, holding every dataset to its derived address. W8 remains unchanged,
-and `beliefs-24b42b` retains the open `world-resolution` work above.
-`beliefs-d248ba` stays open. `nodes-remainder` closed 2026-09-12: `nodes`
+(`../plans/2026-09-15-conformance-cut-30-results.md`) discharges world-resolution slice 6, reconciling divergent correction histories at consolidate; the world-resolution boundary is closed and beliefs-d248ba with it. W8 remains unchanged. nodes-remainder closed 2026-09-12: `nodes`
 merged its 2.0 remainder to `main` at `b0c37b8` (STANDARD 2.0; umbrella
 `nodes-ce28b8`), so row 3 carries no live work and the contract-cut join
 (`beliefs-eacbe2`) no longer waits on `nodes`. Every boundary's tracker entry is named in the

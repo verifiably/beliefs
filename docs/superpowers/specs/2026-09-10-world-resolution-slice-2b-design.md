@@ -364,7 +364,7 @@ attestation, because an attestation needs two records.
   is unchanged and, over identical histories, is the identity. Reconciling
   divergent histories is filed as its own design (§12); silently keeping the
   survivor's history under a matching address set was the defect this rule
-  closes.
+  closes. *Built at cut 30 (2026-09-15): divergent histories reconcile by absorption; see 2026-09-15-world-resolution-slice-6-design.md.*
 - `delete` removes the record; its retired addresses stop resolving with it.
 - `supersede` and `revise` do not reach `source`; unchanged.
 
@@ -575,7 +575,7 @@ its children. Two siblings are filed under `beliefs-d248ba`:
    `dataset:sha256:<fold>` as ruled; see
    `2026-09-14-world-resolution-slice-5-design.md`.*
 2. **Reconciling divergent identifier-correction histories at
-   `consolidate`** — this slice refuses them (§7).
+   `consolidate`** — this slice refuses them (§7). *Built at cut 30 (2026-09-15): divergent histories reconcile by absorption; see 2026-09-15-world-resolution-slice-6-design.md.*
 
 ## 13. Limitations and open questions
 

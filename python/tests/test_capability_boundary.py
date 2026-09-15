@@ -93,7 +93,7 @@ def parsed(path: Path) -> ast.Module:
     return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 
 
-def names_of(tree: ast.Module) -> set[str]:
+def names_of(tree: ast.Module, *, exclude_stdlib_copy: bool = False) -> set[str]:
     """Every bare name, attribute tail, and imported source name.
 
     Import sources count deliberately, on both sides of the confinement: an
@@ -102,15 +102,29 @@ def names_of(tree: ast.Module) -> set[str]:
     root's roster is satisfied by its aliased callback imports, and a module
     elsewhere cannot smuggle a command in behind an alias.
     """
+    stdlib_copy = {
+        alias.asname or alias.name
+        for node in ast.walk(tree)
+        if exclude_stdlib_copy and isinstance(node, ast.Import)
+        for alias in node.names
+        if alias.name == "copy"
+    }
     found: set[str] = set()
     for node in ast.walk(tree):
-        if isinstance(node, ast.Name):
+        if isinstance(node, ast.Name) and node.id not in stdlib_copy:
             found.add(node.id)
-        elif isinstance(node, ast.Attribute):
+        elif isinstance(node, ast.Attribute) and not (
+            node.attr == "copy" and isinstance(node.value, ast.Name) and node.value.id in stdlib_copy
+        ):
             found.add(node.attr)
         elif isinstance(node, ast.ImportFrom):
             found.update(alias.name for alias in node.names)
     return found
+
+
+def test_raw_write_scan_distinguishes_stdlib_copy_from_shutil_copy():
+    tree = ast.parse("import copy\nimport shutil\ncopy.deepcopy({})\ncopy.copy({})\nshutil.copy('a', 'b')\n")
+    assert names_of(tree, exclude_stdlib_copy=True) & {"copy"} == {"copy"}
 
 
 def defined_names(tree: ast.Module) -> set[str]:
@@ -552,7 +566,7 @@ def test_no_cooperative_mutation_path_skips_registration():
         assert sorted(call_sites(composition_root, command)) == sorted(ENGINE_CALL_SITES[command]), command
 
     for module in modules():
-        named = names_of(parsed(module)) & set(BYTE_MUTATION_PRIMITIVES)
+        named = names_of(parsed(module), exclude_stdlib_copy=True) & set(BYTE_MUTATION_PRIMITIVES)
         assert named == RAW_WRITE_ALLOWLIST.get(relative(module), set()), (
             f"{relative(module)} writes bytes itself: {sorted(named)}"
         )

@@ -255,7 +255,7 @@ between this section and §4.4.** Keep them apart:
 
 | | what it is | how it moves |
 |---|---|---|
-| **entity continuity** | the `nodes` `uid` — what resolution binds an address to | a **persisting entity keeps its `uid`**, across rename and across ~~merge~~ **`consolidate`** *(2026-08-08)*. `consolidate` **preserves a shared input `uid`, or selects one of two distinct ones** *(2026-08-09)*; a distinct removed `uid` ceases to be live. If the inputs already share a `uid` (the duplicate-location case, §4.1 below), nothing is retired |
+| **entity continuity** | the `nodes` `uid` — what resolution binds an address to | a **persisting entity keeps its `uid`**, across rename and across ~~merge~~ **`consolidate`** *(2026-08-08)*. `consolidate` **preserves a shared input `uid`, or selects one of two distinct ones** *(2026-08-09)*; a distinct removed `uid` ceases to be live. If the inputs already share a `uid` (the duplicate-location case, §4.1 below), nothing is retired *— and from 2026-09-15 (cut 30) consolidate of two source replicas absorbs the non-surviving replica's correction history into the survivor's, so every retired address both held stays derivable* |
 | **canonical address** | the current basis-derived `id`, and what a stored ref holds | **changes** when the basis is corrected (§4.4) or the entity is merged (§4.3) |
 
 Saying "identity is derived from the basis" collapses both and makes §4.4's

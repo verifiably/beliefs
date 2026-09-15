@@ -1,0 +1,163 @@
+[cut30 phase 1/3] cut29_acceptance.py
+[cut29 phase 1/3] cut28_acceptance.py
+[cut28 phase 1/3] cut27_acceptance.py
+[cut27 phase 1/3] cut26_acceptance.py
+[cut26 phase 1/2] cut25_acceptance.py
+[cut25 phase 1/3] cut24_acceptance.py
+[cut24 phase 1/3] cut23_acceptance.py
+[cut23 phase 1/3] cut22_acceptance.py
+[cut22 phase 1/3] cut21_acceptance.py
+[cut21 phase 1/3] cut20_acceptance.py
+[cut20 phase 1/3] cut19_acceptance.py
+[cut19 phase 1/3] cut18_acceptance.py
+[cut18 phase 1/3] cut17_acceptance.py
+[cut17 phase 1/19] test_n2_cut6.py
+........................                                                 [100%]
+24 passed in 12.71s
+[cut17 phase 2/19] test_n2_cut7.py
+...........................................                              [100%]
+43 passed in 48.45s
+[cut17 phase 3/19] test_n2_cut9.py
+.......................                                                  [100%]
+23 passed in 17.15s
+[cut17 phase 4/19] test_intent_boundary_acceptance.py
+..................                                                       [100%]
+18 passed in 6.55s
+[cut17 phase 5/19] test_n2_cut11.py
+.................                                                        [100%]
+17 passed in 32.31s
+[cut17 phase 6/19] test_successor_admission_acceptance.py
+....                                                                     [100%]
+4 passed in 2.18s
+[cut17 phase 7/19] test_n2_cut12.py
+................                                                         [100%]
+16 passed in 15.02s
+[cut17 phase 8/19] test_confinement_acceptance.py
+...............                                                          [100%]
+15 passed in 316.24s (0:05:16)
+[cut17 phase 9/19] test_n2_cut13.py
+................                                                         [100%]
+16 passed in 126.79s (0:02:06)
+[cut17 phase 10/19] test_coordination_acceptance.py
+......................                                                   [100%]
+22 passed in 15.32s
+[cut17 phase 11/19] test_n2_cut14.py
+.......                                                                  [100%]
+7 passed in 14.23s
+[cut17 phase 12/19] test_cut15_lineage.py
+.....                                                                    [100%]
+5 passed in 81.11s (0:01:21)
+[cut17 phase 13/19] test_n2_cut15.py
+........                                                                 [100%]
+8 passed in 45.51s
+[cut17 phase 14/19] test_relocation_acceptance.py
+................                                                         [100%]
+16 passed in 68.83s (0:01:08)
+[cut17 phase 15/19] test_n2_cut16.py
+.......                                                                  [100%]
+7 passed in 78.43s (0:01:18)
+[cut17 phase 16/19] test_permit_acceptance.py
+........                                                                 [100%]
+8 passed in 4.32s
+[cut17 phase 17/19] test_permit_boundary.py
+..................                                                       [100%]
+18 passed in 2.74s
+[cut17 phase 18/19] test_permit_entry_points.py
+........................................................................ [ 65%]
+......................................                                   [100%]
+110 passed in 28.02s
+[cut17 phase 19/19] test_n2_cut17.py
+........                                                                 [100%]
+8 passed in 16.29s
+declared arms: 24 (= 8 selected + 1 labeled units)
+[cut18 phase 2/3] test_deletion_acceptance.py
+................                                                         [100%]
+16 passed in 55.74s
+[cut18 phase 3/3] test_n2_cut18.py
+.......                                                                  [100%]
+7 passed in 28.07s
+declared arms: 20 (= 17 declaration units; 16 guarantee rows + 1 boundary invariant)
+row accounting: 7 full/closed + 5 partial + 4 closed-row re-reads
+[cut19 phase 2/3] test_session_acceptance.py
+...............................                                          [100%]
+31 passed in 32.63s
+[cut19 phase 3/3] test_n2_cut19.py
+.......                                                                  [100%]
+7 passed in 30.74s
+declared arms: 43 (= 11 declaration units; 11 guarantee rows)
+row accounting: 11 full/closed + 0 partial + 0 re-reads
+[cut20 phase 2/3] test_facet_acceptance.py
+.................                                                        [100%]
+17 passed in 40.46s
+[cut20 phase 3/3] test_n2_cut20.py
+.....                                                                    [100%]
+5 passed in 36.47s
+declared arms: 12 (= 18 declaration units; 16 guarantee rows + parity fixture + boundary invariant)
+row accounting: 15 full/closed + 1 partial
+[cut21 phase 2/3] test_verification_acceptance.py
+....                                                                     [100%]
+4 passed in 9.66s
+[cut21 phase 3/3] test_n2_cut21.py
+.......                                                                  [100%]
+7 passed in 35.69s
+declared arms: 25 (= 8 declaration units; 8 guarantee rows)
+[cut22 phase 2/3] test_biology_acceptance.py
+..                                                                       [100%]
+2 passed in 2.74s
+[cut22 phase 3/3] test_n2_cut22.py
+.......                                                                  [100%]
+7 passed in 4.12s
+declared arms: 17 (= 9 declaration units; 9 guarantee rows)
+[cut23 phase 2/3] test_world_view_acceptance.py
+..............................                                           [100%]
+30 passed in 123.27s (0:02:03)
+[cut23 phase 3/3] test_n2_cut23.py
+.......                                                                  [100%]
+7 passed in 43.06s
+declared arms: 25 (= 8 declaration units; 8 guarantee rows)
+[cut24 phase 2/3] test_coreference_acceptance.py
+...............                                                          [100%]
+15 passed in 87.31s (0:01:27)
+[cut24 phase 3/3] test_n2_cut24.py
+.......                                                                  [100%]
+7 passed in 23.43s
+declared arms: 20 (= 5 declaration units; 5 guarantee rows)
+[cut25 phase 2/3] test_source_address_acceptance.py
+.....................                                                    [100%]
+21 passed in 37.40s
+[cut25 phase 3/3] test_n2_cut25.py
+........                                                                 [100%]
+8 passed in 8.31s
+declared arms: 24 (= 3 declaration units; 3 guarantee rows)
+[cut26 phase 2/2] test_n2_cut26.py
+..........                                                               [100%]
+10 passed in 1.41s
+declared arms: 2 (= 1 declaration units; 1 guarantee rows)
+[cut27 phase 2/3] test_world_audit_acceptance.py
+..........................................                               [100%]
+42 passed in 237.97s (0:03:57)
+[cut27 phase 3/3] test_n2_cut27.py
+.........                                                                [100%]
+9 passed in 58.54s
+declared arms: 27 (= 5 declaration units; 5 guarantee rows)
+[cut28 phase 2/3] test_world_selection_acceptance.py
+.........................                                                [100%]
+25 passed in 130.52s (0:02:10)
+[cut28 phase 3/3] test_n2_cut28.py
+.........                                                                [100%]
+9 passed in 39.67s
+declared arms: 23 (= 3 declaration units; 3 guarantee rows)
+[cut29 phase 2/3] test_dataset_address_acceptance.py
+..........                                                               [100%]
+10 passed in 7.65s
+[cut29 phase 3/3] test_n2_cut29.py
+.........                                                                [100%]
+9 passed in 5.54s
+declared arms: 6 (= 3 declaration units; 3 guarantee rows)
+[cut30 phase 2/3] test_source_address_acceptance.py
+.....................                                                    [100%]
+21 passed in 36.90s
+[cut30 phase 3/3] test_n2_cut30.py
+.........                                                                [100%]
+9 passed in 4.38s
+declared arms: 10 (= 1 declaration units; 1 guarantee rows)
