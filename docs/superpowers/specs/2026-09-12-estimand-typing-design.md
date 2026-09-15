@@ -264,6 +264,16 @@ with opposite conventions read as one key (§7.3). The kernel does not flip
 one into the other; a successor policy may define a flip, and this design
 defines none.
 
+`reference` is the value the **contrast** takes when the claim is false —
+zero on an additive scale for "no difference", one on a multiplicative
+scale, a noninferiority margin as the number it resolves to — and never the
+value of a level. The baseline level's value is something the run
+computes; a null expectation estimated from data during execution (a
+surrogate ensemble's mean, a permutation distribution's centre) is the
+baseline level, consumed inside the rule, and has no claim on this slot
+(Appendix A). The reference is data-independent by the order of events,
+not by its type: the spec freezes before the run that is bound to it.
+
 **Canonical projection.** `claim`; `operator`; `contrast` as `{slot, kind}`
 plus `{baseline, comparison}` when `kind` is `levels` and `{quantity,
 increment}` when it is `continuous`, each referent as `{sort, term}` and the
@@ -289,8 +299,11 @@ the fragment named in the reason:
   margin expressed as a rule; belief policy §3.2 already notes a margin is
   not determined by an endpoint, and v1 carries the margin as the number it
   resolves to, in the spec, declared before the run;
-- any time index, censoring rule or repeated-measures structure — carried in
-  `method` and `assumptions` as today.
+- any time index, censoring rule or repeated-measures structure — a
+  **design's** time structure, carried in `method` and `assumptions` as
+  today. A statistic's own parameters — a lag, a scale, an embedding
+  dimension — are not this: they are members of the measured quantity's
+  term, as "log₂ TPM" is a term and "TPM" another (Appendix A).
 
 Each is a real expressive limit, recorded as the boundary of this pass.
 
@@ -447,6 +460,13 @@ reads every rule's output the same way without knowing the rule:
   reports it. A dispersion of the *data* (a standard deviation, an
   interquartile range) is not an uncertainty of the estimate and has no
   kind here; a rule wanting to report one has `method` and its artifacts.
+  The randomness a standard error is *over* is the randomness the estimand
+  leaves open: for a quantity defined over a held dataset — a contrast of
+  the series as held against a declared surrogate procedure applied to it
+  — that is computational (Monte Carlo) randomness alone, and its Monte
+  Carlo error is the estimate's standard error; a null distribution's own
+  dispersion is a dispersion of generated data and has no kind (Appendix
+  A). What a fresh sample would show is a different estimand's question.
 
 The interpretation rule's signature keeps its shape,
 `(execution result) → { outcome, estimate?, uncertainty? }`, and the
@@ -806,6 +826,13 @@ earlier one.
 11. **A pre-grammar record is refused, never read.** A corpus that holds
     one after the lane lands is a corpus that was not recreated; the audit
     names the record and the reason, and nothing repairs it (decision 10).
+12. **The interval constraint reaches as far as containment.** `low ≤
+    estimate ≤ high` refuses an interval that is not around the estimate —
+    a null distribution's central band, in the case where the estimate
+    lies outside it — and admits one that happens to contain it under a
+    label that is false. What the interval is an interval *of* is the
+    rule's honesty, as limitation 1 says semantic match is the author's
+    (Appendix A.4).
 
 ## 14. Task linkage
 
@@ -867,3 +894,225 @@ separately; it does not depend on this one.
   never reaches the pre-grammar codes — decision 10 and Q10 now say so, and
   the codes are exercised on a successor-pinned corpus holding a raw-written
   pre-grammar record.
+- 2026-09-15, worked example from a second domain (`beliefs-18b03d`; the
+  natural-systems pilot's surrogate contrast, Appendix A), four findings,
+  all taken and none structural: (1) §3.2 says what `reference` is — the
+  contrast's null value, never a level's, data-independent by the freeze
+  preceding the run; (2) §3.3's time-index refusal names what it excludes,
+  a design's time structure, and puts a statistic's own parameters in the
+  measure term; (3) §6 says which randomness a standard error is over, so
+  a Monte Carlo error over a held dataset is admitted and a null
+  distribution's dispersion is not; (4) limitation 12 records the reach of
+  the interval containment check. The fragment admits the pilot's target
+  with no member added, widened or re-sorted. The API half of the example
+  is `beliefs-e48279`, after Task 4.
+
+## Appendix A — a second inhabitant: the natural-systems surrogate contrast
+
+**What this is.** The worked example task `beliefs-18b03d` asked for, from
+the natural-systems v2 framing §4 and the time-series pilot design §7
+(`natural-systems` `docs/specs/2026-09-13-time-series-pilot-design.md`),
+worked 2026-09-15 against this draft before its freeze. It is a prose
+mapping and a reading of the constructor's refusals as §7.1 states them;
+its API half — the same fixture through `build_estimand` and the
+`AssessmentValue` constructor once they exist — is `beliefs-e48279`, after
+Task 4 and before Task 11. Findings on the draft are in A.5 and were taken
+in the revision that adds this appendix (§15).
+
+### A.1 The target
+
+The pilot's opening surrogate assessment, stated once by its design §7 and
+copied here so the encoding can be checked against it:
+
+```text
+T      =  CO_trev_1_num — the normalized lag-one cubed-increment time-reversal statistic (pycatch22)
+Q      =  Fourier phase randomization under its finite-window approximation: magnitudes, mean,
+          length, real-valuedness, DC and (even lengths) Nyquist preserved; independent
+          positive-frequency phases randomized under conjugate symmetry
+delta(D,Q)  =  T(D) − E_Q[ T(Q(D)) ]                               -- over one held finite series D
+estimate    =  T(D) − mean_b T(Q_b(D)),  b = 1..B,  B = 999
+uncertainty =  sd_b T(Q_b(D)) / √B  — the Monte Carlo standard error of the second term, conditional on D
+outcome     =  two-sided rank comparison, (1 + #{|T_b| ≥ |T(D)|}) / (B + 1), at 0.05
+```
+
+Additive scale, fixed reference zero. The design is explicit that the MC
+standard error "is uncertainty in estimating Q's expectation, not a
+confidence interval for a world's property, not the surrogate distribution
+itself, and not the uncertainty from recording a different trajectory".
+
+### A.2 The encoding
+
+A corpus-local contract for the pilot, on the mm30 shape (§5.1, §9): four
+held one-line-per-term lists, one operator, one `estimands:` entry. The
+pack question — which of these the eventual `natural-systems` pack owns —
+is that project's and changes nothing below.
+
+```yaml
+contract: natural-systems-pilot
+version: 1
+lineage: genesis
+sorts:
+  series-source:          { vocabulary: { namespace: ns-pilot-series,     release: "<sample date>" } }   # one term per held series: a pilot record and variable, or a construction
+  observation-procedure:  { vocabulary: { namespace: ns-pilot-procedures, release: "<sample date>" } }   # identity, fourier-phase-randomized, aaft, …
+  statistic:              { vocabulary: { namespace: ns-pilot-statistics, release: "<sample date>" } }   # co-trev-1-num, … — one term per statistic *and its parameters*
+  identification:         { vocabulary: { namespace: ns-pilot-identification, release: "<sample date>" } }   # within-series-surrogate
+dimensions: {}
+operators:
+  departs-from-series-source-observation-procedure:
+    arity: 2
+    arg_sorts: [series-source, observation-procedure]
+    sign_apt: true
+    layers: [statistical]
+    dimensions: []
+estimands:
+  departs-from-series-source-observation-procedure:
+    level_sorts: { "1": observation-procedure }
+    measure_sort: statistic
+    identification_sort: identification
+    conditioning_sort: statistic        # exercised by nothing here; a conditioning member would be another statistic of the same series (A.6)
+```
+
+**The claim.** `departs-from-series-source-observation-procedure(⟨record⟩,
+fourier-phase-randomized)`, polarity `unsigned` (the pilot's test is
+two-sided), layer `statistical`, qualifiers `{}`. Read: *the series
+⟨record⟩ departs from what Fourier phase randomization of it produces.* In
+which quantity is the estimand's to say, exactly as mm30's claim says
+"affects" and its estimand says "expression" (§9). A domain that wants the
+statistic in the proposition adds a third argument of sort `statistic`;
+the kernel is indifferent, and this example does not.
+
+**The estimand**, member by member against §3.2:
+
+| member | value | why it fits |
+|---|---|---|
+| `claim`, `operator` | `I_claim` of the claim above; the operator's term | taken from the typed `Claim` (§7.1) |
+| `contrast` | `{slot: 1, kind: levels, baseline: fourier-phase-randomized, comparison: identity}` | slot 1 is the procedure argument, whose level sort is `observation-procedure`; `comparison − baseline` is `T(D) − E_Q[T]`, the pilot's sign. The identity procedure is a member of the same sort as the null: "observe D as held" is a procedure, and the contrast is between two procedures applied to one series |
+| `measure` | `{quantity: co-trev-1-num, scale: additive}` | the lag, the increment power and the normalization are **members of the term**, as "log₂ TPM" is (§3.2); a second lag is a second term and a second estimand. `additive`, because the statistic is signed |
+| `reference` | `0` | the value of the **contrast** when the claim is false. Not `E_Q[T]`: that is the baseline **level's** value, which the run computes. The framing's worry — a null expectation estimated during execution "does not fit that slot" — is answered by what the slot means, not by an extension. Frozen before the run because the run is bound to a frozen spec (computation guide) |
+| `control.identification` | `within-series-surrogate` | corpus-local, as §13 limitation 4 says every identification vocabulary is today |
+| `control.conditioning` | `∅` | the null's preserved properties (spectrum, mean, length, DC, Nyquist) are the **definition of the baseline term**, held in its list entry and stated in `method`; they are not covariates whose conditioning changes the quantity (decision 4) |
+
+**Applicability** is `{}`: the operator declares no dimension, and the
+series is the run's one `observes` input, which §4 drops as a restatement.
+The pilot's burn-in and retained window are not a scope clause: a run that
+windows D in `method` and a run that windows it differently share one key
+(§4's stated limit, limitation 9). The alternative — producing the retained
+window as its own dataset — meets A.4.
+
+**Estimate and uncertainty** against §6: `estimate` is the `Decimal`
+`T(D) − mean_b T_b` on the additive scale; `uncertainty` is
+`{kind: standard-error, value: sd_b / √B}`. The kind is admitted **because
+the estimand is `delta(D, Q)` over the held D**: with D fixed, the only
+randomness the estimate has left is Monte Carlo, so the Monte Carlo error
+*is* the standard error of the estimate, on the additive form. The surrogate
+distribution itself — `sd_b`, or its quantiles — is a dispersion of
+generated data and has no kind, which is §6's exclusion holding, not
+bending. A statement about the *generating process* — what a fresh
+trajectory would show — is a different claim (its slot-0 term names a
+process, not a series), a different estimand, and an uncertainty nothing in
+this example computes. `outcome` is `supported` when the rank rule rejects
+and `inconclusive` otherwise; it is never `refuted`, since failing to reject
+a departure is not evidence of the null (the pilot says so). The p-value has
+no field and stays in the run's result bytes and the rule's own record —
+the F11 hazard is the reason it has none, and the estimate and its standard
+error are what the field carries instead.
+
+### A.3 Where the surrogates enter the run, and what they are not
+
+The execution recipe observes D, carries `B` and the surrogate scheme's
+parameters as `parameters`, and declares `nondeterminism: Seeded` with a
+seed plan; the occurrence records the realized seeds; the declared output
+bytes are `T(D)` and the vector of `T(Q_b(D))` with their seeds. The
+interpretation rule reads that result manifest and reduces it to
+`{outcome, estimate, uncertainty}` — the reduction (mean, `sd/√B`, the rank
+rule at 0.05) is interpretation, so it has a rule identity; the generation
+is execution, so it has an occurrence. **No surrogate is a dataset.** None
+is held, none carries a facet, none enters lineage, and the open question on
+lineage-inherited empirical standing is not reached. It would be reached only
+by a surrogate *bank* held once and observed by many runs, which the framing
+does not ask for and this example does not encode.
+
+### A.4 What refuses, and that it should
+
+Read against §7.1 and §6; each is an arm the API test (`beliefs-e48279`)
+asserts.
+
+- **A surrogate family as one contrast** — identity against
+  phase-randomized *and* AAFT — is three levels on one slot and refuses at
+  the fragment (§3.3). One scheme per estimand; a family is several
+  estimands on one claim, each with its own key. The framing's phrase "the
+  surrogate family as baseline" names one member of it.
+- **A lag range searched** as a `continuous` contrast over lag refuses: lag
+  is no argument of the operator, so there is no slot for it
+  (`slot ∉ Fin(arity)`). One estimand per `(statistic, lag)` term; the search
+  is a multiple comparison in the rule and `method`, which is where the
+  framing already puts it.
+- **`reference: E_Q[T]`** is a finite `Decimal` and the constructor admits
+  it. What makes it impossible as a *data-dependent* number is the order of
+  events, not the type: the spec freezes before the run that would compute
+  it. An author who runs first and freezes after is telling a lie the
+  constructor cannot see; limitation 1's shape, and A.5's finding 1 says so.
+- **The null's central interval as `uncertainty`** —
+  `{kind: interval, low: q₀.₀₂₅(T_b) − mean_b, high: q₀.₉₇₅(T_b) − mean_b,
+  level: 0.95}` on the contrast's scale — is caught by `low ≤ estimate ≤
+  high` **exactly when the rank rule rejects**, since a rejecting estimate
+  lies outside the null's central band by construction; when the rule does
+  not reject, the interval contains the estimate and is admitted under a
+  label that is false. The check does what a structural check can;
+  limitation 12 records the rest.
+- **A synthetic control series** — the pilot's seeded AR(1) arms, produced
+  by a dataset-production run — cannot bear the `empirical-observation`
+  facet (`acquisition.bearer_refusal`: a produced dataset is refused as a
+  bearer), so an assessment run observing it refuses its `assesses` edge
+  with `EligibilityUnmet` (S7). The calibration and power controls are runs
+  with results and no assessment of any proposition — which is what the
+  pilot design §7 says it wants ("the ordinary held-dataset result can exist
+  before that typing question is settled") and is the non-empirical route
+  question's territory, not this design's. The same rule means the **retained
+  window**, if produced as its own dataset, cannot be observed by the
+  assessment run either: the run observes the acquired series and windows
+  in-run.
+
+### A.5 Findings on the draft, all taken in this revision
+
+1. §3.2 did not say what `reference` *is*, and the framing read it as a
+   slot for the null's expected value. It now says: the contrast's value
+   under the null, never a level's value, frozen before the run by the
+   run's binding to a frozen spec.
+2. §3.3's "any time index" read as excluding a statistic's own time
+   parameter. It now says what it excludes — a design's time structure:
+   repeated measures, censoring, survival time — and that a statistic's
+   parameters (a lag, a scale, an embedding) are members of the measured
+   quantity's term.
+3. §6 fixed the standard error's meaning as "of the estimate" and left
+   *over what randomness* to the reader. It now says: over the randomness
+   the estimand leaves open, which for a quantity defined over a held
+   dataset is computational randomness alone, and that a null
+   distribution's own dispersion has no kind.
+4. §6's interval constraint is a structural check with a stated reach: it
+   refuses a null-band interval in the rejection case and admits it,
+   mislabelled, otherwise. Limitation 12 records this.
+
+No structural finding: the fragment admits the pilot's target as drafted,
+with no member added, widened or re-sorted.
+
+### A.6 What this example does not establish
+
+- A **conditional** statistic — the pilot's partial correlation at lag one
+  conditioned on the series' own lag — would put the conditioning term in
+  `control.conditioning` under `conditioning_sort: statistic` (decision 4:
+  it changes the quantity). Spellable; not worked.
+- A **pairwise** or network claim between two series sources (the pilot's
+  cross-correlation and PCMCI rows) is an arity-2 operator over
+  `series-source` twice with a levels contrast on a procedure slot it must
+  also declare — arity 3 — or a continuous contrast. Not worked; the
+  "compare maxima, not the best lag" rule types as one statistic term
+  (`ccf-max-abs`) and the arg-max lag as a claim about a different quantity,
+  refused as a second measure (§3.3) and correctly so.
+- A **process-level** claim — generalizing from the held series to its
+  source — is a different claim with an uncertainty over trajectories that
+  no surrogate scheme supplies. Not worked; A.2 names it as out of reach.
+- A **held surrogate bank** reused across runs, and any derived dataset's
+  empirical standing. Not asked; A.3.
+- **Multi-product workflows.** Not asked (framing §4); nothing here needs
+  one.
