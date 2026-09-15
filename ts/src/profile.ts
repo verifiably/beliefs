@@ -58,6 +58,14 @@ export interface CompiledDimension {
   readonly restrictionSort: string;
 }
 
+export interface CompiledEstimandDecl {
+  readonly operator: string;
+  readonly levelSorts: Readonly<Record<string, string>>;
+  readonly measureSort: string;
+  readonly identificationSort: string;
+  readonly conditioningSort: string;
+}
+
 const MINT = Symbol("science.profile.mint");
 
 /** Term identifier → compiled declaration. A frozen null-prototype record, for the reason `DeclarationTable` gives in `contract.ts`. */
@@ -71,6 +79,7 @@ export class ProfileSpec {
   readonly claimGrammar: ClaimGrammar;
   readonly estimandGrammar: EstimandGrammar;
   readonly operators: ResolutionTable<CompiledOperator>;
+  readonly estimands: ResolutionTable<CompiledEstimandDecl>;
   readonly dimensions: ResolutionTable<CompiledDimension>;
   readonly sorts: readonly string[];
 
@@ -83,6 +92,7 @@ export class ProfileSpec {
       claimGrammar: ClaimGrammar;
       estimandGrammar: EstimandGrammar;
       operators: ResolutionTable<CompiledOperator>;
+      estimands: ResolutionTable<CompiledEstimandDecl>;
       dimensions: ResolutionTable<CompiledDimension>;
       sorts: readonly string[];
     },
@@ -108,6 +118,7 @@ export class ProfileSpec {
     this.claimGrammar = parts.claimGrammar;
     this.estimandGrammar = parts.estimandGrammar;
     this.operators = frozenTable(Object.entries(parts.operators));
+    this.estimands = frozenTable(Object.entries(parts.estimands));
     this.dimensions = frozenTable(Object.entries(parts.dimensions));
     this.sorts = Object.freeze([...parts.sorts]);
     Object.freeze(this);
@@ -139,6 +150,7 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
   // Mutable while they are being built, and frozen by the constructor — see
   // there for why the freeze lives in one place rather than both.
   const operators: Record<string, CompiledOperator> = Object.create(null);
+  const estimands: Record<string, CompiledEstimandDecl> = Object.create(null);
   const dimensions: Record<string, CompiledDimension> = Object.create(null);
   const sorts: string[] = [];
   const sortOwners: Record<string, string> = Object.create(null);
@@ -217,6 +229,23 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
         dimensions: Object.freeze(declaration.dimensions.map((dimension) => term(contract.namespace, dimension))),
       });
     }
+    for (const [name, declaration] of Object.entries(contract.estimands)) {
+      const levelSorts: Record<string, string> = Object.create(null);
+      for (const [slot, sort] of Object.entries(declaration.levelSorts)) {
+        levelSorts[slot] = resolveSort(contract, sort, `estimands.${name}: level_sorts[${slot}]`);
+      }
+      estimands[term(contract.namespace, name)] = Object.freeze({
+        operator: term(contract.namespace, name),
+        levelSorts: Object.freeze(levelSorts),
+        measureSort: resolveSort(contract, declaration.measureSort, `estimands.${name}: measure_sort`),
+        identificationSort: resolveSort(
+          contract,
+          declaration.identificationSort,
+          `estimands.${name}: identification_sort`,
+        ),
+        conditioningSort: resolveSort(contract, declaration.conditioningSort, `estimands.${name}: conditioning_sort`),
+      });
+    }
   }
 
   for (const [key, facet] of Object.entries(facets)) {
@@ -234,6 +263,7 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
     claimGrammar: base.claimGrammar,
     estimandGrammar: base.estimandGrammar,
     operators,
+    estimands,
     dimensions,
     sorts,
   });

@@ -118,3 +118,44 @@ class TestSuccession:
         successor["operators"]["affects"]["retired"] = True
         contract = parse(successor, predecessor=prior)
         assert "affects" in contract.estimands
+
+
+class TestCompile:
+    @pytest.fixture()
+    def profile(self, base_contract, testing_document):
+        from beliefs.profile import compile_profile
+
+        testing = domain.parse_domain_contract(testing_document, source="<test>", base=base_contract, predecessor=None)
+        return compile_profile(base_contract, [testing])
+
+    def test_sorts_compile_to_term_identifiers(self, profile):
+        decl = profile.estimand("testing/affects")
+        assert decl.level_sorts == {"0": "testing/level"}
+        assert decl.measure_sort == "testing/measure"
+        assert decl.identification_sort == "testing/identification"
+        assert decl.conditioning_sort == "testing/entity"
+        assert decl.contract == "testing"
+
+    def test_an_operator_without_a_declaration_refuses(self, profile):
+        from beliefs.errors import ProfileError
+
+        with pytest.raises(ProfileError, match="declares no estimand"):
+            profile.estimand("testing/subtype-of")
+
+    def test_the_declaration_enters_the_compiled_identity(self, base_contract, testing_document):
+        from beliefs.profile import compile_profile
+
+        changed = copy.deepcopy(testing_document)
+        changed["estimands"]["affects"]["conditioning_sort"] = "outcome"
+        one = compile_profile(base_contract, [domain.parse_domain_contract(testing_document, source="<a>", base=base_contract, predecessor=None)])
+        two = compile_profile(base_contract, [domain.parse_domain_contract(changed, source="<b>", base=base_contract, predecessor=None)])
+        assert one.compiled_identity != two.compiled_identity
+
+    def test_a_cross_contract_sort_resolves_or_refuses_by_namespace(self, base_contract, testing_document):
+        from beliefs.profile import compile_profile
+
+        document = copy.deepcopy(testing_document)
+        document["estimands"]["affects"]["measure_sort"] = "biology/assay"
+        contract = domain.parse_domain_contract(document, source="<x>", base=base_contract, predecessor=None)
+        with pytest.raises(MalformedContract, match="namespace 'biology'"):
+            compile_profile(base_contract, [contract])

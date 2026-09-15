@@ -7,7 +7,7 @@
   "domain_contracts": [
     "fixtures/contracts/testing.yaml"
   ],
-  "profile_compiled_identity": "7113cc7a88b46c65be5f875f5735f2269746fce71103cb41110924c1ea1d9eb1",
+  "profile_compiled_identity": "34dfef0691fa4c7bcc7794c23ca9cac101523d809e03af2cbba6c7bf7349f5ed",
   "vector": [
     {
       "name": "affects-positive-causal",

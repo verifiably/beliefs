@@ -219,4 +219,10 @@ describe("an estimand declaration (estimand-typing design §5.1)", () => {
     const bad = WITH_ESTIMAND.replace('level_sorts: { "0": entity }', 'level_sorts: { "5": entity }');
     expect(() => parseDomainContract(bad, "<domain>", base)).toThrow(/Fin\(2\)/);
   });
+
+  it("compiles an estimand declaration's sorts to term identifiers", () => {
+    const profile = compileProfile(base, [parseDomainContract(WITH_ESTIMAND, "<domain>", base)]);
+    expect(profile.estimands["testing/subtype-of"].measureSort).toBe("testing/measure");
+    expect(profile.estimands["testing/subtype-of"].levelSorts).toEqual({ "0": "testing/entity" });
+  });
 });

@@ -45,7 +45,13 @@ import {
   UnparsedContract,
   UntypedReferent,
 } from "../src/errors.js";
-import { type CompiledDimension, type CompiledOperator, ProfileSpec, compileProfile } from "../src/profile.js";
+import {
+  type CompiledDimension,
+  type CompiledEstimandDecl,
+  type CompiledOperator,
+  ProfileSpec,
+  compileProfile,
+} from "../src/profile.js";
 import { claimIdentity, projectClaim } from "../src/projection.js";
 
 const REPO_ROOT = new URL("../../", import.meta.url);
@@ -208,6 +214,7 @@ describe("a profile that did not come from the contracts is not a profile", () =
         dimensions: [],
       } satisfies CompiledOperator,
     },
+    estimands: {} as Record<string, CompiledEstimandDecl>,
     dimensions: {} as Record<string, CompiledDimension>,
     sorts: ["forged/sort"],
   };
