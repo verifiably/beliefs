@@ -32,8 +32,10 @@ from beliefs.errors import (
     BasisMissing,
     BuildHold,
     CollisionRefused,
+    DatasetAddressDisagreement,
     EligibilityUnmet,
     IdentifierMalformed,
+    ImportRefused,
     ManifestAlreadyPresent,
     ManifestMalformed,
     PermitExceeded,
@@ -479,7 +481,7 @@ class TestTheAddPathIsAddOnly:
 
     def test_a_stale_governed_stamp_refuses_before_execution(self, writer):
         stale = observed_dataset()
-        stale.facets[stored.DATASET_FACET]["resources"][0]["digest"] = "sha256:" + "cd" * 32
+        stale.facets[stored.EMPIRICAL_OBSERVATION_FACET]["locator"] = "instrument:changed"
 
         with pytest.raises(ValidationRefused, match="semantic-identity stamp"):
             writer.add(stale)
@@ -1125,3 +1127,61 @@ def test_record_not_present_exposes_its_refusal_context():
         "proposition:p: recorded in corpus, a covered corpus with no carrier here "
         "(publication aaaaaaaaaaaa…); the record is elsewhere, not gone"
     )
+
+
+class TestDatasetAddress:
+    """Slice 5 §5: a dataset's stored id is its derived address, on every write path."""
+
+    @staticmethod
+    def handle(seed: str, node_id: str = "dataset:handle") -> Node:
+        node = stored.governed_node(
+            "dataset",
+            node_id.partition(":")[2],
+            seed,
+            {stored.DATASET_FACET: {"resources": pinned(seed)}},
+            (),
+        )
+        return node
+
+    def test_a_handle_addressed_dataset_refuses_on_add(self, writer):
+        with pytest.raises(DatasetAddressDisagreement) as caught:
+            writer.add(self.handle("h"))
+        assert dataset_ref("h") in str(caught.value)
+        assert not writer.read_view.holds("dataset:handle")
+
+    def test_the_same_bytes_at_the_derived_address_are_admitted(self, writer):
+        minted = writer.add(stored.dataset_node(title="h", resources=pinned("h")))
+        assert minted.id == dataset_ref("h")
+
+    def test_a_second_add_of_one_byte_set_collides(self, writer):
+        writer.add(stored.dataset_node(title="first", resources=pinned("h")))
+        with pytest.raises(CollisionRefused):
+            writer.add(stored.dataset_node(title="second", resources=pinned("h")))
+
+    def test_a_bundle_with_a_handle_addressed_dataset_refuses_naming_the_member(self, tmp_path):
+        from test_relocation import _writer
+
+        importer = _writer(tmp_path / "importer")
+        bad = self.handle("h")
+        with pytest.raises(ImportRefused) as caught:
+            importer.import_bundle(
+                [bad],
+                observer="o",
+                instrument="i",
+                opened_at="2026-09-14T00:00:00Z",
+                closed_at="2026-09-14T00:00:01Z",
+            )
+        assert caught.value.member == bad.id
+        assert not importer.read_view.holds(bad.id)
+
+    def test_the_basis_refusal_still_precedes_the_address_check(self, writer):
+        # An unpinned hand-built record is BasisMissing, never a disagreement over an address it lacks.
+        unpinned = stored.governed_node(
+            "dataset",
+            "handle",
+            "u",
+            {stored.DATASET_FACET: {"resources": []}},
+            (),
+        )
+        with pytest.raises(BasisMissing):
+            writer.add(unpinned)

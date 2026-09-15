@@ -84,6 +84,7 @@ from beliefs.errors import (
     CoreferenceEndpointRefused,
     CorpusRootRefused,
     CorrectionRefused,
+    DatasetAddressDisagreement,
     DeletionKindExcluded,
     DeletionTargetMissing,
     EligibilityUnmet,
@@ -3102,12 +3103,18 @@ class CorpusWriter:
             raise ValidationRefused(f"{node.id}: refused by document validation: {caught}") from caught
 
     def _refuse_dataset_basis(self, node: Node) -> None:
-        """W3 as narrowed, the dataset half — unchanged in content."""
+        """W3 as narrowed, the dataset half (clause 1); slice 5 §5's id/address
+        agreement (clause 2). The first clause's line is matched by cut 4's
+        W3 arms and cut 25's declarations and does not move."""
         if node.kind == "dataset" and dataset_address(stored.dataset_declaration(node)) is None:
             raise BasisMissing(
                 f"{node.id}: a dataset carries a content identity — every declared resource pinned by an "
                 "accepted digest. Supplying it later is a second, separate mint"
             )
+        if node.kind == "dataset":
+            address = stored.dataset_address_of(node)
+            if node.id != address:
+                raise DatasetAddressDisagreement(f"{node.id}: the declaration derives {address}")
 
     def _refuse_ineligible(self, node: Node, *, view: ReadView | _ImportView | None = None) -> None:
         """S7's write boundary, reading the cross-node predicate through this
