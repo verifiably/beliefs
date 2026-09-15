@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/world-resolution-slice-5
 created: 2026-09-11T11:42:27Z
-updated: 2026-09-14T23:13:33Z
+updated: 2026-09-15T00:02:43Z
 started: 2026-09-14T22:06:20Z
 depends: []
 parent: beliefs-d248ba
@@ -28,3 +28,4 @@ dataset_node takes an authored slug while dataset_address is computed and never 
 - 2026-09-14T22:26:49Z (design/world-resolution-slice-5): Spec review 1 (2026-09-14): consolidate must validate both dataset inputs before _reconcile (loser's declaration was discarded unexamined); boundary BasisMissing tests migrate to governed_node so the builder refusal cannot satisfy them. Both taken in the spec §12.
 - 2026-09-14T22:45:30Z (design/world-resolution-slice-5): parked (waiting on user, review): User reviews docs/superpowers/plans/2026-09-14-world-resolution-slice-5.md; on approval execute Task 1 (freeze) onward via subagent-driven development in this worktree
 - 2026-09-14T23:13:33Z (design/world-resolution-slice-5): Plan review 1 (2026-09-14): test_n2_cut5 is cited-not-run and hash-pinned — removed from migration and run lists; Tasks 3+4 reordered so tools and acceptance migrate with the builder (test_reproduction_driver imports hold.dataset_record; pyright covers acceptance); W2 two-attester case opens the second writer under a distinct Authority; commit blocks stage from the worktree root with python checks in a subshell
+- 2026-09-15T00:02:43Z (design/world-resolution-slice-5): User approved amended plan; resumed by Codex root controller for subagent-driven implementation in this worktree.

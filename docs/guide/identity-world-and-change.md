@@ -22,6 +22,7 @@ sources:
   - ../designs/2026-08-24-world-index-holdings-design.md
   - ../designs/2026-08-24-conformance-cut-10.md
   - ../designs/2026-09-14-conformance-cut-28.md
+  - ../designs/2026-09-14-conformance-cut-29.md
   - ../designs/2026-08-26-world-index-intent-boundary-design.md
   - ../designs/2026-08-27-conformance-cut-11.md
   - ../designs/2026-09-09-conformance-cut-23.md
