@@ -353,6 +353,7 @@ _M7 = [
             PROFILE_DOMAIN,
             _projection(
                 base.claim_grammar,
+                base.estimand_grammar,
                 operators,
                 dimensions,
                 sorts,
@@ -367,6 +368,7 @@ _M7 = [
             {
                 **_projection(
                     base.claim_grammar,
+                    base.estimand_grammar,
                     operators,
                     dimensions,
                     sorts,

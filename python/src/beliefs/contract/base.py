@@ -37,8 +37,10 @@ from beliefs.identity import v1
 from beliefs.sealed import sealed
 
 __all__ = [
+    "ESTIMAND_GRAMMAR",
     "BaseContract",
     "ClaimGrammar",
+    "EstimandGrammar",
     "FacetUse",
     "KindDecl",
     "RelationDecl",
@@ -71,9 +73,13 @@ bypassed rather than defeated, and which belongs to the audit surface. The
 distinction worth keeping is between a hole and a documented limit.
 """
 
-_CONTRACT_FIELDS = frozenset({"contract", "version", "claim_grammar", "kinds", "relations", "facets"})
+_CONTRACT_FIELDS = frozenset(
+    {"contract", "version", "claim_grammar", "estimand_grammar", "kinds", "relations", "facets"}
+)
 _GRAMMAR_FIELDS = frozenset({"version", "tag_encoding", "quantifiers", "polarities", "sign_inapt_tag", "layers"})
+_ESTIMAND_GRAMMAR_FIELDS = frozenset({"version", "tag_encoding", "contrast_kinds", "scales", "uncertainty_kinds"})
 _RELATION_GROUPS = ("world", "lifecycle")
+ESTIMAND_GRAMMAR = "science.estimand.v1"
 
 
 @dataclass(frozen=True)
@@ -96,6 +102,28 @@ class ClaimGrammar:
         cannot re-project a stored claim.
         """
         return (*self.polarities, self.sign_inapt_tag)
+
+
+@dataclass(frozen=True)
+class EstimandGrammar:
+    """The closed structural sets an estimand draws from (estimand-typing §3.1).
+
+    Structural, not vocabulary: each tag names an operation the kernel performs
+    on the value that carries it, which is what keeps these three sets out of
+    the survey's admission rule the way quantifiers are kept out."""
+
+    version: int
+    contrast_kinds: tuple[str, ...]
+    scales: tuple[str, ...]
+    uncertainty_kinds: tuple[str, ...]
+
+    def projection(self) -> dict[str, object]:
+        return {
+            "version": self.version,
+            "contrast_kinds": sorted(self.contrast_kinds),
+            "scales": sorted(self.scales),
+            "uncertainty_kinds": sorted(self.uncertainty_kinds),
+        }
 
 
 @dataclass(frozen=True)
@@ -156,6 +184,7 @@ class BaseContract:
     name: str
     version: int
     claim_grammar: ClaimGrammar
+    estimand_grammar: EstimandGrammar
     kinds: Mapping[str, KindDecl]
     relations: Mapping[str, RelationDecl]
     facets: Mapping[str, FacetDecl]
@@ -292,6 +321,21 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
         layers=_closed_set(grammar["layers"], f"{grammar_where}: layers"),
     )
 
+    estimand_where = f"{source}: estimand_grammar"
+    estimand = _mapping(root["estimand_grammar"], estimand_where)
+    _exact_fields(estimand, _ESTIMAND_GRAMMAR_FIELDS, estimand_where)
+    if estimand["tag_encoding"] != TAG_ENCODING:
+        raise MalformedContract(
+            f"{estimand_where}: tag_encoding is {estimand['tag_encoding']!r}; this implementation encodes tags only "
+            f"under {TAG_ENCODING!r} (estimand-typing §3.1)."
+        )
+    estimand_grammar = EstimandGrammar(
+        version=_positive_int(estimand["version"], f"{estimand_where}: version"),
+        contrast_kinds=_closed_set(estimand["contrast_kinds"], f"{estimand_where}: contrast_kinds"),
+        scales=_closed_set(estimand["scales"], f"{estimand_where}: scales"),
+        uncertainty_kinds=_closed_set(estimand["uncertainty_kinds"], f"{estimand_where}: uncertainty_kinds"),
+    )
+
     facets = parse_facet_declarations(root["facets"], where=f"{source}: facets", namespace=None)
     kinds: dict[str, KindDecl] = {}
     for kind_name, body_value in _mapping(root["kinds"], f"{source}: kinds").items():
@@ -339,6 +383,7 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
         name=name,
         version=_positive_int(root["version"], f"{source}: version"),
         claim_grammar=claim_grammar,
+        estimand_grammar=estimand_grammar,
         kinds=MappingProxyType(kinds),
         relations=MappingProxyType(relations),
         facets=MappingProxyType(facets),

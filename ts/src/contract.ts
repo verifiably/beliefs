@@ -65,6 +65,13 @@ export interface ClaimGrammar {
   readonly layers: readonly string[];
 }
 
+export interface EstimandGrammar {
+  readonly version: number;
+  readonly contrastKinds: readonly string[];
+  readonly scales: readonly string[];
+  readonly uncertaintyKinds: readonly string[];
+}
+
 export type FieldType = "string" | "integer" | "boolean" | "ref" | "locator" | "actor";
 export interface FieldDecl {
   readonly name: string;
@@ -105,6 +112,7 @@ export class BaseContract {
   readonly name: string;
   readonly version: number;
   readonly claimGrammar: ClaimGrammar;
+  readonly estimandGrammar: EstimandGrammar;
   readonly kinds: DeclarationTable<KindDecl>;
   readonly relations: DeclarationTable<RelationDecl>;
   readonly facets: DeclarationTable<FacetDecl>;
@@ -114,6 +122,7 @@ export class BaseContract {
     parts: {
       version: number;
       claimGrammar: ClaimGrammar;
+      estimandGrammar: EstimandGrammar;
       kinds?: DeclarationTable<KindDecl>;
       relations?: DeclarationTable<RelationDecl>;
       facets?: DeclarationTable<FacetDecl>;
@@ -139,6 +148,12 @@ export class BaseContract {
       polarities: Object.freeze([...parts.claimGrammar.polarities]),
       signInaptTag: parts.claimGrammar.signInaptTag,
       layers: Object.freeze([...parts.claimGrammar.layers]),
+    });
+    this.estimandGrammar = Object.freeze({
+      version: parts.estimandGrammar.version,
+      contrastKinds: Object.freeze([...parts.estimandGrammar.contrastKinds]),
+      scales: Object.freeze([...parts.estimandGrammar.scales]),
+      uncertaintyKinds: Object.freeze([...parts.estimandGrammar.uncertaintyKinds]),
     });
     this.kinds = parts.kinds;
     this.relations = parts.relations;
@@ -377,7 +392,12 @@ export function parseFacetDeclarations(
 
 export function parseBaseContract(text: string, source: string): BaseContract {
   const document = mapping(parseYaml(text), source);
-  exactFields(document, ["contract", "version", "claim_grammar", "kinds", "relations", "facets"], [], source);
+  exactFields(
+    document,
+    ["contract", "version", "claim_grammar", "estimand_grammar", "kinds", "relations", "facets"],
+    [],
+    source,
+  );
   if (document.contract !== "science") {
     throw new MalformedContract(
       `${source}: the base contract is named \`science\`, found ${JSON.stringify(document.contract)}`,
@@ -405,6 +425,24 @@ export function parseBaseContract(text: string, source: string): BaseContract {
       `${source}.claim_grammar.sign_inapt_tag: ${JSON.stringify(signInaptTag)} is also an assertable polarity`,
     );
   }
+  const estimandDocument = mapping(document.estimand_grammar, `${source}.estimand_grammar`);
+  exactFields(
+    estimandDocument,
+    ["version", "tag_encoding", "contrast_kinds", "scales", "uncertainty_kinds"],
+    [],
+    `${source}.estimand_grammar`,
+  );
+  if (estimandDocument.tag_encoding !== TAG_ENCODING) {
+    throw new MalformedContract(
+      `${source}.estimand_grammar.tag_encoding: this implementation carries ${TAG_ENCODING}, the contract names ${JSON.stringify(estimandDocument.tag_encoding)}`,
+    );
+  }
+  const estimandGrammar: EstimandGrammar = {
+    version: positiveInt(estimandDocument.version, `${source}.estimand_grammar.version`),
+    contrastKinds: closedSet(estimandDocument.contrast_kinds, `${source}.estimand_grammar.contrast_kinds`),
+    scales: closedSet(estimandDocument.scales, `${source}.estimand_grammar.scales`),
+    uncertaintyKinds: closedSet(estimandDocument.uncertainty_kinds, `${source}.estimand_grammar.uncertainty_kinds`),
+  };
   const facets = parseFacetDeclarations(document.facets, `${source}.facets`, null);
   const kindEntries: [string, KindDecl][] = [];
   for (const [name, bodyValue] of Object.entries(mapping(document.kinds, `${source}.kinds`))) {
@@ -466,6 +504,7 @@ export function parseBaseContract(text: string, source: string): BaseContract {
       signInaptTag,
       layers: closedSet(grammarDocument.layers, `${source}.claim_grammar.layers`),
     },
+    estimandGrammar,
     kinds,
     relations,
     facets,

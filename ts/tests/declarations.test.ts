@@ -69,6 +69,15 @@ describe("the base contract's declarations (design §3.1–§3.4)", () => {
     expect(base.kinds.discussion.role).toBe("prose");
     expect(Object.keys(base.kinds.discussion.facets)).toEqual(["display"]);
   });
+  it("declares the estimand grammar's three closed sets (estimand-typing §3.1)", () => {
+    expect(base.estimandGrammar.contrastKinds).toEqual(["levels", "continuous"]);
+    expect(base.estimandGrammar.scales).toEqual(["additive", "multiplicative"]);
+    expect(base.estimandGrammar.uncertaintyKinds).toEqual(["interval", "standard-error"]);
+  });
+  it("refuses a base contract without the estimand grammar", () => {
+    const missing = SHIPPED.replace(/estimand_grammar:[\s\S]*?uncertainty_kinds: \[interval, standard-error\]\n/, "");
+    expect(() => parseBaseContract(missing, "<missing>")).toThrow(/estimand_grammar/);
+  });
 });
 
 describe("a domain contract's facets (design §3.3)", () => {

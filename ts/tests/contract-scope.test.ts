@@ -28,6 +28,12 @@ claim_grammar:
   polarities: [positive, negative, unsigned]
   sign_inapt_tag: inapt
   layers: [causal, structural]
+estimand_grammar:
+  version: 1
+  tag_encoding: science.identity.v1
+  contrast_kinds: [levels, continuous]
+  scales: [additive, multiplicative]
+  uncertainty_kinds: [interval, standard-error]
 kinds: {}
 relations: {}
 facets: {}

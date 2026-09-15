@@ -37,6 +37,7 @@ import {
   type ClaimGrammar,
   type DeclarationTable,
   DomainContract,
+  type EstimandGrammar,
   type FacetDecl,
   type KindDecl,
   type RelationDecl,
@@ -68,6 +69,7 @@ export class ProfileSpec {
   readonly facets: DeclarationTable<FacetDecl>;
   readonly relations: DeclarationTable<RelationDecl>;
   readonly claimGrammar: ClaimGrammar;
+  readonly estimandGrammar: EstimandGrammar;
   readonly operators: ResolutionTable<CompiledOperator>;
   readonly dimensions: ResolutionTable<CompiledDimension>;
   readonly sorts: readonly string[];
@@ -79,6 +81,7 @@ export class ProfileSpec {
       facets: DeclarationTable<FacetDecl>;
       relations: DeclarationTable<RelationDecl>;
       claimGrammar: ClaimGrammar;
+      estimandGrammar: EstimandGrammar;
       operators: ResolutionTable<CompiledOperator>;
       dimensions: ResolutionTable<CompiledDimension>;
       sorts: readonly string[];
@@ -103,6 +106,7 @@ export class ProfileSpec {
     this.facets = frozenTable(Object.entries(parts.facets));
     this.relations = frozenTable(Object.entries(parts.relations));
     this.claimGrammar = parts.claimGrammar;
+    this.estimandGrammar = parts.estimandGrammar;
     this.operators = frozenTable(Object.entries(parts.operators));
     this.dimensions = frozenTable(Object.entries(parts.dimensions));
     this.sorts = Object.freeze([...parts.sorts]);
@@ -228,6 +232,7 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
     relations: base.relations,
     facets,
     claimGrammar: base.claimGrammar,
+    estimandGrammar: base.estimandGrammar,
     operators,
     dimensions,
     sorts,

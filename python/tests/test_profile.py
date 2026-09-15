@@ -42,9 +42,10 @@ def test_coordination_compiles_into_immutable_authorization(base_contract):
 
 
 def test_no_coordination_contract_preserves_the_slice_2b_compiled_identity(base_contract):
-    """The identity moved at slice 2b when source history became a declared facet."""
+    """The identity moved at slice 2b when source history became a declared facet, and
+    again at estimand-typing Task 1 when the estimand grammar entered the projection."""
     before = compile_profile(base_contract, [])
-    assert before.compiled_identity == "d767624e4edd254577dacbf488636605b46c5746a36fe07a29c81145136cef4d"
+    assert before.compiled_identity == "718cf6b9b65f279aff476d506ca83405bb325b3b8bbc141029151e3c82e5af24"
     assert compile_profile(base_contract, [], coordination=None).compiled_identity == before.compiled_identity
     assert before.coordination_kinds == {}
 
