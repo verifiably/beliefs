@@ -14,6 +14,7 @@ import secrets
 from collections.abc import Iterator
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
+from typing import Any
 
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -28,11 +29,13 @@ from beliefs.errors import (
     DatasetAddressDisagreement,
     DuplicateLocation,
     HistoryDisagreement,
+    IdentityError,
     RelocationKindExcluded,
     RelocationRefused,
     RelocationTargetMissing,
     SameRootRefused,
 )
+from beliefs.identity import v1
 from beliefs.report import ActReport, Consolidated, Moved, OperationIntent
 
 
@@ -160,17 +163,25 @@ def _relation_key(relation: Relation) -> tuple[str, str, str]:
     return relation.source, relation.predicate, relation.target
 
 
-def _reconcile(survivor: Node, loser: Node) -> Node:
+def _reconcile(
+    survivor: Node, loser: Node, *, correction_entries: list[dict[str, Any]] | None = None
+) -> Node:
     relations: dict[tuple[str, str, str], Relation] = {}
     for relation in (*survivor.relations, *loser.relations):
         relations.setdefault(_relation_key(relation), relation)
+    facets = stored.union_lineage_bases(survivor, loser)
+    if correction_entries is not None:  # a source: slice 6 §5 step 5
+        if correction_entries:
+            facets[stored.IDENTIFIER_CORRECTION_FACET] = {"entries": correction_entries}
+        else:
+            facets.pop(stored.IDENTIFIER_CORRECTION_FACET, None)
     unstamped = survivor.model_copy(
         update={
             "relations": [relations[key] for key in sorted(relations)],
             "deprecated_ids": sorted(
                 {*survivor.deprecated_ids, *loser.deprecated_ids}
             ),
-            "facets": stored.union_lineage_bases(survivor, loser),
+            "facets": facets,
         }
     )
     return (
@@ -216,19 +227,33 @@ def consolidate(
             raise AddressDisagreement(
                 f"{keep_node.id} and {other_node.id}: consolidation requires one canonical address"
             )
+        if not isinstance(rationale, str) or not rationale:
+            raise RelocationRefused("consolidate: rationale is a non-empty, canonically encodable string")
+        try:
+            v1.encode(rationale)
+        except IdentityError as caught:
+            raise RelocationRefused(
+                "consolidate: rationale is a non-empty, canonically encodable string"
+            ) from caught
+        # Constructed before the merge so a consolidation entry carries this operation's
+        # token; appended to either root only after every preflight below (slice 6 §5).
+        intent = OperationIntent("consolidate", secrets.token_hex(16), keep_writer.authority.actor)
+        correction_entries: list[dict[str, Any]] | None = None
         if keep_node.kind == "source":
             keep_map = keep_node.facets[stored.SOURCE_FACET]["identifiers"]
             other_map = other_node.facets[stored.SOURCE_FACET]["identifiers"]
             if keep_map != other_map:
+                differing = sorted({*keep_map, *other_map} - {s for s in keep_map if other_map.get(s) == keep_map[s]})
                 raise HistoryDisagreement(
-                    f"{keep_node.id}: the two replicas carry different identifier maps"
+                    f"{keep_node.id}: the two replicas carry different identifier maps ({', '.join(differing)})"
                 )
-            if keep_node.facets.get(
-                stored.IDENTIFIER_CORRECTION_FACET
-            ) != other_node.facets.get(stored.IDENTIFIER_CORRECTION_FACET):
-                raise HistoryDisagreement(
-                    f"{keep_node.id}: the two replicas carry different correction histories"
-                )
+            correction_entries = stored.reconcile_correction_histories(
+                keep_node.facets.get(stored.IDENTIFIER_CORRECTION_FACET, {"entries": []})["entries"],
+                other_node.facets.get(stored.IDENTIFIER_CORRECTION_FACET, {"entries": []})["entries"],
+                actor=keep_writer.authority.actor,
+                grounds=rationale,
+                event_token=intent.event_token,
+            )
         if keep_node.kind == "dataset":
             for position, node, writer in (
                 ("keep", keep_node, keep_writer),
@@ -241,7 +266,7 @@ def consolidate(
                         "consolidate judges both declarations before it discards one"
                     )
         _refuse_contract_disagreement(other_node, other_writer, keep_writer)
-        merged = _reconcile(keep_node, other_node)
+        merged = _reconcile(keep_node, other_node, correction_entries=correction_entries)
         keep_writer._preflight_replace_locked(merged, provenance=True)
         for position, writer in (("keep", keep_writer), ("other", other_writer)):
             if writer._operation_port is None:
@@ -251,7 +276,6 @@ def consolidate(
 
         keep_writer.authority.require("corpus-write", (merged.kind, "act-report"))
         other_writer.authority.require("corpus-write", (other_node.kind, "act-report"))
-        intent = OperationIntent("consolidate", secrets.token_hex(16), keep_writer.authority.actor)
         outcome = Consolidated(
             keep_writer.corpus_id,
             keep_node.id,

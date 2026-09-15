@@ -47,6 +47,7 @@ covers exactly what it says: fields and stamp moved *together* are undetectable.
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -59,7 +60,14 @@ from beliefs import identifiers
 from beliefs import report as report_values
 from beliefs import source as source_basis_projection
 from beliefs.dataset import DatasetDeclaration, ResourceDeclaration, dataset_address
-from beliefs.errors import BasisMissing, IdentifierMalformed, IdentityError, LoneSurrogate, MalformedRecord
+from beliefs.errors import (
+    BasisMissing,
+    HistoryDisagreement,
+    IdentifierMalformed,
+    IdentityError,
+    LoneSurrogate,
+    MalformedRecord,
+)
 from beliefs.holdings.records import (
     HOLDINGS_OBSERVATION_KIND,
     Absent,
@@ -130,6 +138,7 @@ __all__ = [
     "lineage_basis",
     "local_id",
     "recompute_semantic_hash",
+    "reconcile_correction_histories",
     "retraction_node",
     "run_spec",
     "semantic_hash_disagrees",
@@ -392,16 +401,21 @@ def dataset_address_of(node: Node) -> str | None:
 @final
 @dataclass(frozen=True)
 class IdentifierCorrection:
-    """One attributed entry of a source's identifier-correction history (slice 2b §5.2)."""
+    """One attributed entry of a source's identifier-correction history (slice 2b
+    §5.2). A consolidation entry (slice 6 §3.1) has `from == to` and a non-empty
+    `absorbed` chain — the other replica's events, verbatim; a correction entry
+    has `absorbed == ()`."""
 
     from_identifiers: Mapping[str, str]
     to_identifiers: Mapping[str, str]
     actor: str
     grounds: str
     event_token: str
+    absorbed: tuple[IdentifierCorrection, ...] = ()
 
 
 _CORRECTION_KEYS = frozenset({"from", "to", "actor", "grounds", "event_token"})
+_CONSOLIDATION_KEYS = _CORRECTION_KEYS | {"absorbed"}
 
 
 def _correction_map(raw: object, where: str) -> Mapping[str, str]:
@@ -416,59 +430,79 @@ def _correction_map(raw: object, where: str) -> Mapping[str, str]:
     return MappingProxyType(canonical)
 
 
-def identifier_corrections(node: Node) -> tuple[IdentifierCorrection, ...]:
-    """Read history validated to slice 2b §5.2, or raise `MalformedRecord`."""
-    if IDENTIFIER_CORRECTION_FACET not in node.facets:
-        return ()
-    facet = node.facets[IDENTIFIER_CORRECTION_FACET]
-    if (
-        not isinstance(facet, dict)
-        or set(facet) != {"entries"}
-        or not isinstance(facet["entries"], list)
-        or not facet["entries"]
-    ):
-        raise MalformedRecord(
-            f"{node.id}: identifier-correction is a mapping holding a non-empty `entries` list"
-        )
+def _read_chain(raw_entries: object, where: str, seen: dict[str, dict]) -> tuple[IdentifierCorrection, ...]:
+    """One chain (slice 6 §3.2): the spine, or one `absorbed` list. Tokens are
+    distinct within the chain; across chains `seen` (token → raw entry) holds
+    every occurrence of a token to one event."""
+    if not isinstance(raw_entries, list) or not raw_entries:
+        raise MalformedRecord(f"{where}: is a non-empty list of entries")
     corrections: list[IdentifierCorrection] = []
     tokens: set[str] = set()
-    for index, raw in enumerate(facet["entries"]):
-        where = f"{node.id}: identifier-correction entry {index}"
-        if not isinstance(raw, dict) or set(raw) != _CORRECTION_KEYS:
-            raise MalformedRecord(f"{where}: keys are exactly {sorted(_CORRECTION_KEYS)}")
+    for index, raw in enumerate(raw_entries):
+        here = f"{where} entry {index}"
+        if not isinstance(raw, dict) or set(raw) not in (_CORRECTION_KEYS, _CONSOLIDATION_KEYS):
+            raise MalformedRecord(
+                f"{here}: keys are exactly {sorted(_CORRECTION_KEYS)}, plus `absorbed` on a consolidation entry"
+            )
         for key in ("actor", "grounds", "event_token"):
             if not isinstance(raw[key], str) or not raw[key]:
-                raise MalformedRecord(f"{where}: {key} is a non-empty string")
+                raise MalformedRecord(f"{here}: {key} is a non-empty string")
         # Maps first, so a null or non-mapping `from`/`to` is this reader's refusal and never an
         # encoding error; then the whole entry under the identity encoding, every refusal of
         # which (NullRefused, LoneSurrogate, ...) is IdentityError and translated here.
-        frm = _correction_map(raw["from"], f"{where} from")
-        to = _correction_map(raw["to"], f"{where} to")
+        frm = _correction_map(raw["from"], f"{here} from")
+        to = _correction_map(raw["to"], f"{here} to")
         try:
             v1.encode(raw)
         except IdentityError as caught:
-            raise MalformedRecord(f"{where}: not canonically encodable: {caught}") from caught
-        if raw["event_token"] in tokens:
-            raise MalformedRecord(f"{where}: event token {raw['event_token']!r} repeats")
-        tokens.add(raw["event_token"])
+            raise MalformedRecord(f"{here}: not canonically encodable: {caught}") from caught
+        token = raw["event_token"]
+        if token in tokens:
+            raise MalformedRecord(f"{here}: event token {token!r} repeats")
+        tokens.add(token)
+        if token in seen and seen[token] != raw:
+            raise MalformedRecord(f"{here}: event token {token!r} names two different events")
+        seen[token] = raw
         if frm == to:
-            raise MalformedRecord(f"{where}: from and to are equal; a correction changes something")
+            if "absorbed" not in raw:
+                raise MalformedRecord(f"{here}: from and to are equal; a correction changes something")
+        elif "absorbed" in raw:
+            raise MalformedRecord(f"{here}: a consolidation entry changes nothing, so from and to are equal")
         if corrections and dict(corrections[-1].to_identifiers) != dict(frm):
-            raise MalformedRecord(f"{where}: from does not continue the previous entry's to")
-        corrections.append(IdentifierCorrection(frm, to, raw["actor"], raw["grounds"], raw["event_token"]))
-    if dict(corrections[-1].to_identifiers) != dict(_source_identifiers(node)):
-        raise MalformedRecord(f"{node.id}: the last correction does not end at the current identifiers")
+            raise MalformedRecord(f"{here}: from does not continue the previous entry's to")
+        absorbed: tuple[IdentifierCorrection, ...] = ()
+        if "absorbed" in raw:
+            absorbed = _read_chain(raw["absorbed"], f"{here} absorbed", seen)
+            if dict(absorbed[-1].to_identifiers) != dict(frm):
+                raise MalformedRecord(f"{here}: the absorbed chain does not end at the entry's identifiers")
+        corrections.append(IdentifierCorrection(frm, to, raw["actor"], raw["grounds"], token, absorbed))
     return tuple(corrections)
 
 
+def identifier_corrections(node: Node) -> tuple[IdentifierCorrection, ...]:
+    """Read history validated to slice 2b §5.2 and slice 6 §3.2, or raise `MalformedRecord`."""
+    if IDENTIFIER_CORRECTION_FACET not in node.facets:
+        return ()
+    facet = node.facets[IDENTIFIER_CORRECTION_FACET]
+    if not isinstance(facet, dict) or set(facet) != {"entries"}:
+        raise MalformedRecord(
+            f"{node.id}: identifier-correction is a mapping holding a non-empty `entries` list"
+        )
+    corrections = _read_chain(facet["entries"], f"{node.id}: identifier-correction", {})
+    if dict(corrections[-1].to_identifiers) != dict(_source_identifiers(node)):
+        raise MalformedRecord(f"{node.id}: the last correction does not end at the current identifiers")
+    return corrections
+
+
 def held_source_addresses(history: Sequence[IdentifierCorrection]) -> frozenset[str]:
-    """Every address derivable from any map in the history."""
+    """Every address derivable from any map in the history, absorbed chains included."""
     addresses: set[str] = set()
     for correction in history:
         for mapping in (correction.from_identifiers, correction.to_identifiers):
             address = source_basis_projection.source_address(mapping)
             assert address is not None  # a validated map is non-empty
             addresses.add(address)
+        addresses |= held_source_addresses(correction.absorbed)
     return frozenset(addresses)
 
 
@@ -481,6 +515,49 @@ def validate_source_history(node: Node) -> tuple[IdentifierCorrection, ...]:
             f"{node.id}: deprecated_ids {list(node.deprecated_ids)} are not the history's redirect set {expected}"
         )
     return history
+
+
+def _events(entries: Sequence[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """token → raw entry over a chain and every recursively absorbed chain."""
+    events: dict[str, dict[str, Any]] = {}
+    for entry in entries:
+        events[entry["event_token"]] = entry
+        events.update(_events(entry.get("absorbed", ())))
+    return events
+
+
+def reconcile_correction_histories(
+    keep: Sequence[dict[str, Any]],
+    other: Sequence[dict[str, Any]],
+    *,
+    actor: str,
+    grounds: str,
+    event_token: str,
+) -> list[dict[str, Any]]:
+    """Reconcile two validated correction chains while preserving raw entries."""
+    held = _events(keep)
+    for token, event in _events(other).items():
+        if token in held and held[token] != event:
+            raise HistoryDisagreement(f"event token {token!r} names two different events")
+    if list(keep) == list(other)[: len(keep)]:
+        return copy.deepcopy(list(other))
+    remainder = [entry for entry in other if entry["event_token"] not in held]
+    if not remainder:
+        return copy.deepcopy(list(keep))
+    if remainder != list(other)[len(other) - len(remainder) :]:
+        raise HistoryDisagreement("held events interleave unheld ones; the chain cannot be absorbed")
+    current = dict(keep[-1]["to"])
+    return [
+        *copy.deepcopy(list(keep)),
+        {
+            "from": current,
+            "to": dict(current),
+            "actor": actor,
+            "grounds": grounds,
+            "event_token": event_token,
+            "absorbed": copy.deepcopy(remainder),
+        },
+    ]
 
 
 def _declaration_of(facet: Mapping[str, Any]) -> DatasetDeclaration:

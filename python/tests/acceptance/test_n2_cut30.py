@@ -1,4 +1,4 @@
-"""Cut 28 declaration accounting, freeze pin, and N2 audit."""
+"""Cut 30 declaration accounting, freeze pin, and N2 audit."""
 
 from __future__ import annotations
 
@@ -34,19 +34,21 @@ from n2_arms_cut24 import CUT24_ARMS
 from n2_arms_cut25 import CUT25_ARMS as FROZEN_CUT25_ARMS
 from n2_arms_cut26 import CUT26_ARMS
 from n2_arms_cut27 import CUT27_ARMS
-from n2_arms_cut28 import CO_CITED, CUT28_ARMS, DECLARATION_UNITS, UNIT_CHECKS, unit_of
+from n2_arms_cut28 import CUT28_ARMS
+from n2_arms_cut29 import CUT29_ARMS
+from n2_arms_cut30 import CO_CITED, CUT30_ARMS, DECLARATION_UNITS, UNIT_CHECKS, unit_of
 from test_n2 import audit, baseline
 from test_n2_cut25 import CUT25_ARMS
 from test_n2_cut25 import RETARGETED_ROWS as CUT25_RETARGETED_ROWS
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]
-FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-14-conformance-cut-28.md"
-CUT28_FREEZE_COMMIT = "dfc8665f414af8ef1a93f81532391e64fb805c18"
-CUT28_FROZEN_SHA256 = "39e93aa6e5e13e839aad8a675b11e1652fa30fd7e2f05ab62f516ba26480ba62"
-FROZEN_DECLARATION = "python/tests/acceptance/n2_arms_cut28.py"
-CUT28_DECLARATION_COMMIT = "d11baf9608190735426a7fee1e99cf04c7a6a4c3"
-CUT28_DECLARATION_SHA256 = "2d5a4e7496ca59b06c52205152496231eedd13b3749b76cfedd4d97afdb5400d"
+FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-15-conformance-cut-30.md"
+CUT30_FREEZE_COMMIT = "11d7e1f2048292ee8ebe0def4f43fb98ab0be8eb"
+CUT30_FROZEN_SHA256 = "0aab3895c2532f1a0760dd232c61085db6873ca75d28fcec014ca3a7015b07d7"
+FROZEN_DECLARATION = "python/tests/acceptance/n2_arms_cut30.py"
+CUT30_DECLARATION_COMMIT = "31b083eaaa9c035cf645146d017ad6760c0cc3c3"
+CUT30_DECLARATION_SHA256 = "6c2db675d6793eff3bf3fb65a59438e7ce59064308c061c1e1d18f8cab5a97bd"
 
 FROZEN_PRIOR_CUT_FILES = {
     "python/tests/n2_arms_cut3.py": "1e92471",
@@ -75,6 +77,8 @@ FROZEN_PRIOR_CUT_FILES = {
     "python/tests/acceptance/n2_arms_cut25.py": "515fc8b",
     "python/tests/n2_arms_cut26.py": "16926ad",
     "python/tests/acceptance/n2_arms_cut27.py": "3674da8",
+    "python/tests/acceptance/n2_arms_cut28.py": "d11baf9",
+    "python/tests/acceptance/n2_arms_cut29.py": "0e57a52",
 }
 
 PRIOR_ARMS = (
@@ -102,34 +106,36 @@ PRIOR_ARMS = (
     *CUT25_ARMS,
     *CUT26_ARMS,
     *CUT27_ARMS,
+    *CUT28_ARMS,
+    *CUT29_ARMS,
 )
 
 
 @pytest.fixture(scope="session")
 def findings(tmp_path_factory):
-    workspace = tmp_path_factory.mktemp("n2-cut28")
+    workspace = tmp_path_factory.mktemp("n2-cut30")
     with ThreadPoolExecutor(max_workers=WORKERS) as pool:
         return tuple(
             pool.map(
                 lambda pair: audit(pair[1], workspace / f"arm{pair[0]}"),
-                enumerate(CUT28_ARMS),
+                enumerate(CUT30_ARMS),
             )
         )
 
 
-def test_the_inventory_is_exactly_the_three_declared_units() -> None:
-    assert DECLARATION_UNITS == ("W7", "W8", "W8b")
-    assert {unit_of(arm.row) for arm in CUT28_ARMS} == set(DECLARATION_UNITS)
-    assert len(CUT28_ARMS) == 23
-    assert all(arm.sabotage.package == "beliefs" for arm in CUT28_ARMS)
+def test_the_inventory_is_exactly_the_one_declared_unit() -> None:
+    assert DECLARATION_UNITS == ("W5a",)
+    assert {unit_of(arm.row) for arm in CUT30_ARMS} == set(DECLARATION_UNITS)
+    assert len(CUT30_ARMS) == 10
+    assert all(arm.sabotage.package == "beliefs" for arm in CUT30_ARMS)
     assert set(UNIT_CHECKS) == set(DECLARATION_UNITS)
-    assert set(UNIT_CHECKS.values()) <= {check for arm in CUT28_ARMS for check in arm.checks}
+    assert set(UNIT_CHECKS.values()) <= {check for arm in CUT30_ARMS for check in arm.checks}
 
 
 def test_each_lettered_arm_is_unique_and_carries_an_exact_check() -> None:
-    rows = [arm.row for arm in CUT28_ARMS]
+    rows = [arm.row for arm in CUT30_ARMS]
     assert len(rows) == len(set(rows))
-    for arm in CUT28_ARMS:
+    for arm in CUT30_ARMS:
         assert arm.asserts.strip()
         assert arm.checks and len(arm.checks) == len(set(arm.checks))
         assert arm.sabotage.before != arm.sabotage.after
@@ -140,7 +146,7 @@ def test_each_lettered_arm_is_unique_and_carries_an_exact_check() -> None:
 
 def test_each_sabotage_names_one_real_source_site() -> None:
     package = REPO_ROOT / "python" / "src" / "beliefs"
-    for arm in CUT28_ARMS:
+    for arm in CUT30_ARMS:
         target = package / arm.sabotage.module
         assert target.is_file(), f"{arm.row}: missing {arm.sabotage.module}"
         source = target.read_text(encoding="utf-8")
@@ -151,9 +157,9 @@ def test_each_sabotage_names_one_real_source_site() -> None:
 def test_every_live_check_resolves_and_passes_without_sabotage() -> None:
     every = Arm(
         row="N2",
-        asserts="every cut-28 check passes against the real package",
-        sabotage=CUT28_ARMS[0].sabotage,
-        checks=tuple(dict.fromkeys(check for arm in CUT28_ARMS for check in arm.checks)),
+        asserts="every cut-30 check passes against the real package",
+        sabotage=CUT30_ARMS[0].sabotage,
+        checks=tuple(dict.fromkeys(check for arm in CUT30_ARMS for check in arm.checks)),
     )
     finding = baseline(every)
     assert finding.verdict == "resolved", finding.detail
@@ -188,23 +194,23 @@ def test_the_freeze_commit_and_sections_two_through_seven_are_pinned() -> None:
     """Once frozen, §§2–7 are byte-exact against the freeze commit."""
     assert (
         subprocess.run(
-            ["git", "-C", str(REPO_ROOT), "merge-base", "--is-ancestor", CUT28_FREEZE_COMMIT, "HEAD"],
+            ["git", "-C", str(REPO_ROOT), "merge-base", "--is-ancestor", CUT30_FREEZE_COMMIT, "HEAD"],
             check=False,
         ).returncode
         == 0
-    ), CUT28_FREEZE_COMMIT
+    ), CUT30_FREEZE_COMMIT
     current = FROZEN_CUT.read_text(encoding="utf-8")
-    frozen = _show(CUT28_FREEZE_COMMIT, str(FROZEN_CUT.relative_to(REPO_ROOT)))
-    assert sha256(frozen.encode("utf-8")).hexdigest() == CUT28_FROZEN_SHA256
+    frozen = _show(CUT30_FREEZE_COMMIT, str(FROZEN_CUT.relative_to(REPO_ROOT)))
+    assert sha256(frozen.encode("utf-8")).hexdigest() == CUT30_FROZEN_SHA256
     assert _frozen_body(current) == _frozen_body(frozen)
-    assert "**3 declaration units**" in current
-    assert "Three guarantee rows are read, **2 full/closed** (W7, W8b)" in current
-    assert '("cut27_acceptance.py",)' in current
+    assert "**1 declaration unit**" in current
+    assert "Zero guarantee rows are read, **0 full/closed** newly" in current
+    assert '("cut29_acceptance.py",)' in current
 
 
 def test_the_declaration_is_byte_exact_against_its_own_commit() -> None:
     """The declaring commit is a descendant of the freeze and an ancestor of HEAD."""
-    for commit in (CUT28_FREEZE_COMMIT, CUT28_DECLARATION_COMMIT):
+    for commit in (CUT30_FREEZE_COMMIT, CUT30_DECLARATION_COMMIT):
         assert (
             subprocess.run(
                 ["git", "-C", str(REPO_ROOT), "merge-base", "--is-ancestor", commit, "HEAD"],
@@ -214,18 +220,17 @@ def test_the_declaration_is_byte_exact_against_its_own_commit() -> None:
         ), commit
     assert (
         subprocess.run(
-            ["git", "-C", str(REPO_ROOT), "merge-base", "--is-ancestor", CUT28_FREEZE_COMMIT, CUT28_DECLARATION_COMMIT],
+            ["git", "-C", str(REPO_ROOT), "merge-base", "--is-ancestor", CUT30_FREEZE_COMMIT, CUT30_DECLARATION_COMMIT],
             check=False,
         ).returncode
         == 0
     )
     current = (REPO_ROOT / FROZEN_DECLARATION).read_bytes()
-    assert sha256(current).hexdigest() == CUT28_DECLARATION_SHA256
-    assert current.decode("utf-8") == _show(CUT28_DECLARATION_COMMIT, FROZEN_DECLARATION)
+    assert sha256(current).hexdigest() == CUT30_DECLARATION_SHA256
+    assert current.decode("utf-8") == _show(CUT30_DECLARATION_COMMIT, FROZEN_DECLARATION)
 
 
 def test_prior_declarations_are_frozen_and_no_check_is_reclaimed() -> None:
-    # Live matcher migration, 2026-09-14 (slice 5): normalize only W1-a.
     assert tuple(
         frozen if live.row in CUT25_RETARGETED_ROWS else live  # re-targeted rows: 2026-09-14 W1-a, 2026-09-15 W5a-m
         for live, frozen in zip(
@@ -239,7 +244,7 @@ def test_prior_declarations_are_frozen_and_no_check_is_reclaimed() -> None:
         )
         assert completed.returncode == 0, f"{path} moved since {pin}"
     prior = {check for arm in PRIOR_ARMS for check in arm.checks}
-    for arm in CUT28_ARMS:
+    for arm in CUT30_ARMS:
         reclaimed = set(arm.checks) & prior
         assert reclaimed <= set(CO_CITED), arm.row
 
@@ -249,6 +254,9 @@ def test_row_parser_accepts_only_declared_units_and_one_letter_suffix() -> None:
         assert unit_of(unit) == unit
         assert unit_of(f"{unit}-a") == unit
         assert unit_of(f"{unit}-z") == unit
-    for row in ("", "D1", "W7-", "W7a", "W7-A", "W7-1", "W7-aa", "W7-a-b"):
-        with pytest.raises(ValueError, match="is not a cut-28 row"):
+    for row in ("", "D1", "W5a-", "W5aa", "W5a-A", "W5a-1", "W5a-aa", "W5a-a-b"):
+        with pytest.raises(ValueError, match="is not a cut-30 row"):
             unit_of(row)
+
+
+# Export the live tuple so arm_staleness.audited_arms measures every audited arm.

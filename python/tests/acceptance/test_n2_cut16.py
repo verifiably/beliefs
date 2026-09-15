@@ -29,6 +29,22 @@ import beliefs.root as science_root
 
 # Live facet-contract matcher migration, 2026-09-07; canonical table remains frozen at b0882d3.
 _LIVE_SABOTAGES = {
+    # Live reconciliation migration, 2026-09-15 (slice 6): `_reconcile` now
+    # computes merged facets before stamping, and public consolidate passes
+    # correction history into it. The frozen declaration remains unchanged.
+    "W16b": Sabotage(
+        module="relocation.py",
+        before='            "facets": facets,\n',
+        after='            "facets": dict(survivor.facets),\n',
+    ),
+    "D7b": Sabotage(
+        module="relocation.py",
+        before=(
+            "        _refuse_contract_disagreement(other_node, other_writer, keep_writer)\n"
+            "        merged = _reconcile(keep_node, other_node, correction_entries=correction_entries)\n"
+        ),
+        after="        merged = _reconcile(keep_node, other_node, correction_entries=correction_entries)\n",
+    ),
     # Live source-boundary matcher migration, 2026-09-10 (slice 2b): the basis
     # guard split into _refuse_source and _refuse_dataset_basis; the table
     # stays frozen at b0882d3 and the arm asserts the same thing over the split lines.

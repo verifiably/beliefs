@@ -114,9 +114,14 @@ def audited_arms(guard: Path, *, repo_root: Path) -> tuple[Arm, ...]:
 
 
 def re_targeted_rows(guard: Path, *, repo_root: Path) -> frozenset[str]:
-    """The rows the guard's `_LIVE_SABOTAGES` table re-targets; empty when it has none."""
+    """The rows the guard re-targets: `RETARGETED_ROWS` where the guard declares the
+    full set (a re-targeted sabotage, or a whole successor arm — cut 25 since 2026-09-15),
+    else the keys of its `_LIVE_SABOTAGES` table; empty when it has neither."""
     tests = repo_root / "python" / "tests"
     module = _load(guard, search=(tests, tests / "acceptance"))
+    declared = getattr(module, "RETARGETED_ROWS", None)
+    if declared is not None:
+        return frozenset(declared)
     return frozenset(getattr(module, "_LIVE_SABOTAGES", {}))
 
 

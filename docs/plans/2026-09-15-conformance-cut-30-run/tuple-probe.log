@@ -1,0 +1,41 @@
+Read-only engine volume configuration probe
+Measured UTC: 2026-09-15T13:52:37.687165+00:00
+Method: os.open(O_RDONLY|O_DIRECTORY), resolve_mount_entry(fd, read_mountinfo()), build_configuration(entry, kernel_identifier(), directory_fd=fd).
+No capability or allowlist overrides; no writes to probed volumes.
+Declared storage profile: flush-honoring-disk.v1
+certified acceptance root:
+{
+  "backend_id": "linux",
+  "backend_revision": "linux-4",
+  "barrier_options": [
+    "async",
+    "barrier=1",
+    "commit=5",
+    "data=ordered"
+  ],
+  "durability_features": [
+    "compat=0x3c",
+    "incompat=0x246",
+    "ro_compat=0x46b"
+  ],
+  "filesystem_type": "ext4",
+  "kernel_identifier": "7.2.2-arch1-1"
+}
+task worktree:
+{
+  "backend_id": "linux",
+  "backend_revision": "linux-4",
+  "barrier_options": [
+    "async",
+    "barrier=1",
+    "commit=5",
+    "data=ordered"
+  ],
+  "durability_features": [
+    "compat=0x103c",
+    "incompat=0x22c6",
+    "ro_compat=0x1046b"
+  ],
+  "filesystem_type": "ext4",
+  "kernel_identifier": "7.2.2-arch1-1"
+}

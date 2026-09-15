@@ -1157,8 +1157,11 @@ class AddressDisagreement(RelocationRefused):
 
 class HistoryDisagreement(RelocationRefused):
     """`consolidate` was given two sources at one address whose identifier maps
-    or correction histories differ (slice 2b §7). Reconciling them is a design
-    this slice refuses to improvise; the survivor's history must not silently win."""
+    differ (slice 2b §7: an identifier change is a correction's assertion, never
+    a side effect of consolidation), or whose correction histories cannot be
+    reconciled — one token naming two different events, or a raw-imported chain
+    interleaving held and unheld events (slice 6 §4). Divergent histories
+    themselves reconcile by absorption since cut 30."""
 
 
 class DuplicateLocation(RelocationRefused):

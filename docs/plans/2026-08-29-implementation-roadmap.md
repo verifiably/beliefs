@@ -1,6 +1,6 @@
 # Implementation roadmap
 
-**Ranked at:** cut 29, against the ledger's Current state (2026-09-15)
+**Ranked at:** cut 30, against the ledger's Current state (2026-09-15)
 **Method:** `../superpowers/specs/2026-08-29-implementation-roadmap-design.md`,
 as amended 2026-09-05 — tier 1 is ordered by distance to the dogfood success
 criterion (§4.0 there), open lanes are bounded, and a method amendment
@@ -38,17 +38,10 @@ criterion cannot be met without are **on the path**, in dependency order;
 the rest are **off the path**, in breadth order. Whether a boundary is on the
 path is measured where it can be, by the reproduction lane (§Lanes).
 
-**Cut 29 (2026-09-15) discharges world-resolution slice 5 without changing
-the ranking.** Every dataset record's id is now its derived content address,
-held at the write boundary and at both inputs of `consolidate`; no guarantee
-row moves. `world-resolution` stays first on the path for its one remaining
-filed follow-up: divergent correction-history reconciliation
-(`beliefs-24b42b`).
+**Cut 30 (2026-09-15) discharges world-resolution slice 6 and closes the boundary** — divergent correction histories reconcile at `consolidate` by absorption; no guarantee row moves. Tier 1 now has no on-path boundary: the reproduction lane's measurement ranked world-resolution on the path, and its last follow-up is discharged, so rule 6 admits off-path lanes, in breadth order, beside the parked estimand-typing lane (beliefs-705507 re-reads rule 6).
 
 The current accounting is 153 of 196 rows closed, with 43 open. The prior
-single-corpus mm30 measurement still ranks this boundary on the path when a
-second corpus enters; cut 29 adds no new mm30 reproduction measurement.
-Dataset addressing (`beliefs-48214e`) closed at cut 29.
+single-corpus mm30 measurement has no remaining on-path boundary; a second corpus may place one here. Cut 30 adds no new mm30 reproduction measurement.
 
 ## Boundary index
 
@@ -61,7 +54,6 @@ their lane's task, and tier-3 design questions remain `idea` tasks.
 
 | id | rows it closes | tier | task |
 |---|---|---|---|
-| `world-resolution` | one filed follow-up: divergent correction-history reconciliation; no guarantee rows | 1, on the path | [beliefs-d248ba](../../tasks/beliefs-d248ba.md) |
 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | 1, off the path | [beliefs-aa27da](../../tasks/beliefs-aa27da.md) |
 | `url-retrieval` | H4, G9, R10, T5; T7's same-root case | 1, off the path | [beliefs-d13fe8](../../tasks/beliefs-d13fe8.md) |
 | `event-level-l8` | L8 | 1, off the path | [beliefs-b34652](../../tasks/beliefs-b34652.md) |
@@ -80,12 +72,7 @@ their lane's task, and tier-3 design questions remain `idea` tasks.
 
 ### On the path
 
-In dependency order. A boundary's rank says how far the success criterion is
-from being met without it; its lane (§Lanes) says what it must wait for.
-
-| # | id | rows | unblocks | placement |
-|---|---|---|---|---|
-| 1 | `world-resolution` | one filed follow-up: divergent correction-history reconciliation; no guarantee rows | correction-history reconciliation | slices 1, 2, 2b, 3, 4 and 5 discharged at cuts 23, 24, 25, 27, 28 and 29; only the reconciliation follow-up remains |
+No boundary: the reproduction record's on-path measurement is discharged at cut 30; the next measurement (a second corpus) may place one here.
 
 ### Off the path
 
@@ -94,10 +81,10 @@ In breadth order. Each opens only when no on-path lane is startable
 
 | # | id | rows | unblocks | placement |
 |---|---|---|---|---|
-| 2 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | the correction lifecycle in full | C7's consolidate prerequisite landed at cut 16 and the deletion surface it shares at cut 18; the stored semantic-snapshot kind and evaluator are this boundary's own work. Off the path: the first belief retracts nothing |
-| 3 | `url-retrieval` | H4, G9, R10, T5, T7's same-root case | the first acquisition of a dataset from outside the system; H4 in full | holdings design §2–§3 specify the canonicalization profile and network discipline. Off the path: mm30's data is held locally, so the first belief acquires nothing |
-| 4 | `event-level-l8` | L8 | row 5 reads L8 in full; the log's last Science-only remainder | §7's ordered-cuts predicate is built; the event-level relation is its successor |
-| 5 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | the widest set: the conformance-package split (ledger §5), instrument-certification cadence, legacy-check disposition (N10), P1 | the join, last: N1 mints a successor contract identity for every oracle amended after the freeze, every lane above amends at least one, and the ledger's §2 already rules that the contract freezes after the operation set settles — which the dogfood will change |
+| 1 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | the correction lifecycle in full | C7's consolidate prerequisite landed at cut 16 and the deletion surface it shares at cut 18; the stored semantic-snapshot kind and evaluator are this boundary's own work. Off the path: the first belief retracts nothing |
+| 2 | `url-retrieval` | H4, G9, R10, T5, T7's same-root case | the first acquisition of a dataset from outside the system; H4 in full | holdings design §2–§3 specify the canonicalization profile and network discipline. Off the path: mm30's data is held locally, so the first belief acquires nothing |
+| 3 | `event-level-l8` | L8 | `contract-cut` reads L8 in full; the log's last Science-only remainder | §7's ordered-cuts predicate is built; the event-level relation is its successor |
+| 4 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | the widest set: the conformance-package split (ledger §5), instrument-certification cadence, legacy-check disposition (N10), P1 | the join, last: N1 mints a successor contract identity for every oracle amended after the freeze, every lane above amends at least one, and the ledger's §2 already rules that the contract freezes after the operation set settles — which the dogfood will change |
 
 **Ride-along closures**, tier 1 by the rule and unblocking no capability of
 their own, each named to the cut that takes it:
@@ -122,7 +109,7 @@ boundary sits in the lane of its prerequisite and waits there.
 |---|---|---|---|
 | `write-path` | none — no open boundary | `corpus.py`, `report.py`, `intents/`, `session/`, `verify.py`, `evaluation.py`, `audit.py` | closed: `writer-session` discharged at cut 19 and `verification-publication` at cut 21 |
 | `domain` | none — `domain-boundary` closed at cut 26 after slices 1 and 2 at cuts 20 and 22 | the `nodes` registry | closed 2026-09-12 at cut 26 |
-| `world-read` | the `world-resolution` reconciliation follow-up → `event-level-l8` (+ `log-remainder`) → `publish` | `world/read.py`, `world/view.py`, `resolution.py`, `world/verify.py`; `corpus.py`, `lineage.py`, `evaluation.py`, `belief.py`, `consulted.py`, `audit.py` as each slice names | on the path at its head; slices 1, 2, 2b, 3, 4 and 5 discharged at cuts 23, 24, 25, 27, 28 and 29 |
+| `world-read` | `event-level-l8` (+ `log-remainder`) → `publish` | `world/read.py`, `world/view.py`, `resolution.py`, `world/verify.py`; `corpus.py`, `lineage.py`, `evaluation.py`, `belief.py`, `consulted.py`, `audit.py` as each slice names | off the path at its head; world-resolution discharged at cuts 23–25 and 27–30 |
 | `mutation` | `correction-remainder` | `adapter.py`, `corpus.py`, `audit.py`, `decode.py`, `evaluation.py`, `world/verify.py` | off the path; waits |
 | `acquisition` | `url-retrieval` (+ `act-report-remainder`) | `holdings/`, `report.py` | off the path; waits |
 | `reproduction` | none — a measurement: `../superpowers/specs/2026-09-05-mm30-reproduction-design.md` | no kernel surface; `python/tools/reproduction/`, a corpus on the certified volume beside the checkout, and the record it produces | **closed 2026-09-05**: ran to the evaluator's answer; its record (`../designs/2026-09-05-mm30-reproduction.md`) re-ranked this document, its five findings are filed through the owning lanes, and its corpus stays at `.mm30-reproduction/` as the seed of the dogfood's world |
@@ -202,11 +189,11 @@ slice 1 (facet-contracts §6). Another question raised by the record is carried 
 where an interpretation rule reads content
 ([computation](../guide/open-questions.md#computation-and-reproducibility)).
 
-## Appendix A — live status of every guarantee row at cut 29
+## Appendix A — live status of every guarantee row at cut 30
 
 Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
-(spec §3.1); a row is closed only when no later source reopens it. Cut 29 closes
-nothing and re-reads W2, W3 and W8 on dataset arms. W8 remains partial on its
+(spec §3.1); a row is closed only when no later source reopens it. Cut 30 closes
+nothing and re-reads W5a on its reconciliation arms. W8 remains partial on its
 ambiguous-search-term conflict; R23 and W8a remain partial only on their
 `contract-cut` clauses.
 

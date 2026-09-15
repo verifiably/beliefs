@@ -3073,7 +3073,8 @@ class CorpusWriter:
         """Slice 2b §5.1, in order: canonical identifiers (every entry), a
         basis, the derived address, a well-formed history, redirect agreement.
         `provenance` admits a history (import, relocation, the seam); an
-        ordinary add refuses one — history is minted by `correct_identifier`."""
+        ordinary add refuses one — history is minted by `correct_identifier`.
+        A nested (consolidation) history is validated by the same reader (slice 6 §3.2)."""
         if node.kind != "source":
             return
         facet = stored._facet(node, stored.SOURCE_FACET) or {}

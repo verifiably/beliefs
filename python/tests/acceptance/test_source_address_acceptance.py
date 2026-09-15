@@ -29,14 +29,13 @@ from test_session_acceptance import (
 from test_world_receipts import hold_shipped, publish
 
 from beliefs import source, stored
-from beliefs.corpus import CorpusWriter
+from beliefs.corpus import CorpusWriter, corpus_check
 from beliefs.errors import (
     AddressMapConflict,
     BasisMissing,
     CollisionRefused,
     ContractMismatch,
     CorrectionRefused,
-    HistoryDisagreement,
     IdentifierMalformed,
     PermitExceeded,
     RecordAlreadyMinted,
@@ -447,7 +446,7 @@ def test_failure_boundary_refusals_and_applied_prefixes(work_directory, monkeypa
 
 
 def test_lifecycle_move_consolidate_delete(world):
-    _registry, (_a, left), (_b, right) = world
+    registry, (a, left), (b, right) = world
     paper = left.add(stored.source_node(title="p", identifiers={"pmid": "5"}))
     corrected = left.correct_identifier(paper.id, {"doi": "10.1234/five", "pmid": "5"}, grounds="g")
     moved, *_ = move(left, right, corrected.id, **REPORT)
@@ -467,12 +466,51 @@ def test_lifecycle_move_consolidate_delete(world):
     left.correct_identifier(twin.id, {"doi": "10.1234/six", "pmid": "6"}, grounds="g2")  # another token: divergent
     divergent = source.source_address({"doi": "10.1234/six"})
     assert divergent is not None
-    with pytest.raises(HistoryDisagreement):
-        consolidate(
-            (left, divergent),
-            (right, divergent),
-            rationale="r",
-            **REPORT,
-        )
+    (left_entry,) = stored.identifier_corrections(left.read_view.get(divergent))
+    (right_entry,) = stored.identifier_corrections(right.read_view.get(divergent))
+    merged, keep_report, _other_report = consolidate((left, divergent), (right, divergent), rationale="one paper", **REPORT)
+    spine, absorbed = stored.identifier_corrections(merged)
+    assert spine == left_entry and absorbed.absorbed == (right_entry,) and absorbed.event_token == keep_report.event_token
+    assert merged.deprecated_ids == [other.id]
+    assert not [finding for finding in corpus_check(left.read_view, BASE) if finding.ref == merged.id]
+    assert right.read_view.resolve(divergent) is None
+    published = publish(registry, (a, b), hold_shipped(registry))
+    view = open_world_view(registry, published)
+    assert view.resolve(other.id) == merged.id and view.corpus_of(merged.id) == a
     left.delete(survivor.id)
     assert left.read_view.resolve(paper.id) is None
+
+
+def test_consolidate_interrupted_after_replacement_re_runs_to_completion(world, monkeypatch):
+    """Families design, `consolidate` interrupted after step 4: keep holds the reconciled
+    survivor, other still holds its replica, and the recovery is to re-run. Slice 6 §5:
+    the re-run absorbs nothing twice."""
+    registry, (a, left), (b, right) = world
+    for writer, grounds in ((left, "g-left"), (right, "g-right")):
+        paper = writer.add(stored.source_node(title="p", identifiers={"pmid": "8"}))
+        writer.correct_identifier(paper.id, {"doi": "10.1234/eight", "pmid": "8"}, grounds=grounds)
+    address = source.source_address({"doi": "10.1234/eight"})
+    assert address is not None
+    original = CorpusWriter._delete_locked
+    armed = {"once": True}
+
+    def interrupt(self, ref):
+        if armed["once"] and self.root == right.root:
+            armed["once"] = False
+            raise RuntimeError("interrupted after keep's replacement")
+        return original(self, ref)
+
+    monkeypatch.setattr(CorpusWriter, "_delete_locked", interrupt)
+    with pytest.raises(RuntimeError):
+        consolidate((left, address), (right, address), rationale="first", **REPORT)
+    after_halt = stored.identifier_corrections(left.read_view.get(address))
+    assert len(after_halt) == 2 and after_halt[1].absorbed != ()
+    assert right.read_view.holds(address)  # the duplicate location the families table names
+    for writer in (left, right):
+        assert not any(n.kind == "act-report" for n in writer.read_view.iter_stored())  # both intents unfulfilled
+    survivor, keep_report, other_report = consolidate((left, address), (right, address), rationale="second", **REPORT)
+    assert stored.identifier_corrections(survivor) == after_halt
+    assert after_halt[1].event_token != keep_report.event_token == other_report.event_token
+    assert not right.read_view.holds(address)
+    published = publish(registry, (a, b), hold_shipped(registry))
+    assert open_world_view(registry, published).corpus_of(address) == a

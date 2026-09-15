@@ -42,6 +42,7 @@ sources:
   - ../designs/2026-09-13-conformance-cut-27.md
   - ../designs/2026-09-14-conformance-cut-28.md
   - ../designs/2026-09-14-conformance-cut-29.md
+  - ../designs/2026-09-15-conformance-cut-30.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
   - ../plans/2026-08-29-conformance-cut-12-results.md
   - ../plans/2026-09-01-conformance-cut-13-results.md
@@ -193,7 +194,7 @@ W8b is measured and not selected. Its build defect is repaired by
 The [results record](../plans/2026-09-09-conformance-cut-23-results.md) preserves
 the certified chain and repository gates; it makes no new mm30 measurement.
 
-Twenty-three conformance cuts have been frozen and discharged, each frozen before
+Twenty-four conformance cuts have been frozen and discharged, each frozen before
 its code existed and each from cut 4 onward discharged on the certified tuple
 with a results record under `../plans/`. The cut discipline is what this page
 owns: a cut selects rows, the acceptance runner arms each selected unit with
@@ -233,6 +234,7 @@ divergence clauses, W8a's packaging arms, the X5 and W13 relabels and the new
 row S9 (`../plans/2026-09-13-conformance-cut-27-results.md`).
 Cut 28 discharges world resolution slice 4 — W7's view evaluation and the W8/W8b conflicts over existing code (`../designs/2026-09-14-conformance-cut-28.md`; `../plans/2026-09-14-conformance-cut-28-results.md`).
 Cut 29 discharges world resolution slice 5 — dataset ids derived from the content identity and held at the write boundary and both inputs of `consolidate` (`../designs/2026-09-14-conformance-cut-29.md`; `../plans/2026-09-14-conformance-cut-29-results.md`).
+Cut 30 discharges world resolution slice 6 — divergent correction histories reconcile at `consolidate` by absorption (`../designs/2026-09-15-conformance-cut-30.md`; `../plans/2026-09-15-conformance-cut-30-results.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-15)
