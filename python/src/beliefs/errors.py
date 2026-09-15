@@ -630,6 +630,12 @@ class MalformedWireClaim(DecodeError):
     contract is consulted, because the typing below it indexes into the value."""
 
 
+class MalformedWireEstimand(DecodeError):
+    """A wire estimand that does not have the shape a wire estimand has at all —
+    a missing or extra member, a non-integer slot, a non-Decimal reference, a
+    kind outside the grammar — refused before anything is typed."""
+
+
 class UnboundReferent(DecodeError):
     """A term that its sort's bound vocabulary was **read** and found not to contain.
 
