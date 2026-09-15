@@ -621,7 +621,7 @@ def assessment_grounds(root: Path) -> None:
     session's own write is the assessment alone."""
     library = open_corpus(root, authority=FULL, profile=WITH_BIOLOGY)
     library.add(
-        stored.dataset_node("raw", title="raw", resources=PINNED, empirical_observation={"locator": "instrument:fixture", "attested_by": FULL.actor})
+        stored.dataset_node(title="raw", resources=PINNED, empirical_observation={"locator": "instrument:fixture", "attested_by": FULL.actor})
     )
     library.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=["dataset:raw"]))
     library.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))

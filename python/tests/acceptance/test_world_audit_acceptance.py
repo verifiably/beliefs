@@ -191,7 +191,7 @@ def test_a_moved_corpus_and_one_of_two_moving_are_unresolvable_durably(chain):
     world, roots, published, a, b = chain
     unchanged = registry.corpus_state_identity(roots[a])
     open_corpus(roots[b], authority=FULL, profile=BASE).add(
-        stored.dataset_node("late", title="late", resources=pinned())
+        stored.dataset_node(title="late", resources=pinned())
     )
     for kind in KINDS:
         outcome = read.validate_receipt(world, published, kind)
@@ -495,9 +495,9 @@ def test_drift_absence_and_unreachable_recomputation_are_findings_durably(chain,
 
 
 def test_attestation_endpoints_and_shared_identifiers_are_findings_durably(durable_world):
-    left = stored.dataset_node("left", title="left")
-    right = stored.dataset_node("right", title="right")
-    gone = stored.dataset_node("gone", title="gone")
+    left = stored.dataset_node(title="left", resources=pinned())
+    right = stored.dataset_node(title="right", resources=pinned())
+    gone = stored.dataset_node(title="gone", resources=pinned())
 
     def attestation(left, right):
         return stored.coreference_attestation_node(
@@ -642,7 +642,7 @@ def test_two_carriers_of_one_id_refuse_the_build_durably(chain, scratch):
 
 def test_a_cross_corpus_producer_diverges_and_moves_the_digest_durably(durable_world):
     d0, r1, d1, _r2, _d2 = chain_nodes()
-    other = stored.dataset_node("b", title="b")
+    other = stored.dataset_node(title="b", resources=pinned())
     r2 = stored.run_node("r2x", title="r2x", spec="s", transforms=[other.id], produces=[d1.id])
     world, roots, published, a, b = durable_world((d0, r1, d1), (other, r2))
     snapshot = lineage_snapshot(open_world_view(world, published), [d1.id])

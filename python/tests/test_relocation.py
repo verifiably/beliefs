@@ -92,7 +92,7 @@ def _writer_for(corpus, **options) -> CorpusWriter:
 
 def _node(*facet_keys: str) -> Node:
     if "biology/gene-axis" in facet_keys:
-        node = stored.dataset_node("relocated", title="relocated", resources=[{"name": "matrix", "digest": "sha256:" + "ab" * 32}])
+        node = stored.dataset_node(title="relocated", resources=[{"name": "matrix", "digest": "sha256:" + "ab" * 32}])
         node.facets["biology/gene-axis"] = {"axis": "rows"}
     else:
         node = Node(id="discussion:relocated", kind="discussion", title="relocated")
@@ -696,8 +696,7 @@ def test_consolidate_preflights_the_replacement_before_either_intent(tmp_path):
     )
     observed = other_writer.add(
         stored.dataset_node(
-            "raw",
-            title="raw",
+                        title="raw",
             resources=[{"name": "data", "digest": "sha256:" + "ab" * 32}],
             empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
         )

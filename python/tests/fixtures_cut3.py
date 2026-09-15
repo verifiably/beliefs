@@ -6,6 +6,7 @@ from hashlib import sha256
 from typing import cast
 
 from authority import FULL
+from dataset_fixtures import dataset_ref
 from profiles import BASE
 
 from beliefs.assess import run_record
@@ -47,8 +48,8 @@ from beliefs.spec import (
 
 D_IN = "sha256:" + "aa" * 32
 D_OUT = "sha256:" + "bb" * 32
-DATA_ADDRESS = "dataset:sha256:" + "aa" * 32
-READS_ADDRESS = "dataset:sha256:" + "ee" * 32
+DATA_ADDRESS = dataset_ref("data")
+READS_ADDRESS = dataset_ref("reads")
 POLICY = BoundaryPolicy(identity="boundary-policy/minimal-v1", scope_rule="scope-derivation/v1")
 
 
@@ -121,7 +122,7 @@ def recipe(**overrides) -> Recipe:
         "environment": EnvironmentManifest(artifacts=(("/science/env/python/bin/python3", "file", "sha256:" + "dd" * 32),)),
         "workflow_definition": definition().snapshot(),
         "invocation": invocation(),
-        "inputs": (RecipeInput(role="observes", dataset="dataset:sha256:" + "ff" * 32, content=D_IN),),
+        "inputs": (RecipeInput(role="observes", dataset=dataset_ref("closure-input"), content=D_IN),),
         "parameters": {"alpha": Decimal("0.05")},
         "nondeterminism": seeded(),
         "boundary_policy": POLICY,

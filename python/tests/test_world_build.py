@@ -36,6 +36,7 @@ from pathlib import Path
 import pytest
 import yaml
 from authority import FULL
+from dataset_fixtures import dataset_ref, pinned
 from fixtures_cut6 import PINS
 from nodes.core.corpus import Corpus
 from nodes.core.node import Node
@@ -184,7 +185,7 @@ def sample_nodes(slug: str = "one") -> tuple[Node, ...]:
     the ordinary path. A retraction the corpus itself would refuse to judge is
     a separate arm, and it is written as one.
     """
-    dataset = stored.dataset_node(slug, title=f"dataset {slug}")
+    dataset = stored.dataset_node(title=f"dataset {slug}", resources=pinned(slug))
     run = stored.run_node(slug, title=f"run {slug}", spec=f"analysis-spec:{slug}", produces=[dataset.id])
     verification = stored.verification_node(
         slug,
@@ -670,7 +671,7 @@ def test_api_write_refuses_during_capture(tmp_path):
         assert heads.entered.wait(JOIN_TIMEOUT), "the capture never entered its hold"
         writer = CorpusWriter(roots[ALPHA], DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY)
         with pytest.raises(BuildHold):
-            writer.add(stored.dataset_node("blocked", title="blocked"))
+            writer.add(stored.dataset_node(title="blocked", resources=pinned("blocked")))
     finally:
         release.set()
         builder.join(JOIN_TIMEOUT)
@@ -718,7 +719,7 @@ def test_capture_drift_discards_without_publication(monkeypatch, tmp_path):
     world, bindings, roots = admitted_world(tmp_path, (ALPHA,))
     corpus_root = roots[ALPHA]
     before = frozenset(corpus_root.rglob("*.md"))
-    Corpus(corpus_root).add(stored.dataset_node("drift", title="drift"))
+    Corpus(corpus_root).add(stored.dataset_node(title="drift", resources=pinned("drift")))
     stash = tmp_path / "stashed.md"
     home = stray_file(corpus_root, before)
     home.rename(stash)
@@ -763,7 +764,7 @@ def test_raw_aba_during_capture_is_undetectable(monkeypatch, tmp_path):
     world, bindings, roots = admitted_world(tmp_path, (ALPHA,))
     corpus_root = roots[ALPHA]
     before = frozenset(corpus_root.rglob("*.md"))
-    interloper = stored.dataset_node("interloper", title="interloper")
+    interloper = stored.dataset_node(title="interloper", resources=pinned("interloper"))
     Corpus(corpus_root).add(interloper)
     stash = tmp_path / "interloper.md"
     home = stray_file(corpus_root, before)
@@ -864,7 +865,7 @@ class TestSerialCapture:
         snapshot = derive.producer_snapshot(draft.run("producer"))
 
         assert snapshot.coverage == (ALPHA,)
-        assert dict(snapshot.producers) == {"dataset:one": ("run:one",)}
+        assert dict(snapshot.producers) == {dataset_ref("one"): ("run:one",)}
 
     def test_the_retraction_enumeration_carries_the_captured_resolution(self, tmp_path):
         world, bindings, _roots = admitted_world(tmp_path, (ALPHA,))
@@ -1157,7 +1158,7 @@ def test_delete_and_rebuild_reconstructs_all_four_maps(tmp_path):
         assert rebuilt.members[member] == before[member], member
     assert yaml.safe_load(rebuilt.members["producers-map.yaml"]) == {
         "producers": [
-            {"dataset": f"dataset:{slug_for(corpus_id, (ALPHA, BETA))}", "runs": [f"run:{slug_for(corpus_id, (ALPHA, BETA))}"]}
+                {"dataset": dataset_ref(slug_for(corpus_id, (ALPHA, BETA))), "runs": [f"run:{slug_for(corpus_id, (ALPHA, BETA))}"]}
             for corpus_id in (ALPHA, BETA)
         ]
     }

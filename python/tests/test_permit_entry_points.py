@@ -140,10 +140,10 @@ def _mint_pair(writer):
     from beliefs import stored
 
     left = writer.add(
-        stored.dataset_node("left", title="left", resources=[{"name": "d", "digest": "sha256:" + "1" * 64}])
+        stored.dataset_node(title="left", resources=[{"name": "d", "digest": "sha256:" + "1" * 64}])
     )
     right = writer.add(
-        stored.dataset_node("right", title="right", resources=[{"name": "d", "digest": "sha256:" + "2" * 64}])
+        stored.dataset_node(title="right", resources=[{"name": "d", "digest": "sha256:" + "2" * 64}])
     )
     return (left, right)
 

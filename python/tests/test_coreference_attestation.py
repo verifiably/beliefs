@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import pytest
 from authority import ACTOR, FULL, lacking
+from dataset_fixtures import dataset_ref, pinned
 from nodes.core.relations import Relation
 from nodes.core.write_plan import DefaultExecutor
 from profiles import BASE, WITH_BIOLOGY
@@ -31,8 +32,8 @@ from beliefs.session.writer import ScopedWriter
 from beliefs.world import derive, read, registry, rules
 from beliefs.world.view import open_world_view
 
-LEFT = "dataset:left"
-RIGHT = "dataset:right"
+LEFT = dataset_ref("left")
+RIGHT = dataset_ref("right")
 NFC = "caf\u00e9"      # precomposed e-acute
 NFD = "cafe\u0301"     # e + combining acute: one string to every digest, two to Python
 PINNED = [{"name": "d", "digest": "sha256:" + "1" * 64}]
@@ -51,8 +52,8 @@ def writer(request, tmp_path) -> CorpusWriter:
     callspec = getattr(request.node, "callspec", None)
     root = tmp_path / callspec.id if callspec is not None else tmp_path
     w = CorpusWriter(root / "corpus", Recorder, authority=FULL, profile=BASE)
-    w.add(stored.dataset_node("left", title="left", resources=PINNED))
-    w.add(stored.dataset_node("right", title="right", resources=[{"name": "d", "digest": "sha256:" + "2" * 64}]))
+    w.add(stored.dataset_node(title="left", resources=pinned("left")))
+    w.add(stored.dataset_node(title="right", resources=pinned("right")))
     return w
 
 
@@ -143,10 +144,8 @@ class TestTheSeam:
 
 class TestTheSeamOverAWorldView:
     def test_a_pair_split_across_corpora_resolves_and_a_not_present_endpoint_names_its_corpus(self, tmp_path):
-        left = stored.dataset_node("left", title="left", resources=PINNED)
-        right = stored.dataset_node(
-            "right", title="right", resources=[{"name": "d", "digest": "sha256:" + "2" * 64}]
-        )
+        left = stored.dataset_node(title="left", resources=pinned("left"))
+        right = stored.dataset_node(title="right", resources=pinned("right"))
         roots = corpora(tmp_path, {"a" * 32: (left,), "b" * 32: (right,)})
         world = world_over(tmp_path, roots)
         published = publish(world, ("a" * 32, "b" * 32), hold_shipped(world))
@@ -173,8 +172,8 @@ class TestImport:
         from test_facet_seams import writer as port_writer
 
         w = port_writer(tmp_path / "ported")
-        w.add(stored.dataset_node("left", title="left", resources=PINNED))
-        w.add(stored.dataset_node("right", title="right", resources=[{"name": "d", "digest": "sha256:" + "2" * 64}]))
+        w.add(stored.dataset_node(title="left", resources=pinned("left")))
+        w.add(stored.dataset_node(title="right", resources=pinned("right")))
         good = attestation(actor="importer")
         w.import_bundle([good], **IMPORT)
         assert w.read_view.holds(good.id)
@@ -283,8 +282,8 @@ class TestTheReader:
 def endpoints_and(*attestations):
     """Two datasets and the attestations over them, as raw stored nodes."""
     return (
-        stored.dataset_node("left", title="left", resources=[{"name": "d", "digest": "sha256:" + "1" * 64}]),
-        stored.dataset_node("right", title="right", resources=[{"name": "d", "digest": "sha256:" + "2" * 64}]),
+        stored.dataset_node(title="left", resources=[{"name": "d", "digest": "sha256:" + "1" * 64}]),
+        stored.dataset_node(title="right", resources=pinned("right")),
         *attestations,
     )
 
@@ -355,9 +354,8 @@ class TestTheCaptureLift:
 
 class TestPopulatedReceipts:
     def two_corpus_world(self, tmp_path):
-        left = stored.dataset_node("left", title="left", resources=PINNED)
-        right = stored.dataset_node(
-            "right", title="right", resources=[{"name": "d", "digest": "sha256:" + "2" * 64}]
+        left = stored.dataset_node(title="left", resources=pinned("left"))
+        right = stored.dataset_node(title="right", resources=[{"name": "d", "digest": "sha256:" + "2" * 64}]
         )
         plus = attestation(actor="alice", token="a-1")
         minus = attestation(actor="bob", stance=-1, token="b-1")
@@ -408,8 +406,8 @@ class TestTheSessionRoute:
         session, _ = make_session(tmp_path)
         session.claim_invocation("A", "mint", DIGEST)
         writer = session.scoped(ATTESTING, "A")
-        writer.add(stored.dataset_node("left", title="left", resources=PINNED))
-        writer.add(stored.dataset_node("right", title="right", resources=[{"name": "d", "digest": "sha256:" + "2" * 64}]))
+        writer.add(stored.dataset_node(title="left", resources=pinned("left")))
+        writer.add(stored.dataset_node(title="right", resources=pinned("right")))
         minted = writer.attest_coreference(attestation(actor=writer.actor))
         acts = session.invocation_acts("A")
         assert acts[-1].record_ids == ((minted.uid, minted.id),)  # `_record_act` ledgers (uid, id) pairs

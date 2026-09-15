@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from dataset_fixtures import dataset_ref
 from fixtures_cut4 import raw_write
 from nodes.core.corpus import Corpus
 from profiles import WITH_BIOLOGY
@@ -14,6 +15,7 @@ from test_world_build import ALPHA, BETA, make_world
 from test_world_epoch import admitted_world, derivation_bindings, epochs_tree, publish
 
 GAMMA = "c" * 32
+DATASET_A = dataset_ref("a")
 
 from beliefs import relocation, stored
 from beliefs.corpus import ReadView, corpus_check
@@ -36,12 +38,12 @@ def root_tree(root: Path) -> dict[str, bytes]:
     }
 
 
-def conflict_world(tmp_path: Path, *, coverage=(ALPHA, BETA), twin_of="dataset:a", same_address=True, same_uid=False):
+def conflict_world(tmp_path: Path, *, coverage=(ALPHA, BETA), twin_of=DATASET_A, same_address=True, same_uid=False):
     """Two admitted corpora, BETA holding a twin of ALPHA's record."""
     world, recorder, bindings, roots = admitted_world(tmp_path, coverage)
     original = Corpus(roots[coverage[0]]).get(twin_of)
     twin = original.model_copy(deep=True, update={
-        "id": original.id if same_address else "dataset:twin",
+        "id": original.id if same_address else dataset_ref("twin"),
         "uid": original.uid if same_uid else "d" * 32,
     })
     raw_write(roots[coverage[1]], twin)
@@ -167,7 +169,7 @@ class TestW8b:
 
     def test_corruption_outranks_duplication(self, tmp_path):
         world, _r, bindings, roots, original, _twin = conflict_world(tmp_path, coverage=(ALPHA, BETA, GAMMA), same_uid=True)
-        third = original.model_copy(deep=True, update={"id": "dataset:third"})
+        third = original.model_copy(deep=True, update={"id": dataset_ref("third")})
         raw_write(roots[GAMMA], third)
         with pytest.raises(AddressMapConflict) as caught:
             publish(world, (ALPHA, BETA, GAMMA), bindings)

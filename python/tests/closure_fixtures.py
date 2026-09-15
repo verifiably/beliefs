@@ -3,6 +3,8 @@
 from decimal import Decimal
 from pathlib import PurePosixPath  # noqa: F401 — builders below
 
+from dataset_fixtures import dataset_ref
+
 from beliefs.recipe import (
     BoundaryPolicy,
     BoundaryReceipt,
@@ -28,12 +30,12 @@ def make_closure(
     inputs = (
         RecipeInput(
             role=eligible,
-            dataset="dataset:" + "1" * 64,
+            dataset=dataset_ref("closure-observes"),
             content="sha256:" + "2" * 64,
         ),
         RecipeInput(
             role="reads",
-            dataset="dataset:" + "3" * 64,
+            dataset=dataset_ref("closure-reads"),
             content="sha256:" + "4" * 64,
         ),
     )

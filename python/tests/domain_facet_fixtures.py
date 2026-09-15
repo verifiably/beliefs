@@ -6,16 +6,18 @@ from pathlib import Path
 from typing import Any
 
 from authority import ACTOR
+from dataset_fixtures import dataset_ref, pinned
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 from profiles import biology, pins_for
-from test_evaluation import CLAIM_FACET, EX, GENE, OTHER_GENE, PHENO, _observations, _resources
+from test_evaluation import CLAIM_FACET, EX, GENE, OTHER_GENE, PHENO
 
 from beliefs import stored
 from beliefs.belief import Availability, SuppliedContext
 from beliefs.closure import RetractionEnumeration
 from beliefs.contract import domain
 from beliefs.corpus import CorpusWriter, ReadView, lineage_snapshot
+from beliefs.dataset import ByteObservation
 from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding
 from beliefs.profile import ProfileSpec, compile_profile, shipped_base_contract
 from beliefs.resolution import build_snapshot
@@ -88,18 +90,16 @@ def seed(
     nodes: list[Node] = [stored.proposition_node("p", title="p", claim=claim or CLAIM_FACET)]
     nodes.append(
         stored.dataset_node(
-            "d-a",
-            title="d-a",
-            resources=_resources("a"),
+                        title="d-a",
+            resources=pinned("d-a"),
             empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
             domain_facets=domain_facets,
         )
     )
     nodes.append(
         stored.dataset_node(
-            "d-b",
-            title="d-b",
-            resources=_resources("b"),
+                        title="d-b",
+            resources=pinned("d-b"),
             empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
         )
     )
@@ -108,10 +108,10 @@ def seed(
             "run-a",
             title="run-a",
             spec="spec-a",
-            observes=["dataset:d-missing" if observes_missing else "dataset:d-a"],
+            observes=["dataset:d-missing" if observes_missing else dataset_ref("d-a")],
         )
     )
-    nodes.append(stored.run_node("run-b", title="run-b", spec="spec-b", observes=["dataset:d-b"]))
+    nodes.append(stored.run_node("run-b", title="run-b", spec="spec-b", observes=[dataset_ref("d-b")]))
     assessments = [
         stored.assessment_node(
             "a-1", title="a-1", spec="spec-a", run="run:run-a", proposition=proposition,
@@ -145,12 +145,15 @@ def kwargs_for(view: ReadView, profile: ProfileSpec) -> dict[str, Any]:
     identities = {stored.assessment_value(n).identity() for n in view.iter_stored() if n.kind == "assessment"}
     return {
         "availability": Availability(
-            observations=_observations("a", "b"),
+            observations={
+                dataset_ref(seed): (ByteObservation(digest=pinned(seed)[0]["digest"], location="repo://data"),)
+                for seed in ("d-a", "d-b")
+            },
             implementations={BELIEF_V1.identity: BELIEF_V1},
             fixtures={BELIEF_V1_RULE: BELIEF_V1_FIXTURES},
         ),
         "context": SuppliedContext(
-            snapshot=lineage_snapshot(view, ("dataset:d-a", "dataset:d-b")),
+            snapshot=lineage_snapshot(view, (dataset_ref("d-a"), dataset_ref("d-b"))),
             producer_snapshot_identity="producer-snapshot-1",
             retractions=RetractionEnumeration(found=(), coverage=("c1",)),
             node_corpus={identity: ("c1",) for identity in identities},

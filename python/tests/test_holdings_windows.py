@@ -8,8 +8,10 @@ from typing import Any, cast
 
 import pytest
 from authority import FULL
+from dataset_fixtures import pinned
 from fixtures_cut6 import PINS
 from nodes.core.frontmatter import node_to_markdown
+from nodes.core.paths import path_for_node_id
 from nodes.core.write_plan import CreateOp, DefaultExecutor
 from profiles import WITH_BIOLOGY
 from test_world_build import ChainHeads
@@ -102,8 +104,8 @@ def test_nonqualifying_fulfillments_are_committed_and_leave_the_intent_unsettled
         intent_payload(location=location, act_kind="write", event_token=token, actor=context.actor),
     )
     if case == "no-observation":
-        node = stored.dataset_node("outside", title="Outside the holdings layout")
-        path = "dataset/outside.md"  # well-placed for its id, and no holdings observation
+        node = stored.dataset_node(title="Outside the holdings layout", resources=pinned("outside"))
+        path = path_for_node_id(node.id)  # well-placed for its id, and no holdings observation
     else:
         record = holdings_observation(
             location=StoreLocator(store_id, "other.bin") if case == "wrong-location" else location,

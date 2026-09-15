@@ -185,7 +185,7 @@ def _records(
         records["acquisition-witness"] = (
             "add",
             stored.dataset_node(
-                ACQUISITION_WITNESS.split(":", 1)[1], title="acquisition witness",
+                title="acquisition witness",
                 resources=_resources("e"),
                 empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
             ),
@@ -196,7 +196,6 @@ def _records(
         records[f"d-{letter}"] = (
             "add",
             stored.dataset_node(
-                address.split(":", 1)[1],  # the address is the ref: see DATASET_ROOTS
                 title=f"d-{letter}",
                 resources=_resources(letter),
                 empirical_observation=None if basis is not None and address == DERIVED else {"locator": "instrument:fixture", "attested_by": ACTOR},
@@ -429,13 +428,13 @@ def test_g8_c6_managed_delete_reads_identically_to_raw_on_the_corpus(tmp_path):
 
 # --- S5's deletion half -------------------------------------------------------
 
-ANCESTOR = "dataset:origin"
+ANCESTOR = _address("c")
 PRODUCER = "run:origin"
 """`_basis_route("origin")` spells the producing run `run:origin` and the
 transformed ancestor `dataset:origin` from one name, so the fixture is named to
 match cut 16's helper rather than copying a route literal."""
 
-OTHER_ANCESTOR = "dataset:other"
+OTHER_ANCESTOR = _address("d")
 SECOND_PRODUCER = "run:other"
 """The divergent producer: it reaches the same content address by transforming
 something the stamped route does not name."""
@@ -454,8 +453,8 @@ def _lineage_corpus(corpus, *, second_producer: bool) -> Scenario:
     unproduced acquisition witness supplies the first run's eligibility;
     DERIVED carries only its lineage basis, never an acquisition declaration."""
     extra: list[Node] = [
-        stored.dataset_node("origin", title="origin", resources=_resources("c")),
-        stored.dataset_node("other", title="other", resources=_resources("d")),
+        stored.dataset_node(title="origin", resources=_resources("c")),
+        stored.dataset_node(title="other", resources=_resources("d")),
         stored.run_node(
             "origin", title="origin", spec="spec-origin", transforms=[ANCESTOR], produces=[DERIVED]
         ),
@@ -466,7 +465,8 @@ def _lineage_corpus(corpus, *, second_producer: bool) -> Scenario:
                 "other", title="other", spec="spec-other", transforms=[OTHER_ANCESTOR], produces=[DERIVED]
             )
         )
-    return _scenario(corpus, basis={"tag": "single", "routes": [_basis_route("origin")]}, extra=tuple(extra))
+    route = {**_basis_route("origin"), "ancestor": ANCESTOR, "transforms": [ANCESTOR]}
+    return _scenario(corpus, basis={"tag": "single", "routes": [route]}, extra=tuple(extra))
 
 
 def _projected(snapshot: LineageSnapshot, *path: Any) -> Any:
@@ -659,7 +659,7 @@ def test_w16_the_conflict_survives_deleting_either_producing_run(tmp_path, doome
                 name, title=name, spec=f"spec-{name}", transforms=[f"dataset:{name}"], produces=[survivor.id]
             )
         )
-    sibling = keep_writer.add(stored.dataset_node("sibling", title="sibling", resources=_resources("f")))
+    sibling = keep_writer.add(stored.dataset_node(title="sibling", resources=_resources("f")))
     roots = (survivor.id, sibling.id)
     divergent = Certification(state="not-certified", findings=("lineage-divergent",))
     assert certify(lineage_snapshot(keep_writer.read_view, roots), (survivor.id,), (sibling.id,)) == divergent

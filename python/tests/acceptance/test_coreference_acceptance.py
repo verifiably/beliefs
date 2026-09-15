@@ -148,7 +148,7 @@ def test_the_four_endpoint_refusals_durably(pair):
             writer.attest_coreference(node)
         assert refused.value.reason == reason
     # A real mapped endpoint on the absent carrier, not an unknown address.
-    remote = writer_at(roots, b).add(stored.dataset_node("remote", title="remote", resources=PINNED))
+    remote = writer_at(roots, b).add(stored.dataset_node(title="remote", resources=PINNED))
     published = republish(world, (a, b))
     manifest = roots[b] / "corpus.yaml"
     mounted = manifest.read_bytes()
@@ -294,8 +294,7 @@ def test_coreference_between_retractions_closes_no_route_durably(durable_world, 
     nodes = []
     for ref in ("left", "right"):
         nodes.append(
-            stored.dataset_node(
-                ref, title=ref, resources=PINNED, basis={"tag": "single", "routes": [{"identity": "route:one"}]}
+            stored.dataset_node(title=ref, resources=PINNED, basis={"tag": "single", "routes": [{"identity": "route:one"}]}
             )
         )
     world, roots, _published, a, b = durable_world((nodes[0],), (nodes[1],))
@@ -467,7 +466,7 @@ def test_lifecycle_treats_an_attestation_as_a_retraction_s_peer_durably(pair):
         endpoints=("dataset:import-left", "dataset:import-right"), actor="original-author", token="import"
     )
     endpoints = tuple(
-        stored.dataset_node(slug, title=slug, resources=PINNED) for slug in ("import-left", "import-right")
+        stored.dataset_node(title=slug, resources=PINNED) for slug in ("import-left", "import-right")
     )
     left.import_bundle((imported, *endpoints), **IMPORT)
     assert stored.coreference_attestation_value(left.read_view.get(imported.id)).actor == "original-author"

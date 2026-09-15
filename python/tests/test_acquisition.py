@@ -2,6 +2,7 @@
 
 from typing import Any, cast
 
+from dataset_fixtures import dataset_ref, pinned
 from nodes.core.relations import Relation
 from profiles import BASE
 from test_read_side import seed  # the module's raw-write seeding helper (Task 11 gives it manifest arguments)
@@ -13,8 +14,8 @@ PINNED = [{"name": "m", "digest": "sha256:" + "1" * 64}]
 GOOD = {"locator": "accession:GSE1", "attested_by": "test-actor"}
 
 
-def acquired(slug="d", **facet):
-    return stored.dataset_node(slug, title=slug, resources=PINNED, empirical_observation={**GOOD, **facet})
+def acquired(seed="d", **facet):
+    return stored.dataset_node(title=seed, resources=pinned(seed), empirical_observation={**GOOD, **facet})
 
 
 def test_a_valid_declaration_on_an_unproduced_dataset_passes(tmp_path):
@@ -23,14 +24,14 @@ def test_a_valid_declaration_on_an_unproduced_dataset_passes(tmp_path):
 
 
 def test_absence_and_invalidity_are_distinct_reasons(tmp_path):
-    plain = stored.dataset_node("p", title="p", resources=PINNED)
+    plain = stored.dataset_node(title="p", resources=PINNED)
     assert validity_refusal(seed(tmp_path, plain), plain, BASE) == "no-empirical-observation-facet"
-    bad = stored.dataset_node("b", title="b", resources=PINNED, empirical_observation={"boundary": "x"})
+    bad = stored.dataset_node(title="b", resources=PINNED, empirical_observation={"boundary": "x"})
     assert str(validity_refusal(seed(tmp_path / "b", bad), bad, BASE)).startswith("facet-payload-malformed:")
 
 
 def test_a_lineage_basis_disqualifies_even_with_a_valid_facet(tmp_path):
-    node = stored.dataset_node("d", title="d", resources=PINNED, empirical_observation=GOOD, basis={"tag": "single", "routes": []})
+    node = stored.dataset_node(title="d", resources=PINNED, empirical_observation=GOOD, basis={"tag": "single", "routes": []})
     assert validity_refusal(seed(tmp_path, node), node, BASE) == "facet-bearer-produced: the dataset carries a lineage basis"
 
 
@@ -41,10 +42,10 @@ def test_a_producer_disqualifies(tmp_path):
 
 
 def test_a_dangling_producer_edge_counts_before_the_dataset_exists(tmp_path):
-    run = stored.run_node("r", title="r", spec="analysis-spec:s", produces=["dataset:d"])
+    run = stored.run_node("r", title="r", spec="analysis-spec:s", produces=[dataset_ref("d")])
     view = seed(tmp_path, run)
-    assert view.producers("dataset:d") == (run.id,)
-    assert bearer_refusal(view, acquired()) == f"dataset:d: carries the empirical-observation facet and is produced by {run.id}"
+    assert view.producers(dataset_ref("d")) == (run.id,)
+    assert bearer_refusal(view, acquired()) == f"{dataset_ref('d')}: carries the empirical-observation facet and is produced by {run.id}"
 
 
 def test_an_alias_reaches_the_producer(tmp_path):
@@ -70,11 +71,11 @@ def test_the_bearer_invariant_reads_the_edge_whatever_its_carrier(tmp_path):
 
 def test_a_new_dataset_producing_itself_is_refused_by_id_and_by_alias(tmp_path):
     view = seed(tmp_path)  # an empty corpus: nothing resolves, so only the candidate can answer
-    for target in ("dataset:d", "dataset:old"):
+    for target in (dataset_ref("d"), "dataset:old"):
         node = acquired()
         node.deprecated_ids = ["dataset:old"]
         node.relations.append(Relation(source=node.id, predicate="produces", target=target))
-        assert bearer_refusal(view, node) == "dataset:d: carries the empirical-observation facet and produces itself"
+        assert bearer_refusal(view, node) == f"{dataset_ref('d')}: carries the empirical-observation facet and produces itself"
 
 
 def test_a_non_acquisition_report_disqualifies(tmp_path):
@@ -88,8 +89,8 @@ def test_a_non_acquisition_report_disqualifies(tmp_path):
 
 
 def test_a_lineage_basis_breaks_the_bearer_invariant(tmp_path):
-    node = stored.dataset_node("d", title="d", resources=PINNED, empirical_observation=GOOD, basis={"tag": "single", "routes": []})
-    assert bearer_refusal(seed(tmp_path), node) == "dataset:d: carries the empirical-observation facet and a lineage basis"
+    node = stored.dataset_node(title="d", resources=PINNED, empirical_observation=GOOD, basis={"tag": "single", "routes": []})
+    assert bearer_refusal(seed(tmp_path), node) == f"{node.id}: carries the empirical-observation facet and a lineage basis"
 
 
 def test_producers_are_unique_sorted_and_ignore_other_edges(tmp_path):
@@ -124,7 +125,7 @@ def test_even_a_malformed_lineage_basis_is_not_absent(tmp_path):
     node.facets[stored.LINEAGE_BASIS_FACET] = cast(Any, "malformed")
     view = seed(tmp_path)
     assert validity_refusal(view, node, BASE) == "facet-bearer-produced: the dataset carries a lineage basis"
-    assert bearer_refusal(view, node) == "dataset:d: carries the empirical-observation facet and a lineage basis"
+    assert bearer_refusal(view, node) == f"{node.id}: carries the empirical-observation facet and a lineage basis"
 
 
 def test_a_present_null_payload_is_malformed_not_absent(tmp_path):

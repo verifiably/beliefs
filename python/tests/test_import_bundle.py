@@ -303,8 +303,7 @@ def test_bundle_member_cannot_repeat_a_deprecated_id(writer_with_port):
 
 def test_bundle_relation_resolves_through_an_arriving_deprecated_id(writer_with_port):
     dataset = stored.dataset_node(
-        "current",
-        title="current",
+                title="current",
         resources=[{"name": "data", "digest": "sha256:" + "ab" * 32}],
     ).model_copy(update={"deprecated_ids": ["dataset:previous"]})
     run = stored.run_node("run", title="run", spec="analysis-spec:s", observes=["dataset:previous"])
@@ -396,8 +395,7 @@ def test_uncanonically_encodable_success_finding_refuses_before_payload(writer_w
 
 def test_ordinary_eligibility_is_evaluated_over_bundle_union(writer_with_port):
     dataset = stored.dataset_node(
-        "observed",
-        title="observed",
+                title="observed",
         resources=[{"name": "data", "digest": "sha256:" + "ab" * 32}],
         empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
     )

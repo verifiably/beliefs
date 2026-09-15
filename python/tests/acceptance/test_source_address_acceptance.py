@@ -149,9 +149,9 @@ def test_w5a_dataset_arm_a_rehold_is_a_new_entity(world):
     with pytest.raises(ReviseOutsideAllowlist):
         left.revise(changed)
     with pytest.raises(CollisionRefused):
-        left.add(stored.dataset_node("raw", title="raw", resources=[{"name": "d", "digest": "sha256:" + "9" * 64}]))
+        left.add(stored.dataset_node(title="raw", resources=[{"name": "d", "digest": "sha256:" + "9" * 64}]))
     reheld = left.add(
-        stored.dataset_node("raw-reheld", title="raw", resources=[{"name": "d", "digest": "sha256:" + "9" * 64}])
+        stored.dataset_node(title="raw", resources=[{"name": "d", "digest": "sha256:" + "9" * 64}])
     )
     assert reheld.id != d.id and stored.dataset_declaration(reheld) != stored.dataset_declaration(d)
     assert content_identity(reheld) != content_identity(d)
@@ -255,7 +255,7 @@ def test_refusals_leave_no_intent_or_file_effect(work_directory, case, exception
             ref = "source:missing"
         elif case == "not-source":
             ref = w.add(
-                stored.dataset_node("d", title="d", resources=[{"name": "d", "digest": "sha256:" + "1" * 64}])
+                stored.dataset_node(title="d", resources=[{"name": "d", "digest": "sha256:" + "1" * 64}])
             ).id
         elif case in ("raw-current", "successor-facets"):
 

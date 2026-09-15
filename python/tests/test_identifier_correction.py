@@ -123,7 +123,7 @@ class TestTheBoundary:
 
     def test_a_dataset_without_content_identity_still_refuses(self, writer):
         with pytest.raises(BasisMissing):
-            writer.add(stored.dataset_node("d1", title="d", resources=[]))
+            writer.add(stored.dataset_node(title="d", resources=[]))
 
 
 def raw_edit_history(writer, node_id, mutate):
@@ -211,7 +211,7 @@ class TestTheSeamRefusals:
         assert caught.value.reason == "target-missing"
 
     def test_not_a_source(self, writer):
-        d = writer.add(stored.dataset_node("d", title="d", resources=[{"name": "d", "digest": "sha256:" + "1" * 64}]))
+        d = writer.add(stored.dataset_node(title="d", resources=[{"name": "d", "digest": "sha256:" + "1" * 64}]))
         with pytest.raises(CorrectionRefused) as caught:
             writer.correct_identifier(d.id, {"doi": "10.1/x"}, grounds="")
         assert caught.value.reason == "not-a-source"

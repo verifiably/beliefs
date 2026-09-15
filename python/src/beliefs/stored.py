@@ -483,19 +483,14 @@ def validate_source_history(node: Node) -> tuple[IdentifierCorrection, ...]:
     return history
 
 
-def dataset_declaration(node: Node) -> DatasetDeclaration:
-    """The stored declaration as cut 2's value. A resource with no digest stays
-    unpinned rather than being dropped: `dataset_address` is all-or-nothing, and
-    silently discarding the unpinned resource would manufacture an address the
-    record does not have."""
-    facet = _facet(node, DATASET_FACET) or {}
+def _declaration_of(facet: Mapping[str, Any]) -> DatasetDeclaration:
     resources = facet.get("resources")
     if not isinstance(resources, list):
         return DatasetDeclaration(resources=())
     declared: list[ResourceDeclaration] = []
     for entry in resources:
         if not isinstance(entry, dict):
-            raise MalformedRecord(f"{node.id}: a declared resource is not an object")
+            raise MalformedRecord("a declared resource is not an object")
         digest = entry.get("digest")
         declared.append(
             ResourceDeclaration(
@@ -504,6 +499,17 @@ def dataset_declaration(node: Node) -> DatasetDeclaration:
             )
         )
     return DatasetDeclaration(resources=tuple(declared))
+
+
+def dataset_declaration(node: Node) -> DatasetDeclaration:
+    """The stored declaration as cut 2's value. A resource with no digest stays
+    unpinned rather than being dropped: `dataset_address` is all-or-nothing, and
+    silently discarding the unpinned resource would manufacture an address the
+    record does not have."""
+    try:
+        return _declaration_of(_facet(node, DATASET_FACET) or {})
+    except MalformedRecord as caught:
+        raise MalformedRecord(f"{node.id}: {caught}") from caught
 
 
 def run_spec(node: Node) -> str | None:
@@ -886,14 +892,17 @@ def source_node(*, title: str, identifiers: Mapping[str, object]) -> Node:
 
 
 def dataset_node(
-    slug: str,
     *,
     title: str,
-    resources: Sequence[Mapping[str, Any]] = (),
+    resources: Sequence[Mapping[str, Any]],
     empirical_observation: Mapping[str, Any] | None = None,
     basis: Mapping[str, Any] | None = None,
     domain_facets: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> Node:
+    """A dataset at its content-derived address (slice 5 §4): the id is the
+    ruled fold over the declared digests, never a handle. Refuses a
+    declaration with no content identity itself, since no id exists without
+    one; the boundary refuses it again for hand-built records."""
     facets: dict[str, Any] = {DATASET_FACET: {"resources": [dict(resource) for resource in resources]}}
     if empirical_observation is not None:
         facets[EMPIRICAL_OBSERVATION_FACET] = dict(empirical_observation)
@@ -906,7 +915,13 @@ def dataset_node(
                 "facet has its own parameter"
             )
         facets[key] = dict(payload)
-    return _node("dataset", slug, title, facets, ())
+    address = dataset_address(_declaration_of(facets[DATASET_FACET]))
+    if address is None:
+        raise BasisMissing(
+            "a dataset carries a content identity — every declared resource pinned by an accepted digest; "
+            "a curation note is its own explicit add, and supplying the basis later is a second, separate mint"
+        )
+    return _node("dataset", address.partition(":")[2], title, facets, ())
 
 
 def run_node(

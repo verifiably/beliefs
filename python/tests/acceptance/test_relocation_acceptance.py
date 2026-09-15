@@ -183,8 +183,7 @@ def _move_produced_dataset(durable_factory):
     destination = writer("move-destination")
     dataset = source.add(
         stored.dataset_node(
-            "moved",
-            title="moved",
+                        title="moved",
             resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
         )
     )
@@ -232,8 +231,7 @@ def _route(name: str) -> dict[str, object]:
 
 def _dataset(name: str, routes: list[str], *, tag: str = "single"):
     return stored.dataset_node(
-        name,
-        title=name,
+                title=name,
         resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
         basis={"tag": tag, "routes": [_route(route) for route in routes]},
     )
@@ -270,8 +268,7 @@ def _produce_single_basis(
     digest = "sha256:" + sha256(held.read_bytes()).hexdigest()
     writer.add(
         stored.dataset_node(
-            slug(input_address),
-            title=slug(input_address),
+                        title=slug(input_address),
             resources=[{"name": "data", "digest": digest}],
         )
     )
@@ -292,8 +289,7 @@ def _produce_single_basis(
     _record_id, _path, (run_operation,) = runrecord.publication_plan(outcome.run)
     run_node = node_from_markdown(run_operation.content.decode())
     candidate = stored.dataset_node(
-        slug(minted.address),
-        title="duplicate",
+                title="duplicate",
         resources=[{"name": name, "digest": value} for name, value in outcome.run.result.outputs],
         basis=basis(
             route(
@@ -413,8 +409,7 @@ def test_w16_consolidates_one_address_without_asserting_identity(durable_factory
     for name in ("a", "z", "independent"):
         keep_writer.add(
             stored.dataset_node(
-                name,
-                title=name,
+                                title=name,
                 resources=[{"name": "data", "digest": "sha256:" + "a" * 64}],
             )
         )
@@ -591,8 +586,7 @@ def test_m3_consolidates_retraction_replicas_without_touching_the_counter(durabl
     for corpus in (keep, other):
         observed = corpus.add(
             stored.dataset_node(
-                "raw",
-                title="raw",
+                                title="raw",
                 resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
                 empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
             )
@@ -742,8 +736,7 @@ def test_boundary_reresolution_refuses_both_create_only_calls_after_real_move(du
     destination = writer("reresolve-retract-destination")
     observed = source.add(
         stored.dataset_node(
-            "observation",
-            title="observation",
+                        title="observation",
             resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
             empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
         )

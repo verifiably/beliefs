@@ -41,7 +41,7 @@ def _produce(durable_root, tmp_path, *, address: str, name: str, text: str):
 
 def two_producers(durable_root, durable_writer, tmp_path, *, second_input=INPUT_B):
     for address in (INPUT_A, INPUT_B):
-        durable_writer.add(stored.dataset_node(slug(address), title=slug(address), resources=pinned()))
+        durable_writer.add(stored.dataset_node(title=slug(address), resources=pinned()))
     first = _produce(durable_root, tmp_path, address=INPUT_A, name="first", text="alpha")
     second = _produce(durable_root, tmp_path, address=second_input, name="second", text="beta")
     assert isinstance(first, RunMinted) and isinstance(second, RunMinted)
@@ -49,8 +49,7 @@ def two_producers(durable_root, durable_writer, tmp_path, *, second_input=INPUT_
     again = mint_dataset(second.run, existing_bases={minted.address: minted.basis})
     durable_writer.add(
         stored.dataset_node(
-            slug(minted.address),
-            title="produced",
+                        title="produced",
             resources=[{"name": name, "digest": digest} for name, digest in first.run.result.outputs],
             basis=basis(route(run_ref(first.run.address()), INPUT_A, [INPUT_A])),
         )

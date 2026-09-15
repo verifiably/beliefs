@@ -9,7 +9,6 @@ from pathlib import Path
 import yaml
 
 from beliefs import stored
-from beliefs.dataset import DatasetDeclaration, ResourceDeclaration, dataset_address
 from beliefs.holdings.boundary import ActContext, write
 from beliefs.holdings.records import StoreLocator
 from beliefs.identifiers import not_a_canonical_identifier
@@ -40,11 +39,10 @@ def main() -> int:
     content = concept_lines(paths.PREDECESSOR)
     count = content.count(b"\n")
     digest = "sha256:" + sha256(content).hexdigest()
-    address = dataset_address(DatasetDeclaration(resources=(ResourceDeclaration(name=RESOURCE, digest=digest),)))
-    assert address is not None
     held_copy = paths.WORK / RESOURCE
     held_copy.write_bytes(content)
-    state.save(concepts_address=address, concepts_file=str(held_copy), concepts_count=count)
+    node = stored.dataset_node(title="mm30 concept vocabulary", resources=[{"name": RESOURCE, "digest": digest}])
+    state.save(concepts_address=node.id, concepts_file=str(held_copy), concepts_count=count)
     from reproduction import vocabulary
 
     vocabulary._document.cache_clear()
@@ -52,7 +50,6 @@ def main() -> int:
     st = state.load()
     ctx = ActContext(paths.CORPUS_ROOT, paths.STORE_ROOT, OBSERVER, INSTRUMENT, AUTHORITY, holdings_seam(), profile=vocabulary.profile())
     write(ctx, StoreLocator(st["store_id"], f"mm30-concepts/{RESOURCE}"), content, expected=digest)
-    node = stored.dataset_node(address.removeprefix("dataset:"), title="mm30 concept vocabulary", resources=[{"name": RESOURCE, "digest": digest}])
     minted = world.open_writer().add(node)
     state.save(concepts_ref=minted.id)
     findings.record(1, "closed", f"held {count} concept identifiers as {digest}; dataset {minted.id}; the line format is the tool's (design §6.3)")

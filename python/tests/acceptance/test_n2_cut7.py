@@ -64,6 +64,7 @@ import test_n2
 import test_world_build
 from atoms.chain.model import RegisteredEntry
 from authority import ACTOR, FULL
+from dataset_fixtures import pinned
 from fixtures_cut6 import PINS
 from n2_arms import (
     CLASS_NODE_BY_CONSTRUCTION,
@@ -336,7 +337,7 @@ def journey_corpora(tmp_path: Path) -> dict[str, Path]:
     one corpus carries it: `derive.address_map` refuses a repeated address even
     when the two claims agree.
     """
-    withdrawn = stored.dataset_node("a-successor", title="dataset a successor")
+    withdrawn = stored.dataset_node(title="dataset a successor", resources=pinned("a-successor"))
     return corpora(
         tmp_path,
         {
@@ -641,9 +642,9 @@ def _registrations(entries) -> tuple[RegisteredEntry, ...]:
     return tuple(entry for _digest, entry in entries if isinstance(entry, RegisteredEntry))
 
 
-def _extra_record(corpus_root: Path, slug: str) -> None:
+def _extra_record(corpus_root: Path, seed: str) -> None:
     """Move the corpus, so the next build has a different epoch to publish."""
-    Corpus(corpus_root).add(stored.dataset_node(slug, title=f"dataset {slug}"))
+    Corpus(corpus_root).add(stored.dataset_node(title=f"dataset {seed}", resources=pinned(seed)))
 
 
 def _target_identity(world, corpus_id: str, bindings: epoch.DerivationBindings) -> str:

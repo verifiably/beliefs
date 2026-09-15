@@ -253,7 +253,7 @@ def test_w7_reordered_authoring_and_registration_give_one_projection_durably(top
 
 
 def test_w7_a_retired_anchor_over_a_cycle_selects_what_the_live_anchor_selects_durably(topic):
-    one = stored.dataset_node("cyc-a", title="a", resources=pinned()); two = stored.dataset_node("cyc-b", title="b", resources=pinned())
+    one = stored.dataset_node(title="a", resources=pinned()); two = stored.dataset_node(title="b", resources=pinned())
     one.relations.append(Relation(source=one.id, predicate="cites", target=two.id)); two.relations.append(Relation(source=two.id, predicate="cites", target=one.id)); one.deprecated_ids = ["dataset:cyc-a-old"]
     world, _roots, published, _a, _b = topic(alpha_extra=(one, two))
     view = open_world_view(world, published)
@@ -262,7 +262,7 @@ def test_w7_a_retired_anchor_over_a_cycle_selects_what_the_live_anchor_selects_d
 
 
 def test_w7_dangling_and_absent_inbound_steps_are_reported_not_dropped_durably(topic):
-    dangling = stored.dataset_node("d-x", title="d-x", resources=pinned()); dangling.relations.append(Relation(source=dangling.id, predicate="cites", target="dataset:never"))
+    dangling = stored.dataset_node(title="d-x", resources=pinned()); dangling.relations.append(Relation(source=dangling.id, predicate="cites", target="dataset:never"))
     selection, _ = result(topic([{"closure": {"anchor": "dataset:d-x", "predicates": ["cites"], "direction": "out"}}], alpha_extra=(dangling,)))
     assert selection.unresolved == (Unresolved("dataset:d-x", "cites", "dataset:never", "unknown", None),)
     selection, (world, roots, published, a, b) = result(topic([{"closure": {"anchor": "dataset:d-a", "predicates": ["produces"], "direction": "in"}}]))
@@ -272,7 +272,7 @@ def test_w7_dangling_and_absent_inbound_steps_are_reported_not_dropped_durably(t
 
 
 def test_w7_a_retired_and_a_live_address_select_once_durably(topic):
-    node = stored.dataset_node("d-new", title="new", resources=pinned()); node.deprecated_ids = ["dataset:d-old"]
+    node = stored.dataset_node(title="new", resources=pinned()); node.deprecated_ids = ["dataset:d-old"]
     selection, _ = result(topic([{"addresses": ["dataset:d-old", "dataset:d-new"]}], alpha_extra=(node,)))
     assert selection.selected == ("dataset:d-new",)
 
@@ -300,7 +300,7 @@ def test_w7_a_stale_edit_that_removed_the_term_refuses_durably(topic):
 
 
 def test_w7_a_stale_selected_record_refuses_durably(topic):
-    stale = stored.dataset_node("d-s", title="s", resources=pinned()); stale.facets["dataset"]["resources"] = [{"digest": "f" * 64}]
+    stale = stored.dataset_node(title="s", resources=pinned()); stale.facets["dataset"]["resources"] = [{"digest": "f" * 64}]
     world, roots, published, a, _b = topic([{"kinds": ["dataset"]}], alpha_raw=(stale,))
     with pytest.raises(SemanticHashStale):
         evaluate_query(open_world_view(world, published), resolved_query(roots, a))
@@ -381,7 +381,7 @@ def test_w8_address_conflict_refuses_the_build_and_consolidate_and_the_write_bou
 
 
 def test_w8b_uid_corruption_offers_no_repair_and_consolidate_is_unavailable_durably(durable_world, scratch):
-    one = stored.dataset_node("one", title="one", resources=pinned()); two = stored.dataset_node("two", title="two", resources=pinned()).model_copy(update={"uid": one.uid})
+    one = stored.dataset_node(title="one", resources=pinned()); two = stored.dataset_node(title="two", resources=pinned()).model_copy(update={"uid": one.uid})
     world, _roots, coverage, _writers, bindings = conflict_world(durable_world, scratch, (one,), (), twin=two)
     with pytest.raises(AddressMapConflict) as caught: publish(world, coverage, bindings)
     assert (caught.value.finding.code, caught.value.finding.ref) == ("uid-corruption", one.uid)
@@ -393,14 +393,14 @@ def test_w8b_uid_corruption_offers_no_repair_and_consolidate_is_unavailable_dura
 
 @pytest.mark.parametrize("same_uid", [True, False])
 def test_w8b_duplicate_location_is_the_same_finding_with_shared_or_distinct_uids_durably(durable_world, scratch, same_uid):
-    one = stored.dataset_node("one", title="one", resources=pinned()); two = one.model_copy(deep=True, update={"uid": one.uid if same_uid else "d" * 32})
+    one = stored.dataset_node(title="one", resources=pinned()); two = one.model_copy(deep=True, update={"uid": one.uid if same_uid else "d" * 32})
     world, _roots, coverage, _writers, bindings = conflict_world(durable_world, scratch, (one,), (), twin=two)
     with pytest.raises(AddressMapConflict) as caught: publish(world, coverage, bindings)
     assert (caught.value.finding.code, caught.value.finding.ref) == ("duplicate-location", one.id)
 
 
 def test_w8b_corruption_outranks_duplication_and_a_corpus_alone_reports_neither_durably(durable_world, scratch):
-    one = stored.dataset_node("one", title="one", resources=pinned()); twin = one.model_copy(deep=True); third = one.model_copy(deep=True, update={"id": "dataset:third"})
+    one = stored.dataset_node(title="one", resources=pinned()); twin = one.model_copy(deep=True); third = one.model_copy(deep=True, update={"id": "dataset:third"})
     a, alpha, left = durable_world.corpus(); b, beta, right = durable_world.corpus(); c, gamma, last = durable_world.corpus()
     left.add(one); right.add(twin); last.add(third)
     coverage = (a, b, c); roots = {a: alpha, b: beta, c: gamma}; writers = (left, right, last)

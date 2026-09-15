@@ -146,7 +146,7 @@ def test_the_relation_and_lineage_chains_cross_the_edge_durably(chain):
     assert not closure("dataset:d2", RelationAdjacency(ReadView.opened_at(roots[a]), "cites", "outbound")).reached
     late = stored.run_node("late", title="late", spec="s", produces=["dataset:d2"])
     raw_write(roots[a], late)
-    raw_write(roots[a], stored.dataset_node("d1", title="drift copy of B's mapped target", resources=pinned()))
+    raw_write(roots[a], stored.dataset_node(title="drift copy of B's mapped target", resources=pinned()))
     drift = open_world_view(world, published)
     assert "run:late" not in {e.relation.source for e in drift.inbound("dataset:d2")}
     assert drift.producers("dataset:d2") == ("run:r2",)
@@ -180,10 +180,9 @@ def test_an_absent_corpus_is_lineage_incomplete_naming_it_durably(chain):
 
 
 def split_producer(durable_world):
-    d0 = stored.dataset_node("d0", title="d0")
+    d0 = stored.dataset_node(title="d0", resources=pinned())
     r3 = stored.run_node("r3", title="r3", spec="s", transforms=[d0.id], produces=["dataset:d3"])
-    d3 = stored.dataset_node(
-        "d3", title="d3", basis={"tag": "single", "routes": [{"run": r3.id, "ancestor": d0.id, "transforms": [d0.id]}]}
+    d3 = stored.dataset_node(title="d3", resources=pinned(), basis={"tag": "single", "routes": [{"run": r3.id, "ancestor": d0.id, "transforms": [d0.id]}]}
     )
     return durable_world((d0, d3), (r3,))
 
@@ -377,7 +376,7 @@ def test_evaluation_reports_an_absent_corpus_and_attributes_at_the_read_durably(
 
 @pytest.mark.parametrize("role", [stored.READS, stored.TRANSFORMS, stored.OBSERVES])
 def test_absent_runs_and_all_input_roles_are_named_durably(durable_world, role):
-    extra = stored.dataset_node("d-t", title="d-t", resources=pinned())
+    extra = stored.dataset_node(title="d-t", resources=pinned())
     world, roots, published, a, b, profile = evaluation_world(
         durable_world, ("run:run-a", extra.id), extra=(extra,), role=role
     )
@@ -392,7 +391,7 @@ def test_absent_runs_and_all_input_roles_are_named_durably(durable_world, role):
 
 @pytest.mark.parametrize("target", ["proposition:p", "dataset:extra"])
 def test_proposition_and_snapshot_absence_are_named_durably(durable_world, target):
-    extra = stored.dataset_node("extra", title="extra", resources=pinned())
+    extra = stored.dataset_node(title="extra", resources=pinned())
     world, roots, published, a, b, profile = evaluation_world(durable_world, (target,), extra=(extra,))
     absent(roots, b)
     view = open_world_view(world, published)
@@ -571,7 +570,7 @@ def test_open_refusals_never_become_absence_durably(chain, durable_world, monkey
             state = state_identity(path)
             if not changed:
                 changed = True
-                raw_write(path, stored.dataset_node("racing", title="racing", resources=pinned()))
+                raw_write(path, stored.dataset_node(title="racing", resources=pinned()))
             return state
 
         monkeypatch.setattr(registry, "corpus_state_identity", move_during_capture)

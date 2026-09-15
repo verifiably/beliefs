@@ -6,6 +6,7 @@ import shutil
 
 import pytest
 import yaml
+from dataset_fixtures import pinned
 from nodes.core.write_plan import DefaultExecutor
 from test_relocation_rows import _belief_digest
 from test_world_build import ALPHA, BETA, ChainHeads, sample_nodes, slug_for
@@ -125,7 +126,7 @@ class TestR23Divergence:
         """Negative (e), cross-corpus: R2 in BETA claims D (held once, in ALPHA)
         from B by edges alone — no second D record (spec §7)."""
         d0, r1, d1, _r2, _d2 = chain_nodes()
-        b = stored.dataset_node("b", title="b")
+        b = stored.dataset_node(title="b", resources=pinned("b"))
         r2 = stored.run_node("r2x", title="r2x", spec="s", transforms=[b.id], produces=[d1.id])
         coverage = (ALPHA, BETA)
         roots = corpora(tmp_path, {ALPHA: (d0, r1, d1), BETA: (b, r2)})

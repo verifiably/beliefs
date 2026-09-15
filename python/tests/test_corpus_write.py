@@ -15,6 +15,7 @@ from typing import Any, ClassVar, cast
 
 import pytest
 from authority import ACTOR, FULL, narrowed
+from dataset_fixtures import dataset_ref, pinned
 from fixtures_cut3 import report as mint_report
 from fixtures_cut6 import PINS
 from nodes.core.errors import CollisionError, ExecutionError, RefError, ValidationError
@@ -299,9 +300,8 @@ def test_publish_operation_report_fulfills_once_stores_and_reconstructs(tmp_path
     assert stored.act_report_facet(held)["event_token"] == intent.event_token
 
 
-def observed_dataset(slug="raw"):
-    return stored.dataset_node(
-        slug, title=slug, resources=PINNED, empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}
+def observed_dataset(seed="raw"):
+    return stored.dataset_node(title=seed, resources=pinned(seed), empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}
     )
 
 
@@ -463,7 +463,7 @@ class TestTheAddPathIsAddOnly:
     def test_no_plan_this_surface_emits_carries_a_replace_or_a_delete(self, writer):
         writer.add(observed_dataset())
         with pytest.raises(RecordAlreadyMinted):
-            writer.add(writer.read_view.get("dataset:raw"))
+            writer.add(writer.read_view.get(dataset_ref("raw")))
         assert not any(isinstance(op, (ReplaceOp, DeleteOp)) for plan in Recorder.plans for op in plan)
 
     def test_an_existing_uid_and_id_pair_refuses_before_plan_construction(self, writer):
@@ -531,20 +531,22 @@ class TestW3TheBasisRefusal:
         assert caught.value.reason == "unknown-scheme"
 
     def test_a_dataset_with_no_content_identity_refuses(self, writer):
+        unpinned = stored.governed_node("dataset", "d1", "DepMap", {stored.DATASET_FACET: {"resources": []}}, ())
         with pytest.raises(BasisMissing):
-            writer.add(stored.dataset_node("d1", title="DepMap", resources=[]))
+            writer.add(unpinned)
 
     def test_a_dataset_with_one_unpinned_resource_refuses(self, writer):
+        half = stored.governed_node(
+            "dataset", "d1", "DepMap", {stored.DATASET_FACET: {"resources": [*pinned("d1"), {"name": "unpinned"}]}}, ()
+        )
         with pytest.raises(BasisMissing):
-            writer.add(
-                stored.dataset_node("d1", title="DepMap", resources=[*PINNED, {"name": "unpinned"}])
-            )
+            writer.add(half)
 
     def test_a_dataset_whose_bytes_are_held_nowhere_is_minted(self, writer):
         # G9, and the admission ramp's narrowing: identity is not holding. The
         # add path performs no holding check — `declared` / `held` is derived on
         # read and never stored.
-        minted = writer.add(stored.dataset_node("d1", title="DepMap 24Q2", resources=PINNED))
+        minted = writer.add(stored.dataset_node(title="DepMap 24Q2", resources=PINNED))
         assert writer.read_view.holds(minted.id)
 
     def test_a_note_is_not_what_a_missing_basis_coerces_to(self, writer):
@@ -645,7 +647,7 @@ class TestTheRefusalsWrapAndOrder:
     def test_the_basis_check_refuses_before_eligibility(self, writer):
         # A dataset with no content identity and an assesses edge it could not
         # support either: the earlier refusal is the one raised.
-        node = stored.dataset_node("d1", title="d1", resources=[])
+        node = stored.governed_node("dataset", "d1", "d1", {stored.DATASET_FACET: {"resources": []}}, ())
         node.relations.append(
             stored.Relation(source=node.id, predicate=stored.ASSESSES, target="proposition:p1")
         )

@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 from authority import ACTOR, FULL
+from dataset_fixtures import dataset_ref, pinned
 from nodes.core.relations import Relation
 from nodes.core.write_plan import DefaultExecutor
 from profiles import BASE, pins_for
@@ -28,7 +29,7 @@ def writer(root, authority=FULL):
 
 
 def acquired(slug, attester, **extra):
-    return stored.dataset_node(slug, title=slug, resources=PINNED, empirical_observation={"locator": "url:x", "attested_by": attester, **extra})
+    return stored.dataset_node(title=slug, resources=pinned(slug), empirical_observation={"locator": "url:x", "attested_by": attester, **extra})
 
 
 def producing(slug, target):
@@ -37,12 +38,12 @@ def producing(slug, target):
 
 class TestF1:
     def test_the_reproductions_authored_payload_is_refused(self, tmp_path):
-        node = stored.dataset_node("d", title="d", resources=PINNED, empirical_observation={"boundary": "acquisition", "source": "dataset:gse", "asserted_by": "driver"})
+        node = stored.dataset_node(title="d", resources=PINNED, empirical_observation={"boundary": "acquisition", "source": "dataset:gse", "asserted_by": "driver"})
         with pytest.raises(FacetPayloadRefused, match="unknown key"):
             writer(tmp_path).add(node)
 
     def test_import_wraps_the_refusal_naming_the_member(self, tmp_path):
-        node = stored.dataset_node("d", title="d", resources=PINNED, empirical_observation={"locator": "ftp:x", "attested_by": "k"})
+        node = stored.dataset_node(title="d", resources=PINNED, empirical_observation={"locator": "ftp:x", "attested_by": "k"})
         with pytest.raises(ImportRefused) as caught:
             writer(tmp_path).import_bundle([node], **IMPORT)
         assert caught.value.member == node.id
@@ -58,7 +59,7 @@ class TestF2:
 
     def test_producing_run_then_facet_dataset_refuses_the_dataset(self, tmp_path):
         w = writer(tmp_path)
-        w.add(producing("r", "dataset:d"))
+        w.add(producing("r", dataset_ref("d")))
         with pytest.raises(AcquisitionBoundaryRefused, match="is produced by run:r"):
             w.add(acquired("d", ACTOR))
 
@@ -72,7 +73,7 @@ class TestF2:
 
     @pytest.mark.parametrize("order", ["dataset-first", "run-first"])
     def test_a_bundle_holding_both_is_refused_in_either_order(self, tmp_path, order):
-        d, r = acquired("d", "importer"), producing("r", "dataset:d")
+        d, r = acquired("d", "importer"), producing("r", dataset_ref("d"))
         members = [d, r] if order == "dataset-first" else [r, d]
         with pytest.raises(ImportRefused) as caught:
             writer(tmp_path).import_bundle(members, **IMPORT)
@@ -89,7 +90,7 @@ class TestF3:
     def test_import_keeps_a_foreign_attester(self, tmp_path):
         w = writer(tmp_path, ALICE)
         w.import_bundle([acquired("d", "carol")], **IMPORT)
-        assert w.read_view.get("dataset:d").facets["empirical-observation"]["attested_by"] == "carol"
+        assert w.read_view.get(dataset_ref("d")).facets["empirical-observation"]["attested_by"] == "carol"
 
     def test_relocation_keeps_a_foreign_attester(self, tmp_path):
         from test_relocation import _writer as relocation_writer
@@ -99,8 +100,8 @@ class TestF3:
         source = relocation_writer(tmp_path / "s")
         destination = relocation_writer(tmp_path / "d")
         source.import_bundle([acquired("d", "carol")], **IMPORT)
-        relocation.move(source, destination, "dataset:d", **IMPORT)
-        assert destination.read_view.get("dataset:d").facets["empirical-observation"]["attested_by"] == "carol"
+        relocation.move(source, destination, dataset_ref("d"), **IMPORT)
+        assert destination.read_view.get(dataset_ref("d")).facets["empirical-observation"]["attested_by"] == "carol"
 
 
 class TestF7:
@@ -132,7 +133,7 @@ def test_bundle_producers_follow_an_arriving_alias(tmp_path, order):
     assert isinstance(caught.value.__cause__, AcquisitionBoundaryRefused)
 
 
-@pytest.mark.parametrize("target", ["dataset:d", "dataset:old"])
+@pytest.mark.parametrize("target", [dataset_ref("d"), "dataset:old"])
 def test_add_refuses_a_candidate_producing_itself(tmp_path, target):
     d = acquired("d", ACTOR)
     d.deprecated_ids = ["dataset:old"]
@@ -143,7 +144,7 @@ def test_add_refuses_a_candidate_producing_itself(tmp_path, target):
 
 def test_import_sees_existing_dangling_producers(tmp_path):
     w = writer(tmp_path)
-    w.add(producing("r", "dataset:d"))
+    w.add(producing("r", dataset_ref("d")))
     with pytest.raises(ImportRefused) as caught:
         w.import_bundle([acquired("d", "foreign")], **IMPORT)
     assert isinstance(caught.value.__cause__, AcquisitionBoundaryRefused)
@@ -153,7 +154,7 @@ def test_import_resolves_retrieval_in_the_arriving_bundle(tmp_path, acquisition_
     report = stored.act_report_node(acquisition_report)
     w = writer(tmp_path)
     w.import_bundle([acquired("d", "foreign", retrieval=report.id), report], **IMPORT)
-    assert w.read_view.get("dataset:d").facets["empirical-observation"]["retrieval"] == report.id
+    assert w.read_view.get(dataset_ref("d")).facets["empirical-observation"]["retrieval"] == report.id
 
 
 def test_relocation_checks_retrieval_at_destination(tmp_path, acquisition_report):
@@ -166,6 +167,6 @@ def test_relocation_checks_retrieval_at_destination(tmp_path, acquisition_report
     report = stored.act_report_node(acquisition_report)
     source.import_bundle([report, acquired("d", "foreign", retrieval=report.id)], **IMPORT)
     with pytest.raises(FacetPayloadRefused, match="retrieval-unresolved"):
-        relocation.move(source, destination, "dataset:d", **IMPORT)
-    assert source.read_view.holds("dataset:d")
-    assert not destination.read_view.holds("dataset:d")
+        relocation.move(source, destination, dataset_ref("d"), **IMPORT)
+    assert source.read_view.holds(dataset_ref("d"))
+    assert not destination.read_view.holds(dataset_ref("d"))

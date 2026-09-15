@@ -121,8 +121,7 @@ def test_a_prose_kind_is_admitted_with_display_only(tmp_path):
 
 def test_a_malformed_schema_facet_is_refused_at_add(tmp_path):
     writer, _ = _writer(tmp_path)
-    node = stored.dataset_node(
-        "d", title="d", resources=PINNED,
+    node = stored.dataset_node(title="d", resources=PINNED,
         empirical_observation={"boundary": "acquisition", "source": "dataset:gse", "asserted_by": "driver"},
     )
     with pytest.raises(FacetPayloadRefused, match="unknown key"):

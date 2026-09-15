@@ -50,4 +50,4 @@ def dataset(seed: str, *, title: str | None = None, **facets) -> Node:
     `facets` are the builder's keyword facets (`empirical_observation`,
     `basis`, `domain_facets`)."""
     dataset_ref(seed)
-    return stored.dataset_node(seed, title=seed if title is None else title, resources=pinned(seed), **facets)
+    return stored.dataset_node(title=seed if title is None else title, resources=pinned(seed), **facets)

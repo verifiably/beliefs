@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 from authority import FULL
+from dataset_fixtures import pinned
 from fixtures_cut6 import PINS
 from nodes.core.corpus import Corpus
 from nodes.core.write_plan import DefaultExecutor
@@ -399,7 +400,7 @@ def test_an_absent_corpus_or_named_state_is_unresolvable(tmp_path, failure):
         )
         rules.install_rule_binding(world, holdings_rule_bundle())
     else:
-        Corpus(roots[ALPHA]).add(stored.dataset_node("new", title="new"))
+        Corpus(roots[ALPHA]).add(stored.dataset_node(title="new", resources=pinned("new")))
 
     outcome = validate(world, receipt, chains)
 

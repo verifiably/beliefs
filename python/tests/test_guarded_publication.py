@@ -50,15 +50,12 @@ def test_the_acquisition_guard_reads_the_produced_address(tmp_path):
     runs durably in Task 15's acceptance module through `fixtures_cut15`'s
     production helper."""
     from beliefs.boundary import acquisition_guard
-    from beliefs.production import mint_dataset
 
     writer, _ = corpus(tmp_path)
     closure = make_closure(shape="dataset-production")
-    address = mint_dataset(closure, existing_bases={}).address
     assert acquisition_guard(closure)(writer.read_view) is None
     writer.add(stored.dataset_node(
-        address.removeprefix("dataset:"),
-        title="bearer",
+                title="bearer",
         resources=[{"name": name, "digest": digest} for name, digest in closure.result.outputs],
         empirical_observation={"locator": "url:x", "attested_by": ACTOR},
     ))
@@ -69,15 +66,12 @@ def test_production_publishes_a_refusal_when_the_guard_finds_a_bearer(tmp_path, 
     from fixtures_cut3 import MemoryPort, run_production
 
     from beliefs.boundary import RunMinted, RunRefused, acquisition_guard
-    from beliefs.production import mint_dataset
 
     first = run_production(tmp_path / "first", port=MemoryPort())
     assert isinstance(first, RunMinted)
     writer, port = corpus(tmp_path / "corpus")
-    dataset = mint_dataset(first.run, existing_bases={})
     writer.add(stored.dataset_node(
-        dataset.address.removeprefix("dataset:"),
-        title="bearer",
+                title="bearer",
         resources=[{"name": name, "digest": digest} for name, digest in first.run.result.outputs],
         empirical_observation={"locator": "url:x", "attested_by": ACTOR},
     ))

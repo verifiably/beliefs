@@ -93,7 +93,7 @@ class TestS1TheRelationFixtureWalkedOutOfTheStore:
         # Corpus-local membership, walked as relations: what the walk reaches is
         # exactly what the container's own facet lists, so the two readings of
         # one structure agree rather than diverging silently.
-        container = stored.dataset_node("cohort", title="cohort", resources=pinned())
+        container = stored.dataset_node(title="cohort", resources=pinned())
         members = ["dataset:member-a", "dataset:member-b"]
         container.facets["membership"] = {"members": members}
         stored.stamp_semantic_identity(container)
@@ -101,7 +101,7 @@ class TestS1TheRelationFixtureWalkedOutOfTheStore:
             container.relations.append(
                 stored.Relation(source=container.id, predicate=stored.MEMBER_OF, target=member)
             )
-            durable_writer.add(stored.dataset_node(member.split(":", 1)[1], title=member, resources=pinned()))
+            durable_writer.add(stored.dataset_node(title=member, resources=pinned()))
         durable_writer.add(container)
         view = reopen(durable_root)
         walked = closure(container.id, RelationAdjacency(view, stored.MEMBER_OF, "outbound")).reached
@@ -207,8 +207,8 @@ class TestR23DerivedFromIsAView:
     def test_independence_follows_the_stamped_basis_not_the_composition(self, durable_writer, durable_root):
         # Basis and composition made to disagree by the raw-write fixture act:
         # the run transforms one dataset and the stamped basis names another.
-        durable_writer.add(stored.dataset_node("composed", title="composed", resources=pinned()))
-        durable_writer.add(stored.dataset_node("stamped", title="stamped", resources=pinned()))
+        durable_writer.add(stored.dataset_node(title="composed", resources=pinned()))
+        durable_writer.add(stored.dataset_node(title="stamped", resources=pinned()))
         durable_writer.add(
             stored.run_node(
                 "r23", title="r23", spec=SPEC, transforms=["dataset:composed"], produces=["dataset:out"]
@@ -217,8 +217,7 @@ class TestR23DerivedFromIsAView:
         # The route records what the producing run transformed, so the only
         # disagreement is the one this arm is about: the ancestor.
         disagreeing = stored.dataset_node(
-            "out",
-            title="out",
+                        title="out",
             resources=pinned(),
             basis=basis(route("run:r23", "dataset:stamped", ["dataset:composed"])),
         )

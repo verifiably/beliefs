@@ -10,6 +10,7 @@ import pytest
 from atoms.chain.model import state_to_json
 from atoms.core.fingerprint import PathState
 from authority import FULL
+from dataset_fixtures import pinned
 from fixtures_cut6 import PINS
 from nodes.core.projection import to_canonical_json
 from nodes.core.write_plan import DefaultExecutor
@@ -97,7 +98,7 @@ def whole_chain(_root: Path) -> logmodel.WellFormedView:
 
 
 def test_each_entry_variant_has_the_exact_closed_serialization(tmp_path):
-    dataset = stored.dataset_node("dataset", title="Dataset")
+    dataset = stored.dataset_node(title="Dataset", resources=pinned("dataset"))
     observation = observation_node()
     world, _root = admitted(tmp_path, observation, dataset)
 
@@ -169,7 +170,7 @@ def test_each_entry_variant_has_the_exact_closed_serialization(tmp_path):
 
 
 def test_every_record_is_carried_without_a_kind_filter(tmp_path):
-    dataset = stored.dataset_node("dataset", title="Dataset")
+    dataset = stored.dataset_node(title="Dataset", resources=pinned("dataset"))
     observation = observation_node()
     world, _root = admitted(tmp_path, dataset, observation)
 
@@ -190,8 +191,7 @@ def test_the_projection_matches_the_closed_schema(
     manifest = writer.adopt_manifest(profile=PINS)
     dataset = writer.add(
         stored.dataset_node(
-            "dataset",
-            title="Dataset",
+                        title="Dataset",
             resources=[{"name": "data", "digest": "sha256:" + "ab" * 32}],
         )
     )
@@ -323,7 +323,7 @@ def test_corpora_are_sorted_by_declared_identity(tmp_path):
 
 
 def test_the_canonical_text_is_the_state_identitys_own(tmp_path):
-    dataset = stored.dataset_node("dataset", title="Dataset")
+    dataset = stored.dataset_node(title="Dataset", resources=pinned("dataset"))
     world, root = admitted(tmp_path, dataset)
 
     captured = capture_coverage(world, frozenset({ALPHA}), chain_view=whole_chain, state_facts=absent_facts)
@@ -334,7 +334,7 @@ def test_the_canonical_text_is_the_state_identitys_own(tmp_path):
 
 
 def test_an_undecodable_record_refuses_the_whole_capture(tmp_path):
-    world, root = admitted(tmp_path, stored.dataset_node("dataset", title="Dataset"))
+    world, root = admitted(tmp_path, stored.dataset_node(title="Dataset", resources=pinned("dataset")))
     garbage = root / "garbage.md"
     garbage.write_text("not a node", encoding="utf-8")
 
