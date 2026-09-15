@@ -350,6 +350,7 @@ class TestReaders:
         [
             [],  # empty entries
             [dict(entry(A, B), extra=1)],  # an extra key
+            [dict(entry(A, B), absorbed=[entry(B, A, token="o1")])],  # six keys with from != to
             [{k: v for k, v in entry(A, B).items() if k != "grounds"}],  # a missing key
             [entry({}, B)],  # empty from
             [entry(A, {})],  # empty to
