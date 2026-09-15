@@ -6,8 +6,8 @@ priority: 3
 size: s
 complexity: mid
 created: 2026-09-12T22:33:24Z
-updated: 2026-09-15T16:27:04Z
-depends: [beliefs-46847c]
+updated: 2026-09-15T16:30:38Z
+depends: [beliefs-18b03d]
 parent: beliefs-59f846
 tags: [belief, contract]
 plan: docs/superpowers/plans/2026-09-12-estimand-typing.md
