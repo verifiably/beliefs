@@ -35,10 +35,11 @@ from durable_fixture import (
     UNDIRECTED,
     UNRELATED,
     basis,
-    pinned,
     route,
 )
 from fixtures_cut4 import raw_write, reopen
+from nodes.core.node import Node
+from nodes.core.shapes import MEMBERSHIP
 
 from beliefs import stored
 from beliefs.corpus import LineageAdjacency, RelationAdjacency, derived_from, lineage_snapshot
@@ -95,18 +96,25 @@ class TestS1TheRelationFixtureWalkedOutOfTheStore:
         # Corpus-local membership, walked as relations: what the walk reaches is
         # exactly what the container's own facet lists, so the two readings of
         # one structure agree rather than diverging silently.
-        container = stored.dataset_node(title="cohort", resources=pinned())
         members = [dataset_ref("member-a"), dataset_ref("member-b")]
+        container = Node(
+            id="set:cohort",
+            kind="set",
+            title="cohort",
+            facets={MEMBERSHIP: {"members": members}},
+        )
         for seed, member in zip(("member-a", "member-b"), members, strict=True):
             container.relations.append(
                 stored.Relation(source=container.id, predicate=stored.MEMBER_OF, target=member)
             )
             durable_writer.add(stored.dataset_node(title=member, resources=seed_pinned(seed)))
-        durable_writer.add(container)
+        # `membership` is a nodes structural facet, not a facet admitted by the
+        # beliefs base profile; install this substrate fixture through the raw seam.
+        raw_write(durable_root, container)
         view = reopen(durable_root)
         walked = closure(container.id, RelationAdjacency(view, stored.MEMBER_OF, "outbound")).reached
         assert sorted(walked) == sorted(members)
-        assert sorted(r.target for r in view.get(container.id).relations if r.predicate == stored.MEMBER_OF) == sorted(walked)
+        assert sorted(view.get(container.id).facets[MEMBERSHIP]["members"]) == sorted(walked)
 
 
 class TestS1aTheLineageFixtureWalkedAsAFacet:

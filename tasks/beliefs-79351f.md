@@ -8,9 +8,9 @@ complexity: mid
 process: direct
 owner: design/world-resolution-slice-5
 created: 2026-09-14T22:45:21Z
-updated: 2026-09-15T01:48:49Z
+updated: 2026-09-15T01:55:07Z
 started: 2026-09-15T00:13:19Z
-completed: 2026-09-15T01:48:49Z
+completed: 2026-09-15T01:55:07Z
 depends: [beliefs-b47830]
 parent: beliefs-48214e
 tags: [world-read]
@@ -28,3 +28,6 @@ step: "Task 3: The builder derives the id; migrate every call site"
 - 2026-09-15T01:28:06Z (design/world-resolution-slice-5): round1 review fix claimed by codex task3, pid 3949512
 - 2026-09-15T01:48:49Z (design/world-resolution-slice-5): review round1 fixed all acceptance reference gaps; portable 156 passed; acceptance repair chain 263/9 then 183/3 then final 22 passed; guards 14 passed; lint, types, tasks green
 - 2026-09-15T01:48:49Z (design/world-resolution-slice-5): Completed derived-reference migration across portable and durable acceptance fixtures.
+- 2026-09-15T01:53:35Z (design/world-resolution-slice-5): round2 review fix claimed by codex task3, pid 4054491
+- 2026-09-15T01:55:07Z (design/world-resolution-slice-5): review round2 restored independent structural membership facet oracle; focused certified test 1 passed
+- 2026-09-15T01:55:07Z (design/world-resolution-slice-5): Restored membership-facet versus relation-traversal agreement coverage.

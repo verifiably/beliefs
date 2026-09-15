@@ -82,14 +82,17 @@ Evidence, with `certified-env.sh` sourced before Python runs:
 uv run --frozen pytest tests/test_coreference_attestation.py tests/test_identifier_correction.py tests/test_world_view.py
 156 passed in 22.40s
 
-uv run --frozen pytest -n 8 --dist=loadfile <12 acceptance inventory modules>
+uv run --frozen pytest -n 8 --dist=loadfile tests/acceptance/test_coreference_acceptance.py tests/acceptance/test_cut15_lineage.py tests/acceptance/test_durable_corpus.py tests/acceptance/test_durable_records.py tests/acceptance/test_durable_traversal.py tests/acceptance/test_facet_acceptance.py tests/acceptance/test_relocation_acceptance.py tests/acceptance/test_session_acceptance.py tests/acceptance/test_source_address_acceptance.py tests/acceptance/test_world_audit_acceptance.py tests/acceptance/test_world_selection_acceptance.py tests/acceptance/test_world_view_acceptance.py
 263 passed, 9 failed in 237.87s
+Complete output: /tmp/task3-review-acceptance.log
 
-uv run --frozen pytest -n 8 --dist=loadfile <7 affected acceptance modules>
+uv run --frozen pytest -n 8 --dist=loadfile tests/acceptance/test_durable_traversal.py tests/acceptance/test_durable_corpus.py tests/acceptance/test_facet_acceptance.py tests/acceptance/test_world_selection_acceptance.py tests/acceptance/test_relocation_acceptance.py tests/acceptance/test_world_view_acceptance.py tests/acceptance/test_world_audit_acceptance.py
 183 passed, 3 failed in 233.35s
+Complete output: /tmp/task3-review-focus.log
 
-uv run --frozen pytest <three repaired cases> tests/acceptance/test_deletion_acceptance.py <three cut7 journey cases>
+uv run --frozen pytest tests/acceptance/test_durable_traversal.py::TestS1TheRelationFixtureWalkedOutOfTheStore::test_membership_traversal_agrees_with_what_the_container_stores tests/acceptance/test_durable_corpus.py::TestTheMintedRecordsReadBack::test_the_slug_helper_addresses_the_same_file_the_store_does tests/acceptance/test_world_audit_acceptance.py::test_the_world_audit_reproduces_every_per_record_finding_durably tests/acceptance/test_deletion_acceptance.py tests/acceptance/test_n2_cut7.py::test_resolution_answers_resolved_not_present_and_unknown tests/acceptance/test_n2_cut7.py::test_edges_answer_active_inactive_and_indeterminate tests/acceptance/test_n2_cut7.py::test_removing_a_binding_reports_the_receipts_it_severed
 22 passed in 66.65s
+Complete output: /tmp/task3-review-final-focus.log
 
 uv run --frozen pytest tests/test_arm_staleness.py tests/test_frozen_guards.py
 14 passed in 2.63s
@@ -105,3 +108,14 @@ tasks check
 ```
 
 The initial controller inventory had 288 cases because it also selected `test_deletion_acceptance.py` (16 cases). The first fix rerun selected the other 12 modules (272 cases); the missing module was included in the final 22-test focused command.
+
+## Review round 2 fix
+
+The durable traversal fixture again stores membership independently in the nodes structural `membership` facet and compares it with the relation traversal result. The beliefs base profile does not admit that unqualified substrate facet, so the test installs the structural container through the existing raw-write fixture seam; its dataset members still cross the ordinary writer boundary.
+
+```text
+source .superpowers/sdd/2026-09-14-world-resolution-slice-5/certified-env.sh
+cd python
+uv run --frozen pytest tests/acceptance/test_durable_traversal.py::TestS1TheRelationFixtureWalkedOutOfTheStore::test_membership_traversal_agrees_with_what_the_container_stores
+1 passed in 0.48s
+```
