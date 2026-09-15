@@ -10,9 +10,11 @@ from typing import Any, cast
 
 import pytest
 from authority import FULL
+from dataset_fixtures import dataset_ref
+from dataset_fixtures import pinned as seed_pinned
 from domain_facet_fixtures import kwargs_for, profile_with, seed
 from durable_fixture import pinned
-from fixtures_cut4 import raw_write
+from fixtures_cut4 import path_for, raw_write
 from nodes.core.errors import RefError
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.relations import Relation
@@ -122,98 +124,105 @@ def absent(roots, corpus_id):
 def test_the_world_closure_is_complete_and_the_local_one_truncates_durably(chain):
     world, roots, published, a, _b = chain
     view = open_world_view(world, published)
-    reached = closure("dataset:d2", LineageAdjacency(view))
-    assert set(reached.reached) == {"dataset:d1", "dataset:d0"} and not reached.unresolved
+    reached = closure(dataset_ref("d2"), LineageAdjacency(view))
+    assert set(reached.reached) == {dataset_ref("d1"), dataset_ref("d0")} and not reached.unresolved
     local = ReadView.opened_at(roots[a])
-    truncated = closure("dataset:d2", LineageAdjacency(local))
+    truncated = closure(dataset_ref("d2"), LineageAdjacency(local))
     assert not truncated.reached and truncated.unresolved
-    assert "lineage-incomplete" in certify(lineage_snapshot(local, ["dataset:d2"]), ("dataset:d2",), ()).findings
-    assert certify(lineage_snapshot(view, ["dataset:d2"]), ("dataset:d2",), ()).state == "independent"
-    assert {e.relation.source for e in view.inbound("dataset:d1") if e.relation.predicate == "transforms"} == {"run:r2"}
+    assert "lineage-incomplete" in certify(lineage_snapshot(local, [dataset_ref("d2")]), (dataset_ref("d2"),), ()).findings
+    assert certify(lineage_snapshot(view, [dataset_ref("d2")]), (dataset_ref("d2"),), ()).state == "independent"
+    assert {e.relation.source for e in view.inbound(dataset_ref("d1")) if e.relation.predicate == "transforms"} == {"run:r2"}
 
 
 def test_the_relation_and_lineage_chains_cross_the_edge_durably(chain):
     world, roots, published, a, b = chain
     view = open_world_view(world, published)
-    relation = closure("dataset:d2", RelationAdjacency(view, "cites", "outbound"))
-    assert set(relation.reached) == {"dataset:d1", "dataset:d0"}
+    relation = closure(dataset_ref("d2"), RelationAdjacency(view, "cites", "outbound"))
+    assert set(relation.reached) == {dataset_ref("d1"), dataset_ref("d0")}
     assert len(relation.unresolved) == 1
-    assert set(closure("dataset:d0", RelationAdjacency(view, "cites", "inbound")).reached) == {
-        "dataset:d1",
-        "dataset:d2",
+    assert set(closure(dataset_ref("d0"), RelationAdjacency(view, "cites", "inbound")).reached) == {
+        dataset_ref("d1"),
+        dataset_ref("d2"),
     }
-    assert set(closure("dataset:d2", LineageAdjacency(view)).reached) == {"dataset:d1", "dataset:d0"}
-    assert not closure("dataset:d2", RelationAdjacency(ReadView.opened_at(roots[a]), "cites", "outbound")).reached
-    late = stored.run_node("late", title="late", spec="s", produces=["dataset:d2"])
+    assert set(closure(dataset_ref("d2"), LineageAdjacency(view)).reached) == {dataset_ref("d1"), dataset_ref("d0")}
+    assert not closure(dataset_ref("d2"), RelationAdjacency(ReadView.opened_at(roots[a]), "cites", "outbound")).reached
+    late = stored.run_node("late", title="late", spec="s", produces=[dataset_ref("d2")])
     raw_write(roots[a], late)
-    raw_write(roots[a], stored.dataset_node("d1", title="drift copy of B's mapped target", resources=pinned()))
+    foreign = ReadView.opened_at(roots[b]).get(dataset_ref("d1"))
+    raw_write(
+        roots[a],
+        stored.dataset_node(
+            title="drift copy of B's mapped target",
+            resources=foreign.facets[stored.DATASET_FACET]["resources"],
+        ),
+    )
     drift = open_world_view(world, published)
-    assert "run:late" not in {e.relation.source for e in drift.inbound("dataset:d2")}
-    assert drift.producers("dataset:d2") == ("run:r2",)
-    assert drift.corpus_of("dataset:d1") == b
-    assert {e.relation.source for e in drift.inbound("dataset:d1") if e.relation.predicate == "transforms"} == {
+    assert "run:late" not in {e.relation.source for e in drift.inbound(dataset_ref("d2"))}
+    assert drift.producers(dataset_ref("d2")) == ("run:r2",)
+    assert drift.corpus_of(dataset_ref("d1")) == b
+    assert {e.relation.source for e in drift.inbound(dataset_ref("d1")) if e.relation.predicate == "transforms"} == {
         "run:r2"
     }
 
 
 def test_an_absent_corpus_is_lineage_incomplete_naming_it_durably(chain):
     world, roots, published, a, b = chain
-    complete = lineage_snapshot(open_world_view(world, published), ["dataset:d2"])
+    complete = lineage_snapshot(open_world_view(world, published), [dataset_ref("d2")])
     absent(roots, b)
     view = open_world_view(world, published)
-    assert type(view.locate("dataset:d1")) is read.NotPresent
-    partial = lineage_snapshot(view, ["dataset:d2"])
-    assert partial.not_present == {"dataset:d1": b}
-    result = certify(partial, ("dataset:d2",), ())
+    assert type(view.locate(dataset_ref("d1"))) is read.NotPresent
+    partial = lineage_snapshot(view, [dataset_ref("d2")])
+    assert partial.not_present == {dataset_ref("d1"): b}
+    result = certify(partial, (dataset_ref("d2"),), ())
     assert result.state == "not-certified" and "lineage-incomplete" in result.findings
-    assert result.absent == (Absence("dataset:d1", b),)
+    assert result.absent == (Absence(dataset_ref("d1"), b),)
     assert snapshot_projection(partial) != snapshot_projection(complete)
     # Identical topology, only the coverage evidence differs: this kills omission
     # of not_present without letting other projection differences mask it.
     unknown = replace(partial, not_present={})
     assert snapshot_projection(partial) != snapshot_projection(unknown)
-    assert snapshot_projection(partial)["not_present"] == [{"ref": "dataset:d1", "corpus_id": b}]
-    local = lineage_snapshot(ReadView.opened_at(roots[a]), ["dataset:d2"])
+    assert snapshot_projection(partial)["not_present"] == [{"ref": dataset_ref("d1"), "corpus_id": b}]
+    local = lineage_snapshot(ReadView.opened_at(roots[a]), [dataset_ref("d2")])
     assert not local.not_present
-    both = lineage_snapshot(view, ["dataset:d2", "dataset:d1"])
-    assert both.not_present == {"dataset:d1": b}  # R1 is behind the unreadable basis.
+    both = lineage_snapshot(view, [dataset_ref("d2"), dataset_ref("d1")])
+    assert both.not_present == {dataset_ref("d1"): b}  # R1 is behind the unreadable basis.
 
 
 def split_producer(durable_world):
-    d0 = stored.dataset_node("d0", title="d0")
-    r3 = stored.run_node("r3", title="r3", spec="s", transforms=[d0.id], produces=["dataset:d3"])
-    d3 = stored.dataset_node(
-        "d3", title="d3", basis={"tag": "single", "routes": [{"run": r3.id, "ancestor": d0.id, "transforms": [d0.id]}]}
+    d0 = stored.dataset_node(title="d0", resources=seed_pinned("split-d0"))
+    d3_ref = dataset_ref("d3")
+    r3 = stored.run_node("r3", title="r3", spec="s", transforms=[d0.id], produces=[d3_ref])
+    d3 = stored.dataset_node(title="d3", resources=seed_pinned("d3"), basis={"tag": "single", "routes": [{"run": r3.id, "ancestor": d0.id, "transforms": [d0.id]}]}
     )
     return durable_world((d0, d3), (r3,))
 
 
 def test_a_published_producer_survives_its_absent_carrier_durably(durable_world):
     world, roots, published, a, b = split_producer(durable_world)
-    present = lineage_snapshot(open_world_view(world, published), ["dataset:d3"])
-    assert divergence_state(present, "dataset:d3") == "undiverged"
+    present = lineage_snapshot(open_world_view(world, published), [dataset_ref("d3")])
+    assert divergence_state(present, dataset_ref("d3")) == "undiverged"
     absent(roots, b)
-    gone = lineage_snapshot(open_world_view(world, published), ["dataset:d3"])
-    (producer,) = gone.producers["dataset:d3"]
+    gone = lineage_snapshot(open_world_view(world, published), [dataset_ref("d3")])
+    (producer,) = gone.producers[dataset_ref("d3")]
     assert producer.stored_run == "run:r3" and producer.resolved_run is None and producer.absent == (b,)
     assert gone.not_present == {"run:r3": b}
-    assert divergence_state(gone, "dataset:d3") == "incomplete"
-    assert snapshot_projection(gone)["divergence"] == {"dataset:d3": "incomplete"}
-    result = certify(gone, ("dataset:d3",), ())
+    assert divergence_state(gone, dataset_ref("d3")) == "incomplete"
+    assert snapshot_projection(gone)["divergence"] == {dataset_ref("d3"): "incomplete"}
+    result = certify(gone, (dataset_ref("d3"),), ())
     assert result.absent == (Absence("run:r3", b),)
     assert "lineage-incomplete" in result.findings and "lineage-divergent" not in result.findings
-    fabricated = replace(gone, not_present={}, producers={"dataset:d3": (replace(producer, absent=()),)})
-    assert divergence_state(fabricated, "dataset:d3") == "divergent"
-    assert not lineage_snapshot(ReadView.opened_at(roots[a]), ["dataset:d3"]).producers["dataset:d3"]
+    fabricated = replace(gone, not_present={}, producers={dataset_ref("d3"): (replace(producer, absent=()),)})
+    assert divergence_state(fabricated, dataset_ref("d3")) == "divergent"
+    assert not lineage_snapshot(ReadView.opened_at(roots[a]), [dataset_ref("d3")]).producers[dataset_ref("d3")]
 
 
 def test_an_absent_dataset_is_incomplete_without_a_comparison_durably(chain):
     world, roots, published, _a, b = chain
     absent(roots, b)
-    snapshot = lineage_snapshot(open_world_view(world, published), ["dataset:d1"])
-    assert "dataset:d1" not in snapshot.bases and "dataset:d1" not in snapshot.producers
-    assert snapshot.not_present == {"dataset:d1": b}
-    result = certify(snapshot, ("dataset:d1",), ())
+    snapshot = lineage_snapshot(open_world_view(world, published), [dataset_ref("d1")])
+    assert dataset_ref("d1") not in snapshot.bases and dataset_ref("d1") not in snapshot.producers
+    assert snapshot.not_present == {dataset_ref("d1"): b}
+    result = certify(snapshot, (dataset_ref("d1"),), ())
     assert result.state == "not-certified" and "lineage-incomplete" in result.findings
     assert "lineage-divergent" not in result.findings
 
@@ -222,9 +231,9 @@ def test_an_absent_root_is_recorded_before_any_walk_durably(chain):
     world, roots, published, a, b = chain
     absent(roots, b)
     view = open_world_view(world, published)
-    snapshot = lineage_snapshot(view, ["dataset:d1"])
-    assert snapshot.roots == ("dataset:d1",) and snapshot.not_present == {"dataset:d1": b}
-    assert certify(snapshot, ("dataset:d1",), ()).absent == (Absence("dataset:d1", b),)
+    snapshot = lineage_snapshot(view, [dataset_ref("d1")])
+    assert snapshot.roots == (dataset_ref("d1"),) and snapshot.not_present == {dataset_ref("d1"): b}
+    assert certify(snapshot, (dataset_ref("d1"),), ()).absent == (Absence(dataset_ref("d1"), b),)
     for reader in (view, ReadView.opened_at(roots[a])):
         with pytest.raises(RefError):
             lineage_snapshot(reader, ["dataset:unknown"])
@@ -233,21 +242,21 @@ def test_an_absent_root_is_recorded_before_any_walk_durably(chain):
 def test_absence_names_what_each_root_can_discover_durably(chain, durable_world):
     world, roots, published, _a, b = chain
     absent(roots, b)
-    snapshot = lineage_snapshot(open_world_view(world, published), ["dataset:d2"])
-    result = certify(snapshot, ("dataset:d2",), ())
-    assert result.absent == (Absence("dataset:d1", b),)
+    snapshot = lineage_snapshot(open_world_view(world, published), [dataset_ref("d2")])
+    result = certify(snapshot, (dataset_ref("d2"),), ())
+    assert result.absent == (Absence(dataset_ref("d1"), b),)
     assert all(item.ref != "run:r1" for item in result.absent)
     world, roots, published, _a, b = split_producer(durable_world)
     absent(roots, b)
-    snapshot = lineage_snapshot(open_world_view(world, published), ["dataset:d3"])
-    assert certify(snapshot, ("dataset:d3",), ()).absent == (Absence("run:r3", b),)
+    snapshot = lineage_snapshot(open_world_view(world, published), [dataset_ref("d3")])
+    assert certify(snapshot, (dataset_ref("d3"),), ()).absent == (Absence("run:r3", b),)
 
 
 def test_a_refusal_is_not_absence_durably(chain):
     world, roots, published, a, _b = chain
-    node = ReadView.opened_at(roots[a]).get("dataset:d2")
+    node = ReadView.opened_at(roots[a]).get(dataset_ref("d2"))
     node.facets["dataset"]["resources"] = [{"digest": "sha256:" + "f" * 64}]
-    (roots[a] / "dataset" / "d2.md").write_text(node_to_markdown(node))  # deliberately stale stamp
+    path_for(roots[a], node.id).write_text(node_to_markdown(node))  # deliberately stale stamp
     view = open_world_view(world, published)
     assert type(view.locate(node.id)) is read.Resolved and view.absent() == ()
     assert _absence_of(view, node.id) is None
@@ -260,17 +269,17 @@ def test_a_refusal_is_not_absence_durably(chain):
 def test_the_capture_is_coherent_and_drift_is_the_next_opens_durably(chain):
     world, roots, published, a, _b = chain
     first = open_world_view(world, published)
-    before = first.get("dataset:d2")
+    before = first.get(dataset_ref("d2"))
     stored_before = tuple(first.iter_stored())
-    inbound_before = first.inbound("dataset:d1")
-    late = stored.run_node("late", title="late", spec="s", produces=["dataset:d2"])
+    inbound_before = first.inbound(dataset_ref("d1"))
+    late = stored.run_node("late", title="late", spec="s", produces=[dataset_ref("d2")])
     raw_write(roots[a], late)
     changed = before.model_copy(deep=True)
     changed.title = "edited after capture"
-    changed.relations.append(Relation(source=changed.id, predicate="cites", target="dataset:d0"))
+    changed.relations.append(Relation(source=changed.id, predicate="cites", target=dataset_ref("d0")))
     raw_write(roots[a], changed)
     assert first.get(before.id) == before
-    assert tuple(first.iter_stored()) == stored_before and first.inbound("dataset:d1") == inbound_before
+    assert tuple(first.iter_stored()) == stored_before and first.inbound(dataset_ref("d1")) == inbound_before
     assert first.drift() == () and type(first.locate(late.id)) is read.Unknown
     second = open_world_view(world, published)
     assert type(second.locate(late.id)) is read.Unknown  # its live carrier has indexed the new id
@@ -289,7 +298,7 @@ def test_the_capture_is_coherent_and_drift_is_the_next_opens_durably(chain):
 def test_a_returned_object_is_detached_durably(chain):
     world, _roots, published, _a, _b = chain
     view = open_world_view(world, published)
-    before = view.get("dataset:d2")
+    before = view.get(dataset_ref("d2"))
     returned = view.get(before.id)
     assert returned is not before
     returned.title = "mutated"
@@ -298,20 +307,23 @@ def test_a_returned_object_is_detached_durably(chain):
     yielded = next(n for n in view.iter_stored() if n.id == before.id)
     yielded.deprecated_ids.append("dataset:fake")
     assert "dataset:fake" not in next(n for n in view.iter_stored() if n.id == before.id).deprecated_ids
-    edges = view.inbound("dataset:d1")
+    edges = view.inbound(dataset_ref("d1"))
     edge_before = edges[0].relation.model_copy(deep=True)
     edges[0].relation.predicate = "mutated"
-    assert view.inbound("dataset:d1")[0].relation == edge_before
+    assert view.inbound(dataset_ref("d1"))[0].relation == edge_before
 
 
-def evaluation_world(durable_world, beta_refs=("dataset:d-a",), *, extra=(), role=None):
+DATASET_D_A = dataset_ref("d-a")
+
+
+def evaluation_world(durable_world, beta_refs=(DATASET_D_A,), *, extra=(), role=None):
     profile = profile_with()
     _cid, _root, writer = durable_world.corpus(profile)
     nodes = list(seed(writer).iter_stored())
     nodes.extend(extra)
     if role is not None:
         run = next(n for n in nodes if n.id == "run:run-b")
-        run.relations.append(Relation(source=run.id, predicate=role, target="dataset:d-t"))
+        run.relations.append(Relation(source=run.id, predicate=role, target=next(n.id for n in extra if n.title == "d-t")))
         stored.stamp_semantic_identity(run)
     return (
         *durable_world(
@@ -363,7 +375,7 @@ def test_evaluation_reports_an_absent_corpus_and_attributes_at_the_read_durably(
     local = ReadView.opened_at(roots[a])
     local_context = replace(
         kwargs["context"],
-        snapshot=lineage_snapshot(local, ["dataset:d-b"]),
+        snapshot=lineage_snapshot(local, [dataset_ref("d-b")]),
         node_corpus={value.identity(): (a,) for value in inputs.assessments},
     )
     local_kwargs = {**kwargs, "context": local_context}
@@ -377,7 +389,7 @@ def test_evaluation_reports_an_absent_corpus_and_attributes_at_the_read_durably(
 
 @pytest.mark.parametrize("role", [stored.READS, stored.TRANSFORMS, stored.OBSERVES])
 def test_absent_runs_and_all_input_roles_are_named_durably(durable_world, role):
-    extra = stored.dataset_node("d-t", title="d-t", resources=pinned())
+    extra = stored.dataset_node(title="d-t", resources=pinned())
     world, roots, published, a, b, profile = evaluation_world(
         durable_world, ("run:run-a", extra.id), extra=(extra,), role=role
     )
@@ -390,16 +402,16 @@ def test_absent_runs_and_all_input_roles_are_named_durably(durable_world, role):
     assert isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent"
 
 
-@pytest.mark.parametrize("target", ["proposition:p", "dataset:extra"])
+@pytest.mark.parametrize("target", ["proposition:p", dataset_ref("extra")])
 def test_proposition_and_snapshot_absence_are_named_durably(durable_world, target):
-    extra = stored.dataset_node("extra", title="extra", resources=pinned())
+    extra = stored.dataset_node(title="extra", resources=seed_pinned("extra"))
     world, roots, published, a, b, profile = evaluation_world(durable_world, (target,), extra=(extra,))
     absent(roots, b)
     view = open_world_view(world, published)
     kwargs = world_kwargs(view, profile, a, b)
     if target == extra.id:
         kwargs["context"] = replace(
-            kwargs["context"], snapshot=lineage_snapshot(view, ["dataset:d-a", "dataset:d-b", target])
+            kwargs["context"], snapshot=lineage_snapshot(view, [dataset_ref("d-a"), dataset_ref("d-b"), target])
         )
     assert gathered(view, kwargs).absent == ((target, b),)
     result = evaluate_over(view, "proposition:p", **kwargs)
@@ -436,10 +448,10 @@ def test_a_facet_read_is_held_to_the_capture_durably(durable_world, change):
     world, roots, published, a, b, profile = evaluation_world(durable_world)
     view = open_world_view(world, published)
     kwargs = world_kwargs(view, profile, a, b)
-    path = roots[b] / "dataset" / "d-a.md"
+    path = path_for(roots[b], dataset_ref("d-a"))
     path.write_text(path.read_text() + "\n")
     gathered(view, kwargs)
-    node = ReadView.opened_at(roots[b]).get("dataset:d-a")
+    node = ReadView.opened_at(roots[b]).get(dataset_ref("d-a"))
     if change == "content":
         node.facets["biology/gene-axis"]["axis"] = "columns"
     elif change == "removal":
@@ -482,24 +494,24 @@ def test_check_verification_reports_a_cross_corpus_forgery_durably(durable_world
 
 def test_the_three_states_never_collapse_and_removal_is_not_unknown(chain):
     world, roots, published, a, b = chain
-    present = read.resolve_address(world, published, "dataset:d1")
+    present = read.resolve_address(world, published, dataset_ref("d1"))
     assert type(present) is read.Resolved
     absent(roots, b)
-    missing = read.resolve_address(world, published, "dataset:d1")
+    missing = read.resolve_address(world, published, dataset_ref("d1"))
     unknown = read.resolve_address(world, published, "dataset:unknown")
     assert type(missing) is read.NotPresent and type(unknown) is read.Unknown
     assert len({type(present), type(missing), type(unknown)}) == 3
     assert present.stamp == missing.stamp == unknown.stamp
-    assert type(read.resolve_address(world, published, "dataset:d2")) is read.Resolved
+    assert type(read.resolve_address(world, published, dataset_ref("d2"))) is read.Resolved
     world.depart(b)
-    assert type(read.resolve_address(world, published, "dataset:d1")) is read.NotPresent
-    assert not ReadView.opened_at(roots[a]).holds("dataset:d1")
+    assert type(read.resolve_address(world, published, dataset_ref("d1"))) is read.NotPresent
+    assert not ReadView.opened_at(roots[a]).holds(dataset_ref("d1"))
 
 
 def test_one_uid_under_two_corpora_refuses_at_open_durably(chain):
     world, roots, published, a, b = chain
     assert open_world_view(world, published).absent() == ()
-    twin = ReadView.opened_at(roots[a]).get("dataset:d0").model_copy(deep=True, update={"id": "dataset:twin"})
+    twin = ReadView.opened_at(roots[a]).get(dataset_ref("d0")).model_copy(deep=True, update={"id": "dataset:twin"})
     raw_write(roots[b], twin)
     with pytest.raises(ResolutionRefused, match="uid uniqueness"):
         open_world_view(world, published)
@@ -509,8 +521,8 @@ def test_the_five_outcomes_are_produced_and_kept_apart_durably(chain):
     world, roots, published, _a, b = chain
     absent(roots, b)
     view = open_world_view(world, published)
-    assert type(view.locate("dataset:d1")) is read.NotPresent
-    corpus_id = view.corpus_of("dataset:d1")
+    assert type(view.locate(dataset_ref("d1"))) is read.NotPresent
+    corpus_id = view.corpus_of(dataset_ref("d1"))
     assert corpus_id is not None and corpus_id == b
     readable = build_snapshot(readable={EX: [GENE]})
     assert {
@@ -554,7 +566,7 @@ def test_open_refusals_never_become_absence_durably(chain, durable_world, monkey
     elif fault == "manifest":
         (roots[a] / "corpus.yaml").write_text("not: [a readable manifest")
     elif fault == "mapped-uid":
-        node = ReadView.opened_at(roots[a]).get("dataset:d0")
+        node = ReadView.opened_at(roots[a]).get(dataset_ref("d0"))
         raw_write(roots[a], node.model_copy(deep=True, update={"uid": "f" * 32}))
     elif fault == "foreign-epoch":
         # Nested scratch and its metadata are owned by this fixture's corpus root.
@@ -571,7 +583,7 @@ def test_open_refusals_never_become_absence_durably(chain, durable_world, monkey
             state = state_identity(path)
             if not changed:
                 changed = True
-                raw_write(path, stored.dataset_node("racing", title="racing", resources=pinned()))
+                raw_write(path, stored.dataset_node(title="racing", resources=pinned()))
             return state
 
         monkeypatch.setattr(registry, "corpus_state_identity", move_during_capture)
@@ -585,11 +597,11 @@ def test_unheld_reads_keep_unknown_and_absent_apart_durably(chain):
     absent(roots, b)
     view = open_world_view(world, published)
     assert view.absent() == (b,)
-    assert view.resolve("dataset:d1") is None and not view.holds("dataset:d1")
+    assert view.resolve(dataset_ref("d1")) is None and not view.holds(dataset_ref("d1"))
     for fetch in (view.get, view.corpus_view):
         with pytest.raises(RecordNotPresent) as caught:
-            fetch("dataset:d1")
-        assert (caught.value.ref, caught.value.corpus_id, caught.value.stamp) == ("dataset:d1", b, view.stamp)
+            fetch(dataset_ref("d1"))
+        assert (caught.value.ref, caught.value.corpus_id, caught.value.stamp) == (dataset_ref("d1"), b, view.stamp)
         with pytest.raises(RefError):
             fetch("dataset:unknown")
     assert view.corpus_of("dataset:unknown") is None and view.inbound("dataset:unknown") == []

@@ -1,7 +1,9 @@
 from hashlib import sha256
 
 import pytest
-from durable_fixture import basis, pinned, route, slug
+from dataset_fixtures import dataset_ref
+from dataset_fixtures import pinned as seed_pinned
+from durable_fixture import basis, route, slug
 from fixtures_cut4 import reopen
 from fixtures_cut15 import SNAKEFILE_CONSTANT_PRODUCTION, run_workflow
 from test_operation_port import durable_port
@@ -14,8 +16,8 @@ from beliefs.production import mint_dataset
 from beliefs.recipe import RecipeInput
 from beliefs.runrecord import run_ref
 
-INPUT_A = "dataset:in-a"
-INPUT_B = "dataset:in-b"
+INPUT_A = dataset_ref("in-a")
+INPUT_B = dataset_ref("in-b")
 
 
 def _held(tmp_path, name: str, text: str):
@@ -40,8 +42,8 @@ def _produce(durable_root, tmp_path, *, address: str, name: str, text: str):
 
 
 def two_producers(durable_root, durable_writer, tmp_path, *, second_input=INPUT_B):
-    for address in (INPUT_A, INPUT_B):
-        durable_writer.add(stored.dataset_node(slug(address), title=slug(address), resources=pinned()))
+    for seed, address in (("in-a", INPUT_A), ("in-b", INPUT_B)):
+        durable_writer.add(stored.dataset_node(title=slug(address), resources=seed_pinned(seed)))
     first = _produce(durable_root, tmp_path, address=INPUT_A, name="first", text="alpha")
     second = _produce(durable_root, tmp_path, address=second_input, name="second", text="beta")
     assert isinstance(first, RunMinted) and isinstance(second, RunMinted)
@@ -49,8 +51,7 @@ def two_producers(durable_root, durable_writer, tmp_path, *, second_input=INPUT_
     again = mint_dataset(second.run, existing_bases={minted.address: minted.basis})
     durable_writer.add(
         stored.dataset_node(
-            slug(minted.address),
-            title="produced",
+                        title="produced",
             resources=[{"name": name, "digest": digest} for name, digest in first.run.result.outputs],
             basis=basis(route(run_ref(first.run.address()), INPUT_A, [INPUT_A])),
         )

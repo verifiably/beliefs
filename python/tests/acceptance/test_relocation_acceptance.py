@@ -13,7 +13,8 @@ from pathlib import Path
 import pytest
 import yaml
 from authority import ACTOR, FULL
-from durable_fixture import basis, route, slug
+from dataset_fixtures import pinned as seed_pinned
+from durable_fixture import basis, route
 from fixtures_cut3 import report as sample_report
 from fixtures_cut6 import OTHER_PINS, PINS
 from fixtures_cut15 import SNAKEFILE_CONSTANT_PRODUCTION, run_workflow
@@ -183,8 +184,7 @@ def _move_produced_dataset(durable_factory):
     destination = writer("move-destination")
     dataset = source.add(
         stored.dataset_node(
-            "moved",
-            title="moved",
+                        title="moved",
             resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
         )
     )
@@ -232,8 +232,7 @@ def _route(name: str) -> dict[str, object]:
 
 def _dataset(name: str, routes: list[str], *, tag: str = "single"):
     return stored.dataset_node(
-        name,
-        title=name,
+                title=name,
         resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
         basis={"tag": tag, "routes": [_route(route) for route in routes]},
     )
@@ -259,7 +258,6 @@ def _produce_single_basis(
     writer,
     work_dir: Path,
     *,
-    input_address: str,
     text: str,
     deprecated_ids: tuple[str, ...],
     relations: tuple[tuple[str, str, dict[str, str]], ...],
@@ -268,13 +266,13 @@ def _produce_single_basis(
     work_dir.mkdir(parents=True, exist_ok=True)
     held.write_text(text)
     digest = "sha256:" + sha256(held.read_bytes()).hexdigest()
-    writer.add(
+    input_node = writer.add(
         stored.dataset_node(
-            slug(input_address),
-            title=slug(input_address),
+            title="input",
             resources=[{"name": "data", "digest": digest}],
         )
     )
+    input_address = input_node.id
     assert producer._operation_port is not None
     outcome = run_workflow(
         work_dir / "workflow",
@@ -292,8 +290,7 @@ def _produce_single_basis(
     _record_id, _path, (run_operation,) = runrecord.publication_plan(outcome.run)
     run_node = node_from_markdown(run_operation.content.decode())
     candidate = stored.dataset_node(
-        slug(minted.address),
-        title="duplicate",
+                title="duplicate",
         resources=[{"name": name, "digest": value} for name, value in outcome.run.result.outputs],
         basis=basis(
             route(
@@ -410,23 +407,22 @@ def test_w16_consolidates_one_address_without_asserting_identity(durable_factory
     other_writer = writer("w16-other")
     keep_producer = writer("w16-keep-producer")
     other_producer = writer("w16-other-producer")
+    inputs = {}
     for name in ("a", "z", "independent"):
-        keep_writer.add(
+        inputs[name] = keep_writer.add(
             stored.dataset_node(
-                name,
                 title=name,
-                resources=[{"name": "data", "digest": "sha256:" + "a" * 64}],
+                resources=seed_pinned(name),
             )
         )
     keep, keep_basis = _produce_single_basis(
         keep_producer,
         keep_writer,
         tmp_path / "w16-keep-production",
-        input_address="dataset:input",
         text="keep input",
         deprecated_ids=("dataset:old-a",),
         relations=(
-            ("derived-from", "dataset:a", {}),
+            ("derived-from", inputs["a"].id, {}),
             ("shared", "dataset:shared", {"side": "keep"}),
         ),
     )
@@ -434,11 +430,10 @@ def test_w16_consolidates_one_address_without_asserting_identity(durable_factory
         other_producer,
         other_writer,
         tmp_path / "w16-other-production",
-        input_address="dataset:input",
         text="other input",
         deprecated_ids=("dataset:old-b",),
         relations=(
-            ("derived-from", "dataset:z", {}),
+            ("derived-from", inputs["z"].id, {}),
             ("shared", "dataset:shared", {"side": "other"}),
         ),
     )
@@ -447,6 +442,9 @@ def test_w16_consolidates_one_address_without_asserting_identity(durable_factory
     assert keep_basis.routes != other_basis.routes
     other_run = other_basis.routes[0].resolved_run
     assert other_run is not None
+    other_ancestor = other_basis.routes[0].resolved_ancestor
+    assert other_ancestor is not None
+    relocation.move(other_writer, keep_writer, other_ancestor, **MOVE_FIELDS)
     relocation.move(other_writer, keep_writer, other_run, **MOVE_FIELDS)
     inbound = keep_writer.add(
         Node(
@@ -473,8 +471,8 @@ def test_w16_consolidates_one_address_without_asserting_identity(durable_factory
     assert survivor.deprecated_ids == ["dataset:old-a", "dataset:old-b"]
     assert keep.id not in survivor.deprecated_ids
     assert {(r.predicate, r.target) for r in survivor.relations} == {
-        ("derived-from", "dataset:a"),
-        ("derived-from", "dataset:z"),
+        ("derived-from", inputs["a"].id),
+        ("derived-from", inputs["z"].id),
         ("shared", "dataset:shared"),
     }
     shared = [r for r in survivor.relations if r.predicate == "shared"]
@@ -503,7 +501,7 @@ def test_w16_consolidates_one_address_without_asserting_identity(durable_factory
     snapshot = lineage_snapshot(keep_writer.read_view, (survivor.id,))
     assert snapshot.bases[survivor.id].tag == "conflict"
     assert all(route.resolved_run and route.resolved_ancestor for route in snapshot.bases[survivor.id].routes)
-    verdict = certify(snapshot, (survivor.id,), ("dataset:independent",))
+    verdict = certify(snapshot, (survivor.id,), (inputs["independent"].id,))
     assert verdict.state == "not-certified" and verdict.findings == ("lineage-divergent",)
     assert not {"route", "basis"} & set(inspect.signature(relocation.consolidate).parameters)
 
@@ -591,8 +589,7 @@ def test_m3_consolidates_retraction_replicas_without_touching_the_counter(durabl
     for corpus in (keep, other):
         observed = corpus.add(
             stored.dataset_node(
-                "raw",
-                title="raw",
+                                title="raw",
                 resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
                 empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
             )
@@ -742,8 +739,7 @@ def test_boundary_reresolution_refuses_both_create_only_calls_after_real_move(du
     destination = writer("reresolve-retract-destination")
     observed = source.add(
         stored.dataset_node(
-            "observation",
-            title="observation",
+                        title="observation",
             resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
             empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
         )

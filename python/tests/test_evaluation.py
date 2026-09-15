@@ -134,8 +134,7 @@ def _seed(
     if reads:
         nodes.append(
             stored.dataset_node(
-                "d-e",
-                title="d-e",
+                                title="d-e",
                 resources=_resources("e"),
                 empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
             )
@@ -143,8 +142,7 @@ def _seed(
     for letter in ("a", "b", "c"):
         nodes.append(
             stored.dataset_node(
-                f"d-{letter}",
-                title=f"d-{letter}",
+                                title=f"d-{letter}",
                 resources=_resources(letter),
                 empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
             )
@@ -154,11 +152,11 @@ def _seed(
                 f"run-{letter}",
                 title=f"run-{letter}",
                 spec=f"spec-{letter}",
-                observes=[f"dataset:d-{letter}"],
+                observes=[_address(letter)],
                 # A `reads` input on `run-a` only: `run_value` hands out its
                 # declaration for every role, and the resolver traces none but
                 # `observes`.
-                reads=["dataset:d-e"] if reads and letter == "a" else [],
+                reads=[_address("e")] if reads and letter == "a" else [],
             )
         )
 
@@ -247,7 +245,7 @@ def _fixture(
     view, values = _seed(corpus, proposition_ref, reads=reads, assesses_target=assesses_target)
     matched = (values["assessment:a-1"], values["assessment:a-2"])
     context = SuppliedContext(
-        snapshot=lineage_snapshot(view, ("dataset:d-a", "dataset:d-b")),
+        snapshot=lineage_snapshot(view, (_address("a"), _address("b"))),
         producer_snapshot_identity="producer-snapshot-1",
         retractions=RetractionEnumeration(found=(), coverage=("c1",)),
         node_corpus={value.identity(): ("c1",) for value in values.values()},

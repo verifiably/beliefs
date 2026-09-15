@@ -16,12 +16,13 @@ from beliefs.facet_read import FacetRead, read_observed_facets
 from beliefs.profile import ProfileSpec, compile_profile, shipped_base_contract, shipped_domain_contract
 
 RESOURCES = [{"name": "r-a", "digest": "sha256:" + "a" * 64}]
+ADDRESS = stored.dataset_node(title="d-a", resources=RESOURCES).id
 
 
 def _corpus(tmp_path, **domain_facets):
-    node = stored.dataset_node("d-a", title="d-a", resources=RESOURCES, domain_facets=domain_facets)
+    node = stored.dataset_node(title="d-a", resources=RESOURCES, domain_facets=domain_facets)
     raw_write(tmp_path, node)
-    return reopen(tmp_path), dataset_address(stored.dataset_declaration(node))
+    return reopen(tmp_path), node.id
 
 
 def test_facet_read_has_no_field_wise_constructor():
@@ -32,7 +33,7 @@ def test_facet_read_has_no_field_wise_constructor():
 
 
 def _facet_node():
-    return stored.dataset_node("d-a", title="d-a", resources=RESOURCES, domain_facets={"biology/gene-axis": {"axis": "rows"}})
+    return stored.dataset_node(title="d-a", resources=RESOURCES, domain_facets={"biology/gene-axis": {"axis": "rows"}})
 
 
 def test_the_reader_refuses_anything_but_a_corpus_view():
@@ -118,7 +119,7 @@ def test_a_view_over_a_fabricated_corpus_is_refused():
 
 def test_the_reader_mints_one_row_per_declared_domain_facet(tmp_path):
     view, address = _corpus(tmp_path, **{"biology/gene-axis": {"axis": "rows"}})
-    rows = read_observed_facets(WITH_BIOLOGY, view, "dataset:d-a")
+    rows = read_observed_facets(WITH_BIOLOGY, view, ADDRESS)
     assert len(rows) == 1
     assert rows[0].address == address and rows[0].key == "biology/gene-axis"
     assert len(rows[0].payload_digest) == 64 and int(rows[0].payload_digest, 16) >= 0
@@ -127,23 +128,22 @@ def test_the_reader_mints_one_row_per_declared_domain_facet(tmp_path):
 
 def test_the_address_is_the_fetched_datasets_own(tmp_path):
     view, address = _corpus(tmp_path, **{"biology/gene-axis": {"axis": "rows"}})
-    (row,) = read_observed_facets(WITH_BIOLOGY, view, "dataset:d-a")
-    assert row.address == address == dataset_address(stored.dataset_declaration(view.get("dataset:d-a")))
+    (row,) = read_observed_facets(WITH_BIOLOGY, view, ADDRESS)
+    assert row.address == address == dataset_address(stored.dataset_declaration(view.get(ADDRESS)))
 
 
 def test_the_digest_follows_the_payload_bytes(tmp_path):
     one, _ = _corpus(tmp_path / "one", **{"biology/gene-axis": {"axis": "rows"}})
     other, _ = _corpus(tmp_path / "other", **{"biology/gene-axis": {"axis": "columns"}})
-    assert read_observed_facets(WITH_BIOLOGY, one, "dataset:d-a")[0].payload_digest != read_observed_facets(WITH_BIOLOGY, other, "dataset:d-a")[0].payload_digest
+    assert read_observed_facets(WITH_BIOLOGY, one, ADDRESS)[0].payload_digest != read_observed_facets(WITH_BIOLOGY, other, ADDRESS)[0].payload_digest
 
 
 def test_base_facets_are_not_this_readers(tmp_path):
-    node = stored.dataset_node(
-        "d-a", title="d-a", resources=RESOURCES,
+    node = stored.dataset_node(title="d-a", resources=RESOURCES,
         empirical_observation={"locator": "instrument:fixture", "attested_by": "actor:fixture"},
     )
     raw_write(tmp_path, node)
-    assert read_observed_facets(WITH_BIOLOGY, reopen(tmp_path), "dataset:d-a") == ()
+    assert read_observed_facets(WITH_BIOLOGY, reopen(tmp_path), ADDRESS) == ()
 
 
 def test_an_unheld_target_is_malformed(tmp_path):
@@ -155,15 +155,15 @@ def test_an_unheld_target_is_malformed(tmp_path):
 def test_a_malformed_payload_refuses_the_derivation(tmp_path):
     view, _ = _corpus(tmp_path, **{"biology/gene-axis": {}})
     with pytest.raises(FacetPayloadRefused, match="missing required field 'axis'"):
-        read_observed_facets(WITH_BIOLOGY, view, "dataset:d-a")
+        read_observed_facets(WITH_BIOLOGY, view, ADDRESS)
 
 
 def test_an_undeclared_namespaced_key_refuses(tmp_path):
     view, _ = _corpus(tmp_path, **{"other/thing": {"x": "y"}})
     with pytest.raises(FacetUndeclared, match="facet-undeclared: 'other/thing'"):
-        read_observed_facets(WITH_BIOLOGY, view, "dataset:d-a")
+        read_observed_facets(WITH_BIOLOGY, view, ADDRESS)
 
 
 def test_dataset_node_refuses_an_unnamespaced_domain_facet():
     with pytest.raises(MalformedRecord, match="namespaced"):
-        stored.dataset_node("d-a", title="d-a", resources=[], domain_facets={"display": {"display_statement": "x"}})
+        stored.dataset_node(title="d-a", resources=[], domain_facets={"display": {"display_statement": "x"}})

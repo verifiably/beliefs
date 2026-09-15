@@ -25,6 +25,7 @@ from beliefs.errors import (
     ActorMismatch,
     AddressDisagreement,
     ContractPinDisagreement,
+    DatasetAddressDisagreement,
     DuplicateLocation,
     HistoryDisagreement,
     RelocationKindExcluded,
@@ -228,6 +229,17 @@ def consolidate(
                 raise HistoryDisagreement(
                     f"{keep_node.id}: the two replicas carry different correction histories"
                 )
+        if keep_node.kind == "dataset":
+            for position, node, writer in (
+                ("keep", keep_node, keep_writer),
+                ("other", other_node, other_writer),
+            ):
+                address = stored.dataset_address_of(node)
+                if node.id != address:
+                    raise DatasetAddressDisagreement(
+                        f"{node.id}: the {position} replica in {writer.corpus_id} derives {address}; "
+                        "consolidate judges both declarations before it discards one"
+                    )
         _refuse_contract_disagreement(other_node, other_writer, keep_writer)
         merged = _reconcile(keep_node, other_node)
         keep_writer._preflight_replace_locked(merged, provenance=True)

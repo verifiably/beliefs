@@ -32,6 +32,7 @@ from pathlib import Path
 import pytest
 import yaml
 from authority import FULL
+from dataset_fixtures import pinned
 from nodes.core.node import Node
 from nodes.core.write_plan import DefaultExecutor
 from test_world_build import (
@@ -214,7 +215,7 @@ def extra_node(corpus_root: Path, slug: str) -> None:
     """Move a corpus's state by adding one record to it."""
     from nodes.core.corpus import Corpus
 
-    Corpus(corpus_root).add(stored.dataset_node(slug, title=f"dataset {slug}"))
+    Corpus(corpus_root).add(stored.dataset_node(title=f"dataset {slug}", resources=pinned(slug)))
 
 
 # --- Step 1: the four outcomes ------------------------------------------------
@@ -512,7 +513,7 @@ class TestReceiptOutcomes:
         The producer snapshot declares stable `corpus_id` values and not states,
         so its projection — and therefore the belief input — is byte-identical.
         """
-        dataset = stored.dataset_node("moved", title="dataset moved")
+        dataset = stored.dataset_node(title="dataset moved", resources=pinned("moved"))
         run = stored.run_node(
             "moved", title="run moved", spec="analysis-spec:moved", produces=[dataset.id]
         )

@@ -5,6 +5,7 @@ import inspect
 from decimal import Decimal
 
 import pytest
+from fixtures_cut3 import DATA_ADDRESS
 from fixtures_cut3 import seed_plan as plan
 from fixtures_cut3 import spec_draft as draft
 from fixtures_cut3 import spec_rules as held_rules
@@ -153,7 +154,7 @@ def test_the_identity_matches_the_hand_authored_complete_normative_projection():
             "method": "fit the model",
             "assumptions": "iid draws",
             "falsification": "a null effect",
-            "input_roles": [{"role": "observes", "dataset": "dataset:sha256:" + "aa" * 32}],
+            "input_roles": [{"role": "observes", "dataset": DATA_ADDRESS}],
             "applicability": "the sampled population",
             "interpretation_rule": "median-difference/v1",
             "equivalence_rule": "content-identity-equality/v1",
@@ -211,7 +212,7 @@ def test_supersedes_is_in_the_hand_authored_normative_projection():
             "method": "fit the model",
             "assumptions": "iid draws",
             "falsification": "a null effect",
-            "input_roles": [{"role": "observes", "dataset": "dataset:sha256:" + "aa" * 32}],
+            "input_roles": [{"role": "observes", "dataset": DATA_ADDRESS}],
             "applicability": "the sampled population",
             "interpretation_rule": "median-difference/v1",
             "equivalence_rule": "content-identity-equality/v1",

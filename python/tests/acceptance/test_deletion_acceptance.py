@@ -653,7 +653,7 @@ def test_w16_conflict_survives_deleting_either_producer_durably(work_directory):
                     )
                 )
             sibling = keep_writer.add(
-                stored.dataset_node("sibling", title="sibling", resources=_resources("f"))
+                stored.dataset_node(title="sibling", resources=_resources("f"))
             )
             roots = (survivor.id, sibling.id)
             divergent = Certification(state="not-certified", findings=("lineage-divergent",))

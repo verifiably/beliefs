@@ -64,6 +64,7 @@ import test_n2
 import test_world_build
 from atoms.chain.model import RegisteredEntry
 from authority import ACTOR, FULL
+from dataset_fixtures import dataset_ref, pinned
 from fixtures_cut6 import PINS
 from n2_arms import (
     CLASS_NODE_BY_CONSTRUCTION,
@@ -131,6 +132,34 @@ CUT7_ARMS = tuple(
     else arm
     for index, arm in enumerate(CUT7_ARMS)
 )
+
+# Live interposed-write migration, 2026-09-14 (slice 5): `stored.dataset_node`
+# derives its id and requires a pinned declaration; cut 7's declaration stays
+# frozen at 8ca085e and the X9 arm interposes the same real corpus write.
+LIVE_INTERPOSED_WRITE = (
+    '        __import__("nodes.core.corpus", fromlist=["Corpus"]).Corpus(carrier).add(\n'
+    '            stored.dataset_node(\n'
+    '                title="interposed",\n'
+    '                resources=[{"name": "interposed", "digest": "sha256:" + __import__("uuid").uuid4().hex * 2}],\n'
+    '            )\n'
+    "        )\n"
+)
+_X9_RELOCATED_HEAD_INDEX = 15
+FROZEN_CUT7_ARMS = CUT7_ARMS
+CUT7_ARMS = tuple(
+    dataclasses.replace(
+        arm,
+        sabotage=Sabotage(
+            arm.sabotage.module,
+            before=arm.sabotage.before,
+            after=arm.sabotage.after.replace(INTERPOSED_WRITE, LIVE_INTERPOSED_WRITE),
+        ),
+    )
+    if index == _X9_RELOCATED_HEAD_INDEX
+    else arm
+    for index, arm in enumerate(CUT7_ARMS)
+)
+assert FROZEN_CUT7_ARMS[_X9_RELOCATED_HEAD_INDEX].checks == (RELOCATED_HEAD_CHECK,)
 
 WORKERS = 8
 _COUNTER = count()
@@ -336,7 +365,7 @@ def journey_corpora(tmp_path: Path) -> dict[str, Path]:
     one corpus carries it: `derive.address_map` refuses a repeated address even
     when the two claims agree.
     """
-    withdrawn = stored.dataset_node("a-successor", title="dataset a successor")
+    withdrawn = stored.dataset_node(title="dataset a successor", resources=pinned("a-successor"))
     return corpora(
         tmp_path,
         {
@@ -427,9 +456,9 @@ def test_resolution_answers_resolved_not_present_and_unknown(journey: Journey):
     }
     stamp = read.BoundStamp(journey.current.packaging_identity, journey.current.coverage)
 
-    resolved = read.resolve_address(journey.world, journey.current, "dataset:a")
+    resolved = read.resolve_address(journey.world, journey.current, dataset_ref("a"))
     assert isinstance(resolved, read.Resolved)
-    assert resolved.location == read.Location(*addresses["dataset:a"])
+    assert resolved.location == read.Location(*addresses[dataset_ref("a")])
     assert resolved.stamp == stamp
 
     # A retired address is a recorded one, and resolves to its successor's uid.
@@ -444,10 +473,10 @@ def test_resolution_answers_resolved_not_present_and_unknown(journey: Journey):
     # Now BETA stops answering to its `corpus_id`. The epoch still records what
     # it carried, so those addresses are absent rather than unknown.
     (journey.roots[BETA] / "corpus.yaml").unlink()
-    absent = read.resolve_address(journey.world, journey.current, "dataset:b")
+    absent = read.resolve_address(journey.world, journey.current, dataset_ref("b"))
     assert isinstance(absent, read.NotPresent)
     assert absent.stamp == stamp
-    assert isinstance(read.resolve_address(journey.world, journey.current, "dataset:a"), read.Resolved)
+    assert isinstance(read.resolve_address(journey.world, journey.current, dataset_ref("a")), read.Resolved)
     assert isinstance(
         read.resolve_address(journey.world, journey.current, "dataset:never-observed"), read.Unknown
     )
@@ -464,26 +493,26 @@ def test_edges_answer_active_inactive_and_indeterminate(journey: Journey):
     """
     assert read.EDGE_STATES == ("active", "inactive", "indeterminate")
 
-    active = read.coreference_edge(journey.world, journey.current, "dataset:a", "dataset:a-b")
+    active = read.coreference_edge(journey.world, journey.current, dataset_ref("a"), dataset_ref("a-b"))
     assert active.state == "active"
     assert active.missing_coverage == () and active.receipt_outcome is None
 
     # A pair the reduction never recorded is established `inactive`, not unknown.
-    inactive = read.coreference_edge(journey.world, journey.current, "dataset:a-b", "dataset:a-c")
+    inactive = read.coreference_edge(journey.world, journey.current, dataset_ref("a-b"), dataset_ref("a-c"))
     assert inactive.state == "inactive"
-    assert read.expand_coreference(journey.world, journey.current, "dataset:a") == (
-        "dataset:a-b",
-        "dataset:a-c",
+    assert read.expand_coreference(journey.world, journey.current, dataset_ref("a")) == (
+        dataset_ref("a-b"),
+        dataset_ref("a-c"),
     )
 
     # An epoch over ALPHA alone did not observe BETA, which is live here.
     narrow = publish(journey.world, (ALPHA,), journey.bindings)
-    narrowed = read.coreference_edge(journey.world, narrow, "dataset:a", "dataset:a-b")
+    narrowed = read.coreference_edge(journey.world, narrow, dataset_ref("a"), dataset_ref("a-b"))
     assert narrowed.state == "indeterminate"
     assert narrowed.missing_coverage == (BETA,)
     assert narrowed.receipt_outcome is None
     with pytest.raises(read.EdgeIndeterminate) as refusal:
-        read.expand_coreference(journey.world, narrow, "dataset:a")
+        read.expand_coreference(journey.world, narrow, dataset_ref("a"))
     assert refusal.value.missing_coverage == (BETA,)
 
 
@@ -509,12 +538,12 @@ def test_removing_a_binding_reports_the_receipts_it_severed(journey: Journey):
     # The consequence the report predicted, now observable.
     outcome = read.validate_receipt(journey.world, journey.current, "coreference-reduction")
     assert outcome.outcome == "unresolvable"
-    answer = read.coreference_edge(journey.world, journey.current, "dataset:a", "dataset:a-b")
+    answer = read.coreference_edge(journey.world, journey.current, dataset_ref("a"), dataset_ref("a-b"))
     assert answer.state == "indeterminate"
     assert answer.receipt_outcome == "unresolvable"
     assert answer.missing_coverage == ()
     with pytest.raises(read.EdgeIndeterminate) as refusal:
-        read.expand_coreference(journey.world, journey.current, "dataset:a")
+        read.expand_coreference(journey.world, journey.current, dataset_ref("a"))
     assert refusal.value.receipt_outcome == "unresolvable"
 
     # The three receipts whose pairs are still held are untouched: removal is
@@ -641,9 +670,9 @@ def _registrations(entries) -> tuple[RegisteredEntry, ...]:
     return tuple(entry for _digest, entry in entries if isinstance(entry, RegisteredEntry))
 
 
-def _extra_record(corpus_root: Path, slug: str) -> None:
+def _extra_record(corpus_root: Path, seed: str) -> None:
     """Move the corpus, so the next build has a different epoch to publish."""
-    Corpus(corpus_root).add(stored.dataset_node(slug, title=f"dataset {slug}"))
+    Corpus(corpus_root).add(stored.dataset_node(title=f"dataset {seed}", resources=pinned(seed)))
 
 
 def _target_identity(world, corpus_id: str, bindings: epoch.DerivationBindings) -> str:
@@ -1009,7 +1038,7 @@ class TestTheRelocatedHeadSabotageIsNotVacuous:
     """
 
     def test_the_declared_mutation_carries_a_real_interposed_write(self):
-        arm = _relocated_head_arm()
+        arm = _relocated_head_arm(FROZEN_CUT7_ARMS)
         assert arm.sabotage.after.count(INTERPOSED_WRITE) == 1
         relocated = arm.sabotage.after.split(INTERPOSED_WRITE)[1]
         assert "world._chain_head(carrier)" in relocated, (
@@ -1019,6 +1048,14 @@ class TestTheRelocatedHeadSabotageIsNotVacuous:
         assert arm.sabotage.before.count("world._chain_head(carrier)") == 1, (
             "the mutation must move the sole head-capture call, not one of several"
         )
+
+    def test_the_live_interposed_write_is_the_dated_adapter_of_the_frozen_one(self):
+        frozen = _relocated_head_arm(FROZEN_CUT7_ARMS)
+        live = _relocated_head_arm()
+        assert frozen.sabotage.after.count(INTERPOSED_WRITE) == 1
+        assert live.sabotage.after.count(LIVE_INTERPOSED_WRITE) == 1
+        assert live.sabotage.after.replace(LIVE_INTERPOSED_WRITE, INTERPOSED_WRITE) == frozen.sabotage.after
+        assert live.sabotage.before == frozen.sabotage.before
 
     def test_the_witness_passes_against_the_unsabotaged_package(self):
         assert test_n2._run_check(RELOCATED_HEAD_WITNESS, None).returncode == test_n2.PASSED
@@ -1030,7 +1067,7 @@ class TestTheRelocatedHeadSabotageIsNotVacuous:
             sabotage=Sabotage(
                 module=arm.sabotage.module,
                 before=arm.sabotage.before,
-                after=arm.sabotage.after.replace(INTERPOSED_WRITE, ""),
+                after=arm.sabotage.after.replace(LIVE_INTERPOSED_WRITE, ""),
             ),
         )
         without = test_n2._sabotage(relocation_only, tmp_path / "relocation-only")
@@ -1052,8 +1089,8 @@ class TestTheRelocatedHeadSabotageIsNotVacuous:
         assert audit(arm, tmp_path / "declared").verdict == "sound"
 
 
-def _relocated_head_arm() -> Arm:
-    (arm,) = [arm for arm in CUT7_ARMS if arm.checks == (RELOCATED_HEAD_CHECK,)]
+def _relocated_head_arm(arms=None) -> Arm:
+    (arm,) = [arm for arm in (CUT7_ARMS if arms is None else arms) if arm.checks == (RELOCATED_HEAD_CHECK,)]
     return arm
 
 

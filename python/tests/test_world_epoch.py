@@ -36,6 +36,7 @@ import pytest
 import yaml
 from authority import FULL
 from coordination_fixtures import content_for, coordination_profile, mounted_root
+from dataset_fixtures import dataset_ref, pinned
 from fixtures_cut4 import raw_write
 from nodes.core.corpus import Corpus
 from nodes.core.write_plan import CreateOp, DefaultExecutor, ReplaceOp, WriteOp, WritePlan
@@ -81,13 +82,11 @@ def test_coordination_bytes_move_corpus_state_but_never_become_captured_world_re
 def test_world_records_are_still_captured_beside_coordination_records(tmp_path, base_contract):
     profile = coordination_profile(base_contract)
     root = mounted_root(tmp_path, profile)
-    Corpus(root).add(
-        stored.dataset_node(
-            "world",
-            title="world",
-            resources=[{"name": "x", "digest": "sha256:" + "a" * 64}],
-        )
+    node = stored.dataset_node(
+        title="world",
+        resources=[{"name": "x", "digest": "sha256:" + "a" * 64}],
     )
+    Corpus(root).add(node)
     writer = CorpusWriter(
         root,
         DefaultExecutor, authority=FULL,
@@ -95,7 +94,7 @@ def test_world_records_are_still_captured_beside_coordination_records(tmp_path, 
         profile=profile,
     )
     writer.mint_coordination("project", content=content_for("project"))
-    assert {record.address for record in epoch._captured_records(root)} == {"dataset:world"}
+    assert {record.address for record in epoch._captured_records(root)} == {node.id}
 
 # --- the harness -------------------------------------------------------------
 
@@ -260,9 +259,9 @@ def formula_packaging_identity(members: dict[str, bytes]) -> str:
 )
 def test_build_reports_world_identity_conflicts_without_publishing(tmp_path, same_address, same_uid, code):
     world, recorder, bindings, roots = admitted_world(tmp_path, (ALPHA, BETA))
-    original = Corpus(roots[ALPHA]).get("dataset:a")
+    original = Corpus(roots[ALPHA]).get(dataset_ref("a"))
     twin = original.model_copy(deep=True, update={
-        "id": original.id if same_address else "dataset:twin",
+        "id": original.id if same_address else dataset_ref("twin"),
         "uid": original.uid if same_uid else "d" * 32,
     })
     raw_write(roots[BETA], twin)
@@ -507,7 +506,7 @@ class TestPublicationIsOneTransaction:
             draft = capture(world_, **keywords)
             from nodes.core.corpus import Corpus
 
-            Corpus(roots[ALPHA]).add(stored.dataset_node("later", title="later"))
+            Corpus(roots[ALPHA]).add(stored.dataset_node(title="later", resources=pinned("later")))
             return draft
 
         monkeypatch.setattr(epoch, "_capture_build_inputs", capture_then_move)

@@ -128,8 +128,7 @@ def test_counter_counter_retraction_retracts_the_restoration(tmp_path):
 
 def test_route_retractions_do_not_subtract_node_standing(tmp_path):
     dataset = stored.dataset_node(
-        "d1",
-        title="d1",
+                title="d1",
         resources=[{"name": "matrix", "digest": "sha256:" + "cd" * 32}],
         basis={"tag": "single", "routes": [{"identity": "route:one"}]},
     )

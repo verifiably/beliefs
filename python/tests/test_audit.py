@@ -7,6 +7,7 @@ from dataclasses import replace
 import pytest
 from authority import ACTOR
 from closure_fixtures import make_closure
+from dataset_fixtures import pinned, pinned_for
 from fixtures_cut3 import spec_draft, spec_rules
 from fixtures_cut4 import raw_write
 from nodes.core.node import Node
@@ -91,9 +92,8 @@ def add_observed_datasets(writer, closure: RunClosure) -> None:
         if entry.role == "observes" and not writer.read_view.holds(entry.dataset):
             writer.add(
                 stored.dataset_node(
-                    entry.dataset.removeprefix("dataset:"),
-                    title="raw",
-                    resources=PINNED,
+                                        title="raw",
+                    resources=pinned_for(entry.dataset),
                     empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
                 )
             )
@@ -177,7 +177,7 @@ def _eligible_assessment(writer) -> Node:
     projection: eligibility is a stored-edge predicate, and a decodable run
     closure is a separate fact that a hand-built run simply does not have."""
     dataset = writer.add(
-        stored.dataset_node("raw", title="raw", resources=PINNED, empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR})
+        stored.dataset_node(title="raw", resources=PINNED, empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR})
     )
     run = writer.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[dataset.id]))
     proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
@@ -366,7 +366,7 @@ def forged_single_over_two_producers(writer) -> Node:
     Module-level rather than inline: `test_deletion_rows.py` builds the same
     state for the cut-18 R23 row, and one construction serves both.
     """
-    dataset = writer.add(stored.dataset_node("d", title="d", resources=PINNED))
+    dataset = writer.add(stored.dataset_node(title="d", resources=PINNED))
     writer.add(_producing_run("a", dataset.id))
     run_b = writer.add(_producing_run("b", dataset.id))
     forged = dataset.model_copy(
@@ -395,7 +395,7 @@ class TestLineageBasisRecomputation:
         assert [f.code for f in audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)] == []
 
     def test_a_basis_naming_every_producer_is_not_contradicted(self, writer):
-        dataset = writer.add(stored.dataset_node("d", title="d", resources=PINNED))
+        dataset = writer.add(stored.dataset_node(title="d", resources=PINNED))
         writer.add(_producing_run("a", dataset.id))
         assert check_lineage_basis(writer.read_view, dataset) == DerivationOutcome(False, "no stamped basis", None)
 
@@ -495,7 +495,7 @@ class TestTheAuditReportsAndNeverRaises:
     def test_an_assessment_whose_stored_outcome_is_outside_the_closed_set(self, writer):
         bystander = _bystander(writer)
         dataset = writer.add(
-            stored.dataset_node("raw", title="raw", resources=PINNED, empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR})
+            stored.dataset_node(title="raw", resources=PINNED, empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR})
         )
         run = writer.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[dataset.id]))
         proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
@@ -527,16 +527,14 @@ class TestTheAuditReportsAndNeverRaises:
         base = make_closure(shape="dataset-production")
         closure = replace(base, occurrence=replace(base.occurrence, actor=ACTOR))
         dataset = writer.add(
-            stored.dataset_node(
-                "produced", title="produced", resources=PINNED
+            stored.dataset_node(title="produced", resources=pinned("produced")
             )
         )
         for entry in closure.recipe.inputs:
             writer.add(
                 stored.dataset_node(
-                    entry.dataset.removeprefix("dataset:"),
-                    title="input",
-                    resources=PINNED,
+                                        title="input",
+                    resources=pinned_for(entry.dataset),
                     empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
                 )
             )
@@ -579,7 +577,7 @@ class TestTheAuditReportsAndNeverRaises:
 
     def test_a_basis_route_naming_a_non_string_run_is_malformed(self, writer):
         bystander = _bystander(writer)
-        dataset = writer.add(stored.dataset_node("d", title="d", resources=PINNED))
+        dataset = writer.add(stored.dataset_node(title="d", resources=PINNED))
         forged = dataset.model_copy(
             update={
                 "facets": {
@@ -605,7 +603,7 @@ class TestOmegaValidIsMalformednessOnly:
     def test_a_record_flagged_only_for_display_is_still_recomputed(self, writer):
         """A malformed display facet is not malformedness in Ω_valid's sense —
         the stamp does not cover prose — so the forged basis is still read."""
-        dataset = writer.add(stored.dataset_node("d", title="d", resources=PINNED))
+        dataset = writer.add(stored.dataset_node(title="d", resources=PINNED))
         writer.add(_producing_run("a", dataset.id))
         writer.add(_producing_run("b", dataset.id))
         forged = dataset.model_copy(
@@ -786,8 +784,7 @@ class TestAnUnreadableNeighbourLeavesTheRecordUnchecked:
     def test_a_stale_producing_run_leaves_the_dataset_unchecked(self, writer):
         dataset = writer.add(
             stored.dataset_node(
-                "d",
-                title="d",
+                                title="d",
                 resources=PINNED,
                 basis={"tag": "conflict", "routes": [_basis_route("a"), _basis_route("b")]},
             )
@@ -841,7 +838,7 @@ def test_the_audit_stops_on_a_base_mismatch_without_recomputing(tmp_path, monkey
     from nodes.core.corpus import Corpus
 
     from beliefs.corpus import ReadView
-    writer.add(stored.dataset_node("d", title="d", resources=PINNED))
+    writer.add(stored.dataset_node(title="d", resources=PINNED))
     monkeypatch.setattr(audit, "check_lineage_basis", lambda *args: pytest.fail("recomputed under unknown pins"))
     path = writer.root / "corpus.yaml"
     if manifest == "base":
@@ -865,7 +862,7 @@ def test_declaration_malformedness_alone_withholds_audit_recomputation(writer, d
         return original(view, node)
 
     monkeypatch.setattr(audit, "check_lineage_basis", recompute)
-    dataset = stored.dataset_node("d", title="d", resources=PINNED,
+    dataset = stored.dataset_node(title="d", resources=PINNED,
         empirical_observation={"boundary": "x"} if declaration == "malformed" else
         {"locator": "instrument:fixture", "attested_by": ACTOR,
          **({"retrieval": "act-report:gone"} if declaration == "retrieval" else {})})

@@ -3,15 +3,29 @@ from __future__ import annotations
 
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut20 import CUT20_ARMS, DECLARATION_UNITS, UNIT_CHECKS, unit_of
 from test_n2 import audit, baseline
 
 import beliefs
+
+# Live matcher migration, 2026-09-14: the frozen declaration keeps the
+# pre-slice-5 handle return while this adapter preserves F8's undeclared-facet sabotage.
+_LIVE_SABOTAGES = {
+    "F8": Sabotage(
+        module="stored.py",
+        before='    return _node("dataset", address.partition(":")[2], title, facets, ())\n',
+        after='    facets["provenance"] = {}\n    return _node("dataset", address.partition(":")[2], title, facets, ())\n',
+    ),
+}
+CUT20_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT20_ARMS
+)
 
 ROOT = Path(__file__).resolve().parents[3]
 FROZEN_CUT = ROOT / "docs/designs/2026-09-05-conformance-cut-20.md"

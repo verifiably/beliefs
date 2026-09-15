@@ -8,8 +8,10 @@ from typing import Any, cast
 
 import pytest
 from authority import FULL
+from dataset_fixtures import dataset_ref, pinned
 from domain_facet_fixtures import kwargs_for, profile_with, seed
 from fixtures_cut4 import raw_write, reopen
+from nodes.core.corpus import Corpus
 from nodes.core.errors import RefError
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.relations import Relation
@@ -51,11 +53,11 @@ def make_absent(roots: dict[str, Path], corpus_id: str) -> None:
 
 def chain_nodes():
     """D0 -> R1 -> D1 -> R2 -> D2, R1 and D1 placed in BETA by the caller."""
-    d0 = stored.dataset_node("d0", title="d0")
-    r1 = stored.run_node("r1", title="r1", spec="s", transforms=[d0.id], produces=["dataset:d1"])
+    d0 = stored.dataset_node(title="d0", resources=pinned("d0"))
+    r1 = stored.run_node("r1", title="r1", spec="s", transforms=[d0.id], produces=[dataset_ref("d1")])
     d1 = stored.dataset_node(
-        "d1",
         title="d1",
+        resources=pinned("d1"),
         basis={
             "tag": "single",
             "routes": [
@@ -63,10 +65,10 @@ def chain_nodes():
             ],
         },
     )
-    r2 = stored.run_node("r2", title="r2", spec="s", transforms=[d1.id], produces=["dataset:d2"])
+    r2 = stored.run_node("r2", title="r2", spec="s", transforms=[d1.id], produces=[dataset_ref("d2")])
     d2 = stored.dataset_node(
-        "d2",
         title="d2",
+        resources=pinned("d2"),
         basis={
             "tag": "single",
             "routes": [
@@ -137,7 +139,7 @@ class TestOpening:
         alpha = address_in(published, ALPHA)
         entries = cast(list[dict[str, str]], published.documents["address-map.yaml"]["addresses"])
         uid = next(e["uid"] for e in entries if e["address"] == alpha)
-        path = roots[ALPHA] / "dataset" / f"{alpha.partition(':')[2]}.md"
+        path = Corpus(roots[ALPHA]).store.path_for(alpha)
         path.write_text(path.read_text().replace(uid, "f" * 32))
         with pytest.raises(ResolutionRefused):
             open_world_view(world, published)
@@ -149,7 +151,7 @@ class TestOpening:
             deep=True,
             update={"id": "dataset:postpublication-new", "deprecated_ids": [old]},
         )
-        (roots[ALPHA] / "dataset" / f"{old.partition(':')[2]}.md").unlink()
+        Corpus(roots[ALPHA]).store.path_for(old).unlink()
         raw_write(roots[ALPHA], renamed)
 
         with pytest.raises(ResolutionRefused, match="live address"):
@@ -158,7 +160,7 @@ class TestOpening:
 
 class TestBoundReads:
     def test_published_producers_unite_alias_rows_with_producer_present_or_absent(self, tmp_path):
-        dataset = stored.dataset_node("d-new", title="dataset").model_copy(
+        dataset = stored.dataset_node(title="dataset", resources=pinned("d-new")).model_copy(
             update={"deprecated_ids": ["dataset:d-old"]}
         )
         first = stored.run_node("r1", title="run 1", spec="analysis-spec:r1", produces=[dataset.id])
@@ -181,17 +183,17 @@ class TestBoundReads:
         first = open_world_view(world, published)
         alpha = address_in(published, ALPHA)
         before = first.get(alpha)
-        late = stored.dataset_node("late", title="late")
+        late = stored.dataset_node(title="late", resources=pinned("late"))
         raw_write(roots[ALPHA], late)
         assert first.get(alpha) == before
-        assert "dataset:late" not in {n.id for n in first.iter_stored()}
+        assert late.id not in {n.id for n in first.iter_stored()}
         assert first.drift() == ()
-        assert type(first.locate("dataset:late")) is read.Unknown
+        assert type(first.locate(late.id)) is read.Unknown
         second = open_world_view(world, published)
         assert second.drift() == (
             DriftReport(ALPHA, dict(published.coverage)[ALPHA], second.drift()[0].captured_state, (late.uid,)),
         )
-        assert "dataset:late" not in {n.id for n in second.iter_stored()}
+        assert late.id not in {n.id for n in second.iter_stored()}
 
     def test_enumeration_is_mapped_records_in_corpus_order(self, tmp_path):
         world, _roots, published = two_corpus_world(tmp_path)
@@ -213,7 +215,7 @@ class TestBoundReads:
         alpha = address_in(published, ALPHA)
         node = Corpus(roots[ALPHA]).get(alpha)
         node.facets["dataset"]["resources"] = [{"digest": "f" * 64}]
-        (roots[ALPHA] / "dataset" / f"{alpha.partition(':')[2]}.md").write_text(node_to_markdown(node))
+        Corpus(roots[ALPHA]).store.path_for(alpha).write_text(node_to_markdown(node))
         view = open_world_view(world, published)
         with pytest.raises(SemanticHashStale):
             view.get(alpha)
@@ -235,9 +237,9 @@ class TestCrossCorpusEdges:
         from beliefs.corpus import RelationAdjacency
         from beliefs.traversal import closure
 
-        holder = stored.dataset_node("holder", title="holder")
-        target = stored.dataset_node("target", title="target")
-        source = stored.dataset_node("source", title="source")
+        holder = stored.dataset_node(title="holder", resources=pinned("holder"))
+        target = stored.dataset_node(title="target", resources=pinned("target"))
+        source = stored.dataset_node(title="source", resources=pinned("source"))
         holder.relations.append(Relation(source=source.id, predicate="cites", target=target.id))
         alpha = (holder, target, source) if source_state == "local" else (holder, target)
         beta = (source,) if source_state in ("absent", "foreign") else ()
@@ -269,50 +271,50 @@ class TestCrossCorpusEdges:
         world, roots, published = chain_world(tmp_path)
         view = open_world_view(world, published)
         producers_of_d1 = {
-            e.relation.source for e in view.inbound("dataset:d1") if e.relation.predicate == "produces"
+            e.relation.source for e in view.inbound(dataset_ref("d1")) if e.relation.predicate == "produces"
         }
         assert producers_of_d1 == {"run:r1"}
         producers_of_d2 = {
-            e.relation.source for e in view.inbound("dataset:d2") if e.relation.predicate == "produces"
+            e.relation.source for e in view.inbound(dataset_ref("d2")) if e.relation.predicate == "produces"
         }
         assert producers_of_d2 == {"run:r2"}
         # r2 transforms d1, which BETA holds: found at the world layer, dangling in ALPHA alone.
         assert {
-            e.relation.source for e in view.inbound("dataset:d1") if e.relation.predicate == "transforms"
+            e.relation.source for e in view.inbound(dataset_ref("d1")) if e.relation.predicate == "transforms"
         } == {"run:r2"}
         with pytest.raises(RefError):  # the corpus facade cannot even ask about a ref it does not hold
-            ReadView.opened_at(roots[ALPHA]).inbound("dataset:d1")
+            ReadView.opened_at(roots[ALPHA]).inbound(dataset_ref("d1"))
 
     def test_inbound_to_an_absent_record_still_finds_present_sources(self, tmp_path):
         world, roots, published = chain_world(tmp_path)
         make_absent(roots, BETA)
         view = open_world_view(world, published)
-        assert type(view.locate("dataset:d1")) is read.NotPresent
-        assert {e.relation.source for e in view.inbound("dataset:d1")} == {"run:r2"}
+        assert type(view.locate(dataset_ref("d1"))) is read.NotPresent
+        assert {e.relation.source for e in view.inbound(dataset_ref("d1"))} == {"run:r2"}
         assert view.inbound("dataset:never-observed") == []
 
     def test_a_drift_source_files_no_edge_and_producers_excludes_it(self, tmp_path):
         world, roots, published = chain_world(tmp_path)
-        raw_write(roots[ALPHA], stored.run_node("late", title="late", spec="s", produces=["dataset:d2"]))
+        raw_write(roots[ALPHA], stored.run_node("late", title="late", spec="s", produces=[dataset_ref("d2")]))
         view = open_world_view(world, published)
-        assert "run:late" not in {e.relation.source for e in view.inbound("dataset:d2")}
-        assert view.producers("dataset:d2") == ("run:r2",)
+        assert "run:late" not in {e.relation.source for e in view.inbound(dataset_ref("d2"))}
+        assert view.producers(dataset_ref("d2")) == ("run:r2",)
 
     def test_a_drift_copy_of_a_foreign_target_does_not_hide_the_edge(self, tmp_path):
         world, roots, published = chain_world(tmp_path)
-        raw_write(roots[ALPHA], stored.dataset_node("d1", title="a drift copy of BETA's d1"))
+        raw_write(roots[ALPHA], stored.dataset_node(title="a drift copy of BETA's d1", resources=pinned("d1")))
         view = open_world_view(world, published)
-        assert view.corpus_of("dataset:d1") == BETA
+        assert view.corpus_of(dataset_ref("d1")) == BETA
         assert {
-            e.relation.source for e in view.inbound("dataset:d1") if e.relation.predicate == "transforms"
+            e.relation.source for e in view.inbound(dataset_ref("d1")) if e.relation.predicate == "transforms"
         } == {"run:r2"}
 
     def test_published_producers_survive_an_absent_carrier(self, tmp_path):
         world, roots, published = chain_world(tmp_path)
         make_absent(roots, BETA)
         view = open_world_view(world, published)
-        assert view.published_producers("dataset:d1") == ("run:r1",)
-        assert view.published_producers("dataset:d2") == ("run:r2",)
+        assert view.published_producers(dataset_ref("d1")) == ("run:r1",)
+        assert view.published_producers(dataset_ref("d2")) == ("run:r2",)
         assert view.published_producers("dataset:never-observed") == ()
 
 
@@ -321,10 +323,11 @@ def test_returned_objects_are_detached(tmp_path):
     view = open_world_view(world, published)
     alpha = address_in(published, ALPHA)
     node = view.get(alpha)
+    resources = [dict(resource) for resource in node.facets["dataset"]["resources"]]
     node.title = "mutated"
     node.facets["dataset"]["resources"].append({"digest": "x"})
     assert view.get(alpha).title != "mutated"
-    assert view.get(alpha).facets["dataset"]["resources"] == []
+    assert view.get(alpha).facets["dataset"]["resources"] == resources
     yielded = next(n for n in view.iter_stored() if n.id == alpha)
     yielded.deprecated_ids.append("dataset:fake")
     assert "dataset:fake" not in next(n for n in view.iter_stored() if n.id == alpha).deprecated_ids
@@ -338,13 +341,13 @@ class TestW10:
 
         world, roots, published = chain_world(tmp_path)
         view = open_world_view(world, published)
-        world_reach = closure("dataset:d2", LineageAdjacency(view))
-        assert set(world_reach.reached) == {"dataset:d1", "dataset:d0"}
+        world_reach = closure(dataset_ref("d2"), LineageAdjacency(view))
+        assert set(world_reach.reached) == {dataset_ref("d1"), dataset_ref("d0")}
         assert world_reach.unresolved == ()
-        local_reach = closure("dataset:d2", LineageAdjacency(ReadView.opened_at(roots[ALPHA])))
+        local_reach = closure(dataset_ref("d2"), LineageAdjacency(ReadView.opened_at(roots[ALPHA])))
         assert set(local_reach.reached) == set()
         assert local_reach.unresolved != ()
-        produced = closure("dataset:d1", RelationAdjacency(view, "produces", "inbound"))
+        produced = closure(dataset_ref("d1"), RelationAdjacency(view, "produces", "inbound"))
         assert set(produced.reached) == {"run:r1"}
 
     def test_derived_from_and_superseded_by_cross_the_world_only(self, tmp_path):
@@ -373,18 +376,18 @@ class TestLineageSnapshotOverTheWorld:
         from beliefs.lineage import certify
 
         world, roots, published = chain_world(tmp_path)
-        complete = lineage_snapshot(open_world_view(world, published), ["dataset:d2"])
+        complete = lineage_snapshot(open_world_view(world, published), [dataset_ref("d2")])
         assert complete.not_present == {}
-        assert certify(complete, ("dataset:d2",), ()).state == "independent"
+        assert certify(complete, (dataset_ref("d2"),), ()).state == "independent"
 
         make_absent(roots, BETA)
-        partial = lineage_snapshot(open_world_view(world, published), ["dataset:d2"])
-        assert partial.not_present == {"dataset:d1": BETA}
-        (route,) = partial.bases["dataset:d2"].routes
+        partial = lineage_snapshot(open_world_view(world, published), [dataset_ref("d2")])
+        assert partial.not_present == {dataset_ref("d1"): BETA}
+        (route,) = partial.bases[dataset_ref("d2")].routes
         assert route.resolved_run == "run:r2" and route.resolved_ancestor is None
-        result = certify(partial, ("dataset:d2",), ())
+        result = certify(partial, (dataset_ref("d2"),), ())
         assert result.state == "not-certified" and "lineage-incomplete" in result.findings
-        assert result.absent == (Absence("dataset:d1", BETA),)
+        assert result.absent == (Absence(dataset_ref("d1"), BETA),)
         assert snapshot_projection(partial) != snapshot_projection(complete)
 
     def test_an_absent_root_is_recorded_before_any_walk(self, tmp_path):
@@ -393,10 +396,10 @@ class TestLineageSnapshotOverTheWorld:
 
         world, roots, published = chain_world(tmp_path)
         make_absent(roots, BETA)
-        snapshot = lineage_snapshot(open_world_view(world, published), ["dataset:d1"])
-        assert snapshot.not_present == {"dataset:d1": BETA} and snapshot.roots == ("dataset:d1",)
-        result = certify(snapshot, ("dataset:d1",), ())
-        assert result.state == "not-certified" and result.absent == (Absence("dataset:d1", BETA),)
+        snapshot = lineage_snapshot(open_world_view(world, published), [dataset_ref("d1")])
+        assert snapshot.not_present == {dataset_ref("d1"): BETA} and snapshot.roots == (dataset_ref("d1"),)
+        result = certify(snapshot, (dataset_ref("d1"),), ())
+        assert result.state == "not-certified" and result.absent == (Absence(dataset_ref("d1"), BETA),)
 
     def test_an_unknown_root_refuses_in_world_and_corpus_views(self, tmp_path):
         from beliefs.corpus import lineage_snapshot
@@ -414,21 +417,21 @@ class TestLineageSnapshotOverTheWorld:
         from beliefs.errors import SemanticHashStale
 
         world, roots, published = chain_world(tmp_path)
-        node = Corpus(roots[ALPHA]).get("dataset:d2")
+        node = Corpus(roots[ALPHA]).get(dataset_ref("d2"))
         node.facets["dataset"]["resources"] = [{"digest": "f" * 64}]
-        (roots[ALPHA] / "dataset" / "d2.md").write_text(node_to_markdown(node))
+        Corpus(roots[ALPHA]).store.path_for(node.id).write_text(node_to_markdown(node))
         view = open_world_view(world, published)
         with pytest.raises(SemanticHashStale):
-            lineage_snapshot(view, ["dataset:d2"])
+            lineage_snapshot(view, [dataset_ref("d2")])
 
     def test_a_published_producer_survives_its_absent_carrier(self, tmp_path):
         from beliefs.corpus import lineage_snapshot
         from beliefs.lineage import divergence_state
 
-        d0 = stored.dataset_node("d0", title="d0")
+        d0 = stored.dataset_node(title="d0", resources=pinned("d0"))
         d3 = stored.dataset_node(
-            "d3",
             title="d3",
+            resources=pinned("d3"),
             basis={
                 "tag": "single",
                 "routes": [
@@ -461,7 +464,7 @@ class TestLineageSnapshotOverTheWorld:
         from beliefs.corpus import lineage_snapshot
         from beliefs.lineage import certify
 
-        dataset = stored.dataset_node("basisless", title="basisless")
+        dataset = stored.dataset_node(title="basisless", resources=pinned("basisless"))
         run = stored.run_node("producer", title="producer", spec="s", produces=[dataset.id])
         roots = corpora(tmp_path, {ALPHA: (dataset,), BETA: (run,)})
         world = world_over(tmp_path, roots)
@@ -475,7 +478,10 @@ class TestLineageSnapshotOverTheWorld:
         assert result.state == "not-certified" and result.findings == ("lineage-incomplete",)
 
 
-def split_evaluation_world(tmp_path: Path, beta_refs=("dataset:d-a",)):
+DATASET_D_A = dataset_ref("d-a")
+
+
+def split_evaluation_world(tmp_path: Path, beta_refs=(DATASET_D_A,)):
     """Split the seeded corpus across carriers; by default only d-a lives in BETA."""
     scratch = tmp_path / "scratch"
     seeded = seed(scratch, axis="rows")
@@ -493,7 +499,7 @@ def world_kwargs(view, profile):
     kwargs = kwargs_for(view, profile)
     context = replace(
         kwargs["context"],
-        snapshot=lineage_snapshot(view, ("dataset:d-a", "dataset:d-b")),
+        snapshot=lineage_snapshot(view, (dataset_ref("d-a"), dataset_ref("d-b"))),
         retractions=replace(kwargs["context"].retractions, coverage=(ALPHA, BETA)),
         node_corpus={},
         pins={ALPHA: kwargs["context"].pins["c1"], BETA: kwargs["context"].pins["c1"]},
@@ -593,14 +599,14 @@ class TestEvaluationOverTheWorld:
         scratch = tmp_path / "scratch"
         seeded = seed(scratch, axis="rows")
         nodes = list(seeded.iter_stored())
-        raw_write(scratch, stored.dataset_node("d-t", title="d-t"))
+        raw_write(scratch, stored.dataset_node(title="d-t", resources=pinned("d-t")))
         run_b = next(n for n in nodes if n.id == "run:run-b")
-        run_b.relations.append(Relation(source=run_b.id, predicate=role, target="dataset:d-t"))
+        run_b.relations.append(Relation(source=run_b.id, predicate=role, target=dataset_ref("d-t")))
         stored.stamp_semantic_identity(run_b)
         raw_write(scratch, run_b)
         nodes = list(reopen(scratch).iter_stored())
-        beta_side = tuple(n for n in nodes if n.id in ("run:run-a", "dataset:d-t"))
-        alpha_side = tuple(n for n in nodes if n.id not in ("run:run-a", "dataset:d-t"))
+        beta_side = tuple(n for n in nodes if n.id in ("run:run-a", dataset_ref("d-t")))
+        alpha_side = tuple(n for n in nodes if n.id not in ("run:run-a", dataset_ref("d-t")))
         roots = corpora(tmp_path, {ALPHA: alpha_side, BETA: beta_side})
         world = world_over(tmp_path, roots)
         published = publish(world, (ALPHA, BETA), hold_shipped(world))
@@ -610,7 +616,7 @@ class TestEvaluationOverTheWorld:
         kwargs = world_kwargs(view, profile)
         inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
                         resolution=kwargs["resolution"], binding=kwargs["binding"])
-        assert ("run:run-a", BETA) in inputs.absent and ("dataset:d-t", BETA) in inputs.absent
+        assert ("run:run-a", BETA) in inputs.absent and (dataset_ref("d-t"), BETA) in inputs.absent
         result = evaluate_over(view, "proposition:p", **kwargs)
         assert isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent"
 
@@ -656,11 +662,11 @@ class TestEvaluationOverTheWorld:
         profile = profile_with()
         view = open_world_view(world, published)
         kwargs = world_kwargs(view, profile)
-        path = roots[BETA] / "dataset" / "d-a.md"
+        path = Corpus(roots[BETA]).store.path_for(dataset_ref("d-a"))
         path.write_text(path.read_text() + "\n")
         gather(view, "proposition:p", context=kwargs["context"], profile=profile,
                resolution=kwargs["resolution"], binding=kwargs["binding"])
-        node = reopen(roots[BETA]).get("dataset:d-a")
+        node = reopen(roots[BETA]).get(dataset_ref("d-a"))
         if change == "content":
             node.facets["biology/gene-axis"]["axis"] = "columns"
         elif change == "removal":
@@ -668,7 +674,7 @@ class TestEvaluationOverTheWorld:
         else:
             node.facets["testing/annotation"] = {"note": "added"}
         path.write_text(node_to_markdown(node))
-        assert view.get("dataset:d-a").facets["biology/gene-axis"]["axis"] == "rows"  # the capture stands
+        assert view.get(dataset_ref("d-a")).facets["biology/gene-axis"]["axis"] == "rows"  # the capture stands
         with pytest.raises(CaptureDrift):
             gather(view, "proposition:p", context=kwargs["context"], profile=profile,
                    resolution=kwargs["resolution"], binding=kwargs["binding"])
@@ -725,7 +731,7 @@ class TestEvaluationOverTheWorld:
         from beliefs.evaluation import evaluate_over, gather
 
         nodes = tuple(seed(tmp_path / "scratch").iter_stored())
-        extra = stored.dataset_node("extra", title="extra")
+        extra = stored.dataset_node(title="extra", resources=pinned("extra"))
         roots = corpora(tmp_path, {ALPHA: nodes, BETA: (extra,)})
         world = world_over(tmp_path, roots)
         published = publish(world, (ALPHA, BETA), hold_shipped(world))
@@ -734,10 +740,10 @@ class TestEvaluationOverTheWorld:
         profile = profile_with()
         kwargs = world_kwargs(view, profile)
         context = replace(kwargs["context"], snapshot=lineage_snapshot(
-            view, ("dataset:d-a", "dataset:d-b", "dataset:extra")))
+            view, (dataset_ref("d-a"), dataset_ref("d-b"), dataset_ref("extra"))))
         inputs = gather(view, "proposition:p", context=context, profile=profile,
                         resolution=kwargs["resolution"], binding=kwargs["binding"])
-        assert inputs.absent == (("dataset:extra", BETA),)
+        assert inputs.absent == ((dataset_ref("extra"), BETA),)
         result = evaluate_over(view, "proposition:p", **{**kwargs, "context": context})
         assert isinstance(result, NoBelief) and result.reason == "unavailable-corpus-absent"
 
@@ -918,7 +924,7 @@ class TestReportMode:
         def moving(root):
             calls["n"] += 1
             if calls["n"] == 2:
-                raw_write(roots[ALPHA], stored.dataset_node("late", title="late"))
+                raw_write(roots[ALPHA], stored.dataset_node(title="late", resources=pinned("late")))
             return original(root)
 
         monkeypatch.setattr(registry_module, "corpus_state_identity", moving)

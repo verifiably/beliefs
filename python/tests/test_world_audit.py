@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from dataset_fixtures import pinned
 from fixtures_cut4 import raw_write
 from profiles import BASE, WITH_BIOLOGY
 from test_profile_agreement import foreign_profile  # noqa: F401
@@ -33,7 +34,7 @@ def attestation(left: str, right: str):
 
 
 def stale(slug: str):
-    node = stored.dataset_node(slug, title=f"dataset {slug}")
+    node = stored.dataset_node(title=f"dataset {slug}", resources=pinned(slug))
     node.facets["semantic-identity"]["digest"] = "0" * 64
     return node
 
@@ -100,8 +101,8 @@ def test_an_absent_corpus_is_reported(tmp_path):
 @pytest.mark.parametrize("kind", ["parse-error", "path-mismatch", "uid-collision", "id-collision"])
 def test_a_damaged_corpus_is_judged_on_its_remainder_and_never_compared(tmp_path, kind):
     world, roots, published = two_corpus_world(tmp_path)
-    raw_write(roots[BETA], stale("remainder"))
     damage(roots[BETA], kind)
+    raw_write(roots[BETA], stale("remainder"))
 
     audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
 

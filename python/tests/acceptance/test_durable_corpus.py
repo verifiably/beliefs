@@ -98,8 +98,11 @@ class TestW3Durably:
         assert not any(n.kind == "source" for n in reopen(durable_root).iter_stored())
 
     def test_a_dataset_with_no_content_identity_is_refused_before_it_lands(self, durable_writer, durable_root):
+        unpinned = stored.governed_node(
+            "dataset", "d1", "DepMap", {stored.DATASET_FACET: {"resources": []}}, ()
+        )
         with pytest.raises(BasisMissing):
-            durable_writer.add(stored.dataset_node("d1", title="DepMap", resources=[]))
+            durable_writer.add(unpinned)
         assert not path_for(durable_root, "dataset:d1").exists()
 
     def test_supplying_the_basis_afterwards_is_a_second_separate_mint(self, durable_writer, durable_root):
@@ -111,7 +114,7 @@ class TestW3Durably:
 
 class TestG9DurablyMintedWithNoBytesHeld:
     def test_a_declared_dataset_is_minted_and_is_referenceable(self, durable_writer, durable_root):
-        declared = durable_writer.add(stored.dataset_node("declared", title="DepMap 24Q2", resources=pinned()))
+        declared = durable_writer.add(stored.dataset_node(title="DepMap 24Q2", resources=pinned()))
         durable_writer.add(
             stored.run_node("r9", title="r9", spec=SPEC, reads=[declared.id])
         )
@@ -123,7 +126,7 @@ class TestG9DurablyMintedWithNoBytesHeld:
         assert [edge.relation.target for edge in view.inbound(declared.id)] == [declared.id]
 
     def test_no_heldness_is_stored_on_the_minted_record(self, durable_writer, durable_root):
-        declared = durable_writer.add(stored.dataset_node("declared", title="DepMap 24Q2", resources=pinned()))
+        declared = durable_writer.add(stored.dataset_node(title="DepMap 24Q2", resources=pinned()))
         facets = reopen(durable_root).get(declared.id).facets
         assert "held" not in facets and "held" not in facets[stored.DATASET_FACET]
 
@@ -178,7 +181,7 @@ class TestS8TheNegative:
 
     def test_a_raw_write_lands_a_node_no_capability_check_can_see(self, durable_writer, durable_root):
         mint_records(durable_writer)
-        smuggled = stored.dataset_node("smuggled", title="smuggled", resources=pinned())
+        smuggled = stored.dataset_node(title="smuggled", resources=pinned())
         raw_write(durable_root, smuggled)
         assert reopen(durable_root).holds(smuggled.id)
 
@@ -187,7 +190,7 @@ class TestS8TheNegative:
         # distinguishes a raw write to a corpus path from writing any other file.
         from test_capability_boundary import imported_modules, modules, names_of, parsed, relative
 
-        raw_write(durable_root, stored.dataset_node("smuggled", title="smuggled", resources=pinned()))
+        raw_write(durable_root, stored.dataset_node(title="smuggled", resources=pinned()))
         for module in modules():
             if relative(module) == "corpus.py":
                 continue
@@ -195,13 +198,14 @@ class TestS8TheNegative:
             assert "nodes.core.corpus" not in imported_modules(parsed(module))
 
     def test_a_self_consistent_raw_write_passes_both_reads(self, durable_writer, durable_root):
-        raw_write(durable_root, stored.dataset_node("smuggled", title="smuggled", resources=pinned()))
+        smuggled = stored.dataset_node(title="smuggled", resources=pinned())
+        raw_write(durable_root, smuggled)
         view = reopen(durable_root)
-        assert view.get("dataset:smuggled").id == "dataset:smuggled"  # the stale-hash check has nothing to say
+        assert view.get(smuggled.id).id == smuggled.id  # the stale-hash check has nothing to say
         assert corpus_check(view, BASE) == ()  # and neither has the corpus check
 
     def test_a_raw_write_that_moved_the_fields_alone_is_refused_on_read(self, durable_writer, durable_root):
-        stale = stored.dataset_node("stale", title="stale", resources=pinned())
+        stale = stored.dataset_node(title="stale", resources=pinned())
         stale.facets[stored.DATASET_FACET]["resources"] = []  # fields moved, stamp did not
         raw_write(durable_root, stale)
         with pytest.raises(SemanticHashStale):
@@ -209,7 +213,7 @@ class TestS8TheNegative:
 
     def test_the_chain_records_transactions_and_not_the_filesystem_beneath_them(self, durable_writer, durable_root):
         before = len(list((durable_root / ".#~chain").iterdir()))
-        raw_write(durable_root, stored.dataset_node("smuggled", title="smuggled", resources=pinned()))
+        raw_write(durable_root, stored.dataset_node(title="smuggled", resources=pinned()))
         assert len(list((durable_root / ".#~chain").iterdir())) == before
 
 
@@ -263,4 +267,4 @@ class TestTheMintedRecordsReadBack:
         assert corpus_check(reopen(minted_corpus), BASE) == ()
 
     def test_the_slug_helper_addresses_the_same_file_the_store_does(self, minted_corpus):
-        assert path_for(minted_corpus, RAW).name == f"{slug(RAW)}.md"
+        assert path_for(minted_corpus, RAW).name == RAW.partition(":")[2].replace(":", "__", 1) + ".md"

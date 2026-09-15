@@ -47,13 +47,13 @@ def minted(request, tmp_path):
     callspec = getattr(request.node, "callspec", None)
     root = tmp_path / callspec.id if callspec is not None else tmp_path
     w = writer(root, ALICE)
-    node = w.add(stored.dataset_node("d", title="d", resources=PINNED, empirical_observation={"locator": "url:x", "attested_by": "alice"}))
+    node = w.add(stored.dataset_node(title="d", resources=PINNED, empirical_observation={"locator": "url:x", "attested_by": "alice"}))
     return w, node
 
 
 def test_dataset_only_authority_may_revise_a_dataset_and_the_writer_restamps(tmp_path):
     w = writer(tmp_path, ALICE)
-    node = w.add(stored.dataset_node("d", title="d", resources=PINNED, empirical_observation={"locator": "url:x", "attested_by": "alice"}))
+    node = w.add(stored.dataset_node(title="d", resources=PINNED, empirical_observation={"locator": "url:x", "attested_by": "alice"}))
     narrow = writer(tmp_path, DATASET_ONLY)
     candidate = revised(node, **{"empirical-observation": {"locator": "url:y", "attested_by": "alice"}})
     del candidate.facets[stored.SEMANTIC_IDENTITY_FACET]
@@ -131,7 +131,7 @@ def test_every_preserved_field_is_refused_when_moved(minted, field, refusal):
 
 def test_adding_the_facet_to_an_unmarked_dataset_mints_the_declaration(tmp_path):
     w = writer(tmp_path, ALICE)
-    plain = w.add(stored.dataset_node("p", title="p", resources=PINNED))
+    plain = w.add(stored.dataset_node(title="p", resources=PINNED))
     with pytest.raises(ActorMismatch):
         w.revise(revised(plain, **{"empirical-observation": {"locator": "url:x", "attested_by": "bob"}}))
     w.revise(revised(plain, **{"empirical-observation": {"locator": "url:x", "attested_by": "alice"}}))

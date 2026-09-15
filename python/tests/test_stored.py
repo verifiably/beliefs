@@ -1,23 +1,63 @@
 from __future__ import annotations
 
 import pytest
+from dataset_fixtures import dataset_ref, pinned
 
 from beliefs import stored
-from beliefs.errors import MalformedRecord
+from beliefs.dataset import dataset_address
+from beliefs.errors import BasisMissing, MalformedRecord
 
 PINNED = [{"name": "data", "digest": "sha256:" + "ab" * 32}]
 
 
-def _dataset(slug: str, basis=None):
-    return stored.dataset_node(slug, title=slug, resources=PINNED, basis=basis)
+class TestTheDatasetBuilder:
+    def test_it_derives_the_id_from_the_declaration(self):
+        node = stored.dataset_node(title="DepMap 24Q2", resources=pinned("depmap"))
+        assert node.id == dataset_ref("depmap") == stored.dataset_address_of(node)
+        assert node.facets[stored.DATASET_FACET] == {"resources": pinned("depmap")}
+
+    def test_one_byte_set_is_one_id_whatever_the_title_order_repetition_or_names(self):
+        a = pinned("a")[0]
+        b = pinned("b")[0]
+        one = stored.dataset_node(title="first", resources=[a, b])
+        two = stored.dataset_node(title="second", resources=[b, a, {"name": "copy", "digest": a["digest"]}])
+        assert one.id == two.id
+        assert stored.dataset_node(title="x", resources=[a]).id != one.id
+
+    def test_an_unpinned_or_empty_declaration_refuses_at_the_builder(self):
+        with pytest.raises(BasisMissing):
+            stored.dataset_node(title="DepMap", resources=[])
+        with pytest.raises(BasisMissing):
+            stored.dataset_node(title="DepMap", resources=[*pinned("p"), {"name": "unpinned"}])
+        with pytest.raises(BasisMissing):
+            stored.dataset_node(title="md5", resources=[{"name": "m", "digest": "md5:" + "0" * 32}])
+
+    def test_the_slug_parameter_is_gone(self):
+        with pytest.raises(TypeError):
+            stored.dataset_node("slug", title="t", resources=pinned("s"))  # type: ignore[misc]
+
+
+def _dataset(seed: str, basis=None):
+    return stored.dataset_node(title=seed, resources=pinned(seed), basis=basis)
+
+
+def test_dataset_address_of_reads_the_stored_declaration_not_the_id():
+    handle = stored.governed_node("dataset", "handle", "handle", {stored.DATASET_FACET: {"resources": PINNED}}, ())
+    assert stored.dataset_address_of(handle) == dataset_address(stored.dataset_declaration(handle))
+    assert stored.dataset_address_of(handle) != handle.id
+
+
+def test_dataset_address_of_is_none_for_an_unpinned_record():
+    unpinned = stored.governed_node("dataset", "u", "u", {stored.DATASET_FACET: {"resources": [{"name": "x"}]}}, ())
+    assert stored.dataset_address_of(unpinned) is None
 
 
 def _route(identity: str) -> dict[str, object]:
     return {
         "identity": identity,
         "run": f"run:{identity}",
-        "ancestor": f"dataset:{identity}",
-        "transforms": [f"dataset:{identity}"],
+        "ancestor": dataset_ref(identity),
+        "transforms": [dataset_ref(identity)],
     }
 
 
@@ -37,7 +77,7 @@ def test_union_lineage_bases_makes_a_sorted_conflict_for_differing_routes():
 
     assert facets[stored.LINEAGE_BASIS_FACET] == {
         "tag": "conflict",
-        "routes": [_route("a"), _route("z")],
+        "routes": [_route("z"), _route("a")],
     }
 
 
@@ -49,13 +89,13 @@ def test_union_lineage_bases_unions_two_conflicts():
         ),
         _dataset(
             "other",
-            {"tag": "conflict", "routes": [_route("b"), _route("c")]},
+            {"tag": "conflict", "routes": [_route("c"), _route("b")]},
         ),
     )
 
     assert facets[stored.LINEAGE_BASIS_FACET] == {
         "tag": "conflict",
-        "routes": [_route("a"), _route("b"), _route("c")],
+        "routes": [_route("a"), _route("c"), _route("b")],
     }
 
 

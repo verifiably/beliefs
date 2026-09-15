@@ -18,11 +18,8 @@ from nodes.core.node import Node
 from beliefs import stored
 from beliefs.dataset import (
     ByteObservation,
-    DatasetDeclaration,
     Held,
-    ResourceDeclaration,
     admission_state,
-    dataset_address,
 )
 from beliefs.holdings.boundary import ActContext, write
 from beliefs.holdings.records import StoreLocator
@@ -36,16 +33,13 @@ INSTRUMENT = "mm30-reproduction/hold.v1"
 
 
 def dataset_record(*, name: str, digest: str, title: str, accession: str) -> tuple[Node, str]:
-    address = dataset_address(DatasetDeclaration(resources=(ResourceDeclaration(name=name, digest=digest),)))
-    assert address is not None
     node = stored.dataset_node(
-        address.removeprefix("dataset:"),
         title=title,
         resources=[{"name": name, "digest": digest}],
         empirical_observation={"locator": f"accession:{accession}", "attested_by": AUTHORITY.actor},
         domain_facets={"biology/gene-axis": {"axis": "rows", "namespace": "HGNC"}},
     )
-    return node, address
+    return node, node.id
 
 
 def main() -> int:

@@ -620,10 +620,10 @@ def assessment_grounds(root: Path) -> None:
     """The records an eligible assessment needs, minted through the library so the
     session's own write is the assessment alone."""
     library = open_corpus(root, authority=FULL, profile=WITH_BIOLOGY)
-    library.add(
-        stored.dataset_node("raw", title="raw", resources=PINNED, empirical_observation={"locator": "instrument:fixture", "attested_by": FULL.actor})
+    dataset = library.add(
+        stored.dataset_node(title="raw", resources=PINNED, empirical_observation={"locator": "instrument:fixture", "attested_by": FULL.actor})
     )
-    library.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=["dataset:raw"]))
+    library.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[dataset.id]))
     library.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
 
 

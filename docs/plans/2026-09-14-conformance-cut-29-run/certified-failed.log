@@ -1,0 +1,189 @@
+[cut29 phase 1/3] cut28_acceptance.py
+[cut28 phase 1/3] cut27_acceptance.py
+[cut27 phase 1/3] cut26_acceptance.py
+[cut26 phase 1/2] cut25_acceptance.py
+[cut25 phase 1/3] cut24_acceptance.py
+[cut24 phase 1/3] cut23_acceptance.py
+[cut23 phase 1/3] cut22_acceptance.py
+[cut22 phase 1/3] cut21_acceptance.py
+[cut21 phase 1/3] cut20_acceptance.py
+[cut20 phase 1/3] cut19_acceptance.py
+[cut19 phase 1/3] cut18_acceptance.py
+[cut18 phase 1/3] cut17_acceptance.py
+[cut17 phase 1/19] test_n2_cut6.py
+........................                                                 [100%]
+24 passed in 13.20s
+[cut17 phase 2/19] test_n2_cut7.py
+...........................................                              [100%]
+43 passed in 48.31s
+[cut17 phase 3/19] test_n2_cut9.py
+.......................                                                  [100%]
+23 passed in 17.59s
+[cut17 phase 4/19] test_intent_boundary_acceptance.py
+..................                                                       [100%]
+18 passed in 6.88s
+[cut17 phase 5/19] test_n2_cut11.py
+.................                                                        [100%]
+17 passed in 31.60s
+[cut17 phase 6/19] test_successor_admission_acceptance.py
+....                                                                     [100%]
+4 passed in 2.24s
+[cut17 phase 7/19] test_n2_cut12.py
+................                                                         [100%]
+16 passed in 15.24s
+[cut17 phase 8/19] test_confinement_acceptance.py
+...............                                                          [100%]
+15 passed in 311.36s (0:05:11)
+[cut17 phase 9/19] test_n2_cut13.py
+................                                                         [100%]
+16 passed in 123.65s (0:02:03)
+[cut17 phase 10/19] test_coordination_acceptance.py
+......................                                                   [100%]
+22 passed in 15.36s
+[cut17 phase 11/19] test_n2_cut14.py
+.......                                                                  [100%]
+7 passed in 14.09s
+[cut17 phase 12/19] test_cut15_lineage.py
+.....                                                                    [100%]
+5 passed in 78.87s (0:01:18)
+[cut17 phase 13/19] test_n2_cut15.py
+........                                                                 [100%]
+8 passed in 45.28s
+[cut17 phase 14/19] test_relocation_acceptance.py
+....F...........                                                         [100%]
+=================================== FAILURES ===================================
+_________ test_w16_consolidates_one_address_without_asserting_identity _________
+
+durable_factory = (<function durable_factory.<locals>.writer at 0x7fd1c7087a60>, <function durable_factory.<locals>.world at 0x7fd1c703c540>)
+tmp_path = PosixPath('<pytest-temp>/test_w16_consolidates_one_addr0')
+
+    def test_w16_consolidates_one_address_without_asserting_identity(durable_factory, tmp_path):
+        writer, make_world = durable_factory
+        keep_writer = writer("w16-keep")
+        other_writer = writer("w16-other")
+        keep_producer = writer("w16-keep-producer")
+        other_producer = writer("w16-other-producer")
+        inputs = {}
+        for name in ("a", "z", "independent"):
+            inputs[name] = keep_writer.add(
+                stored.dataset_node(
+                    title=name,
+                    resources=seed_pinned(name),
+                )
+            )
+        keep, keep_basis = _produce_single_basis(
+            keep_producer,
+            keep_writer,
+            tmp_path / "w16-keep-production",
+            text="keep input",
+            deprecated_ids=("dataset:old-a",),
+            relations=(
+                ("derived-from", inputs["a"].id, {}),
+                ("shared", "dataset:shared", {"side": "keep"}),
+            ),
+        )
+        other, other_basis = _produce_single_basis(
+            other_producer,
+            other_writer,
+            tmp_path / "w16-other-production",
+            text="other input",
+            deprecated_ids=("dataset:old-b",),
+            relations=(
+                ("derived-from", inputs["z"].id, {}),
+                ("shared", "dataset:shared", {"side": "other"}),
+            ),
+        )
+        assert keep.id == other.id
+        assert keep_basis.tag == other_basis.tag == "single"
+        assert keep_basis.routes != other_basis.routes
+        other_run = other_basis.routes[0].resolved_run
+        assert other_run is not None
+        other_ancestor = other_basis.routes[0].resolved_ancestor
+        assert other_ancestor is not None
+        relocation.move(other_writer, keep_writer, other_ancestor, **MOVE_FIELDS)
+        relocation.move(other_writer, keep_writer, other_run, **MOVE_FIELDS)
+        inbound = keep_writer.add(
+            Node(
+                id="discussion:inbound",
+                kind="discussion",
+                title="inbound",
+                relations=[Relation(source="discussion:inbound", predicate="cites", target=keep.id)],
+            )
+        )
+        inbound_before = keep_writer.read_view.get(inbound.id)
+        world, _coverage, bindings = _with_coreference_balance(make_world("w16", keep_writer, other_writer))
+        before = _publish((world, (keep_writer.corpus_id,), bindings))
+        assert yaml.safe_load(before.members["coreference-map.yaml"]) == _COREFERENCE_BALANCE
+        assert all(
+            lineage_snapshot(corpus.read_view, (record.id,)).bases[record.id].tag == "single"
+            for corpus, record in ((keep_writer, keep), (other_writer, other))
+        )
+    
+        survivor, _, _ = relocation.consolidate((keep_writer, keep.id), (other_writer, other.id), **CONSOLIDATE_FIELDS)
+        after = _publish((world, (keep_writer.corpus_id,), bindings))
+    
+        assert survivor.uid == keep.uid and survivor.uid != other.uid
+        assert survivor.id == keep.id
+        assert survivor.deprecated_ids == ["dataset:old-a", "dataset:old-b"]
+        assert keep.id not in survivor.deprecated_ids
+        assert {(r.predicate, r.target) for r in survivor.relations} == {
+            ("derived-from", inputs["a"].id),
+            ("derived-from", inputs["z"].id),
+            ("shared", "dataset:shared"),
+        }
+        shared = [r for r in survivor.relations if r.predicate == "shared"]
+        assert len(shared) == 1 and shared[0].attrs == {"side": "keep"}
+        assert survivor.facets[stored.LINEAGE_BASIS_FACET]["tag"] == "conflict"
+        assert survivor.facets[stored.LINEAGE_BASIS_FACET]["routes"] == sorted(
+            survivor.facets[stored.LINEAGE_BASIS_FACET]["routes"],
+            key=v1.encode,
+        )
+        assert len(survivor.facets[stored.LINEAGE_BASIS_FACET]["routes"]) == 2
+        assert yaml.safe_load(after.members["coreference-map.yaml"]) == _COREFERENCE_BALANCE
+        assert before.members["coreference-map.yaml"] == after.members["coreference-map.yaml"]
+        assert keep_writer.read_view.get(inbound.id) == inbound_before
+        assert not other_writer.read_view.holds(other.id)
+        assert [
+            node.uid
+            for corpus in (keep_writer, other_writer)
+            for node in corpus.read_view.iter_stored()
+            if node.id == keep.id
+        ] == [keep.uid]
+        assert not any(
+            node.kind == "coreference-attestation"
+            for corpus in (keep_writer, other_writer)
+            for node in corpus.read_view.iter_stored()
+        )
+>       snapshot = lineage_snapshot(keep_writer.read_view, (survivor.id,))
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/acceptance/test_relocation_acceptance.py:501: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/beliefs/corpus.py:1164: in lineage_snapshot
+    bases[dataset] = Basis(tag=str(facet.get("tag", "single")), routes=tuple(routes))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<string>:5: in __init__
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = Basis(tag='conflict', routes=(Route(dataset='dataset:sha256:80e5cafca5c1e3c25d9ec3761f770558b5d8ba655e7f369ae26ed6016f...14eeadd18ce117d4df', transforms=('dataset:sha256:e7b5174025f27c3d352642fc884ef6441608bed6cb0fd014eeadd18ce117d4df',))))
+
+    def __post_init__(self) -> None:
+        if not all(isinstance(r, Route) for r in self.routes):
+            raise MalformedSnapshot("a basis holds Route values only")
+        if self.tag == "single":
+            if len(self.routes) != 1:
+                raise MalformedSnapshot("a `single` basis holds exactly one route")
+        elif self.tag == "conflict":
+            if len(self.routes) < 2:
+                raise MalformedSnapshot("a `conflict` basis holds at least two routes")
+            if len({*self.routes}) != len(self.routes):
+                raise MalformedSnapshot("a `conflict` basis holds distinct routes")
+            if list(self.routes) != sorted(self.routes, key=_route_sort_key):
+>               raise MalformedSnapshot("a `conflict` basis holds its routes sorted")
+E               beliefs.errors.MalformedSnapshot: a `conflict` basis holds its routes sorted
+
+src/beliefs/lineage.py:144: MalformedSnapshot
+=========================== short test summary info ============================
+FAILED tests/acceptance/test_relocation_acceptance.py::test_w16_consolidates_one_address_without_asserting_identity
+1 failed, 15 passed in 64.92s (0:01:04)

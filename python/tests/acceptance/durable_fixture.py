@@ -12,17 +12,20 @@ not a transition.
 from __future__ import annotations
 
 from authority import ACTOR
+from dataset_fixtures import dataset_ref
+from dataset_fixtures import pinned as pinned_for_seed
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 
 from beliefs import stored
 from beliefs.corpus import CorpusWriter
+from beliefs.identity import v1
 
 SPEC = "analysis-spec:s1"
 RULE = "rule:threshold"
 
-RAW = "dataset:raw"
-DERIVED = "dataset:derived"
+RAW = dataset_ref("raw")
+DERIVED = dataset_ref("derived")
 RUN = "run:r1"
 PROPOSITION = "proposition:p1"
 ASSESSMENT = "assessment:a1"
@@ -37,15 +40,15 @@ RENAMED = "discussion:renamed"
 RENAMED_OLD = "discussion:renamed-old"
 UNRELATED = "discussion:unrelated"
 
-LINEAGE_ROOT = "dataset:lineage-root"
-LINEAGE_MIDDLE = "dataset:lineage-middle"
-LINEAGE_LEAF = "dataset:lineage-leaf"
-LINEAGE_LEFT = "dataset:lineage-left"
-LINEAGE_RIGHT = "dataset:lineage-right"
-LINEAGE_CONFLICT = "dataset:lineage-conflict"
-LINEAGE_ABSENT_ANCESTOR = "dataset:lineage-absent-ancestor"
-LINEAGE_ABSENT_RUN = "dataset:lineage-absent-run"
-LINEAGE_CYCLE = ("dataset:lineage-cycle-a", "dataset:lineage-cycle-b")
+LINEAGE_ROOT = dataset_ref("lineage-root")
+LINEAGE_MIDDLE = dataset_ref("lineage-middle")
+LINEAGE_LEAF = dataset_ref("lineage-leaf")
+LINEAGE_LEFT = dataset_ref("lineage-left")
+LINEAGE_RIGHT = dataset_ref("lineage-right")
+LINEAGE_CONFLICT = dataset_ref("lineage-conflict")
+LINEAGE_ABSENT_ANCESTOR = dataset_ref("lineage-absent-ancestor")
+LINEAGE_ABSENT_RUN = dataset_ref("lineage-absent-run")
+LINEAGE_CYCLE = (dataset_ref("lineage-cycle-a"), dataset_ref("lineage-cycle-b"))
 
 CITES = "cites"
 
@@ -80,9 +83,8 @@ def route(run: str, ancestor: str, transforms=()) -> dict[str, object]:
     return {"run": run, "ancestor": ancestor, "transforms": list(transforms)}
 
 
-def observed_dataset(ref: str = RAW):
-    return stored.dataset_node(
-        slug(ref), title=slug(ref), resources=pinned(), empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}
+def observed_dataset(seed: str = "raw"):
+    return stored.dataset_node(title=seed, resources=pinned_for_seed(seed), empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}
     )
 
 
@@ -103,9 +105,8 @@ def mint_records(writer: CorpusWriter) -> None:
     )
     writer.add(
         stored.dataset_node(
-            slug(DERIVED),
             title="derived",
-            resources=pinned(),
+            resources=pinned_for_seed("derived"),
             basis=basis(route(RUN, RAW, [RAW])),
         )
     )
@@ -160,30 +161,30 @@ def mint_lineage_fixture(writer: CorpusWriter) -> None:
     basis, a `conflict` basis, and the two unresolvable cases — both **minted**,
     never produced by removing anything."""
 
-    def dataset(ref: str, stamped=None):
-        return stored.dataset_node(slug(ref), title=slug(ref), resources=pinned(), basis=stamped)
+    def dataset(seed: str, stamped=None):
+        return stored.dataset_node(title=seed, resources=pinned_for_seed(seed), basis=stamped)
 
-    writer.add(dataset(LINEAGE_ROOT))
-    writer.add(dataset(LINEAGE_MIDDLE, basis(route(RUN, LINEAGE_ROOT))))
-    writer.add(dataset(LINEAGE_LEAF, basis(route(RUN, LINEAGE_MIDDLE))))
+    writer.add(dataset("lineage-root"))
+    writer.add(dataset("lineage-middle", basis(route(RUN, LINEAGE_ROOT))))
+    writer.add(dataset("lineage-leaf", basis(route(RUN, LINEAGE_MIDDLE))))
 
-    writer.add(dataset(LINEAGE_LEFT, basis(route(RUN, LINEAGE_ROOT))))
-    writer.add(dataset(LINEAGE_RIGHT, basis(route(RUN, LINEAGE_ROOT))))
+    writer.add(dataset("lineage-left", basis(route(RUN, LINEAGE_ROOT))))
+    writer.add(dataset("lineage-right", basis(route(RUN, LINEAGE_ROOT))))
     # The diamond's apex needs two routes out of one dataset, which `single`
     # cannot spell — so the diamond and the conflict tag are one fixture.
     writer.add(
         dataset(
-            LINEAGE_CONFLICT,
-            basis(route(RUN, LINEAGE_LEFT), route(RUN, LINEAGE_RIGHT), tag="conflict"),
+            "lineage-conflict",
+            basis(*sorted((route(RUN, LINEAGE_LEFT), route(RUN, LINEAGE_RIGHT)), key=v1.encode), tag="conflict"),
         )
     )
 
-    writer.add(dataset(LINEAGE_ABSENT_ANCESTOR, basis(route(RUN, "dataset:absent"))))
-    writer.add(dataset(LINEAGE_ABSENT_RUN, basis(route("run:absent", LINEAGE_ROOT))))
+    writer.add(dataset("lineage-absent-ancestor", basis(route(RUN, "dataset:absent"))))
+    writer.add(dataset("lineage-absent-run", basis(route("run:absent", LINEAGE_ROOT))))
 
     cycle_a, cycle_b = LINEAGE_CYCLE
-    writer.add(dataset(cycle_a, basis(route(RUN, cycle_b))))
-    writer.add(dataset(cycle_b, basis(route(RUN, cycle_a))))
+    writer.add(dataset("lineage-cycle-a", basis(route(RUN, cycle_b))))
+    writer.add(dataset("lineage-cycle-b", basis(route(RUN, cycle_a))))
 
 
 def mint_cut4_corpus(writer: CorpusWriter) -> None:

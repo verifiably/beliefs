@@ -1,6 +1,6 @@
 # Implementation roadmap
 
-**Ranked at:** cut 28, against the ledger's Current state (2026-09-14)
+**Ranked at:** cut 29, against the ledger's Current state (2026-09-15)
 **Method:** `../superpowers/specs/2026-08-29-implementation-roadmap-design.md`,
 as amended 2026-09-05 — tier 1 is ordered by distance to the dogfood success
 criterion (§4.0 there), open lanes are bounded, and a method amendment
@@ -14,7 +14,7 @@ carries no dated corrections, and the previous ranking survives only in git
 history.
 
 The adoption ledger's `Current state` table
-(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-14`)
+(`../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-15`)
 is the authority for *what* is open; this document is the authority for *in
 what order*. The two name the same boundaries by id, and
 `test_the_roadmap_and_ledger_name_the_same_boundaries` holds them to it.
@@ -38,17 +38,17 @@ criterion cannot be met without are **on the path**, in dependency order;
 the rest are **off the path**, in breadth order. Whether a boundary is on the
 path is measured where it can be, by the reproduction lane (§Lanes).
 
-**Cut 28 (2026-09-14) discharges world-resolution slice 4 without changing
-the ranking.** It closes W7 and W8b and reads W8's runnable conflicts; W8's
-ambiguous-search-term conflict moves to `authority-labels` with W9 and W14.
-`world-resolution` stays first on the path for its two filed follow-ups:
-dataset-address derivation and divergent-history reconciliation.
+**Cut 29 (2026-09-15) discharges world-resolution slice 5 without changing
+the ranking.** Every dataset record's id is now its derived content address,
+held at the write boundary and at both inputs of `consolidate`; no guarantee
+row moves. `world-resolution` stays first on the path for its one remaining
+filed follow-up: divergent correction-history reconciliation
+(`beliefs-24b42b`).
 
 The current accounting is 153 of 196 rows closed, with 43 open. The prior
 single-corpus mm30 measurement still ranks this boundary on the path when a
-second corpus enters; cut 28 adds no new mm30 reproduction measurement.
-Dataset addressing (`beliefs-48214e`) and divergent-history reconciliation
-(`beliefs-24b42b`) remain filed under `beliefs-d248ba`.
+second corpus enters; cut 29 adds no new mm30 reproduction measurement.
+Dataset addressing (`beliefs-48214e`) closed at cut 29.
 
 ## Boundary index
 
@@ -61,7 +61,7 @@ their lane's task, and tier-3 design questions remain `idea` tasks.
 
 | id | rows it closes | tier | task |
 |---|---|---|---|
-| `world-resolution` | the two filed follow-ups: dataset addressing and divergent correction-history reconciliation; no guarantee rows | 1, on the path | [beliefs-d248ba](../../tasks/beliefs-d248ba.md) |
+| `world-resolution` | one filed follow-up: divergent correction-history reconciliation; no guarantee rows | 1, on the path | [beliefs-d248ba](../../tasks/beliefs-d248ba.md) |
 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | 1, off the path | [beliefs-aa27da](../../tasks/beliefs-aa27da.md) |
 | `url-retrieval` | H4, G9, R10, T5; T7's same-root case | 1, off the path | [beliefs-d13fe8](../../tasks/beliefs-d13fe8.md) |
 | `event-level-l8` | L8 | 1, off the path | [beliefs-b34652](../../tasks/beliefs-b34652.md) |
@@ -85,7 +85,7 @@ from being met without it; its lane (§Lanes) says what it must wait for.
 
 | # | id | rows | unblocks | placement |
 |---|---|---|---|---|
-| 1 | `world-resolution` | the two filed follow-ups: dataset addressing and divergent correction-history reconciliation; no guarantee rows | dataset addressing and correction-history reconciliation | slices 1, 2, 2b, 3 and 4 discharged at cuts 23, 24, 25, 27 and 28; only the two filed follow-ups remain |
+| 1 | `world-resolution` | one filed follow-up: divergent correction-history reconciliation; no guarantee rows | correction-history reconciliation | slices 1, 2, 2b, 3, 4 and 5 discharged at cuts 23, 24, 25, 27, 28 and 29; only the reconciliation follow-up remains |
 
 ### Off the path
 
@@ -122,7 +122,7 @@ boundary sits in the lane of its prerequisite and waits there.
 |---|---|---|---|
 | `write-path` | none — no open boundary | `corpus.py`, `report.py`, `intents/`, `session/`, `verify.py`, `evaluation.py`, `audit.py` | closed: `writer-session` discharged at cut 19 and `verification-publication` at cut 21 |
 | `domain` | none — `domain-boundary` closed at cut 26 after slices 1 and 2 at cuts 20 and 22 | the `nodes` registry | closed 2026-09-12 at cut 26 |
-| `world-read` | the two filed `world-resolution` follow-ups → `event-level-l8` (+ `log-remainder`) → `publish` | `world/read.py`, `world/view.py`, `resolution.py`, `world/verify.py`; `corpus.py`, `lineage.py`, `evaluation.py`, `belief.py`, `consulted.py`, `audit.py` as each slice names | on the path at its head; slices 1, 2, 2b, 3 and 4 discharged at cuts 23, 24, 25, 27 and 28 |
+| `world-read` | the `world-resolution` reconciliation follow-up → `event-level-l8` (+ `log-remainder`) → `publish` | `world/read.py`, `world/view.py`, `resolution.py`, `world/verify.py`; `corpus.py`, `lineage.py`, `evaluation.py`, `belief.py`, `consulted.py`, `audit.py` as each slice names | on the path at its head; slices 1, 2, 2b, 3, 4 and 5 discharged at cuts 23, 24, 25, 27, 28 and 29 |
 | `mutation` | `correction-remainder` | `adapter.py`, `corpus.py`, `audit.py`, `decode.py`, `evaluation.py`, `world/verify.py` | off the path; waits |
 | `acquisition` | `url-retrieval` (+ `act-report-remainder`) | `holdings/`, `report.py` | off the path; waits |
 | `reproduction` | none — a measurement: `../superpowers/specs/2026-09-05-mm30-reproduction-design.md` | no kernel surface; `python/tools/reproduction/`, a corpus on the certified volume beside the checkout, and the record it produces | **closed 2026-09-05**: ran to the evaluator's answer; its record (`../designs/2026-09-05-mm30-reproduction.md`) re-ranked this document, its five findings are filed through the owning lanes, and its corpus stays at `.mm30-reproduction/` as the seed of the dogfood's world |
@@ -202,18 +202,19 @@ slice 1 (facet-contracts §6). Another question raised by the record is carried 
 where an interpretation rule reads content
 ([computation](../guide/open-questions.md#computation-and-reproducibility)).
 
-## Appendix A — live status of every guarantee row at cut 28
+## Appendix A — live status of every guarantee row at cut 29
 
 Produced by `python/tools/roadmap_status.py` from the cuts' own accounting
-(spec §3.1); a row is closed only when no later source reopens it. Cut 28 closes
-W7 and W8b. W8 remains partial on its ambiguous-search-term conflict; R23 and
-W8a remain partial only on their `contract-cut` clauses.
+(spec §3.1); a row is closed only when no later source reopens it. Cut 29 closes
+nothing and re-reads W2, W3 and W8 on dataset arms. W8 remains partial on its
+ambiguous-search-term conflict; R23 and W8a remain partial only on their
+`contract-cut` clauses.
 
 | table | never selected | part — last cut that read it | reopened |
 |---|---|---|---|
 | G | — | G9 (cut 10) | — |
 | S | — | S6 (cut 2) | — |
-| W | W9, W14 | W8 (cut 28), W17 (cut 14), W8a (cut 27) | — |
+| W | W9, W14 | W8 (cut 29), W17 (cut 14), W8a (cut 27) | — |
 | R | — | R10 (cut 3), R22 (cut 18), R23 (cut 27) | — |
 | C | C7, C8, C9 | C3 (cut 16), C10 (cut 5) | — |
 | X | — | X2 (cut 7), X12 (cut 24) | — |
@@ -241,7 +242,7 @@ Each open row, its remainder as the last cut states it, and where it goes
 |---|---|---|
 | G9 | the `url` locator arm beside H4's remote arm (cut 10 results §1) | `url-retrieval` |
 | S6 | arm (h), "the first successor policy admitting unequal weights" (cut 2 §4.2; cut 4 §5) | `weighted-belief` — tier 3 |
-| W8 | the ambiguous-search-term conflict, W9's arm restated (cut 28 results §5) | `authority-labels` — tier 3 |
+| W8 | the ambiguous-search-term conflict, W9's arm restated (cut 29 results §2) | `authority-labels` — tier 3 |
 | W9, W14 | rendered labels and the ambiguous-search refusal against a pinned authority snapshot (ledger artifact 11); W8's ambiguous-search-term conflict joins them at cut 28 | `authority-labels` — tier 3 |
 | W17 | intent-position evidence over the publication-binding revision family (cut 14 results §1) | `publish`; the ordinary coordination revision family is closed |
 | W8a | only certification omission-refutes remains after cut 27 reads the import-boundary and audit arms | `contract-cut` — the `instrument-certification` kind |

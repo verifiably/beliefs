@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pytest
 from authority import ACTOR, FULL, lacking
+from dataset_fixtures import pinned
 from fixtures_cut3 import report as sample_report
 from fixtures_cut6 import OTHER_BIOLOGY_ID, OTHER_PINS, PINS
 from nodes.core.errors import RefError
@@ -27,6 +28,7 @@ from beliefs.errors import (
     AddressDisagreement,
     CollisionRefused,
     ContractPinDisagreement,
+    DatasetAddressDisagreement,
     DuplicateLocation,
     EligibilityUnmet,
     MalformedRecord,
@@ -92,7 +94,7 @@ def _writer_for(corpus, **options) -> CorpusWriter:
 
 def _node(*facet_keys: str) -> Node:
     if "biology/gene-axis" in facet_keys:
-        node = stored.dataset_node("relocated", title="relocated", resources=[{"name": "matrix", "digest": "sha256:" + "ab" * 32}])
+        node = stored.dataset_node(title="relocated", resources=[{"name": "matrix", "digest": "sha256:" + "ab" * 32}])
         node.facets["biology/gene-axis"] = {"axis": "rows"}
     else:
         node = Node(id="discussion:relocated", kind="discussion", title="relocated")
@@ -696,8 +698,7 @@ def test_consolidate_preflights_the_replacement_before_either_intent(tmp_path):
     )
     observed = other_writer.add(
         stored.dataset_node(
-            "raw",
-            title="raw",
+                        title="raw",
             resources=[{"name": "data", "digest": "sha256:" + "ab" * 32}],
             empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
         )
@@ -910,3 +911,52 @@ def test_used_facet_namespaces_are_only_the_namespaced_facet_prefixes():
     assert stored.used_facet_namespaces(
         _node("display", "biology/gene-axis", "testing/measure")
     ) == frozenset({"biology", "testing"})
+
+
+def _raw_dataset_at(writer, node_id: str, seed: str) -> Node:
+    """A dataset written behind the boundary at `node_id` with `seed`'s bytes."""
+    from fixtures_cut4 import raw_write
+
+    node = stored.governed_node(
+        "dataset",
+        node_id.partition(":")[2],
+        seed,
+        {stored.DATASET_FACET: {"resources": pinned(seed)}},
+        (),
+    )
+    raw_write(writer.root, node)
+    writer._reconstruct()
+    return node
+
+
+def _files(writer) -> dict[str, bytes]:
+    return {str(p.relative_to(writer.root)): p.read_bytes() for p in sorted(writer.root.rglob("*.md"))}
+
+
+def test_move_refuses_a_handle_addressed_dataset_into_a_governed_destination(
+    source_writer, destination_writer
+):
+    node = _raw_dataset_at(source_writer, "dataset:handle", "h")
+    with pytest.raises(DatasetAddressDisagreement):
+        relocation.move(source_writer, destination_writer, node.id, **MOVE_FIELDS)
+    assert not destination_writer.read_view.holds(node.id)
+    assert source_writer.read_view.holds(node.id)
+
+
+@pytest.mark.parametrize("invalid", ["other", "keep"])
+def test_consolidate_validates_both_dataset_inputs_before_reconciling(
+    source_writer, destination_writer, invalid
+):
+    """Review finding 1: the loser's declaration is judged before it is discarded."""
+    valid = source_writer.add(stored.dataset_node(title="kept", resources=pinned("shared")))
+    # A raw record at the SAME id whose bytes are different: its declaration derives another address.
+    other = _raw_dataset_at(destination_writer, valid.id, "different")
+    keep, lose = (source_writer, valid.id), (destination_writer, other.id)
+    if invalid == "keep":
+        keep, lose = lose, keep
+    before = (_files(source_writer), _files(destination_writer))
+    with pytest.raises(DatasetAddressDisagreement) as caught:
+        relocation.consolidate(keep, lose, **CONSOLIDATE_FIELDS)
+    assert invalid in str(caught.value)
+    assert destination_writer.read_view.holds(other.id)
+    assert (_files(source_writer), _files(destination_writer)) == before

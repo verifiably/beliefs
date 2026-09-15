@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
@@ -36,10 +37,31 @@ from test_n2 import audit, baseline
 
 import beliefs.root as science_root
 
+# Live matcher migration, 2026-09-14 (slice 5): dataset address agreement
+# adds the same guard line; the frozen declaration remains source-specific.
+_LIVE_SABOTAGES = {
+    "W1-a": Sabotage(
+        module="corpus.py",
+        before=(
+            "        if node.id != address:\n"
+            "            raise SourceAddressDisagreement(f\"{node.id}: the identifiers derive {address}\")\n"
+        ),
+        after=(
+            "        if False:\n"
+            "            raise SourceAddressDisagreement(f\"{node.id}: the identifiers derive {address}\")\n"
+        ),
+    )
+}
+
 # 2026-09-11: supplement the frozen 24 arms with design §10.4's history-free guard.
 # Export the live tuple so arm_staleness.audited_arms measures every audited arm.
 CUT25_ARMS = (
-    *FROZEN_CUT25_ARMS,
+    *(
+        replace(arm, sabotage=_LIVE_SABOTAGES[arm.row])
+        if arm.row in _LIVE_SABOTAGES
+        else arm
+        for arm in FROZEN_CUT25_ARMS
+    ),
     Arm(
         row="W5a-o",
         asserts="a history-free source cannot carry deprecated ids",

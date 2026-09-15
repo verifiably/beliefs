@@ -1095,6 +1095,13 @@ class SourceAddressDisagreement(WriteRefused):
     wrong address, which is what a handle-addressed or hand-edited source is."""
 
 
+class DatasetAddressDisagreement(WriteRefused):
+    """A dataset's stored id is not the address its declaration derives (slice 5
+    §5). The declaration is present and pinned; the record simply lives at the
+    wrong address, which is what a handle-addressed or hand-edited dataset is —
+    the dataset half of `SourceAddressDisagreement`."""
+
+
 class CorrectionRefused(WriteRefused):
     """`correct_identifier` refused before any effect (slice 2b §6.1): one
     class, a closed reason. Identifier form refusals are `IdentifierMalformed`

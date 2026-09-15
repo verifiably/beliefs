@@ -13,6 +13,7 @@ from dataclasses import dataclass, replace
 
 from authority import ACTOR
 from confinement_fixtures import confined_receipt, instance
+from dataset_fixtures import pinned_for
 from fixtures_cut3 import closure_with, planned, spec_draft, spec_rules, traced
 from fixtures_cut4 import raw_write
 from nodes.core.node import Node
@@ -40,7 +41,6 @@ from beliefs.runrecord import run_ref
 from beliefs.spec import FrozenSpec, freeze
 from beliefs.verify import AssessmentVerification, build_verification
 
-PINNED = [{"name": "matrix", "digest": "sha256:" + "1" * 64}]
 CONTRACT = "science:" + "c" * 64
 EPOCH = "epoch:" + "e" * 64
 BINDING = PolicyBinding(rule=BELIEF_V1_RULE, implementation=BELIEF_V1.identity)
@@ -105,8 +105,7 @@ def mint_datasets(writer, closure: RunClosure) -> None:
     for entry in closure.recipe.inputs:
         if not writer.read_view.holds(entry.dataset):
             writer.add(
-                stored.dataset_node(
-                    entry.dataset.removeprefix("dataset:"), title="raw", resources=PINNED,
+                stored.dataset_node(title="raw", resources=pinned_for(entry.dataset),
                     empirical_observation={"locator": "instrument:fixture", "attested_by": writer.authority.actor},
                 )
             )

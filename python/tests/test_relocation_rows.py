@@ -82,8 +82,7 @@ def _duplicate_datasets(tmp_path, *, writers=None):
         _writer(tmp_path / "other", domains=PINS.domains),
     )
     keep = stored.dataset_node(
-        "duplicate",
-        title="kept title",
+                title="kept title",
         resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
         basis={"tag": "single", "routes": [_basis_route("z")]},
     ).model_copy(update={"deprecated_ids": ["dataset:old-a"]})
@@ -97,8 +96,7 @@ def _duplicate_datasets(tmp_path, *, writers=None):
         ),
     ]
     other = stored.dataset_node(
-        "duplicate",
-        title="other title",
+                title="other title",
         resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
         basis={"tag": "single", "routes": [_basis_route("a")]},
     ).model_copy(update={"deprecated_ids": ["dataset:old-b"]})
@@ -119,8 +117,7 @@ def _move_published_dataset(tmp_path):
     destination = _writer(tmp_path / "destination", domains=PINS.domains)
     dataset = source.add(
         stored.dataset_node(
-            "moved",
-            title="moved",
+                        title="moved",
             resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
         )
     )
@@ -482,8 +479,7 @@ def test_m3_consolidating_equal_basis_retraction_replicas_leaves_the_counter_ret
     for writer in (keep_writer, other_writer):
         observed = writer.add(
             stored.dataset_node(
-                "raw",
-                title="raw",
+                                title="raw",
                 resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
                 empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
             )
@@ -628,8 +624,7 @@ def test_retract_refuses_a_target_moved_away(tmp_path):
     destination = _writer(tmp_path / "destination", domains=PINS.domains)
     observation = source.add(
         stored.dataset_node(
-            "observation",
-            title="observation",
+                        title="observation",
             resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
             empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
         )

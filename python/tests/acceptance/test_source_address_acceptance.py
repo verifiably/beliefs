@@ -142,22 +142,27 @@ def test_w2_a_shared_basis_is_one_address(world):
 def test_w5a_dataset_arm_a_rehold_is_a_new_entity(world):
     _, (_, left), _ = world
     assessment = mint_eligible_assessment(left)  # observes dataset:raw through run:r1
-    d = left.read_view.get("dataset:raw")
+    run = left.read_view.get("run:r1")
+    dataset_ref = next(r.target for r in run.relations if r.predicate == stored.OBSERVES)
+    d = left.read_view.get(dataset_ref)
     changed = d.model_copy(deep=True)
     changed.facets[stored.DATASET_FACET]["resources"] = [{"name": "d", "digest": "sha256:" + "9" * 64}]
     stored.stamp_semantic_identity(changed)
     with pytest.raises(ReviseOutsideAllowlist):
         left.revise(changed)
     with pytest.raises(CollisionRefused):
-        left.add(stored.dataset_node("raw", title="raw", resources=[{"name": "d", "digest": "sha256:" + "9" * 64}]))
+        left.add(
+            stored.dataset_node(
+                title="raw duplicate",
+                resources=d.facets[stored.DATASET_FACET]["resources"],
+            )
+        )
     reheld = left.add(
-        stored.dataset_node("raw-reheld", title="raw", resources=[{"name": "d", "digest": "sha256:" + "9" * 64}])
+        stored.dataset_node(title="raw", resources=[{"name": "d", "digest": "sha256:" + "9" * 64}])
     )
     assert reheld.id != d.id and stored.dataset_declaration(reheld) != stored.dataset_declaration(d)
     assert content_identity(reheld) != content_identity(d)
-    run = left.read_view.get(
-        "run:r1"
-    )  # mint_eligible_assessment's run; AssessmentValue.run is the closure address, not the id
+    # mint_eligible_assessment's run; AssessmentValue.run is the closure address, not the id
     assert [
         e.relation.target for e in left.read_view.outbound(assessment.id) if e.relation.predicate == stored.PRODUCED_BY
     ] == [run.id]
@@ -255,7 +260,7 @@ def test_refusals_leave_no_intent_or_file_effect(work_directory, case, exception
             ref = "source:missing"
         elif case == "not-source":
             ref = w.add(
-                stored.dataset_node("d", title="d", resources=[{"name": "d", "digest": "sha256:" + "1" * 64}])
+                stored.dataset_node(title="d", resources=[{"name": "d", "digest": "sha256:" + "1" * 64}])
             ).id
         elif case in ("raw-current", "successor-facets"):
 

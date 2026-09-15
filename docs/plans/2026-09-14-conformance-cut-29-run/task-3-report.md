@@ -1,0 +1,121 @@
+# Task 3 report: derived dataset builder and caller migration
+
+## Changes
+
+- `stored.dataset_node` is keyword-only, requires resources, derives its id from the shared dataset declaration projection, and refuses declarations without a content identity.
+- `dataset_declaration` and the builder share `_declaration_of`; stored malformed-resource messages retain the node-id prefix.
+- Every ordinary Python test, acceptance fixture, and reproduction-tool caller now supplies resources and uses a derived ref where it names a built dataset. Deliberately absent refs and raw invalid-record boundary tests retain their original meaning. The forbidden positional-call TypeError test remains positional.
+- The cut 20 F8 live guard has a dated adapter for the moved builder return. Frozen cut declarations and the cited-not-run cut 5 guard are unchanged.
+
+## TDD evidence
+
+RED:
+
+```text
+cd python && uv run --frozen pytest tests/test_stored.py -k TheDatasetBuilder
+4 failed: the first three reached the old required `slug`; the positional-call arm showed the old builder still accepted it.
+```
+
+GREEN:
+
+```text
+cd python && uv run --frozen pytest tests/test_stored.py -k TheDatasetBuilder
+4 passed
+
+cd python && uv run --frozen pytest tests/test_stored.py tests/test_reproduction_driver.py
+54 passed
+```
+
+The first broad migration inventory was retained at `/tmp/beliefs-task3-test-fast.log`:
+
+```text
+60 failed, 4525 passed, 10 errors in 173.43s
+```
+
+After fixture repair, `/tmp/task3-test-fast-final.log` reported:
+
+```text
+2 failed, 4593 passed in 172.12s
+```
+
+Both failures identified the same newly displaced live guard row, `test_n2_cut20.py::F8[5] in stored.py (0 matches)`. After adding the authorized live adapter, focused evidence was:
+
+```text
+F8 baseline: resolved
+F8 audit: sound
+uv run --frozen pytest tests/test_arm_staleness.py tests/test_frozen_guards.py
+14 passed
+```
+
+## Final verification
+
+The final serial portable suite was run after sourcing `certified-env.sh`; its complete output is retained at `/tmp/task3-portable-final.log`.
+
+```text
+4636 passed in 1229.24s (0:20:29)
+```
+
+```text
+uv run --frozen ruff check .
+All checks passed
+
+uv run --frozen pyright
+0 errors, 0 warnings, 0 informations
+
+tasks check
+0 errors, 0 warnings
+```
+
+Frozen-file and call-site audits found no modified `n2_arms_cut*.py`, cut documents, or `acceptance/test_n2_cut5.py`; no non-frozen builder caller lacks `resources`, and the only positional call is the required TypeError test.
+
+## Concerns
+
+None within Task 3. Task 4 still owns the separate cut 7 X9 live sabotage adapter.
+
+## Review round 1 fix
+
+The review found incomplete reference migration in durable fixtures. The fix propagates derived ids through acceptance lineage, selection, world-view, coreference, relocation, session, audit, and durable-record scenarios; restores hand-built write-boundary negatives; removes the obsolete empty-resource repair loop; and makes portable endpoint and late-record assertions name the records actually created. Cut 7's ordinary journey refs now use `dataset_ref`; its X9 sabotage adapter remains Task 4 work.
+
+Evidence, with `certified-env.sh` sourced before Python runs:
+
+```text
+uv run --frozen pytest tests/test_coreference_attestation.py tests/test_identifier_correction.py tests/test_world_view.py
+156 passed in 22.40s
+
+uv run --frozen pytest -n 8 --dist=loadfile tests/acceptance/test_coreference_acceptance.py tests/acceptance/test_cut15_lineage.py tests/acceptance/test_durable_corpus.py tests/acceptance/test_durable_records.py tests/acceptance/test_durable_traversal.py tests/acceptance/test_facet_acceptance.py tests/acceptance/test_relocation_acceptance.py tests/acceptance/test_session_acceptance.py tests/acceptance/test_source_address_acceptance.py tests/acceptance/test_world_audit_acceptance.py tests/acceptance/test_world_selection_acceptance.py tests/acceptance/test_world_view_acceptance.py
+263 passed, 9 failed in 237.87s
+Complete output: /tmp/task3-review-acceptance.log
+
+uv run --frozen pytest -n 8 --dist=loadfile tests/acceptance/test_durable_traversal.py tests/acceptance/test_durable_corpus.py tests/acceptance/test_facet_acceptance.py tests/acceptance/test_world_selection_acceptance.py tests/acceptance/test_relocation_acceptance.py tests/acceptance/test_world_view_acceptance.py tests/acceptance/test_world_audit_acceptance.py
+183 passed, 3 failed in 233.35s
+Complete output: /tmp/task3-review-focus.log
+
+uv run --frozen pytest tests/acceptance/test_durable_traversal.py::TestS1TheRelationFixtureWalkedOutOfTheStore::test_membership_traversal_agrees_with_what_the_container_stores tests/acceptance/test_durable_corpus.py::TestTheMintedRecordsReadBack::test_the_slug_helper_addresses_the_same_file_the_store_does tests/acceptance/test_world_audit_acceptance.py::test_the_world_audit_reproduces_every_per_record_finding_durably tests/acceptance/test_deletion_acceptance.py tests/acceptance/test_n2_cut7.py::test_resolution_answers_resolved_not_present_and_unknown tests/acceptance/test_n2_cut7.py::test_edges_answer_active_inactive_and_indeterminate tests/acceptance/test_n2_cut7.py::test_removing_a_binding_reports_the_receipts_it_severed
+22 passed in 66.65s
+Complete output: /tmp/task3-review-final-focus.log
+
+uv run --frozen pytest tests/test_arm_staleness.py tests/test_frozen_guards.py
+14 passed in 2.63s
+
+uv run --frozen ruff check .
+All checks passed
+
+uv run --frozen pyright
+0 errors, 0 warnings, 0 informations
+
+tasks check
+0 errors, 0 warnings
+```
+
+The initial controller inventory had 288 cases because it also selected `test_deletion_acceptance.py` (16 cases). The first fix rerun selected the other 12 modules (272 cases); the missing module was included in the final 22-test focused command.
+
+## Review round 2 fix
+
+The durable traversal fixture again stores membership independently in the nodes structural `membership` facet and compares it with the relation traversal result. The beliefs base profile does not admit that unqualified substrate facet, so the test installs the structural container through the existing raw-write fixture seam; its dataset members still cross the ordinary writer boundary.
+
+```text
+source .superpowers/sdd/2026-09-14-world-resolution-slice-5/certified-env.sh
+cd python
+uv run --frozen pytest tests/acceptance/test_durable_traversal.py::TestS1TheRelationFixtureWalkedOutOfTheStore::test_membership_traversal_agrees_with_what_the_container_stores
+1 passed in 0.48s
+```

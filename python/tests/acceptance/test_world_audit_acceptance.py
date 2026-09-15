@@ -11,6 +11,7 @@ from typing import cast
 import pytest
 import yaml
 from authority import FULL
+from dataset_fixtures import dataset_ref
 from durable_fixture import pinned
 from fixtures_cut4 import raw_write
 from profiles import BASE
@@ -191,7 +192,7 @@ def test_a_moved_corpus_and_one_of_two_moving_are_unresolvable_durably(chain):
     world, roots, published, a, b = chain
     unchanged = registry.corpus_state_identity(roots[a])
     open_corpus(roots[b], authority=FULL, profile=BASE).add(
-        stored.dataset_node("late", title="late", resources=pinned())
+        stored.dataset_node(title="late", resources=pinned())
     )
     for kind in KINDS:
         outcome = read.validate_receipt(world, published, kind)
@@ -495,9 +496,9 @@ def test_drift_absence_and_unreachable_recomputation_are_findings_durably(chain,
 
 
 def test_attestation_endpoints_and_shared_identifiers_are_findings_durably(durable_world):
-    left = stored.dataset_node("left", title="left")
-    right = stored.dataset_node("right", title="right")
-    gone = stored.dataset_node("gone", title="gone")
+    left = stored.dataset_node(title="left", resources=pinned())
+    right = stored.dataset_node(title="right", resources=pinned())
+    gone = stored.dataset_node(title="gone", resources=pinned())
 
     def attestation(left, right):
         return stored.coreference_attestation_node(
@@ -541,18 +542,20 @@ def test_attestation_endpoints_and_shared_identifiers_are_findings_durably(durab
 
 def test_the_world_audit_reproduces_every_per_record_finding_durably(chain, monkeypatch):
     world, roots, published, a, _b = chain
-    mapped = ReadView.opened_at(roots[a]).get("dataset:d0")
+    mapped = ReadView.opened_at(roots[a]).get(dataset_ref("d0"))
     mapped.facets["semantic-identity"]["digest"] = "0" * 64
     raw_write(roots[a], mapped)
-    raw_write(roots[a], stale("captured"))
+    captured_stale = stale("captured")
+    raw_write(roots[a], captured_stale)
     local = audit_corpus(ReadView.opened_at(roots[a]), evidence=NO_EVIDENCE, profile=BASE)
     captured = open_world_view(world, published, on_damage="report")
-    raw_write(roots[a], stale("after-capture"))
+    late = stale("after-capture")
+    raw_write(roots[a], late)
     monkeypatch.setattr(view_module, "open_world_view", lambda *_args, **_kwargs: captured)
     findings = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE).corpora[a]
     assert tuple(f for f in findings if f.code != "drift") == local
-    assert {f.ref for f in local if f.code == "semantic-hash-stale"} == {mapped.id, "dataset:captured"}
-    assert not any(f.ref == "dataset:after-capture" for f in findings)
+    assert {f.ref for f in local if f.code == "semantic-hash-stale"} == {mapped.id, captured_stale.id}
+    assert not any(f.ref == late.id for f in findings)
 
 
 def test_the_evaluator_answers_unresolvable_for_a_damaged_carrier_and_the_edge_is_indeterminate_durably(chain):
@@ -642,7 +645,7 @@ def test_two_carriers_of_one_id_refuse_the_build_durably(chain, scratch):
 
 def test_a_cross_corpus_producer_diverges_and_moves_the_digest_durably(durable_world):
     d0, r1, d1, _r2, _d2 = chain_nodes()
-    other = stored.dataset_node("b", title="b")
+    other = stored.dataset_node(title="b", resources=pinned())
     r2 = stored.run_node("r2x", title="r2x", spec="s", transforms=[other.id], produces=[d1.id])
     world, roots, published, a, b = durable_world((d0, r1, d1), (other, r2))
     snapshot = lineage_snapshot(open_world_view(world, published), [d1.id])
@@ -673,7 +676,7 @@ def test_open_refusals_never_become_absence_durably(chain):
     assert view.absent() == () and absent == {}
     with pytest.raises(CorpusDamaged):
         lineage_snapshot(view, [address])
-    healthy = lineage_snapshot(view, ["dataset:d0"])
+    healthy = lineage_snapshot(view, [dataset_ref("d0")])
     assert healthy.not_present == {}
     resolution = build_snapshot(not_present=absent)
     assert resolution.identity == build_snapshot().identity
