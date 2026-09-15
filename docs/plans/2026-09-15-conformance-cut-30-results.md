@@ -23,6 +23,53 @@ The preliminary full suite is retained at [`test-incomplete-docs.log`](2026-09-1
 
 The prefix chain is cut 30 → cut 29 → cut 28 → cut 27 → cut 26 → cut 25 → cut 24 → cut 23 → cut 22 → cut 21 → cut 20 → cut 19 → cut 18 → cut 17. The certified transcript's 44 module summaries report **720 passed**; its final cut-30 phases are `test_source_address_acceptance.py` (21 passed) and `test_n2_cut30.py` (9 passed; ten arms).
 
+| phase | module | summary |
+|---|---|---|
+| cut17 phase 1/19 | `test_n2_cut6.py` | 24 passed in 12.71s |
+| cut17 phase 2/19 | `test_n2_cut7.py` | 43 passed in 48.45s |
+| cut17 phase 3/19 | `test_n2_cut9.py` | 23 passed in 17.15s |
+| cut17 phase 4/19 | `test_intent_boundary_acceptance.py` | 18 passed in 6.55s |
+| cut17 phase 5/19 | `test_n2_cut11.py` | 17 passed in 32.31s |
+| cut17 phase 6/19 | `test_successor_admission_acceptance.py` | 4 passed in 2.18s |
+| cut17 phase 7/19 | `test_n2_cut12.py` | 16 passed in 15.02s |
+| cut17 phase 8/19 | `test_confinement_acceptance.py` | 15 passed in 316.24s (0:05:16) |
+| cut17 phase 9/19 | `test_n2_cut13.py` | 16 passed in 126.79s (0:02:06) |
+| cut17 phase 10/19 | `test_coordination_acceptance.py` | 22 passed in 15.32s |
+| cut17 phase 11/19 | `test_n2_cut14.py` | 7 passed in 14.23s |
+| cut17 phase 12/19 | `test_cut15_lineage.py` | 5 passed in 81.11s (0:01:21) |
+| cut17 phase 13/19 | `test_n2_cut15.py` | 8 passed in 45.51s |
+| cut17 phase 14/19 | `test_relocation_acceptance.py` | 16 passed in 68.83s (0:01:08) |
+| cut17 phase 15/19 | `test_n2_cut16.py` | 7 passed in 78.43s (0:01:18) |
+| cut17 phase 16/19 | `test_permit_acceptance.py` | 8 passed in 4.32s |
+| cut17 phase 17/19 | `test_permit_boundary.py` | 18 passed in 2.74s |
+| cut17 phase 18/19 | `test_permit_entry_points.py` | 110 passed in 28.02s |
+| cut17 phase 19/19 | `test_n2_cut17.py` | 8 passed in 16.29s |
+| cut18 phase 2/3 | `test_deletion_acceptance.py` | 16 passed in 55.74s |
+| cut18 phase 3/3 | `test_n2_cut18.py` | 7 passed in 28.07s |
+| cut19 phase 2/3 | `test_session_acceptance.py` | 31 passed in 32.63s |
+| cut19 phase 3/3 | `test_n2_cut19.py` | 7 passed in 30.74s |
+| cut20 phase 2/3 | `test_facet_acceptance.py` | 17 passed in 40.46s |
+| cut20 phase 3/3 | `test_n2_cut20.py` | 5 passed in 36.47s |
+| cut21 phase 2/3 | `test_verification_acceptance.py` | 4 passed in 9.66s |
+| cut21 phase 3/3 | `test_n2_cut21.py` | 7 passed in 35.69s |
+| cut22 phase 2/3 | `test_biology_acceptance.py` | 2 passed in 2.74s |
+| cut22 phase 3/3 | `test_n2_cut22.py` | 7 passed in 4.12s |
+| cut23 phase 2/3 | `test_world_view_acceptance.py` | 30 passed in 123.27s (0:02:03) |
+| cut23 phase 3/3 | `test_n2_cut23.py` | 7 passed in 43.06s |
+| cut24 phase 2/3 | `test_coreference_acceptance.py` | 15 passed in 87.31s (0:01:27) |
+| cut24 phase 3/3 | `test_n2_cut24.py` | 7 passed in 23.43s |
+| cut25 phase 2/3 | `test_source_address_acceptance.py` | 21 passed in 37.40s |
+| cut25 phase 3/3 | `test_n2_cut25.py` | 8 passed in 8.31s |
+| cut26 phase 2/2 | `test_n2_cut26.py` | 10 passed in 1.41s |
+| cut27 phase 2/3 | `test_world_audit_acceptance.py` | 42 passed in 237.97s (0:03:57) |
+| cut27 phase 3/3 | `test_n2_cut27.py` | 9 passed in 58.54s |
+| cut28 phase 2/3 | `test_world_selection_acceptance.py` | 25 passed in 130.52s (0:02:10) |
+| cut28 phase 3/3 | `test_n2_cut28.py` | 9 passed in 39.67s |
+| cut29 phase 2/3 | `test_dataset_address_acceptance.py` | 10 passed in 7.65s |
+| cut29 phase 3/3 | `test_n2_cut29.py` | 9 passed in 5.54s |
+| cut30 phase 2/3 | `test_source_address_acceptance.py` | 21 passed in 36.90s |
+| cut30 phase 3/3 | `test_n2_cut30.py` | 9 passed in 4.38s |
+
 ## 2. Accounting
 
 Zero guarantee rows are read, **0 full/closed** newly; one declaration unit,
@@ -36,7 +83,7 @@ also moved cut16 W16b/D7b; Task 6 live-retargeted them preserving original
 assertions/checks, plus planned cut25 W5a-m. The frozen cut 30 did not include
 guard16, so the implementation boundary expanded accordingly.
 
-The certified runner used the main checkout's certified volume: backend `linux/linux-4`, kernel `7.2.2-arch1-1`, ext4 `async,barrier=1,commit=5,data=ordered`, storage profile `flush-honoring-disk.v1`, and masks `compat=0x3c,incompat=0x246,ro_compat=0x46b`. The implementation worktree is on the uncertified tuple `compat=0x103c,incompat=0x22c6,ro_compat=0x1046b`; no allowlist or waiver changed.
+The read-only [tuple probe](2026-09-15-conformance-cut-30-run/tuple-probe.log) (SHA-256 `bfda336f0a945875b1478a5f60af27ddac71adc500179f67bdb850cd77cdc817`) measured the certified root as `linux/linux-4`, kernel `7.2.2-arch1-1`, ext4 `async,barrier=1,commit=5,data=ordered`, and masks `compat=0x3c,incompat=0x246,ro_compat=0x46b`. The declared storage profile is `flush-honoring-disk.v1`. The worktree measurement has masks `compat=0x103c,incompat=0x22c6,ro_compat=0x1046b`; no allowlist or waiver changed.
 
 The full gate exposed a static audit false positive: `copy.deepcopy` in the new reconciliation function was classified as a filesystem copy. The audit now recognizes the stdlib `copy` module and has a regression proving it still detects `shutil.copy` in the same module.
 

@@ -8,7 +8,7 @@ complexity: mid
 process: direct
 owner: design/world-resolution-slice-6
 created: 2026-09-15T10:50:21Z
-updated: 2026-09-15T13:47:00Z
+updated: 2026-09-15T13:53:58Z
 started: 2026-09-15T12:17:20Z
 completed: 2026-09-15T13:42:36Z
 depends: [beliefs-3fb98b]
@@ -24,3 +24,4 @@ step: "Task 8: Discharge — certified run, results record, ledger, roadmap, not
 - 2026-09-15T12:17:20Z (design/world-resolution-slice-6): claimed by Codex, pid 1942886
 - 2026-09-15T13:42:36Z (design/world-resolution-slice-6): cut 30 discharged: results record, ledger, roadmap, guide, README, dated notes
 - 2026-09-15T13:47:00Z (design/world-resolution-slice-6): review fix round 1: strengthened copy audit regression; restored cut 30 evidence pins, commands, chain and certified tuple
+- 2026-09-15T13:53:58Z (design/world-resolution-slice-6): review fix round 2: added 44-row certified summary table and retained read-only tuple measurement
