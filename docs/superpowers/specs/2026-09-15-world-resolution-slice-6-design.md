@@ -66,9 +66,11 @@ filed follow-up and closes the boundary.
    (`absorbed` included): an event that reached the survivor by two paths
    (a third replica absorbed through two intermediaries) is one event twice
    recorded, not a collision. One token under two contents is a conflicting
-   reuse and is malformed. The reconciliation function (§4) never absorbs an
-   event the survivor already holds, so an interrupted `consolidate` re-run
-   over the already-reconciled survivor is the identity — the families
+   reuse and is malformed. The reconciliation function (§4) never absorbs a
+   spine entry the survivor already holds (an identical event may still
+   recur *inside* a newly absorbed consolidation entry — the diamond), so an
+   interrupted `consolidate` re-run over the already-reconciled survivor is
+   the identity — the families
    design's recovery contract (`consolidate` steps 2–4: "re-run
    `consolidate`; the idempotent union is what makes a re-run safe").
 6. **The entry carries the operation's token.** A consolidation entry's
@@ -217,14 +219,17 @@ For `source`, in order:
    `sorted(set(keep_map.items()) ^ set(other_map.items()))`'s schemes. The
    line is cut 28's `W8-b` anchor and does not move.
 2. *(removed)* the history-equality refusal.
-3. `intent = OperationIntent("consolidate", secrets.token_hex(16), actor)`
-   **and** the `Consolidated` outcome are constructed **here**, before the
-   merge — the intent so the entry can carry its token, the outcome so
-   `rationale`'s own validation (`_require_str`: non-empty, canonically
-   encodable, `MalformedRecord`) still fires before the value reaches the
-   facet, and `test_consolidate_validates_both_reports_before_either_intent`
-   keeps its refusal class. The intent is still appended to either root only
-   after every preflight, as today.
+3. **`rationale` is validated here, explicitly, on every path:** it is a
+   `str`, non-empty, and canonically encodable under `science.identity.v1`
+   (`v1.encode`), else `RelocationRefused` ("consolidate: rationale is a
+   non-empty, canonically encodable string"). `Consolidated` checks only the
+   type (`_require_str`), so `""` and a lone surrogate would otherwise reach
+   the history validator on the absorb path (`ValidationRefused` from
+   preflight, the wrong class) and pass silently on the identity path. Then
+   `intent = OperationIntent("consolidate", secrets.token_hex(16), actor)` is
+   constructed, before the merge, so the entry can carry its token; it is
+   still appended to either root only after every preflight, as today.
+   `Consolidated` is built where it is today.
 4. `entries = stored.reconcile_correction_histories(keep_entries, other_entries, actor=keep_writer.authority.actor, grounds=rationale, event_token=intent.event_token)`.
 5. `_reconcile(keep_node, other_node, correction_entries=entries)` — the
    existing merge (relations, `deprecated_ids` union, lineage bases,
@@ -250,8 +255,10 @@ deletion and the reports under its own fresh token. Nothing is absorbed
 twice.
 
 `rationale` becomes the consolidation entry's `grounds`; step 3 validates
-it through `Consolidated` before the merge, so an empty or non-encodable
-rationale refuses `MalformedRecord` as today and never reaches the facet.
+it before the merge, so an empty or non-encodable rationale refuses
+`RelocationRefused` before any intent whether or not anything is absorbed,
+and never reaches the facet or a report. This tightens the identity path,
+which today accepts `""` into the act-report.
 
 `move` carries a nested history across roots unchanged; `delete` retires the
 record and its redirect set with it; `supersede` and `revise` still do not
@@ -262,6 +269,7 @@ reach `source`.
 | refusal | where | change |
 |---|---|---|
 | `HistoryDisagreement` | `consolidate`: identifier maps differ; conflicting token reuse; held events interleaving unheld ones (§4 steps 1, 4) | the history-equality case is retired; the three remaining cases each name what differs; class and name unchanged (cut 28 `W8-b` imports it) |
+| `RelocationRefused` | `consolidate`: `rationale` empty, not a `str`, or not canonically encodable (§5 step 3) | new clause; the base class, no subclass |
 | `MalformedRecord` | `identifier_corrections`, `validate_source_history` | new clauses: key set per kind, `from == to` iff `absorbed`, absorbed continuity and end, token distinctness across chains, held over chains |
 | `ValidationRefused` over `MalformedRecord` | `_refuse_source` on every write path, `consolidate`'s preflight included | unchanged mapping |
 | `FacetPayloadRefused` / `facet-payload-malformed` | `validated_node`, the check view | unchanged mapping, new clauses reach it |
@@ -335,7 +343,10 @@ the first run's; `test_consolidate_of_equal_histories_is_the_identity`
 `test_consolidate_of_history_free_replicas_carries_no_facet`;
 `test_correct_identifier_appends_after_a_consolidation_entry` (the seam's
 plus-exactly-one rule over a spine that ends in a consolidation entry);
-`test_move_carries_a_nested_history`; `test_consolidate_twice_nests`
+`test_consolidate_refuses_a_malformed_rationale_on_both_paths` (parametrized
+over `""` and `"\ud800"` × identity and absorb fixtures: `RelocationRefused`,
+no intent, no file effect, and on the identity path no report carrying the
+value); `test_move_carries_a_nested_history`; `test_consolidate_twice_nests`
 (a survivor absorbed once is consolidated against a third replica and the
 absorbed chain contains the earlier consolidation entry);
 `test_consolidate_refuses_conflicting_token_reuse` (`other` raw-imported with
@@ -388,6 +399,7 @@ close nothing new):
 | `W5a-t` | a consolidation entry changes nothing | the `from == to` iff `absorbed` clause removed | the six-key-unequal and five-key-equal reader tests |
 | `W5a-u` | the entry carries the operation's token | `consolidate` passes `secrets.token_hex(16)` instead of `intent.event_token` | the absorb test's token assertion |
 | `W5a-v` | a prefix fast-forwards without an entry | step 2 falls through to step 5 | `test_consolidate_fast_forwards_a_prefix` |
+| `W5a-z` | the rationale is validated before reconciliation on every path | §5 step 3's check removed | `test_consolidate_refuses_a_malformed_rationale_on_both_paths` |
 
 The map refusal is not re-declared: cut 28's `W8-b` guards it live and its
 anchor does not move.
@@ -492,3 +504,11 @@ lanes — the estimand-typing lane's Task 0 re-reads it).
   retry-after-replacement). (P2) The fast-forward fixture "imported before a
   correction landed" leaves the maps unequal and refuses at the map check;
   it is now a `B→C→B` round trip, which tests adoption of `C`'s redirect.
+- **2026-09-15, second review, one finding taken.** (P2) §5 had relied on
+  `Consolidated` to validate `rationale`, but `_require_str` checks only the
+  type: `""` and a lone surrogate reach the history validator on the absorb
+  path (the wrong refusal class) and pass on the identity path. §5 step 3 now
+  validates the rationale explicitly before reconciliation, `RelocationRefused`
+  on both paths, tested on both (`W5a-z`); `Consolidated` stays where it is.
+  Decision 5's wording allows an identical event to recur inside a newly
+  absorbed entry, as the diamond test intends.
