@@ -373,11 +373,19 @@ is the map case.
 and read back through the check view (`corpus_check` reports nothing on the
 survivor) and the world read view at a published epoch (the retired address
 resolves to the survivor in `keep`'s corpus; the address map carries it).
-`test_failure_boundary_refusals_and_applied_prefixes` gains a `consolidate`
-halt after the families design's step 4, positioned as
-`correction_halt_positions` derives its positions — from what the halting
-backend observes, never from a guessed count — and asserts the duplicate
-location, then the re-run's completion with the survivor's entries unchanged.
+A new `test_consolidate_interrupted_after_replacement_re_runs_to_completion`
+over the durable `world` writers interrupts `consolidate` at the families
+design's step 4/5 boundary and asserts the duplicate location, then the
+re-run's completion with the survivor's entries unchanged. *Planning-time
+amendment, 2026-09-15:* the halting backend (`halting_session`) is bound to
+one root and positions a halt inside one root's publish sequence, while the
+step 4/5 boundary is between two roots' transactions — `keep`'s replace has
+committed and `other`'s delete has not begun. The interruption is therefore
+injected at that boundary directly: `CorpusWriter._delete_locked` is wrapped
+to raise once when called on `other`'s root, after which the test asserts
+the observed state (`keep` holds the reconciled survivor, `other` still holds
+its replica, both roots carry the run's operation intent unfulfilled) before
+the re-run.
 
 `tests/acceptance/test_world_selection_acceptance.py` — unchanged; its
 `HistoryDisagreement` case is the map case (cut 28 §W8).
@@ -396,7 +404,7 @@ close nothing new):
 | `W5a-s` | one token is one event across chains | the cross-chain content comparison removed | the conflicting-reuse reader test |
 | `W5a-x` | an already-held event is not absorbed again | step 3 absorbs `other`'s whole spine | `test_consolidate_retries_after_an_interrupted_replacement` |
 | `W5a-y` | reconciliation refuses conflicting reuse before any intent | step 1 removed | `test_consolidate_refuses_conflicting_token_reuse` |
-| `W5a-t` | a consolidation entry changes nothing | the `from == to` iff `absorbed` clause removed | the six-key-unequal and five-key-equal reader tests |
+| `W5a-t` | a consolidation entry changes nothing | the `elif "absorbed" in raw:` clause disabled | the six-key-unequal reader test (the five-key-equal case stays cut 25's `W5a-l`, whose anchor `        if frm == to:` this slice keeps) |
 | `W5a-u` | the entry carries the operation's token | `consolidate` passes `secrets.token_hex(16)` instead of `intent.event_token` | the absorb test's token assertion |
 | `W5a-v` | a prefix fast-forwards without an entry | step 2 falls through to step 5 | `test_consolidate_fast_forwards_a_prefix` |
 | `W5a-z` | the rationale is validated before reconciliation on every path | §5 step 3's check removed | `test_consolidate_refuses_a_malformed_rationale_on_both_paths` |
@@ -512,3 +520,7 @@ lanes — the estimand-typing lane's Task 0 re-reads it).
   on both paths, tested on both (`W5a-z`); `Consolidated` stays where it is.
   Decision 5's wording allows an identical event to recur inside a newly
   absorbed entry, as the diamond test intends.
+- **2026-09-15, planning-time amendments.** §7.2's interruption test injects
+  at the two-root step 4/5 boundary rather than through the single-root
+  halting backend; §7.3's `W5a-t` disables only the consolidation clause,
+  leaving cut 25's `W5a-l` anchor in place.
