@@ -8,6 +8,7 @@ R16's family/job/stream completeness is checked from the workflow snapshot.
 
 import dataclasses
 import inspect
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -27,6 +28,7 @@ from fixtures_cut3 import (
     spec_rules,
     traced,
     traced_from_key,
+    typed_estimand,
 )
 from fixtures_cut3 import (
     memory_assessment as run_assessment,
@@ -679,7 +681,7 @@ def test_r4_independent_implementation_needs_all_four_conditions(tmp_path):
 
 def test_r4_negative_c_a_different_spec_identity_is_not_certified(tmp_path):
     a = run_assessment(tmp_path / "a")
-    other_spec = freeze(spec_draft(estimand="a different question"), held_rules=spec_rules())
+    other_spec = freeze(spec_draft(estimand=typed_estimand(reference=Decimal(1))), held_rules=spec_rules())
     b = run_assessment(tmp_path / "b", spec=other_spec)
     assert isinstance(a, RunMinted) and isinstance(b, RunMinted)
     certified = CodeLineageCertification(rationale="claim", attribution="tester")

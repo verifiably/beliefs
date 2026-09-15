@@ -20,8 +20,24 @@ from hashlib import sha256
 from types import MappingProxyType
 from typing import Protocol, cast, final
 
-from beliefs.errors import CanonicalTextRefused, MalformedRecord, MalformedSpec, RuleUnbound, UnfreezableSpec
+from beliefs.claim import Qualifier
+from beliefs.contract.base import ESTIMAND_GRAMMAR
+from beliefs.decode import applicability_from_stored, estimand_from_stored
+from beliefs.errors import (
+    CanonicalTextRefused,
+    ClaimError,
+    DecodeError,
+    EstimandError,
+    MalformedRecord,
+    MalformedSpec,
+    PreGrammarSpec,
+    ProfileError,
+    RuleUnbound,
+    UnfreezableSpec,
+)
+from beliefs.estimand import Estimand, applicability_projection, estimand_projection
 from beliefs.identity import v1
+from beliefs.profile import ProfileSpec
 from beliefs.sealed import sealed
 
 __all__ = [
@@ -268,12 +284,12 @@ def _project_parameter_value(value: object) -> object:
 @dataclass(frozen=True)
 class SpecDraft:
     target: str
-    estimand: str
+    estimand: Estimand
     method: str
     assumptions: str
     falsification: str
     input_roles: tuple[SpecInput, ...]
-    applicability: str
+    applicability: Mapping[str, Qualifier]
     interpretation_rule: str
     equivalence_rule: str
     parameters: Mapping[str, object]
@@ -284,6 +300,11 @@ class SpecDraft:
             isinstance(entry, SpecInput) for entry in self.input_roles
         ):
             raise MalformedSpec("input_roles holds SpecInput values only")
+        if type(self.estimand) is not Estimand:
+            raise MalformedSpec(f"estimand is a typed Estimand built by build_estimand, found {type(self.estimand).__name__}")
+        if not isinstance(self.applicability, Mapping) or not all(isinstance(q, Qualifier) for q in self.applicability.values()):
+            raise MalformedSpec("applicability is a mapping of dimension → Qualifier built by build_applicability")
+        object.__setattr__(self, "applicability", MappingProxyType(dict(self.applicability)))
         object.__setattr__(
             self,
             "parameters",
@@ -296,12 +317,12 @@ class SpecDraft:
 @dataclass(frozen=True, init=False)
 class FrozenSpec:
     target: str
-    estimand: str
+    estimand: Estimand
     method: str
     assumptions: str
     falsification: str
     input_roles: tuple[SpecInput, ...]
-    applicability: str
+    applicability: Mapping[str, Qualifier]
     interpretation_rule: str
     equivalence_rule: str
     parameters: Mapping[str, object]
@@ -369,7 +390,8 @@ def admit_successor(
 def _facet_projection(draft: SpecDraft | FrozenSpec, rule_bindings, supersedes) -> dict[str, object]:
     facet: dict[str, object] = {
         "target": draft.target,
-        "estimand": draft.estimand,
+        "estimand_grammar": ESTIMAND_GRAMMAR,
+        "estimand": estimand_projection(draft.estimand),
         "method": draft.method,
         "assumptions": draft.assumptions,
         "falsification": draft.falsification,
@@ -382,7 +404,7 @@ def _facet_projection(draft: SpecDraft | FrozenSpec, rule_bindings, supersedes) 
             )
             for entry in draft.input_roles
         ],
-        "applicability": draft.applicability,
+        "applicability": applicability_projection(draft.applicability),
         "interpretation_rule": draft.interpretation_rule,
         "equivalence_rule": draft.equivalence_rule,
         "parameters": _project_parameter_value(draft.parameters),
@@ -420,11 +442,11 @@ def frozen_projection(spec: FrozenSpec) -> dict[str, object]:
 
 _FROZEN_MEMBERS = frozenset(
     {
-        "target", "estimand", "method", "assumptions", "falsification", "input_roles", "applicability",
+        "target", "estimand_grammar", "estimand", "method", "assumptions", "falsification", "input_roles", "applicability",
         "interpretation_rule", "equivalence_rule", "parameters", "nondeterminism", "rule_bindings",
     }
 )
-_TEXT_MEMBERS = ("target", "estimand", "method", "assumptions", "falsification", "applicability", "interpretation_rule", "equivalence_rule")
+_TEXT_MEMBERS = ("target", "method", "assumptions", "falsification", "interpretation_rule", "equivalence_rule")
 
 
 def _text(mapping: Mapping[str, object], name: str, where: str) -> str:
@@ -469,21 +491,41 @@ def _restore_nondeterminism(value: object, where: str) -> NondeterminismContract
     raise MalformedRecord(f"{where}: nondeterminism variant {variant!r} is not one of the three")
 
 
-def restore(identity: str, projection: bytes) -> FrozenSpec:
+def restore(identity: str, projection: bytes, *, profile: ProfileSpec) -> FrozenSpec:
     """The third mint: a frozen spec from its stored canonical projection
     (design §7). Refuses text that is not canonical, a mapping that is not
     exactly the frozen members, a digest that is not `identity`, any member of
     the wrong type — nothing is coerced — and the pair `freeze` refuses, so a
-    stored spec is exactly one `freeze` produced."""
+    stored spec is exactly one `freeze` produced.
+
+    A projection with no `estimand_grammar` member is refused by name
+    (`PreGrammarSpec`), never coerced: it was frozen before
+    `science.estimand.v1`, and its `estimand`/`applicability` are prose, not
+    the typed members this reader restores (estimand-typing decision 10)."""
     where = f"analysis-spec {identity[:12]}"
     try:
         mapping = v1.decode(projection)
     except CanonicalTextRefused as refused:
         raise MalformedRecord(f"{where}: the projection is not canonical text: {refused}") from refused
+    if isinstance(mapping, dict) and "estimand_grammar" not in mapping:
+        raise PreGrammarSpec(
+            f"{where}: pre-grammar spec — frozen before {ESTIMAND_GRAMMAR}, its estimand and applicability are prose. "
+            "Refused, never coerced: a corpus holding one was not recreated (estimand-typing decision 10)."
+        )
     if not isinstance(mapping, dict) or not _FROZEN_MEMBERS <= set(mapping) <= _FROZEN_MEMBERS | {"supersedes"}:
         raise MalformedRecord(f"{where}: the projection carries exactly the frozen members")
     if v1.digest(SPEC_DOMAIN, mapping) != identity:
         raise MalformedRecord(f"{where}: the projection does not digest to the identity")
+    if mapping["estimand_grammar"] != ESTIMAND_GRAMMAR:
+        raise MalformedRecord(f"{where}: estimand_grammar is {mapping['estimand_grammar']!r}, not {ESTIMAND_GRAMMAR!r}")
+    try:
+        estimand = estimand_from_stored(mapping["estimand"], profile=profile)
+        applicability = applicability_from_stored(mapping["applicability"], profile=profile, operator=estimand.operator)
+    except (DecodeError, EstimandError, ClaimError, ProfileError) as refused:
+        # Translated here, not propagated: the audit and `stored_specs` catch
+        # `RecordError`, and a decode-family error escaping a stored reader would
+        # abort an audit instead of becoming its finding.
+        raise MalformedRecord(f"{where}: the typed members do not restore: {refused}") from refused
     text = {name: _text(mapping, name, where) for name in _TEXT_MEMBERS}
     if not text["target"]:
         raise MalformedRecord(f"{where}: an assessment spec targets a proposition; an empty target is not a spec (R7)")
@@ -504,6 +546,8 @@ def restore(identity: str, projection: bytes) -> FrozenSpec:
         raise MalformedRecord(f"{where}: supersedes is a string")
     spec = _mint_frozen_spec(
         **text,
+        estimand=estimand,
+        applicability=applicability,
         input_roles=tuple(_restore_input(entry, where) for entry in mapping["input_roles"]),
         parameters=mapping["parameters"],
         nondeterminism=nondeterminism,
@@ -532,12 +576,12 @@ def revise(
     applies to specs it did not mint (G4)."""
     draft = SpecDraft(
         target=cast(str, edits.get("target", original.target)),
-        estimand=cast(str, edits.get("estimand", original.estimand)),
+        estimand=cast(Estimand, edits.get("estimand", original.estimand)),
         method=cast(str, edits.get("method", original.method)),
         assumptions=cast(str, edits.get("assumptions", original.assumptions)),
         falsification=cast(str, edits.get("falsification", original.falsification)),
         input_roles=cast(tuple[SpecInput, ...], edits.get("input_roles", original.input_roles)),
-        applicability=cast(str, edits.get("applicability", original.applicability)),
+        applicability=cast("Mapping[str, Qualifier]", edits.get("applicability", original.applicability)),
         interpretation_rule=cast(str, edits.get("interpretation_rule", original.interpretation_rule)),
         equivalence_rule=cast(str, edits.get("equivalence_rule", original.equivalence_rule)),
         parameters=cast(Mapping[str, object], edits.get("parameters", original.parameters)),

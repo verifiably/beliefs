@@ -154,14 +154,15 @@ def test_assoc_supported_when_positive_level_is_higher_reading_gzip(tmp_path):
 def test_spec_record_carries_a_fresh_semantic_stamp():
     from decimal import Decimal
 
+    from fixtures_cut3 import typed_applicability, typed_estimand
     from reproduction import spec as spec_module
 
     from beliefs import stored
     from beliefs.spec import Deterministic, SpecDraft, SpecInput, freeze
 
     draft = SpecDraft(
-        target="proposition:p", estimand="e", method="m", assumptions="a", falsification="f",
-        input_roles=(SpecInput(role="observes", dataset="dataset:sha256:" + "a" * 64),), applicability="x",
+        target="proposition:p", estimand=typed_estimand(), method="m", assumptions="a", falsification="f",
+        input_roles=(SpecInput(role="observes", dataset="dataset:sha256:" + "a" * 64),), applicability=typed_applicability(),
         interpretation_rule=spec_module.INTERPRETATION_RULE, equivalence_rule=spec_module.EQUIVALENCE_RULE,
         parameters={"alpha": Decimal("0.05")}, nondeterminism=Deterministic(),
     )
@@ -183,16 +184,16 @@ def test_10b_reads_the_report_from_the_corpus_with_no_in_process_spec(tmp_path, 
     """V1 and V8's 10b arms: the report, scope and verdict are read; the only
     in-process input is the rule implementations; `spec.frozen()` is not
     reachable. The negative: a report-less record reports false."""
-    from fixtures_cut3 import spec_rules
+    from fixtures_cut3 import TESTING_PROFILE, spec_rules
     from reproduction import close, rederive, spec
-    from test_relocation import _writer
+    from test_stored import _testing_writer
     from verification_fixtures import publish_corpus
 
     from beliefs import stored
     from beliefs.replay import CONTENT_EQUALITY
     from beliefs.verify import publication_node
 
-    writer = _writer(tmp_path / "corpus")
+    writer = _testing_writer(tmp_path / "corpus")
     published = publish_corpus(writer)
     spec_node = writer.add(stored.analysis_spec_node(published.frozen))
     node = writer.add(publication_node(published.derived, assessment_ref=published.assessment.id))
@@ -201,12 +202,13 @@ def test_10b_reads_the_report_from_the_corpus_with_no_in_process_spec(tmp_path, 
         raise RuntimeError("the in-process spec is unavailable")
 
     monkeypatch.setattr(spec, "frozen", unavailable)
+    monkeypatch.setattr(rederive, "profile", lambda: TESTING_PROFILE)
     interpretation = spec_rules()[published.frozen.interpretation_rule]
     monkeypatch.setattr(spec, "EQUIVALENCE", CONTENT_EQUALITY)
     monkeypatch.setattr(spec, "INTERPRETATION", interpretation)
     st = {"verification_ref": node.id, "spec_ref": spec_node.id}
     view = writer.read_view
-    report = rederive.reconstruct(view, st, close.evidence_for(view))
+    report = rederive.reconstruct(view, st, close.evidence_for(view, TESTING_PROFILE))
     assert report["comparison_report_stored"] is True
     assert report["scope_equal"] is True and report["verdict_equal"] is True and report["report_identity_equal"] is True
     assert report["inputs"]["in_process"] == ["interpretation and equivalence RuleImplementations"]
@@ -219,7 +221,7 @@ def test_10b_reads_the_report_from_the_corpus_with_no_in_process_spec(tmp_path, 
             derivation=(stored.typed_ref("run", published.derived.original), stored.typed_ref("run", published.derived.replayed)),
         )
     )
-    negative = rederive.reconstruct(writer.read_view, {**st, "verification_ref": legacy.id}, close.evidence_for(writer.read_view))
+    negative = rederive.reconstruct(writer.read_view, {**st, "verification_ref": legacy.id}, close.evidence_for(writer.read_view, TESTING_PROFILE))
     assert negative["comparison_report_stored"] is False and "scope_read" not in negative
 
 
@@ -237,7 +239,7 @@ def test_close_evidence_for_raises_on_a_stored_spec_that_does_not_restore(tmp_pa
     recomputation sees (design decision 15): a raw-written analysis-spec
     record whose text disagrees with its own identity must stop 10b cold,
     never drop out of `stored_specs`' mapping unnoticed."""
-    from fixtures_cut3 import spec_draft, spec_rules
+    from fixtures_cut3 import TESTING_PROFILE, spec_draft, spec_rules
     from fixtures_cut4 import raw_write, reopen
     from reproduction import close
     from test_relocation import _writer
@@ -254,7 +256,7 @@ def test_close_evidence_for_raises_on_a_stored_spec_that_does_not_restore(tmp_pa
     )
     raw_write(writer.root, stored.stamp_semantic_identity(forged))
     with pytest.raises(RuntimeError, match="analysis-spec:forged"):
-        close.evidence_for(reopen(writer.root))
+        close.evidence_for(reopen(writer.root), TESTING_PROFILE)
 
 
 def test_the_row_plan_maps_a_predicate_and_kind_pair(tmp_path, monkeypatch):
@@ -337,12 +339,17 @@ def test_a_non_canonical_concept_id_refuses(tmp_path):
         concept_lines(tmp_path)
 
 
-PINNED_IDENTITY = "fadc127ba6efd8a901015a029df99178c346889a39afb98200ba7c9914c5da6a"
+# Re-pinned 2026-09-15 (estimand-typing Task 6): `estimand` and `applicability`
+# moved from prose to typed members, so the digest they enter into moved too —
+# the rule bindings this test actually guards are unchanged, per the assertion
+# above.
+PINNED_IDENTITY = "abb23abf21d3674428606df058bafc983be845d9b4e2fa918bf08bff7aae87d8"
 
 
 def test_the_driver_binds_the_kernel_rules_under_its_own_identities():
     from decimal import Decimal
 
+    from fixtures_cut3 import typed_applicability, typed_estimand
     from reproduction import spec as spec_module
 
     from beliefs.replay import CONTENT_EQUALITY
@@ -354,12 +361,12 @@ def test_the_driver_binds_the_kernel_rules_under_its_own_identities():
     assert held[spec_module.EQUIVALENCE_RULE] is CONTENT_EQUALITY
     draft = SpecDraft(
         target="proposition:p",
-        estimand="e",
+        estimand=typed_estimand(),
         method="m",
         assumptions="a",
         falsification="f",
         input_roles=(SpecInput(role="observes", dataset="dataset:sha256:" + "a" * 64),),
-        applicability="x",
+        applicability=typed_applicability(),
         interpretation_rule=spec_module.INTERPRETATION_RULE,
         equivalence_rule=spec_module.EQUIVALENCE_RULE,
         parameters={"alpha": Decimal("0.05")},

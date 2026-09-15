@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from fixtures_cut3 import spec_draft
+from fixtures_cut3 import TESTING_PROFILE, spec_draft
 
 from beliefs.errors import UnfreezableSpec
 from beliefs.identity import v1
@@ -86,4 +86,4 @@ def test_the_kernel_equality_identity_is_bitwise_at_restore():
     mapping["nondeterminism"] = StochasticUnseeded(rationale="honest").projection()
     identity = v1.digest(SPEC_DOMAIN, mapping)
     with pytest.raises(UnfreezableSpec):
-        restore(identity, v1.encode(mapping))
+        restore(identity, v1.encode(mapping), profile=TESTING_PROFILE)

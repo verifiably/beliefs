@@ -2784,15 +2784,14 @@ class CorpusWriter:
                 f"{record.id}: route identity {target['route_identity']!r} is absent from the stamped basis"
             )
 
-    @staticmethod
-    def _refuse_r20_contradiction(record: Node) -> None:
+    def _refuse_r20_contradiction(self, record: Node) -> None:
         """A stored spec restores, or the record is refused: the r20 pair is
         `restore`'s `UnfreezableSpec`, surfaced as document validation; every
         other malformedness propagates as `restore` raised it."""
         if record.kind != "analysis-spec":
             return
         try:
-            stored.analysis_spec_value(record)
+            stored.analysis_spec_value(record, profile=self._profile)
         except UnfreezableSpec as caught:
             raise ValidationRefused(f"{record.id}: {caught}") from caught
 

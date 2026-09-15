@@ -996,25 +996,32 @@ def _false_spec_record(spec):
     return stored.stamp_semantic_identity(forged)
 
 
-def test_v8_the_audit_names_a_spec_that_does_not_restore_and_stored_specs_reports_it(writer):
+def test_v8_the_audit_names_a_spec_that_does_not_restore_and_stored_specs_reports_it(tmp_path):
+    # A writer on `TESTING_PROFILE`, not the shared `writer` fixture (BASE):
+    # `spec_draft()`'s typed estimand is against `testing/affects`, which BASE
+    # does not declare, and restoration reads the profile that wrote it.
+    from fixtures_cut3 import TESTING_PROFILE
+    from test_stored import _testing_writer
+
+    writer = _testing_writer(tmp_path / "corpus")
     spec = freeze(spec_draft(), held_rules=spec_rules())
     good = writer.add(stored.analysis_spec_node(spec))
     forged = _false_spec_record(spec)
     raw_write(writer.root, forged)
     view = reopen(writer.root)
-    assert check_analysis_spec(view.get(good.id)).checked
+    assert check_analysis_spec(view.get(good.id), profile=TESTING_PROFILE).checked
     with pytest.raises(MalformedRecord):
-        check_analysis_spec(view.get(forged.id))
-    specs, findings = stored_specs(view)
+        check_analysis_spec(view.get(forged.id), profile=TESTING_PROFILE)
+    specs, findings = stored_specs(view, profile=TESTING_PROFILE)
     assert set(specs) == {spec.identity} and [f.ref for f in findings] == [forged.id] and findings[0].code == "derivation-malformed"
-    assert [f.ref for f in audit_corpus(view, evidence=NO_EVIDENCE, profile=BASE) if f.code == "derivation-malformed"] == [forged.id]
+    assert [f.ref for f in audit_corpus(view, evidence=NO_EVIDENCE, profile=TESTING_PROFILE) if f.code == "derivation-malformed"] == [forged.id]
 
 
 def test_v4_the_audit_reaches_the_same_verdict_with_specs_restored_from_the_corpus(writer):
     published = publish_corpus(writer, publish=True)
     assert published.node is not None
     writer.add(stored.analysis_spec_node(published.frozen))
-    specs, findings = stored_specs(writer.read_view)
+    specs, findings = stored_specs(writer.read_view, profile=BASE)
     assert not findings and set(specs) == {published.frozen.identity}
     from dataclasses import replace
 

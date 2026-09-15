@@ -87,8 +87,14 @@ def build_assessment(
             interpretation_rule=spec.interpretation_rule,
             estimate=estimate,
             uncertainty=uncertainty,
-            estimand=spec.estimand,
-            applicability=spec.applicability,
+            # `AssessmentValue.estimand`/`.applicability` are still `str | None`
+            # (estimand-typing Task 7 retypes them to `Estimand | None` /
+            # `Mapping[str, Qualifier] | None` and re-derives the stored facet,
+            # the comparison and the projection); `spec.estimand`/`.applicability`
+            # are typed as of Task 6. Left mismatched on purpose across the
+            # task boundary — not coerced here.
+            estimand=spec.estimand,  # type: ignore[reportArgumentType]
+            applicability=spec.applicability,  # type: ignore[reportArgumentType]
         )
     except Exception as error:  # noqa: BLE001 — arbitrary rule machinery records a finding
         return AssessmentFinding(run=run_address, reason=f"evaluation-failed: {error}")

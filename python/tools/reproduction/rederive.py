@@ -20,6 +20,7 @@ from beliefs.replay import derive_scope
 from beliefs.runrecord import decode_run_closure
 from beliefs.verify import AssessmentVerification, build_verification, decode_verification
 from reproduction import answers, belief, close, findings, state, world
+from reproduction.vocabulary import profile
 
 
 def reconstruct(view, st: dict, evidence: DerivationEvidence) -> dict:
@@ -64,7 +65,7 @@ def reconstruct(view, st: dict, evidence: DerivationEvidence) -> dict:
             if decoded is not None:
                 report["report_identity_equal"] = rebuilt.report.identity() == decoded.report.identity()
         if view.holds(st["spec_ref"]):
-            restored = stored.analysis_spec_value(view.get(st["spec_ref"]))
+            restored = stored.analysis_spec_value(view.get(st["spec_ref"]), profile=profile())
             report["spec_restored_identity_matches_run"] = restored.identity == original.recipe.spec_identity
     outcome = check_verification(view, node, evidence=evidence)
     report["audit_check"] = {
@@ -84,7 +85,7 @@ def main() -> int:
     equal = rederived == st["belief_answer"]
     state.save(rederived_belief=rederived, rederived_equal=equal)
     # 10b — the report, read from the corpus; evidence names no in-process spec.
-    report = reconstruct(view, st, close.evidence_for(view))
+    report = reconstruct(view, st, close.evidence_for(view, profile()))
     contradiction = report["audit_check"]["contradiction"]
     if contradiction is not None:
         findings.record(10, "defect", f"check_verification: {contradiction['code']}: {contradiction['detail']}")

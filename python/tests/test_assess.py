@@ -19,6 +19,7 @@ from fixtures_cut3 import (
     runs_for,
     spec_draft,
     spec_rules,
+    typed_applicability,
 )
 from fixtures_cut3 import (
     memory_assessment as run_assessment,
@@ -30,6 +31,7 @@ from fixtures_cut3 import (
 from beliefs.admission import AdmissionRefused, admit
 from beliefs.assess import AssessmentFinding, build_assessment, run_record
 from beliefs.boundary import RunMinted
+from beliefs.claim import Qualifier, Referent
 from beliefs.closure import build_closure
 from beliefs.dataset import ByteObservation, dataset_address
 from beliefs.errors import SignatureRefused
@@ -267,9 +269,10 @@ def test_r22_negative_a_narrowing_applicability_needs_a_successor_spec_and_a_new
     minted,
 ):
     spec = freeze(spec_draft(), held_rules=spec_rules())
+    narrower = typed_applicability({"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))})
     narrowed = revise(
         spec,
-        edits={"applicability": "a narrower population"},
+        edits={"applicability": narrower},
         held_rules=spec_rules(),
         recorded_failures=frozenset(),
     )

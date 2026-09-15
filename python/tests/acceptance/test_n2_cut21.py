@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -26,7 +27,8 @@ from n2_arms_cut17 import CUT17_ARMS
 from n2_arms_cut18 import CUT18_ARMS
 from n2_arms_cut19 import CUT19_ARMS
 from n2_arms_cut20 import CUT20_ARMS
-from n2_arms_cut21 import CO_CITED, CUT21_ARMS, DECLARATION_UNITS, unit_of
+from n2_arms_cut21 import CO_CITED, DECLARATION_UNITS, unit_of
+from n2_arms_cut21 import CUT21_ARMS as FROZEN_CUT21_ARMS
 from test_n2 import audit, baseline
 
 import beliefs.root as science_root
@@ -57,6 +59,39 @@ FROZEN_PRIOR_CUT_FILES = {
     "python/tests/n2_arms_cut20.py": "8639771",
     "python/tests/acceptance/n2_arms_cut20.py": "d5e203c",
 }
+
+# Live re-target, 2026-09-15 (estimand-typing Task 6): `stored.analysis_spec_value`
+# and `audit.check_analysis_spec` gained a required `profile` keyword (design §7.2,
+# §9 — every stored spec re-identifies against a typed estimand and must restore
+# under the profile that wrote it). The frozen tuple in n2_arms_cut21.py names the
+# old, profile-less call shape; this table is what the live guard audits.
+_LIVE_SABOTAGES = {
+    "V8e": Sabotage(
+        "audit.py",
+        (
+            '            elif node.kind == "analysis-spec":\n'
+            "                outcome = check_analysis_spec(node, profile=profile)\n"
+        ),
+        "            elif False:\n                continue\n",
+    ),
+    "V8c": Sabotage(
+        "audit.py",
+        (
+            "            spec = stored.analysis_spec_value(node, profile=profile)\n"
+            "        except RecordError as refused:\n"
+        ),
+        (
+            "            spec = stored.analysis_spec_value(node, profile=profile)\n"
+            "        except RecordError:\n"
+            "            continue\n"
+        ),
+    ),
+}
+RETARGETED_ROWS = frozenset(_LIVE_SABOTAGES)
+
+CUT21_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in FROZEN_CUT21_ARMS
+)
 
 PRIOR_ARMS = (
     *CUT3_ARMS,

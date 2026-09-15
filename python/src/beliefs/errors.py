@@ -913,6 +913,17 @@ class UnfreezableSpec(RecordError):
     check, not a type refusal, because it spans fields (computation §3.1a)."""
 
 
+class PreGrammarSpec(UnfreezableSpec):
+    """A stored spec projection with no `estimand_grammar` member: frozen
+    before `science.estimand.v1`. Refused by name, never coerced; a corpus
+    holding one was not recreated (estimand-typing decision 10)."""
+
+
+class PreGrammarAssessment(MalformedRecord):
+    """A stored assessment facet whose estimand is prose: minted before
+    `science.estimand.v1`. Refused by name, never coerced (decision 10)."""
+
+
 class RuleUnbound(RecordError):
     """A rule identity with no held conforming implementation. An
     implementation that fails its fixtures is not that rule (computation

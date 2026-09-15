@@ -3,6 +3,7 @@
 import json
 from decimal import Decimal
 from hashlib import sha256
+from pathlib import Path
 from typing import cast
 
 from authority import FULL
@@ -11,8 +12,13 @@ from profiles import BASE
 
 from beliefs.assess import run_record
 from beliefs.boundary import execute_assessment_run, execute_production_run
+from beliefs.claim import Referent, build_claim
 from beliefs.closure import RetractionEnumeration
+from beliefs.contract import parse_domain_contract
+from beliefs.contract.document import load_document
+from beliefs.estimand import Control, LevelsContrast, Measure, build_applicability, build_estimand
 from beliefs.lineage import LineageSnapshot
+from beliefs.profile import compile_profile, shipped_base_contract
 from beliefs.recipe import (
     MINIMAL_POLICY,
     BoundaryPolicy,
@@ -34,6 +40,7 @@ from beliefs.recipe import (
 # Tests build fixture values through the private constructor deliberately —
 # the public surface must not offer one, and Task 11 pins that (T1).
 from beliefs.report import Entry, LocatorEntry, PublishedObservation, RunAttemptEntry, RunRefusal, _mint_report
+from beliefs.resolution import build_snapshot
 from beliefs.spec import (
     Deterministic,
     RealizedSeeds,
@@ -51,6 +58,37 @@ D_OUT = "sha256:" + "bb" * 32
 DATA_ADDRESS = dataset_ref("data")
 READS_ADDRESS = dataset_ref("reads")
 POLICY = BoundaryPolicy(identity="boundary-policy/minimal-v1", scope_rule="scope-derivation/v1")
+
+_TESTING = Path(__file__).resolve().parents[2] / "fixtures" / "contracts" / "testing.yaml"
+TESTING_PROFILE = compile_profile(
+    shipped_base_contract(),
+    [parse_domain_contract(load_document(_TESTING, source=str(_TESTING)), source=str(_TESTING), base=shipped_base_contract(), predecessor=None)],
+)
+TESTING_CLAIM = build_claim(
+    TESTING_PROFILE,
+    operator="testing/affects",
+    args=(Referent("testing/entity", "EX:gene-x"), Referent("testing/outcome", "EX:pheno-y")),
+    layer="causal",
+    polarity="positive",
+)
+UNCONSULTED = build_snapshot(readable={})
+
+
+def typed_estimand(**overrides):
+    fields = {
+        "contrast": LevelsContrast(slot=0, baseline=Referent("testing/level", "EX:ndmm"), comparison=Referent("testing/level", "EX:pd")),
+        "measure": Measure(quantity=Referent("testing/measure", "EX:tpm"), scale="additive"),
+        "reference": Decimal(0),
+        "control": Control(identification=Referent("testing/identification", "EX:observational"), conditioning=()),
+    }
+    fields.update(overrides)
+    estimand, _receipt = build_estimand(TESTING_PROFILE, TESTING_CLAIM, snapshot=UNCONSULTED, **fields)
+    return estimand
+
+
+def typed_applicability(qualifiers=None):
+    applicability, _receipt = build_applicability(TESTING_PROFILE, TESTING_CLAIM, qualifiers or {}, snapshot=UNCONSULTED)
+    return applicability
 
 
 def seed_plan(streams=("model-initialization",), roots=None, stream_roots=None) -> SeedPlan:
@@ -77,12 +115,12 @@ def spec_rules() -> dict[str, RuleImplementation]:
 def spec_draft(**overrides) -> SpecDraft:
     fields = {
         "target": "prop-1",
-        "estimand": "the effect of x on y",
+        "estimand": typed_estimand(),
         "method": "fit the model",
         "assumptions": "iid draws",
         "falsification": "a null effect",
         "input_roles": (SpecInput(role="observes", dataset=DATA_ADDRESS),),
-        "applicability": "the sampled population",
+        "applicability": typed_applicability(),
         "interpretation_rule": "median-difference/v1",
         "equivalence_rule": "content-identity-equality/v1",
         "parameters": {"alpha": Decimal("0.05")},

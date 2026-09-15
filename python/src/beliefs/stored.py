@@ -77,7 +77,7 @@ from beliefs.holdings.records import (
 )
 from beliefs.identity import v1
 from beliefs.permit import require_actor
-from beliefs.profile import shipped_base
+from beliefs.profile import ProfileSpec, shipped_base
 from beliefs.record import AssessmentValue
 from beliefs.sealed import sealed
 from beliefs.spec import FrozenSpec, frozen_projection, restore
@@ -1131,7 +1131,7 @@ def analysis_spec_node(spec: FrozenSpec) -> Node:
     return _node("analysis-spec", spec.identity, f"spec {spec.identity[:12]}", {ANALYSIS_SPEC_FACET: facet}, ())
 
 
-def analysis_spec_value(node: Node) -> FrozenSpec:
+def analysis_spec_value(node: Node, *, profile: ProfileSpec) -> FrozenSpec:
     """The frozen spec a stored record carries, restored and refused on any
     disagreement between its text, its identity and its id (M11)."""
     if node.kind != "analysis-spec":
@@ -1139,7 +1139,7 @@ def analysis_spec_value(node: Node) -> FrozenSpec:
     facet = _facet(node, ANALYSIS_SPEC_FACET)
     if facet is None or set(facet) != {"identity", "projection"} or type(facet["identity"]) is not str or type(facet["projection"]) is not str:
         raise MalformedRecord(f"{node.id}: an analysis-spec facet is exactly {{identity, projection}}")
-    spec = restore(facet["identity"], facet["projection"].encode("utf-8"))
+    spec = restore(facet["identity"], facet["projection"].encode("utf-8"), profile=profile)
     if node.id != typed_ref("analysis-spec", spec.identity):
         raise MalformedRecord(f"{node.id}: the record id is not the spec identity")
     return spec

@@ -189,19 +189,34 @@ def test_v2_assessment_value_hands_back_the_bare_run_and_refuses_an_untyped_one(
 # --- V8: the analysis-spec record (design §7) --------------------------------
 from decimal import Decimal
 
-from fixtures_cut3 import spec_draft, spec_rules
-from test_relocation import _writer
+from authority import FULL
+from fixtures_cut3 import TESTING_PROFILE, spec_draft, spec_rules
+from nodes.core.write_plan import DefaultExecutor
+from profiles import pins_for
+from test_corpus_write import OperationRecorder
 
+from beliefs.corpus import CorpusWriter
 from beliefs.spec import freeze
+
+
+def _testing_writer(root):
+    """A writer whose own profile activates the domain `spec_draft`'s typed
+    estimand is built against — `_writer`'s BASE profile does not declare
+    `testing/affects`, and a stored spec must restore under the profile that
+    writes it (design §7.2)."""
+    port = OperationRecorder(root, authority=FULL, profile=TESTING_PROFILE)
+    writer = CorpusWriter(root, DefaultExecutor, authority=FULL, profile=TESTING_PROFILE, operation_port=port)
+    writer.adopt_manifest(profile=pins_for(TESTING_PROFILE))
+    return writer
 
 
 def test_v8_analysis_spec_node_round_trips_through_the_writer_and_the_reader(tmp_path):
     spec = freeze(spec_draft(parameters={"alpha": Decimal("0.05")}), held_rules=spec_rules())
-    writer = _writer(tmp_path / "corpus")
+    writer = _testing_writer(tmp_path / "corpus")
     node = writer.add(stored.analysis_spec_node(spec))
     assert node.id == f"analysis-spec:{spec.identity}"
     assert set(node.facets[stored.ANALYSIS_SPEC_FACET]) == {"identity", "projection"}
-    restored = stored.analysis_spec_value(writer.read_view.get(node.id))
+    restored = stored.analysis_spec_value(writer.read_view.get(node.id), profile=TESTING_PROFILE)
     assert restored == spec and type(restored.parameters["alpha"]) is Decimal
 
 
@@ -210,10 +225,10 @@ def test_v8_a_renamed_or_falsely_identified_record_is_malformed(tmp_path):
     node = stored.analysis_spec_node(spec)
     renamed = node.model_copy(update={"id": "analysis-spec:elsewhere"})
     with pytest.raises(MalformedRecord, match="not the spec identity"):
-        stored.analysis_spec_value(renamed)
+        stored.analysis_spec_value(renamed, profile=TESTING_PROFILE)
     node.facets[stored.ANALYSIS_SPEC_FACET]["projection"] = node.facets[stored.ANALYSIS_SPEC_FACET]["projection"].replace("fit the model", "fit another model")
     stored.stamp_semantic_identity(node)  # the stamp passes; restoration is what detects the mismatch
     with pytest.raises(MalformedRecord):
-        stored.analysis_spec_value(node)
+        stored.analysis_spec_value(node, profile=TESTING_PROFILE)
     with pytest.raises(MalformedRecord):
-        stored.analysis_spec_value(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
+        stored.analysis_spec_value(stored.proposition_node("p", title="p", claim={"operator": "affects"}), profile=TESTING_PROFILE)

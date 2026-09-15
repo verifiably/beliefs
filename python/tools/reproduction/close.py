@@ -13,6 +13,7 @@ import sys
 from beliefs import root as science_root
 from beliefs.audit import MALFORMEDNESS_CODES, DerivationEvidence, audit_corpus, stored_specs
 from beliefs.corpus import corpus_check
+from beliefs.profile import ProfileSpec
 from beliefs.world import anchors, verify
 from reproduction import findings, paths, spec, state, world
 from reproduction.authority import AUTHORITY
@@ -23,9 +24,9 @@ CONTRADICTIONS = frozenset(
 )
 
 
-def evidence_for(view) -> DerivationEvidence:
+def evidence_for(view, profile: ProfileSpec) -> DerivationEvidence:
     """Specs from the corpus, rules from code — 10b's only in-process input."""
-    specs, unrestorable = stored_specs(view)
+    specs, unrestorable = stored_specs(view, profile=profile)
     if unrestorable:
         raise RuntimeError(f"stored specs that do not restore: {[f.ref for f in unrestorable]}")
     return DerivationEvidence(
@@ -36,7 +37,7 @@ def evidence_for(view) -> DerivationEvidence:
 
 
 def evidence() -> DerivationEvidence:
-    return evidence_for(world.open_writer().read_view)
+    return evidence_for(world.open_writer().read_view, profile())
 
 
 def log_audits() -> dict[str, dict]:

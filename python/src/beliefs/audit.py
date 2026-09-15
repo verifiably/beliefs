@@ -304,14 +304,16 @@ def check_lineage_basis(view: ReadView | WorldReadView, node: Node) -> Derivatio
     )
 
 
-def check_analysis_spec(node: Node) -> DerivationOutcome:
+def check_analysis_spec(node: Node, *, profile: ProfileSpec) -> DerivationOutcome:
     """A stored spec restores or is malformed; `audit_corpus` reports the
     latter as `derivation-malformed` under the catch R11 already has."""
-    stored.analysis_spec_value(node)
+    stored.analysis_spec_value(node, profile=profile)
     return DerivationOutcome(checked=True, reason="", contradiction=None)
 
 
-def stored_specs(view: ReadView | _ImportView | WorldReadView) -> tuple[Mapping[str, FrozenSpec], tuple[Finding, ...]]:
+def stored_specs(
+    view: ReadView | _ImportView | WorldReadView, *, profile: ProfileSpec
+) -> tuple[Mapping[str, FrozenSpec], tuple[Finding, ...]]:
     """Every restorable stored spec keyed by identity, and one
     `derivation-malformed` finding per record that does not restore — the
     two halves travel together so a false spec never vanishes into an
@@ -322,7 +324,7 @@ def stored_specs(view: ReadView | _ImportView | WorldReadView) -> tuple[Mapping[
         if node.kind != "analysis-spec":
             continue
         try:
-            spec = stored.analysis_spec_value(node)
+            spec = stored.analysis_spec_value(node, profile=profile)
         except RecordError as refused:
             findings.append(
                 Finding(
@@ -362,7 +364,7 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence, profile: Profi
             elif node.kind == "dataset":
                 outcome = check_lineage_basis(view, node)
             elif node.kind == "analysis-spec":
-                outcome = check_analysis_spec(node)
+                outcome = check_analysis_spec(node, profile=profile)
             else:
                 continue
         except RecordError as refused:
@@ -381,7 +383,9 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence, profile: Profi
     return tuple(sorted(findings, key=lambda finding: finding.sort_key))
 
 
-def _recompute(view: WorldReadView, node: Node, evidence: DerivationEvidence) -> DerivationOutcome | None:
+def _recompute(
+    view: WorldReadView, node: Node, evidence: DerivationEvidence, profile: ProfileSpec
+) -> DerivationOutcome | None:
     if node.kind == "verification":
         return check_verification(view, node, evidence=evidence)
     if node.kind == "assessment":
@@ -389,7 +393,7 @@ def _recompute(view: WorldReadView, node: Node, evidence: DerivationEvidence) ->
     if node.kind == "dataset":
         return check_lineage_basis(view, node)
     if node.kind == "analysis-spec":
-        return check_analysis_spec(node)
+        return check_analysis_spec(node, profile=profile)
     return None
 
 
@@ -491,7 +495,7 @@ def audit_world(
         if corpus_id in excluded or node.id in malformed.get(corpus_id, set()):
             continue
         try:
-            outcome = _recompute(view, node, evidence)
+            outcome = _recompute(view, node, evidence, profile)
         except CorpusDamaged as unreachable:
             corpora[corpus_id].append(
                 Finding(
