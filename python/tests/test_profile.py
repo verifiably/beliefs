@@ -788,6 +788,7 @@ class TestTheOrdinaryRouteToAnUnparsedArtifact:
                 dimensions={},
                 operators={},
                 facets={},
+                estimands={},
                 content_identity="0" * 64,
                 base_identity="0" * 64,
             )

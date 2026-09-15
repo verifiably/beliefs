@@ -31,6 +31,12 @@ sorts:
     vocabulary: { namespace: EX, release: "2026-01-01" }
   cohort:
     vocabulary: dataset:0000000000000000000000000000000000000000000000000000000000000000
+  measure:
+    vocabulary: { namespace: EX, release: "2026-01-01" }
+  identification:
+    vocabulary: { namespace: EX, release: "2026-01-01" }
+  level:
+    vocabulary: { namespace: EX, release: "2026-01-01" }
 
 dimensions:
   population:
@@ -67,6 +73,21 @@ operators:
     sign_apt: false
     layers: [methodological]
     dimensions: [setting]
+
+# Estimand declarations (estimand-typing design §5.1): which sorts fill the
+# kernel's estimand structure at each operator. `subtype-of` and `measured-by`
+# deliberately declare none, so a spec targeting a claim at them refuses.
+estimands:
+  affects:
+    level_sorts: { "0": level }
+    measure_sort: measure
+    identification_sort: identification
+    conditioning_sort: entity
+  correlates-with:
+    level_sorts: {}
+    measure_sort: measure
+    identification_sort: identification
+    conditioning_sort: entity
 
 # Two fixture facets (facet-contracts design §3.2). They exist to exercise the
 # namespaced grammar, D2's asymmetry, D8's composition and F8's registry check.

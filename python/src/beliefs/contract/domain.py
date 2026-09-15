@@ -24,7 +24,7 @@ deliberately outside that projection:
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
@@ -40,6 +40,7 @@ from beliefs.sealed import sealed
 __all__ = [
     "DimensionDecl",
     "DomainContract",
+    "EstimandDecl",
     "OperatorDecl",
     "SortDecl",
     "VocabularyBinding",
@@ -57,10 +58,13 @@ achieves in this language and what it cannot."""
 _NAME = re.compile(r"^[a-z][a-z0-9-]*$")
 
 _CONTRACT_FIELDS = frozenset({"contract", "version", "lineage", "sorts", "dimensions", "operators"})
+_CONTRACT_OPTIONAL = frozenset({"description", "facets", "estimands"})
 _OPERATOR_FIELDS = frozenset({"arity", "arg_sorts", "sign_apt", "layers", "dimensions"})
 _OPERATOR_OPTIONAL = frozenset({"description", "retired"})
 _DIMENSION_FIELDS = frozenset({"restriction_sort"})
 _SORT_FIELDS = frozenset({"vocabulary"})
+_ESTIMAND_FIELDS = frozenset({"level_sorts", "measure_sort", "identification_sort", "conditioning_sort"})
+_SLOT_INDEX = re.compile(r"^(0|[1-9][0-9]*)$")
 
 
 @sealed
@@ -184,6 +188,34 @@ class OperatorDecl:
         }
 
 
+@dataclass(frozen=True)
+class EstimandDecl:
+    """Which sorts fill the kernel's estimand structure at one operator
+    (estimand-typing §5.1). A claim-vocabulary declaration under §8.3's four
+    succession rules; keyed by the operator it belongs to, and carrying no
+    `retired` of its own — retiring the operator retires it."""
+
+    operator: str
+    level_sorts: Mapping[str, str]
+    """Slot index, spelled as decimal text, → sort. A slot absent here admits
+    only a `continuous` contrast."""
+    measure_sort: str
+    identification_sort: str
+    conditioning_sort: str
+
+    @property
+    def retired(self) -> bool:
+        return False
+
+    def schema_projection(self) -> dict[str, object]:
+        return {
+            "level_sorts": {slot: self.level_sorts[slot] for slot in sorted(self.level_sorts, key=int)},
+            "measure_sort": self.measure_sort,
+            "identification_sort": self.identification_sort,
+            "conditioning_sort": self.conditioning_sort,
+        }
+
+
 @sealed
 @final
 @dataclass(frozen=True, init=False)
@@ -215,6 +247,7 @@ class DomainContract:
     dimensions: Mapping[str, DimensionDecl]
     operators: Mapping[str, OperatorDecl]
     facets: Mapping[str, FacetDecl]
+    estimands: Mapping[str, EstimandDecl]
     content_identity: str
 
     base_identity: str
@@ -254,6 +287,7 @@ class DomainContract:
         dimensions: dict[str, DimensionDecl],
         operators: dict[str, OperatorDecl],
         facets: dict[str, FacetDecl],
+        estimands: dict[str, EstimandDecl],
         content_identity: str,
         base_identity: str,
     ) -> DomainContract:
@@ -272,6 +306,7 @@ class DomainContract:
             ("dimensions", MappingProxyType(dict(dimensions))),
             ("operators", MappingProxyType(dict(operators))),
             ("facets", MappingProxyType(dict(facets))),
+            ("estimands", MappingProxyType(dict(estimands))),
             ("content_identity", content_identity),
             ("base_identity", base_identity),
         ):
@@ -301,11 +336,12 @@ class DomainContract:
         """
         return frozenset(key for key, decl in self._declarations() if decl.retired)
 
-    def _declarations(self) -> tuple[tuple[str, SortDecl | DimensionDecl | OperatorDecl], ...]:
+    def _declarations(self) -> tuple[tuple[str, SortDecl | DimensionDecl | OperatorDecl | EstimandDecl], ...]:
         return (
             *((f"sort:{name}", decl) for name, decl in self.sorts.items()),
             *((f"dimension:{name}", decl) for name, decl in self.dimensions.items()),
             *((f"operator:{name}", decl) for name, decl in self.operators.items()),
+            *((f"estimand:{name}", decl) for name, decl in self.estimands.items()),
         )
 
 
@@ -449,6 +485,36 @@ def _sort_reference(
     return value
 
 
+def _parse_estimand_decl(
+    name: str, value: object, where: str, *, operators: Mapping[str, OperatorDecl], resolve: Callable[[object, str], str]
+) -> EstimandDecl:
+    body = _mapping(value, where)
+    _fields(body, _ESTIMAND_FIELDS, frozenset({"description"}), where)
+    if name not in operators:
+        raise MalformedContract(
+            f"{where}: {name!r} is not an operator this contract declares. An estimand declaration lives with its "
+            "operator (estimand-typing §5.1)."
+        )
+    arity = operators[name].arity
+    if arity == 0:
+        raise MalformedContract(f"{where}: {name!r} has arity 0 and admits no estimand — a contrast needs a slot to name")
+    raw_levels = _mapping(body["level_sorts"], f"{where}: level_sorts")
+    level_sorts: dict[str, str] = {}
+    for key, sort in raw_levels.items():
+        if not _SLOT_INDEX.fullmatch(key):
+            raise MalformedContract(f"{where}: level_sorts key {key!r} is not a slot index spelled as decimal text")
+        if int(key) >= arity:
+            raise MalformedContract(f"{where}: level_sorts names slot {key}, outside Fin({arity})")
+        level_sorts[key] = resolve(sort, f"{where}: level_sorts[{key}]")
+    return EstimandDecl(
+        operator=name,
+        level_sorts=MappingProxyType(level_sorts),
+        measure_sort=resolve(body["measure_sort"], f"{where}: measure_sort"),
+        identification_sort=resolve(body["identification_sort"], f"{where}: identification_sort"),
+        conditioning_sort=resolve(body["conditioning_sort"], f"{where}: conditioning_sort"),
+    )
+
+
 def parse_domain_contract(
     document: object, *, source: str, base: BaseContract, predecessor: DomainContract | None
 ) -> DomainContract:
@@ -492,7 +558,7 @@ def parse_domain_contract(
                 f"{source}: a domain contract declares no {section}; a kernel kind or relation signature is the "
                 "base contract's, and a domain contributes facets to kinds that already exist (D §3.3, D8) — refused"
             )
-    _fields(root, _CONTRACT_FIELDS, frozenset({"description", "facets"}), source)
+    _fields(root, _CONTRACT_FIELDS, _CONTRACT_OPTIONAL, source)
 
     namespace = _name(root["contract"], f"{source}: contract")
     if namespace == "coordination":
@@ -563,6 +629,13 @@ def parse_domain_contract(
 
     facets = parse_facet_declarations(root.get("facets", {}), where=f"{source}: facets", namespace=namespace)
 
+    def resolve(value: object, where: str) -> str:
+        return _sort_reference(value, where, namespace=namespace, base_name=base.name, sorts=sorts)
+
+    estimands: dict[str, EstimandDecl] = {}
+    for name, body in _declarations(root.get("estimands", {}), f"{source}: estimands").items():
+        estimands[name] = _parse_estimand_decl(name, body, f"{source}: estimands.{name}", operators=operators, resolve=resolve)
+
     contract = DomainContract._parsed(
         _MINT,
         namespace=namespace,
@@ -572,6 +645,7 @@ def parse_domain_contract(
         dimensions=dimensions,
         operators=operators,
         facets=facets,
+        estimands=estimands,
         content_identity=v1.digest(DOMAIN_CONTRACT_DOMAIN, root),
         base_identity=base.content_identity,
     )
