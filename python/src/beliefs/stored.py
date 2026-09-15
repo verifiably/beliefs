@@ -47,6 +47,7 @@ covers exactly what it says: fields and stamp moved *together* are undetectable.
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -59,7 +60,14 @@ from beliefs import identifiers
 from beliefs import report as report_values
 from beliefs import source as source_basis_projection
 from beliefs.dataset import DatasetDeclaration, ResourceDeclaration, dataset_address
-from beliefs.errors import BasisMissing, IdentifierMalformed, IdentityError, LoneSurrogate, MalformedRecord
+from beliefs.errors import (
+    BasisMissing,
+    HistoryDisagreement,
+    IdentifierMalformed,
+    IdentityError,
+    LoneSurrogate,
+    MalformedRecord,
+)
 from beliefs.holdings.records import (
     HOLDINGS_OBSERVATION_KIND,
     Absent,
@@ -130,6 +138,7 @@ __all__ = [
     "lineage_basis",
     "local_id",
     "recompute_semantic_hash",
+    "reconcile_correction_histories",
     "retraction_node",
     "run_spec",
     "semantic_hash_disagrees",
@@ -506,6 +515,49 @@ def validate_source_history(node: Node) -> tuple[IdentifierCorrection, ...]:
             f"{node.id}: deprecated_ids {list(node.deprecated_ids)} are not the history's redirect set {expected}"
         )
     return history
+
+
+def _events(entries: Sequence[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """token → raw entry over a chain and every recursively absorbed chain."""
+    events: dict[str, dict[str, Any]] = {}
+    for entry in entries:
+        events[entry["event_token"]] = entry
+        events.update(_events(entry.get("absorbed", ())))
+    return events
+
+
+def reconcile_correction_histories(
+    keep: Sequence[dict[str, Any]],
+    other: Sequence[dict[str, Any]],
+    *,
+    actor: str,
+    grounds: str,
+    event_token: str,
+) -> list[dict[str, Any]]:
+    """Reconcile two validated correction chains while preserving raw entries."""
+    held = _events(keep)
+    for token, event in _events(other).items():
+        if token in held and held[token] != event:
+            raise HistoryDisagreement(f"event token {token!r} names two different events")
+    if list(keep) == list(other)[: len(keep)]:
+        return copy.deepcopy(list(other))
+    remainder = [entry for entry in other if entry["event_token"] not in held]
+    if not remainder:
+        return copy.deepcopy(list(keep))
+    if remainder != list(other)[len(other) - len(remainder) :]:
+        raise HistoryDisagreement("held events interleave unheld ones; the chain cannot be absorbed")
+    current = dict(keep[-1]["to"])
+    return [
+        *copy.deepcopy(list(keep)),
+        {
+            "from": current,
+            "to": dict(current),
+            "actor": actor,
+            "grounds": grounds,
+            "event_token": event_token,
+            "absorbed": copy.deepcopy(remainder),
+        },
+    ]
 
 
 def _declaration_of(facet: Mapping[str, Any]) -> DatasetDeclaration:

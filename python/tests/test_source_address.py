@@ -10,7 +10,7 @@ import pytest
 from nodes.core.node import Node
 
 from beliefs import source, stored
-from beliefs.errors import BasisMissing, IdentifierMalformed, MalformedRecord
+from beliefs.errors import BasisMissing, HistoryDisagreement, IdentifierMalformed, MalformedRecord
 from beliefs.identity import v1
 
 CANONICAL_DOI = "10.1234/abc.def"
@@ -397,3 +397,85 @@ class TestReaders:
         mixed["from"] = {"pmid": "1", 1: "x"}
         with pytest.raises(MalformedRecord):
             stored.identifier_corrections(raw_source(B, history=[mixed], deprecated=[ADDR_A]))
+
+
+class TestReconcile:
+    """Slice 6 §4: keep's chain is the spine; other's unheld tail is absorbed; idempotent."""
+
+    A_B = entry(A, B, token="a")
+    B_ = entry(A, B, token="b")
+    E = entry(B, C, token="e1")
+    E_BACK = entry(C, B, token="e2")
+
+    def merge(self, keep, other, token="op"):
+        return stored.reconcile_correction_histories(keep, other, actor="me", grounds="one paper", event_token=token)
+
+    def test_equal_chains_are_the_identity(self):
+        assert self.merge([self.A_B], [self.A_B]) == [self.A_B]
+        assert self.merge([], []) == []
+
+    def test_a_proper_prefix_fast_forwards_either_way(self):
+        longer = [self.A_B, self.E, self.E_BACK]
+        assert self.merge([self.A_B], longer) == longer
+        assert self.merge(longer, [self.A_B]) == longer
+        assert self.merge([], longer) == longer
+        assert self.merge(longer, []) == longer
+
+    def test_divergent_chains_absorb_the_tail_after_the_common_prefix(self):
+        keep = [self.A_B, self.E, self.E_BACK]
+        other = [self.A_B, entry(B, C, token="o1"), entry(C, B, token="o2")]
+        merged = self.merge(keep, other)
+        assert merged[:3] == keep
+        assert merged[3] == {
+            "from": B, "to": B, "actor": "me", "grounds": "one paper", "event_token": "op",
+            "absorbed": other[1:],
+        }
+
+    def test_divergent_chains_with_no_common_prefix_absorb_all_of_other(self):
+        merged = self.merge([self.A_B], [self.B_])
+        assert merged == [self.A_B, {**consolidation(B, [self.B_], actor="me", grounds="one paper", token="op")}]
+
+    def test_an_already_absorbed_chain_is_not_absorbed_again(self):
+        once = self.merge([self.A_B], [self.B_])
+        assert self.merge(once, [self.B_]) == once
+
+    def test_a_chain_corrected_after_absorption_absorbs_only_the_new_tail(self):
+        once = self.merge([self.A_B], [self.B_])
+        other = [self.B_, entry(B, C, token="o1"), entry(C, B, token="o2")]
+        merged = self.merge(once, other, token="op2")
+        assert merged[:2] == once and merged[2]["absorbed"] == other[1:] and merged[2]["event_token"] == "op2"
+
+    def test_the_diamond_absorbs_an_identical_event_twice(self):
+        once = self.merge([self.A_B], [self.B_])
+        other = [entry(A, B, token="c"), consolidation(B, [self.B_], token="m2")]
+        merged = self.merge(once, other, token="op2")
+        assert merged[2]["absorbed"] == other
+
+    def test_conflicting_token_reuse_refuses(self):
+        with pytest.raises(HistoryDisagreement, match="two different events"):
+            self.merge([self.A_B], [entry(A, B, token="a", grounds="other grounds")])
+
+    def test_held_events_interleaving_unheld_ones_refuse(self):
+        once = self.merge([self.A_B], [self.B_])
+        other = [entry(B, A, token="x"), self.B_, consolidation(B, [entry(A, B, token="z")], token="y")]
+        with pytest.raises(HistoryDisagreement, match="interleave"):
+            self.merge(once, other, token="op2")
+
+    @pytest.mark.parametrize(
+        "keep, other",
+        [
+            ([entry(A, B, token="a")], [entry(A, B, token="b")]),
+            ([entry(A, B, token="a"), entry(B, C, token="e1"), entry(C, B, token="e2")], [entry(A, B, token="a"), entry(B, C, token="o1"), entry(C, B, token="o2")]),
+            ([entry(A, B, token="a")], [entry(A, B, token="a"), entry(B, C, token="e1"), entry(C, B, token="e2")]),
+        ],
+        ids=["no-prefix", "common-prefix", "fast-forward"],
+    )
+    def test_reconciliation_is_idempotent(self, keep, other):
+        once = self.merge(keep, other)
+        assert self.merge(once, other, token="op2") == once
+
+    def test_the_result_aliases_no_input(self):
+        keep, other = [entry(A, B, token="a")], [entry(A, B, token="b")]
+        merged = self.merge(keep, other)
+        merged[1]["absorbed"][0]["grounds"] = "mutated"
+        assert other[0]["grounds"] == "checked the PDF"

@@ -165,7 +165,7 @@ values are unchanged: a correction entry reads with `absorbed == ()`.
 
 ## 4. The reconciliation function
 
-`stored.reconcile_correction_histories(keep: Sequence[Mapping], other: Sequence[Mapping], *, actor: str, grounds: str, event_token: str) -> list[dict]`
+`stored.reconcile_correction_histories(keep: Sequence[dict[str, Any]], other: Sequence[dict[str, Any]], *, actor: str, grounds: str, event_token: str) -> list[dict]`
 
 A pure function over the two replicas' raw `entries` lists (an absent facet
 is `[]`), called by `consolidate` after both records have been read through
