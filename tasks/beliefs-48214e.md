@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/world-resolution-slice-5
 created: 2026-09-11T11:42:27Z
-updated: 2026-09-15T05:13:24Z
+updated: 2026-09-15T05:30:29Z
 started: 2026-09-14T22:06:20Z
 completed: 2026-09-15T05:13:24Z
 depends: []
@@ -33,3 +33,5 @@ dataset_node takes an authored slug while dataset_address is computed and never 
 - 2026-09-15T00:05:22Z (design/world-resolution-slice-5): cut 29 frozen at 21d1a11390b91d3104b35aa729ebe148f8fb5fd6; document sha256 1247569526f49480c59705fd9e3b3960cd4639b1010eb9bbec77870353780208
 - 2026-09-15T00:22:08Z (design/world-resolution-slice-5): claimed by Codex root controller, pid 3406977; subagent-driven execution after user approval. Certified scratch override uses measured matching main-checkout volume; worktree source stays isolated.
 - 2026-09-15T05:13:24Z (design/world-resolution-slice-5): Slice 5 landed: dataset ids derived from the content identity, DatasetAddressDisagreement at the boundary and both consolidate inputs; cut 29 discharged, no row moves
+- 2026-09-15T05:24:23Z (design/world-resolution-slice-5): claimed by final_fix controller pid 3406977 for final review fixes
+- 2026-09-15T05:30:29Z (design/world-resolution-slice-5): Final review fix wave complete; focused evidence appended and no production behavior changed

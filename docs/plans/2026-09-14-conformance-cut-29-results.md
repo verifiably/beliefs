@@ -12,10 +12,16 @@
 ## 1. What ran
 
 The final root gate and aggregate runner covered the source at `4d69f37` plus
-the accounting and documentation delta recorded by this commit:
+the complete tested delta recorded by `f06834f`: accounting and documentation,
+the decoded-lineage projection repair and regression, and the cut 28 raw-fixture
+repair:
 
 ```sh
-source .superpowers/sdd/2026-09-14-world-resolution-slice-5/certified-env.sh
+MAIN_CHECKOUT="$(git worktree list --porcelain | sed -n '1s/^worktree //p')"
+export SCIENCE_CUT4_ROOT="$MAIN_CHECKOUT/.cut29-acceptance/world-resolution-slice-5"
+export SCIENCE_CUT7_ROOT="$MAIN_CHECKOUT/.cut29-acceptance/world-resolution-slice-5"
+export SCIENCE_CUT10_ROOT="$MAIN_CHECKOUT/.cut29-acceptance/world-resolution-slice-5"
+export SCIENCE_CUT29_ROOT="$MAIN_CHECKOUT/.cut29-acceptance/world-resolution-slice-5"
 mkdir -p .cut29-acceptance docs/plans/2026-09-14-conformance-cut-29-run
 just check > docs/plans/2026-09-14-conformance-cut-29-run/check.log 2>&1
 just test > docs/plans/2026-09-14-conformance-cut-29-run/test.log 2>&1
@@ -32,6 +38,11 @@ post-redaction SHA-256 digests are, respectively,
 `bde32a9f9f183dd907606bbbe54a23d81cdc3a4313ac62b1594d9b9d4747cb2a`, and
 `47fe6542abbf8afc51be4cd835ae1700eda576cef72033ab2911e4ed8f68a353`.
 No capability refusal, skip or waiver occurred.
+
+The freeze and early implementation reports are retained with the run evidence:
+[`task-1-report.md`](2026-09-14-conformance-cut-29-run/task-1-report.md),
+[`task-2-report.md`](2026-09-14-conformance-cut-29-run/task-2-report.md), and
+[`task-3-report.md`](2026-09-14-conformance-cut-29-run/task-3-report.md).
 
 The prefix chain was cut 29 → cut 28 → cut 27 → cut 26 → cut 25 → cut 24 →
 cut 23 → cut 22 → cut 21 → cut 20 → cut 19 → cut 18 → cut 17.
@@ -172,6 +183,46 @@ allowlist was weakened.
 
 No allowlist, frozen declaration, frozen cut body or cited-not-run guard was
 changed.
+
+### Post-review focused evidence
+
+The review-only changes after `f06834f` did not alter production code or the
+frozen evidence. They added the independent replacement-preflight regression,
+strengthened two no-effect snapshots to compare file contents, retained the
+first three task reports, and corrected migrated-call formatting and this
+accounting. The prior 4,645-Python + 142-TypeScript root run and the exact-chain
+42-module/689-pass run above remain the final complete and certified runs; the
+following is additional focused evidence, not a relabeling of either run.
+
+With the four `SCIENCE_CUT*_ROOT` variables above exported:
+
+```text
+cd python && uv run --frozen pytest \
+  tests/test_corpus_write.py::test_replace_preflight_refuses_a_dataset_whose_address_disagrees \
+  tests/test_relocation.py::test_move_refuses_a_handle_addressed_dataset_into_a_governed_destination \
+  tests/acceptance/test_dataset_address_acceptance.py::test_w8_consolidate_judges_both_declarations_before_it_discards_one_durably \
+  tests/acceptance/test_world_audit_acceptance.py::test_the_world_audit_reproduces_every_per_record_finding_durably
+5 passed in 6.07s
+
+cd python && uv run --frozen pytest tests/test_designs_corpus.py tests/acceptance/test_n2_cut29.py
+23 passed in 6.13s
+
+cd python && uv run --frozen ruff check <seven touched Python files>
+All checks passed!
+
+cd python && uv run --frozen pyright
+0 errors, 0 warnings, 0 informations
+
+tasks check
+zero errors, zero warnings
+
+git diff --check
+passed
+
+just hook-pre-commit
+Ruff clean; Pyright 0 errors, 0 warnings, 0 informations; TypeScript typecheck
+passed; Biome checked 15 files with no fixes; tasks check zero errors and warnings
+```
 
 ## 4. Reproduction measurement
 

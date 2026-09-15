@@ -351,6 +351,16 @@ def test_replace_locked_refuses_a_node_that_is_not_already_minted(writer):
         writer._replace_locked(absent)
 
 
+def test_replace_preflight_refuses_a_dataset_whose_address_disagrees(writer):
+    node = writer.add(stored.dataset_node(title="dataset", resources=pinned("dataset")))
+    mismatched = node.model_copy(
+        update={"facets": {**node.facets, stored.DATASET_FACET: {"resources": pinned("other")}}}
+    )
+
+    with writer._operation, pytest.raises(DatasetAddressDisagreement):
+        writer._preflight_replace_locked(mismatched)
+
+
 def test_replace_locked_wraps_a_new_deprecated_id_collision(writer):
     target_identifiers = {"doi": "10.1234/one"}
     owned_identifiers = {"doi": "10.1234/two"}

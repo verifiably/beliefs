@@ -549,12 +549,13 @@ def test_the_world_audit_reproduces_every_per_record_finding_durably(chain, monk
     raw_write(roots[a], captured_stale)
     local = audit_corpus(ReadView.opened_at(roots[a]), evidence=NO_EVIDENCE, profile=BASE)
     captured = open_world_view(world, published, on_damage="report")
-    raw_write(roots[a], stale("after-capture"))
+    late = stale("after-capture")
+    raw_write(roots[a], late)
     monkeypatch.setattr(view_module, "open_world_view", lambda *_args, **_kwargs: captured)
     findings = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE).corpora[a]
     assert tuple(f for f in findings if f.code != "drift") == local
     assert {f.ref for f in local if f.code == "semantic-hash-stale"} == {mapped.id, captured_stale.id}
-    assert not any(f.ref == "dataset:after-capture" for f in findings)
+    assert not any(f.ref == late.id for f in findings)
 
 
 def test_the_evaluator_answers_unresolvable_for_a_damaged_carrier_and_the_edge_is_indeterminate_durably(chain):

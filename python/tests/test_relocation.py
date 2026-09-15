@@ -929,8 +929,8 @@ def _raw_dataset_at(writer, node_id: str, seed: str) -> Node:
     return node
 
 
-def _files(writer) -> list[str]:
-    return sorted(str(p.relative_to(writer.root)) for p in writer.root.rglob("*.md"))
+def _files(writer) -> dict[str, bytes]:
+    return {str(p.relative_to(writer.root)): p.read_bytes() for p in sorted(writer.root.rglob("*.md"))}
 
 
 def test_move_refuses_a_handle_addressed_dataset_into_a_governed_destination(

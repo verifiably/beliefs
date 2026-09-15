@@ -34,7 +34,7 @@ INSTRUMENT = "mm30-reproduction/hold.v1"
 
 def dataset_record(*, name: str, digest: str, title: str, accession: str) -> tuple[Node, str]:
     node = stored.dataset_node(
-                title=title,
+        title=title,
         resources=[{"name": name, "digest": digest}],
         empirical_observation={"locator": f"accession:{accession}", "attested_by": AUTHORITY.actor},
         domain_facets={"biology/gene-axis": {"axis": "rows", "namespace": "HGNC"}},

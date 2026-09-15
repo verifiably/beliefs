@@ -153,8 +153,10 @@ def test_w8_consolidate_judges_both_declarations_before_it_discards_one_durably(
     keep, lose = (left, valid.id), (right_reopened, raw.id)
     if invalid == "keep":
         keep, lose = lose, keep
+
     def snapshot(root):
-        return sorted(str(p.relative_to(root)) for p in Path(root).rglob("*.md"))
+        return {str(p.relative_to(root)): p.read_bytes() for p in sorted(Path(root).rglob("*.md"))}
+
     before = (snapshot(alpha), snapshot(beta))
     with pytest.raises(DatasetAddressDisagreement) as caught:
         relocation.consolidate(keep, lose, **CONSOLIDATE_FIELDS)

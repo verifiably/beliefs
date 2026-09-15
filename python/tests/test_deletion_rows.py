@@ -430,14 +430,11 @@ def test_g8_c6_managed_delete_reads_identically_to_raw_on_the_corpus(tmp_path):
 
 ANCESTOR = _address("c")
 PRODUCER = "run:origin"
-"""`_basis_route("origin")` spells the producing run `run:origin` and the
-transformed ancestor `dataset:origin` from one name, so the fixture is named to
-match cut 16's helper rather than copying a route literal."""
+"""The first producer transforms `ANCESTOR` into the derived dataset."""
 
 OTHER_ANCESTOR = _address("d")
 SECOND_PRODUCER = "run:other"
-"""The divergent producer: it reaches the same content address by transforming
-something the stamped route does not name."""
+"""The divergent producer reaches the same address from another ancestor."""
 
 
 def _lineage_corpus(corpus, *, second_producer: bool) -> Scenario:

@@ -105,7 +105,7 @@ def mint_records(writer: CorpusWriter) -> None:
     )
     writer.add(
         stored.dataset_node(
-                        title="derived",
+            title="derived",
             resources=pinned_for_seed("derived"),
             basis=basis(route(RUN, RAW, [RAW])),
         )
