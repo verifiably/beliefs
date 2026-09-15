@@ -143,3 +143,12 @@ def test_a_live_guard_re_targets_every_declaration_the_tree_has_outgrown(git_che
                 uncovered.append(f"{guard.name}::{arm.key}")
 
     assert uncovered == []
+
+
+def test_re_targeted_rows_reads_a_guards_full_override_set(git_checkout) -> None:
+    """A whole-arm re-target declares the full override set, not only sabotage keys."""
+    assert arm_staleness.re_targeted_rows(ACCEPTANCE / "test_n2_cut25.py", repo_root=REPO_ROOT) == {
+        "W1-a",
+        "W5a-m",
+    }
+    assert arm_staleness.re_targeted_rows(ACCEPTANCE / "test_n2_cut29.py", repo_root=REPO_ROOT) == frozenset()

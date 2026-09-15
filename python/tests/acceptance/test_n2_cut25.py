@@ -53,11 +53,31 @@ _LIVE_SABOTAGES = {
     )
 }
 
+# Live re-target, 2026-09-15 (slice 6, cut 30): decision 5 there retires the
+# history-equality refusal `W5a-m` asserted, so the arm's successor is cut 30's
+# `W5a-p` — divergent histories are absorbed, never dropped. The frozen tuple in
+# n2_arms_cut25.py is unchanged; this table is what the live guard audits.
+_LIVE_ARMS = {
+    "W5a-m": Arm(
+        row="W5a-m",
+        asserts="consolidation absorbs divergent correction histories (re-targeted 2026-09-15; was: refuses)",
+        sabotage=Sabotage(
+            module="stored.py",
+            before="    if not remainder:\n        return copy.deepcopy(list(keep))\n",
+            after="    if True:\n        return copy.deepcopy(list(keep))\n",
+        ),
+        checks=("test_identifier_correction.py::TestRelocation::test_consolidate_absorbs_divergent_histories",),
+    )
+}
+RETARGETED_ROWS = frozenset(_LIVE_SABOTAGES) | frozenset(_LIVE_ARMS)
+
 # 2026-09-11: supplement the frozen 24 arms with design §10.4's history-free guard.
 # Export the live tuple so arm_staleness.audited_arms measures every audited arm.
 CUT25_ARMS = (
     *(
-        replace(arm, sabotage=_LIVE_SABOTAGES[arm.row])
+        _LIVE_ARMS[arm.row]
+        if arm.row in _LIVE_ARMS
+        else replace(arm, sabotage=_LIVE_SABOTAGES[arm.row])
         if arm.row in _LIVE_SABOTAGES
         else arm
         for arm in FROZEN_CUT25_ARMS
