@@ -46,8 +46,8 @@ FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-14-conformance-cut-29.md"
 CUT29_FREEZE_COMMIT = "21d1a11390b91d3104b35aa729ebe148f8fb5fd6"
 CUT29_FROZEN_SHA256 = "1247569526f49480c59705fd9e3b3960cd4639b1010eb9bbec77870353780208"
 FROZEN_DECLARATION = "python/tests/acceptance/n2_arms_cut29.py"
-CUT29_DECLARATION_COMMIT = ""
-CUT29_DECLARATION_SHA256 = ""
+CUT29_DECLARATION_COMMIT = "0e57a524d3b1db07b0682a1570051b1b4d79c574"
+CUT29_DECLARATION_SHA256 = "ae9d0f669d9f287e76815d90a787f608a1303ff0da4c32f7c918a30d8515df62"
 
 FROZEN_PRIOR_CUT_FILES = {
     "python/tests/n2_arms_cut3.py": "1e92471",
@@ -207,8 +207,6 @@ def test_the_freeze_commit_and_sections_two_through_seven_are_pinned() -> None:
 
 def test_the_declaration_is_byte_exact_against_its_own_commit() -> None:
     """The declaring commit is a descendant of the freeze and an ancestor of HEAD."""
-    if not CUT29_DECLARATION_COMMIT:
-        pytest.skip("declaration not yet pinned")
     for commit in (CUT29_FREEZE_COMMIT, CUT29_DECLARATION_COMMIT):
         assert (
             subprocess.run(
