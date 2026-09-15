@@ -5,8 +5,9 @@ status: todo
 priority: 3
 size: m
 complexity: high
+process: planned
 created: 2026-09-11T11:42:27Z
-updated: 2026-09-12T16:26:55Z
+updated: 2026-09-15T09:53:40Z
 depends: []
 parent: beliefs-d248ba
 tags: [world-read]
@@ -17,3 +18,4 @@ Slice 2b makes consolidate refuse two source replicas whose identifier maps or c
 ## Notes
 
 - 2026-09-12T16:26:55Z (main): Complexity high: Slice 2b section 7 and relocation._reconcile intentionally refuse unequal identifier maps/histories. Choosing survivor history, token reconciliation and redirect-set semantics is the task itself and remains undesigned.
+- 2026-09-15T09:53:40Z (main): Process planned: slice 2b §7 defers survivor-history, token-merge and redirect-set semantics to their own design; nothing settles them yet. Opened 2026-09-15 as the world-read lane head after cut 29 (on-path row 1); once in flight, rule 6 admits estimand-typing Task 0 (beliefs-705507) as the second lane.
