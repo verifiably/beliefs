@@ -27,9 +27,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Sixty-four documents in `docs/designs/`: the banked redesigns, review disposition,
+Sixty-five documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
-2026-08-02 through 2026-09-14. Read them in this order:
+2026-08-02 through 2026-09-15. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -97,6 +97,7 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-09-13-conformance-cut-27.md` | the frozen slice 3 cut: epoch import, epoch audit and query, the world audit over a capture and damaged corpora, X5 and W13 relabels, S9 |
 | `2026-09-14-conformance-cut-28.md` | the frozen slice 4 cut: view-query evaluation over the world read view, W7, and the W8/W8b discharge over existing code |
 | `2026-09-14-conformance-cut-29.md` | the frozen slice 5 cut: dataset ids derived from the content identity, held at the write boundary and at both inputs of `consolidate`; W2, W3 and W8 re-read on dataset arms |
+| `2026-09-15-conformance-cut-30.md` | the frozen slice 6 cut: divergent correction histories reconciled at `consolidate` by absorption, idempotent over a re-run; no guarantee row read |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and

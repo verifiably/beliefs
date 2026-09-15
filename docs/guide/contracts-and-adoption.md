@@ -42,6 +42,7 @@ sources:
   - ../designs/2026-09-13-conformance-cut-27.md
   - ../designs/2026-09-14-conformance-cut-28.md
   - ../designs/2026-09-14-conformance-cut-29.md
+  - ../designs/2026-09-15-conformance-cut-30.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
   - ../plans/2026-08-29-conformance-cut-12-results.md
   - ../plans/2026-09-01-conformance-cut-13-results.md
