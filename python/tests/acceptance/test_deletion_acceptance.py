@@ -48,6 +48,7 @@ from atoms.chain.model import IntentEntry, RegisteredEntry, SettledEntry
 from atoms.coordinator.commands import inspect_chain_detached
 from atoms.fs.linux import LinuxBackend
 from authority import FULL
+from fixtures_cut3 import typed_applicability, typed_estimand
 from fixtures_cut4 import path_for, raw_write, reopen
 from fixtures_cut6 import PINS
 from nodes.core.frontmatter import node_to_markdown
@@ -393,7 +394,8 @@ def _r5_records() -> Records:
     its admitting verification: the smallest corpus in which unholding the
     input is unholding the **last** directional one (P9)."""
     assessment = AssessmentValue(
-        spec="spec-a", run="run-a", proposition=PROPOSITION, outcome="supported", interpretation_rule="rule-1"
+        spec="spec-a", run="run-a", proposition=PROPOSITION, outcome="supported", interpretation_rule="rule-1",
+        estimand=typed_estimand(), applicability=typed_applicability(),
     )
     run = RunValue(ref=stored.typed_ref("run", "run-a"), spec="spec-a", inputs=(RunInput(role="observes", dataset=R5_DECLARATION),))
     verification = Verification(

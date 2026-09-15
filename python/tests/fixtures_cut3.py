@@ -328,7 +328,7 @@ def interp(outcome="supported", fail=False):
     def evaluate(manifest):
         if fail:
             raise ValueError("unparseable payload")
-        return {"outcome": outcome, "estimate": "0.4", "uncertainty": "0.1"}
+        return {"outcome": outcome, "estimate": Decimal("0.4"), "uncertainty": {"kind": "standard-error", "value": Decimal("0.1")}}
 
     return {"impl-interp-1": RuleImplementation(identity="impl-interp-1", evaluate=evaluate, fixtures=())}
 
@@ -342,7 +342,7 @@ def result_sensitive():
         parity = int(manifest.outputs[0][1].split(":", 1)[1], 16) % 2
         return {
             "outcome": "supported" if parity == 0 else "refuted",
-            "estimate": "0.4",
+            "estimate": Decimal("0.4"),
         }
 
     return {"impl-interp-1": RuleImplementation(identity="impl-interp-1", evaluate=evaluate, fixtures=())}

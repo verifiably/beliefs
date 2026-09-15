@@ -19,6 +19,7 @@ from typing import Any
 
 import pytest
 from authority import ACTOR
+from fixtures_cut3 import typed_applicability, typed_estimand
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -169,6 +170,8 @@ def _seed(
             proposition=proposition_ref,
             outcome="supported",
             interpretation_rule="rule-1",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
         ),
         stored.assessment_node(
             "a-2",
@@ -178,6 +181,8 @@ def _seed(
             proposition=proposition_ref,
             outcome="supported",
             interpretation_rule="rule-1",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
         ),
         # The unrelated one: its own proposition, run, dataset and verification.
         stored.assessment_node(
@@ -188,6 +193,8 @@ def _seed(
             proposition=OTHER_PROPOSITION_REF,
             outcome="refuted",
             interpretation_rule="rule-1",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
         ),
     ]
     if assesses_target is not None:
@@ -210,7 +217,7 @@ def _seed(
 
     if assesses_target is not None and isinstance(corpus, CorpusWriter):
         raise AssertionError("the divergent `assesses` edge is a raw write; it has no add path")
-    values = {node.id: stored.assessment_value(node) for node in assessments}
+    values = {node.id: stored.assessment_value(node, profile=PROFILE) for node in assessments}
     nodes.extend(assessments)
     for index, node in enumerate(assessments, start=1):
         nodes.append(

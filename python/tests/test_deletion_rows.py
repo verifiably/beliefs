@@ -28,6 +28,7 @@ from typing import Any
 
 import pytest
 from authority import ACTOR
+from fixtures_cut3 import typed_applicability, typed_estimand
 from fixtures_cut4 import path_for
 from nodes.core.node import Node
 from profiles import pins_for
@@ -47,8 +48,10 @@ from test_evaluation import (
     _observations,
     _resources,
 )
-from test_relocation import CONSOLIDATE_FIELDS, _writer, _writer_for
+from test_relocation import CONSOLIDATE_FIELDS, _writer
+from test_relocation import _writer_for as _base_writer_for
 from test_relocation_rows import _basis_route, _duplicate_datasets
+from test_stored import _testing_writer
 
 from beliefs import relocation, stored
 from beliefs.audit import NO_EVIDENCE, audit_corpus
@@ -65,6 +68,20 @@ from beliefs.projection import claim_identity
 from beliefs.record import AssessmentValue
 from beliefs.resolution import build_snapshot
 from beliefs.verification import ADMITTED, INVALIDATED, NOT_ADMITTED, lifecycle_state
+
+
+def _writer_for(corpus, **options) -> CorpusWriter:
+    """`test_relocation._writer_for`, but `TESTING_PROFILE` for the path
+    branch: every assessment `_records` mints carries a typed estimand
+    against `testing/affects`, which BASE does not declare, and the audit's
+    recomputation (`check_assessment`) decodes it under the writer's own
+    profile (estimand-typing §6, §9). An already-open writer (the acceptance
+    module's durable one) is taken as it stands, exactly as the base helper
+    does."""
+    if isinstance(corpus, CorpusWriter):
+        return _base_writer_for(corpus, **options)
+    return _testing_writer(corpus)
+
 
 # --- the shared corpus: one full belief scenario, minted through the writer ---
 
@@ -217,12 +234,14 @@ def _records(
             proposition=PROPOSITION_REF,
             outcome="supported",
             interpretation_rule="rule-1",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
         )
         records[f"a-{index}"] = ("add", assessment)
         verification = stored.verification_node(
             f"v-{index}",
             title=f"v-{index}",
-            assessment=stored.assessment_value(assessment).identity(),
+            assessment=stored.assessment_reference(assessment).identity(),
             assessment_ref=assessment.id,
             scope="clean-environment",
             verdict="passed",
@@ -257,7 +276,7 @@ def _admit(
         mode, node = records[name]
         written = writer.add(node) if mode == "add" else writer.retract(node)
         if written.kind == "assessment":
-            values[written.id] = stored.assessment_value(written)
+            values[written.id] = stored.assessment_value(written, profile=writer.profile)
     return Scenario(writer=writer, values=values, roots=roots)
 
 

@@ -11,11 +11,13 @@ from __future__ import annotations
 
 import inspect
 from dataclasses import replace
+from decimal import Decimal
 from pathlib import Path
 from typing import TypedDict, cast
 
 import pytest
 import yaml
+from fixtures_cut3 import typed_applicability, typed_estimand
 from profiles import pins_for
 
 from beliefs.belief import (
@@ -28,12 +30,13 @@ from beliefs.belief import (
     SuppliedContext,
     evaluate,
 )
-from beliefs.claim import Referent, build_claim
+from beliefs.claim import Qualifier, Referent, build_claim
 from beliefs.closure import RetractionEnumeration
 from beliefs.consulted import CorpusPins
 from beliefs.contract import domain, load_base_contract
 from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
 from beliefs.errors import MalformedRecord
+from beliefs.estimand import StandardError
 from beliefs.lineage import LineageSnapshot
 from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding, PolicyImplementation
 from beliefs.profile import ProfileSpec, compile_profile
@@ -107,7 +110,10 @@ def _run(ref: str, spec: str, dataset: DatasetDeclaration) -> RunValue:
 
 
 def _assessment(spec: str, run: str, outcome: str = "supported") -> AssessmentValue:
-    return AssessmentValue(spec=spec, run=run, proposition=PROPOSITION, outcome=outcome, interpretation_rule="rule-1")
+    return AssessmentValue(
+        spec=spec, run=run, proposition=PROPOSITION, outcome=outcome, interpretation_rule="rule-1",
+        estimand=typed_estimand(), applicability=typed_applicability(),
+    )
 
 
 def _fifty_inconclusive_records() -> Records:
@@ -295,12 +301,23 @@ class TestP4TheAbsencesAreDistinguishable:
 
 
 class TestP6NoMagnitudeBearingRead:
-    @pytest.mark.parametrize("field", ["estimate", "uncertainty", "estimand", "applicability"])
-    def test_each_field_moves_the_digest_and_not_the_value(self, field):
+    @pytest.mark.parametrize(
+        "field,overrides",
+        [
+            ("estimate", {"estimate": Decimal("0.4")}),
+            ("uncertainty", {"estimate": Decimal("0.4"), "uncertainty": StandardError(Decimal("0.1"))}),
+            ("estimand", {"estimand": typed_estimand(reference=Decimal(1))}),
+            (
+                "applicability",
+                {"applicability": typed_applicability({"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))})},
+            ),
+        ],
+    )
+    def test_each_field_moves_the_digest_and_not_the_value(self, field, overrides):
         baseline = evaluate(**scenario())
         kwargs = scenario()
         a1, a2 = kwargs["records"].assessments
-        records = replace(kwargs["records"], assessments=(replace(a1, **{field: "mutated"}), a2))
+        records = replace(kwargs["records"], assessments=(replace(a1, **overrides), a2))
         mutated = evaluate(**scenario(records=records))
         assert isinstance(baseline, Belief) and isinstance(mutated, Belief)
         assert mutated.value == baseline.value

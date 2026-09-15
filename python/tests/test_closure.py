@@ -10,6 +10,7 @@ import inspect
 from dataclasses import replace
 
 import pytest
+from fixtures_cut3 import typed_applicability, typed_estimand
 from profiles import pins_for
 
 from beliefs.closure import Closure, RetractionEnumeration, build_closure
@@ -29,9 +30,13 @@ def closure_kwargs() -> dict:
     `("science.belief.v1", "impl-1")`. Fresh objects every call — the values
     are frozen, but tests build modified copies from a clean baseline."""
     a1 = AssessmentValue(
-        spec="spec-a", run="run-a", proposition="p1", outcome="supported", interpretation_rule="rule-1"
+        spec="spec-a", run="run-a", proposition="p1", outcome="supported", interpretation_rule="rule-1",
+        estimand=typed_estimand(), applicability=typed_applicability(),
     )
-    a2 = AssessmentValue(spec="spec-b", run="run-b", proposition="p1", outcome="refuted", interpretation_rule="rule-1")
+    a2 = AssessmentValue(
+        spec="spec-b", run="run-b", proposition="p1", outcome="refuted", interpretation_rule="rule-1",
+        estimand=typed_estimand(), applicability=typed_applicability(),
+    )
     runs = {
         "run-a": RunValue(
             ref="run-a",
@@ -107,9 +112,11 @@ def test_recomputation_from_the_named_closure_is_byte_identical():
 
 
 def _mutate_facet(kwargs: dict) -> dict:
+    from decimal import Decimal
+
     kwargs = dict(kwargs)
     a1, a2 = kwargs["assessments"]
-    kwargs["assessments"] = (replace(a1, estimate="mutated-estimate"), a2)
+    kwargs["assessments"] = (replace(a1, estimate=Decimal("0.4")), a2)
     return kwargs
 
 

@@ -65,7 +65,22 @@ FROZEN_PRIOR_CUT_FILES = {
 # §9 — every stored spec re-identifies against a typed estimand and must restore
 # under the profile that wrote it). The frozen tuple in n2_arms_cut21.py names the
 # old, profile-less call shape; this table is what the live guard audits.
+#
+# Live re-target, 2026-09-15 (estimand-typing Task 7): V2a's frozen pin named a
+# line inside the old `stored.assessment_value`, which read `run` as a bare
+# `.get("run")`. Task 7 retyped `assessment_value` to require `profile` and
+# split the bare-run reader out into `stored.AssessmentRef`/`assessment_reference`
+# (design §9 — a pre-grammar record can still be referenced without being
+# typed); both of V2a's own checks (`test_v2_assessment_value_hands_back_the_bare_run…`,
+# `test_v2_one_identity_admits_over_the_corpus_and_audits_clean`) were updated
+# in the same task to call `assessment_reference`, which is what this table
+# now sabotages instead.
 _LIVE_SABOTAGES = {
+    "V2a": Sabotage(
+        "stored.py",
+        '    return AssessmentRef(spec=facet["spec"], run=local_id("run", facet["run"]), proposition=facet["proposition"])\n',
+        '    return AssessmentRef(spec=facet["spec"], run=str(facet.get("run", "")), proposition=facet["proposition"])\n',
+    ),
     "V8e": Sabotage(
         "audit.py",
         (

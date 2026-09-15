@@ -10,6 +10,7 @@ import pytest
 from authority import FULL
 from dataset_fixtures import dataset_ref, pinned
 from domain_facet_fixtures import kwargs_for, profile_with, seed
+from fixtures_cut3 import typed_applicability, typed_estimand
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.corpus import Corpus
 from nodes.core.errors import RefError
@@ -688,20 +689,21 @@ class TestEvaluationOverTheWorld:
         twin = stored.assessment_node(
             "a-twin", title="twin", spec="spec-a", run="run:run-a", proposition="proposition:p",
             outcome="supported", interpretation_rule="rule-1",
+            estimand=typed_estimand(), applicability=typed_applicability(),
         )
         original = next(n for n in nodes if n.id == "assessment:a-1")
         assert original.id != twin.id and original.uid != twin.uid
-        assert stored.assessment_value(original) == stored.assessment_value(twin)
+        profile = profile_with()
+        assert stored.assessment_value(original, profile=profile) == stored.assessment_value(twin, profile=profile)
         roots = corpora(tmp_path, {ALPHA: nodes, BETA: (twin,)})
         world = world_over(tmp_path, roots)
         view = open_world_view(world, publish(world, (ALPHA, BETA), hold_shipped(world)))
-        profile = profile_with()
         kwargs = world_kwargs(view, profile)
         inputs = gather(view, "proposition:p", context=kwargs["context"], profile=profile,
                         resolution=kwargs["resolution"], binding=kwargs["binding"])
-        assert inputs.node_corpus[stored.assessment_value(original).identity()] == (ALPHA, BETA)
+        assert inputs.node_corpus[stored.assessment_value(original, profile=profile).identity()] == (ALPHA, BETA)
         with pytest.raises(TypeError):
-            cast(Any, inputs.node_corpus)[stored.assessment_value(original).identity()] = (ALPHA,)
+            cast(Any, inputs.node_corpus)[stored.assessment_value(original, profile=profile).identity()] = (ALPHA,)
         assert isinstance(evaluate_over(view, "proposition:p", **kwargs), Belief)
         pins = kwargs["context"].pins
         disagreeing = replace(pins[BETA], science_contract="science:" + "0" * 64)

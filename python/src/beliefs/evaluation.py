@@ -218,7 +218,7 @@ def gather(
     for node in view.iter_stored():
         if node.kind != "assessment":
             continue
-        value = stored.assessment_value(node)
+        value = stored.assessment_value(node, profile=profile)
         if value.proposition != proposition:
             continue  # a lookup, not a value handed out
         matched.append(value)

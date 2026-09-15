@@ -28,6 +28,7 @@ from fixtures_cut3 import (
     spec_rules,
     traced,
     traced_from_key,
+    typed_applicability,
     typed_estimand,
 )
 from fixtures_cut3 import (
@@ -404,6 +405,8 @@ def existing_assessment_state(original):
         proposition="p",
         outcome="supported",
         interpretation_rule="r",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
     )
     admitting = (
         Verification(
@@ -758,6 +761,8 @@ def test_r5_g9_unreachable_bytes_with_a_held_copy_move_none_of_the_three(pair):
         proposition="prop-1",
         outcome="supported",
         interpretation_rule="r",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
     )
     admitting = (
         Verification(

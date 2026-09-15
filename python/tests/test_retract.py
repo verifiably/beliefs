@@ -6,6 +6,7 @@ from typing import ClassVar
 
 import pytest
 from authority import ACTOR, FULL, narrowed
+from fixtures_cut3 import typed_applicability, typed_estimand
 from nodes.core.node import Node
 from nodes.core.write_plan import CreateOp, DefaultExecutor
 from profiles import BASE
@@ -55,6 +56,8 @@ def mint_eligible_assessment(writer: CorpusWriter) -> Node:
             proposition=proposition.id,
             outcome="supported",
             interpretation_rule="rule:threshold",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
         )
     )
 

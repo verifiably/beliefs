@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from typing import Any
 
 import pytest
 from authority import ACTOR
 from closure_fixtures import make_closure
 from dataset_fixtures import pinned, pinned_for
-from fixtures_cut3 import spec_draft, spec_rules
+from fixtures_cut3 import spec_draft, spec_rules, typed_applicability, typed_estimand
 from fixtures_cut4 import raw_write
 from nodes.core.node import Node
 from profiles import BASE, pins_for
 from test_relocation import _writer
 from test_relocation_rows import _basis_route
+from test_stored import _testing_writer
 
 from beliefs import audit, belief, corpus, runrecord, stored
 from beliefs.assess import build_assessment
@@ -36,7 +38,11 @@ PINNED = [{"name": "matrix", "digest": "sha256:" + "1" * 64}]
 
 @pytest.fixture()
 def writer(tmp_path):
-    return _writer(tmp_path / "corpus")
+    # `TESTING_PROFILE`, not BASE: every fixture assessment here carries a
+    # typed estimand against `testing/affects`, which the recomputation
+    # (`check_assessment`) decodes under the writer's own profile before it
+    # ever reaches the run's closure (estimand-typing §6, §9).
+    return _testing_writer(tmp_path / "corpus")
 
 
 def _producing_run(slug: str, dataset_id: str) -> Node:
@@ -111,14 +117,17 @@ def run_publication(closure: RunClosure) -> Node:
     )
 
 
-def _stated_optionals(derived: AssessmentValue) -> dict[str, str]:
-    """The optional members the derived value actually states. Absent optionals
-    stay absent — a stored `None` is a different facet from an omitted one."""
-    return {
-        name: value
-        for name in ("estimate", "uncertainty", "estimand", "applicability")
-        if isinstance(value := getattr(derived, name), str)
-    }
+def _stated_optionals(derived: AssessmentValue) -> dict[str, Any]:
+    """The typed members a derived value states, ready to forward into
+    `stored.assessment_node`: `estimand`/`applicability` are always present;
+    `estimate`/`uncertainty` stay absent when the derivation left them so —
+    a stored `None` would be a different facet from an omitted one."""
+    optional: dict[str, Any] = {"estimand": derived.estimand, "applicability": derived.applicability}
+    if derived.estimate is not None:
+        optional["estimate"] = derived.estimate
+    if derived.uncertainty is not None:
+        optional["uncertainty"] = derived.uncertainty
+    return optional
 
 
 def _interpretation_evidence(frozen) -> DerivationEvidence:
@@ -190,6 +199,8 @@ def _eligible_assessment(writer) -> Node:
             proposition=proposition.id,
             outcome="supported",
             interpretation_rule="rule:threshold",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
         )
     )
 
@@ -447,7 +458,7 @@ class TestUncheckedIsNotContradicted:
 
     def test_an_assessment_whose_run_carries_no_closure_is_unchecked(self, writer):
         node = _eligible_assessment(writer)
-        outcome = audit.check_assessment(writer.read_view, node, evidence=NO_EVIDENCE)
+        outcome = audit.check_assessment(writer.read_view, node, evidence=NO_EVIDENCE, profile=writer.profile)
         assert not outcome.checked and "projection" in outcome.reason and outcome.contradiction is None
 
 
@@ -499,17 +510,24 @@ class TestTheAuditReportsAndNeverRaises:
         )
         run = writer.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[dataset.id]))
         proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
-        node = writer.add(
-            stored.assessment_node(
-                "a1",
-                title="a1",
-                spec="analysis-spec:s1",
-                run=run.id,
-                proposition=proposition.id,
-                outcome="maybe",
-                interpretation_rule="rule:threshold",
-            )
+        # `outcome="maybe"` is outside the closed set (M13's opacity): the
+        # typed constructor refuses it at mint, so the malformed record is
+        # written behind the boundary — self-consistent (restamped), never
+        # constructor-refused — and only the audit's recomputation catches it.
+        node = stored.assessment_node(
+            "a1",
+            title="a1",
+            spec="analysis-spec:s1",
+            run=run.id,
+            proposition=proposition.id,
+            outcome="supported",
+            interpretation_rule="rule:threshold",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
         )
+        node.facets[stored.ASSESSMENT_FACET]["outcome"] = "maybe"
+        raw_write(writer.root, stored.stamp_semantic_identity(node))
+        writer._reconstruct()
 
         findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)
         assert {(f.code, f.ref) for f in findings} == {
@@ -562,12 +580,14 @@ class TestTheAuditReportsAndNeverRaises:
             proposition=proposition.id,
             outcome="supported",
             interpretation_rule="rule:threshold",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
         )
         raw_write(writer.root, stored.stamp_semantic_identity(node))
         writer._reconstruct()
 
         with pytest.raises(SignatureRefused):
-            audit.check_assessment(writer.read_view, writer.read_view.get(node.id), evidence=NO_EVIDENCE)
+            audit.check_assessment(writer.read_view, writer.read_view.get(node.id), evidence=NO_EVIDENCE, profile=writer.profile)
         findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)
         assert {(f.code, f.ref) for f in findings} == {
             ("semantic-hash-missing", bystander),
@@ -710,7 +730,7 @@ class TestAssessmentComparisonNamespaces:
                 **_stated_optionals(derived),
             )
         )
-        assert audit.check_assessment(writer.read_view, node, evidence=evidence) == DerivationOutcome(True, "", None)
+        assert audit.check_assessment(writer.read_view, node, evidence=evidence, profile=writer.profile) == DerivationOutcome(True, "", None)
         assert audit_corpus(writer.read_view, evidence=evidence, profile=writer.profile) == ()
 
     def test_a_facet_disagreeing_on_outcome_and_spec_names_both_members(self, writer):
@@ -731,7 +751,7 @@ class TestAssessmentComparisonNamespaces:
                 **_stated_optionals(derived),
             )
         )
-        outcome = audit.check_assessment(writer.read_view, node, evidence=evidence)
+        outcome = audit.check_assessment(writer.read_view, node, evidence=evidence, profile=writer.profile)
         assert outcome.checked and outcome.contradiction is not None
         assert outcome.contradiction.code == "assessment-derivation-contradicted"
         assert outcome.contradiction.detail == "outcome,spec"
@@ -822,10 +842,10 @@ class TestAnUnreadableNeighbourLeavesTheRecordUnchecked:
 
     def test_an_assessment_naming_a_stale_run_is_unchecked(self, writer):
         assessment = _eligible_assessment(writer)
-        run = writer.read_view.get(stored.typed_ref("run", stored.assessment_value(assessment).run))
+        run = writer.read_view.get(stored.typed_ref("run", stored.assessment_reference(assessment).run))
         _tampered_stale(writer, run)
 
-        outcome = audit.check_assessment(writer.read_view, assessment, evidence=NO_EVIDENCE)
+        outcome = audit.check_assessment(writer.read_view, assessment, evidence=NO_EVIDENCE, profile=writer.profile)
         assert not outcome.checked and run.id in outcome.reason and outcome.contradiction is None
 
         findings = audit_corpus(writer.read_view, evidence=NO_EVIDENCE, profile=writer.profile)
@@ -899,7 +919,7 @@ DERIVATION_CODES = {"verification-derivation-contradicted", "assessment-derivati
 
 
 def _findings(writer, evidence, code="verification-derivation-contradicted"):
-    return [f for f in audit_corpus(reopen(writer.root), evidence=evidence, profile=BASE) if f.code == code]
+    return [f for f in audit_corpus(reopen(writer.root), evidence=evidence, profile=writer.profile) if f.code == code]
 
 
 def test_v4_a_published_verification_audits_checked_with_no_contradiction(writer):
@@ -907,7 +927,7 @@ def test_v4_a_published_verification_audits_checked_with_no_contradiction(writer
     assert published.node is not None
     outcome = check_verification(writer.read_view, writer.read_view.get(published.node.id), evidence=published.evidence)
     assert outcome.checked and outcome.contradiction is None
-    assert not {f.code for f in audit_corpus(reopen(writer.root), evidence=published.evidence, profile=BASE)} & DERIVATION_CODES
+    assert not {f.code for f in audit_corpus(reopen(writer.root), evidence=published.evidence, profile=writer.profile)} & DERIVATION_CODES
 
 
 def test_v4_a_certified_verification_audits_clean_through_its_stored_certification(writer):
@@ -973,7 +993,7 @@ def test_v2_a_contradicted_assessment_still_contradicts(writer, tmp_path):
     altered.facets[stored.ASSESSMENT_FACET]["outcome"] = "refuted"
     stored.stamp_semantic_identity(altered)
     raw_write(writer.root, altered)
-    codes = {f.code for f in audit_corpus(reopen(writer.root), evidence=published.evidence, profile=BASE)}
+    codes = {f.code for f in audit_corpus(reopen(writer.root), evidence=published.evidence, profile=writer.profile)}
     assert "assessment-derivation-contradicted" in codes and "semantic-hash-stale" not in codes
     from test_relocation import _writer
 
@@ -1021,7 +1041,7 @@ def test_v4_the_audit_reaches_the_same_verdict_with_specs_restored_from_the_corp
     published = publish_corpus(writer, publish=True)
     assert published.node is not None
     writer.add(stored.analysis_spec_node(published.frozen))
-    specs, findings = stored_specs(writer.read_view, profile=BASE)
+    specs, findings = stored_specs(writer.read_view, profile=writer.profile)
     assert not findings and set(specs) == {published.frozen.identity}
     from dataclasses import replace
 

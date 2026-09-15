@@ -226,10 +226,10 @@ def check_verification(
 
 
 def check_assessment(
-    view: ReadView | _ImportView | WorldReadView, node: Node, *, evidence: DerivationEvidence
+    view: ReadView | _ImportView | WorldReadView, node: Node, *, evidence: DerivationEvidence, profile: ProfileSpec
 ) -> DerivationOutcome:
     """Recompute a stored assessment's facet from the run it names."""
-    stored_value = stored.assessment_value(node)
+    stored_value = stored.assessment_value(node, profile=profile)
     closure, why = _closure(view, stored.typed_ref("run", stored_value.run))
     if closure is None:
         return _unchecked(why)
@@ -360,7 +360,7 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence, profile: Profi
             if node.kind == "verification":
                 outcome = check_verification(view, node, evidence=evidence)
             elif node.kind == "assessment":
-                outcome = check_assessment(view, node, evidence=evidence)
+                outcome = check_assessment(view, node, evidence=evidence, profile=profile)
             elif node.kind == "dataset":
                 outcome = check_lineage_basis(view, node)
             elif node.kind == "analysis-spec":
@@ -389,7 +389,7 @@ def _recompute(
     if node.kind == "verification":
         return check_verification(view, node, evidence=evidence)
     if node.kind == "assessment":
-        return check_assessment(view, node, evidence=evidence)
+        return check_assessment(view, node, evidence=evidence, profile=profile)
     if node.kind == "dataset":
         return check_lineage_basis(view, node)
     if node.kind == "analysis-spec":

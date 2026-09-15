@@ -13,10 +13,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import cast, final
 
 from beliefs.dataset import DatasetDeclaration, ResourceDeclaration
-from beliefs.errors import MalformedClosure, MalformedRecord, SignatureRefused
+from beliefs.errors import MalformedClosure, MalformedRecord, SignatureRefused, UncertaintyRefused
+from beliefs.estimand import Interval, StandardError, check_estimate, check_uncertainty
 from beliefs.recipe import RunClosure
 from beliefs.record import AssessmentValue, RunInput, RunValue
 from beliefs.sealed import sealed
@@ -70,34 +72,50 @@ def build_assessment(
         if not isinstance(raw, Mapping):
             raise TypeError("the interpretation rule returned no facet mapping")
         derived = cast(Mapping[str, object], raw)
+        extra = sorted(set(derived) - {"outcome", "estimate", "uncertainty"})
+        if extra:
+            raise TypeError(
+                f"the interpretation rule returned {extra}; a rule yields outcome, estimate and uncertainty only — "
+                "the reference and scale are the spec's, and a rule restating them is a rule that lies (estimand-typing §6)"
+            )
         outcome = derived.get("outcome")
-        estimate = derived.get("estimate")
-        uncertainty = derived.get("uncertainty")
         if type(outcome) is not str:
             raise TypeError("the interpretation rule returned no string outcome")
-        if estimate is not None and type(estimate) is not str:
-            raise TypeError("the interpretation rule returned a non-string estimate")
-        if uncertainty is not None and type(uncertainty) is not str:
-            raise TypeError("the interpretation rule returned non-string uncertainty")
+        scale = spec.estimand.measure.scale
+        estimate = derived.get("estimate")
+        if estimate is not None:
+            estimate = check_estimate(cast(Decimal, estimate), scale)
+        uncertainty = _typed_uncertainty(derived.get("uncertainty"))
+        if uncertainty is not None:
+            if estimate is None:
+                raise TypeError("the interpretation rule returned an uncertainty with no estimate to be uncertain about")
+            check_uncertainty(uncertainty, estimate, scale)
         return AssessmentValue(
             spec=spec.identity,
             run=run_address,
             proposition=spec.target,
             outcome=outcome,
             interpretation_rule=spec.interpretation_rule,
+            estimand=spec.estimand,
+            applicability=spec.applicability,
             estimate=estimate,
             uncertainty=uncertainty,
-            # `AssessmentValue.estimand`/`.applicability` are still `str | None`
-            # (estimand-typing Task 7 retypes them to `Estimand | None` /
-            # `Mapping[str, Qualifier] | None` and re-derives the stored facet,
-            # the comparison and the projection); `spec.estimand`/`.applicability`
-            # are typed as of Task 6. Left mismatched on purpose across the
-            # task boundary — not coerced here.
-            estimand=spec.estimand,  # type: ignore[reportArgumentType]
-            applicability=spec.applicability,  # type: ignore[reportArgumentType]
         )
     except Exception as error:  # noqa: BLE001 — arbitrary rule machinery records a finding
         return AssessmentFinding(run=run_address, reason=f"evaluation-failed: {error}")
+
+
+def _typed_uncertainty(value: object) -> Interval | StandardError | None:
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise UncertaintyRefused(f"uncertainty is a mapping with a kind, found {type(value).__name__}")
+    kind = value.get("kind")
+    if kind == "interval" and set(value) == {"kind", "low", "high", "level"}:
+        return Interval(low=cast(Decimal, value["low"]), high=cast(Decimal, value["high"]), level=cast(Decimal, value["level"]))
+    if kind == "standard-error" and set(value) == {"kind", "value"}:
+        return StandardError(value=cast(Decimal, value["value"]))
+    raise UncertaintyRefused(f"uncertainty kind {kind!r} with members {sorted(value)} is neither interval nor standard-error")
 
 
 def run_record(run: RunClosure) -> RunValue:

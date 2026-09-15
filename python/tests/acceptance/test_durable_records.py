@@ -16,7 +16,7 @@ from __future__ import annotations
 import pytest
 from authority import ACTOR
 from durable_fixture import PROPOSITION, RULE, SPEC
-from fixtures_cut3 import D_OUT, recipe, spec_draft, spec_rules
+from fixtures_cut3 import D_OUT, TESTING_PROFILE, recipe, spec_draft, spec_rules, typed_applicability, typed_estimand
 from fixtures_cut3 import closure as run_closure
 from fixtures_cut4 import raw_write, reopen
 from profiles import BASE
@@ -42,7 +42,7 @@ RAW = stored.dataset_node(title="raw", resources=[{"name": "matrix", "digest": O
 
 def assessments_of(view):
     return tuple(
-        stored.assessment_value(node) for node in view.iter_stored() if node.kind == "assessment"
+        stored.assessment_value(node, profile=TESTING_PROFILE) for node in view.iter_stored() if node.kind == "assessment"
     )
 
 
@@ -99,6 +99,8 @@ def mint_assessment(writer, *, outcome: str, slug_name: str = "a1"):
             proposition=PROPOSITION,
             outcome=outcome,
             interpretation_rule=RULE,
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
         )
     )
 
@@ -141,7 +143,7 @@ class TestR19aTheGenuineAvailabilityTransition:
     @pytest.fixture()
     def stored_verification(self, durable_writer, durable_root):
         mint_run_and_proposition(durable_writer)
-        assessment = stored.assessment_value(mint_assessment(durable_writer, outcome="supported"))
+        assessment = stored.assessment_value(mint_assessment(durable_writer, outcome="supported"), profile=TESTING_PROFILE)
         built = passed_verification_under_a_tolerance()
         durable_writer.add(
             stored.verification_node(
@@ -160,7 +162,7 @@ class TestR19aTheGenuineAvailabilityTransition:
         """Heldness is supplied. `reachable_here` changes only where the bytes
         are reported to live — the observation itself stands, because a copy
         remains held elsewhere."""
-        assessment = stored.assessment_value(view.get(ASSESSMENT))
+        assessment = stored.assessment_value(view.get(ASSESSMENT), profile=TESTING_PROFILE)
         run = run_value(view, RUN)
         location = "local-mount" if reachable_here else "host-b"
         address = dataset_address(stored.dataset_declaration(view.get(RAW)))
@@ -204,7 +206,7 @@ class TestR19aTheGenuineAvailabilityTransition:
 class TestR19deTheReadSideNegatives:
     def test_a_self_consistent_forged_verification_is_not_refused(self, durable_writer, durable_root):
         mint_run_and_proposition(durable_writer)
-        assessment = stored.assessment_value(mint_assessment(durable_writer, outcome="supported"))
+        assessment = stored.assessment_value(mint_assessment(durable_writer, outcome="supported"), profile=TESTING_PROFILE)
         raw_write(
             durable_root,
             stored.verification_node(
@@ -221,7 +223,7 @@ class TestR19deTheReadSideNegatives:
 
     def test_reload_does_not_validate_it(self, durable_writer, durable_root):
         mint_run_and_proposition(durable_writer)
-        assessment = stored.assessment_value(mint_assessment(durable_writer, outcome="supported"))
+        assessment = stored.assessment_value(mint_assessment(durable_writer, outcome="supported"), profile=TESTING_PROFILE)
         raw_write(
             durable_root,
             stored.verification_node(
@@ -246,7 +248,7 @@ class TestR19deTheReadSideNegatives:
         self, durable_writer, durable_root
     ):
         mint_run_and_proposition(durable_writer)
-        assessment = stored.assessment_value(mint_assessment(durable_writer, outcome="supported"))
+        assessment = stored.assessment_value(mint_assessment(durable_writer, outcome="supported"), profile=TESTING_PROFILE)
         built = passed_verification_under_a_tolerance()
         genuine = stored.verification_node(
             "genuine",
@@ -297,6 +299,8 @@ class TestR22TheForgeryAtTheCorrectAddress:
             proposition=PROPOSITION,
             outcome="supported",  # what the forger wants it to say
             interpretation_rule=RULE,
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
         )
         raw_write(durable_root, forgery)  # the basis is (spec, run, proposition): the same address
         return correct
@@ -308,7 +312,7 @@ class TestR22TheForgeryAtTheCorrectAddress:
         self, forged, durable_root
     ):
         view = reopen(durable_root)
-        assert stored.assessment_value(view.get(ASSESSMENT)).outcome == "supported"
+        assert stored.assessment_value(view.get(ASSESSMENT), profile=TESTING_PROFILE).outcome == "supported"
 
     def test_the_corpus_check_reports_nothing(self, forged, durable_root):
         assert corpus_check(reopen(durable_root), BASE) == ()
@@ -317,7 +321,7 @@ class TestR22TheForgeryAtTheCorrectAddress:
         # The identity is `(spec, run, proposition)` and the forgery changes
         # none of them; what moves is the keyed facet digest paired with it.
         view = reopen(durable_root)
-        value = stored.assessment_value(view.get(ASSESSMENT))
+        value = stored.assessment_value(view.get(ASSESSMENT), profile=TESTING_PROFILE)
         assert value.identity() == stored.assessment_value(
             stored.assessment_node(
                 "a1",
@@ -327,7 +331,10 @@ class TestR22TheForgeryAtTheCorrectAddress:
                 proposition=PROPOSITION,
                 outcome="refuted",
                 interpretation_rule=RULE,
-            )
+                estimand=typed_estimand(),
+                applicability=typed_applicability(),
+            ),
+            profile=TESTING_PROFILE,
         ).identity()
         assert value.facet_digest() != stored.assessment_value(
             stored.assessment_node(
@@ -338,7 +345,10 @@ class TestR22TheForgeryAtTheCorrectAddress:
                 proposition=PROPOSITION,
                 outcome="refuted",
                 interpretation_rule=RULE,
-            )
+                estimand=typed_estimand(),
+                applicability=typed_applicability(),
+            ),
+            profile=TESTING_PROFILE,
         ).facet_digest()
 
     def test_the_snapshot_stays_an_argument_to_the_digest(self, forged, durable_root):

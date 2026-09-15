@@ -29,9 +29,9 @@ from beliefs.intents.reduce import (
     StateFacts,
     reduce_chain,
 )
-from beliefs.record import AssessmentValue
 from beliefs.report import AssessmentRunIntent
 from beliefs.spec import FrozenSpec, SuccessorAdmitted, SuccessorRefused, admit_successor
+from beliefs.stored import AssessmentRef
 from beliefs.verification import Verification
 from beliefs.world.logmodel import IntentEntryView, WellFormedView
 from beliefs.world.records import RECORD_NAMESPACES, CapturedSurface, capture_surface
@@ -170,7 +170,7 @@ def _recorded_failures(surface: CapturedSurface, records: Mapping[str, bytes]) -
         if path in failing or value.supersedes in blockers
     }
     by_uid = {node.uid: path for path, node in nodes.items()}
-    targets: dict[str, AssessmentValue] = {}
+    targets: dict[str, AssessmentRef] = {}
     for path, value in gated.items():
         edges = [
             edge
@@ -220,15 +220,15 @@ def _decoded_evidence(records: Mapping[str, bytes]) -> dict[str, Node]:
     return nodes
 
 
-def _typed(nodes: Mapping[str, Node]) -> tuple[dict[str, Verification], dict[str, AssessmentValue]]:
+def _typed(nodes: Mapping[str, Node]) -> tuple[dict[str, Verification], dict[str, AssessmentRef]]:
     verifications: dict[str, Verification] = {}
-    assessments: dict[str, AssessmentValue] = {}
+    assessments: dict[str, AssessmentRef] = {}
     for path, node in nodes.items():
         try:
             if node.kind == "verification":
                 verifications[path] = stored.verification_value(node)
             else:
-                assessments[path] = stored.assessment_value(node)
+                assessments[path] = stored.assessment_reference(node)
         except MalformedRecord as caught:
             raise AdmissionEvidenceRefused(f"{node.kind} unreadable", path) from caught
     return verifications, assessments

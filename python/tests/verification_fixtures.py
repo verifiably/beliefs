@@ -177,7 +177,7 @@ def observations_for(view) -> dict[str, tuple[ByteObservation, ...]]:
 
 
 def evaluation_kwargs(view) -> dict:
-    identities = {stored.assessment_value(n).identity() for n in view.iter_stored() if n.kind == "assessment"}
+    identities = {stored.assessment_reference(n).identity() for n in view.iter_stored() if n.kind == "assessment"}
     observations = observations_for(view)
     return {
         "availability": Availability(observations=observations, implementations={BELIEF_V1.identity: BELIEF_V1}, fixtures={BELIEF_V1_RULE: BELIEF_V1_FIXTURES}),

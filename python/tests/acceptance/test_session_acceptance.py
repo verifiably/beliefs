@@ -18,6 +18,7 @@ import pytest
 from atoms.fs.backend import Backend
 from authority import ACTOR, FULL
 from coordination_fixtures import content_for, coordination_profile, pins_for
+from fixtures_cut3 import typed_applicability, typed_estimand
 from fixtures_cut6 import PINS
 from nodes.core.errors import ExecutionError
 from nodes.core.frontmatter import node_from_markdown
@@ -636,6 +637,8 @@ def assessment(slug: str) -> Node:
         proposition="proposition:p1",
         outcome="supported",
         interpretation_rule="rule:threshold",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
     )
 
 

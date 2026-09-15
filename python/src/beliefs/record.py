@@ -6,22 +6,35 @@ every R row stays at the run boundary (cut 2 §3). The roles are kernel §4.1's:
 `observes` is what confers eligibility, `reads` never does in any quantity (G6),
 `transforms` is dataset-production lineage input.
 
-The assessment facet is kernel §4.2.1's table, with `estimand` and
-`applicability` deliberately untyped prose (belief-policy §3.2 — typing them is
-ρO3's open neighbourhood, not this module's to claim). Its identity is
-`(spec, run, proposition)`; its keyed facet digest is what the closure pairs
-with that identity (kernel §5.1's first member).
+The assessment facet is kernel §4.2.1's table. `estimand` and `applicability`
+are typed against the spec they derive from (estimand-typing design §6, §9):
+`estimate` and `uncertainty` are checked against the estimand's scale at
+**every** construction, never coerced. Its identity is `(spec, run,
+proposition)`; its keyed facet digest is what the closure pairs with that
+identity (kernel §5.1's first member).
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from decimal import Decimal
 from types import MappingProxyType
 from typing import final
 
+from beliefs.claim import Qualifier
 from beliefs.dataset import DatasetDeclaration
-from beliefs.errors import MalformedRecord, SignatureRefused
+from beliefs.errors import MalformedRecord, SignatureRefused, UncertaintyRefused
+from beliefs.estimand import (
+    Estimand,
+    Interval,
+    StandardError,
+    applicability_projection,
+    check_estimate,
+    check_uncertainty,
+    estimand_projection,
+    uncertainty_projection,
+)
 from beliefs.identity import v1
 from beliefs.sealed import sealed
 
@@ -85,33 +98,61 @@ class AssessmentValue:
 
     outcome: str
     interpretation_rule: str
-    estimate: str | None = None
-    uncertainty: str | None = None
-    estimand: str | None = None
-    applicability: str | None = None
+    estimand: Estimand
+    applicability: Mapping[str, Qualifier]
+    estimate: Decimal | None = None
+    uncertainty: Interval | StandardError | None = None
 
     def __post_init__(self) -> None:
         if self.outcome not in OUTCOMES:
             raise MalformedRecord(f"outcome {self.outcome!r} is outside the closed set {OUTCOMES}")
+        if type(self.estimand) is not Estimand:
+            raise MalformedRecord(f"estimand is a typed Estimand, found {type(self.estimand).__name__}")
+        if not isinstance(self.applicability, Mapping) or not all(isinstance(q, Qualifier) for q in self.applicability.values()):
+            raise MalformedRecord("applicability is a mapping of dimension → Qualifier")
+        if self.estimate is not None and type(self.estimate) is not Decimal:
+            raise MalformedRecord(f"estimate is a Decimal or absent, found {type(self.estimate).__name__}")
+        if self.uncertainty is not None and not isinstance(self.uncertainty, (Interval, StandardError)):
+            raise MalformedRecord(f"uncertainty is an Interval, a StandardError or absent, found {type(self.uncertainty).__name__}")
+        # The numerical invariants (estimand-typing §6) hold at **every**
+        # construction — the constructor's, the stored reader's, a test's — so a
+        # stored record cannot carry a negative standard error or an interval
+        # that excludes its estimate any more than a derived one can.
+        try:
+            if self.estimate is not None:
+                check_estimate(self.estimate, self.estimand.measure.scale)
+            if self.uncertainty is not None:
+                if self.estimate is None:
+                    raise UncertaintyRefused("an uncertainty with no estimate to be uncertain about")
+                check_uncertainty(self.uncertainty, self.estimate, self.estimand.measure.scale)
+        except UncertaintyRefused as refused:
+            raise MalformedRecord(str(refused)) from refused
+        object.__setattr__(self, "applicability", MappingProxyType(dict(self.applicability)))
 
     def identity(self) -> str:
         """`(spec, run, proposition)` — which is what puts run identity in the
         belief digest at all (kernel §5.1)."""
         return v1.digest(ASSESSMENT_DOMAIN, {"spec": self.spec, "run": self.run, "proposition": self.proposition})
 
-    def facet_digest(self) -> str:
-        facet: dict[str, object] = {
-            "proposition": self.proposition,
-            "outcome": self.outcome,
-            "interpretation_rule": self.interpretation_rule,
+    def typed_projection(self) -> dict[str, object]:
+        """The typed members, as one canonical mapping: what the stored record
+        carries as text and what the facet digest covers. Absent optionals are
+        omitted, never null."""
+        typed: dict[str, object] = {
+            "estimand": estimand_projection(self.estimand),
+            "applicability": applicability_projection(self.applicability),
         }
-        # Absent optionals are omitted, never null: the encoder refuses null so
-        # that {"estimate": absent} and {"estimate": present-and-empty} differ.
-        for name in ("estimate", "uncertainty", "estimand", "applicability"):
-            value = getattr(self, name)
-            if value is not None:
-                facet[name] = value
-        return v1.digest(ASSESSMENT_FACET_DOMAIN, facet)
+        if self.estimate is not None:
+            typed["estimate"] = self.estimate
+        if self.uncertainty is not None:
+            typed["uncertainty"] = uncertainty_projection(self.uncertainty)
+        return typed
+
+    def facet_digest(self) -> str:
+        return v1.digest(
+            ASSESSMENT_FACET_DOMAIN,
+            {"proposition": self.proposition, "outcome": self.outcome, "interpretation_rule": self.interpretation_rule, **self.typed_projection()},
+        )
 
 
 @sealed

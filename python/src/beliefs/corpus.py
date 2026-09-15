@@ -2719,7 +2719,7 @@ class CorpusWriter:
                 if record.kind == "verification":
                     outcome = check_verification(union, record, evidence=evidence)
                 elif record.kind == "assessment":
-                    outcome = check_assessment(union, record, evidence=evidence)
+                    outcome = check_assessment(union, record, evidence=evidence, profile=self._profile)
                 else:
                     continue
             except ScienceError as caught:
@@ -3034,7 +3034,7 @@ class CorpusWriter:
         target = view.get(edge.target)
         if target.kind != "assessment":
             raise VerificationTargetMismatch(f"{node.id}: the verifies target {edge.target!r} is a {target.kind}, not an assessment")
-        identity = stored.assessment_value(target).identity()
+        identity = stored.assessment_reference(target).identity()
         if identity != decoded.assessment:
             raise VerificationTargetMismatch(
                 f"{node.id}: the verifies target carries assessment identity {identity}, not the verification's {decoded.assessment}"

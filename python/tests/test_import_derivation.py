@@ -30,12 +30,13 @@ from test_audit import (
     assessment_closure,
     run_publication,
 )
-from test_relocation import _writer, _writer_for
+from test_relocation import _writer_for as _base_writer_for
+from test_stored import _testing_writer
 
 from beliefs import runrecord, stored
 from beliefs.assess import build_assessment
 from beliefs.audit import DerivationEvidence, audit_corpus
-from beliefs.corpus import corpus_check
+from beliefs.corpus import CorpusWriter, corpus_check
 from beliefs.errors import ImportRefused
 from beliefs.recipe import ResultManifest
 from beliefs.record import AssessmentValue
@@ -45,6 +46,24 @@ from beliefs.runrecord import run_ref
 from beliefs.spec import freeze
 from beliefs.verification import ADMITTED, lifecycle_state
 from beliefs.verify import AssessmentVerification, build_verification
+
+
+def _writer(root):
+    """`test_relocation._writer`, but `TESTING_PROFILE`: every derived
+    assessment here carries a typed estimand against `testing/affects`, which
+    BASE does not declare, and the import boundary's recomputation
+    (`check_assessment`) decodes it under the writer's own profile
+    (estimand-typing §6, §9)."""
+    return _testing_writer(root)
+
+
+def _writer_for(corpus, **options) -> CorpusWriter:
+    """`test_relocation._writer_for`, but `TESTING_PROFILE` for the path
+    branch, for the same reason as `_writer` above. An already-open writer
+    (the acceptance module's durable one) is taken as it stands."""
+    if isinstance(corpus, CorpusWriter):
+        return _base_writer_for(corpus, **options)
+    return _testing_writer(corpus)
 
 
 class _ImportFields(TypedDict):

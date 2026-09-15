@@ -6,7 +6,7 @@ from typing import ClassVar
 
 import pytest
 from authority import ACTOR, FULL, narrowed
-from fixtures_cut3 import spec_draft, spec_rules
+from fixtures_cut3 import spec_draft, spec_rules, typed_applicability, typed_estimand
 from nodes.core.errors import ExecutionError
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -393,7 +393,13 @@ def test_uncanonically_encodable_success_finding_refuses_before_payload(writer_w
     assert not writer_with_port.read_view.holds(record.id)
 
 
-def test_ordinary_eligibility_is_evaluated_over_bundle_union(writer_with_port):
+def test_ordinary_eligibility_is_evaluated_over_bundle_union(tmp_path, monkeypatch):
+    # `check_assessment`'s recomputation reads the stored typed estimand under
+    # the writer's own profile before it ever reaches the run's closure — the
+    # assessment's typed `estimand` is against `testing/affects`, which BASE
+    # does not declare, so this needs `_testing_profile_writer` (the same
+    # precedent `_refuse_r20_contradiction`'s tests use for a spec).
+    writer_with_port = _testing_profile_writer(tmp_path, monkeypatch)
     dataset = stored.dataset_node(
                 title="observed",
         resources=[{"name": "data", "digest": "sha256:" + "ab" * 32}],
@@ -409,6 +415,8 @@ def test_ordinary_eligibility_is_evaluated_over_bundle_union(writer_with_port):
         proposition=proposition.id,
         outcome="supported",
         interpretation_rule="rule:threshold",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
     )
 
     report = import_records(writer_with_port, [assessment, run, proposition, dataset])

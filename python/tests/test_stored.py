@@ -171,19 +171,23 @@ def test_v2_the_helper_pair_refuses_the_wrong_shape(call):
 
 
 def test_v2_assessment_value_hands_back_the_bare_run_and_refuses_an_untyped_one():
+    from fixtures_cut3 import typed_applicability, typed_estimand
+
     from beliefs import stored
 
     node = stored.assessment_node(
         "a1", title="a1", spec="s", run="run:r1", proposition="proposition:p", outcome="supported",
-        interpretation_rule="rule-1",
+        interpretation_rule="rule-1", estimand=typed_estimand(), applicability=typed_applicability(),
     )
-    assert stored.assessment_value(node).run == "r1"
+    # `AssessmentRef` reads only the three world-identity members — no
+    # profile is needed to hand back the bare run (estimand-typing §9).
+    assert stored.assessment_reference(node).run == "r1"
     node.facets[stored.ASSESSMENT_FACET]["run"] = "r1"
     with pytest.raises(MalformedRecord):
-        stored.assessment_value(node)
+        stored.assessment_reference(node)
     del node.facets[stored.ASSESSMENT_FACET]["run"]
     with pytest.raises(MalformedRecord):
-        stored.assessment_value(node)
+        stored.assessment_reference(node)
 
 
 # --- V8: the analysis-spec record (design §7) --------------------------------

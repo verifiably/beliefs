@@ -8,7 +8,7 @@ from __future__ import annotations
 import pytest
 from test_audit import writer  # noqa: F401 - the fixture
 from test_evaluation import CLAIM_FACET, OTHER_GENE, PHENO
-from verification_fixtures import admission_over, evaluation_kwargs, publish_corpus
+from verification_fixtures import PROFILE, admission_over, evaluation_kwargs, publish_corpus
 
 from beliefs import stored
 from beliefs.belief import Belief, NoBelief, Refused
@@ -53,7 +53,7 @@ def test_v3_a_superseding_failed_verification_invalidates_and_retires_its_predec
 
 def test_v3_negatives_another_proposition_is_never_gathered_and_a_twin_target_admits(writer):  # noqa: F811
     published = publish_corpus(writer, claim=CLAIM_FACET)
-    value = stored.assessment_value(published.assessment)
+    value = stored.assessment_value(published.assessment, profile=PROFILE)
     # A genuine twin (decision 17) agrees on the whole facet, not only the
     # identity's three fields — ruling P8 refuses an identity-equal pair
     # whose facets disagree, so the optionals travel with the twin too.
@@ -65,8 +65,8 @@ def test_v3_negatives_another_proposition_is_never_gathered_and_a_twin_target_ad
             **optional,
         )
     )
-    assert stored.assessment_value(twin).identity() == value.identity()
-    assert stored.assessment_value(twin).facet_digest() == value.facet_digest()
+    assert stored.assessment_value(twin, profile=PROFILE).identity() == value.identity()
+    assert stored.assessment_value(twin, profile=PROFILE).facet_digest() == value.facet_digest()
     writer.add(publication_node(published.derived, assessment_ref=twin.id))  # decision 17: the twin is a valid target
     _, belief = admission_over(writer, published.proposition.id, published.original)  # [R5] admission is over the identity
     assert isinstance(belief, Belief)
@@ -89,16 +89,17 @@ def test_v3_twins_that_disagree_on_outcome_are_refused_not_silently_resolved(wri
     directional records never saw the pair at all and the belief computed from
     the survivor alone."""
     published = publish_corpus(writer, claim=CLAIM_FACET)
-    value = stored.assessment_value(published.assessment)
+    value = stored.assessment_value(published.assessment, profile=PROFILE)
     assert disagreeing_outcome != value.outcome, "the twin must actually disagree"
     twin = writer.add(
         stored.assessment_node(
             "a-p-disagreeing-twin", title="disagreeing twin", spec=value.spec, run=run_ref(published.original.address()),
             proposition=published.proposition.id, outcome=disagreeing_outcome, interpretation_rule=value.interpretation_rule,
+            estimand=value.estimand, applicability=value.applicability,
         )
     )
-    assert stored.assessment_value(twin).identity() == value.identity()
-    assert stored.assessment_value(twin).facet_digest() != value.facet_digest()
+    assert stored.assessment_value(twin, profile=PROFILE).identity() == value.identity()
+    assert stored.assessment_value(twin, profile=PROFILE).facet_digest() != value.facet_digest()
     writer.add(publication_node(published.derived, assessment_ref=twin.id))
     _, answer = admission_over(writer, published.proposition.id, published.original)
     # `evaluate` stays total: the contradiction is an answer, as loud as

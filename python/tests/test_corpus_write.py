@@ -17,6 +17,7 @@ import pytest
 from authority import ACTOR, FULL, narrowed
 from dataset_fixtures import dataset_ref, pinned
 from fixtures_cut3 import report as mint_report
+from fixtures_cut3 import typed_applicability, typed_estimand
 from fixtures_cut6 import PINS
 from nodes.core.errors import CollisionError, ExecutionError, RefError, ValidationError
 from nodes.core.frontmatter import node_from_markdown
@@ -323,6 +324,8 @@ def admissible(writer: CorpusWriter, *, observes=True):
         proposition="proposition:p1",
         outcome="supported",
         interpretation_rule="rule:threshold",
+        estimand=typed_estimand(),
+        applicability=typed_applicability(),
     )
 
 
@@ -586,6 +589,8 @@ class TestS7TheWriteBoundary:
                     proposition="proposition:p1",
                     outcome="supported",
                     interpretation_rule="rule:threshold",
+                    estimand=typed_estimand(),
+                    applicability=typed_applicability(),
                 )
             )
 
@@ -675,6 +680,8 @@ class TestTheRefusalsWrapAndOrder:
             proposition="proposition:p1",
             outcome="supported",
             interpretation_rule="rule:threshold",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
         )
         malformed.kind = "run"  # a document-validation failure, behind an eligibility one
         with pytest.raises(EligibilityUnmet):

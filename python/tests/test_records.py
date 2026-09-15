@@ -6,6 +6,7 @@ to refuse at (cut 2 §4.1). The value/digest halves are `test_belief.py`'s.
 """
 
 import pytest
+from fixtures_cut3 import typed_applicability, typed_estimand
 
 from beliefs.dataset import DatasetDeclaration, ResourceDeclaration
 from beliefs.errors import MalformedRecord, SignatureRefused
@@ -26,6 +27,8 @@ def assessment(**overrides) -> AssessmentValue:
         "proposition": "prop-1",
         "outcome": "supported",
         "interpretation_rule": "rule-1",
+        "estimand": typed_estimand(),
+        "applicability": typed_applicability(),
     }
     fields.update(overrides)
     return AssessmentValue(**fields)
@@ -53,18 +56,90 @@ class TestClosedSignatures:
 
 class TestTheFacetDigest:
     def test_identity_is_spec_run_proposition(self):
-        assert assessment().identity() == assessment(estimate="0.4").identity()
+        from decimal import Decimal
+
+        assert assessment().identity() == assessment(estimate=Decimal("0.4")).identity()
         assert assessment().identity() != assessment(run="run-2").identity()
 
-    @pytest.mark.parametrize("field", ["estimate", "uncertainty", "estimand", "applicability"])
-    def test_each_optional_field_moves_the_facet_digest(self, field):
-        assert assessment().facet_digest() != assessment(**{field: "x"}).facet_digest()
+    def test_each_typed_member_moves_the_facet_digest(self):
+        from decimal import Decimal
 
-    def test_absent_and_empty_differ(self):
-        assert assessment().facet_digest() != assessment(estimate="").facet_digest()
+        from fixtures_cut3 import typed_applicability, typed_estimand
+
+        from beliefs.claim import Qualifier, Referent
+        from beliefs.estimand import Interval, StandardError
+
+        base = assessment()
+        assert base.facet_digest() != assessment(estimate=Decimal("0.4")).facet_digest()
+        assert assessment(estimate=Decimal("0.4")).facet_digest() != assessment(estimate=Decimal("0.4"), uncertainty=Interval(Decimal("0.1"), Decimal("0.7"), Decimal("0.95"))).facet_digest()
+        assert assessment(estimate=Decimal("0.4"), uncertainty=StandardError(Decimal("0.1"))).facet_digest() != assessment(estimate=Decimal("0.4")).facet_digest()
+        assert base.facet_digest() != assessment(estimand=typed_estimand(reference=Decimal(1))).facet_digest()
+        adults = typed_applicability({"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))})
+        assert base.facet_digest() != assessment(applicability=adults).facet_digest()
+
+    def test_a_string_member_is_refused(self):
+        with pytest.raises(MalformedRecord):
+            assessment(estimate="0.4")
+        with pytest.raises(MalformedRecord):
+            assessment(estimand="the effect of x on y")
+
+    def test_the_numerical_invariants_hold_at_construction(self):
+        from decimal import Decimal
+
+        from beliefs.estimand import Interval, StandardError
+
+        with pytest.raises(MalformedRecord, match="non-negative"):
+            assessment(estimate=Decimal("0.4"), uncertainty=StandardError(Decimal("-0.1")))
+        with pytest.raises(MalformedRecord, match="excludes"):
+            assessment(estimate=Decimal("0.4"), uncertainty=Interval(Decimal("0.5"), Decimal("0.7"), Decimal("0.95")))
+        with pytest.raises(MalformedRecord, match="no estimate"):
+            assessment(uncertainty=StandardError(Decimal("0.1")))
 
     def test_the_outcome_moves_it_too(self):
         assert assessment().facet_digest() != assessment(outcome="refuted").facet_digest()
+
+
+class TestTheStoredReaderRefusesWhatTheConstructorWould:
+    """`stored.assessment_value` decodes the `typed` member and constructs an
+    `AssessmentValue` through the ordinary constructor — so a stored record
+    cannot carry a negative standard error or a prose estimand any more than
+    a derived one can (estimand-typing §6, decision 10)."""
+
+    def test_a_negative_stored_standard_error_reads_as_malformed_never_a_value(self):
+        from decimal import Decimal
+        from typing import cast
+
+        from fixtures_cut3 import TESTING_PROFILE
+
+        from beliefs import stored
+        from beliefs.identity import v1
+
+        node = stored.assessment_node(
+            "a1", title="a1", spec="spec-1", run="run:run-1", proposition="prop-1",
+            outcome="supported", interpretation_rule="rule-1",
+            estimand=typed_estimand(), applicability=typed_applicability(),
+        )
+        typed = cast(dict, v1.decode(node.facets[stored.ASSESSMENT_FACET]["typed"].encode("utf-8")))
+        typed["uncertainty"] = {"kind": "standard-error", "value": Decimal("-0.1")}
+        node.facets[stored.ASSESSMENT_FACET]["typed"] = v1.encode(typed).decode("utf-8")
+        with pytest.raises(MalformedRecord):
+            stored.assessment_value(node, profile=TESTING_PROFILE)
+
+    def test_a_pre_grammar_facet_is_refused_by_name_never_coerced(self):
+        from fixtures_cut3 import TESTING_PROFILE
+
+        from beliefs import stored
+        from beliefs.errors import PreGrammarAssessment
+
+        node = stored.assessment_node(
+            "a1", title="a1", spec="spec-1", run="run:run-1", proposition="prop-1",
+            outcome="supported", interpretation_rule="rule-1",
+            estimand=typed_estimand(), applicability=typed_applicability(),
+        )
+        del node.facets[stored.ASSESSMENT_FACET]["typed"]
+        node.facets[stored.ASSESSMENT_FACET]["estimand"] = "the effect of x on y"
+        with pytest.raises(PreGrammarAssessment):
+            stored.assessment_value(node, profile=TESTING_PROFILE)
 
 
 class TestARunIsAValueNotABoundary:

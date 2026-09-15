@@ -22,6 +22,8 @@ from fixtures_cut3 import (
     recipe,
     spec_draft,
     spec_rules,
+    typed_applicability,
+    typed_estimand,
 )
 
 from beliefs.errors import (
@@ -559,6 +561,8 @@ def test_m2_substituting_any_input_moves_the_assessment_identity_every_time():
             proposition="p",
             outcome="supported",
             interpretation_rule="r",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
         )
         moved = AssessmentValue(
             spec="s",
@@ -566,6 +570,8 @@ def test_m2_substituting_any_input_moves_the_assessment_identity_every_time():
             proposition="p",
             outcome="supported",
             interpretation_rule="r",
+            estimand=typed_estimand(),
+            applicability=typed_applicability(),
         )
         assert original.identity() != moved.identity()
 

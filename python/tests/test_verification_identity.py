@@ -39,7 +39,7 @@ def test_v2_one_identity_admits_over_the_corpus_and_audits_clean(writer):
     stored_node = writer.add(publication_node(verification, assessment_ref=assessment.id))
     view = writer.read_view
 
-    stored_identity = stored.assessment_value(view.get(assessment.id)).identity()
+    stored_identity = stored.assessment_reference(view.get(assessment.id)).identity()
     assert stored_identity == derived.identity() == record.assessment, (
         "one spelling for the run member: the stored assessment reads back the identity its run derives"
     )
