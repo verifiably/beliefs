@@ -1,5 +1,6 @@
 """Q3 (construction refuses rather than flattens), Q7's projection arms, Q9 (commensuration and scope)."""
 
+import re
 from decimal import Decimal
 
 import pytest
@@ -119,7 +120,10 @@ def test_estimand_has_no_public_constructor():
     (lambda: {"control": Control(identification=Referent(I, "EX:obs"), conditioning=(Referent(E, "EX:c"), Referent(E, "EX:c")))}, ControlRefused, "duplicate"),
 ])
 def test_each_refusal_names_its_position(profile, claim, unconsulted, make, error, position):
-    with pytest.raises(error, match=position):
+    # `position` is matched as a literal substring, not a hand-written regex: an
+    # index like `control.conditioning[0]` names a `[0]` character class to an
+    # unescaped pattern, matching "the digit 0" rather than the literal brackets.
+    with pytest.raises(error, match=re.escape(position)):
         build(profile, claim, unconsulted, **make())
 
 

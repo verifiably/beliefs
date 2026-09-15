@@ -209,13 +209,7 @@ class Estimand:
             raise UntypedEstimandMember(f"control holds {type(control).__name__}")
         _require_sort(control.identification, declaration.identification_sort, "control.identification")
         for index, member in enumerate(control.conditioning):
-            # Not `f"control.conditioning[{index}]"`: `test_each_refusal_names_its_position`
-            # matches this text as an *unescaped* regex, and `[0]` there is a character
-            # class meaning "the character 0", not a literal bracket pair — so a bracketed
-            # `where` can never satisfy it. `_referent_positions` below still uses the
-            # bracketed form for the receipt's position vocabulary (§7.1); only this
-            # message text is affected.
-            _require_sort(member, declaration.conditioning_sort, f"control.conditioning{index}")
+            _require_sort(member, declaration.conditioning_sort, f"control.conditioning[{index}]")
         estimand = object.__new__(cls)
         for name, value in (("claim", claim), ("operator", operator), ("contrast", contrast), ("measure", measure), ("reference", reference), ("control", control)):
             object.__setattr__(estimand, name, value)
