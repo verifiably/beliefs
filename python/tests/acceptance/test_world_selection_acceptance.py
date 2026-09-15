@@ -399,7 +399,7 @@ def test_w8b_duplicate_location_is_the_same_finding_with_shared_or_distinct_uids
 def test_w8b_corruption_outranks_duplication_and_a_corpus_alone_reports_neither_durably(durable_world, scratch):
     one = stored.dataset_node(title="one", resources=pinned()); twin = one.model_copy(deep=True); third = one.model_copy(deep=True, update={"id": "dataset:third"})
     a, alpha, left = durable_world.corpus(); b, beta, right = durable_world.corpus(); c, gamma, last = durable_world.corpus()
-    left.add(one); right.add(twin); last.add(third)
+    left.add(one); right.add(twin); raw_write(gamma, third)
     coverage = (a, b, c); roots = {a: alpha, b: beta, c: gamma}; writers = (left, right, last)
     config = WorldConfig(scratch / "precedence", "b" * 32, (alpha, beta, gamma)); init_world_root(config, authority=FULL); world = open_world(config, authority=FULL)
     for writer in writers: world.admit(writer.root, provenance=Fresh())

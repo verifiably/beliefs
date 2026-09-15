@@ -234,6 +234,10 @@ context and the linked design references for normative detail.
   `science.source-address.v1` from the selected normalized external identifier,
   using fixed precedence DOI, PMID, ISBN, then accession.
   ([identity](identity-world-and-change.md#identity-is-not-one-field))
+- **Dataset address** — The `dataset:sha256:<hex>` lookup key: the ruled fold
+  over a dataset's declared resource digests (deduplicated, sorted,
+  newline-joined, sha256), which is the record's id from cut 29.
+  ([identity](identity-world-and-change.md#identity-is-not-one-field))
 - **Standing** — The active status calculated from an acyclic retraction graph,
   including counter-retractions, rather than stored as a mutable flag.
   ([identity](identity-world-and-change.md#correction-is-additive))

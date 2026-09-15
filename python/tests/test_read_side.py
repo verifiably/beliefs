@@ -537,6 +537,31 @@ class TestTheSnapshotWalk:
         assert certification.state == "not-certified"
         assert certification.findings == ("lineage-divergent",)
 
+    def test_snapshot_orders_decoded_routes_by_the_lineage_value(self, tmp_path):
+        view = seed(
+            tmp_path,
+            stored.dataset_node(
+                title="b",
+                resources=pinned("b"),
+                basis=self.basis(
+                    {"run": "run:z", "ancestor": dataset_ref("a"), "transforms": []},
+                    {"run": "run:a", "ancestor": dataset_ref("z"), "transforms": []},
+                    tag="conflict",
+                ),
+            ),
+            stored.dataset_node(title="a", resources=pinned("a")),
+            stored.dataset_node(title="z", resources=pinned("z")),
+            stored.run_node("a", title="a", spec="analysis-spec:s"),
+            stored.run_node("z", title="z", spec="analysis-spec:s"),
+        )
+
+        snapshot = lineage_snapshot(view, [dataset_ref("b")])
+
+        assert [route.stored_run for route in snapshot.bases[dataset_ref("b")].routes] == [
+            "run:a",
+            "run:z",
+        ]
+
     def test_an_unresolvable_basis_entry_yields_lineage_incomplete_and_no_certificate(self, tmp_path):
         view = seed(
             tmp_path,

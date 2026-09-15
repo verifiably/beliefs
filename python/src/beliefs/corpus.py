@@ -125,7 +125,7 @@ from beliefs.errors import (
 from beliefs.evidence import NO_EVIDENCE, DerivationEvidence
 from beliefs.facets import validate_payload
 from beliefs.identity import v1
-from beliefs.lineage import Basis, LineageSnapshot, Producer, Route
+from beliefs.lineage import Basis, LineageSnapshot, Producer, Route, _route_sort_key
 from beliefs.permit import Authority
 from beliefs.profile import ProfileSpec, shipped_base
 from beliefs.record import RunInput, RunValue
@@ -1161,7 +1161,10 @@ def lineage_snapshot(view: ReadView | WorldReadView, roots: Sequence[str]) -> Li
             )
         facet = stored.lineage_basis(node)
         if facet is not None and routes:
-            bases[dataset] = Basis(tag=str(facet.get("tag", "single")), routes=tuple(routes))
+            bases[dataset] = Basis(
+                tag=str(facet.get("tag", "single")),
+                routes=tuple(sorted(routes, key=_route_sort_key)),
+            )
         found = _producers_of(view, dataset)
         for producer in found:
             if producer.absent:

@@ -1,6 +1,6 @@
 # Conformance cut 29 — dataset addresses derived from the content identity
 
-**Status:** frozen 2026-09-14; not yet discharged.
+**Status:** discharged 2026-09-15; results: `../plans/2026-09-14-conformance-cut-29-results.md`.
 **Frozen:** 2026-09-14, before implementation, on `design/world-resolution-slice-5`
 **Design:** `../superpowers/specs/2026-09-14-world-resolution-slice-5-design.md`, approved 2026-09-14 after one review (§12 there)
 **Numbered after** cut 28 (roadmap concurrency rule 1) and **serialized after** its discharge, which is in the branch ancestry (rule 5).

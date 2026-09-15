@@ -571,7 +571,9 @@ its children. Two siblings are filed under `beliefs-d248ba`:
    takes an authored slug while `dataset_address` is computed and never
    checked against the id; 189 `dataset_node` sites measured 2026-09-10;
    the choice between `dataset:sha256:` as the address and a digest domain
-   is that design's.
+   is that design's. *Built at cut 29 (2026-09-15): the address stays
+   `dataset:sha256:<fold>` as ruled; see
+   `2026-09-14-world-resolution-slice-5-design.md`.*
 2. **Reconciling divergent identifier-correction histories at
    `consolidate`** — this slice refuses them (§7).
 

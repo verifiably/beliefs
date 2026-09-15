@@ -1,7 +1,7 @@
 # World resolution, slice 5 — dataset addresses derived from the content identity
 
 **Date:** 2026-09-14
-**Status:** draft, awaiting review
+**Status:** discharged at conformance cut 29 on 2026-09-15; results: `../../plans/2026-09-14-conformance-cut-29-results.md`
 **Boundary:** `world-resolution`, the first of its two filed follow-ups (`beliefs-d248ba`); task `beliefs-48214e`
 **Lane:** `world-read`, worktree `.worktrees/world-resolution-slice-5`
 **Sources:** `../../designs/2026-08-02-world-addressing-design.md` (§2.1, §4.2, §4.4, §7: W1, W2, W3, W8, W16),

@@ -180,12 +180,13 @@ divergent-history reconciliation are filed. Cut 27 adds the explicit epoch impor
 the epoch audit with its snapshot-state query, and a world audit that judges the
 capture corpus by corpus and reports a damaged corpus rather than refusing it;
 Cut 28 adds view-query evaluation over the world read view — a topic's query selects across corpora at an explicit epoch, refusing drift, damage and an address it cannot locate, and reporting absence rather than folding it in — and discharges W8b and W8's runnable conflicts over the existing build, `consolidate` and `move`.
+Cut 29 derives every dataset id from its declared content identity — the ruled fold, unchanged — and holds it at the write boundary and at both inputs of `consolidate`; divergent-history reconciliation remains filed.
 W8's ambiguous-search-term conflict waits with W9 on the pinned authority snapshot. The address
 ruling governs those derived views: labels are computed on read,
 coreference is graded rather than merged, and storage duplication changes no
 address. What the log still owes — event-level L8 and the L13 preimage resolver
 — is listed with its owners in the
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-14).
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-15).
 
 ## Open edges
 

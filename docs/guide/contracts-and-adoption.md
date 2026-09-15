@@ -232,9 +232,10 @@ Cut 27 discharges world resolution slice 3 — R23's snapshot, import and
 divergence clauses, W8a's packaging arms, the X5 and W13 relabels and the new
 row S9 (`../plans/2026-09-13-conformance-cut-27-results.md`).
 Cut 28 discharges world resolution slice 4 — W7's view evaluation and the W8/W8b conflicts over existing code (`../designs/2026-09-14-conformance-cut-28.md`; `../plans/2026-09-14-conformance-cut-28-results.md`).
+Cut 29 discharges world resolution slice 5 — dataset ids derived from the content identity and held at the write boundary and both inputs of `consolidate` (`../designs/2026-09-14-conformance-cut-29.md`; `../plans/2026-09-14-conformance-cut-29-results.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-14)
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-15)
 states what is built and which remaining boundaries have named owners; the cut
 documents and results records in the references below are the evidence.
 

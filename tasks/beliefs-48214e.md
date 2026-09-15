@@ -1,15 +1,16 @@
 ---
 id: beliefs-48214e
 title: Dataset addresses derived from the content identity
-status: doing
+status: done
 priority: 2
 size: l
 complexity: high
 process: planned
 owner: design/world-resolution-slice-5
 created: 2026-09-11T11:42:27Z
-updated: 2026-09-15T00:22:08Z
+updated: 2026-09-15T05:13:24Z
 started: 2026-09-14T22:06:20Z
+completed: 2026-09-15T05:13:24Z
 depends: []
 parent: beliefs-d248ba
 tags: [world-read]
@@ -31,3 +32,4 @@ dataset_node takes an authored slug while dataset_address is computed and never 
 - 2026-09-15T00:02:43Z (design/world-resolution-slice-5): User approved amended plan; resumed by Codex root controller for subagent-driven implementation in this worktree.
 - 2026-09-15T00:05:22Z (design/world-resolution-slice-5): cut 29 frozen at 21d1a11390b91d3104b35aa729ebe148f8fb5fd6; document sha256 1247569526f49480c59705fd9e3b3960cd4639b1010eb9bbec77870353780208
 - 2026-09-15T00:22:08Z (design/world-resolution-slice-5): claimed by Codex root controller, pid 3406977; subagent-driven execution after user approval. Certified scratch override uses measured matching main-checkout volume; worktree source stays isolated.
+- 2026-09-15T05:13:24Z (design/world-resolution-slice-5): Slice 5 landed: dataset ids derived from the content identity, DatasetAddressDisagreement at the boundary and both consolidate inputs; cut 29 discharged, no row moves

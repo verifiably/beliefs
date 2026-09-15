@@ -1,6 +1,6 @@
 # World Resolution Slice 5 Implementation Plan
 
-**Status:** draft, awaiting review.
+**Status:** implementation discharged at conformance cut 29 on 2026-09-15.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
