@@ -44,7 +44,7 @@
 
 **Files:**
 - Create: `docs/designs/2026-09-15-conformance-cut-30.md`
-- Modify: `README.md:30` (design count sentence), `README.md:99` (design table — add a row after cut 29's), `docs/guide/contracts-and-adoption.md:44` and `docs/guide/identity-world-and-change.md:25` (citation lists — add the cut 30 line after the cut 29 line)
+- Modify: `README.md:30` (design count sentence), `README.md:99` (design table — add a row after cut 29's), `docs/guide/contracts-and-adoption.md:44` and `docs/guide/identity-world-and-change.md:25` (citation lists — add the cut 30 line after the cut 29 line), `python/tests/test_designs_corpus.py:301` (`_COUNT_WORDS` gains `65`)
 - Test: `python/tests/test_designs_corpus.py` (existing guards)
 
 **Interfaces:**
@@ -104,7 +104,7 @@ In scope:
 - `python/src/beliefs/errors.py` and `corpus.py`: docstrings only;
 - `python/tests/test_source_address.py`, `python/tests/test_identifier_correction.py`: the unit obligations of design §7.1;
 - `python/tests/acceptance/test_source_address_acceptance.py`: the lifecycle absorb and the interruption re-run (design §7.2);
-- `python/tests/acceptance/test_n2_cut25.py`: the dated `W5a-m` live re-target; `test_n2_cut26.py`–`test_n2_cut29.py`: the second re-targeted row in their prior-declaration checks;
+- `python/tests/acceptance/test_n2_cut25.py`: the dated `W5a-m` live re-target; `test_n2_cut26.py`–`test_n2_cut29.py`: the second re-targeted row in their prior-declaration checks; `python/tests/arm_staleness.py`: `re_targeted_rows` reads a guard's `RETARGETED_ROWS`;
 - `python/tests/acceptance/n2_arms_cut30.py`, `python/tests/acceptance/test_n2_cut30.py`, `python/tools/cut30_acceptance.py`: declaration, guard, runner;
 - `python/tools/roadmap_status.py`: the cut 30 accounting entry;
 - `docs/superpowers/specs/2026-09-10-world-resolution-slice-2b-design.md` (§7, §12 item 2) and `docs/designs/2026-08-02-world-addressing-design.md` (W5a's consolidation clause): dated notes;
@@ -142,7 +142,9 @@ On the certified volume beside the checkout, `just check`, `just test` and the r
 Design §10: reconciliation is by `keep`; conflicting token reuse refuses with no seam to repair it; a blocked address is still not released; map merge is not offered; the absorbed fork point is provenance, not a clause.
 ````
 
-- [ ] **Step 3: Update the README count and design table, and the two guide citation lists**
+- [ ] **Step 3: Update the README count and design table, the two guide citation lists, and the count-words table**
+
+`python/tests/test_designs_corpus.py:301`: after `    64: "Sixty-four",` add `    65: "Sixty-five",`.
 
 `README.md:30`: change `Sixty-four documents` to `Sixty-five documents` and the `through 2026-09-14` date (find it: `grep -n "through 2026-09" README.md`) to `through 2026-09-15`. Add after the cut 29 row of the design table (`README.md:99`):
 
@@ -155,12 +157,12 @@ Design §10: reconciliation is by `keep`; conflicting token reuse refuses with n
 - [ ] **Step 4: Run the designs-corpus guard**
 
 Run: `cd python && uv run --frozen pytest tests/test_designs_corpus.py -q`
-Expected: all pass (the count sentence, the table, and `test_the_guide_cites_every_design` read the new file). If `test_the_readme_states_how_many_designs_there_are` names a missing `_COUNT_WORDS` entry, 65 is `"Sixty-five"` — it exists (`test_designs_corpus.py:252–`).
+Expected: all pass (the count sentence, the table, and `test_the_guide_cites_every_design` read the new file). `_COUNT_WORDS` ends at `64: "Sixty-four",` (`test_designs_corpus.py:301`): add `    65: "Sixty-five",` after it in Step 3, or `test_the_readme_states_how_many_designs_there_are` fails asking for it.
 
 - [ ] **Step 5: Commit the freeze**
 
 ```bash
-git -C .worktrees/world-resolution-slice-6 add docs/designs/2026-09-15-conformance-cut-30.md README.md docs/guide/contracts-and-adoption.md docs/guide/identity-world-and-change.md
+git -C .worktrees/world-resolution-slice-6 add docs/designs/2026-09-15-conformance-cut-30.md README.md docs/guide/contracts-and-adoption.md docs/guide/identity-world-and-change.md python/tests/test_designs_corpus.py
 git -C .worktrees/world-resolution-slice-6 commit -m "docs(cut30): freeze conformance cut 30 — divergent correction-history reconciliation"
 git -C .worktrees/world-resolution-slice-6 rev-parse HEAD
 ```
@@ -425,7 +427,7 @@ git -C .worktrees/world-resolution-slice-6 commit -m "feat(stored): read and val
 
 **Interfaces:**
 - Consumes: `HistoryDisagreement` from `beliefs.errors` (exists; add to `stored.py`'s errors import).
-- Produces: `stored.reconcile_correction_histories(keep: Sequence[Mapping[str, Any]], other: Sequence[Mapping[str, Any]], *, actor: str, grounds: str, event_token: str) -> list[dict[str, Any]]` — raw entries in, raw entries out; raises `HistoryDisagreement` on conflicting reuse or interleaving. Pure; deep-copies its inputs into the result.
+- Produces: `stored.reconcile_correction_histories(keep: Sequence[dict[str, Any]], other: Sequence[dict[str, Any]], *, actor: str, grounds: str, event_token: str) -> list[dict[str, Any]]` — raw facet entries (the `dict`s the facet holds) in, raw entries out; raises `HistoryDisagreement` on conflicting reuse or interleaving. Pure; deep-copies its inputs into the result. The input type is `dict`, not `Mapping`, so `copy.deepcopy` returns what the annotation promises and pyright is clean.
 
 - [ ] **Step 1: Write the failing table test**
 
@@ -529,9 +531,9 @@ Expected: FAIL — `AttributeError: module 'beliefs.stored' has no attribute 're
 In `python/src/beliefs/stored.py`: add `HistoryDisagreement` to the `from beliefs.errors import …` line (line 62) and `import copy` beside the stdlib imports. After `validate_source_history`, add:
 
 ```python
-def _events(entries: Sequence[Mapping[str, Any]]) -> dict[str, Mapping[str, Any]]:
+def _events(entries: Sequence[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """token → raw entry over a chain and, recursively, every absorbed chain (slice 6 §4)."""
-    events: dict[str, Mapping[str, Any]] = {}
+    events: dict[str, dict[str, Any]] = {}
     for entry in entries:
         events[entry["event_token"]] = entry
         events.update(_events(entry.get("absorbed", ())))
@@ -539,8 +541,8 @@ def _events(entries: Sequence[Mapping[str, Any]]) -> dict[str, Mapping[str, Any]
 
 
 def reconcile_correction_histories(
-    keep: Sequence[Mapping[str, Any]],
-    other: Sequence[Mapping[str, Any]],
+    keep: Sequence[dict[str, Any]],
+    other: Sequence[dict[str, Any]],
     *,
     actor: str,
     grounds: str,
@@ -618,7 +620,7 @@ In `python/tests/test_identifier_correction.py`: extend the `test_source_address
         assert merged.from_identifiers == B and merged.to_identifiers == B
         assert merged.absorbed == (other_entry,)
         assert (merged.actor, merged.grounds) == (left.authority.actor, "one paper")
-        assert merged.event_token == keep_report.intent == other_report.intent
+        assert merged.event_token == keep_report.event_token == other_report.event_token
         assert survivor.deprecated_ids == [ADDR_A]
         assert left.read_view.resolve(ADDR_A) == ADDR_B
         assert right.read_view.resolve(ADDR_B) is None and right.read_view.resolve(ADDR_A) is None
@@ -714,7 +716,7 @@ In `python/tests/test_identifier_correction.py`: extend the `test_source_address
         assert right.read_view.holds(ADDR_B)  # still a duplicate location
         survivor, keep_report, other_report = consolidate((left, ADDR_B), (right, ADDR_B), rationale="second", **REPORT)
         assert stored.identifier_corrections(survivor) == first  # nothing absorbed twice
-        assert first[1].event_token != keep_report.intent == other_report.intent
+        assert first[1].event_token != keep_report.event_token == other_report.event_token
         assert not right.read_view.holds(ADDR_B)
 
     def test_consolidate_refuses_conflicting_token_reuse(self, two_writers):
@@ -943,7 +945,7 @@ Replace lines 464–478 (from `other = right.add(stored.source_node(title="o", i
     (right_entry,) = stored.identifier_corrections(right.read_view.get(divergent))
     merged, keep_report, _other_report = consolidate((left, divergent), (right, divergent), rationale="one paper", **REPORT)
     spine, absorbed = stored.identifier_corrections(merged)
-    assert spine == left_entry and absorbed.absorbed == (right_entry,) and absorbed.event_token == keep_report.intent
+    assert spine == left_entry and absorbed.absorbed == (right_entry,) and absorbed.event_token == keep_report.event_token
     assert merged.deprecated_ids == [other.id]
     assert not [finding for finding in corpus_check(left.read_view, BASE) if finding.ref == merged.id]
     assert right.read_view.resolve(divergent) is None
@@ -986,7 +988,7 @@ def test_consolidate_interrupted_after_replacement_re_runs_to_completion(world, 
         assert not any(n.kind == "act-report" for n in writer.read_view.iter_stored())  # both intents unfulfilled
     survivor, keep_report, other_report = consolidate((left, address), (right, address), rationale="second", **REPORT)
     assert stored.identifier_corrections(survivor) == after_halt
-    assert after_halt[1].event_token != keep_report.intent == other_report.intent
+    assert after_halt[1].event_token != keep_report.event_token == other_report.event_token
     assert not right.read_view.holds(address)
     published = publish(registry, (a, b), hold_shipped(registry))
     assert open_world_view(registry, published).corpus_of(address) == a
@@ -1020,11 +1022,11 @@ git -C .worktrees/world-resolution-slice-6 commit -m "test(acceptance): consolid
 ### Task 6: Frozen evidence — re-target cut 25's `W5a-m` live
 
 **Files:**
-- Modify: `python/tests/acceptance/test_n2_cut25.py:40–75`, `test_n2_cut26.py:214`, `test_n2_cut27.py:227`, `test_n2_cut28.py:230`, `test_n2_cut29.py:232`
-- Test: `python/tests/acceptance/test_n2_cut25.py`, `python/tests/test_arm_staleness.py`
+- Modify: `python/tests/acceptance/test_n2_cut25.py:40–75`, `test_n2_cut26.py:214`, `test_n2_cut27.py:227`, `test_n2_cut28.py:230`, `test_n2_cut29.py:232`, `python/tests/arm_staleness.py:116–120` (`re_targeted_rows`)
+- Test: `python/tests/acceptance/test_n2_cut25.py`, `python/tests/test_arm_staleness.py` (one new test)
 
 **Interfaces:**
-- Produces: `test_n2_cut25.RETARGETED_ROWS = frozenset({"W1-a", "W5a-m"})`, read by guards 26–30.
+- Produces: `test_n2_cut25.RETARGETED_ROWS = frozenset({"W1-a", "W5a-m"})`, read by guards 26–30 and by `arm_staleness.re_targeted_rows`.
 
 - [ ] **Step 1: Add the live re-target table to `test_n2_cut25.py`**
 
@@ -1080,7 +1082,37 @@ with
 ```
 and extend each module's `from test_n2_cut25 import CUT25_ARMS` to `from test_n2_cut25 import CUT25_ARMS, RETARGETED_ROWS`. Every other row is still held equal to its frozen declaration.
 
-- [ ] **Step 3: Run the cut 25 guard's static checks, the four guards' prior-declaration checks, and the staleness audit**
+- [ ] **Step 3: Teach the staleness detector the full override set**
+
+`arm_staleness.re_targeted_rows` reads only `_LIVE_SABOTAGES`, so `test_a_live_guard_re_targets_every_declaration_the_tree_has_outgrown` would report `test_n2_cut25.py::W5a-m[…]` as an uncovered stale declaration. Replace `python/tests/arm_staleness.py:116–120` with:
+
+```python
+def re_targeted_rows(guard: Path, *, repo_root: Path) -> frozenset[str]:
+    """The rows the guard re-targets: `RETARGETED_ROWS` where the guard declares the
+    full set (a re-targeted sabotage, or a whole successor arm — cut 25 since 2026-09-15),
+    else the keys of its `_LIVE_SABOTAGES` table; empty when it has neither."""
+    tests = repo_root / "python" / "tests"
+    module = _load(guard, search=(tests, tests / "acceptance"))
+    declared = getattr(module, "RETARGETED_ROWS", None)
+    if declared is not None:
+        return frozenset(declared)
+    return frozenset(getattr(module, "_LIVE_SABOTAGES", {}))
+```
+
+Append to `python/tests/test_arm_staleness.py`:
+
+```python
+def test_re_targeted_rows_reads_a_guards_full_override_set(git_checkout) -> None:
+    """A guard that re-targets a whole arm (asserts, sabotage and checks — cut 25's
+    `W5a-m` since cut 30) declares `RETARGETED_ROWS`; the detector reads that, not the
+    sabotage-only table, so the coverage test above cannot report the row uncovered."""
+    assert arm_staleness.re_targeted_rows(ACCEPTANCE / "test_n2_cut25.py", repo_root=REPO_ROOT) == {"W1-a", "W5a-m"}
+    assert arm_staleness.re_targeted_rows(ACCEPTANCE / "test_n2_cut29.py", repo_root=REPO_ROOT) == frozenset()
+```
+
+(`ACCEPTANCE` and `REPO_ROOT` are the module's existing constants; `git_checkout` its existing fixture.)
+
+- [ ] **Step 4: Run the cut 25 guard's static checks, the four guards' prior-declaration checks, and the staleness audit**
 
 Run: `cd python && uv run --frozen pytest tests/acceptance/test_n2_cut25.py -q -k "inventory or lettered or sabotage_names or prior_declarations or row_parser"`
 Expected: pass (24 frozen, 25 live; `W5a-m`'s new `before` matches `stored.py` exactly once).
@@ -1089,15 +1121,15 @@ Run: `cd python && for n in 26 27 28 29; do uv run --frozen pytest tests/accepta
 Expected: pass ×4.
 
 Run: `cd python && uv run --frozen pytest tests/test_arm_staleness.py -q`
-Expected: pass — the registry (`cited_not_run.py`) gains nothing; `audited_arms` measures the live cut 25 tuple.
+Expected: pass — the registry (`cited_not_run.py`) gains nothing; `audited_arms` measures the live cut 25 tuple; the coverage test sees `W5a-m` covered through `RETARGETED_ROWS`.
 
 Run: `cd python && uv run --frozen pytest tests/acceptance/test_n2_cut25.py -q -k "every_arm_fails_under_its_own_sabotage or every_live_check"`
 Expected: pass — `W5a-m` is sound under its new sabotage (the absorb test fails when reconciliation returns `keep`).
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git -C .worktrees/world-resolution-slice-6 add python/tests/acceptance/test_n2_cut25.py python/tests/acceptance/test_n2_cut26.py python/tests/acceptance/test_n2_cut27.py python/tests/acceptance/test_n2_cut28.py python/tests/acceptance/test_n2_cut29.py
+git -C .worktrees/world-resolution-slice-6 add python/tests/arm_staleness.py python/tests/test_arm_staleness.py python/tests/acceptance/test_n2_cut25.py python/tests/acceptance/test_n2_cut26.py python/tests/acceptance/test_n2_cut27.py python/tests/acceptance/test_n2_cut28.py python/tests/acceptance/test_n2_cut29.py
 git -C .worktrees/world-resolution-slice-6 commit -m "test(n2): re-target cut 25's W5a-m to its cut 30 successor"
 ```
 

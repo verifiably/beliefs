@@ -445,7 +445,12 @@ are not edited. Three frozen surfaces touch this slice:
   already used there for `W1-a`) gains a dated `W5a-m` re-target whose
   `asserts`, `sabotage` and `checks` are `W5a-p`'s — the successor
   discharge, cited by this cut's document. `arm_staleness.audited_arms`
-  measures the live tuple, so the registry gains nothing.
+  measures the live tuple, so the registry gains nothing. *Planning-time
+  amendment, 2026-09-15:* `arm_staleness.re_targeted_rows` reads only a
+  guard's `_LIVE_SABOTAGES` keys, so a whole-arm re-target would read as an
+  uncovered stale declaration; the guard exports `RETARGETED_ROWS` (both
+  rows) and the detector reads that when present. `python/tests/arm_staleness.py`
+  joins the cut's boundary.
 - **Cut 28's `W8-b`** anchors `            if keep_map != other_map:` and
   imports `HistoryDisagreement`; both are unchanged (decision 8).
 - **Cut 29's dataset arms** in `relocation.py` are below the source block
@@ -524,3 +529,8 @@ lanes — the estimand-typing lane's Task 0 re-reads it).
   at the two-root step 4/5 boundary rather than through the single-root
   halting backend; §7.3's `W5a-t` disables only the consolidation clause,
   leaving cut 25's `W5a-l` anchor in place.
+- **2026-09-15, plan review, three findings taken in the plan.** `ActReport`
+  carries `event_token`, not `intent`; the reconciliation function takes
+  `Sequence[dict[str, Any]]` so its deep copies satisfy its return type;
+  `re_targeted_rows` learns `RETARGETED_ROWS` (§7.5 above); `_COUNT_WORDS`
+  gains 65.
