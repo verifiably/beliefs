@@ -2,7 +2,7 @@
 title: Claims and belief
 status: living
 created: 2026-08-08
-updated: 2026-09-09
+updated: 2026-09-15
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-04-domain-extension-boundary-design.md
@@ -16,6 +16,7 @@ sources:
   - ../designs/2026-08-10-verified-holdings-record-design.md
   - ../designs/2026-08-24-world-index-holdings-design.md
   - ../designs/2026-09-05-mm30-reproduction.md
+  - ../designs/2026-09-12-estimand-typing-design.md
 ---
 
 # Claims and belief

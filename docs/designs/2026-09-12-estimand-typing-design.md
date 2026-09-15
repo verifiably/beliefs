@@ -1,10 +1,13 @@
 # Estimand typing — the owner of ρO3's estimand half
 
-**Status:** design, drafted 2026-09-12; under review, not frozen. Task
-`beliefs-59f846` carries this spec; `beliefs-638318` (weighted belief) depends
-on it. Implements nothing yet: the roadmap's concurrency rule 6 keeps at most
-two kernel lanes open while the success criterion is unmet, and this design
-is off the path (§11). It is written now because it amends the base contract
+**Status:** frozen 2026-09-15 at conformance cut 31
+(`2026-09-15-conformance-cut-31.md`), after three spec reviews, a plan
+review and a second-domain worked example (§15, Appendix A); implementation
+follows on `design/estimand-typing`. Task `beliefs-59f846` carries this
+spec; `beliefs-638318` (weighted belief) depends on it. The lane opened
+under the roadmap's concurrency rule 6 once cut 30 left tier 1 with no
+on-path boundary; this design is off the path (§11). It was written before
+the lane could open because it amends the base contract
 and the operator declaration, and the contract cut freezes after the last
 oracle-amending lane merges; deciding the shape before that freeze costs one
 design, deciding after it costs a successor contract.
