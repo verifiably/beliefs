@@ -23,6 +23,7 @@ from pathlib import Path
 
 import pytest
 from authority import FULL
+from fixtures_cut3 import TESTING_PROFILE
 from profiles import BASE
 
 from beliefs.root import (
@@ -86,8 +87,15 @@ def durable_root(work_directory) -> Iterator[Path]:
 
 @pytest.fixture()
 def durable_writer(durable_root):
-    """The composition root's own product, bound to a registered root."""
-    return open_corpus(durable_root, authority=FULL, profile=BASE)
+    """The composition root's own product, bound to a registered root.
+
+    `TESTING_PROFILE`, not BASE: every acceptance arm that mints an assessment
+    (directly, or through the portable `test_deletion_rows.py` builders this
+    module shares) carries a typed estimand against `testing/affects`, which
+    BASE does not declare, and the audit's recomputation
+    (`stored.assessment_value`, `check_assessment`) decodes it under the
+    writer's own profile (estimand-typing §6, §9)."""
+    return open_corpus(durable_root, authority=FULL, profile=TESTING_PROFILE)
 
 
 @pytest.fixture()

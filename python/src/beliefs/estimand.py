@@ -15,7 +15,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal
 from types import MappingProxyType
-from typing import final
+from typing import cast, final
 
 from beliefs.claim import Claim, Qualifier, Referent
 from beliefs.errors import (
@@ -53,6 +53,7 @@ __all__ = [
     "commensurable",
     "commensuration_key",
     "estimand_projection",
+    "uncertainty_from_mapping",
     "uncertainty_projection",
 ]
 
@@ -331,6 +332,32 @@ def uncertainty_projection(uncertainty: Interval | StandardError) -> dict[str, o
     if isinstance(uncertainty, Interval):
         return {"kind": "interval", "low": uncertainty.low, "high": uncertainty.high, "level": uncertainty.level}
     return {"kind": "standard-error", "value": uncertainty.value}
+
+
+def uncertainty_from_mapping(mapping: object, *, estimate: Decimal | None, scale: str) -> Interval | StandardError:
+    """`uncertainty_projection`'s inverse, checked (§6): decode a `{"kind": …}`
+    body — a rule's raw output or a stored record's restored `typed` member —
+    into an `Interval` or a `StandardError`, then run `check_uncertainty`
+    against the estimate it accompanies and the estimand's scale. The one
+    decoder both `assess.build_assessment` and `stored.assessment_value` call,
+    so the derivation and the stored reader can never decode the same body two
+    different ways. Raises `UncertaintyRefused` throughout; each caller
+    translates it into its own error."""
+    if not isinstance(mapping, Mapping):
+        raise UncertaintyRefused(f"uncertainty is a mapping with a kind, found {type(mapping).__name__}")
+    kind = mapping.get("kind")
+    if kind == "interval" and set(mapping) == {"kind", "low", "high", "level"}:
+        uncertainty: Interval | StandardError = Interval(
+            low=cast(Decimal, mapping["low"]), high=cast(Decimal, mapping["high"]), level=cast(Decimal, mapping["level"])
+        )
+    elif kind == "standard-error" and set(mapping) == {"kind", "value"}:
+        uncertainty = StandardError(value=cast(Decimal, mapping["value"]))
+    else:
+        raise UncertaintyRefused(f"uncertainty kind {kind!r} with members {sorted(mapping)} is neither interval nor standard-error")
+    if estimate is None:
+        raise UncertaintyRefused("an uncertainty with no estimate to be uncertain about")
+    check_uncertainty(uncertainty, estimate, scale)
+    return uncertainty
 
 
 def commensuration_key(estimand: Estimand) -> dict[str, object]:

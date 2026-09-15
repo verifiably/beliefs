@@ -17,8 +17,8 @@ from decimal import Decimal
 from typing import cast, final
 
 from beliefs.dataset import DatasetDeclaration, ResourceDeclaration
-from beliefs.errors import MalformedClosure, MalformedRecord, SignatureRefused, UncertaintyRefused
-from beliefs.estimand import Interval, StandardError, check_estimate, check_uncertainty
+from beliefs.errors import MalformedClosure, MalformedRecord, SignatureRefused
+from beliefs.estimand import check_estimate, uncertainty_from_mapping
 from beliefs.recipe import RunClosure
 from beliefs.record import AssessmentValue, RunInput, RunValue
 from beliefs.sealed import sealed
@@ -85,11 +85,8 @@ def build_assessment(
         estimate = derived.get("estimate")
         if estimate is not None:
             estimate = check_estimate(cast(Decimal, estimate), scale)
-        uncertainty = _typed_uncertainty(derived.get("uncertainty"))
-        if uncertainty is not None:
-            if estimate is None:
-                raise TypeError("the interpretation rule returned an uncertainty with no estimate to be uncertain about")
-            check_uncertainty(uncertainty, estimate, scale)
+        uncertainty_body = derived.get("uncertainty")
+        uncertainty = None if uncertainty_body is None else uncertainty_from_mapping(uncertainty_body, estimate=estimate, scale=scale)
         return AssessmentValue(
             spec=spec.identity,
             run=run_address,
@@ -103,19 +100,6 @@ def build_assessment(
         )
     except Exception as error:  # noqa: BLE001 — arbitrary rule machinery records a finding
         return AssessmentFinding(run=run_address, reason=f"evaluation-failed: {error}")
-
-
-def _typed_uncertainty(value: object) -> Interval | StandardError | None:
-    if value is None:
-        return None
-    if not isinstance(value, Mapping):
-        raise UncertaintyRefused(f"uncertainty is a mapping with a kind, found {type(value).__name__}")
-    kind = value.get("kind")
-    if kind == "interval" and set(value) == {"kind", "low", "high", "level"}:
-        return Interval(low=cast(Decimal, value["low"]), high=cast(Decimal, value["high"]), level=cast(Decimal, value["level"]))
-    if kind == "standard-error" and set(value) == {"kind", "value"}:
-        return StandardError(value=cast(Decimal, value["value"]))
-    raise UncertaintyRefused(f"uncertainty kind {kind!r} with members {sorted(value)} is neither interval nor standard-error")
 
 
 def run_record(run: RunClosure) -> RunValue:

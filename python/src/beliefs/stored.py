@@ -76,8 +76,9 @@ from beliefs.errors import (
     MalformedRecord,
     PreGrammarAssessment,
     ProfileError,
+    UncertaintyRefused,
 )
-from beliefs.estimand import Estimand, Interval, StandardError
+from beliefs.estimand import Estimand, Interval, StandardError, uncertainty_from_mapping
 from beliefs.holdings.records import (
     HOLDINGS_OBSERVATION_KIND,
     Absent,
@@ -696,16 +697,10 @@ def assessment_value(node: Node, *, profile: ProfileSpec) -> AssessmentValue:
         raise MalformedRecord(f"{node.id}: the typed members do not restore: {refused}") from refused
     uncertainty = None
     if "uncertainty" in typed:
-        body = typed["uncertainty"]
-        if not isinstance(body, dict):
-            raise MalformedRecord(f"{node.id}: uncertainty is a mapping")
-        kind = body.get("kind")
-        if kind == "interval" and set(body) == {"kind", "low", "high", "level"}:
-            uncertainty = Interval(low=body["low"], high=body["high"], level=body["level"])
-        elif kind == "standard-error" and set(body) == {"kind", "value"}:
-            uncertainty = StandardError(value=body["value"])
-        else:
-            raise MalformedRecord(f"{node.id}: uncertainty kind {kind!r} is neither interval nor standard-error")
+        try:
+            uncertainty = uncertainty_from_mapping(typed["uncertainty"], estimate=typed.get("estimate"), scale=estimand.measure.scale)
+        except UncertaintyRefused as refused:
+            raise MalformedRecord(f"{node.id}: {refused}") from refused
     return AssessmentValue(
         spec=facet["spec"], run=local_id("run", facet["run"]), proposition=facet["proposition"], outcome=facet["outcome"],
         interpretation_rule=facet["interpretation_rule"], estimand=estimand, applicability=applicability,

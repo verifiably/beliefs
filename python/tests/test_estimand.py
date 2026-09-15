@@ -35,6 +35,7 @@ from beliefs.estimand import (
     co_scoped,
     commensurable,
     estimand_projection,
+    uncertainty_from_mapping,
 )
 from beliefs.profile import compile_profile
 from beliefs.resolution import TermOutcome, build_snapshot
@@ -233,3 +234,35 @@ class TestEstimateAndUncertainty:
     def test_well_formed_uncertainty_passes(self):
         check_uncertainty(Interval(Decimal("0.1"), Decimal("0.7"), Decimal("0.95")), Decimal("0.4"), "additive")
         check_uncertainty(StandardError(Decimal("0.2")), Decimal("1.1"), "multiplicative")
+
+    def test_uncertainty_from_mapping_decodes_and_checks_in_one_call(self):
+        # The one decoder `assess.build_assessment` and `stored.assessment_value`
+        # both call, so a rule's raw `{"kind": ...}` output and a stored record's
+        # restored `typed` member decode identically and are checked identically.
+        interval = uncertainty_from_mapping(
+            {"kind": "interval", "low": Decimal("0.1"), "high": Decimal("0.7"), "level": Decimal("0.95")},
+            estimate=Decimal("0.4"), scale="additive",
+        )
+        assert interval == Interval(Decimal("0.1"), Decimal("0.7"), Decimal("0.95"))
+        standard_error = uncertainty_from_mapping({"kind": "standard-error", "value": Decimal("0.2")}, estimate=Decimal("1.1"), scale="multiplicative")
+        assert standard_error == StandardError(Decimal("0.2"))
+
+    def test_uncertainty_from_mapping_refuses_an_unrecognized_kind(self):
+        with pytest.raises(UncertaintyRefused, match="neither interval nor standard-error"):
+            uncertainty_from_mapping({"kind": "confidence-band", "value": Decimal("0.1")}, estimate=Decimal("0.4"), scale="additive")
+        with pytest.raises(UncertaintyRefused):
+            uncertainty_from_mapping("not-a-mapping", estimate=Decimal("0.4"), scale="additive")
+
+    def test_uncertainty_from_mapping_refuses_no_estimate(self):
+        with pytest.raises(UncertaintyRefused, match="no estimate"):
+            uncertainty_from_mapping({"kind": "standard-error", "value": Decimal("0.1")}, estimate=None, scale="additive")
+
+    def test_uncertainty_from_mapping_refuses_what_check_uncertainty_refuses(self):
+        # The shared decoder runs `check_uncertainty` itself — a decoded interval
+        # that excludes the estimate is refused at decode, not deferred to a
+        # later construction.
+        with pytest.raises(UncertaintyRefused, match="excludes"):
+            uncertainty_from_mapping(
+                {"kind": "interval", "low": Decimal("0.5"), "high": Decimal("0.7"), "level": Decimal("0.95")},
+                estimate=Decimal("0.4"), scale="additive",
+            )

@@ -77,6 +77,17 @@ class TestTheFacetDigest:
         adults = typed_applicability({"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))})
         assert base.facet_digest() != assessment(applicability=adults).facet_digest()
 
+    def test_typed_projection_carries_estimand_and_applicability_always_and_the_optionals_only_when_present(self):
+        from decimal import Decimal
+
+        from beliefs.estimand import StandardError
+
+        assert set(assessment().typed_projection()) == {"estimand", "applicability"}
+        assert set(assessment(estimate=Decimal("0.4")).typed_projection()) == {"estimand", "applicability", "estimate"}
+        assert set(
+            assessment(estimate=Decimal("0.4"), uncertainty=StandardError(Decimal("0.1"))).typed_projection()
+        ) == {"estimand", "applicability", "estimate", "uncertainty"}
+
     def test_a_string_member_is_refused(self):
         with pytest.raises(MalformedRecord):
             assessment(estimate="0.4")
@@ -117,12 +128,36 @@ class TestTheStoredReaderRefusesWhatTheConstructorWould:
         node = stored.assessment_node(
             "a1", title="a1", spec="spec-1", run="run:run-1", proposition="prop-1",
             outcome="supported", interpretation_rule="rule-1",
-            estimand=typed_estimand(), applicability=typed_applicability(),
+            estimand=typed_estimand(), applicability=typed_applicability(), estimate=Decimal("0.4"),
         )
         typed = cast(dict, v1.decode(node.facets[stored.ASSESSMENT_FACET]["typed"].encode("utf-8")))
         typed["uncertainty"] = {"kind": "standard-error", "value": Decimal("-0.1")}
         node.facets[stored.ASSESSMENT_FACET]["typed"] = v1.encode(typed).decode("utf-8")
-        with pytest.raises(MalformedRecord):
+        with pytest.raises(MalformedRecord, match="non-negative"):
+            stored.assessment_value(node, profile=TESTING_PROFILE)
+
+    def test_an_unrecognized_stored_uncertainty_kind_reads_as_malformed_never_a_value(self):
+        from decimal import Decimal
+        from typing import cast
+
+        from fixtures_cut3 import TESTING_PROFILE
+
+        from beliefs import stored
+        from beliefs.identity import v1
+
+        # The shared decoder's shape refusal (`estimand.uncertainty_from_mapping`)
+        # translates to `MalformedRecord` here, exactly as the negative standard
+        # error above does — the same `UncertaintyRefused`, two call sites, one
+        # decoder (the concern `uncertainty_from_mapping` exists to close).
+        node = stored.assessment_node(
+            "a1", title="a1", spec="spec-1", run="run:run-1", proposition="prop-1",
+            outcome="supported", interpretation_rule="rule-1",
+            estimand=typed_estimand(), applicability=typed_applicability(), estimate=Decimal("0.4"),
+        )
+        typed = cast(dict, v1.decode(node.facets[stored.ASSESSMENT_FACET]["typed"].encode("utf-8")))
+        typed["uncertainty"] = {"kind": "confidence-band", "value": Decimal("0.1")}
+        node.facets[stored.ASSESSMENT_FACET]["typed"] = v1.encode(typed).decode("utf-8")
+        with pytest.raises(MalformedRecord, match="neither interval nor standard-error"):
             stored.assessment_value(node, profile=TESTING_PROFILE)
 
     def test_a_pre_grammar_facet_is_refused_by_name_never_coerced(self):

@@ -1017,9 +1017,11 @@ def _false_spec_record(spec):
 
 
 def test_v8_the_audit_names_a_spec_that_does_not_restore_and_stored_specs_reports_it(tmp_path):
-    # A writer on `TESTING_PROFILE`, not the shared `writer` fixture (BASE):
-    # `spec_draft()`'s typed estimand is against `testing/affects`, which BASE
-    # does not declare, and restoration reads the profile that wrote it.
+    # A writer of its own on `TESTING_PROFILE`, built the same way the shared
+    # `writer` fixture above is (estimand-typing Task 7 moved that fixture off
+    # BASE too, for the same reason): `spec_draft()`'s typed estimand is
+    # against `testing/affects`, which BASE does not declare, and restoration
+    # reads the profile that wrote it.
     from fixtures_cut3 import TESTING_PROFILE
     from test_stored import _testing_writer
 
