@@ -451,6 +451,10 @@ are not edited. Three frozen surfaces touch this slice:
   uncovered stale declaration; the guard exports `RETARGETED_ROWS` (both
   rows) and the detector reads that when present. `python/tests/arm_staleness.py`
   joins the cut's boundary.
+  *Implementation-time amendment, 2026-09-15:* the full live staleness audit
+  also found cut 16 rows `W16b` and `D7b` stale under this slice's `_reconcile`
+  and `consolidate` changes. `test_n2_cut16.py` gains dated sabotage-only
+  re-targets for those rows; `n2_arms_cut16.py` remains byte-identical.
 - **Cut 28's `W8-b`** anchors `            if keep_map != other_map:` and
   imports `HistoryDisagreement`; both are unchanged (decision 8).
 - **Cut 29's dataset arms** in `relocation.py` are below the source block

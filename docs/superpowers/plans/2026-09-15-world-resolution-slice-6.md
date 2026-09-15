@@ -1028,6 +1028,8 @@ git -C .worktrees/world-resolution-slice-6 commit -m "test(acceptance): consolid
 **Interfaces:**
 - Produces: `test_n2_cut25.RETARGETED_ROWS = frozenset({"W1-a", "W5a-m"})`, imported as `CUT25_RETARGETED_ROWS` by guards 26–30 and read by `arm_staleness.re_targeted_rows` for cut 25.
 
+- **Implementation-time amendment (2026-09-15):** the full live staleness audit also found cut 16 rows `W16b` and `D7b` stale under this slice's `_reconcile` and `consolidate` changes. Add dated sabotage-only re-targets to `test_n2_cut16.py`; keep `n2_arms_cut16.py` byte-identical.
+
 - [ ] **Step 1: Add the live re-target table to `test_n2_cut25.py`**
 
 After `_LIVE_SABOTAGES` (ends line 54), add:
