@@ -34,7 +34,7 @@ from beliefs.verify import build_verification
 OBSERVED_DIGEST = "sha256:" + "1a" * 32
 ASSESSMENT = "assessment:a1"
 RUN = "run:r1"
-RAW = "dataset:raw"
+RAW = stored.dataset_node(title="raw", resources=[{"name": "matrix", "digest": OBSERVED_DIGEST}]).id
 
 
 # --- the pieces both rows read the store through ------------------------------

@@ -8,6 +8,7 @@ from hashlib import sha256
 
 import pytest
 from authority import FULL
+from dataset_fixtures import pinned as seed_pinned
 from fixtures_cut4 import path_for, raw_write, reopen
 from nodes.core.node import Node
 from profiles import BASE
@@ -292,9 +293,9 @@ def test_an_unmounted_covered_corpus_still_contributes_to_the_published_balance_
 
 def test_coreference_between_retractions_closes_no_route_durably(durable_world, monkeypatch):
     nodes = []
-    for ref in ("left", "right"):
+    for ref in ("route-left", "route-right"):
         nodes.append(
-            stored.dataset_node(title=ref, resources=PINNED, basis={"tag": "single", "routes": [{"identity": "route:one"}]}
+            stored.dataset_node(title=ref, resources=seed_pinned(ref), basis={"tag": "single", "routes": [{"identity": "route:one"}]}
             )
         )
     world, roots, _published, a, b = durable_world((nodes[0],), (nodes[1],))
@@ -462,12 +463,10 @@ def test_lifecycle_treats_an_attestation_as_a_retraction_s_peer_durably(pair):
         for f in audited.findings
     )
     # The bundle can put the attestation first; endpoints arrive in the same act, actor retained.
-    imported = attestation(
-        endpoints=("dataset:import-left", "dataset:import-right"), actor="original-author", token="import"
-    )
     endpoints = tuple(
-        stored.dataset_node(title=slug, resources=PINNED) for slug in ("import-left", "import-right")
+        stored.dataset_node(title=slug, resources=seed_pinned(slug)) for slug in ("import-left", "import-right")
     )
+    imported = attestation(endpoints=tuple(node.id for node in endpoints), actor="original-author", token="import")
     left.import_bundle((imported, *endpoints), **IMPORT)
     assert stored.coreference_attestation_value(left.read_view.get(imported.id)).actor == "original-author"
     right.import_bundle(

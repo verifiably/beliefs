@@ -9,8 +9,9 @@ from tempfile import mkdtemp
 import pytest
 from authority import FULL
 from coordination_fixtures import coordination_profile, raw_coordination_node
+from dataset_fixtures import dataset_ref
 from durable_fixture import pinned
-from fixtures_cut4 import raw_write
+from fixtures_cut4 import path_for, raw_write
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -72,10 +73,6 @@ def topic(durable_world, scratch):
         b, beta, right = durable_world.corpus(COORDINATION)
         for writer, nodes in ((left, (*alpha_nodes, *alpha_extra)), (right, (*beta_nodes, *beta_extra))):
             for node in nodes:
-                node = node.model_copy(deep=True)
-                if node.kind == "dataset" and not node.facets["dataset"]["resources"]:
-                    node.facets["dataset"]["resources"] = pinned()
-                    stored.stamp_semantic_identity(node)
                 writer.add(node)
         for node in (project, topic_record(*clauses), *alpha_raw):
             raw_write(alpha, node)
@@ -139,12 +136,12 @@ def publish(world, coverage, bindings):
 
 
 def test_w7_addresses_selects_the_other_corpus_record_and_contributes_its_corpus_durably(topic):
-    first, case = result(topic([{"addresses": ["dataset:d-b"]}]))
+    first, case = result(topic([{"addresses": [dataset_ref("d-b")]}]))
     world, roots, published, _a, b = case
     second = evaluate_query(open_world_view(world, published), resolved_query(roots, _a))
-    assert first.selected == ("dataset:d-b",) and first.contributing == (b,) and first.complete
+    assert first.selected == (dataset_ref("d-b"),) and first.contributing == (b,) and first.complete
     assert first.identity() == second.identity()
-    damaged_world, damaged_roots, damaged_published, damaged_a, damaged_b = topic([{"addresses": ["dataset:d-b"]}])
+    damaged_world, damaged_roots, damaged_published, damaged_a, damaged_b = topic([{"addresses": [dataset_ref("d-b")]}])
     damage(damaged_roots[damaged_b], "parse-error")
     with pytest.raises(SelectionRefused, match="corpus-damaged"):
         evaluate_query(
@@ -155,13 +152,13 @@ def test_w7_addresses_selects_the_other_corpus_record_and_contributes_its_corpus
 
 def test_w7_kinds_selects_and_contributes_both_corpora_durably(topic):
     selection, (_w, _r, _p, a, b) = result(topic([{"kinds": ["dataset"]}]))
-    assert selection.selected == ("dataset:d-a", "dataset:d-b")
+    assert selection.selected == (dataset_ref("d-a"), dataset_ref("d-b"))
     assert selection.contributing == tuple(sorted((a, b)))
 
 
 def test_w7_closure_out_selects_the_other_corpus_dataset_and_not_the_run_durably(topic):
     selection, (*_, b) = result(topic([{"closure": {"anchor": "run:r-a", "predicates": ["produces"], "direction": "out"}}]))
-    assert selection.selected == ("dataset:d-b",) and selection.contributing == (b,)
+    assert selection.selected == (dataset_ref("d-b"),) and selection.contributing == (b,)
 
 
 def test_w7_references_term_selects_the_proposition_and_never_a_dataset_durably(topic):
@@ -170,43 +167,43 @@ def test_w7_references_term_selects_the_proposition_and_never_a_dataset_durably(
 
 
 def test_w7_two_clauses_select_and_contribute_both_durably(topic):
-    selection, (_w, _r, _p, a, b) = result(topic([{"addresses": ["dataset:d-a"]}], [{"references-term": GENE}]))
-    assert selection.selected == ("dataset:d-a", "proposition:p-b")
+    selection, (_w, _r, _p, a, b) = result(topic([{"addresses": [dataset_ref("d-a")]}], [{"references-term": GENE}]))
+    assert selection.selected == (dataset_ref("d-a"), "proposition:p-b")
     assert selection.contributing == tuple(sorted((a, b)))
 
 
 def test_w7_the_absent_corpus_refuses_reports_or_names_itself_by_form_durably(topic):
-    for clause, reason in (([{"addresses": ["dataset:d-b"]}], "refuse"), ([{"closure": {"anchor": "run:r-a", "predicates": ["produces"], "direction": "out"}}], "closure"), ([{"kinds": ["dataset"]}], "kinds")):
+    for clause, reason in (([{"addresses": [dataset_ref("d-b")]}], "refuse"), ([{"closure": {"anchor": "run:r-a", "predicates": ["produces"], "direction": "out"}}], "closure"), ([{"kinds": ["dataset"]}], "kinds")):
         complete, (world, roots, published, a, b) = result(topic(clause))
         absent(roots, b)
         if reason == "refuse":
             with pytest.raises(SelectionRefused) as caught:
                 evaluate_query(open_world_view(world, published), resolved_query(roots, a))
-            assert (caught.value.reason, caught.value.refs, caught.value.corpus_ids) == ("address-not-present", ("dataset:d-b",), (b,))
+            assert (caught.value.reason, caught.value.refs, caught.value.corpus_ids) == ("address-not-present", (dataset_ref("d-b"),), (b,))
         else:
             partial = evaluate_query(open_world_view(world, published), resolved_query(roots, a))
             assert not partial.complete and partial.identity() != complete.identity()
             if reason == "closure":
-                assert partial.unresolved == (Unresolved("run:r-a", "produces", "dataset:d-b", "not-present", b),)
+                assert partial.unresolved == (Unresolved("run:r-a", "produces", dataset_ref("d-b"), "not-present", b),)
             else:
                 assert partial.absent == (b,)
 
 
 def test_w7_a_closure_anchored_in_the_absent_corpus_refuses_durably(topic):
-    selection, (world, roots, published, a, b) = result(topic([{"closure": {"anchor": "dataset:d-b", "predicates": ["produces"], "direction": "in"}}]))
+    selection, (world, roots, published, a, b) = result(topic([{"closure": {"anchor": dataset_ref("d-b"), "predicates": ["produces"], "direction": "in"}}]))
     assert selection.selected == ("run:r-a",)
     absent(roots, b)
     with pytest.raises(SelectionRefused) as caught:
         evaluate_query(open_world_view(world, published), resolved_query(roots, a))
-    assert caught.value.reason == "address-not-present" and caught.value.refs == ("dataset:d-b",)
+    assert caught.value.reason == "address-not-present" and caught.value.refs == (dataset_ref("d-b"),)
 
 
 def test_w7_a_drifted_view_refuses_and_the_earlier_capture_evaluates_durably(topic):
     world, roots, published, a, b = topic([{"kinds": ["dataset"]}])
     before = open_world_view(world, published)
-    node = before.get("dataset:d-b").model_copy(deep=True)
-    node.relations.append(Relation(source=node.id, predicate="cites", target="dataset:d-a"))
-    (roots[b] / "dataset" / "d-b.md").write_text(node_to_markdown(node))
+    node = before.get(dataset_ref("d-b")).model_copy(deep=True)
+    node.relations.append(Relation(source=node.id, predicate="cites", target=dataset_ref("d-a")))
+    path_for(roots[b], node.id).write_text(node_to_markdown(node))
     after = open_world_view(world, published)
     assert [r.corpus_id for r in after.drift() if r.captured_state != r.published_state] == [b]
     with pytest.raises(SelectionRefused, match="corpus-drifted"):
@@ -226,8 +223,8 @@ def test_w7_a_damaged_view_refuses_durably(topic):
 
 
 def test_w7_reordered_authoring_and_registration_give_one_projection_durably(topic):
-    first, (world, roots, published, a, b) = result(topic([{"kinds": ["dataset"]}, {"addresses": ["dataset:d-b"]}], [{"kinds": ["run"]}]))
-    reordered = query([{"kinds": ["run"]}], [{"addresses": ["dataset:d-b"]}, {"kinds": ["dataset"]}])
+    first, (world, roots, published, a, b) = result(topic([{"kinds": ["dataset"]}, {"addresses": [dataset_ref("d-b")]}], [{"kinds": ["run"]}]))
+    reordered = query([{"kinds": ["run"]}], [{"addresses": [dataset_ref("d-b")]}, {"kinds": ["dataset"]}])
     assert first.projection() == evaluate_query(open_world_view(world, published), reordered).projection()
     projections = []
     for name, order in (("forward", (a, b)), ("backward", (b, a))):
@@ -258,23 +255,23 @@ def test_w7_a_retired_anchor_over_a_cycle_selects_what_the_live_anchor_selects_d
     world, _roots, published, _a, _b = topic(alpha_extra=(one, two))
     view = open_world_view(world, published)
     clause = lambda anchor: query([{"closure": {"anchor": anchor, "predicates": ["cites"], "direction": "out"}}])
-    assert evaluate_query(view, clause("dataset:cyc-a")).selected == evaluate_query(view, clause("dataset:cyc-a-old")).selected == ("dataset:cyc-b",)
+    assert evaluate_query(view, clause(one.id)).selected == evaluate_query(view, clause("dataset:cyc-a-old")).selected == (two.id,)
 
 
 def test_w7_dangling_and_absent_inbound_steps_are_reported_not_dropped_durably(topic):
     dangling = stored.dataset_node(title="d-x", resources=pinned()); dangling.relations.append(Relation(source=dangling.id, predicate="cites", target="dataset:never"))
-    selection, _ = result(topic([{"closure": {"anchor": "dataset:d-x", "predicates": ["cites"], "direction": "out"}}], alpha_extra=(dangling,)))
-    assert selection.unresolved == (Unresolved("dataset:d-x", "cites", "dataset:never", "unknown", None),)
-    selection, (world, roots, published, a, b) = result(topic([{"closure": {"anchor": "dataset:d-a", "predicates": ["produces"], "direction": "in"}}]))
+    selection, _ = result(topic([{"closure": {"anchor": dangling.id, "predicates": ["cites"], "direction": "out"}}], alpha_extra=(dangling,)))
+    assert selection.unresolved == (Unresolved(dangling.id, "cites", "dataset:never", "unknown", None),)
+    selection, (world, roots, published, a, b) = result(topic([{"closure": {"anchor": dataset_ref("d-a"), "predicates": ["produces"], "direction": "in"}}]))
     assert selection.selected == ("run:r-b",); absent(roots, b)
     partial = evaluate_query(open_world_view(world, published), resolved_query(roots, a))
-    assert partial.unresolved == (Unresolved("dataset:d-a", "produces", "run:r-b", "not-present", b),)
+    assert partial.unresolved == (Unresolved(dataset_ref("d-a"), "produces", "run:r-b", "not-present", b),)
 
 
 def test_w7_a_retired_and_a_live_address_select_once_durably(topic):
     node = stored.dataset_node(title="new", resources=pinned()); node.deprecated_ids = ["dataset:d-old"]
-    selection, _ = result(topic([{"addresses": ["dataset:d-old", "dataset:d-new"]}], alpha_extra=(node,)))
-    assert selection.selected == ("dataset:d-new",)
+    selection, _ = result(topic([{"addresses": ["dataset:d-old", node.id]}], alpha_extra=(node,)))
+    assert selection.selected == (node.id,)
 
 
 def test_w7_terms_in_arguments_and_restrictions_select_and_a_malformed_facet_refuses_durably(topic):
@@ -312,7 +309,7 @@ def test_w7_projection_members_are_asserted_directly_durably(topic):
     assert partial.projection()["absent"] == [b] and partial.identity() != complete.identity()
     _selection, (world, roots, published, a, b) = result(topic([{"closure": {"anchor": "run:r-a", "predicates": ["produces"], "direction": "out"}}]))
     absent(roots, b); partial = evaluate_query(open_world_view(world, published), resolved_query(roots, a))
-    assert partial.projection()["unresolved"] == [{"source": "run:r-a", "predicate": "produces", "target": "dataset:d-b", "state": "not-present", "corpus_id": [b]}]
+    assert partial.projection()["unresolved"] == [{"source": "run:r-a", "predicate": "produces", "target": dataset_ref("d-b"), "state": "not-present", "corpus_id": [b]}]
 
 
 def test_w7_empty_clauses_and_a_read_view_durably(topic):
@@ -323,7 +320,7 @@ def test_w7_empty_clauses_and_a_read_view_durably(topic):
 
 
 def test_w7_an_unknown_address_refuses_naming_every_unknown_one_durably(topic):
-    world, roots, published, a, b = topic([{"addresses": ["dataset:never", "dataset:d-b"]}], [{"addresses": ["run:never"]}])
+    world, roots, published, a, b = topic([{"addresses": ["dataset:never", dataset_ref("d-b")]}], [{"addresses": ["run:never"]}])
     absent(roots, b)
     with pytest.raises(SelectionRefused) as caught:
         evaluate_query(open_world_view(world, published), resolved_query(roots, a))

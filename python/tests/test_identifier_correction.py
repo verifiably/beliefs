@@ -122,8 +122,9 @@ class TestTheBoundary:
         assert "grounds" in str(caught.value)
 
     def test_a_dataset_without_content_identity_still_refuses(self, writer):
+        node = stored.governed_node("dataset", "d", "d", {stored.DATASET_FACET: {"resources": []}}, ())
         with pytest.raises(BasisMissing):
-            writer.add(stored.dataset_node(title="d", resources=[]))
+            writer.add(node)
 
 
 def raw_edit_history(writer, node_id, mutate):

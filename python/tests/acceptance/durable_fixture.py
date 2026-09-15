@@ -19,6 +19,7 @@ from nodes.core.relations import Relation
 
 from beliefs import stored
 from beliefs.corpus import CorpusWriter
+from beliefs.identity import v1
 
 SPEC = "analysis-spec:s1"
 RULE = "rule:threshold"
@@ -174,7 +175,7 @@ def mint_lineage_fixture(writer: CorpusWriter) -> None:
     writer.add(
         dataset(
             "lineage-conflict",
-            basis(route(RUN, LINEAGE_LEFT), route(RUN, LINEAGE_RIGHT), tag="conflict"),
+            basis(*sorted((route(RUN, LINEAGE_LEFT), route(RUN, LINEAGE_RIGHT)), key=v1.encode), tag="conflict"),
         )
     )
 

@@ -98,8 +98,11 @@ class TestW3Durably:
         assert not any(n.kind == "source" for n in reopen(durable_root).iter_stored())
 
     def test_a_dataset_with_no_content_identity_is_refused_before_it_lands(self, durable_writer, durable_root):
+        unpinned = stored.governed_node(
+            "dataset", "d1", "DepMap", {stored.DATASET_FACET: {"resources": []}}, ()
+        )
         with pytest.raises(BasisMissing):
-            durable_writer.add(stored.dataset_node(title="DepMap", resources=[]))
+            durable_writer.add(unpinned)
         assert not path_for(durable_root, "dataset:d1").exists()
 
     def test_supplying_the_basis_afterwards_is_a_second_separate_mint(self, durable_writer, durable_root):
@@ -195,9 +198,10 @@ class TestS8TheNegative:
             assert "nodes.core.corpus" not in imported_modules(parsed(module))
 
     def test_a_self_consistent_raw_write_passes_both_reads(self, durable_writer, durable_root):
-        raw_write(durable_root, stored.dataset_node(title="smuggled", resources=pinned()))
+        smuggled = stored.dataset_node(title="smuggled", resources=pinned())
+        raw_write(durable_root, smuggled)
         view = reopen(durable_root)
-        assert view.get("dataset:smuggled").id == "dataset:smuggled"  # the stale-hash check has nothing to say
+        assert view.get(smuggled.id).id == smuggled.id  # the stale-hash check has nothing to say
         assert corpus_check(view, BASE) == ()  # and neither has the corpus check
 
     def test_a_raw_write_that_moved_the_fields_alone_is_refused_on_read(self, durable_writer, durable_root):
@@ -263,4 +267,4 @@ class TestTheMintedRecordsReadBack:
         assert corpus_check(reopen(minted_corpus), BASE) == ()
 
     def test_the_slug_helper_addresses_the_same_file_the_store_does(self, minted_corpus):
-        assert path_for(minted_corpus, RAW).name == f"{slug(RAW)}.md"
+        assert path_for(minted_corpus, RAW).name == RAW.partition(":")[2].replace(":", "__", 1) + ".md"

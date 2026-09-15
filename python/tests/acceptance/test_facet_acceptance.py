@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 from authority import ACTOR, FULL
 from coordination_fixtures import coordination_contract
+from dataset_fixtures import dataset_ref
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.errors import UnknownKindError
 from nodes.core.node import Node
@@ -246,10 +247,10 @@ def test_f2_bearer_invariant_over_resulting_state(corpora, tmp_path):
     with refused(w, AcquisitionBoundaryRefused):
         w.add(stored.stamp_semantic_identity(source))
     other = corpora()
-    other.add(producing("r", "dataset:d"))
+    other.add(producing("r", dataset_ref("d")))
     with refused(other, AcquisitionBoundaryRefused):
         other.add(acquired("d", ACTOR))
-    for members in ([acquired("x", "foreign"), producing("r", "dataset:x")], [producing("r", "dataset:x"), acquired("x", "foreign")]):
+    for members in ([acquired("x", "foreign"), producing("r", dataset_ref("x"))], [producing("r", dataset_ref("x")), acquired("x", "foreign")]):
         target = corpora()
         with pytest.raises(ImportRefused) as caught:
             target.import_bundle(members, **IMPORT)
@@ -395,16 +396,16 @@ def test_f8_every_builder_facet_is_declared(corpora, acquisition_report):
         "proposition_node": stored.proposition_node("p", title="p", claim={"operator": "affects"}, display_statement="shown"),
         "source_node": stored.source_node(title="s", identifiers={"doi": "10.1234/x"}),
         "dataset_node": acquired("d", ACTOR),
-        "run_node": producing("r", "dataset:x"),
+        "run_node": producing("r", dataset_ref("x")),
         "run_publication_node": stored.run_publication_node("rp", title="rp", projection=projection_text(closure).decode(), spec="analysis-spec:s"),
         "assessment_node": stored.assessment_node("a", title="a", spec="analysis-spec:s", run="run:r", proposition="proposition:p", outcome="supported", interpretation_rule="rule:r"),
         "verification_node": stored.verification_node("v", title="v", assessment="a", assessment_ref="assessment:a", scope="same-environment", verdict="passed"),
         "analysis_spec_node": stored.analysis_spec_node(freeze(spec_draft(), held_rules=spec_rules())),
-        "retraction_node": stored.retraction_node(title="r", target=stored.NodeTarget("dataset:d", "dataset:d", "1" * 64), reason="authored-error", rationale="wrong", grounds=["source:s"], actor=ACTOR, event_token="e"),
+        "retraction_node": stored.retraction_node(title="r", target=stored.NodeTarget(dataset_ref("d"), dataset_ref("d"), "1" * 64), reason="authored-error", rationale="wrong", grounds=["source:s"], actor=ACTOR, event_token="e"),
         "holdings_observation_node": stored.holdings_observation_node(observation()),
         "coreference_attestation_node": stored.coreference_attestation_node(
             title="coreference",
-            endpoints=("dataset:d", "dataset:e"),
+            endpoints=(dataset_ref("d"), "dataset:e"),
             stance=1,
             actor=ACTOR,
             grounds="one work",

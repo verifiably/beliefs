@@ -282,7 +282,7 @@ class TestTheReader:
 def endpoints_and(*attestations):
     """Two datasets and the attestations over them, as raw stored nodes."""
     return (
-        stored.dataset_node(title="left", resources=[{"name": "d", "digest": "sha256:" + "1" * 64}]),
+        stored.dataset_node(title="left", resources=pinned("left")),
         stored.dataset_node(title="right", resources=pinned("right")),
         *attestations,
     )
@@ -355,8 +355,7 @@ class TestTheCaptureLift:
 class TestPopulatedReceipts:
     def two_corpus_world(self, tmp_path):
         left = stored.dataset_node(title="left", resources=pinned("left"))
-        right = stored.dataset_node(title="right", resources=[{"name": "d", "digest": "sha256:" + "2" * 64}]
-        )
+        right = stored.dataset_node(title="right", resources=pinned("right"))
         plus = attestation(actor="alice", token="a-1")
         minus = attestation(actor="bob", stance=-1, token="b-1")
         roots = corpora(tmp_path, {"a" * 32: (left, right, plus), "b" * 32: (minus,)})

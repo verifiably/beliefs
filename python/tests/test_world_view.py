@@ -186,14 +186,14 @@ class TestBoundReads:
         late = stored.dataset_node(title="late", resources=pinned("late"))
         raw_write(roots[ALPHA], late)
         assert first.get(alpha) == before
-        assert "dataset:late" not in {n.id for n in first.iter_stored()}
+        assert late.id not in {n.id for n in first.iter_stored()}
         assert first.drift() == ()
-        assert type(first.locate("dataset:late")) is read.Unknown
+        assert type(first.locate(late.id)) is read.Unknown
         second = open_world_view(world, published)
         assert second.drift() == (
             DriftReport(ALPHA, dict(published.coverage)[ALPHA], second.drift()[0].captured_state, (late.uid,)),
         )
-        assert "dataset:late" not in {n.id for n in second.iter_stored()}
+        assert late.id not in {n.id for n in second.iter_stored()}
 
     def test_enumeration_is_mapped_records_in_corpus_order(self, tmp_path):
         world, _roots, published = two_corpus_world(tmp_path)

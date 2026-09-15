@@ -11,6 +11,7 @@ from typing import cast
 import pytest
 import yaml
 from authority import FULL
+from dataset_fixtures import dataset_ref
 from durable_fixture import pinned
 from fixtures_cut4 import raw_write
 from profiles import BASE
@@ -541,17 +542,18 @@ def test_attestation_endpoints_and_shared_identifiers_are_findings_durably(durab
 
 def test_the_world_audit_reproduces_every_per_record_finding_durably(chain, monkeypatch):
     world, roots, published, a, _b = chain
-    mapped = ReadView.opened_at(roots[a]).get("dataset:d0")
+    mapped = ReadView.opened_at(roots[a]).get(dataset_ref("d0"))
     mapped.facets["semantic-identity"]["digest"] = "0" * 64
     raw_write(roots[a], mapped)
-    raw_write(roots[a], stale("captured"))
+    captured_stale = stale("captured")
+    raw_write(roots[a], captured_stale)
     local = audit_corpus(ReadView.opened_at(roots[a]), evidence=NO_EVIDENCE, profile=BASE)
     captured = open_world_view(world, published, on_damage="report")
     raw_write(roots[a], stale("after-capture"))
     monkeypatch.setattr(view_module, "open_world_view", lambda *_args, **_kwargs: captured)
     findings = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE).corpora[a]
     assert tuple(f for f in findings if f.code != "drift") == local
-    assert {f.ref for f in local if f.code == "semantic-hash-stale"} == {mapped.id, "dataset:captured"}
+    assert {f.ref for f in local if f.code == "semantic-hash-stale"} == {mapped.id, captured_stale.id}
     assert not any(f.ref == "dataset:after-capture" for f in findings)
 
 
@@ -673,7 +675,7 @@ def test_open_refusals_never_become_absence_durably(chain):
     assert view.absent() == () and absent == {}
     with pytest.raises(CorpusDamaged):
         lineage_snapshot(view, [address])
-    healthy = lineage_snapshot(view, ["dataset:d0"])
+    healthy = lineage_snapshot(view, [dataset_ref("d0")])
     assert healthy.not_present == {}
     resolution = build_snapshot(not_present=absent)
     assert resolution.identity == build_snapshot().identity

@@ -9,6 +9,8 @@ now a corpus on disk rather than a value set in memory.
 from __future__ import annotations
 
 import pytest
+from dataset_fixtures import dataset_ref
+from dataset_fixtures import pinned as seed_pinned
 from durable_fixture import (
     CHAIN,
     CITES,
@@ -94,19 +96,17 @@ class TestS1TheRelationFixtureWalkedOutOfTheStore:
         # exactly what the container's own facet lists, so the two readings of
         # one structure agree rather than diverging silently.
         container = stored.dataset_node(title="cohort", resources=pinned())
-        members = ["dataset:member-a", "dataset:member-b"]
-        container.facets["membership"] = {"members": members}
-        stored.stamp_semantic_identity(container)
-        for member in members:
+        members = [dataset_ref("member-a"), dataset_ref("member-b")]
+        for seed, member in zip(("member-a", "member-b"), members, strict=True):
             container.relations.append(
                 stored.Relation(source=container.id, predicate=stored.MEMBER_OF, target=member)
             )
-            durable_writer.add(stored.dataset_node(title=member, resources=pinned()))
+            durable_writer.add(stored.dataset_node(title=member, resources=seed_pinned(seed)))
         durable_writer.add(container)
         view = reopen(durable_root)
         walked = closure(container.id, RelationAdjacency(view, stored.MEMBER_OF, "outbound")).reached
         assert sorted(walked) == sorted(members)
-        assert sorted(view.get(container.id).facets["membership"]["members"]) == sorted(walked)
+        assert sorted(r.target for r in view.get(container.id).relations if r.predicate == stored.MEMBER_OF) == sorted(walked)
 
 
 class TestS1aTheLineageFixtureWalkedAsAFacet:
@@ -207,28 +207,29 @@ class TestR23DerivedFromIsAView:
     def test_independence_follows_the_stamped_basis_not_the_composition(self, durable_writer, durable_root):
         # Basis and composition made to disagree by the raw-write fixture act:
         # the run transforms one dataset and the stamped basis names another.
-        durable_writer.add(stored.dataset_node(title="composed", resources=pinned()))
-        durable_writer.add(stored.dataset_node(title="stamped", resources=pinned()))
+        composed = durable_writer.add(stored.dataset_node(title="composed", resources=seed_pinned("composed")))
+        stamped = durable_writer.add(stored.dataset_node(title="stamped", resources=seed_pinned("stamped")))
+        out_ref = dataset_ref("out")
         durable_writer.add(
             stored.run_node(
-                "r23", title="r23", spec=SPEC, transforms=["dataset:composed"], produces=["dataset:out"]
+                "r23", title="r23", spec=SPEC, transforms=[composed.id], produces=[out_ref]
             )
         )
         # The route records what the producing run transformed, so the only
         # disagreement is the one this arm is about: the ancestor.
         disagreeing = stored.dataset_node(
                         title="out",
-            resources=pinned(),
-            basis=basis(route("run:r23", "dataset:stamped", ["dataset:composed"])),
+            resources=seed_pinned("out"),
+            basis=basis(route("run:r23", stamped.id, [composed.id])),
         )
         raw_write(durable_root, disagreeing)
 
         view = reopen(durable_root)
-        assert derived_from(view, "dataset:out").reached == ("dataset:composed",)
-        snapshot = lineage_snapshot(view, ["dataset:out"])
-        assert snapshot.bases["dataset:out"].routes[0].resolved_ancestor == "dataset:stamped"
+        assert derived_from(view, out_ref).reached == (composed.id,)
+        snapshot = lineage_snapshot(view, [out_ref])
+        assert snapshot.bases[out_ref].routes[0].resolved_ancestor == stamped.id
         # Independence walks the basis: the closure meets `stamped` and misses
         # `composed`, which is the opposite of what the view says. A build that
         # certified off the view would answer both of these the other way round.
-        assert certify(snapshot, ("dataset:out",), ("dataset:stamped",)).state == "shared-source"
-        assert certify(snapshot, ("dataset:out",), ("dataset:composed",)).state == "independent"
+        assert certify(snapshot, (out_ref,), (stamped.id,)).state == "shared-source"
+        assert certify(snapshot, (out_ref,), (composed.id,)).state == "independent"

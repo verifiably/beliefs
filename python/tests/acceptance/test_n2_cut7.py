@@ -64,7 +64,7 @@ import test_n2
 import test_world_build
 from atoms.chain.model import RegisteredEntry
 from authority import ACTOR, FULL
-from dataset_fixtures import pinned
+from dataset_fixtures import dataset_ref, pinned
 from fixtures_cut6 import PINS
 from n2_arms import (
     CLASS_NODE_BY_CONSTRUCTION,
@@ -428,9 +428,9 @@ def test_resolution_answers_resolved_not_present_and_unknown(journey: Journey):
     }
     stamp = read.BoundStamp(journey.current.packaging_identity, journey.current.coverage)
 
-    resolved = read.resolve_address(journey.world, journey.current, "dataset:a")
+    resolved = read.resolve_address(journey.world, journey.current, dataset_ref("a"))
     assert isinstance(resolved, read.Resolved)
-    assert resolved.location == read.Location(*addresses["dataset:a"])
+    assert resolved.location == read.Location(*addresses[dataset_ref("a")])
     assert resolved.stamp == stamp
 
     # A retired address is a recorded one, and resolves to its successor's uid.
@@ -445,10 +445,10 @@ def test_resolution_answers_resolved_not_present_and_unknown(journey: Journey):
     # Now BETA stops answering to its `corpus_id`. The epoch still records what
     # it carried, so those addresses are absent rather than unknown.
     (journey.roots[BETA] / "corpus.yaml").unlink()
-    absent = read.resolve_address(journey.world, journey.current, "dataset:b")
+    absent = read.resolve_address(journey.world, journey.current, dataset_ref("b"))
     assert isinstance(absent, read.NotPresent)
     assert absent.stamp == stamp
-    assert isinstance(read.resolve_address(journey.world, journey.current, "dataset:a"), read.Resolved)
+    assert isinstance(read.resolve_address(journey.world, journey.current, dataset_ref("a")), read.Resolved)
     assert isinstance(
         read.resolve_address(journey.world, journey.current, "dataset:never-observed"), read.Unknown
     )
@@ -465,26 +465,26 @@ def test_edges_answer_active_inactive_and_indeterminate(journey: Journey):
     """
     assert read.EDGE_STATES == ("active", "inactive", "indeterminate")
 
-    active = read.coreference_edge(journey.world, journey.current, "dataset:a", "dataset:a-b")
+    active = read.coreference_edge(journey.world, journey.current, dataset_ref("a"), dataset_ref("a-b"))
     assert active.state == "active"
     assert active.missing_coverage == () and active.receipt_outcome is None
 
     # A pair the reduction never recorded is established `inactive`, not unknown.
-    inactive = read.coreference_edge(journey.world, journey.current, "dataset:a-b", "dataset:a-c")
+    inactive = read.coreference_edge(journey.world, journey.current, dataset_ref("a-b"), dataset_ref("a-c"))
     assert inactive.state == "inactive"
-    assert read.expand_coreference(journey.world, journey.current, "dataset:a") == (
-        "dataset:a-b",
-        "dataset:a-c",
+    assert read.expand_coreference(journey.world, journey.current, dataset_ref("a")) == (
+        dataset_ref("a-b"),
+        dataset_ref("a-c"),
     )
 
     # An epoch over ALPHA alone did not observe BETA, which is live here.
     narrow = publish(journey.world, (ALPHA,), journey.bindings)
-    narrowed = read.coreference_edge(journey.world, narrow, "dataset:a", "dataset:a-b")
+    narrowed = read.coreference_edge(journey.world, narrow, dataset_ref("a"), dataset_ref("a-b"))
     assert narrowed.state == "indeterminate"
     assert narrowed.missing_coverage == (BETA,)
     assert narrowed.receipt_outcome is None
     with pytest.raises(read.EdgeIndeterminate) as refusal:
-        read.expand_coreference(journey.world, narrow, "dataset:a")
+        read.expand_coreference(journey.world, narrow, dataset_ref("a"))
     assert refusal.value.missing_coverage == (BETA,)
 
 
@@ -510,12 +510,12 @@ def test_removing_a_binding_reports_the_receipts_it_severed(journey: Journey):
     # The consequence the report predicted, now observable.
     outcome = read.validate_receipt(journey.world, journey.current, "coreference-reduction")
     assert outcome.outcome == "unresolvable"
-    answer = read.coreference_edge(journey.world, journey.current, "dataset:a", "dataset:a-b")
+    answer = read.coreference_edge(journey.world, journey.current, dataset_ref("a"), dataset_ref("a-b"))
     assert answer.state == "indeterminate"
     assert answer.receipt_outcome == "unresolvable"
     assert answer.missing_coverage == ()
     with pytest.raises(read.EdgeIndeterminate) as refusal:
-        read.expand_coreference(journey.world, journey.current, "dataset:a")
+        read.expand_coreference(journey.world, journey.current, dataset_ref("a"))
     assert refusal.value.receipt_outcome == "unresolvable"
 
     # The three receipts whose pairs are still held are untouched: removal is

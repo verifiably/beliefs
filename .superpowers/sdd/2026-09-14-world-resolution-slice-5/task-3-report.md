@@ -71,3 +71,37 @@ Frozen-file and call-site audits found no modified `n2_arms_cut*.py`, cut docume
 ## Concerns
 
 None within Task 3. Task 4 still owns the separate cut 7 X9 live sabotage adapter.
+
+## Review round 1 fix
+
+The review found incomplete reference migration in durable fixtures. The fix propagates derived ids through acceptance lineage, selection, world-view, coreference, relocation, session, audit, and durable-record scenarios; restores hand-built write-boundary negatives; removes the obsolete empty-resource repair loop; and makes portable endpoint and late-record assertions name the records actually created. Cut 7's ordinary journey refs now use `dataset_ref`; its X9 sabotage adapter remains Task 4 work.
+
+Evidence, with `certified-env.sh` sourced before Python runs:
+
+```text
+uv run --frozen pytest tests/test_coreference_attestation.py tests/test_identifier_correction.py tests/test_world_view.py
+156 passed in 22.40s
+
+uv run --frozen pytest -n 8 --dist=loadfile <12 acceptance inventory modules>
+263 passed, 9 failed in 237.87s
+
+uv run --frozen pytest -n 8 --dist=loadfile <7 affected acceptance modules>
+183 passed, 3 failed in 233.35s
+
+uv run --frozen pytest <three repaired cases> tests/acceptance/test_deletion_acceptance.py <three cut7 journey cases>
+22 passed in 66.65s
+
+uv run --frozen pytest tests/test_arm_staleness.py tests/test_frozen_guards.py
+14 passed in 2.63s
+
+uv run --frozen ruff check .
+All checks passed
+
+uv run --frozen pyright
+0 errors, 0 warnings, 0 informations
+
+tasks check
+0 errors, 0 warnings
+```
+
+The initial controller inventory had 288 cases because it also selected `test_deletion_acceptance.py` (16 cases). The first fix rerun selected the other 12 modules (272 cases); the missing module was included in the final 22-test focused command.
