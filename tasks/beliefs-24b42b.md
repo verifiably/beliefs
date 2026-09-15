@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/world-resolution-slice-6
 created: 2026-09-11T11:42:27Z
-updated: 2026-09-15T10:50:28Z
+updated: 2026-09-15T11:00:35Z
 started: 2026-09-15T09:53:48Z
 depends: []
 parent: beliefs-d248ba
@@ -27,3 +27,4 @@ Slice 2b makes consolidate refuse two source replicas whose identifier maps or c
 - 2026-09-15T10:03:31Z (design/world-resolution-slice-6): parked (waiting on user, review): Review the slice 6 design spec; on approval invoke writing-plans
 - 2026-09-15T10:24:47Z (design/world-resolution-slice-6): 2026-09-15 first review's two findings taken: reconciliation absorbs only unheld events (idempotent over an interrupted re-run, per the families design's recovery table), one token is one event across chains, fast-forward fixture is a B→C→B round trip. Spec committed at 65d6678 with AGENTS.md naming the doc directories; still parked for review.
 - 2026-09-15T10:50:28Z (design/world-resolution-slice-6): parked (waiting on user, review): Review the implementation plan docs/superpowers/plans/2026-09-15-world-resolution-slice-6.md; on approval execute Tasks 1-8 in this worktree (subagent-driven)
+- 2026-09-15T11:00:35Z (design/world-resolution-slice-6): 2026-09-15 plan review's three findings taken: ActReport.event_token (not .intent); reconcile takes Sequence[dict]; arm_staleness.re_targeted_rows reads RETARGETED_ROWS (Task 6, cut boundary); _COUNT_WORDS gains 65 (Task 1).
