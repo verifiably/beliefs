@@ -114,6 +114,13 @@ class ReferentPosition:
     def restriction(cls, dimension: str) -> ReferentPosition:
         return cls(kind="restriction", key=dimension)
 
+    @classmethod
+    def estimand(cls, part: str) -> ReferentPosition:
+        """`estimand:contrast.baseline`, `estimand:measure.quantity`,
+        `estimand:control.conditioning[3]` — the estimand's positions, in the
+        receipt's one vocabulary (estimand-typing §7.1)."""
+        return cls(kind="estimand", key=part)
+
 
 @dataclass(frozen=True)
 class _BoundVocabulary:

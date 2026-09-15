@@ -753,6 +753,51 @@ class InadmissibleLayer(ClaimError):
     at that operator (§6.2)."""
 
 
+class EstimandError(ScienceError):
+    """An estimand, or a part of one, that is not admissible (estimand-typing §7.1).
+    Subclasses stay distinct for M11's reason: each ill-formed input refuses in
+    turn, and one class would let a check cover for another's absence."""
+
+
+class UntypedEstimandMember(EstimandError):
+    """A member that is not the sealed value the position requires."""
+
+
+class ContrastRefused(EstimandError):
+    """A slot outside `Fin(arity)`, a `levels` contrast on a slot with no level sort,
+    two equal levels, a continuous increment that is not a finite `Decimal > 0`."""
+
+
+class MeasureRefused(EstimandError):
+    """A scale outside the grammar's closed set."""
+
+
+class ReferenceRefused(EstimandError):
+    """A reference that is not a finite `Decimal`, or `≤ 0` under `multiplicative`."""
+
+
+class ControlRefused(EstimandError):
+    """A duplicate conditioning member."""
+
+
+class UncertaintyRefused(EstimandError):
+    """An estimate or uncertainty the spec's scale and reference do not admit
+    (estimand-typing §6): a float, an interval excluding its estimate, a level
+    outside (0, 1), a negative standard error, a non-positive multiplicative
+    estimate. Raised by the constructor's checks; `build_assessment` records it
+    as a finding, never an assessment."""
+
+
+class EstimandSortMismatch(EstimandError):
+    """A referent whose sort is not the one the operator's declaration names
+    for its position — a term with no slot to occupy, as `ArgumentSortMismatch`."""
+
+
+class EstimandFragmentRefused(EstimandError):
+    """Anything richer than the inhabited fragment (estimand-typing §3.3):
+    refused with the fragment named, never flattened."""
+
+
 class TagCollision(ContractError):
     """Two kernel tags that must stay distinct and do not — a duplicate inside a
     closed set, or a ``sign_inapt_tag`` that is also an assertable polarity.
