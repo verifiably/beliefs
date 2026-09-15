@@ -191,8 +191,9 @@ frozen evidence. They added the independent replacement-preflight regression,
 strengthened two no-effect snapshots to compare file contents, retained the
 first three task reports, and corrected migrated-call formatting and this
 accounting. The prior 4,645-Python + 142-TypeScript root run and the exact-chain
-42-module/689-pass run above remain the final complete and certified runs; the
-following is additional focused evidence, not a relabeling of either run.
+42-module/689-pass run above remain the branch's pre-review complete and
+certified evidence; the following supplements those runs. The merged-main
+gate in §6 includes the new portable regression.
 
 With the four `SCIENCE_CUT*_ROOT` variables above exported:
 
@@ -244,4 +245,25 @@ remains unowned and unselected.
 
 ## 6. Main integration
 
-Pending controller merge and the gate on merged `main`.
+Merged `design/world-resolution-slice-5` into `main` with `--no-ff` on
+2026-09-15 at `38e5421c2afa661a0ce85a1aa891f2a23246dacd`, after the whole-branch
+review and the scoped review of final fixes at `87cb143`. All correctness and
+evidence findings were resolved. One nonblocking test docstring still names
+obsolete ancestor handles at `python/tests/test_deletion_rows.py:443–444`;
+the actual fixture uses derived addresses. This remaining documentation finding
+and all execution decisions are recorded in
+[controller rulings](2026-09-14-conformance-cut-29-run/controller-rulings.md).
+
+`just gate`, run on that unchanged merged revision with the four root exports
+in §1, exited **0**. Ruff, Pyright, TypeScript typecheck and Biome passed;
+task validation reported **zero errors and zero warnings**. The serial Python
+suite reported **4,646 passed in 1,117.15s (0:18:37)**, including the final
+replacement-preflight regression. TypeScript reported **142 passed** across
+seven files. No capability refusal, skip or waiver occurred.
+
+The output is retained in
+[`main-gate.log`](2026-09-14-conformance-cut-29-run/main-gate.log), SHA-256
+`45bcedda9af7d7f1aa020d6aaac519abb46bdcf53148d922f7258c26e510899a`. Only Vitest's absolute checkout path was replaced by `./ts`;
+Pyright's informational version notice is retained. The earlier branch and
+certified transcripts are unchanged. This integration record changes only
+documentation and task notes after the gate.

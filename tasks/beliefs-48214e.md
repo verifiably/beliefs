@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/world-resolution-slice-5
 created: 2026-09-11T11:42:27Z
-updated: 2026-09-15T05:30:29Z
+updated: 2026-09-15T05:55:50Z
 started: 2026-09-14T22:06:20Z
 completed: 2026-09-15T05:13:24Z
 depends: []
@@ -35,3 +35,4 @@ dataset_node takes an authored slug while dataset_address is computed and never 
 - 2026-09-15T05:13:24Z (design/world-resolution-slice-5): Slice 5 landed: dataset ids derived from the content identity, DatasetAddressDisagreement at the boundary and both consolidate inputs; cut 29 discharged, no row moves
 - 2026-09-15T05:24:23Z (design/world-resolution-slice-5): claimed by final_fix controller pid 3406977 for final review fixes
 - 2026-09-15T05:30:29Z (design/world-resolution-slice-5): Final review fix wave complete; focused evidence appended and no production behavior changed
+- 2026-09-15T05:55:50Z (main): Merged locally to main at 38e5421; just gate passed 4646 Python and 142 TypeScript tests, static/tasks clean. Certified chain remains 689 passes. Final scoped review cleared correctness/evidence findings; obsolete ancestor handles remain only in test_deletion_rows.py docstring, recorded in cut 29 controller rulings.
