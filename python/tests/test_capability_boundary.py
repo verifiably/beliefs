@@ -123,8 +123,10 @@ def names_of(tree: ast.Module, *, exclude_stdlib_copy: bool = False) -> set[str]
 
 
 def test_raw_write_scan_distinguishes_stdlib_copy_from_shutil_copy():
-    tree = ast.parse("import copy\nimport shutil\ncopy.deepcopy({})\ncopy.copy({})\nshutil.copy('a', 'b')\n")
-    assert names_of(tree, exclude_stdlib_copy=True) & {"copy"} == {"copy"}
+    stdlib_only = ast.parse("import copy\ncopy.deepcopy({})\ncopy.copy({})\n")
+    assert names_of(stdlib_only, exclude_stdlib_copy=True) & {"copy"} == set()
+    with_filesystem_copy = ast.parse("import copy\nimport shutil\ncopy.deepcopy({})\ncopy.copy({})\nshutil.copy('a', 'b')\n")
+    assert names_of(with_filesystem_copy, exclude_stdlib_copy=True) & {"copy"} == {"copy"}
 
 
 def defined_names(tree: ast.Module) -> set[str]:
