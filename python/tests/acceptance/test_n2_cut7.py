@@ -133,6 +133,34 @@ CUT7_ARMS = tuple(
     for index, arm in enumerate(CUT7_ARMS)
 )
 
+# Live interposed-write migration, 2026-09-14 (slice 5): `stored.dataset_node`
+# derives its id and requires a pinned declaration; cut 7's declaration stays
+# frozen at 8ca085e and the X9 arm interposes the same real corpus write.
+LIVE_INTERPOSED_WRITE = (
+    '        __import__("nodes.core.corpus", fromlist=["Corpus"]).Corpus(carrier).add(\n'
+    '            stored.dataset_node(\n'
+    '                title="interposed",\n'
+    '                resources=[{"name": "interposed", "digest": "sha256:" + __import__("uuid").uuid4().hex * 2}],\n'
+    '            )\n'
+    "        )\n"
+)
+_X9_RELOCATED_HEAD_INDEX = 15
+FROZEN_CUT7_ARMS = CUT7_ARMS
+CUT7_ARMS = tuple(
+    dataclasses.replace(
+        arm,
+        sabotage=Sabotage(
+            arm.sabotage.module,
+            before=arm.sabotage.before,
+            after=arm.sabotage.after.replace(INTERPOSED_WRITE, LIVE_INTERPOSED_WRITE),
+        ),
+    )
+    if index == _X9_RELOCATED_HEAD_INDEX
+    else arm
+    for index, arm in enumerate(CUT7_ARMS)
+)
+assert FROZEN_CUT7_ARMS[_X9_RELOCATED_HEAD_INDEX].checks == (RELOCATED_HEAD_CHECK,)
+
 WORKERS = 8
 _COUNTER = count()
 
@@ -1010,7 +1038,7 @@ class TestTheRelocatedHeadSabotageIsNotVacuous:
     """
 
     def test_the_declared_mutation_carries_a_real_interposed_write(self):
-        arm = _relocated_head_arm()
+        arm = _relocated_head_arm(FROZEN_CUT7_ARMS)
         assert arm.sabotage.after.count(INTERPOSED_WRITE) == 1
         relocated = arm.sabotage.after.split(INTERPOSED_WRITE)[1]
         assert "world._chain_head(carrier)" in relocated, (
@@ -1020,6 +1048,14 @@ class TestTheRelocatedHeadSabotageIsNotVacuous:
         assert arm.sabotage.before.count("world._chain_head(carrier)") == 1, (
             "the mutation must move the sole head-capture call, not one of several"
         )
+
+    def test_the_live_interposed_write_is_the_dated_adapter_of_the_frozen_one(self):
+        frozen = _relocated_head_arm(FROZEN_CUT7_ARMS)
+        live = _relocated_head_arm()
+        assert frozen.sabotage.after.count(INTERPOSED_WRITE) == 1
+        assert live.sabotage.after.count(LIVE_INTERPOSED_WRITE) == 1
+        assert live.sabotage.after.replace(LIVE_INTERPOSED_WRITE, INTERPOSED_WRITE) == frozen.sabotage.after
+        assert live.sabotage.before == frozen.sabotage.before
 
     def test_the_witness_passes_against_the_unsabotaged_package(self):
         assert test_n2._run_check(RELOCATED_HEAD_WITNESS, None).returncode == test_n2.PASSED
@@ -1031,7 +1067,7 @@ class TestTheRelocatedHeadSabotageIsNotVacuous:
             sabotage=Sabotage(
                 module=arm.sabotage.module,
                 before=arm.sabotage.before,
-                after=arm.sabotage.after.replace(INTERPOSED_WRITE, ""),
+                after=arm.sabotage.after.replace(LIVE_INTERPOSED_WRITE, ""),
             ),
         )
         without = test_n2._sabotage(relocation_only, tmp_path / "relocation-only")
@@ -1053,8 +1089,8 @@ class TestTheRelocatedHeadSabotageIsNotVacuous:
         assert audit(arm, tmp_path / "declared").verdict == "sound"
 
 
-def _relocated_head_arm() -> Arm:
-    (arm,) = [arm for arm in CUT7_ARMS if arm.checks == (RELOCATED_HEAD_CHECK,)]
+def _relocated_head_arm(arms=None) -> Arm:
+    (arm,) = [arm for arm in (CUT7_ARMS if arms is None else arms) if arm.checks == (RELOCATED_HEAD_CHECK,)]
     return arm
 
 
