@@ -12,9 +12,9 @@ from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp
 from profiles import BASE
 from test_corpus_write import Recorder
 from test_operation_writes import intents_of, primitive_calls, writer_over
-from test_relocation import _writer
+from test_relocation import _recording_port, _writer
 from test_session_writer import DIGEST, make_session
-from test_source_address import ADDR_A, ADDR_B, CANONICAL_DOI, A, B, entry, raw_source
+from test_source_address import ADDR_A, ADDR_B, ADDR_C, CANONICAL_DOI, A, B, C, consolidation, entry, raw_source
 
 from beliefs import source, stored
 from beliefs.corpus import CorpusWriter, OperationCommit, ReadView, corpus_check
@@ -26,6 +26,7 @@ from beliefs.errors import (
     HistoryDisagreement,
     IdentifierMalformed,
     PermitExceeded,
+    RelocationRefused,
     SourceAddressDisagreement,
     ValidationRefused,
 )
@@ -121,6 +122,31 @@ class TestTheBoundary:
         assert type(caught.value) is ImportRefused and caught.value.member == bad.id
         assert "grounds" in str(caught.value)
 
+    def test_import_admits_a_nested_history_and_refuses_a_malformed_nested_one(self, tmp_path):
+        from beliefs.errors import ImportRefused
+
+        importer = _writer(tmp_path / "importer")
+        good = raw_source(
+            B,
+            history=[entry(A, B, token="t1"), consolidation(B, [entry(A, C, token="o1"), entry(C, B, token="o2")])],
+            deprecated=sorted([ADDR_A, ADDR_C]),
+        )
+        importer.import_bundle([good], **REPORT)
+        assert importer.read_view.get(ADDR_B).deprecated_ids == sorted([ADDR_A, ADDR_C])
+        eight, nine = {"pmid": "8"}, {"pmid": "9"}
+        bad = raw_source(
+            nine,
+            history=[entry(eight, nine, token="t1"), consolidation(nine, [entry(eight, nine, token="o1", grounds="")])],
+            deprecated=[source.source_address(eight)],
+        )
+        with pytest.raises(ImportRefused) as caught:
+            importer.import_bundle([bad], **REPORT)
+        assert caught.value.member == bad.id and "grounds" in str(caught.value)
+
+    def test_add_still_refuses_a_nested_history(self, writer):
+        with pytest.raises(ValidationRefused):
+            writer.add(raw_source(B, history=[entry(A, B, token="t1"), consolidation(B, [entry(A, B, token="o1")])], deprecated=[ADDR_A]))
+
     def test_a_dataset_without_content_identity_still_refuses(self, writer):
         node = stored.governed_node("dataset", "d", "d", {stored.DATASET_FACET: {"resources": []}}, ())
         with pytest.raises(BasisMissing):
@@ -179,9 +205,6 @@ class TestTheReadSide:
             for finding in findings
         )
 
-
-C = {"pmid": "2"}
-ADDR_C = source.source_address(C)
 
 
 def minted_a(writer):
@@ -405,7 +428,7 @@ class TestTheSessionLayers:
         assert not any(node.kind == "act-report" for node in ReadView.opened_at(port.root).iter_stored())
 
 
-REPORT = {
+REPORT: _ImportFields = {
     "observer": "o",
     "instrument": "i",
     "opened_at": "2026-09-10T00:00:00Z",
@@ -429,20 +452,161 @@ class TestRelocation:
         assert stored.identifier_corrections(arrived) == stored.identifier_corrections(corrected)
         assert right.read_view.resolve(ADDR_A) == ADDR_B
 
-    def test_consolidate_refuses_divergent_histories(self, two_writers):
+    def test_consolidate_absorbs_divergent_histories(self, two_writers):
+        left, right = two_writers
+        node = stored.source_node(title="p", identifiers=A)
+        for writer, grounds in ((left, "g-left"), (right, "g-right")):
+            writer.add(node.model_copy(deep=True))
+            writer.correct_identifier(ADDR_A, B, grounds=grounds)
+        (keep_entry,) = stored.identifier_corrections(left.read_view.get(ADDR_B))
+        (other_entry,) = stored.identifier_corrections(right.read_view.get(ADDR_B))
+        survivor, keep_report, other_report = consolidate((left, ADDR_B), (right, ADDR_B), rationale="one paper", **REPORT)
+        spine, merged = stored.identifier_corrections(survivor)
+        assert spine == keep_entry
+        assert merged.from_identifiers == B and merged.to_identifiers == B
+        assert merged.absorbed == (other_entry,)
+        assert (merged.actor, merged.grounds) == (left.authority.actor, "one paper")
+        assert merged.event_token == keep_report.event_token == other_report.event_token
+        assert survivor.deprecated_ids == [ADDR_A]
+        assert left.read_view.resolve(ADDR_A) == ADDR_B
+        assert right.read_view.resolve(ADDR_B) is None and right.read_view.resolve(ADDR_A) is None
+
+    def test_swapping_keep_absorbs_the_other_entry(self, two_writers):
+        left, right = two_writers
+        node = stored.source_node(title="p", identifiers=A)
+        for writer, grounds in ((left, "g-left"), (right, "g-right")):
+            writer.add(node.model_copy(deep=True))
+            writer.correct_identifier(ADDR_A, B, grounds=grounds)
+        (left_entry,) = stored.identifier_corrections(left.read_view.get(ADDR_B))
+        survivor, *_ = consolidate((right, ADDR_B), (left, ADDR_B), rationale="one paper", **REPORT)
+        spine, merged = stored.identifier_corrections(survivor)
+        assert spine.grounds == "g-right" and merged.absorbed == (left_entry,)
+
+    def test_consolidate_fast_forwards_a_prefix(self, two_writers):
+        left, right = two_writers
+        minted = left.add(stored.source_node(title="p", identifiers=B))
+        right.import_bundle([minted], **REPORT)
+        right.correct_identifier(ADDR_B, C, grounds="a typo")
+        right.correct_identifier(ADDR_C, B, grounds="no, B was right")
+        other = right.read_view.get(ADDR_B)
+        assert len(stored.identifier_corrections(other)) == 2
+        survivor, *_ = consolidate((left, ADDR_B), (right, ADDR_B), rationale="r", **REPORT)
+        assert stored.identifier_corrections(survivor) == stored.identifier_corrections(other)
+        assert all(c.absorbed == () for c in stored.identifier_corrections(survivor))
+        assert survivor.deprecated_ids == [ADDR_C]
+        assert left.read_view.resolve(ADDR_C) == ADDR_B
+
+    def test_consolidate_of_history_free_replicas_carries_no_facet(self, two_writers):
+        left, right = two_writers
+        minted = left.add(stored.source_node(title="p", identifiers=B))
+        right.import_bundle([minted], **REPORT)
+        survivor, *_ = consolidate((left, ADDR_B), (right, ADDR_B), rationale="r", **REPORT)
+        assert stored.IDENTIFIER_CORRECTION_FACET not in survivor.facets and survivor.deprecated_ids == []
+
+    def test_correct_identifier_appends_after_a_consolidation_entry(self, two_writers):
         left, right = two_writers
         node = stored.source_node(title="p", identifiers=A)
         for writer in (left, right):
             writer.add(node.model_copy(deep=True))
             writer.correct_identifier(ADDR_A, B, grounds="g")
-        with pytest.raises(HistoryDisagreement):
+        survivor, *_ = consolidate((left, ADDR_B), (right, ADDR_B), rationale="r", **REPORT)
+        further = left.correct_identifier(survivor.id, C, grounds="g2")
+        history = stored.identifier_corrections(further)
+        assert len(history) == 3 and history[1].absorbed != () and history[2].to_identifiers == C
+        assert further.deprecated_ids == sorted([ADDR_A, ADDR_B])
+
+    def test_move_carries_a_nested_history(self, two_writers):
+        left, right = two_writers
+        node = stored.source_node(title="p", identifiers=A)
+        for writer in (left, right):
+            writer.add(node.model_copy(deep=True))
+            writer.correct_identifier(ADDR_A, B, grounds="g")
+        survivor, *_ = consolidate((left, ADDR_B), (right, ADDR_B), rationale="r", **REPORT)
+        moved, *_ = move(left, right, survivor.id, **REPORT)
+        assert stored.identifier_corrections(moved) == stored.identifier_corrections(survivor)
+        assert right.read_view.resolve(ADDR_A) == ADDR_B
+
+    def test_consolidate_twice_nests(self, tmp_path):
+        left, right, third = (_writer(tmp_path / name) for name in ("left", "right", "third"))
+        node = stored.source_node(title="p", identifiers=A)
+        for writer in (left, right, third):
+            writer.add(node.model_copy(deep=True))
+            writer.correct_identifier(ADDR_A, B, grounds="g")
+        once, *_ = consolidate((left, ADDR_B), (right, ADDR_B), rationale="r1", **REPORT)
+        twice, *_ = consolidate((third, ADDR_B), (left, ADDR_B), rationale="r2", **REPORT)
+        history = stored.identifier_corrections(twice)
+        assert len(history) == 2 and history[1].absorbed == stored.identifier_corrections(once)
+        assert history[1].absorbed[1].absorbed != ()
+        assert twice.deprecated_ids == [ADDR_A]
+
+    def test_consolidate_retries_after_an_interrupted_replacement(self, two_writers, monkeypatch):
+        left, right = two_writers
+        node = stored.source_node(title="p", identifiers=A)
+        for writer in (left, right):
+            writer.add(node.model_copy(deep=True))
+            writer.correct_identifier(ADDR_A, B, grounds="g")
+        original = CorpusWriter._delete_locked
+        armed = {"once": True}
+
+        def interrupt(self, ref):
+            if armed["once"] and self.root == right.root:
+                armed["once"] = False
+                raise RuntimeError("interrupted after keep's replacement")
+            return original(self, ref)
+
+        monkeypatch.setattr(CorpusWriter, "_delete_locked", interrupt)
+        with pytest.raises(RuntimeError):
+            consolidate((left, ADDR_B), (right, ADDR_B), rationale="first", **REPORT)
+        first = stored.identifier_corrections(left.read_view.get(ADDR_B))
+        assert len(first) == 2 and first[1].grounds == "first"
+        assert right.read_view.holds(ADDR_B)
+        survivor, keep_report, other_report = consolidate((left, ADDR_B), (right, ADDR_B), rationale="second", **REPORT)
+        assert stored.identifier_corrections(survivor) == first
+        assert first[1].event_token != keep_report.event_token == other_report.event_token
+        assert not right.read_view.holds(ADDR_B)
+
+    def test_consolidate_refuses_conflicting_token_reuse(self, two_writers):
+        left, right = two_writers
+        left.add(stored.source_node(title="p", identifiers=A))
+        corrected = left.correct_identifier(ADDR_A, B, grounds="g")
+        (held,) = stored.identifier_corrections(corrected)
+        reused = raw_source(B, history=[entry(A, B, token=held.event_token, grounds="other grounds")], deprecated=[ADDR_A])
+        right.import_bundle([reused], **REPORT)
+        before = (left.read_view.get(ADDR_B), right.read_view.get(ADDR_B))
+        intents_before = {id(w): list(_recording_port(w).intents) for w in (left, right)}
+        with pytest.raises(HistoryDisagreement, match="two different events"):
             consolidate((left, ADDR_B), (right, ADDR_B), rationale="r", **REPORT)
+        assert (left.read_view.get(ADDR_B), right.read_view.get(ADDR_B)) == before
+        for writer in (left, right):
+            assert _recording_port(writer).intents == intents_before[id(writer)]
+
+    @pytest.mark.parametrize("rationale", ["", "\ud800"], ids=["empty", "unencodable"])
+    @pytest.mark.parametrize("divergent", [False, True], ids=["identity-path", "absorb-path"])
+    def test_consolidate_refuses_a_malformed_rationale_on_both_paths(self, two_writers, rationale, divergent):
+        left, right = two_writers
+        node = stored.source_node(title="p", identifiers=A)
+        left.add(node.model_copy(deep=True))
+        left.correct_identifier(ADDR_A, B, grounds="g")
+        if divergent:
+            right.add(node.model_copy(deep=True))
+            right.correct_identifier(ADDR_A, B, grounds="g2")
+        else:
+            right.import_bundle([left.read_view.get(ADDR_B)], **REPORT)
+        before = (left.read_view.get(ADDR_B), right.read_view.get(ADDR_B))
+        intents_before = {id(w): list(_recording_port(w).intents) for w in (left, right)}
+        reports_before = {id(w): sum(n.kind == "act-report" for n in w.read_view.iter_stored()) for w in (left, right)}
+        with pytest.raises(RelocationRefused, match="rationale"):
+            consolidate((left, ADDR_B), (right, ADDR_B), rationale=rationale, **REPORT)
+        assert (left.read_view.get(ADDR_B), right.read_view.get(ADDR_B)) == before
+        for writer in (left, right):
+            assert _recording_port(writer).intents == intents_before[id(writer)]
+            assert sum(n.kind == "act-report" for n in writer.read_view.iter_stored()) == reports_before[id(writer)]
 
     def test_divergent_identifier_maps_refuse_consolidation(self, two_writers):
         left, right = two_writers
         left.add(stored.source_node(title="p", identifiers=B))
         right.add(stored.source_node(title="p", identifiers={**B, "isbn": "9780306406157"}))
-        with pytest.raises(HistoryDisagreement):
+        with pytest.raises(HistoryDisagreement, match="isbn"):
             consolidate((left, ADDR_B), (right, ADDR_B), rationale="r", **REPORT)
 
     def test_consolidate_refuses_a_handle_addressed_replica_at_replace(self, two_writers):
