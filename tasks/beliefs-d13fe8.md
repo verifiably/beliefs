@@ -6,7 +6,7 @@ priority: 2
 size: l
 complexity: high
 created: 2026-08-31T00:38:27Z
-updated: 2026-09-12T16:26:55Z
+updated: 2026-09-15T16:26:47Z
 depends: []
 tags: [migration, acquisition, act-report]
 ---
@@ -22,3 +22,4 @@ Uncertainty: Canonicalization and network discipline are banked, but the concret
 ## Notes
 
 - 2026-09-12T16:26:55Z (main): Complexity high: Holdings sections 2-3 bank URL canonicalization and network discipline, and act-report section 4 fixes same-root provenance/report publication. The concrete acquisition cut must still compose redirect/address validation, bounded retrieval, refusals and atomic publication; no transport implementation plan settles those interactions.
+- 2026-09-15T16:26:47Z (main): 2026-09-15: natural-systems v2 is a real consumer once its Dryad pilot sample is drawn (ns-006fda; framing §4: the survey corpus is random acquisition from repositories). A second corpus is the measurement the roadmap says may re-rank tier 1; until the pilot runs, url-retrieval stays off-path row 2 in breadth order.
