@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/estimand-typing
 created: 2026-09-12T20:31:58Z
-updated: 2026-09-15T16:45:12Z
+updated: 2026-09-15T16:45:35Z
 started: 2026-09-15T16:45:12Z
 depends: []
 tags: [design, belief, contract]
@@ -38,3 +38,4 @@ Uncertainty: off the dogfood path; opens a lane only under roadmap concurrency r
 - 2026-09-15T16:27:04Z (design/estimand-typing): 2026-09-15: natural-systems v2 framing §4 and pilot design §7 checked against this lane. No spec change is known yet; the pilot's target (fixed reference 0, additive, surrogate-vs-identity levels contrast, MC standard error conditional on D, lag inside the measure term) is meant to inhabit §3.2/§3.3/§6 as drafted, and 18b03d tests that pre-freeze. Two order constraints added: 18b03d before Task 0 Step 3; beliefs-e48279 (API test) after Task 4, before Task 11. Watch §6's standard-error meaning: the pilot's SE is Monte-Carlo error of E_Q, not sampling error over trajectories, and §6 fixes one meaning per kind.
 - 2026-09-15T16:45:12Z (design/estimand-typing): lane admitted under rule 6, 2026-09-15 after cut 30: open kernel lanes none (doing holds only the CI audit, a non-lane task; composite-claim is parked on this lane's merge); on-path state: tier 1 has no on-path boundary, world-resolution discharged at cut 30, so an off-path lane may open. Cut number scan across worktrees: highest claimed 30; this cut is 31, chained after cut30_acceptance.py (rule 5). Baseline: main at 5127dcfa52d85ec2f6f2b2cc6af507d0a1e1eafe.
 - 2026-09-15T16:45:12Z (design/estimand-typing): Process planned: the spec (three reviews) and plan (two reviews) cleared 2026-09-12; execution follows the plan's Tasks 0-12.
+- 2026-09-15T16:45:35Z (design/estimand-typing): cut 31 frozen at c2a2211c2d9a0889a59e7892dcb71f2008e20e46, sha256 3cd4409dd08d5b121d3f62bfaaa00e3d553335d6a54e7657471c70677854d93f (docs/designs/2026-09-15-conformance-cut-31.md); Task 11's guard pins both
