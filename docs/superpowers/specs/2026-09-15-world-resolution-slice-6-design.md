@@ -534,3 +534,8 @@ lanes — the estimand-typing lane's Task 0 re-reads it).
   `Sequence[dict[str, Any]]` so its deep copies satisfy its return type;
   `re_targeted_rows` learns `RETARGETED_ROWS` (§7.5 above); `_COUNT_WORDS`
   gains 65.
+- **2026-09-15, second plan review, one finding taken.** Guards 26–30
+  import cut 25's override set as `CUT25_RETARGETED_ROWS`, reserving
+  `RETARGETED_ROWS` for their own overrides. Otherwise the detector would
+  attribute cut 25's rows to each importing guard and fail the new cut 29
+  empty-set assertion. Tasks 6–7 and the plan's interface summary use the alias.

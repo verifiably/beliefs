@@ -1026,7 +1026,7 @@ git -C .worktrees/world-resolution-slice-6 commit -m "test(acceptance): consolid
 - Test: `python/tests/acceptance/test_n2_cut25.py`, `python/tests/test_arm_staleness.py` (one new test)
 
 **Interfaces:**
-- Produces: `test_n2_cut25.RETARGETED_ROWS = frozenset({"W1-a", "W5a-m"})`, read by guards 26–30 and by `arm_staleness.re_targeted_rows`.
+- Produces: `test_n2_cut25.RETARGETED_ROWS = frozenset({"W1-a", "W5a-m"})`, imported as `CUT25_RETARGETED_ROWS` by guards 26–30 and read by `arm_staleness.re_targeted_rows` for cut 25.
 
 - [ ] **Step 1: Add the live re-target table to `test_n2_cut25.py`**
 
@@ -1078,9 +1078,9 @@ In each of `test_n2_cut26.py:214`, `test_n2_cut27.py:227`, `test_n2_cut28.py:230
 ```
 with
 ```python
-        frozen if live.row in RETARGETED_ROWS else live  # re-targeted rows: 2026-09-14 W1-a, 2026-09-15 W5a-m
+        frozen if live.row in CUT25_RETARGETED_ROWS else live  # re-targeted rows: 2026-09-14 W1-a, 2026-09-15 W5a-m
 ```
-and extend each module's `from test_n2_cut25 import CUT25_ARMS` to `from test_n2_cut25 import CUT25_ARMS, RETARGETED_ROWS`. Every other row is still held equal to its frozen declaration.
+and extend each module's `from test_n2_cut25 import CUT25_ARMS` to `from test_n2_cut25 import CUT25_ARMS, RETARGETED_ROWS as CUT25_RETARGETED_ROWS`. Every other row is still held equal to its frozen declaration. Reserve `RETARGETED_ROWS` for a guard's own overrides: importing cut 25's set under that name would make the detector attribute those overrides to the importing guard.
 
 - [ ] **Step 3: Teach the staleness detector the full override set**
 
@@ -1230,14 +1230,14 @@ Under `W5a-z`'s sabotage the unencodable rationale still refuses through `v1.enc
 Copy `python/tests/acceptance/test_n2_cut29.py` to `test_n2_cut30.py` and edit:
 
 - docstring → `"""Cut 30 declaration accounting, freeze pin, and N2 audit."""`;
-- imports: add `from n2_arms_cut29 import CUT29_ARMS`; change `from n2_arms_cut29 import CO_CITED, CUT29_ARMS, DECLARATION_UNITS, UNIT_CHECKS, unit_of` to `from n2_arms_cut30 import CO_CITED, CUT30_ARMS, DECLARATION_UNITS, UNIT_CHECKS, unit_of`; `from test_n2_cut25 import CUT25_ARMS, RETARGETED_ROWS`;
+- imports: add `from n2_arms_cut29 import CUT29_ARMS`; change `from n2_arms_cut29 import CO_CITED, CUT29_ARMS, DECLARATION_UNITS, UNIT_CHECKS, unit_of` to `from n2_arms_cut30 import CO_CITED, CUT30_ARMS, DECLARATION_UNITS, UNIT_CHECKS, unit_of`; `from test_n2_cut25 import CUT25_ARMS, RETARGETED_ROWS as CUT25_RETARGETED_ROWS`;
 - constants: `FROZEN_CUT = REPO_ROOT / "docs" / "designs" / "2026-09-15-conformance-cut-30.md"`; `CUT30_FREEZE_COMMIT = "<Task 1's hash>"`; `CUT30_FROZEN_SHA256 = "<Task 1's digest>"`; `FROZEN_DECLARATION = "python/tests/acceptance/n2_arms_cut30.py"`; `CUT30_DECLARATION_COMMIT` and `CUT30_DECLARATION_SHA256` are filled in Step 4 after the declaration's own commit;
 - `FROZEN_PRIOR_CUT_FILES`: add `"python/tests/acceptance/n2_arms_cut29.py": "0e57a52",`;
 - `PRIOR_ARMS`: add `*CUT29_ARMS,`;
 - every `CUT29_ARMS`/`cut29`/`29` in the test bodies → `CUT30_ARMS`/`cut30`/`30`; the workspace name `"n2-cut30"`;
 - `test_the_inventory_is_exactly_the_three_declared_units` → rename `..._the_one_declared_unit`; body: `assert DECLARATION_UNITS == ("W5a",)`, `assert len(CUT30_ARMS) == 10`;
 - `test_the_freeze_commit_and_sections_two_through_seven_are_pinned`: the three literal assertions become `assert "**1 declaration unit**" in current`, `assert "Zero guarantee rows are read, **0 full/closed** newly" in current`, `assert '("cut29_acceptance.py",)' in current`;
-- `test_prior_declarations_are_frozen_and_no_check_is_reclaimed`: the cut 25 reconstruction becomes `frozen if live.row in RETARGETED_ROWS else live` (Task 6's form);
+- `test_prior_declarations_are_frozen_and_no_check_is_reclaimed`: the cut 25 reconstruction becomes `frozen if live.row in CUT25_RETARGETED_ROWS else live` (Task 6's form);
 - `test_row_parser…`: the error match `"is not a cut-30 row"` and the sample rows use `W5a` (`"W5a-"`, `"W5aa"`, `"W5a-A"`, `"W5a-1"`, `"W5a-aa"`, `"W5a-a-b"`, `""`, `"D1"`).
 
 - [ ] **Step 3: Write the runner and the accounting entry**
@@ -1340,4 +1340,4 @@ The spec and plan are tracked (AGENTS.md names their directories), so nothing ne
 
 **Spec coverage.** §3.1–3.3 → Task 2; §4 → Task 3; §5 (rationale, early intent, merge, `_reconcile`) → Task 4; §6 refusals → Tasks 3–4 (`HistoryDisagreement` cases) and the docstring; §7.1 unit → Tasks 2–4 (every named test appears by name); §7.2 acceptance → Task 5, as amended; §7.3 ten arms → Task 7 (`W5a-p…z`, `W5a-w` withdrawn per the spec); §7.4 the cut → Tasks 1, 7, 8; §7.5 frozen evidence → Task 6 (and Task 2's anchor check); §8 shared files → Tasks 4, 8; §9 task linkage → Task 8 step 4 and step 6; §10 limitations → the cut document §7 (Task 1).
 
-**Type consistency.** `reconcile_correction_histories(keep, other, *, actor, grounds, event_token) -> list[dict[str, Any]]` is defined in Task 3 and called with the same keywords in Task 4 and sabotaged by name in Tasks 6–7; `_reconcile(survivor, loser, *, correction_entries=None)` defined and called in Task 4; `IdentifierCorrection.absorbed` (Task 2) read as `.absorbed` in Tasks 4–5; `consolidation(frm, absorbed, *, actor, grounds, token)` and `C`/`ADDR_C` (Task 2) imported in Task 4; `RETARGETED_ROWS` (Task 6) imported in Task 7's guard. Sabotage `before` strings in Tasks 6–7 are the exact lines Tasks 3–4 write; Task 7 step 1 requires a `grep -c` of each before committing.
+**Type consistency.** `reconcile_correction_histories(keep, other, *, actor, grounds, event_token) -> list[dict[str, Any]]` is defined in Task 3 and called with the same keywords in Task 4 and sabotaged by name in Tasks 6–7; `_reconcile(survivor, loser, *, correction_entries=None)` defined and called in Task 4; `IdentifierCorrection.absorbed` (Task 2) read as `.absorbed` in Tasks 4–5; `consolidation(frm, absorbed, *, actor, grounds, token)` and `C`/`ADDR_C` (Task 2) imported in Task 4; `RETARGETED_ROWS` (Task 6) imported as `CUT25_RETARGETED_ROWS` in guards 26–30. Sabotage `before` strings in Tasks 6–7 are the exact lines Tasks 3–4 write; Task 7 step 1 requires a `grep -c` of each before committing.
