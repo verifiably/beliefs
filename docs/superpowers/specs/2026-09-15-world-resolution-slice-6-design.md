@@ -399,7 +399,7 @@ close nothing new):
 | arm | asserts | sabotage | check |
 |---|---|---|---|
 | `W5a-p` | divergent histories are absorbed, not dropped | `reconcile_correction_histories` step 5 returns `list(keep)` | `test_consolidate_absorbs_divergent_histories` |
-| `W5a-q` | the absorbed chain is validated | `identifier_corrections` skips recursion into `absorbed` | the absorbed-not-continuous reader test |
+| `W5a-q` | the absorbed chain is validated | the absorbed endpoint comparison is disabled | `test_malformed_consolidation_shapes_refuse[absorbed-ends-elsewhere]` |
 | `W5a-r` | held addresses reach into absorbed chains | `held_source_addresses` does not recurse | the omitted-absorbed-address validator test |
 | `W5a-s` | one token is one event across chains | the cross-chain content comparison removed | the conflicting-reuse reader test |
 | `W5a-x` | an already-held event is not absorbed again | step 3 absorbs `other`'s whole spine | `test_consolidate_retries_after_an_interrupted_replacement` |
@@ -411,6 +411,9 @@ close nothing new):
 
 The map refusal is not re-declared: cut 28's `W8-b` guards it live and its
 anchor does not move.
+
+*Implementation-time amendment, 2026-09-15:* `W5a-q` uses the absorbed-endpoint
+sabotage above. Reader tests separately cover recursive reading and continuity.
 
 Each sabotage is a byte-exact `before`/`after` on a line this slice writes;
 the plan pins the strings once the code exists, and `arm_staleness` audits
