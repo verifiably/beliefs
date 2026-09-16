@@ -13,6 +13,7 @@ named at its position. No kernel surface here is new: this is a test of the
 fragment cut 31 already shipped, read against a second inhabitant.
 """
 
+import re
 from decimal import Decimal
 from pathlib import Path
 from typing import cast
@@ -199,9 +200,34 @@ def test_the_nulls_central_band_refuses_a_rejecting_estimate_but_admits_a_non_re
     # check is structural and cannot tell a true label from a false one when
     # the estimate happens to sit inside the band).
     band = Interval(low=Decimal("-0.30"), high=Decimal("0.30"), level=Decimal("0.95"))
-    with pytest.raises(UncertaintyRefused, match="excludes"):
+    estimand = build(profile, claim, snapshot)
+    applicability, _ = build_applicability(profile, claim, {}, snapshot=snapshot)
+    exact = re.escape("the interval [-0.30, 0.30] excludes the estimate -0.42")
+
+    # The rejecting case, through both routes `check_uncertainty` (the shared
+    # check) and `AssessmentValue` (which runs it in `__post_init__` and
+    # re-raises as `MalformedRecord`) — the message itself is asserted, not
+    # merely the exception type, so both bounds and the excluded estimate are
+    # named.
+    with pytest.raises(UncertaintyRefused, match=exact):
         check_uncertainty(band, Decimal("-0.42"), "additive")
-    check_uncertainty(band, Decimal("0.05"), "additive")  # admitted: inside the band, under a label that would in fact be false
+    with pytest.raises(MalformedRecord, match=exact):
+        AssessmentValue(
+            spec="spec-1", run="run-1", proposition=claim_identity(claim), outcome="supported",
+            interpretation_rule="rank-comparison/v1", estimand=estimand, applicability=applicability,
+            estimate=Decimal("-0.42"), uncertainty=band,
+        )
+
+    # Admitted: inside the band, under a label that would in fact be false —
+    # built as a real `AssessmentValue`, with its typed members asserted.
+    check_uncertainty(band, Decimal("0.05"), "additive")
+    value = AssessmentValue(
+        spec="spec-1", run="run-1", proposition=claim_identity(claim), outcome="inconclusive",
+        interpretation_rule="rank-comparison/v1", estimand=estimand, applicability=applicability,
+        estimate=Decimal("0.05"), uncertainty=band,
+    )
+    assert value.estimate == Decimal("0.05")
+    assert value.uncertainty == band
 
 
 def test_a_float_estimate_refuses_and_is_never_coerced(profile, claim, snapshot):
