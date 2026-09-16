@@ -152,6 +152,11 @@ def _run_check(check: str, package: Path | None) -> CheckRun:
         "SCIENCE_CUT6_ROOT",
         "SCIENCE_CUT7_ROOT",
         "SCIENCE_CUT10_ROOT",
+        # Cut 31's Q10 check reads the mm30 reproduction's recorded state at
+        # its work root, which lives beside the main checkout on the certified
+        # volume; without the variable the child would look beside the lane's
+        # worktree and find nothing.
+        "SCIENCE_MM30_ROOT",
     ):
         if name in os.environ:
             env[name] = os.environ[name]
