@@ -30,7 +30,7 @@ from beliefs.profile import ProfileSpec
 from beliefs.projection import claim_identity, project_claim
 from beliefs.resolution import ReferentPosition, ResolutionSnapshot, TermOutcome, build_snapshot
 from beliefs.sealed import sealed
-from beliefs.stored import COMPOSES, assessment_value
+from beliefs.stored import ASSESSES, COMPOSES, assessment_value
 from beliefs.stored import composite_value as stored_composite_value
 
 COMPOSITE_DOMAIN = "science.composite.v1"
@@ -137,6 +137,8 @@ class Composite:
         return composite_identity(self.facet)
 
 
+@sealed
+@final
 @dataclass(frozen=True)
 class CompositeReceipt:
     identity: str
@@ -227,12 +229,21 @@ def _refuse_cycle(nodes: Sequence[CompositeNode], edges: Sequence[Edge]) -> None
             visit(node)
 
 
-def restore_members(view: object, facet_members: Sequence[str], refs: Sequence[str], *, profile: ProfileSpec, snapshot: ResolutionSnapshot) -> dict[str, Claim]:
+def restore_members(view: object, expect: Sequence[str] | None, refs: Sequence[str], *, profile: ProfileSpec, snapshot: ResolutionSnapshot) -> dict[str, Claim]:
     """Resolve each member ref to a proposition and restore its claim; refuse a
     non-proposition, an unresolvable ref, or an unrestorable claim. Shared by
-    the boundary and the audit (`EMPTY_SNAPSHOT`) and by the reading."""
+    the constructor, the boundary, the audit (`EMPTY_SNAPSHOT`) and the reading,
+    so the four cannot disagree about what a member is.
+
+    `expect` is the semantic identity each restored claim must carry, in `refs`
+    order — the facet's members, for the three callers reading a stored record —
+    and it keys the result. `None` skips the comparison and keys the result by
+    ref: the constructor is *deriving* the identities and has none to compare
+    against. It leads `refs` rather than trailing the keyword arguments because
+    that is the position the stored-record call sites pass it in.
+    """
     claims: dict[str, Claim] = {}
-    for member, ref in zip(facet_members, refs, strict=True):
+    for member, ref in zip(refs if expect is None else expect, refs, strict=True):
         try:
             node = view.get(ref)  # type: ignore[attr-defined]
         except RefError as caught:
@@ -247,7 +258,7 @@ def restore_members(view: object, facet_members: Sequence[str], refs: Sequence[s
             # sort mismatch), an operator no contract declares. None is a
             # `RecordError`, so each is translated here or it escapes the audit.
             raise CompositeError("composite-member-unrestorable", f"member {ref}: {caught}") from caught
-        if claim_identity(claim) != member:
+        if expect is not None and claim_identity(claim) != member:
             raise CompositeError("composite-member-mismatch", f"member {ref} carries claim {claim_identity(claim)}, the facet names {member}")
         claims[member] = claim
     return claims
@@ -278,19 +289,7 @@ def build_composite(
         raise CompositeError("composite-duplicate", "a member ref appears twice")
     # Resolve first under the caller's snapshot: a member whose own referents
     # the snapshot excludes cannot be classified, and says so.
-    by_ref: dict[str, Claim] = {}
-    for ref in refs:
-        try:
-            node = view.get(ref)  # type: ignore[attr-defined]
-        except RefError as caught:
-            raise CompositeError("composite-member-unresolvable", f"member {ref} does not resolve in this corpus") from caught
-        if node.kind != "proposition":
-            raise CompositeError("composite-member-kind", f"member {ref} is a {node.kind!r}, not a proposition")
-        try:
-            claim, _ = claim_from_stored(node, profile=profile, snapshot=snapshot)
-        except (DecodeError, ClaimError, ProfileError) as caught:
-            raise CompositeError("composite-member-unrestorable", f"member {ref}: {caught}") from caught
-        by_ref[ref] = claim
+    by_ref = restore_members(view, None, refs, profile=profile, snapshot=snapshot)
     identities = {ref: claim_identity(claim) for ref, claim in by_ref.items()}
     if len(set(identities.values())) != len(identities):
         raise CompositeError("composite-duplicate", "two member refs carry one claim identity")
@@ -426,7 +425,13 @@ def read_composite(
     identification column is read from the same traced admission."""
     if not isinstance(resolution, ResolutionSnapshot):
         raise CompositeError("composite-snapshot", "read_composite takes a ResolutionSnapshot; availability is a parameter, never ambient")
-    node = view.get(ref)  # type: ignore[attr-defined]
+    try:
+        node = view.get(ref)  # type: ignore[attr-defined]
+    except RefError as caught:
+        # Not `composite-member-unresolvable`: it is the composite that resolves
+        # to nothing here, and naming a member's defect would misreport which
+        # record is missing.
+        raise CompositeError("composite-unresolvable", f"{ref} does not resolve in this corpus") from caught
     if node.kind != "composite":
         raise CompositeError("composite-kind", f"{ref} is a {node.kind!r}, not a composite")
     facet = stored_composite_value(node)
@@ -456,12 +461,27 @@ def read_composite(
             identification: tuple[str, ...] | NotReached = admission
         else:
             terms = set()
+            scanned: set[str] = set()
             for stored_node in view.iter_stored():  # type: ignore[attr-defined]
-                if stored_node.kind != "assessment":
-                    continue
+                if stored_node.kind != "assessment" or not any(
+                    r.predicate == ASSESSES and r.target == member_ref for r in stored_node.relations
+                ):
+                    continue  # §6.2: the column is this member's admitted assessments, not the corpus's
                 value = assessment_value(stored_node, profile=profile)
+                scanned.add(value.identity())
                 if value.identity() in admission.admitted:
                     terms.add(value.estimand.control.identification.term)
+            unscanned = sorted(frozenset(admission.admitted) - scanned)
+            if unscanned:
+                # Nothing checks that an assessment's `assesses` edge agrees with
+                # its facet (`evaluation.gather`), so a raw-written record can be
+                # admitted by facet and invisible to this scan. A short set would
+                # be the two columns silently resting on different admissions.
+                raise CompositeError(
+                    "composite-admission-unscanned",
+                    f"{ref}: member {member_ref}: the evaluator admitted {', '.join(unscanned)}, which no assessment "
+                    "naming that member carries",
+                )
             identification = tuple(sorted(terms))
         rows.append(
             MemberRow(

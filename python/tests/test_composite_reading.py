@@ -173,3 +173,108 @@ def test_a_superseded_composite_reports_its_successor(corpus):
     second = w.supersede(stored.composite_node(_build(w, ["proposition:ab", "proposition:bc"], slug="v2"), title="v2"), of=first.id)
     reading = read_composite(w.read_view, first.id, **_inputs(w, dataset_address))
     assert reading.standing.state == "superseded" and reading.standing.successors == (second.id,)
+
+
+def _assessments_naming(view, ref: str) -> set[str]:
+    return {
+        node.id
+        for node in view.iter_stored()
+        if node.kind == "assessment"
+        and any(r.predicate == stored.ASSESSES and r.target == ref for r in node.relations)
+    }
+
+
+def test_the_identification_column_reads_only_the_assessments_naming_the_member(corpus, monkeypatch):
+    """Design §6.2: the column is the admitted assessments *of that member*. A
+    scan over every stored assessment decodes records the column cannot use,
+    and makes one member's reading depend on another's records."""
+    from test_evaluation import seed_assessed_proposition
+
+    from beliefs import composite as composite_module
+
+    w, dataset_address, *_ = corpus
+    seed_assessed_proposition(
+        w, "proposition:bc", slug="i-bc",
+        estimand=_estimand(_claim("EX:b", "EX:c", polarity="negative")), applicability={},
+    )
+    minted = w.add(stored.composite_node(_build(w, ["proposition:ab"]), title="g"))
+    unrelated = _assessments_naming(w.read_view, "proposition:bc")
+    assert unrelated
+
+    decoded: list[str] = []
+    original = composite_module.assessment_value
+
+    def counting(node, **kwargs):
+        decoded.append(node.id)
+        return original(node, **kwargs)
+
+    monkeypatch.setattr(composite_module, "assessment_value", counting)
+    reading = read_composite(w.read_view, minted.id, **_inputs(w, dataset_address))
+
+    assert reading.rows[0].identification == ("EX:observational",)
+    assert not (set(decoded) & unrelated)
+
+
+def test_an_admitted_assessment_the_scan_cannot_see_is_named_and_never_dropped(corpus):
+    """A raw-written assessment whose facet names one proposition and whose
+    `assesses` edge names another: the evaluator admits it by facet, the column
+    scans by edge, and a short set would be a silent disagreement between the
+    two columns the design forbids."""
+    from fixtures_cut4 import raw_write, reopen
+    from nodes.core.relations import Relation
+
+    w, dataset_address, *_ = corpus
+    minted = w.add(stored.composite_node(_build(w, ["proposition:ab"]), title="g"))
+    assessment = next(iter(_assessments_naming(w.read_view, "proposition:ab")))
+    node = w.read_view.get(assessment)
+    node.relations = [
+        Relation(source=node.id, predicate=r.predicate, target="proposition:bc")
+        if r.predicate == stored.ASSESSES
+        else r
+        for r in node.relations
+    ]
+    raw_write(w.root, node)  # the stamp covers the facet, not the relations
+
+    with pytest.raises(CompositeError) as caught:
+        read_composite(reopen(w.root), minted.id, **_inputs(w, dataset_address))
+    assert caught.value.code == "composite-admission-unscanned" and assessment not in str(caught.value)
+
+
+def test_a_composite_ref_that_resolves_nowhere_refuses_under_its_own_code(corpus):
+    """`read_composite`'s own `view.get`: the composite is unresolvable, which is
+    not what `composite-member-unresolvable` says."""
+    w, dataset_address, *_ = corpus
+    with pytest.raises(CompositeError) as caught:
+        read_composite(w.read_view, "composite:missing", **_inputs(w, dataset_address))
+    assert caught.value.code == "composite-unresolvable"
+
+
+def test_a_pre_grammar_assessment_elsewhere_refuses_through_the_evaluators_own_gather(corpus):
+    """Not the column's refusal mode: `evaluation.gather` decodes every stored
+    assessment for every proposition it resolves, so the reading's refusal
+    surface here is the evaluator's and does not move with the column's scan."""
+    from fixtures_cut4 import raw_write, reopen
+
+    from beliefs.errors import PreGrammarAssessment
+    from beliefs.evaluation import gather
+
+    w, dataset_address, *_ = corpus
+    minted = w.add(stored.composite_node(_build(w, ["proposition:ab"]), title="g"))
+    pre_grammar = stored.stamp_semantic_identity(
+        stored._node(
+            "assessment", "pre", "pre",
+            {stored.ASSESSMENT_FACET: {
+                "spec": "spec-old", "run": "run:x", "proposition": "proposition:elsewhere",
+                "outcome": "supported", "interpretation_rule": "rule-1", "estimand": "prose",
+            }},
+            (),
+        )
+    )
+    raw_write(w.root, pre_grammar)
+    view = reopen(w.root)
+    inputs = _inputs(w, dataset_address)
+    with pytest.raises(PreGrammarAssessment):
+        gather(view, "proposition:ab", context=inputs["context"], profile=inputs["profile"],
+               resolution=inputs["resolution"], binding=inputs["binding"])
+    with pytest.raises(PreGrammarAssessment):
+        read_composite(view, minted.id, **inputs)
