@@ -81,8 +81,10 @@ __all__ = [
     "audit_world",
     "check_analysis_spec",
     "check_assessment",
+    "check_composite",
     "check_lineage_basis",
     "check_spec_target",
+    "check_supersedes_kinds",
     "check_verification",
     "stored_specs",
 ]
@@ -116,6 +118,11 @@ WORLD_AUDIT_CODES = frozenset(
         "attestation-endpoint-unknown",
         "attestation-endpoint-unreachable",
         "source-identifier-shared",
+        "composite-member-unresolvable",
+        "composite-member-mismatch",
+        "composite-relations-mismatch",
+        "composite-malformed",
+        "supersedes-cross-kind",
     }
 )
 """Slice 3 design §5.5's closed set, beside `MALFORMEDNESS_CODES`."""
@@ -334,6 +341,56 @@ def check_spec_target(view: ReadView | _ImportView | WorldReadView, node: Node, 
     )
 
 
+def check_composite(view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec) -> DerivationOutcome:
+    """Design §4.3: the boundary's four steps over the stored record, reported
+    rather than raised. Form only — the audit holds no snapshot."""
+    from beliefs import composite as composite_module
+    from beliefs.errors import CompositeError
+
+    def contradiction(code: str, detail: str) -> DerivationOutcome:
+        return DerivationOutcome(
+            checked=True,
+            reason="",
+            contradiction=Finding(severity="error", code=code, ref=node.id, detail=detail, message=f"{node.id}: {detail}"),
+        )
+
+    facet = stored.composite_value(node)  # MalformedRecord → derivation-malformed, by the loop's catch
+    composes = [r for r in node.relations if r.predicate == stored.COMPOSES]
+    if len(composes) != len(facet.members) or any(r.source != node.id for r in composes):
+        return contradiction("composite-relations-mismatch", f"facet names {len(facet.members)} member(s), record carries {len(composes)} composes edge(s)")
+    try:
+        claims = composite_module.restore_members(
+            view, facet.members, tuple(r.target for r in composes), profile=profile, snapshot=composite_module.EMPTY_SNAPSHOT
+        )
+        composite_module.classify(profile, facet, claims)
+    except CompositeError as refused:
+        if refused.code in ("composite-member-unresolvable", "composite-member-mismatch"):
+            return contradiction(refused.code, str(refused))
+        return contradiction("composite-malformed", str(refused))
+    return DerivationOutcome(checked=True, reason="", contradiction=None)
+
+
+def check_supersedes_kinds(view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec) -> Finding | None:
+    """Design §3.1's `same_kind` rule, under audit: a raw-written edge the
+    shared path would have refused."""
+    from nodes.core.errors import RefError
+
+    rule = profile.relations.get(stored.SUPERSEDES)
+    if rule is None or not rule.same_kind:
+        return None
+    for relation in node.relations:
+        if relation.predicate != stored.SUPERSEDES:
+            continue
+        try:
+            target = view.get(relation.target)
+        except RefError:
+            continue  # resolution is the supersession arm's finding, not this one's
+        if target.kind != node.kind:
+            detail = f"a {node.kind!r} names a {target.kind!r} predecessor ({relation.target})"
+            return Finding(severity="error", code="supersedes-cross-kind", ref=node.id, detail=detail, message=f"{node.id}: {detail}")
+    return None
+
+
 def check_analysis_spec(node: Node, *, profile: ProfileSpec) -> DerivationOutcome:
     """A stored spec restores or is malformed; `audit_corpus` reports the
     latter as `derivation-malformed` under the catch R11 already has."""
@@ -399,6 +456,9 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence, profile: Profi
     for node in view.iter_stored():
         if node.id in malformed:
             continue
+        cross = check_supersedes_kinds(view, node, profile=profile)
+        if cross is not None:
+            findings.append(cross)
         try:
             if node.kind == "verification":
                 outcome = check_verification(view, node, evidence=evidence)
@@ -408,6 +468,8 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence, profile: Profi
                 outcome = check_lineage_basis(view, node)
             elif node.kind == "analysis-spec":
                 outcome = check_spec_target(view, node, profile=profile)
+            elif node.kind == "composite":
+                outcome = check_composite(view, node, profile=profile)
             else:
                 continue
         except PreGrammarSpec as refused:
@@ -447,6 +509,8 @@ def _recompute(
         return check_lineage_basis(view, node)
     if node.kind == "analysis-spec":
         return check_analysis_spec(node, profile=profile)
+    if node.kind == "composite":
+        return check_composite(view, node, profile=profile)
     return None
 
 
@@ -547,6 +611,9 @@ def audit_world(
         assert corpus_id is not None
         if corpus_id in excluded or node.id in malformed.get(corpus_id, set()):
             continue
+        cross = check_supersedes_kinds(view, node, profile=profile)
+        if cross is not None:
+            corpora[corpus_id].append(cross)
         try:
             outcome = _recompute(view, node, evidence, profile)
         except CorpusDamaged as unreachable:
