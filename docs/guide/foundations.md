@@ -19,6 +19,7 @@ sources:
   - ../designs/2026-08-11-act-report-design.md
   - ../designs/2026-08-24-world-index-holdings-design.md
   - ../designs/2026-08-31-coordination-and-view-kinds-design.md
+  - ../designs/2026-09-12-composite-claims-design.md
 ---
 
 # Foundations
@@ -85,13 +86,14 @@ role-typed:
 This makes inertness the default. Adding a record kind or domain facet does not
 accidentally create a new route to belief.
 
-### The thirteen world-record kinds
+### The fourteen world-record kinds
 
-The formal inventory contains thirteen kernel kinds:
+The formal inventory contains fourteen kernel kinds:
 
 | Group | Kinds | Purpose |
 |---|---|---|
 | Epistemic | `proposition`, `source-assertion`, `assessment` | Represent a typed claim, what a source said about it, and a run-derived result that may bear on it. |
+| Epistemic | `composite` | Represent the **structure** a set of claims is drawn against: an explicit closed node set of `(sort, term)` pairs and members that are propositions named by claim identity, each read as a signed directed edge. Under the one shape, `dag`, the *absence* of an edge between two declared nodes is the record's assertion. Belief-inert: its reading is derived, never stored, and never an input to belief. |
 | Computation | `analysis-spec`, `run`, `verification` | Predeclare an analysis, capture one complete execution, and compare two executions immutably. |
 | Materials | `dataset`, `source`, `holdings-observation` | Hold data or a literature corpus, and identify works within a corpus; and record, act-by-act, what was found at each held location. |
 | Change and conformance | `retraction`, `instrument-certification` | Subtract standing without deletion and demonstrate that an executable instrument conforms to a contract. |
@@ -100,7 +102,14 @@ The formal inventory contains thirteen kernel kinds:
 
 Computed beliefs, world indexes, hypotheses, questions, tasks, and other views
 are not additional kernel kinds. A view has no independent authority: it is a
-function of named records and configuration.
+function of named records and configuration. A **composite** is the one thing on
+that line that *is* a kind, and the reason is what it authors rather than
+derives: a query cannot hold a closed node set, and it cannot assert that no
+other direct edge holds among those nodes. Everything a composite makes
+available beyond that — its reading, its exogenous and outcome nodes, any
+neighbourhood around it — stays derived
+([composite claims](../designs/2026-09-12-composite-claims-design.md),
+[cut 32](../designs/2026-09-16-conformance-cut-32.md)).
 
 Things in the world — a gene, a cell line, a disease, a measured outcome — are
 not kernel kinds either. They are **term referents**, named by the ontology's
@@ -230,5 +239,5 @@ payload contract is implemented and discharged at cut 20, as specified by the
 - [Writer session: the session ledger, the scoped writer, and `corpus-write` as an operation, J1–J11](../designs/2026-09-05-writer-session-design.md#7-guarantees)
 - [Session routes: store identity, ledgered run and holdings routes, and reference rules](../designs/2026-09-09-session-routes-design.md)
 - [Domain extension: D1–D10 and profile compilation](../designs/2026-08-04-domain-extension-boundary-design.md#3-the-ownership-split)
-- [Formal model: the thirteen kinds and M1–M13](../designs/2026-08-04-formal-model-and-claim-calculus-design.md#21-rec--world-records-the-thirteen-kernel-kinds)
+- [Formal model: the fourteen kinds and M1–M13](../designs/2026-08-04-formal-model-and-claim-calculus-design.md#21-rec--world-records-the-fourteen-kernel-kinds)
 - [Adoption ledger: clean-start ruling](../designs/2026-08-03-redesign-adoption-ledger.md#0-the-clean-start-ruling-2026-08-04)

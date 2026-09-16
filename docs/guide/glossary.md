@@ -16,6 +16,8 @@ sources:
   - ../designs/2026-09-05-writer-session-design.md
   - ../designs/2026-09-12-estimand-typing-design.md
   - ../designs/2026-09-15-conformance-cut-31.md
+  - ../designs/2026-09-12-composite-claims-design.md
+  - ../designs/2026-09-16-conformance-cut-32.md
 ---
 
 # Glossary
@@ -96,6 +98,12 @@ context and the linked design references for normative detail.
   (qualification unresolved — never collapsed into unfinished), and
   closed (fulfilled).
   ([act-report design](../designs/2026-08-11-act-report-design.md))
+- **Composite** — A world record of the **structure** a set of claims is drawn
+  against: a closed node set of `(sort, term)` pairs, members that are
+  propositions named by claim identity, and — under the one shape, `dag` — the
+  assertion that no other direct edge holds among those nodes. Belief-inert by
+  construction; its reading is derived and never stored, and `assesses` cannot
+  target one. ([claims](claims-and-belief.md#composites-a-structure-over-claims-and-never-a-claim))
 - **Conformance cut** — A prospectively selected subset of guarantee assertion
   arms that one implementation slice can exercise without crossing an
   undesigned boundary. ([adoption](contracts-and-adoption.md#adoption-follows-legal-partial-states))
@@ -115,6 +123,12 @@ context and the linked design references for normative detail.
   dataset without a proposition, spec, or assessment. ([computation](computation-and-reproducibility.md#one-run-kind-has-two-shapes))
 - **Domain contract** — A namespaced declaration of domain sorts, operators,
   qualifier dimensions, facets, and vocabulary bindings. ([foundations](foundations.md#contracts-compile-into-profiles))
+- **Edge** — A composite's member, read rather than stored as an edge: the
+  member proposition's operator carries the domain contract's `edges:`
+  declaration of which argument slot is the cause and which the effect, so the
+  stored member yields a direction, and the claim's polarity gives the edge its
+  **sign**. Polarity is never the edge's presence — an inhibitory member is an
+  edge, and a cycle through one refuses. ([claims](claims-and-belief.md#composites-a-structure-over-claims-and-never-a-claim))
 - **Epoch** — An immutable world-index publication over explicit corpus states,
   world records, rules, and derivation receipts. ([identity](identity-world-and-change.md#the-world-index-is-a-named-covered-view))
 - **Estimand** — What quantity an analysis estimates. Frozen in the analysis
@@ -197,6 +211,12 @@ context and the linked design references for normative detail.
 - **NoBelief** — A successful answer saying belief cannot be produced because
   inputs are unavailable, no assessment is eligible, or only non-directional
   outcomes remain. ([claims](claims-and-belief.md#a-belief-is-a-reproducible-view))
+- **Node receipt** — What `build_composite` and a composite's reading return
+  for each declared node instead of a refusal: the outcome of resolving that
+  node's term against the resolution snapshot the caller named — including
+  `not-consulted`, when the snapshot opened no vocabulary that could decide it.
+  A check not performed is not a finding, and the receipt says which it was.
+  ([claims](claims-and-belief.md#composites-a-structure-over-claims-and-never-a-claim))
 - **Operation intent** — The tamper log's third intent consumer: appended
   once per boundary operation, after the observer-corpus root freezes and
   before any member act, carrying the operation kind, the minted event
@@ -241,6 +261,13 @@ context and the linked design references for normative detail.
   held implementation content identity that executed it. ([contracts](contracts-and-adoption.md#rules-bind-meaning-to-the-code-that-ran))
 - **Run** — A complete immutable execution closure consisting of a recipe,
   result, and occurrence. ([computation](computation-and-reproducibility.md#a-run-has-three-complete-parts))
+- **Same-kind succession** — The discipline `supersedes` has always carried,
+  declared in the base contract since cut 32 rather than only intended: a
+  relation marked `same_kind` whose declared sources and targets differ refuses
+  at parse in both implementations, and a `supersedes` instance whose endpoints
+  are of different kinds refuses on the shared write path — `add` and explicit
+  import alike — and audits as `supersedes-cross-kind` when raw-written.
+  ([identity](identity-world-and-change.md#identity-is-not-one-field))
 - **Science** — Two senses, deliberately: the name of the whole stack
   (`atoms`, `nodes`, `beliefs`, `science`, `autonomy`), which is how the
   banked designs use it; and the daily-surface layer above `beliefs` —

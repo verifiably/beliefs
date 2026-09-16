@@ -401,6 +401,20 @@ unselected one — an assessment whose run closure names a dataset outside
 the selection — makes the publish `Refused(closure-incomplete)` with the
 missing identities listed; the user widens the view or drops the record.
 
+> **Amended 2026-09-16 — a composite's closure is its members**
+> (`2026-09-12-composite-claims-design.md` §5, discharged at conformance cut 32;
+> `../../plans/2026-09-16-conformance-cut-32-results.md`). The `composite` kind
+> joins the world, and the closure rule above needs one sentence for it: **a
+> selected composite's closure is the propositions its `composes` edges name**,
+> and a publish that selects a composite without every one of its members is
+> `Refused(closure-incomplete)` with the missing identities listed, exactly as
+> an assessment missing a dataset is. Nothing else follows from it: a
+> composite's *reading* is derived and stored nowhere, so it is not part of any
+> closure and nothing about it is published; the members' own closures apply
+> unchanged on top of this one; and the rule is stated here, in the spec that
+> owns `publish`, because `publish` is unbuilt — no code carries it yet.
+
+
 **Constructing the corpus composes lifecycle commands that exist; no new
 `atoms` primitive is needed.** The sequence is:
 

@@ -1,6 +1,10 @@
 # Conformance cut 32 — composite claims
 
-**Status:** frozen 2026-09-16, before implementation, on `design/composite-claim`; U1–U10 are open.
+**Status:** **discharged** 2026-09-16 on `design/composite-claim`, at `44343da` with the
+fix round `caa4adb`; U1–U10 close in full. Results record:
+`../plans/2026-09-16-conformance-cut-32-results.md`. Frozen 2026-09-16 at
+`ff03b00`, before implementation; §§2–7 below are the frozen body and are
+byte-exact under the guard's pin, and §8 is a dated supplement outside it.
 **Design:** `2026-09-12-composite-claims-design.md`, reviewed in three spec passes 2026-09-12 and re-read against `main` at `8aa5903` on 2026-09-16 (§15 there); moved into this directory at this freeze as table U's owner.
 **Plan:** `../superpowers/plans/2026-09-12-composite-claims.md`, reviewed in three passes 2026-09-13 and re-read 2026-09-16.
 **Numbered after** cut 31 (roadmap concurrency rule 1) and **serialized after** its discharge, which is in the branch ancestry (rule 5). The second lane opened off the dogfood path under rule 6, after cut 31 closed `estimand-typing` and left tier 1 without an on-path boundary.

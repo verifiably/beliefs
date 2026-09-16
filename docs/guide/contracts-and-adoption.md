@@ -51,6 +51,7 @@ sources:
   - ../plans/2026-09-04-conformance-cut-17-results.md
   - ../plans/2026-09-04-conformance-cut-18-results.md
   - ../plans/2026-09-05-conformance-cut-19-results.md
+  - ../plans/2026-09-16-conformance-cut-32-results.md
 ---
 
 # Contracts and adoption
@@ -239,7 +240,7 @@ Cut 28 discharges world resolution slice 4 — W7's view evaluation and the W8/W
 Cut 29 discharges world resolution slice 5 — dataset ids derived from the content identity and held at the write boundary and both inputs of `consolidate` (`../designs/2026-09-14-conformance-cut-29.md`; `../plans/2026-09-14-conformance-cut-29-results.md`).
 Cut 30 discharges world resolution slice 6 — divergent correction histories reconcile at `consolidate` by absorption (`../designs/2026-09-15-conformance-cut-30.md`; `../plans/2026-09-15-conformance-cut-30-results.md`).
 Cut 31 is discharged: estimand typing, the first off-path lane after the world-read path closed, reading Q1–Q10 in full over 26 sabotage arms — the estimand, its applicability, and the estimate and uncertainty the rule yields are typed, and a pre-grammar record is refused under its own name (`../designs/2026-09-15-conformance-cut-31.md`; design `../designs/2026-09-12-estimand-typing-design.md`; results `../plans/2026-09-16-conformance-cut-31-results.md`).
-Cut 32 is frozen and not yet discharged: composite claims, the second off-path lane under rule 6, selecting U1–U10 in full (`../designs/2026-09-16-conformance-cut-32.md`; design `../designs/2026-09-12-composite-claims-design.md`).
+Cut 32 discharges composite claims, the second off-path lane under rule 6, reading U1–U10 in full over 26 sabotage arms — the `composite` kind records the structure a set of claims is drawn against, its reading is derived through the traced evaluator and stored nowhere, and it is inert to belief (`../designs/2026-09-16-conformance-cut-32.md`; design `../designs/2026-09-12-composite-claims-design.md`; results `../plans/2026-09-16-conformance-cut-32-results.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)

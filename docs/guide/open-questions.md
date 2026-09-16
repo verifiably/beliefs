@@ -26,6 +26,8 @@ sources:
   - ../designs/2026-08-23-world-index-root-lifecycle-design.md
   - ../designs/2026-09-12-estimand-typing-design.md
   - ../designs/2026-09-15-conformance-cut-31.md
+  - ../designs/2026-09-12-composite-claims-design.md
+  - ../designs/2026-09-16-conformance-cut-32.md
 ---
 
 # Open questions
@@ -55,6 +57,19 @@ implementation**: a guarantee row awaiting code is work, not a question.
 - **Kernel-adjacent structures.** Are inquiries, patch definitions, structural
   chains, and coverage searches new kinds or derived views over existing kinds?
   ([kernel question](../designs/2026-08-02-epistemic-kernel-design.md#11-open-questions))
+  **CLOSED for three of the four, 2026-09-16**, by the
+  [composite-claims design §7](../designs/2026-09-12-composite-claims-design.md),
+  discharged at [cut 32](../designs/2026-09-16-conformance-cut-32.md): the
+  answer is *both*, split by which half is authored. The structure is one
+  kernel-adjacent kind, `composite`; everything derived from it is a view.
+  `structural-chain` dissolves with no successor — a chain is a path in a
+  composite, and its verdicts were claims about a set of claims;
+  `patch-definition` splits into a composite and a view query, losing a depth
+  bound and an exclusion list that the view language has no predicates for; and
+  `inquiry` decomposes into records that already exist — a composite, typed
+  estimands, two views, a project's coordination records, runs and
+  verifications. **`search` stays open**: a declared corpus-coverage record is
+  not a structure, so nothing here places it.
 - **Science profile distribution.** Does the downstream profile live inside
   the `beliefs` distribution or in its own package? The durability composition
   route is closed: Science's Python composition root combines portable `nodes`
@@ -223,6 +238,18 @@ implementation**: a guarantee row awaiting code is work, not a question.
 - **Relation endpoint enforcement.** Should contract-declared endpoint kinds be
   enforced by `nodes`, by the compiled Science profile at every seam, or by a
   later registry boundary? ([facet-contracts design §14](../designs/2026-09-05-facet-contracts-design.md#14-open-questions-this-design-files))
+  **Sharpened 2026-09-16** by the
+  [composite-claims design](../designs/2026-09-12-composite-claims-design.md)
+  (limitation 17, found while planning and discharged at
+  [cut 32](../designs/2026-09-16-conformance-cut-32.md)): a base contract's
+  `sources` and `targets` are parsed and compiled and then read by **nothing**
+  on the shared refusal path, so today no relation instance's endpoint kinds are
+  checked at the write boundary at all. Two signatures are checked by rules
+  written for them — `composes` by the composite's own boundary step, and
+  `supersedes` by the declared same-kind rule on the shared path and under audit
+  — and every other signature rests on the typed constructors and the audit.
+  A general check was deliberately not built at that cut; the question is which
+  layer should carry it, unchanged.
 - **Normative artifact shape.** Whether a contract cut becomes a world node and
   how legacy checks pass the adoption gate remain decisions for the first full
   contract cut. ([normative-contract questions](../designs/2026-08-03-normative-contract-design.md#11-open-questions))

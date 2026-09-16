@@ -1,10 +1,16 @@
 # Composite claims — the kind that places kernel §11's `inquiry`, `patch-definition` and `structural-chain`
 
-**Status:** frozen 2026-09-16 at conformance cut 32
-(`2026-09-16-conformance-cut-32.md`), after three spec reviews, three plan
-reviews and a pre-freeze drift review against `main` at `8aa5903` (§15);
-implementation follows on `design/composite-claim`. Task `beliefs-4bcf88`
-carries this spec. The lane opened under the roadmap's concurrency rule 6 on
+**Status:** **discharged** 2026-09-16 at conformance cut 32
+(`2026-09-16-conformance-cut-32.md`), results record
+`../plans/2026-09-16-conformance-cut-32-results.md`: U1–U10 close in full over
+26 sabotage arms, and `composite-claims` entered and left the adoption ledger
+in that record's own commit. Frozen 2026-09-16 at the same cut, after three
+spec reviews, three plan reviews and a pre-freeze drift review against `main`
+at `8aa5903` (§15); implemented on `design/composite-claim`. Task
+`beliefs-4bcf88` carries this spec. Two corrections found while implementing are
+dated notes in place — §6.2 and §9 — and the frozen prose is not rewritten; a
+third candidate, §4.3's audit wiring, needed none, because the pre-freeze drift
+review had already amended it (§15, finding 11). The lane opened under the roadmap's concurrency rule 6 on
 2026-09-16, the second off the dogfood path after `estimand-typing` (cut
 31); this design is off the path (§11). It was written before the lane could
 open for the same reason the estimand-typing design was: it adds a world
@@ -633,6 +639,30 @@ with `none` unspellable: a member with no admitted assessment has an empty
 set, not a value. This is the one place the design depends on the estimand
 lane's code, and it is why the lane opens after it (decision 12).
 
+> **Corrected 2026-09-16 — two names in this section are not the tree's**
+> (`2026-09-12-composite-claims-design.md`, discharged at conformance cut 32;
+> results record `../plans/2026-09-16-conformance-cut-32-results.md` §3.2 and
+> §7). The frozen prose above is not rewritten; both corrections were ruled
+> while the implementation ran and are recorded here.
+>
+> 1. **`belief.admitted`'s signature is
+>    `(distinct, *, runs, observations, verifications)`**, not
+>    `(records, availability, context, profile)`. The four-argument form this
+>    section names includes two arguments step 5 never reads — the pre-freeze
+>    review found it (§15, 2026-09-16) and the implementation plan carries the
+>    corrected spelling, which is what `evaluate` and `evaluate_over_traced`
+>    call. What the section asserts is unchanged: the factored function is
+>    called exactly once, and the reading takes both columns from its one
+>    result.
+> 2. **The identification term is read through
+>    `stored.assessment_value(...).estimand.control.identification`**, not
+>    through `stored.analysis_spec_value`. The estimand the column reads is the
+>    one the *assessment* carries, copied from the frozen spec at derivation, so
+>    the reader is the assessment's. Naming the spec reader would have made the
+>    column a second derivation over a second record, which is exactly what the
+>    rest of this section forbids.
+
+
 ### 6.3 Resolution
 
 A member that does not resolve at the epoch makes the reading **refuse**,
@@ -762,6 +792,23 @@ no propositions for them and this lane does not author claims it has no
 evidence for. That the `is-proxy-for` edges of the inquiry cannot be
 members at this grammar version is recorded as the first exercise of
 limitation 5, not worked around by typing them as `affects`.
+
+> **Corrected 2026-09-16 — the spine is minted NEGATIVE**
+> (`2026-09-12-composite-claims-design.md`, discharged at conformance cut 32;
+> results record `../plans/2026-09-16-conformance-cut-32-results.md` §4 and §7).
+> The `compose` step above calls the second proposition,
+> `affects-molecular-entity-concept(PHF19, overall-survival)`, *positive*. That
+> is a drafting slip against its own two neighbours — the fragment's title
+> `PHF19 ⊣ overall survival` and the spine's display statement — and against the
+> claim the `h1-prognosis` inquiry makes: higher PHF19 expression, shorter
+> overall survival. What was minted and measured is **negative**, recorded in
+> the reproduction's addendum (`2026-09-05-mm30-reproduction.md` §11.3) rather
+> than adjusted to this prose. Nothing else in the step moves: polarity is the
+> edge's sign and never its presence (decision 3), so the fragment's node set,
+> its members and the reading's rows are exactly as written, and the spine's
+> row still reads `NoBelief("no-eligible-assessment")` with an empty
+> identification set because nothing assesses it.
+
 
 ## 10. Testing and the cut
 

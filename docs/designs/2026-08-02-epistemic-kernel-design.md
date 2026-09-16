@@ -359,6 +359,44 @@ SourceAssertion──anchored_in──▶ Source     (span-level)
 Source      ──member_of───▶ Dataset        (the corpus is a dataset)
 ```
 
+> **Amended 2026-09-16 — a fourteenth kind, one new signature, and
+> `supersedes` declared same-kind** (`2026-09-12-composite-claims-design.md`,
+> discharged at conformance cut 32). The base contract gains the `composite`
+> kind and one signature beside those above:
+>
+> ```text
+> Composite ──composes──▶ Proposition            (one signature and no other)
+> ```
+>
+> **`assesses` is still the only belief-bearing edge, and this is why the kind
+> is safe.** `composes` points *at* a proposition and is read by nothing in the
+> belief input closure; a composite is therefore inert by the default this
+> section establishes, not by a per-kind flag. Minting, superseding and deleting
+> a composite that names a proposition leaves that proposition's belief input
+> digest byte-identical, and an assessment naming a composite is refused at its
+> `assesses` target's kind on every write path — `add`, explicit import and
+> relocation alike (U4). The composite's own reading is a pure function over its
+> members' beliefs and their admitted assessments' identification terms, obtained
+> through the evaluator's traced wrapper and stored nowhere: it is a view, never
+> a claim, and never a belief.
+>
+> `supersedes` — `* ──supersedes──▶ *`, same-kind succession — is now
+> **declared** same-kind in the contract rather than only intended: a relation
+> carrying `same_kind` whose sources and targets differ refuses at parse in both
+> implementations, the rule is enforced on the shared write path outside the
+> `document_validated` shortcut so an import bundle cannot carry a cross-kind
+> pair, and a raw-written one audits as `supersedes-cross-kind`. The relation
+> widens to the two kinds it now succeeds, `proposition` and `composite` (U9).
+>
+> **A relation instance's endpoint kinds are still not checked generally.**
+> `sources` and `targets` are parsed and compiled and consulted by nothing on
+> the shared refusal path; `composes` endpoints are checked by the composite's
+> own boundary step and `supersedes` by the same-kind rule, and every other
+> signature rests on the typed constructors and the audit. That is
+> `open-questions.md`'s existing *Relation endpoint enforcement* entry, extended
+> at cut 32's discharge rather than built.
+
+
 #### Input roles are what close the signature
 
 A single `consumes` edge does **not** close it. Because a literature corpus is a
@@ -918,6 +956,23 @@ composition rule, scope, rationale; belief entirely derived), `theme`/`topic`,
 (§2 data model, §5 shapes, §9 derived indexes — no view concept), so a small
 `hypothesis` entity is justified rather than a kernel omission.
 
+> **Amended 2026-09-16 — a structure over claims is a kernel kind, and it is
+> still not a view** (`2026-09-12-composite-claims-design.md`, discharged at
+> conformance cut 32). The **`composite`** kind sits beside the views above and
+> is not one of them, and the distinction is what this section is for. A view is
+> a function of named records and configuration: its membership is a query, and
+> re-evaluating it at a later epoch may answer differently. A composite
+> **authors** three things a query cannot — an explicit, closed node set of
+> `(sort, term)` pairs, an explicit member set of propositions named by claim
+> identity, and, by the `dag` shape, the assertion that *no other direct edge
+> holds among those nodes*. That absence is the assertion a list cannot make and
+> a query cannot hold, so it needs a record with a content identity and a
+> succession lifecycle. What stays derived stays derived: the composite's
+> reading, its exogenous and outcome nodes, and any neighbourhood around it are
+> computed, never stored, and `hypothesis` and `question` remain views whose
+> queries may name a composite and its members by address.
+
+
 **Content-addressed run artifacts** — `synthesis`, `report`, `validation-report`,
 `chain-audit`, `curation-sweep`. They keep identity and provenance as artifacts;
 they stop being epistemic entities. (Verification is **not** one of these — it is
@@ -953,7 +1008,7 @@ appears exactly once.
 | **Notes** (belief-inert prose) | `interpretation`, `discussion`, `story` |
 | **Referents** (`science_model/ontologies`) | `concept`, `construct`, `variable`, `outcome` |
 | **Coordination** | `task`, `decision` |
-| **Open — unplaced deliberately (§11)** | `inquiry`, `patch-definition`, `structural-chain`, `search` |
+| **Open — unplaced deliberately (§11)** | `search` — *amended 2026-09-16: `inquiry`, `patch-definition` and `structural-chain` are placed by `2026-09-12-composite-claims-design.md` §7, discharged at conformance cut 32; see the note below* |
 | **Deleted, no successor** | `unknown` |
 
 `*` = new or renamed kind.
@@ -965,6 +1020,46 @@ kernel is 8 kinds — 9 since `retraction` (correction-lifecycle design,
 5b §7.2, 2026-08-03), 11 since `coreference-attestation`
 (`2026-08-08-world-address-ruling.md` §5.1) — each of which like `verification`
 absorbs nothing — so the 50 map onto 7 of the original 8.
+
+> **Amended 2026-09-16 — the open row loses three of its four entries, and the
+> kernel counts fourteen** (`2026-09-12-composite-claims-design.md` §7,
+> discharged at conformance cut 32; results record
+> `../plans/2026-09-16-conformance-cut-32-results.md`).
+>
+> - **`structural-chain` — dissolved, no successor.** Zero records in the eight
+>   corpora. Its shape, an ordered chain of two or more refs, is a path in a
+>   `dag` composite, and its verdicts were authored claims *about* a set of
+>   claims — the K-record shape the moratorium holds. The derived reading
+>   replaces both: a path's standing is its rows. Nothing is built for it and
+>   nothing waits on it.
+> - **`patch-definition` — split along the line it already had.** Its authored
+>   half (the focal target, the flow edges, the boundary roles) is a composite:
+>   the causal triples over concept referents become causal-layer propositions
+>   over declared nodes, and the exogenous and outcome nodes are *derived* by the
+>   `dag` shape rather than stored. Its derived half is a view query. Two things
+>   do not carry over and are banked as limitations rather than worked around: a
+>   depth bound, for which `science.view-query.v1` has no predicate, and an
+>   exclusion list, which is negation and deliberately absent from that language.
+> - **`inquiry` — decomposed into records that exist.** Its causal DAG becomes a
+>   composite over propositions minted for its edges; its estimand line becomes
+>   the typed estimand of the analysis specs that assess those edges (cut 31),
+>   where *direct* versus *total* is the estimand's conditioning set and not
+>   structure; its target hypothesis and question become views; its status,
+>   purpose, decisions and next moves become a project's coordination records;
+>   and its transformations and validation refs are runs and verifications.
+>   Nothing is left that needs a kind.
+> - **`search` stays open.** A declared corpus-coverage record is not a
+>   structure, and §6's requirement is untouched by this amendment.
+>
+> **The kernel is fourteen kinds since 2026-09-16**, `composite` joining the
+> thirteen above; like `verification` and `act-report` it absorbs nothing, so
+> the 50 core kinds still map onto 7 of the original 8 and every other total in
+> this section is unchanged. The count is asserted in both implementations
+> (`stored.WORLD_KINDS` and its TypeScript mirror, U1). **The non-empirical
+> route is not touched**: a claim *about* a composite — that a DAG is consistent
+> with the data, a causal-discovery posterior over structures, a model-fit
+> statistic — is model-conditional and has no assessment, exactly as before.
+
 
 ## 5. Guarantees, and how each is tested
 
@@ -1440,12 +1535,24 @@ This document is sub-problem 1. Each of the following gets its own design.
 
 ## 11. Open questions
 
-- **`inquiry` / `patch-definition` / `structural-chain`** are unplaced. They are
+- ~~**`inquiry` / `patch-definition` / `structural-chain`** are unplaced. They are
   structured sets of propositions plus assumptions, so they are either one
   kernel-adjacent "model/patch" kind or a view over the kernel. `h00` makes
-  patches load-bearing; they are left unplaced rather than dissolved by accident.
+  patches load-bearing; they are left unplaced rather than dissolved by accident.~~
+  **CLOSED 2026-09-16** by `2026-09-12-composite-claims-design.md` §7, discharged
+  at conformance cut 32 (`../plans/2026-09-16-conformance-cut-32-results.md`).
+  The answer is **both, split by which half is authored**: the structure itself
+  is one kernel-adjacent kind, `composite` — an explicit node set, members named
+  by claim identity, and a `dag` shape whose assertion is the *absence* of any
+  other direct edge among those nodes — and everything derived from it, the
+  reading included, is a view. `structural-chain` dissolves with no successor,
+  `patch-definition` splits into a composite and a view query, and `inquiry`
+  decomposes into records that already exist (§4.4's amendment). The assumptions
+  half is not a member of the structure: an assumption is the estimand's control
+  structure in the spec that assesses the edge, typed at cut 31.
 - **`search`** is the candidate home for the declared corpus-coverage record §6
-  requires.
+  requires. **Still open after 2026-09-16**: a coverage record is not a
+  structure, so the composite kind does not place it.
 - **Non-empirical propositions — now the single largest open question**, because
   §7 rules that pure simulation also lands here. The invariant governs *empirical*
   belief; `ClaimLayer` carries `structural_claim`; math, derivation, algorithm and

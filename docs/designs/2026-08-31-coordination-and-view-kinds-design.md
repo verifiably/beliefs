@@ -480,6 +480,31 @@ cannot mean, W18 is judged against a design-named set rather than an
 implementation-chosen one, and nothing waits on the deferred `KindSpec`
 compilation (D4).
 
+> **Noted 2026-09-16 — a fourteenth world kind exists and version 1's two
+> literal lists do not carry it** (`2026-09-12-composite-claims-design.md` §5,
+> discharged at conformance cut 32;
+> `../plans/2026-09-16-conformance-cut-32-results.md`). The base contract gained
+> the `composite` kind and the `composes` relation, so `stored.WORLD_KINDS` now
+> carries **fourteen** and the closed relation signatures now carry `composes`.
+> Neither enters this contract by that fact: version 1's `kinds` list is the
+> thirteen named above, verbatim, and its relation list is the eleven named
+> above, verbatim, and an earlier version's pin authorizes nothing an amendment
+> added. The compile check is unchanged and still honest in the direction it
+> checks — a contract naming anything outside the two inventories refuses — and
+> a list that omits a kind the inventory has is not a refusal but a narrower
+> vocabulary.
+>
+> **The consequence, recorded rather than worked around.** A `kinds:
+> [composite]` predicate and a `closure` predicate traversing `composes` are
+> both unspellable at version 1, so a view names a composite and its members by
+> `addresses` until the versioned amendment lands. **The one amendment is
+> sub-project 5's road** — the same versioned amendment that brings
+> `publication` and `publication-binding` — adding `composite` to the `kinds`
+> list and `composes` to the `relations` list. It is not the composite lane's:
+> that lane filed the row (its limitation 12) and did not wait on it, and
+> nothing in it depends on either predicate.
+
+
 It has its own parser with a closed field set; a hand-built contract
 object refuses at compile, on the `UnparsedContract` pattern; an unknown
 field, a duplicate kind, or a malformed declaration refuses at parse.
