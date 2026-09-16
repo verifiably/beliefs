@@ -2795,6 +2795,36 @@ class CorpusWriter:
         except UnfreezableSpec as caught:
             raise ValidationRefused(f"{record.id}: {caught}") from caught
 
+    def _refuse_estimand_target_mismatch(self, record: Node, *, view: ReadView | _ImportView) -> None:
+        """Estimand-typing §7.2: the spec's estimand names the claim its target
+        record carries — both the identity and the operator, since a stored
+        estimand carries the two as independent members with no preimage."""
+        from beliefs.decode import claim_from_stored
+        from beliefs.projection import claim_identity
+        from beliefs.resolution import build_snapshot
+
+        spec = stored.analysis_spec_value(record, profile=self._profile)
+        if not view.holds(spec.target):
+            raise ValidationRefused(
+                f"{record.id}: estimand-target-unresolvable: target {spec.target!r} does not resolve in this corpus; "
+                "a cross-corpus target is world-resolution's read (estimand-typing §13)"
+            )
+        target = view.get(spec.target)
+        if target.kind != "proposition":
+            raise ValidationRefused(f"{record.id}: estimand-target-unresolvable: {spec.target!r} is not a proposition")
+        # Identities only: the boundary consults no vocabulary, so every binding is not-consulted and nothing refuses here.
+        claim, _receipt = claim_from_stored(target, profile=self._profile, snapshot=build_snapshot(readable={}))
+        if spec.estimand.claim != claim_identity(claim):
+            raise ValidationRefused(
+                f"{record.id}: estimand-target-mismatch: the estimand answers claim {spec.estimand.claim[:12]}…, "
+                f"the target record carries {claim_identity(claim)[:12]}…"
+            )
+        if spec.estimand.operator != claim.operator:
+            raise ValidationRefused(
+                f"{record.id}: estimand-target-mismatch: the estimand's operator {spec.estimand.operator!r} is not the "
+                f"target's {claim.operator!r} — a stored pair with the true hash and another operator"
+            )
+
     @staticmethod
     def _refuse_malformed_act_report(record: Node) -> None:
         try:
@@ -2970,6 +3000,7 @@ class CorpusWriter:
             self._refuse_verification(node, view=self._view if view is None else view)
         if node.kind == "analysis-spec":
             self._refuse_r20_contradiction(node)
+            self._refuse_estimand_target_mismatch(node, view=self._view if view is None else view)
         self._refuse_governed_stamp(node)
         self._refuse_rendering(node)
         self._refuse_collision(node)

@@ -9,7 +9,7 @@ import pytest
 from authority import ACTOR
 from closure_fixtures import make_closure
 from dataset_fixtures import pinned, pinned_for
-from fixtures_cut3 import spec_draft, spec_rules, typed_applicability, typed_estimand
+from fixtures_cut3 import TESTING_PROFILE, spec_draft, spec_rules, typed_applicability, typed_estimand
 from fixtures_cut4 import raw_write
 from nodes.core.node import Node
 from profiles import BASE, pins_for
@@ -26,7 +26,9 @@ from beliefs.audit import (
     audit_corpus,
     check_lineage_basis,
 )
+from beliefs.claim import Referent, build_claim
 from beliefs.errors import MalformedRecord, SignatureRefused
+from beliefs.projection import project_claim
 from beliefs.recipe import ResultManifest, RunClosure
 from beliefs.record import AssessmentValue
 from beliefs.replay import CONTENT_EQUALITY, EquivalenceImplementation
@@ -34,6 +36,17 @@ from beliefs.spec import freeze
 from beliefs.verify import AssessmentVerification, build_verification
 
 PINNED = [{"name": "matrix", "digest": "sha256:" + "1" * 64}]
+OTHER_CLAIM = build_claim(
+    TESTING_PROFILE,
+    operator="testing/affects",
+    args=(Referent("testing/entity", "EX:gene-z"), Referent("testing/outcome", "EX:pheno-y")),
+    layer="causal",
+    polarity="positive",
+)
+"""A claim at `spec_draft`'s own operator but another entity — distinct from
+`TESTING_CLAIM`, which `typed_estimand`'s default estimand answers, so a target
+proposition storing this claim contradicts an unmodified `spec_draft()` spec
+on claim identity alone (estimand-typing §7.2, Q6)."""
 
 
 @pytest.fixture()
@@ -757,6 +770,47 @@ class TestAssessmentComparisonNamespaces:
         assert outcome.contradiction.detail == "outcome,spec"
 
 
+def test_a_well_formed_assessment_is_admitted_by_audit_and_by_import(writer, tmp_path):
+    """The regression `profile` becoming a required keyword on `check_assessment`
+    guards against (estimand-typing §7.2, Task 8): without it threaded through
+    both `audit_corpus` and `import_bundle`'s recomputation, either would reach
+    `stored.assessment_value` with no profile and fail with an uncaught
+    `TypeError` before any derivation check runs — never a `RecordError` the
+    audit's exception boundary catches."""
+    frozen, closure, run = _derived_run(writer)
+    evidence = _interpretation_evidence(frozen)
+    derived = build_assessment(closure, specs=evidence.specs, implementations=evidence.implementations)
+    assert isinstance(derived, AssessmentValue)
+    proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+    assessment = writer.add(
+        stored.assessment_node(
+            "a1",
+            title="a1",
+            spec=derived.spec,
+            run=runrecord.run_ref(derived.run),
+            proposition=proposition.id,
+            outcome=derived.outcome,
+            interpretation_rule=derived.interpretation_rule,
+            **_stated_optionals(derived),
+        )
+    )
+    assert audit_corpus(writer.read_view, evidence=evidence, profile=writer.profile) == ()
+
+    target = _testing_writer(tmp_path / "target")
+    datasets = [writer.read_view.get(e.dataset) for e in closure.recipe.inputs if e.role == "observes"]
+    target.import_bundle(
+        [*datasets, run, proposition, assessment],
+        evidence=evidence,
+        observer="o",
+        instrument="i",
+        opened_at="2026-09-15T00:00:00Z",
+        closed_at="2026-09-15T00:00:01Z",
+    )
+    assert target.read_view.holds(assessment.id)
+    recomputed = audit.check_assessment(target.read_view, target.read_view.get(assessment.id), evidence=evidence, profile=target.profile)
+    assert recomputed == DerivationOutcome(True, "", None)
+
+
 class TestAnEvaluatorOutsideTheClosedSet:
     def test_a_verdict_outside_VERDICTS_is_malformed_not_contradicted(self, writer):
         frozen, _closure, run = _derived_run(writer)
@@ -1022,11 +1076,15 @@ def test_v8_the_audit_names_a_spec_that_does_not_restore_and_stored_specs_report
     # BASE too, for the same reason): `spec_draft()`'s typed estimand is
     # against `testing/affects`, which BASE does not declare, and restoration
     # reads the profile that wrote it.
-    from fixtures_cut3 import TESTING_PROFILE
+    from fixtures_cut3 import TESTING_CLAIM, TESTING_PROFILE
     from test_stored import _testing_writer
 
     writer = _testing_writer(tmp_path / "corpus")
-    spec = freeze(spec_draft(), held_rules=spec_rules())
+    # The boundary now refuses a spec whose target does not resolve to a
+    # proposition its own estimand answers (estimand-typing §7.2, Task 8), so
+    # `spec_draft`'s default `target` must name a real, matching proposition.
+    target = writer.add(stored.proposition_node("p", title="p", claim=project_claim(TESTING_CLAIM)))
+    spec = freeze(spec_draft(target=target.id), held_rules=spec_rules())
     good = writer.add(stored.analysis_spec_node(spec))
     forged = _false_spec_record(spec)
     raw_write(writer.root, forged)
@@ -1040,7 +1098,14 @@ def test_v8_the_audit_names_a_spec_that_does_not_restore_and_stored_specs_report
 
 
 def test_v4_the_audit_reaches_the_same_verdict_with_specs_restored_from_the_corpus(writer):
-    published = publish_corpus(writer, publish=True)
+    from fixtures_cut3 import TESTING_CLAIM
+
+    # The stored spec's estimand is `spec_draft`'s default, built against
+    # `TESTING_CLAIM` (`frozen_for`, via `typed_estimand`); the boundary now
+    # requires the target proposition's own claim to agree (estimand-typing
+    # §7.2, Task 8), so the proposition is minted with that same claim rather
+    # than `publish_corpus`'s bare `{"operator": "affects"}` default.
+    published = publish_corpus(writer, publish=True, claim=project_claim(TESTING_CLAIM))
     assert published.node is not None
     writer.add(stored.analysis_spec_node(published.frozen))
     specs, findings = stored_specs(writer.read_view, profile=writer.profile)
@@ -1050,3 +1115,49 @@ def test_v4_the_audit_reaches_the_same_verdict_with_specs_restored_from_the_corp
     from_corpus = replace(published.evidence, specs=specs)
     outcome = check_verification(writer.read_view, writer.read_view.get(published.node.id), evidence=from_corpus)
     assert outcome.checked and outcome.contradiction is None
+
+
+# --- Task 8: the boundary and the audit (estimand-typing §7.2, decision 10) --
+
+
+def test_a_raw_written_mismatching_spec_is_caught_only_under_audit(writer):
+    """§7.3c's shape: a raw write bypasses the boundary entirely, so the
+    mismatch is admitted at read and caught only by the audit's own
+    recomputation (`check_spec_target`), never by a reader that coerces."""
+    target = writer.add(stored.proposition_node("p-other", title="other", claim=project_claim(OTHER_CLAIM)))
+    spec = freeze(spec_draft(target=target.id), held_rules=spec_rules())
+    node = stored.analysis_spec_node(spec)
+    raw_write(writer.root, node)
+    assert reopen(writer.root).get(node.id).id == node.id  # not refused on read
+    findings = audit_corpus(reopen(writer.root), evidence=NO_EVIDENCE, profile=TESTING_PROFILE)
+    assert [f.code for f in findings if f.ref == node.id] == ["spec-target-contradicted"]
+
+
+def test_pre_grammar_records_audit_under_their_own_codes(writer):
+    """Decision 10: a pre-grammar spec or assessment is named by its own code,
+    never folded into `derivation-malformed` (Task 6's reviewer note)."""
+    from beliefs.identity import v1
+
+    spec_node = stored._node(
+        "analysis-spec", "old", "old",
+        {stored.ANALYSIS_SPEC_FACET: {"identity": "old", "projection": v1.encode({
+            "target": "proposition:p", "estimand": "prose", "method": "m", "assumptions": "a",
+            "falsification": "f", "input_roles": [], "applicability": "prose",
+            "interpretation_rule": "r", "equivalence_rule": "e", "parameters": {},
+            "nondeterminism": {"variant": "deterministic"}, "rule_bindings": [],
+        }).decode()}},
+        (),
+    )
+    assessment_node = stored._node(
+        "assessment", "old", "old",
+        {stored.ASSESSMENT_FACET: {
+            "spec": "old", "run": "run:x", "proposition": "proposition:p",
+            "outcome": "supported", "interpretation_rule": "r", "estimand": "prose",
+        }},
+        (),
+    )
+    raw_write(writer.root, stored.stamp_semantic_identity(spec_node))
+    raw_write(writer.root, stored.stamp_semantic_identity(assessment_node))
+    codes = {f.ref: f.code for f in audit_corpus(reopen(writer.root), evidence=NO_EVIDENCE, profile=TESTING_PROFILE)}
+    assert codes[spec_node.id] == "spec-pre-grammar" and codes[assessment_node.id] == "assessment-pre-grammar"
+    assert "derivation-malformed" not in codes.values()

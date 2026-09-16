@@ -51,6 +51,7 @@ from beliefs.identity import v1
 from beliefs.report import Moved, OperationIntent
 from beliefs.root import open_corpus
 from beliefs.runrecord import publication_plan
+from beliefs.spec import freeze
 from beliefs.world import load_manifest, manifest_bytes
 
 PINNED = [{"name": "matrix", "digest": "sha256:" + "ab" * 32}]
@@ -116,6 +117,17 @@ def writer(tmp_path) -> CorpusWriter:
 @pytest.fixture()
 def second_writer(tmp_path) -> CorpusWriter:
     return CorpusWriter(tmp_path / "second", Recorder, authority=FULL, profile=BASE)
+
+
+@pytest.fixture()
+def typed_writer(tmp_path) -> CorpusWriter:
+    # `TESTING_PROFILE`, not `WITH_BIOLOGY`: `spec_draft`'s typed estimand is
+    # built against `testing/affects`, which only the testing domain declares
+    # (estimand-typing §7.2, mirroring `test_stored._testing_writer`).
+    from fixtures_cut3 import TESTING_PROFILE
+
+    Recorder.plans = []
+    return CorpusWriter(tmp_path, Recorder, authority=FULL, profile=TESTING_PROFILE)
 
 
 class TestE2AuthorityBindsOnceAtConstruction:
@@ -1202,3 +1214,67 @@ class TestDatasetAddress:
         )
         with pytest.raises(BasisMissing):
             writer.add(unpinned)
+
+
+class TestEstimandTargetMatch:
+    """Estimand-typing §7.2: the boundary refuses a spec whose estimand does
+    not answer the claim its target proposition carries (Q6)."""
+
+    def _proposition(self, writer, claim):
+        from beliefs.projection import project_claim
+
+        return writer.add(stored.proposition_node("p", title="p", claim=project_claim(claim)))
+
+    def test_a_spec_answering_its_target_is_admitted(self, typed_writer):
+        from fixtures_cut3 import TESTING_CLAIM, spec_draft, spec_rules
+
+        target = self._proposition(typed_writer, TESTING_CLAIM)
+        spec = freeze(spec_draft(target=target.id), held_rules=spec_rules())
+        assert typed_writer.add(stored.analysis_spec_node(spec)).id == f"analysis-spec:{spec.identity}"
+
+    def test_a_spec_built_against_another_claim_at_the_same_operator_is_refused(self, typed_writer):
+        from fixtures_cut3 import TESTING_PROFILE, spec_draft, spec_rules
+
+        from beliefs.claim import Referent, build_claim
+
+        other = build_claim(TESTING_PROFILE, operator="testing/affects", args=(Referent("testing/entity", "EX:gene-z"), Referent("testing/outcome", "EX:pheno-y")), layer="causal", polarity="positive")
+        target = self._proposition(typed_writer, other)
+        spec = freeze(spec_draft(target=target.id), held_rules=spec_rules())  # estimand built against TESTING_CLAIM
+        with pytest.raises(ValidationRefused, match="estimand-target-mismatch"):
+            typed_writer.add(stored.analysis_spec_node(spec))
+
+    def test_an_unresolvable_target_is_refused(self, typed_writer):
+        from fixtures_cut3 import spec_draft, spec_rules
+
+        spec = freeze(spec_draft(target="proposition:elsewhere"), held_rules=spec_rules())
+        with pytest.raises(ValidationRefused, match="estimand-target-unresolvable"):
+            typed_writer.add(stored.analysis_spec_node(spec))
+
+    def test_the_inconsistent_stored_pair_is_caught_by_operator_equality(self, typed_writer):
+        """Q6's stored-pair arm: the target's true claim hash beside another operator."""
+        from decimal import Decimal
+
+        from fixtures_cut3 import TESTING_CLAIM, TESTING_PROFILE, UNCONSULTED, spec_draft, spec_rules
+
+        from beliefs.claim import Referent, build_claim
+        from beliefs.estimand import ContinuousContrast, Control, Measure, build_estimand
+        from beliefs.identity import v1
+        from beliefs.projection import claim_identity
+        from beliefs.spec import SPEC_DOMAIN, frozen_projection
+
+        target = self._proposition(typed_writer, TESTING_CLAIM)
+        correlates = build_claim(TESTING_PROFILE, operator="testing/correlates-with", args=(Referent("testing/entity", "EX:gene-x"), Referent("testing/outcome", "EX:pheno-y")), layer="statistical", polarity="positive")
+        foreign, _ = build_estimand(
+            TESTING_PROFILE, correlates, snapshot=UNCONSULTED,
+            contrast=ContinuousContrast(0, Referent("testing/measure", "EX:tpm"), Decimal(1)),
+            measure=Measure(Referent("testing/measure", "EX:tpm"), "additive"), reference=Decimal(0),
+            control=Control(Referent("testing/identification", "EX:observational"), ()),
+        )  # correlates-with declares level_sorts {}, so the contrast is continuous, not levels
+        spec = freeze(spec_draft(target=target.id, estimand=foreign), held_rules=spec_rules())
+        projection = frozen_projection(spec)
+        projection["estimand"]["claim"] = claim_identity(TESTING_CLAIM)  # type: ignore[index]  # the target's true hash, another operator
+        text = v1.encode(projection)
+        identity = v1.digest(SPEC_DOMAIN, projection)
+        node = stored._node("analysis-spec", identity, "forged", {stored.ANALYSIS_SPEC_FACET: {"identity": identity, "projection": text.decode()}}, ())
+        with pytest.raises(ValidationRefused, match="estimand-target-mismatch.*operator"):
+            typed_writer.add(node)

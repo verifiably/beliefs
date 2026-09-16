@@ -50,6 +50,8 @@ from beliefs.errors import (
     CorpusDamaged,
     IdentityError,
     MalformedRecord,
+    PreGrammarAssessment,
+    PreGrammarSpec,
     RecordError,
     RuleUnbound,
     SemanticHashMissing,
@@ -80,6 +82,7 @@ __all__ = [
     "check_analysis_spec",
     "check_assessment",
     "check_lineage_basis",
+    "check_spec_target",
     "check_verification",
     "stored_specs",
 ]
@@ -304,6 +307,33 @@ def check_lineage_basis(view: ReadView | WorldReadView, node: Node) -> Derivatio
     )
 
 
+def check_spec_target(view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec) -> DerivationOutcome:
+    """The boundary's estimand-target comparison, over a stored record (§7.2)."""
+    from beliefs.decode import claim_from_stored
+    from beliefs.projection import claim_identity
+    from beliefs.resolution import build_snapshot
+
+    spec = stored.analysis_spec_value(node, profile=profile)
+    if not view.holds(spec.target):
+        return _unchecked(f"{spec.target} does not resolve here")
+    target = view.get(spec.target)
+    if target.kind != "proposition":
+        return _unchecked(f"{spec.target} is not a proposition")
+    claim, _receipt = claim_from_stored(target, profile=profile, snapshot=build_snapshot(readable={}))
+    disagreements = []
+    if spec.estimand.claim != claim_identity(claim):
+        disagreements.append("claim")
+    if spec.estimand.operator != claim.operator:
+        disagreements.append("operator")
+    if not disagreements:
+        return DerivationOutcome(checked=True, reason="", contradiction=None)
+    return DerivationOutcome(
+        checked=True, reason="",
+        contradiction=Finding(severity="error", code="spec-target-contradicted", ref=node.id, detail=",".join(disagreements),
+                              message=f"{node.id}: the spec's estimand does not answer the claim its target carries"),
+    )
+
+
 def check_analysis_spec(node: Node, *, profile: ProfileSpec) -> DerivationOutcome:
     """A stored spec restores or is malformed; `audit_corpus` reports the
     latter as `derivation-malformed` under the catch R11 already has."""
@@ -317,7 +347,9 @@ def stored_specs(
     """Every restorable stored spec keyed by identity, and one
     `derivation-malformed` finding per record that does not restore — the
     two halves travel together so a false spec never vanishes into an
-    unchecked derivation (design decision 15)."""
+    unchecked derivation (design decision 15). A pre-grammar spec is named by
+    its own code (`spec-pre-grammar`), never folded into `derivation-malformed`
+    (decision 10)."""
     specs: dict[str, FrozenSpec] = {}
     findings: list[Finding] = []
     for node in view.iter_stored():
@@ -325,6 +357,17 @@ def stored_specs(
             continue
         try:
             spec = stored.analysis_spec_value(node, profile=profile)
+        except PreGrammarSpec as refused:
+            findings.append(
+                Finding(
+                    severity="error",
+                    code="spec-pre-grammar",
+                    ref=node.id,
+                    detail=str(refused),
+                    message=f"{node.id}: pre-grammar spec; the corpus was not recreated (decision 10)",
+                )
+            )
+            continue
         except RecordError as refused:
             findings.append(
                 Finding(
@@ -364,9 +407,19 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence, profile: Profi
             elif node.kind == "dataset":
                 outcome = check_lineage_basis(view, node)
             elif node.kind == "analysis-spec":
-                outcome = check_analysis_spec(node, profile=profile)
+                outcome = check_spec_target(view, node, profile=profile)
             else:
                 continue
+        except PreGrammarSpec as refused:
+            findings.append(
+                Finding(severity="error", code="spec-pre-grammar", ref=node.id, detail=str(refused), message=f"{node.id}: pre-grammar spec; the corpus was not recreated (decision 10)")
+            )
+            continue
+        except PreGrammarAssessment as refused:
+            findings.append(
+                Finding(severity="error", code="assessment-pre-grammar", ref=node.id, detail=str(refused), message=f"{node.id}: pre-grammar assessment; the corpus was not recreated (decision 10)")
+            )
+            continue
         except RecordError as refused:
             findings.append(
                 Finding(

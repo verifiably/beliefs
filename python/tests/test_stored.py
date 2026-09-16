@@ -194,7 +194,7 @@ def test_v2_assessment_value_hands_back_the_bare_run_and_refuses_an_untyped_one(
 from decimal import Decimal
 
 from authority import FULL
-from fixtures_cut3 import TESTING_PROFILE, spec_draft, spec_rules
+from fixtures_cut3 import TESTING_CLAIM, TESTING_PROFILE, spec_draft, spec_rules
 from nodes.core.write_plan import DefaultExecutor
 from profiles import pins_for
 from test_corpus_write import OperationRecorder
@@ -215,8 +215,14 @@ def _testing_writer(root):
 
 
 def test_v8_analysis_spec_node_round_trips_through_the_writer_and_the_reader(tmp_path):
-    spec = freeze(spec_draft(parameters={"alpha": Decimal("0.05")}), held_rules=spec_rules())
+    from beliefs.projection import project_claim
+
     writer = _testing_writer(tmp_path / "corpus")
+    # The boundary now refuses a spec whose target does not resolve to a
+    # proposition its own estimand answers (estimand-typing §7.2, Task 8), so
+    # `spec_draft`'s default `target` must name a real, matching proposition.
+    target = writer.add(stored.proposition_node("p", title="p", claim=project_claim(TESTING_CLAIM)))
+    spec = freeze(spec_draft(target=target.id, parameters={"alpha": Decimal("0.05")}), held_rules=spec_rules())
     node = writer.add(stored.analysis_spec_node(spec))
     assert node.id == f"analysis-spec:{spec.identity}"
     assert set(node.facets[stored.ANALYSIS_SPEC_FACET]) == {"identity", "projection"}

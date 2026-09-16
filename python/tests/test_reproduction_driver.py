@@ -184,17 +184,23 @@ def test_10b_reads_the_report_from_the_corpus_with_no_in_process_spec(tmp_path, 
     """V1 and V8's 10b arms: the report, scope and verdict are read; the only
     in-process input is the rule implementations; `spec.frozen()` is not
     reachable. The negative: a report-less record reports false."""
-    from fixtures_cut3 import TESTING_PROFILE, spec_rules
+    from fixtures_cut3 import TESTING_CLAIM, TESTING_PROFILE, spec_rules
     from reproduction import close, rederive, spec
     from test_stored import _testing_writer
     from verification_fixtures import publish_corpus
 
     from beliefs import stored
+    from beliefs.projection import project_claim
     from beliefs.replay import CONTENT_EQUALITY
     from beliefs.verify import publication_node
 
     writer = _testing_writer(tmp_path / "corpus")
-    published = publish_corpus(writer)
+    # The stored spec's estimand is `spec_draft`'s default, against
+    # `TESTING_CLAIM` (`frozen_for`, via `typed_estimand`); the boundary now
+    # requires the target proposition's own claim to agree (estimand-typing
+    # §7.2, Task 8), so the proposition carries that same claim rather than
+    # `publish_corpus`'s bare `{"operator": "affects"}` default.
+    published = publish_corpus(writer, claim=project_claim(TESTING_CLAIM))
     spec_node = writer.add(stored.analysis_spec_node(published.frozen))
     node = writer.add(publication_node(published.derived, assessment_ref=published.assessment.id))
 
