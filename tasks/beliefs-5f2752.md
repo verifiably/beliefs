@@ -1,15 +1,19 @@
 ---
 id: beliefs-5f2752
 title: Say in the guide that things in the world get no concept pages
-status: todo
+status: done
 priority: 3
 size: xs
 complexity: low
 process: direct
+owner: chore/docs-guards
 created: 2026-08-31T10:04:46Z
-updated: 2026-09-16T10:18:45Z
+updated: 2026-09-16T10:22:47Z
+started: 2026-09-16T10:18:56Z
+completed: 2026-09-16T10:22:47Z
 depends: []
 tags: [docs, guide]
+model: "claude-opus-5[1m]"
 ---
 
 Extend docs/guide (foundations or identity-world-and-change) to state plainly: things in the world are term referents under the ontology's own identifier — references, never owned records — and prose about them lives in belief-inert note records attached to the referent. proto-science's concept/variable/mechanism kinds have no successor by design; without this stated, the first domain pack will be pressured to reinvent concept as a domain kind. Bump the page's updated date; run tools/check_guide.py.
@@ -18,3 +22,4 @@ Extend docs/guide (foundations or identity-world-and-change) to state plainly: t
 
 - 2026-09-12T16:26:55Z (main): Complexity low: The requested wording, candidate guide pages and check_guide.py validation are named; this is a bounded documentation edit with no semantic decision remaining.
 - 2026-09-16T10:18:45Z (main): Process direct: the wording, the candidate page and the check are named in the body; no design decision remains.
+- 2026-09-16T10:22:47Z (chore/docs-guards): foundations.md gains a term-referent paragraph under the thirteen kinds: things in the world are referents under the ontology's identifier, concept/construct/variable/outcome have no successor (kernel §4.3–4.4), prose about them lives in belief-inert notes; check_guide and the guide tests green.

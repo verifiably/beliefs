@@ -421,6 +421,26 @@ def test_the_ledger_summary_names_the_newest_remaining_boundary() -> None:
     )
 
 
+def test_the_newest_cut_document_says_it_is_discharged() -> None:
+    """A results record lands and the cut document's Status line still says frozen.
+
+    Cut 31 read "frozen 2026-09-15, before implementation … Q1–Q10 are open" a
+    day after its results record, while cuts 27–30 had each rewritten that line
+    at discharge. The line sits above the pinned §§2–7, so the freeze guards
+    cannot hold it; this one reads only the cut the newest results record
+    discharges, the one whose header is current-facing. Fails closed on a
+    missing or ambiguous cut document and on a missing Status line.
+    """
+    cut, newest = _newest_results_record()
+    candidates = sorted(DESIGNS.glob(f"*-conformance-cut-{cut}.md"))
+    assert len(candidates) == 1, f"cut {cut} ({newest.name}) has {len(candidates)} cut documents under {DESIGNS}"
+    status = next((line for line in _text(candidates[0]).splitlines() if line.startswith("**Status:**")), None)
+    assert status is not None, f"{candidates[0].name} has no `**Status:**` line"
+    assert "discharged" in status.lower(), (
+        f"{candidates[0].name}'s Status line does not say discharged, but {newest.name} discharges it: {status}"
+    )
+
+
 def test_the_roadmap_and_ledger_name_the_same_boundaries() -> None:
     """The ledger's table says what is open; the roadmap says in what order.
 

@@ -2,7 +2,7 @@
 title: Foundations
 status: living
 created: 2026-08-08
-updated: 2026-09-09
+updated: 2026-09-16
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-substrate-consolidation-design.md
@@ -101,6 +101,18 @@ The formal inventory contains thirteen kernel kinds:
 Computed beliefs, world indexes, hypotheses, questions, tasks, and other views
 are not additional kernel kinds. A view has no independent authority: it is a
 function of named records and configuration.
+
+Things in the world — a gene, a cell line, a disease, a measured outcome — are
+not kernel kinds either. They are **term referents**, named by the ontology's
+own identifier (a sort's controlled vocabulary or an accession), and a claim
+reaches them by reference, never by owning a record for them. The
+predecessor's `concept`, `construct`, `variable` and `outcome` kinds have no
+successor by design
+([kernel §4.3](../designs/2026-08-02-epistemic-kernel-design.md#43-outside-the-kernel),
+[§4.4](../designs/2026-08-02-epistemic-kernel-design.md#44-complete-accounting-of-the-50-core-kinds)):
+prose *about* a referent — what a gene is, why a variable was chosen — lives
+in belief-inert note records attached to the referent, and a domain pack
+supplies vocabulary and sorts, not a `concept` kind.
 
 ### Views and coordination are governed, not kernel
 

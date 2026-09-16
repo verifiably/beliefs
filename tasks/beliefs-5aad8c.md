@@ -6,7 +6,7 @@ priority: 3
 size: m
 complexity: mid
 created: 2026-09-07T09:48:53Z
-updated: 2026-09-16T10:03:27Z
+updated: 2026-09-16T10:22:47Z
 depends: [beliefs-1b6534]
 tags: [testing]
 ---
@@ -31,3 +31,4 @@ Verification is the hard part, not the edit: proving a runner still works means 
 
 - 2026-09-12T16:26:55Z (main): Complexity mid: The destination convention, runner defaults, environment overrides and same-volume constraint are established, and .work is already ignored. Remaining judgment is validating the historical runner chains and separating current defaults from frozen run records.
 - 2026-09-16T10:03:27Z (main): 2026-09-16 doc review: the reproduction half landed at f2d5a14 (2026-09-12) — .work/ is gitignored and the mm30 corpora live under .work/reproduction/ (mm30, mm30.cut22, mm30-cut21, cut20-*). What remains is the acceptance half: every cutN_acceptance.py DEFAULT_WORK and tests/acceptance/conftest.py's SCIENCE_CUT4_ROOT default still point at .cutN-acceptance (root today: .cut4, .cut29, .cut30, .cut31-acceptance, .lifecycle-wrappers-test). The body's 'cut 20 absent' is also dated: cut 20's results record exists (2026-09-07) and the live certified chain cut31→…→cut17 ran green at cut 31, so that chain is exercisable for verification; cut 5 remains off the live chain (beliefs-1b6534).
+- 2026-09-16T10:22:47Z (chore/docs-guards): 2026-09-16: beliefs-8d0497's guard (python/tests/test_project_root.py) pins the five legacy roots by name in LEGACY_WORK_ROOTS; retiring the runner defaults under .work/acceptance/ shrinks that set, and a cut 32 runner defaulting to .cut32-acceptance trips it — set DEFAULT_WORK under .work/ from the next runner on.
