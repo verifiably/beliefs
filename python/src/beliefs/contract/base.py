@@ -77,9 +77,8 @@ distinction worth keeping is between a hole and a documented limit.
 """
 
 _CONTRACT_FIELDS = frozenset(
-    {"contract", "version", "claim_grammar", "estimand_grammar", "kinds", "relations", "facets"}
+    {"contract", "version", "claim_grammar", "estimand_grammar", "composite_grammar", "kinds", "relations", "facets"}
 )
-_CONTRACT_FIELDS = _CONTRACT_FIELDS | {"composite_grammar"}  # the baseline's set already carries `estimand_grammar`; extend it, never restate it
 _GRAMMAR_FIELDS = frozenset({"version", "tag_encoding", "quantifiers", "polarities", "sign_inapt_tag", "layers"})
 _ESTIMAND_GRAMMAR_FIELDS = frozenset({"version", "tag_encoding", "contrast_kinds", "scales", "uncertainty_kinds"})
 _COMPOSITE_GRAMMAR_FIELDS = frozenset({"version", "shapes"})
@@ -367,8 +366,6 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
         version=_positive_int(composite["version"], f"{composite_where}: version"),
         shapes=_closed_set(composite["shapes"], f"{composite_where}: shapes"),
     )
-    if not composite_grammar.shapes:
-        raise MalformedContract(f"{composite_where}: shapes must be non-empty; a grammar with no shape admits no composite")
     unsupported = sorted(set(composite_grammar.shapes) - set(SUPPORTED_SHAPES))
     if unsupported:
         raise MalformedContract(

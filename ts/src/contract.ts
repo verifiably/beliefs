@@ -475,7 +475,6 @@ export function parseBaseContract(text: string, source: string): BaseContract {
   const compositeDocument = mapping(document.composite_grammar, `${source}.composite_grammar`);
   exactFields(compositeDocument, ["version", "shapes"], [], `${source}.composite_grammar`);
   const shapes = closedSet(compositeDocument.shapes, `${source}.composite_grammar.shapes`);
-  if (shapes.length === 0) throw new MalformedContract(`${source}.composite_grammar.shapes: must be non-empty`);
   for (const shape of shapes) {
     if (!SUPPORTED_SHAPES.includes(shape))
       throw new MalformedContract(
