@@ -345,7 +345,11 @@ finding collected for the whole world.
   documented third case, *recorded elsewhere is not gone*. It is deliberately
   **not** `composite-member-unresolvable`, which means gone: `audit_corpus`'s
   local path and U7-b's arm keep that code and their meaning. U7-b's pinned
-  `before` is unmoved.
+  `before` is unmoved. The pre-check returns on the **first** absent-corpus
+  member, so a composite that also carries a genuinely dangling sibling reports
+  nothing about it until that corpus is present: `_unchecked` is a verdict on
+  the whole derivation, not a per-member one, and the sibling is seen at the
+  next audit that can read the composite whole.
 
 **The arm `beliefs-6776d3` names** is added in the same module: a dangling
 composite reported through `audit_world`'s `_recompute` dispatch rather than

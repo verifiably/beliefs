@@ -661,6 +661,28 @@ lane's code, and it is why the lane opens after it (decision 12).
 >    the reader is the assessment's. Naming the spec reader would have made the
 >    column a second derivation over a second record, which is exactly what the
 >    rest of this section forbids.
+> 3. **Two refusal codes were added to this reading at the whole-branch review's
+>    fix wave** (2026-09-16; results record
+>    `../plans/2026-09-16-conformance-cut-32-results.md` §3.4). The heading above
+>    counts the two *corrections*; this third item is not one. Neither code
+>    corrects a name — each is an addition to the reading's refusal surface, and
+>    both are recorded here because §6.3's prose is frozen and is not rewritten.
+>    - **`composite-admission-unscanned`.** The identification column walks only
+>      the assessments whose `assesses` relation names the member — this
+>      section's *"the assessments the evaluator admitted for that member"* — and
+>      refuses when the traced admission admitted an identity no such record
+>      carries. Nothing in the kernel checks that an assessment's `assesses` edge
+>      agrees with its facet, and `evaluation.gather` selects by facet, so a
+>      raw-written record can be admitted and still be invisible to an edge-keyed
+>      scan. This section's one-admission invariant — both columns read from the
+>      one traced result — is therefore made **loud** rather than left to a
+>      silently short set: the `CompositeError` names the composite, the member
+>      and the missing identities.
+>    - **`composite-unresolvable`.** `read_composite`'s own `ref` does not
+>      resolve in this corpus. It is deliberately not
+>      `composite-member-unresolvable`, which §6.3 gives to a *member*: naming a
+>      member's defect for the composite's own would misreport which record is
+>      missing.
 
 
 ### 6.3 Resolution
