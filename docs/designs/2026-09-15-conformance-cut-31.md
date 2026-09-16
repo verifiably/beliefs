@@ -1,6 +1,6 @@
 # Conformance cut 31 — estimand typing
 
-**Status:** frozen 2026-09-15, before implementation, on `design/estimand-typing`. Q1–Q10 are open.
+**Status:** discharged 2026-09-16; results: `../plans/2026-09-16-conformance-cut-31-results.md`. Q1–Q10 closed in full; frozen 2026-09-15, before implementation, on `design/estimand-typing`.
 **Design:** `2026-09-12-estimand-typing-design.md`, reviewed in three spec passes and a plan review 2026-09-12 and worked against a second domain 2026-09-15 (§15, Appendix A there); moved into this directory at this freeze as table Q's owner.
 **Plan:** `../superpowers/plans/2026-09-12-estimand-typing.md`, reviewed in two passes 2026-09-12.
 **Numbered after** cut 30 (roadmap concurrency rule 1) and **serialized after** its discharge, which is in the branch ancestry (rule 5). The first lane opened off the dogfood path under rule 6, after cut 30 left tier 1 with no on-path boundary.

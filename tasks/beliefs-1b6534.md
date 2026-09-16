@@ -6,7 +6,7 @@ priority: 3
 size: m
 complexity: mid
 created: 2026-09-07T09:30:47Z
-updated: 2026-09-12T16:26:55Z
+updated: 2026-09-16T10:03:27Z
 depends: []
 tags: [conformance]
 ---
@@ -25,3 +25,4 @@ Cut 5 feeds cuts 7-13 via tools/cut5_acceptance.py:45,66, so this debt has to be
 ## Notes
 
 - 2026-09-12T16:26:55Z (main): Complexity mid: The obsolete actor/import and coordination call sites are identified and still visible in cut 5. Repair is bounded, but stale sabotage handling and downstream acceptance-chain validation must preserve frozen evidence.
+- 2026-09-16T10:03:27Z (main): 2026-09-16 doc review: the live certified chain (cut31 → cut30 → … → cut17, whose 19 phases start at test_n2_cut6.py) does not run cut 5, so this debt is invisible to every current discharge; it blocks only a re-run of cuts 5–13's own runners (cut7_acceptance.py still lists cut5_acceptance.py as a prefix). Still worth paying before beliefs-5aad8c's acceptance half, which needs those runners exercisable.

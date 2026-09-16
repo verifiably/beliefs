@@ -38,7 +38,7 @@ criterion cannot be met without are **on the path**, in dependency order;
 the rest are **off the path**, in breadth order. Whether a boundary is on the
 path is measured where it can be, by the reproduction lane (§Lanes).
 
-**Cut 31 (2026-09-16) discharges estimand typing and closes the boundary** — the estimand, its applicability, and the estimate and uncertainty the rule yields are typed; Q1–Q10 close in full. `estimand-typing` entered the ledger's `Current state` and the boundary index below at that record and closed in the same commit, so neither carries an open row for it. It was the first lane opened off the dogfood path under rule 6, after cut 30 closed `world-resolution` and left tier 1 with no on-path boundary; rule 6 continues to admit off-path lanes, in breadth order.
+**Cut 31 (2026-09-16) discharges estimand typing and closes the boundary** — the estimand, its applicability, and the estimate and uncertainty the rule yields are typed; Q1–Q10 close in full. `estimand-typing` entered the ledger's `Current state` and the boundary index below at that record and closed in the same commit, so neither carries an open row for it. It was the first lane opened off the dogfood path under rule 6, after cut 30 closed `world-resolution` and left tier 1 with no on-path boundary; rule 6 continues to admit off-path lanes, in breadth order. `l13-preimage` is tier 1 off the path: its one prerequisite outside its own work, the `atoms` writable-source preimage seam, landed 2026-09-11 (`atoms-38887b`), so what remains — source-root selection, held-copy matching and the classification boundary — is the boundary's own slice design.
 
 The current accounting is 163 of 206 rows closed, with 43 open. The prior
 single-corpus mm30 measurement has no remaining on-path boundary; a second corpus may place one here. Cut 31 re-ran the reproduction into a recreated corpus under the successor contracts and reached the same evaluator answer over the same data, so it adds **no new mm30 measurement of the on-path question** and does not re-rank tier 1's on-path state.
@@ -60,7 +60,7 @@ their lane's task, and tier-3 design questions remain `idea` tasks.
 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | 1, the join — the base contract now carries the estimand grammar (cut 31), one more oracle amended before the freeze | [beliefs-eacbe2](../../tasks/beliefs-eacbe2.md) |
 | `act-report-remainder` | T1, T2, T4 | 1, rides with `url-retrieval` | [beliefs-d13fe8](../../tasks/beliefs-d13fe8.md) |
 | `log-remainder` | L1, L4; L10 (relabel) | 1, rides with `event-level-l8` | [beliefs-b34652](../../tasks/beliefs-b34652.md) |
-| `l13-preimage` | L13 | 2 | [beliefs-a7df71](../../tasks/beliefs-a7df71.md) |
+| `l13-preimage` | L13 | 1, off the path | [beliefs-a7df71](../../tasks/beliefs-a7df71.md) |
 | `persistence-cut` | X2 | 2 | [beliefs-3ea822](../../tasks/beliefs-3ea822.md) |
 | `authority-labels` | W8's ambiguous-search-term conflict, W9, W14 | 3 | [beliefs-84d7b0](../../tasks/beliefs-84d7b0.md) |
 | `weighted-belief` | S6 (h) | 3 | [beliefs-638318](../../tasks/beliefs-638318.md) |
@@ -84,7 +84,8 @@ In breadth order. Each opens only when no on-path lane is startable
 | 1 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm | the correction lifecycle in full | C7's consolidate prerequisite landed at cut 16 and the deletion surface it shares at cut 18; the stored semantic-snapshot kind and evaluator are this boundary's own work. Off the path: the first belief retracts nothing |
 | 2 | `url-retrieval` | H4, G9, R10, T5, T7's same-root case | the first acquisition of a dataset from outside the system; H4 in full | holdings design §2–§3 specify the canonicalization profile and network discipline. Off the path: mm30's data is held locally, so the first belief acquires nothing |
 | 3 | `event-level-l8` | L8 | `contract-cut` reads L8 in full; the log's last Science-only remainder | §7's ordered-cuts predicate is built; the event-level relation is its successor |
-| 4 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | the widest set: the conformance-package split (ledger §5), instrument-certification cadence, legacy-check disposition (N10), P1 | the join, last: N1 mints a successor contract identity for every oracle amended after the freeze, every lane above amends at least one, and the ledger's §2 already rules that the contract freezes after the operation set settles — which the dogfood will change |
+| 4 | `l13-preimage` | L13 | row 6 in full; the held-copy match strengthened from path to bytes | the `atoms` seam landed 2026-09-11 (`atoms-38887b`, writable-source `read_preimage`); `beliefs-a7df71` owns source-root selection, matching held history to the inspected chain, and the classification and refusal semantics, replicas without local history included. Off the path: the first belief classifies no removal |
+| 5 | `contract-cut` | N1, N3–N10, N2; P1; R22's resolver arm; W8a's `instrument-certification` arm; X12 and C10's certification arms; R23's rules-store clauses | the widest set: the conformance-package split (ledger §5), instrument-certification cadence, legacy-check disposition (N10), P1 | the join, last: N1 mints a successor contract identity for every oracle amended after the freeze, every lane above amends at least one, and the ledger's §2 already rules that the contract freezes after the operation set settles — which the dogfood will change |
 
 **Ride-along closures**, tier 1 by the rule and unblocking no capability of
 their own, each named to the cut that takes it:
@@ -113,8 +114,8 @@ boundary sits in the lane of its prerequisite and waits there.
 | `world-read` | `event-level-l8` (+ `log-remainder`) → `publish` | `world/read.py`, `world/view.py`, `resolution.py`, `world/verify.py`; `corpus.py`, `lineage.py`, `evaluation.py`, `belief.py`, `consulted.py`, `audit.py` as each slice names | off the path at its head; world-resolution discharged at cuts 23–25 and 27–30 |
 | `mutation` | `correction-remainder` | `adapter.py`, `corpus.py`, `audit.py`, `decode.py`, `evaluation.py`, `world/verify.py` | off the path; waits |
 | `acquisition` | `url-retrieval` (+ `act-report-remainder`) | `holdings/`, `report.py` | off the path; waits |
-| `reproduction` | none — a measurement: `../superpowers/specs/2026-09-05-mm30-reproduction-design.md` | no kernel surface; `python/tools/reproduction/`, a corpus on the certified volume beside the checkout, and the record it produces | **closed 2026-09-05**: ran to the evaluator's answer; its record (`../designs/2026-09-05-mm30-reproduction.md`) re-ranked this document, its five findings are filed through the owning lanes, and its corpus stays at `.mm30-reproduction/` as the seed of the dogfood's world. Cut 31 re-ran it under the successor contracts into a recreated corpus and appended §10 to that record; the re-run measures the transition, not the on-path question, and re-ranks nothing |
-| `cross-repo` | `l13-preimage`, `persistence-cut`, in any order (`nodes-remainder` closed 2026-09-12 at `nodes` `b0c37b8`) | the `atoms` and `nodes` repositories, each behind its own design gate | as each seam lands |
+| `reproduction` | none — a measurement: `../superpowers/specs/2026-09-05-mm30-reproduction-design.md` | no kernel surface; `python/tools/reproduction/`, a corpus on the certified volume beside the checkout, and the record it produces | **closed 2026-09-05**: ran to the evaluator's answer; its record (`../designs/2026-09-05-mm30-reproduction.md`) re-ranked this document, its five findings are filed through the owning lanes, and its corpus is the seed of the dogfood's world. Cut 31 re-ran it under the successor contracts into a recreated corpus at `.work/reproduction/mm30` (the 2026-09-05 corpus state moved aside, never deleted, to `.work/reproduction/mm30.cut22`) and appended §10 to that record; the re-run measures the transition, not the on-path question, and re-ranks nothing |
+| `cross-repo` | `l13-preimage`, `persistence-cut`, in any order (`nodes-remainder` closed 2026-09-12 at `nodes` `b0c37b8`) | the `atoms` and `nodes` repositories, each behind its own design gate | `l13-preimage`'s seam landed 2026-09-11 (`atoms-38887b`), so it is startable under rule 6; `persistence-cut` waits on `atoms-f5779f` |
 
 `publish` follows the complete `world-read` lane, as the user and autonomy
 layer design §8 item 5 requires. Its coordination/view prerequisite is already
@@ -166,7 +167,6 @@ and merged `--no-ff`. Six rules are added by concurrency itself:
 | id | rows | prerequisite | unblocks |
 |---|---|---|---|
 | `publish` | W17’s publication-binding intent-position arm; governed publication act and records | completed coordination/view kinds at cut 14, then the complete `world-read` lane (`beliefs-b34652`); user and autonomy layer design §8 item 5 | immutable selected-view publication and governed binding revisions |
-| `l13-preimage` | L13 | an `atoms` blob-read seam behind its own design gate; `atoms`' deferred-obligation ledger carries no such entry today | row 6 in full; the held-copy match strengthened from path to bytes |
 | `persistence-cut` | X2 | the `atoms` A8 certification extended to the publication path, behind `atoms`' own design gate. Cut 7 admits a Science-side harness as the alternative; it is rejected by the method (§5 there), so the prerequisite is cross-repo and the tier is 2 | X2 in full |
 
 ## Tier 3 — blocked on a design question
@@ -251,7 +251,7 @@ Each open row, its remainder as the last cut states it, and where it goes
 | L7 | u1's non-ancestor spelling (cut 8 results §1.1) → limitation; every other arm read by cuts 10–12 | limitation only — ranked nowhere |
 | L8 | event-level cross-chain order (cut 11 §3.2) | `event-level-l8` |
 | L10 | "no named cross-cut remainder … row label remains partial" (cut 10 results §1) → relabel | rides with `event-level-l8` |
-| L13 | the preimage resolver over the `atoms` blob-read seam (cut 11 §3.2; log design §5.3); cut 18 closes nothing here — removal classification stays a path match | `l13-preimage` — tier 2 |
+| L13 | the preimage resolver over the `atoms` blob-read seam (cut 11 §3.2; log design §5.3); cut 18 closes nothing here — removal classification stays a path match | `l13-preimage` — tier 1, off the path since the `atoms` seam landed 2026-09-11 |
 | M3 | the coreference-attestation arm is read at cut 24; the concrete-cycle arms needing "a spellable controlled identity construction … a circular fixed point" (cut 5) remain a limitation unless a construction is found. The equal-basis replica arm is read by cut 16; the raw-written-cycle classification and admission-order negative are closed by cut 18 | limitation only — ranked nowhere |
 | M12 | the extraction path (cut 3 §5; kernel limitation 3) | `extraction-path` — tier 3 |
 | P1 | the resolver half of the negative, 5b §6's deterministic resolution (cut 4 §5) | `contract-cut` |

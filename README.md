@@ -144,7 +144,9 @@ now captures records at an explicit published epoch, traverses across corpora,
 and carries named absence into lineage and evaluation. Coreference attestations
 are now governed, minted through the ledgered session route, and reduced into
 the published coverage-bound balance. Source addresses are now derived from
-normalized identifiers, and identifier correction preserves attributed history.
+normalized identifiers, and identifier correction preserves attributed history;
+dataset ids derive from the content identity, and `consolidate` reconciles
+divergent correction histories by absorption.
 Epoch import evaluates every receipt before writing; epoch audit and query
 reduce retained receipt states; and the world audit reports damaged corpora
 while judging their captured remainder.

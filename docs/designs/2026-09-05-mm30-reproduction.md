@@ -7,9 +7,14 @@ commits carry the driver (`python/tools/reproduction/`, throwaway by
 declaration), its unit tests (`python/tests/test_reproduction_driver.py`,
 14 tests), this record, five findings filed as tasks through their owning
 lanes, two `open-questions.md` entries, and the roadmap re-rank under the
-method's second trigger. The corpus stays at `.mm30-reproduction/` beside
-the main checkout.
+method's second trigger. The corpus stays beside the main checkout: at
+`.mm30-reproduction/` when this record was written, and since 2026-09-12
+under `.work/reproduction/` (`f2d5a14`).
 Re-run 2026-09-08 as biology slice 2's measurement; see §5 question 1 and §6.
+Re-run 2026-09-15 under the estimand-typing design as cut 31's Q10, which
+recreates the corpus rather than retyping it: the successor-contract corpus
+is `.work/reproduction/mm30` and the prior state is kept at
+`.work/reproduction/mm30.cut22`; see §10.
 **Scope:** one real mm30 proposition pushed through the `beliefs` kernel as a
 library, from a registered world to the belief evaluator's answer, under the
 design `../superpowers/specs/2026-09-05-mm30-reproduction-design.md` and its

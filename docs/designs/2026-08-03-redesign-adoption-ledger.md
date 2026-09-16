@@ -170,7 +170,17 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   derives from the selected normalized identifier under fixed precedence;
   attributed correction preserves UID and retired addresses without rewriting
   referrers, and every boundary validates the history. W1, W2 and W5a close at
-  cut 25. Dataset addressing and divergent-history reconciliation are filed.
+  cut 25. Dataset addressing landed at cut 29 and divergent-history
+  reconciliation at cut 30.
+- **Derived dataset identities and reconciled correction histories** — every
+  dataset id derives from its content identity and is held to that derivation
+  at the write boundary and at both inputs of `consolidate`, with W2, W3 and
+  W8 re-read on dataset arms (cut 29); and `consolidate` reconciles two
+  `source` replicas whose identifier-correction histories diverged, absorbing
+  the other replica's unheld events into one consolidation entry so no event
+  or retired address is lost, idempotently over a re-run after interruption
+  (cut 30). No guarantee row read at cut 30; `world-resolution` left the
+  table with it.
 - **Epoch import, epoch audit, damaged-corpus world audit and view evaluation** — explicit
   create-only epoch import evaluates every receipt before writing; retained
   epoch audit and snapshot-state query share that evaluator; and the semantic
@@ -212,7 +222,7 @@ not listed.
 | `log-remainder` | L1, L4; L10's relabel | `2026-08-22-log-verification-design.md` | row 5's L rows read in full |
 | `act-report-remainder` | T1, T2, T4 | `2026-08-11-act-report-design.md` | the T table in full |
 | `correction-remainder` | C7, C8, C9; C3's coverage clauses; C10's audit arm; C7's consolidate prerequisite discharged at cut 16 and the deletion surface it shares at cut 18 | sub-problem 5a, `2026-08-03-correction-lifecycle-design.md` | the correction lifecycle in full; buildable now, and the mutation lane's only open boundary |
-| `l13-preimage` | **L13 preimage resolver** — preimage-backed classification of a removed verification | the named `atoms` blob-read seam (`2026-08-03-tamper-evident-log-design.md` §5.3) | row 5 reading L13 in full; until then the held-copy match is a path match |
+| `l13-preimage` | **L13 preimage resolver** — preimage-backed classification of a removed verification | the named `atoms` blob-read seam (`2026-08-03-tamper-evident-log-design.md` §5.3), landed 2026-09-11 as the writable-source `read_preimage` command (`atoms-38887b`); `beliefs-a7df71` owns source-root selection, held-copy matching and the classification boundary | row 5 reading L13 in full; until then the held-copy match is a path match |
 | `persistence-cut` | X2's persistence-cut arm | the `atoms` A8 certification extended to the publication path, a cross-repo seam `atoms`' own design owns | X2 in full |
 | `authority-labels` | W8's ambiguous-search-term conflict, W9, W14 | artifact 11, the pinned authority snapshot — owed, undesigned | every rendered label; the ambiguous-search refusal |
 | `weighted-belief` | S6 arm (h) | the first successor belief policy admitting unequal weights, blocked on the successor belief-policy design over `commensurable` and `co_scoped` — the key domain estimand typing supplied at cut 31 | weighted belief |

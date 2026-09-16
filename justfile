@@ -1,7 +1,6 @@
 # Front door for tests. Full suite: `just test`. Gates: `just check` (seconds: lint,
 # typecheck, task records) and `just gate` (check plus the suite). `just test-fast` is
-# the documented fast local loop; the inner-loop rule itself lands in step 3 of the
-# audit, after a baseline week, so no guidance points at it yet.
+# the documented fast local loop; AGENTS.md points at it (audit step 3, 2026-09-12).
 #
 # Every recipe runs through the vendored timing wrapper tools/tt and the shared hygiene
 # check tools/ops-check (source of truth: ops bin/tt and ops bin/ops-check), so each run
@@ -9,7 +8,7 @@
 # ops docs/specs/2026-09-04-test-ci-audit-design.md.
 #
 # The git hooks in .githooks/ are installed (core.hooksPath); AGENTS.md says what each
-# costs. What is left of audit step 3 is the inner-loop guidance (beliefs-f253a1).
+# costs. What is left of the audit is step 4, the after-week comparison (beliefs-f253a1).
 
 tt := "python3 tools/tt"
 
