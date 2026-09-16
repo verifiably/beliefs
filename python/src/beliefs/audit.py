@@ -345,7 +345,9 @@ def check_composite(view: ReadView | _ImportView | WorldReadView, node: Node, *,
     """Design §4.3: the boundary's four steps over the stored record, reported
     rather than raised. Form only — the audit holds no snapshot."""
     from beliefs import composite as composite_module
+    from beliefs.corpus import _absence_of
     from beliefs.errors import CompositeError
+    from beliefs.world.view import WorldReadView
 
     def contradiction(code: str, detail: str) -> DerivationOutcome:
         return DerivationOutcome(
@@ -358,6 +360,18 @@ def check_composite(view: ReadView | _ImportView | WorldReadView, node: Node, *,
     composes = [r for r in node.relations if r.predicate == stored.COMPOSES]
     if len(composes) != len(facet.members) or any(r.source != node.id for r in composes):
         return contradiction("composite-relations-mismatch", f"facet names {len(facet.members)} member(s), record carries {len(composes)} composes edge(s)")
+    if isinstance(view, WorldReadView):
+        # Recorded elsewhere is not gone (module docstring, third case): a member
+        # whose corpus has no carrier here would answer `RecordNotPresent` inside
+        # `restore_members`, which translates `RefError` alone. Reporting
+        # `composite-member-unresolvable` for it would convict the composite of
+        # its neighbour's absence; the derivation is simply unchecked.
+        for relation in composes:
+            if view.holds(relation.target):
+                continue
+            elsewhere = _absence_of(view, relation.target)
+            if elsewhere is not None:
+                return _unchecked(f"member {relation.target} is recorded in {elsewhere}, which has no carrier here")
     try:
         claims = composite_module.restore_members(
             view, facet.members, tuple(r.target for r in composes), profile=profile, snapshot=composite_module.EMPTY_SNAPSHOT
@@ -372,19 +386,22 @@ def check_composite(view: ReadView | _ImportView | WorldReadView, node: Node, *,
 
 def check_supersedes_kinds(view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec) -> Finding | None:
     """Design §3.1's `same_kind` rule, under audit: a raw-written edge the
-    shared path would have refused."""
-    from nodes.core.errors import RefError
+    shared path would have refused.
 
+    `holds` before `get`, as `check_spec_target` does: over a world view a
+    predecessor recorded in an absent corpus answers `RecordNotPresent`, which is
+    a `ScienceError` and not a `RecordError`, and an unguarded `get` would carry
+    it out of the per-record loop and discard every finding collected so far.
+    """
     rule = profile.relations.get(stored.SUPERSEDES)
     if rule is None or not rule.same_kind:
         return None
     for relation in node.relations:
         if relation.predicate != stored.SUPERSEDES:
             continue
-        try:
-            target = view.get(relation.target)
-        except RefError:
+        if not view.holds(relation.target):
             continue  # resolution is the supersession arm's finding, not this one's
+        target = view.get(relation.target)
         if target.kind != node.kind:
             detail = f"a {node.kind!r} names a {target.kind!r} predecessor ({relation.target})"
             return Finding(severity="error", code="supersedes-cross-kind", ref=node.id, detail=detail, message=f"{node.id}: {detail}")
@@ -456,10 +473,10 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence, profile: Profi
     for node in view.iter_stored():
         if node.id in malformed:
             continue
-        cross = check_supersedes_kinds(view, node, profile=profile)
-        if cross is not None:
-            findings.append(cross)
         try:
+            cross = check_supersedes_kinds(view, node, profile=profile)
+            if cross is not None:
+                findings.append(cross)
             if node.kind == "verification":
                 outcome = check_verification(view, node, evidence=evidence)
             elif node.kind == "assessment":
@@ -611,10 +628,10 @@ def audit_world(
         assert corpus_id is not None
         if corpus_id in excluded or node.id in malformed.get(corpus_id, set()):
             continue
-        cross = check_supersedes_kinds(view, node, profile=profile)
-        if cross is not None:
-            corpora[corpus_id].append(cross)
         try:
+            cross = check_supersedes_kinds(view, node, profile=profile)
+            if cross is not None:
+                corpora[corpus_id].append(cross)
             outcome = _recompute(view, node, evidence, profile)
         except CorpusDamaged as unreachable:
             corpora[corpus_id].append(
