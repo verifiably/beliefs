@@ -153,7 +153,7 @@ class CompiledEdge:
     contract: str
 
     def schema_projection(self) -> dict[str, object]:
-        return {"cause": self.cause, "effect": self.effect}
+        return {"cause": self.cause, "effect": self.effect, "retired": self.retired}
 
 
 @dataclass(frozen=True)

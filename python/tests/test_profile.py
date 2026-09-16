@@ -889,3 +889,26 @@ def test_edges_enter_the_compiled_identity(base_contract, testing_document):
     del testing_document["edges"]
     without = parse_domain_contract(testing_document, source="<t>", base=base_contract, predecessor=None)
     assert compile_profile(base_contract, [with_edge]).compiled_identity != compile_profile(base_contract, [without]).compiled_identity
+
+
+def test_retiring_an_edge_row_moves_the_compiled_identity(base_contract, testing_document):
+    """Retirement is part of what the compiled profile *is*, as it is for sorts,
+    dimensions and operators: a run under a contract successor that retired an
+    `edges:` row classifies composites differently, and a compiled identity that
+    did not move would say the two profiles are one."""
+    import copy
+
+    from beliefs.contract import parse_domain_contract
+    from beliefs.profile import compile_profile
+
+    genesis = parse_domain_contract(copy.deepcopy(testing_document), source="<t>", base=base_contract, predecessor=None)
+    document = copy.deepcopy(testing_document)
+    document["edges"]["affects"]["retired"] = True
+    document["version"] = 2
+    document["lineage"] = {"successor": genesis.content_identity}
+    successor = parse_domain_contract(document, source="<t>", base=base_contract, predecessor=genesis)
+
+    live, retired = compile_profile(base_contract, [genesis]), compile_profile(base_contract, [successor])
+    assert live.edges["testing/affects"].retired is False
+    assert retired.edges["testing/affects"].retired is True
+    assert retired.compiled_identity != live.compiled_identity
