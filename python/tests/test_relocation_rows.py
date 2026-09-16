@@ -645,6 +645,7 @@ def test_retract_refuses_a_target_moved_away(tmp_path):
     proposition = source.add(
         stored.proposition_node("claim", title="claim", claim={"operator": "affects"})
     )
+    destination.add(proposition)
     target = source.add(
         stored.assessment_node(
             "target",

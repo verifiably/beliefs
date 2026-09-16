@@ -78,6 +78,7 @@ from beliefs.errors import (
     BuildHold,
     BundleMemberHeld,
     CollisionRefused,
+    CompositeError,
     ContractMismatch,
     CoordinationKindUnsupported,
     CoordinationUnavailable,
@@ -115,6 +116,7 @@ from beliefs.errors import (
     ScienceError,
     SemanticHashMissing,
     SemanticHashStale,
+    SignatureRefused,
     SourceAddressDisagreement,
     SupersedeIdentityUnchanged,
     UnfreezableSpec,
@@ -2470,8 +2472,8 @@ class CorpusWriter:
             )
 
     def supersede(self, successor: Node, *, of: str) -> Node:
-        """Mint a proposition successor without touching its predecessor."""
-        self._authority.require("corpus-write", ("proposition",))
+        """Mint a proposition or composite successor without touching its predecessor."""
+        self._authority.require("corpus-write", (successor.kind,))
         with self._operation:
             self._require_pins_agree()
             self._refuse_family_kinds(successor)
@@ -2483,8 +2485,11 @@ class CorpusWriter:
                     "or deletion removed it (world-changing families §3.6)"
                 ) from caught
             predecessor_id = predecessor.id
-            if predecessor.kind != "proposition" or successor.kind != "proposition":
-                raise FamilyKindUnsupported("supersede operates on propositions only")
+            if predecessor.kind != successor.kind or successor.kind not in ("proposition", "composite"):
+                raise FamilyKindUnsupported(
+                    f"supersede operates on a proposition or a composite and its same-kind successor; "
+                    f"found {predecessor.kind!r} → {successor.kind!r}"
+                )
             self._refuse_already_minted(successor)
             self._refuse_malformed_supersede_successor(successor)
             if any(relation.predicate == stored.SUPERSEDES for relation in successor.relations):
@@ -3001,6 +3006,11 @@ class CorpusWriter:
         if node.kind == "analysis-spec":
             self._refuse_r20_contradiction(node)
             self._refuse_estimand_target_mismatch(node, view=self._view if view is None else view)
+        reading = self._view if view is None else view
+        self._refuse_supersedes_same_kind(node, view=reading)
+        self._refuse_assesses_target_kind(node, view=reading)
+        if node.kind == "composite":
+            self._refuse_composite(node, view=reading)
         self._refuse_governed_stamp(node)
         self._refuse_rendering(node)
         self._refuse_collision(node)
@@ -3046,6 +3056,73 @@ class CorpusWriter:
                 raise ValidationRefused(f"{node.id}: semantic-identity stamp is missing or stale")
         except IdentityError as caught:
             raise ValidationRefused(f"{node.id}: semantic-identity stamp cannot be recomputed: {caught}") from caught
+
+    def _refuse_composite(self, node: Node, *, view: ReadView | _ImportView) -> None:
+        """Design §4.2, steps 1–4, re-derived from the stored record: form,
+        the relation set, member resolution and identity, classification.
+        No vocabulary membership is read — the boundary holds no snapshot."""
+        from beliefs import composite as composite_module
+
+        facet = stored.composite_value(node)  # step 1: form (MalformedRecord)
+        if facet.shape not in self._profile.composite_grammar.shapes:
+            raise CompositeError("composite-shape", f"{node.id}: {facet.shape!r} is not a shape the base contract declares")
+        composes = [relation for relation in node.relations if relation.predicate == stored.COMPOSES]
+        if len(composes) != len(facet.members) or any(relation.source != node.id for relation in composes):
+            raise CompositeError(
+                "composite-relations-mismatch",
+                f"{node.id}: the facet names {len(facet.members)} member(s) and the record carries {len(composes)} composes edge(s)",
+            )
+        refs = tuple(relation.target for relation in composes)
+        claims = composite_module.restore_members(
+            view, facet.members, refs, profile=self._profile, snapshot=composite_module.EMPTY_SNAPSHOT
+        )  # steps 2–3
+        composite_module.classify(self._profile, facet, claims)  # step 4
+
+    def _refuse_assesses_target_kind(self, node: Node, *, view: ReadView | _ImportView) -> None:
+        """`assesses` targets a proposition and nothing else (kernel §4.1, U4).
+        The eligibility predicate reads the run and its observed dataset and
+        never the target's kind, so without this an otherwise eligible
+        assessment could name a composite and enter the pool `gather` matches."""
+        if node.kind != "assessment":
+            return
+        for relation in node.relations:
+            if relation.predicate != stored.ASSESSES:
+                continue
+            try:
+                target = view.get(relation.target)
+            except RefError as caught:
+                # Not the eligibility predicate's to refuse: it reads the run and
+                # its observed datasets and never the target. An edge to a ref
+                # that resolves nowhere would let a later `composite:future`
+                # establish the forbidden edge by arriving second.
+                raise SignatureRefused(
+                    f"{node.id}: assesses-target-unresolvable: {relation.target} resolves to no record in this corpus"
+                ) from caught
+            if target.kind != "proposition":
+                raise SignatureRefused(
+                    f"{node.id}: assesses-target-kind: an assessment assesses a proposition, not a {target.kind!r} ({relation.target})"
+                )
+
+    def _refuse_supersedes_same_kind(self, node: Node, *, view: ReadView | _ImportView) -> None:
+        """Design §3.1's `same_kind` rule, on the shared path every route takes
+        and outside the `document_validated` shortcut: a `supersedes` edge whose
+        target is a record of another kind is a signature violation, whoever
+        authored it."""
+        rule = self._profile.relations.get(stored.SUPERSEDES)
+        if rule is None or not rule.same_kind:
+            return
+        for relation in node.relations:
+            if relation.predicate != stored.SUPERSEDES:
+                continue
+            try:
+                target = view.get(relation.target)
+            except RefError:
+                continue  # an unresolvable predecessor is the family's refusal (RelocationTargetMissing), not this rule's
+            if target.kind != node.kind:
+                raise SignatureRefused(
+                    f"{node.id}: supersedes-cross-kind: a {node.kind!r} names a {target.kind!r} predecessor "
+                    f"({relation.target}); supersedes is same-kind succession (kernel §4.1, composite-claims §3.1)"
+                )
 
     def _refuse_verification(self, node: Node, *, view: ReadView | _ImportView) -> None:
         """Self-consistency of a published verification, before the intent
