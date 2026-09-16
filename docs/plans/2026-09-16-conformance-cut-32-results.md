@@ -554,11 +554,27 @@ What the lane's surfaces leave standing elsewhere:
 
 ## 6. Main integration
 
-To be filled at merge. `design/composite-claim` has not been merged into `main`
-at the time this record lands; when it is, this section records the merge
-revision, the whole-branch review, the gate re-run on the merged tree with §1's
-exports, and any difference between the discharge's counts and the merged
-tree's.
+Merged `design/composite-claim` into `main` with `--no-ff` on 2026-09-16 at
+`6d853df`, after the whole-branch review, its fix wave (`2874ad7`..`09ce725`,
+§3.4), the scoped re-review of that wave, and the documentation residual at
+`f461212`. Every review finding was addressed, filed (§3.3) or ruled (§7).
+`main` had not moved since the branch was rebased onto `8aa5903`, so the merge
+carries nothing but the lane.
+
+`just gate`, run on that merged revision with the reproduction roots of §1
+exported (`SCIENCE_MM30_ROOT`, `MM30_PREDECESSOR`; the cut roots at their
+repository-relative defaults on the certified volume), exited **0**. Ruff,
+Pyright, TypeScript typecheck and Biome passed; task validation reported zero
+errors and zero warnings. The serial Python suite reported **4,942 passed, 2
+skipped in 1132.18s (0:18:52)** — eight more than the discharge's 4,934, the
+tests the fix wave added (§3.4) — and TypeScript **154 passed** across seven
+files. The two skips are `test_composite.py`'s deferrals (§3.3). No capability
+refusal, skip or waiver occurred.
+
+The output is retained in
+[`main-gate.log`](2026-09-16-conformance-cut-32-run/main-gate.log), SHA-256
+`5d27c8f284210cebdce243a31d6b6f27c68e48bbb1f69cdf707fa5eba782060c`. Only Vitest's absolute checkout path was replaced by `./ts`. This
+integration record changes only documentation after the gate.
 
 ## 7. Execution rulings
 
@@ -621,3 +637,30 @@ ledger itself is not tracked; this is its durable copy.
   the row's "named code" at `add` is the decode's; the constructor keeps its own
   codes, and the undeclared operator asserts `composite-member-undeclared` at
   `add`. Cost if wrong: one §8 line.
+- **Final review — the identification column is narrowed, not re-plumbed.**
+  Important 3 is fixed by restricting the column's scan to assessments whose
+  `assesses` edge names the member and asserting every admitted identity was
+  seen (`composite-admission-unscanned`, loud rather than short) — not by
+  changing `Reached`'s payload, which the frozen U8 arms pin through
+  `belief.py`; the discharge runner was re-run after the wave (§3.4). Cost if
+  wrong: an O(corpus) relation scan remains, with the decode restricted.
+- **Final review — `CompiledEdge.schema_projection` gains `retired` now.** Every
+  sibling compiled declaration projects it; the claim-identity fixture is
+  regenerated and the reproduction corpus verified to open and audit clean
+  (its pins are contract content identities). Cost if wrong: one fixture line;
+  filing it instead would let the contract cut freeze a projection blind to an
+  edge retirement.
+- **Final review — `_refuse_assesses_target_kind` is a general rule on every
+  write path**, as the plan's Task 4 wrote it and the estimand lane's
+  `estimand-target-unresolvable` precedent set: an assessment whose target does
+  not resolve locally has no claim to assess (§3.2). `correction-remainder`
+  inherits it. Cost if wrong: a relocation must land the target first.
+- **Final review — the two refusal codes the wave added are named on design
+  §6.2**, where the one-admission invariant lives, not §6.3; §3.4 alone left a
+  design reader unable to find them. Cost if wrong: one paragraph.
+- **Final review — minors 9, 11 and 12 ride** (the node-outcome loop's differing
+  refusal text, the recursive cycle walk, the unconditional skip); the
+  `_unchecked` return on a composite's first absent-corpus member, the
+  function-scope `_absence_of` import and the plan's now-stale line for the
+  deleted `shapes` refusal are recorded here and filed nowhere. Cost if wrong:
+  a follow-up each.
