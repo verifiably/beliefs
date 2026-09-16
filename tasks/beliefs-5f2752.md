@@ -5,8 +5,9 @@ status: todo
 priority: 3
 size: xs
 complexity: low
+process: direct
 created: 2026-08-31T10:04:46Z
-updated: 2026-09-12T16:26:55Z
+updated: 2026-09-16T10:18:45Z
 depends: []
 tags: [docs, guide]
 ---
@@ -16,3 +17,4 @@ Extend docs/guide (foundations or identity-world-and-change) to state plainly: t
 ## Notes
 
 - 2026-09-12T16:26:55Z (main): Complexity low: The requested wording, candidate guide pages and check_guide.py validation are named; this is a bounded documentation edit with no semantic decision remaining.
+- 2026-09-16T10:18:45Z (main): Process direct: the wording, the candidate page and the check are named in the body; no design decision remains.

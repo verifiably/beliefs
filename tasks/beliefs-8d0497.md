@@ -5,8 +5,9 @@ status: todo
 priority: 3
 size: s
 complexity: low
+process: direct
 created: 2026-09-07T09:49:14Z
-updated: 2026-09-12T16:26:55Z
+updated: 2026-09-16T10:18:45Z
 depends: []
 tags: [testing]
 ---
@@ -24,3 +25,4 @@ Related incident: during the verification-publication slice a stray 'git add -A'
 ## Notes
 
 - 2026-09-12T16:26:55Z (main): Complexity low: The task specifies the filesystem entry allowlist, ignored-directory filter, diagnostic and .work convention; existing .gitignore supplies the policy. One focused guard with positive/negative cases has a clear check.
+- 2026-09-16T10:18:45Z (main): Process direct: the body fixes the signal (an unlisted directory at the root, read from the filesystem, ignoring hand-made files), the diagnostic and the convention; the allowlist is read off the tree.
