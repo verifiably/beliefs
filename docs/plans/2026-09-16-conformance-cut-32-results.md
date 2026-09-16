@@ -99,9 +99,16 @@ sabotage, with `pytest` exiting 1 rather than 4.
 | U9-b | `contract/base.py` | sound | caught |
 | U9-c | `audit.py` | sound | caught |
 
-One arm was measured **vacuous** before it was declared sound and was moved:
-U1-a written where the plan spells it (§3.1). A vacuous arm is a measurement,
-not a verdict, and it is recorded rather than quietly re-sited.
+**Two arms were measured `vacuous` before either was declared sound, and both
+were moved** (§3.1): **U4-a** written in `closure.py`, where the plan homes it —
+`build_closure` holds no read view, so every mutation available inside it moves
+the digest identically before and after a composite is minted — re-homed to
+`evaluation.gather`, the one function that resolves a proposition's belief
+inputs from a corpus; and **U1-a** written as `root.get("composite_grammar",
+{...})`, which `_exact_fields` makes unreachable — re-sited to a `setdefault`
+ahead of that call, inside the same module and on the same mechanism. A vacuous
+arm is a measurement and not a verdict; both are recorded in the cut document's
+§8 rather than quietly re-sited, and the arm count is unchanged at 26.
 
 ## 2. Accounting
 
@@ -232,9 +239,18 @@ themselves, with what each costs if wrong.
   `test_n2_cut20.py`: only its `after` moved, by one list member, because Task 2
   added `edges` to `_CONTRACT_OPTIONAL` and the stale `after` made the arm score
   `uncollected`. The frozen declaration is untouched, and a dated comment
-  beside the existing 2026-09-14 and 2026-09-15 migrations says so. Two earlier
-  cuts' live arms (cut 2's P9, cut 23's R19e, cut 24's W15n) were re-targeted by
-  the implementing tasks under the same, already-established mechanism.
+  beside the existing 2026-09-14 and 2026-09-15 migrations says so.
+- **Four more live arms were re-targeted by the implementing tasks**, under the
+  same, already-established mechanism and with a dated comment on each: the
+  portable harness's own **M7** (`python/tests/n2_arms.py`, twice — Task 1, when
+  `compile_profile`'s `_projection(...)` call gained `base.composite_grammar`,
+  and Task 2, when the same call gained `edges=edges`); cut 2's **P9**
+  (`test_n2.py`'s `_LIVE_SABOTAGES`, Task 6, when `evaluate` became the first
+  projection of `evaluate_traced`); cut 23's **R19e** (`test_n2_cut23.py`,
+  Task 6, the same factoring on `evaluate_over`); and cut 24's **W15n**
+  (`test_n2_cut24.py`, Task 1). `n2_arms.py` is the **live** harness's arm
+  table, not a frozen declaration, so M7 is edited in place there by the same
+  rule that governs a live guard; no `n2_arms_cut*.py` body was touched.
 - **Two acceptance modules outside this lane were repaired**, both red on this
   branch before Task 8 and visible only to the chain, since the portable suite
   cannot see `tests/acceptance`:

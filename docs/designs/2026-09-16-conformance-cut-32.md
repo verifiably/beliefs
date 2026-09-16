@@ -179,19 +179,31 @@ Design §13, restated: membership asserts directness only relative to the node s
 
 ## 8. Supplements — 2026-09-16
 
-Three corrections found while writing the N2 arms (plan Task 8 Step 3),
-recorded here on cut 25's precedent: §§1–7 above are the frozen body and are
-**not** edited. This section is dated and outside the freeze — the guard's
-`_frozen_body` slicing runs from `## 2. The boundary` to this heading — so the
-pin of this document at freeze commit
+Five corrections, recorded here on cut 25's precedent: §§1–7 above are the
+frozen body and are **not** edited. This section is dated and outside the
+freeze — the guard's `_frozen_body` slicing runs from `## 2. The boundary` to
+this heading — so the pin of this document at freeze commit
 `ff03b00f7f6297f3277da4ab40e1dbfc0b9a39e0`, SHA-256
 `598222cbac1ac04e43e503b05287524dc6a3049b760063721482dc844ca43ac2`, is
-unchanged by it and is not re-taken. None of the three adds, removes or moves
-a declaration unit, a row or an arm: §4's **10 declaration units** and **26
-one-mutation sabotage arms** and §5's homing stand exactly as frozen. Each
-correction names a different module or site for one arm's mutation, and each
-was measured, not argued: the arm as §5 spells it was written, run, and scored
-by the harness before it was moved.
+unchanged by it and is not re-taken. **None of the five adds, removes or moves
+a declaration unit, a row or an arm**: §4's **10 declaration units** and **26
+one-mutation sabotage arms** and §5's homing stand exactly as frozen.
+
+They land in two waves, and they are not the same kind of correction.
+
+**§§8.1–8.3 were found while writing the N2 arms** (plan Task 8 Step 3). Each
+names a different module or site for one arm's mutation, and each was measured,
+not argued: the arm as §5 spells it was written, run, and scored by the harness
+before it was moved — two of the three (**U4-a** in `closure.py` and **U1-a**
+in its `root.get(...)` form) scored `vacuous` against the real tree, which is
+what sent them to the sites §8.1 and §8.2 name.
+
+**§§8.4 and 8.5 were added at the review's fix round** (2026-09-16), and
+neither re-homes anything. §8.4 records, per row, which code U3's three
+pure-form defects carry at `add` as against at construction, after the review
+asked for that half to be asserted; §8.5 discloses that U4-b mutates the
+packaged `CONTRACT.yaml` alone, because an arm cannot reach the repo-root copy,
+and that both checks read the copy the sabotage moves.
 
 §5 homes no arm on **U10**, and the guard says so by name
 (`test_n2_cut32.py`'s `UNAUDITED_UNIT`) rather than passing silently on the

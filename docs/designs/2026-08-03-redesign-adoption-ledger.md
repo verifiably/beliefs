@@ -202,8 +202,7 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   exposed from `beliefs.estimand` and read by nothing in `science.belief.v1`.
   A pre-grammar record is refused under its own name and audited under its own
   code — the transition is recreation, not migration. Q1–Q10 close at cut 31,
-  which also re-runs the mm30 reproduction into a recreated corpus. The corpus
-  has 163 of 206 rows closed.
+  which also re-runs the mm30 reproduction into a recreated corpus.
 - **Composite claims — the structure a set of claims is drawn against** — the
   base contract owns a closed `composite_grammar` (`science.composite.v1`, one
   shape, `dag`), the `composite` kind, a `composes` signature closed to
