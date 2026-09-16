@@ -110,6 +110,12 @@ export interface RelationDecl {
   readonly sameKind: boolean;
 }
 
+/** `composes`' one signature (composite-claims §3.1, U1): a composite composes
+ * propositions, and nothing else composes anything. The Python parser's
+ * `COMPOSES_SIGNATURE`, mirrored — both implementations refuse the same
+ * documents with the same message. */
+const COMPOSES_SIGNATURE: readonly [readonly string[], readonly string[]] = [["composite"], ["proposition"]];
+
 const SEMANTIC_DOMAIN = /^science\.[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*\.v[1-9][0-9]*$/;
 const FIELD_TYPES: readonly FieldType[] = ["string", "integer", "boolean", "ref", "locator", "actor"];
 const FIELD_NAME = /^[a-z][a-z0-9_]*$/;
@@ -554,6 +560,16 @@ export function parseBaseContract(text: string, source: string): BaseContract {
       const targetSet = new Set(targets);
       const equal = sourceSet.size === targetSet.size && [...sourceSet].every((kind) => targetSet.has(kind));
       if (!equal) throw new MalformedContract(`${where}.same_kind: requires sources and targets to be equal sets`);
+    }
+    if (name === "composes") {
+      const [composesSources, composesTargets] = COMPOSES_SIGNATURE;
+      const exact = (declared: readonly string[], one: readonly string[]) =>
+        declared.length === one.length && declared.every((kind, index) => kind === one[index]);
+      if (!exact(sources, composesSources) || !exact(targets, composesTargets))
+        throw new MalformedContract(
+          `${where}: composes is ${composesSources[0]} → ${composesTargets[0]}, one signature and no other; ` +
+            `found ${JSON.stringify(sources)} → ${JSON.stringify(targets)}`,
+        );
     }
     relationEntries.push([name, Object.freeze({ name, group: body.group, sources, targets, sameKind })]);
   }

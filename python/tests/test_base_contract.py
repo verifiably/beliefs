@@ -277,6 +277,23 @@ class TestCompositeGrammarAndKind:
         with pytest.raises(MalformedContract, match="same_kind"):
             parse(document)
 
+    @pytest.mark.parametrize(
+        ("sources", "targets"),
+        [
+            (["composite", "proposition"], ["proposition"]),  # a widened source
+            (["composite"], ["proposition", "composite"]),  # a widened target
+            (["proposition"], ["composite"]),  # the pair swapped
+        ],
+    )
+    def test_a_composes_signature_outside_composite_to_proposition_is_refused(self, document, sources, targets):
+        """§3.1, U1: `composes` has one signature and the kernel owns it. Both
+        endpoints are named kinds, so kind-existence admits every row here —
+        the refusal is the signature's own."""
+        document["relations"]["composes"]["sources"] = sources
+        document["relations"]["composes"]["targets"] = targets
+        with pytest.raises(MalformedContract, match="one signature and no other"):
+            parse(document)
+
     def test_same_kind_must_be_a_boolean(self, document):
         document["relations"]["supersedes"]["same_kind"] = "yes"
         with pytest.raises(MalformedContract, match="same_kind"):

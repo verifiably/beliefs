@@ -262,3 +262,54 @@ unchanged (*"an unresolvable member refuses the reading"*), the check is
 unchanged (`test_u8_reading_equals_the_wrapper`, whose last arm requires
 `CompositeError("composite-member-unresolvable")` after a member is deleted),
 and the arm scores `sound`.
+
+### 8.4 Where U3's "at construction and at `add` alike" rows land at the boundary — 2026-09-16
+
+Task 8's review asked for the three pure-form rows of §3's **U3** — a duplicate
+node, a duplicate member, and an empty node set — to be asserted at `add` as
+well as at construction. They are, and the measurement is worth recording,
+because the code they carry at `add` is not the code they carry at
+construction.
+
+§4.2's step 1 is the **facet decode**: the boundary reads the stored composite
+facet before it re-derives anything from it. `CompositeFacet.__post_init__` is
+that decode, and those three defects are defects *of the facet*, not of any
+classification over it — a facet whose nodes repeat, whose members repeat, or
+whose node set is empty is not a composite facet at all. So the boundary
+refuses each of them with the decode's own code, `MalformedRecord`, and no
+`composite-*` code is reached:
+
+| row | at construction (`build_composite`) | at `add` (`_refuse_composite`, step 1) |
+|---|---|---|
+| duplicate node | `composite-duplicate` | `MalformedRecord`, "sorted by (sort, term) and distinct" |
+| duplicate member | `composite-duplicate` | `MalformedRecord`, "sorted and distinct" |
+| empty node set | `composite-nodes-empty` | `MalformedRecord`, "at least one node" |
+| member outside the node set | `composite-member-outside-nodes` | `composite-member-outside-nodes` |
+| undeclared operator | `composite-member-undeclared` | `composite-member-undeclared` |
+| non-causal layer | `composite-member-layer` | `composite-member-layer` |
+| cycle, negative member included | `composite-cyclic` | `composite-cyclic` |
+| unknown shape | `composite-shape` | `composite-shape` |
+
+That is §4.2's rule rather than a gap in it: the constructor takes nodes and
+members as arguments and can name which one repeated, while the boundary takes
+a stored record and must first decide whether what it holds is a facet. Both
+refuse, neither admits, and `test_u3_form_classification_and_vocabulary_arms`
+asserts both columns — the class and the part of the message that names the
+defect on the right, the code on the left. No unit, row or arm moves.
+
+### 8.5 U4-b mutates the packaged contract copy only — 2026-09-16
+
+§5 spells U4-b as *"add `composite` to `assesses`' targets (both `CONTRACT.yaml`
+copies)"*. An N2 arm is one byte-exact mutation of one module inside **one**
+package tree: `test_n2.py`'s harness copies `python/src/beliefs` and mutates
+the copy, so the repo-root `contracts/science/CONTRACT.yaml` is not reachable
+from an arm at all, and a second arm for it would be a second arm.
+
+The arm therefore names `contracts/science/CONTRACT.yaml` under the package,
+and `test_u1_grammar_kind_and_relations` and `test_u4_belief_inert` read the
+**packaged** contract through `importlib.resources` — the copy the sabotage
+moves — rather than the repo-root copy that `tests/conftest.py`'s
+`base_contract` fixture loads. The two copies are held byte-equal by the
+existing parity machinery, so the row's claim is unweakened: the declaration
+the kernel actually parses is the one the arm moves and the one the check
+reads. One arm, homed on U4, as §5 counts it.

@@ -37,6 +37,17 @@ describe("the base contract's declarations (design §3.1–§3.4)", () => {
     );
     expect(() => parseBaseContract(bad, "<bad>")).toThrow(/same_kind/);
   });
+  it("refuses a composes signature outside composite to proposition", () => {
+    const line = "composes: { group: world, sources: [composite], targets: [proposition] }";
+    expect(SHIPPED).toContain(line); // the mutations must land, or the assertions below assert nothing
+    for (const mutated of [
+      "composes: { group: world, sources: [composite, proposition], targets: [proposition] }",
+      "composes: { group: world, sources: [composite], targets: [proposition, composite] }",
+      "composes: { group: world, sources: [proposition], targets: [composite] }",
+    ]) {
+      expect(() => parseBaseContract(SHIPPED.replace(line, mutated), "<bad>")).toThrow(/one signature and no other/);
+    }
+  });
   it("refuses an unsupported shape", () => {
     const line = "  shapes: [dag]\n";
     expect(SHIPPED).toContain(line);

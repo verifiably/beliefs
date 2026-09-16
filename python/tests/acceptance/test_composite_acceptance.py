@@ -40,7 +40,7 @@ import yaml
 from authority import FULL
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.relations import Relation
-from profiles import FIXTURE, WITH_BIOLOGY, pins_for
+from profiles import FIXTURE, WITH_BIOLOGY, biology, pins_for
 from test_composite_boundary import EX, GENE, IMPORT, SNAPSHOT, A, B, C, _build, _claim, _estimand, _proposition
 from test_composite_reading import _inputs
 from test_evaluation import EMPIRICAL, _address, _resources
@@ -58,6 +58,7 @@ from beliefs.errors import (
     FamilyKindUnsupported,
     ImportRefused,
     MalformedContract,
+    MalformedRecord,
     SignatureRefused,
     SuccessionViolation,
     SupersedeIdentityUnchanged,
@@ -243,11 +244,22 @@ def test_u1_grammar_kind_and_relations(corpora):
     unequal["relations"]["composes"]["same_kind"] = True
     with pytest.raises(MalformedContract, match="same_kind"):
         parse_base_contract(unequal, source="<composes>")
-    outside = copy.deepcopy(document)
-    outside["relations"]["composes"]["targets"] = ["structure"]
+    # The signature rule itself: every pair below names declared kinds, so
+    # kind-existence admits each one and only `composes`' own signature refuses.
+    for sources, targets in ((["composite", "proposition"], ["proposition"]), (["composite"], ["proposition", "composite"]), (["proposition"], ["composite"])):
+        signature = copy.deepcopy(document)
+        signature["relations"]["composes"]["sources"] = sources
+        signature["relations"]["composes"]["targets"] = targets
+        with pytest.raises(MalformedContract, match="one signature and no other"):
+            parse_base_contract(signature, source="<composes>")
+    # And the kind-existence refusal beside it, which is a different rule.
+    unknown_kind = copy.deepcopy(document)
+    unknown_kind["relations"]["composes"]["targets"] = ["structure"]
     with pytest.raises(MalformedContract, match="not a kind this contract declares"):
-        parse_base_contract(outside, source="<composes>")
+        parse_base_contract(unknown_kind, source="<composes>")
 
+    # The TypeScript half runs the same three signature mutations against the
+    # same shipped bytes and matches the same message.
     _vitest("tests/declarations.test.ts")
 
 
@@ -390,17 +402,52 @@ def test_u3_form_classification_and_vocabulary_arms(corpora):
         writer.add(shape)
     assert caught.value.code == "composite-shape"
 
+    # The duplicate node, the duplicate member and the empty node set at `add`.
+    # §4.2 step 1 is the facet decode, and it is the step that owns these three:
+    # the boundary reads the stored facet before it re-derives anything, so a
+    # facet that is not a facet refuses under the decode's own code and no
+    # `composite-*` classification is reached. The code is therefore
+    # `MalformedRecord`, not the constructor's — measured, and recorded in the
+    # cut document's §8.4.
+    for mutate, defect in (
+        (lambda f: f.__setitem__("nodes", [{"sort": GENE, "term": "EX:a"}, {"sort": GENE, "term": "EX:a"}]), "distinct"),
+        (lambda f: f.__setitem__("members", sorted(f["members"]) * 2), "sorted and distinct"),
+        (lambda f: f.__setitem__("nodes", []), "at least one node"),
+    ):
+        record = stored.composite_node(_build(writer, ["proposition:ab"], slug="frm"), title="frm")
+        mutate(record.facets[stored.COMPOSITE_FACET])
+        stored.stamp_semantic_identity(record)
+        with pytest.raises(MalformedRecord, match=defect):
+            writer.add(record)
+
     # --- an undeclared operator: `correlates-with` declares no `edges:` row --
     testing = corpora(profile=_testing_profile())
+    entity, outcome = CompositeNode("testing/entity", "EX:a"), CompositeNode("testing/outcome", "EX:y")
     stat = build_claim(
         testing.profile, operator="testing/correlates-with",
         args=(Referent("testing/entity", "EX:a"), Referent("testing/outcome", "EX:y")),
         layer="statistical", polarity="positive",
     )
+    declared = build_claim(
+        testing.profile, operator="testing/affects",
+        args=(Referent("testing/entity", "EX:a"), Referent("testing/outcome", "EX:y")),
+        layer="causal", polarity="positive",
+    )
     testing.add(stored.proposition_node("stat", title="stat", claim=project_claim(stat)))
-    entity, outcome = CompositeNode("testing/entity", "EX:a"), CompositeNode("testing/outcome", "EX:y")
+    testing.add(stored.proposition_node("aff", title="aff", claim=project_claim(declared)))
     with pytest.raises(CompositeError) as caught:
         build_composite(testing.profile, testing.read_view, shape="dag", nodes=[entity, outcome], members=["proposition:stat"], snapshot=UNCONSULTED, slug="x")
+    assert caught.value.code == "composite-member-undeclared"
+    # And at `add`: built over the operator that does declare an edge, then
+    # re-pointed at the one that does not, so the boundary's own `classify` is
+    # what refuses rather than the constructor's.
+    admissible, _ = build_composite(testing.profile, testing.read_view, shape="dag", nodes=[entity, outcome], members=["proposition:aff"], snapshot=UNCONSULTED, slug="u")
+    undeclared = stored.composite_node(admissible, title="u")
+    undeclared.facets[stored.COMPOSITE_FACET]["members"] = [claim_identity(stat)]
+    undeclared.relations = [Relation(source=undeclared.id, predicate=stored.COMPOSES, target="proposition:stat")]
+    stored.stamp_semantic_identity(undeclared)
+    with pytest.raises(CompositeError) as caught:
+        testing.add(undeclared)
     assert caught.value.code == "composite-member-undeclared"
 
     # --- a declared edge's operator asserted at another layer ---------------
@@ -583,16 +630,42 @@ def test_u7_audit_codes(corpora):
     assert ("composite-member-unresolvable", deleted.id) in findings
     assert not any(code in audit_module.MALFORMEDNESS_CODES for code, _ in findings)
 
+    # "No longer classifies", as U7's verification column names it: retire the
+    # `edges:` row by successor and audit. `check_composite` is called directly
+    # because the corpus pins the predecessor contract, and `audit_corpus` under
+    # the successor would report `profile-mismatch` and stop before the arm this
+    # row is about — the classification, not the pins.
     fourth = _seeded(corpora())
-    stale = fourth.add(stored.composite_node(_build(fourth, ["proposition:ab", "proposition:bc"]), title="g"))
-    node = fourth.read_view.get(stale.id)
+    retired_composite = fourth.add(stored.composite_node(_build(fourth, ["proposition:ab", "proposition:bc"]), title="g"))
+    document = load_document(FIXTURE, source=str(FIXTURE))
+    assert isinstance(document, dict)
+    successor = copy.deepcopy(document)
+    successor["description"] = "fixture"
+    successor["lineage"] = {"successor": biology("fixture").content_identity}
+    successor["edges"]["affects"]["retired"] = True
+    base = shipped_base_contract()
+    retired = compile_profile(base, [parse_domain_contract(successor, source="<retired>", base=base, predecessor=biology("fixture"))])
+    outcome = check_composite(reopen(fourth.root), reopen(fourth.root).get(retired_composite.id), profile=retired)
+    assert outcome.checked and outcome.contradiction is not None
+    assert outcome.contradiction.code == "composite-malformed"
+    assert "composite-member-retired" in outcome.contradiction.detail
+    # Read again, under the profile the corpus pins: the record is a record, and
+    # the contradiction is the successor's reading of it, not damage to it.
+    assert check_composite(reopen(fourth.root), reopen(fourth.root).get(retired_composite.id), profile=fourth.profile).contradiction is None
+
+    # The same code from the other direction — a raw edit that drops a node the
+    # members name — so `composite-malformed` is read through `audit_corpus`'s
+    # own dispatch too, and not only through `check_composite`.
+    fifth = _seeded(corpora())
+    stale = fifth.add(stored.composite_node(_build(fifth, ["proposition:ab", "proposition:bc"]), title="g"))
+    node = fifth.read_view.get(stale.id)
     node.facets[stored.COMPOSITE_FACET]["nodes"] = [{"sort": GENE, "term": "EX:a"}, {"sort": GENE, "term": "EX:b"}]
     stored.stamp_semantic_identity(node)
-    raw_write(fourth.root, node)
-    reported = {f.code: f for f in audit_corpus(reopen(fourth.root), evidence=NO_EVIDENCE, profile=fourth.profile)}
+    raw_write(fifth.root, node)
+    reported = {f.code: f for f in audit_corpus(reopen(fifth.root), evidence=NO_EVIDENCE, profile=fifth.profile)}
     assert "composite-malformed" in reported and "composite-member-outside-nodes" in reported["composite-malformed"].detail
     # Read again, by the dispatch the audit shares with `_recompute`.
-    outcome = check_composite(reopen(fourth.root), reopen(fourth.root).get(stale.id), profile=fourth.profile)
+    outcome = check_composite(reopen(fifth.root), reopen(fifth.root).get(stale.id), profile=fifth.profile)
     assert outcome.checked and outcome.contradiction is not None
 
 
@@ -667,6 +740,9 @@ def test_u8_reading_equals_the_wrapper(corpora):
     )
     row = next(r for r in superseded.rows if r.ref == "proposition:ca")
     assert row.resolution.state == "superseded" and row.resolution.successors == (ac2.id,)
+    # The row's belief is the evaluator's own answer for that member, like every
+    # other row: succession moves the resolution column, never the belief column.
+    assert row.belief == evaluate_over(writer.read_view, "proposition:ca", **_inputs(writer, address))
 
     # --- the withholding arms ----------------------------------------------
     unheld = read_composite(writer.read_view, minted.id, **_inputs(writer, address, hold=False))

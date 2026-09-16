@@ -37,6 +37,7 @@ from beliefs.identity import v1
 from beliefs.sealed import sealed
 
 __all__ = [
+    "COMPOSES_SIGNATURE",
     "COMPOSITE_GRAMMAR",
     "ESTIMAND_GRAMMAR",
     "BaseContract",
@@ -92,6 +93,10 @@ _RELATION_GROUPS = ("world", "lifecycle")
 ESTIMAND_GRAMMAR = "science.estimand.v1"
 COMPOSITE_GRAMMAR = "science.composite.v1"
 """The tag a stored composite facet carries under `grammar` (design §3.2)."""
+COMPOSES_SIGNATURE = (("composite",), ("proposition",))
+"""`composes`' one signature (composite-claims §3.1, U1): a composite composes
+propositions, and nothing else composes anything. Declared here rather than
+spelled inline so the parser and its message read from one statement."""
 
 
 @dataclass(frozen=True)
@@ -433,6 +438,18 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
             raise MalformedContract(
                 f"{where}: same_kind requires sources and targets to be equal sets; "
                 f"{sorted(set(sources) ^ set(targets))} appear on one side only"
+            )
+        composes_sources, composes_targets = COMPOSES_SIGNATURE
+        if relation_name == "composes" and (sources != composes_sources or targets != composes_targets):
+            # Composite-claims §3.1, U1: `composes` has one signature, and it is
+            # the kernel's, not a contract author's. A widened endpoint set would
+            # let a composite compose something that is not a proposition, or a
+            # record that is not a composite compose one, and every reader below
+            # — the boundary's `restore_members`, `classify`, the audit — is
+            # written against exactly this pair.
+            raise MalformedContract(
+                f"{where}: composes is {composes_sources[0]} \u2192 {composes_targets[0]}, "
+                f"one signature and no other; found {list(sources)} \u2192 {list(targets)}"
             )
         relations[relation_name] = RelationDecl(relation_name, body["group"], sources, targets, same_kind)
 
