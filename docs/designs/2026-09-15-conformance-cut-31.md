@@ -171,3 +171,73 @@ Verify each fenced row byte-exact against the design's §8 table at the freeze c
 ## 7. Limitations
 
 Design §13, restated: semantic match is authored, not guaranteed (1); the target check is corpus-local (2); direction and increment are not normalized (3); identification is authored and corpus-local (4); the qualifier home for "conditional on" and quantitative restrictions stays open (5); attenuation, model comparison and mediation are refused (6); TypeScript validates no estimand payload (7); `restore` and `analysis_spec_value` change signature across four callers (8); sample selection outside a declared dimension is invisible to both predicates (9); the reproduction's typed spec is a new spec whose scope equality with the prose one is a judgment no row certifies (10); a pre-grammar record is refused, never read (11); the interval constraint reaches as far as containment (12).
+
+## 8. Supplements — 2026-09-15
+
+Two corrections found while executing the implementation's Task 10 (the mm30
+reproduction re-run), recorded here on cut 25's precedent: §§1–7 above are the
+frozen body and are **not** edited. This section is dated and outside the
+freeze — the guard's `_frozen_body` slicing runs from `## 2. The boundary` to
+this heading — so the pin of this document at freeze commit
+`c2a2211c2d9a0889a59e7892dcb71f2008e20e46`, SHA-256
+`3cd4409dd08d5b121d3f62bfaaa00e3d553335d6a54e7657471c70677854d93f`, is
+unchanged by it and is not re-taken. Neither correction adds a declaration
+unit, a row or an arm: the accounting of §4 and §5 stands.
+
+### 8.1 Q10's spec half of the transition clause is unreachable over the prior corpus
+
+§3's Q10 asks that the prior corpus state's prose spec and assessment be
+presented to the successor readers and assert `UnfreezableSpec("pre-grammar
+spec")` **and** `MalformedRecord("pre-grammar assessment")`. Measured against
+the corpus the driver moved aside (`.work/reproduction/mm30.cut22`), the
+assessment half fires exactly as written — `assessment_value` over
+`assessment:316272987716ac4f` raises `PreGrammarAssessment` through
+`ReadView.iter_stored`, the unvalidated route `audit_corpus` itself takes.
+
+The spec half cannot fire at any level, and not for the reason the audit half
+gives. The 2026-09-05 spec record **predates the projection form**: its
+`analysis-spec` facet carries the frozen members directly and has no
+`projection` key, so `analysis_spec_value` refuses on the facet's shape with
+`MalformedRecord` and `restore`'s `estimand_grammar` check — the only place
+`PreGrammarSpec` is raised — is never reached. That record is
+pre-*projection*, not merely pre-grammar.
+
+`prior_pre_grammar` is therefore **defined**, not asserted, as the conjunction
+of three measurements, and the driver's report derives it from them
+(`docs/designs/2026-09-05-mm30-reproduction.md` §10.7, §10.8):
+
+1. the prior corpus's assessment record raises `PreGrammarAssessment`;
+2. the prior corpus's analysis-spec record returns **no typed value**;
+3. `audit_corpus` over the prior corpus state under the successor profile
+   reports exactly `profile-mismatch: base` and nothing else.
+
+The codes `spec-pre-grammar` and `assessment-pre-grammar` are exercised where
+§3 already says they are — on a corpus **pinned to the successor** holding a
+raw-written pre-grammar record — by `test_estimand_acceptance.py::test_q10_…`,
+`test_audit.py::test_pre_grammar_records_audit_under_their_own_codes` and
+`test_world_audit.py::test_a_pre_grammar_spec_and_assessment_audit_under_their_own_codes_and_the_audit_continues`.
+Filed as a step-10 `design-gap` finding in the reproduction's own
+`findings.jsonl`; no row is weakened and none is re-classified, because the
+requirement the clause exists for — *no reader returns a typed value for
+either* — holds in both halves.
+
+### 8.2 Q10's "same value under a different digest" is measured one level down
+
+§3's Q10 asks that the belief re-derive to the **same value** under a
+**different digest**. The value is `NoBelief(no-directional-outcome)` — the
+outcome is `inconclusive`, which is the scientific result — and **a `NoBelief`
+carries no `belief_input_digest`**; only a `Belief` does. There is no old/new
+digest pair at the belief, and this cut does not invent one.
+
+The digest half is therefore measured at the two identities that do move over
+the same data and the same run inputs
+(`2026-09-05-mm30-reproduction.md` §10.6):
+
+| | prior corpus state | recreated corpus |
+|---|---|---|
+| spec identity | `86aaa1a8a8edda82…` | `10e8bfce1aaad8a9…` |
+| assessment identity (derived) | `316272987716ac4f…` | `618c6c584da64b62…` |
+
+with the belief value equal — `NoBelief(no-directional-outcome)` on both the
+driver's derivation and the fresh process's. The acceptance unit reads both
+identities and the equal value from the driver's recorded state by name.
