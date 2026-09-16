@@ -241,3 +241,63 @@ the same data and the same run inputs
 with the belief value equal — `NoBelief(no-directional-outcome)` on both the
 driver's derivation and the fresh process's. The acceptance unit reads both
 identities and the equal value from the driver's recorded state by name.
+
+### 8.3 Cut 22's frozen `M8a` arm went vacuous, and its check's premise was restored additively — 2026-09-16
+
+Found by the discharge chain, not by the unit suite. `[cut22 phase 3/3]`
+reported
+
+    M8a: drop the sort-contract collection under a belief: vacuous:
+    test_domain_facet_read.py::test_m8_an_editorial_bump_of_a_foreign_sorts_contract_leaves_claim_identity_and_moves_the_digest
+    passed with the sabotage applied
+
+`M8a` sabotages the claim walk's `for sort in operator.arg_sorts:` in
+`consulted.py`, and its check was built so that the `testing` contract is
+reached **only** through slot 1's argument sort. Q8's estimand walk
+(`029babe`) gave `testing` a second route: the fixture's assessments in
+`python/tests/test_domain_facet_read.py` carry a typed estimand whose
+`estimands:` declaration is `testing`'s, so dropping the claim route no longer
+removes the contract from the consulted set. The arm is **not stale** — its
+`before` still matches, and its assertion is still true. What became false is
+the **premise of the check it names**.
+
+The repair is additive and inside the doctrine: the frozen declaration
+`python/tests/n2_arms_cut22.py` and the sabotaged source `consulted.py` are
+**untouched**; the test now also measures the claim's own route in isolation —
+`consulted_contracts` called with no `estimands` supplied, asserting `testing`
+is reached there — and every original assertion survives unchanged. Under the
+`M8a` mutation that added assertion fails, so the arm selects again;
+`certified.log`'s cut 22 phase reports `7 passed`, as before.
+
+**This is precedent, and is written down as one.** The frozen-guard doctrine
+covers a frozen arm whose *site* moves (the live-matcher migration) and a
+frozen arm whose *assertion* is contradicted (a reopening). It is silent on a
+frozen arm whose *check goes vacuous* because a later cut supplied a second
+route to the thing the check isolates. The ruling taken here: restore the
+check's premise **additively**, in the later cut's own tree, editing neither
+the frozen declaration nor the source the arm sabotages, and show the arm
+selecting again in the certified transcript. `test_domain_facet_read.py` lies
+outside §2's file map; it was first touched by this lane at `029babe` for the
+same interaction on a sibling test, which is what keeps the repair inside this
+cut's boundary. Isolation by fixture alone was not available: the only contract
+in the fixture set carrying an `estimands:` entry is `testing`, and
+`crossing.yaml` — which would have to gain one — is outside §2.
+
+**Two readings the implementation took, recorded so the reader need not
+re-derive them.** `Q10-a`'s `after` block widens `restore`'s pre-grammar gate
+rather than coercing a prose estimand into a typed one: `restore` then refuses
+the projection as `MalformedRecord` instead of `PreGrammarSpec`, and the
+acceptance check asserts the refusal **by its own name**, which is decision
+10's content. `Q5-a` likewise selects on the refusal's **name**: the record
+constructor re-runs `check_estimate`, so dropping the call in `assess.py` still
+yields an `AssessmentFinding`, and the row's clause is *"an `AssessmentFinding`
+naming the violation"* — the acceptance check asserts the finding carries
+`check_estimate`'s own words. Both are readings of the rows' wording, taken
+after review.
+
+**`CUT31_DECLARATION_SHA256` is a content pin only.** Cuts 26 and 30 pin their
+declaration to a commit as well, which this cut cannot do at the freeze commit:
+the declaration is written after it. The declaration's commit is `2977a83`, and
+the next cut pins it by adding `python/tests/n2_arms_cut31.py: 2977a83` to its
+`FROZEN_PRIOR_CUT_FILES`, which is the ordinary way this becomes
+commit-pinned.

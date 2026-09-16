@@ -107,7 +107,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 30** is implemented and discharged. What
+Every conformance cut through **cut 31** is implemented and discharged. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -148,9 +148,14 @@ normalized identifiers, and identifier correction preserves attributed history.
 Epoch import evaluates every receipt before writing; epoch audit and query
 reduce retained receipt states; and the world audit reports damaged corpora
 while judging their captured remainder.
-The latest discharged boundary is cut 30
-([cut](docs/designs/2026-09-15-conformance-cut-30.md),
-[results](docs/plans/2026-09-15-conformance-cut-30-results.md)).
+The estimand, its applicability, and the estimate and uncertainty an
+interpretation rule returns are typed against a kernel-owned grammar and
+per-operator domain declarations, with structural match checked at the write
+boundary and under audit and commensuration exposed but unread by
+`science.belief.v1`.
+The latest discharged boundary is cut 31
+([cut](docs/designs/2026-09-15-conformance-cut-31.md),
+[results](docs/plans/2026-09-16-conformance-cut-31-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
 test before it is a passing one. There are **206 rows** across **nineteen frozen
@@ -160,7 +165,7 @@ redefinition.
 
 What is built and what remains to build, each remainder with its named owner,
 is stated once, in the
-[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-15).
+[adoption ledger's current-state summary](docs/designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16).
 The per-cut results records under [`docs/plans/`](docs/plans/) are the
 evidence trail, and unresolved design questions live in the guide's
 [open questions](docs/guide/open-questions.md).

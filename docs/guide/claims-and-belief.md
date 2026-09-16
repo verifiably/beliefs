@@ -2,7 +2,7 @@
 title: Claims and belief
 status: living
 created: 2026-08-08
-updated: 2026-09-15
+updated: 2026-09-16
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-04-domain-extension-boundary-design.md
@@ -17,6 +17,7 @@ sources:
   - ../designs/2026-08-24-world-index-holdings-design.md
   - ../designs/2026-09-05-mm30-reproduction.md
   - ../designs/2026-09-12-estimand-typing-design.md
+  - ../designs/2026-09-15-conformance-cut-31.md
 ---
 
 # Claims and belief
@@ -97,6 +98,58 @@ It becomes eligible only when its run observes at least one held empirical
 dataset, all run inputs are held, and an active clean-environment verification
 admits it. Reproduction is an admission gate, not a strength score.
 
+### The estimand is typed, and so is what the rule returns
+
+Four belief-bearing fields were prose until cut 31
+([design](../designs/2026-09-12-estimand-typing-design.md),
+[cut](../designs/2026-09-15-conformance-cut-31.md)). What is typed is the
+**structure** an estimand has; every vocabulary that fills it stays a domain
+contract's.
+
+- **Estimand.** Built against the typed claim it answers, never from the wire,
+  and carrying that claim's identity. It names a contrast on one of the
+  operator's argument slots — two levels, or a quantity with an additive
+  increment — a measured quantity on a declared scale, a reference the estimate
+  is read against, and a control structure: one identification term and an
+  unordered set of conditioning members. The base contract owns the closed
+  shape (`science.estimand.v1`: the contrast kinds, the scales, the uncertainty
+  kinds); a domain contract declares, per operator, which sorts each member
+  draws on. An estimand outside its claim's operator declaration is not
+  constructible, and a fragment the grammar cannot express — three levels, a
+  second measure, an attenuation pair — is **refused** rather than flattened.
+- **Applicability.** A qualifier map over the target operator's declared
+  dimensions, sorted exactly as a claim's qualifiers are, so
+  `applicability == claim.qualifiers` is decidable in both directions. The
+  empty map is admitted. A scope clause the operator declares no dimension for
+  is refused at authoring, not coerced.
+- **Estimate and uncertainty.** The interpretation rule returns a decimal
+  estimate and typed uncertainty — an interval with a level, or a dispersion —
+  on the **spec's** declared scale and reference, and nothing else. A float, a
+  string, an interval that does not contain the estimate, a level outside
+  `(0, 1)`, a negative standard error, or an attempt to move the scale or
+  reference produces **no assessment** and a finding naming the violation. It
+  never produces `inconclusive`, which is a scientific claim.
+
+Structural match is checked where it can be: a spec whose estimand was built
+against a claim other than the one its target record carries is refused at the
+write boundary and at explicit import, and a raw-written mismatch is caught
+under audit. That the measured quantity actually operationalizes the claim's
+argument stays **authored** — the check is structural and does not pretend
+otherwise.
+
+Two predicates, `commensurable` and `co_scoped`, are exposed from
+`beliefs.estimand`. Both are total and decidable; `science.belief.v1` reads
+neither. Two specs on one claim with identical estimands and different
+applicability maps are commensurable and not co-scoped, which is the
+distinction a weighted successor policy will need and which this design
+supplies without spending.
+
+A record minted before the grammar is **refused under its own name and audited
+under its own code**, never coerced: the transition is recreation, not
+migration. The mm30 reproduction recreated its corpus, re-authored its spec,
+and re-derived its belief from disk in a fresh process to the same value
+(`../designs/2026-09-05-mm30-reproduction.md` §10).
+
 Independence is derived from complete dataset-lineage closures. It is
 three-valued—`independent`, `shared-source`, or `not-certified`—and pairwise, so
 it cannot be represented honestly as fixed groups. Belief aggregation instead
@@ -114,8 +167,12 @@ required argument. There is no default or implicit “latest” policy.
 `science.belief.v1` returns an unbounded integer: a signed balance of unit-weight
 directional assessments after the dependency and contestation rules. It is not
 an odds, probability, confidence score, or stored record. Uniform weighting is
-a declared limit: estimands and uncertainty lack the typed reference and
-commensuration contract needed for study-design or precision weights.
+still a declared limit, but since cut 31 it is no longer for want of a typed
+reference: the estimand, its applicability, the estimate and the uncertainty
+are typed, and `commensurable` and `co_scoped` give a weight table a key
+domain. What is open is the **policy** — which weights, and whether its
+constants are global or domain-scoped — and that is the successor belief
+policy's to design. v1 reads none of it.
 
 The answer has three top-level forms:
 
@@ -181,8 +238,9 @@ intent-bearing acts and projected under a declared coverage — so an
 observation's admission input is a system record rather than a supplied
 argument. The survey and typing exercise remain hand-run measurements, not
 conformance oracles. The
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-15)
-states what remains.
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
+states what remains. The estimand, applicability, estimate and uncertainty are
+typed as of cut 31, with the two commensuration predicates exposed and unread.
 
 ## Open edges
 

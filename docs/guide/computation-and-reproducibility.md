@@ -2,7 +2,7 @@
 title: Computation and reproducibility
 status: living
 created: 2026-08-08
-updated: 2026-09-09
+updated: 2026-09-16
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -18,6 +18,9 @@ sources:
   - ../designs/2026-08-30-conformance-cut-13.md
   - ../designs/2026-08-30-run-confinement-design.md
   - ../designs/2026-09-06-verification-publication-design.md
+  - ../designs/2026-09-05-mm30-reproduction.md
+  - ../designs/2026-09-12-estimand-typing-design.md
+  - ../designs/2026-09-15-conformance-cut-31.md
 ---
 
 # Computation and reproducibility
@@ -44,6 +47,21 @@ An assessment run begins from an immutable analysis spec that names the target
 proposition, estimand, interpretation rule, inputs, parameter contract,
 nondeterminism contract, and equivalence rule. Those fields are projected into
 the run recipe and cannot be overridden at execution time.
+
+Since cut 31 two of those fields are typed values rather than prose
+([estimand typing](../designs/2026-09-12-estimand-typing-design.md),
+[cut 31](../designs/2026-09-15-conformance-cut-31.md)). The spec's `estimand`
+is built against the typed claim its `target` names and its `applicability` is
+a qualifier map over that claim's operator's declared dimensions; `method`,
+`assumptions` and `falsification` stay prose or a ref. The interpretation rule
+is typed on the output side too: it returns an `outcome`, a decimal `estimate`
+and a typed `uncertainty` on the **spec's** declared scale and reference, and
+a rule that yields a float, a string, an interval that does not contain the
+estimate, or a `scale` or `reference` of its own produces **no assessment** and
+a finding. Because a stored spec is only meaningful under the profile that
+wrote it, `restore` and the stored-record readers `analysis_spec_value` and
+`assessment_value` now take that profile as an argument, and a record minted
+before the grammar is refused by name rather than coerced.
 
 Freezing a spec before execution is preregistration only when chronology is
 independently observable. A content hash proves content identity, not when the
@@ -160,7 +178,18 @@ recompute its scope from the corpus rather than from an in-memory value. What is
 elsewhere — the mutation log's event-level order (L8); and the
 preimage-backed classification of a removed verification (L13) — and listed
 with those owners in the
-[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-15).
+[adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16).
+
+The mm30 reproduction was re-run end to end at cut 31 under the successor
+contracts (`../designs/2026-09-05-mm30-reproduction.md` §10). It **recreates**
+the corpus rather than retyping it: four held term lists, a typed estimand
+whose every referent resolved on the first call, a spec re-authored by `freeze`
+with no `supersedes`, the confined run, the replay reaching
+`clean-environment`, and admission to a computed answer. A second process
+holding nothing in memory restored the spec and the assessment from the corpus
+on disk, re-derived both, and reached the same belief value — the
+"recovered from the corpus alone" reading the record's own §5 asked of
+verification, now had for the spec and the assessment too.
 
 ## Open edges
 

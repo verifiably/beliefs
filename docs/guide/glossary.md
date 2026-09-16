@@ -2,7 +2,7 @@
 title: Glossary
 status: living
 created: 2026-08-08
-updated: 2026-09-11
+updated: 2026-09-16
 sources:
   - ../designs/2026-08-02-epistemic-kernel-design.md
   - ../designs/2026-08-02-world-addressing-design.md
@@ -14,6 +14,8 @@ sources:
   - ../designs/2026-08-11-act-report-design.md
   - ../designs/2026-09-04-write-permits-design.md
   - ../designs/2026-09-05-writer-session-design.md
+  - ../designs/2026-09-12-estimand-typing-design.md
+  - ../designs/2026-09-15-conformance-cut-31.md
 ---
 
 # Glossary
@@ -39,7 +41,12 @@ context and the linked design references for normative detail.
   estimand, interpretation, inputs, parameters, nondeterminism, and equivalence
   rule for an assessment run. ([computation](computation-and-reproducibility.md#the-analysis-spec-freezes-the-scientific-plan))
 - **Applicability** — The scope an estimand licenses, declared in the spec and
-  possibly narrower than the proposition it targets. ([computation](computation-and-reproducibility.md#the-analysis-spec-freezes-the-scientific-plan))
+  possibly narrower than the proposition it targets. Since cut 31 it is a
+  **qualifier map** over the target operator's declared dimensions, sorted as a
+  claim's qualifiers are, so equality with the claim's qualifiers is decidable
+  in both directions; the empty map is admitted, and a scope clause the
+  operator declares no dimension for is refused rather than coerced.
+  ([claims](claims-and-belief.md#the-estimand-is-typed-and-so-is-what-the-rule-returns))
 - **Assessment** — A run-derived result that evaluates one proposition and is
   the only record kind allowed to enter empirical belief. ([claims](claims-and-belief.md#assessments-are-the-only-empirical-route))
 - **Audit wrapper** — The boundary operation that runs the read-only
@@ -110,9 +117,33 @@ context and the linked design references for normative detail.
   qualifier dimensions, facets, and vocabulary bindings. ([foundations](foundations.md#contracts-compile-into-profiles))
 - **Epoch** — An immutable world-index publication over explicit corpus states,
   world records, rules, and derivation receipts. ([identity](identity-world-and-change.md#the-world-index-is-a-named-covered-view))
-- **Estimand** — What quantity an analysis estimates, and at what scope. Frozen
-  in the analysis spec and copied into the assessment rather than authored
-  there. ([computation](computation-and-reproducibility.md#the-analysis-spec-freezes-the-scientific-plan))
+- **Estimand** — What quantity an analysis estimates. Frozen in the analysis
+  spec and copied into the assessment rather than authored there. Since cut 31
+  it is a typed, opaque value built against the typed claim it answers: a
+  contrast on one argument slot, a measured quantity on a declared scale, a
+  reference, and a control structure of one identification term and a set of
+  conditioning members. The kernel owns the closed structure
+  (`science.estimand.v1`); a domain contract declares, per operator, the sorts
+  each member draws on. ([claims](claims-and-belief.md#the-estimand-is-typed-and-so-is-what-the-rule-returns))
+- **Estimate** — The quantity an interpretation rule returns, as an exact
+  decimal on the scale and against the reference the **spec** declared. A
+  binary float, a string, or an estimate the rule's own scale forbids produces
+  no assessment and a finding, never `inconclusive`.
+  ([claims](claims-and-belief.md#the-estimand-is-typed-and-so-is-what-the-rule-returns))
+- **Uncertainty** — The typed companion of an estimate: an interval with a
+  level in `(0, 1)` containing the estimate, or a dispersion with a
+  non-negative standard error, on the estimate's own scale. The kernel gives
+  the kind one meaning and does not say whether an interval is credible or
+  confidence. ([claims](claims-and-belief.md#the-estimand-is-typed-and-so-is-what-the-rule-returns))
+- **Commensurable** — A total, decidable predicate over two admitted estimands:
+  true when they estimate the same quantity — same claim, contrast, measure,
+  scale and reference — differing at most in how it was identified. Exposed
+  from `beliefs.estimand` and read by nothing in `science.belief.v1`.
+  ([claims](claims-and-belief.md#the-estimand-is-typed-and-so-is-what-the-rule-returns))
+- **Co-scoped** — The companion predicate: true when two estimands' typed
+  applicability maps are equal. Two specs on one claim may be commensurable and
+  not co-scoped; a successor policy reading only the first would pool them.
+  ([claims](claims-and-belief.md#the-estimand-is-typed-and-so-is-what-the-rule-returns))
 - **Facet** — A named block of typed fields carried by a record. Base-profile
   facets are unnamespaced; domain facets are namespaced and may extend
   interpretation without redefining kernel relations. A dataset's
@@ -191,6 +222,11 @@ context and the linked design references for normative detail.
   audit and the import recompute its scope, and a record without a report is
   checked for verdict and identity only.
   ([verification publication](../designs/2026-09-06-verification-publication-design.md#41-the-facet))
+- **Pre-grammar record** — An analysis spec or assessment minted before
+  `science.estimand.v1`, carrying prose where the typed members belong. It is
+  **refused under its own name** by the readers and reported under its own
+  audit code; nothing coerces or repairs it. A corpus still holding one after
+  cut 31 is a corpus that was not recreated. ([claims](claims-and-belief.md#the-estimand-is-typed-and-so-is-what-the-rule-returns))
 - **Qualifier** — A restriction on one of an operator's declared dimensions,
   sorted exactly as an argument is. The v1 fragment is flat: one restriction per
   dimension, with a quantifier. ([claims](claims-and-belief.md#a-claim-is-typed-by-its-operator))

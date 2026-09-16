@@ -193,6 +193,24 @@ below refers to:
 | `parameters` | the declared parameter set |
 | `nondeterminism_contract` | a **discriminated union** — `deterministic`, `seeded` (carrying a complete seed plan), or `stochastic-unseeded` (carrying a rationale) — §3.1a |
 
+> **Amended 2026-09-16** (`2026-09-12-estimand-typing-design.md`, discharged at
+> conformance cut 31). **`estimand` and `applicability` are typed values, not
+> prose.** `estimand` is built against the typed `Claim` that `target` names and
+> carries that claim's identity, a contrast on one argument slot, a measured
+> quantity on a declared scale, a reference and a control structure; its closed
+> structure is the base contract's (`science.estimand.v1`) and each member's
+> vocabulary is a domain contract's, declared per operator. `applicability` is
+> a qualifier map over that operator's declared dimensions. The facet gains one
+> further member, `estimand_grammar`, so that a spec frozen under one grammar
+> version cannot be read as though it were frozen under another; every estimand
+> and applicability member enters the spec's identity, and reordering the
+> unordered ones does not move it. `method`, `assumptions` and `falsification`
+> stay prose or a ref, for the reason the next paragraph gives: they are
+> separate things, and only the estimand had three named readers waiting for it.
+> The write boundary additionally requires the estimand's claim and operator to
+> agree with the target record's (§7.2 there); the check is **structural**, and
+> §13 limitation 1 records what it does not certify.
+
 **`method`, `assumptions` and `falsification` are separate fields because the kernel
 says they are separate things.** Kernel §4.4 absorbs `method`, `assumption` and
 `falsification` into `analysis-spec` "as fields/refs", and kernel §11 adds that they
@@ -409,6 +427,29 @@ leaving the mechanism that replaces authorship undefined.
 > **boundary-built result manifest** (§4.2d) and nothing else — not the recipe, not
 > the occurrence, not the corpus. A `v2` rule identity is **disjoint** from its `v1`,
 > as with every other versioned rule here.
+
+> **Amended 2026-09-16 — the output shape is typed, and its frame belongs to the
+> spec** (`2026-09-12-estimand-typing-design.md`, discharged at conformance cut
+> 31). The signature above is unchanged in shape and typed in its members:
+>
+> ```
+> (execution result) → { outcome, estimate?: Decimal, uncertainty?: Uncertainty }
+> ```
+>
+> `estimate` is an exact decimal — a binary float is refused at the boundary —
+> on the **scale** and against the **reference** the frozen spec's estimand
+> declared, and `uncertainty` is an interval carrying a level in `(0, 1)` and
+> containing the estimate, or a dispersion carrying a non-negative standard
+> error, on that same scale. A rule output carrying `scale` or `reference` of
+> its own is **refused**: the frame is pre-registered, and letting the rule
+> state it would be choosing after seeing the result, which is what this
+> section exists to stop. An estimate that the declared scale forbids — a
+> non-positive value under `multiplicative` — is refused on the same ground.
+>
+> Every one of these failures follows this section's existing ruling exactly:
+> **no assessment is produced**, an `AssessmentFinding` names the violation, and
+> nothing becomes `inconclusive`. A rule that yields nothing but `outcome` mints
+> as it always did.
 
 **Evaluator failure produces no assessment — it is not `inconclusive`.** This is the
 opposite ruling to §7.2's, and the asymmetry is the point. There, an equivalence rule
@@ -1092,6 +1133,21 @@ it was false for the comparison report.
 > where the rule yields them, `proposition` from the spec's `target`, `estimand` and
 > `applicability` copied from the spec, and `interpretation_rule` as a ref to the
 > frozen rule that ran. **There are no facet arguments.**
+
+> **Amended 2026-09-16** (`2026-09-12-estimand-typing-design.md`, discharged at
+> conformance cut 31). The two copied members are now **typed values**, so the
+> copy is a copy of a structure rather than of a string, and the constructor
+> additionally **checks the rule's output against the frozen spec** before it
+> derives anything: the estimate's type and scale, the uncertainty's shape and
+> containment, and the absence of any `scale` or `reference` the rule tried to
+> supply (§3.1b). A violation yields no assessment and a finding, which is this
+> section's existing ruling and not a new one. Restoring a stored spec or
+> assessment needs the profile that wrote it, so `restore`,
+> `analysis_spec_value` and `assessment_value` take one; a record minted before
+> `science.estimand.v1` is refused by its own name and never coerced into a
+> typed value. **There are still no facet arguments**, and the bypass discipline
+> above is unchanged: explicit import recomputes and refuses a mismatch, a
+> raw-written record is caught only under audit, and reading validates nothing.
 
 Every field then traces to something already frozen or already derived, and the two
 fields kernel §4.2.1 marks "copied from the frozen spec, never re-authored here" are

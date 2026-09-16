@@ -11,6 +11,10 @@ the lane could open because it amends the base contract
 and the operator declaration, and the contract cut freezes after the last
 oracle-amending lane merges; deciding the shape before that freeze costs one
 design, deciding after it costs a successor contract.
+**Discharged 2026-09-16 at cut 31**, Q1–Q10 closed in full; results
+`../plans/2026-09-16-conformance-cut-31-results.md`. The boundary entered the
+ledger's `Current state` and the roadmap's boundary index at that record and
+closed in the same commit (§11).
 
 **Answers.** ρO3's *estimand* half — kernel limitation 5's residue, belief
 policy §3.2's "typed reference and commensuration contract that no artifact

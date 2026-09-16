@@ -2,7 +2,7 @@
 title: Open questions
 status: living
 created: 2026-08-08
-updated: 2026-09-11
+updated: 2026-09-16
 sources:
   - ../designs/2026-08-02-computation-reproducibility-design.md
   - ../designs/2026-09-05-mm30-reproduction.md
@@ -24,6 +24,8 @@ sources:
   - ../designs/2026-08-20-conformance-cut-6.md
   - ../designs/2026-08-20-world-index-slice-2-design.md
   - ../designs/2026-08-23-world-index-root-lifecycle-design.md
+  - ../designs/2026-09-12-estimand-typing-design.md
+  - ../designs/2026-09-15-conformance-cut-31.md
 ---
 
 # Open questions
@@ -72,6 +74,16 @@ implementation**: a guarantee row awaiting code is work, not a question.
 - **Entailment and estimand match.** Can evidence bear across related claims,
   and is estimand compatibility derived from claim entailment or governed by an
   independent typed relation? ([ρO3](../designs/2026-08-04-formal-model-and-claim-calculus-design.md#11-open-questions))
+  The **estimand half is closed** by the
+  [estimand-typing design](../designs/2026-09-12-estimand-typing-design.md),
+  discharged at [cut 31](../designs/2026-09-15-conformance-cut-31.md):
+  compatibility is governed by an independent typed relation, `commensurable`,
+  with `co_scoped` beside it for scope, and structural match against the
+  target claim is checked at the write boundary and under audit. It is **not**
+  derived from entailment. The **entailment half is open** and unchanged — no
+  order over claims is defined, so evidence still cannot be said to bear from
+  one claim to another, and `commensurable` answers only whether two estimands
+  estimate the same quantity.
 - **Qualifier grammar.** Quantitative restrictions, multiple restrictions,
   adjustment sets, modality, comparison, and disjunction remain outside the
   flat fragment. Adjustment placement depends separately on scientific target
@@ -101,9 +113,15 @@ implementation**: a guarantee row awaiting code is work, not a question.
   spelling and leaves this one to the layer design's claim sub-project, which
   authors specs against typed claims.
   ([verification publication](../designs/2026-09-06-verification-publication-design.md#9-limitations))
-- **Weighted belief.** Estimand typing needs an owner before study-design or
-  precision weights can be compared; a successor must also decide whether any
-  constants are global or domain-scoped. ([belief questions](../designs/2026-08-05-belief-policy-design.md#9-open-questions))
+- **Weighted belief.** The key domain is now supplied: the estimand, its
+  applicability, the estimate and the uncertainty are typed, and
+  `commensurable` and `co_scoped` are exposed and total
+  ([cut 31](../designs/2026-09-15-conformance-cut-31.md)). `science.belief.v1`
+  reads none of it and still weights every directional assessment at 1. What
+  blocks the successor is the **belief-policy design over those two keys** —
+  which weights a design key and a precision term license, and whether any
+  constants are global or domain-scoped.
+  ([belief questions](../designs/2026-08-05-belief-policy-design.md#9-open-questions))
 - **Losing the last held copy.** Nothing records the destruction of a final held
   artifact. The recorded-loss repair was withdrawn as premature and stays
   withdrawn, so the gap is a stated residue rather than an oversight.

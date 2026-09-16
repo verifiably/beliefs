@@ -583,6 +583,26 @@ minimal facet is normative, not illustrative:
 | `applicability` | the scope the estimand licenses, which may be narrower than the proposition |
 | `interpretation_rule` | ref to the frozen rule in the spec that mapped the run's output to `outcome` |
 
+> **Amended 2026-09-16** (`2026-09-12-estimand-typing-design.md`, discharged at
+> conformance cut 31). **Four of those rows are typed, and the table's prose is
+> now a summary of a structure rather than the whole of it.** `estimand` is a
+> typed opaque value built against the typed `Claim` the spec targets — a
+> contrast on one argument slot, a measured quantity on a declared scale, a
+> reference, and a control structure of one identification term and a set of
+> conditioning members — under a kernel-owned closed grammar
+> (`science.estimand.v1`) whose vocabularies each domain contract declares per
+> operator. `applicability` is a qualifier map over that operator's declared
+> dimensions, so "narrower than the proposition" is now **decidable** against
+> `claim.qualifiers` rather than asserted. `estimate` is an exact decimal on the
+> spec's scale and against its reference; `uncertainty` is an interval with a
+> level in `(0, 1)` containing the estimate, or a dispersion with a
+> non-negative standard error. The rule may not move the scale or the
+> reference, and a rule output violating any of this yields **no assessment**
+> and a finding — never `inconclusive`, on §3.3's asymmetry. The three
+> statements this table already made are unchanged: the fields are
+> belief-bearing, `estimand` and `applicability` are copied from the frozen
+> spec and never re-authored here, and every member enters the facet digest.
+
 **Independence is derived, never authored.** It is computed from upstream dataset
 lineage: two assessments are independent when their `observes` inputs have
 **complete and disjoint** ancestor closures. This is the direct fix for the
@@ -1273,6 +1293,29 @@ ordinary terms.
    The same gap is what forces `science.belief.v1` to weight every directional
    assessment equally, so this limitation and belief-policy limitation 1 are one
    limitation reached from two directions.
+
+   > **Amended 2026-09-16 — the structural half is supplied; the semantic
+   > residue survives** (`2026-09-12-estimand-typing-design.md`, discharged at
+   > conformance cut 31). The typed reference and the commensuration contract
+   > this limitation named as its blocker now exist and have an owner. An
+   > estimand is typed against the claim it answers, and **structural match is
+   > checked**: a spec whose estimand was built against a different claim — or
+   > against a different operator, or the same arguments under different
+   > qualifiers — is refused at the write boundary and at explicit import, and
+   > a raw-written mismatch is contradicted under audit. `commensurable` and
+   > `co_scoped` are total, decidable and exposed, so a weight table has a key
+   > domain at last.
+   >
+   > What survives is the **semantic** residue, and it is the larger half:
+   > that the measured quantity actually *operationalizes* the claim's
+   > argument is **authored**, not guaranteed. A measured quantity of the right
+   > sort that measures the wrong thing is admitted, and the design's Q6 row
+   > asserts that admission rather than hiding it. So this limitation narrows
+   > from "no match is stateable" to "match is stateable and checked
+   > structurally, and its semantic half remains the author's". The equal
+   > weighting it explains is unchanged: `science.belief.v1` reads none of the
+   > new fields, and lifting it is the successor belief policy's work
+   > (belief-policy §9 question 2).
 6. **"Data doesn't lie" has practical limits** beyond fabrication — QA failures,
    batch effects, analytic degrees of freedom. This is why pre-declared
    interpretation rules and estimator certification must survive the rebuild
