@@ -290,6 +290,25 @@ contract froze first.
 
 ## 6. Main integration
 
-To be completed when `design/estimand-typing` merges to `main`: the merge
-commit, the whole-branch review disposition, and `just gate` on the unchanged
-merged revision with the exports of §1.
+Merged `design/estimand-typing` into `main` with `--no-ff` on 2026-09-16 at
+`d25c7af1ea81346c7db0a77de64db44403459b37`, after the whole-branch review and the scoped
+re-review of its documentation-only fix wave at `63e53f0`. Every review
+finding was addressed or filed (§3.3). `main` had not moved since the branch
+was rebased onto `5127dcf`, so the merge carries nothing but the lane.
+
+`just gate`, run on that unchanged merged revision with the exports of §1,
+exited **0**. Ruff, Pyright, TypeScript typecheck and Biome passed; task
+validation reported **zero errors and zero warnings**. The serial Python
+suite reported **4,829 passed in 1219.67s (0:20:19)**, twelve more than the
+discharge's 4,817 because the second-domain API test
+(`test_estimand_natural_systems.py`, `beliefs-e48279`) joined the suite after
+the discharge. TypeScript reported **148 passed** across seven files. No
+capability refusal, skip or waiver occurred.
+
+The output is retained in
+[`main-gate.log`](2026-09-15-conformance-cut-31-run/main-gate.log), SHA-256
+`3eb692f1166311826bf74d9d8b3464f9a0a9408ba7d71b03d39abaa024fc7ec9`.
+Only Vitest's absolute checkout path was replaced by `./ts`; Pyright's
+informational version-availability notice is retained. Earlier branch and
+certified transcripts are unchanged. This integration record changes only
+documentation after the gate.
