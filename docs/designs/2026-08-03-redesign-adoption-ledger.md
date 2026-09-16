@@ -46,12 +46,13 @@ here rather than restating it. It lists no unresolved design question:
 `../guide/open-questions.md` owns those. Nothing below orders the remaining
 work.
 
-**Updated 2026-09-16** for cut 31's estimand-typing discharge.
+**Updated 2026-09-16** for cut 32's composite-claims discharge, after cut 31's
+estimand-typing discharge the same day.
 
-**Implemented through conformance cut 31.** Cuts 4–24 have discharge results
+**Implemented through conformance cut 32.** Cuts 4–24 have discharge results
 records under `../plans/`; cut 25 records discharge in its frozen cut document,
-and cuts 26–31 record discharge in their dated results records, most recently
-`../plans/2026-09-16-conformance-cut-31-results.md`.
+and cuts 26–32 record discharge in their dated results records, most recently
+`../plans/2026-09-16-conformance-cut-32-results.md`.
 Cuts 1–3 are proved by their merge ancestry and the surfaces they built
 (`../plans/2026-08-28-current-state-evidence.md`).
 
@@ -201,8 +202,29 @@ Cuts 1–3 are proved by their merge ancestry and the surfaces they built
   exposed from `beliefs.estimand` and read by nothing in `science.belief.v1`.
   A pre-grammar record is refused under its own name and audited under its own
   code — the transition is recreation, not migration. Q1–Q10 close at cut 31,
-  which also re-runs the mm30 reproduction into a recreated corpus. The corpus
-  has 163 of 206 rows closed.
+  which also re-runs the mm30 reproduction into a recreated corpus.
+- **Composite claims — the structure a set of claims is drawn against** — the
+  base contract owns a closed `composite_grammar` (`science.composite.v1`, one
+  shape, `dag`), the `composite` kind, a `composes` signature closed to
+  `composite → proposition`, and a `supersedes` declared `same_kind` and widened
+  to the two kinds it succeeds; a domain contract declares, per operator, which
+  argument slot is the cause and which the effect. A composite declares an
+  explicit closed node set and members named by claim identity, each read as a
+  signed directed edge — polarity is the edge's sign and never its presence, a
+  cycle refuses, and the absence of an edge between declared nodes is the
+  record's assertion. Construction resolves each node against the caller's
+  snapshot and returns a receipt rather than a refusal for a term nothing
+  consulted. Its reading is a pure function of its named arguments, one row per
+  member, each row's belief and identification column taken from the evaluator's
+  own traced admission and stored nowhere. It is belief-inert by construction:
+  `assesses` keeps its one target kind, the belief input closure never mentions
+  the kind, and the digest is byte-identical across minting, superseding and
+  deleting one. Kernel §11's first open question closes and §4.4's open row
+  keeps only `search`: `structural-chain` dissolves, `patch-definition` splits
+  into a composite and a view query, and `inquiry` decomposes into records that
+  exist. **U1–U10 close at cut 32**, which also re-ran the mm30 reproduction into
+  a recreated corpus and composed and read the `h1-prognosis` fragment from it,
+  twice, from persisted records. The corpus has **173 of 216 rows closed**.
 
 **Remaining implementation boundaries with named owners.** One row per
 boundary: a stable id, what it is, who owns it, and what it blocks. Row order
@@ -232,7 +254,21 @@ not listed.
 
 Detailed state, with every dated correction, stays in §1's rows and §3's order
 of work. The newest results record
-(`../plans/2026-09-16-conformance-cut-31-results.md`) discharges estimand typing: `estimand-typing` entered this table and the roadmap's boundary index at that record and closed in the same commit, so neither carries an open row for it, and the roadmap's lane table carries the closed `estimand-typing` lane. Q1–Q10 close in full; the design's twelve limitations are banked as limitations, not work. `weighted-belief` is re-blocked — its key domain is supplied and what it now waits on is the successor belief-policy design over `commensurable` and `co_scoped` (beliefs-638318) — and `contract-cut` gains this lane as a dependency, because the base contract, the operator declaration class, the assessment facet and the D6 oracle are all amended here. The previous record (`../plans/2026-09-15-conformance-cut-30-results.md`) discharged world-resolution slice 6 and closed that boundary and beliefs-d248ba with it. W8 remains unchanged. nodes-remainder closed 2026-09-12: `nodes`
+(`../plans/2026-09-16-conformance-cut-32-results.md`) discharges composite
+claims: `composite-claims` entered this table and the roadmap's boundary index
+at that record and closed in the same commit, so neither carries an open row for
+it, and the roadmap's lane table carries the closed `composite-claims` lane.
+U1–U10 close in full and the design's eighteen limitations are banked as
+limitations, not work. What the lane leaves standing elsewhere: the
+coordination-contract amendment that would add `composite` to version 1's
+literal `kinds` list and `composes` to its `relations` list is **sub-project 5's
+road**, and `closure` from a composite anchor and a `kinds: [composite]` view
+predicate both wait on it; `correction-remainder` still owns **C7, C8, C9**, and
+the reading's identification column follows admission as it is until that
+remainder lands; and `contract-cut` still owns **N1–N10** and carries this lane
+as a dependency, added when the lane opened, because the base contract gains a
+grammar, a kind and a relation signature here. The previous record
+(`../plans/2026-09-16-conformance-cut-31-results.md`) discharged estimand typing: `estimand-typing` entered this table and the roadmap's boundary index at that record and closed in the same commit, so neither carries an open row for it, and the roadmap's lane table carries the closed `estimand-typing` lane. Q1–Q10 close in full; the design's twelve limitations are banked as limitations, not work. `weighted-belief` is re-blocked — its key domain is supplied and what it now waits on is the successor belief-policy design over `commensurable` and `co_scoped` (beliefs-638318) — and `contract-cut` gains this lane as a dependency, because the base contract, the operator declaration class, the assessment facet and the D6 oracle are all amended here. The record before that (`../plans/2026-09-15-conformance-cut-30-results.md`) discharged world-resolution slice 6 and closed that boundary and beliefs-d248ba with it. W8 remains unchanged. nodes-remainder closed 2026-09-12: `nodes`
 merged its 2.0 remainder to `main` at `b0c37b8` (STANDARD 2.0; umbrella
 `nodes-ce28b8`), so row 3 carries no live work and the contract-cut join
 (`beliefs-eacbe2`) no longer waits on `nodes`. Every boundary's tracker entry is named in the

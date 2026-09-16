@@ -199,6 +199,7 @@ class TestTheKindIsGoverned:
         assert stored.COREFERENCE_ENDPOINT_KINDS == (
             "proposition", "source-assertion", "assessment", "analysis-spec", "run",
             "verification", "dataset", "source", "retraction", "instrument-certification",
+            "composite",
         )
 
 

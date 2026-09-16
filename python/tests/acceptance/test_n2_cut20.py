@@ -24,6 +24,13 @@ import beliefs
 # `before` at the current line and keeps the same defeated refusal — `kinds`
 # and `relations` accepted alongside it — so the sabotage still catches D8's
 # check rather than scoring stale.
+#
+# Live matcher migration, 2026-09-16 (composite-claims Task 2, U2): the same
+# `_CONTRACT_OPTIONAL` gained `"edges"`, so the restated set above needs it too.
+# Only the `after` moved: without it the sabotaged parser refuses the biology
+# fixture's `edges:` row, every acceptance conftest fails to import, and the
+# arm scores `uncollected` — `pytest` exiting 4 is not a failing check. The
+# defeated refusal is unchanged.
 _LIVE_SABOTAGES = {
     "F8": Sabotage(
         module="stored.py",
@@ -41,7 +48,7 @@ _LIVE_SABOTAGES = {
             "            )\n"
             "    _fields(root, _CONTRACT_FIELDS, _CONTRACT_OPTIONAL, source)\n"
         ),
-        after='    _fields(root, _CONTRACT_FIELDS, frozenset({"description", "facets", "estimands", "kinds", "relations"}), source)\n',
+        after='    _fields(root, _CONTRACT_FIELDS, frozenset({"description", "facets", "estimands", "edges", "kinds", "relations"}), source)\n',
     ),
 }
 CUT20_ARMS = tuple(

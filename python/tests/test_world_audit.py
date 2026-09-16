@@ -373,3 +373,88 @@ def test_a_pre_grammar_spec_and_assessment_audit_under_their_own_codes_and_the_a
     assert found[assessment_node.id] == "assessment-pre-grammar"
     assert "derivation-malformed" not in found.values()
     assert any(f.ref == forged.id and f.code == "verification-derivation-contradicted" for f in audit.corpora[ALPHA])
+
+
+# --- composites and cross-kind succession reached through the world audit ----
+# Both loops read a `supersedes` target and a composite's members through the
+# world view, where a ref recorded in an absent corpus is `RecordNotPresent`
+# rather than `RefError`. The audit reports and never raises (module docstring),
+# so each of these arms asserts the whole world audit still completes.
+
+
+def _composite_across(tmp_path, *, member_slugs=("ab", "bc")):
+    """A composite and its two member propositions, built in a scratch corpus so
+    the caller can place them in whichever world corpus the arm needs."""
+    from test_composite_boundary import _build, _claim, _proposition
+    from test_composite_boundary import _writer as _composite_writer
+
+    scratch = _composite_writer(tmp_path / "scratch" / "corpus")
+    ab = _proposition(scratch, "ab", _claim("EX:a", "EX:b"))
+    bc = _proposition(scratch, "bc", _claim("EX:b", "EX:c", polarity="negative"))
+    minted = scratch.add(stored.composite_node(_build(scratch, [ab.id, bc.id]), title="g"))
+    view = scratch.read_view
+    return view.get(minted.id), {"ab": view.get(ab.id), "bc": view.get(bc.id)}
+
+
+def _world_of(tmp_path, placement):
+    from test_world_receipts import corpora, hold_shipped, publish, world_over
+
+    roots = corpora(tmp_path, placement)
+    world = world_over(tmp_path, roots)
+    return world, roots, publish(world, tuple(placement), hold_shipped(world))
+
+
+def test_a_supersedes_edge_into_an_absent_corpus_does_not_discard_the_world_audit(tmp_path):
+    """`check_supersedes_kinds` reads its target through the world view. A
+    predecessor recorded in a corpus with no carrier answers `RecordNotPresent`,
+    which is a `ScienceError` and not a `RecordError`: unguarded, it escapes the
+    per-record loop and takes every finding already collected with it."""
+    from nodes.core.relations import Relation
+
+    predecessor = stored.proposition_node("beta-ab", title="beta ab", claim={"operator": "affects"})
+    successor = stored.proposition_node("alpha-ab", title="alpha ab", claim={"operator": "affects"})
+    successor.relations.append(Relation(source=successor.id, predicate=stored.SUPERSEDES, target=predecessor.id))
+    world, roots, published = _world_of(tmp_path, {ALPHA: (successor,), BETA: (predecessor,)})
+    make_absent(roots, BETA)
+
+    audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
+
+    assert ("corpus-absent", "") in codes(audit.corpora[BETA])
+    assert ("supersession-target-missing", predecessor.id) in codes(audit.corpora[ALPHA])
+    assert not any(f.code == "supersedes-cross-kind" for f in audit.corpora[ALPHA])
+
+
+def test_a_composite_member_in_an_absent_corpus_is_unchecked_not_a_raise(tmp_path):
+    """A member recorded elsewhere is not a member that is gone: the audit
+    reports neither `composite-member-unresolvable` nor a raise, and the record's
+    derivation is simply unchecked (module docstring, third case)."""
+    from beliefs.audit import check_composite
+    from beliefs.world.view import open_world_view
+
+    composite, members = _composite_across(tmp_path)
+    world, roots, published = _world_of(
+        tmp_path, {ALPHA: (composite, members["ab"]), BETA: (members["bc"],)}
+    )
+    make_absent(roots, BETA)
+
+    audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
+
+    assert not any(f.code.startswith("composite-") for f in audit.corpora[ALPHA])
+    view = open_world_view(world, published, on_damage="report")
+    outcome = check_composite(view, view.get(composite.id), profile=WITH_BIOLOGY)
+    assert outcome.checked is False and outcome.contradiction is None
+    assert members["bc"].id in outcome.reason and BETA in outcome.reason
+
+
+def test_a_dangling_composite_is_reported_through_the_world_audits_recompute(tmp_path):
+    """The U7 arm `beliefs-6776d3` names: `check_composite` reached through
+    `audit_world`'s `_recompute` dispatch rather than through `audit_corpus`."""
+    composite, members = _composite_across(tmp_path)
+    world, _roots, published = _world_of(
+        tmp_path, {ALPHA: (composite, members["ab"]), BETA: (stored.dataset_node(title="beta", resources=pinned("beta")),)}
+    )
+
+    audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
+
+    assert [(f.code, f.ref) for f in audit.corpora[ALPHA]] == [("composite-member-unresolvable", composite.id)]
+    assert audit.corpora[BETA] == ()

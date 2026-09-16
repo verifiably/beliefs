@@ -17,7 +17,9 @@ sources:
   - ../designs/2026-08-24-world-index-holdings-design.md
   - ../designs/2026-09-05-mm30-reproduction.md
   - ../designs/2026-09-12-estimand-typing-design.md
+  - ../designs/2026-09-12-composite-claims-design.md
   - ../designs/2026-09-15-conformance-cut-31.md
+  - ../designs/2026-09-16-conformance-cut-32.md
 ---
 
 # Claims and belief
@@ -158,6 +160,42 @@ independent directional assessments. Dependent opposing assessments may reduce
 a result toward the prior but cannot manufacture corroboration or cross the
 prior.
 
+### Composites: a structure over claims, and never a claim
+
+A **composite** is the record for the structure a set of claims is drawn
+against — a causal DAG, an inquiry's spine, the authored half of a patch
+definition — added at cut 32
+([design](../designs/2026-09-12-composite-claims-design.md),
+[cut](../designs/2026-09-16-conformance-cut-32.md)).
+
+**What one asserts.** Three things, all authored: a closed node set of
+`(sort, term)` pairs; members that are propositions, named by claim identity
+and read as signed directed edges under the domain contract's per-operator
+declaration of which argument slot is the cause and which the effect; and,
+under the one shape `dag`, that **no other direct edge holds among those
+nodes**. That absence is what makes it a model rather than a list, and it is
+why a saved query could not do this job. An edge's polarity is its *sign*, not
+its presence: an inhibitory member is an edge like any other, and a cycle
+through one refuses like any other cycle.
+
+**How it is read.** Its reading is derived and stored nowhere: one row per
+member, carrying that member's belief and the sorted set of identification
+terms from the assessments the evaluator admitted for it. Every row's belief is
+**the evaluator's own answer** for that member under the same arguments — the
+reading calls the traced evaluator rather than re-deriving anything — so
+withholding the policy implementation reads `NoBelief("unavailable-policy-unheld")`
+and a member nothing assesses reads `NoBelief` with an empty set. A reading is
+a pure function of its named arguments: two processes given equal arguments
+agree byte for byte.
+
+**It is never a belief input.** `assesses` keeps its one target kind, so an
+assessment cannot name a composite; minting, superseding or deleting one leaves
+every proposition's belief input digest byte-identical; and a claim *about* a
+composite — that this DAG fits the data, a causal-discovery posterior over
+structures — is model-conditional and has no empirical route, exactly as
+before. A composite is amended by succession, never in place: a change to what
+it asserts mints a successor linked by `supersedes`.
+
 ### A belief is a reproducible view
 
 A belief computation receives an exact
@@ -241,6 +279,8 @@ conformance oracles. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
 states what remains. The estimand, applicability, estimate and uncertainty are
 typed as of cut 31, with the two commensuration predicates exposed and unread.
+The `composite` kind is built as of cut 32: structures are recorded, read
+through the traced evaluator, and inert to belief.
 
 ## Open edges
 

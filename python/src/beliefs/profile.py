@@ -38,7 +38,7 @@ from typing import final
 from nodes.core.node import Node
 from nodes.core.registry import KindSpec, Registry, Violation
 
-from beliefs.contract.base import BaseContract, ClaimGrammar, EstimandGrammar, FacetUse, RelationDecl
+from beliefs.contract.base import BaseContract, ClaimGrammar, CompositeGrammar, EstimandGrammar, FacetUse, RelationDecl
 from beliefs.contract.coordination import CoordinationContract
 from beliefs.contract.domain import DomainContract, EstimandDecl, OperatorDecl, VocabularyBinding, _name
 from beliefs.contract.facets import FieldDecl
@@ -56,6 +56,7 @@ from beliefs.sealed import sealed
 __all__ = [
     "CompiledCoordinationKind",
     "CompiledDimension",
+    "CompiledEdge",
     "CompiledEstimandDecl",
     "CompiledFacet",
     "CompiledKind",
@@ -141,6 +142,18 @@ class CompiledDimension:
 
     def schema_projection(self) -> dict[str, object]:
         return {"restriction_sort": self.restriction_sort, "retired": self.retired}
+
+
+@dataclass(frozen=True)
+class CompiledEdge:
+    operator: str
+    cause: int
+    effect: int
+    retired: bool
+    contract: str
+
+    def schema_projection(self) -> dict[str, object]:
+        return {"cause": self.cause, "effect": self.effect, "retired": self.retired}
 
 
 @dataclass(frozen=True)
@@ -251,8 +264,10 @@ class ProfileSpec:
     relations: Mapping[str, RelationDecl]
     _registry: Registry
     claim_grammar: ClaimGrammar
+    composite_grammar: CompositeGrammar
     estimand_grammar: EstimandGrammar
     operators: Mapping[str, CompiledOperator]
+    edges: Mapping[str, CompiledEdge]
     estimands: Mapping[str, CompiledEstimandDecl]
     dimensions: Mapping[str, CompiledDimension]
     sorts: Mapping[str, CompiledSort]
@@ -329,6 +344,7 @@ class ProfileSpec:
         return _projection(
             self.claim_grammar,
             self.estimand_grammar,
+            self.composite_grammar,
             self.operators,
             self.dimensions,
             self.sorts,
@@ -336,6 +352,7 @@ class ProfileSpec:
             facets=self.facets,
             relations=self.relations,
             estimands=self.estimands,
+            edges=self.edges,
             coordination=coordination,
         )
 
@@ -591,6 +608,7 @@ def compile_profile(
     sorts: dict[str, CompiledSort] = {}
     dimensions: dict[str, CompiledDimension] = {}
     operators: dict[str, CompiledOperator] = {}
+    edges: dict[str, CompiledEdge] = {}
     estimands: dict[str, CompiledEstimandDecl] = {}
 
     # Sorted for a reproducible construction order, which helps a reader diffing
@@ -616,6 +634,10 @@ def compile_profile(
             )
         for name, operator in contract.operators.items():
             operators[contract.term(name)] = _compile_operator(contract, operator, sorts)
+        for name, edge in contract.edges.items():
+            edges[contract.term(name)] = CompiledEdge(
+                operator=contract.term(name), cause=edge.cause, effect=edge.effect, retired=edge.retired, contract=namespace
+            )
         for name, decl in contract.estimands.items():
             estimands[contract.term(name)] = _compile_estimand(contract, decl, sorts)
 
@@ -643,12 +665,14 @@ def compile_profile(
         _registry=registry,
         claim_grammar=base.claim_grammar,
         estimand_grammar=base.estimand_grammar,
+        composite_grammar=base.composite_grammar,
         # Wrapped so `compiled_identity` cannot come to describe a profile that
         # no longer exists. The `dict()` copy is insurance against a later
         # restructure that wraps something a caller still holds — today these are
         # compiler locals nobody else can reach, so sabotaging the copy alone
         # breaks nothing, and no test claims otherwise.
         operators=MappingProxyType(dict(operators)),
+        edges=MappingProxyType(dict(edges)),
         estimands=MappingProxyType(dict(estimands)),
         dimensions=MappingProxyType(dict(dimensions)),
         sorts=MappingProxyType(dict(sorts)),
@@ -665,6 +689,7 @@ def compile_profile(
             _projection(
                 base.claim_grammar,
                 base.estimand_grammar,
+                base.composite_grammar,
                 operators,
                 dimensions,
                 sorts,
@@ -672,6 +697,7 @@ def compile_profile(
                 facets=facets,
                 relations=base.relations,
                 estimands=estimands,
+                edges=edges,
                 coordination=coordination_projection,
             ),
         ),
@@ -685,6 +711,7 @@ def _coordination_projection(contract: CoordinationContract) -> dict[str, object
 def _projection(
     claim_grammar: ClaimGrammar,
     estimand_grammar: EstimandGrammar,
+    composite_grammar: CompositeGrammar,
     operators: Mapping[str, CompiledOperator],
     dimensions: Mapping[str, CompiledDimension],
     sorts: Mapping[str, CompiledSort],
@@ -693,6 +720,7 @@ def _projection(
     facets: Mapping[str, CompiledFacet],
     relations: Mapping[str, RelationDecl],
     estimands: Mapping[str, CompiledEstimandDecl],
+    edges: Mapping[str, CompiledEdge],
     coordination: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """Every declaration is keyed **by term identifier**, never held positionally.
@@ -715,11 +743,13 @@ def _projection(
             "layers": sorted(claim_grammar.layers),
         },
         "estimand_grammar": estimand_grammar.projection(),
+        "composite_grammar": composite_grammar.projection(),
         "kinds": {name: kind.projection() for name, kind in kinds.items()},
         "facets": {key: facet.projection() for key, facet in facets.items()},
         "relations": {name: relation.projection() for name, relation in relations.items()},
         "operators": {term: decl.schema_projection() for term, decl in operators.items()},
         "estimands": {term: decl.schema_projection() for term, decl in estimands.items()},
+        "edges": {term: edge.schema_projection() for term, edge in sorted(edges.items())},
         "dimensions": {term: decl.schema_projection() for term, decl in dimensions.items()},
         "sorts": {term: decl.schema_projection() for term, decl in sorts.items()},
     }

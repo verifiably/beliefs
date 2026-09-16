@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from n2_arms import Arm
+from n2_arms import Arm, Sabotage
 from n2_arms_cut3 import CUT3_ARMS
 from n2_arms_cut5 import CUT5_ARMS
 from n2_arms_cut6 import CUT6_ARMS
@@ -33,6 +34,23 @@ from n2_arms_cut24 import CO_CITED, CUT24_ARMS, DECLARATION_UNITS, unit_of
 from test_n2 import audit, baseline
 
 import beliefs.root as science_root
+
+# Re-targeted 2026-09-16 (composite-claims Task 1, U1): `stored.COREFERENCE_ENDPOINT_KINDS`
+# gained a `"composite",` element (a fourteenth world kind, itself an endpoint kind
+# under the tuple's own rule) between `"instrument-certification"` and the closing
+# paren. W15n's sabotage pinned that exact closing text; both `before` and `after`
+# carry the new line now so the sabotage still lands on the live declaration instead
+# of matching nothing and scoring stale.
+_LIVE_SABOTAGES = {
+    "W15n": Sabotage(
+        module="stored.py",
+        before='    "retraction",\n    "instrument-certification",\n    "composite",\n)\n',
+        after='    "retraction",\n    "instrument-certification",\n    "composite",\n    "act-report",\n)\n',
+    ),
+}
+CUT24_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT24_ARMS
+)
 
 WORKERS = 8
 REPO_ROOT = Path(__file__).resolve().parents[3]

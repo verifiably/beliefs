@@ -19,6 +19,9 @@ DOCUMENT = Path(__file__).with_name("mm30.yaml")
 # The cut-22 document, byte-for-byte, so `check_succession` runs against the
 # real predecessor rather than against a contract written to pass.
 CUT22_DOCUMENT = Path(__file__).with_name("mm30-cut22.yaml")
+# The cut-31 document, byte-for-byte: the estimand lane's contract, which this
+# lane's `edges:` table succeeds. The chain is walked, not summarized.
+CUT31_DOCUMENT = Path(__file__).with_name("mm30-cut31.yaml")
 MODAL_SORTED = paths.REPO / "python" / "tools" / "vocabularies" / "mm30-modal-sorted.yaml"
 # Each sort binds the dataset address of a list held before anything adopts
 # (`lists.py`, `concepts.py`): the contract cannot compile without them.
@@ -56,12 +59,19 @@ def biology() -> DomainContract:
     return shipped_domain_contract("biology")
 
 
+PREDECESSORS = {DOCUMENT: CUT31_DOCUMENT, CUT31_DOCUMENT: CUT22_DOCUMENT}
+"""Each document and the one it succeeds: cut 22 → cut 31 → current. The
+chain is parsed document by document, never summarized by identity."""
+
+
 @cache
 def contract(path: Path = DOCUMENT) -> DomainContract:
-    """The successor mm30 contract, checked against the cut-22 document it
-    succeeds. The predecessor is parsed here rather than trusted by shape:
-    `check_succession` certifies nothing against an authored stand-in."""
-    predecessor = contract(CUT22_DOCUMENT) if path == DOCUMENT else None
+    """The successor mm30 contract, checked against the document it succeeds —
+    the cut-31 document, which itself succeeds the cut-22 one. Each predecessor
+    is parsed here rather than trusted by shape: `check_succession` certifies
+    nothing against an authored stand-in."""
+    ancestor = PREDECESSORS.get(path)
+    predecessor = contract(ancestor) if ancestor is not None else None
     return parse_domain_contract(
         _document(path)["contract"], source=f"{path}: contract", base=base(), predecessor=predecessor
     )

@@ -27,9 +27,9 @@ below for rationale and frozen guarantees.
 
 ## The designs
 
-Sixty-seven documents in `docs/designs/`: the banked redesigns, review disposition,
+Sixty-nine documents in `docs/designs/`: the banked redesigns, review disposition,
 adoption ledger, measurements, rulings, and contributor-guide design written
-2026-08-02 through 2026-09-15. Read them in this order:
+2026-08-02 through 2026-09-16. Read them in this order:
 
 | document | what it rules |
 |---|---|
@@ -100,6 +100,8 @@ adoption ledger, measurements, rulings, and contributor-guide design written
 | `2026-09-15-conformance-cut-30.md` | the frozen slice 6 cut: divergent correction histories reconciled at `consolidate` by absorption, idempotent over a re-run; no guarantee row read |
 | `2026-09-12-estimand-typing-design.md` | the owner of ρO3's estimand half: a kernel-owned estimand grammar, per-operator `estimands:` declarations in a domain contract, a typed estimand and qualifier-map applicability on the frozen spec, decimal estimates and typed uncertainty on the spec's scale, structural match at the boundary and under audit, and commensuration exposed and unread by v1 (Q1–Q10); worked against a second domain in Appendix A |
 | `2026-09-15-conformance-cut-31.md` | the frozen estimand-typing cut: Q1–Q10 selected in full, 10 declaration units, 26 sabotage arms, the cut 30 runner as prefix; the first off-path lane after the world-read path closed |
+| `2026-09-12-composite-claims-design.md` | the owner of the `composite` kind, the structure a causal analysis is drawn against: a closed node set over `(sort, term)` pairs, members that are propositions read as signed edges under a domain's per-operator `edges:` declaration, no other direct edge asserted among the nodes, belief-inert by construction, succession by same-kind `supersedes`, and a derived reading over the evaluator's own admission (U1–U10); places kernel §11's `inquiry`, `patch-definition` and `structural-chain` |
+| `2026-09-16-conformance-cut-32.md` | the discharged composite-claims cut: U1–U10 read in full, 10 declaration units, 26 sabotage arms, the cut 31 runner as prefix; the `composite` kind, belief-inert by construction; the second off-path lane under rule 6 |
 
 The ledger is the entry point for "what is built, what is not, and what waits on
 what." Every guarantee table is frozen under its identifiers: designs extend and
@@ -107,7 +109,7 @@ amend in place, never renumber.
 
 ## Status
 
-Every conformance cut through **cut 31** is implemented and discharged. What
+Every conformance cut through **cut 32** is implemented and discharged. What
 runs today: typed claims, admission and belief computation; run closure,
 execution, replay, act reports, general intent qualification and successor
 admission; certified persistence through the composition root, with the
@@ -155,13 +157,17 @@ interpretation rule returns are typed against a kernel-owned grammar and
 per-operator domain declarations, with structural match checked at the write
 boundary and under audit and commensuration exposed but unread by
 `science.belief.v1`.
-The latest discharged boundary is cut 31
-([cut](docs/designs/2026-09-15-conformance-cut-31.md),
-[results](docs/plans/2026-09-16-conformance-cut-31-results.md)).
+The `composite` kind records the structure a set of claims is drawn against —
+a closed node set, members read as signed directed edges, and the assertion
+that no other direct edge holds among those nodes — with a reading derived
+through the traced evaluator, stored nowhere, and inert to belief.
+The latest discharged boundary is cut 32
+([cut](docs/designs/2026-09-16-conformance-cut-32.md),
+[results](docs/plans/2026-09-16-conformance-cut-32-results.md)).
 
 The guarantee tables are the acceptance criteria — each row must be a failing
-test before it is a passing one. There are **206 rows** across **nineteen frozen
-tables** (G, S, W, R, C, X, N, L, D, M, P, H, T, E, F, J, V, B, Q), and every cut is frozen
+test before it is a passing one. There are **216 rows** across **twenty frozen
+tables** (G, S, W, R, C, X, N, L, D, M, P, H, T, E, F, J, V, B, Q, U), and every cut is frozen
 *before* its code exists so that a row which fails is a failure rather than a
 redefinition.
 

@@ -60,7 +60,7 @@ def test_the_resolver_refusal_vocabulary_is_closed_and_tips_are_canonical():
         CoordinationRefused("divergent-view", ("bad",))
 
 
-def test_the_world_inventory_is_exactly_the_thirteen_banked_kinds():
+def test_the_world_inventory_is_exactly_the_fourteen_banked_kinds():
     assert stored.WORLD_KINDS == (
         "proposition",
         "source-assertion",
@@ -75,6 +75,7 @@ def test_the_world_inventory_is_exactly_the_thirteen_banked_kinds():
         "instrument-certification",
         "coreference-attestation",
         "act-report",
+        "composite",
     )
     assert not set(stored.WORLD_KINDS) & {
         "project",

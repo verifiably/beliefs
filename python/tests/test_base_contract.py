@@ -237,3 +237,79 @@ class TestEstimandGrammar:
         document["estimand_grammar"]["scales"] = ["additive", "multiplicative", "ordinal"]
         after = compile_profile(parse_base_contract(document, source="<b>"), []).compiled_identity
         assert before != after
+
+
+class TestCompositeGrammarAndKind:
+    def test_the_shipped_base_declares_the_grammar_and_the_kind(self, base_contract):
+        assert base_contract.composite_grammar.version == 1
+        assert base_contract.composite_grammar.shapes == ("dag",)
+        kind = base_contract.kinds["composite"]
+        assert kind.role == "world" and kind.domain == "science.composite.v1"
+        assert kind.facets["composite"].required and kind.facets["composite"].covered
+        assert not kind.facets["display"].covered
+
+    def test_the_two_relations(self, base_contract):
+        composes = base_contract.relations["composes"]
+        assert (composes.group, composes.sources, composes.targets) == ("world", ("composite",), ("proposition",))
+        assert composes.same_kind is False
+        supersedes = base_contract.relations["supersedes"]
+        assert set(supersedes.sources) == set(supersedes.targets) == {"proposition", "composite"}
+        assert supersedes.same_kind is True
+        assert base_contract.relations["assesses"].targets == ("proposition",)
+
+    def test_a_base_contract_lacking_the_grammar_is_refused(self, document):
+        del document["composite_grammar"]
+        with pytest.raises(MalformedContract, match="composite_grammar"):
+            parse(document)
+
+    def test_an_unknown_grammar_field_is_refused(self, document):
+        document["composite_grammar"]["directed"] = True
+        with pytest.raises(MalformedContract, match="directed"):
+            parse(document)
+
+    def test_a_duplicate_shape_is_refused(self, document):
+        document["composite_grammar"]["shapes"] = ["dag", "dag"]
+        with pytest.raises(TagCollision):
+            parse(document)
+
+    def test_same_kind_on_unequal_endpoint_sets_is_refused(self, document):
+        document["relations"]["composes"]["same_kind"] = True
+        with pytest.raises(MalformedContract, match="same_kind"):
+            parse(document)
+
+    @pytest.mark.parametrize(
+        ("sources", "targets"),
+        [
+            (["composite", "proposition"], ["proposition"]),  # a widened source
+            (["composite"], ["proposition", "composite"]),  # a widened target
+            (["proposition"], ["composite"]),  # the pair swapped
+        ],
+    )
+    def test_a_composes_signature_outside_composite_to_proposition_is_refused(self, document, sources, targets):
+        """§3.1, U1: `composes` has one signature and the kernel owns it. Both
+        endpoints are named kinds, so kind-existence admits every row here —
+        the refusal is the signature's own."""
+        document["relations"]["composes"]["sources"] = sources
+        document["relations"]["composes"]["targets"] = targets
+        with pytest.raises(MalformedContract, match="one signature and no other"):
+            parse(document)
+
+    def test_same_kind_must_be_a_boolean(self, document):
+        document["relations"]["supersedes"]["same_kind"] = "yes"
+        with pytest.raises(MalformedContract, match="same_kind"):
+            parse(document)
+
+    def test_an_unsupported_shape_is_refused(self, document):
+        document["composite_grammar"]["shapes"] = ["dag", "pag"]
+        with pytest.raises(MalformedContract, match="pag"):
+            parse(document)
+
+    def test_the_grammar_and_the_rule_enter_the_identities(self, document):
+        from beliefs.profile import compile_profile
+
+        before = parse(copy.deepcopy(document))
+        document["composite_grammar"]["version"] = 2
+        after = parse(document)
+        assert before.content_identity != after.content_identity
+        assert compile_profile(before, []).compiled_identity != compile_profile(after, []).compiled_identity
+        assert compile_profile(before, []).composite_grammar == before.composite_grammar

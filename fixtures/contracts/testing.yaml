@@ -89,6 +89,12 @@ estimands:
     identification_sort: identification
     conditioning_sort: entity
 
+# One edge-forming operator (composite-claims design §3.3): `affects` at the
+# causal layer, cause in slot 0, effect in slot 1. `correlates-with` has no row
+# on purpose — a statistical operator forms no edge in a `dag`.
+edges:
+  affects: { cause: 0, effect: 1 }
+
 # Two fixture facets (facet-contracts design §3.2). They exist to exercise the
 # namespaced grammar, D2's asymmetry, D8's composition and F8's registry check.
 # Neither means anything: `annotation` attaches to two kinds only so that a

@@ -827,7 +827,10 @@ def test_q10_the_reproduction_recreates_re_authors_and_re_derives_from_disk(corp
         assert report[key] is True, key
     assert state["spec_identity"] == "10e8bfce1aaad8a937a79bfba7cf523ac42b4240ec8b15e20e5b5f450d234714"
     assert state["spec_prose_identity"] == "86aaa1a8a8edda8217a1d6f5f6ae28c89fae7362176a214f9fd9fdf95e3f2b1d"
-    assert state["assessment_identity_derived"] == "618c6c584da64b62bbd4c5cd0d5625a95f43367a12b5957b6bdb29e94119957e"
+    # Re-targeted 2026-09-16: the composite-claims lane recreated the corpus again under its own successor
+    # contracts (record §11.2), and the assessment identity derives from the run closure, so a new run moves
+    # it. The cut-31 value `618c6c58…` stands unedited in §10, which is the evidence; this is the live pin.
+    assert state["assessment_identity_derived"] == "27bd9753ffa77bf604957537bd6497724ce14d9682c0bc3291d594a99e20c4f9"
     assert state["assessment_identity_stored"] == state["assessment_identity_derived"]
     assert state["belief_answer"] == state["rederived_belief"]
     assert state["belief_answer"]["kind"] == "NoBelief" and state["belief_answer"]["reason"] == "no-directional-outcome"

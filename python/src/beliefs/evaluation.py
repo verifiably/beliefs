@@ -42,7 +42,17 @@ from typing import TYPE_CHECKING, TypeAlias, final
 from nodes.core.node import Node
 
 from beliefs import stored
-from beliefs.belief import Availability, Belief, NoBelief, Records, Refused, SuppliedContext, evaluate
+from beliefs.belief import (
+    Admission,
+    Availability,
+    Belief,
+    NoBelief,
+    NotReached,
+    Records,
+    Refused,
+    SuppliedContext,
+    evaluate_traced,
+)
 from beliefs.claim import Claim
 from beliefs.closure import Closure, RetractionEnumeration, build_closure
 from beliefs.consulted import consulted_contracts
@@ -70,7 +80,7 @@ from beliefs.verification import Verification
 if TYPE_CHECKING:
     from beliefs.world.view import WorldReadView
 
-__all__ = ["READ_KINDS", "EvaluationInputs", "ReadRef", "evaluate_over", "gather"]
+__all__ = ["READ_KINDS", "EvaluationInputs", "ReadRef", "evaluate_over", "evaluate_over_traced", "gather"]
 
 ReadRef: TypeAlias = tuple[str, str]
 READ_KINDS = (
@@ -331,6 +341,50 @@ def gather(
     )
 
 
+def evaluate_over_traced(
+    view: ReadView | WorldReadView,
+    proposition: str,
+    *,
+    availability: Availability,
+    context: SuppliedContext,
+    profile: ProfileSpec,
+    resolution: ResolutionSnapshot,
+    binding: object,
+) -> tuple[Belief | NoBelief | Refused, Admission]:
+    """`evaluate`'s step-1 guard first, then `gather`, then `evaluate_traced`,
+    carrying the admission the answer rests on (design §6.2).
+
+    The guard runs before anything is read: without it the wrapper would open
+    the corpus, or crash projecting `.rule` off a `None` or a string, before
+    `evaluate` ever got to refuse — turning a clean refusal into reads and an
+    exception. Every answer this wrapper gives itself precedes step 5, so it
+    is `NotReached`; only the evaluator's own answer carries a set."""
+    if not isinstance(binding, PolicyBinding):
+        return Refused(f"binding-not-exact: {binding!r} is not a PolicyBinding(rule, implementation) pair"), NotReached()
+    try:
+        inputs = gather(view, proposition, context=context, profile=profile, resolution=resolution, binding=binding)
+    except ContractDisagreement as exc:
+        return Refused(f"consulted-contracts-disagree: {exc}"), NotReached()
+    except ContractMismatch as exc:
+        return Refused(str(exc)), NotReached()
+    except FacetPayloadRefused as exc:
+        return Refused(f"facet-payload-refused: {exc}"), NotReached()
+    except FacetUndeclared as exc:
+        return Refused(str(exc)), NotReached()
+    if inputs.absent:
+        corpora = ", ".join(sorted({corpus_id for _, corpus_id in inputs.absent}))
+        return NoBelief("unavailable-corpus-absent", detail=f"inputs recorded in absent corpora: {corpora}"), NotReached()
+    context = replace(context, node_corpus=inputs.node_corpus)
+    return evaluate_traced(
+        proposition=proposition,
+        records=inputs.records(),
+        availability=availability,
+        context=context,
+        binding=binding,
+        profile=profile,
+    )
+
+
 def evaluate_over(
     view: ReadView | WorldReadView,
     proposition: str,
@@ -341,33 +395,14 @@ def evaluate_over(
     resolution: ResolutionSnapshot,
     binding: object,
 ) -> Belief | NoBelief | Refused:
-    """`evaluate`'s step-1 guard first, then `gather`, then `evaluate`.
-
-    The guard runs before anything is read: without it the wrapper would open
-    the corpus, or crash projecting `.rule` off a `None` or a string, before
-    `evaluate` ever got to refuse — turning a clean refusal into reads and an
-    exception."""
-    if not isinstance(binding, PolicyBinding):
-        return Refused(f"binding-not-exact: {binding!r} is not a PolicyBinding(rule, implementation) pair")
-    try:
-        inputs = gather(view, proposition, context=context, profile=profile, resolution=resolution, binding=binding)
-    except ContractDisagreement as exc:
-        return Refused(f"consulted-contracts-disagree: {exc}")
-    except ContractMismatch as exc:
-        return Refused(str(exc))
-    except FacetPayloadRefused as exc:
-        return Refused(f"facet-payload-refused: {exc}")
-    except FacetUndeclared as exc:
-        return Refused(str(exc))
-    if inputs.absent:
-        corpora = ", ".join(sorted({corpus_id for _, corpus_id in inputs.absent}))
-        return NoBelief("unavailable-corpus-absent", detail=f"inputs recorded in absent corpora: {corpora}")
-    context = replace(context, node_corpus=inputs.node_corpus)
-    return evaluate(
-        proposition=proposition,
-        records=inputs.records(),
+    """`evaluate`'s step-1 guard first, then `gather`, then `evaluate` — the
+    first projection of `evaluate_over_traced`."""
+    return evaluate_over_traced(
+        view,
+        proposition,
         availability=availability,
         context=context,
-        binding=binding,
         profile=profile,
-    )
+        resolution=resolution,
+        binding=binding,
+    )[0]

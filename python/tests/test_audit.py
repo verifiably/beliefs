@@ -10,8 +10,9 @@ from authority import ACTOR
 from closure_fixtures import make_closure
 from dataset_fixtures import pinned, pinned_for
 from fixtures_cut3 import TESTING_PROFILE, spec_draft, spec_rules, typed_applicability, typed_estimand
-from fixtures_cut4 import raw_write
+from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
+from nodes.core.relations import Relation
 from profiles import BASE, pins_for
 from test_relocation import _writer
 from test_relocation_rows import _basis_route
@@ -962,7 +963,6 @@ def test_declaration_malformedness_alone_withholds_audit_recomputation(writer, d
 
 
 # --- V4 / V6 / V2: scope, rule, scope rule and report are recomputed (design §6) ---
-from fixtures_cut4 import reopen
 from verification_fixtures import publish_corpus, self_consistent_forgery
 
 from beliefs.audit import check_verification
@@ -1246,3 +1246,100 @@ def test_explicit_import_refuses_a_spec_whose_target_does_not_resolve_in_the_uni
             [node], observer="o", instrument="i",
             opened_at="2026-09-15T00:00:00Z", closed_at="2026-09-15T00:00:01Z",
         )
+
+
+# --- U7: composites and cross-kind succession under audit -------------------
+from test_composite_boundary import _build, _claim, _proposition
+from test_composite_boundary import _writer as _composite_writer
+
+from beliefs.audit import check_composite, check_supersedes_kinds
+
+
+def _composite_corpus(tmp_path):
+    w = _composite_writer(tmp_path / "corpus")
+    _proposition(w, "ab", _claim("EX:a", "EX:b"))
+    _proposition(w, "bc", _claim("EX:b", "EX:c", polarity="negative"))
+    minted = w.add(stored.composite_node(_build(w, ["proposition:ab", "proposition:bc"]), title="g"))
+    return w, minted
+
+
+def _codes(writer):
+    return sorted((f.code, f.ref) for f in audit_corpus(reopen(writer.root), evidence=NO_EVIDENCE, profile=writer.profile))
+
+
+def test_a_well_formed_composite_audits_clean(tmp_path):
+    writer, _ = _composite_corpus(tmp_path)
+    assert _codes(writer) == []
+
+
+def test_a_deleted_member_is_an_unresolvable_contradiction_and_the_record_stays_read(tmp_path):
+    writer, minted = _composite_corpus(tmp_path)
+    writer.delete("proposition:bc")
+    codes = _codes(writer)
+    assert ("composite-member-unresolvable", minted.id) in codes
+    assert not any(code in audit.MALFORMEDNESS_CODES for code, _ in codes)
+
+
+def test_a_raw_edited_member_claim_is_a_mismatch(tmp_path):
+    writer, minted = _composite_corpus(tmp_path)
+    node = writer.read_view.get("proposition:bc")
+    node.facets[stored.PROPOSITION_FACET]["polarity"] = "positive"
+    stored.stamp_semantic_identity(node)
+    raw_write(writer.root, node)
+    assert ("composite-member-mismatch", minted.id) in _codes(writer)
+
+
+def test_a_relation_set_that_disagrees_with_the_facet_is_reported(tmp_path):
+    writer, minted = _composite_corpus(tmp_path)
+    node = writer.read_view.get(minted.id)
+    node.relations.pop()
+    raw_write(writer.root, node)  # the stamp covers the facet, not the relations, so the record is well formed
+    assert ("composite-relations-mismatch", minted.id) in _codes(writer)
+
+
+def test_a_composite_that_no_longer_classifies_is_malformed_not_silently_kept(tmp_path):
+    writer, minted = _composite_corpus(tmp_path)
+    node = writer.read_view.get(minted.id)
+    node.facets[stored.COMPOSITE_FACET]["nodes"] = [{"sort": "biology/gene", "term": "EX:a"}, {"sort": "biology/gene", "term": "EX:b"}]  # drops c
+    stored.stamp_semantic_identity(node)
+    raw_write(writer.root, node)
+    findings = {f.code: f for f in audit_corpus(reopen(writer.root), evidence=NO_EVIDENCE, profile=writer.profile)}
+    assert "composite-malformed" in findings and "composite-member-outside-nodes" in findings["composite-malformed"].detail
+
+
+def test_a_raw_written_cross_kind_supersedes_edge_is_reported_on_any_record(tmp_path):
+    writer, minted = _composite_corpus(tmp_path)
+    node = writer.read_view.get("proposition:ab")
+    node.relations.append(Relation(source=node.id, predicate=stored.SUPERSEDES, target=minted.id))
+    raw_write(writer.root, node)
+    assert ("supersedes-cross-kind", "proposition:ab") in _codes(writer)
+    assert check_supersedes_kinds(reopen(writer.root), reopen(writer.root).get("proposition:ab"), profile=writer.profile) is not None
+
+
+def test_a_successor_that_retires_the_edge_row_makes_the_composite_malformed(tmp_path):
+    import copy
+
+    from profiles import FIXTURE, biology
+
+    from beliefs.contract import parse_domain_contract
+    from beliefs.contract.document import load_document
+    from beliefs.profile import compile_profile, shipped_base_contract
+
+    writer, minted = _composite_corpus(tmp_path)
+    document = load_document(FIXTURE, source=str(FIXTURE))
+    assert isinstance(document, dict)
+    successor = copy.deepcopy(document)
+    successor["description"] = "fixture"
+    successor["lineage"] = {"successor": biology("fixture").content_identity}
+    successor["edges"]["affects"]["retired"] = True
+    retired = compile_profile(shipped_base_contract(), [parse_domain_contract(successor, source="<r>", base=shipped_base_contract(), predecessor=biology("fixture"))])
+    # `check_composite` directly: the corpus pins the predecessor, and this arm is about classification under the successor, not about pins.
+    outcome = check_composite(reopen(writer.root), reopen(writer.root).get(minted.id), profile=retired)
+    assert outcome.contradiction is not None and outcome.contradiction.code == "composite-malformed"
+    assert "composite-member-retired" in outcome.contradiction.detail
+
+
+def test_check_composite_reads_form_only_and_never_a_snapshot(tmp_path):
+    writer, minted = _composite_corpus(tmp_path)
+    outcome = check_composite(reopen(writer.root), reopen(writer.root).get(minted.id), profile=writer.profile)
+    assert outcome.checked and outcome.contradiction is None

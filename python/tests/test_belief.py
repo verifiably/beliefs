@@ -26,10 +26,13 @@ from beliefs.belief import (
     Availability,
     Belief,
     NoBelief,
+    NotReached,
+    Reached,
     Records,
     Refused,
     SuppliedContext,
     evaluate,
+    evaluate_traced,
 )
 from beliefs.claim import Qualifier, Referent, build_claim
 from beliefs.closure import RetractionEnumeration
@@ -643,3 +646,64 @@ class TestPolicyBindingRefuses:
     def test_empty_implementation_refuses(self):
         with pytest.raises(MalformedRecord):
             PolicyBinding(rule=BELIEF_V1_RULE, implementation="")
+
+
+# --- the traced evaluator (composite-claims design §6.2) ---------------------
+
+
+def test_evaluate_is_the_first_projection_of_evaluate_traced():
+    for overrides in ({}, {"binding": None}, {"availability": scenario()["availability"].__class__(observations={}, implementations={}, fixtures={})}):
+        kwargs = scenario(**overrides)
+        answer, _ = evaluate_traced(**kwargs)
+        assert evaluate(**kwargs) == answer
+
+
+def test_admission_is_reached_with_identities_on_a_belief_and_on_a_directionless_no_belief():
+    answer, admission = evaluate_traced(**scenario())
+    assert isinstance(answer, Belief) and isinstance(admission, Reached)
+    assert admission.admitted == {a.identity() for a in scenario()["records"].assessments}
+    answer, admission = evaluate_traced(**scenario(records=_fifty_inconclusive_records()))
+    assert answer == NoBelief("no-directional-outcome")
+    assert isinstance(admission, Reached) and len(admission.admitted) == 50
+
+
+def test_admission_is_not_reached_when_the_answer_precedes_the_gate():
+    unheld = scenario()["availability"]
+    without_policy = Availability(observations=unheld.observations, implementations={}, fixtures=unheld.fixtures)
+    answer, admission = evaluate_traced(**scenario(availability=without_policy))
+    assert answer == NoBelief("unavailable-policy-unheld") and admission == NotReached()
+    answer, admission = evaluate_traced(**scenario(binding=None))
+    assert isinstance(answer, Refused) and admission == NotReached()
+    # The identity-contradiction arm sits inside step 5, before the gate, and keeps its existing answer.
+    base = scenario()
+    twin = _assessment("spec-a", "run-a", outcome="refuted")  # same (spec, run, proposition) as a1, different facet
+    records = Records(claims=base["records"].claims, assessments=(*base["records"].assessments, twin), runs=base["records"].runs, source_assertions=(), verifications=base["records"].verifications)
+    answer, admission = evaluate_traced(**scenario(records=records))
+    assert isinstance(answer, Refused) and answer.reason.startswith("assessment-identity-contradicted") and admission == NotReached()
+    assert evaluate(**scenario(records=records)) == answer
+
+
+def test_the_admitted_set_is_not_the_digest_keyed_set():
+    kwargs = scenario()
+    a1, a2 = kwargs["records"].assessments
+    held_only_a = Availability(observations=_held(DATASET_A), implementations=kwargs["availability"].implementations, fixtures=kwargs["availability"].fixtures)
+    _answer, admission = evaluate_traced(**scenario(availability=held_only_a))
+    assert isinstance(admission, Reached) and admission.admitted == {a1.identity()}
+    assert {a.identity() for a in kwargs["records"].assessments} == {a1.identity(), a2.identity()}  # the closure keys both
+
+
+def test_admission_runs_exactly_once_in_the_evaluator(monkeypatch):
+    from beliefs import belief as belief_module
+
+    original = belief_module.admitted
+    calls = []
+
+    def trap(*args, **kwargs):
+        calls.append(1)
+        if len(calls) > 1:
+            raise AssertionError("belief.admitted was called a second time")
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(belief_module, "admitted", trap)
+    evaluate_traced(**scenario())
+    assert calls == [1]

@@ -34,6 +34,9 @@ estimand_grammar:
   contrast_kinds: [levels, continuous]
   scales: [additive, multiplicative]
   uncertainty_kinds: [interval, standard-error]
+composite_grammar:
+  version: 1
+  shapes: [dag]
 kinds: {}
 relations: {}
 facets: {}

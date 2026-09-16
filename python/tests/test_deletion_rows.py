@@ -718,14 +718,15 @@ ORDER_A = (
     "retraction", "counter",
 )
 ORDER_B = (
-    "q", "d-b", "run-b", "a-2", "v-2",
-    "retraction", "p",
+    "p", "q", "d-b", "run-b", "a-2", "v-2",
+    "retraction",
     "d-a", "run-a", "a-1", "v-1",
     "counter",
 )
 """Two admission orders over `_records(retraction_chain=True)`. Both respect the
 only orderings the write boundary itself demands — an assessment's run resolves
-first (S7), and a retraction's target resolves first (C10) — and agree on
+first (S7), an assessment's `assesses` target resolves first (composite-claims
+§4.2, U4), and a retraction's target resolves first (C10) — and agree on
 nothing else. The retraction chain is what makes this M3's negative rather than
 a generic ordering test."""
 

@@ -882,6 +882,16 @@ class SignatureRefused(RecordError):
     exception, and the exception is declared exactly once."""
 
 
+class CompositeError(RecordError):
+    """A composite refused at construction, at the boundary or at reading
+    (composite-claims design §3.4, §4). `code` is the stable name the design
+    tables carry; the message names the position."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(f"{code}: {message}")
+        self.code = code
+
+
 class MalformedSnapshot(RecordError):
     """A lineage snapshot value refused at construction — one representation
     per fact: a `single` basis holds exactly one route, a `conflict` at least

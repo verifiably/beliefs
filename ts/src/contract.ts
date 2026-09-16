@@ -72,6 +72,12 @@ export interface EstimandGrammar {
   readonly uncertaintyKinds: readonly string[];
 }
 
+export interface CompositeGrammar {
+  readonly version: number;
+  readonly shapes: readonly string[];
+}
+const SUPPORTED_SHAPES: readonly string[] = ["dag"];
+
 export type FieldType = "string" | "integer" | "boolean" | "ref" | "locator" | "actor";
 export interface FieldDecl {
   readonly name: string;
@@ -101,7 +107,14 @@ export interface RelationDecl {
   readonly group: "world" | "lifecycle";
   readonly sources: readonly string[];
   readonly targets: readonly string[];
+  readonly sameKind: boolean;
 }
+
+/** `composes`' one signature (composite-claims §3.1, U1): a composite composes
+ * propositions, and nothing else composes anything. The Python parser's
+ * `COMPOSES_SIGNATURE`, mirrored — both implementations refuse the same
+ * documents with the same message. */
+const COMPOSES_SIGNATURE: readonly [readonly string[], readonly string[]] = [["composite"], ["proposition"]];
 
 const SEMANTIC_DOMAIN = /^science\.[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*\.v[1-9][0-9]*$/;
 const FIELD_TYPES: readonly FieldType[] = ["string", "integer", "boolean", "ref", "locator", "actor"];
@@ -113,6 +126,7 @@ export class BaseContract {
   readonly version: number;
   readonly claimGrammar: ClaimGrammar;
   readonly estimandGrammar: EstimandGrammar;
+  readonly compositeGrammar: CompositeGrammar;
   readonly kinds: DeclarationTable<KindDecl>;
   readonly relations: DeclarationTable<RelationDecl>;
   readonly facets: DeclarationTable<FacetDecl>;
@@ -123,6 +137,7 @@ export class BaseContract {
       version: number;
       claimGrammar: ClaimGrammar;
       estimandGrammar: EstimandGrammar;
+      compositeGrammar: CompositeGrammar;
       kinds?: DeclarationTable<KindDecl>;
       relations?: DeclarationTable<RelationDecl>;
       facets?: DeclarationTable<FacetDecl>;
@@ -154,6 +169,10 @@ export class BaseContract {
       contrastKinds: Object.freeze([...parts.estimandGrammar.contrastKinds]),
       scales: Object.freeze([...parts.estimandGrammar.scales]),
       uncertaintyKinds: Object.freeze([...parts.estimandGrammar.uncertaintyKinds]),
+    });
+    this.compositeGrammar = Object.freeze({
+      version: parts.compositeGrammar.version,
+      shapes: Object.freeze([...parts.compositeGrammar.shapes]),
     });
     this.kinds = parts.kinds;
     this.relations = parts.relations;
@@ -197,6 +216,16 @@ export interface EstimandDecl {
   readonly conditioningSort: string;
 }
 
+/**
+ * Which slot of an operator is the cause and which the effect
+ * (composite-claims design §3.3). An operator with no row forms no edge.
+ */
+export interface EdgeDecl {
+  readonly operator: string;
+  readonly cause: number;
+  readonly effect: number;
+}
+
 export class DomainContract {
   #minted = true;
   readonly namespace: string;
@@ -204,6 +233,7 @@ export class DomainContract {
   readonly sorts: DeclarationTable<SortDecl>;
   readonly dimensions: DeclarationTable<DimensionDecl>;
   readonly operators: DeclarationTable<OperatorDecl>;
+  readonly edges: DeclarationTable<EdgeDecl>;
   readonly facets: DeclarationTable<FacetDecl>;
   readonly estimands: DeclarationTable<EstimandDecl>;
 
@@ -235,6 +265,7 @@ export class DomainContract {
       sorts: DeclarationTable<SortDecl>;
       dimensions: DeclarationTable<DimensionDecl>;
       operators: DeclarationTable<OperatorDecl>;
+      edges: DeclarationTable<EdgeDecl>;
       facets: DeclarationTable<FacetDecl>;
       estimands: DeclarationTable<EstimandDecl>;
       base: BaseContract;
@@ -254,6 +285,7 @@ export class DomainContract {
     this.sorts = parts.sorts;
     this.dimensions = parts.dimensions;
     this.operators = parts.operators;
+    this.edges = parts.edges;
     this.facets = parts.facets;
     this.estimands = parts.estimands;
     this.base = parts.base;
@@ -409,7 +441,7 @@ export function parseBaseContract(text: string, source: string): BaseContract {
   const document = mapping(parseYaml(text), source);
   exactFields(
     document,
-    ["contract", "version", "claim_grammar", "estimand_grammar", "kinds", "relations", "facets"],
+    ["contract", "version", "claim_grammar", "estimand_grammar", "composite_grammar", "kinds", "relations", "facets"],
     [],
     source,
   );
@@ -440,6 +472,19 @@ export function parseBaseContract(text: string, source: string): BaseContract {
       `${source}.claim_grammar.sign_inapt_tag: ${JSON.stringify(signInaptTag)} is also an assertable polarity`,
     );
   }
+  const compositeDocument = mapping(document.composite_grammar, `${source}.composite_grammar`);
+  exactFields(compositeDocument, ["version", "shapes"], [], `${source}.composite_grammar`);
+  const shapes = closedSet(compositeDocument.shapes, `${source}.composite_grammar.shapes`);
+  for (const shape of shapes) {
+    if (!SUPPORTED_SHAPES.includes(shape))
+      throw new MalformedContract(
+        `${source}.composite_grammar.shapes: ${JSON.stringify(shape)} is not a shape this implementation derives`,
+      );
+  }
+  const compositeGrammar: CompositeGrammar = Object.freeze({
+    version: positiveInt(compositeDocument.version, `${source}.composite_grammar.version`),
+    shapes: Object.freeze(shapes),
+  });
   const estimandDocument = mapping(document.estimand_grammar, `${source}.estimand_grammar`);
   exactFields(
     estimandDocument,
@@ -500,14 +545,32 @@ export function parseBaseContract(text: string, source: string): BaseContract {
   for (const [name, bodyValue] of Object.entries(mapping(document.relations, `${source}.relations`))) {
     const where = `${source}.relations.${name}`;
     const body = mapping(bodyValue, where);
-    exactFields(body, ["group", "sources", "targets"], [], where);
+    exactFields(body, ["group", "sources", "targets"], ["same_kind"], where);
     if (body.group !== "world" && body.group !== "lifecycle")
       throw new MalformedContract(`${where}: group is world or lifecycle`);
     const sources = Object.freeze(closedSet(body.sources, `${where}.sources`));
     const targets = Object.freeze(closedSet(body.targets, `${where}.targets`));
     for (const kind of [...sources, ...targets])
       if (!(kind in kinds)) throw new MalformedContract(`${where}: ${JSON.stringify(kind)} is not a declared kind`);
-    relationEntries.push([name, Object.freeze({ name, group: body.group, sources, targets })]);
+    const sameKind = body.same_kind === undefined ? false : body.same_kind;
+    if (typeof sameKind !== "boolean") throw new MalformedContract(`${where}.same_kind: is a boolean`);
+    if (sameKind) {
+      const sourceSet = new Set(sources);
+      const targetSet = new Set(targets);
+      const equal = sourceSet.size === targetSet.size && [...sourceSet].every((kind) => targetSet.has(kind));
+      if (!equal) throw new MalformedContract(`${where}.same_kind: requires sources and targets to be equal sets`);
+    }
+    if (name === "composes") {
+      const [composesSources, composesTargets] = COMPOSES_SIGNATURE;
+      const exact = (declared: readonly string[], one: readonly string[]) =>
+        declared.length === one.length && declared.every((kind, index) => kind === one[index]);
+      if (!exact(sources, composesSources) || !exact(targets, composesTargets))
+        throw new MalformedContract(
+          `${where}: composes is ${composesSources[0]} → ${composesTargets[0]}, one signature and no other; ` +
+            `found ${JSON.stringify(sources)} → ${JSON.stringify(targets)}`,
+        );
+    }
+    relationEntries.push([name, Object.freeze({ name, group: body.group, sources, targets, sameKind })]);
   }
   const relations = frozenTable(relationEntries);
   return new BaseContract(MINT, {
@@ -520,6 +583,7 @@ export function parseBaseContract(text: string, source: string): BaseContract {
       layers: closedSet(grammarDocument.layers, `${source}.claim_grammar.layers`),
     },
     estimandGrammar,
+    compositeGrammar,
     kinds,
     relations,
     facets,
@@ -560,7 +624,7 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
   exactFields(
     document,
     ["contract", "version", "lineage"],
-    ["sorts", "dimensions", "operators", "facets", "estimands"],
+    ["sorts", "dimensions", "operators", "facets", "estimands", "edges"],
     source,
   );
 
@@ -651,6 +715,31 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
 
   const operators = frozenTable(operatorEntries);
 
+  const edgeEntries: [string, EdgeDecl][] = [];
+  for (const [name, body] of Object.entries(
+    declarations("edges" in document ? document.edges : {}, `${source}.edges`),
+  )) {
+    const where = `${source}.edges.${name}`;
+    const edgeBody = mapping(body, where);
+    exactFields(edgeBody, ["cause", "effect"], ["description", "retired"], where);
+    refuseRetired(edgeBody, where);
+    const operator = operators[name];
+    if (operator === undefined)
+      throw new MalformedContract(`${where}: ${JSON.stringify(name)} is not an operator this contract declares`);
+    if (!operator.layers.includes("causal"))
+      throw new MalformedContract(`${where}: ${JSON.stringify(name)} admits no causal layer`);
+    const slot = (value: unknown, label: string): number => {
+      if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value >= operator.arity)
+        throw new MalformedContract(`${where}.${label}: a slot is an integer in Fin(${operator.arity})`);
+      return value;
+    };
+    const cause = slot(edgeBody.cause, "cause");
+    const effect = slot(edgeBody.effect, "effect");
+    if (cause === effect) throw new MalformedContract(`${where}: cause and effect must be distinct slots`);
+    edgeEntries.push([name, Object.freeze({ operator: name, cause, effect })]);
+  }
+  const edges = frozenTable(edgeEntries);
+
   const estimandEntries: [string, EstimandDecl][] = [];
   for (const [name, body] of Object.entries(declarations(document.estimands, `${source}.estimands`))) {
     const where = `${source}.estimands.${name}`;
@@ -705,6 +794,7 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     sorts,
     dimensions,
     operators,
+    edges,
     facets,
     estimands,
     base,

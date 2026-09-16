@@ -383,9 +383,12 @@ def test_f8_every_builder_facet_is_declared(corpora, acquisition_report):
     from closure_fixtures import make_closure
     from coordination_fixtures import content_for
     from fixtures_cut3 import spec_draft, spec_rules, typed_applicability, typed_estimand
+    from profiles import WITH_BIOLOGY
     from test_holdings_records import observation
 
+    from beliefs.composite import CompositeNode, build_composite
     from beliefs.corpus import CoordinationResolver
+    from beliefs.resolution import build_snapshot
     from beliefs.runrecord import projection_text
     from beliefs.spec import freeze
     profile = compile_profile(shipped_base_contract(), [], coordination=coordination_contract())
@@ -405,6 +408,17 @@ def test_f8_every_builder_facet_is_declared(corpora, acquisition_report):
         "analysis_spec_node": stored.analysis_spec_node(freeze(spec_draft(), held_rules=spec_rules())),
         "retraction_node": stored.retraction_node(title="r", target=stored.NodeTarget(dataset_ref("d"), dataset_ref("d"), "1" * 64), reason="authored-error", rationale="wrong", grounds=["source:s"], actor=ACTOR, event_token="e"),
         "holdings_observation_node": stored.holdings_observation_node(observation()),
+        # A composite is built, never authored, and its node set is resolved against a
+        # profile that declares the sorts — so the value comes from the fixture profile
+        # while the facet it carries is the base contract's, which is what F8 reads.
+        "composite_node": stored.composite_node(
+            build_composite(
+                WITH_BIOLOGY, w.read_view, shape="dag",
+                nodes=[CompositeNode("biology/gene", "EX:a")], members=[],
+                snapshot=build_snapshot(), slug="c",
+            )[0],
+            title="c",
+        ),
         "coreference_attestation_node": stored.coreference_attestation_node(
             title="coreference",
             endpoints=(dataset_ref("d"), "dataset:e"),

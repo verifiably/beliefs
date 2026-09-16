@@ -5,8 +5,10 @@ the sole *compiled* runtime profile. Nothing here is authored beside a contract.
 """
 
 from beliefs.contract.base import (
+    COMPOSITE_GRAMMAR,
     BaseContract,
     ClaimGrammar,
+    CompositeGrammar,
     FacetUse,
     KindDecl,
     RelationDecl,
@@ -23,6 +25,7 @@ from beliefs.contract.coordination import (
 from beliefs.contract.domain import (
     DimensionDecl,
     DomainContract,
+    EdgeDecl,
     OperatorDecl,
     SortDecl,
     VocabularyBinding,
@@ -34,12 +37,15 @@ from beliefs.contract.facets import FacetDecl, FieldDecl
 from beliefs.contract.practice import Practice, load_practice, parse_practice
 
 __all__ = [
+    "COMPOSITE_GRAMMAR",
     "BaseContract",
     "ClaimGrammar",
+    "CompositeGrammar",
     "CoordinationContract",
     "CoordinationKindDecl",
     "DimensionDecl",
     "DomainContract",
+    "EdgeDecl",
     "FacetDecl",
     "FacetUse",
     "FieldDecl",

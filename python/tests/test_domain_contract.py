@@ -298,10 +298,15 @@ class TestSuccession:
     @pytest.mark.parametrize(
         ("field", "value"),
         [
-            ("arity", 1),
+            # `arity` and `layers` are picked so `affects`'s edges §3.3 row
+            # (cause 0, effect 1, causal) stays parse-valid after the mutation —
+            # arity grows rather than shrinks below the edge's slots, and
+            # `causal` is kept rather than dropped. Otherwise this test would
+            # hit `edges`'s own refusal before ever reaching succession.
+            ("arity", 3),
             ("arg_sorts", ["outcome", "entity"]),
             ("sign_apt", False),
-            ("layers", ["structural"]),
+            ("layers", ["causal", "structural"]),
             ("dimensions", ["population"]),
         ],
     )
@@ -309,7 +314,7 @@ class TestSuccession:
         operators = copy.deepcopy(testing_document["operators"])
         operators["affects"][field] = value
         if field == "arity":
-            operators["affects"]["arg_sorts"] = ["entity"]
+            operators["affects"]["arg_sorts"] = ["entity"] * value
         document = self.successor_document(testing_document, genesis, operators=operators)
         with pytest.raises(SuccessionViolation, match="different canonical schema projection"):
             parse(document, predecessor=genesis)
@@ -353,7 +358,8 @@ class TestSuccession:
         # §8.3's scope restriction: an unscoped "every identifier" would have
         # this design quietly deciding facet versioning, which D §12 leaves open.
         assert all(
-            key.split(":")[0] in {"sort", "dimension", "operator", "estimand"} for key in genesis.claim_vocabulary()
+            key.split(":")[0] in {"sort", "dimension", "operator", "estimand", "edge"}
+            for key in genesis.claim_vocabulary()
         )
 
 
@@ -423,8 +429,11 @@ class TestRetirementIsOneWay:
         # An estimand declaration lives with its operator (estimand-typing §5.1)
         # and cannot outlive it in the document, so it is dropped in step to keep
         # the document internally consistent — this test is about the operator
-        # drop being refused, not about the estimand table.
+        # drop being refused, not about the estimand table. An edges §3.3 row
+        # is the same: it names an operator this contract declares, so it
+        # cannot outlive that operator either.
         del dropped["estimands"]["affects"]
+        del dropped["edges"]["affects"]
         dropped["lineage"] = {"successor": contract.content_identity}
         dropped["version"] = contract.version + 1
         with pytest.raises(SuccessionViolation, match="drops claim-vocabulary"):
@@ -436,8 +445,11 @@ class TestRetirementIsOneWay:
         # edit to one changes what that claim means.
         document, contract = tombstoned
         edited = copy.deepcopy(document)
-        edited["operators"]["affects"]["arity"] = 1
-        edited["operators"]["affects"]["arg_sorts"] = ["entity"]
+        # arity grows to 3, not down to 1, so `affects`'s edges §3.3 row (cause
+        # 0, effect 1) stays parse-valid and the edit reaches the redefinition
+        # check rather than the edges refusal.
+        edited["operators"]["affects"]["arity"] = 3
+        edited["operators"]["affects"]["arg_sorts"] = ["entity", "outcome", "entity"]
         edited["lineage"] = {"successor": contract.content_identity}
         edited["version"] = contract.version + 1
         with pytest.raises(SuccessionViolation, match="different canonical schema projection"):
@@ -488,8 +500,11 @@ class TestTheLoadBoundary:
         # malformed successor through the boundary most callers actually use.
         genesis = parse(testing_document)
         operators = copy.deepcopy(testing_document["operators"])
-        operators["affects"]["arity"] = 1
-        operators["affects"]["arg_sorts"] = ["entity"]
+        # arity grows to 3, not down to 1, so `affects`'s edges §3.3 row (cause
+        # 0, effect 1) stays parse-valid and the mutated document reaches the
+        # succession check rather than the edges refusal.
+        operators["affects"]["arity"] = 3
+        operators["affects"]["arg_sorts"] = ["entity", "outcome", "entity"]
         document = TestSuccession.successor_document(testing_document, genesis, operators=operators)
 
         path = tmp_path / "successor.yaml"
@@ -518,6 +533,9 @@ class TestParallelGenesis:
         forked = copy.deepcopy(testing_document)
         forked["operators"]["affects"]["arity"] = 1
         forked["operators"]["affects"]["arg_sorts"] = ["entity"]
+        # Fin(1) has one slot, so no cause/effect pair fits; this fork's point
+        # is the arity shrink, not edges §3.3, so the row is dropped with it.
+        del forked["edges"]["affects"]
         second = parse(forked)  # also genesis, same namespace, incompatible schema
 
         assert first.namespace == second.namespace
@@ -533,3 +551,62 @@ def test_a_domain_contract_cannot_claim_the_coordination_namespace(base_contract
             base=base_contract,
             predecessor=None,
         )
+
+
+class TestEdges:
+    @pytest.fixture()
+    def genesis(self, parse, testing_document):
+        return parse(testing_document)
+
+    def test_the_fixture_declares_one_edge(self, parse, testing_document):
+        contract = parse(testing_document)
+        assert set(contract.edges) == {"affects"}
+        assert (contract.edges["affects"].cause, contract.edges["affects"].effect) == (0, 1)
+        assert ("edge:affects", contract.edges["affects"]) in contract._declarations()
+        assert contract.claim_vocabulary()["edge:affects"] == {"cause": 0, "effect": 1}
+
+    def test_a_contract_without_edges_is_a_contract_with_no_edges(self, parse, testing_document):
+        del testing_document["edges"]
+        assert parse(testing_document).edges == {}
+
+    def test_an_edge_for_an_operator_the_contract_does_not_declare_is_refused(self, parse, testing_document):
+        testing_document["edges"]["regulates"] = {"cause": 0, "effect": 1}
+        with pytest.raises(MalformedContract, match="regulates"):
+            parse(testing_document)
+
+    def test_an_edge_for_another_namespace_is_refused(self, parse, testing_document):
+        testing_document["edges"]["biology/affects-molecular-entity-molecular-entity"] = {"cause": 0, "effect": 1}
+        with pytest.raises(MalformedContract, match="own"):
+            parse(testing_document)
+
+    def test_an_edge_on_an_operator_without_the_causal_layer_is_refused(self, parse, testing_document):
+        testing_document["edges"]["correlates-with"] = {"cause": 0, "effect": 1}
+        with pytest.raises(MalformedContract, match="causal"):
+            parse(testing_document)
+
+    @pytest.mark.parametrize("body", [{"cause": 0, "effect": 0}, {"cause": 0, "effect": 2}, {"cause": -1, "effect": 1}, {"cause": True, "effect": 1}, {"cause": 0}, {"cause": 0, "effect": 1, "sign": "+"}])
+    def test_a_malformed_slot_pair_is_refused(self, parse, testing_document, body):
+        testing_document["edges"]["affects"] = body
+        with pytest.raises(MalformedContract):
+            parse(testing_document)
+
+    def test_succession_never_redefines_an_edge(self, parse, testing_document, genesis):
+        successor = copy.deepcopy(testing_document)
+        successor["lineage"] = {"successor": genesis.content_identity}
+        successor["edges"]["affects"] = {"cause": 1, "effect": 0}
+        with pytest.raises(SuccessionViolation, match="edge:affects"):
+            parse(successor, predecessor=genesis)
+
+    def test_succession_refuses_dropping_an_edge(self, parse, testing_document, genesis):
+        successor = copy.deepcopy(testing_document)
+        successor["lineage"] = {"successor": genesis.content_identity}
+        del successor["edges"]
+        with pytest.raises(SuccessionViolation, match="edge:affects"):
+            parse(successor, predecessor=genesis)
+
+    def test_retiring_an_edge_is_permitted_and_tombstoned(self, parse, testing_document, genesis):
+        successor = copy.deepcopy(testing_document)
+        successor["lineage"] = {"successor": genesis.content_identity}
+        successor["edges"]["affects"]["retired"] = True
+        contract = parse(successor, predecessor=genesis)
+        assert "edge:affects" in contract.retired_identifiers()

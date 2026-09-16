@@ -135,15 +135,17 @@ set.
 subject of several identities. The sorts partition the *carrier*; the axes above
 cut across it, which is why each entry carries all seven fields independently.
 
-### 2.1 `Rec` — world records (the thirteen kernel kinds)
+### 2.1 `Rec` — world records (the fourteen kernel kinds)
 
-Each row's **identities** cell lists every commitment the player bears. All thirteen
+Each row's **identities** cell lists every commitment the player bears. All fourteen
 additionally bear a **node-content identity** (moved by any facet or field
 change) and contribute to their corpus's **corpus-state identity**; those two are
 stated once here rather than repeated in every row.
 *(Extended 2026-08-10: `holdings-observation` joined — the verified-holdings
 record design §2, §8.)*
 *(Extended 2026-08-11: `act-report` joined — the act-report design §2, §7.)*
+*(Extended 2026-09-16: `composite` joined — the composite-claims design
+`2026-09-12-composite-claims-design.md` §3, §5, discharged at conformance cut 32.)*
 
 | player | construction | identities (πᵢ) | lifecycle | reads / produces | affects | inert under | banked |
 |---|---|---|---|---|---|---|---|
@@ -160,6 +162,7 @@ record design §2, §8.)*
 | `coreference-attestation` | authored, attributed, immutable — added 2026-08-08 (`2026-08-08-world-address-ruling.md` §5.1) | content identity over (**sorted endpoint pair**, **stance**, **actor**, **grounds**, **minted event token**) — the `retraction` shape; sorting makes `{A,B}` one identity regardless of authoring order | additive. A negative attestation **offsets** the pair's derived balance rather than retracting the positive one; both records stand. `retraction` is unused unless individual-attestation invalidation becomes necessary | reads its two endpoints; produces a **derived** balance — `Σ stance` over distinct `(endpoints, stance, actor, grounds)`, the event token deliberately outside the key so duplicate submissions preserve provenance without manufacturing weight | **none** — closure is a query-layer operation and rewrites no stored reference, identity or belief input (§5.3 there) | everything in belief; attester class, which carries **unit weight** for human and agent alike | world §4.2; **W15** |
 | `holdings-observation` | minted by an act — a pure dereference or a managed mutation recording its captured post-state (holdings design §3) — under whatever orchestration (acquisition, audit, a move, deletion) runs it; added 2026-08-10 | content identity over the §2 facet under `science.holdings-observation.v1` — location, outcome, `expected`, observer, instrument, minted **event token**, `observed_at`, `supersedes` as a deduplicated sorted reference sequence | append-only; revised by **supersession only** — a later record names its predecessors; never expired by age | reads the bytes it dereferenced; produces the active/blocked sets and coverage projection the dataset admission state derives from | admission (heldness under a declared coverage) → belief transitively | `observed_at` (recorded, never read by a derivation); location of the *record*; everything in belief | holdings design §2–§5; **H1–H4** |
 | `act-report` | minted only by the boundary — the terminal record of one opened operation (`acquisition`, `audit`, `import`, `re-check`, or a run attempt that minted no `run`), or the pre-intent refusal record of a run request rejected before an operation can open (act-report design §2–§3); added 2026-08-11 | content identity over the whole facet under `science.act-report.v1` — operation kind, the report occurrence's minted **event token**, actor, observer, instrument, timestamps, and `entries` as a canonical sequence, order identity-bearing | immutable; **never superseded**, retained — no ordinary API edits, supersedes, or deletes one | records member acts and their outcomes in per-kind native vocabularies; a finding is citable as **(act-report ref, entry index)** | nothing — inert by type: no eligibility predicate, no admission derivation, no belief closure member, no coverage projection | everything in belief; `opened_at`/`closed_at` (recorded, never read by a derivation); referenced products retain their own semantics | act-report design §2–§5; **T1–T8** |
+| `composite` | authored, through `build_composite` over a declared `ResolutionSnapshot`, which returns a **node receipt** rather than a refusal for a term the snapshot did not consult; added 2026-09-16 | **content identity over the covered facet** under `science.composite.v1` — the shape, the canonically sorted node set of `(sort, term)` pairs, and the members as claim identities in canonical order. Authoring order does not move it; a node with no member does; display prose does not | mint → a change to the covered facet **mints a successor** linked by `supersedes`, which is declared `same_kind` and widens to this kind; a composite is never amended in place, and a superseded member is answered by minting a successor composite, not by editing this one | reads its **members** — propositions named by `composes` and re-derived under the profile's `edges:` declarations — and produces a derived **reading** (one signed row per member, each row's belief and identification column obtained through the evaluator's traced wrapper) that is returned and **stored nowhere** | **nothing** — belief-inert by construction: `assesses` keeps its one target kind, the belief input closure never mentions this kind, and minting, superseding or deleting one leaves every proposition's belief input digest byte-identical | display prose; authoring order; the **resolution state** of the `composes` targets — a member that later fails to resolve is an audit contradiction over an unchanged record, never an identity move | composite-claims design §3–§6; **U1–U10** |
 
 ### 2.2 Relation signatures and relation instances
 
@@ -231,6 +234,45 @@ roster this system's doctrine forbids:
 | `retracts` | standing → admission → belief member 6 | correction §4; 5b §7.7 |
 | `grounded-in` | the recorded evidence a retraction rests on; a groundless subtraction is **unspellable** | correction §5; **C2**; 5b §7.7 |
 | `succeeded-by` | **nothing** — optional and informational, "a pointer for reviewers and diagnostics, **never an implicit redirect**"; nothing resolves through a retraction to its successor | correction §3; 5b §7.7 |
+| `composes` | **nothing in belief** — a composite names its members and the belief input closure never reads the edge; the boundary requires each target to resolve to a proposition whose claim identity equals the facet's member at that position, and the audit reports a dangling or mismatched one as a contradiction. *Added 2026-09-16* (`2026-09-12-composite-claims-design.md` §3.1, §4.2, discharged at conformance cut 32) | composite-claims design §3.1, §4.2, §4.3; **U1**, **U4**, **U6**, **U7** |
+
+> **Amended 2026-09-16 — one signature added, one signature widened and
+> declared** (`2026-09-12-composite-claims-design.md`, discharged at conformance
+> cut 32; results record
+> `../plans/2026-09-16-conformance-cut-32-results.md`). The signature list above
+> gains one line, and one of its existing lines acquires a declaration:
+>
+> ```text
+> Composite   ──composes──▶ Proposition          (one signature and no other)
+> *           ──supersedes──▶ *                  (same-kind succession, now *declared*
+>                                                 `same_kind`; the kinds it succeeds are
+>                                                 `proposition` and `composite`)
+> ```
+>
+> **`composes` is closed to exactly one pair.** Sources must be exactly
+> `[composite]` and targets exactly `[proposition]`; anything else — a widened
+> source, a widened target, a swapped pair — refuses at parse in Python and in
+> TypeScript, on the same shape as the `same_kind` refusal beside it. The
+> signature is therefore a predicate here in the sense §4.1 of the kernel means,
+> and not a roster entry.
+>
+> **`supersedes`' same-kind rule leaves prose and becomes a contract
+> declaration.** `RelationDecl.same_kind` is parsed and compiled; a relation
+> declaring it whose sources and targets differ refuses at parse in both
+> implementations; the rule is enforced on the **shared** write path, outside the
+> `document_validated` shortcut, so an import bundle carrying
+> `composite ──supersedes──▶ proposition` refuses in either direction; and a
+> raw-written cross-kind pair audits as `supersedes-cross-kind` (**U9**). The
+> relation's *meaning* is unchanged — this is the same-kind succession the list
+> already stated, now checkable.
+>
+> **Relation-instance endpoint kinds are still unchecked in general.** Found
+> while planning cut 32 and recorded as that design's limitation 17: `sources`
+> and `targets` are parsed and compiled and consulted by nothing on the shared
+> refusal path, so `composes` and `supersedes` are checked by rules written for
+> them and every other signature rests on the typed constructors and the audit.
+> The residue is `../guide/open-questions.md`'s existing *Relation endpoint
+> enforcement* entry, extended at that discharge rather than built.
 
 | player | construction | identities | banked |
 |---|---|---|---|
@@ -2847,6 +2889,34 @@ no target tuple and starts no cascade. §10 and §11 carry it.
 > is unaffected by this closure. No new oracle is owed — **W15** and **W16**
 > assert the no-rewrite property directly, and **M3**'s merge arms restate onto
 > them.
+
+**ρA11 — a fourteenth `Rec` player, and `supersedes` widened from one kind to
+two.** *Recorded 2026-09-16* (`2026-09-12-composite-claims-design.md`,
+discharged at conformance cut 32;
+`../plans/2026-09-16-conformance-cut-32-results.md`).
+
+| | |
+|---|---|
+| banked prose | kernel §4.4's *open — unplaced deliberately* row, carrying `inquiry`, `patch-definition`, `structural-chain` and `search`; kernel §11's first open question, *"either one kernel-adjacent 'model/patch' kind or a view over the kernel"*; §2.1's thirteen-player inventory; §2.2's `* ──supersedes──▶ *` line, whose same-kind discipline was stated and unenforced |
+| becomes | a fourteenth player, `composite` (§2.1): an authored closed node set of `(sort, term)` pairs plus members named by claim identity, under a kernel-owned closed `composite_grammar` with one shape, `dag`, whose assertion is the **absence** of any other direct edge among the declared nodes. One new signature, `Composite ──composes──▶ Proposition`, closed to exactly that pair; `supersedes` declared `same_kind` and widened to `proposition` and `composite` |
+| oracle | **U1–U10**, the composite-claims design's own table, closed in full at cut 32. **No M row is amended and none is owed**: M6 governs the new `edges:` declaration class unamended, M8's claim identities do not move, and M1–M13 are untouched, which the cut's boundary invariants assert |
+| preserved | **the belief invariant, exactly** — `assesses` keeps its one target kind, the belief input closure never mentions the new kind, and U4 measures every proposition's belief input digest byte-identical across minting, superseding and deleting a composite that names it. §4.1's *signature, not roster* doctrine: the new kind is inert because no signature makes it otherwise, not because a flag says so. **CS** — content identity over a covered facet, on the existing pattern. **WD** — the reading is a pure function of its named arguments |
+| amended | the inventory's size; `supersedes`' declaration, from intended to enforced in both parsers, on the shared write path and under audit; kernel §4.4's open row, which keeps only `search` |
+| invalidated | nothing banked. The three placed kinds were *unplaced*, not ruled; the question kernel §11 asked is answered rather than contradicted — **both**, split by which half is authored: the structure is a kind, everything derived from it is a view |
+
+**Why this is not the roster hole §4.1 warns about.** A new kind is exactly the
+move that doctrine distrusts, so the argument has to be made and not assumed.
+It survives because inertness here is still the *default* and not a per-kind
+exception: nothing was added to the belief closure, no eligibility predicate
+gained a clause, and the only new signature points **at** a proposition and is
+read by nothing that computes belief. The measurement, not the argument, is U4.
+
+**What it does not supply.** No order over claims and no relation between
+composites: sub-structure, refinement and agreement are definable over edge sets
+and are not defined, so §6.7's constraint applies unchanged — the encoding keeps
+them definable. Membership asserts directness only *relative to the node set*,
+and a member's belief is about the claim as stated; the reading reports the
+belief and the estimand's conditioning set side by side and claims no more.
 
 ### 8.3 Contract succession — an adopted rule and a bound, not one thing
 

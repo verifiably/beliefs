@@ -629,3 +629,208 @@ reaches them.
 - **Not a belief digest comparison.** §10.6: no `NoBelief` carries one.
 - **Not a migration.** Nothing was retyped, revised or superseded. The prior
   corpus state is kept as evidence, not as lineage.
+
+## 11. Addendum — composite claims, 2026-09-16
+
+Appended, not edited: §§1–10 record the 2026-09-05 run, its 2026-09-08 re-run
+and the 2026-09-15 recreation under estimand typing, and stay as written.
+This section records a fourth run, under the composite-claims design
+(`2026-09-12-composite-claims-design.md`, §9), which again **recreates** the
+corpus rather than migrating it (decision 11): the base contract gained
+`composite_grammar` and the `mm30` contract gained an `edges:` table, so the
+cut-31 corpus state was moved aside — never deleted — to
+`.work/reproduction/mm30.cut31`, and the driver's steps were run in order from
+`preflight` through `close`, then the two new steps `compose` (11) and `read`
+(12). `.work/reproduction/mm30.cut22` is untouched: `rederive`'s 10c still
+reads it.
+
+The run was driven from a lane worktree, so both of the driver's root
+variables were supplied rather than defaulted: `SCIENCE_MM30_ROOT` named the
+work root — the main checkout's `.work/reproduction/mm30` — because
+`paths.CHECKOUT` resolves a `.worktrees/` checkout through its real path under
+the work-root volume and would otherwise have looked beside the worktree, and
+`MM30_PREDECESSOR` named the predecessor corpus root, whose declared default
+does not exist on this host. `preflight` refused once, on the predecessor,
+before the second variable was set; that refusal is a path binding on this
+host and not a finding about the volume, confinement or the corpus, and the
+re-run certified all three.
+
+World `bc234bbfbbad12fb2915801de4a27301`, corpus
+`8b5d0c802677ee445e2b9d91ebf5d6a7`, store `05b6c1225e710bb1559f36e8333f3f29`.
+
+### 11.1 The successor contracts
+
+    base (science):  52a4399342235225fbf23526050cf64ff0436d9b72bc54e30fc0c2cb7193b220
+    mm30 successor:  4af7c4212d482ae60f429526ff5a8a6d4c335f70351a2687cd2062ffdedf437c
+    mm30 predecessor (the cut-31 document): 0e71608ea5395666a1b3d992c25e264b38250e3c07d20822c633f97e7fe3b71a
+    biology (shipped, unchanged): 24bcec4370cfcff3077414798c02525814d4aeaaf84430ab378838df7345d53b
+
+The `mm30` document declares `lineage: {successor: 0e71608e…}` — the content
+identity of the cut-31 document, committed beside it as
+`python/tools/reproduction/mm30-cut31.yaml` (a byte copy), exactly as
+`mm30-cut22.yaml` was committed for the previous succession. `version` stays
+`1`, as the estimand lane left it. `vocabulary.contract()` now walks the whole
+chain, document by document: cut 22 → cut 31 → current, each predecessor
+parsed rather than trusted by shape.
+
+What the successor adds is one table, seven rows, over the operators whose
+direction is not in doubt:
+
+| edge | cause | effect |
+|---|---|---|
+| `affects-concept-concept` | 0 | 1 |
+| `affects-concept-molecular-entity` | 0 | 1 |
+| `affects-molecular-entity-concept` | 0 | 1 |
+| `regulates-concept-concept` | 0 | 1 |
+| `regulates-concept-molecular-entity` | 0 | 1 |
+| `regulates-molecular-entity-concept` | 0 | 1 |
+| `induces-state-concept-concept` | 0 | 1 |
+
+`associates-with-*` gets no row (a symmetric statistical relation is not an
+arrow), `binds-*` gets none (symmetric), and `is-proxy-for-*` gets none —
+§11.5 below. The shipped `biology` pack gains **no** row and was not edited:
+`shipped_domain_contract` parses it with no predecessor and `check_succession`
+refuses a successor lineage without one, so a shipped pack has no succession
+route at this design (limitation 18). Both of the fragment's operators are
+`mm30`'s, so the fragment needs none.
+
+**The consulted set is `{science, mm30, biology}`** — unchanged in membership
+from §10.5, as the composite-claims design predicted: the composite is read
+under the same profile, and no namespace enters through the `edges:` table.
+Two of the three identities moved, because two of the three contracts changed
+shape; `biology`'s did not.
+
+### 11.2 What the re-run reached
+
+Recreated, so every identity derived from the run is new; every identity
+derived from the authored inputs is the one §10 recorded.
+
+| step | outcome |
+|---|---|
+| 1b/1c | the same four lists, byte for byte: 285 concepts `dataset:sha256:be3bf183…`, 2 levels `dataset:sha256:85b5e347…`, 1 measure `dataset:sha256:08027c2e…`, 4 identifications `dataset:sha256:79e30710…` |
+| 2 | claim `780ace5964c8ab83…`, **unchanged** (M8: claim identities do not move). The modal-sorted measurement refused as in §3 |
+| 3 | the same 6,154,181 bytes, digest `sha256:c74ea661…`, address `dataset:sha256:a6bf229e…` |
+| 4 | spec `10e8bfce1aaad8a9…`, **unchanged** |
+| 5 | confined run `run:8b1a2401…`, exit 0, outcome `inconclusive` |
+| 6 | `assessment:27bd9753ffa77bf6`; stored and derived identities agree. **Moved** from §10's `618c6c58…`: the assessment derives from the run closure, and this is a new run |
+| 7 | replay `run:616f2685…`; `derive_scope` = `clean-environment`; verdict `passed`; verification `verification:353bd069…` |
+| 8 | `admit` → **`Admitted`**; `evaluate_over` → `NoBelief(no-directional-outcome)` |
+| 9 | `corpus_check` **0 findings**; `audit_corpus` **0 findings** — the audit's composite rules (U7, U9) find nothing to report over a well-formed composite; `audit_log` as before (`unresolvable` under the empty observer set, `validated` under the head carrier) |
+| 10a | the fresh process answered `NoBelief(no-directional-outcome)`, **equal** |
+| 10b | `comparison_report_stored` true; scope, verdict and report identity recompute equal |
+| 10c | all five keys of `fresh_process_restoration` true, `prior_pre_grammar` included |
+| 11 | `compose`: the spine minted, the fragment composed — §11.3 |
+| 12 | `read` / `read --again`: the two encodings **byte-equal** — §11.4 |
+
+### 11.3 Step 11 — the spine and the fragment
+
+The spine proposition, minted with no evidence and none claimed:
+
+    ref:      proposition:protein-phf19-affects-concept-overall-survival
+    claim:    376450b154a29a9be60913f629012614e8ca378d1bcea8b9fece12044cc7950e
+    operator: mm30/affects-molecular-entity-concept
+    args:     (biology/molecular-entity, protein:PHF19),
+              (mm30/concept,            concept:overall-survival)
+    layer:    causal
+    polarity: negative
+
+The polarity is **negative**, as the inquiry states it — higher PHF19
+expression, shorter overall survival. The composite-claims design §9 calls
+this proposition "positive" in one clause; that clause is a drafting slip
+against its own two neighbours (the fragment's title `PHF19 ⊣ overall
+survival` and the spine's display statement), and what was minted and measured
+is recorded here rather than adjusted to it. The design is frozen at
+conformance cut 32 and is not edited.
+
+The composite, built by `build_composite` over the reproduction's own
+snapshot and minted as `composite:h1-prognosis-fragment`:
+
+    identity: ef546cde73edf91b310bd49ff61cd7ace95add2c3d0ffb6e20701fb17b63df32
+    shape:    dag
+    nodes:    (biology/molecular-entity, protein:PHF19)
+              (mm30/concept,             concept:disease-stage)
+              (mm30/concept,             concept:overall-survival)
+    edges:    concept:disease-stage → protein:PHF19            positive
+              protein:PHF19        → concept:overall-survival  negative
+
+The nodes are sorted by `(sort, term)`, which is why PHF19 is `node:0`:
+`biology` sorts before `mm30`. The node receipt, measured:
+
+| node | term | outcome |
+|---|---|---|
+| `node:0` | `protein:PHF19` (`biology/molecular-entity`) | `not-consulted` |
+| `node:1` | `concept:disease-stage` (`mm30/concept`) | `member` |
+| `node:2` | `concept:overall-survival` (`mm30/concept`) | `member` |
+
+`not-consulted` is the honest answer and not a gap: the reproduction's
+snapshot is built over the four held lists this corpus binds and reads no HGNC
+release, so the vocabulary that would decide PHF19's membership was never
+opened. A check not performed is not a finding (composite-claims design §4.1).
+The two concepts resolved `member` against the held 285-term concept list on
+the first call, `concept:overall-survival` included — the term the design read
+out of `entities/concepts/` on 2026-09-12 is in the recreated corpus's list.
+
+### 11.4 Step 12 — the reading, twice, in fresh processes
+
+`read_composite` was handed the same four arguments the `belief` step handed
+the evaluator — the policy binding `science.belief.v1`, the supplied context,
+the availability built from the corpus's own held observations, and the
+resolution snapshot over the four lists — plus the compiled profile. Standing:
+`active`, no successors.
+
+| member | edge | belief | identification |
+|---|---|---|---|
+| `780ace59…` (`proposition:concept-disease-stage-affects-protein-phf19`) | `disease-stage → PHF19`, positive | `NoBelief("no-directional-outcome")` | `{identification:observational}` |
+| `376450b1…` (`proposition:protein-phf19-affects-concept-overall-survival`) | `PHF19 → overall-survival`, negative | `NoBelief("no-eligible-assessment")` | `()` |
+
+Both rows are what the design predicted. The target's row carries the answer
+the `belief` step computed over this same corpus (§11.2 row 8), reached
+through the traced evaluator rather than re-derived by the reading, and its
+identification column is read from the same traced admission — the estimand's
+`identification:observational`, §10.1's recorded judgment, now visible as a
+column of the composite. The spine's row is `no-eligible-assessment` because
+nothing assesses it: the claim was minted with no evidence, and the reading
+says so in the row rather than leaving the member out.
+
+The reading was taken in one process, encoded through `identity.v1` to
+`reading-1.json`, and taken again in a second process to `reading-2.json`.
+The two byte strings are **equal** (`state.reading_equal` true): the reading
+is a function of the persisted records and its five arguments, and holds
+nothing from the process that wrote them.
+
+### 11.5 The cut-31 corpus state under the successor profile
+
+`.work/reproduction/mm30.cut31` was opened **read-only** under the successor
+profile. `audit_corpus` returned **exactly one finding,
+`profile-mismatch: base`, and read no record**: that corpus pins
+`science:db7d2ebb252af895…`, the estimand lane's base contract, which has no
+`composite_grammar` and does not parse under the successor. The
+profile-disagreement rule returns before `iter_stored` is reached, so no
+record of that corpus was read at all — the same shape §10.8 measured for the
+cut-22 state, and decision 11's transition arm, measured rather than assumed.
+
+The route is `rederive.prior_state`'s, pointed at this corpus instead:
+`ReadView.opened_at(.work/reproduction/mm30.cut31/corpus)`, then
+`audit_corpus(view, evidence=<the two held rule implementations>,
+profile=vocabulary.profile())`. Nothing was written to that corpus; the
+measurement is saved as `state.cut31_corpus_state` in the recreated one.
+
+### 11.6 The fragment is the inquiry's spine, not its DAG — an author's judgment
+
+Recorded as a judgment, not a certification. The `h1-prognosis` inquiry names
+more than these three nodes: gain(1q), EZH2, PRC2 retargeting, a proliferation
+score, and the proxies that stand between the measured quantities and the ones
+the hypothesis is about. **None of them is minted here.** The corpus holds no
+proposition for them and this lane does not author claims it has no evidence
+for; the one claim it did author, the spine, is minted precisely so that the
+reading can report `no-eligible-assessment` over it and the fragment can carry
+a real arrow that nothing supports.
+
+The proxies are the sharper half. `is-proxy-for` gets **no** `edges:` row, so
+a proxy relation cannot be a member of a `dag` at this grammar version — it is
+not a causal arrow between the nodes, it is a statement about representation,
+and typing it as `affects` to get it into the composite would be exactly the
+coercion this kernel exists to refuse. This is the **first exercise of spec
+limitation 5**, and it is recorded as a limitation reached, not a defect: the
+composite says what it can say about this inquiry, and the inquiry's
+representation edges wait for a grammar version that types them.

@@ -6,6 +6,7 @@ crosses between kernel spellings and the pure functions its steps rely on.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -304,7 +305,7 @@ def test_the_row_plan_maps_a_predicate_and_kind_pair(held_vocabulary):
     assert len(plan["operators"]) == 17
 
 
-def test_the_mm30_contract_binds_every_sort_to_its_held_list_and_succeeds_the_cut_22_document(held_vocabulary):
+def test_the_mm30_contract_binds_every_sort_to_its_held_list_and_succeeds_the_cut_31_document(held_vocabulary):
     from reproduction import vocabulary
 
     contract = vocabulary.contract()
@@ -318,8 +319,24 @@ def test_the_mm30_contract_binds_every_sort_to_its_held_list_and_succeeds_the_cu
             "dataset:"
         )
     assert contract.operators["affects-concept-molecular-entity"].arg_sorts == ("concept", "biology/molecular-entity")
-    # Succession ran against the real predecessor, not an authored stand-in.
-    assert contract.predecessor == vocabulary.contract(vocabulary.CUT22_DOCUMENT).content_identity
+    # Succession ran against the real predecessors, not authored stand-ins, and
+    # the whole chain is walked: cut 22 → cut 31 → current.
+    cut31 = vocabulary.contract(vocabulary.CUT31_DOCUMENT)
+    assert contract.predecessor == cut31.content_identity
+    assert cut31.predecessor == vocabulary.contract(vocabulary.CUT22_DOCUMENT).content_identity
+    assert vocabulary.contract(vocabulary.CUT22_DOCUMENT).predecessor is None
+    # The `edges:` table the composite-claims lane adds, and the operators it
+    # leaves without a row (composite-claims design §3.3, §3.4).
+    assert {name: (e.cause, e.effect) for name, e in contract.edges.items()} == {
+        "affects-concept-concept": (0, 1),
+        "affects-concept-molecular-entity": (0, 1),
+        "affects-molecular-entity-concept": (0, 1),
+        "regulates-concept-concept": (0, 1),
+        "regulates-concept-molecular-entity": (0, 1),
+        "regulates-molecular-entity-concept": (0, 1),
+        "induces-state-concept-concept": (0, 1),
+    }
+    assert not cut31.edges
     declared = contract.estimands["affects-concept-molecular-entity"]
     assert dict(declared.level_sorts) == {"0": "stage-level"}
     assert (declared.measure_sort, declared.identification_sort, declared.conditioning_sort) == (
@@ -570,3 +587,47 @@ def test_select_target_refuses_an_eligible_evidence_line_without_a_target(tmp_pa
     (lines / "orphan.md").write_text("---\nid: evidence-line:orphan\nevidence_type: empirical_data\nbelief_eligible: true\n---\n")
     with pytest.raises(ValueError, match="orphan"):
         evidence_lines(tmp_path)
+
+
+def test_the_reading_projection_round_trips_through_identity_v1(tmp_path):
+    """Step 12 compares two processes' encoded readings byte for byte, so the
+    encoding must be a fixed point of decode-then-encode: an encoding that did
+    not round-trip would make `reading_equal` a measurement of the encoder
+    rather than of the corpus. Read through `read_composite`, which is the
+    reading's one mint (U8), over a memberless composite — the rows are
+    exercised in `test_composite_reading.py`; what is measured here is the
+    encoding the driver's two files hold."""
+    from test_composite_boundary import GENE, _writer
+
+    from beliefs import stored
+    from beliefs.belief import Availability, SuppliedContext
+    from beliefs.closure import RetractionEnumeration
+    from beliefs.composite import CompositeNode, build_composite, read_composite
+    from beliefs.corpus import lineage_snapshot
+    from beliefs.identity import v1
+    from beliefs.policy import BELIEF_V1, BELIEF_V1_RULE
+    from beliefs.resolution import build_snapshot
+
+    writer = _writer(tmp_path / "corpus")
+    value, _ = build_composite(
+        writer.profile, writer.read_view, shape="dag", nodes=[CompositeNode(GENE, "EX:a")],
+        members=[], snapshot=build_snapshot(), slug="m",
+    )
+    minted = writer.add(stored.composite_node(value, title="m"))
+    reading = read_composite(
+        writer.read_view,
+        minted.id,
+        context=SuppliedContext(
+            snapshot=lineage_snapshot(writer.read_view, ()),
+            producer_snapshot_identity="no-epoch-published",
+            retractions=RetractionEnumeration(found=(), coverage=()),
+            node_corpus={},
+            pins={},
+        ),
+        availability=Availability(observations={}, implementations={}, fixtures={}),
+        resolution=build_snapshot(),
+        binding=PolicyBinding(rule=BELIEF_V1_RULE, implementation=BELIEF_V1.identity),
+        profile=writer.profile,
+    )
+    encoded = v1.encode(reading.projection())
+    assert encoded == v1.encode(json.loads(encoded))
