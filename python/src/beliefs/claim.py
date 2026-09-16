@@ -92,8 +92,8 @@ class Referent:
     """The referent's term identifier within that sort's bound vocabulary."""
 
     def __post_init__(self) -> None:
-        _require_referent_identifier(self.sort, "a referent's sort")
-        _require_referent_identifier(self.term, "a referent's term")
+        require_identifier(self.sort, "a referent's sort")
+        require_identifier(self.term, "a referent's term")
 
 
 @sealed
@@ -333,12 +333,14 @@ def _require_referent(value: object, where: str) -> None:
         )
 
 
-def _require_referent_identifier(value: object, where: str) -> None:
+def require_identifier(value: object, where: str) -> None:
     """Every position in the projection is an identifier (§6.5).
 
     A referent's two fields are the only ones a claim carries that are not
     matched against a table somewhere, so this is where that sentence has to be
-    made true rather than assumed.
+    made true rather than assumed. Public: a composite's node also checks its
+    sort and term against this same identifier grammar (composite-claims
+    design §4.1), and a second copy of the check is what this exists to avoid.
     """
     problem = not_an_identifier(value)
     if problem is not None:

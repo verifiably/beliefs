@@ -17,7 +17,7 @@ from typing import final
 
 from nodes.core.errors import RefError
 
-from beliefs.claim import Claim, _require_referent_identifier
+from beliefs.claim import Claim, require_identifier
 from beliefs.contract.base import COMPOSITE_GRAMMAR
 from beliefs.decode import claim_from_stored
 from beliefs.errors import ClaimError, CompositeError, DecodeError, MalformedRecord, ProfileError
@@ -45,8 +45,8 @@ class CompositeNode:
     term: str
 
     def __post_init__(self) -> None:
-        _require_referent_identifier(self.sort, "a node's sort")
-        _require_referent_identifier(self.term, "a node's term")
+        require_identifier(self.sort, "a node's sort")
+        require_identifier(self.term, "a node's term")
 
     def projection(self) -> dict[str, str]:
         return {"sort": self.sort, "term": self.term}
