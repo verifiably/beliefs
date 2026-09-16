@@ -364,3 +364,232 @@ can tell instrument from kernel.
 - **The driver is not a surface.** Its scripts are the instrument, written
   to the bridges this kernel has today; sub-project 4's commands are
   written from what they show, not by promoting them.
+
+## 10. Addendum — estimand typing, 2026-09-15
+
+Appended, not edited: §§1–9 record the 2026-09-05 run and its 2026-09-08
+re-run and stay as written. This section records a third run, under the
+estimand-typing design (`2026-09-12-estimand-typing-design.md`, §9, decision
+10, row Q10), which does not retype the 2026-09-05 corpus but **recreates**
+it: a fresh corpus under successor contracts at `.work/reproduction/mm30`,
+with the prior corpus state moved aside — never deleted — to
+`.work/reproduction/mm30.cut22`, because the transition arm reads it.
+
+World `7aa0edfbdba76a32500d47ba253c43ce`, corpus
+`b6472fcf82a1dca72b7ef0461dffa570`, store `fb144c9e05fb9c730566f25002ccb5ff`.
+
+### 10.1 The successor contract and the three held lists
+
+The `mm30` contract gains three corpus-local sorts and one `estimands:`
+declaration, and declares
+`lineage: {successor: 63566dd034da73bc…}` — the content identity of the
+cut-22 document, which is committed beside it as
+`python/tools/reproduction/mm30-cut22.yaml` (a byte copy) so that
+`check_succession` runs against the real predecessor rather than an authored
+stand-in. Q2's "adding a declaration is accepted" arm is therefore exercised
+on the corpus that matters: the successor parses, and its identity is
+`mm30:0e71608ea5395666a1b3d992c25e264b38250e3c07d20822c633f97e7fe3b71a`.
+
+Each sort binds a held one-line-per-term list, exactly as the biology pack
+§6.3 held the concept list. Written sorted, one canonical identifier per
+line, newline-terminated, before anything adopts — the contract binds the
+addresses, and `adopt` compiles the contract:
+
+| sort | list | terms | content digest | dataset address |
+|---|---|---|---|---|
+| `concept` | `mm30-concepts.txt` | 285 | `sha256:c7e45f81f02effe2…` | `dataset:sha256:be3bf183a830c31d…` |
+| `stage-level` | `mm30-stage-levels.txt` | 2 | `sha256:d77b182f993b076f…` | `dataset:sha256:85b5e3477d98ec01…` |
+| `measure` | `mm30-measures.txt` | 1 | `sha256:31993609d906c316…` | `dataset:sha256:08027c2e5fdd6939…` |
+| `identification` | `mm30-identifications.txt` | 4 | `sha256:559ea6c06d0beba2…` | `dataset:sha256:79e307100a52bc03…` |
+
+The lists as written: `level:ndmm`, `level:pd`; `measure:rna-seq-tpm`;
+`identification:interventional`, `identification:longitudinal`,
+`identification:observational`, `identification:structural`. `none` is
+deliberately absent: an estimand with no identification does not freeze.
+
+**What the lists cost.** Three files, twelve authored terms, one new driver
+step split in two (`lists prepare` before adoption, `lists mint` after) and
+one existing step made three-phase. Nothing refused: every referent the
+estimand names resolved `member` on the first call, and no term had to be
+renamed to become canonical. The 285-member concept list holds
+`concept:disease-stage` and holds no `ndmm` or `pd` member, which is why
+the levels needed a sort of their own rather than reusing `concept`.
+
+**Whether `observational` is the honest class.** Recorded as an open
+judgment, not a certification. The predecessor's evidence lines carry
+`identification_strength: longitudinal`, and the held file *is* paired: 51
+samples over patients with a first (NDMM) and a latest (PD) sample. The
+analysis this spec freezes does **not** pair them — it is a two-group
+unpaired rank comparison over the stage token (§2) — so the identification
+the *estimand* claims is the one the *estimator* supports, which is
+`observational`, not `longitudinal`. Recording `longitudinal` would claim of
+this estimand a design its run never used. Both terms are on the list, and a
+future paired analysis over the same corpus can select the other.
+
+### 10.2 The typed estimand, as spelled
+
+    claim:      780ace5964c8ab8315607ee9ed084b4acf6bf0f3f20f82bbbd41c11408cddb1c
+    operator:   mm30/affects-concept-molecular-entity
+    contrast:   {slot: 0, kind: levels,
+                 baseline:   {sort: mm30/stage-level,     term: level:ndmm},
+                 comparison: {sort: mm30/stage-level,     term: level:pd}}
+    measure:    {quantity: {sort: mm30/measure,           term: measure:rna-seq-tpm},
+                 scale: additive}
+    reference:  0
+    control:    {identification: {sort: mm30/identification,
+                                  term: identification:observational},
+                 conditioning: []}
+    applicability: {}
+
+The claim identity is the pack-typed `780ace59…` of the 2026-09-08 re-run,
+unchanged by this run (M8: claim identities do not move).
+
+### 10.3 The refused clause, and where it went — a judgment
+
+The 2026-09-05 spec's applicability was prose: *"samples of dataset:gse179929
+whose ids carry a stage token and whose value is finite"*. Two clauses, and
+neither survives retyping as applicability:
+
+- *"samples of `dataset:gse179929`"* restates the run's one `observes`
+  input and is **dropped** under estimand-typing §4.
+- *"whose ids carry a stage token and whose value is finite"* is
+  **refused**: `mm30/affects-concept-molecular-entity` declares no dimension
+  it could be typed along, and §4 gives it no other home.
+
+It was re-authored into `method`, which now reads:
+
+> two-group rank comparison (Mann-Whitney U, normal approximation), standard
+> library; a sample whose value is not finite is malformed input and the run
+> refuses (assoc.py's own rule)
+
+**This is an authored judgment and is recorded as one.** The judgment is
+that the refused clause described *estimator behaviour*, not scope: the
+analysis does not exclude a non-finite sample, it refuses the whole run as
+malformed input, which is what `assoc.py` has always done and what the
+driver's own unit tests pin. Changing `assoc.py` to exclude instead would be
+a behavioural change and was **not** made. The new spec **is not certified
+equal in scope to the prose spec**, and nothing here claims it is; its scope
+is what its typed fields say, and its typed applicability is `{}`. Filed as
+a step-4 `corpus-work` finding in `findings.jsonl`.
+
+### 10.4 The prose spec, cited as text
+
+The 2026-09-05 spec's identity is
+**`86aaa1a8a8edda8217a1d6f5f6ae28c89fae7362176a214f9fd9fdf95e3f2b1d`**. It is
+cited here as text and nothing else. It was not restored, not revised and not
+superseded: the new spec carries `supersedes: None`, and no record in the new
+corpus names it. It survives only in the prior corpus state, which is why that
+state is kept. This is the treatment the biology pack's re-run gave the
+replaced claim identity.
+
+The re-authored spec, frozen by `freeze` in the recreated corpus, is
+**`10e8bfce1aaad8a937a79bfba7cf523ac42b4240ec8b15e20e5b5f450d234714`**.
+
+### 10.5 What the re-run reached
+
+| step | outcome |
+|---|---|
+| 1b/1c | four lists held; corpus adopted with all four addresses bound |
+| 2 | `build_claim` typed the target on the first call; claim `780ace59…`. The modal-sorted measurement refused as in §3, unchanged |
+| 3 | the same 6,154,181 bytes, the same digest `sha256:c74ea661…`, the same dataset address `dataset:sha256:a6bf229e…` |
+| 4 | typed `freeze`; spec `10e8bfce…`; `supersedes` absent |
+| 5 | confined run `run:b37849ab…`, exit 0, `stats.tsv` and `outcome.txt` = `inconclusive` |
+| 6 | `build_assessment` → `AssessmentValue`, outcome `inconclusive`, `assessment:618c6c584da64b62`. **The two spellings of the assessment identity now agree**: stored and derived are both `618c6c584da64b62…`, so §6's identity-bridge finding does not recur |
+| 7 | replay `run:73a8e7a2…`; `derive_scope` = `clean-environment`; verdict `passed` |
+| 8 | `admit` returned **`Admitted`** (2026-09-05 refused here); `evaluate_over` answered `NoBelief(no-directional-outcome)` |
+| 9 | `corpus_check` **0 findings**; `audit_corpus` **0 findings**; `audit_log` as in §3 row 9 — `unresolvable` under the empty observer set (the exercise still anchors nothing), `validated` under the head carrier |
+| 10a | the fresh process answered `NoBelief(no-directional-outcome)`, **equal** |
+| 10b | `comparison_report_stored` is now **true** (it was false in 2026-09-05; the verification-publication lane landed since); scope, verdict and report identity all recompute equal; `check_verification` checked, no contradiction |
+
+**The consulted set is `{science, mm30, biology}`** — unchanged from the
+2026-09-08 re-run, as estimand-typing §5.4 predicted: the estimand's
+declaration and its four sorts are all `mm30`'s, and `biology` was already
+reached through slot 1's sort.
+
+    science: db7d2ebb252af89567dd7b56cc6bd8d4a563d03ab15d70698bff2f58ff32d557
+    mm30:    0e71608ea5395666a1b3d992c25e264b38250e3c07d20822c633f97e7fe3b71a
+    biology: 24bcec4370cfcff3077414798c02525814d4aeaaf84430ab378838df7345d53b
+
+The negative still holds: with `biology` unpinned the walk refuses, now with
+the assessment's typed estimand supplied to it as well as the claim —
+*"namespace 'biology' is consulted but pinned by no corpus"*.
+
+### 10.6 The belief: same value, and where the digest moved
+
+The answer is **`NoBelief(no-directional-outcome)`**, the same value the
+2026-09-08 re-run reached (§3 row 10a) and the same value the fresh process
+re-derives. The outcome is `inconclusive`, so the evaluator has no direction
+to believe in; that is the scientific result, not a machinery failure.
+
+**The digest half of Q10 cannot be quoted at the belief, and this section
+says so rather than inventing it.** A `NoBelief` carries no
+`belief_input_digest` — only a `Belief` does — so there is no old/new pair
+here. The digest movement estimand typing predicts is visible one level
+down, over the same data and the same run inputs:
+
+| | prior corpus state | recreated corpus |
+|---|---|---|
+| spec identity | `86aaa1a8a8edda82…` | `10e8bfce1aaad8a9…` |
+| assessment identity (derived) | `316272987716ac4f…` | `618c6c584da64b62…` |
+| assessment facet digest | *unreadable under the successor* | `ddcb5b68dfbf27dc…` |
+
+### 10.7 The fresh-process restoration (Q10's own arm)
+
+Run in a new interpreter holding nothing from the driver's process except the
+two rule implementations, which no kernel reader restores from a record. All
+four hold:
+
+| key | value |
+|---|---|
+| `spec_restored` | **true** — `analysis_spec_value(..., profile=…)` returned `10e8bfce…` |
+| `assessment_restored` | **true** — `assessment_value(..., profile=…)` returned `618c6c58…` |
+| `assessment_equal` | **true** — `build_assessment` over the stored run and the restored spec re-derived `618c6c58…` |
+| `belief_equal` | **true** — `evaluate_over` re-derived `NoBelief(no-directional-outcome)` |
+
+This is the "recovered from the corpus alone" reading §5 question 3 asked of
+verification, now had for the spec and the assessment too.
+
+### 10.8 The prior corpus state under the successor profile
+
+`.work/reproduction/mm30.cut22` was opened **read-only** under the successor
+profile. `audit_corpus` returned **exactly one finding,
+`profile-mismatch: base`, and read no record**: that corpus pins
+`science:1b029b61dcbf…`, which predates the estimand grammar and does not
+parse under the successor, so the existing profile-disagreement rule fires
+first and is preserved.
+
+**What the two record readers answered, measured rather than assumed.**
+`analysis_spec_value` and `assessment_value` were each asked for the prior
+corpus's `analysis-spec:86aaa1a8…` and `assessment:316272987716ac4f`. Neither
+returned a typed value — the transition's one real requirement — but neither
+raised `PreGrammarSpec` or `PreGrammarAssessment` either. `ReadView.get`
+refuses the corpus one step earlier, at the base pin:
+
+    ContractMismatch: …/mm30.cut22/corpus/corpus.yaml: science_contract
+    science:1b029b61dcbf… is not the shipped base science:db7d2ebb252a…;
+    refused, never reinterpreted
+
+So the prior corpus state cannot reach the two pre-grammar codes at all —
+the same reason its audit half already gives, one layer up. Filed as a
+step-10 `design-gap` finding against the estimand-typing design (Q10's
+transition arm): the arm's assertion that these two readers raise the
+pre-grammar refusals over *this* corpus is unreachable as written; what is
+reachable, and what was measured, is that no reader returns a typed value.
+
+The codes `spec-pre-grammar` and `assessment-pre-grammar` are exercised where
+they can be — on a corpus **pinned to the successor** holding a raw-written
+pre-grammar record — by
+`python/tests/test_audit.py::test_pre_grammar_records_audit_under_their_own_codes`
+and
+`python/tests/test_world_audit.py::test_a_pre_grammar_spec_and_assessment_audit_under_their_own_codes_and_the_audit_continues`.
+This addendum cites those tests by name rather than claiming the prior corpus
+reaches them.
+
+### 10.9 What this addendum does not claim
+
+- **Not scope equality.** §10.3's relocation is an author's judgment. No row
+  certifies that the re-authored spec's scope equals the prose spec's, and
+  Q10 does not.
+- **Not a belief digest comparison.** §10.6: no `NoBelief` carries one.
+- **Not a migration.** Nothing was retyped, revised or superseded. The prior
+  corpus state is kept as evidence, not as lineage.

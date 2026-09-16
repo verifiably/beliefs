@@ -265,10 +265,38 @@ def test_close_evidence_for_raises_on_a_stored_spec_that_does_not_restore(tmp_pa
         close.evidence_for(reopen(writer.root), TESTING_PROFILE)
 
 
-def test_the_row_plan_maps_a_predicate_and_kind_pair(tmp_path, monkeypatch):
+# The held concept list's content address, measured 2026-09-15 over the
+# predecessor's 285 concept records. The cut-22 document's content identity is
+# taken over it, so the successor's declared predecessor moves with it; a
+# changed predecessor corpus fails this loudly rather than silently.
+HELD_CONCEPTS = "dataset:sha256:be3bf183a830c31d4f8acf46a309e01bd0476580d2d6db4079af3e3c7bd738d8"
+
+
+@pytest.fixture
+def held_vocabulary(monkeypatch):
+    """`state.json` as the driver leaves it after steps 1b and 1c: the four
+    addresses every sort of the successor contract binds. The three list
+    addresses are derived from the driver's own declaration, so only the
+    concept list — which lives in the predecessor corpus — is pinned."""
+    from hashlib import sha256
+
+    from reproduction import lists, vocabulary
+
+    cached = (vocabulary._document, vocabulary.contract, vocabulary.profile)
+    st = {"concepts_address": HELD_CONCEPTS}
+    for name, (_resource, terms) in lists.LISTS.items():
+        st[f"{name}_address"] = lists.list_node(name, "sha256:" + sha256(lists.list_lines(terms)).hexdigest()).id
+    monkeypatch.setattr(vocabulary.state, "load", lambda: st)
+    for entry in cached:
+        entry.cache_clear()
+    yield st
+    for entry in cached:
+        entry.cache_clear()
+
+
+def test_the_row_plan_maps_a_predicate_and_kind_pair(held_vocabulary):
     from reproduction import vocabulary
 
-    monkeypatch.setattr(vocabulary.state, "load", lambda: {"concepts_address": "dataset:sha256:" + "c" * 64})
     plan = vocabulary.plan()
     assert plan["operators"][("affects", "concept", "protein")] == "mm30/affects-concept-molecular-entity"
     assert plan["operators"][("affects", "protein", "protein")] == "biology/affects-molecular-entity-molecular-entity"
@@ -276,14 +304,36 @@ def test_the_row_plan_maps_a_predicate_and_kind_pair(tmp_path, monkeypatch):
     assert len(plan["operators"]) == 17
 
 
-def test_the_mm30_contract_binds_concept_to_the_held_list(monkeypatch):
+def test_the_mm30_contract_binds_every_sort_to_its_held_list_and_succeeds_the_cut_22_document(held_vocabulary):
     from reproduction import vocabulary
 
-    monkeypatch.setattr(vocabulary.state, "load", lambda: {"concepts_address": "dataset:sha256:" + "c" * 64})
-    vocabulary._document.cache_clear()
     contract = vocabulary.contract()
-    assert contract.sorts["concept"].vocabulary.dataset_identity == "sha256:" + "c" * 64
+    for sort, key in (
+        ("concept", "concepts"),
+        ("stage-level", "levels"),
+        ("measure", "measures"),
+        ("identification", "identifications"),
+    ):
+        assert contract.sorts[sort].vocabulary.dataset_identity == held_vocabulary[f"{key}_address"].removeprefix(
+            "dataset:"
+        )
     assert contract.operators["affects-concept-molecular-entity"].arg_sorts == ("concept", "biology/molecular-entity")
+    # Succession ran against the real predecessor, not an authored stand-in.
+    assert contract.predecessor == vocabulary.contract(vocabulary.CUT22_DOCUMENT).content_identity
+    declared = contract.estimands["affects-concept-molecular-entity"]
+    assert dict(declared.level_sorts) == {"0": "stage-level"}
+    assert (declared.measure_sort, declared.identification_sort, declared.conditioning_sort) == (
+        "measure",
+        "identification",
+        "concept",
+    )
+    compiled = vocabulary.profile().estimand("mm30/affects-concept-molecular-entity")
+    assert dict(compiled.level_sorts) == {"0": "mm30/stage-level"}
+    assert (compiled.measure_sort, compiled.identification_sort, compiled.conditioning_sort) == (
+        "mm30/measure",
+        "mm30/identification",
+        "mm30/concept",
+    )
 
 
 def test_concept_lines_are_canonical_sorted_and_terminated(tmp_path):
@@ -333,6 +383,38 @@ def test_the_snapshot_refuses_a_copy_that_is_not_the_dataset():
     binding = VocabularyBinding(namespace=None, release=None, dataset_identity=address.removeprefix("dataset:"))
     with pytest.raises(RuntimeError, match="does not hash"):
         snapshot_over(declared, b"concept:a-thing\nconcept:smuggled\n", binding)
+
+
+def test_a_held_list_is_written_sorted_canonical_and_newline_terminated(tmp_path, monkeypatch):
+    from hashlib import sha256
+
+    from reproduction import lists, paths
+
+    from beliefs.dataset import DatasetDeclaration, ResourceDeclaration, dataset_address
+
+    monkeypatch.setattr(paths, "WORK", tmp_path)
+    address, path = lists.hold_list("levels", ["level:pd", "level:ndmm"])
+    assert path == tmp_path / "mm30-stage-levels.txt"
+    assert path.read_bytes() == b"level:ndmm\nlevel:pd\n"
+    # The address the contract's `stage-level` sort binds is the content
+    # address of exactly those bytes under that resource name.
+    declared = DatasetDeclaration(
+        resources=(
+            ResourceDeclaration(
+                name="mm30-stage-levels.txt", digest="sha256:" + sha256(path.read_bytes()).hexdigest()
+            ),
+        )
+    )
+    assert address == dataset_address(declared)
+
+
+def test_a_non_canonical_list_term_refuses_and_writes_nothing(tmp_path, monkeypatch):
+    from reproduction import lists, paths
+
+    monkeypatch.setattr(paths, "WORK", tmp_path)
+    with pytest.raises(ValueError, match="canonical"):
+        lists.hold_list("levels", ["level:ndmm", "level:cafe\u0301"])
+    assert not (tmp_path / "mm30-stage-levels.txt").exists()
 
 
 def test_a_non_canonical_concept_id_refuses(tmp_path):

@@ -99,16 +99,6 @@ def main() -> int:
         findings.record(6, "defect", f"AssessmentFinding: {derived.reason}")
         print(f"ASSESSMENT FINDING: {derived.reason}")
         return 2
-    optional = {
-        k: v
-        for k, v in (
-            ("estimate", derived.estimate),
-            ("uncertainty", derived.uncertainty),
-            ("estimand", derived.estimand),
-            ("applicability", derived.applicability),
-        )
-        if v is not None
-    }
     writer = world.open_writer()
     minted = writer.add(
         stored.assessment_node(
@@ -119,10 +109,13 @@ def main() -> int:
             proposition=st["proposition_ref"],
             outcome=derived.outcome,
             interpretation_rule=derived.interpretation_rule,
-            **optional,
+            estimand=derived.estimand,
+            applicability=derived.applicability,
+            estimate=derived.estimate,
+            uncertainty=derived.uncertainty,
         )
     )
-    stored_identity = stored.assessment_value(writer.read_view.get(minted.id)).identity()
+    stored_identity = stored.assessment_value(writer.read_view.get(minted.id), profile=profile()).identity()
     if stored_identity != derived.identity():
         findings.record(
             6,

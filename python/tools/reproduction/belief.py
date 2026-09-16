@@ -92,6 +92,7 @@ def pins_negative(view: ReadView) -> None:
     try:
         consulted_contracts(
             claims={st["proposition_ref"]: inputs.claim} if inputs.claim is not None else {},
+            estimands={a.identity(): a.estimand for a in inputs.assessments},
             profile=vocabulary.profile(),
             node_corpus=context(view).node_corpus,
             pins={st["corpus_id"]: without},

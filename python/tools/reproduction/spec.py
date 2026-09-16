@@ -68,20 +68,48 @@ def definition() -> WorkflowDefinition:
     return WorkflowDefinition(snakefile=SNAKEFILE.read_bytes(), family_streams={})
 
 
+RELOCATED_CLAUSE = (
+    "prose applicability clause 'whose ids carry a stage token and whose value is finite' refused at retyping "
+    "(no declared dimension); re-authored in `method` as estimator behaviour — the estimator refuses a non-finite "
+    "value as malformed input, it does not exclude the sample — an authored judgment (design §4, §9)"
+)
+
+
 def draft() -> SpecDraft:
+    from beliefs.claim import Referent
+    from beliefs.estimand import Control, LevelsContrast, Measure, build_applicability, build_estimand
+    from reproduction import type_target, vocabulary
+
     st = state.load()
     target = yaml.safe_load(paths.TARGET.read_text())
+    profile, plan = vocabulary.profile(), vocabulary.plan()
+    claim = type_target.typed(target, profile, plan)
+    snapshot = vocabulary.snapshot()
+    estimand, _ = build_estimand(
+        profile,
+        claim,
+        snapshot=snapshot,
+        contrast=LevelsContrast(
+            slot=0,
+            baseline=Referent("mm30/stage-level", "level:ndmm"),
+            comparison=Referent("mm30/stage-level", f"level:{target['positive_level'].lower()}"),
+        ),
+        measure=Measure(quantity=Referent("mm30/measure", "measure:rna-seq-tpm"), scale="additive"),
+        reference=Decimal(0),
+        control=Control(identification=Referent("mm30/identification", "identification:observational"), conditioning=()),
+    )
+    applicability, _ = build_applicability(profile, claim, {}, snapshot=snapshot)
     return SpecDraft(
         target=st["proposition_ref"],
-        estimand=(
-            f"difference in {target['value_row_symbol']} ({target['value_row']}) expression between the "
-            f"{target['positive_level']} and the other level of the sample-id stage token in {target['dataset_id']}"
+        estimand=estimand,
+        method=(
+            "two-group rank comparison (Mann-Whitney U, normal approximation), standard library; "
+            "a sample whose value is not finite is malformed input and the run refuses (assoc.py's own rule)"
         ),
-        method="two-group rank comparison (Mann-Whitney U, normal approximation), standard library",
         assumptions="independent samples; the stage is a two-level factor carried by each sample id",
         falsification="no difference at alpha 0.05, or a difference opposite the proposition's polarity",
         input_roles=(SpecInput(role="observes", dataset=st["dataset_address"]),),
-        applicability=f"samples of {target['dataset_id']} whose ids carry a stage token and whose value is finite",
+        applicability=applicability,
         interpretation_rule=INTERPRETATION_RULE,
         equivalence_rule=EQUIVALENCE_RULE,
         parameters={"alpha": Decimal("0.05")},
@@ -111,6 +139,7 @@ def main() -> int:
         "the verdict is routed through a canonical outcome file whose digest the rule maps",
         filed="computation design (where an interpretation rule reads content)",
     )
+    findings.record(4, "corpus-work", RELOCATED_CLAUSE)
     print(f"frozen spec {spec.identity} targeting {spec.target}; record {minted.id}")
     return 0
 

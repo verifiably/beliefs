@@ -16,18 +16,33 @@ from beliefs.resolution import ResolutionSnapshot, build_snapshot
 from reproduction import paths, state
 
 DOCUMENT = Path(__file__).with_name("mm30.yaml")
+# The cut-22 document, byte-for-byte, so `check_succession` runs against the
+# real predecessor rather than against a contract written to pass.
+CUT22_DOCUMENT = Path(__file__).with_name("mm30-cut22.yaml")
 MODAL_SORTED = paths.REPO / "python" / "tools" / "vocabularies" / "mm30-modal-sorted.yaml"
-CONCEPTS_TOKEN = "{{CONCEPTS}}"
+# Each sort binds the dataset address of a list held before anything adopts
+# (`lists.py`, `concepts.py`): the contract cannot compile without them.
+VOCABULARY_TOKENS = {
+    "{{CONCEPTS}}": "concepts_address",
+    "{{LEVELS}}": "levels_address",
+    "{{MEASURES}}": "measures_address",
+    "{{IDENTIFICATIONS}}": "identifications_address",
+}
 
 
 @cache
 def _document(path: Path = DOCUMENT) -> dict:
     text = path.read_text()
-    if CONCEPTS_TOKEN in text:
-        st = state.load()
-        if "concepts_address" not in st:
-            raise RuntimeError("mm30.yaml binds `concept` to the held concept list; run concepts.py (step 1b) first")
-        text = text.replace(CONCEPTS_TOKEN, st["concepts_address"].removeprefix("dataset:"))
+    st = state.load()
+    for token, key in VOCABULARY_TOKENS.items():
+        if token not in text:
+            continue
+        if key not in st:
+            raise RuntimeError(
+                f"{path.name} binds a sort to the held list {key}; run lists.py (step 1c) and concepts.py (step 1b) "
+                "before anything compiles the contract"
+            )
+        text = text.replace(token, st[key].removeprefix("dataset:"))
     return yaml.safe_load(text)
 
 
@@ -43,7 +58,13 @@ def biology() -> DomainContract:
 
 @cache
 def contract(path: Path = DOCUMENT) -> DomainContract:
-    return parse_domain_contract(_document(path)["contract"], source=f"{path}: contract", base=base(), predecessor=None)
+    """The successor mm30 contract, checked against the cut-22 document it
+    succeeds. The predecessor is parsed here rather than trusted by shape:
+    `check_succession` certifies nothing against an authored stand-in."""
+    predecessor = contract(CUT22_DOCUMENT) if path == DOCUMENT else None
+    return parse_domain_contract(
+        _document(path)["contract"], source=f"{path}: contract", base=base(), predecessor=predecessor
+    )
 
 
 @cache
@@ -90,24 +111,37 @@ def pins() -> CorpusPins:
     )
 
 
+def binding_for(sort: str) -> VocabularyBinding:
+    return contract().sorts[sort].vocabulary
+
+
 def concept_binding() -> VocabularyBinding:
-    return contract().sorts["concept"].vocabulary
+    return binding_for("concept")
 
 
-def snapshot_over(declared: DatasetDeclaration, content: bytes, binding: VocabularyBinding) -> ResolutionSnapshot:
+# Every held list, by the `state.json` prefix its step saved and the sort the
+# contract binds it to. One snapshot covers all four (design §9).
+HELD_SORTS = {"concepts": "concept", "levels": "stage-level", "measures": "measure", "identifications": "identification"}
+
+
+def checked_lines(declared: DatasetDeclaration, content: bytes, binding: VocabularyBinding) -> list[str]:
     address = dataset_address(declared)
     if binding.dataset_identity is None or address != f"dataset:{binding.dataset_identity}":
         raise RuntimeError(
-            f"the fetched vocabulary dataset is {address}, but the `concept` sort binds "
+            f"the fetched vocabulary dataset is {address}, but the sort binds "
             f"dataset:{binding.dataset_identity}; membership is measured against the dataset the contract names"
         )
     (resource,) = declared.resources
     if "sha256:" + sha256(content).hexdigest() != resource.digest:
         raise RuntimeError(
-            f"the concept copy does not hash to the held vocabulary's declared digest {resource.digest}; "
+            f"the held copy does not hash to the held vocabulary's declared digest {resource.digest}; "
             "membership is measured against the dataset the contract binds, never against an edited copy"
         )
-    return build_snapshot(readable={binding: content.decode("utf-8").splitlines()})
+    return content.decode("utf-8").splitlines()
+
+
+def snapshot_over(declared: DatasetDeclaration, content: bytes, binding: VocabularyBinding) -> ResolutionSnapshot:
+    return build_snapshot(readable={binding: checked_lines(declared, content, binding)})
 
 
 def snapshot() -> ResolutionSnapshot:
@@ -115,6 +149,11 @@ def snapshot() -> ResolutionSnapshot:
     from reproduction import world
 
     st = state.load()
-    content = Path(st["concepts_file"]).read_bytes()
-    declared = stored.dataset_declaration(world.open_writer().read_view.get(st["concepts_ref"]))
-    return snapshot_over(declared, content, concept_binding())
+    view = world.open_writer().read_view
+    readable = {}
+    for prefix, sort in HELD_SORTS.items():
+        binding = binding_for(sort)
+        content = Path(st[f"{prefix}_file"]).read_bytes()
+        declared = stored.dataset_declaration(view.get(st[f"{prefix}_ref"]))
+        readable[binding] = checked_lines(declared, content, binding)
+    return build_snapshot(readable=readable)
