@@ -310,6 +310,152 @@ arms without a direct assertion, and the "first projection" tests being
 tautological as implemented (P1–P9's banked expectations carry the factoring
 proof). None changes a row's verdict.
 
+### 3.4 Post-discharge fix wave — 2026-09-16
+
+A whole-branch review after the discharge returned ten findings. All were fixed
+on `design/composite-claim` before the merge, in five commits. **No frozen
+declaration, arm, count or `before` string moved**: `python/tests/n2_arms_cut32.py`
+is untouched, each of its twenty-six `before` blocks still occurs exactly once in
+the module it names, §§2–7 of the cut document are unedited and no fact §8 states
+has changed, so no §8.6 was added. **No live guard was re-targeted** — neither
+`test_n2.py`'s nor `test_n2_cut*.py`'s `_LIVE_SABOTAGES` tables name a line this
+wave moved, and `test_arm_staleness.py` is green.
+
+**Two escapes from the world audit, each a violation of the audit's own "reports
+and never raises" contract** (`audit.py`'s module docstring). Both were
+reproduced first, as world-audit tests in `test_world_audit.py`, and both
+answered `RecordNotPresent` — a `ScienceError`, not a `RecordError`, so neither
+of the per-record loops' catches saw it, and a single such record discarded every
+finding collected for the whole world.
+
+- **`check_supersedes_kinds` (`audit.py`).** It caught `RefError` alone and was
+  called *outside* the `try` in both loops, so `RecordNotPresent` and
+  `CorpusDamaged` from `WorldReadView.get` escaped. It now asks
+  `view.holds(relation.target)` before `view.get` — the precedent is
+  `check_spec_target` and `corpus.py`'s `supersession-target-missing` arm — and
+  both loops call it inside their existing `try`, where a `CorpusDamaged` meets
+  the `derivation-unreachable` arm already written for it. U9-c's pinned `before`
+  (`if target.kind != node.kind:` and its `detail` line) and U7-a's dispatch
+  lines are unmoved.
+- **`check_composite` → `composite.restore_members`.** `restore_members`
+  translates `RefError` only, so a composite whose member is recorded in an
+  absent corpus raised out of `audit_world`. `check_composite` now pre-checks
+  each `composes` target with `holds`, and returns `_unchecked(...)` for one
+  `_absence_of` places in a covered corpus with no carrier — the audit's
+  documented third case, *recorded elsewhere is not gone*. It is deliberately
+  **not** `composite-member-unresolvable`, which means gone: `audit_corpus`'s
+  local path and U7-b's arm keep that code and their meaning. U7-b's pinned
+  `before` is unmoved.
+
+**The arm `beliefs-6776d3` names** is added in the same module: a dangling
+composite reported through `audit_world`'s `_recompute` dispatch rather than
+through `audit_corpus` or a direct call. It passes on the pre-wave tree — the
+dispatch itself was wired — and is the coverage the follow-up asked for; it is
+its sibling one entry up, the same arm over an *absent* corpus, that would have
+caught the escapes.
+
+**`read_composite`'s identification column (`composite.py`).** The scan decoded
+every assessment in the view, once per member. It now walks only the assessments
+whose `assesses` edge names that member, which is what design §6.2 says the
+column is, and **asserts** that every identity in `admission.admitted` was seen —
+refusing with `composite-admission-unscanned` rather than returning a short set.
+The new refusal is reachable: nothing checks that an assessment's `assesses` edge
+agrees with its facet (`evaluation.gather` selects by facet), so a raw-written
+record can be admitted by facet and invisible to an edge-keyed scan; a covering
+test constructs exactly that. `Reached`'s payload is unchanged, and U8-b, U8-e and
+U8-g's pinned blocks each still occur exactly once.
+
+*One half of this finding does not reproduce, and the record should say so.* The
+finding reads the old scan as an undeclared refusal mode — "one raw-edited or
+pre-grammar assessment anywhere in the corpus makes the reading raise, though
+§6.3 says the reading refuses only on an unresolved member". The reading does
+raise, but not because of the column: `evaluation.gather` decodes **every** stored
+assessment with the same decoder and the same profile before `evaluate_traced` is
+reached, so the refusal is the evaluator's and does not move with the scan.
+`test_a_pre_grammar_assessment_elsewhere_refuses_through_the_evaluators_own_gather`
+pins both halves — `gather` refuses, and the reading refuses identically — and it
+passed before the fix and after it. The old scan could not drop an admitted
+identity either, for the same reason: it saw every record `gather` saw. The
+restriction is therefore a narrowing of the column's read surface and of its
+cost, and the new assertion is what keeps that narrowing from ever becoming a
+silent one. Whether `gather`'s whole-corpus decode should be narrowed is a kernel
+question outside this lane.
+
+**`CompiledEdge.schema_projection` (`profile.py`).** It omitted `retired`, unlike
+`CompiledSort`, `CompiledDimension` and `CompiledOperator`, so a contract
+successor that retired an `edges:` row compiled to a profile carrying the
+predecessor's `compiled_identity` — while `classify` refuses a retired row, so
+the two profiles classify composites differently. `"retired": self.retired` is
+added in the siblings' key order and a unit test pins the move.
+`fixtures/claim-identity-v1.json` was regenerated with
+`tools/generate_claim_identity_fixture.py`; the diff is one line,
+`profile_compiled_identity`, and no claim digest, projection or canonical byte
+string moves. The TypeScript implementation computes no compiled identity
+(`ts/src/profile.ts`'s own note), so it needs no change.
+
+*The reproduction corpus still opens under its profile, untouched.* Opened
+read-only as `ReadView.opened_at(paths.CORPUS_ROOT)` and audited under
+`reproduction.vocabulary.profile()`: 18 records, `audit_corpus(...)` returns **no
+findings**. Confirmed, as expected: its manifest pins are **contract content
+identities** — `science:52a43993…`, `biology:24bcec43…`, `mm30:4af7c421…`, equal
+to `profile.base_contract_identity` and to `profile.activated_contracts` — and
+not the compiled identity, which is what moved.
+
+**`restore_members` vs `build_composite`'s member loop (`composite.py`).** §3.3
+above deferred this as a minor finding; the review took it. `restore_members`
+gains `expect`, the semantic identity each restored claim must carry, which also
+keys the result; `None` skips the comparison and keys by ref, which is what the
+constructor needs because it is *deriving* the identities. `build_composite`'s
+fifteen-line loop becomes one call, and one loop now serves the constructor, the
+boundary, the audit and the reading. Every refusal code is unchanged, and
+`expect` leads `refs` rather than trailing the keyword arguments because that is
+the position the three stored-record call sites already pass it in — two of them,
+U6-a's and U8-a's, are quoted verbatim by a frozen arm and could not gain an
+argument. U3-c's and U6-a's pinned blocks each still occur exactly once.
+
+**Five minor fixes.**
+
+- `contract/base.py` and `ts/src/contract.ts`: the `shapes must be non-empty`
+  refusal is unreachable — `_closed_set` and `closedSet` refuse an empty list
+  first. Both are deleted; neither `n2_arms_cut31.py` nor `n2_arms_cut32.py`
+  pins either line.
+- `contract/base.py`: `_CONTRACT_FIELDS` states `composite_grammar` in its own
+  literal rather than re-binding the name a line below. U1-a's site,
+  `_exact_fields(root, _CONTRACT_FIELDS, source)`, is untouched, and §8.2's
+  account of why the arm is homed there still holds word for word.
+- `composite.py`: `CompositeReceipt` gains the `@sealed @final` every sibling
+  value carries.
+- `composite.py`: `read_composite`'s own `view.get(ref)` translates `RefError` to
+  `CompositeError("composite-unresolvable", ...)`. The composite is what does not
+  resolve; `composite-member-unresolvable` would misreport which record is
+  missing. Tested.
+- `docs/guide/foundations.md`: the kinds table carried two rows labelled
+  "Epistemic". The composite text moves into the existing row whole. The guide is
+  living, not frozen, so the row is edited rather than amended in place.
+
+**Verification.** The nine unit modules the wave touches or neighbours, the
+acceptance module, the cut-32 guard, `just check`, `tests/test_designs_corpus.py`,
+`tests/test_check_guide.py` and `tools/ops-check` are green, and the discharge
+runner was re-run whole:
+
+```
+[cut32 phase 2/3] test_composite_acceptance.py
+10 passed in 23.37s
+[cut32 phase 3/3] test_n2_cut32.py
+10 passed in 18.57s
+declared arms: 26 (= 10 declaration units; 10 guarantee rows)
+```
+
+Exit **0**, every arm sound and caught, and the whole cut 32 → cut 23 prefix
+chain re-run ahead of it. The declaration line is unchanged from the discharge's,
+verbatim.
+
+`just test-fast`: `4901 passed, 2 skipped in 185.48s (0:03:05)`, and its
+TypeScript half selected no file (`--changed` over a clean tree — "an empty
+vitest selection is a result", `justfile`); `ts && npx vitest run` whole is
+`Tests  154 passed (154)`. The eighteen-minute gate runs at merge, on the merged
+tree.
+
 ## 4. Reproduction measurement
 
 The mm30 reproduction re-ran under the successor contracts, recorded as a dated
