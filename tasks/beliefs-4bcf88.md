@@ -1,12 +1,15 @@
 ---
 id: beliefs-4bcf88
 title: "Composite claims: the kind that places kernel §11's inquiry, patch-definition and structural-chain"
-status: todo
+status: doing
 priority: 2
 size: l
 complexity: high
+process: planned
+owner: design/composite-claim
 created: 2026-09-13T00:35:00Z
-updated: 2026-09-13T09:05:04Z
+updated: 2026-09-16T10:43:08Z
+started: 2026-09-16T10:43:08Z
 depends: []
 tags: [design]
 spec: docs/superpowers/specs/2026-09-12-composite-claims-design.md
@@ -27,3 +30,5 @@ The second spec from the 2026-09-12 models assessment. A structure (a causal DAG
 - 2026-09-13T02:52:33Z (design/composite-claim): Plan review 3: one finding (same-bundle import rebuilds the bundle after the new assessment's run exists), taken
 - 2026-09-13T09:05:03Z (design/composite-claim): Plan cleared 2026-09-13 after three reviews. Execution waits on Task 0: estimand-typing (beliefs-59f846, branch design/estimand-typing) must merge into main first, then rule 6, then the cut number and freeze.
 - 2026-09-13T09:05:04Z (design/composite-claim): parked (waiting on agent, dependency): Plan cleared 2026-09-13; execution waits on Task 0's merge, rule-6 and freeze gates
+- 2026-09-16T10:43:08Z (design/composite-claim): process: planned — the spec and plan exist and cleared three reviews each on 2026-09-13; a drift re-review against main at 8aa5903 precedes the freeze because the lane branched before the estimand-typing implementation landed
+- 2026-09-16T10:43:08Z (design/composite-claim): lane admitted under rule 6 at main 8aa5903: open kernel lanes none (estimand-typing closed at cut 31; world-read, mutation, acquisition all waiting); on-path state: no boundary (roadmap tier 1 'On the path' is empty since cut 30); this is the only open kernel lane
