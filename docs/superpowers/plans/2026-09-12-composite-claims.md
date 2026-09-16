@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.11+ (`uv run --frozen` from `python/`), pytest, `nodes.core`, TypeScript/vitest under `ts/`, the N2 harness (`python/tests/test_n2.py`), `tasks`.
 
-**Spec:** `docs/superpowers/specs/2026-09-12-composite-claims-design.md` (cleared for planning 2026-09-12 after three reviews, review log §15).
+**Spec:** `docs/designs/2026-09-12-composite-claims-design.md` (cleared for planning 2026-09-12 after three reviews, re-read against `main` 2026-09-16 before the freeze, review log §15; moved into `docs/designs/` at cut 32's freeze).
 
 ## Global Constraints
 

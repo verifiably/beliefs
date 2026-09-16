@@ -8,11 +8,11 @@ complexity: high
 process: planned
 owner: design/composite-claim
 created: 2026-09-13T00:35:00Z
-updated: 2026-09-16T11:13:30Z
+updated: 2026-09-16T11:16:12Z
 started: 2026-09-16T10:43:08Z
 depends: []
 tags: [design]
-spec: docs/superpowers/specs/2026-09-12-composite-claims-design.md
+spec: docs/designs/2026-09-12-composite-claims-design.md
 plan: docs/superpowers/plans/2026-09-12-composite-claims.md
 ---
 

@@ -17,6 +17,7 @@ sources:
   - ../designs/2026-08-24-world-index-holdings-design.md
   - ../designs/2026-09-05-mm30-reproduction.md
   - ../designs/2026-09-12-estimand-typing-design.md
+  - ../designs/2026-09-12-composite-claims-design.md
   - ../designs/2026-09-15-conformance-cut-31.md
 ---
 

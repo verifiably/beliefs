@@ -1,13 +1,17 @@
 # Composite claims — the kind that places kernel §11's `inquiry`, `patch-definition` and `structural-chain`
 
-**Status:** design, drafted 2026-09-12; under review, not frozen. Task
-`beliefs-4bcf88` carries this spec. Implements nothing yet: the roadmap's
-concurrency rule 6 keeps at most two kernel lanes open while the success
-criterion is unmet, and this design is off the path (§11). It is written now
-for the same reason the estimand-typing design was: it adds a world kind and
-a relation signature to the base contract, and the contract cut freezes after
-the last oracle-amending lane merges. Deciding the shape before that freeze
-costs one design; deciding after it costs a successor contract.
+**Status:** frozen 2026-09-16 at conformance cut 32
+(`2026-09-16-conformance-cut-32.md`), after three spec reviews, three plan
+reviews and a pre-freeze drift review against `main` at `8aa5903` (§15);
+implementation follows on `design/composite-claim`. Task `beliefs-4bcf88`
+carries this spec. The lane opened under the roadmap's concurrency rule 6 on
+2026-09-16, the second off the dogfood path after `estimand-typing` (cut
+31); this design is off the path (§11). It was written before the lane could
+open for the same reason the estimand-typing design was: it adds a world
+kind and a relation signature to the base contract, and the contract cut
+freezes after the last oracle-amending lane merges. Deciding the shape
+before that freeze costs one design; deciding after it costs a successor
+contract.
 
 **Answers.** Kernel §11's first open question — whether `inquiry`,
 `patch-definition` and `structural-chain` are "one kernel-adjacent

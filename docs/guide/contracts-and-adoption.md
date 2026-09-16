@@ -44,6 +44,7 @@ sources:
   - ../designs/2026-09-14-conformance-cut-29.md
   - ../designs/2026-09-15-conformance-cut-30.md
   - ../designs/2026-09-15-conformance-cut-31.md
+  - ../designs/2026-09-16-conformance-cut-32.md
   - ../plans/2026-08-27-conformance-cut-11-results.md
   - ../plans/2026-08-29-conformance-cut-12-results.md
   - ../plans/2026-09-01-conformance-cut-13-results.md
@@ -124,11 +125,12 @@ records are reproduced through the new typed boundaries.
 Conformance cut 1 was frozen before implementation. It selected eleven of 126
 then-banked guarantee rows—six wholly and five only at named assertion arms—and
 classified the other 115 by the subsystem that would unblock them. The corpus
-now holds 153 rows across thirteen frozen tables: the belief policy's P1–P9
-banked the day the cut was drawn, the admission ramp appended G9 on 2026-08-09
+has since grown to 216 rows across twenty frozen tables (the README keeps the
+count): the belief policy's P1–P9 banked the day the cut was drawn, the admission ramp appended G9 on 2026-08-09
 while narrowing W3's dataset arm, the verified-holdings record design banked
-H1–H4 on 2026-08-10, the act-report design banked T1–T8 on 2026-08-11, and
-the coordination-and-view-kinds design banked W17–W18 on 2026-08-31. The
+H1–H4 on 2026-08-10, the act-report design banked T1–T8 on 2026-08-11, the coordination-and-view-kinds design banked W17–W18 on 2026-08-31, and
+later designs banked their tables through Q (estimand typing, cut 31) and U
+(composite claims, cut 32). The
 cut's stop rule was the last fully designed seam: typed claim construction,
 projection, identity, decode, and cross-language parity, with no persistence
 boundary and no belief computation.
@@ -237,6 +239,7 @@ Cut 28 discharges world resolution slice 4 — W7's view evaluation and the W8/W
 Cut 29 discharges world resolution slice 5 — dataset ids derived from the content identity and held at the write boundary and both inputs of `consolidate` (`../designs/2026-09-14-conformance-cut-29.md`; `../plans/2026-09-14-conformance-cut-29-results.md`).
 Cut 30 discharges world resolution slice 6 — divergent correction histories reconcile at `consolidate` by absorption (`../designs/2026-09-15-conformance-cut-30.md`; `../plans/2026-09-15-conformance-cut-30-results.md`).
 Cut 31 is discharged: estimand typing, the first off-path lane after the world-read path closed, reading Q1–Q10 in full over 26 sabotage arms — the estimand, its applicability, and the estimate and uncertainty the rule yields are typed, and a pre-grammar record is refused under its own name (`../designs/2026-09-15-conformance-cut-31.md`; design `../designs/2026-09-12-estimand-typing-design.md`; results `../plans/2026-09-16-conformance-cut-31-results.md`).
+Cut 32 is frozen and not yet discharged: composite claims, the second off-path lane under rule 6, selecting U1–U10 in full (`../designs/2026-09-16-conformance-cut-32.md`; design `../designs/2026-09-12-composite-claims-design.md`).
 The complete normative contract cut, its executable suite and N1–N10 are not
 yet implemented. The
 [adoption ledger's current-state summary](../designs/2026-08-03-redesign-adoption-ledger.md#current-state-2026-09-16)
