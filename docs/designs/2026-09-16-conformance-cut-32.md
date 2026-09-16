@@ -172,3 +172,93 @@ Verify each fenced row byte-exact against the design's §8 table at the freeze c
 ## 7. Limitations
 
 Design §13, restated: membership asserts directness only relative to the node set, and a member's belief is about the claim as stated (1); members are corpus-local at the boundary, and neither this boundary nor the estimand target check reads through `world-resolution`'s read side, closed at cut 30 (2); qualifier heterogeneity among members is not checked (3); cycles refuse (4); structural-layer members refuse by layer and `is-proxy-for` refuses as undeclared (5); latent nodes carry no marker (6); no summary, no ladder (7); faithfulness and the Markov condition are unstated (8); no relation between composites (9); a depth-bounded neighbourhood and an exclusion list are not expressible in `science.view-query.v1` (10); TypeScript validates no composite payload (11); `closure` from a composite anchor and a `kinds: [composite]` predicate both wait on the coordination-contract amendment (12); the identification column depends on estimand typing, discharged at cut 31 (13); an explicit absence claim is unrepresentable (14); node membership is resolved at construction and at reading, never at the boundary (15); the identification column follows admission as it is, retraction filtering deferred with the C group (16); relation endpoint kinds are not enforced at the write boundary, the existing open question extended rather than a check built (17); a shipped domain pack has no succession route, so the `biology` pack gains no `edges:` row here (18).
+
+## 8. Supplements — 2026-09-16
+
+Three corrections found while writing the N2 arms (plan Task 8 Step 3),
+recorded here on cut 25's precedent: §§1–7 above are the frozen body and are
+**not** edited. This section is dated and outside the freeze — the guard's
+`_frozen_body` slicing runs from `## 2. The boundary` to this heading — so the
+pin of this document at freeze commit
+`ff03b00f7f6297f3277da4ab40e1dbfc0b9a39e0`, SHA-256
+`598222cbac1ac04e43e503b05287524dc6a3049b760063721482dc844ca43ac2`, is
+unchanged by it and is not re-taken. None of the three adds, removes or moves
+a declaration unit, a row or an arm: §4's **10 declaration units** and **26
+one-mutation sabotage arms** and §5's homing stand exactly as frozen. Each
+correction names a different module or site for one arm's mutation, and each
+was measured, not argued: the arm as §5 spells it was written, run, and scored
+by the harness before it was moved.
+
+§5 homes no arm on **U10**, and the guard says so by name
+(`test_n2_cut32.py`'s `UNAUDITED_UNIT`) rather than passing silently on the
+absence: U10's row is read from the mm30 reproduction's recorded state in a
+fresh process, and a source mutation that moved it would be a mutation of a
+driver that has already run.
+
+### 8.1 U4-a's mutation lands in `evaluation.py`, not `closure.py`
+
+§5 spells U4-a as *"let the closure projection reach the composites naming a
+proposition (`closure.py`)"*. No mutation of `closure.py` can do that.
+`build_closure` is a pure function of the arguments it is handed —
+`assessments`, `runs`, `verifications`, the supplied lineage snapshot, the
+producer-snapshot identity, the retraction enumeration, the consulted pairs,
+the binding and the observed-facet rows — and it holds **no read view**. It
+therefore cannot see a composite at all, and every mutation available inside
+it moves the digest identically before and after a composite is minted, which
+is exactly the comparison U4 makes. An arm written there scores `vacuous`.
+
+The one function that resolves a proposition's belief inputs *from a corpus*
+is `evaluation.gather`, so U4-a is homed there. Its `before` is `gather`'s
+
+```python
+    absent.extend(context.snapshot.not_present.items())
+```
+
+and its `after` extends the same list with the composites whose `composes`
+edges name the proposition under evaluation. The property falsified is the
+one U4 states — a composite naming a proposition is inert to that
+proposition's belief — and the check that fails is `test_u4_belief_inert`,
+which reads the digest through `evaluate_over` before and after minting,
+superseding and deleting a composite naming `proposition:ab`. The mechanism
+count is unchanged: one arm, homed on U4.
+
+### 8.2 U1-a's site inside `contract/base.py`
+
+§5 spells U1-a as *"make `composite_grammar` optional in the base parser
+(`contract/base.py`)"*, and the plan's table gives the shape
+`root.get("composite_grammar", {...})`. Written exactly there, the arm scores
+`vacuous`, and the measurement says why: `parse_base_contract` calls
+`_exact_fields(root, _CONTRACT_FIELDS, source)` before it reads any grammar,
+and `_CONTRACT_FIELDS` carries `composite_grammar`, so a document without the
+key is refused by the field check and the `root[...]` read is never reached.
+`root.get(...)` alone does not make the grammar optional; it makes an
+unreachable line defensive.
+
+The arm is therefore homed on the same module and the same mechanism at the
+site where optionality is actually decided:
+
+```python
+    _exact_fields(root, _CONTRACT_FIELDS, source)
+```
+
+becomes a `root.setdefault("composite_grammar", {"version": 1, "shapes":
+["dag"]})` ahead of that call. That is *"`composite_grammar` made optional"*
+in one mutation, and `test_u1_grammar_kind_and_relations` — which parses the
+packaged contract with the grammar deleted and requires the refusal — fails
+under it.
+
+### 8.3 U8-a's sabotage drops the unresolvable member rather than reading it
+
+§5 spells U8-a as *"yield a `NoBelief("no-eligible-assessment")` row for an
+unresolvable member instead of refusing"*. A row cannot be minted for a member
+that does not resolve without also inventing its `claim` and its `role`:
+`MemberRow` carries both, `classify` produces the role only for members whose
+claims restored, and a mutation that forged either would be sabotaging the
+row's construction rather than the refusal. The arm is written as the other
+half of the same disjunction — `read_composite` filters the unresolvable refs
+out of the facet and the ref tuple before `restore_members`, so the reading
+returns the resolvable rows and **does not refuse**. The asserted property is
+unchanged (*"an unresolvable member refuses the reading"*), the check is
+unchanged (`test_u8_reading_equals_the_wrapper`, whose last arm requires
+`CompositeError("composite-member-unresolvable")` after a member is deleted),
+and the arm scores `sound`.

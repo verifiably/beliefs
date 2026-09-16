@@ -751,6 +751,13 @@ def test_boundary_reresolution_refuses_both_create_only_calls_after_real_move(du
     run = source.add(stored.run_node("producer", title="producer", spec="analysis-spec:p", observes=[observed.id]))
     destination.add(run)
     proposition = source.add(stored.proposition_node("claim", title="claim", claim={"operator": "affects"}))
+    # The destination holds the assessment's `assesses` target as it holds its run:
+    # composite-claims U4 refuses an `assesses` edge whose target resolves nowhere on
+    # every write path, relocation included, so that a record arriving second cannot
+    # establish an edge the boundary would have refused (`corpus.py`,
+    # `_refuse_assesses_target_kind`). The arm below is about re-resolving the
+    # *retraction* target after a real move, and is unchanged by it.
+    destination.add(proposition)
     target = source.add(
         stored.assessment_node(
             "target",
