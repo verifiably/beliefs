@@ -644,6 +644,17 @@ cut-31 corpus state was moved aside — never deleted — to
 (12). `.work/reproduction/mm30.cut22` is untouched: `rederive`'s 10c still
 reads it.
 
+The run was driven from a lane worktree, so both of the driver's root
+variables were supplied rather than defaulted: `SCIENCE_MM30_ROOT` named the
+work root — the main checkout's `.work/reproduction/mm30` — because
+`paths.CHECKOUT` resolves a `.worktrees/` checkout through its real path under
+the work-root volume and would otherwise have looked beside the worktree, and
+`MM30_PREDECESSOR` named the predecessor corpus root, whose declared default
+does not exist on this host. `preflight` refused once, on the predecessor,
+before the second variable was set; that refusal is a path binding on this
+host and not a finding about the volume, confinement or the corpus, and the
+re-run certified all three.
+
 World `bc234bbfbbad12fb2915801de4a27301`, corpus
 `8b5d0c802677ee445e2b9d91ebf5d6a7`, store `05b6c1225e710bb1559f36e8333f3f29`.
 
