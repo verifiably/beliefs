@@ -1,10 +1,12 @@
 """Steps 5-7: confined run, assessment, replay, verification.
 
-Two identities for one assessment: `build_assessment` returns a value whose
-`run` is the bare closure address; the stored record spells it as the typed
-`run:<address>`, so `stored.assessment_value(node).identity()` differs from
-`assessment.identity()`. Both are written to `state.json`; neither is
-substituted for the other.
+One assessment, two identities measured, never one substituted for the other:
+`build_assessment` returns a value and the stored record is read back, and
+both identities are written to `state.json`. They agreed on the 2026-09-15
+recreated corpus — `assessment_value` hands `run` back bare, as the derived
+value spells it — and disagreed on the 2026-09-05 corpus, where the stored
+record spelled it `run:<address>`. The guard below stays: it is what measured
+that, and it is what would measure a spelling drifting apart again.
 """
 
 from __future__ import annotations

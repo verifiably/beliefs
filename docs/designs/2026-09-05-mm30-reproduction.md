@@ -531,7 +531,7 @@ down, over the same data and the same run inputs:
 |---|---|---|
 | spec identity | `86aaa1a8a8edda82…` | `10e8bfce1aaad8a9…` |
 | assessment identity (derived) | `316272987716ac4f…` | `618c6c584da64b62…` |
-| assessment facet digest | *unreadable under the successor* | `ddcb5b68dfbf27dc…` |
+| assessment facet digest | *refused: `PreGrammarAssessment`* (§10.8) | `ddcb5b68dfbf27dc…` |
 
 ### 10.7 The fresh-process restoration (Q10's own arm)
 
@@ -545,6 +545,17 @@ four hold:
 | `assessment_restored` | **true** — `assessment_value(..., profile=…)` returned `618c6c58…` |
 | `assessment_equal` | **true** — `build_assessment` over the stored run and the restored spec re-derived `618c6c58…` |
 | `belief_equal` | **true** — `evaluate_over` re-derived `NoBelief(no-directional-outcome)` |
+| `prior_pre_grammar` | **true** — §10.8's three measurements, below |
+
+`prior_pre_grammar` is the fourth key conformance cut 31 §5 names, and it
+travels inside the same `fresh_process_restoration` mapping as the others so
+that all of them are read by name from one place. It is **true** exactly when
+all three of these hold, and it is derived from them, never asserted:
+
+1. the prior corpus's assessment record refuses with `PreGrammarAssessment`;
+2. the prior corpus's analysis-spec record returns **no typed value**;
+3. `audit_corpus` over the prior corpus state under the successor profile
+   reports exactly one finding, `profile-mismatch` with detail `base`.
 
 This is the "recovered from the corpus alone" reading §5 question 3 asked of
 verification, now had for the spec and the assessment too.
@@ -559,26 +570,46 @@ parse under the successor, so the existing profile-disagreement rule fires
 first and is preserved.
 
 **What the two record readers answered, measured rather than assumed.**
-`analysis_spec_value` and `assessment_value` were each asked for the prior
-corpus's `analysis-spec:86aaa1a8…` and `assessment:316272987716ac4f`. Neither
-returned a typed value — the transition's one real requirement — but neither
-raised `PreGrammarSpec` or `PreGrammarAssessment` either. `ReadView.get`
-refuses the corpus one step earlier, at the base pin:
+Each stored node was fetched through `iter_stored`, which yields store nodes
+unvalidated — the route `audit_corpus` itself takes — and handed directly to
+its reader under the successor profile. (`ReadView.get` is the wrong route
+here: it validates the base pin and refuses this whole corpus with
+`ContractMismatch` before any record is reached, which measures the manifest,
+not the record.) The two halves answer differently, and the difference is the
+finding:
 
-    ContractMismatch: …/mm30.cut22/corpus/corpus.yaml: science_contract
-    science:1b029b61dcbf… is not the shipped base science:db7d2ebb252a…;
-    refused, never reinterpreted
+- **The assessment half fires as Q10 asks.** `assessment_value` over
+  `assessment:316272987716ac4f` raises
 
-So the prior corpus state cannot reach the two pre-grammar codes at all —
-the same reason its audit half already gives, one layer up. Filed as a
-step-10 `design-gap` finding against the estimand-typing design (Q10's
-transition arm): the arm's assertion that these two readers raise the
-pre-grammar refusals over *this* corpus is unreachable as written; what is
-reachable, and what was measured, is that no reader returns a typed value.
+      PreGrammarAssessment: assessment:316272987716ac4f: pre-grammar
+      assessment — minted before science.estimand.v1 with prose members.
+      Refused, never coerced (estimand-typing decision 10).
 
-The codes `spec-pre-grammar` and `assessment-pre-grammar` are exercised where
-they can be — on a corpus **pinned to the successor** holding a raw-written
-pre-grammar record — by
+- **The spec half cannot fire at any level**, and not for the reason the
+  audit half gives. `analysis_spec_value` over `analysis-spec:86aaa1a8…`
+  raises
+
+      MalformedRecord: analysis-spec:86aaa1a8…: an analysis-spec facet is
+      exactly {identity, projection}
+
+  The 2026-09-05 spec record **predates the projection form**: its facet
+  carries the frozen members directly and has no `projection` key at all, so
+  the reader refuses on the facet's shape and `restore`'s `estimand_grammar`
+  check — the only place `PreGrammarSpec` is raised — is never reached. That
+  record is pre-*projection*, not merely pre-grammar. No typed value comes
+  back, which is the transition's real requirement, but `PreGrammarSpec`
+  cannot be produced over this corpus by any route.
+
+Filed as a step-10 `design-gap` finding against the estimand-typing design
+(Q10's transition arm, §9): the arm's assertion that *both* readers raise
+their pre-grammar refusals over this corpus holds for the assessment and is
+unreachable for the spec.
+
+The code `assessment-pre-grammar` is reachable over this corpus's assessment
+record; `spec-pre-grammar` is not, and neither is reached through
+`audit_corpus`, which returns at `profile-mismatch: base` before reading a
+record. Both codes are exercised where they can be — on a corpus **pinned to
+the successor** holding a raw-written pre-grammar record — by
 `python/tests/test_audit.py::test_pre_grammar_records_audit_under_their_own_codes`
 and
 `python/tests/test_world_audit.py::test_a_pre_grammar_spec_and_assessment_audit_under_their_own_codes_and_the_audit_continues`.

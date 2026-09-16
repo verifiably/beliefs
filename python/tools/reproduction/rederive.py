@@ -19,11 +19,13 @@ from __future__ import annotations
 import json
 import sys
 
+from nodes.core.node import Node
+
 from beliefs import stored
 from beliefs.assess import AssessmentFinding, build_assessment
 from beliefs.audit import audit_corpus, check_verification
 from beliefs.corpus import ReadView
-from beliefs.errors import ContractMismatch, PreGrammarAssessment, PreGrammarSpec
+from beliefs.errors import MalformedRecord, PreGrammarAssessment, PreGrammarSpec, RecordError
 from beliefs.evidence import DerivationEvidence
 from beliefs.replay import derive_scope
 from beliefs.runrecord import decode_run_closure
@@ -85,12 +87,14 @@ def reconstruct(view, st: dict, evidence: DerivationEvidence) -> dict:
     return report
 
 
-def restored(view, st: dict, *, belief_equal: bool) -> dict:
+def restored(view, st: dict, *, belief_equal: bool, prior_pre_grammar: bool) -> dict:
     """10c. The spec and the assessment come off disk through the typed
     readers; the assessment is re-derived from its run and the belief from its
     closure; each is compared with what the driver's process derived. Nothing
     in this process was carried over from the driver's except the rule
-    implementations, which no reader restores from a record."""
+    implementations, which no reader restores from a record. The fourth key
+    cut 31 §5 names, `prior_pre_grammar`, travels with them so all four are
+    read by name from one mapping."""
     frozen = stored.analysis_spec_value(view.get(st["spec_ref"]), profile=profile())
     value = stored.assessment_value(view.get(st["assessment_ref"]), profile=profile())
     rebuilt = build_assessment(
@@ -105,25 +109,40 @@ def restored(view, st: dict, *, belief_equal: bool) -> dict:
             not isinstance(rebuilt, AssessmentFinding) and rebuilt.identity() == st["assessment_identity_derived"]
         ),
         "belief_equal": belief_equal,
+        "prior_pre_grammar": prior_pre_grammar,
     }
 
 
-def _refused(read) -> str:
-    """What a successor reader answers over the prior corpus state. A typed
-    value is the one answer the transition rules out; which refusal arrives is
+def _answer(read) -> tuple[str, str]:
+    """What a successor reader answers over one prior-corpus record: the
+    refusal's class and its text, or an empty class when it returns a typed
+    value — the one answer the transition rules out. Which refusal arrives is
     measured, not assumed."""
     try:
         read()
-    except (PreGrammarSpec, PreGrammarAssessment, ContractMismatch) as refusal:
-        return f"{type(refusal).__name__}: {refusal}"
-    return "returned a typed value: the successor reader did not refuse"
+    except RecordError as refusal:
+        return type(refusal).__name__, f"{type(refusal).__name__}: {refusal}"
+    return "", "returned a typed value: the successor reader did not refuse"
+
+
+def _prior_node(view: ReadView, ref: str) -> Node:
+    """One stored node of the prior corpus, through `iter_stored`. Not
+    `view.get`: that validates the base pin and refuses this whole corpus
+    before any record is reached, while `iter_stored` yields store nodes
+    unvalidated — the route `audit_corpus` itself takes, and the one that puts
+    the record in front of its reader."""
+    for node in view.iter_stored():
+        if node.id == ref:
+            return node
+    raise RuntimeError(f"the prior corpus state holds no stored node {ref}")
 
 
 def prior_state() -> dict:
     """10c's transition arm: the prior corpus state, read-only, under the
-    successor profile. Its base contract predates the grammar, so the
-    profile-disagreement rule fires before any record is read; the two record
-    readers are asked anyway, by name."""
+    successor profile. Its base contract predates the grammar, so
+    `audit_corpus`'s profile-disagreement rule fires before any record is read;
+    the two record readers are handed their nodes directly and answer by
+    name."""
     root = paths.PRIOR
     if not (root / "corpus" / "corpus.yaml").is_file():
         raise RuntimeError(
@@ -132,20 +151,39 @@ def prior_state() -> dict:
         )
     prior = json.loads((root / "state.json").read_text())
     view = ReadView.opened_at(root / "corpus")
-    report: dict[str, object] = {
-        "spec": _refused(lambda: stored.analysis_spec_value(view.get(prior["spec_ref"]), profile=profile())),
-        "assessment": _refused(lambda: stored.assessment_value(view.get(prior["assessment_ref"]), profile=profile())),
-    }
+    spec_class, spec_answer = _answer(
+        lambda: stored.analysis_spec_value(_prior_node(view, prior["spec_ref"]), profile=profile())
+    )
+    assessment_class, assessment_answer = _answer(
+        lambda: stored.assessment_value(_prior_node(view, prior["assessment_ref"]), profile=profile())
+    )
     evidence = DerivationEvidence(
         specs={},
         held_rules={spec.EQUIVALENCE.identity: spec.EQUIVALENCE},
         implementations={spec.INTERPRETATION.identity: spec.INTERPRETATION},
     )
-    report["audit"] = [f"{f.code}: {f.detail}" for f in audit_corpus(view, evidence=evidence, profile=profile())]
-    report["spec_ref"], report["assessment_ref"] = prior["spec_ref"], prior["assessment_ref"]
-    # Cited as text. The re-authored spec carries no `supersedes` edge to it
-    # (design §9): it lives in the prior corpus state, not in this lineage.
-    report["spec_prose_identity"] = prior["spec_identity"]
+    audit = [f"{f.code}: {f.detail}" for f in audit_corpus(view, evidence=evidence, profile=profile())]
+    report: dict[str, object] = {
+        "spec": spec_answer,
+        "spec_refusal": spec_class,
+        "assessment": assessment_answer,
+        "assessment_refusal": assessment_class,
+        "audit": audit,
+        "spec_ref": prior["spec_ref"],
+        "assessment_ref": prior["assessment_ref"],
+        # Cited as text. The re-authored spec carries no `supersedes` edge to
+        # it (design §9): it lives in the prior corpus state, not in this
+        # lineage.
+        "spec_prose_identity": prior["spec_identity"],
+    }
+    # Cut 31 §5's fourth key: the assessment refuses by its own pre-grammar
+    # name, the spec returns no typed value, and the audit reports exactly the
+    # one profile disagreement.
+    report["prior_pre_grammar"] = (
+        assessment_class == PreGrammarAssessment.__name__
+        and spec_class in (PreGrammarSpec.__name__, MalformedRecord.__name__)
+        and audit == ["profile-mismatch: base"]
+    )
     return report
 
 
@@ -172,8 +210,8 @@ def main() -> int:
             filed="verification-publication (write-path lane)",
         )
     # 10c — Q10's own arm, and the prior corpus state beside it.
-    restoration = restored(view, st, belief_equal=equal)
     prior = prior_state()
+    restoration = restored(view, st, belief_equal=equal, prior_pre_grammar=bool(prior["prior_pre_grammar"]))
     state.save(
         fresh_process_restoration=restoration,
         prior_corpus_state=prior,
@@ -188,14 +226,15 @@ def main() -> int:
         f"the prior corpus state under the successor profile: spec {prior['spec']}; assessment {prior['assessment']}; "
         f"audit_corpus {prior['audit']}",
     )
-    if not str(prior["spec"]).startswith("PreGrammarSpec"):
+    if prior["spec_refusal"] != PreGrammarSpec.__name__:
         findings.record(
             10,
             "design-gap",
-            "Q10's transition arm asks the successor readers for PreGrammarSpec and PreGrammarAssessment over the "
-            f"prior corpus state; `ReadView.get` refuses the corpus first ({prior['spec']}), so no record is reached "
-            "and the two named refusals are unreachable there — the same reason the arm's audit half already gives "
-            "for `profile-mismatch: base`",
+            "Q10's transition arm, measured: the assessment half fires as asked — the prior corpus's assessment "
+            f"record refuses with {prior['assessment']}. The spec half cannot fire at any level: the 2026-09-05 "
+            "analysis-spec record predates the projection form, so its reader refuses earlier with "
+            f"{prior['spec']}, and `restore`'s estimand_grammar check — the only place PreGrammarSpec is raised — "
+            "is never reached. Pre-projection, not merely pre-grammar",
             filed="estimand-typing design (Q10's transition arm, §9)",
         )
     print(json.dumps({"10a": rederived, "equal": equal, "10b": report, "10c": restoration, "prior": prior}, indent=2))

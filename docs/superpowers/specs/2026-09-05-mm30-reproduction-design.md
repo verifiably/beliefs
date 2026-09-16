@@ -334,6 +334,7 @@ that were single.
 
 | # | step | what changed |
 |---|---|---|
+| 0 | `preflight` | unchanged: certifies the volume, confinement and the predecessor root before anything is written |
 | 1 | `world` | unchanged: register the world root and the store. The corpus is **not** adopted here |
 | 2 | `select_target` | unchanged |
 | 2a | `analysis_inputs` | already run in 2026-09-05; named here, since the five analysis keys it fixes into `target.yaml` are inputs to step 4 |
