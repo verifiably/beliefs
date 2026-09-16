@@ -357,8 +357,13 @@ class MemberRow:
 
 @sealed
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class CompositeReading:
+    """Read, never authored — `identity` is the content hash `read_composite`
+    takes over the facet it read, so a hand-authored value could pair any
+    identity with any rows and project it as a reading. Minted the way
+    `Composite` is, and by one function."""
+
     ref: str
     identity: str
     shape: str
@@ -367,8 +372,19 @@ class CompositeReading:
     node_outcomes: Mapping[str, TermOutcome]
     rows: tuple[MemberRow, ...]
 
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "node_outcomes", MappingProxyType(dict(self.node_outcomes)))
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        raise CompositeError("composite-unread", "CompositeReading is read, never authored — use read_composite(...)")
+
+    @classmethod
+    def _checked(cls, token: object, **fields: object) -> CompositeReading:
+        if token is not _MINT:
+            raise CompositeError("composite-unread", "CompositeReading._checked is read_composite's own route")
+        value = object.__new__(cls)
+        for name, field in fields.items():
+            # `object.__new__` runs no `__post_init__`, so the one normalization
+            # this value needs is done here, at its only mint.
+            object.__setattr__(value, name, MappingProxyType(dict(field)) if name == "node_outcomes" else field)  # type: ignore[arg-type]
+        return value
 
     def projection(self) -> dict[str, object]:
         return {
@@ -458,7 +474,8 @@ def read_composite(
                 identification=identification,
             )
         )
-    return CompositeReading(
+    return CompositeReading._checked(
+        _MINT,
         ref=ref,
         identity=composite_identity(facet),
         shape=facet.shape,

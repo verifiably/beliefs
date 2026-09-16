@@ -10,7 +10,7 @@ from test_evaluation import _observations  # the held byte observations helper, 
 from beliefs import stored
 from beliefs.belief import Availability, Belief, NoBelief, NotReached, SuppliedContext
 from beliefs.closure import RetractionEnumeration
-from beliefs.composite import CompositeError, CompositeNode, build_composite, read_composite
+from beliefs.composite import CompositeError, CompositeNode, CompositeReading, build_composite, read_composite
 from beliefs.corpus import lineage_snapshot
 from beliefs.evaluation import evaluate_over
 from beliefs.identity import v1
@@ -150,6 +150,21 @@ def test_the_reading_refuses_a_node_the_consulted_vocabulary_excludes(corpus):
     with pytest.raises(CompositeError) as caught:
         read_composite(w.read_view, minted.id, **_inputs(w, dataset_address))  # SNAPSHOT consults EX and lacks z
     assert caught.value.code == "composite-node-not-member" and "node:1" in str(caught.value)
+
+
+def test_the_reading_has_no_public_constructor(corpus):
+    """`identity` is the content hash `read_composite` takes over the facet it read.
+    A public constructor would let a hand-authored value pair any identity with any
+    rows and project it as a reading — `Composite`'s gate, for the same reason."""
+    w, dataset_address, *_ = corpus
+    minted = w.add(stored.composite_node(_build(w, ["proposition:ab"]), title="g"))
+    read = read_composite(w.read_view, minted.id, **_inputs(w, dataset_address))
+    with pytest.raises(CompositeError) as caught:
+        CompositeReading()  # type: ignore[call-arg]
+    assert caught.value.code == "composite-unread"
+    with pytest.raises(CompositeError) as caught:
+        CompositeReading._checked(object(), **{f: getattr(read, f) for f in ("ref", "identity", "shape", "nodes", "standing", "node_outcomes", "rows")})
+    assert caught.value.code == "composite-unread"
 
 
 def test_a_superseded_composite_reports_its_successor(corpus):
