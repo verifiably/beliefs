@@ -117,6 +117,21 @@ describe("a domain contract's facets (design §3.3)", () => {
     expect(() => parseDomainContract(`${TESTING}\nkinds: {}\n`, "<bad>", base)).toThrow(/declares no kinds/);
     expect(() => parseDomainContract(`${TESTING}\nrelations: {}\n`, "<bad>", base)).toThrow(/declares no relations/);
   });
+  it("parses the edges table and refuses an undeclared or non-causal operator", () => {
+    const domain = parseDomainContract(TESTING, "fixtures/contracts/testing.yaml", base);
+    expect(domain.edges.affects).toEqual({ operator: "affects", cause: 0, effect: 1 });
+    expect(() =>
+      parseDomainContract(TESTING.replace("edges:\n  affects:", "edges:\n  regulates:"), "<bad>", base),
+    ).toThrow(/regulates/);
+    expect(() =>
+      parseDomainContract(TESTING.replace("edges:\n  affects:", "edges:\n  correlates-with:"), "<bad>", base),
+    ).toThrow(/causal/);
+    expect(() =>
+      parseDomainContract(TESTING.replace("{ cause: 0, effect: 1 }", "{ cause: 0, effect: 0 }"), "<bad>", base),
+    ).toThrow(/distinct/);
+    const profile = compileProfile(base, [domain]);
+    expect(profile.edges["testing/affects"]).toEqual({ operator: "testing/affects", cause: 0, effect: 1 });
+  });
 });
 
 describe("compileProfile enforces the declaration constraints (design §7.2)", () => {

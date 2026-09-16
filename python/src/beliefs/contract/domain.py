@@ -40,6 +40,7 @@ from beliefs.sealed import sealed
 __all__ = [
     "DimensionDecl",
     "DomainContract",
+    "EdgeDecl",
     "EstimandDecl",
     "OperatorDecl",
     "SortDecl",
@@ -58,12 +59,14 @@ achieves in this language and what it cannot."""
 _NAME = re.compile(r"^[a-z][a-z0-9-]*$")
 
 _CONTRACT_FIELDS = frozenset({"contract", "version", "lineage", "sorts", "dimensions", "operators"})
-_CONTRACT_OPTIONAL = frozenset({"description", "facets", "estimands"})
+_CONTRACT_OPTIONAL = frozenset({"description", "facets", "estimands", "edges"})
 _OPERATOR_FIELDS = frozenset({"arity", "arg_sorts", "sign_apt", "layers", "dimensions"})
 _OPERATOR_OPTIONAL = frozenset({"description", "retired"})
 _DIMENSION_FIELDS = frozenset({"restriction_sort"})
 _SORT_FIELDS = frozenset({"vocabulary"})
 _ESTIMAND_FIELDS = frozenset({"level_sorts", "measure_sort", "identification_sort", "conditioning_sort"})
+_EDGE_FIELDS = frozenset({"cause", "effect"})
+_EDGE_OPTIONAL = frozenset({"description", "retired"})
 _SLOT_INDEX = re.compile(r"^(0|[1-9][0-9]*)$")
 
 
@@ -216,6 +219,48 @@ class EstimandDecl:
         }
 
 
+@dataclass(frozen=True)
+class EdgeDecl:
+    """Which slot of an operator is the cause and which the effect
+    (composite-claims design §3.3). The kernel does not assume slot 0 is the
+    cause — `binds(A, B)` is symmetric — so the direction is the owner's
+    declaration, and an operator with no row forms no edge."""
+
+    operator: str
+    cause: int
+    effect: int
+    retired: bool = False
+
+    def schema_projection(self) -> dict[str, object]:
+        return {"cause": self.cause, "effect": self.effect}
+
+
+def _slot(value: object, arity: int, where: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value < arity:
+        raise MalformedContract(f"{where}: a slot is an integer in Fin({arity}), found {value!r}")
+    return value
+
+
+def _parse_edge(name: str, value: object, where: str, operators: Mapping[str, OperatorDecl]) -> EdgeDecl:
+    body = _mapping(value, where)
+    _fields(body, _EDGE_FIELDS, _EDGE_OPTIONAL, where)
+    if "/" in name:
+        raise MalformedContract(
+            f"{where}: {name!r} names another namespace; a direction is part of what an operator means and only "
+            "its own contract may declare it (design §3.3)"
+        )
+    operator = operators.get(name)
+    if operator is None:
+        raise MalformedContract(f"{where}: {name!r} is not an operator this contract declares")
+    if "causal" not in operator.layers:
+        raise MalformedContract(f"{where}: {name!r} admits no causal layer, so it forms no edge")
+    cause = _slot(body["cause"], operator.arity, f"{where}: cause")
+    effect = _slot(body["effect"], operator.arity, f"{where}: effect")
+    if cause == effect:
+        raise MalformedContract(f"{where}: cause and effect must be distinct slots, both are {cause}")
+    return EdgeDecl(operator=name, cause=cause, effect=effect, retired=_bool(body.get("retired", False), f"{where}: retired"))
+
+
 @sealed
 @final
 @dataclass(frozen=True, init=False)
@@ -246,6 +291,7 @@ class DomainContract:
     sorts: Mapping[str, SortDecl]
     dimensions: Mapping[str, DimensionDecl]
     operators: Mapping[str, OperatorDecl]
+    edges: Mapping[str, EdgeDecl]
     facets: Mapping[str, FacetDecl]
     estimands: Mapping[str, EstimandDecl]
     content_identity: str
@@ -286,6 +332,7 @@ class DomainContract:
         sorts: dict[str, SortDecl],
         dimensions: dict[str, DimensionDecl],
         operators: dict[str, OperatorDecl],
+        edges: dict[str, EdgeDecl],
         facets: dict[str, FacetDecl],
         estimands: dict[str, EstimandDecl],
         content_identity: str,
@@ -305,6 +352,7 @@ class DomainContract:
             ("sorts", MappingProxyType(dict(sorts))),
             ("dimensions", MappingProxyType(dict(dimensions))),
             ("operators", MappingProxyType(dict(operators))),
+            ("edges", MappingProxyType(dict(edges))),
             ("facets", MappingProxyType(dict(facets))),
             ("estimands", MappingProxyType(dict(estimands))),
             ("content_identity", content_identity),
@@ -336,12 +384,13 @@ class DomainContract:
         """
         return frozenset(key for key, decl in self._declarations() if decl.retired)
 
-    def _declarations(self) -> tuple[tuple[str, SortDecl | DimensionDecl | OperatorDecl | EstimandDecl], ...]:
+    def _declarations(self) -> tuple[tuple[str, SortDecl | DimensionDecl | OperatorDecl | EstimandDecl | EdgeDecl], ...]:
         return (
             *((f"sort:{name}", decl) for name, decl in self.sorts.items()),
             *((f"dimension:{name}", decl) for name, decl in self.dimensions.items()),
             *((f"operator:{name}", decl) for name, decl in self.operators.items()),
             *((f"estimand:{name}", decl) for name, decl in self.estimands.items()),
+            *((f"edge:{name}", decl) for name, decl in self.edges.items()),
         )
 
 
@@ -627,6 +676,15 @@ def parse_domain_contract(
                 )
         operators[name] = operator
 
+    # `_mapping`, not `_declarations`: an edge key naming another namespace is
+    # not a malformed identifier, it is a name this contract may not use, and
+    # `_parse_edge` is the one place that says so (design §3.3). Routing
+    # through `_declarations`'s `_name` check first would refuse it with a
+    # generic "not an identifier" before that message is ever reached.
+    edges: dict[str, EdgeDecl] = {}
+    for name, body in _mapping(root.get("edges", {}), f"{source}: edges").items():
+        edges[name] = _parse_edge(name, body, f"{source}: edges.{name}", operators)
+
     facets = parse_facet_declarations(root.get("facets", {}), where=f"{source}: facets", namespace=namespace)
 
     def resolve(value: object, where: str) -> str:
@@ -644,6 +702,7 @@ def parse_domain_contract(
         sorts=sorts,
         dimensions=dimensions,
         operators=operators,
+        edges=edges,
         facets=facets,
         estimands=estimands,
         content_identity=v1.digest(DOMAIN_CONTRACT_DOMAIN, root),

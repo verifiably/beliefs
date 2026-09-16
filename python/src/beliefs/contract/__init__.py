@@ -25,6 +25,7 @@ from beliefs.contract.coordination import (
 from beliefs.contract.domain import (
     DimensionDecl,
     DomainContract,
+    EdgeDecl,
     OperatorDecl,
     SortDecl,
     VocabularyBinding,
@@ -44,6 +45,7 @@ __all__ = [
     "CoordinationKindDecl",
     "DimensionDecl",
     "DomainContract",
+    "EdgeDecl",
     "FacetDecl",
     "FacetUse",
     "FieldDecl",

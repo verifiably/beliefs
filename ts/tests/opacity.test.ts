@@ -48,6 +48,7 @@ import {
 } from "../src/errors.js";
 import {
   type CompiledDimension,
+  type CompiledEdge,
   type CompiledEstimandDecl,
   type CompiledOperator,
   ProfileSpec,
@@ -223,6 +224,7 @@ describe("a profile that did not come from the contracts is not a profile", () =
       } satisfies CompiledOperator,
     },
     estimands: {} as Record<string, CompiledEstimandDecl>,
+    edges: {} as Record<string, CompiledEdge>,
     dimensions: {} as Record<string, CompiledDimension>,
     sorts: ["forged/sort"],
   };
@@ -337,6 +339,7 @@ describe("a contract that nobody authored cannot be compiled", () => {
           sorts: {},
           dimensions: {},
           operators: {},
+          edges: {},
           facets: {},
           estimands: {},
           base,
@@ -364,6 +367,7 @@ describe("a contract that nobody authored cannot be compiled", () => {
           sorts: {},
           dimensions: {},
           operators: {},
+          edges: {},
           facets: {},
           estimands: {},
           base,

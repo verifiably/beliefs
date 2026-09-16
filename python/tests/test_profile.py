@@ -44,10 +44,11 @@ def test_coordination_compiles_into_immutable_authorization(base_contract):
 def test_no_coordination_contract_preserves_the_slice_2b_compiled_identity(base_contract):
     """The identity moved at slice 2b when source history became a declared facet,
     again at estimand-typing Task 1 when the estimand grammar entered the projection,
-    again at Task 3 when the (here empty) `estimands` table entered it too, and again
-    at composite-claims Task 1 when the composite grammar entered the projection."""
+    again at Task 3 when the (here empty) `estimands` table entered it too, again
+    at composite-claims Task 1 when the composite grammar entered the projection,
+    and again at Task 2 when the (here empty) `edges` table entered it too."""
     before = compile_profile(base_contract, [])
-    assert before.compiled_identity == "ea4669c72991acda66686fc8c1f4c21348847ecb88e0d540ed1d45de2b92c433"
+    assert before.compiled_identity == "ccd5ed099eef2c524c2dafbe7d30894b16f5f924f5315d0a073d9ba003e41548"
     assert compile_profile(base_contract, [], coordination=None).compiled_identity == before.compiled_identity
     assert before.coordination_kinds == {}
 
@@ -789,6 +790,7 @@ class TestTheOrdinaryRouteToAnUnparsedArtifact:
                 sorts={},
                 dimensions={},
                 operators={},
+                edges={},
                 facets={},
                 estimands={},
                 content_identity="0" * 64,
@@ -864,3 +866,26 @@ class TestTheClaimConstructorAuthenticatesItsProfile:
                 polarity="yes",
                 layer="made-up",
             )
+
+
+def test_edges_compile_under_the_namespaced_operator(base_contract, testing_document):
+    from beliefs.contract import parse_domain_contract
+    from beliefs.profile import compile_profile
+
+    testing = parse_domain_contract(testing_document, source="<t>", base=base_contract, predecessor=None)
+    profile = compile_profile(base_contract, [testing])
+    edge = profile.edges["testing/affects"]
+    assert (edge.operator, edge.cause, edge.effect, edge.retired, edge.contract) == ("testing/affects", 0, 1, False, "testing")
+    assert "testing/correlates-with" not in profile.edges
+
+
+def test_edges_enter_the_compiled_identity(base_contract, testing_document):
+    import copy
+
+    from beliefs.contract import parse_domain_contract
+    from beliefs.profile import compile_profile
+
+    with_edge = parse_domain_contract(copy.deepcopy(testing_document), source="<t>", base=base_contract, predecessor=None)
+    del testing_document["edges"]
+    without = parse_domain_contract(testing_document, source="<t>", base=base_contract, predecessor=None)
+    assert compile_profile(base_contract, [with_edge]).compiled_identity != compile_profile(base_contract, [without]).compiled_identity

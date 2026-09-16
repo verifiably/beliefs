@@ -210,6 +210,16 @@ export interface EstimandDecl {
   readonly conditioningSort: string;
 }
 
+/**
+ * Which slot of an operator is the cause and which the effect
+ * (composite-claims design §3.3). An operator with no row forms no edge.
+ */
+export interface EdgeDecl {
+  readonly operator: string;
+  readonly cause: number;
+  readonly effect: number;
+}
+
 export class DomainContract {
   #minted = true;
   readonly namespace: string;
@@ -217,6 +227,7 @@ export class DomainContract {
   readonly sorts: DeclarationTable<SortDecl>;
   readonly dimensions: DeclarationTable<DimensionDecl>;
   readonly operators: DeclarationTable<OperatorDecl>;
+  readonly edges: DeclarationTable<EdgeDecl>;
   readonly facets: DeclarationTable<FacetDecl>;
   readonly estimands: DeclarationTable<EstimandDecl>;
 
@@ -248,6 +259,7 @@ export class DomainContract {
       sorts: DeclarationTable<SortDecl>;
       dimensions: DeclarationTable<DimensionDecl>;
       operators: DeclarationTable<OperatorDecl>;
+      edges: DeclarationTable<EdgeDecl>;
       facets: DeclarationTable<FacetDecl>;
       estimands: DeclarationTable<EstimandDecl>;
       base: BaseContract;
@@ -267,6 +279,7 @@ export class DomainContract {
     this.sorts = parts.sorts;
     this.dimensions = parts.dimensions;
     this.operators = parts.operators;
+    this.edges = parts.edges;
     this.facets = parts.facets;
     this.estimands = parts.estimands;
     this.base = parts.base;
@@ -596,7 +609,7 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
   exactFields(
     document,
     ["contract", "version", "lineage"],
-    ["sorts", "dimensions", "operators", "facets", "estimands"],
+    ["sorts", "dimensions", "operators", "facets", "estimands", "edges"],
     source,
   );
 
@@ -687,6 +700,31 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
 
   const operators = frozenTable(operatorEntries);
 
+  const edgeEntries: [string, EdgeDecl][] = [];
+  for (const [name, body] of Object.entries(
+    declarations("edges" in document ? document.edges : {}, `${source}.edges`),
+  )) {
+    const where = `${source}.edges.${name}`;
+    const edgeBody = mapping(body, where);
+    exactFields(edgeBody, ["cause", "effect"], ["description", "retired"], where);
+    refuseRetired(edgeBody, where);
+    const operator = operators[name];
+    if (operator === undefined)
+      throw new MalformedContract(`${where}: ${JSON.stringify(name)} is not an operator this contract declares`);
+    if (!operator.layers.includes("causal"))
+      throw new MalformedContract(`${where}: ${JSON.stringify(name)} admits no causal layer`);
+    const slot = (value: unknown, label: string): number => {
+      if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value >= operator.arity)
+        throw new MalformedContract(`${where}.${label}: a slot is an integer in Fin(${operator.arity})`);
+      return value;
+    };
+    const cause = slot(edgeBody.cause, "cause");
+    const effect = slot(edgeBody.effect, "effect");
+    if (cause === effect) throw new MalformedContract(`${where}: cause and effect must be distinct slots`);
+    edgeEntries.push([name, Object.freeze({ operator: name, cause, effect })]);
+  }
+  const edges = frozenTable(edgeEntries);
+
   const estimandEntries: [string, EstimandDecl][] = [];
   for (const [name, body] of Object.entries(declarations(document.estimands, `${source}.estimands`))) {
     const where = `${source}.estimands.${name}`;
@@ -741,6 +779,7 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     sorts,
     dimensions,
     operators,
+    edges,
     facets,
     estimands,
     base,

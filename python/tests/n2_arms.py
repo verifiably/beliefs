@@ -352,6 +352,9 @@ _M7 = [
         # argument when `composite_grammar:` entered the compiled profile. Both
         # `before` and `after` carry it now so the sabotage still lands on the
         # live call instead of matching nothing and scoring stale.
+        # Re-targeted again 2026-09-16 (composite-claims Task 2, U2): the same
+        # call gained an `edges=edges,` keyword argument when `edges:` entered
+        # the compiled profile.
         sabotage=Sabotage(
             module="profile.py",
             before='''        compiled_identity=v1.digest(
@@ -367,6 +370,7 @@ _M7 = [
                 facets=facets,
                 relations=base.relations,
                 estimands=estimands,
+                edges=edges,
                 coordination=coordination_projection,
             ),
         ),''',
@@ -384,6 +388,7 @@ _M7 = [
                     facets=facets,
                     relations=base.relations,
                     estimands=estimands,
+                    edges=edges,
                     coordination=coordination_projection,
                 ),
                 "activated": {ns: c.content_identity for ns, c in seen.items()},
