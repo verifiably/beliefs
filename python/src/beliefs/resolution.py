@@ -98,7 +98,7 @@ class ReferentPosition:
     """
 
     kind: str
-    """``argument`` or ``restriction``."""
+    """``argument``, ``restriction``, ``estimand`` or ``node``."""
 
     key: str
     """The slot index rendered as text, or the dimension's term identifier."""
@@ -120,6 +120,11 @@ class ReferentPosition:
         `estimand:control.conditioning[3]` — the estimand's positions, in the
         receipt's one vocabulary (estimand-typing §7.1)."""
         return cls(kind="estimand", key=part)
+
+    @classmethod
+    def node(cls, index: int) -> ReferentPosition:
+        """A composite's node, by position in its sorted node set (design §4.1)."""
+        return cls(kind="node", key=str(index))
 
 
 @dataclass(frozen=True)

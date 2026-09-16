@@ -52,7 +52,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from types import MappingProxyType
-from typing import Any, cast, final
+from typing import TYPE_CHECKING, Any, cast, final
 
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -94,10 +94,15 @@ from beliefs.sealed import sealed
 from beliefs.spec import FrozenSpec, frozen_projection, restore
 from beliefs.verification import Verification
 
+if TYPE_CHECKING:  # the runtime import is local to each function, to avoid a load-time cycle
+    from beliefs.composite import Composite, CompositeFacet
+
 __all__ = [
     "ACCEPTED_EXTERNAL_IDENTIFIERS",
     "ANALYSIS_SPEC_FACET",
     "ASSESSMENT_FACET",
+    "COMPOSES",
+    "COMPOSITE_FACET",
     "COORDINATION_FACET",
     "COREFERENCE_ATTESTATION_DOMAIN",
     "COREFERENCE_ATTESTATION_FACET",
@@ -135,6 +140,8 @@ __all__ = [
     "analysis_spec_value",
     "assessment_reference",
     "assessment_value",
+    "composite_node",
+    "composite_value",
     "coreference_attestation_node",
     "coreference_attestation_value",
     "dataset_address_of",
@@ -176,6 +183,7 @@ EMPIRICAL_OBSERVATION_FACET = "empirical-observation"
 PROPOSITION_FACET = "proposition"
 ANALYSIS_SPEC_FACET = "analysis-spec"
 ASSESSMENT_FACET = "assessment"
+COMPOSITE_FACET = "composite"
 RUN_FACET = "run"
 RUN_CLOSURE_FACET = "run-closure"
 DATASET_FACET = "dataset"
@@ -230,6 +238,7 @@ SUPERSEDES = "supersedes"
 RETRACTS = "retracts"
 GROUNDED_IN = "grounded-in"
 SUCCEEDED_BY = "succeeded-by"
+COMPOSES = "composes"
 
 _SHIPPED = shipped_base()
 _WORLD = {name: kind for name, kind in _SHIPPED.kinds.items() if kind.role == "world"}
@@ -1325,6 +1334,46 @@ def _coreference_fields(facet: Mapping[str, Any]) -> CoreferenceAttestation:
         _coreference_text(facet["grounds"], "grounds"),
         _coreference_text(facet["event_token"], "event token"),
     )
+
+
+def composite_value(node: Node) -> CompositeFacet:
+    """The facet reader the base contract names for the kind — form only
+    (composite-claims design §4.2 step 1): grammar tag, shape tag, canonical
+    nodes, canonical members. Membership of a node's term in its vocabulary
+    is never read here."""
+    from beliefs.composite import CompositeFacet, CompositeNode
+    from beliefs.errors import ClaimError
+
+    facet = _facet(node, COMPOSITE_FACET)
+    if facet is None:
+        raise MalformedRecord(f"{node.id}: a composite carries a {COMPOSITE_FACET!r} facet")
+    if set(facet) != {"grammar", "shape", "nodes", "members"}:
+        raise MalformedRecord(f"{node.id}: composite facet keys are grammar, shape, nodes, members; found {sorted(facet)}")
+    raw_nodes, raw_members = facet["nodes"], facet["members"]
+    if not isinstance(raw_nodes, list) or not isinstance(raw_members, list):
+        raise MalformedRecord(f"{node.id}: nodes and members are lists")
+    nodes = []
+    for entry in raw_nodes:
+        if not isinstance(entry, dict) or set(entry) != {"sort", "term"} or not all(isinstance(entry[k], str) for k in entry):
+            raise MalformedRecord(f"{node.id}: a node is {{sort, term}} of strings")
+        try:
+            nodes.append(CompositeNode(entry["sort"], entry["term"]))
+        except ClaimError as caught:  # the identifier checks are `Referent`'s, a ClaimError family
+            raise MalformedRecord(f"{node.id}: {caught}") from caught
+    try:
+        return CompositeFacet(grammar=facet["grammar"], shape=facet["shape"], nodes=tuple(nodes), members=tuple(raw_members))
+    except MalformedRecord as caught:
+        raise MalformedRecord(f"{node.id}: {caught}") from caught
+
+
+def composite_node(value: Composite, *, title: str) -> Node:
+    from beliefs.composite import Composite
+
+    if type(value) is not Composite:
+        raise MalformedRecord("composite_node writes a built Composite and nothing else")
+    node_id = f"composite:{value.slug}"
+    relations = [Relation(source=node_id, predicate=COMPOSES, target=ref) for ref in value.refs]
+    return _node("composite", value.slug, title, {COMPOSITE_FACET: value.facet.projection()}, relations)
 
 
 def coreference_attestation_value(node: Node) -> CoreferenceAttestation:
