@@ -1,17 +1,19 @@
 ---
 id: beliefs-59f846
 title: "Type the estimand, applicability, estimate and uncertainty"
-status: doing
+status: done
 priority: 3
 size: l
 complexity: high
 process: planned
 owner: design/estimand-typing
 created: 2026-09-12T20:31:58Z
-updated: 2026-09-15T16:45:35Z
+updated: 2026-09-16T06:57:07Z
 started: 2026-09-15T16:45:12Z
+completed: 2026-09-16T06:57:07Z
 depends: []
 tags: [design, belief, contract]
+model: claude-fable-5-1
 spec: docs/designs/2026-09-12-estimand-typing-design.md
 plan: docs/superpowers/plans/2026-09-12-estimand-typing.md
 ---
@@ -39,3 +41,4 @@ Uncertainty: off the dogfood path; opens a lane only under roadmap concurrency r
 - 2026-09-15T16:45:12Z (design/estimand-typing): lane admitted under rule 6, 2026-09-15 after cut 30: open kernel lanes none (doing holds only the CI audit, a non-lane task; composite-claim is parked on this lane's merge); on-path state: tier 1 has no on-path boundary, world-resolution discharged at cut 30, so an off-path lane may open. Cut number scan across worktrees: highest claimed 30; this cut is 31, chained after cut30_acceptance.py (rule 5). Baseline: main at 5127dcfa52d85ec2f6f2b2cc6af507d0a1e1eafe.
 - 2026-09-15T16:45:12Z (design/estimand-typing): Process planned: the spec (three reviews) and plan (two reviews) cleared 2026-09-12; execution follows the plan's Tasks 0-12.
 - 2026-09-15T16:45:35Z (design/estimand-typing): cut 31 frozen at c2a2211c2d9a0889a59e7892dcb71f2008e20e46, sha256 3cd4409dd08d5b121d3f62bfaaa00e3d553335d6a54e7657471c70677854d93f (docs/designs/2026-09-15-conformance-cut-31.md); Task 11's guard pins both
+- 2026-09-16T06:57:07Z (design/estimand-typing): Estimand typing landed on design/estimand-typing: cut 31 frozen at c2a2211 and discharged (Q1–Q10 closed; 163 of 206 rows); the base contract owns science.estimand.v1, domain contracts declare estimands:, specs carry a typed estimand and applicability, rules return decimal estimates and typed uncertainty, structural match holds at the boundary and under audit, commensurable/co_scoped exposed and unread by v1; the mm30 corpus recreated under the successor contract with the belief re-derived equal in a fresh process; the natural-systems worked example and API test admitted as drafted; results record 2026-09-16-conformance-cut-31-results.md; weighted-belief re-blocked on the successor policy design; follow-ups beliefs-1dd03f, beliefs-0521da, beliefs-1b0827. Awaits the --no-ff merge into main.
