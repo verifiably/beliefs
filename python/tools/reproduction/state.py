@@ -1,4 +1,16 @@
-"""`state.json`: corpus refs, identities and paths only — never evidence."""
+"""`state.json`: corpus refs, identities and paths only — never evidence.
+
+Steps 11 and 12 (composite claims) add five keys, all of that kind:
+
+- `spine_ref` — the `h1-prognosis` spine proposition minted by `compose`;
+- `composite_ref`, `composite_identity` — the composite's corpus ref and the
+  content identity `build_composite` stamped it with;
+- `composite_receipt` — the node receipt as `{node label: outcome tag}`, or
+  `composite_refusal` in its place when `build_composite` refused;
+- `reading_rows`, `reading_equal` — each member row as
+  `{ref: (sign, answer class, identification)}`, and whether the second
+  process's encoded reading is byte-equal to the first's.
+"""
 
 from __future__ import annotations
 

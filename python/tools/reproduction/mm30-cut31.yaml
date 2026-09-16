@@ -2,7 +2,7 @@ also: [biology]
 contract:
   contract: mm30
   version: 1
-  lineage: {successor: "0e71608ea5395666a1b3d992c25e264b38250e3c07d20822c633f97e7fe3b71a"}
+  lineage: {successor: "63566dd034da73bcd6c346a5d9ad61fe46dc67cc58b77f82bad367dea61211eb"}
   sorts:
     concept: {vocabulary: "dataset:{{CONCEPTS}}"}
     stage-level: {vocabulary: "dataset:{{LEVELS}}"}
@@ -30,14 +30,6 @@ contract:
       measure_sort: measure
       identification_sort: identification
       conditioning_sort: concept
-  edges:
-    affects-concept-concept:            { cause: 0, effect: 1 }
-    affects-concept-molecular-entity:   { cause: 0, effect: 1 }
-    affects-molecular-entity-concept:   { cause: 0, effect: 1 }
-    regulates-concept-concept:          { cause: 0, effect: 1 }
-    regulates-concept-molecular-entity: { cause: 0, effect: 1 }
-    regulates-molecular-entity-concept: { cause: 0, effect: 1 }
-    induces-state-concept-concept:      { cause: 0, effect: 1 }
 plan:
   operators:
     - {predicate: affects, subject: concept, object: concept, operator: affects-concept-concept}

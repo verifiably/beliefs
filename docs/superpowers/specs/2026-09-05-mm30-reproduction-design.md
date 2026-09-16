@@ -351,3 +351,22 @@ that were single.
 
 The prior corpus state is moved aside, never deleted: it is what 10c reads.
 
+
+## 14. Amendment — the step table under composite claims, 2026-09-16
+
+Appended, not edited: §4's table and §13's amendment stay as written. The
+composite-claims design (`../../designs/2026-09-12-composite-claims-design.md`,
+§9) adds two steps after `belief`, both run over the corpus the sequence in
+§13 leaves on disk. Neither changes a step above it.
+
+| # | step | what it does |
+|---|---|---|
+| 11 | `compose` | **new.** Mint the `h1-prognosis` spine proposition — `affects-molecular-entity-concept(PHF19, overall-survival)`, causal, negative, a claim this corpus holds no evidence for — and `build_composite` a `dag` over three nodes and two members: the reproduced target and the spine. The node receipt (`{label: outcome}`) and the composite's identity are saved to `state.json`; a refusal is saved as `composite_refusal` and recorded as the measurement, never typed around |
+| 12 | `read` / `read --again` | **new.** `read_composite` under the same four arguments the `belief` step handed the evaluator — policy binding, supplied context, availability, resolution snapshot — writing the encoded reading to `reading-1.json`, and again in a second process to `reading-2.json`. The two byte strings are compared; `state.reading_equal` and `state.reading_rows` carry the result |
+
+The corpus is **recreated**, not migrated, for the same reason §13's run
+recreated it: the base contract gained `composite_grammar` and the `mm30`
+contract gained `edges:`, so the cut-31 corpus state is moved aside to
+`.work/reproduction/mm30.cut31` — never deleted — and opened read-only under
+the successor profile as the transition arm. `.work/reproduction/mm30.cut22`
+stays where it is: `rederive`'s 10c still reads it.
