@@ -46,7 +46,7 @@ import shutil
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import pytest
@@ -73,7 +73,38 @@ under the arm's workspace carries the package's own directory name, so `PYTHONPA
 set to the copy's parent shadows the installed package by that name."""
 TESTS = Path(__file__).resolve().parent
 HARNESS = Path(__file__).name
-PORTABLE_ARMS = (*ARMS, *CUT2_ARMS, *CUT3_ARMS, *CUT26_ARMS)
+# Composite claims Task 6, 2026-09-16: `evaluate` became the first projection of
+# `evaluate_traced`, so every step-6 return carries the admission the answer
+# rests on. P9's block spans three of them. The re-targeting is the guard's, the
+# frozen declaration's bytes are not touched — `test_n2_cut22.py`'s pattern, here
+# for the portable cuts, which have no acceptance guard of their own.
+_LIVE_SABOTAGES = {
+    "P9": Sabotage(
+        module="belief.py",
+        before=(
+            "    directional = [a for a in eligible if OUTCOME_SIGNS[a.outcome] != 0]\n"
+            "    if not directional:\n"
+            "        if unheld_only and any(OUTCOME_SIGNS[a.outcome] != 0 for a in unheld_only):\n"
+            '            return NoBelief("unavailable-input-unheld"), reached\n'
+            "        if not eligible:\n"
+            '            return NoBelief("no-eligible-assessment"), reached\n'
+            '        return NoBelief("no-directional-outcome"), reached'
+        ),
+        after=(
+            "    directional = [a for a in eligible if OUTCOME_SIGNS[a.outcome] != 0]\n"
+            "    if unheld_only and any(OUTCOME_SIGNS[a.outcome] != 0 for a in unheld_only):\n"
+            '        return NoBelief("unavailable-input-unheld"), reached\n'
+            "    if not directional:\n"
+            "        if not eligible:\n"
+            '            return NoBelief("no-eligible-assessment"), reached\n'
+            '        return NoBelief("no-directional-outcome"), reached'
+        ),
+    ),
+}
+PORTABLE_ARMS = tuple(
+    replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm
+    for arm in (*ARMS, *CUT2_ARMS, *CUT3_ARMS, *CUT26_ARMS)
+)
 """Every arm the portable suite audits, both sabotaged and unsabotaged."""
 
 WORKERS = 24

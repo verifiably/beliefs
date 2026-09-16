@@ -29,7 +29,7 @@ argument, called again every time it is asked).
 from __future__ import annotations
 
 import itertools
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import final
@@ -62,10 +62,14 @@ __all__ = [
     "Availability",
     "Belief",
     "NoBelief",
+    "NotReached",
+    "Reached",
     "Records",
     "Refused",
     "SuppliedContext",
+    "admitted",
     "evaluate",
+    "evaluate_traced",
 ]
 
 # Base outcome semantics — deliberately not the policy's to choose (D §8).
@@ -120,6 +124,47 @@ class NoBelief:
 @dataclass(frozen=True)
 class Refused:
     reason: str
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class NotReached:
+    """The answer was given before step 5: admission never ran, and no set —
+    not even the empty one — describes what it would have found."""
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class Reached:
+    """Step 5 ran; `admitted` is what it admitted, possibly nothing."""
+
+    admitted: frozenset[str]
+
+
+Admission = NotReached | Reached
+
+
+def admitted(
+    distinct: Sequence[AssessmentValue],
+    *,
+    runs: Mapping[str, RunValue],
+    observations: Mapping[str, tuple[ByteObservation, ...]],
+    verifications: tuple[Verification, ...],
+) -> tuple[tuple[AssessmentValue, ...], tuple[AssessmentValue, ...]]:
+    """Step 5's gate, once: `(eligible, unheld_only)` over the identity-collapsed pool."""
+    eligible: list[AssessmentValue] = []
+    unheld_only: list[AssessmentValue] = []
+    for a in distinct:
+        admission = admit(a, runs[a.run], observations, verifications)
+        if isinstance(admission, Admitted):
+            eligible.append(a)
+        elif isinstance(admission, AdmissionRefused) and admission.reason.startswith("input-not-held"):
+            own_verifications = tuple(v for v in verifications if v.assessment == a.identity())
+            if lifecycle_state(own_verifications) == ADMITTED:
+                unheld_only.append(a)
+    return tuple(eligible), tuple(unheld_only)
 
 
 @sealed
@@ -210,7 +255,7 @@ def _observes_roots(run: RunValue) -> tuple[str, ...]:
     )
 
 
-def evaluate(
+def evaluate_traced(
     *,
     proposition: str,
     records: Records,
@@ -218,11 +263,13 @@ def evaluate(
     context: SuppliedContext,
     binding: object,
     profile: ProfileSpec,
-) -> Belief | NoBelief | Refused:
-    """Belief-policy §4's evaluation order, exactly, top to bottom."""
+) -> tuple[Belief | NoBelief | Refused, Admission]:
+    """Belief-policy §4's evaluation order, exactly, top to bottom, and the
+    admission the answer rests on — `not-reached` for every answer given
+    before step 5 completed (design §6.2)."""
     # 1. The binding is exact, or nothing computes (P1).
     if not isinstance(binding, PolicyBinding):
-        return Refused(f"binding-not-exact: {binding!r} is not a PolicyBinding(rule, implementation) pair")
+        return Refused(f"binding-not-exact: {binding!r} is not a PolicyBinding(rule, implementation) pair"), NotReached()
 
     # 2. The consulted-contract walk, over the closure's assessments, runs and observed datasets
     # (D7, unchanged: a cross-corpus disagreement refuses, never merges).
@@ -235,7 +282,7 @@ def evaluate(
     for row in records.observed_facets:
         namespace = row.key.partition("/")[0]
         if profile.activated_contracts.get(namespace) != row._contract_identity:
-            return Refused(f"facet-read-profile-mismatch: {namespace}")
+            return Refused(f"facet-read-profile-mismatch: {namespace}"), NotReached()
     observed = tuple(
         sorted(
             {
@@ -262,15 +309,15 @@ def evaluate(
             facets_read={address: tuple(keys) for address, keys in ledger.items()},
         )
     except ContractDisagreement as exc:
-        return Refused(f"consulted-contracts-disagree: {exc}")
+        return Refused(f"consulted-contracts-disagree: {exc}"), NotReached()
     except errors.ContractMismatch as exc:
-        return Refused(str(exc))  # already prefixed `profile-pin-mismatch: <namespace>` by the walk
+        return Refused(str(exc)), NotReached()  # already prefixed `profile-pin-mismatch: <namespace>` by the walk
 
     # 3. The exact binding must be held here — fixtures, then implementation.
     if binding.rule not in availability.fixtures:
-        return NoBelief("unavailable-fixtures-unheld")
+        return NoBelief("unavailable-fixtures-unheld"), NotReached()
     if binding.implementation not in availability.implementations:
-        return NoBelief("unavailable-policy-unheld")
+        return NoBelief("unavailable-policy-unheld"), NotReached()
 
     # 4. A named implementation that fails its own fixtures is false, not
     # merely unresolved (P2) — installing a conforming one beside it changes
@@ -278,16 +325,21 @@ def evaluate(
     implementation = availability.implementations[binding.implementation]
     fixtures = availability.fixtures[binding.rule]
     if not conforms(implementation, fixtures):
-        return Refused(
-            f"implementation-fails-fixtures: {binding.implementation!r} does not conform to "
-            f"{binding.rule!r}'s fixture set"
+        return (
+            Refused(
+                f"implementation-fails-fixtures: {binding.implementation!r} does not conform to "
+                f"{binding.rule!r}'s fixture set"
+            ),
+            NotReached(),
         )
 
     # 5. Collapse the record pool onto its identities, then gate what survives
     # through admission (G2b, G6, G2c). Partition eligible from "would be
     # eligible, if only its input were held" (unheld_only) — the latter needs
     # its own verification-state check, since `admit` never reaches that check
-    # for an input-not-held refusal.
+    # for an input-not-held refusal. The gate is `admitted` above, called here
+    # exactly once: what the answer rests on and what the trace reports are one
+    # set by construction, never two derivations that could disagree (§6.2).
     #
     # Two assessment records can carry one identity (design decision 17): the
     # graph at step 7 is over the identity, not the record, so a genuine twin
@@ -327,21 +379,18 @@ def evaluate(
             # arms, exactly as the cross-corpus contract contradiction at
             # step 2 is (`consulted-contracts-disagree`), which is no less
             # severe.
-            return Refused(
-                f"assessment-identity-contradicted: {identity!r} is claimed by disagreeing records "
-                f"{kept!r} and {a!r}"
+            return (
+                Refused(
+                    f"assessment-identity-contradicted: {identity!r} is claimed by disagreeing records "
+                    f"{kept!r} and {a!r}"
+                ),
+                NotReached(),
             )
 
-    eligible: list[AssessmentValue] = []
-    unheld_only: list[AssessmentValue] = []
-    for a in distinct:
-        admission = admit(a, records.runs[a.run], availability.observations, records.verifications)
-        if isinstance(admission, Admitted):
-            eligible.append(a)
-        elif isinstance(admission, AdmissionRefused) and admission.reason.startswith("input-not-held"):
-            own_verifications = tuple(v for v in records.verifications if v.assessment == a.identity())
-            if lifecycle_state(own_verifications) == ADMITTED:
-                unheld_only.append(a)
+    eligible, unheld_only = admitted(
+        distinct, runs=records.runs, observations=availability.observations, verifications=records.verifications
+    )
+    reached = Reached(frozenset(a.identity() for a in eligible))
 
     # 6. Directional eligibility, and the absence precedence (belief-policy
     # §4, P4, P9): a withheld directional input outranks plain absence of
@@ -349,10 +398,10 @@ def evaluate(
     directional = [a for a in eligible if OUTCOME_SIGNS[a.outcome] != 0]
     if not directional:
         if unheld_only and any(OUTCOME_SIGNS[a.outcome] != 0 for a in unheld_only):
-            return NoBelief("unavailable-input-unheld")
+            return NoBelief("unavailable-input-unheld"), reached
         if not eligible:
-            return NoBelief("no-eligible-assessment")
-        return NoBelief("no-directional-outcome")
+            return NoBelief("no-eligible-assessment"), reached
+        return NoBelief("no-directional-outcome"), reached
 
     # 7. The dependency graph: directional vertices, an edge for every pair
     # not certified independent (S6, S5) — absence of an edge is a positive
@@ -386,4 +435,25 @@ def evaluate(
         binding=(binding.rule, binding.implementation),
         observed_facets=records.observed_facets,
     )
-    return Belief(value=value, belief_input_digest=closure.digest(), policy_binding=binding)
+    return Belief(value=value, belief_input_digest=closure.digest(), policy_binding=binding), reached
+
+
+def evaluate(
+    *,
+    proposition: str,
+    records: Records,
+    availability: Availability,
+    context: SuppliedContext,
+    binding: object,
+    profile: ProfileSpec,
+) -> Belief | NoBelief | Refused:
+    """Belief-policy §4's evaluation order, exactly, top to bottom — the first
+    projection of `evaluate_traced`, so the answer cannot differ from it."""
+    return evaluate_traced(
+        proposition=proposition,
+        records=records,
+        availability=availability,
+        context=context,
+        binding=binding,
+        profile=profile,
+    )[0]

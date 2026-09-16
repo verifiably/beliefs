@@ -17,15 +17,21 @@ from typing import final
 
 from nodes.core.errors import RefError
 
+from beliefs.belief import Availability, Belief, NoBelief, NotReached, Refused, SuppliedContext
 from beliefs.claim import Claim, require_identifier
 from beliefs.contract.base import COMPOSITE_GRAMMAR
+from beliefs.corpus import superseded_by
 from beliefs.decode import claim_from_stored
 from beliefs.errors import ClaimError, CompositeError, DecodeError, MalformedRecord, ProfileError
+from beliefs.evaluation import evaluate_over_traced
 from beliefs.identity import v1
+from beliefs.policy import PolicyBinding
 from beliefs.profile import ProfileSpec
-from beliefs.projection import claim_identity
+from beliefs.projection import claim_identity, project_claim
 from beliefs.resolution import ReferentPosition, ResolutionSnapshot, TermOutcome, build_snapshot
 from beliefs.sealed import sealed
+from beliefs.stored import COMPOSES, assessment_value
+from beliefs.stored import composite_value as stored_composite_value
 
 COMPOSITE_DOMAIN = "science.composite.v1"
 EMPTY_SNAPSHOT = build_snapshot()
@@ -308,3 +314,156 @@ def build_composite(
     edges = classify(profile, facet, {identities[ref]: claim for ref, claim in by_ref.items()})
     value = Composite._checked(_MINT, facet=facet, refs=ordered_refs, edges=edges, slug=slug)
     return value, CompositeReceipt(identity=value.identity, snapshot_identity=snapshot.identity, outcomes=outcomes)
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class Resolution:
+    state: str
+    successors: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.state not in ("active", "superseded"):
+            raise MalformedRecord(f"resolution state {self.state!r} is not active or superseded")
+
+    def projection(self) -> dict[str, object]:
+        return {"state": self.state, "successors": list(self.successors)}
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class MemberRow:
+    member: str
+    ref: str
+    role: Edge
+    claim: Claim
+    resolution: Resolution
+    belief: Belief | NoBelief | Refused
+    identification: tuple[str, ...] | NotReached
+
+    def projection(self) -> dict[str, object]:
+        return {
+            "member": self.member,
+            "ref": self.ref,
+            "role": {"cause": self.role.cause.projection(), "effect": self.role.effect.projection(), "sign": self.role.sign},
+            "claim": project_claim(self.claim),
+            "resolution": self.resolution.projection(),
+            "belief": _answer_projection(self.belief),
+            "identification": "not-reached" if isinstance(self.identification, NotReached) else list(self.identification),
+        }
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class CompositeReading:
+    ref: str
+    identity: str
+    shape: str
+    nodes: tuple[CompositeNode, ...]
+    standing: Resolution
+    node_outcomes: Mapping[str, TermOutcome]
+    rows: tuple[MemberRow, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "node_outcomes", MappingProxyType(dict(self.node_outcomes)))
+
+    def projection(self) -> dict[str, object]:
+        return {
+            "ref": self.ref,
+            "identity": self.identity,
+            "shape": self.shape,
+            "nodes": [n.projection() for n in self.nodes],
+            "standing": self.standing.projection(),
+            "node_outcomes": {label: outcome.value for label, outcome in self.node_outcomes.items()},
+            "rows": [row.projection() for row in self.rows],
+        }
+
+
+def _answer_projection(answer: Belief | NoBelief | Refused) -> dict[str, object]:
+    if isinstance(answer, Belief):
+        return {"kind": "Belief", "value": answer.value, "belief_input_digest": answer.belief_input_digest, "policy_binding": [answer.policy_binding.rule, answer.policy_binding.implementation]}
+    if isinstance(answer, NoBelief):
+        return {"kind": "NoBelief", "reason": answer.reason, "detail": answer.detail}
+    return {"kind": "Refused", "reason": answer.reason}
+
+
+def _resolution(view: object, ref: str) -> Resolution:
+    successors = superseded_by(view, ref)  # type: ignore[arg-type]
+    return Resolution("superseded", successors) if successors else Resolution("active", ())
+
+
+def read_composite(
+    view: object,
+    ref: str,
+    *,
+    context: SuppliedContext,
+    availability: Availability,
+    resolution: ResolutionSnapshot,
+    binding: PolicyBinding,
+    profile: ProfileSpec,
+) -> CompositeReading:
+    """Design §6: a pure function of exactly these arguments. Each row's
+    belief is `evaluate_over_traced`'s answer for the member, and the
+    identification column is read from the same traced admission."""
+    if not isinstance(resolution, ResolutionSnapshot):
+        raise CompositeError("composite-snapshot", "read_composite takes a ResolutionSnapshot; availability is a parameter, never ambient")
+    node = view.get(ref)  # type: ignore[attr-defined]
+    if node.kind != "composite":
+        raise CompositeError("composite-kind", f"{ref} is a {node.kind!r}, not a composite")
+    facet = stored_composite_value(node)
+    composes = [r for r in node.relations if r.predicate == COMPOSES]
+    if len(composes) != len(facet.members):
+        raise CompositeError("composite-relations-mismatch", f"{ref}: the facet and the relation set disagree")
+    refs = tuple(r.target for r in composes)
+    claims = restore_members(view, facet.members, refs, profile=profile, snapshot=resolution)
+    edges = {edge.member: edge for edge in classify(profile, facet, claims)}
+
+    outcomes: dict[str, TermOutcome] = {}
+    for index, n in enumerate(facet.nodes):
+        outcomes[ReferentPosition.node(index).label()] = resolution.resolve(profile.sorts[n.sort].vocabulary, n.term)
+    refused = [label for label, outcome in outcomes.items() if outcome.refuses]
+    if refused:
+        # U3: construction and reading refuse alike under an excluding snapshot;
+        # only the boundary and the audit, which hold no snapshot, check form alone.
+        raise CompositeError("composite-node-not-member", f"{ref}: {', '.join(refused)}: the term is not in the vocabulary its sort binds, and the vocabulary was read")
+
+    rows: list[MemberRow] = []
+    for member, member_ref in zip(facet.members, refs, strict=True):
+        answer, admission = evaluate_over_traced(
+            view,  # type: ignore[arg-type]
+            member_ref, availability=availability, context=context, profile=profile, resolution=resolution, binding=binding,
+        )
+        if isinstance(admission, NotReached):
+            identification: tuple[str, ...] | NotReached = admission
+        else:
+            terms = set()
+            for stored_node in view.iter_stored():  # type: ignore[attr-defined]
+                if stored_node.kind != "assessment":
+                    continue
+                value = assessment_value(stored_node, profile=profile)
+                if value.identity() in admission.admitted:
+                    terms.add(value.estimand.control.identification.term)
+            identification = tuple(sorted(terms))
+        rows.append(
+            MemberRow(
+                member=member,
+                ref=member_ref,
+                role=edges[member],
+                claim=claims[member],
+                resolution=_resolution(view, member_ref),
+                belief=answer,
+                identification=identification,
+            )
+        )
+    return CompositeReading(
+        ref=ref,
+        identity=composite_identity(facet),
+        shape=facet.shape,
+        nodes=facet.nodes,
+        standing=_resolution(view, ref),
+        node_outcomes=outcomes,
+        rows=tuple(rows),
+    )

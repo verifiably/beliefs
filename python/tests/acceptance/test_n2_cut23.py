@@ -62,6 +62,21 @@ _LIVE_SABOTAGES = {
             "                    )\n"
         ),
     ),
+    # Composite claims Task 6, 2026-09-16: `evaluate_over` became the first
+    # projection of `evaluate_over_traced`, so the absent-corpus arm returns
+    # the answer paired with `NotReached()`. The row is unchanged — the arm
+    # still flips the banked reason — and the declaration stays byte-exact.
+    "R19e": Sabotage(
+        module="evaluation.py",
+        before=(
+            '        return NoBelief("unavailable-corpus-absent", '
+            'detail=f"inputs recorded in absent corpora: {corpora}"), NotReached()\n'
+        ),
+        after=(
+            '        return NoBelief("unavailable-input-unheld", '
+            'detail=f"inputs recorded in absent corpora: {corpora}"), NotReached()\n'
+        ),
+    ),
 }
 CUT23_ARMS = tuple(
     replace(arm, sabotage=_LIVE_SABOTAGES[arm.row]) if arm.row in _LIVE_SABOTAGES else arm for arm in CUT23_ARMS

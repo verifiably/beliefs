@@ -58,6 +58,10 @@ layer, so the restored claim is that claim and `PROFILE` types it."""
 
 OTHER_CLAIM_FACET: dict[str, Any] = {**CLAIM_FACET, "args": [OTHER_GENE, PHENO]}
 
+EMPIRICAL: dict[str, str] = {"locator": "instrument:fixture", "attested_by": ACTOR}
+"""The empirical-observation facet every fixture dataset carries; the writer's
+boundary requires `attested_by` to be the writer's own actor."""
+
 PROPOSITION_REF = "proposition:p"
 OTHER_PROPOSITION_REF = "proposition:q"
 ABSENT_PROPOSITION_REF = "proposition:never-stored"
@@ -137,7 +141,7 @@ def _seed(
             stored.dataset_node(
                                 title="d-e",
                 resources=_resources("e"),
-                empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
+                empirical_observation=EMPIRICAL,
             )
         )
     for letter in ("a", "b", "c"):
@@ -145,7 +149,7 @@ def _seed(
             stored.dataset_node(
                                 title=f"d-{letter}",
                 resources=_resources(letter),
-                empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
+                empirical_observation=EMPIRICAL,
             )
         )
         nodes.append(
@@ -238,6 +242,22 @@ def _seed(
         else:
             raw_write(root, node)
     return reopen(root), values
+
+
+def seed_assessed_proposition(writer, proposition_ref: str, *, slug: str, outcome: str = "supported", **typed) -> str:
+    """Mint one admissible assessment of `proposition_ref` through the writer:
+    dataset `d-a` (address `_address("a")`, resources `_resources("a")`), an
+    observing run, the assessment, and a passed clean-environment
+    verification. Returns the dataset address. `typed` carries the estimand
+    lane's `estimand=` and `applicability=` values."""
+    address = _address("a")
+    if not writer.read_view.holds(address):
+        writer.add(stored.dataset_node(title="d-a", resources=_resources("a"), empirical_observation=EMPIRICAL))
+    run = writer.add(stored.run_node(f"run-{slug}", title=slug, spec=f"spec-{slug}", observes=[address]))
+    assessment = writer.add(stored.assessment_node(slug, title=slug, spec=f"spec-{slug}", run=run.id, proposition=proposition_ref, outcome=outcome, interpretation_rule="rule-1", **typed))
+    value = stored.assessment_value(writer.read_view.get(assessment.id), profile=writer.profile)
+    writer.add(stored.verification_node(f"v-{slug}", title=slug, assessment=value.identity(), assessment_ref=assessment.id, scope="clean-environment", verdict="passed"))
+    return address
 
 
 def _fixture(
@@ -502,3 +522,14 @@ def test_v7_gather_never_selects_a_production_verification(request, tmp_path):
     fixture = _fixture(writer, PROPOSITION_REF)
     inputs = gather(fixture.view, PROPOSITION_REF, **fixture.gather_kwargs)
     assert node.id not in {v.ref for v in inputs.verifications}
+
+
+def test_evaluate_over_is_the_first_projection_of_evaluate_over_traced(corpus_fixture, claimless_fixture):
+    from beliefs.belief import Reached
+    from beliefs.evaluation import evaluate_over_traced
+
+    for fixture in (corpus_fixture, claimless_fixture):
+        answer, admission = evaluate_over_traced(fixture.view, fixture.proposition, **fixture.kwargs)
+        assert evaluate_over(fixture.view, fixture.proposition, **fixture.kwargs) == answer
+        if isinstance(answer, Belief):
+            assert isinstance(admission, Reached) and admission.admitted == {a.identity() for a in fixture.assessments}
