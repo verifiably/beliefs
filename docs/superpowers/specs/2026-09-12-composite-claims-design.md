@@ -17,15 +17,16 @@ unplaced deliberately* row for those three. The models assessment of
 belongs in `beliefs`; this is its design. **Leaves.** `search` (kernel §11,
 the coverage record); the non-empirical route (kernel §11); the eleven K
 records and the higher-order moratorium (cut 1 §2.4); estimand typing
-(`2026-09-12-estimand-typing-design.md`, on the `design/estimand-typing`
-branch), which this design reads but does not amend.
+(`2026-09-12-estimand-typing-design.md`, banked and discharged at cut 31 on
+2026-09-16), which this design reads but does not amend.
 
 **Amends when it lands:** kernel §4.1 (a relation signature is added and
 `supersedes` is widened to the new kind), §4.3 and §4.4 (the accounting: the
 open row empties and the kernel counts fourteen), §11 (the first question
 closes); formal model §2.1 (a fourteenth `Rec` row), §2.2 (a signature row)
 and §8.2 (the amendment record); coordination-and-view-kinds §5.1 (the
-literal relation list, by a versioned coordination-contract amendment);
+literal `kinds` and `relations` lists, by one versioned coordination-contract
+amendment);
 user-layer §6.1 (the publish closure names members); both copies of
 `CONTRACT.yaml`; the mm30 corpus-local contract, by a successor; the guide's
 foundations page, glossary and `open-questions.md`; the ledger's `Current
@@ -99,8 +100,8 @@ and never authored, and rules where the rest of `inquiry` and
    identity. The two-axis labels the
    predecessor authored per edge become derived columns of the reading: the
    replication axis is the member's belief, the identification axis is the
-   identification class its admitted assessments carry once estimand typing
-   lands (§6.2). No default exists for either, so an uncurated edge reports
+   identification class its admitted assessments carry under estimand typing
+   (§6.2). No default exists for either, so an uncurated edge reports
    `NoBelief` and an empty identification set — never `observational`.
 
 4. **The node set is explicit and closed.** A composite declares its nodes
@@ -169,7 +170,8 @@ and never authored, and rules where the rest of `inquiry` and
 12. **The lane opens after `estimand-typing` merges.** Both amend the same
     base-contract, profile and reproduction surfaces, and the reading's
     identification column reads the typed estimand. Sequencing the lanes
-    replaces a merge conflict with a dependency (§11).
+    replaces a merge conflict with a dependency (§11). It merged 2026-09-16 at
+    cut 31 (`d25c7af`); this lane opened after it.
 
 ## 3. The kind, the grammar and the declaration
 
@@ -289,18 +291,22 @@ its arity; `EdgeDecl(operator, cause, effect)` is refused at parse for an
 unknown operator, an out-of-range or repeated slot, or an operator whose
 `layers` do not include `causal`. The row's key in `_declarations()` is
 `edge:<operator>`, so formal model §8.3's succession rules cover it
-unamended: never redefined, retired one way, tombstoned. An operator with no
+unamended: never redefined, retired one way by the row's own `retired`
+(which `EstimandDecl` lacks — an estimand row retires with its operator),
+tombstoned. An operator with no
 row forms no edge; `binds-concept-concept` and `associates-with-*` are
 deliberately absent from mm30's table because neither has a cause slot.
 
 Compile (`ProfileSpec.edges`, keyed by namespaced operator) resolves each row
 against the compiled operator and refuses a mismatch; a contract may not
 declare an edge for another namespace's operator, since a direction is part
-of what the operator means and only its owner may say it. The consulted walk
-(D6) treats an `edges:` row as it treats an `estimands:` row: a domain
-contract whose row the reading or the boundary read is a consulted contract.
-Nothing about belief consults it — the reading is not belief — so the belief
-input closure is unmoved by the declaration's presence, absence or content.
+of what the operator means and only its owner may say it. Unlike an `estimands:` row —
+since cut 31 D6's third trigger, reached through every typed estimand an
+assessment carries (`consulted.py`) — an `edges:` row is reached by no
+walk: classification reads it at construction, at the boundary, under audit
+and in the reading, and nothing about belief consults it — the reading is
+not belief — so the belief input closure is unmoved by the declaration's
+presence, absence or content.
 
 ### 3.4 The `dag` shape — what a member contributes, and what refuses
 
@@ -325,8 +331,10 @@ are two claims about one arrow and both stand; the edge set is a set of
 ordered pairs. A member's qualifiers are carried, reported by the reading,
 and not interpreted: two members on one pair restricted to different
 populations are two claims about the same arrow at this grammar version
-(limitation 3). A structural-layer member (`is-proxy-for`, `part-of`) is
-refused with the fragment named, not silently kept as a non-edge: the
+(limitation 3). A structural-layer member (`part-of`)
+is refused by layer, and an operator with no `edges:` row — `is-proxy-for`,
+which mm30 types at `causal` and `structural` both — is refused as
+undeclared; neither is silently kept as a non-edge: the
 measurement relation a DAG relies on is the estimand design's
 `measure.quantity` and a later composite grammar's, and keeping it here
 untyped would be the predecessor's `claim_refs` again. Every refusal above
@@ -409,9 +417,11 @@ constructor did:
 4. §3.4's classification, re-derived from the resolved records, refuses as
    the constructor does.
 
-A member held in another corpus is refused, not admitted unchecked, until
-`world-resolution`'s read side resolves it (limitation 2, the estimand
-design's limitation 2 verbatim). A superseded member is admitted: the
+A member held in another corpus is refused, not admitted unchecked: the
+boundary is corpus-local, as the estimand target check is
+(`estimand-target-unresolvable`), and a boundary check that reads through
+`world-resolution`'s read side — closed at cut 30 — is a later design
+(limitation 2). A superseded member is admitted: the
 boundary checks resolution and identity, and succession is the reading's to
 report.
 
@@ -432,7 +442,14 @@ A finding here is a contradiction, not malformedness: the record is well
 formed, and it is read again by every later arm. The audit reads the
 profile, since classification needs `edges:`; a corpus audited under a
 profile with no `composite_grammar` is `profile-mismatch: base` before this
-arm runs (decision 11).
+arm runs (decision 11). `check_composite` is wired into both of `audit.py`'s
+per-kind dispatches — `audit_corpus`'s loop and `audit_world`'s
+`_recompute` — so the world audit reaches it (the gap the estimand design's
+limitation 14 records for `check_spec_target` is not repeated); the four
+composite codes register in `WORLD_AUDIT_CODES` and none in
+`MALFORMEDNESS_CODES`, since each is a contradiction; and
+`supersedes-cross-kind` is a relation arm over every stored record's
+`supersedes` instances, outside the kind dispatch.
 
 ## 5. Identity, lifecycle and the world
 
@@ -447,8 +464,10 @@ semantic-identity kind's does (world §4.2).
 
 **Lifecycle.** Immutable. A changed structure is a successor minted through
 `supersede(successor, of=predecessor)`, which the widened signature admits
-for a `composite` predecessor and successor of the same kind; a
-cross-kind pair is `FamilyKindUnsupported`, an identity-unchanged successor
+for a `composite` predecessor and successor of the same kind — `supersede`'s
+own permit line (`require("corpus-write", ("proposition",))`) and its
+`proposition`-only kind check are both widened, since `KIND_ACTS` alone
+admits nothing through it; a cross-kind pair is `FamilyKindUnsupported`, an identity-unchanged successor
 is `SupersedeIdentityUnchanged`, and the relation is authored by the adapter
 as it is for propositions. `superseded_by` reports a composite's successors
 through the same inbound closure. Nothing admits on a composite's
@@ -466,15 +485,20 @@ coordination contract's literal relation list (coordination-and-view-kinds
 composite anchor is not writable; a view selects a composite's members by
 `addresses` today and by `closure` once the list is amended — a versioned
 coordination-contract successor that can ride with the `publication`
-amendment sub-project 5 banks, or stand alone. The kind is a world kind, so a
-`kinds: [composite]` predicate is admissible from the day the base contract
-declares it (`view_query` checks `stored.WORLD_KINDS`, which is derived).
+amendment sub-project 5 banks, or stand alone. A `kinds: [composite]`
+predicate waits on the same amendment: the parser admits any derived world
+kind (`view_query` checks `stored.WORLD_KINDS`), but admission at mint
+checks the coordination contract's literal `kinds` list
+(`_coordination_query` against `profile.coordination_query_kinds`; §5.1
+there pins version 1's list to the thirteen), so the one successor adds
+`composite` to `kinds` and `composes` to `relations`.
 
 **Publication.** A selected composite whose member is outside the selection
-makes the publish `Refused(closure-incomplete)` with the member listed, the
-rule user-layer §6.1 already states for an assessment whose run closure
-names an unselected dataset; the definition of a record's closure there
-gains the sentence "a composite's closure is its members".
+makes the publish `Refused(closure-incomplete)` with the member listed, the rule the user and autonomy layer design §6.1
+(`docs/superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md`,
+unbanked; `publish` is unbuilt) already states for an assessment whose run
+closure names an unselected dataset; the definition of a record's closure
+there gains the sentence "a composite's closure is its members".
 
 **No belief input.** Minting, superseding or deleting a composite leaves
 every proposition's belief input digest byte-identical; the closure's
@@ -545,7 +569,7 @@ returns rows.
 
 ### 6.2 The identification column
 
-Once estimand typing lands, each admitted assessment of a member carries a
+Under estimand typing (cut 31), each admitted assessment of a member carries a
 typed estimand whose `control.identification` is a term of the domain's
 identification sort; the column is the sorted set of those terms over the
 assessments **the evaluator admitted for that member** — the admission the
@@ -562,8 +586,10 @@ guard, gather, absent-corpus and translation sequence and returns
 `(answer, admission)` where
 
 ```text
-admission = not-reached                    -- the answer was given before step 5:
-                                           --   Refused, or NoBelief("unavailable-policy-unheld"),
+admission = not-reached                    -- the answer was given before step 5 completed:
+                                           --   Refused (step 5's own "assessment-identity-contradicted"
+                                           --   included), or NoBelief("unavailable-policy-unheld"),
+                                           --   NoBelief("unavailable-fixtures-unheld"),
                                            --   NoBelief("unavailable-corpus-absent"), a fixture failure
           | reached(admitted identities)   -- step 5 ran; the set may be empty
 ```
@@ -591,7 +617,7 @@ once" is asserted directly rather than inferred from agreement.
 *What that set is.* Admission today checks a run's inputs and the
 verification state (G2b, G6, G2c); `verification.py` defers the
 correction-lifecycle §7a clause that excludes the target of a standing
-retraction to `correction-remainder`. The column follows admission **as it
+retraction with the C group (cut 2 §4.2), which `correction-remainder` owns. The column follows admission **as it
 is**: an assessment a standing retraction names contributes its term
 exactly as it contributes to belief until that remainder lands, and when
 it lands both columns move together through the one function
@@ -646,7 +672,7 @@ neighbourhood around a composite is one clause. Two things do not carry
 over: a depth bound (`max_depth`), which `science.view-query.v1` has no
 predicate for and which arrives, if the pinch is real, as a v2 predicate by
 the road §2.4 there names; and `excludes`, which is negation, deliberately
-absent from the language (§2.5 there). Both are named in §13, not worked
+absent from the language (§2.2 there). Both are named in §13, not worked
 around.
 
 ### 7.3 `inquiry` — decomposed into records that exist
@@ -658,7 +684,7 @@ An mm30 inquiry carries five things, and each has a home:
 | the causal DAG, as `dot` prose | a `composite` over propositions minted for its edges |
 | the estimand line ("PHF19 expression → overall survival, total and direct effects") | the typed estimand of the analysis specs that assess its edges (estimand design §3); *direct* versus *total* is `control.conditioning`, not structure |
 | the target hypothesis and the question | `hypothesis` and `question` views whose queries name the composite and its members by `addresses` |
-| status (`sketch` … `complete`), purpose, decisions, "next moves" | a `project`'s coordination records — `task`, `decision`, `note` with `about` naming the composite |
+| status (`sketch` … `complete`), purpose, decisions, "next moves" | a `project`'s coordination records — `task` and `decision`, and `note`, whose optional `about` (the one content member that names world addresses, coordination §5.2) names the composite |
 | transformations and validation refs | runs, and verifications over them |
 
 Nothing is left that needs a kind. The mm30 corpus's 23 inquiries and the
@@ -689,32 +715,37 @@ claims, never a claim, and its reading is never a belief.
 | **U7** | The audit reports an unresolvable member, a mismatched member, a relation-set mismatch, and a composite that no longer classifies, as contradictions, not malformedness, and reads the record again in later arms | delete a member and audit; raw-edit a member's claim and audit; retire the `edges:` row by successor and audit |
 | **U8** | The reading is a pure function of its named arguments — record, view at the epoch, supplied context, availability, resolution snapshot, binding, profile: two processes agree byte for byte under equal arguments; every row's `belief` **equals** `evaluate_over`'s answer for that member under the same arguments — so withholding the policy implementation reads `NoBelief("unavailable-policy-unheld")`, withholding a dataset observation reads the evaluator's own `NoBelief`, and a member whose inputs sit in an absent corpus reads `NoBelief("unavailable-corpus-absent")` — with the identification column drawn from the same traced admission — two admitted `inconclusive` assessments read `NoBelief("no-directional-outcome")` with both identification terms present, and an answer given before admission reads `not-reached`, never `{}`; a member with no admitted assessment reads `NoBelief` and `{}`; a superseded member reads its successors and a belief; an unresolvable member refuses the reading; a memberless composite reads no rows and a node receipt, with `not-consulted` for a node under an unconsulted vocabulary | the reproduction's composite read twice from persisted records (§9); a fixture composite with an assessed, an unassessed and a superseded member, read under full availability and under each withholding, each row compared with `evaluate_over` called directly; a two-inconclusive fixture; a one-admitted-one-refused fixture pinning the admitted set apart from the digest's keyed facets; a memberless two-node composite under an unconsulted snapshot |
 | **U9** | `supersede` admits a same-kind composite successor, authors the relation, and refuses a cross-kind pair and an identity-unchanged successor; a `supersedes` instance with endpoints of different kinds refuses on the shared path for `add` and for `import_bundle` (`ImportRefused`, the member named), and a raw-written one audits as `supersedes-cross-kind`; both parsers refuse `same_kind` on a relation whose sources and targets differ | the three family calls; an import bundle carrying `composite ──supersedes──▶ proposition` and its reverse; a raw-written pair audited; a mutated contract parsed in Python and TypeScript |
-| **U10** | The reproduction composes the `h1-prognosis` fragment from the recreated corpus and reads it in a fresh process: the assessed member carries the evaluator's belief and the unassessed one `NoBelief`, from persisted records, twice, byte-identical | §9's addendum, from persisted records |
+| **U10** | The reproduction composes the `h1-prognosis` fragment from the recreated corpus and reads it in a fresh process: the assessed member carries the evaluator's own answer for it — over the recreated corpus a `NoBelief("no-directional-outcome")` from an `inconclusive` outcome, with identification `{observational}`; measured, not asserted — and the unassessed one `NoBelief("no-eligible-assessment")` and `{}`, from persisted records, twice, byte-identical | §9's addendum, from persisted records |
 
 ## 9. The reproduction
 
-The reproduction lane's sequence, as the estimand design leaves it, is
-`world`, `select_target`, `lists prepare`, `concepts`, `lists mint`,
+The reproduction driver's sequence, as cut 31 leaves it (record §10.5), is
+`preflight`, `world`, `select_target`, `lists prepare`, `concepts`, `lists mint`,
 `type_target`, `hold`, `spec`, `run`, `belief`, `rederive`, `close`. This
 design adds two steps after `belief`:
 
 - **`compose`** — the successor mm30 contract gains an `edges:` table over
   its `affects-*`, `regulates-*` and `induces-state` operators, seven rows
-  (§3.3's example is that table; `biology`'s successor gains one row, for
-  `affects-molecular-entity-molecular-entity`). The driver mints a second
+  (§3.3's example is that table). The shipped `biology` pack gains no row:
+  `shipped_domain_contract` parses it with no predecessor, so a shipped pack
+  has no succession route until a design gives it one (limitation 18), and
+  both of the fragment's operators are mm30's. The driver mints a second
   proposition, `affects-molecular-entity-concept(PHF19, overall-survival)`
   at the causal layer, positive — the `h1-prognosis` inquiry's spine, and a
   claim the recreated corpus has no evidence for — then a composite
   `h1-prognosis-fragment` with nodes `{(mm30/concept, disease-stage),
   (biology/molecular-entity, PHF19), (mm30/concept, overall-survival)}` and
   members `{the reproduced target, the new proposition}`. The concept list
-  holds `overall-survival` (measured 2026-09-12, `entities/concepts/`).
+  holds `overall-survival` (`mm30-concepts.txt` in the recreated corpus,
+  read 2026-09-16).
 - **`read`** — the driver reads the composite under the reproduction's
   policy binding, supplied context, availability and resolution snapshot —
   the same four the `belief` step handed the evaluator — and records the
   node receipt and the rows: the target member `edge(disease-stage
-  → PHF19)` with the belief the `belief` step computed and the
-  identification set `{observational}` from its typed estimand; the spine
+  → PHF19)` with the answer the `belief` step computed —
+  `NoBelief("no-directional-outcome")` over the recreated corpus, record
+  §10.5 rows 8 and 10a, the `inconclusive` outcome read as the kernel reads
+  it — and the identification set `{observational}` from its typed estimand; the spine
   member `edge(PHF19 → overall-survival)` with `NoBelief` and `{}`. The
   reading is taken twice, from persisted records in a fresh process, and the
   two byte strings are compared.
@@ -773,36 +804,41 @@ evidence is pinned and cited, never edited.
 ### 10.5 Shared files, under concurrency rule 3
 
 `errors.py`, `test_designs_corpus.py` (a new table letter moves the README's
-"frozen tables" count), the ledger, the roadmap and the guide index, as every
+"frozen tables" count and the guide's `contracts-and-adoption.md` corpus
+sentence), the ledger, the roadmap and the guide index, as every
 lane. Beyond those this lane rewrites both `CONTRACT.yaml` copies,
 `contract/base.py`, `contract/domain.py`, `contract.ts`, `profile.py`,
 `stored.py`, `corpus.py` (`supersede`, `_refuse`), `audit.py`, `permit.py`
-and the reproduction driver — every one of them a surface the
-`estimand-typing` lane rewrites, which is why this lane opens after that one
-merges rather than beside it.
+and the reproduction driver — every one of them but `permit.py` a surface the
+`estimand-typing` lane rewrote, which is why this lane opened after that one
+merged rather than beside it.
 
 ## 11. Roadmap and ledger placement
 
 - A new boundary, **`composite-claims`**, owner this design, rows U1–U10,
   enters the ledger's `Current state` table and the roadmap's boundary index
   at the results record that discharges its cut; until then this design is
-  named from `open-questions.md`'s "Kernel-adjacent structures" entry.
+  named from the cut document that freezes it and the README's design
+  table, and `open-questions.md`'s "Kernel-adjacent structures" entry
+  closes by citation at the results record.
 - **Tier 1, off the path.** The dogfood's first belief needs no structure:
-  the reproduction reached a computed belief over one proposition. It opens
-  a lane, `composite-claims`, only when no on-path lane is startable (rule
-  6), and **after `estimand-typing` merges** (decision 12).
+  the reproduction reached the evaluator's answer over one proposition
+  (`NoBelief("no-directional-outcome")`, an inconclusive outcome read as the
+  kernel reads it). It opens a lane, `composite-claims`, only when no
+  on-path lane is startable (rule 6), and **after `estimand-typing`
+  merged** (decision 12; it did, 2026-09-16 at cut 31).
 - **Before the contract cut freezes.** It amends the base contract's kinds,
   relations and grammar; N1 mints a successor identity for every oracle
   amended after the freeze, so `contract-cut` waits on this lane as it waits
   on every other oracle-amending lane, and `beliefs-eacbe2` gains the
   dependency when the lane opens.
-- **The coordination-contract amendment** (the literal relation list gaining
-  `composes`) is sub-project 5's road, not this lane's; the lane files the
+- **The coordination-contract amendment** (the literal `kinds` list gaining
+  `composite` and the `relations` list gaining `composes`) is sub-project 5's road, not this lane's; the lane files the
   row and does not wait on it.
 - The estimand design's §14 sentence that the composite design "does not
   depend on this one" is true of the design and false of the lane; this
-  document is the correction, and the estimand spec is not edited on its
-  branch for it.
+  document is the correction; the banked estimand design is not amended for
+  it.
 
 ## 12. Alternatives rejected
 
@@ -862,16 +898,21 @@ merges rather than beside it.
    direct edge. Whether a policy may read a composite's structure to select
    which assessments bear on an edge is a successor-policy question.
 2. **Members are corpus-local at the boundary.** A member held in another
-   corpus refuses until `world-resolution`'s read side lands (the estimand
-   design's limitation 2, shared).
+   corpus refuses. `world-resolution`'s read side closed at cut 30, and
+   neither this boundary nor the estimand target check (its limitation 2,
+   the same premise) reads through it; a boundary check over the world read
+   view is a later design, not this lane's.
 3. **Qualifier heterogeneity among members is not checked.** Two members on
    one ordered pair restricted to different populations are two claims
    about one arrow; the estimand design's `co_scoped` is the predicate a
    later grammar version would apply, and nothing applies it here.
 4. **Cycles refuse.** Feedback is a later shape, not a malformed DAG with
    the check off.
-5. **Structural-layer members refuse.** The `is-proxy-for` edges of every
-   mm30 inquiry cannot be members at this grammar version.
+5. **Structural and proxy members refuse.** A structural-layer member
+   refuses by layer; `is-proxy-for`, which mm30 types at `causal` and
+   `structural`, has no `edges:` row and refuses as undeclared. Either way
+   the proxy edges of every mm30 inquiry cannot be members at this grammar
+   version.
 6. **Latent nodes carry no marker.** The predecessor drew latent nodes
    dashed; here a latent variable is a node like any other, and whether it
    is measured is a fact about specs, not structure.
@@ -891,10 +932,13 @@ merges rather than beside it.
     half loses both until a v2 predicate (§7.2).
 11. **TypeScript validates no composite payload**, only the grammar and the
     kind declaration (the estimand design's limitation 7, extended).
-12. **`closure` from a composite anchor waits on the coordination-contract
-    amendment** (§5).
-13. **The identification column is empty until estimand typing lands**, and
-    the lane is sequenced after it rather than shipping the column blank.
+12. **`closure` from a composite anchor and a `kinds: [composite]`
+    predicate both wait on the coordination-contract amendment** (§5):
+    version 1's literal `kinds` and `relations` lists carry neither.
+13. **The identification column depends on estimand typing**, and the lane
+    was sequenced after it rather than shipping the column blank.
+    Discharged: cut 31 landed 2026-09-16 before this lane opened; the number
+    is kept.
 14. **An explicit absence claim is unrepresentable.** Polarity is a sign,
     and the grammar's closed polarity set has no "no effect" value; a
     finding of no effect is a refuted edge member, and a composite that
@@ -906,8 +950,8 @@ merges rather than beside it.
     built is well formed; whether its term is a member is the next
     reading's finding under that reading's snapshot.
 16. **The identification column follows admission as it is.** Retraction
-    filtering of admitted assessments is deferred by `verification.py` to
-    `correction-remainder`; until it lands, an assessment a standing
+    filtering of admitted assessments is deferred by `verification.py` with
+    the C group, which `correction-remainder` owns; until it lands, an assessment a standing
     retraction names contributes a term as it contributes to belief. The
     column and the belief share one admission function, so they move
     together and never disagree.
@@ -917,13 +961,23 @@ merges rather than beside it.
     `composes` endpoints are checked by the composite's own boundary step
     and `supersedes` by the same-kind rule; every other signature rests on
     the typed constructors and the audit. A general endpoint-kind check is
-    filed in `open-questions.md` at the cut, not built here.
+    `open-questions.md`'s existing "Relation endpoint enforcement" entry
+    (facet-contracts §14); the results record extends that entry with this
+    finding, and nothing is built here.
+18. **A shipped domain pack has no succession route.**
+    `shipped_domain_contract` parses `domains/biology/DOMAIN.yaml` with no
+    predecessor, and `check_succession` refuses a document that declares a
+    successor lineage without one, so the shipped `biology` pack cannot gain
+    an `edges:` row by succession until a design gives shipped packs a
+    chain — found at the pre-freeze review. The reproduction's fragment
+    needs no biology row (§9); a corpus that does declares the edge in a
+    corpus-local contract over its own operators, as mm30 does.
 
 ## 14. Task linkage
 
 `beliefs-4bcf88` carries this spec; the implementation plan's tasks become
-its children. The estimand-typing design (`beliefs-59f846`, on
-`design/estimand-typing`) precedes this lane (decision 12).
+its children. The estimand-typing design (`beliefs-59f846`, done
+2026-09-16 at cut 31) precedes this lane (decision 12).
 `beliefs-eacbe2` (the contract cut) gains it as a dependency when the lane
 opens. `search` and the non-empirical route stay where kernel §11 holds
 them.
@@ -978,5 +1032,35 @@ them.
   performs; no such check exists — `RelationDecl` is read by nothing on the
   write path — so the rule is a new check and the general absence is
   limitation 17; (2) §3.2's "semantic identity" of a member is `I_claim`,
-  not the record's `semantic-identity` stamp, and the boundary compares
+    not the record's `semantic-identity` stamp, and the boundary compares
   `I_claim`.
+- 2026-09-16, pre-freeze drift review against `main` at `8aa5903`, after the
+  estimand-typing merge (cut 31) and the 2026-09-16 documentation
+  corrections, twenty findings, all taken: (1) a `kinds: [composite]`
+  predicate is gated at mint by the coordination contract's literal `kinds`
+  list, not only by the derived `WORLD_KINDS`, so the one amendment adds
+  the kind and the relation (§5, §11, limitation 12); (2) the
+  reproduction's evaluator answer is `NoBelief("no-directional-outcome")`
+  from an inconclusive outcome, not a computed belief — U10, §9 and §11 say
+  so; (3) tense: estimand typing is banked and discharged, limitation 13 is
+  discharged; (4) `world-resolution` closed at cut 30, and the boundary
+  stays corpus-local by choice (§4.2, limitation 2); (5) `open-questions.md`
+  never named this design; (6) limitation 17's entry already exists —
+  cited, not filed; (7) coordination §2.2, not §2.5; (8) `is-proxy-for` is
+  typed at `causal` in mm30 and refuses as undeclared, not by layer (§3.4,
+  limitation 5); (9) an `estimands:` row is D6's third trigger since cut
+  31, so the `edges:` analogy inverted (§3.3); (10) the not-reached
+  enumeration names every pre-step-5 answer; (11) `check_composite` wires
+  into both audit dispatches and its codes register (§4.3); (12)
+  `supersede`'s permit line and kind check are widened, not only
+  `KIND_ACTS` (§5); (13) only `note` carries `about` (§7.3); (14)
+  `permit.py` was not the estimand lane's, and the guide's corpus sentence
+  moves with the table letter (§10.5); (15) `verification.py` defers with
+  the C group, not by name; (16) the status header is rewritten at the
+  freeze; (17) the user-layer rule lives in an unbanked spec and `publish`
+  is unbuilt (§5); (18) the concept list is read from the recreated corpus;
+  (19) the driver's sequence starts at `preflight` and is cut 31's, not the
+  design's; (20) an `edges:` row retires by its own `retired`, which
+  `EstimandDecl` lacks (§3.3). The plan's parallel review found that the
+  shipped biology pack has no succession route (limitation 18), so §9 drops
+  its biology row.

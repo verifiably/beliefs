@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **Baseline is `main` after the `estimand-typing` lane merges** (spec decision 12). Interfaces consumed from that lane — `stored.analysis_spec_value(node, *, profile)`, `Estimand.control.identification`, the `estimands:` declaration beside which `edges:` sits, the recreated reproduction corpus and its step order — are named exactly as the estimand plan (`docs/superpowers/plans/2026-09-12-estimand-typing.md`, on `design/estimand-typing` until it merges) produces them. Task 0 refuses to open the lane before that merge.
+- **Baseline is `main` at `8aa5903` (2026-09-16), after the `estimand-typing` lane merged at `d25c7af` as cut 31** (spec decision 12). Interfaces consumed from that lane — `stored.analysis_spec_value(node, *, profile)`, `Estimand.control.identification`, the `estimands:` declaration beside which `edges:` sits, the recreated reproduction corpus and its step order — are named exactly as the merged tree spells them (the estimand plan is `docs/superpowers/plans/2026-09-12-estimand-typing.md`). Task 0 refused to open the lane before that merge; it opened 2026-09-16.
 - Work in the worktree `.worktrees/composite-claim` (branch `design/composite-claim`), rebased onto `main` at Task 0. Every path below is relative to the Beliefs repository root; paths shown to the user are prefixed with the worktree directory.
 - Frozen declarations and cut bodies stay byte-exact. No reader coerces or repairs a stored record; every refusal names a stable code (spec §3.4, §4.2, §4.3).
 - Every closed set is declared in the contract and matched in code; `Composite`, `CompositeReading` and `BaseContract` have no public constructor; `ResolutionSnapshot` is a required argument everywhere membership is resolved and has no default.
@@ -40,7 +40,7 @@
 | `python/src/beliefs/corpus.py` | `_refuse_composite`, `_refuse_supersedes_same_kind`, `supersede` widened (Task 4) |
 | `python/src/beliefs/audit.py` | `check_composite`, `check_supersedes_kinds`, the loop arms (Task 5) |
 | `python/src/beliefs/belief.py`, `python/src/beliefs/evaluation.py` | `Admission`, `admitted`, `evaluate_traced`, `evaluate_over_traced`; `evaluate` and `evaluate_over` as first projections (Task 6) |
-| `python/tools/reproduction/*` | successor `mm30` and `biology` contracts with `edges:`, `compose.py`, `read.py`, the recreated corpus, the addendum (Task 7) |
+| `python/tools/reproduction/*` | the successor `mm30` contract with `edges:` (its cut-31 predecessor frozen beside it, `vocabulary.py`'s chain extended), `compose.py`, `read.py`, the recreated corpus, the addendum (Task 7) |
 | `python/tests/test_composite.py`, `test_composite_boundary.py`, `test_composite_reading.py`; edits to `test_base_contract.py`, `test_domain_contract.py`, `test_facet_declarations.py`, `test_coordination.py`, `test_permit.py`, `test_audit.py`, `test_belief.py`, `test_evaluation.py`; `ts/tests/declarations.test.ts` | unit coverage per task |
 | `python/tests/acceptance/test_composite_acceptance.py`, `python/tests/n2_arms_cut<N>.py`, `python/tests/acceptance/n2_arms_cut<N>.py`, `python/tests/acceptance/test_n2_cut<N>.py`, `python/tools/cut<N>_acceptance.py` | U1–U10 acceptance, the sabotage declaration, the guard, the runner (Task 8) |
 | `docs/designs/…-conformance-cut-<N>.md`, `docs/plans/…-conformance-cut-<N>-results.md`, the amended designs, guide, glossary, ledger, roadmap | freeze, discharge, amendments (Tasks 0, 8, 9) |
@@ -56,7 +56,7 @@
 **Files:**
 - Create: `docs/designs/<date>-conformance-cut-<N>.md`
 - Move: `docs/superpowers/specs/2026-09-12-composite-claims-design.md` → `docs/designs/2026-09-12-composite-claims-design.md` (`git mv`)
-- Modify: `python/tests/test_designs_corpus.py` (`GUARANTEE_TABLES["U"]`, `TABLE_OWNERS["U"]`), the designs README row total and list
+- Modify: `python/tests/test_designs_corpus.py` (`GUARANTEE_TABLES["U"]`, `TABLE_OWNERS["U"]`, the letter `U` in `_ROW`, `_ROW_RANGE` and `_PROSE_LABEL`, `20: "twenty"` in `table_words`), `README.md` at the repository root (the design table, the designs-count sentence and its date range, the "frozen tables" count — there is no `docs/designs/README.md`), `docs/guide/contracts-and-adoption.md` (the corpus sentence, the `sources` list and the cut line) and one guide page's `sources` for the design (`test_the_guide_cites_every_design`)
 
 **Interfaces:**
 - Produces: the cut number `<N>`, the freeze commit `CUT<N>_FREEZE_COMMIT` and the cut document's SHA-256, both pinned by Task 8's guard; the lane's admission recorded on `beliefs-4bcf88`.
@@ -75,7 +75,7 @@ Run `git worktree list` and `ls <each worktree>/docs/designs/*conformance-cut-*.
 
 - [ ] **Step 4: Write and freeze the cut document**
 
-Write `docs/designs/<date>-conformance-cut-<N>.md` on cut 26's shape: §1 what this cut is; §2 the boundary (the files this plan names); §3 selection — declaration units `U1`–`U10`, single-homed, every clause selected only when its source mutation and every named check run inside §2; §4 accounting; §5 N2 and acceptance obligations (the mechanisms of spec §10.3, one arm each — the `before` blocks are written in Task 8 against the tree that exists then, and the accounting freezes there); §6 second reader; §7 limitations (spec §13, restated, with limitation 17 added). `git mv` the design spec into `docs/designs/`, register `"U": tuple(f"U{n}" for n in range(1, 11))` and `TABLE_OWNERS["U"] = "2026-09-12-composite-claims-design.md"`, update the README's design table and its "frozen tables" count (the guide's `contracts-and-adoption.md` sentence too), and run `uv run --frozen pytest tests/test_designs_corpus.py` green. Commit: `docs(cut): freeze conformance cut <N>, composite claims` — the dated freeze commit, made before any code below exists.
+Write `docs/designs/<date>-conformance-cut-<N>.md` on cut 26's shape: §1 what this cut is; §2 the boundary (the files this plan names); §3 selection — declaration units `U1`–`U10`, single-homed, every clause selected only when its source mutation and every named check run inside §2; §4 accounting; §5 N2 and acceptance obligations (the mechanisms of spec §10.3, one arm each — the `before` blocks are written in Task 8 against the tree that exists then, and the accounting freezes there); §6 second reader; §7 limitations (spec §13, restated, with limitation 17 added). `git mv` the design spec into `docs/designs/`, register `"U": tuple(f"U{n}" for n in range(1, 11))` and `TABLE_OWNERS["U"] = "2026-09-12-composite-claims-design.md"`, add `U` to the three prefix character classes (`_ROW`, `_ROW_RANGE`, `_PROSE_LABEL` — without it `test_every_guarantee_table_is_complete_in_the_document_that_owns_it` finds no U rows) and `20: "twenty"` to `table_words`; in the root `README.md` add the design's and the cut's rows to the design table, move the count sentence to "Sixty-nine documents … through <date>" and the corpus line to "**216 rows** across **twenty frozen tables** (…, Q, U)"; in `docs/guide/contracts-and-adoption.md` move the corpus sentence ("153 rows across thirteen frozen tables", stale since cut 12 and guarded by nothing) to the new totals, add the cut document to `sources` and a "Cut <N> is frozen and not yet discharged" line after cut 31's; cite the design from a guide page's `sources` (`claims-and-belief.md`, where cut 31 put the estimand design); and run `uv run --frozen pytest tests/test_designs_corpus.py tests/test_check_guide.py` green. Commit: `docs(cut): freeze conformance cut <N>, composite claims` — the dated freeze commit, made before any code below exists.
 
 ---
 
@@ -83,9 +83,9 @@ Write `docs/designs/<date>-conformance-cut-<N>.md` on cut 26's shape: §1 what t
 
 **Files:**
 - Modify: `contracts/science/CONTRACT.yaml`, copy to `python/src/beliefs/contracts/science/CONTRACT.yaml`
-- Modify: `python/src/beliefs/contract/base.py:74-75` (field sets), the `ClaimGrammar` block, `RelationDecl`, `BaseContract`, `parse_base_contract`
+- Modify: `python/src/beliefs/contract/base.py:76-78` (`_CONTRACT_FIELDS`), the `ClaimGrammar` block, `RelationDecl`, `BaseContract`, `parse_base_contract`
 - Modify: `python/src/beliefs/profile.py` (`ProfileSpec.composite_grammar`, `_projection`, `compile_profile`)
-- Modify: `python/src/beliefs/permit.py:52` (`KIND_ACTS`)
+- Modify: `python/src/beliefs/permit.py:45-62` (`KIND_ACTS`)
 - Modify: `ts/src/contract.ts` (`CompositeGrammar`, `RelationDecl.sameKind`, `parseBaseContract`), `ts/src/profile.ts` (`ProfileSpec.compositeGrammar`, the projection)
 - Test: `python/tests/test_base_contract.py`, `python/tests/test_facet_declarations.py:18`, `python/tests/test_coordination.py:63`, `python/tests/test_permit.py`, `ts/tests/declarations.test.ts:19`
 
@@ -196,7 +196,7 @@ Run from `python/`: `uv run --frozen pytest tests/test_base_contract.py tests/te
 
 - [ ] **Step 3: The contract document**
 
-In `contracts/science/CONTRACT.yaml`, after the `claim_grammar:` block and before `kinds:`, add:
+In `contracts/science/CONTRACT.yaml`, after the `estimand_grammar:` block (cut 31 placed it between `claim_grammar:` and `kinds:`) and before `kinds:`, add:
 
 ```yaml
 # --- composite grammar (composite-claims design §3.1) ------------------------
@@ -286,7 +286,7 @@ class RelationDecl:
         }
 ```
 
-Add `composite_grammar: CompositeGrammar` to `BaseContract` after `claim_grammar`. In `parse_base_contract`, after `claim_grammar = ClaimGrammar(...)`:
+Add `composite_grammar: CompositeGrammar` to `BaseContract` after `estimand_grammar`. In `parse_base_contract`, after `claim_grammar = ClaimGrammar(...)`:
 
 ```python
     composite_where = f"{source}: composite_grammar"
@@ -333,7 +333,7 @@ Pass `composite_grammar=composite_grammar` to `BaseContract._parsed`. Export `CO
 
 - [ ] **Step 5: The profile and the permit**
 
-In `python/src/beliefs/profile.py`: add `composite_grammar: CompositeGrammar` to `ProfileSpec` after `claim_grammar`; import `CompositeGrammar` from `beliefs.contract.base`; in `compile_profile`'s `_compiled(...)` call pass `composite_grammar=base.composite_grammar` and in the `_projection(...)` call pass `composite_grammar=base.composite_grammar`; extend `_projection`'s signature with `composite_grammar: CompositeGrammar` (keyword-only, beside `kinds`) and add `"composite_grammar": composite_grammar.projection()` to the dict it returns. In `python/src/beliefs/permit.py` add `"composite": _CORPUS_WRITE,` after `"act-report"`.
+In `python/src/beliefs/profile.py`: add `composite_grammar: CompositeGrammar` to `ProfileSpec` after `claim_grammar`; import `CompositeGrammar` from `beliefs.contract.base`; in `compile_profile`'s `_compiled(...)` call pass `composite_grammar=base.composite_grammar` and in the `_projection(...)` call pass `composite_grammar=base.composite_grammar`; extend `_projection`'s signature with `composite_grammar: CompositeGrammar` beside `estimand_grammar` — the two grammars are positional there (`profile.py:685-696`), so follow that shape rather than making it keyword-only — and add `"composite_grammar": composite_grammar.projection()` to the dict it returns. In `python/src/beliefs/permit.py` add `"composite": _CORPUS_WRITE,` after `"act-report"`.
 
 - [ ] **Step 6: TypeScript parity**
 
@@ -368,7 +368,7 @@ In the relation loop, `exactFields(body, ["group", "sources", "targets"], ["same
 
 - [ ] **Step 7: Run the tests to verify they pass**
 
-`uv run --frozen pytest tests/test_base_contract.py tests/test_facet_declarations.py tests/test_coordination.py tests/test_permit.py tests/test_coreference_attestation.py tests/test_profile.py -q` green (the coreference test holds endpoint kinds equal to `WORLD_KINDS - {…}`, which now includes `composite` without an edit). From `ts/`: `npm test` green. Then the full `just test`. If `python/tests/test_parity_fixture.py` or `ts/tests/identity-fixture.test.ts` pins the base contract's content identity (read both headers), regenerate the fixture with `uv run --frozen python tools/generate_identity_fixture.py` and commit it here.
+`uv run --frozen pytest tests/test_base_contract.py tests/test_facet_declarations.py tests/test_coordination.py tests/test_permit.py tests/test_coreference_attestation.py tests/test_profile.py -q` green (the coreference test holds endpoint kinds equal to `WORLD_KINDS - {…}`, which now includes `composite` without an edit). From `ts/`: `npm test` green. Then the full `just test`. `fixtures/claim-identity-v1.json` pins `profile_compiled_identity` (`test_parity_fixture.py:99`), which the grammar moves: regenerate it with `uv run --frozen python tools/generate_claim_identity_fixture.py` (the estimand lane did the same for its grammar at `152e77d`) and commit it here. `tools/generate_identity_fixture.py` is the values-level facet fixture and is not the one.
 
 - [ ] **Step 8: Commit**
 
@@ -381,7 +381,7 @@ git commit -m "feat(contract): declare composite_grammar, the composite kind, co
 ### Task 2: A domain contract's `edges:` table — Python, the fixture, the profile, TypeScript
 
 **Files:**
-- Modify: `python/src/beliefs/contract/domain.py:59-63` (field sets), the declaration classes, `DomainContract` (`edges`, `_parsed`, `_declarations`), `parse_domain_contract`
+- Modify: `python/src/beliefs/contract/domain.py:60-67` (`_CONTRACT_FIELDS`, `_CONTRACT_OPTIONAL`), the declaration classes, `DomainContract` (`edges`, `_parsed`, `_declarations`), `parse_domain_contract`
 - Modify: `fixtures/contracts/testing.yaml` (one `edges:` row)
 - Modify: `python/tests/fixtures/biology-fixture.yaml` (one `edges:` row for `affects`, so the test writers' `WITH_BIOLOGY` profile can compose; three sorts and one `estimands:` row, so Tasks 4 and 6 can type an assessment under it)
 - Modify: `python/src/beliefs/profile.py` (`CompiledEdge`, `ProfileSpec.edges`, `compile_profile`, `_projection`)
@@ -452,7 +452,7 @@ class TestEdges:
         assert "edge:affects" in contract.retired_identifiers()
 ```
 
-(`genesis` is the fixture the existing succession tests use at `test_domain_contract.py:273`; reuse it.) Append to `python/tests/test_profile.py`:
+(`genesis` is the fixture the existing succession tests use at `test_domain_contract.py:255` and `:368`; reuse it.) Append to `python/tests/test_profile.py`:
 
 ```python
 def test_edges_compile_under_the_namespaced_operator(base_contract, testing_document):
@@ -494,7 +494,7 @@ In `ts/tests/declarations.test.ts`, in the domain-facets describe block, add:
 
 - [ ] **Step 2: The fixtures**
 
-Append to `fixtures/contracts/testing.yaml` after the `operators:` block and before `facets:`:
+Append to `fixtures/contracts/testing.yaml` after the `estimands:` block (cut 31 placed it between `operators:` and `facets:`) and before `facets:`:
 
 ```yaml
 # One edge-forming operator (composite-claims design §3.3): `affects` at the
@@ -504,7 +504,7 @@ edges:
   affects: { cause: 0, effect: 1 }
 ```
 
-Append to `python/tests/fixtures/biology-fixture.yaml` after its `operators:` block: `edges:\n  affects: { cause: 0, effect: 1 }`. In the same file add three sorts beside `gene`, each `vocabulary: { namespace: EX, release: "2026-01-01" }` — `level`, `measure`, `identification` — and an `estimands:` table with one row for `affects`, spelled exactly as the estimand lane's `fixtures/contracts/testing.yaml` spells its `affects` row (the same keys — `level_sorts` keyed by slot, `measure_sort`, `identification_sort`, and `conditioning_sort` if that fixture carries it — with the three new sorts in place of its). Tasks 4 and 6 type assessments under `WITH_BIOLOGY` with them. `profiles.py` parses the document twice with different descriptions; both variants gain the rows. Run `uv run --frozen pytest tests/test_relocation.py tests/test_world_view_acceptance.py -q`; if either pins the fixture contract's identity, update the pin here.
+Append to `python/tests/fixtures/biology-fixture.yaml` after its `operators:` block: `edges:\n  affects: { cause: 0, effect: 1 }`. In the same file add three sorts beside `gene`, each `vocabulary: { namespace: EX, release: "2026-01-01" }` — `level`, `measure`, `identification` — and an `estimands:` table with one row for `affects`, spelled exactly as the estimand lane's `fixtures/contracts/testing.yaml` spells its `affects` row (the same keys — `level_sorts` keyed by slot, `measure_sort`, `identification_sort`, and `conditioning_sort` if that fixture carries it — with the three new sorts in place of its). Tasks 4 and 6 type assessments under `WITH_BIOLOGY` with them. `profiles.py` parses the document twice with different descriptions; both variants gain the rows. Run `uv run --frozen pytest tests/test_relocation.py tests/acceptance/test_world_view_acceptance.py -q`; neither carries a literal identity pin (pins come from `profiles.pins_for`), so nothing else moves.
 
 - [ ] **Step 3: Run the tests to verify they fail**
 
@@ -561,7 +561,7 @@ def _parse_edge(name: str, value: object, where: str, operators: Mapping[str, Op
     return EdgeDecl(operator=name, cause=cause, effect=effect, retired=_bool(body.get("retired", False), f"{where}: retired"))
 ```
 
-`DomainContract` gains `edges: Mapping[str, EdgeDecl]` after `operators`; `_parsed` takes `edges: dict[str, EdgeDecl]` and sets it with `MappingProxyType(dict(edges))`; `_declarations()` returns one more group, `*((f"edge:{name}", decl) for name, decl in self.edges.items())`, and its return annotation widens to include `EdgeDecl`. In `parse_domain_contract`, add `"edges"` to the optional set of the existing `_fields(root, _CONTRACT_FIELDS, frozenset({...}), source)` call — the baseline's set already holds `"description"`, `"facets"` and `"estimands"`; extend it, never restate it — and after the operators loop:
+`DomainContract` gains `edges: Mapping[str, EdgeDecl]` after `operators`; `_parsed` takes `edges: dict[str, EdgeDecl]` and sets it with `MappingProxyType(dict(edges))`; `_declarations()` returns one more group, `*((f"edge:{name}", decl) for name, decl in self.edges.items())`, and its return annotation widens to include `EdgeDecl`. In `parse_domain_contract`, add `"edges"` to `_CONTRACT_OPTIONAL` (`domain.py:61`, the named optional set that `_fields(root, _CONTRACT_FIELDS, _CONTRACT_OPTIONAL, source)` reads; it holds `"description"`, `"facets"` and `"estimands"`) — extend the constant, never restate it — and after the operators loop:
 
 ```python
     edges: dict[str, EdgeDecl] = {}
@@ -630,7 +630,7 @@ In `ts/src/contract.ts` add `export interface EdgeDecl { readonly operator: stri
 
 - [ ] **Step 7: Run the tests to verify they pass**
 
-`uv run --frozen pytest tests/test_domain_contract.py tests/test_profile.py tests/test_profile_agreement.py tests/test_parity_fixture.py -q` green; `npm test` green; then `just test` — the existing parity fixture over the testing contract now carries `edges`, so if `test_parity_fixture.py` or `ts/tests/identity-fixture.test.ts` pins a projection of the *domain contract* or the *profile* it is regenerated with `uv run --frozen python tools/generate_identity_fixture.py` (read its header first; commit the regenerated fixture in this task).
+`uv run --frozen pytest tests/test_domain_contract.py tests/test_profile.py tests/test_profile_agreement.py tests/test_parity_fixture.py -q` green; `npm test` green; then `just test` — the existing parity fixture over the testing contract now carries `edges`, so `fixtures/claim-identity-v1.json`'s `profile_compiled_identity` moves again: regenerate it with `uv run --frozen python tools/generate_claim_identity_fixture.py` (as at `6ed3b1d` and `9e0892e` in the estimand lane) and commit the regenerated fixture in this task.
 
 - [ ] **Step 8: Commit**
 
@@ -767,7 +767,7 @@ class TestConstruction:
         assert caught.value.code == "composite-shape"
 
     def test_a_member_that_is_not_a_proposition_refuses(self, tmp_path):
-        dataset = stored.dataset_node("d", title="d", resources=[{"name": "m", "digest": "sha256:" + "1" * 64}])
+        dataset = stored.dataset_node(title="d", resources=[{"name": "m", "digest": "sha256:" + "1" * 64}])
         with pytest.raises(CompositeError) as caught:
             build_composite(PROFILE, _corpus(tmp_path, dataset), shape="dag", nodes=[A, C], members=[dataset.id], snapshot=CONSULTED, slug="x")
         assert caught.value.code == "composite-member-kind"
@@ -922,7 +922,7 @@ In `python/src/beliefs/resolution.py`, on `ReferentPosition`:
         return cls(kind="node", key=str(index))
 ```
 
-and widen the `kind` docstring to `argument`, `restriction` or `node`.
+and widen the `kind` docstring to `argument`, `restriction`, `estimand` or `node` (the estimand lane added `estimand(part)` at `resolution.py:118-123`).
 
 - [ ] **Step 4: The module**
 
@@ -1310,7 +1310,7 @@ git commit -m "feat(composite): build, classify and store a composite over propo
 ### Task 4: The write boundary — `_refuse_composite`, the same-kind rule, `supersede` widened
 
 **Files:**
-- Modify: `python/src/beliefs/corpus.py` (`_refuse` at 2861, `supersede` at 2382, two new refusal helpers)
+- Modify: `python/src/beliefs/corpus.py` (`_refuse` at 2982, `supersede` at 2472, two new refusal helpers)
 - Test: `python/tests/test_composite_boundary.py`
 
 **Interfaces:**
@@ -1452,7 +1452,7 @@ def test_the_boundary_re_derives_every_check_from_the_stored_record(writer, muta
 
 
 def test_a_dataset_member_refuses_with_its_code(writer):
-    dataset = writer.add(stored.dataset_node("d", title="d", resources=[{"name": "m", "digest": "sha256:" + "1" * 64}]))
+    dataset = writer.add(stored.dataset_node(title="d", resources=[{"name": "m", "digest": "sha256:" + "1" * 64}]))
     node = stored.composite_node(_build(writer, ["proposition:ab"]), title="x")
     node.relations[0] = Relation(source=node.id, predicate=stored.COMPOSES, target=dataset.id)
     stored.stamp_semantic_identity(node)
@@ -1500,11 +1500,12 @@ class TestSupersession:
     def _typed_assessment(self, writer, slug: str, target: str):
         """Otherwise valid evidence: an attested, held-shaped dataset, an observing run, and an assessment typed
         under the fixture profile (the estimand lane's constructor requires `estimand` and `applicability`)."""
-        from test_evaluation import _resources
+                from test_evaluation import _address, _resources
 
-        if not writer.read_view.holds("dataset:d-a"):
-            writer.add(stored.dataset_node("d-a", title="d-a", resources=_resources("a"), empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}))
-        run = writer.add(stored.run_node(f"run-{slug}", title=slug, spec=f"spec-{slug}", observes=["dataset:d-a"]))
+        address = _address("a")  # dataset ids are content addresses (slice 5); `dataset_node` takes no slug
+        if not writer.read_view.holds(address):
+            writer.add(stored.dataset_node(title="d-a", resources=_resources("a"), empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}))
+        run = writer.add(stored.run_node(f"run-{slug}", title=slug, spec=f"spec-{slug}", observes=[address]))
         return stored.assessment_node(
             slug, title=slug, spec=f"spec-{slug}", run=run.id, proposition=target, outcome="supported", interpretation_rule="rule-1",
             estimand=_estimand(_claim("EX:a", "EX:b")), applicability={},
@@ -1626,7 +1627,7 @@ In `python/src/beliefs/corpus.py`, add two methods beside `_refuse_verification`
                 )
 ```
 
-In `_refuse`, after the `if node.kind == "analysis-spec":` line and **before** `_refuse_governed_stamp`, add:
+In `_refuse`, after the `if node.kind == "analysis-spec":` block (two calls since cut 31, `_refuse_r20_contradiction` and `_refuse_estimand_target_mismatch`, `corpus.py:2999-3001`) and **before** `_refuse_governed_stamp`, add:
 
 ```python
         reading = self._view if view is None else view
@@ -1677,7 +1678,7 @@ git commit -m "feat(corpus): refuse a malformed composite, a cross-kind supersed
 
 - [ ] **Step 1: Write the failing tests**
 
-Append to `python/tests/test_audit.py`:
+Append to `python/tests/test_audit.py` (first widen its `from fixtures_cut4 import raw_write` to `raw_write, reopen`; `reopen` is not imported there today):
 
 ```python
 # --- U7: composites and cross-kind succession under audit -------------------
@@ -1845,7 +1846,7 @@ In `audit_corpus`'s loop, before the `try:` block's kind dispatch, add:
             findings.append(cross)
 ```
 
-and add the arm `elif node.kind == "composite": outcome = check_composite(view, node, profile=profile)` after the `analysis-spec` arm. Add both names to `__all__`.
+and add the arm `elif node.kind == "composite": outcome = check_composite(view, node, profile=profile)` after the `analysis-spec` arm. Add the same arm to `_recompute` (`audit.py:439-450`, `audit_world`'s per-kind dispatch, which `audit_corpus`'s loop does not share — spec §4.3; the estimand lane's `check_spec_target` missed it, `beliefs-0521da`), and run `check_supersedes_kinds` in `audit_world`'s pass over stored records too, so both audits report the relation arm. Register the four composite codes in `WORLD_AUDIT_CODES` (`audit.py:100`) and none in `MALFORMEDNESS_CODES` (`audit.py:91`), since each is a contradiction; `supersedes-cross-kind` registers in `WORLD_AUDIT_CODES` as well. Add both names to `__all__`.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
@@ -2229,10 +2230,10 @@ def seed_assessed_proposition(writer, proposition_ref: str, *, slug: str, outcom
     observing run, the assessment, and a passed clean-environment
     verification. Returns the dataset address. `typed` carries the estimand
     lane's `estimand=` and `applicability=` values."""
-    address = _address("a")
-    if not writer.read_view.holds("dataset:d-a"):
-        writer.add(stored.dataset_node("d-a", title="d-a", resources=_resources("a"), empirical_observation=EMPIRICAL))
-    run = writer.add(stored.run_node(f"run-{slug}", title=slug, spec=f"spec-{slug}", observes=["dataset:d-a"]))
+        address = _address("a")
+    if not writer.read_view.holds(address):
+        writer.add(stored.dataset_node(title="d-a", resources=_resources("a"), empirical_observation=EMPIRICAL))
+    run = writer.add(stored.run_node(f"run-{slug}", title=slug, spec=f"spec-{slug}", observes=[address]))
     assessment = writer.add(stored.assessment_node(slug, title=slug, spec=f"spec-{slug}", run=run.id, proposition=proposition_ref, outcome=outcome, interpretation_rule="rule-1", **typed))
     value = stored.assessment_value(writer.read_view.get(assessment.id), profile=writer.profile)
     writer.add(stored.verification_node(f"v-{slug}", title=slug, assessment=value.identity(), assessment_ref=assessment.id, scope="clean-environment", verdict="passed"))
@@ -2417,18 +2418,19 @@ git commit -m "feat(composite): read a composite through the traced evaluator, o
 ### Task 7: The reproduction — successor contracts with `edges:`, the composed spine, the reading in a fresh process
 
 **Files:**
-- Modify: `python/tools/reproduction/mm30.yaml` (`edges:`, `lineage: {successor: <the estimand lane's mm30 identity>}`, `version` + 1), `domains/biology/DOMAIN.yaml` (`edges:`, `lineage: {successor: <the estimand lane's biology identity>}`, `version` + 1) and its copy under `python/src/beliefs/domains/biology/DOMAIN.yaml` if the package ships one (`ls python/src/beliefs/domains`)
+- Create: `python/tools/reproduction/mm30-cut31.yaml` (the cut-31 document, byte for byte — the predecessor `check_succession` runs against)
+- Modify: `python/tools/reproduction/mm30.yaml` (`edges:`, `lineage: {successor: <the cut-31 document's identity>}`), `python/tools/reproduction/vocabulary.py` (`CUT31_DOCUMENT`; `contract()` parses the chain cut 22 → cut 31 → current). `domains/biology/DOMAIN.yaml` is **not** touched: `shipped_domain_contract` parses it with no predecessor and `check_succession` refuses a successor lineage without one (`profile.py:90-107`, `domain.py:682-687`), so a shipped pack has no succession route — spec limitation 18. The fragment's two operators are mm30's, so no biology row is needed
 - Create: `python/tools/reproduction/compose.py` (step 11), `python/tools/reproduction/read.py` (step 12)
 - Modify: `python/tools/reproduction/state.py` (no code change; new keys documented in its docstring), `docs/designs/2026-09-05-mm30-reproduction.md` (a dated addendum, §11), `docs/superpowers/specs/2026-09-05-mm30-reproduction-design.md` (the step table gains rows 11 and 12 as a dated amendment)
 - Test: `python/tests/test_reproduction_driver.py`
 
 **Interfaces:**
-- Consumes: everything above; the estimand lane's recreated-corpus sequence (`world`, `select_target`, `lists prepare`, `concepts`, `lists mint`, `type_target`, `hold`, `spec`, `run`, `belief`, `rederive`, `close`) and its `vocabulary.snapshot()`, `belief.context`, `belief.availability`, `belief.BINDING`.
+- Consumes: everything above; the estimand lane's recreated-corpus sequence (`preflight`, `world`, `select_target`, `lists prepare`, `concepts`, `lists mint`, `type_target`, `hold`, `spec`, `run`, `belief`, `rederive`, `close`) and its `vocabulary.snapshot()`, `belief.context`, `belief.availability`, `belief.BINDING`.
 - Produces: `compose.main()` minting the spine proposition and the composite and saving `spine_ref`, `composite_ref`, `composite_identity`, `composite_receipt` (the node outcomes, as `{label: tag}`); `read.main(argv)` writing `paths.WORK / "reading-1.json"` on the first run and, with `--again`, `reading-2.json` and `state.reading_equal`; the addendum.
 
 - [ ] **Step 1: The successor contracts**
 
-Read the two predecessor identities **before** editing: `uv run --frozen python -c "from reproduction import vocabulary; print(vocabulary.contract().content_identity, vocabulary.biology().content_identity)"` (run from `python/` with `PYTHONPATH=tools`, as the driver's other steps are run — see the reproduction record §3 for the exact invocation). In `python/tools/reproduction/mm30.yaml` under `contract:` set `lineage: {successor: "<mm30 identity>"}`, bump `version`, and add after `estimands:`:
+Read the predecessor identity **before** editing and **before** Step 4 moves the corpus aside — `vocabulary._document()` substitutes the held-list addresses from the existing `.work/reproduction/mm30/state.json` and raises without it: `uv run --frozen python -c "from reproduction import vocabulary; print(vocabulary.contract().content_identity)"` (run from `python/` with `PYTHONPATH=tools`, as the driver's other steps are run — see the reproduction record §3 for the exact invocation). Copy `mm30.yaml` byte for byte to `mm30-cut31.yaml` (the cut-22 precedent: `mm30-cut22.yaml`), and in `vocabulary.py` add `CUT31_DOCUMENT = Path(__file__).with_name("mm30-cut31.yaml")` and make `contract()` parse the chain — `DOCUMENT`'s predecessor is `contract(CUT31_DOCUMENT)`, whose predecessor is `contract(CUT22_DOCUMENT)`, whose predecessor is `None`. Then in `python/tools/reproduction/mm30.yaml` under `contract:` set `lineage: {successor: "<the cut-31 document's identity>"}` (the estimand lane kept `version: 1` across its succession; do the same) and add after `estimands:`:
 
 ```yaml
   edges:
@@ -2441,15 +2443,7 @@ Read the two predecessor identities **before** editing: `uv run --frozen python 
     induces-state-concept-concept:      { cause: 0, effect: 1 }
 ```
 
-In `domains/biology/DOMAIN.yaml` set `lineage: {successor: "<biology identity>"}`, bump `version`, and add:
-
-```yaml
-edges:
-  affects-molecular-entity-molecular-entity:   { cause: 0, effect: 1 }
-  regulates-molecular-entity-molecular-entity: { cause: 0, effect: 1 }
-```
-
-`associates-with-*` and `binds-*` get no row (spec §3.3). `shipped_domain_contract("biology")` loads the document with its predecessor per the biology pack design's succession rule — follow whatever the estimand lane did for its own successor (its plan Task 10 Step 1) so the predecessor chain is checked, not skipped. Run `uv run --frozen pytest tests/test_domain_boundary.py tests/test_biology_pack.py -q` (or whichever module pins the shipped biology identity) and update the pinned identity in the same commit.
+`associates-with-*`, `binds-*` and `is-proxy-for-*` get no row (spec §3.3, §3.4). The shipped `biology` pack gains no row and is not edited (spec limitation 18; the Files block above says why). Run `uv run --frozen pytest tests/test_reproduction_driver.py tests/test_shipped_biology.py -q` green — the shipped biology identity is unchanged, and the driver test that reads `vocabulary.contract()` now walks three documents.
 
 - [ ] **Step 2: `compose.py`**
 
@@ -2583,11 +2577,11 @@ if __name__ == "__main__":
 
 - [ ] **Step 4: Recreate, run, read twice**
 
-Move the estimand lane's corpus aside (`mv <CHECKOUT>/.work/reproduction/mm30 <CHECKOUT>/.work/reproduction/mm30.estimand` — the base contract changed, decision 11) and run the driver's steps in order: `world`, `select_target`, `lists prepare`, `concepts`, `lists mint`, `type_target`, `hold`, `spec`, `run`, `belief`, `rederive`, `close`, then `compose`, then `read` and `read --again`, each `read` in its own process. Then open the moved-aside corpus read-only and record that `audit_corpus` returns exactly one finding, `profile-mismatch` with detail `base` (it pins the estimand lane's base contract, which lacks `composite_grammar`), and reads no record — decision 11's transition arm, measured. Write rows 11 and 12 into the reproduction design's step table as a dated amendment.
+Move the cut-31 corpus aside (`mv <CHECKOUT>/.work/reproduction/mm30 <CHECKOUT>/.work/reproduction/mm30.cut31` — the base contract changed, decision 11; `paths.PRIOR` stays `mm30.cut22`, the pre-grammar state `rederive`'s transition arm presents, and the cut-31 state is opened by its own path below) and run the driver's steps in order: `preflight`, `world`, `select_target`, `lists prepare`, `concepts`, `lists mint`, `type_target`, `hold`, `spec`, `run`, `belief`, `rederive`, `close`, then `compose`, then `read` and `read --again`, each `read` in its own process. Then open the moved-aside corpus read-only and record that `audit_corpus` returns exactly one finding, `profile-mismatch` with detail `base` (it pins the estimand lane's base contract, which lacks `composite_grammar`), and reads no record — decision 11's transition arm, measured. Write rows 11 and 12 into the reproduction design's step table as a dated amendment.
 
 - [ ] **Step 5: The addendum and the unit test**
 
-Append `## 11. Addendum — composite claims, <date>` to `docs/designs/2026-09-05-mm30-reproduction.md`: the two successor contract identities; the spine proposition's identity and its claim as spelled; the composite's identity, its three nodes and two signed edges; the node receipt — `node:0` (PHF19, `biology/molecular-entity`) `not-consulted` because the reproduction's snapshot binds no HGNC release, `node:1` and `node:2` (the two concepts) `member`; the reading's rows — the target member `edge(disease-stage → PHF19, positive)` with the `belief` step's answer and identification `{identification:observational}`, the spine member `edge(PHF19 → overall-survival, negative)` with `NoBelief("no-eligible-assessment")` and `()`; the two encodings' equality; the moved-aside corpus's `profile-mismatch: base`; and the author's judgment that the fragment is the inquiry's spine and not its DAG — the proxies (`is-proxy-for`) and the other nodes are not minted, the first exercise of spec limitation 5. Add to `python/tests/test_reproduction_driver.py`:
+Append `## 11. Addendum — composite claims, <date>` to `docs/designs/2026-09-05-mm30-reproduction.md`: the successor mm30 contract's identity and its cut-31 predecessor's; the spine proposition's identity and its claim as spelled; the composite's identity, its three nodes and two signed edges; the node receipt — `node:0` (PHF19, `biology/molecular-entity`) `not-consulted` because the reproduction's snapshot binds no HGNC release, `node:1` and `node:2` (the two concepts) `member`; the reading's rows — the target member `edge(disease-stage → PHF19, positive)` with the `belief` step's answer and identification `{identification:observational}`, the spine member `edge(PHF19 → overall-survival, negative)` with `NoBelief("no-eligible-assessment")` and `()`; the two encodings' equality; the moved-aside corpus's `profile-mismatch: base`; and the author's judgment that the fragment is the inquiry's spine and not its DAG — the proxies (`is-proxy-for`) and the other nodes are not minted, the first exercise of spec limitation 5. Add to `python/tests/test_reproduction_driver.py`:
 
 ```python
 def test_the_reading_projection_round_trips_through_identity_v1(tmp_path):
@@ -2627,7 +2621,7 @@ git commit -m "feat(reproduction): compose the h1-prognosis spine under successo
 
 - [ ] **Step 1: The frozen cut is Task 0's**
 
-Nothing in the frozen document is edited; a correction found while writing the arms is a dated supplement in the cut document's §8, on cut 25's precedent.
+Nothing in the frozen document's pinned body (§§2–7) is edited; a correction found while writing the arms is a dated supplement in the cut document's §8, on cut 25's precedent. The `**Status:**` line above the body is rewritten at discharge (Task 9) — `test_the_newest_cut_document_says_it_is_discharged` (`8aa5903`) requires it, and the guard's SHA-256 pins the body below it.
 
 - [ ] **Step 2: The acceptance module**
 
@@ -2654,7 +2648,7 @@ Nothing in the frozen document is edited; a correction found while writing the a
 | U4-b | `contracts/science/CONTRACT.yaml` (both copies): `assesses` targets gain `composite` | `test_u1_…`, `test_u4_…` |
 | U4-c | `corpus.py` `_refuse_assesses_target_kind`: `target.kind != "proposition"` becomes `False` | `test_u4_…` (the otherwise-eligible assessment is admitted) |
 | U4-d | `corpus.py` `_refuse_assesses_target_kind`: the `except RefError` arm becomes `continue` | `test_u4_…` (the `composite:future` assessment is admitted) |
-| U3-a | `composite.py` `classify`: the `layer != "causal"` refusal dropped | `test_u3_…` (the `associates-with`/statistical fixture) |
+| U3-a | `composite.py` `classify`: the `layer != "causal"` refusal dropped | `test_u3_…` (the `correlates-with` fixture — the testing contract's statistical operator; no fixture operator is named `associates-with`) |
 | U3-b | `composite.py` `classify`: `Edge(... sign=claim.polarity ...)` skipped for `negative` (member dropped from `edges`) | `test_u3_…` (the signed-cycle fixture) |
 | U3-c | `composite.py` `build_composite`: `refused` computed over `outcome.performed` instead of `outcome.refuses` (admits `not-member`) | `test_u3_…` (the excluding-snapshot fixture) |
 | U3-d | `composite.py` `_canonical_nodes`: the empty-set refusal dropped | `test_u3_…` |
@@ -2681,7 +2675,7 @@ Every `before` must occur exactly once in its module (the harness reports stalen
 
 - [ ] **Step 4: The guard and the runner**
 
-`python/tests/acceptance/test_n2_cut<N>.py` on `test_n2_cut26.py`'s shape: `FROZEN_CUT`, `CUT<N>_FREEZE_COMMIT`, `CUT<N>_FROZEN_SHA256`, `FROZEN_DECLARATION`, `CUT<N>_DECLARATION_SHA256`, `FROZEN_PRIOR_CUT_FILES` extended with every declaration frozen since cut 26 (cut 26's own and the estimand lane's, with their commits), `PRIOR_ARMS` extended likewise, the accounting test, the freeze pins, and the audit over every arm with the staleness baseline taken from the tree (never `stale: []`). `python/tools/cut<N>_acceptance.py` on `cut26_acceptance.py`'s shape with `PREFIX_RUNNERS = ("<highest discharged runner at freeze>",)` and `PHASE_MODULES = ("test_composite_acceptance.py", "test_n2_cut<N>.py")`.
+`python/tests/acceptance/test_n2_cut<N>.py` on `test_n2_cut31.py`'s shape (the newest; it adds `…keeps_the_module_importable`): `FROZEN_CUT`, `CUT<N>_FREEZE_COMMIT`, `CUT<N>_FROZEN_SHA256`, `FROZEN_DECLARATION`, `CUT<N>_DECLARATION_SHA256`, `FROZEN_PRIOR_CUT_FILES` copied from cut 31's (it already lists cut 26–30) plus `python/tests/n2_arms_cut31.py` at its freeze commit, `PRIOR_ARMS` extended with CUT27–CUT31, the accounting test, the freeze pins, and the audit over every arm with the staleness baseline taken from the tree (never `stale: []`). The declaration exports `DECLARATION_UNITS`, `UNIT_CHECKS`, `CO_CITED`, `unit_of` and `CUT<N>_ARMS` — the runner's `declared_accounting` imports them and the acceptance shim re-exports all five (`acceptance/n2_arms_cut31.py`). `python/tools/cut<N>_acceptance.py` on `cut31_acceptance.py`'s shape with `PREFIX_RUNNERS = ("cut31_acceptance.py",)` (the highest discharged runner at freeze) and `PHASE_MODULES = ("test_composite_acceptance.py", "test_n2_cut<N>.py")`, except `DEFAULT_WORK`: not a new dotted root at the project root (`test_project_root.py`, `8aa5903`, names the legacy `.cut*-acceptance` roots individually and makes `.cut32-acceptance/` a red test) but `<main checkout>/.work/acceptance/cut<N>`, resolving the main checkout as `reproduction/paths.py` does (the worktree's grandparent when the repo root's parent is `.worktrees`, since the certified volume is the main checkout's); `SCIENCE_CUT<N>_ROOT` overrides it as for every cut.
 
 - [ ] **Step 5: Freeze, discharge, commit**
 
@@ -2697,20 +2691,20 @@ git commit -m "test(cut): discharge conformance cut <N>, composite claims U1–U
 ### Task 9: Amendments, the results record, the ledger and the roadmap
 
 **Files:**
-- Modify: `docs/designs/2026-09-12-composite-claims-design.md` (the *Status* header); `docs/designs/2026-08-02-epistemic-kernel-design.md` §4.1 (the `composes` signature; `supersedes` same-kind over two kinds), §4.3 (a `composite` paragraph beside Views), §4.4 (the open row loses three entries; the kernel counts fourteen since <date>), §11 (the first bullet closed by citation); `docs/designs/2026-08-04-formal-model-and-claim-calculus-design.md` §2.1 (a fourteenth `Rec` row: construction built, identity content over the covered facet, lifecycle `supersedes` same-kind, reads its members, affects nothing, inert under display prose and the `composes` targets' resolution state, banked U1–U10), §2.2 (the `composes` signature row and `supersedes`' widened signature), §8.2 (the amendment record); `docs/designs/2026-08-31-coordination-and-view-kinds-design.md` §5.1 (a dated note: `composes` is not in version 1's literal relation list; the amendment is sub-project 5's road); `docs/superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md` §6.1 ("a composite's closure is its members"); `docs/guide/foundations.md` (the kinds table: a fourteenth row under *Epistemic*; the "not additional kernel kinds" sentence keeps views out and says composites are in), `docs/guide/claims-and-belief.md` (a short *Composites* section: what one asserts, how it is read, that it is never a belief input), `docs/guide/glossary.md` (Composite, Edge, Node receipt, Same-kind succession), `docs/guide/open-questions.md` (*Kernel-adjacent structures* closed by citation for `inquiry`, `patch-definition`, `structural-chain`; `search` stays; a new entry for relation endpoint kinds at the write boundary, limitation 17); `docs/designs/2026-08-03-redesign-adoption-ledger.md` `Current state` (a `composite-claims` row, then its closure at discharge); `docs/plans/2026-08-29-implementation-roadmap.md` (boundary index row `composite-claims | U1–U10 | 1, off the path | beliefs-4bcf88`; the off-path table; the lane table's `mutation`-adjacent surfaces note; Appendix A/B); `docs/plans/<date>-conformance-cut-<N>-results.md`
+- Modify: `docs/designs/2026-09-12-composite-claims-design.md` (the *Status* header); `docs/designs/2026-08-02-epistemic-kernel-design.md` §4.1 (the `composes` signature; `supersedes` same-kind over two kinds), §4.3 (a `composite` paragraph beside Views), §4.4 (the open row loses three entries; the kernel counts fourteen since <date>), §11 (the first bullet closed by citation); `docs/designs/2026-08-04-formal-model-and-claim-calculus-design.md` §2.1 (a fourteenth `Rec` row: construction built, identity content over the covered facet, lifecycle `supersedes` same-kind, reads its members, affects nothing, inert under display prose and the `composes` targets' resolution state, banked U1–U10), §2.2 (the `composes` signature row and `supersedes`' widened signature), §8.2 (the amendment record); `docs/designs/2026-08-31-coordination-and-view-kinds-design.md` §5.1 (a dated note: neither `composite` in version 1's literal `kinds` list nor `composes` in its `relations` list; the one amendment is sub-project 5's road); `docs/superpowers/specs/2026-08-29-user-and-autonomy-layer-design.md` §6.1 ("a composite's closure is its members"); `docs/guide/foundations.md` (the kinds table: a fourteenth row under *Epistemic*; the "not additional kernel kinds" sentence keeps views out and says composites are in), `docs/guide/claims-and-belief.md` (a short *Composites* section: what one asserts, how it is read, that it is never a belief input), `docs/guide/glossary.md` (Composite, Edge, Node receipt, Same-kind succession), `docs/guide/open-questions.md` (*Kernel-adjacent structures* closed by citation for `inquiry`, `patch-definition`, `structural-chain`; `search` stays; the existing *Relation endpoint enforcement* entry, `open-questions.md:223-225`, extended with limitation 17's finding — no new entry); `docs/designs/2026-08-03-redesign-adoption-ledger.md` `Current state` (a `composite-claims` row, then its closure at discharge); `docs/plans/2026-08-29-implementation-roadmap.md` (boundary index row `composite-claims | U1–U10 | 1, off the path | beliefs-4bcf88`; the off-path table; the lane table's `mutation`-adjacent surfaces note; Appendix A/B); `docs/plans/<date>-conformance-cut-<N>-results.md`
 - Every amendment is a dated block in place, never an edit of frozen prose; each names this design by path.
 
 - [ ] **Step 1: The spec's status**
 
-The two corrections found while planning (§3.1's non-existent signature check; §3.2's `I_claim` wording) and limitation 17 are already recorded in the design's §13 and §15 by the planning commit. Here only the header's *Status* changes, to frozen at the cut, with the freeze commit named.
+The two corrections found while planning (§3.1's non-existent signature check; §3.2's `I_claim` wording) and limitation 17 are already recorded in the design's §13 and §15 by the planning commit. The design's header already says frozen (Task 0 rewrote it at the freeze, on cut 31's precedent); here its *Status* moves to discharged, with the results record named. The cut document's own `**Status:**` line is rewritten the same way — `test_the_newest_cut_document_says_it_is_discharged` reads it — leaving §§2–7 byte-exact under the guard's pin.
 
 - [ ] **Step 2: Results record**
 
-On cut 26's results shape: what ran (both summary lines, the arms' verdicts, the baseline), accounting and disposition (U1–U10 closed, or U10 unrun with the addendum's refusal named; the global row total moves by 10), corrections and deviations from the frozen cut, remaining boundary (the coordination-contract relation-list amendment, sub-project 5's).
+On cut 26's results shape: what ran (both summary lines, the arms' verdicts, the baseline), accounting and disposition (U1–U10 closed, or U10 unrun with the addendum's refusal named; the global row total moves by 10), corrections and deviations from the frozen cut, and a `## Remaining boundary` section that names at least one guarantee-row label (`test_the_ledger_summary_names_the_newest_remaining_boundary` fails closed on a section that names none): the coordination-contract amendment (`kinds` and `relations`, sub-project 5's) as the road to `closure` and `kinds: [composite]` views, and the next open rows the lane's surfaces touch (the C rows `correction-remainder` owns, which limitation 16 defers to).
 
 - [ ] **Step 3: Ledger, roadmap, tasks**
 
-Add the `composite-claims` row to the ledger table and the roadmap's boundary index, tier 1 off the path, lane `composite-claims`, then mark it closed in the same results commit; rewrite the roadmap whole (it carries no dated corrections); `tasks dep beliefs-eacbe2 --on beliefs-4bcf88`. Run `uv run --frozen pytest tests/test_designs_corpus.py tests/test_check_guide.py` and `uv run --frozen python tools/roadmap_status.py` green. `tasks done` each step child as its commit lands; `tasks done beliefs-4bcf88 "<what landed>"` in the results commit; `tasks check` clean.
+Add the `composite-claims` row to the ledger table and the roadmap's boundary index, tier 1 off the path, lane `composite-claims`, then mark it closed in the same results commit; the ledger's `Current state` summary names `cut <N>` and every row label the results record's `Remaining boundary` names; rewrite the roadmap whole (it carries no dated corrections); `tasks dep beliefs-eacbe2 --on beliefs-4bcf88`. Run `uv run --frozen pytest tests/test_designs_corpus.py tests/test_check_guide.py` and `uv run --frozen python tools/roadmap_status.py` green. `tasks done` each step child as its commit lands; `tasks done beliefs-4bcf88 "<what landed>"` in the results commit; `tasks check` clean.
 
 ```bash
 git add docs python/tests/test_designs_corpus.py tasks
@@ -2726,5 +2720,7 @@ git commit -m "docs(cut): discharge conformance cut <N>; close composite-claims 
 **Placeholder scan.** Every code step carries its code; the one deliberately non-literal item is `<N>`, claimed at freeze by rule. The reproduction's `not-member` contingency is a measured outcome with a named disposition, not a fallback.
 
 **Type consistency.** `CompositeNode(sort, term)` everywhere; `Edge.sign` is the polarity tag string in Tasks 3, 6, 7; `build_composite(profile, view, *, shape, nodes, members, snapshot, slug) -> (Composite, CompositeReceipt)` in Tasks 3, 4, 6, 7; `restore_members(view, facet_members, refs, *, profile, snapshot)` in Tasks 3, 4, 5, 6; `classify(profile, facet, claims)` in Tasks 3, 4, 5, 6; `Admission = NotReached | Reached(admitted)` in Task 6's three modules and Task 8's arms; `read_composite(view, ref, *, context, availability, resolution, binding, profile)` in Tasks 6, 7, 8; `RelationDecl.same_kind` in Tasks 1, 4, 5; `ProfileSpec.edges[<namespaced operator>].cause/.effect` in Tasks 2, 3.
+
+**Pre-freeze drift review, 2026-09-16**, against `main` at `8aa5903` after the estimand-typing merge, twenty-three findings, all taken: the guard's table registration needs the three prefix regexes and `table_words` (Task 0); there is no `docs/designs/README.md` — the root README and the guide's corpus sentence are the targets (Task 0); `dataset_node` is keyword-only at its content address since slice 5 (Tasks 3, 4, 6); the shipped biology pack has no succession route, so its row is dropped and the mm30 chain is frozen as `mm30-cut31.yaml` (Task 7, spec limitation 18); a new `.cut<N>-acceptance` root is a red test since `8aa5903` (Task 8); the cut document's Status line and the results record's `Remaining boundary` are guarded (Tasks 8, 9); the parity fixture is `generate_claim_identity_fixture.py`'s and moves in Tasks 1 and 2; line anchors, insertion points (`estimand_grammar:` and `estimands:` now sit where the plan inserted), `_CONTRACT_OPTIONAL`, the four-position docstring, `reopen`'s import, the two-call `analysis-spec` block, the `correlates-with` fixture, the `.cut31` move-aside with `preflight` first, and the guard on `test_n2_cut31.py`'s shape. The spec's parallel review moved `check_composite` into both audit dispatches with code registration (Task 5), the open-questions entry to an extension of the existing one and the coordination note to both lists (Task 9).
 
 **Two things the plan leaves to the tree at execution.** The estimand lane's fixture names (`typed_estimand`, `typed_applicability`, `TESTING_PROFILE`) and its `AssessmentValue.estimand` member are consumed as that plan defines them; if the merged lane spells them otherwise, Task 6 follows the tree and records the difference in a task note. The TypeScript identity fixture's regeneration command is read from the fixture's own header.

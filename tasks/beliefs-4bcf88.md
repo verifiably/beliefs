@@ -8,7 +8,7 @@ complexity: high
 process: planned
 owner: design/composite-claim
 created: 2026-09-13T00:35:00Z
-updated: 2026-09-16T10:43:08Z
+updated: 2026-09-16T11:13:30Z
 started: 2026-09-16T10:43:08Z
 depends: []
 tags: [design]
@@ -32,3 +32,4 @@ The second spec from the 2026-09-12 models assessment. A structure (a causal DAG
 - 2026-09-13T09:05:04Z (design/composite-claim): parked (waiting on agent, dependency): Plan cleared 2026-09-13; execution waits on Task 0's merge, rule-6 and freeze gates
 - 2026-09-16T10:43:08Z (design/composite-claim): process: planned — the spec and plan exist and cleared three reviews each on 2026-09-13; a drift re-review against main at 8aa5903 precedes the freeze because the lane branched before the estimand-typing implementation landed
 - 2026-09-16T10:43:08Z (design/composite-claim): lane admitted under rule 6 at main 8aa5903: open kernel lanes none (estimand-typing closed at cut 31; world-read, mutation, acquisition all waiting); on-path state: no boundary (roadmap tier 1 'On the path' is empty since cut 30); this is the only open kernel lane
+- 2026-09-16T11:13:30Z (design/composite-claim): Pre-freeze drift review 2026-09-16 against main 8aa5903 (two parallel readers, spec and plan): spec 20 findings (one blocking: a kinds:[composite] view predicate is gated by the coordination contract's literal kinds list, so the one amendment adds the kind and the relation) and plan 23 findings (blocking: no docs/designs/README.md; the guard's three prefix regexes and table_words; dataset_node is keyword-only; the shipped biology pack has no succession route, so its edges: row is dropped and spec limitation 18 files it; a new .cut32-acceptance root is a red test; the cut Status line and Remaining boundary are guarded; the parity fixture generator). All taken; recorded in spec §15 and the plan's self-review.
