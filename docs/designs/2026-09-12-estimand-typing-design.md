@@ -841,6 +841,28 @@ earlier one.
     rule's honesty, as limitation 1 says semantic match is the author's
     (Appendix A.4).
 
+> **2026-09-16, final review of cut 31.** Two more limitations filed, no
+> structural finding; see the review log (§15).
+
+13. **The closed sets are declared but not made total in code.** The
+    grammar's `uncertainty_kinds` is parsed and projected but read by no code
+    path, and `contrast_kinds`/`scales` are membership-checked then
+    dispatched with an implicit `else` (`decode.py`'s levels/else-continuous;
+    `estimand.py`'s multiplicative/else-additive), so a base contract
+    widening a set is accepted and silently mis-interpreted — latent under
+    the shipped contract, which matches the code. Not fixed here because a
+    `src` change would invalidate the certified run; the fix — refuse an
+    unoperable tag at grammar parse or profile compile, and turn the two
+    `else` branches into `elif` + `raise` — lands with the next cut that
+    re-runs the chain. Filed as `beliefs-1dd03f`.
+14. **`audit_world` does not run the spec-target check.** `_recompute`
+    (`audit_world`) calls `check_analysis_spec` only, so
+    `spec-target-contradicted` is reachable only through `audit_corpus`. The
+    pre-grammar codes were added to `audit_world` by Task 8's ruling, and the
+    same reasoning covers `check_spec_target`: one line plus a
+    `test_world_audit.py` arm, deferred for the same reason as 13. Filed as
+    `beliefs-0521da`.
+
 ## 14. Task linkage
 
 `beliefs-59f846` carries this spec; the implementation plan's tasks become
@@ -913,6 +935,9 @@ separately; it does not depend on this one.
   the interval containment check. The fragment admits the pilot's target
   with no member added, widened or re-sorted. The API half of the example
   is `beliefs-e48279`, after Task 4.
+- 2026-09-16, final whole-branch review after discharge: two limitations
+  filed (13, 14), no structural finding; follow-ups `beliefs-1dd03f`,
+  `beliefs-0521da`, `beliefs-1b0827`.
 
 ## Appendix A — a second inhabitant: the natural-systems surrogate contrast
 

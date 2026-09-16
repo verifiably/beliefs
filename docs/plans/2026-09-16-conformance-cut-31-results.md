@@ -199,6 +199,30 @@ additively in the later cut's own tree, edit neither the frozen declaration nor
 the source it sabotages, and show the arm selecting again in the certified
 transcript.
 
+### 3.3 Limitations found at the final review
+
+- **`beliefs-1dd03f`** — the grammar's `uncertainty_kinds` is parsed and
+  projected but read by no code path, and `contrast_kinds`/`scales` are
+  membership-checked then dispatched with an implicit `else` (`decode.py`'s
+  levels/else-continuous; `estimand.py`'s multiplicative/else-additive), so a
+  base contract widening a set is accepted and silently mis-interpreted.
+  Latent under the shipped contract, which matches the code; not fixed here
+  because a `src` change would invalidate the certified run. The fix — refuse
+  an unoperable tag at grammar parse or profile compile, and turn the two
+  `else` branches into `elif` + `raise` — lands with the next cut that re-runs
+  the chain.
+- **`beliefs-0521da`** — `audit_world`'s `_recompute` runs
+  `check_analysis_spec` only, so `spec-target-contradicted` is reachable only
+  in `audit_corpus`. The pre-grammar codes were added to `audit_world` by
+  Task 8's ruling, and the same reasoning covers `check_spec_target`. One line
+  plus a `test_world_audit.py` arm, deferred for the same reason.
+
+Also carried forward, not new here: **`beliefs-1b0827`** — the shared
+staleness probe (`tests/n2_arms.py` / `arm_staleness.py` / `test_n2.py`) checks
+that a pinned before-string still occurs, not that the sabotaged file still
+parses; cut 31's own guard (`test_n2_cut31.py`) adds that check per-cut, but
+the shared harness does not, so every earlier cut's arms remain exposed.
+
 ## 4. Reproduction measurement
 
 The mm30 reproduction re-ran under the successor contracts, recorded as a dated
