@@ -5,8 +5,9 @@ status: todo
 priority: 3
 size: xl
 complexity: high
+process: planned
 created: 2026-08-31T00:38:28Z
-updated: 2026-09-12T16:26:55Z
+updated: 2026-09-16T22:47:03Z
 depends: [beliefs-676a2c]
 tags: [migration, mutation, correction]
 ---
@@ -22,3 +23,4 @@ Uncertainty: Consolidate’s prerequisite is discharged; the semantic-snapshot k
 ## Notes
 
 - 2026-09-12T16:26:55Z (main): Complexity high: The correction design fixes standing and succession guarantees, and consolidate/deletion prerequisites landed, but the semantic-snapshot kind/evaluator and route standing must still compose coverage, exact-state receipts, import and audit outcomes. No concrete correction cut resolves that integration.
+- 2026-09-16T22:47:03Z (main): 2026-09-16: process planned — roadmap tier-1 off-path row 1 with no lane open after cut 32; the stored semantic-snapshot kind, its evaluator and route standing are undesigned, so a slice design and cut freeze precede code. Cut 32's finding (retraction filtering the identification column inherits) and the src-touching cut-31/32 follow-ups (0521da, 1dd03f, 010c6e, b1245d) ride with this cut.
